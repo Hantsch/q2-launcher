@@ -1,0 +1,408 @@
+{
+  "app": {
+    "name": "Q2 Launcher",
+    "wordmark": "Quake II",
+    "tagline": "Launcher",
+    "error": {
+      "invalidUrl": "That link could not be opened.",
+      "invalidPath": "That path is not valid.",
+      "pathNotAllowed": "Only folders belonging to a registered installation can be opened.",
+      "revealFailed": "Windows could not open that folder: {{message}}"
+    },
+    "toast": {
+      "stateRecoveredFromBackup": "Your settings file was damaged and has been restored from the backup.",
+      "stateReset": "Your settings file could not be read and has been reset. A copy of the damaged file was kept next to it."
+    },
+    "crash": {
+      "title": "The launcher hit an unexpected error",
+      "body": "This is a bug. Reloading usually helps; the details below are worth attaching to a report.",
+      "reload": "Reload launcher"
+    }
+  },
+
+  "common": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "add": "Add",
+    "remove": "Remove",
+    "back": "Back",
+    "browse": "Browse\u2026",
+    "retry": "Retry",
+    "refresh": "Refresh",
+    "copy": "Copy",
+    "copied": "Copied",
+    "loading": "Loading\u2026",
+    "unknown": "Unknown",
+    "none": "None",
+    "never": "Never",
+    "comingSoon": "Coming soon",
+    "optional": "optional",
+    "of": "of"
+  },
+
+  "titlebar": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
+  },
+
+  "nav": {
+    "home": "Home",
+    "settings": "Settings",
+    "settingsTitle": "Launcher settings"
+  },
+
+  "module": {
+    "library": {
+      "title": "Library",
+      "description": "Every Quake II installation the launcher knows about."
+    },
+    "install": {
+      "title": "Install",
+      "description": "Download, update and repair Quake II game files."
+    },
+    "config": {
+      "title": "Config",
+      "description": "Edit r1q2 settings and cvars without touching a .cfg file."
+    },
+    "mods": {
+      "title": "Mods",
+      "description": "Install and switch between game mods."
+    },
+    "assets": {
+      "title": "Assets",
+      "description": "Texture, model and sound packs."
+    },
+    "planned": {
+      "badge": "Planned",
+      "title": "{{module}} is not built yet",
+      "body": "This module has its place in the launcher reserved. Nothing here works yet \u2013 the shell, the installation list and the launch path are what ship first.",
+      "capabilities": "What this module will need",
+      "capability": {
+        "mutates-installation": "Write files inside an installation",
+        "long-running-jobs": "Long-running jobs with progress and cancel",
+        "network": "Network downloads",
+        "cvar-schema": "Contribute a cvar schema to the config UI",
+        "game-lifecycle": "Know when the game starts and stops"
+      }
+    }
+  },
+
+  "rail": {
+    "label": "Installs",
+    "add": "Add an installation",
+    "addExisting": "Add existing installation\u2026",
+    "autoDetect": "Search this PC\u2026",
+    "createNew": "Create new installation\u2026",
+    "manage": "Manage library",
+    "empty": "No installations yet",
+    "quickPlay": "Play",
+    "activeMarker": "Active installation",
+    "runningMarker": "Running"
+  },
+
+  "installation": {
+    "engine": "Client",
+    "path": "Location",
+    "version": "Version",
+    "source": "Source",
+    "gameDir": "Game directory",
+    "baseGame": "Base game (baseq2)",
+    "lastPlayed": "Last played",
+    "playtime": "Play time",
+    "mods_one": "{{count}} game directory",
+    "mods_other": "{{count}} game directories",
+    "commandPreview": "Command line",
+    "status": {
+      "ok": "Ready",
+      "warning": "Needs attention",
+      "invalid": "Not playable",
+      "missing": "Folder missing",
+      "unknown": "Not checked"
+    },
+    "source": {
+      "manual": "Added manually",
+      "steam": "Steam",
+      "gog": "GOG",
+      "epic": "Epic Games",
+      "bethesda": "Bethesda",
+      "retail": "Retail / local",
+      "created": "Created by launcher",
+      "unknown": "Unknown"
+    },
+    "action": {
+      "play": "Play",
+      "install": "Install",
+      "update": "Update",
+      "repair": "Repair",
+      "running": "Running",
+      "locate": "Locate folder\u2026",
+      "revalidate": "Check again",
+      "reveal": "Open folder",
+      "rename": "Rename\u2026",
+      "remove": "Remove\u2026",
+      "favorite": "Add to favourites",
+      "unfavorite": "Remove from favourites",
+      "selectExecutable": "Choose executable\u2026",
+      "setWriteDir": "Choose write folder\u2026",
+      "installGameFiles": "Get game files"
+    }
+  },
+
+  "installations": {
+    "error": {
+      "duplicate": "That folder is already in your library as \u201c{{name}}\u201d.",
+      "rootMissing": "The folder {{path}} does not exist.",
+      "notQuake2": "{{path}} does not look like a Quake II installation. It needs a baseq2 folder or a known Quake II client.",
+      "notFound": "That installation is no longer in your library.",
+      "createFailed": "The folder {{path}} could not be created. Check that you have permission to write there.",
+      "alreadyContainsGame": "{{path}} already contains a Quake II installation. Use \u201cAdd existing installation\u201d instead.",
+      "deleteFromDiskUnsupported": "Deleting game files is not implemented yet. The installation was left untouched.",
+      "nothingImported": "Nothing was imported."
+    },
+    "toast": {
+      "needsAttention_one": "{{count}} installation needs attention.",
+      "needsAttention_other": "{{count}} installations need attention.",
+      "added": "Added \u201c{{name}}\u201d.",
+      "removed": "Removed \u201c{{name}}\u201d from the launcher. The files are still on disk.",
+      "imported_one": "Imported {{count}} installation.",
+      "imported_other": "Imported {{count}} installations.",
+      "validated": "Checked \u201c{{name}}\u201d.",
+      "renamed": "Renamed to \u201c{{name}}\u201d."
+    }
+  },
+
+  "validation": {
+    "title": "Checks",
+    "allGood": "Everything checks out.",
+    "rootMissing": "The installation folder is gone: {{path}}",
+    "baseDirMissing": "No {{dir}} folder \u2013 the game files are missing.",
+    "pak0Missing": "pak0.pak is missing from baseq2. Quake II cannot start without it.",
+    "pak0MissingButPaksPresent": "pak0.pak is missing, but other pak files are present. This may be a repacked or remastered install.",
+    "pak0NotRetail": "pak0.pak is not the size of the retail file. This is probably the shareware demo or a repacked copy – some maps and assets will be missing.",
+    "retailPaksMissing": "pak1.pak and pak2.pak are missing \u2013 this looks like the shareware demo rather than the full game.",
+    "noExecutable": "No client executable found in this folder.",
+    "executableMissing": "The selected executable is gone: {{path}}",
+    "notWritable": "{{path}} is not writable. Configs and save games cannot be stored there.",
+    "engineUnknown": "The Quake II client could not be identified.",
+    "fix": {
+      "locate-root": "Locate folder\u2026",
+      "select-executable": "Choose executable\u2026",
+      "set-write-dir": "Choose write folder\u2026",
+      "revalidate": "Check again",
+      "install-game-files": "Get game files"
+    }
+  },
+
+  "engine": {
+    "note": {
+      "r1q2": "r1q2 has no separate user folder – it writes config.cfg, saves and screenshots straight into the installation. The folder has to be writable, so avoid Program Files.",
+      "remaster": "The 2023 remaster is a different engine with its own game API, config location and network protocol. The launcher can start it, but it cannot join r1q2 servers and the config module will target r1q2 first."
+    }
+  },
+
+  "hero": {
+    "eyebrow": "Active installation",
+    "title": "Ready when you are.",
+    "body": "Pick an installation on the left and hit play. Configuration, downloads, mods and asset packs land in the modules above as they get built.",
+    "noInstallTitle": "No installation selected",
+    "noInstallBody": "Add one to get started.",
+    "slide": "Show item {{index}}",
+    "stat": {
+      "lastPlayed": "Last played",
+      "playtime": "Play time",
+      "gameDirs": "Game dirs",
+      "client": "Client"
+    }
+  },
+
+  "actionbar": {
+    "playable": "Playable",
+    "downloading": "Downloading {{done}}",
+    "speed": "{{speed}}/s",
+    "filesRemaining_one": "{{count}} file remaining",
+    "filesRemaining_other": "{{count}} files remaining",
+    "eta": "{{time}} left",
+    "running": "Quake II is running",
+    "runningSince": "Started {{time}}",
+    "exited": "Quake II exited",
+    "noInstallation": "No installation selected",
+    "cancelJob": "Cancel",
+    "buildLabel": "Build {{version}}"
+  },
+
+  "empty": {
+    "title": "No Quake II installations yet",
+    "body": "Point the launcher at a folder you already have, let it search this PC, or set up a fresh installation folder.",
+    "hint": "A valid installation is a folder containing baseq2 with pak0.pak in it."
+  },
+
+  "dialog": {
+    "addExisting": {
+      "title": "Add existing installation",
+      "body": "Choose the folder that contains baseq2 \u2013 not baseq2 itself.",
+      "folderLabel": "Installation folder",
+      "folderPlaceholder": "C:\\Quake2",
+      "pickTitle": "Select your Quake II folder",
+      "pickButton": "Use this folder",
+      "inspecting": "Checking folder\u2026",
+      "detected": "Detected",
+      "nameLabel": "Name in the launcher",
+      "executableLabel": "Client executable",
+      "executableHint": "Several clients were found. Pick the one you want to launch.",
+      "gameDirsLabel": "Game directories",
+      "submit": "Add installation"
+    },
+    "detect": {
+      "title": "Search this PC",
+      "body": "Checks Steam, GOG and Epic plus the usual Quake II locations. Fast, and it never touches your files.",
+      "deepBody": "A deep scan walks your drives looking for a baseq2 folder. It is much slower, but finds installations in unusual places.",
+      "start": "Start search",
+      "deepScan": "Also scan all drives (slow)",
+      "drives": "Drives",
+      "scanning": "Searching\u2026",
+      "scanningPath": "Looking at {{path}}",
+      "found_one": "{{count}} installation found",
+      "found_other": "{{count}} installations found",
+      "none": "Nothing found. Add the folder manually instead.",
+      "alreadyAdded": "Already in your library",
+      "selectAll": "Select all",
+      "import": "Add selected",
+      "importCount": "Add {{count}} selected",
+      "phase": {
+        "starting": "Starting\u2026",
+        "stores": "Asking Steam, GOG and Epic\u2026",
+        "common-paths": "Checking common locations\u2026",
+        "deep-scan": "Scanning drives\u2026",
+        "done": "Done",
+        "cancelled": "Cancelled"
+      }
+    },
+    "create": {
+      "title": "Create new installation",
+      "body": "Creates an empty installation folder and registers it. Downloading the game files is the install module's job \u2013 that part is not built yet.",
+      "nameLabel": "Name",
+      "namePlaceholder": "Quake II \u2013 r1q2",
+      "locationLabel": "Folder",
+      "pickTitle": "Choose where to create the installation",
+      "pickButton": "Create here",
+      "engineLabel": "Client",
+      "notice": "After creating it, the installation will show \u201cgame files missing\u201d until the install module can download them. You can also copy pak0.pak in by hand.",
+      "submit": "Create installation"
+    },
+    "remove": {
+      "title": "Remove \u201c{{name}}\u201d?",
+      "body": "This removes the installation from the launcher only. Nothing on your disk is touched.",
+      "pathNote": "The folder {{path}} stays exactly as it is.",
+      "confirm": "Remove from launcher"
+    },
+    "rename": {
+      "title": "Rename installation",
+      "label": "Name"
+    },
+    "gameDir": {
+      "label": "Launch with",
+      "base": "Base game (baseq2)"
+    }
+  },
+
+  "library": {
+    "title": "Library",
+    "subtitle_one": "{{count}} installation",
+    "subtitle_other": "{{count}} installations",
+    "addExisting": "Add existing",
+    "autoDetect": "Search PC",
+    "create": "Create new",
+    "revalidateAll": "Check all",
+    "stats": {
+      "total": "Installations",
+      "ok": "Ready",
+      "needsAttention": "Need attention",
+      "missing": "Missing",
+      "playtime": "Total play time"
+    },
+    "column": {
+      "name": "Installation",
+      "engine": "Client",
+      "status": "Status",
+      "path": "Location"
+    }
+  },
+
+  "settings": {
+    "title": "Settings",
+    "section": {
+      "appearance": "Appearance",
+      "launch": "Launching",
+      "library": "Library",
+      "about": "About"
+    },
+    "language": "Language",
+    "languageSystem": "Use system language",
+    "languageNote": "Only English ships today. More languages can be added without touching the UI code.",
+    "motion": "Animations",
+    "motionSystem": "Follow system setting",
+    "motionFull": "Full",
+    "motionReduced": "Reduced",
+    "minimizeOnLaunch": "Minimize the launcher when the game starts",
+    "closeAfterLaunch": "Quit the launcher when the game starts",
+    "closeAfterLaunchNote": "Play time is not recorded when the launcher quits.",
+    "confirmBeforeRemoving": "Ask before removing an installation",
+    "scanOnFirstRun": "Offer to search for installations on first start",
+    "version": "Version",
+    "electron": "Electron",
+    "chrome": "Chromium",
+    "node": "Node",
+    "userData": "Launcher data",
+    "logs": "Log file",
+    "openFolder": "Open",
+    "repository": "Project page",
+    "devTools": "Development",
+    "simulateJob": "Simulate a download job"
+  },
+
+  "launch": {
+    "error": {
+      "notFound": "That installation is no longer in your library.",
+      "noExecutable": "No executable is set for \u201c{{name}}\u201d.",
+      "executableMissing": "The executable is missing: {{path}}",
+      "alreadyRunning": "Quake II is already running.",
+      "spawnFailed": "The game could not be started: {{path}}",
+      "processError": "The game process reported an error: {{message}}"
+    }
+  },
+
+  "jobs": {
+    "simulatedDownload": "Simulated download (development)",
+    "error": {
+      "notFound": "That job has already finished.",
+      "notCancellable": "This job cannot be cancelled."
+    }
+  },
+
+  "modules": {
+    "error": {
+      "notImplemented": "The {{moduleId}} module has no handler for \u201c{{type}}\u201d yet.",
+      "handlerFailed": "The {{moduleId}} module failed while handling \u201c{{type}}\u201d."
+    }
+  },
+
+  "ipc": {
+    "error": {
+      "invalidPayload": "The launcher sent an invalid request. This is a bug."
+    }
+  },
+
+  "units": {
+    "bytes": "{{value}} B",
+    "kb": "{{value}} KB",
+    "mb": "{{value}} MB",
+    "gb": "{{value}} GB",
+    "seconds": "{{value}}s",
+    "minutes": "{{value}}m",
+    "hours": "{{value}}h",
+    "hoursMinutes": "{{hours}}h {{minutes}}m"
+  }
+}

@@ -1,0 +1,48 @@
+appId: io.github.hantsch.q2launcher
+productName: Q2 Launcher
+copyright: Copyright (c) 2026 Hantsch
+
+directories:
+  buildResources: build
+  output: release/${version}
+
+files:
+  - out/**/*
+  - package.json
+  - '!**/*.map'
+  - '!**/*.ts'
+
+asar: true
+electronLanguages:
+  - en-US
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-win-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Q2 Launcher
+
+# Untested so far - the launcher targets Windows first, but nothing in the
+# codebase is Windows-only by design.
+linux:
+  target:
+    - AppImage
+  category: Game
+  maintainer: Hantsch
+
+mac:
+  target:
+    - dmg
+  category: public.app-category.games
