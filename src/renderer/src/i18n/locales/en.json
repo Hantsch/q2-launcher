@@ -3,6 +3,9 @@
     "name": "Q2 Launcher",
     "wordmark": "Quake II",
     "tagline": "Launcher",
+    "boot": {
+      "status": "Starting up"
+    },
     "error": {
       "invalidUrl": "That link could not be opened.",
       "invalidPath": "That path is not valid.",

@@ -12,11 +12,20 @@ files:
   - '!**/*.map'
   - '!**/*.ts'
 
+# BrowserWindow needs a real file at runtime; build resources are otherwise
+# consumed only by electron-builder and are not copied beside app.asar.
+extraResources:
+  - from: build/icon.png
+    to: icon.png
+  - from: build/icon.ico
+    to: icon.ico
+
 asar: true
 electronLanguages:
   - en-US
 
 win:
+  icon: icon.ico
   target:
     - target: nsis
       arch:

@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { BrowserWindow, screen, shell } from 'electron'
+import { app as electronApp, BrowserWindow, screen, shell } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import {
   WINDOW_DEFAULT_HEIGHT,
@@ -19,6 +19,18 @@ const log = scopedLogger('window')
 
 /** The launcher's chrome colour, so the first frame is not a white flash. */
 const BACKGROUND_COLOR = '#0b0b0d'
+
+/**
+ * Build resources are not packed into the application automatically.
+ * electron-builder copies the icon beside app.asar; development reads the
+ * generated source asset directly from build/.
+ */
+function mainWindowIconPath(): string {
+  const fileName = process.platform === 'win32' ? 'icon.ico' : 'icon.png'
+  return electronApp.isPackaged
+    ? join(process.resourcesPath, fileName)
+    : join(__dirname, '../../build', fileName)
+}
 
 function defaultWindowState(): WindowState {
   return {
@@ -79,6 +91,7 @@ export async function createMainWindow(app: AppContext): Promise<MainWindow> {
     minHeight: WINDOW_MIN_HEIGHT,
     show: false,
     backgroundColor: BACKGROUND_COLOR,
+    icon: mainWindowIconPath(),
     // Fully custom chrome: the title bar is a React component, matching the
     // reference launchers. Trade-off: Windows 11 snap layouts (the flyout when
     // hovering the maximize button) are unavailable with `frame: false`, so the

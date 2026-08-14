@@ -1,8 +1,10 @@
 /* ==========================================================================
    Signature surfaces
    --------------------------------------------------------------------------
-   Everything here is pure CSS or an inline SVG data URI: the launcher ships no
-   binary art at all, so it stays small, themeable and legible in a diff.
+   Everything here is pure CSS or an inline SVG data URI, so the UI stays small,
+   themeable and legible in a diff. The single exception is the boot splash,
+   which shows the official release hero still (see `.boot-hero` below); no
+   surface the user actually works in depends on a binary asset.
 
    Restraint is the rule. The industrial texture (grain, scanlines, rivets,
    hazard stripes) is what makes this read as Quake II rather than as a generic
@@ -386,6 +388,62 @@
   .progress-fill[data-indeterminate='true'] {
     animation: none;
   }
+}
+
+/* --- boot splash ----------------------------------------------------------
+   The hero still fills the window and drifts in very slowly, so the few frames
+   before the shell mounts read as a deliberate title card rather than a stall.
+   The scrim is what keeps the wordmark legible on top of a busy image. */
+.boot-hero {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 36%;
+  /* Pull the still towards the app's palette: slightly cooler and calmer. The
+     source is already very dark, so it must not be dimmed much further. */
+  filter: saturate(0.85) brightness(1.18) contrast(1.02);
+  animation: boot-hero-in 900ms var(--ease-out-quart) both;
+}
+
+.boot-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(52% 42% at 50% 40%, rgb(8 8 10 / 0.55) 0%, transparent 100%),
+    linear-gradient(180deg, transparent 45%, rgb(8 8 10 / 0.55) 100%);
+}
+
+/* Vignette last (::after, so it paints over the still), keeping the window
+   edges as dark as the rest of the chrome. */
+.boot-splash::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 90px 6px rgb(8 8 10 / 0.85);
+  pointer-events: none;
+}
+
+@keyframes boot-hero-in {
+  from {
+    opacity: 0;
+    transform: scale(1.045);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-hero {
+    animation: none;
+  }
+}
+
+:root[data-motion='reduced'] .boot-hero {
+  animation: none;
 }
 
 /* --- Electron window chrome --------------------------------------------- */

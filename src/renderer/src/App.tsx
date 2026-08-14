@@ -1,17 +1,33 @@
-import { useEffect } from 'react'
-import { Q2Mark } from './components/brand/Q2Mark'
+import { useEffect, useState } from 'react'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AppShell } from './components/shell/AppShell'
+import { BootSplash } from './components/shell/BootSplash'
 import { useLauncher } from './store/useLauncher'
+
+/**
+ * How long the boot splash stays up at minimum.
+ *
+ * Bootstrap usually answers in well under 100ms, which would make the title
+ * card a flicker. Holding it briefly is the point of having one; lower this to
+ * 0 to hand the window over as fast as possible.
+ */
+const SPLASH_MIN_MS = 900
 
 export function App() {
   const ready = useLauncher((state) => state.ready)
   const bootstrap = useLauncher((state) => state.bootstrap)
   const motion = useLauncher((state) => state.settings.motion)
+  const [splashHeld, setSplashHeld] = useState(SPLASH_MIN_MS > 0)
 
   useEffect(() => {
     void bootstrap()
   }, [bootstrap])
+
+  useEffect(() => {
+    if (!splashHeld) return
+    const timer = window.setTimeout(() => setSplashHeld(false), SPLASH_MIN_MS)
+    return () => window.clearTimeout(timer)
+  }, [splashHeld])
 
   // The CSS reads this to override the OS motion preference in either direction.
   useEffect(() => {
@@ -19,26 +35,11 @@ export function App() {
     else document.documentElement.dataset['motion'] = motion
   }, [motion])
 
-  if (!ready) return <BootSplash />
+  if (!ready || splashHeld) return <BootSplash />
 
   return (
     <ErrorBoundary>
       <AppShell />
     </ErrorBoundary>
-  )
-}
-
-/**
- * Shown for the few frames between the window appearing and main answering the
- * first batch of IPC calls. Same background as the shell, so there is no flash.
- */
-function BootSplash() {
-  return (
-    <div className="app-backdrop grid h-full place-items-center">
-      <div className="flex flex-col items-center gap-3">
-        <Q2Mark className="animate-pulse text-flame-600" size={40} />
-        <div className="stencil tracking-[0.3em]">Quake II</div>
-      </div>
-    </div>
   )
 }

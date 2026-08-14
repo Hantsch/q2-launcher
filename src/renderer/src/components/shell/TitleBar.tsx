@@ -3,7 +3,6 @@ import { Home, Minus, Settings, Square, X } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { invoke } from '../../lib/bridge'
 import { ROUTE_HOME, ROUTE_SETTINGS, useLauncher } from '../../store/useLauncher'
-import { Q2Mark } from '../brand/Q2Mark'
 import { moduleIcon } from './moduleIcons'
 
 /**
@@ -31,9 +30,9 @@ export function TitleBar() {
       // Matching the OS behaviour we lose by going frameless.
       onDoubleClick={() => void invoke('window:toggleMaximize')}
     >
-      {/* Wordmark */}
-      <div className="flex items-center gap-2.5 pr-5 pl-4">
-        <Q2Mark className="text-flame-500" size={22} />
+      {/* Wordmark. Text only: the app icon belongs to the OS (taskbar, shortcut),
+          repeating it inside our own chrome only crowds the bar. */}
+      <div className="flex items-center pr-5 pl-4">
         <div className="leading-none">
           <div className="font-display text-[13px] font-semibold tracking-[0.18em] text-ink uppercase">
             {t('app.wordmark')}

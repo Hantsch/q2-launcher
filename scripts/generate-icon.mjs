@@ -1,112 +1,300 @@
-// Generates the launcher's app icon from code: build/icon.png and build/icon.ico.
+// Generates the launcher's app icon: build/icon.png and build/icon.ico.
 //
-// The rest of the UI ships zero binary art (see src/renderer/src/styles/surfaces.css),
-// but electron-builder needs a real .ico for the Windows window icon, taskbar
-// entry and installer. Generating it from a committed script keeps the icon in
-// version control as source rather than as an opaque blob: change the constants
-// below, re-run `npm run icon`, and the change is reviewable.
+// The shape comes from the concept artwork in assets/ — a clipped graphite
+// command window with an amber status rail, the classic Quake II horned
+// crescent and an amber play control. The artwork is only used as a stencil:
+// every pixel is classified into one of four regions (outside, panel, amber,
+// green) and repainted with the launcher's own palette, so the executable, the
+// desktop shortcut and the app chrome always share exact colours.
 //
-// Dependency-free on purpose - PNG is just zlib plus four chunks, and a
-// single-image .ico is a 22-byte header in front of a PNG.
-import { deflateSync } from 'node:zlib'
-import { mkdirSync, writeFileSync } from 'node:fs'
+// Why a stencil instead of a plain resize: Windows shows this icon from 256px
+// down to 16px. A straight box filter turns the crescent's thin horns into a
+// faint smudge at taskbar size. Working per region lets small entries drop the
+// margin and weight the mark's coverage up, so the silhouette survives.
+import { deflateSync, inflateSync } from 'node:zlib'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const SIZE = 256
-/** Supersampling factor. Anti-aliasing by rendering big and averaging down. */
-const SS = 4
+const SOURCE = 'assets/q2-launcher-icon-concept-04-command-window.png'
+const PNG_SIZE = 256
+const ICO_SIZES = [16, 20, 24, 32, 40, 48, 64, 96, 128, 256]
 
-const AMBER = [0xff, 0x8a, 0x1f]
-const PLATE_TOP = [0x24, 0x27, 0x2d]
-const PLATE_BOTTOM = [0x0a, 0x0b, 0x0d]
-
-/** Octagon: a square intersected with a rotated square. */
-function plateField(x, y, half, chamfer) {
-  const square = Math.max(Math.abs(x), Math.abs(y)) - half
-  const rotated = Math.abs(x) + Math.abs(y) - chamfer
-  return Math.max(square, rotated)
+/** Launcher palette (see src/renderer/src/styles/) — not the artwork's own. */
+const PALETTE = {
+  panel: [0x16, 0x18, 0x1d],
+  amber: [0xff, 0x8a, 0x1f],
+  green: [0x7d, 0x93, 0x69],
 }
 
-function mix(a, b, t) {
-  return [
-    Math.round(a[0] + (b[0] - a[0]) * t),
-    Math.round(a[1] + (b[1] - a[1]) * t),
-    Math.round(a[2] + (b[2] - a[2]) * t),
-  ]
+const OUTSIDE = 0
+const PANEL = 1
+const AMBER = 2
+const GREEN = 3
+
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
+
+// --- PNG decode -----------------------------------------------------------
+
+/** Minimal decoder for the one file we read: 8-bit truecolour, no interlace. */
+function decodePng(buffer) {
+  if (buffer.readUInt32BE(0) !== 0x89504e47) throw new Error('not a PNG')
+  const width = buffer.readUInt32BE(16)
+  const height = buffer.readUInt32BE(20)
+  const depth = buffer[24]
+  const colourType = buffer[25]
+  const interlace = buffer[28]
+  if (depth !== 8 || interlace !== 0 || (colourType !== 2 && colourType !== 6)) {
+    throw new Error(`unsupported PNG (depth ${depth}, colour type ${colourType})`)
+  }
+
+  const channels = colourType === 6 ? 4 : 3
+  const idat = []
+  for (let offset = 8; offset < buffer.length;) {
+    const length = buffer.readUInt32BE(offset)
+    const type = buffer.toString('ascii', offset + 4, offset + 8)
+    if (type === 'IDAT') idat.push(buffer.subarray(offset + 8, offset + 8 + length))
+    offset += 12 + length
+  }
+
+  const raw = inflateSync(Buffer.concat(idat))
+  const stride = width * channels
+  const pixels = Buffer.alloc(height * stride)
+
+  // Undo the per-scanline filters (PNG spec, 9.2).
+  for (let y = 0; y < height; y++) {
+    const filter = raw[y * (stride + 1)]
+    const rowIn = y * (stride + 1) + 1
+    const rowOut = y * stride
+    for (let i = 0; i < stride; i++) {
+      const value = raw[rowIn + i]
+      const left = i >= channels ? pixels[rowOut + i - channels] : 0
+      const up = y > 0 ? pixels[rowOut - stride + i] : 0
+      const upLeft = i >= channels && y > 0 ? pixels[rowOut - stride + i - channels] : 0
+      let restored
+      switch (filter) {
+        case 0:
+          restored = value
+          break
+        case 1:
+          restored = value + left
+          break
+        case 2:
+          restored = value + up
+          break
+        case 3:
+          restored = value + ((left + up) >> 1)
+          break
+        case 4: {
+          const predictor = left + up - upLeft
+          const dLeft = Math.abs(predictor - left)
+          const dUp = Math.abs(predictor - up)
+          const dUpLeft = Math.abs(predictor - upLeft)
+          restored =
+            value + (dLeft <= dUp && dLeft <= dUpLeft ? left : dUp <= dUpLeft ? up : upLeft)
+          break
+        }
+        default:
+          throw new Error(`unknown PNG filter ${filter}`)
+      }
+      pixels[rowOut + i] = restored & 0xff
+    }
+  }
+
+  return { width, height, channels, pixels }
 }
 
-/** Renders one supersampled pixel; returns [r, g, b, a]. */
-function sample(px, py) {
-  const n = SIZE * SS
-  // Centre-origin coordinates in the range roughly [-128, 128].
-  const x = (px + 0.5) / SS - SIZE / 2
-  const y = (py + 0.5) / SS - SIZE / 2
+// --- stencil --------------------------------------------------------------
 
-  const half = 112
-  const chamfer = 176
-  const outer = plateField(x, y, half, chamfer)
-
-  if (outer > 0) return [0, 0, 0, 0]
-
-  // Amber rim, 7px wide, hugging the outer edge.
-  if (outer > -7) return [...AMBER, 255]
-
-  // Inner bevel: a faint lighter line just inside the rim.
-  const bevel = plateField(x, y, half - 14, chamfer - 22)
-  const onBevel = bevel > -2 && bevel < 0
-
-  // The "II": two vertical bars.
-  const barHalfWidth = 15
-  const barGap = 26
-  const inBars =
-    Math.abs(y) <= 74 &&
-    (Math.abs(x - barGap) <= barHalfWidth || Math.abs(x + barGap) <= barHalfWidth)
-  if (inBars) return [...AMBER, 255]
-
-  // Plate body: lit from the top-left, so the gradient runs along x + y.
-  const t = Math.min(1, Math.max(0, (x + y + 180) / 360))
-  const body = mix(PLATE_TOP, PLATE_BOTTOM, t)
-  if (onBevel) return [...mix(body, [0x6a, 0x70, 0x7a], 0.55), 255]
-  return [...body, 255]
+/**
+ * The concept render has the transparency checkerboard baked in as light grey
+ * pixels, so "outside" is detected rather than read from an alpha channel.
+ * Nothing in the artwork itself is both light and desaturated, which makes the
+ * test unambiguous.
+ */
+function classify(r, g, b) {
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  if (min > 150 && max - min < 40) return OUTSIDE
+  if (r > g + 40 && g > b + 20) return AMBER
+  if (g > r + 4 && g > 60) return GREEN
+  return PANEL
 }
 
-/** Renders at SIZE*SS then box-filters down to SIZE, which is the anti-aliasing. */
-function render() {
-  const pixels = Buffer.alloc(SIZE * SIZE * 4)
+function buildStencil() {
+  const { width, height, channels, pixels } = decodePng(readFileSync(join(repoRoot, SOURCE)))
+  const classes = new Uint8Array(width * height)
 
-  for (let y = 0; y < SIZE; y++) {
-    for (let x = 0; x < SIZE; x++) {
-      let r = 0
-      let g = 0
-      let b = 0
-      let a = 0
-      for (let sy = 0; sy < SS; sy++) {
-        for (let sx = 0; sx < SS; sx++) {
-          const [sr, sg, sb, sa] = sample(x * SS + sx, y * SS + sy)
-          // Premultiply so transparent samples do not darken the edges.
-          const w = sa / 255
-          r += sr * w
-          g += sg * w
-          b += sb * w
-          a += sa
+  let minX = width
+  let minY = height
+  let maxX = -1
+  let maxY = -1
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const offset = (y * width + x) * channels
+      const alpha = channels === 4 ? pixels[offset + 3] : 255
+      const region =
+        alpha < 128 ? OUTSIDE : classify(pixels[offset], pixels[offset + 1], pixels[offset + 2])
+      classes[y * width + x] = region
+      if (region === OUTSIDE) continue
+      if (x < minX) minX = x
+      if (x > maxX) maxX = x
+      if (y < minY) minY = y
+      if (y > maxY) maxY = y
+    }
+  }
+
+  if (maxX < 0) throw new Error('stencil is empty — colour classification failed')
+  return { width, height, classes, bounds: { minX, minY, maxX, maxY } }
+}
+
+// --- render ---------------------------------------------------------------
+
+/**
+ * Coverage weight applied to the amber and green regions.
+ *
+ * At 16-32px the crescent's horns and the rail are thinner than one output
+ * pixel; averaging alone leaves them washed into the panel. Weighting their
+ * coverage keeps the mark readable without moving or rescaling any motif.
+ */
+function markWeight(size) {
+  if (size <= 32) return 1.8
+  if (size <= 48) return 1.4
+  if (size <= 64) return 1.15
+  return 1
+}
+
+/**
+ * How far the crescent is grown, in output pixels, before downsampling.
+ *
+ * The horns are ~2% of the artwork's width. Below ~48px they are thinner than
+ * the output grid, and weighting their coverage only tints the panel instead of
+ * drawing a line. Growing the region first is the same move a designer makes by
+ * hand when cutting small icon sizes: keep the silhouette, drop the hairlines.
+ */
+function markGrowth(size) {
+  if (size <= 20) return 0.38
+  if (size <= 32) return 0.3
+  if (size <= 48) return 0.18
+  return 0
+}
+
+/**
+ * Grows the green region by `radius` source pixels using an integral image, so
+ * the cost does not depend on the radius. Only panel pixels are overwritten:
+ * the crescent must not eat into the status rail or the play control.
+ */
+function growMark(stencil, radius) {
+  const { width, height, classes } = stencil
+  if (radius < 1) return classes
+
+  const stride = width + 1
+  const sums = new Int32Array(stride * (height + 1))
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const isGreen = classes[y * width + x] === GREEN ? 1 : 0
+      sums[(y + 1) * stride + x + 1] =
+        isGreen + sums[y * stride + x + 1] + sums[(y + 1) * stride + x] - sums[y * stride + x]
+    }
+  }
+
+  const grown = Uint8Array.prototype.slice.call(classes)
+  const r = Math.round(radius)
+  for (let y = 0; y < height; y++) {
+    const y0 = Math.max(0, y - r)
+    const y1 = Math.min(height - 1, y + r)
+    for (let x = 0; x < width; x++) {
+      if (classes[y * width + x] !== PANEL) continue
+      const x0 = Math.max(0, x - r)
+      const x1 = Math.min(width - 1, x + r)
+      const total =
+        sums[(y1 + 1) * stride + x1 + 1] -
+        sums[y0 * stride + x1 + 1] -
+        sums[(y1 + 1) * stride + x0] +
+        sums[y0 * stride + x0]
+      if (total > 0) grown[y * width + x] = GREEN
+    }
+  }
+  return grown
+}
+
+/** Share of the canvas the artwork spans. Compact entries lose the margin. */
+function artworkSpan(size) {
+  return size <= 48 ? 1 : 0.94
+}
+
+function render(stencil, size) {
+  const { width, bounds } = stencil
+  const artWidth = bounds.maxX - bounds.minX + 1
+  const artHeight = bounds.maxY - bounds.minY + 1
+
+  // Fit the artwork square into the canvas, centred, and keep its aspect ratio.
+  const span = artworkSpan(size) * size
+  const scale = span / Math.max(artWidth, artHeight)
+  const classes = growMark(stencil, markGrowth(size) / scale)
+  const drawWidth = artWidth * scale
+  const drawHeight = artHeight * scale
+  const originX = (size - drawWidth) / 2
+  const originY = (size - drawHeight) / 2
+
+  const weight = markWeight(size)
+  const pixels = Buffer.alloc(size * size * 4)
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      // Source rectangle covered by this output pixel, in stencil coordinates.
+      const sx0 = bounds.minX + (x - originX) / scale
+      const sx1 = bounds.minX + (x + 1 - originX) / scale
+      const sy0 = bounds.minY + (y - originY) / scale
+      const sy1 = bounds.minY + (y + 1 - originY) / scale
+
+      const from = (value, limit) => Math.max(0, Math.min(limit, Math.floor(value)))
+      const xStart = from(sx0, bounds.maxX)
+      const xEnd = from(Math.ceil(sx1) - 1, bounds.maxX)
+      const yStart = from(sy0, bounds.maxY)
+      const yEnd = from(Math.ceil(sy1) - 1, bounds.maxY)
+
+      const area = [0, 0, 0, 0]
+      let total = 0
+      for (let sy = yStart; sy <= yEnd; sy++) {
+        const rowOverlap = Math.min(sy + 1, sy1) - Math.max(sy, sy0)
+        if (rowOverlap <= 0) continue
+        for (let sx = xStart; sx <= xEnd; sx++) {
+          const columnOverlap = Math.min(sx + 1, sx1) - Math.max(sx, sx0)
+          if (columnOverlap <= 0) continue
+          const overlap = rowOverlap * columnOverlap
+          area[classes[sy * width + sx]] += overlap
+          total += overlap
         }
       }
-      const count = SS * SS
-      const alpha = a / count
-      const weight = alpha === 0 ? 0 : count * (alpha / 255)
-      const offset = (y * SIZE + x) * 4
-      pixels[offset] = weight === 0 ? 0 : Math.round(r / weight)
-      pixels[offset + 1] = weight === 0 ? 0 : Math.round(g / weight)
-      pixels[offset + 2] = weight === 0 ? 0 : Math.round(b / weight)
-      pixels[offset + 3] = Math.round(alpha)
+
+      const offset = (y * size + x) * 4
+      if (total === 0) continue
+
+      const opaque = total - area[OUTSIDE]
+      if (opaque <= 0) continue
+
+      const amber = area[AMBER] * weight
+      const green = area[GREEN] * weight
+      const panel = area[PANEL]
+      const mix = amber + green + panel
+      for (let channel = 0; channel < 3; channel++) {
+        pixels[offset + channel] = Math.round(
+          (PALETTE.panel[channel] * panel +
+            PALETTE.amber[channel] * amber +
+            PALETTE.green[channel] * green) /
+            mix,
+        )
+      }
+      pixels[offset + 3] = Math.round((opaque / total) * 255)
     }
   }
 
   return pixels
 }
 
-// --- PNG ------------------------------------------------------------------
+// --- PNG encode -----------------------------------------------------------
 
 const CRC_TABLE = (() => {
   const table = new Int32Array(256)
@@ -159,33 +347,46 @@ function toPng(pixels, size) {
   ])
 }
 
-// --- ICO ------------------------------------------------------------------
+// --- ICO encode -----------------------------------------------------------
 
-/** Single 256x256 PNG-compressed entry, supported since Windows Vista. */
-function toIco(png) {
-  const directory = Buffer.alloc(6 + 16)
+/** PNG-compressed entries are supported by Windows since Vista. */
+function toIco(entries) {
+  const directory = Buffer.alloc(6 + entries.length * 16)
   directory.writeUInt16LE(0, 0) // reserved
   directory.writeUInt16LE(1, 2) // type: icon
-  directory.writeUInt16LE(1, 4) // one image
-  directory[6] = 0 // width 256 is encoded as 0
-  directory[7] = 0 // height 256 is encoded as 0
-  directory[8] = 0 // palette size
-  directory[9] = 0 // reserved
-  directory.writeUInt16LE(1, 10) // colour planes
-  directory.writeUInt16LE(32, 12) // bits per pixel
-  directory.writeUInt32LE(png.length, 14)
-  directory.writeUInt32LE(directory.length, 18) // offset of the image data
-  return Buffer.concat([directory, png])
+  directory.writeUInt16LE(entries.length, 4)
+
+  let imageOffset = directory.length
+  for (let i = 0; i < entries.length; i++) {
+    const { size, png } = entries[i]
+    const offset = 6 + i * 16
+    directory[offset] = size === 256 ? 0 : size
+    directory[offset + 1] = size === 256 ? 0 : size
+    directory[offset + 2] = 0 // palette size
+    directory[offset + 3] = 0 // reserved
+    directory.writeUInt16LE(1, offset + 4) // colour planes
+    directory.writeUInt16LE(32, offset + 6) // bits per pixel
+    directory.writeUInt32LE(png.length, offset + 8)
+    directory.writeUInt32LE(imageOffset, offset + 12)
+    imageOffset += png.length
+  }
+
+  return Buffer.concat([directory, ...entries.map(({ png }) => png)])
 }
 
 // --- write ----------------------------------------------------------------
 
-const buildDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'build')
+const buildDir = join(repoRoot, 'build')
 mkdirSync(buildDir, { recursive: true })
 
-const png = toPng(render(), SIZE)
-writeFileSync(join(buildDir, 'icon.png'), png)
-writeFileSync(join(buildDir, 'icon.ico'), toIco(png))
+const stencil = buildStencil()
+const entries = ICO_SIZES.map((size) => ({ size, png: toPng(render(stencil, size), size) }))
+const png = entries.find(({ size }) => size === PNG_SIZE).png
+const ico = toIco(entries)
 
-console.log(`build/icon.png  ${png.length} bytes`)
-console.log(`build/icon.ico  ${toIco(png).length} bytes`)
+writeFileSync(join(buildDir, 'icon.png'), png)
+writeFileSync(join(buildDir, 'icon.ico'), ico)
+
+console.log(`source          ${SOURCE} (${stencil.width}x${stencil.height})`)
+console.log(`build/icon.png  ${png.length} bytes (${PNG_SIZE}x${PNG_SIZE})`)
+console.log(`build/icon.ico  ${ico.length} bytes (${ICO_SIZES.join(', ')} px)`)

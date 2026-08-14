@@ -26,8 +26,8 @@
     "icon": "node scripts/generate-icon.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "package:dir": "npm run build && electron-builder --dir --config electron-builder.yml",
-    "package:win": "npm run typecheck && npm run build && electron-builder --win --config electron-builder.yml"
+    "package:dir": "npm run icon && npm run build && electron-builder --dir --config electron-builder.yml",
+    "package:win": "npm run icon && npm run typecheck && npm run build && electron-builder --win --config electron-builder.yml"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
