@@ -45,6 +45,15 @@ Where the action bar's progress readout finally gets real data.
 
 ### Config — r1q2 settings and cvars
 
+Scope, data model and story cut now live in
+[docs/concepts/config-module.md](concepts/config-module.md) — folding the discontinued
+`q2-config-manager` in as this module, redesigned in the launcher's own design system.
+Status: `docs/sprints/S01` planned — profile CRUD, installation assignment, cvar editor, write
+pipeline, import (stories 001–005). Keyboard/overview, alt layers, advanced tab, validator,
+cleanup and the in-session profile-switch bind are the concept's remaining scope, planned for a
+follow-up sprint once S01 is built and accepted. The engine findings below stay as factual
+background for that concept.
+
 The findings that shape this module, from reading the r1q2 source:
 
 - **There is no `r1q2.cfg`.** The files are `default.cfg` (inside `pak0`),

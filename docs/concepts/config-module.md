@@ -1,0 +1,229 @@
+# Config module — Concept
+
+Status: **Draft** (vision + requirements, no stories yet). This document fixes scope, data
+model and mechanics for folding the discontinued
+[q2-config-manager](https://github.com/Hantsch/q2-config-manager) into the launcher's
+`config` module — config/profile management for r1q2, Q2PRO and vanilla `quake2.exe`.
+
+This document follows the architecture rules in [CLAUDE.md](../../CLAUDE.md) and the module
+pattern in [ARCHITECTURE.md](../ARCHITECTURE.md#adding-a-module). It supersedes the informal
+"Config" notes in [ROADMAP.md](../ROADMAP.md#config--r1q2-settings-and-cvars), which stay as
+engine-fact background but no longer drive scope. `config` is already registered as a planned
+module (`src/shared/types/module.ts`, route `/config`, `PlannedModuleView` placeholder) — no
+new module or route needs to be created, only implemented.
+
+---
+
+## TL;DR
+
+- q2-config-manager is discontinued as a standalone app; its functionality becomes the
+  launcher's `config` module, fully redesigned in the launcher's own design system (no CSS/
+  component reuse).
+- Full feature parity, cut into stories: profile setup/import, keyboard/keybinding editor with
+  alt layers, categories & messages, settings/cvars, validator, cleanup.
+- Only r1q2 (primary), Q2PRO and vanilla `quake2.exe` 3.20 are supported — the launcher's other
+  engines (Yamagi, KMQuake II, vkQuake2, Q2RTX, remaster) are explicitly out of scope, no
+  source-cited facts exist for them.
+- **Data model change from the original tool:** profiles are managed centrally, independent of
+  any installation, and *assigned* to installations (many-to-many). Editing a profile re-writes
+  it to every assigned, non-running installation immediately on save.
+- An installation can have several assigned profiles; one is the default (used at launch). A
+  bindable key cycles through the assigned profiles in-session (console echo of the new name),
+  session-only, not persisted as a new default.
+- The validator checks every engine that the profile is actually assigned to (via its
+  installations) as an equally-weighted error surface — no more "primary vs. portability"
+  two-tier severity from the original tool.
+- Central profiles are a new top-level entity in `state.json`, not `Installation.moduleData` —
+  because they are explicitly not owned by a single installation.
+- Open: exact on-disk file layout for the profile-switch alias chain; direct numbered profile
+  selection (deferred past the weapon-key 1–9 conflict).
+
+---
+
+## 1. Vision
+
+Players who maintain a hand-rolled `alias`/`bind` config for Quake 2 get real tooling for it,
+inside the same launcher they already manage installations with — instead of a second,
+unrelated app. The launcher already knows engines and installations; the config module reuses
+that knowledge (engine detection, install paths) so the user never re-enters facts the launcher
+already has. What used to be a fully separate app (q2-config-manager) becomes just another
+surface of the launcher, styled and behaving like the rest of it.
+
+## 2. Goals & non-goals
+
+**Goals**
+
+- Full feature parity with q2-config-manager: profile setup & import, keyboard overview with
+  test mode, categories/messages/macros, alternate binding layers, settings/cvars with
+  per-engine defaults and clamps, the validator, and cleanup of redundant per-mod config
+  copies.
+- Profiles are first-class, centrally managed entities that can be assigned to any number of
+  installations — manage a profile once, not once per installation.
+- Multiple profiles per installation with a designated default and a live, in-session switch
+  bind.
+- UI fully rebuilt in the launcher's design system (tokens, primitives, layout language) — not
+  a ported or reused UI.
+
+### Non-goals (deliberately out)
+
+- Engines beyond r1q2, Q2PRO and vanilla `quake2.exe` 3.20 (Yamagi, KMQuake II, vkQuake2,
+  Q2RTX, 2023 remaster) — no source-cited engine facts exist for these; adding them is a
+  separate future effort.
+- Mod-directory discovery/installation itself (that is the `mods` module) — this module only
+  needs to know which mod folders of an installation are marked "played" for the
+  autoexec-per-mod copy.
+- Direct numbered profile selection via keybind (`1`–`9`) — conflicts with default weapon-select
+  binds; see [Open points](#n3-open-points).
+- Persisting an in-session profile switch as the new default — the game process cannot write
+  back into the launcher's state, so this is architecturally out, not just deferred.
+
+## 3. Design decisions taken (from the requirements interview)
+
+| Topic | Decision |
+| --- | --- |
+| Scope | Full q2-config-manager feature parity, cut into stories in one sprint (not a phased subset). |
+| Engine support | Only r1q2, Q2PRO, vanilla `quake2.exe` 3.20 — matching the source-cited facts already researched. |
+| Data ownership | Profiles are centrally managed, independent of any installation; not `Installation.moduleData`. |
+| Assignment | Many-to-many: a profile can be assigned to several installations; an installation can have several assigned profiles. |
+| Default profile | Each installation with assigned profiles designates one as default, used at launch. |
+| Apply trigger | Saving a profile immediately re-writes it to every assigned installation that is not currently running; running installations are skipped and marked pending. |
+| Gamedir scope | Profile content is written to `baseq2` (search-path makes it reachable from mods); `autoexec.cfg` is additionally copied into every mod folder of the installation the user has marked as "played" — because `FS_ExecAutoexec` never consults the search path. |
+| Cleanup | Stays in scope, per installation, independent of the central-profile model. |
+| Import | Stays in scope — importing an existing `config.cfg`/`autoexec.cfg` from disk into a new profile, resolving `exec` references. |
+| In-session switching | A bindable key (user-assignable, no fixed default beyond suggesting F9) cycles through an installation's assigned profiles and echoes the newly active profile's name to the console. |
+| Switch persistence | Session-only. Next launch always loads the installation's designated default profile. |
+| Validator scope | Checks every engine actually reached through the profile's assigned installations as an equally-weighted error surface — no primary/portability two-tier severity. |
+| Design | Full re-implementation in the launcher's design system — no reuse of q2-config-manager's CSS or React components. |
+
+## 4. Core terms & model
+
+```
+Profile (central, in state.json)
+  id, name, engine-agnostic content model (bindings, alt layers, categories/
+  messages, cvars) — see "Settings" & "Advanced" below
+  ── assignments: Installation.id[] (many-to-many)
+
+Installation (existing, src/shared/types/installation.ts)
+  ── assignedProfiles: { profileId, isDefault }[]
+  ── playedMods: string[]  (gamedir names getting the autoexec.cfg copy)
+
+Write flow (per assigned, non-running installation):
+  Profile save
+    → resolve target Installation
+    → write profile content to <install>/baseq2/<profile file(s)>
+    → write/refresh the exec chain so the designated default loads at launch
+    → copy autoexec.cfg into <install>/<mod>/ for every mod in playedMods
+    → back up any pre-existing file before first overwrite (diff, not blind rewrite)
+```
+
+Profile-switch bind (per installation with >1 assigned profile): an alias bound to a key the
+user picks, that on each press `exec`s the next assigned profile's file and echoes its name —
+the same self-rewriting alias-pair mechanism the alt-layer editor already uses for toggle
+layers.
+
+## 5. Feature areas (carried over from q2-config-manager, redesigned)
+
+Functional behaviour and the engine facts behind each area are unchanged from
+q2-config-manager (README, cited against engine source: `id-Software/Quake-2` 3.20,
+`tastyspleen/r1q2-archive`, `q2pro/q2pro`). Only the surrounding data model (profiles are
+central, assigned to installations) and the UI (launcher design system) change.
+
+- **Setup & profiles** — create from standard template, empty, as a copy of another profile,
+  or import an existing config; assign to installations; mark one default per installation.
+- **Overview / keyboard** — bound/free/doubly-bound key view; test mode captures real key
+  presses and shows the fully resolved alias chain that would execute.
+- **Advanced** — categories (Movement, Weapons, Weapon dropping, custom) for team messages,
+  item timings, multi-command actions; message editor with `$$loc_here`-style meta-variable
+  vs. server-substituted (`%l`, `%h`, `%a`) macro distinction; symbol/colour picker for the
+  latin-1 high-ASCII character set (round-tripped byte-for-byte, never UTF-8).
+- **Alternate binding layers** — since Quake 2 has no native modifiers, the editor generates
+  both alias halves (`+layer`/`-layer` for hold, self-rewriting pair for toggle) and warns
+  when a layer remaps a key carrying a `+command`, which would leave movement stuck on
+  release.
+- **Settings** — player/graphics cvars with per-engine defaults, clamps and special-value
+  warnings (e.g. `r_maxfps 0` meaning "5 FPS" on R1Q2 vs. "uncapped" on Q2PRO); cvars the
+  engine doesn't have are named, not silently hidden.
+- **Validator** — per the table in [§3](#3-design-decisions-taken-from-the-requirements-interview):
+  every engine an assigned installation actually uses is checked as an error surface. Hard
+  limits carried over verbatim: `MAX_ALIAS_NAME` 32, `ALIAS_LOOP_COUNT` 16, no in-quote
+  escaping, per-engine command-buffer sizes (8192 / 65536 / 65536 with EFBIG-on-overflow for
+  Q2PRO), the 1024-byte per-line `Cbuf_Execute` limit that the auto-split and alt-layer part
+  aliases exist to avoid.
+- **Cleanup** — scans an installation's tree for config copies made redundant by the search
+  path (mod-folder copies other than `autoexec.cfg`) and removes them.
+
+## 6. Integration with existing systems (architecture notes)
+
+- **Module wiring** follows [ARCHITECTURE.md#adding-a-module](../ARCHITECTURE.md#adding-a-module)
+  exactly: `src/shared/modules/config.ts` contract, `src/main/modules/config/index.ts`
+  `MainModule`, renderer view + typed client in `src/renderer/src/modules/config/`, i18n keys.
+  Manifest already exists (`MODULE_MANIFESTS.config`); only `status` moves off `'planned'` once
+  the renderer view is registered.
+- **Persistence**: central profiles are a new top-level array in `state.json` (alongside
+  `installations`), written through the existing `JsonStore` atomic-write pattern
+  (`src/main/lib/json-store.ts`) and covered by the existing migration framework
+  (`src/main/services/migrations.ts`) — not `Installation.moduleData`, since a profile is not
+  owned by one installation. `Installation` gains `assignedProfiles` (profile id + `isDefault`)
+  and `playedMods`.
+- **Filesystem writes**: go through the same path-trust rules as the rest of main — profile
+  writes only ever target `<installation.path>/baseq2` and `<installation.path>/<mod>` for
+  mods already known to the installation, never an arbitrary renderer-supplied path
+  (`src/main/lib/schemas.ts`).
+- **Game-lifecycle**: applying a profile to a running installation must be skipped and queued,
+  per the `game-lifecycle` dependency already called out for the `mods` module in
+  [ROADMAP.md](../ROADMAP.md#mods--game-directories) — this module needs the same guard.
+- **Design system**: rebuilt on the existing primitives — `Panel`, `SectionLabel`, `Badge`,
+  `Button`/`IconButton`, `controls.tsx` (`Field`, `Input`, `Select`, `Switch`, `Checkbox`),
+  `Modal`, `ProgressBar` (`src/renderer/src/components/ui/`) — with the `flame` accent, Oswald
+  display headings and the sharp, near-flat geometry (`radius-xs`–`xl`, 1–6px) from
+  `styles/index.css`. Bespoke visuals (keyboard layout, alt-layer diagram, symbol/colour
+  picker) are new components built against the same tokens, not ports of the old CSS.
+  `LibraryView.tsx` is the closest existing reference for page layout conventions.
+- **Engine data**: `src/core/engines.ts` / `src/core/settings.ts` from q2-config-manager (cvar
+  defaults, clamps, buffer sizes, all source-cited) are the factual basis to port into this
+  module's core logic — the citations, not the original file structure, are what must survive.
+
+## 7. Requirements
+
+- CFG-1 Profiles can be created empty, from the standard template, as a copy of another
+  profile, or by importing an existing `config.cfg`/`autoexec.cfg` from an installation.
+- CFG-2 A profile can be assigned to any number of installations; an installation can have any
+  number of assigned profiles, with exactly one marked default.
+- CFG-3 Saving a profile writes it to every assigned installation that is not currently
+  running; running installations are skipped and shown as pending.
+- CFG-4 Writing a profile always backs up a pre-existing file before first overwrite and diffs
+  rather than blindly rewriting.
+- CFG-5 `autoexec.cfg` is copied into every mod folder the user has marked "played" for that
+  installation, in addition to the `baseq2` write.
+- CFG-6 An installation with more than one assigned profile exposes a user-bindable key that
+  cycles to the next assigned profile in-session and echoes its name to the console; this does
+  not change the installation's default.
+- CFG-7 The keyboard/overview view shows bound, free and doubly-bound keys, with a test mode
+  that resolves and displays the full alias chain a captured keypress would trigger.
+- CFG-8 The alt-layer editor generates both alias halves for hold and toggle layers and warns
+  when a layer remaps a key that carries a `+command`.
+- CFG-9 The settings view shows, per cvar, the current value, the engine's default, its clamp
+  range, and a warning when the value is one the engine treats specially; cvars the engine
+  lacks are named, not hidden.
+- CFG-10 The validator checks a profile against every engine reached through its assigned
+  installations, each as an equally-weighted error surface, with the existing hard-limit and
+  per-engine-cvar-meaning findings from q2-config-manager.
+- CFG-11 Cleanup, per installation, finds and removes config copies made redundant by the
+  Quake 2 search path.
+- CFG-12 All UI in this module is built from the launcher's existing design-system tokens and
+  component primitives; no CSS or component is ported from q2-config-manager.
+
+## 8. Open points
+
+1. Exact on-disk file layout for the profile-switch alias chain (one file per profile execed
+   directly vs. a thin loader indirection, given the existing auto-split-for-size mechanism) —
+   to be nailed down during `/refine` of the relevant story.
+2. Direct numbered profile selection (bind `1`–`9` to jump straight to a profile) is deferred:
+   conflicts with default weapon-select binds. Revisit once the cycle-and-echo mechanic (F9
+   suggested, user-bindable) is in use and real friction is known.
+3. Whether `playedMods` (which mod folders get the `autoexec.cfg` copy) is user-maintained in
+   this module or later derived from the `mods` module once it exists — for now, user-maintained
+   here.
+4. No decision yet on how `state.json`'s new `configProfiles` array interacts with installation
+   deletion (`installations:remove`) — orphaned assignments need a migration/cleanup rule,
+   to be resolved during refine.
