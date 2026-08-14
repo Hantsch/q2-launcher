@@ -108,6 +108,9 @@ export const configProfileSchema = z.object({
   // edited per profile later on.
   cvars: z.record(z.string(), z.string()).catch(() => ({})),
   binds: z.record(z.string(), z.string()).catch(() => ({})),
+  assignments: z
+    .array(z.object({ installationId: z.string().min(1), isDefault: z.boolean() }))
+    .catch(() => []),
 })
 
 const settingsObjectSchema = z.object({

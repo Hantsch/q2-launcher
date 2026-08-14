@@ -21,3 +21,15 @@ export const renameConfigProfileInputSchema = z.object({
 export const removeConfigProfileInputSchema = z.object({
   id: z.string().min(1),
 })
+
+/**
+ * The three assignment payloads are shape-identical (`profileId` +
+ * `installationId`), so they alias one schema rather than duplicate it.
+ */
+export const assignProfileInputSchema = z.object({
+  profileId: z.string().min(1),
+  installationId: z.string().min(1),
+})
+
+export const unassignProfileInputSchema = assignProfileInputSchema
+export const setDefaultProfileInputSchema = assignProfileInputSchema

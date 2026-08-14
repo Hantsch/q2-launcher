@@ -1,12 +1,21 @@
 import { randomUUID } from 'node:crypto'
 import {
   STANDARD_TEMPLATE,
+  type AssignProfileInput,
   type ConfigProfile,
   type CreateConfigProfileInput,
   type RenameConfigProfileInput,
   type RemoveConfigProfileInput,
+  type SetDefaultProfileInput,
+  type UnassignProfileInput,
 } from '@shared/modules/config'
 import type { StateStore } from '../../services/state'
+import {
+  assign as assignProfile,
+  unassign as unassignProfile,
+  setDefault as setDefaultProfile,
+  reconcileAssignments,
+} from './assignments'
 
 /**
  * CRUD over config profiles.
@@ -14,7 +23,9 @@ import type { StateStore } from '../../services/state'
  * Simpler than `InstallationsService`: a profile has no path to canonicalize,
  * nothing to validate against the filesystem, and no uniqueness rule - identity
  * is the generated `id`, and a duplicate name is fine. This is the only thing
- * outside `state.ts`/`schemas.ts` that touches `configProfiles`.
+ * outside `state.ts`/`schemas.ts` that touches `configProfiles`, including its
+ * assignment links to installations (mutated through `./assignments`'s pure
+ * functions).
  */
 export class ProfilesStore {
   private readonly state: StateStore
@@ -41,6 +52,7 @@ export class ProfilesStore {
       ...(input.from === 'template'
         ? { cvars: { ...STANDARD_TEMPLATE.cvars }, binds: { ...STANDARD_TEMPLATE.binds } }
         : { cvars: {}, binds: {} }),
+      assignments: [],
     }
 
     return this.commit([...this.state.configProfiles(), profile])
@@ -59,6 +71,22 @@ export class ProfilesStore {
     if (!current) throw new Error(`config profile not found: ${input.id}`)
 
     return this.commit(this.state.configProfiles().filter((p) => p.id !== input.id))
+  }
+
+  assign(input: AssignProfileInput): ConfigProfile[] {
+    return this.commit(assignProfile(this.list(), input))
+  }
+
+  unassign(input: UnassignProfileInput): ConfigProfile[] {
+    return this.commit(unassignProfile(this.list(), input))
+  }
+
+  setDefault(input: SetDefaultProfileInput): ConfigProfile[] {
+    return this.commit(setDefaultProfile(this.list(), input))
+  }
+
+  reconcile(knownInstallationIds: string[]): ConfigProfile[] {
+    return this.commit(reconcileAssignments(this.list(), knownInstallationIds))
   }
 
   private commit(profiles: ConfigProfile[]): ConfigProfile[] {

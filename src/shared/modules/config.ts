@@ -11,7 +11,22 @@ export const CONFIG_HANDLERS = {
   create: 'create',
   rename: 'rename',
   remove: 'remove',
+  assign: 'assign',
+  unassign: 'unassign',
+  setDefault: 'setDefault',
 } as const
+
+/**
+ * One installation's link to a profile: the installation is assigned the
+ * profile's cvars and binds, and `isDefault` marks whether this is the
+ * installation's default profile (at most one assignment per installation
+ * should have `isDefault: true` - enforcing that is the job of the module
+ * implementing these handlers, not this contract).
+ */
+export interface ProfileAssignment {
+  installationId: string
+  isDefault: boolean
+}
 
 /**
  * A config profile: a named set of cvars and key binds, owned centrally rather
@@ -22,6 +37,8 @@ export const CONFIG_HANDLERS = {
  * respectively. They exist from the start but stay empty for now; filling them
  * is the job of later stories, which then do not have to reshape the persisted
  * record.
+ *
+ * `assignments` lists the installations this profile is linked to.
  */
 export interface ConfigProfile {
   id: string
@@ -30,6 +47,7 @@ export interface ConfigProfile {
   updatedAt: string
   cvars: Record<string, string>
   binds: Record<string, string>
+  assignments: ProfileAssignment[]
 }
 
 /** Where a new profile's content comes from. */
@@ -82,4 +100,19 @@ export interface RenameConfigProfileInput {
 
 export interface RemoveConfigProfileInput {
   id: string
+}
+
+export interface AssignProfileInput {
+  profileId: string
+  installationId: string
+}
+
+export interface UnassignProfileInput {
+  profileId: string
+  installationId: string
+}
+
+export interface SetDefaultProfileInput {
+  profileId: string
+  installationId: string
 }

@@ -8,6 +8,8 @@ import { Button, IconButton } from '../../components/ui/Button'
 import { EmptyState, KeyValue, Panel, SectionLabel } from '../../components/ui/primitives'
 import { CreateProfileDialog } from './CreateProfileDialog'
 import { DeleteProfileDialog } from './DeleteProfileDialog'
+import { InstallationProfilesPanel } from './InstallationProfilesPanel'
+import { ProfileAssignmentsPanel } from './ProfileAssignmentsPanel'
 import { RenameProfileDialog } from './RenameProfileDialog'
 import { listConfigProfiles } from './client'
 
@@ -163,10 +165,17 @@ export function ConfigView() {
                       {formatRelativeTime(selected.updatedAt) ?? '-'}
                     </KeyValue>
                   </div>
+                  <ProfileAssignmentsPanel profile={selected} onChanged={setProfiles} />
                 </>
               )}
             </Panel>
           </div>
+        )}
+
+        {profiles.length > 0 && (
+          <Panel className="space-y-3 p-4">
+            <InstallationProfilesPanel profiles={profiles} />
+          </Panel>
         )}
       </div>
 

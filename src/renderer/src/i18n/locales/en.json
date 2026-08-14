@@ -370,6 +370,20 @@
       "title": "Delete \u201c{{name}}\u201d?",
       "body": "This deletes the profile from the launcher. It is not tied to any installation's files on disk, but it cannot be undone \u2013 once deleted, its cvars and binds are gone.",
       "confirm": "Delete profile"
+    },
+    "assignment": {
+      "label": "Assigned installations",
+      "noInstallations": "No installations registered yet.",
+      "default": "Default",
+      "setDefault": "Set default",
+      "assign": "Assign",
+      "byInstallation": "By installation",
+      "noneAssigned": "No profiles assigned."
+    },
+    "error": {
+      "installationNotFound": "That installation is no longer in your library.",
+      "profileNotFound": "That config profile no longer exists.",
+      "notAssigned": "This profile is not assigned to that installation."
     }
   },
 
