@@ -1,7 +1,7 @@
 ---
 sprint: S01
-status: planned
-branch:
+status: in-progress
+branch: sprint/01
 milestone: Config module — foundation (docs/concepts/config-module.md)
 ---
 
@@ -17,7 +17,7 @@ scratch.
 
 ## Stories (in build order)
 
-- [ ] 001 — Config module scaffold and central profile store
+- [ ] 001 — Config module scaffold and central profile store (built, live acceptance pending)
 - [ ] 002 — Profile-installation assignment and default profile
 - [ ] 003 — Settings/cvar editor with per-engine defaults and clamps
 - [ ] 004 — Write profile to assigned installations on save
