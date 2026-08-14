@@ -89,6 +89,27 @@ describe('ProfilesStore', () => {
     expect(() => profiles.remove({ id: 'missing' })).toThrow()
   })
 
+  it('removing an assigned profile drops its assignments with it (Decision 3)', () => {
+    const [a] = profiles.create({ name: 'ToRemove', from: 'empty' })
+    const [, b] = profiles.create({ name: 'Keep', from: 'empty' })
+    profiles.assign({ profileId: a!.id, installationId: 'i1' })
+    profiles.assign({ profileId: b!.id, installationId: 'i1' })
+
+    const result = profiles.remove({ id: a!.id })
+
+    // The deleted profile's record - and with it its assignments - is gone
+    // outright, so no installation-side view can resolve `a.id` anywhere in
+    // what remains.
+    expect(result.find((p) => p.id === a!.id)).toBeUndefined()
+    expect(
+      result.some((p) => p.assignments.some((entry) => entry.installationId === a!.id)),
+    ).toBe(false)
+    // The surviving profile's own assignment is untouched by the deletion.
+    expect(result.find((p) => p.id === b!.id)!.assignments).toEqual([
+      { installationId: 'i1', isDefault: false },
+    ])
+  })
+
   it('persists changes through the state store', () => {
     profiles.create({ name: 'Persisted', from: 'empty' })
 

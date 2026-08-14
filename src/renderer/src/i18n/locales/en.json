@@ -376,7 +376,6 @@
       "noInstallations": "No installations registered yet.",
       "default": "Default",
       "setDefault": "Set default",
-      "assign": "Assign",
       "byInstallation": "By installation",
       "noneAssigned": "No profiles assigned."
     },

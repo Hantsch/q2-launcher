@@ -172,11 +172,9 @@ export function ConfigView() {
           </div>
         )}
 
-        {profiles.length > 0 && (
-          <Panel className="space-y-3 p-4">
-            <InstallationProfilesPanel profiles={profiles} />
-          </Panel>
-        )}
+        <Panel className="space-y-3 p-4">
+          <InstallationProfilesPanel profiles={profiles} />
+        </Panel>
       </div>
 
       {showCreate && (
