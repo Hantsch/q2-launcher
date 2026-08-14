@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { ConfigProfile } from '@shared/modules/config'
 import type { Installation, LauncherSettings, WindowState } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
 import {
@@ -91,6 +92,24 @@ const installationSchema = z.object({
   moduleData: z.record(z.string(), z.unknown()).optional(),
 })
 
+/**
+ * A persisted config profile. Same rules as `installationSchema`: only the
+ * fields without which the record is meaningless (`id`, `name`) are strict, so
+ * a hand-mangled profile is dropped on its own instead of taking the file - or
+ * the installation list - with it.
+ */
+export const configProfileSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  createdAt: z.string().catch(nowIso),
+  updatedAt: z.string().catch(nowIso),
+  // The fallbacks are functions, not literals: a caught value is handed out as
+  // the same instance on every row, and these two maps are mutable and will be
+  // edited per profile later on.
+  cvars: z.record(z.string(), z.string()).catch(() => ({})),
+  binds: z.record(z.string(), z.string()).catch(() => ({})),
+})
+
 const settingsObjectSchema = z.object({
   locale: z.enum(['system', 'en']).catch(DEFAULT_SETTINGS.locale),
   motion: z.enum(['system', 'reduced', 'full']).catch(DEFAULT_SETTINGS.motion),
@@ -139,6 +158,18 @@ export function parseInstallation(raw: unknown): Installation | null {
 export function parseInstallations(raw: unknown): Installation[] {
   const rows = z.array(z.unknown()).catch([]).parse(raw)
   return rows.map(parseInstallation).filter((row): row is Installation => row !== null)
+}
+
+/** Parses one config profile, returning null (and dropping just that row) on failure. */
+export function parseConfigProfile(raw: unknown): ConfigProfile | null {
+  const result = configProfileSchema.safeParse(raw)
+  return result.success ? result.data : null
+}
+
+/** A missing or non-array `configProfiles` key degrades to an empty list. */
+export function parseConfigProfiles(raw: unknown): ConfigProfile[] {
+  const rows = z.array(z.unknown()).catch([]).parse(raw)
+  return rows.map(parseConfigProfile).filter((row): row is ConfigProfile => row !== null)
 }
 
 // ---------------------------------------------------------------------------

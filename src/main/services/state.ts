@@ -1,7 +1,8 @@
 import { STATE_SCHEMA_VERSION } from '@shared/constants'
+import type { ConfigProfile } from '@shared/modules/config'
 import { DEFAULT_SETTINGS, type Installation, type LauncherSettings } from '@shared/types'
 import { JsonStore } from '../lib/json-store'
-import { parseInstallations, parseSettings } from '../lib/schemas'
+import { parseConfigProfiles, parseInstallations, parseSettings } from '../lib/schemas'
 import { migrateStateDocument } from './migrations'
 
 /** Everything the launcher persists about itself, except window geometry. */
@@ -9,6 +10,13 @@ export interface LauncherStateDocument {
   schemaVersion: number
   settings: LauncherSettings
   installations: Installation[]
+  /**
+   * Config profiles are central, not owned by an installation, so they live
+   * next to the installation list rather than inside `moduleData`. Files
+   * written before this key existed simply lack it and load as an empty list -
+   * no schema bump, no migration.
+   */
+  configProfiles: ConfigProfile[]
 }
 
 function defaults(): LauncherStateDocument {
@@ -16,6 +24,7 @@ function defaults(): LauncherStateDocument {
     schemaVersion: STATE_SCHEMA_VERSION,
     settings: { ...DEFAULT_SETTINGS },
     installations: [],
+    configProfiles: [],
   }
 }
 
@@ -38,6 +47,7 @@ export class StateStore {
           schemaVersion: STATE_SCHEMA_VERSION,
           settings: parseSettings(doc['settings']),
           installations: parseInstallations(doc['installations']),
+          configProfiles: parseConfigProfiles(doc['configProfiles']),
         }
       },
     })
@@ -60,6 +70,10 @@ export class StateStore {
     return this.store.get().installations
   }
 
+  configProfiles(): ConfigProfile[] {
+    return this.store.get().configProfiles
+  }
+
   patchSettings(patch: Partial<LauncherSettings>): LauncherSettings {
     return this.store.update((current) => ({
       ...current,
@@ -69,6 +83,10 @@ export class StateStore {
 
   setInstallations(installations: Installation[]): Installation[] {
     return this.store.update((current) => ({ ...current, installations })).installations
+  }
+
+  setConfigProfiles(configProfiles: ConfigProfile[]): ConfigProfile[] {
+    return this.store.update((current) => ({ ...current, configProfiles })).configProfiles
   }
 
   /** Waits for pending writes; called on quit. */

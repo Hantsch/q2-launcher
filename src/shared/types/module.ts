@@ -92,10 +92,10 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     icon: 'SlidersHorizontal',
     route: '/config',
     nav: { section: 'primary', order: 30 },
-    status: 'planned',
+    status: 'available',
     capabilities: ['mutates-installation', 'cvar-schema'],
     ipcNamespace: 'module:config',
-    requiresInstallation: true,
+    requiresInstallation: false,
   },
   {
     id: 'mods',

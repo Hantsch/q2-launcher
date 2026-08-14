@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import type { ModuleId } from '@shared/types'
 import { LibraryView } from '../views/LibraryView'
+import { ConfigView } from './config/ConfigView'
 
 /**
  * The renderer half of a module: the view that owns its route.
@@ -18,7 +19,7 @@ export interface RendererModule {
 export const RENDERER_MODULES: readonly RendererModule[] = [
   { id: 'library', View: LibraryView },
   // { id: 'install', View: InstallView },
-  // { id: 'config',  View: ConfigView },
+  { id: 'config', View: ConfigView },
   // { id: 'mods',    View: ModsView },
   // { id: 'assets',  View: AssetsView },
 ]
