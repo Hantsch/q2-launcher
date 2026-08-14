@@ -18,7 +18,7 @@ scratch.
 ## Stories (in build order)
 
 - [ ] 001 — Config module scaffold and central profile store (built, live acceptance pending)
-- [ ] 002 — Profile-installation assignment and default profile
+- [ ] 002 — Profile-installation assignment and default profile (interrupted: session limit, WIP committed, resume with /sprint 01)
 - [ ] 003 — Settings/cvar editor with per-engine defaults and clamps
 - [ ] 004 — Write profile to assigned installations on save
 - [ ] 005 — Import an existing config into a new profile
