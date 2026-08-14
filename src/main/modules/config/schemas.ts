@@ -33,3 +33,14 @@ export const assignProfileInputSchema = z.object({
 
 export const unassignProfileInputSchema = assignProfileInputSchema
 export const setDefaultProfileInputSchema = assignProfileInputSchema
+
+/**
+ * Structural validation only - a cvar name must be a non-empty string, same as
+ * a cvar value. This deliberately does not validate cvar-name semantics (that
+ * is a later story's job); it only rejects garbage shapes before they reach
+ * `ProfilesStore`.
+ */
+export const setProfileCvarsInputSchema = z.object({
+  profileId: z.string().min(1),
+  cvars: z.record(z.string().min(1), z.string()),
+})

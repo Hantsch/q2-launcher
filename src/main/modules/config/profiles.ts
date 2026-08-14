@@ -7,6 +7,7 @@ import {
   type RenameConfigProfileInput,
   type RemoveConfigProfileInput,
   type SetDefaultProfileInput,
+  type SetProfileCvarsInput,
   type UnassignProfileInput,
 } from '@shared/modules/config'
 import type { StateStore } from '../../services/state'
@@ -83,6 +84,24 @@ export class ProfilesStore {
 
   setDefault(input: SetDefaultProfileInput): ConfigProfile[] {
     return this.commit(setDefaultProfile(this.list(), input))
+  }
+
+  /**
+   * Replaces a profile's entire `cvars` map with `input.cvars`. Not a partial
+   * merge - the renderer is expected to send the full map it wants persisted
+   * (see D4's debounced save), so a caller wanting to keep existing entries
+   * must include them.
+   */
+  setCvars(input: SetProfileCvarsInput): ConfigProfile[] {
+    const current = this.find(input.profileId)
+    if (!current) throw new Error(`config profile not found: ${input.profileId}`)
+
+    const next: ConfigProfile = {
+      ...current,
+      cvars: { ...input.cvars },
+      updatedAt: new Date().toISOString(),
+    }
+    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
   }
 
   reconcile(knownInstallationIds: string[]): ConfigProfile[] {

@@ -11,6 +11,7 @@ import { DeleteProfileDialog } from './DeleteProfileDialog'
 import { InstallationProfilesPanel } from './InstallationProfilesPanel'
 import { ProfileAssignmentsPanel } from './ProfileAssignmentsPanel'
 import { RenameProfileDialog } from './RenameProfileDialog'
+import { SettingsTab } from './SettingsTab'
 import { listConfigProfiles } from './client'
 
 /**
@@ -166,6 +167,7 @@ export function ConfigView() {
                     </KeyValue>
                   </div>
                   <ProfileAssignmentsPanel profile={selected} onChanged={setProfiles} />
+                  <SettingsTab profile={selected} onChanged={setProfiles} />
                 </>
               )}
             </Panel>

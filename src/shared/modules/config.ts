@@ -14,6 +14,7 @@ export const CONFIG_HANDLERS = {
   assign: 'assign',
   unassign: 'unassign',
   setDefault: 'setDefault',
+  setCvars: 'setCvars',
 } as const
 
 /**
@@ -115,4 +116,9 @@ export interface UnassignProfileInput {
 export interface SetDefaultProfileInput {
   profileId: string
   installationId: string
+}
+
+export interface SetProfileCvarsInput {
+  profileId: string
+  cvars: Record<string, string>
 }

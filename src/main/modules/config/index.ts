@@ -9,6 +9,7 @@ import {
   removeConfigProfileInputSchema,
   renameConfigProfileInputSchema,
   setDefaultProfileInputSchema,
+  setProfileCvarsInputSchema,
   unassignProfileInputSchema,
 } from './schemas'
 
@@ -57,6 +58,10 @@ export const configModule: MainModule = {
 
     handle(CONFIG_HANDLERS.remove, (payload): ConfigProfile[] =>
       withLiveAssignments(profiles.remove(removeConfigProfileInputSchema.parse(payload))),
+    )
+
+    handle(CONFIG_HANDLERS.setCvars, (payload): ConfigProfile[] =>
+      withLiveAssignments(profiles.setCvars(setProfileCvarsInputSchema.parse(payload))),
     )
 
     handle(CONFIG_HANDLERS.assign, (payload): Outcome<ConfigProfile[]> => {

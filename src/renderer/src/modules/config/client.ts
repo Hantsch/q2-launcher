@@ -6,6 +6,7 @@ import {
   type RemoveConfigProfileInput,
   type RenameConfigProfileInput,
   type SetDefaultProfileInput,
+  type SetProfileCvarsInput,
   type UnassignProfileInput,
 } from '@shared/modules/config'
 import type { Outcome } from '@shared/types'
@@ -35,6 +36,13 @@ export function removeConfigProfile(
   input: RemoveConfigProfileInput,
 ): Promise<Outcome<ConfigProfile[]>> {
   return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.remove, input)
+}
+
+/** Replaces a profile's cvars map and returns the full, updated profile list. */
+export function updateProfileCvars(
+  input: SetProfileCvarsInput,
+): Promise<Outcome<ConfigProfile[]>> {
+  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setCvars, input)
 }
 
 /**

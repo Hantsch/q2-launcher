@@ -383,6 +383,301 @@
       "installationNotFound": "That installation is no longer in your library.",
       "profileNotFound": "That config profile no longer exists.",
       "notAssigned": "This profile is not assigned to that installation."
+    },
+    "cvar": {
+      "name": {
+        "label": "Player name",
+        "description": "Your name in game. Shows up on the scoreboard and in chat."
+      },
+      "skin": {
+        "label": "Player model",
+        "description": "Model and skin. Format: model/skin.",
+        "choice": {
+          "male_grunt": "Male — Grunt",
+          "male_cipher": "Male — Cipher",
+          "male_claymore": "Male — Claymore",
+          "male_flak": "Male — Flak",
+          "male_howitzer": "Male — Howitzer",
+          "male_nightops": "Male — Nightops",
+          "male_pointman": "Male — Pointman",
+          "male_psycho": "Male — Psycho",
+          "male_rampage": "Male — Rampage",
+          "male_recon": "Male — Recon",
+          "male_scout": "Male — Scout",
+          "male_sniper": "Male — Sniper",
+          "male_viper": "Male — Viper",
+          "female_athena": "Female — Athena",
+          "female_brianna": "Female — Brianna",
+          "female_cobalt": "Female — Cobalt",
+          "female_ensign": "Female — Ensign",
+          "female_jezebel": "Female — Jezebel",
+          "female_jungle": "Female — Jungle",
+          "female_lotus": "Female — Lotus",
+          "female_stiletto": "Female — Stiletto",
+          "female_venus": "Female — Venus",
+          "cyborg_oni911": "Cyborg — Oni911",
+          "cyborg_ps9000": "Cyborg — PS9000",
+          "cyborg_tyr574": "Cyborg — Tyr574"
+        }
+      },
+      "fov": {
+        "label": "Field of view (FOV)",
+        "description": "Viewing angle in degrees. 90 is the engine default; most players use 100–120 for a wider view. Very high values distort heavily."
+      },
+      "sensitivity": {
+        "label": "Mouse sensitivity",
+        "description": "How far the view turns per unit of mouse movement."
+      },
+      "m_pitch": {
+        "label": "Vertical mouse direction",
+        "description": "A negative value inverts the Y axis.",
+        "choice": {
+          "0_022": "Normal",
+          "_0_022": "Inverted"
+        }
+      },
+      "freelook": {
+        "label": "Mouselook",
+        "description": "Permanent look-around with the mouse. Should always be on.",
+        "byEngine": {
+          "vanilla": {
+            "note": "Vanilla ships this off, which is why an unconfigured 3.20 client feels broken to anyone used to a modern build."
+          }
+        }
+      },
+      "cl_run": {
+        "label": "Always run",
+        "description": "Without this you move at walking speed by default."
+      },
+      "hand": {
+        "label": "Weapon hand",
+        "description": "Which side the weapon is drawn on.",
+        "warning": "The value 2 (centred / hidden) is implemented by the game DLL, not by the client, so it depends on the mod being played rather than on the engine.",
+        "choice": {
+          "0": "Right",
+          "1": "Left",
+          "2": "Centred / hidden"
+        }
+      },
+      "crosshair": {
+        "label": "Crosshair",
+        "description": "Which crosshair is drawn.",
+        "choice": {
+          "0": "None",
+          "1": "Variant 1",
+          "2": "Variant 2",
+          "3": "Variant 3"
+        }
+      },
+      "ch_scale": {
+        "label": "Crosshair size",
+        "description": "Scales the crosshair image.",
+        "byEngine": {
+          "q2pro": {
+            "note": "Part of the Q2PRO crosshair family (ch_scale, ch_alpha, ch_red/green/blue). None of it exists on R1Q2 or vanilla."
+          }
+        }
+      },
+      "msg": {
+        "label": "Message filter",
+        "description": "How many server and kill messages are shown.",
+        "choice": {
+          "0": "Everything",
+          "1": "No item pickups",
+          "2": "Important only",
+          "3": "Minimal"
+        }
+      },
+      "rate": {
+        "label": "Network rate",
+        "description": "Bytes per second the server may send. 25000 is a good value on any modern connection."
+      },
+      "cl_maxfps": {
+        "label": "Max FPS (packets / physics)",
+        "description": "Caps the client tick. In Quake 2 this rate affects jump height, which is why 125 is the classic compromise. On engines with asynchronous rendering it governs the packet rate only — the render rate is r_maxfps.",
+        "byEngine": {
+          "vanilla": {
+            "note": "Vanilla has no asynchronous mode: this one value caps everything, and nothing clamps it."
+          },
+          "r1q2": {
+            "note": "With cl_async on, R1Q2 prints a warning above 100 and points you at r_maxfps instead; a high packet rate also risks a flood kick from the server.",
+            "valueNote": {
+              "0": "R1Q2 does not read 0 as \"unlimited\". The change callback clamps anything below 5 up to 5, leaving you at 5 packets per second — the server will drop or kick you for not sending enough updates."
+            }
+          },
+          "q2pro": {
+            "note": "Q2PRO clamps this to 10–125. The classic cl_maxfps 125 is therefore the ceiling, and anything above it is silently reduced — raise r_maxfps if you want more rendered frames.",
+            "valueNote": {
+              "0": "On Q2PRO 0 means \"as fast as allowed\", which for the physics rate is MAX_PHYS_HZ, i.e. 125."
+            }
+          }
+        }
+      },
+      "cl_async": {
+        "label": "Asynchronous rendering",
+        "description": "Decouples the rendering rate from the packet rate. With this off, one value drives both and r_maxfps has no independent effect.",
+        "choice": {
+          "0": "Off — one rate for everything",
+          "1": "On — separate render rate",
+          "2": "On, synced to video (vsync-driven)"
+        },
+        "byEngine": {
+          "r1q2": {
+            "note": "While cl_async is 0, R1Q2 mirrors cl_maxfps and r_maxfps onto each other, so whichever of the two a config sets last wins for both."
+          },
+          "q2pro": {
+            "note": "Q2PRO also accepts 2, which drives the refresh from the video sync instead of from r_maxfps."
+          }
+        }
+      },
+      "vid_fullscreen": {
+        "label": "Fullscreen",
+        "description": "Fullscreen instead of a window."
+      },
+      "vid_gamma": {
+        "label": "Gamma",
+        "description": "Lower values brighten the picture.",
+        "byEngine": {
+          "q2pro": {
+            "note": "Without a hardware gamma ramp Q2PRO applies gamma to the textures themselves and flags the cvar CVAR_FILES, so a change only takes effect after vid_restart."
+          }
+        }
+      },
+      "gl_modulate": {
+        "label": "Brightness (lightmaps)",
+        "description": "Scales level lighting up. The usual way to make dark corners visible.",
+        "byEngine": {
+          "r1q2": {
+            "note": "R1Q2 already ships this at 2 and archives it, so a competitive config usually does not need to set it at all."
+          },
+          "q2pro": {
+            "note": "Q2PRO multiplies this by gl_modulate_world for world lightmaps and by gl_modulate_entities for models, so the effective brightness is a product of two cvars. On the gloom mod it also cheat-protects the extra ones."
+          }
+        }
+      },
+      "gl_picmip": {
+        "label": "Texture detail",
+        "description": "Higher values make textures muddier but let enemies stand out more clearly.",
+        "byEngine": {
+          "q2pro": {
+            "note": "Flagged CVAR_FILES on Q2PRO: textures are reloaded on change, so it needs a vid_restart to apply."
+          }
+        }
+      },
+      "gl_texturemode": {
+        "label": "Texture filter",
+        "description": "Texture smoothing. NEAREST gives the hard retro look.",
+        "choice": {
+          "gl_nearest": "Nearest (pixelated)",
+          "gl_linear": "Linear",
+          "gl_nearest_mipmap_nearest": "Nearest + nearest mipmap",
+          "gl_linear_mipmap_nearest": "Bilinear",
+          "gl_nearest_mipmap_linear": "Nearest + linear mipmap",
+          "gl_linear_mipmap_linear": "Trilinear",
+          "mag_nearest": "Sharp magnification (Q2PRO only)"
+        },
+        "byEngine": {
+          "q2pro": {
+            "note": "Q2PRO adds MAG_NEAREST — trilinear minification with nearest magnification, i.e. crisp up close without aliasing at distance. Vanilla and R1Q2 reject the name and keep their previous filter."
+          }
+        }
+      },
+      "cl_gun": {
+        "label": "Show weapon model",
+        "description": "Your own weapon in view. Off gives a clearer picture."
+      },
+      "cl_blend": {
+        "label": "Screen effects",
+        "description": "Coloured flashes on hits and powerups. Off is calmer."
+      },
+      "gl_polyblend": {
+        "label": "Colour overlay",
+        "description": "Extra colour wash underwater and when taking damage."
+      },
+      "gl_shadows": {
+        "label": "Shadows",
+        "description": "Simple shadows under players."
+      },
+      "gl_dynamic": {
+        "label": "Dynamic lighting",
+        "description": "Light thrown by shots and explosions.",
+        "byEngine": {
+          "q2pro": {
+            "note": "Q2PRO treats only the exact value 1 as \"full dynamic lighting\"; other non-zero values light entities but skip lightmap updates."
+          }
+        }
+      },
+      "gl_swapinterval": {
+        "label": "VSync",
+        "description": "Prevents tearing but adds input latency."
+      },
+      "cl_noskins": {
+        "label": "Uniform skins",
+        "description": "Gives every player the same model, which makes them easier to read."
+      },
+      "r_maxfps": {
+        "label": "Render FPS cap",
+        "description": "Caps the rendering rate separately from the packet rate. Only has an independent effect while cl_async is on.",
+        "byEngine": {
+          "r1q2": {
+            "note": "R1Q2 already defaults to 1000, so leaving this alone is the uncapped case.",
+            "valueNote": {
+              "0": "R1Q2 does not read 0 as \"unlimited\". The change callback clamps anything below 5 up to 5, so the renderer is pinned at 5 FPS and the game stutters badly. The gate itself divides by the value, which is why the clamp has to exist at all."
+            }
+          },
+          "q2pro": {
+            "valueNote": {
+              "0": "On Q2PRO 0 means unlimited: the frame-time helper falls back to MAX_REF_HZ, giving a 1000 FPS cap. This is also the Q2PRO default."
+            }
+          }
+        }
+      },
+      "con_alpha": {
+        "label": "Console transparency",
+        "description": "How see-through the console is while connected to a server.",
+        "byEngine": {
+          "q2pro": {
+            "note": "Only applies while connected and with the menu closed; scr_alpha scales the whole HUD separately."
+          }
+        }
+      },
+      "s_volume": {
+        "label": "Volume",
+        "description": "Overall volume."
+      },
+      "s_khz": {
+        "label": "Sound quality",
+        "description": "Output sample rate.",
+        "choice": {
+          "11": "11 kHz",
+          "22": "22 kHz",
+          "44": "44 kHz"
+        }
+      },
+      "notOnEngine": "Not on this engine",
+      "noEngineFacts": "No engine facts",
+      "resetToDefault": "Reset to default",
+      "currentValue": "Current value",
+      "engineDefault": "Engine default",
+      "recommendedDefault": "Recommended default",
+      "range": "Range",
+      "differsOnEngine": "Differs on {{engine}}",
+      "absentOnEngine": "Not on {{engine}}"
+    },
+    "engineScope": {
+      "label": "Engine facts shown for",
+      "hint": "Defaults, clamp ranges and value warnings below are the ones this engine enforces.",
+      "unassigned": "This profile is not assigned to any installation, so there is no engine whose defaults, clamp ranges and warnings could be shown. Assign it to an installation above and its engine appears here.",
+      "unresolved": "This profile's assignments point at installations that are no longer registered, so no engine could be determined.",
+      "noFacts": "No engine facts for {{engines}}. The launcher only carries source-cited defaults, clamps and warnings for R1Q2, Q2PRO and the original Quake II — the values below are shown without engine facts rather than with another engine's numbers.",
+      "omitted": "Also assigned to {{engines}}, which the launcher has no engine facts for."
+    },
+    "settings": {
+      "title": "Settings",
+      "playerGroup": "Player",
+      "graphicsGroup": "Graphics",
+      "saving": "Saving…",
+      "saved": "Saved"
     }
   },
 
