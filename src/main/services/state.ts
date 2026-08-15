@@ -2,7 +2,13 @@ import { STATE_SCHEMA_VERSION } from '@shared/constants'
 import type { ConfigProfile } from '@shared/modules/config'
 import { DEFAULT_SETTINGS, type Installation, type LauncherSettings } from '@shared/types'
 import { JsonStore } from '../lib/json-store'
-import { parseConfigProfiles, parseInstallations, parseSettings } from '../lib/schemas'
+import {
+  parseConfigPendingWrites,
+  parseConfigPlayedMods,
+  parseConfigProfiles,
+  parseInstallations,
+  parseSettings,
+} from '../lib/schemas'
 import { migrateStateDocument } from './migrations'
 
 /** Everything the launcher persists about itself, except window geometry. */
@@ -17,6 +23,19 @@ export interface LauncherStateDocument {
    * no schema bump, no migration.
    */
   configProfiles: ConfigProfile[]
+  /**
+   * installationId -> mod folder names the user has marked "played" for it.
+   * Central per-installation data the config module owns, next to but not
+   * part of `Installation` - same reasoning as `configProfiles` above. Files
+   * written before this key existed simply lack it and load as `{}`.
+   */
+  configPlayedMods: Record<string, string[]>
+  /**
+   * installationId -> id of the profile whose last write attempt found it
+   * running. An installation absent from this map has nothing pending. Same
+   * reasoning as `configPlayedMods` above.
+   */
+  configPendingWrites: Record<string, string>
 }
 
 function defaults(): LauncherStateDocument {
@@ -25,6 +44,8 @@ function defaults(): LauncherStateDocument {
     settings: { ...DEFAULT_SETTINGS },
     installations: [],
     configProfiles: [],
+    configPlayedMods: {},
+    configPendingWrites: {},
   }
 }
 
@@ -48,6 +69,8 @@ export class StateStore {
           settings: parseSettings(doc['settings']),
           installations: parseInstallations(doc['installations']),
           configProfiles: parseConfigProfiles(doc['configProfiles']),
+          configPlayedMods: parseConfigPlayedMods(doc['configPlayedMods']),
+          configPendingWrites: parseConfigPendingWrites(doc['configPendingWrites']),
         }
       },
     })
@@ -74,6 +97,14 @@ export class StateStore {
     return this.store.get().configProfiles
   }
 
+  configPlayedMods(): Record<string, string[]> {
+    return this.store.get().configPlayedMods
+  }
+
+  configPendingWrites(): Record<string, string> {
+    return this.store.get().configPendingWrites
+  }
+
   patchSettings(patch: Partial<LauncherSettings>): LauncherSettings {
     return this.store.update((current) => ({
       ...current,
@@ -87,6 +118,15 @@ export class StateStore {
 
   setConfigProfiles(configProfiles: ConfigProfile[]): ConfigProfile[] {
     return this.store.update((current) => ({ ...current, configProfiles })).configProfiles
+  }
+
+  setConfigPlayedMods(configPlayedMods: Record<string, string[]>): Record<string, string[]> {
+    return this.store.update((current) => ({ ...current, configPlayedMods })).configPlayedMods
+  }
+
+  setConfigPendingWrites(configPendingWrites: Record<string, string>): Record<string, string> {
+    return this.store.update((current) => ({ ...current, configPendingWrites }))
+      .configPendingWrites
   }
 
   /** Waits for pending writes; called on quit. */

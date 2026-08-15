@@ -382,7 +382,8 @@
     "error": {
       "installationNotFound": "That installation is no longer in your library.",
       "profileNotFound": "That config profile no longer exists.",
-      "notAssigned": "This profile is not assigned to that installation."
+      "notAssigned": "This profile is not assigned to that installation.",
+      "writeFailed": "Could not write this profile's files to disk."
     },
     "cvar": {
       "name": {
@@ -678,6 +679,24 @@
       "graphicsGroup": "Graphics",
       "saving": "Saving…",
       "saved": "Saved"
+    },
+    "writeTargets": {
+      "label": "Write targets",
+      "status": {
+        "written": "Written",
+        "unchanged": "Unchanged",
+        "pending": "Pending",
+        "error": "Error",
+        "writing": "Writing…"
+      },
+      "retry": "Retry",
+      "preview": "Preview…",
+      "playedMods": "Played mods",
+      "noMods": "No other mod folders found."
+    },
+    "previewDialog": {
+      "title": "Preview – {{installation}}",
+      "empty": "Nothing would be written."
     }
   },
 

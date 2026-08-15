@@ -44,3 +44,17 @@ export const setProfileCvarsInputSchema = z.object({
   profileId: z.string().min(1),
   cvars: z.record(z.string().min(1), z.string()),
 })
+
+export const writeProfileInputSchema = z.object({
+  profileId: z.string().min(1),
+})
+
+export const previewProfileInputSchema = z.object({
+  profileId: z.string().min(1),
+  installationId: z.string().min(1),
+})
+
+export const setPlayedModsInputSchema = z.object({
+  installationId: z.string().min(1),
+  playedMods: z.array(z.string().min(1)).max(64),
+})

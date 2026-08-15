@@ -9,9 +9,11 @@ import { EmptyState, KeyValue, Panel, SectionLabel } from '../../components/ui/p
 import { CreateProfileDialog } from './CreateProfileDialog'
 import { DeleteProfileDialog } from './DeleteProfileDialog'
 import { InstallationProfilesPanel } from './InstallationProfilesPanel'
+import { PreviewProfileDialog } from './PreviewProfileDialog'
 import { ProfileAssignmentsPanel } from './ProfileAssignmentsPanel'
 import { RenameProfileDialog } from './RenameProfileDialog'
 import { SettingsTab } from './SettingsTab'
+import { WriteTargets } from './WriteTargets'
 import { listConfigProfiles } from './client'
 
 /**
@@ -26,6 +28,7 @@ export function ConfigView() {
   const [showCreate, setShowCreate] = useState(false)
   const [showRename, setShowRename] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
+  const [previewInstallationId, setPreviewInstallationId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -168,6 +171,7 @@ export function ConfigView() {
                   </div>
                   <ProfileAssignmentsPanel profile={selected} onChanged={setProfiles} />
                   <SettingsTab profile={selected} onChanged={setProfiles} />
+                  <WriteTargets profile={selected} onPreview={setPreviewInstallationId} />
                 </>
               )}
             </Panel>
@@ -196,6 +200,14 @@ export function ConfigView() {
           profile={selected}
           onClose={() => setShowDelete(false)}
           onDeleted={handleDeleted}
+        />
+      )}
+
+      {previewInstallationId && selected && (
+        <PreviewProfileDialog
+          profile={selected}
+          installationId={previewInstallationId}
+          onClose={() => setPreviewInstallationId(null)}
         />
       )}
     </div>

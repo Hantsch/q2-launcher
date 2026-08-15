@@ -1,6 +1,6 @@
 import { constants as FS } from 'node:fs'
-import { access, readdir, realpath, stat } from 'node:fs/promises'
-import { basename, isAbsolute, join, resolve, sep } from 'node:path'
+import { access, mkdir, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises'
+import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path'
 
 export async function pathExists(target: string): Promise<boolean> {
   try {
@@ -42,6 +42,25 @@ export async function fileSize(target: string): Promise<number | null> {
   } catch {
     return null
   }
+}
+
+/**
+ * Writes `content` to `filePath` atomically: the bytes go to `<filePath>.tmp`
+ * first and are then renamed over the target, so a crash mid-write can never
+ * leave a truncated file behind - the same tmp+rename pattern `JsonStore.flush()`
+ * uses, minus the `.bak` copy (keeping a previous version is the caller's
+ * decision here, not this helper's). The parent directory is created if it does
+ * not exist yet.
+ */
+export async function writeFileAtomic(
+  filePath: string,
+  content: string,
+  encoding: BufferEncoding,
+): Promise<void> {
+  const tmpPath = `${filePath}.tmp`
+  await mkdir(dirname(filePath), { recursive: true })
+  await writeFile(tmpPath, content, encoding)
+  await rename(tmpPath, filePath)
 }
 
 /**

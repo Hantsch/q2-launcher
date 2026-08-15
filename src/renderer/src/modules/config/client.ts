@@ -3,11 +3,17 @@ import {
   type AssignProfileInput,
   type ConfigProfile,
   type CreateConfigProfileInput,
+  type PreviewProfileInput,
+  type PreviewProfileResult,
   type RemoveConfigProfileInput,
   type RenameConfigProfileInput,
   type SetDefaultProfileInput,
+  type SetPlayedModsInput,
   type SetProfileCvarsInput,
   type UnassignProfileInput,
+  type WriteProfileInput,
+  type WriteState,
+  type WriteTargetResult,
 } from '@shared/modules/config'
 import type { Outcome } from '@shared/types'
 import { callModule } from '../moduleClient'
@@ -78,4 +84,28 @@ export async function setDefaultConfigProfile(
     input,
   )
   return result.ok ? result.value : result
+}
+
+/** Writes a profile's content to every installation it is assigned to. */
+export function writeConfigProfile(
+  input: WriteProfileInput,
+): Promise<Outcome<WriteTargetResult[]>> {
+  return callModule<WriteTargetResult[]>('config', CONFIG_HANDLERS.write, input)
+}
+
+/** Previews the exact files a write would put on an installation's disk, without writing them. */
+export function previewConfigProfile(
+  input: PreviewProfileInput,
+): Promise<Outcome<PreviewProfileResult>> {
+  return callModule<PreviewProfileResult>('config', CONFIG_HANDLERS.preview, input)
+}
+
+/** Installations currently waiting for a retry, keyed by installation id. */
+export function getWriteState(): Promise<Outcome<WriteState>> {
+  return callModule<WriteState>('config', CONFIG_HANDLERS.writeState)
+}
+
+/** Sets which mods an installation is considered to have been played with. */
+export function setPlayedMods(input: SetPlayedModsInput): Promise<Outcome<string[]>> {
+  return callModule<string[]>('config', CONFIG_HANDLERS.setPlayedMods, input)
 }

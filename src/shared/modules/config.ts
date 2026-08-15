@@ -15,6 +15,10 @@ export const CONFIG_HANDLERS = {
   unassign: 'unassign',
   setDefault: 'setDefault',
   setCvars: 'setCvars',
+  write: 'write',
+  preview: 'preview',
+  writeState: 'writeState',
+  setPlayedMods: 'setPlayedMods',
 } as const
 
 /**
@@ -122,3 +126,45 @@ export interface SetProfileCvarsInput {
   profileId: string
   cvars: Record<string, string>
 }
+
+/** Per-installation outcome of a `write` call. */
+export type WriteTargetStatus = 'written' | 'unchanged' | 'pending' | 'error'
+
+export interface WriteTargetResult {
+  installationId: string
+  status: WriteTargetStatus
+  /** Set when status is 'error' or to explain 'pending'. i18n key. */
+  messageKey?: string
+}
+
+export interface WriteProfileInput {
+  profileId: string
+}
+
+export interface PreviewProfileInput {
+  profileId: string
+  installationId: string
+}
+
+/** One rendered file the write pipeline would put (or did put) on disk. */
+export interface PreviewFile {
+  /** Absolute path on the target installation. */
+  path: string
+  content: string
+}
+
+export interface PreviewProfileResult {
+  files: PreviewFile[]
+}
+
+export interface SetPlayedModsInput {
+  installationId: string
+  playedMods: string[]
+}
+
+/**
+ * Which installation is currently waiting for a retry, and for which profile -
+ * i.e. the last `write` attempt found it running and skipped it. Keyed by
+ * installationId; an installation absent from this map has nothing pending.
+ */
+export type WriteState = Record<string, string>

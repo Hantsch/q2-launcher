@@ -113,6 +113,22 @@ export const configProfileSchema = z.object({
     .catch(() => []),
 })
 
+/** installationId -> mod folder names the user has marked "played" for it. */
+export const configPlayedModsSchema = z
+  .record(z.string(), z.array(z.string()).catch(() => []))
+  .catch(() => ({}))
+
+/** installationId -> id of the profile whose last write attempt found it running. */
+export const configPendingWritesSchema = z.record(z.string(), z.string()).catch(() => ({}))
+
+export function parseConfigPlayedMods(raw: unknown): Record<string, string[]> {
+  return configPlayedModsSchema.parse(raw)
+}
+
+export function parseConfigPendingWrites(raw: unknown): Record<string, string> {
+  return configPendingWritesSchema.parse(raw)
+}
+
 const settingsObjectSchema = z.object({
   locale: z.enum(['system', 'en']).catch(DEFAULT_SETTINGS.locale),
   motion: z.enum(['system', 'reduced', 'full']).catch(DEFAULT_SETTINGS.motion),
