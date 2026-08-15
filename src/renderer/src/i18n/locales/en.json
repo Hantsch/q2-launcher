@@ -360,7 +360,9 @@
       "sourceLabel": "Start from",
       "sourceEmpty": "Empty profile",
       "sourceTemplate": "Standard template",
-      "submit": "Create profile"
+      "sourceImport": "Import from installation",
+      "submit": "Create profile",
+      "continue": "Continue"
     },
     "renameDialog": {
       "title": "Rename profile",
@@ -381,6 +383,7 @@
     },
     "error": {
       "installationNotFound": "That installation is no longer in your library.",
+      "gameDirNotFound": "That game directory could not be found on this installation.",
       "profileNotFound": "That config profile no longer exists.",
       "notAssigned": "This profile is not assigned to that installation.",
       "writeFailed": "Could not write this profile's files to disk."
@@ -697,6 +700,35 @@
     "previewDialog": {
       "title": "Preview – {{installation}}",
       "empty": "Nothing would be written."
+    },
+    "importDialog": {
+      "title": "Import from installation",
+      "installationLabel": "Installation",
+      "installationPlaceholder": "Choose an installation…",
+      "noInstallations": {
+        "title": "No installations registered",
+        "body": "Register an installation first, then come back here to import its config."
+      },
+      "gameDirLabel": "Game folder",
+      "noConfigFiles": {
+        "title": "Nothing to import",
+        "body": "This installation has no config.cfg or autoexec.cfg to import from."
+      },
+      "cvarCount": "Cvars",
+      "bindCount": "Key binds",
+      "preservedCount_one": "{{count}} preserved line",
+      "preservedCount_other": "{{count}} preserved lines",
+      "nameLabel": "Name",
+      "namePlaceholder": "My profile",
+      "namePrefill": "{{name}} (imported)",
+      "submit": "Create profile"
+    },
+    "preservedLines": {
+      "label": "Preserved lines",
+      "empty": {
+        "title": "No preserved lines",
+        "body": "Everything in this profile's source was understood."
+      }
     }
   },
 

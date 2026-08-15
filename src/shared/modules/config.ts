@@ -19,6 +19,9 @@ export const CONFIG_HANDLERS = {
   preview: 'preview',
   writeState: 'writeState',
   setPlayedMods: 'setPlayedMods',
+  importScan: 'import.scan',
+  importPreview: 'import.preview',
+  importCommit: 'import.commit',
 } as const
 
 /**
@@ -34,6 +37,20 @@ export interface ProfileAssignment {
 }
 
 /**
+ * A line of a hand-written config the importer (story 005) did not recognize,
+ * kept verbatim rather than dropped. Mirrors `import-reader.ts`'s
+ * `ImportedUnrecognizedLine` exactly - the reader's own type stays internal to
+ * `main`, this is the shape that travels to the renderer.
+ */
+export interface UnrecognizedConfigLine {
+  /** On-disk file name the line came from, e.g. `config.cfg`. */
+  file: string
+  /** 1-based line number within that file. */
+  line: number
+  text: string
+}
+
+/**
  * A config profile: a named set of cvars and key binds, owned centrally rather
  * than by one installation, and identified by a generated `id` so renaming it
  * never breaks a reference (same rule as `Installation`).
@@ -44,6 +61,13 @@ export interface ProfileAssignment {
  * record.
  *
  * `assignments` lists the installations this profile is linked to.
+ *
+ * `unrecognized` (story 005) lists lines an import could not classify, kept so
+ * AC 4 ("shown to me, not silently dropped") survives past the import dialog.
+ * Optional rather than a required `[]` on every profile: it is only ever
+ * populated by an import, so most profiles (empty/template/copy-created, and
+ * every profile that predates story 005) simply omit it instead of every
+ * construction site in the codebase having to spell out an empty array.
  */
 export interface ConfigProfile {
   id: string
@@ -53,6 +77,7 @@ export interface ConfigProfile {
   cvars: Record<string, string>
   binds: Record<string, string>
   assignments: ProfileAssignment[]
+  unrecognized?: UnrecognizedConfigLine[]
 }
 
 /** Where a new profile's content comes from. */
@@ -168,3 +193,43 @@ export interface SetPlayedModsInput {
  * installationId; an installation absent from this map has nothing pending.
  */
 export type WriteState = Record<string, string>
+
+// ---------------------------------------------------------------------------
+// Import (story 005): read an existing hand-written config into a new profile.
+// Addressed by `{ installationId, gameDir }`, never by a path (decision 2) -
+// main resolves the real path from the registered installation itself.
+// ---------------------------------------------------------------------------
+
+export interface ImportScanInput {
+  installationId: string
+}
+
+/** One gamedir that has at least one importable file (decision 12). */
+export interface ImportGamedirCandidate {
+  gameDir: string
+  hasConfigCfg: boolean
+  hasAutoexecCfg: boolean
+}
+
+export interface ImportScanResult {
+  /** `baseq2` first when present, so "pick candidates[0]" is a correct default. */
+  candidates: ImportGamedirCandidate[]
+}
+
+export interface ImportPreviewInput {
+  installationId: string
+  gameDir: string
+}
+
+export interface ImportPreviewResult {
+  cvarCount: number
+  bindCount: number
+  preserved: UnrecognizedConfigLine[]
+  filesRead: string[]
+}
+
+export interface ImportCommitInput {
+  installationId: string
+  gameDir: string
+  name: string
+}

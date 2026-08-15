@@ -9,6 +9,7 @@ import {
   type SetDefaultProfileInput,
   type SetProfileCvarsInput,
   type UnassignProfileInput,
+  type UnrecognizedConfigLine,
 } from '@shared/modules/config'
 import type { StateStore } from '../../services/state'
 import {
@@ -59,11 +60,44 @@ export class ProfilesStore {
     return this.commit([...this.state.configProfiles(), profile])
   }
 
+  /**
+   * Creates a profile seeded from an import (story 005) instead of from
+   * `STANDARD_TEMPLATE` or empty maps. Same shape and same `commit` path as
+   * `create()` - fresh id, both timestamps, no assignments - which is what
+   * makes the result an ordinary profile by construction (decision 11):
+   * nothing downstream needs to know it came from an import rather than the
+   * create-profile dialog.
+   */
+  createFromImport(input: {
+    name: string
+    cvars: Record<string, string>
+    binds: Record<string, string>
+    unrecognized: UnrecognizedConfigLine[]
+  }): ConfigProfile[] {
+    const now = new Date().toISOString()
+    const profile: ConfigProfile = {
+      id: randomUUID(),
+      name: input.name,
+      createdAt: now,
+      updatedAt: now,
+      cvars: { ...input.cvars },
+      binds: { ...input.binds },
+      assignments: [],
+      unrecognized: input.unrecognized,
+    }
+
+    return this.commit([...this.state.configProfiles(), profile])
+  }
+
   rename(input: RenameConfigProfileInput): ConfigProfile[] {
     const current = this.find(input.id)
     if (!current) throw new Error(`config profile not found: ${input.id}`)
 
-    const next: ConfigProfile = { ...current, name: input.name, updatedAt: new Date().toISOString() }
+    const next: ConfigProfile = {
+      ...current,
+      name: input.name,
+      updatedAt: new Date().toISOString(),
+    }
     return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
   }
 

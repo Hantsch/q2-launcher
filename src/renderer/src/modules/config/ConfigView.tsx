@@ -8,7 +8,9 @@ import { Button, IconButton } from '../../components/ui/Button'
 import { EmptyState, KeyValue, Panel, SectionLabel } from '../../components/ui/primitives'
 import { CreateProfileDialog } from './CreateProfileDialog'
 import { DeleteProfileDialog } from './DeleteProfileDialog'
+import { ImportProfileDialog } from './ImportProfileDialog'
 import { InstallationProfilesPanel } from './InstallationProfilesPanel'
+import { PreservedLinesPanel } from './PreservedLinesPanel'
 import { PreviewProfileDialog } from './PreviewProfileDialog'
 import { ProfileAssignmentsPanel } from './ProfileAssignmentsPanel'
 import { RenameProfileDialog } from './RenameProfileDialog'
@@ -26,6 +28,7 @@ export function ConfigView() {
   const [profiles, setProfiles] = useState<ConfigProfile[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [showRename, setShowRename] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [previewInstallationId, setPreviewInstallationId] = useState<string | null>(null)
@@ -56,6 +59,11 @@ export function ConfigView() {
    * `create` returns the full updated list rather than just the new profile, so
    * the newly-created one is whichever id in the response was not already in
    * `profiles` - reliable regardless of naming, since ids are always unique.
+   *
+   * Shared verbatim by `ImportProfileDialog` (`import.commit` returns the same
+   * "full updated list" shape, per its contract) - it closes both dialogs
+   * rather than knowing which one is currently open, since only one of them
+   * can be mounted at a time anyway.
    */
   const handleCreated = (updated: ConfigProfile[]): void => {
     const previousIds = new Set(profiles.map((profile) => profile.id))
@@ -63,6 +71,7 @@ export function ConfigView() {
     setProfiles(updated)
     setSelectedId(created?.id ?? updated[updated.length - 1]?.id ?? null)
     setShowCreate(false)
+    setShowImport(false)
   }
 
   /**
@@ -172,6 +181,7 @@ export function ConfigView() {
                   <ProfileAssignmentsPanel profile={selected} onChanged={setProfiles} />
                   <SettingsTab profile={selected} onChanged={setProfiles} />
                   <WriteTargets profile={selected} onPreview={setPreviewInstallationId} />
+                  <PreservedLinesPanel profile={selected} />
                 </>
               )}
             </Panel>
@@ -184,7 +194,18 @@ export function ConfigView() {
       </div>
 
       {showCreate && (
-        <CreateProfileDialog onClose={() => setShowCreate(false)} onCreated={handleCreated} />
+        <CreateProfileDialog
+          onClose={() => setShowCreate(false)}
+          onCreated={handleCreated}
+          onWantImport={() => {
+            setShowCreate(false)
+            setShowImport(true)
+          }}
+        />
+      )}
+
+      {showImport && (
+        <ImportProfileDialog onClose={() => setShowImport(false)} onCreated={handleCreated} />
       )}
 
       {showRename && selected && (

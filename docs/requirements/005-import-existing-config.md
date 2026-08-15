@@ -1,7 +1,7 @@
 ---
 id: 005
 title: Import an existing config into a new profile
-status: ready
+status: in-progress
 created: 2026-08-14
 ---
 
@@ -18,12 +18,12 @@ a normal profile usable with stories 002–004.
 
 ## Acceptance Criteria
 
-- [ ] I can pick an installation to import an existing config from.
-- [ ] `exec` references inside the imported file(s) are resolved in engine load order.
-- [ ] Recognized cvars and key bindings populate the new profile's settings/keybinding state.
-- [ ] Anything the importer doesn't understand is preserved unchanged and shown to me, not
+- [x] I can pick an installation to import an existing config from.
+- [x] `exec` references inside the imported file(s) are resolved in engine load order.
+- [x] Recognized cvars and key bindings populate the new profile's settings/keybinding state.
+- [x] Anything the importer doesn't understand is preserved unchanged and shown to me, not
       silently dropped.
-- [ ] The result is an ordinary profile: I can rename it, assign it to installations, edit it
+- [x] The result is an ordinary profile: I can rename it, assign it to installations, edit it
       further and save it like any profile created from scratch.
 
 ## Open Questions
@@ -186,3 +186,100 @@ containing one more `bind`, and an `autoexec.cfg` overriding one of the cvars.
    unchanged until the story-004 save in step 6).
 
 ## Done
+
+### Summary
+
+Built the full read-only importer: a pure Quake II config tokenizer (D1), a filesystem
+reader that resolves `exec` inline against the gamedir→`baseq2` search path with load-order
+merging and a depth/cycle/total-work guard (D2), the three `import.*` handlers plus contract
+and profile-creation wiring (D3), the create-profile-flow UI (D4), and a permanent
+"Preserved lines" section on the profile detail view (D5). All five deliverables built,
+tested and typechecked clean; a hard-tier review passed with one medium finding (unbounded
+`exec` fan-out), which was fixed directly afterward.
+
+### Deviations from the story text (implementation-detail decisions, verified against Plan + AC)
+
+1. **New IPC payload schemas went into `src/main/modules/config/schemas.ts`**, not
+   `src/main/lib/schemas.ts` as Decision 15 literally says. Every other config-module payload
+   schema already lives there (established in 001–004) and `index.ts` already imports from
+   there — the story's text was stale, not the intent. `src/main/lib/schemas.ts` was still
+   touched, but only for its actual job: the *persisted* `configProfileSchema` gained the new
+   `unrecognized` field with the repo's forgiving `.catch(() => [])` convention.
+2. **`src/renderer/src/views/ConfigView.tsx` does not exist.** The real file, already present
+   since story 001, is `src/renderer/src/modules/config/ConfigView.tsx` — that is the one D4/D5
+   extended.
+3. **`ConfigProfile.unrecognized` is optional**, not required, so the many pre-existing
+   `ConfigProfile` test fixtures across 001–004 didn't all need touching. Every read site
+   (`PreservedLinesPanel.tsx`, the persisted schema) treats it as possibly absent.
+4. **`src/main/modules/config/profiles.ts` was extended** with `ProfilesStore.createFromImport()`
+   even though D3's own file list omitted it — Decision 11 ("created through 001's normal
+   profile-store create API") has no existing store method that accepts caller-supplied
+   cvars/binds, so one was added, mirroring `create()`'s id/timestamp/commit pattern exactly.
+
+### Review
+
+A `story-review-hard` agent reviewed the full diff independently against the story's
+Acceptance Criteria, Decisions and CLAUDE.md. **Verdict: PASS**, all 5 acceptance criteria
+individually PASS with file:line evidence; no weakened/deleted tests, no scope creep, no
+path-trust violations, `import.commit` genuinely re-reads from disk (Decision 3), nothing on
+the import path writes to disk (Decision 14), the renderer's `Outcome` flattening is correct.
+
+One **medium finding (F1)** was raised and fixed post-review: Decision 6 asks for "depth 16
+plus a visited-file set", but D2 deliberately replaced the visited-file set with an
+active-*chain* set (so a file legitimately `exec`'d twice — e.g. by both `config.cfg` and
+`autoexec.cfg` — isn't wrongly treated as a cycle and dropped). That's the right call for
+correctness, but it left the depth guard as the only bound on total work, and depth alone
+does not bound *fan-out*: a config that `exec`s two distinct, non-cyclic files at every level
+of a 16-deep chain is legal under the chain guard yet opens up to 2^16 files. Fixed by adding
+`MAX_EXEC_EXPANSIONS = 512`, a flat ceiling on total files opened across the whole import,
+independent of depth — a budget-exhausted `exec` degrades to a preserved/warned line exactly
+like a missing or cyclic one, never an aborted import or a hang. New test:
+`import-reader.test.ts` — "refuses further exec once 512 files have been opened...".
+
+Six low-severity/nit findings (F2–F9) were left unfixed, all in already-documented territory:
+- **F2–F6**: fidelity edge cases confined to a single physical line that mixes an `exec` with
+  another command via `;` (`exec x.cfg; set a 1` applying in the "wrong" order relative to a
+  hand-reconstructed line-order tie-break), a refused `exec`'s preserved text being a
+  normalised reconstruction rather than the original bytes, and a rare quote-parity edge case
+  in the tokenizer. All are pre-existing, explicitly documented limitations in
+  `import-reader.ts`'s own header comment (D2's agent flagged the line-order one itself as "a
+  plan gap rather than patching D1"); real Quake II configs (hand-written or engine-written)
+  are one-command-per-line, so none of these affect the story's actual use case. Revisiting
+  would mean reworking D1's parser to emit per-line ordinals — out of scope for this sprint.
+- **F7**: incidental reformatting of a few pre-existing, untouched-by-this-story lines by an
+  agent's editor/prettier pass — reverted directly (`client.ts`'s two unrelated functions) so
+  the diff stays scoped to the story.
+- **F8**: a prettier line-width nit in the new `ImportProfileDialog.tsx` — fixed directly
+  (`npx prettier --write`).
+- **F9**: an added i18n key (`config.preservedLines.empty.title`) that's defined but not
+  rendered by `PreservedLinesPanel.tsx` (only `.body` is used) — harmless, left as-is.
+
+### Commit message
+
+```
+005: import an existing config into a new profile
+```
+
+### Verification
+
+- `npm run build` — clean (main/preload/renderer all built).
+- `npm test` — 143/143 passing (11 files), including new suites for the parser, the reader
+  (22 tests, covering load order, exec search-path/inline-position, last-wins merge,
+  `unbind`/`unbindall` folding, cycle/depth/budget guards, latin-1 byte-for-byte round-trip)
+  and the three IPC handlers (11 tests, including the never-touch-the-filesystem-on-a-bad-id
+  case).
+- `npx tsc --noEmit` (both projects) — clean.
+- Code review — PASS (see above); one medium finding fixed, rest documented and accepted.
+- **Live UI smoke (P2, `live-smoke-required: true`): NOT completed.** `npm run dev` builds
+  main/preload/renderer successfully, but Electron itself fails to launch in this sandbox
+  (`electron.exe: 3: Syntax error: Unterminated quoted string`) — the same WSL/no-driver
+  environment limitation noted for prior stories on this branch, not something introduced by
+  this story. The importer is **built and code-review-verified, but manual/live acceptance of
+  the actual UI flow (Test Plan below) is still pending** and needs to be run by a human (or an
+  agent with a working Electron/X environment) before this story can be marked `done`.
+
+Status intentionally left `in-progress` per the profile's P2 rule (a green build/test is not
+enough for a user-facing story without a real pass through the running app). All 5 acceptance
+criteria are ticked above based on the code-level verification (parser/reader/handler tests +
+independent hard-tier review); the manual Test Plan below still needs to be walked once by a
+human to confirm the actual UI experience end-to-end.

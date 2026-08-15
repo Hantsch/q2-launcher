@@ -3,6 +3,11 @@ import {
   type AssignProfileInput,
   type ConfigProfile,
   type CreateConfigProfileInput,
+  type ImportCommitInput,
+  type ImportPreviewInput,
+  type ImportPreviewResult,
+  type ImportScanInput,
+  type ImportScanResult,
   type PreviewProfileInput,
   type PreviewProfileResult,
   type RemoveConfigProfileInput,
@@ -108,4 +113,47 @@ export function getWriteState(): Promise<Outcome<WriteState>> {
 /** Sets which mods an installation is considered to have been played with. */
 export function setPlayedMods(input: SetPlayedModsInput): Promise<Outcome<string[]>> {
   return callModule<string[]>('config', CONFIG_HANDLERS.setPlayedMods, input)
+}
+
+/**
+ * Import (story 005): `importScan`/`importPreview`/`importCommit` each return,
+ * as the transport-level `Outcome`'s own value, an inner `Outcome<T>` built by
+ * the main process handler - same flattening as `assign`/`unassign`/
+ * `setDefault` above, needed so callers only ever see a flat `Outcome<T>`.
+ */
+
+/** Gamedirs of an installation that have an importable `config.cfg`/`autoexec.cfg`. */
+export async function scanImportCandidates(
+  input: ImportScanInput,
+): Promise<Outcome<ImportScanResult>> {
+  const result = await callModule<Outcome<ImportScanResult>>(
+    'config',
+    CONFIG_HANDLERS.importScan,
+    input,
+  )
+  return result.ok ? result.value : result
+}
+
+/** Previews what an import of one gamedir would produce, without writing anything. */
+export async function previewImportCandidates(
+  input: ImportPreviewInput,
+): Promise<Outcome<ImportPreviewResult>> {
+  const result = await callModule<Outcome<ImportPreviewResult>>(
+    'config',
+    CONFIG_HANDLERS.importPreview,
+    input,
+  )
+  return result.ok ? result.value : result
+}
+
+/** Re-parses the chosen gamedir and creates a new profile from it, returning the full, updated profile list. */
+export async function commitImportProfile(
+  input: ImportCommitInput,
+): Promise<Outcome<ConfigProfile[]>> {
+  const result = await callModule<Outcome<ConfigProfile[]>>(
+    'config',
+    CONFIG_HANDLERS.importCommit,
+    input,
+  )
+  return result.ok ? result.value : result
 }

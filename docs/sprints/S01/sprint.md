@@ -21,7 +21,7 @@ scratch.
 - [ ] 002 — Profile-installation assignment and default profile (built, reviewed, live acceptance pending)
 - [ ] 003 — Settings/cvar editor with per-engine defaults and clamps (built, reviewed, live acceptance pending)
 - [ ] 004 — Write profile to assigned installations on save (built, reviewed, live acceptance pending)
-- [ ] 005 — Import an existing config into a new profile
+- [ ] 005 — Import an existing config into a new profile (built, reviewed, live acceptance pending)
 
 ## Notes
 

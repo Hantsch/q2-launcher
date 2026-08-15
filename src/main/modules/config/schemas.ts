@@ -58,3 +58,24 @@ export const setPlayedModsInputSchema = z.object({
   installationId: z.string().min(1),
   playedMods: z.array(z.string().min(1)).max(64),
 })
+
+/**
+ * Story 005 import payloads. Deviation from the story text: it says these
+ * belong in `main/lib/schemas.ts`, but every other config-module IPC payload
+ * schema already lives here instead - that repo convention wins over the
+ * stale story text.
+ */
+export const importScanInputSchema = z.object({
+  installationId: z.string().min(1),
+})
+
+export const importPreviewInputSchema = z.object({
+  installationId: z.string().min(1),
+  gameDir: z.string().min(1).max(64),
+})
+
+export const importCommitInputSchema = z.object({
+  installationId: z.string().min(1),
+  gameDir: z.string().min(1).max(64),
+  name: z.string().min(1).max(120),
+})

@@ -2,6 +2,8 @@ import { join } from 'node:path'
 import {
   CONFIG_HANDLERS,
   type ConfigProfile,
+  type ImportPreviewResult,
+  type ImportScanResult,
   type PreviewFile,
   type PreviewProfileResult,
   type WriteState,
@@ -12,11 +14,15 @@ import { reconcileAssignments } from './assignments'
 import { fail, ok, type Outcome } from '@shared/types'
 import type { Logger } from '../../lib/logger'
 import type { MainModule } from '../types'
+import { commitImport, previewImport, scanImportCandidates } from './import'
 import { ProfilesStore } from './profiles'
 import { profileFileName, renderLoaderFile, renderProfileFile } from './render'
 import {
   assignProfileInputSchema,
   createConfigProfileInputSchema,
+  importCommitInputSchema,
+  importPreviewInputSchema,
+  importScanInputSchema,
   previewProfileInputSchema,
   removeConfigProfileInputSchema,
   renameConfigProfileInputSchema,
@@ -97,8 +103,7 @@ export async function writeProfileToAssignedInstallations(
       // when the two differ, the default's own file is written first (or
       // confirmed unchanged) to guarantee the loader's exec target exists,
       // before writing the profile actually being saved.
-      const targets =
-        defaultProfile.id === profile.id ? [profile] : [defaultProfile, profile]
+      const targets = defaultProfile.id === profile.id ? [profile] : [defaultProfile, profile]
 
       let anyChanged = false
       for (const target of targets) {
@@ -315,6 +320,34 @@ export const configModule: MainModule = {
         [installation.id]: validated,
       })
       return ok(validated)
+    })
+
+    // Story 005: read-only import of a hand-written config into a new
+    // profile. `import.ts` holds the fs-touching logic so it stays testable
+    // without booting this module; this handler only validates the payload
+    // shape and (for commit) reconciles live assignments the same way every
+    // other profile-list-returning handler does.
+    handle(CONFIG_HANDLERS.importScan, (payload): Promise<Outcome<ImportScanResult>> => {
+      const parsed = importScanInputSchema.safeParse(payload)
+      if (!parsed.success) return Promise.resolve(fail('ipc.error.invalidPayload'))
+      return scanImportCandidates(app.installations, parsed.data)
+    })
+
+    handle(CONFIG_HANDLERS.importPreview, (payload): Promise<Outcome<ImportPreviewResult>> => {
+      const parsed = importPreviewInputSchema.safeParse(payload)
+      if (!parsed.success) return Promise.resolve(fail('ipc.error.invalidPayload'))
+      return previewImport(app.installations, log, parsed.data)
+    })
+
+    handle(CONFIG_HANDLERS.importCommit, async (payload): Promise<Outcome<ConfigProfile[]>> => {
+      const parsed = importCommitInputSchema.safeParse(payload)
+      if (!parsed.success) return fail('ipc.error.invalidPayload')
+
+      const result = await commitImport(app.installations, log, parsed.data, (seed) =>
+        profiles.createFromImport(seed),
+      )
+      if (!result.ok) return result
+      return ok(withLiveAssignments(result.value))
     })
 
     log.debug('config module ready')

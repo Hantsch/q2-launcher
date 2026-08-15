@@ -111,11 +111,20 @@ export const configProfileSchema = z.object({
   assignments: z
     .array(z.object({ installationId: z.string().min(1), isDefault: z.boolean() }))
     .catch(() => []),
+  // Story 005: preserved lines from an import. Optional on the type, but a
+  // persisted row from before story 005 simply never had the key, so this
+  // still degrades to an empty array rather than leaving it undefined.
+  unrecognized: z
+    .array(z.object({ file: z.string(), line: z.number(), text: z.string() }))
+    .catch(() => []),
 })
 
 /** installationId -> mod folder names the user has marked "played" for it. */
 export const configPlayedModsSchema = z
-  .record(z.string(), z.array(z.string()).catch(() => []))
+  .record(
+    z.string(),
+    z.array(z.string()).catch(() => []),
+  )
   .catch(() => ({}))
 
 /** installationId -> id of the profile whose last write attempt found it running. */
