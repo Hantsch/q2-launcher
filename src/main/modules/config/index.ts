@@ -88,16 +88,33 @@ export async function writeProfileToAssignedInstallations(
     }
 
     try {
-      const result = await writeInstallationFiles({
-        installation,
-        profileFileName: profileFileName(profile.id),
-        profileFileContent: renderProfileFile(profile),
-        loaderFileContent: renderLoaderFile(defaultProfile),
-        playedMods: playedModsFor(installation.id),
-      })
+      // The loader always execs the installation's *default* profile's own
+      // file (Decision 3), which is not necessarily `profile` - the one being
+      // saved here can be a non-default profile also assigned to this
+      // installation. If that default's own file was never written yet (e.g.
+      // it was assigned but never itself saved), the loader would point at a
+      // file that does not exist and the engine silently execs nothing. So
+      // when the two differ, the default's own file is written first (or
+      // confirmed unchanged) to guarantee the loader's exec target exists,
+      // before writing the profile actually being saved.
+      const targets =
+        defaultProfile.id === profile.id ? [profile] : [defaultProfile, profile]
+
+      let anyChanged = false
+      for (const target of targets) {
+        const result = await writeInstallationFiles({
+          installation,
+          profileFileName: profileFileName(target.id),
+          profileFileContent: renderProfileFile(target),
+          loaderFileContent: renderLoaderFile(defaultProfile),
+          playedMods: playedModsFor(installation.id),
+        })
+        anyChanged = anyChanged || result.changed
+      }
+
       results.push({
         installationId: installation.id,
-        status: result.changed ? 'written' : 'unchanged',
+        status: anyChanged ? 'written' : 'unchanged',
       })
       delete pendingWrites[installation.id]
     } catch (error) {
@@ -131,10 +148,21 @@ export function previewProfileFiles(
   const defaultProfile = defaultProfileFor(allProfiles, installation.id) ?? profile
   const baseDir = join(installation.rootPath, BASE_GAME_DIR)
 
-  return [
+  const files: PreviewFile[] = []
+  // Mirrors the `defaultProfile.id !== profile.id` branch in
+  // `writeProfileToAssignedInstallations` above, so a preview never shows
+  // fewer files than an actual write would put on disk.
+  if (defaultProfile.id !== profile.id) {
+    files.push({
+      path: join(baseDir, profileFileName(defaultProfile.id)),
+      content: renderProfileFile(defaultProfile),
+    })
+  }
+  files.push(
     { path: join(baseDir, profileFileName(profile.id)), content: renderProfileFile(profile) },
     { path: join(baseDir, LOADER_FILE_NAME), content: renderLoaderFile(defaultProfile) },
-  ]
+  )
+  return files
 }
 
 /**

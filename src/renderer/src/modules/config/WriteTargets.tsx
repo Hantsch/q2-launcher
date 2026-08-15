@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ConfigProfile, WriteTargetResult, WriteTargetStatus } from '@shared/modules/config'
 import { Button } from '../../components/ui/Button'
@@ -24,14 +24,15 @@ const STATUS_TONE: Record<RowStatus, BadgeTone> = {
  * `pending`/`error` rows, and a played-mods checkbox list fed by that
  * installation's `gameDirs`.
  *
- * A write is triggered automatically whenever `profile.updatedAt` changes -
- * this module has no separate "Save" button anywhere (`SettingsTab` already
- * autosaves cvar edits), so "saving writes the profile to disk" is
- * implemented here as reacting to the already-debounced `updatedAt` bump,
- * not as a second save path.
+ * A write is triggered automatically whenever `profile.updatedAt` changes for
+ * a profile already mounted here (but deliberately NOT on first mount/select
+ * of a profile - see the `lastSeenUpdatedAt` ref below) - this module has no
+ * separate "Save" button anywhere (`SettingsTab` already autosaves cvar
+ * edits), so "saving writes the profile to disk" is implemented here as
+ * reacting to the already-debounced `updatedAt` bump, not as a second save
+ * path.
  *
- * `onPreview` is a seam for a later deliverable (a preview modal): pass it
- * once that exists and a Preview button appears per row. Left unwired here.
+ * `onPreview` opens the preview modal for a row.
  */
 export function WriteTargets({
   profile,
@@ -101,15 +102,31 @@ export function WriteTargets({
     }
   }, [profile.id])
 
+  /**
+   * Which `updatedAt` this component has already reacted to, per profile id -
+   * so that merely *selecting* an existing profile (mounting/switching to it,
+   * which changes `profile.id` without the user editing anything) is never
+   * mistaken for a save. `useRef` rather than state: this bookkeeping must
+   * never itself cause a render.
+   */
+  const lastSeenUpdatedAt = useRef<Map<string, string>>(new Map())
+
   // Saving a profile writes its content to disk: trigger on every real save
-  // (every `updatedAt` bump), including the first one a freshly selected
-  // profile already carries. No debounce needed - `SettingsTab` already
-  // debounced the edit before `updatedAt` changed.
+  // (every `updatedAt` bump) of the profile currently shown, and only that -
+  // Decision 11 is explicit that nothing writes into a game folder the user
+  // did not ask for. The first time a given profile.id is seen in this
+  // component's lifetime is therefore deliberately NOT a trigger, even though
+  // it also matches "profile.id changed": it is a selection, not a save. No
+  // debounce needed beyond that - `SettingsTab` already debounced the edit
+  // before `updatedAt` changed.
   useEffect(() => {
+    const previouslySeen = lastSeenUpdatedAt.current.get(profile.id)
+    lastSeenUpdatedAt.current.set(profile.id, profile.updatedAt)
+    if (previouslySeen === undefined || previouslySeen === profile.updatedAt) return
     void performWrite()
     // Deliberately keyed on id/updatedAt only, not on `performWrite` or
-    // `profile.assignments` - only a real save (an `updatedAt` bump) should
-    // trigger a fresh write.
+    // `profile.assignments` - only a real save (an `updatedAt` bump on a
+    // profile already mounted here) should trigger a fresh write.
   }, [profile.id, profile.updatedAt])
 
   const togglePlayedMod = async (

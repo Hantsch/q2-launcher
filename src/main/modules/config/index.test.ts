@@ -146,6 +146,69 @@ describe('writeProfileToAssignedInstallations', () => {
     expect(content).toContain('set sensitivity "3"')
   })
 
+  it("also writes the installation's default profile file when saving a different, non-default profile, so the loader's exec target always exists (F1)", async () => {
+    const inst = installation()
+    const defaultProfile = profile({
+      id: 'p-default',
+      cvars: { crosshair: '1' },
+      assignments: [{ installationId: 'i1', isDefault: true }],
+    })
+    const other = profile({
+      id: 'p1',
+      cvars: { sensitivity: '5' },
+      assignments: [{ installationId: 'i1', isDefault: false }],
+    })
+
+    const { results } = await writeProfileToAssignedInstallations({
+      profile: other,
+      allProfiles: [defaultProfile, other],
+      installations: { find: () => inst },
+      launchState: idleState(),
+      playedModsFor: () => [],
+      pendingWrites: {},
+      log,
+    })
+
+    expect(results).toEqual([{ installationId: 'i1', status: 'written' }])
+    // The saved profile's own file exists...
+    const ownFile = await readFile(join(dir, 'baseq2', 'q2l-profile-p1.cfg'), 'latin1')
+    expect(ownFile).toContain('set sensitivity "5"')
+    // ...and so does the default's own file, which is what the loader execs.
+    const defaultFile = await readFile(join(dir, 'baseq2', 'q2l-profile-p-default.cfg'), 'latin1')
+    expect(defaultFile).toContain('set crosshair "1"')
+    const loader = await readFile(join(dir, 'baseq2', 'autoexec.cfg'), 'latin1')
+    expect(loader).toContain('exec q2l-profile-p-default.cfg')
+  })
+
+  it('reports unchanged, not written, on a repeat save of a non-default profile once both files exist (F1 aggregation)', async () => {
+    const inst = installation()
+    const defaultProfile = profile({
+      id: 'p-default',
+      cvars: { crosshair: '1' },
+      assignments: [{ installationId: 'i1', isDefault: true }],
+    })
+    const other = profile({
+      id: 'p1',
+      cvars: { sensitivity: '5' },
+      assignments: [{ installationId: 'i1', isDefault: false }],
+    })
+    const deps = {
+      profile: other,
+      allProfiles: [defaultProfile, other],
+      installations: { find: () => inst },
+      launchState: idleState(),
+      playedModsFor: () => [],
+      pendingWrites: {},
+      log,
+    }
+
+    const first = await writeProfileToAssignedInstallations(deps)
+    expect(first.results).toEqual([{ installationId: 'i1', status: 'written' }])
+
+    const second = await writeProfileToAssignedInstallations({ ...deps, pendingWrites: {} })
+    expect(second.results).toEqual([{ installationId: 'i1', status: 'unchanged' }])
+  })
+
   it('skips (and does not error on) an assignment whose installation no longer exists', async () => {
     const p = profile({ assignments: [{ installationId: 'ghost', isDefault: true }] })
 
@@ -197,10 +260,29 @@ describe('previewProfileFiles', () => {
     const p = profile({ id: 'p1', assignments: [{ installationId: 'i1', isDefault: false }] })
     const inst = installation()
 
-    const [, loader] = previewProfileFiles(p, [p, other], inst)
+    const [, , loader] = previewProfileFiles(p, [p, other], inst)
 
     expect(loader!.content).toContain('p-default')
     expect(loader!.content).not.toContain('exec q2l-profile-p1.cfg')
+  })
+
+  it("also includes the default profile's own file when previewing a different, non-default profile (F1)", () => {
+    const defaultProfile = profile({
+      id: 'p-default',
+      cvars: { crosshair: '1' },
+      assignments: [{ installationId: 'i1', isDefault: true }],
+    })
+    const p = profile({ id: 'p1', assignments: [{ installationId: 'i1', isDefault: false }] })
+    const inst = installation()
+
+    const files = previewProfileFiles(p, [defaultProfile, p], inst)
+
+    expect(files.map((f) => f.path.split(/[/\\]/).pop())).toEqual([
+      'q2l-profile-p-default.cfg',
+      'q2l-profile-p1.cfg',
+      'autoexec.cfg',
+    ])
+    expect(files[0]!.content).toContain('set crosshair "1"')
   })
 })
 

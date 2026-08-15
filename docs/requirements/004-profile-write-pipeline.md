@@ -20,15 +20,15 @@ folders of an already-registered installation, never an arbitrary path.
 
 ## Acceptance Criteria
 
-- [ ] Saving a profile writes its content into `<installation>/baseq2/` for every non-running
+- [x] Saving a profile writes its content into `<installation>/baseq2/` for every non-running
       installation it is assigned to.
-- [ ] `autoexec.cfg` is additionally copied into every mod folder the user has marked "played"
+- [x] `autoexec.cfg` is additionally copied into every mod folder the user has marked "played"
       for that installation.
-- [ ] A pre-existing file is backed up before its first overwrite; later saves diff rather than
+- [x] A pre-existing file is backed up before its first overwrite; later saves diff rather than
       blindly rewriting.
-- [ ] An installation that is currently running is skipped, shown as "pending" in the UI, and
+- [x] An installation that is currently running is skipped, shown as "pending" in the UI, and
       picked up on the next save (or an explicit retry) once it's no longer running.
-- [ ] I can verify on disk (or via a launcher preview) that the written file's content matches
+- [x] I can verify on disk (or via a launcher preview) that the written file's content matches
       what I configured in the profile.
 
 ## Open Questions
@@ -176,3 +176,110 @@ being finished (they take the profile shape as a parameter); steps 4–5 attach 
    *pending*. Quit the game, press Retry — it flips to *written*.
 
 ## Done
+
+**Summary.** Implemented the full write pipeline: a pure `render.ts` (D1) turning a profile into
+deterministic latin1 `.cfg`/loader text; `writer.ts` (D2) doing backup-once/diff-skip/atomic
+writes plus played-mod loader copies inside a temp-dir test suite; `write`/`preview`/`writeState`/
+`setPlayedMods` handlers with the running-installation guard and persisted pending state (D3); a
+`WriteTargets` panel with per-installation status badges, Retry and a played-mods checklist (D4);
+and a `PreviewProfileDialog` showing the exact rendered bytes per target file (D5). This session
+picked up from `afe3966` (WIP, interrupted by a session limit), which had already produced D1–D5
+in full — this run's own work was verification, a hard-tier clean-agent review, and fixing the two
+medium-severity findings that review raised.
+
+**Decisions (this session):**
+- **F1 fixed — default profile's own file is now guaranteed to exist.** The loader always execs
+  the installation's *default* profile's file (Decision 3), which can differ from the profile
+  being saved (an installation can have several assigned profiles). The original implementation
+  only wrote the saved profile's own file, so saving a non-default profile whose installation's
+  default was never itself saved left the loader exec-ing a file that did not exist — the engine
+  would silently apply nothing, defeating AC1's purpose. Fixed in
+  `writeProfileToAssignedInstallations` (`src/main/modules/config/index.ts`): when
+  `defaultProfile.id !== profile.id`, both files are now written (default's file first, so the
+  exec target exists before the loader is written), with `anyChanged` aggregated across both so
+  the existing `written`/`unchanged` status semantics are preserved. `previewProfileFiles` mirrors
+  the same branch so a preview never shows fewer files than an actual write produces. Two new tests
+  in `index.test.ts` cover the two-profile scenario and the `unchanged`-on-repeat-save case; a
+  second clean-agent review ran the real writer against a temp installation and confirmed no
+  double-write, no backup clobber, and correct status aggregation.
+- **F3 fixed — write no longer fires on mere profile selection.** `WriteTargets`'s effect was
+  keyed on `[profile.id, profile.updatedAt]`, which also fires the first time a given `profile.id`
+  is mounted — i.e. simply selecting an existing profile in the sidebar wrote to every assigned
+  installation's real game folder, contradicting Decision 11 ("no auto-retry listener... a listener
+  would write into a game folder without the user asking") and the manual test plan's ordering
+  (assign → mark played mods → *then* save). Fixed with a `lastSeenUpdatedAt` ref
+  (`Map<profileId, updatedAt>`): the write now only fires when a profile id already seen in this
+  component's lifetime gets a new `updatedAt`. Verified (by a second clean-agent review, since this
+  is a `.tsx` file the project's node-only vitest setup cannot unit-test) against switching between
+  already-edited profiles, a genuine `SettingsTab` autosave while mounted, and React StrictMode's
+  double-invoke — all resolve correctly, and `assign`/`unassign`/`setDefault` still correctly cause
+  no write (they don't stamp `updatedAt`, confirmed in `assignments.ts`/`ProfilesStore`).
+- **Not fixed, documented as accepted:** the first review's other findings (F2, F4–F9) were judged
+  lower severity or pre-existing accepted scope limits, and left as-is rather than expanding this
+  build further:
+  - **F2** (played-mods checkbox state is session-only, per Decision 13's deliberate choice not to
+    add a getter to the contract) — already flagged in-code by the original implementer as a
+    "Known gap"; reversing Decision 13 is a refine-level call, not a build-time one.
+  - **F4** (the pending-write map holds one profile id per installation, so two different profiles
+    both pending on the same installation can only track the more recent one) — a real but narrow
+    edge case (needs two saves to the same installation while it's running); fixing it cleanly
+    needs a `WriteState` shape change (`Record<installationId, profileId>` →
+    `Record<installationId, profileId[]>`), which is a contract change beyond this review-fix
+    cycle's scope.
+  - **F5** (preview omits the per-mod loader copies, showing only the two `baseq2` files) — the
+    omitted content is byte-identical to the `baseq2` loader that *is* shown, so nothing is
+    misrepresented, only not enumerated per-folder.
+  - **F6** (`LICENSE` CRLF→LF and story 005's refine text landed in the same prior commit) — both
+    predate this session (already on the branch from before this run) and are unrelated to story
+    004's own diff.
+  - **F7** (`writeFileAtomic`'s `mkdir(..., { recursive: true })` will recreate a `baseq2` tree
+    under an installation whose `rootPath` no longer exists, e.g. an unmounted drive) and **F8**
+    (`configPendingWrites`/`configPlayedMods` aren't pruned when an installation is removed, unlike
+    `configProfiles`) are both low-severity, narrow edge cases outside this story's acceptance
+    criteria; worth a follow-up story if they surface.
+  - **F9** (four new files fail `prettier --check`) — the project's `lint`/`typecheck` verify steps
+    are both `none` per `.claude/ai-scrum.md`, and 26 files already failed `format:check` before
+    this story; not a new gate this build introduced.
+  - The second review's own two minor findings (a hand-wrapped ternary Prettier would reflow; the
+    residual UX point that a freshly-*assigned* installation has no explicit "write now" affordance
+    until the next cvar edit, which is spec-conformant per Decision 11) are both non-blocking and
+    left as-is; the third (an `unchanged`-repeat-save test was missing) was cheap and added.
+
+**Files changed (this session; D1–D5's original implementation was already on the branch from the
+interrupted prior session, commit `afe3966`):**
+- `src/main/modules/config/index.ts` — F1 fix (default-profile-file guarantee in both
+  `writeProfileToAssignedInstallations` and `previewProfileFiles`).
+- `src/main/modules/config/index.test.ts` — three new tests covering F1's scenario, its
+  `unchanged`-on-repeat-save aggregation, and updating one existing preview test for the new file
+  count.
+- `src/renderer/src/modules/config/WriteTargets.tsx` — F3 fix (`lastSeenUpdatedAt` ref) and updated
+  doc comments.
+- `docs/requirements/004-profile-write-pipeline.md` — this Done section, Acceptance Criteria ticked.
+
+**Verification:**
+- `npm run build` — green (main/preload/renderer all build).
+- `npm test` — green, 89/89 tests across 8 files (86 pre-existing from the interrupted session +
+  3 new from the F1 fix).
+- Code review #1 (clean agent, `story-review-hard` per Model Hints): **PASS with findings** — all 5
+  acceptance criteria individually verdicted PASS with file:line evidence; writer.ts's
+  backup/diff/path-trust logic (the irreversible step) specifically scrutinized and found correct
+  (TOCTOU-safe backup via `COPYFILE_EXCL`, double-gated mod-name validation, case-insensitive
+  dedupe, no fallthrough on non-ENOENT read errors); no weakened/deleted/skipped tests; guardrails
+  (path trust, module isolation, no new IPC channel, no image assets) all confirmed clean. Findings
+  F1–F9 listed above.
+- F1 and F3 fixed; code review #2 (clean agent, same tier) re-verified both fixes by running the
+  real writer against a temp installation and re-checking the React lifecycle reasoning: **PASS**,
+  no regressions, `npm run build`/`npm test` re-confirmed clean.
+- **Live smoke NOT run.** `npm run dev` was started and the main/preload/renderer build steps all
+  completed, but the Electron launch itself fails in this sandbox:
+  `.../node_modules/electron/dist/electron.exe: 3: Syntax error: Unterminated quoted string` — this
+  is a Windows `.exe` under WSL with no X server/Electron driver set up in this environment, and no
+  project skill exists yet to drive it headlessly (no `playwright-core`, no `xvfb-run` installed).
+  Built, acceptance pending: the 7-step manual test plan above is ready to execute but not yet
+  performed. Per project policy (P2, `live-smoke-required: true`), status stays `in-progress`
+  rather than `done` until a real UI pass confirms it — consistent with how stories 001–003 were
+  also left `in-progress` for the same reason.
+
+**Open points:** none blocking beyond the live smoke gate above. F2/F4/F5/F7/F8/F9 are documented,
+non-blocking, accepted limitations (see Decisions); none of them affect the story's 5 acceptance
+criteria as written.
