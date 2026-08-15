@@ -48,11 +48,32 @@ Where the action bar's progress readout finally gets real data.
 Scope, data model and story cut now live in
 [docs/concepts/config-module.md](concepts/config-module.md) — folding the discontinued
 `q2-config-manager` in as this module, redesigned in the launcher's own design system.
-Status: `docs/sprints/S01` planned — profile CRUD, installation assignment, cvar editor, write
-pipeline, import (stories 001–005). Keyboard/overview, alt layers, advanced tab, validator,
-cleanup and the in-session profile-switch bind are the concept's remaining scope, planned for a
-follow-up sprint once S01 is built and accepted. The engine findings below stay as factual
-background for that concept.
+Status: `docs/sprints/S01` **built, acceptance pending** — profile CRUD, installation
+assignment, cvar editor, write pipeline, import (stories 001–005) are all code-complete,
+tested and code-reviewed, but none has had a live UI smoke test yet (see
+[Gaps/notes](#gapsnotes) below); the user marks the milestone "accepted" after running
+`docs/sprints/S01/testplan.md` against a real desktop environment. Keyboard/overview, alt
+layers, advanced tab, validator, cleanup and the in-session profile-switch bind are the
+concept's remaining scope, planned for a follow-up sprint once S01 is accepted. The engine
+findings below stay as factual background for that concept.
+
+#### Gaps/notes (from S01)
+
+- **No live UI acceptance performed.** This sandbox cannot launch Electron under WSL
+  (`electron.exe` is the Windows-native binary; no display server/`xvfb` fallback installed).
+  Every story's `## Test Plan (manual acceptance)` is written and consolidated in
+  `docs/sprints/S01/testplan.md`, but unrun. Run it on Windows/desktop before accepting.
+- **File layout locked in for the writer:** one file per profile
+  (`baseq2/q2l-profile-<id>.cfg`) plus a thin per-installation `autoexec.cfg` loader that
+  `exec`s the *default* assigned profile's file — keep this shape when building the
+  profile-switch bind (CFG-6) in the follow-up sprint.
+- **Import recognizes only `set*`/`bind*` this sprint**; `alias`/`+cmd`/alt-layer content is
+  preserved verbatim but not parsed — explicitly deferred to the follow-up sprint per the
+  concept.
+- **Known narrow gaps from story 004's review**, worth a follow-up story if they bite: the
+  played-mods checkbox selection doesn't persist across app restarts, and two saves to the
+  same *running* installation before the first pending write resolves can only track the more
+  recently pending profile.
 
 The findings that shape this module, from reading the r1q2 source:
 

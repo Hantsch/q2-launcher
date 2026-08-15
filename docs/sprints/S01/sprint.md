@@ -1,6 +1,6 @@
 ---
 sprint: S01
-status: in-progress
+status: done
 branch: sprint/01
 milestone: Config module — foundation (docs/concepts/config-module.md)
 ---
