@@ -1,6 +1,10 @@
 import { join } from 'node:path'
 import {
   CONFIG_HANDLERS,
+  type CleanupApplyResult,
+  type CleanupEntry,
+  type CleanupRestoreResult,
+  type CleanupScanResult,
   type ConfigProfile,
   type ImportPreviewResult,
   type ImportScanResult,
@@ -14,11 +18,15 @@ import { reconcileAssignments } from './assignments'
 import { fail, ok, type Outcome } from '@shared/types'
 import type { Logger } from '../../lib/logger'
 import type { MainModule } from '../types'
+import { removeRedundantCopies, restoreRemovedCopies, scanRedundantCopies } from './cleanup'
 import { commitImport, previewImport, scanImportCandidates } from './import'
 import { ProfilesStore } from './profiles'
 import { profileFileName, renderLoaderFile, renderProfileFile } from './render'
 import {
   assignProfileInputSchema,
+  cleanupApplyInputSchema,
+  cleanupRestoreInputSchema,
+  cleanupScanInputSchema,
   createConfigProfileInputSchema,
   importCommitInputSchema,
   importPreviewInputSchema,
@@ -213,6 +221,42 @@ export function previewProfileFiles(
  */
 export function validatePlayedMods(gameDirs: string[], playedMods: string[]): string[] {
   return playedMods.filter((mod) => gameDirs.includes(mod))
+}
+
+/**
+ * Story 010, decision 12: `apply`/`restore` refuse a currently-running
+ * installation, the same way `write` above skips-and-marks-pending - except a
+ * cleanup delete/restore has no retry queue to fall into, so this is a hard
+ * refusal rather than a `pending` status. `scan` is deliberately NOT gated by
+ * this (it is read-only and always safe) and so has no equivalent wrapper -
+ * `configModule.setup()`'s `cleanupScan` handler calls `scanRedundantCopies`
+ * directly.
+ *
+ * Pulled out of the handler closure - like `writeProfileToAssignedInstallations`
+ * above - so the running-guard itself is testable without booting
+ * `configModule.setup()`.
+ */
+export async function applyCleanupIfNotRunning(
+  installation: Installation,
+  entries: CleanupEntry[],
+  launchState: LaunchState,
+): Promise<Outcome<CleanupApplyResult>> {
+  if (isInstallationRunning(launchState, installation.id)) {
+    return fail('config.error.installationRunning')
+  }
+  return ok(await removeRedundantCopies(installation, entries))
+}
+
+/** Restore's half of the same running-guard - see `applyCleanupIfNotRunning` above. */
+export async function restoreCleanupIfNotRunning(
+  installation: Installation,
+  entries: CleanupEntry[],
+  launchState: LaunchState,
+): Promise<Outcome<CleanupRestoreResult>> {
+  if (isInstallationRunning(launchState, installation.id)) {
+    return fail('config.error.installationRunning')
+  }
+  return ok(await restoreRemovedCopies(installation, entries))
 }
 
 /**
@@ -467,6 +511,43 @@ export const configModule: MainModule = {
       if (!result.ok) return result
       return ok(withLiveAssignments(result.value))
     })
+
+    // Story 010: find and remove mod-folder `.cfg` copies that duplicate a
+    // same-named `baseq2` file. `cleanup.ts` holds the fs-touching logic
+    // (D1/D2, already tested against a real temp tree there); these handlers
+    // only validate the payload, resolve the real installation and - for
+    // `apply`/`restore` only, never for the read-only `scan` (decision 12) -
+    // refuse a currently-running installation the same way `write` does.
+    handle(CONFIG_HANDLERS.cleanupScan, async (payload): Promise<Outcome<CleanupScanResult>> => {
+      const parsed = cleanupScanInputSchema.safeParse(payload)
+      if (!parsed.success) return fail('ipc.error.invalidPayload')
+      const installation = app.installations.find(parsed.data.installationId)
+      if (!installation) return fail('config.error.installationNotFound')
+
+      const findings = await scanRedundantCopies(installation)
+      return ok({ findings })
+    })
+
+    handle(CONFIG_HANDLERS.cleanupApply, async (payload): Promise<Outcome<CleanupApplyResult>> => {
+      const parsed = cleanupApplyInputSchema.safeParse(payload)
+      if (!parsed.success) return fail('ipc.error.invalidPayload')
+      const installation = app.installations.find(parsed.data.installationId)
+      if (!installation) return fail('config.error.installationNotFound')
+
+      return applyCleanupIfNotRunning(installation, parsed.data.entries, app.launch.getState())
+    })
+
+    handle(
+      CONFIG_HANDLERS.cleanupRestore,
+      async (payload): Promise<Outcome<CleanupRestoreResult>> => {
+        const parsed = cleanupRestoreInputSchema.safeParse(payload)
+        if (!parsed.success) return fail('ipc.error.invalidPayload')
+        const installation = app.installations.find(parsed.data.installationId)
+        if (!installation) return fail('config.error.installationNotFound')
+
+        return restoreCleanupIfNotRunning(installation, parsed.data.entries, app.launch.getState())
+      },
+    )
 
     log.debug('config module ready')
   },

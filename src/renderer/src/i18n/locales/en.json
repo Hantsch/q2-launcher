@@ -438,7 +438,8 @@
       "gameDirNotFound": "That game directory could not be found on this installation.",
       "profileNotFound": "That config profile no longer exists.",
       "notAssigned": "This profile is not assigned to that installation.",
-      "writeFailed": "Could not write this profile's files to disk."
+      "writeFailed": "Could not write this profile's files to disk.",
+      "installationRunning": "This installation is currently running. Close the game first."
     },
     "cvar": {
       "name": {
@@ -866,6 +867,37 @@
     "previewDialog": {
       "title": "Preview – {{installation}}",
       "empty": "Nothing would be written."
+    },
+    "cleanup": {
+      "label": "Redundant config copies",
+      "installationLabel": "Installation",
+      "installationPlaceholder": "Choose an installation…",
+      "noInstallations": {
+        "title": "No installations registered",
+        "body": "Register an installation first, then come back here to clean up its config folders."
+      },
+      "scan": "Scan",
+      "scanning": "Scanning…",
+      "empty": {
+        "title": "Nothing to clean up",
+        "body": "No redundant mod-folder config copies were found."
+      },
+      "differs": "Differs from baseq2",
+      "removeSelected": "Remove selected",
+      "confirmDialog": {
+        "title": "Remove redundant copies",
+        "body_one": "This will back up and remove {{count}} file. It can be undone from here afterward.",
+        "body_other": "This will back up and remove {{count}} files. It can be undone from here afterward.",
+        "confirm": "Remove"
+      },
+      "result": {
+        "removed_one": "{{count}} file removed.",
+        "removed_other": "{{count}} files removed.",
+        "rejected_one": "{{count}} could not be removed.",
+        "rejected_other": "{{count}} could not be removed.",
+        "undo": "Undo removal",
+        "undone": "Restored."
+      }
     },
     "importDialog": {
       "title": "Import from installation",

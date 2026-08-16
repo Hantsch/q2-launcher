@@ -9,6 +9,7 @@ import { Badge, EmptyState, KeyValue, Panel, SectionLabel } from '../../componen
 import { useLauncher } from '../../store/useLauncher'
 import { AdvancedTab } from './AdvancedTab'
 import { AssignmentsMenu } from './AssignmentsMenu'
+import { CleanupPanel } from './CleanupPanel'
 import { CreateProfileDialog } from './CreateProfileDialog'
 import { DeleteProfileDialog } from './DeleteProfileDialog'
 import { ImportProfileDialog } from './ImportProfileDialog'
@@ -236,6 +237,10 @@ export function ConfigView() {
                 </Panel>
               </>
             )}
+
+            <Panel className="space-y-3 p-6">
+              <CleanupPanel />
+            </Panel>
           </>
         )}
 

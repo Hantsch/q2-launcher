@@ -1,6 +1,12 @@
 import {
   CONFIG_HANDLERS,
   type AssignProfileInput,
+  type CleanupApplyInput,
+  type CleanupApplyResult,
+  type CleanupRestoreInput,
+  type CleanupRestoreResult,
+  type CleanupScanInput,
+  type CleanupScanResult,
   type ConfigProfile,
   type CreateConfigProfileInput,
   type ImportCommitInput,
@@ -190,6 +196,49 @@ export async function commitImportProfile(
   const result = await callModule<Outcome<ConfigProfile[]>>(
     'config',
     CONFIG_HANDLERS.importCommit,
+    input,
+  )
+  return result.ok ? result.value : result
+}
+
+/**
+ * Cleanup (story 010): `cleanupScan`/`cleanupApply`/`cleanupRestore` each
+ * return, as the transport-level `Outcome`'s own value, an inner `Outcome<T>`
+ * built by the main process handler - same flattening as the import wrappers
+ * above.
+ */
+
+/** Mod-folder `.cfg` files on an installation that duplicate a same-named `baseq2` file. Always safe to call, even while the installation is running. */
+export async function scanCleanupFindings(
+  input: CleanupScanInput,
+): Promise<Outcome<CleanupScanResult>> {
+  const result = await callModule<Outcome<CleanupScanResult>>(
+    'config',
+    CONFIG_HANDLERS.cleanupScan,
+    input,
+  )
+  return result.ok ? result.value : result
+}
+
+/** Backs up and removes the given redundant copies. Fails with `config.error.installationRunning` while the installation is running. */
+export async function applyCleanup(
+  input: CleanupApplyInput,
+): Promise<Outcome<CleanupApplyResult>> {
+  const result = await callModule<Outcome<CleanupApplyResult>>(
+    'config',
+    CONFIG_HANDLERS.cleanupApply,
+    input,
+  )
+  return result.ok ? result.value : result
+}
+
+/** Restores the given entries from their backup. Fails with `config.error.installationRunning` while the installation is running. */
+export async function restoreCleanup(
+  input: CleanupRestoreInput,
+): Promise<Outcome<CleanupRestoreResult>> {
+  const result = await callModule<Outcome<CleanupRestoreResult>>(
+    'config',
+    CONFIG_HANDLERS.cleanupRestore,
     input,
   )
   return result.ok ? result.value : result

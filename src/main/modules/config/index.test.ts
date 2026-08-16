@@ -1,12 +1,16 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
 import type { Installation, LaunchState } from '@shared/types'
+import { pathExists } from '../../lib/fs-utils'
 import { scopedLogger } from '../../lib/logger'
+import { scanRedundantCopies } from './cleanup'
 import {
+  applyCleanupIfNotRunning,
   previewProfileFiles,
+  restoreCleanupIfNotRunning,
   validatePlayedMods,
   writeProfileToAssignedInstallations,
 } from './index'
@@ -406,5 +410,97 @@ describe('validatePlayedMods', () => {
 
   it('rejects everything when gameDirs is empty', () => {
     expect(validatePlayedMods([], ['ctf'])).toEqual([])
+  })
+})
+
+/**
+ * Story 010 D3's own acceptance line: "a test drives scan -> apply -> restore
+ * against a temp installation and a faked running launch state makes apply
+ * fail without touching disk." `scanRedundantCopies`/`removeRedundantCopies`/
+ * `restoreRemovedCopies` themselves are already covered against a real temp
+ * tree in `cleanup.test.ts` (D1/D2) - what is uniquely D3's to prove is the
+ * running-guard `applyCleanupIfNotRunning`/`restoreCleanupIfNotRunning` add on
+ * top, and that `scan` has no such guard at all (decision 12).
+ */
+describe('applyCleanupIfNotRunning / restoreCleanupIfNotRunning', () => {
+  const HAND_WRITTEN = 'bind mouse2 "+attack"\nset name "player"\n'
+
+  async function seed(relativePath: string, content: string): Promise<void> {
+    const target = join(dir, relativePath)
+    await mkdir(join(target, '..'), { recursive: true })
+    await writeFile(target, content, 'latin1')
+  }
+
+  async function seedRedundantHud(): Promise<Installation> {
+    await seed('baseq2/hud.cfg', HAND_WRITTEN)
+    await seed('ctf/hud.cfg', HAND_WRITTEN)
+    return installation({ gameDirs: ['baseq2', 'ctf'] })
+  }
+
+  it('drives scan -> apply -> restore end to end while idle', async () => {
+    const inst = await seedRedundantHud()
+
+    const findings = await scanRedundantCopies(inst)
+    expect(findings).toEqual([
+      { gameDir: 'ctf', fileName: 'hud.cfg', identical: true, size: HAND_WRITTEN.length },
+    ])
+
+    const applyResult = await applyCleanupIfNotRunning(inst, findings, idleState())
+    expect(applyResult).toEqual({
+      ok: true,
+      value: { removed: [{ gameDir: 'ctf', fileName: 'hud.cfg' }], rejected: [] },
+    })
+    expect(await pathExists(join(dir, 'ctf', 'hud.cfg'))).toBe(false)
+    expect(await readFile(join(dir, 'ctf', 'hud.cfg.q2l-backup'), 'latin1')).toBe(HAND_WRITTEN)
+
+    const restoreResult = await restoreCleanupIfNotRunning(
+      inst,
+      applyResult.ok ? applyResult.value.removed : [],
+      idleState(),
+    )
+    expect(restoreResult).toEqual({
+      ok: true,
+      value: { restored: [{ gameDir: 'ctf', fileName: 'hud.cfg' }], rejected: [] },
+    })
+    expect(await readFile(join(dir, 'ctf', 'hud.cfg'), 'latin1')).toBe(HAND_WRITTEN)
+  })
+
+  it('refuses apply on a running installation and touches no files', async () => {
+    const inst = await seedRedundantHud()
+    const findings = await scanRedundantCopies(inst)
+
+    const result = await applyCleanupIfNotRunning(inst, findings, runningState(inst.id))
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.installationRunning' } })
+    expect(await readFile(join(dir, 'ctf', 'hud.cfg'), 'latin1')).toBe(HAND_WRITTEN)
+    expect(await pathExists(join(dir, 'ctf', 'hud.cfg.q2l-backup'))).toBe(false)
+  })
+
+  it('refuses restore on a running installation and touches no files', async () => {
+    const inst = await seedRedundantHud()
+    const findings = await scanRedundantCopies(inst)
+    const applyResult = await applyCleanupIfNotRunning(inst, findings, idleState())
+    const removed = applyResult.ok ? applyResult.value.removed : []
+
+    const result = await restoreCleanupIfNotRunning(inst, removed, runningState(inst.id))
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.installationRunning' } })
+    // Still deleted from the earlier (idle) apply, not restored by this call.
+    expect(await pathExists(join(dir, 'ctf', 'hud.cfg'))).toBe(false)
+  })
+
+  it('scan is never gated by a running installation (decision 12)', async () => {
+    const inst = await seedRedundantHud()
+
+    // scanRedundantCopies takes no launchState at all - there is nothing to
+    // gate. This test's own existence is the assertion: a running-guard
+    // added to scan by mistake would need a `launchState` parameter that
+    // does not exist on this function's signature, which would fail to
+    // compile, not just fail at runtime.
+    const findings = await scanRedundantCopies(inst)
+
+    expect(findings).toEqual([
+      { gameDir: 'ctf', fileName: 'hud.cfg', identical: true, size: HAND_WRITTEN.length },
+    ])
   })
 })

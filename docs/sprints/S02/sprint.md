@@ -22,7 +22,7 @@ sprint is accepted, the config module concept is fully implemented and moves to
 - [ ] 007 — In-session profile-switch bind (built, live acceptance pending)
 - [ ] 008 — Advanced tab — categories, messages, macros, symbol picker (built, live acceptance pending)
 - [ ] 009 — Multi-engine validator (built, live acceptance pending)
-- [ ] 010 — Cleanup of redundant per-mod config copies
+- [ ] 010 — Cleanup of redundant per-mod config copies (built, live acceptance pending)
 
 ## Notes
 

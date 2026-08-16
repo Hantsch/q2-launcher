@@ -187,3 +187,33 @@ export const importCommitInputSchema = z.object({
   gameDir: z.string().min(1).max(64),
   name: z.string().min(1).max(120),
 })
+
+/**
+ * Story 010 cleanup payloads. Structural validation only, same rationale as
+ * `setProfileCvarsInputSchema` above: `cleanup.ts`'s own `entryIsTrusted` is
+ * the real path-trust boundary (gamedir-ownership, `baseq2` exclusion, the
+ * `BARE_CFG_NAME` shape), so a bad payload here is a caller bug, not a state
+ * to repair - hence `.safeParse()` + `fail('ipc.error.invalidPayload')` at the
+ * handler, not a `.parse()` throw.
+ *
+ * `gameDir` is capped the same as `importPreviewInputSchema`'s. `fileName` is
+ * capped more generously (128) than a typical cfg name needs, but still well
+ * above anything `cleanup.ts`'s `BARE_CFG_NAME` regex could ever match on a
+ * real filesystem, so the cap never rejects a name the scan itself produced.
+ */
+const cleanupEntrySchema = z.object({
+  gameDir: z.string().min(1).max(64),
+  fileName: z.string().min(1).max(128),
+})
+
+export const cleanupScanInputSchema = z.object({
+  installationId: z.string().min(1),
+})
+
+/** Capped at 256 entries - well above a real mod-folder's `.cfg` count, but bounds one payload's work. */
+export const cleanupApplyInputSchema = z.object({
+  installationId: z.string().min(1),
+  entries: z.array(cleanupEntrySchema).max(256),
+})
+
+export const cleanupRestoreInputSchema = cleanupApplyInputSchema

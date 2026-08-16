@@ -29,6 +29,9 @@ export const CONFIG_HANDLERS = {
   importScan: 'import.scan',
   importPreview: 'import.preview',
   importCommit: 'import.commit',
+  cleanupScan: 'cleanup.scan',
+  cleanupApply: 'cleanup.apply',
+  cleanupRestore: 'cleanup.restore',
 } as const
 
 /**
@@ -329,4 +332,66 @@ export interface ImportCommitInput {
   installationId: string
   gameDir: string
   name: string
+}
+
+// ---------------------------------------------------------------------------
+// Cleanup (story 010): find and remove mod-folder `.cfg` copies that duplicate
+// a same-named `baseq2` file, so a stale mod-folder override the user forgot
+// about does not silently win over the base game's config. Addressed by
+// `{ installationId, entries: [{ gameDir, fileName }] }`, never by a path
+// (decision 7) - main resolves every path from the registered installation
+// itself. Mirrors `cleanup.ts`'s own local types (main-only, D1/D2) - this is
+// the shared, renderer-facing shape.
+// ---------------------------------------------------------------------------
+
+/** One mod-folder `.cfg` file that duplicates a same-named `baseq2` file. */
+export interface CleanupFinding {
+  /** One of `installation.gameDirs` - the mod folder the redundant copy lives in. */
+  gameDir: string
+  /** File name only, as it appears on disk inside `gameDir`. */
+  fileName: string
+  /** True when the mod-folder copy is byte-identical (latin1) to the baseq2 file of the same name. */
+  identical: boolean
+  /** Byte size of the mod-folder copy, or null if it could not be stat'd. */
+  size: number | null
+}
+
+/** How a caller addresses one redundant copy: an id, never a path (decision 7). */
+export interface CleanupEntry {
+  /** One of `installation.gameDirs`, never `baseq2`, never a path. */
+  gameDir: string
+  /** Bare file name inside `gameDir`. */
+  fileName: string
+}
+
+export interface CleanupScanInput {
+  installationId: string
+}
+
+export interface CleanupScanResult {
+  findings: CleanupFinding[]
+}
+
+export interface CleanupApplyInput {
+  installationId: string
+  entries: CleanupEntry[]
+}
+
+export interface CleanupApplyResult {
+  /** Entries whose file was backed up and then deleted by this call. */
+  removed: CleanupEntry[]
+  /** Entries this call did not act on - untrusted, no longer a finding, or a repeat. */
+  rejected: CleanupEntry[]
+}
+
+export interface CleanupRestoreInput {
+  installationId: string
+  entries: CleanupEntry[]
+}
+
+export interface CleanupRestoreResult {
+  /** Entries whose backup was copied back into place by this call. */
+  restored: CleanupEntry[]
+  /** Entries this call did not act on - untrusted, no backup, or the file is already there. */
+  rejected: CleanupEntry[]
 }

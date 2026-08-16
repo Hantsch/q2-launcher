@@ -1,9 +1,11 @@
-import { constants as FS } from 'node:fs'
-import { copyFile, readFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Installation } from '@shared/types'
-import { pathExists, pathKey, writeFileAtomic } from '../../lib/fs-utils'
+import { pathKey, writeFileAtomic } from '../../lib/fs-utils'
+import { BACKUP_SUFFIX, backupOnce } from './backup'
 import { OWNERSHIP_MARKER } from './render'
+
+export { BACKUP_SUFFIX }
 
 /**
  * Puts already-rendered config text onto an installation's disk. This module
@@ -28,9 +30,6 @@ export const LOADER_FILE_NAME = 'autoexec.cfg'
 
 /** Folder holding the base game's assets and configs. */
 export const BASE_GAME_DIR = 'baseq2'
-
-/** Suffix of the one-time copy of a user's own file. */
-export const BACKUP_SUFFIX = '.q2l-backup'
 
 /**
  * Quake II configs are read and written as latin1: the engine is byte-oriented
@@ -105,8 +104,11 @@ function isBareFileName(name: string): boolean {
  * `state.json` and parsed forgivingly (`z.array(z.string()).catch([])`), so a
  * hand-edited state file could carry anything. `.` and `..` are excluded
  * explicitly: both match the token regex on their own.
+ *
+ * Exported for `cleanup.ts`, whose delete path needs the exact same second line
+ * of defence for the exact same reason - a caller, not a variant.
  */
-function isSafeGameDirName(name: string): boolean {
+export function isSafeGameDirName(name: string): boolean {
   if (name === '.' || name === '..') return false
   return GAME_DIR_TOKEN.test(name)
 }
@@ -126,23 +128,6 @@ async function readExisting(filePath: string): Promise<string | null> {
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
     throw error
-  }
-}
-
-/**
- * Copies `filePath` aside, unless a backup is already there. The existing
- * backup always wins: it holds what the user originally wrote, while the
- * current file at this point is our own output from a previous save.
- */
-async function backupOnce(filePath: string): Promise<void> {
-  const backupPath = `${filePath}${BACKUP_SUFFIX}`
-  if (await pathExists(backupPath)) return
-  try {
-    // COPYFILE_EXCL rather than a plain copy: even if something created the
-    // backup between the check above and here, the original is not clobbered.
-    await copyFile(filePath, backupPath, FS.COPYFILE_EXCL)
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
   }
 }
 
