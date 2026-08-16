@@ -355,6 +355,7 @@
       "settings": "Settings",
       "advanced": "Advanced",
       "writeTargets": "Write targets",
+      "validation": "Validation",
       "preserved": "Preserved lines"
     },
     "overview": {
@@ -793,6 +794,53 @@
       "unresolved": "This profile's assignments point at installations that are no longer registered, so no engine could be determined.",
       "noFacts": "No engine facts for {{engines}}. The launcher only carries source-cited defaults, clamps and warnings for R1Q2, Q2PRO and the original Quake II — the values below are shown without engine facts rather than with another engine's numbers.",
       "omitted": "Also assigned to {{engines}}, which the launcher has no engine facts for."
+    },
+    "validation": {
+      "structure": {
+        "aliasTooLong": "The alias name “{{name}}” is {{length}} characters long. Quake II copies an alias name into a fixed buffer (MAX_ALIAS_NAME) and rejects anything longer with “Alias name is too long”, so this alias is never created at all. Use at most {{max}} characters.",
+        "aliasSpace": "The alias name “{{name}}” contains a space (line {{line}} of {{file}}). The engine reads the name up to the first space and treats the rest as an argument, so this alias can never be called by the name it was given. Use underscores instead of spaces.",
+        "aliasDuplicate": "The alias “{{name}}” is defined a second time on line {{line}} of {{file}}. The later definition silently replaces the earlier one, so whatever used the first version now quietly does something else. Rename one of the two.",
+        "aliasCycle": "The aliases {{chain}} call each other in a loop. Quake II counts nested alias expansions and stops after {{max}} of them, so the loop eats the whole budget and everything queued behind it is dropped. Break the loop.",
+        "aliasDepth": "Running “{{name}}” expands {{depth}} aliases one inside the other. Quake II only expands {{max}} levels deep in a single pass and discards the rest, so the end of this chain never runs. Flatten it into fewer steps.",
+        "lineTooLong": "Line {{line}} of {{file}} is {{bytes}} bytes long. Quake II reads a config line into a {{limit}}-byte buffer, so this line is thrown away (or cut in half) before it can run. Split it into several shorter lines.",
+        "quoteBroken": "The value on line {{line}} of {{file}} contains a quotation mark of its own ({{quotes}} in one value instead of the opening and closing pair). Quake II has no escape character inside a quoted value – the first quotation mark after the opening one ends it – so the remainder of the line is read as stray commands. Remove the quotation marks from the value.",
+        "sizeOverDiscarded": "{{file}} is {{bytes}} bytes, more than the {{limit}} bytes this engine's command buffer holds. It refuses a config that does not fit rather than applying part of it, so not one line of this file takes effect. Move settings you do not need out of the profile.",
+        "sizeOverTruncated": "{{file}} is {{bytes}} bytes, more than the {{limit}} bytes this engine's command buffer holds. It cuts the file off at the limit and only mentions it on the console, so everything past that point silently never runs.",
+        "sizeOverCompressedDiscarded": "{{file}} still measures {{bytes}} bytes after this engine strips comments and collapses whitespace ({{rawBytes}} bytes on disk), more than the {{limit}} bytes its command buffer holds. It rejects the file as a whole, so nothing in it takes effect.",
+        "sizeOverCompressedTruncated": "{{file}} still measures {{bytes}} bytes after this engine strips comments and collapses whitespace ({{rawBytes}} bytes on disk), more than the {{limit}} bytes its command buffer holds. It cuts the file off at that point, so the rest silently never runs.",
+        "sizeWarn": "{{file}} uses {{bytes}} of the {{limit}} bytes this engine's command buffer holds ({{percent}}%). There is little room left – a few more settings and the end of the file stops being read.",
+        "sizeWarnCompressed": "{{file}} uses {{bytes}} of the {{limit}} bytes this engine's command buffer holds ({{percent}}%), measured after comments are stripped and whitespace collapsed ({{rawBytes}} bytes on disk). There is little room left – a few more settings and the file stops fitting."
+      },
+      "cvar": {
+        "absent": "{{engine}} does not know {{name}}. The line is still written into the config file, but the engine skips it silently – nothing else happens.",
+        "absentFix": "Remove the line, or leave it if this config is deliberately shared with another engine that does use {{name}}.",
+        "noteErrorFix": "Use an explicit value inside the normal range instead of {{value}}.",
+        "outOfRange": "{{name}} {{value}} is outside what {{engine}} accepts. {{engine}} expects {{name}} between {{min}} and {{max}}.",
+        "outOfRangeClamped": "{{name}} {{value}} is outside what {{engine}} accepts. {{engine}} clamps {{name}} to {{min}}-{{max}} and silently uses {{bound}} instead.",
+        "outOfRangeFix": "Set a value between {{min}} and {{max}}.",
+        "choiceRejected": "{{engine}} does not accept {{name}} {{value}}. Only {{accepted}} understands this value – {{engine}} rejects the name and keeps whatever was set before."
+      },
+      "empty": {
+        "title": "Nothing to validate against",
+        "unassigned": "This profile is not assigned to any installation, so there is no engine to check it against. Assign it to an installation and its findings appear here.",
+        "unresolved": "This profile's assignments point at installations that are no longer registered, so no engine could be determined.",
+        "noFacts": "This profile is only assigned to {{engines}}, which the launcher has no source-cited limits or cvar facts for. Assign it to an R1Q2, Q2PRO or original Quake II installation to validate it."
+      },
+      "engineEmpty": "No findings for this engine.",
+      "count": {
+        "errors_one": "{{count}} error",
+        "errors_other": "{{count}} errors",
+        "warnings_one": "{{count}} warning",
+        "warnings_other": "{{count}} warnings"
+      },
+      "allGood": "No findings",
+      "subject": {
+        "cvar": "cvar {{id}}",
+        "bind": "key {{id}}",
+        "alias": "alias {{id}}",
+        "file": "{{id}}",
+        "profile": "profile"
+      }
     },
     "settings": {
       "title": "Settings",

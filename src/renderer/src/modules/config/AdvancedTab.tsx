@@ -28,6 +28,9 @@ const ENTRY_KIND_TONE: Record<ActionCategoryEntryKind, BadgeTone> = {
 
 export interface AdvancedTabProps {
   profile: ConfigProfile
+  /** Story 009 D6: the shared in-progress draft, owned by `ConfigView`'s `useProfileDraft`. */
+  draft: ConfigProfile
+  patch: (partial: Partial<ConfigProfile> | ((prev: ConfigProfile) => Partial<ConfigProfile>)) => void
   onChanged: (profiles: ConfigProfile[]) => void
 }
 
@@ -49,13 +52,15 @@ export interface AdvancedTabProps {
  * continuously, but so a burst of quick adds/removes does not fire one
  * `updateProfileActions` per click.
  */
-export function AdvancedTab({ profile, onChanged }: AdvancedTabProps) {
+export function AdvancedTab({ profile, draft, patch, onChanged }: AdvancedTabProps) {
   const { t } = useTranslation()
 
-  const [localCategories, setLocalCategories] = useState<ConfigActionCategory[]>(
-    profile.categories ?? [],
-  )
-  const [localActions, setLocalActions] = useState<ConfigAction[]>(profile.actions ?? [])
+  // Story 009 D6: `localCategories`/`localActions` used to live here as their
+  // own `useState`; they are now `draft.categories`/`draft.actions`, lifted
+  // into `ConfigView` so the Validation tab sees an edit immediately, with no
+  // debounce and no IPC round trip in between (AC 4).
+  const categories = draft.categories ?? []
+  const actions = draft.actions ?? []
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
     BUILT_IN_ACTION_CATEGORIES[0].id,
   )
@@ -77,12 +82,12 @@ export function AdvancedTab({ profile, onChanged }: AdvancedTabProps) {
     }
   }
 
-  // Re-seed local state whenever the selected profile changes, dropping any
-  // save still pending for the profile being switched away from - same
-  // pattern as `SettingsTab`.
+  // Re-seed the save/status UI whenever the selected profile changes,
+  // dropping any save still pending for the profile being switched away from
+  // - same pattern as `SettingsTab`. The draft's own content reseed is
+  // `useProfileDraft`'s job now (story 009 D6), keyed on the same
+  // `profile.id`.
   useEffect(() => {
-    setLocalCategories(profile.categories ?? [])
-    setLocalActions(profile.actions ?? [])
     setSelectedCategoryId(BUILT_IN_ACTION_CATEGORIES[0].id)
     setStatus('idle')
     clearPendingSave()
@@ -102,9 +107,9 @@ export function AdvancedTab({ profile, onChanged }: AdvancedTabProps) {
     // while an action add/remove's debounce is still pending was silently
     // reverted on disk once the debounce fired). This call's own
     // `nextCategories`/`nextActions` already carry everything the pending
-    // debounce would have sent, since `scheduleActionsSave` updates
-    // `localActions` synchronously - only the network round trip was ever
-    // delayed - so cancelling it here loses no edit.
+    // debounce would have sent, since `scheduleActionsSave` patches the draft
+    // synchronously - only the network round trip was ever delayed - so
+    // cancelling it here loses no edit.
     clearPendingSave()
     setSaving(true)
     setStatus('saving')
@@ -115,8 +120,7 @@ export function AdvancedTab({ profile, onChanged }: AdvancedTabProps) {
     })
     setSaving(false)
     if (result.ok) {
-      setLocalCategories(nextCategories)
-      setLocalActions(nextActions)
+      patch({ categories: nextCategories, actions: nextActions })
       onChanged(result.value)
       setStatus('saved')
     } else {
@@ -126,20 +130,26 @@ export function AdvancedTab({ profile, onChanged }: AdvancedTabProps) {
   }
 
   const scheduleActionsSave = (nextActions: ConfigAction[]): void => {
-    setLocalActions(nextActions)
+    patch({ actions: nextActions })
     setStatus('saving')
     clearPendingSave()
     saveTimeout.current = setTimeout(() => {
       saveTimeout.current = null
       void updateProfileActions({
         profileId: profile.id,
-        categories: localCategories,
+        categories,
         actions: nextActions,
       }).then((result) => {
         if (result.ok) {
           onChanged(result.value)
           setStatus('saved')
         } else {
+          // Revert the optimistic patch applied above: the shared draft
+          // (story 009 D6) survives a tab switch (unlike the removed
+          // `useState`, which self-corrected on every remount), so a failed
+          // save would otherwise leave a phantom action in the draft - and
+          // therefore in the validator - indefinitely (review finding).
+          patch({ actions: profile.actions ?? [] })
           setStatus('idle')
         }
       })
@@ -155,7 +165,7 @@ export function AdvancedTab({ profile, onChanged }: AdvancedTabProps) {
       name: input.name,
       entryKind: input.entryKind,
     }
-    const ok = await persistCategoriesAndActions([...localCategories, category], localActions)
+    const ok = await persistCategoriesAndActions([...categories, category], actions)
     if (ok) {
       setShowCreateCategory(false)
       setSelectedCategoryId(category.id)
@@ -164,17 +174,17 @@ export function AdvancedTab({ profile, onChanged }: AdvancedTabProps) {
   }
 
   const handleRenameCategory = async (categoryId: string, name: string): Promise<boolean> => {
-    const nextCategories = localCategories.map((category) =>
+    const nextCategories = categories.map((category) =>
       category.id === categoryId ? { ...category, name } : category,
     )
-    const ok = await persistCategoriesAndActions(nextCategories, localActions)
+    const ok = await persistCategoriesAndActions(nextCategories, actions)
     if (ok) setRenamingCategory(null)
     return ok
   }
 
   const handleDeleteCategory = async (categoryId: string): Promise<void> => {
-    const nextCategories = localCategories.filter((category) => category.id !== categoryId)
-    const nextActions = localActions.filter((action) => action.categoryId !== categoryId)
+    const nextCategories = categories.filter((category) => category.id !== categoryId)
+    const nextActions = actions.filter((action) => action.categoryId !== categoryId)
     const ok = await persistCategoriesAndActions(nextCategories, nextActions)
     if (ok) {
       setPendingDeleteCategoryId(null)
@@ -183,10 +193,10 @@ export function AdvancedTab({ profile, onChanged }: AdvancedTabProps) {
   }
 
   const handleRenameAction = async (actionId: string, name: string): Promise<boolean> => {
-    const nextActions = localActions.map((action) =>
+    const nextActions = actions.map((action) =>
       action.id === actionId ? { ...action, name } : action,
     )
-    const ok = await persistCategoriesAndActions(localCategories, nextActions)
+    const ok = await persistCategoriesAndActions(categories, nextActions)
     if (ok) setRenamingAction(null)
     return ok
   }
@@ -198,41 +208,41 @@ export function AdvancedTab({ profile, onChanged }: AdvancedTabProps) {
       name,
       commands: [],
     }
-    scheduleActionsSave([...localActions, action])
+    scheduleActionsSave([...actions, action])
     setShowCreateAction(false)
   }
 
   const handleRemoveAction = (actionId: string): void => {
-    scheduleActionsSave(localActions.filter((action) => action.id !== actionId))
+    scheduleActionsSave(actions.filter((action) => action.id !== actionId))
   }
 
   /**
    * `ActionEditor` (D7) hands back the fully updated action rather than
-   * saving itself, so `AdvancedTab` stays the single owner of
-   * `localActions`/the save path - same reasoning `persistCategoriesAndActions`
+   * saving itself, so `AdvancedTab` stays the single owner of the draft's
+   * actions and the save path - same reasoning `persistCategoriesAndActions`
    * already documents for category CRUD. A discrete "Save" closing a modal is
    * a commit like a rename, not a continuously-typed value, so this saves
    * immediately rather than through the debounced path add/remove use.
    */
   const handleSaveAction = async (next: ConfigAction): Promise<void> => {
-    const nextActions = localActions.map((action) => (action.id === next.id ? next : action))
-    const ok = await persistCategoriesAndActions(localCategories, nextActions)
+    const nextActions = actions.map((action) => (action.id === next.id ? next : action))
+    const ok = await persistCategoriesAndActions(categories, nextActions)
     if (ok) setEditingActionId(null)
   }
 
   const selectedBuiltIn =
     BUILT_IN_ACTION_CATEGORIES.find((category) => category.id === selectedCategoryId) ?? null
-  const selectedCustom = localCategories.find((category) => category.id === selectedCategoryId)
+  const selectedCustom = categories.find((category) => category.id === selectedCategoryId)
   const selectedCategoryLabel = selectedBuiltIn
     ? t(selectedBuiltIn.labelKey)
     : (selectedCustom?.name ?? '')
   const selectedEntryKind: ActionCategoryEntryKind | undefined =
     selectedBuiltIn?.entryKind ?? selectedCustom?.entryKind
-  const actionsForCategory = localActions.filter(
+  const actionsForCategory = actions.filter(
     (action) => action.categoryId === selectedCategoryId,
   )
   const editingAction = editingActionId
-    ? (localActions.find((action) => action.id === editingActionId) ?? null)
+    ? (actions.find((action) => action.id === editingActionId) ?? null)
     : null
 
   return (
@@ -274,7 +284,7 @@ export function AdvancedTab({ profile, onChanged }: AdvancedTabProps) {
             </div>
           ))}
 
-          {localCategories.map((category) => {
+          {categories.map((category) => {
             const isPendingDelete = pendingDeleteCategoryId === category.id
             return (
               <div

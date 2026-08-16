@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ChevronRight, FilePlus2, Pencil, SlidersHorizontal, Trash2 } from 'lucide-react'
 import type { ConfigProfile } from '@shared/modules/config'
 import { cn } from '../../lib/cn'
 import { formatRelativeTime } from '../../lib/format'
 import { Button, IconButton } from '../../components/ui/Button'
-import { EmptyState, KeyValue, Panel, SectionLabel } from '../../components/ui/primitives'
+import { Badge, EmptyState, KeyValue, Panel, SectionLabel } from '../../components/ui/primitives'
+import { useLauncher } from '../../store/useLauncher'
 import { AdvancedTab } from './AdvancedTab'
 import { AssignmentsMenu } from './AssignmentsMenu'
 import { CreateProfileDialog } from './CreateProfileDialog'
@@ -13,16 +14,19 @@ import { DeleteProfileDialog } from './DeleteProfileDialog'
 import { ImportProfileDialog } from './ImportProfileDialog'
 import { InstallationProfilesPanel } from './InstallationProfilesPanel'
 import { LayersPanel } from './LayersPanel'
+import { totalCounts, validateProfileForEngines } from './lib/validation-scope'
+import { useProfileDraft } from './lib/useProfileDraft'
 import { OverviewKeyboardPanel } from './OverviewKeyboardPanel'
 import { PreservedLinesPanel } from './PreservedLinesPanel'
 import { PreviewProfileDialog } from './PreviewProfileDialog'
 import { RenameProfileDialog } from './RenameProfileDialog'
 import { SettingsTab } from './SettingsTab'
+import { ValidationPanel } from './ValidationPanel'
 import { WriteTargets } from './WriteTargets'
 import { listConfigProfiles } from './client'
 
 type Screen = 'list' | 'detail'
-type DetailTab = 'overview' | 'settings' | 'advanced' | 'writeTargets' | 'preserved'
+type DetailTab = 'overview' | 'settings' | 'advanced' | 'writeTargets' | 'validation' | 'preserved'
 
 /**
  * The config module's view: a list of profiles first, so "what configs do I
@@ -70,6 +74,37 @@ export function ConfigView() {
   const selected = profiles.find((profile) => profile.id === selectedId) ?? null
   const activeLayer = selected?.layers?.find((layer) => layer.id === activeLayerId) ?? null
 
+  // Story 009 D6: the shared in-progress draft every tab reads from and
+  // writes into, so the Validation tab (D5) sees an edit the instant it
+  // happens rather than waiting for a debounced save to land. `draft` lags
+  // `selected` by one render right after a profile switch (its own reseed
+  // effect fires after this render), the same one-tick staleness the removed
+  // per-tab local states already had - `draftOrSelected` is what every child
+  // below actually receives, so that gap is never visible outside this file.
+  const { draft, patch } = useProfileDraft(selected)
+  const draftOrSelected = draft ?? selected
+  /**
+   * `draftOrSelected` narrowed to non-null: its own type stays `ConfigProfile
+   * | null` because it was computed before the `selected &&` guard below, so
+   * TypeScript cannot see that `draft` can only be null when `selected` is -
+   * this makes that fact explicit at each call site instead of repeating a
+   * `?? selected` that reads like a real third fallback (review finding).
+   */
+  const activeProfile = (current: ConfigProfile): ConfigProfile => draftOrSelected ?? current
+
+  const installations = useLauncher((state) => state.installations)
+  // Computed once here rather than separately in the tab badge and in
+  // `ValidationPanel` - both used to run `validateProfileForEngines` on the
+  // same draft independently (review finding).
+  const validation = useMemo(
+    () =>
+      draftOrSelected
+        ? validateProfileForEngines(draftOrSelected, installations)
+        : { status: 'unassigned' as const, byEngine: [], omitted: [] },
+    [draftOrSelected, installations],
+  )
+  const validationCounts = useMemo(() => totalCounts(validation), [validation])
+
   const openProfile = (id: string): void => {
     setSelectedId(id)
     setActiveTab('overview')
@@ -114,11 +149,23 @@ export function ConfigView() {
     setScreen('list')
   }
 
-  const tabs: { id: DetailTab; label: string }[] = [
+  const tabs: { id: DetailTab; label: string; badge?: string; badgeTone?: 'danger' | 'warning' }[] = [
     { id: 'overview', label: t('config.tabs.overview') },
     { id: 'settings', label: t('config.tabs.settings') },
     { id: 'advanced', label: t('config.tabs.advanced') },
     { id: 'writeTargets', label: t('config.tabs.writeTargets') },
+    {
+      id: 'validation',
+      label: t('config.tabs.validation'),
+      // Errors take priority over warnings for the one badge a tab button can
+      // show; the panel itself lists both. Always present (never conditional
+      // on findings existing) - see `ValidationPanel`'s own doc comment.
+      ...(validationCounts.errors > 0
+        ? { badge: String(validationCounts.errors), badgeTone: 'danger' as const }
+        : validationCounts.warnings > 0
+          ? { badge: String(validationCounts.warnings), badgeTone: 'warning' as const }
+          : {}),
+    },
     ...(selected?.unrecognized?.length
       ? [{ id: 'preserved' as const, label: t('config.tabs.preserved') }]
       : []),
@@ -246,13 +293,14 @@ export function ConfigView() {
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    'rounded-sm px-2.5 py-1.5 text-xs font-medium transition-colors duration-[--dur-fast]',
+                    'flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs font-medium transition-colors duration-[--dur-fast]',
                     activeTab === tab.id
                       ? 'bg-flame-900/30 text-flame-200'
                       : 'text-ink-dim hover:bg-hover hover:text-ink',
                   )}
                 >
                   {tab.label}
+                  {tab.badge && <Badge tone={tab.badgeTone ?? 'neutral'}>{tab.badge}</Badge>}
                 </button>
               ))}
             </div>
@@ -274,14 +322,25 @@ export function ConfigView() {
                 </div>
               )}
               {activeTab === 'settings' && (
-                <SettingsTab profile={selected} onChanged={setProfiles} />
+                <SettingsTab
+                  profile={selected}
+                  draft={activeProfile(selected)}
+                  patch={patch}
+                  onChanged={setProfiles}
+                />
               )}
               {activeTab === 'advanced' && (
-                <AdvancedTab profile={selected} onChanged={setProfiles} />
+                <AdvancedTab
+                  profile={selected}
+                  draft={activeProfile(selected)}
+                  patch={patch}
+                  onChanged={setProfiles}
+                />
               )}
               {activeTab === 'writeTargets' && (
                 <WriteTargets profile={selected} onPreview={setPreviewInstallationId} />
               )}
+              {activeTab === 'validation' && <ValidationPanel result={validation} />}
               {activeTab === 'preserved' && <PreservedLinesPanel profile={selected} />}
             </Panel>
           </div>

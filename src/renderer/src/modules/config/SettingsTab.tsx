@@ -16,15 +16,25 @@ type SaveStatus = 'idle' | 'saving' | 'saved'
 
 export interface SettingsTabProps {
   profile: ConfigProfile
+  /** Story 009 D6: the shared in-progress draft, owned by `ConfigView`'s `useProfileDraft`. */
+  draft: ConfigProfile
+  patch: (partial: Partial<ConfigProfile> | ((prev: ConfigProfile) => Partial<ConfigProfile>)) => void
   onChanged: (profiles: ConfigProfile[]) => void
 }
 
 /**
  * The settings/cvar section of a config profile's detail view: one editable
  * `CvarRow` per entry in `PLAYER_CVARS` and `GRAPHICS_CVARS`, grouped into
- * two panels. Edits update local state immediately and persist to the main
- * process, debounced, via `updateProfileCvars` - which replaces the whole
- * cvars map, so every save sends the full merged `localCvars`, not a diff.
+ * two panels. Edits write into the shared `draft` (story 009 D6) immediately
+ * and persist to the main process, debounced, via `updateProfileCvars` -
+ * which replaces the whole cvars map, so every save sends the full merged
+ * `draft.cvars`, not a diff.
+ *
+ * Before story 009 this tab held its own `localCvars` state; that state is
+ * now `draft.cvars`, lifted into `ConfigView` so the Validation tab can see
+ * an edit the instant it happens, with no debounce and no IPC round trip in
+ * between (AC 4). The debounce/status label below is unchanged - only *where*
+ * the in-progress value lives has moved.
  *
  * The engine every row resolves its facts against is owned here and chosen by
  * `EngineScopeSelect` from the profile's assignments. It is deliberately
@@ -34,11 +44,10 @@ export interface SettingsTabProps {
  * components derive the assigned engines through `lib/engine-scope.ts`, so
  * neither owns a second copy of story 002's assignment cross-reference.
  */
-export function SettingsTab({ profile, onChanged }: SettingsTabProps) {
+export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabProps) {
   const { t } = useTranslation()
   const installations = useLauncher((state) => state.installations)
   const [engine, setEngine] = useState<EngineKind | null>(null)
-  const [localCvars, setLocalCvars] = useState<Record<string, string>>(profile.cvars)
   const [status, setStatus] = useState<SaveStatus>('idle')
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -58,11 +67,11 @@ export function SettingsTab({ profile, onChanged }: SettingsTabProps) {
     }
   }
 
-  // Re-seed local state whenever the selected profile changes (switching
-  // profiles in the master list), dropping any save still pending for the
-  // profile being switched away from.
+  // Re-seed the save/status UI whenever the selected profile changes
+  // (switching profiles in the master list), dropping any save still pending
+  // for the profile being switched away from. The draft's own content reseed
+  // is `useProfileDraft`'s job now, keyed on the same `profile.id`.
   useEffect(() => {
-    setLocalCvars(profile.cvars)
     setStatus('idle')
     clearPendingSave()
   }, [profile.id])
@@ -79,17 +88,27 @@ export function SettingsTab({ profile, onChanged }: SettingsTabProps) {
           onChanged(result.value)
           setStatus('saved')
         } else {
+          // Revert the optimistic patch: unlike the removed per-tab `useState`
+          // (which self-corrected on every remount), the shared draft
+          // (story 009 D6) survives a tab switch, so a failed save would
+          // otherwise leave a phantom edit in the draft - and therefore in
+          // the validator - indefinitely (review finding).
+          patch({ cvars: profile.cvars })
           setStatus('idle')
         }
       })
     }, SAVE_DEBOUNCE_MS)
   }
 
+  // Functional form: reads `prev.cvars` at commit time rather than the
+  // `draft` closure captured when this callback was created, so two edits
+  // landing in the same tick can never lose one of them (same guarantee the
+  // removed `setLocalCvars(prev => ...)` had - review finding).
   const handleChange = (name: string, value: string): void => {
-    setLocalCvars((prev) => {
-      const next = { ...prev, [name]: value }
+    patch((prev) => {
+      const next = { ...prev.cvars, [name]: value }
       scheduleSave(next)
-      return next
+      return { cvars: next }
     })
   }
 
@@ -122,7 +141,7 @@ export function SettingsTab({ profile, onChanged }: SettingsTabProps) {
               def={def}
               engine={engine}
               otherAssignedEngines={otherAssignedEngines}
-              value={localCvars[def.name] ?? ''}
+              value={draft.cvars[def.name] ?? ''}
               onChange={(value) => handleChange(def.name, value)}
             />
           ))}
@@ -138,7 +157,7 @@ export function SettingsTab({ profile, onChanged }: SettingsTabProps) {
               def={def}
               engine={engine}
               otherAssignedEngines={otherAssignedEngines}
-              value={localCvars[def.name] ?? ''}
+              value={draft.cvars[def.name] ?? ''}
               onChange={(value) => handleChange(def.name, value)}
             />
           ))}
