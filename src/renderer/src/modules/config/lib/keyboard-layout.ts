@@ -19,9 +19,24 @@ export interface KeyDef {
   label: string
   /** Width in keycap units (1 unit = one standard key). Defaults to 1. */
   units?: number
+  /**
+   * M1/M2 only: render at the width that makes them, plus the gap between
+   * them, exactly equal M3+M4+M5 plus their two gaps - keeps the wheel keys
+   * (the third column in both mouse rows) pixel-aligned. The renderer
+   * derives the exact width from its own key-unit/gap constants rather than
+   * a value baked in here, since flex `gap` puts one more gap on the
+   * three-key row than the two-key row above it.
+   */
+  wide?: boolean
+  /** Numpad grid only: how many grid columns/rows this key spans. */
+  colSpan?: number
+  rowSpan?: number
 }
 
 const row = (defs: KeyDef[]): KeyDef[] => defs
+
+/** An unlabelled, unbindable filler slot - reproduces a real keyboard's stagger and group gaps. */
+const gap = (units = 1): KeyDef => ({ key: '', label: '', units })
 
 const letterRow = (chars: string, extra: KeyDef[] = [], lead: KeyDef[] = []): KeyDef[] => [
   ...lead,
@@ -32,19 +47,21 @@ const letterRow = (chars: string, extra: KeyDef[] = [], lead: KeyDef[] = []): Ke
 export const KEYBOARD_ROWS: KeyDef[][] = [
   row([
     { key: 'ESCAPE', label: 'Esc' },
+    gap(0.75),
     { key: 'F1', label: 'F1' },
     { key: 'F2', label: 'F2' },
     { key: 'F3', label: 'F3' },
     { key: 'F4', label: 'F4' },
+    gap(0.5),
     { key: 'F5', label: 'F5' },
     { key: 'F6', label: 'F6' },
     { key: 'F7', label: 'F7' },
     { key: 'F8', label: 'F8' },
+    gap(0.5),
     { key: 'F9', label: 'F9' },
     { key: 'F10', label: 'F10' },
     { key: 'F11', label: 'F11' },
     { key: 'F12', label: 'F12' },
-    { key: 'PAUSE', label: 'Pause', units: 1.5 },
   ]),
   row([
     { key: '`', label: '`' },
@@ -78,7 +95,7 @@ export const KEYBOARD_ROWS: KeyDef[][] = [
       { key: "'", label: "'" },
       { key: 'ENTER', label: 'Enter', units: 2 },
     ],
-    [],
+    [gap(1.75)],
   ),
   row([
     { key: 'SHIFT', label: 'Shift', units: 2.25 },
@@ -98,7 +115,15 @@ export const KEYBOARD_ROWS: KeyDef[][] = [
   ]),
 ]
 
+/**
+ * Pause leads the cluster in its own row, directly above Ins - on a real
+ * board it sits above Insert/Home/PgUp (alongside PrtScn/ScrLk, which the
+ * engine doesn't bind), not squeezed onto the end of the F-key row. Placing
+ * it here rather than in `KEYBOARD_ROWS` keeps the main block's width tied
+ * to its letter rows instead of stretching to fit a trailing Pause key.
+ */
 export const NAV_CLUSTER: KeyDef[][] = [
+  row([{ key: 'PAUSE', label: 'Pause' }]),
   row([
     { key: 'INS', label: 'Ins' },
     { key: 'HOME', label: 'Home' },
@@ -120,14 +145,53 @@ export const ARROW_CLUSTER: (KeyDef | null)[][] = [
   ],
 ]
 
-export const MOUSE_KEYS: KeyDef[] = [
-  { key: 'MOUSE1', label: 'M1' },
-  { key: 'MOUSE2', label: 'M2' },
-  { key: 'MOUSE3', label: 'M3' },
-  { key: 'MOUSE4', label: 'M4' },
-  { key: 'MOUSE5', label: 'M5' },
-  { key: 'MWHEELUP', label: '↑ Wheel' },
-  { key: 'MWHEELDOWN', label: '↓ Wheel' },
+/**
+ * Two rows, left-to-right: left/right click plus wheel-up above M3/M4/M5
+ * plus wheel-down. M1/M2 are `wide` - see `KeyDef.wide`.
+ */
+export const MOUSE_ROWS: KeyDef[][] = [
+  [
+    { key: 'MOUSE1', label: 'M1', wide: true },
+    { key: 'MOUSE2', label: 'M2', wide: true },
+    { key: 'MWHEELUP', label: '↑ Wheel' },
+  ],
+  [
+    { key: 'MOUSE3', label: 'M3' },
+    { key: 'MOUSE4', label: 'M4' },
+    { key: 'MOUSE5', label: 'M5' },
+    { key: 'MWHEELDOWN', label: '↓ Wheel' },
+  ],
+]
+
+/**
+ * Numpad key names use navigation semantics, not digits - the engine reads
+ * the physical scancode regardless of Num Lock state, so `bind KP_HOME`
+ * (not `KP_7`) is what a config actually contains.
+ *
+ * A flat list rather than rows: it renders into a 4-column CSS grid, so
+ * KP_PLUS and KP_ENTER can genuinely span two rows like their real-keyboard
+ * counterparts (`rowSpan: 2`) and KP_INS (`0`) can span two columns. Reading
+ * order plus each span is enough for the grid's own auto-placement to lay
+ * this out correctly - no explicit row/column indices needed.
+ */
+export const NUMPAD_KEYS: KeyDef[] = [
+  { key: 'KP_NUMLOCK', label: 'Num' },
+  { key: 'KP_SLASH', label: '/' },
+  { key: 'KP_STAR', label: '*' },
+  { key: 'KP_MINUS', label: '-' },
+  { key: 'KP_HOME', label: '7' },
+  { key: 'KP_UPARROW', label: '8' },
+  { key: 'KP_PGUP', label: '9' },
+  { key: 'KP_PLUS', label: '+', rowSpan: 2 },
+  { key: 'KP_LEFTARROW', label: '4' },
+  { key: 'KP_5', label: '5' },
+  { key: 'KP_RIGHTARROW', label: '6' },
+  { key: 'KP_END', label: '1' },
+  { key: 'KP_DOWNARROW', label: '2' },
+  { key: 'KP_PGDN', label: '3' },
+  { key: 'KP_ENTER', label: 'Enter', rowSpan: 2 },
+  { key: 'KP_INS', label: '0', colSpan: 2 },
+  { key: 'KP_DEL', label: '.' },
 ]
 
 /**
@@ -141,8 +205,12 @@ export function keyOccurrenceCounts(): Map<string, number> {
     ...KEYBOARD_ROWS.flat(),
     ...NAV_CLUSTER.flat(),
     ...ARROW_CLUSTER.flat().filter((def): def is KeyDef => def !== null),
+    ...NUMPAD_KEYS,
   ]
-  for (const def of all) counts.set(def.key, (counts.get(def.key) ?? 0) + 1)
+  for (const def of all) {
+    if (!def.key) continue
+    counts.set(def.key, (counts.get(def.key) ?? 0) + 1)
+  }
   return counts
 }
 
@@ -248,6 +316,23 @@ const CODE_TO_QUAKE_KEY: Record<string, string> = {
   ArrowDown: 'DOWNARROW',
   ArrowLeft: 'LEFTARROW',
   ArrowRight: 'RIGHTARROW',
+  NumLock: 'KP_NUMLOCK',
+  NumpadDivide: 'KP_SLASH',
+  NumpadMultiply: 'KP_STAR',
+  NumpadSubtract: 'KP_MINUS',
+  NumpadAdd: 'KP_PLUS',
+  NumpadEnter: 'KP_ENTER',
+  Numpad7: 'KP_HOME',
+  Numpad8: 'KP_UPARROW',
+  Numpad9: 'KP_PGUP',
+  Numpad4: 'KP_LEFTARROW',
+  Numpad5: 'KP_5',
+  Numpad6: 'KP_RIGHTARROW',
+  Numpad1: 'KP_END',
+  Numpad2: 'KP_DOWNARROW',
+  Numpad3: 'KP_PGDN',
+  Numpad0: 'KP_INS',
+  NumpadDecimal: 'KP_DEL',
 }
 
 export function resolveQuakeKeyName(event: Pick<KeyboardEvent, 'code'>): string | null {

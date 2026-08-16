@@ -118,7 +118,7 @@ export function ConfigView() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-5xl space-y-4 p-6">
+      <div className="mx-auto max-w-[92rem] space-y-6 p-8">
         {screen === 'list' && (
           <>
             <header className="flex flex-wrap items-end justify-between gap-3">
@@ -152,7 +152,7 @@ export function ConfigView() {
               </Panel>
             ) : (
               <>
-                <Panel className="p-2">
+                <Panel className="p-3">
                   <SectionLabel className="px-2 pt-1 pb-2">{t('config.list.label')}</SectionLabel>
                   <ul className="divide-y divide-line">
                     {profiles.map((profile) => (
@@ -160,7 +160,7 @@ export function ConfigView() {
                         <button
                           type="button"
                           onClick={() => openProfile(profile.id)}
-                          className="flex w-full items-center justify-between gap-3 rounded-sm px-2 py-2.5 text-left transition-colors duration-[--dur-fast] hover:bg-hover"
+                          className="flex w-full items-center justify-between gap-3 rounded-sm px-3 py-3.5 text-left transition-colors duration-[--dur-fast] hover:bg-hover"
                         >
                           <span className="min-w-0">
                             <span className="block truncate text-sm text-ink">{profile.name}</span>
@@ -176,7 +176,7 @@ export function ConfigView() {
                   </ul>
                 </Panel>
 
-                <Panel className="space-y-3 p-4">
+                <Panel className="space-y-3 p-6">
                   <InstallationProfilesPanel profiles={profiles} />
                 </Panel>
               </>
@@ -185,7 +185,7 @@ export function ConfigView() {
         )}
 
         {screen === 'detail' && selected && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div className="flex items-center justify-between gap-3">
               <Button
                 variant="ghost"
@@ -246,7 +246,7 @@ export function ConfigView() {
               ))}
             </div>
 
-            <Panel className="p-4">
+            <Panel className="p-6">
               {activeTab === 'overview' && <OverviewKeyboardPanel profile={selected} />}
               {activeTab === 'settings' && (
                 <SettingsTab profile={selected} onChanged={setProfiles} />

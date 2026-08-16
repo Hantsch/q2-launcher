@@ -368,12 +368,9 @@
       "testMode": {
         "start": "Start test mode",
         "stop": "Stop test mode",
-        "hint": "Press a key or click a mouse button below to see what it triggers.",
-        "noBind": "Not bound"
-      },
-      "navCluster": "Navigation",
-      "arrowCluster": "Arrows",
-      "mouseCluster": "Mouse"
+        "noBind": "Not bound",
+        "placeholder": "Press a key or click a mouse button…"
+      }
     },
     "detail": {
       "created": "Created",
