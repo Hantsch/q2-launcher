@@ -45,6 +45,31 @@ export const setProfileCvarsInputSchema = z.object({
   cvars: z.record(z.string().min(1), z.string()),
 })
 
+/** Structural validation only, same rationale as `setProfileCvarsInputSchema` above. */
+export const setProfileBindsInputSchema = z.object({
+  profileId: z.string().min(1),
+  binds: z.record(z.string().min(1), z.string()),
+})
+
+/**
+ * One `AltLayer`'s shape, validated strictly - this is the IPC payload schema,
+ * not the persisted-state one (`main/lib/schemas.ts`'s `layers` field): a bad
+ * payload here is a caller bug and `.parse()` is meant to throw, while the
+ * persisted schema degrades a mangled value to `[]` instead.
+ */
+const altLayerSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  mode: z.enum(['hold', 'toggle']),
+  triggerKey: z.string().min(1),
+  overrides: z.record(z.string().min(1), z.string()),
+})
+
+export const setProfileLayersInputSchema = z.object({
+  profileId: z.string().min(1),
+  layers: z.array(altLayerSchema).max(64),
+})
+
 export const writeProfileInputSchema = z.object({
   profileId: z.string().min(1),
 })

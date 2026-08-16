@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { STANDARD_TEMPLATE } from '@shared/modules/config'
 import { StateStore } from '../../services/state'
 import { ProfilesStore } from './profiles'
+import { setProfileBindsInputSchema, setProfileLayersInputSchema } from './schemas'
 
 describe('ProfilesStore', () => {
   let filePath: string
@@ -115,5 +116,126 @@ describe('ProfilesStore', () => {
 
     expect(state.configProfiles()).toHaveLength(1)
     expect(state.configProfiles()[0]!.name).toBe('Persisted')
+  })
+
+  it('replaces a profile\'s whole binds map, touching only binds and updatedAt', async () => {
+    const [created] = profiles.create({ name: 'Original', from: 'empty' })
+    // Give updatedAt a chance to actually differ from createdAt.
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    const result = profiles.setBinds({
+      profileId: created!.id,
+      binds: { w: '+forward', s: '+back' },
+    })
+
+    const updated = result.find((p) => p.id === created!.id)!
+    expect(updated.binds).toEqual({ w: '+forward', s: '+back' })
+    expect(updated.name).toBe(created!.name)
+    expect(updated.cvars).toEqual(created!.cvars)
+    expect(updated.createdAt).toBe(created!.createdAt)
+    expect(updated.updatedAt).not.toBe(created!.updatedAt)
+  })
+
+  it('setBinds replaces rather than merges the binds map', () => {
+    const [created] = profiles.create({ name: 'Original', from: 'template' })
+
+    const result = profiles.setBinds({ profileId: created!.id, binds: { x: 'weapnext' } })
+
+    const updated = result.find((p) => p.id === created!.id)!
+    expect(updated.binds).toEqual({ x: 'weapnext' })
+  })
+
+  it('throws when setting binds on an unknown id', () => {
+    expect(() => profiles.setBinds({ profileId: 'missing', binds: {} })).toThrow()
+  })
+
+  it('replaces a profile\'s whole layers array, touching only layers and updatedAt', async () => {
+    const [created] = profiles.create({ name: 'Original', from: 'empty' })
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    const layer = {
+      id: 'l1',
+      name: 'Drops',
+      mode: 'hold' as const,
+      triggerKey: 'ALT',
+      overrides: { '1': 'drop rl' },
+    }
+    const result = profiles.setLayers({ profileId: created!.id, layers: [layer] })
+
+    const updated = result.find((p) => p.id === created!.id)!
+    expect(updated.layers).toEqual([layer])
+    expect(updated.name).toBe(created!.name)
+    expect(updated.createdAt).toBe(created!.createdAt)
+    expect(updated.updatedAt).not.toBe(created!.updatedAt)
+  })
+
+  it('setLayers replaces rather than merges the layers array', () => {
+    const [created] = profiles.create({ name: 'Original', from: 'empty' })
+    const first = {
+      id: 'l1',
+      name: 'Drops',
+      mode: 'hold' as const,
+      triggerKey: 'ALT',
+      overrides: {},
+    }
+    profiles.setLayers({ profileId: created!.id, layers: [first] })
+
+    const second = {
+      id: 'l2',
+      name: 'Zoom',
+      mode: 'toggle' as const,
+      triggerKey: 'v',
+      overrides: {},
+    }
+    const result = profiles.setLayers({ profileId: created!.id, layers: [second] })
+
+    const updated = result.find((p) => p.id === created!.id)!
+    expect(updated.layers).toEqual([second])
+  })
+
+  it('throws when setting layers on an unknown id', () => {
+    expect(() => profiles.setLayers({ profileId: 'missing', layers: [] })).toThrow()
+  })
+})
+
+describe('setProfileBindsInputSchema / setProfileLayersInputSchema (IPC payload validation)', () => {
+  it('rejects a binds payload whose value is not a map of strings', () => {
+    expect(
+      setProfileBindsInputSchema.safeParse({ profileId: 'p1', binds: { w: 1 } }).success,
+    ).toBe(false)
+  })
+
+  it('rejects a binds payload missing profileId', () => {
+    expect(setProfileBindsInputSchema.safeParse({ binds: {} }).success).toBe(false)
+  })
+
+  it('accepts a well-formed binds payload', () => {
+    expect(
+      setProfileBindsInputSchema.safeParse({ profileId: 'p1', binds: { w: '+forward' } }).success,
+    ).toBe(true)
+  })
+
+  it('rejects a layers payload with a garbage shape (string instead of array)', () => {
+    expect(setProfileLayersInputSchema.safeParse({ profileId: 'p1', layers: 'nope' }).success).toBe(
+      false,
+    )
+  })
+
+  it('rejects a layers payload with an invalid mode', () => {
+    expect(
+      setProfileLayersInputSchema.safeParse({
+        profileId: 'p1',
+        layers: [{ id: 'l1', name: 'Drops', mode: 'sticky', triggerKey: 'ALT', overrides: {} }],
+      }).success,
+    ).toBe(false)
+  })
+
+  it('accepts a well-formed layers payload', () => {
+    expect(
+      setProfileLayersInputSchema.safeParse({
+        profileId: 'p1',
+        layers: [{ id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'ALT', overrides: {} }],
+      }).success,
+    ).toBe(true)
   })
 })

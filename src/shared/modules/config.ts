@@ -1,3 +1,5 @@
+import type { AltLayer } from '../config/alt-layers'
+
 /**
  * The config module's contract.
  *
@@ -15,6 +17,8 @@ export const CONFIG_HANDLERS = {
   unassign: 'unassign',
   setDefault: 'setDefault',
   setCvars: 'setCvars',
+  setBinds: 'setBinds',
+  setLayers: 'setLayers',
   write: 'write',
   preview: 'preview',
   writeState: 'writeState',
@@ -68,6 +72,12 @@ export interface UnrecognizedConfigLine {
  * populated by an import, so most profiles (empty/template/copy-created, and
  * every profile that predates story 005) simply omit it instead of every
  * construction site in the codebase having to spell out an empty array.
+ *
+ * `layers` (story 006) lists the profile's alternate binding layers (hold or
+ * toggle), each with its own `overrides` map layered on top of `binds`. Same
+ * precedent as `unrecognized`: optional and defaulted by a forgiving
+ * `.catch(() => [])` in the persisted schema, so no `STATE_SCHEMA_VERSION`
+ * bump and no reshaping of existing persisted profiles.
  */
 export interface ConfigProfile {
   id: string
@@ -78,6 +88,7 @@ export interface ConfigProfile {
   binds: Record<string, string>
   assignments: ProfileAssignment[]
   unrecognized?: UnrecognizedConfigLine[]
+  layers?: AltLayer[]
 }
 
 /** Where a new profile's content comes from. */
@@ -150,6 +161,16 @@ export interface SetDefaultProfileInput {
 export interface SetProfileCvarsInput {
   profileId: string
   cvars: Record<string, string>
+}
+
+export interface SetProfileBindsInput {
+  profileId: string
+  binds: Record<string, string>
+}
+
+export interface SetProfileLayersInput {
+  profileId: string
+  layers: AltLayer[]
 }
 
 /** Per-installation outcome of a `write` call. */

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { AltLayer } from '@shared/config/alt-layers'
 import type { ConfigProfile } from '@shared/modules/config'
 import type { Installation, LauncherSettings, WindowState } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
@@ -93,6 +94,21 @@ const installationSchema = z.object({
 })
 
 /**
+ * One persisted `AltLayer` entry. Typed against the shared `AltLayer` shape so
+ * the two stay in sync; not the same schema as
+ * `main/modules/config/schemas.ts`'s `setProfileLayersInputSchema` - that one
+ * is the strict IPC payload, this one is the forgiving persisted-state shape
+ * used only via `configProfileSchema`'s `layers` field below.
+ */
+const altLayerPersistedSchema: z.ZodType<AltLayer> = z.object({
+  id: z.string(),
+  name: z.string(),
+  mode: z.enum(['hold', 'toggle']),
+  triggerKey: z.string(),
+  overrides: z.record(z.string(), z.string()),
+})
+
+/**
  * A persisted config profile. Same rules as `installationSchema`: only the
  * fields without which the record is meaningless (`id`, `name`) are strict, so
  * a hand-mangled profile is dropped on its own instead of taking the file - or
@@ -117,6 +133,11 @@ export const configProfileSchema = z.object({
   unrecognized: z
     .array(z.object({ file: z.string(), line: z.number(), text: z.string() }))
     .catch(() => []),
+  // Story 006: alternate binding layers. Same forgiving convention as
+  // `unrecognized` right above - a mangled `layers` value (or one predating
+  // this story) degrades the whole field to `[]` rather than dropping the
+  // profile it belongs to.
+  layers: z.array(altLayerPersistedSchema).catch(() => []),
 })
 
 /** installationId -> mod folder names the user has marked "played" for it. */

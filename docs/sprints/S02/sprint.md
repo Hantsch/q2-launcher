@@ -1,7 +1,7 @@
 ---
 sprint: S02
-status: planned
-branch:
+status: in-progress
+branch: sprint/S02
 milestone: Config module — remaining scope (docs/concepts/config-module.md)
 ---
 
@@ -18,7 +18,7 @@ sprint is accepted, the config module concept is fully implemented and moves to
 
 ## Stories (in build order)
 
-- [ ] 006 — Keybinding editor with alternate binding layers
+- [ ] 006 — Keybinding editor with alternate binding layers (built, live acceptance pending)
 - [ ] 007 — In-session profile-switch bind
 - [ ] 008 — Advanced tab — categories, messages, macros, symbol picker
 - [ ] 009 — Multi-engine validator

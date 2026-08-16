@@ -11,6 +11,7 @@ import { CreateProfileDialog } from './CreateProfileDialog'
 import { DeleteProfileDialog } from './DeleteProfileDialog'
 import { ImportProfileDialog } from './ImportProfileDialog'
 import { InstallationProfilesPanel } from './InstallationProfilesPanel'
+import { LayersPanel } from './LayersPanel'
 import { OverviewKeyboardPanel } from './OverviewKeyboardPanel'
 import { PreservedLinesPanel } from './PreservedLinesPanel'
 import { PreviewProfileDialog } from './PreviewProfileDialog'
@@ -34,6 +35,7 @@ export function ConfigView() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [screen, setScreen] = useState<Screen>('list')
   const [activeTab, setActiveTab] = useState<DetailTab>('overview')
+  const [activeLayerId, setActiveLayerId] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [showRename, setShowRename] = useState(false)
@@ -60,7 +62,12 @@ export function ConfigView() {
     }
   }, [profiles, selectedId])
 
+  useEffect(() => {
+    setActiveLayerId(null)
+  }, [selectedId])
+
   const selected = profiles.find((profile) => profile.id === selectedId) ?? null
+  const activeLayer = selected?.layers?.find((layer) => layer.id === activeLayerId) ?? null
 
   const openProfile = (id: string): void => {
     setSelectedId(id)
@@ -249,7 +256,21 @@ export function ConfigView() {
             </div>
 
             <Panel className="p-6">
-              {activeTab === 'overview' && <OverviewKeyboardPanel profile={selected} />}
+              {activeTab === 'overview' && (
+                <div className="space-y-6">
+                  <LayersPanel
+                    profile={selected}
+                    activeLayerId={activeLayerId}
+                    onSelectLayer={setActiveLayerId}
+                    onChanged={setProfiles}
+                  />
+                  <OverviewKeyboardPanel
+                    profile={selected}
+                    activeLayer={activeLayer}
+                    onChanged={setProfiles}
+                  />
+                </div>
+              )}
               {activeTab === 'settings' && (
                 <SettingsTab profile={selected} onChanged={setProfiles} />
               )}

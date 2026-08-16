@@ -7,7 +7,9 @@ import {
   type RenameConfigProfileInput,
   type RemoveConfigProfileInput,
   type SetDefaultProfileInput,
+  type SetProfileBindsInput,
   type SetProfileCvarsInput,
+  type SetProfileLayersInput,
   type UnassignProfileInput,
   type UnrecognizedConfigLine,
 } from '@shared/modules/config'
@@ -133,6 +135,39 @@ export class ProfilesStore {
     const next: ConfigProfile = {
       ...current,
       cvars: { ...input.cvars },
+      updatedAt: new Date().toISOString(),
+    }
+    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+  }
+
+  /**
+   * Replaces a profile's entire `binds` map with `input.binds`. Mirrors
+   * `setCvars` exactly - not a partial merge, full-map replace semantics.
+   */
+  setBinds(input: SetProfileBindsInput): ConfigProfile[] {
+    const current = this.find(input.profileId)
+    if (!current) throw new Error(`config profile not found: ${input.profileId}`)
+
+    const next: ConfigProfile = {
+      ...current,
+      binds: { ...input.binds },
+      updatedAt: new Date().toISOString(),
+    }
+    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+  }
+
+  /**
+   * Replaces a profile's entire `layers` array with `input.layers`. Same
+   * replace-whole-array semantics as `setBinds`/`setCvars` above - the
+   * renderer sends the full array it wants persisted.
+   */
+  setLayers(input: SetProfileLayersInput): ConfigProfile[] {
+    const current = this.find(input.profileId)
+    if (!current) throw new Error(`config profile not found: ${input.profileId}`)
+
+    const next: ConfigProfile = {
+      ...current,
+      layers: [...input.layers],
       updatedAt: new Date().toISOString(),
     }
     return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))

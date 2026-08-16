@@ -28,7 +28,9 @@ import {
   renameConfigProfileInputSchema,
   setDefaultProfileInputSchema,
   setPlayedModsInputSchema,
+  setProfileBindsInputSchema,
   setProfileCvarsInputSchema,
+  setProfileLayersInputSchema,
   unassignProfileInputSchema,
   writeProfileInputSchema,
 } from './schemas'
@@ -229,6 +231,14 @@ export const configModule: MainModule = {
 
     handle(CONFIG_HANDLERS.setCvars, (payload): ConfigProfile[] =>
       withLiveAssignments(profiles.setCvars(setProfileCvarsInputSchema.parse(payload))),
+    )
+
+    handle(CONFIG_HANDLERS.setBinds, (payload): ConfigProfile[] =>
+      withLiveAssignments(profiles.setBinds(setProfileBindsInputSchema.parse(payload))),
+    )
+
+    handle(CONFIG_HANDLERS.setLayers, (payload): ConfigProfile[] =>
+      withLiveAssignments(profiles.setLayers(setProfileLayersInputSchema.parse(payload))),
     )
 
     handle(CONFIG_HANDLERS.assign, (payload): Outcome<ConfigProfile[]> => {

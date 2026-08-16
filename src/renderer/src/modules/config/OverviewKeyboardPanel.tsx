@@ -1,10 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Play, Square } from 'lucide-react'
+import { Pencil, Play, Square } from 'lucide-react'
+import type { AltLayer } from '@shared/config/alt-layers'
 import type { ConfigProfile } from '@shared/modules/config'
 import { cn } from '../../lib/cn'
 import { Button } from '../../components/ui/Button'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
+import { KeyBindDialog } from './components/KeyBindDialog'
 import { keycapCommandLabel, resolveCommandLabel } from './lib/command-catalog'
 import {
   ARROW_CLUSTER,
@@ -60,20 +62,34 @@ interface Captured {
  * a test mode that captures a real keypress or mouse click and shows the
  * command chain it would run.
  *
- * Read-only by design - editing binds is the keybinding editor's job (a
- * later story, concept doc §5 "Alternate binding layers"), not this one.
+ * Also the keybinding editor itself (story 006): an edit-mode toggle turns a
+ * keycap click into opening `KeyBindDialog` instead of capturing a keypress,
+ * scoped to the base layer or, with a layer selected above this board, to
+ * that layer's own `overrides` (concept doc §5 "Alternate binding layers").
  */
-export function OverviewKeyboardPanel({ profile }: { profile: ConfigProfile }) {
+export function OverviewKeyboardPanel({
+  profile,
+  activeLayer,
+  onChanged,
+}: {
+  profile: ConfigProfile
+  activeLayer: AltLayer | null
+  onChanged: (profiles: ConfigProfile[]) => void
+}) {
   const { t } = useTranslation()
   const occurrences = useMemo(() => keyOccurrenceCounts(), [])
   const [testMode, setTestMode] = useState(false)
   const [captured, setCaptured] = useState<Captured | null>(null)
+  const [editMode, setEditMode] = useState(false)
+  const [editingKey, setEditingKey] = useState<{ key: string; label: string } | null>(null)
   const scaleHostRef = useRef<HTMLDivElement>(null)
   const scaleTargetRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setTestMode(false)
+    setEditMode(false)
     setCaptured(null)
+    setEditingKey(null)
   }, [profile.id])
 
   useEffect(() => {
@@ -128,41 +144,86 @@ export function OverviewKeyboardPanel({ profile }: { profile: ConfigProfile }) {
     ...MOUSE_ROWS.flat().map((def) => def.key),
   ]).size
 
-  const capture = (key: string): void => {
+  /**
+   * The one click handler both keycap renderers wire up - mode-aware so a
+   * keycap click means one thing at a time: capture a keypress in test mode,
+   * open `KeyBindDialog` for that key in edit mode, do nothing otherwise
+   * (matches the two modes being mutually exclusive, enforced by the header
+   * toggles below).
+   */
+  const capture = (def: KeyDef): void => {
+    if (editMode) {
+      setEditingKey({ key: def.key, label: def.label })
+      return
+    }
     if (!testMode) return
-    setCaptured({ key, command: profile.binds[key] })
+    setCaptured({ key: def.key, command: profile.binds[def.key] })
   }
 
   /** Bound/free/shared styling and title shared by both the flex-row and grid keycap renderers. */
   const keyVisual = (def: KeyDef) => {
-    const command = profile.binds[def.key]
-    const bound = Boolean(command && command.trim().length > 0)
-    const commandLabel = bound ? keycapCommandLabel(resolveAliasChain(command)) : null
+    const baseCommand = profile.binds[def.key]
+    const baseBound = Boolean(baseCommand && baseCommand.trim().length > 0)
+    const overrideCommand = activeLayer?.overrides[def.key]
+    const hasOverride = Boolean(activeLayer && overrideCommand && overrideCommand.trim().length > 0)
+    const bound = hasOverride || baseBound
+    const primaryCommand = hasOverride ? overrideCommand : baseCommand
+    const commandLabel =
+      bound && primaryCommand ? keycapCommandLabel(resolveAliasChain(primaryCommand)) : null
+    // When a layer is active and this key has no override of its own, the base
+    // command still renders as the keycap's primary label (falling back below) -
+    // this extra line only fires when the key DOES have an override, so the
+    // base-layer command is not lost from view.
+    const baseReferenceLabel =
+      hasOverride && baseBound ? keycapCommandLabel(resolveAliasChain(baseCommand)) : null
     const conflict = (occurrences.get(def.key) ?? 0) > 1
-    const title = [def.key, conflict && t('config.overview.legend.conflict'), bound && command?.trim()]
+    const title = [
+      def.key,
+      conflict && t('config.overview.legend.conflict'),
+      hasOverride && t('config.overview.legend.altLayer'),
+      bound && primaryCommand?.trim(),
+    ]
       .filter(Boolean)
       .join(' — ')
     const className = cn(
       'flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-sm border px-1 py-1 transition-colors duration-[--dur-fast]',
-      bound ? 'border-flame-700 bg-flame-900/30 text-flame-200' : 'border-line text-ink-muted',
+      hasOverride
+        ? 'border-warning/60 bg-warning/15 text-warning'
+        : bound
+          ? 'border-flame-700 bg-flame-900/30 text-flame-200'
+          : 'border-line text-ink-muted',
+      // A key with no override of its own, while a layer is active, is shown
+      // dimmed - it is base-layer context, not this layer's own state.
+      Boolean(activeLayer) && !hasOverride && bound && 'opacity-70',
       conflict && 'ring-1 ring-strogg-500/60 ring-inset',
-      testMode ? 'cursor-pointer hover:border-flame-400' : 'cursor-default',
+      testMode || editMode ? 'cursor-pointer hover:border-flame-400' : 'cursor-default',
     )
-    return { title, className, commandLabel }
+    return { title, className, commandLabel, warn: hasOverride, baseReferenceLabel }
   }
 
-  const keyLabel = (def: KeyDef, commandLabel: ReturnType<typeof keycapCommandLabel>) => (
+  const keyLabel = (
+    def: KeyDef,
+    commandLabel: ReturnType<typeof keycapCommandLabel>,
+    warn: boolean,
+    baseReferenceLabel: ReturnType<typeof keycapCommandLabel>,
+  ) => (
     <>
       <span className="text-[11px] leading-none font-semibold">{def.label}</span>
       {commandLabel && (
         <span
           className={cn(
-            'max-w-full truncate text-[8px] leading-none text-flame-300/90',
+            'max-w-full truncate text-[8px] leading-none',
+            warn ? 'text-warning' : 'text-flame-300/90',
             !commandLabel.recognized && 'font-mono',
           )}
         >
           {commandLabel.label}
           {commandLabel.extraSteps > 0 && ` +${commandLabel.extraSteps}`}
+        </span>
+      )}
+      {baseReferenceLabel && (
+        <span className="max-w-full truncate text-[7px] leading-none text-ink-muted italic opacity-80">
+          {baseReferenceLabel.label}
         </span>
       )}
     </>
@@ -178,38 +239,38 @@ export function OverviewKeyboardPanel({ profile }: { profile: ConfigProfile }) {
         />
       )
     }
-    const { title, className, commandLabel } = keyVisual(def)
+    const { title, className, commandLabel, warn, baseReferenceLabel } = keyVisual(def)
     const widthUnits = def.wide ? MOUSE_WIDE_UNITS : (def.units ?? 1)
     return (
       <button
         key={`${def.key}-${index}`}
         type="button"
         title={title}
-        onClick={() => capture(def.key)}
+        onClick={() => capture(def)}
         style={{ width: `${widthUnits * KEY_UNIT_REM}rem`, height: `${KEY_HEIGHT_REM}rem` }}
         className={className}
       >
-        {keyLabel(def, commandLabel)}
+        {keyLabel(def, commandLabel, warn, baseReferenceLabel)}
       </button>
     )
   }
 
   /** Numpad only: grid placement (KP_PLUS/KP_ENTER span two rows, KP_INS spans two columns) instead of a fixed width/height. */
   const renderNumpadKey = (def: KeyDef, index: number) => {
-    const { title, className, commandLabel } = keyVisual(def)
+    const { title, className, commandLabel, warn, baseReferenceLabel } = keyVisual(def)
     return (
       <button
         key={`${def.key}-${index}`}
         type="button"
         title={title}
-        onClick={() => capture(def.key)}
+        onClick={() => capture(def)}
         style={{
           gridColumn: def.colSpan ? `span ${def.colSpan}` : undefined,
           gridRow: def.rowSpan ? `span ${def.rowSpan}` : undefined,
         }}
         className={className}
       >
-        {keyLabel(def, commandLabel)}
+        {keyLabel(def, commandLabel, warn, baseReferenceLabel)}
       </button>
     )
   }
@@ -225,24 +286,43 @@ export function OverviewKeyboardPanel({ profile }: { profile: ConfigProfile }) {
             {t('config.overview.subtitle', { bound: boundCount, total: totalCount })}
           </p>
         </div>
-        <Button
-          variant={testMode ? 'danger' : 'neutral'}
-          size="sm"
-          icon={testMode ? <Square className="size-3.5" /> : <Play className="size-3.5" />}
-          onClick={() => setTestMode((prev) => !prev)}
-        >
-          {testMode ? t('config.overview.testMode.stop') : t('config.overview.testMode.start')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={editMode ? 'danger' : 'neutral'}
+            size="sm"
+            icon={<Pencil className="size-3.5" />}
+            onClick={() =>
+              setEditMode((prev) => {
+                const next = !prev
+                if (next) setTestMode(false)
+                return next
+              })
+            }
+          >
+            {editMode ? t('config.overview.editMode.stop') : t('config.overview.editMode.start')}
+          </Button>
+          <Button
+            variant={testMode ? 'danger' : 'neutral'}
+            size="sm"
+            icon={testMode ? <Square className="size-3.5" /> : <Play className="size-3.5" />}
+            onClick={() =>
+              setTestMode((prev) => {
+                const next = !prev
+                if (next) setEditMode(false)
+                return next
+              })
+            }
+          >
+            {testMode ? t('config.overview.testMode.stop') : t('config.overview.testMode.start')}
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone="neutral">{t('config.overview.legend.free')}</Badge>
         <Badge tone="flame">{t('config.overview.legend.bound')}</Badge>
         <Badge tone="strogg">{t('config.overview.legend.conflict')}</Badge>
-        {/* Alt layers are CFG-8 - no key can carry this state yet, but the
-            legend names it up front so the overview reads the same as
-            q2-config-manager's once that story lands. */}
-        <Badge tone="neutral" className="opacity-60">
+        <Badge tone="warning" className={cn(!activeLayer && 'opacity-60')}>
           {t('config.overview.legend.altLayer')}
         </Badge>
       </div>
@@ -283,7 +363,9 @@ export function OverviewKeyboardPanel({ profile }: { profile: ConfigProfile }) {
                     )}
                   </>
                 ) : (
-                  <span className="text-ink-muted">{t('config.overview.testMode.placeholder')}</span>
+                  <span className="text-ink-muted">
+                    {t('config.overview.testMode.placeholder')}
+                  </span>
                 )}
               </div>
             )}
@@ -327,6 +409,20 @@ export function OverviewKeyboardPanel({ profile }: { profile: ConfigProfile }) {
           </div>
         </div>
       </div>
+
+      {editingKey && (
+        <KeyBindDialog
+          profile={profile}
+          keyName={editingKey.key}
+          keyLabel={editingKey.label}
+          layer={activeLayer}
+          onClose={() => setEditingKey(null)}
+          onSaved={(profiles) => {
+            onChanged(profiles)
+            setEditingKey(null)
+          }}
+        />
+      )}
     </div>
   )
 }

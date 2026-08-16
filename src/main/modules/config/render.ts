@@ -1,4 +1,5 @@
 import type { ConfigProfile } from '@shared/modules/config'
+import { generateLayerAliases } from '@shared/config/alt-layers'
 
 /**
  * Turns a `ConfigProfile` into the deterministic `.cfg` text q2-launcher
@@ -42,12 +43,33 @@ export function sentinelLine(profileId: string): string {
 }
 
 /**
- * Renders a profile's own cvars+binds file (what gets written to
+ * Renders a profile's own cvars+binds(+layers) file (what gets written to
  * `baseq2/q2l-profile-<id>.cfg`). Deterministic: cvars and binds are each
  * emitted in ascending key order (`Object.keys(...).sort()`), never insertion
  * order, so the same profile always renders byte-identical output regardless
- * of how its maps were built. Starts with the sentinel line. Cvars as
- * `set <name> "<value>"`, binds as `bind <key> "<value>"`, one per line.
+ * of how its maps were built. Layers (story 006) are the one exception to
+ * "sorted": they render in `profile.layers` array order, with each layer's
+ * aliases in the order `generateLayerAliases()` (a pure function, so this
+ * stays deterministic) returns them - the story specifies this as "array
+ * order", not alphabetical, since layers have no natural sort key.
+ *
+ * Layout: sentinel line, `set <name> "<value>"` per cvar (sorted), every
+ * layer's alias lines (array order, layer by layer, aliases in generation
+ * order), `bind <key> "<value>"` per base bind (sorted), then one
+ * `bind <trigger> <command>` per layer that actually produced aliases (array
+ * order again). A layer with no valid overrides generates `aliases: []` but
+ * still returns a nominal `triggerBind` - emitting that bind would point the
+ * trigger key at an alias that was never defined, so it is skipped for empty
+ * layers (see `generateLayerAliases`'s own doc comment).
+ *
+ * Trigger bind lines are deliberately unquoted (`bind <key> <command>`, not
+ * `bind <key> "<command>"`): `triggerBind.command` is always a single slugged
+ * alias name (`+drops`, `zoom`) with no spaces, so quoting it would just be a
+ * second convention alongside the unquoted single-token commands
+ * `generateLayerAliases` itself already writes inside alias bodies (e.g.
+ * `bind 1 weapnext`) - introducing quotes here would be inconsistent with
+ * that, for no benefit.
+ *
  * Ends with a single trailing newline (`\n` only - never `\r\n`).
  */
 export function renderProfileFile(profile: ConfigProfile): string {
@@ -57,8 +79,22 @@ export function renderProfileFile(profile: ConfigProfile): string {
     lines.push(`set ${name} "${profile.cvars[name]}"`)
   }
 
+  const layers = profile.layers ?? []
+  const layerResults = layers.map((layer) => generateLayerAliases(layer, profile.binds))
+
+  for (const { aliases } of layerResults) {
+    for (const alias of aliases) {
+      lines.push(alias.line)
+    }
+  }
+
   for (const key of Object.keys(profile.binds).sort()) {
     lines.push(`bind ${key} "${profile.binds[key]}"`)
+  }
+
+  for (const { aliases, triggerBind } of layerResults) {
+    if (aliases.length === 0) continue
+    lines.push(`bind ${triggerBind.key} ${triggerBind.command}`)
   }
 
   return `${lines.join('\n')}\n`

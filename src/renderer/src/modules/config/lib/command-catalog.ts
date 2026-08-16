@@ -48,6 +48,20 @@ const STANDARD_COMMAND_LABELS: Record<string, string> = {
   '+button2': 'Alt fire',
 }
 
+export interface CommandCatalogEntry {
+  command: string
+  label: string
+}
+
+/**
+ * A browsable form of `STANDARD_COMMAND_LABELS`, for the keybinding editor's
+ * (story 006 D4) pick list - derived from the label map rather than
+ * duplicating it, so the two can never drift apart.
+ */
+export const COMMAND_CATALOG: CommandCatalogEntry[] = Object.entries(STANDARD_COMMAND_LABELS).map(
+  ([command, label]) => ({ command, label }),
+)
+
 const WEAPON_SLOT_RE = /^weapon\s+(\d+)$/i
 const USE_ITEM_RE = /^use\s+(.+)$/i
 

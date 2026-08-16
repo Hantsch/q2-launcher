@@ -14,7 +14,9 @@ import {
   type RenameConfigProfileInput,
   type SetDefaultProfileInput,
   type SetPlayedModsInput,
+  type SetProfileBindsInput,
   type SetProfileCvarsInput,
+  type SetProfileLayersInput,
   type UnassignProfileInput,
   type WriteProfileInput,
   type WriteState,
@@ -54,6 +56,20 @@ export function updateProfileCvars(
   input: SetProfileCvarsInput,
 ): Promise<Outcome<ConfigProfile[]>> {
   return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setCvars, input)
+}
+
+/** Replaces a profile's binds map and returns the full, updated profile list. */
+export function updateProfileBinds(
+  input: SetProfileBindsInput,
+): Promise<Outcome<ConfigProfile[]>> {
+  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setBinds, input)
+}
+
+/** Replaces a profile's layers array and returns the full, updated profile list. */
+export function updateProfileLayers(
+  input: SetProfileLayersInput,
+): Promise<Outcome<ConfigProfile[]>> {
+  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setLayers, input)
 }
 
 /**
