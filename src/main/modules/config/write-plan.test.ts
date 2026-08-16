@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
 import type { LaunchState } from '@shared/types'
-import { defaultProfileFor, isInstallationRunning } from './write-plan'
+import { assignedProfilesFor, defaultProfileFor, isInstallationRunning } from './write-plan'
 
 function profile(overrides: Partial<ConfigProfile> = {}): ConfigProfile {
   return {
@@ -36,6 +36,40 @@ describe('defaultProfileFor', () => {
 
     expect(defaultProfileFor(profiles, 'i1')).toBeNull()
     expect(defaultProfileFor([], 'i1')).toBeNull()
+  })
+})
+
+describe('assignedProfilesFor', () => {
+  it('filters to only profiles assigned to the given installation, preserving list order', () => {
+    const profiles = [
+      profile({ id: 'p1', name: 'One', assignments: [{ installationId: 'i1', isDefault: true }] }),
+      profile({ id: 'p2', name: 'Two', assignments: [{ installationId: 'i2', isDefault: true }] }),
+      profile({ id: 'p3', name: 'Three', assignments: [{ installationId: 'i1', isDefault: false }] }),
+    ]
+
+    expect(assignedProfilesFor(profiles, 'i1')).toEqual([
+      { id: 'p1', name: 'One' },
+      { id: 'p3', name: 'Three' },
+    ])
+  })
+
+  it('returns an empty array when the installation has no assignments', () => {
+    const profiles = [profile({ id: 'p1', assignments: [{ installationId: 'i2', isDefault: true }] })]
+
+    expect(assignedProfilesFor(profiles, 'i1')).toEqual([])
+  })
+
+  it('returns {id, name} shape only, dropping cvars/binds/assignments', () => {
+    const profiles = [
+      profile({
+        id: 'p1',
+        name: 'One',
+        cvars: { sensitivity: '3' },
+        assignments: [{ installationId: 'i1', isDefault: true }],
+      }),
+    ]
+
+    expect(assignedProfilesFor(profiles, 'i1')).toEqual([{ id: 'p1', name: 'One' }])
   })
 })
 

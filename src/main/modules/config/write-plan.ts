@@ -21,6 +21,21 @@ export function defaultProfileFor(
   )
 }
 
+/**
+ * `installationId`'s assigned profiles, filtered from the full list and kept
+ * in that list's own order (story 007 decision 8: this IS the switch-bind
+ * cycle order, and it is what the UI already shows via
+ * `InstallationProfilesPanel`).
+ */
+export function assignedProfilesFor(
+  profiles: ConfigProfile[],
+  installationId: string,
+): Array<{ id: string; name: string }> {
+  return profiles
+    .filter((profile) => profile.assignments.some((a) => a.installationId === installationId))
+    .map((profile) => ({ id: profile.id, name: profile.name }))
+}
+
 /** True when `installationId` is the one currently running, per the launch service's own state. */
 export function isInstallationRunning(launchState: LaunchState, installationId: string): boolean {
   return (

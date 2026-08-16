@@ -151,12 +151,19 @@ export const configPlayedModsSchema = z
 /** installationId -> id of the profile whose last write attempt found it running. */
 export const configPendingWritesSchema = z.record(z.string(), z.string()).catch(() => ({}))
 
+/** installationId -> engine key name bound to story 007's in-session profile-switch chain. */
+export const configSwitchBindsSchema = z.record(z.string(), z.string()).catch(() => ({}))
+
 export function parseConfigPlayedMods(raw: unknown): Record<string, string[]> {
   return configPlayedModsSchema.parse(raw)
 }
 
 export function parseConfigPendingWrites(raw: unknown): Record<string, string> {
   return configPendingWritesSchema.parse(raw)
+}
+
+export function parseConfigSwitchBinds(raw: unknown): Record<string, string> {
+  return configSwitchBindsSchema.parse(raw)
 }
 
 const settingsObjectSchema = z.object({

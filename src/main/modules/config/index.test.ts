@@ -224,6 +224,89 @@ describe('writeProfileToAssignedInstallations', () => {
 
     expect(results).toEqual([])
   })
+
+  it('story 007: a 2-profile-assigned installation with a switchBindFor key produces a loader containing the chain', async () => {
+    const inst = installation()
+    const duel = profile({
+      id: 'p-duel',
+      name: 'Duel',
+      assignments: [{ installationId: 'i1', isDefault: true }],
+    })
+    const ctf = profile({
+      id: 'p-ctf',
+      name: 'CTF',
+      assignments: [{ installationId: 'i1', isDefault: false }],
+    })
+
+    const { results } = await writeProfileToAssignedInstallations({
+      profile: duel,
+      allProfiles: [duel, ctf],
+      installations: { find: () => inst },
+      launchState: idleState(),
+      playedModsFor: () => [],
+      switchBindFor: () => 'F9',
+      pendingWrites: {},
+      log,
+    })
+
+    expect(results).toEqual([{ installationId: 'i1', status: 'written' }])
+    const loader = await readFile(join(dir, 'baseq2', 'autoexec.cfg'), 'latin1')
+    expect(loader).toContain('q2l_switch')
+    expect(loader).toContain('exec q2l-profile-p-duel.cfg')
+    expect(loader).toContain('exec q2l-profile-p-ctf.cfg')
+    expect(loader).toContain('bind F9 q2l_switch')
+  })
+
+  it('story 007: with switchBindFor returning undefined (the default), the loader is byte-identical to a call with no switchBindFor at all', async () => {
+    const inst = installation()
+    const p = profile()
+    const deps = {
+      profile: p,
+      allProfiles: [p],
+      installations: { find: () => inst },
+      launchState: idleState(),
+      playedModsFor: () => [],
+      pendingWrites: {},
+      log,
+    }
+
+    await writeProfileToAssignedInstallations(deps)
+    const withoutSwitchBindFor = await readFile(join(dir, 'baseq2', 'autoexec.cfg'), 'latin1')
+
+    await writeProfileToAssignedInstallations({ ...deps, switchBindFor: () => undefined })
+    const withUndefinedSwitchBindFor = await readFile(join(dir, 'baseq2', 'autoexec.cfg'), 'latin1')
+
+    expect(withUndefinedSwitchBindFor).toBe(withoutSwitchBindFor)
+    expect(withoutSwitchBindFor).not.toContain('q2l_switch')
+  })
+
+  it("story 007: never changes any assignment's isDefault, switch bind or not", async () => {
+    const inst = installation()
+    const duel = profile({
+      id: 'p-duel',
+      name: 'Duel',
+      assignments: [{ installationId: 'i1', isDefault: true }],
+    })
+    const ctf = profile({
+      id: 'p-ctf',
+      name: 'CTF',
+      assignments: [{ installationId: 'i1', isDefault: false }],
+    })
+    const before = JSON.parse(JSON.stringify([duel, ctf].map((p) => p.assignments)))
+
+    await writeProfileToAssignedInstallations({
+      profile: duel,
+      allProfiles: [duel, ctf],
+      installations: { find: () => inst },
+      launchState: idleState(),
+      playedModsFor: () => [],
+      switchBindFor: () => 'F9',
+      pendingWrites: {},
+      log,
+    })
+
+    expect([duel, ctf].map((p) => p.assignments)).toEqual(before)
+  })
 })
 
 describe('previewProfileFiles', () => {
@@ -283,6 +366,36 @@ describe('previewProfileFiles', () => {
       'autoexec.cfg',
     ])
     expect(files[0]!.content).toContain('set crosshair "1"')
+  })
+
+  it('story 007: includes the switch-bind chain in the loader preview when a key and 2 assigned profiles are given', () => {
+    const duel = profile({
+      id: 'p-duel',
+      name: 'Duel',
+      assignments: [{ installationId: 'i1', isDefault: true }],
+    })
+    const ctf = profile({
+      id: 'p-ctf',
+      name: 'CTF',
+      assignments: [{ installationId: 'i1', isDefault: false }],
+    })
+    const inst = installation()
+
+    const files = previewProfileFiles(duel, [duel, ctf], inst, 'F9')
+    const loader = files.find((f) => f.path.endsWith('autoexec.cfg'))
+
+    expect(loader!.content).toContain('q2l_switch')
+    expect(loader!.content).toContain('bind F9 q2l_switch')
+  })
+
+  it('story 007: omits the chain when no switchBindKey is given (today\'s default)', () => {
+    const p = profile()
+    const inst = installation()
+
+    const files = previewProfileFiles(p, [p], inst)
+    const loader = files.find((f) => f.path.endsWith('autoexec.cfg'))
+
+    expect(loader!.content).not.toContain('q2l_switch')
   })
 })
 

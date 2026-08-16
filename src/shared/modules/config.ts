@@ -23,6 +23,8 @@ export const CONFIG_HANDLERS = {
   preview: 'preview',
   writeState: 'writeState',
   setPlayedMods: 'setPlayedMods',
+  switchBinds: 'switchBinds',
+  setSwitchBind: 'setSwitchBind',
   importScan: 'import.scan',
   importPreview: 'import.preview',
   importCommit: 'import.commit',
@@ -206,6 +208,17 @@ export interface PreviewProfileResult {
 export interface SetPlayedModsInput {
   installationId: string
   playedMods: string[]
+}
+
+/**
+ * Story 007: which key (if any) cycles an installation's assigned profiles
+ * in-session. Per installation, not per profile (decision 1) - it is not part
+ * of `ConfigProfile` since one profile can be assigned to many installations.
+ */
+export interface SetSwitchBindInput {
+  installationId: string
+  /** null clears the bind for that installation. */
+  key: string | null
 }
 
 /**

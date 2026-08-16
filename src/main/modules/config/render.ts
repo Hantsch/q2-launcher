@@ -1,5 +1,7 @@
 import type { ConfigProfile } from '@shared/modules/config'
 import { generateLayerAliases } from '@shared/config/alt-layers'
+import type { SwitchBindChainInput } from './switch-bind'
+import { renderSwitchBindChain } from './switch-bind'
 
 /**
  * Turns a `ConfigProfile` into the deterministic `.cfg` text q2-launcher
@@ -101,15 +103,27 @@ export function renderProfileFile(profile: ConfigProfile): string {
 }
 
 /**
- * Renders the one-line loader (what gets written to every `autoexec.cfg` -
- * baseq2's own and every played-mod folder's copy): a sentinel line for
- * `profile.id` followed by `exec <profileFileName>`. This is deliberately a
- * separate, tiny function from `renderProfileFile` because the loader is
- * always generated for whichever profile is an installation's *default*,
- * which is not necessarily the profile whose own cvars file was just
- * (re)written - callers pass whatever profile object is currently the
- * default.
+ * Renders the loader (what gets written to every `autoexec.cfg` - baseq2's
+ * own and every played-mod folder's copy): a sentinel line for `profile.id`
+ * followed by `exec <profileFileName>`. This is deliberately a separate, tiny
+ * function from `renderProfileFile` because the loader is always generated
+ * for whichever profile is an installation's *default*, which is not
+ * necessarily the profile whose own cvars file was just (re)written -
+ * callers pass whatever profile object is currently the default.
+ *
+ * `switchBind` is story 007's optional in-session profile switch chain
+ * (`./switch-bind`): when given, its rendered chain is appended after the
+ * `exec` line, since the loader `autoexec.cfg` is the one file every
+ * profile's own `exec` cannot clobber (story 007 decision 4). Called with no
+ * second argument, or with an input `renderSwitchBindChain` reduces to `''`
+ * for (fewer than 2 profiles, or no usable key - see its own doc comment),
+ * this renders byte-identical to the plain sentinel+exec loader. The chain
+ * text itself carries no trailing newline, so it slots in as one more line
+ * before the loader's own final `\n`.
  */
-export function renderLoaderFile(profile: ConfigProfile): string {
-  return `${sentinelLine(profile.id)}\nexec ${profileFileName(profile.id)}\n`
+export function renderLoaderFile(profile: ConfigProfile, switchBind?: SwitchBindChainInput): string {
+  const chain = switchBind ? renderSwitchBindChain(switchBind) : ''
+  const lines = [sentinelLine(profile.id), `exec ${profileFileName(profile.id)}`]
+  if (chain) lines.push(chain)
+  return `${lines.join('\n')}\n`
 }

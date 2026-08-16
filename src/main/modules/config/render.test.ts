@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
 import type { AltLayer } from '@shared/config/alt-layers'
 import { generateLayerAliases } from '@shared/config/alt-layers'
+import type { SwitchBindChainInput } from './switch-bind'
+import { renderSwitchBindChain } from './switch-bind'
 import {
   OWNERSHIP_MARKER,
   profileFileName,
@@ -213,6 +215,58 @@ describe('renderLoaderFile', () => {
         '\n',
       ),
     )
+  })
+
+  it('places the switch-bind chain after the exec line when given a usable chain input', () => {
+    const p = profile({ id: 'abc123' })
+    const switchBind: SwitchBindChainInput = {
+      key: 'F9',
+      defaultProfileId: 'abc123',
+      profiles: [
+        { id: 'abc123', name: 'Main' },
+        { id: 'def456', name: 'Alt' },
+      ],
+    }
+
+    const rendered = renderLoaderFile(p, switchBind)
+    const lines = rendered.split('\n')
+    const chainLines = renderSwitchBindChain(switchBind).split('\n')
+
+    expect(lines).toEqual([
+      '// q2-launcher profile abc123 - generated, do not edit',
+      'exec q2l-profile-abc123.cfg',
+      ...chainLines,
+      '',
+    ])
+  })
+
+  it('renders byte-identical to the no-argument call when the chain input yields an empty chain', () => {
+    const p = profile({ id: 'abc123' })
+    const switchBind: SwitchBindChainInput = {
+      key: 'F9',
+      defaultProfileId: 'abc123',
+      // Fewer than 2 profiles - renderSwitchBindChain returns '' for this.
+      profiles: [{ id: 'abc123', name: 'Main' }],
+    }
+
+    expect(renderLoaderFile(p, switchBind)).toBe(renderLoaderFile(p))
+  })
+
+  it('round-trips latin1 byte-for-byte with a high-ASCII profile name in the chain', () => {
+    const p = profile({ id: 'abc123' })
+    const switchBind: SwitchBindChainInput = {
+      key: 'F9',
+      defaultProfileId: 'abc123',
+      profiles: [
+        { id: 'abc123', name: 'Bjørn' },
+        { id: 'def456', name: 'Alt' },
+      ],
+    }
+
+    const rendered = renderLoaderFile(p, switchBind)
+    const roundTripped = Buffer.from(rendered, 'latin1').toString('latin1')
+
+    expect(roundTripped).toBe(rendered)
   })
 })
 

@@ -423,6 +423,14 @@
       "byInstallation": "By installation",
       "noneAssigned": "No profiles assigned."
     },
+    "switchBind": {
+      "label": "Switch key",
+      "notSet": "Not set",
+      "suggestF9": "Use F9",
+      "capture": "Set key…",
+      "capturing": "Press a key…",
+      "clear": "Clear"
+    },
     "error": {
       "installationNotFound": "That installation is no longer in your library.",
       "gameDirNotFound": "That game directory could not be found on this installation.",

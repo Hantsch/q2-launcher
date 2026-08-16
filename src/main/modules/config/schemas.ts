@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { NAMED_KEYS, normalizeBindKey } from '@shared/config/key-names'
 
 /**
  * IPC payload validation for the config module's own handlers.
@@ -82,6 +83,42 @@ export const previewProfileInputSchema = z.object({
 export const setPlayedModsInputSchema = z.object({
   installationId: z.string().min(1),
   playedMods: z.array(z.string().min(1)).max(64),
+})
+
+/**
+ * Story 007's key vocabulary: a known named key (`NAMED_KEYS`, the same list
+ * the keyboard overview and the config parser agree on) or a single printable
+ * ASCII character, normalized via `normalizeBindKey` so casing differences
+ * (`f9`/`F9`) land on the same value. Anything else - a multi-character token
+ * that isn't a named key, control characters, non-ASCII - is rejected.
+ *
+ * The single-character branch additionally excludes space, `"`, `$` and `;`
+ * (review finding, story 007): those pass a plain "printable ASCII" test but
+ * `switch-bind.ts`'s own `sanitizeKeyName` strips every one of them before
+ * emitting the chain (the same reasons `alt-layers.ts` sanitizes command
+ * bodies - `;` ends a step's command list early, `$` triggers macro
+ * expansion, `"` cannot be escaped, and a bare space is not a key token at
+ * all). Accepting one of these here would let this schema call a key "valid"
+ * while the generator silently reduces it to an empty key and emits no chain
+ * at all - a write that reports success and does nothing, so this schema must
+ * reject exactly what the generator cannot use rather than only what looks
+ * unprintable.
+ */
+const switchBindKeySchema = z
+  .string()
+  .min(1)
+  .max(20)
+  .transform((raw) => normalizeBindKey(raw.trim()))
+  .refine(
+    (key) =>
+      (NAMED_KEYS as readonly string[]).includes(key) ||
+      (/^[\x21-\x7e]$/.test(key) && !/["$;]/.test(key)),
+    'unknown key name',
+  )
+
+export const setSwitchBindInputSchema = z.object({
+  installationId: z.string().min(1),
+  key: switchBindKeySchema.nullable(),
 })
 
 /**

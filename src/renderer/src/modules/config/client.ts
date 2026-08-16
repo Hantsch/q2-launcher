@@ -17,6 +17,7 @@ import {
   type SetProfileBindsInput,
   type SetProfileCvarsInput,
   type SetProfileLayersInput,
+  type SetSwitchBindInput,
   type UnassignProfileInput,
   type WriteProfileInput,
   type WriteState,
@@ -129,6 +130,18 @@ export function getWriteState(): Promise<Outcome<WriteState>> {
 /** Sets which mods an installation is considered to have been played with. */
 export function setPlayedMods(input: SetPlayedModsInput): Promise<Outcome<string[]>> {
   return callModule<string[]>('config', CONFIG_HANDLERS.setPlayedMods, input)
+}
+
+/** installationId -> the key bound to cycle its assigned profiles in-session, if configured. */
+export function getSwitchBinds(): Promise<Outcome<Record<string, string>>> {
+  return callModule<Record<string, string>>('config', CONFIG_HANDLERS.switchBinds)
+}
+
+/** Sets or clears (key: null) the in-session profile-switch key for one installation. */
+export function setSwitchBind(
+  input: SetSwitchBindInput,
+): Promise<Outcome<Record<string, string>>> {
+  return callModule<Record<string, string>>('config', CONFIG_HANDLERS.setSwitchBind, input)
 }
 
 /**

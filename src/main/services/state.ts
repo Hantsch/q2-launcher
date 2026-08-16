@@ -6,6 +6,7 @@ import {
   parseConfigPendingWrites,
   parseConfigPlayedMods,
   parseConfigProfiles,
+  parseConfigSwitchBinds,
   parseInstallations,
   parseSettings,
 } from '../lib/schemas'
@@ -36,6 +37,14 @@ export interface LauncherStateDocument {
    * reasoning as `configPlayedMods` above.
    */
   configPendingWrites: Record<string, string>
+  /**
+   * installationId -> engine key name bound to story 007's in-session
+   * profile-switch chain. Central per-installation data the config module
+   * owns, next to but not part of `Installation` - same reasoning as
+   * `configPlayedMods` above. Files written before this key existed simply
+   * lack it and load as `{}`.
+   */
+  configSwitchBinds: Record<string, string>
 }
 
 function defaults(): LauncherStateDocument {
@@ -46,6 +55,7 @@ function defaults(): LauncherStateDocument {
     configProfiles: [],
     configPlayedMods: {},
     configPendingWrites: {},
+    configSwitchBinds: {},
   }
 }
 
@@ -71,6 +81,7 @@ export class StateStore {
           configProfiles: parseConfigProfiles(doc['configProfiles']),
           configPlayedMods: parseConfigPlayedMods(doc['configPlayedMods']),
           configPendingWrites: parseConfigPendingWrites(doc['configPendingWrites']),
+          configSwitchBinds: parseConfigSwitchBinds(doc['configSwitchBinds']),
         }
       },
     })
@@ -105,6 +116,10 @@ export class StateStore {
     return this.store.get().configPendingWrites
   }
 
+  configSwitchBinds(): Record<string, string> {
+    return this.store.get().configSwitchBinds
+  }
+
   patchSettings(patch: Partial<LauncherSettings>): LauncherSettings {
     return this.store.update((current) => ({
       ...current,
@@ -127,6 +142,10 @@ export class StateStore {
   setConfigPendingWrites(configPendingWrites: Record<string, string>): Record<string, string> {
     return this.store.update((current) => ({ ...current, configPendingWrites }))
       .configPendingWrites
+  }
+
+  setConfigSwitchBinds(configSwitchBinds: Record<string, string>): Record<string, string> {
+    return this.store.update((current) => ({ ...current, configSwitchBinds })).configSwitchBinds
   }
 
   /** Waits for pending writes; called on quit. */

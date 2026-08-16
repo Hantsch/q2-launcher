@@ -31,10 +31,11 @@ import {
   setProfileBindsInputSchema,
   setProfileCvarsInputSchema,
   setProfileLayersInputSchema,
+  setSwitchBindInputSchema,
   unassignProfileInputSchema,
   writeProfileInputSchema,
 } from './schemas'
-import { defaultProfileFor, isInstallationRunning } from './write-plan'
+import { assignedProfilesFor, defaultProfileFor, isInstallationRunning } from './write-plan'
 import { BASE_GAME_DIR, LOADER_FILE_NAME, writeInstallationFiles } from './writer'
 
 export interface WriteProfileDeps {
@@ -44,6 +45,13 @@ export interface WriteProfileDeps {
   installations: { find: (id: string) => Installation | undefined }
   launchState: LaunchState
   playedModsFor: (installationId: string) => string[]
+  /**
+   * Story 007: the key (if any) bound to that installation's in-session
+   * profile-switch chain. Optional - and defaulting to "no bind" when absent
+   * - so every pre-story-007 test/call site that builds `WriteProfileDeps`
+   * without it keeps compiling untouched.
+   */
+  switchBindFor?: (installationId: string) => string | undefined
   /** Current pending-write map (installationId -> profileId) to update from. */
   pendingWrites: Record<string, string>
   log: Logger
@@ -69,6 +77,7 @@ export async function writeProfileToAssignedInstallations(
   deps: WriteProfileDeps,
 ): Promise<WriteProfileOutcome> {
   const { profile, allProfiles, installations, launchState, playedModsFor, log } = deps
+  const switchBindFor = deps.switchBindFor ?? (() => undefined)
   const results: WriteTargetResult[] = []
   const pendingWrites = { ...deps.pendingWrites }
 
@@ -107,13 +116,26 @@ export async function writeProfileToAssignedInstallations(
       // before writing the profile actually being saved.
       const targets = defaultProfile.id === profile.id ? [profile] : [defaultProfile, profile]
 
+      // Story 007: the switch-bind chain is a function of the installation
+      // (its bound key and its ordered assigned profiles), not of which
+      // target is being written, so it is computed once per installation and
+      // reused for every target's loader render below.
+      const switchBindKey = switchBindFor(installation.id)
+      const assignedProfiles = assignedProfilesFor(allProfiles, installation.id)
+      const loaderFileContent = renderLoaderFile(
+        defaultProfile,
+        switchBindKey
+          ? { key: switchBindKey, profiles: assignedProfiles, defaultProfileId: defaultProfile.id }
+          : undefined,
+      )
+
       let anyChanged = false
       for (const target of targets) {
         const result = await writeInstallationFiles({
           installation,
           profileFileName: profileFileName(target.id),
           profileFileContent: renderProfileFile(target),
-          loaderFileContent: renderLoaderFile(defaultProfile),
+          loaderFileContent,
           playedMods: playedModsFor(installation.id),
         })
         anyChanged = anyChanged || result.changed
@@ -151,9 +173,11 @@ export function previewProfileFiles(
   profile: ConfigProfile,
   allProfiles: ConfigProfile[],
   installation: Pick<Installation, 'id' | 'rootPath'>,
+  switchBindKey?: string,
 ): PreviewFile[] {
   const defaultProfile = defaultProfileFor(allProfiles, installation.id) ?? profile
   const baseDir = join(installation.rootPath, BASE_GAME_DIR)
+  const assignedProfiles = assignedProfilesFor(allProfiles, installation.id)
 
   const files: PreviewFile[] = []
   // Mirrors the `defaultProfile.id !== profile.id` branch in
@@ -167,7 +191,15 @@ export function previewProfileFiles(
   }
   files.push(
     { path: join(baseDir, profileFileName(profile.id)), content: renderProfileFile(profile) },
-    { path: join(baseDir, LOADER_FILE_NAME), content: renderLoaderFile(defaultProfile) },
+    {
+      path: join(baseDir, LOADER_FILE_NAME),
+      content: renderLoaderFile(
+        defaultProfile,
+        switchBindKey
+          ? { key: switchBindKey, profiles: assignedProfiles, defaultProfileId: defaultProfile.id }
+          : undefined,
+      ),
+    },
   )
   return files
 }
@@ -298,6 +330,7 @@ export const configModule: MainModule = {
         installations: app.installations,
         launchState: app.launch.getState(),
         playedModsFor: (installationId) => app.state.configPlayedMods()[installationId] ?? [],
+        switchBindFor: (installationId) => app.state.configSwitchBinds()[installationId],
         pendingWrites: app.state.configPendingWrites(),
         log,
       })
@@ -313,7 +346,14 @@ export const configModule: MainModule = {
       const installation = app.installations.find(parsed.data.installationId)
       if (!installation) return fail('config.error.installationNotFound')
 
-      return ok({ files: previewProfileFiles(profile, profiles.list(), installation) })
+      return ok({
+        files: previewProfileFiles(
+          profile,
+          profiles.list(),
+          installation,
+          app.state.configSwitchBinds()[installation.id],
+        ),
+      })
     })
 
     handle(CONFIG_HANDLERS.writeState, (): WriteState => app.state.configPendingWrites())
@@ -330,6 +370,62 @@ export const configModule: MainModule = {
         [installation.id]: validated,
       })
       return ok(validated)
+    })
+
+    // Story 007: which key (if any) cycles an installation's assigned
+    // profiles in-session. Per-installation, not part of a profile (decision
+    // 1) - see `SetSwitchBindInput`'s doc comment.
+    handle(CONFIG_HANDLERS.switchBinds, (): Record<string, string> => app.state.configSwitchBinds())
+
+    handle(CONFIG_HANDLERS.setSwitchBind, async (payload): Promise<Outcome<Record<string, string>>> => {
+      const parsed = setSwitchBindInputSchema.safeParse(payload)
+      if (!parsed.success) return fail('ipc.error.invalidPayload')
+      const installation = app.installations.find(parsed.data.installationId)
+      if (!installation) return fail('config.error.installationNotFound')
+
+      const current = app.state.configSwitchBinds()
+      const next = { ...current }
+      if (parsed.data.key === null) delete next[installation.id]
+      else next[installation.id] = parsed.data.key
+      app.state.setConfigSwitchBinds(next)
+
+      // Decision 12/13: write immediately for this one installation only,
+      // through the unchanged story-004 pipeline (`writeInstallationFiles`);
+      // this never touches `assignments`/`isDefault` on any profile - the
+      // installation's default is only ever changed by `setDefault` above.
+      //
+      // Judgment call: unlike `writeProfileToAssignedInstallations`, this does
+      // NOT consult `isInstallationRunning`/skip-and-mark-pending. There is no
+      // pending-writes-shaped map keyed for "a switch-bind change, not a
+      // profile save" and decision 12 does not ask for one; the write below is
+      // still safe while the game is running (loader files are not open for
+      // exclusive access), it just means the running instance keeps whatever
+      // chain it already loaded until its next launch - the same story-004
+      // precedent AC3 relies on for the default profile itself.
+      const allProfiles = profiles.list()
+      const defaultProfile = defaultProfileFor(allProfiles, installation.id)
+      if (defaultProfile) {
+        const assignedProfiles = assignedProfilesFor(allProfiles, installation.id)
+        const switchBindKey = next[installation.id]
+        try {
+          await writeInstallationFiles({
+            installation,
+            profileFileName: profileFileName(defaultProfile.id),
+            profileFileContent: renderProfileFile(defaultProfile),
+            loaderFileContent: renderLoaderFile(
+              defaultProfile,
+              switchBindKey
+                ? { key: switchBindKey, profiles: assignedProfiles, defaultProfileId: defaultProfile.id }
+                : undefined,
+            ),
+            playedMods: app.state.configPlayedMods()[installation.id] ?? [],
+          })
+        } catch (error) {
+          log.error(`failed to write switch bind for installation ${installation.id}`, error)
+          return fail('config.error.writeFailed')
+        }
+      }
+      return ok(next)
     })
 
     // Story 005: read-only import of a hand-written config into a new

@@ -1,21 +1,43 @@
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ConfigProfile } from '@shared/modules/config'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
 import { useLauncher } from '../../store/useLauncher'
+import { getSwitchBinds } from './client'
+import { SwitchBindControl } from './SwitchBindControl'
 
 /**
  * The installation-side half of assignment: for every registered
  * installation, which config profiles are currently assigned to it, with the
- * per-installation default called out.
+ * per-installation default called out, plus (story 007) that installation's
+ * in-session profile-switch bind when it has 2+ assigned profiles (AC 5).
  *
- * Purely derived and read-only - it does not fetch or mutate anything. Every
- * render re-derives from `profiles` (owned by `ConfigView.tsx`) and the live
- * `installations` from `useLauncher`, so it always reflects the latest state
- * of both without any caching of its own.
+ * Mostly derived and read-only - it does not fetch or mutate `profiles` or
+ * `installations`. Every render re-derives assignment from `profiles` (owned
+ * by `ConfigView.tsx`) and the live `installations` from `useLauncher`, so it
+ * always reflects the latest state of both without any caching of its own.
+ * The switch-bind map is the one exception: `ConfigView.tsx` has no existing
+ * owner for per-installation, cross-profile data like this (it only tracks
+ * `profiles`), so this component fetches `switchBinds` itself on mount -
+ * mirrors `WriteTargets.tsx` fetching `getWriteState()` - and keeps it as
+ * local state that `SwitchBindControl`'s `onChanged` updates after each real
+ * round trip (no optimistic local state, same discipline as the rest of this
+ * module).
  */
 export function InstallationProfilesPanel({ profiles }: { profiles: ConfigProfile[] }) {
   const { t } = useTranslation()
   const installations = useLauncher((state) => state.installations)
+  const [switchBinds, setSwitchBinds] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    let cancelled = false
+    void getSwitchBinds().then((result) => {
+      if (!cancelled && result.ok) setSwitchBinds(result.value)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <div className="space-y-2">
@@ -57,6 +79,14 @@ export function InstallationProfilesPanel({ profiles }: { profiles: ConfigProfil
                       )
                     })}
                   </div>
+                )}
+
+                {assigned.length >= 2 && (
+                  <SwitchBindControl
+                    installationId={installation.id}
+                    currentKey={switchBinds[installation.id]}
+                    onChanged={setSwitchBinds}
+                  />
                 )}
               </li>
             )
