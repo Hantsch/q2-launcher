@@ -95,7 +95,7 @@ export const KEYBOARD_ROWS: KeyDef[][] = [
       { key: "'", label: "'" },
       { key: 'ENTER', label: 'Enter', units: 2 },
     ],
-    [gap(1.75)],
+    [{ key: 'CAPSLOCK', label: 'Caps', units: 1.75 }],
   ),
   row([
     { key: 'SHIFT', label: 'Shift', units: 2.25 },
@@ -264,6 +264,7 @@ const CODE_TO_QUAKE_KEY: Record<string, string> = {
   Equal: '=',
   Backspace: 'BACKSPACE',
   Tab: 'TAB',
+  CapsLock: 'CAPSLOCK',
   KeyQ: 'q',
   KeyW: 'w',
   KeyE: 'e',

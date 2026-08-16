@@ -26,7 +26,10 @@
  *
  * `set` / `seta` / `setu` / `sets` (case-insensitive command name) assign a
  * cvar: `<cmd> <name> <value>`. `bind` assigns a key: `bind <key>
- * <command>`. `unbind <key>` and `unbindall` remove bindings. `exec <file>`
+ * <command>`. `unbind <key>` and `unbindall` remove bindings - both run the
+ * key token through `normalizeBindKey` (`@shared/config/key-names`), since
+ * hand-written configs mix casing (`ctrl`/`CTRL`) that would otherwise never
+ * match the keyboard overview's canonical spelling. `exec <file>`
  * names another file to load - this parser only records the target string;
  * resolving/expanding it against the gamedir search path is
  * `import-reader.ts`'s job (decision 5/6), not this one's.
@@ -65,6 +68,8 @@
  * so only the unrecognized segment's own (trimmed) text is preserved,
  * tagged with the same line number as its sibling segments.
  */
+
+import { normalizeBindKey } from '@shared/config/key-names'
 
 export interface ParsedCvar {
   name: string
@@ -215,13 +220,18 @@ function classifySegment(segment: string, line: number): Classified {
     if (tokens.length < 3) return { kind: 'unrecognized' }
     return {
       kind: 'bind',
-      item: { kind: 'bind', key: tokens[1], command: tokens.slice(2).join(' '), line },
+      item: {
+        kind: 'bind',
+        key: normalizeBindKey(tokens[1]),
+        command: tokens.slice(2).join(' '),
+        line,
+      },
     }
   }
 
   if (name === 'unbind') {
     if (tokens.length < 2) return { kind: 'unrecognized' }
-    return { kind: 'bind', item: { kind: 'unbind', key: tokens[1], line } }
+    return { kind: 'bind', item: { kind: 'unbind', key: normalizeBindKey(tokens[1]), line } }
   }
 
   if (name === 'unbindall') {

@@ -55,6 +55,16 @@ describe('parseConfigText', () => {
     expect(result.binds).toEqual([{ kind: 'bind', key: 'w', command: '+forward', line: 2 }])
   })
 
+  it('normalizes a named key token to canonical casing regardless of how it was written', () => {
+    const result = parseConfigText(['bind Shift "+klook"', 'bind ctrl "+attack"', 'unbind Enter'].join('\n'))
+
+    expect(result.binds).toEqual([
+      { kind: 'bind', key: 'SHIFT', command: '+klook', line: 1 },
+      { kind: 'bind', key: 'CTRL', command: '+attack', line: 2 },
+      { kind: 'unbind', key: 'ENTER', line: 3 },
+    ])
+  })
+
   it('recognizes bind, unbind and unbindall with their own shapes', () => {
     const result = parseConfigText(['bind w +forward', 'unbind w', 'unbindall'].join('\n'))
 

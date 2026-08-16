@@ -138,14 +138,14 @@ export function OverviewKeyboardPanel({ profile }: { profile: ConfigProfile }) {
     const command = profile.binds[def.key]
     const bound = Boolean(command && command.trim().length > 0)
     const commandLabel = bound ? keycapCommandLabel(resolveAliasChain(command)) : null
-    const shared = (occurrences.get(def.key) ?? 0) > 1
-    const title = [def.key, shared && t('config.overview.legend.shared'), bound && command?.trim()]
+    const conflict = (occurrences.get(def.key) ?? 0) > 1
+    const title = [def.key, conflict && t('config.overview.legend.conflict'), bound && command?.trim()]
       .filter(Boolean)
       .join(' — ')
     const className = cn(
       'flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-sm border px-1 py-1 transition-colors duration-[--dur-fast]',
       bound ? 'border-flame-700 bg-flame-900/30 text-flame-200' : 'border-line text-ink-muted',
-      shared && 'ring-1 ring-strogg-500/60 ring-inset',
+      conflict && 'ring-1 ring-strogg-500/60 ring-inset',
       testMode ? 'cursor-pointer hover:border-flame-400' : 'cursor-default',
     )
     return { title, className, commandLabel }
@@ -236,9 +236,15 @@ export function OverviewKeyboardPanel({ profile }: { profile: ConfigProfile }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone="flame">{t('config.overview.legend.bound')}</Badge>
         <Badge tone="neutral">{t('config.overview.legend.free')}</Badge>
-        <Badge tone="strogg">{t('config.overview.legend.shared')}</Badge>
+        <Badge tone="flame">{t('config.overview.legend.bound')}</Badge>
+        <Badge tone="strogg">{t('config.overview.legend.conflict')}</Badge>
+        {/* Alt layers are CFG-8 - no key can carry this state yet, but the
+            legend names it up front so the overview reads the same as
+            q2-config-manager's once that story lands. */}
+        <Badge tone="neutral" className="opacity-60">
+          {t('config.overview.legend.altLayer')}
+        </Badge>
       </div>
 
       <div ref={scaleHostRef} className="overflow-x-auto pb-2">

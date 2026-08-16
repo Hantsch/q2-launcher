@@ -6,6 +6,7 @@ import { cn } from '../../lib/cn'
 import { formatRelativeTime } from '../../lib/format'
 import { Button, IconButton } from '../../components/ui/Button'
 import { EmptyState, KeyValue, Panel, SectionLabel } from '../../components/ui/primitives'
+import { AssignmentsMenu } from './AssignmentsMenu'
 import { CreateProfileDialog } from './CreateProfileDialog'
 import { DeleteProfileDialog } from './DeleteProfileDialog'
 import { ImportProfileDialog } from './ImportProfileDialog'
@@ -13,14 +14,13 @@ import { InstallationProfilesPanel } from './InstallationProfilesPanel'
 import { OverviewKeyboardPanel } from './OverviewKeyboardPanel'
 import { PreservedLinesPanel } from './PreservedLinesPanel'
 import { PreviewProfileDialog } from './PreviewProfileDialog'
-import { ProfileAssignmentsPanel } from './ProfileAssignmentsPanel'
 import { RenameProfileDialog } from './RenameProfileDialog'
 import { SettingsTab } from './SettingsTab'
 import { WriteTargets } from './WriteTargets'
 import { listConfigProfiles } from './client'
 
 type Screen = 'list' | 'detail'
-type DetailTab = 'overview' | 'settings' | 'assignments' | 'writeTargets' | 'preserved'
+type DetailTab = 'overview' | 'settings' | 'writeTargets' | 'preserved'
 
 /**
  * The config module's view: a list of profiles first, so "what configs do I
@@ -109,7 +109,6 @@ export function ConfigView() {
   const tabs: { id: DetailTab; label: string }[] = [
     { id: 'overview', label: t('config.tabs.overview') },
     { id: 'settings', label: t('config.tabs.settings') },
-    { id: 'assignments', label: t('config.tabs.assignments') },
     { id: 'writeTargets', label: t('config.tabs.writeTargets') },
     ...(selected?.unrecognized?.length
       ? [{ id: 'preserved' as const, label: t('config.tabs.preserved') }]
@@ -195,22 +194,25 @@ export function ConfigView() {
               >
                 {t('config.nav.back')}
               </Button>
-              <div className="flex items-center gap-1">
-                <IconButton
-                  label={t('config.detail.rename')}
-                  size="sm"
-                  onClick={() => setShowRename(true)}
-                >
-                  <Pencil className="size-3.5" />
-                </IconButton>
-                <IconButton
-                  label={t('config.detail.delete')}
-                  size="sm"
-                  variant="danger"
-                  onClick={() => setShowDelete(true)}
-                >
-                  <Trash2 className="size-3.5" />
-                </IconButton>
+              <div className="flex items-center gap-2">
+                <AssignmentsMenu profile={selected} onChanged={setProfiles} />
+                <div className="flex items-center gap-1">
+                  <IconButton
+                    label={t('config.detail.rename')}
+                    size="sm"
+                    onClick={() => setShowRename(true)}
+                  >
+                    <Pencil className="size-3.5" />
+                  </IconButton>
+                  <IconButton
+                    label={t('config.detail.delete')}
+                    size="sm"
+                    variant="danger"
+                    onClick={() => setShowDelete(true)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </IconButton>
+                </div>
               </div>
             </div>
 
@@ -250,9 +252,6 @@ export function ConfigView() {
               {activeTab === 'overview' && <OverviewKeyboardPanel profile={selected} />}
               {activeTab === 'settings' && (
                 <SettingsTab profile={selected} onChanged={setProfiles} />
-              )}
-              {activeTab === 'assignments' && (
-                <ProfileAssignmentsPanel profile={selected} onChanged={setProfiles} />
               )}
               {activeTab === 'writeTargets' && (
                 <WriteTargets profile={selected} onPreview={setPreviewInstallationId} />

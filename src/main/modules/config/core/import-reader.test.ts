@@ -122,7 +122,7 @@ describe('readImportableConfig', () => {
 
     const result = await readImportableConfig(root, 'xatrix')
 
-    expect(result.binds).toEqual({ mouse2: '+attack' })
+    expect(result.binds).toEqual({ MOUSE2: '+attack' })
     expect(result.filesRead).toEqual(['config.cfg', 'shared.cfg'])
     expect(result.warnings).toEqual([])
   })
@@ -255,7 +255,7 @@ describe('readImportableConfig', () => {
     const result = await readImportableConfig(root, 'baseq2')
 
     // Everything before the unbindall is gone; only what follows it survives.
-    expect(result.binds).toEqual({ space: '+moveup' })
+    expect(result.binds).toEqual({ SPACE: '+moveup' })
   })
 
   it('lets a bind after an unbind re-add the key', async () => {

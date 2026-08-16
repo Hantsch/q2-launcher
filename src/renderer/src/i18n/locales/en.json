@@ -353,7 +353,6 @@
     "tabs": {
       "overview": "Overview",
       "settings": "Settings",
-      "assignments": "Assignments",
       "writeTargets": "Write targets",
       "preserved": "Preserved lines"
     },
@@ -361,9 +360,10 @@
       "label": "Keyboard overview",
       "subtitle": "{{bound}} of {{total}} keys bound",
       "legend": {
-        "bound": "Bound",
         "free": "Free",
-        "shared": "Shared physical key"
+        "bound": "Bound",
+        "conflict": "Conflict",
+        "altLayer": "Bound in an alt layer"
       },
       "testMode": {
         "start": "Start test mode",
@@ -400,6 +400,7 @@
     },
     "assignment": {
       "label": "Assigned installations",
+      "summary": "{{count}} of {{total}} assigned",
       "noInstallations": "No installations registered yet.",
       "default": "Default",
       "setDefault": "Set default",
