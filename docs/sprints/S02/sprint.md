@@ -1,6 +1,6 @@
 ---
 sprint: S02
-status: in-progress
+status: done
 branch: sprint/S02
 milestone: Config module — remaining scope (docs/concepts/config-module.md)
 ---

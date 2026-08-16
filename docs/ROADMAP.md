@@ -54,10 +54,32 @@ assignment, cvar editor, write pipeline, import (stories 001–005) ran through
 (CFG-7) was additionally built ad-hoc during post-sprint polishing (`9b04099`, `54ca35f`,
 `9259a24` on `dev`), outside the formal story flow — read-only bound/free/doubly-bound view
 plus test-mode key-chain capture, see `src/renderer/src/modules/config/OverviewKeyboardPanel.tsx`.
-`docs/sprints/S02` (planned) cuts the concept's remaining scope — keybinding editor with
-alternate layers, the advanced tab (categories/messages/macros/symbol picker), the in-session
-profile-switch bind, the validator and cleanup — to finish the concept before further UI
-polishing resumes. The engine findings below stay as factual background for that concept.
+`docs/sprints/S02` **built, acceptance pending** — the concept's remaining scope (keybinding
+editor with alternate layers, the in-session profile-switch bind, the Advanced tab
+categories/messages/macros/symbol picker, the multi-engine validator, and cleanup of redundant
+per-mod config copies; stories 006–010) is code-complete, tested and code-reviewed, but has not
+had a live UI smoke test — the build session ran in a sandbox where Electron's GUI cannot start.
+Run `docs/sprints/S02/testplan.md` on a real desktop before marking this milestone accepted or
+moving the concept doc to `docs/systems/`. The engine findings below stay as factual background
+for that concept.
+
+#### Gaps/notes (from S02)
+
+- **Alias generation, the profile serializer, the switch-bind generator and engine numeric
+  limits now live centrally in `src/shared/config/`** (`alt-layers.ts`, `alias-render.ts`,
+  `render.ts`, `switch-bind.ts`, `engine-limits.ts`) — any future feature that needs to emit a
+  bind/alias or cite an engine limit should extend these rather than re-derive them.
+- **Backup-once is a shared, reusable contract** (`src/main/modules/config/backup.ts`) used by
+  both the write pipeline (story 004) and the cleanup delete/restore path (story 010) — reuse it
+  for any future feature that mutates a user's game folder.
+- **9 non-blocking findings from story 010's delayed code review** are worth a follow-up story:
+  see `docs/sprints/S02/review.md` for the full list (case-sensitivity/case-folding
+  inconsistencies in the redundancy scan and duplicate-entry guard, a mid-loop I/O error that
+  can drop files from the undo list, the restore primitive being wider than cleanup's own scope,
+  and locally-redeclared contract types that should import from `@shared/modules/config`).
+- **Layer trigger keys (story 006) cannot be reassigned after a layer is created** — a
+  deliberate scope limit, not an oversight; picking a different trigger requires deleting and
+  recreating the layer.
 
 #### Gaps/notes (from S01)
 
