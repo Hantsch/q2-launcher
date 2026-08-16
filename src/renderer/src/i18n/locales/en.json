@@ -347,6 +347,34 @@
     "list": {
       "label": "Profiles"
     },
+    "nav": {
+      "back": "Back to profiles"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "settings": "Settings",
+      "assignments": "Assignments",
+      "writeTargets": "Write targets",
+      "preserved": "Preserved lines"
+    },
+    "overview": {
+      "label": "Keyboard overview",
+      "subtitle": "{{bound}} of {{total}} keys bound",
+      "legend": {
+        "bound": "Bound",
+        "free": "Free",
+        "shared": "Shared physical key"
+      },
+      "testMode": {
+        "start": "Start test mode",
+        "stop": "Stop test mode",
+        "hint": "Press a key or click a mouse button below to see what it triggers.",
+        "noBind": "Not bound"
+      },
+      "navCluster": "Navigation",
+      "arrowCluster": "Arrows",
+      "mouseCluster": "Mouse"
+    },
     "detail": {
       "created": "Created",
       "updated": "Updated",
