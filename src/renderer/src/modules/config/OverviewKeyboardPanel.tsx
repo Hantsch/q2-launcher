@@ -169,13 +169,17 @@ export function OverviewKeyboardPanel({
     const bound = hasOverride || baseBound
     const primaryCommand = hasOverride ? overrideCommand : baseCommand
     const commandLabel =
-      bound && primaryCommand ? keycapCommandLabel(resolveAliasChain(primaryCommand)) : null
+      bound && primaryCommand
+        ? keycapCommandLabel(resolveAliasChain(primaryCommand, profile.actions ?? []))
+        : null
     // When a layer is active and this key has no override of its own, the base
     // command still renders as the keycap's primary label (falling back below) -
     // this extra line only fires when the key DOES have an override, so the
     // base-layer command is not lost from view.
     const baseReferenceLabel =
-      hasOverride && baseBound ? keycapCommandLabel(resolveAliasChain(baseCommand)) : null
+      hasOverride && baseBound
+        ? keycapCommandLabel(resolveAliasChain(baseCommand, profile.actions ?? []))
+        : null
     const conflict = (occurrences.get(def.key) ?? 0) > 1
     const title = [
       def.key,
@@ -275,7 +279,7 @@ export function OverviewKeyboardPanel({
     )
   }
 
-  const chain = resolveAliasChain(captured?.command)
+  const chain = resolveAliasChain(captured?.command, profile.actions ?? [])
 
   return (
     <div className="space-y-6">

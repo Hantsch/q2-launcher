@@ -353,6 +353,7 @@
     "tabs": {
       "overview": "Overview",
       "settings": "Settings",
+      "advanced": "Advanced",
       "writeTargets": "Write targets",
       "preserved": "Preserved lines"
     },
@@ -718,6 +719,73 @@
       "differsOnEngine": "Differs on {{engine}}",
       "absentOnEngine": "Not on {{engine}}"
     },
+    "actionCatalog": {
+      "forward": { "label": "Forward" },
+      "back": { "label": "Back" },
+      "moveleft": { "label": "Strafe left" },
+      "moveright": { "label": "Strafe right" },
+      "moveup": { "label": "Jump" },
+      "movedown": { "label": "Crouch" },
+      "attack": { "label": "Attack" },
+      "speed": {
+        "label": "Walk (slow)",
+        "description": "Switches to walking speed — quieter, but slower."
+      },
+      "strafe": {
+        "label": "Strafe modifier",
+        "description": "Turns left/right turning into sideways movement."
+      },
+      "left": { "label": "Turn left" },
+      "right": { "label": "Turn right" },
+      "klook": {
+        "label": "Keyboard look",
+        "description": "Forward/back becomes look up/down."
+      },
+      "mlook": { "label": "Mouse look" },
+      "centerview": { "label": "Centre view" },
+      "blaster": { "label": "Blaster" },
+      "shotgun": { "label": "Shotgun" },
+      "sshotgun": { "label": "Super Shotgun" },
+      "machinegun": { "label": "Machinegun" },
+      "chaingun": { "label": "Chaingun" },
+      "grenades": { "label": "Hand grenades" },
+      "glauncher": { "label": "Grenade Launcher" },
+      "rlauncher": { "label": "Rocket Launcher" },
+      "hyperblaster": { "label": "Hyperblaster" },
+      "railgun": { "label": "Railgun" },
+      "bfg": { "label": "BFG10K" },
+      "use_blaster": { "description": "Switches to the Blaster." },
+      "use_shotgun": { "description": "Switches to the Shotgun." },
+      "use_sshotgun": { "description": "Switches to the Super Shotgun." },
+      "use_machinegun": { "description": "Switches to the Machinegun." },
+      "use_chaingun": { "description": "Switches to the Chaingun." },
+      "use_grenades": { "description": "Switches to the Hand grenades." },
+      "use_glauncher": { "description": "Switches to the Grenade Launcher." },
+      "use_rlauncher": { "description": "Switches to the Rocket Launcher." },
+      "use_hyperblaster": { "description": "Switches to the Hyperblaster." },
+      "use_railgun": { "description": "Switches to the Railgun." },
+      "use_bfg": { "description": "Switches to the BFG10K." },
+      "weapnext": { "label": "Next weapon" },
+      "weapprev": { "label": "Previous weapon" },
+      "weaplast": { "label": "Last weapon" },
+      "shells": { "label": "Shells" },
+      "bullets": { "label": "Bullets" },
+      "rockets": { "label": "Rockets" },
+      "cells": { "label": "Cells" },
+      "slugs": { "label": "Slugs" },
+      "hgrenades": { "label": "Hand grenades" },
+      "powershield": { "label": "Power Shield" },
+      "powerscreen": { "label": "Power Screen" },
+      "quad": { "label": "Quad Damage" },
+      "invuln": { "label": "Invulnerability" },
+      "silencer": { "label": "Silencer" },
+      "rebreather": { "label": "Rebreather" },
+      "envsuit": { "label": "Environment Suit" },
+      "adrenaline": { "label": "Adrenaline" },
+      "bandolier": { "label": "Bandolier" },
+      "ammopack": { "label": "Ammo Pack" },
+      "tech": { "label": "Tech (CTF Rune)" }
+    },
     "engineScope": {
       "label": "Engine facts shown for",
       "hint": "Defaults, clamp ranges and value warnings below are the ones this engine enforces.",
@@ -817,6 +885,188 @@
       "renameDialog": {
         "title": "Rename layer",
         "label": "Name"
+      }
+    },
+    "advanced": {
+      "categories": {
+        "movement": "Movement",
+        "weapons": "Weapons",
+        "drops": "Weapon dropping"
+      },
+      "label": "Categories",
+      "create": "New category",
+      "builtIn": "Built-in",
+      "rename": "Rename…",
+      "delete": "Delete…",
+      "deleteConfirm": "Delete this category? Its actions are removed too.",
+      "deleteConfirmAction": "Confirm delete",
+      "entryKind": {
+        "bind": "Bind",
+        "message": "Message",
+        "alias": "Alias"
+      },
+      "createDialog": {
+        "title": "Create category",
+        "nameLabel": "Name",
+        "entryKindLabel": "Entry kind",
+        "submit": "Create category"
+      },
+      "renameDialog": {
+        "title": "Rename category",
+        "label": "Name"
+      },
+      "actions": {
+        "label": "Actions — {{category}}",
+        "add": "Add action",
+        "edit": "Edit commands…",
+        "rename": "Rename…",
+        "remove": "Remove…",
+        "empty": {
+          "title": "No actions yet",
+          "body": "Add an action to this category to give it a bind, message or alias."
+        },
+        "createDialog": {
+          "title": "Create action",
+          "nameLabel": "Name",
+          "submit": "Create action"
+        },
+        "renameDialog": {
+          "title": "Rename action",
+          "label": "Name"
+        }
+      },
+      "editor": {
+        "title": "Edit “{{name}}”",
+        "commandsLabel": "Commands",
+        "commandsEmpty": "No commands yet — add one below.",
+        "byteLength": "{{bytes}} bytes",
+        "willSplit": "Splits into {{count}} parts",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "removeCommand": "Remove command",
+        "rawCommandLabel": "Add a raw command",
+        "rawCommandPlaceholder": "e.g. drop rocket launcher",
+        "addCommand": "Add",
+        "pickListLabel": "Pick from the catalogue",
+        "filterPlaceholder": "Filter commands…",
+        "keyLabel": "Key",
+        "keyNotSet": "Not bound",
+        "captureKey": "Press a key…",
+        "capturing": "Press a key…",
+        "clearKey": "Clear"
+      },
+      "messageEditor": {
+        "title": "Edit message “{{name}}”",
+        "channelLabel": "Channel",
+        "channel": {
+          "say": "Everyone (say)",
+          "sayTeam": "Team (say_team)"
+        },
+        "textLabel": "Message text",
+        "previewLabel": "Preview",
+        "previewEmpty": "Type a message above to see the preview.",
+        "singleDollarWarning": "{{found}} expands an empty cvar and prints nothing — did you mean {{suggestion}}?",
+        "macroBar": {
+          "clientLabel": "Insert a location variable",
+          "modLabel": "Insert a server macro",
+          "modCaveat": "Only substituted by mods that support it — sent as literal text on a plain server."
+        },
+        "suggestionsLabel": "Suggested messages",
+        "symbolPicker": {
+          "label": "Symbols",
+          "applyAltCharset": "Alternate charset"
+        }
+      }
+    },
+    "chatMacros": {
+      "locHere": {
+        "label": "My location",
+        "description": "The location name of where you are standing.",
+        "requires": "Needs a .loc file for the map under baseq2/locs/<map>.loc"
+      },
+      "locThere": {
+        "label": "Location under the crosshair",
+        "description": "The location name of the spot you are aiming at.",
+        "requires": "Needs a .loc file for the map under baseq2/locs/<map>.loc"
+      },
+      "l": {
+        "label": "Location (server-side)",
+        "description": "Location, substituted by the mod. Only on servers running one that supports it."
+      },
+      "h": {
+        "label": "Health",
+        "description": "Your current health."
+      },
+      "a": {
+        "label": "Armor",
+        "description": "Your current armor value."
+      },
+      "w": {
+        "label": "Current weapon",
+        "description": "The weapon you are currently holding."
+      },
+      "t": {
+        "label": "Tech / Rune",
+        "description": "The tech rune you are carrying (CTF)."
+      },
+      "suggestions": {
+        "ok": { "label": "Acknowledge" },
+        "neg": { "label": "Negative" },
+        "help": { "label": "Need help" },
+        "enemy": { "label": "Enemy spotted" },
+        "clear": { "label": "Area clear" },
+        "dead": { "label": "I am dead" },
+        "need_weapon": { "label": "Need weapon" },
+        "need_ammo": { "label": "Need ammo" },
+        "weapon_avail": { "label": "Weapon available" },
+        "armor_avail": { "label": "Armor available" },
+        "take_mh": { "label": "Take megahealth" },
+        "attack": { "label": "Attack" },
+        "fallback": { "label": "Fall back" },
+        "push": { "label": "Push" },
+        "camp_quad": { "label": "Camping quad" },
+        "quad_30": { "label": "Quad in 30" },
+        "quad_60": { "label": "Quad in 60" },
+        "quad_now": { "label": "Quad now" },
+        "ps_30": { "label": "Power Shield in 30" },
+        "ps_60": { "label": "Power Shield in 60" },
+        "mh_30": { "label": "Megahealth in 30" },
+        "inv_30": { "label": "Invulnerability in 30" }
+      },
+      "respawn": {
+        "quad": { "label": "Quad Damage" },
+        "invul": { "label": "Invulnerability" },
+        "megahealth": { "label": "Megahealth" },
+        "powershield": { "label": "Power Shield" },
+        "redarmor": { "label": "Red Armor" },
+        "yellowarmor": { "label": "Yellow Armor" },
+        "adrenaline": { "label": "Adrenaline" },
+        "weapon": { "label": "Weapon" },
+        "ammo": { "label": "Ammo" }
+      }
+    },
+    "q2Charset": {
+      "glyph": {
+        "0x0b": { "label": "Bullet / dot" },
+        "0x10": { "label": "Bracket left [" },
+        "0x11": { "label": "Bracket right ]" },
+        "0x12": { "label": "Digit frame 0" },
+        "0x1d": { "label": "Bar left" },
+        "0x1e": { "label": "Bar middle" },
+        "0x1f": { "label": "Bar right" },
+        "0x80": { "label": "Block (green)" },
+        "0x83": { "label": "Separator (green)" },
+        "0x84": { "label": "Marker white" },
+        "0x85": { "label": "Marker black" },
+        "0x86": { "label": "Marker red" },
+        "0x87": { "label": "Marker yellow" },
+        "0x88": { "label": "Marker green" },
+        "0x89": { "label": "Marker blue" },
+        "0x8b": { "label": "Marker pink" },
+        "0x8d": { "label": "Arrow left" },
+        "0x8e": { "label": "Arrow up" },
+        "0x8f": { "label": "Arrow right" },
+        "0x90": { "label": "Arrow down" }
       }
     }
   },

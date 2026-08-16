@@ -3,8 +3,13 @@ import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { STANDARD_TEMPLATE } from '@shared/modules/config'
+import {
+  STANDARD_TEMPLATE,
+  type ConfigAction,
+  type ConfigActionCategory,
+} from '@shared/modules/config'
 import { StateStore } from '../../services/state'
+import { aliasNameFor } from '@shared/config/alias-render'
 import { ProfilesStore } from './profiles'
 import { setProfileBindsInputSchema, setProfileLayersInputSchema } from './schemas'
 
@@ -102,9 +107,9 @@ describe('ProfilesStore', () => {
     // outright, so no installation-side view can resolve `a.id` anywhere in
     // what remains.
     expect(result.find((p) => p.id === a!.id)).toBeUndefined()
-    expect(
-      result.some((p) => p.assignments.some((entry) => entry.installationId === a!.id)),
-    ).toBe(false)
+    expect(result.some((p) => p.assignments.some((entry) => entry.installationId === a!.id))).toBe(
+      false,
+    )
     // The surviving profile's own assignment is untouched by the deletion.
     expect(result.find((p) => p.id === b!.id)!.assignments).toEqual([
       { installationId: 'i1', isDefault: false },
@@ -118,7 +123,7 @@ describe('ProfilesStore', () => {
     expect(state.configProfiles()[0]!.name).toBe('Persisted')
   })
 
-  it('replaces a profile\'s whole binds map, touching only binds and updatedAt', async () => {
+  it("replaces a profile's whole binds map, touching only binds and updatedAt", async () => {
     const [created] = profiles.create({ name: 'Original', from: 'empty' })
     // Give updatedAt a chance to actually differ from createdAt.
     await new Promise((resolve) => setTimeout(resolve, 10))
@@ -149,7 +154,7 @@ describe('ProfilesStore', () => {
     expect(() => profiles.setBinds({ profileId: 'missing', binds: {} })).toThrow()
   })
 
-  it('replaces a profile\'s whole layers array, touching only layers and updatedAt', async () => {
+  it("replaces a profile's whole layers array, touching only layers and updatedAt", async () => {
     const [created] = profiles.create({ name: 'Original', from: 'empty' })
     await new Promise((resolve) => setTimeout(resolve, 10))
 
@@ -196,13 +201,188 @@ describe('ProfilesStore', () => {
   it('throws when setting layers on an unknown id', () => {
     expect(() => profiles.setLayers({ profileId: 'missing', layers: [] })).toThrow()
   })
+
+  describe('setActions', () => {
+    const category: ConfigActionCategory = { id: 'movement', name: 'Movement', entryKind: 'bind' }
+
+    function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
+      return {
+        id: randomUUID(),
+        categoryId: category.id,
+        name: 'Jump',
+        commands: [{ kind: 'raw', text: '+moveup' }],
+        ...overrides,
+      }
+    }
+
+    it('a hand-written bind on a different key survives a setActions call', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      profiles.setBinds({ profileId: created!.id, binds: { w: '+forward' } })
+
+      const keyed = action({ key: 'f' })
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [keyed],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      expect(updated.binds['w']).toBe('+forward')
+    })
+
+    it('produces binds[normalizedKey] === aliasNameFor(action) for a keyed action', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+
+      const keyed = action({ key: 'f' })
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [keyed],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      expect(updated.binds['f']).toBe(aliasNameFor(keyed))
+      expect(updated.categories).toEqual([category])
+      expect(updated.actions).toEqual([keyed])
+    })
+
+    it('removing a previously-keyed action makes its bind disappear entirely', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const keyed = action({ key: 'f' })
+      profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [keyed],
+      })
+
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      expect(Object.keys(updated.binds)).not.toContain('f')
+    })
+
+    it('when two actions land on the same normalized key, the later one in the array wins', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const first = action({ key: 'f', name: 'First' })
+      const second = action({ key: 'f', name: 'Second' })
+
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [first, second],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      expect(updated.binds['f']).toBe(aliasNameFor(second))
+      expect(updated.binds['f']).not.toBe(aliasNameFor(first))
+    })
+
+    it('a lowercase "f9" and an uppercase "F9" land on the same normalized bind entry', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const lower = action({ key: 'f9', name: 'Lower' })
+
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [lower],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      // normalizeBindKey upper-cases named-key-shaped tokens, so a lowercase
+      // "f9" is stored under "F9", not "f9".
+      expect(updated.binds['F9']).toBe(aliasNameFor(lower))
+      expect(updated.binds['f9']).toBeUndefined()
+    })
+
+    it("replaces a profile's whole categories/actions, touching only categories/actions/binds/updatedAt", async () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      await new Promise((resolve) => setTimeout(resolve, 10))
+
+      const keyed = action({ key: 'f' })
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [keyed],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      expect(updated.name).toBe(created!.name)
+      expect(updated.cvars).toEqual(created!.cvars)
+      expect(updated.createdAt).toBe(created!.createdAt)
+      expect(updated.updatedAt).not.toBe(created!.updatedAt)
+    })
+
+    it('round trips categories/actions through the state store', async () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const keyed = action({ key: 'f' })
+      profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [keyed],
+      })
+      await state.settle()
+
+      const reloaded = new StateStore(filePath)
+      await reloaded.load()
+      const reloadedProfiles = new ProfilesStore(reloaded)
+
+      const persisted = reloadedProfiles.find(created!.id)!
+      expect(persisted.categories).toEqual([category])
+      expect(persisted.actions).toEqual([keyed])
+      expect(persisted.binds['f']).toBe(aliasNameFor(keyed))
+    })
+
+    it('throws when setting actions on an unknown profile id', () => {
+      expect(() =>
+        profiles.setActions({ profileId: 'missing', categories: [], actions: [] }),
+      ).toThrow()
+    })
+
+    it("an action's key wins over a user's hand-written bind on the same key (review finding)", () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      profiles.setBinds({ profileId: created!.id, binds: { f: 'weapnext' } })
+
+      const keyed = action({ key: 'f' })
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [keyed],
+      })
+
+      // Assigning an action to a key that already had a hand-written bind
+      // takes over that key, same as any other bind assignment in this app
+      // (KeyBindDialog does the same) - it does not silently keep the old
+      // bind underneath the new one.
+      const updated = result.find((p) => p.id === created!.id)!
+      expect(updated.binds['f']).toBe(aliasNameFor(keyed))
+    })
+
+    it('trims a whitespace-padded key before normalizing it (review finding)', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const keyed = action({ key: '  f9  ' })
+
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [keyed],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      expect(updated.binds['F9']).toBe(aliasNameFor(keyed))
+      expect(Object.keys(updated.binds)).not.toContain('  f9  ')
+    })
+  })
 })
 
 describe('setProfileBindsInputSchema / setProfileLayersInputSchema (IPC payload validation)', () => {
   it('rejects a binds payload whose value is not a map of strings', () => {
-    expect(
-      setProfileBindsInputSchema.safeParse({ profileId: 'p1', binds: { w: 1 } }).success,
-    ).toBe(false)
+    expect(setProfileBindsInputSchema.safeParse({ profileId: 'p1', binds: { w: 1 } }).success).toBe(
+      false,
+    )
   })
 
   it('rejects a binds payload missing profileId', () => {

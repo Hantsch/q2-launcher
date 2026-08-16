@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ConfigProfile } from '@shared/modules/config'
+import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import type { AltLayer } from '@shared/config/alt-layers'
 import { generateLayerAliases } from '@shared/config/alt-layers'
 import type { SwitchBindChainInput } from './switch-bind'
@@ -21,6 +21,17 @@ function profile(overrides: Partial<ConfigProfile> = {}): ConfigProfile {
     cvars: {},
     binds: {},
     assignments: [],
+    ...overrides,
+  }
+}
+
+/** Story 008: mirrors `alias-render.test.ts`'s own `action()` helper. */
+function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
+  return {
+    id: 'ab12cd34-0000-0000-0000-000000000000',
+    categoryId: 'weapons',
+    name: 'Drop RL',
+    commands: [{ kind: 'raw', text: 'drop rl' }],
     ...overrides,
   }
 }
@@ -267,6 +278,111 @@ describe('renderLoaderFile', () => {
     const roundTripped = Buffer.from(rendered, 'latin1').toString('latin1')
 
     expect(roundTripped).toBe(rendered)
+  })
+})
+
+describe('renderProfileFile with actions', () => {
+  // Same shape as `renderProfileFile with layers`'s own `holdLayer` (that one
+  // is scoped to its own `describe` block, so it is redefined here rather
+  // than reached across blocks).
+  const holdLayer: AltLayer = {
+    id: 'layer-drops',
+    name: 'Drops',
+    mode: 'hold',
+    triggerKey: 'ALT',
+    overrides: { '1': 'drop rl', '2': 'drop rg' },
+  }
+
+  it('places the action alias block after the layer aliases and before the bind block', () => {
+    const first = action({ name: 'One', id: 'aaaa0000' })
+    const second = action({
+      name: 'Two',
+      id: 'bbbb1111',
+      commands: [{ kind: 'raw', text: 'wave 2' }],
+      key: 'x',
+    })
+    const p = profile({
+      id: 'actions-id',
+      cvars: { sensitivity: '3' },
+      // The `x` bind is the mirror D4 writes for the keyed action; the existing
+      // sorted bind loop emits it with no action-specific code.
+      binds: { UPARROW: '+forward', x: 'q2l_a_two_bbbb' },
+      layers: [holdLayer],
+      actions: [first, second],
+    })
+
+    const lines = renderProfileFile(p).split('\n')
+
+    const lastLayerAliasIndex = lines.indexOf('alias -drops "unbind 1; unbind 2"')
+    const firstActionIndex = lines.indexOf('alias q2l_a_one_aaaa drop rl')
+    const secondActionIndex = lines.indexOf('alias q2l_a_two_bbbb wave 2')
+    const firstBindIndex = lines.indexOf('bind UPARROW "+forward"')
+
+    expect(lines).toContain('alias +drops "bind 1 drop rl; bind 2 drop rg"')
+    expect(lastLayerAliasIndex).toBeGreaterThanOrEqual(0)
+    expect(firstActionIndex).toBeGreaterThan(lastLayerAliasIndex)
+    expect(secondActionIndex).toBe(firstActionIndex + 1)
+    expect(firstBindIndex).toBeGreaterThan(secondActionIndex)
+    expect(lines).toContain('bind x "q2l_a_two_bbbb"')
+  })
+
+  it('renders a profile with actions: [] identically to one without the field', () => {
+    const base = { id: 'no-actions', cvars: { crosshair: '0' }, binds: { c: '+movedown' } }
+
+    expect(renderProfileFile(profile({ ...base, actions: [] }))).toBe(
+      renderProfileFile(profile(base)),
+    )
+  })
+
+  it('renders a profile with actions: undefined identically to one without the field', () => {
+    const base = { id: 'no-actions', cvars: { crosshair: '0' }, binds: { c: '+movedown' } }
+
+    expect(renderProfileFile(profile({ ...base, actions: undefined }))).toBe(
+      renderProfileFile(profile(base)),
+    )
+  })
+
+  it('leaves a profile with layers untouched when it has no actions', () => {
+    const base = {
+      id: 'no-actions',
+      cvars: { crosshair: '0' },
+      binds: { c: '+movedown' },
+      layers: [holdLayer],
+    }
+
+    expect(renderProfileFile(profile({ ...base, actions: [] }))).toBe(
+      renderProfileFile(profile(base)),
+    )
+  })
+
+  it('round-trips a high-ASCII message action through latin1 byte-for-byte', () => {
+    // One constant for input and expectation, so the assertion cannot silently
+    // disagree with the action about which bytes it means.
+    const text = 'Bjørn sagt: Größe ÿ'
+    const p = profile({
+      id: 'hi-ascii',
+      actions: [
+        action({
+          name: 'Greet',
+          id: 'ab12cd34',
+          commands: [{ kind: 'message', channel: 'say', text }],
+        }),
+      ],
+    })
+
+    const rendered = renderProfileFile(p)
+
+    expect(rendered).toContain(`alias q2l_a_greet_ab12 say ${text}`)
+    expect(Buffer.from(rendered, 'latin1').toString('latin1')).toBe(rendered)
+  })
+
+  it('is deterministic across repeated calls on the same profile', () => {
+    const p = profile({
+      id: 'actions-id',
+      actions: [action({ name: 'One', id: 'aaaa0000' }), action({ name: 'Two', id: 'bbbb1111' })],
+    })
+
+    expect(renderProfileFile(p)).toBe(renderProfileFile(p))
   })
 })
 

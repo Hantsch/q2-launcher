@@ -12,6 +12,9 @@
  * i.e. editing one visually "doubly-bound" key affects both.
  */
 
+import type { ConfigAction } from '@shared/modules/config'
+import { ACTION_ALIAS_PREFIX, aliasNameFor, commandLineFor } from '@shared/config/alias-render'
+
 export interface KeyDef {
   /** The exact token used as a `profile.binds` key. */
   key: string
@@ -217,12 +220,30 @@ export function keyOccurrenceCounts(): Map<string, number> {
 /**
  * Splits a bound command into the steps it would run in order (Quake II
  * chains multiple commands in one bind with `;`). This is the "resolved
- * alias chain" test mode shows - there is no separate alias-definition map
- * in the profile model yet, so a bind's own command string is the full
- * chain there is to resolve.
+ * alias chain" test mode shows.
+ *
+ * Story 008 decision 18: a bind whose value is one of the Advanced tab's
+ * generated action aliases (`q2l_a_...`) is expanded to that action's actual
+ * command lines instead of being shown as the bare alias token - otherwise
+ * the overview would show `q2l_a_help_ab12` instead of the real chain for
+ * exactly the binds this story creates. `actions` defaults to `[]` so every
+ * pre-story-008 call site keeps compiling and behaving exactly as before.
  */
-export function resolveAliasChain(command: string | undefined): string[] {
+export function resolveAliasChain(
+  command: string | undefined,
+  actions: readonly ConfigAction[] = [],
+): string[] {
   if (!command) return []
+  const trimmed = command.trim()
+  if (trimmed.startsWith(ACTION_ALIAS_PREFIX)) {
+    const action = actions.find((candidate) => aliasNameFor(candidate) === trimmed)
+    if (action) {
+      return action.commands.map(commandLineFor).filter((line) => line.trim().length > 0)
+    }
+    // A stale bind pointing at an action that no longer exists falls through
+    // to the plain split below, same graceful-degradation the rest of this
+    // function already has for any other unrecognized command string.
+  }
   return command
     .split(';')
     .map((step) => step.trim())

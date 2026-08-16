@@ -14,6 +14,7 @@ import {
   type RenameConfigProfileInput,
   type SetDefaultProfileInput,
   type SetPlayedModsInput,
+  type SetProfileActionsInput,
   type SetProfileBindsInput,
   type SetProfileCvarsInput,
   type SetProfileLayersInput,
@@ -71,6 +72,13 @@ export function updateProfileLayers(
   input: SetProfileLayersInput,
 ): Promise<Outcome<ConfigProfile[]>> {
   return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setLayers, input)
+}
+
+/** Replaces a profile's categories+actions wholesale and returns the full, updated profile list. */
+export function updateProfileActions(
+  input: SetProfileActionsInput,
+): Promise<Outcome<ConfigProfile[]>> {
+  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setActions, input)
 }
 
 /**

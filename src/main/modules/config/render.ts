@@ -1,5 +1,6 @@
 import type { ConfigProfile } from '@shared/modules/config'
 import { generateLayerAliases } from '@shared/config/alt-layers'
+import { renderActionAliasLines } from '@shared/config/alias-render'
 import type { SwitchBindChainInput } from './switch-bind'
 import { renderSwitchBindChain } from './switch-bind'
 
@@ -49,20 +50,30 @@ export function sentinelLine(profileId: string): string {
  * `baseq2/q2l-profile-<id>.cfg`). Deterministic: cvars and binds are each
  * emitted in ascending key order (`Object.keys(...).sort()`), never insertion
  * order, so the same profile always renders byte-identical output regardless
- * of how its maps were built. Layers (story 006) are the one exception to
- * "sorted": they render in `profile.layers` array order, with each layer's
- * aliases in the order `generateLayerAliases()` (a pure function, so this
- * stays deterministic) returns them - the story specifies this as "array
- * order", not alphabetical, since layers have no natural sort key.
+ * of how its maps were built. Layers (story 006) and actions (story 008) are
+ * the two exceptions to "sorted": they render in `profile.layers` /
+ * `profile.actions` array order, with each layer's aliases in the order
+ * `generateLayerAliases()` (a pure function, so this stays deterministic)
+ * returns them - the stories specify this as "array order", not alphabetical,
+ * since neither has a natural sort key.
  *
  * Layout: sentinel line, `set <name> "<value>"` per cvar (sorted), every
  * layer's alias lines (array order, layer by layer, aliases in generation
- * order), `bind <key> "<value>"` per base bind (sorted), then one
+ * order), every action's alias lines (array order, each action's chunk
+ * aliases before the alias that calls them - see `./alias-render`),
+ * `bind <key> "<value>"` per base bind (sorted), then one
  * `bind <trigger> <command>` per layer that actually produced aliases (array
  * order again). A layer with no valid overrides generates `aliases: []` but
  * still returns a nominal `triggerBind` - emitting that bind would point the
  * trigger key at an alias that was never defined, so it is skipped for empty
  * layers (see `generateLayerAliases`'s own doc comment).
+ *
+ * Actions add no bind line of their own: the `setActions` handler mirrors every
+ * keyed action into `profile.binds` as `<key> -> <alias name>` (story 008
+ * decision 17), so the sorted bind block above already emits them and
+ * `profile.binds` stays the single source of truth for key -> command. An
+ * action whose commands are all empty produces no alias at all, exactly as an
+ * empty layer does.
  *
  * Trigger bind lines are deliberately unquoted (`bind <key> <command>`, not
  * `bind <key> "<command>"`): `triggerBind.command` is always a single slugged
@@ -88,6 +99,10 @@ export function renderProfileFile(profile: ConfigProfile): string {
     for (const alias of aliases) {
       lines.push(alias.line)
     }
+  }
+
+  for (const line of renderActionAliasLines(profile.actions ?? [])) {
+    lines.push(line)
   }
 
   for (const key of Object.keys(profile.binds).sort()) {

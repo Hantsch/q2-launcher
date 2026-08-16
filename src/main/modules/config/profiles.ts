@@ -7,13 +7,16 @@ import {
   type RenameConfigProfileInput,
   type RemoveConfigProfileInput,
   type SetDefaultProfileInput,
+  type SetProfileActionsInput,
   type SetProfileBindsInput,
   type SetProfileCvarsInput,
   type SetProfileLayersInput,
   type UnassignProfileInput,
   type UnrecognizedConfigLine,
 } from '@shared/modules/config'
+import { normalizeBindKey } from '@shared/config/key-names'
 import type { StateStore } from '../../services/state'
+import { ACTION_ALIAS_PREFIX, aliasNameFor } from '@shared/config/alias-render'
 import {
   assign as assignProfile,
   unassign as unassignProfile,
@@ -168,6 +171,44 @@ export class ProfilesStore {
     const next: ConfigProfile = {
       ...current,
       layers: [...input.layers],
+      updatedAt: new Date().toISOString(),
+    }
+    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+  }
+
+  /**
+   * Replaces a profile's entire `categories` and `actions` wholesale (same
+   * replace-whole-array semantics as `setLayers`) and rebuilds the `binds`
+   * map's `q2l_a_*` mirror: every existing bind whose value starts with
+   * `ACTION_ALIAS_PREFIX` is dropped first (an action that lost its key, or
+   * was deleted outright, must not leave a stale bind pointing at an alias
+   * this save no longer generates), then one
+   * `binds[normalizeBindKey(action.key)] = aliasNameFor(action)` is written
+   * per action that still has a `key`, in `input.actions` array order - so
+   * when two actions land on the same (normalized) key, the later one in the
+   * array wins, deterministically. Every other bind (the user's own,
+   * hand-typed ones, and anything from an alt layer's own overrides, which
+   * live in a separate map entirely) is untouched.
+   */
+  setActions(input: SetProfileActionsInput): ConfigProfile[] {
+    const current = this.find(input.profileId)
+    if (!current) throw new Error(`config profile not found: ${input.profileId}`)
+
+    const nextBinds: Record<string, string> = {}
+    for (const [key, command] of Object.entries(current.binds)) {
+      if (!command.startsWith(ACTION_ALIAS_PREFIX)) nextBinds[key] = command
+    }
+    for (const action of input.actions) {
+      const key = action.key?.trim()
+      if (!key) continue
+      nextBinds[normalizeBindKey(key)] = aliasNameFor(action)
+    }
+
+    const next: ConfigProfile = {
+      ...current,
+      categories: [...input.categories],
+      actions: [...input.actions],
+      binds: nextBinds,
       updatedAt: new Date().toISOString(),
     }
     return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))

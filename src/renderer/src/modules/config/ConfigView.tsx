@@ -6,6 +6,7 @@ import { cn } from '../../lib/cn'
 import { formatRelativeTime } from '../../lib/format'
 import { Button, IconButton } from '../../components/ui/Button'
 import { EmptyState, KeyValue, Panel, SectionLabel } from '../../components/ui/primitives'
+import { AdvancedTab } from './AdvancedTab'
 import { AssignmentsMenu } from './AssignmentsMenu'
 import { CreateProfileDialog } from './CreateProfileDialog'
 import { DeleteProfileDialog } from './DeleteProfileDialog'
@@ -21,7 +22,7 @@ import { WriteTargets } from './WriteTargets'
 import { listConfigProfiles } from './client'
 
 type Screen = 'list' | 'detail'
-type DetailTab = 'overview' | 'settings' | 'writeTargets' | 'preserved'
+type DetailTab = 'overview' | 'settings' | 'advanced' | 'writeTargets' | 'preserved'
 
 /**
  * The config module's view: a list of profiles first, so "what configs do I
@@ -116,6 +117,7 @@ export function ConfigView() {
   const tabs: { id: DetailTab; label: string }[] = [
     { id: 'overview', label: t('config.tabs.overview') },
     { id: 'settings', label: t('config.tabs.settings') },
+    { id: 'advanced', label: t('config.tabs.advanced') },
     { id: 'writeTargets', label: t('config.tabs.writeTargets') },
     ...(selected?.unrecognized?.length
       ? [{ id: 'preserved' as const, label: t('config.tabs.preserved') }]
@@ -273,6 +275,9 @@ export function ConfigView() {
               )}
               {activeTab === 'settings' && (
                 <SettingsTab profile={selected} onChanged={setProfiles} />
+              )}
+              {activeTab === 'advanced' && (
+                <AdvancedTab profile={selected} onChanged={setProfiles} />
               )}
               {activeTab === 'writeTargets' && (
                 <WriteTargets profile={selected} onPreview={setPreviewInstallationId} />

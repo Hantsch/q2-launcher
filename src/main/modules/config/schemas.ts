@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { NAMED_KEYS, normalizeBindKey } from '@shared/config/key-names'
+import { isLatin1Text } from '@shared/config/q2-charset'
 
 /**
  * IPC payload validation for the config module's own handlers.
@@ -69,6 +70,51 @@ const altLayerSchema = z.object({
 export const setProfileLayersInputSchema = z.object({
   profileId: z.string().min(1),
   layers: z.array(altLayerSchema).max(64),
+})
+
+/**
+ * Story 008: every action/message string. Latin-1 code points only
+ * (U+0000-U+00FF) and no `"` - Quake has no in-quote escaping, so a literal
+ * quote cannot be represented at all (same rule `alt-layers.ts`'s
+ * `sanitizeCommand` enforces for layer bodies, applied here at the schema
+ * boundary instead of by silent stripping, since the story explicitly wants
+ * this class of input *rejected*, not mangled). Exported so
+ * `main/lib/schemas.ts`'s forgiving persisted schema can reuse the same rule
+ * (via `isLatin1Text` directly there, to stay a `.safeParse`-per-row check
+ * rather than importing this strict schema).
+ */
+export const actionTextSchema = z
+  .string()
+  .refine((value) => isLatin1Text(value), 'must be latin-1 (U+0000-U+00FF only)')
+  .refine((value) => !value.includes('"'), 'double quotes are not representable in Quake 2')
+
+const configCommandSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('raw'), text: actionTextSchema }),
+  z.object({
+    kind: z.literal('message'),
+    channel: z.enum(['say', 'say_team']),
+    text: actionTextSchema,
+  }),
+])
+
+const configActionCategorySchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(120),
+  entryKind: z.enum(['bind', 'message', 'alias']),
+})
+
+const configActionSchema = z.object({
+  id: z.string().min(1),
+  categoryId: z.string().min(1),
+  name: z.string().min(1).max(120),
+  commands: z.array(configCommandSchema).max(64),
+  key: z.string().max(20).optional(),
+})
+
+export const setProfileActionsInputSchema = z.object({
+  profileId: z.string().min(1),
+  categories: z.array(configActionCategorySchema).max(64),
+  actions: z.array(configActionSchema).max(500),
 })
 
 export const writeProfileInputSchema = z.object({

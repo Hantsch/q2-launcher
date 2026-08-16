@@ -28,6 +28,7 @@ import {
   renameConfigProfileInputSchema,
   setDefaultProfileInputSchema,
   setPlayedModsInputSchema,
+  setProfileActionsInputSchema,
   setProfileBindsInputSchema,
   setProfileCvarsInputSchema,
   setProfileLayersInputSchema,
@@ -273,6 +274,10 @@ export const configModule: MainModule = {
       withLiveAssignments(profiles.setLayers(setProfileLayersInputSchema.parse(payload))),
     )
 
+    handle(CONFIG_HANDLERS.setActions, (payload): ConfigProfile[] =>
+      withLiveAssignments(profiles.setActions(setProfileActionsInputSchema.parse(payload))),
+    )
+
     handle(CONFIG_HANDLERS.assign, (payload): Outcome<ConfigProfile[]> => {
       const parsed = assignProfileInputSchema.safeParse(payload)
       if (!parsed.success) return fail('ipc.error.invalidPayload')
@@ -377,56 +382,63 @@ export const configModule: MainModule = {
     // 1) - see `SetSwitchBindInput`'s doc comment.
     handle(CONFIG_HANDLERS.switchBinds, (): Record<string, string> => app.state.configSwitchBinds())
 
-    handle(CONFIG_HANDLERS.setSwitchBind, async (payload): Promise<Outcome<Record<string, string>>> => {
-      const parsed = setSwitchBindInputSchema.safeParse(payload)
-      if (!parsed.success) return fail('ipc.error.invalidPayload')
-      const installation = app.installations.find(parsed.data.installationId)
-      if (!installation) return fail('config.error.installationNotFound')
+    handle(
+      CONFIG_HANDLERS.setSwitchBind,
+      async (payload): Promise<Outcome<Record<string, string>>> => {
+        const parsed = setSwitchBindInputSchema.safeParse(payload)
+        if (!parsed.success) return fail('ipc.error.invalidPayload')
+        const installation = app.installations.find(parsed.data.installationId)
+        if (!installation) return fail('config.error.installationNotFound')
 
-      const current = app.state.configSwitchBinds()
-      const next = { ...current }
-      if (parsed.data.key === null) delete next[installation.id]
-      else next[installation.id] = parsed.data.key
-      app.state.setConfigSwitchBinds(next)
+        const current = app.state.configSwitchBinds()
+        const next = { ...current }
+        if (parsed.data.key === null) delete next[installation.id]
+        else next[installation.id] = parsed.data.key
+        app.state.setConfigSwitchBinds(next)
 
-      // Decision 12/13: write immediately for this one installation only,
-      // through the unchanged story-004 pipeline (`writeInstallationFiles`);
-      // this never touches `assignments`/`isDefault` on any profile - the
-      // installation's default is only ever changed by `setDefault` above.
-      //
-      // Judgment call: unlike `writeProfileToAssignedInstallations`, this does
-      // NOT consult `isInstallationRunning`/skip-and-mark-pending. There is no
-      // pending-writes-shaped map keyed for "a switch-bind change, not a
-      // profile save" and decision 12 does not ask for one; the write below is
-      // still safe while the game is running (loader files are not open for
-      // exclusive access), it just means the running instance keeps whatever
-      // chain it already loaded until its next launch - the same story-004
-      // precedent AC3 relies on for the default profile itself.
-      const allProfiles = profiles.list()
-      const defaultProfile = defaultProfileFor(allProfiles, installation.id)
-      if (defaultProfile) {
-        const assignedProfiles = assignedProfilesFor(allProfiles, installation.id)
-        const switchBindKey = next[installation.id]
-        try {
-          await writeInstallationFiles({
-            installation,
-            profileFileName: profileFileName(defaultProfile.id),
-            profileFileContent: renderProfileFile(defaultProfile),
-            loaderFileContent: renderLoaderFile(
-              defaultProfile,
-              switchBindKey
-                ? { key: switchBindKey, profiles: assignedProfiles, defaultProfileId: defaultProfile.id }
-                : undefined,
-            ),
-            playedMods: app.state.configPlayedMods()[installation.id] ?? [],
-          })
-        } catch (error) {
-          log.error(`failed to write switch bind for installation ${installation.id}`, error)
-          return fail('config.error.writeFailed')
+        // Decision 12/13: write immediately for this one installation only,
+        // through the unchanged story-004 pipeline (`writeInstallationFiles`);
+        // this never touches `assignments`/`isDefault` on any profile - the
+        // installation's default is only ever changed by `setDefault` above.
+        //
+        // Judgment call: unlike `writeProfileToAssignedInstallations`, this does
+        // NOT consult `isInstallationRunning`/skip-and-mark-pending. There is no
+        // pending-writes-shaped map keyed for "a switch-bind change, not a
+        // profile save" and decision 12 does not ask for one; the write below is
+        // still safe while the game is running (loader files are not open for
+        // exclusive access), it just means the running instance keeps whatever
+        // chain it already loaded until its next launch - the same story-004
+        // precedent AC3 relies on for the default profile itself.
+        const allProfiles = profiles.list()
+        const defaultProfile = defaultProfileFor(allProfiles, installation.id)
+        if (defaultProfile) {
+          const assignedProfiles = assignedProfilesFor(allProfiles, installation.id)
+          const switchBindKey = next[installation.id]
+          try {
+            await writeInstallationFiles({
+              installation,
+              profileFileName: profileFileName(defaultProfile.id),
+              profileFileContent: renderProfileFile(defaultProfile),
+              loaderFileContent: renderLoaderFile(
+                defaultProfile,
+                switchBindKey
+                  ? {
+                      key: switchBindKey,
+                      profiles: assignedProfiles,
+                      defaultProfileId: defaultProfile.id,
+                    }
+                  : undefined,
+              ),
+              playedMods: app.state.configPlayedMods()[installation.id] ?? [],
+            })
+          } catch (error) {
+            log.error(`failed to write switch bind for installation ${installation.id}`, error)
+            return fail('config.error.writeFailed')
+          }
         }
-      }
-      return ok(next)
-    })
+        return ok(next)
+      },
+    )
 
     // Story 005: read-only import of a hand-written config into a new
     // profile. `import.ts` holds the fs-touching logic so it stays testable

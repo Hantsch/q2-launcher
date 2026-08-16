@@ -19,6 +19,7 @@ export const CONFIG_HANDLERS = {
   setCvars: 'setCvars',
   setBinds: 'setBinds',
   setLayers: 'setLayers',
+  setActions: 'setActions',
   write: 'write',
   preview: 'preview',
   writeState: 'writeState',
@@ -56,6 +57,54 @@ export interface UnrecognizedConfigLine {
   text: string
 }
 
+export type ActionCategoryEntryKind = 'bind' | 'message' | 'alias'
+
+/** A built-in category — a shared constant, never persisted (decision: profiles only persist
+ * their custom categories, so built-in labels stay translatable and adding one needs no
+ * migration). */
+export interface BuiltInActionCategory {
+  id: string
+  labelKey: string
+  entryKind: ActionCategoryEntryKind
+}
+
+/** Exactly the three the story's AC names, matching upstream's `group: 'main'` set. */
+export const BUILT_IN_ACTION_CATEGORIES: readonly BuiltInActionCategory[] = [
+  { id: 'movement', labelKey: 'config.advanced.categories.movement', entryKind: 'bind' },
+  { id: 'weapons', labelKey: 'config.advanced.categories.weapons', entryKind: 'bind' },
+  { id: 'drops', labelKey: 'config.advanced.categories.drops', entryKind: 'bind' },
+]
+
+/** A user-defined category. Its `name` is user-typed text (not translatable UI prose, hence a
+ * plain string, unlike `BuiltInActionCategory.labelKey`). Persisted on `ConfigProfile.categories`
+ * — built-ins above are never persisted rows. */
+export interface ConfigActionCategory {
+  id: string
+  name: string
+  entryKind: ActionCategoryEntryKind
+}
+
+export type ConfigCommand =
+  | { kind: 'raw'; text: string }
+  | { kind: 'message'; channel: 'say' | 'say_team'; text: string }
+
+/**
+ * One shape for all three entry kinds (bind/message/alias): a message and a multi-command bind
+ * are the same thing to the engine (an alias body), so one type serves both instead of two
+ * parallel entities needing two renderers/validators. `categoryId` may reference either a
+ * `BUILT_IN_ACTION_CATEGORIES` id or a `ConfigProfile.categories` custom category's id.
+ * `key`, when set, is the engine key name this action's generated alias is bound to (any entry
+ * kind may be keyed, not just `bind`-kind categories — a message can sit on a key exactly like a
+ * multi-command bind can).
+ */
+export interface ConfigAction {
+  id: string
+  categoryId: string
+  name: string
+  commands: ConfigCommand[]
+  key?: string
+}
+
 /**
  * A config profile: a named set of cvars and key binds, owned centrally rather
  * than by one installation, and identified by a generated `id` so renaming it
@@ -80,6 +129,12 @@ export interface UnrecognizedConfigLine {
  * precedent as `unrecognized`: optional and defaulted by a forgiving
  * `.catch(() => [])` in the persisted schema, so no `STATE_SCHEMA_VERSION`
  * bump and no reshaping of existing persisted profiles.
+ *
+ * `categories`/`actions` (story 008) list the profile's user-defined action
+ * categories and its binds/messages/aliases, respectively. Same precedent
+ * again: optional, so a pre-story-008 profile simply omits them, and a
+ * forgiving row-level-drop in the persisted schema (not the whole-array
+ * `.catch()` `layers` uses) so one malformed row does not wipe the rest.
  */
 export interface ConfigProfile {
   id: string
@@ -91,6 +146,8 @@ export interface ConfigProfile {
   assignments: ProfileAssignment[]
   unrecognized?: UnrecognizedConfigLine[]
   layers?: AltLayer[]
+  categories?: ConfigActionCategory[]
+  actions?: ConfigAction[]
 }
 
 /** Where a new profile's content comes from. */
@@ -173,6 +230,12 @@ export interface SetProfileBindsInput {
 export interface SetProfileLayersInput {
   profileId: string
   layers: AltLayer[]
+}
+
+export interface SetProfileActionsInput {
+  profileId: string
+  categories: ConfigActionCategory[]
+  actions: ConfigAction[]
 }
 
 /** Per-installation outcome of a `write` call. */

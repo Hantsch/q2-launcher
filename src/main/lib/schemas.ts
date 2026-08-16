@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { AltLayer } from '@shared/config/alt-layers'
-import type { ConfigProfile } from '@shared/modules/config'
+import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
+import { isLatin1Text } from '@shared/config/q2-charset'
 import type { Installation, LauncherSettings, WindowState } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
 import {
@@ -109,6 +110,59 @@ const altLayerPersistedSchema: z.ZodType<AltLayer> = z.object({
 })
 
 /**
+ * Story 008: one persisted `ConfigActionCategory`/`ConfigAction`/`ConfigCommand` row -
+ * structurally the strict shapes `main/modules/config/schemas.ts`'s
+ * `configActionCategorySchema`/`configActionSchema`/`configCommandSchema` describe, but this file
+ * follows the "forgiving, drop what fails" convention rather than "throw on bad payload": a
+ * malformed row - including a command whose text fails the latin-1/no-quote rule, checked here
+ * directly via `isLatin1Text` rather than by importing the strict module's `actionTextSchema` -
+ * simply fails this row's `.safeParse` in `parseForgivingRows` below and is dropped alone. Unlike
+ * `layers` right above, which degrades the *whole* field to `[]` via `.catch(() => [])`, this
+ * story's own acceptance criterion requires row-level dropping: one bad row among several good
+ * ones must not wipe the rest.
+ */
+const persistedActionTextSchema = z
+  .string()
+  .refine((value) => isLatin1Text(value) && !value.includes('"'))
+
+const configCommandPersistedSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('raw'), text: persistedActionTextSchema }),
+  z.object({
+    kind: z.literal('message'),
+    channel: z.enum(['say', 'say_team']),
+    text: persistedActionTextSchema,
+  }),
+])
+
+const configActionCategoryPersistedSchema: z.ZodType<ConfigActionCategory> = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  entryKind: z.enum(['bind', 'message', 'alias']),
+})
+
+const configActionPersistedSchema: z.ZodType<ConfigAction> = z.object({
+  id: z.string().min(1),
+  categoryId: z.string().min(1),
+  name: z.string().min(1),
+  commands: z.array(configCommandPersistedSchema),
+  key: z.string().optional(),
+})
+
+/**
+ * Parses `raw` as an array, keeping only the elements that pass `schema` and dropping the rest -
+ * the row-level counterpart to a whole-field `.catch()`. Same idea as `parseInstallations`/
+ * `parseConfigProfiles` below, generalized so `categories` and `actions` can reuse it instead of
+ * duplicating the map-safeParse-filter dance.
+ */
+function parseForgivingRows<T>(schema: z.ZodType<T>, raw: unknown): T[] {
+  const rows = z.array(z.unknown()).catch([]).parse(raw)
+  return rows
+    .map((row) => schema.safeParse(row))
+    .filter((result): result is z.ZodSafeParseSuccess<T> => result.success)
+    .map((result) => result.data)
+}
+
+/**
  * A persisted config profile. Same rules as `installationSchema`: only the
  * fields without which the record is meaningless (`id`, `name`) are strict, so
  * a hand-mangled profile is dropped on its own instead of taking the file - or
@@ -138,6 +192,19 @@ export const configProfileSchema = z.object({
   // this story) degrades the whole field to `[]` rather than dropping the
   // profile it belongs to.
   layers: z.array(altLayerPersistedSchema).catch(() => []),
+  // Story 008: action categories and their binds/messages/aliases. Unlike
+  // `layers` right above, a malformed row is dropped on its own via
+  // `parseForgivingRows` rather than degrading the whole array to `[]` - see
+  // that helper's doc comment. A missing key (any profile predating this
+  // story) still yields `[]`, same as every other optional field here.
+  categories: z.preprocess(
+    (raw) => parseForgivingRows(configActionCategoryPersistedSchema, raw),
+    z.array(configActionCategoryPersistedSchema),
+  ),
+  actions: z.preprocess(
+    (raw) => parseForgivingRows(configActionPersistedSchema, raw),
+    z.array(configActionPersistedSchema),
+  ),
 })
 
 /** installationId -> mod folder names the user has marked "played" for it. */
