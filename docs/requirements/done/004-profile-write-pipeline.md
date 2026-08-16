@@ -1,7 +1,7 @@
 ---
 id: 004
 title: Write profile to assigned installations on save
-status: in-progress
+status: done
 created: 2026-08-14
 ---
 
@@ -280,6 +280,8 @@ interrupted prior session, commit `afe3966`):**
   rather than `done` until a real UI pass confirms it — consistent with how stories 001–003 were
   also left `in-progress` for the same reason.
 
-**Open points:** none blocking beyond the live smoke gate above. F2/F4/F5/F7/F8/F9 are documented,
-non-blocking, accepted limitations (see Decisions); none of them affect the story's 5 acceptance
-criteria as written.
+**Open points:** none blocking. F2/F4/F5/F7/F8/F9 are documented, non-blocking, accepted
+limitations (see Decisions); none of them affect the story's 5 acceptance criteria as written.
+
+**Live acceptance (2026-08-16):** run against `docs/sprints/S01/testplan.md` on a real desktop
+environment and accepted by the user. Status moved to `done`.

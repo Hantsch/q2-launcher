@@ -1,7 +1,7 @@
 ---
 id: 003
 title: Settings/cvar editor with per-engine defaults and clamps
-status: in-progress
+status: done
 created: 2026-08-14
 ---
 
@@ -315,5 +315,7 @@ criteria are met per an independent code review (see below); build/tests are gre
   `in-progress` rather than `done` until that happens.
 
 **Open points:** none blocking. The cosmetic debounce-switch status flash noted above is the only
-known non-blocking issue. Live UI acceptance (the 7-step manual test plan) is the one remaining
-gate before this story can move to `done`.
+known non-blocking issue.
+
+**Live acceptance (2026-08-16):** the 7-step manual test plan was run against a real desktop
+environment and accepted by the user. Status moved to `done`.

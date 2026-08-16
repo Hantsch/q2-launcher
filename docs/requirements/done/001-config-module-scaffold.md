@@ -1,7 +1,7 @@
 ---
 id: 001
 title: Config module scaffold and central profile store
-status: in-progress
+status: done
 created: 2026-08-14
 ---
 
@@ -184,7 +184,7 @@ design-system primitives (D3–D5). No new IPC channel; no `STATE_SCHEMA_VERSION
   decisions only called for flipping `status`/`requiresInstallation`, not the capability
   list (that list will need a real look once story 004's write pipeline actually mutates
   installation files).
-- **Live smoke: not performed.** `live-smoke-required: true` for this project, but this
+- **Live smoke: not performed at build time.** `live-smoke-required: true` for this project, but this
   session runs in a headless WSL sandbox with no usable display server for Electron —
   `npm run dev` builds and starts the dev server correctly, but `electron.exe` under
   `node_modules/electron` is the Windows-native binary and cannot exec under WSL's bash
@@ -233,3 +233,6 @@ checked against the story's Plan/Acceptance Criteria):
   to pull in the correct Linux native bindings. This did not touch `package.json` or
   `package-lock.json` (confirmed via `git status`/`git diff --stat`) — purely an environment
   fix so `build`/`test`/`typecheck` could run at all in this sandbox.
+
+**Live acceptance (2026-08-16):** run against `docs/sprints/S01/testplan.md` on a real desktop
+environment and accepted by the user. Status moved to `done`.

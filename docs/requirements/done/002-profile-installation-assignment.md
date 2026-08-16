@@ -1,7 +1,7 @@
 ---
 id: 002
 title: Profile-installation assignment and default profile
-status: in-progress
+status: done
 created: 2026-08-14
 ---
 
@@ -231,3 +231,6 @@ handlers (assign/unassign/setDefault) with a reconcile sweep that drops
 assignments to installations that no longer exist. Profile-side and
 installation-side panels in the config view.
 ```
+
+**Live acceptance (2026-08-16):** run against `docs/sprints/S01/testplan.md` on a real desktop
+environment and accepted by the user. Status moved to `done`.

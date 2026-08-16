@@ -1,8 +1,8 @@
 # Sprint S01 — Manual Test Plan (Config module foundation)
 
 Consolidated, self-contained acceptance walkthrough for stories 001–005
-(`docs/requirements/001-config-module-scaffold.md` through
-`005-import-existing-config.md`). Run the use cases below in order — each one builds on state
+(`docs/requirements/done/001-config-module-scaffold.md` through
+`done/005-import-existing-config.md`). Run the use cases below in order — each one builds on state
 (profiles, assignments, files on disk) left behind by the previous one, the same way the
 sprint's own story order was 001 → 002 → 003 → 004 → 005.
 

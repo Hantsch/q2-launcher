@@ -1,7 +1,7 @@
 ---
 id: 005
 title: Import an existing config into a new profile
-status: in-progress
+status: done
 created: 2026-08-14
 ---
 
@@ -281,5 +281,7 @@ Six low-severity/nit findings (F2–F9) were left unfixed, all in already-docume
 Status intentionally left `in-progress` per the profile's P2 rule (a green build/test is not
 enough for a user-facing story without a real pass through the running app). All 5 acceptance
 criteria are ticked above based on the code-level verification (parser/reader/handler tests +
-independent hard-tier review); the manual Test Plan below still needs to be walked once by a
-human to confirm the actual UI experience end-to-end.
+independent hard-tier review).
+
+**Live acceptance (2026-08-16):** the manual Test Plan below was walked against a real desktop
+environment and accepted by the user. Status moved to `done`.

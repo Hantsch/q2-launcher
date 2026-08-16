@@ -17,11 +17,11 @@ scratch.
 
 ## Stories (in build order)
 
-- [ ] 001 — Config module scaffold and central profile store (built, live acceptance pending)
-- [ ] 002 — Profile-installation assignment and default profile (built, reviewed, live acceptance pending)
-- [ ] 003 — Settings/cvar editor with per-engine defaults and clamps (built, reviewed, live acceptance pending)
-- [ ] 004 — Write profile to assigned installations on save (built, reviewed, live acceptance pending)
-- [ ] 005 — Import an existing config into a new profile (built, reviewed, live acceptance pending)
+- [x] 001 — Config module scaffold and central profile store (accepted)
+- [x] 002 — Profile-installation assignment and default profile (accepted)
+- [x] 003 — Settings/cvar editor with per-engine defaults and clamps (accepted)
+- [x] 004 — Write profile to assigned installations on save (accepted)
+- [x] 005 — Import an existing config into a new profile (accepted)
 
 ## Notes
 
