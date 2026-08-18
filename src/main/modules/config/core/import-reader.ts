@@ -82,6 +82,12 @@
  *    entries here. Real configs (and everything the engine writes itself)
  *    are consistent, and normalising would change the key names the profile
  *    stores, so this stays literal.
+ *
+ *    A `bind` for a key that is already live (bound since the last
+ *    `unbind`/`unbindall` that touched it) silently replaces the earlier one
+ *    - same as the engine - and is additionally recorded in `duplicateBinds`
+ *    so the import preview can point it out. An `unbind` in between makes a
+ *    later re-`bind` deliberate, not a duplicate, so it is not reported.
  *  - unrecognized lines: kept in overall document order, each tagged with
  *    the file it came from (the on-disk file NAME, not a path - the result
  *    travels to the renderer) and its 1-based line number in that file.
@@ -143,6 +149,18 @@ export interface ImportWarning {
   target: string
 }
 
+/**
+ * A key name whose `bind` command was silently replaced by a later `bind` of
+ * the same key, with no intervening `unbind`/`unbindall` of that key - see
+ * the merge-semantics note above `applyBind`. `file`/`line` point at the
+ * later `bind`, the one that actually took effect.
+ */
+export interface DuplicateBind {
+  key: string
+  file: string
+  line: number
+}
+
 export interface ImportResult {
   /** cvar name -> value, last assignment in the stream wins. */
   cvars: Record<string, string>
@@ -158,6 +176,8 @@ export interface ImportResult {
   filesRead: string[]
   /** Why an `exec` was not expanded. Empty on a clean import. */
   warnings: ImportWarning[]
+  /** Keys bound more than once in the source with no `unbind` in between. Empty on a clean import. */
+  duplicateBinds: DuplicateBind[]
 }
 
 /**
@@ -192,6 +212,7 @@ interface ReaderContext {
   unrecognized: ImportedUnrecognizedLine[]
   filesRead: string[]
   warnings: ImportWarning[]
+  duplicateBinds: DuplicateBind[]
 }
 
 type StreamItem =
@@ -216,9 +237,12 @@ function documentOrder(parsed: ParseConfigResult): StreamItem[] {
   return items.sort((a, b) => a.item.line - b.item.line)
 }
 
-function applyBind(ctx: ReaderContext, bind: ParsedBind): void {
+function applyBind(ctx: ReaderContext, bind: ParsedBind, file: string): void {
   switch (bind.kind) {
     case 'bind':
+      if (ctx.binds.has(bind.key)) {
+        ctx.duplicateBinds.push({ key: bind.key, file, line: bind.line })
+      }
       ctx.binds.set(bind.key, bind.command)
       return
     case 'unbind':
@@ -340,7 +364,7 @@ async function processFile(
           ctx.cvars.set(entry.item.name, entry.item.value)
           break
         case 'bind':
-          applyBind(ctx, entry.item)
+          applyBind(ctx, entry.item, file)
           break
         case 'exec':
           await expandExec(ctx, entry.item, file, depth)
@@ -382,6 +406,7 @@ export async function readImportableConfig(
     unrecognized: [],
     filesRead: [],
     warnings: [],
+    duplicateBinds: [],
   }
 
   for (const entryFile of ENTRY_FILE_NAMES) {
@@ -398,5 +423,6 @@ export async function readImportableConfig(
     unrecognized: ctx.unrecognized,
     filesRead: ctx.filesRead,
     warnings: ctx.warnings,
+    duplicateBinds: ctx.duplicateBinds,
   }
 }

@@ -224,6 +224,29 @@ export function ImportProfileDialog({
                     </KeyValue>
                   </div>
 
+                  {previewResult.value.duplicateBinds.length > 0 && (
+                    <div className="space-y-1.5">
+                      <SectionLabel>
+                        {t('config.importDialog.duplicateBindCount', {
+                          count: previewResult.value.duplicateBinds.length,
+                        })}
+                      </SectionLabel>
+                      <ul className="max-h-40 space-y-1 overflow-y-auto rounded-sm border border-danger/35 bg-danger/8 p-2">
+                        {previewResult.value.duplicateBinds.map((duplicate, index) => (
+                          <li
+                            key={`${duplicate.key}:${duplicate.file}:${duplicate.line}:${index}`}
+                            className="flex min-w-0 items-baseline gap-2 text-xs text-danger"
+                          >
+                            <span className="numeric shrink-0 text-ink-muted">
+                              {duplicate.file}:{duplicate.line}
+                            </span>
+                            <code className="min-w-0 truncate">{duplicate.key}</code>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                   {previewResult.value.preserved.length > 0 && (
                     <div className="space-y-1.5">
                       <SectionLabel>

@@ -7,9 +7,8 @@
  * printable keys are the literal ASCII character `bind` expects (lower-case
  * letters, digits, punctuation). SHIFT/CTRL/ALT are deliberately a single
  * name each - the engine does not distinguish left/right, so both physical
- * keys share one bind entry. That is what `keyOccurrenceCounts` below is
- * for: flagging a key name that appears at more than one physical position,
- * i.e. editing one visually "doubly-bound" key affects both.
+ * keys share one bind entry; editing one visually "doubly-bound" key affects
+ * both (see `KeyBindDialog`'s `DOUBLY_PLACED_KEYS` note).
  */
 
 import type { ConfigAction } from '@shared/modules/config'
@@ -196,26 +195,6 @@ export const NUMPAD_KEYS: KeyDef[] = [
   { key: 'KP_INS', label: '0', colSpan: 2 },
   { key: 'KP_DEL', label: '.' },
 ]
-
-/**
- * Counts how many physical positions in the layout share each key name.
- * SHIFT/CTRL/ALT come out at 2 - everything else at 1. Used to flag
- * "doubly-bound" keys in the overview (CFG-7): visually two keys, one bind.
- */
-export function keyOccurrenceCounts(): Map<string, number> {
-  const counts = new Map<string, number>()
-  const all = [
-    ...KEYBOARD_ROWS.flat(),
-    ...NAV_CLUSTER.flat(),
-    ...ARROW_CLUSTER.flat().filter((def): def is KeyDef => def !== null),
-    ...NUMPAD_KEYS,
-  ]
-  for (const def of all) {
-    if (!def.key) continue
-    counts.set(def.key, (counts.get(def.key) ?? 0) + 1)
-  }
-  return counts
-}
 
 /**
  * Splits a bound command into the steps it would run in order (Quake II

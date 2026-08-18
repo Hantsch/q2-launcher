@@ -60,6 +60,19 @@ export interface UnrecognizedConfigLine {
   text: string
 }
 
+/**
+ * A key name whose `bind` command was silently replaced by a later `bind` of
+ * the same key while importing, with no intervening `unbind`/`unbindall` of
+ * that key. Mirrors `import-reader.ts`'s `DuplicateBind` exactly - same
+ * reasoning as `UnrecognizedConfigLine`. `file`/`line` point at the later
+ * `bind`, the one that actually took effect.
+ */
+export interface DuplicateBindLine {
+  key: string
+  file: string
+  line: number
+}
+
 export type ActionCategoryEntryKind = 'bind' | 'message' | 'alias'
 
 /** A built-in category — a shared constant, never persisted (decision: profiles only persist
@@ -326,6 +339,7 @@ export interface ImportPreviewResult {
   bindCount: number
   preserved: UnrecognizedConfigLine[]
   filesRead: string[]
+  duplicateBinds: DuplicateBindLine[]
 }
 
 export interface ImportCommitInput {

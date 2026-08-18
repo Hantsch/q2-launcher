@@ -67,6 +67,7 @@ describe('readImportableConfig', () => {
       unrecognized: [],
       filesRead: [],
       warnings: [],
+      duplicateBinds: [],
     })
   })
 
@@ -264,6 +265,25 @@ describe('readImportableConfig', () => {
     const result = await readImportableConfig(root, 'baseq2')
 
     expect(result.binds).toEqual({ w: '+back' })
+    expect(result.duplicateBinds).toEqual([])
+  })
+
+  it('reports a key bound twice with no unbind in between as a duplicate', async () => {
+    await write('baseq2/config.cfg', lines('bind w "+forward"', 'bind w "+back"'))
+
+    const result = await readImportableConfig(root, 'baseq2')
+
+    expect(result.binds).toEqual({ w: '+back' })
+    expect(result.duplicateBinds).toEqual([{ key: 'w', file: 'config.cfg', line: 2 }])
+  })
+
+  it('finds a duplicate bind across an exec’d file too', async () => {
+    await write('baseq2/config.cfg', lines('bind w "+forward"', 'exec extra.cfg'))
+    await write('baseq2/extra.cfg', lines('bind w "+back"'))
+
+    const result = await readImportableConfig(root, 'baseq2')
+
+    expect(result.duplicateBinds).toEqual([{ key: 'w', file: 'extra.cfg', line: 1 }])
   })
 
   it('lets an unbindall inside an exec’d file clear binds from the parent', async () => {

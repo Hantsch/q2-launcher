@@ -113,6 +113,19 @@ function logImportWarnings(
   }
 }
 
+function logDuplicateBinds(
+  log: Logger,
+  installationId: string,
+  duplicateBinds: { key: string; file: string; line: number }[],
+): void {
+  for (const duplicate of duplicateBinds) {
+    log.warn(
+      `import: key "${duplicate.key}" bound more than once ` +
+        `(${duplicate.file}:${duplicate.line}, installation ${installationId})`,
+    )
+  }
+}
+
 /**
  * `import.preview`: the installation + gamedir validation happens before any
  * filesystem access (the acceptance line this is tested against directly),
@@ -133,12 +146,14 @@ export async function previewImport(
 
   const result = await readImportableConfig(installation.rootPath, input.gameDir)
   logImportWarnings(log, installation.id, result.warnings)
+  logDuplicateBinds(log, installation.id, result.duplicateBinds)
 
   return ok({
     cvarCount: Object.keys(result.cvars).length,
     bindCount: Object.keys(result.binds).length,
     preserved: result.unrecognized,
     filesRead: result.filesRead,
+    duplicateBinds: result.duplicateBinds,
   })
 }
 
@@ -168,6 +183,7 @@ export async function commitImport(
 
   const result = await readImportableConfig(installation.rootPath, input.gameDir)
   logImportWarnings(log, installation.id, result.warnings)
+  logDuplicateBinds(log, installation.id, result.duplicateBinds)
 
   const profiles = createProfile({
     name: input.name,

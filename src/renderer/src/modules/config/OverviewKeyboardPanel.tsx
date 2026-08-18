@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Pencil, Play, Square } from 'lucide-react'
 import type { AltLayer } from '@shared/config/alt-layers'
@@ -14,7 +14,6 @@ import {
   MOUSE_ROWS,
   NAV_CLUSTER,
   NUMPAD_KEYS,
-  keyOccurrenceCounts,
   resolveAliasChain,
   resolveQuakeKeyName,
   type KeyDef,
@@ -56,8 +55,8 @@ interface Captured {
 }
 
 /**
- * The config view's landing tab (CFG-7): a bound/free/doubly-bound overview
- * of the profile's key binds - each keycap shows the friendly name of its
+ * The config view's landing tab (CFG-7): a bound/free overview of the
+ * profile's key binds - each keycap shows the friendly name of its
  * bound command (q2-config-manager's "what does this key do" feature) - plus
  * a test mode that captures a real keypress or mouse click and shows the
  * command chain it would run.
@@ -77,7 +76,6 @@ export function OverviewKeyboardPanel({
   onChanged: (profiles: ConfigProfile[]) => void
 }) {
   const { t } = useTranslation()
-  const occurrences = useMemo(() => keyOccurrenceCounts(), [])
   const [testMode, setTestMode] = useState(false)
   const [captured, setCaptured] = useState<Captured | null>(null)
   const [editMode, setEditMode] = useState(false)
@@ -180,10 +178,8 @@ export function OverviewKeyboardPanel({
       hasOverride && baseBound
         ? keycapCommandLabel(resolveAliasChain(baseCommand, profile.actions ?? []))
         : null
-    const conflict = (occurrences.get(def.key) ?? 0) > 1
     const title = [
       def.key,
-      conflict && t('config.overview.legend.conflict'),
       hasOverride && t('config.overview.legend.altLayer'),
       bound && primaryCommand?.trim(),
     ]
@@ -199,7 +195,6 @@ export function OverviewKeyboardPanel({
       // A key with no override of its own, while a layer is active, is shown
       // dimmed - it is base-layer context, not this layer's own state.
       Boolean(activeLayer) && !hasOverride && bound && 'opacity-70',
-      conflict && 'ring-1 ring-strogg-500/60 ring-inset',
       testMode || editMode ? 'cursor-pointer hover:border-flame-400' : 'cursor-default',
     )
     return { title, className, commandLabel, warn: hasOverride, baseReferenceLabel }
@@ -325,7 +320,6 @@ export function OverviewKeyboardPanel({
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone="neutral">{t('config.overview.legend.free')}</Badge>
         <Badge tone="flame">{t('config.overview.legend.bound')}</Badge>
-        <Badge tone="strogg">{t('config.overview.legend.conflict')}</Badge>
         <Badge tone="warning" className={cn(!activeLayer && 'opacity-60')}>
           {t('config.overview.legend.altLayer')}
         </Badge>

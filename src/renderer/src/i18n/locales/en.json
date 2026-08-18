@@ -364,7 +364,6 @@
       "legend": {
         "free": "Free",
         "bound": "Bound",
-        "conflict": "Conflict",
         "altLayer": "Bound in an alt layer"
       },
       "testMode": {
@@ -914,6 +913,8 @@
       },
       "cvarCount": "Cvars",
       "bindCount": "Key binds",
+      "duplicateBindCount_one": "{{count}} key bound more than once",
+      "duplicateBindCount_other": "{{count}} keys bound more than once",
       "preservedCount_one": "{{count}} preserved line",
       "preservedCount_other": "{{count}} preserved lines",
       "nameLabel": "Name",
