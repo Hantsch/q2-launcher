@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import type { AltLayer } from '@shared/config/alt-layers'
 import { generateLayerAliases } from '@shared/config/alt-layers'
+import { aliasNameFor } from '@shared/config/alias-render'
 import type { SwitchBindChainInput } from './switch-bind'
 import { renderSwitchBindChain } from './switch-bind'
 import {
@@ -437,6 +438,70 @@ describe('renderProfileFile with actions', () => {
     })
 
     expect(renderProfileFile(p)).toBe(renderProfileFile(p))
+  })
+
+  describe('story 015: dual-bound actions', () => {
+    it('renders a drop row with both keys set as two bind lines to the same alias, and one alias definition', () => {
+      // Shaped like a materialised drop-catalogue row (decision 6): item, ammo,
+      // then the team message. `profile.binds` is hand-built here to mirror
+      // exactly what `setActions` (D1, tested in `profiles.test.ts`) writes for
+      // a two-key action - both `key` and `secondaryKey` point at the same
+      // generated alias name - matching this file's existing pattern of
+      // hand-constructing the bind mirror rather than re-testing `setActions`.
+      const dropRow = action({
+        name: 'Rocket Launcher',
+        id: 'ab12cd34',
+        categoryId: 'drops',
+        catalogId: 'dropWeapon:rlauncher',
+        key: 'r',
+        secondaryKey: 'PGUP',
+        commands: [
+          { kind: 'raw', text: 'drop rocket launcher' },
+          { kind: 'raw', text: 'drop rockets' },
+          { kind: 'message', channel: 'say_team', text: 'need ammo' },
+        ],
+      })
+      const aliasName = aliasNameFor(dropRow)
+      const p = profile({
+        id: 'dual-bind-id',
+        binds: { r: aliasName, PGUP: aliasName },
+        actions: [dropRow],
+      })
+
+      const rendered = renderProfileFile(p)
+      const lines = rendered.split('\n')
+      const bindLines = lines.filter((line) => line.startsWith('bind '))
+      const aliasLines = lines.filter((line) => line.startsWith('alias '))
+
+      expect(bindLines.sort()).toEqual([`bind PGUP "${aliasName}"`, `bind r "${aliasName}"`].sort())
+      expect(aliasLines).toEqual([
+        `alias ${aliasName} "drop rocket launcher; drop rockets; say_team need ammo"`,
+      ])
+    })
+
+    it('renders a movement row with only a Primary key as exactly one bind line', () => {
+      const movementRow = action({
+        name: 'Jump',
+        id: 'cccc2222',
+        categoryId: 'movement',
+        catalogId: 'movement:jump',
+        key: 'SPACE',
+        commands: [{ kind: 'raw', text: '+moveup' }],
+      })
+      const aliasName = aliasNameFor(movementRow)
+      const p = profile({
+        id: 'single-bind-id',
+        binds: { SPACE: aliasName },
+        actions: [movementRow],
+      })
+
+      const rendered = renderProfileFile(p)
+      const bindLines = rendered.split('\n').filter((line) => line.startsWith('bind '))
+
+      expect(bindLines).toEqual([`bind SPACE "${aliasName}"`])
+      // No secondaryKey was set, so no second bind to this alias exists anywhere.
+      expect(bindLines.filter((line) => line.includes(aliasName))).toHaveLength(1)
+    })
   })
 })
 

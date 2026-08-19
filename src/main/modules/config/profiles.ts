@@ -183,12 +183,21 @@ export class ProfilesStore {
    * `ACTION_ALIAS_PREFIX` is dropped first (an action that lost its key, or
    * was deleted outright, must not leave a stale bind pointing at an alias
    * this save no longer generates), then one
-   * `binds[normalizeBindKey(action.key)] = aliasNameFor(action)` is written
-   * per action that still has a `key`, in `input.actions` array order - so
-   * when two actions land on the same (normalized) key, the later one in the
-   * array wins, deterministically. Every other bind (the user's own,
-   * hand-typed ones, and anything from an alt layer's own overrides, which
-   * live in a separate map entirely) is untouched.
+   * `binds[normalizeBindKey(key)] = aliasNameFor(action)` is written per key an
+   * action still carries, in `input.actions` array order - so when two actions
+   * land on the same (normalized) key, the later one in the array wins,
+   * deterministically. Every other bind (the user's own, hand-typed ones, and
+   * anything from an alt layer's own overrides, which live in a separate map
+   * entirely) is untouched.
+   *
+   * Story 015 (decision 1): "every key an action carries" is `key` *and*
+   * `secondaryKey`, both pointing at the same `aliasNameFor(action)` - the alias
+   * is per action, not per slot, so a two-slot row costs one alias and two bind
+   * lines. The consequences fall out of that single rule rather than needing
+   * their own branches: clearing one slot drops only that key's bind (the whole
+   * `q2l_a_*` mirror is rebuilt from the surviving slots anyway), and an action
+   * whose two slots normalize to the same key writes that key twice with the
+   * same value, which is a no-op rather than a conflict.
    */
   setActions(input: SetProfileActionsInput): ConfigProfile[] {
     const current = this.find(input.profileId)
@@ -199,9 +208,12 @@ export class ProfilesStore {
       if (!command.startsWith(ACTION_ALIAS_PREFIX)) nextBinds[key] = command
     }
     for (const action of input.actions) {
-      const key = action.key?.trim()
-      if (!key) continue
-      nextBinds[normalizeBindKey(key)] = aliasNameFor(action)
+      const keys = [action.key, action.secondaryKey]
+        .map((slot) => slot?.trim())
+        .filter((slot): slot is string => Boolean(slot))
+      if (keys.length === 0) continue
+      const alias = aliasNameFor(action)
+      for (const key of keys) nextBinds[normalizeBindKey(key)] = alias
     }
 
     const next: ConfigProfile = {

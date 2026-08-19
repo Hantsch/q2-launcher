@@ -142,6 +142,33 @@ describe('renderActionAlias', () => {
   })
 })
 
+describe('renderActionAlias (story 015: drop-catalogue row)', () => {
+  it('renders a drop row with ammo and a team message as one alias, "; "-joined in order', () => {
+    // Shaped like a materialised drop-catalogue row (decision 6): the item,
+    // its ammo, then the team message last - `catalogId`/`key`/`secondaryKey`
+    // are not read by this module (only by `AdvancedTab`/`setActions`, which
+    // decide what points at the alias), so this proves the render side only.
+    const dropRow = action({
+      name: 'Rocket Launcher',
+      id: 'ab12cd34',
+      categoryId: 'drops',
+      catalogId: 'dropWeapon:rlauncher',
+      key: 'r',
+      secondaryKey: 'PGUP',
+      commands: [
+        { kind: 'raw', text: 'drop rocket launcher' },
+        { kind: 'raw', text: 'drop rockets' },
+        { kind: 'message', channel: 'say_team', text: 'need ammo' },
+      ],
+    })
+
+    const { aliases } = renderActionAlias(dropRow)
+
+    expect(aliases).toHaveLength(1)
+    expect(aliases[0].body).toBe('drop rocket launcher; drop rockets; say_team need ammo')
+  })
+})
+
 describe('renderActionAlias auto-split', () => {
   // 25 commands of 96 characters each. A chunk fits nine of them under the
   // 1024 - 16 byte budget, so this lands on exactly three parts.

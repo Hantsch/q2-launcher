@@ -1065,6 +1065,27 @@
         "capturing": "Press a key…",
         "clearKey": "Clear"
       },
+      "dualBind": {
+        "primary": "Primary",
+        "secondary": "Secondary",
+        "weaponsUseGroup": "Use weapon",
+        "weaponsCycleGroup": "Cycling",
+        "otherActions": "Other actions"
+      },
+      "dropBind": {
+        "weaponsGroup": "Weapons",
+        "ammoGroup": "Ammunition",
+        "miscGroup": "Misc",
+        "withAmmo": "With ammo",
+        "messageLabel": "Team message",
+        "messagePlaceholder": "Team message…"
+      },
+      "collision": {
+        "baseBind": "{{key}} is already bound to “{{owner}}”. Replace that bind?",
+        "action": "{{key}} is already used by “{{owner}}”. Take the key from it?",
+        "replace": "Replace",
+        "layerOverride": "{{key}} also has an override in the alt layer “{{owner}}” — assigned anyway."
+      },
       "messageEditor": {
         "title": "Edit message “{{name}}”",
         "channelLabel": "Channel",

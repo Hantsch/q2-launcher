@@ -11,7 +11,11 @@ import {
 import { StateStore } from '../../services/state'
 import { aliasNameFor } from '@shared/config/alias-render'
 import { ProfilesStore } from './profiles'
-import { setProfileBindsInputSchema, setProfileLayersInputSchema } from './schemas'
+import {
+  setProfileActionsInputSchema,
+  setProfileBindsInputSchema,
+  setProfileLayersInputSchema,
+} from './schemas'
 
 describe('ProfilesStore', () => {
   let filePath: string
@@ -318,7 +322,9 @@ describe('ProfilesStore', () => {
 
     it('round trips categories/actions through the state store', async () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      const keyed = action({ key: 'f' })
+      // Story 015: `secondaryKey`/`catalogId` are persisted like any other action
+      // field, so a reload has to hand back both slots and the row identity.
+      const keyed = action({ key: 'f', secondaryKey: 'MOUSE2', catalogId: 'movement.jump' })
       profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -359,6 +365,78 @@ describe('ProfilesStore', () => {
       // bind underneath the new one.
       const updated = result.find((p) => p.id === created!.id)!
       expect(updated.binds['f']).toBe(aliasNameFor(keyed))
+    })
+
+    // Story 015 (decision 1): `key` and `secondaryKey` are two bind entries on one alias.
+    it('an action with only a secondaryKey produces exactly that one bind', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const secondaryOnly = action({ secondaryKey: 'MOUSE2' })
+
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [secondaryOnly],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      expect(updated.binds).toEqual({ MOUSE2: aliasNameFor(secondaryOnly) })
+    })
+
+    it('an action with both keys produces two binds pointing at the same alias', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const both = action({ key: 'f', secondaryKey: 'MOUSE2' })
+
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [both],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      // One alias per action, not per slot - so both keys carry the identical value.
+      expect(updated.binds).toEqual({
+        f: aliasNameFor(both),
+        MOUSE2: aliasNameFor(both),
+      })
+    })
+
+    it("clearing only the secondaryKey removes only that key's bind", () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const both = action({ key: 'f', secondaryKey: 'MOUSE2' })
+      profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [both],
+      })
+
+      // Same action (same id, so the same alias name), second slot cleared.
+      const primaryOnly: ConfigAction = { ...both }
+      delete primaryOnly.secondaryKey
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [primaryOnly],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      expect(updated.binds['f']).toBe(aliasNameFor(both))
+      expect(Object.keys(updated.binds)).not.toContain('MOUSE2')
+    })
+
+    it('an action whose two slots normalize to the same key writes it once', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const sameKeyTwice = action({ key: 'f9', secondaryKey: 'F9' })
+
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [sameKeyTwice],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      // Both writes carry the same alias, so a self-collision is a no-op rather
+      // than one slot silently shadowing the other.
+      expect(updated.binds).toEqual({ F9: aliasNameFor(sameKeyTwice) })
     })
 
     it('trims a whitespace-padded key before normalizing it (review finding)', () => {
@@ -436,5 +514,49 @@ describe('setProfileBindsInputSchema / setProfileLayersInputSchema (IPC payload 
         layers: [{ id: 'l1', name: 'Drops', mode: 'hold', triggerKey: '', overrides: {} }],
       }).success,
     ).toBe(false)
+  })
+})
+
+// Story 015 (decisions 1 + 2): the payload gains two optional fields and no new channel.
+describe('setProfileActionsInputSchema (IPC payload validation)', () => {
+  function payload(action: Record<string, unknown>): unknown {
+    return {
+      profileId: 'p1',
+      categories: [{ id: 'movement', name: 'Movement', entryKind: 'bind' }],
+      actions: [
+        {
+          id: 'a1',
+          categoryId: 'movement',
+          name: 'Jump',
+          commands: [{ kind: 'raw', text: '+moveup' }],
+          ...action,
+        },
+      ],
+    }
+  }
+
+  it('accepts an actions payload carrying secondaryKey and catalogId', () => {
+    expect(
+      setProfileActionsInputSchema.safeParse(
+        payload({ key: 'f', secondaryKey: 'MOUSE2', catalogId: 'movement.jump' }),
+      ).success,
+    ).toBe(true)
+  })
+
+  it('accepts an actions payload with neither field (a pre-015 action)', () => {
+    expect(setProfileActionsInputSchema.safeParse(payload({ key: 'f' })).success).toBe(true)
+  })
+
+  it('rejects a secondaryKey longer than the key limit, same as key', () => {
+    const tooLong = 'x'.repeat(21)
+    expect(setProfileActionsInputSchema.safeParse(payload({ secondaryKey: tooLong })).success).toBe(
+      false,
+    )
+    // The point is that the second slot is no laxer than the first.
+    expect(setProfileActionsInputSchema.safeParse(payload({ key: tooLong })).success).toBe(false)
+  })
+
+  it('rejects an empty catalogId', () => {
+    expect(setProfileActionsInputSchema.safeParse(payload({ catalogId: '' })).success).toBe(false)
   })
 })

@@ -22,7 +22,7 @@ a dedicated dual-bind (Primary/Secondary) editor with modifier-layer auto-creati
 - [x] 013 — Compact the empty alt-layers state and move the layer switcher next to the keyboard overview (built, live acceptance pending)
 - [x] 014 — Show an alt-layer trigger's action on its own keycap, and switch layers by clicking it (built, live acceptance pending)
 - [x] 012 — Raw config view with reveal-in-folder (built, live acceptance pending)
-- [ ] 015 — Advanced tab — dual-bind editor for Movement, Weapons and Weapon dropping
+- [x] 015 — Advanced tab — dual-bind editor for Movement, Weapons and Weapon dropping (built, live acceptance pending)
 - [ ] 016 — Auto-create an Alt/Ctrl/Shift layer when a modifier is held during key capture
 
 ## Notes

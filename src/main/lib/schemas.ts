@@ -150,6 +150,11 @@ const configActionPersistedSchema: z.ZodType<ConfigAction> = z.object({
   name: z.string().min(1),
   commands: z.array(configCommandPersistedSchema),
   key: z.string().optional(),
+  // Story 015: same two additive fields as the strict IPC schema, and forgiving in
+  // the same way `key` is here - no length or non-empty rule, because a persisted
+  // row that merely carries an odd key must not be dropped along with its commands.
+  secondaryKey: z.string().optional(),
+  catalogId: z.string().optional(),
 })
 
 /**

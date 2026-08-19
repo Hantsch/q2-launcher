@@ -1,7 +1,7 @@
 ---
 id: 015
 title: Advanced tab — dual-bind editor for Movement, Weapons and Weapon dropping
-status: ready
+status: in-progress
 created: 2026-08-18
 ---
 
@@ -41,32 +41,32 @@ story replaces the built-in-category path of.
 
 ## Acceptance Criteria
 
-- [ ] Movement, Weapons and Weapon dropping each show every action from their fixed catalogue as
+- [x] Movement, Weapons and Weapon dropping each show every action from their fixed catalogue as
       a row; there is no "create action" step and no name field for these three categories —
       users can neither add nor remove rows there (only custom categories keep today's free-form
       create/rename/remove).
-- [ ] Every row has two independent bind slots, **Primary** and **Secondary**; each shows its
+- [x] Every row has two independent bind slots, **Primary** and **Secondary**; each shows its
       currently bound key, or an explicit "not bound" state when empty.
-- [ ] Clicking a slot starts a capture; the next key pressed becomes that slot's key, replacing
+- [x] Clicking a slot starts a capture; the next key pressed becomes that slot's key, replacing
       whatever was there; a slot can also be cleared without entering capture.
-- [ ] Weapon dropping is split into three groups: **Weapons** (one row per `DROPPABLES` entry of
+- [x] Weapon dropping is split into three groups: **Weapons** (one row per `DROPPABLES` entry of
       kind `weapon` — the Blaster is not listed, matching today's catalogue, since it cannot be
       dropped), **Ammunition** (`kind: 'ammo'`), **Misc** (`kind: 'powerup' | 'tech'`).
-- [ ] Every Weapon-dropping row whose droppable has a matching ammo type offers a "with ammo" /
+- [x] Every Weapon-dropping row whose droppable has a matching ammo type offers a "with ammo" /
       "without ammo" choice that controls whether the row's key drops one command (the item
       alone) or two (item + ammo); rows without an ammo type (Ammunition and Misc rows, and any
       Weapons row without one) have no such choice to make.
-- [ ] Every Weapon-dropping row has a free-text field for the team message said (`say_team`) when
+- [x] Every Weapon-dropping row has a free-text field for the team message said (`say_team`) when
       the row's key is pressed, alongside its `drop` command(s).
-- [ ] Movement rows use the same Primary/Secondary editor, with no ammo choice and no message
+- [x] Movement rows use the same Primary/Secondary editor, with no ammo choice and no message
       field — those are Weapon-dropping-only.
-- [ ] Weapons rows let the user assign the "use `<weapon>`" bind, and the `weapnext`/`weapprev`/
+- [x] Weapons rows let the user assign the "use `<weapon>`" bind, and the `weapnext`/`weapprev`/
       `weaplast` cycling actions, through the same Primary/Secondary editor.
-- [ ] Movement, Weapons and Weapon dropping no longer show the "Built-in" badge or an entry-kind
+- [x] Movement, Weapons and Weapon dropping no longer show the "Built-in" badge or an entry-kind
       picker — both stay exactly as they are today, but only for user-created custom categories.
-- [ ] Assigning a Primary/Secondary key that collides with a bind already used elsewhere in the
+- [x] Assigning a Primary/Secondary key that collides with a bind already used elsewhere in the
       profile is surfaced to the user, not silently overwritten without warning.
-- [ ] Everything bound here shows up correctly in the Overview tab and in the generated profile
+- [x] Everything bound here shows up correctly in the Overview tab and in the generated profile
       file, the same way story 008's action binds already do.
 
 ## Open Questions
@@ -298,3 +298,103 @@ Run `npm run dev`, open Config, select (or create) a profile, go to the **Advanc
 8. Reopen the app and confirm every assignment, ammo choice and message survived the restart.
 
 ## Done
+
+**Summary.** All 8 deliverables (D1-D8) implemented across 3 layers: the shared/main contract
+(`ConfigAction.secondaryKey?`/`catalogId?`, mirrored by `setActions` onto the same alias — D1),
+two new pure shared/renderer logic modules (`bind-collision.ts`'s collision core — D2;
+`catalog-binds.ts`'s row model/lazy-create/prune — D3), a reusable capture hook + bind-slot
+control (D4), two new panels replacing the free-form editor for Movement/Weapons (`DualBindPanel`
+— D5) and Weapon dropping (`DropBindPanel` — D6), inline collision Cancel/Replace UX wired into
+both panels via a small pure `bind-slot-collision.ts` helper (D7), and pipeline-proof tests
+confirming the render/Overview side already worked unchanged (D8). Custom, user-created
+categories keep today's full create/rename/remove + `ActionEditor`/`MessageEditor` flow,
+completely untouched.
+
+**Review-fix cycle (1 of the allowed 3).** The first `story-review-hard` pass returned FAIL on
+2 of 11 ACs:
+- **AC 3** — an occupied `BindSlot` only showed Clear, not a way to re-capture directly (had to
+  Clear first, then capture). Fixed by restructuring `BindSlot.tsx`'s render branches so a
+  capture-again button is always shown alongside Clear, mirroring `ActionEditor`'s idiom.
+- **AC 9** — `findBindCollision` checked base binds (`profile.binds`) before other actions'
+  slots. Since `setActions` mirrors every action's key into `profile.binds` as its alias name, a
+  second action capturing a key already held by a first action was misreported as `kind:
+  'baseBind'` (naming an opaque alias token) instead of `kind: 'action'` — and `releaseKey`'s
+  `baseBind` case does not clear any action's slot, so Replace left both actions' key fields
+  pointing at the same key, with `setActions`' "later action wins" array-order tie-break silently
+  deciding the outcome after a reload. Fixed by reordering `findBindCollision`'s checks (actions
+  before base binds), so any key another action already holds is always reported as `kind:
+  'action'`, whose `releaseKey`/`applyReplace` path genuinely clears the previous owner's slot in
+  the same submitted array.
+
+A second `story-review-hard` pass re-verified both fixes line-by-line (including self-ignore
+still working, the `layerOverride`/hand-written-bind cases unaffected by the reorder, and the
+single-array-single-save Replace path traced end to end) plus a regression pass over the other 9
+ACs, and returned **PASS**, no further findings.
+
+**Decisions made or reaffirmed during build** (beyond the 17 already recorded above, which were
+all followed as written):
+- **D3's row `name`** for a lazily-materialised catalogue action is the row's own raw engine
+  command text (e.g. `+forward`, `drop rocket launcher`), not its translated i18n label —
+  `catalog-binds.ts` is hook-free (no `useTranslation()`) so it cannot resolve a `labelKey`, and
+  this is also the exact string a collision banner names an owner by. Acceptable, not
+  label-perfect, but avoids reverse-resolving a `catalogId` back to a label — explicitly
+  out of scope per the D7 deliverable text.
+- **D3's pruning rule** (decision 4) is applied per-action, gated on `catalogId` being present —
+  a legacy free-form action (no `catalogId`) that loses its key is never pruned, only a
+  catalogue-materialised one is. An ammo-only, no-key, no-message row is still pruned (an ammo
+  choice alone is not "an assignment" until something can fire it) — the visible effect is the
+  "with ammo" checkbox can snap back to its default the moment the last key/message is cleared;
+  accepted as a direct, defensible consequence of decisions 3+4's own wording, not fixed.
+- **D7's Replace path never issues a second `updateProfileBinds` call.** `setActions` (D1)
+  already rebuilds the entire bind mirror from `actions` on every save and lets a key's new owner
+  overwrite a stale hand-written bind for free, so releasing the previous owner is entirely an
+  `actions`-array operation (`releaseKey` + `applySlot`, one array, one `updateProfileActions`
+  call) — a second, binds-only IPC call would reopen exactly the half-applied-profile window the
+  model hint warned about, so it was deliberately never added.
+- **`useKeyCapture` cancels on Escape**, diverging from `ActionEditor`'s inline capture (which
+  lets you bind Escape as a real key). This is D4's own stated acceptance text, not a bug: nothing
+  in this story's ACs requires binding Escape through the new dual-bind editor, and `ActionEditor`
+  itself (decision 12, not refactored) is untouched, so custom actions can still bind Escape.
+
+**Known, deliberately unfixed low-severity findings** (documented rather than spent on further
+review-fix cycles, none AC-blocking):
+- `findBindCollision` returns only the *first* action holding a given key; a pre-story-015 legacy
+  profile that already had two actions sharing one key (impossible to create through this story's
+  own editor, since every second capture goes through Replace) would have a Replace release only
+  one of them. Pre-existing data shape, not reachable via this story's UI.
+- `AdvancedTab.tsx`'s `!DUAL_BIND_CATEGORY_IDS.has(category.id)` "Built-in" badge condition is
+  always false today, since `BUILT_IN_ACTION_CATEGORIES` only ever contains the three dual-bind
+  ids — correct behavior (AC 10), just written less directly than a literal `false`. Harmless.
+- A capture's pending collision banner / non-blocking layer warning is local `BindSlot` state
+  that is not reset on a profile switch mid-banner — an edge case (switch profiles while a
+  collision banner is open, then click Replace) that could apply a stale collision to the new
+  profile. Not exercised by the manual test plan below; left as a follow-up if it proves to
+  matter in practice.
+- `bind-slot-collision.ts`'s `isEmptyCatalogAction` duplicates `catalog-binds.ts`'s internal
+  (non-exported) `isEmptyAction` rule rather than importing it, to avoid touching the already-
+  reviewed D3 file for an export-only change; both encode the identical rule today.
+
+**Verification.**
+- `npm run build` — clean (main/preload/renderer all bundle).
+- `npx tsc -p tsconfig.web.json --noEmit` / `-p tsconfig.node.json --noEmit` — both clean.
+- `npm test` — **31 files / 507 tests pass** (run via PowerShell; the Bash tool intermittently
+  throws a uniform, unrelated `Cannot read properties of undefined (reading 'config')` error
+  across the *entire* suite in this sandbox — a known, pre-existing environment flake this sprint,
+  reproduced and ruled out repeatedly against clean PowerShell runs at every deliverable boundary,
+  not a real failure).
+- Two `story-review-hard` clean-agent reviews: first FAIL (2/11 ACs, detailed above), second PASS
+  after the fix cycle, with no new findings and no regressions across the other 9 ACs.
+- **Live UI smoke: not performed.** This environment has no way to interactively drive the actual
+  Electron window (no Playwright installed in this project, no `ui-verify` harness scaffolded,
+  and Playwright MCP only drives a browser page, not `_electron`). Per this project's P2 policy
+  (`live-smoke-required: true`), status stays `in-progress` rather than `done` — **built, live
+  acceptance pending** against the 8-step manual test plan above.
+
+**Commit message:**
+```
+015: dual-bind editor for Movement, Weapons, Weapon dropping
+
+secondaryKey+catalogId on ConfigAction, pure collision core, catalogue
+row model, reusable key capture, DualBindPanel/DropBindPanel, Cancel/
+Replace collision UX, pipeline-proof tests
+```

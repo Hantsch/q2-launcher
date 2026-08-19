@@ -13,6 +13,8 @@ import { Field, Input, Select } from '../../components/ui/controls'
 import { Modal } from '../../components/ui/Modal'
 import { Badge, type BadgeTone, EmptyState, SectionLabel } from '../../components/ui/primitives'
 import { ActionEditor } from './components/ActionEditor'
+import { DropBindPanel } from './components/DropBindPanel'
+import { DualBindPanel } from './components/DualBindPanel'
 import { MessageEditor } from './components/MessageEditor'
 import { updateProfileActions } from './client'
 
@@ -25,6 +27,14 @@ const ENTRY_KIND_TONE: Record<ActionCategoryEntryKind, BadgeTone> = {
   message: 'strogg',
   alias: 'warning',
 }
+
+/**
+ * Story 015 D5/D6: the three built-in categories that got their own
+ * dedicated dual-bind editor and therefore stop showing the "Built-in" badge
+ * (AC 8). `movement`/`weapons` dispatch to `DualBindPanel`, `drops` to
+ * `DropBindPanel` (D6) - see the dispatch below.
+ */
+const DUAL_BIND_CATEGORY_IDS = new Set<string>(['movement', 'weapons', 'drops'])
 
 export interface AdvancedTabProps {
   profile: ConfigProfile
@@ -280,7 +290,7 @@ export function AdvancedTab({ profile, draft, patch, onChanged }: AdvancedTabPro
               >
                 {t(category.labelKey)}
               </Button>
-              <Badge>{t('config.advanced.builtIn')}</Badge>
+              {!DUAL_BIND_CATEGORY_IDS.has(category.id) && <Badge>{t('config.advanced.builtIn')}</Badge>}
             </div>
           ))}
 
@@ -346,64 +356,100 @@ export function AdvancedTab({ profile, draft, patch, onChanged }: AdvancedTabPro
         </div>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
+      {selectedCategoryId === 'movement' || selectedCategoryId === 'weapons' ? (
+        // Story 015 D5: these two built-in categories get the fixed-catalogue
+        // dual-bind editor instead of the free-form list below - no name
+        // field, no "Add action", no per-row rename/remove (AC 1).
+        <div className="space-y-3">
           <SectionLabel>
             {t('config.advanced.actions.label', { category: selectedCategoryLabel })}
           </SectionLabel>
-          <Button
-            variant="neutral"
-            size="sm"
-            icon={<Plus className="size-3.5" />}
-            onClick={() => setShowCreateAction(true)}
-          >
-            {t('config.advanced.actions.add')}
-          </Button>
-        </div>
-
-        {actionsForCategory.length === 0 ? (
-          <EmptyState
-            icon={<ListChecks className="size-6" />}
-            title={t('config.advanced.actions.empty.title')}
-            body={t('config.advanced.actions.empty.body')}
+          <DualBindPanel
+            categoryId={selectedCategoryId}
+            actions={actions}
+            draft={draft}
+            onActionsChange={(nextActions) => void persistCategoriesAndActions(categories, nextActions)}
+            onEditLegacyAction={setEditingActionId}
+            onRemoveLegacyAction={handleRemoveAction}
           />
-        ) : (
-          <ul className="space-y-2">
-            {actionsForCategory.map((action) => (
-              <li
-                key={action.id}
-                className="flex items-center justify-between gap-3 rounded-sm border border-line px-2.5 py-2"
-              >
-                <span className="min-w-0 truncate text-sm text-ink">{action.name}</span>
-                <div className="flex shrink-0 items-center gap-1">
-                  <IconButton
-                    label={t('config.advanced.actions.edit')}
-                    size="sm"
-                    onClick={() => setEditingActionId(action.id)}
-                  >
-                    <SlidersHorizontal className="size-3.5" />
-                  </IconButton>
-                  <IconButton
-                    label={t('config.advanced.actions.rename')}
-                    size="sm"
-                    onClick={() => setRenamingAction(action)}
-                  >
-                    <Pencil className="size-3.5" />
-                  </IconButton>
-                  <IconButton
-                    label={t('config.advanced.actions.remove')}
-                    size="sm"
-                    variant="danger"
-                    onClick={() => handleRemoveAction(action.id)}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </IconButton>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+        </div>
+      ) : selectedCategoryId === 'drops' ? (
+        // Story 015 D6: same fixed-catalogue idiom as movement/weapons, but
+        // via `DropBindPanel` - three groups, an ammo checkbox and a
+        // debounced per-row team-message field on top of the slot pair.
+        <div className="space-y-3">
+          <SectionLabel>
+            {t('config.advanced.actions.label', { category: selectedCategoryLabel })}
+          </SectionLabel>
+          <DropBindPanel
+            actions={actions}
+            draft={draft}
+            onActionsChange={(nextActions) => void persistCategoriesAndActions(categories, nextActions)}
+            onMessageChange={scheduleActionsSave}
+            onEditLegacyAction={setEditingActionId}
+            onRemoveLegacyAction={handleRemoveAction}
+          />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <SectionLabel>
+              {t('config.advanced.actions.label', { category: selectedCategoryLabel })}
+            </SectionLabel>
+            <Button
+              variant="neutral"
+              size="sm"
+              icon={<Plus className="size-3.5" />}
+              onClick={() => setShowCreateAction(true)}
+            >
+              {t('config.advanced.actions.add')}
+            </Button>
+          </div>
+
+          {actionsForCategory.length === 0 ? (
+            <EmptyState
+              icon={<ListChecks className="size-6" />}
+              title={t('config.advanced.actions.empty.title')}
+              body={t('config.advanced.actions.empty.body')}
+            />
+          ) : (
+            <ul className="space-y-2">
+              {actionsForCategory.map((action) => (
+                <li
+                  key={action.id}
+                  className="flex items-center justify-between gap-3 rounded-sm border border-line px-2.5 py-2"
+                >
+                  <span className="min-w-0 truncate text-sm text-ink">{action.name}</span>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <IconButton
+                      label={t('config.advanced.actions.edit')}
+                      size="sm"
+                      onClick={() => setEditingActionId(action.id)}
+                    >
+                      <SlidersHorizontal className="size-3.5" />
+                    </IconButton>
+                    <IconButton
+                      label={t('config.advanced.actions.rename')}
+                      size="sm"
+                      onClick={() => setRenamingAction(action)}
+                    >
+                      <Pencil className="size-3.5" />
+                    </IconButton>
+                    <IconButton
+                      label={t('config.advanced.actions.remove')}
+                      size="sm"
+                      variant="danger"
+                      onClick={() => handleRemoveAction(action.id)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </IconButton>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {showCreateCategory && (
         <CreateCategoryDialog

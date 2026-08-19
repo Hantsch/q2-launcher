@@ -112,6 +112,17 @@ export type ConfigCommand =
  * `key`, when set, is the engine key name this action's generated alias is bound to (any entry
  * kind may be keyed, not just `bind`-kind categories — a message can sit on a key exactly like a
  * multi-command bind can).
+ *
+ * `secondaryKey` (story 015, decision 1) is a second key bound to the *same* generated alias —
+ * the engine has no notion of a "primary" and "secondary" bind, so a two-slot row is two `binds`
+ * entries pointing at one alias rather than two duplicate actions. Optional and purely additive:
+ * a pre-015 action simply omits it, so there is no migration and one-slot rows stay exactly as
+ * they were.
+ *
+ * `catalogId` (story 015, decision 2) marks an action as the materialised form of a catalogue row
+ * (a known movement/weapon/drop entry the editor offers). Identity lives in this field and never
+ * in `name`, so a translated or user-edited label cannot make the editor lose track of which row
+ * an action belongs to. Absent means "free-form action", which is what every pre-015 action is.
  */
 export interface ConfigAction {
   id: string
@@ -119,6 +130,8 @@ export interface ConfigAction {
   name: string
   commands: ConfigCommand[]
   key?: string
+  secondaryKey?: string
+  catalogId?: string
 }
 
 /**
