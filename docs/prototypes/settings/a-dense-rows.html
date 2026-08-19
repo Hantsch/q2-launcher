@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>A · Dense rows — settings prototype</title>
+<link rel="stylesheet" href="../bindings/_proto.css" />
+<link rel="stylesheet" href="_settings.css" />
+<style>
+  .stage { max-width: 1000px; }          /* the fix for "one row = 1600px wide": cap it */
+
+  .grp { top: 41px; }
+
+  .row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 250px 108px 24px;
+    align-items: center;
+    gap: 14px;
+    padding: 7px 14px 7px 12px;
+    border-bottom: 1px solid rgb(41 44 51 / 0.55);
+    border-left: 2px solid transparent;
+    min-height: 44px;
+  }
+  .row:hover { background: rgb(255 255 255 / 0.018); }
+  .row.is-changed { border-left-color: var(--flame-600); }
+  .row.is-off { opacity: 0.5; }
+
+  .row .lbl { font-size: 13px; color: var(--ink); display: flex; align-items: baseline; gap: 8px; }
+  .row .desc {
+    font-size: 11.5px; color: var(--ink-muted); margin-top: 1px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .row:hover .desc { white-space: normal; }        /* full text on hover, not two permanent lines */
+
+  .slider { display: flex; align-items: center; gap: 9px; }
+  .slider .rng { flex: 1; min-width: 0; }
+  .slider .ctl { width: 62px; text-align: right; }
+
+  /* a flag that actually needs saying sits inline; the silent 95% say nothing */
+  .flag { grid-column: 1 / -1; display: flex; gap: 8px; align-items: flex-start; }
+  .flag p { margin: 0; font-size: 11.5px; color: var(--ink-dim); }
+
+  .facts { margin: 0 0 14px; }
+  .legend { display: flex; gap: 20px; align-items: center; margin-top: 12px; font-size: 11.5px; color: var(--ink-muted); }
+  .legend .k { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .bar { width: 2px; height: 13px; background: var(--flame-600); display: inline-block; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <strong>A · DENSE ROWS</strong>
+  <span>settings view — static design prototype</span>
+  <span class="spacer"></span>
+  <a href="index.html">← all three</a>
+  <a href="b-tiles.html">B ›</a>
+  <a href="c-rail-inspector.html">C ›</a>
+</div>
+
+<div class="stage">
+
+  <div class="head">
+    <div>
+      <h1>Hantsch – Test</h1>
+      <div class="sub">settings · 30 cvars · 6 changed</div>
+    </div>
+    <div class="toolbar">
+      <div class="search"><span>&#8981;</span><span>filter settings…</span></div>
+      <span class="chk"><i></i>changed only</span>
+      <button class="btn">reset all</button>
+    </div>
+  </div>
+
+  <p class="note facts">
+    <b>No engine in scope.</b> This profile is not assigned to an installation, so no engine default,
+    clamp range or warning is claimed below — the right column shows the launcher's recommendation.
+    <span style="color:var(--ink-muted)">Assign it to an installation and that engine's numbers appear here.</span>
+  </p>
+
+  <div class="panel edge-flame">
+
+    <div class="grp"><span>Player</span><span class="rule"></span><span class="count">11 · 4 changed</span></div>
+
+    <div class="row is-changed">
+      <div>
+        <div class="lbl">Player name <span class="cvar">name</span></div>
+        <div class="desc">Your name in game. Shows up on the scoreboard and in chat.</div>
+      </div>
+      <input class="ctl" value="Hantsch" />
+      <div class="val">Hantsch<br /><span class="def">player</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="lbl">Player model <span class="cvar">skin</span></div>
+        <div class="desc">Model and skin. Format: model/skin.</div>
+      </div>
+      <select class="ctl"><option>Male — Grunt</option></select>
+      <div class="val">male/grunt<br /><span class="def">= default</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="row is-changed">
+      <div>
+        <div class="lbl">Field of view <span class="cvar">fov</span></div>
+        <div class="desc">Viewing angle in degrees. 90 is the engine default; most players use 100–120 for a wider view. Very high values distort heavily.</div>
+      </div>
+      <div class="slider">
+        <input class="rng" type="range" min="60" max="140" value="110" />
+        <input class="ctl mono" value="110" />
+      </div>
+      <div class="val">110<br /><span class="def">100 · 60–140</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="row is-changed">
+      <div>
+        <div class="lbl">Mouse sensitivity <span class="cvar">sensitivity</span></div>
+        <div class="desc">How far the view turns per unit of mouse movement.</div>
+      </div>
+      <div class="slider">
+        <input class="rng" type="range" min="0.5" max="30" step="0.5" value="3" />
+        <input class="ctl mono" value="3" />
+      </div>
+      <div class="val">3<br /><span class="def">4 · 0.5–30</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="lbl">Vertical mouse direction <span class="cvar">m_pitch</span></div>
+        <div class="desc">A negative value inverts the Y axis.</div>
+      </div>
+      <select class="ctl"><option>Normal</option><option>Inverted</option></select>
+      <div class="val">0.022<br /><span class="def">= default</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="lbl">Mouselook <span class="cvar">freelook</span></div>
+        <div class="desc">Permanent look-around with the mouse. Should always be on.</div>
+      </div>
+      <div><span class="sw is-on"></span></div>
+      <div class="val">on<br /><span class="def">= default</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="row is-changed">
+      <div>
+        <div class="lbl">Always run <span class="cvar">cl_run</span></div>
+        <div class="desc">Without this you move at walking speed by default.</div>
+      </div>
+      <div><span class="sw"></span></div>
+      <div class="val">off<br /><span class="def">on</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="lbl">Weapon hand <span class="cvar">hand</span></div>
+        <div class="desc">Which side the weapon is drawn on.</div>
+      </div>
+      <select class="ctl"><option>Centred / hidden</option></select>
+      <div class="val">2<br /><span class="def">= default</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+      <div class="flag">
+        <span class="badge is-warn">mod</span>
+        <p>Value 2 (centred / hidden) is implemented by the game DLL, not the client — it depends on the mod being played.</p>
+      </div>
+    </div>
+
+    <div class="row is-changed">
+      <div>
+        <div class="lbl">Crosshair <span class="cvar">crosshair</span></div>
+        <div class="desc">Which crosshair is drawn.</div>
+      </div>
+      <select class="ctl"><option>None</option><option>Cross</option></select>
+      <div class="val">0<br /><span class="def">1</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="lbl">Crosshair size <span class="cvar">ch_scale</span></div>
+        <div class="desc">Scales the crosshair image.</div>
+      </div>
+      <div class="slider">
+        <input class="rng" type="range" min="0.5" max="4" step="0.1" value="1" />
+        <input class="ctl mono" value="1" />
+      </div>
+      <div class="val">1<br /><span class="def">= default</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="lbl">Message filter <span class="cvar">msg</span></div>
+        <div class="desc">How many server and kill messages are shown.</div>
+      </div>
+      <select class="ctl"><option>Everything</option></select>
+      <div class="val">0<br /><span class="def">= default</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="grp"><span>Network</span><span class="rule"></span><span class="count">4 · 1 changed</span></div>
+
+    <div class="row">
+      <div>
+        <div class="lbl">Network rate <span class="cvar">rate</span></div>
+        <div class="desc">Bytes per second the server may send. 25000 is a good value on any modern connection.</div>
+      </div>
+      <input class="ctl mono" value="25000" />
+      <div class="val">25000<br /><span class="def">= default</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="row is-changed">
+      <div>
+        <div class="lbl">Max FPS (packets / physics) <span class="cvar">cl_maxfps</span></div>
+        <div class="desc">Caps the client tick. In Quake 2 this rate affects jump height, which is why 125 is the classic compromise.</div>
+      </div>
+      <input class="ctl mono" value="300" />
+      <div class="val">300<br /><span class="def">125 · 10–125</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+      <div class="flag">
+        <span class="badge is-danger">above range</span>
+        <p>r1q2 clamps <span class="cvar">cl_maxfps</span> to 125.
+          <span style="color:var(--ink-muted)">q2pro, also assigned, allows up to 1000.</span></p>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="lbl">Asynchronous rendering <span class="cvar">cl_async</span></div>
+        <div class="desc">Decouples the rendering rate from the packet rate. With this off, one value drives both and r_maxfps has no independent effect.</div>
+      </div>
+      <select class="ctl"><option>On — separate render rate</option></select>
+      <div class="val">1<br /><span class="def">= default</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="row is-off">
+      <div>
+        <div class="lbl">Render FPS cap <span class="cvar">r_maxfps</span></div>
+        <div class="desc">Caps the rendering rate separately from the packet rate.</div>
+      </div>
+      <input class="ctl mono" value="—" disabled />
+      <div class="val"><span class="def">not on r1q2</span></div>
+      <button class="iconbtn" title="reset to default" disabled>&#8635;</button>
+    </div>
+
+    <div class="grp"><span>Graphics</span><span class="rule"></span><span class="count">13 · 1 changed</span></div>
+
+    <div class="row">
+      <div>
+        <div class="lbl">Fullscreen <span class="cvar">vid_fullscreen</span></div>
+        <div class="desc">Fullscreen instead of a window.</div>
+      </div>
+      <div><span class="sw is-on"></span></div>
+      <div class="val">on<br /><span class="def">= default</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="row is-changed">
+      <div>
+        <div class="lbl">Gamma <span class="cvar">vid_gamma</span></div>
+        <div class="desc">Lower values brighten the picture.</div>
+      </div>
+      <div class="slider">
+        <input class="rng" type="range" min="0.3" max="1.5" step="0.05" value="0.65" />
+        <input class="ctl mono" value="0.65" />
+      </div>
+      <div class="val">0.65<br /><span class="def">0.8 · 0.3–1.5</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="lbl">Brightness (lightmaps) <span class="cvar">gl_modulate</span></div>
+        <div class="desc">Scales level lighting up. The usual way to make dark corners visible.</div>
+      </div>
+      <div class="slider">
+        <input class="rng" type="range" min="1" max="10" step="0.1" value="2" />
+        <input class="ctl mono" value="2" />
+      </div>
+      <div class="val">2<br /><span class="def">= default</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="lbl">Texture filter <span class="cvar">gl_texturemode</span></div>
+        <div class="desc">Texture smoothing. NEAREST gives the hard retro look.</div>
+      </div>
+      <select class="ctl"><option>Linear, mipmapped</option></select>
+      <div class="val" style="font-size:10.5px">GL_LINEAR…<br /><span class="def">= default</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="lbl">Shadows <span class="cvar">gl_shadows</span></div>
+        <div class="desc">Simple shadows under players.</div>
+      </div>
+      <div><span class="sw"></span></div>
+      <div class="val">off<br /><span class="def">= default</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="lbl">VSync <span class="cvar">gl_swapinterval</span></div>
+        <div class="desc">Prevents tearing but adds input latency.</div>
+      </div>
+      <div><span class="sw"></span></div>
+      <div class="val">off<br /><span class="def">= default</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="grp"><span>Sound</span><span class="rule"></span><span class="count">2</span></div>
+
+    <div class="row">
+      <div>
+        <div class="lbl">Volume <span class="cvar">s_volume</span></div>
+        <div class="desc">Overall volume.</div>
+      </div>
+      <div class="slider">
+        <input class="rng" type="range" min="0" max="1" step="0.05" value="0.7" />
+        <input class="ctl mono" value="0.7" />
+      </div>
+      <div class="val">0.7<br /><span class="def">= default</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="lbl">Sound quality <span class="cvar">s_khz</span></div>
+        <div class="desc">Output sample rate.</div>
+      </div>
+      <select class="ctl"><option>44 kHz</option></select>
+      <div class="val">44<br /><span class="def">= default</span></div>
+      <button class="iconbtn" title="reset to default">&#8635;</button>
+    </div>
+
+  </div>
+
+  <div class="legend">
+    <span class="k"><span class="bar"></span> differs from the default</span>
+    <span class="k"><span class="def" style="font-family:var(--font-mono);font-size:12px">= default</span> value is the default</span>
+    <span class="k">hover a row for the full description</span>
+  </div>
+
+</div>
+
+</body>
+</html>
