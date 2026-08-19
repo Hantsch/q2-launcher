@@ -51,3 +51,20 @@ Two TS projects: `tsconfig.node.json` (main/preload/shared) and
 - **No image assets in the UI** — all surfaces are CSS/inline SVG
   (`src/renderer/src/styles/`).
 
+<!-- tech-rules:managed:start 1.0.0 -->
+## House rules
+
+These rules live in this repository as project skills, so they apply to everyone who works here —
+no plugin needed. Installed and updated with `/tech-rules:setup` (plugin `tech-rules@hantsch`).
+
+| Read before | Skill |
+| --- | --- |
+| any code change | `/karpathy` |
+| touching `src/renderer` | `/frontend-guidelines`, `/design-tokens` |
+| main / preload / renderer, IPC, `webPreferences` | `/electron-arch`, `/typed-ipc`, `/ui-verify` |
+
+Do not edit a skill to make it fit this project. A deviation is recorded **here**, with its
+reason, and wins over the skill; a deviation without a reason is a violation that has been
+written down.
+<!-- tech-rules:managed:end -->
+
