@@ -1,16 +1,19 @@
-# Config module — Concept
+# Config module
 
-Status: **Draft** (vision + requirements, no stories yet). This document fixes scope, data
-model and mechanics for folding the discontinued
-[q2-config-manager](https://github.com/Hantsch/q2-config-manager) into the launcher's
-`config` module — config/profile management for r1q2, Q2PRO and vanilla `quake2.exe`.
+Status: **Implemented.** Full q2-config-manager feature parity (CFG-1–CFG-12 below) shipped
+across [S01](../sprints/done/S01/sprint.md) (foundation: profile CRUD, assignment, cvar editor,
+write pipeline, import) and [S02](../sprints/done/S02/sprint.md) (keybinding editor with
+alternate layers, in-session profile-switch bind, Advanced tab, multi-engine validator,
+per-mod config cleanup), both accepted on a real desktop. This document now describes the
+system as built, not a plan. Follow-on enhancements beyond this original scope (e.g. alt-layer
+trigger-by-binding, raw config view, dual-bind editor) are tracked as their own stories, not
+edits to this document.
 
 This document follows the architecture rules in [CLAUDE.md](../../CLAUDE.md) and the module
 pattern in [ARCHITECTURE.md](../ARCHITECTURE.md#adding-a-module). It supersedes the informal
 "Config" notes in [ROADMAP.md](../ROADMAP.md#config--r1q2-settings-and-cvars), which stay as
-engine-fact background but no longer drive scope. `config` is already registered as a planned
-module (`src/shared/types/module.ts`, route `/config`, `PlannedModuleView` placeholder) — no
-new module or route needs to be created, only implemented.
+engine-fact background. `config` is a registered, implemented module
+(`src/shared/types/module.ts`, route `/config`).
 
 ---
 

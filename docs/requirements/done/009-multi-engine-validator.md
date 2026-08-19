@@ -1,7 +1,7 @@
 ---
 id: 009
 title: Multi-engine validator
-status: in-progress
+status: done
 created: 2026-08-16
 ---
 

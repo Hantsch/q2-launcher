@@ -1,7 +1,7 @@
 ---
 id: 010
 title: Cleanup of redundant per-mod config copies
-status: in-progress
+status: done
 created: 2026-08-16
 ---
 

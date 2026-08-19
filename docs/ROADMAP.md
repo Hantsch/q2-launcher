@@ -43,25 +43,31 @@ Where the action bar's progress readout finally gets real data.
   installations under `Program Files` (or warn loudly). The `write-access` check
   already flags it.
 
-### Config — r1q2 settings and cvars
+### Config — r1q2 settings and cvars (implemented, see docs/systems/config-module.md)
 
-Scope, data model and story cut now live in
-[docs/concepts/config-module.md](concepts/config-module.md) — folding the discontinued
-`q2-config-manager` in as this module, redesigned in the launcher's own design system.
-Status: `docs/sprints/S01` **accepted (2026-08-16)** — profile CRUD, installation
-assignment, cvar editor, write pipeline, import (stories 001–005) ran through
-`docs/sprints/S01/testplan.md` on a real desktop and are accepted. The keyboard/overview tab
-(CFG-7) was additionally built ad-hoc during post-sprint polishing (`9b04099`, `54ca35f`,
+Full q2-config-manager feature parity is implemented and accepted. Scope, data model and
+mechanics now live in [docs/systems/config-module.md](systems/config-module.md) (moved from
+`concepts/` once implementation completed — folding the discontinued `q2-config-manager` in as
+this module, redesigned in the launcher's own design system).
+
+Status: `docs/sprints/done/S01` **accepted (2026-08-16)** — profile CRUD, installation
+assignment, cvar editor, write pipeline, import (stories 001–005). `docs/sprints/done/S02`
+**accepted (2026-08-19)** — keybinding editor with alternate layers, the in-session
+profile-switch bind, the Advanced tab categories/messages/macros/symbol picker, the
+multi-engine validator, and cleanup of redundant per-mod config copies (stories 006–010); ran
+through `docs/sprints/done/S02/testplan.md` on a real desktop. The keyboard/overview tab
+(CFG-7) was additionally built ad-hoc during S01 post-sprint polishing (`9b04099`, `54ca35f`,
 `9259a24` on `dev`), outside the formal story flow — read-only bound/free/doubly-bound view
 plus test-mode key-chain capture, see `src/renderer/src/modules/config/OverviewKeyboardPanel.tsx`.
-`docs/sprints/S02` **built, acceptance pending** — the concept's remaining scope (keybinding
-editor with alternate layers, the in-session profile-switch bind, the Advanced tab
-categories/messages/macros/symbol picker, the multi-engine validator, and cleanup of redundant
-per-mod config copies; stories 006–010) is code-complete, tested and code-reviewed, but has not
-had a live UI smoke test — the build session ran in a sandbox where Electron's GUI cannot start.
-Run `docs/sprints/S02/testplan.md` on a real desktop before marking this milestone accepted or
-moving the concept doc to `docs/systems/`. The engine findings below stay as factual background
-for that concept.
+
+`docs/sprints/S03` **planned** — six follow-on UI/UX stories filed after S02's acceptance pass
+(011–016), not part of the original concept's scope but real friction found while running
+`docs/sprints/done/S02/testplan.md`: alt-layer trigger reassignment via binding (011), a more
+compact alt-layers panel with the layer switcher moved next to the keyboard overview (013),
+trigger-key visibility and click-to-switch on the keycap itself (014), a raw config view with
+reveal-in-folder (012), a dual-bind editor for Movement/Weapons/Weapon dropping (015), and
+auto-creating a modifier layer on bind capture (016, depends on 015). The engine findings below
+stay as factual background for the system doc.
 
 #### Gaps/notes (from S02)
 
@@ -73,7 +79,7 @@ for that concept.
   both the write pipeline (story 004) and the cleanup delete/restore path (story 010) — reuse it
   for any future feature that mutates a user's game folder.
 - **9 non-blocking findings from story 010's delayed code review** are worth a follow-up story:
-  see `docs/sprints/S02/review.md` for the full list (case-sensitivity/case-folding
+  see `docs/sprints/done/S02/review.md` for the full list (case-sensitivity/case-folding
   inconsistencies in the redundancy scan and duplicate-entry guard, a mid-loop I/O error that
   can drop files from the undo list, the restore primitive being wider than cleanup's own scope,
   and locally-redeclared contract types that should import from `@shared/modules/config`).

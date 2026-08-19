@@ -33,7 +33,7 @@ Assigning a key while a modifier (Alt/Ctrl/Shift) is held is a related but separ
 covered by [016](016-modifier-layer-on-bind-capture.md) — this story's capture slots must exist
 and be pressable before that story has anywhere to plug into.
 
-See [docs/concepts/config-module.md §5](../concepts/config-module.md#5-feature-areas-carried-over-from-q2-config-manager-redesigned),
+See [docs/systems/config-module.md §5](../systems/config-module.md#5-feature-areas-carried-over-from-q2-config-manager-redesigned),
 `src/shared/config/action-catalog.ts` (`MOVEMENT_ACTIONS`, `WEAPONS`/`WEAPON_ACTIONS`/
 `WEAPON_EXTRA_ACTIONS`, `DROPPABLES`/`DROP_ACTIONS`) and story 008's
 `src/renderer/src/modules/config/AdvancedTab.tsx` / `components/ActionEditor.tsx`, which this

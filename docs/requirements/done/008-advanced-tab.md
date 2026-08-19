@@ -1,7 +1,7 @@
 ---
 id: 008
 title: Advanced tab — categories, messages, macros, symbol picker
-status: in-progress
+status: done
 created: 2026-08-16
 ---
 

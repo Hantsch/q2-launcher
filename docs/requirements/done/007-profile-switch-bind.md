@@ -1,7 +1,7 @@
 ---
 id: 007
 title: In-session profile-switch bind
-status: in-progress
+status: done
 created: 2026-08-16
 ---
 

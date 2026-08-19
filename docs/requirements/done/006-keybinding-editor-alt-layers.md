@@ -1,7 +1,7 @@
 ---
 id: 006
 title: Keybinding editor with alternate binding layers
-status: in-progress
+status: done
 created: 2026-08-16
 ---
 

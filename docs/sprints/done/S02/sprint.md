@@ -18,11 +18,11 @@ sprint is accepted, the config module concept is fully implemented and moves to
 
 ## Stories (in build order)
 
-- [ ] 006 — Keybinding editor with alternate binding layers (built, live acceptance pending)
-- [ ] 007 — In-session profile-switch bind (built, live acceptance pending)
-- [ ] 008 — Advanced tab — categories, messages, macros, symbol picker (built, live acceptance pending)
-- [ ] 009 — Multi-engine validator (built, live acceptance pending)
-- [ ] 010 — Cleanup of redundant per-mod config copies (built, live acceptance pending)
+- [x] 006 — Keybinding editor with alternate binding layers (accepted)
+- [x] 007 — In-session profile-switch bind (accepted)
+- [x] 008 — Advanced tab — categories, messages, macros, symbol picker (accepted)
+- [x] 009 — Multi-engine validator (accepted)
+- [x] 010 — Cleanup of redundant per-mod config copies (accepted)
 
 ## Notes
 
