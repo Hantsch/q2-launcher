@@ -60,14 +60,37 @@ through `docs/sprints/done/S02/testplan.md` on a real desktop. The keyboard/over
 `9259a24` on `dev`), outside the formal story flow — read-only bound/free/doubly-bound view
 plus test-mode key-chain capture, see `src/renderer/src/modules/config/OverviewKeyboardPanel.tsx`.
 
-`docs/sprints/S03` **planned** — six follow-on UI/UX stories filed after S02's acceptance pass
-(011–016), not part of the original concept's scope but real friction found while running
-`docs/sprints/done/S02/testplan.md`: alt-layer trigger reassignment via binding (011), a more
-compact alt-layers panel with the layer switcher moved next to the keyboard overview (013),
-trigger-key visibility and click-to-switch on the keycap itself (014), a raw config view with
-reveal-in-folder (012), a dual-bind editor for Movement/Weapons/Weapon dropping (015), and
-auto-creating a modifier layer on bind capture (016, depends on 015). The engine findings below
-stay as factual background for the system doc.
+`docs/sprints/S03` **built, live acceptance pending (2026-08-19)** — six follow-on UI/UX stories
+filed after S02's acceptance pass (011–016), not part of the original concept's scope but real
+friction found while running `docs/sprints/done/S02/testplan.md`. Five landed: alt-layer trigger
+reassignment via binding (011), a more compact alt-layers panel with the layer switcher moved
+next to the keyboard overview (013), trigger-key visibility and click-to-switch on the keycap
+itself (014), a raw config view with reveal-in-folder (012), a dual-bind editor for
+Movement/Weapons/Weapon dropping (015). All five passed build/typecheck/test and clean-agent
+review, but could not be live-smoke-tested in the build session's environment — see
+`docs/sprints/S03/testplan.md` for the manual acceptance pass still owed. **016 (auto-creating a
+modifier layer on bind capture) is blocked**, not shipped — see Gaps/notes below. The engine
+findings below stay as factual background for the system doc.
+
+#### Gaps/notes (from S03)
+
+- **016 is blocked on a schema-shape gap, not an implementation bug.** `AltLayer.overrides`
+  stores a bare `command: string` with nothing identifying which action-catalogue row wrote it,
+  so a Weapon-dropping row's ammo/message state can't be safely read back or written once two
+  catalogue rows' command text collides (concretely: the "Grenades" ammo-drop row and the "Hand
+  Grenades" weapon-drop row both render `drop grenades`). Closing this needs a plan-level
+  decision — either give `AltLayer.overrides`' values an explicit row/catalogue identity (a
+  persisted-schema change affecting every existing saved profile), or establish and enforce a
+  command-text uniqueness guarantee across `action-catalog.ts` instead. Full three-review-cycle
+  history and two superseded fix attempts are in
+  [016's Done section](requirements/016-modifier-layer-on-bind-capture.md#done). Recommend
+  deciding the schema question during `/refine` before a fourth implementation attempt.
+- **No committed UI-driving harness exists yet**, so an autonomous sprint cannot itself perform
+  the live acceptance pass this module's stories need (`live-smoke-required: true` in
+  `.claude/ai-scrum.md`). This is the same gap the Tooling section below already names
+  ("A committed Playwright driver for the app would make UI changes verifiable") — closing it
+  would let a future sprint close this pending-acceptance gap itself instead of always deferring
+  it to the user.
 
 #### Gaps/notes (from S02)
 
@@ -83,9 +106,9 @@ stay as factual background for the system doc.
   inconsistencies in the redundancy scan and duplicate-entry guard, a mid-loop I/O error that
   can drop files from the undo list, the restore primitive being wider than cleanup's own scope,
   and locally-redeclared contract types that should import from `@shared/modules/config`).
-- **Layer trigger keys (story 006) cannot be reassigned after a layer is created** — a
-  deliberate scope limit, not an oversight; picking a different trigger requires deleting and
-  recreating the layer.
+- ~~**Layer trigger keys (story 006) cannot be reassigned after a layer is created**~~ — fixed by
+  S03 story 011: a trigger is now assigned/moved/cleared like any other bind, from the keyboard
+  overview's key dialog.
 
 #### Gaps/notes (from S01)
 

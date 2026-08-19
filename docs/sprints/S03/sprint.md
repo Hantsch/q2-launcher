@@ -1,6 +1,6 @@
 ---
 sprint: S03
-status: in-progress
+status: done
 branch: sprint/S03
 milestone: Config module — UX polish following S02 acceptance (docs/systems/config-module.md)
 ---
