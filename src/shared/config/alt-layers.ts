@@ -56,7 +56,12 @@ export interface AltLayer {
   id: string
   name: string
   mode: AltLayerMode
-  triggerKey: string
+  /**
+   * `null` when the layer has no trigger assigned yet (story 011): it still
+   * renders its aliases, but is not reachable from the keyboard until a
+   * trigger is bound via `assignLayerTrigger`.
+   */
+  triggerKey: string | null
   /** key -> command, this layer's own overrides only (never the base layer's binds). */
   overrides: Record<string, string>
 }
@@ -91,7 +96,13 @@ export interface GeneratedAlias {
 
 export interface LayerIssue {
   /** i18n key, never prose. */
-  key: 'layer.empty' | 'layer.selfbind' | 'layer.plusbind' | 'layer.triggerConflict' | 'layer.quote'
+  key:
+    | 'layer.empty'
+    | 'layer.selfbind'
+    | 'layer.plusbind'
+    | 'layer.triggerConflict'
+    | 'layer.quote'
+    | 'layer.noTrigger'
   level: 'warning' | 'error'
   /** Structured params for the i18n string (e.g. { key: 'w', command: '+forward' }). */
   params?: Record<string, string>
@@ -99,8 +110,12 @@ export interface LayerIssue {
 
 export interface GenerateLayerResult {
   aliases: GeneratedAlias[]
-  /** The bind that activates the layer: which key, which command. */
-  triggerBind: { key: string; command: string }
+  /**
+   * The bind that activates the layer: which key, which command. `null` when
+   * the layer has no trigger — never a `{ key: '' }` placeholder, so no
+   * caller can emit `bind  <command>` by omission.
+   */
+  triggerBind: { key: string; command: string } | null
   issues: LayerIssue[]
 }
 
@@ -209,7 +224,7 @@ export function generateLayerAliases(
   baseBinds: Record<string, string>,
 ): GenerateLayerResult {
   const issues: LayerIssue[] = []
-  const triggerKey = layer.triggerKey.trim()
+  const triggerKey = layer.triggerKey?.trim() ?? ''
 
   // Overrides with no key or no command are not overrides. A stored empty
   // command would render as `bind 1 `, which prints the current bind instead
@@ -223,6 +238,11 @@ export function generateLayerAliases(
 
   if (overrides.length === 0) {
     issues.push({ key: 'layer.empty', level: 'warning' })
+  } else if (!triggerKey) {
+    // The layer has content but nothing binds it into reach from the
+    // keyboard — additional information on top of `layer.empty`, not a
+    // replacement for it, so the two never fire together.
+    issues.push({ key: 'layer.noTrigger', level: 'warning' })
   }
 
   // A layer that remaps its own trigger key can never be left again: the key
@@ -289,10 +309,9 @@ export function generateLayerAliases(
   const dispatchName = base
   const onName = layer.mode === 'hold' ? `+${base}` : `${base}_on`
   const offName = layer.mode === 'hold' ? `-${base}` : `${base}_off`
-  const triggerBind = {
-    key: triggerKey,
-    command: layer.mode === 'hold' ? onName : dispatchName,
-  }
+  const triggerBind = triggerKey
+    ? { key: triggerKey, command: layer.mode === 'hold' ? onName : dispatchName }
+    : null
 
   if (overrides.length === 0) {
     return { aliases: [], triggerBind, issues }
@@ -396,4 +415,38 @@ export function generateLayerAliases(
   if (layer.mode === 'toggle') aliases.push(makeAlias(dispatchName, onName))
 
   return { aliases, triggerBind, issues }
+}
+
+/**
+ * Assign, move or clear a layer's trigger key (story 011 decision 3): one key
+ * triggers at most one layer, so assigning a key that is already another
+ * layer's trigger moves it here in the same call rather than leaving two
+ * layers pointing at the same `bind <key>` line.
+ *
+ * - `key: string` — sets `layerId`'s trigger to `key` and clears that same
+ *   key off every *other* layer that currently holds it as its trigger.
+ * - `key: null` — clears `layerId`'s own trigger only; no other layer is
+ *   touched.
+ *
+ * Never touches `overrides`. Returns a new array; if `layerId` matches no
+ * layer, the input is returned unchanged (no layer is invented, nothing
+ * throws).
+ */
+export function assignLayerTrigger(
+  layers: AltLayer[],
+  layerId: string,
+  key: string | null,
+): AltLayer[] {
+  if (!layers.some((candidate) => candidate.id === layerId)) return layers
+
+  return layers.map((candidate) => {
+    if (candidate.id === layerId) return { ...candidate, triggerKey: key }
+    if (key !== null && candidate.triggerKey === key) return { ...candidate, triggerKey: null }
+    return candidate
+  })
+}
+
+/** The layer whose trigger is `key`, or `null` if no layer's trigger matches. */
+export function findLayerByTriggerKey(layers: AltLayer[], key: string): AltLayer | null {
+  return layers.find((candidate) => candidate.triggerKey === key) ?? null
 }

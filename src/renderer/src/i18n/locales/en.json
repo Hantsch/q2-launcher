@@ -387,7 +387,16 @@
       "assign": "Assign",
       "doubleKeyNote": "Both physical keys share this one bind.",
       "layerContext": "Editing layer: {{name}}",
-      "baseBindLabel": "Base bind: {{command}}"
+      "baseBindLabel": "Base bind: {{command}}",
+      "trigger": {
+        "label": "Layer trigger",
+        "currentLabel": "Currently triggers: {{name}}",
+        "none": "This key does not trigger a layer.",
+        "pickLabel": "Layer to trigger",
+        "moveNote": "This key currently triggers {{name}}; assigning moves that trigger here and leaves {{name}} without one.",
+        "assign": "Assign trigger",
+        "clear": "Clear trigger"
+      }
     },
     "detail": {
       "created": "Created",
@@ -942,6 +951,7 @@
         "toggle": "Toggle"
       },
       "trigger": "Trigger: {{key}}",
+      "noTrigger": "No trigger",
       "selector": {
         "label": "Editing on the board:",
         "base": "Base"
@@ -953,14 +963,15 @@
       "preview": {
         "show": "Show generated aliases",
         "hide": "Hide generated aliases",
-        "empty": "This layer has no generated aliases yet."
+        "empty": "This layer has no generated aliases yet.",
+        "trigger": "Trigger bind: {{line}}",
+        "notReachable": "Not reachable from the keyboard yet — assign a trigger key from the keyboard overview."
       },
       "createDialog": {
         "title": "Create alt layer",
         "nameLabel": "Name",
         "namePlaceholder": "Drops",
         "modeLabel": "Mode",
-        "triggerLabel": "Trigger key",
         "submit": "Create layer"
       },
       "renameDialog": {
@@ -1154,6 +1165,7 @@
 
   "layer": {
     "empty": "This layer has no key bindings yet.",
+    "noTrigger": "This layer has key bindings but no trigger key yet, so it cannot be reached from the keyboard.",
     "selfbind": "This layer remaps its own trigger key ({{key}}) — you would have no way to switch it off.",
     "plusbind": "{{key}} normally holds {{command}}; remapping it here can leave that movement stuck if the layer activates while the key is held.",
     "triggerConflict": "{{key}} already has a base bind ({{command}}); the layer's trigger binding will take priority.",

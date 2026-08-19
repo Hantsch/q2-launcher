@@ -58,12 +58,19 @@ export const setProfileBindsInputSchema = z.object({
  * not the persisted-state one (`main/lib/schemas.ts`'s `layers` field): a bad
  * payload here is a caller bug and `.parse()` is meant to throw, while the
  * persisted schema degrades a mangled value to `[]` instead.
+ *
+ * `triggerKey` is nullable - `null` means "no trigger assigned yet" (story
+ * 011), same nullable-field convention as `setSwitchBindInputSchema`'s `key`
+ * below. `.min(1)` still rejects `''`; this deliberately stops at "non-empty
+ * string or null" and does not layer `switchBindKeySchema`'s key-vocabulary
+ * check on top, since the board's key set isn't proven identical to
+ * `NAMED_KEYS` (story decision 9).
  */
 const altLayerSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   mode: z.enum(['hold', 'toggle']),
-  triggerKey: z.string().min(1),
+  triggerKey: z.string().min(1).nullable(),
   overrides: z.record(z.string().min(1), z.string()),
 })
 

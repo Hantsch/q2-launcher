@@ -105,7 +105,11 @@ const altLayerPersistedSchema: z.ZodType<AltLayer> = z.object({
   id: z.string(),
   name: z.string(),
   mode: z.enum(['hold', 'toggle']),
-  triggerKey: z.string(),
+  // Story 011: `null` means "no trigger assigned yet". A missing/malformed
+  // value degrades to `null` (same forgiving convention as the rest of this
+  // schema) rather than failing the whole row; a pre-011 string value passes
+  // through unchanged.
+  triggerKey: z.string().nullable().catch(null),
   overrides: z.record(z.string(), z.string()),
 })
 

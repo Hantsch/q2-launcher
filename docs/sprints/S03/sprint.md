@@ -1,6 +1,6 @@
 ---
 sprint: S03
-status: planned
+status: in-progress
 branch: sprint/S03
 milestone: Config module — UX polish following S02 acceptance (docs/systems/config-module.md)
 ---
@@ -18,7 +18,7 @@ a dedicated dual-bind (Primary/Secondary) editor with modifier-layer auto-creati
 
 ## Stories (in build order)
 
-- [ ] 011 — Assign an alt layer's trigger by binding it to a key, not at creation
+- [x] 011 — Assign an alt layer's trigger by binding it to a key, not at creation (built, live acceptance pending)
 - [ ] 013 — Compact the empty alt-layers state and move the layer switcher next to the keyboard overview
 - [ ] 014 — Show an alt-layer trigger's action on its own keycap, and switch layers by clicking it
 - [ ] 012 — Raw config view with reveal-in-folder

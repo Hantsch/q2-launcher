@@ -1,9 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ConfigProfile } from '@shared/modules/config'
-import { generateLayerAliases, sanitizeCommand, type AltLayer } from '@shared/config/alt-layers'
+import {
+  assignLayerTrigger,
+  findLayerByTriggerKey,
+  generateLayerAliases,
+  sanitizeCommand,
+  type AltLayer,
+} from '@shared/config/alt-layers'
 import { Button } from '../../../components/ui/Button'
-import { Field, Input } from '../../../components/ui/controls'
+import { Field, Input, Select } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'
 import { COMMAND_CATALOG } from '../lib/command-catalog'
 import { updateProfileBinds, updateProfileLayers } from '../client'
@@ -47,7 +53,9 @@ export function KeyBindDialog({
   const baseBound = baseCommand.trim().length > 0
   const currentCommand = layer ? (layer.overrides[keyName] ?? '') : baseCommand
   const bound = currentCommand.trim().length > 0
-  const isTriggerKey = Boolean(layer && layer.triggerKey.trim() === keyName)
+  // `triggerKey` is nullable since story 011: a layer without a trigger can
+  // never have *this* key as its trigger, so the optional call is the whole fix.
+  const isTriggerKey = Boolean(layer && layer.triggerKey?.trim() === keyName)
 
   const [command, setCommand] = useState(currentCommand)
   const [filter, setFilter] = useState('')
@@ -66,6 +74,88 @@ export function KeyBindDialog({
     )
   }, [layer, profile.binds, keyName, command])
 
+  // --- layer trigger (story 011 D5) ---------------------------------------
+  //
+  // Only on the base-layer view: a trigger *is* a base-layer bind (`render.ts`
+  // emits it in the bind block), so offering it while a layer's own overrides
+  // are on the board would mix two different meanings of "bind this key"
+  // (decision 2). Everything below is separate from the `command` / `save()`
+  // flow above on purpose - a trigger change must never travel down the
+  // bind-writing branch and vice versa.
+  const layers = profile.layers ?? []
+  /** The layer this key already triggers, if any - `null` on a free key. */
+  const triggerOwner = findLayerByTriggerKey(layers, keyName)
+
+  const [pickedTriggerLayerId, setPickedTriggerLayerId] = useState(
+    triggerOwner?.id ?? layers[0]?.id ?? '',
+  )
+  const [triggerSubmitting, setTriggerSubmitting] = useState(false)
+
+  /**
+   * One "a save is in flight" flag across both paths: they both write to the
+   * same profile, and `onSaved` replaces the whole profile list, so letting the
+   * bind save and the trigger save overlap would mean the second one persists a
+   * `layers` array built from a stale `profile`. Each button still runs its own
+   * handler - this only gates *when* either may fire.
+   */
+  const busy = submitting || triggerSubmitting
+
+  const pickedTriggerLayer = layers.find((entry) => entry.id === pickedTriggerLayerId) ?? null
+
+  /**
+   * Blocking (decision 4, keeping story 006 decision 12 intact): the picked
+   * layer already overrides this key, so making it the trigger would leave a
+   * layer nobody can switch off. Same condition `generateLayerAliases` raises
+   * `layer.selfbind` from - a non-blank override on the trigger key - so the
+   * message here and the generator's issue can never disagree.
+   */
+  const triggerSelfbind = Boolean(
+    pickedTriggerLayer && sanitizeCommand(pickedTriggerLayer.overrides[keyName] ?? '').length > 0,
+  )
+
+  /**
+   * Non-blocking: the trigger bind is written after the base binds and
+   * therefore wins. Same computation as the generator's `layer.triggerConflict`
+   * (the trigger key's sanitized base command, when non-blank).
+   */
+  const triggerConflictCommand = sanitizeCommand(baseCommand)
+
+  /**
+   * Non-blocking but must be visible: `assignLayerTrigger` moves the trigger off
+   * whichever layer holds this key (decision 3 - one key triggers at most one
+   * layer), which would otherwise happen silently.
+   */
+  const triggerMovedFrom =
+    triggerOwner && triggerOwner.id !== pickedTriggerLayerId ? triggerOwner : null
+
+  /**
+   * Mirrors `canAssign`: nothing in flight, no blocking issue, and the save
+   * would actually change something (the picked layer does not already trigger
+   * this key).
+   */
+  const canAssignTrigger =
+    !busy &&
+    pickedTriggerLayer !== null &&
+    !triggerSelfbind &&
+    triggerOwner?.id !== pickedTriggerLayerId
+
+  /**
+   * The trigger control's own save path, deliberately *not* `save()`: that one
+   * writes a bind (or a layer override), this one writes only `triggerKey`.
+   * `assignLayerTrigger` is the sole mutation, and it never touches any layer's
+   * `overrides` - which is what makes "assign a trigger" incapable of rewriting
+   * a bind by taking the wrong branch.
+   */
+  const saveTrigger = async (layerId: string, key: string | null): Promise<void> => {
+    setTriggerSubmitting(true)
+    const result = await updateProfileLayers({
+      profileId: profile.id,
+      layers: assignLayerTrigger(layers, layerId, key),
+    })
+    setTriggerSubmitting(false)
+    if (result.ok) onSaved(result.value)
+  }
+
   const filteredCatalog = useMemo(() => {
     const query = filter.trim().toLowerCase()
     if (!query) return COMMAND_CATALOG
@@ -83,7 +173,7 @@ export function KeyBindDialog({
    * which let a layer's own trigger key be remapped through the text field
    * even though decision 12 makes that a *blocking* error, not a warning).
    */
-  const canAssign = !submitting && !isTriggerKey && command.trim() !== currentCommand.trim()
+  const canAssign = !busy && !isTriggerKey && command.trim() !== currentCommand.trim()
 
   const save = async (next: string): Promise<void> => {
     // Never store a raw `"` in a bind: `render.ts` writes base binds as
@@ -120,10 +210,10 @@ export function KeyBindDialog({
       closeLabel={t('common.close')}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={submitting}>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
             {t('common.cancel')}
           </Button>
-          <Button variant="danger" disabled={submitting || !bound} onClick={() => void save('')}>
+          <Button variant="danger" disabled={busy || !bound} onClick={() => void save('')}>
             {t('config.keyBindDialog.clear')}
           </Button>
           <Button variant="primary" disabled={!canAssign} onClick={() => void save(command)}>
@@ -206,6 +296,74 @@ export function KeyBindDialog({
             }}
           />
         </Field>
+
+        {/*
+          The layer-trigger control: base-layer view only, and only when there
+          is a layer to trigger at all. Its own Assign/Clear buttons live here
+          in the body rather than in the modal footer - the footer is the *bind*
+          Cancel/Clear/Assign, and one footer cannot mean two unrelated saves.
+        */}
+        {!layer && layers.length > 0 && (
+          <Field
+            className="border-t border-line pt-3"
+            label={t('config.keyBindDialog.trigger.label')}
+          >
+            <p className="text-xs text-ink-muted">
+              {triggerOwner
+                ? t('config.keyBindDialog.trigger.currentLabel', { name: triggerOwner.name })
+                : t('config.keyBindDialog.trigger.none')}
+            </p>
+
+            <Select
+              value={pickedTriggerLayerId}
+              aria-label={t('config.keyBindDialog.trigger.pickLabel')}
+              onChange={(event) => setPickedTriggerLayerId(event.target.value)}
+              options={layers.map((entry) => ({ value: entry.id, label: entry.name }))}
+            />
+
+            {triggerSelfbind && (
+              <p className="rounded-sm border border-danger/35 bg-danger/8 px-2.5 py-1.5 text-xs text-danger">
+                {t('layer.selfbind', { key: keyName })}
+              </p>
+            )}
+
+            {!triggerSelfbind && triggerMovedFrom && (
+              <p className="rounded-sm border border-line bg-panel px-2.5 py-1.5 text-xs text-ink-muted">
+                {t('config.keyBindDialog.trigger.moveNote', { name: triggerMovedFrom.name })}
+              </p>
+            )}
+
+            {!triggerSelfbind && triggerConflictCommand && (
+              <p className="rounded-sm border border-warning/35 bg-warning/8 px-2.5 py-1.5 text-xs text-warning">
+                {t('layer.triggerConflict', {
+                  key: keyName,
+                  command: triggerConflictCommand,
+                })}
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={!canAssignTrigger}
+                onClick={() => void saveTrigger(pickedTriggerLayerId, keyName)}
+              >
+                {t('config.keyBindDialog.trigger.assign')}
+              </Button>
+              {triggerOwner && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => void saveTrigger(triggerOwner.id, null)}
+                >
+                  {t('config.keyBindDialog.trigger.clear')}
+                </Button>
+              )}
+            </div>
+          </Field>
+        )}
       </div>
     </Modal>
   )

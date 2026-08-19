@@ -62,11 +62,14 @@ export function sentinelLine(profileId: string): string {
  * order), every action's alias lines (array order, each action's chunk
  * aliases before the alias that calls them - see `./alias-render`),
  * `bind <key> "<value>"` per base bind (sorted), then one
- * `bind <trigger> <command>` per layer that actually produced aliases (array
- * order again). A layer with no valid overrides generates `aliases: []` but
- * still returns a nominal `triggerBind` - emitting that bind would point the
- * trigger key at an alias that was never defined, so it is skipped for empty
- * layers (see `generateLayerAliases`'s own doc comment).
+ * `bind <trigger> <command>` per layer that actually produced aliases and has
+ * a trigger key assigned (array order again). A layer with no valid overrides
+ * generates `aliases: []` but still returns a nominal `triggerBind` -
+ * emitting that bind would point the trigger key at an alias that was never
+ * defined, so it is skipped for empty layers (see `generateLayerAliases`'s
+ * own doc comment). A layer with overrides but no trigger key (story 011)
+ * returns `triggerBind: null` and is skipped the same way - it still renders
+ * its aliases, just no bind line to reach them from the keyboard.
  *
  * Actions add no bind line of their own: the `setActions` handler mirrors every
  * keyed action into `profile.binds` as `<key> -> <alias name>` (story 008
@@ -111,6 +114,7 @@ export function renderProfileFile(profile: ConfigProfile): string {
 
   for (const { aliases, triggerBind } of layerResults) {
     if (aliases.length === 0) continue
+    if (triggerBind === null) continue
     lines.push(`bind ${triggerBind.key} ${triggerBind.command}`)
   }
 

@@ -1,7 +1,7 @@
 ---
 id: 012
 title: Raw config view with reveal-in-folder
-status: draft
+status: ready
 created: 2026-08-18
 ---
 
@@ -25,12 +25,149 @@ the location where that file lives on disk, so I can inspect or hand-edit it mys
 
 ## Open Questions
 
+None.
+
+## Decisions (Sprint)
+
+- **Surface = a new "Raw file" tab on the profile detail screen** (`DetailTab` gets `'raw'`), not a
+  dialog and not a new view — AC 2 asks for the profile's own screens, and the detail screen already
+  owns the tab pattern (`overview | settings | advanced | writeTargets | validation | preserved`).
+- **Reuse the existing `preview` handler instead of adding a `raw` handler** — it already returns the
+  exact rendered `PreviewFile[]` for a `(profileId, installationId)` pair; a second near-identical
+  path is precisely the drift `previewProfileFiles`' own doc comment warns about.
+- **`previewProfileFiles` stays pure (no fs)** and the on-disk check happens in the handler via the
+  existing `isFile()` from `src/main/lib/fs-utils.ts` — the pure renderer is shared with the write
+  path and must keep producing identical bytes.
+- **"Not written yet" is answered per file by `onDisk: boolean`**, not by new persisted state — the
+  repo records no `writtenTo`/`lastWritten` anywhere, so disk existence is the only honest signal and
+  needs no state-file migration.
+- **No new IPC channel for reveal**: `app:revealPath` already accepts a file path
+  (`shell.showItemInFolder`) and its `isAllowedRevealTarget` allowlist already covers
+  `installation.rootPath`, under which every target `.cfg` lives — so the renderer never gains a new
+  privilege and main still validates the path (CLAUDE.md: paths from the renderer are never trusted).
+- **Reveal is per file row, not one button per tab** — the loader file also lands in mod folders, so
+  the files can sit in different directories; a row-level action is unambiguous.
+- **Installation choice: default assignment → active installation (if assigned) → first assignment**,
+  with a `Select` shown only when the profile has more than one assignment — the rendered text is
+  installation-specific, so the view must name which target it is showing.
+- **No assignments at all → `EmptyState`, no fetch** — there is no target path to render or reveal,
+  which is the other half of AC 4.
+- **A `CodeBlock` atom is extracted** into `components/ui/primitives.tsx` because the `<pre>` class
+  string is already copy-pasted verbatim in two places and this story would be the third;
+  `LayersPanel.tsx` is deliberately left untouched to avoid an unrelated edit.
+- **No copy-to-clipboard** — not in the acceptance criteria; reveal-in-folder covers the "inspect it
+  yourself" need the requirement actually states.
+- **Tests target `.ts` only** (installation-pick logic + main handler) — vitest runs `environment:
+  node` with `include: ['src/**/*.{test,spec}.ts']`, so adding jsdom/testing-library for one tab
+  would be a stack change this story does not justify; the tab itself is accepted through the UI.
+
 ## Plan
+
+Config traffic rides the single `module:invoke` channel, so `src/shared/ipc.ts`, the preload
+allowlist and `src/main/ipc/*` are all untouched.
+
+1. **Data** — teach the existing config `preview` handler whether each rendered file is already on
+   disk: add `onDisk: boolean` to `PreviewFile` (`src/shared/modules/config.ts`), make the handler
+   in `src/main/modules/config/index.ts` async and map `previewProfileFiles(...)` through
+   `isFile(file.path)`. `previewProfileFiles` itself stays pure. Input schema unchanged.
+2. **Shared UI** — extract the duplicated `<pre>` styling into a `CodeBlock` atom
+   (`components/ui/primitives.tsx`), then extract the fetch + file-list body of
+   `PreviewProfileDialog.tsx` into a reusable `RawConfigPanel.tsx` (loading / error / empty / per
+   file: path, on-disk badge, reveal button, `CodeBlock`). The dialog then only wraps that panel in
+   `Modal`, so preview and the new tab can never diverge.
+3. **Tab wiring** — pure helper `lib/raw-view.ts` (`pickRawInstallationId`) + its test; add `'raw'`
+   to `DetailTab`, one entry to the `tabs` array and one render branch in `ConfigView.tsx`; the
+   branch renders the installation `Select` (only when >1 assignment), `RawConfigPanel`, or an
+   `EmptyState` when the profile has no assignment at all.
+4. **i18n** — new `config.raw.*` keys in `src/renderer/src/i18n/locales/en.json`; main returns keys
+   only, never prose.
+
+Order: D1 → D2 → D3 (D2 consumes D1's `onDisk`, D3 mounts D2).
 
 ## Deliverables
 
+### D1 — `preview` reports whether each rendered file exists on disk
+
+- Files: `src/shared/modules/config.ts` (add `onDisk: boolean` to `PreviewFile`),
+  `src/main/modules/config/index.ts` (the `CONFIG_HANDLERS.preview` handler → `async`, map through
+  `isFile` from `../../lib/fs-utils`), `src/main/modules/config/index.test.ts` (extend the existing
+  preview case).
+- Mirror: the existing `handle(CONFIG_HANDLERS.preview, ...)` block in
+  `src/main/modules/config/index.ts` — keep the `safeParse` → `fail('ipc.error.invalidPayload')` →
+  profile/installation lookup shape exactly as it is.
+- Do **not** add fs access to `previewProfileFiles` — it must stay the pure, shared renderer.
+- Acceptance: `npm run build` + `npm test` green; a test asserts `onDisk === false` for a profile
+  previewed against an installation whose `baseq2` holds no `q2l-profile-*.cfg`, and `true` after the
+  file is created in a temp dir.
+
+### D2 — `RawConfigPanel` + `CodeBlock`, with per-file reveal; `PreviewProfileDialog` reuses it
+
+- Files: `src/renderer/src/components/ui/primitives.tsx` (new `CodeBlock`),
+  `src/renderer/src/modules/config/RawConfigPanel.tsx` (new),
+  `src/renderer/src/modules/config/PreviewProfileDialog.tsx` (reduced to `Modal` + panel),
+  `src/renderer/src/i18n/locales/en.json`.
+- `CodeBlock` carries the class string currently duplicated in `PreviewProfileDialog.tsx:80` /
+  `LayersPanel.tsx:294` (`numeric max-h-64 overflow-auto rounded-sm border border-line bg-void p-3
+  text-[11px] whitespace-pre text-ink-muted`) — semantic tokens only, no raw palette classes; leave
+  `LayersPanel.tsx` alone.
+- Props: `{ profile: ConfigProfile; installationId: string }`; the panel owns the
+  `previewConfigProfile` fetch (cancel-on-unmount `useEffect` keyed `[profile.id, installationId]`,
+  mirroring the current dialog).
+- Per file row: absolute path (`data-selectable`), an on-disk `Badge`, and an `IconButton`
+  (`FolderOpen`) calling `invoke('app:revealPath', file.path)`. When `onDisk === false` the button is
+  `disabled` and the row says the file has not been written to this installation yet; on a failing
+  `Outcome` push an error toast with `result.error.key` (do not swallow it like the existing
+  `LibraryView` call site does).
+- Acceptance: the existing "Preview…" button on the Write targets tab looks and behaves as before
+  (same content, plus the new badge/reveal); reveal opens Explorer with the `.cfg` selected;
+  `npm run build` green.
+
+### D3 — "Raw file" tab on the profile detail screen
+
+- Files: `src/renderer/src/modules/config/lib/raw-view.ts` + `raw-view.test.ts` (new),
+  `src/renderer/src/modules/config/ConfigView.tsx`, `src/renderer/src/i18n/locales/en.json`.
+- `pickRawInstallationId(profile, installations, activeInstallationId, currentId?)` — pure: keeps a
+  still-valid current pick, else default assignment, else the active installation if assigned, else
+  the first assignment, else `null`. Unit-tested (`.ts`, so vitest picks it up).
+- `ConfigView.tsx`: add `'raw'` to `DetailTab`, one `tabs` entry (`config.tabs.raw`), one render
+  branch inside the existing `<Panel className="p-6">`; local state for the picked installation.
+  Render a `Select` of assigned installations only when `profile.assignments.length > 1`.
+- No assignment → `EmptyState` with `config.raw.noAssignment`, and no request is fired.
+- Acceptance: opening a profile → "Raw file" shows the rendered text without going through the Write
+  targets tab; switching the installation re-renders the content; an unassigned profile shows the
+  empty state; `npm run build` + `npm test` green.
+
+### AC coverage
+
+| AC | Deliverable |
+| --- | --- |
+| Raw rendered content as plain text | D1 (data) + D2 (rendering) |
+| Reachable from the profile's own screens | D3 (tab) |
+| Reveal in OS file explorer for an assigned installation | D2 (per-row reveal via `app:revealPath`) |
+| "Not written yet" communicated clearly | D1 (`onDisk`) + D2 (disabled reveal + hint) + D3 (no-assignment empty state) |
+
 ## Model Hints
 
+- D1 → default
+- D2 → default
+- D3 → default
+- Review: → default — additive tab plus one reused, already-validated IPC channel; no new privilege,
+  no state-file migration, no change to the write path.
+
 ## Test Plan (manual acceptance)
+
+`npm run dev`, then:
+
+1. Config → pick a profile that is assigned to at least one installation → open the **Raw file** tab.
+   The rendered `.cfg` text appears, with the absolute target path above each file.
+2. Compare against Write targets → **Preview…** for the same installation: identical content.
+3. Click the reveal button on a file that is marked as on disk → Explorer opens with that `.cfg`
+   selected.
+4. Take a profile that was never written (assigned, but no write run yet): the tab still shows the
+   text, each file is marked as not written, and the reveal button is disabled — nothing opens and no
+   error appears.
+5. Unassign the profile from every installation → the Raw file tab shows the empty-state message
+   instead of content or a broken request.
+6. Profile with two or more assignments: the installation selector switches the shown content.
 
 ## Done

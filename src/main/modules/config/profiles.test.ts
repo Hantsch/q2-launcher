@@ -418,4 +418,23 @@ describe('setProfileBindsInputSchema / setProfileLayersInputSchema (IPC payload 
       }).success,
     ).toBe(true)
   })
+
+  // Story 011: triggerKey becomes nullable - null means "no trigger assigned yet".
+  it('accepts a layers payload with triggerKey: null', () => {
+    expect(
+      setProfileLayersInputSchema.safeParse({
+        profileId: 'p1',
+        layers: [{ id: 'l1', name: 'Drops', mode: 'hold', triggerKey: null, overrides: {} }],
+      }).success,
+    ).toBe(true)
+  })
+
+  it('rejects a layers payload with triggerKey: "" (empty string)', () => {
+    expect(
+      setProfileLayersInputSchema.safeParse({
+        profileId: 'p1',
+        layers: [{ id: 'l1', name: 'Drops', mode: 'hold', triggerKey: '', overrides: {} }],
+      }).success,
+    ).toBe(false)
+  })
 })

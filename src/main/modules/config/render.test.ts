@@ -103,6 +103,15 @@ describe('renderProfileFile with layers', () => {
     overrides: {},
   }
 
+  /** Story 011: a layer with real overrides but no trigger key assigned. */
+  const noTriggerLayer: AltLayer = {
+    id: 'layer-no-trigger',
+    name: 'NoTrigger',
+    mode: 'hold',
+    triggerKey: null,
+    overrides: { '1': 'drop rl' },
+  }
+
   it('emits every layer alias, verbatim, between the set and bind blocks, in array + generation order', () => {
     const binds = { UPARROW: '+forward' }
     const p = profile({
@@ -152,8 +161,8 @@ describe('renderProfileFile with layers', () => {
     const trailing = lines.slice(lastBaseBindIndex + 1)
 
     expect(trailing).toEqual([
-      `bind ${holdResult.triggerBind.key} ${holdResult.triggerBind.command}`,
-      `bind ${toggleResult.triggerBind.key} ${toggleResult.triggerBind.command}`,
+      `bind ${holdResult.triggerBind!.key} ${holdResult.triggerBind!.command}`,
+      `bind ${toggleResult.triggerBind!.key} ${toggleResult.triggerBind!.command}`,
       '',
     ])
   })
@@ -174,8 +183,53 @@ describe('renderProfileFile with layers', () => {
 
     const rendered = renderProfileFile(p)
 
-    expect(rendered).not.toContain(`bind ${emptyResult.triggerBind.key} ${emptyResult.triggerBind.command}`)
-    expect(rendered).toContain(`bind ${holdResult.triggerBind.key} ${holdResult.triggerBind.command}`)
+    expect(rendered).not.toContain(
+      `bind ${emptyResult.triggerBind!.key} ${emptyResult.triggerBind!.command}`,
+    )
+    expect(rendered).toContain(`bind ${holdResult.triggerBind!.key} ${holdResult.triggerBind!.command}`)
+  })
+
+  it('renders a layer with overrides but no trigger key: aliases are emitted, no bind line is', () => {
+    const binds = {}
+    const p = profile({
+      id: 'layers-id',
+      cvars: {},
+      binds,
+      layers: [noTriggerLayer, holdLayer],
+    })
+
+    const noTriggerResult = generateLayerAliases(noTriggerLayer, binds)
+    const holdResult = generateLayerAliases(holdLayer, binds)
+
+    expect(noTriggerResult.aliases.length).toBeGreaterThan(0)
+    expect(noTriggerResult.triggerBind).toBeNull()
+
+    const rendered = renderProfileFile(p)
+
+    for (const alias of noTriggerResult.aliases) {
+      expect(rendered).toContain(alias.line)
+    }
+
+    // The only "bind " line in the whole file is the other layer's trigger
+    // bind - the trigger-less layer contributes none, not even a malformed one.
+    const bindLines = rendered.split('\n').filter((line) => line.startsWith('bind '))
+    expect(bindLines).toEqual([`bind ${holdResult.triggerBind!.key} ${holdResult.triggerBind!.command}`])
+  })
+
+  it('never emits a bind line with an empty key for a trigger-less layer', () => {
+    const binds = { UPARROW: '+forward' }
+    const p = profile({
+      id: 'layers-id',
+      cvars: {},
+      binds,
+      layers: [noTriggerLayer, holdLayer, toggleLayer],
+    })
+
+    const rendered = renderProfileFile(p)
+
+    // A `bind` line with no key would show up as two consecutive spaces
+    // (`bind  <command>`) - that must never happen, trigger-less layer or not.
+    expect(rendered).not.toMatch(/^bind {2}/m)
   })
 
   it('renders a profile with layers: undefined identically to one without the field', () => {

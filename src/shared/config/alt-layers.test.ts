@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   MAX_ALIAS_NAME,
   MAX_LINE_BYTES,
+  assignLayerTrigger,
+  findLayerByTriggerKey,
   generateLayerAliases,
   slugAliasName,
   type AltLayer,
@@ -293,7 +295,9 @@ describe('generateLayerAliases — alias name budget', () => {
         expect(alias.name.length).toBeLessThanOrEqual(MAX_ALIAS_NAME - 1)
         expect(alias.name).toMatch(/^[+-]?[a-z0-9_]+$/)
       }
-      expect(result.triggerBind.command.length).toBeLessThanOrEqual(MAX_ALIAS_NAME - 1)
+      // A trigger key was set above, so this is never the trigger-less null.
+      expect(result.triggerBind).not.toBeNull()
+      expect(result.triggerBind?.command.length).toBeLessThanOrEqual(MAX_ALIAS_NAME - 1)
     })
   }
 })
@@ -345,6 +349,109 @@ describe('generateLayerAliases — issues', () => {
       level: 'warning',
       params: { key: 'v', command: 'use blaster' },
     })
+  })
+})
+
+describe('generateLayerAliases — trigger-less layers (story 011)', () => {
+  it('returns triggerBind: null and warns layer.noTrigger when the layer has overrides', () => {
+    const result = generateLayerAliases(
+      layer({ triggerKey: null, overrides: { '1': 'drop rl' } }),
+      {},
+    )
+    expect(result.triggerBind).toBeNull()
+    expect(result.issues).toContainEqual({ key: 'layer.noTrigger', level: 'warning' })
+    // No trigger means neither guard has anything to say about it.
+    expect(result.issues.some((issue) => issue.key === 'layer.selfbind')).toBe(false)
+    expect(result.issues.some((issue) => issue.key === 'layer.triggerConflict')).toBe(false)
+    // The layer still renders — it stays console-invokable, just unreachable.
+    expect(result.aliases.length).toBeGreaterThan(0)
+  })
+
+  it('treats a blank trigger key the same as null', () => {
+    const result = generateLayerAliases(
+      layer({ triggerKey: '   ', overrides: { '1': 'drop rl' } }),
+      {},
+    )
+    expect(result.triggerBind).toBeNull()
+    expect(result.issues).toContainEqual({ key: 'layer.noTrigger', level: 'warning' })
+  })
+
+  it('does not double up layer.noTrigger with layer.empty', () => {
+    const result = generateLayerAliases(layer({ triggerKey: null, overrides: {} }), {})
+    expect(result.issues).toEqual([{ key: 'layer.empty', level: 'warning' }])
+    expect(result.triggerBind).toBeNull()
+    expect(result.aliases).toEqual([])
+  })
+})
+
+describe('assignLayerTrigger', () => {
+  function threeLayers(): AltLayer[] {
+    return [
+      layer({ id: 'a', triggerKey: 'ALT', overrides: { '1': 'drop rl' } }),
+      layer({ id: 'b', triggerKey: 'v', overrides: { '2': 'drop rg' } }),
+      layer({ id: 'c', triggerKey: null, overrides: {} }),
+    ]
+  }
+
+  it('sets a trigger on the target layer without touching the others', () => {
+    const result = assignLayerTrigger(threeLayers(), 'c', 'x')
+    expect(result.find((l) => l.id === 'c')?.triggerKey).toBe('x')
+    expect(result.find((l) => l.id === 'a')?.triggerKey).toBe('ALT')
+    expect(result.find((l) => l.id === 'b')?.triggerKey).toBe('v')
+  })
+
+  it('moves a key off whichever other layer currently holds it as its trigger', () => {
+    const result = assignLayerTrigger(threeLayers(), 'c', 'ALT')
+    expect(result.find((l) => l.id === 'c')?.triggerKey).toBe('ALT')
+    expect(result.find((l) => l.id === 'a')?.triggerKey).toBeNull()
+    // Unrelated layers are left alone.
+    expect(result.find((l) => l.id === 'b')?.triggerKey).toBe('v')
+  })
+
+  it('clears only the target layer when key is null, touching no other layer', () => {
+    const result = assignLayerTrigger(threeLayers(), 'a', null)
+    expect(result.find((l) => l.id === 'a')?.triggerKey).toBeNull()
+    expect(result.find((l) => l.id === 'b')?.triggerKey).toBe('v')
+    expect(result.find((l) => l.id === 'c')?.triggerKey).toBeNull()
+  })
+
+  it('never mutates any layer\'s overrides', () => {
+    const input = threeLayers()
+    const result = assignLayerTrigger(input, 'c', 'ALT')
+    for (const original of input) {
+      const updated = result.find((l) => l.id === original.id)
+      expect(updated?.overrides).toEqual(original.overrides)
+    }
+  })
+
+  it('does not mutate the input array or its layer objects', () => {
+    const input = threeLayers()
+    const snapshot = input.map((l) => ({ ...l }))
+    assignLayerTrigger(input, 'c', 'ALT')
+    expect(input).toEqual(snapshot)
+  })
+
+  it('returns the input unchanged when layerId matches no layer', () => {
+    const input = threeLayers()
+    const result = assignLayerTrigger(input, 'does-not-exist', 'x')
+    expect(result).toEqual(input)
+  })
+})
+
+describe('findLayerByTriggerKey', () => {
+  const layers: AltLayer[] = [
+    layer({ id: 'a', triggerKey: 'ALT' }),
+    layer({ id: 'b', triggerKey: 'v' }),
+    layer({ id: 'c', triggerKey: null }),
+  ]
+
+  it('returns the layer whose triggerKey matches', () => {
+    expect(findLayerByTriggerKey(layers, 'v')?.id).toBe('b')
+  })
+
+  it('returns null when no layer has that trigger', () => {
+    expect(findLayerByTriggerKey(layers, 'z')).toBeNull()
+    expect(findLayerByTriggerKey(layers, 'ALT')?.id).toBe('a')
   })
 })
 

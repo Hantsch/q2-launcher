@@ -100,3 +100,48 @@ describe('configProfileSchema - categories/actions (story 008)', () => {
     expect(persisted.actions).toEqual(strict.actions)
   })
 })
+
+/**
+ * Story 011: `AltLayer.triggerKey` becomes nullable (`null` = "no trigger
+ * assigned yet"). `configProfileSchema`'s `layers` field degrades the whole
+ * array to `[]` on a structural failure (see `altLayerPersistedSchema` in
+ * `./schemas.ts`), but `triggerKey` itself has its own `.catch(null)` so a
+ * missing/malformed value there defaults just that field to `null` instead of
+ * dropping the whole layer row.
+ */
+describe('configProfileSchema - layers.triggerKey (story 011)', () => {
+  const baseProfile = {
+    id: 'p1',
+    name: 'My profile',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    assignments: [],
+  }
+
+  it('loads a layer row with triggerKey absent as triggerKey: null', () => {
+    const result = configProfileSchema.parse({
+      ...baseProfile,
+      layers: [{ id: 'l1', name: 'Drops', mode: 'hold', overrides: {} }],
+    })
+    expect(result.layers).toHaveLength(1)
+    expect(result.layers[0]!.triggerKey).toBeNull()
+  })
+
+  it('loads a layer row with triggerKey: null explicitly as null', () => {
+    const result = configProfileSchema.parse({
+      ...baseProfile,
+      layers: [{ id: 'l1', name: 'Drops', mode: 'hold', triggerKey: null, overrides: {} }],
+    })
+    expect(result.layers).toHaveLength(1)
+    expect(result.layers[0]!.triggerKey).toBeNull()
+  })
+
+  it('keeps a pre-011 string triggerKey unchanged', () => {
+    const result = configProfileSchema.parse({
+      ...baseProfile,
+      layers: [{ id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'ALT', overrides: {} }],
+    })
+    expect(result.layers).toHaveLength(1)
+    expect(result.layers[0]!.triggerKey).toBe('ALT')
+  })
+})

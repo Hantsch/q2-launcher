@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
@@ -10,48 +10,18 @@ import {
 import type { ConfigProfile } from '@shared/modules/config'
 import { cn } from '../../lib/cn'
 import { Button, IconButton } from '../../components/ui/Button'
-import { Field, Input, Select, type SelectOption } from '../../components/ui/controls'
+import { Field, Input, Select } from '../../components/ui/controls'
 import { Modal } from '../../components/ui/Modal'
 import { Badge, EmptyState, SectionLabel } from '../../components/ui/primitives'
-import {
-  ARROW_CLUSTER,
-  KEYBOARD_ROWS,
-  MOUSE_ROWS,
-  NAV_CLUSTER,
-  NUMPAD_KEYS,
-  type KeyDef,
-} from './lib/keyboard-layout'
 import { updateProfileLayers } from './client'
-
-/**
- * Every real, bindable key name in the board's layout data, deduped and
- * sorted - a plain dropdown of trigger-key choices. Not a mini keyboard
- * picker: D6 is where a trigger key gets picked *on* the board (decision 11),
- * this is just "create a layer" needing a value for `triggerKey`.
- */
-function triggerKeyOptions(): SelectOption[] {
-  const defs: KeyDef[] = [
-    ...KEYBOARD_ROWS.flat(),
-    ...NAV_CLUSTER.flat(),
-    ...ARROW_CLUSTER.flat().filter((def): def is KeyDef => def !== null),
-    ...NUMPAD_KEYS,
-    ...MOUSE_ROWS.flat(),
-  ]
-  const seen = new Set<string>()
-  const options: SelectOption[] = []
-  for (const def of defs) {
-    if (!def.key || seen.has(def.key)) continue
-    seen.add(def.key)
-    options.push({ value: def.key, label: def.label || def.key })
-  }
-  return options.sort((a, b) => a.value.localeCompare(b.value))
-}
 
 /**
  * Issue keys shown in D5's per-layer banner. `layer.plusbind` is now included:
  * D6 gives the key dialog a specific key to attach it to, and this panel
  * repeats it here as a per-layer aggregate banner. `layer.quote` is included
  * for completeness, but per D1 it is never actually pushed by the generator.
+ * `layer.noTrigger` (story 011) fires when a layer has overrides but no
+ * trigger key assigned yet.
  */
 const VISIBLE_ISSUE_KEYS: ReadonlySet<LayerIssue['key']> = new Set([
   'layer.empty',
@@ -59,6 +29,7 @@ const VISIBLE_ISSUE_KEYS: ReadonlySet<LayerIssue['key']> = new Set([
   'layer.plusbind',
   'layer.triggerConflict',
   'layer.quote',
+  'layer.noTrigger',
 ])
 
 /**
@@ -84,7 +55,6 @@ export function LayersPanel({
 }) {
   const { t } = useTranslation()
   const layers = profile.layers ?? []
-  const keyOptions = useMemo(triggerKeyOptions, [])
 
   const [showCreate, setShowCreate] = useState(false)
   const [renamingLayer, setRenamingLayer] = useState<AltLayer | null>(null)
@@ -103,13 +73,12 @@ export function LayersPanel({
   const handleCreate = async (input: {
     name: string
     mode: AltLayerMode
-    triggerKey: string
   }): Promise<boolean> => {
     const layer: AltLayer = {
       id: crypto.randomUUID(),
       name: input.name,
       mode: input.mode,
-      triggerKey: input.triggerKey,
+      triggerKey: null,
       overrides: {},
     }
     const ok = await persist([...layers, layer])
@@ -209,9 +178,15 @@ export function LayersPanel({
                     <Badge tone={layer.mode === 'hold' ? 'flame' : 'strogg'}>
                       {t(`config.layersPanel.mode.${layer.mode}`)}
                     </Badge>
-                    <span className="numeric shrink-0 text-xs text-ink-muted">
-                      {t('config.layersPanel.trigger', { key: layer.triggerKey || '-' })}
-                    </span>
+                    {layer.triggerKey ? (
+                      <span className="numeric shrink-0 text-xs text-ink-muted">
+                        {t('config.layersPanel.trigger', { key: layer.triggerKey })}
+                      </span>
+                    ) : (
+                      <Badge tone="warning" className="shrink-0">
+                        {t('config.layersPanel.noTrigger')}
+                      </Badge>
+                    )}
                   </div>
 
                   <div className="flex shrink-0 items-center gap-1">
@@ -286,6 +261,14 @@ export function LayersPanel({
                       </ul>
                     )}
 
+                    <p className="numeric text-xs text-ink-muted">
+                      {preview.triggerBind
+                        ? t('config.layersPanel.preview.trigger', {
+                            line: `bind ${preview.triggerBind.key} ${preview.triggerBind.command}`,
+                          })
+                        : t('config.layersPanel.preview.notReachable')}
+                    </p>
+
                     {preview.aliases.length === 0 ? (
                       <p className="text-xs text-ink-muted">
                         {t('config.layersPanel.preview.empty')}
@@ -304,11 +287,7 @@ export function LayersPanel({
       )}
 
       {showCreate && (
-        <CreateLayerDialog
-          keyOptions={keyOptions}
-          onClose={() => setShowCreate(false)}
-          onSubmit={handleCreate}
-        />
+        <CreateLayerDialog onClose={() => setShowCreate(false)} onSubmit={handleCreate} />
       )}
 
       {renamingLayer && (
@@ -322,27 +301,28 @@ export function LayersPanel({
   )
 }
 
-/** Create-layer form: name, hold/toggle mode, trigger key. Mirrors `CreateProfileDialog`'s shape. */
+/**
+ * Create-layer form: name, hold/toggle mode. The trigger key is no longer
+ * picked here (story 011 decision 10) - it is assigned from the keyboard
+ * overview's key-bind dialog once the layer exists.
+ */
 function CreateLayerDialog({
-  keyOptions,
   onClose,
   onSubmit,
 }: {
-  keyOptions: SelectOption[]
   onClose: () => void
-  onSubmit: (input: { name: string; mode: AltLayerMode; triggerKey: string }) => Promise<boolean>
+  onSubmit: (input: { name: string; mode: AltLayerMode }) => Promise<boolean>
 }) {
   const { t } = useTranslation()
   const [name, setName] = useState('')
   const [mode, setMode] = useState<AltLayerMode>('hold')
-  const [triggerKey, setTriggerKey] = useState(keyOptions[0]?.value ?? '')
   const [submitting, setSubmitting] = useState(false)
 
-  const canSubmit = name.trim().length > 0 && triggerKey.length > 0 && !submitting
+  const canSubmit = name.trim().length > 0 && !submitting
 
   const submit = async (): Promise<void> => {
     setSubmitting(true)
-    const ok = await onSubmit({ name: name.trim(), mode, triggerKey })
+    const ok = await onSubmit({ name: name.trim(), mode })
     setSubmitting(false)
     if (!ok) return
   }
@@ -387,14 +367,6 @@ function CreateLayerDialog({
               { value: 'hold', label: t('config.layersPanel.mode.hold') },
               { value: 'toggle', label: t('config.layersPanel.mode.toggle') },
             ]}
-          />
-        </Field>
-
-        <Field label={t('config.layersPanel.createDialog.triggerLabel')}>
-          <Select
-            value={triggerKey}
-            onChange={(event) => setTriggerKey(event.target.value)}
-            options={keyOptions}
           />
         </Field>
       </div>
