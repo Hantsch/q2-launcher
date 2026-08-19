@@ -1090,7 +1090,7 @@
         "action": "{{key}} is already used by “{{owner}}”. Take the key from it?",
         "replace": "Replace",
         "layerOverride": "{{key}} also has an override in the alt layer “{{owner}}” — assigned anyway.",
-        "modifierLayer": "{{key}} in the “{{layer}}” layer already overrides “{{owner}}”. Replace it?"
+        "modifierLayer": "{{key}} in the “{{layer}}” layer is already used by “{{owner}}”. Replace it?"
       },
       "messageEditor": {
         "title": "Edit message “{{name}}”",

@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { AltLayer } from '@shared/config/alt-layers'
 import type { BindCollision } from '@shared/config/bind-collision'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
-import { applyReplace, findModifierSlotCollision, findSlotCollision } from './bind-slot-collision'
+import {
+  applyModifierReplace,
+  applyReplace,
+  findModifierSlotCollision,
+  findSlotCollision,
+  type ModifierSlotCollision,
+} from './bind-slot-collision'
 import { buildDropGroups, buildMovementRows, type CatalogRow } from './catalog-binds'
 
 const rows = buildMovementRows()
@@ -102,22 +108,71 @@ function altLayer(overrides: Partial<AltLayer> = {}): AltLayer {
 
 describe('findModifierSlotCollision', () => {
   it('returns null when the layer for the modifier does not exist yet', () => {
-    expect(findModifierSlotCollision([], 'ALT', 'r', 'drop rocket launcher')).toBeNull()
+    expect(findModifierSlotCollision([], [], 'ALT', 'r')).toBeNull()
   })
 
-  it('returns null when the override key is free', () => {
-    const layers = [altLayer({ overrides: {} })]
-    expect(findModifierSlotCollision(layers, 'ALT', 'r', 'drop rocket launcher')).toBeNull()
+  it('returns null when nothing occupies the key', () => {
+    const layers = [altLayer()]
+    expect(findModifierSlotCollision([], layers, 'ALT', 'r')).toBeNull()
   })
 
-  it('returns null when the override already holds this exact command (re-capturing the same combo)', () => {
-    const layers = [altLayer({ overrides: { r: 'drop rocket launcher' } })]
-    expect(findModifierSlotCollision(layers, 'ALT', 'r', 'drop rocket launcher')).toBeNull()
+  it('review fix: still reports an occupying action even before its modifier layer exists', () => {
+    // `actions` is authoritative for occupancy since D7's mirror - one save ahead of `layers`
+    // catching up (the layer is only created by the next setActions/setLayers mirror pass). Two
+    // rows independently capturing the same combo in that narrow window must still collide.
+    const owner = catalogAction(forward, { key: 'r', keyModifier: 'ALT' })
+
+    const found = findModifierSlotCollision([owner], [], 'ALT', 'r')
+
+    expect(found).toEqual({
+      modifier: 'ALT',
+      key: 'r',
+      layerId: '',
+      layerName: 'Alt',
+      owner: owner.name,
+      actionId: owner.id,
+      actionSlot: 'primary',
+    })
   })
 
-  it('reports the layer and the occupying command when a different command is already there', () => {
+  it("names the occupying action by its name when its keyModifier/key slot matches", () => {
+    const owner = catalogAction(forward, { key: 'r', keyModifier: 'ALT' })
+    const layers = [altLayer({ id: 'alt-9', name: 'Alt' })]
+
+    const found = findModifierSlotCollision([owner], layers, 'ALT', 'r')
+
+    expect(found).toEqual({
+      modifier: 'ALT',
+      key: 'r',
+      layerId: 'alt-9',
+      layerName: 'Alt',
+      owner: owner.name,
+      actionId: owner.id,
+      actionSlot: 'primary',
+    })
+  })
+
+  it('names the occupying action via its secondaryKeyModifier/secondaryKey slot', () => {
+    const owner = catalogAction(jump, { secondaryKey: 'r', secondaryKeyModifier: 'ALT' })
+    const layers = [altLayer({ id: 'alt-9', name: 'Alt' })]
+
+    const found = findModifierSlotCollision([owner], layers, 'ALT', 'r')
+
+    expect(found).toEqual({
+      modifier: 'ALT',
+      key: 'r',
+      layerId: 'alt-9',
+      layerName: 'Alt',
+      owner: owner.name,
+      actionId: owner.id,
+      actionSlot: 'secondary',
+    })
+  })
+
+  it('reports a hand-made override (not written by the actions mirror) by its raw command text', () => {
     const layers = [altLayer({ id: 'alt-9', name: 'Alt', overrides: { r: 'drop grenade launcher' } })]
-    const found = findModifierSlotCollision(layers, 'ALT', 'r', 'drop rocket launcher')
+
+    const found = findModifierSlotCollision([], layers, 'ALT', 'r')
 
     expect(found).toEqual({
       modifier: 'ALT',
@@ -128,9 +183,157 @@ describe('findModifierSlotCollision', () => {
     })
   })
 
-  it('does not collide across modifiers: a CTRL override at the same key is irrelevant to an ALT check', () => {
-    const layers = [altLayer({ triggerKey: 'CTRL', name: 'Ctrl', overrides: { r: 'wave 1' } })]
-    expect(findModifierSlotCollision(layers, 'ALT', 'r', 'drop rocket launcher')).toBeNull()
+  it('does not report a mirrored override belonging to another (non-ignored) action a second time', () => {
+    // The mirror always writes an ACTION_ALIAS_PREFIX value for a modifier-carrying slot - the
+    // action-array check above already reports it, so this must not also fall through to the
+    // hand-made-override branch.
+    const owner = catalogAction(forward, { key: 'r', keyModifier: 'ALT' })
+    const layers = [altLayer({ overrides: { r: 'q2l_a_forward_0000' } })]
+
+    const found = findModifierSlotCollision([owner], layers, 'ALT', 'r')
+
+    expect(found?.actionId).toBe(owner.id)
+  })
+
+  it("does not report re-capturing the same row's own current (modifier, key)", () => {
+    const owner = catalogAction(forward, { key: 'r', keyModifier: 'ALT' })
+    const layers = [altLayer({ overrides: { r: 'q2l_a_forward_0000' } })]
+
+    expect(findModifierSlotCollision([owner], layers, 'ALT', 'r', owner.id)).toBeNull()
+  })
+
+  it('returns null for an empty override slot', () => {
+    const layers = [altLayer({ overrides: {} })]
+    expect(findModifierSlotCollision([], layers, 'ALT', 'r')).toBeNull()
+  })
+
+  it('does not collide across modifiers: a CTRL-bound action is irrelevant to an ALT check', () => {
+    const owner = catalogAction(forward, { key: 'r', keyModifier: 'CTRL' })
+    const layers = [altLayer()]
+    expect(findModifierSlotCollision([owner], layers, 'ALT', 'r')).toBeNull()
+  })
+})
+
+describe('applyModifierReplace', () => {
+  it('is a plain applySlot passthrough when there is nothing to release', () => {
+    const next = applyModifierReplace({
+      actions: [],
+      collision: null,
+      row: forward,
+      slot: 'primary',
+      key: 'r',
+      modifier: 'ALT',
+    })
+
+    expect(next).toHaveLength(1)
+    expect(next[0]!.key).toBe('r')
+    expect(next[0]!.keyModifier).toBe('ALT')
+  })
+
+  it("clears the previous occupant's slot and assigns the new one in a single array", () => {
+    const occupant = catalogAction(forward, { key: 'r', keyModifier: 'ALT' })
+    const collision: ModifierSlotCollision = {
+      modifier: 'ALT',
+      key: 'r',
+      layerId: 'alt-1',
+      layerName: 'Alt',
+      owner: occupant.name,
+      actionId: occupant.id,
+      actionSlot: 'primary',
+    }
+
+    const next = applyModifierReplace({
+      actions: [occupant],
+      collision,
+      row: jump,
+      slot: 'primary',
+      key: 'r',
+      modifier: 'ALT',
+    })
+
+    const releasedOccupant = next.find((action) => action.catalogId === forward.catalogId)
+    const newOwner = next.find((action) => action.catalogId === jump.catalogId)
+    // The occupant had nothing else assigned, so releasing its only slot prunes it (decision 4).
+    expect(releasedOccupant).toBeUndefined()
+    expect(newOwner?.key).toBe('r')
+    expect(newOwner?.keyModifier).toBe('ALT')
+  })
+
+  it("clears only the matching slot, keeping the previous occupant's other assignment", () => {
+    const occupant = catalogAction(forward, { key: 'r', keyModifier: 'ALT', secondaryKey: 'UPARROW' })
+    const collision: ModifierSlotCollision = {
+      modifier: 'ALT',
+      key: 'r',
+      layerId: 'alt-1',
+      layerName: 'Alt',
+      owner: occupant.name,
+      actionId: occupant.id,
+      actionSlot: 'primary',
+    }
+
+    const next = applyModifierReplace({
+      actions: [occupant],
+      collision,
+      row: jump,
+      slot: 'primary',
+      key: 'r',
+      modifier: 'ALT',
+    })
+
+    const releasedOccupant = next.find((action) => action.catalogId === forward.catalogId)
+    expect(releasedOccupant?.key).toBeUndefined()
+    expect(releasedOccupant?.keyModifier).toBeUndefined()
+    expect(releasedOccupant?.secondaryKey).toBe('UPARROW')
+  })
+
+  it('releases a secondary-slot occupant the same way', () => {
+    const occupant = catalogAction(forward, { secondaryKey: 'r', secondaryKeyModifier: 'ALT', key: 'f' })
+    const collision: ModifierSlotCollision = {
+      modifier: 'ALT',
+      key: 'r',
+      layerId: 'alt-1',
+      layerName: 'Alt',
+      owner: occupant.name,
+      actionId: occupant.id,
+      actionSlot: 'secondary',
+    }
+
+    const next = applyModifierReplace({
+      actions: [occupant],
+      collision,
+      row: jump,
+      slot: 'primary',
+      key: 'r',
+      modifier: 'ALT',
+    })
+
+    const releasedOccupant = next.find((action) => action.catalogId === forward.catalogId)
+    expect(releasedOccupant?.secondaryKey).toBeUndefined()
+    expect(releasedOccupant?.secondaryKeyModifier).toBeUndefined()
+    expect(releasedOccupant?.key).toBe('f')
+  })
+
+  it('does nothing to release when the collision is a hand-made override (no actionId)', () => {
+    const collision: ModifierSlotCollision = {
+      modifier: 'ALT',
+      key: 'r',
+      layerId: 'alt-1',
+      layerName: 'Alt',
+      owner: 'drop grenade launcher',
+    }
+
+    const next = applyModifierReplace({
+      actions: [],
+      collision,
+      row: forward,
+      slot: 'primary',
+      key: 'r',
+      modifier: 'ALT',
+    })
+
+    expect(next).toHaveLength(1)
+    expect(next[0]!.key).toBe('r')
+    expect(next[0]!.keyModifier).toBe('ALT')
   })
 })
 

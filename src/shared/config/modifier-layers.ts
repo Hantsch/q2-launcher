@@ -1,20 +1,25 @@
 /**
- * Modifier-layer upsert + reverse bind lookup (story 016).
+ * The actions -> modifier-layer-overrides mirror (story 016).
  *
  * Quake 2 has no modifiers (see `alt-layers.ts`'s file doc comment): a capture
  * of "Alt+R" cannot be stored as a literal bind, only as an override inside an
- * alt layer whose `triggerKey` is `ALT`. This module is the pure glue between
- * "the user captured a modifier chord" and "there is now an `AltLayer` with
- * that override" - it never decides *whether* to write one (that is D1's
- * capture-resolution logic, `modifier-capture.ts`), only *where*.
+ * alt layer whose `triggerKey` is `ALT`. `applyActionLayerMirror` rebuilds
+ * every layer's `overrides` map from scratch as a **derived mirror** of
+ * `actions`' `keyModifier`/`secondaryKeyModifier` slots, the exact layer-side
+ * counterpart of `setActions`'s `binds` mirror in
+ * `src/main/modules/config/profiles.ts`. This is the only writer of a
+ * modifier override on the normal save path.
  *
- * Two operations:
- *
- * - `upsertModifierLayerOverride` finds-or-creates the one layer per modifier
- *   (`ALT`/`CTRL`/`SHIFT`) and writes an override into it.
- * - `findBindLocation` is the reverse direction: given a command string,
- *   where on the keyboard does it already live - the base layer, or inside
- *   which modifier's layer.
+ * A modifier binding is keyed off a `ConfigAction`'s own identity
+ * (`aliasNameFor(action)`), never off the command text it happens to render -
+ * that was an earlier design's bug (two actions can render the identical
+ * command, e.g. `dropWeapon:grenades`/`dropAmmo:hgrenades` both rendering
+ * `drop grenades`) and this module's whole reason to exist is to make that
+ * class of bug impossible. Story 016 D9 removed the last pieces that used to
+ * read *back* by command string (`upsertModifierLayerOverride`,
+ * `findModifierOverrideOwner`, `findBindLocation`, plus `catalog-binds.ts`'s
+ * reverse-parse helpers) once this mirror made them dead code - a command
+ * string is not an identifier.
  *
  * A layer is matched by its normalized `triggerKey`, **never by `name`**: a
  * user can hand-build a layer named "Rocketjump" whose trigger happens to be
@@ -31,14 +36,18 @@
  */
 
 import type { AltLayer, AltLayerMode } from '@shared/config/alt-layers'
-import { sanitizeCommand } from '@shared/config/alt-layers'
+import { ACTION_ALIAS_PREFIX, aliasNameFor } from '@shared/config/alias-render'
 import { normalizeBindKey } from '@shared/config/key-names'
-import type { ConfigProfile } from '@shared/modules/config'
+import type { ConfigAction } from '@shared/modules/config'
 
 export type ModifierTrigger = 'ALT' | 'CTRL' | 'SHIFT'
 
-/** The literal English layer name a freshly created layer gets, keyed by modifier. */
-const MODIFIER_LAYER_NAME: Record<ModifierTrigger, string> = {
+/** The literal English layer name a freshly created layer gets, keyed by modifier. Exported for
+ * `bind-slot-collision.ts`'s `findModifierSlotCollision`, which needs the same name a fresh layer
+ * would get to label a collision against an action that occupies `(modifier, key)` before that
+ * modifier's layer has actually been created yet (i.e. before the next `setActions`/`setLayers`
+ * mirror pass has run) - the layer name is otherwise only known once the layer object exists. */
+export const MODIFIER_LAYER_NAME: Record<ModifierTrigger, string> = {
   ALT: 'Alt',
   CTRL: 'Ctrl',
   SHIFT: 'Shift',
@@ -47,201 +56,127 @@ const MODIFIER_LAYER_NAME: Record<ModifierTrigger, string> = {
 /** Every modifier layer created by this module holds while its trigger is down. */
 const MODIFIER_LAYER_MODE: AltLayerMode = 'hold'
 
-export interface UpsertModifierLayerOverrideInput {
-  layers: AltLayer[]
-  modifier: ModifierTrigger
-  key: string
-  /**
-   * The exact command string to store as the override's value - stored
-   * verbatim (only `sanitizeCommand` applied), never re-derived or
-   * re-joined here. Whoever resolved a capture into one command string
-   * (D1) already decided what that string is; duplicating that logic here
-   * would be a second place it could drift from.
-   */
-  command: string
-  /**
-   * Id for a newly created layer. Caller supplies it (e.g.
-   * `crypto.randomUUID()`) so this function stays free of any
-   * id-generation policy/dependency - the same reason `assignLayerTrigger`
-   * and the rest of `alt-layers.ts` take ids as plain strings.
-   */
-  newId: string
-}
-
-export interface UpsertModifierLayerOverrideResult {
-  /** A new array - `layers` and its elements are never mutated in place. */
-  layers: AltLayer[]
-  /** Id of the layer the override was written into (existing or freshly created). */
-  layerId: string
-  /** True if a new layer was created by this call. */
-  created: boolean
-  /**
-   * The override's previous command at `key` in that layer, if any
-   * (`undefined` if the key had no override yet) - so a caller can warn
-   * before silently replacing it, the same shape `findBindCollision`'s
-   * `layerOverride` case reports for the non-blocking layer-level warning.
-   */
-  previousCommand: string | undefined
+/**
+ * A single key+modifier slot an action may carry - `{ key: action.key,
+ * modifier: action.keyModifier }` or the secondary equivalent. Local to
+ * `applyActionLayerMirror`; not worth exporting on its own.
+ */
+interface ActionModifierSlot {
+  key: string | undefined
+  modifier: ModifierTrigger | undefined
 }
 
 /**
- * Find-or-create the one layer for `modifier` and write `command` as its
- * override at `key`.
+ * Derive, for every alt/ctrl/shift layer, the `overrides` mirror of `actions`'
+ * modifier slots - the layer-side equivalent of `setActions`'s `binds` mirror
+ * in `src/main/modules/config/profiles.ts` (decision 17 there; this is its
+ * D7 counterpart for story 016's re-plan, decisions 14-21).
  *
- * Lookup is by normalized `triggerKey` only (see the file doc comment for
- * why never by `name`). `key` itself is stored and read back **verbatim**
- * (not normalized): the override map's own producer (`generateLayerAliases`)
- * already `.trim()`s keys when it reads them, and every other write path in
- * this module and the renderer stores raw captured key tokens the same way
- * `layer.overrides` already does elsewhere in the codebase (e.g. hand-built
- * layers in `alt-layers.test.ts`). Being consistent about that here - write
- * by exact `key`, read `previousCommand` by that same exact `key` - is what
- * lets `findBindLocation`'s reverse scan (which also compares raw override
- * keys) reliably find what this function just wrote.
- */
-export function upsertModifierLayerOverride(
-  input: UpsertModifierLayerOverrideInput,
-): UpsertModifierLayerOverrideResult {
-  const { layers, modifier, key, command, newId } = input
-  const sanitized = sanitizeCommand(command)
-
-  const existingIndex = layers.findIndex(
-    (candidate) => normalizeBindKey(candidate.triggerKey ?? '') === modifier,
-  )
-
-  if (existingIndex === -1) {
-    const created: AltLayer = {
-      id: newId,
-      name: MODIFIER_LAYER_NAME[modifier],
-      mode: MODIFIER_LAYER_MODE,
-      triggerKey: modifier,
-      overrides: { [key]: sanitized },
-    }
-    return {
-      layers: [...layers, created],
-      layerId: newId,
-      created: true,
-      previousCommand: undefined,
-    }
-  }
-
-  const existing = layers[existingIndex]!
-  const previousCommand = existing.overrides[key]
-  const updated: AltLayer = {
-    ...existing,
-    overrides: { ...existing.overrides, [key]: sanitized },
-  }
-
-  return {
-    layers: layers.map((candidate, index) => (index === existingIndex ? updated : candidate)),
-    layerId: existing.id,
-    created: false,
-    previousCommand,
-  }
-}
-
-export interface ModifierOverrideOwner {
-  /** The layer that already owns `key`'s override for this modifier. */
-  layerId: string
-  layerName: string
-  /** The override's current, exact command string - the thing a write would replace. */
-  command: string
-}
-
-/**
- * What already occupies `key`'s override inside the one layer for `modifier`,
- * if anything (story 016 D4, AC 6). Pure lookup only - it does not compare
- * against a candidate new command, so a caller deciding "is this actually a
- * different assignment, or the same row recapturing its own combo" does that
- * comparison itself (see `findModifierSlotCollision` in the renderer's
- * `bind-slot-collision.ts`, the one call site).
+ * A modifier binding is a property of the `ConfigAction` itself
+ * (`keyModifier`/`secondaryKeyModifier`), never derived from command text -
+ * that was the bug this redesign replaces: two distinct actions can render
+ * the identical command string (e.g. `dropWeapon:grenades` and
+ * `dropAmmo:hgrenades` both rendering `drop grenades`), so a lookup keyed by
+ * command text cannot tell them apart, while `aliasNameFor(action)` always
+ * can, since it is keyed by the action's own `id`.
  *
- * Layer lookup is the exact same rule as `upsertModifierLayerOverride` - by
- * normalized `triggerKey`, never by name - and the override lookup is the
- * same exact, non-normalized `key` read `upsertModifierLayerOverride` uses for
- * `previousCommand`, so this reports precisely what a write to the same
- * `(modifier, key)` would be about to overwrite.
+ * Two passes, exactly mirroring `setActions`:
+ *
+ * 1. Strip. Every override whose *value* starts with `ACTION_ALIAS_PREFIX` is
+ *    dropped from every layer, regardless of that layer's `triggerKey` - such
+ *    a value can only have been written by a previous call to this function,
+ *    so this is "forget everything this function ever wrote" before
+ *    rewriting it from scratch. A hand-made override (any other value) is
+ *    left alone; a layer with nothing to strip is returned as the same object
+ *    reference, so an untouched layer stays untouched by identity too, not
+ *    just by value.
+ * 2. Rewrite. For every action, in array order (later wins on a key
+ *    collision, the same determinism rule as `setActions`), each of its two
+ *    slots (`key`+`keyModifier`, `secondaryKey`+`secondaryKeyModifier`) that
+ *    carries **both** a key and a modifier gets one
+ *    `overrides[normalizeBindKey(key)] = aliasNameFor(action)` written into
+ *    the layer for that modifier - found by normalized `triggerKey`, never by
+ *    name, so a hand-built layer (e.g. one named "Rocketjump" whose trigger
+ *    happens to be ALT) is reused rather than shadowed by a second, competing
+ *    ALT layer. A slot with a key but no modifier is a normal base bind -
+ *    `setActions`'s job, out of scope here.
+ *
+ * Because the strip pass is unconditional and total (every layer, regardless
+ * of whether anything will be rewritten into it afterwards), an action that
+ * lost its modifier - or was removed from `actions` altogether - leaves no
+ * stale override anywhere: nothing conditions the strip on "this layer is
+ * about to receive a new write".
+ *
+ * `newId` mints a fresh layer id, called once per newly created layer (a
+ * single call can create more than one, e.g. the first time both an ALT and
+ * a CTRL slot appear together) - a factory rather than a single pre-supplied
+ * id, since one call may need more than one, or `crypto.randomUUID()` called
+ * internally - no file under `src/shared` calls that directly today, and this
+ * module stays free of that dependency.
+ *
+ * Never mutates `layers` or any layer object in place; returns a new array.
+ * Pure and idempotent - calling it twice with the same `layers`/`actions`
+ * produces the same result both times.
  */
-export function findModifierOverrideOwner(
+export function applyActionLayerMirror(
   layers: AltLayer[],
-  modifier: ModifierTrigger,
-  key: string,
-): ModifierOverrideOwner | null {
-  const layer = layers.find(
-    (candidate) => normalizeBindKey(candidate.triggerKey ?? '') === modifier,
-  )
-  if (!layer) return null
+  actions: ConfigAction[],
+  newId: () => string,
+): AltLayer[] {
+  // --- pass 1: strip every previously-mirrored override -------------------
+  let result = layers.map((existingLayer) => {
+    const hasMirroredEntry = Object.values(existingLayer.overrides).some((command) =>
+      command.startsWith(ACTION_ALIAS_PREFIX),
+    )
+    if (!hasMirroredEntry) return existingLayer
 
-  const command = layer.overrides[key]
-  if (!command) return null
-
-  return { layerId: layer.id, layerName: layer.name, command }
-}
-
-export interface BindLocation {
-  key: string
-  /** `null` when found in the base layer's `binds`, otherwise which modifier layer's override it was. */
-  modifier: ModifierTrigger | null
-}
-
-const MODIFIER_TRIGGERS: readonly ModifierTrigger[] = ['ALT', 'CTRL', 'SHIFT']
-
-/** Exported (review-fix) so `catalog-binds.ts`'s `findRowLayerOverride` can scan
- * `profile.layers` for modifier layers the same way `findBindLocation` does below,
- * without duplicating the trigger-name check in a second file. */
-export function isModifierTrigger(value: string): value is ModifierTrigger {
-  return (MODIFIER_TRIGGERS as readonly string[]).includes(value)
-}
-
-/**
- * Reverse lookup: given an exact command string, find where it is bound.
- *
- * Matching is **exact string equality against the stored value**, not a
- * second `sanitizeCommand` pass here. Every writer that puts a command into
- * `profile.binds` or a layer's `overrides` already sanitizes on the way in -
- * `upsertModifierLayerOverride` above, and the base-bind editor per
- * `alt-layers.ts`'s own D6 doc comment ("safe to store as a base bind at
- * all"). Re-sanitizing in the reverse lookup would only ever paper over a
- * caller that forgot to sanitize on write, at the cost of this function
- * silently matching a command that is not actually byte-identical to what
- * a fresh `upsertModifierLayerOverride` call would store - worse than
- * failing loudly.
- *
- * Scan order: `profile.binds` first (base layer), then `profile.layers` in
- * array order, each layer's `overrides` in object-insertion order - first
- * match wins, mirroring `findBindCollision`'s base-before-layer precedence.
- *
- * A layer is only treated as a *modifier* layer's match when its
- * `triggerKey`, once normalized, is actually one of `ALT`/`CTRL`/`SHIFT`.
- * Layers with some other trigger (or none) are skipped entirely - not just
- * excluded from being reported as a modifier match, but not scanned at all -
- * for two reasons: `BindLocation.modifier` is typed as `ModifierTrigger |
- * null`, so returning an arbitrary trigger string would need an unsafe cast
- * to satisfy that contract; and semantically, a plain layer like "Zoom"
- * (trigger `v`) holding a command that happens to equal one this module also
- * wrote elsewhere is not "the same bind living under a modifier" - it is a
- * coincidence this function has no business reporting as one. A command that
- * lives only inside such a non-modifier layer is therefore not found by this
- * function at all (returns `null` unless it also matches somewhere else).
- */
-export function findBindLocation(profile: ConfigProfile, command: string): BindLocation | null {
-  for (const [rawKey, boundCommand] of Object.entries(profile.binds)) {
-    if (boundCommand === command) {
-      return { key: normalizeBindKey(rawKey), modifier: null }
+    const overrides: Record<string, string> = {}
+    for (const [key, command] of Object.entries(existingLayer.overrides)) {
+      if (!command.startsWith(ACTION_ALIAS_PREFIX)) overrides[key] = command
     }
-  }
+    return { ...existingLayer, overrides }
+  })
 
-  for (const layer of profile.layers ?? []) {
-    const normalizedTrigger = normalizeBindKey(layer.triggerKey ?? '')
-    if (!isModifierTrigger(normalizedTrigger)) continue
+  // --- pass 2: rewrite one override per modifier-carrying slot -------------
+  for (const action of actions) {
+    const slots: ActionModifierSlot[] = [
+      { key: action.key, modifier: action.keyModifier },
+      { key: action.secondaryKey, modifier: action.secondaryKeyModifier },
+    ]
 
-    for (const [rawKey, overrideCommand] of Object.entries(layer.overrides)) {
-      if (overrideCommand === command) {
-        return { key: normalizeBindKey(rawKey), modifier: normalizedTrigger }
+    for (const slot of slots) {
+      const key = slot.key?.trim()
+      const modifier = slot.modifier
+      if (!key || !modifier) continue
+
+      const normalizedKey = normalizeBindKey(key)
+      const alias = aliasNameFor(action)
+
+      const existingIndex = result.findIndex(
+        (candidate) => normalizeBindKey(candidate.triggerKey ?? '') === modifier,
+      )
+
+      if (existingIndex === -1) {
+        const created: AltLayer = {
+          id: newId(),
+          name: MODIFIER_LAYER_NAME[modifier],
+          mode: MODIFIER_LAYER_MODE,
+          triggerKey: modifier,
+          overrides: { [normalizedKey]: alias },
+        }
+        result = [...result, created]
+        continue
       }
+
+      const existing = result[existingIndex]!
+      const updated: AltLayer = {
+        ...existing,
+        overrides: { ...existing.overrides, [normalizedKey]: alias },
+      }
+      result = result.map((candidate, index) => (index === existingIndex ? updated : candidate))
     }
   }
 
-  return null
+  return result
 }
 

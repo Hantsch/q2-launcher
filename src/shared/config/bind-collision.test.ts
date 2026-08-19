@@ -141,6 +141,22 @@ describe('findBindCollision', () => {
     })
     expect(result).toEqual({ kind: 'baseBind', key: 'w', command: '+forward' })
   })
+
+  it('story 016 review fix: a modifier-bound slot does not falsely claim the plain base key', () => {
+    // An action on Alt+R (`keyModifier: 'ALT'`) is never mirrored onto the base `binds` map at
+    // all (AC 4) - so it must not appear to "own" the plain key `r` either. Before this fix,
+    // `slotValue` read `action.key` regardless of `keyModifier`, so a plain-`r` capture on a
+    // different action would falsely block on - and, via `releaseKey`, destroy - this one.
+    const modifierBound = action({ id: 'a1', name: 'Drop RL', key: 'r', keyModifier: 'ALT' })
+    const result = findBindCollision(profile({ actions: [modifierBound] }), 'r')
+    expect(result).toBeNull()
+  })
+
+  it('story 016 review fix: same, for a modifier-bound secondary slot', () => {
+    const modifierBound = action({ id: 'a1', name: 'Drop RL', secondaryKey: 'r', secondaryKeyModifier: 'CTRL' })
+    const result = findBindCollision(profile({ actions: [modifierBound] }), 'r')
+    expect(result).toBeNull()
+  })
 })
 
 describe('releaseKey', () => {
@@ -205,6 +221,19 @@ describe('releaseKey', () => {
 
     expect(result.actions).toEqual([{ ...owner, key: undefined }])
     expect(result.binds).toEqual({ q: 'weapnext' })
+  })
+
+  it('action: clearing a modifier-bound slot also clears its modifier field (review fix)', () => {
+    // Defense in depth: `findBindCollision` can no longer produce an `action` collision whose
+    // slot carries a modifier (see the test above), but `releaseKey` clears both fields together
+    // regardless of how it is reached, so a half-filled slot (a modifier with no key) can never
+    // exist - the invariant `catalog-binds.ts`'s `applySlot` documents.
+    const owner = action({ id: 'a1', name: 'Drop RL', key: 'r', keyModifier: 'ALT' })
+    const collision: BindCollision = { kind: 'action', key: 'r', actionId: 'a1', name: 'Drop RL', slot: 'primary' }
+
+    const result = releaseKey([owner], {}, collision)
+
+    expect(result.actions).toEqual([{ ...owner, key: undefined, keyModifier: undefined }])
   })
 
   it('layerOverride: returns actions and binds unchanged', () => {

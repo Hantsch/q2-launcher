@@ -1,13 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { AltLayer } from '@shared/config/alt-layers'
-import { generateLayerAliases, sanitizeCommand } from '@shared/config/alt-layers'
-import type { ConfigProfile } from '@shared/modules/config'
-import {
-  findBindLocation,
-  findModifierOverrideOwner,
-  upsertModifierLayerOverride,
-  type UpsertModifierLayerOverrideInput,
-} from './modifier-layers'
+import { aliasNameFor } from '@shared/config/alias-render'
+import type { ConfigAction } from '@shared/modules/config'
+import { applyActionLayerMirror } from './modifier-layers'
 
 function layer(overrides: Partial<AltLayer> = {}): AltLayer {
   return {
@@ -20,306 +15,143 @@ function layer(overrides: Partial<AltLayer> = {}): AltLayer {
   }
 }
 
-function profile(overrides: Partial<ConfigProfile> = {}): ConfigProfile {
+function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
   return {
-    id: 'profile-1',
-    name: 'Default',
-    createdAt: '2024-01-01T00:00:00.000Z',
-    updatedAt: '2024-01-01T00:00:00.000Z',
-    cvars: {},
-    binds: {},
-    assignments: [],
+    id: 'action-1',
+    categoryId: 'category-1',
+    name: 'Action',
+    commands: [],
     ...overrides,
   }
 }
 
-function upsert(
-  input: Partial<UpsertModifierLayerOverrideInput> = {},
-): ReturnType<typeof upsertModifierLayerOverride> {
-  return upsertModifierLayerOverride({
-    layers: [],
-    modifier: 'ALT',
-    key: 'R',
-    command: 'drop rocket launcher',
-    newId: 'new-layer-id',
-    ...input,
-  })
+/** Sequential id generator for tests that create more than one layer. */
+function idSequence(...ids: string[]): () => string {
+  let index = 0
+  return () => ids[index++] ?? `unexpected-id-${index}`
 }
 
-describe('upsertModifierLayerOverride — creating a new layer', () => {
-  it('creates a hold ALT layer named Alt when none exists', () => {
-    const result = upsert()
-
-    expect(result.created).toBe(true)
-    expect(result.layerId).toBe('new-layer-id')
-    expect(result.previousCommand).toBeUndefined()
-    expect(result.layers).toEqual([
-      {
-        id: 'new-layer-id',
-        name: 'Alt',
-        mode: 'hold',
-        triggerKey: 'ALT',
-        overrides: { R: 'drop rocket launcher' },
-      },
-    ])
-  })
-
-  it('uses the modifier-specific literal name for CTRL and SHIFT', () => {
-    expect(upsert({ modifier: 'CTRL', newId: 'c1' }).layers[0]?.name).toBe('Ctrl')
-    expect(upsert({ modifier: 'SHIFT', newId: 's1' }).layers[0]?.name).toBe('Shift')
-  })
-
-  it('reuses the same layer for a second key under the same modifier', () => {
-    const first = upsert()
-    const second = upsertModifierLayerOverride({
-      layers: first.layers,
-      modifier: 'ALT',
-      key: 'F',
-      command: 'wave 1',
-      newId: 'unused-because-reused',
+describe('applyActionLayerMirror', () => {
+  it('gives two catalogue rows that render identical command text their own distinct override (regression)', () => {
+    // dropWeapon:grenades and dropAmmo:hgrenades both used to render the
+    // identical command string "drop grenades" under the old, now-deleted
+    // command-text lookup. Each catalogue row becomes a ConfigAction with its
+    // own freshly generated `id` (never the catalogue row's own id - that is
+    // what `catalogId` is for), so aliasNameFor - keyed off `action.id` - must
+    // keep them apart regardless of the command they both happen to render.
+    const dropWeaponGrenades = action({
+      id: 'a1e29f00-0000-4000-8000-000000000001',
+      catalogId: 'dropWeapon:grenades',
+      name: 'Grenades',
+      key: 'G',
+      keyModifier: 'ALT',
+    })
+    const dropAmmoHgrenades = action({
+      id: 'b7c48d11-0000-4000-8000-000000000002',
+      catalogId: 'dropAmmo:hgrenades',
+      name: 'Hand Grenades',
+      key: 'H',
+      keyModifier: 'ALT',
     })
 
-    expect(second.created).toBe(false)
-    expect(second.layerId).toBe('new-layer-id')
-    // Same layer, not a second one.
-    expect(second.layers).toHaveLength(1)
-    expect(second.layers[0]?.overrides).toEqual({
-      R: 'drop rocket launcher',
-      F: 'wave 1',
-    })
-  })
-
-  it('reuses a pre-existing hand-made layer with an arbitrary name', () => {
-    const handMade = layer({ id: 'hand-1', name: 'Rocketjump', triggerKey: 'ALT', overrides: {} })
-    const result = upsert({ layers: [handMade] })
-
-    expect(result.created).toBe(false)
-    expect(result.layerId).toBe('hand-1')
-    expect(result.layers).toHaveLength(1)
-    expect(result.layers[0]?.name).toBe('Rocketjump')
-    expect(result.layers[0]?.overrides).toEqual({ R: 'drop rocket launcher' })
-  })
-
-  it('keeps Ctrl+R and Alt+R in two different layers, each owning its own R', () => {
-    const afterCtrl = upsert({ modifier: 'CTRL', key: 'R', command: 'wave 2', newId: 'ctrl-layer' })
-    const afterAlt = upsertModifierLayerOverride({
-      layers: afterCtrl.layers,
-      modifier: 'ALT',
-      key: 'R',
-      command: 'drop rocket launcher',
-      newId: 'alt-layer',
-    })
-
-    expect(afterAlt.layers).toHaveLength(2)
-    const ctrlLayer = afterAlt.layers.find((candidate) => candidate.triggerKey === 'CTRL')
-    const altLayer = afterAlt.layers.find((candidate) => candidate.triggerKey === 'ALT')
-    expect(ctrlLayer?.overrides.R).toBe('wave 2')
-    expect(altLayer?.overrides.R).toBe('drop rocket launcher')
-  })
-})
-
-describe('upsertModifierLayerOverride — untouched inputs', () => {
-  it('leaves every other layer untouched (deep-equal, and unrelated overrides object identity-safe)', () => {
-    const untouched = layer({
-      id: 'other',
-      name: 'Zoom',
-      triggerKey: 'v',
-      overrides: { '1': 'zoom' },
-    })
-    const altLayer = layer({
-      id: 'alt-1',
-      name: 'Alt',
-      triggerKey: 'ALT',
-      overrides: { Q: 'wave 3' },
-    })
-
-    const result = upsert({ layers: [untouched, altLayer], newId: 'unused' })
-
-    const returnedUntouched = result.layers.find((candidate) => candidate.id === 'other')
-    expect(returnedUntouched).toBe(untouched)
-    expect(returnedUntouched?.overrides).toEqual({ '1': 'zoom' })
-  })
-})
-
-describe('upsertModifierLayerOverride — previousCommand', () => {
-  it('reports the command a second write to the same key would replace', () => {
-    const first = upsert({ key: 'R', command: 'drop rocket launcher' })
-    const second = upsertModifierLayerOverride({
-      layers: first.layers,
-      modifier: 'ALT',
-      key: 'R',
-      command: 'drop grenade launcher',
-      newId: 'unused',
-    })
-
-    expect(second.previousCommand).toBe('drop rocket launcher')
-    expect(second.layers[0]?.overrides.R).toBe('drop grenade launcher')
-  })
-
-  it('is undefined for a key that had no override yet, even in an existing layer', () => {
-    const first = upsert({ key: 'R' })
-    const second = upsertModifierLayerOverride({
-      layers: first.layers,
-      modifier: 'ALT',
-      key: 'F',
-      command: 'wave 1',
-      newId: 'unused',
-    })
-
-    expect(second.previousCommand).toBeUndefined()
-  })
-})
-
-describe('upsertModifierLayerOverride — command storage', () => {
-  it('stores the command via sanitizeCommand only, never re-derived or re-joined', () => {
-    const result = upsert({ command: 'drop  rocket  launcher   ' })
-    // sanitizeCommand alone: whitespace runs collapsed to one space, trimmed —
-    // no extra prefix/suffix a re-derivation step might add.
-    expect(result.layers[0]?.overrides.R).toBe('drop rocket launcher')
-  })
-
-  it('drops quote characters the same way sanitizeCommand does', () => {
-    const result = upsert({ command: 'say_team "taking rl"; drop rl' })
-    expect(result.layers[0]?.overrides.R).not.toContain('"')
-    expect(result.layers[0]?.overrides.R).toBe('say_team taking rl; drop rl')
-  })
-})
-
-describe('findBindLocation', () => {
-  it('finds a command bound in profile.binds with modifier: null', () => {
-    const result = findBindLocation(profile({ binds: { w: '+forward' } }), '+forward')
-    expect(result).toEqual({ key: 'w', modifier: null })
-  })
-
-  it('finds a command bound only inside an ALT layer override', () => {
-    const altLayer = layer({ triggerKey: 'ALT', overrides: { R: 'drop rocket launcher' } })
-    const result = findBindLocation(profile({ layers: [altLayer] }), 'drop rocket launcher')
-    // normalizeBindKey lower-cases a single printable character.
-    expect(result).toEqual({ key: 'r', modifier: 'ALT' })
-  })
-
-  it('returns null when the command is bound nowhere', () => {
-    const result = findBindLocation(
-      profile({ binds: { w: '+forward' }, layers: [layer({ overrides: { R: 'drop rl' } })] }),
-      'quit',
+    const result = applyActionLayerMirror(
+      [],
+      [dropWeaponGrenades, dropAmmoHgrenades],
+      idSequence('alt-layer'),
     )
-    expect(result).toBeNull()
+
+    expect(result).toHaveLength(1)
+    const altLayer = result[0]!
+    expect(altLayer.triggerKey).toBe('ALT')
+    // normalizeBindKey lower-cases a single printable character on write.
+    expect(altLayer.overrides.g).toBe(aliasNameFor(dropWeaponGrenades))
+    expect(altLayer.overrides.h).toBe(aliasNameFor(dropAmmoHgrenades))
+    expect(altLayer.overrides.g).not.toBe(altLayer.overrides.h)
   })
 
-  it('prefers a base-bind match over a layer override match', () => {
-    const altLayer = layer({ triggerKey: 'ALT', overrides: { Q: 'wave 1' } })
-    const result = findBindLocation(
-      profile({ binds: { w: 'wave 1' }, layers: [altLayer] }),
-      'wave 1',
-    )
-    expect(result).toEqual({ key: 'w', modifier: null })
-  })
-
-  it('skips a non-modifier layer even if its override matches the command', () => {
+  it('leaves hand-made overrides and non-modifier layers completely untouched', () => {
     const zoomLayer = layer({
-      id: 'zoom',
+      id: 'zoom-1',
       name: 'Zoom',
       triggerKey: 'v',
       overrides: { '1': 'wave 1' },
     })
-    const result = findBindLocation(profile({ layers: [zoomLayer] }), 'wave 1')
-    expect(result).toBeNull()
+    const handMadeAlt = layer({
+      id: 'hand-alt',
+      name: 'Rocketjump',
+      triggerKey: 'ALT',
+      overrides: { Q: 'say_team taking rl' },
+    })
+
+    const result = applyActionLayerMirror([zoomLayer, handMadeAlt], [], idSequence())
+
+    // Untouched by value...
+    expect(result).toEqual([zoomLayer, handMadeAlt])
+    // ...and by identity: nothing was stripped, so no new object was made.
+    expect(result[0]).toBe(zoomLayer)
+    expect(result[1]).toBe(handMadeAlt)
   })
 
-  it('skips a layer with no trigger key at all', () => {
-    const triggerless = layer({ triggerKey: null, overrides: { R: 'drop rl' } })
-    const result = findBindLocation(profile({ layers: [triggerless] }), 'drop rl')
-    expect(result).toBeNull()
-  })
-})
+  it('gives Alt+R and Ctrl+R two separate layers, each owning its own R', () => {
+    const altR = action({ id: 'alt-r-action', name: 'Alt R', key: 'R', keyModifier: 'ALT' })
+    const ctrlR = action({ id: 'ctrl-r-action', name: 'Ctrl R', key: 'R', keyModifier: 'CTRL' })
 
-describe('findModifierOverrideOwner', () => {
-  it('returns null when no layer exists for the modifier', () => {
-    expect(findModifierOverrideOwner([], 'ALT', 'R')).toBeNull()
-  })
+    const result = applyActionLayerMirror([], [altR, ctrlR], idSequence('alt-layer', 'ctrl-layer'))
 
-  it('returns null when the layer exists but the key has no override yet', () => {
-    const altLayer = layer({ id: 'alt-1', name: 'Alt', triggerKey: 'ALT', overrides: {} })
-    expect(findModifierOverrideOwner([altLayer], 'ALT', 'R')).toBeNull()
+    expect(result).toHaveLength(2)
+    const altLayer = result.find((candidate) => candidate.triggerKey === 'ALT')
+    const ctrlLayer = result.find((candidate) => candidate.triggerKey === 'CTRL')
+    expect(altLayer?.overrides.r).toBe(aliasNameFor(altR))
+    expect(ctrlLayer?.overrides.r).toBe(aliasNameFor(ctrlR))
+    expect(altLayer?.overrides.r).not.toBe(ctrlLayer?.overrides.r)
   })
 
-  it('reports the layer id/name and the exact occupying command', () => {
-    const altLayer = layer({
+  it('reuses a pre-existing hand-made ALT layer instead of creating a second one', () => {
+    const handMade = layer({ id: 'hand-1', name: 'Rocketjump', triggerKey: 'ALT', overrides: {} })
+    const rocketJump = action({ id: 'rj-action', name: 'Rocket Jump', key: 'R', keyModifier: 'ALT' })
+
+    const result = applyActionLayerMirror([handMade], [rocketJump], idSequence())
+
+    const altLayers = result.filter((candidate) => candidate.triggerKey === 'ALT')
+    expect(altLayers).toHaveLength(1)
+    expect(altLayers[0]?.id).toBe('hand-1')
+    expect(altLayers[0]?.name).toBe('Rocketjump')
+    expect(altLayers[0]?.overrides.r).toBe(aliasNameFor(rocketJump))
+  })
+
+  it('is idempotent: calling it twice with the same inputs yields the same result both times', () => {
+    const altR = action({ id: 'alt-r-action', name: 'Alt R', key: 'R', keyModifier: 'ALT' })
+    const ctrlR = action({ id: 'ctrl-r-action', name: 'Ctrl R', key: 'R', keyModifier: 'CTRL' })
+    const actions = [altR, ctrlR]
+
+    const first = applyActionLayerMirror([], actions, idSequence('alt-layer', 'ctrl-layer'))
+    const second = applyActionLayerMirror(first, actions, idSequence())
+
+    expect(second).toEqual(first)
+  })
+
+  it('leaves no stale override once an action loses its modifier', () => {
+    // Simulates the state after a prior mirror pass wrote this override, then
+    // the action was edited to drop its ALT modifier (or removed outright).
+    const staleAlias = 'q2l_a_stale_0000'
+    const altLayerWithStale = layer({
       id: 'alt-1',
       name: 'Alt',
       triggerKey: 'ALT',
-      overrides: { R: 'drop rocket launcher' },
+      overrides: { G: staleAlias },
     })
-    expect(findModifierOverrideOwner([altLayer], 'ALT', 'R')).toEqual({
-      layerId: 'alt-1',
-      layerName: 'Alt',
-      command: 'drop rocket launcher',
-    })
-  })
 
-  it('matches by triggerKey only, so a hand-made layer with an arbitrary name is still found', () => {
-    const handMade = layer({
-      id: 'hand-1',
-      name: 'Rocketjump',
-      triggerKey: 'ALT',
-      overrides: { R: 'drop rocket launcher' },
-    })
-    expect(findModifierOverrideOwner([handMade], 'ALT', 'R')?.layerName).toBe('Rocketjump')
-  })
+    // The action no longer carries a modifier at all (plain base bind now).
+    const stillPresentNoModifier = action({ id: 'stale', name: 'Stale', key: 'G' })
 
-  it('does not cross modifiers: a CTRL override at the same key is invisible to an ALT lookup', () => {
-    const ctrlLayer = layer({ id: 'ctrl-1', name: 'Ctrl', triggerKey: 'CTRL', overrides: { R: 'wave 1' } })
-    expect(findModifierOverrideOwner([ctrlLayer], 'ALT', 'R')).toBeNull()
-  })
-})
+    const result = applyActionLayerMirror([altLayerWithStale], [stillPresentNoModifier], idSequence())
 
-describe('base bind vs. layer override — identical rendering (no second code path)', () => {
-  // A command with both a `;` (helper-alias hoisting) and a `"` (quote
-  // stripping), exercising alt-layers.ts's quoting rules end-to-end.
-  const COMMAND = 'drop rocket launcher; say_team "dropping RL"'
+    const altLayer = result.find((candidate) => candidate.triggerKey === 'ALT')
+    expect(altLayer?.overrides.G).toBeUndefined()
 
-  it('renders the identical executed command whether the string is a base bind or a fresh layer override', () => {
-    // Path A: what a base bind stores for this exact string (D6: the editor
-    // sanitizes before saving a raw command as a base bind).
-    const baseBoundCommand = sanitizeCommand(COMMAND)
-
-    // Path B: the exact same string placed into a layer override via
-    // upsertModifierLayerOverride (what D3's caller does for an Alt+R capture).
-    const { layers } = upsert({ layers: [], key: 'R', command: COMMAND })
-    const altLayer = layers[0]!
-    const overrideCommand = altLayer.overrides.R!
-
-    // One sanitizing code path: the base-bind text and the layer-override
-    // text agree exactly, and neither carries the quote the user typed.
-    expect(overrideCommand).toBe(baseBoundCommand)
-    expect(overrideCommand).not.toContain('"')
-    expect(overrideCommand).toBe('drop rocket launcher; say_team dropping RL')
-
-    // A hand-built layer carrying that same already-sanitized string renders
-    // byte-identical aliases to the one upsertModifierLayerOverride produced
-    // — proving there is no second, divergent rendering path either.
-    const handPlacedLayer = layer({
-      id: 'hand',
-      name: 'Alt',
-      triggerKey: 'ALT',
-      overrides: { R: overrideCommand },
-    })
-    const rendered = generateLayerAliases(altLayer, {})
-    const handRendered = generateLayerAliases(handPlacedLayer, {})
-    expect(rendered.aliases.map((a) => a.line)).toEqual(handRendered.aliases.map((a) => a.line))
-
-    // The `;`-carrying command was hoisted into its own helper alias, whose
-    // body is exactly the sanitized command both paths agree on.
-    const helperAlias = rendered.aliases.find((a) => /_c\d+$/.test(a.name))
-    expect(helperAlias?.body).toBe(baseBoundCommand)
-  })
-
-  it('never leaves a quote character in the stored override or its rendered alias', () => {
-    const { layers } = upsert({ layers: [], key: 'R', command: COMMAND })
-    const altLayer = layers[0]!
-    const rendered = generateLayerAliases(altLayer, {})
-
-    expect(altLayer.overrides.R).not.toContain('"')
-    for (const alias of rendered.aliases) expect(alias.body).not.toContain('"')
+    // Same, but the action is removed from `actions` entirely.
+    const resultRemoved = applyActionLayerMirror([altLayerWithStale], [], idSequence())
+    const altLayerRemoved = resultRemoved.find((candidate) => candidate.triggerKey === 'ALT')
+    expect(altLayerRemoved?.overrides.G).toBeUndefined()
   })
 })

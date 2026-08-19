@@ -49,7 +49,17 @@ export type BindCollision =
   | { kind: 'action'; key: string; actionId: string; name: string; slot: BindSlot }
   | { kind: 'layerOverride'; key: string; layerId: string; command: string }
 
+/**
+ * A slot's key, but only when it is actually a base-layer claim. Story 016: a slot that carries a
+ * `keyModifier`/`secondaryKeyModifier` is never mirrored onto `profile.binds` at all (AC 4) - its
+ * key lives only inside that modifier's layer override - so such a slot must be invisible here,
+ * exactly as invisible as it is to the real base-bind mirror `setActions` writes. Without this
+ * check, an action on `Alt+R` would falsely appear to own the *plain* key `r`, blocking (and, via
+ * `releaseKey`, destroying) a legitimate plain-`r` capture on a different action.
+ */
 function slotValue(action: ConfigAction, slot: BindSlot): string | undefined {
+  const modifier = slot === 'primary' ? action.keyModifier : action.secondaryKeyModifier
+  if (modifier) return undefined
   return slot === 'primary' ? action.key : action.secondaryKey
 }
 
@@ -194,9 +204,13 @@ export function releaseKey(
   const released = actions.find((action) => action.id === collision.actionId)
   const nextActions = actions.map((action) => {
     if (action.id !== collision.actionId) return action
+    // Story 016: a slot's modifier is never left behind on its own - `slotValue` above already
+    // keeps this branch from ever firing on a slot that actually carries one today, but clearing
+    // both fields together (never just the key) keeps that invariant true regardless of how this
+    // branch is reached, matching `applyModifierReplace`'s identical release step.
     return collision.slot === 'primary'
-      ? { ...action, key: undefined }
-      : { ...action, secondaryKey: undefined }
+      ? { ...action, key: undefined, keyModifier: undefined }
+      : { ...action, secondaryKey: undefined, secondaryKeyModifier: undefined }
   })
 
   const mirroredCommand = released ? commandForNormalizedKey(binds, collision.key) : undefined

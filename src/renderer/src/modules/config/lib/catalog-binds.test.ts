@@ -1,48 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { DROPPABLES, MOVEMENT_ACTIONS, WEAPON_ACTIONS, WEAPON_EXTRA_ACTIONS } from '@shared/config/action-catalog'
-import { renderActionAlias } from '@shared/config/alias-render'
-import type { AltLayer } from '@shared/config/alt-layers'
-import type { ConfigAction, ConfigCommand, ConfigProfile } from '@shared/modules/config'
+import type { ConfigAction } from '@shared/modules/config'
 import {
   applyAmmo,
   applyMessage,
   applySlot,
   buildDropGroups,
   buildMovementRows,
-  buildRowCommandString,
   buildWeaponRows,
   deriveRowState,
-  findRowLayerOverride,
-  parseRowCommandState,
   type CatalogRow,
 } from './catalog-binds'
 
 function findAction(actions: ConfigAction[], row: CatalogRow): ConfigAction | undefined {
   return actions.find((action) => action.catalogId === row.catalogId)
-}
-
-function altLayer(overrides: Partial<AltLayer> = {}): AltLayer {
-  return {
-    id: 'layer-1',
-    name: 'Alt',
-    mode: 'hold',
-    triggerKey: 'ALT',
-    overrides: {},
-    ...overrides,
-  }
-}
-
-function profile(overrides: Partial<ConfigProfile> = {}): ConfigProfile {
-  return {
-    id: 'p1',
-    name: 'Profile',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    cvars: {},
-    binds: {},
-    assignments: [],
-    ...overrides,
-  }
 }
 
 describe('buildMovementRows', () => {
@@ -115,9 +86,61 @@ describe('deriveRowState', () => {
     expect(deriveRowState(undefined, row)).toEqual({
       primary: undefined,
       secondary: undefined,
+      primaryModifier: undefined,
+      secondaryModifier: undefined,
       withAmmo: true,
       message: '',
     })
+  })
+
+  /**
+   * Story 016 D9: a slot's modifier is read straight off the action, the same
+   * way its key is. The point of these three cases together is that there is
+   * exactly one source for it - no lookup in `layers`, and nothing derived from
+   * command text, which is what made the previous design unable to tell two
+   * identically-rendering rows apart.
+   */
+  it('surfaces each slot\'s modifier straight from the action', () => {
+    const action: ConfigAction = {
+      id: 'a1',
+      categoryId: 'movement',
+      name: '+forward',
+      catalogId: row.catalogId,
+      commands: [{ kind: 'raw', text: '+forward' }],
+      key: 'r',
+      keyModifier: 'ALT',
+      secondaryKey: 'f',
+      secondaryKeyModifier: 'CTRL',
+    }
+
+    expect(deriveRowState(action, row)).toMatchObject({
+      primary: 'r',
+      primaryModifier: 'ALT',
+      secondary: 'f',
+      secondaryModifier: 'CTRL',
+    })
+  })
+
+  it('reports no modifier for a pre-016 action that carries neither field', () => {
+    const action: ConfigAction = {
+      id: 'a1',
+      categoryId: 'movement',
+      name: '+forward',
+      catalogId: row.catalogId,
+      commands: [{ kind: 'raw', text: '+forward' }],
+      key: 'w',
+      secondaryKey: 'UPARROW',
+    }
+
+    const state = deriveRowState(action, row)
+    expect(state.primaryModifier).toBeUndefined()
+    expect(state.secondaryModifier).toBeUndefined()
+  })
+
+  it('reports no modifier when there is no action at all', () => {
+    const state = deriveRowState(undefined, row)
+    expect(state.primaryModifier).toBeUndefined()
+    expect(state.secondaryModifier).toBeUndefined()
   })
 })
 
@@ -158,6 +181,65 @@ describe('applySlot', () => {
     expect(created.catalogId).toBe('movement:forward')
     expect(created.categoryId).toBe('movement')
     expect(created.name).toBe('+forward')
+  })
+
+  /**
+   * Story 016 D9: the modifier is stored on the action next to its slot's key,
+   * and it is bound to that key in both directions - it never outlives the key
+   * it was captured with, and it never leaks into the other slot. Those two
+   * invariants are what let main mirror a slot as a base bind or as a layer
+   * override from the action alone (`applyActionLayerMirror`), with no
+   * half-filled slot to interpret.
+   */
+  it('stores the modifier alongside the key it was captured with', () => {
+    const actions = applySlot([], row, 'primary', 'r', 'ALT')
+    const created = findAction(actions, row)!
+
+    expect(created.key).toBe('r')
+    expect(created.keyModifier).toBe('ALT')
+  })
+
+  it('keeps the two slots\' keys and modifiers independent', () => {
+    let actions = applySlot([], row, 'primary', 'r', 'ALT')
+    actions = applySlot(actions, row, 'secondary', 'f', 'CTRL')
+
+    let created = findAction(actions, row)!
+    expect(created).toMatchObject({
+      key: 'r',
+      keyModifier: 'ALT',
+      secondaryKey: 'f',
+      secondaryKeyModifier: 'CTRL',
+    })
+
+    // Rewriting one slot leaves the other's key *and* modifier untouched.
+    actions = applySlot(actions, row, 'primary', 'w')
+    created = findAction(actions, row)!
+    expect(created).toMatchObject({ key: 'w', secondaryKey: 'f', secondaryKeyModifier: 'CTRL' })
+    expect(created.keyModifier).toBeUndefined()
+  })
+
+  it('clears a slot\'s modifier along with its key', () => {
+    let actions = applySlot([], row, 'primary', 'r', 'ALT')
+    // A second slot keeps the action alive past the prune, so there is something
+    // left to assert on.
+    actions = applySlot(actions, row, 'secondary', 'f', 'SHIFT')
+    actions = applySlot(actions, row, 'primary', undefined)
+
+    const created = findAction(actions, row)!
+    expect(created.key).toBeUndefined()
+    expect(created.keyModifier).toBeUndefined()
+    expect(created.secondaryKeyModifier).toBe('SHIFT')
+  })
+
+  it('drops a previous modifier when the slot is re-captured as a plain key', () => {
+    let actions = applySlot([], row, 'secondary', 'r', 'ALT')
+    expect(findAction(actions, row)!.secondaryKeyModifier).toBe('ALT')
+
+    actions = applySlot(actions, row, 'secondary', 'r')
+
+    const created = findAction(actions, row)!
+    expect(created.secondaryKey).toBe('r')
+    expect(created.secondaryKeyModifier).toBeUndefined()
   })
 })
 
@@ -254,194 +336,5 @@ describe('command ordering', () => {
       { kind: 'raw', text: 'drop rockets' },
       { kind: 'message', channel: 'say_team', text: 'Rockets incoming!' },
     ])
-  })
-})
-
-/**
- * Story 016 D3: the single command builder shared by the base-bind path and the
- * modifier-layer path (decision 12). Every case is asserted twice - once
- * against the literal expected string, and once against the alias body
- * `renderActionAlias` produces for a `ConfigAction` carrying the same commands.
- * The second assertion is the concrete proof of AC 5: the string this function
- * hands to `upsertModifierLayerOverride` is byte-identical to what the base
- * path executes, so the two can never render differently. (D2's own tests
- * already covered the other half - that such a string renders identically as a
- * layer override.)
- */
-describe('buildRowCommandString', () => {
-  /** The body `renderActionAlias` joins these commands into - the base path's rendering. */
-  function aliasBodyFor(commands: ConfigCommand[]): string {
-    const action: ConfigAction = {
-      id: 'aaaa1111-2222-3333-4444-555555555555',
-      categoryId: 'drops',
-      name: 'probe',
-      commands,
-    }
-    const { aliases } = renderActionAlias(action)
-    expect(aliases).toHaveLength(1)
-    return aliases[0]!.body
-  }
-
-  it('yields just the row command for a movement row (no ammo, no message)', () => {
-    const row = buildMovementRows().find((r) => r.catalogId === 'movement:forward')!
-    const state = deriveRowState(undefined, row)
-
-    expect(buildRowCommandString(row, state)).toBe('+forward')
-    expect(buildRowCommandString(row, state)).toBe(
-      aliasBodyFor([{ kind: 'raw', text: '+forward' }]),
-    )
-  })
-
-  it('appends the ammo command for a drop row with ammo on', () => {
-    const row = buildDropGroups().weapon.find((r) => r.catalogId === 'dropWeapon:rlauncher')!
-    const actions = applySlot([], row, 'primary', 'r')
-    const state = deriveRowState(findAction(actions, row), row)
-
-    expect(state.withAmmo).toBe(true)
-    expect(buildRowCommandString(row, state)).toBe('drop rocket launcher; drop rockets')
-    expect(buildRowCommandString(row, state)).toBe(
-      aliasBodyFor([
-        { kind: 'raw', text: 'drop rocket launcher' },
-        { kind: 'raw', text: 'drop rockets' },
-      ]),
-    )
-  })
-
-  it('omits the ammo command once ammo is switched off', () => {
-    const row = buildDropGroups().weapon.find((r) => r.catalogId === 'dropWeapon:rlauncher')!
-    let actions = applySlot([], row, 'primary', 'r')
-    actions = applyAmmo(actions, row, false)
-    const state = deriveRowState(findAction(actions, row), row)
-
-    expect(buildRowCommandString(row, state)).toBe('drop rocket launcher')
-  })
-
-  it('appends the team message last, after the ammo command', () => {
-    const row = buildDropGroups().weapon.find((r) => r.catalogId === 'dropWeapon:rlauncher')!
-    let actions = applySlot([], row, 'primary', 'r')
-    actions = applyMessage(actions, row, 'Rockets incoming!')
-    const state = deriveRowState(findAction(actions, row), row)
-
-    expect(buildRowCommandString(row, state)).toBe(
-      'drop rocket launcher; drop rockets; say_team Rockets incoming!',
-    )
-    expect(buildRowCommandString(row, state)).toBe(
-      aliasBodyFor([
-        { kind: 'raw', text: 'drop rocket launcher' },
-        { kind: 'raw', text: 'drop rockets' },
-        { kind: 'message', channel: 'say_team', text: 'Rockets incoming!' },
-      ]),
-    )
-  })
-
-  it('ignores a whitespace-only message rather than emitting an empty say_team', () => {
-    const row = buildDropGroups().weapon.find((r) => r.catalogId === 'dropWeapon:rlauncher')!
-    const state = { ...deriveRowState(undefined, row), message: '   ' }
-
-    expect(buildRowCommandString(row, state)).toBe('drop rocket launcher; drop rockets')
-  })
-})
-
-/**
- * Review-fix (AC 5): the reverse of `buildRowCommandString` - what lets a
- * layer-only-bound row (no `ConfigAction` at all) read its *actual* current
- * ammo/message state back out of the override's own command text, instead of
- * always reporting `deriveRowState(undefined, row)`'s "nothing bound yet"
- * default regardless of what is really stored (the bug this test file exists
- * to catch: a stale default silently overwriting a real value).
- */
-describe('parseRowCommandState', () => {
-  const dropRow = buildDropGroups().weapon.find((r) => r.catalogId === 'dropWeapon:rlauncher')!
-  const movementRow = buildMovementRows().find((r) => r.catalogId === 'movement:forward')!
-
-  it('round-trips every buildRowCommandString case exactly', () => {
-    for (const state of [
-      { withAmmo: true, message: '' },
-      { withAmmo: false, message: '' },
-      { withAmmo: true, message: 'incoming' },
-      { withAmmo: false, message: 'incoming' },
-    ]) {
-      const command = buildRowCommandString(dropRow, { primary: undefined, secondary: undefined, ...state })
-      expect(parseRowCommandState(dropRow, command)).toEqual(state)
-    }
-  })
-
-  it('preserves a message containing its own "; " separator verbatim', () => {
-    const command = buildRowCommandString(dropRow, {
-      primary: undefined,
-      secondary: undefined,
-      withAmmo: true,
-      message: 'taking rl; watch out',
-    })
-
-    expect(parseRowCommandState(dropRow, command)).toEqual({
-      withAmmo: true,
-      message: 'taking rl; watch out',
-    })
-  })
-
-  it('reports withAmmo: true for a row with no ammo command at all (movement)', () => {
-    expect(parseRowCommandState(movementRow, '+forward')).toEqual({ withAmmo: true, message: '' })
-  })
-
-  it('returns null for a command belonging to a different row entirely', () => {
-    expect(parseRowCommandState(dropRow, '+forward')).toBeNull()
-  })
-
-  it('returns null for trailing content that is not a say_team message', () => {
-    expect(parseRowCommandState(dropRow, 'drop rocket launcher; drop rockets; wave 1')).toBeNull()
-  })
-
-  it('returns null for an empty string', () => {
-    expect(parseRowCommandState(dropRow, '')).toBeNull()
-  })
-})
-
-describe('findRowLayerOverride', () => {
-  const dropRow = buildDropGroups().weapon.find((r) => r.catalogId === 'dropWeapon:rlauncher')!
-
-  it('returns null when no layer holds this row at all', () => {
-    expect(findRowLayerOverride(profile(), dropRow)).toBeNull()
-  })
-
-  it('finds the row by structural match and reports its actual stored state', () => {
-    const layer = altLayer({ id: 'alt-9', overrides: { r: 'drop rocket launcher; say_team incoming' } })
-
-    const found = findRowLayerOverride(profile({ layers: [layer] }), dropRow)
-
-    expect(found).toEqual({
-      modifier: 'ALT',
-      key: 'r',
-      command: 'drop rocket launcher; say_team incoming',
-      withAmmo: false,
-      message: 'incoming',
-    })
-  })
-
-  it('matches by triggerKey (a hand-made layer with any name still counts)', () => {
-    const layer = altLayer({ name: 'Rocketjump', triggerKey: 'ALT', overrides: { r: 'drop rocket launcher' } })
-
-    expect(findRowLayerOverride(profile({ layers: [layer] }), dropRow)?.modifier).toBe('ALT')
-  })
-
-  it('skips a non-modifier layer even if its override structurally matches', () => {
-    const layer = altLayer({ triggerKey: 'v', overrides: { '1': 'drop rocket launcher' } })
-
-    expect(findRowLayerOverride(profile({ layers: [layer] }), dropRow)).toBeNull()
-  })
-
-  it('skips overrides belonging to a different row', () => {
-    const layer = altLayer({ overrides: { r: 'drop grenade launcher' } })
-
-    expect(findRowLayerOverride(profile({ layers: [layer] }), dropRow)).toBeNull()
-  })
-
-  it('finds the row regardless of which layer/modifier currently holds it', () => {
-    const ctrlLayer = altLayer({ id: 'ctrl-1', name: 'Ctrl', triggerKey: 'CTRL', overrides: { f: 'drop rocket launcher' } })
-
-    const found = findRowLayerOverride(profile({ layers: [ctrlLayer] }), dropRow)
-
-    expect(found?.modifier).toBe('CTRL')
-    expect(found?.key).toBe('f')
   })
 })

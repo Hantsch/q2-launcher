@@ -26,3 +26,6 @@ second roadmap.
   assigned engine's real limits, equally weighted, live against unsaved edits.
 - 010 — Cleanup of redundant per-mod config copies · S02 · reviewed scan/remove/undo for
   duplicate per-mod `.cfg` files, backed by the shared backup-once contract.
+- 016 — Auto-create an Alt/Ctrl/Shift layer when a modifier is held during key capture · S03 ·
+  modifier binding stored on the action itself, layer overrides a derived mirror of it — the
+  redesign that finally closed AC 5 after three prior review-fix cycles blocked on row identity.

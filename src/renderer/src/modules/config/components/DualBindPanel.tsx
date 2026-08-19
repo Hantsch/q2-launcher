@@ -2,20 +2,19 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SlidersHorizontal, Trash2 } from 'lucide-react'
 import { MOVEMENT_ACTIONS, WEAPON_ACTIONS, WEAPON_EXTRA_ACTIONS } from '@shared/config/action-catalog'
-import type { AltLayer } from '@shared/config/alt-layers'
-import {
-  findBindLocation,
-  upsertModifierLayerOverride,
-  type ModifierTrigger,
-} from '@shared/config/modifier-layers'
+import type { ModifierTrigger } from '@shared/config/modifier-layers'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import { IconButton } from '../../../components/ui/Button'
 import { SectionLabel } from '../../../components/ui/primitives'
-import { applyReplace, findModifierSlotCollision, findSlotCollision } from '../lib/bind-slot-collision'
+import {
+  applyModifierReplace,
+  applyReplace,
+  findModifierSlotCollision,
+  findSlotCollision,
+} from '../lib/bind-slot-collision'
 import {
   applySlot,
   buildMovementRows,
-  buildRowCommandString,
   buildWeaponRows,
   deriveRowState,
   type CatalogRow,
@@ -53,17 +52,15 @@ export interface DualBindPanelProps {
    * made two clicks ago.
    */
   draft: ConfigProfile
-  /** Persists immediately (decision 16) - the caller's `persistCategoriesAndActions`. */
-  onActionsChange: (nextActions: ConfigAction[]) => void
   /**
-   * Story 016 D3: persists the whole `layers` array in one `updateProfileLayers`
-   * call (decision 8 - `setLayers` has replace-whole-array semantics, so two
-   * round trips could clobber a layer created in between). Separate from
-   * `onActionsChange` because a modifier capture writes *only* to `layers`: the
-   * action, and therefore the base bind for that key, is left exactly as it was
-   * (AC 4).
+   * Persists immediately (decision 16) - the caller's
+   * `persistCategoriesAndActions`. Story 016 D9: this is the *only* save path in
+   * this panel. A modifier capture goes through it too, because the modifier is
+   * part of the action (`keyModifier`), so one capture is one action save and
+   * one IPC round trip; the modifier layer and its override are derived from
+   * that save by main (`applyActionLayerMirror` inside `setActions`).
    */
-  onLayersChange: (nextLayers: AltLayer[]) => void
+  onActionsChange: (nextActions: ConfigAction[]) => void
   /**
    * "Other actions" (decision 5) reuse `AdvancedTab`'s existing edit/remove handlers - there is
    * no reason to reinvent them for the handful of legacy rows still living here. Rename is
@@ -89,7 +86,6 @@ export function DualBindPanel({
   actions,
   draft,
   onActionsChange,
-  onLayersChange,
   onEditLegacyAction,
   onRemoveLegacyAction,
 }: DualBindPanelProps) {
@@ -117,7 +113,6 @@ export function DualBindPanel({
               actions={actions}
               draft={draft}
               onActionsChange={onActionsChange}
-              onLayersChange={onLayersChange}
             />
           ))}
         </ul>
@@ -134,7 +129,6 @@ export function DualBindPanel({
                   actions={actions}
                   draft={draft}
                   onActionsChange={onActionsChange}
-                  onLayersChange={onLayersChange}
                 />
               ))}
             </ul>
@@ -150,7 +144,6 @@ export function DualBindPanel({
                   actions={actions}
                   draft={draft}
                   onActionsChange={onActionsChange}
-                  onLayersChange={onLayersChange}
                 />
               ))}
             </ul>
@@ -202,68 +195,40 @@ export function DualBindPanel({
  * reported as colliding with itself; it is `undefined` while the row is still unmaterialised
  * (decision 3) - there is nothing to self-ignore then. `onReplace` goes through `applyReplace`,
  * which is the one place that releases the previous owner and applies the new key as a single
- * save - see its doc comment before changing this wiring. */
+ * save - see its doc comment before changing this wiring.
+ *
+ * Story 016 D9: `onAssignModifier` is the same `applySlot` write as `onAssign`, one argument
+ * longer - a modifier capture is an ordinary slot assignment that happens to carry a modifier, so
+ * it saves through `onActionsChange` like everything else here. There is deliberately no write
+ * into `layers` from a slot: main derives every modifier layer's overrides from the saved actions
+ * (`applyActionLayerMirror`), which is also why each slot passes its own `'primary'`/`'secondary'`
+ * rather than sharing one handler - the modifier belongs to a specific slot now. */
 function CatalogBindRow({
   row,
   label,
   actions,
   draft,
   onActionsChange,
-  onLayersChange,
 }: {
   row: CatalogRow
   label: string
   actions: ConfigAction[]
   draft: ConfigProfile
   onActionsChange: (nextActions: ConfigAction[]) => void
-  onLayersChange: (nextLayers: AltLayer[]) => void
 }) {
   const { t } = useTranslation()
   const action = actions.find((candidate) => candidate.catalogId === row.catalogId)
   const state = deriveRowState(action, row)
 
-  // Story 016 D3: the one command builder both paths share (decision 12) - the
-  // string that would be written as a layer override is the same one the base
-  // path renders into this row's alias body.
-  const rowCommand = buildRowCommandString(row, state)
-  const modifierLocation = rowCommand ? findBindLocation(draft, rowCommand) : null
-  // Accepted display-only ambiguity: `rowCommand` does not depend on which slot
-  // holds it, so `findBindLocation`'s single first match cannot tell which slot
-  // owns a modifier assignment if a row somehow had one in each. The UI never
-  // produces that - `handleAssignModifier` is the same function for both slots
-  // and each call writes one override - so this is a labelling edge case, not a
-  // write-path bug.
-  const primaryModifierDisplay =
-    !state.primary && modifierLocation?.modifier
-      ? { modifier: modifierLocation.modifier, key: modifierLocation.key }
-      : undefined
-  const secondaryModifierDisplay =
-    !state.secondary && !primaryModifierDisplay && modifierLocation?.modifier
-      ? { modifier: modifierLocation.modifier, key: modifierLocation.key }
-      : undefined
-
-  const handleAssignModifier = ({
-    modifier,
-    key,
-  }: {
-    modifier: ModifierTrigger
-    key: string
-  }): void => {
-    const result = upsertModifierLayerOverride({
-      layers: draft.layers ?? [],
-      modifier,
-      key,
-      command: rowCommand,
-      newId: crypto.randomUUID(),
-    })
-    onLayersChange(result.layers)
-  }
-
-  // Story 016 D4: what a modifier capture on this row would overwrite, if
-  // anything. `rowCommand` is this row's own current command, so re-capturing
-  // the same combo for the same row is never reported as a collision.
+  // Story 016 D4/D9/D10: what a modifier capture on this row would overwrite, if
+  // anything - read from `actions` directly (D10), since that array is what
+  // actually decides who owns a `(modifier, key)` pair. `ignoreActionId` is this
+  // row's own action id, so re-capturing the same combo for the same row is not
+  // reported as a collision against itself; `undefined` while the row is still
+  // unmaterialised - it owns no slot yet, so every occupied override belongs to
+  // someone else.
   const checkModifierCollision = (modifier: ModifierTrigger, key: string) =>
-    findModifierSlotCollision(draft.layers ?? [], modifier, key, rowCommand)
+    findModifierSlotCollision(actions, draft.layers ?? [], modifier, key, action?.id)
 
   return (
     <li className="flex items-center gap-3 rounded-sm border border-line px-2.5 py-2">
@@ -275,8 +240,19 @@ function CatalogBindRow({
         <BindSlot
           label={t('config.advanced.dualBind.primary')}
           boundKey={state.primary}
-          modifierDisplay={primaryModifierDisplay}
-          onAssignModifier={handleAssignModifier}
+          boundModifier={state.primaryModifier}
+          onAssignModifier={({ modifier, key }) =>
+            onActionsChange(
+              applyModifierReplace({
+                actions,
+                collision: checkModifierCollision(modifier, key),
+                row,
+                slot: 'primary',
+                key,
+                modifier,
+              }),
+            )
+          }
           checkModifierCollision={checkModifierCollision}
           checkCollision={(key) =>
             findSlotCollision(draft, key, action ? { actionId: action.id, slot: 'primary' } : undefined)
@@ -295,8 +271,19 @@ function CatalogBindRow({
         <BindSlot
           label={t('config.advanced.dualBind.secondary')}
           boundKey={state.secondary}
-          modifierDisplay={secondaryModifierDisplay}
-          onAssignModifier={handleAssignModifier}
+          boundModifier={state.secondaryModifier}
+          onAssignModifier={({ modifier, key }) =>
+            onActionsChange(
+              applyModifierReplace({
+                actions,
+                collision: checkModifierCollision(modifier, key),
+                row,
+                slot: 'secondary',
+                key,
+                modifier,
+              }),
+            )
+          }
           checkModifierCollision={checkModifierCollision}
           checkCollision={(key) =>
             findSlotCollision(draft, key, action ? { actionId: action.id, slot: 'secondary' } : undefined)

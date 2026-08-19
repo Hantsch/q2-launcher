@@ -17,6 +17,7 @@ import {
 import { normalizeBindKey } from '@shared/config/key-names'
 import type { StateStore } from '../../services/state'
 import { ACTION_ALIAS_PREFIX, aliasNameFor } from '@shared/config/alias-render'
+import { applyActionLayerMirror } from '@shared/config/modifier-layers'
 import {
   assign as assignProfile,
   unassign as unassignProfile,
@@ -163,6 +164,23 @@ export class ProfilesStore {
    * Replaces a profile's entire `layers` array with `input.layers`. Same
    * replace-whole-array semantics as `setBinds`/`setCvars` above - the
    * renderer sends the full array it wants persisted.
+   *
+   * Story 016 (decision 18): the incoming array then goes through
+   * `applyActionLayerMirror` against the profile's *existing* `actions` before
+   * being stored, exactly as `setActions` does below. `layers` is replaced
+   * wholesale, so a Layers-panel save that was assembled from a slightly stale
+   * profile snapshot would otherwise silently drop the `q2l_a_*` overrides
+   * `setActions` derived for every modifier-bound slot - and nothing would turn
+   * red, the binds would just stop working. Re-deriving them here makes the
+   * mirror an invariant of the persisted state rather than of one write path:
+   * whichever of the two setters ran last, the modifier overrides are correct.
+   *
+   * `input.layers` is the layer *content* authority (names, modes, trigger
+   * keys, hand-made overrides) and `current.actions` is the mirror authority -
+   * this call never changes `actions`, so it cannot invent an override for a
+   * slot the actions array does not carry, and a hand-made override in
+   * `input.layers` (any value not starting with `ACTION_ALIAS_PREFIX`) is
+   * passed through untouched.
    */
   setLayers(input: SetProfileLayersInput): ConfigProfile[] {
     const current = this.find(input.profileId)
@@ -170,7 +188,7 @@ export class ProfilesStore {
 
     const next: ConfigProfile = {
       ...current,
-      layers: [...input.layers],
+      layers: applyActionLayerMirror(input.layers, current.actions ?? [], randomUUID),
       updatedAt: new Date().toISOString(),
     }
     return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
@@ -198,6 +216,32 @@ export class ProfilesStore {
    * `q2l_a_*` mirror is rebuilt from the surviving slots anyway), and an action
    * whose two slots normalize to the same key writes that key twice with the
    * same value, which is a no-op rather than a conflict.
+   *
+   * Story 016 (decisions 17-18) adds the modifier half, and it is deliberately
+   * *two* mirrors over the same one loop's worth of information, not one mirror
+   * with a branch:
+   *
+   * - A slot that carries a modifier (`keyModifier` for `key`,
+   *   `secondaryKeyModifier` for `secondaryKey`) is skipped by the `binds`
+   *   mirror above. Quake 2 has no modifiers, so `Alt+R` is not a bind at all -
+   *   it is an override inside the ALT layer. Writing a base `bind r` for it
+   *   would make the action fire on bare `r` too, which is precisely the
+   *   collision the modifier exists to avoid. The two slots are judged
+   *   independently: a row can have Primary on `Alt+R` and Secondary on plain
+   *   `MOUSE2` at the same time, and each slot's own modifier field decides only
+   *   that slot's own fate.
+   * - Skipping is not the same as *dropping*: the strip pass above only removes
+   *   binds whose value starts with `ACTION_ALIAS_PREFIX`, so a user's
+   *   hand-typed `bind r "weapnext"` on that same key survives a row moving to
+   *   `Alt+R` untouched. What does disappear is a stale `q2l_a_*` base bind for
+   *   a slot that just *gained* a modifier - it has to, or the key would keep
+   *   firing the action without the modifier held.
+   * - `layers` is rebuilt by `applyActionLayerMirror` (`@shared/config/
+   *   modifier-layers`), the exact layer-side counterpart of the `binds` mirror:
+   *   same strip-then-rewrite shape, same `ACTION_ALIAS_PREFIX` filter, same
+   *   later-wins array order. Hand-made overrides and non-modifier layers are
+   *   left alone; `randomUUID` is passed as its id factory so that pure,
+   *   `src/shared` function stays free of `node:crypto`.
    */
   setActions(input: SetProfileActionsInput): ConfigProfile[] {
     const current = this.find(input.profileId)
@@ -208,7 +252,12 @@ export class ProfilesStore {
       if (!command.startsWith(ACTION_ALIAS_PREFIX)) nextBinds[key] = command
     }
     for (const action of input.actions) {
-      const keys = [action.key, action.secondaryKey]
+      // A slot with a modifier belongs to that modifier's layer, not to `binds`
+      // (story 016 decision 17) - each slot is judged by its own modifier field.
+      const keys = [
+        action.keyModifier ? undefined : action.key,
+        action.secondaryKeyModifier ? undefined : action.secondaryKey,
+      ]
         .map((slot) => slot?.trim())
         .filter((slot): slot is string => Boolean(slot))
       if (keys.length === 0) continue
@@ -221,6 +270,7 @@ export class ProfilesStore {
       categories: [...input.categories],
       actions: [...input.actions],
       binds: nextBinds,
+      layers: applyActionLayerMirror(current.layers ?? [], input.actions, randomUUID),
       updatedAt: new Date().toISOString(),
     }
     return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))

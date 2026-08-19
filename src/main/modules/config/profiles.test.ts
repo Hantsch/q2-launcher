@@ -8,9 +8,11 @@ import {
   type ConfigAction,
   type ConfigActionCategory,
 } from '@shared/modules/config'
+import type { AltLayer } from '@shared/config/alt-layers'
 import { StateStore } from '../../services/state'
 import { aliasNameFor } from '@shared/config/alias-render'
 import { ProfilesStore } from './profiles'
+import { renderProfileFile } from './render'
 import {
   setProfileActionsInputSchema,
   setProfileBindsInputSchema,
@@ -452,6 +454,316 @@ describe('ProfilesStore', () => {
       const updated = result.find((p) => p.id === created!.id)!
       expect(updated.binds['F9']).toBe(aliasNameFor(keyed))
       expect(Object.keys(updated.binds)).not.toContain('  f9  ')
+    })
+  })
+
+  // Story 016 D8: both setters now derive the layer-side `q2l_a_*` mirror
+  // (`applyActionLayerMirror`), and `setActions` stops writing a base bind for
+  // a slot that carries a modifier. Own `category`/`action` fixtures rather
+  // than reaching into the `setActions` block above's scope.
+  describe('story 016: modifier-bound slots', () => {
+    const category: ConfigActionCategory = {
+      id: 'drops',
+      name: 'Weapon dropping',
+      entryKind: 'bind',
+    }
+
+    function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
+      return {
+        id: 'ab12cd34-0000-4000-8000-000000000001',
+        categoryId: category.id,
+        name: 'Rocket Launcher',
+        catalogId: 'dropWeapon:rlauncher',
+        // A materialised Weapon-dropping row (story 015 decision 6): item, its
+        // ammo, then the team message.
+        commands: [
+          { kind: 'raw', text: 'drop rocket launcher' },
+          { kind: 'raw', text: 'drop rockets' },
+          { kind: 'message', channel: 'say_team', text: 'need ammo' },
+        ],
+        ...overrides,
+      }
+    }
+
+    /** Every persisted layer whose trigger is `modifier` - normally exactly one. */
+    function modifierLayer(profileId: string, modifier: string): AltLayer[] {
+      const layers = profiles.find(profileId)!.layers ?? []
+      return layers.filter((layer) => layer.triggerKey === modifier)
+    }
+
+    it('writes no base bind for a slot that carries a modifier, only the layer override', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const altBound = action({ key: 'r', keyModifier: 'ALT' })
+
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [altBound],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      // `Alt+R` is not a bind Quake 2 can express - it exists only as an
+      // override inside the ALT layer.
+      expect(updated.binds).toEqual({})
+      const [alt, ...extraAltLayers] = modifierLayer(created!.id, 'ALT')
+      expect(extraAltLayers).toEqual([])
+      expect(alt!.overrides).toEqual({ r: aliasNameFor(altBound) })
+      expect(alt!.mode).toBe('hold')
+    })
+
+    it('judges the two slots independently: Primary on Alt, Secondary on the base layer', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const mixed = action({ key: 'r', keyModifier: 'ALT', secondaryKey: 'MOUSE2' })
+
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [mixed],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      expect(updated.binds).toEqual({ MOUSE2: aliasNameFor(mixed) })
+      expect(modifierLayer(created!.id, 'ALT')[0]!.overrides).toEqual({ r: aliasNameFor(mixed) })
+    })
+
+    it('judges the two slots independently the other way round: Primary base, Secondary on Ctrl', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const mixed = action({ key: 'r', secondaryKey: 'MOUSE2', secondaryKeyModifier: 'CTRL' })
+
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [mixed],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      expect(updated.binds).toEqual({ r: aliasNameFor(mixed) })
+      expect(modifierLayer(created!.id, 'ALT')).toEqual([])
+      expect(modifierLayer(created!.id, 'CTRL')[0]!.overrides).toEqual({
+        MOUSE2: aliasNameFor(mixed),
+      })
+    })
+
+    it("a hand-typed bind on the modifier slot's own key is neither written nor dropped", () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      profiles.setBinds({ profileId: created!.id, binds: { r: 'weapnext' } })
+
+      const altBound = action({ key: 'r', keyModifier: 'ALT' })
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [altBound],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      // Binding a row to `Alt+R` must not touch what bare `r` does - that is the
+      // whole point of putting it on a modifier.
+      expect(updated.binds).toEqual({ r: 'weapnext' })
+      expect(modifierLayer(created!.id, 'ALT')[0]!.overrides).toEqual({ r: aliasNameFor(altBound) })
+    })
+
+    it('a slot that loses its modifier becomes a base bind again and leaves no stale override', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const altBound = action({ key: 'r', keyModifier: 'ALT' })
+      profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [altBound],
+      })
+
+      // Same action (same id, so the same alias name), modifier cleared.
+      const baseBound: ConfigAction = { ...altBound }
+      delete baseBound.keyModifier
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [baseBound],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      expect(updated.binds).toEqual({ r: aliasNameFor(baseBound) })
+      // The ALT layer survives (the user may have named/configured it) but its
+      // mirrored override is gone rather than firing on Alt+R forever.
+      expect(modifierLayer(created!.id, 'ALT')[0]!.overrides).toEqual({})
+    })
+
+    it('a slot that gains a modifier drops its own stale q2l_a_* base bind', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const baseBound = action({ key: 'r' })
+      const first = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [baseBound],
+      })
+      expect(first.find((p) => p.id === created!.id)!.binds).toEqual({ r: aliasNameFor(baseBound) })
+
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [{ ...baseBound, keyModifier: 'ALT' }],
+      })
+
+      // Otherwise bare `r` would keep firing the row with no modifier held.
+      expect(result.find((p) => p.id === created!.id)!.binds).toEqual({})
+    })
+
+    it('reuses a hand-made ALT layer by trigger key and leaves its own overrides and other layers alone', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const zoom = {
+        id: 'zoom-1',
+        name: 'Zoom',
+        mode: 'toggle' as const,
+        triggerKey: 'v',
+        overrides: { '1': 'wave 1' },
+      }
+      const handMadeAlt = {
+        id: 'hand-alt',
+        name: 'Rocketjump',
+        mode: 'hold' as const,
+        triggerKey: 'ALT',
+        overrides: { q: 'say_team taking rl' },
+      }
+      profiles.setLayers({ profileId: created!.id, layers: [zoom, handMadeAlt] })
+
+      const altBound = action({ key: 'r', keyModifier: 'ALT' })
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [altBound],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      // Matched by trigger key, never by name - no second, competing ALT layer.
+      expect(updated.layers).toHaveLength(2)
+      expect(updated.layers![0]).toEqual(zoom)
+      expect(updated.layers![1]!.id).toBe('hand-alt')
+      expect(updated.layers![1]!.name).toBe('Rocketjump')
+      expect(updated.layers![1]!.overrides).toEqual({
+        q: 'say_team taking rl',
+        r: aliasNameFor(altBound),
+      })
+    })
+
+    it('setLayers re-derives an override a stale panel save left out, keeping hand-made ones', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const staleSnapshot = {
+        id: 'l-alt',
+        name: 'Alt',
+        mode: 'hold' as const,
+        triggerKey: 'ALT',
+        overrides: { q: 'say_team taking rl' },
+      }
+      profiles.setLayers({ profileId: created!.id, layers: [staleSnapshot] })
+
+      const altBound = action({ key: 'r', keyModifier: 'ALT' })
+      profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [altBound],
+      })
+
+      // The Layers panel saves the array it loaded *before* the capture above -
+      // a wholesale replace would silently drop the row's Alt+R override.
+      const result = profiles.setLayers({ profileId: created!.id, layers: [staleSnapshot] })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      expect(updated.layers).toHaveLength(1)
+      expect(updated.layers![0]!.id).toBe('l-alt')
+      expect(updated.layers![0]!.overrides).toEqual({
+        q: 'say_team taking rl',
+        r: aliasNameFor(altBound),
+      })
+    })
+
+    it('setLayers strips a mirrored override whose action no longer carries that slot', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+
+      // No actions on this profile at all, so nothing may claim an override -
+      // yet the incoming array carries a `q2l_a_*` value from an older save.
+      const result = profiles.setLayers({
+        profileId: created!.id,
+        layers: [
+          {
+            id: 'l-alt',
+            name: 'Alt',
+            mode: 'hold' as const,
+            triggerKey: 'ALT',
+            overrides: { r: 'q2l_a_rocket_launcher_ab12', q: 'say_team taking rl' },
+          },
+        ],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      expect(updated.layers![0]!.overrides).toEqual({ q: 'say_team taking rl' })
+    })
+
+    it('setLayers does not touch a non-modifier layer or the actions array', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const altBound = action({ key: 'r', keyModifier: 'ALT' })
+      profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [altBound],
+      })
+
+      const zoom = {
+        id: 'zoom-1',
+        name: 'Zoom',
+        mode: 'toggle' as const,
+        triggerKey: 'v',
+        overrides: { '1': 'wave 1' },
+      }
+      const result = profiles.setLayers({ profileId: created!.id, layers: [zoom] })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      expect(updated.layers![0]).toEqual(zoom)
+      expect(updated.actions).toEqual([altBound])
+      // A layer whose trigger is not a modifier never receives a mirrored override.
+      expect(updated.layers![0]!.overrides).toEqual({ '1': 'wave 1' })
+    })
+
+    // AC 5: one action, two ways of reaching it, one executed command.
+    it('renders the identical executed command whether the row is base-bound or modifier-bound', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const dropRow = action({ key: 'r' })
+      const alias = aliasNameFor(dropRow)
+      // The ammo + say_team row renders as one alias body either way; the ALT
+      // layer's own aliases slug off its name ("Alt" -> `+alt`/`-alt`).
+      const aliasLine = `alias ${alias} "drop rocket launcher; drop rockets; say_team need ammo"`
+
+      profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [dropRow],
+      })
+      const baseLines = renderProfileFile(profiles.find(created!.id)!).split('\n')
+
+      // Same action, same id, same alias - only the modifier is added.
+      profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [{ ...dropRow, keyModifier: 'ALT' }],
+      })
+      const modifierLines = renderProfileFile(profiles.find(created!.id)!).split('\n')
+
+      // The thing that actually executes is byte-identical in both files.
+      expect(baseLines).toContain(aliasLine)
+      expect(modifierLines).toContain(aliasLine)
+      expect(modifierLines.filter((line) => line.startsWith('alias q2l_a_'))).toEqual(
+        baseLines.filter((line) => line.startsWith('alias q2l_a_')),
+      )
+
+      // Base-bound: `r` runs the alias directly.
+      expect(baseLines).toContain(`bind r "${alias}"`)
+      expect(baseLines.filter((line) => line.startsWith('bind '))).toEqual([`bind r "${alias}"`])
+
+      // Modifier-bound: holding ALT rebinds `r` to that same alias, releasing it
+      // puts `r` back, and `r` is never bound on the base layer.
+      // One command per half, so `renderAliasLine` leaves both bodies unquoted.
+      expect(modifierLines).toContain(`alias +alt bind r ${alias}`)
+      expect(modifierLines).toContain('alias -alt unbind r')
+      expect(modifierLines).toContain('bind ALT +alt')
+      expect(modifierLines.filter((line) => line.startsWith('bind '))).toEqual(['bind ALT +alt'])
     })
   })
 })

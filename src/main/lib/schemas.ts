@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { AltLayer } from '@shared/config/alt-layers'
+import type { ModifierTrigger } from '@shared/config/modifier-layers'
 import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
 import { isLatin1Text } from '@shared/config/q2-charset'
 import type { Installation, LauncherSettings, WindowState } from '@shared/types'
@@ -144,6 +145,15 @@ const configActionCategoryPersistedSchema: z.ZodType<ConfigActionCategory> = z.o
   entryKind: z.enum(['bind', 'message', 'alias']),
 })
 
+// Story 016 (D6): same modifier vocabulary as the strict IPC schema
+// (`main/modules/config/schemas.ts`'s `modifierTriggerSchema`), but forgiving - an
+// unrecognized or malformed value degrades to `undefined` via `.catch()` rather than
+// dropping the whole action row the way an invalid `commands` entry would.
+const modifierTriggerPersistedSchema: z.ZodType<ModifierTrigger | undefined> = z
+  .enum(['ALT', 'CTRL', 'SHIFT'])
+  .optional()
+  .catch(undefined)
+
 const configActionPersistedSchema: z.ZodType<ConfigAction> = z.object({
   id: z.string().min(1),
   categoryId: z.string().min(1),
@@ -155,6 +165,10 @@ const configActionPersistedSchema: z.ZodType<ConfigAction> = z.object({
   // row that merely carries an odd key must not be dropped along with its commands.
   secondaryKey: z.string().optional(),
   catalogId: z.string().optional(),
+  // Story 016 (D6): the modifier held during capture of `key`/`secondaryKey`. A
+  // pre-016 row simply omits both, same as every other optional field here.
+  keyModifier: modifierTriggerPersistedSchema,
+  secondaryKeyModifier: modifierTriggerPersistedSchema,
 })
 
 /**

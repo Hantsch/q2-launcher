@@ -32,7 +32,9 @@ import {
   type BindCollision,
   type BindCollisionIgnore,
 } from '@shared/config/bind-collision'
-import { findModifierOverrideOwner, type ModifierTrigger } from '@shared/config/modifier-layers'
+import { ACTION_ALIAS_PREFIX } from '@shared/config/alias-render'
+import { MODIFIER_LAYER_NAME, type ModifierTrigger } from '@shared/config/modifier-layers'
+import { normalizeBindKey } from '@shared/config/key-names'
 import type { AltLayer } from '@shared/config/alt-layers'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import { applySlot, type CatalogRow } from './catalog-binds'
@@ -170,41 +172,164 @@ export function applyReplace({
   )
 }
 
-/** What a modifier capture is about to overwrite, if anything (story 016 D4, AC 6). */
+/** What a modifier capture is about to overwrite, if anything (story 016 D4/D10, AC 6). */
 export interface ModifierSlotCollision {
   modifier: ModifierTrigger
   key: string
   layerId: string
   /** Shown as "the layer" in the confirm banner. */
   layerName: string
-  /** Shown as "the occupying action" - the raw command the override currently holds,
-   * same convention `ownerLabel`'s `baseBind` case uses (the command text itself, since a
-   * layer override carries no action id to resolve a friendlier name from). */
+  /**
+   * Shown as "the thing that already has this override": another action's `name` when an
+   * action's `keyModifier`/`secondaryKeyModifier` slot occupies `(modifier, key)` (mirroring
+   * `ownerLabel`'s `'action'` case above), or the raw command text when a hand-made override
+   * occupies it instead (mirroring `ownerLabel`'s `baseBind` case - a hand-written override
+   * carries no action id to resolve a friendlier name from).
+   */
   owner: string
+  /**
+   * Set only when `owner` names an action (never for a hand-made override) - which action, and
+   * which of its two slots, a Replace has to clear before writing the new one
+   * (`applyModifierReplace`).
+   */
+  actionId?: string
+  actionSlot?: 'primary' | 'secondary'
 }
 
 /**
- * Would writing `command` to `(modifier, key)` replace a *different*
- * assignment already sitting there? `null` when the override is empty, or
- * when it already holds this exact command (re-capturing the same row's own
- * combo is a no-op, not a collision).
+ * Would capturing `(modifier, key)` for the row currently being edited (`ignoreActionId`, or
+ * `undefined` while the row is still unmaterialised - decision 3) replace a *different*
+ * assignment already sitting there?
  *
- * `layers` should be the in-progress draft's layers, same freshness
- * requirement `findSlotCollision` documents for `profile`.
+ * Story 016 D10: reads `actions` directly rather than the layer's stored override text, because
+ * the actions array is what actually decides who owns a `(modifier, key)` pair since D7's
+ * `applyActionLayerMirror` - a layer's `overrides` map is only ever a generated mirror of it, one
+ * `setActions`/`setLayers` call behind. Naming the occupant from `layer.overrides` (this
+ * function's original D4 shape) could therefore only ever show the raw alias token
+ * (`q2l_a_...`) the mirror wrote, never a friendly action name.
+ *
+ * `null` when nothing at `(modifier, key)` is occupied, by another action or by a hand-made
+ * override.
+ *
+ * Checked in this order: another action's slot first (the common case now that a modifier
+ * binding lives on the action itself, D6-D9), then a hand-made override - a value at `key` that
+ * `applyActionLayerMirror` never wrote (it does not start with `ACTION_ALIAS_PREFIX`). The row's
+ * own current occupancy of `(modifier, key)`, if any, always shows up as case one (an action
+ * match), never as case two: `applyActionLayerMirror` mirrors it as an `ACTION_ALIAS_PREFIX`
+ * value, and case one already excludes `ignoreActionId` before case two ever runs - so no
+ * separate ignore check is needed there.
+ *
+ * The action scan (case one) runs regardless of whether `modifier`'s layer object exists yet in
+ * `layers` - `actions` is the authority on occupancy since D7's mirror, one save ahead of
+ * `layers` catching up, so gating this on the layer already existing would miss a real collision
+ * in the narrow window between two actions independently claiming the same combo before either
+ * save's mirror pass has run. Only the hand-made-override fallback (case two) genuinely needs the
+ * layer object, since a hand-made override has nowhere else to live; `layerName` for case one
+ * falls back to the name a fresh layer would get (`MODIFIER_LAYER_NAME`) when no layer object
+ * exists yet - purely cosmetic, since the confirm banner only ever reads `layerName`.
+ *
+ * `layers` should be the in-progress draft's layers, same freshness requirement `findSlotCollision`
+ * documents for `profile`.
  */
 export function findModifierSlotCollision(
+  actions: ConfigAction[],
   layers: AltLayer[],
   modifier: ModifierTrigger,
   key: string,
-  command: string,
+  ignoreActionId?: string,
 ): ModifierSlotCollision | null {
-  const found = findModifierOverrideOwner(layers, modifier, key)
-  if (!found || found.command === command) return null
-  return {
-    modifier,
-    key,
-    layerId: found.layerId,
-    layerName: found.layerName,
-    owner: found.command,
+  const normalizedKey = normalizeBindKey(key)
+  const layer = layers.find((candidate) => normalizeBindKey(candidate.triggerKey ?? '') === modifier)
+  const layerId = layer?.id ?? ''
+  const layerName = layer?.name ?? MODIFIER_LAYER_NAME[modifier]
+
+  for (const action of actions) {
+    if (action.id === ignoreActionId) continue
+    if (action.keyModifier === modifier && action.key && normalizeBindKey(action.key) === normalizedKey) {
+      return { modifier, key, layerId, layerName, owner: action.name, actionId: action.id, actionSlot: 'primary' }
+    }
+    if (
+      action.secondaryKeyModifier === modifier &&
+      action.secondaryKey &&
+      normalizeBindKey(action.secondaryKey) === normalizedKey
+    ) {
+      return {
+        modifier,
+        key,
+        layerId,
+        layerName,
+        owner: action.name,
+        actionId: action.id,
+        actionSlot: 'secondary',
+      }
+    }
   }
+
+  const rawOverride = layer?.overrides[normalizedKey]
+  if (rawOverride && !rawOverride.startsWith(ACTION_ALIAS_PREFIX)) {
+    return { modifier, key, layerId, layerName, owner: rawOverride }
+  }
+
+  return null
+}
+
+export interface ModifierReplaceInput {
+  /** The full draft actions array, same one `applySlot` is given elsewhere. */
+  actions: ConfigAction[]
+  /**
+   * `findModifierSlotCollision`'s result for this exact `(modifier, key)`, or `null` when
+   * nothing occupies it. Deliberately accepted as `null` (rather than requiring the caller to
+   * branch) so `onAssignModifier` - the single call site that handles both the immediate-assign
+   * path and the confirmed-Replace path, since `BindSlot`'s Replace button calls it with the same
+   * `{modifier, key}` shape as the collision-free path - can always route through this function
+   * without knowing which path it is on; it is a plain `applySlot` passthrough when `null`.
+   */
+  collision: ModifierSlotCollision | null
+  row: CatalogRow
+  slot: 'primary' | 'secondary'
+  key: string
+  modifier: ModifierTrigger
+}
+
+/**
+ * `applySlot`'s modifier-aware counterpart to `applyReplace`: writing the new `(modifier, key)`
+ * for `row`'s `slot` and, if `collision` names a *different* action already occupying that same
+ * pair, releasing that action's matching slot first - both in the one array this function
+ * returns, so one save has no split-brain window (same invariant `applyReplace`'s doc comment
+ * spells out for the base-layer case; see it before changing this wiring).
+ *
+ * Without this release step, confirming Replace over an action B that currently holds
+ * `(ALT, R)` would leave B's `keyModifier`/`key` (or `secondaryKeyModifier`/`secondaryKey`)
+ * stale: `applySlot` only ever touches the row being edited, so B would still claim `(ALT, R)`
+ * after the save, and `applyActionLayerMirror`'s "later action in the array wins" tie-break would
+ * silently decide whose alias the override actually points at - correct immediately after this
+ * save, wrong (or at least undiscoverable without a reload) the moment array order changes, and
+ * B's own row would keep showing `Alt+R` in the UI even though the override no longer honours it.
+ *
+ * A hand-made override (`collision.actionId` unset) needs no release: there is nothing on the
+ * actions side to clear, and `applyActionLayerMirror` overwrites that raw value with the new
+ * alias on the very next mirror pass regardless.
+ *
+ * The trailing prune mirrors `applyReplace`'s: an occupant left with nothing assigned after
+ * losing its slot (decision 4) does not survive the save.
+ */
+export function applyModifierReplace({
+  actions,
+  collision,
+  row,
+  slot,
+  key,
+  modifier,
+}: ModifierReplaceInput): ConfigAction[] {
+  if (!collision?.actionId) return applySlot(actions, row, slot, key, modifier)
+
+  const released = actions.map((action) => {
+    if (action.id !== collision.actionId) return action
+    return collision.actionSlot === 'primary'
+      ? { ...action, key: undefined, keyModifier: undefined }
+      : { ...action, secondaryKey: undefined, secondaryKeyModifier: undefined }
+  })
+
+  const applied = applySlot(released, row, slot, key, modifier)
+  return applied.filter((action) => !(action.id === collision.actionId && isEmptyCatalogAction(action)))
 }

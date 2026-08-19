@@ -1,4 +1,5 @@
 import type { AltLayer } from '../config/alt-layers'
+import type { ModifierTrigger } from '../config/modifier-layers'
 
 /**
  * The config module's contract.
@@ -123,6 +124,16 @@ export type ConfigCommand =
  * (a known movement/weapon/drop entry the editor offers). Identity lives in this field and never
  * in `name`, so a translated or user-edited label cannot make the editor lose track of which row
  * an action belongs to. Absent means "free-form action", which is what every pre-015 action is.
+ *
+ * `keyModifier`/`secondaryKeyModifier` (story 016) record the modifier - `ALT`/`CTRL`/`SHIFT` -
+ * that was held while capturing `key`/`secondaryKey` respectively. Quake 2 itself has no notion of
+ * a modified bind (see `modifier-layers.ts`'s file doc comment): a captured "Alt+R" is not stored
+ * as a literal bind at all. These two fields are the authoritative source the write pipeline
+ * consults: `setActions`/`setLayers` (`main/modules/config/profiles.ts`) derive every modifier
+ * layer's overrides from them via `applyActionLayerMirror`, skipping the matching key from the
+ * base `binds` mirror - a layer override is a generated mirror of these fields, never a second
+ * place they could drift from. Optional and additive like `secondaryKey`/`catalogId`: a pre-016
+ * action simply omits them, and a plain (unmodified) key or slot omits the corresponding field too.
  */
 export interface ConfigAction {
   id: string
@@ -132,6 +143,8 @@ export interface ConfigAction {
   key?: string
   secondaryKey?: string
   catalogId?: string
+  keyModifier?: ModifierTrigger
+  secondaryKeyModifier?: ModifierTrigger
 }
 
 /**

@@ -51,9 +51,9 @@ import { useKeyCapture } from '../lib/useKeyCapture'
  * Four outcomes, and only one of them is 015's path:
  *
  * - `plain` -> everything above, byte for byte unchanged.
- * - `modifier` -> `onAssignModifier`, and nothing else. The row owns the layer
- *   upsert and its persist, the same way it already owns `onAssign`; this
- *   component only decides *that* the capture was a modifier one.
+ * - `modifier` -> `onAssignModifier`, and nothing else. The row owns the write,
+ *   the same way it already owns `onAssign`; this component only decides *that*
+ *   the capture was a modifier one.
  * - `pending` / `refused` -> the capture stays open. A modifier's own keydown
  *   necessarily arrives before the key the user actually wants (decision 2),
  *   and a refusal (two modifiers, or a modifier as the pressed key) is a
@@ -72,6 +72,16 @@ import { useKeyCapture } from '../lib/useKeyCapture'
  * holds this exact command (re-capturing the same row's own combo), is not a
  * collision and still applies immediately - the case this doc comment used to
  * describe as unconditional.
+ *
+ * Story 016 D9: a modifier is now part of the row's `ConfigAction`
+ * (`keyModifier`/`secondaryKeyModifier`, written by `applySlot`), which
+ * collapses this component's display model to a single source. A slot shows
+ * `boundKey`, prefixed with `boundModifier` when the pair carries one - there
+ * is no longer a state where an assignment exists *only* inside a layer and
+ * therefore had to be read back from `layers` for display. Consequently Clear
+ * works for a modifier-bound slot exactly like any other: it clears one slot
+ * on one action, and the layer override main derived from it disappears with
+ * it (`applyActionLayerMirror`).
  *
  * Review-fix (post-D3): a `pending` classification alone can never turn into
  * a `plain` bind for a bare modifier key (see `resolveModifierRelease`'s doc
@@ -127,7 +137,7 @@ const MODIFIER_LABEL: Record<ModifierTrigger, string> = {
 export function BindSlot({
   label,
   boundKey,
-  modifierDisplay,
+  boundModifier,
   onAssign,
   onAssignModifier,
   onReplace,
@@ -139,24 +149,23 @@ export function BindSlot({
   label: string
   boundKey: string | undefined
   /**
-   * Story 016 D3: set by the row (via `findBindLocation`) only when `boundKey`
-   * is undefined for this slot *and* this row's command currently lives inside
-   * some modifier layer's overrides - so the slot can render a composite
-   * `Alt+R` label instead of "not bound" for an assignment that exists entirely
-   * inside a layer. Decision 9: nothing combined is ever persisted onto the
-   * action for that case, so without this reverse lookup there is nothing in
-   * `boundKey` to show. Ignored whenever `boundKey` is set - a base bind always
-   * takes display priority.
+   * Story 016 D9: the modifier this slot's key was captured with, read straight
+   * off the row's action (`keyModifier`/`secondaryKeyModifier` via
+   * `deriveRowState`). Renders as a composite `Alt+R` label on the one badge -
+   * not a second, competing source of what this slot shows, which is what the
+   * removed `modifierDisplay` was. Meaningless without `boundKey`, and
+   * `applySlot` cannot produce that combination.
    */
-  modifierDisplay?: { modifier: ModifierTrigger; key: string }
+  boundModifier?: ModifierTrigger
   /** Applies the captured key. Called only when nothing blocks it. */
   onAssign: (key: string) => void
   /**
    * Story 016 D3: the capture resolved to a modifier+key gesture. Split from
    * `onAssign` the same way `onAssign`/`onReplace` are already split - this
-   * component detects the classification, the row owns the actual layer upsert
-   * and its persist (`upsertModifierLayerOverride` + `updateProfileLayers`),
-   * because only the row knows this row's command string.
+   * component detects the classification, the row owns the write. Since D9 that
+   * write is the same `applySlot` + action save `onAssign` uses, with the
+   * modifier passed along; the modifier layer and its override are derived from
+   * the saved action by main, not written here.
    */
   onAssignModifier: (input: { modifier: ModifierTrigger; key: string }) => void
   /**
@@ -386,11 +395,7 @@ export function BindSlot({
         <>
           {boundKey ? (
             <Badge tone="flame" className="numeric">
-              {boundKey}
-            </Badge>
-          ) : modifierDisplay ? (
-            <Badge tone="flame" className="numeric">
-              {`${MODIFIER_LABEL[modifierDisplay.modifier]}+${modifierDisplay.key}`}
+              {boundModifier ? `${MODIFIER_LABEL[boundModifier]}+${boundKey}` : boundKey}
             </Badge>
           ) : (
             <span className="text-xs text-ink-muted">{t('config.advanced.editor.keyNotSet')}</span>
@@ -401,10 +406,9 @@ export function BindSlot({
           <Button variant="ghost" size="sm" onClick={startCapture}>
             {t('config.advanced.editor.captureKey')}
           </Button>
-          {/* Still keyed on `boundKey` alone, deliberately: a `modifierDisplay`-only slot has
-              nothing on the action to clear - the assignment lives in a layer's overrides, which
-              the Layers panel owns (AC 7). Offering Clear here would either do nothing or need a
-              second write path into `layers` that this story does not give the slot. */}
+          {/* Keyed on `boundKey`, which since D9 covers the modifier case too: a modifier-bound
+              slot always has a key on the action (the modifier sits beside it), so clearing it is
+              the same single `applySlot` write as any other slot's - no separate `layers` path. */}
           {boundKey && (
             <Button variant="danger" size="sm" onClick={clearKey}>
               {t('config.advanced.editor.clearKey')}

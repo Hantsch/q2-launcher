@@ -1,7 +1,7 @@
 ---
 id: 016
 title: Auto-create an Alt/Ctrl/Shift layer when a modifier is held during key capture
-status: in-progress
+status: done
 created: 2026-08-18
 ---
 
@@ -35,7 +35,7 @@ Alt+R for another must not fight over which layer owns "R" — they're different
       overrides; a second layer is never created for the same modifier.
 - [x] The assignment lands as an override on the resolved key inside that layer; the base layer's
       existing bind for that key (if any) is untouched.
-- [ ] A Weapon-dropping row's ammo choice and team-message text produce the identical rendered
+- [x] A Weapon-dropping row's ammo choice and team-message text produce the identical rendered
       command(s) whether the row's key ends up on the base layer or inside an auto-created
       modifier layer.
 - [x] Capturing a modifier+key combination that already has an override in that layer (used by a
@@ -82,103 +82,145 @@ _None — all detail decisions were taken during the sprint refine pass, see bel
 13. **All logic lives in pure `.ts` helpers, UI stays thin** — `vitest.config.ts` matches only
     `src/**/*.test.ts` (node env, no jsdom), so `.tsx` cannot be tested in this repo.
 
+## Decisions (Refine, AC 5 re-plan)
+
+The first build attempt treated a layer override as a *source* of a row's state and tried to
+re-derive row identity from the override's command text. That cannot work: two catalogue rows
+legitimately produce the identical command - the weapon droppable `grenades` and the ammo
+droppable `hgrenades` both render `drop grenades` (`action-catalog.ts`) - so no textual or
+structural match can attribute an override to one row. The following decisions replace that
+approach (option B, chosen by the user).
+
+14. **The `ConfigAction` is the only place a row's state lives.** A modifier binding is stored on
+    the action itself: `keyModifier` / `secondaryKeyModifier` next to `key` / `secondaryKey`,
+    optional and additive exactly like story 015 added `secondaryKey` / `catalogId` - no
+    `STATE_SCHEMA_VERSION` bump, no migration, a pre-016 action just omits them.
+15. **A row's layer override is a derived mirror, never a source.** `setActions`
+    (`main/modules/config/profiles.ts`) already rebuilds the `q2l_a_*` half of `binds` from
+    `actions` and leaves every other bind alone; the same rule is extended to modifier layers'
+    `overrides`. The renderer stops writing a row's override at all, which also retires
+    decision 8's clobber risk - a capture slot no longer calls `updateProfileLayers`.
+16. **The override value is the action's alias name** (`aliasNameFor(action)`), the same token a
+    base bind carries - not the row's command text. Identity is then unique by construction
+    (derived from `action.id`), so the collision that blocked AC 5 cannot arise. Side effects:
+    a mirrored override is one short token, so `needsHelperAlias`, the `layer.quote` warning and
+    the layer name budget's chunking reserve are never triggered by it, and the existing
+    `resolveAliasChain` (`keyboard-layout.ts`) already expands it in the overview.
+17. **A slot that carries a modifier is skipped by the base `binds` mirror.** That single rule is
+    what keeps AC 4 true - the base bind for that key is never written or dropped.
+18. **`setLayers` applies the same mirror**, so a stale Layers-panel save cannot drop a row's
+    override.
+19. **Layer find-or-create (AC 2, 3) happens inside the mirror step**, in main, against the
+    authoritative `layers` array. `upsertModifierLayerOverride` keeps its existing matching rules
+    (normalized `triggerKey`, name `Alt`/`Ctrl`/`Shift`, `mode: 'hold'`) - only its caller moves.
+20. **Decision 12 is superseded.** The single command builder is `action.commands` ->
+    `renderActionAlias`, which both paths now share literally. `buildRowCommandString`,
+    `parseRowCommandState`, `findRowLayerOverride` and `findBindLocation` lose their last callers
+    and are deleted with their tests rather than repaired.
+21. **No migration for raw-text overrides** left behind by the blocked attempt (commit `29b4f4f`,
+    never released): such a value does not start with `ACTION_ALIAS_PREFIX`, so the mirror treats
+    it as a hand-made override and leaves it alone; the user can delete it in the Layers panel.
+
 ## Plan
 
-Capture becomes modifier-aware, and a held modifier is translated into an alt-layer override
-instead of a base bind. Two pure helpers carry the logic; the UI work is wiring.
+Turn the modifier binding into a property of the action and the layer override into a generated
+mirror of it - the same relationship `binds` already has to `actions`. Then AC 5 is not a feature
+to implement but a consequence: base path and layer path bind the *same generated alias*.
 
-1. **Resolve** — new `src/renderer/src/modules/config/lib/modifier-capture.ts`:
-   `resolveModifierCapture(event)` → `{kind:'plain',key}` | `{kind:'modifier',key,modifier}` |
-   `{kind:'pending'}` | `{kind:'refused',reason:'multipleModifiers'|'modifierOnly'}` | `null`.
-   Uses `resolveQuakeKeyName` internally (unchanged) plus `altKey/ctrlKey/shiftKey`.
-2. **Upsert** — new `src/shared/config/modifier-layers.ts`: pure
-   `upsertModifierLayerOverride(layers, {modifier, key, command, newId})` →
-   `{layers, layerId, created, previousCommand}`. Finds a layer by
-   `normalizeBindKey(triggerKey) === modifier`, else appends
-   `{id, name: 'Alt'|'Ctrl'|'Shift', mode:'hold', triggerKey: modifier, overrides:{}}`; writes only
-   `overrides[key]`, never `binds`.
-3. **Locate** — new `findBindLocation(profile, command)` (same shared file): reverse lookup over
-   `profile.binds` then every `layer.overrides`, returning `{key, modifier|null}` so a slot can
-   render `Alt+R`.
-4. **Wire** — 015's Primary/Secondary slot component: on a `modifier` capture, call (2) and persist
-   via one `updateProfileLayers`; on `plain`, keep 015's existing base-bind path; on `refused`,
-   show the hint and stay in capture.
-5. **Warn** — when `previousCommand` is non-empty and belongs to another action, route it through
-   015's collision surface before writing (decision 10).
-6. **Panel** — `LayersPanel.tsx`: add a mode select next to rename (AC 7), mirroring `handleRename`.
-7. **i18n** — new keys under `config.advanced.dualBind.*` (modifier hints) and
-   `config.layersPanel.mode.*` reuse; no prose crosses IPC.
+1. **Type** - `ConfigAction` gains `keyModifier` / `secondaryKeyModifier` (`ModifierTrigger`,
+   optional); both zod schemas (strict IPC + forgiving persisted) learn the fields.
+2. **Mirror** - new pure `applyActionLayerMirror(layers, actions)` in
+   `src/shared/config/modifier-layers.ts`: drop every override whose value starts with
+   `ACTION_ALIAS_PREFIX`, then per action-slot-with-modifier find-or-create that modifier's layer
+   and write `overrides[normalizeBindKey(key)] = aliasNameFor(action)`.
+3. **Main** - `setActions` skips modifier slots when rebuilding the `binds` mirror and runs (2);
+   `setLayers` runs (2) as well.
+4. **Renderer** - a modifier capture becomes an ordinary `applySlot(..., modifier)` call persisted
+   through the existing action save. Delete the reverse-parse machinery
+   (`parseRowCommandState`, `findRowLayerOverride`, `buildRowCommandString`, `findBindLocation`)
+   and the debounced direct-override write. Ammo/message go through `applyAmmo`/`applyMessage`
+   with no branch on where the key lives - that is AC 5 in the diff.
+5. **Collision** - `findModifierSlotCollision` reads the actions array instead of override text
+   and can therefore name the occupying *action*; hand-made overrides keep the raw-text label.
 
-Order: D1/D2 in parallel (pure, testable) → D3 (wiring, needs 015 merged) → D4 → D5.
-Guardrails: `/frontend-guidelines` + `/design-tokens` (semantic tones only, no hex, no raw palette
-class, ≥44px hit targets on the slot buttons), no image assets, all strings via i18n.
+D5 (mode select in the Layers panel, AC 7) is built and stays as is. D1/D2's capture resolution,
+the bare-modifier-release fix and `AdvancedTab`'s save-status fix stay as is.
+Order: D6 -> D7 -> D8 -> D9 -> D10. Guardrails unchanged (`/karpathy`, `/frontend-guidelines`,
+`/design-tokens`, `/electron-arch`, `/typed-ipc`; i18n for every string, no image assets).
 
 ## Deliverables
 
-**D1 — modifier-aware capture resolution (pure)**
-Files: `src/renderer/src/modules/config/lib/modifier-capture.ts` (new),
-`…/lib/modifier-capture.test.ts` (new). Mirror: `…/lib/keyboard-layout.ts` (`resolveQuakeKeyName`)
-for style, `…/lib/validation-scope.test.ts` for the test shape.
-Acceptance: `R` alone → `{kind:'plain',key:'R'}`; Alt+R → `{kind:'modifier',key:'R',modifier:'ALT'}`
-(never a combined string); Alt alone → `pending`; Alt+Ctrl+R → `refused/multipleModifiers`;
-Alt+Shift (modifier as the pressed key) → `refused/modifierOnly`; unmapped code → `null`.
-`resolveQuakeKeyName`'s signature is unchanged. → AC 1
+D1-D5 of the first attempt stay in place except where a deliverable below names their files.
+The remaining work is D6-D10.
 
-**D2 — layer upsert + bind location (pure)**
-Files: `src/shared/config/modifier-layers.ts` (new), `src/shared/config/modifier-layers.test.ts`
-(new). Mirror: `src/shared/config/alt-layers.ts` (doc-comment style, `normalizeBindKey` use) and
-`alt-layers.test.ts`.
-Acceptance: with no ALT layer present, one is created (`mode:'hold'`, `triggerKey:'ALT'`, name
-`Alt`) and the override written; called again for Alt+F it reuses that same layer (array length
-unchanged); a pre-existing hand-made layer with `triggerKey:'ALT'` (any name) is reused; Ctrl+R and
-Alt+R end up in two different layers each owning their own `R`; `profile.binds` and all other
-layers/overrides are returned untouched; `previousCommand` reports an override that would be
-replaced; the passed-in `command` string is stored verbatim (only `sanitizeCommand`, no
-re-derivation). Includes a test that the same command string used as a base bind and as a layer
-override renders the identical executed command text via `generateLayerAliases`/`render.ts`
-(covers the say_team + drop case, incl. the existing `layer.quote` warning when quotes are
-present). → AC 2, 3, 4, 5 (rendering half)
+**D6 - modifier location on the action (types + validation)**
+Files: `src/shared/modules/config.ts`, `src/main/modules/config/schemas.ts`,
+`src/main/lib/schemas.ts`. Mirror: the `secondaryKey` / `catalogId` additions of story 015 in all
+three files (doc comment included).
+Acceptance: `ConfigAction` carries optional `keyModifier` / `secondaryKeyModifier` typed
+`ModifierTrigger`; the strict IPC schema accepts only `ALT`/`CTRL`/`SHIFT` and rejects anything
+else; the forgiving persisted schema accepts them and still keeps a pre-016 row that has neither;
+both `tsc` projects clean. -> enabler for AC 1, 2, 4, 5
 
-**D3 — wire capture slots to the modifier path**
-Files: 015's Primary/Secondary slot + row components under
-`src/renderer/src/modules/config/` (≤3 files), `src/renderer/src/i18n/locales/en.json`.
-Mirror: `…/SwitchBindControl.tsx` (capture listener shape, `event.preventDefault()`,
-skip `event.repeat`), `…/components/ActionEditor.tsx` (`stopPropagation` so Escape does not close
-the surrounding modal).
-Acceptance: holding Alt/Ctrl/Shift during a slot capture writes an override in the matching layer
-through exactly one `updateProfileLayers` call and leaves the base bind for that key alone; the
-slot then displays `Alt+R` (via D2's `findBindLocation`); a plain capture still takes 015's
-unchanged base-bind path; a Weapon-dropping row uses the *same* command builder for both paths
-(single call site — verifiable in the diff); a refused capture shows an i18n hint and stays in
-capture. → AC 1 (UI path), 2, 4, 5
+**D7 - the derived layer mirror (pure)**
+Files: `src/shared/config/modifier-layers.ts`, `src/shared/config/modifier-layers.test.ts`.
+Mirror: `setActions`'s existing `ACTION_ALIAS_PREFIX` filter for the `binds` mirror.
+Acceptance: `applyActionLayerMirror(layers, actions)` drops every override whose value starts with
+`ACTION_ALIAS_PREFIX` and rewrites one per modifier-carrying slot as `aliasNameFor(action)`;
+hand-made overrides and non-modifier layers are returned untouched; Alt+R and Ctrl+R yield two
+layers each owning their own `R`; a pre-existing hand-made layer with `triggerKey: 'ALT'` and any
+name is reused and never duplicated; calling it twice is idempotent; an action that lost its
+modifier leaves no stale override. **Regression test for the blocker:** the rows
+`dropWeapon:grenades` and `dropAmmo:hgrenades` - whose command text is literally identical - are
+mirrored as two distinct overrides and neither read nor write is attributed to the wrong row.
+`findBindLocation` and its tests are deleted (no callers left). -> AC 2, 3, 5 (mirror half)
 
-**D4 — overwrite warning for modifier captures**
-Files: 015's collision-warning component/helper + the slot from D3 (≤3 files),
-`src/renderer/src/i18n/locales/en.json`.
-Acceptance: capturing Alt+R when that layer's `R` override already serves another action surfaces
-the same warning surface a plain-key collision uses, naming the layer and the occupying action, and
-requires an explicit confirm before the override is replaced; declining leaves layers unchanged. → AC 6
+**D8 - main applies the mirror**
+Files: `src/main/modules/config/profiles.ts` + its existing test file.
+Acceptance: `setActions` skips a slot that carries a modifier when rebuilding the `q2l_a_*` binds
+mirror, so the base bind for that key is neither written nor dropped, and applies D7's mirror to
+`current.layers`; `setLayers` applies it to the incoming layers; hand-typed binds and non-mirrored
+overrides survive both; a test asserts `renderProfileFile` produces the *identical* executed
+command for one and the same action whether it is base-bound or modifier-bound, including the
+ammo + `say_team` case (this replaces D2's textual render test). -> AC 2, 3, 4, 5
 
-**D5 — layer mode is changeable in the Layers panel**
-Files: `src/renderer/src/modules/config/LayersPanel.tsx`,
-`src/renderer/src/i18n/locales/en.json`.
-Mirror: `handleRename` / `RenameLayerDialog` in the same file for the persist shape.
-Acceptance: an auto-created `Alt` layer appears in the Layers panel like any other, and its mode can
-be switched hold↔toggle there and persists; rename, delete and override add/remove already work on
-it unchanged; nothing in the panel distinguishes auto-created from hand-made layers. → AC 7
+**D9 - one write path, one read path in the renderer**
+Files: `src/renderer/src/modules/config/components/DualBindPanel.tsx`,
+`.../components/DropBindPanel.tsx`, `.../components/BindSlot.tsx`,
+`.../lib/catalog-binds.ts` (+ `catalog-binds.test.ts`).
+Acceptance: `applySlot` takes the modifier and stores it on the action; a modifier capture
+persists through the existing action save (`setActions`) and through nothing else - no
+`updateProfileLayers` call from a slot, exactly one IPC round trip per capture; the layer and its
+override exist afterwards; the slot label `Alt+R` comes from `action.keyModifier`; ammo and
+message edits run through the unchanged `applyAmmo` / `applyMessage` with no branch on where the
+key lives, and behave identically on a layer-only row; `parseRowCommandState`,
+`findRowLayerOverride`, `buildRowCommandString` and the debounced direct-override write are gone,
+with their tests. -> AC 1 (UI path), 4, 5
+
+**D10 - collision warning reads the actions array**
+Files: `src/renderer/src/modules/config/lib/bind-slot-collision.ts` (+ its test),
+`.../components/BindSlot.tsx`, `src/renderer/src/i18n/locales/en.json`.
+Acceptance: `findModifierSlotCollision` detects "this (modifier, key) already serves another
+action" from the actions array and names that action; a hand-made override at the same location is
+still reported, labelled with its raw command as today; re-capturing a row's own current location
+is not a collision; confirming replaces via the actions array, declining leaves actions and layers
+byte-identical. -> AC 6
 
 ## Model Hints
 
-- D1 → default
-- D2 → default
-- D3 → **deliverable-hard** — it is the only cross-layer step: it plugs into 015's freshly built
-  slot components and replaces the whole `layers` array in one persist call, where a wrong merge
-  silently destroys the user's existing layers and overrides.
-- D4 → default
-- D5 → default
-- Review: → **story-review-hard** — the story writes to the persisted `layers` array of a real user
-  profile via replace-whole-array semantics, so a subtly wrong upsert loses data without any test
-  or build turning red.
+- D6 -> default
+- D7 -> default
+- D8 -> **deliverable-hard** - it edits the one function that rebuilds a persisted `binds` map and
+  now also a persisted `layers` array wholesale; a wrong prefix filter silently deletes a user's
+  hand-typed binds or hand-made overrides, and no test or build turns red for data that is simply
+  gone.
+- D9 -> **deliverable-hard** - this is the exact seam all three review cycles of the first attempt
+  failed at; it must remove the old write path completely while keeping 015's plain-key path
+  untouched, and a leftover second writer reintroduces the desync.
+- D10 -> default
+- Review: -> **story-review-hard** - the story rebuilds the persisted `layers` array from derived
+  data, so a subtly wrong mirror loses user data invisibly, and AC 5 has already survived three
+  review passes on the previous design.
 
 ## Test Plan (manual acceptance)
 
@@ -196,14 +238,29 @@ Run `npm run dev`, open Config, pick a profile with at least one existing layer 
    the occupying action, with an explicit confirm; cancel → nothing changes.
 6. Set the rocket-launcher row to "with ammo" and type a team message, then compare the raw config
    view (story 012) against the same row moved to the base layer — the executed commands match.
+   Then reopen the tab: the ammo checkbox and the message field still show what you typed (this is
+   the case the previous attempt got wrong — a layer-only row read back its default instead of its
+   real state).
 7. Layers panel → the `Alt` layer: rename it, switch its mode to toggle, add and remove an override
    from the keyboard overview. All work exactly as on a hand-made layer.
 8. In a slot capture, hold **Alt+Ctrl** and press **R**. Expect: a hint, no layer created, capture
    still active; releasing Ctrl and pressing R then works.
+9. **Row-identity regression (the blocker):** in Weapon dropping, put the *weapons* group's
+   **Hand grenades** on **Alt+G** and the *ammo* group's **Hand grenades** on **Alt+H** — two
+   different rows whose label *and* rendered command (`drop grenades`) are literally identical.
+   Expect: two separate overrides in the `Alt` layer, each row showing its own key, and editing one
+   row's team message leaves the other row's message untouched.
+10. Layers panel → add a hand-made override on `Alt`+`K` by hand, then change any row's ammo choice.
+    Expect: the hand-made override is still there afterwards (the mirror only owns `q2l_a_*`
+    values).
 
-## Done
+## Previous Attempt (S03 - blocked on AC 5)
 
-**Status: BLOCKED (AC 5 unresolved after 3 review-fix cycles) — story left `in-progress`.**
+_History of the first build attempt, kept for whoever implements D6–D10. Its AC 5 design was
+replaced by the refine decisions 14–21 above; the code it describes is still in the tree
+(commit `29b4f4f`) and D7/D9 name what gets deleted._
+
+**Status then: BLOCKED (AC 5 unresolved after 3 review-fix cycles).**
 
 ### Summary
 
@@ -321,3 +378,71 @@ fourth implementation attempt.
 ```
 016: modifier-layer auto-creation on bind capture (D1–D5 built; AC5 unresolved, story left in-progress)
 ```
+
+## Done
+
+### Summary
+
+D6–D10 (the refine's re-plan, decisions 14–21) closed AC 5: a modifier binding is now stored on the
+`ConfigAction` itself (`keyModifier`/`secondaryKeyModifier`), and a layer's `overrides` map became a
+generated mirror of the actions array (`applyActionLayerMirror`, applied by `setActions`/`setLayers`
+in main), so a modifier-bound row and a base-bound row share the exact same `ConfigAction` and the
+exact same `commands` — the row-identity bug that blocked three prior review cycles (two catalogue
+rows rendering the identical command, `dropWeapon:grenades`/`dropAmmo:hgrenades`) cannot arise
+anymore, since identity is `action.id` via `aliasNameFor`, never command text. The renderer's entire
+reverse-parse machinery (`buildRowCommandString`, `parseRowCommandState`, `findRowLayerOverride`,
+`findBindLocation`, the debounced direct-layer write) was deleted outright rather than patched.
+
+A first `story-review-hard` pass found one BLOCKING regression this redesign introduced into
+story 015's own collision code: `bind-collision.ts`'s `findBindCollision` didn't yet know a slot
+could carry a modifier, so a modifier-bound action's plain key falsely collided with (and, via
+Replace, could destroy) an unrelated plain-key capture of the same literal key. Fixed
+(`slotValue` now treats a modifier-carrying slot as invisible to the base-layer check, matching
+what `setActions`'s bind mirror already does), along with four smaller findings: `releaseKey` now
+clears an action's modifier field alongside its key (defense in depth), `findModifierSlotCollision`
+no longer misses an occupying action in the narrow window before its layer object exists,
+`upsertModifierLayerOverride`/`findModifierOverrideOwner` (dead code since D9/D10, and using a
+different key-normalization convention than their replacement) were deleted with their tests, and
+the collision banner's wording was corrected for showing an action name instead of raw command
+text. A second `story-review-hard` pass confirmed all fixes correct and returned PASS.
+
+### Commit message
+
+```
+016: auto-create Alt/Ctrl/Shift layer on modifier bind capture
+```
+
+### Verification
+
+- `npx tsc -p tsconfig.node.json --noEmit` — clean.
+- `npx tsc -p tsconfig.web.json --noEmit` — clean.
+- `npm test -- --run` — 568/568 passing across 33 files.
+- `npm run build` — succeeds (main/preload/renderer).
+- Live UI smoke test (Playwright `_electron` against the built app, real keyboard events): drove
+  test-plan steps 1, 2, 4, 6 and 9 (the AC 5 row-identity regression). All passed — slot badges read
+  `ALT+R`/`CTRL+R`, the Layers panel showed the correct new layers, and the generated config file was
+  inspected directly, confirming two distinct aliases for the two "Hand grenades" rows that render
+  the identical `drop grenades` command.
+- Code review: two `story-review-hard` passes (pass 1 FAIL with one blocking + four minor findings,
+  all fixed; pass 2 PASS). Full history above under each finding.
+
+### Known, deliberately unfixed (accepted, not required by any AC)
+
+- Deleting an auto-created modifier layer via the Layers panel resurrects it on the next save if an
+  action still carries that modifier (decision 18's explicit intent: a layer's overrides are a
+  derived mirror, never a source) — a rename/mode change on that layer is lost when it does. Same
+  behaviour for a hand-made layer whose overrides get re-mirrored; AC 7 itself (rename/mode/overrides
+  editable) is unaffected.
+- `applyActionLayerMirror`'s strip pass removes any `ACTION_ALIAS_PREFIX`-valued override from *any*
+  layer, including a non-modifier one — defensible (a layer whose trigger changed away from a
+  modifier must lose its stale mirror too) but wider than the mirror's own ownership; no reported
+  path produces this today.
+- `findBindCollision` (base-layer, story 015) ignores a single slot on self-recapture;
+  `findModifierSlotCollision` (story 016) ignores the whole action — a row with both slots on the
+  same `(modifier, key)` sees no warning. Harmless (both slots mirror the same alias) but the two
+  checks are not symmetric.
+- **Pre-existing, unrelated bug found during this story's live smoke test, out of scope for 016:**
+  the Raw file tab (story 012) crashes when previewing a profile — `previewConfigProfile`/
+  `writeConfigProfile` (`src/renderer/src/modules/config/client.ts`) don't flatten the double-
+  `Outcome` wrap `MainModuleRegistry.invoke` applies, unlike `assignConfigProfile`/
+  `unassignConfigProfile`, which already do. Worth its own story/fix.
