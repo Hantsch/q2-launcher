@@ -1,7 +1,7 @@
 ---
 id: 014
 title: Show an alt-layer trigger's action on its own keycap, and switch layers by clicking it
-status: ready
+status: in-progress
 created: 2026-08-18
 ---
 
@@ -21,18 +21,18 @@ keys a layer actually overrides get rebound differently while that layer is acti
 
 ## Acceptance Criteria
 
-- [ ] A key that is a layer's trigger is visually distinct from both a normal bound key and a
+- [x] A key that is a layer's trigger is visually distinct from both a normal bound key and a
       free key (e.g. its own color/highlight), on every layer view where that key is visible.
-- [ ] While viewing the base layer, a trigger key's label names the layer it switches into (e.g.
+- [x] While viewing the base layer, a trigger key's label names the layer it switches into (e.g.
       "Test").
-- [ ] While viewing the layer that key triggers, the same key's label instead reads "Base" (or
+- [x] While viewing the layer that key triggers, the same key's label instead reads "Base" (or
       equivalent), reflecting that using it now returns to the base layer.
-- [ ] Clicking a trigger key on the board (outside of test/edit mode, or in whatever mode this
+- [x] Clicking a trigger key on the board (outside of test/edit mode, or in whatever mode this
       ends up living) switches the currently shown/edited layer, equivalently to using the layer
       switcher from the companion story on selector placement.
-- [ ] A key that is simultaneously a trigger and carries its own base bind (flagged today as a
+- [x] A key that is simultaneously a trigger and carries its own base bind (flagged today as a
       conflict, trigger wins) still shows the trigger state as primary, per existing precedent.
-- [ ] The "Bound in an alt layer" legend entry is kept, unchanged in meaning.
+- [x] The "Bound in an alt layer" legend entry is kept, unchanged in meaning.
 
 ## Open Questions
 
@@ -171,3 +171,72 @@ Run `npm run dev`, then in the app:
 7. Regression: click a free key and a normally bound key in idle mode → nothing happens, as today.
 
 ## Done
+
+**Summary.** D1 added a pure helper `src/renderer/src/modules/config/lib/trigger-keys.ts`
+(`resolveTriggerLayer`/`triggerSelectTarget`, with 8 Vitest cases in `trigger-keys.test.ts`
+mirroring `validation-scope.ts`'s style) that answers "is this key some layer's trigger, and is
+that layer the one currently shown" with the trimmed/case-insensitive/first-match semantics
+decision 9 calls for. D2 wired that helper into `OverviewKeyboardPanel.tsx`'s `keyVisual()`/
+`keyLabel()`: a trigger key now renders in the `strogg` variant
+(`border-strogg-700 bg-strogg-900/35 text-strogg-200`), its second label line reads
+`→ <layer>` / `→ Base` (new i18n keys `config.overview.trigger.toLayer`/`toBase`/`title`/
+`titleActive`), a 4th "Layer trigger" legend badge was added
+(`config.overview.legend.trigger`), and the `title` attribute names the trigger role and target
+so the state is never colour-only. D3 added a leading idle-mode branch to `capture()`
+(`onSelectLayer(triggerSelectTarget(trigger))` when neither test nor edit mode is active and the
+clicked key is a trigger) and gave trigger keys a `cursor-pointer hover:border-strogg-300`
+affordance in idle mode; `ConfigView.tsx` needed no change — its `onSelectLayer={setActiveLayerId}`
+wiring from story 013 already covers this. No IPC, main, schema or persistence surface touched.
+
+**Decisions** (implementation-detail calls made without a user to ask, verified against plan +
+acceptance criteria — beyond the 12 already recorded under "Decisions (Sprint)" above, which the
+implementation followed as written):
+- The base-bind reference slot (`baseReferenceLabel`) now fires whenever `baseBound &&
+  (trigger || hasOverride)`, not only `hasOverride && baseBound` as before — a trigger key's own
+  base bind must stay visible under the trigger label (AC5, decision 4) independent of whether
+  the active layer happens to also override that same key.
+- The trigger arrow's second-line text uses a new, slightly lighter tint (`text-strogg-300/90`)
+  than the keycap's own `text-strogg-200`, matching the existing pattern where the bound-command
+  slot (`text-flame-300/90`) is a lighter tint than its keycap's `text-flame-200` — kept for
+  visual-hierarchy consistency rather than reusing the exact keycap color for the label line.
+- `resolveTriggerLayer` is called independently in both `keyVisual()` and `capture()` rather than
+  computed once and threaded through — matches the existing pattern where `capture()` already
+  reads `profile.binds` independently of `keyVisual()`'s own read of the same data; the review
+  flagged this as a negligible, non-blocking duplication (see Verification below).
+
+**Commit message:**
+```
+014: show trigger keys on the keyboard overview, click to switch layers
+```
+
+**Verification:**
+- `npx tsc -p tsconfig.web.json --noEmit` — clean.
+- `npx tsc -p tsconfig.node.json --noEmit` — clean.
+- `npm run build` — green (main/preload/renderer all built).
+- `npm test` — 26 files / 443 tests, all passed (8 new for `trigger-keys.test.ts`); no test
+  weakened, skipped or deleted.
+- Clean-agent code review — overall **PASS**. All six acceptance criteria PASS with file:line
+  evidence; non-trigger-key rendering traced as algebraically identical to the pre-diff behavior
+  (the deliverable-hard regression risk did not materialize); no scope creep; design-token and
+  i18n hygiene confirmed (no hex/raw-palette classes, no hardcoded UI prose); the sprint decisions
+  (trigger-wins-cascade, base-bind third slot, active-trigger-selects-null, trimmed/case-insensitive
+  lookup, blank-triggerKey-no-keycap) spot-checked and honored. Four minor, explicitly
+  non-blocking observations, left as-is:
+  - `resolveTriggerLayer` runs twice per rendered key (`capture()` and `keyVisual()`) — negligible
+    duplication, see Decisions above.
+  - Two trigger-matching semantics now coexist: `resolveTriggerLayer`'s lenient trim/case-fold
+    match (this story) vs. `alt-layers.ts`'s exact `findLayerByTriggerKey` (story 011) —
+    intentional per decision 9, not accidental drift.
+  - An already-invalid edge case (a layer's trigger key also appears in that same layer's own
+    `overrides`, i.e. the existing `layer.selfbind` error state) doesn't surface the override
+    command on the keycap — outside AC5's literal scope (AC5 is about a *base* bind conflict).
+  - Trivial opacity mismatch between the legend swatch (`bg-strogg-900/40`, from the existing
+    shared `Badge` component) and the keycap (`bg-strogg-900/35`, per decision 1's exact token
+    choice) — cosmetic only, both are the same `strogg` semantic family.
+  No re-review cycle was needed.
+- **Live UI smoke (P2): not performed.** This environment has no way to interactively drive the
+  Electron window — no Playwright installed in this project, no `ui-verify` harness scaffolded
+  yet, and the available Playwright MCP tools only drive a browser page, not an Electron app. Per
+  this project's P2 policy this is an expected limitation, not a failure: the story is **built,
+  live acceptance pending**. The 7-step manual test plan above is ready for a human (or a future
+  `ui-verify`-equipped session) to run via `npm run dev`.

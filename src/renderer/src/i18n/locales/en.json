@@ -364,7 +364,8 @@
       "legend": {
         "free": "Free",
         "bound": "Bound",
-        "altLayer": "Bound in an alt layer"
+        "altLayer": "Bound in an alt layer",
+        "trigger": "Layer trigger"
       },
       "testMode": {
         "start": "Start test mode",
@@ -375,6 +376,12 @@
       "editMode": {
         "start": "Start editing",
         "stop": "Stop editing"
+      },
+      "trigger": {
+        "toLayer": "→ {{layer}}",
+        "toBase": "→ Base",
+        "title": "Layer trigger: {{layer}}",
+        "titleActive": "Layer trigger: Base"
       }
     },
     "keyBindDialog": {

@@ -19,6 +19,7 @@ import {
   resolveQuakeKeyName,
   type KeyDef,
 } from './lib/keyboard-layout'
+import { resolveTriggerLayer, triggerSelectTarget, type TriggerInfo } from './lib/trigger-keys'
 
 /** One keycap's footprint at 1x. The board is then zoomed to fill the panel - see the scale effect below. */
 const KEY_UNIT_REM = 2.25
@@ -153,6 +154,13 @@ export function OverviewKeyboardPanel({
    * toggles below).
    */
   const capture = (def: KeyDef): void => {
+    if (!testMode && !editMode) {
+      const trigger = resolveTriggerLayer(def.key, profile.layers ?? [], activeLayer?.id ?? null)
+      if (trigger) {
+        onSelectLayer(triggerSelectTarget(trigger))
+        return
+      }
+    }
     if (editMode) {
       setEditingKey({ key: def.key, label: def.label })
       return
@@ -169,38 +177,57 @@ export function OverviewKeyboardPanel({
     const hasOverride = Boolean(activeLayer && overrideCommand && overrideCommand.trim().length > 0)
     const bound = hasOverride || baseBound
     const primaryCommand = hasOverride ? overrideCommand : baseCommand
+    // A layer's trigger key is what puts that layer on the board, so its role
+    // outranks whatever it is bound to: the keycap reads as a trigger first and
+    // its own bind is demoted to the reference line below.
+    const trigger = resolveTriggerLayer(def.key, profile.layers ?? [], activeLayer?.id ?? null)
     const commandLabel =
-      bound && primaryCommand
+      !trigger && bound && primaryCommand
         ? keycapCommandLabel(resolveAliasChain(primaryCommand, profile.actions ?? []))
         : null
     // When a layer is active and this key has no override of its own, the base
     // command still renders as the keycap's primary label (falling back below) -
     // this extra line only fires when the key DOES have an override, so the
-    // base-layer command is not lost from view.
+    // base-layer command is not lost from view. A trigger key fires it too, and
+    // regardless of `hasOverride`: a trigger is usually not overridden by its
+    // own layer, but it very much can carry an ordinary base bind, and that has
+    // to stay visible under the trigger label.
     const baseReferenceLabel =
-      hasOverride && baseBound
+      baseBound && (trigger || hasOverride)
         ? keycapCommandLabel(resolveAliasChain(baseCommand, profile.actions ?? []))
         : null
+    const triggerTitle = trigger
+      ? trigger.isActive
+        ? t('config.overview.trigger.titleActive')
+        : t('config.overview.trigger.title', { layer: trigger.layerName })
+      : null
     const title = [
       def.key,
-      hasOverride && t('config.overview.legend.altLayer'),
-      bound && primaryCommand?.trim(),
+      trigger ? triggerTitle : hasOverride && t('config.overview.legend.altLayer'),
+      !trigger && bound && primaryCommand?.trim(),
     ]
       .filter(Boolean)
       .join(' — ')
     const className = cn(
       'flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-sm border px-1 py-1 transition-colors duration-[--dur-fast]',
-      hasOverride
-        ? 'border-warning/60 bg-warning/15 text-warning'
-        : bound
-          ? 'border-flame-700 bg-flame-900/30 text-flame-200'
-          : 'border-line text-ink-muted',
+      trigger
+        ? 'border-strogg-700 bg-strogg-900/35 text-strogg-200'
+        : hasOverride
+          ? 'border-warning/60 bg-warning/15 text-warning'
+          : bound
+            ? 'border-flame-700 bg-flame-900/30 text-flame-200'
+            : 'border-line text-ink-muted',
       // A key with no override of its own, while a layer is active, is shown
-      // dimmed - it is base-layer context, not this layer's own state.
-      Boolean(activeLayer) && !hasOverride && bound && 'opacity-70',
-      testMode || editMode ? 'cursor-pointer hover:border-flame-400' : 'cursor-default',
+      // dimmed - it is base-layer context, not this layer's own state. A trigger
+      // key is never dimmed: it is what got you onto this layer.
+      Boolean(activeLayer) && !trigger && !hasOverride && bound && 'opacity-70',
+      testMode || editMode
+        ? 'cursor-pointer hover:border-flame-400'
+        : trigger
+          ? 'cursor-pointer hover:border-strogg-300'
+          : 'cursor-default',
     )
-    return { title, className, commandLabel, warn: hasOverride, baseReferenceLabel }
+    return { title, className, commandLabel, warn: hasOverride, baseReferenceLabel, trigger }
   }
 
   const keyLabel = (
@@ -208,20 +235,29 @@ export function OverviewKeyboardPanel({
     commandLabel: ReturnType<typeof keycapCommandLabel>,
     warn: boolean,
     baseReferenceLabel: ReturnType<typeof keycapCommandLabel>,
+    trigger: TriggerInfo | null,
   ) => (
     <>
       <span className="text-[11px] leading-none font-semibold">{def.label}</span>
-      {commandLabel && (
-        <span
-          className={cn(
-            'max-w-full truncate text-[8px] leading-none',
-            warn ? 'text-warning' : 'text-flame-300/90',
-            !commandLabel.recognized && 'font-mono',
-          )}
-        >
-          {commandLabel.label}
-          {commandLabel.extraSteps > 0 && ` +${commandLabel.extraSteps}`}
+      {trigger ? (
+        <span className="max-w-full truncate text-[8px] leading-none text-strogg-300/90">
+          {trigger.isActive
+            ? t('config.overview.trigger.toBase')
+            : t('config.overview.trigger.toLayer', { layer: trigger.layerName })}
         </span>
+      ) : (
+        commandLabel && (
+          <span
+            className={cn(
+              'max-w-full truncate text-[8px] leading-none',
+              warn ? 'text-warning' : 'text-flame-300/90',
+              !commandLabel.recognized && 'font-mono',
+            )}
+          >
+            {commandLabel.label}
+            {commandLabel.extraSteps > 0 && ` +${commandLabel.extraSteps}`}
+          </span>
+        )
       )}
       {baseReferenceLabel && (
         <span className="max-w-full truncate text-[7px] leading-none text-ink-muted italic opacity-80">
@@ -241,7 +277,7 @@ export function OverviewKeyboardPanel({
         />
       )
     }
-    const { title, className, commandLabel, warn, baseReferenceLabel } = keyVisual(def)
+    const { title, className, commandLabel, warn, baseReferenceLabel, trigger } = keyVisual(def)
     const widthUnits = def.wide ? MOUSE_WIDE_UNITS : (def.units ?? 1)
     return (
       <button
@@ -252,14 +288,14 @@ export function OverviewKeyboardPanel({
         style={{ width: `${widthUnits * KEY_UNIT_REM}rem`, height: `${KEY_HEIGHT_REM}rem` }}
         className={className}
       >
-        {keyLabel(def, commandLabel, warn, baseReferenceLabel)}
+        {keyLabel(def, commandLabel, warn, baseReferenceLabel, trigger)}
       </button>
     )
   }
 
   /** Numpad only: grid placement (KP_PLUS/KP_ENTER span two rows, KP_INS spans two columns) instead of a fixed width/height. */
   const renderNumpadKey = (def: KeyDef, index: number) => {
-    const { title, className, commandLabel, warn, baseReferenceLabel } = keyVisual(def)
+    const { title, className, commandLabel, warn, baseReferenceLabel, trigger } = keyVisual(def)
     return (
       <button
         key={`${def.key}-${index}`}
@@ -272,7 +308,7 @@ export function OverviewKeyboardPanel({
         }}
         className={className}
       >
-        {keyLabel(def, commandLabel, warn, baseReferenceLabel)}
+        {keyLabel(def, commandLabel, warn, baseReferenceLabel, trigger)}
       </button>
     )
   }
@@ -332,6 +368,7 @@ export function OverviewKeyboardPanel({
         <Badge tone="warning" className={cn(!activeLayer && 'opacity-60')}>
           {t('config.overview.legend.altLayer')}
         </Badge>
+        <Badge tone="strogg">{t('config.overview.legend.trigger')}</Badge>
       </div>
 
       <div ref={scaleHostRef} className="overflow-x-auto pb-2">
