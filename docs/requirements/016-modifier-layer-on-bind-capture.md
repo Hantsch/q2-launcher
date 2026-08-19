@@ -1,7 +1,7 @@
 ---
 id: 016
 title: Auto-create an Alt/Ctrl/Shift layer when a modifier is held during key capture
-status: ready
+status: in-progress
 created: 2026-08-18
 ---
 
@@ -25,23 +25,23 @@ Alt+R for another must not fight over which layer owns "R" — they're different
 
 ## Acceptance Criteria
 
-- [ ] Capturing a key while exactly one of Alt/Ctrl/Shift is held resolves to that plain key plus
+- [x] Capturing a key while exactly one of Alt/Ctrl/Shift is held resolves to that plain key plus
       the held modifier, not to a literal combined key string (Quake 2 cannot bind "ALT+R" as one
       key, per `alt-layers.ts`).
-- [ ] If no layer exists yet whose trigger is that modifier, one is created automatically (hold
+- [x] If no layer exists yet whose trigger is that modifier, one is created automatically (hold
       mode, trigger key `ALT`/`CTRL`/`SHIFT`), named recognizably after its modifier.
-- [ ] If a layer with that modifier as its trigger already exists — auto-created earlier in this
+- [x] If a layer with that modifier as its trigger already exists — auto-created earlier in this
       flow, or hand-made in the Layers panel — the new assignment is added to that same layer's
       overrides; a second layer is never created for the same modifier.
-- [ ] The assignment lands as an override on the resolved key inside that layer; the base layer's
+- [x] The assignment lands as an override on the resolved key inside that layer; the base layer's
       existing bind for that key (if any) is untouched.
 - [ ] A Weapon-dropping row's ammo choice and team-message text produce the identical rendered
       command(s) whether the row's key ends up on the base layer or inside an auto-created
       modifier layer.
-- [ ] Capturing a modifier+key combination that already has an override in that layer (used by a
+- [x] Capturing a modifier+key combination that already has an override in that layer (used by a
       different action) warns before overwriting, the same way a plain-key collision is already
       surfaced elsewhere in the keybinding editor.
-- [ ] An auto-created modifier layer is a completely ordinary layer afterwards — visible and
+- [x] An auto-created modifier layer is a completely ordinary layer afterwards — visible and
       editable in the existing Layers panel, renameable, its mode changeable, its overrides
       addable/removable there too, same as any hand-created layer.
 
@@ -202,3 +202,122 @@ Run `npm run dev`, open Config, pick a profile with at least one existing layer 
    still active; releasing Ctrl and pressing R then works.
 
 ## Done
+
+**Status: BLOCKED (AC 5 unresolved after 3 review-fix cycles) — story left `in-progress`.**
+
+### Summary
+
+D1 (`modifier-capture.ts`), D2 (`modifier-layers.ts`) and D3 (capture-slot wiring across
+`BindSlot.tsx`/`DualBindPanel.tsx`/`DropBindPanel.tsx`/`AdvancedTab.tsx`/`catalog-binds.ts`) were
+inherited from an earlier partial build attempt. This session verified D1–D3 line by line against
+all 13 sprint decisions and the D1–D3 acceptance text before building anything further — no bugs
+found, no changes needed. D4 (overwrite warning for modifier captures) and D5 (mode select in the
+Layers panel) were then implemented fresh. Three `story-review-hard` passes followed (the maximum
+this project's build procedure allows); AC 1, 2, 3, 4, 6 and 7 passed cleanly across all three.
+AC 5 (a Weapon-dropping row renders the identical command whether base-bound or modifier-bound) was
+never fully closed — two fix attempts each closed the previously-found gap but exposed a new one,
+and the third attempt's remaining gap (a row-identity collision, below) was found after this
+session's fix-cycle budget was spent. Per the QA rule ("never weaken tests to go green"), no test
+was loosened to make this pass, and the code is left in its last reviewed (still-imperfect) state
+rather than shipped as if AC 5 were satisfied.
+
+### Decisions taken beyond the sprint's own
+
+- **D4 does not add a `modifierLayer` case to `BindCollision`** (`src/shared/config/bind-collision.ts`),
+  even though decision 10 suggested "adds a case to it". `findBindCollision`, `releaseKey` and
+  `ownerLabel` all switch exhaustively on `BindCollision['kind']`, and a modifier-layer collision has
+  no base-bind angle and nothing to release — forcing those three unrelated call sites to grow a
+  branch they could never take would violate the file's own purpose. Instead, a new, parallel
+  function `findModifierSlotCollision` was added to `bind-slot-collision.ts` (015's own
+  `findSlotCollision`/`SlotCollision`/`applyReplace` home), and `BindSlot.tsx` renders it with the
+  exact same banner markup and Cancel/"Replace" button pair the existing `pending` state already
+  uses — satisfying AC 6's "the same way" without widening an unrelated discriminated union.
+  Reviewed and accepted as correct in pass 1.
+- **D5** replaces the Layers panel's read-only mode `Badge` with an inline `Select` next to the
+  layer's name (rather than a separate dialog), persisting immediately through the panel's existing
+  `persist()`/`updateProfileLayers` call — mirroring `handleRename`'s persist shape as the
+  deliverable asked, just without a modal since a single-field mode toggle doesn't need one.
+- **Review-fix, bare-modifier regression** (found in pass 1): `classifyModifierCapture`'s `pending`
+  result now carries `{modifier}` (was bare), and a new pure `resolveModifierRelease` helper plus an
+  optional `onKeyUp` parameter on `useKeyCapture` let `BindSlot` tell "holding a modifier before the
+  real key" apart from "pressed and released a bare modifier with nothing else happening" — restoring
+  the pre-story ability to bind a bare modifier as an ordinary key (e.g. `bind SHIFT +speed`, a real
+  stock Quake II bind that story 015's original capture supported and D1's keydown-only decision
+  table had silently made impossible). Confirmed sound in passes 2 and 3.
+- **Review-fix, silent save failures** (found in pass 1): `AdvancedTab.persistLayers` now drives the
+  same `saving`/`status` state its sibling `persistCategoriesAndActions` already does, so a failed
+  `updateProfileLayers` call is no longer invisible to the user.
+- **AC 5 fix attempts (both superseded, documented for whoever continues this):**
+  1. First attempt: `renameModifierOverrideCommand`, a value-based "find whatever override still
+     holds the row's old command string and rewrite it". Pass 2 found two problems this caused: a
+     layer-only-bound row (no `ConfigAction`) had no way to *read back* its real current ammo/message
+     state (`deriveRowState(undefined, row)` only ever reports its "unbound" default), and the
+     value-diff raced its own debounced IPC round trip on the message field, silently getting stuck
+     mid-word once the comparison stopped matching a `draft.layers` that hadn't caught up yet. This
+     function and its tests were deleted entirely rather than patched further.
+  2. Second attempt: identity-based reads and writes. New pure functions `parseRowCommandState` and
+     `findRowLayerOverride` (`catalog-binds.ts`) let a layer-only row read its actual stored
+     ammo/message state via a structural reverse-parse of the override's command text, and
+     `DropCatalogRow` writes directly to the known `(modifier, key)` location
+     (`upsertModifierLayerOverride`) instead of searching by value, with the message field debounced
+     the same way `AdvancedTab`'s action save already is. This closed pass 2's two bugs, but pass 3
+     found the structural match itself is not safe: two Weapon-dropping rows whose command text
+     overlaps or prefix-collides can cause `findRowLayerOverride` to attribute an override to the
+     wrong row, and flagged remaining staleness/decision-8-adjacent concerns in the debounced write.
+     **This is the current, unresolved state** — see Blocker below.
+
+### Verification
+
+- `npx tsc -p tsconfig.web.json --noEmit` — clean.
+- `npx tsc -p tsconfig.node.json --noEmit` — clean.
+- `npm test -- --run` — 571/571 passing across 34 files (authoritative run via PowerShell; the Bash
+  tool intermittently threw a uniform `Cannot read properties of undefined (reading 'config')`
+  across every file in this environment, matching this sprint's known, unrelated environment quirk —
+  confirmed clean on retry).
+- `npm run build` — succeeds (main/preload/renderer all build).
+- Live UI smoke test: not performed (no Playwright/`_electron` harness available in this
+  environment; not the blocker for this story — see Blocker below, which is a real correctness gap
+  found by code review, not a missing manual check).
+
+### Review history (`story-review-hard`, max 3 cycles per the build procedure)
+
+- **Pass 1 — FAIL.** D1–D3 (inherited) confirmed correct against all 13 decisions, no bugs. Found:
+  AC 5 broken for a layer-only-bound row's ammo/message edits (silent no-op or desync), and the
+  bare-modifier-key regression above. Fixed both, plus the should-fix `persistLayers` status gap.
+  Also flagged as informational (not required to fix): the `findModifierSlotCollision`-vs-union
+  deviation (see above, judged correct), `findBindLocation`'s base-before-layer precedence
+  potentially suppressing an `Alt+key` label (superseded by the AC 5 redesign, which stopped using
+  `findBindLocation` for that lookup entirely), the non-blocking "auto-created CTRL/SHIFT layer
+  shadows a stock bind with no visible warning" gap (no AC covers it, not addressed), and D2's
+  identical-render test not literally asserting the `layer.quote` warning by name (the generator
+  never raises it for that path, accepted as intentional).
+- **Pass 2 — FAIL, AC 5 only.** AC 1, 2, 3, 4, 6, 7 confirmed PASS; the bare-modifier-regression fix
+  confirmed sound (state machine walked through for hold/press, hold/chord and refusal cases; no
+  stray keyup misfires). Found the two problems in the first AC 5 fix attempt described above.
+- **Pass 3 (final) — FAIL, AC 5 only.** AC 1, 2, 3, 4, 6, 7 re-confirmed PASS, undisturbed by the AC 5
+  redesign. Found the row-identity collision in the second AC 5 fix attempt (two rows with
+  overlapping/prefix-colliding command text can be matched to the wrong row by
+  `findRowLayerOverride`'s structural/textual match) plus remaining staleness/decision-8-adjacent
+  concerns in the debounced write. Review-fix cycles are now exhausted per the build procedure ("max
+  3 cycles, then stop and ask the user").
+
+### Blocker
+
+AC 5 is not satisfied for Weapon-dropping rows whose binding lives entirely inside a modifier layer
+(no base `ConfigAction`) when two catalog rows' command text can structurally collide. The root
+cause both AC 5 fix attempts share: a layer override is stored as a bare `command: string`
+(`AltLayer.overrides: Record<string, string>`) with nothing identifying *which row* wrote it, so any
+read-back or write-back has to re-derive row identity from the command text itself — which is not
+guaranteed unique across the catalog. Closing this properly likely needs a plan-level decision this
+build session cannot make unilaterally: whether the override value's *shape* should change to carry
+an explicit row/catalog identity (a schema change touching `AltLayer`, `generateLayerAliases`, and
+every existing override in a saved profile), or whether some other invariant (e.g. a stricter
+uniqueness guarantee across `action-catalog.ts`'s row commands, if one can be established) makes the
+textual match safe without a schema change. Recommend routing this back through `/refine` before a
+fourth implementation attempt.
+
+### Commit message (draft, for whenever this is completed and committed)
+
+```
+016: modifier-layer auto-creation on bind capture (D1–D5 built; AC5 unresolved, story left in-progress)
+```

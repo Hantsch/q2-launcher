@@ -29,7 +29,10 @@
 
 import type { ActionCategoryId, DroppableDef } from '@shared/config/action-catalog'
 import { DROPPABLES, MOVEMENT_ACTIONS, WEAPON_ACTIONS, WEAPON_EXTRA_ACTIONS } from '@shared/config/action-catalog'
-import type { ConfigAction, ConfigCommand } from '@shared/modules/config'
+import { commandLineFor } from '@shared/config/alias-render'
+import { normalizeBindKey } from '@shared/config/key-names'
+import { isModifierTrigger, type ModifierTrigger } from '@shared/config/modifier-layers'
+import type { ConfigAction, ConfigCommand, ConfigProfile } from '@shared/modules/config'
 
 /** Which catalogue family a row was built from - used only to namespace `catalogId`s so two
  * different families' entries (e.g. movement's `attack` and a droppable named `attack`) can
@@ -166,6 +169,138 @@ function commandsFor(row: CatalogRow, withAmmo: boolean): ConfigCommand[] {
   const commands: ConfigCommand[] = row.commands.map((text) => ({ kind: 'raw', text }))
   if (row.ammoCommand && withAmmo) commands.push({ kind: 'raw', text: row.ammoCommand })
   return commands
+}
+
+/**
+ * The exact command-line string this row's action would execute right now,
+ * given `state`.
+ *
+ * Identical construction to what `freshAction`/`applyAmmo`/`applyMessage`
+ * build into `action.commands` - the row commands, then the ammo command when
+ * `state.withAmmo`, then a trailing `say_team` message when `state.message` is
+ * non-empty - joined the way `renderActionAlias` joins an action's commands
+ * into its alias body (`'; '`, each line already put through
+ * `commandLineFor`, empty lines dropped).
+ *
+ * Story 016 decision 12: this is the story's *single* command builder. The
+ * base-bind path reaches the engine as `action.commands` ->
+ * `renderActionAlias`, and the modifier-layer path writes this row's command
+ * verbatim as a layer override; both must derive from the exact same
+ * construction, so the two paths can never render differently for what looks
+ * to the user like the same assignment (AC 5). That is also why the join and
+ * the per-command rendering are taken from `alias-render.ts` rather than
+ * restated here.
+ */
+export function buildRowCommandString(row: CatalogRow, state: RowState): string {
+  const commands = commandsFor(row, state.withAmmo)
+  if (state.message.trim().length > 0) {
+    commands.push({ kind: 'message', channel: 'say_team', text: state.message })
+  }
+  return commands
+    .map(commandLineFor)
+    .filter((line) => line.length > 0)
+    .join('; ')
+}
+
+/**
+ * The reverse of `buildRowCommandString`: given a command string, is it one
+ * this row could have produced, and if so, what `withAmmo`/`message` state
+ * would have produced it?
+ *
+ * Review-fix (AC 5): a modifier-layer override stores a row's command as a
+ * plain string with nothing linking it back to the row that wrote it. For a
+ * row with no `ConfigAction` at all (its only binding is a modifier capture),
+ * `deriveRowState(undefined, row)` has nothing to read and always answers the
+ * `{withAmmo: true, message: ''}` default - so an ammo checkbox or message
+ * field would show a state that has nothing to do with what is actually
+ * stored, and writing through the `ConfigAction` path would either silently
+ * no-op (decision 4 prunes an action with no key and no message) or create a
+ * second, driftable copy of the same information. This function is what lets
+ * `findRowLayerOverride` read the *real* current state straight out of the
+ * override's own command text instead.
+ *
+ * Matching is structural, not exact-string: `command` must start with this
+ * row's own `commands`, in order, optionally followed by `ammoCommand`,
+ * optionally followed by a `say_team ` message (which may itself contain
+ * `; ` - the whole remainder after the optional ammo segment is treated as
+ * one message, not re-split). Anything else - a different row's command
+ * entirely, or trailing content that isn't a `say_team` message - is not a
+ * match: `null`, not a guess.
+ */
+export function parseRowCommandState(
+  row: CatalogRow,
+  command: string,
+): { withAmmo: boolean; message: string } | null {
+  const segments = command.split('; ').filter((segment) => segment.length > 0)
+  if (segments.length < row.commands.length) return null
+  for (let i = 0; i < row.commands.length; i++) {
+    if (segments[i] !== row.commands[i]) return null
+  }
+
+  let index = row.commands.length
+  let withAmmo = !row.ammoCommand
+  if (row.ammoCommand && segments[index] === row.ammoCommand) {
+    withAmmo = true
+    index++
+  }
+
+  if (index === segments.length) return { withAmmo, message: '' }
+
+  const rest = segments.slice(index).join('; ')
+  const messagePrefix = 'say_team '
+  if (!rest.startsWith(messagePrefix)) return null
+
+  return { withAmmo, message: rest.slice(messagePrefix.length) }
+}
+
+export interface RowLayerBinding {
+  modifier: ModifierTrigger
+  /** Normalized key (see `normalizeBindKey`) the override lives under. */
+  key: string
+  /** The override's exact, currently-stored command string. */
+  command: string
+  withAmmo: boolean
+  message: string
+}
+
+/**
+ * Where, if anywhere, this row's binding currently lives inside a modifier
+ * layer's overrides - by structural match (`parseRowCommandState`), not by
+ * comparing against a command string computed from possibly-stale local
+ * state. Review-fix (AC 5): this is the "first-class read" half of giving the
+ * layer-only case its own path, parallel to `deriveRowState`'s read of a
+ * `ConfigAction` - a caller uses whichever one actually has data, rather than
+ * assuming `ConfigAction` is the only place a row's state can live.
+ *
+ * Only modifier layers are scanned (`isModifierTrigger`, mirroring
+ * `findBindLocation`'s own filter) - a plain layer whose override command
+ * happens to structurally match this row is not "this row living under a
+ * modifier", the same reasoning `findBindLocation` documents for its own
+ * non-modifier-layer skip.
+ *
+ * First match wins (layer array order, then object-insertion order within a
+ * layer) when a row's binding exists in more than one place at once (e.g.
+ * Primary under Alt, Secondary under Ctrl) - `DropCatalogRow`/`CatalogBindRow`
+ * already document that as an accepted display-only ambiguity, unchanged by
+ * this function.
+ */
+export function findRowLayerOverride(
+  profile: ConfigProfile,
+  row: CatalogRow,
+): RowLayerBinding | null {
+  for (const layer of profile.layers ?? []) {
+    const normalizedTrigger = normalizeBindKey(layer.triggerKey ?? '')
+    if (!isModifierTrigger(normalizedTrigger)) continue
+
+    for (const [rawKey, command] of Object.entries(layer.overrides)) {
+      const parsed = parseRowCommandState(row, command)
+      if (parsed) {
+        return { modifier: normalizedTrigger, key: normalizeBindKey(rawKey), command, ...parsed }
+      }
+    }
+  }
+
+  return null
 }
 
 /** Plain, non-translated, stable text for a freshly materialised action's `name` - the row's own

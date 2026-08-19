@@ -968,6 +968,7 @@
         "hold": "Hold",
         "toggle": "Toggle"
       },
+      "modeLabel": "Mode",
       "trigger": "Trigger: {{key}}",
       "noTrigger": "No trigger",
       "selector": {
@@ -1070,7 +1071,11 @@
         "secondary": "Secondary",
         "weaponsUseGroup": "Use weapon",
         "weaponsCycleGroup": "Cycling",
-        "otherActions": "Other actions"
+        "otherActions": "Other actions",
+        "modifierHint": {
+          "multipleModifiers": "Hold only one modifier at a time (Alt, Ctrl or Shift).",
+          "modifierOnly": "Hold a modifier, then press the key to bind — not another modifier."
+        }
       },
       "dropBind": {
         "weaponsGroup": "Weapons",
@@ -1084,7 +1089,8 @@
         "baseBind": "{{key}} is already bound to “{{owner}}”. Replace that bind?",
         "action": "{{key}} is already used by “{{owner}}”. Take the key from it?",
         "replace": "Replace",
-        "layerOverride": "{{key}} also has an override in the alt layer “{{owner}}” — assigned anyway."
+        "layerOverride": "{{key}} also has an override in the alt layer “{{owner}}” — assigned anyway.",
+        "modifierLayer": "{{key}} in the “{{layer}}” layer already overrides “{{owner}}”. Replace it?"
       },
       "messageEditor": {
         "title": "Edit message “{{name}}”",

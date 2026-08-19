@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ListChecks, Pencil, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
+import type { AltLayer } from '@shared/config/alt-layers'
 import {
   BUILT_IN_ACTION_CATEGORIES,
   type ActionCategoryEntryKind,
@@ -16,7 +17,7 @@ import { ActionEditor } from './components/ActionEditor'
 import { DropBindPanel } from './components/DropBindPanel'
 import { DualBindPanel } from './components/DualBindPanel'
 import { MessageEditor } from './components/MessageEditor'
-import { updateProfileActions } from './client'
+import { updateProfileActions, updateProfileLayers } from './client'
 
 const SAVE_DEBOUNCE_MS = 500
 
@@ -137,6 +138,41 @@ export function AdvancedTab({ profile, draft, patch, onChanged }: AdvancedTabPro
       setStatus('idle')
     }
     return result.ok
+  }
+
+  /**
+   * Story 016 D3: a modifier capture in one of the dual-bind panels writes only
+   * `layers`, in a single replace-whole-array call (decision 8). Deliberately
+   * *not* patched into the draft here: `useProfileDraft`'s
+   * `LOCALLY_PATCHED_FIELDS` covers `cvars`/`categories`/`actions` but not
+   * `layers`, so `onChanged` alone is what refreshes the draft's layers - from
+   * the server's own response rather than from an optimistic guess. Patching on
+   * top of that would only add a second source of truth for the same array.
+   * Immediate rather than debounced: a capture is one discrete gesture, the same
+   * reasoning `LayersPanel`'s own `persist` uses.
+   *
+   * Review-fix: drives the same `status`/`saving` state
+   * `persistCategoriesAndActions` does, instead of failing silently. Without
+   * this, a dropped `updateProfileLayers` call (e.g. a validation rejection)
+   * left the user with no signal at all that a capture never actually
+   * persisted - the slot would keep showing the just-captured label from
+   * local render state until the next full profile reload quietly reverted
+   * it. No draft revert on failure is needed here (unlike
+   * `scheduleActionsSave`'s): nothing was optimistically patched into the
+   * draft above, so a failed call simply leaves `draft.layers` exactly as it
+   * was.
+   */
+  const persistLayers = async (nextLayers: AltLayer[]): Promise<void> => {
+    setSaving(true)
+    setStatus('saving')
+    const result = await updateProfileLayers({ profileId: profile.id, layers: nextLayers })
+    setSaving(false)
+    if (result.ok) {
+      onChanged(result.value)
+      setStatus('saved')
+    } else {
+      setStatus('idle')
+    }
   }
 
   const scheduleActionsSave = (nextActions: ConfigAction[]): void => {
@@ -369,6 +405,7 @@ export function AdvancedTab({ profile, draft, patch, onChanged }: AdvancedTabPro
             actions={actions}
             draft={draft}
             onActionsChange={(nextActions) => void persistCategoriesAndActions(categories, nextActions)}
+            onLayersChange={(nextLayers) => void persistLayers(nextLayers)}
             onEditLegacyAction={setEditingActionId}
             onRemoveLegacyAction={handleRemoveAction}
           />
@@ -385,6 +422,7 @@ export function AdvancedTab({ profile, draft, patch, onChanged }: AdvancedTabPro
             actions={actions}
             draft={draft}
             onActionsChange={(nextActions) => void persistCategoriesAndActions(categories, nextActions)}
+            onLayersChange={(nextLayers) => void persistLayers(nextLayers)}
             onMessageChange={scheduleActionsSave}
             onEditLegacyAction={setEditingActionId}
             onRemoveLegacyAction={handleRemoveAction}

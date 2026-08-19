@@ -1,21 +1,29 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SlidersHorizontal, Trash2 } from 'lucide-react'
 import { DROPPABLES } from '@shared/config/action-catalog'
+import type { AltLayer } from '@shared/config/alt-layers'
+import { upsertModifierLayerOverride, type ModifierTrigger } from '@shared/config/modifier-layers'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import { IconButton } from '../../../components/ui/Button'
 import { Checkbox, Input } from '../../../components/ui/controls'
 import { SectionLabel } from '../../../components/ui/primitives'
-import { applyReplace, findSlotCollision } from '../lib/bind-slot-collision'
+import { applyReplace, findModifierSlotCollision, findSlotCollision } from '../lib/bind-slot-collision'
 import {
   applyAmmo,
   applyMessage,
   applySlot,
   buildDropGroups,
+  buildRowCommandString,
   deriveRowState,
+  findRowLayerOverride,
   type CatalogRow,
 } from '../lib/catalog-binds'
 import { BindSlot } from './BindSlot'
+
+/** Mirrors `AdvancedTab`'s `SAVE_DEBOUNCE_MS` (decision 16: the message field is typed
+ * continuously, so its own layer-sync write is debounced too, not just its `ConfigAction` save). */
+const LAYER_SYNC_DEBOUNCE_MS = 500
 
 /**
  * Story 015 D6: the Weapon dropping dual-bind editor - D5's sibling
@@ -42,6 +50,12 @@ export interface DropBindPanelProps {
   /** Persists immediately (decision 16): slot assign/clear and the ammo checkbox toggle are
    * discrete clicks, same reasoning as `DualBindPanel`'s only save path. */
   onActionsChange: (nextActions: ConfigAction[]) => void
+  /**
+   * Story 016 D3: persists the whole `layers` array in one `updateProfileLayers`
+   * call - see `DualBindPanel`'s identical prop for the replace-whole-array
+   * reasoning (decision 8) and why a modifier capture never touches `actions`.
+   */
+  onLayersChange: (nextLayers: AltLayer[]) => void
   /** Goes through the existing 500ms debounce (decision 16): the team-message field is typed
    * continuously, so this is `AdvancedTab`'s `scheduleActionsSave` passed straight through. */
   onMessageChange: (nextActions: ConfigAction[]) => void
@@ -64,6 +78,7 @@ export function DropBindPanel({
   actions,
   draft,
   onActionsChange,
+  onLayersChange,
   onMessageChange,
   onEditLegacyAction,
   onRemoveLegacyAction,
@@ -96,6 +111,7 @@ export function DropBindPanel({
               actions={actions}
               draft={draft}
               onActionsChange={onActionsChange}
+              onLayersChange={onLayersChange}
               onMessageChange={onMessageChange}
             />
           ))}
@@ -113,6 +129,7 @@ export function DropBindPanel({
               actions={actions}
               draft={draft}
               onActionsChange={onActionsChange}
+              onLayersChange={onLayersChange}
               onMessageChange={onMessageChange}
             />
           ))}
@@ -130,6 +147,7 @@ export function DropBindPanel({
               actions={actions}
               draft={draft}
               onActionsChange={onActionsChange}
+              onLayersChange={onLayersChange}
               onMessageChange={onMessageChange}
             />
           ))}
@@ -186,6 +204,26 @@ export function DropBindPanel({
  * `CatalogBindRow` exactly (see its comment for the `ignore`/`applyReplace`
  * reasoning). The ammo checkbox and the message field bind no key at all and
  * are therefore untouched by collision handling.
+ *
+ * Review-fix (AC 5): a row whose only binding is a modifier capture has no
+ * `ConfigAction` at all - `deriveRowState(undefined, row)` can only ever
+ * report its "nothing bound yet" default, which has nothing to do with
+ * whatever ammo/message state is actually sitting inside the layer override.
+ * `findRowLayerOverride` (`catalog-binds.ts`) is the first-class read for that
+ * case: a structural reverse-parse of the override's own stored command, not
+ * a value comparison against something computed from possibly-stale local
+ * state. `rowLayerOverride` is looked up fresh on every render and used two
+ * ways below: to derive `state` when there is no `ConfigAction` to read, and
+ * to know exactly *which* `(modifier, key)` to overwrite when ammo/message
+ * changes - a direct, identity-based write (`upsertModifierLayerOverride`),
+ * never a "find whatever still holds the old string" search. That distinction
+ * is what fixes the two failure modes a value-based sync had: a layer-only row
+ * where toggling ammo was either a silent no-op (a lazily created,
+ * key-less `ConfigAction` gets pruned as empty, decision 4) or, once a message
+ * existed, permanently desynced the moment two edits raced one IPC round trip
+ * (`draft.layers` is never optimistically patched, so an old-command lookup
+ * computed from post-edit local state could stop matching what is still on
+ * disk mid-typing and silently stop writing at all).
  */
 function DropCatalogRow({
   row,
@@ -193,6 +231,7 @@ function DropCatalogRow({
   actions,
   draft,
   onActionsChange,
+  onLayersChange,
   onMessageChange,
 }: {
   row: CatalogRow
@@ -200,11 +239,121 @@ function DropCatalogRow({
   actions: ConfigAction[]
   draft: ConfigProfile
   onActionsChange: (nextActions: ConfigAction[]) => void
+  onLayersChange: (nextLayers: AltLayer[]) => void
   onMessageChange: (nextActions: ConfigAction[]) => void
 }) {
   const { t } = useTranslation()
   const action = actions.find((candidate) => candidate.catalogId === row.catalogId)
-  const state = deriveRowState(action, row)
+  // Review-fix (AC 5): a fresh structural scan every render, not a cached/diffed value - see the
+  // file doc comment above for why that distinction is the actual fix.
+  const rowLayerOverride = findRowLayerOverride(draft, row)
+  const state = action
+    ? deriveRowState(action, row)
+    : rowLayerOverride
+      ? { primary: undefined, secondary: undefined, withAmmo: rowLayerOverride.withAmmo, message: rowLayerOverride.message }
+      : deriveRowState(undefined, row)
+
+  // Story 016 D3: mirrors `DualBindPanel`'s `CatalogBindRow` exactly (see its
+  // comments for the shared-builder and display-ambiguity reasoning). For a
+  // drop row this is where AC 5 bites: `rowCommand` already carries the ammo
+  // choice and the team message, so the layer override stores the identical
+  // string the base path would render.
+  const rowCommand = buildRowCommandString(row, state)
+  const primaryModifierDisplay =
+    !state.primary && rowLayerOverride
+      ? { modifier: rowLayerOverride.modifier, key: rowLayerOverride.key }
+      : undefined
+  const secondaryModifierDisplay =
+    !state.secondary && !primaryModifierDisplay && rowLayerOverride
+      ? { modifier: rowLayerOverride.modifier, key: rowLayerOverride.key }
+      : undefined
+
+  const handleAssignModifier = ({
+    modifier,
+    key,
+  }: {
+    modifier: ModifierTrigger
+    key: string
+  }): void => {
+    const result = upsertModifierLayerOverride({
+      layers: draft.layers ?? [],
+      modifier,
+      key,
+      command: rowCommand,
+      newId: crypto.randomUUID(),
+    })
+    onLayersChange(result.layers)
+  }
+
+  // Story 016 D4: what a modifier capture on this row would overwrite, if
+  // anything - see `DualBindPanel`'s identical closure.
+  const checkModifierCollision = (modifier: ModifierTrigger, key: string) =>
+    findModifierSlotCollision(draft.layers ?? [], modifier, key, rowCommand)
+
+  // Review-fix (AC 5): overwrite the *known* override this row already owns
+  // (`rowLayerOverride`'s own `(modifier, key)`) with a freshly computed
+  // command - never a value-based "find whatever still says the old string"
+  // rewrite, which is what raced stale `draft.layers` reads in the first place.
+  const writeLayerOverride = (command: string): void => {
+    if (!rowLayerOverride) return
+    const result = upsertModifierLayerOverride({
+      layers: draft.layers ?? [],
+      modifier: rowLayerOverride.modifier,
+      key: rowLayerOverride.key,
+      command,
+      newId: crypto.randomUUID(), // unused: `rowLayerOverride` existing means the layer already does too.
+    })
+    onLayersChange(result.layers)
+  }
+
+  // Debounced twin of `writeLayerOverride` for the message field (decision 16
+  // - the same reasoning `scheduleActionsSave` uses for `onMessageChange`).
+  // The timeout's closure captures whichever render scheduled it *last*
+  // (`clearTimeout` cancels every earlier one), so only one write survives a
+  // fast typing burst - no per-keystroke `updateProfileLayers` call, and no
+  // window where an old-value comparison can fall behind and get stuck.
+  const layerSyncTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (layerSyncTimeout.current) clearTimeout(layerSyncTimeout.current)
+    },
+    [],
+  )
+  const scheduleLayerOverrideWrite = (command: string): void => {
+    if (layerSyncTimeout.current) clearTimeout(layerSyncTimeout.current)
+    layerSyncTimeout.current = setTimeout(() => {
+      layerSyncTimeout.current = null
+      writeLayerOverride(command)
+    }, LAYER_SYNC_DEBOUNCE_MS)
+  }
+
+  const handleAmmoChange = (nextWithAmmo: boolean): void => {
+    // A checkbox toggle is a single discrete click (decision 16), not a
+    // keystroke burst - no debounce needed, unlike the message field below.
+    const newCommand = buildRowCommandString(row, { ...state, withAmmo: nextWithAmmo })
+    if (rowLayerOverride && !action) {
+      // Purely layer-bound: the override *is* this row's only representation.
+      // Routing this through `applyAmmo` would lazily create a key-less
+      // `ConfigAction` that decision 4 immediately prunes as empty - a silent
+      // no-op, and the bug this fix exists for.
+      writeLayerOverride(newCommand)
+      return
+    }
+    onActionsChange(applyAmmo(actions, row, nextWithAmmo))
+    // A `ConfigAction` also exists (normal case, or a stray override left
+    // over from before one was materialized) - keep both in sync.
+    if (rowLayerOverride) writeLayerOverride(newCommand)
+  }
+
+  const handleMessageChange = (nextMessage: string): void => {
+    const newCommand = buildRowCommandString(row, { ...state, message: nextMessage })
+    if (rowLayerOverride && !action) {
+      scheduleLayerOverrideWrite(newCommand)
+      return
+    }
+    onMessageChange(applyMessage(actions, row, nextMessage))
+    if (rowLayerOverride) scheduleLayerOverrideWrite(newCommand)
+  }
 
   return (
     <li className="space-y-2 rounded-sm border border-line px-2.5 py-2">
@@ -217,6 +366,9 @@ function DropCatalogRow({
           <BindSlot
             label={t('config.advanced.dualBind.primary')}
             boundKey={state.primary}
+            modifierDisplay={primaryModifierDisplay}
+            onAssignModifier={handleAssignModifier}
+            checkModifierCollision={checkModifierCollision}
             checkCollision={(key) =>
               findSlotCollision(draft, key, action ? { actionId: action.id, slot: 'primary' } : undefined)
             }
@@ -234,6 +386,9 @@ function DropCatalogRow({
           <BindSlot
             label={t('config.advanced.dualBind.secondary')}
             boundKey={state.secondary}
+            modifierDisplay={secondaryModifierDisplay}
+            onAssignModifier={handleAssignModifier}
+            checkModifierCollision={checkModifierCollision}
             checkCollision={(key) =>
               findSlotCollision(draft, key, action ? { actionId: action.id, slot: 'secondary' } : undefined)
             }
@@ -247,7 +402,7 @@ function DropCatalogRow({
         {row.ammoCommand && (
           <Checkbox
             checked={state.withAmmo}
-            onChange={(next) => onActionsChange(applyAmmo(actions, row, next))}
+            onChange={handleAmmoChange}
             label={t('config.advanced.dropBind.withAmmo')}
           />
         )}
@@ -259,7 +414,7 @@ function DropCatalogRow({
         // Quotes are filtered as typed, not just at save time - Quake 2 has no in-quote escaping
         // (decision from story 008/`MessageEditor`), so a `"` cannot be represented at all and
         // letting one sit in the field would let the user hit a silent save-schema rejection.
-        onChange={(event) => onMessageChange(applyMessage(actions, row, event.target.value.replace(/"/g, '')))}
+        onChange={(event) => handleMessageChange(event.target.value.replace(/"/g, ''))}
       />
     </li>
   )

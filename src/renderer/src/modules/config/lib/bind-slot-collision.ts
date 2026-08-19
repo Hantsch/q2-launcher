@@ -12,6 +12,18 @@
  *
  * Pure, hook-free and DOM-free like `catalog-binds.ts`, so a vitest file can
  * import it without a DOM environment.
+ *
+ * Story 016 D4 adds `findModifierSlotCollision` alongside `findSlotCollision`
+ * (same file, same "does something already own this?" shape) rather than
+ * folding it into `findBindCollision`/`BindCollision` itself: that type and
+ * its `findBindCollision`/`releaseKey` pair are purpose-built for "who owns
+ * this key on the base layer" and are matched exhaustively by `kind` in three
+ * places (`releaseKey`, `ownerLabel`, `BindSlot`'s `BLOCKING_MESSAGE_KEY`) -
+ * widening the union for a check that has nothing to release and no base-bind
+ * angle at all would force three unrelated call sites to grow a branch they
+ * can never take. `BindSlot` still renders it with the exact same banner
+ * markup and the same Cancel/Replace button pair as `pending` below, which is
+ * what AC 6 ("the same way") is actually asking for.
  */
 
 import {
@@ -20,6 +32,8 @@ import {
   type BindCollision,
   type BindCollisionIgnore,
 } from '@shared/config/bind-collision'
+import { findModifierOverrideOwner, type ModifierTrigger } from '@shared/config/modifier-layers'
+import type { AltLayer } from '@shared/config/alt-layers'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import { applySlot, type CatalogRow } from './catalog-binds'
 
@@ -154,4 +168,43 @@ export function applyReplace({
   return applied.filter(
     (action) => !(action.id === collision.actionId && isEmptyCatalogAction(action)),
   )
+}
+
+/** What a modifier capture is about to overwrite, if anything (story 016 D4, AC 6). */
+export interface ModifierSlotCollision {
+  modifier: ModifierTrigger
+  key: string
+  layerId: string
+  /** Shown as "the layer" in the confirm banner. */
+  layerName: string
+  /** Shown as "the occupying action" - the raw command the override currently holds,
+   * same convention `ownerLabel`'s `baseBind` case uses (the command text itself, since a
+   * layer override carries no action id to resolve a friendlier name from). */
+  owner: string
+}
+
+/**
+ * Would writing `command` to `(modifier, key)` replace a *different*
+ * assignment already sitting there? `null` when the override is empty, or
+ * when it already holds this exact command (re-capturing the same row's own
+ * combo is a no-op, not a collision).
+ *
+ * `layers` should be the in-progress draft's layers, same freshness
+ * requirement `findSlotCollision` documents for `profile`.
+ */
+export function findModifierSlotCollision(
+  layers: AltLayer[],
+  modifier: ModifierTrigger,
+  key: string,
+  command: string,
+): ModifierSlotCollision | null {
+  const found = findModifierOverrideOwner(layers, modifier, key)
+  if (!found || found.command === command) return null
+  return {
+    modifier,
+    key,
+    layerId: found.layerId,
+    layerName: found.layerName,
+    owner: found.command,
+  }
 }

@@ -23,7 +23,7 @@ a dedicated dual-bind (Primary/Secondary) editor with modifier-layer auto-creati
 - [x] 014 — Show an alt-layer trigger's action on its own keycap, and switch layers by clicking it (built, live acceptance pending)
 - [x] 012 — Raw config view with reveal-in-folder (built, live acceptance pending)
 - [x] 015 — Advanced tab — dual-bind editor for Movement, Weapons and Weapon dropping (built, live acceptance pending)
-- [ ] 016 — Auto-create an Alt/Ctrl/Shift layer when a modifier is held during key capture
+- [ ] 016 — Auto-create an Alt/Ctrl/Shift layer when a modifier is held during key capture (blocked: AC5 unresolved after 3 review-fix cycles — layer overrides store a bare command string with no row identity, so two catalog rows with colliding command text can't be told apart on read-back/write-back; needs a plan-level decision, routed back through `/refine`)
 
 ## Notes
 

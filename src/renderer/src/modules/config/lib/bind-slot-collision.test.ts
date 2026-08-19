@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import type { AltLayer } from '@shared/config/alt-layers'
 import type { BindCollision } from '@shared/config/bind-collision'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
-import { applyReplace, findSlotCollision } from './bind-slot-collision'
+import { applyReplace, findModifierSlotCollision, findSlotCollision } from './bind-slot-collision'
 import { buildDropGroups, buildMovementRows, type CatalogRow } from './catalog-binds'
 
 const rows = buildMovementRows()
@@ -85,6 +86,51 @@ describe('findSlotCollision', () => {
 
     expect(found?.collision.kind).toBe('layerOverride')
     expect(found?.owner).toBe('Weapon layer')
+  })
+})
+
+function altLayer(overrides: Partial<AltLayer> = {}): AltLayer {
+  return {
+    id: 'alt-1',
+    name: 'Alt',
+    mode: 'hold',
+    triggerKey: 'ALT',
+    overrides: {},
+    ...overrides,
+  }
+}
+
+describe('findModifierSlotCollision', () => {
+  it('returns null when the layer for the modifier does not exist yet', () => {
+    expect(findModifierSlotCollision([], 'ALT', 'r', 'drop rocket launcher')).toBeNull()
+  })
+
+  it('returns null when the override key is free', () => {
+    const layers = [altLayer({ overrides: {} })]
+    expect(findModifierSlotCollision(layers, 'ALT', 'r', 'drop rocket launcher')).toBeNull()
+  })
+
+  it('returns null when the override already holds this exact command (re-capturing the same combo)', () => {
+    const layers = [altLayer({ overrides: { r: 'drop rocket launcher' } })]
+    expect(findModifierSlotCollision(layers, 'ALT', 'r', 'drop rocket launcher')).toBeNull()
+  })
+
+  it('reports the layer and the occupying command when a different command is already there', () => {
+    const layers = [altLayer({ id: 'alt-9', name: 'Alt', overrides: { r: 'drop grenade launcher' } })]
+    const found = findModifierSlotCollision(layers, 'ALT', 'r', 'drop rocket launcher')
+
+    expect(found).toEqual({
+      modifier: 'ALT',
+      key: 'r',
+      layerId: 'alt-9',
+      layerName: 'Alt',
+      owner: 'drop grenade launcher',
+    })
+  })
+
+  it('does not collide across modifiers: a CTRL override at the same key is irrelevant to an ALT check', () => {
+    const layers = [altLayer({ triggerKey: 'CTRL', name: 'Ctrl', overrides: { r: 'wave 1' } })]
+    expect(findModifierSlotCollision(layers, 'ALT', 'r', 'drop rocket launcher')).toBeNull()
   })
 })
 

@@ -93,6 +93,22 @@ export function LayersPanel({
     return ok
   }
 
+  /**
+   * Story 016 D5 (AC 7): the mode select next to the layer's row, mirroring
+   * `handleRename`'s persist shape - a full replace-whole-array
+   * `updateProfileLayers` call with everything but `mode` unchanged. No dialog
+   * to close on success (unlike rename/create): the select's own `value` is
+   * `layer.mode` from the freshest `profile` prop, so a failed save simply
+   * leaves the select showing the last-confirmed mode once `onChanged` is not
+   * called - the same "server response is the only source of truth" pattern
+   * `AdvancedTab.persistLayers` documents for the dual-bind editor's own
+   * modifier-layer writes.
+   */
+  const handleModeChange = async (layerId: string, mode: AltLayerMode): Promise<void> => {
+    const next = layers.map((layer) => (layer.id === layerId ? { ...layer, mode } : layer))
+    await persist(next)
+  }
+
   const handleDelete = async (layerId: string): Promise<void> => {
     const next = layers.filter((layer) => layer.id !== layerId)
     const ok = await persist(next)
@@ -146,9 +162,20 @@ export function LayersPanel({
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="min-w-0 truncate text-sm text-ink">{layer.name}</span>
-                    <Badge tone={layer.mode === 'hold' ? 'flame' : 'strogg'}>
-                      {t(`config.layersPanel.mode.${layer.mode}`)}
-                    </Badge>
+                    <div className="w-28 shrink-0">
+                      <Select
+                        aria-label={t('config.layersPanel.modeLabel')}
+                        value={layer.mode}
+                        disabled={saving}
+                        onChange={(event) =>
+                          void handleModeChange(layer.id, event.target.value as AltLayerMode)
+                        }
+                        options={[
+                          { value: 'hold', label: t('config.layersPanel.mode.hold') },
+                          { value: 'toggle', label: t('config.layersPanel.mode.toggle') },
+                        ]}
+                      />
+                    </div>
                     {layer.triggerKey ? (
                       <span className="numeric shrink-0 text-xs text-ink-muted">
                         {t('config.layersPanel.trigger', { key: layer.triggerKey })}

@@ -30,11 +30,23 @@ export interface KeyCaptureResult {
  * The four existing inline capture effects (`ActionEditor`, `MessageEditor`,
  * `OverviewKeyboardPanel`, `SwitchBindControl`) stay exactly as they are -
  * this hook is new, additive plumbing for `BindSlot` only.
+ *
+ * Review-fix (post-D3): `onKeyUp` is optional plumbing added for
+ * `resolveModifierRelease` (`modifier-capture.ts`) - `BindSlot` needs to know
+ * when a *held* key is released, not just when one goes down, to tell "the
+ * user is mid-gesture, holding a modifier before the real key" apart from
+ * "the user pressed and released a bare modifier as its own bind". This hook
+ * still does no classification itself - it only resolves the released key
+ * through the same `resolveQuakeKeyName` and reports it, exactly like
+ * `onCapture` does for keydown. No `preventDefault`/`repeat` handling here:
+ * a keyup has no OS auto-repeat and this hook does not intercept the
+ * browser's default keyup behaviour, only listens for it.
  */
 export function useKeyCapture(
   active: boolean,
   onCapture: (result: KeyCaptureResult) => void,
   onCancel?: () => void,
+  onKeyUp?: (result: KeyCaptureResult) => void,
 ): void {
   useEffect(() => {
     if (!active) return
@@ -57,7 +69,22 @@ export function useKeyCapture(
       })
     }
 
+    const handleKeyUp = (event: KeyboardEvent): void => {
+      if (!onKeyUp) return
+      const quakeKey = resolveQuakeKeyName(event)
+      if (!quakeKey) return
+
+      onKeyUp({
+        key: quakeKey,
+        modifiers: { alt: event.altKey, ctrl: event.ctrlKey, shift: event.shiftKey },
+      })
+    }
+
     window.addEventListener('keydown', handleKeyDown, true)
-    return () => window.removeEventListener('keydown', handleKeyDown, true)
-  }, [active, onCapture, onCancel])
+    if (onKeyUp) window.addEventListener('keyup', handleKeyUp, true)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true)
+      if (onKeyUp) window.removeEventListener('keyup', handleKeyUp, true)
+    }
+  }, [active, onCapture, onCancel, onKeyUp])
 }
