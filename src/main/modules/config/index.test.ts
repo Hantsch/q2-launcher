@@ -2,13 +2,17 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { ConfigProfile } from '@shared/modules/config'
-import type { Installation, LaunchState } from '@shared/types'
+import { CONFIG_HANDLERS, type ConfigProfile, type PreviewProfileResult } from '@shared/modules/config'
+import { type Installation, type LaunchState, type Outcome } from '@shared/types'
 import { pathExists } from '../../lib/fs-utils'
 import { scopedLogger } from '../../lib/logger'
+import type { AppContext } from '../../context'
+import { StateStore } from '../../services/state'
+import type { ModuleHandler } from '../types'
 import { scanRedundantCopies } from './cleanup'
 import {
   applyCleanupIfNotRunning,
+  configModule,
   previewProfileFiles,
   restoreCleanupIfNotRunning,
   validatePlayedMods,
@@ -400,6 +404,66 @@ describe('previewProfileFiles', () => {
     const loader = files.find((f) => f.path.endsWith('autoexec.cfg'))
 
     expect(loader!.content).not.toContain('q2l_switch')
+  })
+})
+
+/**
+ * D1 (story 012): unlike `previewProfileFiles` above, whether a rendered file
+ * already exists on disk is fs-dependent and so is only ever known by the
+ * `preview` IPC handler itself, not by the pure function. Goes through
+ * `configModule.setup()` with a minimal duck-typed `app` (only the pieces the
+ * handler and its setup actually touch: `installations.find`/`.list` and a
+ * real, temp-file-backed `StateStore`, per the same precedent `profiles.test.ts`
+ * uses) rather than a real `AppContext`, since nothing else in this file boots
+ * the full Electron machinery either.
+ */
+describe('CONFIG_HANDLERS.preview handler', () => {
+  async function previewHandlerFor(inst: Installation): Promise<ModuleHandler> {
+    const state = new StateStore(join(dir, 'state.json'))
+    await state.load()
+    const handlers = new Map<string, ModuleHandler>()
+    await configModule.setup({
+      handle: (type, handler) => handlers.set(type, handler),
+      emit: () => {},
+      app: {
+        installations: {
+          find: (id: string) => (id === inst.id ? inst : undefined),
+          list: () => [inst],
+        },
+        state,
+      } as unknown as AppContext,
+      log,
+    })
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    return handlers.get(CONFIG_HANDLERS.preview)!
+  }
+
+  it('reports onDisk: false before the rendered file exists on disk, and true once it is created', async () => {
+    const inst = installation()
+    const preview = await previewHandlerFor(inst)
+
+    const before = (await preview({
+      profileId: 'p1',
+      installationId: inst.id,
+    })) as Outcome<PreviewProfileResult>
+    if (!before.ok) throw new Error('expected preview to succeed')
+    expect(before.value.files.length).toBeGreaterThan(0)
+    expect(before.value.files.every((file) => file.onDisk === false)).toBe(true)
+
+    const target = before.value.files.find((file) => file.path.endsWith('q2l-profile-p1.cfg'))!
+    await mkdir(join(target.path, '..'), { recursive: true })
+    await writeFile(target.path, 'irrelevant', 'latin1')
+
+    const after = (await preview({
+      profileId: 'p1',
+      installationId: inst.id,
+    })) as Outcome<PreviewProfileResult>
+    if (!after.ok) throw new Error('expected preview to succeed')
+    const created = after.value.files.find((file) => file.path === target.path)!
+    expect(created.onDisk).toBe(true)
+    const others = after.value.files.filter((file) => file.path !== target.path)
+    expect(others.every((file) => file.onDisk === false)).toBe(true)
   })
 })
 

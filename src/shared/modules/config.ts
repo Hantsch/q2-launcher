@@ -278,6 +278,12 @@ export interface PreviewFile {
   /** Absolute path on the target installation. */
   path: string
   content: string
+  /**
+   * Whether `path` already exists as a file on disk, checked by the `preview`
+   * handler in main at preview time - never by this pure, shared type or by
+   * the renderer itself.
+   */
+  onDisk: boolean
 }
 
 export interface PreviewProfileResult {

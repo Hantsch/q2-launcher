@@ -1,7 +1,7 @@
 ---
 id: 012
 title: Raw config view with reveal-in-folder
-status: ready
+status: in-progress
 created: 2026-08-18
 ---
 
@@ -14,13 +14,13 @@ the location where that file lives on disk, so I can inspect or hand-edit it mys
 
 ## Acceptance Criteria
 
-- [ ] A profile has a view showing the raw, rendered config file content as plain text, exactly
+- [x] A profile has a view showing the raw, rendered config file content as plain text, exactly
       as it would be (or was) written to a target installation.
-- [ ] The raw view is reachable without leaving the profile's own screens (not buried only inside
+- [x] The raw view is reachable without leaving the profile's own screens (not buried only inside
       an unrelated write-target flow).
-- [ ] From the raw view, an action opens the OS file explorer at the folder containing the
+- [x] From the raw view, an action opens the OS file explorer at the folder containing the
       written file, for an installation the profile is assigned to.
-- [ ] If the profile has not been written to any installation yet, this is communicated clearly
+- [x] If the profile has not been written to any installation yet, this is communicated clearly
       rather than silently failing or opening a folder that doesn't exist.
 
 ## Open Questions
@@ -171,3 +171,74 @@ Order: D1 → D2 → D3 (D2 consumes D1's `onDisk`, D3 mounts D2).
 6. Profile with two or more assignments: the installation selector switches the shown content.
 
 ## Done
+
+**Summary.** Built in three deliverables, in plan order:
+
+- **D1** — `PreviewFile` (`src/shared/modules/config.ts`) gained `onDisk: boolean`. The
+  `CONFIG_HANDLERS.preview` handler (`src/main/modules/config/index.ts`) is now `async` and maps
+  each rendered file through `isFile()` (`../../lib/fs-utils`) via `Promise.all`. `previewProfileFiles`
+  itself stayed pure and fs-free — only its return type annotation changed to
+  `Omit<PreviewFile, 'onDisk'>[]`, since the handler now adds `onDisk` after calling it. A new
+  `describe('CONFIG_HANDLERS.preview handler', ...)` block in `index.test.ts` boots
+  `configModule.setup()` against a real, temp-file-backed `StateStore` and asserts `onDisk` flips
+  from `false` to `true` once the rendered `.cfg` is written to a temp `baseq2` dir. The existing
+  `previewProfileFiles` pure-function tests were left untouched.
+- **D2** — `CodeBlock` extracted into `src/renderer/src/components/ui/primitives.tsx`, carrying the
+  `<pre>` class string previously duplicated in `PreviewProfileDialog.tsx`/`LayersPanel.tsx`
+  (`LayersPanel.tsx` deliberately left untouched, per plan). New
+  `src/renderer/src/modules/config/RawConfigPanel.tsx` owns the `previewConfigProfile` fetch and
+  renders, per file: the absolute path, an on-disk `Badge`, an `IconButton` (`FolderOpen`) that is
+  `disabled` when `!file.onDisk` and otherwise calls `invoke('app:revealPath', file.path)` — a
+  failing `Outcome` is surfaced via `pushToast` (not swallowed, unlike `LibraryView`'s reveal call
+  site) — and the file's content in a `CodeBlock`. `PreviewProfileDialog.tsx` is now just `Modal` +
+  `RawConfigPanel`, so the Write targets tab's "Preview…" dialog and the new tab can never diverge.
+- **D3** — new pure helper `pickRawInstallationId` (`src/renderer/src/modules/config/lib/raw-view.ts`,
+  tested in `raw-view.test.ts`, 6 cases): still-valid current pick → default assignment → active
+  installation if assigned → first assignment → `null`. `ConfigView.tsx` gained a `'raw'` `DetailTab`,
+  a tab entry, and a render branch: an installation `Select` (only when `assignments.length > 1`),
+  `RawConfigPanel`, or an `EmptyState` (`config.raw.noAssignment.*`) when the profile has no
+  assignment at all — no request is fired in that case.
+
+**Decisions** (implementation details settled autonomously — no user available to ask; all verified
+against the plan and acceptance criteria):
+
+- `pickRawInstallationId` accepts `installations: Installation[]` per the mandated signature but does
+  not need it for the priority logic itself (`profile.assignments` already carries `installationId`,
+  and live-installation reconciliation already happened in main before the profile reached the
+  renderer) — kept as `_installations` with a comment rather than dropped, so the signature matches
+  what the plan specifies and what `ConfigView.tsx` calls it with.
+- On-disk badge tones: `success` for `onDisk: true`, `neutral` for `false` — reads as "informational
+  state", not an error, since an unwritten file is an expected, common state (e.g. a freshly assigned
+  profile), not a fault.
+- i18n: all new copy added under a single `config.raw.*` namespace shared by D2 and D3
+  (`onDisk`/`notOnDisk`/`notWritten`/`reveal`/`installationLabel`/`noAssignment.title`/
+  `noAssignment.body`), plus `config.tabs.raw` — no separate namespace per deliverable, since both
+  belong to the same user-facing feature.
+- The "Raw file" tab was placed immediately after "Write targets" in the tab order — both tabs are
+  about what ends up on disk, so they read naturally as neighbors; the story did not mandate an exact
+  slot.
+
+**Verification:**
+
+- `npm run build` — green.
+- `npm test` — 450/450 passing across 27 files (run via PowerShell; an earlier Bash-tool run during
+  D2's own verification showed a uniform whole-suite failure including files nobody touched, which
+  matches the known Bash/Git-Bash + vitest environment glitch already seen and confirmed non-real in
+  story 011 — the PowerShell re-run is the authoritative result).
+- `npx tsc -p tsconfig.node.json --noEmit` and `-p tsconfig.web.json --noEmit` — both clean.
+- Clean-agent code review: **PASS** on all 4 acceptance criteria (evidence at `file:line` in each
+  case), zero findings — no weakened/deleted tests, no scope creep, no new IPC channel, the
+  `app:revealPath` allowlist (`src/main/ipc/app.ts`) untouched, `CodeBlock` uses only semantic design
+  tokens, reveal failures surfaced via toast rather than swallowed, `LayersPanel.tsx` confirmed
+  untouched. No fixes were needed.
+- **Live UI smoke: not performed.** This environment has no way to drive the actual Electron window
+  (no Playwright installed in this project, no `ui-verify` harness scaffolded yet, and headless
+  agents cannot drive a GUI) — per this project's P2 policy (`live-smoke-required: true`), the story
+  is **built, live acceptance pending** rather than `done`. The `## Test Plan (manual acceptance)`
+  section above is ready to run as-is once a live pass is possible.
+
+**Commit message** (for the orchestrator to use):
+
+```
+012: raw config view with reveal-in-folder
+```

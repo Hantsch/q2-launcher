@@ -355,6 +355,7 @@
       "settings": "Settings",
       "advanced": "Advanced",
       "writeTargets": "Write targets",
+      "raw": "Raw file",
       "validation": "Validation",
       "preserved": "Preserved lines"
     },
@@ -882,6 +883,17 @@
     "previewDialog": {
       "title": "Preview – {{installation}}",
       "empty": "Nothing would be written."
+    },
+    "raw": {
+      "onDisk": "On disk",
+      "notOnDisk": "Not on disk",
+      "notWritten": "Not written to this installation yet",
+      "reveal": "Reveal in folder",
+      "installationLabel": "Installation",
+      "noAssignment": {
+        "title": "Not assigned to an installation",
+        "body": "Assign this profile to an installation to see the rendered config file it would write."
+      }
     },
     "cleanup": {
       "label": "Redundant config copies",

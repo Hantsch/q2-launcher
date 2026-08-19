@@ -147,3 +147,17 @@ export function EmptyState({
 export function Skeleton({ className }: { className?: string }) {
   return <div className={cn('animate-pulse rounded-sm bg-hover', className)} />
 }
+
+/** Verbatim, scrollable code/text block - used for raw file content previews. */
+export function CodeBlock({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <pre
+      className={cn(
+        'numeric max-h-64 overflow-auto rounded-sm border border-line bg-void p-3 text-[11px] whitespace-pre text-ink-muted',
+        className,
+      )}
+    >
+      {children}
+    </pre>
+  )
+}

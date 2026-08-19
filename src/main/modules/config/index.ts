@@ -16,6 +16,7 @@ import {
 import type { Installation, LaunchState } from '@shared/types'
 import { reconcileAssignments } from './assignments'
 import { fail, ok, type Outcome } from '@shared/types'
+import { isFile } from '../../lib/fs-utils'
 import type { Logger } from '../../lib/logger'
 import type { MainModule } from '../types'
 import { removeRedundantCopies, restoreRemovedCopies, scanRedundantCopies } from './cleanup'
@@ -183,12 +184,12 @@ export function previewProfileFiles(
   allProfiles: ConfigProfile[],
   installation: Pick<Installation, 'id' | 'rootPath'>,
   switchBindKey?: string,
-): PreviewFile[] {
+): Omit<PreviewFile, 'onDisk'>[] {
   const defaultProfile = defaultProfileFor(allProfiles, installation.id) ?? profile
   const baseDir = join(installation.rootPath, BASE_GAME_DIR)
   const assignedProfiles = assignedProfilesFor(allProfiles, installation.id)
 
-  const files: PreviewFile[] = []
+  const files: Omit<PreviewFile, 'onDisk'>[] = []
   // Mirrors the `defaultProfile.id !== profile.id` branch in
   // `writeProfileToAssignedInstallations` above, so a preview never shows
   // fewer files than an actual write would put on disk.
@@ -387,7 +388,7 @@ export const configModule: MainModule = {
       return ok(results)
     })
 
-    handle(CONFIG_HANDLERS.preview, (payload): Outcome<PreviewProfileResult> => {
+    handle(CONFIG_HANDLERS.preview, async (payload): Promise<Outcome<PreviewProfileResult>> => {
       const parsed = previewProfileInputSchema.safeParse(payload)
       if (!parsed.success) return fail('ipc.error.invalidPayload')
       const profile = profiles.find(parsed.data.profileId)
@@ -395,12 +396,15 @@ export const configModule: MainModule = {
       const installation = app.installations.find(parsed.data.installationId)
       if (!installation) return fail('config.error.installationNotFound')
 
+      const files = previewProfileFiles(
+        profile,
+        profiles.list(),
+        installation,
+        app.state.configSwitchBinds()[installation.id],
+      )
       return ok({
-        files: previewProfileFiles(
-          profile,
-          profiles.list(),
-          installation,
-          app.state.configSwitchBinds()[installation.id],
+        files: await Promise.all(
+          files.map(async (file) => ({ ...file, onDisk: await isFile(file.path) })),
         ),
       })
     })
