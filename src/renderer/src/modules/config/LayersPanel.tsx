@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Layers, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   generateLayerAliases,
   type AltLayer,
@@ -12,7 +12,7 @@ import { cn } from '../../lib/cn'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Field, Input, Select } from '../../components/ui/controls'
 import { Modal } from '../../components/ui/Modal'
-import { Badge, EmptyState, SectionLabel } from '../../components/ui/primitives'
+import { Badge, SectionLabel } from '../../components/ui/primitives'
 import { updateProfileLayers } from './client'
 
 /**
@@ -125,39 +125,10 @@ export function LayersPanel({
         </Button>
       </div>
 
-      <p className="text-xs text-ink-muted">{t('config.layersPanel.hint')}</p>
-
-      {layers.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-ink-muted">{t('config.layersPanel.selector.label')}</span>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Button
-              variant={activeLayerId === null ? 'primary' : 'neutral'}
-              size="sm"
-              onClick={() => onSelectLayer(null)}
-            >
-              {t('config.layersPanel.selector.base')}
-            </Button>
-            {layers.map((layer) => (
-              <Button
-                key={layer.id}
-                variant={activeLayerId === layer.id ? 'primary' : 'neutral'}
-                size="sm"
-                onClick={() => onSelectLayer(layer.id)}
-              >
-                {layer.name}
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
+      {layers.length > 0 && <p className="text-xs text-ink-muted">{t('config.layersPanel.hint')}</p>}
 
       {layers.length === 0 ? (
-        <EmptyState
-          icon={<Layers className="size-6" />}
-          title={t('config.layersPanel.empty.title')}
-          body={t('config.layersPanel.empty.body')}
-        />
+        <p className="text-xs text-ink-muted">{t('config.layersPanel.empty.compact')}</p>
       ) : (
         <ul className="space-y-2">
           {layers.map((layer) => {

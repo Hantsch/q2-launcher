@@ -19,7 +19,7 @@ a dedicated dual-bind (Primary/Secondary) editor with modifier-layer auto-creati
 ## Stories (in build order)
 
 - [x] 011 — Assign an alt layer's trigger by binding it to a key, not at creation (built, live acceptance pending)
-- [ ] 013 — Compact the empty alt-layers state and move the layer switcher next to the keyboard overview
+- [x] 013 — Compact the empty alt-layers state and move the layer switcher next to the keyboard overview (built, live acceptance pending)
 - [ ] 014 — Show an alt-layer trigger's action on its own keycap, and switch layers by clicking it
 - [ ] 012 — Raw config view with reveal-in-folder
 - [ ] 015 — Advanced tab — dual-bind editor for Movement, Weapons and Weapon dropping

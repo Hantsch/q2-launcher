@@ -1,7 +1,7 @@
 ---
 id: 013
 title: Compact the empty alt-layers state and move the layer switcher next to the keyboard overview
-status: ready
+status: in-progress
 created: 2026-08-18
 ---
 
@@ -15,14 +15,14 @@ panel — so switching and looking at the board happen in the same glance.
 
 ## Acceptance Criteria
 
-- [ ] With zero alt layers on a profile, the alt-layers panel renders as a compact hint rather
+- [x] With zero alt layers on a profile, the alt-layers panel renders as a compact hint rather
       than a large, tall empty-state block.
-- [ ] The base/layer switcher (pick which layer's state is currently shown/edited on the board)
+- [x] The base/layer switcher (pick which layer's state is currently shown/edited on the board)
       sits next to the keyboard overview's own header, not inside the layers management panel.
-- [ ] Layer CRUD (create, rename, delete, generated-alias preview) keeps working from wherever it
+- [x] Layer CRUD (create, rename, delete, generated-alias preview) keeps working from wherever it
       now lives; moving the switcher does not remove or hide any existing layer-management
       capability.
-- [ ] The keyboard overview subtitle/legend ("Bound in an alt layer" etc.) is unaffected by this
+- [x] The keyboard overview subtitle/legend ("Bound in an alt layer" etc.) is unaffected by this
       layout change — this story only relocates/compacts, it does not change what the legend
       means (see the follow-up story on trigger visibility for that).
 
@@ -162,3 +162,41 @@ Live UI smoke (P2), `npm run dev`:
 6. Confirm the legend row still reads Free / Bound / Bound in an alt layer, unchanged.
 
 ## Done
+
+**Summary.** D1 collapsed the zero-alt-layers state in `LayersPanel.tsx` to a single
+`text-xs text-ink-muted` hint line (`config.layersPanel.empty.compact`), replacing the old
+`EmptyState` block and its two removed i18n keys (`empty.title`/`empty.body`). D2 extracted the
+inline base/layer switcher into `modules/config/components/LayerSwitcher.tsx` (`role="group"`,
+`aria-label`, `aria-pressed` per button), removed it from `LayersPanel`, and rendered it in
+`OverviewKeyboardPanel`'s header row via a new `onSelectLayer` prop; `ConfigView.tsx` now renders
+the board before the layers panel and wires `onSelectLayer={setActiveLayerId}`. No IPC, main,
+schema or persistence surface touched; the legend row and all layer-CRUD/alias-preview logic are
+unchanged.
+
+**Decisions** (implementation-detail calls made without a user to ask, verified against plan +
+acceptance criteria):
+- Kept `LayerSwitcher`'s outer wrapper as `<div className={cn('flex flex-wrap items-center gap-2', className)}>` with the `config.layersPanel.selector.label` caption inside it (same visual shape as the original inline block), and put `role="group"`/`aria-label` on the inner button-row `div` rather than the outer wrapper, since that inner div is the actual segmented control — the caption text sits outside the group.
+- `OverviewKeyboardPanel` passes `className="flex flex-wrap items-center gap-2"` explicitly to `<LayerSwitcher>` even though it matches `LayerSwitcher`'s own default — left as-is after review flagged it as a harmless redundant literal (no visual/behavioral difference); not worth a follow-up edit.
+- Header layout: `LayerSwitcher` sits as a third flex child between the label/subtitle block and the edit/test-mode buttons inside the existing `flex flex-wrap items-center justify-between gap-3` row, per the plan's placement instruction; no extra wrapper div was needed since the row already wraps.
+
+**Commit message:**
+```
+013: compact empty alt-layers state, move layer switcher into keyboard overview header
+```
+
+**Verification:**
+- `npx tsc -p tsconfig.web.json --noEmit` — clean.
+- `npx tsc -p tsconfig.node.json --noEmit` — clean.
+- `npm run build` — green (main/preload/renderer all built).
+- `npm test` — 25 files / 435 tests, all passed; no test weakened, skipped or deleted.
+- Clean-agent code review — overall **PASS**. All four acceptance criteria PASS with file:line
+  evidence; no scope creep beyond the five deliverable-mapped files; i18n hygiene confirmed (no
+  dangling `empty.title`/`empty.body` references); legend row confirmed byte-identical; no
+  trigger-related code touched. One cosmetic note (redundant `className` literal, see Decisions)
+  — no fix required, no re-review cycle needed.
+- **Live UI smoke (P2): not performed.** This environment has no way to interactively drive the
+  Electron window — no Playwright installed in this project, no `ui-verify` harness scaffolded
+  yet, and the available Playwright MCP tools only drive a browser page, not an Electron app.
+  Per this project's P2 policy this is an expected limitation, not a failure: the story is
+  **built, live acceptance pending**. The 6-step manual test plan above is ready for a human (or
+  a future `ui-verify`-equipped session) to run via `npm run dev`.

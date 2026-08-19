@@ -943,8 +943,7 @@
       "hint": "A layer's keys are bound independently of the base layer while the trigger key is held (hold) or on (toggle).",
       "create": "New layer",
       "empty": {
-        "title": "No alt layers yet",
-        "body": "Create a layer to bind keys independently while a trigger key is held or toggled on."
+        "compact": "No alt layers yet — create one to bind keys independently while a trigger key is held or toggled on."
       },
       "mode": {
         "hold": "Hold",

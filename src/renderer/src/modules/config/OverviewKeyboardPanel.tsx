@@ -7,6 +7,7 @@ import { cn } from '../../lib/cn'
 import { Button } from '../../components/ui/Button'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
 import { KeyBindDialog } from './components/KeyBindDialog'
+import { LayerSwitcher } from './components/LayerSwitcher'
 import { keycapCommandLabel, resolveCommandLabel } from './lib/command-catalog'
 import {
   ARROW_CLUSTER,
@@ -70,10 +71,12 @@ export function OverviewKeyboardPanel({
   profile,
   activeLayer,
   onChanged,
+  onSelectLayer,
 }: {
   profile: ConfigProfile
   activeLayer: AltLayer | null
   onChanged: (profiles: ConfigProfile[]) => void
+  onSelectLayer: (layerId: string | null) => void
 }) {
   const { t } = useTranslation()
   const [testMode, setTestMode] = useState(false)
@@ -285,6 +288,12 @@ export function OverviewKeyboardPanel({
             {t('config.overview.subtitle', { bound: boundCount, total: totalCount })}
           </p>
         </div>
+        <LayerSwitcher
+          layers={profile.layers ?? []}
+          activeLayerId={activeLayer?.id ?? null}
+          onSelect={onSelectLayer}
+          className="flex flex-wrap items-center gap-2"
+        />
         <div className="flex items-center gap-2">
           <Button
             variant={editMode ? 'danger' : 'neutral'}

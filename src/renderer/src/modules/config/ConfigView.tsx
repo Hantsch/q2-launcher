@@ -313,15 +313,16 @@ export function ConfigView() {
             <Panel className="p-6">
               {activeTab === 'overview' && (
                 <div className="space-y-6">
+                  <OverviewKeyboardPanel
+                    profile={selected}
+                    activeLayer={activeLayer}
+                    onChanged={setProfiles}
+                    onSelectLayer={setActiveLayerId}
+                  />
                   <LayersPanel
                     profile={selected}
                     activeLayerId={activeLayerId}
                     onSelectLayer={setActiveLayerId}
-                    onChanged={setProfiles}
-                  />
-                  <OverviewKeyboardPanel
-                    profile={selected}
-                    activeLayer={activeLayer}
                     onChanged={setProfiles}
                   />
                 </div>
