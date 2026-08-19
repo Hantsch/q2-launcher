@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>A · Column grid — bindings prototype</title>
+<link rel="stylesheet" href="_proto.css" />
+<style>
+  .stage { max-width: 1120px; }           /* the fix for "empty": stop the row from being 2000px wide */
+
+  .head {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 20px; margin-bottom: 14px;
+  }
+  .head h1 { font-size: 24px; }
+  .head .sub { font-family: var(--font-mono); font-size: 11px; color: var(--ink-muted); margin-top: 4px; }
+  .toolbar { display: flex; align-items: center; gap: 10px; }
+
+  /* --- the grid ---------------------------------------------------------- */
+  .colhead, .row {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) 34px 190px 190px 150px;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px;
+  }
+  .colhead {
+    height: 34px;
+    border-bottom: 1px solid var(--line-strong);
+    background: #101216;
+    position: sticky; top: 41px; z-index: 20;
+  }
+  .colhead span {
+    font-family: var(--font-display); font-size: 10.5px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--ink-muted);
+  }
+  .colhead .c-slot { text-align: center; }
+
+  .group { display: flex; align-items: center; gap: 12px; padding: 18px 16px 8px; }
+  .group .eyebrow { white-space: nowrap; }
+  .group .rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--line-strong), transparent); }
+
+  .row { height: 40px; border-bottom: 1px solid rgb(41 44 51 / 0.55); }
+  .row:nth-of-type(odd) { background: rgb(255 255 255 / 0.014); }
+  .row:hover { background: rgb(255 138 31 / 0.05); }
+  .row:hover .reset { opacity: 1; }
+
+  .label { font-size: 13.5px; color: var(--ink); }
+  .label .cmd { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); margin-left: 8px; }
+
+  .reset {
+    opacity: 0; transition: opacity 120ms;
+    width: 26px; height: 26px; display: grid; place-items: center;
+    color: var(--ink-muted); background: var(--raised);
+    border: 1px solid var(--line); border-radius: 2px; cursor: pointer;
+  }
+  .reset:hover { color: var(--flame-500); border-color: var(--flame-700); }
+
+  /* a slot is a full-width cell, always visible - that is what kills the emptiness */
+  .slot {
+    height: 30px; width: 100%;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+    color: var(--ink-faint);
+    background: #14161a;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  .slot:hover { color: var(--ink-dim); background: var(--hover); border-color: var(--line-strong); }
+  .slot.is-bound { color: var(--ink); background: linear-gradient(180deg, #262a31 0%, #1a1d21 100%); border-color: var(--line-strong); }
+  .slot.is-bound:hover { border-color: var(--flame-700); }
+  .slot.is-primary-bound { color: var(--flame-ink); background: linear-gradient(180deg, var(--flame-300), var(--flame-600)); border-color: var(--flame-700); }
+  .slot.is-capturing {
+    color: var(--flame-300); background: rgb(255 138 31 / 0.1);
+    border-color: var(--flame-500); border-style: dashed;
+    animation: pulse 1.1s ease-in-out infinite;
+  }
+  .slot.is-conflict { border-color: var(--danger); color: var(--danger); }
+  .slot .empty { font-family: var(--font-display); letter-spacing: 0.14em; font-size: 11px; text-transform: uppercase; }
+  @keyframes pulse { 50% { background: rgb(255 138 31 / 0.2); } }
+
+  .opts { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+
+  .foot {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 16px; border-top: 1px solid var(--line);
+    font-family: var(--font-mono); font-size: 11px; color: var(--ink-muted);
+  }
+  .foot .spacer { flex: 1; }
+  kbd {
+    font-family: var(--font-mono); font-size: 10px; padding: 1px 5px;
+    background: var(--raised); border: 1px solid var(--line-strong); border-radius: 2px; color: var(--ink-dim);
+  }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <strong>PROTOTYPE A</strong> <span>Column grid — Overwatch parity, dense table</span>
+  <span class="spacer"></span>
+  <a href="index.html">← all prototypes</a>
+  <a href="b-keycap-cards.html">B</a>
+  <a href="c-keyboard-first.html">C</a>
+</div>
+
+<div class="stage">
+  <p class="note">
+    <b>Idea:</b> keep the list, fix what makes it feel empty — cap the content width at 1120px,
+    turn every bind into an always-visible filled cell in a fixed column, add column headers,
+    group rules, zebra striping and a hover reset. Closest to the Overwatch reference.
+  </p>
+
+  <div class="head">
+    <div>
+      <h1>Controls</h1>
+      <div class="sub">HANTSCH — TEST · 3 categories · 31 actions · 6 bound</div>
+    </div>
+    <div class="toolbar">
+      <div class="search">⌕ <span>Filter actions…</span></div>
+      <span class="badge is-warn">1 conflict</span>
+      <button class="btn">Restore defaults</button>
+    </div>
+  </div>
+
+  <div class="tabs" style="margin-bottom: -1px">
+    <button class="tab" aria-selected="false">Movement</button>
+    <button class="tab" aria-selected="true">Weapons</button>
+    <button class="tab" aria-selected="false">Weapon dropping</button>
+    <button class="tab" aria-selected="false">+ New category</button>
+  </div>
+
+  <div class="panel edge-flame">
+    <div class="colhead">
+      <span>Action</span>
+      <span></span>
+      <span class="c-slot">Primary</span>
+      <span class="c-slot">Secondary</span>
+      <span class="c-slot">Options</span>
+    </div>
+
+    <div class="group"><span class="eyebrow">Use weapon</span><span class="rule"></span><span class="badge">11</span></div>
+
+    <div class="row">
+      <div class="label">Blaster <span class="cmd">use blaster</span></div>
+      <button class="reset" title="Reset row">⟲</button>
+      <button class="slot is-primary-bound">1</button>
+      <button class="slot"><span class="empty">Empty</span></button>
+      <div class="opts"><span class="badge">—</span></div>
+    </div>
+
+    <div class="row">
+      <div class="label">Shotgun <span class="cmd">use shotgun</span></div>
+      <button class="reset" title="Reset row">⟲</button>
+      <button class="slot is-primary-bound">2</button>
+      <button class="slot is-bound">MOUSE4</button>
+      <div class="opts"><span class="badge">—</span></div>
+    </div>
+
+    <div class="row">
+      <div class="label">Super Shotgun <span class="cmd">use super shotgun</span></div>
+      <button class="reset" title="Reset row">⟲</button>
+      <button class="slot is-capturing">Press a key…</button>
+      <button class="slot"><span class="empty">Empty</span></button>
+      <div class="opts"><span class="badge">—</span></div>
+    </div>
+
+    <div class="row">
+      <div class="label">Machinegun <span class="cmd">use machinegun</span></div>
+      <button class="reset" title="Reset row">⟲</button>
+      <button class="slot is-bound is-conflict">4 ⚠</button>
+      <button class="slot"><span class="empty">Empty</span></button>
+      <div class="opts"><span class="badge is-danger">also: Jump</span></div>
+    </div>
+
+    <div class="row">
+      <div class="label">Chaingun <span class="cmd">use chaingun</span></div>
+      <button class="reset" title="Reset row">⟲</button>
+      <button class="slot is-bound"><span class="cap is-mod sm">ALT</span> R</button>
+      <button class="slot"><span class="empty">Empty</span></button>
+      <div class="opts"><span class="badge">layer ALT</span></div>
+    </div>
+
+    <div class="row">
+      <div class="label">Hand grenades <span class="cmd">use grenades</span></div>
+      <button class="reset" title="Reset row">⟲</button>
+      <button class="slot"><span class="empty">Empty</span></button>
+      <button class="slot"><span class="empty">Empty</span></button>
+      <div class="opts"><span class="badge">—</span></div>
+    </div>
+
+    <div class="row">
+      <div class="label">Grenade Launcher <span class="cmd">use grenade launcher</span></div>
+      <button class="reset" title="Reset row">⟲</button>
+      <button class="slot"><span class="empty">Empty</span></button>
+      <button class="slot"><span class="empty">Empty</span></button>
+      <div class="opts"><span class="badge">—</span></div>
+    </div>
+
+    <div class="row">
+      <div class="label">Rocket Launcher <span class="cmd">use rocket launcher</span></div>
+      <button class="reset" title="Reset row">⟲</button>
+      <button class="slot is-primary-bound">MOUSE2</button>
+      <button class="slot is-bound">7</button>
+      <div class="opts"><span class="badge">—</span></div>
+    </div>
+
+    <div class="row">
+      <div class="label">Hyperblaster <span class="cmd">use hyperblaster</span></div>
+      <button class="reset" title="Reset row">⟲</button>
+      <button class="slot"><span class="empty">Empty</span></button>
+      <button class="slot"><span class="empty">Empty</span></button>
+      <div class="opts"><span class="badge">—</span></div>
+    </div>
+
+    <div class="row">
+      <div class="label">Railgun <span class="cmd">use railgun</span></div>
+      <button class="reset" title="Reset row">⟲</button>
+      <button class="slot is-primary-bound">MWHEELUP</button>
+      <button class="slot"><span class="empty">Empty</span></button>
+      <div class="opts"><span class="badge">—</span></div>
+    </div>
+
+    <div class="row">
+      <div class="label">BFG10K <span class="cmd">use bfg10k</span></div>
+      <button class="reset" title="Reset row">⟲</button>
+      <button class="slot"><span class="empty">Empty</span></button>
+      <button class="slot"><span class="empty">Empty</span></button>
+      <div class="opts"><span class="badge">—</span></div>
+    </div>
+
+    <div class="group"><span class="eyebrow">Cycling</span><span class="rule"></span><span class="badge">3</span></div>
+
+    <div class="row">
+      <div class="label">Next weapon <span class="cmd">weapnext</span></div>
+      <button class="reset" title="Reset row">⟲</button>
+      <button class="slot is-primary-bound">MWHEELDOWN</button>
+      <button class="slot"><span class="empty">Empty</span></button>
+      <div class="opts"><span class="badge">—</span></div>
+    </div>
+
+    <div class="row">
+      <div class="label">Previous weapon <span class="cmd">weapprev</span></div>
+      <button class="reset" title="Reset row">⟲</button>
+      <button class="slot"><span class="empty">Empty</span></button>
+      <button class="slot"><span class="empty">Empty</span></button>
+      <div class="opts"><span class="badge">—</span></div>
+    </div>
+
+    <div class="row">
+      <div class="label">Last weapon <span class="cmd">weaplast</span></div>
+      <button class="reset" title="Reset row">⟲</button>
+      <button class="slot is-bound">Q</button>
+      <button class="slot"><span class="empty">Empty</span></button>
+      <div class="opts"><span class="badge">—</span></div>
+    </div>
+
+    <div class="foot">
+      <span>Click a cell, then press a key.</span>
+      <span><kbd>ESC</kbd> cancel · <kbd>DEL</kbd> clear · <kbd>ALT</kbd>+key writes into a modifier layer</span>
+      <span class="spacer"></span>
+      <span>14 rows · 6 bound</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
