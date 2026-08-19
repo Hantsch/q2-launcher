@@ -1,7 +1,7 @@
 ---
 id: 011
 title: Assign an alt layer's trigger by binding it to a key, not at creation
-status: in-progress
+status: done
 created: 2026-08-18
 ---
 

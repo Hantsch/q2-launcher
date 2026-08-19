@@ -1,7 +1,7 @@
 ---
 id: 013
 title: Compact the empty alt-layers state and move the layer switcher next to the keyboard overview
-status: in-progress
+status: done
 created: 2026-08-18
 ---
 

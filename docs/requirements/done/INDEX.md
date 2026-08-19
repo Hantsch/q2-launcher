@@ -26,6 +26,17 @@ second roadmap.
   assigned engine's real limits, equally weighted, live against unsaved edits.
 - 010 — Cleanup of redundant per-mod config copies · S02 · reviewed scan/remove/undo for
   duplicate per-mod `.cfg` files, backed by the shared backup-once contract.
+- 011 — Assign an alt layer's trigger by binding it to a key, not at creation · S03 · `triggerKey`
+  is now assignable/reassignable/clearable from the keyboard overview, not just at layer creation.
+- 013 — Compact the empty alt-layers state and move the layer switcher next to the keyboard
+  overview · S03 · one-line empty hint, base/layer switcher relocated into the overview header.
+- 014 — Show an alt-layer trigger's action on its own keycap, and switch layers by clicking it ·
+  S03 · trigger keys render their target layer and switch it on click in idle mode.
+- 012 — Raw config view with reveal-in-folder · S03 · per-installation rendered-file preview with
+  an on-disk badge and reveal-in-folder action.
+- 015 — Advanced tab — dual-bind editor for Movement, Weapons and Weapon dropping · S03 ·
+  catalogue-row Primary/Secondary bind editor with collision Cancel/Replace, replacing the
+  free-form action list for these three built-in categories.
 - 016 — Auto-create an Alt/Ctrl/Shift layer when a modifier is held during key capture · S03 ·
   modifier binding stored on the action itself, layer overrides a derived mirror of it — the
   redesign that finally closed AC 5 after three prior review-fix cycles blocked on row identity.

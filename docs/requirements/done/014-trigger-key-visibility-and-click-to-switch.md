@@ -1,7 +1,7 @@
 ---
 id: 014
 title: Show an alt-layer trigger's action on its own keycap, and switch layers by clicking it
-status: in-progress
+status: done
 created: 2026-08-18
 ---
 

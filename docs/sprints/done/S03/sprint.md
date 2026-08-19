@@ -18,12 +18,14 @@ a dedicated dual-bind (Primary/Secondary) editor with modifier-layer auto-creati
 
 ## Stories (in build order)
 
-- [x] 011 — Assign an alt layer's trigger by binding it to a key, not at creation (built, live acceptance pending)
-- [x] 013 — Compact the empty alt-layers state and move the layer switcher next to the keyboard overview (built, live acceptance pending)
-- [x] 014 — Show an alt-layer trigger's action on its own keycap, and switch layers by clicking it (built, live acceptance pending)
-- [x] 012 — Raw config view with reveal-in-folder (built, live acceptance pending)
-- [x] 015 — Advanced tab — dual-bind editor for Movement, Weapons and Weapon dropping (built, live acceptance pending)
-- [ ] 016 — Auto-create an Alt/Ctrl/Shift layer when a modifier is held during key capture (blocked: AC5 unresolved after 3 review-fix cycles — layer overrides store a bare command string with no row identity, so two catalog rows with colliding command text can't be told apart on read-back/write-back; needs a plan-level decision, routed back through `/refine`)
+- [x] 011 — Assign an alt layer's trigger by binding it to a key, not at creation (done)
+- [x] 013 — Compact the empty alt-layers state and move the layer switcher next to the keyboard overview (done)
+- [x] 014 — Show an alt-layer trigger's action on its own keycap, and switch layers by clicking it (done)
+- [x] 012 — Raw config view with reveal-in-folder (done)
+- [x] 015 — Advanced tab — dual-bind editor for Movement, Weapons and Weapon dropping (done)
+- [x] 016 — Auto-create an Alt/Ctrl/Shift layer when a modifier is held during key capture (done —
+      re-planned in refine after the initial attempt blocked on AC5; the redesign that closed it
+      stores the modifier on the action itself and derives layer overrides from it)
 
 ## Notes
 

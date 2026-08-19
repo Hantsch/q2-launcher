@@ -1,7 +1,7 @@
 ---
 id: 015
 title: Advanced tab — dual-bind editor for Movement, Weapons and Weapon dropping
-status: in-progress
+status: done
 created: 2026-08-18
 ---
 

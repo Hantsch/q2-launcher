@@ -1,7 +1,7 @@
 ---
 id: 012
 title: Raw config view with reveal-in-folder
-status: in-progress
+status: done
 created: 2026-08-18
 ---
 
