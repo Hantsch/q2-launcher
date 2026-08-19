@@ -14,7 +14,7 @@
   update those files (`/ai-scrum:setup`). Hashes of the managed copies: .claude/ai-scrum.lock
 -->
 
-ai-scrum-version: 2.0.0
+ai-scrum-version: 2.1.0
 project: Q2 Launcher
 
 ## Verify
@@ -25,7 +25,7 @@ step does not exist in this project.
 build: npm run build
 test: npm test
 lint: none
-typecheck: none
+typecheck: npm run typecheck
 
 ## Conventions
 

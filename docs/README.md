@@ -12,7 +12,6 @@ source, so index tables cannot drift.
 docs/
   README.md                 this map (no status)
   ROADMAP.md                THE status/planning source: phases, milestones, unprioritised
-  ARCHITECTURE.md           project-specific: architecture reference
   requirements/             open stories; done/ = finished, done/INDEX.md = history
   sprints/                  sprint planning/review/testplan; done/SNN/ = finished
   concepts/                 concept docs for systems NOT (fully) implemented yet
@@ -32,7 +31,6 @@ docs/
   what/why and are timeless; when/status is in the roadmap.
 - **How a sprint went** → [sprints/done/](sprints/done/) (review + test plan per sprint),
   workflow: [sprints/README.md](sprints/README.md).
-- **How the app is put together** → [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Maintenance
 
@@ -45,5 +43,4 @@ docs/
 
 ## Project-specific
 
-<!-- Add project-owned folders (wiki/, adr/, design/, features/, …) here. Setup keeps this
-     section when it regenerates the file. -->
+- **How the app is put together** → [ARCHITECTURE.md](ARCHITECTURE.md).
