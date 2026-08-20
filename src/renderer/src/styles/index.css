@@ -148,6 +148,13 @@
   * {
     /* Sharp edges everywhere unless a component opts in. */
     border-color: var(--color-line);
+    /*
+      Reserve the scrollbar's width whether or not this element actually
+      scrolls, so switching between a view whose content overflows and one
+      that does not never changes the content box width - the layout jump
+      that used to happen navigating Overview <-> Settings.
+    */
+    scrollbar-gutter: stable;
   }
 
   html,

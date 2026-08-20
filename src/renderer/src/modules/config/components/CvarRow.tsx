@@ -289,7 +289,7 @@ export function CvarRow({ def, engine, value, onChange, otherAssignedEngines }: 
   return (
     <div
       className={cn(
-        'group grid items-center gap-3.5 border-b border-line border-l-2 px-3 py-1.5',
+        'grid items-center gap-3.5 border-b border-line border-l-2 px-3 py-1.5',
         ROW_GRID,
         'min-h-11',
         changed ? 'border-l-flame-600' : 'border-l-transparent',
@@ -303,9 +303,12 @@ export function CvarRow({ def, engine, value, onChange, otherAssignedEngines }: 
           </span>
           <span className="shrink-0 font-mono text-[11px] text-ink-faint">{def.name}</span>
         </div>
-        <p className="truncate text-xs text-ink-muted group-hover:overflow-visible group-hover:text-clip group-hover:whitespace-normal">
-          {t(def.descriptionKey)}
-        </p>
+        {/*
+          Written out in full rather than truncated-with-hover-expand: the row simply grows to fit
+          (each row sizes itself independently, no shared grid track), so a long description does
+          not require a hover interaction that used to jump the layout.
+        */}
+        <p className="text-xs leading-snug text-ink-muted">{t(def.descriptionKey)}</p>
       </div>
 
       <div className="min-w-0">

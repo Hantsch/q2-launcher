@@ -276,8 +276,14 @@ describe('applyAmmo', () => {
     expect(actions).toEqual(before)
   })
 
-  it('an ammo toggle alone (no key, no message) does not keep an action alive', () => {
-    const actions = applyAmmo([], row, false)
+  it('turning ammo off alone (no key, no message) still materialises and keeps the action - story 015 decision 3', () => {
+    let actions = applyAmmo([], row, false)
+    const created = findAction(actions, row)
+    expect(created).toBeDefined()
+    expect(deriveRowState(created, row).withAmmo).toBe(false)
+
+    // Turning it back on (the row's default) with nothing else set prunes it away again.
+    actions = applyAmmo(actions, row, true)
     expect(findAction(actions, row)).toBeUndefined()
   })
 })

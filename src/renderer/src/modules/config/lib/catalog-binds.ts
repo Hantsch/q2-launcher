@@ -344,6 +344,17 @@ export function applyPlainSlot(
  * Toggle whether `row`'s ammo command is included in its action's commands.
  * A no-op (returns a shallow copy) for a row with no `ammoCommand` at all -
  * decision 8, there is nothing to toggle.
+ *
+ * Story 015 decision 3 lists "ammo choice" alongside key and message as one
+ * of the things that materialises a row - turning ammo *off* (the row's
+ * default, decision 7, is ON) is exactly that choice, so it must survive
+ * `isEmptyAction`'s prune even with no key or message set yet. `isEmptyAction`
+ * itself stays key/message-only (it has no row to read the ammo default off
+ * of), so that bypass lives here instead: `withAmmo` at its default goes
+ * through the normal prune-if-empty path unchanged, and only the non-default
+ * (off) case is kept alive unconditionally (bug fix - this used to fall
+ * through to `upsertOrPrune` regardless, silently discarding the toggle on
+ * every row with no key/message yet, which is most of them).
  */
 export function applyAmmo(actions: ConfigAction[], row: CatalogRow, withAmmo: boolean): ConfigAction[] {
   if (!row.ammoCommand) return [...actions]
@@ -353,8 +364,12 @@ export function applyAmmo(actions: ConfigAction[], row: CatalogRow, withAmmo: bo
   const message = lastMessageCommand(base.commands)
   const commands = commandsFor(row, withAmmo)
   if (message) commands.push(message)
+  const updated: ConfigAction = { ...base, commands }
 
-  return upsertOrPrune(actions, index, { ...base, commands })
+  if (!withAmmo) {
+    return index >= 0 ? actions.map((action, i) => (i === index ? updated : action)) : [...actions, updated]
+  }
+  return upsertOrPrune(actions, index, updated)
 }
 
 /**
