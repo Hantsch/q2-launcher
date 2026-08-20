@@ -18,3 +18,4 @@ desktop.ini
 
 .idea/
 *.iml
+.playwright-mcp/
