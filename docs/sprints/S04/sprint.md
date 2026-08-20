@@ -1,6 +1,6 @@
 ---
 sprint: S04
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/S04
 milestone: Config module — authoring surfaces (Overview / Controls / Settings) + UI verification harness (docs/systems/config-module.md)
 ---

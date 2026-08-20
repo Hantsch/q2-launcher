@@ -73,14 +73,15 @@ the manual pass in `docs/sprints/done/S03/testplan.md` (plus 016's own test plan
 real desktop afterwards. The engine findings below stay as factual background for the system
 doc.
 
-**In progress: `docs/sprints/S04` — authoring surfaces + UI verification harness (planned
-2026-08-20).** Cuts the first two of the three clusters below into one sprint: 026 (a committed
-Playwright/`_electron` harness — screenshots per screen plus an axe report, so a sprint can accept
-its own UI work), then 017/018 (Overview: edit-by-default, honest test mode) and 019/020
-(Controls: entry types + ordering, then the column-grid redesign) and 021 (Settings dense rows).
-The profile-as-a-file cluster (022–025) is deliberately held back as the likely S05, because it is
-an on-disk/schema rework with migration questions and does not mix with five UI redesigns in one
-acceptance pass.
+`docs/sprints/S04` **built, live acceptance pending (2026-08-20/21)** — authoring surfaces + UI
+verification harness. Cut the first two of the three clusters below into one sprint: 026 (a
+committed Playwright/`_electron` harness — screenshots per screen plus an axe report, so a
+sprint can accept its own UI work), then 017/018 (Overview: edit-by-default, honest test mode)
+and 019/020 (Controls: entry types + ordering, then the column-grid redesign) and 021 (Settings
+dense rows). **All six stories done**, see `docs/sprints/S04/review.md` and
+`docs/sprints/S04/testplan.md` for the manual acceptance pass. The profile-as-a-file cluster
+(022–025) is deliberately held back as the likely S05, because it is an on-disk/schema rework
+with migration questions and does not mix with five UI redesigns in one acceptance pass.
 
 **Filed, not yet sprinted (2026-08-19, `37cef54`):** nine further polish/redesign drafts,
 017–025 in `docs/requirements/`, from a second round of hands-on use plus two prototype sets
@@ -102,12 +103,34 @@ inside the clusters: 019 → 020, and 022 → 023 → 025.
   problem cannot arise; the renderer's whole reverse-parse machinery was deleted rather than
   patched. **Carry-over rule for any future layer feature: never re-derive row identity from
   rendered command text — `overrides` is derived state, the action is the source of truth.**
-- **No committed UI-driving harness exists yet**, so an autonomous sprint cannot itself perform
-  the live acceptance pass this module's stories need (`live-smoke-required: true` in
-  `.claude/ai-scrum.md`). This is the same gap the Tooling section below already names
-  ("A committed Playwright driver for the app would make UI changes verifiable") — **now cut as
-  story 026, first story of S04**, so from S04 on a sprint can close its own acceptance gap
-  instead of deferring it to the user.
+- ~~**No committed UI-driving harness exists yet**~~ — **closed by S04's story 026**
+  (`npm run ui:verify`), see the Tooling section above and `docs/sprints/S04/review.md`.
+
+#### Gaps/notes (from S04)
+
+- The harness itself surfaced a **pre-existing, unrelated bug**: `RawConfigPanel.tsx` crashes on
+  the `config-raw` route (a double-unwrapped `Outcome`), which makes a full `npm run ui:verify`
+  exit `1` even on an otherwise clean build. Not fixed in S04 (out of scope for the stories that
+  found it) — needs its own story before `ui:verify`'s exit code can be trusted as a clean
+  pass/fail gate.
+- **Story 027 filed, not yet sprinted:** the harness starts the real app 56 times per full run
+  and every window steals keyboard focus for ~2 minutes — usable, but expensive enough that it
+  won't get run in passing the way the story intended. See
+  `docs/requirements/027-quiet-ui-verification.md`.
+- **017 changed 013/014's click semantics**: outside test mode, a layer's trigger keycap no
+  longer switches the displayed board on click — it opens the bind dialog like every other
+  keycap. Layer-switching-by-interaction now lives entirely in 018's test-mode mechanics
+  (trigger key press, not click). Any future Overview feature must not reintroduce a
+  click-to-switch-layer path outside test mode.
+- **`entryKind` is gone from `ConfigActionCategory`** (019): a category is untyped, every
+  `ConfigAction` carries its own `kind` (`bind` | `message` | `alias`). Order is array position,
+  not a stored field — the IPC contract for `setActions`/`list` must keep preserving it
+  round-trip. Alias entries are excluded from `binds` and from `applyActionLayerMirror` at the
+  single derive site (carries forward S03's "`overrides` is derived state" rule).
+- **021 deviates from the design-tokens skill's 44px touch-target floor** (kept the prototypes'
+  40px row / 30px slot / 26px reset sizes in 020, similar sizing in 021) — recorded in
+  `CLAUDE.md` with its reason: this is a desktop mouse-and-keyboard app, not a touch surface.
+  Same deviation carries into 021's Settings controls.
 
 #### Gaps/notes (from S02)
 
@@ -202,11 +225,14 @@ machine, and each is a one-line fix in a data table:
 - Vite is pinned to 7.x: `electron-vite@5` peers `vite ^5||^6||^7`, and
   `@vitejs/plugin-react@6` peers `vite ^8` exclusively. Revisit when
   `electron-vite@6` is stable.
-- A committed Playwright driver for the app would make UI changes verifiable — **scheduled:
-  story 026 in `docs/sprints/S04`**. One gotcha to carry over: this repo is often developed from inside an Electron host
-  that exports `ELECTRON_RUN_AS_NODE=1`; inherited, it makes `electron.exe` run as
-  plain Node and the main process dies on its first `require('electron')`. Delete
-  the variable from the child environment before launching.
+- ~~A committed Playwright driver for the app would make UI changes verifiable~~ — **done**:
+  story 026 in `docs/sprints/S04`, `npm run ui:verify` (see `docs/UI-VERIFICATION.md`). One
+  gotcha it had to handle: this repo is often developed from inside an Electron host that
+  exports `ELECTRON_RUN_AS_NODE=1`; inherited, it makes `electron.exe` run as plain Node and the
+  main process dies on its first `require('electron')`. The harness deletes the variable from
+  the child environment before launching. **New follow-up filed from using it:** the harness
+  currently starts the app 56 times per full run and each window steals focus — see story 027
+  (`docs/requirements/027-quiet-ui-verification.md`), not yet sprinted.
 
 **UX:**
 
