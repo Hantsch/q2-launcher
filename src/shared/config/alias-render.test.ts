@@ -18,6 +18,7 @@ function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
     id: 'ab12cd34-0000-0000-0000-000000000000',
     categoryId: 'weapons',
     name: 'Drop RL',
+    kind: 'bind',
     commands: [{ kind: 'raw', text: 'drop rl' }],
     ...overrides,
   }
@@ -273,5 +274,88 @@ describe('renderActionAliasLines', () => {
 
   it('returns nothing for an empty action list', () => {
     expect(renderActionAliasLines([])).toEqual([])
+  })
+})
+
+/**
+ * Story 019 D2: an alias entry *is* the alias definition, so it renders under
+ * the name the user typed - that name is the contract with the binding that
+ * calls it, which is only possible if it is what lands in the file.
+ */
+describe('kind: alias entries', () => {
+  const plusTest = action({
+    id: 'plus-test-0000',
+    name: '+test',
+    kind: 'alias',
+    commands: [{ kind: 'raw', text: '+attack' }],
+  })
+
+  it('renders under its own name, with no q2l_a_ prefix and no id suffix', () => {
+    expect(aliasNameFor(plusTest)).toBe('+test')
+    expect(renderActionAlias(plusTest).aliases).toEqual([
+      { name: '+test', body: '+attack', line: 'alias +test +attack' },
+    ])
+  })
+
+  it('keeps a leading + or - (the engine`s press/release idiom) instead of slugging it away', () => {
+    expect(aliasNameFor(action({ name: '-test', kind: 'alias' }))).toBe('-test')
+    // Only the sign is exempt - the rest goes through `slugAliasName` as usual.
+    expect(aliasNameFor(action({ name: '+Rocket Jump!', kind: 'alias' }))).toBe('+rocket_jump')
+  })
+
+  it('slugs the rest of the name by the shared alias-name rules', () => {
+    expect(aliasNameFor(action({ name: 'Zoom In', kind: 'alias' }))).toBe('zoom_in')
+    expect(aliasNameFor(action({ name: '  Größe  ', kind: 'alias' }))).toBe('groesse')
+  })
+
+  it('stays inside the engine name budget with room for the chunk suffix', () => {
+    const longName = aliasNameFor(
+      action({ name: '+a really very long alias name indeed', kind: 'alias' }),
+    )
+
+    // sign (1) + slug (<= 26) + `_p<nn>` (4) <= the usable 31.
+    expect(longName).toBe('+a_really_very_long_alias_n')
+    expect(`${longName}_p12`.length).toBeLessThanOrEqual(USABLE_ALIAS_NAME)
+  })
+
+  it('splits a long body under its own name, chunking unchanged', () => {
+    const commands = Array.from({ length: 60 }, (_, index) => ({
+      kind: 'raw' as const,
+      text: `say alias body line number ${index}`,
+    }))
+    const { aliases } = renderActionAlias(
+      action({ id: 'chunky-0000', name: '+spam', kind: 'alias', commands }),
+    )
+
+    expect(aliases.length).toBeGreaterThan(1)
+    expect(aliases.map((alias) => alias.name).slice(0, 2)).toEqual(['+spam_p1', '+spam_p2'])
+    expect(aliases.at(-1)!.name).toBe('+spam')
+    expect(aliases.at(-1)!.body).toBe(
+      aliases
+        .slice(0, -1)
+        .map((alias) => alias.name)
+        .join('; '),
+    )
+    for (const alias of aliases) {
+      expect(alias.name.length).toBeLessThanOrEqual(USABLE_ALIAS_NAME)
+      expect(alias.line.length).toBeLessThan(MAX_LINE_BYTES)
+    }
+  })
+
+  it('emits the alias definition before the binding that calls it, in array order', () => {
+    const binding = action({
+      id: 'binding-0000',
+      name: 'Test binding',
+      kind: 'bind',
+      key: 'f',
+      commands: [{ kind: 'raw', text: '+test' }],
+    })
+
+    const lines = renderActionAliasLines([plusTest, binding])
+
+    expect(lines).toEqual(['alias +test +attack', 'alias q2l_a_test_binding_bind +test'])
+    // The alias entry itself never renders a `q2l_a_*` name; only the binding
+    // that calls it gets one, because that is what a key is bound to.
+    expect(lines[0]).not.toContain('q2l_a_')
   })
 })

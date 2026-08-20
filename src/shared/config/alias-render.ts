@@ -38,8 +38,12 @@ import {
  * apply to an alias body.)
  */
 
-/** Every generated action alias starts with this - the `setActions` handler's bind mirror
- * (D4) identifies the binds it owns by exactly this prefix, so it is one constant, here. */
+/** Every alias generated *for* an action starts with this - the `setActions` handler's bind mirror
+ * (D4) identifies the binds it owns by exactly this prefix, so it is one constant, here.
+ *
+ * A `kind: 'alias'` entry is not such an alias: it renders under its own name and is never
+ * mirrored into a bind or a layer override at all (story 019), so it deliberately carries no
+ * prefix - see `ownAliasName`. */
 export const ACTION_ALIAS_PREFIX = 'q2l_a_'
 
 /** Usable alias-name characters: the 32nd is the terminator (see `MAX_ALIAS_NAME`). */
@@ -130,6 +134,37 @@ export function commandLineFor(command: ConfigCommand): string {
 }
 
 /**
+ * An `kind: 'alias'` entry's own alias name (story 019): the entry *is* the
+ * alias definition, so what lands in the file is the name the user typed, with
+ * no `q2l_a_` prefix and no id suffix. That prefix exists to mark the aliases
+ * this app generates *for* an action and to identify the binds mirroring them
+ * (`ACTION_ALIAS_PREFIX`); an alias entry is not mirrored into any bind at all,
+ * and it only has a point if a binding can call it by the name the user sees.
+ *
+ * A leading `+` or `-` is carried over verbatim instead of being slugged away.
+ * The plus/minus pair is the engine's own idiom for a press/release command
+ * (`alias +drops ...` / `alias -drops ...`, exactly what
+ * `generateLayerAliases` emits for a hold layer), so `+test` must stay `+test`
+ * - `slugAliasName` alone would strip the sign and turn it into `test`, which
+ * the binding referencing `+test` could then never reach. Everything after the
+ * sign goes through `slugAliasName` unchanged, so the character rules and the
+ * `MAX_ALIAS_NAME` budget stay that module's business and are not re-derived
+ * here (S04 watch-out): the sign plus the `_p<n>` chunk reserve come off the
+ * usable budget, so a split alias entry's parts still fit.
+ *
+ * No id suffix means two alias entries the user named alike collide into one
+ * engine alias. That is deliberate - the name is the contract with the binding
+ * that calls it - and it is reported as a duplicate rather than silently
+ * renamed (D8's validation).
+ */
+function ownAliasName(action: ConfigAction): string {
+  const raw = action.name.trim()
+  const sign = raw.startsWith('+') || raw.startsWith('-') ? raw.slice(0, 1) : ''
+  const budget = USABLE_ALIAS_NAME - sign.length - PART_SUFFIX_RESERVE
+  return `${sign}${slugAliasName(raw.slice(sign.length), budget)}`
+}
+
+/**
  * The generated alias name for an action: `q2l_a_<slug(name,14)>_<id[0:4]>`
  * (decision 15). Id-suffixed so two actions the user named alike never collide,
  * and short enough that the `_p<n>` suffix of a split action still fits.
@@ -143,8 +178,15 @@ export function commandLineFor(command: ConfigCommand): string {
  * Exported on its own because the `setActions` handler needs the identical name
  * for the `binds` mirror it writes (decision 17) - the bind and the alias are
  * generated from one function, never from two implementations of one format.
+ *
+ * A `kind: 'alias'` entry is the one exception and it is handled here rather
+ * than at the call sites: it renders under its own name (`ownAliasName`). One
+ * function still answers "what alias name does this action have", so the writer
+ * and every reader of that name cannot disagree about it.
  */
 export function aliasNameFor(action: ConfigAction): string {
+  if (action.kind === 'alias') return ownAliasName(action)
+
   const slug = slugAliasName(action.name, SLUG_LENGTH)
   const idSuffix =
     action.id.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, ID_SUFFIX_LENGTH) || '0000'

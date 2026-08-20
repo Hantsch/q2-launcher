@@ -33,6 +33,7 @@ function catalogAction(row: CatalogRow, overrides: Partial<ConfigAction> = {}): 
     id: `action-${row.catalogId}`,
     categoryId: row.categoryId,
     name: row.commands[0]!,
+    kind: 'bind',
     catalogId: row.catalogId,
     commands: row.commands.map((text) => ({ kind: 'raw', text })),
     ...overrides,
@@ -49,6 +50,11 @@ describe('findSlotCollision', () => {
 
     expect(found?.collision.kind).toBe('baseBind')
     expect(found?.owner).toBe('weapnext')
+  })
+
+  it('review fix, Finding 4: ignores an alias-kind action even if it still carries stale key data', () => {
+    const stale = catalogAction(forward, { kind: 'alias', key: 'f' })
+    expect(findSlotCollision(profile({ actions: [stale] }), 'f')).toBeNull()
   })
 
   it("names another action by that action's name", () => {
@@ -133,6 +139,11 @@ describe('findModifierSlotCollision', () => {
       actionId: owner.id,
       actionSlot: 'primary',
     })
+  })
+
+  it('review fix, Finding 4: ignores an alias-kind action even if it still carries a stale modifier slot', () => {
+    const stale = catalogAction(forward, { kind: 'alias', key: 'r', keyModifier: 'ALT' })
+    expect(findModifierSlotCollision([stale], [], 'ALT', 'r')).toBeNull()
   })
 
   it("names the occupying action by its name when its keyModifier/key slot matches", () => {
@@ -448,6 +459,7 @@ describe('applyReplace', () => {
       id: 'legacy-1',
       categoryId: 'movement',
       name: 'My own action',
+      kind: 'bind',
       commands: [{ kind: 'raw', text: 'echo hi' }],
       key: 'f',
     }

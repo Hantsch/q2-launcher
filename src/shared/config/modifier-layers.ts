@@ -139,6 +139,14 @@ export function applyActionLayerMirror(
 
   // --- pass 2: rewrite one override per modifier-carrying slot -------------
   for (const action of actions) {
+    // An alias entry defines an alias for other bindings to call; it is not
+    // bindable at all (story 019), so it never becomes an override - not even
+    // if the row still carries key/modifier data from before it was turned
+    // into an alias. The strip pass above already removed whatever a previous
+    // pass mirrored for it, so skipping here is also what makes that stale
+    // override disappear.
+    if (action.kind === 'alias') continue
+
     const slots: ActionModifierSlot[] = [
       { key: action.key, modifier: action.keyModifier },
       { key: action.secondaryKey, modifier: action.secondaryKeyModifier },
@@ -178,5 +186,99 @@ export function applyActionLayerMirror(
   }
 
   return result
+}
+
+/**
+ * The synthetic `binds`/override value `aliasNameFor` would have produced for
+ * `action` while it was still a plain bind - i.e. the exact value a mirror
+ * pass would have written *before* this row's `kind` was reinterpreted to
+ * `alias`. `aliasNameFor` only branches on `action.kind` at its very top, so
+ * pretending the kind is still `'bind'` recovers that historical value
+ * without duplicating its slugging/id-suffix logic here.
+ *
+ * Used by `stripAliasActionBinds`/`stripAliasActionOverrides` right below to
+ * recognise *this specific action's own* stale mirrored entry by value, never
+ * by which key slot it happens to sit in (review fix, Finding 1 respin): a
+ * key is a slot, not an identity (the same point this file's own doc comment
+ * makes about `aliasNameFor` itself), so a different, unrelated action that
+ * later claims the very same key must never be swept up just because it
+ * shares a slot with a long-migrated alias.
+ */
+function staleAliasSyntheticName(action: ConfigAction): string {
+  return aliasNameFor({ ...action, kind: 'bind' })
+}
+
+/**
+ * Story 019 D1 (review fix, Finding 1; respun after a follow-up review found
+ * the first fix still matched by key/slot instead of by value): remove every
+ * `binds` entry whose *value* is one of `aliasActions`' own stale synthetic
+ * names - the exact value `setActions`'s bind mirror would have written for
+ * that action while it was still a plain bind. `setActions`'s own rebuild of
+ * `binds` already gets this right by construction (it only re-adds a mirror
+ * for a non-alias action), but the persisted-schema read
+ * (`src/main/lib/schemas.ts`'s `normalizeConfigProfile`) derives a legacy
+ * row's `kind` in a step `setActions` never runs through - so a `state.json`
+ * whose action carried a key while it was still a plain bind, and only became
+ * `kind: 'alias'` because this read reinterpreted its category's old
+ * `entryKind`, was otherwise left with a stale `binds` entry no save had ever
+ * cleaned up.
+ *
+ * Matching by value rather than by key/slot means a hand-typed bind, or a
+ * different action's legitimate bind, that happens to occupy the same key the
+ * alias used to hold survives untouched - only an entry whose value is
+ * literally that alias's own former name is removed.
+ *
+ * Returns `binds` unchanged (same reference) when there is nothing to strip.
+ */
+export function stripAliasActionBinds(
+  binds: Record<string, string>,
+  aliasActions: ConfigAction[],
+): Record<string, string> {
+  const staleNames = new Set(aliasActions.map(staleAliasSyntheticName))
+  if (staleNames.size === 0) return binds
+
+  let changed = false
+  const next: Record<string, string> = {}
+  for (const [key, command] of Object.entries(binds)) {
+    if (staleNames.has(command)) {
+      changed = true
+      continue
+    }
+    next[key] = command
+  }
+  return changed ? next : binds
+}
+
+/**
+ * Story 019 D1 (review fix, Finding 1; respun, see `stripAliasActionBinds`
+ * above): the layer-`overrides` counterpart, for exactly the same reason and
+ * with the same value-based matching - the persisted-schema read derives a
+ * legacy row's `kind` outside of `applyActionLayerMirror`'s own
+ * strip-then-rewrite pass, so a modifier override left over from before the
+ * row became an alias would otherwise survive a plain read indefinitely (only
+ * a subsequent `setActions` call would ever clean it up).
+ *
+ * Every layer's `overrides` is checked, not just the layer matching a stale
+ * slot's own modifier: matching by value needs no key/modifier bookkeeping at
+ * all, since the synthetic name itself is the only thing being matched.
+ *
+ * A layer with nothing to strip is returned as the same object reference, so
+ * an untouched layer stays untouched by identity too - same convention as
+ * `applyActionLayerMirror`'s own strip pass.
+ */
+export function stripAliasActionOverrides(layers: AltLayer[], aliasActions: ConfigAction[]): AltLayer[] {
+  const staleNames = new Set(aliasActions.map(staleAliasSyntheticName))
+  if (staleNames.size === 0) return layers
+
+  return layers.map((layer) => {
+    const hasStale = Object.values(layer.overrides).some((command) => staleNames.has(command))
+    if (!hasStale) return layer
+
+    const overrides: Record<string, string> = {}
+    for (const [key, command] of Object.entries(layer.overrides)) {
+      if (!staleNames.has(command)) overrides[key] = command
+    }
+    return { ...layer, overrides }
+  })
 }
 

@@ -9,6 +9,7 @@ function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
     id: 'action-1',
     categoryId: 'movement',
     name: 'Jump',
+    kind: 'bind',
     commands: [{ kind: 'raw', text: '+moveup' }],
     ...overrides,
   }
@@ -52,6 +53,12 @@ describe('findBindCollision', () => {
   it('normalizes the key before comparing against base binds', () => {
     const result = findBindCollision(profile({ binds: { f9: 'quit' } }), 'F9')
     expect(result).toEqual({ kind: 'baseBind', key: 'F9', command: 'quit' })
+  })
+
+  it('review fix, Finding 4: ignores an alias-kind action even if it still carries stale key data', () => {
+    const stale = action({ id: 'a1', kind: 'alias', name: '+test', key: 'q' })
+    const result = findBindCollision(profile({ actions: [stale] }), 'q')
+    expect(result).toBeNull()
   })
 
   it('reports an action collision on the primary slot', () => {

@@ -15,17 +15,29 @@ import {
   WEAPON_EXTRA_ACTIONS,
 } from '@shared/config/action-catalog'
 import { Button, IconButton } from '../../../components/ui/Button'
-import { Field, Input } from '../../../components/ui/controls'
+import { Field, Input, Select } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'
 import { Badge } from '../../../components/ui/primitives'
+import { getAliasSuggestions } from '../lib/alias-suggestions'
 import { resolveQuakeKeyName } from '../lib/keyboard-layout'
 
 /**
- * Story 008 D7: the multi-command composer and key-assignment editor for one
- * `ConfigAction` - the bind/alias-kind counterpart to D8's `MessageEditor`
- * (message-kind categories get that editor instead; `AdvancedTab` decides
- * which one to open based on the selected category's `entryKind`, never this
- * file).
+ * Story 008 D7 / 019 D5: the multi-command composer and key-assignment
+ * editor for one `ConfigAction` of `kind: 'bind'` or `kind: 'alias'` -
+ * `kind: 'message'` gets `MessageEditor` instead (`AdvancedTab` dispatches on
+ * `action.kind`, never this file).
+ *
+ * Story 019 D5 split the two remaining kinds further:
+ * - `bind`: the payload is either a command list (this editor's original
+ *   shape) or a single message, switchable in place via `payloadType` - the
+ *   engine sees both as "what the generated alias's body is", so toggling
+ *   never touches `key`.
+ * - `alias`: always a command list, and - the load-bearing part of D5 - the
+ *   key section below is not rendered at all for this kind. An alias is
+ *   never bound (story 019 decision, mirrored engine-side in D2's
+ *   `binds`/`overrides` exclusion); rendering a disabled or hidden key
+ *   control here would still be a path back to a control whose effect is
+ *   silently discarded, which is exactly what the story rules out.
  *
  * Mirrors `KeyBindDialog`'s shape (a `Modal`, a local draft, an explicit
  * commit rather than continuous auto-save) and `SwitchBindControl`'s
@@ -39,15 +51,48 @@ import { resolveQuakeKeyName } from '../lib/keyboard-layout'
  */
 export function ActionEditor({
   action,
+  actions,
   onClose,
   onSave,
 }: {
   action: ConfigAction
+  /**
+   * Story 019 D6: the profile's full action list, so the raw-command input's
+   * suggestions can be computed from the profile's own alias entries. Passed
+   * down rather than looked up here - `AdvancedTab` already owns the one
+   * `actions` array this editor is opened from, and a second, independent
+   * read (store or IPC) would risk drifting from the very list `onSave` is
+   * about to be merged back into.
+   */
+  actions: ConfigAction[]
   onClose: () => void
   onSave: (next: ConfigAction) => void
 }) {
   const { t } = useTranslation()
-  const [commands, setCommands] = useState<ConfigCommand[]>(action.commands)
+  const isAlias = action.kind === 'alias'
+
+  // Story 019 D5 (comment corrected, Finding 6): whether a `bind` action's
+  // payload is currently "message" or "command" is decided by whether ANY of
+  // its `commands` is `kind: 'message'` - `.find` matches the first one it
+  // meets, not "there is exactly one". In practice a message-payload row's
+  // `commands` only ever holds that single entry (this editor never writes
+  // more than one alongside it), so the distinction is moot today, but the
+  // check itself does not enforce that. An `alias` action is always the
+  // command shape (aliases have no message payload concept), so this stays
+  // 'command' for it regardless of what `commands` happens to hold.
+  const initialMessage = action.commands.find(
+    (command): command is Extract<ConfigCommand, { kind: 'message' }> => command.kind === 'message',
+  )
+  const [payloadType, setPayloadType] = useState<'command' | 'message'>(
+    !isAlias && initialMessage ? 'message' : 'command',
+  )
+  const [commands, setCommands] = useState<ConfigCommand[]>(
+    payloadType === 'command' ? action.commands : [],
+  )
+  const [messageChannel, setMessageChannel] = useState<'say' | 'say_team'>(
+    initialMessage?.channel ?? 'say_team',
+  )
+  const [messageText, setMessageText] = useState(initialMessage?.text ?? '')
   const [key, setKey] = useState<string | undefined>(action.key)
   const [capturingKey, setCapturingKey] = useState(false)
   const [filter, setFilter] = useState('')
@@ -73,9 +118,18 @@ export function ActionEditor({
     return () => window.removeEventListener('keydown', handleKeyDown, true)
   }, [capturingKey])
 
+  // Story 019 D5: whichever payload is actually selected is what gets
+  // previewed and saved - not `commands`, which only ever holds the
+  // command-payload draft (kept around, untouched, while the message
+  // payload is active, so toggling back to "command" does not lose it).
+  const effectiveCommands: ConfigCommand[] =
+    payloadType === 'message'
+      ? [{ kind: 'message', channel: messageChannel, text: messageText }]
+      : commands
+
   const preview: RenderedActionAliases = useMemo(
-    () => renderActionAlias({ ...action, commands }),
-    [action, commands],
+    () => renderActionAlias({ ...action, commands: effectiveCommands }),
+    [action, effectiveCommands],
   )
   const totalBytes = useMemo(
     () => preview.aliases.reduce((sum, alias) => sum + alias.line.length, 0),
@@ -108,6 +162,13 @@ export function ActionEditor({
     ],
     [],
   )
+
+  // Story 019 D6: the profile's own alias entries, offered as a native
+  // datalist while typing a raw command - excludes non-alias entries (an
+  // alias is the only thing a binding can call by name) and is derived from
+  // `actions`, not `commands`/`action`, since a binding suggests *other*
+  // entries, never itself.
+  const aliasSuggestions = useMemo(() => getAliasSuggestions(actions), [actions])
 
   const filteredCatalog = useMemo(() => {
     const query = filter.trim().toLowerCase()
@@ -149,7 +210,21 @@ export function ActionEditor({
   }
 
   const save = (): void => {
-    onSave({ ...action, commands, key: key && key.trim().length > 0 ? key : undefined })
+    onSave({
+      ...action,
+      commands: effectiveCommands,
+      // An alias entry has no key slot at all (D5) - all four key-related
+      // fields are forced to `undefined` here (review fix, Finding 5: the
+      // `...action` spread above would otherwise still carry through a
+      // secondary key/modifier the row happened to hold before it became an
+      // alias) rather than trusting whatever the row/local state happen to
+      // hold, so this editor can never be the path that leaves stale key data
+      // on an alias even if some arrived pre-set.
+      key: isAlias ? undefined : key && key.trim().length > 0 ? key : undefined,
+      ...(isAlias
+        ? { secondaryKey: undefined, keyModifier: undefined, secondaryKeyModifier: undefined }
+        : {}),
+    })
   }
 
   return (
@@ -171,136 +246,192 @@ export function ActionEditor({
       }
     >
       <div className="space-y-5">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <span className="stencil">{t('config.advanced.editor.commandsLabel')}</span>
-            <div className="flex items-center gap-2 text-xs text-ink-muted">
-              <span className="numeric">
-                {t('config.advanced.editor.byteLength', { bytes: totalBytes })}
-              </span>
-              {willSplit && (
-                <Badge tone="warning">
-                  {t('config.advanced.editor.willSplit', { count: preview.aliases.length })}
-                </Badge>
+        {/* Story 019 D5: only a `bind` entry's payload can be a message - an
+            alias is always a command list, so it never sees this toggle. */}
+        {!isAlias && (
+          <Field label={t('config.advanced.editor.payloadType.label')}>
+            <Select
+              value={payloadType}
+              onChange={(event) => setPayloadType(event.target.value as 'command' | 'message')}
+              options={[
+                { value: 'command', label: t('config.advanced.editor.payloadType.command') },
+                { value: 'message', label: t('config.advanced.editor.payloadType.message') },
+              ]}
+            />
+          </Field>
+        )}
+
+        {payloadType === 'message' ? (
+          <div className="space-y-5">
+            <Field label={t('config.advanced.messageEditor.channelLabel')} className="max-w-48">
+              <Select
+                value={messageChannel}
+                onChange={(event) => setMessageChannel(event.target.value as 'say' | 'say_team')}
+                options={[
+                  { value: 'say', label: t('config.advanced.messageEditor.channel.say') },
+                  { value: 'say_team', label: t('config.advanced.messageEditor.channel.sayTeam') },
+                ]}
+              />
+            </Field>
+            <Field label={t('config.advanced.messageEditor.textLabel')}>
+              <Input
+                value={messageText}
+                placeholder={t('config.advanced.editor.payloadMessage.textPlaceholder')}
+                onChange={(event) => setMessageText(event.target.value.replace(/"/g, ''))}
+              />
+            </Field>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="stencil">{t('config.advanced.editor.commandsLabel')}</span>
+                <div className="flex items-center gap-2 text-xs text-ink-muted">
+                  <span className="numeric">
+                    {t('config.advanced.editor.byteLength', { bytes: totalBytes })}
+                  </span>
+                  {willSplit && (
+                    <Badge tone="warning">
+                      {t('config.advanced.editor.willSplit', { count: preview.aliases.length })}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {commands.length === 0 ? (
+                <p className="text-xs text-ink-muted">{t('config.advanced.editor.commandsEmpty')}</p>
+              ) : (
+                <ul className="space-y-1">
+                  {commands.map((command, index) => (
+                    <li
+                      key={index}
+                      className="flex items-center justify-between gap-2 rounded-sm border border-line px-2.5 py-1.5"
+                    >
+                      <code className="min-w-0 flex-1 truncate text-xs text-ink-dim">
+                        {commandLineFor(command)}
+                      </code>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <IconButton
+                          label={t('config.advanced.editor.moveUp')}
+                          size="sm"
+                          disabled={index === 0}
+                          onClick={() => moveCommand(index, -1)}
+                        >
+                          <ArrowUp className="size-3.5" />
+                        </IconButton>
+                        <IconButton
+                          label={t('config.advanced.editor.moveDown')}
+                          size="sm"
+                          disabled={index === commands.length - 1}
+                          onClick={() => moveCommand(index, 1)}
+                        >
+                          <ArrowDown className="size-3.5" />
+                        </IconButton>
+                        <IconButton
+                          label={t('config.advanced.editor.removeCommand')}
+                          size="sm"
+                          variant="danger"
+                          onClick={() => removeCommandAt(index)}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </IconButton>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <Field label={t('config.advanced.editor.rawCommandLabel')}>
+              <div className="flex gap-2">
+                <Input
+                  value={rawCommandText}
+                  placeholder={t('config.advanced.editor.rawCommandPlaceholder')}
+                  aria-label={t('config.advanced.editor.rawCommandLabel')}
+                  list="action-editor-alias-suggestions"
+                  onChange={(event) => setRawCommandText(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') addRawCommand()
+                  }}
+                />
+                {/* Story 019 D6: native datalist, no new dependency - typing
+                    `+` in the field above offers the profile's own aliases,
+                    and picking one just writes that exact string (native
+                    `<input list>` behavior, no extra wiring needed). */}
+                <datalist id="action-editor-alias-suggestions">
+                  {aliasSuggestions.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+                <Button
+                  variant="neutral"
+                  onClick={addRawCommand}
+                  // Disabled on the *sanitized* emptiness, not the raw text's -
+                  // a quote-only input like `"` sanitizes to `''` and would
+                  // otherwise leave this enabled for a click that silently does
+                  // nothing (review follow-up finding).
+                  disabled={!sanitizeCommand(rawCommandText)}
+                >
+                  {t('config.advanced.editor.addCommand')}
+                </Button>
+              </div>
+            </Field>
+
+            <Field label={t('config.advanced.editor.pickListLabel')}>
+              <Input
+                value={filter}
+                placeholder={t('config.advanced.editor.filterPlaceholder')}
+                onChange={(event) => setFilter(event.target.value)}
+              />
+              <div className="mt-2 max-h-40 space-y-0.5 overflow-y-auto rounded-sm border border-line">
+                {filteredCatalog.length === 0 ? (
+                  <p className="px-2.5 py-2 text-xs text-ink-muted">{t('common.none')}</p>
+                ) : (
+                  filteredCatalog.map((entry) => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      onClick={() => appendCommands(entry.commands)}
+                      className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-xs text-ink transition-colors duration-[--dur-fast] hover:bg-hover"
+                    >
+                      <span>{t(entry.labelKey)}</span>
+                      <code className="text-ink-muted">{entry.commands.join('; ')}</code>
+                    </button>
+                  ))
+                )}
+              </div>
+            </Field>
+          </>
+        )}
+
+        {/* Story 019 D5: the load-bearing bit - an alias entry has no key
+            slot at all. This branch is skipped entirely for `isAlias`, not
+            hidden/disabled, so there is no control here whose effect binding
+            a key to an alias would silently discard. */}
+        {!isAlias && (
+          <div className="space-y-1.5">
+            <span className="stencil block">{t('config.advanced.editor.keyLabel')}</span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {capturingKey ? (
+                <Badge tone="warning">{t('config.advanced.editor.capturing')}</Badge>
+              ) : key ? (
+                <Badge tone="flame">{key}</Badge>
+              ) : (
+                <span className="text-xs text-ink-muted">{t('config.advanced.editor.keyNotSet')}</span>
+              )}
+              {!capturingKey && (
+                <Button variant="ghost" size="sm" onClick={() => setCapturingKey(true)}>
+                  {t('config.advanced.editor.captureKey')}
+                </Button>
+              )}
+              {!capturingKey && key && (
+                <Button variant="danger" size="sm" onClick={() => setKey(undefined)}>
+                  {t('config.advanced.editor.clearKey')}
+                </Button>
               )}
             </div>
           </div>
-
-          {commands.length === 0 ? (
-            <p className="text-xs text-ink-muted">{t('config.advanced.editor.commandsEmpty')}</p>
-          ) : (
-            <ul className="space-y-1">
-              {commands.map((command, index) => (
-                <li
-                  key={index}
-                  className="flex items-center justify-between gap-2 rounded-sm border border-line px-2.5 py-1.5"
-                >
-                  <code className="min-w-0 flex-1 truncate text-xs text-ink-dim">
-                    {commandLineFor(command)}
-                  </code>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <IconButton
-                      label={t('config.advanced.editor.moveUp')}
-                      size="sm"
-                      disabled={index === 0}
-                      onClick={() => moveCommand(index, -1)}
-                    >
-                      <ArrowUp className="size-3.5" />
-                    </IconButton>
-                    <IconButton
-                      label={t('config.advanced.editor.moveDown')}
-                      size="sm"
-                      disabled={index === commands.length - 1}
-                      onClick={() => moveCommand(index, 1)}
-                    >
-                      <ArrowDown className="size-3.5" />
-                    </IconButton>
-                    <IconButton
-                      label={t('config.advanced.editor.removeCommand')}
-                      size="sm"
-                      variant="danger"
-                      onClick={() => removeCommandAt(index)}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </IconButton>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <Field label={t('config.advanced.editor.rawCommandLabel')}>
-          <div className="flex gap-2">
-            <Input
-              value={rawCommandText}
-              placeholder={t('config.advanced.editor.rawCommandPlaceholder')}
-              onChange={(event) => setRawCommandText(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') addRawCommand()
-              }}
-            />
-            <Button
-              variant="neutral"
-              onClick={addRawCommand}
-              // Disabled on the *sanitized* emptiness, not the raw text's -
-              // a quote-only input like `"` sanitizes to `''` and would
-              // otherwise leave this enabled for a click that silently does
-              // nothing (review follow-up finding).
-              disabled={!sanitizeCommand(rawCommandText)}
-            >
-              {t('config.advanced.editor.addCommand')}
-            </Button>
-          </div>
-        </Field>
-
-        <Field label={t('config.advanced.editor.pickListLabel')}>
-          <Input
-            value={filter}
-            placeholder={t('config.advanced.editor.filterPlaceholder')}
-            onChange={(event) => setFilter(event.target.value)}
-          />
-          <div className="mt-2 max-h-40 space-y-0.5 overflow-y-auto rounded-sm border border-line">
-            {filteredCatalog.length === 0 ? (
-              <p className="px-2.5 py-2 text-xs text-ink-muted">{t('common.none')}</p>
-            ) : (
-              filteredCatalog.map((entry) => (
-                <button
-                  key={entry.id}
-                  type="button"
-                  onClick={() => appendCommands(entry.commands)}
-                  className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-xs text-ink transition-colors duration-[--dur-fast] hover:bg-hover"
-                >
-                  <span>{t(entry.labelKey)}</span>
-                  <code className="text-ink-muted">{entry.commands.join('; ')}</code>
-                </button>
-              ))
-            )}
-          </div>
-        </Field>
-
-        <div className="space-y-1.5">
-          <span className="stencil block">{t('config.advanced.editor.keyLabel')}</span>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {capturingKey ? (
-              <Badge tone="warning">{t('config.advanced.editor.capturing')}</Badge>
-            ) : key ? (
-              <Badge tone="flame">{key}</Badge>
-            ) : (
-              <span className="text-xs text-ink-muted">{t('config.advanced.editor.keyNotSet')}</span>
-            )}
-            {!capturingKey && (
-              <Button variant="ghost" size="sm" onClick={() => setCapturingKey(true)}>
-                {t('config.advanced.editor.captureKey')}
-              </Button>
-            )}
-            {!capturingKey && key && (
-              <Button variant="danger" size="sm" onClick={() => setKey(undefined)}>
-                {t('config.advanced.editor.clearKey')}
-              </Button>
-            )}
-          </div>
-        </div>
+        )}
       </div>
     </Modal>
   )

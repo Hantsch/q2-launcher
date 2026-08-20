@@ -842,6 +842,11 @@
         "outOfRangeFix": "Set a value between {{min}} and {{max}}.",
         "choiceRejected": "{{engine}} does not accept {{name}} {{value}}. Only {{accepted}} understands this value – {{engine}} rejects the name and keeps whatever was set before."
       },
+      "actions": {
+        "undefinedAlias": "“{{action}}” calls “{{alias}}”, but no alias with that name exists in this profile any more. The bind still gets written, but pressing the key runs nothing.",
+        "aliasUnreferenced": "The alias “{{name}}” is not called by anything in this profile. It is still written to the config file, but nothing ever runs it.",
+        "aliasDuplicate": "“{{name}}” is used by more than one alias entry in this profile. Quake II only keeps the last one it reads – whichever binding calls this name reaches only that one, never the other."
+      },
       "empty": {
         "title": "Nothing to validate against",
         "unassigned": "This profile is not assigned to any installation, so there is no engine to check it against. Assign it to an installation and its findings appear here.",
@@ -861,7 +866,8 @@
         "bind": "key {{id}}",
         "alias": "alias {{id}}",
         "file": "{{id}}",
-        "profile": "profile"
+        "profile": "profile",
+        "action": "{{id}}"
       }
     },
     "settings": {
@@ -1037,6 +1043,8 @@
         "edit": "Edit commands…",
         "rename": "Rename…",
         "remove": "Remove…",
+        "moveUp": "Move entry up",
+        "moveDown": "Move entry down",
         "empty": {
           "title": "No actions yet",
           "body": "Add an action to this category to give it a bind, message or alias."
@@ -1069,7 +1077,15 @@
         "keyNotSet": "Not bound",
         "captureKey": "Press a key…",
         "capturing": "Press a key…",
-        "clearKey": "Clear"
+        "clearKey": "Clear",
+        "payloadType": {
+          "label": "Payload",
+          "command": "Command",
+          "message": "Message"
+        },
+        "payloadMessage": {
+          "textPlaceholder": "e.g. Need backup!"
+        }
       },
       "dualBind": {
         "primary": "Primary",

@@ -15,3 +15,12 @@
 - 2026-08-20 16:35 · 018 · D4 Pressed keys light up · done
 - 2026-08-20 16:45 · 018 · D5 Physical mouse buttons · done
 - 2026-08-20 16:55 · 018 · D6 Readout moved into legend row · done
+- 2026-08-20 17:05 · 019 · D1 kind moves onto entry, entryKind leaves category · done
+- 2026-08-20 17:20 · 019 · D2 alias entries render as own alias, never bound · done
+- 2026-08-20 17:35 · 019 · D3 order is array position, provably · done
+- 2026-08-20 17:50 · 019 · D4 kind per entry, no type per category (UI) · done
+- 2026-08-20 18:05 · 019 · D5 kind-aware entry editor · done
+- 2026-08-20 18:15 · 019 · D6 binding can call alias by name, with suggestions · done
+- 2026-08-20 18:25 · 019 · D7 reorder entries by hand · done
+- 2026-08-20 18:40 · 019 · D8 broken alias wiring is reported · done
+- 2026-08-20 19:10 · 019 · closed — review + 2 fix cycles + live smoke, moved to done · done

@@ -32,6 +32,7 @@ function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
     id: 'ab12cd34-0000-0000-0000-000000000000',
     categoryId: 'weapons',
     name: 'Drop RL',
+    kind: 'bind',
     commands: [{ kind: 'raw', text: 'drop rl' }],
     ...overrides,
   }

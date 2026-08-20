@@ -157,6 +157,57 @@ describe('validateProfileForEngines - equally-weighted multi-engine runs', () =>
   })
 })
 
+describe('validateProfileForEngines - story 019 D8 alias-wiring findings', () => {
+  it('reports a binding calling an undefined alias and an unreferenced alias through the orchestrated scope', () => {
+    const p = profile({
+      assignments: [{ installationId: 'a', isDefault: true }],
+      categories: [{ id: 'cat1', name: 'Custom' }],
+      actions: [
+        { id: 'a1', categoryId: 'cat1', name: '-test', kind: 'alias', commands: [{ kind: 'raw', text: 'wait' }] },
+        {
+          id: 'b1',
+          categoryId: 'cat1',
+          name: 'Test binding',
+          kind: 'bind',
+          commands: [{ kind: 'raw', text: '+test' }],
+        },
+      ],
+    })
+    const installations = [installation('a', 'r1q2')]
+
+    const result = validateProfileForEngines(p, installations)
+    const findings = result.byEngine[0]!.findings
+
+    expect(findings.some((f) => f.messageKey.endsWith('undefinedAlias') && f.subject.id === 'Test binding')).toBe(
+      true,
+    )
+    expect(findings.some((f) => f.messageKey.endsWith('aliasUnreferenced') && f.subject.id === '-test')).toBe(true)
+  })
+
+  it('produces no alias-wiring findings for a profile whose alias is defined and referenced', () => {
+    const p = profile({
+      assignments: [{ installationId: 'a', isDefault: true }],
+      categories: [{ id: 'cat1', name: 'Custom' }],
+      actions: [
+        { id: 'a1', categoryId: 'cat1', name: '+test', kind: 'alias', commands: [{ kind: 'raw', text: 'wait' }] },
+        {
+          id: 'b1',
+          categoryId: 'cat1',
+          name: 'Test binding',
+          kind: 'bind',
+          commands: [{ kind: 'raw', text: '+test' }],
+        },
+      ],
+    })
+    const installations = [installation('a', 'r1q2')]
+
+    const result = validateProfileForEngines(p, installations)
+    const findings = result.byEngine[0]!.findings
+
+    expect(findings.some((f) => f.messageKey.includes('.actions.'))).toBe(false)
+  })
+})
+
 describe('totalCounts', () => {
   it('sums errors and warnings across every engine section', () => {
     const p = profile({

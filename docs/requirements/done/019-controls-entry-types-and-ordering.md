@@ -1,7 +1,7 @@
 ---
 id: 019
 title: Controls — type the entry, not the category, and let me order entries
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-08-19
 ---
 
@@ -32,22 +32,22 @@ This story is the data model and the mechanics; the visual redesign of the tab i
 
 ## Acceptance Criteria
 
-- [ ] `entryKind` is gone from categories (built-in and custom); creating/renaming a category no
+- [x] `entryKind` is gone from categories (built-in and custom); creating/renaming a category no
       longer asks for a type.
-- [ ] Every entry carries its own kind (`bind` | `message` | `alias`) chosen when it is created,
+- [x] Every entry carries its own kind (`bind` | `message` | `alias`) chosen when it is created,
       and shows it as a badge in the list.
-- [ ] A binding entry's payload is either a command or a message, editable in place; a message
+- [x] A binding entry's payload is either a command or a message, editable in place; a message
       entry edits its channel + text; an alias entry edits one or more commands.
-- [ ] An alias entry has no key slot at all, and binding a key to an alias entry is impossible
+- [x] An alias entry has no key slot at all, and binding a key to an alias entry is impossible
       through the UI rather than merely discouraged.
-- [ ] A binding can reference an alias by name (e.g. `+test`), with the profile's own aliases
+- [x] A binding can reference an alias by name (e.g. `+test`), with the profile's own aliases
       offered while typing.
-- [ ] Entries inside a category can be reordered by hand, the order persists, and the rendered
+- [x] Entries inside a category can be reordered by hand, the order persists, and the rendered
       config emits them in that order — an alias always before the binding that uses it.
-- [ ] Existing profiles keep working: an entry's kind is derived from its old category's
+- [x] Existing profiles keep working: an entry's kind is derived from its old category's
       `entryKind` on load, no profile is dropped or reset, and no saved profile has to be
       re-created by hand.
-- [ ] A binding that references an undefined alias, and an alias never referenced by anything,
+- [x] A binding that references an undefined alias, and an alias never referenced by anything,
       are both reported (Care tab, story 025) rather than written out silently broken.
 
 ## Open Questions
@@ -132,7 +132,7 @@ Visual redesign of the tab is story 020 — this story keeps the current look.
 
 ## Deliverables
 
-- [ ] **D1 — `kind` moves onto the entry, `entryKind` leaves the category.**
+- [x] **D1 — `kind` moves onto the entry, `entryKind` leaves the category.**
       `src/shared/modules/config.ts` (add `ActionEntryKind`, `ConfigAction.kind`, drop
       `entryKind` from both category types), `src/main/modules/config/schemas.ts` (+ its test),
       `src/main/lib/schemas.ts` (+ its test: profile-level derive of a missing `kind` from the
@@ -145,7 +145,7 @@ Visual redesign of the tab is story 020 — this story keeps the current look.
       no row and no profile dropped; a `setActions` payload without `kind` is rejected.
       *No UI change yet.*
 
-- [ ] **D2 — Alias entries render as their own alias and are never bound.**
+- [x] **D2 — Alias entries render as their own alias and are never bound.**
       `src/shared/config/alias-render.ts` (+ `alias-render.test.ts`): `kind: 'alias'` →
       `alias <slugAliasName(name)>`, no `q2l_a_` prefix, chunking/limits unchanged;
       `src/shared/config/modifier-layers.ts` (+ test) and
@@ -156,7 +156,7 @@ Visual redesign of the tab is story 020 — this story keeps the current look.
       alias entry; a stale `q2l_a_*` bind for an entry turned into an alias is gone; hand-made
       binds/overrides untouched.
 
-- [ ] **D3 — Order is array position, provably.**
+- [x] **D3 — Order is array position, provably.**
       New `src/renderer/src/modules/config/lib/entry-order.ts` (+ test):
       `moveEntryWithinCategory(actions, id, direction)` swapping with the nearest same-category
       neighbour inside the flat array. Order round-trip tests in
@@ -165,7 +165,7 @@ Visual redesign of the tab is story 020 — this story keeps the current look.
       *Acceptance:* the array order sent through `setActions` comes back identically from `list`
       and survives a persisted read; the helper never moves an entry past a foreign category.
 
-- [ ] **D4 — Controls: kind per entry, no type per category.**
+- [x] **D4 — Controls: kind per entry, no type per category.**
       `src/renderer/src/modules/config/AdvancedTab.tsx`,
       `src/renderer/src/i18n/locales/en.json`: `CreateCategoryDialog` loses the type select,
       `CreateActionDialog` gains a kind choice (bind/message/alias), category chips lose the
@@ -175,7 +175,7 @@ Visual redesign of the tab is story 020 — this story keeps the current look.
       *Acceptance:* creating a category asks only for a name; creating an entry asks for a kind;
       the row badge shows that kind; a mixed-kind category renders correctly.
 
-- [ ] **D5 — Kind-aware entry editor.**
+- [x] **D5 — Kind-aware entry editor.**
       `src/renderer/src/modules/config/components/ActionEditor.tsx`,
       `components/MessageEditor.tsx`, dispatch in `AdvancedTab.tsx`, `en.json`: dispatch by
       `action.kind`; a binding switches its payload between command and message in place; a
@@ -184,14 +184,14 @@ Visual redesign of the tab is story 020 — this story keeps the current look.
       *Acceptance:* an alias entry offers no way to reach key capture through the UI; switching
       a binding's payload to a message keeps the entry's key; a message entry still keys.
 
-- [ ] **D6 — A binding can call an alias by name, with suggestions.**
+- [x] **D6 — A binding can call an alias by name, with suggestions.**
       New `src/renderer/src/modules/config/lib/alias-suggestions.ts` (+ test) listing the
       profile's alias-kind entry names; wired into `ActionEditor.tsx`'s raw-command input
       (native `datalist`, no new dependency), `en.json`.
       *Acceptance:* typing `+` in a binding's command field offers the profile's own aliases;
       picking one writes its exact name; suggestions exclude non-alias entries.
 
-- [ ] **D7 — Reorder entries by hand.**
+- [x] **D7 — Reorder entries by hand.**
       `src/renderer/src/modules/config/AdvancedTab.tsx`, `en.json`: up/down `IconButton`s per
       entry row (mirroring `ActionEditor.tsx`'s `moveCommand` idiom) calling D3's helper and
       saving through the existing `persistCategoriesAndActions` path; ends disabled, labelled
@@ -199,7 +199,7 @@ Visual redesign of the tab is story 020 — this story keeps the current look.
       *Acceptance:* moving an entry persists across a reload and the rendered preview emits the
       entries in that order.
 
-- [ ] **D8 — Broken alias wiring is reported, not written out silently.**
+- [x] **D8 — Broken alias wiring is reported, not written out silently.**
       New `src/shared/config/validate-actions.ts` (+ test) producing `Finding`s for: a binding
       referencing an undefined alias, an alias never referenced, a duplicate alias name; wired
       into `src/renderer/src/modules/config/lib/validation-scope.ts` (+ test) and `en.json`
@@ -246,3 +246,72 @@ Live smoke through the real UI (`npm run dev`), on a profile that already has en
    still exists and shows the derived kind badge; nothing had to be re-created.
 
 ## Done
+
+`ConfigAction.kind` (`bind`|`message`|`alias`) now drives the whole model instead of the
+category-level `entryKind`, which is gone from both category types. The strict IPC schema
+requires `kind` on every `setActions` payload; the persisted schema derives a missing `kind`
+from a legacy category's `entryKind` on read, and now also strips any stale `binds`/layer
+`overrides` entry that used to point at an entry that has just been retyped to `alias` — matched
+by value (the alias's own would-be synthetic bind name), never by key slot, so an unrelated bind
+on the same key survives. Alias entries render as `alias <own name>` (own name/sign kept, no
+`q2l_a_` prefix), contribute neither a `binds` entry nor a layer override, and have no key slot
+or capture control anywhere in the editor (not hidden — genuinely absent from that dispatch
+branch). Order is array position; a pure `moveEntryWithinCategory` helper swaps an entry with its
+nearest same-category neighbour, wired to up/down buttons that persist through the existing save
+path. The Controls surface: category create/rename ask for a name only; entry creation asks for
+a kind and each row shows its own kind badge; the editor dispatches by `action.kind` (binding:
+command/message payload toggle in place; message: channel+text; alias: its commands only); a
+binding's raw-command field offers the profile's own alias names via a native `datalist`. A new
+`validateActions` reports an undefined alias reference (bind calling a name that isn't a defined
+alias — narrowed to exclude known movement commands and the app's own generated hold-layer
+aliases, and reported as a `warning` rather than an `error` since no full engine-command
+catalogue exists to fully eliminate false positives), an alias never referenced by any action,
+`profile.binds`, or a layer override, and a duplicate alias name; wired into the existing
+Validation panel.
+
+**Decisions**
+- `undefinedAlias` is reported at `warning`, not `error`: without a full engine-command
+  catalogue, a bare `+`/`-` token in a hand-typed command can't be told apart from an ordinary
+  built-in engine command with full certainty. The check still fires (AC 8's "reported, not
+  silently broken") but doesn't assert a confidence the codebase can't back up. Known movement
+  commands (`action-catalog.ts`) and the app's own generated hold-layer aliases (`alt-layers.ts`)
+  are excluded outright, closing the two concrete false-positive classes found in review.
+- Alias entries can still end up carrying stale key data through a pre-019 migration or an
+  in-memory edit; two independent lines of defense: the persisted-read normalize step strips a
+  stale bind/override for a freshly-derived alias (value-matched), and both key-collision
+  detectors (`bind-collision.ts`, `bind-slot-collision.ts`) skip `kind === 'alias'` actions
+  outright so a leftover value never surfaces as a collision owner.
+- Order = array position (Decisions (Sprint)); the reorder helper swaps with the nearest
+  same-category neighbour by array index, which can jump over an interleaved foreign-category
+  row rather than becoming strictly adjacent to it — matches the story's own wording exactly and
+  is harmless, since alias resolution happens at call time in the engine, not by proximity.
+- Deliberately left as-is from review (cosmetic, no behavior impact): `PersistedConfigProfile`
+  exported from `src/main/lib/schemas.ts` is unused outside that file (documents the parse
+  guarantee); `config.advanced.createDialog.entryKindLabel` is reused by the action-creation
+  dialog instead of a dedicated `actions.createDialog.*` key (content fits, avoids a duplicate
+  string); the D3 `index.test.ts` order round-trip test's `rm(..., { maxRetries, retryDelay })`
+  is an unrelated Windows `ENOTEMPTY` flake fix picked up along the way, kept and commented in
+  place.
+
+**Commit message**
+
+019: type the entry, not the category, and let users order entries
+
+**Verification:** `npm run build`, `npm test` (37 files / 640 tests), `npm run typecheck` all
+green. Clean-agent review (story-review-hard) ran two fix cycles: cycle 1 fixed a missed
+binds/overrides reconciliation on migration, a false-positive `undefinedAlias` on ordinary
+commands, an unreferenced-alias check that ignored `profile.binds`/layer overrides, collision
+detectors not filtering alias-kind actions, and an incomplete key-field clear in `ActionEditor`;
+cycle 2 fixed a regression from cycle 1 (the stale-bind strip matched by key/slot instead of
+value, which risked deleting an unrelated legitimate bind on the same key) and narrowed the
+remaining `undefinedAlias` false positives (hold-layer aliases + severity downgrade, see
+Decisions). A third review pass found both fixes correct with no further findings. Live smoke:
+a temporary `ui:flow` script (deleted after use, same idiom as story 018) drove the real
+Electron app against the `Plain Profile` fixture — created a category with no type field,
+created an alias and a binding entry, confirmed each row's own kind badge, confirmed the alias
+editor renders no key label and no capture button anywhere, reordered the two entries and
+confirmed the row order changed and persisted, and confirmed the Validation panel surfaces the
+"alias not called by anything" warning with a readable message. `npm run ui:verify`'s overall
+exit code is 1 only because of the pre-existing, unrelated `config-raw` crash noted in the S04
+sprint context (not covered by the manual smoke for the same reason) — `config-advanced` and
+`config-validation` themselves screenshot clean at both viewports.

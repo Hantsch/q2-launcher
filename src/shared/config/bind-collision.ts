@@ -133,6 +133,10 @@ export function findBindCollision(
   // very same action (an edge case: both slots pointing at one key) still
   // counts, since it was not the slot named by `ignore`.
   for (const action of actions) {
+    // An alias entry is never bound (story 019) - it has no key slot in the UI at all, so it can
+    // never legitimately own a collision even if a migrated/in-memory row still carries stale
+    // key data (review fix, Finding 4).
+    if (action.kind === 'alias') continue
     for (const slot of ['primary', 'secondary'] as const) {
       if (ignore && ignore.actionId === action.id && ignore.slot === slot) continue
       const raw = slotValue(action, slot)

@@ -83,12 +83,13 @@ describe('actionTextSchema', () => {
 describe('setProfileActionsInputSchema', () => {
   const validPayload = {
     profileId: 'p1',
-    categories: [{ id: 'c1', name: 'My Category', entryKind: 'bind' as const }],
+    categories: [{ id: 'c1', name: 'My Category' }],
     actions: [
       {
         id: 'a1',
         categoryId: 'c1',
         name: 'Jump forward',
+        kind: 'bind' as const,
         commands: [{ kind: 'raw' as const, text: '+forward' }],
         key: 'W',
       },
@@ -142,5 +143,39 @@ describe('setProfileActionsInputSchema', () => {
   it('rejects a missing profileId', () => {
     const { profileId: _profileId, ...rest } = validPayload
     expect(setProfileActionsInputSchema.safeParse(rest).success).toBe(false)
+  })
+
+  /**
+   * Story 019: `kind` is required here and nowhere defaulted. A renderer payload is never trusted,
+   * and guessing a missing kind would silently retype the entry - the forgiving derive belongs to
+   * the persisted schema (`main/lib/schemas.test.ts`), whose input is an old file, not a caller.
+   */
+  it('rejects an action row with no kind at all', () => {
+    const { kind: _kind, ...action } = validPayload.actions[0]!
+    expect(
+      setProfileActionsInputSchema.safeParse({ ...validPayload, actions: [action] }).success,
+    ).toBe(false)
+  })
+
+  it('rejects an action row whose kind is not one of the three', () => {
+    const payload = {
+      ...validPayload,
+      actions: [{ ...validPayload.actions[0], kind: 'binding' }],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(false)
+  })
+
+  it.each(['bind', 'message', 'alias'])('accepts kind: %s', (kind) => {
+    const payload = {
+      ...validPayload,
+      actions: [{ ...validPayload.actions[0], kind }],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(true)
+  })
+
+  it('accepts a category row carrying only id and name (story 019: no entryKind)', () => {
+    const payload = { ...validPayload, categories: [{ id: 'c1', name: 'My Category' }] }
+    const parsed = setProfileActionsInputSchema.parse(payload)
+    expect(parsed.categories[0]).toEqual({ id: 'c1', name: 'My Category' })
   })
 })

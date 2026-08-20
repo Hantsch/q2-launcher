@@ -213,6 +213,9 @@ function freshAction(row: CatalogRow): ConfigAction {
     id: crypto.randomUUID(),
     categoryId: row.categoryId,
     name: nameForRow(row),
+    // Story 019: the catalogue only ever produced binds - a movement/weapon/drop row is a key
+    // binding by definition, and neither a chat message nor an alias definition.
+    kind: 'bind',
     catalogId: row.catalogId,
     commands: commandsFor(row, true),
   }

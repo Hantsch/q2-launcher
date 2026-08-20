@@ -15,6 +15,14 @@
  * reads `profile.cvars` directly rather than the rendered text, because its
  * whole job is per-engine *meaning* of a value (story 003's resolver), which
  * has nothing to do with how the line renders.
+ *
+ * Story 019 D8 adds a third, `validateActions`: also reads `profile.actions`
+ * directly rather than rendered text, for the same reason as `validateCvars`
+ * — a deleted alias entry leaves no trace to render at all, so the only place
+ * left to catch a binding that still calls it is the entry list itself. It
+ * carries no engine-specific facts, but runs once per assigned engine anyway,
+ * alongside the other two, so it stays one equally-weighted per-engine result
+ * rather than a fourth kind of thing the panel would need to know about.
  */
 
 import type { ConfigProfile } from '@shared/modules/config'
@@ -24,6 +32,7 @@ import type { Finding, FindingSummary } from '@shared/config/validation'
 import { summarize } from '@shared/config/validation'
 import { validateStructure, type StructureFile } from '@shared/config/validate-structure'
 import { validateCvars } from '@shared/config/validate-cvars'
+import { validateActions } from '@shared/config/validate-actions'
 import { profileFileName, renderLoaderFile, renderProfileFile } from '@shared/config/render'
 import { engineScope, type EngineScopeStatus } from './engine-scope'
 
@@ -74,7 +83,18 @@ export function validateProfileForEngines(
   const files = renderedFiles(profile)
 
   const byEngine: EngineValidation[] = scope.selectable.map((engine) => {
-    const findings = [...validateStructure(files, engine), ...validateCvars(profile.cvars, engine)]
+    const findings = [
+      ...validateStructure(files, engine),
+      ...validateCvars(profile.cvars, engine),
+      // Story 019 D8: alias-wiring findings are engine-independent (no engine fact is
+      // consulted), but `Finding.engine` is required, so this runs once per assigned
+      // engine same as the two checks above - D5's own equally-weighted-per-engine
+      // pattern, not a fourth kind of result the panel would need to special-case.
+      ...validateActions(profile.actions ?? [], engine, {
+        binds: profile.binds,
+        layers: profile.layers,
+      }),
+    ]
     return { engine, findings, summary: summarize(findings) }
   })
 

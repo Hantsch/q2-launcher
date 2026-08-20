@@ -38,7 +38,9 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
-  await rm(dir, { recursive: true, force: true })
+  // maxRetries/retryDelay work around a Windows ENOTEMPTY race where the OS
+  // hasn't released a just-closed file handle by the time rmdir runs.
+  await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
 })
 
 function installation(overrides: Partial<Installation> = {}): Installation {
@@ -464,6 +466,73 @@ describe('CONFIG_HANDLERS.preview handler', () => {
     expect(created.onDisk).toBe(true)
     const others = after.value.files.filter((file) => file.path !== target.path)
     expect(others.every((file) => file.onDisk === false)).toBe(true)
+  })
+})
+
+/**
+ * Story 019 D3: order is array position, and the Decisions require the IPC
+ * contract itself (not just `ProfilesStore` directly) to preserve it -
+ * `setActions`'s strict schema parse must not reorder, dedupe or otherwise
+ * reshuffle the array before it reaches `ProfilesStore.setActions`, and
+ * `list` must hand the same order back.
+ */
+describe('CONFIG_HANDLERS.setActions / list round trip (story 019 D3)', () => {
+  it('returns the actions array from list in the exact order sent through setActions', async () => {
+    const state = new StateStore(join(dir, 'state.json'))
+    await state.load()
+    const handlers = new Map<string, ModuleHandler>()
+    await configModule.setup({
+      handle: (type, handler) => handlers.set(type, handler),
+      emit: () => {},
+      app: {
+        installations: { find: () => undefined, list: () => [] },
+        state,
+      } as unknown as AppContext,
+      log,
+    })
+    state.setConfigProfiles([profile()])
+    await state.settle()
+
+    const category = { id: 'movement', name: 'Movement' }
+    const other = { id: 'weapons', name: 'Weapons' }
+    const orderedActions = [
+      {
+        id: 'a3',
+        categoryId: other.id,
+        name: 'Third',
+        kind: 'bind' as const,
+        commands: [{ kind: 'raw' as const, text: '+forward' }],
+      },
+      {
+        id: 'a1',
+        categoryId: category.id,
+        name: 'First',
+        kind: 'bind' as const,
+        commands: [{ kind: 'raw' as const, text: '+back' }],
+      },
+      {
+        id: 'a2',
+        categoryId: category.id,
+        name: '+test',
+        kind: 'alias' as const,
+        commands: [{ kind: 'raw' as const, text: 'echo test' }],
+      },
+    ]
+
+    const setActions = handlers.get(CONFIG_HANDLERS.setActions)!
+    const setResult = (await setActions({
+      profileId: 'p1',
+      categories: [category, other],
+      actions: orderedActions,
+    })) as ConfigProfile[]
+    const setProfile = setResult.find((p) => p.id === 'p1')!
+    expect(setProfile.actions!.map((a) => a.id)).toEqual(['a3', 'a1', 'a2'])
+
+    const list = handlers.get(CONFIG_HANDLERS.list)!
+    const listResult = (await list(undefined)) as ConfigProfile[]
+    const listedProfile = listResult.find((p) => p.id === 'p1')!
+    expect(listedProfile.actions!.map((a) => a.id)).toEqual(['a3', 'a1', 'a2'])
+    expect(listedProfile.actions).toEqual(setProfile.actions)
   })
 })
 

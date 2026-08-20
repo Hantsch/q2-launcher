@@ -112,16 +112,28 @@ const configCommandSchema = z.discriminatedUnion('kind', [
  */
 const modifierTriggerSchema: z.ZodType<ModifierTrigger> = z.enum(['ALT', 'CTRL', 'SHIFT'])
 
+/**
+ * Story 019: a category is a named drawer and nothing else - the entry kind moved onto the entry
+ * (`actionEntryKindSchema` below), so story 008's `entryKind` field is gone from this payload.
+ */
 const configActionCategorySchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(120),
-  entryKind: z.enum(['bind', 'message', 'alias']),
 })
+
+/**
+ * Story 019: what the entry is. Required and strict on purpose - a renderer payload is never
+ * trusted, and defaulting a missing value here would silently retype an entry (a message saved as
+ * a bind) instead of failing the call. The forgiving derive lives only in the persisted schema
+ * (`main/lib/schemas.ts`), where the input is an old `state.json` rather than a caller.
+ */
+const actionEntryKindSchema = z.enum(['bind', 'message', 'alias'])
 
 const configActionSchema = z.object({
   id: z.string().min(1),
   categoryId: z.string().min(1),
   name: z.string().min(1).max(120),
+  kind: actionEntryKindSchema,
   commands: z.array(configCommandSchema).max(64),
   key: z.string().max(20).optional(),
   // Story 015 (decision 1): the second slot is validated exactly like `key` -

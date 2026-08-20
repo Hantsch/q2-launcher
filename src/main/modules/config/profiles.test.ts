@@ -209,13 +209,14 @@ describe('ProfilesStore', () => {
   })
 
   describe('setActions', () => {
-    const category: ConfigActionCategory = { id: 'movement', name: 'Movement', entryKind: 'bind' }
+    const category: ConfigActionCategory = { id: 'movement', name: 'Movement' }
 
     function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
       return {
         id: randomUUID(),
         categoryId: category.id,
         name: 'Jump',
+        kind: 'bind',
         commands: [{ kind: 'raw', text: '+moveup' }],
         ...overrides,
       }
@@ -250,6 +251,27 @@ describe('ProfilesStore', () => {
       expect(updated.binds['f']).toBe(aliasNameFor(keyed))
       expect(updated.categories).toEqual([category])
       expect(updated.actions).toEqual([keyed])
+    })
+
+    it('story 019 D3: setActions -> list returns actions in the exact order sent, including interleaved categories and an alias entry', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const other: ConfigActionCategory = { id: 'weapons', name: 'Weapons' }
+      const ordered = [
+        action({ id: 'a3', categoryId: other.id, name: 'Third' }),
+        action({ id: 'a1', name: 'First' }),
+        action({ id: 'a2', kind: 'alias', name: '+test' }),
+      ]
+
+      profiles.setActions({
+        profileId: created!.id,
+        categories: [category, other],
+        actions: ordered,
+      })
+
+      const listed = profiles.list().find((p) => p.id === created!.id)!
+      expect(listed.actions).toEqual(ordered)
+      expect(listed.actions!.map((a) => a.id)).toEqual(['a3', 'a1', 'a2'])
+      expect(listed.categories).toEqual([category, other])
     })
 
     it('removing a previously-keyed action makes its bind disappear entirely', () => {
@@ -462,17 +484,14 @@ describe('ProfilesStore', () => {
   // a slot that carries a modifier. Own `category`/`action` fixtures rather
   // than reaching into the `setActions` block above's scope.
   describe('story 016: modifier-bound slots', () => {
-    const category: ConfigActionCategory = {
-      id: 'drops',
-      name: 'Weapon dropping',
-      entryKind: 'bind',
-    }
+    const category: ConfigActionCategory = { id: 'drops', name: 'Weapon dropping' }
 
     function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
       return {
         id: 'ab12cd34-0000-4000-8000-000000000001',
         categoryId: category.id,
         name: 'Rocket Launcher',
+        kind: 'bind',
         catalogId: 'dropWeapon:rlauncher',
         // A materialised Weapon-dropping row (story 015 decision 6): item, its
         // ammo, then the team message.
@@ -766,6 +785,121 @@ describe('ProfilesStore', () => {
       expect(modifierLines.filter((line) => line.startsWith('bind '))).toEqual(['bind ALT +alt'])
     })
   })
+  // Story 019 D2: an alias entry renders as its own alias and is never bound -
+  // neither into `binds` nor into a layer override. Own fixtures, like the
+  // story 016 block above.
+  describe('story 019: alias entries', () => {
+    const category: ConfigActionCategory = { id: 'jumps', name: 'Jumps' }
+
+    function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
+      return {
+        id: 'aaaa0000-0000-4000-8000-000000000001',
+        categoryId: category.id,
+        name: 'Test binding',
+        kind: 'bind',
+        commands: [{ kind: 'raw', text: '+test' }],
+        ...overrides,
+      }
+    }
+
+    const aliasEntry = action({
+      id: 'bbbb1111-0000-4000-8000-000000000002',
+      name: '+test',
+      kind: 'alias',
+      commands: [{ kind: 'raw', text: '+attack' }],
+    })
+
+    it('contributes neither a bind nor a layer override, even carrying key + modifier', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        // The UI has no key slot for an alias entry (D5), but the mirror may
+        // not rely on that: key data on an alias row is still never bound.
+        actions: [
+          { ...aliasEntry, key: 'r' },
+          { ...aliasEntry, id: 'cccc2222', name: '-test', key: 'g', keyModifier: 'ALT' },
+        ],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      expect(updated.binds).toEqual({})
+      expect(updated.layers ?? []).toEqual([])
+      // The rows themselves are persisted as sent - only the mirrors skip them.
+      expect(updated.actions).toHaveLength(2)
+    })
+
+    it('drops the stale q2l_a_* bind of a row that has just become an alias, hand-made binds intact', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      profiles.setBinds({ profileId: created!.id, binds: { w: '+forward' } })
+
+      const wasBound = action({ key: 'r' })
+      const first = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [wasBound],
+      })
+      expect(first.find((p) => p.id === created!.id)!.binds).toEqual({
+        w: '+forward',
+        r: aliasNameFor(wasBound),
+      })
+
+      const result = profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [{ ...wasBound, kind: 'alias' }],
+      })
+
+      // Otherwise `r` would keep calling an alias this save no longer writes.
+      expect(result.find((p) => p.id === created!.id)!.binds).toEqual({ w: '+forward' })
+    })
+
+    it('drops the stale override of a modifier-bound row that has just become an alias', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const wasBound = action({ key: 'r', keyModifier: 'ALT' })
+      profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [wasBound],
+      })
+      const alt = profiles.find(created!.id)!.layers!.find((l) => l.triggerKey === 'ALT')!
+      expect(alt.overrides).toEqual({ r: aliasNameFor(wasBound) })
+
+      profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        actions: [{ ...wasBound, kind: 'alias' }],
+      })
+
+      // The layer survives (the user may have configured it); its mirrored
+      // override does not.
+      const after = profiles.find(created!.id)!.layers!.find((l) => l.triggerKey === 'ALT')!
+      expect(after.overrides).toEqual({})
+    })
+
+    it('renders the alias definition before the binding that calls it, and no bind for it', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const binding = action({ key: 'f' })
+      profiles.setActions({
+        profileId: created!.id,
+        categories: [category],
+        // Array order is the emission order: the alias first, then its caller.
+        actions: [aliasEntry, binding],
+      })
+
+      const lines = renderProfileFile(profiles.find(created!.id)!).split('\n')
+      const aliasLine = lines.indexOf('alias +test +attack')
+      const bindingLine = lines.indexOf(`alias ${aliasNameFor(binding)} +test`)
+
+      expect(aliasLine).toBeGreaterThanOrEqual(0)
+      expect(bindingLine).toBeGreaterThan(aliasLine)
+      // Exactly one bind line: the binding's key. Nothing binds `+test`.
+      expect(lines.filter((line) => line.startsWith('bind '))).toEqual([
+        `bind f "${aliasNameFor(binding)}"`,
+      ])
+    })
+  })
 })
 
 describe('setProfileBindsInputSchema / setProfileLayersInputSchema (IPC payload validation)', () => {
@@ -834,12 +968,13 @@ describe('setProfileActionsInputSchema (IPC payload validation)', () => {
   function payload(action: Record<string, unknown>): unknown {
     return {
       profileId: 'p1',
-      categories: [{ id: 'movement', name: 'Movement', entryKind: 'bind' }],
+      categories: [{ id: 'movement', name: 'Movement' }],
       actions: [
         {
           id: 'a1',
           categoryId: 'movement',
           name: 'Jump',
+          kind: 'bind',
           commands: [{ kind: 'raw', text: '+moveup' }],
           ...action,
         },

@@ -74,7 +74,17 @@ export interface DuplicateBindLine {
   line: number
 }
 
-export type ActionCategoryEntryKind = 'bind' | 'message' | 'alias'
+/**
+ * What one entry *is* (story 019): a bind, a named chat message, or an alias definition.
+ *
+ * Story 008 put this axis on the *category* (`ConfigActionCategory.entryKind`), which made a
+ * category "the binds drawer" or "the messages drawer". Story 019 moves it onto the entry, where
+ * it belongs: a category is just a drawer the user named, and an alias has to be able to sit next
+ * to the binding that references it. The old category field is gone from both category types; a
+ * pre-019 `state.json` keeps working because the persisted schema
+ * (`main/lib/schemas.ts`) derives each row's `kind` from its category's legacy `entryKind` on read.
+ */
+export type ActionEntryKind = 'bind' | 'message' | 'alias'
 
 /** A built-in category — a shared constant, never persisted (decision: profiles only persist
  * their custom categories, so built-in labels stay translatable and adding one needs no
@@ -82,23 +92,22 @@ export type ActionCategoryEntryKind = 'bind' | 'message' | 'alias'
 export interface BuiltInActionCategory {
   id: string
   labelKey: string
-  entryKind: ActionCategoryEntryKind
 }
 
 /** Exactly the three the story's AC names, matching upstream's `group: 'main'` set. */
 export const BUILT_IN_ACTION_CATEGORIES: readonly BuiltInActionCategory[] = [
-  { id: 'movement', labelKey: 'config.advanced.categories.movement', entryKind: 'bind' },
-  { id: 'weapons', labelKey: 'config.advanced.categories.weapons', entryKind: 'bind' },
-  { id: 'drops', labelKey: 'config.advanced.categories.drops', entryKind: 'bind' },
+  { id: 'movement', labelKey: 'config.advanced.categories.movement' },
+  { id: 'weapons', labelKey: 'config.advanced.categories.weapons' },
+  { id: 'drops', labelKey: 'config.advanced.categories.drops' },
 ]
 
 /** A user-defined category. Its `name` is user-typed text (not translatable UI prose, hence a
  * plain string, unlike `BuiltInActionCategory.labelKey`). Persisted on `ConfigProfile.categories`
- * — built-ins above are never persisted rows. */
+ * — built-ins above are never persisted rows. Carries no entry kind (story 019): what is typed is
+ * the entry (`ConfigAction.kind`), not the drawer it sits in. */
 export interface ConfigActionCategory {
   id: string
   name: string
-  entryKind: ActionCategoryEntryKind
 }
 
 export type ConfigCommand =
@@ -110,9 +119,10 @@ export type ConfigCommand =
  * are the same thing to the engine (an alias body), so one type serves both instead of two
  * parallel entities needing two renderers/validators. `categoryId` may reference either a
  * `BUILT_IN_ACTION_CATEGORIES` id or a `ConfigProfile.categories` custom category's id.
- * `key`, when set, is the engine key name this action's generated alias is bound to (any entry
- * kind may be keyed, not just `bind`-kind categories — a message can sit on a key exactly like a
- * multi-command bind can).
+ * `key`, when set, is the engine key name this action's generated alias is bound to. `bind` and
+ * `message` entries may be keyed (a message can sit on a key exactly like a multi-command bind
+ * can); a `kind: 'alias'` entry never is — it exists to be referenced by name, not bound, and the
+ * UI offers no key slot for it at all (story 019).
  *
  * `secondaryKey` (story 015, decision 1) is a second key bound to the *same* generated alias —
  * the engine has no notion of a "primary" and "secondary" bind, so a two-slot row is two `binds`
@@ -124,6 +134,12 @@ export type ConfigCommand =
  * (a known movement/weapon/drop entry the editor offers). Identity lives in this field and never
  * in `name`, so a translated or user-edited label cannot make the editor lose track of which row
  * an action belongs to. Absent means "free-form action", which is what every pre-015 action is.
+ *
+ * `kind` (story 019) is what the entry *is* - a bind, a named message or an alias definition -
+ * and it is required: an entry without a kind cannot be rendered or edited. It replaces story
+ * 008's per-category `entryKind`, so `setActions` payloads must spell it out (the strict schema
+ * rejects a missing or unknown value rather than guessing) while a pre-019 persisted row gets it
+ * derived from its category's legacy `entryKind` at parse time.
  *
  * `keyModifier`/`secondaryKeyModifier` (story 016) record the modifier - `ALT`/`CTRL`/`SHIFT` -
  * that was held while capturing `key`/`secondaryKey` respectively. Quake 2 itself has no notion of
@@ -139,6 +155,7 @@ export interface ConfigAction {
   id: string
   categoryId: string
   name: string
+  kind: ActionEntryKind
   commands: ConfigCommand[]
   key?: string
   secondaryKey?: string

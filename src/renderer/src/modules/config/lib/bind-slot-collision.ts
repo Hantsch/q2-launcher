@@ -245,6 +245,9 @@ export function findModifierSlotCollision(
 
   for (const action of actions) {
     if (action.id === ignoreActionId) continue
+    // An alias entry is never bound (story 019) - skip it even if it still carries stale
+    // key/modifier data from before it became an alias (review fix, Finding 4).
+    if (action.kind === 'alias') continue
     if (action.keyModifier === modifier && action.key && normalizeBindKey(action.key) === normalizedKey) {
       return { modifier, key, layerId, layerName, owner: action.name, actionId: action.id, actionSlot: 'primary' }
     }

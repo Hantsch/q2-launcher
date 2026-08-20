@@ -236,6 +236,12 @@ export class ProfilesStore {
    *   `Alt+R` untouched. What does disappear is a stale `q2l_a_*` base bind for
    *   a slot that just *gained* a modifier - it has to, or the key would keep
    *   firing the action without the modifier held.
+   * - A `kind: 'alias'` action (story 019) is skipped by both mirrors outright:
+   *   it renders as `alias <its own name>` and exists to be *called* by a
+   *   binding, so it is never bound to a key nor overridden into a layer. Same
+   *   strip-then-skip consequence as above - a row that was a bind and became
+   *   an alias loses its `q2l_a_*` bind, while a hand-typed bind on that key
+   *   stays.
    * - `layers` is rebuilt by `applyActionLayerMirror` (`@shared/config/
    *   modifier-layers`), the exact layer-side counterpart of the `binds` mirror:
    *   same strip-then-rewrite shape, same `ACTION_ALIAS_PREFIX` filter, same
@@ -252,6 +258,13 @@ export class ProfilesStore {
       if (!command.startsWith(ACTION_ALIAS_PREFIX)) nextBinds[key] = command
     }
     for (const action of input.actions) {
+      // An alias entry is a definition other bindings call, never something a
+      // key runs (story 019) - so it contributes no bind, whatever key data the
+      // row happens to still carry. Combined with the unconditional strip pass
+      // above, that is also what removes the stale `q2l_a_*` bind of a row that
+      // used to be a bind and has just become an alias.
+      if (action.kind === 'alias') continue
+
       // A slot with a modifier belongs to that modifier's layer, not to `binds`
       // (story 016 decision 17) - each slot is judged by its own modifier field.
       const keys = [

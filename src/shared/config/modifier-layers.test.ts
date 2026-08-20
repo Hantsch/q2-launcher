@@ -20,6 +20,7 @@ function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
     id: 'action-1',
     categoryId: 'category-1',
     name: 'Action',
+    kind: 'bind',
     commands: [],
     ...overrides,
   }
@@ -153,5 +154,59 @@ describe('applyActionLayerMirror', () => {
     const resultRemoved = applyActionLayerMirror([altLayerWithStale], [], idSequence())
     const altLayerRemoved = resultRemoved.find((candidate) => candidate.triggerKey === 'ALT')
     expect(altLayerRemoved?.overrides.G).toBeUndefined()
+  })
+  // Story 019 D2: an alias entry defines an alias for other bindings to call.
+  // It is not bindable, so it must never reach a layer's overrides - the
+  // exclusion lives here, at the single derive site, and not in a caller.
+  describe('alias entries', () => {
+    it('writes no override for an alias entry, even one still carrying key + modifier', () => {
+      const aliasEntry = action({
+        id: 'alias-entry',
+        name: '+test',
+        kind: 'alias',
+        key: 'R',
+        keyModifier: 'ALT',
+      })
+
+      const result = applyActionLayerMirror([], [aliasEntry], idSequence('alt-layer'))
+
+      // Not even the ALT layer itself is created for it.
+      expect(result).toEqual([])
+    })
+
+    it('strips the stale override of an entry that has just become an alias', () => {
+      const before = action({ id: 'turned', name: '+test', key: 'R', keyModifier: 'ALT' })
+      const created = applyActionLayerMirror([], [before], idSequence('alt-layer'))
+      expect(created[0]!.overrides).toEqual({ r: aliasNameFor(before) })
+
+      const result = applyActionLayerMirror(created, [{ ...before, kind: 'alias' }], idSequence())
+
+      expect(result[0]!.overrides).toEqual({})
+    })
+
+    it('leaves hand-made overrides and other rows alone while skipping the alias entry', () => {
+      const handMade = layer({
+        id: 'alt-1',
+        name: 'Rocketjump',
+        triggerKey: 'ALT',
+        overrides: { q: 'say_team taking rl' },
+      })
+      const aliasEntry = action({
+        id: 'alias-entry',
+        name: '+test',
+        kind: 'alias',
+        key: 'R',
+        keyModifier: 'ALT',
+      })
+      const bound = action({ id: 'bound', name: 'Rocket Jump', key: 'G', keyModifier: 'ALT' })
+
+      const result = applyActionLayerMirror([handMade], [aliasEntry, bound], idSequence())
+
+      expect(result).toHaveLength(1)
+      expect(result[0]!.overrides).toEqual({
+        q: 'say_team taking rl',
+        g: aliasNameFor(bound),
+      })
+    })
   })
 })

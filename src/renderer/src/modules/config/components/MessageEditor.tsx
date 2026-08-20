@@ -22,8 +22,8 @@ const FIELD_BASE =
 
 /**
  * Story 008 D8: the message-kind counterpart to D7's `ActionEditor` -
- * `AdvancedTab` opens this one instead when the selected category's
- * `entryKind` is `'message'`. A message action's `commands` holds exactly one
+ * `AdvancedTab` opens this one instead when the entry's own `kind` is
+ * `'message'` (story 019). A message action's `commands` holds exactly one
  * `{ kind: 'message', channel, text }` entry (decision 7: a message is one
  * alias body, same as a multi-command bind, but this editor only ever
  * produces the single message command a "Team messages"-style category

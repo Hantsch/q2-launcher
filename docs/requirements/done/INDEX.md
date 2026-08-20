@@ -49,3 +49,7 @@ second roadmap.
 - 018 — Test mode: trigger keys switch layers, pressed keys light up, readout always visible · S04 ·
   pure resolver + reducer drive the displayed layer from physical trigger presses, every held
   key/mouse button rings on its keycap, readout moved permanently into the legend row.
+- 019 — Controls: type the entry, not the category, and let me order entries · S04 · `kind`
+  moved onto each entry (bind/message/alias) instead of the category, aliases render as their
+  own name and are never bound, entries reorder by hand, and undefined/unreferenced aliases are
+  reported in the Validation panel.

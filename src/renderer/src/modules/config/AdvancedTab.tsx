@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ListChecks, Pencil, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, ListChecks, Pencil, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
 import {
   BUILT_IN_ACTION_CATEGORIES,
-  type ActionCategoryEntryKind,
+  type ActionEntryKind,
   type ConfigAction,
   type ConfigActionCategory,
   type ConfigProfile,
@@ -11,22 +11,17 @@ import {
 import { Button, IconButton } from '../../components/ui/Button'
 import { Field, Input, Select } from '../../components/ui/controls'
 import { Modal } from '../../components/ui/Modal'
-import { Badge, type BadgeTone, EmptyState, SectionLabel } from '../../components/ui/primitives'
+import { Badge, EmptyState, SectionLabel } from '../../components/ui/primitives'
 import { ActionEditor } from './components/ActionEditor'
 import { DropBindPanel } from './components/DropBindPanel'
 import { DualBindPanel } from './components/DualBindPanel'
 import { MessageEditor } from './components/MessageEditor'
 import { updateProfileActions } from './client'
+import { moveEntryWithinCategory } from './lib/entry-order'
 
 const SAVE_DEBOUNCE_MS = 500
 
 type SaveStatus = 'idle' | 'saving' | 'saved'
-
-const ENTRY_KIND_TONE: Record<ActionCategoryEntryKind, BadgeTone> = {
-  bind: 'flame',
-  message: 'strogg',
-  alias: 'warning',
-}
 
 /**
  * Story 015 D5/D6: the three built-in categories that got their own
@@ -35,6 +30,20 @@ const ENTRY_KIND_TONE: Record<ActionCategoryEntryKind, BadgeTone> = {
  * `DropBindPanel` (D6) - see the dispatch below.
  */
 const DUAL_BIND_CATEGORY_IDS = new Set<string>(['movement', 'weapons', 'drops'])
+
+/**
+ * Story 019 D4: the kind now lives on the entry, not the category, so the
+ * per-entry row badge needs its own tone. This is a new mapping, not a
+ * carry-over of the removed category-level badge's tones (those were `bind`
+ * flame, `message` strogg, `alias` warning) - `bind` is neutral here as the
+ * common case, `message` takes flame (chat output), `alias` takes strogg
+ * (definition-only, never bound).
+ */
+const ENTRY_KIND_TONE: Record<ActionEntryKind, 'neutral' | 'flame' | 'strogg'> = {
+  bind: 'neutral',
+  message: 'flame',
+  alias: 'strogg',
+}
 
 export interface AdvancedTabProps {
   profile: ConfigProfile
@@ -166,14 +175,10 @@ export function AdvancedTab({ profile, draft, patch, onChanged }: AdvancedTabPro
     }, SAVE_DEBOUNCE_MS)
   }
 
-  const handleCreateCategory = async (input: {
-    name: string
-    entryKind: ActionCategoryEntryKind
-  }): Promise<boolean> => {
+  const handleCreateCategory = async (input: { name: string }): Promise<boolean> => {
     const category: ConfigActionCategory = {
       id: crypto.randomUUID(),
       name: input.name,
-      entryKind: input.entryKind,
     }
     const ok = await persistCategoriesAndActions([...categories, category], actions)
     if (ok) {
@@ -211,11 +216,14 @@ export function AdvancedTab({ profile, draft, patch, onChanged }: AdvancedTabPro
     return ok
   }
 
-  const handleCreateAction = (name: string): void => {
+  const handleCreateAction = (name: string, kind: ActionEntryKind): void => {
     const action: ConfigAction = {
       id: crypto.randomUUID(),
       categoryId: selectedCategoryId,
       name,
+      // Story 019 D4: the create dialog now asks for the kind directly - the
+      // category can no longer answer for the entry.
+      kind,
       commands: [],
     }
     scheduleActionsSave([...actions, action])
@@ -224,6 +232,17 @@ export function AdvancedTab({ profile, draft, patch, onChanged }: AdvancedTabPro
 
   const handleRemoveAction = (actionId: string): void => {
     scheduleActionsSave(actions.filter((action) => action.id !== actionId))
+  }
+
+  /**
+   * Story 019 D7: reorder is a discrete click, not continuous typing, so it
+   * saves through the same immediate `persistCategoriesAndActions` path
+   * category CRUD uses, rather than the debounced `scheduleActionsSave` add/
+   * remove use - one click should not risk being reverted by a later failed
+   * debounce firing on stale data.
+   */
+  const handleMoveAction = (actionId: string, direction: 'up' | 'down'): void => {
+    void persistCategoriesAndActions(categories, moveEntryWithinCategory(actions, actionId, direction))
   }
 
   /**
@@ -246,8 +265,6 @@ export function AdvancedTab({ profile, draft, patch, onChanged }: AdvancedTabPro
   const selectedCategoryLabel = selectedBuiltIn
     ? t(selectedBuiltIn.labelKey)
     : (selectedCustom?.name ?? '')
-  const selectedEntryKind: ActionCategoryEntryKind | undefined =
-    selectedBuiltIn?.entryKind ?? selectedCustom?.entryKind
   const actionsForCategory = actions.filter(
     (action) => action.categoryId === selectedCategoryId,
   )
@@ -308,9 +325,6 @@ export function AdvancedTab({ profile, draft, patch, onChanged }: AdvancedTabPro
                 >
                   {category.name}
                 </Button>
-                <Badge tone={ENTRY_KIND_TONE[category.entryKind]}>
-                  {t(`config.advanced.entryKind.${category.entryKind}`)}
-                </Badge>
                 {isPendingDelete ? (
                   <>
                     <span className="text-xs text-danger">{t('config.advanced.deleteConfirm')}</span>
@@ -414,13 +428,40 @@ export function AdvancedTab({ profile, draft, patch, onChanged }: AdvancedTabPro
             />
           ) : (
             <ul className="space-y-2">
-              {actionsForCategory.map((action) => (
+              {actionsForCategory.map((action, index) => (
                 <li
                   key={action.id}
                   className="flex items-center justify-between gap-3 rounded-sm border border-line px-2.5 py-2"
                 >
-                  <span className="min-w-0 truncate text-sm text-ink">{action.name}</span>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="min-w-0 truncate text-sm text-ink">{action.name}</span>
+                    <Badge tone={ENTRY_KIND_TONE[action.kind]}>
+                      {t(`config.advanced.entryKind.${action.kind}`)}
+                    </Badge>
+                  </span>
                   <div className="flex shrink-0 items-center gap-1">
+                    {/* Story 019 D7: disabled at the ends of this entry's own
+                        category, not the flat array - `actionsForCategory`
+                        is already filtered to `selectedCategoryId` in array
+                        order, so first/last here is exactly "no same-
+                        category neighbour in that direction" without
+                        re-deriving `entry-order.ts`'s neighbour walk. */}
+                    <IconButton
+                      label={t('config.advanced.actions.moveUp')}
+                      size="sm"
+                      disabled={index === 0}
+                      onClick={() => handleMoveAction(action.id, 'up')}
+                    >
+                      <ArrowUp className="size-3.5" />
+                    </IconButton>
+                    <IconButton
+                      label={t('config.advanced.actions.moveDown')}
+                      size="sm"
+                      disabled={index === actionsForCategory.length - 1}
+                      onClick={() => handleMoveAction(action.id, 'down')}
+                    >
+                      <ArrowDown className="size-3.5" />
+                    </IconButton>
                     <IconButton
                       label={t('config.advanced.actions.edit')}
                       size="sm"
@@ -481,7 +522,7 @@ export function AdvancedTab({ profile, draft, patch, onChanged }: AdvancedTabPro
         />
       )}
 
-      {editingAction && selectedEntryKind === 'message' && (
+      {editingAction && editingAction.kind === 'message' && (
         <MessageEditor
           action={editingAction}
           onClose={() => setEditingActionId(null)}
@@ -489,9 +530,10 @@ export function AdvancedTab({ profile, draft, patch, onChanged }: AdvancedTabPro
         />
       )}
 
-      {editingAction && selectedEntryKind !== 'message' && (
+      {editingAction && editingAction.kind !== 'message' && (
         <ActionEditor
           action={editingAction}
+          actions={actions}
           onClose={() => setEditingActionId(null)}
           onSave={(next) => void handleSaveAction(next)}
         />
@@ -500,24 +542,23 @@ export function AdvancedTab({ profile, draft, patch, onChanged }: AdvancedTabPro
   )
 }
 
-/** Create-category form: name, entry kind. Mirrors `CreateLayerDialog`'s shape. */
+/** Create-category form: name only - story 019 moved the entry kind onto the entry itself. */
 function CreateCategoryDialog({
   onClose,
   onSubmit,
 }: {
   onClose: () => void
-  onSubmit: (input: { name: string; entryKind: ActionCategoryEntryKind }) => Promise<boolean>
+  onSubmit: (input: { name: string }) => Promise<boolean>
 }) {
   const { t } = useTranslation()
   const [name, setName] = useState('')
-  const [entryKind, setEntryKind] = useState<ActionCategoryEntryKind>('bind')
   const [submitting, setSubmitting] = useState(false)
 
   const canSubmit = name.trim().length > 0 && !submitting
 
   const submit = async (): Promise<void> => {
     setSubmitting(true)
-    const ok = await onSubmit({ name: name.trim(), entryKind })
+    const ok = await onSubmit({ name: name.trim() })
     setSubmitting(false)
     if (!ok) return
   }
@@ -550,18 +591,6 @@ function CreateCategoryDialog({
             onKeyDown={(event) => {
               if (event.key === 'Enter' && canSubmit) void submit()
             }}
-          />
-        </Field>
-
-        <Field label={t('config.advanced.createDialog.entryKindLabel')}>
-          <Select
-            value={entryKind}
-            onChange={(event) => setEntryKind(event.target.value as ActionCategoryEntryKind)}
-            options={[
-              { value: 'bind', label: t('config.advanced.entryKind.bind') },
-              { value: 'message', label: t('config.advanced.entryKind.message') },
-              { value: 'alias', label: t('config.advanced.entryKind.alias') },
-            ]}
           />
         </Field>
       </div>
@@ -624,23 +653,27 @@ function RenameCategoryDialog({
   )
 }
 
-/** Create-action form: name only. Debounced-saved by the caller, so this dialog does not wait
- * on a network round trip - it hands the trimmed name back and closes immediately. */
+const ENTRY_KIND_OPTIONS: ActionEntryKind[] = ['bind', 'message', 'alias']
+
+/** Create-action form: name plus the kind (story 019 D4 - the entry, not the category, carries
+ * the kind). Debounced-saved by the caller, so this dialog does not wait on a network round trip
+ * - it hands the trimmed name and chosen kind back and closes immediately. */
 function CreateActionDialog({
   onClose,
   onSubmit,
 }: {
   onClose: () => void
-  onSubmit: (name: string) => void
+  onSubmit: (name: string, kind: ActionEntryKind) => void
 }) {
   const { t } = useTranslation()
   const [name, setName] = useState('')
+  const [kind, setKind] = useState<ActionEntryKind>('bind')
 
   const canSubmit = name.trim().length > 0
 
   const submit = (): void => {
     if (!canSubmit) return
-    onSubmit(name.trim())
+    onSubmit(name.trim(), kind)
   }
 
   return (
@@ -661,17 +694,29 @@ function CreateActionDialog({
         </>
       }
     >
-      <Field label={t('config.advanced.actions.createDialog.nameLabel')}>
-        <Input
-          value={name}
-          autoFocus
-          maxLength={120}
-          onChange={(event) => setName(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && canSubmit) submit()
-          }}
-        />
-      </Field>
+      <div className="space-y-4">
+        <Field label={t('config.advanced.actions.createDialog.nameLabel')}>
+          <Input
+            value={name}
+            autoFocus
+            maxLength={120}
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && canSubmit) submit()
+            }}
+          />
+        </Field>
+        <Field label={t('config.advanced.createDialog.entryKindLabel')}>
+          <Select
+            options={ENTRY_KIND_OPTIONS.map((option) => ({
+              value: option,
+              label: t(`config.advanced.entryKind.${option}`),
+            }))}
+            value={kind}
+            onChange={(event) => setKind(event.target.value as ActionEntryKind)}
+          />
+        </Field>
+      </div>
     </Modal>
   )
 }

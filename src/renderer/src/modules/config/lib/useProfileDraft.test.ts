@@ -57,8 +57,8 @@ describe('mergeProfileUpdate', () => {
     // must never be clobbered by an external profile update that has not caught up yet.
     const prev = profile({
       cvars: { sensitivity: '7' }, // a keystroke `patch()` already applied, not yet saved
-      categories: [{ id: 'c1', name: 'Custom', entryKind: 'bind' }],
-      actions: [{ id: 'a1', categoryId: 'c1', name: 'Drop', commands: [] }],
+      categories: [{ id: 'c1', name: 'Custom' }],
+      actions: [{ id: 'a1', categoryId: 'c1', name: 'Drop', kind: 'bind', commands: [] }],
       name: 'Old name',
     })
     const fresh = profile({

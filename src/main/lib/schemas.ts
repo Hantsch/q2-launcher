@@ -1,7 +1,16 @@
 import { z } from 'zod'
 import type { AltLayer } from '@shared/config/alt-layers'
-import type { ModifierTrigger } from '@shared/config/modifier-layers'
-import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
+import {
+  stripAliasActionBinds,
+  stripAliasActionOverrides,
+  type ModifierTrigger,
+} from '@shared/config/modifier-layers'
+import type {
+  ActionEntryKind,
+  ConfigAction,
+  ConfigActionCategory,
+  ConfigProfile,
+} from '@shared/modules/config'
 import { isLatin1Text } from '@shared/config/q2-charset'
 import type { Installation, LauncherSettings, WindowState } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
@@ -139,10 +148,24 @@ const configCommandPersistedSchema = z.discriminatedUnion('kind', [
   }),
 ])
 
-const configActionCategoryPersistedSchema: z.ZodType<ConfigActionCategory> = z.object({
+/** Story 019: what one entry is. Same vocabulary as the strict IPC schema's
+ * `actionEntryKindSchema`. */
+const actionEntryKindPersistedSchema = z.enum(['bind', 'message', 'alias'])
+
+/**
+ * Story 019: story 008's per-category entry kind. The field is gone from `ConfigActionCategory`,
+ * but it is still *accepted* here - and forgivingly so (`.optional().catch(undefined)`, so even a
+ * hand-mangled `entryKind: 42` cannot fail the row) - because dropping a whole category row over a
+ * field the type no longer has would delete a user's drawer and every entry pointing at it.
+ * `normalizeConfigProfile` below reads it to derive each entry's own `kind` and then leaves it out
+ * of the parsed output: it exists on disk, never in memory.
+ */
+const legacyCategoryEntryKindSchema = actionEntryKindPersistedSchema.optional().catch(undefined)
+
+const configActionCategoryPersistedSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  entryKind: z.enum(['bind', 'message', 'alias']),
+  entryKind: legacyCategoryEntryKindSchema,
 })
 
 // Story 016 (D6): same modifier vocabulary as the strict IPC schema
@@ -154,11 +177,16 @@ const modifierTriggerPersistedSchema: z.ZodType<ModifierTrigger | undefined> = z
   .optional()
   .catch(undefined)
 
-const configActionPersistedSchema: z.ZodType<ConfigAction> = z.object({
+const configActionPersistedSchema = z.object({
   id: z.string().min(1),
   categoryId: z.string().min(1),
   name: z.string().min(1),
   commands: z.array(configCommandPersistedSchema),
+  // Story 019: required on the type, deliberately optional-and-forgiving here - every row written
+  // before 019 simply has no `kind`, and an unreadable one carries no information either. Both end
+  // up `undefined` and are filled in by `normalizeConfigProfile`, which is the only place that can
+  // see the sibling `categories` the derive needs. A row is never dropped over this field.
+  kind: actionEntryKindPersistedSchema.optional().catch(undefined),
   key: z.string().optional(),
   // Story 015: same two additive fields as the strict IPC schema, and forgiving in
   // the same way `key` is here - no length or non-empty rule, because a persisted
@@ -191,7 +219,7 @@ function parseForgivingRows<T>(schema: z.ZodType<T>, raw: unknown): T[] {
  * a hand-mangled profile is dropped on its own instead of taking the file - or
  * the installation list - with it.
  */
-export const configProfileSchema = z.object({
+const configProfileObjectSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   createdAt: z.string().catch(nowIso),
@@ -215,11 +243,13 @@ export const configProfileSchema = z.object({
   // this story) degrades the whole field to `[]` rather than dropping the
   // profile it belongs to.
   layers: z.array(altLayerPersistedSchema).catch(() => []),
-  // Story 008: action categories and their binds/messages/aliases. Unlike
-  // `layers` right above, a malformed row is dropped on its own via
+  // Story 008: action categories and their entries. Unlike `layers` right above, a malformed row is dropped on its own via
   // `parseForgivingRows` rather than degrading the whole array to `[]` - see
   // that helper's doc comment. A missing key (any profile predating this
   // story) still yields `[]`, same as every other optional field here.
+  // Story 019: both fields are post-processed by `normalizeConfigProfile` below - the entry kind
+  // moved from the category onto the entry, and an old file's category-level `entryKind` is what
+  // an entry without a `kind` of its own derives from.
   categories: z.preprocess(
     (raw) => parseForgivingRows(configActionCategoryPersistedSchema, raw),
     z.array(configActionCategoryPersistedSchema),
@@ -229,6 +259,70 @@ export const configProfileSchema = z.object({
     z.array(configActionPersistedSchema),
   ),
 })
+
+/**
+ * What this schema hands back: a `ConfigProfile` whose three forgiving array fields are guaranteed
+ * present, because each of them degrades to `[]` rather than staying absent. Optional on
+ * `ConfigProfile` (a profile written before the story that added them simply has no such key), but
+ * never absent *after* a parse - so a caller reading a parsed profile does not have to re-check.
+ */
+export type PersistedConfigProfile = ConfigProfile & {
+  layers: AltLayer[]
+  categories: ConfigActionCategory[]
+  actions: ConfigAction[]
+}
+
+/**
+ * Story 019: fill in every entry's own `kind` and drop the categories' legacy `entryKind`.
+ *
+ * This runs at profile level, not per row, for one reason: the derive needs the profile's
+ * `categories`, and a row-level schema cannot see its siblings. It is a best-effort normalisation
+ * done on every read, not a version-gated migration - hence no `STATE_SCHEMA_VERSION` bump - so it
+ * has to be total: whatever a `state.json` says, every row that parsed keeps existing and comes out
+ * with exactly one of the three kinds.
+ *
+ * The fallback chain per row: the row's own `kind` when it has a readable one (anything saved from
+ * 019 on) -> its category's legacy `entryKind` -> `'bind'`. The last step covers all three of
+ * "the category is a built-in one" (built-ins are never persisted rows, so they are simply absent
+ * from the map), "the category row carries no `entryKind`" and "its `entryKind` was unreadable"
+ * (already degraded to `undefined` by `legacyCategoryEntryKindSchema`) - a bind is the only kind an
+ * entry of unknown type can safely be, since it is the one that stays bindable and renders as what
+ * it always did.
+ *
+ * The return type is annotated rather than inferred: it is what keeps the two row schemas above -
+ * which are no longer each annotated with their shared type - in sync with `ConfigProfile`.
+ *
+ * Review fix (Finding 1): deriving `kind` here can retype a legacy row to `alias` on a plain read,
+ * outside `setActions`'s own strip-then-rewrite mirrors - so once every action's `kind` is settled,
+ * this also strips any `binds` entry and any layer `overrides` entry that mirrors one of the
+ * resulting alias actions (`stripAliasActionBinds`/`stripAliasActionOverrides`,
+ * `@shared/config/modifier-layers`), the exact same value-based exclusion `setActions` and
+ * `applyActionLayerMirror` already apply on the write path - not a second, divergent rule.
+ */
+function normalizeConfigProfile(
+  parsed: z.infer<typeof configProfileObjectSchema>,
+): PersistedConfigProfile {
+  const legacyKinds = new Map<string, ActionEntryKind>()
+  for (const category of parsed.categories) {
+    if (category.entryKind) legacyKinds.set(category.id, category.entryKind)
+  }
+
+  const actions = parsed.actions.map(({ kind, ...action }) => ({
+    ...action,
+    kind: kind ?? legacyKinds.get(action.categoryId) ?? 'bind',
+  }))
+  const aliasActions = actions.filter((action) => action.kind === 'alias')
+
+  return {
+    ...parsed,
+    categories: parsed.categories.map(({ id, name }) => ({ id, name })),
+    actions,
+    binds: stripAliasActionBinds(parsed.binds, aliasActions),
+    layers: stripAliasActionOverrides(parsed.layers, aliasActions),
+  }
+}
+
+export const configProfileSchema = configProfileObjectSchema.transform(normalizeConfigProfile)
 
 /** installationId -> mod folder names the user has marked "played" for it. */
 export const configPlayedModsSchema = z

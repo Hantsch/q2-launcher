@@ -18,8 +18,14 @@ import type { EngineKind } from '../types/engine'
 
 /** What a finding is about, so the UI can link back to the offending row. */
 export interface FindingSubject {
-  kind: 'cvar' | 'bind' | 'alias' | 'file' | 'profile'
-  /** Cvar name, bind key, alias name, file name, or profile id - whatever `kind` implies. */
+  kind: 'cvar' | 'bind' | 'alias' | 'file' | 'profile' | 'action'
+  /**
+   * Cvar name, bind key, alias name, file name, profile id, or (story 019 D8)
+   * an entry's own display name - whatever `kind` implies. `'action'` is used
+   * when a finding is about a `ConfigAction` itself (e.g. a binding calling an
+   * undefined alias) rather than about the rendered `bind`/`alias` line it
+   * would produce - the entry may not even render a line at all yet.
+   */
   id: string
 }
 
