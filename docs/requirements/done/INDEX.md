@@ -43,3 +43,6 @@ second roadmap.
 - 026 — A committed UI verification harness that drives the real app · S04 · Playwright-driven
   screenshot + axe-core harness (`npm run ui:verify`) with an isolated fixture, 14-screen registry
   and flow API; surfaced a pre-existing `config-raw` rendering bug as a follow-up.
+- 017 — Overview — editing is the default, no dedicated edit mode · S04 · removed the edit-mode
+  toggle; a keycap click opens `KeyBindDialog` directly outside test mode, trigger-keycap
+  click-to-switch retired in favour of story 018's physical-key path.

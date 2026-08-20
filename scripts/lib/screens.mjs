@@ -12,11 +12,9 @@
 //   config-tab-<tabId>              (ConfigView.tsx, tabId is the DetailTab union)
 //   config-profile-row              (ConfigView.tsx, one per profile in the list)
 //   keycap-<keyName>                (OverviewKeyboardPanel.tsx)
-// The edit-mode toggle button that guards KeyBindDialog carries no testid (D3
-// did not add one), so it is reached by its visible English text instead —
-// mirrors src/renderer/src/i18n/locales/en.json's
-// `config.overview.editMode.start` ("Start editing"); the repo ships only
-// `en` today (story 026 Decisions).
+// Story 017 retired the edit-mode toggle: outside test mode a keycap click
+// opens KeyBindDialog directly, so the former "Start editing" click below is
+// gone — the repo ships only `en` today (story 026 Decisions).
 
 /** Mirrors src/shared/constants.ts:17-18 (`WINDOW_DEFAULT_WIDTH/HEIGHT`). */
 const VIEWPORT_DEFAULT = { width: 1280, height: 800 }
@@ -166,12 +164,9 @@ export const SCREENS = [
       await selectProfile(page, PROFILE_PLAIN)
       // Plain Profile's overview tab is the default landing tab already
       // (ConfigView.openProfile always sets activeTab to 'overview').
-      // Edit mode turns a keycap click into opening KeyBindDialog instead of
-      // capturing a keypress (OverviewKeyboardPanel.tsx `capture()`); the
-      // toggle carries no testid, so it is found by its visible text.
-      await page
-        .getByRole('button', { name: 'Start editing' })
-        .click({ timeout: CLICK_TIMEOUT_MS })
+      // Outside test mode a keycap click opens KeyBindDialog directly
+      // (OverviewKeyboardPanel.tsx `capture()`, story 017) — no edit-mode
+      // toggle to arm first.
       // MOUSE1 is bound in the Plain Profile fixture (scripts/lib/fixture.mjs).
       await click(page, 'keycap-MOUSE1')
       await page.getByRole('dialog').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })

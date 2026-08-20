@@ -1,7 +1,7 @@
 ---
 id: 017
 title: Overview — editing is the default, no dedicated edit mode
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-08-19
 ---
 
@@ -18,17 +18,17 @@ next to "a click edits this key".
 
 ## Acceptance Criteria
 
-- [ ] The Overview header has no edit-mode toggle any more; only Start/Stop test mode remains.
-- [ ] Clicking any keycap outside test mode opens `KeyBindDialog` for that key — scoped to the
+- [x] The Overview header has no edit-mode toggle any more; only Start/Stop test mode remains.
+- [x] Clicking any keycap outside test mode opens `KeyBindDialog` for that key — scoped to the
       base layer or, with a layer selected, to that layer's overrides, exactly as edit mode did.
-- [ ] Outside test mode, a layer's trigger keycap behaves like any other keycap: a click opens
+- [x] Outside test mode, a layer's trigger keycap behaves like any other keycap: a click opens
       `KeyBindDialog` for its own bind. Click-to-switch-layer is retired as a click behaviour
       (013/014); the board still switches to a layer, but only as part of test mode (018).
-- [ ] Starting test mode suspends editing (a keycap click captures instead of opening the dialog);
+- [x] Starting test mode suspends editing (a keycap click captures instead of opening the dialog);
       stopping test mode returns to editing without any further click.
-- [ ] Keycap hover/cursor affordance reflects "click edits" everywhere it applies — no keycap
+- [x] Keycap hover/cursor affordance reflects "click edits" everywhere it applies — no keycap
       looks clickable while doing nothing, and none looks inert while being editable.
-- [ ] Switching profiles resets test mode; there is no edit-mode state left to reset.
+- [x] Switching profiles resets test mode; there is no edit-mode state left to reset.
 
 ## Open Questions
 
@@ -159,3 +159,35 @@ Live pass through the running app (`npm run dev`, `live-smoke-required: true`).
    open, and a keycap click edits.
 
 ## Done
+
+Editing is now the Overview's resting state: the edit-mode toggle is gone, and a keycap click
+opens `KeyBindDialog` directly, scoped to base or the selected layer's overrides exactly as before.
+Test mode is the only remaining explicit mode and still suspends editing while it runs. The trigger
+keycap's click-to-switch-layer (013/014) is retired — a trigger key opens its own bind dialog like
+any other key, its inline label lost the `→` arrow, and its tooltip always reads "Layer trigger:
+<layer>". Every keycap now shows an unconditional pointer cursor and a tone-appropriate hover
+border (strogg for trigger, flame otherwise), and a static hint ("Click a key to edit its bind")
+replaces the removed toggle's discoverability, shown outside test mode only.
+
+**Decisions:**
+- Fixed two UI-verification harness files (`scripts/lib/screens.mjs`,
+  `scripts/flows/open-keycap-dialog.mjs`) that clicked the now-removed "Start editing" button —
+  a direct, necessary consequence of this story's change, not a separate deliverable. Verified via
+  `npm run ui:flow -- open-keycap-dialog` and `npm run ui:shot`.
+- `triggerSelectTarget` (and its test) intentionally left in place in `lib/trigger-keys.ts` per the
+  story's sprint decision — reserved for story 018.
+
+**Verification:**
+- `npm run build` — pass. `npm test` — 568/568 pass. `npm run typecheck` — pass (node + web).
+- Live smoke: ran `npm run ui:flow -- open-keycap-dialog` (confirms header has only "Start test
+  mode", hint line visible, keycap click opens `KeyBindDialog` with no edit-mode step) and
+  `npm run ui:shot` (26/28 screens written; the only 2 errors are `config-raw` at both viewports —
+  the pre-existing, unrelated `RawConfigPanel.tsx` double-unwrapped-`Outcome` crash noted by the
+  orchestrator before this story started; not touched, not caused by this change). `config-overview`
+  screenshot confirms header/hint rendering matches the acceptance criteria.
+- Code review (clean agent, default tier): verdict PASS. All 6 acceptance criteria PASS with
+  file:line evidence; all sprint decisions (trigger label, tooltip, cursor affordance, hint
+  placement, `triggerSelectTarget` retained, no component test added) verified; no weakened tests,
+  no scope creep beyond the harness fix explained above. No fixes needed — zero review-fix cycles.
+
+**Commit message:** `017: overview editing is the default, no edit-mode toggle`

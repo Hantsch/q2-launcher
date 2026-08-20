@@ -362,6 +362,7 @@
     "overview": {
       "label": "Keyboard overview",
       "subtitle": "{{bound}} of {{total}} keys bound",
+      "editHint": "Click a key to edit its bind",
       "legend": {
         "free": "Free",
         "bound": "Bound",
@@ -374,15 +375,9 @@
         "noBind": "Not bound",
         "placeholder": "Press a key or click a mouse button…"
       },
-      "editMode": {
-        "start": "Start editing",
-        "stop": "Stop editing"
-      },
       "trigger": {
-        "toLayer": "→ {{layer}}",
-        "toBase": "→ Base",
-        "title": "Layer trigger: {{layer}}",
-        "titleActive": "Layer trigger: Base"
+        "layerLabel": "{{layer}}",
+        "title": "Layer trigger: {{layer}}"
       }
     },
     "keyBindDialog": {

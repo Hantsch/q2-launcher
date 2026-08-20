@@ -6,3 +6,6 @@
 - 2026-08-20 14:55 · 026 · D6 The one command · done
 - 2026-08-20 15:05 · 026 · D7 Flow API + worked example · done
 - 2026-08-20 15:15 · 026 · D8 Docs · done
+- 2026-08-20 15:25 · 017 · D1 Edit mode removed, keycap opens dialog · done
+- 2026-08-20 15:35 · 017 · D2 Affordance and trigger labels · done
+- 2026-08-20 15:45 · 017 · Story closed — done, moved to done/ · done

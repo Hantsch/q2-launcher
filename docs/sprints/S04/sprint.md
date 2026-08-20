@@ -21,7 +21,7 @@ accessibility findings.
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
 - [x] 026 — A committed UI verification harness that drives the real app
-- [ ] 017 — Overview: editing is the default, no dedicated edit mode
+- [x] 017 — Overview: editing is the default, no dedicated edit mode
 - [ ] 018 — Test mode: trigger keys switch layers, pressed keys light up, readout always visible
 - [ ] 019 — Controls: type the entry, not the category, and let me order entries
 - [ ] 020 — Controls: rename Advanced and rebuild it as the column grid prototype

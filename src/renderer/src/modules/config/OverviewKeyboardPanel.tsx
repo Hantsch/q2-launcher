@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Pencil, Play, Square } from 'lucide-react'
+import { Play, Square } from 'lucide-react'
 import type { AltLayer } from '@shared/config/alt-layers'
 import type { ConfigProfile } from '@shared/modules/config'
 import { cn } from '../../lib/cn'
@@ -19,7 +19,9 @@ import {
   resolveQuakeKeyName,
   type KeyDef,
 } from './lib/keyboard-layout'
-import { resolveTriggerLayer, triggerSelectTarget, type TriggerInfo } from './lib/trigger-keys'
+// triggerSelectTarget is reserved for story 018 (trigger-key click still opens the layer switcher
+// as well as the bind dialog); its only current call site was removed here per story 017/D1.
+import { resolveTriggerLayer, type TriggerInfo } from './lib/trigger-keys'
 
 /** One keycap's footprint at 1x. The board is then zoomed to fill the panel - see the scale effect below. */
 const KEY_UNIT_REM = 2.25
@@ -63,8 +65,8 @@ interface Captured {
  * a test mode that captures a real keypress or mouse click and shows the
  * command chain it would run.
  *
- * Also the keybinding editor itself (story 006): an edit-mode toggle turns a
- * keycap click into opening `KeyBindDialog` instead of capturing a keypress,
+ * Also the keybinding editor itself (story 006, made the default in story
+ * 017): outside test mode, a keycap click opens `KeyBindDialog` for that key,
  * scoped to the base layer or, with a layer selected above this board, to
  * that layer's own `overrides` (concept doc §5 "Alternate binding layers").
  */
@@ -82,14 +84,12 @@ export function OverviewKeyboardPanel({
   const { t } = useTranslation()
   const [testMode, setTestMode] = useState(false)
   const [captured, setCaptured] = useState<Captured | null>(null)
-  const [editMode, setEditMode] = useState(false)
   const [editingKey, setEditingKey] = useState<{ key: string; label: string } | null>(null)
   const scaleHostRef = useRef<HTMLDivElement>(null)
   const scaleTargetRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setTestMode(false)
-    setEditMode(false)
     setCaptured(null)
     setEditingKey(null)
   }, [profile.id])
@@ -147,26 +147,18 @@ export function OverviewKeyboardPanel({
   ]).size
 
   /**
-   * The one click handler both keycap renderers wire up - mode-aware so a
-   * keycap click means one thing at a time: capture a keypress in test mode,
-   * open `KeyBindDialog` for that key in edit mode, do nothing otherwise
-   * (matches the two modes being mutually exclusive, enforced by the header
-   * toggles below).
+   * The one click handler both keycap renderers wire up - a keycap click
+   * means one of exactly two things: in test mode it captures a keypress
+   * (the readout below fills in, nothing else happens); otherwise it opens
+   * `KeyBindDialog` for that key, scoped to the active layer if one is
+   * selected. Editing is the default state, not a mode you switch into.
    */
   const capture = (def: KeyDef): void => {
-    if (!testMode && !editMode) {
-      const trigger = resolveTriggerLayer(def.key, profile.layers ?? [], activeLayer?.id ?? null)
-      if (trigger) {
-        onSelectLayer(triggerSelectTarget(trigger))
-        return
-      }
-    }
-    if (editMode) {
-      setEditingKey({ key: def.key, label: def.label })
+    if (testMode) {
+      setCaptured({ key: def.key, command: profile.binds[def.key] })
       return
     }
-    if (!testMode) return
-    setCaptured({ key: def.key, command: profile.binds[def.key] })
+    setEditingKey({ key: def.key, label: def.label })
   }
 
   /** Bound/free/shared styling and title shared by both the flex-row and grid keycap renderers. */
@@ -197,9 +189,7 @@ export function OverviewKeyboardPanel({
         ? keycapCommandLabel(resolveAliasChain(baseCommand, profile.actions ?? []))
         : null
     const triggerTitle = trigger
-      ? trigger.isActive
-        ? t('config.overview.trigger.titleActive')
-        : t('config.overview.trigger.title', { layer: trigger.layerName })
+      ? t('config.overview.trigger.title', { layer: trigger.layerName })
       : null
     const title = [
       def.key,
@@ -221,11 +211,7 @@ export function OverviewKeyboardPanel({
       // dimmed - it is base-layer context, not this layer's own state. A trigger
       // key is never dimmed: it is what got you onto this layer.
       Boolean(activeLayer) && !trigger && !hasOverride && bound && 'opacity-70',
-      testMode || editMode
-        ? 'cursor-pointer hover:border-flame-400'
-        : trigger
-          ? 'cursor-pointer hover:border-strogg-300'
-          : 'cursor-default',
+      trigger ? 'cursor-pointer hover:border-strogg-300' : 'cursor-pointer hover:border-flame-400',
     )
     return { title, className, commandLabel, warn: hasOverride, baseReferenceLabel, trigger }
   }
@@ -241,9 +227,7 @@ export function OverviewKeyboardPanel({
       <span className="text-[11px] leading-none font-semibold">{def.label}</span>
       {trigger ? (
         <span className="max-w-full truncate text-[8px] leading-none text-strogg-300/90">
-          {trigger.isActive
-            ? t('config.overview.trigger.toBase')
-            : t('config.overview.trigger.toLayer', { layer: trigger.layerName })}
+          {t('config.overview.trigger.layerLabel', { layer: trigger.layerName })}
         </span>
       ) : (
         commandLabel && (
@@ -325,6 +309,9 @@ export function OverviewKeyboardPanel({
           <p className="text-xs text-ink-muted">
             {t('config.overview.subtitle', { bound: boundCount, total: totalCount })}
           </p>
+          {!testMode && (
+            <p className="text-xs text-ink-muted">{t('config.overview.editHint')}</p>
+          )}
         </div>
         <LayerSwitcher
           layers={profile.layers ?? []}
@@ -334,30 +321,10 @@ export function OverviewKeyboardPanel({
         />
         <div className="flex items-center gap-2">
           <Button
-            variant={editMode ? 'danger' : 'neutral'}
-            size="sm"
-            icon={<Pencil className="size-3.5" />}
-            onClick={() =>
-              setEditMode((prev) => {
-                const next = !prev
-                if (next) setTestMode(false)
-                return next
-              })
-            }
-          >
-            {editMode ? t('config.overview.editMode.stop') : t('config.overview.editMode.start')}
-          </Button>
-          <Button
             variant={testMode ? 'danger' : 'neutral'}
             size="sm"
             icon={testMode ? <Square className="size-3.5" /> : <Play className="size-3.5" />}
-            onClick={() =>
-              setTestMode((prev) => {
-                const next = !prev
-                if (next) setEditMode(false)
-                return next
-              })
-            }
+            onClick={() => setTestMode((prev) => !prev)}
           >
             {testMode ? t('config.overview.testMode.stop') : t('config.overview.testMode.start')}
           </Button>
