@@ -3,7 +3,7 @@
 Status: **Implemented.** Full q2-config-manager feature parity (CFG-1–CFG-12 below) shipped
 across [S01](../sprints/done/S01/sprint.md) (foundation: profile CRUD, assignment, cvar editor,
 write pipeline, import) and [S02](../sprints/done/S02/sprint.md) (keybinding editor with
-alternate layers, in-session profile-switch bind, Advanced tab, multi-engine validator,
+alternate layers, in-session profile-switch bind, Controls tab, multi-engine validator,
 per-mod config cleanup), both accepted on a real desktop. This document now describes the
 system as built, not a plan. Follow-on enhancements beyond this original scope (e.g. alt-layer
 trigger-by-binding, raw config view, dual-bind editor) are tracked as their own stories, not
@@ -103,7 +103,7 @@ surface of the launcher, styled and behaving like the rest of it.
 ```
 Profile (central, in state.json)
   id, name, engine-agnostic content model (bindings, alt layers, categories/
-  messages, cvars) — see "Settings" & "Advanced" below
+  messages, cvars) — see "Settings" & "Controls" below
   ── assignments: Installation.id[] (many-to-many)
 
 Installation (existing, src/shared/types/installation.ts)
@@ -135,10 +135,21 @@ central, assigned to installations) and the UI (launcher design system) change.
   or import an existing config; assign to installations; mark one default per installation.
 - **Overview / keyboard** — bound/free/doubly-bound key view; test mode captures real key
   presses and shows the fully resolved alias chain that would execute.
-- **Advanced** — categories (Movement, Weapons, Weapon dropping, custom) for team messages,
-  item timings, multi-command actions; message editor with `$$loc_here`-style meta-variable
+- **Controls** — a single capped-width (~1120px) column grid (`ControlsGrid`/`ControlsRow`/
+  `BindSlot`/`ControlsOptionsCell`) replaces the old per-category panel idioms: sticky headers
+  (Action · reset · Primary · Secondary · Options), 40px zebra-striped rows grouped by the
+  action catalogue's own groups (an ungrouped run for custom categories with no catalogue
+  group), and always-visible bind-slot cells — "Empty" when unbound, a bound row's primary slot
+  the strongest visual element in the row, and a small modifier cap (`ALT R`) for keys bound
+  into an alternate layer. A profile-wide conflict scan (`lib/bind-conflicts.ts`) feeds a
+  header badge and marks the conflicting slots and rows. A name/command filter narrows rows
+  live, with a "n rows · m bound" footer count. Categories (Movement, Weapons, Weapon dropping,
+  custom) live in a horizontally scrollable rail; each still carries its own team messages,
+  item timings and multi-command actions. Message editor with `$$loc_here`-style meta-variable
   vs. server-substituted (`%l`, `%h`, `%a`) macro distinction; symbol/colour picker for the
-  latin-1 high-ASCII character set (round-tripped byte-for-byte, never UTF-8).
+  latin-1 high-ASCII character set (round-tripped byte-for-byte, never UTF-8). A whole-profile
+  "Restore defaults" (`lib/restore-defaults.ts`) writes every catalogue row's suggested key back
+  and clears entries with no catalogue default, behind a confirm dialog.
 - **Alternate binding layers** — since Quake 2 has no native modifiers, the editor generates
   both alias halves (`+layer`/`-layer` for hold, self-rewriting pair for toggle) and warns
   when a layer remaps a key carrying a `+command`, which would leave movement stuck on

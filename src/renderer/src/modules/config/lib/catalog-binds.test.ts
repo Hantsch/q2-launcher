@@ -4,6 +4,7 @@ import type { ConfigAction } from '@shared/modules/config'
 import {
   applyAmmo,
   applyMessage,
+  applyPlainSlot,
   applySlot,
   buildDropGroups,
   buildMovementRows,
@@ -338,5 +339,70 @@ describe('command ordering', () => {
       { kind: 'raw', text: 'drop rockets' },
       { kind: 'message', channel: 'say_team', text: 'Rockets incoming!' },
     ])
+  })
+})
+
+/** A custom category's own `bind` entry - no `catalogId`, unlike everything `applySlot` touches. */
+function plainAction(overrides: Partial<ConfigAction> = {}): ConfigAction {
+  return {
+    id: 'plain-1',
+    categoryId: 'custom-1',
+    name: 'My action',
+    kind: 'bind',
+    commands: [],
+    ...overrides,
+  }
+}
+
+describe('applyPlainSlot', () => {
+  it('sets a slot by actionId', () => {
+    const actions = applyPlainSlot([plainAction()], 'plain-1', 'primary', 'f')
+
+    expect(actions[0]!.key).toBe('f')
+    expect(actions[0]!.secondaryKey).toBeUndefined()
+  })
+
+  it('stores the modifier alongside the key it was captured with', () => {
+    const actions = applyPlainSlot([plainAction()], 'plain-1', 'secondary', 'r', 'ALT')
+
+    expect(actions[0]!.secondaryKey).toBe('r')
+    expect(actions[0]!.secondaryKeyModifier).toBe('ALT')
+  })
+
+  it('clears a slot (and its modifier) without pruning the action, unlike applySlot', () => {
+    const withKey = applyPlainSlot([plainAction()], 'plain-1', 'primary', 'r', 'ALT')
+    const cleared = applyPlainSlot(withKey, 'plain-1', 'primary', undefined)
+
+    // Both slots are now empty, but a plain action survives - it was created by hand and the
+    // user can re-bind it (unlike a catalogue-materialised row, which `applySlot` would prune).
+    expect(cleared).toHaveLength(1)
+    expect(cleared[0]!.key).toBeUndefined()
+    expect(cleared[0]!.keyModifier).toBeUndefined()
+  })
+
+  it('leaves the other slot untouched', () => {
+    let actions = applyPlainSlot([plainAction()], 'plain-1', 'primary', 'r', 'ALT')
+    actions = applyPlainSlot(actions, 'plain-1', 'secondary', 'f', 'CTRL')
+    actions = applyPlainSlot(actions, 'plain-1', 'primary', 'w')
+
+    expect(actions[0]).toMatchObject({ key: 'w', secondaryKey: 'f', secondaryKeyModifier: 'CTRL' })
+    expect(actions[0]!.keyModifier).toBeUndefined()
+  })
+
+  it('never mutates the array or action it was given', () => {
+    const original = [plainAction()]
+    const result = applyPlainSlot(original, 'plain-1', 'primary', 'f')
+
+    expect(original[0]!.key).toBeUndefined()
+    expect(result).not.toBe(original)
+    expect(result[0]).not.toBe(original[0])
+  })
+
+  it('returns the array unchanged when actionId does not exist', () => {
+    const original = [plainAction()]
+    const result = applyPlainSlot(original, 'missing', 'primary', 'f')
+
+    expect(result).toEqual(original)
+    expect(result).not.toBe(original)
   })
 })

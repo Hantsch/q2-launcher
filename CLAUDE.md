@@ -68,3 +68,9 @@ reason, and wins over the skill; a deviation without a reason is a violation tha
 written down.
 <!-- tech-rules:managed:end -->
 
+## Deviations
+
+| Skill | Deviation | Reason |
+| --- | --- | --- |
+| `/design-tokens` (44px touch-target floor) | Controls tab grid (`src/renderer/src/styles/controls-grid.css`) uses a 40px row height and a 30px bind-slot height. | Q2 Launcher is a desktop, mouse-and-keyboard-only Electron app with no touch input surface — see story `docs/requirements/020-controls-column-grid-redesign.md`'s Decisions section. |
+

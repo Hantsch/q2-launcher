@@ -113,10 +113,10 @@ export const SCREENS = [
     navigate: configDetail('settings'),
   },
   {
-    id: 'config-advanced',
+    id: 'config-controls',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,
-    navigate: configDetail('advanced'),
+    navigate: configDetail('controls'),
   },
   {
     id: 'config-writeTargets',

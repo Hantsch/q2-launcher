@@ -1,9 +1,10 @@
-import { useCallback, useState } from 'react'
+import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
+import { TriangleAlert } from 'lucide-react'
 import type { BindCollision } from '@shared/config/bind-collision'
 import type { ModifierTrigger } from '@shared/config/modifier-layers'
 import { Button } from '../../../components/ui/Button'
-import { Badge } from '../../../components/ui/primitives'
 import type { ModifierSlotCollision, SlotCollision } from '../lib/bind-slot-collision'
 import {
   classifyModifierCapture,
@@ -38,7 +39,7 @@ import { useKeyCapture } from '../lib/useKeyCapture'
  *   coexist (cf. `layer.triggerConflict`).
  * - a base bind or another action owns it (decision 13) -> nothing is applied.
  *   The captured key is parked in `pending` and the slot renders an inline
- *   Cancel/Replace banner instead, mirroring `AdvancedTab`'s category-delete
+ *   Cancel/Replace banner instead, mirroring `ControlsTab`'s category-delete
  *   confirm. Cancel fires no callback at all, so the slot is left exactly as
  *   it was; Replace hands the key *and* the collision back to the row, which
  *   is the only place that can release the previous owner in the same save
@@ -96,7 +97,59 @@ import { useKeyCapture } from '../lib/useKeyCapture'
  * (`modifier`, `refused`, `plain`, a fresh `pending` for a different
  * modifier, cancel, or starting a new capture), so a keyup can only ever
  * resolve the *one* lone-modifier gesture that is still genuinely open.
+ *
+ * Story 020 D5: the *surface* is rewritten, the state machine above is not.
+ * The slot is now the always-visible `.ctrl-slot` cell of the Controls grid
+ * (AC 6): one button per slot, never blank - "Empty" when unbound, the key
+ * itself when bound, an `ALT` cap plus the key for a modifier bind, "Press a
+ * key..." with the dashed capture pulse while capturing. Three things follow
+ * from that cell being 190px wide and 30px tall:
+ *
+ * - The Clear button is gone. Clearing is `DEL` *while capturing* (story 020
+ *   decision, AC 7, spelled out in the grid's footer legend) plus the row's
+ *   own reset button - a 190px cell has no room for two ghost buttons.
+ *   `DEL` intentionally never reaches `classifyModifierCapture`,
+ *   `checkCollision` or `onAssign`, so the physical Delete key can no longer
+ *   be bound from this slot (the Overview keycap path, story 017, still
+ *   reaches it).
+ * - Every wide message - the blocked-capture Cancel/Replace prompt, the
+ *   refused-modifier hint, the layer-override warning - moves out of the cell
+ *   into a full-width sub-row *under* the row (story 020 decision: "a 190px
+ *   column cannot hold a sentence plus two buttons"). Mechanically that is a
+ *   portal into the host element `ControlsRow` publishes through
+ *   `BindPromptHostContext`; the prompt is still rendered by *this* component
+ *   on every render, so its buttons always close over the freshest
+ *   `onReplace`/`onAssignModifier` props. Handing the prompt up into the row's
+ *   own state instead would have frozen those closures at park time, which is
+ *   exactly how a Replace ends up applied to a stale actions array.
+ * - No provider (the legacy `DualBindPanel`/`DropBindPanel`, which nothing
+ *   renders since D3/D4) means no host, and the prompt falls back to the
+ *   pre-020 inline placement - those panels keep working untouched.
  */
+
+/**
+ * Where a slot's wide messages go (story 020 decision: a blocked capture is a full-width
+ * sub-row under its row, not a sentence plus two buttons stuffed into a 190px column).
+ * `ControlsRow` publishes the host element it renders as a sibling of `.ctrl-row`; a slot with
+ * no provider (`null`) renders them inline, where they were before story 020.
+ */
+export const BindPromptHostContext = createContext<HTMLElement | null>(null)
+
+/**
+ * The Primary/Secondary cell of a row that can never be bound - an alias entry (story 019: an
+ * alias exists to be referenced by name, and binding one has to be *impossible* through the UI,
+ * not merely discouraged). Deliberately not a `<button>`: it takes no focus and no click, so
+ * there is no capture to refuse in the first place.
+ */
+export function BindSlotPlaceholder() {
+  const { t } = useTranslation()
+  return (
+    <span className="ctrl-slot is-inert">
+      <span className="sr-only">{t('config.controls.editor.notBindable')}</span>
+      <span aria-hidden="true">&mdash;</span>
+    </span>
+  )
+}
 
 /** The two collision kinds that block an assignment (decision 13). */
 type BlockingCollision = Exclude<BindCollision, { kind: 'layerOverride' }>
@@ -108,16 +161,16 @@ interface PendingCapture {
 }
 
 const BLOCKING_MESSAGE_KEY: Record<BlockingCollision['kind'], string> = {
-  baseBind: 'config.advanced.collision.baseBind',
-  action: 'config.advanced.collision.action',
+  baseBind: 'config.controls.collision.baseBind',
+  action: 'config.controls.collision.action',
 }
 
 /** Why a modifier capture was refused - the inline hint the slot shows while staying in capture. */
 type RefusedReason = Extract<ModifierCaptureResult, { kind: 'refused' }>['reason']
 
 const MODIFIER_HINT_KEY: Record<RefusedReason, string> = {
-  multipleModifiers: 'config.advanced.dualBind.modifierHint.multipleModifiers',
-  modifierOnly: 'config.advanced.dualBind.modifierHint.modifierOnly',
+  multipleModifiers: 'config.controls.dualBind.modifierHint.multipleModifiers',
+  modifierOnly: 'config.controls.dualBind.modifierHint.modifierOnly',
 }
 
 /**
@@ -138,6 +191,8 @@ export function BindSlot({
   label,
   boundKey,
   boundModifier,
+  isPrimary = false,
+  isConflicted = false,
   onAssign,
   onAssignModifier,
   onReplace,
@@ -157,6 +212,19 @@ export function BindSlot({
    * `applySlot` cannot produce that combination.
    */
   boundModifier?: ModifierTrigger
+  /**
+   * Story 020 D5: is this the row's *Primary* slot? A bound primary slot is the strongest
+   * element in its row (AC 6, `.ctrl-slot.is-primary-bound`). Presentation only - both slots
+   * behave identically, and the legacy panels simply do not pass it.
+   */
+  isPrimary?: boolean
+  /**
+   * Story 020 D5: does this slot's key collide with another owner somewhere in the profile
+   * (AC 8)? Marked with the danger border *and* a warning glyph - never colour alone (story 020
+   * decision, accessibility floor). The scan that computes it is D7's `lib/bind-conflicts.ts`;
+   * until that exists no caller passes it and every slot renders unmarked.
+   */
+  isConflicted?: boolean
   /** Applies the captured key. Called only when nothing blocks it. */
   onAssign: (key: string) => void
   /**
@@ -229,6 +297,21 @@ export function BindSlot({
     [checkCollision, onAssign],
   )
 
+  /**
+   * Story 020 D5: clearing this slot. Reached from `DEL` during a capture (a 190px cell has no
+   * room for a Clear button any more) and from nowhere else in this component - the row's reset
+   * button clears both of its slots through its own `onReset`.
+   */
+  const clearSlot = useCallback(() => {
+    setCapturing(false)
+    setPending(null)
+    setPendingModifier(null)
+    setLayerWarning(null)
+    setRefusedHint(null)
+    setHeldModifier(null)
+    onClear()
+  }, [onClear])
+
   const handleCapture = useCallback(
     ({
       key,
@@ -237,6 +320,17 @@ export function BindSlot({
       key: string
       modifiers: { alt: boolean; ctrl: boolean; shift: boolean }
     }) => {
+      // Story 020 D5 (AC 7, story 020 decision): `DEL` clears the slot instead of binding the
+      // physical Delete key. Deliberately *ahead* of the classification and of
+      // `checkCollision`, so a Delete keypress can never be parked as a `pending` capture,
+      // never be routed into a modifier layer and never be written as a bind - a slot cannot
+      // mean both "clear me" and "bind DEL". `resolveQuakeKeyName` still resolves Delete to
+      // `'DEL'`, so the Overview keycap path (story 017) reaches that key as before.
+      if (key === 'DEL') {
+        clearSlot()
+        return
+      }
+
       // `key` is already through `resolveQuakeKeyName` (see `useKeyCapture`), so
       // the classification starts from the resolved name, not from a raw event.
       const classification = classifyModifierCapture(key, modifiers)
@@ -290,7 +384,7 @@ export function BindSlot({
       // classification (identical value).
       applyPlainCapture(classification.key)
     },
-    [applyPlainCapture, checkModifierCollision, onAssignModifier],
+    [applyPlainCapture, checkModifierCollision, clearSlot, onAssignModifier],
   )
 
   const handleKeyUp = useCallback(
@@ -316,118 +410,139 @@ export function BindSlot({
     setCapturing(true)
   }
 
-  const clearKey = (): void => {
-    setLayerWarning(null)
-    onClear()
+  const promptHost = useContext(BindPromptHostContext)
+
+  /**
+   * Everything that does not fit in the cell: the two Cancel/Replace prompts (decision 13's
+   * base-layer collision and 016 D4's modifier-layer one), the refused-modifier hint and the
+   * non-blocking layer-override warning (decision 14 - applied, warned about). Same wording,
+   * same button pair, same precedence chain as before D5 - `pendingModifier` over `pending`,
+   * and the layer warning only while nothing is parked (`startCapture` clears it, so it can
+   * never be live at the same time as `refusedHint`). Only the placement changed.
+   */
+  const prompt: ReactNode = pendingModifier ? (
+    <>
+      <span role="alert" className="text-xs text-danger">
+        {t('config.controls.collision.modifierLayer', {
+          key: `${MODIFIER_LABEL[pendingModifier.modifier]}+${pendingModifier.key}`,
+          layer: pendingModifier.layerName,
+          owner: pendingModifier.owner,
+        })}
+      </span>
+      <Button variant="ghost" size="sm" onClick={() => setPendingModifier(null)}>
+        {t('common.cancel')}
+      </Button>
+      <Button
+        variant="danger"
+        size="sm"
+        onClick={() => {
+          const { modifier, key } = pendingModifier
+          setPendingModifier(null)
+          onAssignModifier({ modifier, key })
+        }}
+      >
+        {t('config.controls.collision.replace')}
+      </Button>
+    </>
+  ) : pending ? (
+    <>
+      <span role="alert" className="text-xs text-danger">
+        {t(BLOCKING_MESSAGE_KEY[pending.collision.kind], {
+          key: pending.key,
+          owner: pending.owner,
+        })}
+      </span>
+      <Button variant="ghost" size="sm" onClick={() => setPending(null)}>
+        {t('common.cancel')}
+      </Button>
+      <Button
+        variant="danger"
+        size="sm"
+        onClick={() => {
+          const { key, collision } = pending
+          setPending(null)
+          onReplace(key, collision)
+        }}
+      >
+        {t('config.controls.collision.replace')}
+      </Button>
+    </>
+  ) : refusedHint ? (
+    <span role="alert" className="text-xs text-danger">
+      {t(MODIFIER_HINT_KEY[refusedHint])}
+    </span>
+  ) : layerWarning ? (
+    <span role="status" className="text-xs text-warning">
+      {t('config.controls.collision.layerOverride', {
+        key: layerWarning.key,
+        owner: layerWarning.owner,
+      })}
+    </span>
+  ) : null
+
+  // A conflict marker only means something on a key that is actually on screen: mid-capture the
+  // cell reads "Press a key..." and has no key to be in conflict about.
+  const showConflict = isConflicted && Boolean(boundKey) && !capturing
+
+  const slotClasses = ['ctrl-slot']
+  if (capturing) {
+    slotClasses.push('is-capturing')
+  } else if (boundKey) {
+    slotClasses.push('is-bound')
+    // AC 6: in the prototype every row whose Primary column carries a key renders it as the
+    // row's strongest element - so this is "the primary slot, bound", not "any slot of a bound
+    // row".
+    if (isPrimary) slotClasses.push('is-primary-bound')
   }
+  if (showConflict) slotClasses.push('is-conflict')
 
-  // `flex-wrap` (D7): the banner and the warning below are far wider than a
-  // key badge, and the slot column they live in is a fixed `min-w-*` one in
-  // both host panels - wrapping inside the column beats overflowing out of it.
+  // The accessible name carries the *value*, because `aria-label` replaces the cell's text
+  // content: without it a screen reader would announce "Primary" and never the key.
+  const valueText = capturing
+    ? t('config.controls.editor.capturing')
+    : boundKey
+      ? boundModifier
+        ? `${boundModifier} ${boundKey}`
+        : boundKey
+      : t('config.controls.editor.empty')
+
   return (
-    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={label}>
-      {pendingModifier ? (
-        <>
-          <span
-            role="alert"
-            className="rounded-sm border border-danger/35 bg-danger/8 px-2.5 py-1.5 text-xs text-danger"
-          >
-            {t('config.advanced.collision.modifierLayer', {
-              key: `${MODIFIER_LABEL[pendingModifier.modifier]}+${pendingModifier.key}`,
-              layer: pendingModifier.layerName,
-              owner: pendingModifier.owner,
-            })}
-          </span>
-          <Button variant="ghost" size="sm" onClick={() => setPendingModifier(null)}>
-            {t('common.cancel')}
-          </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={() => {
-              const { modifier, key } = pendingModifier
-              setPendingModifier(null)
-              onAssignModifier({ modifier, key })
-            }}
-          >
-            {t('config.advanced.collision.replace')}
-          </Button>
-        </>
-      ) : pending ? (
-        <>
-          <span
-            role="alert"
-            className="rounded-sm border border-danger/35 bg-danger/8 px-2.5 py-1.5 text-xs text-danger"
-          >
-            {t(BLOCKING_MESSAGE_KEY[pending.collision.kind], {
-              key: pending.key,
-              owner: pending.owner,
-            })}
-          </span>
-          <Button variant="ghost" size="sm" onClick={() => setPending(null)}>
-            {t('common.cancel')}
-          </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={() => {
-              const { key, collision } = pending
-              setPending(null)
-              onReplace(key, collision)
-            }}
-          >
-            {t('config.advanced.collision.replace')}
-          </Button>
-        </>
-      ) : capturing ? (
-        <>
-          <Badge tone="warning">{t('config.advanced.editor.capturing')}</Badge>
-          {refusedHint && (
-            <span
-              role="alert"
-              className="rounded-sm border border-danger/35 bg-danger/8 px-2.5 py-1.5 text-xs text-danger"
-            >
-              {t(MODIFIER_HINT_KEY[refusedHint])}
-            </span>
-          )}
-        </>
-      ) : (
-        <>
-          {boundKey ? (
-            <Badge tone="flame" className="numeric">
-              {boundModifier ? `${MODIFIER_LABEL[boundModifier]}+${boundKey}` : boundKey}
-            </Badge>
-          ) : (
-            <span className="text-xs text-ink-muted">{t('config.advanced.editor.keyNotSet')}</span>
-          )}
-          {/* AC 3 (review finding): pressing a new key must replace whatever was there directly -
-              an occupied slot still offers "capture" alongside Clear, mirroring `ActionEditor`'s
-              idiom (always-visible capture button), rather than forcing Clear first. */}
-          <Button variant="ghost" size="sm" onClick={startCapture}>
-            {t('config.advanced.editor.captureKey')}
-          </Button>
-          {/* Keyed on `boundKey`, which since D9 covers the modifier case too: a modifier-bound
-              slot always has a key on the action (the modifier sits beside it), so clearing it is
-              the same single `applySlot` write as any other slot's - no separate `layers` path. */}
-          {boundKey && (
-            <Button variant="danger" size="sm" onClick={clearKey}>
-              {t('config.advanced.editor.clearKey')}
-            </Button>
-          )}
-        </>
-      )}
+    <>
+      <button
+        type="button"
+        className={slotClasses.join(' ')}
+        aria-label={t(
+          showConflict
+            ? 'config.controls.editor.slotLabelConflict'
+            : 'config.controls.editor.slotLabel',
+          { slot: label, value: valueText },
+        )}
+        onClick={startCapture}
+      >
+        {capturing ? (
+          t('config.controls.editor.capturing')
+        ) : boundKey ? (
+          <>
+            {/* The modifier is a small cap next to the key (`ALT R`), not a `+`-joined string:
+                the engine has no combined token to store, and the cap is what the prototype
+                shows. The trigger token stays untranslated - see `MODIFIER_LABEL`. */}
+            {boundModifier && <span className="ctrl-cap">{boundModifier}</span>}
+            <span className="numeric">{boundKey}</span>
+            {showConflict && <TriangleAlert className="size-3" aria-hidden="true" />}
+          </>
+        ) : (
+          <span className="ctrl-slot-empty">{t('config.controls.editor.empty')}</span>
+        )}
+      </button>
 
-      {!pending && layerWarning && (
-        <span
-          role="status"
-          className="rounded-sm border border-warning/35 bg-warning/8 px-2.5 py-1.5 text-xs text-warning"
-        >
-          {t('config.advanced.collision.layerOverride', {
-            key: layerWarning.key,
-            owner: layerWarning.owner,
-          })}
-        </span>
-      )}
-    </div>
+      {prompt !== null &&
+        (promptHost ? (
+          createPortal(<div className="ctrl-subrow">{prompt}</div>, promptHost)
+        ) : (
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={label}>
+            {prompt}
+          </div>
+        ))}
+    </>
   )
 }

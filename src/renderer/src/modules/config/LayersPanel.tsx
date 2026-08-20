@@ -101,7 +101,7 @@ export function LayersPanel({
    * `layer.mode` from the freshest `profile` prop, so a failed save simply
    * leaves the select showing the last-confirmed mode once `onChanged` is not
    * called - the same "server response is the only source of truth" pattern
-   * `AdvancedTab.persistLayers` documents for the dual-bind editor's own
+   * `ControlsTab.persistLayers` documents for the dual-bind editor's own
    * modifier-layer writes.
    */
   const handleModeChange = async (layerId: string, mode: AltLayerMode): Promise<void> => {

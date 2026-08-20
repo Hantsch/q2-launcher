@@ -96,9 +96,9 @@ export interface BuiltInActionCategory {
 
 /** Exactly the three the story's AC names, matching upstream's `group: 'main'` set. */
 export const BUILT_IN_ACTION_CATEGORIES: readonly BuiltInActionCategory[] = [
-  { id: 'movement', labelKey: 'config.advanced.categories.movement' },
-  { id: 'weapons', labelKey: 'config.advanced.categories.weapons' },
-  { id: 'drops', labelKey: 'config.advanced.categories.drops' },
+  { id: 'movement', labelKey: 'config.controls.categories.movement' },
+  { id: 'weapons', labelKey: 'config.controls.categories.weapons' },
+  { id: 'drops', labelKey: 'config.controls.categories.drops' },
 ]
 
 /** A user-defined category. Its `name` is user-typed text (not translatable UI prose, hence a

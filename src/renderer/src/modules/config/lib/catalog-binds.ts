@@ -37,7 +37,7 @@
  *
  * Pure, like `trigger-keys.ts` and `bind-collision.ts` - no DOM, no store, no
  * IPC. `crypto.randomUUID()` is the one runtime dependency, same idiom
- * `AdvancedTab.tsx`/`LayersPanel.tsx` already use for a fresh action/layer id.
+ * `ControlsTab.tsx`/`LayersPanel.tsx` already use for a fresh action/layer id.
  */
 
 import type { ActionCategoryId, DroppableDef } from '@shared/config/action-catalog'
@@ -297,6 +297,47 @@ export function applySlot(
       slot === 'secondary' ? (normalizedKey ? modifier : undefined) : base.secondaryKeyModifier,
   }
   return upsertOrPrune(actions, index, updated)
+}
+
+/**
+ * `applySlot`'s counterpart for a plain `ConfigAction` that already exists as a concrete entry -
+ * a custom category's own `bind`/`message` entry, or a legacy free-form action living inside a
+ * catalogue category ("Other actions", decision 5). Story 020 D6/plan-gap fix: those rows used to
+ * get neither a live slot nor an inert placeholder because `applySlot`/`applyReplace`/
+ * `applyModifierReplace` are all keyed on a `CatalogRow`'s `catalogId` to find-or-lazily-create
+ * the matching action - a plain action already exists with a real `id` and no `catalogId`, so it
+ * is not "lazily materialised" from a row and those functions do not fit it.
+ *
+ * Two differences from `applySlot`, both because the action is not a `CatalogRow`-derived one:
+ *
+ * - No lazy creation. `actionId` must already name an entry in `actions` - if it does not, the
+ *   array is returned unchanged (defensive; should not happen, since every caller reads the id
+ *   straight off an action it is currently rendering).
+ * - No pruning. `catalog-binds.ts`'s own `isEmptyCatalogAction` (`bind-slot-collision.ts`) is
+ *   gated on `catalogId` for exactly this action: "a pre-015 free-form action that loses its key
+ *   must stay in the list" - the user created it by hand and can re-bind it, so losing its last
+ *   key must not delete it.
+ */
+export function applyPlainSlot(
+  actions: ConfigAction[],
+  actionId: string,
+  slot: 'primary' | 'secondary',
+  key: string | undefined,
+  modifier?: ModifierTrigger,
+): ConfigAction[] {
+  const normalizedKey = key && key.trim().length > 0 ? key : undefined
+  const index = actions.findIndex((action) => action.id === actionId)
+  if (index < 0) return [...actions]
+  const base = actions[index]!
+  const updated: ConfigAction = {
+    ...base,
+    key: slot === 'primary' ? normalizedKey : base.key,
+    keyModifier: slot === 'primary' ? (normalizedKey ? modifier : undefined) : base.keyModifier,
+    secondaryKey: slot === 'secondary' ? normalizedKey : base.secondaryKey,
+    secondaryKeyModifier:
+      slot === 'secondary' ? (normalizedKey ? modifier : undefined) : base.secondaryKeyModifier,
+  }
+  return actions.map((action, i) => (i === index ? updated : action))
 }
 
 /**

@@ -27,9 +27,9 @@ export function SymbolPicker({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="stencil">{t('config.advanced.messageEditor.symbolPicker.label')}</span>
+        <span className="stencil">{t('config.controls.messageEditor.symbolPicker.label')}</span>
         <Button variant="neutral" size="sm" disabled={!hasSelection} onClick={onApplyAltCharset}>
-          {t('config.advanced.messageEditor.symbolPicker.applyAltCharset')}
+          {t('config.controls.messageEditor.symbolPicker.applyAltCharset')}
         </Button>
       </div>
       <div className="flex flex-wrap gap-1.5">

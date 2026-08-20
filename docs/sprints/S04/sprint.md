@@ -24,7 +24,7 @@ accessibility findings.
 - [x] 017 — Overview: editing is the default, no dedicated edit mode
 - [x] 018 — Test mode: trigger keys switch layers, pressed keys light up, readout always visible
 - [x] 019 — Controls: type the entry, not the category, and let me order entries
-- [ ] 020 — Controls: rename Advanced and rebuild it as the column grid prototype
+- [x] 020 — Controls: rename Advanced and rebuild it as the column grid prototype
 - [ ] 021 — Settings: rebuild as the dense-rows prototype
 
 ## Notes

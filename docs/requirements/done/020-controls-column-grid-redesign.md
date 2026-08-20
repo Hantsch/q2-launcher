@@ -1,7 +1,7 @@
 ---
 id: 020
 title: Controls — rename Advanced and rebuild it as the column grid prototype
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-08-19
 ---
 
@@ -21,26 +21,26 @@ should land first.
 
 ## Acceptance Criteria
 
-- [ ] The tab is labelled "Controls" everywhere (tab strip, i18n key, any cross-references).
-- [ ] Content width is capped (~1120px) instead of filling an ultrawide window.
-- [ ] Sticky column headers: Action · (reset) · Primary · Secondary · Options.
-- [ ] Rows are 40px, zebra-striped, with a hover highlight and a per-row reset action that only
+- [x] The tab is labelled "Controls" everywhere (tab strip, i18n key, any cross-references).
+- [x] Content width is capped (~1120px) instead of filling an ultrawide window.
+- [x] Sticky column headers: Action · (reset) · Primary · Secondary · Options.
+- [x] Rows are 40px, zebra-striped, with a hover highlight and a per-row reset action that only
       appears on hover.
-- [ ] An action row shows its name plus its command in mono as a secondary label.
-- [ ] Every bind slot is an always-visible filled cell — an unbound slot reads "Empty" rather
+- [x] An action row shows its name plus its command in mono as a secondary label.
+- [x] Every bind slot is an always-visible filled cell — an unbound slot reads "Empty" rather
       than being blank; a bound slot shows the key; the primary slot of a bound row is visually
       the strongest element in the row.
-- [ ] Clicking a slot enters capture ("Press a key…", dashed pulsing border); ESC cancels, DEL
+- [x] Clicking a slot enters capture ("Press a key…", dashed pulsing border); ESC cancels, DEL
       clears, and the footer states exactly that.
-- [ ] A modifier-captured key renders its modifier as a small cap inside the slot (`ALT R`) and
+- [x] A modifier-captured key renders its modifier as a small cap inside the slot (`ALT R`) and
       the Options column names the layer it went into.
-- [ ] A conflicting bind is marked on the slot and the Options column names what else uses that
+- [x] A conflicting bind is marked on the slot and the Options column names what else uses that
       key; the header shows a conflict count.
-- [ ] Entries are visually grouped inside a category (group rule + label + count), matching the
+- [x] Entries are visually grouped inside a category (group rule + label + count), matching the
       prototype's "Use weapon" / "Cycling" grouping.
-- [ ] A filter box narrows rows by action name and command; the footer shows "n rows · m bound".
-- [ ] "Restore defaults" is reachable from the header and asks before it discards binds.
-- [ ] Colours, radii and spacing come from the design tokens — the prototype's hex values are
+- [x] A filter box narrows rows by action name and command; the footer shows "n rows · m bound".
+- [x] "Restore defaults" is reachable from the header and asks before it discards binds.
+- [x] Colours, radii and spacing come from the design tokens — the prototype's hex values are
       reference, not implementation, and no raw hex or palette class ends up in the code.
 
 ## Open Questions
@@ -129,7 +129,7 @@ and renders in array order; nothing here may reintroduce `ConfigActionCategory.e
 
 ## Deliverables
 
-- **D1 — Advanced is Controls, everywhere.**
+- [x] **D1 — Advanced is Controls, everywhere.**
   Files: `src/renderer/src/modules/config/ConfigView.tsx`,
   `src/renderer/src/modules/config/AdvancedTab.tsx` → `ControlsTab.tsx`,
   `src/renderer/src/i18n/locales/en.json`, `src/shared/modules/config.ts`,
@@ -139,14 +139,14 @@ and renders in array order; nothing here may reintroduce `ConfigActionCategory.e
   Accept: the tab id is `'controls'`, the tab reads "Controls", a grep for `config.advanced`
   over `src/` is empty, build + typecheck + tests green. → AC 1
 
-- **D2 — The grid's style layer, in tokens.**
+- [x] **D2 — The grid's style layer, in tokens.**
   Files: new `src/renderer/src/styles/controls-grid.css`, `src/renderer/src/styles/index.css`
   (import), `CLAUDE.md` (deviation note). Mirror: `src/renderer/src/styles/surfaces.css`.
   Accept: every class the prototype needs exists and resolves to `@theme` tokens; no hex, no
   palette class; pulse and hover transitions disabled under `prefers-reduced-motion`; the
   40px-row deviation from `/design-tokens` is written down with its reason. → AC 4, 12
 
-- **D3 — Grid shell: cap, sticky headers, groups, footer.**
+- [x] **D3 — Grid shell: cap, sticky headers, groups, footer.**
   Files: new `components/ControlsGrid.tsx`, `ControlsTab.tsx` (renders it).
   Mirror: `components/DualBindPanel.tsx` for the group/catalogue-row wiring,
   `OverviewKeyboardPanel.tsx` for the dense-grid idiom.
@@ -155,13 +155,13 @@ and renders in array order; nothing here may reintroduce `ConfigActionCategory.e
   catalogue group shows rule + label + count; the footer shows the ESC/DEL/ALT legend and
   "n rows · m bound". → AC 2, 3, 7 (footer), 9, 10 (counts)
 
-- **D4 — The row.**
+- [x] **D4 — The row.**
   Files: new `components/ControlsRow.tsx`, `components/ControlsGrid.tsx`.
   Accept: 40px height, zebra striping, hover highlight; name plus its command in mono as a
   secondary label; a reset button invisible until the row is hovered or keyboard-focused, with an
   `aria-label`, that resets that row's binds. → AC 4, 5
 
-- **D5 — The slot is a cell.**
+- [x] **D5 — The slot is a cell.**
   Files: `components/BindSlot.tsx` (rewritten surface), `components/ControlsRow.tsx`.
   Reuses unchanged: `lib/useKeyCapture.ts`, `lib/modifier-capture.ts`,
   `lib/bind-slot-collision.ts`.
@@ -172,41 +172,41 @@ and renders in array order; nothing here may reintroduce `ConfigActionCategory.e
   prompt as a full-width sub-row; an alias entry has inert placeholder cells; the existing
   collision and modifier-layer tests stay green. → AC 6, 7, 8 (slot marker)
 
-- **D6 — The Options column.**
+- [x] **D6 — The Options column.**
   Files: new `components/ControlsOptionsCell.tsx`, `components/ControlsRow.tsx`,
   `src/renderer/src/i18n/locales/en.json`.
   Accept: a modifier-bound row names its layer; a conflicting row reads "also: <owner>" with a
   danger tone and a glyph; an ordinary row reads "—"; a drops row still reaches its ammo toggle
   and its team message. → AC 8 (Options text)
 
-- **D7 — Profile-wide conflict count.**
+- [x] **D7 — Profile-wide conflict count.**
   Files: new `lib/bind-conflicts.ts` + `lib/bind-conflicts.test.ts`, `ControlsTab.tsx`.
   Mirror: `src/shared/config/bind-collision.ts`.
   Accept: a key held by two owners is reported once with both owners; the header shows the count
   as a warning badge with an icon and an accessible name; zero conflicts shows no badge; unit
   tests cover base binds, action slots and modifier-layer overrides. → AC 8 (header count)
 
-- **D8 — Filter.**
+- [x] **D8 — Filter.**
   Files: `ControlsTab.tsx`, `components/ControlsGrid.tsx`,
   `src/renderer/src/i18n/locales/en.json`.
   Accept: typing narrows rows by action name *and* command, case-insensitively; group headers
   with no surviving row disappear; the footer counts follow the filter; clearing the box restores
   everything. → AC 10
 
-- **D9 — The category rail.**
+- [x] **D9 — The category rail.**
   Files: `ControlsTab.tsx`, `src/renderer/src/styles/controls-grid.css`.
   Accept: the strip scrolls horizontally instead of wrapping, keeps create / rename / delete and
   "+ New category", shows no entryKind badge, and the selected tab is scrolled into view when it
   is off-screen. → (User) decision on the rail
 
-- **D10 — Restore defaults.**
+- [x] **D10 — Restore defaults.**
   Files: new `lib/restore-defaults.ts` + `lib/restore-defaults.test.ts`, `ControlsTab.tsx`.
   Mirror: `components/CvarRow.tsx` for the reset idiom, `Modal` for the confirm.
   Accept: the header button asks before discarding; confirming restores every catalogue row's
   `suggestedKeys[0]` as primary, clears secondaries and clears entries with no catalogue row,
   across the whole profile; cancelling changes nothing; a unit test pins both branches. → AC 11
 
-- **D11 — Docs and the token audit.**
+- [x] **D11 — Docs and the token audit.**
   Files: `docs/systems/config-module.md`.
   Accept: the doc describes the Controls tab as it now is; a grep for hex literals and raw
   palette classes over the files this story touched is empty; a harness screenshot of the
@@ -253,3 +253,60 @@ and renders in array order; nothing here may reintroduce `ConfigActionCategory.e
     it persisted.
 
 ## Done
+
+Renamed "Advanced" to "Controls" end to end (tab id, i18n namespace `config.controls.*`, 105+
+call sites) and rebuilt the tab as the column-grid prototype: a capped ~1120px, sticky-header
+grid (`ControlsGrid`/`ControlsRow`/`BindSlot`/`ControlsOptionsCell`) replacing `DualBindPanel`/
+`DropBindPanel`/the old bare list, with always-visible bind-slot cells, a profile-wide conflict
+scan (`lib/bind-conflicts.ts`) wired into the header badge and every slot/Options cell, a
+name/command filter, a horizontally scrollable category rail, and a whole-profile "Restore
+defaults" with confirm (`lib/restore-defaults.ts`). Two review passes (clean `story-review-hard`
+agent both times) found and fixed 9 + 3 issues respectively before this pass; a final live-smoke
+run then caught one more (the UI-verification harness still targeted the old `config-advanced`/
+`'advanced'` tab id, and the category rail's `role="tablist"` was invalid ARIA), both fixed here.
+
+**Decisions (beyond what's already in "## Decisions (Sprint)"):**
+- Plan gap closed in D6: custom-category `bind`/`message` actions (no `catalogId`) had neither a
+  live slot nor an inert placeholder after D4/D5 — only alias rows were handled. Added a parallel
+  plain-action write path (`applyPlainSlot`/`applyPlainReplace`/`applyPlainModifierReplace`) so
+  every non-alias row gets a real, capturable slot, matching `ConfigAction`'s own doc comment
+  ("bind and message entries may be keyed... a kind: 'alias' entry never is").
+  `ControlsOptionsCell` is now wired for these rows too (review finding).
+- The category rail's "+ New category" moved into the scrollable rail itself as its trailing
+  item (matches the prototype's single-row layout) rather than staying a separate button above it.
+- The category rail does not implement a full ARIA tabs pattern (no `role="tablist"`/`"tab"`,
+  no roving tabindex): its content is mixed (category buttons plus create/rename/delete controls
+  interspersed), which does not fit ARIA's "tablist contains only tabs" requirement without a much
+  larger interaction rebuild. Selection is conveyed visually (`variant='primary'`) and via
+  `aria-pressed`. An earlier fix pass tried role="tab" on the buttons and still failed axe's
+  `aria-required-children` check because the tablist's direct children were wrapper `<div>`s, not
+  `role="tab"` elements — removing the ARIA-tabs claim entirely is what a live `ui:a11y` run
+  confirmed as clean.
+- "Restore defaults" only has real suggested-key data for `MOVEMENT_ACTIONS` today
+  (`WEAPON_ACTIONS`/`WEAPON_EXTRA_ACTIONS`/`DROPPABLES` carry no `suggestedKeys` in
+  `action-catalog.ts`), so confirming it clears Weapons/Weapon-dropping/custom binds rather than
+  restoring them to anything — the confirm dialog's copy says so explicitly rather than
+  overpromising a "restore" that doesn't exist for those categories. Authoring real suggested-key
+  data for weapons/droppables is a content task, out of scope for this story.
+- `DualBindPanel.tsx`/`DropBindPanel.tsx` (superseded by `ControlsGrid`, per this story's own
+  "one grid for every category" decision) were deleted once nothing imported them anymore; their
+  `lib/catalog-binds.ts` helpers (`buildMovementRows`/`buildWeaponRows`/`buildDropGroups`/
+  `deriveRowState`/`applySlot`/`applyAmmo`/`applyMessage`) are unchanged and still power the grid.
+- The drops-only team-message field moved from an inline `Input` (which didn't fit the 150px
+  Options column) to an icon button opening a `Modal` (`DropMessageDialog`), per this story's own
+  Decisions section; the ammo checkbox stayed inline.
+
+**Verification:** `npm run build` / `npm run typecheck` / `npm test` (39 files, 674 tests) all
+green after every fix cycle. Live smoke via `npm run ui:verify`: the Controls tab
+(`config-controls`) now renders correctly at both viewports and audits clean except for one
+pre-existing, shell-level `page-has-heading-one` moderate finding shared by every `config-*`
+screen (not introduced by this story, out of scope per "a feature is a module, never an edit to
+the shell"). The harness's own overall exit code stays 1 solely because of the known
+pre-existing, unrelated `RawConfigPanel`/`config-raw` crash called out in the task brief — not
+this story's to fix.
+
+**Review outcome:** PASS after two fix cycles (`story-review-hard`, clean-agent both times) plus
+one additional live-smoke-driven fix (harness screen id + rail ARIA). No test was weakened,
+skipped or deleted; no confirmed finding was left unfixed.
+
+Commit message: `020: rebuild Controls tab as capped column grid`

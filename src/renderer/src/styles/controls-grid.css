@@ -1,0 +1,380 @@
+/* ==========================================================================
+   Controls tab — column grid
+   --------------------------------------------------------------------------
+   Style layer for the Controls tab's dense binding table (story 020). Mirrors
+   the structure of the "column grid" prototype
+   (docs/prototypes/bindings/a-column-grid.html), but every value here reads a
+   @theme token — the prototype's hex values are reference only.
+
+   Prefix: every class is `ctrl-` scoped. The prototype's bare `.slot`,
+   `.row`, `.colhead`, `.group`, `.reset`, `.opts`, `.foot` names are too
+   generic for this shared components layer, so they are not reused directly.
+   ========================================================================== */
+
+/* --- stage: caps content width instead of letting an ultrawide window
+   stretch the table into unreadable rows (AC 2) ------------------------- */
+.ctrl-stage {
+  max-width: 1120px;
+  margin-inline: auto;
+}
+
+/* --- category rail: single-row, horizontally scrollable strip (story 020
+   D9) -- scales to an unbounded number of custom categories instead of
+   wrapping or shrinking tabs (sprint decision). Chips carry `shrink-0`
+   themselves (ControlsTab.tsx); this class only owns the scroll container
+   and its themed scrollbar so it does not fall back to the OS default. --- */
+.ctrl-category-rail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
+.ctrl-category-rail::-webkit-scrollbar {
+  height: 6px;
+}
+
+.ctrl-category-rail::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ctrl-category-rail::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+  border-radius: var(--radius-sm);
+}
+
+/* --- shared grid template for header + rows ----------------------------- */
+.ctrl-colhead,
+.ctrl-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 34px 190px 190px 150px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+}
+
+/* --- sticky column header ------------------------------------------------ */
+.ctrl-colhead {
+  height: 34px;
+  border-bottom: 1px solid var(--color-line-strong);
+  background: var(--color-panel);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.ctrl-colhead span {
+  font-family: var(--font-display);
+  font-size: 0.656rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.ctrl-colhead .ctrl-colhead-slot {
+  text-align: center;
+}
+
+/* --- group rule: eyebrow label + hairline + count badge -----------------
+   Review fix (finding 1): the divider's content lives in one `role="cell"` span
+   (`.ctrl-group-cell`) spanning the full row - `.ctrl-group` (the `role="row"` div) now only
+   owns the row's padding, not the flex layout itself. */
+.ctrl-group {
+  padding: 18px 16px 8px;
+}
+
+.ctrl-group-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.ctrl-group-eyebrow {
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-dim);
+}
+
+.ctrl-group-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--color-line-strong), transparent);
+}
+
+/*
+  Row height is 40px and the slot below is 30px — below the /design-tokens
+  skill's 44px touch-target floor. This is a deliberate, documented deviation
+  (see CLAUDE.md and story 020's Decisions): Q2 Launcher is a desktop,
+  mouse-and-keyboard-only Electron app with no touch input surface.
+*/
+.ctrl-row {
+  height: 40px;
+  border-bottom: 1px solid rgb(41 44 51 / 0.55);
+}
+
+/* Story 020 D4: explicit class rather than `:nth-of-type(odd)` — a catalogue group's `.ctrl-group`
+   divider is a `div` sibling ahead of that group's first row, and `:nth-of-type` counts by tag,
+   not by class, so the running parity would reset at every group boundary instead of alternating
+   across the whole row list. `ControlsGrid`/`ControlsRow` compute `odd` across the filtered row
+   list itself and apply this class directly. */
+.ctrl-row.is-odd {
+  background: rgb(255 255 255 / 0.014);
+}
+
+.ctrl-row:hover {
+  background: rgb(255 138 31 / 0.05);
+}
+
+.ctrl-row:hover .ctrl-reset,
+.ctrl-row:focus-within .ctrl-reset {
+  opacity: 1;
+}
+
+/* --- action label + its command in mono as a secondary label ------------ */
+.ctrl-label {
+  font-size: 0.844rem;
+  color: var(--color-ink);
+}
+
+.ctrl-label-cmd {
+  font-family: var(--font-mono);
+  font-size: 0.656rem;
+  color: var(--color-ink-faint);
+  margin-left: 8px;
+}
+
+/* --- per-row reset: hidden until the row is hovered/focused -------------- */
+.ctrl-reset {
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out-quart);
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  color: var(--color-ink-muted);
+  background: var(--color-raised);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.ctrl-reset:hover {
+  color: var(--color-flame-500);
+  border-color: var(--color-flame-700);
+}
+
+.ctrl-reset:focus-visible {
+  opacity: 1;
+}
+
+/* --- the bind slot: a full-width, always-visible filled cell ------------ */
+.ctrl-slot {
+  height: 30px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-ink-faint);
+  background: var(--color-raised);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.ctrl-slot:hover {
+  color: var(--color-ink-dim);
+  background: var(--color-hover);
+  border-color: var(--color-line-strong);
+}
+
+.ctrl-slot-empty {
+  font-family: var(--font-display);
+  letter-spacing: 0.14em;
+  font-size: 0.688rem;
+  text-transform: uppercase;
+}
+
+/* An alias entry's Primary/Secondary cell (story 019/020): a filled cell like every other, but
+   inert - not a button, so no hover affordance and no pointer. */
+.ctrl-slot.is-inert {
+  cursor: default;
+  background: transparent;
+  border-style: dashed;
+}
+
+/* .ctrl-slot:hover above has the same specificity, so the inert cell has to say explicitly that
+   nothing about it reacts to the pointer. */
+.ctrl-slot.is-inert:hover {
+  color: var(--color-ink-faint);
+  background: transparent;
+  border-color: var(--color-line);
+}
+
+/* The modifier of a modifier-bound key, as a small cap ahead of the key itself (`ALT R`, AC 8). */
+.ctrl-cap {
+  font-family: var(--font-display);
+  font-size: 0.594rem;
+  letter-spacing: 0.1em;
+  padding: 0 4px;
+  color: var(--color-ink-dim);
+  background: var(--color-raised);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-sm);
+}
+
+/* A row that carries a bind: stronger fill than the default empty cell. */
+.ctrl-slot.is-bound {
+  color: var(--color-ink);
+  background: linear-gradient(180deg, var(--color-line-strong) 0%, var(--color-panel) 100%);
+  border-color: var(--color-line-strong);
+}
+
+.ctrl-slot.is-bound:hover {
+  border-color: var(--color-flame-700);
+}
+
+/* The primary slot of a bound row: the strongest element in the row
+   (AC 6) — flame gradient fill, flame ink text, flame border. */
+.ctrl-slot.is-primary-bound {
+  color: var(--color-flame-ink);
+  background: linear-gradient(180deg, var(--color-flame-300), var(--color-flame-600));
+  border-color: var(--color-flame-700);
+}
+
+/* On the flame-filled primary cell the cap needs the inverse treatment - the neutral raised
+   fill above disappears into the gradient. */
+.ctrl-slot.is-primary-bound .ctrl-cap {
+  color: var(--color-flame-ink);
+  background: rgb(0 0 0 / 0.12);
+  border-color: var(--color-flame-800);
+}
+
+/* Capturing: dashed flame border, low-opacity flame tint, pulsing.
+   Disabled under both reduced-motion conditions the app recognises. */
+.ctrl-slot.is-capturing {
+  color: var(--color-flame-300);
+  background: rgb(255 138 31 / 0.1);
+  border-color: var(--color-flame-500);
+  border-style: dashed;
+  animation: ctrl-pulse calc(var(--dur-slow) * 3) var(--ease-in-out-quart) infinite;
+}
+
+@keyframes ctrl-pulse {
+  50% {
+    background: rgb(255 138 31 / 0.2);
+  }
+}
+
+/* Conflict: layered over is-bound/is-primary-bound, so it must win on
+   border/text colour. The warning glyph + Options text live in the
+   component (AC 8's "never colour alone") — nothing extra needed here. */
+.ctrl-slot.is-conflict {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+/* --- blocked-capture sub-row --------------------------------------------
+   Story 020 decision: a collision prompt (a sentence plus Cancel/Replace) is an expanded
+   full-width row under its row, because a 190px slot column cannot hold one without breaking
+   the column alignment this redesign is about. `ControlsRow` renders the host as a sibling of
+   `.ctrl-row`; the slot portals its prompt into it (see `BindSlot`). The host is always present
+   so the portal has a target, and `:empty` keeps it out of the layout while nothing is parked. */
+.ctrl-subrow-host:empty {
+  display: none;
+}
+
+/* Review fix (finding 1): the portal target itself stays the `role="cell"` node (`:empty`
+   collapses it), while its new `role="row"` wrapper (`ControlsRow.tsx`) collapses along with it -
+   `:has()` is safe here, this app only ships on Chromium/Electron. */
+.ctrl-subrow-host-row:has(.ctrl-subrow-host:empty) {
+  display: none;
+}
+
+.ctrl-subrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--color-raised);
+  border-bottom: 1px solid var(--color-line);
+}
+
+/* --- options column: right-aligned badge/content row ---------------------
+   Review fix (finding 2): the 150px track needs `min-width: 0`/`overflow: hidden` or its content
+   (layer name, "also: <owner>" conflict text) forces the column wider than its fixed width instead
+   of truncating inside it. */
+.ctrl-opts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Warning-tone pill for the header's profile-wide conflict count (D7). */
+.ctrl-conflict-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding-inline: 8px;
+  font-family: var(--font-display);
+  font-size: 0.656rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-warning);
+  background: rgb(245 179 43 / 0.12);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+}
+
+/* --- footer legend -------------------------------------------------------- */
+.ctrl-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-line);
+  font-family: var(--font-mono);
+  font-size: 0.688rem;
+  color: var(--color-ink-muted);
+}
+
+.ctrl-foot-spacer {
+  flex: 1;
+}
+
+.ctrl-kbd {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  padding: 1px 5px;
+  background: var(--color-raised);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ctrl-slot.is-capturing {
+    animation: none;
+  }
+}
+
+:root[data-motion='reduced'] .ctrl-slot.is-capturing {
+  animation: none;
+}

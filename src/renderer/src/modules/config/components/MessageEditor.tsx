@@ -22,7 +22,7 @@ const FIELD_BASE =
 
 /**
  * Story 008 D8: the message-kind counterpart to D7's `ActionEditor` -
- * `AdvancedTab` opens this one instead when the entry's own `kind` is
+ * `ControlsTab` opens this one instead when the entry's own `kind` is
  * `'message'` (story 019). A message action's `commands` holds exactly one
  * `{ kind: 'message', channel, text }` entry (decision 7: a message is one
  * alias body, same as a multi-command bind, but this editor only ever
@@ -32,7 +32,7 @@ const FIELD_BASE =
  *
  * Mirrors `ActionEditor`'s save-ownership choice: hands the updated action
  * back to `onSave` rather than calling the config client itself, so
- * `AdvancedTab` stays the single owner of `localActions` and its save path.
+ * `ControlsTab` stays the single owner of `localActions` and its save path.
  *
  * Uses a plain native `<input>` (not the shared `Input` component, which is
  * a bare function component and cannot take a ref) so the macro bar and
@@ -156,7 +156,7 @@ export function MessageEditor({
     <Modal
       open
       size="lg"
-      title={t('config.advanced.messageEditor.title', { name: action.name })}
+      title={t('config.controls.messageEditor.title', { name: action.name })}
       onClose={onClose}
       closeLabel={t('common.close')}
       footer={
@@ -171,18 +171,18 @@ export function MessageEditor({
       }
     >
       <div className="space-y-5">
-        <Field label={t('config.advanced.messageEditor.channelLabel')} className="max-w-48">
+        <Field label={t('config.controls.messageEditor.channelLabel')} className="max-w-48">
           <Select
             value={channel}
             onChange={(event) => setChannel(event.target.value as 'say' | 'say_team')}
             options={[
-              { value: 'say', label: t('config.advanced.messageEditor.channel.say') },
-              { value: 'say_team', label: t('config.advanced.messageEditor.channel.sayTeam') },
+              { value: 'say', label: t('config.controls.messageEditor.channel.say') },
+              { value: 'say_team', label: t('config.controls.messageEditor.channel.sayTeam') },
             ]}
           />
         </Field>
 
-        <Field label={t('config.advanced.messageEditor.textLabel')}>
+        <Field label={t('config.controls.messageEditor.textLabel')}>
           <input
             ref={inputRef}
             className={FIELD_BASE}
@@ -204,10 +204,10 @@ export function MessageEditor({
         </Field>
 
         <div className="space-y-1.5">
-          <span className="stencil">{t('config.advanced.messageEditor.previewLabel')}</span>
+          <span className="stencil">{t('config.controls.messageEditor.previewLabel')}</span>
           <p className="rounded-sm border border-line bg-void px-2.5 py-2 text-sm break-words">
             {previewSegments.length === 0 ? (
-              <span className="text-ink-faint">{t('config.advanced.messageEditor.previewEmpty')}</span>
+              <span className="text-ink-faint">{t('config.controls.messageEditor.previewEmpty')}</span>
             ) : (
               previewSegments.map((segment, index) => (
                 <span key={index} className={segment.className}>
@@ -218,7 +218,7 @@ export function MessageEditor({
           </p>
           {singleDollarIssues.length > 0 && (
             <p className="rounded-sm border border-warning/35 bg-warning/8 px-2.5 py-1.5 text-xs text-warning">
-              {t('config.advanced.messageEditor.singleDollarWarning', {
+              {t('config.controls.messageEditor.singleDollarWarning', {
                 found: singleDollarIssues[0]!.found,
                 suggestion: singleDollarIssues[0]!.suggestion,
               })}
@@ -227,7 +227,7 @@ export function MessageEditor({
         </div>
 
         <div className="space-y-2">
-          <span className="stencil">{t('config.advanced.messageEditor.macroBar.clientLabel')}</span>
+          <span className="stencil">{t('config.controls.messageEditor.macroBar.clientLabel')}</span>
           <div className="flex flex-wrap gap-1.5">
             {clientMacros.map((macro) => (
               <Button
@@ -241,8 +241,8 @@ export function MessageEditor({
               </Button>
             ))}
           </div>
-          <span className="stencil">{t('config.advanced.messageEditor.macroBar.modLabel')}</span>
-          <p className="text-xs text-ink-muted">{t('config.advanced.messageEditor.macroBar.modCaveat')}</p>
+          <span className="stencil">{t('config.controls.messageEditor.macroBar.modLabel')}</span>
+          <p className="text-xs text-ink-muted">{t('config.controls.messageEditor.macroBar.modCaveat')}</p>
           <div className="flex flex-wrap gap-1.5">
             {modMacros.map((macro) => (
               <Button
@@ -259,7 +259,7 @@ export function MessageEditor({
         </div>
 
         <div className="space-y-2">
-          <span className="stencil">{t('config.advanced.messageEditor.suggestionsLabel')}</span>
+          <span className="stencil">{t('config.controls.messageEditor.suggestionsLabel')}</span>
           <div className="flex flex-wrap gap-1.5">
             {MESSAGE_SUGGESTIONS.map((suggestion) => (
               <Button
@@ -281,23 +281,23 @@ export function MessageEditor({
         />
 
         <div className="space-y-1.5">
-          <span className="stencil block">{t('config.advanced.editor.keyLabel')}</span>
+          <span className="stencil block">{t('config.controls.editor.keyLabel')}</span>
           <div className="flex flex-wrap items-center gap-1.5">
             {capturingKey ? (
-              <Badge tone="warning">{t('config.advanced.editor.capturing')}</Badge>
+              <Badge tone="warning">{t('config.controls.editor.capturing')}</Badge>
             ) : key ? (
               <Badge tone="flame">{key}</Badge>
             ) : (
-              <span className="text-xs text-ink-muted">{t('config.advanced.editor.keyNotSet')}</span>
+              <span className="text-xs text-ink-muted">{t('config.controls.editor.keyNotSet')}</span>
             )}
             {!capturingKey && (
               <Button variant="ghost" size="sm" onClick={() => setCapturingKey(true)}>
-                {t('config.advanced.editor.captureKey')}
+                {t('config.controls.editor.captureKey')}
               </Button>
             )}
             {!capturingKey && key && (
               <Button variant="danger" size="sm" onClick={() => setKey(undefined)}>
-                {t('config.advanced.editor.clearKey')}
+                {t('config.controls.editor.clearKey')}
               </Button>
             )}
           </div>

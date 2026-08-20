@@ -353,7 +353,7 @@
     "tabs": {
       "overview": "Overview",
       "settings": "Settings",
-      "advanced": "Advanced",
+      "controls": "Controls",
       "writeTargets": "Write targets",
       "raw": "Raw file",
       "validation": "Validation",
@@ -1009,7 +1009,7 @@
         "label": "Name"
       }
     },
-    "advanced": {
+    "controls": {
       "categories": {
         "movement": "Movement",
         "weapons": "Weapons",
@@ -1017,7 +1017,6 @@
       },
       "label": "Categories",
       "create": "New category",
-      "builtIn": "Built-in",
       "rename": "Rename…",
       "delete": "Delete…",
       "deleteConfirm": "Delete this category? Its actions are removed too.",
@@ -1026,6 +1025,25 @@
         "bind": "Bind",
         "message": "Message",
         "alias": "Alias"
+      },
+      "grid": {
+        "ariaLabel": "Controls — {{category}}",
+        "colAction": "Action",
+        "colReset": "Reset",
+        "colPrimary": "Primary",
+        "colSecondary": "Secondary",
+        "colOptions": "Options",
+        "legendCancel": "cancel",
+        "legendClear": "clear",
+        "legendKey": "key",
+        "legendLayer": "layer",
+        "groupCount_one": "{{count}} row",
+        "groupCount_other": "{{count}} rows",
+        "footerRows_one": "{{count}} row",
+        "footerRows_other": "{{count}} rows",
+        "footerBound": "{{count}} bound",
+        "conflictCount_one": "{{count}} conflict",
+        "conflictCount_other": "{{count}} conflicts"
       },
       "createDialog": {
         "title": "Create category",
@@ -1037,6 +1055,19 @@
         "title": "Rename category",
         "label": "Name"
       },
+      "filter": {
+        "placeholder": "Filter actions…",
+        "noMatches": {
+          "title": "No matching actions",
+          "body": "No action name or command in this category matches your filter. Clear it to see everything again."
+        }
+      },
+      "restoreDefaults": {
+        "button": "Restore defaults",
+        "title": "Restore defaults",
+        "body": "Movement binds return to their suggested keys. Every other bind — Weapons, Weapon dropping, and any custom category — is cleared instead, since only Movement has built-in defaults in this version. Hand-written binds imported from a config file are not affected. This cannot be undone.",
+        "confirm": "Restore defaults"
+      },
       "actions": {
         "label": "Actions — {{category}}",
         "add": "Add action",
@@ -1045,6 +1076,7 @@
         "remove": "Remove…",
         "moveUp": "Move entry up",
         "moveDown": "Move entry down",
+        "reset": "Reset “{{name}}” binds",
         "empty": {
           "title": "No actions yet",
           "body": "Add an action to this category to give it a bind, message or alias."
@@ -1078,6 +1110,10 @@
         "captureKey": "Press a key…",
         "capturing": "Press a key…",
         "clearKey": "Clear",
+        "empty": "Empty",
+        "notBindable": "Not bindable",
+        "slotLabel": "{{slot}}: {{value}}",
+        "slotLabelConflict": "{{slot}}: {{value}} — conflict",
         "payloadType": {
           "label": "Payload",
           "command": "Command",
@@ -1104,7 +1140,15 @@
         "miscGroup": "Misc",
         "withAmmo": "With ammo",
         "messageLabel": "Team message",
-        "messagePlaceholder": "Team message…"
+        "messagePlaceholder": "Team message…",
+        "editMessage": "Edit team message",
+        "editMessageSet": "Edit team message (set)",
+        "messageDialogTitle": "Team message"
+      },
+      "options": {
+        "layer": "layer {{layer}}",
+        "alsoUsedBy": "also: {{owner}}",
+        "none": "—"
       },
       "collision": {
         "baseBind": "{{key}} is already bound to “{{owner}}”. Replace that bind?",

@@ -53,3 +53,7 @@ second roadmap.
   moved onto each entry (bind/message/alias) instead of the category, aliases render as their
   own name and are never bound, entries reorder by hand, and undefined/unreferenced aliases are
   reported in the Validation panel.
+- 020 — Controls: rename Advanced and rebuild it as the column-grid prototype · S04 · Advanced
+  tab renamed to Controls end to end, rebuilt as a capped, sticky-header column grid with
+  always-visible bind slots, a profile-wide conflict count, a filter, a scrollable category
+  rail and whole-profile Restore defaults.

@@ -37,7 +37,7 @@ import { MODIFIER_LAYER_NAME, type ModifierTrigger } from '@shared/config/modifi
 import { normalizeBindKey } from '@shared/config/key-names'
 import type { AltLayer } from '@shared/config/alt-layers'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
-import { applySlot, type CatalogRow } from './catalog-binds'
+import { applyPlainSlot, applySlot, type CatalogRow } from './catalog-binds'
 
 /**
  * A collision plus the single label the UI shows for whoever currently owns
@@ -76,6 +76,20 @@ function ownerLabel(profile: ConfigProfile, collision: BindCollision): string {
       return layer?.name ?? collision.layerId
     }
   }
+}
+
+/**
+ * The layer name a row's Options cell shows for a modifier-bound slot (story 020 D6): the real
+ * name of the `AltLayer` whose `triggerKey` matches `modifier`, when one exists yet, or the
+ * generic name a fresh layer would get otherwise. Mirrors `ownerLabel`'s `layerOverride` case
+ * ("prefer the real layer name, fall back to the generic one") but looks the layer up by
+ * `triggerKey`, not by id - the same lookup `findModifierSlotCollision` already does, because a
+ * layer is matched by its normalized `triggerKey`, never by id or name (see
+ * `modifier-layers.ts`'s module doc comment).
+ */
+export function layerNameForModifier(layers: AltLayer[], modifier: ModifierTrigger): string {
+  const layer = layers.find((candidate) => normalizeBindKey(candidate.triggerKey ?? '') === modifier)
+  return layer?.name ?? MODIFIER_LAYER_NAME[modifier]
 }
 
 /**
@@ -166,6 +180,44 @@ export function applyReplace({
 }: ReplaceInput): ConfigAction[] {
   const released = releaseKey(actions, binds, collision).actions
   const applied = applySlot(released, row, slot, key)
+  if (collision.kind !== 'action') return applied
+  return applied.filter(
+    (action) => !(action.id === collision.actionId && isEmptyCatalogAction(action)),
+  )
+}
+
+export interface PlainReplaceInput {
+  /** The full draft actions array, same one `applyPlainSlot` is given elsewhere. */
+  actions: ConfigAction[]
+  /** `draft.binds` - only read, never returned (see `applyReplace`'s doc comment). */
+  binds: Record<string, string>
+  collision: BindCollision
+  actionId: string
+  slot: 'primary' | 'secondary'
+  key: string
+}
+
+/**
+ * `applyReplace`'s counterpart for a plain action (`catalog-binds.ts`'s `applyPlainSlot` - see
+ * its doc comment for why a `CatalogRow`-keyed `applySlot` does not fit an action that already
+ * exists as a concrete entry). Same one-array, one-save invariant `applyReplace` documents: the
+ * previous owner is released and the new slot is written before either goes back to
+ * `updateProfileActions`, so there is no split-brain window - do not split this into two saves.
+ *
+ * The trailing prune reuses `isEmptyCatalogAction` unchanged, which is gated on `catalogId` - so
+ * a previous owner that is itself a plain action is correctly never pruned here, only a
+ * catalogue-materialised one that lost its last key.
+ */
+export function applyPlainReplace({
+  actions,
+  binds,
+  collision,
+  actionId,
+  slot,
+  key,
+}: PlainReplaceInput): ConfigAction[] {
+  const released = releaseKey(actions, binds, collision).actions
+  const applied = applyPlainSlot(released, actionId, slot, key)
   if (collision.kind !== 'action') return applied
   return applied.filter(
     (action) => !(action.id === collision.actionId && isEmptyCatalogAction(action)),
@@ -334,5 +386,42 @@ export function applyModifierReplace({
   })
 
   const applied = applySlot(released, row, slot, key, modifier)
+  return applied.filter((action) => !(action.id === collision.actionId && isEmptyCatalogAction(action)))
+}
+
+export interface PlainModifierReplaceInput {
+  /** The full draft actions array, same one `applyPlainSlot` is given elsewhere. */
+  actions: ConfigAction[]
+  collision: ModifierSlotCollision | null
+  actionId: string
+  slot: 'primary' | 'secondary'
+  key: string
+  modifier: ModifierTrigger
+}
+
+/**
+ * `applyModifierReplace`'s counterpart for a plain action - same release-then-write invariant
+ * (see `applyModifierReplace`'s doc comment for why skipping the release step corrupts a
+ * profile), just committing through `applyPlainSlot` instead of the `CatalogRow`-keyed
+ * `applySlot`.
+ */
+export function applyPlainModifierReplace({
+  actions,
+  collision,
+  actionId,
+  slot,
+  key,
+  modifier,
+}: PlainModifierReplaceInput): ConfigAction[] {
+  if (!collision?.actionId) return applyPlainSlot(actions, actionId, slot, key, modifier)
+
+  const released = actions.map((action) => {
+    if (action.id !== collision.actionId) return action
+    return collision.actionSlot === 'primary'
+      ? { ...action, key: undefined, keyModifier: undefined }
+      : { ...action, secondaryKey: undefined, secondaryKeyModifier: undefined }
+  })
+
+  const applied = applyPlainSlot(released, actionId, slot, key, modifier)
   return applied.filter((action) => !(action.id === collision.actionId && isEmptyCatalogAction(action)))
 }

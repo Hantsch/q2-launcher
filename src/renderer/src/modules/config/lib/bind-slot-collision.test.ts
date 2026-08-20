@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import type { AltLayer } from '@shared/config/alt-layers'
 import type { BindCollision } from '@shared/config/bind-collision'
+import { MODIFIER_LAYER_NAME } from '@shared/config/modifier-layers'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import {
   applyModifierReplace,
+  applyPlainModifierReplace,
+  applyPlainReplace,
   applyReplace,
   findModifierSlotCollision,
   findSlotCollision,
+  layerNameForModifier,
   type ModifierSlotCollision,
 } from './bind-slot-collision'
 import { buildDropGroups, buildMovementRows, type CatalogRow } from './catalog-binds'
@@ -507,5 +511,144 @@ describe('applyReplace', () => {
     expect(next).toHaveLength(1)
     expect(next[0]!.key).toBe('g')
     expect(next[0]!.secondaryKey).toBeUndefined()
+  })
+})
+
+/** A custom category's own `bind` entry - no `catalogId`, unlike everything `applyReplace` touches. */
+function plainAction(overrides: Partial<ConfigAction> = {}): ConfigAction {
+  return {
+    id: 'plain-1',
+    categoryId: 'custom-1',
+    name: 'My action',
+    kind: 'bind',
+    commands: [],
+    ...overrides,
+  }
+}
+
+describe('applyPlainReplace', () => {
+  it('applies the new key without touching actions for a base-bind collision', () => {
+    const binds = { f: 'weapnext' }
+    const collision: BindCollision = { kind: 'baseBind', key: 'f', command: 'weapnext' }
+
+    const next = applyPlainReplace({
+      actions: [plainAction()],
+      binds,
+      collision,
+      actionId: 'plain-1',
+      slot: 'primary',
+      key: 'f',
+    })
+
+    expect(next[0]!.key).toBe('f')
+  })
+
+  it("releases the previous owner and applies the new key in one pass", () => {
+    const owner = catalogAction(forward, { key: 'f', secondaryKey: 'UPARROW' })
+    const collision: BindCollision = {
+      kind: 'action',
+      key: 'f',
+      actionId: owner.id,
+      name: owner.name,
+      slot: 'primary',
+    }
+
+    const next = applyPlainReplace({
+      actions: [owner, plainAction()],
+      binds: { f: 'q2l_a_1' },
+      collision,
+      actionId: 'plain-1',
+      slot: 'primary',
+      key: 'f',
+    })
+
+    const releasedOwner = next.find((action) => action.id === owner.id)
+    const newOwner = next.find((action) => action.id === 'plain-1')
+    expect(releasedOwner?.key).toBeUndefined()
+    expect(releasedOwner?.secondaryKey).toBe('UPARROW')
+    expect(newOwner?.key).toBe('f')
+  })
+
+  it('never prunes the plain action, unlike a catalogue owner that loses its last key', () => {
+    const owner = catalogAction(forward, { key: 'f' })
+    const collision: BindCollision = {
+      kind: 'action',
+      key: 'f',
+      actionId: owner.id,
+      name: owner.name,
+      slot: 'primary',
+    }
+
+    const next = applyPlainReplace({
+      actions: [owner, plainAction()],
+      binds: { f: 'q2l_a_1' },
+      collision,
+      actionId: 'plain-1',
+      slot: 'primary',
+      key: 'f',
+    })
+
+    // The catalogue owner had nothing else assigned, so it is pruned (decision 4); the plain
+    // action is never pruned by this path, whatever it ends up holding.
+    expect(next.find((action) => action.id === owner.id)).toBeUndefined()
+    expect(next.find((action) => action.id === 'plain-1')).toBeDefined()
+  })
+})
+
+describe('applyPlainModifierReplace', () => {
+  it('is a plain applyPlainSlot passthrough when there is nothing to release', () => {
+    const next = applyPlainModifierReplace({
+      actions: [plainAction()],
+      collision: null,
+      actionId: 'plain-1',
+      slot: 'primary',
+      key: 'r',
+      modifier: 'ALT',
+    })
+
+    expect(next[0]!.key).toBe('r')
+    expect(next[0]!.keyModifier).toBe('ALT')
+  })
+
+  it("releases the previous occupant's slot and assigns the new one in a single array", () => {
+    const occupant = catalogAction(forward, { key: 'r', keyModifier: 'ALT' })
+    const collision: ModifierSlotCollision = {
+      modifier: 'ALT',
+      key: 'r',
+      layerId: 'alt-1',
+      layerName: 'Alt',
+      owner: occupant.name,
+      actionId: occupant.id,
+      actionSlot: 'primary',
+    }
+
+    const next = applyPlainModifierReplace({
+      actions: [occupant, plainAction()],
+      collision,
+      actionId: 'plain-1',
+      slot: 'primary',
+      key: 'r',
+      modifier: 'ALT',
+    })
+
+    const releasedOccupant = next.find((action) => action.id === occupant.id)
+    const newOwner = next.find((action) => action.id === 'plain-1')
+    expect(releasedOccupant).toBeUndefined()
+    expect(newOwner?.key).toBe('r')
+    expect(newOwner?.keyModifier).toBe('ALT')
+  })
+})
+
+describe('layerNameForModifier', () => {
+  it("resolves a real layer's custom name when one exists", () => {
+    const layers: AltLayer[] = [
+      { id: 'alt-1', name: 'My Combat Layer', mode: 'hold', triggerKey: 'ALT', overrides: {} },
+    ]
+
+    expect(layerNameForModifier(layers, 'ALT')).toBe('My Combat Layer')
+  })
+
+  it('falls back to the generic modifier layer name when no matching layer exists', () => {
+    expect(layerNameForModifier([], 'SHIFT')).toBe(MODIFIER_LAYER_NAME.SHIFT)
   })
 })

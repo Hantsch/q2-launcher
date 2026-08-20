@@ -10,6 +10,7 @@
   classes in `components` restores the expected order: utilities win.
 */
 @import './surfaces.css' layer(components);
+@import './controls-grid.css' layer(components);
 
 /*
   Sources are listed explicitly rather than relying on auto-detection, because

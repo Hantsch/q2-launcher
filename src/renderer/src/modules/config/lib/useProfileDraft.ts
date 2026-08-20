@@ -3,7 +3,7 @@ import type { ConfigProfile } from '@shared/modules/config'
 
 /**
  * Fields this hook ever hands out through `patch()` ahead of their own
- * debounced save landing - `SettingsTab`'s cvars, `AdvancedTab`'s categories
+ * debounced save landing - `SettingsTab`'s cvars, `ControlsTab`'s categories
  * and actions. Every other field (assignments, layers, binds, name, ...) is
  * never locally patched by anything, so it is always safe - and, per the
  * review finding below, necessary - to take those straight from the freshest
@@ -16,7 +16,7 @@ const LOCALLY_PATCHED_FIELDS = ['cvars', 'categories', 'actions'] as const
  * arrives, given the previous draft. Exported and pure so the reseed/merge
  * decision - the exact thing a review caught wrong on the first pass (a
  * whole-profile draft that only reseeds on `profile.id` change silently goes
- * stale for every edit made outside `SettingsTab`/`AdvancedTab`) - is
+ * stale for every edit made outside `SettingsTab`/`ControlsTab`) - is
  * unit-testable without rendering a component.
  *
  * - No previous draft, or a different `id` (a profile switch): the fresh
@@ -31,7 +31,7 @@ const LOCALLY_PATCHED_FIELDS = ['cvars', 'categories', 'actions'] as const
  *   debounced save that will itself land here as the same values once it
  *   resolves - taking them from `profile` too would risk clobbering a
  *   keystroke that arrived while that save was still in flight, the exact
- *   race the pre-story-009 `SettingsTab`/`AdvancedTab` code avoided by never
+ *   race the pre-story-009 `SettingsTab`/`ControlsTab` code avoided by never
  *   reseeding except on remount.
  */
 export function mergeProfileUpdate(
@@ -65,7 +65,7 @@ export interface UseProfileDraftResult {
  * Holds `profile`'s in-progress, not-yet-necessarily-saved content — story
  * 009 D6.
  *
- * Before this story, `SettingsTab` (cvars) and `AdvancedTab` (categories +
+ * Before this story, `SettingsTab` (cvars) and `ControlsTab` (categories +
  * actions) each kept their own local `useState`, entirely invisible outside
  * that one component. `ValidationPanel` needs to see the exact thing the user
  * is looking at, not whichever version last made a debounced round trip to
@@ -75,7 +75,7 @@ export interface UseProfileDraftResult {
  *
  * This hook owns none of the *saving* — every tab keeps its own save path,
  * debounce and status label exactly as before (see `SettingsTab`'s
- * `scheduleSave`, `AdvancedTab`'s `scheduleActionsSave`/
+ * `scheduleSave`, `ControlsTab`'s `scheduleActionsSave`/
  * `persistCategoriesAndActions`). It only owns the shared "what does the
  * profile look like right now" value they all read and write.
  *

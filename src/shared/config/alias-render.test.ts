@@ -147,7 +147,7 @@ describe('renderActionAlias (story 015: drop-catalogue row)', () => {
   it('renders a drop row with ammo and a team message as one alias, "; "-joined in order', () => {
     // Shaped like a materialised drop-catalogue row (decision 6): the item,
     // its ammo, then the team message last - `catalogId`/`key`/`secondaryKey`
-    // are not read by this module (only by `AdvancedTab`/`setActions`, which
+    // are not read by this module (only by `ControlsTab`/`setActions`, which
     // decide what points at the alias), so this proves the render side only.
     const dropRow = action({
       name: 'Rocket Launcher',

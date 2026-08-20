@@ -9,7 +9,7 @@ import { Button, IconButton } from '../../components/ui/Button'
 import { Badge, EmptyState, KeyValue, Panel, SectionLabel } from '../../components/ui/primitives'
 import { Select } from '../../components/ui/controls'
 import { useLauncher } from '../../store/useLauncher'
-import { AdvancedTab } from './AdvancedTab'
+import { ControlsTab } from './ControlsTab'
 import { AssignmentsMenu } from './AssignmentsMenu'
 import { CleanupPanel } from './CleanupPanel'
 import { CreateProfileDialog } from './CreateProfileDialog'
@@ -34,7 +34,7 @@ type Screen = 'list' | 'detail'
 type DetailTab =
   | 'overview'
   | 'settings'
-  | 'advanced'
+  | 'controls'
   | 'writeTargets'
   | 'raw'
   | 'validation'
@@ -178,7 +178,7 @@ export function ConfigView() {
   const tabs: { id: DetailTab; label: string; badge?: string; badgeTone?: 'danger' | 'warning' }[] = [
     { id: 'overview', label: t('config.tabs.overview') },
     { id: 'settings', label: t('config.tabs.settings') },
-    { id: 'advanced', label: t('config.tabs.advanced') },
+    { id: 'controls', label: t('config.tabs.controls') },
     { id: 'writeTargets', label: t('config.tabs.writeTargets') },
     { id: 'raw', label: t('config.tabs.raw') },
     {
@@ -363,8 +363,8 @@ export function ConfigView() {
                   onChanged={setProfiles}
                 />
               )}
-              {activeTab === 'advanced' && (
-                <AdvancedTab
+              {activeTab === 'controls' && (
+                <ControlsTab
                   profile={selected}
                   draft={activeProfile(selected)}
                   patch={patch}

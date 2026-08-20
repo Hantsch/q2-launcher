@@ -24,3 +24,14 @@
 - 2026-08-20 18:25 · 019 · D7 reorder entries by hand · done
 - 2026-08-20 18:40 · 019 · D8 broken alias wiring is reported · done
 - 2026-08-20 19:10 · 019 · closed — review + 2 fix cycles + live smoke, moved to done · done
+- 2026-08-20 19:20 · 020 · D1 rename Advanced to Controls · done
+- 2026-08-20 19:35 · 020 · D2 grid style layer in tokens · done
+- 2026-08-20 19:55 · 020 · D3 grid shell: cap, sticky headers, groups, footer · done
+- 2026-08-20 20:20 · 020 · D4 the row: catalogue-driven rows, 40px shell, hover reset · done
+- 2026-08-20 21:10 · 020 · D5 slot is a cell (hard tier) · done
+- 2026-08-20 21:45 · 020 · D6 options column + plain-action slot fix · done
+- 2026-08-20 22:15 · 020 · D7 profile-wide conflict count · done
+- 2026-08-20 22:40 · 020 · D8 filter by name/command · done
+- 2026-08-20 23:05 · 020 · D9 scrollable category rail · done
+- 2026-08-20 23:35 · 020 · D10 restore defaults, whole-profile · done
+- 2026-08-20 23:50 · 020 · D11 docs + token audit · done

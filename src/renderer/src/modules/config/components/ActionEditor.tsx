@@ -24,7 +24,7 @@ import { resolveQuakeKeyName } from '../lib/keyboard-layout'
 /**
  * Story 008 D7 / 019 D5: the multi-command composer and key-assignment
  * editor for one `ConfigAction` of `kind: 'bind'` or `kind: 'alias'` -
- * `kind: 'message'` gets `MessageEditor` instead (`AdvancedTab` dispatches on
+ * `kind: 'message'` gets `MessageEditor` instead (`ControlsTab` dispatches on
  * `action.kind`, never this file).
  *
  * Story 019 D5 split the two remaining kinds further:
@@ -43,8 +43,8 @@ import { resolveQuakeKeyName } from '../lib/keyboard-layout'
  * commit rather than continuous auto-save) and `SwitchBindControl`'s
  * press-to-capture key assignment. Unlike `KeyBindDialog`, this editor does
  * not call the config client itself - it hands the updated `ConfigAction`
- * back to `onSave` and lets `AdvancedTab` own persistence, since
- * `AdvancedTab` already owns `localActions`/`localCategories` and the one
+ * back to `onSave` and lets `ControlsTab` own persistence, since
+ * `ControlsTab` already owns `localActions`/`localCategories` and the one
  * save path every other mutation in that file goes through; a second,
  * independent save call from inside this modal could race that state or
  * silently drop a category edit made just before opening this dialog.
@@ -59,7 +59,7 @@ export function ActionEditor({
   /**
    * Story 019 D6: the profile's full action list, so the raw-command input's
    * suggestions can be computed from the profile's own alias entries. Passed
-   * down rather than looked up here - `AdvancedTab` already owns the one
+   * down rather than looked up here - `ControlsTab` already owns the one
    * `actions` array this editor is opened from, and a second, independent
    * read (store or IPC) would risk drifting from the very list `onSave` is
    * about to be merged back into.
@@ -231,7 +231,7 @@ export function ActionEditor({
     <Modal
       open
       size="lg"
-      title={t('config.advanced.editor.title', { name: action.name })}
+      title={t('config.controls.editor.title', { name: action.name })}
       onClose={onClose}
       closeLabel={t('common.close')}
       footer={
@@ -249,13 +249,13 @@ export function ActionEditor({
         {/* Story 019 D5: only a `bind` entry's payload can be a message - an
             alias is always a command list, so it never sees this toggle. */}
         {!isAlias && (
-          <Field label={t('config.advanced.editor.payloadType.label')}>
+          <Field label={t('config.controls.editor.payloadType.label')}>
             <Select
               value={payloadType}
               onChange={(event) => setPayloadType(event.target.value as 'command' | 'message')}
               options={[
-                { value: 'command', label: t('config.advanced.editor.payloadType.command') },
-                { value: 'message', label: t('config.advanced.editor.payloadType.message') },
+                { value: 'command', label: t('config.controls.editor.payloadType.command') },
+                { value: 'message', label: t('config.controls.editor.payloadType.message') },
               ]}
             />
           </Field>
@@ -263,20 +263,20 @@ export function ActionEditor({
 
         {payloadType === 'message' ? (
           <div className="space-y-5">
-            <Field label={t('config.advanced.messageEditor.channelLabel')} className="max-w-48">
+            <Field label={t('config.controls.messageEditor.channelLabel')} className="max-w-48">
               <Select
                 value={messageChannel}
                 onChange={(event) => setMessageChannel(event.target.value as 'say' | 'say_team')}
                 options={[
-                  { value: 'say', label: t('config.advanced.messageEditor.channel.say') },
-                  { value: 'say_team', label: t('config.advanced.messageEditor.channel.sayTeam') },
+                  { value: 'say', label: t('config.controls.messageEditor.channel.say') },
+                  { value: 'say_team', label: t('config.controls.messageEditor.channel.sayTeam') },
                 ]}
               />
             </Field>
-            <Field label={t('config.advanced.messageEditor.textLabel')}>
+            <Field label={t('config.controls.messageEditor.textLabel')}>
               <Input
                 value={messageText}
-                placeholder={t('config.advanced.editor.payloadMessage.textPlaceholder')}
+                placeholder={t('config.controls.editor.payloadMessage.textPlaceholder')}
                 onChange={(event) => setMessageText(event.target.value.replace(/"/g, ''))}
               />
             </Field>
@@ -285,21 +285,21 @@ export function ActionEditor({
           <>
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
-                <span className="stencil">{t('config.advanced.editor.commandsLabel')}</span>
+                <span className="stencil">{t('config.controls.editor.commandsLabel')}</span>
                 <div className="flex items-center gap-2 text-xs text-ink-muted">
                   <span className="numeric">
-                    {t('config.advanced.editor.byteLength', { bytes: totalBytes })}
+                    {t('config.controls.editor.byteLength', { bytes: totalBytes })}
                   </span>
                   {willSplit && (
                     <Badge tone="warning">
-                      {t('config.advanced.editor.willSplit', { count: preview.aliases.length })}
+                      {t('config.controls.editor.willSplit', { count: preview.aliases.length })}
                     </Badge>
                   )}
                 </div>
               </div>
 
               {commands.length === 0 ? (
-                <p className="text-xs text-ink-muted">{t('config.advanced.editor.commandsEmpty')}</p>
+                <p className="text-xs text-ink-muted">{t('config.controls.editor.commandsEmpty')}</p>
               ) : (
                 <ul className="space-y-1">
                   {commands.map((command, index) => (
@@ -312,7 +312,7 @@ export function ActionEditor({
                       </code>
                       <div className="flex shrink-0 items-center gap-1">
                         <IconButton
-                          label={t('config.advanced.editor.moveUp')}
+                          label={t('config.controls.editor.moveUp')}
                           size="sm"
                           disabled={index === 0}
                           onClick={() => moveCommand(index, -1)}
@@ -320,7 +320,7 @@ export function ActionEditor({
                           <ArrowUp className="size-3.5" />
                         </IconButton>
                         <IconButton
-                          label={t('config.advanced.editor.moveDown')}
+                          label={t('config.controls.editor.moveDown')}
                           size="sm"
                           disabled={index === commands.length - 1}
                           onClick={() => moveCommand(index, 1)}
@@ -328,7 +328,7 @@ export function ActionEditor({
                           <ArrowDown className="size-3.5" />
                         </IconButton>
                         <IconButton
-                          label={t('config.advanced.editor.removeCommand')}
+                          label={t('config.controls.editor.removeCommand')}
                           size="sm"
                           variant="danger"
                           onClick={() => removeCommandAt(index)}
@@ -342,12 +342,12 @@ export function ActionEditor({
               )}
             </div>
 
-            <Field label={t('config.advanced.editor.rawCommandLabel')}>
+            <Field label={t('config.controls.editor.rawCommandLabel')}>
               <div className="flex gap-2">
                 <Input
                   value={rawCommandText}
-                  placeholder={t('config.advanced.editor.rawCommandPlaceholder')}
-                  aria-label={t('config.advanced.editor.rawCommandLabel')}
+                  placeholder={t('config.controls.editor.rawCommandPlaceholder')}
+                  aria-label={t('config.controls.editor.rawCommandLabel')}
                   list="action-editor-alias-suggestions"
                   onChange={(event) => setRawCommandText(event.target.value)}
                   onKeyDown={(event) => {
@@ -372,15 +372,15 @@ export function ActionEditor({
                   // nothing (review follow-up finding).
                   disabled={!sanitizeCommand(rawCommandText)}
                 >
-                  {t('config.advanced.editor.addCommand')}
+                  {t('config.controls.editor.addCommand')}
                 </Button>
               </div>
             </Field>
 
-            <Field label={t('config.advanced.editor.pickListLabel')}>
+            <Field label={t('config.controls.editor.pickListLabel')}>
               <Input
                 value={filter}
-                placeholder={t('config.advanced.editor.filterPlaceholder')}
+                placeholder={t('config.controls.editor.filterPlaceholder')}
                 onChange={(event) => setFilter(event.target.value)}
               />
               <div className="mt-2 max-h-40 space-y-0.5 overflow-y-auto rounded-sm border border-line">
@@ -410,23 +410,23 @@ export function ActionEditor({
             a key to an alias would silently discard. */}
         {!isAlias && (
           <div className="space-y-1.5">
-            <span className="stencil block">{t('config.advanced.editor.keyLabel')}</span>
+            <span className="stencil block">{t('config.controls.editor.keyLabel')}</span>
             <div className="flex flex-wrap items-center gap-1.5">
               {capturingKey ? (
-                <Badge tone="warning">{t('config.advanced.editor.capturing')}</Badge>
+                <Badge tone="warning">{t('config.controls.editor.capturing')}</Badge>
               ) : key ? (
                 <Badge tone="flame">{key}</Badge>
               ) : (
-                <span className="text-xs text-ink-muted">{t('config.advanced.editor.keyNotSet')}</span>
+                <span className="text-xs text-ink-muted">{t('config.controls.editor.keyNotSet')}</span>
               )}
               {!capturingKey && (
                 <Button variant="ghost" size="sm" onClick={() => setCapturingKey(true)}>
-                  {t('config.advanced.editor.captureKey')}
+                  {t('config.controls.editor.captureKey')}
                 </Button>
               )}
               {!capturingKey && key && (
                 <Button variant="danger" size="sm" onClick={() => setKey(undefined)}>
-                  {t('config.advanced.editor.clearKey')}
+                  {t('config.controls.editor.clearKey')}
                 </Button>
               )}
             </div>
