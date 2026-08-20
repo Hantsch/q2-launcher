@@ -63,7 +63,7 @@ live-smoke-required: true
           in-progress and is handed over as "built, acceptance pending".
 -->
 
-live-smoke-how: npm run dev (electron-vite dev) — launch the Electron app and drive the flow through the real UI.
+live-smoke-how: npm run ui:verify — builds if needed, seeds the fixture, screenshots every screen and runs an accessibility report against the real app; see docs/UI-VERIFICATION.md.
 
 ## Context to read before coding
 

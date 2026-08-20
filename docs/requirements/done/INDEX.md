@@ -40,3 +40,6 @@ second roadmap.
 - 016 — Auto-create an Alt/Ctrl/Shift layer when a modifier is held during key capture · S03 ·
   modifier binding stored on the action itself, layer overrides a derived mirror of it — the
   redesign that finally closed AC 5 after three prior review-fix cycles blocked on row identity.
+- 026 — A committed UI verification harness that drives the real app · S04 · Playwright-driven
+  screenshot + axe-core harness (`npm run ui:verify`) with an isolated fixture, 14-screen registry
+  and flow API; surfaced a pre-existing `config-raw` rendering bug as a follow-up.

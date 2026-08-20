@@ -283,6 +283,7 @@ export function OverviewKeyboardPanel({
       <button
         key={`${def.key}-${index}`}
         type="button"
+        data-testid={`keycap-${def.key}`}
         title={title}
         onClick={() => capture(def)}
         style={{ width: `${widthUnits * KEY_UNIT_REM}rem`, height: `${KEY_HEIGHT_REM}rem` }}
@@ -300,6 +301,7 @@ export function OverviewKeyboardPanel({
       <button
         key={`${def.key}-${index}`}
         type="button"
+        data-testid={`keycap-${def.key}`}
         title={title}
         onClick={() => capture(def)}
         style={{

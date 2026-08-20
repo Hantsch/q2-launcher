@@ -48,6 +48,7 @@ export function TitleBar() {
           label={t('nav.home')}
           active={route === ROUTE_HOME}
           onClick={() => setRoute(ROUTE_HOME)}
+          testId="nav-home"
         />
         {navModules.map((module) => {
           const Icon = moduleIcon(module.icon)
@@ -59,6 +60,7 @@ export function TitleBar() {
               active={route === module.route}
               planned={module.status === 'planned'}
               onClick={() => setRoute(module.route)}
+              testId={`nav-${module.id}`}
             />
           )
         })}
@@ -70,6 +72,7 @@ export function TitleBar() {
       <div className="flex items-center gap-1 pr-1 pl-2">
         <button
           type="button"
+          data-testid="nav-settings"
           aria-label={t('nav.settingsTitle')}
           title={t('nav.settingsTitle')}
           onClick={() => setRoute(ROUTE_SETTINGS)}
@@ -112,16 +115,19 @@ function NavItem({
   active,
   planned,
   onClick,
+  testId,
 }: {
   icon: React.ReactNode
   label: string
   active: boolean
   planned?: boolean
   onClick: () => void
+  testId?: string
 }) {
   return (
     <button
       type="button"
+      data-testid={testId}
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
       className={cn(

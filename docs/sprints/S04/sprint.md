@@ -1,7 +1,7 @@
 ---
 sprint: S04
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S04
 milestone: Config module — authoring surfaces (Overview / Controls / Settings) + UI verification harness (docs/systems/config-module.md)
 ---
 
@@ -20,7 +20,7 @@ accessibility findings.
 
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
-- [ ] 026 — A committed UI verification harness that drives the real app
+- [x] 026 — A committed UI verification harness that drives the real app
 - [ ] 017 — Overview: editing is the default, no dedicated edit mode
 - [ ] 018 — Test mode: trigger keys switch layers, pressed keys light up, readout always visible
 - [ ] 019 — Controls: type the entry, not the category, and let me order entries

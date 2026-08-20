@@ -121,6 +121,10 @@ broken. Install paths are never passed as arguments at all — the root goes in 
 the process working directory, which sidesteps the problem for the one value most
 likely to contain spaces.
 
+Verifying the rest of the UI without launching a game — screenshots and an
+accessibility report per screen, driven against the built app — is
+[docs/UI-VERIFICATION.md](UI-VERIFICATION.md).
+
 ## Adding a module
 
 Everything past the shell is a module: `config`, `install`, `mods`, `assets`. The

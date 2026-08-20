@@ -1,7 +1,7 @@
 ---
 id: 021
 title: Settings — rebuild as the dense-rows prototype
-status: draft # draft -> ready -> in-progress -> done
+status: ready # draft -> ready -> in-progress -> done
 created: 2026-08-19
 ---
 
@@ -45,16 +45,185 @@ a reset — with the noisy engine caveats inline only where there actually is on
 
 ## Open Questions
 
-- Filter and "changed only": session-local, or remembered per profile?
-- The prototype shows ~30 cvars. Does the catalogue's full set need an "advanced cvars" collapse,
-  or is the group + filter enough?
+- ~~Filter and "changed only": session-local, or remembered per profile?~~ answered →
+  Decisions (Sprint)
+- ~~The prototype shows ~30 cvars. Does the catalogue's full set need an "advanced cvars"
+  collapse, or is the group + filter enough?~~ answered → Decisions (Sprint)
+
+## Decisions (Sprint)
+
+- **(User)** Filter and "changed only" toggle are session-local — not persisted per profile, no
+  extra saved UI state.
+- **(User)** The catalogue gets an additional "Advanced" collapse for rarely used cvars, on top
+  of the existing group + filter — more UI state, but a calmer default view for a full
+  catalogue larger than the prototype's ~30.
+- "Advanced" is driven by the existing `CvarDef.common` flag (`cvar-facts.ts:96`, today unused by
+  any UI): it was introduced for exactly this collapse, so no second flag is added.
+- Group order is fixed as Player · Network · Graphics · Sound and derived from `def.group` over
+  `ALL_CVARS`, not from the `PLAYER_CVARS`/`GRAPHICS_CVARS` arrays — those two already carry
+  `network`/`sound` entries and are an authoring convenience, not a UI grouping.
+- "Changed" means the normalised value differs from the effective default (engine default, else
+  catalogue default), not "a key exists in the map": per-row reset writes the default value, so a
+  presence-based test would leave the row marked changed right after a reset.
+- "Reset all" clears only the catalogue's own keys from `draft.cvars` and leaves unknown/imported
+  cvars untouched — a full `{}` would silently delete values this tab never showed.
+- "Reset all" acts on the whole catalogue, not on the filtered/collapsed view, and the confirm
+  dialog names the number of changed cvars — same whole-profile semantics story 020 chose for
+  "Restore defaults", and a filter-dependent destructive action is a trap.
+- Filter matches cvar name, label and description (case-insensitive); a hit inside a collapsed
+  Advanced section auto-reveals it, so filtering can never look like "no results".
+- Engine caveats keep their existing sources of truth (`resolveCvar`, `noteForValue`,
+  `engineDisagreement`, `hasEngineFacts`, `isCvarSupported`) and only move to a new position in the
+  row — story 009's facts layer is not re-derived.
+- The "no engine in scope" note stays exactly where it is today, `EngineScopeSelect` above the
+  list, with its four `EngineScopeStatus` states untouched — AC 9 is a placement guarantee, not a
+  new component.
+- Autosave stays the mechanism from story 009 (500 ms debounce, `patch` functional updater, revert
+  to `profile.cvars` on failure); the redesign only replaces the JSX below it.
+- Everything new lives module-local under `modules/config/` — per CLAUDE.md a feature is a module,
+  never an edit to the shell; existing shell primitives (`Modal`, `Input`, `Select`, `Switch`,
+  `IconButton`, `Badge`) are reused as-is. If story 020 has already landed a shared dense-table
+  primitive by build time, reuse it instead of adding a second one.
+- The confirm dialog mirrors `CleanupPanel.tsx` (`Modal` + ghost/danger button pair) rather than
+  inventing a dialog shape.
+- Prototype hex values are mapped onto the existing `@theme` tokens in
+  `src/renderer/src/styles/index.css`; the only gap (input background `#0b0c0f`) reuses
+  `bg-void/60` as `CvarRow` already does, and warning/danger soft tiers are composed with opacity
+  modifiers instead of new hex.
+- The design-tokens mobile floor (44 px targets, ≥16 px inputs) is deviated from for this desktop
+  surface and the deviation is written into CLAUDE.md with its reason (mouse/keyboard-only Electron
+  app, no touch surface); 44 px stays as row min-height and pointer hit area, and focus-visible
+  plus "never colour alone" are kept in full.
+- No IPC and no shared contract change: the tab already saves through `CONFIG_HANDLERS.setCvars`,
+  so `src/shared/ipc.ts` and the preload allowlist stay untouched.
 
 ## Plan
 
+Pure renderer work inside `src/renderer/src/modules/config/`. Nothing in main, preload or the IPC
+contract changes; story 009's save path is carried over untouched.
+
+1. **Row model (new, pure, tested):** `modules/config/lib/cvar-rows.ts` —
+   `normalizeCvarValue`, `effectiveDefaultFor(def, engine)`, `isChanged(def, engine, value)` and
+   `buildCvarGroups(defs, { values, engine, filter, changedOnly, showAdvanced })` → ordered
+   `{ group, total, changed, rows, advancedHidden }`. Header and group-header counts come from
+   here, not from JSX. Audit `common:` across all 30 entries in
+   `src/shared/config/cvar-catalog.ts` so the Advanced bucket is meaningful (data only).
+2. **Row presentation:** rewrite `components/CvarRow.tsx` as the prototype's grid
+   (`minmax(0,1fr) 250px 108px 24px`, 44 px min-height, 2 px left border): label + mono cvar name +
+   one-line truncated description expanding on hover, kind-specific control, two-line value cell
+   (effective value / `= default` or `default · min–max`), always-reachable reset.
+3. **Caveats inline:** the badge cluster becomes a full-width flag sub-row (`grid-column: 1/-1`)
+   inside the row — note, clamp/mod-dependent, cross-engine disagreement naming the other assigned
+   engines' numbers; `absent` renders the row dimmed + disabled with only a "not on <engine>" value
+   line. Facts come unchanged from `@shared/config/cvar-facts`.
+4. **Tab shell:** rewrite `SettingsTab.tsx` — capped `max-w-[1000px]`, header bar
+   ("n cvars · m changed", filter box, changed-only toggle, Reset all + confirm `Modal`), sticky
+   group headers, Advanced collapse per group, legend below the list. `EngineScopeSelect` keeps its
+   place above the list. `scheduleSave`/`handleChange`/`patch` are moved, not modified.
+5. **Tokens, a11y, smoke:** token audit (no hex, no palette class), focus-visible on every new
+   control, non-colour marker for "changed" (legend + value text), reduced-motion for the switch,
+   CLAUDE.md deviation note, then the 026 harness screenshot + axe run and the manual pass.
+
+New i18n keys go into `src/renderer/src/i18n/locales/en.json` under `config.settings.*` /
+`config.cvar.*` next to the existing ones; main never sends prose.
+
 ## Deliverables
+
+- **D1 — Row model + Advanced flag audit.**
+  New `src/renderer/src/modules/config/lib/cvar-rows.ts` + `lib/cvar-rows.test.ts`; data-only edit
+  to `src/shared/config/cvar-catalog.ts` (`common:` on all 30 entries).
+  Mirror: `modules/config/lib/engine-scope.ts` (pure module + colocated test).
+  *Accept:* `npm test` green; tests cover group order (Player·Network·Graphics·Sound), per-group
+  `total`/`changed`, toggle normalisation (`1`/`true`), filter over name+label+description,
+  `changedOnly`, `showAdvanced` incl. "filter hit inside Advanced is revealed", and that an
+  engine-absent cvar resolves its default without inventing engine numbers.
+
+- **D2 — Dense row: grid, controls, value cell, changed accent, reset.**
+  `src/renderer/src/modules/config/components/CvarRow.tsx`, `src/renderer/src/i18n/locales/en.json`.
+  Mirror: current `CvarRow.tsx` for the control dispatch, `components/ui/controls.tsx` for field
+  styling.
+  *Accept:* a row is one grid (label · control · value · reset); text/select/toggle/slider+number
+  each render for their kind; the value cell shows the effective value plus `= default` or
+  `default · min–max`; a changed row carries the 2 px left accent; reset is always visible and
+  disabled exactly when the value equals the default; the description truncates to one line and
+  expands on hover; no raw hex in the file.
+
+- **D3 — Inline engine caveats and the absent-on-engine row.**
+  `src/renderer/src/modules/config/components/CvarRow.tsx` (flag sub-row only),
+  `src/renderer/src/i18n/locales/en.json`.
+  *Accept:* note / clamp / mod-dependent / cross-engine disagreement render as a full-width flag
+  row inside the affected row and name the other assigned engines' numbers; an absent cvar is
+  dimmed, its control and reset disabled, value cell reads "not on <engine>"; with no engine in
+  scope no default, range or note is attributed to any engine (story 009 honesty rule);
+  `src/shared/config/cvar-facts.ts` and `lib/validation-scope.ts` are not modified.
+
+- **D4 — Tab shell: capped width, header bar, sticky groups, Advanced collapse, legend.**
+  `src/renderer/src/modules/config/SettingsTab.tsx`, `src/renderer/src/i18n/locales/en.json`.
+  Mirror: `modules/config/CleanupPanel.tsx` for the confirm `Modal`, `ConfigView.tsx:203` for the
+  capped wrapper.
+  *Accept:* content capped at ~1000 px; the two hard-coded panels are gone; a sticky group header
+  per real group showing "n · m changed"; header shows "n cvars · m changed" plus filter box and
+  changed-only toggle (both session-local, reset on profile switch); Advanced collapse per group;
+  "Reset all" opens a confirm dialog naming the count and clears only catalogue keys; the legend
+  explains the accent bar and `= default`; `EngineScopeSelect` still sits above the list;
+  `SAVE_DEBOUNCE_MS`, `scheduleSave`, `handleChange` and the failure-path
+  `patch({ cvars: profile.cvars })` are unchanged and `lib/useProfileDraft.ts` is untouched.
+
+- **D5 — Token/a11y pass, documented deviation, live smoke.**
+  `src/renderer/src/modules/config/**` (fixes only), `CLAUDE.md` (deviation note), screenshots via
+  the story 026 harness.
+  *Accept:* no hex literal and no raw palette class in the touched files; every interactive element
+  has a visible `:focus-visible` ring; "changed", "disabled" and "caveat" are each conveyed by more
+  than colour; the switch honours `prefers-reduced-motion`; CLAUDE.md records the desktop-density
+  deviation with its reason; harness screenshot of the Settings tab plus an axe run with no new
+  violations; `npm run build`, `npm run typecheck`, `npm test` green.
+
+**AC coverage:** width cap → D4, row grid → D2 · real groups + sticky "n · m changed" → D1+D4 ·
+label/mono name/hover description → D2 · control per kind → D2 · value + default/range or
+`= default` → D2 · accent bar → D2, legend → D4 · per-row reset → D2 · header counts/filter/changed
+only/Reset all confirm → D4 (counts from D1) · no-engine-in-scope note → D3 (semantics) + D4
+(placement) · inline caveats + dimmed absent row → D3 · autosave/shared draft unchanged → D4 ·
+design tokens → D5.
 
 ## Model Hints
 
+- D1 → default
+- D2 → default
+- **D3 → deliverable-hard** — it re-renders story 009's engine-facts semantics (absent, clamp,
+  mod-dependent, cross-engine disagreement) in a new position, where the cheap failure mode is
+  silently attributing r1q2's default or range to an engine that is not in scope.
+- D4 → default
+- D5 → default
+- **Review: → story-review-hard** — the story sits directly on story 009's autosave, shared draft
+  and honesty rule while rewriting every JSX file around them, and no component test guards that
+  surface today.
+
 ## Test Plan (manual acceptance)
+
+Run `npm run dev`, open Config → pick a profile → Settings tab.
+
+1. Widen the window: the list stays capped around 1000 px and does not stretch; a row's four
+   columns line up across all rows.
+2. Scroll: each group header (Player, Network, Graphics, Sound) sticks and shows "n · m changed";
+   the two old panels are gone.
+3. Hover a long description: it expands from its single truncated line.
+4. Edit one cvar of each kind (text, select, toggle, slider): the control matches the kind, the
+   value cell updates, the row gets the left accent bar, and the second line switches from
+   `= default` to `default · min–max`.
+5. Click that row's reset: the value returns to the default, the accent bar disappears, reset
+   becomes disabled.
+6. Type into the filter and toggle "changed only": rows narrow and the counts follow; a hit inside a
+   collapsed Advanced section reveals it. Switch profile and back — filter and toggle are reset
+   (session-local), nothing was persisted.
+7. "Reset all": the confirm dialog names the count; cancel changes nothing, confirm returns every
+   catalogue cvar to its default. Open the Raw File tab — an imported cvar outside the catalogue is
+   still there.
+8. Assign the profile to an r1q2 installation: rows with a note/clamp/mod-dependent caveat show the
+   inline flag row; a cvar r1q2 does not have is dimmed and disabled. With a second engine assigned
+   as well, the flag names that engine's numbers.
+9. Unassign the profile everywhere: the "no engine in scope" note appears above the list, rows stay
+   editable, and no row claims an engine default, range or note.
+10. Edit a cvar, switch to Validation and back within a second: the edit is still there and the save
+    indicator runs idle → saving → saved (story 009 autosave unchanged).
 
 ## Done

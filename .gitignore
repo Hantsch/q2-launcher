@@ -3,6 +3,7 @@ out/
 dist/
 release/
 .vite/
+.ui-verify/
 
 *.log
 npm-debug.log*

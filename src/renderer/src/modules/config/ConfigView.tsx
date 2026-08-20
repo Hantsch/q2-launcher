@@ -241,6 +241,7 @@ export function ConfigView() {
                       <li key={profile.id}>
                         <button
                           type="button"
+                          data-testid="config-profile-row"
                           onClick={() => openProfile(profile.id)}
                           className="flex w-full items-center justify-between gap-3 rounded-sm px-3 py-3.5 text-left transition-colors duration-[--dur-fast] hover:bg-hover"
                         >
@@ -322,6 +323,7 @@ export function ConfigView() {
                 <button
                   key={tab.id}
                   type="button"
+                  data-testid={`config-tab-${tab.id}`}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
                     'flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs font-medium transition-colors duration-[--dur-fast]',

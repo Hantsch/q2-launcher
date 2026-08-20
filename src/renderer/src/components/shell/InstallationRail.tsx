@@ -181,6 +181,7 @@ function RailTile({
   return (
     <button
       type="button"
+      data-testid="installation-tile"
       draggable
       onClick={onSelect}
       onDragStart={onDragStart}

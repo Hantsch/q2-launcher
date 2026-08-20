@@ -1,0 +1,8 @@
+- 2026-08-20 14:10 · 026 · D1 Harness core + tooling · done
+- 2026-08-20 14:12 · 026 · D3 Selector hooks in renderer · done
+- 2026-08-20 14:20 · 026 · D2 Fixture seed · done
+- 2026-08-20 14:35 · 026 · D4 Screen registry + screenshots · done
+- 2026-08-20 14:45 · 026 · D5 Accessibility report · done
+- 2026-08-20 14:55 · 026 · D6 The one command · done
+- 2026-08-20 15:05 · 026 · D7 Flow API + worked example · done
+- 2026-08-20 15:15 · 026 · D8 Docs · done
