@@ -13,6 +13,15 @@
  * All prose (label, description, warning, note, value-note meaning, choice
  * label) has been replaced by i18n key fields; the English text lives in
  * `src/renderer/src/i18n/locales/en.json` under `config.cvar.*`.
+ *
+ * Story 021 D1: every entry now carries an explicit `common: true | false` -
+ * audited by hand rather than left to whatever a given entry happened to
+ * have before, so the Settings tab's "Advanced" collapse
+ * (`modules/config/lib/cvar-rows.ts`) hides something real. `true` is the
+ * kind of thing most players actually change (name, fov, sensitivity,
+ * crosshair, gamma, fullscreen, volume, ...); `false` is niche, engine-
+ * specific or rarely touched (m_pitch, ch_scale, msg, rate, cl_async,
+ * gl_polyblend, gl_dynamic, cl_noskins, r_maxfps, con_alpha, s_khz).
  */
 
 import type { CvarDef } from './cvar-facts'
@@ -107,6 +116,7 @@ export const PLAYER_CVARS: CvarDef[] = [
     group: 'player',
     descriptionKey: 'config.cvar.m_pitch.description',
     default: '0.022',
+    common: false,
     choices: [
       { value: '0.022', labelKey: 'config.cvar.m_pitch.choice.0_022' },
       { value: '-0.022', labelKey: 'config.cvar.m_pitch.choice._0_022' },
@@ -187,6 +197,7 @@ export const PLAYER_CVARS: CvarDef[] = [
     min: 0.5,
     max: 4,
     step: 0.1,
+    common: false,
     byEngine: {
       vanilla: { absent: true },
       r1q2: { absent: true },
@@ -204,6 +215,7 @@ export const PLAYER_CVARS: CvarDef[] = [
     group: 'player',
     descriptionKey: 'config.cvar.msg.description',
     default: '0',
+    common: false,
     choices: [
       { value: '0', labelKey: 'config.cvar.msg.choice.0' },
       { value: '1', labelKey: 'config.cvar.msg.choice.1' },
@@ -226,6 +238,7 @@ export const PLAYER_CVARS: CvarDef[] = [
     min: 1000,
     max: 100000,
     step: 1000,
+    common: false,
     byEngine: {
       vanilla: { engineDefault: '25000', source: 'vanilla client/cl_main.c: Cvar_Get("rate", "25000", ...)' },
       r1q2: { engineDefault: '15000', source: 'r1q2 client/cl_main.c: Cvar_Get("rate", "15000", ...)' },
@@ -291,6 +304,7 @@ export const PLAYER_CVARS: CvarDef[] = [
     group: 'network',
     descriptionKey: 'config.cvar.cl_async.description',
     default: '1',
+    common: false,
     choices: [
       { value: '0', labelKey: 'config.cvar.cl_async.choice.0' },
       { value: '1', labelKey: 'config.cvar.cl_async.choice.1' },
@@ -406,6 +420,7 @@ export const GRAPHICS_CVARS: CvarDef[] = [
     group: 'graphics',
     descriptionKey: 'config.cvar.gl_texturemode.description',
     default: 'GL_LINEAR_MIPMAP_LINEAR',
+    common: true,
     choices: [
       { value: 'GL_NEAREST', labelKey: 'config.cvar.gl_texturemode.choice.gl_nearest' },
       { value: 'GL_LINEAR', labelKey: 'config.cvar.gl_texturemode.choice.gl_linear' },
@@ -463,6 +478,7 @@ export const GRAPHICS_CVARS: CvarDef[] = [
     group: 'graphics',
     descriptionKey: 'config.cvar.gl_polyblend.description',
     default: '0',
+    common: false,
     byEngine: {
       vanilla: { engineDefault: '1' },
       r1q2: { engineDefault: '1' },
@@ -476,6 +492,7 @@ export const GRAPHICS_CVARS: CvarDef[] = [
     group: 'graphics',
     descriptionKey: 'config.cvar.gl_shadows.description',
     default: '0',
+    common: true,
   },
   {
     name: 'gl_dynamic',
@@ -484,6 +501,7 @@ export const GRAPHICS_CVARS: CvarDef[] = [
     group: 'graphics',
     descriptionKey: 'config.cvar.gl_dynamic.description',
     default: '0',
+    common: false,
     byEngine: {
       vanilla: { engineDefault: '1' },
       r1q2: { engineDefault: '1' },
@@ -515,6 +533,7 @@ export const GRAPHICS_CVARS: CvarDef[] = [
     group: 'graphics',
     descriptionKey: 'config.cvar.cl_noskins.description',
     default: '0',
+    common: false,
   },
   {
     name: 'r_maxfps',
@@ -529,6 +548,7 @@ export const GRAPHICS_CVARS: CvarDef[] = [
     min: 0,
     max: 1000,
     step: 5,
+    common: false,
     byEngine: {
       vanilla: {
         absent: true,
@@ -577,6 +597,7 @@ export const GRAPHICS_CVARS: CvarDef[] = [
     min: 0,
     max: 1,
     step: 0.05,
+    common: false,
     byEngine: {
       vanilla: { absent: true, source: 'no console alpha cvar in 3.20' },
       r1q2: { absent: true, source: 'no console alpha cvar in r1q2' },
@@ -614,6 +635,7 @@ export const GRAPHICS_CVARS: CvarDef[] = [
     group: 'sound',
     descriptionKey: 'config.cvar.s_khz.description',
     default: '44',
+    common: false,
     choices: [
       { value: '11', labelKey: 'config.cvar.s_khz.choice.11' },
       { value: '22', labelKey: 'config.cvar.s_khz.choice.22' },

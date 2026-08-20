@@ -1,7 +1,7 @@
 ---
 id: 021
 title: Settings — rebuild as the dense-rows prototype
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-08-19
 ---
 
@@ -18,30 +18,30 @@ a reset — with the noisy engine caveats inline only where there actually is on
 
 ## Acceptance Criteria
 
-- [ ] Content width is capped (~1000px); a row is a fixed grid (label · control · value · reset),
+- [x] Content width is capped (~1000px); a row is a fixed grid (label · control · value · reset),
       not a stretched flex row.
-- [ ] Rows are grouped by the cvar's real `group` (Player / Network / Graphics / Sound) with a
+- [x] Rows are grouped by the cvar's real `group` (Player / Network / Graphics / Sound) with a
       sticky group header showing "n · m changed", replacing the two current panels.
-- [ ] A row shows its label, the cvar name in mono, and its description on one truncated line
+- [x] A row shows its label, the cvar name in mono, and its description on one truncated line
       that expands on hover.
-- [ ] The control matches the cvar kind: text input, select, toggle switch, or slider plus a
+- [x] The control matches the cvar kind: text input, select, toggle switch, or slider plus a
       numeric field.
-- [ ] The value column shows the effective value and underneath either the engine default plus
+- [x] The value column shows the effective value and underneath either the engine default plus
       range, or "= default".
-- [ ] A row whose value differs from the default is marked with a left accent bar, and the legend
+- [x] A row whose value differs from the default is marked with a left accent bar, and the legend
       explains that marker.
-- [ ] Per-row reset is always reachable and disabled when the value already is the default.
-- [ ] Header shows "n cvars · m changed", a filter box and a "changed only" toggle; "Reset all"
+- [x] Per-row reset is always reachable and disabled when the value already is the default.
+- [x] Header shows "n cvars · m changed", a filter box and a "changed only" toggle; "Reset all"
       asks before discarding.
-- [ ] When the profile is assigned nowhere (or only to engines with no facts), the existing
+- [x] When the profile is assigned nowhere (or only to engines with no facts), the existing
       explicit "no engine in scope" note appears above the list and no engine's numbers are
       claimed — the current honesty rule from story 009 stays intact.
-- [ ] Engine caveats (mod-dependent value, above the assigned engine's clamp, cvar not present on
+- [x] Engine caveats (mod-dependent value, above the assigned engine's clamp, cvar not present on
       the assigned engine) render as an inline flag row inside the affected row, naming the other
       assigned engines' numbers; a cvar the engine does not have is dimmed and disabled.
-- [ ] Autosave behaviour and the shared draft (story 009) are unchanged — this is layout, not a
+- [x] Autosave behaviour and the shared draft (story 009) are unchanged — this is layout, not a
       new save path.
-- [ ] Colours/spacing from design tokens; the prototype's hex values are reference only.
+- [x] Colours/spacing from design tokens; the prototype's hex values are reference only.
 
 ## Open Questions
 
@@ -129,7 +129,7 @@ New i18n keys go into `src/renderer/src/i18n/locales/en.json` under `config.sett
 
 ## Deliverables
 
-- **D1 — Row model + Advanced flag audit.**
+- [x] **D1 — Row model + Advanced flag audit.**
   New `src/renderer/src/modules/config/lib/cvar-rows.ts` + `lib/cvar-rows.test.ts`; data-only edit
   to `src/shared/config/cvar-catalog.ts` (`common:` on all 30 entries).
   Mirror: `modules/config/lib/engine-scope.ts` (pure module + colocated test).
@@ -138,7 +138,7 @@ New i18n keys go into `src/renderer/src/i18n/locales/en.json` under `config.sett
   `changedOnly`, `showAdvanced` incl. "filter hit inside Advanced is revealed", and that an
   engine-absent cvar resolves its default without inventing engine numbers.
 
-- **D2 — Dense row: grid, controls, value cell, changed accent, reset.**
+- [x] **D2 — Dense row: grid, controls, value cell, changed accent, reset.**
   `src/renderer/src/modules/config/components/CvarRow.tsx`, `src/renderer/src/i18n/locales/en.json`.
   Mirror: current `CvarRow.tsx` for the control dispatch, `components/ui/controls.tsx` for field
   styling.
@@ -148,7 +148,7 @@ New i18n keys go into `src/renderer/src/i18n/locales/en.json` under `config.sett
   disabled exactly when the value equals the default; the description truncates to one line and
   expands on hover; no raw hex in the file.
 
-- **D3 — Inline engine caveats and the absent-on-engine row.**
+- [x] **D3 — Inline engine caveats and the absent-on-engine row.**
   `src/renderer/src/modules/config/components/CvarRow.tsx` (flag sub-row only),
   `src/renderer/src/i18n/locales/en.json`.
   *Accept:* note / clamp / mod-dependent / cross-engine disagreement render as a full-width flag
@@ -157,7 +157,7 @@ New i18n keys go into `src/renderer/src/i18n/locales/en.json` under `config.sett
   scope no default, range or note is attributed to any engine (story 009 honesty rule);
   `src/shared/config/cvar-facts.ts` and `lib/validation-scope.ts` are not modified.
 
-- **D4 — Tab shell: capped width, header bar, sticky groups, Advanced collapse, legend.**
+- [x] **D4 — Tab shell: capped width, header bar, sticky groups, Advanced collapse, legend.**
   `src/renderer/src/modules/config/SettingsTab.tsx`, `src/renderer/src/i18n/locales/en.json`.
   Mirror: `modules/config/CleanupPanel.tsx` for the confirm `Modal`, `ConfigView.tsx:203` for the
   capped wrapper.
@@ -169,7 +169,7 @@ New i18n keys go into `src/renderer/src/i18n/locales/en.json` under `config.sett
   `SAVE_DEBOUNCE_MS`, `scheduleSave`, `handleChange` and the failure-path
   `patch({ cvars: profile.cvars })` are unchanged and `lib/useProfileDraft.ts` is untouched.
 
-- **D5 — Token/a11y pass, documented deviation, live smoke.**
+- [x] **D5 — Token/a11y pass, documented deviation, live smoke.**
   `src/renderer/src/modules/config/**` (fixes only), `CLAUDE.md` (deviation note), screenshots via
   the story 026 harness.
   *Accept:* no hex literal and no raw palette class in the touched files; every interactive element
@@ -227,3 +227,57 @@ Run `npm run dev`, open Config → pick a profile → Settings tab.
     indicator runs idle → saving → saved (story 009 autosave unchanged).
 
 ## Done
+
+**Summary.** Settings tab rebuilt as the dense-rows prototype: a new pure module
+(`modules/config/lib/cvar-rows.ts`) computes grouping, filtering, "changed" status and Advanced
+visibility from `def.group`/`def.common`; `CvarRow.tsx` is now a 4-column grid row (label/mono
+name/hover description · kind-specific control · two-line value cell · always-reachable reset)
+with engine caveats rendered as a full-width inline flag sub-row and absent-on-engine rows dimmed
+and disabled; `SettingsTab.tsx` is a capped (~1000px) list with a header bar (counts, filter,
+changed-only, Reset-all with confirm dialog), sticky per-group headers, a per-group Advanced
+collapse, and a legend — `EngineScopeSelect` and the story-009 autosave/save-path/facts layer are
+carried over unmodified. `CLAUDE.md` records the desktop touch-target-floor deviation.
+
+**Commit message:** `021: rebuild Settings tab as dense-rows layout`
+
+**Verification.** `npm run build`, `npm run typecheck`, `npm test` (697 tests) all green after
+every deliverable and after the fix cycle. Live smoke via `npm run ui:verify`: exit code 1, caused
+solely by the pre-existing, unrelated `RawConfigPanel.tsx` crash on `config-raw` (documented in
+`docs/UI-VERIFICATION.md`, not this story's to fix); a Settings-tab screenshot was produced at both
+viewports and the axe report shows only the same pre-existing app-wide `page-has-heading-one`
+violation already present on every other tab — no new violations.
+
+**Review:** `story-review-hard`, two passes. First pass: FAIL — 6 confirmed/plausible findings
+(slider range input rendered 0px wide; Advanced-collapse toggle was one-way and its "N more" count
+lied while filtering; filter matched raw i18n keys instead of translated text; "Reset all" wrote
+explicit default values instead of clearing catalogue keys; the value-cell tooltip could present a
+catalogue-only min/max in the same slot as a real per-engine fact). All six were fixed in one
+cycle. Second pass: PASS — all six verified fixed by re-reading the code (not by trusting the
+claim), no regression against AC1-12 or story 009's autosave/facts/honesty-rule contract, no test
+weakened or deleted.
+
+**Deliberately unfixed (low/cosmetic, noted by the reviewer, not required to be fixed):**
+- `NUMERIC_FIELD`'s `focus:outline-none` cancels the global focus-visible ring — a pre-existing
+  shell (`FIELD_BASE`) convention, not introduced by this story.
+- The slider's numeric-companion `aria-label` reads "Current value" on every row rather than
+  naming the cvar.
+- `IconButton size="sm"` (28px) overflows the row grid's 24px reset-column track by 4px.
+- The value-cell tooltip's "engine default" branch can still attribute a catalogue-level
+  `def.min`/`def.max` range (rather than a genuine per-engine range) to the assigned engine when
+  the engine has a default but no explicit range fact; the visible (non-tooltip) value cell and
+  AC9's honesty rule are unaffected since no engine is named there.
+- Group headers use the existing `config.settings.header.count` wording ("n cvars · m changed")
+  rather than the prototype's terser "n · m changed" — information is identical, wording differs.
+
+**Decisions (implementation, beyond the pre-filled sprint decisions):**
+- D1's `buildCvarGroups` filter accepts optional `labelText`/`descriptionText` resolvers so
+  `SettingsTab.tsx` can pass real translated strings via `t()`, keeping `cvar-rows.ts` free of any
+  i18n import (still a pure module) while satisfying "filter matches label and description" against
+  actual English text rather than i18n keys.
+- "Reset all" deletes each catalogue key from a copy of `cvars` (rather than writing explicit
+  default values) so the result never depends on which engine happens to be scoped at reset time
+  and never writes a value into a row whose per-row reset is disabled (absent-on-engine).
+- Per-group Advanced-collapse visibility now derives from an explicit `hasAdvanced` field
+  (independent of the current filter/expand state), separate from `advancedHidden` (the post-filter
+  hidden count used only for the "N more" label), so the toggle survives being clicked and stays
+  meaningful mid-filter.

@@ -73,4 +73,5 @@ written down.
 | Skill | Deviation | Reason |
 | --- | --- | --- |
 | `/design-tokens` (44px touch-target floor) | Controls tab grid (`src/renderer/src/styles/controls-grid.css`) uses a 40px row height and a 30px bind-slot height. | Q2 Launcher is a desktop, mouse-and-keyboard-only Electron app with no touch input surface — see story `docs/requirements/020-controls-column-grid-redesign.md`'s Decisions section. |
+| `/design-tokens` (44px touch-target floor, ≥16px input font-size) | Settings tab dense cvar rows (`src/renderer/src/modules/config/components/CvarRow.tsx`, `SettingsTab.tsx`) keep 44px as the row min-height and pointer hit area, but do not apply the ≥16px input font-size floor meant to stop iOS zoom-on-focus. | Same reason as above — a desktop, mouse-and-keyboard-only Electron app with no touch input surface has no zoom-on-focus behaviour to guard against; see `docs/requirements/021-settings-dense-rows-redesign.md`'s Decisions section. Focus-visible and non-colour status indication (changed/disabled/caveat) are kept in full. |
 

@@ -57,3 +57,7 @@ second roadmap.
   tab renamed to Controls end to end, rebuilt as a capped, sticky-header column grid with
   always-visible bind slots, a profile-wide conflict count, a filter, a scrollable category
   rail and whole-profile Restore defaults.
+- 021 — Settings: rebuild as the dense-rows prototype · S04 · Settings tab rebuilt as a capped,
+  dense-rows grid grouped by real cvar group with sticky headers, per-row engine caveats/reset,
+  filter/changed-only, whole-profile Reset all, and an Advanced collapse; story 009's
+  autosave/facts/honesty rules unchanged.

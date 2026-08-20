@@ -732,15 +732,28 @@
           "44": "44 kHz"
         }
       },
-      "notOnEngine": "Not on this engine",
-      "noEngineFacts": "No engine facts",
+      "notOnEngine": "not on {{engine}}",
       "resetToDefault": "Reset to default",
       "currentValue": "Current value",
       "engineDefault": "Engine default",
       "recommendedDefault": "Recommended default",
       "range": "Range",
-      "differsOnEngine": "Differs on {{engine}}",
-      "absentOnEngine": "Not on {{engine}}"
+      "equalsDefault": "= default",
+      "flag": {
+        "note": "Note",
+        "caution": "Caution",
+        "problem": "Problem",
+        "outOfRangeBadge": "Out of range",
+        "enginesBadge": "Engines differ",
+        "clamped": "{{engine}} clamps {{name}} to {{range}} and silently uses {{bound}} instead.",
+        "outOfRange": "{{name}} {{value}} is outside what {{engine}} accepts — {{engine}} expects {{range}}.",
+        "otherAbsent": "{{engine}}, also assigned, does not have {{name}} at all.",
+        "otherDefault": "{{engine}}, also assigned, defaults to {{value}}.",
+        "otherRange": "{{engine}}, also assigned, expects {{range}}.",
+        "otherNoRange": "{{engine}}, also assigned, has no clamp range on record for {{name}}.",
+        "otherNote": "On {{engine}}, also assigned: {{message}}",
+        "otherPlainValue": "{{engine}}, also assigned, documents nothing special about {{value}}."
+      }
     },
     "actionCatalog": {
       "forward": { "label": "Forward" },
@@ -872,10 +885,34 @@
     },
     "settings": {
       "title": "Settings",
-      "playerGroup": "Player",
-      "graphicsGroup": "Graphics",
       "saving": "Saving…",
-      "saved": "Saved"
+      "saved": "Saved",
+      "groups": {
+        "player": "Player",
+        "network": "Network",
+        "graphics": "Graphics",
+        "sound": "Sound"
+      },
+      "header": {
+        "count": "{{total}} cvars · {{changed}} changed",
+        "filterPlaceholder": "Filter cvars…",
+        "changedOnly": "Changed only",
+        "resetAll": "Reset all"
+      },
+      "resetAllDialog": {
+        "title": "Reset all cvars?",
+        "body": "This returns {{count}} changed cvar(s) in this profile to their default. Cvars outside this catalogue (visible on the Raw File tab) are left untouched.",
+        "confirm": "Reset all"
+      },
+      "advanced": {
+        "show": "{{count}} more…",
+        "showAdvanced": "Show advanced",
+        "hide": "Hide advanced"
+      },
+      "legend": {
+        "changed": "Changed from default",
+        "default": "“= default” means the value matches the default shown"
+      }
     },
     "writeTargets": {
       "label": "Write targets",

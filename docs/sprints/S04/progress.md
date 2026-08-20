@@ -35,3 +35,9 @@
 - 2026-08-20 23:05 · 020 · D9 scrollable category rail · done
 - 2026-08-20 23:35 · 020 · D10 restore defaults, whole-profile · done
 - 2026-08-20 23:50 · 020 · D11 docs + token audit · done
+- 2026-08-21 09:15 · 021 · D1 row model + advanced flag audit · done
+- 2026-08-21 09:45 · 021 · D2 dense row grid/controls/value/reset · done
+- 2026-08-21 10:30 · 021 · D3 inline engine caveats + absent row (hard) · done
+- 2026-08-21 11:00 · 021 · D4 tab shell rewrite (header/groups/advanced/legend) · done
+- 2026-08-21 11:20 · 021 · D5 token/a11y pass, CLAUDE.md deviation, live smoke · done
+- 2026-08-21 11:45 · 021 · story-review-hard PASS after fix cycle, done · done
