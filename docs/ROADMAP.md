@@ -60,37 +60,54 @@ through `docs/sprints/done/S02/testplan.md` on a real desktop. The keyboard/over
 `9259a24` on `dev`), outside the formal story flow — read-only bound/free/doubly-bound view
 plus test-mode key-chain capture, see `src/renderer/src/modules/config/OverviewKeyboardPanel.tsx`.
 
-`docs/sprints/S03` **built, live acceptance pending (2026-08-19)** — six follow-on UI/UX stories
-filed after S02's acceptance pass (011–016), not part of the original concept's scope but real
-friction found while running `docs/sprints/done/S02/testplan.md`. Five landed: alt-layer trigger
-reassignment via binding (011), a more compact alt-layers panel with the layer switcher moved
-next to the keyboard overview (013), trigger-key visibility and click-to-switch on the keycap
-itself (014), a raw config view with reveal-in-folder (012), a dual-bind editor for
-Movement/Weapons/Weapon dropping (015). All five passed build/typecheck/test and clean-agent
-review, but could not be live-smoke-tested in the build session's environment — see
-`docs/sprints/S03/testplan.md` for the manual acceptance pass still owed. **016 (auto-creating a
-modifier layer on bind capture) is blocked**, not shipped — see Gaps/notes below. The engine
-findings below stay as factual background for the system doc.
+`docs/sprints/done/S03` **accepted (2026-08-20)** — six follow-on UI/UX stories filed after
+S02's acceptance pass (011–016), not part of the original concept's scope but real friction found
+while running `docs/sprints/done/S02/testplan.md`. **All six landed**:
+alt-layer trigger reassignment via binding (011), a more compact alt-layers panel with the layer
+switcher moved next to the keyboard overview (013), trigger-key visibility and click-to-switch on
+the keycap itself (014), a raw config view with reveal-in-folder (012), a dual-bind editor for
+Movement/Weapons/Weapon dropping (015), and modifier-layer auto-creation on bind capture (016 —
+unblocked by a re-plan after the sprint review, see Gaps/notes below). All six passed
+build/typecheck/test and clean-agent review; the build session could not live-smoke-test them, so
+the manual pass in `docs/sprints/done/S03/testplan.md` (plus 016's own test plan) was run on a
+real desktop afterwards. The engine findings below stay as factual background for the system
+doc.
+
+**In progress: `docs/sprints/S04` — authoring surfaces + UI verification harness (planned
+2026-08-20).** Cuts the first two of the three clusters below into one sprint: 026 (a committed
+Playwright/`_electron` harness — screenshots per screen plus an axe report, so a sprint can accept
+its own UI work), then 017/018 (Overview: edit-by-default, honest test mode) and 019/020
+(Controls: entry types + ordering, then the column-grid redesign) and 021 (Settings dense rows).
+The profile-as-a-file cluster (022–025) is deliberately held back as the likely S05, because it is
+an on-disk/schema rework with migration questions and does not mix with five UI redesigns in one
+acceptance pass.
+
+**Filed, not yet sprinted (2026-08-19, `37cef54`):** nine further polish/redesign drafts,
+017–025 in `docs/requirements/`, from a second round of hands-on use plus two prototype sets
+(`docs/prototypes/bindings/`, `docs/prototypes/settings/`). Three clusters: the keyboard Overview
+(017 edit-by-default, 018 test-mode layers/key feedback), the authoring tabs (019 entry types +
+ordering, 020 Advanced→Controls as the column-grid prototype, 021 Settings as the dense-rows
+prototype), and the profile-as-a-file rework (022 `<name>.cfg` exists standalone, 023 Raw File
+absorbs Write targets, 024 Quake 2 syntax highlighting, 025 Validation→Care). Dependency order
+inside the clusters: 019 → 020, and 022 → 023 → 025.
 
 #### Gaps/notes (from S03)
 
-- **016 is blocked on a schema-shape gap, not an implementation bug.** `AltLayer.overrides`
-  stores a bare `command: string` with nothing identifying which action-catalogue row wrote it,
-  so a Weapon-dropping row's ammo/message state can't be safely read back or written once two
-  catalogue rows' command text collides (concretely: the "Grenades" ammo-drop row and the "Hand
-  Grenades" weapon-drop row both render `drop grenades`). Closing this needs a plan-level
-  decision — either give `AltLayer.overrides`' values an explicit row/catalogue identity (a
-  persisted-schema change affecting every existing saved profile), or establish and enforce a
-  command-text uniqueness guarantee across `action-catalog.ts` instead. Full three-review-cycle
-  history and two superseded fix attempts are in
-  [016's Done section](requirements/016-modifier-layer-on-bind-capture.md#done). Recommend
-  deciding the schema question during `/refine` before a fourth implementation attempt.
+- ~~**016 is blocked on a schema-shape gap**~~ — **resolved after the sprint review** (`00b77f6`,
+  closed with S03 in `0cc934f`). The fix was not the schema change the review proposed: a modifier
+  binding now lives on the `ConfigAction` itself (`keyModifier`/`secondaryKeyModifier`) and a
+  layer's `overrides` map became a **generated mirror** of the actions array
+  (`applyActionLayerMirror`, applied by `setActions`/`setLayers` in main). Row identity is
+  therefore `action.id` via `aliasNameFor` and never command text, so the colliding-command-text
+  problem cannot arise; the renderer's whole reverse-parse machinery was deleted rather than
+  patched. **Carry-over rule for any future layer feature: never re-derive row identity from
+  rendered command text — `overrides` is derived state, the action is the source of truth.**
 - **No committed UI-driving harness exists yet**, so an autonomous sprint cannot itself perform
   the live acceptance pass this module's stories need (`live-smoke-required: true` in
   `.claude/ai-scrum.md`). This is the same gap the Tooling section below already names
-  ("A committed Playwright driver for the app would make UI changes verifiable") — closing it
-  would let a future sprint close this pending-acceptance gap itself instead of always deferring
-  it to the user.
+  ("A committed Playwright driver for the app would make UI changes verifiable") — **now cut as
+  story 026, first story of S04**, so from S04 on a sprint can close its own acceptance gap
+  instead of deferring it to the user.
 
 #### Gaps/notes (from S02)
 
@@ -185,8 +202,8 @@ machine, and each is a one-line fix in a data table:
 - Vite is pinned to 7.x: `electron-vite@5` peers `vite ^5||^6||^7`, and
   `@vitejs/plugin-react@6` peers `vite ^8` exclusively. Revisit when
   `electron-vite@6` is stable.
-- A committed Playwright driver for the app would make UI changes verifiable. One
-  gotcha to carry over: this repo is often developed from inside an Electron host
+- A committed Playwright driver for the app would make UI changes verifiable — **scheduled:
+  story 026 in `docs/sprints/S04`**. One gotcha to carry over: this repo is often developed from inside an Electron host
   that exports `ELECTRON_RUN_AS_NODE=1`; inherited, it makes `electron.exe` run as
   plain Node and the main process dies on its first `require('electron')`. Delete
   the variable from the child environment before launching.
