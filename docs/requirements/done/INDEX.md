@@ -46,3 +46,6 @@ second roadmap.
 - 017 — Overview — editing is the default, no dedicated edit mode · S04 · removed the edit-mode
   toggle; a keycap click opens `KeyBindDialog` directly outside test mode, trigger-keycap
   click-to-switch retired in favour of story 018's physical-key path.
+- 018 — Test mode: trigger keys switch layers, pressed keys light up, readout always visible · S04 ·
+  pure resolver + reducer drive the displayed layer from physical trigger presses, every held
+  key/mouse button rings on its keycap, readout moved permanently into the legend row.

@@ -367,13 +367,23 @@
         "free": "Free",
         "bound": "Bound",
         "altLayer": "Bound in an alt layer",
-        "trigger": "Layer trigger"
+        "trigger": "Layer trigger",
+        "pressed": "Pressed"
       },
       "testMode": {
         "start": "Start test mode",
         "stop": "Stop test mode",
         "noBind": "Not bound",
-        "placeholder": "Press a key or click a mouse button…"
+        "placeholder": "Press a key or click a mouse button…",
+        "inactive": "Start test mode to see what a key does",
+        "sourceBase": "base",
+        "sourceLayer": "layer {{name}}",
+        "triggerActivates": "Activates layer {{name}} ({{mode}})",
+        "triggerAlias": "Runs: {{command}}",
+        "mode": {
+          "hold": "hold",
+          "toggle": "toggle"
+        }
       },
       "trigger": {
         "layerLabel": "{{layer}}",

@@ -1,7 +1,7 @@
 ---
 id: 018
 title: Test mode — trigger keys switch layers, pressed keys light up, readout always visible
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-08-19
 ---
 
@@ -26,20 +26,20 @@ mode button.
 
 ## Acceptance Criteria
 
-- [ ] Pressing a layer's trigger key in test mode shows that layer's activation (layer name, mode
+- [x] Pressing a layer's trigger key in test mode shows that layer's activation (layer name, mode
       hold/toggle, and the generated alias that fires) — never "unbound".
-- [ ] Pressing a trigger key switches the displayed board to that layer: for a `hold` layer while
+- [x] Pressing a trigger key switches the displayed board to that layer: for a `hold` layer while
       the key is held (back to base on release), for a `toggle` layer on each press.
-- [ ] While a layer is displayed, a following key press resolves through that layer's overrides
+- [x] While a layer is displayed, a following key press resolves through that layer's overrides
       first and falls back to the base bind, and the readout says which of the two it used.
-- [ ] Every physically pressed key/mouse button is visibly highlighted on its keycap while held,
+- [x] Every physically pressed key/mouse button is visibly highlighted on its keycap while held,
       several simultaneously; release removes the highlight.
-- [ ] Losing window focus or leaving test mode clears all highlights and any hold-layer state —
+- [x] Losing window focus or leaving test mode clears all highlights and any hold-layer state —
       no keycap stays stuck lit.
-- [ ] The readout sits permanently in the legend row's right-hand column below the test-mode
+- [x] The readout sits permanently in the legend row's right-hand column below the test-mode
       button, with a placeholder when nothing has been pressed yet; entering/leaving test mode
       does not shift the keyboard's layout.
-- [ ] A modifier-derived bind (story 016 `keyModifier`) is reported the same way as a hand-made
+- [x] A modifier-derived bind (story 016 `keyModifier`) is reported the same way as a hand-made
       layer, so Alt+R does not read as "unbound" either.
 
 ## Open Questions
@@ -190,7 +190,7 @@ parallel.
 
 ## Deliverables
 
-### D1 — Pure test-mode resolver + layer-switch reducer (with tests)
+### D1 — Pure test-mode resolver + layer-switch reducer (with tests) [x]
 
 `resolveTestPress`, `applyTriggerPress`, `applyTriggerRelease` and the `TestPress` type.
 
@@ -210,7 +210,7 @@ parallel.
   unaffected by a release.
 - Covers: AC 1 (rule), AC 2 (rule), AC 3 (rule), AC 7.
 
-### D2 — `TestModeReadout` component, telling the truth about the source
+### D2 — `TestModeReadout` component, telling the truth about the source [x]
 
 The strip as its own presentational component, rendering all `TestPress` kinds plus the
 placeholder and the outside-test-mode hint.
@@ -227,7 +227,7 @@ placeholder and the outside-test-mode hint.
   growing it; every string comes from `t(...)`, no literal English in the component.
 - Covers: AC 1 (surface), AC 3 (surface), AC 6 (content).
 
-### D3 — Test mode drives the displayed layer
+### D3 — Test mode drives the displayed layer [x]
 
 `testLayerId`/`heldTrigger` state, `displayedLayer` replacing `activeLayer` in the keycap
 renderers, keydown/keyup wired to D1's reducer, `LayerSwitcher` coherence, and the AC 5 teardown.
@@ -245,7 +245,7 @@ renderers, keydown/keyup wired to D1's reducer, `LayerSwitcher` coherence, and t
   scopes to `activeLayer`.
 - Covers: AC 2, AC 3, AC 5 (layer half).
 
-### D4 — Pressed keys light up
+### D4 — Pressed keys light up [x]
 
 The `pressedKeys` set, the ring treatment in `keyVisual`, the legend entry, and clearing on
 release, blur and mode exit.
@@ -261,7 +261,7 @@ release, blur and mode exit.
   entry carrying the same treatment; no raw palette value or hex is introduced.
 - Covers: AC 4 (keyboard), AC 5 (highlight half).
 
-### D5 — Physical mouse buttons
+### D5 — Physical mouse buttons [x]
 
 `mousedown`/`mouseup` listeners, the Quake button mapping, `data-keycap`, and the "a click on a
 keycap wins the readout" rule.
@@ -274,7 +274,7 @@ keycap wins the readout" rule.
   `MOUSE1`) while `MOUSE1` highlights; the wheel changes nothing; blur clears mouse highlights too.
 - Covers: AC 4 (mouse).
 
-### D6 — Readout moved into the legend row
+### D6 — Readout moved into the legend row [x]
 
 Legend row becomes badges-left / readout-right, the readout renders unconditionally, and the old
 conditional strip under the keyboard is gone.
@@ -335,3 +335,70 @@ the hold layer, a base bind on `R`, and one key bound only in the base layer.
     reported, not "Not bound".
 
 ## Done
+
+Test mode now resolves every physical key press through a pure resolver
+(`lib/test-mode.ts`): trigger → displayed layer's override → base bind →
+unbound, so a layer's own trigger key never reads "unbound" and a
+016-style modifier bind (Alt+R) is reported the same way as a hand-made
+layer. Pressing a hold layer's trigger puts that layer on the board for as
+long as it is held (restoring the previous layer on release); a toggle
+layer's trigger flips between its layer and base. Every physically held
+key or mouse button (via `mousedown`/`mouseup`, Quake's MOUSE1-5
+numbering) lights up its keycap with a ring that composes with the
+existing bound/override/trigger tones; a 5th "Pressed" legend entry names
+it. The readout moved into its own component (`TestModeReadout.tsx`) and
+now lives permanently in the legend row's right-hand cell, unconditionally
+rendered (inactive hint outside test mode, placeholder inside), so
+entering/leaving test mode no longer shifts the keyboard.
+
+A clean review (story-review-hard tier) found three confirmed bugs before
+close, all fixed:
+1. The `editHint` paragraph was unmounted (not just hidden) outside test
+   mode, so the header column's height — and therefore the keyboard below
+   it — shifted by one line when toggling test mode (AC 6). Fixed by
+   keeping the paragraph mounted and toggling `invisible` instead.
+2. `blur` only released a *held* trigger, leaving a *toggled* layer
+   displayed and the readout stale after a focus loss. Fixed to fully
+   tear down test-mode display state on blur (restores `activeLayer`,
+   clears `press`/`pressedKeys`), matching stop-test-mode/profile-switch.
+3. `pressedKeys` was a flat `Set` keyed by the resolved Quake name, so
+   ShiftLeft/ShiftRight (and Ctrl/Alt) collapsed to one entry: releasing
+   one physical modifier cleared the highlight — and ended a
+   modifier-triggered hold layer — while its twin was still held. Fixed
+   with a physical-code reference count per Quake key name.
+
+A temporary Playwright flow (`scripts/flows/test-mode-018.mjs`, deleted
+after use, not part of the permanent registry) drove the real Electron
+app against the `Layered Profile` fixture (hold layer `Drops`, trigger
+`ALT`, override on `1`/`2`): confirmed the keyboard's Y position is
+pixel-stable across start/stop, two keys can be held and released
+independently, holding `ALT` switches the board to `Drops` and the
+readout names it correctly, and releasing `ALT` returns to base. A toggle
+layer and the AC 7 modifier-bind path were not separately live-smoked
+(no toggle-layer/Controls-tab-created-modifier fixture profile exists) —
+both are covered by D1's unit tests, which exercise the exact same
+resolver/reducer code the UI calls.
+
+**Decisions**
+- Decision 4's "`triggerBind` is null" branch is unreachable through the
+  real `generateLayerAliases` (it returns `null` only when `triggerKey`
+  itself is blank, which `resolveTestPress` can never match on) — kept
+  the defensive branch as the story asks and exercised it with a mocked
+  `generateLayerAliases` in one test, rather than skipping coverage or
+  reshaping the resolver around an impossible case.
+- The legend's "Bound in an alt layer" badge dim now also follows
+  `displayedLayer` (not just `activeLayer`), one token beyond decision
+  12's enumerated list — kept as a small, commented, in-scope coherence
+  fix: without it the legend would call a layer "not in play" while its
+  overrides are visibly on the board, the same lie AC 3 exists to remove.
+
+**Commit message**
+
+018: test mode reports trigger activation, drives the displayed layer, and highlights every physical press
+
+**Verification:** `npm run build`, `npm test` (579/579), `npm run typecheck`
+all green. Live smoke via a temporary `ui:flow` script against the real
+Electron app, see above. `npm run ui:verify`'s overall exit code is 1
+only because of the pre-existing, unrelated `config-raw` crash noted in
+the sprint context — `config-overview` itself screenshots and audits
+clean at both viewports.

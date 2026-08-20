@@ -9,3 +9,9 @@
 - 2026-08-20 15:25 · 017 · D1 Edit mode removed, keycap opens dialog · done
 - 2026-08-20 15:35 · 017 · D2 Affordance and trigger labels · done
 - 2026-08-20 15:45 · 017 · Story closed — done, moved to done/ · done
+- 2026-08-20 16:00 · 018 · D1 Pure test-mode resolver + reducer · done
+- 2026-08-20 16:10 · 018 · D2 TestModeReadout component · done
+- 2026-08-20 16:25 · 018 · D3 Test mode drives displayed layer · done
+- 2026-08-20 16:35 · 018 · D4 Pressed keys light up · done
+- 2026-08-20 16:45 · 018 · D5 Physical mouse buttons · done
+- 2026-08-20 16:55 · 018 · D6 Readout moved into legend row · done
