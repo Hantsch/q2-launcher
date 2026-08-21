@@ -107,11 +107,11 @@ without a formal sprint cut, spanning the move from a WSL dev session to a nativ
   staying uninterrupted) — needs a human on the real desktop, feasible now that the session is
   native Windows. Status stays `in-progress` until confirmed.
 
-`docs/sprints/S05` **built (2026-08-21), acceptance pass not yet confirmed by the user** — the
+`docs/sprints/done/S05` **accepted (2026-08-21)** — the
 profile-as-a-file rework: 022 `<name>.cfg` exists standalone, 023 Raw File absorbs Write targets,
 024 Quake 2 syntax highlighting, 025 Validation→Care, in that build order. Filed 2026-08-19
 (`37cef54`); cut into a sprint 2026-08-21, built same day. **All four stories done**, see
-`docs/sprints/S05/review.md` and `docs/sprints/S05/testplan.md` for the manual acceptance pass.
+`docs/sprints/done/S05/review.md` and `docs/sprints/done/S05/testplan.md` for the manual acceptance pass.
 Every profile now has a canonical `<name>.cfg` in userData with automatic sync to every assigned
 installation and a retry-capable sync/error state (022); the "Write targets" tab is gone, folded
 into Raw File (023); config text everywhere in the launcher is now syntax-highlighted and
@@ -121,13 +121,25 @@ findings" batch action) and the relocated mod-copies cleanup (025).
 
 **Filed, not yet sprinted:**
 
-- **029** (2026-08-20) — Controls drop rows: replace the message icon-button with a "With
-  message" checkbox + inline row, mirroring the existing "With ammo" pattern.
-- **030–033** (2026-08-21) — a UI-polish batch from continued hands-on use: 030 titlebar/wordmark
-  scale-up, 031 rename Install→Downloads and relocate it next to Settings, 032 a running-count
-  badge on the Downloads icon (explicitly blocked on the Downloads module existing), 033 rewrite
-  the planned-module screens (Mods/Assets) in user-facing language instead of engineering
-  capability lists. Dependency: 031 → 032.
+- **032** (2026-08-21) — a running-count badge on the Downloads icon. Blocked by design: the
+  downloads module that would produce the jobs to count does not exist yet. Depends on 031.
+
+## Polish + hardening — the post-S05 backlog
+
+The UI-polish batch from continued hands-on use plus the three guardrails the repo claims to have
+and does not: this is not a feature milestone, it is the pass that makes the chrome speak to users
+and the security/verification claims true.
+
+`docs/sprints/S06` **planned (2026-08-21)** — cut from the backlog that accumulated during and
+after S04/S05, seven stories in two clusters. What the user sees: 031 rename Install→Downloads and
+relocate it to the right-hand utility group, 030 titlebar/wordmark scale-up, 033 planned-module
+screens (Mods/Assets) in plain language instead of architecture capability lists, 029 the Controls
+drop-row message as a "With message" checkbox + inline row mirroring "With ammo". What the user has
+to trust: 035 the CSP applies in the shipped build (today `onHeadersReceived` never fires for the
+production `file://` load, so the policy is live in dev only), 036 `handle()` requires a zod payload
+schema so validation cannot be forgotten on a new channel, 037 `ui:verify` reaches the write-preview
+and import dialogs and its full run is actually green (also closes 027's last experiential check).
+Deliberately excluded: 032, the downloads module itself, and the config-module gaps below.
 
 #### Gaps/notes (from S05)
 
@@ -137,14 +149,14 @@ findings" batch action) and the relocated mod-copies cleanup (025).
   folding in if it ever causes a real report.
 - `npm run ui:verify`'s automated screen registry does not cover the write-preview dialog or the
   import preview (024's `ConfigCodeView` swap-in there is only manually acceptance-tested, see
-  `docs/sprints/S05/testplan.md`) — pre-existing harness scope, not a S05 regression, but a gap if
+  `docs/sprints/done/S05/testplan.md`) — pre-existing harness scope, not a S05 regression, but a gap if
   the harness is ever trusted as the sole gate.
 - 025's main-side `removeShadowedBind` handler trusts the renderer analyzer's "loser" claim rather
   than re-deriving the render-order winner itself — unreachable today because main re-validates
   every operation before applying, flagged for hardening if that invariant ever changes.
 - The sync section's `pending` state (installation currently running) has no path through the UI
   in a test environment without a real, launchable Quake II install — covered only by
-  `sync.test.ts`, named as a gap in `docs/sprints/S05/testplan.md` rather than faked with a
+  `sync.test.ts`, named as a gap in `docs/sprints/done/S05/testplan.md` rather than faked with a
   console workaround.
 
 #### Gaps/notes (from S03)
@@ -263,10 +275,12 @@ machine, and each is a one-line fix in a data table:
 
 **Hardening:**
 
-- Serve the production renderer from a privileged `app://` scheme instead of
-  `file://` (Electron security checklist item 18).
-- Make the zod schema a **required** parameter of the typed `handle()` wrapper, so
-  validation cannot be forgotten on a new channel.
+- ~~Serve the production renderer from a privileged `app://` scheme instead of
+  `file://`~~ (Electron security checklist item 18) — **filed as story 035**, in `docs/sprints/S06`.
+  Verified while filing: the CSP has no effect in production, it is not merely unproven.
+- ~~Make the zod schema a **required** parameter of the typed `handle()` wrapper~~ — **filed as
+  story 036**, in `docs/sprints/S06`. 60 `handle()` call sites across `src/main/ipc/` and
+  `src/main/modules/` validate by discipline today.
 - Auto-update via `electron-updater`, and a decision on code signing — unsigned
   builds give users a SmartScreen warning.
 
@@ -284,9 +298,11 @@ machine, and each is a one-line fix in a data table:
   gotcha it had to handle: this repo is often developed from inside an Electron host that
   exports `ELECTRON_RUN_AS_NODE=1`; inherited, it makes `electron.exe` run as plain Node and the
   main process dies on its first `require('electron')`. The harness deletes the variable from
-  the child environment before launching. **New follow-up filed from using it:** the harness
-  currently starts the app 56 times per full run and each window steals focus — see story 027
-  (`docs/requirements/027-quiet-ui-verification.md`), not yet sprinted.
+  the child environment before launching. **Follow-ups from using it:** story 027 (56 app
+  starts per full run, every window stealing focus) is **done bar one human check** — see the
+  ad-hoc section above; that check is an acceptance criterion of story 037 in `docs/sprints/S06`,
+  which also puts the write-preview and import dialogs into the screen registry and takes the full
+  run to zero critical/serious axe violations.
 
 **UX:**
 
