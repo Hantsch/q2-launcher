@@ -40,30 +40,25 @@
  * `ControlsTab.tsx`/`LayersPanel.tsx` already use for a fresh action/layer id.
  */
 
-import type { ActionCategoryId, DroppableDef } from '@shared/config/action-catalog'
-import { DROPPABLES, MOVEMENT_ACTIONS, WEAPON_ACTIONS, WEAPON_EXTRA_ACTIONS } from '@shared/config/action-catalog'
+import { commandsForRow, type CatalogRow } from '@shared/config/catalog-rows'
 import type { ModifierTrigger } from '@shared/config/modifier-layers'
 import type { ConfigAction, ConfigCommand } from '@shared/modules/config'
 
-/** Which catalogue family a row was built from - used only to namespace `catalogId`s so two
- * different families' entries (e.g. movement's `attack` and a droppable named `attack`) can
- * never collide. */
-export type CatalogRowKind = 'movement' | 'weaponUse' | 'weaponExtra' | 'dropWeapon' | 'dropAmmo' | 'dropMisc'
-
-export interface CatalogRow {
-  /** Stable id used to find/create the matching `ConfigAction` - never the row's label. */
-  catalogId: string
-  categoryId: ActionCategoryId
-  /** Raw engine command(s) this row represents when nothing extra is chosen, e.g. `['+forward']`
-   * or `['drop rocket launcher']`. Does not include the ammo command - see `ammoCommand`. */
-  commands: string[]
-  /** Present only when the row has a distinct ammo-drop command (a droppable with a matching
-   * `ammo` item). Absent for rows with no ammo type at all (decision 8). */
-  ammoCommand?: string
-  /** Mirrors `Action.continuous` for movement rows - a `+command` press/release pair that must
-   * never share a key with another command. */
-  continuous?: boolean
-}
+/**
+ * Story 034: the row model itself (`CatalogRow`, the three builders, the
+ * `catalogId` format) moved to `@shared/config/catalog-rows` - main's bind
+ * adoption has to mint the identical `catalogId` for a raw bind it recognises,
+ * and two implementations of that id format would drift. Re-exported here so
+ * this module stays the one place the rest of the renderer imports the row
+ * model from, exactly as before.
+ */
+export {
+  buildDropGroups,
+  buildMovementRows,
+  buildWeaponRows,
+  type CatalogRow,
+  type CatalogRowKind,
+} from '@shared/config/catalog-rows'
 
 export interface RowState {
   primary?: string
@@ -79,67 +74,6 @@ export interface RowState {
   withAmmo: boolean
   /** '' when no `say_team` message command exists. */
   message: string
-}
-
-function makeCatalogId(kind: CatalogRowKind, id: string): string {
-  return `${kind}:${id}`
-}
-
-// ---------------------------------------------------------------------------
-// Row builders
-// ---------------------------------------------------------------------------
-
-/** One row per `MOVEMENT_ACTIONS` entry - no ammo choice, no message (decision: movement-only). */
-export function buildMovementRows(): CatalogRow[] {
-  return MOVEMENT_ACTIONS.map((action) => ({
-    catalogId: makeCatalogId('movement', action.id),
-    categoryId: 'movement',
-    commands: [action.command],
-    continuous: action.continuous,
-  }))
-}
-
-/**
- * Two independent groups (decision 10): the 11 `use <weapon>` rows (incl.
- * Blaster) and the 3 weapon-cycling rows. Neither group has an ammo choice or
- * a message.
- */
-export function buildWeaponRows(): { useRows: CatalogRow[]; extraRows: CatalogRow[] } {
-  return {
-    useRows: WEAPON_ACTIONS.map((action) => ({
-      catalogId: makeCatalogId('weaponUse', action.id),
-      categoryId: 'weapons',
-      commands: [action.command],
-    })),
-    extraRows: WEAPON_EXTRA_ACTIONS.map((action) => ({
-      catalogId: makeCatalogId('weaponExtra', action.id),
-      categoryId: 'weapons',
-      commands: [action.command],
-    })),
-  }
-}
-
-function dropRow(kind: CatalogRowKind, droppable: DroppableDef): CatalogRow {
-  return {
-    catalogId: makeCatalogId(kind, droppable.id),
-    categoryId: 'drops',
-    commands: [`drop ${droppable.item}`],
-    ammoCommand: droppable.ammo ? `drop ${droppable.ammo}` : undefined,
-  }
-}
-
-/**
- * Three groups from `DROPPABLES` (decision 11's Blaster exclusion falls out
- * for free: `DROPPABLES` already excludes it). `weapon`/`ammo` are their own
- * `kind`; `misc` folds `powerup` and `tech` together, matching the story's
- * "Misc (everything else droppable: powerups, tech)".
- */
-export function buildDropGroups(): { weapon: CatalogRow[]; ammo: CatalogRow[]; misc: CatalogRow[] } {
-  return {
-    weapon: DROPPABLES.filter((d) => d.kind === 'weapon').map((d) => dropRow('dropWeapon', d)),
-    ammo: DROPPABLES.filter((d) => d.kind === 'ammo').map((d) => dropRow('dropAmmo', d)),
-    misc: DROPPABLES.filter((d) => d.kind === 'powerup' || d.kind === 'tech').map((d) => dropRow('dropMisc', d)),
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -191,15 +125,6 @@ export function deriveRowState(action: ConfigAction | undefined, row: CatalogRow
 // Mutations - lazy create, pure update, prune
 // ---------------------------------------------------------------------------
 
-/** A row's raw commands as `ConfigCommand`s, with the ammo command appended when applicable -
- * the shared piece of "what should this action's `commands` look like right now" that
- * `applySlot`'s lazy-create path and `applyAmmo`'s rebuild both need. */
-function commandsFor(row: CatalogRow, withAmmo: boolean): ConfigCommand[] {
-  const commands: ConfigCommand[] = row.commands.map((text) => ({ kind: 'raw', text }))
-  if (row.ammoCommand && withAmmo) commands.push({ kind: 'raw', text: row.ammoCommand })
-  return commands
-}
-
 /** Plain, non-translated, stable text for a freshly materialised action's `name` - the row's own
  * raw command (see the module docstring for why not the i18n label). */
 function nameForRow(row: CatalogRow): string {
@@ -217,7 +142,7 @@ function freshAction(row: CatalogRow): ConfigAction {
     // binding by definition, and neither a chat message nor an alias definition.
     kind: 'bind',
     catalogId: row.catalogId,
-    commands: commandsFor(row, true),
+    commands: commandsForRow(row, true),
   }
 }
 
@@ -362,7 +287,7 @@ export function applyAmmo(actions: ConfigAction[], row: CatalogRow, withAmmo: bo
   const index = actions.findIndex((action) => action.catalogId === row.catalogId)
   const base = index >= 0 ? actions[index]! : freshAction(row)
   const message = lastMessageCommand(base.commands)
-  const commands = commandsFor(row, withAmmo)
+  const commands = commandsForRow(row, withAmmo)
   if (message) commands.push(message)
   const updated: ConfigAction = { ...base, commands }
 

@@ -383,7 +383,7 @@ describe('configProfileSchema - entry kind derived on read (story 019)', () => {
       actions: [staleAliasAction],
       // Neither value is this alias's own stale synthetic name - a hand-typed base bind and a
       // different action's own mirrored bind, both of which happen to reuse the same key slots.
-      binds: { r: 'weapnext' },
+      binds: { r: 'kill' },
       layers: [
         {
           id: 'l1',
@@ -396,7 +396,7 @@ describe('configProfileSchema - entry kind derived on read (story 019)', () => {
     })
 
     expect(result.actions[0]!.kind).toBe('alias')
-    expect(result.binds).toEqual({ r: 'weapnext' })
+    expect(result.binds).toEqual({ r: 'kill' })
     expect(result.layers[0]!.overrides).toEqual({ f: 'q2l_a_other_bbbb' })
   })
 })

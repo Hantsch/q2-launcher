@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
-import { mergeProfileUpdate } from './useProfileDraft'
+import { mergeProfileUpdate, type LocallyPatchedField } from './useProfileDraft'
 
 function profile(overrides: Partial<ConfigProfile> = {}): ConfigProfile {
   return {
@@ -31,7 +31,7 @@ describe('mergeProfileUpdate', () => {
     expect(mergeProfileUpdate(profile(), null)).toBeNull()
   })
 
-  it('carries an external same-id update through for fields nothing ever patches locally', () => {
+  it('carries an external same-id update through when no local edit is in flight', () => {
     // Regression test for the review finding: LayersPanel, OverviewKeyboardPanel and
     // ProfileAssignmentsPanel/RenameProfileDialog save immediately and call `onChanged`
     // without ever calling `patch()`, so their fields must always come from the fresh
@@ -44,7 +44,7 @@ describe('mergeProfileUpdate', () => {
       layers: [{ id: 'l1', name: 'Zoom', mode: 'toggle', triggerKey: 'v', overrides: {} }],
     })
 
-    const merged = mergeProfileUpdate(prev, fresh)
+    const merged = mergeProfileUpdate(prev, fresh, new Set<LocallyPatchedField>())
 
     expect(merged?.name).toBe('New name')
     expect(merged?.assignments).toEqual(fresh.assignments)
@@ -68,11 +68,35 @@ describe('mergeProfileUpdate', () => {
       name: 'New name', // an unrelated external field genuinely did change
     })
 
-    const merged = mergeProfileUpdate(prev, fresh)
+    const merged = mergeProfileUpdate(prev, fresh, new Set<LocallyPatchedField>(['cvars', 'categories', 'actions']))
 
     expect(merged?.cvars).toEqual({ sensitivity: '7' })
     expect(merged?.categories).toEqual(prev.categories)
     expect(merged?.actions).toEqual(prev.actions)
     expect(merged?.name).toBe('New name')
+  })
+
+  it('takes an externally changed actions array when nothing local is in flight (story 034)', () => {
+    // Main adopts a raw catalogue bind into an action on every write, so `actions` genuinely
+    // changes from outside this draft now - freezing it unconditionally would keep the Controls
+    // grid showing "empty" for a key the Overview keyboard has just bound.
+    const prev = profile({ actions: [] })
+    const fresh = profile({
+      actions: [
+        {
+          id: 'a1',
+          categoryId: 'movement',
+          name: '+forward',
+          kind: 'bind',
+          catalogId: 'movement:forward',
+          commands: [{ kind: 'raw', text: '+forward' }],
+          key: 'w',
+        },
+      ],
+    })
+
+    const merged = mergeProfileUpdate(prev, fresh, new Set<LocallyPatchedField>())
+
+    expect(merged?.actions).toEqual(fresh.actions)
   })
 })

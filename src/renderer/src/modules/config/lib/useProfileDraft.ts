@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ConfigProfile } from '@shared/modules/config'
 
 /**
@@ -11,38 +11,55 @@ import type { ConfigProfile } from '@shared/modules/config'
  */
 const LOCALLY_PATCHED_FIELDS = ['cvars', 'categories', 'actions'] as const
 
+export type LocallyPatchedField = (typeof LOCALLY_PATCHED_FIELDS)[number]
+
+/** Deep value equality for the three locally-patched fields - plain JSON data (maps and arrays of
+ * plain objects), so a stringify comparison is exact rather than approximate. Order-sensitive on
+ * purpose: `setActions` round-trips the array in the order it was sent (story 019 D3), so a
+ * reordering *is* a difference. */
+function sameValue(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+}
+
 /**
  * The draft `useProfileDraft` should hold once a new `profile` reference
- * arrives, given the previous draft. Exported and pure so the reseed/merge
- * decision - the exact thing a review caught wrong on the first pass (a
- * whole-profile draft that only reseeds on `profile.id` change silently goes
- * stale for every edit made outside `SettingsTab`/`ControlsTab`) - is
- * unit-testable without rendering a component.
+ * arrives, given the previous draft and which locally-patched fields still have
+ * an edit in flight.
+ *
+ * Exported and pure so the reseed/merge decision - the exact thing a review
+ * caught wrong on the first pass (a whole-profile draft that only reseeds on
+ * `profile.id` change silently goes stale for every edit made outside
+ * `SettingsTab`/`ControlsTab`) - is unit-testable without rendering a component.
  *
  * - No previous draft, or a different `id` (a profile switch): the fresh
  *   `profile` wins outright, same reseed timing the removed per-tab local
  *   states used.
- * - Same `id`, a new `profile` reference (an external save landing -
- *   `ProfileAssignmentsPanel`, `LayersPanel`, `OverviewKeyboardPanel`'s
- *   `KeyBindDialog`, `RenameProfileDialog`, ... none of which ever call
- *   `patch()`): every field is taken from the fresh `profile` EXCEPT
- *   `LOCALLY_PATCHED_FIELDS`, which stay whatever the previous draft had.
- *   Those three fields are only ever written by `patch()` ahead of a
- *   debounced save that will itself land here as the same values once it
- *   resolves - taking them from `profile` too would risk clobbering a
- *   keystroke that arrived while that save was still in flight, the exact
- *   race the pre-story-009 `SettingsTab`/`ControlsTab` code avoided by never
- *   reseeding except on remount.
+ * - Same `id`, a new `profile` reference: every field is taken from the fresh
+ *   `profile` EXCEPT the ones listed in `dirty`, which stay whatever the
+ *   previous draft had - those are edits `patch()` applied ahead of a debounced
+ *   save that has not landed yet, and taking them from `profile` would clobber a
+ *   keystroke, the exact race the pre-story-009 per-tab local states avoided by
+ *   never reseeding.
+ *
+ * Story 034 is what made `dirty` a parameter instead of "always these three
+ * fields": `actions` is no longer written by `ControlsTab` alone. Main adopts a
+ * raw catalogue bind into an action on every write (`bind-adoption.ts`), so a
+ * bind saved from the Overview keyboard now legitimately *changes* `actions`
+ * from outside this draft - and freezing the field unconditionally would keep
+ * the Controls grid showing "empty" for a key the keyboard has just bound,
+ * which is the very discrepancy that story removes.
  */
 export function mergeProfileUpdate(
   prev: ConfigProfile | null,
   profile: ConfigProfile | null,
+  dirty: ReadonlySet<LocallyPatchedField> = new Set(LOCALLY_PATCHED_FIELDS),
 ): ConfigProfile | null {
   if (!profile) return null
   if (!prev || prev.id !== profile.id) return profile
 
   const merged: ConfigProfile = { ...profile }
   for (const field of LOCALLY_PATCHED_FIELDS) {
+    if (!dirty.has(field)) continue
     ;(merged as unknown as Record<string, unknown>)[field] = prev[field]
   }
   return merged
@@ -88,15 +105,48 @@ export interface UseProfileDraftResult {
  */
 export function useProfileDraft(profile: ConfigProfile | null): UseProfileDraftResult {
   const [draft, setDraft] = useState<ConfigProfile | null>(profile)
+  /**
+   * The draft as the callbacks below see it, so `patch()` can read-then-write
+   * synchronously (two edits in one tick both see the newer value) and the
+   * reconcile effect can compare the incoming profile against it without
+   * running a side effect inside a `setState` updater.
+   */
+  const draftRef = useRef<ConfigProfile | null>(profile)
+  /**
+   * Which locally-patched fields have an edit that has not come back from main
+   * yet. Set by `patch()`, cleared as soon as an incoming profile carries the
+   * same value (i.e. that save landed) - see `mergeProfileUpdate`'s doc comment
+   * for why this is tracked at all rather than freezing the three fields
+   * unconditionally.
+   */
+  const dirtyRef = useRef<Set<LocallyPatchedField>>(new Set())
 
   useEffect(() => {
-    setDraft((prev) => mergeProfileUpdate(prev, profile))
+    const prev = draftRef.current
+    if (!profile || !prev || prev.id !== profile.id) {
+      dirtyRef.current = new Set()
+    } else {
+      for (const field of [...dirtyRef.current]) {
+        if (sameValue(prev[field], profile[field])) dirtyRef.current.delete(field)
+      }
+    }
+    const merged = mergeProfileUpdate(prev, profile, dirtyRef.current)
+    draftRef.current = merged
+    setDraft(merged)
   }, [profile])
 
   const patch = (
     partial: Partial<ConfigProfile> | ((prev: ConfigProfile) => Partial<ConfigProfile>),
   ): void => {
-    setDraft((prev) => (prev ? { ...prev, ...(typeof partial === 'function' ? partial(prev) : partial) } : prev))
+    const prev = draftRef.current
+    if (!prev) return
+    const delta = typeof partial === 'function' ? partial(prev) : partial
+    for (const field of LOCALLY_PATCHED_FIELDS) {
+      if (field in delta) dirtyRef.current.add(field)
+    }
+    const next = { ...prev, ...delta }
+    draftRef.current = next
+    setDraft(next)
   }
 
   return { draft, patch }

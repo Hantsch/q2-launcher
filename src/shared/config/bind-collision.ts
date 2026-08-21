@@ -18,10 +18,10 @@
  *
  * `setActions` (`src/main/modules/config/profiles.ts`) mirrors every action's
  * `key`/`secondaryKey` onto `profile.binds[normalizeBindKey(key)] =
- * aliasNameFor(action)`. That mirror means an action's own current key always
+ * bindValueFor(action)`. That mirror means an action's own current key always
  * shows up in `profile.binds` too — without accounting for that, re-capturing
  * a slot to the key it already holds would collide with itself. The `ignore`
- * parameter and the `aliasNameFor` comparison below exist solely to make that
+ * parameter and the `bindValueFor` comparison below exist solely to make that
  * self-reassignment a no-op instead of a false positive.
  *
  * Pure by contract: this file lives in `src/shared`, so no `node:*`, no DOM,
@@ -29,7 +29,7 @@
  */
 
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
-import { aliasNameFor } from '@shared/config/alias-render'
+import { bindValueFor } from '@shared/config/action-mirror'
 import { normalizeBindKey } from '@shared/config/key-names'
 
 /** Which of an action's two bindable slots a key was found in, or is being captured for. */
@@ -155,7 +155,7 @@ export function findBindCollision(
   for (const [rawKey, command] of Object.entries(profile.binds)) {
     if (!command) continue
     if (normalizeBindKey(rawKey) !== normalizedKey) continue
-    const isOwnMirror = ignoredAction !== undefined && command === aliasNameFor(ignoredAction)
+    const isOwnMirror = ignoredAction !== undefined && command === bindValueFor(ignoredAction)
     if (!isOwnMirror) {
       return { kind: 'baseBind', key: normalizedKey, command }
     }
@@ -219,7 +219,7 @@ export function releaseKey(
 
   const mirroredCommand = released ? commandForNormalizedKey(binds, collision.key) : undefined
   const nextBinds =
-    released && mirroredCommand === aliasNameFor(released)
+    released && mirroredCommand === bindValueFor(released)
       ? withoutNormalizedKey(binds, collision.key)
       : binds
 

@@ -1,4 +1,4 @@
-import { ACTION_ALIAS_PREFIX, aliasNameFor } from '@shared/config/alias-render'
+import { bindValueFor, isMirroredValue } from '@shared/config/action-mirror'
 import type { AltLayer } from '@shared/config/alt-layers'
 import { normalizeBindKey } from '@shared/config/key-names'
 import type { ModifierTrigger } from '@shared/config/modifier-layers'
@@ -77,9 +77,9 @@ class ClaimTracker {
  * `key`/`secondaryKey`.
  *
  * `setActions` (main) mirrors every action's key onto `profile.binds[normalizeBindKey(key)] =
- * aliasNameFor(action)` (see `bind-collision.ts`'s file doc comment) - so an action's own current
+ * bindValueFor(action)` (see `bind-collision.ts`'s file doc comment) - so an action's own current
  * key always shows up in `profile.binds` too, and counting both would report an action as
- * conflicting with its own mirror. That mirror entry is recognised by value (`aliasNameFor` of an
+ * conflicting with its own mirror. That mirror entry is recognised by value (`bindValueFor` of an
  * action already claiming this exact same normalized key) and skipped, exactly the reasoning
  * `findBindCollision`'s `isOwnMirror` check applies to a single candidate.
  */
@@ -93,7 +93,7 @@ function findBaseConflicts(profile: ConfigProfile): BindConflict[] {
     tracker.add(rawKey, action.name)
     const normalizedKey = normalizeBindKey(rawKey)
     const mirrors = ownMirrorsByKey.get(normalizedKey) ?? new Set<string>()
-    mirrors.add(aliasNameFor(action))
+    mirrors.add(bindValueFor(action))
     ownMirrorsByKey.set(normalizedKey, mirrors)
   }
 
@@ -136,10 +136,11 @@ function modifierForLayer(layer: AltLayer): ModifierTrigger | undefined {
  *   raced to claim the same `(modifier, key)` the mirror already resolved to "last one wins" and
  *   the conflict would be invisible if this scan only looked at the persisted map (the same
  *   reasoning `findModifierSlotCollision`'s doc comment gives for reading `actions` directly).
- * - This layer's own hand-made `overrides` entries - anything whose value does *not* start with
- *   `ACTION_ALIAS_PREFIX`. A mirrored entry is skipped here: it is the *result* of exactly one of
- *   the action claims above (never a second, independent claim), so counting it too would inflate
- *   every modifier-bound action into a conflict with its own mirror.
+ * - This layer's own hand-made `overrides` entries - anything no mirror pass wrote
+ *   (`isMirroredValue`, story 034: an alias token for most rows, the row's own `+command` for a
+ *   continuous catalogue row). A mirrored entry is skipped here: it is the *result* of exactly one
+ *   of the action claims above (never a second, independent claim), so counting it too would
+ *   inflate every modifier-bound action into a conflict with its own mirror.
  */
 function findLayerConflicts(actions: ConfigAction[], layer: AltLayer): BindConflict[] {
   const modifier = modifierForLayer(layer)
@@ -154,7 +155,7 @@ function findLayerConflicts(actions: ConfigAction[], layer: AltLayer): BindConfl
   }
 
   for (const [rawKey, command] of Object.entries(layer.overrides)) {
-    if (!command || command.startsWith(ACTION_ALIAS_PREFIX)) continue
+    if (!command || isMirroredValue(command, actions)) continue
     tracker.add(rawKey, command)
   }
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { bindValueFor } from '@shared/config/action-mirror'
 import type { AltLayer } from '@shared/config/alt-layers'
 import type { BindCollision } from '@shared/config/bind-collision'
 import { MODIFIER_LAYER_NAME } from '@shared/config/modifier-layers'
@@ -75,7 +76,7 @@ describe('findSlotCollision', () => {
     () => {
       const owner = catalogAction(forward, { key: 'f' })
       const found = findSlotCollision(
-        profile({ actions: [owner], binds: { f: 'q2l_a_forward_0000' } }),
+        profile({ actions: [owner], binds: { f: bindValueFor(owner) } }),
         'f',
       )
 
@@ -199,11 +200,12 @@ describe('findModifierSlotCollision', () => {
   })
 
   it('does not report a mirrored override belonging to another (non-ignored) action a second time', () => {
-    // The mirror always writes an ACTION_ALIAS_PREFIX value for a modifier-carrying slot - the
+    // The mirror writes `bindValueFor(action)` for a modifier-carrying slot (story 034: an alias
+    // token for most rows, the row's own `+command` for a continuous catalogue row) - the
     // action-array check above already reports it, so this must not also fall through to the
     // hand-made-override branch.
     const owner = catalogAction(forward, { key: 'r', keyModifier: 'ALT' })
-    const layers = [altLayer({ overrides: { r: 'q2l_a_forward_0000' } })]
+    const layers = [altLayer({ overrides: { r: bindValueFor(owner) } })]
 
     const found = findModifierSlotCollision([owner], layers, 'ALT', 'r')
 
@@ -212,7 +214,7 @@ describe('findModifierSlotCollision', () => {
 
   it("does not report re-capturing the same row's own current (modifier, key)", () => {
     const owner = catalogAction(forward, { key: 'r', keyModifier: 'ALT' })
-    const layers = [altLayer({ overrides: { r: 'q2l_a_forward_0000' } })]
+    const layers = [altLayer({ overrides: { r: bindValueFor(owner) } })]
 
     expect(findModifierSlotCollision([owner], layers, 'ALT', 'r', owner.id)).toBeNull()
   })

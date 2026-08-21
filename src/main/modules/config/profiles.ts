@@ -14,9 +14,9 @@ import {
   type UnassignProfileInput,
   type UnrecognizedConfigLine,
 } from '@shared/modules/config'
-import { normalizeBindKey } from '@shared/config/key-names'
 import type { StateStore } from '../../services/state'
-import { ACTION_ALIAS_PREFIX, aliasNameFor } from '@shared/config/alias-render'
+import { applyActionBindMirror } from '@shared/config/action-mirror'
+import { adoptRawBinds } from '@shared/config/bind-adoption'
 import { applyActionLayerMirror } from '@shared/config/modifier-layers'
 import {
   assign as assignProfile,
@@ -188,7 +188,7 @@ export class ProfilesStore {
 
     const next: ConfigProfile = {
       ...current,
-      layers: applyActionLayerMirror(input.layers, current.actions ?? [], randomUUID),
+      layers: applyActionLayerMirror(input.layers, current.actions ?? [], randomUUID, current.actions ?? []),
       updatedAt: new Date().toISOString(),
     }
     return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
@@ -253,37 +253,17 @@ export class ProfilesStore {
     const current = this.find(input.profileId)
     if (!current) throw new Error(`config profile not found: ${input.profileId}`)
 
-    const nextBinds: Record<string, string> = {}
-    for (const [key, command] of Object.entries(current.binds)) {
-      if (!command.startsWith(ACTION_ALIAS_PREFIX)) nextBinds[key] = command
-    }
-    for (const action of input.actions) {
-      // An alias entry is a definition other bindings call, never something a
-      // key runs (story 019) - so it contributes no bind, whatever key data the
-      // row happens to still carry. Combined with the unconditional strip pass
-      // above, that is also what removes the stale `q2l_a_*` bind of a row that
-      // used to be a bind and has just become an alias.
-      if (action.kind === 'alias') continue
-
-      // A slot with a modifier belongs to that modifier's layer, not to `binds`
-      // (story 016 decision 17) - each slot is judged by its own modifier field.
-      const keys = [
-        action.keyModifier ? undefined : action.key,
-        action.secondaryKeyModifier ? undefined : action.secondaryKey,
-      ]
-        .map((slot) => slot?.trim())
-        .filter((slot): slot is string => Boolean(slot))
-      if (keys.length === 0) continue
-      const alias = aliasNameFor(action)
-      for (const key of keys) nextBinds[normalizeBindKey(key)] = alias
-    }
-
+    // Story 034: the two mirrors, both now living in `src/shared` next to
+    // `bindValueFor` - the one function that answers what value a mirror writes
+    // for an action (see `action-mirror.ts`). The rule itself is unchanged from
+    // decision 17; what moved is where it is implemented, so main's write path
+    // and the adoption pass in `commit` cannot disagree about it.
     const next: ConfigProfile = {
       ...current,
       categories: [...input.categories],
       actions: [...input.actions],
-      binds: nextBinds,
-      layers: applyActionLayerMirror(current.layers ?? [], input.actions, randomUUID),
+      binds: applyActionBindMirror(current.binds, input.actions, current.actions ?? []),
+      layers: applyActionLayerMirror(current.layers ?? [], input.actions, randomUUID, current.actions ?? []),
       updatedAt: new Date().toISOString(),
     }
     return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
@@ -293,7 +273,37 @@ export class ProfilesStore {
     return this.commit(reconcileAssignments(this.list(), knownInstallationIds))
   }
 
+  /**
+   * The single write funnel - and, since story 034, the place the
+   * "`actions` is the only authority for a catalogue bind" invariant is
+   * enforced rather than merely intended.
+   *
+   * Every profile about to be persisted goes through `adoptRawBinds`
+   * (`@shared/config/bind-adoption`): a raw `bind w "+forward"` - hand-bound on
+   * the Overview keyboard, seeded from `STANDARD_TEMPLATE`, or read out of an
+   * imported `config.cfg` - becomes the Movement row's own `ConfigAction`, so
+   * the keyboard and the Controls grid can no longer show two different answers
+   * for one key. Same reasoning `setLayers` gives for re-deriving the layer
+   * mirror on both write paths: an invariant of the persisted state beats an
+   * invariant of one code path.
+   *
+   * Idempotent, so running it on every commit (including the ones that only
+   * touch assignments) costs a pass over the binds map and changes nothing when
+   * there is nothing to adopt. `updatedAt` is deliberately not bumped: adoption
+   * is a re-encoding of what the profile already said, not a user edit.
+   */
   private commit(profiles: ConfigProfile[]): ConfigProfile[] {
-    return this.state.setConfigProfiles(profiles)
+    return this.state.setConfigProfiles(profiles.map((profile) => adoptProfileBinds(profile)))
   }
+}
+
+/**
+ * `adoptRawBinds` applied to a whole profile, keeping the profile's own
+ * reference when there was nothing to adopt (the common case) so a commit that
+ * changes nothing else really does hand `state.ts` the same objects back.
+ */
+export function adoptProfileBinds(profile: ConfigProfile): ConfigProfile {
+  const result = adoptRawBinds(profile, randomUUID)
+  if (result.adopted === 0) return profile
+  return { ...profile, binds: result.binds, layers: result.layers, actions: result.actions }
 }

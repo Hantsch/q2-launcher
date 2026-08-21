@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aliasNameFor } from '@shared/config/alias-render'
+import { bindValueFor } from '@shared/config/action-mirror'
 import type { AltLayer } from '@shared/config/alt-layers'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import { findBindConflicts, findSlotConflictOwner, indexBindConflicts } from './bind-conflicts'
@@ -56,7 +56,7 @@ describe('findBindConflicts', () => {
     const result = findBindConflicts(
       profile({
         actions: [forwardAction, jumpAction],
-        binds: { f: aliasNameFor(forwardAction), space: aliasNameFor(jumpAction) },
+        binds: { f: bindValueFor(forwardAction), space: bindValueFor(jumpAction) },
       }),
     )
     expect(result).toEqual([])
@@ -74,7 +74,7 @@ describe('findBindConflicts', () => {
   it("does not double-count an action's own key against its profile.binds mirror", () => {
     const forwardAction = catalogAction(forward, { key: 'f' })
     const result = findBindConflicts(
-      profile({ actions: [forwardAction], binds: { f: aliasNameFor(forwardAction) } }),
+      profile({ actions: [forwardAction], binds: { f: bindValueFor(forwardAction) } }),
     )
     expect(result).toEqual([])
   })
@@ -116,7 +116,7 @@ describe('findBindConflicts', () => {
   it('reports two actions both claiming the same (modifier, key) inside that layer', () => {
     const first = catalogAction(forward, { key: 'r', keyModifier: 'ALT' })
     const second = catalogAction(jump, { key: 'r', keyModifier: 'ALT' })
-    const layer = altLayer({ id: 'alt-9', overrides: { r: aliasNameFor(second) } })
+    const layer = altLayer({ id: 'alt-9', overrides: { r: bindValueFor(second) } })
     const result = findBindConflicts(profile({ actions: [first, second], layers: [layer] }))
 
     expect(result).toEqual([{ key: 'r', scope: { layerId: 'alt-9' }, owners: [first.name, second.name] }])
@@ -134,7 +134,7 @@ describe('findBindConflicts', () => {
 
   it("does not conflict an action's modifier slot with its own mirrored override", () => {
     const action = catalogAction(forward, { key: 'r', keyModifier: 'ALT' })
-    const layer = altLayer({ id: 'alt-9', overrides: { r: aliasNameFor(action) } })
+    const layer = altLayer({ id: 'alt-9', overrides: { r: bindValueFor(action) } })
     expect(findBindConflicts(profile({ actions: [action], layers: [layer] }))).toEqual([])
   })
 
@@ -143,7 +143,7 @@ describe('findBindConflicts', () => {
     const baseOwnerB = catalogAction(jump, { key: 'r' })
     const modifierOwnerA = catalogAction(forward, { id: 'mod-a', name: 'Mod A', key: 'r', keyModifier: 'ALT' })
     const modifierOwnerB = catalogAction(jump, { id: 'mod-b', name: 'Mod B', key: 'r', keyModifier: 'ALT' })
-    const layer = altLayer({ id: 'alt-9', overrides: { r: aliasNameFor(modifierOwnerB) } })
+    const layer = altLayer({ id: 'alt-9', overrides: { r: bindValueFor(modifierOwnerB) } })
 
     const result = findBindConflicts(
       profile({ actions: [baseOwnerA, baseOwnerB, modifierOwnerA, modifierOwnerB], layers: [layer] }),
@@ -162,8 +162,8 @@ describe('findBindConflicts', () => {
     const altAction = catalogAction(forward, { key: 'r', keyModifier: 'ALT' })
     const ctrlAction = catalogAction(jump, { key: 'r', keyModifier: 'CTRL' })
     const layers: AltLayer[] = [
-      altLayer({ id: 'alt-1', triggerKey: 'ALT', overrides: { r: aliasNameFor(altAction) } }),
-      altLayer({ id: 'ctrl-1', name: 'Ctrl', triggerKey: 'CTRL', overrides: { r: aliasNameFor(ctrlAction) } }),
+      altLayer({ id: 'alt-1', triggerKey: 'ALT', overrides: { r: bindValueFor(altAction) } }),
+      altLayer({ id: 'ctrl-1', name: 'Ctrl', triggerKey: 'CTRL', overrides: { r: bindValueFor(ctrlAction) } }),
     ]
     expect(findBindConflicts(profile({ actions: [altAction, ctrlAction], layers }))).toEqual([])
   })

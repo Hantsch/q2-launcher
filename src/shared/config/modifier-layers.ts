@@ -37,6 +37,7 @@
 
 import type { AltLayer, AltLayerMode } from '@shared/config/alt-layers'
 import { ACTION_ALIAS_PREFIX, aliasNameFor } from '@shared/config/alias-render'
+import { bindValueFor } from '@shared/config/action-mirror'
 import { normalizeBindKey } from '@shared/config/key-names'
 import type { ConfigAction } from '@shared/modules/config'
 
@@ -122,17 +123,42 @@ export function applyActionLayerMirror(
   layers: AltLayer[],
   actions: ConfigAction[],
   newId: () => string,
+  previousActions: readonly ConfigAction[] = actions,
 ): AltLayer[] {
+  // Story 034: a continuous catalogue row is mirrored as its own `+command`
+  // rather than as an alias (`bindValueFor`, `action-mirror.ts`), so the strip
+  // pass can no longer recognise everything it wrote by the alias prefix alone.
+  // The second half of the rule is value-based and scoped to the key the
+  // previous action actually held - a user's own hand-made `+forward` override
+  // on an unrelated key is not ours to remove, while a slot that was just
+  // cleared in the Controls grid really does have to lose its override.
+  const staleByKey = new Map<string, Set<string>>()
+  for (const previous of previousActions) {
+    for (const slot of [
+      { key: previous.key, modifier: previous.keyModifier },
+      { key: previous.secondaryKey, modifier: previous.secondaryKeyModifier },
+    ]) {
+      const key = slot.key?.trim()
+      if (!key || !slot.modifier) continue
+      const normalized = normalizeBindKey(key)
+      const values = staleByKey.get(normalized) ?? new Set<string>()
+      values.add(bindValueFor(previous))
+      staleByKey.set(normalized, values)
+    }
+  }
+  const isStale = (key: string, command: string): boolean =>
+    command.startsWith(ACTION_ALIAS_PREFIX) || Boolean(staleByKey.get(normalizeBindKey(key))?.has(command.trim()))
+
   // --- pass 1: strip every previously-mirrored override -------------------
   let result = layers.map((existingLayer) => {
-    const hasMirroredEntry = Object.values(existingLayer.overrides).some((command) =>
-      command.startsWith(ACTION_ALIAS_PREFIX),
+    const hasMirroredEntry = Object.entries(existingLayer.overrides).some(([key, command]) =>
+      isStale(key, command),
     )
     if (!hasMirroredEntry) return existingLayer
 
     const overrides: Record<string, string> = {}
     for (const [key, command] of Object.entries(existingLayer.overrides)) {
-      if (!command.startsWith(ACTION_ALIAS_PREFIX)) overrides[key] = command
+      if (!isStale(key, command)) overrides[key] = command
     }
     return { ...existingLayer, overrides }
   })
@@ -158,7 +184,10 @@ export function applyActionLayerMirror(
       if (!key || !modifier) continue
 
       const normalizedKey = normalizeBindKey(key)
-      const alias = aliasNameFor(action)
+      // Story 034: `bindValueFor`, not `aliasNameFor` - a continuous catalogue
+      // row has to reach the engine as its own `+command` even inside a layer,
+      // or the release half of the press/release pair is lost.
+      const alias = bindValueFor(action)
 
       const existingIndex = result.findIndex(
         (candidate) => normalizeBindKey(candidate.triggerKey ?? '') === modifier,

@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import type { AltLayer } from '@shared/config/alt-layers'
+import { adoptRawBinds } from '@shared/config/bind-adoption'
 import {
   stripAliasActionBinds,
   stripAliasActionOverrides,
@@ -313,12 +315,28 @@ function normalizeConfigProfile(
   }))
   const aliasActions = actions.filter((action) => action.kind === 'alias')
 
+  // Story 034: a raw catalogue bind becomes that row's own action here, on the
+  // read path, not just on the next write - a `state.json` written before this
+  // story (or one imported from a `config.cfg`, which is the same thing) has to
+  // show up correctly in the Controls grid on the very first render, before the
+  // user touches anything. `ProfilesStore.commit` runs the same pass on every
+  // write, so the invariant holds in both directions; adoption is idempotent,
+  // so running it twice costs a pass and changes nothing.
+  const adopted = adoptRawBinds(
+    {
+      binds: stripAliasActionBinds(parsed.binds, aliasActions),
+      layers: stripAliasActionOverrides(parsed.layers, aliasActions),
+      actions,
+    },
+    randomUUID,
+  )
+
   return {
     ...parsed,
     categories: parsed.categories.map(({ id, name }) => ({ id, name })),
-    actions,
-    binds: stripAliasActionBinds(parsed.binds, aliasActions),
-    layers: stripAliasActionOverrides(parsed.layers, aliasActions),
+    actions: adopted.actions,
+    binds: adopted.binds,
+    layers: adopted.layers,
   }
 }
 

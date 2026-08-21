@@ -32,7 +32,7 @@ import {
   type BindCollision,
   type BindCollisionIgnore,
 } from '@shared/config/bind-collision'
-import { ACTION_ALIAS_PREFIX } from '@shared/config/alias-render'
+import { isMirroredValue } from '@shared/config/action-mirror'
 import { MODIFIER_LAYER_NAME, type ModifierTrigger } from '@shared/config/modifier-layers'
 import { normalizeBindKey } from '@shared/config/key-names'
 import type { AltLayer } from '@shared/config/alt-layers'
@@ -265,11 +265,11 @@ export interface ModifierSlotCollision {
  *
  * Checked in this order: another action's slot first (the common case now that a modifier
  * binding lives on the action itself, D6-D9), then a hand-made override - a value at `key` that
- * `applyActionLayerMirror` never wrote (it does not start with `ACTION_ALIAS_PREFIX`). The row's
- * own current occupancy of `(modifier, key)`, if any, always shows up as case one (an action
- * match), never as case two: `applyActionLayerMirror` mirrors it as an `ACTION_ALIAS_PREFIX`
- * value, and case one already excludes `ignoreActionId` before case two ever runs - so no
- * separate ignore check is needed there.
+ * `applyActionLayerMirror` never wrote (`isMirroredValue`, story 034: recognised by value against
+ * every action, since a continuous catalogue row mirrors as its own `+command` rather than as an
+ * alias token). The row's own current occupancy of `(modifier, key)`, if any, shows up as case one
+ * (an action match) whenever it is not the ignored row itself; for the ignored row the value check
+ * is what keeps its own mirror from being reported as a hand-made override.
  *
  * The action scan (case one) runs regardless of whether `modifier`'s layer object exists yet in
  * `layers` - `actions` is the authority on occupancy since D7's mirror, one save ahead of
@@ -321,7 +321,7 @@ export function findModifierSlotCollision(
   }
 
   const rawOverride = layer?.overrides[normalizedKey]
-  if (rawOverride && !rawOverride.startsWith(ACTION_ALIAS_PREFIX)) {
+  if (rawOverride && !isMirroredValue(rawOverride, actions)) {
     return { modifier, key, layerId, layerName, owner: rawOverride }
   }
 

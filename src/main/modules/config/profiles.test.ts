@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { bindValueFor } from '@shared/config/action-mirror'
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -150,10 +151,13 @@ describe('ProfilesStore', () => {
   it('setBinds replaces rather than merges the binds map', () => {
     const [created] = profiles.create({ name: 'Original', from: 'template' })
 
-    const result = profiles.setBinds({ profileId: created!.id, binds: { x: 'weapnext' } })
+    // `kill` on purpose, not a catalogue command: since story 034 a raw bind whose command *is*
+    // a catalogue row's (`weapnext`, `+forward`, `drop shotgun`) is adopted into that row's action
+    // and rewritten to its mirrored value, which would test adoption rather than replace-semantics.
+    const result = profiles.setBinds({ profileId: created!.id, binds: { x: 'kill' } })
 
     const updated = result.find((p) => p.id === created!.id)!
-    expect(updated.binds).toEqual({ x: 'weapnext' })
+    expect(updated.binds).toEqual({ x: 'kill' })
   })
 
   it('throws when setting binds on an unknown id', () => {
@@ -224,7 +228,9 @@ describe('ProfilesStore', () => {
 
     it('a hand-written bind on a different key survives a setActions call', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      profiles.setBinds({ profileId: created!.id, binds: { w: '+forward' } })
+      // Not a catalogue command (story 034 would adopt one into its row's action - see the
+      // `setBinds` test above), so this stays the hand-typed bind the test is about.
+      profiles.setBinds({ profileId: created!.id, binds: { w: 'kill' } })
 
       const keyed = action({ key: 'f' })
       const result = profiles.setActions({
@@ -234,7 +240,7 @@ describe('ProfilesStore', () => {
       })
 
       const updated = result.find((p) => p.id === created!.id)!
-      expect(updated.binds['w']).toBe('+forward')
+      expect(updated.binds['w']).toBe('kill')
     })
 
     it('produces binds[normalizedKey] === aliasNameFor(action) for a keyed action', () => {
@@ -363,7 +369,10 @@ describe('ProfilesStore', () => {
       const persisted = reloadedProfiles.find(created!.id)!
       expect(persisted.categories).toEqual([category])
       expect(persisted.actions).toEqual([keyed])
-      expect(persisted.binds['f']).toBe(aliasNameFor(keyed))
+      // `bindValueFor`, not `aliasNameFor`: this row is a catalogue row (`catalogId`) whose whole
+      // body is one continuous `+command`, and story 034 binds those directly - an alias would
+      // swallow the engine's `-moveup` on key-up.
+      expect(persisted.binds['f']).toBe(bindValueFor(keyed))
     })
 
     it('throws when setting actions on an unknown profile id', () => {
@@ -565,7 +574,7 @@ describe('ProfilesStore', () => {
 
     it("a hand-typed bind on the modifier slot's own key is neither written nor dropped", () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      profiles.setBinds({ profileId: created!.id, binds: { r: 'weapnext' } })
+      profiles.setBinds({ profileId: created!.id, binds: { r: 'kill' } })
 
       const altBound = action({ key: 'r', keyModifier: 'ALT' })
       const result = profiles.setActions({
@@ -577,7 +586,7 @@ describe('ProfilesStore', () => {
       const updated = result.find((p) => p.id === created!.id)!
       // Binding a row to `Alt+R` must not touch what bare `r` does - that is the
       // whole point of putting it on a modifier.
-      expect(updated.binds).toEqual({ r: 'weapnext' })
+      expect(updated.binds).toEqual({ r: 'kill' })
       expect(modifierLayer(created!.id, 'ALT')[0]!.overrides).toEqual({ r: aliasNameFor(altBound) })
     })
 
@@ -832,7 +841,7 @@ describe('ProfilesStore', () => {
 
     it('drops the stale q2l_a_* bind of a row that has just become an alias, hand-made binds intact', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      profiles.setBinds({ profileId: created!.id, binds: { w: '+forward' } })
+      profiles.setBinds({ profileId: created!.id, binds: { w: 'kill' } })
 
       const wasBound = action({ key: 'r' })
       const first = profiles.setActions({
@@ -841,7 +850,7 @@ describe('ProfilesStore', () => {
         actions: [wasBound],
       })
       expect(first.find((p) => p.id === created!.id)!.binds).toEqual({
-        w: '+forward',
+        w: 'kill',
         r: aliasNameFor(wasBound),
       })
 
@@ -852,7 +861,7 @@ describe('ProfilesStore', () => {
       })
 
       // Otherwise `r` would keep calling an alias this save no longer writes.
-      expect(result.find((p) => p.id === created!.id)!.binds).toEqual({ w: '+forward' })
+      expect(result.find((p) => p.id === created!.id)!.binds).toEqual({ w: 'kill' })
     })
 
     it('drops the stale override of a modifier-bound row that has just become an alias', () => {
@@ -898,6 +907,65 @@ describe('ProfilesStore', () => {
       expect(lines.filter((line) => line.startsWith('bind '))).toEqual([
         `bind f "${aliasNameFor(binding)}"`,
       ])
+    })
+  })
+
+  describe('story 034: raw binds are adopted into catalogue actions', () => {
+    it('adopts a bind saved from the Overview keyboard into its Controls row', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+
+      const result = profiles.setBinds({
+        profileId: created!.id,
+        binds: { w: '+forward', SPACE: '+moveup', MOUSE2: '+moveup', x: 'kill' },
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      const forward = (updated.actions ?? []).find((a) => a.catalogId === 'movement:forward')!
+      const jump = (updated.actions ?? []).find((a) => a.catalogId === 'movement:moveup')!
+
+      expect(forward.key).toBe('w')
+      expect(jump.key).toBe('MOUSE2')
+      expect(jump.secondaryKey).toBe('SPACE')
+      // The binds themselves still say what they said - adoption re-encodes, it does not re-bind.
+      expect(updated.binds).toEqual({ w: '+forward', SPACE: '+moveup', MOUSE2: '+moveup', x: 'kill' })
+    })
+
+    it('adopts a template profile the moment it is created', () => {
+      const [created] = profiles.create({ name: 'From template', from: 'template' })
+
+      expect((created!.actions ?? []).map((a) => a.catalogId)).toContain('movement:forward')
+    })
+
+    it('adopts an ALT-layer override as a modifier-bound row', () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      const result = profiles.setLayers({
+        profileId: created!.id,
+        layers: [
+          { id: 'l1', name: 'Alt', mode: 'hold', triggerKey: 'ALT', overrides: { q: 'drop shotgun; drop shells' } },
+        ],
+      })
+
+      const updated = result.find((p) => p.id === created!.id)!
+      const dropShotgun = (updated.actions ?? []).find((a) => a.catalogId === 'dropWeapon:shotgun')!
+
+      expect(dropShotgun.key).toBe('q')
+      expect(dropShotgun.keyModifier).toBe('ALT')
+      expect(updated.layers![0]!.overrides).toEqual({ q: aliasNameFor(dropShotgun) })
+      expect(updated.binds).toEqual({})
+    })
+
+    it('survives a reload - the adopted action is what the Controls grid reads back', async () => {
+      const [created] = profiles.create({ name: 'Original', from: 'empty' })
+      profiles.setBinds({ profileId: created!.id, binds: { q: 'use railgun' } })
+      await state.settle()
+
+      const reloaded = new StateStore(filePath)
+      await reloaded.load()
+      const persisted = new ProfilesStore(reloaded).find(created!.id)!
+
+      const railgun = (persisted.actions ?? []).find((a) => a.catalogId === 'weaponUse:use_railgun')!
+      expect(railgun.key).toBe('q')
+      expect(persisted.binds['q']).toBe(aliasNameFor(railgun))
     })
   })
 })
