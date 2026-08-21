@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { readdir, readFile, rename, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Installation } from '@shared/types'
 import { pathKey, writeFileAtomic } from '../../lib/fs-utils'
@@ -139,7 +139,7 @@ async function readExisting(filePath: string): Promise<string | null> {
  * file is rewritten - the harmless direction: an unnecessary write, never a
  * skipped backup.
  */
-async function writeTargetFile(filePath: string, content: string): Promise<WriteFileOutcome> {
+export async function writeTargetFile(filePath: string, content: string): Promise<WriteFileOutcome> {
   const existing = await readExisting(filePath)
 
   if (existing !== null) {
@@ -206,5 +206,174 @@ export async function writeInstallationFiles(
     changed: files.some((file) => file.outcome === 'written'),
     files,
     rejectedMods,
+  }
+}
+
+/**
+ * The profile id carried by a file's sentinel line, or null when the file is not
+ * one of ours.
+ *
+ * `sentinelLine()` (`@shared/config/render`) emits exactly
+ * `<OWNERSHIP_MARKER> <profileId> - generated, do not edit`, so the id is the
+ * first whitespace-delimited token after the marker. Two shapes deliberately
+ * return null rather than a guess:
+ *
+ * - the marker prefix is not followed by whitespace (`// q2-launcher profiles`
+ *   is a different word, not our marker plus an id);
+ * - there is no non-empty token after it.
+ *
+ * Anything null means "treat as the user's own file", which is the only safe
+ * direction: the caller's two actions are rename and delete.
+ *
+ * Exported for `canonical.ts`, which needs the exact same "who owns this file"
+ * answer for the canonical directory - one parser for the sentinel, so the two
+ * directories can never disagree about what ownership means.
+ */
+export function ownedProfileId(firstLine: string): string | null {
+  if (!firstLine.startsWith(OWNERSHIP_MARKER)) return null
+  const rest = firstLine.slice(OWNERSHIP_MARKER.length)
+  // `trim()` also drops the `\r` of a CRLF file's first line.
+  if (rest.length > 0 && !/^\s/.test(rest)) return null
+  const id = rest.trim().split(/\s/, 1)[0]
+  return id.length > 0 ? id : null
+}
+
+/**
+ * Brings the launcher-owned `.cfg` files in `<rootPath>/baseq2` in line with
+ * `expected` (profileId -> file name), which the caller has already filtered
+ * down to the profiles that are still relevant for this installation:
+ *
+ * - a file whose sentinel id is in `expected` but whose name differs is renamed
+ *   to the expected name (this is what migrates an old `q2l-profile-<id>.cfg`
+ *   to story 022's `<name>.cfg`);
+ * - a file whose sentinel id is not in `expected` is deleted, because the
+ *   profile is gone or no longer assigned here;
+ * - everything else is left strictly alone.
+ *
+ * Meant to run immediately *before* `writeInstallationFiles`, which then writes
+ * the current content under the expected names.
+ *
+ * This is the one function in the module that renames and deletes files inside
+ * the user's real game folder, so every branch that is not provably ours ends in
+ * "leave it alone":
+ *
+ * - **Only our own files are ever touched.** A file whose first line does not
+ *   parse as our sentinel is the user's hand-written cfg - the very thing the
+ *   backup-once machinery exists to protect - and is never renamed or deleted.
+ * - **Unreadable is not ownership.** A file we could not read (permissions, or a
+ *   race against `readdir`) is skipped exactly like a foreign file. It is never
+ *   the reason to delete something.
+ * - **`autoexec.cfg` is out of scope, always.** The loader starts with the
+ *   marker too, but it is owned by `writeInstallationFiles`' own diff/backup
+ *   path and its sentinel carries the installation's *default* profile id, not
+ *   an id that says anything about this file's name. It is excluded before it is
+ *   even read.
+ * - **No path leaves `baseq2`.** Every path is
+ *   `join(rootPath, BASE_GAME_DIR, <name>)` where `<name>` is either a direct
+ *   child entry name from `readdir` or an expected name that passed
+ *   `isBareFileName`; the sentinel-parsed id never reaches a path at all.
+ */
+export async function reconcileOwnedProfileFiles(
+  installation: Pick<Installation, 'rootPath'>,
+  expected: Map<string, string>,
+): Promise<void> {
+  // Pre-flight, before any I/O: an expected name is caller-supplied and is the
+  // one value here that becomes a rename *target*, so it gets the same bare-name
+  // check `writeInstallationFiles` applies to `profileFileName`, and for the same
+  // reason - anything else is a programming error, and throwing up front means it
+  // cannot have moved a single file first.
+  for (const [profileId, fileName] of expected) {
+    if (!isBareFileName(fileName)) {
+      throw new Error(`invalid profile file name for ${profileId}: ${fileName}`)
+    }
+  }
+
+  const baseDir = join(installation.rootPath, BASE_GAME_DIR)
+
+  let entries
+  try {
+    entries = await readdir(baseDir, { withFileTypes: true })
+  } catch (error) {
+    // No baseq2 yet (a fresh install, or a root that moved): nothing owned can
+    // be in there, so there is nothing to reconcile. Every other error - a
+    // permission problem above all - propagates: silently skipping an
+    // installation that is actually there would leave stale files behind and
+    // hide the reason.
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return
+    throw error
+  }
+
+  for (const entry of entries) {
+    // Plain files only. A directory named `foo.cfg`, and equally a symlink or
+    // junction (which reports as neither file nor directory), is left alone -
+    // renaming or unlinking one is never something this function needs to do.
+    if (!entry.isFile()) continue
+
+    const name = entry.name
+    const lower = name.toLowerCase()
+    // Case-insensitive on purpose, on every platform: for these two exclusions
+    // the case-folding direction is the conservative one, so `AUTOEXEC.CFG` is
+    // out of scope even on a case-sensitive filesystem.
+    if (!lower.endsWith('.cfg')) continue
+    // A `.q2l-backup` file's name ends in that suffix rather than `.cfg`, so the
+    // filter above already excluded it. Stated explicitly so nobody wonders:
+    // backups hold the user's originals and must never be renamed or deleted.
+    if (lower.endsWith(BACKUP_SUFFIX.toLowerCase())) continue
+    if (lower === LOADER_FILE_NAME) continue
+
+    const sourcePath = join(baseDir, name)
+
+    let content: string
+    try {
+      content = await readFile(sourcePath, FILE_ENCODING)
+    } catch {
+      // One unreadable file must not abort reconciling the rest, and must never
+      // be read as "therefore delete it" (same reasoning as cleanup.ts's scan).
+      continue
+    }
+
+    const profileId = ownedProfileId(content.split('\n', 1)[0])
+    if (profileId === null) continue
+
+    const expectedName = expected.get(profileId)
+
+    if (expectedName === undefined) {
+      // Ours, but for a profile that is no longer here. The content is our own
+      // generated output, so there is nothing worth backing up.
+      await unlink(sourcePath)
+      continue
+    }
+
+    const targetPath = join(baseDir, expectedName)
+    // `pathKey` applies the platform's own case rules, so a pure case
+    // difference is a no-op on Windows/macOS and a real rename on Linux.
+    if (pathKey(sourcePath) === pathKey(targetPath)) continue
+
+    // `rename` replaces an existing destination *file* on both Windows and
+    // POSIX unconditionally - fine when the destination is stale output from
+    // an earlier partial migration, but NOT when it is the user's own
+    // hand-written file that happens to share this profile's expected name
+    // (review finding: a wrong ownership check here is exactly what backup-once
+    // exists to protect against, and a rename's destination is no exception to
+    // that rule). Back a foreign destination up first, same as a plain write
+    // would.
+    let destination: string | null = null
+    try {
+      destination = await readFile(targetPath, FILE_ENCODING)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+    if (destination !== null && !destination.startsWith(OWNERSHIP_MARKER)) {
+      await backupOnce(targetPath)
+    }
+
+    try {
+      await rename(sourcePath, targetPath)
+    } catch {
+      // A transient failure (EPERM on Windows while the destination is locked)
+      // must not leave BOTH names behind - the old one would keep being exec'd.
+      // Dropping the source degrades to "the following write recreates it".
+      await unlink(sourcePath)
+    }
   }
 }

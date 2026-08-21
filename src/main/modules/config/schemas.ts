@@ -160,6 +160,10 @@ export const writeProfileInputSchema = z.object({
   profileId: z.string().min(1),
 })
 
+/** Story 022 (D5): `syncState`'s input is shape-identical to `write`'s, same alias convention as
+ * `unassignProfileInputSchema`/`setDefaultProfileInputSchema` above. */
+export const syncStateInputSchema = writeProfileInputSchema
+
 export const previewProfileInputSchema = z.object({
   profileId: z.string().min(1),
   installationId: z.string().min(1),

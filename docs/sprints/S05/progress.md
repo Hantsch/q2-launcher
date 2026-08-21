@@ -1,0 +1,19 @@
+- 2026-08-21 09:49 · 022 · D1 profile file-name resolution · started
+- 2026-08-21 09:56 · 022 · D1 profile file-name resolution · done
+- 2026-08-21 09:56 · 022 · D2 loader/switch-bind/validator take resolved name · started
+- 2026-08-21 10:07 · 022 · D2 loader/switch-bind/validator take resolved name · done
+- 2026-08-21 10:07 · 022 · D3 canonical <name>.cfg writer · started
+- 2026-08-21 10:12 · 022 · D3 canonical <name>.cfg writer · done
+- 2026-08-21 10:12 · 022 · D4 installation reconcile + migration · started
+- 2026-08-21 10:17 · 022 · D4 installation reconcile + migration · done
+- 2026-08-21 10:17 · 022 · D5 contract types, syncState, persisted failures · started
+- 2026-08-21 10:22 · 022 · D5 contract types, syncState, persisted failures · done
+- 2026-08-21 10:22 · 022 · D6 sync engine · started
+- 2026-08-21 10:31 · 022 · D6 sync engine · done
+- 2026-08-21 10:31 · 022 · D7 wire trigger into main · started
+- 2026-08-21 10:48 · 022 · D7 wire trigger into main · done (orchestrator follow-up fix: write handler now uses sync engine so it can clear persisted failures)
+- 2026-08-21 10:48 · 022 · D8 Write targets renders sync state · started
+- 2026-08-21 10:55 · 022 · D8 Write targets renders sync state · done
+- 2026-08-21 10:55 · 022 · story-level verification (build/test/typecheck) · started
+- 2026-08-21 11:03 · 022 · story-level verification (build/test/typecheck + live smoke) · done — found+fixed getProfileSyncState double-wrap bug, discovered pre-existing unrelated config-raw double-wrap bug (out of scope)
+- 2026-08-21 11:03 · 022 · code review (story-review-hard) · started

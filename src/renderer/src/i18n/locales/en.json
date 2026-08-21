@@ -916,12 +916,14 @@
     },
     "writeTargets": {
       "label": "Write targets",
+      "own": "This profile's file",
       "status": {
-        "written": "Written",
-        "unchanged": "Unchanged",
+        "inSync": "In sync",
+        "outOfSync": "Out of sync",
+        "missing": "Missing",
         "pending": "Pending",
         "error": "Error",
-        "writing": "Writing…"
+        "loading": "Checking…"
       },
       "retry": "Retry",
       "preview": "Preview…",

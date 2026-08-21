@@ -1,8 +1,14 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { CONFIG_HANDLERS, type ConfigProfile, type PreviewProfileResult } from '@shared/modules/config'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  CONFIG_HANDLERS,
+  type ConfigProfile,
+  type PreviewProfileResult,
+  type ProfileSyncState,
+  type WriteTargetResult,
+} from '@shared/modules/config'
 import { type Installation, type LaunchState, type Outcome } from '@shared/types'
 import { pathExists } from '../../lib/fs-utils'
 import { scopedLogger } from '../../lib/logger'
@@ -10,6 +16,7 @@ import type { AppContext } from '../../context'
 import { StateStore } from '../../services/state'
 import type { ModuleHandler } from '../types'
 import { scanRedundantCopies } from './cleanup'
+import { renderProfileFile } from './render'
 import {
   applyCleanupIfNotRunning,
   configModule,
@@ -31,10 +38,21 @@ import {
 
 const log = scopedLogger('config-index-test')
 
+/**
+ * Story 022 D7: the mutating handlers now resolve the canonical profile
+ * directory through `lib/paths`' `userDataDir()`, i.e. `app.getPath('userData')`.
+ * Under plain vitest `import('electron')` resolves to a path *string*, so `app`
+ * would be `undefined` and any handler touching it would throw - hence a real
+ * mock, pointed at a per-test temp folder through a hoisted box.
+ */
+const userDataBox = vi.hoisted(() => ({ current: '' }))
+vi.mock('electron', () => ({ app: { getPath: () => userDataBox.current } }))
+
 let dir: string
 
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), 'q2-launcher-config-index-'))
+  userDataBox.current = join(dir, 'userData')
 })
 
 afterEach(async () => {
@@ -102,7 +120,9 @@ describe('writeProfileToAssignedInstallations', () => {
 
     expect(results).toEqual([{ installationId: 'i1', status: 'written' }])
     expect(pendingWrites).toEqual({})
-    const content = await readFile(join(dir, 'baseq2', 'q2l-profile-p1.cfg'), 'latin1')
+    // `Profile.cfg` is the sanitized-name file `resolveProfileFileNames` resolves
+    // for the default fixture's name ('Profile'), not the old id-based name.
+    const content = await readFile(join(dir, 'baseq2', 'Profile.cfg'), 'latin1')
     expect(content).toContain('set sensitivity "3"')
   })
 
@@ -152,14 +172,18 @@ describe('writeProfileToAssignedInstallations', () => {
 
     expect(second.results).toEqual([{ installationId: 'i1', status: 'written' }])
     expect(second.pendingWrites).toEqual({})
-    const content = await readFile(join(dir, 'baseq2', 'q2l-profile-p1.cfg'), 'latin1')
+    const content = await readFile(join(dir, 'baseq2', 'Profile.cfg'), 'latin1')
     expect(content).toContain('set sensitivity "3"')
   })
 
   it("also writes the installation's default profile file when saving a different, non-default profile, so the loader's exec target always exists (F1)", async () => {
     const inst = installation()
+    // Named distinctly from `other` below so the two never collide under
+    // `resolveProfileFileNames` - this test is about F1's default+other
+    // file writing, not about collision handling.
     const defaultProfile = profile({
       id: 'p-default',
+      name: 'Default',
       cvars: { crosshair: '1' },
       assignments: [{ installationId: 'i1', isDefault: true }],
     })
@@ -181,13 +205,13 @@ describe('writeProfileToAssignedInstallations', () => {
 
     expect(results).toEqual([{ installationId: 'i1', status: 'written' }])
     // The saved profile's own file exists...
-    const ownFile = await readFile(join(dir, 'baseq2', 'q2l-profile-p1.cfg'), 'latin1')
+    const ownFile = await readFile(join(dir, 'baseq2', 'Profile.cfg'), 'latin1')
     expect(ownFile).toContain('set sensitivity "5"')
     // ...and so does the default's own file, which is what the loader execs.
-    const defaultFile = await readFile(join(dir, 'baseq2', 'q2l-profile-p-default.cfg'), 'latin1')
+    const defaultFile = await readFile(join(dir, 'baseq2', 'Default.cfg'), 'latin1')
     expect(defaultFile).toContain('set crosshair "1"')
     const loader = await readFile(join(dir, 'baseq2', 'autoexec.cfg'), 'latin1')
-    expect(loader).toContain('exec q2l-profile-p-default.cfg')
+    expect(loader).toContain('exec Default.cfg')
   })
 
   it('reports unchanged, not written, on a repeat save of a non-default profile once both files exist (F1 aggregation)', async () => {
@@ -262,8 +286,8 @@ describe('writeProfileToAssignedInstallations', () => {
     expect(results).toEqual([{ installationId: 'i1', status: 'written' }])
     const loader = await readFile(join(dir, 'baseq2', 'autoexec.cfg'), 'latin1')
     expect(loader).toContain('q2l_switch')
-    expect(loader).toContain('exec q2l-profile-p-duel.cfg')
-    expect(loader).toContain('exec q2l-profile-p-ctf.cfg')
+    expect(loader).toContain('exec Duel.cfg')
+    expect(loader).toContain('exec CTF.cfg')
     expect(loader).toContain('bind F9 q2l_switch')
   })
 
@@ -345,8 +369,12 @@ describe('previewProfileFiles', () => {
   })
 
   it('renders the loader for whichever profile is the installation default, not the profile being previewed', () => {
+    // Named distinctly from `p` below so the two never collide under
+    // `resolveProfileFileNames` - this test is about which profile's file the
+    // loader execs, not about collision handling.
     const other = profile({
       id: 'p-default',
+      name: 'Default',
       cvars: {},
       assignments: [{ installationId: 'i1', isDefault: true }],
     })
@@ -356,12 +384,15 @@ describe('previewProfileFiles', () => {
     const [, , loader] = previewProfileFiles(p, [p, other], inst)
 
     expect(loader!.content).toContain('p-default')
-    expect(loader!.content).not.toContain('exec q2l-profile-p1.cfg')
+    expect(loader!.content).not.toContain('exec Profile.cfg')
   })
 
   it("also includes the default profile's own file when previewing a different, non-default profile (F1)", () => {
+    // Named distinctly from `p` below so the two never collide under
+    // `resolveProfileFileNames`.
     const defaultProfile = profile({
       id: 'p-default',
+      name: 'Default',
       cvars: { crosshair: '1' },
       assignments: [{ installationId: 'i1', isDefault: true }],
     })
@@ -371,8 +402,8 @@ describe('previewProfileFiles', () => {
     const files = previewProfileFiles(p, [defaultProfile, p], inst)
 
     expect(files.map((f) => f.path.split(/[/\\]/).pop())).toEqual([
-      'q2l-profile-p-default.cfg',
-      'q2l-profile-p1.cfg',
+      'Default.cfg',
+      'Profile.cfg',
       'autoexec.cfg',
     ])
     expect(files[0]!.content).toContain('set crosshair "1"')
@@ -398,7 +429,7 @@ describe('previewProfileFiles', () => {
     expect(loader!.content).toContain('bind F9 q2l_switch')
   })
 
-  it('story 007: omits the chain when no switchBindKey is given (today\'s default)', () => {
+  it("story 007: omits the chain when no switchBindKey is given (today's default)", () => {
     const p = profile()
     const inst = installation()
 
@@ -453,7 +484,7 @@ describe('CONFIG_HANDLERS.preview handler', () => {
     expect(before.value.files.length).toBeGreaterThan(0)
     expect(before.value.files.every((file) => file.onDisk === false)).toBe(true)
 
-    const target = before.value.files.find((file) => file.path.endsWith('q2l-profile-p1.cfg'))!
+    const target = before.value.files.find((file) => file.path.endsWith('Profile.cfg'))!
     await mkdir(join(target.path, '..'), { recursive: true })
     await writeFile(target.path, 'irrelevant', 'latin1')
 
@@ -486,6 +517,10 @@ describe('CONFIG_HANDLERS.setActions / list round trip (story 019 D3)', () => {
       emit: () => {},
       app: {
         installations: { find: () => undefined, list: () => [] },
+        // Story 022 D7: `setActions` now triggers a sync run, which reads the
+        // launch state to decide whether a target is running - so this fixture
+        // needs a `launch` even though this test is only about ordering.
+        launch: { getState: () => idleState() },
         state,
       } as unknown as AppContext,
       log,
@@ -533,6 +568,236 @@ describe('CONFIG_HANDLERS.setActions / list round trip (story 019 D3)', () => {
     const listedProfile = listResult.find((p) => p.id === 'p1')!
     expect(listedProfile.actions!.map((a) => a.id)).toEqual(['a3', 'a1', 'a2'])
     expect(listedProfile.actions).toEqual(setProfile.actions)
+  })
+})
+
+/**
+ * Story 022 D7's acceptance line: every mutating handler awaits the sync run
+ * before returning (so the file is already on disk by the time the caller sees
+ * the list), `setup()` retries persisted failures/pending writes once at start,
+ * and `syncState` reports without ever writing.
+ *
+ * Boots `configModule.setup()` with the same duck-typed `app` + real
+ * temp-file-backed `StateStore` pattern as the `preview` handler block above,
+ * plus a `launch` (the sync run reads it) and the `electron` mock at the top of
+ * this file for `userDataDir()`.
+ */
+describe('story 022 D7: on-disk sync wired into the config handlers', () => {
+  async function boot(
+    options: {
+      installations?: Installation[]
+      launchState?: LaunchState
+      /** Runs before `setup()` - for the retry-sweep tests, which need state seeded first. */
+      seed?: (state: StateStore) => void
+    } = {},
+  ): Promise<{ handlers: Map<string, ModuleHandler>; state: StateStore }> {
+    const insts = options.installations ?? []
+    const state = new StateStore(join(dir, 'state.json'))
+    await state.load()
+    options.seed?.(state)
+    const handlers = new Map<string, ModuleHandler>()
+    await configModule.setup({
+      handle: (type, handler) => handlers.set(type, handler),
+      emit: () => {},
+      app: {
+        installations: {
+          find: (id: string) => insts.find((i) => i.id === id),
+          list: () => insts,
+        },
+        launch: { getState: () => options.launchState ?? idleState() },
+        state,
+      } as unknown as AppContext,
+      log,
+    })
+    return { handlers, state }
+  }
+
+  it('create returns the unchanged profile list and the canonical file is already on disk', async () => {
+    const { handlers } = await boot({ installations: [installation()] })
+
+    const list = (await handlers.get(CONFIG_HANDLERS.create)!({
+      name: 'Fresh',
+      from: 'empty',
+    })) as ConfigProfile[]
+
+    // Contract unchanged: still a plain `ConfigProfile[]`.
+    expect(list).toHaveLength(1)
+    const created = list[0]!
+    expect(created.name).toBe('Fresh')
+    // No extra await needed here - the handler awaited the sync itself.
+    expect(await readFile(join(userDataBox.current, 'Fresh.cfg'), 'latin1')).toBe(
+      renderProfileFile(created),
+    )
+  })
+
+  it('creating a profile with no installation at all still produces the canonical file', async () => {
+    const { handlers } = await boot()
+
+    const list = (await handlers.get(CONFIG_HANDLERS.create)!({
+      name: 'Solo',
+      from: 'empty',
+    })) as ConfigProfile[]
+
+    expect(list[0]!.assignments).toEqual([])
+    expect(await readFile(join(userDataBox.current, 'Solo.cfg'), 'latin1')).toBe(
+      renderProfileFile(list[0]!),
+    )
+  })
+
+  it('setCvars returns the unchanged profile list and both copies are already on disk', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot({ installations: [inst] })
+    state.setConfigProfiles([profile()])
+    await state.settle()
+
+    const list = (await handlers.get(CONFIG_HANDLERS.setCvars)!({
+      profileId: 'p1',
+      cvars: { sensitivity: '7' },
+    })) as ConfigProfile[]
+
+    expect(list.map((p) => p.id)).toEqual(['p1'])
+    const updated = list.find((p) => p.id === 'p1')!
+    expect(updated.cvars['sensitivity']).toBe('7')
+    const expected = renderProfileFile(updated)
+    expect(await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')).toBe(expected)
+    // ...and the assigned installation's copy, written by the same run.
+    expect(await readFile(join(dir, 'baseq2', 'Profile.cfg'), 'latin1')).toBe(expected)
+  })
+
+  it('syncState reports inSync for both copies right after a mutation synced them', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot({ installations: [inst] })
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '7' } })
+
+    const result = (await handlers.get(CONFIG_HANDLERS.syncState)!({
+      profileId: 'p1',
+    })) as Outcome<ProfileSyncState>
+
+    if (!result.ok) throw new Error('expected syncState to succeed')
+    expect(result.value.own.status).toBe('inSync')
+    expect(result.value.own.fileName).toBe('Profile.cfg')
+    expect(result.value.installations).toEqual([
+      {
+        installationId: 'i1',
+        path: join(dir, 'baseq2', 'Profile.cfg'),
+        fileName: 'Profile.cfg',
+        status: 'inSync',
+      },
+    ])
+  })
+
+  it('setup() retries a persisted write failure once and clears it on success', async () => {
+    const seeded = profile({ assignments: [] })
+    const { state } = await boot({
+      seed: (s) => {
+        s.setConfigProfiles([seeded])
+        s.setConfigWriteFailures({
+          'p1|own': { messageKey: 'config.error.writeFailed', at: '2026-01-01T00:00:00.000Z' },
+        })
+      },
+    })
+
+    expect(await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')).toBe(
+      renderProfileFile(seeded),
+    )
+    expect(state.configWriteFailures()).toEqual({})
+  })
+
+  it('setup() retries a persisted pending write once and clears it on success', async () => {
+    const inst = installation()
+    const { state } = await boot({
+      installations: [inst],
+      seed: (s) => {
+        s.setConfigProfiles([profile()])
+        s.setConfigPendingWrites({ i1: 'p1' })
+      },
+    })
+
+    expect(await pathExists(join(dir, 'baseq2', 'Profile.cfg'))).toBe(true)
+    expect(state.configPendingWrites()).toEqual({})
+  })
+
+  it('setup() skips stale bookkeeping for a profile that no longer exists, without throwing', async () => {
+    const { state } = await boot({
+      seed: (s) => {
+        s.setConfigProfiles([])
+        s.setConfigWriteFailures({
+          'ghost|own': { messageKey: 'config.error.writeFailed', at: '2026-01-01T00:00:00.000Z' },
+        })
+        s.setConfigPendingWrites({ i1: 'ghost' })
+      },
+    })
+
+    // Resolved without throwing (getting here is the assertion) and the
+    // dangling entries are simply left alone - cleaning them up is not D7's job.
+    expect(state.configWriteFailures()['ghost|own']).toBeDefined()
+    expect(await pathExists(userDataBox.current)).toBe(false)
+  })
+
+  it('syncState fails with profileNotFound for an unknown id', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+
+    const result = await handlers.get(CONFIG_HANDLERS.syncState)!({ profileId: 'nope' })
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.profileNotFound' } })
+  })
+
+  it('syncState is read-only: reports missing and creates nothing', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    const canonical = join(userDataBox.current, 'Profile.cfg')
+    expect(await pathExists(canonical)).toBe(false)
+
+    const result = (await handlers.get(CONFIG_HANDLERS.syncState)!({
+      profileId: 'p1',
+    })) as Outcome<ProfileSyncState>
+
+    if (!result.ok) throw new Error('expected syncState to succeed')
+    expect(result.value.own.status).toBe('missing')
+    expect(result.value.installations).toEqual([])
+    // The regression this guards: someone rebuilding `syncState` on
+    // `syncProfile`, which writes.
+    expect(await pathExists(canonical)).toBe(false)
+  })
+
+  it('write retries through the new sync engine and clears a persisted failure on success', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot({
+      installations: [inst],
+      seed: (s) => {
+        s.setConfigProfiles([profile()])
+        // Simulates a previous mutation's sync run having failed to write this
+        // installation's copy (e.g. a locked directory that has since been
+        // fixed) - before story 022 D7's write-handler fix, `write` never
+        // touched `configWriteFailures` at all, so this entry would have
+        // survived a successful retry forever and `syncState` would have kept
+        // reporting `error` regardless of what was actually on disk.
+        s.setConfigWriteFailures({
+          'p1|i1': { messageKey: 'config.error.writeFailed', at: '2026-01-01T00:00:00.000Z' },
+        })
+      },
+    })
+
+    const result = (await handlers.get(CONFIG_HANDLERS.write)!({
+      profileId: 'p1',
+    })) as Outcome<WriteTargetResult[]>
+
+    if (!result.ok) throw new Error('expected write to succeed')
+    expect(result.value).toEqual([{ installationId: 'i1', status: 'written' }])
+    expect(state.configWriteFailures()).toEqual({})
+
+    const synced = (await handlers.get(CONFIG_HANDLERS.syncState)!({
+      profileId: 'p1',
+    })) as Outcome<ProfileSyncState>
+    if (!synced.ok) throw new Error('expected syncState to succeed')
+    expect(synced.value.installations).toEqual([
+      { installationId: 'i1', path: join(dir, 'baseq2', 'Profile.cfg'), fileName: 'Profile.cfg', status: 'inSync' },
+    ])
   })
 })
 

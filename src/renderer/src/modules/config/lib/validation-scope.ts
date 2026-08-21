@@ -33,7 +33,8 @@ import { summarize } from '@shared/config/validation'
 import { validateStructure, type StructureFile } from '@shared/config/validate-structure'
 import { validateCvars } from '@shared/config/validate-cvars'
 import { validateActions } from '@shared/config/validate-actions'
-import { profileFileName, renderLoaderFile, renderProfileFile } from '@shared/config/render'
+import { renderLoaderFile, renderProfileFile } from '@shared/config/render'
+import { resolveProfileFileNames } from '@shared/config/profile-files'
 import { engineScope, type EngineScopeStatus } from './engine-scope'
 
 /** One engine's independent validation run — never merged with another engine's. */
@@ -56,13 +57,16 @@ export interface ProfileValidation {
 
 /** The exact two files `render.ts` would put on disk for `profile`, D3's own `StructureFile` shape. */
 function renderedFiles(profile: ConfigProfile): StructureFile[] {
+  // This function only ever validates one profile at a time (it has no access to the full
+  // profile list), so a single-element list can never collide with itself and this lookup is safe.
+  const fileName = resolveProfileFileNames([profile]).get(profile.id)!
   return [
-    { name: profileFileName(profile.id), content: renderProfileFile(profile) },
+    { name: fileName, content: renderProfileFile(profile) },
     // The loader carries no switch-bind chain here: that chain is per-installation (story 007),
     // and this function validates the profile once per *engine*, not once per installation. A
     // missing chain can only ever make the loader file smaller than what actually ships, never
     // larger, so it never hides a real over-budget finding.
-    { name: 'autoexec.cfg', content: renderLoaderFile(profile) },
+    { name: 'autoexec.cfg', content: renderLoaderFile(profile, fileName) },
   ]
 }
 

@@ -16,6 +16,7 @@ import {
   type ImportScanResult,
   type PreviewProfileInput,
   type PreviewProfileResult,
+  type ProfileSyncState,
   type RemoveConfigProfileInput,
   type RenameConfigProfileInput,
   type SetDefaultProfileInput,
@@ -25,6 +26,7 @@ import {
   type SetProfileCvarsInput,
   type SetProfileLayersInput,
   type SetSwitchBindInput,
+  type SyncProfileStateInput,
   type UnassignProfileInput,
   type WriteProfileInput,
   type WriteState,
@@ -139,6 +141,27 @@ export function previewConfigProfile(
 /** Installations currently waiting for a retry, keyed by installation id. */
 export function getWriteState(): Promise<Outcome<WriteState>> {
   return callModule<WriteState>('config', CONFIG_HANDLERS.writeState)
+}
+
+/**
+ * Read-only: the profile's canonical file plus one entry per assigned installation, with live
+ * status. Never writes.
+ *
+ * `syncState`'s main-process handler returns an `Outcome<ProfileSyncState>` itself, and
+ * `MainModuleRegistry.invoke` (`src/main/modules/registry.ts`) wraps every handler's return value
+ * in its own `Outcome` unconditionally - so the raw `callModule` response here is
+ * `Outcome<Outcome<ProfileSyncState>>`. Same flattening as `assignConfigProfile`/`unassignConfigProfile`/
+ * `setDefaultConfigProfile` above, needed for the same reason.
+ */
+export async function getProfileSyncState(
+  input: SyncProfileStateInput,
+): Promise<Outcome<ProfileSyncState>> {
+  const result = await callModule<Outcome<ProfileSyncState>>(
+    'config',
+    CONFIG_HANDLERS.syncState,
+    input,
+  )
+  return result.ok ? result.value : result
 }
 
 /** Sets which mods an installation is considered to have been played with. */

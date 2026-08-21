@@ -1,7 +1,7 @@
 ---
 sprint: S05
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S05
 milestone: Config module — profile-as-a-file (docs/systems/config-module.md)
 ---
 
@@ -19,7 +19,7 @@ targets and a "Preserved lines" side tab.
 
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
-- [ ] 022 — A profile is a real `<name>.cfg` that exists before any assignment
+- [x] 022 — A profile is a real `<name>.cfg` that exists before any assignment
 - [ ] 023 — Raw File absorbs Write targets — see and open the profile's file anywhere
 - [ ] 024 — Read the config in the launcher with Quake 2 syntax highlighting
 - [ ] 025 — Validation becomes Care — report, tidy-up actions and sync state in one place

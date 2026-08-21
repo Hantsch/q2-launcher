@@ -1,5 +1,4 @@
 import { sanitizeCommand } from '@shared/config/alt-layers'
-import { profileFileName } from './render'
 
 /**
  * In-session profile switch — the pure alias-chain generator.
@@ -12,8 +11,8 @@ import { profileFileName } from './render'
  * a 2-way pair to an n-way ring — N *step* aliases plus one *indirection*
  * alias that every step rewrites to point at its successor:
  *
- *   alias q2l_sw1 "exec q2l-profile-<id1>.cfg; echo Profile: <name1>; bind F9 q2l_switch; alias q2l_switch q2l_sw2"
- *   alias q2l_sw2 "exec q2l-profile-<id2>.cfg; echo Profile: <name2>; bind F9 q2l_switch; alias q2l_switch q2l_sw1"
+ *   alias q2l_sw1 "exec <file1>; echo Profile: <name1>; bind F9 q2l_switch; alias q2l_switch q2l_sw2"
+ *   alias q2l_sw2 "exec <file2>; echo Profile: <name2>; bind F9 q2l_switch; alias q2l_switch q2l_sw1"
  *   alias q2l_switch q2l_sw2
  *   bind F9 q2l_switch
  *
@@ -43,10 +42,16 @@ import { profileFileName } from './render'
  * pressed (story 007 decision 13).
  */
 
-/** The profile fields the chain needs. A `ConfigProfile` satisfies this. */
+/**
+ * The profile fields the chain needs. `fileName` is the profile's resolved
+ * on-disk file name (story 022, `@shared/config/profile-files`'s
+ * `resolveProfileFileNames`) - this module knows nothing about profile
+ * lists or name collisions, so the caller resolves it and passes it in.
+ */
 export interface SwitchBindProfile {
   id: string
   name: string
+  fileName: string
 }
 
 export interface SwitchBindChainInput {
@@ -147,9 +152,11 @@ export function sanitizeEchoName(name: string, fallbackId: string): string {
  * - no usable key — a `bind` with no key name would print the current binding
  *   instead of setting one, so "no key configured" means "no chain".
  *
- * Line length is not checked: every part is bounded (a `q2l-profile-<uuid>.cfg`
- * name, a 40-character echo name, one key name, the fixed alias tokens), which
- * puts a step alias at roughly 200 bytes — a fifth of `MAX_LINE_BYTES`. Nothing
+ * Line length is not checked: every part is bounded (a resolved profile file
+ * name, capped at 48 characters plus a `.cfg`/collision-suffix tail - see
+ * `profile-files.ts` - a 40-character echo name, one key name, the fixed alias
+ * tokens), which puts a step alias at roughly 200 bytes — a fifth of
+ * `MAX_LINE_BYTES`. Nothing
  * here scales with the number of profiles the way `alt-layers.ts`'s bodies
  * scale with the number of overrides, so no chunking is needed. A test pins the
  * actual byte length so a future addition to a step body cannot quietly change
@@ -176,7 +183,7 @@ export function renderSwitchBindChainLines(input: SwitchBindChainInput): string[
     // what closes the ring.
     const successor = stepAliasName(((index + 1) % profiles.length) + 1)
     const body = [
-      `exec ${profileFileName(profile.id)}`,
+      `exec ${profile.fileName}`,
       `echo Profile: ${sanitizeEchoName(profile.name, profile.id)}`,
       // Re-applied every step: the file just execed may have rebound this key.
       `bind ${key} ${SWITCH_ALIAS}`,

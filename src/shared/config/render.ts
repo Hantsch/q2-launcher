@@ -130,19 +130,29 @@ export function renderProfileFile(profile: ConfigProfile): string {
  * necessarily the profile whose own cvars file was just (re)written -
  * callers pass whatever profile object is currently the default.
  *
+ * `fileName` is the profile's resolved on-disk file name (story 022,
+ * `@shared/config/profile-files`'s `resolveProfileFileNames`) - the caller
+ * resolves it across the whole profile list and passes it in here, since this
+ * function only ever sees one profile and cannot detect a name collision with
+ * another.
+ *
  * `switchBind` is story 007's optional in-session profile switch chain
  * (`./switch-bind`): when given, its rendered chain is appended after the
  * `exec` line, since the loader `autoexec.cfg` is the one file every
  * profile's own `exec` cannot clobber (story 007 decision 4). Called with no
- * second argument, or with an input `renderSwitchBindChain` reduces to `''`
+ * third argument, or with an input `renderSwitchBindChain` reduces to `''`
  * for (fewer than 2 profiles, or no usable key - see its own doc comment),
  * this renders byte-identical to the plain sentinel+exec loader. The chain
  * text itself carries no trailing newline, so it slots in as one more line
  * before the loader's own final `\n`.
  */
-export function renderLoaderFile(profile: ConfigProfile, switchBind?: SwitchBindChainInput): string {
+export function renderLoaderFile(
+  profile: ConfigProfile,
+  fileName: string,
+  switchBind?: SwitchBindChainInput,
+): string {
   const chain = switchBind ? renderSwitchBindChain(switchBind) : ''
-  const lines = [sentinelLine(profile.id), `exec ${profileFileName(profile.id)}`]
+  const lines = [sentinelLine(profile.id), `exec ${fileName}`]
   if (chain) lines.push(chain)
   return `${lines.join('\n')}\n`
 }

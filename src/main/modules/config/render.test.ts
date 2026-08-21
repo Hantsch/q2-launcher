@@ -277,10 +277,8 @@ describe('renderLoaderFile', () => {
   it('renders the sentinel line followed by the exec line', () => {
     const p = profile({ id: 'abc123' })
 
-    expect(renderLoaderFile(p)).toBe(
-      ['// q2-launcher profile abc123 - generated, do not edit', 'exec q2l-profile-abc123.cfg', ''].join(
-        '\n',
-      ),
+    expect(renderLoaderFile(p, 'My-Config.cfg')).toBe(
+      ['// q2-launcher profile abc123 - generated, do not edit', 'exec My-Config.cfg', ''].join('\n'),
     )
   })
 
@@ -290,18 +288,18 @@ describe('renderLoaderFile', () => {
       key: 'F9',
       defaultProfileId: 'abc123',
       profiles: [
-        { id: 'abc123', name: 'Main' },
-        { id: 'def456', name: 'Alt' },
+        { id: 'abc123', name: 'Main', fileName: 'Main.cfg' },
+        { id: 'def456', name: 'Alt', fileName: 'Alt.cfg' },
       ],
     }
 
-    const rendered = renderLoaderFile(p, switchBind)
+    const rendered = renderLoaderFile(p, 'Main.cfg', switchBind)
     const lines = rendered.split('\n')
     const chainLines = renderSwitchBindChain(switchBind).split('\n')
 
     expect(lines).toEqual([
       '// q2-launcher profile abc123 - generated, do not edit',
-      'exec q2l-profile-abc123.cfg',
+      'exec Main.cfg',
       ...chainLines,
       '',
     ])
@@ -313,10 +311,10 @@ describe('renderLoaderFile', () => {
       key: 'F9',
       defaultProfileId: 'abc123',
       // Fewer than 2 profiles - renderSwitchBindChain returns '' for this.
-      profiles: [{ id: 'abc123', name: 'Main' }],
+      profiles: [{ id: 'abc123', name: 'Main', fileName: 'Main.cfg' }],
     }
 
-    expect(renderLoaderFile(p, switchBind)).toBe(renderLoaderFile(p))
+    expect(renderLoaderFile(p, 'Main.cfg', switchBind)).toBe(renderLoaderFile(p, 'Main.cfg'))
   })
 
   it('round-trips latin1 byte-for-byte with a high-ASCII profile name in the chain', () => {
@@ -325,12 +323,12 @@ describe('renderLoaderFile', () => {
       key: 'F9',
       defaultProfileId: 'abc123',
       profiles: [
-        { id: 'abc123', name: 'Bjørn' },
-        { id: 'def456', name: 'Alt' },
+        { id: 'abc123', name: 'Bjørn', fileName: 'Bjorn.cfg' },
+        { id: 'def456', name: 'Alt', fileName: 'Alt.cfg' },
       ],
     }
 
-    const rendered = renderLoaderFile(p, switchBind)
+    const rendered = renderLoaderFile(p, 'Bjorn.cfg', switchBind)
     const roundTripped = Buffer.from(rendered, 'latin1').toString('latin1')
 
     expect(roundTripped).toBe(rendered)

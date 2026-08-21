@@ -368,6 +368,38 @@ export function parseConfigSwitchBinds(raw: unknown): Record<string, string> {
   return configSwitchBindsSchema.parse(raw)
 }
 
+/**
+ * `<profileId>|<installationId|'own'>` -> the last failed/deferred write attempt for that target
+ * (story 022, D5 - persisted only; nothing yet constructs or interprets the composite key). Files
+ * written before this key existed simply lack it and load as `{}`.
+ *
+ * Unlike `configPendingWritesSchema`/`configSwitchBindsSchema` above, where a single malformed
+ * value has no sensible per-entry fallback and simply wipes the whole map via the outer `.catch()`,
+ * a malformed failure entry is dropped on its own via a preprocess filter instead - the "row-level
+ * drop" precedent `parseForgivingRows` uses for `categories`/`actions`, applied to a record instead
+ * of an array. `configPlayedModsSchema`'s per-entry `.catch(() => [])` is not the right model here:
+ * that has a meaningful fallback value (an installation with unreadable played-mods data behaves
+ * like one with none), but there is no meaningful fallback for one corrupt failure entry other than
+ * "it isn't there" - so it is filtered out before the record schema ever sees it, rather than
+ * defaulted to a placeholder.
+ */
+const configWriteFailureEntrySchema = z.object({ messageKey: z.string(), at: z.string() })
+
+export const configWriteFailuresSchema = z
+  .preprocess((raw) => {
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return raw
+    return Object.fromEntries(
+      Object.entries(raw as Record<string, unknown>).filter(
+        ([, value]) => configWriteFailureEntrySchema.safeParse(value).success,
+      ),
+    )
+  }, z.record(z.string(), configWriteFailureEntrySchema))
+  .catch(() => ({}))
+
+export function parseConfigWriteFailures(raw: unknown): Record<string, { messageKey: string; at: string }> {
+  return configWriteFailuresSchema.parse(raw)
+}
+
 const settingsObjectSchema = z.object({
   locale: z.enum(['system', 'en']).catch(DEFAULT_SETTINGS.locale),
   motion: z.enum(['system', 'reduced', 'full']).catch(DEFAULT_SETTINGS.motion),

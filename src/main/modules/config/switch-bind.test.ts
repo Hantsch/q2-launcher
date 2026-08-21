@@ -9,8 +9,15 @@ import {
 } from './switch-bind'
 import type { SwitchBindProfile } from './switch-bind'
 
-function profile(id: string, name = id.toUpperCase()): SwitchBindProfile {
-  return { id, name }
+// `fileName` defaults to the same shape the old id-based `profileFileName()`
+// produced - realistic-length (comparable to a resolved profile file name),
+// not a placeholder, so the byte-budget tests further down keep meaning it.
+function profile(
+  id: string,
+  name = id.toUpperCase(),
+  fileName = `q2l-profile-${id}.cfg`,
+): SwitchBindProfile {
+  return { id, name, fileName }
 }
 
 /** Alias names actually emitted by a chain, in write order. */

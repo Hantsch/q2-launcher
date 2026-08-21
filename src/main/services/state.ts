@@ -7,6 +7,7 @@ import {
   parseConfigPlayedMods,
   parseConfigProfiles,
   parseConfigSwitchBinds,
+  parseConfigWriteFailures,
   parseInstallations,
   parseSettings,
 } from '../lib/schemas'
@@ -45,6 +46,14 @@ export interface LauncherStateDocument {
    * lack it and load as `{}`.
    */
   configSwitchBinds: Record<string, string>
+  /**
+   * `<profileId>|<installationId|'own'>` -> the last failed/deferred write attempt for that
+   * target (story 022, D5 - persisted only; the sync engine, a later deliverable, is what
+   * constructs and interprets the key). Central per-profile data the config module owns, next to
+   * but not part of `ConfigProfile` - same reasoning as `configPlayedMods` above. Files written
+   * before this key existed simply lack it and load as `{}`.
+   */
+  configWriteFailures: Record<string, { messageKey: string; at: string }>
 }
 
 function defaults(): LauncherStateDocument {
@@ -56,6 +65,7 @@ function defaults(): LauncherStateDocument {
     configPlayedMods: {},
     configPendingWrites: {},
     configSwitchBinds: {},
+    configWriteFailures: {},
   }
 }
 
@@ -82,6 +92,7 @@ export class StateStore {
           configPlayedMods: parseConfigPlayedMods(doc['configPlayedMods']),
           configPendingWrites: parseConfigPendingWrites(doc['configPendingWrites']),
           configSwitchBinds: parseConfigSwitchBinds(doc['configSwitchBinds']),
+          configWriteFailures: parseConfigWriteFailures(doc['configWriteFailures']),
         }
       },
     })
@@ -120,6 +131,10 @@ export class StateStore {
     return this.store.get().configSwitchBinds
   }
 
+  configWriteFailures(): Record<string, { messageKey: string; at: string }> {
+    return this.store.get().configWriteFailures
+  }
+
   patchSettings(patch: Partial<LauncherSettings>): LauncherSettings {
     return this.store.update((current) => ({
       ...current,
@@ -146,6 +161,13 @@ export class StateStore {
 
   setConfigSwitchBinds(configSwitchBinds: Record<string, string>): Record<string, string> {
     return this.store.update((current) => ({ ...current, configSwitchBinds })).configSwitchBinds
+  }
+
+  setConfigWriteFailures(
+    configWriteFailures: Record<string, { messageKey: string; at: string }>,
+  ): Record<string, { messageKey: string; at: string }> {
+    return this.store.update((current) => ({ ...current, configWriteFailures }))
+      .configWriteFailures
   }
 
   /** Waits for pending writes; called on quit. */

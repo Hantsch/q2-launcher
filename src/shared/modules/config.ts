@@ -24,6 +24,7 @@ export const CONFIG_HANDLERS = {
   write: 'write',
   preview: 'preview',
   writeState: 'writeState',
+  syncState: 'syncState',
   setPlayedMods: 'setPlayedMods',
   switchBinds: 'switchBinds',
   setSwitchBind: 'setSwitchBind',
@@ -355,6 +356,35 @@ export interface SetSwitchBindInput {
  * installationId; an installation absent from this map has nothing pending.
  */
 export type WriteState = Record<string, string>
+
+/** Per-file sync status the write pipeline can report (story 022, D5 - data contract only). */
+export type ProfileFileSyncStatus = 'inSync' | 'outOfSync' | 'missing' | 'pending' | 'error'
+
+/** One file's sync status: the canonical copy, or one installation's copy. */
+export interface ProfileFileSync {
+  /** Absolute path of the file this status describes. */
+  path: string
+  /** File name only (matches `resolveProfileFileNames`' output for this profile). */
+  fileName: string
+  status: ProfileFileSyncStatus
+  /** Set when status is 'error', or to explain 'pending'. i18n key, never prose. */
+  messageKey?: string
+}
+
+/** One assigned installation's copy, same shape as `ProfileFileSync` plus which installation. */
+export interface ProfileInstallationSync extends ProfileFileSync {
+  installationId: string
+}
+
+/** `syncState`'s result: the profile's own canonical file, plus one entry per assigned installation. */
+export interface ProfileSyncState {
+  own: ProfileFileSync
+  installations: ProfileInstallationSync[]
+}
+
+export interface SyncProfileStateInput {
+  profileId: string
+}
 
 // ---------------------------------------------------------------------------
 // Import (story 005): read an existing hand-written config into a new profile.

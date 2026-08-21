@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { actionTextSchema, setProfileActionsInputSchema, setSwitchBindInputSchema } from './schemas'
+import { configWriteFailuresSchema, parseConfigWriteFailures } from '../../lib/schemas'
+import {
+  actionTextSchema,
+  setProfileActionsInputSchema,
+  setSwitchBindInputSchema,
+  syncStateInputSchema,
+} from './schemas'
 
 /**
  * Story 007's IPC payload schema for `setSwitchBind`. `configModule`'s handler
@@ -177,5 +183,73 @@ describe('setProfileActionsInputSchema', () => {
     const payload = { ...validPayload, categories: [{ id: 'c1', name: 'My Category' }] }
     const parsed = setProfileActionsInputSchema.parse(payload)
     expect(parsed.categories[0]).toEqual({ id: 'c1', name: 'My Category' })
+  })
+})
+
+/**
+ * Story 022 (D5): `syncState`'s IPC input schema, shape-identical to `write`'s
+ * (`writeProfileInputSchema`) - same alias convention this file already uses
+ * for `unassignProfileInputSchema`/`setDefaultProfileInputSchema`.
+ */
+describe('syncStateInputSchema', () => {
+  it('accepts a well-formed profileId', () => {
+    expect(syncStateInputSchema.safeParse({ profileId: 'p1' }).success).toBe(true)
+  })
+
+  it('rejects a missing profileId', () => {
+    expect(syncStateInputSchema.safeParse({}).success).toBe(false)
+  })
+
+  it('rejects an empty profileId', () => {
+    expect(syncStateInputSchema.safeParse({ profileId: '' }).success).toBe(false)
+  })
+})
+
+/**
+ * Story 022 (D5): the persisted map of write failures survived across a restart -
+ * `<profileId>|<installationId|'own'>` -> the last failed/deferred write attempt. No engine logic
+ * yet, just the round-trip and the forgiving-on-bad-data behavior described in
+ * `main/lib/schemas.ts`'s doc comment on `configWriteFailuresSchema`.
+ */
+describe('configWriteFailuresSchema / parseConfigWriteFailures', () => {
+  it('round-trips a well-formed map unchanged', () => {
+    const value = {
+      'p1|own': { messageKey: 'config.sync.error.locked', at: '2026-08-21T00:00:00.000Z' },
+      'p1|i1': { messageKey: 'config.sync.error.permission', at: '2026-08-20T12:00:00.000Z' },
+    }
+    expect(parseConfigWriteFailures(value)).toEqual(value)
+  })
+
+  it('parses undefined/missing input to {}', () => {
+    expect(parseConfigWriteFailures(undefined)).toEqual({})
+  })
+
+  it('parses a totally malformed value (a string) to {}', () => {
+    expect(parseConfigWriteFailures('not a map')).toEqual({})
+  })
+
+  it('parses a totally malformed value (an array) to {}', () => {
+    expect(parseConfigWriteFailures(['p1|own'])).toEqual({})
+  })
+
+  /**
+   * Decision: a single malformed entry is dropped on its own rather than wiping the whole map -
+   * there is no sensible fallback value for one corrupt failure entry (unlike, say,
+   * `configPlayedModsSchema`'s per-entry `.catch(() => [])`), so it is filtered out before the
+   * record schema ever sees it instead of being defaulted to a placeholder.
+   */
+  it('drops a single malformed entry, keeping the rest of an otherwise-valid map', () => {
+    const value = {
+      'p1|own': { messageKey: 'config.sync.error.locked', at: '2026-08-21T00:00:00.000Z' },
+      'p1|i1': { messageKey: 42, at: '2026-08-20T12:00:00.000Z' },
+      'p1|i2': 'not an object',
+    }
+    expect(parseConfigWriteFailures(value)).toEqual({
+      'p1|own': { messageKey: 'config.sync.error.locked', at: '2026-08-21T00:00:00.000Z' },
+    })
+  })
+
+  it('exposes the same behavior via configWriteFailuresSchema directly', () => {
+    expect(configWriteFailuresSchema.parse(null)).toEqual({})
   })
 })

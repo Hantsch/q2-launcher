@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   CONFIG_HANDLERS,
@@ -10,19 +11,27 @@ import {
   type ImportScanResult,
   type PreviewFile,
   type PreviewProfileResult,
+  type ProfileFileSyncStatus,
+  type ProfileInstallationSync,
+  type ProfileSyncState,
   type WriteState,
   type WriteTargetResult,
 } from '@shared/modules/config'
 import type { Installation, LaunchState } from '@shared/types'
 import { reconcileAssignments } from './assignments'
+import { resolveProfileFileNames } from '@shared/config/profile-files'
 import { fail, ok, type Outcome } from '@shared/types'
+import type { AppContext } from '../../context'
 import { isFile } from '../../lib/fs-utils'
 import type { Logger } from '../../lib/logger'
+import { userDataDir } from '../../lib/paths'
 import type { MainModule } from '../types'
+import { removeCanonicalProfileFile } from './canonical'
+import { syncProfile } from './sync'
 import { removeRedundantCopies, restoreRemovedCopies, scanRedundantCopies } from './cleanup'
 import { commitImport, previewImport, scanImportCandidates } from './import'
 import { ProfilesStore } from './profiles'
-import { profileFileName, renderLoaderFile, renderProfileFile } from './render'
+import { renderLoaderFile, renderProfileFile } from './render'
 import {
   assignProfileInputSchema,
   cleanupApplyInputSchema,
@@ -42,6 +51,7 @@ import {
   setProfileCvarsInputSchema,
   setProfileLayersInputSchema,
   setSwitchBindInputSchema,
+  syncStateInputSchema,
   unassignProfileInputSchema,
   writeProfileInputSchema,
 } from './schemas'
@@ -90,6 +100,8 @@ export async function writeProfileToAssignedInstallations(
   const switchBindFor = deps.switchBindFor ?? (() => undefined)
   const results: WriteTargetResult[] = []
   const pendingWrites = { ...deps.pendingWrites }
+  // Resolved once per call - `allProfiles` does not change across the loop below.
+  const fileNames = resolveProfileFileNames(allProfiles)
 
   for (const assignment of profile.assignments) {
     const installation = installations.find(assignment.installationId)
@@ -131,9 +143,18 @@ export async function writeProfileToAssignedInstallations(
       // target is being written, so it is computed once per installation and
       // reused for every target's loader render below.
       const switchBindKey = switchBindFor(installation.id)
-      const assignedProfiles = assignedProfilesFor(allProfiles, installation.id)
+      const assignedProfiles = assignedProfilesFor(allProfiles, installation.id).map((p) => ({
+        ...p,
+        // Every assigned profile comes from `allProfiles`, which `fileNames`
+        // was resolved from above, so this lookup cannot miss.
+        fileName: fileNames.get(p.id)!,
+      }))
       const loaderFileContent = renderLoaderFile(
         defaultProfile,
+        // `defaultProfile` is drawn from `allProfiles` (or falls back to
+        // `profile`, itself the one being saved and therefore also a member
+        // of `allProfiles`), so this lookup cannot miss.
+        fileNames.get(defaultProfile.id)!,
         switchBindKey
           ? { key: switchBindKey, profiles: assignedProfiles, defaultProfileId: defaultProfile.id }
           : undefined,
@@ -143,7 +164,9 @@ export async function writeProfileToAssignedInstallations(
       for (const target of targets) {
         const result = await writeInstallationFiles({
           installation,
-          profileFileName: profileFileName(target.id),
+          // `target` is always `profile` or `defaultProfile`, both drawn from
+          // `allProfiles`, so this lookup cannot miss.
+          profileFileName: fileNames.get(target.id)!,
           profileFileContent: renderProfileFile(target),
           loaderFileContent,
           playedMods: playedModsFor(installation.id),
@@ -187,7 +210,13 @@ export function previewProfileFiles(
 ): Omit<PreviewFile, 'onDisk'>[] {
   const defaultProfile = defaultProfileFor(allProfiles, installation.id) ?? profile
   const baseDir = join(installation.rootPath, BASE_GAME_DIR)
-  const assignedProfiles = assignedProfilesFor(allProfiles, installation.id)
+  const fileNames = resolveProfileFileNames(allProfiles)
+  const assignedProfiles = assignedProfilesFor(allProfiles, installation.id).map((p) => ({
+    ...p,
+    // Every assigned profile comes from `allProfiles`, which `fileNames`
+    // was resolved from above, so this lookup cannot miss.
+    fileName: fileNames.get(p.id)!,
+  }))
 
   const files: Omit<PreviewFile, 'onDisk'>[] = []
   // Mirrors the `defaultProfile.id !== profile.id` branch in
@@ -195,16 +224,24 @@ export function previewProfileFiles(
   // fewer files than an actual write would put on disk.
   if (defaultProfile.id !== profile.id) {
     files.push({
-      path: join(baseDir, profileFileName(defaultProfile.id)),
+      // `defaultProfile` is drawn from `allProfiles` (or falls back to
+      // `profile`, itself always a member of `allProfiles`), so this lookup
+      // cannot miss.
+      path: join(baseDir, fileNames.get(defaultProfile.id)!),
       content: renderProfileFile(defaultProfile),
     })
   }
   files.push(
-    { path: join(baseDir, profileFileName(profile.id)), content: renderProfileFile(profile) },
+    {
+      // `profile` is always a member of `allProfiles`, so this lookup cannot miss.
+      path: join(baseDir, fileNames.get(profile.id)!),
+      content: renderProfileFile(profile),
+    },
     {
       path: join(baseDir, LOADER_FILE_NAME),
       content: renderLoaderFile(
         defaultProfile,
+        fileNames.get(defaultProfile.id)!,
         switchBindKey
           ? { key: switchBindKey, profiles: assignedProfiles, defaultProfileId: defaultProfile.id }
           : undefined,
@@ -222,6 +259,72 @@ export function previewProfileFiles(
  */
 export function validatePlayedMods(gameDirs: string[], playedMods: string[]): string[] {
   return playedMods.filter((mod) => gameDirs.includes(mod))
+}
+
+/**
+ * Story 022 D7: the one place every mutating handler funnels through to get
+ * `profile`'s files onto disk - its canonical `<userData>` copy plus every
+ * installation it is assigned to - and to persist the resulting
+ * pending-write/write-failure bookkeeping.
+ *
+ * Deliberately returns `void` and never throws: a sync problem is reported
+ * through `configWriteFailures` (which `syncState` below and the `write`
+ * channel surface), never by turning a successful CRUD operation into a failed
+ * IPC response. `syncProfile` already catches its own write failures
+ * internally, so the try/catch here is a defensive backstop for the
+ * genuinely-unexpected - not the normal error path.
+ */
+async function syncAndPersist(
+  app: AppContext,
+  log: Logger,
+  profile: ConfigProfile,
+  allProfiles: ConfigProfile[],
+): Promise<ProfileSyncState | null> {
+  try {
+    const outcome = await syncProfile({
+      profile,
+      allProfiles,
+      installations: app.installations,
+      launchState: app.launch.getState(),
+      playedModsFor: (installationId) => app.state.configPlayedMods()[installationId] ?? [],
+      switchBindFor: (installationId) => app.state.configSwitchBinds()[installationId],
+      canonicalBaseDir: userDataDir(),
+      pendingWrites: app.state.configPendingWrites(),
+      writeFailures: app.state.configWriteFailures(),
+      log,
+    })
+    app.state.setConfigPendingWrites(outcome.pendingWrites)
+    app.state.setConfigWriteFailures(outcome.writeFailures)
+    return outcome.state
+  } catch (error) {
+    log.error(`unexpected error syncing config profile ${profile.id}`, error)
+    return null
+  }
+}
+
+/**
+ * Read-only status of one on-disk file vs. what it should currently contain -
+ * never writes. A persisted `configWriteFailures` entry for this exact key
+ * always wins and is reported as `'error'` (the last attempted WRITE failed,
+ * which matters even if the file on disk happens to look fine or absent for
+ * some unrelated reason); otherwise the live file is read and compared.
+ *
+ * Latin1 to match `writer.ts`/`sync.ts`'s own encoding, so the comparison is a
+ * true byte-for-byte one.
+ */
+async function readSyncFileStatus(
+  path: string,
+  expectedContent: string,
+  failure: { messageKey: string; at: string } | undefined,
+): Promise<{ status: ProfileFileSyncStatus; messageKey?: string }> {
+  if (failure) return { status: 'error', messageKey: failure.messageKey }
+  try {
+    const content = await readFile(path, 'latin1')
+    return content === expectedContent ? { status: 'inSync' } : { status: 'outOfSync' }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { status: 'missing' }
+    return { status: 'error', messageKey: 'config.error.writeFailed' }
+  }
 }
 
 /**
@@ -275,7 +378,7 @@ export async function restoreCleanupIfNotRunning(
 export const configModule: MainModule = {
   id: 'config',
 
-  setup({ handle, app, log }) {
+  async setup({ handle, app, log }) {
     const profiles = new ProfilesStore(app.state)
 
     // One-off sweep: drop assignments to installations that vanished while the
@@ -295,68 +398,185 @@ export const configModule: MainModule = {
 
     handle(CONFIG_HANDLERS.list, (): ConfigProfile[] => withLiveAssignments(profiles.list()))
 
-    handle(CONFIG_HANDLERS.create, (payload): ConfigProfile[] =>
-      withLiveAssignments(profiles.create(createConfigProfileInputSchema.parse(payload))),
-    )
+    handle(CONFIG_HANDLERS.create, async (payload): Promise<ConfigProfile[]> => {
+      const list = withLiveAssignments(
+        profiles.create(createConfigProfileInputSchema.parse(payload)),
+      )
+      // The new profile is the LAST element: `ProfilesStore.create` appends it
+      // to the end of the array it hands `commit()`, and every transform in
+      // between - `commit()`'s `.map`, `reconcileAssignments`' `.map` - is
+      // order-preserving and never adds or drops an entry.
+      const created = list[list.length - 1]!
+      await syncAndPersist(app, log, created, list)
+      return list
+    })
 
-    handle(CONFIG_HANDLERS.rename, (payload): ConfigProfile[] =>
-      withLiveAssignments(profiles.rename(renameConfigProfileInputSchema.parse(payload))),
-    )
+    handle(CONFIG_HANDLERS.rename, async (payload): Promise<ConfigProfile[]> => {
+      const input = renameConfigProfileInputSchema.parse(payload)
+      const list = withLiveAssignments(profiles.rename(input))
+      // A rename cannot remove the profile, so it is always in the new list.
+      await syncAndPersist(
+        app,
+        log,
+        list.find((p) => p.id === input.id)!,
+        list,
+      )
+      return list
+    })
 
-    handle(CONFIG_HANDLERS.remove, (payload): ConfigProfile[] =>
-      withLiveAssignments(profiles.remove(removeConfigProfileInputSchema.parse(payload))),
-    )
+    handle(CONFIG_HANDLERS.remove, async (payload): Promise<ConfigProfile[]> => {
+      const input = removeConfigProfileInputSchema.parse(payload)
+      const list = withLiveAssignments(profiles.remove(input))
 
-    handle(CONFIG_HANDLERS.setCvars, (payload): ConfigProfile[] =>
-      withLiveAssignments(profiles.setCvars(setProfileCvarsInputSchema.parse(payload))),
-    )
+      // Nothing left to sync for the removed profile, so instead of a sync run:
+      // delete its canonical file and drop its now-stale bookkeeping. All of it
+      // best-effort - a failure here must never turn a completed removal into a
+      // failed IPC response.
+      //
+      // Documented simplification: per-installation copies of the removed
+      // profile are NOT deleted here. They are cleaned up by
+      // `reconcileOwnedProfileFiles` inside `syncProfile` the next time that
+      // installation is synced for any other reason.
+      try {
+        await removeCanonicalProfileFile(userDataDir(), input.id)
+      } catch (error) {
+        log.error(`failed to remove canonical profile file for ${input.id}`, error)
+      }
+      try {
+        const failures = app.state.configWriteFailures()
+        const keptFailures = Object.fromEntries(
+          Object.entries(failures).filter(([key]) => !key.startsWith(`${input.id}|`)),
+        )
+        if (Object.keys(keptFailures).length !== Object.keys(failures).length) {
+          app.state.setConfigWriteFailures(keptFailures)
+        }
+        const pending = app.state.configPendingWrites()
+        const keptPending = Object.fromEntries(
+          Object.entries(pending).filter(([, profileId]) => profileId !== input.id),
+        )
+        if (Object.keys(keptPending).length !== Object.keys(pending).length) {
+          app.state.setConfigPendingWrites(keptPending)
+        }
+      } catch (error) {
+        log.error(`failed to drop stale sync bookkeeping for removed profile ${input.id}`, error)
+      }
 
-    handle(CONFIG_HANDLERS.setBinds, (payload): ConfigProfile[] =>
-      withLiveAssignments(profiles.setBinds(setProfileBindsInputSchema.parse(payload))),
-    )
+      return list
+    })
 
-    handle(CONFIG_HANDLERS.setLayers, (payload): ConfigProfile[] =>
-      withLiveAssignments(profiles.setLayers(setProfileLayersInputSchema.parse(payload))),
-    )
+    handle(CONFIG_HANDLERS.setCvars, async (payload): Promise<ConfigProfile[]> => {
+      const input = setProfileCvarsInputSchema.parse(payload)
+      const list = withLiveAssignments(profiles.setCvars(input))
+      await syncAndPersist(
+        app,
+        log,
+        list.find((p) => p.id === input.profileId)!,
+        list,
+      )
+      return list
+    })
 
-    handle(CONFIG_HANDLERS.setActions, (payload): ConfigProfile[] =>
-      withLiveAssignments(profiles.setActions(setProfileActionsInputSchema.parse(payload))),
-    )
+    handle(CONFIG_HANDLERS.setBinds, async (payload): Promise<ConfigProfile[]> => {
+      const input = setProfileBindsInputSchema.parse(payload)
+      const list = withLiveAssignments(profiles.setBinds(input))
+      await syncAndPersist(
+        app,
+        log,
+        list.find((p) => p.id === input.profileId)!,
+        list,
+      )
+      return list
+    })
 
-    handle(CONFIG_HANDLERS.assign, (payload): Outcome<ConfigProfile[]> => {
+    handle(CONFIG_HANDLERS.setLayers, async (payload): Promise<ConfigProfile[]> => {
+      const input = setProfileLayersInputSchema.parse(payload)
+      const list = withLiveAssignments(profiles.setLayers(input))
+      await syncAndPersist(
+        app,
+        log,
+        list.find((p) => p.id === input.profileId)!,
+        list,
+      )
+      return list
+    })
+
+    handle(CONFIG_HANDLERS.setActions, async (payload): Promise<ConfigProfile[]> => {
+      const input = setProfileActionsInputSchema.parse(payload)
+      const list = withLiveAssignments(profiles.setActions(input))
+      await syncAndPersist(
+        app,
+        log,
+        list.find((p) => p.id === input.profileId)!,
+        list,
+      )
+      return list
+    })
+
+    handle(CONFIG_HANDLERS.assign, async (payload): Promise<Outcome<ConfigProfile[]>> => {
       const parsed = assignProfileInputSchema.safeParse(payload)
       if (!parsed.success) return fail('ipc.error.invalidPayload')
       if (!app.installations.find(parsed.data.installationId)) {
         return fail('config.error.installationNotFound')
       }
+      let list: ConfigProfile[]
       try {
-        return ok(withLiveAssignments(profiles.assign(parsed.data)))
+        list = withLiveAssignments(profiles.assign(parsed.data))
       } catch {
+        // Nothing was mutated, so there is nothing to sync.
         return fail('config.error.profileNotFound')
       }
+      await syncAndPersist(
+        app,
+        log,
+        list.find((p) => p.id === parsed.data.profileId)!,
+        list,
+      )
+      return ok(list)
     })
 
-    handle(CONFIG_HANDLERS.unassign, (payload): Outcome<ConfigProfile[]> => {
+    handle(CONFIG_HANDLERS.unassign, async (payload): Promise<Outcome<ConfigProfile[]>> => {
       const parsed = unassignProfileInputSchema.safeParse(payload)
       if (!parsed.success) return fail('ipc.error.invalidPayload')
       if (!app.installations.find(parsed.data.installationId)) {
         return fail('config.error.installationNotFound')
       }
+      let list: ConfigProfile[]
       try {
-        return ok(withLiveAssignments(profiles.unassign(parsed.data)))
+        list = withLiveAssignments(profiles.unassign(parsed.data))
       } catch {
         return fail('config.error.profileNotFound')
       }
+      // Covers the profile's own canonical file plus its remaining assignments.
+      await syncAndPersist(
+        app,
+        log,
+        list.find((p) => p.id === parsed.data.profileId)!,
+        list,
+      )
+
+      // The unassigned-from installation's own orphaned copy is only removed by
+      // `reconcileOwnedProfileFiles`, which runs while syncing a profile that is
+      // still assigned there - so sync its current default too.
+      //
+      // Documented simplification: when nothing is assigned to that
+      // installation any more there is no such profile, and the orphaned file
+      // is left for a future sync of that installation.
+      const stillDefault = defaultProfileFor(list, parsed.data.installationId)
+      if (stillDefault && stillDefault.id !== parsed.data.profileId) {
+        await syncAndPersist(app, log, stillDefault, list)
+      }
+      return ok(list)
     })
 
-    handle(CONFIG_HANDLERS.setDefault, (payload): Outcome<ConfigProfile[]> => {
+    handle(CONFIG_HANDLERS.setDefault, async (payload): Promise<Outcome<ConfigProfile[]>> => {
       const parsed = setDefaultProfileInputSchema.safeParse(payload)
       if (!parsed.success) return fail('ipc.error.invalidPayload')
       if (!app.installations.find(parsed.data.installationId)) {
         return fail('config.error.installationNotFound')
       }
+      let list: ConfigProfile[]
       try {
-        return ok(withLiveAssignments(profiles.setDefault(parsed.data)))
+        list = withLiveAssignments(profiles.setDefault(parsed.data))
       } catch (error) {
         // The thrown message is the only way to tell "unknown profile" apart
         // from "profile exists but isn't assigned to that installation" -
@@ -366,6 +586,17 @@ export const configModule: MainModule = {
           error instanceof Error && error.message.includes('is not assigned to installation')
         return fail(notAssigned ? 'config.error.notAssigned' : 'config.error.profileNotFound')
       }
+      // The profile that just became default is still assigned to this
+      // installation, so syncing it rewrites every profile assigned there
+      // (including the previous default) plus the loader - which is all a
+      // default change can affect.
+      await syncAndPersist(
+        app,
+        log,
+        list.find((p) => p.id === parsed.data.profileId)!,
+        list,
+      )
+      return ok(list)
     })
 
     handle(CONFIG_HANDLERS.write, async (payload): Promise<Outcome<WriteTargetResult[]>> => {
@@ -374,17 +605,27 @@ export const configModule: MainModule = {
       const profile = profiles.find(parsed.data.profileId)
       if (!profile) return fail('config.error.profileNotFound')
 
-      const { results, pendingWrites } = await writeProfileToAssignedInstallations({
-        profile,
-        allProfiles: profiles.list(),
-        installations: app.installations,
-        launchState: app.launch.getState(),
-        playedModsFor: (installationId) => app.state.configPlayedMods()[installationId] ?? [],
-        switchBindFor: (installationId) => app.state.configSwitchBinds()[installationId],
-        pendingWrites: app.state.configPendingWrites(),
-        log,
-      })
-      app.state.setConfigPendingWrites(pendingWrites)
+      // Story 022: `write` is one of the three retry triggers (decision 13), so
+      // it goes through the same sync engine every mutation does now - not the
+      // pre-022 `writeProfileToAssignedInstallations` (which never touches the
+      // canonical file or `configWriteFailures`, and so could never actually
+      // clear a persisted failure a user just retried away). That old function
+      // stays exported/tested above; nothing in this module calls it anymore.
+      const state = await syncAndPersist(app, log, profile, profiles.list())
+      if (!state) return fail('config.error.writeFailed')
+
+      const results: WriteTargetResult[] = state.installations.map((entry) => ({
+        installationId: entry.installationId,
+        // `inSync` is the only "this installation is now correctly set up"
+        // status a fresh sync attempt can report, so it maps to `written` for
+        // this legacy shape's consumers; `outOfSync`/`missing` right after an
+        // attempted write means something did not take effect and is reported
+        // as an error rather than silently claiming success. `syncState`
+        // (story 022 D5/D7) is the accurate, live source of truth going
+        // forward - this mapping only keeps `write`'s existing contract alive.
+        status: entry.status === 'inSync' ? 'written' : entry.status === 'pending' ? 'pending' : 'error',
+        ...(entry.messageKey ? { messageKey: entry.messageKey } : {}),
+      }))
       return ok(results)
     })
 
@@ -410,6 +651,59 @@ export const configModule: MainModule = {
     })
 
     handle(CONFIG_HANDLERS.writeState, (): WriteState => app.state.configPendingWrites())
+
+    /**
+     * Story 022 D7: read-only report of where every copy of this profile stands.
+     *
+     * Deliberately NOT built on `syncProfile`, which writes: the story names
+     * exactly three retry triggers (a profile mutation, `setup()` at start, and
+     * the `write` channel) and this is not one of them. Merely looking at a
+     * profile's sync state must never touch disk.
+     */
+    handle(CONFIG_HANDLERS.syncState, async (payload): Promise<Outcome<ProfileSyncState>> => {
+      const parsed = syncStateInputSchema.safeParse(payload)
+      if (!parsed.success) return fail('ipc.error.invalidPayload')
+      const profile = profiles.find(parsed.data.profileId)
+      if (!profile) return fail('config.error.profileNotFound')
+
+      const allProfiles = profiles.list()
+      const fileNames = resolveProfileFileNames(allProfiles)
+      // `profile` came out of `allProfiles`, so this lookup cannot miss.
+      const fileName = fileNames.get(profile.id)!
+      const failures = app.state.configWriteFailures()
+      const expectedContent = renderProfileFile(profile)
+
+      const ownPath = join(userDataDir(), fileName)
+      const own = await readSyncFileStatus(ownPath, expectedContent, failures[`${profile.id}|own`])
+
+      const launchState = app.launch.getState()
+      const installations: ProfileInstallationSync[] = []
+      for (const assignment of profile.assignments) {
+        const installation = app.installations.find(assignment.installationId)
+        // An assignment pointing at an installation that no longer exists is
+        // reconciled away elsewhere, not reported as a sync problem here.
+        if (!installation) continue
+        const path = join(installation.rootPath, BASE_GAME_DIR, fileName)
+        if (isInstallationRunning(launchState, installation.id)) {
+          installations.push({
+            installationId: installation.id,
+            path,
+            fileName,
+            status: 'pending',
+            messageKey: 'config.error.installationRunning',
+          })
+          continue
+        }
+        const result = await readSyncFileStatus(
+          path,
+          expectedContent,
+          failures[`${profile.id}|${installation.id}`],
+        )
+        installations.push({ installationId: installation.id, path, fileName, ...result })
+      }
+
+      return ok({ own: { path: ownPath, fileName, ...own }, installations })
+    })
 
     handle(CONFIG_HANDLERS.setPlayedMods, (payload): Outcome<string[]> => {
       const parsed = setPlayedModsInputSchema.safeParse(payload)
@@ -460,15 +754,24 @@ export const configModule: MainModule = {
         const allProfiles = profiles.list()
         const defaultProfile = defaultProfileFor(allProfiles, installation.id)
         if (defaultProfile) {
-          const assignedProfiles = assignedProfilesFor(allProfiles, installation.id)
+          const fileNames = resolveProfileFileNames(allProfiles)
+          const assignedProfiles = assignedProfilesFor(allProfiles, installation.id).map((p) => ({
+            ...p,
+            // Every assigned profile comes from `allProfiles`, which
+            // `fileNames` was resolved from above, so this lookup cannot miss.
+            fileName: fileNames.get(p.id)!,
+          }))
           const switchBindKey = next[installation.id]
           try {
             await writeInstallationFiles({
               installation,
-              profileFileName: profileFileName(defaultProfile.id),
+              // `defaultProfile` is drawn from `allProfiles` above, so this
+              // lookup cannot miss.
+              profileFileName: fileNames.get(defaultProfile.id)!,
               profileFileContent: renderProfileFile(defaultProfile),
               loaderFileContent: renderLoaderFile(
                 defaultProfile,
+                fileNames.get(defaultProfile.id)!,
                 switchBindKey
                   ? {
                       key: switchBindKey,
@@ -512,8 +815,16 @@ export const configModule: MainModule = {
       const result = await commitImport(app.installations, log, parsed.data, (seed) =>
         profiles.createFromImport(seed),
       )
+      // Nothing was created, so there is nothing to sync.
       if (!result.ok) return result
-      return ok(withLiveAssignments(result.value))
+
+      const list = withLiveAssignments(result.value)
+      // Same append-only reasoning as `create` above: `createFromImport`
+      // appends the new profile last and every transform in between is an
+      // order-preserving `.map`. It has no assignments yet, so this sync only
+      // writes its canonical file.
+      await syncAndPersist(app, log, list[list.length - 1]!, list)
+      return ok(list)
     })
 
     // Story 010: find and remove mod-folder `.cfg` copies that duplicate a
@@ -552,6 +863,36 @@ export const configModule: MainModule = {
         return restoreCleanupIfNotRunning(installation, parsed.data.entries, app.launch.getState())
       },
     )
+
+    // Story 022 D7: one retry sweep at start, after every handler is
+    // registered, for whatever the last session left behind - a failed write
+    // (`configWriteFailures`) or a write deferred because the installation was
+    // running (`configPendingWrites`). One sweep only: `syncAndPersist` records
+    // a fresh failure if it fails again, and the next mutation or the `write`
+    // channel are the other two retry triggers.
+    const failures = app.state.configWriteFailures()
+    const pending = app.state.configPendingWrites()
+    const retryIds = new Set<string>()
+    for (const key of Object.keys(failures)) {
+      // Keys are `<profileId>|own` or `<profileId>|<installationId>`.
+      const profileId = key.split('|')[0]
+      if (profileId) retryIds.add(profileId)
+    }
+    for (const profileId of Object.values(pending)) retryIds.add(profileId)
+
+    if (retryIds.size > 0) {
+      const allProfiles = profiles.list()
+      for (const profileId of retryIds) {
+        const profile = allProfiles.find((p) => p.id === profileId)
+        // A profile id referenced by stale bookkeeping that no longer exists is
+        // simply skipped - cleaning that dangling entry up is not this
+        // deliverable's job.
+        // Sequentially awaited, never `Promise.all`: overlapping fs writes to
+        // the same installation must not race, the same reasoning the write
+        // loops in `sync.ts` use.
+        if (profile) await syncAndPersist(app, log, profile, allProfiles)
+      }
+    }
 
     log.debug('config module ready')
   },
