@@ -1,7 +1,7 @@
 ---
 id: 024
 title: Read the config in the launcher with Quake 2 syntax highlighting
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-08-19
 ---
 
@@ -18,25 +18,25 @@ bundle a TextMate grammar and a highlighting engine into the app.
 
 ## Acceptance Criteria
 
-- [ ] A pure tokenizer in `src/shared` splits config text into tokens: comments, commands
+- [x] A pure tokenizer in `src/shared` splits config text into tokens: comments, commands
       (`bind`/`unbind`/`alias`/`set`/`exec`/…), key names, cvar names, numbers, quoted strings,
       `+`/`-` commands, and plain text.
-- [ ] The tokenizer is unit-tested against real rendered profile output and against imported
+- [x] The tokenizer is unit-tested against real rendered profile output and against imported
       hand-written configs, including the engine's quoting rules (no nested quotes, `;` as a
       command separator) that `alt-layers.ts` documents.
-- [ ] The read-only viewer renders those tokens with design-token colours, monospace, line
+- [x] The read-only viewer renders those tokens with design-token colours, monospace, line
       numbers, and text that stays selectable and copyable as the original bytes.
-- [ ] High-ASCII/latin1 characters (the symbol picker's output) render as-is and are not mangled by
+- [x] High-ASCII/latin1 characters (the symbol picker's output) render as-is and are not mangled by
       the highlighting.
-- [ ] A ~2000-line config renders without a visible delay, and an unknown line degrades to plain
+- [x] A ~2000-line config renders without a visible delay, and an unknown line degrades to plain
       text rather than breaking the rest of the file.
-- [ ] The viewer replaces the plain `CodeBlock` in Raw File, in the write preview dialog and in the
+- [x] The viewer replaces the plain `CodeBlock` in Raw File, in the write preview dialog and in the
       import preview, so there is one highlighted config renderer, not three.
-- [ ] A find-in-file control in the viewer: case-insensitive substring search over the shown text,
+- [x] A find-in-file control in the viewer: case-insensitive substring search over the shown text,
       a match count, next/previous (buttons and `Enter`/`Shift+Enter`), `Escape` clears, the
       current match visually distinct from the other matches and scrolled into view — and
       searching never changes what a copy of the text yields.
-- [ ] If anything is derived from the referenced repository, its licence and attribution are
+- [x] If anything is derived from the referenced repository, its licence and attribution are
       recorded in the repo.
 
 ## Open Questions
@@ -136,7 +136,7 @@ tokens only (step 2); the module is never the shell (all new files under `module
 
 ## Deliverables
 
-- [ ] **D1 — Pure Quake 2 config tokenizer.**
+- [x] **D1 — Pure Quake 2 config tokenizer.**
   Files: new `src/shared/config/config-syntax.ts`, new `src/shared/config/config-syntax.test.ts`.
   Mirror: `src/main/modules/config/core/config-parser.ts:1-193` for the scanning rules and the
   doc-header style; `src/shared/config/alt-layers.ts:32-50` for the quoting facts to cite.
@@ -148,7 +148,7 @@ tokens only (step 2); the module is never the shell (all new files under `module
   the file header records the GPL-3.0 finding and that nothing is derived; `src/shared` purity
   intact (no imports outside `@shared`). → AC 1, 2, 4, 5, 8
 
-- [ ] **D2 — Token style layer + read-only highlighted viewer.**
+- [x] **D2 — Token style layer + read-only highlighted viewer.**
   Files: new `src/renderer/src/styles/config-syntax.css`, `src/renderer/src/styles/index.css`
   (import), new `src/renderer/src/modules/config/components/ConfigCodeView.tsx`,
   `src/renderer/src/i18n/locales/en.json`.
@@ -162,7 +162,7 @@ tokens only (step 2); the module is never the shell (all new files under `module
   ~2000-line profile paints without perceptible delay and tokenization is memoized on `text`;
   `singleLine` renders one snippet with no gutter. → AC 3, 4, 5
 
-- [ ] **D3 — Find in file.**
+- [x] **D3 — Find in file.**
   Files: new `src/renderer/src/modules/config/lib/config-search.ts` +
   `config-search.test.ts`, `modules/config/components/ConfigCodeView.tsx`,
   `src/renderer/src/styles/config-syntax.css`, `src/renderer/src/i18n/locales/en.json`.
@@ -179,7 +179,7 @@ tokens only (step 2); the module is never the shell (all new files under `module
   candidates, empty query, regex-special characters and a high-ASCII query. → AC 7 (and AC 3's
   "stays copyable" under an active search)
 
-- [ ] **D4 — One renderer in all three places.**
+- [x] **D4 — One renderer in all three places.**
   Files: `src/renderer/src/modules/config/RawConfigPanel.tsx`,
   `src/renderer/src/modules/config/ImportProfileDialog.tsx:227-273`,
   `src/renderer/src/components/ui/primitives.tsx` (only to drop `CodeBlock` if it ends up with no
@@ -232,3 +232,63 @@ tokens only (step 2); the module is never the shell (all new files under `module
    `config-*` screen).
 
 ## Done
+
+Implemented across 4 deliverables (D1-D4): a pure, lossless, positional Quake II config
+tokenizer (`src/shared/config/config-syntax.ts` — no imports beyond nothing, no coupling to
+`config-parser.ts`/`cvar-catalog`/`key-names`) with a licence-provenance header naming the
+reference extension's GPL-3.0 status and the non-derivation claim; a token-styled, gutter'd,
+non-wrapping, memoized `ConfigCodeView` viewer (`src/renderer/src/modules/config/components/
+ConfigCodeView.tsx`, `styles/config-syntax.css`, new `--color-cfg-*` `@theme` tokens in
+`styles/index.css`) with an always-visible find-in-file header backed by a pure
+`modules/config/lib/config-search.ts` helper (case-insensitive substring search, token-boundary-
+safe highlighting, container-scoped `Ctrl+F`/`Escape`, wrapping next/prev, `aria-live` count);
+and a swap-in that replaced `CodeBlock` at all three real call sites — `RawConfigPanel.tsx`
+(searchable, multi-line), `RawFileTab.tsx`'s canonical-file block (a third `CodeBlock` usage
+the plan's two named files didn't list but AC 6's own "in Raw File" wording covers), and
+`ImportProfileDialog.tsx`'s two snippet lists (`singleLine`) — after which `CodeBlock` had zero
+remaining importers and was deleted from `primitives.tsx`.
+
+**Decisions (during build):**
+- D1's own instructions (written by this build's orchestrator, not the story text) initially
+  over-restricted `plusCommand` to a segment's first word, which the review caught as making the
+  kind dead for the story's own test-plan example (`bind s +back`). Fixed in the review-fix cycle
+  by matching `+`/`-` followed by a letter regardless of word position (excluding numeric values
+  like `-5`), without touching the more specific `command`/`key`/`cvar` classifications that take
+  priority. This is a build-process note, not a story-plan gap — the story's own AC/Plan text
+  never named the "first word only" restriction.
+- The find-in-file search re-renders all tokens on every keystroke (tokenization itself stays
+  memoized on `text` only, per the story's own no-virtualization decision); the review flagged
+  this as a PLAUSIBLE, unmeasured concern, not a confirmed defect, and it was left as-is —
+  fixing it would mean adding per-line memoization the story never asked for, and the story's own
+  performance guarantee is scoped to painting the file, not to every search keystroke.
+- `ImportProfileDialog.tsx`'s snippet rows lost their old `truncate`/`title` overflow handling in
+  the initial D4 swap (since `ConfigCodeView`'s `singleLine` mode scrolls horizontally by design);
+  fixed in the review-fix cycle by wrapping each snippet in a `title`-carrying, `overflow-hidden`
+  container instead of changing `ConfigCodeView` itself.
+
+**Verification:** `npm run build`, `npm test` (863 tests, 47 files), `npm run typecheck` all
+green, both before and after the review-fix cycle. `npm run ui:verify`: `config-raw` renders
+cleanly at both viewports with the gutter correctly hugging the line numbers (the CSS grid
+track-sizing bug the review caught is visibly fixed in the screenshot) and only the pre-existing
+baseline moderate `page-has-heading-one` finding shared by nearly every config screen (no new
+console errors or axe criticals); `config-list` and `keybind-dialog`'s pre-existing critical
+findings are unrelated screens this story never touches. The write-preview dialog and import
+preview are not part of the automated `ui:verify` screen set (pre-existing harness scope, not a
+gap introduced here); their manual acceptance is covered by `## Test Plan` steps 7-8, which
+still need a human `npm run dev` pass to fully confirm since a headless session cannot drive a
+modal dialog through this harness.
+
+Code review (`story-review-hard`): first pass **FAIL** — 6 confirmed findings (the `plusCommand`
+position bug; a CSS grid track-sizing bug that let the gutter column absorb nearly all free
+width, verified visually before/after in the live-smoke pass; an Escape handler that swallowed
+the key even with an empty query, which would have blocked closing an ancestor modal; a
+match-count label that could drift from the actual clamped/highlighted match; a `Ctrl+F` handler
+unreachable unless focus was already inside the search box; and the `ImportProfileDialog`
+truncation regression above) plus 2 non-blocking notes (stale pre-fix screenshots, since
+addressed by re-running `ui:verify`; the PLAUSIBLE per-keystroke re-render noted above). All 6
+confirmed findings fixed in one review-fix cycle; build/test/typecheck re-verified green after.
+No second formal review pass was run (as with story 023, the workflow requires re-verification
+after a fix cycle, not necessarily a second review pass), but each fix was checked directly
+against the reviewer's own file:line evidence before accepting.
+
+**Commit message:** `024: add Quake 2 config syntax highlighting with find-in-file`

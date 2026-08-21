@@ -930,6 +930,16 @@
       "noMods": "No other mod folders found.",
       "previewEmpty": "Nothing would be written."
     },
+    "codeView": {
+      "search": {
+        "label": "Search config text",
+        "placeholder": "Find in file…",
+        "previous": "Previous match",
+        "next": "Next match",
+        "count": "{{current}} of {{total}}",
+        "noMatches": "No matches"
+      }
+    },
     "cleanup": {
       "label": "Redundant config copies",
       "installationLabel": "Installation",

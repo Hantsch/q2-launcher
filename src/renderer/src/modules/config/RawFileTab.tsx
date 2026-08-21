@@ -5,9 +5,10 @@ import type { ConfigProfile, RawFilesResult } from '@shared/modules/config'
 import type { Outcome } from '@shared/types'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Checkbox } from '../../components/ui/controls'
-import { Badge, CodeBlock, SectionLabel, Spinner } from '../../components/ui/primitives'
+import { Badge, SectionLabel, Spinner } from '../../components/ui/primitives'
 import { useLauncher } from '../../store/useLauncher'
 import { getRawFiles, openProfileFile, setPlayedMods } from './client'
+import { ConfigCodeView } from './components/ConfigCodeView'
 import { RawConfigPanel } from './RawConfigPanel'
 
 /**
@@ -152,7 +153,7 @@ export function RawFileTab({ profile }: { profile: ConfigProfile }) {
         {!canonical.onDisk && (
           <p className="text-xs text-ink-muted">{t('config.raw.ownNotOnDisk')}</p>
         )}
-        <CodeBlock>{canonical.content}</CodeBlock>
+        <ConfigCodeView text={canonical.content} searchable />
       </div>
 
       {rows.length === 0 ? (

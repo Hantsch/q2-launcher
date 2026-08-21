@@ -40,3 +40,20 @@
 - 2026-08-21 14:05 · 023 · review-fix cycle 1 · started
 - 2026-08-21 14:05 · 023 · review-fix cycle 1 · done — all 5 findings fixed, build/test/typecheck/ui:verify re-run green, no regressions
 - 2026-08-21 14:07 · 023 · story done, moved to done/, INDEX.md updated · done
+- 2026-08-21 14:08 · 024 · D1 pure Quake 2 config tokenizer · started
+- 2026-08-21 14:15 · 024 · D1 pure Quake 2 config tokenizer · done
+- 2026-08-21 14:15 · 024 · D2 token style layer + read-only highlighted viewer · started
+- 2026-08-21 14:26 · 024 · D2 token style layer + read-only highlighted viewer · done
+- 2026-08-21 14:26 · 024 · D3 find in file · started
+- 2026-08-21 14:40 · 024 · D3 find in file · done
+- 2026-08-21 14:40 · 024 · D4 one renderer in all three places · started
+- 2026-08-21 14:44 · 024 · D4 one renderer in all three places · done
+- 2026-08-21 14:44 · 024 · story-level verification (build/test/typecheck) · started
+- 2026-08-21 14:45 · 024 · story-level verification (build/test/typecheck) · done, all green
+- 2026-08-21 14:45 · 024 · code review (story-review-hard) · started
+- 2026-08-21 15:03 · 024 · code review (story-review-hard) · done — FAIL, 6 confirmed findings + 1 process gap (stale screenshots) + 1 plausible (per-keystroke re-render)
+- 2026-08-21 15:03 · 024 · review-fix cycle 1 · started
+- 2026-08-21 15:08 · 024 · review-fix cycle 1 · done — 6 findings fixed, build/test/typecheck re-run green (863 tests)
+- 2026-08-21 15:08 · 024 · live smoke (ui:verify) · started
+- 2026-08-21 15:10 · 024 · live smoke (ui:verify) · done — config-raw renders cleanly at both viewports, gutter fix confirmed visually, only baseline page-has-heading-one moderate finding; other flagged screens (config-list, keybind-dialog) are unrelated pre-existing baselines, not touched by this story
+- 2026-08-21 15:11 · 024 · story done, moved to done/, INDEX.md updated · done

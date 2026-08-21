@@ -71,3 +71,8 @@ second roadmap.
   assigned installation (present/differs/not-on-disk, open in editor, reveal in folder, played
   mods), auto-write moved to a tab-independent hook, and the pre-existing config-raw double-unwrap
   crash was fixed as a bonus.
+- 024 — Read the config in the launcher with Quake 2 syntax highlighting · S05 · a pure,
+  lossless, positional config tokenizer plus a memoized, gutter'd `ConfigCodeView` with a
+  container-scoped find-in-file control now renders Raw File, the write-preview dialog and the
+  import preview, replacing `CodeBlock` everywhere; a review-caught CSS grid track-sizing bug that
+  broke gutter alignment and a dead `plusCommand` classification were both fixed before landing.

@@ -11,6 +11,7 @@
 */
 @import './surfaces.css' layer(components);
 @import './controls-grid.css' layer(components);
+@import './config-syntax.css' layer(components);
 
 /*
   Sources are listed explicitly rather than relying on auto-detection, because
@@ -79,6 +80,29 @@
   --color-warning: #f5b32b; /* 10.5:1 */
   --color-danger: #ff5a52; /*  6.4:1 */
   --color-info: #6ab7ff; /*  8.0:1 */
+
+  /* --- config syntax highlighting (story 024) ---------------------------
+     One semantic token per kind `tokenizeConfigText` can emit, so
+     `config-syntax.css` never names a ramp step directly. Each derives from
+     an existing ramp value rather than introducing a hue: the ratios in the
+     comments are the referenced value's, all AA or better against
+     --color-base. `text` is plain ink and `space` has no colour, so the
+     kinds with no visual treatment of their own are absent by design. */
+  --color-cfg-comment: var(--color-ink-muted); /*  4.9:1  recedes; also italic */
+  --color-cfg-command: var(--color-flame-400); /*  9.6:1  also semibold */
+  --color-cfg-plus-command: var(--color-strogg-500); /* 11.8:1  also semibold */
+  /* bind's key argument: the same family as `bind` itself, a step paler. */
+  --color-cfg-key: var(--color-flame-200); /* 13.4:1 */
+  --color-cfg-cvar: var(--color-info); /*  8.0:1 */
+  /* The warning amber borrowed purely as a hue - the furthest step from
+     flame-400/flame-200 that the palette has. Nothing about a number is a
+     warning; no status meaning travels with it. */
+  --color-cfg-number: var(--color-warning); /* 10.5:1 */
+  /* Paler than plusCommand's green, and never weighted, so the two greens
+     stay apart where an alias body sits next to a `+`-command. */
+  --color-cfg-string: var(--color-strogg-300); /* 14.6:1 */
+  --color-cfg-separator: var(--color-ink-muted); /*  4.9:1  a bare `;` */
+  --color-cfg-text: var(--color-ink); /* 17.0:1  an unclassified word reads as ordinary text */
 
   /* --- typography ------------------------------------------------------- */
   /* Oswald: condensed, industrial, all-caps signage. Display only. */

@@ -12,6 +12,7 @@ import { Modal } from '../../components/ui/Modal'
 import { EmptyState, KeyValue, SectionLabel, Spinner } from '../../components/ui/primitives'
 import { useLauncher } from '../../store/useLauncher'
 import { commitImportProfile, previewImportCandidates, scanImportCandidates } from './client'
+import { ConfigCodeView } from './components/ConfigCodeView'
 
 /**
  * Imports an existing hand-written config into a new profile (story 005).
@@ -240,7 +241,9 @@ export function ImportProfileDialog({
                             <span className="numeric shrink-0 text-ink-muted">
                               {duplicate.file}:{duplicate.line}
                             </span>
-                            <code className="min-w-0 truncate">{duplicate.key}</code>
+                            <div title={duplicate.key} className="min-w-0 overflow-hidden">
+                              <ConfigCodeView text={duplicate.key} singleLine />
+                            </div>
                           </li>
                         ))}
                       </ul>
@@ -263,9 +266,9 @@ export function ImportProfileDialog({
                             <span className="numeric shrink-0 text-ink-muted">
                               {line.file}:{line.line}
                             </span>
-                            <code className="min-w-0 truncate text-ink-dim" title={line.text}>
-                              {line.text}
-                            </code>
+                            <div title={line.text} className="min-w-0 overflow-hidden">
+                              <ConfigCodeView text={line.text} singleLine />
+                            </div>
                           </li>
                         ))}
                       </ul>

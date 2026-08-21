@@ -5,8 +5,9 @@ import type { ConfigProfile, PreviewProfileResult } from '@shared/modules/config
 import type { Outcome } from '@shared/types'
 import { invoke } from '../../lib/bridge'
 import { IconButton } from '../../components/ui/Button'
-import { Badge, CodeBlock, Spinner } from '../../components/ui/primitives'
+import { Badge, Spinner } from '../../components/ui/primitives'
 import { useLauncher } from '../../store/useLauncher'
+import { ConfigCodeView } from './components/ConfigCodeView'
 import { previewConfigProfile } from './client'
 
 /**
@@ -106,7 +107,7 @@ export function RawConfigPanel({
             </IconButton>
           </div>
           {!file.onDisk && <p className="text-xs text-ink-muted">{t('config.raw.notWritten')}</p>}
-          <CodeBlock>{file.content}</CodeBlock>
+          <ConfigCodeView text={file.content} searchable />
         </div>
       ))}
     </div>
