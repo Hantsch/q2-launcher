@@ -16,7 +16,7 @@ export function PlannedModuleView({ module }: { module: ModuleManifest }) {
   const Icon = moduleIcon(module.icon)
 
   return (
-    <div className="h-full overflow-y-auto p-4">
+    <div className="h-full overflow-y-auto p-4 scrollbar-gutter-stable">
       <div className="mx-auto max-w-2xl space-y-4 py-8">
         <div className="flex items-center gap-3">
           <div className="grid size-11 place-items-center rounded-md border border-line bg-panel">

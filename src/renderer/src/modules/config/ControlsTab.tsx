@@ -79,7 +79,9 @@ export interface ControlsTabProps {
   profile: ConfigProfile
   /** Story 009 D6: the shared in-progress draft, owned by `ConfigView`'s `useProfileDraft`. */
   draft: ConfigProfile
-  patch: (partial: Partial<ConfigProfile> | ((prev: ConfigProfile) => Partial<ConfigProfile>)) => void
+  patch: (
+    partial: Partial<ConfigProfile> | ((prev: ConfigProfile) => Partial<ConfigProfile>),
+  ) => void
   onChanged: (profiles: ConfigProfile[]) => void
 }
 
@@ -185,7 +187,9 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
   // only moves the rail when the chip is actually outside the visible scroll area, rather than
   // re-centring a chip that is already fully visible.
   useEffect(() => {
-    categoryChipRefs.current.get(selectedCategoryId)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    categoryChipRefs.current
+      .get(selectedCategoryId)
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }, [selectedCategoryId])
 
   const persistCategoriesAndActions = async (
@@ -316,7 +320,10 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
    * debounce firing on stale data.
    */
   const handleMoveAction = (actionId: string, direction: 'up' | 'down'): void => {
-    void persistCategoriesAndActions(categories, moveEntryWithinCategory(actions, actionId, direction))
+    void persistCategoriesAndActions(
+      categories,
+      moveEntryWithinCategory(actions, actionId, direction),
+    )
   }
 
   /**
@@ -349,7 +356,12 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
    * other settings (D4's own judgement call, see the story requirement).
    */
   const handleResetCatalogRow = (row: CatalogRow): void => {
-    const cleared = applySlot(applySlot(actions, row, 'primary', undefined), row, 'secondary', undefined)
+    const cleared = applySlot(
+      applySlot(actions, row, 'primary', undefined),
+      row,
+      'secondary',
+      undefined,
+    )
     handleCatalogActionsChange(cleared)
   }
 
@@ -388,9 +400,7 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
   const selectedCategoryLabel = selectedBuiltIn
     ? t(selectedBuiltIn.labelKey)
     : (selectedCustom?.name ?? '')
-  const actionsForCategory = actions.filter(
-    (action) => action.categoryId === selectedCategoryId,
-  )
+  const actionsForCategory = actions.filter((action) => action.categoryId === selectedCategoryId)
   const editingAction = editingActionId
     ? (actions.find((action) => action.id === editingActionId) ?? null)
     : null
@@ -425,8 +435,12 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
     ? rowEntries.filter((entry) => {
         const name = entry.kind === 'catalog' ? t(entry.labelKey) : entry.action.name
         const command =
-          entry.kind === 'catalog' ? entry.row.commands.join(', ') : (actionCommandPreview(entry.action) ?? '')
-        return name.toLowerCase().includes(filterQuery) || command.toLowerCase().includes(filterQuery)
+          entry.kind === 'catalog'
+            ? entry.row.commands.join(', ')
+            : (actionCommandPreview(entry.action) ?? '')
+        return (
+          name.toLowerCase().includes(filterQuery) || command.toLowerCase().includes(filterQuery)
+        )
       })
     : rowEntries
   const rowGroups = groupControlsRowEntries(filteredRowEntries)
@@ -443,7 +457,11 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
   /** One catalogue row's Primary/Secondary `BindSlot`, wired exactly like `DualBindPanel`'s
    * `CatalogBindRow` - same collision plumbing, same `apply*` helpers, just inside `ControlsRow`'s
    * layout instead of the old `<li>` one. */
-  const renderCatalogSlot = (row: CatalogRow, action: ConfigAction | undefined, slot: 'primary' | 'secondary') => {
+  const renderCatalogSlot = (
+    row: CatalogRow,
+    action: ConfigAction | undefined,
+    slot: 'primary' | 'secondary',
+  ) => {
     const state = deriveRowState(action, row)
     const boundKey = slot === 'primary' ? state.primary : state.secondary
     const boundModifier = slot === 'primary' ? state.primaryModifier : state.secondaryModifier
@@ -455,7 +473,11 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
       findModifierSlotCollision(actions, draft.layers ?? [], modifier, key, action?.id)
     return (
       <BindSlot
-        label={t(slot === 'primary' ? 'config.controls.dualBind.primary' : 'config.controls.dualBind.secondary')}
+        label={t(
+          slot === 'primary'
+            ? 'config.controls.dualBind.primary'
+            : 'config.controls.dualBind.secondary',
+        )}
         boundKey={boundKey}
         boundModifier={boundModifier}
         // AC 6: a bound Primary cell is the strongest element in its row. AC 8: a slot whose key
@@ -463,7 +485,9 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
         isPrimary={slot === 'primary'}
         isConflicted={isConflicted}
         checkModifierCollision={checkModifierCollision}
-        checkCollision={(key) => findSlotCollision(draft, key, action ? { actionId: action.id, slot } : undefined)}
+        checkCollision={(key) =>
+          findSlotCollision(draft, key, action ? { actionId: action.id, slot } : undefined)
+        }
         onAssign={(key) => handleCatalogActionsChange(applySlot(actions, row, slot, key))}
         onAssignModifier={({ modifier, key }) =>
           handleCatalogActionsChange(
@@ -478,7 +502,9 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
           )
         }
         onReplace={(key, collision) =>
-          handleCatalogActionsChange(applyReplace({ actions, binds: draft.binds, collision, row, slot, key }))
+          handleCatalogActionsChange(
+            applyReplace({ actions, binds: draft.binds, collision, row, slot, key }),
+          )
         }
         onClear={() => handleCatalogActionsChange(applySlot(actions, row, slot, undefined))}
       />
@@ -508,8 +534,20 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
     const layer = modifier ? layerNameForModifier(draft.layers ?? [], modifier) : undefined
     const ownerName = action?.name ?? row.commands[0] ?? row.catalogId
     const conflictOwner =
-      findSlotConflictOwner(conflictIndex, layers, state.primary, state.primaryModifier, ownerName) ??
-      findSlotConflictOwner(conflictIndex, layers, state.secondary, state.secondaryModifier, ownerName)
+      findSlotConflictOwner(
+        conflictIndex,
+        layers,
+        state.primary,
+        state.primaryModifier,
+        ownerName,
+      ) ??
+      findSlotConflictOwner(
+        conflictIndex,
+        layers,
+        state.secondary,
+        state.secondaryModifier,
+        ownerName,
+      )
     const conflict = conflictOwner ? { owner: conflictOwner } : null
     const hasMessage = state.message.trim().length > 0
     // Review fix (finding 2): a `shrink-0` wrapper keeps the ammo checkbox + message icon button
@@ -526,11 +564,19 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
             />
           )}
           <IconButton
-            label={t(hasMessage ? 'config.controls.dropBind.editMessageSet' : 'config.controls.dropBind.editMessage')}
+            label={t(
+              hasMessage
+                ? 'config.controls.dropBind.editMessageSet'
+                : 'config.controls.dropBind.editMessage',
+            )}
             size="sm"
             onClick={() => setMessageEditorRow(row)}
           >
-            {hasMessage ? <MessageSquareText className="size-3.5" /> : <MessageSquare className="size-3.5" />}
+            {hasMessage ? (
+              <MessageSquareText className="size-3.5" />
+            ) : (
+              <MessageSquare className="size-3.5" />
+            )}
           </IconButton>
         </span>
       ) : undefined
@@ -574,14 +620,20 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
       findModifierSlotCollision(actions, draft.layers ?? [], modifier, key, action.id)
     return (
       <BindSlot
-        label={t(slot === 'primary' ? 'config.controls.dualBind.primary' : 'config.controls.dualBind.secondary')}
+        label={t(
+          slot === 'primary'
+            ? 'config.controls.dualBind.primary'
+            : 'config.controls.dualBind.secondary',
+        )}
         boundKey={boundKey}
         boundModifier={boundModifier}
         isPrimary={slot === 'primary'}
         isConflicted={isConflicted}
         checkModifierCollision={checkModifierCollision}
         checkCollision={(key) => findSlotCollision(draft, key, { actionId: action.id, slot })}
-        onAssign={(key) => handleCatalogActionsChange(applyPlainSlot(actions, action.id, slot, key))}
+        onAssign={(key) =>
+          handleCatalogActionsChange(applyPlainSlot(actions, action.id, slot, key))
+        }
         onAssignModifier={({ modifier, key }) =>
           handleCatalogActionsChange(
             applyPlainModifierReplace({
@@ -596,10 +648,19 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
         }
         onReplace={(key, collision) =>
           handleCatalogActionsChange(
-            applyPlainReplace({ actions, binds: draft.binds, collision, actionId: action.id, slot, key }),
+            applyPlainReplace({
+              actions,
+              binds: draft.binds,
+              collision,
+              actionId: action.id,
+              slot,
+              key,
+            }),
           )
         }
-        onClear={() => handleCatalogActionsChange(applyPlainSlot(actions, action.id, slot, undefined))}
+        onClear={() =>
+          handleCatalogActionsChange(applyPlainSlot(actions, action.id, slot, undefined))
+        }
       />
     )
   }
@@ -618,7 +679,13 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
     const layer = modifier ? layerNameForModifier(draft.layers ?? [], modifier) : undefined
     const conflictOwner =
       findSlotConflictOwner(conflictIndex, layers, action.key, action.keyModifier, action.name) ??
-      findSlotConflictOwner(conflictIndex, layers, action.secondaryKey, action.secondaryKeyModifier, action.name)
+      findSlotConflictOwner(
+        conflictIndex,
+        layers,
+        action.secondaryKey,
+        action.secondaryKeyModifier,
+        action.name,
+      )
     const conflict = conflictOwner ? { owner: conflictOwner } : null
     return <ControlsOptionsCell layer={layer} conflict={conflict} />
   }
@@ -648,8 +715,15 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
         primarySlot={inertSlots ? <BindSlotPlaceholder /> : renderPlainSlot(action, 'primary')}
         secondarySlot={inertSlots ? <BindSlotPlaceholder /> : renderPlainSlot(action, 'secondary')}
         optionsCell={
-          <div className="flex w-full flex-wrap items-center justify-end gap-1.5">
-            {!inertSlots && renderPlainOptionsCell(action)}
+          // Story 028 D1: no `flex-wrap`, and gap-0.5 — the 150px Options track fits the five
+          // 28px icon buttons only at 2px gaps (5x28 + 4x2 = 148px). With wrap enabled the
+          // buttons spilled onto extra lines outside the 40px row. The options text yields
+          // entirely (`min-w-0` + `overflow-hidden` lets it collapse below its content width);
+          // conflict/layer state stays visible on the slots themselves and the header badge.
+          <div className="flex w-full items-center justify-end gap-0.5">
+            {!inertSlots && (
+              <div className="min-w-0 overflow-hidden">{renderPlainOptionsCell(action)}</div>
+            )}
             <IconButton
               label={t('config.controls.actions.moveUp')}
               size="sm"
@@ -900,7 +974,9 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
               // Story 020 D4: parity across the whole filtered row list, not per group - see
               // `ControlsRow`'s doc comment for why this replaces CSS `:nth-of-type`.
               const odd = index % 2 === 0
-              return entry.kind === 'catalog' ? renderCatalogRow(entry, odd) : renderActionRow(entry.action, odd)
+              return entry.kind === 'catalog'
+                ? renderCatalogRow(entry, odd)
+                : renderActionRow(entry.action, odd)
             }}
           />
         )}
@@ -915,10 +991,18 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
           closeLabel={t('common.close')}
           footer={
             <>
-              <Button variant="ghost" disabled={saving} onClick={() => setShowRestoreDefaults(false)}>
+              <Button
+                variant="ghost"
+                disabled={saving}
+                onClick={() => setShowRestoreDefaults(false)}
+              >
                 {t('common.cancel')}
               </Button>
-              <Button variant="danger" disabled={saving} onClick={() => void handleRestoreDefaults()}>
+              <Button
+                variant="danger"
+                disabled={saving}
+                onClick={() => void handleRestoreDefaults()}
+              >
                 {t('config.controls.restoreDefaults.confirm')}
               </Button>
             </>

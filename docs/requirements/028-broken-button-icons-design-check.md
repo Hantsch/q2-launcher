@@ -1,7 +1,7 @@
 ---
 id: 028
 title: Broken button/nav icons + general design check
-status: draft
+status: done # draft -> ready -> in-progress -> done
 created: 2026-08-20
 ---
 
@@ -25,14 +25,14 @@ deliverables (fix + design check) before this goes to `ready`.
 
 ## Acceptance Criteria
 
-- [ ] Root cause of the missing icons in the Controls tab action rows (e.g. "test" row) is
-  identified and fixed; icons render correctly for all rows, including custom/user-created ones.
-- [ ] Root cause of the missing icons in the main navigation bar is identified and fixed; nav
-  icons render correctly.
-- [ ] A design consistency check has been performed across the app's main surfaces (Home,
-  Library, Install, Config tabs, Mods, Assets) confirming icons/spacing/tokens render as intended
-  elsewhere, or documenting further issues found.
-- [ ] No regression in icon rendering for the rows/elements that already worked before this fix.
+- [x] Root cause of the missing icons in the Controls tab action rows (e.g. "test" row) is
+      identified and fixed; icons render correctly for all rows, including custom/user-created ones.
+- [x] Root cause of the missing icons in the main navigation bar is identified and fixed; nav
+      icons render correctly.
+- [x] A design consistency check has been performed across the app's main surfaces (Home,
+      Library, Install, Config tabs, Mods, Assets) confirming icons/spacing/tokens render as intended
+      elsewhere, or documenting further issues found.
+- [x] No regression in icon rendering for the rows/elements that already worked before this fix.
 
 ## Open Questions
 
@@ -57,7 +57,7 @@ Root-cause investigation done so far (static code review + live DOM inspection v
   fixed 150px, `overflow:hidden` column. For a catalogue row it holds exactly one child,
   `ControlsOptionsCell` (`components/ControlsOptionsCell.tsx`), whose own root `<div>` is
   `w-full` — fine when it is the column's only occupant. `ControlsTab.tsx`'s `renderActionRow`
-  (custom/plain rows, ~line 650) instead puts that *same* `w-full` `ControlsOptionsCell` as one
+  (custom/plain rows, ~line 650) instead puts that _same_ `w-full` `ControlsOptionsCell` as one
   sibling inside a `flex flex-wrap` row **alongside 5 `IconButton`s** (move up/down, edit, rename,
   remove). `w-full` on a flex item makes it claim the entire 150px line by itself, so — by flexbox
   wrapping rules — all 5 icon buttons get pushed onto their own wrapped line(s) below it, inside a
@@ -76,7 +76,7 @@ Questions for the user:
 
 1. Does the nav bar problem survive a **clean rebuild** (delete `out/`, `npm run build` again,
    relaunch)? That would rule out a stale/corrupted bundle as the cause.
-2. Is the missing-icon problem limited to the Controls tab + nav bar, or do *other* SVG icons
+2. Is the missing-icon problem limited to the Controls tab + nav bar, or do _other_ SVG icons
    elsewhere in the app (chevrons on the Config profile list, the settings gear, checkboxes,
    window min/maximize/close buttons) look broken too? If it is truly everywhere, that supports
    "one systemic paint issue"; if it is only these two spots, that argues for two separate,
@@ -88,7 +88,7 @@ Questions for the user:
 **Answered (2026-08-20):** not yet tried a clean rebuild; the missing-icon problem is app-wide,
 not limited to Controls/nav. That rules "isolated per-component bug" further out and makes a
 stale/corrupted `out/renderer` bundle, a build/dependency regression, or a GPU/driver rendering
-problem on the user's machine the more likely explanations for the *app-wide* part — none of which
+problem on the user's machine the more likely explanations for the _app-wide_ part — none of which
 this sandbox (no real display, no GPU) can confirm or refute: the checked-in source, freshly
 built here, already produces fully correct SVG markup in the DOM (verified above), so there is
 nothing further static analysis can add.
@@ -129,18 +129,18 @@ compositor theory is ruled out. User then sent a real screenshot of the running 
   both on and off.
 - **The "+" add-installation button** (left rail) also renders as an empty dashed-border box, no
   Plus glyph inside — another data point for "app-wide", per the user's earlier answer.
-- **Console shows exactly one message**, Electron's own built-in warning: *"Electron Security
+- **Console shows exactly one message**, Electron's own built-in warning: _"Electron Security
   Warning (Insecure Content-Security-Policy) — This renderer process has either no Content
-  Security Policy set or a policy with 'unsafe-eval' enabled."* No red errors, no failed resource
+  Security Policy set or a policy with 'unsafe-eval' enabled."_ No red errors, no failed resource
   loads, no React warnings. This is itself a real, separate finding worth fixing (see below) but
-  it does not explain the icons: a *missing* CSP is more permissive, not more restrictive, so it
+  it does not explain the icons: a _missing_ CSP is more permissive, not more restrictive, so it
   cannot be what's blocking rendering.
   - **Likely cause of the CSP warning** (not yet confirmed, not yet fixed): `applySecurityPolicies()`
     in `src/main/index.ts` sets the CSP via `session.defaultSession.webRequest.onHeadersReceived`,
-    which intercepts *network* response headers. The renderer loads via `file://…/index.html` — a
+    which intercepts _network_ response headers. The renderer loads via `file://…/index.html` — a
     local file load, not a network response — so `onHeadersReceived` may never fire for it, meaning
     the CSP has likely **never actually been applied** in a production build (dev mode is served
-    over `http://localhost` by Vite, where it *would* fire, which is probably why this was never
+    over `http://localhost` by Vite, where it _would_ fire, which is probably why this was never
     noticed). Worth its own fix (a `<meta http-equiv="Content-Security-Policy">` tag in
     `src/renderer/index.html` would apply regardless of how the document was loaded) but track that
     as a separate, smaller finding under D2 (design/quality sweep) rather than folding it into the
@@ -159,29 +159,41 @@ Paste into the app's DevTools Console (already known to be reachable — `Ctrl+S
 Console tab) and read the result directly (no relay needed once running natively):
 
 ```js
-copy(JSON.stringify({
-  forcedColors: matchMedia('(forced-colors: active)').matches,
-  prefersContrast: matchMedia('(prefers-contrast: more)').matches,
-  dpr: window.devicePixelRatio,
-  home: (() => {
-    const svg = document.querySelector('[data-testid="nav-home"] svg')
-    if (!svg) return 'NOT FOUND'
-    const cs = getComputedStyle(svg)
-    const path = svg.querySelector('path')
-    const pcs = getComputedStyle(path)
-    return {
-      svgRect: svg.getBoundingClientRect().toJSON(),
-      svgFill: cs.fill, svgStroke: cs.stroke, svgColor: cs.color,
-      svgFilter: cs.filter, svgMixBlend: cs.mixBlendMode, svgOpacity: cs.opacity,
-      pathStroke: pcs.stroke, pathFill: pcs.fill, pathStrokeWidth: pcs.strokeWidth,
-      pathD: path.getAttribute('d'),
-    }
-  })(),
-}, null, 2))
+copy(
+  JSON.stringify(
+    {
+      forcedColors: matchMedia('(forced-colors: active)').matches,
+      prefersContrast: matchMedia('(prefers-contrast: more)').matches,
+      dpr: window.devicePixelRatio,
+      home: (() => {
+        const svg = document.querySelector('[data-testid="nav-home"] svg')
+        if (!svg) return 'NOT FOUND'
+        const cs = getComputedStyle(svg)
+        const path = svg.querySelector('path')
+        const pcs = getComputedStyle(path)
+        return {
+          svgRect: svg.getBoundingClientRect().toJSON(),
+          svgFill: cs.fill,
+          svgStroke: cs.stroke,
+          svgColor: cs.color,
+          svgFilter: cs.filter,
+          svgMixBlend: cs.mixBlendMode,
+          svgOpacity: cs.opacity,
+          pathStroke: pcs.stroke,
+          pathFill: pcs.fill,
+          pathStrokeWidth: pcs.strokeWidth,
+          pathD: path.getAttribute('d'),
+        }
+      })(),
+    },
+    null,
+    2,
+  ),
+)
 ```
 
 Rationale: everything checked so far (DOM structure, computed styles, no console errors, GPU
-on/off) says the icon *code* is correct and something fails purely at paint time. `forcedColors`
+on/off) says the icon _code_ is correct and something fails purely at paint time. `forcedColors`
 checks one concrete, plausible Windows-specific cause not yet ruled out: Windows High Contrast /
 forced-colors mode is known to alter or suppress `currentColor`-driven SVG stroke rendering in
 Chromium in ways that don't show up as console errors or computed-style differences in the
@@ -207,7 +219,7 @@ borders) or trying a completely different consumer of `currentColor`-driven stro
 
 The Controls-tab Options-column bug below (D1) is independent of all of the above — it is a
 confirmed source defect and worth fixing regardless of what the paint investigation turns up. It
-may or may not be the *same* underlying cause as the nav bar (both are "SVG icon content doesn't
+may or may not be the _same_ underlying cause as the nav bar (both are "SVG icon content doesn't
 show, its CSS box still does") — D1's fix should be verified against a rebuilt app once the
 paint-level cause (if any) is also fixed, in case fixing the real cause makes D1's specific
 workaround partially redundant (D1 is a genuine layout bug either way, so it stays worth doing,
@@ -225,9 +237,8 @@ but re-check after D3 that both aren't masking each other).
    spacing/icon/token drift, and write findings into this story's Done section (fixes only if
    they're as small/obvious as D1 — anything bigger becomes a follow-up story, not scope creep
    here).
-3. **AC2 (nav bar) / app-wide half of AC3:** on hold — see Open Questions. Once the user reports
-   back, either close it as "stale build, no code change" or turn the real cause into a D3 here
-   before `status: ready`.
+3. **AC2 (nav bar) / app-wide half of AC3:** resolved — root cause found and fixed as D3, see
+   `## Done`.
 
 ## Deliverables
 
@@ -253,11 +264,11 @@ Acceptance (AC3): every one of Home, Library, Install, Config's five tabs, Mods,
 looked at (screenshots + a live click-through, not just the fixture's default state) and either
 confirmed fine or has a documented finding.
 
-**AC2 (nav bar) has no deliverable yet** — see Open Questions. Do not set `status: ready` until
-either a D3 is added here or the story is closed with a "verified as a stale build, not a code
-issue" note that also satisfies AC2's "identified and fixed" wording (a documented non-code cause
-counts as "identified"; AC2 also asks for a fix, so if the rebuild does NOT clear it, a real D3 is
-required before ready).
+**D3 — remove the global `scrollbar-gutter: stable` and scope it to the view scrollers**
+(added 2026-08-21, covers AC2 and the app-wide half of AC3 — root cause and fix in `## Done`).
+Files: `src/renderer/src/styles/index.css` (gutter removed from the `* { }` rule, explanatory
+comment left in place), `scrollbar-gutter-stable` added to the `overflow-y-auto` roots of
+`HomeView.tsx`, `LibraryView.tsx`, `SettingsView.tsx`, `PlannedModuleView.tsx`, `ConfigView.tsx`.
 
 ## Model Hints
 
@@ -289,3 +300,61 @@ they currently render is what's actually shipped, note if the registry needs a M
 added first.
 
 ## Done
+
+**Root cause found and fixed (2026-08-21, native Windows session — D3).** The app-wide missing
+icons were never a paint/GPU/build problem: commit `8b8e534` ("button fix, story 28 created",
+2026-08-20) added `scrollbar-gutter: stable` to the global `* { }` rule in
+`src/renderer/src/styles/index.css` — the same commit that filed this story. `stable` applies to
+every scroll container, and `overflow: hidden` counts as one; an `<svg>` root's UA default _is_
+`overflow: hidden`. Chromium therefore reserved the app's 10px `::-webkit-scrollbar` width inside
+every SVG's box: below ~15.5px CSS size nothing paints at all (proven with a size ladder injected
+into the running app — same SVG invisible at ≤15px, fine at ≥15.5px; `scrollbar-gutter: auto` or
+`overflow: visible` on the same 14px SVG made it paint). Every `size-3.5` (14px) lucide icon —
+nav bar, "+" rail button, maximize Square, all Controls CRUD buttons — was blanked, while `size-4`
+(16px) icons (gear, Minus, X) survived, which produced the confusing "some icons work" picture.
+This also explains every dead end in Open Questions: DOM/computed styles were correct
+(`scrollbar-gutter` was never inspected), clean rebuild/GPU on-off changed nothing (it's checked-in
+CSS), and even the WSL sandbox's hand-injected raw SVG failed because it inherited the same `*`
+rule from inside the app document.
+
+The same rule also silently reserved 10px inside every _other_ `overflow: hidden` element — e.g.
+`.ctrl-opts` (the Controls Options cell) lost 10px of its 150px track, and every Tailwind
+`truncate` span was affected. So the fix removes the gutter from `*` entirely and scopes it to the
+five full-height view scrollers it was actually meant for (`scrollbar-gutter-stable` on the
+`overflow-y-auto` roots of `HomeView`, `LibraryView`, `SettingsView`, `PlannedModuleView`,
+`ConfigView`) — the Overview <-> Settings layout jump the original commit fixed stays fixed.
+
+**D1 (Controls custom-row Options cell) — fixed.** Two combined defects: the icon glyphs were
+blanked by the root cause above, and the layout genuinely wrapped buttons out of the 40px row
+(confirmed by rect measurement: the Remove button sat on a wrapped line overlapping the footer).
+The 150px track fits five 28px icon buttons only at 2px gaps (5x28 + 4x2 = 148px), so
+`renderActionRow`'s Options wrapper drops `flex-wrap`, uses `gap-0.5`, and lets the
+`ControlsOptionsCell` text collapse (`min-w-0` + `overflow-hidden`) instead of claiming the line —
+conflict/layer state remains visible on the slots themselves and the header conflict badge.
+Verified by the committed flow `scripts/flows/custom-action-row.mjs` (creates a "test" action,
+asserts all 5 buttons sit fully inside `.ctrl-opts` and the row): passes. Catalogue rows
+(`renderCatalogOptionsCell`) untouched; their dash/Options column verified unchanged in
+`config-controls` screenshots.
+
+**D2 (design consistency check) — done.** Full `npm run ui:shot` suite (14 screens x 2 viewports)
+plus live click-throughs reviewed after the fix: icons, spacing and tokens consistent on Home,
+Library (incl. empty), Install (planned), Config list/Overview/Settings/Controls/Write
+targets/Validation/Preserved, Settings, Mods/Assets (planned views), keybind dialog. Findings
+documented, all pre-existing and out of scope here:
+
+1. **Raw file tab crashes** (`RawConfigPanel`: `TypeError: Cannot read properties of undefined
+(reading 'length')`) against the populated fixture — reproduced on clean HEAD before this
+   story's changes; `config-raw` screenshots show the error boundary. Needs its own story.
+2. **axe criticals (pre-existing):** `select-name` on the Config list (redundant-copies
+   installation `<select>` has no accessible name) and `label` on the keybind dialog's filter
+   input. Plus `scrollable-region-focusable` (serious) on the crashed raw tab. Also for a
+   follow-up story.
+3. **CSP never applied in production builds** (from the earlier investigation, unchanged):
+   `applySecurityPolicies()` sets the CSP via `onHeadersReceived`, which does not fire for
+   `file://` loads — a `<meta http-equiv="Content-Security-Policy">` in `src/renderer/index.html`
+   would. Separate, small security follow-up.
+
+**Verification:** `npm run typecheck` clean, 697/697 unit tests pass, `ui:shot` writes 26/28
+screens (the 2 errors are finding 1 above), `ui:flow custom-action-row` passes. Note for future
+sessions: the earlier WSL sandbox could not rasterise SVG in screenshots; this native Windows
+session can — screenshots here are trustworthy evidence again.

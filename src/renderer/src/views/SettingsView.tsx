@@ -20,7 +20,7 @@ export function SettingsView() {
   const appInfo = useLauncher((state) => state.appInfo)
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto scrollbar-gutter-stable">
       <div className="mx-auto max-w-2xl space-y-4 p-6">
         <h1 className="font-display text-2xl tracking-[0.06em] text-ink uppercase">
           {t('settings.title')}

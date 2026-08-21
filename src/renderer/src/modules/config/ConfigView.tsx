@@ -32,13 +32,7 @@ import { listConfigProfiles } from './client'
 
 type Screen = 'list' | 'detail'
 type DetailTab =
-  | 'overview'
-  | 'settings'
-  | 'controls'
-  | 'writeTargets'
-  | 'raw'
-  | 'validation'
-  | 'preserved'
+  'overview' | 'settings' | 'controls' | 'writeTargets' | 'raw' | 'validation' | 'preserved'
 
 /**
  * The config module's view: a list of profiles first, so "what configs do I
@@ -116,7 +110,12 @@ export function ConfigView() {
   // as `EngineScopeSelect`'s own effect.
   useEffect(() => {
     if (!selected) return
-    const next = pickRawInstallationId(selected, installations, activeInstallationId, rawInstallationId)
+    const next = pickRawInstallationId(
+      selected,
+      installations,
+      activeInstallationId,
+      rawInstallationId,
+    )
     if (next !== rawInstallationId) setRawInstallationId(next)
   }, [selected, installations, activeInstallationId, rawInstallationId])
   // Computed once here rather than separately in the tab badge and in
@@ -175,31 +174,34 @@ export function ConfigView() {
     setScreen('list')
   }
 
-  const tabs: { id: DetailTab; label: string; badge?: string; badgeTone?: 'danger' | 'warning' }[] = [
-    { id: 'overview', label: t('config.tabs.overview') },
-    { id: 'settings', label: t('config.tabs.settings') },
-    { id: 'controls', label: t('config.tabs.controls') },
-    { id: 'writeTargets', label: t('config.tabs.writeTargets') },
-    { id: 'raw', label: t('config.tabs.raw') },
-    {
-      id: 'validation',
-      label: t('config.tabs.validation'),
-      // Errors take priority over warnings for the one badge a tab button can
-      // show; the panel itself lists both. Always present (never conditional
-      // on findings existing) - see `ValidationPanel`'s own doc comment.
-      ...(validationCounts.errors > 0
-        ? { badge: String(validationCounts.errors), badgeTone: 'danger' as const }
-        : validationCounts.warnings > 0
-          ? { badge: String(validationCounts.warnings), badgeTone: 'warning' as const }
-          : {}),
-    },
-    ...(selected?.unrecognized?.length
-      ? [{ id: 'preserved' as const, label: t('config.tabs.preserved') }]
-      : []),
-  ]
+  const tabs: { id: DetailTab; label: string; badge?: string; badgeTone?: 'danger' | 'warning' }[] =
+    [
+      { id: 'overview', label: t('config.tabs.overview') },
+      { id: 'settings', label: t('config.tabs.settings') },
+      { id: 'controls', label: t('config.tabs.controls') },
+      { id: 'writeTargets', label: t('config.tabs.writeTargets') },
+      { id: 'raw', label: t('config.tabs.raw') },
+      {
+        id: 'validation',
+        label: t('config.tabs.validation'),
+        // Errors take priority over warnings for the one badge a tab button can
+        // show; the panel itself lists both. Always present (never conditional
+        // on findings existing) - see `ValidationPanel`'s own doc comment.
+        ...(validationCounts.errors > 0
+          ? { badge: String(validationCounts.errors), badgeTone: 'danger' as const }
+          : validationCounts.warnings > 0
+            ? { badge: String(validationCounts.warnings), badgeTone: 'warning' as const }
+            : {}),
+      },
+      ...(selected?.unrecognized?.length
+        ? [{ id: 'preserved' as const, label: t('config.tabs.preserved') }]
+        : []),
+    ]
 
+  // `scrollbar-gutter-stable`: tabs flip between overflowing and not (Overview <-> Settings);
+  // without the reserve the content box width jumps when the scrollbar appears (story 028).
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto scrollbar-gutter-stable">
       <div className="mx-auto max-w-[92rem] space-y-6 p-8">
         {screen === 'list' && (
           <>

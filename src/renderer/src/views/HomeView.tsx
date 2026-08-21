@@ -23,7 +23,7 @@ export function HomeView() {
   return (
     // Scrolls rather than squashing: at the minimum window height the hero used
     // to collapse until its title was clipped away.
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-4">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-4 scrollbar-gutter-stable">
       <HeroPanel />
 
       <div className="grid shrink-0 grid-cols-2 gap-3 xl:grid-cols-4">

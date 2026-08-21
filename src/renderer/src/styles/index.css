@@ -148,14 +148,19 @@
   * {
     /* Sharp edges everywhere unless a component opts in. */
     border-color: var(--color-line);
-    /*
-      Reserve the scrollbar's width whether or not this element actually
-      scrolls, so switching between a view whose content overflows and one
-      that does not never changes the content box width - the layout jump
-      that used to happen navigating Overview <-> Settings.
-    */
-    scrollbar-gutter: stable;
   }
+
+  /*
+    Story 028 root cause: `scrollbar-gutter: stable` used to sit in the `*`
+    rule above (to stop the layout jump navigating Overview <-> Settings), but
+    `stable` applies to every scroll container and `overflow: hidden` counts as
+    one - including every <svg> root (UA default) and every `truncate` span.
+    Chromium then reserves the 10px scrollbar width inside them: icons below
+    ~16px painted nothing at all, and clipped cells lost 10px of content width,
+    app-wide. The gutter now lives only on the full-height view scrollers that
+    actually flip between overflowing and not (see `scrollbar-gutter-stable`
+    on each view's `overflow-y-auto` root).
+  */
 
   html,
   body,

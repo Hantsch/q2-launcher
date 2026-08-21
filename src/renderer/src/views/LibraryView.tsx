@@ -50,7 +50,7 @@ export function LibraryView() {
   }, [installations])
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto scrollbar-gutter-stable">
       <div className="mx-auto max-w-5xl space-y-4 p-6">
         <header className="flex flex-wrap items-end justify-between gap-3">
           <div className="space-y-1">
