@@ -269,6 +269,29 @@ export class ProfilesStore {
     return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
   }
 
+  /**
+   * Commits an already-fully-built profile in place of the one with the same
+   * `id` - the smallest thing story 025 D3's `tidyUp.apply` needs, and
+   * deliberately *not* a fifth field setter.
+   *
+   * A tidy-up batch mutates several fields at once (a re-classify writes
+   * `unrecognized` plus one of `cvars`/`binds`/`actions`; `unrecognized` has no
+   * setter at all otherwise), and it computes the whole next profile in one pure
+   * pass (`applyTidyUpOps`, `@shared/config/tidy-up`) precisely so that batch
+   * lands as one commit with one `updatedAt`. So this method takes the finished
+   * object and does the one thing the four setters above all end in - swap it
+   * into the list and `commit` - rather than re-deriving any field logic.
+   *
+   * `updatedAt` is the *caller's* to set, unlike in the setters above: the
+   * timestamp has to be stamped once for the whole batch, and only when
+   * something actually applied. Throws when `profile.id` is unknown, same as the
+   * setters.
+   */
+  replaceProfile(profile: ConfigProfile): ConfigProfile[] {
+    if (!this.find(profile.id)) throw new Error(`config profile not found: ${profile.id}`)
+    return this.commit(this.state.configProfiles().map((p) => (p.id === profile.id ? profile : p)))
+  }
+
   reconcile(knownInstallationIds: string[]): ConfigProfile[] {
     return this.commit(reconcileAssignments(this.list(), knownInstallationIds))
   }

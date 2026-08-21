@@ -9,25 +9,25 @@ import { Badge, EmptyState, KeyValue, Panel, SectionLabel } from '../../componen
 import { useLauncher } from '../../store/useLauncher'
 import { ControlsTab } from './ControlsTab'
 import { AssignmentsMenu } from './AssignmentsMenu'
-import { CleanupPanel } from './CleanupPanel'
+import { CareTab } from './CareTab'
 import { CreateProfileDialog } from './CreateProfileDialog'
 import { DeleteProfileDialog } from './DeleteProfileDialog'
 import { ImportProfileDialog } from './ImportProfileDialog'
 import { InstallationProfilesPanel } from './InstallationProfilesPanel'
 import { LayersPanel } from './LayersPanel'
-import { totalCounts, validateProfileForEngines } from './lib/validation-scope'
+import { dedupedFindingCounts } from './lib/care-summary'
+import { analyzeTidyUp } from './lib/tidy-up-findings'
+import { validateProfileForEngines } from './lib/validation-scope'
 import { useProfileAutoWrite } from './lib/useProfileAutoWrite'
 import { useProfileDraft } from './lib/useProfileDraft'
 import { OverviewKeyboardPanel } from './OverviewKeyboardPanel'
-import { PreservedLinesPanel } from './PreservedLinesPanel'
 import { RawFileTab } from './RawFileTab'
 import { RenameProfileDialog } from './RenameProfileDialog'
 import { SettingsTab } from './SettingsTab'
-import { ValidationPanel } from './ValidationPanel'
 import { listConfigProfiles } from './client'
 
 type Screen = 'list' | 'detail'
-type DetailTab = 'overview' | 'settings' | 'controls' | 'raw' | 'validation' | 'preserved'
+type DetailTab = 'overview' | 'settings' | 'controls' | 'raw' | 'care'
 
 /**
  * The config module's view: a list of profiles first, so "what configs do I
@@ -114,7 +114,29 @@ export function ConfigView() {
         : { status: 'unassigned' as const, byEngine: [], omitted: [] },
     [draftOrSelected, installations],
   )
-  const validationCounts = useMemo(() => totalCounts(validation), [validation])
+  // Story 025 D8: the tab badge counts validation findings and tidy-up
+  // findings together, de-duplicated by finding id (`dedupedFindingCounts`,
+  // `lib/care-summary.ts`) - the alias-wiring rules feed both lists, so a
+  // naive sum of `totalCounts(validation)` and `analyzeTidyUp(...).length`
+  // would double-count them. Computed from `selected`, not `draftOrSelected`
+  // - decision 3: tidy-up (unlike the validation report) always answers
+  // against the *saved* profile, since that is what `tidyUp.apply` actually
+  // mutates. `analyzeTidyUp` is pure and cheap, computed here the same way
+  // `validation` already is, so the badge and `CareTab`'s own copy (needed
+  // for its summary) never depend on one another.
+  const tidyUpFindings = useMemo(() => (selected ? analyzeTidyUp(selected) : []), [selected])
+  const validationCounts = useMemo(
+    () => dedupedFindingCounts(validation, tidyUpFindings),
+    [validation, tidyUpFindings],
+  )
+
+  // Story 025 D7: the ids `CleanupPanel` (mounted inside `CareTab` now) defaults
+  // its installation picker to, before the "scan any installation" control widens
+  // it back to the full `installations` list.
+  const assignedInstallationIds = useMemo(
+    () => selected?.assignments.map((assignment) => assignment.installationId) ?? [],
+    [selected],
+  )
 
   const openProfile = (id: string): void => {
     setSelectedId(id)
@@ -160,6 +182,18 @@ export function ConfigView() {
     setScreen('list')
   }
 
+  /**
+   * `tidyUp.apply` (story 025 D5, `CareTidyUpSection`) returns just the one
+   * profile it mutated, not the full list every other mutation here returns
+   * (`setCvars`/`setActions`/... via `onChanged={setProfiles}`). Same update
+   * path all the same - `profiles` is still the one piece of state everything
+   * reads `selected` from - just folding a single fresh profile back into it
+   * by id instead of replacing the whole array wholesale.
+   */
+  const handleProfileUpdated = (updated: ConfigProfile): void => {
+    setProfiles((prev) => prev.map((profile) => (profile.id === updated.id ? updated : profile)))
+  }
+
   const tabs: { id: DetailTab; label: string; badge?: string; badgeTone?: 'danger' | 'warning' }[] =
     [
       { id: 'overview', label: t('config.tabs.overview') },
@@ -167,8 +201,8 @@ export function ConfigView() {
       { id: 'controls', label: t('config.tabs.controls') },
       { id: 'raw', label: t('config.tabs.raw') },
       {
-        id: 'validation',
-        label: t('config.tabs.validation'),
+        id: 'care',
+        label: t('config.tabs.care'),
         // Errors take priority over warnings for the one badge a tab button can
         // show; the panel itself lists both. Always present (never conditional
         // on findings existing) - see `ValidationPanel`'s own doc comment.
@@ -178,9 +212,6 @@ export function ConfigView() {
             ? { badge: String(validationCounts.warnings), badgeTone: 'warning' as const }
             : {}),
       },
-      ...(selected?.unrecognized?.length
-        ? [{ id: 'preserved' as const, label: t('config.tabs.preserved') }]
-        : []),
     ]
 
   // `scrollbar-gutter-stable`: tabs flip between overflowing and not (Overview <-> Settings);
@@ -251,10 +282,6 @@ export function ConfigView() {
                 </Panel>
               </>
             )}
-
-            <Panel className="space-y-3 p-6">
-              <CleanupPanel />
-            </Panel>
           </>
         )}
 
@@ -359,8 +386,15 @@ export function ConfigView() {
                 />
               )}
               {activeTab === 'raw' && <RawFileTab profile={selected} />}
-              {activeTab === 'validation' && <ValidationPanel result={validation} />}
-              {activeTab === 'preserved' && <PreservedLinesPanel profile={selected} />}
+              {activeTab === 'care' && (
+                <CareTab
+                  profile={selected}
+                  validation={validation}
+                  onProfileUpdated={handleProfileUpdated}
+                  installations={installations}
+                  assignedInstallationIds={assignedInstallationIds}
+                />
+              )}
             </Panel>
           </div>
         )}

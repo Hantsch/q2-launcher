@@ -8,6 +8,7 @@ import {
   type PreviewProfileResult,
   type ProfileSyncState,
   type RawFilesResult,
+  type TidyUpApplyResult,
   type WriteTargetResult,
 } from '@shared/modules/config'
 import { type Installation, type LaunchState, type Outcome } from '@shared/types'
@@ -1252,5 +1253,150 @@ describe('applyCleanupIfNotRunning / restoreCleanupIfNotRunning', () => {
     expect(findings).toEqual([
       { gameDir: 'ctf', fileName: 'hud.cfg', identical: true, size: HAND_WRITTEN.length },
     ])
+  })
+})
+
+/**
+ * Story 025 D3: `tidyUp.apply` - the module's one non-setter mutating handler.
+ * Its acceptance is about the *once* guarantees, which only exist at this level
+ * and not in the pure applier (`@shared/config/tidy-up`, covered by its own
+ * unit tests): one `updatedAt` bump, one commit and one sync run for a whole
+ * batch, and none of the three when nothing applied.
+ *
+ * Same duck-typed `app` + real temp-file-backed `StateStore` boot as the blocks
+ * above, plus a `launch` (the sync run reads it).
+ */
+describe('CONFIG_HANDLERS.tidyUpApply handler (story 025 D3)', () => {
+  async function bootTidyUp(
+    seeded: ConfigProfile,
+    insts: Installation[] = [],
+  ): Promise<{ handler: ModuleHandler; state: StateStore; commits: () => number }> {
+    const state = new StateStore(join(dir, 'state.json'))
+    await state.load()
+    const handlers = new Map<string, ModuleHandler>()
+    await configModule.setup({
+      handle: (type, handler) => handlers.set(type, handler),
+      emit: () => {},
+      app: {
+        installations: {
+          find: (id: string) => insts.find((i) => i.id === id),
+          list: () => insts,
+        },
+        launch: { getState: () => idleState() },
+        state,
+      } as unknown as AppContext,
+      log,
+    })
+    state.setConfigProfiles([seeded])
+    await state.settle()
+    // Spied only *after* seeding, so the count is the handler's own commits.
+    const spy = vi.spyOn(state, 'setConfigProfiles')
+    return { handler: handlers.get(CONFIG_HANDLERS.tidyUpApply)!, state, commits: () => spy.mock.calls.length }
+  }
+
+  const preservedLine = { file: 'config.cfg', line: 7, text: 'alias +test "echo hi"' }
+
+  function messyProfile(): ConfigProfile {
+    return profile({
+      cvars: {},
+      // Two spellings of one key - the duplicate-bind shape an import produces.
+      // Deliberately non-catalogue commands, so `commit`'s own `adoptRawBinds`
+      // pass has nothing to adopt and cannot muddy what this test asserts.
+      binds: { MOUSE1: 'echo one', mouse1: 'echo two' },
+      layers: [{ id: 'l1', name: 'Empty', mode: 'hold', triggerKey: 'ALT', overrides: { '1': '  ' } }],
+      unrecognized: [preservedLine],
+    })
+  }
+
+  it('applies a batch, bumps updatedAt exactly once, commits once and syncs once', async () => {
+    const inst = installation()
+    const seeded = messyProfile()
+    const { handler, state, commits } = await bootTidyUp(seeded, [inst])
+
+    const result = (await handler({
+      profileId: 'p1',
+      ops: [
+        {
+          kind: 'removeShadowedBind',
+          scope: 'base',
+          key: 'MOUSE1',
+          claim: { source: 'baseBind', command: 'echo one' },
+        },
+        { kind: 'removeEmptyLayer', layerId: 'l1' },
+        {
+          kind: 'reclassifyPreservedLine',
+          ...preservedLine,
+          target: { field: 'cvars', name: 'sensitivity', value: '5' },
+        },
+      ],
+    })) as Outcome<TidyUpApplyResult>
+
+    if (!result.ok) throw new Error('expected tidyUp.apply to succeed')
+    expect(result.value.applied).toHaveLength(3)
+    expect(result.value.rejected).toEqual([])
+
+    const updated = result.value.profile
+    expect(updated.binds).toEqual({ mouse1: 'echo two' })
+    expect(updated.layers).toEqual([])
+    expect(updated.cvars).toEqual({ sensitivity: '5' })
+    expect(updated.unrecognized).toEqual([])
+
+    // One bump for the whole batch, and the value the handler returned is the
+    // value that got persisted - not one of three intermediate ones.
+    expect(updated.updatedAt).not.toBe(seeded.updatedAt)
+    expect(state.configProfiles()[0]!.updatedAt).toBe(updated.updatedAt)
+    expect(commits()).toBe(1)
+
+    // ...and the one sync run wrote the fully-tidied file to both places.
+    const expected = renderProfileFile(updated)
+    expect(await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')).toBe(expected)
+    expect(await readFile(join(dir, 'baseq2', 'Profile.cfg'), 'latin1')).toBe(expected)
+  })
+
+  it('rejects a stale op without bumping updatedAt, committing or syncing', async () => {
+    const inst = installation()
+    const seeded = messyProfile()
+    const { handler, state, commits } = await bootTidyUp(seeded, [inst])
+
+    const stale = { kind: 'removeEmptyLayer' as const, layerId: 'never-existed' }
+    const result = (await handler({ profileId: 'p1', ops: [stale] })) as Outcome<TidyUpApplyResult>
+
+    if (!result.ok) throw new Error('expected tidyUp.apply to succeed')
+    expect(result.value.applied).toEqual([])
+    expect(result.value.rejected).toEqual([stale])
+    expect(result.value.profile.updatedAt).toBe(seeded.updatedAt)
+    expect(result.value.profile.layers).toHaveLength(1)
+    expect(state.configProfiles()[0]!.updatedAt).toBe(seeded.updatedAt)
+    expect(commits()).toBe(0)
+    // Nothing changed, so nothing was written - not even the canonical copy.
+    expect(await pathExists(join(userDataBox.current, 'Profile.cfg'))).toBe(false)
+  })
+
+  it('fails a malformed payload without touching the profile', async () => {
+    const seeded = messyProfile()
+    const { handler, commits } = await bootTidyUp(seeded)
+
+    const badOp = (await handler({
+      profileId: 'p1',
+      ops: [{ kind: 'removeEmptyLayer' }],
+    })) as Outcome<TidyUpApplyResult>
+    const unknownKind = (await handler({
+      profileId: 'p1',
+      ops: [{ kind: 'reformatEverything' }],
+    })) as Outcome<TidyUpApplyResult>
+    const noProfile = (await handler({ ops: [] })) as Outcome<TidyUpApplyResult>
+
+    for (const result of [badOp, unknownKind, noProfile]) {
+      expect(result).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
+    }
+    expect(commits()).toBe(0)
+  })
+
+  it('fails an unknown profile id', async () => {
+    const { handler } = await bootTidyUp(messyProfile())
+
+    const result = (await handler({ profileId: 'nope', ops: [] })) as Outcome<TidyUpApplyResult>
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.profileNotFound' } })
   })
 })

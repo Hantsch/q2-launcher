@@ -57,3 +57,25 @@
 - 2026-08-21 15:08 · 024 · live smoke (ui:verify) · started
 - 2026-08-21 15:10 · 024 · live smoke (ui:verify) · done — config-raw renders cleanly at both viewports, gutter fix confirmed visually, only baseline page-has-heading-one moderate finding; other flagged screens (config-list, keybind-dialog) are unrelated pre-existing baselines, not touched by this story
 - 2026-08-21 15:11 · 024 · story done, moved to done/, INDEX.md updated · done
+- 2026-08-21 15:12 · 025 · D1 Validation becomes Care, Preserved lines folds in · started
+- 2026-08-21 15:16 · 025 · D1 Validation becomes Care, Preserved lines folds in · done
+- 2026-08-21 15:16 · 025 · D2 Sync section: five states, one adapter, retry on failure · started
+- 2026-08-21 15:38 · 025 · D3 Tidy-up operation contract and atomic applier · done
+- 2026-08-21 15:38 · 025 · D4 Tidy-up analyzer with safe/review/report classification · started
+- 2026-08-21 15:56 · 025 · D4 Tidy-up analyzer with safe/review/report classification · done
+- 2026-08-21 15:56 · 025 · D5 Tidy-up section: grouped findings, per-item preview, individual apply · started
+- 2026-08-21 17:59 · 025 · D5 Tidy-up section: grouped findings, per-item preview, individual apply · done
+- 2026-08-21 18:05 · 025 · D6 Fix all safe findings + CareBatchFixDialog · started
+- 2026-08-21 18:05 · 025 · D6 Fix all safe findings + CareBatchFixDialog · done
+- 2026-08-21 18:12 · 025 · D7 Mod-copies cleanup moves into Care, scoped to profile · started
+- 2026-08-21 18:12 · 025 · D7 Mod-copies cleanup moves into Care, scoped to profile · done
+- 2026-08-21 18:20 · 025 · D8 Care summary + de-duplicated tab badge · started
+- 2026-08-21 18:20 · 025 · D8 Care summary + de-duplicated tab badge · done
+- 2026-08-21 18:21 · 025 · story-level verification (build/test/typecheck) · started
+- 2026-08-21 18:22 · 025 · story-level verification (build/test/typecheck) · done, all green (926 tests)
+- 2026-08-21 18:36 · 025 · code review (story-review-hard) · done — FAIL, 3 confirmed findings (F1 badge dedup breaks across engines, F2 unvalidated profile shows clean, F3 summary vanishes on sync-fetch failure) + 3 accepted-as-is (F4 stale ui:verify screenshots, F5 documented main-side re-validation gap, F6 cosmetic)
+- 2026-08-21 18:36 · 025 · review-fix cycle 1 · started
+- 2026-08-21 18:36 · 025 · review-fix cycle 1 · done — all 3 confirmed findings fixed, build/test/typecheck re-run green (932 tests)
+- 2026-08-21 18:39 · 025 · live smoke (ui:verify config-care) · started
+- 2026-08-21 18:41 · 025 · live smoke (ui:verify config-care) · done — fixed pre-existing select-name axe critical surfaced by CleanupPanel's relocation (missing htmlFor/id on the installation picker, same unfixed pattern in several other dialogs app-wide); re-verified clean, only baseline page-has-heading-one moderate remains
+- 2026-08-21 18:41 · 025 · story done, moved to done/, INDEX.md updated · done

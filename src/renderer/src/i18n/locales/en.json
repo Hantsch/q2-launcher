@@ -355,8 +355,7 @@
       "settings": "Settings",
       "controls": "Controls",
       "raw": "Raw file",
-      "validation": "Validation",
-      "preserved": "Preserved lines"
+      "care": "Care"
     },
     "overview": {
       "label": "Keyboard overview",
@@ -948,6 +947,11 @@
         "title": "No installations registered",
         "body": "Register an installation first, then come back here to clean up its config folders."
       },
+      "scope": {
+        "widen": "Scan any installation",
+        "hint": "Showing only this profile's assigned installations. Turn on “Scan any installation” to widen the picker to every registered installation.",
+        "hintWidened": "Widened to every registered installation, not just this profile's assigned ones."
+      },
       "scan": "Scan",
       "scanning": "Scanning…",
       "empty": {
@@ -1000,6 +1004,95 @@
       "empty": {
         "title": "No preserved lines",
         "body": "Everything in this profile's source was understood."
+      }
+    },
+    "care": {
+      "summary": {
+        "label": "Overview",
+        "overall": {
+          "allClear": "All clear — nothing to report and nothing to clean.",
+          "notAllClear": "Not all clear yet — see the sections below."
+        },
+        "section": {
+          "report": "Validation report",
+          "sync": "Sync",
+          "tidyUp": "Tidy-up",
+          "cleanup": "Cleanup"
+        },
+        "status": {
+          "clean": "Clean",
+          "notChecked": "Not checked yet",
+          "items_one": "{{count}} item",
+          "items_other": "{{count}} items"
+        }
+      },
+      "sync": {
+        "label": "Sync",
+        "own": "This profile's file",
+        "retry": "Retry",
+        "retrying": "Retrying…",
+        "state": {
+          "inSync": "In sync",
+          "outOfSync": "Out of sync",
+          "missing": "Missing",
+          "failed": "Failed",
+          "pending": "Pending"
+        }
+      },
+      "tidyUp": {
+        "shadowedBind": "“{{key}}” is claimed {{count}} times ({{owners}}). Only “{{winner}}” actually reaches the key – the others are written to the config file and do nothing.",
+        "shadowedBindUnresolved": "“{{key}}” is claimed {{count}} times ({{owners}}), and which of them the engine ends up using cannot be determined from this profile. Sort the duplicates out by hand rather than removing one at random.",
+        "emptyLayer": "The layer “{{name}}” has no key with a command on it, so it generates nothing at all – not even a way back out of it.",
+        "unreferencedAlias": "The alias “{{name}}” is not called by anything in this profile. Removing it changes nothing that runs.",
+        "undefinedAlias": "“{{action}}” calls “{{alias}}”, but no alias with that name exists here. Removing the binding and writing the missing alias are both valid fixes, so this one is yours to make.",
+        "duplicateAlias": "“{{name}}” is used by more than one alias entry. Quake II keeps only the last one it reads – decide which entry you meant to keep.",
+        "preservedLine": "{{file}} line {{line}} could not be classified when it was imported and is kept verbatim: {{text}}",
+        "preservedLineCvar": "{{file}} line {{line}} reads as the cvar “{{name}}” set to “{{value}}”: {{text}}",
+        "preservedLineBind": "{{file}} line {{line}} reads as “{{key}}” bound to “{{command}}”: {{text}}",
+        "label": "Tidy-up",
+        "empty": {
+          "title": "Nothing to tidy up",
+          "body": "No shadowed binds, empty layers, dangling aliases or preserved lines were found in this profile."
+        },
+        "kindLabel": {
+          "shadowedBind": "Shadowed binds",
+          "emptyLayer": "Empty layers",
+          "unreferencedAlias": "Unreferenced aliases",
+          "undefinedAlias": "Undefined alias references",
+          "duplicateAlias": "Duplicate aliases",
+          "preservedLine": "Preserved lines"
+        },
+        "mode": {
+          "auto": "Auto",
+          "review": "Review",
+          "report": "Report only"
+        },
+        "action": {
+          "apply": "Apply",
+          "drop": "Drop",
+          "reclassify": "Re-classify"
+        },
+        "applying": "Applying…",
+        "preview": {
+          "before": "Before:",
+          "after": "After:",
+          "removed": "(removed)"
+        },
+        "result": {
+          "rejected": "This no longer applies – the profile changed since this was scanned. Re-check the report above."
+        },
+        "batch": {
+          "button": "Fix all safe findings ({{count}})",
+          "nothingSafe": "Nothing is classified safe to fix automatically yet.",
+          "title": "Fix all safe findings",
+          "warning": "This applies all {{count}} operations below to the profile in one step – there is no per-item undo once you continue.",
+          "operationsLabel": "Operations this will run:",
+          "confirm": "Apply all",
+          "result": {
+            "applied": "{{count}} operation(s) applied.",
+            "rejected": "{{count}} operation(s) no longer applied – the profile changed since this was scanned."
+          }
+        }
       }
     },
     "layersPanel": {

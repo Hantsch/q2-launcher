@@ -30,6 +30,8 @@ import {
   type SetProfileLayersInput,
   type SetSwitchBindInput,
   type SyncProfileStateInput,
+  type TidyUpApplyInput,
+  type TidyUpApplyResult,
   type UnassignProfileInput,
   type WriteProfileInput,
   type WriteState,
@@ -320,6 +322,21 @@ export async function restoreCleanup(
   const result = await callModule<Outcome<CleanupRestoreResult>>(
     'config',
     CONFIG_HANDLERS.cleanupRestore,
+    input,
+  )
+  return result.ok ? result.value : result
+}
+
+/**
+ * Tidy-up (story 025 D3/D5): applies one atomic batch of `TidyUpOp`s
+ * (`@shared/config/tidy-up`) to a profile and returns the committed profile
+ * plus which ops applied vs. were rejected as stale. Same double-unwrap
+ * gotcha as `scanCleanupFindings`/`applyCleanup` above.
+ */
+export async function applyTidyUp(input: TidyUpApplyInput): Promise<Outcome<TidyUpApplyResult>> {
+  const result = await callModule<Outcome<TidyUpApplyResult>>(
+    'config',
+    CONFIG_HANDLERS.tidyUpApply,
     input,
   )
   return result.ok ? result.value : result

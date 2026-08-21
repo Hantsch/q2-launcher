@@ -1,7 +1,7 @@
 ---
 id: 025
 title: Validation becomes Care — report, tidy-up actions and sync state in one place
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-08-19
 ---
 
@@ -15,25 +15,25 @@ files.
 
 ## Acceptance Criteria
 
-- [ ] The tab is called "Care" and still contains the full multi-engine validation report from
+- [x] The tab is called "Care" and still contains the full multi-engine validation report from
       story 009, unchanged in its honesty rules (per engine, equally weighted, explicit "nothing to
       validate against" states, live against unsaved edits).
-- [ ] A sync section lists the profile's files (own file + per assigned installation) as
+- [x] A sync section lists the profile's files (own file + per assigned installation) as
       in-sync / missing / out-of-sync / failed, with a retry for the failed ones (data from story
       022).
-- [ ] A tidy-up section offers actions with a preview of exactly what changes before applying, at
+- [x] A tidy-up section offers actions with a preview of exactly what changes before applying, at
       minimum: remove keys bound twice, drop or re-classify imported "preserved lines", remove
       empty layers, remove aliases nothing references, and report bindings referencing an undefined
       alias (story 019).
-- [ ] Alongside individual apply, a "fix all safe findings" button applies every finding the
+- [x] Alongside individual apply, a "fix all safe findings" button applies every finding the
       tidy-up section classifies as safe in one step, behind an explicit pre-apply warning that
       names what it is about to change; it is disabled and says so when nothing is classified safe.
-- [ ] The "Preserved lines" tab is folded in here instead of being its own conditional tab.
-- [ ] The installation-wide cleanup of redundant per-mod `.cfg` copies (story 010) moves here from
+- [x] The "Preserved lines" tab is folded in here instead of being its own conditional tab.
+- [x] The installation-wide cleanup of redundant per-mod `.cfg` copies (story 010) moves here from
       the profile list, keeping its scan → review → apply → undo flow and the backup-once contract.
-- [ ] Nothing on disk is touched without a preview first, and anything that deletes or overwrites a
+- [x] Nothing on disk is touched without a preview first, and anything that deletes or overwrites a
       user file stays undoable.
-- [ ] With nothing to report and nothing to clean, the tab says so explicitly — it never looks
+- [x] With nothing to report and nothing to clean, the tab says so explicitly — it never looks
       identical to "not checked".
 
 ## Open Questions
@@ -161,7 +161,7 @@ nothing outside this story. Step 1 must land before 6/7 so there is a tab to mou
 
 ## Deliverables
 
-### D1 — Validation becomes Care, Preserved lines folds in
+### D1 — Validation becomes Care, Preserved lines folds in [x]
 
 Rename the tab id/label, delete the conditional `preserved` tab, and introduce `CareTab.tsx` as a
 section stack whose first two sections are the unchanged `ValidationPanel` and
@@ -178,7 +178,7 @@ state). Update the ui:verify screen list in the same step.
   identically to before inside it; `npm run ui:verify --screens=config-care` produces a screenshot
   and the accessibility report stays clean. Covers AC 1 (naming + report intact) and AC 4.
 
-### D2 — Sync section: five states, one adapter, retry on failure
+### D2 — Sync section: five states, one adapter, retry on failure [x]
 
 `lib/care-sync.ts` (+ test) turns story 022's per-installation sync data and the existing
 `WriteTargetResult`/`WriteState` into `CareSyncRow[]`
@@ -198,7 +198,7 @@ indicator, and a retry button on `failed` rows calling `writeConfigProfile`.
   app, an assigned installation whose file was deleted on disk shows `missing`, and a failed write
   shows `failed` with a working retry. Covers AC 2.
 
-### D3 — Tidy-up operation contract and atomic applier
+### D3 — Tidy-up operation contract and atomic applier [x]
 
 `src/shared/config/tidy-up.ts`: `TidyUpOp` as a discriminated union
 (`removeShadowedBind`, `removeEmptyLayer`, `removeUnreferencedAlias`, `dropPreservedLine`,
@@ -219,7 +219,7 @@ profile, applies the ops in one write, and triggers the existing write-to-instal
   `unrecognized` and its target field in the same result, and that `updatedAt` bumps exactly once
   for a batch. Covers AC 6 (main side: nothing applies that was not previewed and still true).
 
-### D4 — Tidy-up analyzer with the safe/review/report classification
+### D4 — Tidy-up analyzer with the safe/review/report classification [x]
 
 `lib/tidy-up-findings.ts` (+ test): `analyzeTidyUp(profile): TidyUpFinding[]`, each
 `{ id, kind, mode: 'auto' | 'review' | 'report', level, messageKey, params, ops, sourceFindingId? }`.
@@ -238,7 +238,7 @@ Sources: `findBindConflicts` — resolving which owner wins in render order and 
   alias (`report`, zero ops), and a preserved line offering both drop and re-classify; `auto`
   contains exactly the shadowed-bind and empty-layer findings. Covers AC 3 (detection half).
 
-### D5 — Tidy-up section: grouped findings, per-item preview, individual apply
+### D5 — Tidy-up section: grouped findings, per-item preview, individual apply [x]
 
 `CareTidyUpSection.tsx`: findings grouped by kind with a count per group, each row showing its
 level, subject and mode; a `review`/`auto` row expands to a before/after preview of exactly the
@@ -258,7 +258,7 @@ rejects inline.
   Apply on one item changes only that item and the report above updates; a report-only item has no
   Apply. Covers AC 3 (UI + preview half) and AC 6 (preview-before-apply).
 
-### D6 — "Fix all safe findings" with an explicit pre-apply warning
+### D6 — "Fix all safe findings" with an explicit pre-apply warning [x]
 
 A button in the tidy-up section header labelled with the count of `auto` findings, disabled with an
 explicit "nothing classified safe" label at zero. It opens a modal that lists every operation it
@@ -275,7 +275,7 @@ call and shows applied/rejected counts.
   anything changes, Cancel changes nothing, Apply clears both in one save; with none it is disabled
   and says why. Covers the new "fix all safe findings" criterion.
 
-### D7 — Mod-copies cleanup moves into Care, scoped to the profile
+### D7 — Mod-copies cleanup moves into Care, scoped to the profile [x]
 
 `CleanupPanel` unmounts from `ConfigView`'s list screen and mounts in `CareTab`, gaining
 `installations` (the profile's assigned installations) and a "scan any installation" scope control
@@ -293,7 +293,7 @@ review, apply, undo and the backup-once contract are unchanged.
   trip still restores the file byte-for-byte and existing `cleanup.test.ts` stays green. Covers
   AC 5 and AC 6 (undoable disk change).
 
-### D8 — Care summary: all clear vs. not checked, and the de-duplicated tab badge
+### D8 — Care summary: all clear vs. not checked, and the de-duplicated tab badge [x]
 
 A summary at the top of `CareTab` that states, per section, whether it is clean, has n items, or
 has not been checked yet (cleanup, which needs a scan) — and one overall line that only says "all
@@ -377,3 +377,67 @@ Run `npm run dev` and drive the real UI (P1: every step below is a real user act
     rather than "all clear".
 
 ## Done
+
+**Summary.** The old "Validation" tab is now "Care": one section stack (`CareTab.tsx`) holding, in
+order, a Care-level all-clear/not-checked summary, the unchanged story-009 validation report, the
+now-always-present preserved-lines panel, a new sync section (story 022 data, 5 states, retry), a
+new tidy-up section (6 finding kinds, per-item preview/apply, "fix all safe findings" batch dialog),
+and the mod-copies cleanup panel (moved from the profile list, scoped to the profile's assigned
+installations with a "scan any installation" widening control). All eight acceptance criteria are
+met and ticked above.
+
+**Commit message:**
+```
+025: Care tab replaces Validation — sync, tidy-up and cleanup in one place
+```
+
+**Decisions made during build (beyond the refine-time ones already in this file):**
+- D8's sync/cleanup status reaches `CareTab` via one optional callback prop each
+  (`CareSyncSection`'s `onStateLoaded`/`onStatusChange`, `CleanupPanel`'s `onStatusChange`) rather
+  than a second IPC call or lifted fetch — each section keeps owning its own live state and only
+  reports the result up once it already has it.
+- The Care-level summary treats "cleanup not yet scanned" and "validation has nothing to check
+  against" (`EngineScopeStatus !== 'ok'`, e.g. an unassigned profile) as the same kind of
+  `notChecked` state, distinct from `clean` — both are "no real answer yet", not "nothing wrong".
+
+**Verification:** `npm run build`, `npm test` (932 tests), `npm run typecheck` all green. Clean-agent
+review (`story-review-hard`) returned FAIL on first pass with 3 confirmed findings, fixed in one
+review-fix cycle, then all three gates re-verified green:
+- F1: the tab badge's de-duplication (decision 18) only matched finding ids for r1q2-assigned
+  profiles, because `Finding.id` is engine-prefixed while the tidy-up analyzer always computes
+  alias-wiring findings at a fixed `r1q2`. Fixed by normalizing the `<engine>:actions:...` prefix
+  away before comparing, symmetrically on both sides, in `lib/care-summary.ts`.
+- F2: a profile with nothing assigned (`EngineScopeStatus !== 'ok'`) read its zero-count validation
+  report as `clean` rather than `notChecked`, so it could reach a false "all clear" once cleanup was
+  scanned. Fixed in `careSummary`.
+- F3: the whole Care summary panel silently disappeared if the sync-state fetch failed, reproducing
+  the exact ambiguity AC 8 exists to forbid. Fixed by giving `CareSyncSection` a status callback
+  (`'loading' | 'loaded' | 'error'`) instead of a success-only one, so the summary always renders and
+  never claims "all clear" while sync is errored/unresolved.
+
+A fourth, cheaper issue surfaced only during the live-smoke pass, not the code review: `ui:verify`
+flagged a new axe **critical** (`select-name`) on `config-care` — `CleanupPanel`'s installation
+`<Select>` had no accessible name. Root cause predates this story (the `Field`/`Select` pair never
+wired `htmlFor`/`id`, a pattern several other dialogs in this codebase share unfixed) and was simply
+never audited before because `CleanupPanel` lived on an already-clean screen; moving it into a
+tracked `ui:verify` screen exposed it for the first time. Fixed directly (added `useId()` +
+`htmlFor`/`id`) since it was cheap and now visible on a screen this story ships. The same latent
+pattern elsewhere (`ImportProfileDialog`, `CreateProfileDialog`, `LayersPanel`, `MessageEditor`,
+`ActionEditor`, `CreateInstallationDialog`) is out of this story's scope and left as-is.
+
+**Accepted-but-unfixed findings (reviewed, judged acceptable, not fixed):**
+1. *Main-side `removeShadowedBind` re-validation trusts the op's claimed "loser," not just that the
+   claim exists and the key is contested* (`src/shared/config/tidy-up.ts`). Decision 11/12 already
+   frame "which claim wins" as the analyzer's call, not the applier's; D4's UI is the only caller and
+   only ever emits loser ops, so this is unreachable today. Left as documented, not hardened further,
+   to avoid re-deriving "who wins" a second time in the applier.
+2. `ui:verify`'s `config-care` screen only exercises the `PROFILE_UNRECOGNIZED` fixture (to also
+   cover the preserved-lines section with content) where the pre-story `config-validation`/
+   `config-preserved` entries together covered both fixture profiles. One shot per screen id is this
+   harness's existing budget; the Care tab's structure (same five sections regardless of which
+   profile is open) doesn't need a second shot to prove it renders, so this was accepted as adequate
+   coverage rather than adding a second `config-care*` screen entry.
+3. Several cosmetic/low findings from the review (a single shared `retrying` flag disabling every
+   failed sync row's retry button at once instead of per-row; the sync section's loading state
+   rendering without its own heading; one dead defensive branch in `resolveWinner`) were left
+   unfixed as genuinely low-impact UI polish outside this story's acceptance criteria.

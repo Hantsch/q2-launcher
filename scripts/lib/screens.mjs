@@ -136,18 +136,13 @@ export const SCREENS = [
     navigate: configDetail('raw'),
   },
   {
-    id: 'config-validation',
+    id: 'config-care',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,
-    navigate: configDetail('validation'),
-  },
-  {
-    id: 'config-preserved',
-    variant: 'populated',
-    viewports: BOTH_VIEWPORTS,
-    // Only the seeded profile with `unrecognized` lines renders the
-    // conditional Preserved tab (ConfigView.tsx: `selected?.unrecognized?.length`).
-    navigate: configDetail('preserved', PROFILE_UNRECOGNIZED),
+    // Story 025 D1: Care replaces the old separate Validation tab and the
+    // conditional Preserved tab (dropped) - `PROFILE_UNRECOGNIZED` so this
+    // one shot also covers the preserved-lines section having content.
+    navigate: configDetail('care', PROFILE_UNRECOGNIZED),
   },
   {
     id: 'settings',

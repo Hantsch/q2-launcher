@@ -1,5 +1,6 @@
 import type { AltLayer } from '../config/alt-layers'
 import type { ModifierTrigger } from '../config/modifier-layers'
+import type { TidyUpOp } from '../config/tidy-up'
 
 /**
  * The config module's contract.
@@ -36,6 +37,7 @@ export const CONFIG_HANDLERS = {
   cleanupScan: 'cleanup.scan',
   cleanupApply: 'cleanup.apply',
   cleanupRestore: 'cleanup.restore',
+  tidyUpApply: 'tidyUp.apply',
 } as const
 
 /**
@@ -554,4 +556,38 @@ export interface CleanupRestoreResult {
   restored: CleanupEntry[]
   /** Entries this call did not act on - untrusted, no backup, or the file is already there. */
   rejected: CleanupEntry[]
+}
+
+// ---------------------------------------------------------------------------
+// Tidy-up (story 025 D3)
+// ---------------------------------------------------------------------------
+
+/**
+ * One atomic tidy-up batch: whatever the Care tab's fixable findings resolved to
+ * (`TidyUpOp`, `@shared/config/tidy-up`), applied to one profile.
+ *
+ * Deliberately *not* the four whole-field setters (`setCvars`/`setBinds`/
+ * `setLayers`/`setActions`, decision 10): a re-classify touches `unrecognized`
+ * plus one of `cvars`/`binds`/`actions` in the same result, so two setter calls
+ * would bump `updatedAt` twice and write two half-tidied files to every
+ * installation the profile is assigned to. `unrecognized` has no setter at all
+ * today; this is its first write path.
+ */
+export interface TidyUpApplyInput {
+  profileId: string
+  ops: TidyUpOp[]
+}
+
+/**
+ * The result of one batch. `applied` and `rejected` echo the submitted ops back
+ * (same convention as `CleanupApplyResult`): main re-validates every op against
+ * the *current* profile and returns the no-longer-applicable ones instead of
+ * throwing (decision 11), so a caller can tell what it got and re-scan for the
+ * rest. `profile` is the committed profile - `updatedAt` bumped exactly once
+ * when anything applied, and untouched when nothing did.
+ */
+export interface TidyUpApplyResult {
+  profile: ConfigProfile
+  applied: TidyUpOp[]
+  rejected: TidyUpOp[]
 }

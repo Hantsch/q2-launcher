@@ -18,11 +18,13 @@ import {
   type RawFilesResult,
   type RawInstallationTarget,
   type RawProfileFile,
+  type TidyUpApplyResult,
   type WriteState,
   type WriteTargetResult,
 } from '@shared/modules/config'
 import type { Installation, LaunchState } from '@shared/types'
 import { reconcileAssignments } from './assignments'
+import { applyTidyUpOps } from '@shared/config/tidy-up'
 import { resolveProfileFileNames } from '@shared/config/profile-files'
 import { fail, ok, type Outcome } from '@shared/types'
 import type { AppContext } from '../../context'
@@ -58,6 +60,7 @@ import {
   setProfileLayersInputSchema,
   setSwitchBindInputSchema,
   syncStateInputSchema,
+  tidyUpApplyInputSchema,
   unassignProfileInputSchema,
   writeProfileInputSchema,
 } from './schemas'
@@ -1032,6 +1035,51 @@ export const configModule: MainModule = {
         return restoreCleanupIfNotRunning(installation, parsed.data.entries, app.launch.getState())
       },
     )
+
+    /**
+     * Story 025 D3: one atomic tidy-up batch. The only mutating config handler
+     * that is not a whole-field setter, for the reason decision 10 gives - a
+     * re-classify writes `unrecognized` plus one of `cvars`/`binds`/`actions` in
+     * the same result, and two setter calls would bump `updatedAt` twice and
+     * write two half-tidied files to every assigned installation.
+     *
+     * The shape it enforces:
+     *
+     * - `applyTidyUpOps` (pure, `@shared/config/tidy-up`) re-checks every op
+     *   against the *current* profile and returns stale ones in `rejected`
+     *   rather than throwing (decision 11) - so this handler has no per-op error
+     *   path at all, only a payload-shape one.
+     * - Exactly one `updatedAt`, one `replaceProfile` commit and one
+     *   `syncAndPersist` run for the whole batch, however many ops applied.
+     * - Nothing applied means nothing changed: no timestamp bump, no commit, no
+     *   sync run, and the profile is returned as it stands (with live
+     *   assignments, same as every other handler's view of it) alongside the
+     *   rejects, so the caller can re-scan.
+     */
+    handle(CONFIG_HANDLERS.tidyUpApply, async (payload): Promise<Outcome<TidyUpApplyResult>> => {
+      const parsed = tidyUpApplyInputSchema.safeParse(payload)
+      if (!parsed.success) return fail('ipc.error.invalidPayload')
+
+      const current = profiles.find(parsed.data.profileId)
+      if (!current) return fail('config.error.profileNotFound')
+
+      const outcome = applyTidyUpOps(current, parsed.data.ops)
+      if (outcome.applied.length === 0) {
+        const list = withLiveAssignments(profiles.list())
+        return ok({
+          profile: list.find((p) => p.id === current.id) ?? current,
+          applied: [],
+          rejected: outcome.rejected,
+        })
+      }
+
+      const list = withLiveAssignments(
+        profiles.replaceProfile({ ...outcome.profile, updatedAt: new Date().toISOString() }),
+      )
+      const updated = list.find((p) => p.id === current.id)!
+      await syncAndPersist(app, log, updated, list)
+      return ok({ profile: updated, applied: outcome.applied, rejected: outcome.rejected })
+    })
 
     // Story 022 D7: one retry sweep at start, after every handler is
     // registered, for whatever the last session left behind - a failed write

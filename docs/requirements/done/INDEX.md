@@ -76,3 +76,10 @@ second roadmap.
   container-scoped find-in-file control now renders Raw File, the write-preview dialog and the
   import preview, replacing `CodeBlock` everywhere; a review-caught CSS grid track-sizing bug that
   broke gutter alignment and a dead `plusCommand` classification were both fixed before landing.
+- 025 — Validation becomes Care — report, tidy-up actions and sync state in one place · S05 · the
+  Validation tab is now Care: unchanged story-009 report, a story-022 sync section (5 states,
+  retry), a new tidy-up section (6 finding kinds, per-item preview/apply, "fix all safe findings"
+  batch), preserved lines folded in, and story-010's mod-copy cleanup moved here scoped to the
+  profile's installations; a review-caught cross-engine badge-dedup bug, a false "all clear" on
+  unvalidated profiles, and a summary that vanished on a sync-fetch error were all fixed before
+  landing.

@@ -2,6 +2,8 @@ import { z } from 'zod'
 import { NAMED_KEYS, normalizeBindKey } from '@shared/config/key-names'
 import { isLatin1Text } from '@shared/config/q2-charset'
 import type { ModifierTrigger } from '@shared/config/modifier-layers'
+import type { TidyUpOp } from '@shared/config/tidy-up'
+import type { TidyUpApplyInput } from '@shared/modules/config'
 
 /**
  * IPC payload validation for the config module's own handlers.
@@ -129,7 +131,7 @@ const configActionCategorySchema = z.object({
  */
 const actionEntryKindSchema = z.enum(['bind', 'message', 'alias'])
 
-const configActionSchema = z.object({
+export const configActionSchema = z.object({
   id: z.string().min(1),
   categoryId: z.string().min(1),
   name: z.string().min(1).max(120),
@@ -279,3 +281,77 @@ export const cleanupApplyInputSchema = z.object({
 })
 
 export const cleanupRestoreInputSchema = cleanupApplyInputSchema
+
+/**
+ * Story 025 D3: `tidyUp.apply`'s payload - one profile id plus a batch of
+ * `TidyUpOp` descriptors (`@shared/config/tidy-up`).
+ *
+ * Structural validation only, and deliberately so: this schema's job is to keep
+ * a garbage *shape* out of the applier, not to decide whether an op is
+ * applicable. That decision belongs to `applyTidyUpOps`, which re-checks every
+ * op against the profile's current state and returns the stale ones in
+ * `rejected` (decision 11) - a rule duplicated here would either drift from it
+ * or turn a "no longer applicable" into a hard `invalidPayload` failure for the
+ * whole batch. Same division of labour `cleanupApplyInputSchema` has with
+ * `cleanup.ts`'s own `entryIsTrusted`/re-scan guard, and the same
+ * `.safeParse()` + `fail('ipc.error.invalidPayload')` handling at the handler.
+ *
+ * Typed as `z.ZodType<TidyUpApplyInput>` so the schema and the contract type
+ * cannot drift apart (same reasoning as `modifierTriggerSchema` above).
+ *
+ * Ops are capped at 200 per call - the same bounding-one-payload's-work
+ * reasoning as `setProfileActionsInputSchema`'s 500 actions and
+ * `cleanupApplyInputSchema`'s 256 entries, and well above what the Care tab can
+ * put on screen at once.
+ */
+const tidyUpBindScopeSchema = z.union([
+  z.literal('base'),
+  z.object({ layerId: z.string().min(1) }),
+])
+
+const tidyUpBindClaimSchema = z.discriminatedUnion('source', [
+  z.object({ source: z.literal('baseBind'), command: z.string() }),
+  z.object({
+    source: z.literal('action'),
+    actionId: z.string().min(1),
+    slot: z.enum(['primary', 'secondary']),
+  }),
+  z.object({ source: z.literal('layerOverride'), command: z.string() }),
+])
+
+const tidyUpReclassifyTargetSchema = z.discriminatedUnion('field', [
+  z.object({ field: z.literal('cvars'), name: z.string().min(1), value: z.string() }),
+  z.object({ field: z.literal('binds'), key: z.string().min(1).max(20), command: z.string() }),
+  z.object({ field: z.literal('actions'), action: configActionSchema }),
+])
+
+/** A preserved line's identity: all three of `file`/`line`/`text` together, the
+ * same triple `UnrecognizedConfigLine` carries and `applyTidyUpOps` matches on
+ * exactly (a line has no id of its own). */
+const preservedLineRefFields = {
+  file: z.string().min(1).max(128),
+  line: z.number().int().nonnegative(),
+  text: z.string(),
+}
+
+const tidyUpOpSchema: z.ZodType<TidyUpOp> = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('removeShadowedBind'),
+    scope: tidyUpBindScopeSchema,
+    key: z.string().min(1).max(20),
+    claim: tidyUpBindClaimSchema,
+  }),
+  z.object({ kind: z.literal('removeEmptyLayer'), layerId: z.string().min(1) }),
+  z.object({ kind: z.literal('removeUnreferencedAlias'), actionId: z.string().min(1) }),
+  z.object({ kind: z.literal('dropPreservedLine'), ...preservedLineRefFields }),
+  z.object({
+    kind: z.literal('reclassifyPreservedLine'),
+    ...preservedLineRefFields,
+    target: tidyUpReclassifyTargetSchema,
+  }),
+])
+
+export const tidyUpApplyInputSchema: z.ZodType<TidyUpApplyInput> = z.object({
+  profileId: z.string().min(1),
+  ops: z.array(tidyUpOpSchema).max(200),
+})
