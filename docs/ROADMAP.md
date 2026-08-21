@@ -73,24 +73,54 @@ the manual pass in `docs/sprints/done/S03/testplan.md` (plus 016's own test plan
 real desktop afterwards. The engine findings below stay as factual background for the system
 doc.
 
-`docs/sprints/S04` **built, live acceptance pending (2026-08-20/21)** — authoring surfaces + UI
-verification harness. Cut the first two of the three clusters below into one sprint: 026 (a
-committed Playwright/`_electron` harness — screenshots per screen plus an axe report, so a
-sprint can accept its own UI work), then 017/018 (Overview: edit-by-default, honest test mode)
-and 019/020 (Controls: entry types + ordering, then the column-grid redesign) and 021 (Settings
-dense rows). **All six stories done**, see `docs/sprints/S04/review.md` and
-`docs/sprints/S04/testplan.md` for the manual acceptance pass. The profile-as-a-file cluster
-(022–025) is deliberately held back as the likely S05, because it is an on-disk/schema rework
-with migration questions and does not mix with five UI redesigns in one acceptance pass.
+`docs/sprints/done/S04` **built (2026-08-20/21), acceptance pass not yet confirmed by the user**
+— authoring surfaces + UI verification harness. Cut the first two of the three clusters below
+into one sprint: 026 (a committed Playwright/`_electron` harness — screenshots per screen plus
+an axe report, so a sprint can accept its own UI work), then 017/018 (Overview: edit-by-default,
+honest test mode) and 019/020 (Controls: entry types + ordering, then the column-grid redesign)
+and 021 (Settings dense rows). **All six stories done**, see `docs/sprints/done/S04/review.md`
+and `docs/sprints/done/S04/testplan.md` for the manual acceptance pass. The profile-as-a-file
+cluster (022–025) is deliberately held back as the likely next milestone, because it is an
+on-disk/schema rework with migration questions and does not mix with five UI redesigns in one
+acceptance pass.
 
-**Filed, not yet sprinted (2026-08-19, `37cef54`):** nine further polish/redesign drafts,
-017–025 in `docs/requirements/`, from a second round of hands-on use plus two prototype sets
-(`docs/prototypes/bindings/`, `docs/prototypes/settings/`). Three clusters: the keyboard Overview
-(017 edit-by-default, 018 test-mode layers/key feedback), the authoring tabs (019 entry types +
-ordering, 020 Advanced→Controls as the column-grid prototype, 021 Settings as the dense-rows
-prototype), and the profile-as-a-file rework (022 `<name>.cfg` exists standalone, 023 Raw File
-absorbs Write targets, 024 Quake 2 syntax highlighting, 025 Validation→Care). Dependency order
-inside the clusters: 019 → 020, and 022 → 023 → 025.
+**Ad-hoc bug fixes landed outside sprint flow after S04 (2026-08-20/21):** filed and closed
+without a formal sprint cut, spanning the move from a WSL dev session to a native Windows one
+(see [[native-windows-session-screenshots]] — screenshots are trustworthy evidence again):
+
+- **028 (done)** — app-wide missing icons (nav bar, the "+" install button, Controls CRUD icons)
+  plus a genuine Controls-tab layout collision. Root cause: `scrollbar-gutter: stable` on the
+  global `*` rule reserved scrollbar width inside every `overflow:hidden` box, including `<svg>`
+  roots, blanking every icon ≤15px; fixed by scoping the rule to the five view scrollers instead.
+  Also surfaced three backlog items, **none yet filed as stories**: the pre-existing
+  `RawConfigPanel` crash on the `config-raw` route, two axe criticals (`select-name`, `label`),
+  and the CSP never actually applying in production builds (`onHeadersReceived` never fires for
+  `file://` loads).
+- **034 (done)** — Controls and the keyboard Overview now share one source of truth. `actions`
+  was one of two disjoint storages (`binds`/`layers[].overrides` the other, mirrored one-way);
+  `adoptRawBinds` reconciles a raw bind into `actions` on every read and write, so a hand-made or
+  imported bind is never invisible to Controls again.
+- **027 (in-progress)** — the UI verification harness now starts the app twice per full run
+  instead of 56 times, and suppresses window focus-stealing during a run
+  (`Q2L_UI_HARNESS=1` gates `focusable:false`/`showInactive()`). Every acceptance criterion is
+  code-verified except the one experiential check (typing in another window while a run goes,
+  staying uninterrupted) — needs a human on the real desktop, feasible now that the session is
+  native Windows. Status stays `in-progress` until confirmed.
+
+`docs/sprints/S05` **planned (2026-08-21)** — the profile-as-a-file rework: 022 `<name>.cfg`
+exists standalone, 023 Raw File absorbs Write targets, 024 Quake 2 syntax highlighting, 025
+Validation→Care, in that build order. Filed 2026-08-19 (`37cef54`); cut into a sprint 2026-08-21
+without changing scope. Not yet built.
+
+**Filed, not yet sprinted:**
+
+- **029** (2026-08-20) — Controls drop rows: replace the message icon-button with a "With
+  message" checkbox + inline row, mirroring the existing "With ammo" pattern.
+- **030–033** (2026-08-21) — a UI-polish batch from continued hands-on use: 030 titlebar/wordmark
+  scale-up, 031 rename Install→Downloads and relocate it next to Settings, 032 a running-count
+  badge on the Downloads icon (explicitly blocked on the Downloads module existing), 033 rewrite
+  the planned-module screens (Mods/Assets) in user-facing language instead of engineering
+  capability lists. Dependency: 031 → 032.
 
 #### Gaps/notes (from S03)
 
@@ -111,12 +141,12 @@ inside the clusters: 019 → 020, and 022 → 023 → 025.
 - The harness itself surfaced a **pre-existing, unrelated bug**: `RawConfigPanel.tsx` crashes on
   the `config-raw` route (a double-unwrapped `Outcome`), which makes a full `npm run ui:verify`
   exit `1` even on an otherwise clean build. Not fixed in S04 (out of scope for the stories that
-  found it) — needs its own story before `ui:verify`'s exit code can be trusted as a clean
-  pass/fail gate.
-- **Story 027 filed, not yet sprinted:** the harness starts the real app 56 times per full run
-  and every window steals keyboard focus for ~2 minutes — usable, but expensive enough that it
-  won't get run in passing the way the story intended. See
-  `docs/requirements/027-quiet-ui-verification.md`.
+  found it), and **still not filed as a story** despite resurfacing twice more since — once in
+  027's own live smoke, once in 028's design-consistency pass. Needs its own story before
+  `ui:verify`'s exit code can be trusted as a clean pass/fail gate; a good next-sprint candidate.
+- **Story 027 — done** (in-progress on one manual item), see the ad-hoc section above: the
+  harness went from 56 app starts per full run to 2, and window focus-stealing is suppressed
+  during a run.
 - **017 changed 013/014's click semantics**: outside test mode, a layer's trigger keycap no
   longer switches the displayed board on click — it opens the bind dialog like every other
   keycap. Layer-switching-by-interaction now lives entirely in 018's test-mode mechanics
