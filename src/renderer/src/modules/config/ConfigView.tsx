@@ -1,13 +1,11 @@
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ChevronRight, FilePlus2, Pencil, SlidersHorizontal, Trash2 } from 'lucide-react'
 import type { ConfigProfile } from '@shared/modules/config'
-import type { Installation } from '@shared/types/installation'
 import { cn } from '../../lib/cn'
 import { formatRelativeTime } from '../../lib/format'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Badge, EmptyState, KeyValue, Panel, SectionLabel } from '../../components/ui/primitives'
-import { Select } from '../../components/ui/controls'
 import { useLauncher } from '../../store/useLauncher'
 import { ControlsTab } from './ControlsTab'
 import { AssignmentsMenu } from './AssignmentsMenu'
@@ -17,22 +15,19 @@ import { DeleteProfileDialog } from './DeleteProfileDialog'
 import { ImportProfileDialog } from './ImportProfileDialog'
 import { InstallationProfilesPanel } from './InstallationProfilesPanel'
 import { LayersPanel } from './LayersPanel'
-import { pickRawInstallationId } from './lib/raw-view'
 import { totalCounts, validateProfileForEngines } from './lib/validation-scope'
+import { useProfileAutoWrite } from './lib/useProfileAutoWrite'
 import { useProfileDraft } from './lib/useProfileDraft'
 import { OverviewKeyboardPanel } from './OverviewKeyboardPanel'
 import { PreservedLinesPanel } from './PreservedLinesPanel'
-import { PreviewProfileDialog } from './PreviewProfileDialog'
-import { RawConfigPanel } from './RawConfigPanel'
+import { RawFileTab } from './RawFileTab'
 import { RenameProfileDialog } from './RenameProfileDialog'
 import { SettingsTab } from './SettingsTab'
 import { ValidationPanel } from './ValidationPanel'
-import { WriteTargets } from './WriteTargets'
 import { listConfigProfiles } from './client'
 
 type Screen = 'list' | 'detail'
-type DetailTab =
-  'overview' | 'settings' | 'controls' | 'writeTargets' | 'raw' | 'validation' | 'preserved'
+type DetailTab = 'overview' | 'settings' | 'controls' | 'raw' | 'validation' | 'preserved'
 
 /**
  * The config module's view: a list of profiles first, so "what configs do I
@@ -51,9 +46,6 @@ export function ConfigView() {
   const [showImport, setShowImport] = useState(false)
   const [showRename, setShowRename] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
-  const [previewInstallationId, setPreviewInstallationId] = useState<string | null>(null)
-  const [rawInstallationId, setRawInstallationId] = useState<string | null>(null)
-  const rawSelectId = useId()
 
   useEffect(() => {
     let cancelled = false
@@ -90,6 +82,16 @@ export function ConfigView() {
   // per-tab local states already had - `draftOrSelected` is what every child
   // below actually receives, so that gap is never visible outside this file.
   const { draft, patch } = useProfileDraft(selected)
+
+  // Story 023 D3: the automatic write-on-change, mounted here at the detail
+  // level rather than inside any `activeTab === ...` branch, so a save writes
+  // whichever tab the user is editing in - and keeps writing once `WriteTargets`
+  // (where this trigger used to live, and therefore effectively never ran) is
+  // deleted in D7. `selected`, not `draft`: `selected.updatedAt` is what moves
+  // when a tab's `onChanged={setProfiles}` lands a real save, which is exactly
+  // the "a save happened" signal the rule keys on.
+  useProfileAutoWrite(selected)
+
   const draftOrSelected = draft ?? selected
   /**
    * `draftOrSelected` narrowed to non-null: its own type stays `ConfigProfile
@@ -101,23 +103,7 @@ export function ConfigView() {
   const activeProfile = (current: ConfigProfile): ConfigProfile => draftOrSelected ?? current
 
   const installations = useLauncher((state) => state.installations)
-  const activeInstallationId = useLauncher((state) => state.settings.activeInstallationId)
 
-  // Keeps the "Raw file" tab's picked installation valid as the selected
-  // profile, the mirrored installation list or the active installation
-  // change - a still-valid current pick wins, otherwise `pickRawInstallationId`
-  // re-derives the default/active/first-assignment fallback. Same repair idiom
-  // as `EngineScopeSelect`'s own effect.
-  useEffect(() => {
-    if (!selected) return
-    const next = pickRawInstallationId(
-      selected,
-      installations,
-      activeInstallationId,
-      rawInstallationId,
-    )
-    if (next !== rawInstallationId) setRawInstallationId(next)
-  }, [selected, installations, activeInstallationId, rawInstallationId])
   // Computed once here rather than separately in the tab badge and in
   // `ValidationPanel` - both used to run `validateProfileForEngines` on the
   // same draft independently (review finding).
@@ -179,7 +165,6 @@ export function ConfigView() {
       { id: 'overview', label: t('config.tabs.overview') },
       { id: 'settings', label: t('config.tabs.settings') },
       { id: 'controls', label: t('config.tabs.controls') },
-      { id: 'writeTargets', label: t('config.tabs.writeTargets') },
       { id: 'raw', label: t('config.tabs.raw') },
       {
         id: 'validation',
@@ -373,45 +358,7 @@ export function ConfigView() {
                   onChanged={setProfiles}
                 />
               )}
-              {activeTab === 'writeTargets' && (
-                <WriteTargets profile={selected} onPreview={setPreviewInstallationId} />
-              )}
-              {activeTab === 'raw' &&
-                (selected.assignments.length === 0 ? (
-                  <EmptyState
-                    title={t('config.raw.noAssignment.title')}
-                    body={t('config.raw.noAssignment.body')}
-                  />
-                ) : (
-                  <div className="space-y-4">
-                    {selected.assignments.length > 1 && (
-                      <div className="w-full space-y-1.5 sm:w-64">
-                        <label className="stencil block" htmlFor={rawSelectId}>
-                          {t('config.raw.installationLabel')}
-                        </label>
-                        <Select
-                          id={rawSelectId}
-                          options={selected.assignments
-                            .map((assignment) =>
-                              installations.find(
-                                (installation) => installation.id === assignment.installationId,
-                              ),
-                            )
-                            .filter((installation): installation is Installation => !!installation)
-                            .map((installation) => ({
-                              value: installation.id,
-                              label: installation.name,
-                            }))}
-                          value={rawInstallationId ?? ''}
-                          onChange={(event) => setRawInstallationId(event.target.value)}
-                        />
-                      </div>
-                    )}
-                    {rawInstallationId && (
-                      <RawConfigPanel profile={selected} installationId={rawInstallationId} />
-                    )}
-                  </div>
-                ))}
+              {activeTab === 'raw' && <RawFileTab profile={selected} />}
               {activeTab === 'validation' && <ValidationPanel result={validation} />}
               {activeTab === 'preserved' && <PreservedLinesPanel profile={selected} />}
             </Panel>
@@ -447,14 +394,6 @@ export function ConfigView() {
           profile={selected}
           onClose={() => setShowDelete(false)}
           onDeleted={handleDeleted}
-        />
-      )}
-
-      {previewInstallationId && selected && (
-        <PreviewProfileDialog
-          profile={selected}
-          installationId={previewInstallationId}
-          onClose={() => setPreviewInstallationId(null)}
         />
       )}
     </div>

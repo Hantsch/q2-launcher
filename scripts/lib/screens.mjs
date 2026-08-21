@@ -127,18 +127,12 @@ export const SCREENS = [
     navigate: configDetail('controls'),
   },
   {
-    id: 'config-writeTargets',
-    variant: 'populated',
-    viewports: BOTH_VIEWPORTS,
-    navigate: configDetail('writeTargets'),
-  },
-  {
     id: 'config-raw',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,
-    // Plain Profile has an assignment (INSTALL_ONE_ID, default), which the Raw
-    // tab needs to show a picked installation rather than the "no assignment"
-    // empty state (ConfigView.tsx: `selected.assignments.length === 0`).
+    // Plain Profile has an assignment (INSTALL_ONE_ID, default), so the Raw
+    // tab's per-installation section renders that assignment's row alongside
+    // the profile's own canonical file (RawFileTab.tsx).
     navigate: configDetail('raw'),
   },
   {

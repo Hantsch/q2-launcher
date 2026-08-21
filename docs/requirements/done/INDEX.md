@@ -61,3 +61,13 @@ second roadmap.
   dense-rows grid grouped by real cvar group with sticky headers, per-row engine caveats/reset,
   filter/changed-only, whole-profile Reset all, and an Advanced collapse; story 009's
   autosave/facts/honesty rules unchanged.
+- 022 — A profile is a real `<name>.cfg` that exists before any assignment · S05 · every profile
+  gets a canonical `<name>.cfg` in userData, name-based per-installation copies with collision
+  handling, migration of old id-based files, and a live `syncState`/retry contract for stories
+  023/025 to render — a review-caught rename-clobber bug was fixed with a cascading re-sync plus
+  an independent overwrite guard.
+- 023 — Raw File absorbs Write targets — see and open the profile's file anywhere · S05 · Write
+  targets tab removed; Raw File now always shows the profile's own canonical file plus one row per
+  assigned installation (present/differs/not-on-disk, open in editor, reveal in folder, played
+  mods), auto-write moved to a tab-independent hook, and the pre-existing config-raw double-unwrap
+  crash was fixed as a bonus.

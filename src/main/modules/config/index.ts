@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { shell } from 'electron'
 import {
   CONFIG_HANDLERS,
   type CleanupApplyResult,
@@ -14,6 +15,9 @@ import {
   type ProfileFileSyncStatus,
   type ProfileInstallationSync,
   type ProfileSyncState,
+  type RawFilesResult,
+  type RawInstallationTarget,
+  type RawProfileFile,
   type WriteState,
   type WriteTargetResult,
 } from '@shared/modules/config'
@@ -41,7 +45,9 @@ import {
   importCommitInputSchema,
   importPreviewInputSchema,
   importScanInputSchema,
+  openFileInputSchema,
   previewProfileInputSchema,
+  rawFilesInputSchema,
   removeConfigProfileInputSchema,
   renameConfigProfileInputSchema,
   setDefaultProfileInputSchema,
@@ -56,7 +62,13 @@ import {
   writeProfileInputSchema,
 } from './schemas'
 import { assignedProfilesFor, defaultProfileFor, isInstallationRunning } from './write-plan'
-import { BASE_GAME_DIR, LOADER_FILE_NAME, writeInstallationFiles } from './writer'
+import {
+  BASE_GAME_DIR,
+  LOADER_FILE_NAME,
+  ownedProfileId,
+  readExisting,
+  writeInstallationFiles,
+} from './writer'
 
 export interface WriteProfileDeps {
   profile: ConfigProfile
@@ -249,6 +261,61 @@ export function previewProfileFiles(
     },
   )
   return files
+}
+
+/**
+ * Story 023 D1: read-only report of the profile's own canonical file plus one
+ * entry per live assignment - what the `rawFiles` handler answers.
+ *
+ * Deliberately takes plain data (a live-installation lookup, a base dir, a
+ * played-mods getter) rather than `AppContext`, same reasoning as
+ * `previewProfileFiles` above: testable without booting `configModule.setup()`.
+ * Never writes - `readExisting` (`writer.ts`) is the same ENOENT-only-swallowed
+ * read the write pipeline itself uses, so a missing file is reported as
+ * `onDisk: false` rather than thrown, and `matches` reuses the write pipeline's
+ * own byte-for-byte comparison instead of a second one that could drift from it.
+ */
+export async function collectRawFiles(
+  profile: ConfigProfile,
+  allProfiles: ConfigProfile[],
+  installations: { find: (id: string) => Installation | undefined },
+  userDataBaseDir: string,
+  playedModsFor: (installationId: string) => string[],
+): Promise<RawFilesResult> {
+  const fileNames = resolveProfileFileNames(allProfiles)
+  // `profile` is always a member of `allProfiles`, so this lookup cannot miss.
+  const fileName = fileNames.get(profile.id)!
+
+  const canonicalPath = join(userDataBaseDir, fileName)
+  const canonicalContent = await readExisting(canonicalPath)
+  const canonical: RawProfileFile = {
+    path: canonicalPath,
+    // A freshly created, unassigned profile has no canonical file yet - that
+    // must still be a successful result (story 023 AC 3), not a thrown error.
+    content: canonicalContent ?? '',
+    onDisk: canonicalContent !== null,
+  }
+
+  const expectedContent = renderProfileFile(profile)
+  const installationTargets: RawInstallationTarget[] = []
+  for (const assignment of profile.assignments) {
+    const installation = installations.find(assignment.installationId)
+    // An assignment pointing at an installation that no longer exists is
+    // reconciled away elsewhere, not reported here - same as `syncState`.
+    if (!installation) continue
+
+    const path = join(installation.rootPath, BASE_GAME_DIR, fileName)
+    const content = await readExisting(path)
+    installationTargets.push({
+      installationId: installation.id,
+      path,
+      onDisk: content !== null,
+      matches: content === expectedContent,
+      playedMods: playedModsFor(installation.id),
+    })
+  }
+
+  return { canonical, installations: installationTargets }
 }
 
 /**
@@ -703,6 +770,108 @@ export const configModule: MainModule = {
       }
 
       return ok({ own: { path: ownPath, fileName, ...own }, installations })
+    })
+
+    /**
+     * Story 023 D1: read-only report of the profile's own canonical file plus
+     * one entry per assigned installation, for the Raw File tab. Same
+     * never-writes contract as `syncState` above - `collectRawFiles` only
+     * reads.
+     */
+    handle(CONFIG_HANDLERS.rawFiles, async (payload): Promise<Outcome<RawFilesResult>> => {
+      const parsed = rawFilesInputSchema.safeParse(payload)
+      if (!parsed.success) return fail('ipc.error.invalidPayload')
+      const profile = profiles.find(parsed.data.profileId)
+      if (!profile) return fail('config.error.profileNotFound')
+
+      const result = await collectRawFiles(
+        profile,
+        profiles.list(),
+        app.installations,
+        userDataDir(),
+        (installationId) => app.state.configPlayedMods()[installationId] ?? [],
+      )
+      return ok(result)
+    })
+
+    /**
+     * Story 023 D2: hand one of this profile's files to the OS - the default
+     * application for `.cfg` (`mode: 'open'`) or the file manager with the file
+     * selected (`mode: 'reveal'`). Mirrors `app:revealPath`
+     * (`src/main/ipc/app.ts`), minus its directory branch: the target here is
+     * always a file.
+     *
+     * This is the module's one privileged path, so the order below is the whole
+     * point of it (AC 8):
+     *
+     * 1. The payload carries ids only - no path field exists to be trusted. The
+     *    path is resolved here, from main's own profile list and installation
+     *    registry, exactly the way `collectRawFiles`/`syncState` resolve it, so
+     *    the renderer cannot aim this at a file of its choosing even if it
+     *    wanted to.
+     * 2. A non-null `installationId` must be an installation that exists AND is
+     *    one this profile is actually assigned to - an id that merely exists is
+     *    refused, since a copy of this profile's file is only ever expected
+     *    where it is assigned.
+     * 3. The file must exist and its first line must be this profile's exact
+     *    sentinel. A file that exists at the resolved path but is NOT this
+     *    profile's own (a hand-written file, or another profile's canonical file
+     *    at a not-yet-reconciled name - the case `canonical.ts` reconciles at
+     *    write time) is reported as `fileNotFound`, never opened or revealed:
+     *    the same exact-sentinel rule `canonical.ts` uses before it renames or
+     *    deletes anything, applied here before handing a path to the OS.
+     *
+     * Only then is `shell` touched at all.
+     */
+    handle(CONFIG_HANDLERS.openFile, async (payload): Promise<Outcome<null>> => {
+      const parsed = openFileInputSchema.safeParse(payload)
+      if (!parsed.success) return fail('ipc.error.invalidPayload')
+      const { profileId, installationId, mode } = parsed.data
+
+      const allProfiles = profiles.list()
+      const profile = allProfiles.find((p) => p.id === profileId)
+      if (!profile) return fail('config.error.profileNotFound')
+      // `profile` came out of `allProfiles`, so this lookup cannot miss.
+      const fileName = resolveProfileFileNames(allProfiles).get(profile.id)!
+
+      let path: string
+      if (installationId === null) {
+        path = join(userDataDir(), fileName)
+      } else {
+        const installation = app.installations.find(installationId)
+        const isAssigned = profile.assignments.some((a) => a.installationId === installationId)
+        // Both misses collapse into one key on purpose: from the caller's side
+        // "no such installation" and "that installation is not a target of this
+        // profile" are the same answer - not a valid target for this profile.
+        if (!installation || !isAssigned) return fail('config.error.installationNotFound')
+        path = join(installation.rootPath, BASE_GAME_DIR, fileName)
+      }
+
+      // Defence in depth, not a live check: `resolveProfileFileNames` only ever
+      // produces `<base>.cfg`. It is here so that a future change to the name
+      // resolver can never quietly turn this handler into one that hands the OS
+      // something other than a config file.
+      if (!path.toLowerCase().endsWith('.cfg')) return fail('config.error.fileNotFound')
+
+      // `readExisting` is the write pipeline's own ENOENT-only-swallowed read,
+      // so "missing" means the same thing here as it does to `rawFiles`. A read
+      // that fails for any OTHER reason propagates and the registry turns it
+      // into a failed outcome - which is the right direction: no `shell` call
+      // happens on a file we could not verify.
+      const content = await readExisting(path)
+      if (content === null) return fail('config.error.fileNotFound')
+      if (ownedProfileId(content.split('\n', 1)[0]) !== profile.id) {
+        return fail('config.error.fileNotFound')
+      }
+
+      if (mode === 'open') {
+        const error = await shell.openPath(path)
+        return error ? fail('config.error.openFailed', { message: error }) : ok(null)
+      }
+      // No error signal to surface - `showItemInFolder` returns void, same as
+      // `app:revealPath`'s own reveal branch.
+      shell.showItemInFolder(path)
+      return ok(null)
     })
 
     handle(CONFIG_HANDLERS.setPlayedMods, (payload): Outcome<string[]> => {

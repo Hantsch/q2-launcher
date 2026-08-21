@@ -25,6 +25,8 @@ export const CONFIG_HANDLERS = {
   preview: 'preview',
   writeState: 'writeState',
   syncState: 'syncState',
+  rawFiles: 'rawFiles',
+  openFile: 'openFile',
   setPlayedMods: 'setPlayedMods',
   switchBinds: 'switchBinds',
   setSwitchBind: 'setSwitchBind',
@@ -384,6 +386,71 @@ export interface ProfileSyncState {
 
 export interface SyncProfileStateInput {
   profileId: string
+}
+
+/** Story 023 D1: `rawFiles`' input - shape-identical to `write`/`syncState`'s. */
+export interface RawFilesInput {
+  profileId: string
+}
+
+/**
+ * The profile's own canonical file (story 022's `<name>.cfg`, kept centrally under the launcher's
+ * user data dir), read byte-faithfully. `onDisk` is false for a profile that was just created and
+ * has no installation assignment yet - that must still be a successful `rawFiles` result (story
+ * 023 AC 3), not an error.
+ */
+export interface RawProfileFile {
+  /** Absolute path of the canonical file. */
+  path: string
+  /** Byte-faithful (latin1) content, or '' when `onDisk` is false. */
+  content: string
+  onDisk: boolean
+}
+
+/**
+ * One assigned installation's copy of the profile's file.
+ *
+ * `matches` is true only when the on-disk bytes equal freshly rendered content, byte-for-byte,
+ * latin1 - the same diff-skip comparison the write pipeline (`writer.ts`) already performs, reused
+ * rather than reimplemented, so "matches" can never disagree with "a write would change nothing".
+ * `playedMods` is that installation's currently configured played-mods list (story 022), echoed
+ * back here so the Raw File UI can seed its checkboxes without a second round-trip.
+ */
+export interface RawInstallationTarget {
+  installationId: string
+  /** Absolute path of this installation's copy. */
+  path: string
+  onDisk: boolean
+  matches: boolean
+  playedMods: string[]
+}
+
+/** `rawFiles`' result: the profile's own canonical file, plus one entry per live assignment. */
+export interface RawFilesResult {
+  canonical: RawProfileFile
+  installations: RawInstallationTarget[]
+}
+
+/**
+ * Story 023 D2: what `openFile` should do with the resolved file - hand it to the OS default
+ * application for `.cfg` ('open') or select it in the platform's file manager ('reveal').
+ */
+export type OpenProfileFileMode = 'open' | 'reveal'
+
+/**
+ * Which file `openFile` acts on, addressed by ids only (story 023, Decisions): `installationId:
+ * null` means the profile's own canonical file, a non-null value means that installation's copy.
+ *
+ * No path ever travels from the renderer here. Main resolves the path from its own state and
+ * refuses anything that is not this profile's own `.cfg`, so AC 8 ("nothing but the profile's own
+ * files can be opened this way") holds by construction rather than by an allowlist check on
+ * renderer input - which is also why this is a module-scoped handler rather than a second,
+ * generic `app:openPath` channel that could be repurposed to open any launcher-known file.
+ */
+export interface OpenProfileFileInput {
+  profileId: string
+  installationId: string | null
+  mode: OpenProfileFileMode
 }
 
 // ---------------------------------------------------------------------------

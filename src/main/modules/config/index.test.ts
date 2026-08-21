@@ -7,6 +7,7 @@ import {
   type ConfigProfile,
   type PreviewProfileResult,
   type ProfileSyncState,
+  type RawFilesResult,
   type WriteTargetResult,
 } from '@shared/modules/config'
 import { type Installation, type LaunchState, type Outcome } from '@shared/types'
@@ -46,13 +47,26 @@ const log = scopedLogger('config-index-test')
  * mock, pointed at a per-test temp folder through a hoisted box.
  */
 const userDataBox = vi.hoisted(() => ({ current: '' }))
-vi.mock('electron', () => ({ app: { getPath: () => userDataBox.current } }))
+
+/**
+ * Story 023 D2: the `openFile` handler is the module's one privileged path, so
+ * `shell` is mocked rather than left out of the `electron` mock - a test must be
+ * able to assert that nothing was handed to the OS on a rejected call, which
+ * needs a spy, not an absent property that would throw either way.
+ */
+const shellMock = vi.hoisted(() => ({
+  openPath: vi.fn(async (_path: string): Promise<string> => ''),
+  showItemInFolder: vi.fn((_path: string): void => {}),
+}))
+vi.mock('electron', () => ({ app: { getPath: () => userDataBox.current }, shell: shellMock }))
 
 let dir: string
 
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), 'q2-launcher-config-index-'))
   userDataBox.current = join(dir, 'userData')
+  shellMock.openPath.mockClear()
+  shellMock.showItemInFolder.mockClear()
 })
 
 afterEach(async () => {
@@ -798,6 +812,344 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     expect(synced.value.installations).toEqual([
       { installationId: 'i1', path: join(dir, 'baseq2', 'Profile.cfg'), fileName: 'Profile.cfg', status: 'inSync' },
     ])
+  })
+})
+
+/**
+ * Story 023 D1: `rawFiles`' read-only report of the profile's own canonical
+ * file plus one entry per assigned installation. Same boot pattern as the
+ * story 022 D7 block above (own local helper, since that one is private to
+ * its own `describe`) - a duck-typed `app` with a real, temp-file-backed
+ * `StateStore`, so mutations actually land on disk and `rawFiles` has
+ * something real to read back.
+ */
+describe('CONFIG_HANDLERS.rawFiles handler (story 023 D1)', () => {
+  async function boot(
+    installations: Installation[] = [],
+  ): Promise<{ handlers: Map<string, ModuleHandler>; state: StateStore }> {
+    const state = new StateStore(join(dir, 'state.json'))
+    await state.load()
+    const handlers = new Map<string, ModuleHandler>()
+    await configModule.setup({
+      handle: (type, handler) => handlers.set(type, handler),
+      emit: () => {},
+      app: {
+        installations: {
+          find: (id: string) => installations.find((i) => i.id === id),
+          list: () => installations,
+        },
+        launch: { getState: () => idleState() },
+        state,
+      } as unknown as AppContext,
+      log,
+    })
+    return { handlers, state }
+  }
+
+  it('reports canonical onDisk: false for a freshly created, unassigned profile, then true after a sync-triggering mutation', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+
+    const before = (await handlers.get(CONFIG_HANDLERS.rawFiles)!({
+      profileId: 'p1',
+    })) as Outcome<RawFilesResult>
+    if (!before.ok) throw new Error('expected rawFiles to succeed')
+    expect(before.value.canonical.onDisk).toBe(false)
+    expect(before.value.canonical.content).toBe('')
+    expect(before.value.installations).toEqual([])
+
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({
+      profileId: 'p1',
+      cvars: { sensitivity: '9' },
+    })
+
+    const after = (await handlers.get(CONFIG_HANDLERS.rawFiles)!({
+      profileId: 'p1',
+    })) as Outcome<RawFilesResult>
+    if (!after.ok) throw new Error('expected rawFiles to succeed')
+    expect(after.value.canonical.onDisk).toBe(true)
+    const updated = (await handlers.get(CONFIG_HANDLERS.list)!(undefined)) as ConfigProfile[]
+    expect(after.value.canonical.content).toBe(renderProfileFile(updated.find((p) => p.id === 'p1')!))
+  })
+
+  it('reports matches: true right after a sync, and false once the on-disk copy is edited independently', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '9' } })
+
+    const inSync = (await handlers.get(CONFIG_HANDLERS.rawFiles)!({
+      profileId: 'p1',
+    })) as Outcome<RawFilesResult>
+    if (!inSync.ok) throw new Error('expected rawFiles to succeed')
+    expect(inSync.value.installations).toEqual([
+      {
+        installationId: inst.id,
+        path: join(dir, 'baseq2', 'Profile.cfg'),
+        onDisk: true,
+        matches: true,
+        playedMods: [],
+      },
+    ])
+
+    await writeFile(join(dir, 'baseq2', 'Profile.cfg'), 'hand-edited\n', 'latin1')
+
+    const outOfSync = (await handlers.get(CONFIG_HANDLERS.rawFiles)!({
+      profileId: 'p1',
+    })) as Outcome<RawFilesResult>
+    if (!outOfSync.ok) throw new Error('expected rawFiles to succeed')
+    expect(outOfSync.value.installations[0]!.onDisk).toBe(true)
+    expect(outOfSync.value.installations[0]!.matches).toBe(false)
+  })
+
+  it('reports one entry per assignment', async () => {
+    const inst1 = installation({ id: 'i1' })
+    const inst2 = installation({ id: 'i2', rootPath: join(dir, 'inst2') })
+    await mkdir(join(inst2.rootPath, 'baseq2'), { recursive: true })
+    const { handlers, state } = await boot([inst1, inst2])
+    state.setConfigProfiles([
+      profile({
+        assignments: [
+          { installationId: 'i1', isDefault: true },
+          { installationId: 'i2', isDefault: true },
+        ],
+      }),
+    ])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '9' } })
+
+    const result = (await handlers.get(CONFIG_HANDLERS.rawFiles)!({
+      profileId: 'p1',
+    })) as Outcome<RawFilesResult>
+
+    if (!result.ok) throw new Error('expected rawFiles to succeed')
+    expect(result.value.installations.map((i) => i.installationId).sort()).toEqual(['i1', 'i2'])
+  })
+
+  it('echoes playedMods from app.state.configPlayedMods() for each installation entry', async () => {
+    const inst = installation({ gameDirs: ['baseq2', 'ctf'] })
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile()])
+    state.setConfigPlayedMods({ i1: ['ctf'] })
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '9' } })
+
+    const result = (await handlers.get(CONFIG_HANDLERS.rawFiles)!({
+      profileId: 'p1',
+    })) as Outcome<RawFilesResult>
+
+    if (!result.ok) throw new Error('expected rawFiles to succeed')
+    expect(result.value.installations).toEqual([
+      expect.objectContaining({ installationId: 'i1', playedMods: ['ctf'] }),
+    ])
+  })
+
+  it('fails with config.error.profileNotFound for an unknown profile id', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([])
+    await state.settle()
+
+    const result = await handlers.get(CONFIG_HANDLERS.rawFiles)!({ profileId: 'nope' })
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.profileNotFound' } })
+  })
+})
+
+/**
+ * Story 023 D2: `openFile`, the module's one privileged path. Every assertion
+ * below is about the same thing - that `shell` is only ever reached for a file
+ * main itself resolved from ids AND verified to be this profile's own `.cfg`
+ * (AC 8). Same boot pattern as the `rawFiles` block above: a duck-typed `app`
+ * over a real, temp-file-backed `StateStore`, so a mutation really does put the
+ * file on disk and the checks have something real to look at.
+ */
+describe('CONFIG_HANDLERS.openFile handler (story 023 D2)', () => {
+  async function boot(
+    installations: Installation[] = [],
+  ): Promise<{ handlers: Map<string, ModuleHandler>; state: StateStore }> {
+    const state = new StateStore(join(dir, 'state.json'))
+    await state.load()
+    const handlers = new Map<string, ModuleHandler>()
+    await configModule.setup({
+      handle: (type, handler) => handlers.set(type, handler),
+      emit: () => {},
+      app: {
+        installations: {
+          find: (id: string) => installations.find((i) => i.id === id),
+          list: () => installations,
+        },
+        launch: { getState: () => idleState() },
+        state,
+      } as unknown as AppContext,
+      log,
+    })
+    return { handlers, state }
+  }
+
+  /** Boots, seeds one profile and triggers a sync, so its files are really on disk. */
+  async function bootSynced(
+    installations: Installation[] = [],
+    seeded: ConfigProfile = profile({ assignments: [] }),
+  ): Promise<Map<string, ModuleHandler>> {
+    const { handlers, state } = await boot(installations)
+    state.setConfigProfiles([seeded])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: seeded.id, cvars: { sensitivity: '9' } })
+    return handlers
+  }
+
+  it('opens the profile\'s own canonical file with the path main resolved itself', async () => {
+    const handlers = await bootSynced()
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'p1',
+      installationId: null,
+      mode: 'open',
+    })
+
+    expect(result).toEqual({ ok: true, value: null })
+    expect(shellMock.openPath).toHaveBeenCalledTimes(1)
+    expect(shellMock.openPath).toHaveBeenCalledWith(join(userDataBox.current, 'Profile.cfg'))
+    expect(shellMock.showItemInFolder).not.toHaveBeenCalled()
+  })
+
+  it("reveals an assigned installation's copy, and reveal never opens", async () => {
+    const inst = installation()
+    const handlers = await bootSynced([inst], profile())
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'p1',
+      installationId: 'i1',
+      mode: 'reveal',
+    })
+
+    expect(result).toEqual({ ok: true, value: null })
+    expect(shellMock.showItemInFolder).toHaveBeenCalledTimes(1)
+    expect(shellMock.showItemInFolder).toHaveBeenCalledWith(join(dir, 'baseq2', 'Profile.cfg'))
+    expect(shellMock.openPath).not.toHaveBeenCalled()
+  })
+
+  it('surfaces a non-empty shell.openPath error as config.error.openFailed', async () => {
+    const handlers = await bootSynced()
+    shellMock.openPath.mockResolvedValueOnce('no application is associated with .cfg')
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'p1',
+      installationId: null,
+      mode: 'open',
+    })
+
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        key: 'config.error.openFailed',
+        params: { message: 'no application is associated with .cfg' },
+      },
+    })
+  })
+
+  it('refuses an unknown profile id without touching shell', async () => {
+    const handlers = await bootSynced()
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'nope',
+      installationId: null,
+      mode: 'open',
+    })
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.profileNotFound' } })
+    expect(shellMock.openPath).not.toHaveBeenCalled()
+    expect(shellMock.showItemInFolder).not.toHaveBeenCalled()
+  })
+
+  it('refuses an unknown installation id without touching shell', async () => {
+    const handlers = await bootSynced([installation()], profile())
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'p1',
+      installationId: 'ghost',
+      mode: 'open',
+    })
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.installationNotFound' } })
+    expect(shellMock.openPath).not.toHaveBeenCalled()
+    expect(shellMock.showItemInFolder).not.toHaveBeenCalled()
+  })
+
+  it('refuses an installation that exists but is not assigned to this profile', async () => {
+    // i2 is a real, registered installation with a real synced file of its own -
+    // it is simply not one of p1's targets, which is what must be refused here.
+    const inst2 = installation({ id: 'i2', rootPath: join(dir, 'inst2') })
+    await mkdir(join(inst2.rootPath, 'baseq2'), { recursive: true })
+    const handlers = await bootSynced([installation(), inst2], profile())
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'p1',
+      installationId: 'i2',
+      mode: 'reveal',
+    })
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.installationNotFound' } })
+    expect(shellMock.showItemInFolder).not.toHaveBeenCalled()
+  })
+
+  it('refuses a file that is not on disk without touching shell', async () => {
+    // No sync ran, so the canonical file was never written - AC 5's "the file is
+    // not on disk" half, surfaced as the reason the UI disables the action with.
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    expect(await pathExists(join(userDataBox.current, 'Profile.cfg'))).toBe(false)
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'p1',
+      installationId: null,
+      mode: 'open',
+    })
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.fileNotFound' } })
+    expect(shellMock.openPath).not.toHaveBeenCalled()
+    expect(shellMock.showItemInFolder).not.toHaveBeenCalled()
+  })
+
+  it("refuses a foreign file sitting at the resolved path - not this profile's own file", async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    // Exists, is a `.cfg`, sits exactly where this profile's canonical file
+    // would - and is somebody else's. The sentinel is what tells them apart.
+    await mkdir(userDataBox.current, { recursive: true })
+    await writeFile(
+      join(userDataBox.current, 'Profile.cfg'),
+      'seta sensitivity "1"\n// hand-written\n',
+      'latin1',
+    )
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'p1',
+      installationId: null,
+      mode: 'open',
+    })
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.fileNotFound' } })
+    expect(shellMock.openPath).not.toHaveBeenCalled()
+    expect(shellMock.showItemInFolder).not.toHaveBeenCalled()
+  })
+
+  it('refuses a malformed payload (a path where an id belongs) without touching shell', async () => {
+    const handlers = await bootSynced()
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'p1',
+      installationId: 'C:\\Windows\\System32\\calc.exe',
+      mode: 'launch',
+    })
+
+    expect(result).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
+    expect(shellMock.openPath).not.toHaveBeenCalled()
+    expect(shellMock.showItemInFolder).not.toHaveBeenCalled()
   })
 })
 

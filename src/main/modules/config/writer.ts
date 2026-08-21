@@ -121,8 +121,13 @@ export function isSafeGameDirName(name: string): boolean {
  * overwrite path for a file we could not read, because that is exactly the case
  * where the ownership check - the thing standing between a user's cfg and the
  * bin - could not be performed.
+ *
+ * Exported for `index.ts`'s `collectRawFiles` (story 023 D1), which needs the
+ * exact same ENOENT-only-swallowed read for the profile's canonical file and
+ * each installation's copy - reusing it rather than reimplementing the same
+ * read keeps the two from ever disagreeing about what "missing" means.
  */
-async function readExisting(filePath: string): Promise<string | null> {
+export async function readExisting(filePath: string): Promise<string | null> {
   try {
     return await readFile(filePath, FILE_ENCODING)
   } catch (error) {

@@ -164,6 +164,25 @@ export const writeProfileInputSchema = z.object({
  * `unassignProfileInputSchema`/`setDefaultProfileInputSchema` above. */
 export const syncStateInputSchema = writeProfileInputSchema
 
+/** Story 023 (D1): `rawFiles`' input is shape-identical to `write`'s/`syncState`'s. */
+export const rawFilesInputSchema = writeProfileInputSchema
+
+/**
+ * Story 023 (D2): which of a profile's files to open or reveal, addressed by ids only - a
+ * nullable `installationId` (null = the profile's own canonical file) plus the action.
+ * Deliberately has no path field at all: the handler resolves the real path from main's own
+ * state, so there is nothing here a renderer could aim at another file.
+ *
+ * `null` is spelled with `.nullable()` rather than made optional, same convention as
+ * `setSwitchBindInputSchema`'s `key` above: "the profile's own file" is an explicit choice a
+ * caller states, not a value it may forget.
+ */
+export const openFileInputSchema = z.object({
+  profileId: z.string().min(1),
+  installationId: z.string().min(1).nullable(),
+  mode: z.enum(['open', 'reveal']),
+})
+
 export const previewProfileInputSchema = z.object({
   profileId: z.string().min(1),
   installationId: z.string().min(1),

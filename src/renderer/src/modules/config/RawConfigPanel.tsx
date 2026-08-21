@@ -17,8 +17,8 @@ import { previewConfigProfile } from './client'
  * Content is rendered verbatim - this is a byte-for-byte preview of what is
  * (or would be) on disk, so no trimming, no reformatting, no markdown.
  *
- * Owns its own fetch so it can be reused both inside `PreviewProfileDialog`
- * (wrapped in a `Modal`) and, later, directly in a tab.
+ * Owns its own fetch rather than taking the preview as a prop, so any caller
+ * (currently `RawFileTab`'s per-row expand) can mount it standalone.
  */
 export function RawConfigPanel({
   profile,
@@ -78,7 +78,7 @@ export function RawConfigPanel({
   if (!result) return null
 
   if (result.value.files.length === 0) {
-    return <p className="text-sm text-ink-muted">{t('config.previewDialog.empty')}</p>
+    return <p className="text-sm text-ink-muted">{t('config.raw.previewEmpty')}</p>
   }
 
   return (

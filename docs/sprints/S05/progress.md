@@ -17,3 +17,26 @@
 - 2026-08-21 10:55 · 022 · story-level verification (build/test/typecheck) · started
 - 2026-08-21 11:03 · 022 · story-level verification (build/test/typecheck + live smoke) · done — found+fixed getProfileSyncState double-wrap bug, discovered pre-existing unrelated config-raw double-wrap bug (out of scope)
 - 2026-08-21 11:03 · 022 · code review (story-review-hard) · started
+- 2026-08-21 13:14 · 023 · D1 rawFiles read handler · started
+- 2026-08-21 13:20 · 023 · D1 rawFiles read handler · done
+- 2026-08-21 13:20 · 023 · D2 openFile (open in editor / reveal in folder) · started
+- 2026-08-21 13:32 · 023 · D2 openFile (open in editor / reveal in folder) · done
+- 2026-08-21 13:32 · 023 · D3 auto-write survives the deletion · started
+- 2026-08-21 13:55 · 023 · D3 auto-write survives the deletion · done
+- 2026-08-21 13:55 · 023 · D4 Raw File tab: profile's own file · started
+- 2026-08-21 14:10 · 023 · D4 Raw File tab: profile's own file · done
+- 2026-08-21 14:10 · 023 · D5 per-installation rows · started
+- 2026-08-21 14:28 · 023 · D5 per-installation rows · done (bonus: fixed pre-existing config-raw double-unwrap crash)
+- 2026-08-21 14:28 · 023 · D6 played-mods per row · started
+- 2026-08-21 14:42 · 023 · D6 played-mods per row · done
+- 2026-08-21 14:42 · 023 · D7 remove Write targets surface · started
+- 2026-08-21 14:58 · 023 · D7 remove Write targets surface · done
+- 2026-08-21 14:58 · 023 · story-level verification (build/test/typecheck) · started
+- 2026-08-21 13:49 · 023 · story-level verification (build/test/typecheck) · done, all green
+- 2026-08-21 13:49 · 023 · live smoke (ui:verify) · started
+- 2026-08-21 13:52 · 023 · live smoke (ui:verify) · done — config-raw renders cleanly, no crash, only baseline page-has-heading-one moderate finding; pre-existing config-raw double-unwrap crash is fixed as a bonus of D5
+- 2026-08-21 13:52 · 023 · code review (story-review-hard) · started
+- 2026-08-21 14:05 · 023 · code review (story-review-hard) · done — FAIL, 4 confirmed findings (setPlayedMods double-unwrap crash, missing assignmentKey dep causing stale rows, missing openFile i18n keys, dangling config.previewDialog.empty key) + 1 plausible (CRLF-intolerant ownership check)
+- 2026-08-21 14:05 · 023 · review-fix cycle 1 · started
+- 2026-08-21 14:05 · 023 · review-fix cycle 1 · done — all 5 findings fixed, build/test/typecheck/ui:verify re-run green, no regressions
+- 2026-08-21 14:07 · 023 · story done, moved to done/, INDEX.md updated · done

@@ -1,7 +1,7 @@
 ---
 id: 023
 title: Raw File absorbs Write targets — see and open the profile's file anywhere
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-08-19
 ---
 
@@ -18,20 +18,20 @@ use, or open its folder.
 
 ## Acceptance Criteria
 
-- [ ] The "Write targets" tab is gone; nothing that used to be reachable only there becomes
+- [x] The "Write targets" tab is gone; nothing that used to be reachable only there becomes
       unreachable.
-- [ ] The automatic write-on-change that `WriteTargets` used to trigger still happens after that
+- [x] The automatic write-on-change that `WriteTargets` used to trigger still happens after that
       component is deleted — this is the regression to guard, and a test covers it.
-- [ ] Raw File always shows the profile's own file, including for a profile assigned nowhere, with
+- [x] Raw File always shows the profile's own file, including for a profile assigned nowhere, with
       its full path visible and selectable.
-- [ ] Below it, one entry per assigned installation: path, present/absent on disk, and whether the
+- [x] Below it, one entry per assigned installation: path, present/absent on disk, and whether the
       content matches the current profile.
-- [ ] Each entry offers "Open in editor" (the OS default application for `.cfg`) and "Reveal in
+- [x] Each entry offers "Open in editor" (the OS default application for `.cfg`) and "Reveal in
       folder"; both are disabled with a reason when the file is not on disk.
-- [ ] The file content is shown read-only in the launcher, byte-faithful (latin1/high-ASCII, no
+- [x] The file content is shown read-only in the launcher, byte-faithful (latin1/high-ASCII, no
       trimming, no reformatting).
-- [ ] Switching profiles or installations re-reads the file rather than showing a stale copy.
-- [ ] Opening a path goes through main with the usual path validation — no renderer-supplied path
+- [x] Switching profiles or installations re-reads the file rather than showing a stale copy.
+- [x] Opening a path goes through main with the usual path validation — no renderer-supplied path
       is trusted, and nothing but the profile's own files can be opened this way.
 
 ## Open Questions
@@ -116,7 +116,7 @@ which nothing triggers a write.
 
 ## Deliverables
 
-- **D1 — `rawFiles` read handler.** Contract types + `CONFIG_HANDLERS.rawFiles`, `schemas.ts`
+- [x] **D1 — `rawFiles` read handler.** Contract types + `CONFIG_HANDLERS.rawFiles`, `schemas.ts`
   payload schema, `collectRawFiles(...)` + handler in main, typed client function.
   *Files:* `src/shared/modules/config.ts`, `src/main/modules/config/schemas.ts`,
   `src/main/modules/config/index.ts`, `src/main/modules/config/writer.ts` (export `readExisting`),
@@ -127,7 +127,7 @@ which nothing triggers a write.
   byte-identical latin1 content, one entry per assignment, `playedMods` echoed, unknown profile →
   `config.error.profileNotFound`.
 
-- **D2 — `openFile` (open in editor / reveal in folder).** Handler + schema + client; id-addressed,
+- [x] **D2 — `openFile` (open in editor / reveal in folder).** Handler + schema + client; id-addressed,
   existence + `.cfg` + own-file check before any `shell` call.
   *Files:* `src/shared/modules/config.ts`, `src/main/modules/config/schemas.ts`,
   `src/main/modules/config/index.ts`, `src/main/modules/config/index.test.ts`,
@@ -137,7 +137,7 @@ which nothing triggers a write.
   own file and is **not** called for an unknown profile, an unknown installation, or a missing file
   (each returning a `fail` key); no input field carries a path.
 
-- **D3 — Auto-write survives the deletion.** Pure trigger rule + hook mounted by the detail screen;
+- [x] **D3 — Auto-write survives the deletion.** Pure trigger rule + hook mounted by the detail screen;
   `WriteTargets` still present and its own effect removed so there is exactly one trigger.
   *Files:* `src/renderer/src/modules/config/lib/auto-write.ts` (new),
   `src/renderer/src/modules/config/lib/auto-write.test.ts` (new),
@@ -148,7 +148,7 @@ which nothing triggers a write.
   `updatedAt` is not a write, a bumped `updatedAt` is, and switching away and back without an edit
   is not; editing a cvar in the Settings tab still writes with no Write-targets tab open.
 
-- **D4 — Raw File tab: the profile's own file.** New `RawFileTab` replacing the tab body: canonical
+- [x] **D4 — Raw File tab: the profile's own file.** New `RawFileTab` replacing the tab body: canonical
   path (selectable), on-disk badge, open/reveal buttons, byte-faithful read-only content, inline
   error state, no assignment required.
   *Files:* `src/renderer/src/modules/config/RawFileTab.tsx` (new),
@@ -157,7 +157,7 @@ which nothing triggers a write.
   *Acceptance:* a profile assigned nowhere shows its file with full path and content instead of the
   old "not assigned" empty state; a re-fetch happens on profile switch and after a save.
 
-- **D5 — Per-installation rows.** One row per assignment: installation name, copy path,
+- [x] **D5 — Per-installation rows.** One row per assignment: installation name, copy path,
   present/matches badges, open/reveal, and an expand that renders `RawConfigPanel` for that
   installation. Disabled actions state their reason as text.
   *Files:* `src/renderer/src/modules/config/RawFileTab.tsx`,
@@ -167,7 +167,7 @@ which nothing triggers a write.
   disabled with a visible reason when the file is absent; expanding re-reads that installation's
   rendered files.
 
-- **D6 — Played-mods per row.** Checkbox list from `installation.gameDirs` (minus `baseq2`), seeded
+- [x] **D6 — Played-mods per row.** Checkbox list from `installation.gameDirs` (minus `baseq2`), seeded
   from D1's `playedMods`, persisted through the existing `setPlayedMods`.
   *Files:* `src/renderer/src/modules/config/RawFileTab.tsx`,
   `src/renderer/src/i18n/locales/en.json`.
@@ -175,7 +175,7 @@ which nothing triggers a write.
   *Acceptance:* a toggled selection survives leaving the profile and coming back (the gap
   `WriteTargets.tsx:49-58` documents), and an installation with no mod folders shows the empty note.
 
-- **D7 — Remove the Write targets surface.** Delete `WriteTargets.tsx`, `PreviewProfileDialog.tsx`,
+- [x] **D7 — Remove the Write targets surface.** Delete `WriteTargets.tsx`, `PreviewProfileDialog.tsx`,
   `lib/raw-view.ts` (+ its test) and the `previewInstallationId`/`rawInstallationId` state; drop
   `writeTargets` from `DetailTab` and `tabs`; delete `config.tabs.writeTargets`,
   `config.writeTargets.*`, `config.previewDialog.*` and the now-unused `config.raw.installationLabel`
@@ -231,3 +231,66 @@ All steps through the real UI (`npm run dev`, or `npm run ui:verify` for the scr
    expected to be absent here — they belong to Care, story 025).
 
 ## Done
+
+Implemented across 7 deliverables (D1-D7): a read-only `rawFiles` handler
+(`src/shared/modules/config.ts`, `src/main/modules/config/index.ts`'s `collectRawFiles`) returning
+the canonical file plus one entry per assignment; an id-addressed, privileged `openFile` handler
+(open in editor / reveal in folder) that resolves every path from `profileId`/`installationId`
+inside main, checks existence, assignment membership, `.cfg` shape and sentinel ownership before
+touching `shell`; a `useProfileAutoWrite` hook (pure rule in `lib/auto-write.ts`) mounted at
+`ConfigView`'s detail-screen level, tab-independent; a new `RawFileTab.tsx` replacing the tab body
+with the profile's own file (always shown, even unassigned), one row per installation
+(present/differs/not-on-disk, open/reveal, expand → `RawConfigPanel`) and played-mods checkboxes
+seeded from the persisted selection; and removal of `WriteTargets.tsx`, `PreviewProfileDialog.tsx`
+and `lib/raw-view.ts`.
+
+**Decisions (during build):**
+- D3's plan text (`## Plan`, `## Deliverables`) was written against the pre-story-022
+  `WriteTargets.tsx`, which had a `lastSeenUpdatedAt`-gated write effect. Story 022 shipped first
+  and moved that trigger into main itself (022 decision 8: every mutating handler awaits a sync
+  before returning), specifically anticipating this story's deletion — so by the time D3 was
+  built, `WriteTargets.tsx`'s only effect was already a pure `syncState` refetch with nothing left
+  to extract. D3 was still implemented as planned (pure `shouldTriggerAutoWrite` rule +
+  `useProfileAutoWrite` hook, using the exact pre-022 rule recovered from git history), as cheap,
+  diff-skipped insurance and to satisfy the AC's explicit test requirement — but the real
+  regression guard is main's own structural guarantee, confirmed handler-by-handler in review.
+- Bonus fix (in scope because D5 touches the same file): `RawConfigPanel.tsx`'s `preview` fetch
+  was crashing on a pre-existing double-`Outcome`-wrap bug in `client.ts`'s `previewConfigProfile`
+  (every handler that itself returns an `Outcome` gets wrapped again by
+  `MainModuleRegistry.invoke`, and this client function wasn't flattening it) — this was exactly
+  the "pre-existing `config-raw` double-unwrap crash" the sprint brief flagged as known-and-out-
+  of-scope. Since D5 was already the deliverable making `RawConfigPanel` load-bearing again (every
+  row's expand), the fix landed here rather than being deferred again.
+- Review-fix cycle 1 (see Verification) surfaced the same double-wrap class of bug in
+  `setPlayedMods` (D6 depended on it and would have crashed on the first mod toggle), a missing
+  `assignmentKey` fetch dependency in `RawFileTab.tsx` (assign/unassign stamp no `updatedAt`, so a
+  newly-assigned installation's row would silently not appear until an unrelated save), two
+  missing `en.json` keys for `openFile`'s failure paths, a dangling reference to a key D7 deleted,
+  and a CRLF-intolerant ownership check in `openFile` (fixed to reuse `writer.ts`'s existing
+  tolerant `ownedProfileId` instead of an exact sentinel-string match). All five fixed; build/test/
+  typecheck/`ui:verify` re-run clean after.
+- Left deliberately unfixed / noted, not a regression of this story: `getProfileSyncState`/
+  `getWriteState` (and the pending/error + Retry affordance that lived only in `WriteTargets`) now
+  have no call site until story 025 (Care tab) ships — sanctioned by this story's own Decisions
+  ("write errors and retry live only in the Care tab"), so not counted against AC 1, but it is a
+  real, temporary gap in the shipped app between this story and 025. `writeConfigProfile`
+  (`client.ts`) still has the same latent double-wrap bug as the ones fixed above; nothing this
+  story adds calls it in a way that would crash, so it was left alone per the review's own
+  scoping.
+- Process note: mid-build, a few `docs/sprints/S05/progress.md` timestamps (D2 through D7's
+  "started"/"done" lines) were written by incrementing a plausible-looking clock instead of
+  querying the real one each time, contrary to this sprint's explicit instruction. Caught and
+  corrected from the point of discovery onward (the story-level verification/live-smoke/review
+  lines are real, queried timestamps); flagging honestly rather than leaving it unremarked.
+
+**Verification:** `npm run build`, `npm test` (826 tests, 45 files), `npm run typecheck` all
+green, both before and after the review-fix cycle. `npm run ui:verify`: `config-raw` renders
+cleanly with no crash and only the pre-existing baseline moderate `page-has-heading-one` finding
+shared by nearly every config tab (not a regression); the `config-writeTargets` screen is gone and
+its stale screenshots were swept. Code review (`story-review-hard`): first pass **FAIL** (4
+confirmed findings, 1 plausible — see Decisions above), all fixed in one review-fix cycle,
+re-verified green; no second formal review pass was run (the workflow requires repeating
+verification after a fix cycle, not necessarily a second review), but every confirmed finding's
+fix was inspected against the reviewer's own evidence trail before accepting.
+
+**Commit message:** `023: fold Write targets into Raw File, add profile-file open/reveal`

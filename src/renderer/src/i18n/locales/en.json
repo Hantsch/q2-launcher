@@ -354,7 +354,6 @@
       "overview": "Overview",
       "settings": "Settings",
       "controls": "Controls",
-      "writeTargets": "Write targets",
       "raw": "Raw file",
       "validation": "Validation",
       "preserved": "Preserved lines"
@@ -460,7 +459,9 @@
       "profileNotFound": "That config profile no longer exists.",
       "notAssigned": "This profile is not assigned to that installation.",
       "writeFailed": "Could not write this profile's files to disk.",
-      "installationRunning": "This installation is currently running. Close the game first."
+      "installationRunning": "This installation is currently running. Close the game first.",
+      "fileNotFound": "That file could not be found on disk.",
+      "openFailed": "Could not open that file: {{message}}"
     },
     "cvar": {
       "name": {
@@ -914,36 +915,20 @@
         "default": "“= default” means the value matches the default shown"
       }
     },
-    "writeTargets": {
-      "label": "Write targets",
-      "own": "This profile's file",
-      "status": {
-        "inSync": "In sync",
-        "outOfSync": "Out of sync",
-        "missing": "Missing",
-        "pending": "Pending",
-        "error": "Error",
-        "loading": "Checking…"
-      },
-      "retry": "Retry",
-      "preview": "Preview…",
-      "playedMods": "Played mods",
-      "noMods": "No other mod folders found."
-    },
-    "previewDialog": {
-      "title": "Preview – {{installation}}",
-      "empty": "Nothing would be written."
-    },
     "raw": {
+      "own": "This profile's file",
       "onDisk": "On disk",
       "notOnDisk": "Not on disk",
+      "present": "In sync",
+      "differs": "Differs from this profile",
       "notWritten": "Not written to this installation yet",
+      "ownNotOnDisk": "Not written to disk yet",
+      "openEditor": "Open in editor",
       "reveal": "Reveal in folder",
-      "installationLabel": "Installation",
-      "noAssignment": {
-        "title": "Not assigned to an installation",
-        "body": "Assign this profile to an installation to see the rendered config file it would write."
-      }
+      "expand": "Show rendered files",
+      "playedMods": "Played mods",
+      "noMods": "No other mod folders found.",
+      "previewEmpty": "Nothing would be written."
     },
     "cleanup": {
       "label": "Redundant config copies",

@@ -14,9 +14,12 @@ import {
   type ImportPreviewResult,
   type ImportScanInput,
   type ImportScanResult,
+  type OpenProfileFileInput,
   type PreviewProfileInput,
   type PreviewProfileResult,
   type ProfileSyncState,
+  type RawFilesInput,
+  type RawFilesResult,
   type RemoveConfigProfileInput,
   type RenameConfigProfileInput,
   type SetDefaultProfileInput,
@@ -131,11 +134,24 @@ export function writeConfigProfile(
   return callModule<WriteTargetResult[]>('config', CONFIG_HANDLERS.write, input)
 }
 
-/** Previews the exact files a write would put on an installation's disk, without writing them. */
-export function previewConfigProfile(
+/**
+ * Previews the exact files a write would put on an installation's disk, without writing them.
+ *
+ * Same double-unwrap gotcha as `getRawFiles`/`getProfileSyncState`/`openProfileFile` above: the
+ * `preview` main-process handler returns an `Outcome<PreviewProfileResult>` itself, and
+ * `MainModuleRegistry.invoke` (`src/main/modules/registry.ts`) wraps every handler's return in its
+ * own `Outcome` unconditionally - so the raw `callModule` response here is
+ * `Outcome<Outcome<PreviewProfileResult>>`, flattened the same way.
+ */
+export async function previewConfigProfile(
   input: PreviewProfileInput,
 ): Promise<Outcome<PreviewProfileResult>> {
-  return callModule<PreviewProfileResult>('config', CONFIG_HANDLERS.preview, input)
+  const result = await callModule<Outcome<PreviewProfileResult>>(
+    'config',
+    CONFIG_HANDLERS.preview,
+    input,
+  )
+  return result.ok ? result.value : result
 }
 
 /** Installations currently waiting for a retry, keyed by installation id. */
@@ -164,9 +180,51 @@ export async function getProfileSyncState(
   return result.ok ? result.value : result
 }
 
-/** Sets which mods an installation is considered to have been played with. */
-export function setPlayedMods(input: SetPlayedModsInput): Promise<Outcome<string[]>> {
-  return callModule<string[]>('config', CONFIG_HANDLERS.setPlayedMods, input)
+/**
+ * Read-only: the profile's own canonical file plus one entry per assigned installation (story 023
+ * D1). Never writes.
+ *
+ * Same double-unwrap gotcha as `getProfileSyncState` above: the `rawFiles` main-process handler
+ * returns an `Outcome<RawFilesResult>` itself, and `MainModuleRegistry.invoke` wraps every
+ * handler's return value in its own `Outcome` unconditionally - so the raw `callModule` response
+ * here is `Outcome<Outcome<RawFilesResult>>`, flattened the same way.
+ */
+export async function getRawFiles(input: RawFilesInput): Promise<Outcome<RawFilesResult>> {
+  const result = await callModule<Outcome<RawFilesResult>>('config', CONFIG_HANDLERS.rawFiles, input)
+  return result.ok ? result.value : result
+}
+
+/**
+ * Opens one of the profile's own files in the OS default application for `.cfg`
+ * (`mode: 'open'`), or reveals it in the file manager (`mode: 'reveal'`). Story 023 D2.
+ *
+ * Addressed by ids, never by a path: `installationId: null` is the profile's own canonical file,
+ * a non-null value is that installation's copy. Main resolves the real path itself and refuses
+ * anything that is not this profile's own `.cfg` (AC 8), so there is deliberately nothing
+ * path-shaped to pass here.
+ *
+ * Same double-unwrap as `getRawFiles`/`getProfileSyncState` above, for the same reason: the
+ * handler's own return value is already an `Outcome<null>`, and `MainModuleRegistry.invoke`
+ * (`src/main/modules/registry.ts`) wraps every handler return in a second `Outcome`
+ * unconditionally.
+ */
+export async function openProfileFile(input: OpenProfileFileInput): Promise<Outcome<null>> {
+  const result = await callModule<Outcome<null>>('config', CONFIG_HANDLERS.openFile, input)
+  return result.ok ? result.value : result
+}
+
+/**
+ * Sets which mods an installation is considered to have been played with.
+ *
+ * Same double-unwrap gotcha as `getRawFiles`/`getProfileSyncState`/`openProfileFile` above: the
+ * `setPlayedMods` main-process handler returns an `Outcome<string[]>` itself, and
+ * `MainModuleRegistry.invoke` (`src/main/modules/registry.ts`) wraps every handler's return in its
+ * own `Outcome` unconditionally - so the raw `callModule` response here is
+ * `Outcome<Outcome<string[]>>`, flattened the same way.
+ */
+export async function setPlayedMods(input: SetPlayedModsInput): Promise<Outcome<string[]>> {
+  const result = await callModule<Outcome<string[]>>('config', CONFIG_HANDLERS.setPlayedMods, input)
+  return result.ok ? result.value : result
 }
 
 /** installationId -> the key bound to cycle its assigned profiles in-session, if configured. */
