@@ -21,6 +21,17 @@ const log = scopedLogger('window')
 const BACKGROUND_COLOR = '#0b0b0d'
 
 /**
+ * Set to `1` by the UI-verification harness (`scripts/lib/harness.mjs`'s
+ * `childEnv()`) in the app's environment, never in a normal or packaged launch.
+ *
+ * Read once at module load — the environment cannot change under a running
+ * process, and a single lookup keeps the two places that branch on it from
+ * disagreeing. Matched strictly against `'1'` so a stray `Q2L_UI_HARNESS=0`
+ * cannot switch the launcher into a window that refuses focus.
+ */
+const IS_UI_HARNESS = process.env['Q2L_UI_HARNESS'] === '1'
+
+/**
  * Build resources are not packed into the application automatically.
  * electron-builder copies the icon beside app.asar; development reads the
  * generated source asset directly from build/.
@@ -90,6 +101,14 @@ export async function createMainWindow(app: AppContext): Promise<MainWindow> {
     minWidth: WINDOW_MIN_WIDTH,
     minHeight: WINDOW_MIN_HEIGHT,
     show: false,
+    // Under the verification harness the window must be painted but never
+    // activated, so it cannot steal the foreground from whoever started the run.
+    // `focusable: false` is the OS-level half of that (WS_EX_NOACTIVATE on
+    // Windows): the window is not activated on show and clicking it does not
+    // raise it. Spread conditionally rather than passed as `focusable: true`, so
+    // a normal launch hands Electron exactly the options it got before — Windows
+    // also derives `skipTaskbar: true` from `focusable: false`.
+    ...(IS_UI_HARNESS ? { focusable: false } : {}),
     backgroundColor: BACKGROUND_COLOR,
     icon: mainWindowIconPath(),
     // Fully custom chrome: the title bar is a React component, matching the
@@ -164,7 +183,11 @@ export async function createMainWindow(app: AppContext): Promise<MainWindow> {
   window.once('ready-to-show', () => {
     if (saved.fullScreen) window.setFullScreen(true)
     else if (saved.maximized) window.maximize()
-    window.show()
+    // `show()` shows *and* focuses; `showInactive()` shows without asking for
+    // activation. The harness path needs the second one — `focusable: false`
+    // alone would leave Electron requesting a focus the window then refuses.
+    if (IS_UI_HARNESS) window.showInactive()
+    else window.show()
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {

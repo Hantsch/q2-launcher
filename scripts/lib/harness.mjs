@@ -128,6 +128,9 @@ export function childEnv() {
   for (const key of Object.keys(env)) {
     if (key.toUpperCase() === 'ELECTRON_RUN_AS_NODE') delete env[key]
   }
+  // Lets the app (and future assertions) tell a UI-verification run apart
+  // from a normal launch.
+  env.Q2L_UI_HARNESS = '1'
   return env
 }
 
@@ -254,7 +257,7 @@ export async function withApp({ variant, viewport } = {}, fn) {
   })
 
   try {
-    if (viewport) await applyViewport(app, viewport)
+    if (viewport) await resize(app, viewport)
     const result = await fn({ app, page, log, userDataDir })
     await assertStillRunning(app, child, log, state)
     return result
@@ -320,7 +323,11 @@ async function settleExit(child, log, state, timeoutMs = 1000) {
   }
 }
 
-async function applyViewport(app, { width, height }) {
+/**
+ * Resizes the app's single window. Callable more than once per launch — it
+ * only touches the already-running app, it never relaunches.
+ */
+export async function resize(app, { width, height }) {
   await app.evaluate(
     async ({ BrowserWindow }, size) => {
       const [window] = BrowserWindow.getAllWindows()

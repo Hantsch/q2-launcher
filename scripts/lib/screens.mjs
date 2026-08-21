@@ -1,9 +1,17 @@
-// D4 — the screen registry every UI-verification consumer (shot.mjs today,
-// a11y.mjs later) walks. Each entry is `{ id, variant, viewports, navigate }`:
-// `navigate(page)` performs whatever clicks are needed to reach that screen
-// starting from a fresh app load (harness's `withApp` always starts at the
-// default route — there is no URL to navigate to, `route` is plain Zustand
-// state, see src/renderer/src/store/useLauncher.ts).
+// The screen registry UI verification walks: `scripts/verify.mjs` resolves which
+// entries a run covers and `scripts/lib/session.mjs` visits them (story 027
+// replaced story 026's separate shot.mjs/a11y.mjs with those two). Each entry is
+// `{ id, variant, viewports, navigate }`: `navigate(page)` performs whatever
+// clicks are needed to reach that screen starting from the default route — there
+// is no URL to navigate to, `route` is plain Zustand state, see
+// src/renderer/src/store/useLauncher.ts. Since story 027 the app is no longer
+// relaunched per screen; `session.mjs` restores that starting point itself
+// (`resetToBaseState()`) before every `navigate()`.
+//
+// Optional `coldStart?: boolean` on an entry marks a screen whose subject *is*
+// the app's boot state: `session.mjs` gives it its own launch per viewport
+// instead of visiting it inside the batched session. None of the 14 entries
+// below need it today.
 //
 // Selectors mirror story 026 D3's `data-testid` additions exactly — read
 // TitleBar.tsx, ConfigView.tsx and OverviewKeyboardPanel.tsx before changing

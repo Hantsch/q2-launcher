@@ -23,38 +23,130 @@ chosen over Playwright test files under a project config.
 npm run ui:verify
 ```
 
-Runs `scripts/ui-verify.mjs`, which in order:
+Runs `scripts/ui-verify.mjs`, a thin wrapper that forwards its CLI args
+(including `--screens=`, see "Partial runs" below) to `scripts/verify.mjs`'s
+exported `run()` **in the same process** — there is no longer a separate
+child process for screenshots and another for accessibility. In order,
+`run()`:
 
 1. Builds the app (`npm run build`) if `out/main/index.js` or
    `out/renderer/index.html` is missing.
-2. Seeds the fixture (same writer as `npm run ui:seed`) for any variant that
-   isn't already on disk.
-3. Runs `scripts/shot.mjs` (screenshots) as a child process.
-4. Runs `scripts/a11y.mjs` (accessibility report) as a child process.
-5. Prints one combined summary and exits with the combined code (see Exit
-   codes below).
+2. Resolves which screens to visit: the whole registry by default, or a
+   `--screens=a,b,c` subset.
+3. Groups the resolved screens by fixture variant and runs one batched
+   session per variant actually needed (see "The per-variant session model"
+   below) — each session reseeds its fixture fresh, launches the app once,
+   and walks every non-cold-start screen belonging to that variant in that
+   same running app, taking the screenshot and the axe reading for a screen
+   back to back.
+4. Writes `run.json` (if screenshots were captured) and `a11y.json`/`a11y.md`
+   (if axe was captured), and sweeps stale screenshots — but only on a full
+   run (see "Partial runs" below).
+5. Prints one summary, including the real launch count, and exits with one
+   exit code (see Exit codes below).
 
 It is not referenced by `npm test` or `npm run build` — it is only ever
 invoked explicitly, by a person or a build session.
 
 ## The individual scripts
 
-Run these standalone when you only need part of the pipeline:
+Run these standalone when you only need part of the pipeline. `ui:shot`,
+`ui:a11y` and `ui:verify` are all `scripts/verify.mjs` — the same driver —
+invoked with different flags; none of them spawns a `shot.mjs` or `a11y.mjs`
+child process, because those files were deleted in story 027 and no longer
+exist.
 
 - `npm run ui:seed` — regenerates the `populated` and `empty` fixtures
-  (`.ui-verify/fixture/`). Idempotent: same literal data every time, so
-  re-running it produces byte-identical files. Run it after changing the
-  fixture shape in `scripts/lib/fixture.mjs`.
-- `npm run ui:shot` — screenshots every screen in the registry at every
-  configured viewport. Seeds the fixture itself if it's missing. Run it after
-  a UI change you want to eyeball across all screens.
-- `npm run ui:a11y` — runs axe-core over every screen in the registry. Also
-  self-seeds. Run it when you only care about accessibility findings, not
-  fresh screenshots.
+  (`.ui-verify/fixture/`) on their own, without launching the app. Idempotent:
+  same literal data every time, so re-running it produces byte-identical
+  files. Useful for inspecting fixture contents directly; every verify run
+  reseeds its own fixture regardless (see below), so this is never a
+  prerequisite for `ui:shot`/`ui:a11y`/`ui:verify`.
+- `npm run ui:shot` (`node scripts/verify.mjs --skip-axe`) — screenshots every
+  screen in the registry at every configured viewport, skipping the axe pass.
+  Run it after a UI change you want to eyeball across all screens.
+- `npm run ui:a11y` (`node scripts/verify.mjs --skip-shot`) — runs axe-core
+  over every screen in the registry, skipping screenshots. Run it when you
+  only care about accessibility findings, not fresh screenshots.
+- `npm run ui:verify` (`node scripts/ui-verify.mjs`, which forwards to
+  `scripts/verify.mjs`) — runs both passes together. Any of the three accepts
+  `-- --screens=a,b,c` to restrict the run to specific screen ids.
 - `npm run ui:flow -- <name>` — runs one named, free-form interaction script
   (`scripts/flows/<name>.mjs`) instead of the fixed registry. Run it to smoke
   a specific story's click-through path (e.g. `npm run ui:flow --
-  open-keycap-dialog`).
+open-keycap-dialog`).
+
+Every `verify.mjs` run reseeds the fixture for each variant it is about to
+launch, fresh, immediately before that launch — never "only if missing". A
+run can never inherit drift (a stale `lastRoute`, a flipped setting) left
+behind by a previous run.
+
+## The per-variant session model
+
+Story 026 shipped one Playwright `_electron.launch()` per screen per
+viewport per script — 14 screens x 2 viewports x 2 scripts (`shot.mjs` +
+`a11y.mjs`) = 56 launches for a full `ui:verify` run. `scripts/lib/session.mjs`
+(`runVariantSession()`) replaces that with one launch per fixture _variant_
+that the resolved screens actually need: the app launches once, and the
+driver then walks every non-cold-start screen belonging to that variant in
+that same running app, in registry order.
+
+For each screen x viewport visit, in the same page state:
+
+1. Reset to the base route (`nav-home`, closing any open dialog first), so
+   every screen starts from the precondition its `navigate()` assumes — the
+   same guarantee a fresh launch used to give it.
+2. Resize the window (`resize()` in `scripts/lib/harness.mjs`) to the
+   screen's viewport.
+3. Run the screen's `navigate()`.
+4. Take the screenshot, if `capture.shot` is on.
+5. Run the axe-core scan, if `capture.axe` is on.
+
+Steps 4 and 5 happen back to back with nothing in between, which is what
+guarantees a screen's `a11y.json` entry and its PNG always describe the same
+page state — story 026's two-script split could not promise that, since a
+screenshot from `shot.mjs` and an axe reading from `a11y.mjs` came from two
+independent app instances that could, in principle, differ.
+
+Today's registry is 14 screens across 2 fixture variants (`populated`,
+`empty`) with no screen marked `coldStart` (see below), so a full
+`ui:verify` run does **2** `_electron.launch()` calls total — down from 56,
+roughly 34s instead of the ~113s story 026 measured. The actual launch count
+for any given run (which changes under `--screens=`, or once a screen is
+marked `coldStart`) is printed in the run summary as `launches: N`.
+
+## Partial runs (`--screens=`)
+
+`--screens=a,b,c` restricts a run to specific screen ids, e.g.:
+
+```
+npm run ui:verify -- --screens=home,config-settings
+```
+
+This works the same way on `ui:shot` and `ui:a11y` — all three forward their
+CLI args to `verify.mjs`. An id that isn't in the registry is a hard error:
+the run stops before anything is launched and the message names the bad
+id(s) plus the full list of valid ones, rather than silently running a
+smaller set than asked for.
+
+A restricted run only launches the fixture variants its resolved screens
+actually need — `--screens=home` (a `populated`-only screen) never touches
+the `empty` fixture at all.
+
+The one behavioral difference from a full run: **a partial run never sweeps
+stale screenshots.** The sweep renames every pre-existing `.png` under
+`.ui-verify/screenshots/` that the run did not (re)write to
+`<name>.png.stale`. That is safe on a full run, which visits every registry
+screen and can tell a genuinely stale file from one it simply had no reason
+to touch. A `--screens=` run only visits a subset, so every screenshot
+outside that subset would look "not written this run" and get swept even
+though it is still current — so the sweep is skipped entirely whenever
+`screens.length !== SCREENS.length`. The run summary says so explicitly,
+e.g.:
+
+```
+run: PARTIAL — 2/14 screens (--screens=home,config-settings) — stale-PNG sweep skipped
+```
 
 ## Where output lands
 
@@ -68,7 +160,7 @@ Everything lives under `.ui-verify/` at the repo root, which is gitignored
 - `.ui-verify/a11y.md` — the same findings, grouped by impact
   (critical/serious/moderate/minor), with a summary table and a rule/help-link
   table per impact — readable without opening the JSON.
-- `.ui-verify/run.json` — `scripts/shot.mjs`'s machine-readable result per
+- `.ui-verify/run.json` — `scripts/verify.mjs`'s machine-readable result per
   screen (`written` / `unreachable` / `error`, plus any console/page errors).
 - `.ui-verify/fixture/` — the generated fixtures: `populated/userdata/` and
   `empty/userdata/` (each a `state.json` + `window-state.json`), plus
@@ -77,22 +169,24 @@ Everything lives under `.ui-verify/` at the repo root, which is gitignored
 
 ## Exit codes
 
-Each script defines its own rule; they are not identical:
+`ui:shot`, `ui:a11y` and `ui:verify` all resolve to the same
+`computeExitCode()` in `scripts/verify.mjs`, applied to whichever capture(s)
+that invocation actually ran — there is one rule, not three:
 
-- **`ui:shot`** — `0` only if every screen in the registry was written at
-  every viewport with zero console errors, zero uncaught renderer exceptions
-  and no main-process crash. `1` otherwise (a screen reported `unreachable` or
-  `error` in `run.json` — e.g. a missing testid, a renderer console error, or
-  the harness itself failing to launch the app).
-- **`ui:a11y`** — `1` if any screen was unreachable or errored (the app/harness
-  itself failed for that screen, so axe never got to run on it — this takes
-  priority and is checked first). Otherwise `2` if any violation anywhere has
-  impact `serious` or `critical`. Otherwise `0` (clean, or only
-  `minor`/`moderate` findings present).
-- **`ui:verify`** — combines the two stages: `1` if the build failed, or if
-  either `ui:shot` or `ui:a11y` itself exited `1` (a harness/app-level
-  failure — reported and takes priority). Otherwise `2` if the `ui:a11y` stage
-  exited `2` (serious/critical accessibility findings). Otherwise `0`.
+- **`1`** — any visited screen's harness/app failed: unreachable (e.g. a
+  missing testid), a renderer console error, an uncaught renderer exception,
+  a main-process crash, or the harness itself failing to launch. Checked
+  first and takes priority over any accessibility finding.
+- **`2`** — no harness/app failure, but the axe-core capture found a
+  violation with impact `serious` or `critical` somewhere. Only reachable
+  when axe actually ran, so `ui:shot` (`--skip-axe`) can never return `2`.
+- **`0`** — clean: every visited screen written/audited with no harness
+  failure and, when axe ran, nothing worse than `minor`/`moderate`.
+
+Concretely: `ui:shot` only ever exits `0` or `1`; `ui:a11y` and `ui:verify`
+can exit `0`, `1` or `2`. A failed build or a bad CLI flag (an unrecognized
+flag, an unknown `--screens=` id) also exits `1`, before anything is
+launched.
 
 `ui:flow` exits `0` on success, `1` if a step throws (naming the flow and the
 step it failed at) or if the named flow file doesn't exist.
@@ -132,6 +226,35 @@ The harness also never triggers `detection:scan` — that IPC path shells out to
 (`src/main/services/detection/providers.ts`). The seeded fixtures set
 `settings.scanOnFirstRun: false` explicitly so the zero-installation `empty`
 variant doesn't pop `DetectDialog` with `autoStart: true` and call it anyway.
+
+## Harness mode (`Q2L_UI_HARNESS`)
+
+Every app instance the harness launches gets `Q2L_UI_HARNESS=1` in its
+environment (`childEnv()` in `scripts/lib/harness.mjs` sets it
+unconditionally, on top of the caller's own environment). `src/main/window.ts`
+reads it once at module load and, only when it is exactly `'1'`, changes how
+the main window is created:
+
+- The `BrowserWindow` is constructed with `focusable: false` (Windows:
+  `WS_EX_NOACTIVATE`), so it can never be activated and clicking it never
+  raises it.
+- The `ready-to-show` handler calls `window.showInactive()` instead of
+  `window.show()`, painting the window without requesting foreground
+  activation.
+
+The effect: a verification run's window is visible — so Playwright can drive
+it and take screenshots — but never steals focus from whatever the run was
+started from (a terminal, an editor, another window). Outside harness mode
+(`Q2L_UI_HARNESS` unset, which is every `npm run dev` and every packaged
+launch) both branches are no-ops and the window behaves exactly as it always
+has: shown and focused via `window.show()`.
+
+This is not something to set by hand. It exists purely so a harness-launched
+app instance can identify itself to `window.ts`; setting it on a normal
+launch would only produce a launcher window that refuses to focus, with no
+upside. The harness sets it automatically on every instance it launches,
+whether that instance is part of a batched session or a cold-start screen's
+own dedicated launch.
 
 ## How to add a screen to the registry
 
@@ -174,6 +297,42 @@ the top of `screens.mjs`: `nav-<moduleId>`, `config-tab-<tabId>`,
 `npm run ui:shot` and `npm run ui:a11y` pick it up automatically — nothing
 else needs to be wired.
 
+### Cold-start screens
+
+A screen normally runs inside the batched session described above: the
+driver resets to the base route and resizes an already-running app into
+place before calling `navigate()`. That's fine for a screen whose subject is
+some _reachable_ app state, but wrong for a screen whose subject is the cold
+boot itself — a splash state, first-paint layout, or anything only true in
+the instant before the app has settled — because by the time the batched
+session's reset/resize/navigate sequence reaches it, the app has already
+booted once for an earlier screen in that variant.
+
+Set `coldStart: true` on such an entry and `runVariantSession()` gives it its
+own dedicated launch instead of folding it into the batched session: fixture
+reseeded, app launched fresh, window opened straight at the screen's own
+viewport (a cold-start screen is never resized after boot — resizing into it
+after the fact would show a booted-then-resized window, not a boot at that
+size):
+
+```js
+{
+  id: 'first-launch-splash',
+  variant: 'empty',
+  coldStart: true,
+  viewports: [VIEWPORT_DEFAULT],
+  navigate: async (page) => {
+    // whatever this screen needs to be visible right after boot
+  },
+},
+```
+
+None of the 14 screens shipped so far set `coldStart` — every current screen
+is reachable from a running app via clicks, so the field exists in the
+registry's shape but isn't exercised by any entry yet. Each `coldStart: true`
+screen adds one extra `_electron.launch()` per viewport it lists, on top of
+its variant's one batched-session launch.
+
 ## How to write a flow
 
 Flows are for a free-form, story-shaped click-through — not a fixed registry
@@ -191,7 +350,7 @@ default export and calls it with `{ page, app, shot, log, step }`:
   exit), if a step wants to inspect it directly.
 - **`step(label)`** — records the current step name only, so that if anything
   throws, the failure is reported as `flow '<name>' failed at step '<label>':
-  <message>` instead of a bare stack trace.
+<message>` instead of a bare stack trace.
 
 The worked example, `scripts/flows/open-keycap-dialog.mjs`, opens the
 populated fixture, goes to Config, opens a profile, switches to Overview,
