@@ -1,6 +1,6 @@
 ---
 sprint: S05
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/S05
 milestone: Config module — profile-as-a-file (docs/systems/config-module.md)
 ---

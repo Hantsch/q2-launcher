@@ -107,10 +107,17 @@ without a formal sprint cut, spanning the move from a WSL dev session to a nativ
   staying uninterrupted) — needs a human on the real desktop, feasible now that the session is
   native Windows. Status stays `in-progress` until confirmed.
 
-`docs/sprints/S05` **planned (2026-08-21)** — the profile-as-a-file rework: 022 `<name>.cfg`
-exists standalone, 023 Raw File absorbs Write targets, 024 Quake 2 syntax highlighting, 025
-Validation→Care, in that build order. Filed 2026-08-19 (`37cef54`); cut into a sprint 2026-08-21
-without changing scope. Not yet built.
+`docs/sprints/S05` **built (2026-08-21), acceptance pass not yet confirmed by the user** — the
+profile-as-a-file rework: 022 `<name>.cfg` exists standalone, 023 Raw File absorbs Write targets,
+024 Quake 2 syntax highlighting, 025 Validation→Care, in that build order. Filed 2026-08-19
+(`37cef54`); cut into a sprint 2026-08-21, built same day. **All four stories done**, see
+`docs/sprints/S05/review.md` and `docs/sprints/S05/testplan.md` for the manual acceptance pass.
+Every profile now has a canonical `<name>.cfg` in userData with automatic sync to every assigned
+installation and a retry-capable sync/error state (022); the "Write targets" tab is gone, folded
+into Raw File (023); config text everywhere in the launcher is now syntax-highlighted and
+searchable through one shared viewer (024); "Validation" is now "Care", the single maintenance
+surface combining the validation report, sync state, tidy-up actions (with a "fix all safe
+findings" batch action) and the relocated mod-copies cleanup (025).
 
 **Filed, not yet sprinted:**
 
@@ -121,6 +128,24 @@ without changing scope. Not yet built.
   badge on the Downloads icon (explicitly blocked on the Downloads module existing), 033 rewrite
   the planned-module screens (Mods/Assets) in user-facing language instead of engineering
   capability lists. Dependency: 031 → 032.
+
+#### Gaps/notes (from S05)
+
+- `setPlayedMods`/`setSwitchBind` (022) still write without going through the sync engine — a
+  switch-bind chain can `exec` a not-yet-migrated file name until the next real sync touches that
+  profile. Deliberately out of scope for 022 (not listed under its write-trigger decision); worth
+  folding in if it ever causes a real report.
+- `npm run ui:verify`'s automated screen registry does not cover the write-preview dialog or the
+  import preview (024's `ConfigCodeView` swap-in there is only manually acceptance-tested, see
+  `docs/sprints/S05/testplan.md`) — pre-existing harness scope, not a S05 regression, but a gap if
+  the harness is ever trusted as the sole gate.
+- 025's main-side `removeShadowedBind` handler trusts the renderer analyzer's "loser" claim rather
+  than re-deriving the render-order winner itself — unreachable today because main re-validates
+  every operation before applying, flagged for hardening if that invariant ever changes.
+- The sync section's `pending` state (installation currently running) has no path through the UI
+  in a test environment without a real, launchable Quake II install — covered only by
+  `sync.test.ts`, named as a gap in `docs/sprints/S05/testplan.md` rather than faked with a
+  console workaround.
 
 #### Gaps/notes (from S03)
 
@@ -138,12 +163,11 @@ without changing scope. Not yet built.
 
 #### Gaps/notes (from S04)
 
-- The harness itself surfaced a **pre-existing, unrelated bug**: `RawConfigPanel.tsx` crashes on
-  the `config-raw` route (a double-unwrapped `Outcome`), which makes a full `npm run ui:verify`
-  exit `1` even on an otherwise clean build. Not fixed in S04 (out of scope for the stories that
-  found it), and **still not filed as a story** despite resurfacing twice more since — once in
-  027's own live smoke, once in 028's design-consistency pass. Needs its own story before
-  `ui:verify`'s exit code can be trusted as a clean pass/fail gate; a good next-sprint candidate.
+- ~~The harness itself surfaced a **pre-existing, unrelated bug**: `RawConfigPanel.tsx` crashes on
+  the `config-raw` route (a double-unwrapped `Outcome`)~~ — **resolved incidentally during S05**:
+  022 fixed `getProfileSyncState`'s double-wrap, 023 fixed the same pattern in `setPlayedMods` and
+  `previewConfigProfile` while rebuilding Raw File around `RawConfigPanel`. `npm run ui:verify`
+  no longer exits non-zero on the `config-raw`/`config-care` routes as of S05.
 - **Story 027 — done** (in-progress on one manual item), see the ad-hoc section above: the
   harness went from 56 app starts per full run to 2, and window focus-stealing is suppressed
   during a run.
