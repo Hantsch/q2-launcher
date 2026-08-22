@@ -380,6 +380,188 @@ describe('validateActions', () => {
     expect(rulesOf(findings)).toEqual([])
   })
 
+  // --- story 041 D4: the reference graph counts raw binds and alias bodies ----
+  //
+  // The three shapes an *imported* profile produces (`alias-import.ts`), all of
+  // which the shared collector (`alias-references.ts#collectAliasReferences`)
+  // has to see for the entry not to look dead: a raw bind pointing at an entry
+  // by bare name, one entry's body calling another's, and a `;`-list bind value
+  // calling two.
+
+  it('story 041 D4: a raw bind pointing at an imported alias by bare name is neither undefined nor unreferenced', () => {
+    const actions = [
+      action({
+        id: 'a1',
+        kind: 'alias',
+        name: 'drop_shotgun',
+        aliasName: 'drop_shotgun',
+        commands: [
+          { kind: 'raw', text: 'drop shotgun' },
+          { kind: 'message', channel: 'say_team', text: 'dropped my shotgun' },
+        ],
+      }),
+    ]
+
+    const findings = validateActions(actions, 'r1q2', { binds: { KP_END: 'drop_shotgun' } })
+
+    expect(findings).toEqual([])
+  })
+
+  it('story 041 D4: an imported alias referenced only from another imported alias body is not flagged as unreferenced', () => {
+    const actions = [
+      action({
+        id: 'a1',
+        kind: 'alias',
+        name: 'wait5',
+        aliasName: 'wait5',
+        commands: [
+          { kind: 'raw', text: 'wait' },
+          { kind: 'raw', text: 'wait' },
+          { kind: 'raw', text: 'wait' },
+          { kind: 'raw', text: 'wait' },
+          { kind: 'raw', text: 'wait' },
+        ],
+      }),
+      action({
+        id: 'a2',
+        kind: 'alias',
+        name: 'wait20',
+        aliasName: 'wait20',
+        commands: [
+          { kind: 'raw', text: 'wait5' },
+          { kind: 'raw', text: 'wait5' },
+          { kind: 'raw', text: 'wait5' },
+          { kind: 'raw', text: 'wait5' },
+        ],
+      }),
+    ]
+
+    const findings = validateActions(actions, 'r1q2', { binds: { KP_INS: 'wait20' } })
+
+    expect(findings).toEqual([])
+  })
+
+  it('story 041 D4: a `;`-list bind value counts as a reference to every alias it lists', () => {
+    const actions = [
+      action({
+        id: 'a1',
+        kind: 'alias',
+        name: 'shotgun',
+        aliasName: 'shotgun',
+        commands: [{ kind: 'raw', text: 'use shotgun' }],
+      }),
+      action({
+        id: 'a2',
+        kind: 'alias',
+        name: 'super_shotgun',
+        aliasName: 'super_shotgun',
+        commands: [{ kind: 'raw', text: 'use super shotgun' }],
+      }),
+    ]
+
+    const findings = validateActions(actions, 'r1q2', { binds: { w: 'shotgun;super_shotgun' } })
+
+    expect(findings).toEqual([])
+  })
+
+  // An imported `alias +teamsay "say_team go go go"` becomes a `kind: 'message'`
+  // entry (`alias-import.ts#entryKindFor`: exactly one message command and
+  // nothing else), and the writer emits an alias line for it exactly as it does
+  // for a `kind: 'alias'` entry. So a hand-typed bind calling it is calling a
+  // name this profile really defines - the "defined" set the undefined-alias
+  // check consults has to know about it too, not only about `kind: 'alias'`.
+  it('story 041 D4: a bind calling an imported kind:message entry by name is not an undefined alias', () => {
+    const actions = [
+      action({
+        id: 'm1',
+        kind: 'message',
+        name: '+teamsay',
+        aliasName: '+teamsay',
+        commands: [{ kind: 'message', channel: 'say_team', text: 'go go go' }],
+      }),
+      action({
+        id: 'b1',
+        kind: 'bind',
+        name: 'Team go',
+        commands: [{ kind: 'raw', text: '+teamsay' }],
+      }),
+    ]
+
+    const findings = validateActions(actions, 'r1q2')
+
+    expect(rulesOf(findings)).toEqual([])
+  })
+
+  // --- story 041 D4 fix: press/release pairing widens "referenced" ----------
+  //
+  // A `-x` release alias is never called by name in any config text - the
+  // engine invokes it itself on key-up whenever the matching `+x` is bound.
+  // `pressReleasePairs` (D5) is reused here to recognise that shape instead of
+  // reporting a permanent, unfixable `aliasUnreferenced` on the release half.
+
+  it('story 041 D4 fix: a +slow/-slow pair where only +slow is bound is not flagged as unreferenced on either half', () => {
+    const actions = [
+      action({
+        id: 'a1',
+        kind: 'alias',
+        name: '+slow',
+        aliasName: '+slow',
+        commands: [{ kind: 'raw', text: 'cl_run 0' }],
+      }),
+      action({
+        id: 'a2',
+        kind: 'alias',
+        name: '-slow',
+        aliasName: '-slow',
+        commands: [{ kind: 'raw', text: 'cl_run 1' }],
+      }),
+    ]
+
+    const findings = validateActions(actions, 'r1q2', { binds: { SHIFT: '+slow' } })
+
+    expect(rulesOf(findings)).toEqual([])
+  })
+
+  it('story 041 D4 fix: a +x/-x pair where neither half is referenced by anything still reports aliasUnreferenced for both', () => {
+    const actions = [
+      action({
+        id: 'a1',
+        kind: 'alias',
+        name: '+x',
+        aliasName: '+x',
+        commands: [{ kind: 'raw', text: 'wait' }],
+      }),
+      action({
+        id: 'a2',
+        kind: 'alias',
+        name: '-x',
+        aliasName: '-x',
+        commands: [{ kind: 'raw', text: 'wait' }],
+      }),
+    ]
+
+    const findings = validateActions(actions, 'r1q2')
+
+    expect(rulesOf(findings)).toEqual(['aliasUnreferenced', 'aliasUnreferenced'])
+    expect(findings.map((finding) => finding.params?.name)).toEqual(['+x', '-x'])
+  })
+
+  it('story 041 D4 fix: an unpaired lone -x with no matching +x action still reports aliasUnreferenced', () => {
+    const actions = [
+      action({
+        id: 'a1',
+        kind: 'alias',
+        name: '-x',
+        aliasName: '-x',
+        commands: [{ kind: 'raw', text: 'wait' }],
+      }),
+    ]
+
+    const findings = validateActions(actions, 'r1q2')
+
+    expect(rulesOf(findings)).toEqual(['aliasUnreferenced'])
+  })
+
   it('carries the engine passed in on every finding', () => {
     const actions = [action({ id: 'a1', kind: 'alias', name: '+test', commands: [{ kind: 'raw', text: 'wait' }] })]
 

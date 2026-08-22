@@ -64,10 +64,12 @@ describe('readImportableConfig', () => {
     expect(result).toEqual({
       cvars: {},
       binds: {},
+      aliases: [],
       unrecognized: [],
       filesRead: [],
       warnings: [],
       duplicateBinds: [],
+      duplicateAliases: [],
     })
   })
 
@@ -295,6 +297,65 @@ describe('readImportableConfig', () => {
     expect(result.binds).toEqual({ x: '+attack', s: '+back' })
   })
 
+  it('folds alias definitions, last definition winning, without merging bodies', async () => {
+    await write(
+      'baseq2/config.cfg',
+      lines('alias qq "quit"', 'alias +slow "cl_run 0"', 'alias qq "disconnect"'),
+    )
+
+    const result = await readImportableConfig(root, 'baseq2')
+
+    expect(result.aliases).toEqual([
+      { name: 'qq', body: 'disconnect', file: 'config.cfg', line: 3 },
+      { name: '+slow', body: 'cl_run 0', file: 'config.cfg', line: 2 },
+    ])
+    expect(result.duplicateAliases).toEqual([{ name: 'qq', file: 'config.cfg', line: 3 }])
+  })
+
+  it('finds a duplicate alias across two different files, last definition winning', async () => {
+    await write('baseq2/config.cfg', lines('alias qq "quit"', 'exec extra.cfg'))
+    await write('baseq2/extra.cfg', lines('alias qq "disconnect"'))
+
+    const result = await readImportableConfig(root, 'baseq2')
+
+    expect(result.aliases).toEqual([
+      { name: 'qq', body: 'disconnect', file: 'extra.cfg', line: 1 },
+    ])
+    expect(result.duplicateAliases).toEqual([{ name: 'qq', file: 'extra.cfg', line: 1 }])
+  })
+
+  it('lets an alias defined in an exec’d file resolve for a bind in the parent file', async () => {
+    await write(
+      'baseq2/config.cfg',
+      lines('exec aliases.cfg', 'bind mouse2 "quickquit"'),
+    )
+    await write('baseq2/aliases.cfg', lines('alias quickquit "quit"'))
+
+    const result = await readImportableConfig(root, 'baseq2')
+
+    expect(result.aliases).toEqual([
+      { name: 'quickquit', body: 'quit', file: 'aliases.cfg', line: 1 },
+    ])
+    expect(result.binds).toEqual({ MOUSE2: 'quickquit' })
+  })
+
+  it('captures aliases both before and after an unbindall, unaffected by it', async () => {
+    await write(
+      'baseq2/config.cfg',
+      lines('alias before "say hi"', 'bind w "+forward"', 'unbindall', 'alias after "say bye"'),
+    )
+
+    const result = await readImportableConfig(root, 'baseq2')
+
+    // `unbindall` clears the bind accumulator only - aliases are a separate
+    // stream and both survive regardless of which side of it they are on.
+    expect(result.binds).toEqual({})
+    expect(result.aliases).toEqual([
+      { name: 'before', body: 'say hi', file: 'config.cfg', line: 1 },
+      { name: 'after', body: 'say bye', file: 'config.cfg', line: 4 },
+    ])
+  })
+
   it('keeps unrecognized lines in document order across files, tagged with file and line', async () => {
     await write(
       'baseq2/config.cfg',
@@ -305,12 +366,13 @@ describe('readImportableConfig', () => {
 
     const result = await readImportableConfig(root, 'baseq2')
 
+    // `alias qq "quit"` is now a real alias (story 041), not an unrecognized line.
     expect(result.unrecognized).toEqual([
-      { file: 'config.cfg', line: 1, text: 'alias qq "quit"' },
       { file: 'extra.cfg', line: 2, text: '+mlook' },
       { file: 'config.cfg', line: 3, text: '// a trailing note' },
       { file: 'autoexec.cfg', line: 1, text: 'some garbage line' },
     ])
+    expect(result.aliases).toEqual([{ name: 'qq', body: 'quit', file: 'config.cfg', line: 1 }])
   })
 
   it('reads high-ASCII bytes as latin-1 and round-trips them byte for byte', async () => {
@@ -329,8 +391,10 @@ describe('readImportableConfig', () => {
     const result = await readImportableConfig(root, 'baseq2')
 
     expect(result.cvars.name).toBe('Pléyer')
-    expect(result.unrecognized).toEqual([
-      { file: 'config.cfg', line: 2, text: 'alias hi "say hÿ!"' },
+    // `alias hi "..."` is now a real alias (story 041), not an unrecognized line.
+    expect(result.unrecognized).toEqual([])
+    expect(result.aliases).toEqual([
+      { name: 'hi', body: 'say hÿ!', file: 'config.cfg', line: 2 },
     ])
     // The bytes, not just the characters: what came off disk re-encodes to
     // exactly what was written.
@@ -341,8 +405,8 @@ describe('readImportableConfig', () => {
         Buffer.from('yer', 'latin1'),
       ]),
     )
-    expect(Buffer.from(result.unrecognized[0].text, 'latin1').subarray(-4)).toEqual(
-      Buffer.concat([Buffer.from('h', 'latin1'), Buffer.from([0xff]), Buffer.from('!"', 'latin1')]),
+    expect(Buffer.from(result.aliases[0].body, 'latin1').subarray(-4)).toEqual(
+      Buffer.concat([Buffer.from(' h', 'latin1'), Buffer.from([0xff]), Buffer.from('!', 'latin1')]),
     )
   })
 

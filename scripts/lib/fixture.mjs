@@ -254,16 +254,21 @@ function windowStateDocument() {
 
 // --- config.cfg importable fixture ------------------------------------------
 // Fixed-content `baseq2/config.cfg` written under `fixture-install-writedir`
-// only, so the config-import/preview flow has something real to read. Not
-// used by any current screen; see docs/main/modules/config/core/import-reader.ts
-// for how `seta`/`bind` lines are recognized.
+// only, so the config-import/preview flow has something real to read. Used by
+// `config-import-preview` and `config-import-review`; see
+// src/main/modules/config/core/import-reader.ts for how `seta`/`bind`/`alias`
+// lines are recognized.
 //
 // - `bind w` appears twice with no `unbind w` in between: import-reader.ts's
 //   `applyBind` records that as a duplicate bind (mirrors its own test,
 //   "reports a key bound twice with no unbind in between as a duplicate").
-// - The `alias` line is not one of the recognized commands
-//   (`set`/`seta`/`setu`/`sets`/`bind`/`unbind`/`unbindall`/`exec`), so
-//   config-parser.ts preserves it verbatim instead of guessing at it.
+// - `alias +fixture_unrecognized "echo hi"` is a plain alias definition
+//   (story 041 taught `config-parser.ts` to recognize `alias`, so this no
+//   longer lands in `preserved` the way it used to pre-story-041).
+// - `alias q2l_fixture_layer "bind e +use"` is story 041's ambiguous
+//   construct: its body contains a top-level `bind`, so it lands in
+//   `ImportPreviewResult.ambiguousRebindAliases` and is what makes the
+//   `config-import-review` screen's review step reachable.
 const FIXTURE_CONFIG_CFG = `seta sensitivity "5"
 seta cl_run "1"
 seta name "FixtureUser"
@@ -273,6 +278,7 @@ bind s "+back"
 bind MOUSE1 "+attack"
 bind w "+moveup"
 alias +fixture_unrecognized "echo hi"
+alias q2l_fixture_layer "bind e +use"
 `
 
 // --- writers ----------------------------------------------------------------

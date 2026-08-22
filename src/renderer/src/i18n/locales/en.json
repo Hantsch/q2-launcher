@@ -477,7 +477,8 @@
       "writeFailed": "Could not write this profile's files to disk.",
       "installationRunning": "This installation is currently running. Close the game first.",
       "fileNotFound": "That file could not be found on disk.",
-      "openFailed": "Could not open that file: {{message}}"
+      "openFailed": "Could not open that file: {{message}}",
+      "invalidLayerAlias": "One of the aliases you chose to import as a layer is not one this import found."
     },
     "cvar": {
       "name": {
@@ -1011,10 +1012,21 @@
       },
       "cvarCount": "Cvars",
       "bindCount": "Key binds",
+      "aliasCount": "Aliases",
+      "messageCount": "Messages",
       "duplicateBindCount_one": "{{count}} key bound more than once",
       "duplicateBindCount_other": "{{count}} keys bound more than once",
+      "duplicateAliasCount_one": "{{count}} alias defined more than once",
+      "duplicateAliasCount_other": "{{count}} aliases defined more than once",
       "preservedCount_one": "{{count}} preserved line",
       "preservedCount_other": "{{count}} preserved lines",
+      "review": {
+        "count_one": "{{count}} alias needs a decision",
+        "count_other": "{{count}} aliases need a decision",
+        "hint": "This alias's body contains a bind command. Choose whether to import it as a plain alias or attempt it as a toggle layer.",
+        "plainAlias": "Import as plain alias",
+        "attemptAsLayer": "Attempt as layer"
+      },
       "nameLabel": "Name",
       "namePlaceholder": "My profile",
       "namePrefill": "{{name}} (imported)",
@@ -1313,6 +1325,9 @@
         "alsoUsedBy": "also: {{owner}}",
         "none": "—"
       },
+      "pressRelease": {
+        "pairLabel": "{{base}} · press / release pair"
+      },
       "collision": {
         "baseBind": "{{key}} is already bound to “{{owner}}”. Replace that bind?",
         "action": "{{key}} is already used by “{{owner}}”. Take the key from it?",
@@ -1340,7 +1355,8 @@
         "symbolPicker": {
           "label": "Symbols",
           "applyAltCharset": "Alternate charset"
-        }
+        },
+        "colorCvarChip": "Colour cvar “{{name}}”"
       }
     },
     "chatMacros": {

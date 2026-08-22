@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 import {
   STANDARD_TEMPLATE,
   type AssignProfileInput,
+  type ConfigAction,
+  type ConfigActionCategory,
   type ConfigProfile,
   type CreateConfigProfileInput,
   type RenameConfigProfileInput,
@@ -15,6 +17,7 @@ import {
   type UnassignProfileInput,
   type UnrecognizedConfigLine,
 } from '@shared/modules/config'
+import type { AltLayer } from '@shared/config/alt-layers'
 import type { StateStore } from '../../services/state'
 import { applyActionBindMirror } from '@shared/config/action-mirror'
 import { adoptRawBinds } from '@shared/config/bind-adoption'
@@ -74,12 +77,26 @@ export class ProfilesStore {
    * makes the result an ordinary profile by construction (decision 11):
    * nothing downstream needs to know it came from an import rather than the
    * create-profile dialog.
+   *
+   * Story 041 (D6): `actions`/`categories`/`layers` - `buildImportedActions`'s
+   * result (`import.ts#commitImport`) - are stored alongside `cvars`/`binds`/
+   * `unrecognized`, never replacing them; a raw bind that merely *references*
+   * one of these alias entries by name is left as a raw bind pointing at it
+   * (decision from story 041), which is exactly what `commit`'s
+   * `adoptProfileBinds` pass already guarantees: `adoptRawBinds`'s
+   * `isAliasReference` check (`@shared/config/bind-adoption`) skips any raw
+   * entry whose value is some action's own alias name - imported or not -
+   * before it ever consults the catalogue, so this call cannot end up with two
+   * entries for one bare-token bind.
    */
   createFromImport(input: {
     name: string
     cvars: Record<string, string>
     binds: Record<string, string>
     unrecognized: UnrecognizedConfigLine[]
+    actions: ConfigAction[]
+    categories: ConfigActionCategory[]
+    layers: AltLayer[]
   }): ConfigProfile[] {
     const now = new Date().toISOString()
     const profile: ConfigProfile = {
@@ -91,6 +108,9 @@ export class ProfilesStore {
       binds: { ...input.binds },
       assignments: [],
       unrecognized: input.unrecognized,
+      actions: input.actions,
+      categories: input.categories,
+      layers: input.layers,
     }
 
     return this.commit([...this.state.configProfiles(), profile])

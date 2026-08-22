@@ -52,6 +52,12 @@ export function ImportProfileDialog({
   const [previewing, setPreviewing] = useState(false)
   const [previewResult, setPreviewResult] = useState<Outcome<ImportPreviewResult> | null>(null)
 
+  // Story 041 (D7): per-alias-name choice for the review step - `true` means "attempt as
+  // layer", absent/`false` means the default, "import as plain alias". Keyed by name rather
+  // than by array index so a re-run of the preview effect (installation/gameDir change) can
+  // simply reset this to `{}` alongside `previewResult` without an index ever going stale.
+  const [layerChoices, setLayerChoices] = useState<Record<string, boolean>>({})
+
   const [name, setName] = useState('')
   const [nameTouched, setNameTouched] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -59,6 +65,9 @@ export function ImportProfileDialog({
 
   const installation = installations.find((entry) => entry.id === installationId) ?? null
   const candidates = scanResult?.ok ? scanResult.value.candidates : []
+  // The review step's own rows (story 041 D7) - empty whenever the preview has nothing
+  // ambiguous, which is also what makes the step disappear entirely rather than render empty.
+  const ambiguousAliases = previewResult?.ok ? previewResult.value.ambiguousRebindAliases : []
 
   // Scan the chosen installation for importable gamedirs. Re-runs whenever the
   // installation changes; picking a new installation resets the gamedir and
@@ -95,6 +104,7 @@ export function ImportProfileDialog({
     let cancelled = false
     setPreviewing(true)
     setPreviewResult(null)
+    setLayerChoices({})
     void previewImportCandidates({ installationId, gameDir }).then((result) => {
       if (cancelled) return
       setPreviewing(false)
@@ -119,7 +129,17 @@ export function ImportProfileDialog({
   const submit = async (): Promise<void> => {
     setSubmitting(true)
     setCommitError(null)
-    const result = await commitImportProfile({ installationId, gameDir, name: name.trim() })
+    // Story 041 (D7): only the names the user actually flipped to "attempt as layer" travel
+    // to commit - everything else defaults to a plain alias by simply not being in this list.
+    const layerAliases = ambiguousAliases
+      .filter((alias) => layerChoices[alias.name])
+      .map((alias) => alias.name)
+    const result = await commitImportProfile({
+      installationId,
+      gameDir,
+      name: name.trim(),
+      layerAliases,
+    })
     setSubmitting(false)
     if (result.ok) {
       onCreated(result.value)
@@ -224,6 +244,12 @@ export function ImportProfileDialog({
                     <KeyValue label={t('config.importDialog.bindCount')}>
                       {previewResult.value.bindCount}
                     </KeyValue>
+                    <KeyValue label={t('config.importDialog.aliasCount')}>
+                      {previewResult.value.aliasCount}
+                    </KeyValue>
+                    <KeyValue label={t('config.importDialog.messageCount')}>
+                      {previewResult.value.messageCount}
+                    </KeyValue>
                   </div>
 
                   {previewResult.value.duplicateBinds.length > 0 && (
@@ -244,6 +270,31 @@ export function ImportProfileDialog({
                             </span>
                             <div title={duplicate.key} className="min-w-0 overflow-hidden">
                               <ConfigCodeView text={duplicate.key} singleLine />
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {previewResult.value.duplicateAliases.length > 0 && (
+                    <div className="space-y-1.5">
+                      <SectionLabel>
+                        {t('config.importDialog.duplicateAliasCount', {
+                          count: previewResult.value.duplicateAliases.length,
+                        })}
+                      </SectionLabel>
+                      <ul className="max-h-40 space-y-1 overflow-y-auto rounded-sm border border-danger/35 bg-danger/8 p-2">
+                        {previewResult.value.duplicateAliases.map((duplicate, index) => (
+                          <li
+                            key={`${duplicate.name}:${duplicate.file}:${duplicate.line}:${index}`}
+                            className="flex min-w-0 items-baseline gap-2 text-xs text-danger"
+                          >
+                            <span className="numeric shrink-0 text-ink-muted">
+                              {duplicate.file}:{duplicate.line}
+                            </span>
+                            <div title={duplicate.name} className="min-w-0 overflow-hidden">
+                              <ConfigCodeView text={duplicate.name} singleLine />
                             </div>
                           </li>
                         ))}
@@ -275,6 +326,70 @@ export function ImportProfileDialog({
                       </ul>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Story 041 (D7): the review step, between preview and name. Present only when
+                  `ambiguousRebindAliases` is non-empty - `ambiguousAliases` is already `[]`
+                  whenever the preview has nothing ambiguous, so there is no separate "skip"
+                  branch to keep in sync with this one; the condition alone is the skip. */}
+              {ambiguousAliases.length > 0 && (
+                <div className="space-y-1.5" data-testid="config-import-review">
+                  <SectionLabel>
+                    {t('config.importDialog.review.count', { count: ambiguousAliases.length })}
+                  </SectionLabel>
+                  <p className="text-xs leading-relaxed text-ink-muted">
+                    {t('config.importDialog.review.hint')}
+                  </p>
+                  <ul className="space-y-2">
+                    {ambiguousAliases.map((alias, index) => {
+                      const groupName = `config-import-review-${index}`
+                      const attemptAsLayer = layerChoices[alias.name] === true
+                      return (
+                        <li
+                          key={`${alias.name}:${alias.file}:${alias.line}:${index}`}
+                          data-testid="config-import-review-row"
+                          className="space-y-1.5 rounded-sm border border-line p-2.5"
+                        >
+                          <div className="flex min-w-0 items-baseline gap-2 text-xs">
+                            <span className="numeric shrink-0 text-ink-muted">
+                              {alias.file}:{alias.line}
+                            </span>
+                            <div title={alias.name} className="min-w-0 overflow-hidden font-medium text-ink">
+                              {alias.name}
+                            </div>
+                          </div>
+                          <ConfigCodeView text={alias.body} singleLine />
+                          <div className="flex flex-wrap items-center gap-4 text-xs text-ink">
+                            <label className="flex cursor-pointer items-center gap-1.5">
+                              <input
+                                type="radio"
+                                name={groupName}
+                                className="accent-flame-500"
+                                checked={!attemptAsLayer}
+                                onChange={() =>
+                                  setLayerChoices((prev) => ({ ...prev, [alias.name]: false }))
+                                }
+                              />
+                              {t('config.importDialog.review.plainAlias')}
+                            </label>
+                            <label className="flex cursor-pointer items-center gap-1.5">
+                              <input
+                                type="radio"
+                                name={groupName}
+                                className="accent-flame-500"
+                                checked={attemptAsLayer}
+                                onChange={() =>
+                                  setLayerChoices((prev) => ({ ...prev, [alias.name]: true }))
+                                }
+                              />
+                              {t('config.importDialog.review.attemptAsLayer')}
+                            </label>
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
                 </div>
               )}
 

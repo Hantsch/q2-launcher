@@ -18,8 +18,13 @@
  * before it is used for anything - see `gameDirBelongsToInstallation()`.
  */
 
+import { randomUUID } from 'node:crypto'
 import { BASE_GAME_DIR } from '@shared/constants'
+import { buildImportedActions } from '@shared/config/alias-import'
+import type { AltLayer } from '@shared/config/alt-layers'
 import {
+  type ConfigAction,
+  type ConfigActionCategory,
   type ConfigProfile,
   type ImportCommitInput,
   type ImportGamedirCandidate,
@@ -40,12 +45,20 @@ export interface ImportInstallations {
   find: (id: string) => Installation | undefined
 }
 
-/** What `import.commit` calls to actually create the profile (`ProfilesStore.createFromImport`). */
+/**
+ * What `import.commit` calls to actually create the profile
+ * (`ProfilesStore.createFromImport`). Story 041 (D6) adds `actions`/
+ * `categories`/`layers` - `buildImportedActions`'s own result, alongside the
+ * cvars/binds/unrecognized story 005 already produced, never replacing them.
+ */
 export type CreateProfileFromImport = (input: {
   name: string
   cvars: Record<string, string>
   binds: Record<string, string>
   unrecognized: UnrecognizedConfigLine[]
+  actions: ConfigAction[]
+  categories: ConfigActionCategory[]
+  layers: AltLayer[]
 }) => ConfigProfile[]
 
 /**
@@ -126,12 +139,34 @@ function logDuplicateBinds(
   }
 }
 
+/** Story 041 (D2/D6): mirrors `logDuplicateBinds` for alias redefinitions. */
+function logDuplicateAliases(
+  log: Logger,
+  installationId: string,
+  duplicateAliases: { name: string; file: string; line: number }[],
+): void {
+  for (const duplicate of duplicateAliases) {
+    log.warn(
+      `import: alias "${duplicate.name}" defined more than once ` +
+        `(${duplicate.file}:${duplicate.line}, installation ${installationId})`,
+    )
+  }
+}
+
 /**
  * `import.preview`: the installation + gamedir validation happens before any
  * filesystem access (the acceptance line this is tested against directly),
  * then `readImportableConfig()` is shaped into counts + preserved lines.
  * Nothing is written - `readImportableConfig()` is read-only by construction
  * (decision 14).
+ *
+ * Story 041 (D6): also runs the alias definitions through `buildImportedActions`
+ * with an empty `layerAliases` - the user has not answered anything yet, so
+ * this is purely for `aliasCount`/`messageCount`/`ambiguousRebindAliases`,
+ * never for the `actions`/`categories`/`layers` it would otherwise produce
+ * (those are `commitImport`'s job, with the real answers). `newId` still has
+ * to be a real factory even though preview discards its output, hence
+ * `randomUUID` here too.
  */
 export async function previewImport(
   installations: ImportInstallations,
@@ -147,13 +182,25 @@ export async function previewImport(
   const result = await readImportableConfig(installation.rootPath, input.gameDir)
   logImportWarnings(log, installation.id, result.warnings)
   logDuplicateBinds(log, installation.id, result.duplicateBinds)
+  logDuplicateAliases(log, installation.id, result.duplicateAliases)
+
+  const imported = buildImportedActions({
+    aliases: result.aliases,
+    binds: result.binds,
+    layerAliases: [],
+    newId: randomUUID,
+  })
 
   return ok({
     cvarCount: Object.keys(result.cvars).length,
     bindCount: Object.keys(result.binds).length,
+    aliasCount: result.aliases.length,
+    messageCount: imported.actions.filter((action) => action.kind === 'message').length,
     preserved: result.unrecognized,
     filesRead: result.filesRead,
     duplicateBinds: result.duplicateBinds,
+    duplicateAliases: result.duplicateAliases,
+    ambiguousRebindAliases: imported.ambiguous,
   })
 }
 
@@ -168,6 +215,19 @@ export async function previewImport(
  * Returns the raw created-profile list; live-assignment reconciliation
  * (`withLiveAssignments` in `./index.ts`) is the caller's job, not this
  * function's, so this file never needs the whole `MainModule` to be tested.
+ *
+ * Story 041 (D6): `input.layerAliases` is never trusted at face value
+ * (CLAUDE.md - a renderer-supplied value is never trusted). `buildImportedActions`
+ * itself does not reject an unknown name; it simply produces no layer for it
+ * (`asLayer.has(name)` never matches anything when nothing in this import
+ * actually has that name with a rebinding body). So this function checks every
+ * name in `input.layerAliases` against `imported.ambiguous` - the same
+ * ambiguous list `previewImport` reported for *this* import - and fails the
+ * whole commit rather than silently dropping or accepting an invalid one. The
+ * check runs after the one `buildImportedActions` call (its `ambiguous` output
+ * does not depend on `layerAliases` - see the alias-import file doc comment -
+ * so nothing here needs a second, throwaway call to compute it), and before
+ * `imported.actions`/`categories`/`layers` are ever handed to `createProfile`.
  */
 export async function commitImport(
   installations: ImportInstallations,
@@ -184,12 +244,38 @@ export async function commitImport(
   const result = await readImportableConfig(installation.rootPath, input.gameDir)
   logImportWarnings(log, installation.id, result.warnings)
   logDuplicateBinds(log, installation.id, result.duplicateBinds)
+  logDuplicateAliases(log, installation.id, result.duplicateAliases)
+
+  const layerAliases = input.layerAliases ?? []
+  const imported = buildImportedActions({
+    aliases: result.aliases,
+    binds: result.binds,
+    layerAliases,
+    newId: randomUUID,
+  })
+
+  const ambiguousNames = new Set(
+    imported.ambiguous.map((alias) => alias.name.trim().toLowerCase()),
+  )
+  const unknownLayerAliases = layerAliases.filter(
+    (name) => !ambiguousNames.has(name.trim().toLowerCase()),
+  )
+  if (unknownLayerAliases.length > 0) {
+    log.warn(
+      `import.commit: rejected layerAliases not ambiguous in this import ` +
+        `(installation ${installation.id}): ${unknownLayerAliases.join(', ')}`,
+    )
+    return fail('config.error.invalidLayerAlias')
+  }
 
   const profiles = createProfile({
     name: input.name,
     cvars: result.cvars,
     binds: result.binds,
     unrecognized: result.unrecognized,
+    actions: imported.actions,
+    categories: imported.categories,
+    layers: imported.layers,
   })
 
   return ok(profiles)

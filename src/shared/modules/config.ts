@@ -1,4 +1,5 @@
 import type { AltLayer } from '../config/alt-layers'
+import type { AmbiguousRebindAlias } from '../config/alias-import'
 import type { ModifierTrigger } from '../config/modifier-layers'
 import type { TidyUpOp } from '../config/tidy-up'
 
@@ -76,6 +77,21 @@ export interface UnrecognizedConfigLine {
  */
 export interface DuplicateBindLine {
   key: string
+  file: string
+  line: number
+}
+
+/**
+ * An alias name whose `alias` definition was silently replaced by a later
+ * `alias` of the same name while importing (story 041) - there is no
+ * `unalias` to make a re-definition deliberate the way `unbind` does for
+ * binds, so every repeat definition is reported. Mirrors `DuplicateBindLine`
+ * exactly, `key` renamed to `name`; same reasoning as `UnrecognizedConfigLine`.
+ * `file`/`line` point at the later definition, the one that actually took
+ * effect.
+ */
+export interface DuplicateAliasLine {
+  name: string
   file: string
   line: number
 }
@@ -168,6 +184,16 @@ export type ConfigCommand =
  * still renders under the machine-generated `q2l_a_<slug>_<id4>` name
  * (`@shared/config/alias-render.ts#aliasNameFor`) exactly as before this field existed; only once
  * set does the alias render under this name verbatim (sign kept).
+ *
+ * `keepEmptyAlias` (story 041, D3, "Decided in refine": "Empty-body aliases are entries") marks a
+ * `kind: 'alias'` entry whose empty body must still be written as `alias <name> ""` - the case an
+ * import produces for a user-authored hook like `alias blaster_settings ""`. Without this field,
+ * `alias-render.ts#renderActionAlias`'s "no usable commands -> no alias line" rule (story 038 AC6)
+ * would drop it on the first save, which is exactly the silent data loss the story's Decisions rule
+ * out. Optional and additive like every other field here: it is only ever set by the importer
+ * (`@shared/config/alias-import.ts#buildImportedActions`) on an empty-body `kind: 'alias'` entry, so
+ * a generated action alias with no usable commands - the case story 038 AC6 is actually about -
+ * simply omits it and keeps producing no line.
  */
 export interface ConfigAction {
   id: string
@@ -181,6 +207,7 @@ export interface ConfigAction {
   keyModifier?: ModifierTrigger
   secondaryKeyModifier?: ModifierTrigger
   aliasName?: string
+  keepEmptyAlias?: true
 }
 
 /**
@@ -518,15 +545,54 @@ export interface ImportPreviewInput {
 export interface ImportPreviewResult {
   cvarCount: number
   bindCount: number
+  /**
+   * Story 041 (D6): number of `alias <name> <body>` definitions the import
+   * found - `result.aliases.length` in `import-reader.ts`'s terms, counted the
+   * same way `cvarCount`/`bindCount` count their own maps.
+   */
+  aliasCount: number
+  /**
+   * Story 041 (D6): of those alias definitions, how many convert to a
+   * `kind: 'message'` entry (a body that is exactly one `say`/`say_team`
+   * command, per `alias-import.ts#entryKindFor`) rather than a `kind: 'alias'`
+   * one - a preview-only sub-count, computed by calling `buildImportedActions`
+   * with an empty `layerAliases` (nothing has been answered yet) and counting
+   * its `actions`.
+   */
+  messageCount: number
   preserved: UnrecognizedConfigLine[]
   filesRead: string[]
   duplicateBinds: DuplicateBindLine[]
+  /** Story 041 (D6): mirrors `duplicateBinds` for aliases - `import-reader.ts`'s `duplicateAliases`. */
+  duplicateAliases: DuplicateAliasLine[]
+  /**
+   * Story 041 (D6): every alias whose body rebinds at least one key -
+   * `buildImportedActions`'s own `ambiguous` output (`@shared/config/
+   * alias-import`), carried through unfiltered so the import dialog can ask
+   * the user which of these to "attempt as layer" before `commit` runs. Not
+   * affected by which `layerAliases` answer (if any) `preview` used to compute
+   * it - the ambiguous list is the same regardless of that answer, only
+   * whether an entry becomes a layer or a plain alias changes.
+   */
+  ambiguousRebindAliases: AmbiguousRebindAlias[]
 }
 
 export interface ImportCommitInput {
   installationId: string
   gameDir: string
   name: string
+  /**
+   * Story 041 (D6): names (from `ImportPreviewResult.ambiguousRebindAliases`)
+   * the user chose to "attempt as layer" - passed straight through to
+   * `buildImportedActions`'s own `layerAliases` parameter. Optional, absent or
+   * empty meaning the default for every ambiguous alias (import as a plain
+   * `kind: 'alias'` entry) - same convention as that function's own optional
+   * parameter, and what keeps every caller that predates this deliverable (the
+   * import dialog has no UI for it yet) compiling and behaving unchanged.
+   * Validated at commit time against *that import's own* ambiguous list (never
+   * trust a renderer-supplied name) - `main/modules/config/import.ts#commitImport`.
+   */
+  layerAliases?: string[]
 }
 
 // ---------------------------------------------------------------------------

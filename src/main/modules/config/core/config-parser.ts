@@ -34,12 +34,22 @@
  * resolving/expanding it against the gamedir search path is
  * `import-reader.ts`'s job (decision 5/6), not this one's.
  *
- * Everything else - `alias`, `+`-prefixed commands, comment-only lines,
- * genuinely garbled lines, and a recognized-looking command that is missing
- * the arguments it needs to mean anything (e.g. `set` with no value, `bind`
- * with no key) - is preserved verbatim rather than guessed at. Truly blank
- * lines (nothing at all, not even a comment) carry no content and are
- * simply dropped: there is nothing there to lose.
+ * `alias <name> <body>` and `alias <name> "<body>"` are also recognized
+ * (story 041 decision 7): `<name>` is kept verbatim (including a leading
+ * `+`/`-`) and `<body>` is the tokens after the name re-joined with single
+ * spaces, mirroring the real engine's `Cmd_Alias_f` - which is why a quoted
+ * body with an embedded `;` (`alias n "a;b"`) comes out as the single string
+ * `a;b` rather than being split here; that split is a later stage's job
+ * (story 041 D3), not this parser's. `alias n ""` is a valid, recognized
+ * alias with an empty body. A bare `alias` with no name at all (fewer than 2
+ * tokens) is not recognized.
+ *
+ * Everything else - `+`-prefixed commands, comment-only lines, genuinely
+ * garbled lines, and a recognized-looking command that is missing the
+ * arguments it needs to mean anything (e.g. `set` with no value, `bind` with
+ * no key) - is preserved verbatim rather than guessed at. Truly blank lines
+ * (nothing at all, not even a comment) carry no content and are simply
+ * dropped: there is nothing there to lose.
  *
  * Duplicate cvars/binds within one parse are NOT resolved here - every
  * occurrence is returned in the order it appears. Cross-file last-wins
@@ -59,8 +69,8 @@
  * ## Preserved-line granularity
  *
  * Most lines are exactly one command. When a whole line turns out to be
- * unrecognized (alias, `+cmd`, comment-only, garbled, or an
- * under-specified recognized command), the ORIGINAL raw line - including
+ * unrecognized (`+cmd`, comment-only, garbled, or an under-specified
+ * recognized command), the ORIGINAL raw line - including
  * its own whitespace and any trailing comment - is preserved unchanged.
  * The rarer case is a `;`-separated line that mixes a recognized command
  * with an unrecognized one (e.g. `set a 1; something else`); there, the
@@ -70,6 +80,11 @@
  */
 
 import { normalizeBindKey } from '@shared/config/key-names'
+import {
+  splitTopLevelSemicolons,
+  stripLineComment,
+  tokenize,
+} from '@shared/config/command-tokenizer'
 
 export interface ParsedCvar {
   name: string
@@ -92,6 +107,18 @@ export interface ParsedExec {
   line: number
 }
 
+/**
+ * `body` is the raw, unsplit argument text `alias` received, quotes
+ * stripped - a quoted `"a;b"` and an unquoted multi-token body both collapse
+ * to a single string here. Splitting that body into individual commands on
+ * top-level `;` is a later stage's job (story 041 D3), not this parser's.
+ */
+export interface ParsedAlias {
+  name: string
+  body: string
+  line: number
+}
+
 export interface PreservedLine {
   text: string
   line: number
@@ -101,6 +128,7 @@ export interface ParseConfigResult {
   cvars: ParsedCvar[]
   binds: ParsedBind[]
   execs: ParsedExec[]
+  aliases: ParsedAlias[]
   preserved: PreservedLine[]
 }
 
@@ -116,86 +144,11 @@ function splitLines(text: string): string[] {
   return text.split(/\r\n|\r|\n/)
 }
 
-/**
- * Returns the portion of `line` before an unquoted `//`, or the whole line
- * if there is none. Quote state is tracked char-by-char so a `//` inside a
- * quoted value (a URL in a motd, say) is not mistaken for a comment.
- */
-function stripLineComment(line: string): string {
-  let inQuotes = false
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i]
-    if (ch === '"') {
-      inQuotes = !inQuotes
-      continue
-    }
-    if (!inQuotes && ch === '/' && line[i + 1] === '/') {
-      return line.slice(0, i)
-    }
-  }
-  return line
-}
-
-/** Splits `line` on `;` that appear outside a quoted span. */
-function splitTopLevelSemicolons(line: string): string[] {
-  const parts: string[] = []
-  let inQuotes = false
-  let start = 0
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i]
-    if (ch === '"') {
-      inQuotes = !inQuotes
-      continue
-    }
-    if (!inQuotes && ch === ';') {
-      parts.push(line.slice(start, i))
-      start = i + 1
-    }
-  }
-  parts.push(line.slice(start))
-  return parts
-}
-
-const WHITESPACE = /\s/
-
-/**
- * Tokenizes one command segment the way Quake II's `COM_Parse` does: skip
- * whitespace, then if the next character is a `"`, the token is everything
- * up to (not including) the next `"` - or the end of the segment if there
- * isn't one, since there is no escaping and no multi-line strings here.
- * Otherwise the token runs to the next whitespace. A `"` that appears mid
- * token (not right after whitespace) is not special - it is only quoting
- * syntax as the first character of a token.
- */
-function tokenize(segment: string): string[] {
-  const tokens: string[] = []
-  const n = segment.length
-  let i = 0
-
-  while (i < n) {
-    while (i < n && WHITESPACE.test(segment[i])) i++
-    if (i >= n) break
-
-    if (segment[i] === '"') {
-      i++
-      const start = i
-      while (i < n && segment[i] !== '"') i++
-      tokens.push(segment.slice(start, i))
-      if (i < n) i++ // consume the closing quote, if there was one
-    } else {
-      const start = i
-      while (i < n && !WHITESPACE.test(segment[i])) i++
-      tokens.push(segment.slice(start, i))
-    }
-  }
-
-  return tokens
-}
-
 type Classified =
   | { kind: 'cvar'; item: ParsedCvar }
   | { kind: 'bind'; item: ParsedBind }
   | { kind: 'exec'; item: ParsedExec }
+  | { kind: 'alias'; item: ParsedAlias }
   | { kind: 'unrecognized' }
 
 /**
@@ -243,6 +196,17 @@ function classifySegment(segment: string, line: number): Classified {
     return { kind: 'exec', item: { target: tokens[1], line } }
   }
 
+  if (name === 'alias') {
+    // A bare `alias` with no name at all is not recognized. `alias n` and
+    // `alias n ""` both have a name and no (or an empty) body - the real
+    // engine (`Cmd_Alias_f`) accepts both and stores an empty-string value,
+    // so both are recognized here too. The alias name itself is kept as
+    // written (`tokens[1]`, not `name`), since it may carry a `+`/`-` sign
+    // that must not be treated as a command-name lowercase transform.
+    if (tokens.length < 2) return { kind: 'unrecognized' }
+    return { kind: 'alias', item: { name: tokens[1], body: tokens.slice(2).join(' '), line } }
+  }
+
   return { kind: 'unrecognized' }
 }
 
@@ -250,6 +214,7 @@ export function parseConfigText(text: string): ParseConfigResult {
   const cvars: ParsedCvar[] = []
   const binds: ParsedBind[] = []
   const execs: ParsedExec[] = []
+  const aliases: ParsedAlias[] = []
   const preserved: PreservedLine[] = []
 
   const rawLines = splitLines(text)
@@ -286,6 +251,9 @@ export function parseConfigText(text: string): ParseConfigResult {
         case 'exec':
           execs.push(result.item)
           return
+        case 'alias':
+          aliases.push(result.item)
+          return
         case 'unrecognized':
           preserved.push({ text: rawLine, line })
           return
@@ -307,6 +275,9 @@ export function parseConfigText(text: string): ParseConfigResult {
         case 'exec':
           execs.push(result.item)
           break
+        case 'alias':
+          aliases.push(result.item)
+          break
         case 'unrecognized':
           preserved.push({ text: segment.trim(), line })
           break
@@ -314,5 +285,5 @@ export function parseConfigText(text: string): ParseConfigResult {
     }
   })
 
-  return { cvars, binds, execs, preserved }
+  return { cvars, binds, execs, aliases, preserved }
 }

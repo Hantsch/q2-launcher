@@ -285,7 +285,12 @@ export async function previewImportCandidates(
   return result.ok ? result.value : result
 }
 
-/** Re-parses the chosen gamedir and creates a new profile from it, returning the full, updated profile list. */
+/**
+ * Re-parses the chosen gamedir and creates a new profile from it, returning the full, updated
+ * profile list. `input.layerAliases` (story 041 D7) carries the names `ImportProfileDialog`'s
+ * review step flipped to "attempt as layer" - `ImportCommitInput` already types the field, so
+ * this wrapper needs no shape change of its own to forward it.
+ */
 export async function commitImportProfile(
   input: ImportCommitInput,
 ): Promise<Outcome<ConfigProfile[]>> {

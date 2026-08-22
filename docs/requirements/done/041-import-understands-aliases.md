@@ -1,7 +1,7 @@
 ---
 id: 041
 title: Import understands aliases, press/release pairs and unbindall
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-08-22
 ---
 
@@ -34,29 +34,29 @@ The alias idioms real configs actually use, all present in my files:
 
 ## Acceptance Criteria
 
-- [ ] `alias <name> <body>` and `alias <name> "<body>"` are parsed into a real entry, not a preserved
+- [x] `alias <name> <body>` and `alias <name> "<body>"` are parsed into a real entry, not a preserved
       line: a `kind: 'alias'` action with the parsed name and its body split into commands on
       top-level `;`, using the same quote/`;`/`//` rules the tokenizer already implements.
-- [ ] A `+x`/`-x` pair is recognised as a press/release pair and imported as such (two entries that
+- [x] A `+x`/`-x` pair is recognised as a press/release pair and imported as such (two entries that
       the UI shows as belonging together, or one entry with both halves — the story decides).
-- [ ] A bind whose command is a bare token matching an imported alias name becomes a reference to
+- [x] A bind whose command is a bare token matching an imported alias name becomes a reference to
       that entry, so Care reports neither an undefined alias nor an unreferenced one.
-- [ ] A bind whose command is a raw `+command` (`bind e "+forward"`) is adopted as a bind entry
+- [x] A bind whose command is a raw `+command` (`bind e "+forward"`) is adopted as a bind entry
       without inventing an alias for it — the same rule story 038 establishes for the writer.
-- [ ] An alias body that is a `say`/`say_team` command is imported as a message entry with its
+- [x] An alias body that is a `say`/`say_team` command is imported as a message entry with its
       channel and text, and its chat macros (`$$loc_here`, `%l`, `%h`, `%a`, …) survive verbatim.
-- [ ] An alias body containing `bind` commands is imported without being mangled, even where the
+- [x] An alias body containing `bind` commands is imported without being mangled, even where the
       launcher cannot model it as a layer.
-- [ ] `unbindall` is honoured in file order: binds before it are discarded, binds after it win.
-- [ ] `exec <file>` chains are followed as they already are, and an alias defined in an exec'd file
+- [x] `unbindall` is honoured in file order: binds before it are discarded, binds after it win.
+- [x] `exec <file>` chains are followed as they already are, and an alias defined in an exec'd file
       resolves for a bind in the file that exec'd it.
-- [ ] Alias-to-alias references resolve across the whole import, in any definition order (`lol`
+- [x] Alias-to-alias references resolve across the whole import, in any definition order (`lol`
       defined before `lol1` still resolves).
-- [ ] A duplicate alias name across the imported set is reported (last-definition-wins, the engine's
+- [x] A duplicate alias name across the imported set is reported (last-definition-wins, the engine's
       behaviour), not silently merged.
-- [ ] Anything genuinely unparseable is still preserved verbatim — the story removes preserved lines
+- [x] Anything genuinely unparseable is still preserved verbatim — the story removes preserved lines
       by understanding them, never by dropping them.
-- [ ] Importing `dmalias.cfg` + `dm.cfg` + `gfx.cfg` from `docs/fixtures/` (committed as a fixture)
+- [x] Importing `dmalias.cfg` + `dm.cfg` + `gfx.cfg` from `docs/fixtures/` (committed as a fixture)
       produces a profile whose Controls tab shows the aliases as entries, and the number of preserved
       lines is at most the comment/banner lines and the constructs named in Open Questions.
 
@@ -190,7 +190,7 @@ Order: D1 → D2 → D3 → (D4, D5 parallel) → D6 → (D7, D8 parallel) → D
 
 ## Deliverables
 
-### D1 — Shared command tokenizer + `alias` parsing
+### D1 — Shared command tokenizer + `alias` parsing [x]
 
 - **Files:** new `src/shared/config/command-tokenizer.ts`, new
   `src/shared/config/command-tokenizer.test.ts`,
@@ -204,7 +204,7 @@ Order: D1 → D2 → D3 → (D4, D5 parallel) → D6 → (D7, D8 parallel) → D
   `preserved` any more. Existing parser tests stay green after the "preserves an alias line
   verbatim" case is replaced.
 
-### D2 — `import-reader` folds aliases across files and `exec`
+### D2 — `import-reader` folds aliases across files and `exec` [x]
 
 - **Files:** `src/main/modules/config/core/import-reader.ts`,
   `src/main/modules/config/core/import-reader.test.ts`, `src/shared/modules/config.ts`
@@ -217,7 +217,7 @@ Order: D1 → D2 → D3 → (D4, D5 parallel) → D6 → (D7, D8 parallel) → D
   (`ALIAS_LOOP_COUNT`, cycle chain, `MAX_EXEC_EXPANSIONS`) are unchanged.
 - **Mirror:** the existing `applyBind` / `duplicateBinds` handling in the same file.
 
-### D3 — Alias → entry conversion (shared, pure)
+### D3 — Alias → entry conversion (shared, pure) [x]
 
 - **Files:** new `src/shared/config/alias-import.ts`, new
   `src/shared/config/alias-import.test.ts`.
@@ -235,7 +235,7 @@ Order: D1 → D2 → D3 → (D4, D5 parallel) → D6 → (D7, D8 parallel) → D
   or a toggle `AltLayer` with `triggerKey: null` and the bind pairs as `overrides`); a raw
   `+command` bind (`bind e "+forward"`, `bind ALT "+x2"`) produces **no** alias entry.
 
-### D4 — The reference graph counts raw binds and alias bodies
+### D4 — The reference graph counts raw binds and alias bodies [x]
 
 - **Files:** `src/shared/config/validate-actions.ts`,
   `src/shared/config/validate-actions.test.ts`.
@@ -246,7 +246,7 @@ Order: D1 → D2 → D3 → (D4, D5 parallel) → D6 → (D7, D8 parallel) → D
   detection is **one** function (story 038 AC3's rule), not a second copy of the graph. Existing
   `aliasDuplicate` behaviour unchanged.
 
-### D5 — Press/release pairs read as pairs
+### D5 — Press/release pairs read as pairs [x]
 
 - **Files:** new `src/shared/config/press-release.ts` + `press-release.test.ts`,
   `src/renderer/src/modules/config/ControlsTab.tsx`,
@@ -257,7 +257,7 @@ Order: D1 → D2 → D3 → (D4, D5 parallel) → D6 → (D7, D8 parallel) → D
   row and is not paired. No new field on `ConfigAction`. Tokens only, no image assets, keyboard
   reachable (`/design-tokens`, `/frontend-guidelines`).
 
-### D6 — Contract + main: preview reports aliases, commit takes the answers
+### D6 — Contract + main: preview reports aliases, commit takes the answers [x]
 
 - **Files:** `src/shared/modules/config.ts`, `src/main/modules/config/import.ts`,
   `src/main/modules/config/profiles.ts`, `src/main/lib/schemas.ts`,
@@ -270,7 +270,7 @@ Order: D1 → D2 → D3 → (D4, D5 parallel) → D6 → (D7, D8 parallel) → D
   `actions`/`categories`/`layers` alongside `cvars`/`binds`/`unrecognized`; the existing
   `adoptProfileBinds` pass still runs and does not touch the new alias entries.
 
-### D7 — Import dialog: alias counts + the review step
+### D7 — Import dialog: alias counts + the review step [x]
 
 - **Files:** `src/renderer/src/modules/config/ImportProfileDialog.tsx`,
   `src/renderer/src/modules/config/client.ts`,
@@ -283,7 +283,7 @@ Order: D1 → D2 → D3 → (D4, D5 parallel) → D6 → (D7, D8 parallel) → D
   screen covers it and is axe-clean (`docs/UI-VERIFICATION.md`). Strings are i18n keys, no prose
   over IPC.
 
-### D8 — Message editor recognises colour cvars
+### D8 — Message editor recognises colour cvars [x]
 
 - **Files:** new `src/shared/config/color-cvars.ts` + `color-cvars.test.ts`,
   `src/renderer/src/modules/config/components/MessageEditor.tsx`,
@@ -297,7 +297,7 @@ Order: D1 → D2 → D3 → (D4, D5 parallel) → D6 → (D7, D8 parallel) → D
   and the existing macro/alt-charset preview behaviour are unchanged. Narrow by construction — no
   general colour-code editor.
 
-### D9 — Fixture import test (`dm.cfg` + `dmalias.cfg` + `gfx.cfg`)
+### D9 — Fixture import test (`dm.cfg` + `dmalias.cfg` + `gfx.cfg`) [x]
 
 - **Files:** new `src/main/modules/config/core/import-fixtures.test.ts`; reads
   `docs/fixtures/{dm,dmalias,gfx}.cfg` read-only.
@@ -367,3 +367,68 @@ Prerequisite: a registered Quake II installation. Copy `docs/fixtures/dm.cfg`, `
    named `cali` with the fourteen keypad overrides and no trigger key assigned.
 
 ## Done
+
+**Summary.** The import side now understands `alias` (D1 tokenizer extraction + parsing, D2 cross-file/exec
+folding, D3 pure alias→entry conversion), widens the reference graph so raw-bind and alias-body
+references satisfy Care (D4), derives press/release pairing for rendering (D5), wires the new
+preview/commit fields through the contract and main process (D6), adds the import-dialog review step
+for `bind`-in-body aliases plus alias/message counts (D7), teaches the message editor to recognise
+colour cvars (D8), and proves the whole pipeline against the real `docs/fixtures/{dm,dmalias,gfx}.cfg`
+(D9). A `story-review-hard` pass that ran the parser against adversarial input and the real fixtures
+found 3 confirmed bugs, all fixed and re-verified; findings 4 and 6 were judged spec-consistent /
+unreachable and left as documented follow-ups.
+
+**Commit message:** `041: import understands aliases, press/release pairs and unbindall`
+
+**Verification:**
+- `npm run typecheck` — clean (node + web).
+- `npm run build` — clean.
+- `npm test` — 64 files / 1321 tests, all green (final run, after fixes).
+- `npm run ui:verify` — 18/18 screens, 36 shots, 0 axe violations; the new `config-import-review` screen
+  renders correctly (counts, duplicate list, the `cali` review row defaulting to "Import as plain
+  alias") and is axe-clean — live-smoke satisfied.
+- `story-review-hard`: first pass **FAIL** with 6 findings (real parser/importer run against adversarial
+  input and the real fixtures, not just the diff). 3 confirmed and fixed, re-verified green:
+  1. Empty-body imported aliases (`blaster_settings` + 9 siblings) were silently dropped on write-back
+     — the writer's "no usable commands → no alias line" rule (story 038 AC6) was applied
+     unconditionally. Fixed with a new `ConfigAction.keepEmptyAlias?: true` field set by
+     `alias-import.ts` on empty-body imports; `alias-render.ts` now honours it. Verified all 10 fixture
+     hook aliases round-trip as `alias <name> ""`.
+  2. `isColorCvar` required every byte `>= 0x80`, but the real fixture's colour cvars (`set g`, `set r`,
+     … in `dmalias.cfg:21-26`) are bordered by `0x7F` bytes, so D8's feature never fired on the data it
+     was built for. Widened the rule to `code === 0x7F || (code >= 0x80 && code <= 0xFF)`. Verified all
+     6 real fixture colour cvars (`y`, `r`, `b`, `g`, `p`, `s`) are now recognised.
+  3. `validate-actions.ts`'s reference graph didn't consult `pressReleasePairs`, so a bound `+x` still
+     left its `-x` release half permanently `aliasUnreferenced` (the engine invokes `-x` on key-up,
+     never by name). Fixed: if a pair's press half is referenced, its release half is now too, one
+     direction only. On the real fixture this pair-vs-reference interaction turned out moot — all 5
+     fixture pairs (`slow`, `dj`, `rj`, `kl`, `zoom`) are genuinely unbound/dead in the source config —
+     but the fix is verified correct via a synthetic bound-pair test and guards a real config that does
+     bind its pairs.
+  Second review-fix cycle not needed; full suite re-verified clean after all three fixes (1321/1321).
+
+**Decisions made during implementation (documenting per the sprint's "no user reachable" rule):**
+- D3: `AltLayer.triggerKey` for an "attempt as layer" alias is resolved from the real `binds` input
+  (the sorted-first key whose value tokenizes to exactly the alias name) rather than always `null` —
+  `null` only when nothing actually binds the alias, matching the story's own wording ("`triggerKey:
+  null` when nothing binds the alias (nothing binds `cali` in `dm.cfg`)") as a condition, not a
+  constant.
+- D3: alias folding is case-sensitive by name (mirrors `import-reader.ts`'s `applyAlias` and the
+  engine's `strcmp`), so `alias dup`/`alias DUP` are kept as two separate entries rather than merged —
+  merging would have silently dropped one definition.
+- D6: the commit-payload schema lives in `src/main/modules/config/schemas.ts` (the file this module
+  already uses for its Zod schemas), not `src/main/lib/schemas.ts` as the Plan's file list suggested —
+  the Plan's reference was imprecise; the existing convention was followed instead of relocating
+  existing schemas.
+- **Deliberately left as-is (findings 4 and 6 from review, not fixed):**
+  - Finding 4: "attempt as layer" only carries the body's `bind` segments into the layer's
+    `overrides`; a non-`bind` segment mixed into the same alias body (e.g. a trailing `echo`) is
+    dropped rather than preserved elsewhere. This matches the story's own Decision text verbatim
+    ("the body's `bind` pairs as `overrides`" — nothing about other segments), and the real fixture's
+    only ambiguous alias (`cali`) has a pure-`bind` body, so it doesn't affect this story's fixtures or
+    acceptance criteria. Worth a UI hint in a follow-up if a future config exercises this mix.
+  - Finding 6: a theoretical `unquoteMessage` double-strip and a comment-only alias body losing its
+    comment text on write-back were both judged unreachable/non-fixture-relevant by the reviewer (no
+    input via the real tokenizer can reach the first; the second only reads back as an already-decided
+    non-goal — empty-body aliases must render `""`, and a comment-only body already reduces to empty
+    commands, which is correct, not a new bug).

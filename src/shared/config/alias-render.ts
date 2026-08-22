@@ -275,11 +275,27 @@ export interface RenderedActionAliases {
  * An action with no usable commands produces no aliases at all. `alias <name>`
  * with an empty body does not define an alias, it *prints* one, so emitting it
  * would put a line in the file that does nothing and binds a key to nothing.
+ *
+ * That rule is scoped to a *generated* action alias (story 038 AC6) and stays scoped there (story
+ * 041, D3, "Decided in refine"): an action with `keepEmptyAlias` set - a user-authored hook like
+ * `alias blaster_settings ""` the importer preserved - still emits its one line with an empty body
+ * even though it has zero usable commands, because that alias definition is the entry, not a
+ * leftover of one, and dropping it on the first save would be silent data loss.
  */
 export function renderActionAlias(action: ConfigAction): RenderedActionAliases {
   const name = aliasNameFor(action)
   const commands = action.commands.map(commandLineFor).filter((command) => command.length > 0)
-  if (commands.length === 0) return { aliases: [] }
+  if (commands.length === 0) {
+    // Not `makeAlias(name, '')`: `renderAliasLine` quotes a body only when it contains a `;` (the
+    // same rule as `alt-layers.ts#renderAliasLine`, deliberately unchanged for every other caller),
+    // which would render this as `alias <name> ` - not a value the engine treats as an empty body at
+    // all (a bare `alias <name>` with nothing after it *prints* the alias instead of defining one).
+    // `alias <name> ""` is the one line that both round-trips through `sanitizeCommand` (which never
+    // produces a lone `"`) and actually defines an empty-bodied alias, so it is spelled out here.
+    return action.keepEmptyAlias
+      ? { aliases: [{ name, body: '', line: `alias ${name} ""` }] }
+      : { aliases: [] }
+  }
 
   const oneLine = commands.join('; ')
   if (lineFits(name, oneLine)) return { aliases: [makeAlias(name, oneLine)] }

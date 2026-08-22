@@ -88,19 +88,27 @@
  *    - same as the engine - and is additionally recorded in `duplicateBinds`
  *    so the import preview can point it out. An `unbind` in between makes a
  *    later re-`bind` deliberate, not a duplicate, so it is not reported.
+ *  - aliases (story 041, decision 2): `alias <name> <body>` folds into a
+ *    `name -> body` map exactly like cvars - last definition wins, by name,
+ *    across every file and exec depth; bodies are never merged. An earlier
+ *    definition of a name that gets replaced is recorded in
+ *    `duplicateAliases` (mirroring `duplicateBinds`) rather than silently
+ *    lost. There is no `unalias`/`unaliasall` in the engine, so nothing ever
+ *    clears an alias once defined - in particular `unbindall` clears only
+ *    the bind accumulator above, never this map.
  *  - unrecognized lines: kept in overall document order, each tagged with
  *    the file it came from (the on-disk file NAME, not a path - the result
  *    travels to the renderer) and its 1-based line number in that file.
  *
  * ## Ordering caveat
  *
- * `parseConfigText()` returns four separate arrays, so the stream is
+ * `parseConfigText()` returns five separate arrays, so the stream is
  * rebuilt by a stable sort on line number. That is exact for the normal
  * one-command-per-line config. Only when a single physical line mixes
  * commands with `;` (`set a 1; exec more.cfg`) is the intra-line order
  * unrecoverable from the parser's output; ties then fall back to a fixed
- * order - cvars, binds, `exec`, unrecognized - which is right for the
- * idiomatic "do things, then load more" form.
+ * order - cvars, binds, aliases, `exec`, unrecognized - which is right for
+ * the idiomatic "do things, then load more" form.
  *
  * ## Encoding (decision 8)
  *
@@ -115,6 +123,7 @@ import { canonicalizePath, fileName, isFile, resolveRelaxed } from '../../../lib
 import { parseConfigText } from './config-parser'
 import type {
   ParseConfigResult,
+  ParsedAlias,
   ParsedBind,
   ParsedCvar,
   ParsedExec,
@@ -161,11 +170,42 @@ export interface DuplicateBind {
   line: number
 }
 
+/**
+ * One `alias <name> <body>` folded into the import after last-definition-wins
+ * merging (see the merge-semantics note above) - `file`/`line` point at the
+ * definition that actually won, not necessarily the first one written.
+ */
+export interface ImportedAlias {
+  name: string
+  body: string
+  file: string
+  line: number
+}
+
+/**
+ * An alias name defined more than once in the source, with no intervening
+ * way to clear it (there is no `unalias`), so every re-definition replaces
+ * the previous one - see the merge-semantics note above `applyAlias`.
+ * `file`/`line` point at the later definition, the one that actually took
+ * effect. Mirrors `DuplicateBind` exactly, `key` renamed to `name`.
+ */
+export interface DuplicateAlias {
+  name: string
+  file: string
+  line: number
+}
+
 export interface ImportResult {
   /** cvar name -> value, last assignment in the stream wins. */
   cvars: Record<string, string>
   /** key name -> bound command, after `unbind`/`unbindall` were applied. */
   binds: Record<string, string>
+  /**
+   * Alias name -> body, last definition in the stream wins across every file
+   * and exec depth. In document order (first-seen position), each entry
+   * carrying the winning definition's own file/line/body.
+   */
+  aliases: ImportedAlias[]
   /** Everything not understood, in overall document order. */
   unrecognized: ImportedUnrecognizedLine[]
   /**
@@ -178,6 +218,8 @@ export interface ImportResult {
   warnings: ImportWarning[]
   /** Keys bound more than once in the source with no `unbind` in between. Empty on a clean import. */
   duplicateBinds: DuplicateBind[]
+  /** Alias names defined more than once in the source. Empty on a clean import. */
+  duplicateAliases: DuplicateAlias[]
 }
 
 /**
@@ -209,28 +251,32 @@ interface ReaderContext {
   filesOpened: number
   cvars: Map<string, string>
   binds: Map<string, string>
+  aliases: Map<string, ImportedAlias>
   unrecognized: ImportedUnrecognizedLine[]
   filesRead: string[]
   warnings: ImportWarning[]
   duplicateBinds: DuplicateBind[]
+  duplicateAliases: DuplicateAlias[]
 }
 
 type StreamItem =
   | { kind: 'cvar'; item: ParsedCvar }
   | { kind: 'bind'; item: ParsedBind }
+  | { kind: 'alias'; item: ParsedAlias }
   | { kind: 'exec'; item: ParsedExec }
   | { kind: 'preserved'; item: PreservedLine }
 
 /**
- * Rebuilds one document-ordered stream out of the parser's four arrays.
+ * Rebuilds one document-ordered stream out of the parser's five arrays.
  * Each array is already in ascending line order, and `Array#sort` is stable,
- * so equal line numbers keep the concatenation order (cvar, bind, exec,
- * preserved) - see the ordering caveat at the top of the file.
+ * so equal line numbers keep the concatenation order (cvar, bind, alias,
+ * exec, preserved) - see the ordering caveat at the top of the file.
  */
 function documentOrder(parsed: ParseConfigResult): StreamItem[] {
   const items: StreamItem[] = [
     ...parsed.cvars.map((item): StreamItem => ({ kind: 'cvar', item })),
     ...parsed.binds.map((item): StreamItem => ({ kind: 'bind', item })),
+    ...parsed.aliases.map((item): StreamItem => ({ kind: 'alias', item })),
     ...parsed.execs.map((item): StreamItem => ({ kind: 'exec', item })),
     ...parsed.preserved.map((item): StreamItem => ({ kind: 'preserved', item })),
   ]
@@ -252,6 +298,20 @@ function applyBind(ctx: ReaderContext, bind: ParsedBind, file: string): void {
       ctx.binds.clear()
       return
   }
+}
+
+/**
+ * Folds one `alias` definition into `ctx.aliases`, last-definition-wins by
+ * name (see the merge-semantics note near the top of the file) - the same
+ * shape of replace-and-record `applyBind` uses for a re-`bind`, just with no
+ * `unbind`/`unbindall` equivalent to make a later re-definition deliberate:
+ * every repeat definition of a name is a duplicate worth reporting.
+ */
+function applyAlias(ctx: ReaderContext, alias: ParsedAlias, file: string): void {
+  if (ctx.aliases.has(alias.name)) {
+    ctx.duplicateAliases.push({ name: alias.name, file, line: alias.line })
+  }
+  ctx.aliases.set(alias.name, { name: alias.name, body: alias.body, file, line: alias.line })
 }
 
 /**
@@ -366,6 +426,9 @@ async function processFile(
         case 'bind':
           applyBind(ctx, entry.item, file)
           break
+        case 'alias':
+          applyAlias(ctx, entry.item, file)
+          break
         case 'exec':
           await expandExec(ctx, entry.item, file, depth)
           break
@@ -403,10 +466,12 @@ export async function readImportableConfig(
     filesOpened: 0,
     cvars: new Map<string, string>(),
     binds: new Map<string, string>(),
+    aliases: new Map<string, ImportedAlias>(),
     unrecognized: [],
     filesRead: [],
     warnings: [],
     duplicateBinds: [],
+    duplicateAliases: [],
   }
 
   for (const entryFile of ENTRY_FILE_NAMES) {
@@ -420,9 +485,11 @@ export async function readImportableConfig(
     // key literally called `__proto__` cannot poison the returned objects.
     cvars: Object.fromEntries(ctx.cvars),
     binds: Object.fromEntries(ctx.binds),
+    aliases: Array.from(ctx.aliases.values()),
     unrecognized: ctx.unrecognized,
     filesRead: ctx.filesRead,
     warnings: ctx.warnings,
     duplicateBinds: ctx.duplicateBinds,
+    duplicateAliases: ctx.duplicateAliases,
   }
 }

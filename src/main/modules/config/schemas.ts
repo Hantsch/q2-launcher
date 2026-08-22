@@ -268,10 +268,22 @@ export const importPreviewInputSchema = z.object({
   gameDir: z.string().min(1).max(64),
 })
 
+/**
+ * Story 041 (D6): `layerAliases` shape only - an array of non-empty strings,
+ * capped the same generous way `cleanupApplyInputSchema`'s `entries` is below.
+ * Whether a given name is actually one of *this* import's ambiguous aliases is
+ * not a shape question - it depends on data (`readImportableConfig`'s result)
+ * this schema never sees - so that check lives in `commitImport`
+ * (`main/modules/config/import.ts`), which has both the input and the
+ * ambiguous list in scope. This schema only rejects garbage shapes (a number,
+ * a bare string, an over-long array) before either the ambiguous check or the
+ * conversion pipeline runs.
+ */
 export const importCommitInputSchema = z.object({
   installationId: z.string().min(1),
   gameDir: z.string().min(1).max(64),
   name: z.string().min(1).max(120),
+  layerAliases: z.array(z.string().min(1)).max(256).optional(),
 })
 
 /**

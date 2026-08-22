@@ -141,6 +141,35 @@
  * shadow a command *and* be called from its own body — and independent of
  * `validate-structure.ts`'s `aliasCycle`, which reports the same situation about
  * the rendered file rather than about the entry the user can edit.
+ *
+ * ## Story 041, D4 - an imported profile's reference shapes
+ *
+ * The three shapes an import produces - a raw bind pointing at an entry by bare
+ * name (`bind KP_END "drop_shotgun"`), one entry's body calling another's
+ * (`wait20`'s body calling `wait5`), and a `;`-list bind value calling two
+ * (`bind w "shotgun;super_shotgun"`) - need nothing new on the *reference* side:
+ * `collectAliasReferences` (story 038) already scans every action's raw command
+ * text, every `binds` value and every layer override, splitting each on `;`, and
+ * every caller of `validateActions` passes `binds`/`layers` through. Widening the
+ * graph again for D4 would have been a second copy of it (story 038 AC3), so the
+ * only change here is on the *definition* side: `definedKeys` used to be built
+ * from `kind: 'alias'` entries alone, which made a bind calling an imported
+ * `kind: 'message'` entry look like a call into nothing - see the comment at that
+ * set for why `message` belongs in it and `bind` does not.
+ *
+ * ## Story 041, D4 fix - press/release pairing
+ *
+ * D4's Plan (the story's own requirements doc, step 4) named a second widening
+ * this file shipped without: a `-x` release alias is never referenced by name
+ * in any config text (the engine calls it itself on key-up whenever `+x` is
+ * bound), so an imported `+slow`/`-slow` pair got a permanent, unfixable
+ * `aliasUnreferenced` finding on the `-slow` half even though `+slow` was
+ * correctly bound. The fix widens `referencedKeys` (not `collectAliasReferences`
+ * itself - see the "referenced-by-anything" section below) using
+ * `pressReleasePairs` (D5, `press-release.ts`, already on disk and reused
+ * verbatim): when a matched pair's press half is referenced, its release half
+ * is now treated as referenced too. One direction only, and only for halves
+ * `pressReleasePairs` actually pairs - see that section for why.
  */
 
 import type { AltLayer } from './alt-layers'
@@ -152,6 +181,7 @@ import { aliasNameFor } from './alias-render'
 import { bindValueFor } from './action-mirror'
 import { reservedAliasNames } from './alias-names'
 import { collectAliasReferences, isSelfMirroringAlias, selfReferencingSegments } from './alias-references'
+import { pressReleasePairs } from './press-release'
 import type { Finding } from './validation'
 
 /** Shared prefix of every message key this module emits, alongside D3/D4's own. */
@@ -372,7 +402,31 @@ export function validateActions(
     })
   }
 
-  const definedKeys = new Set(aliasNames.map((entry) => entry.name.toLowerCase()))
+  // Every name this profile really defines as a callable alias (story 041, D4).
+  //
+  // Not `aliasNames` (the `kind: 'alias'` subset) any more: an imported
+  // `alias +teamsay "say_team go go go"` becomes a `kind: 'message'` entry
+  // (`alias-import.ts#entryKindFor` - exactly one message command and nothing
+  // else), and `actionsWithAliasLine` emits its alias line unconditionally, the
+  // same as for a `kind: 'alias'` entry (its `bindValueFor` equals its own alias
+  // name, so the writer's second drop guard keeps it). A hand-typed bind calling
+  // `+teamsay` is therefore calling a name that exists, and reporting it as an
+  // undefined alias would be a false positive on ninety imported chat entries.
+  //
+  // `kind: 'bind'` entries are deliberately *not* here even though they too
+  // render under `aliasNameFor`: theirs is the one kind whose alias line the
+  // writer may legitimately not emit (a continuous catalogue mirror's
+  // `bindValueFor !== aliasNameFor`, `isSelfMirroringAlias`), so their resolved
+  // name is not reliably a callable alias - and a bind entry is reached by its
+  // own key, not by being called by name, which is why nothing needs it to be.
+  //
+  // Derived from `allResolvedNames` rather than a second `aliasNameFor` pass, so
+  // there stays exactly one place an entry's rendered name comes from.
+  const definedKeys = new Set(
+    allResolvedNames
+      .filter((entry) => entry.action.kind === 'alias' || entry.action.kind === 'message')
+      .map((entry) => entry.name.toLowerCase()),
+  )
 
   // --- referenced-by-anything (lenient: shared reference graph, story 038) --
   const allReferences = collectAliasReferences({
@@ -383,6 +437,33 @@ export function validateActions(
   const referencedKeys = new Set<string>()
   for (const key of definedKeys) {
     if (allReferences.has(key)) referencedKeys.add(key)
+  }
+
+  // --- press/release pairing widens "referenced" one more step (story 041, D4
+  // fix; the story's own Plan named this and D4 shipped without it) --------
+  //
+  // A `-x` release alias is never called by name anywhere in the config text -
+  // no bind, no alias body, no `;`-list ever literally says `-slow`. The
+  // engine invokes it itself, on key-up, whenever the matching `+x` press half
+  // is bound (`bind SHIFT +slow`). `collectAliasReferences` has no way to know
+  // that, by design (it only ever scans text for a name), so a real,
+  // legitimately-wired `-x` half would otherwise fail `aliasUnreferenced`
+  // forever - not a false positive that clears once the user "fixes" anything,
+  // since there is nothing to fix.
+  //
+  // `pressReleasePairs` (D5, `press-release.ts`) is the one place that already
+  // knows the `+x`/`-x` convention for pairing purposes, so it is reused here
+  // rather than re-deriving the sign/base-name rule. One direction only: a
+  // referenced press half implies its release half is reachable too (the
+  // engine's key-up call), but a referenced release half says nothing about
+  // the press half (nothing in the engine calls `+x` because `-x` happens to
+  // be referenced). An unmatched pair (only one half wired) is left exactly as
+  // strict as before - only a *found* pair's press half being referenced adds
+  // its release half here.
+  for (const pair of pressReleasePairs(actions).pairs) {
+    const pressKey = aliasNameFor(pair.press).toLowerCase()
+    if (!allReferences.has(pressKey)) continue
+    referencedKeys.add(aliasNameFor(pair.release).toLowerCase())
   }
 
   // --- undefined alias reference (strict: candidate bindings, signed, not a known engine command) --

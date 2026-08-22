@@ -10,7 +10,7 @@
 //
 // Optional `coldStart?: boolean` on an entry marks a screen whose subject *is*
 // the app's boot state: `session.mjs` gives it its own launch per viewport
-// instead of visiting it inside the batched session. None of the 17 entries
+// instead of visiting it inside the batched session. None of the 18 entries
 // below need it today.
 //
 // Selectors mirror story 026 D3's `data-testid` additions exactly — read
@@ -32,6 +32,11 @@
 //   config-create-source        (CreateProfileDialog.tsx, source <select>)
 //   config-create-submit        (CreateProfileDialog.tsx, footer submit button)
 //   config-import-installation  (ImportProfileDialog.tsx, installation <select>)
+//
+// Story 041 D7 adds one more, same mirroring convention — read
+// ImportProfileDialog.tsx before changing it:
+//   config-import-review        (ImportProfileDialog.tsx, the review step's container,
+//                                 rendered only when `ambiguousRebindAliases` is non-empty)
 
 /** Mirrors src/shared/constants.ts:17-18 (`WINDOW_DEFAULT_WIDTH/HEIGHT`). */
 const VIEWPORT_DEFAULT = { width: 1280, height: 800 }
@@ -236,6 +241,31 @@ export const SCREENS = [
       await page
         .locator('.cfg-code-single')
         .first()
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'config-import-review',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 041 D7: same path as `config-import-preview` above (config list ->
+    // "New profile" -> source "import" -> continue -> pick "Fixture WriteDir
+    // Install"), but waits on `config-import-review` instead of
+    // `.cfg-code-single` - that's the review step's own container
+    // (ImportProfileDialog.tsx), which only renders once the fixture's
+    // `alias q2l_fixture_layer "bind e +use"` line (scripts/lib/fixture.mjs)
+    // comes back in `ambiguousRebindAliases`, so waiting on it rules out both
+    // the spinner and a preview with nothing ambiguous.
+    navigate: async (page) => {
+      await openConfigList(page)
+      await click(page, 'config-create-profile')
+      await page.getByTestId('config-create-source').selectOption('import')
+      await click(page, 'config-create-submit')
+      await page
+        .getByTestId('config-import-installation')
+        .selectOption({ label: 'Fixture WriteDir Install' })
+      await page
+        .getByTestId('config-import-review')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },

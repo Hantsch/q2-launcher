@@ -2,7 +2,8 @@ import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { ConfigProfile } from '@shared/modules/config'
+import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
+import type { AltLayer } from '@shared/config/alt-layers'
 import type { Installation } from '@shared/types'
 import { scopedLogger } from '../../lib/logger'
 import {
@@ -111,7 +112,12 @@ describe('previewImport', () => {
   it('reports counts and preserved lines without writing anything', async () => {
     await write(
       'baseq2/config.cfg',
-      lines('set sensitivity "3"', 'bind x "+attack"', 'alias +wave "say hi"', 'exec extra.cfg'),
+      // `alias +wave "say hi"` used to land in `preserved` before story 041's
+      // reader learned to recognize `alias` (D1/D2) - it is now a parsed alias
+      // definition (see the `previewImport` describe block below for that
+      // field), so a genuinely unrecognized command is what exercises
+      // `preserved` here.
+      lines('set sensitivity "3"', 'bind x "+attack"', 'wave hi', 'exec extra.cfg'),
     )
     await write('baseq2/extra.cfg', lines('bind y "+jump"'))
     await write('baseq2/autoexec.cfg', lines('set sensitivity "5"'))
@@ -127,13 +133,48 @@ describe('previewImport', () => {
     if (!result.ok) return
     expect(result.value.cvarCount).toBe(1)
     expect(result.value.bindCount).toBe(2)
-    expect(result.value.preserved).toEqual([
-      { file: 'config.cfg', line: 3, text: 'alias +wave "say hi"' },
-    ])
+    expect(result.value.preserved).toEqual([{ file: 'config.cfg', line: 3, text: 'wave hi' }])
     expect(result.value.filesRead).toEqual(['config.cfg', 'extra.cfg', 'autoexec.cfg'])
 
     const after = await readdir(join(root, 'baseq2'))
     expect(after).toEqual(before)
+  })
+
+  // Story 041 (D6): the alias-shaped preview fields, wired through
+  // `buildImportedActions` with an empty `layerAliases`.
+  it('reports aliasCount, messageCount, duplicateAliases and ambiguousRebindAliases', async () => {
+    await write(
+      'baseq2/config.cfg',
+      lines(
+        'set sensitivity "3"',
+        'bind x "+attack"',
+        'alias cali "bind KP_END fuck; bind KP_DOWNARROW gun"',
+        'alias greeting "say hi there"',
+        'alias a "b"',
+        'alias a "c"',
+      ),
+    )
+
+    const result = await previewImport(installations(installation()), log, {
+      installationId: 'i1',
+      gameDir: 'baseq2',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    // cali, greeting, a (last-definition-wins, so one entry for "a").
+    expect(result.value.aliasCount).toBe(3)
+    // Only "greeting" is exactly one say/say_team command.
+    expect(result.value.messageCount).toBe(1)
+    expect(result.value.duplicateAliases).toEqual([{ name: 'a', file: 'config.cfg', line: 6 }])
+    expect(result.value.ambiguousRebindAliases).toEqual([
+      {
+        name: 'cali',
+        body: 'bind KP_END fuck; bind KP_DOWNARROW gun',
+        file: 'config.cfg',
+        line: 3,
+      },
+    ])
   })
 
   it('fails with installationNotFound for an unknown installation id, before touching the filesystem', async () => {
@@ -164,6 +205,9 @@ describe('commitImport', () => {
       cvars: Record<string, string>
       binds: Record<string, string>
       unrecognized: { file: string; line: number; text: string }[]
+      actions: ConfigAction[]
+      categories: ConfigActionCategory[]
+      layers: AltLayer[]
     }[] = []
     const stubProfiles: ConfigProfile[] = [
       {
@@ -200,17 +244,86 @@ describe('commitImport', () => {
     )
 
     expect(result).toEqual({ ok: true, value: stubProfiles })
-    expect(calls).toEqual([
-      {
-        name: 'Imported',
-        cvars: { sensitivity: '3' },
-        binds: { x: '+attack' },
-        unrecognized: [{ file: 'config.cfg', line: 3, text: 'alias a "b"' }],
-      },
-    ])
+    expect(calls).toHaveLength(1)
+    expect(calls[0]!.name).toBe('Imported')
+    expect(calls[0]!.cvars).toEqual({ sensitivity: '3' })
+    expect(calls[0]!.binds).toEqual({ x: '+attack' })
+    expect(calls[0]!.unrecognized).toEqual([])
+    // "a" has no rebinding bind segment, so it converts as a plain alias entry.
+    expect(calls[0]!.actions).toHaveLength(1)
+    expect(calls[0]!.actions[0]!.name).toBe('a')
+    expect(calls[0]!.actions[0]!.kind).toBe('alias')
+    expect(calls[0]!.layers).toEqual([])
     // Import is read-only - the source installation's files are untouched.
     const after = await readdir(join(root, 'baseq2'))
     expect(after).toEqual(before)
+  })
+
+  // Story 041 (D6): the answers to "attempt as layer" flow through to
+  // `buildImportedActions`, validated against this import's own ambiguous list.
+  describe('layerAliases (story 041 D6)', () => {
+    async function writeAmbiguousFixture(): Promise<void> {
+      await write(
+        'baseq2/config.cfg',
+        lines('alias cali "bind KP_END fuck; bind KP_DOWNARROW gun"'),
+      )
+    }
+
+    it('with no layerAliases, converts an ambiguous alias as a plain alias entry', async () => {
+      await writeAmbiguousFixture()
+      const { calls, createProfile } = fakeCreateProfile()
+
+      const result = await commitImport(
+        installations(installation()),
+        log,
+        { installationId: 'i1', gameDir: 'baseq2', name: 'Imported' },
+        createProfile,
+      )
+
+      expect(result.ok).toBe(true)
+      expect(calls[0]!.layers).toEqual([])
+      expect(calls[0]!.actions).toHaveLength(1)
+      expect(calls[0]!.actions[0]!.name).toBe('cali')
+      expect(calls[0]!.actions[0]!.kind).toBe('alias')
+    })
+
+    it('with a valid layerAliases entry, converts that alias into a layer and produces no action for it', async () => {
+      await writeAmbiguousFixture()
+      const { calls, createProfile } = fakeCreateProfile()
+
+      const result = await commitImport(
+        installations(installation()),
+        log,
+        { installationId: 'i1', gameDir: 'baseq2', name: 'Imported', layerAliases: ['cali'] },
+        createProfile,
+      )
+
+      expect(result.ok).toBe(true)
+      expect(calls[0]!.actions).toEqual([])
+      expect(calls[0]!.layers).toHaveLength(1)
+      expect(calls[0]!.layers[0]!.name).toBe('cali')
+      expect(calls[0]!.layers[0]!.overrides).toEqual({ KP_END: 'fuck', KP_DOWNARROW: 'gun' })
+    })
+
+    it('rejects a layerAliases entry that is not ambiguous in this import, and never calls createProfile', async () => {
+      await writeAmbiguousFixture()
+      const { calls, createProfile } = fakeCreateProfile()
+
+      const result = await commitImport(
+        installations(installation()),
+        log,
+        {
+          installationId: 'i1',
+          gameDir: 'baseq2',
+          name: 'Imported',
+          layerAliases: ['not-a-real-alias'],
+        },
+        createProfile,
+      )
+
+      expect(result).toEqual({ ok: false, error: { key: 'config.error.invalidLayerAlias' } })
+      expect(calls).toEqual([])
+    })
   })
 
   it('fails with installationNotFound for an unknown installation id and never calls createProfile', async () => {

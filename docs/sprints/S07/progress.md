@@ -48,3 +48,22 @@
 - 2026-08-22 17:45 · 040 · D6 Highlighting and the two views still hold up · done
 - 2026-08-22 18:03 · 040 · clean-agent review (story-review-hard, 1 cycle, foreground) · done — PASS after 3 confirmed defects fixed: raw NUL byte in ownerIndexKey's separator (render.ts, made the file binary to grep and one edit away from silent key/value-collision corruption), case-insensitive-duplicate cvar-order determinism gap, unbounded banner line-length edge case
 - 2026-08-22 18:05 · 040 · story-level verification (build/typecheck/test 1228 green/ui:verify 0 violations) + Done section filled, moved to done/ · done
+- 2026-08-22 18:07 · 041 · D1 Shared command tokenizer + alias parsing · started
+- 2026-08-22 18:12 · 041 · D1 Shared command tokenizer + alias parsing · done
+- 2026-08-22 18:12 · 041 · D2 import-reader folds aliases across files and exec · started
+- 2026-08-22 18:17 · 041 · D2 import-reader folds aliases across files and exec · done
+- 2026-08-22 18:17 · 041 · D3 Alias to entry conversion (shared, pure) · started
+- 2026-08-22 18:28 · 041 · D3 Alias to entry conversion (shared, pure) · done
+- 2026-08-22 18:28 · 041 · D4 Reference graph counts raw binds and alias bodies · started
+- 2026-08-22 18:28 · 041 · D5 Press/release pairs read as pairs · started
+- 2026-08-22 18:37 · 041 · D4 Reference graph counts raw binds and alias bodies · done
+- 2026-08-22 18:37 · 041 · D5 Press/release pairs read as pairs · done
+- 2026-08-22 18:37 · 041 · D6 Contract + main: preview reports aliases, commit takes the answers · started
+- 2026-08-22 18:48 · 041 · D6 Contract + main: preview reports aliases, commit takes the answers · done
+- 2026-08-22 18:48 · 041 · D7 Import dialog: alias counts + review step · started
+- 2026-08-22 18:48 · 041 · D8 Message editor recognises colour cvars · started
+- 2026-08-22 18:57 · 041 · D7 Import dialog: alias counts + review step · done
+- 2026-08-22 19:03 · 041 · D8 Message editor recognises colour cvars · done
+- 2026-08-22 19:03 · 041 · D9 Fixture import test (dm.cfg + dmalias.cfg + gfx.cfg) · started
+- 2026-08-22 19:12 · 041 · D9 Fixture import test (dm.cfg + dmalias.cfg + gfx.cfg) · done
+- 2026-08-22 19:36 · 041 · story done (review-hard FAIL -> 3 fixes -> re-verified green, ui:verify 18/18 clean) · done

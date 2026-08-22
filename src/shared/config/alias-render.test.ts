@@ -195,6 +195,23 @@ describe('renderActionAlias', () => {
 
     expect(aliases).toEqual([])
   })
+
+  // Story 041, D3 ("Decided in refine"): the "no usable commands -> no alias line" rule stays
+  // scoped to a *generated* action alias (story 038 AC6) - a `keepEmptyAlias` entry, the shape an
+  // imported `alias blaster_settings ""` hook takes, still emits its one empty-body line.
+  it('still emits one empty-body line for a keepEmptyAlias entry with no commands', () => {
+    const { aliases } = renderActionAlias(
+      action({ name: 'blaster_settings', kind: 'alias', commands: [], keepEmptyAlias: true }),
+    )
+
+    expect(aliases).toEqual([
+      { name: 'blaster_settings', body: '', line: 'alias blaster_settings ""' },
+    ])
+  })
+
+  it('keeps emitting nothing for a plain no-commands action (story 038 AC6 unchanged)', () => {
+    expect(renderActionAlias(action({ commands: [] })).aliases).toEqual([])
+  })
 })
 
 describe('renderActionAlias (story 015: drop-catalogue row)', () => {

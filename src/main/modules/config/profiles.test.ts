@@ -924,6 +924,87 @@ describe('ProfilesStore', () => {
     })
   })
 
+  // Story 041 (D6): `createFromImport` gains `actions`/`categories`/`layers`,
+  // stored alongside the existing `cvars`/`binds`/`unrecognized` rather than
+  // replacing them, and the pre-existing story 034 bind-adoption pass must not
+  // double-count an imported alias entry.
+  describe('createFromImport (story 041 D6)', () => {
+    it('stores actions/categories/layers alongside cvars/binds/unrecognized', () => {
+      const category: ConfigActionCategory = { id: 'imported', name: 'Imported' }
+      const aliasAction: ConfigAction = {
+        id: 'a1',
+        categoryId: category.id,
+        name: 'greeting',
+        kind: 'alias',
+        commands: [{ kind: 'message', channel: 'say', text: 'hi' }],
+        aliasName: 'greeting',
+      }
+      const layer: AltLayer = {
+        id: 'l1',
+        name: 'cali',
+        mode: 'toggle',
+        triggerKey: null,
+        overrides: { KP_END: 'fuck' },
+      }
+
+      const result = profiles.createFromImport({
+        name: 'Imported',
+        cvars: { sensitivity: '3' },
+        // Not a catalogue command (story 034 would adopt one into its own
+        // row's action - see the `setBinds` test above), so this stays the
+        // hand-typed bind the test is about.
+        binds: { x: 'kill' },
+        unrecognized: [{ file: 'config.cfg', line: 1, text: 'wave hi' }],
+        actions: [aliasAction],
+        categories: [category],
+        layers: [layer],
+      })
+
+      const created = result[0]!
+      expect(created.cvars).toEqual({ sensitivity: '3' })
+      expect(created.binds).toEqual({ x: 'kill' })
+      expect(created.unrecognized).toEqual([{ file: 'config.cfg', line: 1, text: 'wave hi' }])
+      expect(created.actions).toEqual([aliasAction])
+      expect(created.categories).toEqual([category])
+      expect(created.layers).toEqual([layer])
+    })
+
+    it("a raw imported bind referencing an alias by name is left alone, not double-adopted into a second catalogue action - even when the alias's name collides with a catalogue command (bind-adoption.ts's own documented case)", () => {
+      const category: ConfigActionCategory = { id: 'imported', name: 'Imported' }
+      // Named exactly like the `weapnext` catalogue command - the alias import
+      // gives this action `aliasName: 'weapnext'`, and the raw bind below
+      // merely calls it by that name, same as a hand-typed config would.
+      const weapnextAlias: ConfigAction = {
+        id: randomUUID(),
+        categoryId: category.id,
+        name: 'weapnext',
+        kind: 'alias',
+        commands: [{ kind: 'raw', text: 'impulse 10' }],
+        aliasName: 'weapnext',
+      }
+
+      const result = profiles.createFromImport({
+        name: 'Imported',
+        cvars: {},
+        binds: { y: 'weapnext' },
+        unrecognized: [],
+        actions: [weapnextAlias],
+        categories: [category],
+        layers: [],
+      })
+
+      const created = result[0]!
+      // The bare-token bind stays exactly as imported, pointing at the alias by
+      // name - `adoptRawBinds`'s `isAliasReference` check must recognise it and
+      // skip catalogue adoption, so there is exactly one action, not two.
+      expect(created.binds).toEqual({ y: 'weapnext' })
+      expect(created.actions).toEqual([weapnextAlias])
+      expect((created.actions ?? []).filter((a) => a.catalogId === 'weaponExtra:weapnext')).toEqual(
+        [],
+      )
+    })
+  })
+
   describe('story 034: raw binds are adopted into catalogue actions', () => {
     it('adopts a bind saved from the Overview keyboard into its Controls row', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })

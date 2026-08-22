@@ -80,13 +80,43 @@ describe('parseConfigText', () => {
     expect(result.execs).toEqual([{ target: 'autoexec.cfg', line: 1 }])
   })
 
-  it('preserves an alias line verbatim', () => {
-    const text = 'alias +strafe "+moveleft"\n'
-    const result = parseConfigText(text)
+  it('parses a quoted alias body as a single string, keeping an embedded ; unsplit', () => {
+    const result = parseConfigText('alias lol "lol1;lol2;lol3"\n')
 
-    expect(result.preserved).toEqual([{ text: 'alias +strafe "+moveleft"', line: 1 }])
-    expect(result.cvars).toEqual([])
-    expect(result.binds).toEqual([])
+    expect(result.aliases).toEqual([{ name: 'lol', body: 'lol1;lol2;lol3', line: 1 }])
+    expect(result.preserved).toEqual([])
+  })
+
+  it('joins an unquoted multi-token alias body with single spaces', () => {
+    const result = parseConfigText(['alias zoom zoomin', 'alias +foo bind 1 use blaster'].join('\n'))
+
+    expect(result.aliases).toEqual([
+      { name: 'zoom', body: 'zoomin', line: 1 },
+      { name: '+foo', body: 'bind 1 use blaster', line: 2 },
+    ])
+  })
+
+  it('parses alias n "" as a recognized alias with an empty body', () => {
+    const result = parseConfigText('alias blaster_settings ""\n')
+
+    expect(result.aliases).toEqual([{ name: 'blaster_settings', body: '', line: 1 }])
+    expect(result.preserved).toEqual([])
+  })
+
+  it('keeps a +/- prefixed alias name verbatim, sign included', () => {
+    const result = parseConfigText(['alias +slow "cl_run 0"', 'alias -slow "cl_run 1"'].join('\n'))
+
+    expect(result.aliases).toEqual([
+      { name: '+slow', body: 'cl_run 0', line: 1 },
+      { name: '-slow', body: 'cl_run 1', line: 2 },
+    ])
+  })
+
+  it('preserves a bare "alias" with no name at all, unlike a named alias', () => {
+    const result = parseConfigText('alias\n')
+
+    expect(result.aliases).toEqual([])
+    expect(result.preserved).toEqual([{ text: 'alias', line: 1 }])
   })
 
   it('preserves a +-prefixed command line verbatim', () => {
@@ -132,11 +162,12 @@ describe('parseConfigText', () => {
   })
 
   it('gives 1-based line numbers and handles CRLF line endings', () => {
-    const result = parseConfigText('set a 1\r\nbind w jump\r\nalias x y\r\n')
+    const result = parseConfigText('set a 1\r\nbind w jump\r\nalias x y\r\n+mlook\r\n')
 
     expect(result.cvars[0].line).toBe(1)
     expect(result.binds[0].line).toBe(2)
-    expect(result.preserved[0].line).toBe(3)
+    expect(result.aliases[0].line).toBe(3)
+    expect(result.preserved[0].line).toBe(4)
   })
 
   it('returns every occurrence of a duplicate cvar/bind without resolving conflicts', () => {
@@ -159,6 +190,6 @@ describe('parseConfigText', () => {
 
   it('returns empty arrays for empty input', () => {
     const result = parseConfigText('')
-    expect(result).toEqual({ cvars: [], binds: [], execs: [], preserved: [] })
+    expect(result).toEqual({ cvars: [], binds: [], execs: [], aliases: [], preserved: [] })
   })
 })

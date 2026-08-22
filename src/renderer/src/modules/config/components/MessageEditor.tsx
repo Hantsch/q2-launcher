@@ -8,6 +8,7 @@ import {
   tokenizeMessage,
 } from '@shared/config/chat-macros'
 import { fromAltCharset, hasAltCharset, toAltCharset, toDisplaySegments } from '@shared/config/q2-charset'
+import { colorCvarTokens } from '@shared/config/color-cvars'
 import { Button } from '../../../components/ui/Button'
 import { Field, Select } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'
@@ -19,6 +20,39 @@ const FIELD_BASE =
   'h-9 w-full rounded-sm border border-line-strong bg-void/60 px-2.5 text-sm text-ink numeric ' +
   'placeholder:text-ink-faint focus:border-flame-600 focus:outline-none ' +
   'transition-colors duration-[--dur-fast] disabled:opacity-50'
+
+/**
+ * Story 041 D8: a single-dollar `$name` reference, the same syntax the `$loc_here`-vs-
+ * `$$loc_here` warning above already deals with. `(?<!\$)` skips the second `$` of a `$$token`
+ * that `tokenizeMessage` did not recognise (e.g. an unknown `$$foo`) - that pair stays fully
+ * literal rather than half-splitting into a bogus `$foo` reference.
+ */
+const SINGLE_DOLLAR_REF = /(?<!\$)\$([A-Za-z_][A-Za-z0-9_]*)/g
+
+/**
+ * Splits a plain-text run (already carved out of macro/meta tokens by `tokenizeMessage`) into
+ * literal text and `$name` references that resolve to a known colour cvar. A `$name` that does
+ * NOT resolve - `$loc_here` (not `$$loc_here`), an unknown mod macro, anything else - is left
+ * inside the surrounding literal text untouched, so it renders exactly as it did before this
+ * deliverable existed.
+ */
+function splitColorCvarRefs(
+  text: string,
+  colorCvars: Map<string, string>,
+): ({ kind: 'plain'; text: string } | { kind: 'colorCvar'; name: string; value: string })[] {
+  const parts: ReturnType<typeof splitColorCvarRefs> = []
+  let last = 0
+  for (const match of text.matchAll(SINGLE_DOLLAR_REF)) {
+    const name = match[1]!
+    const value = colorCvars.get(name)
+    if (value === undefined) continue
+    if (match.index > last) parts.push({ kind: 'plain', text: text.slice(last, match.index) })
+    parts.push({ kind: 'colorCvar', name, value })
+    last = match.index + match[0].length
+  }
+  if (last < text.length) parts.push({ kind: 'plain', text: text.slice(last) })
+  return parts
+}
 
 /**
  * Story 008 D8: the message-kind counterpart to D7's `ActionEditor` -
@@ -41,6 +75,7 @@ const FIELD_BASE =
  */
 export function MessageEditor({
   action,
+  cvars,
   onClose,
   onSave,
   showKeyCapture = true,
@@ -56,6 +91,13 @@ export function MessageEditor({
   /** Story 029 D2: lets a caller show a name other than the action's own in the modal title
    * (e.g. a drop row's own label). Defaults to `action.name`. */
   titleName?: string
+  /**
+   * Story 041 D8: the profile's own cvars, so the preview can recognise a `$name` reference in
+   * the message as a colour cvar (`@shared/config/color-cvars`) and render its actual glyph
+   * instead of dead literal text. Defaults to `{}` - a caller that has no cvars on hand (there is
+   * none today) just gets the pre-D8 literal-text behaviour back.
+   */
+  cvars?: Record<string, string>
 }) {
   const { t } = useTranslation()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -130,23 +172,51 @@ export function MessageEditor({
     return () => window.removeEventListener('keydown', handleKeyDown, true)
   }, [capturingKey])
 
+  // Story 041 D8: colour cvars are a rendering-layer concern layered on top of `tokenizeMessage`'s
+  // existing output, not a change to tokenization itself - its contract (macro/meta segments,
+  // everything else as literal text) is untouched.
+  const colorCvars = useMemo(() => colorCvarTokens(cvars ?? {}), [cvars])
+
   const previewSegments = useMemo(() => {
-    const segments: { text: string; className: string }[] = []
+    const segments: (
+      | { kind: 'plain'; text: string; className: string }
+      | { kind: 'colorCvar'; name: string; glyphText: string; glyphAlt: boolean }
+    )[] = []
     for (const token of tokenizeMessage(text)) {
       if (token.kind === 'text') {
-        for (const run of toDisplaySegments(token.value)) {
-          segments.push({ text: run.text, className: run.alt ? 'text-strogg-400' : 'text-ink' })
+        for (const part of splitColorCvarRefs(token.value, colorCvars)) {
+          if (part.kind === 'colorCvar') {
+            // The whole value is high-bit bytes by construction (`isColorCvar`), so this is
+            // always exactly one alt-charset run - reusing `toDisplaySegments` rather than
+            // re-deriving the glyph text keeps the mapping in one place.
+            const [glyphRun] = toDisplaySegments(part.value)
+            segments.push({
+              kind: 'colorCvar',
+              name: part.name,
+              glyphText: glyphRun?.text ?? '',
+              glyphAlt: glyphRun?.alt ?? true,
+            })
+            continue
+          }
+          for (const run of toDisplaySegments(part.text)) {
+            segments.push({
+              kind: 'plain',
+              text: run.text,
+              className: run.alt ? 'text-strogg-400' : 'text-ink',
+            })
+          }
         }
         continue
       }
       segments.push({
+        kind: 'plain',
         text: token.value,
         className:
           token.kind === 'meta' ? 'font-semibold text-flame-300' : 'font-semibold text-warning',
       })
     }
     return segments
-  }, [text])
+  }, [text, colorCvars])
 
   const singleDollarIssues = useMemo(() => findSingleDollarLocMistakes(text), [text])
 
@@ -218,11 +288,31 @@ export function MessageEditor({
             {previewSegments.length === 0 ? (
               <span className="text-ink-faint">{t('config.controls.messageEditor.previewEmpty')}</span>
             ) : (
-              previewSegments.map((segment, index) => (
-                <span key={index} className={segment.className}>
-                  {segment.text}
-                </span>
-              ))
+              previewSegments.map((segment, index) =>
+                segment.kind === 'colorCvar' ? (
+                  // Story 041 D8: the glyph run through the same alt-charset styling every other
+                  // high-bit run in this preview gets, plus a badge naming the cvar - the badge is
+                  // what tells the player which of their own colour cvars this reference resolves
+                  // to, since the glyph run alone looks identical for any cvar carrying that same
+                  // colour byte.
+                  <span
+                    key={index}
+                    className="inline-flex items-center gap-1"
+                    title={t('config.controls.messageEditor.colorCvarChip', {
+                      name: segment.name,
+                    })}
+                  >
+                    <span className={segment.glyphAlt ? 'text-strogg-400' : 'text-ink'}>
+                      {segment.glyphText}
+                    </span>
+                    <Badge tone="strogg">{`$${segment.name}`}</Badge>
+                  </span>
+                ) : (
+                  <span key={index} className={segment.className}>
+                    {segment.text}
+                  </span>
+                ),
+              )
             )}
           </p>
           {singleDollarIssues.length > 0 && (

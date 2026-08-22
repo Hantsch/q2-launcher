@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowDown,
@@ -16,6 +16,7 @@ import type { AltLayer } from '@shared/config/alt-layers'
 import { aliasNameFor, derivedAliasName } from '@shared/config/alias-render'
 import { validateAliasName } from '@shared/config/alias-names'
 import { findAliasReferrers, type AliasReferrer } from '@shared/config/alias-references'
+import { pressReleasePairs, type PressReleasePair } from '@shared/config/press-release'
 import {
   BUILT_IN_ACTION_CATEGORIES,
   type ActionEntryKind,
@@ -459,14 +460,41 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
     ? (actions.find((action) => action.id === editingActionId) ?? null)
     : null
 
+  /**
+   * Story 041 D5: `+x`/`-x` alias pairs (e.g. an imported `+slow`/`-slow`) read as a pair rather
+   * than as two unrelated rows. `pressReleasePairs` (`@shared/config/press-release.ts`) is the only
+   * place that knows the `+`/`-` convention; scoped to the selected category, since that is the
+   * only list rendered together on screen. `pairByPressId` looks up a pair by its press half's
+   * action id (the anchor `renderActionRow` below renders both halves under), and
+   * `releaseIdsInPairs` is every release half already accounted for by that press row, so the flat
+   * row list built below can leave it out rather than rendering it a second time as its own row.
+   */
+  const categoryPressReleasePairs = useMemo(
+    () => pressReleasePairs(actionsForCategory).pairs,
+    [actionsForCategory],
+  )
+  const pairByPressId = useMemo(
+    () => new Map(categoryPressReleasePairs.map((pair) => [pair.press.id, pair] as const)),
+    [categoryPressReleasePairs],
+  )
+  const releaseIdsInPairs = useMemo(
+    () => new Set(categoryPressReleasePairs.map((pair) => pair.release.id)),
+    [categoryPressReleasePairs],
+  )
+
   // Story 020 D4: movement/weapons/drops are catalogue-driven - every catalogue action is a row
   // whether or not it has a matching persisted `ConfigAction` yet (lazy materialisation), unioned
   // with that category's legacy free-form actions. Every other category keeps showing exactly its
   // persisted `actionsForCategory`, one entry per action.
   const isDualBindCategory = DUAL_BIND_CATEGORY_IDS.has(selectedCategoryId)
-  const rowEntries: ControlsRowEntry[] = isDualBindCategory
+  const allRowEntriesForCategory: ControlsRowEntry[] = isDualBindCategory
     ? buildCatalogControlsRowEntries(selectedCategoryId as DualBindCategoryId, actions)
     : actionsForCategory.map((action) => ({ kind: 'action', action }))
+  // Story 041 D5: a matched pair's release half is dropped here - `renderActionRow` renders it
+  // itself, immediately below the press half, once per pair rather than once here and once there.
+  const rowEntries: ControlsRowEntry[] = allRowEntriesForCategory.filter(
+    (entry) => entry.kind !== 'action' || !releaseIdsInPairs.has(entry.action.id),
+  )
 
   /** A raw text preview of a plain action's commands, mirroring what a catalogue row's own
    * `row.commands` already give it - the first raw command, or nothing for a pure alias/message
@@ -819,8 +847,12 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
    * edit/rename/remove treatment D3's placeholder already offered every action - the neighbour
    * index is `actionsForCategory`'s (every action sharing this `categoryId`, catalogue-bound or
    * not), matching `moveEntryWithinCategory`'s own neighbour walk exactly.
+   *
+   * Renders exactly one row - the press/release grouping (story 041 D5) wraps this, it never
+   * replaces it, so an unpaired action (the overwhelming majority: every custom-category entry,
+   * every bind/message row) renders through here completely unchanged from before D5 existed.
    */
-  const renderActionRow = (action: ConfigAction, odd: boolean) => {
+  const renderPlainActionRow = (action: ConfigAction, odd: boolean) => {
     const index = actionsForCategory.findIndex((candidate) => candidate.id === action.id)
     // Story 019/020 decision: an alias entry gets inert placeholder cells, never a live slot -
     // binding an alias has to be impossible through the UI, not merely discouraged. A `bind`/
@@ -889,6 +921,40 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
         }
       />
     )
+  }
+
+  /**
+   * Story 041 D5: a `+x`/`-x` press/release pair renders as two adjacent rows under one shared
+   * pair label - the release half is left out of `rowEntries` above precisely so it only ever
+   * renders here, immediately below its press half, rather than a second time at its own position
+   * in the list. The label reuses `ControlsGrid`'s own catalogue-group divider markup
+   * (`.ctrl-group`/`.ctrl-group-cell`/`.ctrl-group-eyebrow`/`.ctrl-group-rule`, all token-driven,
+   * `controls-grid.css`) - the Controls tab's one existing "rows grouped under a heading" pattern,
+   * reused rather than a second one invented for this. An action with no partner (the common case)
+   * never reaches this function at all; `renderActionRow` below is the only caller.
+   */
+  const renderPairedActionRows = (pair: PressReleasePair, odd: boolean) => (
+    <Fragment key={pair.press.id}>
+      <div className="ctrl-group" role="row">
+        <span className="ctrl-group-cell" role="cell">
+          <span className="ctrl-group-eyebrow">
+            {t('config.controls.pressRelease.pairLabel', { base: pair.base })}
+          </span>
+          <span className="ctrl-group-rule" aria-hidden="true" />
+        </span>
+      </div>
+      {renderPlainActionRow(pair.press, odd)}
+      {renderPlainActionRow(pair.release, !odd)}
+    </Fragment>
+  )
+
+  /** `ControlsGrid`'s row-rendering seam for a plain `ConfigAction` entry: a paired press half
+   * renders itself plus its release partner via `renderPairedActionRows`, everything else
+   * (including the release half, which never appears in `rowEntries` on its own) goes straight to
+   * `renderPlainActionRow` unchanged. */
+  const renderActionRow = (action: ConfigAction, odd: boolean) => {
+    const pair = pairByPressId.get(action.id)
+    return pair ? renderPairedActionRows(pair, odd) : renderPlainActionRow(action, odd)
   }
 
   return (
@@ -1171,6 +1237,7 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
       {editingAction && editingAction.kind === 'message' && (
         <MessageEditor
           action={editingAction}
+          cvars={draft.cvars}
           onClose={() => setEditingActionId(null)}
           onSave={(draft) =>
             void handleSaveAction({
@@ -1202,6 +1269,7 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
       {messageEditorRow && (
         <MessageEditor
           action={messageEditorSeed(messageEditorRow.row, messageEditorRow.label)}
+          cvars={draft.cvars}
           titleName={messageEditorRow.label}
           showKeyCapture={false}
           onClose={() => setMessageEditorRow(null)}
