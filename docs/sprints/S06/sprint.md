@@ -23,7 +23,7 @@ payload validation cannot be forgotten, and `ui:verify`'s green report is a fact
 - [x] 030 — Titlebar and wordmark scale up
 - [x] 033 — Planned-module screens explain the feature, not the engineering
 - [x] 029 — Drop-row team message as checkbox + inline row (mirrors "With ammo")
-- [ ] 035 — The Content-Security-Policy actually applies in a production build
+- [x] 035 — The Content-Security-Policy actually applies in a production build
 - [ ] 036 — Payload validation cannot be forgotten — handle() requires a schema
 - [ ] 037 — ui:verify covers every surface and its report is green
 

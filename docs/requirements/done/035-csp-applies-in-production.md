@@ -1,7 +1,7 @@
 ---
 id: 035
 title: The Content-Security-Policy actually applies in a production build
-status: ready
+status: done
 created: 2026-08-21
 ---
 
@@ -37,21 +37,21 @@ side effect but not the goal — the goal is that the policy on the books is the
 
 ## Acceptance Criteria
 
-- [ ] A packaged/production renderer loads from a privileged custom scheme (not `file://`), and
+- [x] A packaged/production renderer loads from a privileged custom scheme (not `file://`), and
       the window's own document origin reflects it.
-- [ ] The production CSP is verifiably present on the renderer document in a production build —
+- [x] The production CSP is verifiably present on the renderer document in a production build —
       not just registered in code. "Verifiably" means an observable check, e.g. reading the
       applied policy from the loaded document, not "the callback ran".
-- [ ] Dev mode keeps working unchanged: HMR, React Fast Refresh, the websocket connection and
+- [x] Dev mode keeps working unchanged: HMR, React Fast Refresh, the websocket connection and
       the dev-only relaxations in the dev policy.
-- [ ] Everything the renderer loads still loads: the generated app icon, fonts, inline SVG,
+- [x] Everything the renderer loads still loads: the generated app icon, fonts, inline SVG,
       any `data:`/`blob:` use already in the code — no blank surfaces, no console CSP
       violations on any screen `npm run ui:verify` visits.
-- [ ] `npm run ui:verify` passes in whichever mode it drives the app, with no new violations
+- [x] `npm run ui:verify` passes in whichever mode it drives the app, with no new violations
       and no new console errors.
-- [ ] If the change makes a CSP directive redundant or lets one be tightened, the policy string
+- [x] If the change makes a CSP directive redundant or lets one be tightened, the policy string
       is updated and the reason is a comment next to it.
-- [ ] A regression guard exists so this cannot fail open silently again — the honest minimum is
+- [x] A regression guard exists so this cannot fail open silently again — the honest minimum is
       a test or startup assertion that fails if the renderer document has no CSP in a
       production build.
 
@@ -148,7 +148,7 @@ One new pure module owns the scheme, the two policy strings and the request hand
 
 ## Deliverables
 
-- [ ] **D1 — Pure renderer-source module + unit tests.** New `src/main/lib/renderer-source.ts`
+- [x] **D1 — Pure renderer-source module + unit tests.** New `src/main/lib/renderer-source.ts`
       (constants, `DEV_CSP`/`PRODUCTION_CSP` moved verbatim, `resolveRendererSource`,
       `createRendererProtocolHandler`) and new `src/main/lib/renderer-source.test.ts` (mirror
       `src/main/lib/schemas.test.ts` for style). No `electron` import in either file.
@@ -157,7 +157,7 @@ One new pure module owns the scheme, the two policy strings and the request hand
       `/` maps to `index.html`, that `../` traversal and a foreign host give 404 with no body,
       that a missing file gives 404, and that `resolveRendererSource` picks `dev-server` only
       when `isDev` **and** a dev-server URL are both present.
-- [ ] **D2 — Serve the production renderer from `q2launcher://` and attach the CSP there.**
+- [x] **D2 — Serve the production renderer from `q2launcher://` and attach the CSP there.**
       `src/main/index.ts` (privileged-scheme registration at module top level, `protocol.handle`
       plus the `isProtocolHandled` boot assertion and one log line, `onHeadersReceived` only in
       dev-server mode, policy strings imported instead of inlined) and `src/main/window.ts`
@@ -166,14 +166,14 @@ One new pure module owns the scheme, the two policy strings and the request hand
       launch renders the app (no blank window, no missing stylesheet — the built tags are
       `./assets/...` with `crossorigin`) and reports `location.origin === 'q2launcher://app'`;
       `npm run dev` still loads from the dev server with the dev policy.
-- [ ] **D3 — The harness proves it, every run.** `scripts/lib/harness.mjs` (`childEnv()` deletes
+- [x] **D3 — The harness proves it, every run.** `scripts/lib/harness.mjs` (`childEnv()` deletes
       `ELECTRON_RENDERER_URL`; origin + CSP assertion beside the existing `assertInside` check on
       the userData path the app reports) and `docs/UI-VERIFICATION.md` ("Production-mode
       guarantee").
       *Acceptance:* `npm run ui:verify -- --screens=home` passes; temporarily removing the CSP
       header from the handler makes it fail with a message naming the missing policy (verified by
       hand, not left in the tree); `node scripts/lib/harness.mjs` self-check still passes.
-- [ ] **D4 — Evidence + the deferred follow-up.** A full `npm run ui:verify` run and a
+- [x] **D4 — Evidence + the deferred follow-up.** A full `npm run ui:verify` run and a
       `npm run dev` smoke, both recorded in the Done section against the pre-change baseline (the
       known `config-raw` crash and the known axe findings are 037's, not new); `docs/ROADMAP.md`
       "Hardening" gains the `style-src 'unsafe-inline'` follow-up bullet.
@@ -212,3 +212,66 @@ The app itself is the surface here — "it renders, from the new origin" is the 
    header-level proof is the harness assertion from step 2.
 
 ## Done
+
+**Summary.** The production renderer now loads from `q2launcher://app/index.html` via a
+registered privileged-scheme protocol handler (`src/main/lib/renderer-source.ts`, wired into
+`src/main/index.ts`/`src/main/window.ts`) that attaches the production CSP to every response it
+returns, including 404s. Dev mode is unchanged (`onHeadersReceived` + `DEV_CSP`, gated to
+dev-server mode only). The `ui:verify` harness now asserts, on every run, that the document's
+origin is `q2launcher://app` and that its CSP header is present and contains
+`script-src 'self'` — proven live by temporarily stripping the header and watching the harness
+fail with a message naming the missing policy. `docs/ROADMAP.md` gained the deferred
+`style-src 'unsafe-inline'` follow-up bullet under "Hardening".
+
+**Deliverables:** D1 (pure module + unit tests), D2 (scheme wiring, `deliverable-hard`), D3
+(harness assertion + docs), D4 (evidence run + ROADMAP bullet) — all done, see progress trail in
+`docs/sprints/S06/progress.md`.
+
+**Review (story-review-hard):** first pass verdict FAIL, with hands-on empirical verification
+(a live Electron protocol probe, header-strip experiment, full `ui:verify` run). Two confirmed
+bugs were fixed:
+- A Windows-specific path-traversal bypass: `resolveWithinRoot` split only on `/`, so a
+  percent-encoded backslash (`%5C`) survived as one opaque segment and escaped `root` once Node
+  resolved it as a path separator. Fixed by normalizing `\` → `/` in the decoded request path
+  before splitting, so the existing segment-stack guard actually sees the `..` tokens. Added a
+  regression test for the backslash-smuggled case (not just the already-safe `%2f` case the
+  original test covered).
+- 404 responses (bad host, traversal rejection, missing file) carried no CSP header, contrary to
+  the plan's "every response carries the policy" — a document-level 404 (e.g. a corrupted asar)
+  would have been policy-less. Fixed by replacing the shared module-level `NOT_FOUND` constant
+  with a closure-local `notFound()` that carries the handler's `csp`. Added a test asserting the
+  header on a 404.
+
+One review finding was raised but **not changed**, because it re-opens a binding `(User)`
+decision already recorded in this story: the reviewer flagged that `resolveRendererSource`'s
+`isDev` gate is effectively vacuous because both callers pass `isDev: Boolean(devServerUrl)` —
+so a packaged build would still honour `ELECTRON_RENDERER_URL` if it were somehow present in its
+environment, rather than being blocked by `is.dev`/`app.isPackaged`. This is exactly what the
+story's Decisions section specifies verbatim ("`ELECTRON_RENDERER_URL` present → dev server +
+dev policy, otherwise → production", with `is.dev` explicitly scoped to "everything else it
+decides today" and *not* this decision) — changing it would contradict the recorded Decision,
+which this build explicitly must not re-decide. Noted here for visibility: exploiting it
+requires an attacker who can already set environment variables for the packaged process, at
+which point CSP is not the primary line of defence being bypassed.
+
+After the fixes: `npm run typecheck`, `npm test` (52 files / 949 tests), and `npm run build` all
+green; `npm run ui:verify -- --screens=home` re-verified clean post-fix. Full `npm run ui:verify`
+(pre-fix, still representative — the fixes touched only `renderer-source.ts` internals, not
+what any screen renders) showed 30/30 shots written, 0 unreachable, 0 errors, 0 new console
+violations; axe findings match the documented pre-existing baseline (`keybind-dialog` critical,
+`page-has-heading-one` moderates across config/library screens) — no screen's verdict changed.
+`npm run dev` smoke confirmed dev-server mode (log: "renderer source: dev server at
+http://localhost:5173, dev CSP via onHeadersReceived"), HMR/Fast Refresh alive (Vite HMR update
+logged, no process restart), no new console violations.
+
+**Decisions (implementation, not re-litigating the sprint's binding ones):**
+- 404 responses now carry the CSP header via a closure-local helper instead of the original
+  shared module-level constant, since the header value is only known once `csp` is bound inside
+  `createRendererProtocolHandler`.
+- The reviewer's `isDev`/`ELECTRON_RENDERER_URL` finding is logged above as an accepted,
+  already-decided trade-off rather than fixed — see the review paragraph.
+
+**Commit message:** `035: serve production renderer over q2launcher://, enforce CSP in the
+protocol handler, harness asserts it every run`
+
+**Open points / blockers:** none. Story is complete.

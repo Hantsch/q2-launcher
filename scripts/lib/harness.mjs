@@ -31,6 +31,16 @@ export { HarnessError }
 const MAIN_ENTRY = join('out', 'main', 'index.js')
 const RENDERER_ENTRY = join('out', 'renderer', 'index.html')
 
+/**
+ * Mirrors `RENDERER_ORIGIN` from `src/main/lib/renderer-source.ts` (story 035, D1). Duplicated
+ * as a literal rather than imported because this file is plain `.mjs` run directly by `node`,
+ * with no TypeScript loader in the chain that would let it import a `.ts` module.
+ */
+const EXPECTED_RENDERER_ORIGIN = 'q2launcher://app'
+
+/** Every production response must carry this — story 035's whole point is that it's not optional. */
+const REQUIRED_CSP_DIRECTIVE = "script-src 'self'"
+
 const LAUNCH_TIMEOUT_MS = 60_000
 /** Enough of the main process's stderr to explain a launch that died early. */
 const STDERR_LINE_LIMIT = 40
@@ -125,8 +135,11 @@ function describeExit({ code, signal, expected }) {
 export function childEnv() {
   const env = { ...process.env }
   delete env.ELECTRON_RUN_AS_NODE
+  delete env.ELECTRON_RENDERER_URL
   for (const key of Object.keys(env)) {
-    if (key.toUpperCase() === 'ELECTRON_RUN_AS_NODE') delete env[key]
+    if (key.toUpperCase() === 'ELECTRON_RUN_AS_NODE' || key.toUpperCase() === 'ELECTRON_RENDERER_URL') {
+      delete env[key]
+    }
   }
   // Lets the app (and future assertions) tell a UI-verification run apart
   // from a normal launch.
@@ -197,6 +210,29 @@ async function launchApp({ userDataDir }) {
       electronApp.getPath('userData'),
     )
     assertInside(UI_VERIFY_ROOT, reportedUserDataDir, 'userData reported by the app')
+
+    // Production mode is a guarantee, not a coincidence (story 035): the renderer must be
+    // served from the app's own privileged scheme, and every response for it must carry the
+    // enforced CSP. Read both out of the live page rather than assuming the wiring worked.
+    const rendererCheck = await page.evaluate(async () => {
+      const response = await fetch(location.href)
+      return {
+        origin: location.origin,
+        csp: response.headers.get('content-security-policy'),
+      }
+    })
+    if (rendererCheck.origin !== EXPECTED_RENDERER_ORIGIN) {
+      throw new HarnessError(
+        `renderer origin must be ${EXPECTED_RENDERER_ORIGIN}, got ${rendererCheck.origin} — ` +
+          'production mode did not load from the q2launcher:// scheme',
+      )
+    }
+    if (!rendererCheck.csp || !rendererCheck.csp.includes(REQUIRED_CSP_DIRECTIVE)) {
+      throw new HarnessError(
+        `renderer response is missing the required Content-Security-Policy directive ` +
+          `${REQUIRED_CSP_DIRECTIVE} — got ${rendererCheck.csp ? `"${rendererCheck.csp}"` : '(no header)'}`,
+      )
+    }
 
     return { app, page, log, state, child, userDataDir: reportedUserDataDir }
   } catch (error) {

@@ -32,3 +32,12 @@
 - 2026-08-22 08:35 · 029 · D4 With-message checkbox + inline row wired · started
 - 2026-08-22 08:43 · 029 · D4 With-message checkbox + inline row wired · done
 - 2026-08-22 08:53 · 029 · review + live smoke + Done section · done
+- 2026-08-22 08:54 · 035 · D1 Pure renderer-source module + unit tests · started
+- 2026-08-22 08:57 · 035 · D1 Pure renderer-source module + unit tests · done
+- 2026-08-22 08:57 · 035 · D2 Serve production renderer from q2launcher:// · started
+- 2026-08-22 09:05 · 035 · D2 Serve production renderer from q2launcher:// · done
+- 2026-08-22 09:05 · 035 · D3 Harness proves it every run · started
+- 2026-08-22 09:08 · 035 · D3 Harness proves it every run · done
+- 2026-08-22 09:08 · 035 · D4 Evidence + deferred follow-up · started
+- 2026-08-22 09:15 · 035 · D4 Evidence + deferred follow-up · done
+- 2026-08-22 09:31 · 035 · review + fixes (Windows traversal bypass, 404 CSP header) + Done section · done

@@ -206,6 +206,32 @@ names are case-insensitive but `delete` is case-sensitive), regardless of what
 your own shell has set. Every harness script goes through this, so it applies
 to `ui:seed`, `ui:shot`, `ui:a11y`, `ui:verify` and `ui:flow` alike.
 
+## Production-mode guarantee
+
+Story 035 made the production renderer load from a privileged custom scheme
+(`q2launcher://app`) with an enforced Content-Security-Policy, instead of
+`file://`. The harness proves that guarantee holds on every run rather than
+trusting it by convention:
+
+- `scripts/lib/harness.mjs` (`childEnv()`) deletes `ELECTRON_RENDERER_URL`
+  from the child environment, case-insensitively, the same way it already
+  deletes `ELECTRON_RUN_AS_NODE`. Without this, a developer who has that
+  variable exported from working on the Vite dev server would silently flip
+  a verification run back into dev-server mode — production mode has to be a
+  guarantee, not a coincidence.
+- Right after `waitForLoadState('domcontentloaded')`, beside the existing
+  userData containment assertion, the harness asserts inside the running
+  page that `location.origin` is exactly `q2launcher://app` and that
+  `fetch(location.href)`'s `content-security-policy` response header is
+  present and contains `script-src 'self'`. Either failing throws a
+  `HarnessError` naming the actual origin or the actual (or missing) header,
+  not a generic assertion failure.
+
+Every entry point (`ui:shot`, `ui:a11y`, `ui:verify`, `ui:flow`, and the
+`node scripts/lib/harness.mjs` self-check) goes through `launchApp()`/
+`childEnv()`, so all of them inherit this guarantee automatically — there is
+nothing an individual script has to opt into.
+
 ## Isolation from your real app state
 
 A run never touches your real `%APPDATA%` state, installations or config

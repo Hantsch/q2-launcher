@@ -5,9 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Q2 Launcher</title>
     <!--
-      The Content-Security-Policy is injected as a response header by the main
-      process (see `applySecurityPolicies` in src/main/index.ts) so it can differ
-      between the dev server and a packaged build.
+      No `http-equiv="Content-Security-Policy"` here on purpose: the policy is a
+      response header, so it can differ between the dev server (injected by
+      `onHeadersReceived`) and a production build (attached by the `q2launcher://`
+      protocol handler) - both in src/main/index.ts. A meta fallback would paper
+      over a header that fails to arrive, which is the failure story 035 fixed.
     -->
   </head>
   <body>

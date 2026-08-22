@@ -283,6 +283,11 @@ machine, and each is a one-line fix in a data table:
   `src/main/modules/` validate by discipline today.
 - Auto-update via `electron-updater`, and a decision on code signing — unsigned
   builds give users a SmartScreen warning.
+- Drop `'unsafe-inline'` from the production CSP's `style-src` — deferred by story 035, which
+  moved the production renderer onto the real `q2launcher://` origin and left the directive as
+  AC6's one intentionally-unresolved item. Tailwind's emitted stylesheet is already requested as
+  a real `./assets/*.css` file (not inlined), so this is a ready follow-up, not blocked on
+  anything further.
 
 **Tooling:**
 
