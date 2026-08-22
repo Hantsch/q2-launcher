@@ -10,7 +10,7 @@
 //
 // Optional `coldStart?: boolean` on an entry marks a screen whose subject *is*
 // the app's boot state: `session.mjs` gives it its own launch per viewport
-// instead of visiting it inside the batched session. None of the 14 entries
+// instead of visiting it inside the batched session. None of the 15 entries
 // below need it today.
 //
 // Selectors mirror story 026 D3's `data-testid` additions exactly — read
@@ -153,9 +153,28 @@ export const SCREENS = [
     },
   },
   {
+    id: 'mods',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    navigate: async (page) => {
+      await click(page, 'nav-mods')
+    },
+  },
+  {
+    id: 'assets',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    navigate: async (page) => {
+      await click(page, 'nav-assets')
+    },
+  },
+  {
     id: 'downloads',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,
+    // Story 031 moved Downloads into the titlebar's right utility cluster
+    // (icon-only button next to Settings), but TitleBar.tsx's UtilityButton
+    // keeps the same `nav-<moduleId>` testid convention as the primary nav.
     navigate: async (page) => {
       await click(page, 'nav-downloads')
     },

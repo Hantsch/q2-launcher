@@ -21,7 +21,7 @@ payload validation cannot be forgotten, and `ui:verify`'s green report is a fact
 
 - [x] 031 — Rename the Install module to Downloads and move it next to Settings
 - [x] 030 — Titlebar and wordmark scale up
-- [ ] 033 — Planned-module screens explain the feature, not the engineering
+- [x] 033 — Planned-module screens explain the feature, not the engineering
 - [ ] 029 — Drop-row team message as checkbox + inline row (mirrors "With ammo")
 - [ ] 035 — The Content-Security-Policy actually applies in a production build
 - [ ] 036 — Payload validation cannot be forgotten — handle() requires a schema

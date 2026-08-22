@@ -43,6 +43,10 @@ export interface ModuleManifest {
   /** i18n keys - modules never carry prose. */
   titleKey: string
   descriptionKey: string
+  /** i18n key for the plain-language intro paragraph on the planned-module screen. */
+  plannedIntroKey?: string
+  /** i18n keys for the plain-language "what you'll be able to do" bullets on the planned-module screen. */
+  plannedHighlightKeys?: readonly string[]
   /** `lucide-react` icon name; the renderer maps it to a component. */
   icon: string
   /** Route the module owns, e.g. `/config`. */
@@ -77,6 +81,12 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     id: 'downloads',
     titleKey: 'module.downloads.title',
     descriptionKey: 'module.downloads.description',
+    plannedIntroKey: 'module.planned.downloads.intro',
+    plannedHighlightKeys: [
+      'module.planned.downloads.highlight.1',
+      'module.planned.downloads.highlight.2',
+      'module.planned.downloads.highlight.3',
+    ],
     icon: 'Download',
     route: '/downloads',
     nav: { section: 'secondary', order: 10 },
@@ -101,6 +111,12 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     id: 'mods',
     titleKey: 'module.mods.title',
     descriptionKey: 'module.mods.description',
+    plannedIntroKey: 'module.planned.mods.intro',
+    plannedHighlightKeys: [
+      'module.planned.mods.highlight.1',
+      'module.planned.mods.highlight.2',
+      'module.planned.mods.highlight.3',
+    ],
     icon: 'Boxes',
     route: '/mods',
     nav: { section: 'primary', order: 40 },
@@ -113,6 +129,12 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     id: 'assets',
     titleKey: 'module.assets.title',
     descriptionKey: 'module.assets.description',
+    plannedIntroKey: 'module.planned.assets.intro',
+    plannedHighlightKeys: [
+      'module.planned.assets.highlight.1',
+      'module.planned.assets.highlight.2',
+      'module.planned.assets.highlight.3',
+    ],
     icon: 'Images',
     route: '/assets',
     nav: { section: 'primary', order: 50 },

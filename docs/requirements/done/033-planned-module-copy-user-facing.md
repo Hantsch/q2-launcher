@@ -1,7 +1,7 @@
 ---
 id: 033
 title: Planned-module screens explain the feature, not the engineering
-status: ready
+status: done
 created: 2026-08-21
 ---
 
@@ -24,17 +24,17 @@ id/route/ipc line are implementation detail that does not belong in front of a u
 
 ## Acceptance Criteria
 
-- [ ] Mods and Assets planned screens show a short, plain-language description of what the
+- [x] Mods and Assets planned screens show a short, plain-language description of what the
       module is for and what it will let the user do — no engineering/capability terms.
-- [ ] The "planned for the future" status stays unambiguous (badge and/or heading wording).
-- [ ] The capability list (`module.planned.capabilities` / `module.planned.capability.*`) and
+- [x] The "planned for the future" status stays unambiguous (badge and/or heading wording).
+- [x] The capability list (`module.planned.capabilities` / `module.planned.capability.*`) and
       the `id / route / ipc` debug line are removed from what a user sees. If that information
       is still useful during development, it may be gated behind a dev-only flag instead of
       deleted outright — but the default build must not show it.
-- [ ] `module.mods.description` / `module.assets.description` (and `module.install.description`
+- [x] `module.mods.description` / `module.assets.description` (and `module.install.description`
       if it still renders anywhere) are reviewed and rewritten if they read as technical rather
       than descriptive.
-- [ ] `npm run ui:verify` screenshots of the Mods and Assets screens reflect the new copy.
+- [x] `npm run ui:verify` screenshots of the Mods and Assets screens reflect the new copy.
 
 ## Open Questions
 
@@ -163,3 +163,35 @@ Order: D1 → D2 → D3 (D2 needs D1's keys; D3 screenshots the finished copy).
    critical or serious findings.
 
 ## Done
+
+**Summary:** `PlannedModuleView` now shows plain-language product copy — a reworded
+"coming in a later release" title/body, a "What's coming" section with a per-module intro
+paragraph and 3 highlights — instead of the raw capability checklist. The `id / route / ipc`
+debug line is gated behind `import.meta.env.DEV`, so it's gone from production builds but
+still available in `npm run dev`. `ModuleManifest` gained `plannedIntroKey?` /
+`plannedHighlightKeys?`, filled for `downloads`/`mods`/`assets`; `module.mods.description`,
+`module.assets.description` and `module.downloads.description` were rewritten as plain
+one-liners (these also render on the Home tiles). The dead `module.planned.capabilities` /
+`module.planned.capability.*` keys were deleted. `ui:verify`'s screen registry gained `mods`
+and `assets` entries (`downloads` already existed from story 031); the stale "14 screens"
+count in `docs/UI-VERIFICATION.md` was corrected to 15.
+
+**Commit message:**
+```
+033: rewrite planned-module copy in plain language, drop capability checklist
+```
+
+**Verification:**
+- `npm run typecheck` — green
+- `npm run build` — green
+- `npm test` — 51 files / 932 tests passed
+- `npm run ui:verify -- --screens=mods,assets,downloads` — PASS, 6/6 screenshots (2
+  viewports × 3 screens), 0 critical/serious/moderate/minor axe violations
+- Clean-agent review — verdict PASS, no blocking findings (one non-blocking style note:
+  a `p-4`→`px-1` padding tweak on the now-unwrapped dev-only debug line, harmless)
+
+**Decisions:**
+- `downloads`'s `nav-downloads` test-id was already wired into the ui:verify registry by
+  story 031's D4 — this story only needed to add the `mods` and `assets` entries.
+- `module.install.description` no longer existed (story 031 already renamed it to
+  `module.downloads.description`) — AC4's "if it still renders anywhere" branch is N/A.

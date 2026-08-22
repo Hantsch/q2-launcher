@@ -85,3 +85,4 @@ second roadmap.
   landing.
 - 031 — Rename Install module to Downloads, move nav entry next to Settings · S06 · full `install`→`downloads` rename (id/route/ipc/i18n) plus a new icon-only titlebar button next to Settings replacing the primary-nav entry; `ui:verify` covers the new screen and a clean review passed on all acceptance criteria.
 - 030 — Titlebar and wordmark scale up · S06 · titlebar grows 44px→68px via `--titlebar-h`, wordmark doubled, nav/Settings/Downloads/window controls all resized to the 44px hit-area floor; `ui:verify` confirms the new proportions and a clean review passed on all acceptance criteria.
+- 033 — Planned-module screens explain the feature, not the engineering · S06 · Mods/Assets/Downloads planned screens now show plain-language intro + highlights instead of a capability checklist, id/route/ipc debug line is dev-only, `ui:verify` covers all three screens with a clean review pass.

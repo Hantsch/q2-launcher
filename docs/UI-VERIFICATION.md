@@ -108,7 +108,7 @@ page state — story 026's two-script split could not promise that, since a
 screenshot from `shot.mjs` and an axe reading from `a11y.mjs` came from two
 independent app instances that could, in principle, differ.
 
-Today's registry is 14 screens across 2 fixture variants (`populated`,
+Today's registry is 15 screens across 2 fixture variants (`populated`,
 `empty`) with no screen marked `coldStart` (see below), so a full
 `ui:verify` run does **2** `_electron.launch()` calls total — down from 56,
 roughly 34s instead of the ~113s story 026 measured. The actual launch count
@@ -327,7 +327,7 @@ size):
 },
 ```
 
-None of the 14 screens shipped so far set `coldStart` — every current screen
+None of the 15 screens shipped so far set `coldStart` — every current screen
 is reachable from a running app via clicks, so the field exists in the
 registry's shape but isn't exercised by any entry yet. Each `coldStart: true`
 screen adds one extra `_electron.launch()` per viewport it lists, on top of

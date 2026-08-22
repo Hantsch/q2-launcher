@@ -7,9 +7,10 @@ import { Badge, Panel, SectionLabel } from '../components/ui/primitives'
 /**
  * Shown for any module the shell knows about but has no renderer half for yet.
  *
- * This is the reason a parked module is not a dead end: the route exists, the
- * page explains what the module will do, and it lists the capabilities it will
- * need from the host - which doubles as the checklist for building it.
+ * This is the reason a parked module is not a dead end: the route exists, and
+ * the page explains in plain language what the module is for and what it will
+ * let the user do, via the manifest's optional `plannedIntroKey` /
+ * `plannedHighlightKeys`. The `id / route / ipc` line is dev-only detail.
  */
 export function PlannedModuleView({ module }: { module: ModuleManifest }) {
   const { t } = useTranslation()
@@ -40,22 +41,30 @@ export function PlannedModuleView({ module }: { module: ModuleManifest }) {
           <p className="text-xs leading-relaxed text-ink-dim">{t('module.planned.body')}</p>
         </Panel>
 
-        <Panel className="space-y-3 p-4">
-          <SectionLabel>{t('module.planned.capabilities')}</SectionLabel>
-          <ul className="space-y-2">
-            {module.capabilities.map((capability) => (
-              <li key={capability} className="flex items-start gap-2.5">
-                <Circle className="mt-1 size-2 shrink-0 text-flame-700" fill="currentColor" />
-                <span className="text-xs leading-relaxed text-ink-dim">
-                  {t(`module.planned.capability.${capability}`)}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <div className="numeric pt-1 text-[10px] text-ink-muted">
+        {(module.plannedIntroKey || module.plannedHighlightKeys?.length) && (
+          <Panel className="space-y-3 p-4">
+            <SectionLabel>{t('module.planned.outlook')}</SectionLabel>
+            {module.plannedIntroKey && (
+              <p className="text-xs leading-relaxed text-ink-dim">{t(module.plannedIntroKey)}</p>
+            )}
+            {module.plannedHighlightKeys && module.plannedHighlightKeys.length > 0 && (
+              <ul className="space-y-2">
+                {module.plannedHighlightKeys.map((highlightKey) => (
+                  <li key={highlightKey} className="flex items-start gap-2.5">
+                    <Circle className="mt-1 size-2 shrink-0 text-flame-700" fill="currentColor" />
+                    <span className="text-xs leading-relaxed text-ink-dim">{t(highlightKey)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+        )}
+
+        {import.meta.env.DEV && (
+          <div className="numeric px-1 text-[10px] text-ink-muted">
             id: {module.id} &middot; route: {module.route} &middot; ipc: {module.ipcNamespace}
           </div>
-        </Panel>
+        )}
       </div>
     </div>
   )

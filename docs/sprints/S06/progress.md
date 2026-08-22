@@ -16,3 +16,10 @@
 - 2026-08-22 08:16 · 030 · D3 Nav, Settings/Downloads and window controls scale with the bar · done
 - 2026-08-22 08:16 · 030 · D4 Refreshed verification run · started
 - 2026-08-22 08:17 · 030 · D4 Refreshed verification run · done
+- 2026-08-22 08:20 · 033 · D1 Plain-language copy + manifest copy keys · started
+- 2026-08-22 08:23 · 033 · D1 Plain-language copy + manifest copy keys · done
+- 2026-08-22 08:23 · 033 · D2 PlannedModuleView shows the outlook · started
+- 2026-08-22 08:27 · 033 · D2 PlannedModuleView shows the outlook · done
+- 2026-08-22 08:27 · 033 · D3 Planned screens enter ui:verify registry · started
+- 2026-08-22 08:33 · 033 · D3 Planned screens enter ui:verify registry · done
+- 2026-08-22 08:40 · 033 · review + fixes + Done section · done

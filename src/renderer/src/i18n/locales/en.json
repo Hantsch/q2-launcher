@@ -64,7 +64,7 @@
     },
     "downloads": {
       "title": "Downloads",
-      "description": "Download, update and repair Quake II game files."
+      "description": "Get the game files you need and keep them up to date."
     },
     "config": {
       "title": "Config",
@@ -72,23 +72,40 @@
     },
     "mods": {
       "title": "Mods",
-      "description": "Install and switch between game mods."
+      "description": "Add mods and switch between them whenever you like."
     },
     "assets": {
       "title": "Assets",
-      "description": "Texture, model and sound packs."
+      "description": "Add new looks and sounds with texture, model and sound packs."
     },
     "planned": {
       "badge": "Planned",
-      "title": "{{module}} is not built yet",
-      "body": "This module has its place in the launcher reserved. Nothing here works yet \u2013 the shell, the installation list and the launch path are what ship first.",
-      "capabilities": "What this module will need",
-      "capability": {
-        "mutates-installation": "Write files inside an installation",
-        "long-running-jobs": "Long-running jobs with progress and cancel",
-        "network": "Network downloads",
-        "cvar-schema": "Contribute a cvar schema to the config UI",
-        "game-lifecycle": "Know when the game starts and stops"
+      "title": "{{module}} is coming in a later release",
+      "body": "This part of the launcher is on the way, but it is not here yet. For now, the rest of the launcher \u2013 your installation list and the launch path \u2013 is what you can use.",
+      "outlook": "What's coming",
+      "downloads": {
+        "intro": "Downloads will be the easiest way to get Quake II running and keep it that way, without hunting for files yourself.",
+        "highlight": {
+          "1": "Get the base game files with a couple of clicks",
+          "2": "Update to the latest version when one is available",
+          "3": "Repair an installation if files go missing or get corrupted"
+        }
+      },
+      "mods": {
+        "intro": "Mods will let you bring in extra content and switch between different play styles whenever you feel like it.",
+        "highlight": {
+          "1": "Browse and add mods to an installation",
+          "2": "Switch between installed mods without reinstalling anything",
+          "3": "Remove a mod cleanly when you no longer want it"
+        }
+      },
+      "assets": {
+        "intro": "Assets will let you change how the game looks and sounds with packs made by the community.",
+        "highlight": {
+          "1": "Add texture packs for a sharper or different look",
+          "2": "Add model packs to change how characters and objects appear",
+          "3": "Add sound packs to change music and effects"
+        }
       }
     }
   },
