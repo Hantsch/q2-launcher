@@ -11,6 +11,7 @@ import {
   type SetProfileBindsInput,
   type SetProfileCvarsInput,
   type SetProfileLayersInput,
+  type SetWriteUnbindallInput,
   type UnassignProfileInput,
   type UnrecognizedConfigLine,
 } from '@shared/modules/config'
@@ -275,6 +276,24 @@ export class ProfilesStore {
       actions: [...input.actions],
       binds: applyActionBindMirror(current.binds, input.actions, current.actions ?? []),
       layers: applyActionLayerMirror(current.layers ?? [], input.actions, randomUUID, current.actions ?? []),
+      updatedAt: new Date().toISOString(),
+    }
+    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+  }
+
+  /**
+   * Sets a profile's `writeUnbindall` flag outright (story 040 D4) - a single boolean, so this is
+   * a dedicated setter rather than routed through `setCvars`/`setBinds`/`setLayers`/`setActions`
+   * (each of those replaces a whole field of its own). Mirrors `setCvars`/`setBinds` above: throws
+   * if the profile is unknown, bumps `updatedAt`, and goes through the same `commit`.
+   */
+  setWriteUnbindall(input: SetWriteUnbindallInput): ConfigProfile[] {
+    const current = this.find(input.profileId)
+    if (!current) throw new Error(`config profile not found: ${input.profileId}`)
+
+    const next: ConfigProfile = {
+      ...current,
+      writeUnbindall: input.writeUnbindall,
       updatedAt: new Date().toISOString(),
     }
     return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))

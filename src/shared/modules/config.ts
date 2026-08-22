@@ -31,6 +31,7 @@ export const CONFIG_HANDLERS = {
   setPlayedMods: 'setPlayedMods',
   switchBinds: 'switchBinds',
   setSwitchBind: 'setSwitchBind',
+  setWriteUnbindall: 'setWriteUnbindall',
   importScan: 'import.scan',
   importPreview: 'import.preview',
   importCommit: 'import.commit',
@@ -93,17 +94,23 @@ export type ActionEntryKind = 'bind' | 'message' | 'alias'
 
 /** A built-in category — a shared constant, never persisted (decision: profiles only persist
  * their custom categories, so built-in labels stay translatable and adding one needs no
- * migration). */
+ * migration).
+ *
+ * `label` (story 040 D1) is the plain ASCII English text `labelKey` resolves to in the renderer -
+ * `comment-labels.ts`'s `categoryLabelFor` uses it directly, since the config-file writer
+ * (`render.ts`) runs in main too and can never import i18n. `comment-labels.test.ts` pins it
+ * against the matching `en.json` string. */
 export interface BuiltInActionCategory {
   id: string
   labelKey: string
+  label: string
 }
 
 /** Exactly the three the story's AC names, matching upstream's `group: 'main'` set. */
 export const BUILT_IN_ACTION_CATEGORIES: readonly BuiltInActionCategory[] = [
-  { id: 'movement', labelKey: 'config.controls.categories.movement' },
-  { id: 'weapons', labelKey: 'config.controls.categories.weapons' },
-  { id: 'drops', labelKey: 'config.controls.categories.drops' },
+  { id: 'movement', labelKey: 'config.controls.categories.movement', label: 'Movement' },
+  { id: 'weapons', labelKey: 'config.controls.categories.weapons', label: 'Weapons' },
+  { id: 'drops', labelKey: 'config.controls.categories.drops', label: 'Weapon dropping' },
 ]
 
 /** A user-defined category. Its `name` is user-typed text (not translatable UI prose, hence a
@@ -206,6 +213,13 @@ export interface ConfigAction {
  * again: optional, so a pre-story-008 profile simply omits them, and a
  * forgiving row-level-drop in the persisted schema (not the whole-array
  * `.catch()` `layers` uses) so one malformed row does not wipe the rest.
+ *
+ * `writeUnbindall` (story 040 D4) is whether the rendered `.cfg` opens with a bare `unbindall`
+ * line, directly after the header block (`@shared/config/render.ts#renderProfileFile`). Optional
+ * and defaults to **on** - a profile with no stored value (every profile predating this story)
+ * behaves exactly as `true`, via `.catch(true)` in the persisted schema
+ * (`main/lib/schemas.ts`) and the same `!== false` read at render time, so there is no migration
+ * step and no reshaping of existing profiles.
  */
 export interface ConfigProfile {
   id: string
@@ -219,6 +233,7 @@ export interface ConfigProfile {
   layers?: AltLayer[]
   categories?: ConfigActionCategory[]
   actions?: ConfigAction[]
+  writeUnbindall?: boolean
 }
 
 /** Where a new profile's content comes from. */
@@ -359,6 +374,17 @@ export interface SetSwitchBindInput {
   installationId: string
   /** null clears the bind for that installation. */
   key: string | null
+}
+
+/**
+ * Story 040 D4: sets one profile's `writeUnbindall` flag - a dedicated handler rather than routed
+ * through `setCvars`/`setBinds`/`setLayers`/`setActions` (those are whole-field replace setters
+ * for a different field each, and this is a single boolean of its own), mirroring the shape of
+ * `SetPlayedModsInput`/`SetSwitchBindInput` above.
+ */
+export interface SetWriteUnbindallInput {
+  profileId: string
+  writeUnbindall: boolean
 }
 
 /**

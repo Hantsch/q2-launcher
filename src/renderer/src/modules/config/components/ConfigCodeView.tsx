@@ -285,7 +285,11 @@ export function ConfigCodeView({ text, className, singleLine, searchable }: Conf
 
   if (!isSearchActive) {
     return (
-      <div className={cn('cfg-code', className)}>
+      // tabIndex so a keyboard-only user can reach and scroll this fixed-height (`max-height:
+      // 16rem`) overflow container - axe's scrollable-region-focusable rule, otherwise nothing
+      // in the tab order can scroll it. Distinct from `.cfg-code-panel` below's `tabIndex={-1}`,
+      // which is a deliberate click/script-only focus target for Escape/Ctrl+F, not this.
+      <div className={cn('cfg-code', className)} tabIndex={0}>
         {renderGutter(lines, numberedLines)}
         <pre className="cfg-code-content" data-selectable>
           {lines.map(renderLine)}
@@ -343,7 +347,9 @@ export function ConfigCodeView({ text, className, singleLine, searchable }: Conf
           <ChevronDown className="size-3.5" aria-hidden="true" />
         </IconButton>
       </div>
-      <div className="cfg-code">
+      {/* Same tabIndex reasoning as the non-searchable branch above: this is the actual
+          scrollable overflow container, and it otherwise sits outside the tab order. */}
+      <div className="cfg-code" tabIndex={0}>
         {renderGutter(lines, numberedLines)}
         <pre className="cfg-code-content" data-selectable>
           {lines.map((line) => renderSearchableLine(line, matchesByLine, currentMatch, currentMatchRef))}

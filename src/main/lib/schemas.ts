@@ -242,6 +242,12 @@ const configProfileObjectSchema = z.object({
     (raw) => parseForgivingRows(configActionPersistedSchema, raw),
     z.array(configActionPersistedSchema),
   ),
+  // Story 040 D4: whether the rendered file opens with `unbindall`, right after the header.
+  // Defaults to true (the User decision) - a missing/malformed value, including every profile
+  // persisted before this story, degrades to `true` rather than `false`, same forgiving
+  // convention as `favorite` above. No migration entry: purely additive, same precedent as
+  // story 039's `aliasName`.
+  writeUnbindall: z.boolean().catch(true),
 })
 
 /**

@@ -237,6 +237,111 @@ describe('tokenizeConfigText - every token kind is exercised', () => {
   })
 })
 
+/**
+ * A profile rich enough to force `renderProfileFile` to emit a real section banner and a
+ * column-aligned, commented bind line (story 040 D6) - the sparse local `profile()` above only
+ * ever produces cvar sections and one "Other binds" section with no owning action, so no bind in
+ * it ever carries a trailing comment.
+ *
+ * Two keyed actions share the `weapons` category (a built-in, so no `categories` entry is
+ * needed) and their generated alias names differ in length ('ssg_sg' vs 'attack_e') - which is
+ * what makes their bind bodies ("ssg_sg" vs "attack_e", quotes included) different widths and
+ * therefore forces `alignRows` to actually pad one of them, rather than leaving every row at
+ * `attachComment`'s own fixed two-space gap. Neither action has a `catalogId`, so
+ * `bindValueFor` mirrors each one's own alias name (never a bare command) - matching this file's
+ * `binds` map exactly, which is what keeps both actions inside `actionsWithAliasLine`'s kept set
+ * (a bind really does reference each alias by name).
+ */
+function richProfile(): ConfigProfile {
+  return profile({
+    id: 'syntax-rich',
+    actions: [
+      {
+        id: 'e-ssg',
+        categoryId: 'weapons',
+        name: 'SSG + SG',
+        kind: 'bind',
+        key: 'q',
+        aliasName: 'ssg_sg',
+        commands: [
+          { kind: 'raw', text: 'use super shotgun' },
+          { kind: 'raw', text: 'use shotgun' },
+        ],
+      },
+      {
+        id: 'e-atk',
+        categoryId: 'weapons',
+        name: 'Attack',
+        kind: 'bind',
+        key: 'x',
+        aliasName: 'attack_e',
+        commands: [{ kind: 'raw', text: '+attack' }],
+      },
+    ],
+    binds: { q: 'ssg_sg', x: 'attack_e' },
+  })
+}
+
+describe('tokenizeConfigText - section banners and aligned commented rows (story 040 D6)', () => {
+  it('tokenizes a `// --- Section ---` banner line as a single comment token', () => {
+    const rendered = renderProfileFile(richProfile())
+    const bannerLine = rendered.split('\n').find((line) => line.startsWith('// --- Binds: Weapons'))
+    expect(bannerLine).toBeDefined()
+
+    const [line] = tokenizeConfigText(bannerLine!)
+    expect(line.tokens).toEqual([{ kind: 'comment', text: bannerLine }])
+  })
+
+  it('tokenizes a column-aligned, commented bind line as command/space/key/space/string/space/comment, with the alignment gap inside one space token', () => {
+    const rendered = renderProfileFile(richProfile())
+    // The 'q' row: its body ("ssg_sg") is shorter than the section's widest body
+    // ("attack_e"), so this is the row `alignRows` actually pads - the one that proves real
+    // column alignment rather than just `attachComment`'s own fixed two-space gap.
+    const bindLine = rendered.split('\n').find((line) => line.startsWith('bind q '))
+    expect(bindLine).toBeDefined()
+
+    const [line] = tokenizeConfigText(bindLine!)
+    expect(line.tokens.map((t) => t.kind)).toEqual([
+      'command',
+      'space',
+      'key',
+      'space',
+      'string',
+      'space',
+      'comment',
+    ])
+    expect(line.tokens.map((t) => t.text).join('')).toBe(bindLine)
+
+    const [command, space1, key, space2, value, gap, comment] = line.tokens
+    expect(command).toEqual({ kind: 'command', text: 'bind' })
+    expect(space1.text).toBe(' ')
+    expect(key).toEqual({ kind: 'key', text: 'q' })
+    expect(value).toEqual({ kind: 'string', text: '"ssg_sg"' })
+    expect(comment).toEqual({ kind: 'comment', text: '// SSG + SG' })
+
+    // The alignment gap - the column padding plus attachComment's own two spaces - lands
+    // entirely inside this one space token, not split across several: more than the fixed
+    // two-space gap `attachComment` alone would produce.
+    expect(space2!.kind).toBe('space')
+    expect(gap.kind).toBe('space')
+    expect(gap.text.length).toBeGreaterThan(2)
+    expect(gap.text).toBe('    ')
+  })
+
+  it('round-trips renderProfileFile output byte-identically over a profile with a section banner, aliases and an aligned commented bind', () => {
+    const rendered = renderProfileFile(richProfile())
+
+    // Sanity: this profile really does exercise the shapes the two tests above pin - a banner
+    // and a multi-space-aligned trailing comment - and not just the sparse shape the first
+    // round-trip test in this file already covers.
+    expect(rendered).toContain('// --- Binds: Weapons ')
+    expect(rendered).toMatch(/"ssg_sg"\s{3,}\/\/ SSG \+ SG/)
+
+    const lines = tokenizeConfigText(rendered)
+    expect(reconstruct(lines)).toBe(rendered)
+  })
+})
+
 describe('tokenizeConfigText - performance', () => {
   it('tokenizes a ~2000 line synthetic config well under a loose bound', () => {
     const block = [

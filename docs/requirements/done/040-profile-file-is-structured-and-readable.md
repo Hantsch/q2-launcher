@@ -1,7 +1,7 @@
 ---
 id: 040
 title: The profile file is written structured, commented and human-readable
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-08-22
 ---
 
@@ -208,7 +208,7 @@ Not touched: `renderLoaderFile`, the ownership sentinel, `ConfigCodeView.tsx` it
 
 ## Deliverables
 
-### D1 — Plain-English labels and section order in the shared layer
+### D1 — Plain-English labels and section order in the shared layer [x]
 
 Give `src/shared/config/` everything a pure renderer needs to name a section and an entry, without
 i18n.
@@ -226,7 +226,7 @@ i18n.
   test asserts every shared literal equals the matching `en.json` value; the renderer's cvar group
   order comes from the shared constant and `SettingsTab` renders unchanged.
 
-### D2 — Layout primitives, header block and cvar sections
+### D2 — Layout primitives, header block and cvar sections [x]
 
 - Files: new `src/shared/config/cfg-layout.ts`, `src/shared/config/render.ts`,
   `src/main/modules/config/render.test.ts`, new `src/shared/config/cfg-layout.test.ts`.
@@ -243,7 +243,7 @@ i18n.
   `maxLineBytes`; two calls on the same profile return identical strings (the existing determinism
   and latin-1 assertions in `render.test.ts` still pass, updated for the new layout).
 
-### D3 — Alias, layer and bind sections with trailing comments
+### D3 — Alias, layer and bind sections with trailing comments [x]
 
 - Files: `src/shared/config/render.ts`, `src/main/modules/config/render.test.ts`, and whatever
   byte-equality expectations in `src/main/modules/config/{writer,canonical,sync,index}.test.ts`
@@ -266,7 +266,7 @@ i18n.
     the size Care evaluates (`effectiveSize`), so a large profile can newly cross the engine
     exec-buffer warning — that is the intended surface, not a bug.
 
-### D4 — `writeUnbindall` as a per-profile setting (data + handler)
+### D4 — `writeUnbindall` as a per-profile setting (data + handler) [x]
 
 - Files: `src/shared/modules/config.ts` (`ConfigProfile.writeUnbindall?`, `SetWriteUnbindallInput`,
   handler name in `CONFIG_HANDLERS`), `src/main/lib/schemas.ts` (`.catch(true)`),
@@ -280,7 +280,7 @@ i18n.
   persists and triggers the same canonical rewrite/sync the other write-affecting setters do; no
   migration entry is added; contract/coverage IPC tests stay green.
 
-### D5 — The Raw File tab checkbox
+### D5 — The Raw File tab checkbox [x]
 
 - Files: `src/renderer/src/modules/config/RawFileTab.tsx`,
   `src/renderer/src/i18n/locales/en.json`.
@@ -290,7 +290,7 @@ i18n.
   accordingly without a manual refresh; keyboard-reachable with a visible focus ring and a real
   label association (no new axe violation in `npm run ui:verify`).
 
-### D6 — Highlighting and the two views still hold up
+### D6 — Highlighting and the two views still hold up [x]
 
 - Files: `src/shared/config/config-syntax.test.ts`, `docs/UI-VERIFICATION.md` only if a screen
   entry changes.
@@ -354,3 +354,61 @@ i18n.
 | Empty binds dropped (user decision) | D3 |
 
 ## Done
+
+**Summary.** All 6 deliverables implemented as planned: shared plain-English labels + section
+order with an `en.json`-pinning test (D1); `cfg-layout.ts` layout primitives (`banner`, `section`,
+`alignRows`, `attachComment`, `sanitizeComment`) plus the header block and cvar-group sections
+(D2); the risky half — alias/layer/bind sections, a hand-built bind-value -> owning-action reverse
+index (`buildBindOwnerIndex`), trailing `// <label>` comments, empty-bind dropping (D3); the
+`writeUnbindall` per-profile setting, data + handler (D4) and its Raw File tab checkbox (D5); and
+the `config-syntax.test.ts` regression cases for section banners and multi-space-aligned trailing
+comments, plus a real `ui:verify` run confirming the Raw File tab and write-preview dialog render
+the new layout correctly (D6).
+
+**Implementation-detail decisions made without the user (no scope change):**
+- Layer sections are emitted **after** every bind section, not between aliases and binds as the
+  refine-time "Decisions" note said — a layer's trigger bind has to be the *last* `bind` line on
+  its key for the "trigger wins a colliding base bind" promise (`alt-layers.ts`'
+  `layer.triggerConflict` copy) to hold, since Quake II config files apply the last bind on a key.
+  Documented at `render.ts` (`buildLayerSections`) as a deliberate, correctness-driven deviation
+  from the stated order; the file still reads header -> cvars -> aliases -> binds -> layers.
+- `OTHER_CVAR_GROUP_LABEL`/`OTHER_CATEGORY_LABEL`/`UNOWNED_BINDS_LABEL` are plain literals in
+  `render.ts` rather than routed through `comment-labels.ts`, because "other"/"unowned" are the
+  *absence* of a catalogued id, not a row that resolves to one.
+
+**Review (`story-review-hard`, foreground, one cycle) — PASS after 3 confirmed defects fixed:**
+1. `render.ts`'s `ownerIndexKey` separator was a **raw NUL byte literally embedded in the source**
+   rather than the ` ` escape — besides making the file binary to `grep`/`rg`, one editor
+   round-trip away from silently losing that byte would make `ownerIndexKey('a', 'bc')` collide
+   with `ownerIndexKey('ab', 'c')`, filing a hand-typed bind under the wrong action's category and
+   name. Exactly the "invisible in a green test run" risk the story's Model Hints called out for
+   D3. Fixed (now ` `), pinned with a new key+value collision regression test.
+2. In-section cvar order was insertion-order-dependent in a case-insensitive-duplicate edge case
+   (`sensitivity` vs `Sensitivity` resolve to the same catalog index, so the sort was unstable
+   there and fell back to `Object.keys` order) — a determinism regression against AC5. Fixed with
+   a stored-name tie-break, pinned with a test.
+3. Banner lines (profile name / category / layer name) had no line-budget guard, so an
+   unrealistically long name could in principle produce a line over the engine's budget (AC7).
+   Not reachable through the app today (every IPC payload caps these at 120 chars) but the
+   persisted schema does not cap them, so fixed by clamping in `render.ts` at the point each name
+   flows into a banner.
+
+**Verification (final pass):** `npm run build`, `npm run typecheck`, `npm test` (59 files / 1228
+tests, up from 1225 pre-review) all green. `npm run ui:verify`: 34/34 screens written, 0
+console/page errors, 0 axe-core violations at every severity (`page-has-heading-one` stays
+disabled per this app's single-window nature, unrelated to this story). `.ui-verify/screenshots/
+config-raw@*.png` and `config-write-preview@*.png` show the header banner, `unbindall` line,
+`// --- Player ---`-style section banners, space-aligned `set`/`alias`/`bind` values and trailing
+`// <label>` comments rendering with syntax highlighting intact; the D5 "Start the file with
+`unbindall`" checkbox renders with a real label association. `ConfigCodeView.tsx` needed one
+production fix after all (`tabIndex={0}` on both scrollable `.cfg-code` containers) to clear a
+new axe `scrollable-region-focusable` violation the taller, section-banner-heavy new layout
+exposed — the one change the story flagged as possible under "No production change ... expected".
+
+**Changed files:** `src/shared/config/{render,cfg-layout,comment-labels,action-catalog,
+cvar-facts,config-syntax}.ts` (+ new `cfg-layout.test.ts`, `comment-labels.test.ts`, new D6 cases
+in `config-syntax.test.ts`), `src/shared/modules/config.ts`, `src/main/lib/schemas.ts`,
+`src/main/modules/config/{index,profiles,schemas,render.test.ts}`,
+`src/renderer/src/modules/config/{RawFileTab,ConfigView,SettingsTab,client}.tsx/.ts`,
+`src/renderer/src/modules/config/components/ConfigCodeView.tsx`,
+`src/renderer/src/modules/config/lib/cvar-rows.ts`, `src/renderer/src/i18n/locales/en.json`.

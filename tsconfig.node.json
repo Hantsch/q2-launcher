@@ -4,7 +4,12 @@
     "src/preload/**/*.ts",
     "src/shared/**/*.ts",
     "electron.vite.config.ts",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    // Story 040 D1: `comment-labels.test.ts` pins shared-layer ASCII literals against the real
+    // English strings, so it needs this one renderer data file - listed explicitly rather than
+    // widening the include to all of `src/renderer` (which stays out of the node project on
+    // purpose; see docs/ARCHITECTURE.md).
+    "src/renderer/src/i18n/locales/en.json"
   ],
   "compilerOptions": {
     "composite": true,

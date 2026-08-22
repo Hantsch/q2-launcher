@@ -147,7 +147,9 @@ describe('render invariants (story 038 D3, AC4)', () => {
     const rendered = renderProfileFile(PROFILE_FIXTURES.chunkedSignedBody!)
 
     expect(rendered).toContain('alias forward_p1 "+forward;')
-    expect(rendered).toMatch(/^alias forward "forward_p1; forward_p2/m)
+    // `\s+`, not a single space: story 040 D3 aligns a section's value column, so the family
+    // root's shorter `alias forward` head is padded out to the width of its own `_p<n>` parts.
+    expect(rendered).toMatch(/^alias forward\s+"forward_p1; forward_p2/m)
   })
 
   /**

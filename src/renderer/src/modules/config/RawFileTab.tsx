@@ -7,7 +7,7 @@ import { Button, IconButton } from '../../components/ui/Button'
 import { Checkbox } from '../../components/ui/controls'
 import { Badge, SectionLabel, Spinner } from '../../components/ui/primitives'
 import { useLauncher } from '../../store/useLauncher'
-import { getRawFiles, openProfileFile, setPlayedMods } from './client'
+import { getRawFiles, openProfileFile, setPlayedMods, updateProfileWriteUnbindall } from './client'
 import { ConfigCodeView } from './components/ConfigCodeView'
 import { RawConfigPanel } from './RawConfigPanel'
 
@@ -21,7 +21,13 @@ import { RawConfigPanel } from './RawConfigPanel'
  * Module-local, props-based, same idiom as `RawConfigPanel`: owns its own
  * fetch, no shell-store dependency beyond `pushToast` for action failures.
  */
-export function RawFileTab({ profile }: { profile: ConfigProfile }) {
+export function RawFileTab({
+  profile,
+  onChanged,
+}: {
+  profile: ConfigProfile
+  onChanged: (profiles: ConfigProfile[]) => void
+}) {
   const { t } = useTranslation()
   const pushToast = useLauncher((state) => state.pushToast)
   const installations = useLauncher((state) => state.installations)
@@ -78,6 +84,13 @@ export function RawFileTab({ profile }: { profile: ConfigProfile }) {
         timeoutMs: 0,
         ...(outcome.error.params ? { params: outcome.error.params } : {}),
       })
+    }
+  }
+
+  const toggleWriteUnbindall = async (checked: boolean): Promise<void> => {
+    const outcome = await updateProfileWriteUnbindall({ profileId: profile.id, writeUnbindall: checked })
+    if (outcome.ok) {
+      onChanged(outcome.value)
     }
   }
 
@@ -153,6 +166,14 @@ export function RawFileTab({ profile }: { profile: ConfigProfile }) {
         {!canonical.onDisk && (
           <p className="text-xs text-ink-muted">{t('config.raw.ownNotOnDisk')}</p>
         )}
+        <div className="space-y-1">
+          <Checkbox
+            checked={profile.writeUnbindall !== false}
+            onChange={(next) => void toggleWriteUnbindall(next)}
+            label={t('config.raw.writeUnbindall')}
+          />
+          <p className="text-xs leading-relaxed text-ink-muted">{t('config.raw.writeUnbindallHint')}</p>
+        </div>
         <ConfigCodeView text={canonical.content} searchable />
       </div>
 

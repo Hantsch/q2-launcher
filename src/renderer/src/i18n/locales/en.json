@@ -944,6 +944,8 @@
       "openEditor": "Open in editor",
       "reveal": "Reveal in folder",
       "expand": "Show rendered files",
+      "writeUnbindall": "Start the file with `unbindall`",
+      "writeUnbindallHint": "Clears every engine default bind before this profile's own binds are applied.",
       "playedMods": "Played mods",
       "noMods": "No other mod folders found.",
       "previewEmpty": "Nothing would be written."

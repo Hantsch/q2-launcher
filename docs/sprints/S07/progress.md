@@ -31,3 +31,20 @@
 - 2026-08-22 13:50 · 039 · clean-agent review (story-review-hard) · started
 - 2026-08-22 14:20 · 039 · clean-agent review (2 cycles) + 4 confirmed bugs fixed · done
 - 2026-08-22 14:35 · 039 · live-smoke (ui:verify + new ui:flow probe) + Done section filled, moved to done/ · done
+- 2026-08-22 15:24 · 040 · D1 Plain-English labels and section order in the shared layer · started
+- 2026-08-22 15:38 · 040 · D1 Plain-English labels and section order in the shared layer · done
+- 2026-08-22 15:38 · 040 · D2 Layout primitives, header block and cvar sections · started
+- 2026-08-22 15:52 · 040 · D2 Layout primitives, header block and cvar sections · done
+- 2026-08-22 15:52 · 040 · D3 Alias, layer and bind sections with trailing comments · started
+- 2026-08-22 16:14 · 040 · D3 fix: layer-trigger-wins ordering regression · started
+- 2026-08-22 16:19 · 040 · D3 fix: layer-trigger-wins ordering regression · done
+- 2026-08-22 16:19 · 040 · D4 writeUnbindall per-profile setting (data + handler) · started
+- 2026-08-22 16:28 · 040 · D4 writeUnbindall per-profile setting (data + handler) · done
+- 2026-08-22 16:28 · 040 · D5 Raw File tab checkbox · started
+- 2026-08-22 16:31 · 040 · D5 Raw File tab checkbox · done
+- 2026-08-22 16:31 · 040 · D6 Highlighting and the two views still hold up · started
+- 2026-08-22 17:33 · 040 · resumed after session cutoff; removed stray TEMP EXPLORE debug block from config-syntax.test.ts (npm test 1222/1222 green) · note
+- 2026-08-22 17:42 · 040 · D6 fix-up: axe scrollable-region-focusable violation on `.cfg-code` containers (ConfigCodeView.tsx), fixed with tabIndex={0}; ui:verify rerun 34/34, 0 violations · note
+- 2026-08-22 17:45 · 040 · D6 Highlighting and the two views still hold up · done
+- 2026-08-22 18:03 · 040 · clean-agent review (story-review-hard, 1 cycle, foreground) · done — PASS after 3 confirmed defects fixed: raw NUL byte in ownerIndexKey's separator (render.ts, made the file binary to grep and one edit away from silent key/value-collision corruption), case-insensitive-duplicate cvar-order determinism gap, unbounded banner line-length edge case
+- 2026-08-22 18:05 · 040 · story-level verification (build/typecheck/test 1228 green/ui:verify 0 violations) + Done section filled, moved to done/ · done

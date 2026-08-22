@@ -22,14 +22,16 @@
  */
 
 import type { CvarDef } from '@shared/config/cvar-facts'
-import { hasEngineFacts, resolveCvar } from '@shared/config/cvar-facts'
+import { CVAR_GROUP_ORDER, hasEngineFacts, resolveCvar } from '@shared/config/cvar-facts'
 import type { EngineKind } from '@shared/types/engine'
 
 /** Fixed group order for the Settings tab; `def.group` also carries `network`/`sound` entries that
  * `PLAYER_CVARS`/`GRAPHICS_CVARS` mix into their arrays for authoring convenience only (see
  * `cvar-catalog.ts`'s own docstring) - grouping here always goes by `def.group`, never by which
- * convenience array a def happens to live in. */
-const GROUP_ORDER: CvarDef['group'][] = ['player', 'network', 'graphics', 'sound']
+ * convenience array a def happens to live in. Sourced from the shared `CVAR_GROUP_ORDER` (story
+ * 040 D1) rather than a local copy, so the Settings tab and the config-file writer can never
+ * disagree about section order. */
+const GROUP_ORDER: CvarDef['group'][] = [...CVAR_GROUP_ORDER]
 
 /** Numeric-aware equality, mirroring `cvar-facts.ts`'s private `sameValue`: two values that both
  * parse as numbers compare numerically (`"1.0"` equals `"1"`), everything else compares as

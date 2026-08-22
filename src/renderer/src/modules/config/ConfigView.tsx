@@ -386,7 +386,9 @@ export function ConfigView() {
                   onChanged={setProfiles}
                 />
               )}
-              {activeTab === 'raw' && <RawFileTab profile={selected} />}
+              {activeTab === 'raw' && (
+                <RawFileTab profile={selected} onChanged={setProfiles} />
+              )}
               {activeTab === 'care' && (
                 <CareTab
                   profile={selected}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ConfigProfile } from '@shared/modules/config'
 import type { CvarDef } from '@shared/config/cvar-facts'
+import { CVAR_GROUP_ORDER } from '@shared/config/cvar-facts'
 import type { EngineKind } from '@shared/types/engine'
 import { ALL_CVARS } from '@shared/config/cvar-catalog'
 import { Button } from '../../components/ui/Button'
@@ -19,8 +20,9 @@ const SAVE_DEBOUNCE_MS = 500
 /** Fixed group order for the Settings tab - mirrors `cvar-rows.ts`'s own `GROUP_ORDER`, which is
  * not exported: this file only needs to iterate the four groups once each to build one
  * `buildCvarGroups` call per group (each call scoped to that group's own defs, so its
- * `showAdvanced` can be that group's own local expand state). */
-const GROUP_ORDER: CvarDef['group'][] = ['player', 'network', 'graphics', 'sound']
+ * `showAdvanced` can be that group's own local expand state). Sourced from the shared
+ * `CVAR_GROUP_ORDER` (story 040 D1) rather than a local copy, same reason `cvar-rows.ts` does. */
+const GROUP_ORDER: CvarDef['group'][] = [...CVAR_GROUP_ORDER]
 
 const GROUP_LABEL_KEY: Record<CvarDef['group'], string> = {
   player: 'config.settings.groups.player',

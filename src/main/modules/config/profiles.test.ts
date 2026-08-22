@@ -20,6 +20,17 @@ import {
   setProfileLayersInputSchema,
 } from './schemas'
 
+/**
+ * One rendered bind/alias line stripped back to the bare command: story 040 D3's trailing
+ * `// <label>` comment removed and its column padding collapsed to a single space. Same helper,
+ * same reasoning, as `render.test.ts`'s own copy - the assertions in this file are about what
+ * `setActions`/`setLayers` make the writer emit, not about the writer's column widths, which
+ * `render.test.ts` pins verbatim.
+ */
+function unformat(line: string): string {
+  return line.replace(/\s{2,}\/\/ .*$/, '').replace(/\s{2,}/g, ' ')
+}
+
 describe('ProfilesStore', () => {
   let filePath: string
   let state: StateStore
@@ -764,7 +775,7 @@ describe('ProfilesStore', () => {
         categories: [category],
         actions: [dropRow],
       })
-      const baseLines = renderProfileFile(profiles.find(created!.id)!).split('\n')
+      const baseLines = renderProfileFile(profiles.find(created!.id)!).split('\n').map(unformat)
 
       // Same action, same id, same alias - only the modifier is added.
       profiles.setActions({
@@ -772,7 +783,7 @@ describe('ProfilesStore', () => {
         categories: [category],
         actions: [{ ...dropRow, keyModifier: 'ALT' }],
       })
-      const modifierLines = renderProfileFile(profiles.find(created!.id)!).split('\n')
+      const modifierLines = renderProfileFile(profiles.find(created!.id)!).split('\n').map(unformat)
 
       // The thing that actually executes is byte-identical in both files.
       expect(baseLines).toContain(aliasLine)
@@ -900,7 +911,7 @@ describe('ProfilesStore', () => {
         actions: [aliasEntry, binding],
       })
 
-      const lines = renderProfileFile(profiles.find(created!.id)!).split('\n')
+      const lines = renderProfileFile(profiles.find(created!.id)!).split('\n').map(unformat)
       const aliasLine = lines.indexOf('alias +test +attack')
       const bindingLine = lines.indexOf(`alias ${aliasNameFor(binding)} +test`)
 

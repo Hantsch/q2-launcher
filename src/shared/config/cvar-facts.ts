@@ -107,6 +107,27 @@ export interface ResolvedCvar {
   source?: string
 }
 
+/**
+ * Fixed group order the whole app agrees on (story 040 D1): the Settings tab's own
+ * `GROUP_ORDER`/`GROUP_LABEL_KEY` (`SettingsTab.tsx`, `cvar-rows.ts`) now import this rather than
+ * keeping a second copy, and the config-file writer (`render.ts`, D2) sections cvars by it too -
+ * one order, not two that could drift apart.
+ */
+export const CVAR_GROUP_ORDER: readonly CvarDef['group'][] = ['player', 'network', 'graphics', 'sound']
+
+/**
+ * Plain ASCII English label per cvar group (story 040 D1). The renderer keeps resolving its own
+ * group headers through i18n (`config.settings.groups.*`) unchanged - this is for the config-file
+ * writer, which runs in main too and can never import i18n (see that story's Decisions). Pinned
+ * against the matching `en.json` strings by `comment-labels.test.ts`.
+ */
+export const CVAR_GROUP_LABELS: Readonly<Record<CvarDef['group'], string>> = {
+  player: 'Player',
+  network: 'Network',
+  graphics: 'Graphics',
+  sound: 'Sound',
+}
+
 /** The three engines the catalog carries source-cited facts for. */
 const ENGINE_KINDS_WITH_FACTS: readonly EngineKind[] = ['r1q2', 'q2pro', 'vanilla']
 

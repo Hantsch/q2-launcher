@@ -245,6 +245,15 @@ export const setSwitchBindInputSchema = z.object({
 export const switchBindsInputSchema = z.void()
 
 /**
+ * Story 040 D4: `setWriteUnbindall`'s payload. Strict, same convention as every other config-module
+ * IPC schema in this file - a bad payload is a caller bug, not a state to repair.
+ */
+export const setWriteUnbindallInputSchema = z.object({
+  profileId: z.string().min(1),
+  writeUnbindall: z.boolean(),
+})
+
+/**
  * Story 005 import payloads. Deviation from the story text: it says these
  * belong in `main/lib/schemas.ts`, but every other config-module IPC payload
  * schema already lives here instead - that repo convention wins over the

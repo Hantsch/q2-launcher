@@ -60,6 +60,7 @@ import {
   setProfileCvarsInputSchema,
   setProfileLayersInputSchema,
   setSwitchBindInputSchema,
+  setWriteUnbindallInputSchema,
   switchBindsInputSchema,
   syncStateInputSchema,
   tidyUpApplyInputSchema,
@@ -586,6 +587,24 @@ export const configModule: MainModule = {
       input,
     ): Promise<ConfigProfile[]> => {
       const list = withLiveAssignments(profiles.setActions(input))
+      await syncAndPersist(
+        app,
+        log,
+        list.find((p) => p.id === input.profileId)!,
+        list,
+      )
+      return list
+    })
+
+    // Story 040 D4: a dedicated setter for one boolean, not routed through the whole-field
+    // replace setters above - same "genuinely new handler" shape as `setPlayedMods`/
+    // `setSwitchBind` further down, but this one is write-affecting (it changes what
+    // `renderProfileFile` emits), so it goes through the same `syncAndPersist` rewrite/sync path
+    // `setCvars`/`setBinds`/`setLayers`/`setActions` do, not the plain state write those two use.
+    handle(CONFIG_HANDLERS.setWriteUnbindall, setWriteUnbindallInputSchema, async (
+      input,
+    ): Promise<ConfigProfile[]> => {
+      const list = withLiveAssignments(profiles.setWriteUnbindall(input))
       await syncAndPersist(
         app,
         log,

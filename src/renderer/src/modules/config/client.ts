@@ -29,6 +29,7 @@ import {
   type SetProfileCvarsInput,
   type SetProfileLayersInput,
   type SetSwitchBindInput,
+  type SetWriteUnbindallInput,
   type SyncProfileStateInput,
   type TidyUpApplyInput,
   type TidyUpApplyResult,
@@ -92,6 +93,18 @@ export function updateProfileActions(
   input: SetProfileActionsInput,
 ): Promise<Outcome<ConfigProfile[]>> {
   return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setActions, input)
+}
+
+/**
+ * Sets whether a profile's rendered file opens with `unbindall` (story 040 D4) and returns the
+ * full, updated profile list. Same direct (non-double-wrapped) shape as `updateProfileCvars`/
+ * `updateProfileBinds`/`updateProfileLayers`/`updateProfileActions` above - the main handler
+ * returns `ConfigProfile[]` itself, not a second `Outcome`.
+ */
+export function updateProfileWriteUnbindall(
+  input: SetWriteUnbindallInput,
+): Promise<Outcome<ConfigProfile[]>> {
+  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setWriteUnbindall, input)
 }
 
 /**
