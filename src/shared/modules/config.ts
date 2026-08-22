@@ -155,6 +155,12 @@ export type ConfigCommand =
  * base `binds` mirror - a layer override is a generated mirror of these fields, never a second
  * place they could drift from. Optional and additive like `secondaryKey`/`catalogId`: a pre-016
  * action simply omits them, and a plain (unmodified) key or slot omits the corresponding field too.
+ *
+ * `aliasName` (story 039, D1) is the human-readable alias name the user typed for this action -
+ * `+slow`, not `q2l_a_slow_9a2f`. Optional and additive like `catalogId`: an action without it
+ * still renders under the machine-generated `q2l_a_<slug>_<id4>` name
+ * (`@shared/config/alias-render.ts#aliasNameFor`) exactly as before this field existed; only once
+ * set does the alias render under this name verbatim (sign kept).
  */
 export interface ConfigAction {
   id: string
@@ -167,6 +173,7 @@ export interface ConfigAction {
   catalogId?: string
   keyModifier?: ModifierTrigger
   secondaryKeyModifier?: ModifierTrigger
+  aliasName?: string
 }
 
 /**

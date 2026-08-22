@@ -12,7 +12,7 @@
  */
 
 import type { ConfigAction } from '@shared/modules/config'
-import { ACTION_ALIAS_PREFIX, aliasNameFor, commandLineFor } from '@shared/config/alias-render'
+import { aliasNameFor, commandLineFor } from '@shared/config/alias-render'
 
 export interface KeyDef {
   /** The exact token used as a `profile.binds` key. */
@@ -202,11 +202,19 @@ export const NUMPAD_KEYS: KeyDef[] = [
  * alias chain" test mode shows.
  *
  * Story 008 decision 18: a bind whose value is one of the Advanced tab's
- * generated action aliases (`q2l_a_...`) is expanded to that action's actual
- * command lines instead of being shown as the bare alias token - otherwise
- * the overview would show `q2l_a_help_ab12` instead of the real chain for
- * exactly the binds this story creates. `actions` defaults to `[]` so every
- * pre-story-008 call site keeps compiling and behaving exactly as before.
+ * generated action aliases is expanded to that action's actual command lines
+ * instead of being shown as the bare alias token - otherwise the overview
+ * would show `q2l_a_help_ab12` (or, since story 039, a readable name like
+ * `ssg_sg`) instead of the real chain for exactly the binds this story
+ * creates. `actions` defaults to `[]` so every pre-story-008 call site keeps
+ * compiling and behaving exactly as before.
+ *
+ * Looked up directly against `actions` by `aliasNameFor` (story 039, D5)
+ * rather than gated by the legacy `q2l_a_` prefix first: once an alias name
+ * can be any short readable word the user typed, there is no prefix left to
+ * gate on, and the lookup alone is exactly as precise - a value that is not
+ * any action's alias name falls through to the plain split below, whether or
+ * not it happens to look like a generated name.
  */
 export function resolveAliasChain(
   command: string | undefined,
@@ -214,15 +222,13 @@ export function resolveAliasChain(
 ): string[] {
   if (!command) return []
   const trimmed = command.trim()
-  if (trimmed.startsWith(ACTION_ALIAS_PREFIX)) {
-    const action = actions.find((candidate) => aliasNameFor(candidate) === trimmed)
-    if (action) {
-      return action.commands.map(commandLineFor).filter((line) => line.trim().length > 0)
-    }
-    // A stale bind pointing at an action that no longer exists falls through
-    // to the plain split below, same graceful-degradation the rest of this
-    // function already has for any other unrecognized command string.
+  const action = actions.find((candidate) => aliasNameFor(candidate) === trimmed)
+  if (action) {
+    return action.commands.map(commandLineFor).filter((line) => line.trim().length > 0)
   }
+  // Not any action's alias name - either a stale bind pointing at an action that no longer
+  // exists, or a plain command/chain the user typed. Same graceful-degradation either way: fall
+  // through to the plain `;` split.
   return command
     .split(';')
     .map((step) => step.trim())

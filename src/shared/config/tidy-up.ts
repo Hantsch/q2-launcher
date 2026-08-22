@@ -361,7 +361,7 @@ export function bindClaimsFor(
     }
   }
   for (const [rawKey, command] of Object.entries(layer.overrides)) {
-    if (!command || isMirroredValue(command, actions)) continue
+    if (!command || isMirroredValue(command, actions, rawKey)) continue
     if (normalizeBindKey(rawKey) !== normalizedKey) continue
     claims.push({ source: 'layerOverride', command })
   }

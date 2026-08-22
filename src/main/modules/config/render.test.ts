@@ -360,7 +360,7 @@ describe('renderProfileFile with actions', () => {
       cvars: { sensitivity: '3' },
       // The `x` bind is the mirror D4 writes for the keyed action; the existing
       // sorted bind loop emits it with no action-specific code.
-      binds: { UPARROW: '+forward', x: 'q2l_a_two_bbbb' },
+      binds: { UPARROW: '+forward', x: 'two' },
       layers: [holdLayer],
       actions: [first, second],
     })
@@ -368,8 +368,8 @@ describe('renderProfileFile with actions', () => {
     const lines = renderProfileFile(p).split('\n')
 
     const lastLayerAliasIndex = lines.indexOf('alias -drops "unbind 1; unbind 2"')
-    const firstActionIndex = lines.indexOf('alias q2l_a_one_aaaa drop rl')
-    const secondActionIndex = lines.indexOf('alias q2l_a_two_bbbb wave 2')
+    const firstActionIndex = lines.indexOf('alias one drop rl')
+    const secondActionIndex = lines.indexOf('alias two wave 2')
     const firstBindIndex = lines.indexOf('bind UPARROW "+forward"')
 
     expect(lines).toContain('alias +drops "bind 1 drop rl; bind 2 drop rg"')
@@ -377,7 +377,7 @@ describe('renderProfileFile with actions', () => {
     expect(firstActionIndex).toBeGreaterThan(lastLayerAliasIndex)
     expect(secondActionIndex).toBe(firstActionIndex + 1)
     expect(firstBindIndex).toBeGreaterThan(secondActionIndex)
-    expect(lines).toContain('bind x "q2l_a_two_bbbb"')
+    expect(lines).toContain('bind x "two"')
   })
 
   it('renders a profile with actions: [] identically to one without the field', () => {
@@ -426,7 +426,7 @@ describe('renderProfileFile with actions', () => {
 
     const rendered = renderProfileFile(p)
 
-    expect(rendered).toContain(`alias q2l_a_greet_ab12 say ${text}`)
+    expect(rendered).toContain(`alias greet say ${text}`)
     expect(Buffer.from(rendered, 'latin1').toString('latin1')).toBe(rendered)
   })
 

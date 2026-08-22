@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AltLayer } from '@shared/config/alt-layers'
 import { aliasNameFor } from '@shared/config/alias-render'
+import { applyActionBindMirror } from '@shared/config/action-mirror'
 import type { ConfigAction } from '@shared/modules/config'
 import { applyActionLayerMirror } from './modifier-layers'
 
@@ -155,6 +156,92 @@ describe('applyActionLayerMirror', () => {
     const altLayerRemoved = resultRemoved.find((candidate) => candidate.triggerKey === 'ALT')
     expect(altLayerRemoved?.overrides.G).toBeUndefined()
   })
+  // Story 039 D3: the prefix is no longer the ownership test, so these cases use an explicit,
+  // prefix-free `aliasName`. Nothing here starts with `q2l_a_`: every removal below fails if the
+  // strip falls back to the legacy marker alone, and the hand-typed `z: 'ssg_sg'` fails if the
+  // value-based half is ever applied without its key scope.
+  describe('with prefix-free alias names', () => {
+    function ssgSg(overrides: Partial<ConfigAction> = {}): ConfigAction {
+      return action({
+        id: 'ssg',
+        name: 'SSG + SG',
+        aliasName: 'ssg_sg',
+        commands: [
+          { kind: 'raw', text: 'use super shotgun' },
+          { kind: 'raw', text: 'use shotgun' },
+        ],
+        ...overrides,
+      })
+    }
+
+    /** An ALT layer carrying our own override plus three the user typed themselves. */
+    function altLayerWithHandMade(): AltLayer {
+      return layer({
+        id: 'alt-1',
+        name: 'Alt',
+        triggerKey: 'ALT',
+        overrides: { g: 'ssg_sg', r: '+attack', x: 'some_alias', z: 'ssg_sg' },
+      })
+    }
+
+    it('leaves hand-made overrides alone, including one referencing the alias by hand', () => {
+      const bound = ssgSg({ key: 'g', keyModifier: 'ALT' })
+
+      const result = applyActionLayerMirror([altLayerWithHandMade()], [bound], idSequence(), [bound])
+
+      expect(result).toHaveLength(1)
+      expect(result[0]!.overrides).toEqual({
+        g: 'ssg_sg',
+        r: '+attack',
+        x: 'some_alias',
+        z: 'ssg_sg',
+      })
+    })
+
+    it('clears the override of a slot the user cleared in the Controls grid', () => {
+      const before = ssgSg({ key: 'g', keyModifier: 'ALT' })
+      const cleared = ssgSg({ key: undefined, keyModifier: undefined })
+
+      const result = applyActionLayerMirror([altLayerWithHandMade()], [cleared], idSequence(), [
+        before,
+      ])
+
+      expect(result[0]!.overrides).toEqual({ r: '+attack', x: 'some_alias', z: 'ssg_sg' })
+    })
+
+    it('leaves nothing behind when the action is deleted', () => {
+      const before = ssgSg({ key: 'g', keyModifier: 'ALT', secondaryKey: 'h', secondaryKeyModifier: 'ALT' })
+      const withBoth = layer({
+        id: 'alt-1',
+        name: 'Alt',
+        triggerKey: 'ALT',
+        overrides: { g: 'ssg_sg', h: 'ssg_sg', r: '+attack' },
+      })
+
+      const result = applyActionLayerMirror([withBoth], [], idSequence(), [before])
+
+      expect(result[0]!.overrides).toEqual({ r: '+attack' })
+    })
+
+    it('hands a slot that gains a modifier over from `binds` to the layer, and back', () => {
+      // The two mirrors run in the same save and must agree: exactly one of them may hold the slot,
+      // or the key is either bound twice or not at all.
+      const base = ssgSg({ key: 'g' })
+      const modified = ssgSg({ key: 'g', keyModifier: 'ALT' })
+
+      // base -> ALT: the base bind goes, the override appears.
+      expect(applyActionBindMirror({ g: 'ssg_sg' }, [modified], [base])).toEqual({})
+      const gained = applyActionLayerMirror([], [modified], idSequence('alt-layer'), [base])
+      expect(gained).toHaveLength(1)
+      expect(gained[0]!.overrides).toEqual({ g: 'ssg_sg' })
+
+      // ALT -> base: the override goes, the base bind comes back.
+      const lost = applyActionLayerMirror(gained, [base], idSequence(), [modified])
+      expect(lost[0]!.overrides).toEqual({})
+      expect(applyActionBindMirror({}, [base], [modified])).toEqual({ g: 'ssg_sg' })
+    })
+  })
+
   // Story 019 D2: an alias entry defines an alias for other bindings to call.
   // It is not bindable, so it must never reach a layer's overrides - the
   // exclusion lives here, at the single derive site, and not in a caller.
@@ -179,7 +266,17 @@ describe('applyActionLayerMirror', () => {
       const created = applyActionLayerMirror([], [before], idSequence('alt-layer'))
       expect(created[0]!.overrides).toEqual({ r: aliasNameFor(before) })
 
-      const result = applyActionLayerMirror(created, [{ ...before, kind: 'alias' }], idSequence())
+      // `previousActions` passed explicitly as `[before]` (still `kind: 'bind'`) - the same shape
+      // `setActions` always calls this with when a row's `kind` changes mid-edit (story 039, D7):
+      // the ownership rule is value-based against what the action *used to* mirror, not against
+      // what its now-`alias` self would mirror today, so the strip needs the pre-change object to
+      // recognise its own stale override.
+      const result = applyActionLayerMirror(
+        created,
+        [{ ...before, kind: 'alias' }],
+        idSequence(),
+        [before],
+      )
 
       expect(result[0]!.overrides).toEqual({})
     })

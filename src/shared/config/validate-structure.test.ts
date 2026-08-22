@@ -153,11 +153,70 @@ describe('validateStructure - alias depth and cycles', () => {
   })
 
   it('follows a +name/-name reference to the alias family it belongs to', () => {
-    // `zoom`'s body calls `-zoom`, which is not defined on its own; the sign is
-    // stripped and the edge lands back on `zoom`, closing a cycle.
+    // `zoom`'s body calls `-zoom`, which is not defined on its own and is no
+    // engine command either; the sign is stripped and the edge lands back on
+    // `zoom`, closing a cycle.
     const findings = validateStructure([file(['alias zoom "set fov 30; -zoom"'])], 'r1q2')
 
     expect(only(findings, 'aliasCycle')).toHaveLength(1)
+  })
+
+  /**
+   * Story 039 review fix - the readable-name flip makes an alias named after
+   * its own continuous command an everyday shape, and the sign-stripped
+   * fallback above used to read it as a self-cycle.
+   */
+  it('does not read an alias whose body is its own +command as a cycle', () => {
+    const findings = validateStructure([file(['alias forward +forward', 'bind w forward'])], 'r1q2')
+
+    expect(only(findings, 'aliasCycle')).toEqual([])
+    expect(rules(findings)).toEqual([])
+  })
+
+  it('does not read the -command half as a cycle either', () => {
+    const findings = validateStructure([file(['alias attack -attack'])], 'r1q2')
+
+    expect(only(findings, 'aliasCycle')).toEqual([])
+  })
+
+  it('still flags a self-edge through a sign the engine does not register as a command', () => {
+    const findings = validateStructure([file(['alias mycombo "+mycombo"'])], 'r1q2')
+
+    expect(only(findings, 'aliasCycle')).toHaveLength(1)
+  })
+
+  it('still follows a non-self sign-stripped edge into another alias family', () => {
+    const findings = validateStructure([file(['alias a "-drops"', 'alias drops "a"'])], 'r1q2')
+
+    expect(only(findings, 'aliasCycle')).toHaveLength(1)
+  })
+
+  /**
+   * Story 039, fourth pass - defect 1. The carve-out above used to be scoped to
+   * the *visited node's own key*, so it only ever recognised the shape when the
+   * signed body token sat in the alias that carries the name it strips down to.
+   * `alias-render.ts#renderActionAlias` splits a long action into a `_p<n>`
+   * chunk family, and there the `+forward` token sits in `forward_p1` while the
+   * name it strips to (`forward`) is the *family's root* - so the sign-stripped
+   * fallback drew `forward_p1 -> forward`, the root's own body drew
+   * `forward -> forward_p1`, and a perfectly legal split action was reported as
+   * an error-level cycle.
+   */
+  it('does not read a chunked family whose part body is its own +command as a cycle', () => {
+    const findings = validateStructure(
+      [
+        file([
+          'alias forward_p1 "+forward; say_team going in"',
+          'alias forward_p2 "wait; centerview"',
+          'alias forward "forward_p1; forward_p2"',
+          'bind w forward',
+        ]),
+      ],
+      'r1q2',
+    )
+
+    expect(only(findings, 'aliasCycle')).toEqual([])
+    expect(rules(findings)).toEqual([])
   })
 })
 
@@ -228,7 +287,7 @@ describe('validateStructure - quoting', () => {
           'set cl_maxfps "125"',
           'alias +drops "bind 1 drop rl; bind 2 drop rg"',
           'alias -drops "bind 1 weapnext; bind 2 weapprev"',
-          'alias q2l_a_greet_ab12 "say Hello there"',
+          'alias greet "say Hello there"',
           'bind 1 "weapnext"',
           'bind MOUSE1 "+attack"',
           'bind ALT +drops',

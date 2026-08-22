@@ -37,7 +37,7 @@
  */
 
 import type { AltLayer } from '@shared/config/alt-layers'
-import { ACTION_ALIAS_PREFIX } from '@shared/config/alias-render'
+import { aliasNameFor } from '@shared/config/alias-render'
 import { bindValueFor } from '@shared/config/action-mirror'
 import { allCatalogRows, commandsForRow, type CatalogRow } from '@shared/config/catalog-rows'
 import { normalizeBindKey } from '@shared/config/key-names'
@@ -193,6 +193,26 @@ function mirrorsSlot(
 }
 
 /**
+ * Is `value` the alias name some action in the profile renders under - a
+ * reference to that alias, not a command of its own?
+ *
+ * Unscoped by key, unlike `mirrorsSlot`: a bind can call another action's
+ * alias from any key, not just the one that alias's own action holds (that is
+ * exactly what a user's hand-typed `bind y "weapnext_ready"` referencing a
+ * `kind: 'alias'` entry looks like). Story 039 dropped the `q2l_a_` prefix
+ * test that used to catch this (a name may now be a short readable word),
+ * which is also what surfaces the `weapnext` case: a catalogue row can render
+ * the single-token command `weapnext`, and an action can just as legally be
+ * named (or `aliasName`-d) `weapnext`. Checking alias names first is what
+ * tells "this value calls that alias" apart from "this value is that
+ * catalogue row's own command" before the catalogue lookup ever runs, so the
+ * alias reference is left alone instead of being re-adopted as the row.
+ */
+function isAliasReference(actions: readonly ConfigAction[], value: string): boolean {
+  return actions.some((action) => aliasNameFor(action) === value)
+}
+
+/**
  * One raw entry's worth of work, shared by the base-binds and the
  * layer-overrides pass: resolve the command, find or create the row's action,
  * claim a slot. Returns the value the entry should now carry, or `null` to leave
@@ -208,8 +228,9 @@ function adoptEntry(
 ): string | null {
   const trimmed = command.trim()
   if (trimmed.length === 0) return null
-  // Already a mirrored value - this entry *is* an action's, nothing to adopt.
-  if (trimmed.startsWith(ACTION_ALIAS_PREFIX)) return null
+  // A reference to some action's alias, or already this slot's own mirrored value - either way
+  // nothing to adopt.
+  if (isAliasReference(state.actions, trimmed)) return null
   if (mirrorsSlot(state.actions, key, modifier, trimmed)) return null
 
   const match = index.get(signature([trimmed]))

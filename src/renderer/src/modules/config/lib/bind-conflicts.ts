@@ -155,7 +155,7 @@ function findLayerConflicts(actions: ConfigAction[], layer: AltLayer): BindConfl
   }
 
   for (const [rawKey, command] of Object.entries(layer.overrides)) {
-    if (!command || isMirroredValue(command, actions)) continue
+    if (!command || isMirroredValue(command, actions, rawKey)) continue
     tracker.add(rawKey, command)
   }
 

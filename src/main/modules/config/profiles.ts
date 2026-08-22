@@ -179,8 +179,13 @@ export class ProfilesStore {
    * keys, hand-made overrides) and `current.actions` is the mirror authority -
    * this call never changes `actions`, so it cannot invent an override for a
    * slot the actions array does not carry, and a hand-made override in
-   * `input.layers` (any value not starting with `ACTION_ALIAS_PREFIX`) is
-   * passed through untouched.
+   * `input.layers` (any value that is not the key-scoped `bindValueFor` of one
+   * of `current.actions`, i.e. not a value `applyActionLayerMirror` itself
+   * would have written for that same key) is passed through untouched. The one
+   * exception is a value carrying the `LEGACY_ACTION_ALIAS_PREFIX` marker - not
+   * an ownership test, just the format an older version of this app generated
+   * for this same purpose - which is stripped unconditionally so a pre-039
+   * orphan cannot survive a save.
    */
   setLayers(input: SetProfileLayersInput): ConfigProfile[] {
     const current = this.find(input.profileId)
@@ -197,10 +202,14 @@ export class ProfilesStore {
   /**
    * Replaces a profile's entire `categories` and `actions` wholesale (same
    * replace-whole-array semantics as `setLayers`) and rebuilds the `binds`
-   * map's `q2l_a_*` mirror: every existing bind whose value starts with
-   * `ACTION_ALIAS_PREFIX` is dropped first (an action that lost its key, or
-   * was deleted outright, must not leave a stale bind pointing at an alias
-   * this save no longer generates), then one
+   * map's action mirror: every existing bind that is either (a) the key-scoped
+   * `bindValueFor` of one of `current.actions` - i.e. a value this same mirror
+   * wrote for *that* action on *that* key, current-format, never a bare prefix
+   * test - or (b) carries the `LEGACY_ACTION_ALIAS_PREFIX` marker (the format an
+   * older version of this app generated for the same purpose, kept recognisable
+   * forever so a pre-039 orphan cannot survive a save) is dropped first. An
+   * action that lost its key, or was deleted outright, must not leave a stale
+   * bind pointing at an alias this save no longer generates. Then one
    * `binds[normalizeBindKey(key)] = aliasNameFor(action)` is written per key an
    * action still carries, in `input.actions` array order - so when two actions
    * land on the same (normalized) key, the later one in the array wins,
@@ -213,9 +222,9 @@ export class ProfilesStore {
    * is per action, not per slot, so a two-slot row costs one alias and two bind
    * lines. The consequences fall out of that single rule rather than needing
    * their own branches: clearing one slot drops only that key's bind (the whole
-   * `q2l_a_*` mirror is rebuilt from the surviving slots anyway), and an action
-   * whose two slots normalize to the same key writes that key twice with the
-   * same value, which is a no-op rather than a conflict.
+   * mirror is rebuilt from the surviving slots anyway), and an action whose two
+   * slots normalize to the same key writes that key twice with the same value,
+   * which is a no-op rather than a conflict.
    *
    * Story 016 (decisions 17-18) adds the modifier half, and it is deliberately
    * *two* mirrors over the same one loop's worth of information, not one mirror
@@ -231,23 +240,25 @@ export class ProfilesStore {
    *   `MOUSE2` at the same time, and each slot's own modifier field decides only
    *   that slot's own fate.
    * - Skipping is not the same as *dropping*: the strip pass above only removes
-   *   binds whose value starts with `ACTION_ALIAS_PREFIX`, so a user's
-   *   hand-typed `bind r "weapnext"` on that same key survives a row moving to
-   *   `Alt+R` untouched. What does disappear is a stale `q2l_a_*` base bind for
-   *   a slot that just *gained* a modifier - it has to, or the key would keep
+   *   a bind that is either the key-scoped mirror value for that same action or
+   *   carries the `LEGACY_ACTION_ALIAS_PREFIX` marker, so a user's hand-typed
+   *   `bind r "weapnext"` on that same key survives a row moving to `Alt+R`
+   *   untouched. What does disappear is the stale generated base bind for a
+   *   slot that just *gained* a modifier - it has to, or the key would keep
    *   firing the action without the modifier held.
    * - A `kind: 'alias'` action (story 019) is skipped by both mirrors outright:
    *   it renders as `alias <its own name>` and exists to be *called* by a
    *   binding, so it is never bound to a key nor overridden into a layer. Same
    *   strip-then-skip consequence as above - a row that was a bind and became
-   *   an alias loses its `q2l_a_*` bind, while a hand-typed bind on that key
+   *   an alias loses its generated bind, while a hand-typed bind on that key
    *   stays.
    * - `layers` is rebuilt by `applyActionLayerMirror` (`@shared/config/
    *   modifier-layers`), the exact layer-side counterpart of the `binds` mirror:
-   *   same strip-then-rewrite shape, same `ACTION_ALIAS_PREFIX` filter, same
-   *   later-wins array order. Hand-made overrides and non-modifier layers are
-   *   left alone; `randomUUID` is passed as its id factory so that pure,
-   *   `src/shared` function stays free of `node:crypto`.
+   *   same strip-then-rewrite shape, same key-scoped ownership rule plus the
+   *   same `LEGACY_ACTION_ALIAS_PREFIX` marker, same later-wins array order.
+   *   Hand-made overrides and non-modifier layers are left alone; `randomUUID`
+   *   is passed as its id factory so that pure, `src/shared` function stays
+   *   free of `node:crypto`.
    */
   setActions(input: SetProfileActionsInput): ConfigProfile[] {
     const current = this.find(input.profileId)

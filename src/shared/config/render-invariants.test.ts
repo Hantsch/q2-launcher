@@ -3,8 +3,9 @@ import type { ConfigAction, ConfigProfile } from '../modules/config'
 import { aliasNameFor, renderActionAlias } from './alias-render'
 import { bindValueFor } from './action-mirror'
 import { generateLayerAliases } from './alt-layers'
-import { PROFILE_FIXTURES } from './profile-fixtures'
+import { PROFILE_FIXTURES, SELF_REFERENCE_FIXTURES } from './profile-fixtures'
 import { renderProfileFile } from './render'
+import { validateActions } from './validate-actions'
 import { validateStructure } from './validate-structure'
 
 /**
@@ -133,4 +134,55 @@ describe('render invariants (story 038 D3, AC4)', () => {
       )
     }
   })
+
+  /**
+   * The `chunkedSignedBody` fixture only pins story 039's fourth-pass defect 1
+   * (`validate-structure.ts`'s carve-out being scoped to the visited chunk
+   * instead of the alias family it belongs to) for as long as it really does
+   * split into a `_p<n>` family whose first part opens with `+forward`. Asserted
+   * explicitly, so a future change to the line budget cannot quietly turn the
+   * zero-findings assertion above into a test of the unsplit case.
+   */
+  it('the chunkedSignedBody fixture really renders a _p<n> family opening with its own +command', () => {
+    const rendered = renderProfileFile(PROFILE_FIXTURES.chunkedSignedBody!)
+
+    expect(rendered).toContain('alias forward_p1 "+forward;')
+    expect(rendered).toMatch(/^alias forward "forward_p1; forward_p2/m)
+  })
+
+  /**
+   * Story 039, fourth pass - the User's decision on the multi-command
+   * self-reference case. The alias line is kept as authored (every command the
+   * user wrote is still in the file), so `validateStructure` legitimately reports
+   * an error-level `aliasCycle` for it - and `validate-actions.ts`'s
+   * `aliasSelfReference` has to show up *alongside* that, never instead of it:
+   * the structural finding describes the rendered file, the Care finding names
+   * the entry and the command the user can actually change.
+   */
+  for (const [fixtureName, profile] of Object.entries(SELF_REFERENCE_FIXTURES)) {
+    it(`"${fixtureName}": the kept self-referencing line reports aliasCycle *and* aliasSelfReference`, () => {
+      const rendered = renderProfileFile(profile)
+      const actions = profile.actions ?? []
+
+      // Kept as authored: no command silently lost.
+      for (const command of actions.flatMap((action) => action.commands)) {
+        if (command.kind !== 'raw') continue
+        expect(rendered, `"${fixtureName}": "${command.text}" is missing from the render`).toContain(
+          command.text,
+        )
+      }
+
+      const structure = validateStructure([{ name: 'fixture.cfg', content: rendered }], 'r1q2')
+      const cycles = structure.filter((finding) => finding.messageKey.endsWith('aliasCycle'))
+      expect(cycles).toHaveLength(1)
+      expect(cycles[0]!.level).toBe('error')
+
+      const care = validateActions(actions, 'r1q2', { binds: profile.binds, layers: profile.layers })
+      const selfReferences = care.filter((finding) =>
+        finding.messageKey.endsWith('aliasSelfReference'),
+      )
+      expect(selfReferences).toHaveLength(1)
+      expect(selfReferences[0]!.level).toBe('warning')
+    })
+  }
 })

@@ -38,19 +38,30 @@ import {
  * apply to an alias body.)
  */
 
-/** Every alias generated *for* an action starts with this - the `setActions` handler's bind mirror
- * (D4) identifies the binds it owns by exactly this prefix, so it is one constant, here.
+/** Every alias generated *for* an action under the legacy, machine-generated scheme starts with
+ * this - the `setActions` handler's bind mirror identifies a *legacy-format* value by exactly this
+ * prefix (never a live ownership test - see `profiles.ts`'s `setActions`/`setLayers` doc comments),
+ * so it is one constant, here.
  *
  * A `kind: 'alias'` entry is not such an alias: it renders under its own name and is never
  * mirrored into a bind or a layer override at all (story 019), so it deliberately carries no
- * prefix - see `ownAliasName`. */
-export const ACTION_ALIAS_PREFIX = 'q2l_a_'
+ * prefix - see `derivedAliasName`.
+ *
+ * Named `LEGACY_*` (story 039, D1) because the readable-name flip (D7) gives a plain action a name
+ * that carries no such prefix at all - `derivedAliasName` below no longer produces this format, and
+ * `ACTION_ALIAS_PREFIX` (the pre-D7 re-export of this constant) is gone: every call site now either
+ * needs the current, key-scoped ownership rule (`action-mirror.ts#bindValueFor`) or this exact
+ * legacy marker, never a live prefix test.
+ */
+export const LEGACY_ACTION_ALIAS_PREFIX = 'q2l_a_'
 
 /** Usable alias-name characters: the 32nd is the terminator (see `MAX_ALIAS_NAME`). */
 const USABLE_ALIAS_NAME = MAX_ALIAS_NAME - 1
 
-/** Characters of the action's `id` appended to disambiguate same-named actions. */
-const ID_SUFFIX_LENGTH = 4
+/** Characters of the action's `id` appended to disambiguate same-named actions under the legacy
+ * format (`legacyAliasNameFor`) - unchanged, private to that function; the readable-name path
+ * (`derivedAliasName`) has no id suffix at all. */
+const LEGACY_ID_SUFFIX_LENGTH = 4
 
 /**
  * Reserve for the chunk suffix `_p<n>`, so a split action's parts still fit in
@@ -62,15 +73,30 @@ const ID_SUFFIX_LENGTH = 4
 const PART_SUFFIX_RESERVE = '_p'.length + 2
 
 /**
- * Length of the name slug (decision 15). Capped a second time by what the name
- * budget actually allows, so the whole family stays inside `MAX_ALIAS_NAME`
- * by construction rather than by comment: prefix (6) + slug (14) + `_` (1) +
- * id (4) = 25, leaving 6 of the usable 31 for `_p<n>`.
+ * Length of the legacy format's name slug (decision 15), private to `legacyAliasNameFor` and
+ * unchanged since before story 039: prefix (6) + slug (14) + `_` (1) + id (4) = 25, leaving 6 of
+ * the usable 31 for `_p<n>`. `legacyAliasNameFor` must keep reproducing this exact format forever
+ * (D6's migration depends on it), so this stays scoped to it rather than shared with the
+ * readable-name budget below.
  */
-const SLUG_LENGTH = Math.min(
+const LEGACY_SLUG_LENGTH = Math.min(
   14,
-  USABLE_ALIAS_NAME - ACTION_ALIAS_PREFIX.length - 1 - ID_SUFFIX_LENGTH - PART_SUFFIX_RESERVE,
+  USABLE_ALIAS_NAME - LEGACY_ACTION_ALIAS_PREFIX.length - 1 - LEGACY_ID_SUFFIX_LENGTH - PART_SUFFIX_RESERVE,
 )
+
+/**
+ * Content budget for a *derived* (readable) alias name (story 039, D7, "Plan": budget 26 chars):
+ * `USABLE_ALIAS_NAME` (31) minus the `_p<n>` chunk-suffix reserve (4) minus 1 for a sign that may
+ * not even apply. The sign is reserved unconditionally rather than only when the entry actually
+ * carries one - the same "reserve the maximum, not the sum" bias `alt-layers.ts#generateLayerAliases`
+ * already uses for its own affixes - so a name's length never depends on whether this particular
+ * action happens to be signed. Deliberately a *different* number from `alias-names.ts`'s
+ * `MAX_OWN_ALIAS_NAME_LENGTH` (27): that budget is for a user-typed `aliasName` and counts the sign
+ * as part of the typed string itself, while this one is the slug *content* with the sign accounted
+ * for separately, on top - both are the same `USABLE_ALIAS_NAME - PART_SUFFIX_RESERVE` (27) source
+ * budget, this one further reduced by 1 for the sign slot.
+ */
+const DERIVED_ALIAS_NAME_BUDGET = USABLE_ALIAS_NAME - PART_SUFFIX_RESERVE - 1
 
 /**
  * Bytes kept free at the end of every generated line. The same 16 bytes
@@ -134,40 +160,11 @@ export function commandLineFor(command: ConfigCommand): string {
 }
 
 /**
- * An `kind: 'alias'` entry's own alias name (story 019): the entry *is* the
- * alias definition, so what lands in the file is the name the user typed, with
- * no `q2l_a_` prefix and no id suffix. That prefix exists to mark the aliases
- * this app generates *for* an action and to identify the binds mirroring them
- * (`ACTION_ALIAS_PREFIX`); an alias entry is not mirrored into any bind at all,
- * and it only has a point if a binding can call it by the name the user sees.
- *
- * A leading `+` or `-` is carried over verbatim instead of being slugged away.
- * The plus/minus pair is the engine's own idiom for a press/release command
- * (`alias +drops ...` / `alias -drops ...`, exactly what
- * `generateLayerAliases` emits for a hold layer), so `+test` must stay `+test`
- * - `slugAliasName` alone would strip the sign and turn it into `test`, which
- * the binding referencing `+test` could then never reach. Everything after the
- * sign goes through `slugAliasName` unchanged, so the character rules and the
- * `MAX_ALIAS_NAME` budget stay that module's business and are not re-derived
- * here (S04 watch-out): the sign plus the `_p<n>` chunk reserve come off the
- * usable budget, so a split alias entry's parts still fit.
- *
- * No id suffix means two alias entries the user named alike collide into one
- * engine alias. That is deliberate - the name is the contract with the binding
- * that calls it - and it is reported as a duplicate rather than silently
- * renamed (D8's validation).
- */
-function ownAliasName(action: ConfigAction): string {
-  const raw = action.name.trim()
-  const sign = raw.startsWith('+') || raw.startsWith('-') ? raw.slice(0, 1) : ''
-  const budget = USABLE_ALIAS_NAME - sign.length - PART_SUFFIX_RESERVE
-  return `${sign}${slugAliasName(raw.slice(sign.length), budget)}`
-}
-
-/**
- * The generated alias name for an action: `q2l_a_<slug(name,14)>_<id[0:4]>`
- * (decision 15). Id-suffixed so two actions the user named alike never collide,
- * and short enough that the `_p<n>` suffix of a split action still fits.
+ * The legacy, machine-generated alias name for an action:
+ * `q2l_a_<slug(name,14)>_<id[0:4]>` (decision 15), or - for a `kind: 'alias'` entry - the sign-aware
+ * slug of its own name, with no prefix and no id suffix at all (decision from story 019, before
+ * `aliasName` existed). Id-suffixed (for the non-alias case) so two actions the user named alike
+ * never collide, and short enough that the `_p<n>` suffix of a split action still fits.
  *
  * The id suffix is defensively slugged rather than sliced: an id is normally a
  * uuid's first four hex characters and always alias-safe, but a caller with a
@@ -179,18 +176,67 @@ function ownAliasName(action: ConfigAction): string {
  * for the `binds` mirror it writes (decision 17) - the bind and the alias are
  * generated from one function, never from two implementations of one format.
  *
- * A `kind: 'alias'` entry is the one exception and it is handled here rather
- * than at the call sites: it renders under its own name (`ownAliasName`). One
- * function still answers "what alias name does this action have", so the writer
- * and every reader of that name cannot disagree about it.
+ * This function's body must **not** change (story 039, D6's migration and D3's legacy-strip pass
+ * depend on its exact output staying stable forever) - unlike `derivedAliasName` below, which D7
+ * gives its own, human-readable derivation instead of delegating here.
+ */
+export function legacyAliasNameFor(action: ConfigAction): string {
+  if (action.kind === 'alias') {
+    const raw = action.name.trim()
+    const sign = raw.startsWith('+') || raw.startsWith('-') ? raw.slice(0, 1) : ''
+    const budget = USABLE_ALIAS_NAME - sign.length - PART_SUFFIX_RESERVE
+    // No explicit fallback here: this function must keep reproducing the pre-039 output
+    // byte-for-byte (see the doc comment above), which used `slugAliasName`'s own default
+    // ('layer') for a name that slugs to nothing. `derivedAliasName` below is the one that gets
+    // the new 'entry' fallback - passing it here too would make this function's output disagree
+    // with what a pre-039 build already wrote to disk for such an action, breaking D6's migration
+    // match on read.
+    return `${sign}${slugAliasName(raw.slice(sign.length), budget)}`
+  }
+
+  const slug = slugAliasName(action.name, LEGACY_SLUG_LENGTH)
+  const idSuffix =
+    action.id.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, LEGACY_ID_SUFFIX_LENGTH) || '0000'
+  return `${LEGACY_ACTION_ALIAS_PREFIX}${slug}_${idSuffix}`
+}
+
+/**
+ * The name an action derives to when it has no explicit `aliasName` (story 039, D7): a sign-aware
+ * slug of the display name, with no prefix and no id suffix - `ssg_sg`, not
+ * `q2l_a_ssg_sg_9a2f`. This is the name shown as the alias-name field's placeholder, too, and what
+ * `aliasNameFor` falls back to.
+ *
+ * The sign is carried over - verbatim, not slugged away - only for a `kind: 'alias'` entry (the
+ * story's Decisions): that entry *is* the alias definition, so `+slow` must stay `+slow`, the same
+ * reasoning `legacyAliasNameFor`'s own alias-kind branch already applies and this function now
+ * shares (the two used to be one private helper, `ownAliasName`, called from both places; collapsed
+ * here since only the budget differs). A `kind: 'bind'`/`'message'` entry's name is a label, not the
+ * engine's press/release idiom, so it is slugged sign-free even when it happens to start with
+ * `+`/`-` - otherwise an adopted `+forward` catalogue row would derive the alias name `+forward` and
+ * shadow the engine command it runs.
+ *
+ * No id suffix means two entries that derive to the same name collide into one engine alias. That is
+ * deliberate - the name is the contract with whatever binding calls it - and it is reported as a
+ * duplicate rather than silently disambiguated (D8's validation).
+ */
+export function derivedAliasName(action: ConfigAction): string {
+  const raw = action.name.trim()
+  const sign = action.kind === 'alias' && (raw.startsWith('+') || raw.startsWith('-')) ? raw.slice(0, 1) : ''
+  return `${sign}${slugAliasName(raw.slice(sign.length), DERIVED_ALIAS_NAME_BUDGET, 'entry')}`
+}
+
+/**
+ * The alias name an action actually renders under. `aliasName` (story 039), when set, wins
+ * verbatim - sign and all, no slugging, no id suffix - because it is the name the user typed and
+ * chose to be the contract with whatever binding calls it. An action without one falls back to
+ * `derivedAliasName`, which today is byte-for-byte the pre-039 generated name, so nothing already
+ * on disk or under test changes until a later deliverable flips the fallback itself.
+ *
+ * An empty-string `aliasName` (possible via the forgiving persisted schema) is treated the same as
+ * "not set" - a blank name is not a name a binding could reference by.
  */
 export function aliasNameFor(action: ConfigAction): string {
-  if (action.kind === 'alias') return ownAliasName(action)
-
-  const slug = slugAliasName(action.name, SLUG_LENGTH)
-  const idSuffix =
-    action.id.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, ID_SUFFIX_LENGTH) || '0000'
-  return `${ACTION_ALIAS_PREFIX}${slug}_${idSuffix}`
+  return action.aliasName ? action.aliasName : derivedAliasName(action)
 }
 
 export interface RenderedActionAliases {

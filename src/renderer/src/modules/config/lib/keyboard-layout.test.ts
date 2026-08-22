@@ -44,4 +44,37 @@ describe('resolveAliasChain (story 015: dual-bound drop row)', () => {
 
     expect(resolved).toEqual(['drop rocket launcher', 'drop rockets', 'say_team need ammo'])
   })
+
+  /**
+   * Story 039, D5: the prefix gate (`startsWith(ACTION_ALIAS_PREFIX)`) is gone - the lookup goes
+   * straight to `actions` by `aliasNameFor`, so a short readable name with no `q2l_a_` prefix at
+   * all resolves exactly the same way a legacy generated name did.
+   */
+  it('expands bind q "ssg_sg" to the entry\'s command lines when aliasName is a readable name', () => {
+    const ssgRow = action({
+      catalogId: 'weaponUse:use_sshotgun',
+      aliasName: 'ssg_sg',
+      key: 'q',
+      commands: [{ kind: 'raw', text: 'use super shotgun' }],
+    })
+
+    const resolved = resolveAliasChain('ssg_sg', [ssgRow])
+
+    expect(resolved).toEqual(['use super shotgun'])
+  })
+
+  it('falls through to the plain ";" split for a bind value that is not any action\'s alias name', () => {
+    const ssgRow = action({
+      catalogId: 'weaponUse:use_sshotgun',
+      aliasName: 'ssg_sg',
+      key: 'q',
+      commands: [{ kind: 'raw', text: 'use super shotgun' }],
+    })
+
+    // "weapnext" is an unknown token here - no action in the list resolves to it - so it must
+    // fall through to the plain `;` split, not be swallowed or misread as an alias reference.
+    const resolved = resolveAliasChain('weapnext', [ssgRow])
+
+    expect(resolved).toEqual(['weapnext'])
+  })
 })

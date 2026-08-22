@@ -17,7 +17,7 @@ config (aliases, press/release pairs, `unbindall`) turns into real Controls entr
 ## Stories (in build order)
 
 - [x] 038 — No alias line for an action the engine can bind directly
-- [ ] 039 — Aliases get readable names I control, and must be unique
+- [x] 039 — Aliases get readable names I control, and must be unique
 - [ ] 040 — The profile file is written structured, commented and human-readable
 - [ ] 041 — Import understands aliases, press/release pairs and unbindall
 

@@ -145,6 +145,50 @@ describe('adoptRawBinds - base binds', () => {
     const binds = { r: 'q2l_a_gone_1234' }
     expect(adoptRawBinds({ binds }, idFactory()).adopted).toBe(0)
   })
+
+  it('never adopts a value a mirror pass wrote, prefix-free equivalent: a readable aliasName', () => {
+    // Same shape as the legacy-prefix case above, but the mirrored value is a short readable
+    // name (story 039) with no `q2l_a_` prefix to gate on - the key-scoped `mirrorsSlot`/alias
+    // checks must still recognise it as the slot's own mirror.
+    const existing: ConfigAction = {
+      id: 'a1',
+      categoryId: 'weapons',
+      name: 'Super shotgun',
+      kind: 'bind',
+      catalogId: 'weaponUse:use_sshotgun',
+      aliasName: 'ssg_sg',
+      commands: [{ kind: 'raw', text: 'use super shotgun' }],
+      key: 'q',
+    }
+
+    const result = adoptRawBinds({ binds: { q: 'ssg_sg' }, actions: [existing] }, idFactory())
+
+    expect(result.adopted).toBe(0)
+    expect(result.actions).toEqual([existing])
+    expect(result.binds).toEqual({ q: 'ssg_sg' })
+  })
+
+  it('does not re-adopt an alias reference into the catalogue row sharing its name (weapnext)', () => {
+    // `weapnext` is both a single-token catalogue command (`weaponExtra:weapnext`) and a legal
+    // alias name - an entry actually named `weapnext` must not be swallowed by the catalogue row
+    // that happens to render the identical text, on some *other* key referencing it by name.
+    const weapnextAlias: ConfigAction = {
+      id: 'a1',
+      categoryId: 'weapons',
+      name: 'weapnext',
+      kind: 'alias',
+      commands: [{ kind: 'raw', text: 'weapnext' }],
+    }
+
+    const result = adoptRawBinds(
+      { binds: { y: 'weapnext' }, actions: [weapnextAlias] },
+      idFactory(),
+    )
+
+    expect(result.adopted).toBe(0)
+    expect(result.actions).toEqual([weapnextAlias])
+    expect(result.binds).toEqual({ y: 'weapnext' })
+  })
 })
 
 describe('adoptRawBinds - layer overrides', () => {

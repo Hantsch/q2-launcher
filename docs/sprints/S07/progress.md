@@ -8,3 +8,26 @@
 - 2026-08-22 12:22 · 038 · D4 fix visible in running app · started
 - 2026-08-22 12:32 · 038 · D4 fix visible in running app · done
 - 2026-08-22 12:43 · 038 · story verified (build/typecheck/test/ui:verify) + reviewed (PASS) + Done section filled · done
+- 2026-08-22 12:44 · 039 · D1 aliasName field and one name resolver · started
+- 2026-08-22 12:48 · 039 · D1 aliasName field and one name resolver · done
+- 2026-08-22 12:48 · 039 · D2 alias-name validation and reserved-name set · started
+- 2026-08-22 12:55 · 039 · D2 alias-name validation and reserved-name set · done
+- 2026-08-22 12:55 · 039 · D3 mirror strip passes stop using prefix as identity · started
+- 2026-08-22 13:02 · 039 · D3 mirror strip passes stop using prefix as identity · done
+- 2026-08-22 13:02 · 039 · D4 isMirroredValue becomes key-scoped · started
+- 2026-08-22 13:08 · 039 · D4 isMirroredValue becomes key-scoped · done
+- 2026-08-22 13:08 · 039 · D5 adoption and chain resolution without the prefix · started
+- 2026-08-22 13:15 · 039 · D5 adoption and chain resolution without the prefix · done
+- 2026-08-22 13:15 · 039 · D6 read-path migration of legacy names · started
+- 2026-08-22 13:24 · 039 · D6 read-path migration of legacy names · done
+- 2026-08-22 13:24 · 039 · D7 flip the derived name to the readable one · started
+- 2026-08-22 13:43 · 039 · D7 flip the derived name to the readable one · done
+- 2026-08-22 13:43 · 039 · D8 Care warns about collisions and shadowed commands · started
+- 2026-08-22 13:52 · 039 · D8 Care warns about collisions and shadowed commands · done
+- 2026-08-22 13:52 · 039 · D9 UI: own alias name and rename refusal · started
+- 2026-08-22 14:10 · 039 · D9 UI: own alias name and rename refusal · done
+- 2026-08-22 14:10 · 039 · story-level verification (build/test/typecheck) · started
+- 2026-08-22 13:50 · 039 · story-level verification (build/test/typecheck) · done
+- 2026-08-22 13:50 · 039 · clean-agent review (story-review-hard) · started
+- 2026-08-22 14:20 · 039 · clean-agent review (2 cycles) + 4 confirmed bugs fixed · done
+- 2026-08-22 14:35 · 039 · live-smoke (ui:verify + new ui:flow probe) + Done section filled, moved to done/ · done

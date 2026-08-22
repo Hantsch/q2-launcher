@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import type { AltLayer } from '@shared/config/alt-layers'
+import { bindValueFor } from '@shared/config/action-mirror'
+import { LEGACY_ACTION_ALIAS_PREFIX, legacyAliasNameFor } from '@shared/config/alias-render'
 import { adoptRawBinds } from '@shared/config/bind-adoption'
 import {
   stripAliasActionBinds,
@@ -176,6 +178,9 @@ const configActionPersistedSchema = z.object({
   // pre-016 row simply omits both, same as every other optional field here.
   keyModifier: modifierTriggerPersistedSchema,
   secondaryKeyModifier: modifierTriggerPersistedSchema,
+  // Story 039 (D1): same additive, forgiving treatment as `catalogId` - a row without it (every
+  // row written before this field existed) simply omits it.
+  aliasName: z.string().optional(),
 })
 
 /**
@@ -252,6 +257,111 @@ export type PersistedConfigProfile = ConfigProfile & {
 }
 
 /**
+ * Story 039 (D6): the legacy alias name of every action that has one, mapped to the value the
+ * mirrors write for that same action *today* (`bindValueFor`).
+ *
+ * Keyed by `legacyAliasNameFor`, which is stable across the D7 name flip - it keeps reproducing the
+ * `q2l_a_<slug>_<id4>` format an older version of this app generated, which is exactly what a
+ * pre-039 `state.json` has in `binds`/`layers[].overrides`. The value side is `bindValueFor`, not
+ * `aliasNameFor`, so a continuous catalogue row's reference migrates to its own `+command` rather
+ * than to an alias name the engine would never send the release half of (story 034).
+ *
+ * Only names that actually carry the legacy prefix go in. A `kind: 'alias'` entry's
+ * `legacyAliasNameFor` is its own, prefix-free name (`ownAliasName`), i.e. a name a user can - and
+ * story 041 will - reference by hand; letting that into the map would turn this migration into a
+ * rewriter of hand-typed binds, which the story's own decision ("never silently rewrite
+ * references") forbids. Such an entry's *stale bind-era* mirror is prefixed and is handled by
+ * `stripAliasActionBinds`/`stripAliasActionOverrides` (story 019) and by the orphan drop below.
+ *
+ * Later action wins on a collision, deterministically, the same rule the two mirror passes use for
+ * a key collision. Two actions can only collide here if they share both a name slug and the first
+ * four characters of their id.
+ */
+function legacyAliasValueMap(actions: ConfigAction[]): Map<string, string> {
+  const byLegacyName = new Map<string, string>()
+  for (const action of actions) {
+    const legacyName = legacyAliasNameFor(action)
+    if (!legacyName.startsWith(LEGACY_ACTION_ALIAS_PREFIX)) continue
+    byLegacyName.set(legacyName, bindValueFor(action))
+  }
+  return byLegacyName
+}
+
+/**
+ * One `binds`-shaped map, migrated (story 039 D6). Three cases per value, and the order of the
+ * first two is what makes this safe:
+ *
+ * 1. Not a `q2l_a_*` value at all -> kept verbatim. This is the hand-typed case (`bind x
+ *    "some_alias"`, `bind r "+attack"`), and it is decided *first*, so nothing outside the legacy
+ *    format can be rewritten or dropped by this pass at all.
+ * 2. A `q2l_a_*` value that is some action's legacy name -> rewritten to that action's current
+ *    mirrored value. Before D7 that value is byte-for-byte the legacy name again (nothing changes,
+ *    which is what keeps this deliverable green on its own); after it, the readable name.
+ * 3. A `q2l_a_*` value belonging to no action in this profile -> dropped. That is what the write
+ *    path already does with such an orphan, permanently and for the same reason
+ *    (`applyActionBindMirror`/`applyActionLayerMirror`'s legacy-prefix strip): its owning action is
+ *    gone, so no future pass can ever recognise it, and it would otherwise fire forever. Doing it
+ *    on the read path too means an orphan cannot reach the Controls grid, `adoptRawBinds` or a
+ *    Care finding as if it were a hand-made bind.
+ *
+ * The one knowingly accepted cost is the one `action-mirror.ts` already documents: an own alias
+ * name a user deliberately types as `q2l_a_...` (legal - `alias-names.ts` does not ban the prefix)
+ * reads as legacy debris wherever it is referenced by hand.
+ *
+ * Returns `entries` unchanged (same reference) when there is nothing to migrate - same convention
+ * as `stripAliasActionBinds`.
+ */
+function migrateLegacyReferences(
+  entries: Record<string, string>,
+  currentByLegacyName: Map<string, string>,
+): Record<string, string> {
+  let changed = false
+  const next: Record<string, string> = {}
+  for (const [key, value] of Object.entries(entries)) {
+    const trimmed = value.trim()
+    if (!trimmed.startsWith(LEGACY_ACTION_ALIAS_PREFIX)) {
+      next[key] = value
+      continue
+    }
+    const migrated = currentByLegacyName.get(trimmed)
+    if (migrated === undefined) {
+      changed = true
+      continue
+    }
+    if (migrated !== value) changed = true
+    next[key] = migrated
+  }
+  return changed ? next : entries
+}
+
+/**
+ * Story 039 (D6): rewrite every legacy `q2l_a_*` reference in `binds` and in every layer's
+ * `overrides` to the value the mirrors write for the owning action today, dropping the ones whose
+ * action is gone - see `migrateLegacyReferences` for the per-value rule.
+ *
+ * One pass over both maps, and it runs before any other bind normalisation
+ * (`normalizeConfigProfile` below), so a profile written by an older version is never observed with
+ * new-format ownership rules applied to old-format values: nothing is unbound "in between".
+ *
+ * A layer with nothing to migrate is returned as the same object reference, so an untouched layer
+ * stays untouched by identity too - same convention as `stripAliasActionOverrides`.
+ */
+function migrateLegacyAliasReferences(
+  binds: Record<string, string>,
+  layers: AltLayer[],
+  actions: ConfigAction[],
+): { binds: Record<string, string>; layers: AltLayer[] } {
+  const currentByLegacyName = legacyAliasValueMap(actions)
+  return {
+    binds: migrateLegacyReferences(binds, currentByLegacyName),
+    layers: layers.map((layer) => {
+      const overrides = migrateLegacyReferences(layer.overrides, currentByLegacyName)
+      return overrides === layer.overrides ? layer : { ...layer, overrides }
+    }),
+  }
+}
+
+/**
  * Story 019: fill in every entry's own `kind` and drop the categories' legacy `entryKind`.
  *
  * This runs at profile level, not per row, for one reason: the derive needs the profile's
@@ -277,6 +387,13 @@ export type PersistedConfigProfile = ConfigProfile & {
  * resulting alias actions (`stripAliasActionBinds`/`stripAliasActionOverrides`,
  * `@shared/config/modifier-layers`), the exact same value-based exclusion `setActions` and
  * `applyActionLayerMirror` already apply on the write path - not a second, divergent rule.
+ *
+ * Story 039 (D6): the pass order on this path is now, and must stay,
+ * `kind` derive -> `migrateLegacyAliasReferences` -> `stripAliasActionBinds`/
+ * `stripAliasActionOverrides` -> `adoptRawBinds`. The migration is first of the three bind passes
+ * because the other two apply the current-format, key-scoped ownership rule, and applying it to a
+ * pre-039 profile's `q2l_a_*` values is precisely the half-migrated state ("new ownership rules,
+ * old references") the story exists to make unobservable.
  */
 function normalizeConfigProfile(
   parsed: z.infer<typeof configProfileObjectSchema>,
@@ -292,6 +409,15 @@ function normalizeConfigProfile(
   }))
   const aliasActions = actions.filter((action) => action.kind === 'alias')
 
+  // Story 039 (D6): the *first* thing that touches `binds`/`overrides` on this path. Every later
+  // pass here (the story 019 alias strip, `adoptRawBinds`) and everything downstream of the read
+  // (the Controls grid, the conflict scans, the next save's mirrors) reasons about values in the
+  // current format under the key-scoped ownership rule; a pre-039 profile's values are in the old
+  // one. Migrating them first is what stops those two from ever being combined - the story's
+  // "nothing is unbound in between". It has to run after the `kind` derive right above, because
+  // both `legacyAliasNameFor` and `bindValueFor` branch on an action's kind.
+  const migrated = migrateLegacyAliasReferences(parsed.binds, parsed.layers, actions)
+
   // Story 034: a raw catalogue bind becomes that row's own action here, on the
   // read path, not just on the next write - a `state.json` written before this
   // story (or one imported from a `config.cfg`, which is the same thing) has to
@@ -301,8 +427,8 @@ function normalizeConfigProfile(
   // so running it twice costs a pass and changes nothing.
   const adopted = adoptRawBinds(
     {
-      binds: stripAliasActionBinds(parsed.binds, aliasActions),
-      layers: stripAliasActionOverrides(parsed.layers, aliasActions),
+      binds: stripAliasActionBinds(migrated.binds, aliasActions),
+      layers: stripAliasActionOverrides(migrated.layers, aliasActions),
       actions,
     },
     randomUUID,

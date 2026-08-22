@@ -67,6 +67,48 @@ describe('isMirroredValue', () => {
     expect(isMirroredValue('kill', actions)).toBe(false)
     expect(isMirroredValue('', actions)).toBe(false)
   })
+
+  // Story 039 D4: once an alias name is prefix-free, a mirrored value and a hand-typed reference
+  // to that same alias by name are byte-for-byte identical. The `key` argument is what tells them
+  // apart - a value only counts as a mirror when the action that would have written it actually
+  // holds the key it was found on.
+  describe('scoped to a key', () => {
+    function ssgSg(overrides: Partial<ConfigAction> = {}): ConfigAction {
+      return action({
+        id: 'ssg',
+        categoryId: 'weapons',
+        name: 'SSG + SG',
+        aliasName: 'ssg_sg',
+        key: 'q',
+        commands: [
+          { kind: 'raw', text: 'use super shotgun' },
+          { kind: 'raw', text: 'use shotgun' },
+        ],
+        ...overrides,
+      })
+    }
+
+    it('owns its value on the key it actually holds, in either slot', () => {
+      const primary = ssgSg({ key: 'q', secondaryKey: undefined })
+      expect(isMirroredValue('ssg_sg', [primary], 'q')).toBe(true)
+
+      const secondary = ssgSg({ key: undefined, secondaryKey: 'mouse3' })
+      expect(isMirroredValue('ssg_sg', [secondary], 'MOUSE3')).toBe(true)
+    })
+
+    it('does not swallow a hand-typed reference to another entry\'s alias by name', () => {
+      // `bound` owns `q`; the value `ssg_sg` also happens to be sitting on key `z`, but `bound`
+      // does not hold `z` in either slot, so that `z` entry is not `bound`'s mirror - it is a
+      // hand-typed reference to `bound`'s alias, and must be reported as such, not hidden.
+      const bound = ssgSg({ key: 'q' })
+      expect(isMirroredValue('ssg_sg', [bound], 'z')).toBe(false)
+    })
+
+    it('falls back to the old, unscoped behaviour when no key is given', () => {
+      const bound = ssgSg({ key: 'q' })
+      expect(isMirroredValue('ssg_sg', [bound])).toBe(true)
+    })
+  })
 })
 
 describe('applyActionBindMirror', () => {
@@ -104,6 +146,73 @@ describe('applyActionBindMirror', () => {
 
   it('strips every q2l_a_* entry regardless of which action wrote it', () => {
     expect(applyActionBindMirror({ r: 'q2l_a_gone_1234', x: 'kill' }, [])).toEqual({ x: 'kill' })
+  })
+
+  // Story 039 D3: the prefix stops being the ownership test. These cases carry an explicit,
+  // prefix-free `aliasName`, so every one of them fails if the strip ever falls back to
+  // `startsWith(LEGACY_ACTION_ALIAS_PREFIX)` alone (nothing here starts with `q2l_a_`), and the
+  // hand-typed `z: 'ssg_sg'` fails if the value-based half is ever applied without its key scope.
+  describe('with prefix-free alias names', () => {
+    function ssgSg(overrides: Partial<ConfigAction> = {}): ConfigAction {
+      return action({
+        id: 'ssg',
+        categoryId: 'weapons',
+        name: 'SSG + SG',
+        aliasName: 'ssg_sg',
+        commands: [
+          { kind: 'raw', text: 'use super shotgun' },
+          { kind: 'raw', text: 'use shotgun' },
+        ],
+        ...overrides,
+      })
+    }
+
+    it('mirrors under the readable name, not a generated one', () => {
+      expect(bindValueFor(ssgSg())).toBe('ssg_sg')
+      expect(applyActionBindMirror({}, [ssgSg({ key: 'q' })])).toEqual({ q: 'ssg_sg' })
+    })
+
+    it('leaves hand-typed binds alone, including a hand-typed reference to the alias itself', () => {
+      const bound = ssgSg({ key: 'q' })
+      // `z` holds the very value the mirror writes for `q` - hand-typed by the user on a key this
+      // action does not own, so it is not ours to remove.
+      const binds = { q: 'ssg_sg', r: '+attack', x: 'some_alias', z: 'ssg_sg' }
+
+      expect(applyActionBindMirror(binds, [bound], [bound])).toEqual({
+        q: 'ssg_sg',
+        r: '+attack',
+        x: 'some_alias',
+        z: 'ssg_sg',
+      })
+    })
+
+    it('clears the bind of a slot the user cleared in the Controls grid', () => {
+      const before = ssgSg({ key: 'q' })
+      const cleared = ssgSg({ key: undefined })
+
+      expect(applyActionBindMirror({ q: 'ssg_sg', r: '+attack' }, [cleared], [before])).toEqual({
+        r: '+attack',
+      })
+    })
+
+    it('drops the base bind of a slot that just gained a modifier', () => {
+      // The layer mirror picks this slot up instead (`modifier-layers.test.ts` asserts the other
+      // half of the same save); what must not happen is the key staying bound in both places.
+      const before = ssgSg({ key: 'q' })
+      const modified = ssgSg({ key: 'q', keyModifier: 'ALT' })
+
+      expect(applyActionBindMirror({ q: 'ssg_sg', z: 'ssg_sg' }, [modified], [before])).toEqual({
+        z: 'ssg_sg',
+      })
+    })
+
+    it('leaves nothing behind when the action is deleted', () => {
+      const before = ssgSg({ key: 'q', secondaryKey: 'MOUSE3' })
+
+      expect(
+        applyActionBindMirror({ q: 'ssg_sg', MOUSE3: 'ssg_sg', r: '+attack' }, [], [before]),
+      ).toEqual({ r: '+attack' })
+    })
   })
 
   it('lets the later action win when two claim one key', () => {

@@ -47,6 +47,7 @@
  */
 
 import type { EngineKind } from '../types/engine'
+import { reservedAliasNames } from './alias-names'
 import {
   ALIAS_LOOP_COUNT,
   MAX_ALIAS_NAME,
@@ -230,14 +231,61 @@ interface AliasDef {
  * - `alt-layers.ts` defines `+drops` and `-drops` as aliases in their own
  * right, and those must resolve to themselves rather than to a sign-stripped
  * neighbour that happens to share the name.
+ *
+ * The sign-stripped fallback is skipped entirely when the signed token is a
+ * press/release command the engine itself registers (story 039 review fix,
+ * rescoped in the fourth pass). `alias forward +forward` - ordinary since story
+ * 039 gave a continuous catalogue row a readable name derived from its own
+ * command - is not a cycle: `Cmd_ExecuteString` matches registered commands
+ * before aliases, `+forward` is such a command, and no alias named `+forward` is
+ * defined here (the literal branch above already failed), so the body dispatches
+ * the engine's `+forward` and never re-enters any alias at all. Reporting
+ * `aliasCycle` for it flags a working file as broken.
+ *
+ * That carve-out deliberately carries **no** "only when it strips back into the
+ * alias being scanned" condition any more (fourth pass, defect 1). It had one,
+ * and the condition was wrong in the one shape the writer produces most often:
+ * `alias-render.ts#renderActionAlias` splits a long action into a `_p<n>` chunk
+ * family, so the `+forward` token lives in the body of `forward_p1` while the
+ * name it strips down to belongs to the family's *root*, `forward`. The
+ * self-scoped form therefore let `forward_p1 -> forward` through, the root's own
+ * `forward -> forward_p1` closed the ring, and a legal split action was reported
+ * as an error-level cycle. Scoping the check to the root instead would only move
+ * the arbitrary line: whether a body token dispatches a command or an alias is a
+ * property of the *token*, not of which body it happens to sit in, and an edge
+ * this fallback would draw from a registered command is not an edge the engine
+ * can ever take, self or not.
+ *
+ * The narrowing is still exactly as wide as the evidence, because it hangs off
+ * `isEnginePressReleaseCommand` alone: `alias zoom "set fov 30; -zoom"` names no
+ * engine command at all, so `-zoom` really can only be meant as a member of
+ * `zoom`'s own alias family and that self-edge stands. `-drops` -> `drops` (no
+ * engine command either) is untouched, and a literal `alias loop loop` is still
+ * a cycle via the branch above.
  */
 function referencedAlias(token: string, defined: ReadonlySet<string>): string | null {
   const lower = token.toLowerCase()
   if (defined.has(lower)) return lower
-  if ((lower.startsWith('+') || lower.startsWith('-')) && defined.has(lower.slice(1))) {
-    return lower.slice(1)
-  }
-  return null
+  if (!lower.startsWith('+') && !lower.startsWith('-')) return null
+  if (isEnginePressReleaseCommand(lower)) return null
+  return defined.has(lower.slice(1)) ? lower.slice(1) : null
+}
+
+/**
+ * Is the signed token `token` (lower-cased, leading `+`/`-` included) a
+ * press/release command the engine registers itself, rather than a possible
+ * member of an alias family?
+ *
+ * Answered from `alias-names.ts`'s `reservedAliasNames()` - the one set in this
+ * repo that already knows every built-in command `action-catalog.ts` can render
+ * - rather than a second hand-kept list. That set stores a command's raw first
+ * token (`+forward`) and its sign-stripped form (`forward`) but never the
+ * opposite sign, so a `-forward` token is recognised through its `+` twin: the
+ * engine registers both halves of a press/release pair or neither.
+ */
+function isEnginePressReleaseCommand(token: string): boolean {
+  const reserved = reservedAliasNames()
+  return reserved.has(token) || reserved.has(`+${token.slice(1)}`)
 }
 
 /** Key -> the keys of every alias that key's (last-wins) body dispatches, in body order, deduplicated. */

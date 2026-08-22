@@ -321,7 +321,7 @@ export function findModifierSlotCollision(
   }
 
   const rawOverride = layer?.overrides[normalizedKey]
-  if (rawOverride && !isMirroredValue(rawOverride, actions)) {
+  if (rawOverride && !isMirroredValue(rawOverride, actions, key)) {
     return { modifier, key, layerId, layerName, owner: rawOverride }
   }
 

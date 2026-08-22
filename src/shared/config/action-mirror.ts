@@ -26,7 +26,7 @@
  */
 
 import type { ConfigAction } from '@shared/modules/config'
-import { ACTION_ALIAS_PREFIX, aliasNameFor } from '@shared/config/alias-render'
+import { LEGACY_ACTION_ALIAS_PREFIX, aliasNameFor } from '@shared/config/alias-render'
 import { normalizeBindKey } from '@shared/config/key-names'
 
 /**
@@ -61,17 +61,42 @@ export function bindValueFor(action: ConfigAction): string {
 /**
  * Is `value` something a mirror pass wrote for one of `actions`?
  *
- * Matched by value against `bindValueFor`, never by which key it happens to sit
- * on - a key is a slot, not an identity (`modifier-layers.ts` makes the same
- * point). Used wherever a reader has to tell a generated entry apart from a
- * hand-typed one; before story 034 a `startsWith(ACTION_ALIAS_PREFIX)` test was
- * enough for that, and it no longer is, since a continuous catalogue row now
- * mirrors as its own command text.
+ * Matched by value against `bindValueFor` - before story 034 a
+ * `startsWith(LEGACY_ACTION_ALIAS_PREFIX)` test was enough for that, and it no
+ * longer is, since a continuous catalogue row now mirrors as its own command
+ * text. Used wherever a reader has to tell a generated entry apart from a
+ * hand-typed one.
+ *
+ * Optionally scoped to `key` (normalized, either slot - same idea as
+ * `bind-adoption.ts`'s `mirrorsSlot`): when given, only an action that
+ * actually holds that key can own `value`. That scoping used to be optional
+ * because the legacy `q2l_a_<slug>_<id4>` prefix was already, on its own,
+ * strong evidence nobody hand-typed the value. Story 039 removes that prefix:
+ * once an alias's name is a short readable word like `ssg_sg`, a mirrored
+ * value and a user's own `bind x "ssg_sg"` referencing that same alias by name
+ * are byte-for-byte identical, so value alone can no longer tell them apart.
+ * Passing the key the value was found on restores the missing precision - the
+ * mirror for a given action only ever appears on a key that action itself
+ * holds, so a coincidentally-matching value on any other key is necessarily
+ * hand-typed. Every caller that reads a value off a specific slot should pass
+ * its key; the no-key form remains for call sites (and tests) that only need
+ * the old, unscoped "is this value a mirror of *something*" answer.
  */
-export function isMirroredValue(value: string, actions: readonly ConfigAction[]): boolean {
+export function isMirroredValue(
+  value: string,
+  actions: readonly ConfigAction[],
+  key?: string,
+): boolean {
   const trimmed = value.trim()
   if (trimmed.length === 0) return false
-  return actions.some((action) => bindValueFor(action) === trimmed)
+  if (key === undefined) {
+    return actions.some((action) => bindValueFor(action) === trimmed)
+  }
+  const normalizedKey = normalizeBindKey(key)
+  const holdsKey = (action: ConfigAction): boolean =>
+    (Boolean(action.key) && normalizeBindKey(action.key!) === normalizedKey) ||
+    (Boolean(action.secondaryKey) && normalizeBindKey(action.secondaryKey!) === normalizedKey)
+  return actions.some((action) => holdsKey(action) && bindValueFor(action) === trimmed)
 }
 
 /** The two bindable slots, as the mirrors read them off an action. */
@@ -86,14 +111,31 @@ function mirrorSlots(action: ConfigAction): { key: string | undefined; modified:
  * Rebuild the `binds` mirror - story 008 decision 17's rule, moved here
  * verbatim and extended with story 034's value-based strip:
  *
- * 1. Strip. Every entry whose value starts with `ACTION_ALIAS_PREFIX` (only a
- *    mirror pass can have written one), plus every entry whose value is
- *    `bindValueFor` of an action in `previousActions` *on the key that action
- *    held*. The second half exists because a direct `+forward` mirror is
- *    indistinguishable from a hand-typed one by value alone: scoping it to the
- *    key the previous action actually carried keeps a user's own `bind r
- *    "+attack"` on an unrelated key untouched while still letting a cleared
- *    Controls slot really clear its bind.
+ * 1. Strip. **The ownership rule is key-scoped and value-based** (story 034):
+ *    an entry is ours to remove exactly when its value is `bindValueFor` of an
+ *    action in `previousActions` *on a key that action actually held*. Neither
+ *    half carries ownership on its own - a value alone cannot, because a
+ *    mirrored value is by construction something a user could equally have
+ *    typed (a direct `+forward` mirror is byte-for-byte a hand-typed `bind w
+ *    "+forward"`, and once alias names are readable, story 039, a mirrored
+ *    `ssg_sg` is byte-for-byte a hand-typed reference to that same alias); a
+ *    key alone cannot either, because a key is a slot, not an identity, and
+ *    the user may have rebound it themselves in the meantime. Together they
+ *    say "this is the entry the last mirror pass wrote for that slot", which
+ *    is the only thing that licenses deleting it. That is what keeps a user's
+ *    own `bind r "+attack"` or `bind x "ssg_sg"` on an unrelated key untouched
+ *    while still letting a cleared Controls slot really clear its bind.
+ *
+ *    Plus, permanently, every entry whose value starts with
+ *    `LEGACY_ACTION_ALIAS_PREFIX`. That prefix is **not** an ownership test and
+ *    is no longer read as one (story 039): it says "an older version of this
+ *    app generated this name" (`q2l_a_<slug>_<id4>`), and it is kept forever so
+ *    a `q2l_a_*` orphan written before the readable-name flip - whose owning
+ *    action may be long gone, i.e. in no `previousActions` this call will ever
+ *    see - still disappears on the next save instead of sitting in the file for
+ *    good. Its one cost is accepted knowingly: an own alias name a user
+ *    deliberately types as `q2l_a_...` (legal, `alias-names.ts` does not ban
+ *    the prefix) is treated as legacy debris wherever it is referenced by hand.
  * 2. Rewrite. One entry per key an action still carries, in `actions` array
  *    order (later wins on a collision, deterministically). A slot carrying a
  *    modifier belongs to that modifier's layer, not to `binds` (story 016
@@ -125,7 +167,7 @@ export function applyActionBindMirror(
 
   const next: Record<string, string> = {}
   for (const [key, command] of Object.entries(binds)) {
-    if (command.startsWith(ACTION_ALIAS_PREFIX)) continue
+    if (command.startsWith(LEGACY_ACTION_ALIAS_PREFIX)) continue
     if (staleByKey.get(normalizeBindKey(key))?.has(command.trim())) continue
     next[key] = command
   }

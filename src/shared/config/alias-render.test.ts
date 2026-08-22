@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigAction } from '@shared/modules/config'
 import { MAX_ALIAS_NAME, MAX_LINE_BYTES } from '@shared/config/alt-layers'
-import { aliasNameFor, renderActionAlias, renderActionAliasLines } from './alias-render'
+import {
+  aliasNameFor,
+  derivedAliasName,
+  legacyAliasNameFor,
+  renderActionAlias,
+  renderActionAliasLines,
+} from './alias-render'
 
 /**
  * `renderProfileFile` integration coverage (the action-alias block's position
@@ -28,30 +34,78 @@ function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
 const USABLE_ALIAS_NAME = MAX_ALIAS_NAME - 1
 
 describe('aliasNameFor', () => {
-  it('produces q2l_a_<slug(name,14)>_<id[0:4]>', () => {
-    expect(aliasNameFor(action({ name: 'Drop RL', id: 'ab12cd34' }))).toBe('q2l_a_drop_rl_ab12')
+  it('derives a sign-free slug of the display name, no prefix and no id suffix (story 039, D7)', () => {
+    expect(aliasNameFor(action({ name: 'Drop RL', id: 'ab12cd34' }))).toBe('drop_rl')
   })
 
-  it('truncates the slug to 14 characters and stays inside the name budget', () => {
+  it('truncates the slug to the 26-character derived-name budget', () => {
     const name = aliasNameFor(action({ name: 'A Really Very Long Action Name', id: 'ffeeddcc-1111' }))
 
-    expect(name).toBe('q2l_a_a_really_very_ffee')
-    expect(name.length).toBeLessThanOrEqual(25)
+    expect(name).toBe('a_really_very_long_action')
+    expect(name.length).toBeLessThanOrEqual(26)
   })
 
-  it('slugs the id suffix rather than slicing it blindly', () => {
-    expect(aliasNameFor(action({ name: 'Help', id: 'A-B/C.D-EFG' }))).toBe('q2l_a_help_abcd')
+  // The id suffix and its slugging/fallback rules are `legacyAliasNameFor`-only now (story 039,
+  // D7): the derived path never reads `action.id` at all, so these two cases move there rather
+  // than disappearing - `legacyAliasNameFor` must keep producing them forever (D6 depends on it).
+  it('legacyAliasNameFor still slugs the id suffix rather than slicing it blindly', () => {
+    expect(legacyAliasNameFor(action({ name: 'Help', id: 'A-B/C.D-EFG' }))).toBe('q2l_a_help_abcd')
   })
 
-  it('falls back to 0000 when nothing alias-safe survives in the id', () => {
-    expect(aliasNameFor(action({ name: 'Help', id: '---' }))).toBe('q2l_a_help_0000')
+  it('legacyAliasNameFor still falls back to 0000 when nothing alias-safe survives in the id', () => {
+    expect(legacyAliasNameFor(action({ name: 'Help', id: '---' }))).toBe('q2l_a_help_0000')
   })
 
-  it('gives two same-named actions distinct names', () => {
-    const first = aliasNameFor(action({ name: 'Taunt', id: 'aaaa1111' }))
-    const second = aliasNameFor(action({ name: 'Taunt', id: 'bbbb2222' }))
+  // Story 039, D7: the derived path has no id suffix at all, so two same-named actions now derive
+  // to the *same* name on purpose (reported as a duplicate rather than disambiguated - D8's
+  // validation); `legacyAliasNameFor`'s own id suffix is what used to - and still does - keep two
+  // such actions apart.
+  it('legacyAliasNameFor still gives two same-named actions distinct names', () => {
+    const first = legacyAliasNameFor(action({ name: 'Taunt', id: 'aaaa1111' }))
+    const second = legacyAliasNameFor(action({ name: 'Taunt', id: 'bbbb2222' }))
 
     expect(first).not.toBe(second)
+  })
+
+  // Regression (story 039 review): `legacyAliasNameFor` must reproduce the pre-039 format
+  // byte-for-byte, including `slugAliasName`'s pre-039 fallback ('layer') for a name that slugs to
+  // nothing - a name whose id is genuinely stable across a read is what D6's migration keys off,
+  // so a fallback drift here would make a legacy `q2l_a_layer_<id4>` value already on disk
+  // unmatchable, and D6 would drop it as an orphan instead of migrating it.
+  it('legacyAliasNameFor keeps the pre-039 "layer" fallback for a name that slugs to nothing', () => {
+    expect(legacyAliasNameFor(action({ name: '!!!', kind: 'bind', id: 'aaaa1111' }))).toBe(
+      'q2l_a_layer_aaaa',
+    )
+    expect(legacyAliasNameFor(action({ name: '!!!', kind: 'alias', id: 'aaaa1111' }))).toBe('layer')
+  })
+
+  /**
+   * Story 039, D1: `aliasName`, when set, wins verbatim - sign kept, no slugging, no id suffix -
+   * over the derived name below it.
+   */
+  it('returns aliasName verbatim (sign kept) when set', () => {
+    expect(aliasNameFor(action({ name: 'Slow', id: 'ab12cd34', aliasName: '+slow' }))).toBe(
+      '+slow',
+    )
+  })
+
+  it('falls back to the derived name when aliasName is unset', () => {
+    // Unchanged from before this deliverable - same assertion as the first test in this block.
+    expect(aliasNameFor(action({ name: 'Drop RL', id: 'ab12cd34' }))).toBe(
+      derivedAliasName(action({ name: 'Drop RL', id: 'ab12cd34' })),
+    )
+  })
+
+  it('treats an empty-string aliasName the same as unset', () => {
+    expect(aliasNameFor(action({ name: 'Drop RL', id: 'ab12cd34', aliasName: '' }))).toBe(
+      'drop_rl',
+    )
+  })
+})
+
+describe('derivedAliasName', () => {
+  it('produces a sign-free slug of the display name, no prefix, no id suffix - the UI placeholder for an unnamed action (story 039, D7)', () => {
+    expect(derivedAliasName(action({ name: 'Drop RL', id: 'ab12cd34' }))).toBe('drop_rl')
   })
 })
 
@@ -60,7 +114,7 @@ describe('renderActionAlias', () => {
     const { aliases } = renderActionAlias(action({ name: 'Drop RL', id: 'ab12cd34' }))
 
     expect(aliases).toEqual([
-      { name: 'q2l_a_drop_rl_ab12', body: 'drop rl', line: 'alias q2l_a_drop_rl_ab12 drop rl' },
+      { name: 'drop_rl', body: 'drop rl', line: 'alias drop_rl drop rl' },
     ])
   })
 
@@ -78,7 +132,7 @@ describe('renderActionAlias', () => {
     )
 
     expect(aliases).toHaveLength(1)
-    expect(aliases[0].line).toBe('alias q2l_a_rocket_ab12 "use rocket launcher; +attack; -attack"')
+    expect(aliases[0].line).toBe('alias rocket "use rocket launcher; +attack; -attack"')
   })
 
   it('renders a message command as "<channel> <text>"', () => {
@@ -94,7 +148,7 @@ describe('renderActionAlias', () => {
     )
 
     expect(aliases[0].body).toBe('say_team [ HELP ] $$loc_here; wave 1')
-    expect(aliases[0].line).toBe('alias q2l_a_help_ab12 "say_team [ HELP ] $$loc_here; wave 1"')
+    expect(aliases[0].line).toBe('alias help "say_team [ HELP ] $$loc_here; wave 1"')
   })
 
   it('renders a say message on the say channel', () => {
@@ -106,7 +160,7 @@ describe('renderActionAlias', () => {
       }),
     )
 
-    expect(aliases[0].line).toBe('alias q2l_a_gg_ab12 say good game')
+    expect(aliases[0].line).toBe('alias gg say good game')
   })
 
   it('sanitizes quotes and collapsed whitespace out of every command', () => {
@@ -267,8 +321,8 @@ describe('renderActionAliasLines', () => {
     })
 
     expect(renderActionAliasLines([first, second])).toEqual([
-      'alias q2l_a_one_aaaa drop rl',
-      'alias q2l_a_two_bbbb wave 2',
+      'alias one drop rl',
+      'alias two wave 2',
     ])
   })
 
@@ -295,7 +349,9 @@ describe('renderActionAliasLines', () => {
       commands: [{ kind: 'raw', text: '+attack' }],
     })
 
-    expect(renderActionAliasLines([catalogueRow])).toEqual(['alias q2l_a_attack_aaaa +attack'])
+    // A `kind: 'bind'` row's derived name is slugged sign-free even though its own display name
+    // starts with `+` (story 039, D7's Decisions): only a `kind: 'alias'` entry carries the sign.
+    expect(renderActionAliasLines([catalogueRow])).toEqual(['alias attack +attack'])
   })
 })
 
@@ -375,9 +431,11 @@ describe('kind: alias entries', () => {
 
     const lines = renderActionAliasLines([plusTest, binding])
 
-    expect(lines).toEqual(['alias +test +attack', 'alias q2l_a_test_binding_bind +test'])
-    // The alias entry itself never renders a `q2l_a_*` name; only the binding
-    // that calls it gets one, because that is what a key is bound to.
-    expect(lines[0]).not.toContain('q2l_a_')
+    expect(lines).toEqual(['alias +test +attack', 'alias test_binding +test'])
+    // Neither line carries a `q2l_a_` prefix any more (story 039, D7): the alias entry renders
+    // under its own typed name, sign kept, and the binding that calls it derives a plain readable
+    // slug - the same "no `q2l_a_` anywhere in the output" invariant this deliverable's acceptance
+    // criteria calls for.
+    expect(lines.join('\n')).not.toContain('q2l_a_')
   })
 })

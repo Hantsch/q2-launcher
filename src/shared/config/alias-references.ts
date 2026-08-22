@@ -62,8 +62,9 @@
 
 import type { ConfigAction } from '../modules/config'
 import { sanitizeCommand, type AltLayer } from './alt-layers'
-import { aliasNameFor } from './alias-render'
+import { aliasNameFor, commandLineFor } from './alias-render'
 import { bindValueFor } from './action-mirror'
+import { normalizeBindKey } from './key-names'
 
 /**
  * Everything `collectAliasReferences`/`actionsWithAliasLine` read a profile's
@@ -108,14 +109,71 @@ function collectFromText(text: string, tokens: Set<string>): void {
 }
 
 /**
+ * The `sources.binds` key(s) `action`'s own base-layer mirror
+ * (`action-mirror.ts#applyActionBindMirror`) writes for it: its `key`/
+ * `secondaryKey` slot, whichever of the two carries no modifier (a modified
+ * slot mirrors into a layer override instead, see `ownMirrorLayerKeys`
+ * below). Not conditioned on the slot's current value matching
+ * `aliasNameFor(action)` - by the profile's own invariant a key this action
+ * holds unmodified can only ever carry that mirror's value, so membership by
+ * key alone is exact, same reasoning `action-mirror.ts#isMirroredValue`'s
+ * key-scoped form already relies on.
+ */
+function ownMirrorBindKeys(action: ConfigAction): Set<string> {
+  const keys = new Set<string>()
+  for (const slot of [
+    { key: action.key, modifier: action.keyModifier },
+    { key: action.secondaryKey, modifier: action.secondaryKeyModifier },
+  ]) {
+    if (slot.key && !slot.modifier) keys.add(normalizeBindKey(slot.key))
+  }
+  return keys
+}
+
+/**
+ * The `layer.overrides` key(s) `action`'s own layer mirror
+ * (`modifier-layers.ts#applyActionLayerMirror`) writes into *this* layer:
+ * one of its two slots, when that slot carries a modifier whose normalized
+ * trigger matches `layer.triggerKey` - the exact "found by normalized
+ * triggerKey, never by name" rule that mirror pass itself uses to pick which
+ * layer a modified slot belongs to.
+ */
+function ownMirrorLayerKeys(action: ConfigAction, layer: AltLayer): Set<string> {
+  const keys = new Set<string>()
+  const layerTrigger = normalizeBindKey(layer.triggerKey ?? '')
+  for (const slot of [
+    { key: action.key, modifier: action.keyModifier },
+    { key: action.secondaryKey, modifier: action.secondaryKeyModifier },
+  ]) {
+    if (slot.key && slot.modifier && slot.modifier === layerTrigger) keys.add(normalizeBindKey(slot.key))
+  }
+  return keys
+}
+
+/**
  * The lower-cased set of every token anything in `sources` could be calling
  * by name - see the file doc comment for the three source shapes and the
  * `bind <key> <token>` widening. Not filtered against any "is this actually a
  * defined alias" set; the caller (`validate-actions.ts`'s `aliasUnreferenced`
  * pass, or `actionsWithAliasLine` below) decides what to do with membership.
+ *
+ * `options.ignoreOwnMirrorOf` (story 039, D9) excludes exactly the two
+ * `binds`/layer-override slots `action`'s own mirror pass writes for it
+ * (`ownMirrorBindKeys`/`ownMirrorLayerKeys` above) from the `sources.binds`/
+ * `sources.layers` scan - never from `sources.actions`' command text, which
+ * this option leaves untouched (a recursive alias body is still counted, per
+ * the file doc comment's "No self-exclusion" rule; excluding an action's own
+ * *command text* is the caller's job when it wants that too, by leaving the
+ * action itself out of `sources.actions` - see `findAliasReferrers` below).
+ * Optional and defaulting to "ignore nothing", so every existing caller's
+ * behaviour is unchanged.
  */
-export function collectAliasReferences(sources: AliasReferenceSources): Set<string> {
+export function collectAliasReferences(
+  sources: AliasReferenceSources,
+  options: { ignoreOwnMirrorOf?: ConfigAction } = {},
+): Set<string> {
   const tokens = new Set<string>()
+  const ignoreAction = options.ignoreOwnMirrorOf
 
   for (const action of sources.actions) {
     for (const command of action.commands) {
@@ -124,12 +182,16 @@ export function collectAliasReferences(sources: AliasReferenceSources): Set<stri
     }
   }
 
-  for (const value of Object.values(sources.binds ?? {})) {
+  const ownBindKeys = ignoreAction ? ownMirrorBindKeys(ignoreAction) : undefined
+  for (const [key, value] of Object.entries(sources.binds ?? {})) {
+    if (ownBindKeys?.has(normalizeBindKey(key))) continue
     collectFromText(sanitizeCommand(value), tokens)
   }
 
   for (const layer of sources.layers ?? []) {
-    for (const value of Object.values(layer.overrides)) {
+    const ownLayerKeys = ignoreAction ? ownMirrorLayerKeys(ignoreAction, layer) : undefined
+    for (const [key, value] of Object.entries(layer.overrides)) {
+      if (ownLayerKeys?.has(normalizeBindKey(key))) continue
       collectFromText(sanitizeCommand(value), tokens)
     }
   }
@@ -137,9 +199,206 @@ export function collectAliasReferences(sources: AliasReferenceSources): Set<stri
   return tokens
 }
 
+/** One thing other than `action`'s own mirror slots that currently calls its alias name - what
+ * `findAliasReferrers` reports one of, and what the D9 rename-refusal dialog names in its message. */
+export type AliasReferrer =
+  | { kind: 'action'; name: string }
+  | { kind: 'bind'; key: string }
+  | { kind: 'override'; key: string; layerName: string }
+
+/**
+ * Every place other than `action`'s own two mirror slots that currently calls `aliasNameFor(action)`
+ * by name (story 039, D9) - the detail `collectAliasReferences`'s flat token set does not carry, and
+ * the rename-refusal dialog needs so it can name what it is refusing to leave dangling.
+ *
+ * Reuses `collectFromText` (the same per-string scan `collectAliasReferences` itself calls) rather
+ * than a second reference-detection implementation - only the bookkeeping of *which* source produced
+ * a hit is new here. `action`'s own command text is never scanned (only *other* actions' are) and its
+ * own mirror slots are excluded from `sources.binds`/`sources.layers` the same way
+ * `collectAliasReferences`'s `ignoreOwnMirrorOf` option does - together these two exclusions are
+ * exactly "the entry's own two mirror slots" the story's D9 text asks to ignore, restated in terms an
+ * open-ended reference count could not express (a boolean has no room to say "except these").
+ */
+export function findAliasReferrers(action: ConfigAction, sources: AliasReferenceSources): AliasReferrer[] {
+  const target = aliasNameFor(action).toLowerCase()
+  const referrers: AliasReferrer[] = []
+
+  const mentionsTarget = (text: string): boolean => {
+    const tokens = new Set<string>()
+    collectFromText(sanitizeCommand(text), tokens)
+    return tokens.has(target)
+  }
+
+  for (const other of sources.actions) {
+    if (other.id === action.id) continue
+    const hit = other.commands.some((command) => command.kind === 'raw' && mentionsTarget(command.text))
+    if (hit) referrers.push({ kind: 'action', name: other.name })
+  }
+
+  const ownBindKeys = ownMirrorBindKeys(action)
+  for (const [key, value] of Object.entries(sources.binds ?? {})) {
+    if (ownBindKeys.has(normalizeBindKey(key))) continue
+    if (mentionsTarget(value)) referrers.push({ kind: 'bind', key })
+  }
+
+  for (const layer of sources.layers ?? []) {
+    const ownLayerKeys = ownMirrorLayerKeys(action, layer)
+    for (const [key, value] of Object.entries(layer.overrides)) {
+      if (ownLayerKeys.has(normalizeBindKey(key))) continue
+      if (mentionsTarget(value)) referrers.push({ kind: 'override', key, layerName: layer.name })
+    }
+  }
+
+  return referrers
+}
+
+/**
+ * The top-level (`;`-separated) segments of an already-rendered alias body,
+ * trimmed, empties dropped - the same split `validate-structure.ts`'s
+ * `splitTopLevelSemicolons` performs on the body it reads back out of a
+ * rendered `alias` line.
+ *
+ * A plain `split(';')` is exact here rather than an approximation of that
+ * quote-aware version: every command in the body has been through
+ * `sanitizeCommand` (via `commandLineFor`), which drops every `"`, so no
+ * quoted span can exist for a `;` to hide inside.
+ */
+function bodySegments(body: string): string[] {
+  return body
+    .split(';')
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0)
+}
+
+/**
+ * The first whitespace-separated token of `segment`, lower-cased - the token
+ * `Cmd_ExecuteString` dispatches on, and the one `validate-structure.ts`'s
+ * `buildEdges` builds its edge from (`tokenize(segment)[0]`). Whitespace-split
+ * rather than tokenized for the same reason as above: a sanitized body carries
+ * no quotes, so there is no quoted-token case to handle.
+ */
+function segmentHead(segment: string): string {
+  return segment.split(/\s+/)[0]!.toLowerCase()
+}
+
+/**
+ * `action`'s alias body exactly as `renderActionAlias` joins it (before any
+ * `_p<n>` chunking, which only redistributes these same segments).
+ */
+function renderedAliasBody(action: ConfigAction): string {
+  return action.commands
+    .map((command) => commandLineFor(command))
+    .filter((command) => command.length > 0)
+    .join('; ')
+}
+
+/**
+ * Every top-level body segment of `action`'s rendered alias line whose head
+ * token *is* `action`'s own resolved alias name - the segments that make the
+ * line dispatch itself (story 039 review fix, widened in the third pass,
+ * split out of the writer's drop guard in the fourth).
+ *
+ * Exported for `validate-actions.ts`'s `aliasSelfReference` Care finding, which
+ * names the offending command(s) to the user. Same rule
+ * `validate-structure.ts#buildEdges` applies when it decides what an alias body
+ * dispatches - the head token of every top-level `;` segment - so a segment
+ * reported here is exactly a segment that draws a cycle edge in the rendered
+ * file.
+ *
+ * Reachable since story 039 made the derived alias name a readable slug of the
+ * display name: an entry whose name and (first) command are the same word -
+ * `bind-adoption.ts` materialising a raw `bind MWHEELUP "weapnext"` into the
+ * `weapnext` catalogue row (it names an adopted row after `row.commands[0]`),
+ * the built-in `weapnext`/`weapprev`/`weaplast`/`centerview` rows, or a user
+ * entry whose `aliasName` is pinned to its own command - derives the alias name
+ * `weapnext` for the command `weapnext`. Before the rename the `q2l_a_` prefix
+ * made name and command textually distinct by construction, so this could not
+ * happen.
+ *
+ * Such a segment is dead in every direction: `Cmd_ExecuteString` matches
+ * registered *commands* before aliases, so an alias named after a real command
+ * is unreachable, and one named after a non-command loops until
+ * `ALIAS_LOOP_COUNT` cuts it off. `validate-structure.ts` reports the rendered
+ * line as an error-level `aliasCycle`, correctly - which is *why* it is reported
+ * here too rather than silently written.
+ *
+ * ## What is deliberately *not* matched
+ *
+ * Literal equality of the head token, so the two shapes `referencedAlias`
+ * separates stay separated:
+ *
+ * - `alias forward "+forward; ..."` (the `holdLayer`/`catalogueMirror` corpus
+ *   shape) is legal and not a self-reference. `forward` is no engine command, so
+ *   that alias really is what a caller reaches, and its body really does dispatch
+ *   the engine's `+forward` - which is why `referencedAlias`'s
+ *   `isEnginePressReleaseCommand` carve-out refuses that edge, and why a
+ *   literal-only head comparison here (`+forward` is not `forward`) agrees with
+ *   it without needing to restate it.
+ * - `alias zoom "set fov 30; -zoom"` is the one place the two rules differ:
+ *   `referencedAlias` *does* build a self-edge there (sign-stripped, and `-zoom`
+ *   names no engine command), so that render still draws an `aliasCycle`, while
+ *   nothing here reports it. Left that way on purpose: `zoom` is no engine
+ *   command, so the alias is live and its `set fov 30` really runs, and whether
+ *   that sign-stripped self-edge should be reported at all is
+ *   `validate-structure.ts`'s judgement to revisit - not something to restate
+ *   here as if the body were self-dispatching.
+ */
+export function selfReferencingSegments(action: ConfigAction): string[] {
+  const name = aliasNameFor(action).trim().toLowerCase()
+  if (name.length === 0) return []
+  return bodySegments(renderedAliasBody(action)).filter((segment) => segmentHead(segment) === name)
+}
+
+/**
+ * Is `action`'s whole rendered alias body *nothing but* its own alias name -
+ * `alias weapnext weapnext`, the one shape whose alias line the writer may drop
+ * outright?
+ *
+ * ## Why exactly this shape, and no wider (fourth pass, the User's decision)
+ *
+ * The third pass dropped the line whenever **any** body segment self-referenced,
+ * arguing that the alias was unreachable anyway so the body's other commands had
+ * never run either. The User's decision (story 039, Decisions (Sprint)) overrules
+ * that for the multi-command case: `alias weapnext "weapnext; centerview"` is
+ * kept and rendered as authored, because dropping it silently loses `centerview`
+ * - the user's own content - and which of the three ways out to take (remove the
+ * command, rename the entry, accept the loop) is the user's call, not the
+ * writer's. `validate-actions.ts`'s `aliasSelfReference` finding (fed by
+ * `selfReferencingSegments` above) is what puts that call in front of them, and
+ * the error-level `aliasCycle` `validate-structure.ts` then reports for the kept
+ * line is correct and expected, not a bug: calling yourself in a chain really is
+ * a cycle in-engine.
+ *
+ * What is left here is the case where dropping is lossless *by construction*: the
+ * body holds one segment and that segment is the alias name itself, so the line
+ * defines nothing but its own dead self-call. `bindValueFor` equals the alias name
+ * equals that one command, so the emitted `bind MWHEELUP weapnext` runs the
+ * command directly and the key behaves identically - the same shape story 038
+ * produces for `+attack`/`+moveup` - and `validate-actions.ts`'s
+ * `aliasShadowsCommand` still says out loud that the name is unusable as an alias
+ * (its `bindValueFor(action) === aliasNameFor(action)` condition holds here by
+ * construction). A body of `weapnext arg` is deliberately *not* this case: the
+ * argument would be lost, so that one is kept and reported like any other
+ * multi-segment self-reference.
+ *
+ * Checked **before** the three guards in `actionsWithAliasLine`, and deliberately
+ * not conditioned on references: a bind carrying the literal token `weapnext` is
+ * the direct mirror of the command, not a call into an alias of the same name, so
+ * counting it as a reason to keep the alias alive would keep exactly the line
+ * that must go.
+ */
+export function isSelfMirroringAlias(action: ConfigAction): boolean {
+  const name = aliasNameFor(action).trim().toLowerCase()
+  if (name.length === 0) return false
+  const segments = bodySegments(renderedAliasBody(action))
+  return segments.length === 1 && segments[0]!.toLowerCase() === name
+}
+
 /**
  * `actions`, minus every entry whose alias line the writer has no reason to
- * emit (story 038's root fix). An action is dropped exactly when all three
+ * emit (story 038's root fix, plus story 039's self-mirror guard -
+ * `isSelfMirroringAlias` above, which drops an entry outright and before
+ * anything else). Beyond that an action is dropped exactly when all three
  * guards hold:
  *
  * - `action.kind !== 'alias'` - a `kind: 'alias'` entry exists to be called by
@@ -170,6 +429,7 @@ export function actionsWithAliasLine(
 ): ConfigAction[] {
   const referenced = collectAliasReferences(sources)
   return actions.filter((action) => {
+    if (isSelfMirroringAlias(action)) return false
     if (action.kind === 'alias') return true
     if (bindValueFor(action) === aliasNameFor(action)) return true
     return referenced.has(aliasNameFor(action).toLowerCase())

@@ -36,7 +36,7 @@
  */
 
 import type { AltLayer, AltLayerMode } from '@shared/config/alt-layers'
-import { ACTION_ALIAS_PREFIX, aliasNameFor } from '@shared/config/alias-render'
+import { LEGACY_ACTION_ALIAS_PREFIX, legacyAliasNameFor } from '@shared/config/alias-render'
 import { bindValueFor } from '@shared/config/action-mirror'
 import { normalizeBindKey } from '@shared/config/key-names'
 import type { ConfigAction } from '@shared/modules/config'
@@ -83,14 +83,33 @@ interface ActionModifierSlot {
  *
  * Two passes, exactly mirroring `setActions`:
  *
- * 1. Strip. Every override whose *value* starts with `ACTION_ALIAS_PREFIX` is
- *    dropped from every layer, regardless of that layer's `triggerKey` - such
- *    a value can only have been written by a previous call to this function,
- *    so this is "forget everything this function ever wrote" before
- *    rewriting it from scratch. A hand-made override (any other value) is
- *    left alone; a layer with nothing to strip is returned as the same object
- *    reference, so an untouched layer stays untouched by identity too, not
- *    just by value.
+ * 1. Strip. **Ownership is the key-scoped, value-based rule** `setActions`'s
+ *    bind mirror uses (story 034, `action-mirror.ts`): an override is ours to
+ *    drop exactly when its value is `bindValueFor` of an action in
+ *    `previousActions` *on a key that action actually held*. Neither half is
+ *    an identity on its own - a mirrored value is by construction one a user
+ *    could have typed themselves (a continuous catalogue row mirrors as its
+ *    own `+command`, and after story 039 an alias name is a readable
+ *    `ssg_sg` a user can reference by hand), and a key is a slot, not an
+ *    identity. Together they say "this is the override the last pass wrote for
+ *    that slot", which is what licenses deleting it: a hand-made override on
+ *    an unrelated key survives, while a slot just cleared in the Controls grid
+ *    really does lose its override.
+ *
+ *    Plus, permanently, every override whose value starts with
+ *    `LEGACY_ACTION_ALIAS_PREFIX`, from every layer, regardless of that
+ *    layer's `triggerKey`. That prefix is **not** read as "a mirror wrote
+ *    this" any more (story 039); it means "an *older version of this app*
+ *    generated this name" (`q2l_a_<slug>_<id4>`), and it is kept forever so a
+ *    pre-flip orphan whose owning action is already gone - and therefore in no
+ *    `previousActions` this call can ever see - still disappears on the next
+ *    save. Its one accepted cost: an own alias name a user deliberately types
+ *    as `q2l_a_...` (legal - `alias-names.ts` does not ban the prefix) reads as
+ *    legacy debris wherever it is referenced by hand.
+ *
+ *    Any other override is hand-made and left alone; a layer with nothing to
+ *    strip is returned as the same object reference, so an untouched layer
+ *    stays untouched by identity too, not just by value.
  * 2. Rewrite. For every action, in array order (later wins on a key
  *    collision, the same determinism rule as `setActions`), each of its two
  *    slots (`key`+`keyModifier`, `secondaryKey`+`secondaryKeyModifier`) that
@@ -125,13 +144,13 @@ export function applyActionLayerMirror(
   newId: () => string,
   previousActions: readonly ConfigAction[] = actions,
 ): AltLayer[] {
-  // Story 034: a continuous catalogue row is mirrored as its own `+command`
-  // rather than as an alias (`bindValueFor`, `action-mirror.ts`), so the strip
-  // pass can no longer recognise everything it wrote by the alias prefix alone.
-  // The second half of the rule is value-based and scoped to the key the
-  // previous action actually held - a user's own hand-made `+forward` override
-  // on an unrelated key is not ours to remove, while a slot that was just
-  // cleared in the Controls grid really does have to lose its override.
+  // The ownership rule (story 034, restated as *the* rule by story 039 D3):
+  // an override is ours iff its value is `bindValueFor` of a previous action
+  // *on a key that action held*. Value alone does not identify a mirror write -
+  // a continuous catalogue row mirrors as its own `+command` and a readable
+  // alias name is one a user can type by hand - and a key alone does not
+  // either. `LEGACY_ACTION_ALIAS_PREFIX` below is a *format* marker for names an
+  // older version generated, not a second ownership test; see the doc comment.
   const staleByKey = new Map<string, Set<string>>()
   for (const previous of previousActions) {
     for (const slot of [
@@ -147,7 +166,8 @@ export function applyActionLayerMirror(
     }
   }
   const isStale = (key: string, command: string): boolean =>
-    command.startsWith(ACTION_ALIAS_PREFIX) || Boolean(staleByKey.get(normalizeBindKey(key))?.has(command.trim()))
+    command.startsWith(LEGACY_ACTION_ALIAS_PREFIX) ||
+    Boolean(staleByKey.get(normalizeBindKey(key))?.has(command.trim()))
 
   // --- pass 1: strip every previously-mirrored override -------------------
   let result = layers.map((existingLayer) => {
@@ -218,12 +238,23 @@ export function applyActionLayerMirror(
 }
 
 /**
- * The synthetic `binds`/override value `aliasNameFor` would have produced for
- * `action` while it was still a plain bind - i.e. the exact value a mirror
- * pass would have written *before* this row's `kind` was reinterpreted to
- * `alias`. `aliasNameFor` only branches on `action.kind` at its very top, so
- * pretending the kind is still `'bind'` recovers that historical value
- * without duplicating its slugging/id-suffix logic here.
+ * The synthetic `binds`/override value a mirror pass would have produced for
+ * `action` while it was still a plain bind - i.e. the exact value written
+ * *before* this row's `kind` was reinterpreted to `alias`. `legacyAliasNameFor`
+ * only branches on `action.kind` at its very top, so pretending the kind is
+ * still `'bind'` recovers that historical value without duplicating its
+ * slugging/id-suffix logic here.
+ *
+ * **Legacy-only, deliberately** (story 039 D6): the *legacy* generated name
+ * (`q2l_a_<slug>_<id4>`), not `aliasNameFor`'s current one. The entries these
+ * two strip passes exist to clean up were all written by a pre-039 mirror, so
+ * the legacy format is the only one they can ever have; and after the D7 name
+ * flip an alias entry's "synthetic bind-era name" would be *identical to its
+ * real, readable alias name* (`drop_shotgun`), so matching the current form
+ * would delete a legitimate hand-typed `bind KP_END "drop_shotgun"` that
+ * merely references the alias - the opposite of cleaning up debris. An
+ * explicit `aliasName` is ignored for the same reason: no pre-039 mirror can
+ * have written a name that did not exist yet.
  *
  * Used by `stripAliasActionBinds`/`stripAliasActionOverrides` right below to
  * recognise *this specific action's own* stale mirrored entry by value, never
@@ -234,7 +265,7 @@ export function applyActionLayerMirror(
  * shares a slot with a long-migrated alias.
  */
 function staleAliasSyntheticName(action: ConfigAction): string {
-  return aliasNameFor({ ...action, kind: 'bind' })
+  return legacyAliasNameFor({ ...action, kind: 'bind' })
 }
 
 /**
@@ -255,7 +286,9 @@ function staleAliasSyntheticName(action: ConfigAction): string {
  * Matching by value rather than by key/slot means a hand-typed bind, or a
  * different action's legitimate bind, that happens to occupy the same key the
  * alias used to hold survives untouched - only an entry whose value is
- * literally that alias's own former name is removed.
+ * literally that alias's own former *legacy* name is removed
+ * (`staleAliasSyntheticName`, story 039 D6: never the current, readable name,
+ * which a user can legitimately reference by hand).
  *
  * Returns `binds` unchanged (same reference) when there is nothing to strip.
  */

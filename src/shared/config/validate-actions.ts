@@ -102,7 +102,7 @@
  * have no equivalent in the shared collector, by design).
  *
  * Duplicate alias names reuse `aliasNameFor` (`alias-render.ts`), the exact
- * function the writer uses to decide an alias entry's rendered name — so a
+ * function the writer uses to decide an entry's rendered name — so a
  * collision this module reports is the same collision that would actually
  * land in the file, and the slugging/`MAX_ALIAS_NAME` rules stay that
  * module's business (S04 watch-out against re-deriving them here). Two
@@ -111,6 +111,36 @@
  * `Cmd_Alias_f` matches alias names case-insensitively — the same rule
  * `validate-structure.ts`'s own `aliasDuplicate` check already applies to a
  * rendered file's `alias` lines.
+ *
+ * Story 039, D8 generalises `aliasDuplicate` from `kind: 'alias'`-only to
+ * *every* action: every kind (`bind`, `alias`, `message`) is written under
+ * `aliasNameFor`'s resolved name (`alias-render.ts`'s file doc comment — "every
+ * action is written as one alias"), so a `bind` entry and a `message` entry can
+ * collide on a name exactly as two `alias` entries can, now that D7 gives every
+ * entry a short, readable, collision-prone derived name instead of an id-suffixed
+ * one. Downgraded from `error` to `warning` at the same time (the story's
+ * Decisions): the collision is symmetric and last-definition-wins, not a broken
+ * reference, so every colliding entry gets its own finding naming the *other*
+ * colliding entries (mirroring `undefinedAlias`'s two-entity param shape) rather
+ * than the single `{ name }` this rule used to carry. No suffix is ever appended
+ * and nothing is renamed — this rule only reports.
+ *
+ * A separate new rule, `aliasShadowsCommand`, fires per action whose own
+ * resolved name is in `alias-names.ts`'s `reservedAliasNames()` — a name that
+ * would otherwise render a dead, self-referential `alias weapnext weapnext`.
+ * It is independent of `aliasDuplicate`: a name can be both a collision and a
+ * shadow, and both findings fire for that entry — nothing here dedupes them.
+ *
+ * Story 039's fourth pass adds a third name-level rule, `aliasSelfReference`,
+ * for the shape the User's decision moved out of the writer's drop guard: an
+ * entry whose body has other, real commands *and* one segment that calls the
+ * entry's own alias name. The writer keeps that line as authored (see
+ * `alias-references.ts#isSelfMirroringAlias` for why dropping it would lose the
+ * user's own content), so this rule is the only thing that tells the user the
+ * loop is there. Independent of the two rules above in the same way — a name can
+ * shadow a command *and* be called from its own body — and independent of
+ * `validate-structure.ts`'s `aliasCycle`, which reports the same situation about
+ * the rendered file rather than about the entry the user can edit.
  */
 
 import type { AltLayer } from './alt-layers'
@@ -119,7 +149,9 @@ import type { EngineKind } from '../types/engine'
 import { MOVEMENT_ACTIONS } from './action-catalog'
 import { generateLayerAliases } from './alt-layers'
 import { aliasNameFor } from './alias-render'
-import { collectAliasReferences } from './alias-references'
+import { bindValueFor } from './action-mirror'
+import { reservedAliasNames } from './alias-names'
+import { collectAliasReferences, isSelfMirroringAlias, selfReferencingSegments } from './alias-references'
 import type { Finding } from './validation'
 
 /** Shared prefix of every message key this module emits, alongside D3/D4's own. */
@@ -244,9 +276,12 @@ export function validateActions(
   const aliasActions = actions.filter((action) => action.kind === 'alias')
   const aliasNames = aliasActions.map((action) => ({ action, name: aliasNameFor(action) }))
 
-  // --- duplicate alias names -------------------------------------------------
+  // --- duplicate alias names (generalised, D8: every action renders as an alias
+  // under `aliasNameFor`, so the collision check runs over every action, not just
+  // `kind: 'alias'` ones — see the file doc comment) --------------------------
+  const allResolvedNames = actions.map((action) => ({ action, name: aliasNameFor(action) }))
   const byKey = new Map<string, { action: ConfigAction; name: string }[]>()
-  for (const entry of aliasNames) {
+  for (const entry of allResolvedNames) {
     const key = entry.name.toLowerCase()
     const group = byKey.get(key) ?? []
     group.push(entry)
@@ -255,8 +290,86 @@ export function validateActions(
   for (const group of byKey.values()) {
     if (group.length < 2) continue
     for (const entry of group) {
-      add('aliasDuplicate', 'error', entry.action.name, { name: entry.name })
+      const other = group
+        .filter((candidate) => candidate !== entry)
+        .map((candidate) => candidate.action.name)
+        .join(', ')
+      add('aliasDuplicate', 'warning', entry.action.name, {
+        name: entry.name,
+        entry: entry.action.name,
+        other,
+      })
     }
+  }
+
+  // --- a derived name shadows a known engine command/cvar (D8) ----------------
+  // Independent of the duplicate check just above: fires on an entry's own
+  // resolved name alone, never suppressed by a collision also firing for it.
+  //
+  // Review fix: a *continuous* catalogue mirror (a movement/weapon row bound
+  // straight to its own `+`/`-` command, e.g. `+forward`) is excluded, but not
+  // every catalogue-materialised bind - unlike `isCandidateBinding`'s blanket
+  // exclusion above, which is about a different question ("can this action's
+  // own command be a broken reference", never true for a catalogue row) than
+  // this one ("does this action's own alias line, if the writer emits one,
+  // collide with a reserved name"). A continuous row's own sign-stripped
+  // command is deliberately part of `reservedAliasNames()` too (see
+  // `alias-names.ts`), so *every* adopted movement/weapon catalogue bind would
+  // otherwise derive a "shadowing" name by construction - but `bindValueFor`
+  // mirrors such a row straight into its bind value and the writer's own
+  // `actionsWithAliasLine` (story 038) never emits an alias line for it at
+  // all (`bindValueFor(action) !== aliasNameFor(action)`), so warning about it
+  // would be pure noise for a line that is never written.
+  //
+  // A *discrete* catalogue row (no `+`/`-`, e.g. `weapnext`) is the opposite:
+  // `bindValueFor` has no continuous fast path for it and falls through to
+  // `aliasNameFor` itself, so `bindValueFor(action) === aliasNameFor(action)`
+  // holds and this rule fires - exactly the case the story's own Decisions
+  // section names. The old blanket exclusion silenced the one warning this
+  // rule exists for.
+  //
+  // Second review fix (story 039): the writer no longer emits that entry's
+  // `alias weapnext weapnext` line at all - `actionsWithAliasLine`'s
+  // self-reference guard drops it - but the warning stays, and is if anything
+  // more accurate for it: the point is that the name the user picked cannot
+  // work as an alias name (the engine's command of that name always wins), not
+  // that a dead line was written. The bind still runs the right command,
+  // which is why this is a `warning` and not an `error`.
+  const reserved = reservedAliasNames()
+  for (const entry of allResolvedNames) {
+    if (bindValueFor(entry.action) !== entry.name) continue
+    if (!reserved.has(entry.name.toLowerCase())) continue
+    add('aliasShadowsCommand', 'warning', entry.action.name, {
+      entry: entry.action.name,
+      name: entry.name,
+    })
+  }
+
+  // --- an entry's own alias body calls its own alias name (fourth pass) -------
+  // The User's decision (story 039, Decisions (Sprint)) for the multi-command
+  // self-reference case: the writer keeps `alias weapnext "weapnext; centerview"`
+  // as authored - dropping it would silently lose `centerview` - and Care names
+  // the entry and the self-referencing command so the user can decide (remove the
+  // command, rename the entry, accept the loop). This finding therefore appears
+  // *alongside* the error-level `aliasCycle` `validate-structure.ts` reports for
+  // the kept line, and never replaces it: calling yourself in a chain really is a
+  // cycle in-engine, and that finding describes the rendered file while this one
+  // describes the entry the user can actually edit.
+  //
+  // Skipped for the one shape the writer still drops outright
+  // (`isSelfMirroringAlias`: the whole body is nothing but the alias name), where
+  // nothing is lost, there is nothing to decide, and `aliasShadowsCommand` above
+  // already reports the unusable name. The rule the segments come from is
+  // `alias-references.ts`'s, i.e. the writer's own - never a second scan here.
+  for (const entry of allResolvedNames) {
+    if (isSelfMirroringAlias(entry.action)) continue
+    const segments = selfReferencingSegments(entry.action)
+    if (segments.length === 0) continue
+    add('aliasSelfReference', 'warning', entry.action.name, {
+      entry: entry.action.name,
+      name: entry.name,
+      command: [...new Set(segments)].join(', '),
+    })
   }
 
   const definedKeys = new Set(aliasNames.map((entry) => entry.name.toLowerCase()))

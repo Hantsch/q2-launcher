@@ -17,11 +17,18 @@
  * over every one of them); `PROFILE_FIXTURES` is the same set keyed by name,
  * for a caller that wants to iterate the whole corpus rather than name one
  * profile at a time.
+ *
+ * Two of them sit in a second set, `SELF_REFERENCE_FIXTURES`, instead: since the
+ * User's decision in story 039 the writer *keeps* a multi-command alias line
+ * that calls its own name, so those two profiles are expected to produce
+ * findings and cannot live in a corpus asserted to produce none. See the comment
+ * above them.
  */
 
 import type { ConfigAction, ConfigProfile } from '../modules/config'
 import type { AltLayer } from './alt-layers'
 import { aliasNameFor } from './alias-render'
+import { bindValueFor } from './action-mirror'
 
 const CREATED_AT = '2026-01-01T00:00:00.000Z'
 
@@ -207,6 +214,14 @@ export const modifierLayerProfile: ConfigProfile = baseProfile('fixture-modifier
 //    038 D2 tests directly.
 // ---------------------------------------------------------------------------
 
+// Named exactly after their own commands on purpose (story 039 review fix): with the readable
+// derived name these slug to `forward`/`attack` while their `bindValueFor` mirror stays
+// `+forward`/`+attack`, so the file carries `alias forward +forward`. That is the sign-differing
+// near-collision shape - legal and reachable in the engine (`forward` is no engine command, so the
+// alias really is what a caller reaches), but the shape `validate-structure.ts`'s sign-stripping
+// reference heuristic used to mis-read as a self-cycle. Keeping the names here is what holds that
+// fix pinned; the "kept because referenced from a hold layer's generated body" behaviour the
+// fixture exists for is unaffected either way.
 const holdLayerForward = baseAction({
   id: 'ho1a1',
   name: 'Forward',
@@ -238,8 +253,133 @@ export const holdLayerProfile: ConfigProfile = baseProfile('fixture-hold-layer',
 })
 
 // ---------------------------------------------------------------------------
+// 8. discreteMirror - a *discrete* (sign-free) catalogue row exactly as
+//    `bind-adoption.ts` materialises it from a raw `bind MWHEELUP "weapnext"`:
+//    `name` is the row's own command text, so story 039's readable derived
+//    name is `weapnext` - textually identical to the command it would run.
+//
+//    `bindValueFor` has no continuous fast path for a sign-free command and
+//    falls through to the alias name, so the mirror value and the alias name
+//    are the same string, and the writer would emit the self-referential
+//    `alias weapnext weapnext`. That line can never even be reached in-engine
+//    (`Cmd_ExecuteString` matches commands before aliases), and
+//    `validate-structure.ts` reports it as an error-level `aliasCycle`. This
+//    fixture is what pins the writer's self-reference drop guard
+//    (`alias-references.ts#actionsWithAliasLine`).
+// ---------------------------------------------------------------------------
 
-/** The whole corpus, keyed by shape name - what `render-invariants.test.ts` iterates. */
+const discreteMirrorAction = baseAction({
+  id: 'd1a1',
+  name: 'weapnext',
+  categoryId: 'weapons',
+  catalogId: 'weaponExtra:weapnext',
+  key: 'MWHEELUP',
+  commands: [{ kind: 'raw', text: 'weapnext' }],
+})
+
+export const discreteMirrorProfile: ConfigProfile = baseProfile('fixture-discrete-mirror', {
+  name: 'Discrete Catalogue Mirror Row',
+  binds: { MWHEELUP: bindValueFor(discreteMirrorAction) },
+  actions: [discreteMirrorAction],
+})
+
+// ---------------------------------------------------------------------------
+// 9. chunkedSignedBody - an entry long enough that
+//    `alias-render.ts#renderActionAlias` splits it into a `_p<n>` chunk family,
+//    whose *first chunk* opens with the signed engine command its own root name
+//    derives from (`alias forward_p1 "+forward; ..."` under
+//    `alias forward "forward_p1; forward_p2"`).
+//
+//    Story 039's fourth pass, defect 1: `validate-structure.ts`'s carve-out for
+//    a legal `alias forward +forward` body used to be scoped to the *visited
+//    node's own key*, so it never applied inside a chunk (whose key is
+//    `forward_p1`, not `forward`) - the sign-stripped fallback drew
+//    `forward_p1 -> forward`, the root's own body drew the way back, and a
+//    perfectly legal split action was reported as an error-level `aliasCycle`.
+//    Pinned here by the corpus's zero-findings assertion, which the chunked
+//    fixture above (5) cannot pin: that one's whole family is dropped as
+//    unreferenced before it is ever rendered.
+// ---------------------------------------------------------------------------
+
+/** Six commands of ~210 bytes: past `renderActionAlias`'s one-line budget, so the family really
+ * splits, while every individual chunk line stays far below the engine's 1024-byte line limit. */
+const CHUNKED_SIGNED_COMMANDS = [
+  '+forward',
+  ...Array.from({ length: 5 }, (_, index) => `say_team going in ${index} ${'a'.repeat(200)}`),
+]
+
+const chunkedSignedBodyAction = baseAction({
+  id: 'cs1a1',
+  name: 'Forward',
+  categoryId: 'movement',
+  key: 'w',
+  commands: CHUNKED_SIGNED_COMMANDS.map((text) => ({ kind: 'raw' as const, text })),
+})
+
+export const chunkedSignedBodyProfile: ConfigProfile = baseProfile('fixture-chunked-signed-body', {
+  name: 'Chunked Family With A Signed First Command',
+  binds: { w: bindValueFor(chunkedSignedBodyAction) },
+  actions: [chunkedSignedBodyAction],
+})
+
+// ---------------------------------------------------------------------------
+// The two self-referencing shapes below are deliberately *not* part of
+// `PROFILE_FIXTURES`: since the User's decision (story 039, Decisions (Sprint))
+// the writer keeps their alias line as authored, so `validateStructure`
+// legitimately reports an error-level `aliasCycle` for them and they cannot sit
+// in a corpus asserted to produce zero findings. They are exported as their own
+// set instead, and `render-invariants.test.ts` asserts the pair of findings they
+// are *supposed* to produce (the structural `aliasCycle` plus
+// `validate-actions.ts`'s `aliasSelfReference`, together).
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// S1. discreteMirrorCombo - the same shape as 8, one command longer: a free-form
+//    entry named after its own first command that carries a *second* command
+//    (`weapnext; centerview`). Dropping the line would lose `centerview`
+//    entirely, so the writer keeps it and Care reports the self-reference.
+// ---------------------------------------------------------------------------
+
+const discreteMirrorComboAction = baseAction({
+  id: 'd2a1',
+  name: 'weapnext',
+  categoryId: 'weapons',
+  key: 'MWHEELUP',
+  commands: [{ kind: 'raw', text: 'weapnext' }, { kind: 'raw', text: 'centerview' }],
+})
+
+export const discreteMirrorComboProfile: ConfigProfile = baseProfile('fixture-discrete-mirror-combo', {
+  name: 'Discrete Mirror Row With A Second Command',
+  binds: { MWHEELUP: bindValueFor(discreteMirrorComboAction) },
+  actions: [discreteMirrorComboAction],
+})
+
+// ---------------------------------------------------------------------------
+// S2. trailingSelfCall - the same shape reached through a *later* segment
+//     instead of the first one: the body's leading segment is an unrelated
+//     command and only its second segment (`centerview`) names the entry itself.
+//     `buildEdges` finds that edge exactly as it finds a leading one, so the
+//     Care finding has to scan every segment, not just the head.
+// ---------------------------------------------------------------------------
+
+const trailingSelfCallAction = baseAction({
+  id: 'd3a1',
+  name: 'centerview',
+  categoryId: 'weapons',
+  key: 'MOUSE3',
+  commands: [{ kind: 'raw', text: '+attack' }, { kind: 'raw', text: 'centerview' }],
+})
+
+export const trailingSelfCallProfile: ConfigProfile = baseProfile('fixture-trailing-self-call', {
+  name: 'Trailing Self Call',
+  binds: { MOUSE3: bindValueFor(trailingSelfCallAction) },
+  actions: [trailingSelfCallAction],
+})
+
+// ---------------------------------------------------------------------------
+
+/** The clean corpus, keyed by shape name - what `render-invariants.test.ts` iterates and asserts
+ * zero `validateStructure` findings for. */
 export const PROFILE_FIXTURES: Record<string, ConfigProfile> = {
   plain: plainProfile,
   catalogueMirror: catalogueMirrorProfile,
@@ -248,4 +388,17 @@ export const PROFILE_FIXTURES: Record<string, ConfigProfile> = {
   chunkSplit: chunkSplitProfile,
   modifierLayer: modifierLayerProfile,
   holdLayer: holdLayerProfile,
+  discreteMirror: discreteMirrorProfile,
+  chunkedSignedBody: chunkedSignedBodyProfile,
+}
+
+/**
+ * The shapes whose alias line the writer deliberately keeps even though it calls
+ * itself (the User's decision, story 039) - so they are *expected* to produce an
+ * error-level `aliasCycle` plus an `aliasSelfReference` Care finding, and belong
+ * outside the clean corpus above rather than inside it with an exception list.
+ */
+export const SELF_REFERENCE_FIXTURES: Record<string, ConfigProfile> = {
+  discreteMirrorCombo: discreteMirrorComboProfile,
+  trailingSelfCall: trailingSelfCallProfile,
 }

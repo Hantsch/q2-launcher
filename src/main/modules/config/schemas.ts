@@ -153,6 +153,10 @@ export const configActionSchema = z.object({
   // three the engine can express as an alt layer's `triggerKey` - anything else is a caller bug.
   keyModifier: modifierTriggerSchema.optional(),
   secondaryKeyModifier: modifierTriggerSchema.optional(),
+  // Story 039 (D1): the human-readable alias name the user typed, rendered verbatim (sign kept)
+  // by `aliasNameFor` when set. Same "non-empty string" rule as `catalogId` - length/character
+  // limits belong to the render layer, not the payload schema.
+  aliasName: z.string().min(1).optional(),
 })
 
 export const setProfileActionsInputSchema = z.object({

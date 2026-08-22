@@ -488,7 +488,7 @@ describe('ProfilesStore', () => {
     })
   })
 
-  // Story 016 D8: both setters now derive the layer-side `q2l_a_*` mirror
+  // Story 016 D8: both setters now derive the layer-side generated-alias mirror
   // (`applyActionLayerMirror`), and `setActions` stops writing a base bind for
   // a slot that carries a modifier. Own `category`/`action` fixtures rather
   // than reaching into the `setActions` block above's scope.
@@ -615,7 +615,7 @@ describe('ProfilesStore', () => {
       expect(modifierLayer(created!.id, 'ALT')[0]!.overrides).toEqual({})
     })
 
-    it('a slot that gains a modifier drops its own stale q2l_a_* base bind', () => {
+    it('a slot that gains a modifier drops its own stale generated base bind', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
       const baseBound = action({ key: 'r' })
       const first = profiles.setActions({
@@ -777,8 +777,11 @@ describe('ProfilesStore', () => {
       // The thing that actually executes is byte-identical in both files.
       expect(baseLines).toContain(aliasLine)
       expect(modifierLines).toContain(aliasLine)
-      expect(modifierLines.filter((line) => line.startsWith('alias q2l_a_'))).toEqual(
-        baseLines.filter((line) => line.startsWith('alias q2l_a_')),
+      // The action-generated alias line(s) - identified by the known alias name itself (story 039,
+      // D7 dropped the `q2l_a_` prefix this filter used to key off) - are identical in both
+      // renders too, not just present.
+      expect(modifierLines.filter((line) => line.startsWith(`alias ${alias}`))).toEqual(
+        baseLines.filter((line) => line.startsWith(`alias ${alias}`)),
       )
 
       // Base-bound: `r` runs the alias directly.
@@ -839,7 +842,7 @@ describe('ProfilesStore', () => {
       expect(updated.actions).toHaveLength(2)
     })
 
-    it('drops the stale q2l_a_* bind of a row that has just become an alias, hand-made binds intact', () => {
+    it('drops the stale generated bind of a row that has just become an alias, hand-made binds intact', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
       profiles.setBinds({ profileId: created!.id, binds: { w: 'kill' } })
 

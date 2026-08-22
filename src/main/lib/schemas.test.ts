@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { configProfileSchema, parseConfigProfiles } from './schemas'
 import { setProfileActionsInputSchema } from '../modules/config/schemas'
-import { aliasNameFor } from '@shared/config/alias-render'
+import { legacyAliasNameFor } from '@shared/config/alias-render'
+import { bindValueFor } from '@shared/config/action-mirror'
+import { validateActions } from '@shared/config/validate-actions'
 import type { ConfigAction } from '@shared/modules/config'
 
 /**
@@ -317,10 +319,15 @@ describe('configProfileSchema - entry kind derived on read (story 019)', () => {
    * bug the mirror concept exists to make impossible.
    *
    * Respin (second review fix): the strip must match by *value* - the exact synthetic name
-   * `aliasNameFor` would have produced for this action while it was still a plain bind - never by
-   * key/slot. The fixture below uses that real computed value (via `aliasNameFor`) rather than a
-   * hand-picked string, so this test actually exercises the value match instead of accidentally
-   * passing under either a key-based or a value-based implementation.
+   * `legacyAliasNameFor` would have produced for this action while it was still a plain bind -
+   * never by key/slot. The fixture below uses that real computed value (via `legacyAliasNameFor`)
+   * rather than a hand-picked string, so this test actually exercises the value match instead of
+   * accidentally passing under either a key-based or a value-based implementation.
+   *
+   * `legacyAliasNameFor`, not `aliasNameFor` (story 039, D7): this row's stale entry was written by
+   * a mirror pass that ran *before* the readable-name flip, so it is necessarily in the legacy
+   * format - the same reasoning `staleAliasSyntheticName` (`@shared/config/modifier-layers.ts`)
+   * documents for its own, otherwise-identical helper.
    */
   it('strips a stale binds entry and layer override for a legacy alias-turned entry that carried a key', () => {
     const staleAliasAction: Omit<ConfigAction, 'kind'> = {
@@ -335,7 +342,7 @@ describe('configProfileSchema - entry kind derived on read (story 019)', () => {
     // The exact value a mirror pass would have written for this action's `r`/Alt+`f` slots while
     // it was still `kind: 'bind'` - computed, not hand-picked, so the fixture is genuinely this
     // action's own stale name rather than a string that merely looks like one.
-    const staleName = aliasNameFor({ ...staleAliasAction, kind: 'bind' })
+    const staleName = legacyAliasNameFor({ ...staleAliasAction, kind: 'bind' })
 
     const result = configProfileSchema.parse({
       ...baseProfile,
@@ -381,8 +388,10 @@ describe('configProfileSchema - entry kind derived on read (story 019)', () => {
       ...baseProfile,
       categories: [{ id: 'c-alias', name: 'Aliases', entryKind: 'alias' }],
       actions: [staleAliasAction],
-      // Neither value is this alias's own stale synthetic name - a hand-typed base bind and a
-      // different action's own mirrored bind, both of which happen to reuse the same key slots.
+      // Neither value is this alias's own stale synthetic name - two hand-made entries that merely
+      // happen to reuse the same key slots. Story 039 D6: both are deliberately prefix-free, since
+      // a `q2l_a_*` value with no owning action is now dropped one pass earlier as legacy debris
+      // (see the D6 block below) and would no longer prove anything about *this* strip pass.
       binds: { r: 'kill' },
       layers: [
         {
@@ -390,13 +399,139 @@ describe('configProfileSchema - entry kind derived on read (story 019)', () => {
           name: 'Alt',
           mode: 'hold',
           triggerKey: 'ALT',
-          overrides: { f: 'q2l_a_other_bbbb' },
+          overrides: { f: 'some_alias' },
         },
       ],
     })
 
     expect(result.actions[0]!.kind).toBe('alias')
     expect(result.binds).toEqual({ r: 'kill' })
-    expect(result.layers[0]!.overrides).toEqual({ f: 'q2l_a_other_bbbb' })
+    expect(result.layers[0]!.overrides).toEqual({ f: 'some_alias' })
+  })
+})
+
+/**
+ * Story 039 D6: the read-path migration of legacy `q2l_a_<slug>_<id4>` references.
+ *
+ * Every profile a real user already has on disk carries these values, so this runs on every read of
+ * every existing profile. The fixtures use `legacyAliasNameFor`/`bindValueFor` rather than
+ * hand-written strings on purpose: the expected value is whatever the mirrors write *today*, which
+ * is what keeps these tests meaningful across the D7 name flip instead of freezing today's format.
+ */
+describe('configProfileSchema - legacy alias references migrated on read (story 039)', () => {
+  const baseProfile = {
+    id: 'p1',
+    name: 'My profile',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    assignments: [],
+  }
+
+  /** "SSG + SG" - a plain bind entry whose id4 is `9a2f`, i.e. legacy name `q2l_a_ssg_sg_9a2f`. */
+  const ssgAction: ConfigAction = {
+    id: '9a2f-1111-2222',
+    categoryId: 'c1',
+    name: 'SSG + SG',
+    kind: 'bind',
+    commands: [
+      { kind: 'raw', text: 'use super shotgun' },
+      { kind: 'raw', text: 'use shotgun' },
+    ],
+    key: 'q',
+    secondaryKey: 'x',
+    secondaryKeyModifier: 'ALT',
+  }
+
+  const legacyName = legacyAliasNameFor(ssgAction)
+  const currentValue = bindValueFor(ssgAction)
+
+  const layerWith = (overrides: Record<string, string>): unknown => ({
+    id: 'l1',
+    name: 'Alt',
+    mode: 'hold',
+    triggerKey: 'ALT',
+    overrides,
+  })
+
+  it('is the legacy format the fixtures claim it is', () => {
+    // Guards the fixture itself: if `legacyAliasNameFor` ever stopped reproducing the pre-039
+    // format, every assertion below would still "pass" while migrating nothing real.
+    expect(legacyName).toBe('q2l_a_ssg_sg_9a2f')
+  })
+
+  it('rewrites a legacy bind and layer override to the action’s current mirrored value', () => {
+    const result = configProfileSchema.parse({
+      ...baseProfile,
+      categories: [{ id: 'c1', name: 'Weapons' }],
+      actions: [ssgAction],
+      binds: { q: legacyName },
+      layers: [layerWith({ x: legacyName })],
+    })
+
+    expect(result.binds).toEqual({ q: currentValue })
+    expect(result.layers[0]!.overrides).toEqual({ x: currentValue })
+    // Still exactly the one action it was read with - the migration rewrites references, it never
+    // adopts or invents a row.
+    expect(result.actions).toHaveLength(1)
+  })
+
+  it('drops a legacy value whose action is gone, in binds and in a layer alike', () => {
+    const result = configProfileSchema.parse({
+      ...baseProfile,
+      categories: [{ id: 'c1', name: 'Weapons' }],
+      actions: [ssgAction],
+      binds: { q: legacyName, z: 'q2l_a_gone_1234' },
+      layers: [layerWith({ x: legacyName, y: 'q2l_a_gone_1234' })],
+    })
+
+    expect(result.binds).toEqual({ q: currentValue })
+    expect(result.layers[0]!.overrides).toEqual({ x: currentValue })
+  })
+
+  it('leaves hand-typed binds untouched, including a reference to an alias entry’s own name', () => {
+    const result = configProfileSchema.parse({
+      ...baseProfile,
+      categories: [{ id: 'c1', name: 'Weapons' }],
+      // The alias entry renders as `drop_shotgun`; the hand-typed `bind KP_END "drop_shotgun"`
+      // referencing it must survive both this migration and the story 019 alias strip (story 041
+      // depends on exactly this line).
+      actions: [
+        ssgAction,
+        {
+          id: 'a-alias',
+          categoryId: 'c1',
+          name: 'drop shotgun',
+          kind: 'alias',
+          commands: [{ kind: 'raw', text: 'drop shotgun' }],
+        },
+      ],
+      binds: { r: '+attack', x: 'some_alias', KP_END: 'drop_shotgun' },
+      layers: [layerWith({ g: 'say_team taking rl' })],
+    })
+
+    expect(result.binds).toEqual({ r: '+attack', x: 'some_alias', KP_END: 'drop_shotgun' })
+    expect(result.layers[0]!.overrides).toEqual({ g: 'say_team taking rl' })
+  })
+
+  it('produces no findings for a migrated profile and reads identically a second time', () => {
+    const persisted = {
+      ...baseProfile,
+      categories: [{ id: 'c1', name: 'Weapons' }],
+      actions: [ssgAction],
+      binds: { q: legacyName, r: '+attack', z: 'q2l_a_gone_1234' },
+      layers: [layerWith({ x: legacyName, g: 'say_team taking rl' })],
+    }
+
+    const once = configProfileSchema.parse(persisted)
+    // Idempotent: feeding the migrated profile back through the read changes nothing further, which
+    // is what makes "runs on every read" safe rather than a slow rewrite of the user's binds.
+    const twice = configProfileSchema.parse({ ...persisted, ...once })
+
+    expect(twice.binds).toEqual(once.binds)
+    expect(twice.layers).toEqual(once.layers)
+    expect(twice.actions).toEqual(once.actions)
+    expect(validateActions(once.actions, 'r1q2', { binds: once.binds, layers: once.layers })).toEqual(
+      [],
+    )
   })
 })

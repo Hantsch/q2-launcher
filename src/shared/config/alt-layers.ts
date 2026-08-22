@@ -181,7 +181,7 @@ function lineFits(name: string, body: string): boolean {
 /**
  * Sanitize a human-entered layer name into an alias-safe slug: lower case,
  * runs of anything outside `[a-z0-9_]` collapsed to a single `_`, no leading
- * or trailing `_`, `'layer'` when nothing survives, truncated to `maxLength`.
+ * or trailing `_`, `fallback` when nothing survives, truncated to `maxLength`.
  *
  * German umlauts are transliterated first (the upstream idiom), so "Größe"
  * becomes `groesse` rather than `gr_e`.
@@ -189,8 +189,13 @@ function lineFits(name: string, body: string): boolean {
  * Collisions between two different layers' slugs are deliberately **not**
  * handled here — that needs to know about the other layers, which a pure
  * per-layer generator does not. Disambiguating is the caller's job.
+ *
+ * `fallback` (story 039, D1) defaults to `'layer'` for this module's own
+ * callers (an alt-layer whose name slugs to nothing). `alias-render.ts` passes
+ * `'entry'` instead, so an action whose name slugs to nothing reads as an
+ * action, not a layer.
  */
-export function slugAliasName(name: string, maxLength: number): string {
+export function slugAliasName(name: string, maxLength: number, fallback = 'layer'): string {
   const slug = name
     .toLowerCase()
     .replace(/[äÄ]/g, 'ae')
@@ -201,7 +206,7 @@ export function slugAliasName(name: string, maxLength: number): string {
     .replace(/^_+|_+$/g, '')
   // The trimmed slug starts with `[a-z0-9]`, so trimming the truncation's
   // trailing `_` back off can never empty it.
-  return (slug || 'layer').slice(0, Math.max(1, maxLength)).replace(/_+$/, '')
+  return (slug || fallback).slice(0, Math.max(1, maxLength)).replace(/_+$/, '')
 }
 
 function digits(value: number): number {
