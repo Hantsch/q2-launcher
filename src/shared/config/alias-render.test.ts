@@ -275,6 +275,28 @@ describe('renderActionAliasLines', () => {
   it('returns nothing for an empty action list', () => {
     expect(renderActionAliasLines([])).toEqual([])
   })
+
+  /**
+   * Story 038 deliberately did not move the "does this alias line have any
+   * reason to exist" guard in here: this function renders whatever list it is
+   * handed, and `render.ts` filters that list through
+   * `actionsWithAliasLine` (`./alias-references`) first. Two callers depend on
+   * that split - `ActionEditor`'s live preview renders one action's alias
+   * regardless of whether the file will carry it, and every case in this file
+   * keeps meaning what it says. So a continuous catalogue row, the exact shape
+   * `render.ts` now drops, still renders when passed here directly.
+   */
+  it('renders whatever list it is handed - the reference guard is render.ts`s, not this function`s', () => {
+    const catalogueRow = action({
+      name: '+attack',
+      id: 'aaaa0000',
+      catalogId: 'attack:primary',
+      key: 'MOUSE1',
+      commands: [{ kind: 'raw', text: '+attack' }],
+    })
+
+    expect(renderActionAliasLines([catalogueRow])).toEqual(['alias q2l_a_attack_aaaa +attack'])
+  })
 })
 
 /**

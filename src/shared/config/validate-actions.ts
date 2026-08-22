@@ -81,18 +81,25 @@
  *
  * "Never referenced" is checked the other way round and does not need this
  * caution at all: it is a *positive* match (does this alias's name show up
- * anywhere?), so it is computed over every bare token in every action
- * (catalogue or not, signed or not) — and, since an alias has no key slot of
- * its own and can only be *called* from a hand-typed raw command, also over
- * every bare token in `profile.binds`'s values and every layer's `overrides`
- * values (review fix, Finding 3): a `bind r "+test"` typed straight on the
- * raw Binds tab is exactly as real a reference as one typed into another
- * entry's own commands, and ignoring it would warn about an alias that is, in
- * fact, wired up. A false negative here (missing a real reference) is far
- * worse than the false positive this rule risks, while a false positive would
- * just be an unreferenced-alias warning for an alias that actually is called,
- * which the sign/catalogue narrowing above would only ever make *more* likely
- * to miss, never less.
+ * anywhere?), so it now comes from the shared `collectAliasReferences`
+ * (`alias-references.ts`, story 038) rather than a copy of the scan kept
+ * here — computed over every bare token in every action (catalogue or not,
+ * signed or not) — and, since an alias has no key slot of its own and can
+ * only be *called* from a hand-typed raw command, also over every bare token
+ * in `profile.binds`'s values and every layer's `overrides` values (review
+ * fix, Finding 3, now the shared collector's job too), further widened by a
+ * `bind <key> <token>` segment's target token (story 038, for story 041's
+ * `alias cali "bind KP_END drop_shotgun"` shape): a `bind r "+test"` typed
+ * straight on the raw Binds tab is exactly as real a reference as one typed
+ * into another entry's own commands, and ignoring it would warn about an
+ * alias that is, in fact, wired up. A false negative here (missing a real
+ * reference) is far worse than the false positive this rule risks, while a
+ * false positive would just be an unreferenced-alias warning for an alias
+ * that actually is called, which the sign/catalogue narrowing above would
+ * only ever make *more* likely to miss, never less. This pass stays the
+ * *lenient* one — `bareTokens`/`undefinedAlias` below keep their own,
+ * stricter, unshared scan (the `catalogId` exclusion and sign requirement
+ * have no equivalent in the shared collector, by design).
  *
  * Duplicate alias names reuse `aliasNameFor` (`alias-render.ts`), the exact
  * function the writer uses to decide an alias entry's rendered name — so a
@@ -112,6 +119,7 @@ import type { EngineKind } from '../types/engine'
 import { MOVEMENT_ACTIONS } from './action-catalog'
 import { generateLayerAliases } from './alt-layers'
 import { aliasNameFor } from './alias-render'
+import { collectAliasReferences } from './alias-references'
 import type { Finding } from './validation'
 
 /** Shared prefix of every message key this module emits, alongside D3/D4's own. */
@@ -178,24 +186,6 @@ function bareTokens(action: ConfigAction): string[] {
   for (const command of action.commands) {
     if (command.kind !== 'raw') continue
     for (const segment of bareSegments(command.text)) tokens.push(segment.toLowerCase())
-  }
-  return tokens
-}
-
-/**
- * The bare segments of every value in `values`, lower-cased - the same
- * candidate shape as `bareTokens`, but for `profile.binds`'/a layer's
- * `overrides`' raw command strings rather than an action's own `commands`
- * (review fix, Finding 3). Used only by the lenient "referenced by anything"
- * pass below, never by the stricter undefined-alias check, for the same
- * reason `bareTokens` isn't either: a hand-typed base bind or layer override
- * has no `catalogId` concept to exclude it by, and the sign-only lenient
- * check does not need that exclusion to stay correct.
- */
-function bareTokensFromValues(values: Iterable<string>): string[] {
-  const tokens: string[] = []
-  for (const value of values) {
-    for (const segment of bareSegments(value)) tokens.push(segment.toLowerCase())
   }
   return tokens
 }
@@ -271,20 +261,15 @@ export function validateActions(
 
   const definedKeys = new Set(aliasNames.map((entry) => entry.name.toLowerCase()))
 
-  // --- referenced-by-anything (lenient: any action, any sign, plus binds/overrides) --
+  // --- referenced-by-anything (lenient: shared reference graph, story 038) --
+  const allReferences = collectAliasReferences({
+    actions,
+    binds: references.binds,
+    layers: references.layers,
+  })
   const referencedKeys = new Set<string>()
-  for (const action of actions) {
-    for (const token of bareTokens(action)) {
-      if (definedKeys.has(token)) referencedKeys.add(token)
-    }
-  }
-  for (const token of bareTokensFromValues(Object.values(references.binds ?? {}))) {
-    if (definedKeys.has(token)) referencedKeys.add(token)
-  }
-  for (const layer of references.layers ?? []) {
-    for (const token of bareTokensFromValues(Object.values(layer.overrides))) {
-      if (definedKeys.has(token)) referencedKeys.add(token)
-    }
+  for (const key of definedKeys) {
+    if (allReferences.has(key)) referencedKeys.add(key)
   }
 
   // --- undefined alias reference (strict: candidate bindings, signed, not a known engine command) --

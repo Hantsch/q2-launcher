@@ -122,6 +122,15 @@ function populatedInstallations() {
 // Mirrors src/shared/modules/config.ts:181 (`ConfigProfile`), `:45`
 // (`ProfileAssignment`) and `:56` (`UnrecognizedConfigLine`).
 // AltLayer mirrors src/shared/config/alt-layers.ts:55 (`AltLayer`).
+//
+// Story 038 D4: `plain.actions` below (+ its `binds` mirror) makes the
+// writer's dead-alias-line fix (`src/shared/config/alias-references.ts`)
+// visible on the `config-raw`/`config-write-preview` screens. This file
+// cannot import `aliasNameFor`/`bindValueFor` (plain Node ESM outside both TS
+// projects - see the file doc comment), so `binds.q` below is that
+// algorithm's output hand-computed for action 2 and must stay in lockstep
+// with it if either changes: `q2l_a_` + `slugAliasName('Weapon Combo', 14)`
+// (`weapon_combo`) + `_` + the action id's first 4 alnum chars (`fixt`).
 
 function populatedConfigProfiles() {
   const plain = {
@@ -130,8 +139,60 @@ function populatedConfigProfiles() {
     createdAt: FIXED_TIMESTAMP,
     updatedAt: FIXED_TIMESTAMP,
     cvars: { sensitivity: '3', crosshair: '0' },
-    binds: { MOUSE1: '+attack', SPACE: '+moveup' },
+    binds: {
+      MOUSE1: '+attack',
+      SPACE: '+moveup',
+      // Mirrors action 2 ("weapons") below - a multi-command action's mirror
+      // is always its alias name, never a bare command (`bindValueFor`).
+      q: 'q2l_a_weapon_combo_fixt',
+    },
     assignments: [{ installationId: INSTALL_ONE_ID, isDefault: true }],
+    // Three actions exercising the writer's three alias-line outcomes
+    // (`actionsWithAliasLine`, `src/shared/config/alias-references.ts`):
+    actions: [
+      // 1. Catalogue row whose single command is a bare `+attack` (story
+      //    034/038's own case): `bindValueFor` returns the command itself,
+      //    not the alias, so `binds.MOUSE1` above already carries `+attack`
+      //    directly and nothing calls `q2l_a_attack_*` by name. Its alias
+      //    line must be entirely absent from the rendered file (AC1).
+      {
+        id: 'fixture-action-attack',
+        categoryId: 'movement',
+        name: 'Attack',
+        kind: 'bind',
+        catalogId: 'movement:attack',
+        commands: [{ kind: 'raw', text: '+attack' }],
+        key: 'MOUSE1',
+      },
+      // 2. Free-form, two-command "weapons" row bound on `q`: more than one
+      //    command means `bindValueFor` falls back to the alias name, so
+      //    `binds.q` above names it and its `alias q2l_a_weapon_combo_fixt …`
+      //    line must survive (AC2).
+      {
+        id: 'fixture-action-weapons',
+        categoryId: 'weapons',
+        name: 'Weapon Combo',
+        kind: 'bind',
+        commands: [
+          { kind: 'raw', text: 'use shotgun' },
+          { kind: 'raw', text: 'use super shotgun' },
+        ],
+        key: 'q',
+      },
+      // 3. Keyless, unreferenced action (the User decision): kept regardless
+      //    - user-authored content the user may be about to bind, unlike the
+      //    catalogue-mirror case above. No `key`, so no `binds` entry.
+      {
+        id: 'fixture-action-keyless',
+        categoryId: 'weapons',
+        name: 'Keyless Combo',
+        kind: 'bind',
+        commands: [
+          { kind: 'raw', text: 'wait' },
+          { kind: 'raw', text: '+attack' },
+        ],
+      },
+    ],
   }
 
   const withLayers = {

@@ -194,6 +194,22 @@ describe('validateActions', () => {
     expect(rulesOf(findings)).toEqual(['aliasUnreferenced'])
   })
 
+  it('story 038: an alias referenced only via a bind <key> <alias> segment inside another action is not flagged as unreferenced', () => {
+    const actions = [
+      action({ id: 'a1', kind: 'alias', name: '+test', commands: [{ kind: 'raw', text: 'wait' }] }),
+      action({
+        id: 'b1',
+        kind: 'bind',
+        name: 'Rebind on the fly',
+        commands: [{ kind: 'raw', text: 'bind r +test' }],
+      }),
+    ]
+
+    const findings = validateActions(actions, 'r1q2')
+
+    expect(rulesOf(findings)).toEqual([])
+  })
+
   it('carries the engine passed in on every finding', () => {
     const actions = [action({ id: 'a1', kind: 'alias', name: '+test', commands: [{ kind: 'raw', text: 'wait' }] })]
 

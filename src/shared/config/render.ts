@@ -1,6 +1,7 @@
 import type { ConfigProfile } from '@shared/modules/config'
 import { generateLayerAliases } from '@shared/config/alt-layers'
 import { renderActionAliasLines } from '@shared/config/alias-render'
+import { actionsWithAliasLine } from '@shared/config/alias-references'
 import type { SwitchBindChainInput } from './switch-bind'
 import { renderSwitchBindChain } from './switch-bind'
 
@@ -78,6 +79,20 @@ export function sentinelLine(profileId: string): string {
  * action whose commands are all empty produces no alias at all, exactly as an
  * empty layer does.
  *
+ * Since story 034 that mirrored value is not always the alias name: a
+ * continuous catalogue row (`+forward`, `+attack`) is bound to its own command
+ * directly, because the engine only sends the matching `-command` on key-up
+ * when the bind string itself starts with `+` (`action-mirror.ts`'s
+ * `bindValueFor`). Such an action's alias is then defined and called by
+ * nobody, so story 038 filters the action list through
+ * `actionsWithAliasLine` (`./alias-references`) before rendering: an alias
+ * line whose name appears nowhere else in the file does nothing, the same
+ * reason `renderActionAlias` already emits nothing for an action with no
+ * usable commands. `kind: 'alias'` entries and actions whose mirror *does* go
+ * through the alias are never filtered - see that function for the three
+ * guards. The filter is per action, so a chunk-split action either keeps its
+ * whole `_p<n>` family or loses all of it.
+ *
  * Trigger bind lines are deliberately unquoted (`bind <key> <command>`, not
  * `bind <key> "<command>"`): `triggerBind.command` is always a single slugged
  * alias name (`+drops`, `zoom`) with no spaces, so quoting it would just be a
@@ -104,7 +119,17 @@ export function renderProfileFile(profile: ConfigProfile): string {
     }
   }
 
-  for (const line of renderActionAliasLines(profile.actions ?? [])) {
+  // Story 038: only the actions whose alias line something can actually reach.
+  // The list is filtered here rather than inside `renderActionAliasLines`,
+  // which is also the action editor's own preview renderer and must keep
+  // showing an action's alias whether or not the file will carry it.
+  const aliasActions = actionsWithAliasLine(profile.actions ?? [], {
+    actions: profile.actions ?? [],
+    binds: profile.binds,
+    layers,
+  })
+
+  for (const line of renderActionAliasLines(aliasActions)) {
     lines.push(line)
   }
 

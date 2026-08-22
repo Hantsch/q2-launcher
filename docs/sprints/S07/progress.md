@@ -1,0 +1,10 @@
+- 2026-08-22 11:56 · 038 · D1 one shared reference graph · started
+- 2026-08-22 12:01 · 038 · D1 one shared reference graph · done
+- 2026-08-22 12:01 · 038 · D2 writer stops emitting dead alias lines · started
+- 2026-08-22 12:10 · 038 · D2 follow-up: quoted-override reference-detection gap · started
+- 2026-08-22 12:13 · 038 · D2 (+ follow-up) writer stops emitting dead alias lines · done
+- 2026-08-22 12:13 · 038 · D3 fixture corpus + file-level invariant · started
+- 2026-08-22 12:22 · 038 · D3 fixture corpus + file-level invariant · done
+- 2026-08-22 12:22 · 038 · D4 fix visible in running app · started
+- 2026-08-22 12:32 · 038 · D4 fix visible in running app · done
+- 2026-08-22 12:43 · 038 · story verified (build/typecheck/test/ui:verify) + reviewed (PASS) + Done section filled · done

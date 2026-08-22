@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import type { AltLayer } from '@shared/config/alt-layers'
 import { generateLayerAliases } from '@shared/config/alt-layers'
-import { aliasNameFor } from '@shared/config/alias-render'
+import { aliasNameFor, renderActionAliasLines } from '@shared/config/alias-render'
 import type { SwitchBindChainInput } from './switch-bind'
 import { renderSwitchBindChain } from './switch-bind'
 import {
@@ -437,6 +437,231 @@ describe('renderProfileFile with actions', () => {
     })
 
     expect(renderProfileFile(p)).toBe(renderProfileFile(p))
+  })
+
+  /**
+   * Story 038: an action whose bind mirror does not go through its alias, and
+   * whose alias name nothing else in the profile calls, gets no alias line -
+   * `alias q2l_a_attack_3137 +attack` next to `bind MOUSE1 "+attack"` is a
+   * line that does nothing.
+   *
+   * Every "kept" case below is a silent-unbind risk, not a tidiness one:
+   * dropping a line something still calls turns a live key dead in a saved
+   * profile. They are grouped by *where* the reference comes from, one per
+   * source, because that is the axis the guard can be wrong on.
+   */
+  describe('story 038: no alias line for a directly bindable action', () => {
+    /**
+     * A continuous catalogue row (story 034): `bindValueFor` mirrors it as its
+     * own `+command`, so its alias is defined and - unless something else in
+     * the profile names it - called by nobody.
+     */
+    function catalogueRow(overrides: Partial<ConfigAction>): ConfigAction {
+      return action({
+        categoryId: 'movement',
+        kind: 'bind',
+        commands: [{ kind: 'raw', text: '+forward' }],
+        ...overrides,
+      })
+    }
+
+    const forwardRow = catalogueRow({
+      id: 'f0f0',
+      name: 'Forward',
+      catalogId: 'movement:forward',
+      key: 'w',
+      commands: [{ kind: 'raw', text: '+forward' }],
+    })
+    const attackRow = catalogueRow({
+      id: 'a1a1',
+      name: 'Attack',
+      catalogId: 'attack:primary',
+      key: 'MOUSE1',
+      commands: [{ kind: 'raw', text: '+attack' }],
+    })
+    const forwardAlias = aliasNameFor(forwardRow)
+    const attackAlias = aliasNameFor(attackRow)
+
+    it('emits no alias line for a catalogue row, and leaves its bind line exactly as it was', () => {
+      const p = profile({
+        id: 'dead-alias',
+        // What `applyActionBindMirror` writes for a continuous row since story
+        // 034: the command itself, never the alias name.
+        binds: { MOUSE1: '+attack', w: '+forward' },
+        actions: [forwardRow, attackRow],
+      })
+
+      expect(renderProfileFile(p)).toBe(
+        [
+          '// q2-launcher profile dead-alias - generated, do not edit',
+          'bind MOUSE1 "+attack"',
+          'bind w "+forward"',
+          '',
+        ].join('\n'),
+      )
+    })
+
+    it('changes nothing else in the file: renders identically to the same profile with no actions at all', () => {
+      // AC5 in miniature - the dead lines go, and no other line is added,
+      // removed, reordered or reworded. Asserted against the same profile
+      // stripped of its actions rather than against a hand-written expectation,
+      // so it also covers the cvar/layer/bind blocks around them.
+      const base = {
+        id: 'unchanged',
+        cvars: { sensitivity: '3', cl_run: '0' },
+        binds: { MOUSE1: '+attack', UPARROW: '+forward', w: '+forward' },
+        layers: [holdLayer],
+      }
+
+      expect(renderProfileFile(profile({ ...base, actions: [forwardRow, attackRow] }))).toBe(
+        renderProfileFile(profile(base)),
+      )
+    })
+
+    it('keeps the alias line when a base bind still points at it (a pre-story-034 mirror)', () => {
+      // A profile saved before story 034 has the alias name in `binds`, not the
+      // bare command. Dropping the alias there would leave `bind w
+      // "q2l_a_forward_f0f0"` calling nothing - the key goes dead.
+      const p = profile({
+        id: 'legacy-mirror',
+        binds: { w: forwardAlias },
+        actions: [forwardRow],
+      })
+
+      const rendered = renderProfileFile(p)
+
+      expect(rendered).toContain(`alias ${forwardAlias} +forward`)
+      expect(rendered).toContain(`bind w "${forwardAlias}"`)
+    })
+
+    it('keeps the alias line when a layer override points at it (a pre-story-034 modifier mirror)', () => {
+      // Same legacy shape on the layer side: `applyActionLayerMirror` used to
+      // write `aliasNameFor` into a modifier layer's overrides. The action
+      // carries no base bind at all here (a modified slot belongs to the
+      // layer), so the override is the *only* reference in the profile.
+      const alt: AltLayer = {
+        id: 'layer-alt',
+        name: 'Alt',
+        mode: 'hold',
+        triggerKey: 'ALT',
+        overrides: { r: forwardAlias },
+      }
+      const modified = { ...forwardRow, key: 'r', keyModifier: 'ALT' as const }
+      const p = profile({ id: 'modifier-mirror', layers: [alt], actions: [modified] })
+
+      const rendered = renderProfileFile(p)
+
+      expect(rendered).toContain(`alias ${forwardAlias} +forward`)
+      // Unquoted: the generated body is a single command with no `;` in it.
+      expect(rendered).toContain(`alias +alt bind r ${forwardAlias}`)
+    })
+
+    it('keeps the alias line when another action`s command calls it', () => {
+      const caller = action({
+        id: 'cccc3333',
+        name: 'Combo',
+        commands: [{ kind: 'raw', text: `wait; ${forwardAlias}` }],
+      })
+      const p = profile({ id: 'called-by-action', actions: [forwardRow, caller] })
+
+      const rendered = renderProfileFile(p)
+
+      expect(rendered).toContain(`alias ${forwardAlias} +forward`)
+      expect(rendered).toContain(`alias ${aliasNameFor(caller)} "wait; ${forwardAlias}"`)
+    })
+
+    it('keeps the alias line when a hold layer`s generated body calls it', () => {
+      // The layer's own alias body is generated, not stored: an override whose
+      // value chains two commands is hoisted into `alias <base>_c1 "<chain>"`,
+      // and *that* line is what names the two aliases. A scan comparing whole
+      // override values against alias names would miss both.
+      const drops: AltLayer = {
+        id: 'layer-chain',
+        name: 'Drops',
+        mode: 'hold',
+        triggerKey: 'ALT',
+        overrides: { '1': `${forwardAlias}; ${attackAlias}` },
+      }
+      const p = profile({
+        id: 'generated-body',
+        layers: [drops],
+        actions: [forwardRow, attackRow],
+      })
+
+      const rendered = renderProfileFile(p)
+
+      expect(rendered).toContain(`alias drops_c1 "${forwardAlias}; ${attackAlias}"`)
+      expect(rendered).toContain(`alias ${forwardAlias} +forward`)
+      expect(rendered).toContain(`alias ${attackAlias} +attack`)
+    })
+
+    it('keeps an unreferenced kind: alias entry (AC6 - that is Care`s business, not the writer`s)', () => {
+      const aliasEntry = action({
+        id: 'aliasent',
+        name: '+test',
+        kind: 'alias',
+        commands: [{ kind: 'raw', text: '+attack' }],
+      })
+      const p = profile({ id: 'alias-entry', actions: [aliasEntry] })
+
+      expect(renderProfileFile(p)).toContain('alias +test +attack')
+    })
+
+    it('keeps a keyless, unreferenced user-authored action (User decision)', () => {
+      const freeform = action({
+        id: 'ffff4444',
+        name: 'My combo',
+        commands: [{ kind: 'raw', text: 'wait' }, { kind: 'raw', text: '+attack' }],
+      })
+      const p = profile({ id: 'keyless', actions: [freeform] })
+
+      expect(renderProfileFile(p)).toContain(`alias ${aliasNameFor(freeform)} "wait; +attack"`)
+    })
+
+    it('drops a chunk-split action whole: neither the parent nor any _p<n> line', () => {
+      // The only shape that is both dropped and split: `bindValueFor` returns
+      // the bare command for a *single*-command catalogue row, so a multi-command
+      // action can never be dropped - but that one command can still be too long
+      // for a line, which is what splits it.
+      const huge = catalogueRow({
+        id: 'hhhh5555',
+        name: 'Huge',
+        catalogId: 'movement:forward',
+        key: 'w',
+        commands: [{ kind: 'raw', text: `+forward ${'z'.repeat(2000)}` }],
+      })
+      const p = profile({
+        id: 'chunked-drop',
+        binds: { w: `+forward ${'z'.repeat(2000)}` },
+        actions: [huge],
+      })
+
+      const rendered = renderProfileFile(p)
+      const aliasName = aliasNameFor(huge)
+
+      // Split when rendered on its own - so this asserts the family is gone,
+      // not that there was never a family to emit.
+      expect(renderActionAliasLines([huge])).toHaveLength(2)
+      expect(rendered).not.toContain(`alias ${aliasName}`)
+      expect(rendered).not.toContain(`${aliasName}_p1`)
+    })
+
+    it('is deterministic across repeated calls on a profile that mixes dropped and kept actions', () => {
+      const p = profile({
+        id: 'mixed',
+        cvars: { sensitivity: '3' },
+        binds: { MOUSE1: '+attack', q: aliasNameFor(action({ id: 'qqqq6666', name: 'SSG SG' })) },
+        layers: [holdLayer],
+        actions: [
+          forwardRow,
+          attackRow,
+          action({ id: 'qqqq6666', name: 'SSG SG', key: 'q' }),
+          action({ id: 'aliasent', name: '+test', kind: 'alias' }),
+        ],
+      })
+
+      expect(renderProfileFile(p)).toBe(renderProfileFile(p))
+    })
   })
 
   describe('story 015: dual-bound actions', () => {
