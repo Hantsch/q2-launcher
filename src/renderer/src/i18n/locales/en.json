@@ -1283,11 +1283,10 @@
         "ammoGroup": "Ammunition",
         "miscGroup": "Misc",
         "withAmmo": "With ammo",
-        "messageLabel": "Team message",
-        "messagePlaceholder": "Team message…",
-        "editMessage": "Edit team message",
-        "editMessageSet": "Edit team message (set)",
-        "messageDialogTitle": "Team message"
+        "withMessage": "With message",
+        "messagePlaceholder": "No message set yet",
+        "editMessage": "Edit message",
+        "editMessageFor": "Edit message for {{name}}"
       },
       "options": {
         "layer": "layer {{layer}}",

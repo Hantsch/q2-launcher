@@ -51,6 +51,12 @@ export interface ControlsRowProps {
   optionsCell: ReactNode
   /** Explicit zebra parity - see the module doc comment for why this is not CSS-only. */
   odd?: boolean
+  /** Optional full-width sub-row rendered below the prompt host (story 029 D3) - e.g. a drops
+   * row's "with message" inline message-text-plus-Edit row. Absent for every row today; when
+   * absent, nothing extra is rendered at all, so the grid renders exactly as before this prop
+   * existed (same zebra parity, same row heights). Opaque content, same spirit as the other
+   * slots - this component has no idea what a "message row" is. */
+  subRow?: ReactNode
 }
 
 export function ControlsRow({
@@ -62,6 +68,7 @@ export function ControlsRow({
   secondarySlot,
   optionsCell,
   odd,
+  subRow,
 }: ControlsRowProps) {
   // A callback ref in state, not a `useRef`: the slots need to re-render once the host element
   // exists, and only a state update does that.
@@ -95,6 +102,22 @@ export function ControlsRow({
       <div className="ctrl-subrow-host-row" role="row">
         <div className="ctrl-subrow-host" role="cell" ref={setPromptHost} />
       </div>
+
+      {/* Story 029 D3: the generic sub-row slot. Rendered only when `subRow` is passed - no
+          always-present wrapper here, unlike the prompt host above (which needs a permanent
+          portal target). That keeps today's default case (no `subRow` anywhere yet) rendering
+          identically to before this prop existed. Positioned after the prompt host row so the
+          transient collision prompt stays glued to the catalogue row it blocks; the sub-row still
+          sits directly under the catalogue row whenever the prompt host is collapsed/empty. No
+          zebra class, for the same reason the prompt host doesn't carry one: this is an expansion
+          of one row, not a row of its own in the `odd` parity. */}
+      {subRow && (
+        <div className="ctrl-msgrow-row" role="row">
+          <div className="ctrl-msgrow" role="cell">
+            {subRow}
+          </div>
+        </div>
+      )}
     </BindPromptHostContext.Provider>
   )
 }

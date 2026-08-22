@@ -1,7 +1,7 @@
 ---
 id: 029
 title: Drop-row team message as checkbox + inline row (mirrors "With ammo")
-status: ready
+status: done
 created: 2026-08-20
 ---
 
@@ -33,19 +33,19 @@ height (`controls-grid.css`, see the `/design-tokens` deviation entry in `CLAUDE
 
 ## Acceptance Criteria
 
-- [ ] Each drop row (weapon, ammo, misc) in Config → Controls shows a "With message"-style
+- [x] Each drop row (weapon, ammo, misc) in Config → Controls shows a "With message"-style
   checkbox in its Options cell, replacing today's message icon button.
-- [ ] For a weapon-drop row that also has an ammo item, the "With message" checkbox sits alongside
+- [x] For a weapon-drop row that also has an ammo item, the "With message" checkbox sits alongside
   the existing "With ammo" checkbox with the same visual weight (no icon-button leftover).
-- [ ] Checking "With message" reveals a message row directly below that catalogue row, showing the
+- [x] Checking "With message" reveals a message row directly below that catalogue row, showing the
   action's current message text (or an empty/placeholder state if none is set yet) plus a button
   to edit it.
-- [ ] That button opens the existing `MessageEditor` modal unchanged (channel choice, macro bar,
+- [x] That button opens the existing `MessageEditor` modal unchanged (channel choice, macro bar,
   symbol picker, live preview, key capture).
-- [ ] Unchecking "With message" hides the message row again.
-- [ ] The checkbox's checked state reflects whether the action currently carries a `message`
+- [x] Unchecking "With message" hides the message row again.
+- [x] The checkbox's checked state reflects whether the action currently carries a `message`
   command, the same way "With ammo" reflects `ammoCommand` inclusion today.
-- [ ] No regression to the existing ammo toggle, key binding slots, or the Options cell's
+- [x] No regression to the existing ammo toggle, key binding slots, or the Options cell's
   layer/conflict text.
 
 ## Open Questions
@@ -120,26 +120,26 @@ Order: 1 and 2 are independent; 4 depends on 1, 2 and 3.
 
 ## Deliverables
 
-- **D1 — channel-aware drop message in the pure lib.**
+- [x] **D1 — channel-aware drop message in the pure lib.**
   Files: `src/renderer/src/modules/config/lib/catalog-binds.ts`,
   `src/renderer/src/modules/config/lib/catalog-binds.test.ts`.
   Acceptance: `deriveRowState` reports a `say` message too and returns its channel; `applyMessage`
   writes the passed channel (default `say_team`, today's callers unchanged); an action whose only
   content is a `say` message is not pruned; `npm test` green.
-- **D2 — `MessageEditor` returns a draft and can hide key capture.**
+- [x] **D2 — `MessageEditor` returns a draft and can hide key capture.**
   Files: `src/renderer/src/modules/config/components/MessageEditor.tsx`,
   `src/renderer/src/modules/config/ControlsTab.tsx` (existing `kind === 'message'` call site only).
   Acceptance: editing a Team-messages action still saves channel + text + key exactly as before
   (merge now in `ControlsTab`); `showKeyCapture={false}` renders the modal without the key block;
   typecheck + build green.
-- **D3 — `ControlsRow` sub-row slot + inline-row styling.**
+- [x] **D3 — `ControlsRow` sub-row slot + inline-row styling.**
   Files: `src/renderer/src/modules/config/components/ControlsRow.tsx`,
   `src/renderer/src/styles/controls-grid.css`. Mirror: the existing `.ctrl-subrow-host-row` /
   `.ctrl-subrow` block in the same CSS file.
   Acceptance: with no `subRow` the grid renders exactly as today (zebra parity, row heights); with
   a `subRow` a full-width row appears under the catalogue row with valid `role` nesting, using
   `--color-*` tokens only.
-- **D4 — "With message" checkbox + inline message row wired in the Controls tab.**
+- [x] **D4 — "With message" checkbox + inline message row wired in the Controls tab.**
   Files: `src/renderer/src/modules/config/ControlsTab.tsx`,
   `src/renderer/src/i18n/locales/en.json`. Mirror: the `withAmmo` `Checkbox` a few lines above.
   Acceptance: all seven ACs hold in the running app; message icon button and `DropMessageDialog`
@@ -178,3 +178,44 @@ Order: 1 and 2 are independent; 4 depends on 1, 2 and 3.
    unchanged.
 
 ## Done
+
+Replaced the drop-row message icon button with a "With message" checkbox mirroring "With
+ammo", plus an inline sub-row (message text/placeholder + Edit button) that reveals the
+existing rich `MessageEditor` modal. Delivered bottom-up: D1 made the pure lib channel-aware
+(`say`/`say_team`) so a plain `say` message is recognized and not pruned; D2 changed
+`MessageEditor` to hand back a `{channel, text, key?}` draft (callers merge it themselves) and
+added `showKeyCapture`/`titleName`; D3 gave `ControlsRow` a generic `subRow` slot + `.ctrl-msgrow`
+CSS with no effect when absent; D4 wired the checkbox, `revealedMessageRows` reveal-state set,
+and the drop-row `MessageEditor` instance (`showKeyCapture={false}`, merge via `applyMessage`)
+into `ControlsTab.tsx`, removing `DropMessageDialog` and the old icon button.
+
+**Decisions:**
+- AC 2 ("sits alongside... same visual weight") is satisfied as **stacked, not side-by-side**:
+  "With ammo" + "With message" together need more width than the fixed 150px/`overflow: hidden`
+  Options track allows without clipping the layer/conflict text (AC 7). Both checkboxes are
+  stacked vertically (`flex-col items-start`, `leading-4`) inside the existing 40px row instead —
+  same control type, same weight, no icon-button leftover, no grid-geometry change. Reviewed and
+  accepted as the correct reading of "alongside" given the fixed-width constraint the story
+  explicitly left to build-time judgment.
+- Checkbox `checked` state and inline-row visibility use the exact same boolean expression
+  (`message.trim().length > 0 || revealedMessageRows.has(catalogId)`) so they cannot drift, per
+  the story's decision.
+- Unchecking clears the stored message immediately via `applyMessage(actions, row, '')` (no
+  confirm dialog), mirroring "With ammo"'s existing toggle-mutates-immediately behavior.
+- i18n: added `config.controls.dropBind.withMessage`, `…editMessageFor`; repurposed
+  `…messagePlaceholder` / `…editMessage`; removed now-unused `…messageLabel`, `…editMessageSet`,
+  `…messageDialogTitle`.
+- Added a live-smoke Playwright flow (`scripts/flows/drop-message-checkbox.mjs`) covering the
+  story's manual test plan end to end (check → inline row → edit modal without key capture →
+  save → text shown → uncheck → row hidden → ammo-toggle regression touch); it required adding
+  minimal `data-testid` attributes to `ControlsTab.tsx` for the checkbox/row/Edit button
+  (test-only, no behavior change). The flow passed; screenshots are under
+  `.ui-verify/screenshots/flows/drop-message-checkbox-*.png`.
+
+**Commit message:** `029: drop-row message as checkbox + inline row, mirrors "With ammo"`
+
+**Verification:** `npm run typecheck` green, `npm run build` green, `npm test` green (51 files /
+936 tests). Clean-agent code review verdict: PASS, no blocking findings (reviewed the
+stacked-vs-side-by-side deviation explicitly and accepted it as satisfying AC 2 under the fixed
+Options-cell width). Live smoke run via a new Playwright flow: all steps passed, screenshots
+inspected directly by the orchestrator. No open points, no blockers.

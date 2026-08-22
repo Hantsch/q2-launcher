@@ -72,8 +72,11 @@ export interface RowState {
   /** Meaningless for a row with no `ammoCommand` - always a boolean anyway, defaulting to true
    * (decision 7), so a caller never has to special-case `undefined`. */
   withAmmo: boolean
-  /** '' when no `say_team` message command exists. */
+  /** '' when no message command exists. */
   message: string
+  /** The channel of the message command `message` was read from - `say` or `say_team`. Undefined
+   * alongside `message === ''`, since there is then no message command to have a channel at all. */
+  messageChannel?: 'say' | 'say_team'
 }
 
 // ---------------------------------------------------------------------------
@@ -97,12 +100,11 @@ export function deriveRowState(action: ConfigAction | undefined, row: CatalogRow
       secondaryModifier: undefined,
       withAmmo: true,
       message: '',
+      messageChannel: undefined,
     }
   }
 
-  const lastMessage = [...action.commands]
-    .reverse()
-    .find((command) => command.kind === 'message' && command.channel === 'say_team')
+  const lastMessage = [...action.commands].reverse().find((command) => command.kind === 'message')
 
   const withAmmo = row.ammoCommand
     ? action.commands.some((command) => command.kind === 'raw' && command.text === row.ammoCommand)
@@ -118,6 +120,7 @@ export function deriveRowState(action: ConfigAction | undefined, row: CatalogRow
     secondaryModifier: action.secondaryKeyModifier,
     withAmmo,
     message: lastMessage?.kind === 'message' ? lastMessage.text : '',
+    messageChannel: lastMessage?.kind === 'message' ? lastMessage.channel : undefined,
   }
 }
 
@@ -147,7 +150,7 @@ function freshAction(row: CatalogRow): ConfigAction {
 }
 
 function lastMessageCommand(commands: ConfigCommand[]): ConfigCommand | undefined {
-  return [...commands].reverse().find((command) => command.kind === 'message' && command.channel === 'say_team')
+  return [...commands].reverse().find((command) => command.kind === 'message')
 }
 
 /**
@@ -166,7 +169,7 @@ function isEmptyAction(action: ConfigAction): boolean {
   const hasKey = Boolean(action.key && action.key.trim().length > 0)
   const hasSecondary = Boolean(action.secondaryKey && action.secondaryKey.trim().length > 0)
   const hasMessage = action.commands.some(
-    (command) => command.kind === 'message' && command.channel === 'say_team' && command.text.trim().length > 0,
+    (command) => command.kind === 'message' && command.text.trim().length > 0,
   )
   return !hasKey && !hasSecondary && !hasMessage
 }
@@ -298,18 +301,22 @@ export function applyAmmo(actions: ConfigAction[], row: CatalogRow, withAmmo: bo
 }
 
 /**
- * Set, replace or clear `row`'s trailing `say_team` message command. Setting
- * `text` to `''` removes the message entirely (and prunes the action if
- * nothing else is set).
+ * Set, replace or clear `row`'s trailing message command. Setting `text` to
+ * `''` removes the message entirely (and prunes the action if nothing else
+ * is set). `channel` defaults to `'say_team'` so existing callers that don't
+ * pass one keep writing exactly what they always did.
  */
-export function applyMessage(actions: ConfigAction[], row: CatalogRow, text: string): ConfigAction[] {
+export function applyMessage(
+  actions: ConfigAction[],
+  row: CatalogRow,
+  text: string,
+  channel: 'say' | 'say_team' = 'say_team',
+): ConfigAction[] {
   const index = actions.findIndex((action) => action.catalogId === row.catalogId)
   const base = index >= 0 ? actions[index]! : freshAction(row)
-  const withoutMessage = base.commands.filter(
-    (command) => !(command.kind === 'message' && command.channel === 'say_team'),
-  )
+  const withoutMessage = base.commands.filter((command) => command.kind !== 'message')
   const commands: ConfigCommand[] =
-    text.trim().length > 0 ? [...withoutMessage, { kind: 'message', channel: 'say_team', text }] : withoutMessage
+    text.trim().length > 0 ? [...withoutMessage, { kind: 'message', channel, text }] : withoutMessage
 
   return upsertOrPrune(actions, index, { ...base, commands })
 }

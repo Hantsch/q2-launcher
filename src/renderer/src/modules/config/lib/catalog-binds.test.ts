@@ -145,6 +145,24 @@ describe('deriveRowState', () => {
     expect(state.primaryModifier).toBeUndefined()
     expect(state.secondaryModifier).toBeUndefined()
   })
+
+  it('picks up a `say`-channel message and reports its channel', () => {
+    const action: ConfigAction = {
+      id: 'a1',
+      categoryId: 'movement',
+      name: '+forward',
+      kind: 'bind',
+      catalogId: row.catalogId,
+      commands: [
+        { kind: 'raw', text: '+forward' },
+        { kind: 'message', channel: 'say', text: 'GG' },
+      ],
+    }
+
+    const state = deriveRowState(action, row)
+    expect(state.message).toBe('GG')
+    expect(state.messageChannel).toBe('say')
+  })
 })
 
 describe('applySlot', () => {
@@ -328,6 +346,29 @@ describe('applyMessage', () => {
     expect(remaining).toBeDefined()
     expect(deriveRowState(remaining, row).message).toBe('')
     expect(deriveRowState(remaining, row).primary).toBe('f')
+  })
+
+  it('writes a `say` channel message when passed', () => {
+    const actions = applyMessage([], row, 'HELP', 'say')
+    const created = findAction(actions, row)!
+
+    const messageCommand = created.commands.find((command) => command.kind === 'message')
+    expect(messageCommand).toMatchObject({ kind: 'message', channel: 'say', text: 'HELP' })
+    expect(deriveRowState(created, row)).toMatchObject({ message: 'HELP', messageChannel: 'say' })
+  })
+
+  it('defaults to `say_team` when no channel is passed', () => {
+    const actions = applyMessage([], row, 'HELP')
+    const created = findAction(actions, row)!
+
+    const messageCommand = created.commands.find((command) => command.kind === 'message')
+    expect(messageCommand).toMatchObject({ kind: 'message', channel: 'say_team', text: 'HELP' })
+  })
+
+  it('does not prune an action whose only content is a `say` message', () => {
+    const actions = applyMessage([], row, 'HELP', 'say')
+
+    expect(findAction(actions, row)).toBeDefined()
   })
 })
 

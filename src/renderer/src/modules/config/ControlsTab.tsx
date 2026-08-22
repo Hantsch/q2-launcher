@@ -4,8 +4,6 @@ import {
   ArrowDown,
   ArrowUp,
   ListChecks,
-  MessageSquare,
-  MessageSquareText,
   Pencil,
   Plus,
   RotateCcw,
@@ -151,10 +149,25 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
    * whenever the selected category changes so a filter typed in one category never silently hides
    * rows in the next one. */
   const [filterText, setFilterText] = useState('')
-  /** Review fix (findings 4/5): which drops row's team-message `Modal` is open, or `null` for
-   * none. The dialog reads its initial text off `actions` itself (looked up by `catalogId`), so
-   * this only has to remember *which* row, not a copy of its message. */
-  const [messageEditorRow, setMessageEditorRow] = useState<CatalogRow | null>(null)
+  /** Review fix (findings 4/5): which drops row's message `Modal` is open, or `null` for none.
+   * The editor reads its initial channel/text off `actions` itself (looked up by `catalogId`), so
+   * this only has to remember *which* row - plus the row's already-resolved i18n label, because a
+   * `CatalogRow` carries no `labelKey` and the modal's title needs one (story 029 D4). */
+  const [messageEditorRow, setMessageEditorRow] = useState<{
+    row: CatalogRow
+    label: string
+  } | null>(null)
+  /**
+   * Story 029 D4: which drops rows have their inline message row revealed *without* a message
+   * being stored yet (AC 3/5). Local view state, not a draft edit - and deliberately not derived:
+   * an empty message is never persisted (`applyMessage('')` prunes it), so a row the user just
+   * checked has nothing in `actions` to read the checked state back from. The checkbox and the
+   * sub-row are both rendered from "has a stored message OR is in this set", so the two can never
+   * disagree (story decision).
+   */
+  const [revealedMessageRows, setRevealedMessageRows] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  )
 
   const clearPendingSave = (): void => {
     if (saveTimeout.current) {
@@ -172,6 +185,11 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
     setSelectedCategoryId(BUILT_IN_ACTION_CATEGORIES[0].id)
     setStatus('idle')
     clearPendingSave()
+    // Story 029 D4: the reveal set and an open message editor both name a row of the profile being
+    // switched away from - carrying them over would show another profile's row as "has a message
+    // pending" and let a Save land on the wrong profile's actions.
+    setRevealedMessageRows(new Set())
+    setMessageEditorRow(null)
   }, [profile.id])
 
   useEffect(() => clearPendingSave, [])
@@ -365,6 +383,35 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
     handleCatalogActionsChange(cleared)
   }
 
+  /**
+   * Story 029 D4: the drops row's "With message" checkbox (AC 5/6).
+   *
+   * Checking only reveals the inline message row - there is no text to write yet, and writing an
+   * empty one would immediately be pruned again, taking the checked state with it (story
+   * decision: the "just checked" state lives in `revealedMessageRows`). Unchecking clears the
+   * stored message right away, no confirm - exactly how "With ammo" already mutates on toggle,
+   * and required by AC 6: a hidden-but-still-saved message would contradict the box being a
+   * mirror of the stored command.
+   *
+   * Only the message command is touched either way: `applyMessage` merges into the action's
+   * existing `commands`, so the row's `drop <item>` / ammo raw commands survive an uncheck.
+   */
+  const handleToggleRowMessage = (row: CatalogRow, next: boolean): void => {
+    setRevealedMessageRows((current) => {
+      const updated = new Set(current)
+      if (next) updated.add(row.catalogId)
+      else updated.delete(row.catalogId)
+      return updated
+    })
+    if (next) return
+    const action = actions.find((entry) => entry.catalogId === row.catalogId)
+    // Nothing stored means nothing to clear - skip the save rather than persisting an array that
+    // is identical to the one already on disk.
+    if (deriveRowState(action, row).message.trim().length > 0) {
+      handleCatalogActionsChange(applyMessage(actions, row, ''))
+    }
+  }
+
   /** A plain action's own reset: clears its key slots, never its `commands` and never the action
    * itself - the action stays in the profile exactly as `ActionEditor` left it. */
   const handleResetAction = (actionId: string): void => {
@@ -517,12 +564,15 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
    * (`ControlsOptionsCell`'s own dash fallback), and - for drops - the ammo toggle sits alongside
    * that text via `extra`.
    *
-   * Review fix (findings 4/5): the team message is no longer a `w-28` `Input` living directly in
-   * this 150px-wide column - a free-text field does not fit next to the ammo checkbox and the
-   * layer/conflict text (sprint decision). It is now an icon button that opens `messageEditorRow`'s
-   * `Modal` (rendered once, below, next to the tab's other dialogs) with the same field. The icon
-   * itself is the "is it set" indicator (filled vs. outline), same accessibility rule as the
-   * conflict marker: never rely on the reader guessing from a click alone.
+   * Review fix (findings 4/5): the message is not a `w-28` `Input` living directly in this
+   * 150px-wide column - a free-text field does not fit next to the ammo checkbox and the
+   * layer/conflict text (sprint decision).
+   *
+   * Story 029 D4 (AC 1/2): nor is it the icon button that replaced that field. A drops row now
+   * carries a plain "With message" `Checkbox` with the same weight as "With ammo"; checking it
+   * reveals the row's own full-width message row (`renderMessageSubRow`), and the editing itself
+   * happens in `MessageEditor` from there. So this cell holds two checkboxes and no icon button,
+   * and "is a message set" is stated in words rather than by a filled-vs-outline glyph.
    */
   const renderCatalogOptionsCell = (row: CatalogRow, action: ConfigAction | undefined) => {
     const state = deriveRowState(action, row)
@@ -549,43 +599,108 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
         ownerName,
       )
     const conflict = conflictOwner ? { owner: conflictOwner } : null
-    const hasMessage = state.message.trim().length > 0
-    // Review fix (finding 2): a `shrink-0` wrapper keeps the ammo checkbox + message icon button
-    // from being squeezed by the flex layout - only the conflict/layer text (which now truncates,
-    // see `ControlsOptionsCell.tsx`) gives up space in the 150px column.
+    // Review fix (finding 2): a `shrink-0` wrapper keeps the ammo/message checkboxes from being
+    // squeezed by the flex layout - only the conflict/layer text (which now truncates, see
+    // `ControlsOptionsCell.tsx`) gives up space in the 150px column.
+    //
+    // Story 029 D4: the two checkboxes stack instead of sitting on one line. "With ammo" plus
+    // "With message" is ~190px of content, and the Options track is a fixed 150px with
+    // `overflow: hidden` (`controls-grid.css`) - side by side, the left checkbox would be clipped
+    // instead of the layer/conflict text truncating, which is exactly the regression AC 7 forbids.
+    // `leading-4` holds the pair at 2x16px, inside the row's fixed 40px height, so no grid
+    // geometry and no zebra parity changes for this (and a row with no ammo item still shows a
+    // single checkbox, unchanged in position). `items-start` keeps both boxes on one x.
     const extra =
       row.categoryId === 'drops' ? (
-        <span className="flex shrink-0 items-center gap-2">
+        <span className="flex shrink-0 flex-col items-start gap-0.5">
           {row.ammoCommand && (
-            <Checkbox
-              checked={state.withAmmo}
-              onChange={(next) => handleCatalogActionsChange(applyAmmo(actions, row, next))}
-              label={t('config.controls.dropBind.withAmmo')}
-            />
+            // Story 029 live-smoke flow (test-only, additive): a stable selector for the
+            // ui:flow harness - `Checkbox` itself takes no pass-through props, so the testid
+            // sits on a `contents` wrapper that does not affect the flex layout above.
+            <span className="contents" data-testid={`drop-ammo-${row.catalogId}`}>
+              <Checkbox
+                className="leading-4"
+                checked={state.withAmmo}
+                onChange={(next) => handleCatalogActionsChange(applyAmmo(actions, row, next))}
+                label={t('config.controls.dropBind.withAmmo')}
+              />
+            </span>
           )}
-          <IconButton
-            label={t(
-              hasMessage
-                ? 'config.controls.dropBind.editMessageSet'
-                : 'config.controls.dropBind.editMessage',
-            )}
-            size="sm"
-            onClick={() => setMessageEditorRow(row)}
-          >
-            {hasMessage ? (
-              <MessageSquareText className="size-3.5" />
-            ) : (
-              <MessageSquare className="size-3.5" />
-            )}
-          </IconButton>
+          <span className="contents" data-testid={`drop-message-${row.catalogId}`}>
+            <Checkbox
+              className="leading-4"
+              // AC 6: checked = the action carries a message, OR the user just checked the box and
+              // has not written one yet (`revealedMessageRows`) - same expression the sub-row's own
+              // visibility uses in `renderCatalogRow`.
+              checked={state.message.trim().length > 0 || revealedMessageRows.has(row.catalogId)}
+              onChange={(next) => handleToggleRowMessage(row, next)}
+              label={t('config.controls.dropBind.withMessage')}
+            />
+          </span>
         </span>
       ) : undefined
     return <ControlsOptionsCell layer={layer} conflict={conflict} extra={extra} />
   }
 
+  /**
+   * Story 029 D4 (AC 3): the inline message row under a revealed drops row - the stored message
+   * text, or a placeholder while none is set yet, plus the button into `MessageEditor`. Read-only:
+   * every edit goes through that modal, so nothing here writes to the draft. Rendered through
+   * `ControlsRow`'s `subRow` slot (D3), which owns the `role="row"`/`role="cell"` pair and the
+   * `.ctrl-msgrow` styling.
+   */
+  const renderMessageSubRow = (row: CatalogRow, label: string, message: string) => (
+    // Story 029 live-smoke flow (test-only, additive): `contents` keeps this span out of the
+    // `.ctrl-msgrow` flex layout while still giving the harness one selector for the whole row.
+    <span className="contents" data-testid={`drop-message-row-${row.catalogId}`}>
+      <span
+        className={
+          message ? 'min-w-0 truncate text-xs text-ink' : 'min-w-0 truncate text-xs text-ink-faint'
+        }
+        title={message || undefined}
+      >
+        {message || t('config.controls.dropBind.messagePlaceholder')}
+      </span>
+      <Button
+        size="sm"
+        data-testid={`drop-message-edit-${row.catalogId}`}
+        // The grid renders one of these per revealed row, so "Edit message" alone would read as a
+        // wall of identical buttons - the accessible name names the row, same rule as
+        // `ControlsRow`'s per-row reset button.
+        aria-label={t('config.controls.dropBind.editMessageFor', { name: label })}
+        onClick={() => setMessageEditorRow({ row, label })}
+      >
+        {t('config.controls.dropBind.editMessage')}
+      </Button>
+    </span>
+  )
+
+  /**
+   * The seed `MessageEditor` opens with for a drops row. A row nobody has touched yet has no
+   * `ConfigAction` at all (decision 3's lazy materialisation), and the editor takes one - so this
+   * hands it a stand-in carrying no commands, which is exactly "no message set". It is never
+   * persisted: the save path is `applyMessage(actions, row, ...)`, which does its own
+   * find-or-create against the real array.
+   */
+  const messageEditorSeed = (row: CatalogRow, label: string): ConfigAction =>
+    actions.find((action) => action.catalogId === row.catalogId) ?? {
+      id: row.catalogId,
+      categoryId: row.categoryId,
+      name: label,
+      kind: 'bind',
+      catalogId: row.catalogId,
+      commands: [],
+    }
+
   const renderCatalogRow = (entry: CatalogControlsRowEntry, odd: boolean) => {
     const { row, labelKey, action } = entry
     const label = t(labelKey)
+    // Story 029 D4 (AC 3/5): only drops rows have a message at all, and the row is revealed on the
+    // same condition its checkbox is checked on - a stored message, or a box the user just ticked.
+    const isDropRow = row.categoryId === 'drops'
+    const message = isDropRow ? deriveRowState(action, row).message : ''
+    const showMessageRow =
+      isDropRow && (message.trim().length > 0 || revealedMessageRows.has(row.catalogId))
     return (
       <ControlsRow
         key={row.catalogId}
@@ -597,6 +712,7 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
         primarySlot={renderCatalogSlot(row, action, 'primary')}
         secondarySlot={renderCatalogSlot(row, action, 'secondary')}
         optionsCell={renderCatalogOptionsCell(row, action)}
+        subRow={showMessageRow ? renderMessageSubRow(row, label, message) : undefined}
       />
     )
   }
@@ -1046,7 +1162,15 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
         <MessageEditor
           action={editingAction}
           onClose={() => setEditingActionId(null)}
-          onSave={(next) => void handleSaveAction(next)}
+          onSave={(draft) =>
+            void handleSaveAction({
+              ...editingAction,
+              commands: [
+                { kind: 'message', channel: draft.channel as 'say' | 'say_team', text: draft.text },
+              ],
+              key: draft.key,
+            })
+          }
         />
       )}
 
@@ -1059,17 +1183,27 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
         />
       )}
 
+      {/* Story 029 D4 (AC 4): a drops row opens the same rich editor a "Team messages" entry does
+          - channel, macro bar, symbol picker, live preview - with key capture hidden, because a
+          catalogue row's key belongs to the grid's `BindSlot`s and their collision/replace flow
+          (story decision; a second, collision-blind key field here would regress AC 7). The save
+          merges through `applyMessage`, which only adds/replaces/removes the row's message
+          command: the `drop <item>` and ammo raw commands are carried over untouched. */}
       {messageEditorRow && (
-        <DropMessageDialog
-          initialMessage={
-            deriveRowState(
-              actions.find((action) => action.catalogId === messageEditorRow.catalogId),
-              messageEditorRow,
-            ).message
-          }
+        <MessageEditor
+          action={messageEditorSeed(messageEditorRow.row, messageEditorRow.label)}
+          titleName={messageEditorRow.label}
+          showKeyCapture={false}
           onClose={() => setMessageEditorRow(null)}
-          onSave={(text) => {
-            handleCatalogActionsChange(applyMessage(actions, messageEditorRow, text))
+          onSave={(draft) => {
+            handleCatalogActionsChange(
+              applyMessage(
+                actions,
+                messageEditorRow.row,
+                draft.text,
+                draft.channel as 'say' | 'say_team',
+              ),
+            )
             setMessageEditorRow(null)
           }}
         />
@@ -1305,60 +1439,6 @@ function RenameActionDialog({
           onChange={(event) => setName(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && name.trim().length > 0) void submit()
-          }}
-        />
-      </Field>
-    </Modal>
-  )
-}
-
-/**
- * Review fix (findings 4/5): a drops row's team message, moved behind an icon button - a free-text
- * field does not fit the 150px Options column next to the ammo checkbox and the layer/conflict
- * text (sprint decision). Same quote-filtering behaviour as `MessageEditor`'s own text field
- * (Quake 2 has no in-quote escaping) and the same local-`open`-state/Cancel-Save shape as
- * `CreateCategoryDialog`/`RenameCategoryDialog` above.
- */
-function DropMessageDialog({
-  initialMessage,
-  onClose,
-  onSave,
-}: {
-  initialMessage: string
-  onClose: () => void
-  onSave: (text: string) => void
-}) {
-  const { t } = useTranslation()
-  const [text, setText] = useState(initialMessage)
-
-  return (
-    <Modal
-      open
-      size="sm"
-      title={t('config.controls.dropBind.messageDialogTitle')}
-      onClose={onClose}
-      closeLabel={t('common.close')}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="primary" onClick={() => onSave(text)}>
-            {t('common.save')}
-          </Button>
-        </>
-      }
-    >
-      <Field label={t('config.controls.dropBind.messageLabel')}>
-        <Input
-          value={text}
-          autoFocus
-          placeholder={t('config.controls.dropBind.messagePlaceholder')}
-          // Quotes filtered as typed (decision from story 008/`MessageEditor`) - same as the
-          // inline field this dialog replaces.
-          onChange={(event) => setText(event.target.value.replace(/"/g, ''))}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') onSave(text)
           }}
         />
       </Field>

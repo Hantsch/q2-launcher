@@ -313,6 +313,29 @@
   border-bottom: 1px solid var(--color-line);
 }
 
+/* --- "with message" inline sub-row (story 029 D3) ------------------------
+   Same full-width-row pattern as `.ctrl-subrow-host-row`/`.ctrl-subrow` above, but always
+   rendered by `ControlsRow` when its `subRow` prop is passed (no `:empty` collapse needed - the
+   caller only passes the prop when there is content to show). Reuses `.ctrl-subrow`'s padding
+   rhythm and tokens; the label is indented by the Action column's width (34px reset + its 10px
+   grid gap) so it lines up under the label column instead of the reset button. */
+.ctrl-msgrow-row {
+  display: block;
+}
+
+.ctrl-msgrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 8px calc(16px + 34px + 10px);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background: var(--color-raised);
+  border-bottom: 1px solid var(--color-line);
+}
+
 /* --- options column: right-aligned badge/content row ---------------------
    Review fix (finding 2): the 150px track needs `min-width: 0`/`overflow: hidden` or its content
    (layer name, "also: <owner>" conflict text) forces the column wider than its fixed width instead

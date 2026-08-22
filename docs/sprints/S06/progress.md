@@ -23,3 +23,12 @@
 - 2026-08-22 08:27 · 033 · D3 Planned screens enter ui:verify registry · started
 - 2026-08-22 08:33 · 033 · D3 Planned screens enter ui:verify registry · done
 - 2026-08-22 08:40 · 033 · review + fixes + Done section · done
+- 2026-08-22 08:29 · 029 · D1 channel-aware drop message in pure lib · started
+- 2026-08-22 08:31 · 029 · D1 channel-aware drop message in pure lib · done
+- 2026-08-22 08:31 · 029 · D2 MessageEditor draft + hide key capture · started
+- 2026-08-22 08:33 · 029 · D2 MessageEditor draft + hide key capture · done
+- 2026-08-22 08:33 · 029 · D3 ControlsRow sub-row slot + styling · started
+- 2026-08-22 08:35 · 029 · D3 ControlsRow sub-row slot + styling · done
+- 2026-08-22 08:35 · 029 · D4 With-message checkbox + inline row wired · started
+- 2026-08-22 08:43 · 029 · D4 With-message checkbox + inline row wired · done
+- 2026-08-22 08:53 · 029 · review + live smoke + Done section · done

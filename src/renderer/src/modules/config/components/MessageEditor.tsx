@@ -43,10 +43,19 @@ export function MessageEditor({
   action,
   onClose,
   onSave,
+  showKeyCapture = true,
+  titleName,
 }: {
   action: ConfigAction
   onClose: () => void
-  onSave: (next: ConfigAction) => void
+  onSave: (draft: { channel: string; text: string; key?: string }) => void
+  /** Story 029 D2: drop rows own their key through the grid's `BindSlot`s and don't want a
+   * second, collision-blind key editor in this modal - hides the key-capture block entirely when
+   * `false`. Defaults to `true` to preserve the "Team messages" editor's existing behaviour. */
+  showKeyCapture?: boolean
+  /** Story 029 D2: lets a caller show a name other than the action's own in the modal title
+   * (e.g. a drop row's own label). Defaults to `action.name`. */
+  titleName?: string
 }) {
   const { t } = useTranslation()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -146,9 +155,9 @@ export function MessageEditor({
 
   const save = (): void => {
     onSave({
-      ...action,
-      commands: [{ kind: 'message', channel, text }],
-      key: key && key.trim().length > 0 ? key : undefined,
+      channel,
+      text,
+      key: showKeyCapture && key && key.trim().length > 0 ? key : undefined,
     })
   }
 
@@ -156,7 +165,7 @@ export function MessageEditor({
     <Modal
       open
       size="lg"
-      title={t('config.controls.messageEditor.title', { name: action.name })}
+      title={t('config.controls.messageEditor.title', { name: titleName ?? action.name })}
       onClose={onClose}
       closeLabel={t('common.close')}
       footer={
@@ -280,28 +289,30 @@ export function MessageEditor({
           hasSelection={hasSelection}
         />
 
-        <div className="space-y-1.5">
-          <span className="stencil block">{t('config.controls.editor.keyLabel')}</span>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {capturingKey ? (
-              <Badge tone="warning">{t('config.controls.editor.capturing')}</Badge>
-            ) : key ? (
-              <Badge tone="flame">{key}</Badge>
-            ) : (
-              <span className="text-xs text-ink-muted">{t('config.controls.editor.keyNotSet')}</span>
-            )}
-            {!capturingKey && (
-              <Button variant="ghost" size="sm" onClick={() => setCapturingKey(true)}>
-                {t('config.controls.editor.captureKey')}
-              </Button>
-            )}
-            {!capturingKey && key && (
-              <Button variant="danger" size="sm" onClick={() => setKey(undefined)}>
-                {t('config.controls.editor.clearKey')}
-              </Button>
-            )}
+        {showKeyCapture && (
+          <div className="space-y-1.5">
+            <span className="stencil block">{t('config.controls.editor.keyLabel')}</span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {capturingKey ? (
+                <Badge tone="warning">{t('config.controls.editor.capturing')}</Badge>
+              ) : key ? (
+                <Badge tone="flame">{key}</Badge>
+              ) : (
+                <span className="text-xs text-ink-muted">{t('config.controls.editor.keyNotSet')}</span>
+              )}
+              {!capturingKey && (
+                <Button variant="ghost" size="sm" onClick={() => setCapturingKey(true)}>
+                  {t('config.controls.editor.captureKey')}
+                </Button>
+              )}
+              {!capturingKey && key && (
+                <Button variant="danger" size="sm" onClick={() => setKey(undefined)}>
+                  {t('config.controls.editor.clearKey')}
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </Modal>
   )
