@@ -260,12 +260,33 @@ long-lived configs (`dm.cfg`, `dmalias.cfg`, `gfx.cfg` — a 2001-era DM config,
 section banners, a comment behind almost every bind). The theme: what the launcher writes is
 functional and nothing more, and it does not survive being read, shared or re-imported.
 
-`docs/sprints/S07` **planned** — the first four stories in build order: 038 (writer stops
-emitting dead alias lines), 039 (readable, user-controlled alias names), 040 (structured,
-commented, human-readable file), 041 (import understands aliases/press-release/`unbindall`).
-042/043 held back for a decision round before refine; 044/045 unscheduled.
+`docs/sprints/S07` **built (2026-08-22), acceptance pass not yet confirmed by the user** — the
+first four stories, all **done**: 038 (writer stops emitting dead alias lines), 039 (readable,
+user-controlled alias names), 040 (structured, commented, human-readable file), 041 (import
+understands aliases/press-release/`unbindall`). See `docs/sprints/S07/review.md` and
+`docs/sprints/S07/testplan.md` for the manual acceptance pass. 042/043 remain held back for a
+decision round before refine; 044/045 remain unscheduled.
 
-Eight stories, **all `draft`, none refined**:
+**039 turned out far riskier than scoped** — the story the sprint plan below already flagged as
+carrying real risk needed four build/review rounds: a self-referential alias line
+(`alias weapnext weapnext`) that the new naming scheme could produce was only found by actually
+rendering constructed profiles and running the real validators, not by reading diffs, across
+three separate near-miss "done" self-reports. Standing rule recorded in 039's own story file: when
+an action's command list collides with its own alias name but carries other real commands too,
+the writer keeps the content and surfaces a Care finding (`aliasSelfReference`) rather than
+silently dropping anything — decided by the user mid-sprint, not worked around. **Carry-over rule
+for any future story touching `src/shared/config/alias-references.ts` or the mirror/alias-render
+mechanism: do not trust a "done" self-report on this code path without an adversarial re-render
+pass against constructed edge-case profiles.**
+
+**Other mid-sprint scope changes, all by user decision, recorded in each story's own file:** 040's
+`unbindall` header line became a per-profile setting (default on) instead of a fixed line, and
+bind grouping went with action category rather than keyboard region; 041's colour cvars used as
+chat-message text variables (`$r`) are now recognised and rendered by the message editor rather
+than staying an opaque cvar, and the `alias cali "bind ...; ..."`-style rebind-key construct is
+resolved by asking the launcher's user during import rather than auto-classified.
+
+Eight stories were originally filed, **four built this sprint, four still `draft`**:
 
 - **038** — no alias line for an action the engine can bind directly. Story 034 made continuous
   catalogue rows mirror as their own command (`bind MOUSE1 "+attack"`) but the writer kept emitting
