@@ -73,16 +73,15 @@ the manual pass in `docs/sprints/done/S03/testplan.md` (plus 016's own test plan
 real desktop afterwards. The engine findings below stay as factual background for the system
 doc.
 
-`docs/sprints/done/S04` **built (2026-08-20/21), acceptance pass not yet confirmed by the user**
+`docs/sprints/done/S04` **accepted (confirmed 2026-08-22; built 2026-08-20/21)**
 — authoring surfaces + UI verification harness. Cut the first two of the three clusters below
 into one sprint: 026 (a committed Playwright/`_electron` harness — screenshots per screen plus
 an axe report, so a sprint can accept its own UI work), then 017/018 (Overview: edit-by-default,
 honest test mode) and 019/020 (Controls: entry types + ordering, then the column-grid redesign)
 and 021 (Settings dense rows). **All six stories done**, see `docs/sprints/done/S04/review.md`
 and `docs/sprints/done/S04/testplan.md` for the manual acceptance pass. The profile-as-a-file
-cluster (022–025) is deliberately held back as the likely next milestone, because it is an
-on-disk/schema rework with migration questions and does not mix with five UI redesigns in one
-acceptance pass.
+cluster (022–025) was deliberately held back out of this sprint — an on-disk/schema rework with
+migration questions does not mix with five UI redesigns in one acceptance pass — and became S05.
 
 **Ad-hoc bug fixes landed outside sprint flow after S04 (2026-08-20/21):** filed and closed
 without a formal sprint cut, spanning the move from a WSL dev session to a native Windows one
