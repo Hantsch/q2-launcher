@@ -1,7 +1,7 @@
 ---
 id: 037
 title: ui:verify covers every surface and its report is green
-status: in-progress
+status: done
 created: 2026-08-21
 ---
 
@@ -45,9 +45,9 @@ desktop, and this story's test plan is where that happens.
       `page-has-heading-one` in particular is decided, not ignored.
 - [x] Zero `critical` and zero `serious` violations across all screens and both viewports; the
       run exits 0.
-- [ ] Story 027's remaining check is confirmed on the real desktop: during a full run, typing in
+- [x] Story 027's remaining check is confirmed on the real desktop: during a full run, typing in
       another window is uninterrupted and no app window takes focus. Confirmed → 027 goes to
-      `done`. **Not confirmed by this session** — see Done section.
+      `done`. **Confirmed by the user at S06 sprint acceptance (2026-08-22).**
 - [x] `docs/UI-VERIFICATION.md` matches what the harness now does — screen count, what is and is
       not covered, and how a dialog entry is added.
 - [x] Any surface still out of reach after this story is named in `docs/UI-VERIFICATION.md` as a
@@ -326,3 +326,10 @@ section.
 
 **Commit message:** `037: close ui:verify's dialog and axe gaps — write/import preview in the
 registry, a11y fixes, full green run`
+
+**Closed at S06 acceptance (2026-08-22).** The user confirmed the focus-steal check on the real
+Windows desktop during the S06 sprint review, which was the single open acceptance criterion
+(AC5) of this story and the last open one of [[027-quiet-ui-verification]]. Both stories are now
+`done`; nothing in the code changed for this — the criterion was experiential only. The two
+findings this story deliberately left open stay open and are documented as known blind spots in
+`docs/UI-VERIFICATION.md` (`MessageEditor.tsx`'s unwired label, not in the screen registry).

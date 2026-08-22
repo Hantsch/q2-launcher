@@ -1,7 +1,7 @@
 ---
 id: 027
 title: UI verification runs in one session per fixture, without stealing focus
-status: in-progress # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-08-20
 ---
 
@@ -51,7 +51,7 @@ requirements, it is a rule the skill never wrote down.
 - [x] A full `npm run ui:verify` starts the app at most once per fixture variant plus one per
       screen explicitly marked as needing a cold start — for today's registry that is 2 starts,
       down from 56 — and the number of starts is reported in the run summary.
-- [ ] The app windows a run opens do not take the keyboard focus: while a run is going, I can
+- [x] The app windows a run opens do not take the keyboard focus: while a run is going, I can
       keep typing in another window without interruption. Normal `npm run dev` / packaged
       launches are unchanged.
 - [x] Screenshots and the accessibility report for a screen come from the same visit to that
@@ -302,3 +302,8 @@ interruption — needs a human on a real Windows session per the story's own tex
 ```
 027: unify UI-verification into one session per fixture, suppress harness window focus
 ```
+
+**Closed at S06 acceptance (2026-08-22).** The user confirmed the experiential focus check on the
+real Windows desktop during the S06 sprint review: a full `npm run ui:verify` run does not steal
+keyboard focus from another window. AC2 is ticked, the story is `done`. Closed together with
+[[037-ui-verify-complete-and-green]], whose AC5 was the same check.

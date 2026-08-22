@@ -100,12 +100,12 @@ without a formal sprint cut, spanning the move from a WSL dev session to a nativ
   was one of two disjoint storages (`binds`/`layers[].overrides` the other, mirrored one-way);
   `adoptRawBinds` reconciles a raw bind into `actions` on every read and write, so a hand-made or
   imported bind is never invisible to Controls again.
-- **027 (in-progress)** — the UI verification harness now starts the app twice per full run
+- **027 (done)** — the UI verification harness now starts the app twice per full run
   instead of 56 times, and suppresses window focus-stealing during a run
-  (`Q2L_UI_HARNESS=1` gates `focusable:false`/`showInactive()`). Every acceptance criterion is
-  code-verified except the one experiential check (typing in another window while a run goes,
-  staying uninterrupted) — needs a human on the real desktop, feasible now that the session is
-  native Windows. Status stays `in-progress` until confirmed.
+  (`Q2L_UI_HARNESS=1` gates `focusable:false`/`showInactive()`). Every acceptance criterion was
+  code-verified in the story itself; the one experiential check (typing in another window while a
+  run goes, staying uninterrupted) was confirmed by the user at S06 acceptance on 2026-08-22,
+  which closed the story together with 037.
 
 `docs/sprints/done/S05` **accepted (2026-08-21)** — the
 profile-as-a-file rework: 022 `<name>.cfg` exists standalone, 023 Raw File absorbs Write targets,
@@ -130,7 +130,7 @@ The UI-polish batch from continued hands-on use plus the three guardrails the re
 and does not: this is not a feature milestone, it is the pass that makes the chrome speak to users
 and the security/verification claims true.
 
-`docs/sprints/S06` **built, acceptance pending (2026-08-22)** — cut from the backlog that
+`docs/sprints/done/S06` **accepted (2026-08-22)** — cut from the backlog that
 accumulated during and after S04/S05, seven stories in two clusters. What the user sees, all
 **done**: 031 rename Install→Downloads and relocate it to the right-hand utility group, 030
 titlebar/wordmark scale-up, 033 planned-module screens (Mods/Assets/Downloads) in plain language
@@ -140,10 +140,13 @@ the shipped build (the renderer loads over a privileged `q2launcher://` scheme, 
 every protocol response) — **done**; 036 `handle()` now requires a zod payload schema at every one
 of ~60 call sites so validation cannot be forgotten on a new channel — **done**; 037 `ui:verify` now
 reaches the write-preview and import dialogs and a full run is 17/17 screens with zero
-critical/serious/moderate/minor violations — **in-progress**, one acceptance criterion left: the
-human desktop check that a full run never steals window focus (closes 027 too). See
-`docs/sprints/S06/review.md` and `docs/sprints/S06/testplan.md`. Deliberately excluded: 032, the
-downloads module itself, and the config-module gaps below.
+critical/serious/moderate/minor violations — **done**, its last acceptance criterion (the human
+desktop check that a full run never steals window focus, which also closed 027) was confirmed at
+the acceptance pass. **All seven stories done.** See `docs/sprints/done/S06/review.md` and
+`docs/sprints/done/S06/testplan.md`. Deliberately excluded: 032, the downloads module itself, and
+the config-module gaps below. Carried out of the sprint: `CLAUDE.md`'s pointer to
+`src/main/lib/schemas.ts` is now only half true after 036 split IPC-payload schemas into
+`src/shared/ipc-schemas.ts`/`src/shared/schemas.ts` — a doc decision still open.
 
 #### Gaps/notes (from S05)
 
@@ -153,7 +156,7 @@ downloads module itself, and the config-module gaps below.
   folding in if it ever causes a real report.
 - ~~`npm run ui:verify`'s automated screen registry does not cover the write-preview dialog or the
   import preview~~ (024's `ConfigCodeView` swap-in there was only manually acceptance-tested, see
-  `docs/sprints/done/S05/testplan.md`) — **closed by story 037** in `docs/sprints/S06`: both are now
+  `docs/sprints/done/S05/testplan.md`) — **closed by story 037** in `docs/sprints/done/S06`: both are now
   screen registry entries, screenshotted and axe-audited on every full run.
 - 025's main-side `removeShadowedBind` handler trusts the renderer analyzer's "loser" claim rather
   than re-deriving the render-order winner itself — unreachable today because main re-validates
@@ -175,7 +178,7 @@ downloads module itself, and the config-module gaps below.
   patched. **Carry-over rule for any future layer feature: never re-derive row identity from
   rendered command text — `overrides` is derived state, the action is the source of truth.**
 - ~~**No committed UI-driving harness exists yet**~~ — **closed by S04's story 026**
-  (`npm run ui:verify`), see the Tooling section above and `docs/sprints/S04/review.md`.
+  (`npm run ui:verify`), see the Tooling section above and `docs/sprints/done/S04/review.md`.
 
 #### Gaps/notes (from S04)
 
@@ -184,9 +187,9 @@ downloads module itself, and the config-module gaps below.
   022 fixed `getProfileSyncState`'s double-wrap, 023 fixed the same pattern in `setPlayedMods` and
   `previewConfigProfile` while rebuilding Raw File around `RawConfigPanel`. `npm run ui:verify`
   no longer exits non-zero on the `config-raw`/`config-care` routes as of S05.
-- **Story 027 — done** (in-progress on one manual item), see the ad-hoc section above: the
-  harness went from 56 app starts per full run to 2, and window focus-stealing is suppressed
-  during a run.
+- **Story 027 — done**, see the ad-hoc section above: the harness went from 56 app starts per
+  full run to 2, and window focus-stealing is suppressed during a run; the manual focus check
+  closed at S06 acceptance.
 - **017 changed 013/014's click semantics**: outside test mode, a layer's trigger keycap no
   longer switches the displayed board on click — it opens the bind dialog like every other
   keycap. Layer-switching-by-interaction now lives entirely in 018's test-mode mechanics
@@ -250,6 +253,70 @@ The findings that shape this module, from reading the r1q2 source:
 - Editing must back up the user's existing `.cfg` before writing, and the module
   should diff rather than rewrite.
 
+## Config, round two — the file becomes the config
+
+Filed 2026-08-22 out of hands-on feedback on a real profile plus a read of the user's own
+long-lived configs (`dm.cfg`, `dmalias.cfg`, `gfx.cfg` — a 2001-era DM config, ~90 aliases,
+section banners, a comment behind almost every bind). The theme: what the launcher writes is
+functional and nothing more, and it does not survive being read, shared or re-imported.
+
+`docs/sprints/S07` **planned** — the first four stories in build order: 038 (writer stops
+emitting dead alias lines), 039 (readable, user-controlled alias names), 040 (structured,
+commented, human-readable file), 041 (import understands aliases/press-release/`unbindall`).
+042/043 held back for a decision round before refine; 044/045 unscheduled.
+
+Eight stories, **all `draft`, none refined**:
+
+- **038** — no alias line for an action the engine can bind directly. Story 034 made continuous
+  catalogue rows mirror as their own command (`bind MOUSE1 "+attack"`) but the writer kept emitting
+  one alias per action, so a nine-bind profile carries seven dead `alias q2l_a_*` lines. A writer
+  bug, not a Care gap: Care's `aliasUnreferenced` only looks at `kind: 'alias'` entries, and a
+  "fix" would be regenerated on the next write. Standalone, smallest of the batch.
+- **039** — aliases get readable names the user controls. `q2l_a_ssg_sg_9a2f` → `ssg_sg`, derived
+  from the display name, overridable, unique per profile; a collision is a **warning**, never an
+  auto-appended counter suffix (**user decision**). Real risk: `ACTION_ALIAS_PREFIX` is currently
+  used as an *identity test* for "a mirror pass wrote this bind" in five places
+  (`action-mirror.ts`, `modifier-layers.ts`, `bind-adoption.ts`, the renderer's
+  `keyboard-layout.ts`, and the contract documented in `main/modules/config/profiles.ts`) — once
+  an alias is called `ssg_sg` that test is gone and a save could start eating hand-typed binds.
+- **040** — the profile file is written structured, commented and aligned: section banners, cvars
+  by `CvarDef.group`, one section per layer, binds grouped the way a player reads a keyboard, a
+  trailing `// <display name>` per generated line. **One file per profile in sections** (**user
+  decision**) — deliberately *not* the split `dm.cfg`/`dmalias.cfg`/`gfx.cfg` shape, which would
+  take the write pipeline, sync (022), Raw File (023) and cleanup (010/025) from one target per
+  profile to n.
+- **041** — import understands aliases. S01 deferred `alias`/`+cmd` parsing to "the follow-up
+  sprint" and it never happened, so `config-parser.ts` still preserves every alias line verbatim:
+  importing `dmalias.cfg` today yields **zero entries and ~90 preserved lines**. Covers plain
+  aliases, `+x`/`-x` pairs, alias-to-alias chains, empty hook aliases, `unbindall` ordering and
+  cross-`exec` resolution.
+- **042** — a launcher-written file re-imports without losing anything. Display name, category,
+  entry kind, own alias name, `catalogId`, two-slot pairing, modifiers, layer membership — all of
+  it carried in a defined, versioned comment format, with `render(parse(render(p))) === render(p)`
+  as a property test. Prerequisite for 043.
+- **043** — **the `.cfg` becomes the source of truth, `state.json` becomes a cache** (**user
+  decision**). The architectural inversion: external edits are detected and adopted, a UI edit
+  racing a disk edit is a surfaced conflict rather than a timestamp race, the profile list can
+  rebuild from files alone, and "generated, do not edit" comes off the header because it stops
+  being true. Largest item in the batch; only makes sense on top of 042.
+- **044** — one surface to manage every alias: name space (authored + generated + layer aliases),
+  who references what, unreferenced state, line-budget headroom, rename-with-references, duplicate
+  warnings. Care's alias rows link here; one reference graph shared with Care, not a second copy.
+- **045** — toggles (`alias zoom zoomin`/`zoomout` reassignment), press/release pairs (`+slow`/
+  `-slow`) and `wait` chains as first-class entries rather than opaque raw text. Lowest priority of
+  the eight; 041 already imports them without mangling them.
+
+Suggested order: 038 alone, then 039 → 040 → 041 → 042 → 043 as one chain, with 044 after 039 and
+045 after 041. 038–040 are shippable on their own and already answer most of the "my config looks
+machine-generated" complaint; 042/043 are the ones that need a decision round before refine.
+
+Open, named in the stories rather than guessed at: the metadata comment format (042), bind grouping
+by keyboard region vs. category (040 — region means moving `KEYBOARD_ROWS`/`ARROW_CLUSTER`/
+`MOUSE_ROWS` out of the renderer into `src/shared/config/`), whether a referenced alias rename
+rewrites or refuses (039), change detection and write cadence under an authoritative file (043),
+and whether `alias cali "bind KP_END ...; ..."`-style key-block aliases are recognised as layers
+(041).
+
 ### Mods — game directories
 
 - `+set game <dir>` is already built and validated (single ASCII token). The rest
@@ -280,12 +347,12 @@ machine, and each is a one-line fix in a data table:
 **Hardening:**
 
 - ~~Serve the production renderer from a privileged `app://` scheme instead of
-  `file://`~~ (Electron security checklist item 18) — **done, story 035** in `docs/sprints/S06`: the
+  `file://`~~ (Electron security checklist item 18) — **done, story 035** in `docs/sprints/done/S06`: the
   production renderer now loads over `q2launcher://`, and the CSP travels with every protocol
   response. A Windows-specific path-traversal bypass (`%5C`-encoded backslash segments escaping
   `root`) was found and fixed during the story's own review, with a regression test.
 - ~~Make the zod schema a **required** parameter of the typed `handle()` wrapper~~ — **done, story
-  036** in `docs/sprints/S06`. All ~60 `handle()` call sites across `src/main/ipc/` and
+  036** in `docs/sprints/done/S06`. All ~60 `handle()` call sites across `src/main/ipc/` and
   `src/main/modules/` now carry a real payload schema; one channel (`module:invoke`'s `payload`) is
   the one documented, deliberate `z.unknown()`. New IPC contract/coverage test added. **Note for the
   user:** `CLAUDE.md`'s pointer to `src/main/lib/schemas.ts` for renderer-payload validation is now
@@ -310,18 +377,19 @@ machine, and each is a one-line fix in a data table:
   `@vitejs/plugin-react@6` peers `vite ^8` exclusively. Revisit when
   `electron-vite@6` is stable.
 - ~~A committed Playwright driver for the app would make UI changes verifiable~~ — **done**:
-  story 026 in `docs/sprints/S04`, `npm run ui:verify` (see `docs/UI-VERIFICATION.md`). One
+  story 026 in `docs/sprints/done/S04`, `npm run ui:verify` (see `docs/UI-VERIFICATION.md`). One
   gotcha it had to handle: this repo is often developed from inside an Electron host that
   exports `ELECTRON_RUN_AS_NODE=1`; inherited, it makes `electron.exe` run as plain Node and the
   main process dies on its first `require('electron')`. The harness deletes the variable from
   the child environment before launching. **Follow-ups from using it:** story 027 (56 app
-  starts per full run, every window stealing focus) is **done bar one human check** — see the
-  ad-hoc section above; story 037 in `docs/sprints/S06` put the write-preview and import dialogs
-  into the screen registry and took the full run to zero critical/serious/moderate/minor axe
-  violations (`page-has-heading-one` deliberately disabled for this single-window desktop app,
-  documented in the report). 037 itself stays **in-progress**: the one remaining item is the same
-  human desktop check as 027 — confirming a full run never steals window focus — which also closes
-  027 once done.
+  starts per full run, every window stealing focus) is **done** — see the
+  ad-hoc section above; story 037 in `docs/sprints/done/S06` put the write-preview and import
+  dialogs into the screen registry and took the full run to zero critical/serious/moderate/minor
+  axe violations (`page-has-heading-one` deliberately disabled for this single-window desktop app,
+  documented in the report). Both are **done** as of S06's acceptance (2026-08-22), when the
+  shared human desktop check — a full run never steals window focus — was confirmed. Remaining
+  known blind spot: `MessageEditor.tsx` is not in the screen registry and carries the same
+  unwired-label defect 037 fixed elsewhere (`docs/UI-VERIFICATION.md`).
 
 **UX:**
 

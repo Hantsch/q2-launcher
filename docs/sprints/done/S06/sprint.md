@@ -25,7 +25,7 @@ payload validation cannot be forgotten, and `ui:verify`'s green report is a fact
 - [x] 029 — Drop-row team message as checkbox + inline row (mirrors "With ammo")
 - [x] 035 — The Content-Security-Policy actually applies in a production build
 - [x] 036 — Payload validation cannot be forgotten — handle() requires a schema
-- [ ] 037 — ui:verify covers every surface and its report is green (blocked: AC5/story 027 live focus-steal check needs a human at the real desktop; everything else complete and green)
+- [x] 037 — ui:verify covers every surface and its report is green
 
 ## Notes
 
@@ -64,3 +64,11 @@ shared contract; 037: whether the exit gate should fail on `moderate`, and what 
 `page-has-heading-one`). `/sprint`'s clarification round has real work to do here. One question
 worth resolving once rather than twice: 035 and 037 both depend on whether `ui:verify` drives a
 dev-mode or production-mode build.
+
+## Acceptance
+
+Accepted by the user on **2026-08-22**. All seven stories are `done`: 037's last open criterion
+(and with it story 027's) was the experiential focus-steal check, confirmed at the real desktop
+during the review. Sprint folder moved to `docs/sprints/done/S06`, stories 027 and 037 moved to
+`docs/requirements/done/`. Still open, but not blocking acceptance: the `CLAUDE.md`
+schema-location reference noted in `review.md` under "Blocked / open".

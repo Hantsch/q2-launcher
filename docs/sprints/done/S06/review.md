@@ -15,7 +15,7 @@ actually green).
 | 029 — Drop-row message as checkbox + inline row | done | `72d8b64` |
 | 035 — CSP actually applies in a production build | done | `0cbe222` |
 | 036 — `handle()` requires a payload schema | done | `5c8f5d8` |
-| 037 — `ui:verify` covers every surface and its report is green | **in-progress (blocked)** | `8f8794b` (WIP) |
+| 037 — `ui:verify` covers every surface and its report is green | done | `8f8794b` |
 
 ## Implemented stories
 
@@ -40,11 +40,12 @@ actually green).
   genuinely free-form channel (`module:invoke`'s `payload`) is the one documented `z.unknown()`.
   New IPC contract/coverage test added (`src/main/ipc/index.test.ts`, `registry.test.ts`) — it did
   not exist before.
-- **037** (in-progress): the write-preview and import-preview dialogs are now `ui:verify` screen
+- **037**: the write-preview and import-preview dialogs are now `ui:verify` screen
   registry entries; a full run is 17/17 screens, 0 critical/serious/moderate/minor violations;
   `page-has-heading-one` is deliberately disabled and the disabled rule is printed in the report.
   The one remaining acceptance criterion — confirming on a real desktop that a full run never
-  steals focus (closing story 027) — needs a human present and was not fabricated.
+  steals focus (closing story 027) — needed a human present and was not fabricated by the build
+  agent; the user confirmed it at acceptance on 2026-08-22, which closed both 037 and 027.
 
 ## Findings & decisions
 
@@ -75,12 +76,16 @@ actually green).
 
 ## Blocked / open
 
-- **037 stays `in-progress`.** Everything code/test/build-verifiable is done and green (full
-  `ui:verify` run, 0 violations, both dialogs registered). The one open item is story 027's
-  experiential acceptance criterion — confirming on the real desktop that a full `ui:verify` run
-  never steals focus from another window while typing. This needs the user (or a live session)
-  to run `npm run ui:verify` and observe it directly; it cannot be honestly confirmed by an
-  unattended agent. Story 027 (`docs/requirements/027-quiet-ui-verification.md`) also stays
-  `in-progress` until that happens.
+- ~~**037 stays `in-progress`**, waiting on story 027's experiential criterion — confirming on
+  the real desktop that a full `ui:verify` run never steals focus from another window while
+  typing.~~ **Resolved at acceptance (2026-08-22):** the user ran the check at the real desktop
+  and confirmed it. 037 and 027 are both `done` and moved to `docs/requirements/done/`.
 - **CLAUDE.md's schema-location reference** (see Findings above) needs a one-line edit or an
   explicit "leave as-is" from the user.
+
+## Acceptance
+
+Accepted by the user on **2026-08-22**, all seven stories `done`. Sprint moved to
+`docs/sprints/done/S06`; stories 027 and 037 moved to `docs/requirements/done/` with their
+`INDEX.md` lines. The one item carried out of this sprint is the `CLAUDE.md` schema-location
+reference above — a documentation decision, not a code gap.
