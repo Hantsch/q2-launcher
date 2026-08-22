@@ -43,8 +43,9 @@ Two TS projects: `tsconfig.node.json` (main/preload/shared) and
 - **IPC is contract-first.** Add/change a channel in `src/shared/ipc.ts`
   first; main handlers and preload's allowlist derive from it and fail the
   build/startup if out of sync.
-- **Paths from the renderer are never trusted.** Validate in main
-  (`src/main/lib/schemas.ts`), never assume a renderer-supplied path is safe.
+- **Paths from the renderer are never trusted.** Every invoke channel carries a
+  required zod payload schema (`src/shared/ipc-schemas.ts`, primitives in
+  `src/shared/schemas.ts`); never assume a renderer-supplied path is safe.
 - **Adding a feature** is a module (`config`, `install`, `mods`, `assets`) —
   never edit the shell. Follow the 5-step checklist in
   [docs/ARCHITECTURE.md#adding-a-module](docs/ARCHITECTURE.md#adding-a-module).

@@ -144,9 +144,10 @@ critical/serious/moderate/minor violations — **done**, its last acceptance cri
 desktop check that a full run never steals window focus, which also closed 027) was confirmed at
 the acceptance pass. **All seven stories done.** See `docs/sprints/done/S06/review.md` and
 `docs/sprints/done/S06/testplan.md`. Deliberately excluded: 032, the downloads module itself, and
-the config-module gaps below. Carried out of the sprint: `CLAUDE.md`'s pointer to
-`src/main/lib/schemas.ts` is now only half true after 036 split IPC-payload schemas into
-`src/shared/ipc-schemas.ts`/`src/shared/schemas.ts` — a doc decision still open.
+the config-module gaps below. Carried out of the sprint and **resolved 2026-08-22** at S07 acceptance:
+`CLAUDE.md`'s renderer-payload rule now points at `src/shared/ipc-schemas.ts`/
+`src/shared/schemas.ts` instead of `src/main/lib/schemas.ts` (`docs/ARCHITECTURE.md` was already
+correct).
 
 #### Gaps/notes (from S05)
 
@@ -260,12 +261,13 @@ long-lived configs (`dm.cfg`, `dmalias.cfg`, `gfx.cfg` — a 2001-era DM config,
 section banners, a comment behind almost every bind). The theme: what the launcher writes is
 functional and nothing more, and it does not survive being read, shared or re-imported.
 
-`docs/sprints/S07` **built (2026-08-22), acceptance pass not yet confirmed by the user** — the
+`docs/sprints/done/S07` **accepted (2026-08-22)** — the
 first four stories, all **done**: 038 (writer stops emitting dead alias lines), 039 (readable,
 user-controlled alias names), 040 (structured, commented, human-readable file), 041 (import
-understands aliases/press-release/`unbindall`). See `docs/sprints/S07/review.md` and
-`docs/sprints/S07/testplan.md` for the manual acceptance pass. 042/043 remain held back for a
-decision round before refine; 044/045 remain unscheduled.
+understands aliases/press-release/`unbindall`). See `docs/sprints/done/S07/review.md` and
+`docs/sprints/done/S07/testplan.md` for the manual acceptance pass. 042/043 are now cut into
+`docs/sprints/S08` with their decision round moved into that sprint's clarification step; 044/045
+remain unscheduled.
 
 **039 turned out far riskier than scoped** — the story the sprint plan below already flagged as
 carrying real risk needed four build/review rounds: a self-referential alias line
@@ -327,6 +329,17 @@ Eight stories were originally filed, **four built this sprint, four still `draft
   `-slow`) and `wait` chains as first-class entries rather than opaque raw text. Lowest priority of
   the eight; 041 already imports them without mangling them.
 
+`docs/sprints/S08` **planned (2026-08-22)** — closes this milestone's held-back chain: 042
+(round-trip losslessly) then 043 (the `.cfg` becomes the source of truth, `state.json` becomes a
+cache), preceded by two small guardrail stories that are independent of the config rework and put
+`ui:verify` at full coverage before the write pipeline starts moving — **046** (drop
+`'unsafe-inline'` from the production CSP's `style-src`, the one directive story 035 left open) and
+**047** (`MessageEditor` into the `ui:verify` screen registry, the last named blind spot, which
+never received story 037's shared labelling fix). 042/043's parked decisions — metadata comment
+format, change detection, write cadence, conflict granularity — are resolved in `/sprint`'s
+clarification round, not before. 044/045 deliberately stay out so the sprint stays the
+architectural one. See `docs/sprints/S08/sprint.md`.
+
 Suggested order: 038 alone, then 039 → 040 → 041 → 042 → 043 as one chain, with 044 after 039 and
 045 after 041. 038–040 are shippable on their own and already answer most of the "my config looks
 machine-generated" complaint; 042/043 are the ones that need a decision round before refine.
@@ -386,7 +399,7 @@ machine, and each is a one-line fix in a data table:
   moved the production renderer onto the real `q2launcher://` origin and left the directive as
   AC6's one intentionally-unresolved item. Tailwind's emitted stylesheet is already requested as
   a real `./assets/*.css` file (not inlined), so this is a ready follow-up, not blocked on
-  anything further.
+  anything further. **Filed as story 046, scheduled in `docs/sprints/S08`.**
 
 **Tooling:**
 
@@ -410,7 +423,9 @@ machine, and each is a one-line fix in a data table:
   documented in the report). Both are **done** as of S06's acceptance (2026-08-22), when the
   shared human desktop check — a full run never steals window focus — was confirmed. Remaining
   known blind spot: `MessageEditor.tsx` is not in the screen registry and carries the same
-  unwired-label defect 037 fixed elsewhere (`docs/UI-VERIFICATION.md`).
+  unwired-label defect 037 fixed elsewhere (`docs/UI-VERIFICATION.md`) — **filed as story 047,
+  scheduled in `docs/sprints/S08`**, together with the two other reachable blind spots the doc
+  names (`RemoveInstallationDialog`, `DetectDialog`).
 
 **UX:**
 
