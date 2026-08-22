@@ -528,7 +528,7 @@ export const pickPathInputSchema = z.object({
 export const settingsPatchSchema = settingsObjectSchema.partial()
 
 export const moduleInvokeSchema = z.object({
-  moduleId: z.enum(['library', 'config', 'install', 'mods', 'assets']),
+  moduleId: z.enum(['library', 'config', 'downloads', 'mods', 'assets']),
   type: z.string().min(1).max(80),
   payload: z.unknown().optional(),
 })

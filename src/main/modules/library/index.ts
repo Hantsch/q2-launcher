@@ -8,7 +8,7 @@ import type { MainModule } from '../types'
  *
  * It is intentionally tiny: everything an installation needs already lives on
  * the shell's `installations:*` channels, so all this module adds is a derived
- * view. Copy this file's shape when starting the config, install, mods or assets
+ * view. Copy this file's shape when starting the config, downloads, mods or assets
  * modules; the contract it answers against lives in `src/shared/modules/library.ts`.
  */
 export const libraryModule: MainModule = {

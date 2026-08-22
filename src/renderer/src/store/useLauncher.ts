@@ -13,13 +13,20 @@ import type {
   ToastMessage,
   UpdateInstallationInput,
 } from '@shared/types'
-import { DEFAULT_SETTINGS, IDLE_LAUNCH_STATE, isJobActive } from '@shared/types'
+import { DEFAULT_SETTINGS, IDLE_LAUNCH_STATE, isJobActive, MODULE_MANIFESTS } from '@shared/types'
 import { changeLocale } from '../i18n'
 import { invoke, onEvent } from '../lib/bridge'
 import { newId } from '../lib/id'
 
 export const ROUTE_HOME = '/home'
 export const ROUTE_SETTINGS = '/settings'
+
+/** Shell routes plus every module's own route - the full set a persisted `lastRoute` may name. */
+function isKnownRoute(route: string | undefined): route is string {
+  if (!route) return false
+  if (route === ROUTE_HOME || route === ROUTE_SETTINGS) return true
+  return MODULE_MANIFESTS.some((manifest) => manifest.route === route)
+}
 
 /** Which modal the shell is showing. One at a time, by design. */
 export type DialogState =
@@ -110,7 +117,11 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
       jobs,
       launch,
       chrome,
-      route: settings.lastRoute || ROUTE_HOME,
+      // A route only survives a restart if it still resolves to something -
+      // either a shell route or a module's own route. Otherwise an upgrading
+      // user whose settings remember a since-renamed/removed module route
+      // (e.g. the old '/install') would land on a dead page.
+      route: isKnownRoute(settings.lastRoute) ? settings.lastRoute : ROUTE_HOME,
       ready: true,
     })
 

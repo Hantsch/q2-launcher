@@ -13,7 +13,7 @@
  *   4. register a renderer view in `src/renderer/src/modules/index.ts`
  *   5. add its i18n keys
  */
-export type ModuleId = 'library' | 'config' | 'install' | 'mods' | 'assets'
+export type ModuleId = 'library' | 'config' | 'downloads' | 'mods' | 'assets'
 
 /**
  * What a module needs from the host. Declared up front so the shell can tell
@@ -74,15 +74,15 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     requiresInstallation: false,
   },
   {
-    id: 'install',
-    titleKey: 'module.install.title',
-    descriptionKey: 'module.install.description',
+    id: 'downloads',
+    titleKey: 'module.downloads.title',
+    descriptionKey: 'module.downloads.description',
     icon: 'Download',
-    route: '/install',
-    nav: { section: 'primary', order: 20 },
+    route: '/downloads',
+    nav: { section: 'secondary', order: 10 },
     status: 'planned',
     capabilities: ['mutates-installation', 'long-running-jobs', 'network'],
-    ipcNamespace: 'module:install',
+    ipcNamespace: 'module:downloads',
     requiresInstallation: false,
   },
   {

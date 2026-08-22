@@ -50,7 +50,7 @@ export function ActionBar() {
         void runFix(installation, 'locate-root')
         return
       case 'repair':
-        setRoute('/install')
+        setRoute('/downloads')
         return
       case 'busy':
         return

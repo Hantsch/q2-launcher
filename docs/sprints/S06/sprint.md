@@ -1,7 +1,7 @@
 ---
 sprint: S06
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S06
 milestone: Polish + hardening — clear the post-S05 backlog (docs/ROADMAP.md, "Follow-ups worth doing")
 ---
 
@@ -19,7 +19,7 @@ payload validation cannot be forgotten, and `ui:verify`'s green report is a fact
 
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
-- [ ] 031 — Rename the Install module to Downloads and move it next to Settings
+- [x] 031 — Rename the Install module to Downloads and move it next to Settings
 - [ ] 030 — Titlebar and wordmark scale up
 - [ ] 033 — Planned-module screens explain the feature, not the engineering
 - [ ] 029 — Drop-row team message as checkbox + inline row (mirrors "With ammo")

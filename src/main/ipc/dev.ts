@@ -16,7 +16,7 @@ export function registerDevIpc(app: AppContext): void {
     let timer: NodeJS.Timeout | null = null
 
     const job = app.jobs.create({
-      moduleId: 'install',
+      moduleId: 'downloads',
       kind: 'download-game',
       labelKey: 'jobs.simulatedDownload',
       playableAtRatio: 0.35,

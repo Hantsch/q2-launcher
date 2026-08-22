@@ -180,7 +180,7 @@ export function SettingsView() {
             <SectionLabel>{t('settings.devTools')}</SectionLabel>
             <p className="text-xs leading-relaxed text-ink-muted">
               Development builds only. Emits a fake download job so the action bar&rsquo;s progress
-              readout can be worked on before the install module exists.
+              readout can be worked on before the downloads module exists.
             </p>
             <Button
               variant="neutral"

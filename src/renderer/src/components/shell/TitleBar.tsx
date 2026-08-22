@@ -20,7 +20,11 @@ export function TitleBar() {
   const maximized = useLauncher((state) => state.chrome.maximized)
 
   const navModules = modules
-    .filter((module) => module.nav !== null)
+    .filter((module) => module.nav?.section === 'primary')
+    .sort((a, b) => (a.nav?.order ?? 0) - (b.nav?.order ?? 0))
+
+  const utilityModules = modules
+    .filter((module) => module.nav?.section === 'secondary')
     .sort((a, b) => (a.nav?.order ?? 0) - (b.nav?.order ?? 0))
 
   return (
@@ -68,23 +72,31 @@ export function TitleBar() {
 
       <div className="flex-1" />
 
-      {/* Settings + window controls */}
+      {/* Utility (secondary nav) + Settings + window controls */}
       <div className="flex items-center gap-1 pr-1 pl-2">
-        <button
-          type="button"
-          data-testid="nav-settings"
-          aria-label={t('nav.settingsTitle')}
-          title={t('nav.settingsTitle')}
+        {utilityModules.map((module) => {
+          const Icon = moduleIcon(module.icon)
+          return (
+            <UtilityButton
+              key={module.id}
+              testId={`nav-${module.id}`}
+              label={t(module.titleKey)}
+              active={route === module.route}
+              onClick={() => setRoute(module.route)}
+            >
+              <Icon className="size-4" />
+            </UtilityButton>
+          )
+        })}
+
+        <UtilityButton
+          testId="nav-settings"
+          label={t('nav.settingsTitle')}
+          active={route === ROUTE_SETTINGS}
           onClick={() => setRoute(ROUTE_SETTINGS)}
-          className={cn(
-            'no-drag grid size-8 place-items-center rounded-sm transition-colors duration-[--dur-fast]',
-            route === ROUTE_SETTINGS
-              ? 'bg-hover text-flame-300'
-              : 'text-ink-muted hover:bg-hover hover:text-ink',
-          )}
         >
           <Settings className="size-4" />
-        </button>
+        </UtilityButton>
 
         <div className="mx-1 h-5 w-px bg-line" />
 
@@ -145,6 +157,36 @@ function NavItem({
       {active && (
         <span className="absolute inset-x-2 bottom-0 h-0.5 bg-flame-500 shadow-[0_0_10px_rgb(255_138_31/0.6)]" />
       )}
+    </button>
+  )
+}
+
+function UtilityButton({
+  testId,
+  label,
+  active,
+  onClick,
+  children,
+}: {
+  testId?: string
+  label: string
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className={cn(
+        'no-drag grid size-8 place-items-center rounded-sm transition-colors duration-[--dur-fast]',
+        active ? 'bg-hover text-flame-300' : 'text-ink-muted hover:bg-hover hover:text-ink',
+      )}
+    >
+      {children}
     </button>
   )
 }

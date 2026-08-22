@@ -127,7 +127,7 @@ accessibility report per screen, driven against the built app — is
 
 ## Adding a module
 
-Everything past the shell is a module: `config`, `install`, `mods`, `assets`. The
+Everything past the shell is a module: `config`, `downloads`, `mods`, `assets`. The
 shell never needs editing to add one.
 
 1. **Contract** — `src/shared/modules/<id>.ts`: the handler names and the data
@@ -163,7 +163,7 @@ Long-running module work uses `JobsService`. A module creates a `Job`, reports
 progress, and the action bar's download readout — bytes, speed, files remaining,
 the `PLAYABLE` threshold marker — updates for free. No module produces jobs yet;
 `dev:simulateJob` (development builds only) emits a fake one so the UI can be
-worked on before the install module exists.
+worked on before the downloads module exists.
 
 ## Renderer
 

@@ -117,9 +117,9 @@ export function useFixAction(): (installation: Installation, fix: ValidationFix)
       }
 
       case 'install-game-files':
-        // Owned by the install module. Its page states plainly that it is not
+        // Owned by the downloads module. Its page states plainly that it is not
         // built yet, which beats a button that silently does nothing.
-        setRoute('/install')
+        setRoute('/downloads')
         return
     }
   }

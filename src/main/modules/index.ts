@@ -6,7 +6,7 @@ import type { MainModule } from './types'
 /**
  * Every main-process module the shell loads, in order.
  *
- * Parked modules (`install`, `mods`, `assets`) are declared in
+ * Parked modules (`downloads`, `mods`, `assets`) are declared in
  * `src/shared/types/module.ts` so the UI can show them as "planned", but they
  * have no entry here yet. Adding one is a single line - see
  * `src/main/modules/library/index.ts` for the reference shape and

@@ -62,8 +62,8 @@
       "title": "Library",
       "description": "Every Quake II installation the launcher knows about."
     },
-    "install": {
-      "title": "Install",
+    "downloads": {
+      "title": "Downloads",
       "description": "Download, update and repair Quake II game files."
     },
     "config": {
@@ -285,14 +285,14 @@
     },
     "create": {
       "title": "Create new installation",
-      "body": "Creates an empty installation folder and registers it. Downloading the game files is the install module's job \u2013 that part is not built yet.",
+      "body": "Creates an empty installation folder and registers it. Downloading the game files is the downloads module's job \u2013 that part is not built yet.",
       "nameLabel": "Name",
       "namePlaceholder": "Quake II \u2013 r1q2",
       "locationLabel": "Folder",
       "pickTitle": "Choose where to create the installation",
       "pickButton": "Create here",
       "engineLabel": "Client",
-      "notice": "After creating it, the installation will show \u201cgame files missing\u201d until the install module can download them. You can also copy pak0.pak in by hand.",
+      "notice": "After creating it, the installation will show \u201cgame files missing\u201d until the downloads module can download them. You can also copy pak0.pak in by hand.",
       "submit": "Create installation"
     },
     "remove": {

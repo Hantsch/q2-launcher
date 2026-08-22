@@ -18,7 +18,7 @@ export interface RendererModule {
 
 export const RENDERER_MODULES: readonly RendererModule[] = [
   { id: 'library', View: LibraryView },
-  // { id: 'install', View: InstallView },
+  // { id: 'downloads', View: DownloadsView },
   { id: 'config', View: ConfigView },
   // { id: 'mods',    View: ModsView },
   // { id: 'assets',  View: AssetsView },

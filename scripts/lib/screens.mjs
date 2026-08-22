@@ -153,6 +153,14 @@ export const SCREENS = [
     },
   },
   {
+    id: 'downloads',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    navigate: async (page) => {
+      await click(page, 'nav-downloads')
+    },
+  },
+  {
     id: 'keybind-dialog',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,

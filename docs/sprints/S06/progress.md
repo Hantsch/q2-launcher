@@ -1,0 +1,10 @@
+- 2026-08-22 07:55 · sprint S06 · phase 1 refine · done, starting build
+- 2026-08-22 07:56 · 031 · D1 Rename module in shared+main · started
+- 2026-08-22 07:57 · 031 · D1 Rename module in shared+main · done
+- 2026-08-22 07:57 · 031 · D2 Rename module in renderer+heal route · started
+- 2026-08-22 07:59 · 031 · D2 Rename module in renderer+heal route · done
+- 2026-08-22 07:59 · 031 · D3 Move entry into titlebar right cluster · started
+- 2026-08-22 08:01 · 031 · D3 Move entry into titlebar right cluster · done
+- 2026-08-22 08:01 · 031 · D4 Cover new surface in ui:verify · started
+- 2026-08-22 08:02 · 031 · D4 Cover new surface in ui:verify · done
+- 2026-08-22 08:15 · 031 · review + fixes + Done section · done
