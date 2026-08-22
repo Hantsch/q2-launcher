@@ -57,3 +57,19 @@
 - 2026-08-22 09:57 · 036 · D8 IPC contract test · done
 - 2026-08-22 09:57 · 036 · D9 live pass + architecture doc · started
 - 2026-08-22 09:59 · 036 · D9 live pass + architecture doc · done
+- 2026-08-22 10:12 · 037 · D1 Testids on the path to both surfaces · started
+- 2026-08-22 10:13 · 037 · D1 Testids on the path to both surfaces · done
+- 2026-08-22 10:13 · 037 · D2 Fixture gains an importable config · started
+- 2026-08-22 10:15 · 037 · D2 Fixture gains an importable config · done
+- 2026-08-22 10:15 · 037 · D3 Both surfaces enter the screen registry · started
+- 2026-08-22 10:19 · 037 · D3 Both surfaces enter the screen registry · done
+- 2026-08-22 10:19 · 037 · D4 page-has-heading-one disabled, visibly · started
+- 2026-08-22 10:20 · 037 · D4 page-has-heading-one disabled, visibly · done
+- 2026-08-22 10:20 · 037 · D5 Full production-mode run, recorded as inventory · started
+- 2026-08-22 10:22 · 037 · D5 Full production-mode run, recorded as inventory · done (4 critical, 0 serious, 16 moderate, exit 2)
+- 2026-08-22 10:22 · 037 · D6 Fix everything the inventory reports · started
+- 2026-08-22 10:28 · 037 · D6 Fix everything the inventory reports · done (0 critical/serious/moderate/minor, exit 0)
+- 2026-08-22 10:28 · 037 · D7 docs/UI-VERIFICATION.md tells the truth · started
+- 2026-08-22 10:31 · 037 · D7 docs/UI-VERIFICATION.md tells the truth · done
+- 2026-08-22 10:31 · 037 · D8 Close story 027 · blocked (needs live human focus-steal observation; cannot be performed by an agent)
+- 2026-08-22 10:37 · 037 · review + Done section filled · done (status stays in-progress: AC5/story 027 needs human live-smoke pass)

@@ -1,4 +1,11 @@
-import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react'
+import {
+  createContext,
+  useContext,
+  useId,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+} from 'react'
 import { Check, ChevronDown, FolderOpen } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { Button } from './Button'
@@ -7,6 +14,25 @@ const FIELD_BASE =
   'h-9 w-full rounded-sm border border-line-strong bg-void/60 px-2.5 text-sm text-ink ' +
   'placeholder:text-ink-faint focus:border-flame-600 focus:outline-none ' +
   'transition-colors duration-[--dur-fast] disabled:opacity-50'
+
+/**
+ * The id a `Field` minted for the control it wraps.
+ *
+ * `Field`'s `<label>` is a *sibling* of the control, not a wrapper, so without a
+ * matching id the control has no accessible name at all - axe's `label` and
+ * `select-name` both fire (story 037 D6). Passing `htmlFor` per call site was
+ * the existing escape hatch, but only 2 of 30+ `Field` uses did it, so the id
+ * is generated here instead and adopted by whichever control renders inside.
+ * Every `Field` in the app holds exactly one control, so one id per `Field` is
+ * enough; a control that carries its own `id` always keeps it.
+ */
+const FieldControlIdContext = createContext<string | undefined>(undefined)
+
+/** The control's own `id` if it has one, else the enclosing `Field`'s. */
+function useControlId(id?: string): string | undefined {
+  const fieldControlId = useContext(FieldControlIdContext)
+  return id ?? fieldControlId
+}
 
 export function Field({
   label,
@@ -23,12 +49,14 @@ export function Field({
   children: ReactNode
   className?: string
 }) {
+  const generatedId = useId()
+  const controlId = htmlFor ?? generatedId
   return (
     <div className={cn('space-y-1.5', className)}>
-      <label className="stencil block" htmlFor={htmlFor}>
+      <label className="stencil block" htmlFor={controlId}>
         {label}
       </label>
-      {children}
+      <FieldControlIdContext.Provider value={controlId}>{children}</FieldControlIdContext.Provider>
       {error ? (
         <p className="text-xs text-danger">{error}</p>
       ) : (
@@ -38,8 +66,8 @@ export function Field({
   )
 }
 
-export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cn(FIELD_BASE, className)} {...rest} />
+export function Input({ className, id, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
+  return <input id={useControlId(id)} className={cn(FIELD_BASE, className)} {...rest} />
 }
 
 /** Read-only path display with a Browse button - the shape every file picker uses. */
@@ -61,7 +89,7 @@ export function PathPicker({
   return (
     <div className="flex gap-2">
       <input
-        id={id}
+        id={useControlId(id)}
         readOnly
         value={value}
         placeholder={placeholder}
@@ -90,11 +118,13 @@ export interface SelectOption {
 export function Select({
   options,
   className,
+  id,
   ...rest
 }: SelectHTMLAttributes<HTMLSelectElement> & { options: SelectOption[] }) {
   return (
     <div className="relative">
       <select
+        id={useControlId(id)}
         className={cn(FIELD_BASE, 'cursor-pointer appearance-none pr-8', className)}
         {...rest}
       >

@@ -200,6 +200,7 @@ export function RawFileTab({ profile }: { profile: ConfigProfile }) {
                   <Button
                     variant="ghost"
                     size="sm"
+                    data-testid="config-raw-expand"
                     aria-label={t('config.raw.expand')}
                     aria-expanded={expanded}
                     onClick={() =>

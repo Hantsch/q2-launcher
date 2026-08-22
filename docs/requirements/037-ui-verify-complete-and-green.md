@@ -1,7 +1,7 @@
 ---
 id: 037
 title: ui:verify covers every surface and its report is green
-status: ready
+status: in-progress
 created: 2026-08-21
 ---
 
@@ -36,21 +36,21 @@ desktop, and this story's test plan is where that happens.
 
 ## Acceptance Criteria
 
-- [ ] A full `npm run ui:verify` run is recorded (not `--screens=…`), and the run summary says
+- [x] A full `npm run ui:verify` run is recorded (not `--screens=…`), and the run summary says
       `run: full`.
-- [ ] The write-preview dialog and the import preview are entries in the screen registry, are
+- [x] The write-preview dialog and the import preview are entries in the screen registry, are
       reached by the harness, and are screenshotted and audited like every other screen.
-- [ ] Every axe violation the full run reports is either fixed or recorded as a deliberate,
+- [x] Every axe violation the full run reports is either fixed or recorded as a deliberate,
       justified exception in the story's Done section — no violation is left unmentioned.
       `page-has-heading-one` in particular is decided, not ignored.
-- [ ] Zero `critical` and zero `serious` violations across all screens and both viewports; the
+- [x] Zero `critical` and zero `serious` violations across all screens and both viewports; the
       run exits 0.
 - [ ] Story 027's remaining check is confirmed on the real desktop: during a full run, typing in
       another window is uninterrupted and no app window takes focus. Confirmed → 027 goes to
-      `done`.
-- [ ] `docs/UI-VERIFICATION.md` matches what the harness now does — screen count, what is and is
+      `done`. **Not confirmed by this session** — see Done section.
+- [x] `docs/UI-VERIFICATION.md` matches what the harness now does — screen count, what is and is
       not covered, and how a dialog entry is added.
-- [ ] Any surface still out of reach after this story is named in `docs/UI-VERIFICATION.md` as a
+- [x] Any surface still out of reach after this story is named in `docs/UI-VERIFICATION.md` as a
       known blind spot, so the next person does not have to rediscover it.
 
 ## Decisions (Sprint)
@@ -122,7 +122,7 @@ Affected files: `src/renderer/src/modules/config/{RawFileTab,ConfigView,CreatePr
 
 ## Deliverables
 
-### D1 — Testids on the path to both surfaces
+### D1 — Testids on the path to both surfaces ✓
 
 - Files: `src/renderer/src/modules/config/RawFileTab.tsx` (expand button, ~line 200),
   `ConfigView.tsx` ("New profile" button, ~line 234), `CreateProfileDialog.tsx` (source `Select`,
@@ -134,7 +134,7 @@ Affected files: `src/renderer/src/modules/config/{RawFileTab,ConfigView,CreatePr
 - Accept: the five attributes exist, nothing else about those components changes, and
   `npm run typecheck && npm test && npm run build` is green.
 
-### D2 — Fixture gains an importable config
+### D2 — Fixture gains an importable config ✓
 
 - Files: `scripts/lib/fixture.mjs`.
 - Write a fixed-content `baseq2/config.cfg` under the **`fixture-install-writedir`** installation
@@ -145,7 +145,7 @@ Affected files: `src/renderer/src/modules/config/{RawFileTab,ConfigView,CreatePr
   ids); no existing screen's rendered state changes (the file lives on an installation no current
   screen renders files for).
 
-### D3 — Both surfaces enter the screen registry
+### D3 — Both surfaces enter the screen registry ✓
 
 - Files: `scripts/lib/screens.mjs` (two entries plus the header comment's testid list and entry
   count).
@@ -159,7 +159,7 @@ Affected files: `src/renderer/src/modules/config/{RawFileTab,ConfigView,CreatePr
   audits all four visits; `resetToBaseState()` still gets home afterwards (the import dialog is a
   `Modal`, so Escape closes it; the raw panel unmounts with the route).
 
-### D4 — `page-has-heading-one` disabled, visibly
+### D4 — `page-has-heading-one` disabled, visibly ✓
 
 - Files: `scripts/lib/session.mjs` (one exported `AXE_RUN_OPTIONS` / disabled-rules constant with
   the reason as a comment, passed into `window.axe.run(...)` at ~line 286), `scripts/verify.mjs`
@@ -168,7 +168,7 @@ Affected files: `src/renderer/src/modules/config/{RawFileTab,ConfigView,CreatePr
   no longer appears for any screen, and the exit-code rule is otherwise untouched (still
   `critical > 0 || serious > 0`).
 
-### D5 — Full production-mode run, recorded as an inventory
+### D5 — Full production-mode run, recorded as an inventory ✓
 
 - Runs after 029-036 have landed: `npm run ui:verify` with no `--screens=`, against the production
   build (035's `q2launcher://` renderer).
@@ -178,7 +178,7 @@ Affected files: `src/renderer/src/modules/config/{RawFileTab,ConfigView,CreatePr
   error, and the exit code — that inventory is what D6 works from. A harness/app failure found here
   belongs to D6's scope, it is not a reason to stop.
 
-### D6 — Fix everything the inventory reports
+### D6 — Fix everything the inventory reports ✓
 
 - Files: whatever D5 names. Anticipated from story 028's earlier findings and from reading the two
   dialogs: `select-name` on `Select`s wrapped in a `Field` without `htmlFor`
@@ -192,7 +192,7 @@ Affected files: `src/renderer/src/modules/config/{RawFileTab,ConfigView,CreatePr
   screens and both viewports; every remaining `moderate`/`minor` is listed in `## Done` as fixed or
   as a justified exception; `npm run typecheck && npm test && npm run build` green.
 
-### D7 — `docs/UI-VERIFICATION.md` tells the truth
+### D7 — `docs/UI-VERIFICATION.md` tells the truth ✓
 
 - Files: `docs/UI-VERIFICATION.md`.
 - Screen count recomputed from `SCREENS` (do not carry the "14 screens" number forward — it is
@@ -252,3 +252,77 @@ Affected files: `src/renderer/src/modules/config/{RawFileTab,ConfigView,CreatePr
 - AC5 (027's focus check confirmed on the real desktop; 027 → `done`) → D8 (+ Test Plan step 1)
 - AC6 (`docs/UI-VERIFICATION.md` matches the harness) → D7
 - AC7 (remaining blind spots named in the doc) → D7
+
+## Done
+
+**Summary.** Both S05-named dialogs (write preview, import preview) are now in the screen
+registry, reached via new testids, screenshotted and audited at both viewports. The fixture
+grew one deterministic `config.cfg` (under `fixture-install-writedir` only) so the import
+preview has real content to show. `page-has-heading-one` is disabled app-wide via one
+documented constant, visible in both `a11y.md` and the console summary. A full production-mode
+`npm run ui:verify` run was executed twice: the first (inventory) run found 4 critical + 16
+moderate violations across 3 screens; every one was fixed, and a second full run confirmed
+`0 critical, 0 serious, 0 moderate, 0 minor` across all 17 screens × 2 viewports, exit code 0.
+`docs/UI-VERIFICATION.md` was rewritten to match the harness's current state (17 screens, both
+dialog entries, the disabled rule, the fixture addition, a "how to add a dialog" note, and a
+"known blind spots" list). Story 027's remaining focus-steal criterion could not be closed by
+this session — see below.
+
+**D5 inventory (first full run, exit 2) and its fixes (D6):**
+
+| Screen | Rule | Impact | Nodes | Disposition |
+| --- | --- | --- | --- | --- |
+| config-import-preview@1280x800/@940x620 | select-name | critical | 2 each | Fixed — `Field` now mints an id (`useId()`, or the caller's `htmlFor`) and wires it to its one control via `FieldControlIdContext`/`useControlId()` in `src/renderer/src/components/ui/controls.tsx`; `Select`/`Input`/`PathPicker` adopted it. Applied as a shared helper (not per-site patches) because 30+ `Field` sites lacked `htmlFor` — the ≥3-site threshold in D6's brief. |
+| keybind-dialog@1280x800/@940x620 | label | critical | 1 each | Fixed by the same `Field` id-wiring helper (the failing node was the raw-command input, not the filter input as the plan anticipated — corrected during D6). |
+| library-empty@1280x800/@940x620, config-empty@1280x800/@940x620 | heading-order | moderate | 1 each | Fixed — `EmptyState` title changed `h3` → `h2` in `src/renderer/src/components/ui/primitives.tsx` (it renders directly under a view's `h1`; `h3` skipped a level). |
+| config-import-preview@1280x800/@940x620, keybind-dialog@1280x800/@940x620 | landmark-no-duplicate-banner, landmark-no-duplicate-contentinfo, landmark-unique | moderate | 1/1/2 each | Fixed, not a harness artifact — `Modal.tsx`'s dialog `<header>`/`<footer>` were real second `banner`/`contentinfo` landmarks because the modal portals to `document.body`, outside `<main>` where view headers already provide one. Changed to plain `div`s in `src/renderer/src/components/ui/Modal.tsx`; dialog naming still works via `aria-label`, no DOM-order/tabIndex change. |
+
+Second full run after D6: 0 critical / 0 serious / 0 moderate / 0 minor, 34/34 shots written, 0
+unreachable/error, exit code 0. Nothing remains to record as a justified exception.
+
+**`page-has-heading-one` decision.** Disabled app-wide via `AXE_DISABLED_RULES` /
+`AXE_DISABLED_RULES_REASON` in `scripts/lib/session.mjs`, reason: a single-window desktop app has
+no page-document semantics for this rule to check. Both `a11y.md`'s summary and the console
+`printSummary` name the disabled rule so the weakened gate stays visible rather than silently
+baked in. The exit-code gate (`critical > 0 || serious > 0`, `scripts/verify.mjs`) is untouched.
+
+**Review findings handled:**
+- Review flagged that this Done section didn't exist yet at review time (the story's `## Done`
+  was still empty while D5/D6's violation inventory only lived in the orchestrator's progress
+  log) — fixed by writing this section (the review ran before step 8 of the build procedure,
+  which is exactly what fills it in).
+- Review noted a latent, pre-existing, out-of-scope defect: `MessageEditor.tsx` wraps a plain
+  native `<input>` in a `Field` without going through the new `useControlId()` path, so it would
+  hit the same `label` defect if it were ever added to the registry. `MessageEditor` is already
+  listed as a known blind spot in `docs/UI-VERIFICATION.md`; no fix made here since it is not
+  reachable by the harness and not in this story's scope — left for whoever wires it in.
+
+**Story 027 (blocked, honest report).** D8 required a human at the real desktop to type in
+another window for the whole duration of a full `npm run ui:verify` run and confirm no app
+window ever stole focus. This build session drove `npm run ui:verify` twice via a blocking tool
+call (Bash) with no concurrent ability to type elsewhere or observe window focus — an agent
+cannot fulfil this criterion, and per this sprint's rules a live-smoke confirmation is not
+fabricated. AC5 is therefore left unchecked, story 027 stays `in-progress`, and 037's status
+stays `in-progress` for this one criterion only — every other AC and deliverable is complete.
+Handing to the user: run `npm run ui:verify` once at this desktop while typing in another window
+the whole time; if nothing steals focus, tick AC5 here, set 027's own Done note, move it to
+`docs/requirements/done/`, add its `INDEX.md` line, and flip this story to `done`.
+
+**Decisions made beyond the sprint's binding ones:**
+- D6's `select-name`/`label` fix used the shared `Field` id-wiring helper (not per-call-site
+  `aria-label`s) because the missing-name pattern recurred at 30+ sites, matching the D6
+  deliverable's own "3 or more sites → shared helper" instruction.
+- `Modal.tsx`'s header/footer landmark fix (plain `div`s instead of `<header>`/`<footer>`) was
+  judged a real defect, not a harness artifact, after confirming no CSS selector, focus-trap, or
+  ARIA role in the codebase depends on those tag names — recorded here since the D6 brief left
+  open the possibility this was merely a harness quirk.
+
+**Verification:** `npm run typecheck` — pass. `npm test` — 957/957 pass (54 files). `npm run
+build` — pass. `npm run ui:verify` (full, twice) — final run: exit 0, `run: full (17/17
+screens)`, 0 critical/serious/moderate/minor. Code review (clean agent, default tier): verdict
+PASS with one documentation gap (this Done section, now filled) and one out-of-scope latent
+finding (`MessageEditor`, documented above) — no review-fix cycle needed beyond writing this
+section.
+
+**Commit message:** `037: close ui:verify's dialog and axe gaps — write/import preview in the
+registry, a11y fixes, full green run`

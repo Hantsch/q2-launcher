@@ -25,7 +25,7 @@ payload validation cannot be forgotten, and `ui:verify`'s green report is a fact
 - [x] 029 — Drop-row team message as checkbox + inline row (mirrors "With ammo")
 - [x] 035 — The Content-Security-Policy actually applies in a production build
 - [x] 036 — Payload validation cannot be forgotten — handle() requires a schema
-- [ ] 037 — ui:verify covers every surface and its report is green
+- [ ] 037 — ui:verify covers every surface and its report is green (blocked: AC5/story 027 live focus-steal check needs a human at the real desktop; everything else complete and green)
 
 ## Notes
 

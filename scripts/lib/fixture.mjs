@@ -191,11 +191,38 @@ function windowStateDocument() {
   }
 }
 
+// --- config.cfg importable fixture ------------------------------------------
+// Fixed-content `baseq2/config.cfg` written under `fixture-install-writedir`
+// only, so the config-import/preview flow has something real to read. Not
+// used by any current screen; see docs/main/modules/config/core/import-reader.ts
+// for how `seta`/`bind` lines are recognized.
+//
+// - `bind w` appears twice with no `unbind w` in between: import-reader.ts's
+//   `applyBind` records that as a duplicate bind (mirrors its own test,
+//   "reports a key bound twice with no unbind in between as a duplicate").
+// - The `alias` line is not one of the recognized commands
+//   (`set`/`seta`/`setu`/`sets`/`bind`/`unbind`/`unbindall`/`exec`), so
+//   config-parser.ts preserves it verbatim instead of guessing at it.
+const FIXTURE_CONFIG_CFG = `seta sensitivity "5"
+seta cl_run "1"
+seta name "FixtureUser"
+seta cl_particles "1"
+bind w "+forward"
+bind s "+back"
+bind MOUSE1 "+attack"
+bind w "+moveup"
+alias +fixture_unrecognized "echo hi"
+`
+
 // --- writers ----------------------------------------------------------------
 
 function writeJson(path, value) {
   mkdirSync(join(path, '..'), { recursive: true })
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, 'utf8')
+}
+
+function writeConfigCfg(baseq2Dir) {
+  writeFileSync(join(baseq2Dir, 'config.cfg'), FIXTURE_CONFIG_CFG, 'utf8')
 }
 
 /** Deletes and rewrites the `populated` variant's userdata + game dirs. */
@@ -212,6 +239,7 @@ export function writePopulatedFixture() {
     const baseq2Dir = join(gameRoot(), id, 'baseq2')
     rmSync(join(gameRoot(), id), { recursive: true, force: true })
     mkdirSync(baseq2Dir, { recursive: true })
+    if (id === INSTALL_TWO_ID) writeConfigCfg(baseq2Dir)
   }
 
   return {

@@ -234,6 +234,7 @@ export function ConfigView() {
               <Button
                 variant="neutral"
                 size="sm"
+                data-testid="config-create-profile"
                 icon={<FilePlus2 className="size-3.5" />}
                 onClick={() => setShowCreate(true)}
               >

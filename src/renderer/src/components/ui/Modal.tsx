@@ -109,7 +109,15 @@ export function Modal({
           size === 'lg' && 'max-w-3xl',
         )}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+        {/*
+          Plain divs, not <header>/<footer>: the panel is portalled to
+          document.body, so - unlike a view's own header inside <main> - these
+          would map to a second `banner` and `contentinfo` landmark next to the
+          title bar's and the action bar's (axe landmark-no-duplicate-banner /
+          -contentinfo / landmark-unique, story 037 D6). A dialog's title strip
+          is not a page banner; the dialog is named by aria-label already.
+        */}
+        <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
           <div className="min-w-0 space-y-1">
             <h2 className="truncate font-display text-base tracking-[0.08em] text-ink uppercase">
               {title}
@@ -119,16 +127,16 @@ export function Modal({
           <IconButton label={closeLabel} size="sm" onClick={onClose}>
             <X className="size-4" />
           </IconButton>
-        </header>
+        </div>
 
         <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {children}
         </div>
 
         {footer && (
-          <footer className="flex items-center justify-end gap-2 border-t border-line px-5 py-3.5">
+          <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3.5">
             {footer}
-          </footer>
+          </div>
         )}
       </div>
     </div>,

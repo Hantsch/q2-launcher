@@ -155,6 +155,7 @@ export function ImportProfileDialog({
         <div className="space-y-4">
           <Field label={t('config.importDialog.installationLabel')}>
             <Select
+              data-testid="config-import-installation"
               value={installationId}
               onChange={(event) => {
                 setInstallationId(event.target.value)

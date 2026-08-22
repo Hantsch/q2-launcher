@@ -108,12 +108,14 @@ page state — story 026's two-script split could not promise that, since a
 screenshot from `shot.mjs` and an axe reading from `a11y.mjs` came from two
 independent app instances that could, in principle, differ.
 
-Today's registry is 15 screens across 2 fixture variants (`populated`,
-`empty`) with no screen marked `coldStart` (see below), so a full
-`ui:verify` run does **2** `_electron.launch()` calls total — down from 56,
-roughly 34s instead of the ~113s story 026 measured. The actual launch count
-for any given run (which changes under `--screens=`, or once a screen is
-marked `coldStart`) is printed in the run summary as `launches: N`.
+Today's registry is 17 screens (count the `SCREENS` array in
+`scripts/lib/screens.mjs` — do not carry this number forward uncounted, it
+has drifted before) across 2 fixture variants (`populated`, `empty`) with no
+screen marked `coldStart` (see below), so a full `ui:verify` run does **2**
+`_electron.launch()` calls total — down from 56, roughly 34s instead of the
+~113s story 026 measured. The actual launch count for any given run (which
+changes under `--screens=`, or once a screen is marked `coldStart`) is
+printed in the run summary as `launches: N`.
 
 ## Partial runs (`--screens=`)
 
@@ -145,7 +147,7 @@ though it is still current — so the sweep is skipped entirely whenever
 e.g.:
 
 ```
-run: PARTIAL — 2/14 screens (--screens=home,config-settings) — stale-PNG sweep skipped
+run: PARTIAL — 2/17 screens (--screens=home,config-settings) — stale-PNG sweep skipped
 ```
 
 ## Where output lands
@@ -160,6 +162,9 @@ Everything lives under `.ui-verify/` at the repo root, which is gitignored
 - `.ui-verify/a11y.md` — the same findings, grouped by impact
   (critical/serious/moderate/minor), with a summary table and a rule/help-link
   table per impact — readable without opening the JSON.
+  It also names the disabled rule(s) (see "Disabled axe rules" below), since
+  `verify.mjs` prints that line into the report as well as the console
+  summary.
 - `.ui-verify/run.json` — `scripts/verify.mjs`'s machine-readable result per
   screen (`written` / `unreachable` / `error`, plus any console/page errors).
 - `.ui-verify/fixture/` — the generated fixtures: `populated/userdata/` and
@@ -190,6 +195,21 @@ launched.
 
 `ui:flow` exits `0` on success, `1` if a step throws (naming the flow and the
 step it failed at) or if the named flow file doesn't exist.
+
+## Disabled axe rules
+
+Every axe-core run disables `page-has-heading-one`, via the
+`AXE_DISABLED_RULES` constant in `scripts/lib/session.mjs` (passed to
+`window.axe.run()` as `AXE_RUN_OPTIONS`, built from that same constant so
+there is exactly one place the exception list lives). The reason, also held
+as its own exported constant (`AXE_DISABLED_RULES_REASON`) so `verify.mjs`
+can print it verbatim instead of paraphrasing it: "single-window desktop app
+has no page-document semantics" — the rule expects exactly one `<h1>` per
+HTML document, which does not map onto an Electron shell that never has more
+than one document at all. `scripts/verify.mjs` names the disabled rule and
+this reason in both its console summary and `.ui-verify/a11y.md`, so a reader
+never has to go looking in source to find out why a heading-level finding
+never shows up.
 
 ## The `ELECTRON_RUN_AS_NODE` note
 
@@ -252,6 +272,29 @@ The harness also never triggers `detection:scan` — that IPC path shells out to
 (`src/main/services/detection/providers.ts`). The seeded fixtures set
 `settings.scanOnFirstRun: false` explicitly so the zero-installation `empty`
 variant doesn't pop `DetectDialog` with `autoStart: true` and call it anyway.
+
+## The importable `config.cfg` fixture
+
+`scripts/lib/fixture.mjs` writes a fixed, deterministic `baseq2/config.cfg`
+(`FIXTURE_CONFIG_CFG`) under exactly one installation's game directory —
+`fixture-install-writedir` (display name "Fixture WriteDir Install"), never
+under `fixture-install-favorite` or any other seeded installation. It exists
+specifically to make `config-import-preview` reachable: the import dialog
+needs a real, on-disk `config.cfg` to scan, and only this one installation
+has one.
+
+Its content is fixed on purpose, not randomized, so a run is byte-identical
+every time (`ui:seed`'s idempotency guarantee):
+
+- ordinary `seta` cvars (`sensitivity`, `cl_run`, `name`, `cl_particles`),
+- `bind w "+forward"` followed later by `bind w "+moveup"` with no
+  intervening `unbind w` — a duplicate bind, on purpose, so the import
+  preview's duplicate-bind list has something to show,
+- one `alias +fixture_unrecognized "echo hi"` line, which
+  `config-parser.ts` does not recognize as one of
+  `set`/`seta`/`setu`/`sets`/`bind`/`unbind`/`unbindall`/`exec` and therefore
+  preserves verbatim — so the preview's preserved-line list also has
+  something to show.
 
 ## Harness mode (`Q2L_UI_HARNESS`)
 
@@ -323,6 +366,48 @@ the top of `screens.mjs`: `nav-<moduleId>`, `config-tab-<tabId>`,
 `npm run ui:shot` and `npm run ui:a11y` pick it up automatically — nothing
 else needs to be wired.
 
+### How to add a dialog entry
+
+A screen whose subject is a modal (`Modal`) or an inline expand-in-place
+panel follows the same `{ id, variant, viewports, navigate }` shape as any
+other registry entry — nothing about the harness treats a dialog specially —
+but three things matter in practice:
+
+- Put a `data-testid` on the trigger element (the button/`<select>` that
+  opens the dialog or expands the panel), the same way every other screen's
+  `navigate()` clicks a real testid rather than a role/text query.
+- `navigate()` must wait for the dialog/panel's real content, not a loading
+  spinner, before returning — the two worked examples below wait for a
+  second `.cfg-code-content` block and a `.cfg-code-single` row respectively,
+  specifically because both panels render a spinner first.
+- Rely on the harness's own `resetToBaseState()` (`scripts/lib/session.mjs`)
+  to get back to the base route afterward — never add cleanup clicks to
+  `navigate()` itself. A `Modal` is closed with `Escape`; an inline panel
+  (no modal, no scrim) is unmounted instead by navigating away from the
+  module, since there is nothing to press Escape on.
+
+### Two dialog/panel screens already in the registry
+
+`scripts/lib/screens.mjs` has two such entries, both added by story 037 D3:
+
+- **`config-write-preview`** — the write-preview panel inside `RawFileTab`
+  (`src/renderer/src/modules/config/RawFileTab.tsx`). Reached via the Raw tab
+  of a config profile's detail view, clicking the per-installation
+  `config-raw-expand` toggle, which mounts `RawConfigPanel`
+  (`src/renderer/src/modules/config/RawConfigPanel.tsx`) inline — no modal.
+  `navigate()` waits for the *second* `.cfg-code-content` block (the first is
+  the profile's own canonical file, always rendered already) to be visible,
+  then scrolls it into view.
+- **`config-import-preview`** — the import-preview panel inside
+  `ImportProfileDialog` (`src/renderer/src/modules/config/ImportProfileDialog.tsx`).
+  Reached via Config list → "New profile" (`config-create-profile`) → source `import`
+  (`config-create-source`) → submit (`config-create-submit`) → pick an
+  installation with a real `config.cfg` fixture from the
+  `config-import-installation` `<select>`. Picking the fixture installation
+  triggers a scan and a preview with no further click, and `navigate()` waits
+  for `.cfg-code-single` (only ever rendered by this dialog's
+  duplicate-bind/preserved-line lists) to be visible.
+
 ### Cold-start screens
 
 A screen normally runs inside the batched session described above: the
@@ -353,7 +438,7 @@ size):
 },
 ```
 
-None of the 15 screens shipped so far set `coldStart` — every current screen
+None of the 17 screens shipped so far set `coldStart` — every current screen
 is reachable from a running app via clicks, so the field exists in the
 registry's shape but isn't exercised by any entry yet. Each `coldStart: true`
 screen adds one extra `_electron.launch()` per viewport it lists, on top of
@@ -426,13 +511,28 @@ a human to look at during manual review.
 no GitHub Actions job (or equivalent) that runs `ui:verify`, and adding one is
 a decision for a future story, not an implicit consequence of this one.
 
-## Known issues
+## Known blind spots
 
-On a clean checkout, `npm run ui:shot` / `npm run ui:a11y` / `npm run
-ui:verify` currently exit non-zero because of the `config-raw` screen: it
-surfaces a pre-existing renderer bug (an `Outcome` unwrap crash in
-`RawConfigPanel.tsx`) that throws a renderer exception when that screen
-renders. This is a known, already-flagged finding from building this harness,
-not something to fix here — it is tracked as a separate story. Don't be
-surprised that the exit code isn't `0` the first time you run the harness;
-every other screen still gets captured normally.
+The registry covers every route/tab reachable from the title bar and the
+config module's tabs, plus the dialogs listed above, but several surfaces
+are not in it yet — none of these are wired to a screen, so a regression in
+any of them produces no screenshot and no axe finding:
+
+- The removal-confirmation modal, `RemoveInstallationDialog`
+  (`src/renderer/src/components/installations/RemoveInstallationDialog.tsx`)
+  — reached via the installation rail's remove action.
+- `MessageEditor`
+  (`src/renderer/src/modules/config/components/MessageEditor.tsx`).
+- `DetectDialog`
+  (`src/renderer/src/components/installations/DetectDialog.tsx`) — the
+  fixtures deliberately set `settings.scanOnFirstRun: false` so it never
+  auto-opens during a run (see Isolation above), and no screen opens it by
+  hand either.
+- Toast notifications (`src/renderer/src/components/ui/Toasts.tsx`) — they
+  are ephemeral and store-driven, with no `data-testid`'d trigger a
+  `navigate()` could click and then wait on.
+- Anything gated behind a native OS file/folder picker
+  (`dialog.showOpenDialog`, used from `src/main/ipc/installations.ts`) —
+  Playwright cannot drive an OS-native dialog at all, so any renderer state
+  that only appears after that dialog resolves is unreachable by this
+  harness by construction, not by omission.

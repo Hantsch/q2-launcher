@@ -47,6 +47,22 @@ import { REPO_ROOT, UI_VERIFY_ROOT } from './paths.mjs'
 /** Where `capture.shot` writes its PNGs. Exported so the stale sweep agrees with the driver. */
 export const SCREENSHOTS_DIR = join(UI_VERIFY_ROOT, 'screenshots')
 
+/**
+ * Story 037 D4: `page-has-heading-one` is disabled for every axe run — a
+ * single-window desktop app has no page-document semantics, so a rule that
+ * expects exactly one `<h1>` per document does not apply here. Exported so
+ * `verify.mjs` can name the disabled rule (and this reason) in its own
+ * summary/report output without the two files drifting apart.
+ */
+export const AXE_DISABLED_RULES = ['page-has-heading-one']
+export const AXE_DISABLED_RULES_REASON =
+  'single-window desktop app has no page-document semantics'
+
+/** Passed into every `window.axe.run()` call to disable `AXE_DISABLED_RULES`. */
+export const AXE_RUN_OPTIONS = {
+  rules: Object.fromEntries(AXE_DISABLED_RULES.map((id) => [id, { enabled: false }])),
+}
+
 const AXE_SOURCE_PATH = join(REPO_ROOT, 'node_modules', 'axe-core', 'axe.min.js')
 
 /** The route every visit is reset to before its `navigate()` runs (TitleBar.tsx). */
@@ -283,7 +299,10 @@ async function runVisit({ app, page, log, screen, viewport, capture, axeSource }
   if (capture.axe) {
     try {
       await ensureAxe(page, axeSource)
-      axeResults = await page.evaluate(async () => await window.axe.run())
+      axeResults = await page.evaluate(
+        async (options) => await window.axe.run(options),
+        AXE_RUN_OPTIONS,
+      )
       // This function must never throw — a visit that escaped would abort the
       // rest of the session's screens, which is exactly the guarantee above.
       // An axe result without a violations array is therefore this one visit's

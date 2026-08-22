@@ -76,7 +76,12 @@ export function CreateProfileDialog({
           <Button variant="ghost" onClick={onClose}>
             {t('common.cancel')}
           </Button>
-          <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
+          <Button
+            variant="primary"
+            data-testid="config-create-submit"
+            disabled={!canSubmit}
+            onClick={() => void submit()}
+          >
             {isImport ? t('config.createDialog.continue') : t('config.createDialog.submit')}
           </Button>
         </>
@@ -85,6 +90,7 @@ export function CreateProfileDialog({
       <div className="space-y-4">
         <Field label={t('config.createDialog.sourceLabel')}>
           <Select
+            data-testid="config-create-source"
             value={from}
             onChange={(event) => setFrom(event.target.value as ProfileSource)}
             options={[

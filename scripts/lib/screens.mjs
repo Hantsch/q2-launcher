@@ -10,7 +10,7 @@
 //
 // Optional `coldStart?: boolean` on an entry marks a screen whose subject *is*
 // the app's boot state: `session.mjs` gives it its own launch per viewport
-// instead of visiting it inside the batched session. None of the 15 entries
+// instead of visiting it inside the batched session. None of the 17 entries
 // below need it today.
 //
 // Selectors mirror story 026 D3's `data-testid` additions exactly — read
@@ -23,6 +23,15 @@
 // Story 017 retired the edit-mode toggle: outside test mode a keycap click
 // opens KeyBindDialog directly, so the former "Start editing" click below is
 // gone — the repo ships only `en` today (story 026 Decisions).
+//
+// Story 037 D3 adds two more, mirroring D1's own testid additions exactly —
+// read RawFileTab.tsx, CreateProfileDialog.tsx and ImportProfileDialog.tsx
+// before changing these:
+//   config-raw-expand           (RawFileTab.tsx, per-installation expand toggle)
+//   config-create-profile       (ConfigView.tsx, "New profile" button)
+//   config-create-source        (CreateProfileDialog.tsx, source <select>)
+//   config-create-submit        (CreateProfileDialog.tsx, footer submit button)
+//   config-import-installation  (ImportProfileDialog.tsx, installation <select>)
 
 /** Mirrors src/shared/constants.ts:17-18 (`WINDOW_DEFAULT_WIDTH/HEIGHT`). */
 const VIEWPORT_DEFAULT = { width: 1280, height: 800 }
@@ -177,6 +186,57 @@ export const SCREENS = [
     // keeps the same `nav-<moduleId>` testid convention as the primary nav.
     navigate: async (page) => {
       await click(page, 'nav-downloads')
+    },
+  },
+  {
+    id: 'config-write-preview',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 037 D3: the Raw tab's per-installation expand toggle mounts
+    // `RawConfigPanel` (RawFileTab.tsx), which fetches its own preview and
+    // shows a spinner first — waiting for a *second* `.cfg-code-content`
+    // block (the first is the profile's own canonical file, always rendered
+    // already) is what tells apart "still loading" from "preview rendered".
+    // Plain Profile is assigned to `fixture-install-favorite` by default
+    // (scripts/lib/fixture.mjs), which is the row this renders. The rendered
+    // panel sits below the profile's own (always-empty-here, not-on-disk)
+    // canonical file, so it scrolls itself into view once ready — otherwise
+    // it would render correctly but sit below the screenshot's fold.
+    navigate: async (page) => {
+      await configDetail('raw')(page)
+      await click(page, 'config-raw-expand')
+      const rendered = page.locator('.cfg-code-content').nth(1)
+      await rendered.waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await rendered.scrollIntoViewIfNeeded()
+    },
+  },
+  {
+    id: 'config-import-preview',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 037 D3: config list -> "New profile" -> source "import" ->
+    // continue -> pick the one installation with a real config.cfg fixture
+    // (D2's `fixture-install-writedir`, display name "Fixture WriteDir
+    // Install" - scripts/lib/fixture.mjs). Picking it triggers a scan, which
+    // auto-selects the first gamedir candidate and triggers a preview -
+    // ImportProfileDialog.tsx's two effects - with no further click needed.
+    // `.cfg-code-single` is only ever rendered by this dialog's
+    // duplicate-bind/preserved-line lists, and the fixture config.cfg has
+    // both (a `bind w` repeated with no `unbind` between, and one
+    // unrecognized `alias` line), so waiting for it rules out both the
+    // spinner and the "no config files" empty state.
+    navigate: async (page) => {
+      await openConfigList(page)
+      await click(page, 'config-create-profile')
+      await page.getByTestId('config-create-source').selectOption('import')
+      await click(page, 'config-create-submit')
+      await page
+        .getByTestId('config-import-installation')
+        .selectOption({ label: 'Fixture WriteDir Install' })
+      await page
+        .locator('.cfg-code-single')
+        .first()
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },
   {

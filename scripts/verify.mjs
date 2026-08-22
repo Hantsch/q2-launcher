@@ -28,7 +28,13 @@ import { execFileSync } from 'node:child_process'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { HarnessError, REPO_ROOT, UI_VERIFY_ROOT } from './lib/paths.mjs'
-import { SCREENSHOTS_DIR, runVariantSession, visitKey } from './lib/session.mjs'
+import {
+  AXE_DISABLED_RULES,
+  AXE_DISABLED_RULES_REASON,
+  SCREENSHOTS_DIR,
+  runVariantSession,
+  visitKey,
+} from './lib/session.mjs'
 import { SCREENS } from './lib/screens.mjs'
 
 const RUN_LOG_PATH = join(UI_VERIFY_ROOT, 'run.json')
@@ -219,6 +225,9 @@ function buildA11yMarkdown(results) {
   if (unreachable.length > 0) {
     lines.push(`- **unreachable/errored screens**: ${unreachable.length}`)
   }
+  lines.push(
+    `- **disabled rule(s)**: ${AXE_DISABLED_RULES.join(', ')} — ${AXE_DISABLED_RULES_REASON}`,
+  )
   lines.push('')
 
   if (unreachable.length > 0) {
@@ -328,6 +337,9 @@ function printSummary({ results, capture, launches, full, screens, sessionErrors
   if (capture.axe) {
     console.log(
       `axe violations: ${IMPACT_ORDER.map((impact) => `${totalsByImpact[impact]} ${impact}`).join(', ')}`,
+    )
+    console.log(
+      `axe disabled rule(s): ${AXE_DISABLED_RULES.join(', ')} — ${AXE_DISABLED_RULES_REASON}`,
     )
   }
 

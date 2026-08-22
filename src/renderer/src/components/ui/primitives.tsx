@@ -134,7 +134,13 @@ export function EmptyState({
         </div>
       )}
       <div className="max-w-md space-y-2">
-        <h3 className="font-display text-lg tracking-wide text-ink uppercase">{title}</h3>
+        {/*
+          h2, not h3: an empty state sits directly under a view's h1 (library,
+          config list), so h3 skipped a level - axe heading-order, story 037 D6.
+          h2 is safe in the nested uses too (inside a modal, or under a section
+          heading), because heading-order only objects to *skipping* a level.
+        */}
+        <h2 className="font-display text-lg tracking-wide text-ink uppercase">{title}</h2>
         {body && <p className="text-sm leading-relaxed text-ink-dim">{body}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center justify-center gap-2">{actions}</div>}
