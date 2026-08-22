@@ -19,9 +19,6 @@ export const WINDOW_DEFAULT_HEIGHT = 800
 export const WINDOW_MIN_WIDTH = 940
 export const WINDOW_MIN_HEIGHT = 620
 
-/** Height of the custom (frameless) title bar, in CSS pixels. Mirrored in CSS as `--titlebar-h`. */
-export const TITLEBAR_HEIGHT = 36
-
 /** The canonical Quake II base game directory. */
 export const BASE_GAME_DIR = 'baseq2'
 

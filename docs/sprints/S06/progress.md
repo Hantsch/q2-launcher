@@ -8,3 +8,11 @@
 - 2026-08-22 08:01 · 031 · D4 Cover new surface in ui:verify · started
 - 2026-08-22 08:02 · 031 · D4 Cover new surface in ui:verify · done
 - 2026-08-22 08:15 · 031 · review + fixes + Done section · done
+- 2026-08-22 08:12 · 030 · D1 Taller bar, one source of truth · started
+- 2026-08-22 08:13 · 030 · D1 Taller bar, one source of truth · done
+- 2026-08-22 08:13 · 030 · D2 Wordmark at 2x · started
+- 2026-08-22 08:14 · 030 · D2 Wordmark at 2x · done
+- 2026-08-22 08:14 · 030 · D3 Nav, Settings/Downloads and window controls scale with the bar · started
+- 2026-08-22 08:16 · 030 · D3 Nav, Settings/Downloads and window controls scale with the bar · done
+- 2026-08-22 08:16 · 030 · D4 Refreshed verification run · started
+- 2026-08-22 08:17 · 030 · D4 Refreshed verification run · done

@@ -131,7 +131,7 @@
 
 /* Non-token custom properties: used by handwritten CSS, not by utilities. */
 :root {
-  --titlebar-h: 44px;
+  --titlebar-h: 68px;
   --rail-w: 76px;
   --actionbar-h: 96px;
 

@@ -36,19 +36,19 @@ export function TitleBar() {
     >
       {/* Wordmark. Text only: the app icon belongs to the OS (taskbar, shortcut),
           repeating it inside our own chrome only crowds the bar. */}
-      <div className="flex items-center pr-5 pl-4">
+      <div className="flex items-center pr-6 pl-5">
         <div className="leading-none">
-          <div className="font-display text-[13px] font-semibold tracking-[0.18em] text-ink uppercase">
+          <div className="font-display text-[26px] font-semibold tracking-[0.18em] text-ink uppercase">
             {t('app.wordmark')}
           </div>
-          <div className="stencil mt-0.5 text-[9px] tracking-[0.3em]">{t('app.tagline')}</div>
+          <div className="stencil mt-0.5 text-[18px] tracking-[0.3em]">{t('app.tagline')}</div>
         </div>
       </div>
 
       {/* Primary nav */}
       <nav className="flex items-stretch" aria-label={t('nav.home')}>
         <NavItem
-          icon={<Home className="size-3.5" />}
+          icon={<Home className="size-4.5" />}
           label={t('nav.home')}
           active={route === ROUTE_HOME}
           onClick={() => setRoute(ROUTE_HOME)}
@@ -59,7 +59,7 @@ export function TitleBar() {
           return (
             <NavItem
               key={module.id}
-              icon={<Icon className="size-3.5" />}
+              icon={<Icon className="size-4.5" />}
               label={t(module.titleKey)}
               active={route === module.route}
               planned={module.status === 'planned'}
@@ -84,7 +84,7 @@ export function TitleBar() {
               active={route === module.route}
               onClick={() => setRoute(module.route)}
             >
-              <Icon className="size-4" />
+              <Icon className="size-5" />
             </UtilityButton>
           )
         })}
@@ -95,26 +95,26 @@ export function TitleBar() {
           active={route === ROUTE_SETTINGS}
           onClick={() => setRoute(ROUTE_SETTINGS)}
         >
-          <Settings className="size-4" />
+          <Settings className="size-5" />
         </UtilityButton>
 
-        <div className="mx-1 h-5 w-px bg-line" />
+        <div className="mx-1 h-7 w-px bg-line" />
 
         <WindowButton label={t('titlebar.minimize')} onClick={() => void invoke('window:minimize')}>
-          <Minus className="size-4" />
+          <Minus className="size-5" />
         </WindowButton>
         <WindowButton
           label={maximized ? t('titlebar.restore') : t('titlebar.maximize')}
           onClick={() => void invoke('window:toggleMaximize')}
         >
-          <Square className={cn('size-3.5', maximized && 'opacity-70')} />
+          <Square className={cn('size-4', maximized && 'opacity-70')} />
         </WindowButton>
         <WindowButton
           label={t('titlebar.close')}
           danger
           onClick={() => void invoke('window:close')}
         >
-          <X className="size-4" />
+          <X className="size-5" />
         </WindowButton>
       </div>
     </header>
@@ -143,8 +143,8 @@ function NavItem({
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'no-drag relative flex items-center gap-1.5 px-3.5',
-        'font-display text-[12px] font-medium tracking-[0.14em] uppercase',
+        'no-drag relative flex items-center gap-1.5 px-4',
+        'font-display text-[13px] font-medium tracking-[0.14em] uppercase',
         'transition-colors duration-[--dur-fast]',
         active ? 'text-ink' : 'text-ink-muted hover:text-ink-dim',
       )}
@@ -155,7 +155,7 @@ function NavItem({
           in the product instead of hidden in a file. */}
       {planned && <span className="size-1 rounded-full bg-ink-faint" />}
       {active && (
-        <span className="absolute inset-x-2 bottom-0 h-0.5 bg-flame-500 shadow-[0_0_10px_rgb(255_138_31/0.6)]" />
+        <span className="absolute inset-x-3 bottom-0 h-0.5 bg-flame-500 shadow-[0_0_10px_rgb(255_138_31/0.6)]" />
       )}
     </button>
   )
@@ -182,7 +182,7 @@ function UtilityButton({
       title={label}
       onClick={onClick}
       className={cn(
-        'no-drag grid size-8 place-items-center rounded-sm transition-colors duration-[--dur-fast]',
+        'no-drag grid size-11 place-items-center rounded-sm transition-colors duration-[--dur-fast]',
         active ? 'bg-hover text-flame-300' : 'text-ink-muted hover:bg-hover hover:text-ink',
       )}
     >
@@ -209,7 +209,7 @@ function WindowButton({
       title={label}
       onClick={onClick}
       className={cn(
-        'no-drag grid h-8 w-11 place-items-center rounded-sm text-ink-muted',
+        'no-drag grid h-11 w-12 place-items-center rounded-sm text-ink-muted',
         'transition-colors duration-[--dur-fast]',
         danger ? 'hover:bg-danger hover:text-void' : 'hover:bg-hover hover:text-ink',
       )}

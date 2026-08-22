@@ -1,7 +1,7 @@
 ---
 id: 030
 title: Titlebar and wordmark scale up
-status: ready
+status: done
 created: 2026-08-21
 ---
 
@@ -17,16 +17,16 @@ current size.
 
 ## Acceptance Criteria
 
-- [ ] The title bar is noticeably taller than the current 44px (target roughly 64-72px) —
+- [x] The title bar is noticeably taller than the current 44px (target roughly 64-72px) —
       value change lives in the `--titlebar-h` CSS variable, nothing hardcoded per component.
-- [ ] The wordmark (title + tagline block) renders at least twice its current font size and
+- [x] The wordmark (title + tagline block) renders at least twice its current font size and
       stays vertically centred in the taller bar.
-- [ ] Nav items, the Settings icon and the window control buttons (minimize/maximize/close)
+- [x] Nav items, the Settings icon and the window control buttons (minimize/maximize/close)
       scale up proportionally so nothing looks stranded in the extra height — no leftover
       44px-tall element floating in a 64-72px bar.
-- [ ] The window drag region still covers the full bar height; double-click-to-maximize and
+- [x] The window drag region still covers the full bar height; double-click-to-maximize and
       window controls keep working exactly as before.
-- [ ] `npm run ui:verify` screenshots show the new proportions on every screen (titlebar is
+- [x] `npm run ui:verify` screenshots show the new proportions on every screen (titlebar is
       part of every screenshot).
 
 ## Open Questions
@@ -94,18 +94,18 @@ bar). 031 must be merged before this story starts.
 
 ## Deliverables
 
-- **D1 — Taller bar, one source of truth.**
+- [x] **D1 — Taller bar, one source of truth.**
   Files: `src/renderer/src/styles/index.css` (`--titlebar-h: 68px`),
   `src/shared/constants.ts` (delete `TITLEBAR_HEIGHT`).
   Acceptance: the bar renders 68px tall, the shell below it reflows with no gap or overlap,
   `npm run typecheck` + `npm run build` + `npm test` green. *(covers AC 1)*
 
-- **D2 — Wordmark at 2x.**
+- [x] **D2 — Wordmark at 2x.**
   Files: `src/renderer/src/components/shell/TitleBar.tsx` (wordmark block only).
   Acceptance: title 26px, tagline 18px, block vertically centred in the 68px bar, no clipping
   or overlap with the first nav item at the 940px minimum window width. *(covers AC 2)*
 
-- **D3 — Nav, Settings/Downloads and window controls scale with the bar.**
+- [x] **D3 — Nav, Settings/Downloads and window controls scale with the bar.**
   Files: `src/renderer/src/components/shell/TitleBar.tsx` (`NavItem`, `WindowButton`, new local
   `ChromeIconButton`, right-cluster markup). Mirror the existing local sub-component pattern in
   the same file (`WindowButton`) for the new one.
@@ -115,7 +115,7 @@ bar). 031 must be merged before this story starts.
   header is still one full-height `drag-region`, and double-click-to-maximize plus
   minimize/maximize/close behave as before. *(covers AC 3, AC 4)*
 
-- **D4 — Refreshed verification run.**
+- [x] **D4 — Refreshed verification run.**
   Files: none committed — the harness writes to the gitignored `.ui-verify/`
   (`run.json`, `screenshots/`, `a11y.json`/`a11y.md`); see `docs/UI-VERIFICATION.md`.
   Acceptance: `npm run ui:verify` exits 0, every screen's screenshot shows the new titlebar
@@ -156,3 +156,38 @@ main-process and no state change; the regression surface is visual and D4's scre
    every screen.
 
 ## Done
+
+**Summary.** Scaled the title bar from 44px to 68px via the single `--titlebar-h` CSS
+variable, doubled the wordmark (26px title, 18px tagline), deleted the stale unused
+`TITLEBAR_HEIGHT` constant, and resized nav items, the shared `UtilityButton`
+(Settings + Downloads) and the window controls so every interactive element in the bar
+meets the 44px hit-area floor. Renderer-only change, no IPC/main/preload touched.
+
+**Decisions.**
+- Reused the pre-existing `UtilityButton` sub-component (landed with story 031) instead
+  of introducing a new `ChromeIconButton` as the plan's text literally named — 031 had
+  already created exactly the shared, single-size sub-component the plan wanted for
+  Settings + Downloads, so adding a second one would only have duplicated it under a
+  different name. Confirmed acceptable by the clean-agent review.
+- D4's live verification (`npm run ui:verify`) surfaced 2 pre-existing critical axe
+  violations on the unrelated `keybind-dialog` component (Config module) and 20
+  moderate heading-order/heading-one findings elsewhere — none touch the titlebar,
+  wordmark, nav, or window-control markup this story changed, so they are treated as
+  out-of-scope pre-existing issues, not regressions introduced here.
+
+**Verification.**
+- `npm run typecheck`, `npm run build`, `npm test` (932 tests, 51 files) — all green
+  after every deliverable.
+- `npm run ui:verify` — exit 0; screenshots (`.ui-verify/screenshots/`, gitignored)
+  confirm the taller bar, doubled wordmark, and proportionally scaled nav/utility/
+  window-control buttons on Home and Config screens; 0 console errors; 0 new
+  serious/critical axe violations attributable to this story (see Decisions above for
+  the 2 pre-existing criticals on an unrelated dialog).
+- Clean-agent review: **PASS**. All 5 acceptance criteria PASS with file:line evidence;
+  no weakened tests, no scope creep, no CLAUDE.md guardrail violations; the plan
+  deviation (UtilityButton reuse) judged acceptable.
+
+**Commit message.**
+```
+030: scale up titlebar height and wordmark
+```

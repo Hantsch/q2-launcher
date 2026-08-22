@@ -20,7 +20,7 @@ payload validation cannot be forgotten, and `ui:verify`'s green report is a fact
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
 - [x] 031 — Rename the Install module to Downloads and move it next to Settings
-- [ ] 030 — Titlebar and wordmark scale up
+- [x] 030 — Titlebar and wordmark scale up
 - [ ] 033 — Planned-module screens explain the feature, not the engineering
 - [ ] 029 — Drop-row team message as checkbox + inline row (mirrors "With ammo")
 - [ ] 035 — The Content-Security-Policy actually applies in a production build
