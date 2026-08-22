@@ -1,6 +1,6 @@
 ---
 sprint: S06
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/S06
 milestone: Polish + hardening — clear the post-S05 backlog (docs/ROADMAP.md, "Follow-ups worth doing")
 ---

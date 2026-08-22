@@ -130,16 +130,20 @@ The UI-polish batch from continued hands-on use plus the three guardrails the re
 and does not: this is not a feature milestone, it is the pass that makes the chrome speak to users
 and the security/verification claims true.
 
-`docs/sprints/S06` **planned (2026-08-21)** — cut from the backlog that accumulated during and
-after S04/S05, seven stories in two clusters. What the user sees: 031 rename Install→Downloads and
-relocate it to the right-hand utility group, 030 titlebar/wordmark scale-up, 033 planned-module
-screens (Mods/Assets) in plain language instead of architecture capability lists, 029 the Controls
-drop-row message as a "With message" checkbox + inline row mirroring "With ammo". What the user has
-to trust: 035 the CSP applies in the shipped build (today `onHeadersReceived` never fires for the
-production `file://` load, so the policy is live in dev only), 036 `handle()` requires a zod payload
-schema so validation cannot be forgotten on a new channel, 037 `ui:verify` reaches the write-preview
-and import dialogs and its full run is actually green (also closes 027's last experiential check).
-Deliberately excluded: 032, the downloads module itself, and the config-module gaps below.
+`docs/sprints/S06` **built, acceptance pending (2026-08-22)** — cut from the backlog that
+accumulated during and after S04/S05, seven stories in two clusters. What the user sees, all
+**done**: 031 rename Install→Downloads and relocate it to the right-hand utility group, 030
+titlebar/wordmark scale-up, 033 planned-module screens (Mods/Assets/Downloads) in plain language
+instead of architecture capability lists, 029 the Controls drop-row message as a "With message"
+checkbox + inline row mirroring "With ammo". What the user has to trust: 035 the CSP now applies in
+the shipped build (the renderer loads over a privileged `q2launcher://` scheme, the CSP travels with
+every protocol response) — **done**; 036 `handle()` now requires a zod payload schema at every one
+of ~60 call sites so validation cannot be forgotten on a new channel — **done**; 037 `ui:verify` now
+reaches the write-preview and import dialogs and a full run is 17/17 screens with zero
+critical/serious/moderate/minor violations — **in-progress**, one acceptance criterion left: the
+human desktop check that a full run never steals window focus (closes 027 too). See
+`docs/sprints/S06/review.md` and `docs/sprints/S06/testplan.md`. Deliberately excluded: 032, the
+downloads module itself, and the config-module gaps below.
 
 #### Gaps/notes (from S05)
 
@@ -147,10 +151,10 @@ Deliberately excluded: 032, the downloads module itself, and the config-module g
   switch-bind chain can `exec` a not-yet-migrated file name until the next real sync touches that
   profile. Deliberately out of scope for 022 (not listed under its write-trigger decision); worth
   folding in if it ever causes a real report.
-- `npm run ui:verify`'s automated screen registry does not cover the write-preview dialog or the
-  import preview (024's `ConfigCodeView` swap-in there is only manually acceptance-tested, see
-  `docs/sprints/done/S05/testplan.md`) — pre-existing harness scope, not a S05 regression, but a gap if
-  the harness is ever trusted as the sole gate.
+- ~~`npm run ui:verify`'s automated screen registry does not cover the write-preview dialog or the
+  import preview~~ (024's `ConfigCodeView` swap-in there was only manually acceptance-tested, see
+  `docs/sprints/done/S05/testplan.md`) — **closed by story 037** in `docs/sprints/S06`: both are now
+  screen registry entries, screenshotted and axe-audited on every full run.
 - 025's main-side `removeShadowedBind` handler trusts the renderer analyzer's "loser" claim rather
   than re-deriving the render-order winner itself — unreachable today because main re-validates
   every operation before applying, flagged for hardening if that invariant ever changes.
@@ -276,11 +280,18 @@ machine, and each is a one-line fix in a data table:
 **Hardening:**
 
 - ~~Serve the production renderer from a privileged `app://` scheme instead of
-  `file://`~~ (Electron security checklist item 18) — **filed as story 035**, in `docs/sprints/S06`.
-  Verified while filing: the CSP has no effect in production, it is not merely unproven.
-- ~~Make the zod schema a **required** parameter of the typed `handle()` wrapper~~ — **filed as
-  story 036**, in `docs/sprints/S06`. 60 `handle()` call sites across `src/main/ipc/` and
-  `src/main/modules/` validate by discipline today.
+  `file://`~~ (Electron security checklist item 18) — **done, story 035** in `docs/sprints/S06`: the
+  production renderer now loads over `q2launcher://`, and the CSP travels with every protocol
+  response. A Windows-specific path-traversal bypass (`%5C`-encoded backslash segments escaping
+  `root`) was found and fixed during the story's own review, with a regression test.
+- ~~Make the zod schema a **required** parameter of the typed `handle()` wrapper~~ — **done, story
+  036** in `docs/sprints/S06`. All ~60 `handle()` call sites across `src/main/ipc/` and
+  `src/main/modules/` now carry a real payload schema; one channel (`module:invoke`'s `payload`) is
+  the one documented, deliberate `z.unknown()`. New IPC contract/coverage test added. **Note for the
+  user:** `CLAUDE.md`'s pointer to `src/main/lib/schemas.ts` for renderer-payload validation is now
+  only half true — IPC-payload schemas moved to `src/shared/ipc-schemas.ts`/`src/shared/schemas.ts`,
+  persisted-state schemas stayed put. Left unedited pending sign-off; needs either a `CLAUDE.md`
+  update or an explicit "leave as-is".
 - Auto-update via `electron-updater`, and a decision on code signing — unsigned
   builds give users a SmartScreen warning.
 - Drop `'unsafe-inline'` from the production CSP's `style-src` — deferred by story 035, which
@@ -305,9 +316,12 @@ machine, and each is a one-line fix in a data table:
   main process dies on its first `require('electron')`. The harness deletes the variable from
   the child environment before launching. **Follow-ups from using it:** story 027 (56 app
   starts per full run, every window stealing focus) is **done bar one human check** — see the
-  ad-hoc section above; that check is an acceptance criterion of story 037 in `docs/sprints/S06`,
-  which also puts the write-preview and import dialogs into the screen registry and takes the full
-  run to zero critical/serious axe violations.
+  ad-hoc section above; story 037 in `docs/sprints/S06` put the write-preview and import dialogs
+  into the screen registry and took the full run to zero critical/serious/moderate/minor axe
+  violations (`page-has-heading-one` deliberately disabled for this single-window desktop app,
+  documented in the report). 037 itself stays **in-progress**: the one remaining item is the same
+  human desktop check as 027 — confirming a full run never steals window focus — which also closes
+  027 once done.
 
 **UX:**
 
