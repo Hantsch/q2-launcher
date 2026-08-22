@@ -1,8 +1,8 @@
-import { idSchema } from '../lib/schemas'
+import { idSchema, jobsListSchema } from '@shared/ipc-schemas'
 import type { AppContext } from '../context'
-import { handle } from './index'
+import { handle, handleOutcome } from './index'
 
 export function registerJobsIpc(app: AppContext): void {
-  handle('jobs:list', () => app.jobs.list())
-  handle('jobs:cancel', (id) => app.jobs.cancel(idSchema.parse(id)))
+  handle('jobs:list', jobsListSchema, () => app.jobs.list())
+  handleOutcome('jobs:cancel', idSchema, (id) => app.jobs.cancel(id))
 }

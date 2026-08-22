@@ -1,14 +1,14 @@
-import { settingsPatchSchema } from '../lib/schemas'
+import { settingsGetSchema, settingsPatchSchema } from '@shared/ipc-schemas'
 import type { AppContext } from '../context'
 import { handle } from './index'
 
 export function registerSettingsIpc(app: AppContext): void {
-  handle('settings:get', () => app.state.settings())
+  handle('settings:get', settingsGetSchema, () => app.state.settings())
 
-  handle('settings:patch', (patch) => {
-    // Throws on a malformed patch: that is a renderer bug, not user input.
-    const validated = settingsPatchSchema.parse(patch)
-    const next = app.state.patchSettings(validated)
+  // The wrapper throws on a malformed patch: that is a renderer bug, not user
+  // input, and this channel has no failure case in its response type.
+  handle('settings:patch', settingsPatchSchema, (patch) => {
+    const next = app.state.patchSettings(patch)
     app.broadcast.emit('settings:changed', next)
     return next
   })

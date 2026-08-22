@@ -1,4 +1,5 @@
 import { ok } from '@shared/types'
+import { devSimulateJobSchema } from '@shared/ipc-schemas'
 import type { AppContext } from '../context'
 import { handle } from './index'
 
@@ -7,7 +8,7 @@ import { handle } from './index'
  * `DEV_ONLY_CHANNELS` in `src/shared/ipc.ts`.
  */
 export function registerDevIpc(app: AppContext): void {
-  handle('dev:simulateJob', () => {
+  handle('dev:simulateJob', devSimulateJobSchema, () => {
     // Lets the action bar's progress readout be developed before the download
     // module exists. Numbers mirror a real Quake II download.
     const totalBytes = 1_490_000_000

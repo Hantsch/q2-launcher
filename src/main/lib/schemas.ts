@@ -14,6 +14,7 @@ import type {
   ConfigProfile,
 } from '@shared/modules/config'
 import { isLatin1Text } from '@shared/config/q2-charset'
+import { engineKindSchema, settingsObjectSchema, sourceSchema } from '@shared/schemas'
 import type { Installation, LauncherSettings, WindowState } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
 import {
@@ -37,30 +38,6 @@ import {
 const nowIso = (): string => new Date().toISOString()
 
 const paramsSchema = z.record(z.string(), z.union([z.string(), z.number()]))
-
-export const engineKindSchema = z.enum([
-  'r1q2',
-  'q2pro',
-  'yquake2',
-  'kmquake2',
-  'vkquake2',
-  'q2rtx',
-  'vanilla',
-  'remaster',
-  'custom',
-  'unknown',
-])
-
-const sourceSchema = z.enum([
-  'manual',
-  'steam',
-  'gog',
-  'epic',
-  'bethesda',
-  'retail',
-  'created',
-  'unknown',
-])
 
 const statusSchema = z.enum(['ok', 'warning', 'invalid', 'missing', 'unknown'])
 
@@ -400,18 +377,6 @@ export function parseConfigWriteFailures(raw: unknown): Record<string, { message
   return configWriteFailuresSchema.parse(raw)
 }
 
-const settingsObjectSchema = z.object({
-  locale: z.enum(['system', 'en']).catch(DEFAULT_SETTINGS.locale),
-  motion: z.enum(['system', 'reduced', 'full']).catch(DEFAULT_SETTINGS.motion),
-  activeInstallationId: z.string().nullable().catch(null),
-  lastRoute: z.string().catch(DEFAULT_SETTINGS.lastRoute),
-  minimizeOnLaunch: z.boolean().catch(DEFAULT_SETTINGS.minimizeOnLaunch),
-  closeAfterLaunch: z.boolean().catch(DEFAULT_SETTINGS.closeAfterLaunch),
-  confirmBeforeRemoving: z.boolean().catch(DEFAULT_SETTINGS.confirmBeforeRemoving),
-  scanOnFirstRun: z.boolean().catch(DEFAULT_SETTINGS.scanOnFirstRun),
-  deepScanDrives: z.array(z.string()).catch([]),
-})
-
 export const settingsSchema = settingsObjectSchema.catch(() => ({ ...DEFAULT_SETTINGS }))
 
 export const windowStateSchema = z
@@ -462,82 +427,6 @@ export function parseConfigProfiles(raw: unknown): ConfigProfile[] {
   return rows.map(parseConfigProfile).filter((row): row is ConfigProfile => row !== null)
 }
 
-// ---------------------------------------------------------------------------
-// IPC payloads. These are strict: a bad payload is a bug, not a state to repair.
-// ---------------------------------------------------------------------------
-
-/** Rejects empty strings and relative paths before anything touches the filesystem. */
-const absolutePathSchema = z
-  .string()
-  .min(1)
-  .refine((value) => !value.includes('\0'), 'path must not contain NUL')
-
-export const addExistingInputSchema = z.object({
-  rootPath: absolutePathSchema,
-  name: z.string().min(1).max(120).optional(),
-  executablePath: absolutePathSchema.optional(),
-  source: sourceSchema.optional(),
-})
-
-export const createInstallationInputSchema = z.object({
-  rootPath: absolutePathSchema,
-  name: z.string().min(1).max(120),
-  engineKind: engineKindSchema,
-})
-
-export const updateInstallationInputSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1).max(120).optional(),
-  rootPath: absolutePathSchema.optional(),
-  executablePath: absolutePathSchema.optional(),
-  writeDirPath: absolutePathSchema.nullable().optional(),
-  launchArgs: z.array(z.string().max(500)).max(64).optional(),
-  activeGameDir: z
-    .string()
-    .max(64)
-    // A game dir is a single folder name, never a path - this blocks traversal.
-    .refine((value) => value === '' || /^[A-Za-z0-9_.-]+$/.test(value), 'invalid game directory')
-    .optional(),
-  favorite: z.boolean().optional(),
-})
-
-export const removeInstallationInputSchema = z.object({
-  id: z.string().min(1),
-  deleteFromDisk: z.boolean().optional(),
-})
-
-export const scanOptionsSchema = z.object({
-  scanId: z.string().min(1).max(64).optional(),
-  deepScan: z.boolean().optional(),
-  drives: z.array(z.string().min(1)).max(32).optional(),
-})
-
-export const launchInputSchema = z.object({
-  installationId: z.string().min(1),
-  gameDir: z.string().max(64).optional(),
-  connect: z.string().max(200).optional(),
-  extraArgs: z.array(z.string().max(500)).max(64).optional(),
-})
-
-export const pickPathInputSchema = z.object({
-  title: z.string().max(200),
-  buttonLabel: z.string().max(80).optional(),
-  defaultPath: z.string().optional(),
-})
-
-export const settingsPatchSchema = settingsObjectSchema.partial()
-
-export const moduleInvokeSchema = z.object({
-  moduleId: z.enum(['library', 'config', 'downloads', 'mods', 'assets']),
-  type: z.string().min(1).max(80),
-  payload: z.unknown().optional(),
-})
-
-export const idListSchema = z.array(z.string().min(1)).max(500)
-export const pathListSchema = z.array(absolutePathSchema).max(200)
-export const idSchema = z.string().min(1)
-export const nullableIdSchema = z.string().min(1).nullable()
-export const urlSchema = z
-  .string()
-  .url()
-  .refine((value) => /^https?:\/\//i.test(value), 'only http(s) URLs may be opened')
+// IPC-payload schemas moved to `src/shared/ipc-schemas.ts` (story 036, D1) -
+// they are strict (a bad payload is a bug, not a state to repair) and shared
+// needs them for the preload/renderer side too.

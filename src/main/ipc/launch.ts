@@ -1,27 +1,19 @@
 import { BrowserWindow, app as electronApp } from 'electron'
-import { fail } from '@shared/types'
-import { launchInputSchema } from '../lib/schemas'
+import { launchGetStateSchema, launchInputSchema } from '@shared/ipc-schemas'
 import type { AppContext } from '../context'
-import { handle } from './index'
+import { handle, handleOutcome } from './index'
 
 export function registerLaunchIpc(app: AppContext): void {
-  handle('launch:plan', async (input) => {
-    const parsed = launchInputSchema.safeParse(input)
-    if (!parsed.success) return fail('ipc.error.invalidPayload')
-    return app.launch.plan(parsed.data)
+  handleOutcome('launch:plan', launchInputSchema, async (input) => {
+    return app.launch.plan(input)
   })
 
-  handle('launch:start', async (input, event) => {
-    const parsed = launchInputSchema.safeParse(input)
-    if (!parsed.success) return fail('ipc.error.invalidPayload')
-
-    const result = await app.launch.start(parsed.data)
+  handleOutcome('launch:start', launchInputSchema, async (input, event) => {
+    const result = await app.launch.start(input)
     if (!result.ok) return result
 
     const settings = app.state.settings()
     if (settings.closeAfterLaunch) {
-      // Quitting means we stop tracking the session, so playtime is not recorded
-      // for this launch. That is the documented trade-off of this setting.
       await app.state.settle()
       electronApp.quit()
     } else if (settings.minimizeOnLaunch) {
@@ -31,5 +23,5 @@ export function registerLaunchIpc(app: AppContext): void {
     return result
   })
 
-  handle('launch:getState', () => app.launch.getState())
+  handle('launch:getState', launchGetStateSchema, () => app.launch.getState())
 }

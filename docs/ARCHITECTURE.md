@@ -38,7 +38,9 @@ Everything derives from it:
 - **main** registers handlers through a typed `handle()` wrapper
   (`src/main/ipc/index.ts`). At boot, `assertContractFullyHandled()` throws if a
   declared channel has no handler — a missing handler is a startup crash in
-  development, not a rejected promise a user stumbles into months later.
+  development, not a rejected promise a user stumbles into months later. The
+  wrapper takes a zod schema as a required parameter, so a channel with no
+  schema, or the wrong schema, is a compile error, not just a runtime risk.
 - **preload** builds its allowlist from the same file. `INVOKE_CHANNELS` and
   `EVENT_CHANNELS` are runtime arrays, and compile-time assertions
   (`ALL_INVOKE_CHANNELS_LISTED`) fail the build if a channel is added to a map but
@@ -47,10 +49,35 @@ Everything derives from it:
 
 Push traffic (main → renderer) uses `IpcEventMap` and the `Broadcaster` service.
 
-Payloads that cross from the renderer are validated in main with zod
-(`src/main/lib/schemas.ts`). Channels returning `Outcome<T>` turn a bad payload
-into a failed outcome; channels returning a plain value throw, because a malformed
-payload there is a renderer bug rather than user input.
+Payloads that cross from the renderer are validated by two wrappers around
+`ipcMain.handle`, both in `src/main/ipc/index.ts`. `handle(channel, schema,
+handler)` parses the payload (throwing on failure) before calling the handler,
+so a malformed payload for a plain-value channel becomes a rejected promise —
+still a renderer bug, not user input. `handleOutcome(channel, schema, handler,
+invalidKey?)` is the same idea for channels whose response is `Outcome<T>`: it
+`safeParse`s the payload and resolves to `fail(invalidKey ?? 'ipc.error.invalidPayload')`
+on failure without ever calling the handler, so a bad payload never surfaces as
+an unhandled promise rejection in the UI. `invalidKey` lets a channel keep an
+existing, user-visible i18n key (e.g. `app:openExternal` ->
+`app.error.invalidUrl`) instead of the generic default. Both wrappers register
+through the same bookkeeping path, so `assertContractFullyHandled()` and the
+registered-channel count don't care which one a handler uses.
+
+Schemas live in `src/shared/schemas.ts` (primitives shared with the persisted-state
+schemas: `engineKindSchema`, `sourceSchema`, `absolutePathSchema`,
+`settingsObjectSchema`) and `src/shared/ipc-schemas.ts` (one schema per invoke
+channel, mirroring `IpcInvokeMap`'s section order) — not in `src/main/lib/schemas.ts`,
+which now holds only the forgiving, `.catch()`-based persisted-state schemas
+(state.json, installations, profiles, window state); those stay in main because
+they use `node:crypto`. `src/shared/ipc.ts` itself stays zod-free: it is reachable
+from the sandboxed preload bundle (`webPreferences.sandbox: true`), where an
+external npm module like zod cannot be `require()`d, so the schemas live in
+sibling files (`schemas.ts`, `ipc-schemas.ts`) instead.
+
+The module seam (`ModuleSetup.handle` in `src/main/modules/types.ts`) mirrors the
+same required-schema idea one level down, for `module:invoke`'s per-module-handler
+payloads. Schemas for those live in `src/main/modules/config/schemas.ts`, main-only,
+never exposed to the renderer.
 
 **Paths are never trusted.** `app:revealPath` only opens folders belonging to a
 registered installation or the launcher's own data directories. A mod directory is

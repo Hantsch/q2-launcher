@@ -3,12 +3,12 @@ import { fail, ok, type AppInfo, type Platform } from '@shared/types'
 import { isDirectory } from '../lib/fs-utils'
 import { logFilePath } from '../lib/logger'
 import { userDataDir } from '../lib/paths'
-import { urlSchema } from '../lib/schemas'
+import { appGetInfoSchema, appRevealPathSchema, urlSchema } from '@shared/ipc-schemas'
 import type { AppContext } from '../context'
-import { handle } from './index'
+import { handle, handleOutcome } from './index'
 
 export function registerAppIpc(app: AppContext): void {
-  handle('app:getInfo', (): AppInfo => {
+  handle('app:getInfo', appGetInfoSchema, (): AppInfo => {
     return {
       appVersion: electronApp.getVersion(),
       electronVersion: process.versions.electron,
@@ -22,32 +22,38 @@ export function registerAppIpc(app: AppContext): void {
     }
   })
 
-  handle('app:openExternal', async (url) => {
-    // Only http(s): a renderer must not be able to open `file:` or a custom
-    // protocol handler through this channel.
-    const parsed = urlSchema.safeParse(url)
-    if (!parsed.success) return fail('app.error.invalidUrl')
-    await shell.openExternal(parsed.data)
-    return ok(null)
-  })
+  // `urlSchema` allows only http(s), so a renderer cannot open `file:` or a
+  // custom protocol handler through this channel.
+  handleOutcome(
+    'app:openExternal',
+    urlSchema,
+    async (url) => {
+      await shell.openExternal(url)
+      return ok(null)
+    },
+    'app.error.invalidUrl',
+  )
 
-  handle('app:revealPath', async (target) => {
-    if (typeof target !== 'string' || target.length === 0) {
-      return fail('app.error.invalidPath')
-    }
-    // Renderer-supplied paths are never trusted: only folders the launcher
-    // already knows about may be revealed.
-    if (!isAllowedRevealTarget(app, target)) {
-      return fail('app.error.pathNotAllowed')
-    }
+  handleOutcome(
+    'app:revealPath',
+    appRevealPathSchema,
+    async (target) => {
+      // Renderer-supplied paths are never trusted: the schema only settles the
+      // shape, so the allowlist stays here - only folders the launcher already
+      // knows about may be revealed.
+      if (!isAllowedRevealTarget(app, target)) {
+        return fail('app.error.pathNotAllowed')
+      }
 
-    if (await isDirectory(target)) {
-      const error = await shell.openPath(target)
-      return error ? fail('app.error.revealFailed', { message: error }) : ok(null)
-    }
-    shell.showItemInFolder(target)
-    return ok(null)
-  })
+      if (await isDirectory(target)) {
+        const error = await shell.openPath(target)
+        return error ? fail('app.error.revealFailed', { message: error }) : ok(null)
+      }
+      shell.showItemInFolder(target)
+      return ok(null)
+    },
+    'app.error.invalidPath',
+  )
 }
 
 /** A path is revealable if it sits under a registered installation or our own data dirs. */

@@ -13,6 +13,9 @@ import type { TidyUpApplyInput } from '@shared/modules/config'
  * repair, so a handler lets `.parse()` throw rather than catching it.
  */
 
+/** `CONFIG_HANDLERS.list` takes no payload. */
+export const listInputSchema = z.void()
+
 export const createConfigProfileInputSchema = z.object({
   name: z.string().min(1).max(120),
   from: z.enum(['empty', 'template']),
@@ -162,6 +165,9 @@ export const writeProfileInputSchema = z.object({
   profileId: z.string().min(1),
 })
 
+/** Story 022 (D7): `writeState` takes no payload, same pattern as `listInputSchema` above. */
+export const writeStateInputSchema = z.void()
+
 /** Story 022 (D5): `syncState`'s input is shape-identical to `write`'s, same alias convention as
  * `unassignProfileInputSchema`/`setDefaultProfileInputSchema` above. */
 export const syncStateInputSchema = writeProfileInputSchema
@@ -230,6 +236,9 @@ export const setSwitchBindInputSchema = z.object({
   installationId: z.string().min(1),
   key: switchBindKeySchema.nullable(),
 })
+
+/** Story 007: `switchBinds` takes no payload, same pattern as `listInputSchema` above. */
+export const switchBindsInputSchema = z.void()
 
 /**
  * Story 005 import payloads. Deviation from the story text: it says these

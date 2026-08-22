@@ -11,12 +11,12 @@ import {
   type TidyUpApplyResult,
   type WriteTargetResult,
 } from '@shared/modules/config'
-import { type Installation, type LaunchState, type Outcome } from '@shared/types'
+import { fail, type Installation, type LaunchState, type Outcome } from '@shared/types'
 import { pathExists } from '../../lib/fs-utils'
 import { scopedLogger } from '../../lib/logger'
 import type { AppContext } from '../../context'
 import { StateStore } from '../../services/state'
-import type { ModuleHandler } from '../types'
+import type { ModuleHandler, ModuleSetup } from '../types'
 import { scanRedundantCopies } from './cleanup'
 import { renderProfileFile } from './render'
 import {
@@ -39,6 +39,28 @@ import {
  */
 
 const log = scopedLogger('config-index-test')
+
+/**
+ * The fake `handle` every harness in this file uses.
+ *
+ * Story 036 D5: `ModuleSetup.handle` takes the payload schema and
+ * `MainModuleRegistry.invoke()` validates against it before entering the
+ * handler. A harness that took the schema and dropped it would leave every test
+ * in this file green while validation was off in the tests and on in production,
+ * so this collector mirrors the registry instead: `safeParse`, and a rejected
+ * payload answers `fail('ipc.error.invalidPayload')` without the handler ever
+ * being called. Tests reach the collected handlers directly, so this is the only
+ * place that validation can come from here.
+ */
+function collectHandlers(handlers: Map<string, ModuleHandler>): ModuleSetup['handle'] {
+  return (type, schema, handler) => {
+    handlers.set(type, (payload) => {
+      const parsed = schema.safeParse(payload)
+      if (!parsed.success) return fail('ipc.error.invalidPayload')
+      return handler(parsed.data)
+    })
+  }
+}
 
 /**
  * Story 022 D7: the mutating handlers now resolve the canonical profile
@@ -471,7 +493,7 @@ describe('CONFIG_HANDLERS.preview handler', () => {
     await state.load()
     const handlers = new Map<string, ModuleHandler>()
     await configModule.setup({
-      handle: (type, handler) => handlers.set(type, handler),
+      handle: collectHandlers(handlers),
       emit: () => {},
       app: {
         installations: {
@@ -528,7 +550,7 @@ describe('CONFIG_HANDLERS.setActions / list round trip (story 019 D3)', () => {
     await state.load()
     const handlers = new Map<string, ModuleHandler>()
     await configModule.setup({
-      handle: (type, handler) => handlers.set(type, handler),
+      handle: collectHandlers(handlers),
       emit: () => {},
       app: {
         installations: { find: () => undefined, list: () => [] },
@@ -612,7 +634,7 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     options.seed?.(state)
     const handlers = new Map<string, ModuleHandler>()
     await configModule.setup({
-      handle: (type, handler) => handlers.set(type, handler),
+      handle: collectHandlers(handlers),
       emit: () => {},
       app: {
         installations: {
@@ -832,7 +854,7 @@ describe('CONFIG_HANDLERS.rawFiles handler (story 023 D1)', () => {
     await state.load()
     const handlers = new Map<string, ModuleHandler>()
     await configModule.setup({
-      handle: (type, handler) => handlers.set(type, handler),
+      handle: collectHandlers(handlers),
       emit: () => {},
       app: {
         installations: {
@@ -974,7 +996,7 @@ describe('CONFIG_HANDLERS.openFile handler (story 023 D2)', () => {
     await state.load()
     const handlers = new Map<string, ModuleHandler>()
     await configModule.setup({
-      handle: (type, handler) => handlers.set(type, handler),
+      handle: collectHandlers(handlers),
       emit: () => {},
       app: {
         installations: {
@@ -1275,7 +1297,7 @@ describe('CONFIG_HANDLERS.tidyUpApply handler (story 025 D3)', () => {
     await state.load()
     const handlers = new Map<string, ModuleHandler>()
     await configModule.setup({
-      handle: (type, handler) => handlers.set(type, handler),
+      handle: collectHandlers(handlers),
       emit: () => {},
       app: {
         installations: {

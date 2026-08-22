@@ -41,3 +41,19 @@
 - 2026-08-22 09:08 · 035 · D4 Evidence + deferred follow-up · started
 - 2026-08-22 09:15 · 035 · D4 Evidence + deferred follow-up · done
 - 2026-08-22 09:31 · 035 · review + fixes (Windows traversal bypass, 404 CSP header) + Done section · done
+- 2026-08-22 09:32 · 036 · D1 Shared schema layer · started
+- 2026-08-22 09:36 · 036 · D1 Shared schema layer · done
+- 2026-08-22 09:36 · 036 · D2 handle()/handleOutcome() seam · started
+- 2026-08-22 09:40 · 036 · D2 handle()/handleOutcome() seam · done
+- 2026-08-22 09:40 · 036 · D3 installations+detection, D4 launch+jobs+modules+dev · started
+- 2026-08-22 09:42 · 036 · D3 installations+detection, D4 launch+jobs+modules+dev · done
+- 2026-08-22 09:42 · 036 · D5 module seam requires schema · started
+- 2026-08-22 09:48 · 036 · D5 module seam requires schema · done
+- 2026-08-22 09:48 · 036 · D6 config handlers part 1 · started
+- 2026-08-22 09:51 · 036 · D6 config handlers part 1 · done
+- 2026-08-22 09:51 · 036 · D7 config handlers part 2 · started
+- 2026-08-22 09:54 · 036 · D7 config handlers part 2 · done
+- 2026-08-22 09:54 · 036 · D8 IPC contract test · started
+- 2026-08-22 09:57 · 036 · D8 IPC contract test · done
+- 2026-08-22 09:57 · 036 · D9 live pass + architecture doc · started
+- 2026-08-22 09:59 · 036 · D9 live pass + architecture doc · done

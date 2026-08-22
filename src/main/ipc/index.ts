@@ -1,4 +1,5 @@
 import { ipcMain, type IpcMainInvokeEvent } from 'electron'
+import type { ZodType } from 'zod'
 import {
   DEV_ONLY_CHANNELS,
   INVOKE_CHANNELS,
@@ -6,6 +7,7 @@ import {
   type InvokeRequest,
   type InvokeResponse,
 } from '@shared/ipc'
+import { fail, type Outcome } from '@shared/types'
 import { scopedLogger } from '../lib/logger'
 import type { AppContext } from '../context'
 import { registerAppIpc } from './app'
@@ -22,25 +24,88 @@ const log = scopedLogger('ipc')
 
 const registeredChannels = new Set<InvokeChannel>()
 
+/** Fallback rejection key for `handleOutcome`; per-channel keys are passed explicitly. */
+const INVALID_PAYLOAD_KEY = 'ipc.error.invalidPayload'
+
 /**
- * Typed `ipcMain.handle`.
+ * A handler for `channel`, receiving the payload *after* validation.
  *
- * The channel name constrains both the payload and the return type against
- * `IpcInvokeMap`, so main and renderer cannot drift apart: renaming a field in
- * the contract breaks the build on both sides.
+ * The payload type comes from the contract, not from the schema, so a schema
+ * that parses to the wrong shape is a compile error at the call site.
  */
-export function handle<C extends InvokeChannel>(
+type Handler<C extends InvokeChannel> = (
+  payload: InvokeRequest<C>,
+  event: IpcMainInvokeEvent,
+) => InvokeResponse<C> | Promise<InvokeResponse<C>>
+
+/**
+ * Channels whose response is an `Outcome`, and which can therefore report a bad
+ * payload as a failed outcome instead of a rejected promise. Anything else must
+ * use `handle`.
+ */
+type OutcomeChannel = {
+  [C in InvokeChannel]: InvokeResponse<C> extends Outcome<unknown> ? C : never
+}[InvokeChannel]
+
+/**
+ * The one place a channel is bound to `ipcMain`, so the registration bookkeeping
+ * `assertContractFullyHandled()` and the startup count rely on cannot drift
+ * between the two public wrappers.
+ */
+function register<C extends InvokeChannel>(
   channel: C,
-  handler: (
-    payload: InvokeRequest<C>,
-    event: IpcMainInvokeEvent,
-  ) => InvokeResponse<C> | Promise<InvokeResponse<C>>,
+  listener: (event: IpcMainInvokeEvent, payload: unknown) => unknown,
 ): void {
   if (registeredChannels.has(channel)) {
     throw new Error(`[ipc] channel '${channel}' registered twice`)
   }
   registeredChannels.add(channel)
-  ipcMain.handle(channel, (event, payload: unknown) => handler(payload as InvokeRequest<C>, event))
+  ipcMain.handle(channel, listener)
+}
+
+/**
+ * Typed `ipcMain.handle` for channels that return a plain value.
+ *
+ * The channel name constrains the payload schema, the payload and the return
+ * type against `IpcInvokeMap`, so main and renderer cannot drift apart: renaming
+ * a field in the contract breaks the build on both sides.
+ *
+ * Validation is not optional - the schema is a required parameter, and it is
+ * parsed before the handler runs, so no handler ever sees an unvalidated
+ * payload. A malformed payload **throws**, which surfaces in the renderer as a
+ * rejected `invoke` promise. That is deliberate: these channels have no failure
+ * channel in their return type, and a bad payload here is a renderer bug rather
+ * than user input.
+ */
+export function handle<C extends InvokeChannel>(
+  channel: C,
+  schema: ZodType<InvokeRequest<C>>,
+  handler: Handler<C>,
+): void {
+  register(channel, (event, payload) => handler(schema.parse(payload), event))
+}
+
+/**
+ * Typed `ipcMain.handle` for channels that return an `Outcome`.
+ *
+ * A malformed payload **resolves** to `fail(invalidKey)` instead of throwing:
+ * the response type already carries a failure case, so the renderer gets a
+ * localized error it can render rather than an unhandled rejection.
+ *
+ * `invalidKey` defaults to the generic `ipc.error.invalidPayload`; pass a
+ * channel-specific key where the UI has a better message for it.
+ */
+export function handleOutcome<C extends OutcomeChannel>(
+  channel: C,
+  schema: ZodType<InvokeRequest<C>>,
+  handler: Handler<C>,
+  invalidKey: string = INVALID_PAYLOAD_KEY,
+): void {
+  register(channel, (event, payload) => {
+    const parsed = schema.safeParse(payload)
+    if (!parsed.success) return fail(invalidKey)
+    return handler(parsed.data, event)
+  })
 }
 
 export function registerAllIpc(app: AppContext): void {

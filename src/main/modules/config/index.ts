@@ -47,6 +47,7 @@ import {
   importCommitInputSchema,
   importPreviewInputSchema,
   importScanInputSchema,
+  listInputSchema,
   openFileInputSchema,
   previewProfileInputSchema,
   rawFilesInputSchema,
@@ -59,10 +60,12 @@ import {
   setProfileCvarsInputSchema,
   setProfileLayersInputSchema,
   setSwitchBindInputSchema,
+  switchBindsInputSchema,
   syncStateInputSchema,
   tidyUpApplyInputSchema,
   unassignProfileInputSchema,
   writeProfileInputSchema,
+  writeStateInputSchema,
 } from './schemas'
 import { assignedProfilesFor, defaultProfileFor, isInstallationRunning } from './write-plan'
 import {
@@ -466,23 +469,28 @@ export const configModule: MainModule = {
         app.installations.list().map((installation) => installation.id),
       )
 
-    handle(CONFIG_HANDLERS.list, (): ConfigProfile[] => withLiveAssignments(profiles.list()))
+    handle(CONFIG_HANDLERS.list, listInputSchema, (): ConfigProfile[] =>
+      withLiveAssignments(profiles.list()),
+    )
 
-    handle(CONFIG_HANDLERS.create, async (payload): Promise<ConfigProfile[]> => {
-      const list = withLiveAssignments(
-        profiles.create(createConfigProfileInputSchema.parse(payload)),
-      )
-      // The new profile is the LAST element: `ProfilesStore.create` appends it
-      // to the end of the array it hands `commit()`, and every transform in
-      // between - `commit()`'s `.map`, `reconcileAssignments`' `.map` - is
-      // order-preserving and never adds or drops an entry.
-      const created = list[list.length - 1]!
-      await syncAndPersist(app, log, created, list)
-      return list
-    })
+    handle(
+      CONFIG_HANDLERS.create,
+      createConfigProfileInputSchema,
+      async (input): Promise<ConfigProfile[]> => {
+        const list = withLiveAssignments(profiles.create(input))
+        // The new profile is the LAST element: `ProfilesStore.create` appends it
+        // to the end of the array it hands `commit()`, and every transform in
+        // between - `commit()`'s `.map`, `reconcileAssignments`' `.map` - is
+        // order-preserving and never adds or drops an entry.
+        const created = list[list.length - 1]!
+        await syncAndPersist(app, log, created, list)
+        return list
+      },
+    )
 
-    handle(CONFIG_HANDLERS.rename, async (payload): Promise<ConfigProfile[]> => {
-      const input = renameConfigProfileInputSchema.parse(payload)
+    handle(CONFIG_HANDLERS.rename, renameConfigProfileInputSchema, async (input): Promise<
+      ConfigProfile[]
+    > => {
       const list = withLiveAssignments(profiles.rename(input))
       // A rename cannot remove the profile, so it is always in the new list.
       await syncAndPersist(
@@ -494,8 +502,9 @@ export const configModule: MainModule = {
       return list
     })
 
-    handle(CONFIG_HANDLERS.remove, async (payload): Promise<ConfigProfile[]> => {
-      const input = removeConfigProfileInputSchema.parse(payload)
+    handle(CONFIG_HANDLERS.remove, removeConfigProfileInputSchema, async (
+      input,
+    ): Promise<ConfigProfile[]> => {
       const list = withLiveAssignments(profiles.remove(input))
 
       // Nothing left to sync for the removed profile, so instead of a sync run:
@@ -534,8 +543,9 @@ export const configModule: MainModule = {
       return list
     })
 
-    handle(CONFIG_HANDLERS.setCvars, async (payload): Promise<ConfigProfile[]> => {
-      const input = setProfileCvarsInputSchema.parse(payload)
+    handle(CONFIG_HANDLERS.setCvars, setProfileCvarsInputSchema, async (
+      input,
+    ): Promise<ConfigProfile[]> => {
       const list = withLiveAssignments(profiles.setCvars(input))
       await syncAndPersist(
         app,
@@ -546,8 +556,9 @@ export const configModule: MainModule = {
       return list
     })
 
-    handle(CONFIG_HANDLERS.setBinds, async (payload): Promise<ConfigProfile[]> => {
-      const input = setProfileBindsInputSchema.parse(payload)
+    handle(CONFIG_HANDLERS.setBinds, setProfileBindsInputSchema, async (
+      input,
+    ): Promise<ConfigProfile[]> => {
       const list = withLiveAssignments(profiles.setBinds(input))
       await syncAndPersist(
         app,
@@ -558,8 +569,9 @@ export const configModule: MainModule = {
       return list
     })
 
-    handle(CONFIG_HANDLERS.setLayers, async (payload): Promise<ConfigProfile[]> => {
-      const input = setProfileLayersInputSchema.parse(payload)
+    handle(CONFIG_HANDLERS.setLayers, setProfileLayersInputSchema, async (
+      input,
+    ): Promise<ConfigProfile[]> => {
       const list = withLiveAssignments(profiles.setLayers(input))
       await syncAndPersist(
         app,
@@ -570,8 +582,9 @@ export const configModule: MainModule = {
       return list
     })
 
-    handle(CONFIG_HANDLERS.setActions, async (payload): Promise<ConfigProfile[]> => {
-      const input = setProfileActionsInputSchema.parse(payload)
+    handle(CONFIG_HANDLERS.setActions, setProfileActionsInputSchema, async (
+      input,
+    ): Promise<ConfigProfile[]> => {
       const list = withLiveAssignments(profiles.setActions(input))
       await syncAndPersist(
         app,
@@ -582,15 +595,15 @@ export const configModule: MainModule = {
       return list
     })
 
-    handle(CONFIG_HANDLERS.assign, async (payload): Promise<Outcome<ConfigProfile[]>> => {
-      const parsed = assignProfileInputSchema.safeParse(payload)
-      if (!parsed.success) return fail('ipc.error.invalidPayload')
-      if (!app.installations.find(parsed.data.installationId)) {
+    handle(CONFIG_HANDLERS.assign, assignProfileInputSchema, async (
+      input,
+    ): Promise<Outcome<ConfigProfile[]>> => {
+      if (!app.installations.find(input.installationId)) {
         return fail('config.error.installationNotFound')
       }
       let list: ConfigProfile[]
       try {
-        list = withLiveAssignments(profiles.assign(parsed.data))
+        list = withLiveAssignments(profiles.assign(input))
       } catch {
         // Nothing was mutated, so there is nothing to sync.
         return fail('config.error.profileNotFound')
@@ -598,21 +611,21 @@ export const configModule: MainModule = {
       await syncAndPersist(
         app,
         log,
-        list.find((p) => p.id === parsed.data.profileId)!,
+        list.find((p) => p.id === input.profileId)!,
         list,
       )
       return ok(list)
     })
 
-    handle(CONFIG_HANDLERS.unassign, async (payload): Promise<Outcome<ConfigProfile[]>> => {
-      const parsed = unassignProfileInputSchema.safeParse(payload)
-      if (!parsed.success) return fail('ipc.error.invalidPayload')
-      if (!app.installations.find(parsed.data.installationId)) {
+    handle(CONFIG_HANDLERS.unassign, unassignProfileInputSchema, async (
+      input,
+    ): Promise<Outcome<ConfigProfile[]>> => {
+      if (!app.installations.find(input.installationId)) {
         return fail('config.error.installationNotFound')
       }
       let list: ConfigProfile[]
       try {
-        list = withLiveAssignments(profiles.unassign(parsed.data))
+        list = withLiveAssignments(profiles.unassign(input))
       } catch {
         return fail('config.error.profileNotFound')
       }
@@ -620,7 +633,7 @@ export const configModule: MainModule = {
       await syncAndPersist(
         app,
         log,
-        list.find((p) => p.id === parsed.data.profileId)!,
+        list.find((p) => p.id === input.profileId)!,
         list,
       )
 
@@ -631,22 +644,22 @@ export const configModule: MainModule = {
       // Documented simplification: when nothing is assigned to that
       // installation any more there is no such profile, and the orphaned file
       // is left for a future sync of that installation.
-      const stillDefault = defaultProfileFor(list, parsed.data.installationId)
-      if (stillDefault && stillDefault.id !== parsed.data.profileId) {
+      const stillDefault = defaultProfileFor(list, input.installationId)
+      if (stillDefault && stillDefault.id !== input.profileId) {
         await syncAndPersist(app, log, stillDefault, list)
       }
       return ok(list)
     })
 
-    handle(CONFIG_HANDLERS.setDefault, async (payload): Promise<Outcome<ConfigProfile[]>> => {
-      const parsed = setDefaultProfileInputSchema.safeParse(payload)
-      if (!parsed.success) return fail('ipc.error.invalidPayload')
-      if (!app.installations.find(parsed.data.installationId)) {
+    handle(CONFIG_HANDLERS.setDefault, setDefaultProfileInputSchema, async (
+      input,
+    ): Promise<Outcome<ConfigProfile[]>> => {
+      if (!app.installations.find(input.installationId)) {
         return fail('config.error.installationNotFound')
       }
       let list: ConfigProfile[]
       try {
-        list = withLiveAssignments(profiles.setDefault(parsed.data))
+        list = withLiveAssignments(profiles.setDefault(input))
       } catch (error) {
         // The thrown message is the only way to tell "unknown profile" apart
         // from "profile exists but isn't assigned to that installation" -
@@ -663,16 +676,17 @@ export const configModule: MainModule = {
       await syncAndPersist(
         app,
         log,
-        list.find((p) => p.id === parsed.data.profileId)!,
+        list.find((p) => p.id === input.profileId)!,
         list,
       )
       return ok(list)
     })
 
-    handle(CONFIG_HANDLERS.write, async (payload): Promise<Outcome<WriteTargetResult[]>> => {
-      const parsed = writeProfileInputSchema.safeParse(payload)
-      if (!parsed.success) return fail('ipc.error.invalidPayload')
-      const profile = profiles.find(parsed.data.profileId)
+    handle(
+      CONFIG_HANDLERS.write,
+      writeProfileInputSchema,
+      async (input): Promise<Outcome<WriteTargetResult[]>> => {
+      const profile = profiles.find(input.profileId)
       if (!profile) return fail('config.error.profileNotFound')
 
       // Story 022: `write` is one of the three retry triggers (decision 13), so
@@ -697,14 +711,16 @@ export const configModule: MainModule = {
         ...(entry.messageKey ? { messageKey: entry.messageKey } : {}),
       }))
       return ok(results)
-    })
+      },
+    )
 
-    handle(CONFIG_HANDLERS.preview, async (payload): Promise<Outcome<PreviewProfileResult>> => {
-      const parsed = previewProfileInputSchema.safeParse(payload)
-      if (!parsed.success) return fail('ipc.error.invalidPayload')
-      const profile = profiles.find(parsed.data.profileId)
+    handle(
+      CONFIG_HANDLERS.preview,
+      previewProfileInputSchema,
+      async (input): Promise<Outcome<PreviewProfileResult>> => {
+      const profile = profiles.find(input.profileId)
       if (!profile) return fail('config.error.profileNotFound')
-      const installation = app.installations.find(parsed.data.installationId)
+      const installation = app.installations.find(input.installationId)
       if (!installation) return fail('config.error.installationNotFound')
 
       const files = previewProfileFiles(
@@ -718,9 +734,12 @@ export const configModule: MainModule = {
           files.map(async (file) => ({ ...file, onDisk: await isFile(file.path) })),
         ),
       })
-    })
+      },
+    )
 
-    handle(CONFIG_HANDLERS.writeState, (): WriteState => app.state.configPendingWrites())
+    handle(CONFIG_HANDLERS.writeState, writeStateInputSchema, (): WriteState =>
+      app.state.configPendingWrites(),
+    )
 
     /**
      * Story 022 D7: read-only report of where every copy of this profile stands.
@@ -730,10 +749,11 @@ export const configModule: MainModule = {
      * the `write` channel) and this is not one of them. Merely looking at a
      * profile's sync state must never touch disk.
      */
-    handle(CONFIG_HANDLERS.syncState, async (payload): Promise<Outcome<ProfileSyncState>> => {
-      const parsed = syncStateInputSchema.safeParse(payload)
-      if (!parsed.success) return fail('ipc.error.invalidPayload')
-      const profile = profiles.find(parsed.data.profileId)
+    handle(
+      CONFIG_HANDLERS.syncState,
+      syncStateInputSchema,
+      async (input): Promise<Outcome<ProfileSyncState>> => {
+      const profile = profiles.find(input.profileId)
       if (!profile) return fail('config.error.profileNotFound')
 
       const allProfiles = profiles.list()
@@ -773,7 +793,8 @@ export const configModule: MainModule = {
       }
 
       return ok({ own: { path: ownPath, fileName, ...own }, installations })
-    })
+      },
+    )
 
     /**
      * Story 023 D1: read-only report of the profile's own canonical file plus
@@ -781,10 +802,11 @@ export const configModule: MainModule = {
      * never-writes contract as `syncState` above - `collectRawFiles` only
      * reads.
      */
-    handle(CONFIG_HANDLERS.rawFiles, async (payload): Promise<Outcome<RawFilesResult>> => {
-      const parsed = rawFilesInputSchema.safeParse(payload)
-      if (!parsed.success) return fail('ipc.error.invalidPayload')
-      const profile = profiles.find(parsed.data.profileId)
+    handle(
+      CONFIG_HANDLERS.rawFiles,
+      rawFilesInputSchema,
+      async (input): Promise<Outcome<RawFilesResult>> => {
+      const profile = profiles.find(input.profileId)
       if (!profile) return fail('config.error.profileNotFound')
 
       const result = await collectRawFiles(
@@ -795,7 +817,8 @@ export const configModule: MainModule = {
         (installationId) => app.state.configPlayedMods()[installationId] ?? [],
       )
       return ok(result)
-    })
+      },
+    )
 
     /**
      * Story 023 D2: hand one of this profile's files to the OS - the default
@@ -826,10 +849,11 @@ export const configModule: MainModule = {
      *
      * Only then is `shell` touched at all.
      */
-    handle(CONFIG_HANDLERS.openFile, async (payload): Promise<Outcome<null>> => {
-      const parsed = openFileInputSchema.safeParse(payload)
-      if (!parsed.success) return fail('ipc.error.invalidPayload')
-      const { profileId, installationId, mode } = parsed.data
+    handle(
+      CONFIG_HANDLERS.openFile,
+      openFileInputSchema,
+      async (input): Promise<Outcome<null>> => {
+      const { profileId, installationId, mode } = input
 
       const allProfiles = profiles.list()
       const profile = allProfiles.find((p) => p.id === profileId)
@@ -875,39 +899,45 @@ export const configModule: MainModule = {
       // `app:revealPath`'s own reveal branch.
       shell.showItemInFolder(path)
       return ok(null)
-    })
+      },
+    )
 
-    handle(CONFIG_HANDLERS.setPlayedMods, (payload): Outcome<string[]> => {
-      const parsed = setPlayedModsInputSchema.safeParse(payload)
-      if (!parsed.success) return fail('ipc.error.invalidPayload')
-      const installation = app.installations.find(parsed.data.installationId)
+    handle(
+      CONFIG_HANDLERS.setPlayedMods,
+      setPlayedModsInputSchema,
+      (input): Outcome<string[]> => {
+      const installation = app.installations.find(input.installationId)
       if (!installation) return fail('config.error.installationNotFound')
 
-      const validated = validatePlayedMods(installation.gameDirs, parsed.data.playedMods)
+      const validated = validatePlayedMods(installation.gameDirs, input.playedMods)
       app.state.setConfigPlayedMods({
         ...app.state.configPlayedMods(),
         [installation.id]: validated,
       })
       return ok(validated)
-    })
+      },
+    )
 
     // Story 007: which key (if any) cycles an installation's assigned
     // profiles in-session. Per-installation, not part of a profile (decision
     // 1) - see `SetSwitchBindInput`'s doc comment.
-    handle(CONFIG_HANDLERS.switchBinds, (): Record<string, string> => app.state.configSwitchBinds())
+    handle(
+      CONFIG_HANDLERS.switchBinds,
+      switchBindsInputSchema,
+      (): Record<string, string> => app.state.configSwitchBinds(),
+    )
 
     handle(
       CONFIG_HANDLERS.setSwitchBind,
-      async (payload): Promise<Outcome<Record<string, string>>> => {
-        const parsed = setSwitchBindInputSchema.safeParse(payload)
-        if (!parsed.success) return fail('ipc.error.invalidPayload')
-        const installation = app.installations.find(parsed.data.installationId)
+      setSwitchBindInputSchema,
+      async (input): Promise<Outcome<Record<string, string>>> => {
+        const installation = app.installations.find(input.installationId)
         if (!installation) return fail('config.error.installationNotFound')
 
         const current = app.state.configSwitchBinds()
         const next = { ...current }
-        if (parsed.data.key === null) delete next[installation.id]
-        else next[installation.id] = parsed.data.key
+        if (input.key === null) delete next[installation.id]
+        else next[installation.id] = input.key
         app.state.setConfigSwitchBinds(next)
 
         // Decision 12/13: write immediately for this one installation only,
@@ -968,23 +998,23 @@ export const configModule: MainModule = {
     // without booting this module; this handler only validates the payload
     // shape and (for commit) reconciles live assignments the same way every
     // other profile-list-returning handler does.
-    handle(CONFIG_HANDLERS.importScan, (payload): Promise<Outcome<ImportScanResult>> => {
-      const parsed = importScanInputSchema.safeParse(payload)
-      if (!parsed.success) return Promise.resolve(fail('ipc.error.invalidPayload'))
-      return scanImportCandidates(app.installations, parsed.data)
-    })
+    handle(
+      CONFIG_HANDLERS.importScan,
+      importScanInputSchema,
+      (input): Promise<Outcome<ImportScanResult>> => scanImportCandidates(app.installations, input),
+    )
 
-    handle(CONFIG_HANDLERS.importPreview, (payload): Promise<Outcome<ImportPreviewResult>> => {
-      const parsed = importPreviewInputSchema.safeParse(payload)
-      if (!parsed.success) return Promise.resolve(fail('ipc.error.invalidPayload'))
-      return previewImport(app.installations, log, parsed.data)
-    })
+    handle(
+      CONFIG_HANDLERS.importPreview,
+      importPreviewInputSchema,
+      (input): Promise<Outcome<ImportPreviewResult>> => previewImport(app.installations, log, input),
+    )
 
-    handle(CONFIG_HANDLERS.importCommit, async (payload): Promise<Outcome<ConfigProfile[]>> => {
-      const parsed = importCommitInputSchema.safeParse(payload)
-      if (!parsed.success) return fail('ipc.error.invalidPayload')
-
-      const result = await commitImport(app.installations, log, parsed.data, (seed) =>
+    handle(
+      CONFIG_HANDLERS.importCommit,
+      importCommitInputSchema,
+      async (input): Promise<Outcome<ConfigProfile[]>> => {
+      const result = await commitImport(app.installations, log, input, (seed) =>
         profiles.createFromImport(seed),
       )
       // Nothing was created, so there is nothing to sync.
@@ -997,7 +1027,8 @@ export const configModule: MainModule = {
       // writes its canonical file.
       await syncAndPersist(app, log, list[list.length - 1]!, list)
       return ok(list)
-    })
+      },
+    )
 
     // Story 010: find and remove mod-folder `.cfg` copies that duplicate a
     // same-named `baseq2` file. `cleanup.ts` holds the fs-touching logic
@@ -1005,34 +1036,37 @@ export const configModule: MainModule = {
     // only validate the payload, resolve the real installation and - for
     // `apply`/`restore` only, never for the read-only `scan` (decision 12) -
     // refuse a currently-running installation the same way `write` does.
-    handle(CONFIG_HANDLERS.cleanupScan, async (payload): Promise<Outcome<CleanupScanResult>> => {
-      const parsed = cleanupScanInputSchema.safeParse(payload)
-      if (!parsed.success) return fail('ipc.error.invalidPayload')
-      const installation = app.installations.find(parsed.data.installationId)
+    handle(
+      CONFIG_HANDLERS.cleanupScan,
+      cleanupScanInputSchema,
+      async (input): Promise<Outcome<CleanupScanResult>> => {
+      const installation = app.installations.find(input.installationId)
       if (!installation) return fail('config.error.installationNotFound')
 
       const findings = await scanRedundantCopies(installation)
       return ok({ findings })
-    })
+      },
+    )
 
-    handle(CONFIG_HANDLERS.cleanupApply, async (payload): Promise<Outcome<CleanupApplyResult>> => {
-      const parsed = cleanupApplyInputSchema.safeParse(payload)
-      if (!parsed.success) return fail('ipc.error.invalidPayload')
-      const installation = app.installations.find(parsed.data.installationId)
+    handle(
+      CONFIG_HANDLERS.cleanupApply,
+      cleanupApplyInputSchema,
+      async (input): Promise<Outcome<CleanupApplyResult>> => {
+      const installation = app.installations.find(input.installationId)
       if (!installation) return fail('config.error.installationNotFound')
 
-      return applyCleanupIfNotRunning(installation, parsed.data.entries, app.launch.getState())
-    })
+      return applyCleanupIfNotRunning(installation, input.entries, app.launch.getState())
+      },
+    )
 
     handle(
       CONFIG_HANDLERS.cleanupRestore,
-      async (payload): Promise<Outcome<CleanupRestoreResult>> => {
-        const parsed = cleanupRestoreInputSchema.safeParse(payload)
-        if (!parsed.success) return fail('ipc.error.invalidPayload')
-        const installation = app.installations.find(parsed.data.installationId)
+      cleanupRestoreInputSchema,
+      async (input): Promise<Outcome<CleanupRestoreResult>> => {
+        const installation = app.installations.find(input.installationId)
         if (!installation) return fail('config.error.installationNotFound')
 
-        return restoreCleanupIfNotRunning(installation, parsed.data.entries, app.launch.getState())
+        return restoreCleanupIfNotRunning(installation, input.entries, app.launch.getState())
       },
     )
 
@@ -1056,14 +1090,14 @@ export const configModule: MainModule = {
      *   assignments, same as every other handler's view of it) alongside the
      *   rejects, so the caller can re-scan.
      */
-    handle(CONFIG_HANDLERS.tidyUpApply, async (payload): Promise<Outcome<TidyUpApplyResult>> => {
-      const parsed = tidyUpApplyInputSchema.safeParse(payload)
-      if (!parsed.success) return fail('ipc.error.invalidPayload')
-
-      const current = profiles.find(parsed.data.profileId)
+    handle(
+      CONFIG_HANDLERS.tidyUpApply,
+      tidyUpApplyInputSchema,
+      async (input): Promise<Outcome<TidyUpApplyResult>> => {
+      const current = profiles.find(input.profileId)
       if (!current) return fail('config.error.profileNotFound')
 
-      const outcome = applyTidyUpOps(current, parsed.data.ops)
+      const outcome = applyTidyUpOps(current, input.ops)
       if (outcome.applied.length === 0) {
         const list = withLiveAssignments(profiles.list())
         return ok({
@@ -1079,7 +1113,8 @@ export const configModule: MainModule = {
       const updated = list.find((p) => p.id === current.id)!
       await syncAndPersist(app, log, updated, list)
       return ok({ profile: updated, applied: outcome.applied, rejected: outcome.rejected })
-    })
+      },
+    )
 
     // Story 022 D7: one retry sweep at start, after every handler is
     // registered, for whatever the last session left behind - a failed write

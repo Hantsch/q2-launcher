@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { LIBRARY_HANDLERS, type LibraryStats } from '@shared/modules/library'
 import type { EngineKind, Installation } from '@shared/types'
 import type { MainModule } from '../types'
@@ -15,7 +16,9 @@ export const libraryModule: MainModule = {
   id: 'library',
 
   setup({ handle, app, log }) {
-    handle(LIBRARY_HANDLERS.stats, (): LibraryStats => {
+    // `stats` derives everything from the shell's own state, so it takes no
+    // payload - `z.void()` is what says that, rather than leaving it unsaid.
+    handle(LIBRARY_HANDLERS.stats, z.void(), (): LibraryStats => {
       const installations = app.installations.list()
 
       const byEngine: Partial<Record<EngineKind, number>> = {}

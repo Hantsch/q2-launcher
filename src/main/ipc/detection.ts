@@ -1,16 +1,16 @@
 import type { DriveInfo } from '@shared/ipc'
-import { idSchema, scanOptionsSchema } from '../lib/schemas'
+import { detectionListDrivesSchema, idSchema, scanOptionsSchema } from '@shared/ipc-schemas'
 import type { AppContext } from '../context'
 import { handle } from './index'
 
 export function registerDetectionIpc(app: AppContext): void {
-  handle('detection:scan', (options) => app.detection.scan(scanOptionsSchema.parse(options)))
+  handle('detection:scan', scanOptionsSchema, (options) => app.detection.scan(options))
 
-  handle('detection:cancel', (scanId) => {
-    app.detection.cancel(idSchema.parse(scanId))
+  handle('detection:cancel', idSchema, (scanId) => {
+    app.detection.cancel(scanId)
   })
 
-  handle('detection:listDrives', async (): Promise<DriveInfo[]> => {
+  handle('detection:listDrives', detectionListDrivesSchema, async (): Promise<DriveInfo[]> => {
     const drives = await app.detection.listDrives()
     return drives.map((path) => ({ path }))
   })
