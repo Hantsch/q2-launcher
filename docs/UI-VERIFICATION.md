@@ -108,7 +108,7 @@ page state — story 026's two-script split could not promise that, since a
 screenshot from `shot.mjs` and an axe reading from `a11y.mjs` came from two
 independent app instances that could, in principle, differ.
 
-Today's registry is 17 screens (count the `SCREENS` array in
+Today's registry is 22 screens (count the `SCREENS` array in
 `scripts/lib/screens.mjs` — do not carry this number forward uncounted, it
 has drifted before) across 2 fixture variants (`populated`, `empty`) with no
 screen marked `coldStart` (see below), so a full `ui:verify` run does **2**
@@ -147,7 +147,7 @@ though it is still current — so the sweep is skipped entirely whenever
 e.g.:
 
 ```
-run: PARTIAL — 2/17 screens (--screens=home,config-settings) — stale-PNG sweep skipped
+run: PARTIAL — 2/22 screens (--screens=home,config-settings) — stale-PNG sweep skipped
 ```
 
 ## Where output lands
@@ -423,6 +423,27 @@ but three things matter in practice:
   for `.cfg-code-single` (only ever rendered by this dialog's
   duplicate-bind/preserved-line lists) to be visible.
 
+Story 047 D3 adds three more dialog-entry screens, following the same shape:
+
+- **`config-controls-message`** and **`config-controls-drop-message`** —
+  both open `MessageEditor`
+  (`src/renderer/src/modules/config/components/MessageEditor.tsx`) from the
+  Controls tab of a config profile's detail view: select the fixture action's
+  category chip (no testid on the rail's category buttons, selected by
+  translated accessible name — "Weapons" and "Weapon dropping" respectively),
+  then click the action's edit trigger (`action-edit-<actionId>` for a plain
+  action, `drop-message-edit-<catalogId>` for a drops row's "Edit message"
+  trigger). Both wait for `message-editor-content` (`MessageEditor.tsx`) to
+  be visible before returning, rather than any spinner, since that testid is
+  on the dialog's own content container.
+- **`install-detect-dialog`** — `DetectDialog`
+  (`src/renderer/src/components/installations/DetectDialog.tsx`), reached via
+  Library header's `library-auto-detect` button. `navigate()` waits only for
+  the dialog itself (`getByRole('dialog')`) and deliberately never clicks its
+  "Start" button — per Decision 2, this screen captures the pre-scan state
+  only, preserving the harness's guarantee (see "Isolation from your real app
+  state" above) that it never triggers a real `detection:scan`.
+
 ### Cold-start screens
 
 A screen normally runs inside the batched session described above: the
@@ -453,7 +474,7 @@ size):
 },
 ```
 
-None of the 17 screens shipped so far set `coldStart` — every current screen
+None of the 22 screens shipped so far set `coldStart` — every current screen
 is reachable from a running app via clicks, so the field exists in the
 registry's shape but isn't exercised by any entry yet. Each `coldStart: true`
 screen adds one extra `_electron.launch()` per viewport it lists, on top of
@@ -533,16 +554,6 @@ config module's tabs, plus the dialogs listed above, but several surfaces
 are not in it yet — none of these are wired to a screen, so a regression in
 any of them produces no screenshot and no axe finding:
 
-- The removal-confirmation modal, `RemoveInstallationDialog`
-  (`src/renderer/src/components/installations/RemoveInstallationDialog.tsx`)
-  — reached via the installation rail's remove action.
-- `MessageEditor`
-  (`src/renderer/src/modules/config/components/MessageEditor.tsx`).
-- `DetectDialog`
-  (`src/renderer/src/components/installations/DetectDialog.tsx`) — the
-  fixtures deliberately set `settings.scanOnFirstRun: false` so it never
-  auto-opens during a run (see Isolation above), and no screen opens it by
-  hand either.
 - Toast notifications (`src/renderer/src/components/ui/Toasts.tsx`) — they
   are ephemeral and store-driven, with no `data-testid`'d trigger a
   `navigate()` could click and then wait on.

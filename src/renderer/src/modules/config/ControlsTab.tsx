@@ -898,6 +898,7 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
             <IconButton
               label={t('config.controls.actions.edit')}
               size="sm"
+              data-testid={`action-edit-${action.id}`}
               onClick={() => setEditingActionId(action.id)}
             >
               <SlidersHorizontal className="size-3.5" />

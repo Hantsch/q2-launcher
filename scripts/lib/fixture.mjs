@@ -138,7 +138,11 @@ function populatedConfigProfiles() {
     name: 'Plain Profile',
     createdAt: FIXED_TIMESTAMP,
     updatedAt: FIXED_TIMESTAMP,
-    cvars: { sensitivity: '3', crosshair: '0' },
+    // Story 047 D2: `r` is a `$r`-style colour cvar (mirrors
+    // src/shared/config/color-cvars.ts:33 `isColorCvar` - every byte is 0x7f
+    // or 0x80-0xff) so the message editor's colour-cvar badge has a real
+    // token to resolve for the two message actions below.
+    cvars: { sensitivity: '3', crosshair: '0', r: '\x7f\x88\x88\x7f' },
     binds: {
       MOUSE1: '+attack',
       SPACE: '+moveup',
@@ -147,8 +151,9 @@ function populatedConfigProfiles() {
       q: 'q2l_a_weapon_combo_fixt',
     },
     assignments: [{ installationId: INSTALL_ONE_ID, isDefault: true }],
-    // Three actions exercising the writer's three alias-line outcomes
-    // (`actionsWithAliasLine`, `src/shared/config/alias-references.ts`):
+    // Actions 1-3 exercise the writer's three alias-line outcomes
+    // (`actionsWithAliasLine`, `src/shared/config/alias-references.ts`);
+    // actions 4-5 (story 047 D2) give the message editor something to show.
     actions: [
       // 1. Catalogue row whose single command is a bare `+attack` (story
       //    034/038's own case): `bindValueFor` returns the command itself,
@@ -191,6 +196,39 @@ function populatedConfigProfiles() {
           { kind: 'raw', text: 'wait' },
           { kind: 'raw', text: '+attack' },
         ],
+      },
+      // 4. Story 047 D2: a `drops` catalogue row with a message command, so
+      //    the drop-row "Edit message" path (`ControlsTab.tsx:701`) and the
+      //    message editor's `$r` colour-cvar badge both have something real
+      //    to show. `catalogId`/`commands` mirror what `applyMessage`
+      //    (src/renderer/src/modules/config/lib/catalog-binds.ts:309) would
+      //    write for the `railgun` droppable (`dropWeapon:railgun`,
+      //    `action-catalog.ts`'s `DROPPABLES`/`catalog-rows.ts`'s
+      //    `makeCatalogId`): the row's own raw `drop <item>` command, plus a
+      //    trailing `{ kind: 'message' }` command whose text references the
+      //    `r` colour cvar above via `$r`.
+      {
+        id: 'fixture-action-drop-message',
+        categoryId: 'drops',
+        name: 'Railgun',
+        kind: 'bind',
+        catalogId: 'dropWeapon:railgun',
+        commands: [
+          { kind: 'raw', text: 'drop railgun' },
+          { kind: 'message', channel: 'say', text: 'Dropped railgun $r' },
+        ],
+      },
+      // 5. Story 047 D2: a free-form `kind: 'message'` action (no
+      //    `catalogId`) for the Team-messages path (`ControlsTab.tsx:1237`,
+      //    `editingAction.kind === 'message'`) - a named chat message kept on
+      //    a `say_team` channel, distinct from the drops row above which is
+      //    catalogue-backed and uses `say`.
+      {
+        id: 'fixture-action-team-message',
+        categoryId: 'weapons',
+        name: 'Team Update',
+        kind: 'message',
+        commands: [{ kind: 'message', channel: 'say_team', text: 'Need ammo $r' }],
       },
     ],
   }

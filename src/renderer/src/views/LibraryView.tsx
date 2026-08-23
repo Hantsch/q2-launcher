@@ -75,6 +75,7 @@ export function LibraryView() {
               variant="neutral"
               size="sm"
               icon={<Search className="size-3.5" />}
+              data-testid="library-auto-detect"
               onClick={() => openDialog({ kind: 'detect' })}
             >
               {t('library.autoDetect')}
@@ -330,6 +331,7 @@ function InstallationRow({ installation }: { installation: Installation }) {
             label={t('installation.action.remove')}
             size="sm"
             variant="danger"
+            data-testid={`installation-remove-${installation.id}`}
             onClick={() => {
               if (confirmBeforeRemoving) {
                 openDialog({ kind: 'remove', installationId: installation.id })

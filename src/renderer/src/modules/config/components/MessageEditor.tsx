@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ConfigAction, ConfigCommand } from '@shared/modules/config'
 import {
@@ -101,6 +101,11 @@ export function MessageEditor({
 }) {
   const { t } = useTranslation()
   const inputRef = useRef<HTMLInputElement>(null)
+  // Decision 4: `Field`'s label is a sibling of the control it names, not a wrapper, so the
+  // raw `<input>` below needs its own `id` wired to the label's `htmlFor` - `useControlId()`
+  // is not usable here because it reads from `Field`'s own context provider, which only wraps
+  // `Field`'s children, and this component (not `Field`) renders the `<input>` element.
+  const textInputId = useId()
 
   const seed = action.commands.find(
     (command): command is Extract<ConfigCommand, { kind: 'message' }> => command.kind === 'message',
@@ -243,15 +248,16 @@ export function MessageEditor({
           <Button variant="ghost" onClick={onClose}>
             {t('common.cancel')}
           </Button>
-          <Button variant="primary" onClick={save}>
+          <Button variant="primary" data-testid="message-editor-save" onClick={save}>
             {t('common.save')}
           </Button>
         </>
       }
     >
-      <div className="space-y-5">
+      <div className="space-y-5" data-testid="message-editor-content">
         <Field label={t('config.controls.messageEditor.channelLabel')} className="max-w-48">
           <Select
+            data-testid="message-editor-channel"
             value={channel}
             onChange={(event) => setChannel(event.target.value as 'say' | 'say_team')}
             options={[
@@ -261,9 +267,11 @@ export function MessageEditor({
           />
         </Field>
 
-        <Field label={t('config.controls.messageEditor.textLabel')}>
+        <Field label={t('config.controls.messageEditor.textLabel')} htmlFor={textInputId}>
           <input
             ref={inputRef}
+            id={textInputId}
+            data-testid="message-editor-text"
             className={FIELD_BASE}
             value={text}
             // Quotes are filtered as typed, not just at save time: Quake 2 has

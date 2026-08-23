@@ -37,6 +37,16 @@
 // ImportProfileDialog.tsx before changing it:
 //   config-import-review        (ImportProfileDialog.tsx, the review step's container,
 //                                 rendered only when `ambiguousRebindAliases` is non-empty)
+//
+// Story 047 D3 adds four more, same mirroring convention — read MessageEditor.tsx,
+// ControlsTab.tsx and LibraryView.tsx before changing these:
+//   action-edit-<actionId>          (ControlsTab.tsx, a plain action row's edit trigger,
+//                                     opens MessageEditor with showKeyCapture on)
+//   drop-message-edit-<catalogId>   (ControlsTab.tsx:701, a drops row's "Edit message"
+//                                     trigger, opens MessageEditor with showKeyCapture off)
+//   message-editor-content          (MessageEditor.tsx, the dialog's content container)
+//   library-auto-detect             (LibraryView.tsx, header "Auto Detect" button)
+//   installation-remove-<installationId> (LibraryView.tsx, installation-rail remove button)
 
 /** Mirrors src/shared/constants.ts:17-18 (`WINDOW_DEFAULT_WIDTH/HEIGHT`). */
 const VIEWPORT_DEFAULT = { width: 1280, height: 800 }
@@ -283,6 +293,86 @@ export const SCREENS = [
       // toggle to arm first.
       // MOUSE1 is bound in the Plain Profile fixture (scripts/lib/fixture.mjs).
       await click(page, 'keycap-MOUSE1')
+      await page.getByRole('dialog').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'config-controls-message',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 047 D3: Plain Profile's Controls tab, "Team Update" action
+    // (scripts/lib/fixture.mjs's `fixture-action-team-message`, a free-form
+    // `kind: 'message'` action) -> its edit trigger opens MessageEditor with
+    // `showKeyCapture` on (ControlsTab.tsx:901). Waiting on
+    // `message-editor-content` (MessageEditor.tsx) rules out the spinner-less
+    // but not-yet-mounted dialog. The fixture's `r` colour cvar (D2) makes the
+    // preview's `$r` badge render with a real colour, not a placeholder. The
+    // action's `categoryId` is `weapons`, not the rail's default `movement`
+    // (BUILT_IN_ACTION_CATEGORIES[0], src/shared/modules/config.ts), so the
+    // "Weapons" category chip has to be selected first (no testid on the
+    // rail's category buttons — selecting by its translated accessible name).
+    navigate: async (page) => {
+      await configDetail('controls')(page)
+      await page.getByRole('button', { name: 'Weapons' }).click({ timeout: CLICK_TIMEOUT_MS })
+      await click(page, 'action-edit-fixture-action-team-message')
+      await page
+        .getByTestId('message-editor-content')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'config-controls-drop-message',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 047 D3: same Controls tab, but the drops row's "Edit message"
+    // trigger (ControlsTab.tsx:701) for the `dropWeapon:railgun` catalogue row
+    // (scripts/lib/fixture.mjs's `fixture-action-drop-message`) — that row's
+    // message sub-row is already revealed because the fixture action carries
+    // a non-empty message (ControlsTab.tsx:670/738), so no checkbox click is
+    // needed first. Opens MessageEditor with `showKeyCapture` off; same
+    // `message-editor-content` wait, same `$r` colour-cvar badge. The row's
+    // `categoryId` is `drops`, not the rail's default `movement`, so the
+    // "Weapon dropping" category chip has to be selected first (same rail,
+    // no testid, selecting by translated accessible name).
+    navigate: async (page) => {
+      await configDetail('controls')(page)
+      await page
+        .getByRole('button', { name: 'Weapon dropping' })
+        .click({ timeout: CLICK_TIMEOUT_MS })
+      await click(page, 'drop-message-edit-dropWeapon:railgun')
+      await page
+        .getByTestId('message-editor-content')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'install-remove-dialog',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 047 D3: Library's installation rail -> remove button for the
+    // default fixture installation (scripts/lib/fixture.mjs's
+    // `INSTALL_ONE_ID` = 'fixture-install-favorite') -> RemoveInstallationDialog
+    // (Dialogs.tsx), which like every other modal here renders via `Modal`
+    // (role="dialog").
+    navigate: async (page) => {
+      await click(page, 'nav-library')
+      await click(page, 'installation-remove-fixture-install-favorite')
+      await page.getByRole('dialog').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'install-detect-dialog',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 047 D3: Library header's "Auto Detect" button -> DetectDialog
+    // opened with no `autoStart` (LibraryView.tsx passes none), so it renders
+    // its pre-scan state: `candidates === null` and not `scanning`, i.e. the
+    // deep-scan checkbox plus a "Start" button, no results list. Per story
+    // Decision 2 this screen must NEVER trigger `detection:scan` — do not add
+    // a click on the start button here, only wait for the dialog itself.
+    navigate: async (page) => {
+      await click(page, 'nav-library')
+      await click(page, 'library-auto-detect')
       await page.getByRole('dialog').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },

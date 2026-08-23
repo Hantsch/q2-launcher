@@ -19,7 +19,7 @@ repo still owes: no inline styles in the shipped CSP, and no authoring surface l
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
 - [x] 046 — The production CSP no longer allows inline styles
-- [ ] 047 — The message editor is covered by ui:verify like every other surface
+- [x] 047 — The message editor is covered by ui:verify like every other surface
 - [ ] 042 — A launcher-written profile file re-imports without losing anything
 - [ ] 043 — The .cfg file is the source of truth, state.json becomes a cache
 
