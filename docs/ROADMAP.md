@@ -328,16 +328,24 @@ Eight stories were originally filed, **four built this sprint, four still `draft
   `-slow`) and `wait` chains as first-class entries rather than opaque raw text. Lowest priority of
   the eight; 041 already imports them without mangling them.
 
-`docs/sprints/S08` **planned (2026-08-22)** — closes this milestone's held-back chain: 042
-(round-trip losslessly) then 043 (the `.cfg` becomes the source of truth, `state.json` becomes a
-cache), preceded by two small guardrail stories that are independent of the config rework and put
-`ui:verify` at full coverage before the write pipeline starts moving — **046** (drop
-`'unsafe-inline'` from the production CSP's `style-src`, the one directive story 035 left open) and
-**047** (`MessageEditor` into the `ui:verify` screen registry, the last named blind spot, which
-never received story 037's shared labelling fix). 042/043's parked decisions — metadata comment
-format, change detection, write cadence, conflict granularity — are resolved in `/sprint`'s
-clarification round, not before. 044/045 deliberately stay out so the sprint stays the
-architectural one. See `docs/sprints/S08/sprint.md`.
+`docs/sprints/S08` **built, acceptance pending (2026-08-23)** — closed this milestone's held-back
+chain: **046** (drop `'unsafe-inline'` from the production CSP's `style-src`) and **047**
+(`MessageEditor`, `RemoveInstallationDialog`, `DetectDialog` into the `ui:verify` screen registry)
+went first as planned, then **042** (round-trip losslessly, via a versioned `[q2l …]` trailing-tag
+format plus fixed-anchor category section headers, up to two levels, style-configurable) and
+**043** (the `.cfg` becomes the source of truth, `state.json` becomes a cache: explicit Save,
+hash-based external-change detection, a whole-file conflict dialog, rebuild-from-file on a missing/
+corrupt cache record). All four **done**: `npm run build`/`test` (1612 tests)/`typecheck` green,
+live `npm run ui:verify` clean (0 axe violations, 24/24 screens). See `docs/sprints/S08/review.md`
+and `docs/sprints/S08/testplan.md` for the manual acceptance pass. 042/043's parked decisions
+(metadata comment format, change detection, write cadence, conflict granularity) were resolved by
+the user in `/sprint`'s clarification round before refine, recorded in each story's own
+`## Decisions (Sprint)`. **042 needed eight adversarial review/fix rounds** — the carry-over rule
+this same milestone's story 039 established for `src/shared/config/alias-references.ts`-adjacent
+mirror/render code held again; 043's closing pass separately found three real cross-cutting bugs
+(a save-path clobber race, a stale-name file lookup, a silently-adopted corrupt file) that its
+per-deliverable tests had not surfaced. 044/045 deliberately stayed out so the sprint stayed the
+architectural one — both remain unscheduled, now unblocked.
 
 Suggested order: 038 alone, then 039 → 040 → 041 → 042 → 043 as one chain, with 044 after 039 and
 045 after 041. 038–040 are shippable on their own and already answer most of the "my config looks
@@ -394,11 +402,11 @@ machine, and each is a one-line fix in a data table:
   update or an explicit "leave as-is".
 - Auto-update via `electron-updater`, and a decision on code signing — unsigned
   builds give users a SmartScreen warning.
-- Drop `'unsafe-inline'` from the production CSP's `style-src` — deferred by story 035, which
-  moved the production renderer onto the real `q2launcher://` origin and left the directive as
-  AC6's one intentionally-unresolved item. Tailwind's emitted stylesheet is already requested as
-  a real `./assets/*.css` file (not inlined), so this is a ready follow-up, not blocked on
-  anything further. **Filed as story 046, scheduled in `docs/sprints/S08`.**
+- ~~Drop `'unsafe-inline'` from the production CSP's `style-src`~~ — **done, story 046** in
+  `docs/sprints/S08`. Production `style-src` is now `'self'` only (`DEV_CSP` unchanged for Fast
+  Refresh); `ui:verify`'s harness gates its exit code on both a live CSP-violation collector and
+  the served header itself, closing a gap where violations were collected but never actually
+  failed the run.
 
 **Tooling:**
 
@@ -420,11 +428,12 @@ machine, and each is a one-line fix in a data table:
   dialogs into the screen registry and took the full run to zero critical/serious/moderate/minor
   axe violations (`page-has-heading-one` deliberately disabled for this single-window desktop app,
   documented in the report). Both are **done** as of S06's acceptance (2026-08-22), when the
-  shared human desktop check — a full run never steals window focus — was confirmed. Remaining
-  known blind spot: `MessageEditor.tsx` is not in the screen registry and carries the same
-  unwired-label defect 037 fixed elsewhere (`docs/UI-VERIFICATION.md`) — **filed as story 047,
-  scheduled in `docs/sprints/S08`**, together with the two other reachable blind spots the doc
-  names (`RemoveInstallationDialog`, `DetectDialog`).
+  shared human desktop check — a full run never steals window focus — was confirmed. ~~Remaining
+  known blind spot: `MessageEditor.tsx`~~ — **done, story 047** in `docs/sprints/S08`:
+  `MessageEditor`, `RemoveInstallationDialog` and `DetectDialog` all joined the screen registry
+  (18 → 22 screens), the same unwired-label defect 037 fixed elsewhere was fixed here too via the
+  shared `Field`/`useId()` helper, and the full run stayed at zero critical/serious/moderate/minor
+  axe violations with all three added. No named blind spot remains.
 
 **UX:**
 

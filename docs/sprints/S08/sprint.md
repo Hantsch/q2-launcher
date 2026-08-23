@@ -1,6 +1,6 @@
 ---
 sprint: S08
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/S08
 milestone: Config, round two
 ---
