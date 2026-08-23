@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ChevronRight, FilePlus2, Pencil, SlidersHorizontal, Trash2 } from 'lucide-react'
-import type { ConfigProfile } from '@shared/modules/config'
+import {
+  ArrowLeft,
+  ChevronRight,
+  FilePlus2,
+  Pencil,
+  RotateCcw,
+  SlidersHorizontal,
+  Trash2,
+  TriangleAlert,
+} from 'lucide-react'
+import type { ConfigProfile, RefreshedProfileResult } from '@shared/modules/config'
 import { cn } from '../../lib/cn'
 import { formatRelativeTime } from '../../lib/format'
 import { Button, IconButton } from '../../components/ui/Button'
@@ -16,15 +25,29 @@ import { ImportProfileDialog } from './ImportProfileDialog'
 import { InstallationProfilesPanel } from './InstallationProfilesPanel'
 import { LayersPanel } from './LayersPanel'
 import { dedupedFindingCounts } from './lib/care-summary'
+import { applyRefreshedProfile, noticeForRefreshedProfile } from './lib/file-source-refresh'
+import { resolveSaveOutcome } from './lib/save-bar'
 import { analyzeTidyUp } from './lib/tidy-up-findings'
 import { validateProfileForEngines } from './lib/validation-scope'
-import { useProfileAutoWrite } from './lib/useProfileAutoWrite'
+import { useFileSourceRefresh } from './lib/useFileSourceRefresh'
 import { useProfileDraft } from './lib/useProfileDraft'
 import { OverviewKeyboardPanel } from './OverviewKeyboardPanel'
+import { ProfileSaveBar } from './components/ProfileSaveBar'
 import { RawFileTab } from './RawFileTab'
 import { RenameProfileDialog } from './RenameProfileDialog'
 import { SettingsTab } from './SettingsTab'
-import { listConfigProfiles } from './client'
+import { listConfigProfiles, saveConfigProfile } from './client'
+
+/** A parse/read diagnostic surfaced for the currently selected profile (story 043 D7) - kept
+ * separate from `ConfigProfile` itself since `refreshFromFiles` never persists the message/line,
+ * only the display-hint `fileState` (`ProfilesStore.setFileState`). Scoped to one profile id so a
+ * stale diagnostic from a previously selected profile is never shown against a different one. */
+interface FileDiagnostic {
+  profileId: string
+  file?: string
+  line?: number
+  message: string
+}
 
 type Screen = 'list' | 'detail'
 type DetailTab = 'overview' | 'settings' | 'controls' | 'raw' | 'care'
@@ -46,6 +69,10 @@ export function ConfigView() {
   const [showImport, setShowImport] = useState(false)
   const [showRename, setShowRename] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
+  const [fileDiagnostic, setFileDiagnostic] = useState<FileDiagnostic | null>(null)
+  const [rewriting, setRewriting] = useState(false)
+
+  const pushToast = useLauncher((state) => state.pushToast)
 
   useEffect(() => {
     let cancelled = false
@@ -82,15 +109,6 @@ export function ConfigView() {
   // per-tab local states already had - `draftOrSelected` is what every child
   // below actually receives, so that gap is never visible outside this file.
   const { draft, patch } = useProfileDraft(selected)
-
-  // Story 023 D3: the automatic write-on-change, mounted here at the detail
-  // level rather than inside any `activeTab === ...` branch, so a save writes
-  // whichever tab the user is editing in - and keeps writing once `WriteTargets`
-  // (where this trigger used to live, and therefore effectively never ran) is
-  // deleted in D7. `selected`, not `draft`: `selected.updatedAt` is what moves
-  // when a tab's `onChanged={setProfiles}` lands a real save, which is exactly
-  // the "a save happened" signal the rule keys on.
-  useProfileAutoWrite(selected)
 
   const draftOrSelected = draft ?? selected
   /**
@@ -192,6 +210,85 @@ export function ConfigView() {
    */
   const handleProfileUpdated = (updated: ConfigProfile): void => {
     setProfiles((prev) => prev.map((profile) => (profile.id === updated.id ? updated : profile)))
+  }
+
+  /**
+   * Story 043 D7: the outcome of one `useFileSourceRefresh` re-read for the selected profile.
+   * `applyRefreshedProfile` folds the outcome into `profiles` (a no-op for `unchanged`/`conflict`,
+   * a full replace for `adopted`, a `fileState`-only patch for `missing`/`unparseable`/`readError` -
+   * see its own doc comment); `noticeForRefreshedProfile` says what, if anything, needs surfacing
+   * on top of that.
+   *
+   * `adopted` is reported as a toast (AC3: "never a silent swap") - this module's existing one-shot
+   * transient-notice idiom, per `ProfileSaveBar`'s own `pushToast` usage. `conflict` is reported the
+   * same way `ProfileSaveBar`/`resolveSaveOutcome` (D6) stub it: a plain toast, no dialog - D5's own
+   * doc comment already says this pair of triggers should not realistically produce a conflict
+   * (that needs a dirty profile plus an external edit in the same instant), and the real two-pane
+   * resolution is D8's job.
+   */
+  const handleFileSourceResult = (result: RefreshedProfileResult): void => {
+    setProfiles((prev) => applyRefreshedProfile(prev, result))
+
+    const notice = noticeForRefreshedProfile(result)
+    if (notice?.kind === 'reloaded') {
+      pushToast({ level: 'info', messageKey: 'config.fileSource.reloaded', timeoutMs: 6000 })
+    } else if (notice?.kind === 'conflict') {
+      pushToast({ level: 'error', messageKey: 'config.fileSource.conflict', timeoutMs: 0 })
+    }
+
+    setFileDiagnostic((prev) => {
+      if (notice?.kind === 'diagnostic') {
+        return {
+          profileId: result.profileId,
+          file: notice.file,
+          line: notice.line,
+          message: notice.message,
+        }
+      }
+      // Any other outcome for the same profile means the diagnostic no longer applies (the file
+      // came back readable, was adopted, or went missing instead) - a diagnostic for a different
+      // profile is left alone.
+      return prev?.profileId === result.profileId ? null : prev
+    })
+  }
+
+  useFileSourceRefresh({ profileId: selectedId, onResult: handleFileSourceResult })
+
+  /**
+   * The "Rewrite from cache" action on the `fileState: 'missing'` banner (story 043 D7) - reuses
+   * D4's existing `save` handler exactly as-is: `save` writes from cache whenever the file is
+   * missing or unchanged, so there is nothing new to build on the main side. `resolveSaveOutcome`
+   * (D6, `lib/save-bar.ts`) is reused rather than re-implemented for the failure branches, so an
+   * unreadable-file surprise here reports through the identical toast `ProfileSaveBar` would.
+   *
+   * A `'conflict'` outcome (story 043 D8's new action type) is not expected on this path - the
+   * file was reported `missing` a moment ago, so a save reaching `changedOnDisk` here means it
+   * reappeared between the banner rendering and this click. This deliberately does not open
+   * `ConfigConflictDialog` for that vanishingly rare race (this button's whole point is a MISSING
+   * file, not a changed one) - it falls back to the same plain toast `useFileSourceRefresh`'s own
+   * conflict surfacing already uses (`handleFileSourceResult` above).
+   */
+  const handleRewriteFromCache = async (): Promise<void> => {
+    if (!selected) return
+    setRewriting(true)
+    const outcome = await saveConfigProfile({ profileId: selected.id })
+    setRewriting(false)
+
+    const action = resolveSaveOutcome(outcome)
+    if (action.type === 'saved') {
+      handleProfileUpdated(action.profile)
+      return
+    }
+    if (action.type === 'conflict') {
+      pushToast({ level: 'error', messageKey: 'config.fileSource.conflict', timeoutMs: 0 })
+      return
+    }
+    pushToast({
+      level: 'error',
+      messageKey: action.messageKey,
+      timeoutMs: 0,
+      ...(action.params ? { params: action.params } : {}),
+    })
   }
 
   const tabs: { id: DetailTab; label: string; badge?: string; badgeTone?: 'danger' | 'warning' }[] =
@@ -332,6 +429,81 @@ export function ConfigView() {
                 </KeyValue>
               </div>
             </div>
+
+            {/*
+              Story 043 D6: mounted at the detail level, not inside any `activeTab === ...` branch,
+              so Save works no matter which tab is showing - the same placement the deleted
+              `useProfileAutoWrite` hook used. `handleProfileUpdated` is the existing single-profile
+              merge-by-id path (`CareTab`'s `onProfileUpdated`), reused rather than inventing a
+              second update path for `save`'s single-profile result.
+            */}
+            <ProfileSaveBar profile={selected} onSaved={handleProfileUpdated} />
+
+            {/*
+              Story 043 D7: persistent (never a toast) banner for a profile whose canonical file
+              was deleted outside the launcher - `fileState` comes straight off the profile record,
+              which `applyRefreshedProfile` patched from the last `refreshFromFiles` result. The two
+              actions are real client calls, not stubs: "Rewrite from cache" reuses D4's `save`
+              handler as-is (see `handleRewriteFromCache`'s doc comment), "Remove profile" opens the
+              exact same confirmation dialog the detail header's own delete button opens.
+            */}
+            {selected.fileState === 'missing' && (
+              <div className="space-y-3 rounded-sm border border-danger/35 bg-danger/8 p-3">
+                <div className="flex items-start gap-2">
+                  <TriangleAlert className="mt-0.5 size-4 shrink-0 text-danger" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-danger">
+                      {t('config.fileSource.missingBanner.title')}
+                    </p>
+                    <p className="text-xs leading-relaxed text-ink-dim">
+                      {t('config.fileSource.missingBanner.body')}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="neutral"
+                    size="sm"
+                    icon={<RotateCcw className="size-3.5" />}
+                    disabled={rewriting}
+                    onClick={() => void handleRewriteFromCache()}
+                  >
+                    {t('config.fileSource.missingBanner.rewrite')}
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    icon={<Trash2 className="size-3.5" />}
+                    onClick={() => setShowDelete(true)}
+                  >
+                    {t('config.fileSource.missingBanner.remove')}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/*
+              Story 043 D7: the last-good-cache diagnostic for an unparseable/unreadable file -
+              persistent (not a toast, per AC4) but never disables the profile: the tabs below stay
+              exactly as reachable as they are for any other profile.
+            */}
+            {fileDiagnostic && fileDiagnostic.profileId === selected.id && (
+              <div className="flex items-start gap-2 rounded-sm border border-warning/35 bg-warning/8 p-3">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-warning">
+                    {fileDiagnostic.file !== undefined && fileDiagnostic.line !== undefined
+                      ? t('config.fileSource.diagnostic.titleWithLine', {
+                          file: fileDiagnostic.file,
+                          line: fileDiagnostic.line,
+                        })
+                      : t('config.fileSource.diagnostic.title')}
+                  </p>
+                  <p className="text-xs leading-relaxed text-ink-dim">{fileDiagnostic.message}</p>
+                  <p className="text-xs text-ink-muted">{t('config.fileSource.diagnostic.hint')}</p>
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-wrap gap-1.5 border-b border-line pb-2">
               {tabs.map((tab) => (

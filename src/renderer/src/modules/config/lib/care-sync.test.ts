@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ProfileFileSyncStatus, ProfileSyncState } from '@shared/modules/config'
-import { toCareSyncRows } from './care-sync'
+import { canonicalOutOfSyncReason, toCareSyncRows, type CareSyncRow } from './care-sync'
 
 function own(status: ProfileFileSyncStatus, messageKey?: string) {
   return {
@@ -81,5 +81,64 @@ describe('toCareSyncRows', () => {
   it('omits messageKey entirely when the source has none', () => {
     const sync: ProfileSyncState = { own: own('inSync'), installations: [] }
     expect(toCareSyncRows(sync)[0].messageKey).toBeUndefined()
+  })
+
+  // Story 043 D9 acceptance: "the five states of 022 decision 5 still each mean what their copy
+  // says" - pinned here as one assertion per state, on top of the individual pass-through tests
+  // above, so a future change to this function cannot quietly blur two of the five together.
+  it('keeps each of the five states meaning exactly what it did before story 043', () => {
+    const sync: ProfileSyncState = {
+      own: own('inSync'),
+      installations: [
+        installation('i1', 'outOfSync'),
+        installation('i2', 'missing'),
+        installation('i3', 'pending'),
+        installation('i4', 'error'),
+      ],
+    }
+
+    const states = toCareSyncRows(sync).map((row) => row.state)
+
+    expect(states).toEqual(['inSync', 'outOfSync', 'missing', 'pending', 'failed'])
+  })
+})
+
+describe('canonicalOutOfSyncReason', () => {
+  const canonicalRow = (state: CareSyncRow['state']): CareSyncRow => ({
+    target: 'canonical',
+    path: 'C:/profiles/p1.cfg',
+    state,
+  })
+
+  const installationRow = (state: CareSyncRow['state']): CareSyncRow => ({
+    target: 'i1',
+    path: 'C:/games/i1/p1.cfg',
+    state,
+  })
+
+  it('reads as "unsavedChanges" for the canonical row when the profile is dirty', () => {
+    expect(canonicalOutOfSyncReason(canonicalRow('outOfSync'), true)).toBe('unsavedChanges')
+  })
+
+  it('reads as "externalEdit" for the canonical row when the profile is not dirty', () => {
+    expect(canonicalOutOfSyncReason(canonicalRow('outOfSync'), false)).toBe('externalEdit')
+  })
+
+  it('reads as "externalEdit" when dirty is absent (pre-story-043 profiles)', () => {
+    expect(canonicalOutOfSyncReason(canonicalRow('outOfSync'), undefined)).toBe('externalEdit')
+  })
+
+  it('is undefined for the canonical row in every state other than outOfSync', () => {
+    expect(canonicalOutOfSyncReason(canonicalRow('inSync'), true)).toBeUndefined()
+    expect(canonicalOutOfSyncReason(canonicalRow('missing'), true)).toBeUndefined()
+    expect(canonicalOutOfSyncReason(canonicalRow('failed'), true)).toBeUndefined()
+    expect(canonicalOutOfSyncReason(canonicalRow('pending'), true)).toBeUndefined()
+  })
+
+  // Regression (story 043 D9 acceptance): an edited installation copy is still a plain
+  // "outOfSync" row - never reinterpreted as unsaved-changes/external-edit, which is a canonical-
+  // only distinction. Its Retry affordance (SyncRow, `failed` only) is therefore untouched.
+  it('is undefined for an installation row even when outOfSync and the profile is dirty', () => {
+    expect(canonicalOutOfSyncReason(installationRow('outOfSync'), true)).toBeUndefined()
   })
 })

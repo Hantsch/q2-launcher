@@ -432,6 +432,42 @@
       "rename": "Rename\u2026",
       "delete": "Delete\u2026"
     },
+    "save": {
+      "unsaved": "Unsaved changes",
+      "unsavedHint": "Kept safely for now, but the file on disk hasn\u2019t been updated yet.",
+      "saved": "Saved",
+      "action": "Save",
+      "saving": "Saving\u2026",
+      "unreadableUnparseable": "The file on disk could not be parsed ({{message}}) \u2014 fix the file, then try saving again. Your edits are still safe.",
+      "unreadableReadError": "The file on disk could not be read ({{message}}) \u2014 try saving again. Your edits are still safe."
+    },
+    "conflictDialog": {
+      "title": "The file changed on disk",
+      "description": "This profile has unsaved edits, and its file changed underneath them. Choose which version to keep.",
+      "onDisk": "On disk",
+      "yourEdits": "Your unsaved changes",
+      "takeFile": "Take the file",
+      "takingFile": "Taking the file\u2026",
+      "overwrite": "Overwrite with my version",
+      "overwriting": "Overwriting\u2026",
+      "takeFileFailed": "The file changed again before it could be taken \u2014 nothing was adopted. Try again.",
+      "overwriteFailed": "The file could not be overwritten. Try again."
+    },
+    "fileSource": {
+      "reloaded": "This profile's file changed on disk and was reloaded.",
+      "conflict": "The file changed on disk while this profile has unsaved edits \u2014 press Save to open the conflict dialog and resolve it. Nothing was overwritten.",
+      "diagnostic": {
+        "titleWithLine": "This file could not be parsed ({{file}}, line {{line}})",
+        "title": "This file could not be read",
+        "hint": "The profile keeps working off its last saved state until the file is fixed."
+      },
+      "missingBanner": {
+        "title": "This profile's file is missing",
+        "body": "It was deleted or moved outside the launcher. The profile keeps working off its last saved state.",
+        "rewrite": "Rewrite from cache",
+        "remove": "Remove profile\u2026"
+      }
+    },
     "createDialog": {
       "title": "Create config profile",
       "nameLabel": "Name",
@@ -1100,6 +1136,16 @@
           "missing": "Missing",
           "failed": "Failed",
           "pending": "Pending"
+        },
+        "canonical": {
+          "unsavedChanges": "Unsaved changes",
+          "unsavedChangesHint": "Save from the tabs above to write these changes to the file.",
+          "externalEdit": "Changed outside the launcher",
+          "externalEditHint": "The file on disk no longer matches what this profile last saved. Reload adopts the file's version; Compare shows both before you decide.",
+          "reload": "Reload",
+          "reloading": "Reloading…",
+          "compare": "Compare",
+          "comparing": "Comparing…"
         }
       },
       "tidyUp": {

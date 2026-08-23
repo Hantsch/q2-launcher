@@ -306,6 +306,16 @@ export function useInstallationById(id: string | null): Installation | null {
   )
 }
 
+/**
+ * Whether the OS window currently has focus - mirrors `chrome.focused`, pushed by main through the
+ * existing `window:state` event (subscribed once in `bootstrap` above). Story 043 D7: the signal
+ * the config module's file re-read hook (`useFileSourceRefresh`) watches for a false -> true
+ * transition, instead of a DOM `focus` listener (which the story explicitly rules out).
+ */
+export function useWindowFocused(): boolean {
+  return useLauncher((state) => state.chrome.focused)
+}
+
 /** The job the action bar shows: the first still-active one. */
 export function useActiveJob(installationId?: string | null): Job | null {
   return useLauncher((state) => {

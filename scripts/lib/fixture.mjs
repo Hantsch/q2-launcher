@@ -350,10 +350,21 @@ alias q2l_fixture_layer "bind e +use"
 // - No entry (`e=`)/category (`cat=`) tags at all: this is a minimal
 //   launcher file with no actions/layers, same as a freshly created empty
 //   profile would restore to (`actions`/`categories`/`layers` all empty).
+// - Line 1's trailing clause is deliberately the OLD (pre-story-043) sentinel wording, not the
+//   current one - a live exercise of the wording-tolerant ownership check
+//   (`ownedProfileId`/`findOwnCanonicalFile`, `@shared/config/render.ts` + `canonical.ts`) rather
+//   than a copy/paste that happened to go stale. Line 4, in contrast, must stay byte-identical to
+//   `HAND_EDIT_SENTENCE` (`@shared/config/render.ts`) - `profile-restore.ts`'s
+//   `consumeHeaderDecoration` matches it exactly so this line is recognised as understood header
+//   decoration and folded out of the import dialog's "unrecognised leftovers" list; letting it
+//   drift out of sync (as it did across story 043's D1 wording change) reintroduces the exact
+//   `scrollable-region-focusable` axe violation story 042's fix-cycle-5 closed, because an
+//   unrecognised long comment line renders as its own scrollable single-line code block with no
+//   keyboard access.
 const FIXTURE_RESTORE_CONFIG_CFG = `// q2-launcher profile fixture-profile-plain - generated, do not edit
 // ================================================================
 // Fixture Restored Profile [q2l v=1]
-// Q2 Launcher - do not hand-edit while the launcher has the profile open
+// Q2 Launcher - hand-edited changes to this file are read back
 // ================================================================
 
 // --- General ---

@@ -54,6 +54,15 @@
 //   message-editor-content          (MessageEditor.tsx, the dialog's content container)
 //   library-auto-detect             (LibraryView.tsx, header "Auto Detect" button)
 //   installation-remove-<installationId> (LibraryView.tsx, installation-rail remove button)
+//
+// Story 043 D8 adds one more, same mirroring convention — read ProfileSaveBar.tsx and
+// ConfigConflictDialog.tsx before changing these:
+//   config-save               (ProfileSaveBar.tsx, the explicit Save button)
+//   config-conflict-dialog    (ConfigConflictDialog.tsx, the two-pane content container)
+
+import { readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { variantUserDataDir } from './harness.mjs'
 
 /** Mirrors src/shared/constants.ts:17-18 (`WINDOW_DEFAULT_WIDTH/HEIGHT`). */
 const VIEWPORT_DEFAULT = { width: 1280, height: 800 }
@@ -64,6 +73,14 @@ const BOTH_VIEWPORTS = [VIEWPORT_DEFAULT, VIEWPORT_MIN]
 /** Long enough for a fresh profile switch/re-render, short enough that a
  * genuinely missing testid fails the screen instead of the whole run. */
 const CLICK_TIMEOUT_MS = 8_000
+
+/**
+ * Story 043 D8: `Plain Profile`'s canonical file name, as `resolveProfileFileNames`
+ * (`@shared/config/profile-files.ts`) actually resolves it - the sanitizer maps the space to `-`,
+ * so this is NOT `Plain Profile.cfg`. Used only by the `config-conflict-dialog` screen below to
+ * hand-edit the file from the Node side.
+ */
+const PLAIN_PROFILE_FILE_NAME = 'Plain-Profile.cfg'
 
 /** Fixture profile names, mirrors scripts/lib/fixture.mjs's `populatedConfigProfiles()`. */
 const PROFILE_PLAIN = 'Plain Profile'
@@ -391,6 +408,47 @@ export const SCREENS = [
       await click(page, 'nav-library')
       await click(page, 'installation-remove-fixture-install-favorite')
       await page.getByRole('dialog').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'config-conflict-dialog',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 043 D8: a real save-time conflict, not a mocked one. `configDetail('raw')` lands on
+    // Plain Profile's Raw File tab, whose "Start the file with `unbindall`" checkbox
+    // (RawFileTab.tsx) is a real content setter (`setWriteUnbindall`) that marks the profile
+    // dirty server-side the instant it is toggled - `ProfileSaveBar` (mounted at the detail
+    // level, reachable regardless of which tab is open) then shows "Unsaved changes".
+    //
+    // With the profile dirty, this hand-edits the profile's canonical file directly from the
+    // Node side - never through `page`, since the point is a change the launcher has not read -
+    // the same "hand-edit in Notepad" idiom `index.test.ts`'s own D4/D8 tests use: read the
+    // current bytes and append one well-formed comment line, which changes the hash without
+    // risking `unparseable`. Clicking Save (`config-save`, ProfileSaveBar.tsx) then hits `save`'s
+    // `changedOnDisk` refusal and opens this dialog - waiting on `config-conflict-dialog`
+    // (ConfigConflictDialog.tsx) rules out both "still saving" and a save that unexpectedly
+    // succeeded.
+    navigate: async (page) => {
+      await configDetail('raw')(page)
+      // The checkbox's own `<input>` is visually `sr-only` (Checkbox, `components/ui/controls.tsx`)
+      // - its real hit target for a pointer is the label's visible text, exactly what a sighted
+      // user actually clicks, so this targets that text rather than the role=checkbox element
+      // itself (whose collapsed hit box the visual indicator span sits on top of and intercepts).
+      await page
+        .getByText('Start the file with `unbindall`', { exact: true })
+        .click({ timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByText('Unsaved changes')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+
+      const canonicalPath = join(variantUserDataDir('populated'), PLAIN_PROFILE_FILE_NAME)
+      const onDisk = readFileSync(canonicalPath, 'latin1')
+      writeFileSync(canonicalPath, `${onDisk}// external edit\n`, 'latin1')
+
+      await click(page, 'config-save')
+      await page
+        .getByTestId('config-conflict-dialog')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },
   {

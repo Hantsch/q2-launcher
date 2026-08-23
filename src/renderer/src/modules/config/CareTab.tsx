@@ -116,7 +116,11 @@ export function CareTab({
       <CareSummaryPanel summary={summary} />
       <ValidationPanel result={validation} />
       <PreservedLinesPanel profile={profile} />
-      <CareSyncSection profile={profile} onStatusChange={setSyncStatus} />
+      <CareSyncSection
+        profile={profile}
+        onStatusChange={setSyncStatus}
+        onProfileUpdated={onProfileUpdated}
+      />
       <CareTidyUpSection profile={profile} onProfileUpdated={onProfileUpdated} />
       <CleanupPanel
         installations={installations}

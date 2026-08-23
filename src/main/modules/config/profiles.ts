@@ -6,6 +6,7 @@ import {
   type ConfigActionCategory,
   type ConfigProfile,
   type CreateConfigProfileInput,
+  type ProfileFileState,
   type RenameConfigProfileInput,
   type RemoveConfigProfileInput,
   type SetDefaultProfileInput,
@@ -114,6 +115,29 @@ export class ProfilesStore {
       layers: input.layers,
     }
 
+    return this.commit([...this.state.configProfiles(), profile])
+  }
+
+  /**
+   * Story 043 D3: appends an already-fully-built record - one `rebuild.ts` reconstructed from a
+   * launcher-owned `.cfg` file whose `state.json` record was lost or unreadable - through the same
+   * `commit()` path `create`/`createFromImport` use, so a rebuilt profile is an ordinary profile by
+   * construction (the `adoptRawBinds` pass included) and nothing about its persistence semantics
+   * differs from a normally-created one.
+   *
+   * Deliberately **not** `createFromImport`, and deliberately not id-generating: that path mints a
+   * fresh id (story 042 AC4's import rule - importing a foreign file is a new profile), while a
+   * rebuild has to keep the id the file's own ownership sentinel carries, or every installation
+   * assignment and every other reference to that profile id would break (story 043's own decision:
+   * "a rebuild from the launcher's own file keeps the sentinel id"). That is why the two stay
+   * separate methods even though both end here.
+   *
+   * Throws when the store already holds `profile.id`, so this can never produce a second, duplicate
+   * record for a profile that is still live - the caller (`rebuild.ts`) already filters those out,
+   * and this is the independent net under it.
+   */
+  addRebuilt(profile: ConfigProfile): ConfigProfile[] {
+    if (this.find(profile.id)) throw new Error(`config profile already exists: ${profile.id}`)
     return this.commit([...this.state.configProfiles(), profile])
   }
 
@@ -333,6 +357,121 @@ export class ProfilesStore {
       ...current,
       sectionHeaderStyle: input.sectionHeaderStyle,
       updatedAt: new Date().toISOString(),
+    }
+    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+  }
+
+  /**
+   * Story 043 D4: marks whether the profile carries edits that are not in its canonical `.cfg` yet.
+   *
+   * Same shape as `setWriteUnbindall`/`setSectionHeaderStyle` above (one field, full replace, throws
+   * on an unknown id) with one deliberate difference: `updatedAt` is NOT bumped. This flag is the
+   * launcher's own bookkeeping about the cache-vs-file relationship, not a user edit - the setter
+   * that actually changed the profile's content already stamped the timestamp, and `save` clearing
+   * the flag afterwards must not look like a second edit.
+   */
+  setDirty(profileId: string, dirty: boolean): ConfigProfile[] {
+    const current = this.find(profileId)
+    if (!current) throw new Error(`config profile not found: ${profileId}`)
+
+    const next: ConfigProfile = { ...current, dirty }
+    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+  }
+
+  /**
+   * Story 043 D2/D4: records that the profile's canonical file was just confirmed to hold exactly
+   * `fileHash`'s bytes, at `fileSeenAt` (epoch ms) - the baseline `readFileState` compares the next
+   * read against, and the reason the launcher's own write is never mistaken for an external edit.
+   *
+   * Deliberately does NOT touch `dirty`: the caller is a sync run, which can confirm a *sibling*
+   * profile's file (a cascade writes more than one), and clearing that sibling's unsaved-edits flag
+   * as a side effect of hashing its file would silently lose the fact that it has unsaved edits.
+   * Clearing `dirty` is `save`'s own explicit step, through `setDirty` above. `updatedAt` is not
+   * bumped either, same reasoning as `setDirty`.
+   */
+  markFileSeen(profileId: string, fileHash: string, fileSeenAt: number): ConfigProfile[] {
+    const current = this.find(profileId)
+    if (!current) throw new Error(`config profile not found: ${profileId}`)
+
+    const next: ConfigProfile = {
+      ...current,
+      fileHash,
+      fileSeenAt,
+      fileState: 'unchanged',
+    }
+    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+  }
+
+  /**
+   * Story 043 D5: records `readFileState`'s classification as a display hint only, for the two
+   * branches `refreshFromFiles` must never do anything else for:
+   *
+   * - `missing` - the file is gone outside the launcher; the story's own decision keeps the profile
+   *   in the list ("it stays in the list marked 'file missing'"), so this only ever updates
+   *   `fileState`, never removes the record.
+   * - `unparseable`/`readError` - the last good cache must stay exactly as it was (content, `dirty`,
+   *   `fileHash` all untouched) so the profile keeps working off it; only the display hint changes.
+   *
+   * Deliberately does not bump `updatedAt` (this is launcher bookkeeping about the cache-vs-file
+   * relationship, not a user edit - same reasoning as `setDirty`/`markFileSeen` above) and does not
+   * touch `dirty`/`fileHash` itself, unlike `markFileSeen`.
+   */
+  setFileState(profileId: string, fileState: ProfileFileState): ConfigProfile[] {
+    const current = this.find(profileId)
+    if (!current) throw new Error(`config profile not found: ${profileId}`)
+
+    const next: ConfigProfile = { ...current, fileState }
+    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+  }
+
+  /**
+   * Story 043 D5: overlays freshly-read file content onto an EXISTING profile record - the "adopt"
+   * case of `refreshFromFiles` (the file changed on disk, no unsaved edits to lose). Mirrors
+   * `rebuild.ts#buildRebuiltProfile`'s field mapping (same fields the file actually carries: the
+   * recovered name, `cvars`/`binds`/`actions`/`categories`/`layers`, `writeUnbindall`,
+   * `sectionHeaderStyle`) but UPDATES in place rather than constructing a fresh record - unlike a
+   * rebuild, an adopt has an existing `id`/`createdAt`/`assignments`/played-mods-adjacent state to
+   * keep untouched, so it cannot go through `addRebuilt`/`createFromImport`.
+   *
+   * `fileHash`/`fileSeenAt` are reseeded from the read that produced `fields` and `fileState`
+   * becomes `'unchanged'` (this read IS the new baseline), and `dirty` is left alone - the caller
+   * only reaches this method when the profile was not dirty in the first place.
+   *
+   * `updatedAt` IS bumped: unlike `setFileState`/`setDirty`/`markFileSeen` above (pure cache
+   * bookkeeping), this genuinely replaces the profile's content with what is now on disk.
+   */
+  adoptFromFile(
+    profileId: string,
+    fields: {
+      name: string
+      cvars: Record<string, string>
+      binds: Record<string, string>
+      actions: ConfigAction[]
+      categories: ConfigActionCategory[]
+      layers: AltLayer[]
+      writeUnbindall: boolean
+      sectionHeaderStyle: ConfigProfile['sectionHeaderStyle']
+    },
+    fileHash: string,
+    fileSeenAt: number,
+  ): ConfigProfile[] {
+    const current = this.find(profileId)
+    if (!current) throw new Error(`config profile not found: ${profileId}`)
+
+    const next: ConfigProfile = {
+      ...current,
+      name: fields.name,
+      cvars: { ...fields.cvars },
+      binds: { ...fields.binds },
+      actions: fields.actions,
+      categories: fields.categories,
+      layers: fields.layers,
+      writeUnbindall: fields.writeUnbindall,
+      sectionHeaderStyle: fields.sectionHeaderStyle,
+      updatedAt: new Date().toISOString(),
+      fileHash,
+      fileSeenAt,
+      fileState: 'unchanged',
     }
     return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
   }

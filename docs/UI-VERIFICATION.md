@@ -453,6 +453,28 @@ Story 047 D3 adds three more dialog-entry screens, following the same shape:
   only, preserving the harness's guarantee (see "Isolation from your real app
   state" above) that it never triggers a real `detection:scan`.
 
+Story 043 D8 adds one more, and it is the first entry in the registry whose
+`navigate()` reaches outside `page` entirely:
+
+- **`config-conflict-dialog`** — `ConfigConflictDialog`
+  (`src/renderer/src/modules/config/ConfigConflictDialog.tsx`), the whole-file
+  save conflict dialog. Unlike every other dialog entry, its precondition
+  (the profile's edits dirty in the launcher *and* its canonical file changed
+  on disk at the same time) cannot be produced by clicks alone. `navigate()`
+  opens the "Plain Profile" fixture's Raw tab, toggles its "Start the file
+  with `unbindall`" checkbox (`RawFileTab.tsx`) to make the profile dirty —
+  a real `setWriteUnbindall` IPC round trip, not local-only state — waits for
+  `ProfileSaveBar`'s "Unsaved changes" text, then drops to the Node side and
+  appends one well-formed comment line directly onto the profile's canonical
+  `Plain-Profile.cfg` under the fixture's userData dir
+  (`variantUserDataDir('populated')`, `scripts/lib/harness.mjs`) — the same
+  "hand-edit in Notepad" the story's own acceptance criteria describe, done
+  with `node:fs` rather than through `page` since the whole point is a change
+  the launcher process has not read. Clicking `config-save`
+  (`ProfileSaveBar.tsx`'s Save button) then hits `save`'s `changedOnDisk`
+  refusal, and `navigate()` waits for `config-conflict-dialog`
+  (`ConfigConflictDialog.tsx`'s two-pane content container) before returning.
+
 ### Cold-start screens
 
 A screen normally runs inside the batched session described above: the

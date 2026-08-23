@@ -9,8 +9,8 @@ import { BACKUP_SUFFIX, reconcileOwnedProfileFiles, writeInstallationFiles } fro
 import type { WriteInstallationFilesOptions } from './writer'
 
 const PROFILE_FILE = 'q2l-profile-p1.cfg'
-const PROFILE_CONTENT = `${OWNERSHIP_MARKER} p1 - generated, do not edit\nset sensitivity "3"\n`
-const LOADER_CONTENT = `${OWNERSHIP_MARKER} p1 - generated, do not edit\nexec ${PROFILE_FILE}\n`
+const PROFILE_CONTENT = `${OWNERSHIP_MARKER} p1 - hand-edited changes are read back\nset sensitivity "3"\n`
+const LOADER_CONTENT = `${OWNERSHIP_MARKER} p1 - hand-edited changes are read back\nexec ${PROFILE_FILE}\n`
 const HAND_WRITTEN = 'bind mouse2 "+attack"\nset name "player"\n'
 
 /**
@@ -103,7 +103,7 @@ describe('writeInstallationFiles', () => {
     // Second save with different content: the file on disk is now our own
     // output, and overwriting the backup with it would destroy the only copy of
     // what the user actually wrote.
-    const secondLoader = `${OWNERSHIP_MARKER} p2 - generated, do not edit\nexec q2l-profile-p2.cfg\n`
+    const secondLoader = `${OWNERSHIP_MARKER} p2 - hand-edited changes are read back\nexec q2l-profile-p2.cfg\n`
     await writeInstallationFiles(options({ loaderFileContent: secondLoader }))
 
     expect(await read('baseq2', `autoexec.cfg${BACKUP_SUFFIX}`)).toBe(HAND_WRITTEN)
@@ -129,7 +129,7 @@ describe('writeInstallationFiles', () => {
       options({ playedMods: ['ctf'], installation: installation({ gameDirs: ['baseq2', 'ctf'] }) }),
     )
 
-    const secondLoader = `${OWNERSHIP_MARKER} p2 - generated, do not edit\nexec q2l-profile-p2.cfg\n`
+    const secondLoader = `${OWNERSHIP_MARKER} p2 - hand-edited changes are read back\nexec q2l-profile-p2.cfg\n`
     const result = await writeInstallationFiles(
       options({
         installation: installation({ gameDirs: ['baseq2', 'ctf'] }),
@@ -201,7 +201,7 @@ describe('writeInstallationFiles', () => {
   it('never backs up a file we generated ourselves', async () => {
     // Our own output from an earlier save - for a different profile id, which
     // still counts as ours.
-    const ours = `${OWNERSHIP_MARKER} p0 - generated, do not edit\nexec q2l-profile-p0.cfg\n`
+    const ours = `${OWNERSHIP_MARKER} p0 - hand-edited changes are read back\nexec q2l-profile-p0.cfg\n`
     await seed('baseq2/autoexec.cfg', ours)
 
     const result = await writeInstallationFiles(options())

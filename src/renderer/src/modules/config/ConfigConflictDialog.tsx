@@ -1,0 +1,143 @@
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { ConfigProfile, SaveProfileConflict } from '@shared/modules/config'
+import { Button } from '../../components/ui/Button'
+import { Modal } from '../../components/ui/Modal'
+import { SectionLabel } from '../../components/ui/primitives'
+import { useLauncher } from '../../store/useLauncher'
+import { refreshProfilesFromFiles, saveConfigProfile } from './client'
+import { ConfigCodeView } from './components/ConfigCodeView'
+
+/**
+ * Story 043 D8: the whole-file conflict dialog - `save`'s `SaveProfileConflict` shown as two
+ * side-by-side panes, both built from 024's `ConfigCodeView` (single-pane by design, composed
+ * twice here rather than rewritten into a diff component). Replaces the plain toast stub D6 left
+ * in `ProfileSaveBar`/`lib/save-bar.ts` for the `'conflict'` outcome.
+ *
+ * Mirrors `ImportProfileDialog` for the dialog shell: a `Modal` with a footer of real buttons, no
+ * home-grown focus trap - `Modal` already owns focus-on-open/Tab-confinement/Escape-to-close, and
+ * closing this dialog (Escape, the scrim, or Cancel) resolves nothing, same as that dialog's own
+ * `onClose`.
+ *
+ * The two resolutions are real IPC round-trips, not local state mutations:
+ * - **Take the file** discards the unsaved edits and adopts whatever is on disk right now, through
+ *   `refreshFromFiles`'s existing `adopted` branch (D5) with its new `discardLocalEdits` flag (D8) -
+ *   a fresh read, not a replay of the `diskContent` this dialog was opened with, since "take the
+ *   file" means "whatever the file says", which could in principle have moved again since the
+ *   conflict was first shown.
+ * - **Overwrite with my version** writes `ourContent` (the cached profile's own render) through
+ *   `save`'s new `force` flag (D8), which skips the re-read/conflict check entirely - the user has
+ *   just been shown the disk content and explicitly chosen to replace it regardless.
+ *
+ * Either resolution lands through `onResolved`, the same single-profile update path `ProfileSaveBar`
+ * already gets from `ConfigView` (`handleProfileUpdated`) - there is no separate result shape for a
+ * dialog-resolved save than for an ordinary one.
+ */
+export function ConfigConflictDialog({
+  profileId,
+  conflict,
+  onClose,
+  onResolved,
+}: {
+  profileId: string
+  conflict: SaveProfileConflict
+  onClose: () => void
+  onResolved: (profile: ConfigProfile) => void
+}) {
+  const { t } = useTranslation()
+  const pushToast = useLauncher((state) => state.pushToast)
+  const [busy, setBusy] = useState<'take' | 'overwrite' | null>(null)
+
+  const reportUnexpected = (messageKey: string, params?: Record<string, string | number>): void => {
+    pushToast({ level: 'error', messageKey, timeoutMs: 0, ...(params ? { params } : {}) })
+  }
+
+  const takeFile = async (): Promise<void> => {
+    setBusy('take')
+    const outcome = await refreshProfilesFromFiles({ profileId, discardLocalEdits: true })
+    setBusy(null)
+
+    if (!outcome.ok) {
+      reportUnexpected(outcome.error.key, outcome.error.params)
+      return
+    }
+    const entry = outcome.value.find((result) => result.profileId === profileId)
+    if (entry?.outcome === 'adopted') {
+      onResolved(entry.profile)
+      onClose()
+      return
+    }
+    // The file moved again (missing/unparseable/readError) in the moment between the conflict
+    // being shown and this click - rare, but real disk state, not a bug in this dialog. Nothing
+    // was adopted; report it and let the ordinary save/refresh flow pick it up from here.
+    reportUnexpected('config.conflictDialog.takeFileFailed')
+  }
+
+  const overwrite = async (): Promise<void> => {
+    setBusy('overwrite')
+    const outcome = await saveConfigProfile({ profileId, force: true })
+    setBusy(null)
+
+    if (!outcome.ok) {
+      reportUnexpected(outcome.error.key, outcome.error.params)
+      return
+    }
+    if (outcome.value.status === 'saved') {
+      onResolved(outcome.value.profile)
+      onClose()
+      return
+    }
+    // `force` skips the classification that could produce `conflict`/`unreadable` - reaching one of
+    // them here would mean the canonical directory itself became unreadable in that instant.
+    reportUnexpected('config.conflictDialog.overwriteFailed')
+  }
+
+  return (
+    <Modal
+      open
+      size="lg"
+      title={t('config.conflictDialog.title')}
+      description={t('config.conflictDialog.description')}
+      onClose={onClose}
+      closeLabel={t('common.close')}
+      footer={
+        <>
+          <Button variant="ghost" disabled={busy !== null} onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            data-testid="config-conflict-take-file"
+            variant="neutral"
+            disabled={busy !== null}
+            onClick={() => void takeFile()}
+          >
+            {busy === 'take'
+              ? t('config.conflictDialog.takingFile')
+              : t('config.conflictDialog.takeFile')}
+          </Button>
+          <Button
+            data-testid="config-conflict-overwrite"
+            variant="primary"
+            disabled={busy !== null}
+            onClick={() => void overwrite()}
+          >
+            {busy === 'overwrite'
+              ? t('config.conflictDialog.overwriting')
+              : t('config.conflictDialog.overwrite')}
+          </Button>
+        </>
+      }
+    >
+      <div className="grid grid-cols-2 gap-3" data-testid="config-conflict-dialog">
+        <div className="min-w-0 space-y-1.5">
+          <SectionLabel>{t('config.conflictDialog.onDisk')}</SectionLabel>
+          <ConfigCodeView text={conflict.diskContent} searchable />
+        </div>
+        <div className="min-w-0 space-y-1.5">
+          <SectionLabel>{t('config.conflictDialog.yourEdits')}</SectionLabel>
+          <ConfigCodeView text={conflict.ourContent} searchable />
+        </div>
+      </div>
+    </Modal>
+  )
+}

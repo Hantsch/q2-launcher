@@ -3,6 +3,7 @@ import type { ConfigProfile } from '@shared/modules/config'
 import { DEFAULT_SETTINGS, type Installation, type LauncherSettings } from '@shared/types'
 import { JsonStore } from '../lib/json-store'
 import {
+  parseConfigFileSourceMigratedAt,
   parseConfigPendingWrites,
   parseConfigPlayedMods,
   parseConfigProfiles,
@@ -54,6 +55,16 @@ export interface LauncherStateDocument {
    * before this key existed simply lack it and load as `{}`.
    */
   configWriteFailures: Record<string, { messageKey: string; at: string }>
+  /**
+   * ISO timestamp of when story 043's one-time canonical-file format migration completed, or
+   * `null` while it has not run (AC8). Files written before this key existed simply lack it and
+   * load as `null` - i.e. "not migrated yet" - which is the whole point: the very first start
+   * after the update is the one that finds it absent. Same "new top-level key, no schema bump, no
+   * migration entry" reasoning as `configPlayedMods` above; see
+   * `main/lib/schemas.ts#configFileSourceMigratedAtSchema` for why an unreadable value degrades
+   * to `null` rather than to "already done".
+   */
+  configFileSourceMigratedAt: string | null
 }
 
 function defaults(): LauncherStateDocument {
@@ -66,6 +77,7 @@ function defaults(): LauncherStateDocument {
     configPendingWrites: {},
     configSwitchBinds: {},
     configWriteFailures: {},
+    configFileSourceMigratedAt: null,
   }
 }
 
@@ -93,6 +105,9 @@ export class StateStore {
           configPendingWrites: parseConfigPendingWrites(doc['configPendingWrites']),
           configSwitchBinds: parseConfigSwitchBinds(doc['configSwitchBinds']),
           configWriteFailures: parseConfigWriteFailures(doc['configWriteFailures']),
+          configFileSourceMigratedAt: parseConfigFileSourceMigratedAt(
+            doc['configFileSourceMigratedAt'],
+          ),
         }
       },
     })
@@ -133,6 +148,27 @@ export class StateStore {
 
   configWriteFailures(): Record<string, { messageKey: string; at: string }> {
     return this.store.get().configWriteFailures
+  }
+
+  configFileSourceMigratedAt(): string | null {
+    return this.store.get().configFileSourceMigratedAt
+  }
+
+  /**
+   * Records that story 043's one-time canonical-file migration has completed (AC8).
+   *
+   * **Write-once, on purpose.** An already-set value is returned unchanged and nothing is
+   * persisted, so no caller - including a future one - can reset the guard and make the migration
+   * run a second time over files that are, by then, the source of truth and may carry hand-edits
+   * the cache never saw. The one legitimate way to re-run it is a `state.json` that genuinely has
+   * no value yet (a fresh install, or a hand-cleared key), which is exactly what
+   * `parseConfigFileSourceMigratedAt` produces for an absent/garbled key.
+   */
+  setConfigFileSourceMigratedAt(at: string): string | null {
+    const current = this.store.get().configFileSourceMigratedAt
+    if (current !== null) return current
+    return this.store.update((state) => ({ ...state, configFileSourceMigratedAt: at }))
+      .configFileSourceMigratedAt
   }
 
   patchSettings(patch: Partial<LauncherSettings>): LauncherSettings {

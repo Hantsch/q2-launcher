@@ -8,6 +8,7 @@ import type { Installation, LaunchState } from '@shared/types'
 import type { Logger } from '../../lib/logger'
 import { pathExists } from '../../lib/fs-utils'
 import { BACKUP_SUFFIX } from './backup'
+import { hashCanonicalFileContent } from './file-source'
 import { syncProfile } from './sync'
 import type { SyncProfileDeps } from './sync'
 
@@ -343,5 +344,155 @@ describe('syncProfile', () => {
 
     expect(result.state.installations).toEqual([])
     expect(result.state.own.status).toBe('inSync')
+  })
+
+  /**
+   * Story 043 D4: `canonicalWriteAllowed` - "is this profile's canonical file ours to write on this
+   * pass?". Answering `false` has to hold on BOTH sides at once: the canonical file is left exactly
+   * as it is, and the installation copies are written from that file rather than from the profile in
+   * memory. Asserting only the first half would pass while unsaved edits leaked into the
+   * installation, which is the copy the engine actually loads.
+   */
+  describe('canonicalWriteAllowed (story 043 D4)', () => {
+    it('leaves the canonical file alone and writes the installation copy from its bytes', async () => {
+      const p = profile({ name: 'One', assignments: [{ installationId: 'i1', isDefault: true }] })
+      const inst = installation()
+      // Saved once, the normal way, so there is a canonical file with known content.
+      await syncProfile(
+        deps({
+          profile: p,
+          allProfiles: [p],
+          installations: { find: (id) => (id === inst.id ? inst : undefined) },
+        }),
+      )
+      const onDisk = await read(userDataDir, 'One.cfg')
+      const edited = { ...p, cvars: { sensitivity: '99' } }
+      expect(renderProfileFile(edited)).not.toBe(onDisk)
+
+      const result = await syncProfile(
+        deps({
+          profile: edited,
+          allProfiles: [edited],
+          installations: { find: (id) => (id === inst.id ? inst : undefined) },
+          canonicalWriteAllowed: () => false,
+        }),
+      )
+
+      expect(await read(userDataDir, 'One.cfg')).toBe(onDisk)
+      expect(await read(rootDir, 'baseq2', 'One.cfg')).toBe(onDisk)
+      expect(await read(rootDir, 'baseq2', 'One.cfg')).not.toBe(renderProfileFile(edited))
+      // The canonical row reads `outOfSync` - the file does not say what the profile says, which is
+      // the story's "no sixth sync state" decision - while the installation row is `inSync`, since
+      // it holds exactly what the canonical file authorises.
+      expect(result.state.own.status).toBe('outOfSync')
+      expect(result.state.installations[0]!.status).toBe('inSync')
+      // Nothing failed, so nothing is recorded as a failure, and no hash baseline is claimed for a
+      // file whose bytes were never confirmed to match the profile.
+      expect(result.writeFailures).toEqual({})
+      expect(result.canonicalHashes).toEqual({})
+    })
+
+    it('writes nothing at all - not even the installation copy - when there is no canonical file to write from', async () => {
+      const p = profile({ name: 'One', assignments: [{ installationId: 'i1', isDefault: true }] })
+      const inst = installation()
+
+      const result = await syncProfile(
+        deps({
+          profile: p,
+          allProfiles: [p],
+          installations: { find: (id) => (id === inst.id ? inst : undefined) },
+          canonicalWriteAllowed: () => false,
+        }),
+      )
+
+      // A canonical file that is missing while the profile carries unsaved edits is the story's
+      // "file missing" error state, awaiting the user's decision - sync neither resurrects it nor
+      // invents an installation copy out of the unsaved profile.
+      expect(await pathExists(join(userDataDir, 'One.cfg'))).toBe(false)
+      expect(await pathExists(join(rootDir, 'baseq2', 'One.cfg'))).toBe(false)
+      // Documented consequence: the loader is written per assigned profile, so an installation whose
+      // ONLY assigned profile is skipped gets no loader either on this pass.
+      expect(await pathExists(join(rootDir, 'baseq2', 'autoexec.cfg'))).toBe(false)
+      expect(result.state.own.status).toBe('missing')
+      expect(result.state.installations[0]!.status).toBe('missing')
+      // Not a write failure: nothing was attempted and nothing went wrong.
+      expect(result.writeFailures).toEqual({})
+    })
+
+    it('is asked per profile: a clean profile still writes while a dirty sibling does not', async () => {
+      const p1 = profile({
+        id: 'p1',
+        name: 'One',
+        assignments: [{ installationId: 'i1', isDefault: true }],
+      })
+      const p2 = profile({
+        id: 'p2',
+        name: 'Two',
+        assignments: [{ installationId: 'i1', isDefault: false }],
+      })
+      const inst = installation()
+      const find = (id: string): Installation | undefined => (id === inst.id ? inst : undefined)
+      await syncProfile(deps({ profile: p2, allProfiles: [p1, p2], installations: { find } }))
+      const siblingOnDisk = await read(userDataDir, 'Two.cfg')
+      const dirtySibling = { ...p2, cvars: { sensitivity: '99' }, dirty: true }
+
+      const result = await syncProfile(
+        deps({
+          profile: p1,
+          allProfiles: [p1, dirtySibling],
+          installations: { find },
+          canonicalWriteAllowed: (candidate) => candidate.dirty !== true,
+        }),
+      )
+
+      // The profile being synced is clean, so its own file is written as always...
+      expect(await read(userDataDir, 'One.cfg')).toBe(renderProfileFile(p1))
+      expect(await read(rootDir, 'baseq2', 'One.cfg')).toBe(renderProfileFile(p1))
+      expect(result.canonicalHashes['p1']).toBeTypeOf('string')
+      // ...while the sibling, which this pass also writes into the installation, contributes its
+      // FILE, not its unsaved edits.
+      expect(await read(userDataDir, 'Two.cfg')).toBe(siblingOnDisk)
+      expect(await read(rootDir, 'baseq2', 'Two.cfg')).toBe(siblingOnDisk)
+      expect(await read(rootDir, 'baseq2', 'Two.cfg')).not.toBe(renderProfileFile(dirtySibling))
+    })
+
+    it('follows the ownership sentinel, so a renamed-but-unsaved profile is still read from its old file', async () => {
+      const p = profile({ name: 'One', assignments: [{ installationId: 'i1', isDefault: true }] })
+      const inst = installation()
+      const find = (id: string): Installation | undefined => (id === inst.id ? inst : undefined)
+      await syncProfile(deps({ profile: p, allProfiles: [p], installations: { find } }))
+      const onDisk = await read(userDataDir, 'One.cfg')
+
+      // Renamed in the UI but not saved: the file is still `One.cfg`, while the profile now resolves
+      // to `Two.cfg`. Reading the resolved name would find nothing and leave the installation with
+      // no content at all.
+      const renamed = { ...p, name: 'Two', dirty: true }
+      const result = await syncProfile(
+        deps({
+          profile: renamed,
+          allProfiles: [renamed],
+          installations: { find },
+          canonicalWriteAllowed: (candidate) => candidate.dirty !== true,
+        }),
+      )
+
+      expect(await read(userDataDir, 'One.cfg')).toBe(onDisk)
+      expect(await pathExists(join(userDataDir, 'Two.cfg'))).toBe(false)
+      // The installation copy lands under the name the profile resolves to now (the file-name
+      // reconcile is not part of the content decision) and carries the canonical file's bytes.
+      expect(await read(rootDir, 'baseq2', 'Two.cfg')).toBe(onDisk)
+      expect(result.state.installations[0]!.status).toBe('inSync')
+    })
+
+    it('confirms a hash for every profile whose canonical file it read back byte-for-byte', async () => {
+      const p = profile({ name: 'One', assignments: [] })
+
+      const result = await syncProfile(deps({ profile: p, allProfiles: [p] }))
+
+      expect(result.state.own.status).toBe('inSync')
+      expect(result.canonicalHashes).toEqual({
+        p1: hashCanonicalFileContent(renderProfileFile(p)),
+      })
+    })
   })
 })

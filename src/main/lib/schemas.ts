@@ -254,6 +254,18 @@ const configProfileObjectSchema = z.object({
   // format, so nothing already on disk renders any differently. No migration entry: purely
   // additive, same precedent as `writeUnbindall` right above.
   sectionHeaderStyle: z.enum(['dashes', 'brackets', 'plain']).catch('dashes'),
+  // Story 043 D2: the file-read layer's cache (`main/modules/config/file-source.ts`). All four are
+  // additive and forgiving, same precedent as `writeUnbindall`/`sectionHeaderStyle` above - no
+  // migration entry, and a profile predating this deliverable simply has none of them, which reads
+  // back as "no baseline yet" (`fileHash`/`fileSeenAt` absent), "not known dirty" (`dirty: false`)
+  // and "no cached classification" (`fileState` absent).
+  fileHash: z.string().optional().catch(undefined),
+  fileSeenAt: z.number().finite().optional().catch(undefined),
+  dirty: z.boolean().catch(false),
+  fileState: z
+    .enum(['unchanged', 'changedOnDisk', 'missing', 'unparseable', 'readError'])
+    .optional()
+    .catch(undefined),
 })
 
 /**
@@ -513,6 +525,25 @@ export const configWriteFailuresSchema = z
 
 export function parseConfigWriteFailures(raw: unknown): Record<string, { messageKey: string; at: string }> {
   return configWriteFailuresSchema.parse(raw)
+}
+
+/**
+ * Story 043 D3 (AC8): when the one-time canonical-file format migration completed, as an ISO
+ * timestamp - `null` while it has not run yet. A **new top-level state key**, not a
+ * `STATE_SCHEMA_VERSION` bump and no `MIGRATIONS` entry: the migration it guards is an *on-disk*
+ * action (bring each profile's `.cfg` up to the 040/042 format), not a change to the shape of
+ * `state.json`, so it follows `configPlayedMods`' "new key, no schema bump" precedent rather than
+ * the schema-migration framework's.
+ *
+ * Forgiving in the one direction that is safe: anything unreadable degrades to `null`, i.e. "run
+ * the migration again". Re-running it is idempotent (`writeTargetFile` diff-skips a file that
+ * already matches), whereas defaulting a garbled value to "already migrated" would leave a
+ * pre-043 file un-migrated forever with nothing to notice it.
+ */
+export const configFileSourceMigratedAtSchema = z.string().min(1).nullable().catch(null)
+
+export function parseConfigFileSourceMigratedAt(raw: unknown): string | null {
+  return configFileSourceMigratedAtSchema.parse(raw)
 }
 
 export const settingsSchema = settingsObjectSchema.catch(() => ({ ...DEFAULT_SETTINGS }))

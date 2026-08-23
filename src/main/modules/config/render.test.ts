@@ -57,7 +57,7 @@ function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
 const TEST_PROFILE_HEADER = [
   '// =============================================================================',
   '//  Test [q2l v=1]',
-  '//  Q2 Launcher - do not hand-edit while the launcher has the profile open',
+  '//  Q2 Launcher - hand-edited changes to this file are read back',
   '// =============================================================================',
 ]
 
@@ -118,7 +118,7 @@ describe('renderProfileFile', () => {
 
     expect(renderProfileFile(p)).toBe(
       [
-        '// q2-launcher profile abc123 - generated, do not edit',
+        '// q2-launcher profile abc123 - hand-edited changes are read back',
         ...TEST_PROFILE_HEADER,
         ...TEST_PROFILE_UNBINDALL,
         '',
@@ -148,7 +148,7 @@ describe('renderProfileFile', () => {
 
     expect(renderProfileFile(p)).toBe(
       [
-        '// q2-launcher profile empty-id - generated, do not edit',
+        '// q2-launcher profile empty-id - hand-edited changes are read back',
         ...TEST_PROFILE_HEADER,
         ...TEST_PROFILE_UNBINDALL,
         '',
@@ -175,7 +175,7 @@ describe('renderProfileFile', () => {
 
     expect(renderProfileFile(p)).toBe(
       [
-        '// q2-launcher profile unbindall-on - generated, do not edit',
+        '// q2-launcher profile unbindall-on - hand-edited changes are read back',
         ...TEST_PROFILE_HEADER,
         ...TEST_PROFILE_UNBINDALL,
         '',
@@ -187,7 +187,7 @@ describe('renderProfileFile', () => {
     const p = profile({ id: 'unbindall-off', cvars: {}, binds: {}, writeUnbindall: false })
 
     expect(renderProfileFile(p)).toBe(
-      ['// q2-launcher profile unbindall-off - generated, do not edit', ...TEST_PROFILE_HEADER, ''].join(
+      ['// q2-launcher profile unbindall-off - hand-edited changes are read back', ...TEST_PROFILE_HEADER, ''].join(
         '\n',
       ),
     )
@@ -458,7 +458,7 @@ describe('renderLoaderFile', () => {
     const p = profile({ id: 'abc123' })
 
     expect(renderLoaderFile(p, 'My-Config.cfg')).toBe(
-      ['// q2-launcher profile abc123 - generated, do not edit', 'exec My-Config.cfg', ''].join('\n'),
+      ['// q2-launcher profile abc123 - hand-edited changes are read back', 'exec My-Config.cfg', ''].join('\n'),
     )
   })
 
@@ -478,7 +478,7 @@ describe('renderLoaderFile', () => {
     const chainLines = renderSwitchBindChain(switchBind).split('\n')
 
     expect(lines).toEqual([
-      '// q2-launcher profile abc123 - generated, do not edit',
+      '// q2-launcher profile abc123 - hand-edited changes are read back',
       'exec Main.cfg',
       ...chainLines,
       '',
@@ -696,7 +696,7 @@ describe('renderProfileFile with actions', () => {
 
       expect(renderProfileFile(p)).toBe(
         [
-          '// q2-launcher profile dead-alias - generated, do not edit',
+          '// q2-launcher profile dead-alias - hand-edited changes are read back',
           ...TEST_PROFILE_HEADER,
           ...TEST_PROFILE_UNBINDALL,
           '',
@@ -1735,7 +1735,7 @@ describe('profileFileName', () => {
 
 describe('sentinelLine', () => {
   it('produces the exact sentinel format', () => {
-    expect(sentinelLine('abc123')).toBe('// q2-launcher profile abc123 - generated, do not edit')
+    expect(sentinelLine('abc123')).toBe('// q2-launcher profile abc123 - hand-edited changes are read back')
   })
 
   it('is prefixed by OWNERSHIP_MARKER', () => {

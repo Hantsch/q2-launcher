@@ -74,7 +74,13 @@ function canonicalizeRefs(text: string): string {
     return map.get(value)!
   }
 
-  let out = text.replace(/(\/\/ q2-launcher profile )(\S+)( - generated)/, (_m, pre, id, post) =>
+  // Story 043 D1 replaced the sentinel's trailing clause ("- generated, do not edit" became
+  // "- hand-edited changes are read back"), which left this pattern matching nothing at all; it is
+  // anchored on the clause's leading `-` only now, the same wording-tolerant rule `ownedProfileId`
+  // itself follows. Found by 043 D10's adversarial pass - harmless while it lasted (both sides of
+  // the comparison carry the same profile id), but a normaliser that silently stops normalising is
+  // exactly the kind of thing that hides the next real regression.
+  let out = text.replace(/(\/\/ q2-launcher profile )(\S+)( -)/, (_m, pre, id, post) =>
     `${pre}${tokenFor('sentinel', id)}${post}`,
   )
   out = out.replace(/\b(e|cat|layer)=([^\s\]]+)/g, (_m, key: string, value: string) =>

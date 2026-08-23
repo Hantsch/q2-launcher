@@ -59,3 +59,26 @@
 - 2026-08-23 18:24 · 042 · fix-cycle-8b: closed the plain-style hand-deleted-tag gap with `CATEGORY_TITLE_PREFIX` - every category section this writer emits (tagged or not, "Other" bucket included) carries one of exactly three fixed prefixes (`Aliases: `/`Binds: `/`Entries: `), a narrow and safe signal nothing else this writer emits coincidentally starts with, so it recognises the section under `plain` style too without the false-positive risk of "any untagged comment-only line" (considered and rejected: would misread an ordinary inline comment as a new section, trading a silent merge for a silent split). Verified via constructed hand-edit scenario (Alpha/Beta categories, Beta's cat= tag deleted, all three header styles) that InBeta no longer collapses into Alpha's category - each keeps its own distinct, correctly-named category. build/test(1477)/typecheck/ui:verify (0/0/0/0 axe violations, 46/46 screens) all green · done
 - 2026-08-23 18:39 · 042 · review round 8 (foreground, blocking, story-review-hard) on the CATEGORY_TITLE_PREFIX fix: PASS - repro closed on all 3 styles, extensive false-positive probing clean, no collision with cvar/layer/hand-edit-sentence lines, reserved-bucket-vs-hand-deleted-tag correctly told apart, decoration-erosion class not resurrected. One disclosed, accepted trade-off named (a hand-typed comment coincidentally starting with "Aliases: "/"Binds: "/"Entries: " is indistinguishable from a real header with its tag deleted and mints a section silently - inherent to choosing the narrow/safe signal over the broad/unsafe one, documented in the code) plus a short list of further hand-edit-only degradations explicitly not reported as defects (pre-existing, same under dashes, no worse than before this story). Documented the trade-off in profile-restore.ts. build/test(1477)/typecheck/ui:verify all green · done
 - 2026-08-23 18:39 · 042 · story marked done - eight review rounds total across this session (rounds 1-4 pre-session per the story's own history, rounds 5-8 this session), all confirmed-real findings fixed, remaining items are explicitly disclosed, reasoned, hand-edit-only trade-offs consistent with this file's existing documentation pattern
+- 2026-08-23 18:44 · 043 · D1 Honest header wording, wording-tolerant ownership · started
+- 2026-08-23 18:48 · 043 · D1 Honest header wording, wording-tolerant ownership · done
+- 2026-08-23 18:48 · 043 · D2 File-read layer and cache fields · started
+- 2026-08-23 18:59 · 043 · D2 File-read layer and cache fields · done
+- 2026-08-23 18:59 · 043 · D3 state.json becomes a rebuildable cache (+AC8 migration) · started
+- 2026-08-23 19:12 · 043 · D3 state.json becomes a rebuildable cache (+AC8 migration) · done
+- 2026-08-23 19:12 · 043 · D4 Explicit save replaces write-on-every-change (main) · started
+- 2026-08-23 19:38 · 043 · D4 Explicit save replaces write-on-every-change (main) · done
+- 2026-08-23 19:38 · 043 · D5 Re-read and conflict detection on the wire · started
+- 2026-08-23 19:38 · 043 · D5 Re-read and conflict detection on the wire · done
+- 2026-08-23 19:49 · 043 · D6 Unsaved-changes state and explicit Save in the UI · started
+- 2026-08-23 19:56 · 043 · D6 Unsaved-changes state and explicit Save in the UI · done
+- 2026-08-23 19:56 · 043 · D7 Re-read triggers, external-change notice, file-missing banner · started
+- 2026-08-23 20:10 · 043 · D7 Re-read triggers, external-change notice, file-missing banner · done
+- 2026-08-23 20:10 · 043 · D8 The whole-file conflict dialog · started
+- 2026-08-23 20:34 · 043 · D8 The whole-file conflict dialog · done (flagged: 2 pre-existing serious axe violations on config-import-restore surfaced during this run, to investigate before story close)
+- 2026-08-23 20:34 · 043 · D9 Care, Raw File and the sync direction · started
+- 2026-08-23 20:44 · 043 · D9 Care, Raw File and the sync direction · done (own-fix: stale 'conflict dialog isn't built yet' toast copy corrected)
+- 2026-08-23 20:44 · 043 · D10 Adversarial round-trip pass · started
+- 2026-08-23 21:08 · 043 · D10 Adversarial round-trip pass · done (3 real bugs found+fixed: hand-edit clobber via assign/setDefault/rename-cascade/startup retry sweep, refreshFromFiles resolving by stale name instead of ownership sentinel, corrupt/binary files silently adopted over cache instead of reported unparseable; 2 accepted limitations documented)
+- 2026-08-23 21:08 · 043 · story-level closing verification (build/test/typecheck + ui:verify) · started
+- 2026-08-23 21:12 · 043 · story-level closing verification (build/test/typecheck + ui:verify) · done (build/typecheck/test(1612) green; ui:verify first run surfaced 2 serious axe violations on config-import-restore - a stale hardcoded fixture string in scripts/lib/fixture.mjs never updated to match D1's HAND_EDIT_SENTENCE wording change, unrelated to product code; fixed the fixture literal, re-ran ui:verify: 0/0/0/0 axe violations across 48/48 screenshots, 24/24 screens)
+- 2026-08-23 21:15 · 043 · story marked done - all 10 deliverables complete, one adversarial pass (D10) plus one self-caught stale-fixture axe regression closed at the closing gate; moved to docs/requirements/done/, INDEX.md updated

@@ -169,8 +169,29 @@ export const writeProfileInputSchema = z.object({
   profileId: z.string().min(1),
 })
 
+/**
+ * Story 043 (D4/D8): `save`'s input - a profile id plus `force` (D8), the "overwrite with my
+ * version" resolution of `ConfigConflictDialog`: when true, the handler skips the
+ * re-read/conflict check and writes unconditionally. No longer a bare alias of
+ * `writeProfileInputSchema` now that it carries its own optional field.
+ */
+export const saveProfileInputSchema = z.object({
+  profileId: z.string().min(1),
+  force: z.boolean().optional(),
+})
+
 /** Story 022 (D7): `writeState` takes no payload, same pattern as `listInputSchema` above. */
 export const writeStateInputSchema = z.void()
+
+/**
+ * Story 043 (D5/D8): `refreshFromFiles`' payload - an optional profile id, so a missing/undefined
+ * `profileId` means "check every profile" (main's own logic, not this schema's job to default),
+ * plus `discardLocalEdits` (D8): the "take the file" resolution of `ConfigConflictDialog`.
+ */
+export const refreshFromFilesInputSchema = z.object({
+  profileId: z.string().min(1).optional(),
+  discardLocalEdits: z.boolean().optional(),
+})
 
 /** Story 022 (D5): `syncState`'s input is shape-identical to `write`'s, same alias convention as
  * `unassignProfileInputSchema`/`setDefaultProfileInputSchema` above. */

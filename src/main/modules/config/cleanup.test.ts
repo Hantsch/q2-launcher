@@ -10,7 +10,7 @@ import { removeRedundantCopies, restoreRemovedCopies, scanRedundantCopies } from
 
 const HAND_WRITTEN = 'bind mouse2 "+attack"\nset name "player"\n'
 const HAND_WRITTEN_VARIANT = 'bind mouse2 "+attack2"\nset name "someone else"\n'
-const GENERATED = `${OWNERSHIP_MARKER} p1 - generated, do not edit\nexec q2l-profile-p1.cfg\n`
+const GENERATED = `${OWNERSHIP_MARKER} p1 - hand-edited changes are read back\nexec q2l-profile-p1.cfg\n`
 
 /**
  * Every path below is built from `dir`, a throwaway temp directory created per
@@ -102,7 +102,7 @@ describe('scanRedundantCopies', () => {
     await seed('baseq2/hud.cfg', HAND_WRITTEN)
     await seed(
       'ctf/hud.cfg',
-      `${OWNERSHIP_MARKER} p1 - generated, do not edit\nset sensitivity "3"\n`,
+      `${OWNERSHIP_MARKER} p1 - hand-edited changes are read back\nset sensitivity "3"\n`,
     )
 
     const findings = await scanRedundantCopies(installation({ gameDirs: ['baseq2', 'ctf'] }))

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
-import { renderProfileFile, sentinelLine } from '@shared/config/render'
+import { OWNERSHIP_MARKER, renderProfileFile, sentinelLine } from '@shared/config/render'
 import { pathExists } from '../../lib/fs-utils'
 import { BACKUP_SUFFIX } from './backup'
 import { removeCanonicalProfileFile, writeCanonicalProfileFile } from './canonical'
@@ -175,6 +175,21 @@ describe('writeCanonicalProfileFile', () => {
     expect(await read('p1.cfg')).toBe(renderProfileFile(p))
   })
 
+  it('still recognises its own file when the file carries story 043 D1s old sentinel wording', async () => {
+    // Story 043 D1 changed sentinelLine()'s trailing clause from "generated,
+    // do not edit" to today's wording. Ownership must still be recognised by
+    // OWNERSHIP_MARKER + profile id alone, so a real file already on a
+    // user's disk from before this change is not orphaned.
+    const p = profile({ id: 'p1' })
+    await seed('Old.cfg', `${OWNERSHIP_MARKER} p1 - generated, do not edit\nset x "1"\n`)
+
+    const result = await writeCanonicalProfileFile(dir, p, 'New.cfg')
+
+    expect(result.outcome).toBe('written')
+    expect(await pathExists(join(dir, 'Old.cfg'))).toBe(false)
+    expect(await read('New.cfg')).toBe(renderProfileFile(p))
+  })
+
   it('creates baseDir itself when it does not exist yet', async () => {
     const fresh = join(dir, 'userData')
     const p = profile()
@@ -207,6 +222,14 @@ describe('removeCanonicalProfileFile', () => {
 
     await expect(removeCanonicalProfileFile(dir, 'p1')).resolves.toBeUndefined()
     expect(await pathExists(join(dir, 'unrelated.cfg'))).toBe(true)
+  })
+
+  it('deletes a file carrying story 043 D1s old sentinel wording (wording-tolerant ownership)', async () => {
+    await seed('p1.cfg', `${OWNERSHIP_MARKER} p1 - generated, do not edit\nset x "1"\n`)
+
+    await removeCanonicalProfileFile(dir, 'p1')
+
+    expect(await pathExists(join(dir, 'p1.cfg'))).toBe(false)
   })
 
   it('never touches a different profile own canonical file', async () => {

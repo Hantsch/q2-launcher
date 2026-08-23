@@ -179,6 +179,62 @@ central, assigned to installations) and the UI (launcher design system) change.
   (`src/main/services/migrations.ts`) — not `Installation.moduleData`, since a profile is not
   owned by one installation. `Installation` gains `assignedProfiles` (profile id + `isDefault`)
   and `playedMods`.
+- **`state.json` is a cache, the `.cfg` is the source of truth** (story 043). Two startup steps in
+  `src/main/modules/config/rebuild.ts`, run in this fixed order by `configModule.setup()`:
+  1. **One-time format migration** (AC8), gated by the new top-level state key
+     `configFileSourceMigratedAt` (an ISO timestamp; a *new key*, not a `STATE_SCHEMA_VERSION`
+     bump — `MIGRATIONS` stays empty, same precedent as `configPlayedMods`). On the first start
+     after the update, every profile record already in `state.json` has its canonical `.cfg`
+     rewritten from cached state into the current 040/042 format through the normal write path
+     (`writeCanonicalProfileFile`), and its `fileHash` seeded from what was written — so the first
+     read of that file reports `unchanged`, not a false `changedOnDisk`. The guard is only set once
+     the whole set succeeded; a partial run leaves it unset and the next start retries (rewriting an
+     already-correct file is a diff-skipped no-op). The guard is write-once in `StateStore`, so
+     nothing can reset it and re-run the migration over files that are, by then, authoritative.
+  2. **Rebuild-on-missing-record**, every start: every launcher-owned `.cfg` in the canonical
+     directory whose ownership-sentinel id has no record in `state.json` gets a record rebuilt from
+     that file, **keeping the sentinel's id**. That is the deliberate opposite of story 042's import
+     rule (an import of a foreign file always mints a *new* id): the sentinel id *is* the profile's
+     identity, so reusing it is what keeps every installation assignment pointing at that profile
+     valid. A `.cfg` with no recognised ownership marker — a hand-written config, or another tool's
+     file — is never adopted. Only installation assignments and played mods are lost by a rebuild
+     (they are launcher bookkeeping, not file content); name, cvars, binds, entries, categories,
+     layers, the `unbindall` setting and the section-header style all come back off the file.
+
+  Neither step deletes anything, and neither adds backup logic: `writeTargetFile`'s existing
+  diff-skip / backup-once / atomic-write contract and `state.json.bak` are untouched.
+- **Write cadence: explicit save** (story 043 D4), the deliberate inversion of story 022's
+  "every mutation writes immediately". Content mutations (`setCvars`, `setBinds`, `setLayers`,
+  `setActions`, `rename`, `setWriteUnbindall`, `setSectionHeaderStyle`) still persist into
+  `state.json` at once — a crash must not lose an edit — but touch no file; they mark the profile
+  `dirty`. `CONFIG_HANDLERS.save` is the only writer of profile content: it re-reads the canonical
+  file (found by its ownership sentinel, not by the name the profile currently resolves to, so a
+  renamed-but-unsaved profile is still checked against the file it actually has), refuses with a
+  whole-file conflict when the file changed underneath or cannot be read, and otherwise writes it
+  and runs the unchanged installation cascade. Every other sync trigger (`assign`, `unassign`,
+  `setDefault`, `write`, `create`, `tidyUp.apply`, the startup retry sweep) still syncs immediately,
+  but under one rule enforced centrally in `syncAndPersist`: **a `dirty` profile's canonical file is
+  never written by anything but `save`, and its per-installation copies are written from that file's
+  own bytes** — so unsaved edits cannot reach an installation through another operation's sync run
+  (AC6). The same rule decides what `syncState`/`rawFiles` judge an installation copy against, so
+  the writer's and the readers' reports of one file cannot disagree.
+- **Never overwrite bytes nobody has read** (story 043 D10, AC5's other half). `dirty` says the
+  cache is *ahead* of the file; it says nothing about the file having moved *underneath* the
+  launcher, so the same central rule in `syncAndPersist` also refuses a canonical write whenever the
+  file's current bytes hash to something other than that profile's cached `fileHash` — unless there
+  is no file, no baseline yet (a pre-migration profile), the bytes already equal what would be
+  written, or the user explicitly chose "overwrite with my version" (`save({ force: true })`). This
+  closes the paths a save's own re-read cannot cover: an `assign`/`setDefault`, a rename cascade,
+  and above all the **startup retry sweep**, which runs before the renderer exists and therefore
+  before any focus re-read could have adopted an edit made while the launcher was closed. A refused
+  write is not a failure: nothing is recorded in `configWriteFailures`, and the canonical row simply
+  reports `outOfSync`, which is what invites Reload/Compare.
+- **Named limitation**: an entry with **no key** whose command is exactly its catalogue default has
+  no representation in the rendered file at all (no alias line, no bind line, no anchor line), so
+  adopting an externally edited file — or rebuilding from one — cannot bring it back. Nothing about
+  the profile's behaviour in the engine is lost with it (it was bound to no key), only a
+  half-configured Controls row. Pinned in `file-source-pipeline.test.ts`; fixing it means adding an
+  anchor line to story 042's on-disk format.
 - **Filesystem writes**: go through the same path-trust rules as the rest of main — profile
   writes only ever target `<installation.path>/baseq2` and `<installation.path>/<mod>` for
   mods already known to the installation, never an arbitrary renderer-supplied path

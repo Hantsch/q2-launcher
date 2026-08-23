@@ -35,7 +35,7 @@ import { renderSwitchBindChain } from './switch-bind'
  * unrecognised leftover - the same reason it already imports `OWNERSHIP_MARKER` from here.
  */
 export const HAND_EDIT_SENTENCE =
-  'Q2 Launcher - do not hand-edit while the launcher has the profile open'
+  'Q2 Launcher - hand-edited changes to this file are read back'
 
 /**
  * Label for cvars a profile carries that no `CvarDef` in `ALL_CVARS` recognizes (an engine cvar the
@@ -1126,7 +1126,7 @@ export const OWNERSHIP_MARKER = '// q2-launcher profile'
  * with high-ASCII cvar/bind values.
  */
 export function sentinelLine(profileId: string): string {
-  return `${OWNERSHIP_MARKER} ${profileId} - generated, do not edit`
+  return `${OWNERSHIP_MARKER} ${profileId} - hand-edited changes are read back`
 }
 
 /**

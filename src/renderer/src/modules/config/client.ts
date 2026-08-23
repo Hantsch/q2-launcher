@@ -20,8 +20,12 @@ import {
   type ProfileSyncState,
   type RawFilesInput,
   type RawFilesResult,
+  type RefreshFromFilesInput,
+  type RefreshFromFilesResult,
   type RemoveConfigProfileInput,
   type RenameConfigProfileInput,
+  type SaveProfileInput,
+  type SaveProfileResult,
   type SetDefaultProfileInput,
   type SetPlayedModsInput,
   type SetProfileActionsInput,
@@ -159,6 +163,48 @@ export function writeConfigProfile(
   input: WriteProfileInput,
 ): Promise<Outcome<WriteTargetResult[]>> {
   return callModule<WriteTargetResult[]>('config', CONFIG_HANDLERS.write, input)
+}
+
+/**
+ * Story 043 D6: explicit save - re-reads the canonical file, checks it still looks the way the
+ * launcher last saw it, and only then writes the profile's unsaved edits to disk and re-syncs
+ * installations.
+ *
+ * Same double-unwrap gotcha as `previewConfigProfile`/`getProfileSyncState`/`getRawFiles` above:
+ * the `save` main-process handler returns an `Outcome<SaveProfileResult>` itself, and
+ * `MainModuleRegistry.invoke` (`src/main/modules/registry.ts`) wraps every handler's return in its
+ * own `Outcome` unconditionally - so the raw `callModule` response here is
+ * `Outcome<Outcome<SaveProfileResult>>`, flattened the same way. The outer `Outcome` is only ever
+ * an error for things like "profile not found"; `SaveProfileResult`'s own `status` discriminates
+ * saved / conflict / unreadable.
+ */
+export async function saveConfigProfile(input: SaveProfileInput): Promise<Outcome<SaveProfileResult>> {
+  const result = await callModule<Outcome<SaveProfileResult>>('config', CONFIG_HANDLERS.save, input)
+  return result.ok ? result.value : result
+}
+
+/**
+ * Story 043 D7: the renderer's client wrapper for `refreshFromFiles` (D5) - re-reads the given
+ * profile's canonical file and reports whether it changed, was adopted, conflicts with unsaved
+ * edits, or came back unparseable/unreadable/missing. `useFileSourceRefresh` (D7) is the only
+ * caller today and always passes a `profileId` (the story's own "Decided during refine": the
+ * renderer scopes re-reads to the selected profile, never the whole list).
+ *
+ * Same double-unwrap gotcha as `saveConfigProfile` above: the `refreshFromFiles` main-process
+ * handler returns an `Outcome<RefreshFromFilesResult>` itself, and `MainModuleRegistry.invoke`
+ * (`src/main/modules/registry.ts`) wraps every handler's return in its own `Outcome`
+ * unconditionally - so the raw `callModule` response here is
+ * `Outcome<Outcome<RefreshFromFilesResult>>`, flattened the same way.
+ */
+export async function refreshProfilesFromFiles(
+  input: RefreshFromFilesInput,
+): Promise<Outcome<RefreshFromFilesResult>> {
+  const result = await callModule<Outcome<RefreshFromFilesResult>>(
+    'config',
+    CONFIG_HANDLERS.refreshFromFiles,
+    input,
+  )
+  return result.ok ? result.value : result
 }
 
 /**

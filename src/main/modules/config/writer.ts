@@ -219,8 +219,8 @@ export async function writeInstallationFiles(
  * one of ours.
  *
  * `sentinelLine()` (`@shared/config/render`) emits exactly
- * `<OWNERSHIP_MARKER> <profileId> - generated, do not edit`, so the id is the
- * first whitespace-delimited token after the marker. Two shapes deliberately
+ * `<OWNERSHIP_MARKER> <profileId> - hand-edited changes are read back`, so
+ * the id is the first whitespace-delimited token after the marker. Two shapes deliberately
  * return null rather than a guess:
  *
  * - the marker prefix is not followed by whitespace (`// q2-launcher profiles`

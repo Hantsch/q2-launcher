@@ -282,7 +282,7 @@ describe('validateStructure - quoting', () => {
     const findings = validateStructure(
       [
         file([
-          '// q2-launcher profile p1 - generated, do not edit',
+          '// q2-launcher profile p1 - hand-edited changes are read back',
           'set name "Bjørn"',
           'set cl_maxfps "125"',
           'alias +drops "bind 1 drop rl; bind 2 drop rg"',
@@ -294,7 +294,7 @@ describe('validateStructure - quoting', () => {
         ]),
         file(
           [
-            '// q2-launcher profile p1 - generated, do not edit',
+            '// q2-launcher profile p1 - hand-edited changes are read back',
             'exec q2l-profile-p1.cfg',
             'bind F5 "exec q2l-profile-p2.cfg"',
           ],

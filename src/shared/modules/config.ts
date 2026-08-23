@@ -24,6 +24,8 @@ export const CONFIG_HANDLERS = {
   setLayers: 'setLayers',
   setActions: 'setActions',
   write: 'write',
+  save: 'save',
+  refreshFromFiles: 'refreshFromFiles',
   preview: 'preview',
   writeState: 'writeState',
   syncState: 'syncState',
@@ -255,6 +257,19 @@ export interface ConfigAction {
  * `writeUnbindall` precedent exactly: optional, `.catch('dashes')` in the persisted schema, no
  * migration entry, and a profile with no stored value renders byte-identical to what this file
  * emitted before this setting existed.
+ *
+ * `fileHash`/`fileSeenAt`/`dirty`/`fileState` (story 043 D2) are the cache the file-read layer
+ * (`main/modules/config/file-source.ts#readFileState`) needs to tell "nothing changed since we last
+ * looked" apart from "the file changed on disk since then" without re-parsing on every check.
+ * `fileHash` is a sha-256 of the canonical file's own latin1 bytes - the launcher's own write seeds
+ * it with the hash of exactly what it just wrote (`file-source.ts#hashCanonicalFileContent`), which
+ * is what keeps that write from ever being mistaken for an external edit on the very next read.
+ * `fileSeenAt` is when that hash was last confirmed (epoch ms). `dirty` and `fileState` are read-only
+ * caches of the last classification `readFileState` returned; nothing here is written by this
+ * deliverable's file-read layer itself, only read back by it and by whatever later deliverable saves
+ * the classification. Same convention as `writeUnbindall`/`sectionHeaderStyle`: optional,
+ * `.catch()`-defaulted in the persisted schema (`main/lib/schemas.ts`), no migration entry - a
+ * profile predating this story simply has none of the four fields.
  */
 export interface ConfigProfile {
   id: string
@@ -270,7 +285,22 @@ export interface ConfigProfile {
   actions?: ConfigAction[]
   writeUnbindall?: boolean
   sectionHeaderStyle?: 'dashes' | 'brackets' | 'plain'
+  fileHash?: string
+  fileSeenAt?: number
+  dirty?: boolean
+  fileState?: ProfileFileState
 }
+
+/**
+ * Story 043 D2: which of the five outcomes `readFileState`
+ * (`main/modules/config/file-source.ts`) classified the profile's canonical file into, relative to
+ * its previously cached `fileHash` - `unchanged`/`changedOnDisk` when the file was read
+ * successfully, `missing` for `ENOENT` specifically, `unparseable` when the file read but produced
+ * no valid profile at all, `readError` for any other read failure (permissions, an I/O fault). See
+ * `readFileState`'s own doc comment for the exact rule that tells `changedOnDisk` apart from
+ * `unparseable` - a hand-deleted metadata comment degrades to the former, never the latter.
+ */
+export type ProfileFileState = 'unchanged' | 'changedOnDisk' | 'missing' | 'unparseable' | 'readError'
 
 /** Where a new profile's content comes from. */
 export type ConfigProfileSeed = 'empty' | 'template'
@@ -373,6 +403,128 @@ export interface WriteTargetResult {
 export interface WriteProfileInput {
   profileId: string
 }
+
+/**
+ * Story 043 D4: `save` - the one operation that writes a profile's content to disk now.
+ *
+ * The deliberate inversion of story 022 decision 8 ("every mutation writes immediately"): the
+ * mutating handlers (`setCvars`, `setBinds`, `setLayers`, `setActions`, `rename`,
+ * `setWriteUnbindall`, `setSectionHeaderStyle`) still persist into `state.json` at once - a crash
+ * must not lose an edit - but they no longer touch a file; they mark the profile as carrying unsaved
+ * edits. This channel is what turns those edits into the canonical `.cfg`, and only after checking
+ * that the file still looks the way the launcher last saw it.
+ *
+ * Nothing but the profile id: what to write is the cached profile, and *where* is resolved in main
+ * from the profile list (a payload can never aim a write at a path of its choosing).
+ *
+ * `force` (story 043 D8) is the "overwrite with my version" resolution of `ConfigConflictDialog`:
+ * when true, the handler skips the re-read/conflict check entirely and writes the cached profile's
+ * render unconditionally, exactly as it would for `unchanged`/`missing`. It exists only to be set
+ * right after the user has explicitly been shown a `SaveProfileConflict` (both whole-file versions)
+ * and chosen to keep theirs - never set by the ordinary `ProfileSaveBar` save path, which always
+ * omits it (equivalent to `false`).
+ */
+export interface SaveProfileInput {
+  profileId: string
+  force?: boolean
+}
+
+/** The canonical file was written and the installation copies re-synced from it. */
+export interface SaveProfileSaved {
+  status: 'saved'
+  /** The profile as it now stands: no longer dirty, `fileHash` reseeded from what was written. */
+  profile: ConfigProfile
+  /** Where every copy of the profile stands afterwards, from the same sync run that wrote them. */
+  sync: ProfileSyncState
+}
+
+/**
+ * The file changed underneath the launcher since it last read or wrote it, so nothing was written
+ * (story AC5: "the launcher never overwrites a hand-edit it has not read"). Whole-file granularity
+ * is the decided conflict shape, hence both whole texts rather than a diff: the UI (a later
+ * deliverable) shows them side by side and the user resolves it.
+ */
+export interface SaveProfileConflict {
+  status: 'conflict'
+  /** Name the profile's canonical file actually carries on disk right now. */
+  fileName: string
+  path: string
+  /** The file's current content, latin1 text, exactly the bytes the conflict was detected from. */
+  diskContent: string
+  /** What the save would have written - the cached profile, rendered. */
+  ourContent: string
+}
+
+/**
+ * The file exists but could not be used as a baseline - it failed to read at all (`readError`) or
+ * produced no valid profile (`unparseable`). Never a write: an unreadable file is treated exactly
+ * like a changed one, since it is equally something the launcher has not read.
+ */
+export interface SaveProfileUnreadable {
+  status: 'unreadable'
+  fileName: string
+  path: string
+  reason: 'unparseable' | 'readError'
+  /** 1-based line for `unparseable`; absent for `readError`, which has no position. */
+  line?: number
+  message: string
+}
+
+export type SaveProfileResult = SaveProfileSaved | SaveProfileConflict | SaveProfileUnreadable
+
+/**
+ * Story 043 D5: `refreshFromFiles` - the re-read side of the story's "re-read on window focus, tab
+ * open, and before write" decision. `profileId` scopes the check to one profile (window focus/tab
+ * open, per "Decided during refine": reading every profile's file on every focus event would make
+ * focus latency scale with the profile count); omitted, every profile is checked (used at startup).
+ *
+ * `discardLocalEdits` (story 043 D8) is the "take the file" resolution of `ConfigConflictDialog`:
+ * when true and `profileId` names a profile that is both dirty and `changedOnDisk`, the handler
+ * adopts the disk version instead of returning a conflict - the same `adopted` branch a non-dirty
+ * profile already takes, just no longer refused for carrying unsaved edits the user has just
+ * explicitly agreed to throw away. Only meaningful together with a `profileId`; the whole-list
+ * startup call never sets it.
+ */
+export interface RefreshFromFilesInput {
+  profileId?: string
+  discardLocalEdits?: boolean
+}
+
+/**
+ * One profile's outcome from a `refreshFromFiles` call, discriminated on `outcome` rather than on
+ * `fileState` alone: `readFileState`'s own `changedOnDisk` classification (`ProfileFileState`,
+ * story D2) covers two different results here depending on whether the profile carried unsaved
+ * edits at the time - adopted (no conflict) or a conflict - so `fileState` alone cannot tell the two
+ * apart. `fileState` is still carried on every branch (mirroring `ProfileFileState`'s own values) so
+ * a caller that only wants "does this profile's file still look like what we last saw" never has to
+ * switch on `outcome` first.
+ */
+export type RefreshedProfileResult =
+  | { profileId: string; outcome: 'unchanged'; fileState: 'unchanged' }
+  | { profileId: string; outcome: 'adopted'; fileState: 'changedOnDisk'; profile: ConfigProfile }
+  | {
+      profileId: string
+      outcome: 'conflict'
+      fileState: 'changedOnDisk'
+      /**
+       * Same whole-file conflict shape `save` (story D4) already returns for its own
+       * `changedOnDisk` case - reused rather than duplicated, so the renderer (a later
+       * deliverable) never has to handle two different shapes for the same concept.
+       */
+      conflict: SaveProfileConflict
+    }
+  | {
+      profileId: string
+      outcome: 'unparseable'
+      fileState: 'unparseable'
+      file: string
+      line: number
+      message: string
+    }
+  | { profileId: string; outcome: 'missing'; fileState: 'missing' }
+  | { profileId: string; outcome: 'readError'; fileState: 'readError'; message: string }
+
+export type RefreshFromFilesResult = RefreshedProfileResult[]
 
 export interface PreviewProfileInput {
   profileId: string

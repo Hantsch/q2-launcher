@@ -1,7 +1,7 @@
 import { readdir, readFile, rename, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { ConfigProfile } from '@shared/modules/config'
-import { OWNERSHIP_MARKER, renderProfileFile, sentinelLine } from '@shared/config/render'
+import { OWNERSHIP_MARKER, renderProfileFile } from '@shared/config/render'
 import { backupOnce } from './backup'
 import { ownedProfileId, writeTargetFile } from './writer'
 import type { WriteFileOutcome } from './writer'
@@ -15,13 +15,18 @@ import type { WriteFileOutcome } from './writer'
  * resolves it to `app.getPath('userData')`.
  *
  * Both functions below identify "this profile's own file" the same way: by
- * reading a `*.cfg` file's first line and comparing it, in full, to
- * `sentinelLine(profileId)`. This is deliberately stricter than
+ * reading a `*.cfg` file's first line and running it through `writer.ts`'s
+ * `ownedProfileId` - the same forgiving sentinel parser every other ownership
+ * check in this codebase uses - and comparing the id it returns to
+ * `profileId`. This is deliberately stricter than plain
  * `OWNERSHIP_MARKER`-prefix matching (`writer.ts`, `cleanup.ts`): a file that
  * carries the marker but for a *different* profile id is still one of ours,
  * globally, but it is never THIS profile's file, and this module must never
  * rename or delete another profile's canonical file while acting on this
- * one.
+ * one. Going through `ownedProfileId` rather than an exact-string sentinel
+ * comparison is what lets a file written with an older sentinel wording
+ * still be recognised as this profile's own (story 043 D1): only the marker
+ * and the id after it are load-bearing, never the trailing clause.
  */
 
 /** One target file's on-disk write result, plus the path it resolved to. */
@@ -80,19 +85,21 @@ async function readExistingIfAny(filePath: string): Promise<string | null> {
 
 /**
  * Finds this profile's own canonical file wherever it currently sits in
- * `baseDir`, by exact sentinel match - never a prefix match on
- * `OWNERSHIP_MARKER` alone, which would also match a different profile's
- * file. Returns null when `baseDir` does not exist yet, or no `*.cfg` file
- * in it matches.
+ * `baseDir`, by matching `ownedProfileId(firstLine) === profileId` - never a
+ * prefix match on `OWNERSHIP_MARKER` alone, which would also match a
+ * different profile's file. Tolerant of the sentinel's trailing wording:
+ * only the marker and the id after it decide ownership, so a file written
+ * before story 043 D1's wording change is still found. Returns null when
+ * `baseDir` does not exist yet, or no `*.cfg` file in it matches.
  */
 async function findOwnCanonicalFile(baseDir: string, profileId: string): Promise<string | null> {
   const names = await readdirSafe(baseDir)
-  const sentinel = sentinelLine(profileId)
 
   for (const name of names) {
     if (!name.toLowerCase().endsWith('.cfg')) continue
     const path = join(baseDir, name)
-    if ((await firstLineOf(path)) === sentinel) return path
+    const firstLine = await firstLineOf(path)
+    if (firstLine !== null && ownedProfileId(firstLine) === profileId) return path
   }
   return null
 }
