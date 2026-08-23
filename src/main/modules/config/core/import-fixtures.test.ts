@@ -149,10 +149,13 @@ describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story
     // from the fixture itself (`atLine`), not retyped, because several carry
     // latin1-only bytes. Classified by inspecting the real output:
     //
-    //  - ASCII banner junk: the box-drawing borders (` //---\`/` \---//`) and
-    //    the `<<--- .: Title :. --->>` / `##### row #####` decoration lines.
-    //  - comment: `// wait an restart` and dmalias.cfg's colour-legend and
-    //    section-header comments (`// À = >`, `//	[COLORS]`, ...).
+    //  - ASCII banner junk that is NOT a `//` comment: the `<<--- .: Title
+    //    :. --->>` / `##### row #####` decoration lines and the leading half
+    //    of each box-drawing border (` \\---...//`, which ends in `//` but
+    //    the marker sits at the very start of what follows it, so the whole
+    //    line up to that trailing `//` is unrecognized command text, not a
+    //    comment) - story 042 D3 does not change what any of these classify
+    //    as, only where a genuine comment line's text ends up (see below).
     //  - echo banner: dm.cfg's closing `echo "..."` and dmalias.cfg's four
     //    opening `echo "..."` lines.
     //  - bare command: `m_filter 1`, `skin "..."`, `wait`, `vid_restart`,
@@ -167,7 +170,18 @@ describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story
     //    `bind ; ""` cannot bind the semicolon key in the real engine either -
     //    the fixture's own line is unbindable garbage, faithfully preserved
     //    as garbage rather than silently fixed.
-    const dmLineNumbersBefore95 = [3, 5, 6, 7, 9, 34, 35, 36, 38, 53, 54, 55, 56, 71, 85]
+    //
+    // Story 042 D3: a line that is ONLY a `//` comment (dm.cfg's closing
+    // half of each box border, `// wait an restart`, and every one of
+    // dmalias.cfg's/gfx.cfg's colour-legend and section-header comments) is
+    // ADDITIONALLY collected into `readImportableConfig`'s own `comments`
+    // bucket, but keeps landing here too, unchanged from before this story
+    // (AC 8 - nothing that used to survive in `preserved` stops surviving
+    // there). Confirmed against the real parsed output exactly as the rest
+    // of this fixture test is.
+    const dmLineNumbersBefore95 = [
+      3, 5, 6, 7, 9, 34, 35, 36, 38, 53, 54, 55, 56, 71, 85,
+    ]
     const dmLineNumbersAfter95 = [
       99, 112, 116, 117, 118, 119, 123, 127, 128, 129, 134, 135, 136, 137, 142, 147, 151, 156, 159,
       160, 161, 169, 170, 171, 249, 250, 251, 252, 254, 255,
@@ -189,6 +203,8 @@ describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story
       text: atLine(dmaliasLines, n),
     }))
 
+    // gfx.cfg's only non-command line (line 1) is a `//` comment - it is
+    // ADDITIONALLY collected into `comments` but still lands here (AC 8).
     const expectedGfx: UnrecognizedConfigLine[] = [
       { file: 'gfx.cfg', line: 1, text: atLine(gfxLines, 1) },
     ]
@@ -343,5 +359,35 @@ describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story
     const sSpawnCommand = sSpawn.commands[0]!
     if (sSpawnCommand.kind !== 'message') throw new Error('expected s_spawn to import as a message')
     expect(atLine(dmaliasLines, 118)).toContain(`say_team ${sSpawnCommand.text}`)
+  })
+
+  // Story 042 D9: pins that the fixtures' USER-VISIBLE result (entry/warning/review-step wording)
+  // is unchanged from 041's own expectations, and that the `preserved` bucket itself still carries
+  // every one of its 73 pre-042 lines (AC 8 - the 29 comment-only lines among them are ADDITIONALLY
+  // collected into the new `comments` bucket, never removed from `preserved`).
+  // `dm.cfg`/`dmalias.cfg`/`gfx.cfg` carry no `[q2l ...]` metadata at all, so `restoreProfileParts`
+  // (story 042 D4) must take the wholesale `buildImportedActions` delegation path for them, exactly
+  // as story 041 left it - never the tagged reconstruction path, and never a metadata warning.
+  it('still delegates wholesale to the untagged (story 041) path - no [q2l] tags, no metadata warnings', async () => {
+    await buildFixtureGamedir()
+
+    const result = await previewImport(installations(fixtureInstallation()), log, {
+      installationId: 'fixture-install',
+      gameDir: 'baseq2',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const preview = result.value
+
+    expect(preview.ownWrittenFile).toBe(false)
+    expect(preview.metadataVersion).toBeNull()
+    expect(preview.sourceProfileId).toBeNull()
+    expect(preview.metadataWarnings).toEqual([])
+    // The `preserved` bucket's total stays at 73, exactly as it was before story 042 - the 29
+    // comment-only lines among them are additionally mirrored into `comments`, never moved out of
+    // `preserved`; pinned again here, explicitly, as the AC8 compatibility check this D's report
+    // calls for.
+    expect(preview.preserved).toHaveLength(73)
   })
 })

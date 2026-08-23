@@ -32,9 +32,17 @@ import { ConfigCodeView } from './components/ConfigCodeView'
  * `gameDir` + `name` are.
  */
 export function ImportProfileDialog({
+  profiles,
   onClose,
   onCreated,
 }: {
+  /**
+   * Story 042 (D6): the locally registered profiles, so a launcher-written file's
+   * `sourceProfileId` (`ImportPreviewResult`) can be resolved to a name when that profile still
+   * exists here - `ConfigView` already holds this list for the profile rail, passed straight
+   * through rather than this dialog re-fetching it.
+   */
+  profiles: ConfigProfile[]
   onClose: () => void
   /** The full, updated profile list, per the config module's create contract - same shape `CreateProfileDialog` uses, since `ConfigView` passes it the same `handleCreated`. */
   onCreated: (profiles: ConfigProfile[]) => void
@@ -68,6 +76,12 @@ export function ImportProfileDialog({
   // The review step's own rows (story 041 D7) - empty whenever the preview has nothing
   // ambiguous, which is also what makes the step disappear entirely rather than render empty.
   const ambiguousAliases = previewResult?.ok ? previewResult.value.ambiguousRebindAliases : []
+  // Story 042 (D6): the file's own sentinel names a profile id, never adopted (AC4) but resolved
+  // to a name when that profile is still registered locally - `undefined` when `sourceProfileId`
+  // is null (a foreign config) or names a profile this launcher no longer knows about.
+  const sourceProfileName = previewResult?.ok
+    ? profiles.find((profile) => profile.id === previewResult.value.sourceProfileId)?.name
+    : undefined
 
   // Scan the chosen installation for importable gamedirs. Re-runs whenever the
   // installation changes; picking a new installation resets the gamedir and
@@ -214,6 +228,7 @@ export function ImportProfileDialog({
             <>
               <Field label={t('config.importDialog.gameDirLabel')}>
                 <Select
+                  data-testid="config-import-gamedir"
                   value={gameDir}
                   onChange={(event) => setGameDir(event.target.value)}
                   options={candidates.map((candidate) => ({
@@ -237,6 +252,28 @@ export function ImportProfileDialog({
 
               {!previewing && previewResult?.ok && (
                 <div className="space-y-3">
+                  {/* Story 042 (D6): a launcher-written file reads as a restore, not a
+                      best-effort import - and always says a NEW profile is created, since the
+                      id is never adopted (AC4) and a user restoring their own profile on a new
+                      machine could otherwise assume this merges into/overwrites it. */}
+                  {previewResult.value.ownWrittenFile && (
+                    <div
+                      className="space-y-1 rounded-sm border border-line p-2.5 text-xs"
+                      data-testid="config-import-restore-banner"
+                    >
+                      <p className="font-medium text-ink">
+                        {t('config.importDialog.restore.title')}
+                      </p>
+                      <p className="leading-relaxed text-ink-muted">
+                        {sourceProfileName
+                          ? t('config.importDialog.restore.bodyNamed', { name: sourceProfileName })
+                          : t('config.importDialog.restore.bodyUnnamed', {
+                              id: previewResult.value.sourceProfileId ?? '',
+                            })}
+                      </p>
+                    </div>
+                  )}
+
                   <div className="space-y-1.5 rounded-sm border border-line p-2.5">
                     <KeyValue label={t('config.importDialog.cvarCount')}>
                       {previewResult.value.cvarCount}
@@ -259,7 +296,13 @@ export function ImportProfileDialog({
                           count: previewResult.value.duplicateBinds.length,
                         })}
                       </SectionLabel>
-                      <ul className="max-h-40 space-y-1 overflow-y-auto rounded-sm border border-danger/35 bg-danger/8 p-2">
+                      <ul
+                        tabIndex={0}
+                        aria-label={t('config.importDialog.duplicateBindCount', {
+                          count: previewResult.value.duplicateBinds.length,
+                        })}
+                        className="max-h-40 space-y-1 overflow-y-auto rounded-sm border border-danger/35 bg-danger/8 p-2"
+                      >
                         {previewResult.value.duplicateBinds.map((duplicate, index) => (
                           <li
                             key={`${duplicate.key}:${duplicate.file}:${duplicate.line}:${index}`}
@@ -284,7 +327,13 @@ export function ImportProfileDialog({
                           count: previewResult.value.duplicateAliases.length,
                         })}
                       </SectionLabel>
-                      <ul className="max-h-40 space-y-1 overflow-y-auto rounded-sm border border-danger/35 bg-danger/8 p-2">
+                      <ul
+                        tabIndex={0}
+                        aria-label={t('config.importDialog.duplicateAliasCount', {
+                          count: previewResult.value.duplicateAliases.length,
+                        })}
+                        className="max-h-40 space-y-1 overflow-y-auto rounded-sm border border-danger/35 bg-danger/8 p-2"
+                      >
                         {previewResult.value.duplicateAliases.map((duplicate, index) => (
                           <li
                             key={`${duplicate.name}:${duplicate.file}:${duplicate.line}:${index}`}
@@ -309,7 +358,13 @@ export function ImportProfileDialog({
                           count: previewResult.value.preserved.length,
                         })}
                       </SectionLabel>
-                      <ul className="max-h-40 space-y-1 overflow-y-auto rounded-sm border border-line p-2">
+                      <ul
+                        tabIndex={0}
+                        aria-label={t('config.importDialog.preservedCount', {
+                          count: previewResult.value.preserved.length,
+                        })}
+                        className="max-h-40 space-y-1 overflow-y-auto rounded-sm border border-line p-2"
+                      >
                         {previewResult.value.preserved.map((line, index) => (
                           <li
                             key={`${line.file}:${line.line}:${index}`}
@@ -321,6 +376,41 @@ export function ImportProfileDialog({
                             <div title={line.text} className="min-w-0 overflow-hidden">
                               <ConfigCodeView text={line.text} singleLine />
                             </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Story 042 (D6): every discrepancy `restoreProfileParts` found between a
+                      launcher-written file's metadata and its config lines - each entry's own
+                      i18n key already ends in a translated "(file:line)" locator, interpolated
+                      by `t()`, not built by string concatenation here. Empty renders nothing,
+                      same convention as `preserved`/`duplicateBinds` above. */}
+                  {previewResult.value.metadataWarnings.length > 0 && (
+                    <div className="space-y-1.5">
+                      <SectionLabel>
+                        {t('config.importDialog.metadataWarningCount', {
+                          count: previewResult.value.metadataWarnings.length,
+                        })}
+                      </SectionLabel>
+                      <ul
+                        tabIndex={0}
+                        aria-label={t('config.importDialog.metadataWarningCount', {
+                          count: previewResult.value.metadataWarnings.length,
+                        })}
+                        className="max-h-40 space-y-1 overflow-y-auto rounded-sm border border-line p-2"
+                      >
+                        {previewResult.value.metadataWarnings.map((warning, index) => (
+                          <li
+                            key={`${warning.key}:${warning.file}:${warning.line}:${index}`}
+                            className="text-xs leading-relaxed text-ink-muted"
+                          >
+                            {t(warning.key, {
+                              file: warning.file,
+                              line: warning.line,
+                              subject: warning.subject ?? '',
+                            })}
                           </li>
                         ))}
                       </ul>

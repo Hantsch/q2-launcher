@@ -701,6 +701,28 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     expect(await readFile(join(dir, 'baseq2', 'Profile.cfg'), 'latin1')).toBe(expected)
   })
 
+  it('setSectionHeaderStyle (story 042 D7) returns the unchanged profile list and both copies are already on disk, rewritten with the new style', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot({ installations: [inst] })
+    state.setConfigProfiles([profile()])
+    await state.settle()
+
+    const list = (await handlers.get(CONFIG_HANDLERS.setSectionHeaderStyle)!({
+      profileId: 'p1',
+      sectionHeaderStyle: 'brackets',
+    })) as ConfigProfile[]
+
+    expect(list.map((p) => p.id)).toEqual(['p1'])
+    const updated = list.find((p) => p.id === 'p1')!
+    expect(updated.sectionHeaderStyle).toBe('brackets')
+    // Same write-affecting `syncAndPersist` path `setCvars` goes through right above: the setter
+    // alone does not touch disk, so the canonical + assigned-installation copies only match the
+    // NEW rendering if the handler actually triggered the rewrite/sync, not just updated state.
+    const expected = renderProfileFile(updated)
+    expect(await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')).toBe(expected)
+    expect(await readFile(join(dir, 'baseq2', 'Profile.cfg'), 'latin1')).toBe(expected)
+  })
+
   it('syncState reports inSync for both copies right after a mutation synced them', async () => {
     const inst = installation()
     const { handlers, state } = await boot({ installations: [inst] })

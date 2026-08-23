@@ -63,8 +63,13 @@ describe('readImportableConfig', () => {
 
     expect(result).toEqual({
       cvars: {},
+      cvarComments: {},
+      cvarLines: {},
       binds: {},
+      bindComments: {},
+      bindLines: {},
       aliases: [],
+      comments: [],
       unrecognized: [],
       filesRead: [],
       warnings: [],
@@ -306,8 +311,8 @@ describe('readImportableConfig', () => {
     const result = await readImportableConfig(root, 'baseq2')
 
     expect(result.aliases).toEqual([
-      { name: 'qq', body: 'disconnect', file: 'config.cfg', line: 3 },
-      { name: '+slow', body: 'cl_run 0', file: 'config.cfg', line: 2 },
+      { name: 'qq', body: 'disconnect', file: 'config.cfg', line: 3, comment: '' },
+      { name: '+slow', body: 'cl_run 0', file: 'config.cfg', line: 2, comment: '' },
     ])
     expect(result.duplicateAliases).toEqual([{ name: 'qq', file: 'config.cfg', line: 3 }])
   })
@@ -319,7 +324,7 @@ describe('readImportableConfig', () => {
     const result = await readImportableConfig(root, 'baseq2')
 
     expect(result.aliases).toEqual([
-      { name: 'qq', body: 'disconnect', file: 'extra.cfg', line: 1 },
+      { name: 'qq', body: 'disconnect', file: 'extra.cfg', line: 1, comment: '' },
     ])
     expect(result.duplicateAliases).toEqual([{ name: 'qq', file: 'extra.cfg', line: 1 }])
   })
@@ -334,7 +339,7 @@ describe('readImportableConfig', () => {
     const result = await readImportableConfig(root, 'baseq2')
 
     expect(result.aliases).toEqual([
-      { name: 'quickquit', body: 'quit', file: 'aliases.cfg', line: 1 },
+      { name: 'quickquit', body: 'quit', file: 'aliases.cfg', line: 1, comment: '' },
     ])
     expect(result.binds).toEqual({ MOUSE2: 'quickquit' })
   })
@@ -351,8 +356,8 @@ describe('readImportableConfig', () => {
     // stream and both survive regardless of which side of it they are on.
     expect(result.binds).toEqual({})
     expect(result.aliases).toEqual([
-      { name: 'before', body: 'say hi', file: 'config.cfg', line: 1 },
-      { name: 'after', body: 'say bye', file: 'config.cfg', line: 4 },
+      { name: 'before', body: 'say hi', file: 'config.cfg', line: 1, comment: '' },
+      { name: 'after', body: 'say bye', file: 'config.cfg', line: 4, comment: '' },
     ])
   })
 
@@ -367,12 +372,18 @@ describe('readImportableConfig', () => {
     const result = await readImportableConfig(root, 'baseq2')
 
     // `alias qq "quit"` is now a real alias (story 041), not an unrecognized line.
+    // `// a trailing note` is a whole-line comment (story 042 D3): it still
+    // lands in `unrecognized` unchanged (AC 8), and is ADDITIONALLY folded
+    // into `comments`.
     expect(result.unrecognized).toEqual([
       { file: 'extra.cfg', line: 2, text: '+mlook' },
       { file: 'config.cfg', line: 3, text: '// a trailing note' },
       { file: 'autoexec.cfg', line: 1, text: 'some garbage line' },
     ])
-    expect(result.aliases).toEqual([{ name: 'qq', body: 'quit', file: 'config.cfg', line: 1 }])
+    expect(result.comments).toEqual([{ file: 'config.cfg', line: 3, text: ' a trailing note' }])
+    expect(result.aliases).toEqual([
+      { name: 'qq', body: 'quit', file: 'config.cfg', line: 1, comment: '' },
+    ])
   })
 
   it('reads high-ASCII bytes as latin-1 and round-trips them byte for byte', async () => {
@@ -394,7 +405,7 @@ describe('readImportableConfig', () => {
     // `alias hi "..."` is now a real alias (story 041), not an unrecognized line.
     expect(result.unrecognized).toEqual([])
     expect(result.aliases).toEqual([
-      { name: 'hi', body: 'say hÿ!', file: 'config.cfg', line: 2 },
+      { name: 'hi', body: 'say hÿ!', file: 'config.cfg', line: 2, comment: '' },
     ])
     // The bytes, not just the characters: what came off disk re-encodes to
     // exactly what was written.
@@ -450,5 +461,55 @@ describe('readImportableConfig', () => {
     expect(Object.getPrototypeOf(result.cvars)).toBe(Object.prototype)
     expect(Object.prototype.hasOwnProperty.call(result.cvars, '__proto__')).toBe(true)
     expect(Object.prototype.hasOwnProperty.call(result.binds, '__proto__')).toBe(true)
+  })
+
+  it('keeps the winning cvar/bind comment across a last-assignment-wins fold', async () => {
+    await write(
+      'baseq2/config.cfg',
+      lines('set name "first" // old note', 'set name "second" // new note'),
+    )
+
+    const result = await readImportableConfig(root, 'baseq2')
+
+    expect(result.cvars).toEqual({ name: 'second' })
+    expect(result.cvarComments).toEqual({ name: ' new note' })
+  })
+
+  it('carries a cvar/bind comment through exec folding, the exec’d definition winning', async () => {
+    await write(
+      'baseq2/config.cfg',
+      lines('set name "before" // parent note', 'exec extra.cfg', 'bind w "+forward" // parent bind'),
+    )
+    await write('baseq2/extra.cfg', lines('set name "from-extra" // extra note'))
+
+    const result = await readImportableConfig(root, 'baseq2')
+
+    expect(result.cvarComments).toEqual({ name: ' extra note' })
+    expect(result.bindComments).toEqual({ w: ' parent bind' })
+  })
+
+  it('clears a bind’s comment along with the bind itself on unbind/unbindall', async () => {
+    await write(
+      'baseq2/config.cfg',
+      lines('bind w "+forward" // note', 'unbind w', 'bind s "+back" // kept', 'unbindall'),
+    )
+
+    const result = await readImportableConfig(root, 'baseq2')
+
+    expect(result.binds).toEqual({})
+    expect(result.bindComments).toEqual({})
+  })
+
+  it('keeps the winning alias definition’s own comment, not an earlier one', async () => {
+    await write(
+      'baseq2/config.cfg',
+      lines('alias qq "quit" // first', 'alias qq "disconnect" // second'),
+    )
+
+    const result = await readImportableConfig(root, 'baseq2')
+
+    expect(result.aliases).toEqual([
+      { name: 'qq', body: 'disconnect', file: 'config.cfg', line: 2, comment: ' second' },
+    ])
   })
 })

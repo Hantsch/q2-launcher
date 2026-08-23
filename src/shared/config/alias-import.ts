@@ -256,16 +256,24 @@ function unquoteMessage(text: string): string {
  * Decisions: `alias zoomin "...;alias zoom zoomout"` must not register `zoom`),
  * which needs no code of its own precisely because only the top-level `aliases`
  * list defines entries.
+ *
+ * Exported (story 042, D4) for `profile-restore.ts`, which reads a *launcher-written* alias body
+ * back and has to classify its segments by the identical rule - `say`/`say_team` with an argument is
+ * a message, everything else is raw, one surrounding quote pair stripped. Two implementations of
+ * that table would be two answers to "is this line a chat message", which is exactly the drift the
+ * file doc comment's "one function, not two" argument rules out.
  */
-function toConfigCommand(segment: string): ConfigCommand {
+export function configCommandFor(segment: string): ConfigCommand {
   const match = MESSAGE_SEGMENT.exec(segment)
   if (!match) return { kind: 'raw', text: segment }
   const channel = match[1]!.toLowerCase() === 'say_team' ? 'say_team' : 'say'
   return { kind: 'message', channel, text: unquoteMessage(match[2]!) }
 }
 
-/** Exactly one message command and nothing else, or anything else at all. */
-function entryKindFor(commands: readonly ConfigCommand[]): 'message' | 'alias' {
+/** Exactly one message command and nothing else, or anything else at all. Exported (story 042, D4)
+ * for `profile-restore.ts`'s kind inference, for the same reason `configCommandFor` is: the
+ * "message vs. everything else" test is one table, not two. */
+export function entryKindFor(commands: readonly ConfigCommand[]): 'message' | 'alias' {
   return commands.length === 1 && commands[0]!.kind === 'message' ? 'message' : 'alias'
 }
 
@@ -419,7 +427,7 @@ export function buildImportedActions(input: ImportedActionsInput): ImportedActio
       }
     }
 
-    const commands = segments.map(toConfigCommand)
+    const commands = segments.map(configCommandFor)
     const kind = entryKindFor(commands)
     actions.push({
       id: newId(),

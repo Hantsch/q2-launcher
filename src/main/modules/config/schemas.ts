@@ -254,6 +254,16 @@ export const setWriteUnbindallInputSchema = z.object({
 })
 
 /**
+ * Story 042 D7: `setSectionHeaderStyle`'s payload. Same strict convention as
+ * `setWriteUnbindallInputSchema` right above - a bad payload is a caller bug, not a state to
+ * repair.
+ */
+export const setSectionHeaderStyleInputSchema = z.object({
+  profileId: z.string().min(1),
+  sectionHeaderStyle: z.enum(['dashes', 'brackets', 'plain']),
+})
+
+/**
  * Story 005 import payloads. Deviation from the story text: it says these
  * belong in `main/lib/schemas.ts`, but every other config-module IPC payload
  * schema already lives here instead - that repo convention wins over the

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
-import { renderProfileFile } from '@shared/config/render'
+import { entryRefFor, renderProfileFile } from '@shared/config/render'
 import {
   tokenizeConfigText,
   type ConfigSyntaxLine,
@@ -317,7 +317,12 @@ describe('tokenizeConfigText - section banners and aligned commented rows (story
     expect(space1.text).toBe(' ')
     expect(key).toEqual({ kind: 'key', text: 'q' })
     expect(value).toEqual({ kind: 'string', text: '"ssg_sg"' })
-    expect(comment).toEqual({ kind: 'comment', text: '// SSG + SG' })
+    // Story 042 D2: the display name now carries the entry's `[q2l ...]` tail, and the whole
+    // thing - prose and tag - is still one `comment` token.
+    expect(comment).toEqual({
+      kind: 'comment',
+      text: `// SSG + SG [q2l e=${entryRefFor('e-ssg')} k=bind slot=1]`,
+    })
 
     // The alignment gap - the column padding plus attachComment's own two spaces - lands
     // entirely inside this one space token, not split across several: more than the fixed
@@ -339,6 +344,71 @@ describe('tokenizeConfigText - section banners and aligned commented rows (story
 
     const lines = tokenizeConfigText(rendered)
     expect(reconstruct(lines)).toBe(rendered)
+  })
+})
+
+/**
+ * Story 042 D2. The metadata tag rides inside a `//` comment on purpose, so the highlighter must
+ * keep seeing exactly one `comment` token per line and colour prose and tag alike - the tokenizer
+ * itself needs no change for that (a `//` outside quotes already runs to end of line), and these
+ * cases exist to pin that it stays true. Written as literals rather than derived from a render, so
+ * they keep testing the *format* even if the writer's layout changes around them.
+ */
+describe('tokenizeConfigText - a [q2l ...] metadata tail is part of its comment token', () => {
+  it('keeps a tagged trailing comment on a bind line as one comment token', () => {
+    const raw = 'bind q "ssg_sg"   // SSG + SG [q2l e=3f9a1c22 k=alias slot=1]'
+
+    const [line] = tokenizeConfigText(raw)
+    const comments = line.tokens.filter((token) => token.kind === 'comment')
+
+    expect(comments).toEqual([{ kind: 'comment', text: '// SSG + SG [q2l e=3f9a1c22 k=alias slot=1]' }])
+    expect(lineText(line)).toBe(raw)
+    // Nothing inside the tag leaked out as its own token - no `=`-word promoted to text, no
+    // `slot=1` read as a number, and above all no `separator`/`string` from the brackets.
+    expect(line.tokens.map((token) => token.kind)).toEqual([
+      'command',
+      'space',
+      'key',
+      'space',
+      'string',
+      'space',
+      'comment',
+    ])
+  })
+
+  it('keeps a tagged section banner as one comment token, tag and fill included', () => {
+    const raw = '// --- Weapons [q2l cat=weapons] ---------------------------------------------'
+
+    const [line] = tokenizeConfigText(raw)
+
+    expect(line.tokens).toEqual([{ kind: 'comment', text: raw }])
+  })
+
+  it('keeps a tagged header-block line as one comment token', () => {
+    const raw = '//  My Profile [q2l v=1]'
+
+    const [line] = tokenizeConfigText(raw)
+
+    expect(line.tokens).toEqual([{ kind: 'comment', text: raw }])
+  })
+
+  it('keeps a tagged layer banner as one comment token', () => {
+    const raw = '// --- Layer: Drops (hold, on ALT) [q2l layer=l1 mode=hold trigger=ALT] ------'
+
+    const [line] = tokenizeConfigText(raw)
+
+    expect(line.tokens).toEqual([{ kind: 'comment', text: raw }])
+  })
+
+  it('round-trips every tagged line shape byte-identically', () => {
+    const text = [
+      '// --- Weapons [q2l cat=weapons] ---------------------------------------------',
+      'alias ssg_sg "use super shotgun; use shotgun"  // SSG + SG [q2l e=3f9a1c22 k=bind]',
+      'bind q "ssg_sg"  // SSG + SG [q2l e=3f9a1c22 k=bind slot=1]',
+      'bind mouse2 "ssg_sg"  // SSG + SG [q2l e=3f9a1c22 k=bind slot=2 mod=ALT]',
+    ].join('\n')
+
+    expect(reconstruct(tokenizeConfigText(text))).toBe(text)
   })
 })
 

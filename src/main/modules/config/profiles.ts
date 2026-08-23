@@ -13,6 +13,7 @@ import {
   type SetProfileBindsInput,
   type SetProfileCvarsInput,
   type SetProfileLayersInput,
+  type SetSectionHeaderStyleInput,
   type SetWriteUnbindallInput,
   type UnassignProfileInput,
   type UnrecognizedConfigLine,
@@ -314,6 +315,23 @@ export class ProfilesStore {
     const next: ConfigProfile = {
       ...current,
       writeUnbindall: input.writeUnbindall,
+      updatedAt: new Date().toISOString(),
+    }
+    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+  }
+
+  /**
+   * Sets a profile's `sectionHeaderStyle` outright (story 042 D7) - mirrors `setWriteUnbindall`
+   * right above exactly, just a 3-way enum in place of a boolean: throws if the profile is
+   * unknown, bumps `updatedAt`, and goes through the same `commit`.
+   */
+  setSectionHeaderStyle(input: SetSectionHeaderStyleInput): ConfigProfile[] {
+    const current = this.find(input.profileId)
+    if (!current) throw new Error(`config profile not found: ${input.profileId}`)
+
+    const next: ConfigProfile = {
+      ...current,
+      sectionHeaderStyle: input.sectionHeaderStyle,
       updatedAt: new Date().toISOString(),
     }
     return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))

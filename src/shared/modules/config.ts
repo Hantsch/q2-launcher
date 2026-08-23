@@ -33,6 +33,7 @@ export const CONFIG_HANDLERS = {
   switchBinds: 'switchBinds',
   setSwitchBind: 'setSwitchBind',
   setWriteUnbindall: 'setWriteUnbindall',
+  setSectionHeaderStyle: 'setSectionHeaderStyle',
   importScan: 'import.scan',
   importPreview: 'import.preview',
   importCommit: 'import.commit',
@@ -247,6 +248,13 @@ export interface ConfigAction {
  * behaves exactly as `true`, via `.catch(true)` in the persisted schema
  * (`main/lib/schemas.ts`) and the same `!== false` read at render time, so there is no migration
  * step and no reshaping of existing profiles.
+ *
+ * `sectionHeaderStyle` (story 042 D7) is the decoration a rendered `.cfg`'s section banners use -
+ * `'dashes'` (`// --- Weapons ---...`, today's only format and the implicit default), `'brackets'`
+ * (`// ----- [ Weapons ] -----`) or `'plain'` (`// Weapons`, no decoration at all). Same
+ * `writeUnbindall` precedent exactly: optional, `.catch('dashes')` in the persisted schema, no
+ * migration entry, and a profile with no stored value renders byte-identical to what this file
+ * emitted before this setting existed.
  */
 export interface ConfigProfile {
   id: string
@@ -261,6 +269,7 @@ export interface ConfigProfile {
   categories?: ConfigActionCategory[]
   actions?: ConfigAction[]
   writeUnbindall?: boolean
+  sectionHeaderStyle?: 'dashes' | 'brackets' | 'plain'
 }
 
 /** Where a new profile's content comes from. */
@@ -415,6 +424,15 @@ export interface SetWriteUnbindallInput {
 }
 
 /**
+ * Story 042 D7: sets one profile's `sectionHeaderStyle` - a dedicated handler mirroring
+ * `SetWriteUnbindallInput`/`setWriteUnbindall` exactly, just a 3-way enum in place of a boolean.
+ */
+export interface SetSectionHeaderStyleInput {
+  profileId: string
+  sectionHeaderStyle: 'dashes' | 'brackets' | 'plain'
+}
+
+/**
  * Which installation is currently waiting for a retry, and for which profile -
  * i.e. the last `write` attempt found it running and skipped it. Keyed by
  * installationId; an installation absent from this map has nothing pending.
@@ -542,6 +560,22 @@ export interface ImportPreviewInput {
   gameDir: string
 }
 
+/**
+ * One thing `restoreProfileParts` (story 042 D4) had to say about a launcher-written file's
+ * metadata, carried across the module boundary as an i18n key plus a `file`/`line` locator -
+ * never prose (CLAUDE.md: main sends keys, not sentences). Mirrors `RestoreWarning`
+ * (`@shared/config/profile-restore`) field-for-field; `key` is `reason` mapped to
+ * `config.import.warning.<reasonCode>` (story 042 D5) - the actual translation strings are D6's
+ * job, this only has to be a well-formed, stable key.
+ */
+export interface ImportMetadataWarning {
+  key: string
+  file: string
+  line: number
+  /** The offending value itself when there is one - file data, never generated prose. */
+  subject?: string
+}
+
 export interface ImportPreviewResult {
   cvarCount: number
   bindCount: number
@@ -575,6 +609,36 @@ export interface ImportPreviewResult {
    * whether an entry becomes a layer or a plain alias changes.
    */
   ambiguousRebindAliases: AmbiguousRebindAlias[]
+  /**
+   * Story 042 D5: true when the OWNERSHIP_MARKER sentinel (`@shared/config/render`) was found on
+   * any file this import read - including a profile file reached only through the loader's `exec`
+   * chain (e.g. the user points at `autoexec.cfg`, which `exec`s the actual launcher-written
+   * profile file). Computed from `restoreProfileParts`'s own `sourceProfileId` (non-null exactly
+   * when the sentinel was found), never re-derived by a second sentinel scan. When true, there was
+   * nothing for the ambiguous-alias review step to guess (`restoreProfileParts` already resolved
+   * slot pairing deterministically from tags), so the dialog should skip that step entirely.
+   */
+  ownWrittenFile: boolean
+  /**
+   * Story 042 D5: the `[q2l v=…]` format version the file was written with, or `null` for a
+   * foreign config or a launcher file whose header marker was hand-deleted (`metadataWarnings`
+   * tells those two apart) - `restoreProfileParts`'s own `metadataVersion`, passed through.
+   */
+  metadataVersion: number | null
+  /**
+   * Story 042 D5: the profile id the file's ownership sentinel names, so the import dialog can say
+   * *which* profile is being restored - never adopted as the new profile's id (AC4: a fresh id is
+   * always minted, even for a re-import of the same file). `restoreProfileParts`'s own
+   * `sourceProfileId`, passed through.
+   */
+  sourceProfileId: string | null
+  /**
+   * Story 042 D5: every discrepancy `restoreProfileParts` found between a tag and the config line
+   * it sits on, or an unreadable/missing metadata marker - `RestoreWarning.reason` mapped to an
+   * i18n key. Empty for a foreign config (nothing to reconcile) and for a clean launcher-written
+   * file.
+   */
+  metadataWarnings: ImportMetadataWarning[]
 }
 
 export interface ImportCommitInput {

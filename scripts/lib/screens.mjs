@@ -38,6 +38,13 @@
 //   config-import-review        (ImportProfileDialog.tsx, the review step's container,
 //                                 rendered only when `ambiguousRebindAliases` is non-empty)
 //
+// Story 042 D6 adds two more, same mirroring convention — read
+// ImportProfileDialog.tsx before changing them:
+//   config-import-gamedir       (ImportProfileDialog.tsx, the gamedir <select> - needed to pick
+//                                 a candidate other than the auto-selected first one)
+//   config-import-restore-banner (ImportProfileDialog.tsx, the "restoring a launcher profile"
+//                                 banner, rendered only when `ownWrittenFile` is true)
+//
 // Story 047 D3 adds four more, same mirroring convention — read MessageEditor.tsx,
 // ControlsTab.tsx and LibraryView.tsx before changing these:
 //   action-edit-<actionId>          (ControlsTab.tsx, a plain action row's edit trigger,
@@ -276,6 +283,32 @@ export const SCREENS = [
         .selectOption({ label: 'Fixture WriteDir Install' })
       await page
         .getByTestId('config-import-review')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'config-import-restore',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 042 D6: same installation as `config-import-preview`/`config-import-review`
+    // ("Fixture WriteDir Install"), but picks its second gamedir - `RESTORE_GAME_DIR`
+    // (scripts/lib/fixture.mjs) - which holds a launcher-written fixture config carrying the
+    // `OWNERSHIP_MARKER` sentinel for the "Plain Profile" fixture's own id. Waiting on
+    // `config-import-restore-banner` (ImportProfileDialog.tsx) rules out both the spinner and a
+    // preview that resolved to the foreign-config `baseq2` candidate instead.
+    navigate: async (page) => {
+      await openConfigList(page)
+      await click(page, 'config-create-profile')
+      await page.getByTestId('config-create-source').selectOption('import')
+      await click(page, 'config-create-submit')
+      await page
+        .getByTestId('config-import-installation')
+        .selectOption({ label: 'Fixture WriteDir Install' })
+      await page
+        .getByTestId('config-import-gamedir')
+        .selectOption({ label: 'q2l-restore-fixture' })
+      await page
+        .getByTestId('config-import-restore-banner')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },

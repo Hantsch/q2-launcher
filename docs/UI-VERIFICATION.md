@@ -422,6 +422,15 @@ but three things matter in practice:
   triggers a scan and a preview with no further click, and `navigate()` waits
   for `.cfg-code-single` (only ever rendered by this dialog's
   duplicate-bind/preserved-line lists) to be visible.
+- **`config-import-restore`** — same dialog, same installation, but Story 042
+  D6 picks its second gamedir (`config-import-gamedir` `<select>`, fixture
+  name `q2l-restore-fixture`) instead of the auto-selected `baseq2` one. That
+  gamedir's fixture config carries the launcher's own ownership sentinel
+  (`OWNERSHIP_MARKER`, `@shared/config/render.ts`) naming the "Plain Profile"
+  fixture, so the preview's `ownWrittenFile` is true and the dialog renders
+  its "restoring a launcher profile" banner instead of the plain best-effort
+  wording. `navigate()` waits for that banner's own testid,
+  `config-import-restore-banner`.
 
 Story 047 D3 adds three more dialog-entry screens, following the same shape:
 

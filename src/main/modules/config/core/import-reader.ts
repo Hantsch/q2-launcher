@@ -99,16 +99,32 @@
  *  - unrecognized lines: kept in overall document order, each tagged with
  *    the file it came from (the on-disk file NAME, not a path - the result
  *    travels to the renderer) and its 1-based line number in that file.
+ *  - comment-only lines (story 042 D3): folded the same way as unrecognized
+ *    lines - overall document order, tagged with file/line - and kept in
+ *    `unrecognized` exactly as before this story (AC 8), plus ADDITIONALLY
+ *    collected into their own `comments` bucket so D4 can find them without
+ *    re-scanning `unrecognized`.
+ *  - trailing comments on cvars/binds/aliases (story 042 D3): the winning
+ *    definition's own comment travels with it through the fold - `cvars`/
+ *    `binds` keep their existing `Record<string, string>` shape and gain a
+ *    parallel `cvarComments`/`bindComments` map (same last-assignment-wins
+ *    semantics, cleared exactly when the bind/cvar itself would be); `alias`
+ *    already returns a per-entry object, so it simply gained a `comment`
+ *    field.
  *
  * ## Ordering caveat
  *
- * `parseConfigText()` returns five separate arrays, so the stream is
+ * `parseConfigText()` returns six separate arrays, so the stream is
  * rebuilt by a stable sort on line number. That is exact for the normal
  * one-command-per-line config. Only when a single physical line mixes
  * commands with `;` (`set a 1; exec more.cfg`) is the intra-line order
  * unrecoverable from the parser's output; ties then fall back to a fixed
- * order - cvars, binds, aliases, `exec`, unrecognized - which is right for
- * the idiomatic "do things, then load more" form.
+ * order - cvars, binds, aliases, `exec`, unrecognized, comment - which is
+ * right for the idiomatic "do things, then load more" form (a comment-only
+ * line never ties with a cvar/bind/alias/exec on the same line - see
+ * `documentOrder`'s own doc comment; it does tie with its own `preserved`
+ * counterpart, but the two feed different result buckets, so that tie is
+ * never observable).
  *
  * ## Encoding (decision 8)
  *
@@ -122,6 +138,7 @@ import { BASE_GAME_DIR } from '@shared/constants'
 import { canonicalizePath, fileName, isFile, resolveRelaxed } from '../../../lib/fs-utils'
 import { parseConfigText } from './config-parser'
 import type {
+  CommentLine,
   ParseConfigResult,
   ParsedAlias,
   ParsedBind,
@@ -132,6 +149,21 @@ import type {
 
 /** A line the importer did not understand, kept verbatim (AC 4). */
 export interface ImportedUnrecognizedLine {
+  /** On-disk file name the line came from, e.g. `config.cfg`. */
+  file: string
+  /** 1-based line number within that file. */
+  line: number
+  text: string
+}
+
+/**
+ * A comment-only line (no command at all), folded across every file and
+ * exec depth in overall document order (story 042 D3) - mirrors
+ * `ImportedUnrecognizedLine`'s file/line tagging exactly, since a later
+ * stage (D4) needs to locate these the same way it locates unrecognized
+ * lines, just from a bucket that was never conflated with them.
+ */
+export interface ImportedCommentLine {
   /** On-disk file name the line came from, e.g. `config.cfg`. */
   file: string
   /** 1-based line number within that file. */
@@ -180,6 +212,26 @@ export interface ImportedAlias {
   body: string
   file: string
   line: number
+  /** The winning definition's trailing comment (story 042 D3), `''` when it had none. */
+  comment: string
+}
+
+/**
+ * Where the currently-live `bind`/`set` for one key/cvar name was written - the same `file`/`line`
+ * pairing `ImportedAlias` already carries, factored out because `binds`/`cvars` keep their
+ * pre-existing `Record<string, string>` shape (every caller already destructures them as plain
+ * value maps) rather than becoming an array like `aliases`.
+ *
+ * Story 042 D5: `restoreProfileParts` (D4) needs a position for every line so it can attribute the
+ * line to a section (`RestoreBindLine`/`RestoreCvarLine` both extend `RestoreSourcePosition`), and
+ * before this field existed a bind/cvar's file/line was folded away by the merge, leaving only its
+ * winning comment - an entry whose alias line the writer drops (a bare catalogue row's own
+ * `+forward`) would otherwise lose its category to the fallback `Imported` drawer for want of a
+ * position to attribute it from.
+ */
+export interface ImportedLinePosition {
+  file: string
+  line: number
 }
 
 /**
@@ -198,14 +250,40 @@ export interface DuplicateAlias {
 export interface ImportResult {
   /** cvar name -> value, last assignment in the stream wins. */
   cvars: Record<string, string>
+  /**
+   * cvar name -> the winning assignment's trailing comment (story 042 D3),
+   * `''` when it had none. Same last-assignment-wins fold as `cvars`, kept
+   * as a parallel map rather than changing `cvars`' own shape, since every
+   * existing caller already destructures `cvars` as a plain value map.
+   */
+  cvarComments: Record<string, string>
+  /**
+   * cvar name -> the winning assignment's `file`/`line` (story 042 D5) - parallel to `cvars` the
+   * same way `cvarComments` is.
+   */
+  cvarLines: Record<string, ImportedLinePosition>
   /** key name -> bound command, after `unbind`/`unbindall` were applied. */
   binds: Record<string, string>
   /**
+   * key name -> the currently-live bind's trailing comment (story 042 D3),
+   * `''` when it had none. Cleared for a key exactly when `binds` itself
+   * would clear it (`unbind`/`unbindall`), for the same reason `cvarComments`
+   * is a parallel map rather than a shape change to `binds`.
+   */
+  bindComments: Record<string, string>
+  /**
+   * key name -> the currently-live bind's `file`/`line` (story 042 D5) - parallel to `binds` the
+   * same way `bindComments` is, and cleared for a key exactly when `binds` itself would clear it.
+   */
+  bindLines: Record<string, ImportedLinePosition>
+  /**
    * Alias name -> body, last definition in the stream wins across every file
    * and exec depth. In document order (first-seen position), each entry
-   * carrying the winning definition's own file/line/body.
+   * carrying the winning definition's own file/line/body/comment.
    */
   aliases: ImportedAlias[]
+  /** Comment-only lines, in overall document order across every file and exec depth. */
+  comments: ImportedCommentLine[]
   /** Everything not understood, in overall document order. */
   unrecognized: ImportedUnrecognizedLine[]
   /**
@@ -249,9 +327,12 @@ interface ReaderContext {
   chain: Set<string>
   /** Total files opened so far (entry files + every expanded `exec`), capped at `MAX_EXEC_EXPANSIONS`. */
   filesOpened: number
-  cvars: Map<string, string>
-  binds: Map<string, string>
+  /** value + trailing comment + position of the winning `set`/`seta`/`setu`/`sets` for this name. */
+  cvars: Map<string, { value: string; comment: string; file: string; line: number }>
+  /** command + trailing comment + position of the bind currently live for this key. */
+  binds: Map<string, { command: string; comment: string; file: string; line: number }>
   aliases: Map<string, ImportedAlias>
+  comments: ImportedCommentLine[]
   unrecognized: ImportedUnrecognizedLine[]
   filesRead: string[]
   warnings: ImportWarning[]
@@ -265,12 +346,20 @@ type StreamItem =
   | { kind: 'alias'; item: ParsedAlias }
   | { kind: 'exec'; item: ParsedExec }
   | { kind: 'preserved'; item: PreservedLine }
+  | { kind: 'comment'; item: CommentLine }
 
 /**
- * Rebuilds one document-ordered stream out of the parser's five arrays.
+ * Rebuilds one document-ordered stream out of the parser's six arrays.
  * Each array is already in ascending line order, and `Array#sort` is stable,
  * so equal line numbers keep the concatenation order (cvar, bind, alias,
- * exec, preserved) - see the ordering caveat at the top of the file.
+ * exec, preserved, comment) - see the ordering caveat at the top of the
+ * file. A comment-only line never shares its line number with a command
+ * (the two are mutually exclusive per line - see `config-parser.ts`), so
+ * `comment`'s position at the end of this list never breaks a tie against
+ * a cvar/bind/alias/exec. It DOES share its line number with its own
+ * `preserved` counterpart (story 042 D3 keeps comment-only lines in both
+ * buckets), but `preserved`/`comment` feed different result arrays
+ * (`unrecognized`/`comments`), so their relative order is never observable.
  */
 function documentOrder(parsed: ParseConfigResult): StreamItem[] {
   const items: StreamItem[] = [
@@ -279,6 +368,7 @@ function documentOrder(parsed: ParseConfigResult): StreamItem[] {
     ...parsed.aliases.map((item): StreamItem => ({ kind: 'alias', item })),
     ...parsed.execs.map((item): StreamItem => ({ kind: 'exec', item })),
     ...parsed.preserved.map((item): StreamItem => ({ kind: 'preserved', item })),
+    ...parsed.comments.map((item): StreamItem => ({ kind: 'comment', item })),
   ]
   return items.sort((a, b) => a.item.line - b.item.line)
 }
@@ -289,7 +379,7 @@ function applyBind(ctx: ReaderContext, bind: ParsedBind, file: string): void {
       if (ctx.binds.has(bind.key)) {
         ctx.duplicateBinds.push({ key: bind.key, file, line: bind.line })
       }
-      ctx.binds.set(bind.key, bind.command)
+      ctx.binds.set(bind.key, { command: bind.command, comment: bind.comment, file, line: bind.line })
       return
     case 'unbind':
       ctx.binds.delete(bind.key)
@@ -311,7 +401,13 @@ function applyAlias(ctx: ReaderContext, alias: ParsedAlias, file: string): void 
   if (ctx.aliases.has(alias.name)) {
     ctx.duplicateAliases.push({ name: alias.name, file, line: alias.line })
   }
-  ctx.aliases.set(alias.name, { name: alias.name, body: alias.body, file, line: alias.line })
+  ctx.aliases.set(alias.name, {
+    name: alias.name,
+    body: alias.body,
+    file,
+    line: alias.line,
+    comment: alias.comment,
+  })
 }
 
 /**
@@ -421,7 +517,12 @@ async function processFile(
     for (const entry of stream) {
       switch (entry.kind) {
         case 'cvar':
-          ctx.cvars.set(entry.item.name, entry.item.value)
+          ctx.cvars.set(entry.item.name, {
+            value: entry.item.value,
+            comment: entry.item.comment,
+            file,
+            line: entry.item.line,
+          })
           break
         case 'bind':
           applyBind(ctx, entry.item, file)
@@ -434,6 +535,9 @@ async function processFile(
           break
         case 'preserved':
           ctx.unrecognized.push({ file, line: entry.item.line, text: entry.item.text })
+          break
+        case 'comment':
+          ctx.comments.push({ file, line: entry.item.line, text: entry.item.text })
           break
       }
     }
@@ -464,9 +568,10 @@ export async function readImportableConfig(
     gameDir,
     chain: new Set<string>(),
     filesOpened: 0,
-    cvars: new Map<string, string>(),
-    binds: new Map<string, string>(),
+    cvars: new Map<string, { value: string; comment: string; file: string; line: number }>(),
+    binds: new Map<string, { command: string; comment: string; file: string; line: number }>(),
     aliases: new Map<string, ImportedAlias>(),
+    comments: [],
     unrecognized: [],
     filesRead: [],
     warnings: [],
@@ -483,9 +588,18 @@ export async function readImportableConfig(
   return {
     // `fromEntries` defines own properties, so a config containing a cvar or
     // key literally called `__proto__` cannot poison the returned objects.
-    cvars: Object.fromEntries(ctx.cvars),
-    binds: Object.fromEntries(ctx.binds),
+    cvars: Object.fromEntries(Array.from(ctx.cvars, ([name, v]) => [name, v.value])),
+    cvarComments: Object.fromEntries(Array.from(ctx.cvars, ([name, v]) => [name, v.comment])),
+    cvarLines: Object.fromEntries(
+      Array.from(ctx.cvars, ([name, v]) => [name, { file: v.file, line: v.line }]),
+    ),
+    binds: Object.fromEntries(Array.from(ctx.binds, ([key, v]) => [key, v.command])),
+    bindComments: Object.fromEntries(Array.from(ctx.binds, ([key, v]) => [key, v.comment])),
+    bindLines: Object.fromEntries(
+      Array.from(ctx.binds, ([key, v]) => [key, { file: v.file, line: v.line }]),
+    ),
     aliases: Array.from(ctx.aliases.values()),
+    comments: ctx.comments,
     unrecognized: ctx.unrecognized,
     filesRead: ctx.filesRead,
     warnings: ctx.warnings,

@@ -415,7 +415,11 @@ export function ConfigView() {
       )}
 
       {showImport && (
-        <ImportProfileDialog onClose={() => setShowImport(false)} onCreated={handleCreated} />
+        <ImportProfileDialog
+          profiles={profiles}
+          onClose={() => setShowImport(false)}
+          onCreated={handleCreated}
+        />
       )}
 
       {showRename && selected && (

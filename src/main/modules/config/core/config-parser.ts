@@ -77,6 +77,19 @@
  * line as a whole was already legitimately split and partially understood,
  * so only the unrecognized segment's own (trimmed) text is preserved,
  * tagged with the same line number as its sibling segments.
+ *
+ * ## Trailing comments (story 042 D3)
+ *
+ * Every classified cvar/bind/alias also carries `comment`: the raw text
+ * after the line's `//` marker (marker stripped, nothing else touched),
+ * `''` when the line had none. A `;`-chained line has exactly one trailing
+ * comment for the whole line, so every sibling segment gets the same
+ * `comment` string, never a per-segment fragment of it. A line that is
+ * ONLY a comment (no command at all) keeps being folded into `preserved`
+ * exactly as it always was (AC 8: nothing that used to survive there stops
+ * surviving there) - it is ADDITIONALLY collected in `comments`, in document
+ * order, so a later stage (D4) can find section-header banners without
+ * re-scanning `preserved` for lines that merely look unrecognized.
  */
 
 import { normalizeBindKey } from '@shared/config/key-names'
@@ -86,21 +99,30 @@ import {
   tokenize,
 } from '@shared/config/command-tokenizer'
 
+/**
+ * `comment` is the raw text following the line's trailing `//` marker (the
+ * marker itself stripped, nothing else touched) - `''` when the source line
+ * carried no comment at all. Story 042 D3: the writer (D2) attaches a
+ * display name and, later, a `[q2l ...]` tag there, so the parser must hand
+ * it back rather than discard it as it did before this story.
+ */
 export interface ParsedCvar {
   name: string
   value: string
   line: number
+  comment: string
 }
 
 /**
  * `kind: 'bind'` carries a key + command, mirroring `bind <key> <command>`.
  * `kind: 'unbind'` carries only the key that was unbound.
  * `kind: 'unbindall'` carries neither - `unbindall` takes no argument.
+ * Every kind also carries `comment` (see `ParsedCvar`'s doc comment).
  */
 export type ParsedBind =
-  | { kind: 'bind'; key: string; command: string; line: number }
-  | { kind: 'unbind'; key: string; line: number }
-  | { kind: 'unbindall'; line: number }
+  | { kind: 'bind'; key: string; command: string; line: number; comment: string }
+  | { kind: 'unbind'; key: string; line: number; comment: string }
+  | { kind: 'unbindall'; line: number; comment: string }
 
 export interface ParsedExec {
   target: string
@@ -112,14 +134,30 @@ export interface ParsedExec {
  * stripped - a quoted `"a;b"` and an unquoted multi-token body both collapse
  * to a single string here. Splitting that body into individual commands on
  * top-level `;` is a later stage's job (story 041 D3), not this parser's.
+ * `comment` is the line's trailing comment - see `ParsedCvar`'s doc comment.
  */
 export interface ParsedAlias {
   name: string
   body: string
   line: number
+  comment: string
 }
 
 export interface PreservedLine {
+  text: string
+  line: number
+}
+
+/**
+ * A line that is ONLY a `//` comment - no command at all, recognized or
+ * not. Collected ADDITIONALLY to `preserved` (story 042 D3), which still
+ * carries the same line unchanged (AC 8), because a later stage (D4) reads
+ * this bucket specifically to find section-header banners without
+ * re-scanning `preserved` for lines that merely look unrecognized; `text`
+ * is the same "marker stripped" comment text as `ParsedCvar.comment`, never
+ * the raw `//`-prefixed line.
+ */
+export interface CommentLine {
   text: string
   line: number
 }
@@ -130,6 +168,7 @@ export interface ParseConfigResult {
   execs: ParsedExec[]
   aliases: ParsedAlias[]
   preserved: PreservedLine[]
+  comments: CommentLine[]
 }
 
 /** Command names (case-insensitive) that assign a cvar. */
@@ -158,7 +197,7 @@ type Classified =
  * name without enough arguments is a no-op in the real engine, so it is
  * reported as unrecognized rather than guessed at with an empty value.
  */
-function classifySegment(segment: string, line: number): Classified {
+function classifySegment(segment: string, line: number, comment: string): Classified {
   const tokens = tokenize(segment)
   if (tokens.length === 0) return { kind: 'unrecognized' }
 
@@ -166,7 +205,10 @@ function classifySegment(segment: string, line: number): Classified {
 
   if (CVAR_COMMANDS.has(name)) {
     if (tokens.length < 3) return { kind: 'unrecognized' }
-    return { kind: 'cvar', item: { name: tokens[1], value: tokens.slice(2).join(' '), line } }
+    return {
+      kind: 'cvar',
+      item: { name: tokens[1], value: tokens.slice(2).join(' '), line, comment },
+    }
   }
 
   if (name === 'bind') {
@@ -178,17 +220,21 @@ function classifySegment(segment: string, line: number): Classified {
         key: normalizeBindKey(tokens[1]),
         command: tokens.slice(2).join(' '),
         line,
+        comment,
       },
     }
   }
 
   if (name === 'unbind') {
     if (tokens.length < 2) return { kind: 'unrecognized' }
-    return { kind: 'bind', item: { kind: 'unbind', key: normalizeBindKey(tokens[1]), line } }
+    return {
+      kind: 'bind',
+      item: { kind: 'unbind', key: normalizeBindKey(tokens[1]), line, comment },
+    }
   }
 
   if (name === 'unbindall') {
-    return { kind: 'bind', item: { kind: 'unbindall', line } }
+    return { kind: 'bind', item: { kind: 'unbindall', line, comment } }
   }
 
   if (name === 'exec') {
@@ -204,7 +250,10 @@ function classifySegment(segment: string, line: number): Classified {
     // written (`tokens[1]`, not `name`), since it may carry a `+`/`-` sign
     // that must not be treated as a command-name lowercase transform.
     if (tokens.length < 2) return { kind: 'unrecognized' }
-    return { kind: 'alias', item: { name: tokens[1], body: tokens.slice(2).join(' '), line } }
+    return {
+      kind: 'alias',
+      item: { name: tokens[1], body: tokens.slice(2).join(' '), line, comment },
+    }
   }
 
   return { kind: 'unrecognized' }
@@ -216,20 +265,33 @@ export function parseConfigText(text: string): ParseConfigResult {
   const execs: ParsedExec[] = []
   const aliases: ParsedAlias[] = []
   const preserved: PreservedLine[] = []
+  const comments: CommentLine[] = []
 
   const rawLines = splitLines(text)
 
   rawLines.forEach((rawLine, index) => {
     const line = index + 1
     const active = stripLineComment(rawLine)
+    // `active` is a strict prefix of `rawLine` (everything up to the `//`)
+    // whenever a marker was found, and `active === rawLine`/same length
+    // otherwise - so the length gap alone tells us whether there was a
+    // comment at all, without re-scanning the line a second time.
+    const hasComment = active.length < rawLine.length
+    const comment = hasComment ? rawLine.slice(active.length + 2) : ''
     const segments = splitTopLevelSemicolons(active).filter((s) => s.trim().length > 0)
 
     if (segments.length === 0) {
-      // Nothing left after stripping a comment. If the raw line had content
-      // (i.e. it WAS a comment), keep it - the comment text is real
-      // content a user wrote. A genuinely empty/whitespace-only line has
-      // nothing to preserve.
-      if (rawLine.trim().length > 0) {
+      // Nothing left after stripping a comment. A line that WAS a comment
+      // (marker found) is a comment-only line, ADDITIONALLY collected into
+      // its own bucket (story 042 D3) - it still lands in `preserved` too,
+      // unchanged from before this story (AC 8). A line with no marker at
+      // all that still lost everything to the semicolon split (e.g. `;;;`)
+      // keeps today's behaviour: preserved if it had any content, dropped
+      // if it was genuinely blank.
+      if (hasComment) {
+        comments.push({ text: comment, line })
+        preserved.push({ text: rawLine, line })
+      } else if (rawLine.trim().length > 0) {
         preserved.push({ text: rawLine, line })
       }
       return
@@ -240,7 +302,7 @@ export function parseConfigText(text: string): ParseConfigResult {
       // line (not the comment-stripped/trimmed segment) so formatting and
       // any trailing comment survive untouched when it turns out to be
       // unrecognized.
-      const result = classifySegment(segments[0], line)
+      const result = classifySegment(segments[0], line, comment)
       switch (result.kind) {
         case 'cvar':
           cvars.push(result.item)
@@ -262,9 +324,12 @@ export function parseConfigText(text: string): ParseConfigResult {
 
     // Multiple `;`-separated commands: classify each independently. A
     // segment that doesn't parse only loses its own piece of the line, not
-    // the sibling commands that share it.
+    // the sibling commands that share it. The line has exactly ONE trailing
+    // comment (it sits after every segment, not inside one), so the same
+    // `comment` string is attached to every classified sibling rather than
+    // split or duplicated as distinct fragments.
     for (const segment of segments) {
-      const result = classifySegment(segment, line)
+      const result = classifySegment(segment, line, comment)
       switch (result.kind) {
         case 'cvar':
           cvars.push(result.item)
@@ -285,5 +350,5 @@ export function parseConfigText(text: string): ParseConfigResult {
     }
   })
 
-  return { cvars, binds, execs, aliases, preserved }
+  return { cvars, binds, execs, aliases, preserved, comments }
 }

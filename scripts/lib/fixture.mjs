@@ -69,7 +69,7 @@ function emptyStateDocument() {
 // --- installation.ts Installation shape ------------------------------------
 // Mirrors src/shared/types/installation.ts:68 (`Installation`).
 
-function makeInstallation({ id, name, rootPath, writeDirPath, favorite, sortOrder }) {
+function makeInstallation({ id, name, rootPath, writeDirPath, favorite, sortOrder, gameDirs }) {
   return {
     id,
     name,
@@ -83,7 +83,7 @@ function makeInstallation({ id, name, rootPath, writeDirPath, favorite, sortOrde
     source: 'manual',
     status: 'ok',
     checks: [],
-    gameDirs: ['baseq2'],
+    gameDirs: gameDirs ?? ['baseq2'],
     favorite,
     sortOrder,
     createdAt: FIXED_TIMESTAMP,
@@ -97,6 +97,10 @@ function makeInstallation({ id, name, rootPath, writeDirPath, favorite, sortOrde
 
 const INSTALL_ONE_ID = 'fixture-install-favorite'
 const INSTALL_TWO_ID = 'fixture-install-writedir'
+
+/** Story 042 D6: the second gamedir under `INSTALL_TWO_ID` that holds the own-file (launcher
+ * "restore") fixture config, distinct from `baseq2`'s foreign-config fixture above. */
+const RESTORE_GAME_DIR = 'q2l-restore-fixture'
 
 function populatedInstallations() {
   return [
@@ -114,6 +118,11 @@ function populatedInstallations() {
       writeDirPath: join(gameRoot(), INSTALL_TWO_ID, 'writedir'),
       favorite: false,
       sortOrder: 1,
+      // Story 042 D6: a second gamedir, `RESTORE_GAME_DIR`, holding a launcher-written
+      // (own-file) fixture config alongside the plain `baseq2` foreign-config one - `baseq2`
+      // always sorts first (decision 12), so this is additive and does not change what
+      // `config-import-preview`/`config-import-review` auto-select.
+      gameDirs: ['baseq2', RESTORE_GAME_DIR],
     }),
   ]
 }
@@ -319,6 +328,42 @@ alias +fixture_unrecognized "echo hi"
 alias q2l_fixture_layer "bind e +use"
 `
 
+// --- own-file ("restore") importable fixture -------------------------------
+// Story 042 D6: fixed-content config carrying the `OWNERSHIP_MARKER` sentinel
+// (`@shared/config/render.ts`) plus a well-formed `[q2l v=1]` header tag
+// (`@shared/config/profile-metadata.ts`), written under `INSTALL_TWO_ID`'s
+// `RESTORE_GAME_DIR` gamedir - used by the `config-import-restore` screen to
+// exercise `ImportPreviewResult.ownWrittenFile`/`sourceProfileId`/
+// `metadataWarnings`.
+//
+// - Line 1 is the literal sentinel line naming `fixture-profile-plain` (the
+//   `plain` profile's own id, `populatedConfigProfiles()` below) - so the
+//   import dialog's restore banner resolves and names a real local profile
+//   rather than falling back to the bare id.
+// - Line 3 carries the header block's `[q2l v=1]` version marker - required
+//   for `restoreProfileParts` to take the tagged path at all (an untagged
+//   sentinel-only file delegates wholesale to story 041's import instead).
+// - The last `bind` line's trailing comment carries a deliberately malformed
+//   tag (`[q2l bogus]`, no `key=value` pairs) so `metadataWarnings` is
+//   non-empty on this screen (`tag-malformed`, `profile-restore.ts`) -
+//   without it the warnings list would never render on any fixture screen.
+// - No entry (`e=`)/category (`cat=`) tags at all: this is a minimal
+//   launcher file with no actions/layers, same as a freshly created empty
+//   profile would restore to (`actions`/`categories`/`layers` all empty).
+const FIXTURE_RESTORE_CONFIG_CFG = `// q2-launcher profile fixture-profile-plain - generated, do not edit
+// ================================================================
+// Fixture Restored Profile [q2l v=1]
+// Q2 Launcher - do not hand-edit while the launcher has the profile open
+// ================================================================
+
+// --- General ---
+set sensitivity "5"
+
+// --- Other binds ---
+bind w "+forward"
+bind s "+back" // note [q2l bogus]
+`
+
 // --- writers ----------------------------------------------------------------
 
 function writeJson(path, value) {
@@ -328,6 +373,13 @@ function writeJson(path, value) {
 
 function writeConfigCfg(baseq2Dir) {
   writeFileSync(join(baseq2Dir, 'config.cfg'), FIXTURE_CONFIG_CFG, 'utf8')
+}
+
+/** Story 042 D6: writes the own-file ("restore") fixture into `RESTORE_GAME_DIR`. */
+function writeRestoreConfigCfg(installDir) {
+  const dir = join(installDir, RESTORE_GAME_DIR)
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 'config.cfg'), FIXTURE_RESTORE_CONFIG_CFG, 'utf8')
 }
 
 /** Deletes and rewrites the `populated` variant's userdata + game dirs. */
@@ -344,7 +396,10 @@ export function writePopulatedFixture() {
     const baseq2Dir = join(gameRoot(), id, 'baseq2')
     rmSync(join(gameRoot(), id), { recursive: true, force: true })
     mkdirSync(baseq2Dir, { recursive: true })
-    if (id === INSTALL_TWO_ID) writeConfigCfg(baseq2Dir)
+    if (id === INSTALL_TWO_ID) {
+      writeConfigCfg(baseq2Dir)
+      writeRestoreConfigCfg(join(gameRoot(), id))
+    }
   }
 
   return {

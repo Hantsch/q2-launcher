@@ -28,6 +28,7 @@ import {
   type SetProfileBindsInput,
   type SetProfileCvarsInput,
   type SetProfileLayersInput,
+  type SetSectionHeaderStyleInput,
   type SetSwitchBindInput,
   type SetWriteUnbindallInput,
   type SyncProfileStateInput,
@@ -105,6 +106,17 @@ export function updateProfileWriteUnbindall(
   input: SetWriteUnbindallInput,
 ): Promise<Outcome<ConfigProfile[]>> {
   return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setWriteUnbindall, input)
+}
+
+/**
+ * Sets a profile's rendered section-banner decoration (story 042 D7) and returns the full,
+ * updated profile list. Mirrors `updateProfileWriteUnbindall` right above exactly. No UI control
+ * calls this yet - that is story 042 D8's job (`RawFileTab.tsx`), a separate deliverable.
+ */
+export function updateProfileSectionHeaderStyle(
+  input: SetSectionHeaderStyleInput,
+): Promise<Outcome<ConfigProfile[]>> {
+  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setSectionHeaderStyle, input)
 }
 
 /**

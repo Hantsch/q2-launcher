@@ -59,6 +59,7 @@ import {
   setProfileBindsInputSchema,
   setProfileCvarsInputSchema,
   setProfileLayersInputSchema,
+  setSectionHeaderStyleInputSchema,
   setSwitchBindInputSchema,
   setWriteUnbindallInputSchema,
   switchBindsInputSchema,
@@ -605,6 +606,22 @@ export const configModule: MainModule = {
       input,
     ): Promise<ConfigProfile[]> => {
       const list = withLiveAssignments(profiles.setWriteUnbindall(input))
+      await syncAndPersist(
+        app,
+        log,
+        list.find((p) => p.id === input.profileId)!,
+        list,
+      )
+      return list
+    })
+
+    // Story 042 D7: mirrors `setWriteUnbindall` right above exactly - a dedicated setter for one
+    // field, write-affecting (it changes which decoration `renderProfileFile` draws around every
+    // section banner), so it goes through the same `syncAndPersist` rewrite/sync path.
+    handle(CONFIG_HANDLERS.setSectionHeaderStyle, setSectionHeaderStyleInputSchema, async (
+      input,
+    ): Promise<ConfigProfile[]> => {
+      const list = withLiveAssignments(profiles.setSectionHeaderStyle(input))
       await syncAndPersist(
         app,
         log,

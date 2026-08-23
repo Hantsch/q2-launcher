@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { alignRows, attachComment, banner, sanitizeComment, section } from './cfg-layout'
+import {
+  alignRows,
+  attachComment,
+  attachTaggedComment,
+  banner,
+  fitProseAndTag,
+  sanitizeComment,
+  section,
+} from './cfg-layout'
 
 describe('banner', () => {
   it('renders a section banner (fill "-") as a single line, title embedded in the fill', () => {
@@ -34,11 +42,63 @@ describe('banner', () => {
     expect(line).toContain(longTitle)
   })
 
+  it('leaves no trailing space on a section banner whose title already fills the width', () => {
+    // A title at or past `width` leaves no `-` fill, and the space `// --- <title> ` puts after the
+    // title would otherwise be the last character on the line. Reachable for every ordinary line
+    // since story 042 made section titles carry a `[q2l ...]` tag.
+    const [line] = banner('A'.repeat(100), { width: 30 })
+
+    expect(line).toBe(`// --- ${'A'.repeat(100)}`)
+    expect(line!.endsWith(' ')).toBe(false)
+  })
+
   it('emits only ASCII "//", "-" and "=" as decoration, never an em dash or box-drawing glyph', () => {
     const decoOnly = (line: string): string => line.replace(/[^/=-]/g, '')
 
     expect(decoOnly(banner('X', { width: 40 })[0]!)).toMatch(/^\/\/---.*-+$/)
     expect(banner(['A', 'B'], { fill: '=', width: 40 })[0]).toMatch(/^\/\/ =+$/)
+  })
+})
+
+describe('sectionHeaderStyle (story 042 D7)', () => {
+  // Carries both a title and a `[q2l ...]` tag, exactly the shape `render.ts`'s `titledSection`
+  // hands to `banner()` - the whole point of this block is proving the tag rides through
+  // unchanged regardless of which decoration wraps it.
+  const titledLine = 'Weapons [q2l cat=weapons]'
+
+  it('style "dashes" renders byte-identical to today\'s existing default output - explicitly pinned, not just implied by the default', () => {
+    const explicit = banner('Player', { width: 30, style: 'dashes' })
+    const implicitDefault = banner('Player', { width: 30 })
+
+    expect(explicit).toEqual(['// --- Player ----------------'])
+    expect(explicit).toEqual(implicitDefault)
+  })
+
+  it('style "brackets" renders the literal "// ----- [ <title> ] -----" form', () => {
+    const [line] = banner(titledLine, { style: 'brackets' })
+
+    expect(line).toBe('// ----- [ Weapons [q2l cat=weapons] ] -----')
+  })
+
+  it('style "plain" renders a bare "// <title>" with no decoration at all', () => {
+    const [line] = banner(titledLine, { style: 'plain' })
+
+    expect(line).toBe('// Weapons [q2l cat=weapons]')
+  })
+
+  it('the tag\'s position and content are identical across all three styles - only the decoration differs', () => {
+    const dashes = banner(titledLine, { width: 60, style: 'dashes' })[0]!
+    const brackets = banner(titledLine, { style: 'brackets' })[0]!
+    const plain = banner(titledLine, { style: 'plain' })[0]!
+
+    // Every style embeds the exact same title+tag substring, verbatim - decoration is the only
+    // thing that ever differs between them.
+    for (const line of [dashes, brackets, plain]) {
+      expect(line).toContain(titledLine)
+    }
+    expect(dashes).toBe('// --- Weapons [q2l cat=weapons] ---------------------------')
+    expect(brackets).toBe('// ----- [ Weapons [q2l cat=weapons] ] -----')
+    expect(plain).toBe('// Weapons [q2l cat=weapons]')
   })
 })
 
@@ -155,6 +215,113 @@ describe('attachComment', () => {
 
     expect(result === code || result.startsWith(code)).toBe(true)
     expect(result.length).toBeLessThanOrEqual(Math.max(20, code.length))
+  })
+})
+
+/**
+ * Story 042 D2: the give-way order for a comment that carries a machine-readable tail. It is the
+ * *inverse* of `attachComment`'s rule above - there the comment was pure decoration and went first,
+ * here the tag carries state (which entry, which key slot, which layer) that nothing else in the
+ * file records, so the prose is what gives. Both rules live in this file at once, which is exactly
+ * why each has its own block.
+ */
+describe('fitProseAndTag', () => {
+  const tag = '[q2l e=3f9a1c22 k=alias slot=1]'
+
+  it('keeps prose and tag whole, one space apart, when both fit', () => {
+    expect(fitProseAndTag('SSG + SG', tag, 100)).toBe(`SSG + SG ${tag}`)
+  })
+
+  it('truncates the prose from its own end and keeps the tag intact', () => {
+    const result = fitProseAndTag('SSG + SG', tag, tag.length + 4)
+
+    expect(result).toBe(`SSG ${tag}`)
+    expect(result.length).toBeLessThanOrEqual(tag.length + 4)
+  })
+
+  it('drops the prose entirely rather than shortening the tag', () => {
+    const result = fitProseAndTag('SSG + SG', tag, tag.length + 1)
+
+    expect(result).toBe(tag)
+  })
+
+  it('gives up on the tag only when the budget cannot hold even the bare tag, falling back to the pre-042 rule', () => {
+    // One byte short of the tag: it goes entirely, and the line degrades to exactly what story 040
+    // would have written - as much of the display name as fits, and nothing else.
+    expect(fitProseAndTag('SSG + SG', tag, tag.length - 1)).toBe('SSG + SG')
+    expect(fitProseAndTag('SSG + SG', tag, 4)).toBe('SSG ')
+    expect(fitProseAndTag('SSG + SG', tag, 0)).toBe('')
+  })
+
+  it('never emits a half tag - the result either contains the whole tag or none of it', () => {
+    // A truncated `[q2l` with no closing `]` parses as malformed prose, which is worse than a line
+    // with no tag at all: the degradation path has to lose the tag whole, never cut it.
+    for (let budget = 0; budget <= tag.length + 12; budget++) {
+      const result = fitProseAndTag('SSG + SG', tag, budget)
+      expect(result.includes('[q2l') ? result.endsWith(tag) : true).toBe(true)
+      expect(result.length).toBeLessThanOrEqual(budget)
+    }
+  })
+
+  it('returns the bare tag when there is no prose at all', () => {
+    expect(fitProseAndTag('', tag, 100)).toBe(tag)
+  })
+
+  it('leaves no double space when the prose truncation lands on a space', () => {
+    const result = fitProseAndTag('SSG  SG', tag, tag.length + 5)
+
+    expect(result).toBe(`SSG ${tag}`)
+  })
+
+  it('behaves exactly like the tagless rule when the tag is empty', () => {
+    expect(fitProseAndTag('Player name', '', 100)).toBe('Player name')
+    expect(fitProseAndTag('Player name', '', 6)).toBe('Player')
+  })
+})
+
+describe('attachTaggedComment', () => {
+  const tag = '[q2l e=3f9a1c22 k=bind slot=1]'
+
+  it('attaches prose and tag after the code, two spaces before the //', () => {
+    expect(attachTaggedComment('bind q "ssg_sg"', 'SSG + SG', tag, 200)).toBe(
+      `bind q "ssg_sg"  // SSG + SG ${tag}`,
+    )
+  })
+
+  it('keeps the tag and drops the prose when the code leaves room for only one of them', () => {
+    const code = `bind q "${'z'.repeat(40)}"`
+    const budget = `${code}  // `.length + tag.length
+
+    expect(attachTaggedComment(code, 'A display name', tag, budget)).toBe(`${code}  // ${tag}`)
+  })
+
+  it('falls back to the plain display name when not even the bare tag fits, never a cut tag', () => {
+    const code = `bind q "${'z'.repeat(40)}"`
+    const budget = `${code}  // `.length + tag.length - 1
+
+    expect(attachTaggedComment(code, 'A display name', tag, budget)).toBe(
+      `${code}  // A display name`,
+    )
+  })
+
+  it('returns the code verbatim when neither the tag nor a single character of prose fits', () => {
+    const code = `bind q "${'z'.repeat(40)}"`
+
+    expect(attachTaggedComment(code, 'A display name', tag, `${code}  // `.length)).toBe(code)
+  })
+
+  it('never lengthens or truncates the code part itself', () => {
+    const code = 'bind w "+forward"'
+
+    expect(attachTaggedComment(code, 'x'.repeat(500), tag, 20)).toBe(code)
+  })
+
+  it('is identical to attachComment for an empty tag', () => {
+    for (const budget of [8, 20, 33, 100]) {
+      expect(attachTaggedComment('set name "x"', 'Player name', '', budget)).toBe(
+        attachComment('set name "x"', 'Player name', budget),
+      )
+    }
   })
 })
 

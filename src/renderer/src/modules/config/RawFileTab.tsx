@@ -4,10 +4,16 @@ import { ChevronDown, ChevronRight, ExternalLink, FolderOpen } from 'lucide-reac
 import type { ConfigProfile, RawFilesResult } from '@shared/modules/config'
 import type { Outcome } from '@shared/types'
 import { Button, IconButton } from '../../components/ui/Button'
-import { Checkbox } from '../../components/ui/controls'
+import { Checkbox, Field, Select } from '../../components/ui/controls'
 import { Badge, SectionLabel, Spinner } from '../../components/ui/primitives'
 import { useLauncher } from '../../store/useLauncher'
-import { getRawFiles, openProfileFile, setPlayedMods, updateProfileWriteUnbindall } from './client'
+import {
+  getRawFiles,
+  openProfileFile,
+  setPlayedMods,
+  updateProfileSectionHeaderStyle,
+  updateProfileWriteUnbindall,
+} from './client'
 import { ConfigCodeView } from './components/ConfigCodeView'
 import { RawConfigPanel } from './RawConfigPanel'
 
@@ -94,6 +100,15 @@ export function RawFileTab({
     }
   }
 
+  const changeSectionHeaderStyle = async (
+    style: 'dashes' | 'brackets' | 'plain',
+  ): Promise<void> => {
+    const outcome = await updateProfileSectionHeaderStyle({ profileId: profile.id, sectionHeaderStyle: style })
+    if (outcome.ok) {
+      onChanged(outcome.value)
+    }
+  }
+
   const togglePlayedMod = async (
     installationId: string,
     currentMods: string[],
@@ -174,6 +189,19 @@ export function RawFileTab({
           />
           <p className="text-xs leading-relaxed text-ink-muted">{t('config.raw.writeUnbindallHint')}</p>
         </div>
+        <Field label={t('config.raw.sectionHeaderStyle')} hint={t('config.raw.sectionHeaderStyleHint')} className="max-w-72">
+          <Select
+            value={profile.sectionHeaderStyle ?? 'dashes'}
+            onChange={(event) =>
+              void changeSectionHeaderStyle(event.target.value as 'dashes' | 'brackets' | 'plain')
+            }
+            options={[
+              { value: 'dashes', label: t('config.raw.sectionHeaderStyleDashes') },
+              { value: 'brackets', label: t('config.raw.sectionHeaderStyleBrackets') },
+              { value: 'plain', label: t('config.raw.sectionHeaderStylePlain') },
+            ]}
+          />
+        </Field>
         <ConfigCodeView text={canonical.content} searchable />
       </div>
 

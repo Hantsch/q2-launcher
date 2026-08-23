@@ -9,6 +9,7 @@ import { renderSwitchBindChain } from './switch-bind'
 import {
   OWNERSHIP_MARKER,
   STRICTEST_LINE_BUDGET,
+  entryRefFor,
   profileFileName,
   renderLoaderFile,
   renderProfileFile,
@@ -47,13 +48,39 @@ function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
  * inline) so the fill width can't silently drift between the tests that need it; still a literal,
  * not a call into `render.ts`'s own `banner()` - the point is to pin the real output, not to test
  * the implementation against itself.
+ *
+ * Story 042 D2 hangs the metadata format's version marker off the profile-name line, which is why
+ * `[q2l v=1]` is part of this literal: it is the one place in a rendered file `v` appears, and it
+ * has to be here rather than on the sentinel line above (which stays byte-identical, see the
+ * `sentinelLine` block at the bottom of this file).
  */
 const TEST_PROFILE_HEADER = [
   '// =============================================================================',
-  '//  Test',
+  '//  Test [q2l v=1]',
   '//  Q2 Launcher - do not hand-edit while the launcher has the profile open',
   '// =============================================================================',
 ]
+
+/**
+ * The `[q2l ...]` tag story 042 D2 attaches to one entry's generated line. Built from
+ * `entryRefFor` rather than from a hand-copied hex literal for the same reason the assertions
+ * below already compare against `alias-render.ts`'s own `aliasNameFor`: the ref belongs to
+ * `render.ts`, and a second copy of the hash in this file would drift.
+ *
+ * The hash *function itself* is pinned by its own test (`entryRefFor` further down), spelled out as
+ * a literal, so using it here cannot make these expectations tautological - a broken hash fails
+ * there, a broken tag *shape* fails here.
+ */
+function entryTag(
+  actionId: string,
+  fields: { k?: string; cid?: string; slot?: 1 | 2; mod?: string } = {},
+): string {
+  const parts = [`e=${entryRefFor(actionId)}`, `k=${fields.k ?? 'bind'}`]
+  if (fields.cid !== undefined) parts.push(`cid=${fields.cid}`)
+  if (fields.slot !== undefined) parts.push(`slot=${fields.slot}`)
+  if (fields.mod !== undefined) parts.push(`mod=${fields.mod}`)
+  return `[q2l ${parts.join(' ')}]`
+}
 
 /**
  * Story 040 D4: `writeUnbindall` defaults to on, so `default `profile()`'s missing value renders
@@ -248,13 +275,18 @@ describe('renderProfileFile with layers', () => {
 
     expect(otherBindsIndex).toBeGreaterThanOrEqual(0)
     expect(firstLayerBannerIndex).toBeGreaterThan(otherBindsIndex)
+    // Story 042 D2: the banner carries the layer's own ref, mode and trigger key - the fields
+    // that let a reader put these lines back into the right layer. `trigger` is present here
+    // because both layers have one; the trigger-less layer's own case below pins its absence. The
+    // banner's `-` fill is gone on both: the title plus its tag already fills the 80-char width,
+    // and no line this writer emits ends in whitespace with nothing after it.
     expect(lines.slice(firstLayerBannerIndex)).toEqual([
-      '// --- Layer: Drops (hold, on ALT) ---------------------------------------------',
+      '// --- Layer: Drops (hold, on ALT) [q2l layer=layer-drops mode=hold trigger=ALT]',
       'alias +drops "bind 1 drop rl; bind 2 drop rg"  // Drops',
       'alias -drops "unbind 1; unbind 2"              // Drops',
       'bind ALT     +drops                            // Drops',
       '',
-      '// --- Layer: Zoom (toggle, on v) ----------------------------------------------',
+      '// --- Layer: Zoom (toggle, on v) [q2l layer=layer-zoom mode=toggle trigger=v] -',
       'alias zoom_on  "bind MOUSE2 zoom_toggle_cmd; alias zoom zoom_off"  // Zoom',
       'alias zoom_off "unbind MOUSE2; alias zoom zoom_on"                 // Zoom',
       'alias zoom     zoom_on                                             // Zoom',
@@ -347,8 +379,16 @@ describe('renderProfileFile with layers', () => {
     for (const alias of noTriggerResult.aliases) {
       expect(codeLines).toContain(alias.line)
     }
-    // The banner says so out loud rather than showing an empty pair of parentheses.
-    expect(rendered).toContain('// --- Layer: NoTrigger (hold, no trigger key) ')
+    // The banner says so out loud rather than showing an empty pair of parentheses - and its tag
+    // (story 042 D2) omits `trigger` entirely rather than emitting it empty, so "no trigger" reads
+    // back as an absent field and not as a layer triggered by a key named "".
+    const noTriggerBanner = rendered
+      .split('\n')
+      .find((line) => line.startsWith('// --- Layer: NoTrigger '))
+    expect(noTriggerBanner).toBe(
+      '// --- Layer: NoTrigger (hold, no trigger key) [q2l layer=layer-no-trigger mode=hold]',
+    )
+    expect(noTriggerBanner).not.toContain('trigger=')
 
     // The only "bind " line in the whole file is the other layer's trigger
     // bind - the trigger-less layer contributes none, not even a malformed one.
@@ -533,14 +573,14 @@ describe('renderProfileFile with actions', () => {
     // Both actions sit in the same (weapons) category, so they share one alias section, and the
     // keyed one's bind is filed under that same category with the entry's name on it.
     expect(lines).toContain(
-      '// --- Aliases: Weapons --------------------------------------------------------',
+      '// --- Aliases: Weapons [q2l cat=weapons] --------------------------------------',
     )
-    expect(lines).toContain('alias one drop rl  // One')
-    expect(lines).toContain('alias two wave 2   // Two')
+    expect(lines).toContain(`alias one drop rl  // One ${entryTag('aaaa0000')}`)
+    expect(lines).toContain(`alias two wave 2   // Two ${entryTag('bbbb1111')}`)
     expect(lines).toContain(
-      '// --- Binds: Weapons ----------------------------------------------------------',
+      '// --- Binds: Weapons [q2l cat=weapons] ----------------------------------------',
     )
-    expect(lines).toContain('bind x "two"  // Two')
+    expect(lines).toContain(`bind x "two"  // Two ${entryTag('bbbb1111', { slot: 1 })}`)
   })
 
   it('renders a profile with actions: [] identically to one without the field', () => {
@@ -664,9 +704,9 @@ describe('renderProfileFile with actions', () => {
           // key that row holds), so they are filed under the owning action's category and
           // ordered by that action's index in `profile.actions` - `w` before `MOUSE1`, which is
           // neither alphabetical nor insertion order.
-          '// --- Binds: Movement ---------------------------------------------------------',
-          'bind w      "+forward"  // Forward',
-          'bind MOUSE1 "+attack"   // Attack',
+          '// --- Binds: Movement [q2l cat=movement] --------------------------------------',
+          `bind w      "+forward"  // Forward ${entryTag('f0f0', { cid: 'movement:forward', slot: 1 })}`,
+          `bind MOUSE1 "+attack"   // Attack ${entryTag('a1a1', { cid: 'attack:primary', slot: 1 })}`,
           '',
         ].join('\n'),
       )
@@ -887,11 +927,28 @@ describe('renderProfileFile with actions', () => {
         `bind PGUP "${aliasName}"`,
         `bind r "${aliasName}"`,
       ])
-      expect(bindLines.every((line) => line.endsWith('  // Rocket Launcher'))).toBe(true)
       expect(aliasLines.map(unformat)).toEqual([
         `alias ${aliasName} "drop rocket launcher; drop rockets; say_team need ammo"`,
       ])
-      expect(aliasLines[0]!.endsWith('  // Rocket Launcher')).toBe(true)
+
+      // Story 042 D2's own acceptance for this shape: both bind lines carry the *same* `e` (they
+      // are one entry) and differ only in `slot`, which is what pairs the two physical lines back
+      // into one two-key entry on import. The alias line shares that `e` and carries no `slot` at
+      // all - it is the entry, not one of its keys.
+      const catalogue = { cid: 'dropWeapon:rlauncher' }
+      expect(bindLines.map((line) => line.slice(line.indexOf('  // ') + '  // '.length))).toEqual([
+        `Rocket Launcher ${entryTag('ab12cd34', { ...catalogue, slot: 2 })}`,
+        `Rocket Launcher ${entryTag('ab12cd34', { ...catalogue, slot: 1 })}`,
+      ])
+      expect(aliasLines[0]!.endsWith(`  // Rocket Launcher ${entryTag('ab12cd34', catalogue)}`)).toBe(
+        true,
+      )
+
+      // Asserted as a property too, not only against the literals above: whatever the ref is, the
+      // two slots of one entry must never disagree on it.
+      const refs = bindLines.map((line) => /\[q2l e=([^ \]]+)/.exec(line)![1])
+      expect(refs[0]).toBe(refs[1])
+      expect(refs[0]).toBe(entryRefFor('ab12cd34'))
     })
 
     it('renders a movement row with only a Primary key as exactly one bind line', () => {
@@ -980,18 +1037,23 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       // Alpha-before-Bravo would prove the code sorted by name instead of following the array.
       // (This profile has no layers; the layer sections' own placement - last, after "Other
       // binds" - is pinned by the tests in the layers block above.)
+      // Story 042 D2: every category section header carries its own `cat` id, which is what lets
+      // an import file these lines back under the right category (and a custom one under a
+      // category minted from the banner's title). The two "Other" buckets carry no tag: their
+      // members' `categoryId` matches no category the profile has, so there is no id to record and
+      // a tag would invent one. "Other binds" carries none either - those lines have no owner.
       expect(banners(renderProfileFile(grouped))).toEqual([
-        'Aliases: Movement',
-        'Aliases: Weapons',
-        'Aliases: Weapon dropping',
-        'Aliases: Bravo',
-        'Aliases: Alpha',
+        'Aliases: Movement [q2l cat=movement]',
+        'Aliases: Weapons [q2l cat=weapons]',
+        'Aliases: Weapon dropping [q2l cat=drops]',
+        'Aliases: Bravo [q2l cat=cat-bravo]',
+        'Aliases: Alpha [q2l cat=cat-alpha]',
         'Aliases: Other',
-        'Binds: Movement',
-        'Binds: Weapons',
-        'Binds: Weapon dropping',
-        'Binds: Bravo',
-        'Binds: Alpha',
+        'Binds: Movement [q2l cat=movement]',
+        'Binds: Weapons [q2l cat=weapons]',
+        'Binds: Weapon dropping [q2l cat=drops]',
+        'Binds: Bravo [q2l cat=cat-bravo]',
+        'Binds: Alpha [q2l cat=cat-alpha]',
         'Binds: Other',
         'Other binds',
       ])
@@ -1006,12 +1068,15 @@ describe('story 040 D3: alias, layer and bind sections', () => {
 
       for (const entry of entries) {
         // Every category here holds exactly one entry, so no column padding is in play and the
-        // bind line can be pinned byte-for-byte, comment included.
-        expect(lines).toContain(`bind ${entry.key} "${entry.aliasName}"  // ${entry.name}`)
+        // bind line can be pinned byte-for-byte, comment and (story 042 D2) metadata tag included.
+        expect(lines).toContain(
+          `bind ${entry.key} "${entry.aliasName}"  // ${entry.name} ${entryTag(entry.id, { slot: 1 })}`,
+        )
         expect(
           lines.some(
             (line) =>
-              line.startsWith(`alias ${entry.aliasName} `) && line.endsWith(`  // ${entry.name}`),
+              line.startsWith(`alias ${entry.aliasName} `) &&
+              line.endsWith(`  // ${entry.name} ${entryTag(entry.id)}`),
           ),
         ).toBe(true)
       }
@@ -1083,9 +1148,11 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       const p = profile({ id: 'key-scoped', actions: [ssgSg], binds: { q: 'ssg_sg', e: 'ssg_sg' } })
       const lines = renderProfileFile(p).split('\n')
 
-      expect(lines).toContain('bind q "ssg_sg"  // SSG + SG')
+      expect(lines).toContain(`bind q "ssg_sg"  // SSG + SG ${entryTag('own-1', { slot: 1 })}`)
+      // The unclaimed key keeps no comment at all - neither the label nor a tag that would hand a
+      // hand-typed bind to an entry that does not own it.
       expect(lines).toContain('bind e "ssg_sg"')
-      expect(lines).not.toContain('bind e "ssg_sg"  // SSG + SG')
+      expect(lines.filter((line) => line.startsWith('bind e '))).toEqual(['bind e "ssg_sg"'])
       expect(banners(renderProfileFile(p))).toContain('Other binds')
     })
 
@@ -1096,7 +1163,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       // The key is right, the value is not - so this is a hand-typed bind on a slot the entry
       // also holds, and it is written unlabelled rather than mislabelled.
       expect(rendered.split('\n')).toContain('bind q "something else"')
-      expect(banners(rendered)).not.toContain('Binds: Weapons')
+      expect(banners(rendered)).not.toContain('Binds: Weapons [q2l cat=weapons]')
     })
 
     it('does not claim a plain key for an action whose slot carries a modifier (story 016)', () => {
@@ -1107,7 +1174,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       const rendered = renderProfileFile(p)
 
       expect(rendered.split('\n')).toContain('bind r "ssg_sg"')
-      expect(banners(rendered)).not.toContain('Binds: Weapons')
+      expect(banners(rendered)).not.toContain('Binds: Weapons [q2l cat=weapons]')
     })
 
     it('never lets a kind: alias entry own a bind (story 019)', () => {
@@ -1124,7 +1191,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
 
       expect(rendered.split('\n')).toContain('bind g "+slow"')
       expect(banners(rendered)).toContain('Other binds')
-      expect(banners(rendered)).not.toContain('Binds: Weapons')
+      expect(banners(rendered)).not.toContain('Binds: Weapons [q2l cat=weapons]')
     })
 
     it('labels a continuous catalogue row`s direct command mirror (story 034), not just an alias mirror', () => {
@@ -1140,7 +1207,9 @@ describe('story 040 D3: alias, layer and bind sections', () => {
 
       // `bindValueFor` returns the bare command here, so the reverse index has to match on that
       // and not on the alias name - the catalogue label is what proves it did.
-      expect(renderProfileFile(p).split('\n')).toContain('bind w "+forward"  // Forward')
+      expect(renderProfileFile(p).split('\n')).toContain(
+        `bind w "+forward"  // Forward ${entryTag('cat-forward', { cid: 'movement:forward', slot: 1 })}`,
+      )
     })
   })
 
@@ -1223,7 +1292,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
 
       // The base bind really did land in its owning category's section, not in "other binds" -
       // otherwise this case would silently be the previous test over again.
-      expect(banners(rendered)).toContain('Binds: Weapons')
+      expect(banners(rendered)).toContain('Binds: Weapons [q2l cat=weapons]')
       expect(codeLines).toContain('bind ALT "attack_e"')
       expect(codeLines).toContain('bind ALT +drops')
       expect(codeLines.indexOf('bind ALT +drops')).toBeGreaterThan(
@@ -1240,7 +1309,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         ],
       })
 
-      expect(banners(renderProfileFile(p))).toEqual(['Aliases: Weapons'])
+      expect(banners(renderProfileFile(p))).toEqual(['Aliases: Weapons [q2l cat=weapons]'])
     })
   })
 
@@ -1285,7 +1354,12 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       }
     })
 
-    it('truncates a comment that would bust the budget rather than the command', () => {
+    /**
+     * Story 042 D2 inverts story 040's give-way order, and this is where that inversion is pinned
+     * end to end: the display name is decoration, the `[q2l ...]` tag is state nothing else in the
+     * file records, so under budget pressure the *prose* is cut and the tag comes through whole.
+     */
+    it('truncates the display name rather than the command, and keeps the metadata tag whole', () => {
       const label = 'N'.repeat(200)
       const command = 'x'.repeat(900)
       const p = profile({
@@ -1304,9 +1378,74 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       // The command survives whole; only the label is cut, and it is cut from its own end.
       expect(aliasLine).toContain(command)
       const comment = aliasLine.slice(aliasLine.indexOf('  // ') + '  // '.length)
-      expect(comment.length).toBeGreaterThan(0)
-      expect(comment.length).toBeLessThan(label.length)
-      expect(label.startsWith(comment)).toBe(true)
+      const tag = entryTag('long')
+      expect(comment.endsWith(` ${tag}`)).toBe(true)
+
+      const prose = comment.slice(0, comment.length - tag.length - 1)
+      expect(prose.length).toBeGreaterThan(0)
+      expect(prose.length).toBeLessThan(label.length)
+      expect(label.startsWith(prose)).toBe(true)
+    })
+
+    /**
+     * One step past the case above: the line leaves room for the tag but not for a single character
+     * of prose plus its separating space. The name goes entirely and the tag stays - the opposite
+     * of what story 040 would have done with the same line.
+     */
+    it('drops the display name entirely before it shortens the metadata tag', () => {
+      const tag = entryTag('drop-prose', { cid: 'movement:forward', slot: 1 })
+      // Sized so `bind w "<command>"  // ` plus the bare tag lands exactly on the last byte the
+      // engine's line budget allows, leaving nothing at all for the name.
+      const filler = STRICTEST_LINE_BUDGET - 1 - 'bind w ""  // '.length - tag.length
+      const command = `+forward ${'z'.repeat(filler - '+forward '.length)}`
+      const huge = action({
+        id: 'drop-prose',
+        name: 'A display name that has to go',
+        categoryId: 'movement',
+        catalogId: 'movement:forward',
+        key: 'w',
+        commands: [{ kind: 'raw', text: command }],
+      })
+      const p = profile({ id: 'dropped-prose', actions: [huge], binds: { w: command } })
+
+      const bindLine = renderProfileFile(p)
+        .split('\n')
+        .find((line) => line.startsWith('bind w'))!
+
+      expect(bindLine).toBe(`bind w "${command}"  // ${tag}`)
+      expect(bindLine.length).toBe(STRICTEST_LINE_BUDGET - 1)
+      expect(bindLine).not.toContain('A display name')
+    })
+
+    /**
+     * And one step past *that*: the tag itself no longer fits. It is dropped whole rather than cut
+     * short - a truncated `[q2l` with no closing bracket reads back as malformed, which loses the
+     * metadata anyway and reports the whole comment as garbage while doing it - and the line falls
+     * back to exactly what story 040 would have written for it: the display name alone.
+     * Unreachable through the app (a command this long is already at the engine's own line limit),
+     * which is why it is handled rather than asserted away.
+     */
+    it('drops the metadata tag whole - never a half tag - when not even the bare tag fits', () => {
+      const tag = entryTag('no-room', { cid: 'movement:forward', slot: 1 })
+      const filler = STRICTEST_LINE_BUDGET - 1 - 'bind w ""  // '.length - tag.length + 1
+      const command = `+forward ${'z'.repeat(filler - '+forward '.length)}`
+      const huge = action({
+        id: 'no-room',
+        name: 'Forward',
+        categoryId: 'movement',
+        catalogId: 'movement:forward',
+        key: 'w',
+        commands: [{ kind: 'raw', text: command }],
+      })
+      const p = profile({ id: 'no-room-at-all', actions: [huge], binds: { w: command } })
+
+      const bindLine = renderProfileFile(p)
+        .split('\n')
+        .find((line) => line.startsWith('bind w'))!
+
+      expect(bindLine).toBe(`bind w "${command}"  // Forward`)
+      expect(bindLine).not.toContain('[q2l')
+      expect(bindLine.length).toBeLessThan(STRICTEST_LINE_BUDGET)
     })
 
     it('drops a comment outright when not even one character of it fits, keeping the command intact', () => {
@@ -1416,6 +1555,175 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         }
       }
     })
+  })
+})
+
+/**
+ * Story 042 D2 - the metadata the writer now emits, as a format rather than as decoration.
+ *
+ * The failure mode this block exists for is a tag that renders but cannot be read back: a hash
+ * that changes between renders, a value that smuggles a `]` or a `//` out of a display name, a
+ * prose that forges a tag, or a `v` marker that lands on the sentinel line and breaks every
+ * ownership check in `writer.ts`/`cleanup.ts`/`canonical.ts`. Each of those is silent on a green
+ * layout assertion, so each gets its own case here.
+ */
+describe('story 042 D2: the [q2l ...] metadata the writer emits', () => {
+  it('derives the entry ref from the action id, 8 lowercase hex digits, pinned as a literal', () => {
+    // Spelled out rather than computed: this is the one place the hash function itself is pinned,
+    // which is what lets every other assertion in this file build its expected tag from
+    // `entryRefFor` without becoming a tautology.
+    expect(entryRefFor('ab12cd34')).toBe('495141c5')
+    expect(entryRefFor('e-move')).toBe('4f1d3dc4')
+    expect(entryRefFor('')).toMatch(/^[0-9a-f]{8}$/)
+    // Not an index: the ref of an id does not depend on anything else in the profile, which is the
+    // whole reason inserting an entry does not renumber the file.
+    expect(entryRefFor('e-move')).not.toBe(entryRefFor('e-weap'))
+  })
+
+  it('carries the version marker exactly once, in the header block and never on the sentinel line', () => {
+    const lines = renderProfileFile(
+      profile({
+        id: 'versioned',
+        actions: [action({ id: 'v-1', name: 'One', key: 'q', aliasName: 'one_e' })],
+        binds: { q: 'one_e' },
+        layers: [
+          { id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'ALT', overrides: { '1': 'drop rl' } },
+        ],
+      }),
+    ).split('\n')
+
+    expect(lines.filter((line) => line.includes('v=1'))).toEqual(['//  Test [q2l v=1]'])
+    // AC: `sentinelLine()`'s output is byte-identical to before this story - three ownership
+    // checks in the writer match on that first line, one of them exactly.
+    expect(lines[0]).toBe(sentinelLine('versioned'))
+    expect(lines[0]).not.toContain('[q2l')
+  })
+
+  it('neutralises a display name that tries to forge a tag, so only the real tag parses as one', () => {
+    const p = profile({
+      id: 'forged',
+      categories: [{ id: 'cat-real', name: 'Weapons [q2l cat=movement]' }],
+      actions: [
+        action({
+          id: 'forge-1',
+          name: 'Gib [q2l cid=attack:primary]',
+          categoryId: 'cat-real',
+          key: 'q',
+          aliasName: 'gib_e',
+        }),
+      ],
+      binds: { q: 'gib_e' },
+    })
+
+    const rendered = renderProfileFile(p)
+
+    // One `[q2l` per line, always the trailing one: the user's own text reads back as inert
+    // `(q2l ...)`-ish decoration, never as a real field.
+    for (const line of rendered.split('\n')) {
+      expect(line.split('[q2l').length - 1).toBeLessThanOrEqual(1)
+    }
+    expect(rendered).toContain(`// Gib (q2l cid=attack:primary] ${entryTag('forge-1')}`)
+    expect(rendered).toContain('// --- Aliases: Weapons (q2l cat=movement] [q2l cat=cat-real] ')
+    // The forged fields did not become real ones - the only `cid` and `cat` in the file are the
+    // ones the writer put there itself.
+    expect(rendered).not.toContain('[q2l cid=attack:primary]')
+    expect(rendered).not.toContain('[q2l cat=movement]')
+  })
+
+  it('percent-escapes a tag value that carries a space, a `]` or a `/`', () => {
+    // A `catalogId` is machine-minted today, so this is the defensive path: a value that could
+    // otherwise close the tag early, split a token, or open a second `//` inside the comment.
+    const p = profile({
+      id: 'escaped',
+      actions: [
+        action({ id: 'esc-1', name: 'Odd', catalogId: 'weird id]with/slash%', key: 'q', aliasName: 'odd_e' }),
+      ],
+      binds: { q: 'odd_e' },
+    })
+
+    const rendered = renderProfileFile(p)
+    const bindLine = rendered.split('\n').find((line) => line.startsWith('bind q '))!
+
+    expect(bindLine).toContain('cid=weird%20id%5Dwith%2Fslash%25')
+    // Exactly one `//` on the line - the comment's own. An unescaped `/` in a value could pair up
+    // with the next one and read as a command separator inside the comment.
+    expect(bindLine.split('//').length - 1).toBe(1)
+    expect(bindLine.endsWith(']')).toBe(true)
+  })
+
+  it('keeps a banner inside the line budget even when the tag value itself is absurdly long', () => {
+    // The title-side of this is already covered above; this is the tag side. A category id this
+    // long is unreachable through the IPC schemas but uncapped in the persisted store, and the
+    // rule is that the tag is dropped whole rather than cut into a `[q2l` with no closing bracket.
+    const id = 'x'.repeat(4000)
+    const rendered = renderProfileFile(
+      profile({
+        id: 'long-cat-id',
+        categories: [{ id, name: 'Long id' }],
+        actions: [action({ id: 'long-1', name: 'E', categoryId: id, key: 'z', aliasName: 'e' })],
+        binds: { z: 'e' },
+      }),
+    )
+
+    for (const line of rendered.split('\n')) {
+      expect(line.length).toBeLessThan(STRICTEST_LINE_BUDGET)
+      if (line.includes('[q2l')) expect(line).toMatch(/\[q2l[^\]]*\]/)
+    }
+    expect(rendered).toContain('// --- Aliases: Long id ')
+  })
+
+  it('is deterministic and latin1-safe with every tag kind in one file', () => {
+    const build = (): ConfigProfile =>
+      profile({
+        id: 'tagged-rich',
+        name: 'Bjørn',
+        categories: [{ id: 'cat-melee', name: 'Nähkampf' }],
+        actions: [
+          action({
+            id: 'rich-a',
+            name: 'Nahkampf',
+            categoryId: 'cat-melee',
+            catalogId: 'weapon:blaster',
+            key: 'x',
+            secondaryKey: 'MOUSE3',
+            aliasName: 'melee_x',
+            commands: [{ kind: 'raw', text: 'use blaster' }, { kind: 'raw', text: '+attack' }],
+          }),
+        ],
+        binds: { x: 'melee_x', MOUSE3: 'melee_x', F1: 'say Grüße' },
+        layers: [
+          { id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'ALT', overrides: { '1': 'drop rl' } },
+          { id: 'l2', name: 'Zoom', mode: 'toggle', triggerKey: null, overrides: { MOUSE2: 'zoom' } },
+        ],
+      })
+
+    const rendered = renderProfileFile(build())
+
+    expect(renderProfileFile(build())).toBe(rendered)
+    expect(Buffer.from(rendered, 'latin1').toString('latin1')).toBe(rendered)
+    // The two slots of the one entry: same ref, different slot, and both catalogue-tagged.
+    const catalogue = { cid: 'weapon:blaster' }
+    expect(rendered).toContain(`  // Nahkampf ${entryTag('rich-a', { ...catalogue, slot: 1 })}`)
+    expect(rendered).toContain(`  // Nahkampf ${entryTag('rich-a', { ...catalogue, slot: 2 })}`)
+    // The trigger-less layer's header still records the layer and its mode, just no trigger.
+    expect(rendered).toContain('[q2l layer=l2 mode=toggle]')
+    expect(rendered).toContain('[q2l layer=l1 mode=hold trigger=ALT]')
+  })
+
+  it('gives an alias entry its own kind, and never a slot', () => {
+    const p = profile({
+      id: 'kinds',
+      actions: [
+        action({ id: 'k-alias', name: '+slow', kind: 'alias', commands: [{ kind: 'raw', text: 'cl_maxfps 30' }] }),
+        action({ id: 'k-msg', name: 'GG', kind: 'message', aliasName: 'gg_e', commands: [{ kind: 'message', channel: 'say', text: 'gg' }] }),
+      ],
+    })
+
+    const lines = renderProfileFile(p).split('\n')
+
+    expect(lines.some((line) => line.endsWith(`// +slow ${entryTag('k-alias', { k: 'alias' })}`))).toBe(true)
+    expect(lines.some((line) => line.endsWith(`// GG ${entryTag('k-msg', { k: 'message' })}`))).toBe(true)
+    expect(lines.every((line) => !line.includes('slot='))).toBe(true)
   })
 })
 

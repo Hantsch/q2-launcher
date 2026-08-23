@@ -13,6 +13,7 @@ import {
   scanImportCandidates,
   type ImportInstallations,
 } from './import'
+import { renderLoaderFile, renderProfileFile } from './render'
 
 /**
  * Story 005 D3: the handler logic in `import.ts`, tested directly against a
@@ -353,5 +354,153 @@ describe('commitImport', () => {
 
     expect(result).toEqual({ ok: false, error: { key: 'config.error.gameDirNotFound' } })
     expect(calls).toEqual([])
+  })
+})
+
+/**
+ * Story 042 D5: `ownWrittenFile`/`metadataVersion`/`sourceProfileId`/`metadataWarnings` on
+ * `previewImport`, and `commitImport`'s use of `restoreProfileParts` (D4) - including the case the
+ * acceptance line calls out explicitly: the sentinel is only reached through the loader's `exec`
+ * chain, never in the file the user actually pointed the import at.
+ */
+describe('story 042 D5: ownWrittenFile / metadata restore', () => {
+  const sourceProfile: ConfigProfile = {
+    id: 'source-profile-id',
+    name: 'Source',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    cvars: { sensitivity: '3' },
+    binds: {},
+    assignments: [],
+  }
+  const profileFileName = 'q2l-profile-source-profile-id.cfg'
+
+  /**
+   * `autoexec.cfg` is the loader `renderLoaderFile` actually writes for an installation's default
+   * profile: its own sentinel line, naming `sourceProfile.id`, followed by `exec <profileFileName>`
+   * - the profile's own cvars/tags live only in the exec'd file, never in `autoexec.cfg` itself.
+   */
+  async function writeOwnWrittenFixture(): Promise<void> {
+    await write('baseq2/autoexec.cfg', renderLoaderFile(sourceProfile, profileFileName))
+    await write(`baseq2/${profileFileName}`, renderProfileFile(sourceProfile))
+  }
+
+  describe('previewImport', () => {
+    it('reports ownWrittenFile true, with metadataVersion/sourceProfileId, for a file whose sentinel is only reached through the exec chain', async () => {
+      await writeOwnWrittenFixture()
+
+      const result = await previewImport(installations(installation()), log, {
+        installationId: 'i1',
+        gameDir: 'baseq2',
+      })
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      // Neither entry file itself carries the sentinel or the `v` marker - both only exist in
+      // `q2l-profile-source-profile-id.cfg`, reached solely via `autoexec.cfg`'s `exec` line.
+      expect(result.value.ownWrittenFile).toBe(true)
+      expect(result.value.sourceProfileId).toBe('source-profile-id')
+      expect(result.value.metadataVersion).not.toBeNull()
+    })
+
+    it('reports ownWrittenFile false, with metadataVersion/sourceProfileId null, for a foreign config', async () => {
+      await write('baseq2/config.cfg', lines('set sensitivity "3"', 'bind x "+attack"'))
+
+      const result = await previewImport(installations(installation()), log, {
+        installationId: 'i1',
+        gameDir: 'baseq2',
+      })
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.value.ownWrittenFile).toBe(false)
+      expect(result.value.metadataVersion).toBeNull()
+      expect(result.value.sourceProfileId).toBeNull()
+      expect(result.value.metadataWarnings).toEqual([])
+    })
+  })
+
+  describe('commitImport', () => {
+    it('skips the ambiguous-alias review step for an own-written file, so a stray layerAliases answer does not fail the commit', async () => {
+      await writeOwnWrittenFixture()
+      const calls: unknown[] = []
+      const createProfile = (input: unknown): ConfigProfile[] => {
+        calls.push(input)
+        return [
+          {
+            id: 'stub',
+            name: 'Restored',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            cvars: {},
+            binds: {},
+            assignments: [],
+          },
+        ]
+      }
+
+      const result = await commitImport(
+        installations(installation()),
+        log,
+        {
+          installationId: 'i1',
+          gameDir: 'baseq2',
+          name: 'Restored',
+          // Not ambiguous in this import at all - a foreign file would reject the whole commit for
+          // this (see the 041 D6 suite above); an own-written file must not, since there is nothing
+          // to guess (D4 already resolved slot pairing deterministically from tags).
+          layerAliases: ['not-a-real-alias'],
+        },
+        createProfile,
+      )
+
+      expect(result.ok).toBe(true)
+      expect(calls).toHaveLength(1)
+    })
+
+    it('never adopts sourceProfileId as the new profile id, so importing the same own-written file twice yields two distinct profiles', async () => {
+      await writeOwnWrittenFixture()
+
+      let minted = 0
+      const mintingCreateProfile = (input: {
+        name: string
+        cvars: Record<string, string>
+        binds: Record<string, string>
+      }): ConfigProfile[] => {
+        minted += 1
+        return [
+          {
+            id: `minted-${minted}`,
+            name: input.name,
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            cvars: input.cvars,
+            binds: input.binds,
+            assignments: [],
+          },
+        ]
+      }
+
+      const first = await commitImport(
+        installations(installation()),
+        log,
+        { installationId: 'i1', gameDir: 'baseq2', name: 'Restored' },
+        mintingCreateProfile,
+      )
+      const second = await commitImport(
+        installations(installation()),
+        log,
+        { installationId: 'i1', gameDir: 'baseq2', name: 'Restored' },
+        mintingCreateProfile,
+      )
+
+      expect(first.ok).toBe(true)
+      expect(second.ok).toBe(true)
+      if (!first.ok || !second.ok) return
+      expect(first.value[0]!.id).not.toBe(second.value[0]!.id)
+      // Never the source file's own profile id either (AC4).
+      expect(first.value[0]!.id).not.toBe('source-profile-id')
+      expect(second.value[0]!.id).not.toBe('source-profile-id')
+    })
   })
 })

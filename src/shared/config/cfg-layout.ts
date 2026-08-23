@@ -1,6 +1,7 @@
 /**
- * Layout primitives for the config-file writer (story 040 D2) — banners, per-section column
- * alignment, budget-aware comment attachment and comment sanitization. Pure, profile-agnostic:
+ * Layout primitives for the config-file writer (story 040 D2, extended by story 042 D2) — banners,
+ * per-section column alignment, budget-aware comment attachment (plain and, since 042, with a
+ * machine-readable tail that outranks the prose) and comment sanitization. Pure, profile-agnostic:
  * this file knows nothing about `ConfigProfile`, cvars, binds or aliases — `render.ts` is the only
  * caller that gives these functions meaning, the same separation `alt-layers.ts` keeps between
  * "generate the alias pair" and "know it belongs to a profile".
@@ -17,11 +18,32 @@
  * module ever emits — no em dashes, no box-drawing glyphs, same rule `sentinelLine` documents. */
 export type BannerFill = '-' | '='
 
+/**
+ * Per-profile decorative style for a *section* banner (story 042 D7) - meaningless for
+ * `fill: '='` (the file's one header block, which stays byte-identical to what D2 wrote
+ * regardless of this setting; only category/cvar/layer section banners honour it).
+ *
+ * - `'dashes'` - today's only format, and the implicit default (`.catch('dashes')` in
+ *   `main/lib/schemas.ts`): `// --- <line> ---...` padded with `-` out to `width`. Renders
+ *   byte-identical to every banner this file emitted before this style existed.
+ * - `'brackets'` - the User's literal sketch, `// ----- [ <line> ] -----`: a fixed five-dash
+ *   rule on each side of a bracketed title, independent of `width`.
+ * - `'plain'` - no decoration at all: a bare `// <line>`.
+ *
+ * All three carry the exact same `line` content - title and `[q2l ...]` tag alike, since that
+ * text is composed by the caller (`render.ts`'s `titledSection`) before it ever reaches `banner()`
+ * - only the ASCII dressing around it differs.
+ */
+export type SectionHeaderStyle = 'dashes' | 'brackets' | 'plain'
+
 export interface BannerOptions {
   /** Defaults to `'-'`. */
   fill?: BannerFill
-  /** Total banner width, comment marker included. Defaults to `BANNER_WIDTH`. */
+  /** Total banner width, comment marker included. Defaults to `BANNER_WIDTH`. Only consulted for
+   * `style: 'dashes'` (or `fill: '='`) - `'brackets'` and `'plain'` have no notion of width. */
   width?: number
+  /** Only consulted when `fill` is `'-'` (a section banner). Defaults to `'dashes'`. */
+  style?: SectionHeaderStyle
 }
 
 /** Default banner width in characters (the `//` marker included), matching the story's own sketch. */
@@ -34,9 +56,10 @@ export const BANNER_WIDTH = 80
  *
  * - `fill: '='` — a full-width rule (`// ====...`) above and below every entry in `lines`, each
  *   emitted as its own `//  <line>` comment. This is the file's header block: profile name plus the
- *   hand-edit sentence sit between two rules, exactly like the story's own sketch.
- * - `fill: '-'` (default) — one line per entry in `lines`, the title embedded in the fill itself:
- *   `// --- <line> ---...` padded with `-` out to `width`. This is a section banner.
+ *   hand-edit sentence sit between two rules, exactly like the story's own sketch. `style` is not
+ *   consulted here - the header block is not a section banner.
+ * - `fill: '-'` (default) — one line per entry in `lines`, decorated per `options.style` (story
+ *   042 D7, defaulting to `'dashes'`, today's only format). This is a section banner.
  *
  * Never truncates or drops anything: a `line` longer than `width` still prints in full, just past
  * the nominal width — this function has no budget concept, unlike `attachComment`.
@@ -44,6 +67,7 @@ export const BANNER_WIDTH = 80
 export function banner(lines: string | string[], options: BannerOptions = {}): string[] {
   const width = options.width ?? BANNER_WIDTH
   const fill = options.fill ?? '-'
+  const style = options.style ?? 'dashes'
   const items = Array.isArray(lines) ? lines : [lines]
 
   if (fill === '=') {
@@ -51,9 +75,18 @@ export function banner(lines: string | string[], options: BannerOptions = {}): s
     return [rule, ...items.map((line) => `//  ${line}`), rule]
   }
 
+  if (style === 'plain') return items.map((line) => `// ${line}`)
+
+  if (style === 'brackets') return items.map((line) => `// ----- [ ${line} ] -----`)
+
   return items.map((line) => {
     const prefix = `// --- ${line} `
-    return `${prefix}${'-'.repeat(Math.max(0, width - prefix.length))}`
+    const fill = '-'.repeat(Math.max(0, width - prefix.length))
+    // A title that already fills `width` leaves no fill at all, and `prefix`'s own trailing space
+    // would then be the last character on the line. Trimmed, for the same reason `renderRows`
+    // trims a row whose comment was dropped: no line this writer emits ends in whitespace that
+    // has nothing after it. Only decoration is affected - `line` itself still prints in full.
+    return fill.length > 0 ? `${prefix}${fill}` : prefix.trimEnd()
   })
 }
 
@@ -114,10 +147,79 @@ export function alignRows(rows: readonly (readonly string[])[], columns: readonl
 }
 
 /**
- * Appends `comment` to `code` as a trailing `//` comment, kept inside `budget` (a latin1 byte
- * count, i.e. `string.length` — see `render.ts`'s own file doc comment for why that equivalence
- * holds). Truncate then drop, never wrap and never touch `code`: the command is the contract, the
- * comment is decoration, so when the two cannot both fit, the comment is what gives.
+ * Composes a comment body out of free `prose` and a machine-readable `tag` (story 042's
+ * `[q2l …]` tail, rendered by `profile-metadata.ts` — this function only ever sees it as an
+ * opaque string), no longer than `budget` characters.
+ *
+ * **The give-way order is the inverse of the tagless rule below**, and that inversion is the whole
+ * point of this function. In story 040 the trailing comment was decoration, so it was the first
+ * thing cut; since story 042 the tag carries *state* (which entry a line belongs to, which of its
+ * two key slots it is, which layer it lives in) that nothing else in the file records, while the
+ * prose is a display name the file can perfectly well be read without. So:
+ *
+ * 1. `<prose> <tag>` when both fit whole;
+ * 2. otherwise the prose is truncated from its own end, keeping the tag intact, as long as at
+ *    least one character of prose plus the separating space still fit;
+ * 3. otherwise the prose is dropped entirely and the bare `tag` is returned;
+ * 4. and only a `budget` that cannot hold even the bare tag gives up on the tag — falling back to
+ *    the pre-042 rule (as much prose as fits, `''` when not even that), so that line degrades to
+ *    what story 040 would have written for it. Unreachable through any real input (every user-typed
+ *    name reaching a rendered line is clamped long before this point), which is exactly why it is
+ *    handled here rather than asserted away: an unreachable branch that silently emitted a
+ *    *truncated* tag would produce a malformed `[q2l` with no closing `]`, and a half tag is worse
+ *    than no tag — `parseMetaTag` reports the whole comment as malformed and the metadata is lost
+ *    either way, only louder.
+ *
+ * So the tag is always present in full or absent in full, never cut; and the result is never
+ * longer than `budget`.
+ *
+ * With an empty `tag` this degrades exactly to `attachComment`'s pre-042 behaviour (truncate the
+ * prose, then drop it), which is what keeps every untagged line in a rendered file byte-identical
+ * to what story 040 wrote.
+ */
+export function fitProseAndTag(prose: string, tag: string, budget: number): string {
+  if (budget <= 0) return ''
+  // No tag, or no room for one: the pre-042 rule, as much prose as fits.
+  if (tag.length === 0 || tag.length > budget) return prose.slice(0, budget)
+
+  const whole = prose.length > 0 ? `${prose} ${tag}` : tag
+  if (whole.length <= budget) return whole
+
+  // One character short of the tag's own room is the separating space; anything left over is
+  // prose. Trimmed at its new end so a cut landing mid-space cannot leave `name  [q2l …]`.
+  const room = budget - tag.length - 1
+  const truncated = room > 0 ? prose.slice(0, room).replace(/\s+$/, '') : ''
+  return truncated.length > 0 ? `${truncated} ${tag}` : tag
+}
+
+/**
+ * Appends a `prose`+`tag` comment to `code` as a trailing `//` comment, kept inside `budget` (a
+ * latin1 byte count, i.e. `string.length` — see `render.ts`'s own file doc comment for why that
+ * equivalence holds). Never wraps and never touches `code`: the command is the contract, so when
+ * command and comment cannot both fit, the comment is what gives — see `fitProseAndTag` for the
+ * order in which its two halves do.
+ *
+ * The comment is dropped whole (and `code` returned verbatim) when `code` plus the bare `//`
+ * prefix already fills the budget, or when `fitProseAndTag` cannot fit anything at all — so a
+ * `code` too long to carry a comment is never itself cut to make room for one.
+ */
+export function attachTaggedComment(
+  code: string,
+  prose: string,
+  tag: string,
+  budget: number,
+): string {
+  const prefix = `${code}  // `
+  if (prefix.length >= budget) return code
+
+  const body = fitProseAndTag(prose, tag, budget - prefix.length)
+  return body.length === 0 ? code : `${prefix}${body}`
+}
+
+/**
+ * Appends `comment` to `code` as a trailing `//` comment, kept inside `budget`. Truncate then
+ * drop: the tagless (pre-story-042) form of `attachTaggedComment`, kept as its own named entry
+ * point for every caller that has only prose to attach.
  *
  * - Fits whole: `<code>  // <comment>`.
  * - Does not fit whole, but `code` plus the bare `//` prefix still leaves room for at least one
@@ -126,15 +228,14 @@ export function alignRows(rows: readonly (readonly string[])[], columns: readonl
  *
  * An empty `comment` is never attached at all — `code` alone is returned, so a caller does not have
  * to special-case "no comment" before calling this.
+ *
+ * `render.ts` routes every row through `attachTaggedComment` since story 042 D2 (an untagged row
+ * passes `tag: ''` and lands on exactly this rule), so this is the primitive's untagged form rather
+ * than a second implementation: it names the pre-042 contract that `fitProseAndTag` still falls
+ * back to, and is the entry point for a caller that has only prose.
  */
 export function attachComment(code: string, comment: string, budget: number): string {
-  if (comment.length === 0) return code
-
-  const prefix = `${code}  // `
-  if (prefix.length >= budget) return code
-
-  const available = budget - prefix.length
-  return `${prefix}${comment.slice(0, available)}`
+  return attachTaggedComment(code, comment, '', budget)
 }
 
 /**

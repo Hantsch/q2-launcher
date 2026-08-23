@@ -248,6 +248,12 @@ const configProfileObjectSchema = z.object({
   // convention as `favorite` above. No migration entry: purely additive, same precedent as
   // story 039's `aliasName`.
   writeUnbindall: z.boolean().catch(true),
+  // Story 042 D7: which decoration a rendered file's section banners use. Defaults to `'dashes'`
+  // (the User decision) - a missing/malformed value, including every profile persisted before
+  // this deliverable, degrades to `'dashes'` rather than throwing, which is also today's only
+  // format, so nothing already on disk renders any differently. No migration entry: purely
+  // additive, same precedent as `writeUnbindall` right above.
+  sectionHeaderStyle: z.enum(['dashes', 'brackets', 'plain']).catch('dashes'),
 })
 
 /**

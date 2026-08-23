@@ -947,6 +947,11 @@
       "expand": "Show rendered files",
       "writeUnbindall": "Start the file with `unbindall`",
       "writeUnbindallHint": "Clears every engine default bind before this profile's own binds are applied.",
+      "sectionHeaderStyle": "Section header style",
+      "sectionHeaderStyleHint": "How this profile's rendered file decorates its section banners (e.g. `Weapons`).",
+      "sectionHeaderStyleDashes": "Dashes (`--- Weapons ---`)",
+      "sectionHeaderStyleBrackets": "Brackets (`----- [ Weapons ] -----`)",
+      "sectionHeaderStylePlain": "Plain (`Weapons`)",
       "playedMods": "Played mods",
       "noMods": "No other mod folders found.",
       "previewEmpty": "Nothing would be written."
@@ -997,6 +1002,24 @@
         "undone": "Restored."
       }
     },
+    "import": {
+      "warning": {
+        "metadata-version-newer": "This file was written by a newer version of the launcher than this one supports ({{file}}:{{line}}).",
+        "metadata-version-invalid": "This file's launcher version marker could not be read ({{file}}:{{line}}).",
+        "metadata-version-missing": "This file was written by this launcher, but its version marker is missing ({{file}}:{{line}}).",
+        "tag-malformed": "A launcher metadata tag in this file could not be read ({{file}}:{{line}}).",
+        "tag-missing": "An alias added by hand has no launcher metadata tag; it was imported from its plain definition ({{file}}:{{line}}).",
+        "tag-unknown-keys": "A launcher metadata tag has fields this version does not recognize: {{subject}} ({{file}}:{{line}}).",
+        "tag-kind-unknown": "A launcher metadata tag names an entry type this version does not recognize ({{file}}:{{line}}).",
+        "tag-kind-contradicted": "A launcher metadata tag says this entry is an alias, but a key is bound to it — the key bind was kept ({{file}}:{{line}}).",
+        "tag-slot-conflict": "Two key binds claimed the same slot of one entry; the first was kept ({{file}}:{{line}}).",
+        "tag-modifier-unknown": "A launcher metadata tag names a modifier this version does not recognize ({{file}}:{{line}}).",
+        "entry-section-unknown": "An entry's category could not be recovered ({{file}}:{{line}}).",
+        "layer-mode-contradicted": "A layer's recorded mode disagreed with its own key binds ({{file}}:{{line}}).",
+        "layer-trigger-contradicted": "A layer's recorded trigger key disagreed with its own key binds ({{file}}:{{line}}).",
+        "modifier-slot-unavailable": "A modifier key bind could not be restored — both of its entry's key slots were already taken ({{file}}:{{line}})."
+      }
+    },
     "importDialog": {
       "title": "Import from installation",
       "installationLabel": "Installation",
@@ -1020,6 +1043,13 @@
       "duplicateAliasCount_other": "{{count}} aliases defined more than once",
       "preservedCount_one": "{{count}} preserved line",
       "preservedCount_other": "{{count}} preserved lines",
+      "restore": {
+        "title": "Restoring a launcher profile",
+        "bodyNamed": "This file was written by this launcher for \"{{name}}\". Importing it creates a new profile here — \"{{name}}\" itself is left untouched.",
+        "bodyUnnamed": "This file was written by this launcher, but the profile it came from ({{id}}) is no longer registered here. Importing it creates a new profile."
+      },
+      "metadataWarningCount_one": "{{count}} note about this file's launcher metadata",
+      "metadataWarningCount_other": "{{count}} notes about this file's launcher metadata",
       "review": {
         "count_one": "{{count}} alias needs a decision",
         "count_other": "{{count}} aliases need a decision",
