@@ -229,6 +229,42 @@ the trigger is in — so there is no measure-then-reposition pass that can fail.
 Both measure via `lib/anchor-rect.ts`, which falls back to the first child when the
 wrapper is `display: contents` and therefore has no box.
 
+#### Dynamic styles under the production CSP
+
+The production policy is `style-src 'self'` (`PRODUCTION_CSP` in
+`src/main/lib/renderer-source.ts`) — no `'unsafe-inline'`. That does **not** mean
+styles cannot be computed at runtime; it means only one of the two ways of applying
+them is still open.
+
+Permitted, because both are CSSOM writes and `style-src` does not govern the CSSOM:
+
+- React's `style={{ ... }}` prop, which React applies via
+  `node.style.setProperty(...)`.
+- A CSS custom property set from script —
+  `element.style.setProperty('--foo', value)` — read back by a rule in
+  `src/renderer/src/styles/` as `var(--foo)`. This is the escape hatch when a value
+  has to reach a pseudo-element, a descendant, or a media/state variant that an
+  inline `style` prop cannot address.
+
+Blocked by this policy, and not to be introduced:
+
+- `setAttribute('style', ...)` (and `cssText`) — a *parsed* style attribute, which is
+  what `style-src-attr` covers, unlike the property-by-property CSSOM write above.
+- A literal `<style>` block, whether authored in markup or built with
+  `document.createElement('style')` — `style-src-elem`.
+- CSS injected through `dangerouslySetInnerHTML`, which lands as one of the two forms
+  above.
+
+The distinction is easy to lose, since the permitted and blocked forms differ by one
+method call and produce the same visual result in development, where `DEV_CSP` still
+carries `'unsafe-inline'` for Vite's HMR `<style>` injection. So it is enforced rather
+than trusted: `scripts/lib/harness.mjs` asserts the served header contains
+`style-src 'self';` (with the trailing semicolon, so a re-added `'unsafe-inline'`
+cannot satisfy the check as a prefix) and collects the page's
+`securitypolicyviolation` events into `RunLog.cspViolations`, so a violation fails a
+`ui:verify` run the same way a console error does. Note that `ui:flow` shares the
+collector but does not read it — a flow's pass/fail only reflects its own steps.
+
 ## Window chrome
 
 `frame: false` with a React title bar, matching the reference launchers. The

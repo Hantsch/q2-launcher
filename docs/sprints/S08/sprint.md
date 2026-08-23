@@ -1,7 +1,7 @@
 ---
 sprint: S08
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S08
 milestone: Config, round two
 ---
 
@@ -18,7 +18,7 @@ repo still owes: no inline styles in the shipped CSP, and no authoring surface l
 
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
-- [ ] 046 — The production CSP no longer allows inline styles
+- [x] 046 — The production CSP no longer allows inline styles
 - [ ] 047 — The message editor is covered by ui:verify like every other surface
 - [ ] 042 — A launcher-written profile file re-imports without losing anything
 - [ ] 043 — The .cfg file is the source of truth, state.json becomes a cache

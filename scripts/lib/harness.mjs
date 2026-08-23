@@ -38,8 +38,13 @@ const RENDERER_ENTRY = join('out', 'renderer', 'index.html')
  */
 const EXPECTED_RENDERER_ORIGIN = 'q2launcher://app'
 
-/** Every production response must carry this — story 035's whole point is that it's not optional. */
-const REQUIRED_CSP_DIRECTIVE = "script-src 'self'"
+/**
+ * Every production response must carry all of these — story 035's whole point is that
+ * `script-src` isn't optional, and story 046's is that `style-src` no longer allows
+ * `'unsafe-inline'` either. The trailing `;` on the `style-src` entry is intentional: it
+ * makes `style-src 'self' 'unsafe-inline'` fail the check instead of matching as a prefix.
+ */
+const REQUIRED_CSP_DIRECTIVES = ["script-src 'self'", "style-src 'self';"]
 
 const LAUNCH_TIMEOUT_MS = 60_000
 /** Enough of the main process's stderr to explain a launch that died early. */
@@ -76,6 +81,12 @@ export class RunLog {
   mainExit = null
   /** Tail of the main process's stderr — the only clue when it dies pre-window. */
   mainStderr = []
+  /**
+   * `{ violatedDirective, blockedURI, sourceFile, lineNumber }` for every
+   * `securitypolicyviolation` event the page fired (story 046, D3) — a real CSP
+   * violation is otherwise silent to everything except the browser's own devtools.
+   */
+  cspViolations = []
 
   get errors() {
     return this.messages.filter((message) => message.type === 'error')
@@ -96,6 +107,9 @@ export class RunLog {
     const failures = []
     for (const message of this.errors) failures.push(`console error: ${message.text}`)
     for (const error of this.pageErrors) failures.push(`renderer exception: ${error}`)
+    for (const violation of this.cspViolations) {
+      failures.push(`csp violation: ${describeCspViolation(violation)}`)
+    }
     if (this.mainCrashed) failures.push(`main process ${describeExit(this.mainExit)}`)
     return failures
   }
@@ -112,6 +126,9 @@ export class RunLog {
       )
     }
     for (const error of this.pageErrors) lines.push(`  [pageerror] ${error}`)
+    for (const violation of this.cspViolations) {
+      lines.push(`  [csp violation] ${describeCspViolation(violation)}`)
+    }
     if (this.mainExit) lines.push(`  [main] ${describeExit(this.mainExit)}`)
     for (const line of this.mainStderr) lines.push(`  [main stderr] ${line}`)
     return lines.join('\n')
@@ -121,6 +138,53 @@ export class RunLog {
 function describeExit({ code, signal, expected }) {
   const how = signal ? `signal ${signal}` : `code ${code}`
   return `exited with ${how}${expected ? '' : ' before the run finished'}`
+}
+
+/** Renders one collected `securitypolicyviolation` event as a single line. */
+function describeCspViolation({ violatedDirective, blockedURI, sourceFile, lineNumber }) {
+  const where = sourceFile ? ` at ${sourceFile}:${lineNumber ?? '?'}` : ''
+  return `${violatedDirective} blocked ${blockedURI}${where}`
+}
+
+/**
+ * Installed both as an immediate `page.evaluate()` (for the document already
+ * loading when the harness attaches) and as a `page.addInitScript()` (so it
+ * survives `page.reload()`/navigation within the same run — story 027's
+ * `resetToBaseState()` reloads the document mid-session). A real style-src
+ * violation fires this event in the browser and nowhere else; without it, a
+ * regression that still says `style-src 'self'` in the header but violates it
+ * at runtime (e.g. a reintroduced inline `style="..."`) would pass silently.
+ */
+function installCspViolationListener() {
+  if (window.__q2lCspViolationListenerInstalled) return
+  window.__q2lCspViolationListenerInstalled = true
+  window.__q2lCspViolations = window.__q2lCspViolations || []
+  document.addEventListener('securitypolicyviolation', (event) => {
+    window.__q2lCspViolations.push({
+      violatedDirective: event.violatedDirective,
+      blockedURI: event.blockedURI,
+      sourceFile: event.sourceFile,
+      lineNumber: event.lineNumber,
+    })
+  })
+}
+
+/**
+ * Pulls whatever `installCspViolationListener()` has collected so far into
+ * `log`, and clears it in-page. Exported so `session.mjs` can drain per-visit
+ * (right before it decides that visit's pass/fail), the same way `withApp()`
+ * drains once more after `fn` returns to catch anything fired outside any
+ * visit's own window.
+ */
+export async function drainCspViolations(page, log) {
+  const drained = await page
+    .evaluate(() => {
+      const violations = window.__q2lCspViolations ?? []
+      window.__q2lCspViolations = []
+      return violations
+    })
+    .catch(() => [])
+  log.cspViolations.push(...drained)
 }
 
 /**
@@ -202,6 +266,12 @@ async function launchApp({ userDataDir }) {
     })
     page.on('pageerror', (error) => log.pageErrors.push(error.stack || String(error)))
 
+    // Catches the document already loading when `firstWindow()` resolved; the
+    // `addInitScript` below is what makes the same listener survive a later
+    // `page.reload()`/navigation, which a plain `page.evaluate()` would not.
+    await page.evaluate(installCspViolationListener).catch(() => {})
+    await page.addInitScript(installCspViolationListener)
+
     await page.waitForLoadState('domcontentloaded')
 
     // Isolation is only real if Electron honoured the switch — ask the app itself
@@ -227,12 +297,20 @@ async function launchApp({ userDataDir }) {
           'production mode did not load from the q2launcher:// scheme',
       )
     }
-    if (!rendererCheck.csp || !rendererCheck.csp.includes(REQUIRED_CSP_DIRECTIVE)) {
+    const missingDirectives = REQUIRED_CSP_DIRECTIVES.filter(
+      (directive) => !rendererCheck.csp || !rendererCheck.csp.includes(directive),
+    )
+    if (missingDirectives.length > 0) {
       throw new HarnessError(
-        `renderer response is missing the required Content-Security-Policy directive ` +
-          `${REQUIRED_CSP_DIRECTIVE} — got ${rendererCheck.csp ? `"${rendererCheck.csp}"` : '(no header)'}`,
+        `renderer response is missing required Content-Security-Policy directive(s): ` +
+          `${missingDirectives.join(', ')} — got ` +
+          `${rendererCheck.csp ? `"${rendererCheck.csp}"` : '(no header)'}`,
       )
     }
+
+    // Drain whatever fired during the initial load, before this launch is handed
+    // back to a caller that may check `log.failures` right away.
+    await drainCspViolations(page, log)
 
     return { app, page, log, state, child, userDataDir: reportedUserDataDir }
   } catch (error) {
@@ -295,6 +373,10 @@ export async function withApp({ variant, viewport } = {}, fn) {
   try {
     if (viewport) await resize(app, viewport)
     const result = await fn({ app, page, log, userDataDir })
+    // Whatever `fn` triggered (navigation, interaction) may have fired more
+    // violations since the initial drain in `launchApp()` — collect those too
+    // before the run's pass/fail is evaluated.
+    await drainCspViolations(page, log)
     await assertStillRunning(app, child, log, state)
     return result
   } catch (error) {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   createRendererProtocolHandler,
+  DEV_CSP,
   PRODUCTION_CSP,
   resolveRendererSource,
 } from './renderer-source'
@@ -34,6 +35,25 @@ describe('resolveRendererSource', () => {
   it('picks scheme when the dev-server URL is an empty string', () => {
     const result = resolveRendererSource({ isDev: true, devServerUrl: '' })
     expect(result).toEqual({ kind: 'scheme' })
+  })
+})
+
+describe('PRODUCTION_CSP', () => {
+  it('allows no inline styles', () => {
+    // Story 046 D2: the renderer has no `style="..."` attribute, no literal `<style>` block and
+    // no `dangerouslySetInnerHTML` - dynamic values go through React's `style` prop, a CSSOM
+    // write that `style-src` never governs. This would fail if `'unsafe-inline'` came back.
+    expect(PRODUCTION_CSP).toContain("style-src 'self';")
+    expect(PRODUCTION_CSP).not.toContain('unsafe-inline')
+    expect(PRODUCTION_CSP).not.toContain('unsafe-eval')
+  })
+})
+
+describe('DEV_CSP', () => {
+  it('still allows inline styles for Vite/React Fast Refresh HMR', () => {
+    // Deliberate dev-only allowance, not drift from PRODUCTION_CSP above: Vite/Fast Refresh
+    // injects `<style>` blocks at dev time, which a locked-down style-src would block.
+    expect(DEV_CSP).toContain("style-src 'self' 'unsafe-inline'")
   })
 })
 

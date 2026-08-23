@@ -243,9 +243,24 @@ trusting it by convention:
   userData containment assertion, the harness asserts inside the running
   page that `location.origin` is exactly `q2launcher://app` and that
   `fetch(location.href)`'s `content-security-policy` response header is
-  present and contains `script-src 'self'`. Either failing throws a
-  `HarnessError` naming the actual origin or the actual (or missing) header,
-  not a generic assertion failure.
+  present and contains every entry of `REQUIRED_CSP_DIRECTIVES`:
+  `script-src 'self'` and `style-src 'self';` (story 046 — the trailing `;`
+  is deliberate, so a header of `style-src 'self' 'unsafe-inline'` does not
+  satisfy the check by matching as a prefix). Either the origin or any
+  missing directive throws a `HarnessError` naming the actual origin, or
+  every missing directive together with the actual (or missing) header — not
+  a generic assertion failure.
+- That header check only catches a *declared* regression. To also catch a
+  `style-src 'self'` header that is still correct on paper but violated at
+  runtime (e.g. a reintroduced inline `style="..."` attribute), the harness
+  installs a `securitypolicyviolation` listener in the page — once
+  immediately for the document already loading, and once via
+  `page.addInitScript()` so it survives a mid-run `page.reload()` — and
+  drains whatever it collected into `RunLog.cspViolations` before a run's
+  pass/fail is read. Any collected violation shows up in `RunLog.failures`
+  and `RunLog.format()` next to console errors and renderer exceptions, and
+  a non-empty `cspViolations` fails the run the same way a console error
+  does.
 
 Every entry point (`ui:shot`, `ui:a11y`, `ui:verify`, `ui:flow`, and the
 `node scripts/lib/harness.mjs` self-check) goes through `launchApp()`/

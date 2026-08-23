@@ -290,6 +290,7 @@ function printSummary({ results, capture, launches, full, screens, sessionErrors
       bits.push(`shot:${shot.status}`)
       if (shot.consoleErrors?.length) bits.push(`${shot.consoleErrors.length} console error(s)`)
       if (shot.pageErrors?.length) bits.push(`${shot.pageErrors.length} page error(s)`)
+      if (shot.cspViolations?.length) bits.push(`${shot.cspViolations.length} CSP violation(s)`)
       if (shot.reason) bits.push(`(${shot.reason.split('\n')[0]})`)
       if (shot.status === 'written') written += 1
       else if (shot.status === 'unreachable') unreachable += 1

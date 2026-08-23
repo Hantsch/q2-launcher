@@ -20,19 +20,21 @@ export const RENDERER_INDEX_URL = `${RENDERER_ORIGIN}/index.html`
  * from our own content. The renderer is local, trusted code - these are the guardrails that keep
  * it that way if a dependency turns hostile.
  *
- * The dev server needs inline/eval for React Fast Refresh and a websocket for HMR.
+ * The dev server needs inline/eval for React Fast Refresh and a websocket for HMR. Its `style-src
+ * 'unsafe-inline'` is a deliberate dev-only allowance - Vite/React Fast Refresh injects
+ * `<style>` blocks for HMR - and is not drift from `PRODUCTION_CSP` below.
  */
 export const DEV_CSP =
   "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss: http://localhost:* http://127.0.0.1:*"
 
 /**
- * AC6: `style-src 'unsafe-inline'` stays for now even though this story makes the rest of the
- * policy genuinely enforced. Tightening it means auditing every inline style Tailwind/React emit
- * at runtime, which is a real piece of work on its own — it is deferred to a `docs/ROADMAP.md`
- * "Hardening" bullet, not folded into this story or spun out as a new one.
+ * Production allows no inline styles: dynamic values go through React's `style` prop (and CSS
+ * custom properties), which React applies via `node.style.setProperty(...)` - a CSSOM write that
+ * `style-src` does not govern at all. Only parsed `style="..."` HTML attributes and literal
+ * `<style>` blocks are subject to this directive, and the renderer has neither.
  */
 export const PRODUCTION_CSP =
-  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+  "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
 
 export interface ResolveRendererSourceInput {
   isDev: boolean

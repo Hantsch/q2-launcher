@@ -41,7 +41,7 @@
 import { mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { writeFixture } from './fixture.mjs'
-import { HarnessError, resize, withApp } from './harness.mjs'
+import { HarnessError, drainCspViolations, resize, withApp } from './harness.mjs'
 import { REPO_ROOT, UI_VERIFY_ROOT } from './paths.mjs'
 
 /** Where `capture.shot` writes its PNGs. Exported so the stale sweep agrees with the driver. */
@@ -210,7 +210,15 @@ function visitResult({ screen, viewport, shot, axe, written, harnessOk }) {
 }
 
 /** Reached the screen, but the app itself misbehaved or never got there. */
-function unreachableResult({ screen, viewport, capture, reason, consoleErrors, pageErrors }) {
+function unreachableResult({
+  screen,
+  viewport,
+  capture,
+  reason,
+  consoleErrors,
+  pageErrors,
+  cspViolations,
+}) {
   return visitResult({
     screen,
     viewport,
@@ -218,7 +226,9 @@ function unreachableResult({ screen, viewport, capture, reason, consoleErrors, p
     harnessOk: false,
     // Story 026's `shootOne()` recorded the console/page errors it had observed
     // alongside the unreachability; `auditOne()` recorded only the reason.
-    shot: capture.shot ? { status: 'unreachable', consoleErrors, pageErrors, reason } : null,
+    shot: capture.shot
+      ? { status: 'unreachable', consoleErrors, pageErrors, cspViolations, reason }
+      : null,
     axe: capture.axe ? { status: 'unreachable', reason, violations: [] } : null,
   })
 }
@@ -234,7 +244,9 @@ function harnessFailureResult({ screen, viewport, capture, reason }) {
     viewport,
     written: false,
     harnessOk: false,
-    shot: capture.shot ? { status: 'error', consoleErrors: [], pageErrors: [], reason } : null,
+    shot: capture.shot
+      ? { status: 'error', consoleErrors: [], pageErrors: [], cspViolations: [], reason }
+      : null,
     axe: capture.axe ? { status: 'error', reason, violations: [] } : null,
   })
 }
@@ -252,6 +264,7 @@ function harnessFailureResult({ screen, viewport, capture, reason }) {
 async function runVisit({ app, page, log, screen, viewport, capture, axeSource }) {
   const consoleFrom = log.messages.length
   const pageErrorsFrom = log.pageErrors.length
+  const cspViolationsFrom = log.cspViolations.length
   /**
    * Only what happened during *this* visit. A console message emitted by the
    * previous screen but delivered late can still land here — the round trip in
@@ -263,6 +276,7 @@ async function runVisit({ app, page, log, screen, viewport, capture, axeSource }
       .filter((message) => message.type === 'error')
       .map((message) => message.text),
     pageErrors: log.pageErrors.slice(pageErrorsFrom),
+    cspViolations: log.cspViolations.slice(cspViolationsFrom),
   })
 
   try {
@@ -270,6 +284,9 @@ async function runVisit({ app, page, log, screen, viewport, capture, axeSource }
     await resize(app, viewport)
     await screen.navigate(page)
   } catch (error) {
+    // Same reasoning as the main drain further down: a CSP violation fired
+    // during `resetToBaseState()`/`navigate()` only reaches `log` once drained.
+    await drainCspViolations(page, log)
     return unreachableResult({
       screen,
       viewport,
@@ -319,26 +336,40 @@ async function runVisit({ app, page, log, screen, viewport, capture, axeSource }
   // delivered over the same channel as this call, so anything the page logged
   // while it was being captured is in `log` by the time this resolves.
   await page.evaluate(() => true).catch(() => {})
+  // CSP violations don't arrive over that same channel — the in-page listener
+  // only pushes them into a page-side array, so they need an explicit drain
+  // into `log.cspViolations` before this visit's pass/fail can see them. This
+  // mirrors `withApp()`'s own end-of-session drain, just scoped to one visit.
+  await drainCspViolations(page, log)
 
-  const { consoleErrors, pageErrors } = observed()
-  const appFailed = consoleErrors.length > 0 || pageErrors.length > 0 || log.mainCrashed
+  const { consoleErrors, pageErrors, cspViolations } = observed()
+  const appFailed =
+    consoleErrors.length > 0 || pageErrors.length > 0 || cspViolations.length > 0 || log.mainCrashed
 
   if (capture.shot) {
     shot = shotError
-      ? { status: 'error', consoleErrors, pageErrors, reason: shotError }
-      : { status: appFailed ? 'error' : 'written', consoleErrors, pageErrors }
+      ? { status: 'error', consoleErrors, pageErrors, cspViolations, reason: shotError }
+      : { status: appFailed ? 'error' : 'written', consoleErrors, pageErrors, cspViolations }
   }
 
   let axe = null
   if (capture.axe) {
     if (axeError) {
-      axe = { status: 'error', reason: axeError, consoleErrors, pageErrors, violations: [] }
+      axe = {
+        status: 'error',
+        reason: axeError,
+        consoleErrors,
+        pageErrors,
+        cspViolations,
+        violations: [],
+      }
     } else if (appFailed) {
       axe = {
         status: 'error',
-        reason: 'renderer console error/exception or main-process crash during axe run',
+        reason: 'renderer console error/exception, CSP violation, or main-process crash during axe run',
         consoleErrors,
         pageErrors,
+        cspViolations,
         violations: (axeResults?.violations ?? []).map(summarizeViolation),
       }
     } else {
