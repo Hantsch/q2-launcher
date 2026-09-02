@@ -16,6 +16,7 @@ import { formatRelativeTime } from '../../lib/format'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Badge, EmptyState, KeyValue, Panel, SectionLabel } from '../../components/ui/primitives'
 import { useLauncher } from '../../store/useLauncher'
+import { AliasesTab } from './AliasesTab'
 import { ControlsTab } from './ControlsTab'
 import { AssignmentsMenu } from './AssignmentsMenu'
 import { CareTab } from './CareTab'
@@ -51,7 +52,24 @@ interface FileDiagnostic {
 }
 
 type Screen = 'list' | 'detail'
-type DetailTab = 'overview' | 'settings' | 'controls' | 'raw' | 'care'
+type DetailTab = 'overview' | 'settings' | 'controls' | 'aliases' | 'raw' | 'care'
+
+/**
+ * Story 044 D6: the active tab, widened to optionally carry a focus target for the tab it is
+ * switching to - the one cross-tab deep-link mechanism Care -> Aliases, Aliases -> Controls and
+ * (review fix, finding 1) Aliases -> Overview all go through (`goToTab` below). Only one of
+ * `focusAlias`/`focusActionId`/`focusLayerName` is ever set at a time (the caller picks exactly
+ * one), but there is no need to model that as a union: each target tab reads only the one field it
+ * understands and ignores the others, and a plain tab-button click (`goToTab(tab.id)` with no
+ * `focus`) always clears all three - so a deep-link target can never linger and re-fire once the
+ * user has navigated away by hand.
+ */
+interface TabFocusState {
+  tab: DetailTab
+  focusAlias?: string
+  focusActionId?: string
+  focusLayerName?: string
+}
 
 /**
  * The config module's view: a list of profiles first, so "what configs do I
@@ -64,7 +82,8 @@ export function ConfigView() {
   const [profiles, setProfiles] = useState<ConfigProfile[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [screen, setScreen] = useState<Screen>('list')
-  const [activeTab, setActiveTab] = useState<DetailTab>('overview')
+  const [tabState, setTabState] = useState<TabFocusState>({ tab: 'overview' })
+  const activeTab = tabState.tab
   const [activeLayerId, setActiveLayerId] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [showImport, setShowImport] = useState(false)
@@ -163,13 +182,50 @@ export function ConfigView() {
 
   const openProfile = (id: string): void => {
     setSelectedId(id)
-    setActiveTab('overview')
+    setTabState({ tab: 'overview' })
     setScreen('detail')
   }
 
   const backToList = (): void => {
     setScreen('list')
   }
+
+  /**
+   * Story 044 D6: the one place both cross-tab deep links go through - Care's alias findings
+   * ("show in Aliases") and the Aliases tab's owner link ("show on Controls"). A plain tab-button
+   * click passes no `focus`, which is what clears a previous deep link's target the moment the user
+   * navigates by hand instead of following another link (see `TabFocusState`'s own doc comment).
+   */
+  const goToTab = (
+    tab: DetailTab,
+    focus?: { alias?: string; actionId?: string; layerName?: string },
+  ): void => {
+    setTabState({
+      tab,
+      focusAlias: focus?.alias,
+      focusActionId: focus?.actionId,
+      focusLayerName: focus?.layerName,
+    })
+  }
+
+  /**
+   * Review fix (story 044, finding 1): the Aliases tab's owner link for a `layer`-origin row used to
+   * land on Controls and do a best-effort scan there for a row bound to that layer's modifier, which
+   * focused nothing for a layer whose overrides are all hand-typed or a brand-new layer with none yet
+   * - a click with no visible outcome. A layer's actual owning surface is Overview's `LayersPanel`
+   * (its CRUD - rename, mode, trigger key - lives there, not on any single Controls row), so the link
+   * now routes to `goToTab('overview', { layerName })` and this effect resolves that name to the
+   * layer's id, reusing the same `activeLayerId`/`onSelectLayer` selection `LayersPanel` already
+   * supports for a click in its own list - so this can never disagree with what clicking a layer
+   * there does. Matched against `selected`, not `draftOrSelected`: `LayersPanel` itself renders
+   * `profile={selected}` below, so this must resolve against the exact same layer list it reads.
+   */
+  useEffect(() => {
+    if (activeTab !== 'overview' || !tabState.focusLayerName) return
+    const layer = selected?.layers?.find((candidate) => candidate.name === tabState.focusLayerName)
+    if (layer) setActiveLayerId(layer.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabState])
 
   /**
    * `create` returns the full updated list rather than just the new profile, so
@@ -316,6 +372,7 @@ export function ConfigView() {
       { id: 'overview', label: t('config.tabs.overview') },
       { id: 'settings', label: t('config.tabs.settings') },
       { id: 'controls', label: t('config.tabs.controls') },
+      { id: 'aliases', label: t('config.tabs.aliases') },
       { id: 'raw', label: t('config.tabs.raw') },
       {
         id: 'care',
@@ -538,7 +595,7 @@ export function ConfigView() {
                     key={tab.id}
                     type="button"
                     data-testid={`config-tab-${tab.id}`}
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => goToTab(tab.id)}
                     className={cn(
                       'flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs font-medium transition-colors duration-[--dur-fast]',
                       activeTab === tab.id
@@ -583,6 +640,18 @@ export function ConfigView() {
                     draft={activeProfile(selected)}
                     patch={patch}
                     onChanged={setProfiles}
+                    focusActionId={tabState.focusActionId}
+                  />
+                )}
+                {activeTab === 'aliases' && (
+                  <AliasesTab
+                    profile={selected}
+                    draft={activeProfile(selected)}
+                    patch={patch}
+                    onChanged={setProfiles}
+                    focusAlias={tabState.focusAlias}
+                    onNavigateToAction={(actionId) => goToTab('controls', { actionId })}
+                    onNavigateToLayer={(layerName) => goToTab('overview', { layerName })}
                   />
                 )}
                 {activeTab === 'raw' && <RawFileTab profile={selected} onChanged={setProfiles} />}
@@ -593,6 +662,7 @@ export function ConfigView() {
                     onProfileUpdated={handleProfileUpdated}
                     installations={installations}
                     assignedInstallationIds={assignedInstallationIds}
+                    onNavigateToAlias={(aliasName) => goToTab('aliases', { alias: aliasName })}
                   />
                 )}
               </Panel>

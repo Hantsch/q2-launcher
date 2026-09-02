@@ -44,3 +44,24 @@
 - 2026-09-02 23:31 · 049 · review-fix cycle (discard name restore, screens.mjs flake, dead code) · done
 - 2026-09-02 23:31 · 049 · story left in-progress: ui:verify blocked by local env file lock, handed to user for live smoke · blocked
 - 2026-09-03 00:00 · 049 · orchestrator · unblocked P2 live-smoke: root-caused/fixed ui:verify EPERM (scripts/lib/fixture.mjs rmSync retry) + a screens.mjs strict-mode locator collision; ui:verify green, story marked done
+- 2026-09-03 00:01 · 044 · D1 Shared alias name-space index · started
+- 2026-09-03 00:14 · 044 · D1 Shared alias name-space index · done
+- 2026-09-03 00:14 · 044 · D2 Exported alias line budget · started
+- 2026-09-03 00:22 · 044 · D2 Exported alias line budget · done
+- 2026-09-03 00:22 · 044 · D3 Aliases tab shell + read-only table · started
+- 2026-09-03 00:40 · 044 · D3 Aliases tab shell + read-only table · done
+- 2026-09-03 00:40 · 044 · D4 Empty/duplicate states, sort and filter · started
+- 2026-09-03 00:56 · 044 · D4 Empty/duplicate states, sort and filter · done
+- 2026-09-03 00:56 · 044 · D5 Create/edit/rename/delete a user alias · started
+- 2026-09-03 01:20 · 044 · D5 Create/edit/rename/delete a user alias · done
+- 2026-09-03 01:20 · 044 · D6 Cross-tab deep links · started
+- 2026-09-03 01:45 · 044 · D6 Cross-tab deep links · done
+- 2026-09-03 01:45 · 044 · D7 UI verification · started
+- 2026-09-03 01:37 · 044 · D7 UI verification · done (54/54 shots, 0 axe violations, 27/27 screens — orchestrator fixed fixture.mjs rmDirBestEffort lock issue and confirmed green)
+- 2026-09-03 01:37 · 044 · story review (hard) · started
+- 2026-09-03 01:47 · 044 · story review (hard) round 1 · done (PASS, 5 findings, 3 dispatched for fix, 2 documented)
+- 2026-09-03 01:47 · 044 · review-fix cycle (layer owner link, single-line over-budget indicator, Care undefinedAlias deep-link feedback) · started
+- 2026-09-03 01:56 · 044 · review-fix cycle · done (layer owner link now routes to Overview LayersPanel, single-too-long-command over-budget indicator added, Care undefinedAlias deep link pre-seeds filter) · typecheck/build/test all green
+- 2026-09-03 01:56 · 044 · story done, moving to done/
+- 2026-09-03 02:02 · 044 · story done, moved to done/
+- 2026-09-03 01:55 · 044 · orchestrator · re-ran ui:verify after fixture.mjs best-effort-cleanup fix, confirmed clean, resumed build agent to finish review/Done · done

@@ -13,6 +13,14 @@
  * untouched — that one has a `catalogId` exclusion and a sign requirement
  * neither asker here needs, and is still that module's own business.
  *
+ * Story 044, D1 adds the third asker and folds all three onto one traversal:
+ * `buildAliasIndex` answers "which names does this profile define, who owns
+ * each and what calls it" for the Aliases tab, and `validate-actions.ts`'s
+ * duplicate/unreferenced/undefined checks now read that same index instead of
+ * walking the profile again. Everything public here — `collectAliasReferences`,
+ * `findAliasReferrers(ByName)`, `buildAliasIndex` — is a different view of the
+ * one `buildReferrerIndex` pass, so Care and the tab cannot drift apart.
+ *
  * Pure by contract, like `action-mirror.ts`: no `fs`, no DOM, no electron.
  *
  * ## What counts as a reference
@@ -61,7 +69,7 @@
  */
 
 import type { ConfigAction } from '../modules/config'
-import { sanitizeCommand, type AltLayer } from './alt-layers'
+import { generateLayerAliases, sanitizeCommand, type AltLayer } from './alt-layers'
 import { aliasNameFor, commandLineFor } from './alias-render'
 import { bindValueFor } from './action-mirror'
 import { normalizeBindKey } from './key-names'
@@ -150,6 +158,92 @@ function ownMirrorLayerKeys(action: ConfigAction, layer: AltLayer): Set<string> 
   return keys
 }
 
+/** One thing that currently calls an alias name - what `findAliasReferrers` reports one of, what the
+ * D9 rename-refusal dialog names in its message, and what fills an index row's `referrers` (story
+ * 044, D1). */
+export type AliasReferrer =
+  | { kind: 'action'; name: string }
+  | { kind: 'bind'; key: string }
+  | { kind: 'override'; key: string; layerName: string }
+
+/**
+ * The two exclusions a caller asking "who calls this *other than the entry itself*" needs (story
+ * 039, D9), shared by every public function below. Both default to "exclude nothing", so the graph
+ * a caller gets without options is the complete one - the safe side, per the file doc comment.
+ */
+export interface AliasReferenceOptions {
+  /**
+   * Exclude exactly the two `binds`/layer-override slots this action's own mirror pass writes for
+   * it (`ownMirrorBindKeys`/`ownMirrorLayerKeys` above) from the `sources.binds`/`sources.layers`
+   * scan - never its command text, which `excludeActionId` below is for.
+   */
+  ignoreOwnMirrorOf?: ConfigAction
+  /**
+   * Exclude this action's own `commands` from the `sources.actions` scan, matched by `id`. Without
+   * it a recursive body counts as a reference to itself, per the file doc comment's "No
+   * self-exclusion" rule.
+   */
+  excludeActionId?: string
+}
+
+/**
+ * The whole reference graph in **one** pass: lower-cased token -> every place in `sources` that
+ * calls it, in source order (every action in array order, then `binds`, then each layer's
+ * `overrides`).
+ *
+ * Story 044, D1 makes this the single traversal every public function in this module answers from -
+ * `collectAliasReferences` (its key set), `findAliasReferrers`/`findAliasReferrersByName` (one
+ * bucket) and `buildAliasIndex` (one bucket per defined name). One graph, one scan: a reference
+ * source added here reaches Care's tidy-up warnings and the Aliases tab in the same edit, which is
+ * exactly what that story's "this surface and Care never disagree about what is referenced" AC
+ * asks for. Before it, the same three source shapes were walked by two near-identical loops here.
+ *
+ * An action contributes at most **one** referrer per token however many of its commands mention it
+ * - the `.some()` semantics `findAliasReferrers` has always had, restated as a per-action token set.
+ */
+function buildReferrerIndex(
+  sources: AliasReferenceSources,
+  options: AliasReferenceOptions,
+): Map<string, AliasReferrer[]> {
+  const byToken = new Map<string, AliasReferrer[]>()
+  const record = (token: string, referrer: AliasReferrer): void => {
+    const bucket = byToken.get(token)
+    if (bucket) bucket.push(referrer)
+    else byToken.set(token, [referrer])
+  }
+
+  for (const action of sources.actions) {
+    if (options.excludeActionId !== undefined && action.id === options.excludeActionId) continue
+    const tokens = new Set<string>()
+    for (const command of action.commands) {
+      if (command.kind !== 'raw') continue
+      collectFromText(sanitizeCommand(command.text), tokens)
+    }
+    for (const token of tokens) record(token, { kind: 'action', name: action.name })
+  }
+
+  const ignoreAction = options.ignoreOwnMirrorOf
+  const ownBindKeys = ignoreAction ? ownMirrorBindKeys(ignoreAction) : undefined
+  for (const [key, value] of Object.entries(sources.binds ?? {})) {
+    if (ownBindKeys?.has(normalizeBindKey(key))) continue
+    const tokens = new Set<string>()
+    collectFromText(sanitizeCommand(value), tokens)
+    for (const token of tokens) record(token, { kind: 'bind', key })
+  }
+
+  for (const layer of sources.layers ?? []) {
+    const ownLayerKeys = ignoreAction ? ownMirrorLayerKeys(ignoreAction, layer) : undefined
+    for (const [key, value] of Object.entries(layer.overrides)) {
+      if (ownLayerKeys?.has(normalizeBindKey(key))) continue
+      const tokens = new Set<string>()
+      collectFromText(sanitizeCommand(value), tokens)
+      for (const token of tokens) record(token, { kind: 'override', key, layerName: layer.name })
+    }
+  }
+
+  return byToken
+}
+
 /**
  * The lower-cased set of every token anything in `sources` could be calling
  * by name - see the file doc comment for the three source shapes and the
@@ -163,93 +257,205 @@ function ownMirrorLayerKeys(action: ConfigAction, layer: AltLayer): Set<string> 
  * `sources.layers` scan - never from `sources.actions`' command text, which
  * this option leaves untouched (a recursive alias body is still counted, per
  * the file doc comment's "No self-exclusion" rule; excluding an action's own
- * *command text* is the caller's job when it wants that too, by leaving the
- * action itself out of `sources.actions` - see `findAliasReferrers` below).
- * Optional and defaulting to "ignore nothing", so every existing caller's
- * behaviour is unchanged.
+ * *command text* is what `options.excludeActionId` is for - see
+ * `findAliasReferrers` below). Optional and defaulting to "ignore nothing", so
+ * every existing caller's behaviour is unchanged.
+ *
+ * The key set of `buildReferrerIndex` above, exactly - a token is in this set
+ * iff at least one source produced it, which is what that map's keys are. Kept
+ * as its own function because most callers only ever ask "is this name called
+ * at all" and have no use for the per-source detail.
  */
 export function collectAliasReferences(
   sources: AliasReferenceSources,
-  options: { ignoreOwnMirrorOf?: ConfigAction } = {},
+  options: AliasReferenceOptions = {},
 ): Set<string> {
-  const tokens = new Set<string>()
-  const ignoreAction = options.ignoreOwnMirrorOf
-
-  for (const action of sources.actions) {
-    for (const command of action.commands) {
-      if (command.kind !== 'raw') continue
-      collectFromText(sanitizeCommand(command.text), tokens)
-    }
-  }
-
-  const ownBindKeys = ignoreAction ? ownMirrorBindKeys(ignoreAction) : undefined
-  for (const [key, value] of Object.entries(sources.binds ?? {})) {
-    if (ownBindKeys?.has(normalizeBindKey(key))) continue
-    collectFromText(sanitizeCommand(value), tokens)
-  }
-
-  for (const layer of sources.layers ?? []) {
-    const ownLayerKeys = ignoreAction ? ownMirrorLayerKeys(ignoreAction, layer) : undefined
-    for (const [key, value] of Object.entries(layer.overrides)) {
-      if (ownLayerKeys?.has(normalizeBindKey(key))) continue
-      collectFromText(sanitizeCommand(value), tokens)
-    }
-  }
-
-  return tokens
+  return new Set(buildReferrerIndex(sources, options).keys())
 }
 
-/** One thing other than `action`'s own mirror slots that currently calls its alias name - what
- * `findAliasReferrers` reports one of, and what the D9 rename-refusal dialog names in its message. */
-export type AliasReferrer =
-  | { kind: 'action'; name: string }
-  | { kind: 'bind'; key: string }
-  | { kind: 'override'; key: string; layerName: string }
+/**
+ * Every place in `sources` that calls `name` (case-insensitively), in source order - the by-name
+ * core story 044 D1 generalises `findAliasReferrers` into, so a name with no owning action (a layer
+ * alias, or a name a caller is merely considering) can be asked about too.
+ *
+ * Returns `[]` - never `undefined` - for a name nothing calls, so "nothing references this" is one
+ * shape at every call site rather than two.
+ */
+export function findAliasReferrersByName(
+  name: string,
+  sources: AliasReferenceSources,
+  options: AliasReferenceOptions = {},
+): AliasReferrer[] {
+  return buildReferrerIndex(sources, options).get(name.toLowerCase()) ?? []
+}
 
 /**
  * Every place other than `action`'s own two mirror slots that currently calls `aliasNameFor(action)`
  * by name (story 039, D9) - the detail `collectAliasReferences`'s flat token set does not carry, and
  * the rename-refusal dialog needs so it can name what it is refusing to leave dangling.
  *
- * Reuses `collectFromText` (the same per-string scan `collectAliasReferences` itself calls) rather
- * than a second reference-detection implementation - only the bookkeeping of *which* source produced
- * a hit is new here. `action`'s own command text is never scanned (only *other* actions' are) and its
- * own mirror slots are excluded from `sources.binds`/`sources.layers` the same way
- * `collectAliasReferences`'s `ignoreOwnMirrorOf` option does - together these two exclusions are
+ * A thin wrapper over `findAliasReferrersByName` since story 044, D1 - only the two exclusions are
+ * its own. `action`'s own command text is never scanned (only *other* actions' are) and its own
+ * mirror slots are excluded from `sources.binds`/`sources.layers`; together these two exclusions are
  * exactly "the entry's own two mirror slots" the story's D9 text asks to ignore, restated in terms an
  * open-ended reference count could not express (a boolean has no room to say "except these").
  */
 export function findAliasReferrers(action: ConfigAction, sources: AliasReferenceSources): AliasReferrer[] {
-  const target = aliasNameFor(action).toLowerCase()
-  const referrers: AliasReferrer[] = []
+  return findAliasReferrersByName(aliasNameFor(action), sources, {
+    excludeActionId: action.id,
+    ignoreOwnMirrorOf: action,
+  })
+}
 
-  const mentionsTarget = (text: string): boolean => {
-    const tokens = new Set<string>()
-    collectFromText(sanitizeCommand(text), tokens)
-    return tokens.has(target)
-  }
+/**
+ * Which of the three name producers a row of `buildAliasIndex` came from (story 044's first AC:
+ * "each labelled with which of the three it is"):
+ *
+ * - `user` - a `kind: 'alias'` entry, the only kind the user authored *as* an alias and the only
+ *   kind editable from the Aliases tab;
+ * - `generated` - the alias every other entry (`bind`, `message`) renders under, owned by that
+ *   entry and edited there;
+ * - `layer` - a name `alt-layers.ts#generateLayerAliases` emits for a modifier layer (its dispatch,
+ *   press/release or `_on`/`_off` halves, plus its `_cN` helper and `_pN` chunk aliases).
+ */
+export type AliasOrigin = 'user' | 'generated' | 'layer'
 
-  for (const other of sources.actions) {
-    if (other.id === action.id) continue
-    const hit = other.commands.some((command) => command.kind === 'raw' && mentionsTarget(command.text))
-    if (hit) referrers.push({ kind: 'action', name: other.name })
-  }
+/**
+ * One defined alias name, with everything both askers of the name space need: Care's tidy-up
+ * warnings (`validate-actions.ts`) and story 044's Aliases tab.
+ */
+export interface AliasIndexRow {
+  /** The name exactly as it renders, case kept - `+Slow` stays `+Slow`. */
+  name: string
+  /** `name` lower-cased: the key every lookup and every duplicate comparison uses, because
+   * `Cmd_Alias_f` matches alias names case-insensitively. */
+  key: string
+  origin: AliasOrigin
+  /**
+   * Display label of whatever defines this name - the entry's `name` for `user`/`generated`, the
+   * layer's `name` for `layer`. What a finding or a table row calls the owner, and what the
+   * `duplicateOf` list of every partner row holds.
+   */
+  owner: string
+  /** The owning entry's `id`, for `origin: 'user' | 'generated'` only - the handle a deep link into
+   * the Controls tab needs. */
+  ownerActionId?: string
+  /** The owning layer's `name`, for `origin: 'layer'` only. Same string as `owner`; spelled out
+   * separately so a consumer can say "which layer" without first testing `origin`. */
+  ownerLayerName?: string
+  /** True only for `origin: 'user'`. Generated and layer aliases are read-only where they are
+   * listed: they occupy names, but they are edited at their owning entry or layer. */
+  editable: boolean
+  /** Every place that calls this name, in source order; `[]` - never `undefined` - when nothing
+   * does. See `buildAliasIndex` for exactly which sources count. */
+  referrers: AliasReferrer[]
+  /** The `owner` of every *other* row defining this same name, in index order; `[]` when the name
+   * is unique. Both halves of a collision therefore carry each other, which is what story 044's
+   * "flagged inline on both rows" AC asks for. */
+  duplicateOf: string[]
+}
 
-  const ownBindKeys = ownMirrorBindKeys(action)
-  for (const [key, value] of Object.entries(sources.binds ?? {})) {
-    if (ownBindKeys.has(normalizeBindKey(key))) continue
-    if (mentionsTarget(value)) referrers.push({ kind: 'bind', key })
-  }
+/**
+ * The profile's whole alias name space as one list (story 044, D1) - the single graph Care and the
+ * Aliases tab both read, so the two can never disagree about what is defined or what is referenced.
+ *
+ * ## One row per *definition*, not per name
+ *
+ * Two entries whose resolved names collide get **two** rows, each naming the other in its
+ * `duplicateOf`. A row keyed by name alone could not carry that: the partners share the name, so
+ * the only thing that tells them apart is their owner - and both Care's `aliasDuplicate` finding
+ * (one finding per colliding entry, naming the others) and the AC's "flagged inline on both rows"
+ * need the owners, not the name. So every defined name appears in this list at least once, and more
+ * than once exactly when more than one definition claims it.
+ *
+ * ## Order
+ *
+ * Every entry of `sources.actions` produces exactly one row, in array order, before any layer row -
+ * a contract `validate-actions.ts` relies on to pair a row back with the entry it came from, and
+ * one `alias-references.test.ts` asserts. Layer rows follow, per layer in `sources.layers` order and
+ * within a layer in `generateLayerAliases`' own emission order.
+ *
+ * A row exists for every entry, including one whose alias line the writer may end up dropping
+ * (`actionsWithAliasLine` above: a continuous catalogue mirror, a self-mirroring alias). That is
+ * deliberate - the duplicate check has always run over every entry, since a name two entries resolve
+ * to is a collision the user must see regardless of which of the two the writer emits - and a
+ * consumer that wants only the names that really reach the file filters through
+ * `actionsWithAliasLine` itself.
+ *
+ * ## What `referrers` covers, and what it deliberately does not
+ *
+ * Exactly the four sources story 044's D1 names, i.e. everything `buildReferrerIndex` scans: base
+ * binds, layer overrides, other aliases' bodies and other entries' commands - with **no**
+ * exclusions, so an entry's own recursive body and its own bind mirror count as referrers too. That
+ * is the safe side (the risk this index exists to avoid is a referenced alias reading as
+ * unreferenced and Care offering to delete it), and it is what keeps
+ * `row.referrers.length > 0` exactly equivalent to `collectAliasReferences(sources).has(row.key)`,
+ * which is how `validate-actions.ts` derives an unchanged `aliasUnreferenced` from this index.
+ *
+ * Not modelled, because they are render-time products rather than profile-authored references: a
+ * layer's own trigger bind (`bind ALT +drops`, `generateLayerAliases`' `triggerBind`) and the calls
+ * a generated layer alias' body makes into its own `_cN`/`_pN` family. A layer row can therefore
+ * read as unreferenced even though the rendered file wires it up - which no rule reports, since
+ * Care's `aliasUnreferenced` only ever covers `kind: 'alias'` entries. Adding either would widen
+ * "referenced" for entry rows too (a name colliding with a layer alias) and is a change to Care's
+ * behaviour, not to a table's presentation.
+ *
+ * Pure, like everything else here: `generateLayerAliases` is called only to learn the names a layer
+ * occupies; nothing is rendered or written.
+ */
+export function buildAliasIndex(sources: AliasReferenceSources): AliasIndexRow[] {
+  const referrers = buildReferrerIndex(sources, {})
+  // Copied per row rather than handed out by reference: two rows of a duplicate pair share one
+  // bucket, and a consumer sorting or filtering a row's `referrers` in place must not reach the
+  // other row through it.
+  const referrersFor = (name: string): AliasReferrer[] => [...(referrers.get(name.toLowerCase()) ?? [])]
+
+  const rows: AliasIndexRow[] = sources.actions.map((action) => {
+    const name = aliasNameFor(action)
+    return {
+      name,
+      key: name.toLowerCase(),
+      origin: action.kind === 'alias' ? 'user' : 'generated',
+      owner: action.name,
+      ownerActionId: action.id,
+      editable: action.kind === 'alias',
+      referrers: referrersFor(name),
+      duplicateOf: [],
+    }
+  })
 
   for (const layer of sources.layers ?? []) {
-    const ownLayerKeys = ownMirrorLayerKeys(action, layer)
-    for (const [key, value] of Object.entries(layer.overrides)) {
-      if (ownLayerKeys.has(normalizeBindKey(key))) continue
-      if (mentionsTarget(value)) referrers.push({ kind: 'override', key, layerName: layer.name })
+    // The real generator, never a re-derivation of its slug/affix budget here (the same S04
+    // watch-out `validate-actions.ts`'s own hold-layer lookup already respected). `sources.binds`
+    // is the base-bind map it expects; only the resulting names are read.
+    for (const alias of generateLayerAliases(layer, sources.binds ?? {}).aliases) {
+      rows.push({
+        name: alias.name,
+        key: alias.name.toLowerCase(),
+        origin: 'layer',
+        owner: layer.name,
+        ownerLayerName: layer.name,
+        editable: false,
+        referrers: referrersFor(alias.name),
+        duplicateOf: [],
+      })
     }
   }
 
-  return referrers
+  const byKey = new Map<string, AliasIndexRow[]>()
+  for (const row of rows) {
+    const group = byKey.get(row.key) ?? []
+    group.push(row)
+    byKey.set(row.key, group)
+  }
+  for (const group of byKey.values()) {
+    if (group.length < 2) continue
+    for (const row of group) {
+      row.duplicateOf = group.filter((partner) => partner !== row).map((partner) => partner.owner)
+    }
+  }
+
+  return rows
 }
 
 /**

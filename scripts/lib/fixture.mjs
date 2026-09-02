@@ -396,18 +396,37 @@ function writeRestoreConfigCfg(installDir) {
 /**
  * On Windows, closing an Electron session's GPU process (Dawn's WebGPU/Graphite disk cache
  * under `userData`) doesn't release its cache files immediately - `app.close()` returns before
- * Windows (observed: real-time AV scanning the freshly-closed cache blobs, up to ~50s, with no
- * live process holding the handle) actually lets go, so the very next fixture reseed can hit
- * `EPERM`/`EBUSY` on a directory nothing still wants. `maxRetries`/`retryDelay` are Node's own
- * documented remedy for exactly this class of transient Windows delete failure; the budget here
- * is sized with real margin above the measured worst case, not a guessed small number.
+ * Windows (observed: real-time AV scanning the freshly-closed cache blobs, anywhere from a few
+ * seconds up to several minutes under load, with no live process holding the handle) actually
+ * lets go, so the very next fixture reseed can hit `EPERM`/`EBUSY` on a directory nothing still
+ * wants. `maxRetries`/`retryDelay` are Node's own documented remedy for exactly this class of
+ * transient Windows delete failure, but the observed worst case is unbounded enough that no
+ * fixed budget can be sized to always win.
+ *
+ * So this is a best-effort delete, not an all-or-nothing one: what a fixture reseed actually
+ * needs is `state.json`/`window-state.json` to hold this run's fresh data, never a byte-clean
+ * `userData` directory - a stale, still-locked cache subfolder left behind is harmless (Chromium
+ * happily reuses or extends an existing disk cache) and must never fail the whole run. On a
+ * still-locked path after the retry budget, this logs a warning and moves on so `mkdirSync` +
+ * the two `writeJson` calls right after it can still put the run in a known-good state.
  */
-const RM_RETRY_OPTIONS = { recursive: true, force: true, maxRetries: 90, retryDelay: 1000 }
+const RM_RETRY_OPTIONS = { recursive: true, force: true, maxRetries: 20, retryDelay: 500 }
+
+function rmDirBestEffort(path) {
+  try {
+    rmSync(path, RM_RETRY_OPTIONS)
+  } catch (error) {
+    console.warn(
+      `[fixture] could not fully clear ${path} (${error.code ?? error.message}) - a locked ` +
+        'leftover (e.g. GPU disk cache) is harmless and the fixture reseed continues regardless.',
+    )
+  }
+}
 
 /** Deletes and rewrites the `populated` variant's userdata + game dirs. */
 export function writePopulatedFixture() {
   const userDataDir = variantUserDataDir('populated')
-  rmSync(userDataDir, RM_RETRY_OPTIONS)
+  rmDirBestEffort(userDataDir)
   mkdirSync(userDataDir, { recursive: true })
 
   writeJson(join(userDataDir, STATE_FILE), populatedStateDocument())
@@ -416,7 +435,7 @@ export function writePopulatedFixture() {
   const installIds = [INSTALL_ONE_ID, INSTALL_TWO_ID]
   for (const id of installIds) {
     const baseq2Dir = join(gameRoot(), id, 'baseq2')
-    rmSync(join(gameRoot(), id), RM_RETRY_OPTIONS)
+    rmDirBestEffort(join(gameRoot(), id))
     mkdirSync(baseq2Dir, { recursive: true })
     if (id === INSTALL_TWO_ID) {
       writeConfigCfg(baseq2Dir)
@@ -434,7 +453,7 @@ export function writePopulatedFixture() {
 /** Deletes and rewrites the `empty` variant's userdata (defaults only). */
 export function writeEmptyFixture() {
   const userDataDir = variantUserDataDir('empty')
-  rmSync(userDataDir, RM_RETRY_OPTIONS)
+  rmDirBestEffort(userDataDir)
   mkdirSync(userDataDir, { recursive: true })
 
   writeJson(join(userDataDir, STATE_FILE), emptyStateDocument())

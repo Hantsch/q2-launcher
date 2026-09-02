@@ -66,6 +66,11 @@
 //                               alongside its pre-existing `id` since no screen here waits on a
 //                               CSS id, only testids)
 //
+// Story 044 D7 adds `config-aliases` — no new testid, it reuses `config-tab-aliases` (already wired
+// into ConfigView.tsx by an earlier deliverable in this story) and clicks the Aliases tab's own
+// "Show generated and layer aliases" switch by its translated accessible name; see the entry itself
+// for why (Plain Profile has zero user-authored aliases, only generated ones).
+//
 // `config-save-expanded`/`config-discard-confirm` (D9) dirty the fixture profile via
 // RawFileTab.tsx's "Section header style" `<Select>`, not the "Start the file with `unbindall`"
 // checkbox `config-conflict-dialog` (D8) uses: all `populated`-variant screens share one Electron
@@ -190,6 +195,32 @@ export const SCREENS = [
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,
     navigate: configDetail('controls'),
+  },
+  {
+    id: 'config-aliases',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 044 D7: Plain Profile has no `kind: 'alias'` (user-authored) actions, so the tab's
+    // default view (`origin: 'user'` rows only, AliasesTab.tsx) would render nothing but the empty
+    // state. All five of its actions still produce a `generated` row each (`buildAliasIndex`, none
+    // are `kind: 'alias'`), so toggling the tab's own "Show generated and layer aliases" switch -
+    // the smallest change that makes the screen non-trivial, not a new fixture - reveals a real,
+    // populated table instead. No testid on the switch (`Switch`, `components/ui/controls.tsx`
+    // links its `<label for>` to the `role="switch"` button, giving it a real accessible name), so
+    // this selects it by that translated name like the category-chip clicks elsewhere in this file.
+    // Waits for the "Generated" origin badge text rather than just clicking-and-hoping, since the
+    // toggle only flips local component state and nothing else here would fail fast if it hadn't
+    // taken effect yet.
+    navigate: async (page) => {
+      await configDetail('aliases')(page)
+      await page
+        .getByRole('switch', { name: 'Show generated and layer aliases' })
+        .click({ timeout: CLICK_TIMEOUT_MS })
+      await page.getByText('Generated', { exact: true }).first().waitFor({
+        state: 'visible',
+        timeout: CLICK_TIMEOUT_MS,
+      })
+    },
   },
   {
     id: 'config-raw',

@@ -371,6 +371,7 @@
       "overview": "Overview",
       "settings": "Settings",
       "controls": "Controls",
+      "aliases": "Aliases",
       "raw": "Raw file",
       "care": "Care"
     },
@@ -1197,7 +1198,8 @@
         "action": {
           "apply": "Apply",
           "drop": "Drop",
-          "reclassify": "Re-classify"
+          "reclassify": "Re-classify",
+          "showInAliases": "Show in Aliases"
         },
         "applying": "Applying…",
         "preview": {
@@ -1447,6 +1449,80 @@
           "applyAltCharset": "Alternate charset"
         },
         "colorCvarChip": "Colour cvar “{{name}}”"
+      }
+    },
+    "aliases": {
+      "label": "Aliases",
+      "count_one": "{{count}} alias",
+      "count_other": "{{count}} aliases",
+      "create": "New alias",
+      "createDialog": {
+        "title": "Create alias",
+        "nameLabel": "Name",
+        "submit": "Create alias"
+      },
+      "actions": {
+        "editFor": "Edit commands for “{{name}}”",
+        "renameFor": "Rename “{{name}}”",
+        "deleteFor": "Delete “{{name}}”",
+        "showOwnerFor": "Go to “{{name}}”"
+      },
+      "deleteDialog": {
+        "title": "Delete “{{name}}”?",
+        "body": "This alias is referenced by {{names}}. Deleting it would leave that reference dangling.",
+        "confirm": "Delete alias"
+      },
+      "showAll": {
+        "label": "Show generated and layer aliases",
+        "hint": "Also lists the aliases every bind/message entry and alt layer generates on its own — read-only here, edited at their owning entry or layer."
+      },
+      "filter": {
+        "placeholder": "Filter by name…",
+        "unreferencedOnly": {
+          "label": "Unreferenced only",
+          "hint": "Show only aliases nothing currently calls."
+        },
+        "noMatches": {
+          "title": "No matching aliases",
+          "body": "No alias matches the current filter. Try a different name or turn off “Unreferenced only”."
+        }
+      },
+      "sort": {
+        "ascending": "Sorted A–Z. Click to sort Z–A.",
+        "descending": "Sorted Z–A. Click to sort A–Z."
+      },
+      "origin": {
+        "user": "User",
+        "generated": "Generated",
+        "layer": "Layer"
+      },
+      "ownerLabel": "Owner: {{owner}}",
+      "body": {
+        "empty": "(empty)",
+        "expandFor": "Show full body of “{{name}}”",
+        "collapseFor": "Show less of “{{name}}”"
+      },
+      "referrers": {
+        "label": "Referenced by",
+        "empty": "Nothing references this alias",
+        "action": "entry “{{name}}”",
+        "bind": "key {{key}}",
+        "override": "key {{key}} in layer “{{layer}}”"
+      },
+      "duplicate": {
+        "badge": "Duplicate",
+        "detail": "Duplicate name — also used by: {{owners}}"
+      },
+      "length": {
+        "value": "{{bytes}} / {{max}} bytes",
+        "splits_one": "splits into {{count}} part",
+        "splits_other": "splits into {{count}} parts",
+        "overBudget": "over the line limit",
+        "notApplicable": "—"
+      },
+      "empty": {
+        "title": "No aliases to show",
+        "body": "This profile has no user-defined aliases yet. Turn on “Show generated and layer aliases” to see the ones entries and alt layers generate on their own."
       }
     },
     "chatMacros": {

@@ -3,11 +3,14 @@ import type { ConfigAction } from '../modules/config'
 import { aliasNameFor } from './alias-render'
 import {
   actionsWithAliasLine,
+  buildAliasIndex,
   collectAliasReferences,
   findAliasReferrers,
+  findAliasReferrersByName,
   isSelfMirroringAlias,
   selfReferencingSegments,
 } from './alias-references'
+import { generateLayerAliases, type AltLayer } from './alt-layers'
 
 function action(overrides: Partial<ConfigAction> & Pick<ConfigAction, 'id' | 'kind' | 'name'>): ConfigAction {
   return { categoryId: 'c1', commands: [], ...overrides }
@@ -548,6 +551,172 @@ describe('findAliasReferrers (story 039, D9)', () => {
     const referrers = findAliasReferrers(owner, { actions: [owner, caller], binds: { q: aliasName } })
 
     expect(referrers).toEqual([{ kind: 'action', name: 'Caller' }])
+  })
+})
+
+/**
+ * Story 044, D1 - the shared name-space index Care and the Aliases tab both read.
+ *
+ * The risk these cases guard is one-directional: a name that *is* referenced reading as
+ * unreferenced lets Care offer to delete a live alias, so every reference source the AC names
+ * (base binds, layer overrides, other aliases' bodies, other entries' commands) gets its own case,
+ * as does the self-reference the graph deliberately counts.
+ */
+describe('buildAliasIndex (story 044, D1)', () => {
+  function holdLayer(overrides: Partial<AltLayer> = {}): AltLayer {
+    return { id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'ALT', overrides: { '1': 'drop rl' }, ...overrides }
+  }
+
+  it('emits one row per entry, in actions order, before any layer row (the contract validate-actions.ts pairs on)', () => {
+    const actions = [
+      action({ id: 'a1', kind: 'alias', name: '+test', commands: [{ kind: 'raw', text: 'wait' }] }),
+      action({ id: 'b1', kind: 'bind', name: 'SSG SG', key: 'q', commands: [{ kind: 'raw', text: 'use ssg' }] }),
+    ]
+
+    const index = buildAliasIndex({ actions, layers: [holdLayer()] })
+
+    expect(index.slice(0, actions.length).map((row) => row.ownerActionId)).toEqual(['a1', 'b1'])
+    expect(index.slice(actions.length).every((row) => row.origin === 'layer')).toBe(true)
+  })
+
+  it('labels a kind: alias entry as an editable user alias owned by that entry', () => {
+    const aliasEntry = action({ id: 'a1', kind: 'alias', name: '+test', commands: [{ kind: 'raw', text: 'wait' }] })
+
+    const [row] = buildAliasIndex({ actions: [aliasEntry] })
+
+    expect(row).toMatchObject({
+      name: aliasNameFor(aliasEntry),
+      key: aliasNameFor(aliasEntry).toLowerCase(),
+      origin: 'user',
+      owner: '+test',
+      ownerActionId: 'a1',
+      editable: true,
+    })
+  })
+
+  it('labels a keyed entry\'s alias as generated and read-only', () => {
+    const keyed = action({ id: 'b1', kind: 'bind', name: 'SSG SG', key: 'q', commands: [{ kind: 'raw', text: 'use ssg' }] })
+
+    const [row] = buildAliasIndex({ actions: [keyed] })
+
+    expect(row).toMatchObject({ origin: 'generated', owner: 'SSG SG', ownerActionId: 'b1', editable: false })
+  })
+
+  it('lists every alias the launcher generates for a layer, owned by that layer and read-only', () => {
+    const layer = holdLayer()
+    const emitted = generateLayerAliases(layer, {}).aliases.map((alias) => alias.name)
+    expect(emitted.length).toBeGreaterThan(0)
+
+    const index = buildAliasIndex({ actions: [], layers: [layer] })
+
+    expect(index.map((row) => row.name)).toEqual(emitted)
+    expect(index.every((row) => row.origin === 'layer' && row.ownerLayerName === 'Drops')).toBe(true)
+    expect(index.every((row) => row.owner === 'Drops' && !row.editable && row.ownerActionId === undefined)).toBe(true)
+  })
+
+  it('reports a name called only from inside another alias\'s body as referenced by that entry', () => {
+    const target = action({ id: 'a1', kind: 'alias', name: 'drop_shotgun', commands: [{ kind: 'raw', text: 'drop shotgun' }] })
+    const caller = action({ id: 'a2', kind: 'alias', name: 'dall', commands: [{ kind: 'raw', text: 'drop_shotgun' }] })
+
+    const index = buildAliasIndex({ actions: [target, caller] })
+
+    expect(index[0]!.referrers).toEqual([{ kind: 'action', name: 'dall' }])
+  })
+
+  it('reports a name called only from a layer override as referenced by that override', () => {
+    const target = action({ id: 'a1', kind: 'alias', name: 'drop_shotgun', commands: [] })
+    const layers = [holdLayer({ overrides: { z: aliasNameFor(target) } })]
+
+    const index = buildAliasIndex({ actions: [target], layers })
+
+    expect(index[0]!.referrers).toEqual([{ kind: 'override', key: 'z', layerName: 'Drops' }])
+  })
+
+  it('reports a name called only from a base bind as referenced by that key', () => {
+    const target = action({ id: 'a1', kind: 'alias', name: 'drop_shotgun', commands: [] })
+
+    const index = buildAliasIndex({ actions: [target], binds: { KP_END: aliasNameFor(target) } })
+
+    expect(index[0]!.referrers).toEqual([{ kind: 'bind', key: 'KP_END' }])
+  })
+
+  it('counts an entry\'s own recursive body and its own bind mirror as referrers (no self-exclusion)', () => {
+    const recursive = action({
+      id: 'a1',
+      kind: 'bind',
+      name: 'weapnext',
+      key: 'MWHEELUP',
+      commands: [{ kind: 'raw', text: 'weapnext' }, { kind: 'raw', text: 'centerview' }],
+    })
+
+    const index = buildAliasIndex({ actions: [recursive], binds: { MWHEELUP: 'weapnext' } })
+
+    expect(index[0]!.referrers).toEqual([
+      { kind: 'action', name: 'weapnext' },
+      { kind: 'bind', key: 'MWHEELUP' },
+    ])
+  })
+
+  it('reports an alias nothing calls with an empty referrer array, never undefined', () => {
+    const lonely = action({ id: 'a1', kind: 'alias', name: '+test', commands: [{ kind: 'raw', text: 'wait' }] })
+
+    const [row] = buildAliasIndex({ actions: [lonely], binds: { z: 'centerview' } })
+
+    expect(row!.referrers).toEqual([])
+    expect(row!.duplicateOf).toEqual([])
+  })
+
+  it('names each other on both rows when two entries resolve to the same name', () => {
+    const first = action({ id: 'a1', kind: 'alias', name: 'Test', commands: [] })
+    const second = action({ id: 'a2', kind: 'alias', name: 'test', commands: [] })
+
+    const index = buildAliasIndex({ actions: [first, second] })
+
+    expect(index[0]!.duplicateOf).toEqual(['test'])
+    expect(index[1]!.duplicateOf).toEqual(['Test'])
+  })
+
+  it('surfaces a user alias colliding with a generated layer alias on both rows', () => {
+    const layer = holdLayer()
+    const layerAliasName = generateLayerAliases(layer, {}).aliases[0]!.name
+    const collide = action({ id: 'a1', kind: 'alias', name: 'My alias', aliasName: layerAliasName, commands: [] })
+
+    const index = buildAliasIndex({ actions: [collide], layers: [layer] })
+    const layerRow = index.find((row) => row.origin === 'layer' && row.key === layerAliasName.toLowerCase())
+
+    expect(index[0]!.duplicateOf).toEqual(['Drops'])
+    expect(layerRow?.duplicateOf).toEqual(['My alias'])
+  })
+})
+
+describe('findAliasReferrersByName (story 044, D1)', () => {
+  it('answers for a name with no owning action at all', () => {
+    const referrers = findAliasReferrersByName('+drops', { actions: [], binds: { ALT: '+drops' } })
+
+    expect(referrers).toEqual([{ kind: 'bind', key: 'ALT' }])
+  })
+
+  it('matches case-insensitively, like the engine\'s own alias lookup', () => {
+    const referrers = findAliasReferrersByName('+Drops', { actions: [], binds: { ALT: '+DROPS' } })
+
+    expect(referrers).toEqual([{ kind: 'bind', key: 'ALT' }])
+  })
+
+  it('reports an entry once however many of its commands call the name', () => {
+    const caller = action({
+      id: 'c1',
+      kind: 'alias',
+      name: 'dall',
+      commands: [{ kind: 'raw', text: 'drop_shotgun' }, { kind: 'raw', text: 'drop_shotgun' }],
+    })
+
+    expect(findAliasReferrersByName('drop_shotgun', { actions: [caller] })).toEqual([
+      { kind: 'action', name: 'dall' },
+    ])
+  })
+
+  it('returns an empty array for a name nothing calls', () => {
+    expect(findAliasReferrersByName('nobody_calls_me', { actions: [] })).toEqual([])
   })
 })
 

@@ -64,9 +64,10 @@
  * hold-mode modifier layers generate their own `+`/`-` press/release alias
  * pair per layer (`alt-layers.ts`'s `generateLayerAliases`, e.g.
  * `+drops`/`-drops`) and binding to one via its raw command is completely
- * ordinary in-app configuration, not a broken alias reference. Computed by
- * calling the real generator (`knownHoldLayerCommands`, below) rather than
- * re-deriving its name/slug rules here.
+ * ordinary in-app configuration, not a broken alias reference. Computed from
+ * the real generator's output (`knownLayerPressReleaseCommands`, below, reading
+ * the shared index's layer rows) rather than re-deriving its name/slug rules
+ * here.
  *
  * This still cannot catch a hand-typed, non-catalogue, non-hold-layer
  * press/release command this module's known-command lists do not happen to
@@ -170,17 +171,45 @@
  * verbatim): when a matched pair's press half is referenced, its release half
  * is now treated as referenced too. One direction only, and only for halves
  * `pressReleasePairs` actually pairs - see that section for why.
+ *
+ * ## Story 044, D1 - one name space, two surfaces
+ *
+ * None of the rules above change; where their answers come from does. The three
+ * name-level rules (`aliasDuplicate`, `aliasUnreferenced`, `undefinedAlias`)
+ * used to each assemble their own view of the profile - a resolved-name list, a
+ * `collectAliasReferences` token set, a second `generateLayerAliases` pass - and
+ * story 044 adds a fourth asker of exactly those questions, the Aliases tab. So
+ * all of it now comes from one call to `alias-references.ts#buildAliasIndex`:
+ * the resolved name and owner of every defined name, its complete referrer
+ * list, and the layer aliases the launcher emits. The AC driving that ("this
+ * surface and Care never disagree about what is referenced - one reference
+ * graph, one function") is only true if neither side can compute it separately,
+ * which is why this file no longer calls `collectAliasReferences` or
+ * `generateLayerAliases` at all.
+ *
+ * Every finding is unchanged by the move, deliberately and to the byte - same
+ * rules, same order, same params, same ids. An index row carries its referrers
+ * with *no* exclusions (an entry's own recursive body and its own bind mirror
+ * count, exactly as the flat token set counted them), so "this row has
+ * referrers" is the same predicate as the old set membership; and the duplicate
+ * rule still groups the entry rows here, since the index's duplicate partners
+ * deliberately also span layer aliases - a collision the tab flags inline and no
+ * Care finding has ever reported.
  */
 
 import type { AltLayer } from './alt-layers'
 import type { ConfigAction } from '../modules/config'
 import type { EngineKind } from '../types/engine'
 import { MOVEMENT_ACTIONS } from './action-catalog'
-import { generateLayerAliases } from './alt-layers'
 import { aliasNameFor } from './alias-render'
 import { bindValueFor } from './action-mirror'
 import { reservedAliasNames } from './alias-names'
-import { collectAliasReferences, isSelfMirroringAlias, selfReferencingSegments } from './alias-references'
+import {
+  buildAliasIndex,
+  isSelfMirroringAlias,
+  selfReferencingSegments,
+  type AliasIndexRow,
+} from './alias-references'
 import { pressReleasePairs } from './press-release'
 import type { Finding } from './validation'
 
@@ -202,28 +231,29 @@ const KNOWN_PRESS_RELEASE_COMMANDS = new Set<string>(
 )
 
 /**
- * Every `+<base>`/`-<base>` pair this profile's own hold-mode modifier layers
- * generate (`alt-layers.ts`'s `generateLayerAliases`, e.g. `+drops`/`-drops`
- * for a layer named "drops") - a second, independent source of "known, not
- * actually broken" bare press/release tokens alongside
- * `KNOWN_PRESS_RELEASE_COMMANDS` above (review fix, Finding: false positives
- * on the app's own hold-layer aliases).
+ * Every `+<base>`/`-<base>` pair this profile's own modifier layers generate
+ * (e.g. `+drops`/`-drops` for a hold layer named "drops") - a second,
+ * independent source of "known, not actually broken" bare press/release tokens
+ * alongside `KNOWN_PRESS_RELEASE_COMMANDS` above (review fix, Finding: false
+ * positives on the app's own hold-layer aliases).
  *
- * Computed by calling the real generator, never by re-deriving the slug/name
- * budget rules here (S04 watch-out): a hold layer's alias name depends on its
- * own reserve arithmetic (helper/chunk affixes), which only `alt-layers.ts`
- * itself should ever compute. `references.binds` is passed through unchanged
- * as the base-bind map that generator expects; this call only reads its
- * result's alias names; it never touches disk or renders anything.
+ * Read off the shared name-space index (story 044, D1) rather than by calling
+ * `generateLayerAliases` a second time here: that index already built its
+ * `origin: 'layer'` rows with the real generator, so this stays the "never
+ * re-derive a layer's slug/affix budget" rule it always was (S04 watch-out),
+ * now with one call instead of two.
+ *
+ * Unfiltered by layer mode, where the old form looked at `mode: 'hold'` layers
+ * only - with the same result by construction: a toggle layer's family is
+ * `base`/`base_on`/`base_off` plus `_cN`/`_pN`, and `slugAliasName` strips every
+ * character outside `[a-z0-9_]`, so no toggle layer can produce a name starting
+ * with `+`/`-` for the sign test below to let through.
  */
-function knownHoldLayerCommands(layers: AltLayer[], binds: Record<string, string>): Set<string> {
+function knownLayerPressReleaseCommands(index: AliasIndexRow[]): Set<string> {
   const commands = new Set<string>()
-  for (const layer of layers) {
-    if (layer.mode !== 'hold') continue
-    const { aliases } = generateLayerAliases(layer, binds)
-    for (const alias of aliases) {
-      if (alias.name.startsWith('+') || alias.name.startsWith('-')) commands.add(alias.name)
-    }
+  for (const row of index) {
+    if (row.origin !== 'layer') continue
+    if (row.key.startsWith('+') || row.key.startsWith('-')) commands.add(row.key)
   }
   return commands
 }
@@ -303,16 +333,36 @@ export function validateActions(
     })
   }
 
-  const aliasActions = actions.filter((action) => action.kind === 'alias')
-  const aliasNames = aliasActions.map((action) => ({ action, name: aliasNameFor(action) }))
+  // The profile's whole alias name space, built once (story 044, D1) - the same graph the Aliases
+  // tab reads, so the two surfaces can never disagree about what is defined or what is referenced.
+  // Every rule below draws its names, its owners and its references from here; nothing in this file
+  // walks the profile for references any more.
+  const index = buildAliasIndex({ actions, binds: references.binds, layers: references.layers })
+
+  // The index's entry rows, paired back with the entry they came from: `buildAliasIndex` emits
+  // exactly one row per `actions` element, in array order, before any layer row (its documented
+  // contract, asserted in `alias-references.test.ts`). The pairing is needed because two of the
+  // rules below ask questions about the *entry* (its kind, its bind mirror, its body) that a row
+  // does not carry, while still taking the resolved name from the one place that derives it.
+  const allResolvedNames = actions.map((action, position) => {
+    const row = index[position]!
+    return { action, name: row.name, row }
+  })
+  const aliasNames = allResolvedNames.filter((entry) => entry.action.kind === 'alias')
 
   // --- duplicate alias names (generalised, D8: every action renders as an alias
   // under `aliasNameFor`, so the collision check runs over every action, not just
   // `kind: 'alias'` ones — see the file doc comment) --------------------------
-  const allResolvedNames = actions.map((action) => ({ action, name: aliasNameFor(action) }))
-  const byKey = new Map<string, { action: ConfigAction; name: string }[]>()
+  //
+  // Grouped here rather than read off `row.duplicateOf`, for two reasons that both come down to
+  // this rule being about *entries*: the index's duplicate partners also include `origin: 'layer'`
+  // rows (an entry colliding with a generated layer alias is a real collision the Aliases tab
+  // flags, but reporting it here would be a new Care finding this deliverable does not introduce),
+  // and the findings are emitted group by group, in first-appearance order of the name, which is
+  // the order this rule has always produced them in.
+  const byKey = new Map<string, typeof allResolvedNames>()
   for (const entry of allResolvedNames) {
-    const key = entry.name.toLowerCase()
+    const key = entry.row.key
     const group = byKey.get(key) ?? []
     group.push(entry)
     byKey.set(key, group)
@@ -428,15 +478,17 @@ export function validateActions(
       .map((entry) => entry.name.toLowerCase()),
   )
 
-  // --- referenced-by-anything (lenient: shared reference graph, story 038) --
-  const allReferences = collectAliasReferences({
-    actions,
-    binds: references.binds,
-    layers: references.layers,
-  })
+  // --- referenced-by-anything (lenient: shared reference graph, story 038; read
+  // off the shared index since story 044, D1) -------------------------------
+  //
+  // A row's `referrers` is built with no exclusions at all - an entry's own recursive body and its
+  // own bind mirror count, exactly as `collectAliasReferences` (which this used to call) always
+  // counted them - so `row.referrers.length > 0` is precisely the old
+  // `allReferences.has(key)`, with the referring bind/override/entry now named as well.
   const referencedKeys = new Set<string>()
-  for (const key of definedKeys) {
-    if (allReferences.has(key)) referencedKeys.add(key)
+  for (const entry of allResolvedNames) {
+    if (!definedKeys.has(entry.row.key)) continue
+    if (entry.row.referrers.length > 0) referencedKeys.add(entry.row.key)
   }
 
   // --- press/release pairing widens "referenced" one more step (story 041, D4
@@ -460,9 +512,14 @@ export function validateActions(
   // be referenced). An unmatched pair (only one half wired) is left exactly as
   // strict as before - only a *found* pair's press half being referenced adds
   // its release half here.
+  //
+  // "Is the press half referenced" is the index's answer too: both halves are entries, so each has
+  // a row, and a row's `referrers` covers the same sources the flat token set did.
+  const rowByKey = new Map<string, AliasIndexRow>()
+  for (const row of index) if (!rowByKey.has(row.key)) rowByKey.set(row.key, row)
   for (const pair of pressReleasePairs(actions).pairs) {
     const pressKey = aliasNameFor(pair.press).toLowerCase()
-    if (!allReferences.has(pressKey)) continue
+    if (!rowByKey.get(pressKey)?.referrers.length) continue
     referencedKeys.add(aliasNameFor(pair.release).toLowerCase())
   }
 
@@ -480,7 +537,7 @@ export function validateActions(
   // it against. Reporting it as a `warning` keeps AC 8's "undefined alias
   // reference gets flagged" intact without asserting more certainty than the
   // available signal supports.
-  const knownLayerCommands = knownHoldLayerCommands(references.layers ?? [], references.binds ?? {})
+  const knownLayerCommands = knownLayerPressReleaseCommands(index)
   for (const action of actions) {
     if (!isCandidateBinding(action)) continue
     for (const token of bareTokens(action)) {

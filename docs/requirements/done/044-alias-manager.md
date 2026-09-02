@@ -1,7 +1,7 @@
 ---
 id: 044
 title: One surface to manage every alias in a profile
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-08-22
 ---
 
@@ -29,29 +29,29 @@ view cannot show:
 
 ## Acceptance Criteria
 
-- [ ] One surface lists every alias name that exists in the profile in one table: user-authored
+- [x] One surface lists every alias name that exists in the profile in one table: user-authored
       `kind: 'alias'` entries, the aliases generated for keyed entries, and the layer aliases the
       launcher emits - each labelled with which of the three it is.
-- [ ] Generated and layer aliases are shown read-only, with a link to the entry or layer that owns
+- [x] Generated and layer aliases are shown read-only, with a link to the entry or layer that owns
       them. They are in the list because they occupy names, not because they are editable here.
-- [ ] Each row shows: name, body (or a truncated body with the full text on demand), what
+- [x] Each row shows: name, body (or a truncated body with the full text on demand), what
       references it, and the rendered line length against the engine budget.
-- [ ] References are shown per alias and are complete: base binds, layer overrides, other aliases'
+- [x] References are shown per alias and are complete: base binds, layer overrides, other aliases'
       bodies, and other entries' commands. "Nothing references this" is a distinct, explicit state,
       not an empty list the user has to interpret.
-- [ ] Creating, renaming, editing and deleting a user alias is possible from here, including the own
+- [x] Creating, renaming, editing and deleting a user alias is possible from here, including the own
       alias name from story 039.
-- [ ] A rename either updates every reference or refuses with the list of referencing entries -
+- [x] A rename either updates every reference or refuses with the list of referencing entries -
       whichever story 039 decided. It never leaves a dangling reference.
-- [ ] Deleting an alias that is still referenced requires an explicit confirmation naming the
+- [x] Deleting an alias that is still referenced requires an explicit confirmation naming the
       referencing entries.
-- [ ] A duplicate name is flagged inline on both rows (story 039's warning), with no auto-suffixing.
-- [ ] Care's `unreferencedAlias` / `undefinedAlias` / `duplicateAlias` rows link here, and this
+- [x] A duplicate name is flagged inline on both rows (story 039's warning), with no auto-suffixing.
+- [x] Care's `unreferencedAlias` / `undefinedAlias` / `duplicateAlias` rows link here, and this
       surface and Care never disagree about what is referenced - one reference graph, one function.
-- [ ] Sorting/filtering at least by name and by "unreferenced only".
-- [ ] The surface is in `ui:verify`'s screen registry, screenshotted and axe-clean, per
+- [x] Sorting/filtering at least by name and by "unreferenced only".
+- [x] The surface is in `ui:verify`'s screen registry, screenshotted and axe-clean, per
       `docs/UI-VERIFICATION.md`.
-- [ ] `/frontend-guidelines` and `/design-tokens` hold - no image assets, tokens only, keyboard
+- [x] `/frontend-guidelines` and `/design-tokens` hold - no image assets, tokens only, keyboard
       reachable.
 
 ## Open Questions
@@ -134,6 +134,8 @@ New tab in the existing config module; no new module, no new IPC. Two shared-lay
 
 ## Deliverables
 
+- [x] D1
+
 **D1 — Shared alias name-space index (one graph for Care and the new tab)**
 Files: `src/shared/config/alias-references.ts`, `alias-references.test.ts`,
 `src/shared/config/validate-actions.ts`, `validate-actions.test.ts`.
@@ -144,11 +146,15 @@ complete referrers (base binds, layer overrides, other alias bodies, other entri
 duplicate partners. `validate-actions.ts` produces byte-identical findings to before, now derived
 from the index; its existing tests stay green unchanged.
 
+- [x] D2
+
 **D2 — Exported alias line budget**
 Files: `src/shared/config/alias-render.ts`, `alias-render.test.ts`.
 Acceptance: `aliasLineBudget(action)` reports bytes, max and resulting chunk count, and agrees with
 what `renderActionAlias` actually emits (a body that renders as `_p1`/`_p2` reports 2 chunks and
 over-budget). No change to rendered output; round-trip tests stay green.
+
+- [x] D3
 
 **D3 — Aliases tab shell + read-only table**
 Files: `src/renderer/src/modules/config/AliasesTab.tsx` (new), `ConfigView.tsx`,
@@ -159,12 +165,16 @@ name, origin label, truncated body (expandable in place), referrer list and leng
 toggle, off by default, additionally lists generated and layer aliases as read-only rows with their
 owner named. Tokens only, no image assets, every row control keyboard reachable.
 
+- [x] D4
+
 **D4 — Empty/duplicate states, sort and filter**
 Files: `src/renderer/src/modules/config/AliasesTab.tsx`, `en.json`,
 `src/renderer/src/modules/config/lib/alias-rows.ts` (new, pure row shaping + tests).
 Acceptance: "Nothing references this" renders as its own labelled state, not an empty cell; both
 rows of a duplicate pair carry an inline duplicate flag (no auto-suffix); the list sorts by name and
 filters by name text and by "unreferenced only", including in combination.
+
+- [x] D5
 
 **D5 — Create / edit / rename / delete a user alias**
 Files: `src/renderer/src/modules/config/AliasesTab.tsx`, `ControlsTab.tsx`,
@@ -176,11 +186,15 @@ current name is referenced, naming the referrers (039). Deleting a referenced al
 confirmation naming the referring entries; unreferenced deletes directly. Controls tab behaviour is
 unchanged after the extraction.
 
+- [x] D6
+
 **D6 — Cross-tab deep links (Care → Aliases, Aliases → Controls)**
 Files: `ConfigView.tsx`, `CareTidyUpSection.tsx`, `AliasesTab.tsx`, `en.json`.
 Acceptance: the three alias findings in Care offer an action that opens the Aliases tab with that
 name focused/scrolled into view; a generated or layer alias row links to its owning entry on
 Controls (layer aliases name their layer). Focus lands on the target row, not the tab button.
+
+- [x] D7
 
 **D7 — UI verification**
 Files: `scripts/lib/screens.mjs`, `docs/UI-VERIFICATION.md`.
@@ -226,3 +240,70 @@ resolved alias names collide, one keyed entry (generated alias), one alt layer.
 10. `npm run ui:verify` → `config-tab-aliases` screenshot present, axe report clean.
 
 ## Done
+
+A new fifth "Aliases" tab (`config-tab-aliases`, inserted after Controls) gives one surface over
+every alias name in a profile — user-authored, generated, and layer aliases — built on one shared
+name-space/reference-graph function (`buildAliasIndex`) that `validate-actions.ts` now consumes too,
+so Care and the tab can never disagree about what references what. The tab supports sort/filter,
+explicit empty/duplicate states, full CRUD on user aliases (create/edit via the existing
+`ActionEditor`, rename via an extracted `RenameActionDialog` that keeps story 039's refusal rule,
+delete with referrer-naming confirmation), and two-way deep links with Care and Controls/Overview.
+
+**Deliverables:** D1 shared alias index (`alias-references.ts`), D2 exported line budget
+(`alias-render.ts`), D3 tab shell + read-only table, D4 empty/duplicate states + sort/filter
+(`lib/alias-rows.ts`), D5 create/edit/rename/delete, D6 cross-tab deep links, D7 `ui:verify`
+registration. All seven landed; see `docs/sprints/S09/progress.md` for the timestamped trail.
+
+**Commit message:**
+`044: Aliases tab — one surface for the alias name space, backed by one reference graph`
+
+**Verification:**
+- `npm run typecheck` — clean.
+- `npm run build` — clean.
+- `npm test` — 1764/1765 passing; the one failure
+  (`src/main/modules/config/core/import-reader.test.ts`, a 512-file fan-out timing test hitting its
+  5000ms timeout under load) is untouched by this story's diff (confirmed absent from `git diff`/
+  `git status`) and was independently reproduced as a pre-existing, machine-timing flake by two
+  implementation agents — not a regression.
+- `npm run ui:verify` — 54/54 shots written, 0 axe violations, 27/27 screens, including
+  `config-aliases@1280x800` and `@940x620` both `shot:written — axe:audited (clean)`. This run only
+  went green after the orchestrating session root-caused and fixed a genuinely unbounded (not just
+  slow) fixture-cleanup lock in `scripts/lib/fixture.mjs` (`rmDirBestEffort`, best-effort cache
+  cleanup) outside this story's deliverables — see Decisions below.
+- Story review: `story-review-hard`, round 1 — verdict **PASS** with 5 findings. 3 were fixed
+  (see Decisions); 2 were deliberately left as documented, non-blocking gaps.
+
+**Decisions (implementation):**
+- Rows in the shared index are one per *definition*, not per name — a name collision (e.g. a user
+  alias vs. a layer alias) produces two rows that list each other in `duplicateOf`, which is what
+  lets both AC 8 (duplicate flagged on both rows) and `validate-actions.ts`'s existing
+  entry-vs-entry duplicate finding coexist without merging distinct kinds of collisions.
+- A layer's own trigger bind and its `_pN`/`_cN` chunk-alias family are deliberately not modelled as
+  referrers of themselves (documented in `alias-references.ts`), so a layer-origin row can show
+  "nothing references this" even though the layer emits it. Left as-is: this is presentation-only
+  (layer rows are read-only, no destructive action is attached) and Care never produces an
+  `unreferencedAlias` finding for layer-origin names in the first place (`validate-actions.ts` only
+  iterates `kind: 'alias'` entries), so the two surfaces still never disagree about anything
+  actionable. Flagged by review as finding 3.
+- Review finding 1 (a layer alias's owner link could silently focus nothing when no Controls row
+  happened to reference that layer's modifier) was fixed by routing the link to Overview's
+  `LayersPanel` instead — the layer's actual owning surface — via the existing
+  `activeLayerId`/`onSelectLayer` mechanism, rather than keeping the best-effort Controls-row scan.
+- Review finding 2 (no over-budget indicator for a single command too long to fit on any line, where
+  `aliasLineBudget` reports `chunks: 1` by design) was fixed by also triggering the UI's warning
+  state on `bytes > max`, not only on `chunks > 1`.
+- Review finding 4 (Care's `undefinedAlias` deep link landed on the Aliases tab with no feedback,
+  since an undefined name by definition has no row to focus) was fixed by pre-seeding the tab's text
+  filter with the searched-for name so the existing "no matching aliases" state explains the result.
+- Review finding 5 (`scripts/lib/fixture.mjs`'s best-effort fixture cleanup) is **not** part of this
+  story — it was made directly by the orchestrating session, outside any of D1–D7, to unblock the
+  `ui:verify` environment (a fixture-cache lock that turned out to be unbounded rather than
+  time-boxed). Noted here for traceability only; not evaluated or altered as part of story 044.
+- `MAX_LINE_BYTES` reused directly from `alt-layers.ts` (the same constant `lineFits` itself uses)
+  rather than `engine-limits.ts`'s `CBUF_LINE_BYTES`, to guarantee the UI number can never drift from
+  the splitter's own constant.
+- The screen-registry id is `config-aliases` (matching this repo's existing `config-<tab>` naming
+  convention in `scripts/lib/screens.mjs`), reusing the `config-tab-aliases` testid the AC names.
+
+**Open points:** none blocking. The two documented-and-left findings (3 and 5) are non-destructive
+and outside this story's scope respectively.

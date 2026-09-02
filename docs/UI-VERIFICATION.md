@@ -475,6 +475,22 @@ Story 043 D8 adds one more, and it is the first entry in the registry whose
   refusal, and `navigate()` waits for `config-conflict-dialog`
   (`ConfigConflictDialog.tsx`'s two-pane content container) before returning.
 
+Story 044 D7 adds one more, and unlike every entry above it opens no dialog or
+panel at all — it flips a switch on a plain tab:
+
+- **`config-aliases`** — the Aliases tab (`AliasesTab.tsx`) of the "Plain
+  Profile" fixture's config detail view. None of that profile's five actions
+  are `kind: 'alias'`, so the tab's default view (`origin: 'user'` rows only)
+  would show nothing but its empty state. `navigate()` opens the tab via the
+  usual `configDetail('aliases')` helper, then clicks the tab's own "Show
+  generated and layer aliases" switch by its translated accessible name (no
+  testid on it — `Switch`, `components/ui/controls.tsx`, links its `<label
+  for>` to the `role="switch"` button instead), which reveals the `generated`
+  row every one of those five actions produces (`buildAliasIndex`). It waits
+  for the "Generated" origin badge text rather than returning right after the
+  click, since the toggle only flips local component state and nothing else
+  here would fail fast if the re-render hadn't happened yet.
+
 ### Cold-start screens
 
 A screen normally runs inside the batched session described above: the

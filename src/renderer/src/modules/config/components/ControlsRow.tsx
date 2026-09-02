@@ -66,6 +66,11 @@ export interface ControlsRowProps {
    * existed (same zebra parity, same row heights). Opaque content, same spirit as the other
    * slots - this component has no idea what a "message row" is. */
   subRow?: ReactNode
+  /** Story 044 D6: registers this row's outer element so `ControlsTab`'s cross-tab deep link
+   * (a name/id arriving from the Aliases tab's owner link) can scroll/focus it once rendered -
+   * mirrors `AliasRow`'s identical `rowRef` in `AliasesTab.tsx`. Optional and normally unset;
+   * `ControlsTab` only ever wires it for rows that carry a real `ConfigAction`. */
+  rowRef?: (el: HTMLDivElement | null) => void
 }
 
 export function ControlsRow({
@@ -79,6 +84,7 @@ export function ControlsRow({
   odd,
   edited,
   subRow,
+  rowRef,
 }: ControlsRowProps) {
   const { t } = useTranslation()
   // A callback ref in state, not a `useRef`: the slots need to re-render once the host element
@@ -91,7 +97,15 @@ export function ControlsRow({
 
   return (
     <BindPromptHostContext.Provider value={promptHost}>
-      <div className={rowClassName} role="row">
+      <div
+        className={rowClassName}
+        role="row"
+        ref={rowRef}
+        // Story 044 D6: not part of the Tab order - only ever focused programmatically by the
+        // deep-link effect in `ControlsTab.tsx`, which still gets the app-wide `:focus-visible`
+        // amber ring for free (`styles/index.css`).
+        tabIndex={-1}
+      >
         <span className="ctrl-label flex min-w-0 items-center gap-1.5" role="cell">
           <span className="min-w-0 truncate">{name}</span>
           {command && <span className="ctrl-label-cmd truncate">{command}</span>}

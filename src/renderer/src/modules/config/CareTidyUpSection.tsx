@@ -51,9 +51,14 @@ import {
 export function CareTidyUpSection({
   profile,
   onProfileUpdated,
+  onNavigateToAlias,
 }: {
   profile: ConfigProfile
   onProfileUpdated: (profile: ConfigProfile) => void
+  /** Story 044 D6: the "show in Aliases" action on `unreferencedAlias`/`undefinedAlias`/
+   * `duplicateAlias` rows (`ALIAS_LINK_KINDS` below) - switches `ConfigView` to the Aliases tab
+   * with this finding's alias name focused. */
+  onNavigateToAlias: (aliasName: string) => void
 }) {
   const { t } = useTranslation()
   const pushToast = useLauncher((state) => state.pushToast)
@@ -165,6 +170,7 @@ export function CareTidyUpSection({
                     pendingKeys={pendingKeys}
                     rejectedKeys={rejectedKeys}
                     onApply={(action) => void handleApply(action)}
+                    onShowInAliases={onNavigateToAlias}
                   />
                 ))}
               </ul>
@@ -184,6 +190,16 @@ export function CareTidyUpSection({
     </div>
   )
 }
+
+/** Story 044 D6: the three finding kinds that name an alias by name (`findingSubject` below reads
+ * exactly these three's `params`) - each gets a "show in Aliases" action. `shadowedBind`/
+ * `emptyLayer`/`preservedLine` name a key, a layer or a file:line instead, none of which is an
+ * alias name the Aliases tab could focus. */
+const ALIAS_LINK_KINDS: ReadonlySet<TidyUpFindingKind> = new Set([
+  'unreferencedAlias',
+  'undefinedAlias',
+  'duplicateAlias',
+])
 
 export const KIND_ORDER: TidyUpFindingKind[] = [
   'shadowedBind',
@@ -332,6 +348,7 @@ function FindingRow({
   pendingKeys,
   rejectedKeys,
   onApply,
+  onShowInAliases,
 }: {
   finding: TidyUpFinding
   profile: ConfigProfile
@@ -340,11 +357,16 @@ function FindingRow({
   pendingKeys: Set<string>
   rejectedKeys: Set<string>
   onApply: (action: TidyUpAction) => void
+  onShowInAliases: (aliasName: string) => void
 }) {
   const { t } = useTranslation()
   const actions = actionsFor(finding)
   const Icon = LEVEL_ICON[finding.level]
   const message = t(finding.messageKey, finding.params)
+  // Story 044 D6: `findingSubject` already extracts exactly this name for these three kinds
+  // (`params['name']`/`params['alias']`, per its own switch) - reused rather than re-reading
+  // `finding.params` a second way, so the badge text and the deep-link target can never disagree.
+  const aliasLinkName = ALIAS_LINK_KINDS.has(finding.kind) ? findingSubject(finding) : undefined
 
   const header = (
     <div className="flex items-start gap-2.5">
@@ -376,13 +398,30 @@ function FindingRow({
 
   return (
     <li className="space-y-1.5 rounded-sm border border-line px-2.5 py-2">
-      {actions.length > 0 ? (
-        <button type="button" className="w-full text-left" onClick={() => onToggle(finding.id)}>
-          {header}
-        </button>
-      ) : (
-        header
-      )}
+      <div className="flex items-start justify-between gap-2">
+        {/* The toggle (when the finding has actions) and the "show in Aliases" link are siblings,
+            never nested - two interactive elements sharing one row is fine, one inside the other
+            is not (and `header`'s own click target would otherwise swallow this button's clicks). */}
+        <div className="min-w-0 flex-1">
+          {actions.length > 0 ? (
+            <button type="button" className="w-full text-left" onClick={() => onToggle(finding.id)}>
+              {header}
+            </button>
+          ) : (
+            header
+          )}
+        </div>
+        {aliasLinkName !== undefined && (
+          <Button
+            variant="neutral"
+            size="sm"
+            className="shrink-0"
+            onClick={() => onShowInAliases(aliasLinkName)}
+          >
+            {t('config.care.tidyUp.action.showInAliases')}
+          </Button>
+        )}
+      </div>
 
       {expanded && actions.length > 0 && (
         <div className="ml-6 space-y-2.5 border-l border-line pl-3">

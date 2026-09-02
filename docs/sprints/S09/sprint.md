@@ -23,7 +23,7 @@ the alias name space that a real ninety-alias config needs.
 
 - [x] 048 — Every setting is written to the file, and nothing resets to default any more
 - [x] 049 — I can see what an unsaved change is, review it, and throw it away
-- [ ] 044 — One surface to manage every alias in a profile
+- [x] 044 — One surface to manage every alias in a profile
 
 ## Notes
 

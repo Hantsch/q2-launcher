@@ -11,10 +11,6 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 import type { ModifierTrigger } from '@shared/config/modifier-layers'
-import type { AltLayer } from '@shared/config/alt-layers'
-import { aliasNameFor, derivedAliasName } from '@shared/config/alias-render'
-import { validateAliasName } from '@shared/config/alias-names'
-import { findAliasReferrers, type AliasReferrer } from '@shared/config/alias-references'
 import { pressReleasePairs, type PressReleasePair } from '@shared/config/press-release'
 import {
   BUILT_IN_ACTION_CATEGORIES,
@@ -33,6 +29,7 @@ import { ControlsGrid } from './components/ControlsGrid'
 import { ControlsOptionsCell } from './components/ControlsOptionsCell'
 import { ControlsRow } from './components/ControlsRow'
 import { MessageEditor } from './components/MessageEditor'
+import { RenameActionDialog } from './components/RenameActionDialog'
 import { updateProfileActions } from './client'
 import { useProfileChanges } from './lib/profile-changes'
 import { findBindConflicts, findSlotConflictOwner, indexBindConflicts } from './lib/bind-conflicts'
@@ -85,6 +82,11 @@ export interface ControlsTabProps {
     partial: Partial<ConfigProfile> | ((prev: ConfigProfile) => Partial<ConfigProfile>),
   ) => void
   onChanged: (profiles: ConfigProfile[]) => void
+  /** Story 044 D6: the owning action's id, when the Aliases tab's owner link for a `generated` row
+   * asked to land here - selects that action's own category and focuses its row. Handled once on
+   * mount only (see the focus effect below): `ConfigView` only ever mounts this tab fresh when the
+   * deep link fires, since the tab panel it lives in unmounts on every tab switch. */
+  focusActionId?: string
 }
 
 /**
@@ -105,7 +107,13 @@ export interface ControlsTabProps {
  * continuously, but so a burst of quick adds/removes does not fire one
  * `updateProfileActions` per click.
  */
-export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabProps) {
+export function ControlsTab({
+  profile,
+  draft,
+  patch,
+  onChanged,
+  focusActionId,
+}: ControlsTabProps) {
   const { t } = useTranslation()
   // Story 049 D8: the profile's pending change set, read once here so `renderCatalogRow`/
   // `renderPlainActionRow` can each ask "is my action id in `keys.actions`" - same predicate the
@@ -143,6 +151,13 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
    * ref per category living in component state - a plain mutable map updated by each chip's own
    * callback ref is enough for this presentational concern. */
   const categoryChipRefs = useRef(new Map<string, HTMLElement>())
+  /** Story 044 D6: same idiom as `categoryChipRefs` above, one entry per rendered row that carries a
+   * real `ConfigAction` - keyed by that action's id, so the focus effect below can find a
+   * cross-tab-focused row's element regardless of whether it rendered as a catalogue row or a plain
+   * action row. */
+  const focusRowRefs = useRef(new Map<string, HTMLDivElement>())
+  const [pendingFocusActionId, setPendingFocusActionId] = useState<string | null>(null)
+  const focusAppliedRef = useRef<string | null>(null)
 
   const [showCreateCategory, setShowCreateCategory] = useState(false)
   const [renamingCategory, setRenamingCategory] = useState<ConfigActionCategory | null>(null)
@@ -195,6 +210,10 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
     // pending" and let a Save land on the wrong profile's actions.
     setRevealedMessageRows(new Set())
     setMessageEditorRow(null)
+    // Story 044 D6: a pending cross-tab focus names a row of the profile being switched away from -
+    // same reasoning as the reveal set/message editor just above.
+    setPendingFocusActionId(null)
+    focusAppliedRef.current = null
   }, [profile.id])
 
   useEffect(() => clearPendingSave, [])
@@ -214,6 +233,38 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
       .get(selectedCategoryId)
       ?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }, [selectedCategoryId])
+
+  /**
+   * Story 044 D6: a deep link from the Aliases tab's owner column for a `generated` row - the
+   * owning action always exists (`AliasesTab`'s index is built from `draft.actions` itself), so this
+   * only has to find it, select its category (which also clears `filterText` via the effect above,
+   * so a stale filter from a previous session can never hide it) and queue it to be focused once its
+   * row renders. Runs once on mount only - see `ControlsTabProps.focusActionId`'s own doc comment
+   * for why a nonce/re-trigger guard is unnecessary here.
+   */
+  useEffect(() => {
+    if (!focusActionId) return
+    const action = (draft.actions ?? []).find((candidate) => candidate.id === focusActionId)
+    if (!action) return
+    setSelectedCategoryId(action.categoryId)
+    setPendingFocusActionId(action.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusActionId])
+
+  /**
+   * Applies the real DOM focus queued by either effect above, once the target row has actually
+   * rendered (it may not have on the same tick: switching category re-renders the whole grid).
+   * `focusAppliedRef` guards against re-stealing focus on a later, unrelated re-render - e.g. the
+   * user editing a different row afterwards, which also changes `rowEntries`.
+   */
+  useEffect(() => {
+    if (!pendingFocusActionId || focusAppliedRef.current === pendingFocusActionId) return
+    const el = focusRowRefs.current.get(pendingFocusActionId)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.focus()
+    focusAppliedRef.current = pendingFocusActionId
+  })
 
   const persistCategoriesAndActions = async (
     nextCategories: ConfigActionCategory[],
@@ -742,6 +793,17 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
         secondarySlot={renderCatalogSlot(row, action, 'secondary')}
         optionsCell={renderCatalogOptionsCell(row, action)}
         subRow={showMessageRow ? renderMessageSubRow(row, label, message) : undefined}
+        // Story 044 D6: only rows backed by a real `ConfigAction` are addressable by the
+        // `focusActionId` deep link - an unbound catalogue slot has nothing an alias's owner could
+        // point at.
+        rowRef={
+          action
+            ? (el) => {
+                if (el) focusRowRefs.current.set(action.id, el)
+                else focusRowRefs.current.delete(action.id)
+              }
+            : undefined
+        }
       />
     )
   }
@@ -915,6 +977,10 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
             </IconButton>
           </div>
         }
+        rowRef={(el) => {
+          if (el) focusRowRefs.current.set(action.id, el)
+          else focusRowRefs.current.delete(action.id)
+        }}
       />
     )
   }
@@ -1427,157 +1493,5 @@ function CreateActionDialog({
   )
 }
 
-/**
- * Renames one action. Mirrors `RenameProfileDialog`'s shape, plus - since story 039 - a second,
- * optional "own alias name" field and the rename-refusal check that field is the escape hatch for.
- *
- * `actions`/`binds`/`layers` are the profile's full reference sources (story 038's
- * `AliasReferenceSources` shape), needed for two independent reasons: `actions` (minus this one)
- * supplies `validateAliasName`'s duplicate-check `context`, and all three together are what
- * `findAliasReferrers` scans to decide whether changing the *display* name would leave a dangling
- * reference behind.
- */
-function RenameActionDialog({
-  action,
-  actions,
-  binds,
-  layers,
-  onClose,
-  onSubmit,
-}: {
-  action: ConfigAction
-  actions: ConfigAction[]
-  binds: Record<string, string>
-  layers: AltLayer[]
-  onClose: () => void
-  onSubmit: (input: { name: string; aliasName: string | undefined }) => Promise<boolean>
-}) {
-  const { t } = useTranslation()
-  const [name, setName] = useState(action.name)
-  const [ownAliasName, setOwnAliasName] = useState(action.aliasName ?? '')
-  const [submitting, setSubmitting] = useState(false)
-
-  const placeholder = derivedAliasName(action)
-
-  // The other entries' already-resolved alias names - `validateAliasName`'s duplicate check, same
-  // shape D2's own doc comment describes (`alias-names.ts`).
-  const otherAliasNames = useMemo(
-    () => actions.filter((other) => other.id !== action.id).map((other) => aliasNameFor(other)),
-    [actions, action.id],
-  )
-
-  const trimmedOwnAliasName = ownAliasName.trim()
-  // An empty own-name field means "use the derived name" - not a candidate to validate at all
-  // (design decision: clearing the field returns the entry to the derived name).
-  const aliasValidation =
-    trimmedOwnAliasName.length > 0 ? validateAliasName(trimmedOwnAliasName, otherAliasNames) : { ok: true as const }
-  const aliasError = aliasValidation.ok
-    ? undefined
-    : t(
-        `config.controls.actions.renameDialog.aliasName.error.${aliasValidation.reason}`,
-        aliasValidation.params,
-      )
-
-  // Rename refusal (story 039, D9): only the entry's *current* alias name - resolved before any
-  // edit in this dialog - and only while the display name is actually changing. Changing solely the
-  // alias-name field is never refused; that field is the story's own escape hatch.
-  //
-  // Review fix: the escape hatch must also cover "pin a name, then rename" *in one save* - typing
-  // an own name (whether it repeats the current resolved name to lock it in place, or replaces it
-  // outright) decouples the resolved alias name from the display name from this submit onward, so
-  // a display-name change alongside it can never move the name any referrer relies on. Only when
-  // the dialog would still fall back to the *derived* name (own-name field left empty) does a
-  // display-name change risk silently moving a referenced name - that is the one case this refusal
-  // exists for.
-  const referrers = useMemo(
-    () => findAliasReferrers(action, { actions, binds, layers }),
-    [action, actions, binds, layers],
-  )
-  const nameChanged = name.trim() !== action.name
-  const renameRefused = nameChanged && trimmedOwnAliasName.length === 0 && referrers.length > 0
-
-  const formatReferrer = (referrer: AliasReferrer): string => {
-    switch (referrer.kind) {
-      case 'action':
-        return referrer.name
-      case 'bind':
-        return t('config.controls.actions.renameDialog.refusal.handTypedBind', { key: referrer.key })
-      case 'override':
-        return t('config.controls.actions.renameDialog.refusal.handTypedOverride', {
-          key: referrer.key,
-          layer: referrer.layerName,
-        })
-    }
-  }
-
-  const referrerLabels = renameRefused ? referrers.map(formatReferrer) : []
-  const refusalMessage = renameRefused
-    ? t('config.controls.actions.renameDialog.refusal.message', { names: referrerLabels.join(', ') })
-    : undefined
-
-  const canSubmit = name.trim().length > 0 && !submitting && aliasValidation.ok && !renameRefused
-
-  const submit = async (): Promise<void> => {
-    setSubmitting(true)
-    await onSubmit({
-      name: name.trim(),
-      aliasName: trimmedOwnAliasName.length > 0 ? trimmedOwnAliasName : undefined,
-    })
-    setSubmitting(false)
-  }
-
-  return (
-    <Modal
-      open
-      size="sm"
-      title={t('config.controls.actions.renameDialog.title')}
-      onClose={onClose}
-      closeLabel={t('common.close')}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
-            {t('common.save')}
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-4">
-        <Field label={t('config.controls.actions.renameDialog.label')} error={refusalMessage}>
-          <Input
-            value={name}
-            autoFocus
-            maxLength={120}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && canSubmit) void submit()
-            }}
-          />
-        </Field>
-        <Field
-          label={t('config.controls.actions.renameDialog.aliasName.label')}
-          hint={aliasError ? undefined : t('config.controls.actions.renameDialog.aliasName.hint', { placeholder })}
-          error={aliasError}
-        >
-          <Input
-            value={ownAliasName}
-            placeholder={placeholder}
-            // Deliberately not `MAX_OWN_ALIAS_NAME_LENGTH`: an input-level `maxLength` at exactly
-            // the budget would silently stop the keystroke instead of ever reaching
-            // `validateAliasName`'s `tooLong` reason, so a name past the budget could never be
-            // rejected *with a reason* (AC6) - only ever truncated without one. `120` mirrors the
-            // display-name field above and is generous enough that a user typing past the real
-            // budget still sees the `tooLong` error instead of a truncated string.
-            maxLength={120}
-            onChange={(event) => setOwnAliasName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && canSubmit) void submit()
-            }}
-          />
-        </Field>
-      </div>
-    </Modal>
-  )
-}
+// `RenameActionDialog` moved to `./components/RenameActionDialog.tsx` (story 044, D5) - reused as-is
+// by `AliasesTab.tsx`, imported above.

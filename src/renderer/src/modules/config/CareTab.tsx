@@ -89,12 +89,16 @@ export function CareTab({
   onProfileUpdated,
   installations,
   assignedInstallationIds,
+  onNavigateToAlias,
 }: {
   profile: ConfigProfile
   validation: ProfileValidation
   onProfileUpdated: (profile: ConfigProfile) => void
   installations: Installation[]
   assignedInstallationIds: string[]
+  /** Story 044 D6: `CareTidyUpSection`'s "show in Aliases" action, threaded straight through - this
+   * component owns no navigation logic of its own, same as every other prop it only stacks. */
+  onNavigateToAlias: (aliasName: string) => void
 }) {
   const tidyUpFindings = useMemo(() => analyzeTidyUp(profile), [profile])
 
@@ -121,7 +125,11 @@ export function CareTab({
         onStatusChange={setSyncStatus}
         onProfileUpdated={onProfileUpdated}
       />
-      <CareTidyUpSection profile={profile} onProfileUpdated={onProfileUpdated} />
+      <CareTidyUpSection
+        profile={profile}
+        onProfileUpdated={onProfileUpdated}
+        onNavigateToAlias={onNavigateToAlias}
+      />
       <CleanupPanel
         installations={installations}
         assignedInstallationIds={assignedInstallationIds}

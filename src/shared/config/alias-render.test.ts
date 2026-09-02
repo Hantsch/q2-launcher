@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ConfigAction } from '@shared/modules/config'
 import { MAX_ALIAS_NAME, MAX_LINE_BYTES } from '@shared/config/alt-layers'
 import {
+  aliasLineBudget,
   aliasNameFor,
   derivedAliasName,
   legacyAliasNameFor,
@@ -369,6 +370,128 @@ describe('renderActionAliasLines', () => {
     // A `kind: 'bind'` row's derived name is slugged sign-free even though its own display name
     // starts with `+` (story 039, D7's Decisions): only a `kind: 'alias'` entry carries the sign.
     expect(renderActionAliasLines([catalogueRow])).toEqual(['alias attack +attack'])
+  })
+})
+
+/**
+ * Story 044, D2. The point of every case here is agreement: the numbers
+ * `aliasLineBudget` reports have to be the ones `renderActionAlias` acts on, so
+ * each test cross-checks against what the renderer actually emits rather than
+ * against a second calculation of the same thing.
+ */
+describe('aliasLineBudget', () => {
+  /** 96 bytes each - `echo ` + a two-digit index + 89 filler. */
+  const filler = (count: number) =>
+    Array.from({ length: count }, (_, index) => ({
+      kind: 'raw' as const,
+      text: `echo ${String(index).padStart(2, '0')}${'x'.repeat(89)}`,
+    }))
+
+  /** True for an alias the splitter emitted as a chunk of `parent`, i.e. `<parent>_p<n>`. */
+  const isChunkOf = (aliasName: string, parent: string): boolean =>
+    aliasName.startsWith(`${parent}_p`) && /^[0-9]+$/.test(aliasName.slice(parent.length + 2))
+
+  it('reports one chunk and the real, under-budget byte count for a short body', () => {
+    const budget = aliasLineBudget(action({ name: 'Drop RL', id: 'ab12cd34' }))
+
+    expect(budget).toEqual({ bytes: 'alias drop_rl drop rl'.length, max: MAX_LINE_BYTES, chunks: 1 })
+    expect(budget.bytes).toBeLessThan(budget.max)
+  })
+
+  it('reports two chunks and an over-budget unsplit line for a body that splits into _p1/_p2', () => {
+    const split = action({ name: 'Two Chunks', id: 'ab12cd34', commands: filler(15) })
+    const budget = aliasLineBudget(split)
+
+    expect(budget.chunks).toBe(2)
+    expect(budget.bytes).toBeGreaterThan(budget.max)
+    // The byte count is the *unsplit* line, so it is the sum of the parts, not the longest one.
+    expect(renderActionAlias(split).aliases.map((alias) => alias.name)).toEqual([
+      'two_chunks_p1',
+      'two_chunks_p2',
+      'two_chunks',
+    ])
+  })
+
+  /**
+   * The case the whole function exists to get right. The splitter works to
+   * `MAX_LINE_BYTES` *minus* `alias-render.ts`'s 16-byte `LINE_HEADROOM`, so a
+   * body can be under 1024 bytes and still be split. A budget that decided
+   * "fits" from `bytes < max` on its own would report one chunk here while the
+   * file on disk carries two.
+   */
+  it('reports the split even when the unsplit line is under max but inside the headroom', () => {
+    const command = { kind: 'raw' as const, text: `echo ${'x'.repeat(495)}` }
+    const edge = action({ name: 'Edge', id: 'ab12cd34', aliasName: 'edge', commands: [command, command] })
+    const budget = aliasLineBudget(edge)
+
+    // `alias edge "` (12) + two 500-byte commands joined by `'; '` (1002) + `"` (1).
+    expect(budget.bytes).toBe(1015)
+    expect(budget.bytes).toBeLessThan(MAX_LINE_BYTES)
+    expect(budget.chunks).toBe(2)
+    expect(renderActionAlias(edge).aliases.map((alias) => alias.name)).toEqual([
+      'edge_p1',
+      'edge_p2',
+      'edge',
+    ])
+  })
+
+  it('reports one over-budget chunk for a single command too long for any line', () => {
+    const huge = action({
+      name: 'Huge',
+      id: 'ab12cd34',
+      commands: [{ kind: 'raw', text: `echo ${'y'.repeat(2000)}` }],
+    })
+    const budget = aliasLineBudget(huge)
+
+    // One `_p1` chunk plus its parent: the command is emitted rather than
+    // dropped, so it is one chunk that simply does not fit.
+    expect(budget.chunks).toBe(1)
+    expect(budget.bytes).toBeGreaterThan(budget.max)
+  })
+
+  it('reports nothing for an action that emits no line, and the real line for a keepEmptyAlias entry', () => {
+    expect(aliasLineBudget(action({ commands: [] }))).toEqual({
+      bytes: 0,
+      max: MAX_LINE_BYTES,
+      chunks: 0,
+    })
+    expect(
+      aliasLineBudget(
+        action({ name: 'blaster_settings', kind: 'alias', commands: [], keepEmptyAlias: true }),
+      ),
+    ).toEqual({ bytes: 'alias blaster_settings ""'.length, max: MAX_LINE_BYTES, chunks: 1 })
+  })
+
+  it('reports the chunk count renderActionAlias actually emits, for every shape', () => {
+    const cases: [label: string, action: ConfigAction, expected: number][] = [
+      ['short body', action({ name: 'Drop RL', id: 'ab12cd34' }), 1],
+      ['two parts', action({ name: 'Two Chunks', id: 'ab12cd34', commands: filler(15) }), 2],
+      ['three parts', action({ name: 'Long Action', id: 'ab12cd34', commands: filler(25) }), 3],
+      [
+        'one over-long command',
+        action({ name: 'Huge', id: 'ab12cd34', commands: [{ kind: 'raw', text: `echo ${'y'.repeat(2000)}` }] }),
+        1,
+      ],
+      ['signed alias entry, split', action({ name: '+spam', kind: 'alias', commands: filler(15) }), 2],
+      ['no line at all', action({ commands: [] }), 0],
+      [
+        'keepEmptyAlias',
+        action({ name: 'blaster_settings', kind: 'alias', commands: [], keepEmptyAlias: true }),
+        1,
+      ],
+    ]
+
+    for (const [label, subject, expected] of cases) {
+      const { aliases } = renderActionAlias(subject)
+      const parent = aliasNameFor(subject)
+      const emittedChunks = aliases.filter((alias) => isChunkOf(alias.name, parent)).length
+
+      // Counted off the emitted aliases without reusing the implementation's own
+      // rule: an unsplit action has no `_p<n>` alias at all, so its single line
+      // is the chunk, and an action that emits nothing has none.
+      expect(emittedChunks === 0 ? aliases.length : emittedChunks, label).toBe(expected)
+      expect(aliasLineBudget(subject).chunks, label).toBe(expected)
+    }
   })
 })
 

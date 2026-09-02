@@ -160,6 +160,18 @@ export function commandLineFor(command: ConfigCommand): string {
 }
 
 /**
+ * The commands of `action` as the lines they become in an alias body, blanks
+ * dropped - the exact list `renderActionAlias` joins with `'; '` and chunks.
+ *
+ * Its own function only so `aliasLineBudget` can measure the same list rather
+ * than rebuild it: the body it reports on has to be the body that is rendered,
+ * down to which commands `commandLineFor` sanitizes away entirely.
+ */
+function bodyCommandsFor(action: ConfigAction): string[] {
+  return action.commands.map(commandLineFor).filter((command) => command.length > 0)
+}
+
+/**
  * The legacy, machine-generated alias name for an action:
  * `q2l_a_<slug(name,14)>_<id[0:4]>` (decision 15), or - for a `kind: 'alias'` entry - the sign-aware
  * slug of its own name, with no prefix and no id suffix at all (decision from story 019, before
@@ -284,7 +296,7 @@ export interface RenderedActionAliases {
  */
 export function renderActionAlias(action: ConfigAction): RenderedActionAliases {
   const name = aliasNameFor(action)
-  const commands = action.commands.map(commandLineFor).filter((command) => command.length > 0)
+  const commands = bodyCommandsFor(action)
   if (commands.length === 0) {
     // Not `makeAlias(name, '')`: `renderAliasLine` quotes a body only when it contains a `;` (the
     // same rule as `alt-layers.ts#renderAliasLine`, deliberately unchanged for every other caller),
@@ -325,6 +337,70 @@ export function renderActionAlias(action: ConfigAction): RenderedActionAliases {
   // commands, so reaching the point where the chunk names alone fill a line
   // would take tens of kilobytes of commands in a single action.
   return { aliases: [...chunks, makeAlias(name, chunkNames.join('; '))] }
+}
+
+/** What one action's commands cost against the engine's per-line buffer (story 044, D2). */
+export interface AliasLineBudget {
+  /**
+   * Byte length of the line this action's commands would render as *unsplit* -
+   * `alias <name> "<c1; c2; ...>"`, before any chunking. That is the number a
+   * "length vs budget" readout wants: the cost of the body the user typed, not
+   * of whichever chunk happens to be longest after the split.
+   *
+   * `0` for an action that emits no line at all; the actual `alias <name> ""`
+   * line for a `keepEmptyAlias` entry, which does emit one.
+   */
+  bytes: number
+  /**
+   * `MAX_LINE_BYTES` - the engine's own `char line[1024]`, the limit past which
+   * a line is discarded or truncated. Deliberately *not* the smaller budget the
+   * splitter works to: that one keeps `LINE_HEADROOM` (16) bytes free, so
+   * `bytes < max` does **not** imply `chunks === 1`. `chunks` is the only
+   * honest "does this fit on one line" signal - see below.
+   */
+  max: number
+  /**
+   * How many alias bodies the commands actually land in, read off what
+   * `renderActionAlias` emits rather than predicted: `1` when they fit one
+   * line, `n` when they are split across `<name>_p1..._p<n>`, `0` when the
+   * action emits nothing.
+   *
+   * `1` therefore also covers the degenerate split of a single command too long
+   * for any line (one `_p1` chunk plus its parent) - one chunk, which simply
+   * does not fit. Pair `chunks` with `bytes` when the distinction matters.
+   */
+  chunks: number
+}
+
+/**
+ * Report what `action` costs on a line, and into how many aliases
+ * `renderActionAlias` splits it.
+ *
+ * Built *on* `renderActionAlias` and `renderAliasLine`, not beside them: the
+ * chunk count is counted from the aliases that are actually emitted, and the
+ * unsplit byte count comes from the same `renderAliasLine` (and the same
+ * `bodyCommandsFor` list) the renderer measures with in `lineFits`. A second
+ * implementation of the same arithmetic - one `'; '` separator, one pair of
+ * quotes, one sanitize pass - is exactly how a UI number starts disagreeing
+ * with the file on disk by a byte or two, which is the one thing this function
+ * must never do. Nothing about rendering changes here; this only reports on it.
+ */
+export function aliasLineBudget(action: ConfigAction): AliasLineBudget {
+  const { aliases } = renderActionAlias(action)
+  const name = aliasNameFor(action)
+  const commands = bodyCommandsFor(action)
+  // Everything but the parent (which always renders under `name` itself) is a chunk.
+  const parts = aliases.filter((alias) => alias.name !== name).length
+
+  return {
+    bytes: latin1ByteLength(
+      // No commands -> there is no unsplit body to render; report the one line
+      // the action actually emits (`alias <name> ""`), or nothing.
+      commands.length === 0 ? (aliases[0]?.line ?? '') : renderAliasLine(name, commands.join('; ')),
+    ),
+    max: MAX_LINE_BYTES,
+    chunks: aliases.length === 0 ? 0 : parts === 0 ? 1 : parts,
+  }
 }
 
 /**
