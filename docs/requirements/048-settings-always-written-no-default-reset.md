@@ -1,15 +1,21 @@
 ---
 id: 048
-title: Every setting is written to the file, and pending changes are reviewable
+title: Every setting is written to the file, and nothing resets to default any more
 status: draft # draft -> ready -> in-progress -> done
 created: 2026-08-24
 ---
 
 ## Requirement
 
-Four related changes to how the Settings tab and the unsaved-changes bar work. They belong in
-one story because they all follow from the same shift: the profile file stops being "the values
-I deviated on" and becomes "the state I want the game to be in".
+Two changes that belong together, because the second is only true once the first is: the profile
+file stops being "the values I deviated on" and becomes "the state I want the game to be in".
+
+Split out of the originally filed 048 (which also carried the unsaved-changes work) when S09 was
+cut — the pending-changes half is now story
+[049](049-unsaved-changes-reviewable-and-discardable.md). These two halves must ship in this
+order: removing the reset affordances before every setting is written would leave the Settings tab
+with no way back to a default, and writing every setting without removing them would leave a
+button that resets to a state the file can no longer express.
 
 **1. Every setting the launcher knows is written, not just the changed ones.**
 
@@ -50,8 +56,8 @@ What goes:
   `config.controls.restoreDefaults.*`).
 
 **Nothing takes their place.** Not a clickable default value, not a hint in the bind dialog,
-nothing. The only thing that exists afterwards is point 4's discard, and it is a different thing:
-"back to what I last saved", never "back to the catalogue's defaults".
+nothing. The only thing that exists afterwards is story 049's discard, and it is a different
+thing: "back to what I last saved", never "back to the catalogue's defaults".
 
 For a cvar the default value still gets *printed* on the row as a reference - that is information,
 not an affordance, and it is the useful half of what the button offered. For a binding there is
@@ -63,27 +69,6 @@ Untouched by all of this: `STANDARD_TEMPLATE`
 ([shared/modules/config.ts](../../src/shared/modules/config.ts)), the seed behind "create from
 template". That is a starting point the user picks explicitly in the create dialog, not a default
 the launcher can snap a profile back to.
-
-**3. The orange row indicator means "I changed this row", not "this differs from the default".**
-
-The left border on a cvar row is currently `isChanged` (value ≠ effective default), which after
-point 1 marks a large part of the catalogue permanently orange and says nothing about what the
-user just did. It should instead mark a row the user has edited and not yet saved - the row-level
-counterpart of the bar's unsaved-changes badge. The changed-vs-default information stays
-available through the default value printed in the value cell.
-
-**4. The unsaved-changes bar can be expanded, and can be discarded.**
-
-[ProfileSaveBar.tsx](../../src/renderer/src/modules/config/components/ProfileSaveBar.tsx) today
-only says "unsaved changes" and offers Save. It should also let me
-- **see** what is pending: expand the bar into a before/after view of the changes that a Save
-  would write - what the last saved state says and what mine says;
-- **discard** them: drop my unsaved edits and go back to the last saved state, without touching
-  the file.
-
-The bar sits at detail level and covers Overview/Settings/Controls/Raw File, so both apply to
-the profile's whole pending change set (cvars, binds, actions, layers, settings like
-`writeUnbindall`), not to the Settings tab alone.
 
 ## Acceptance Criteria
 
@@ -102,32 +87,18 @@ the profile's whole pending change set (cvars, binds, actions, layers, settings 
       is gone rather than left unused.
 - [ ] No tab anywhere in the app offers a "reset/restore to default" action; the i18n keys behind
       the removed controls are removed too, not orphaned.
-- [ ] A cvar row's orange left indicator is on exactly when that row carries an unsaved edit, and
-      goes off when the profile is saved (or the edit is discarded), not when the value happens to
-      equal the default.
-- [ ] The Settings tab's "changed only" filter and the group/catalogue counters mean the same
-      thing as the indicator (whatever that turns out to be after refine settles the wording),
-      so the header count and the orange rows can never disagree.
-- [ ] The unsaved-changes bar can be expanded to show the pending changes as before/after; it
-      covers everything a Save would write, not only cvars.
-- [ ] The expanded view is readable without hunting: an unchanged profile section does not
-      contribute noise to it.
-- [ ] The bar offers a discard that returns the profile to the last saved state and clears the
-      unsaved-changes indicator. It never writes to the file.
-- [ ] Discard is unavailable (not silently a no-op) when there is no saved state to return to -
-      e.g. a profile whose file does not exist yet.
-- [ ] Discard is confirmed before it destroys work, in the same idiom the existing destructive
-      dialogs use.
-- [ ] Care/cleanup and the Raw File tab stay honest about the bigger file: nothing starts
-      reporting the newly written default lines as a problem, and no "tidy up" offers to remove
-      them again.
-- [ ] `ui:verify` stays green (0 axe violations) and covers the expanded bar and the discard
-      confirm as screens, per the screen-registry convention (story 047).
 - [ ] Nothing replaces the removed controls: no clickable default value, no "restore" hint
       anywhere in the bind flow. A cvar row still *prints* its default as a reference; a binding
       shows no default, because it has none.
 - [ ] `suggestedKeys` is gone from the action catalogue along with its only consumer, and
       creating a profile from `STANDARD_TEMPLATE` is unaffected.
+- [ ] Care/cleanup and the Raw File tab stay honest about the bigger file: nothing starts
+      reporting the newly written default lines as a problem, and no "tidy up" offers to remove
+      them again.
+- [ ] The Settings tab's "changed only" filter and the group/catalogue counters still mean
+      something true after the change, and cannot disagree with what the rows show.
+- [ ] `ui:verify` stays green (0 axe violations) and its Settings/Controls screenshots show the
+      removed controls actually gone, not merely disabled.
 
 ## Open Questions
 
@@ -145,21 +116,11 @@ the profile's whole pending change set (cvars, binds, actions, layers, settings 
 - **Where does the always-write happen** - materialised into `profile.cvars` on save, or filled in
   at render time in `render.ts` from `ALL_CVARS`? The latter keeps "the user chose this" and "this
   is the default" distinguishable in state; the former makes the file and the state agree
-  literally. This interacts with the round-trip AC and with the indicator in point 3.
-- **What is the baseline for "unsaved"?** Since story 043 the file is the source of truth and
-  `setCvars` already persists into `state.json` while only marking the profile dirty, so
-  `profile.cvars` is *not* the last saved state. The baseline has to come from the file (or a
-  snapshot taken at save time) - which is the same data the before/after view needs, so both
-  should be answered together.
-- **Is the before/after a text diff of the rendered file, or a structured list of changes?**
-  There is no diff component in the repo yet; `ConfigConflictDialog` composes
-  [ConfigCodeView](../../src/renderer/src/modules/config/components/ConfigCodeView.tsx) twice
-  side by side. A text diff reuses the renderer and covers everything for free; a structured list
-  ("`sensitivity` 3 -> 4.5", "`F1` unbound -> `say gg`") reads better but needs a per-section
-  change model.
-- **Does discard belong in the bar only, or also per tab/row?** The story asks for it on the bar
-  (all-or-nothing, whole profile). A per-row "undo my edit" is a different feature and should be
-  named as out of scope if it is not wanted here.
+  literally. This one also decides what story 049's row indicator can be built on, so both
+  stories need the answer.
+- **What happens to the "changed only" filter and the counters?** Once every cvar is written,
+  "changed" as "differs from the default" still has a meaning but a much weaker one. Does the
+  filter keep that meaning, switch to story 049's "edited and unsaved", or offer both?
 
 ## Plan
 

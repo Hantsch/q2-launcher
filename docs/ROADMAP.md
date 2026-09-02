@@ -27,8 +27,11 @@
 
 ## Modules
 
-Each has a manifest, a route and a page in the app already; none has a
-main-process half yet. `docs/ARCHITECTURE.md#adding-a-module` has the checklist.
+Only `config` and `library` are registered modules today. Downloads, Mods and
+Assets have a nav/titlebar entry and a route, but their module registrations in
+`src/renderer/src/modules/index.ts` are commented out and the routes render
+`PlannedModuleView` (story 033) instead — none has a main-process half yet.
+`docs/ARCHITECTURE.md#adding-a-module` has the checklist.
 
 ### Install — download, update, repair
 
@@ -287,7 +290,8 @@ chat-message text variables (`$r`) are now recognised and rendered by the messag
 than staying an opaque cvar, and the `alias cali "bind ...; ..."`-style rebind-key construct is
 resolved by asking the launcher's user during import rather than auto-classified.
 
-Eight stories were originally filed, **four built this sprint, four still `draft`**:
+Eight stories were originally filed; **038–041 built in S07, 042/043 in S08, 044/045 still
+`draft`** (048 was filed later, see below):
 
 - **038** — no alias line for an action the engine can bind directly. Story 034 made continuous
   catalogue rows mirror as their own command (`bind MOUSE1 "+attack"`) but the writer kept emitting
@@ -345,11 +349,39 @@ this same milestone's story 039 established for `src/shared/config/alias-referen
 mirror/render code held again; 043's closing pass separately found three real cross-cutting bugs
 (a save-path clobber race, a stale-name file lookup, a silently-adopted corrupt file) that its
 per-deliverable tests had not surfaced. 044/045 deliberately stayed out so the sprint stayed the
-architectural one — both remain unscheduled, now unblocked.
+architectural one — both remain unscheduled, now unblocked. 042's metadata grammar is now a
+reference doc of its own: [docs/systems/profile-file-format.md](systems/profile-file-format.md).
+
+**Filed after S08:**
+
+- **048** (2026-08-24) — every setting is written to the file, and nothing resets to default any
+  more. Follows straight out of 043: once the file is the source of truth it should state the
+  *whole* intended configuration, not just the deviations, because `config.cfg`/`autoexec.cfg`/a
+  mod config may already have set a cvar the launcher shows as "default". A `set` line for every
+  catalogue cvar, and "reset/restore to default" removed everywhere (Settings rows, "Reset all",
+  Controls' "Restore defaults", `lib/restore-defaults.ts` and the now-dead `suggestedKeys`) with
+  **nothing** taking its place. Cut into `docs/sprints/S09`.
+- **049** (2026-09-02) — I can see what an unsaved change is, review it, and throw it away. Split
+  out of 048 when S09 was cut: the orange cvar-row indicator re-pointed from "differs from
+  default" to "I edited this and have not saved", the unsaved-changes bar gaining an expandable
+  before/after view of what a Save would write, and a discard that returns the profile to its last
+  saved state without touching the file. Cut into `docs/sprints/S09`.
+
+`docs/sprints/S09` **planned (2026-09-02)** — 048 → 049 → 044. Goal: the file states the whole
+intended configuration, the unsaved-changes state story 043 introduced becomes legible, and the
+alias name space gets one surface. 048 → 049 is a hard dependency (049's row indicator and its
+"unsaved" baseline both fall out of where 048 lands the always-write); 044 goes last as the
+independent, cuttable one. All three carry parked decisions for `/sprint`'s clarification round —
+which default a shared-across-engines file writes for an untouched cvar, where the always-write
+happens, the unsaved baseline, text diff vs. structured change list, and where 044's surface
+lives. **045 was deliberately held back** to S10 rather than filling a fourth slot behind three
+large stories — the same call S04 made with 022–025.
 
 Suggested order: 038 alone, then 039 → 040 → 041 → 042 → 043 as one chain, with 044 after 039 and
 045 after 041. 038–040 are shippable on their own and already answer most of the "my config looks
 machine-generated" complaint; 042/043 are the ones that need a decision round before refine.
+048/049 sit after 043 (they need the authoritative file and the explicit-Save model) and are
+independent of 044/045. After S09, only 045 is left in this milestone.
 
 Open, named in the stories rather than guessed at: the metadata comment format (042), bind grouping
 by keyboard region vs. category (040 — region means moving `KEYBOARD_ROWS`/`ARROW_CLUSTER`/
