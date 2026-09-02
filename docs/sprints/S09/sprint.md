@@ -1,7 +1,7 @@
 ---
 sprint: S09
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S09
 milestone: Config, round two
 ---
 

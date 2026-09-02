@@ -76,6 +76,14 @@ export interface UseProfileDraftResult {
    * two edits landing in one tick).
    */
   patch: (partial: Partial<ConfigProfile> | ((prev: ConfigProfile) => Partial<ConfigProfile>)) => void
+  /**
+   * Story 048 D6: a snapshot of `profile.cvars` taken the last time the profile was known to have
+   * no pending cvar edits - "edited" (`isEdited` in `cvar-rows.ts`) means "differs from this",
+   * never "differs from the catalogue default". Deliberately an interim, cvar-scoped baseline (a
+   * later story widens it to the whole profile) - see this hook's own doc comment for the seeding
+   * rules.
+   */
+  savedCvars: Record<string, string>
 }
 
 /**
@@ -121,9 +129,20 @@ export function useProfileDraft(profile: ConfigProfile | null): UseProfileDraftR
    */
   const dirtyRef = useRef<Set<LocallyPatchedField>>(new Set())
 
+  /**
+   * Story 048 D6's "edited" baseline - see `UseProfileDraftResult.savedCvars`'s doc comment for
+   * what it means. Seeded from whatever `profile` this hook is first handed, which is exactly
+   * "the current cvars at this moment" for a profile that just arrived (there is no other draft
+   * yet to disagree with it) - so a profile that loads already `dirty: true` still starts every row
+   * unedited, per the sprint decision that a pre-existing, unsaved difference must not retroactively
+   * light up as "just edited".
+   */
+  const [savedCvars, setSavedCvars] = useState<Record<string, string>>(profile?.cvars ?? {})
+
   useEffect(() => {
     const prev = draftRef.current
-    if (!profile || !prev || prev.id !== profile.id) {
+    const isNewProfile = !profile || !prev || prev.id !== profile.id
+    if (isNewProfile) {
       dirtyRef.current = new Set()
     } else {
       for (const field of [...dirtyRef.current]) {
@@ -133,6 +152,23 @@ export function useProfileDraft(profile: ConfigProfile | null): UseProfileDraftR
     const merged = mergeProfileUpdate(prev, profile, dirtyRef.current)
     draftRef.current = merged
     setDraft(merged)
+
+    // Baseline reseed. Three cases:
+    // - No profile at all (selection cleared): nothing to compare against.
+    // - A fresh profile (switch, or the very first one this hook ever saw): the baseline is
+    //   exactly its own `cvars` - `merged` above equals `profile` in this branch too, so there is
+    //   no local edit this could be discarding.
+    // - The same profile, and it now reads as not dirty (`dirty !== true`, the `false`/`undefined`
+    //   convention `main/modules/config` already uses elsewhere): a save just landed, or an
+    //   external reload replaced the cache outright - either way "what is saved" moved, so the
+    //   baseline resets to it and every previously-edited row's marker clears.
+    // Anything else (same profile, still `dirty: true`) is a same-id update to a field *other*
+    // than cvars (categories/actions/name/...) - the baseline is left exactly as it was.
+    if (!profile) {
+      setSavedCvars({})
+    } else if (isNewProfile || profile.dirty !== true) {
+      setSavedCvars(profile.cvars)
+    }
   }, [profile])
 
   const patch = (
@@ -149,5 +185,5 @@ export function useProfileDraft(profile: ConfigProfile | null): UseProfileDraftR
     setDraft(next)
   }
 
-  return { draft, patch }
+  return { draft, patch, savedCvars }
 }

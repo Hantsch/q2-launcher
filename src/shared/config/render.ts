@@ -8,8 +8,8 @@ import { bindValueFor } from '@shared/config/action-mirror'
 import { categoryLabelFor, commentLabelFor } from '@shared/config/comment-labels'
 import { normalizeBindKey } from '@shared/config/key-names'
 import { ALL_CVARS, findCvar } from '@shared/config/cvar-catalog'
-import type { CvarDef } from '@shared/config/cvar-facts'
 import { CVAR_GROUP_LABELS, CVAR_GROUP_ORDER } from '@shared/config/cvar-facts'
+import { writeValueFor } from '@shared/config/cvar-defaults'
 import type { ColumnSpec, SectionHeaderStyle } from '@shared/config/cfg-layout'
 import {
   alignRows,
@@ -1008,19 +1008,27 @@ function buildUnbindallBlock(profile: ConfigProfile): string[] {
   return profile.writeUnbindall === false ? [] : ['unbindall']
 }
 
+/** One `set` line before alignment: the cvar name exactly as it will be written, and the value that
+ * goes after it (already resolved - `buildCvarSections` decided whether that is a stored value or a
+ * catalogue default, and nothing downstream of it looks at `profile.cvars` again). */
+interface CvarLine {
+  name: string
+  value: string
+}
+
 /**
- * Builds one cvar group's section: `set <name> "<value>"` per cvar in `names`, name-column aligned
- * within this section only, under a `// --- <label> ---...` banner - omitted entirely when `names`
- * is empty (`section()`'s own job). `names` is already in the order the group should render.
+ * Builds one cvar group's section: `set <name> "<value>"` per entry in `lines`, name-column aligned
+ * within this section only, under a `// --- <label> ---...` banner - omitted entirely when `lines`
+ * is empty (`section()`'s own job). `lines` is already in the order the group should render.
+ *
+ * Takes resolved name/value pairs rather than names plus the profile's `cvars` map (story 048 D2):
+ * the value on a line is no longer `cvars[name]` - a catalogue cvar the profile never stored has a
+ * line all the same, carrying `def.default` - so the lookup cannot live here any more without this
+ * function needing the catalogue too. One place resolves the value, one place renders it.
  */
-function buildCvarSection(
-  label: string,
-  names: string[],
-  cvars: Record<string, string>,
-  style: SectionHeaderStyle,
-): string[] {
+function buildCvarSection(label: string, lines: CvarLine[], style: SectionHeaderStyle): string[] {
   const rows = alignRows(
-    names.map((name) => [name, `"${cvars[name]}"`]),
+    lines.map((line) => [line.name, `"${line.value}"`]),
     [CVAR_NAME_COLUMN],
   )
   // No tag: a cvar group is not one of the profile's categories and a `set` line is not an entry,
@@ -1029,51 +1037,83 @@ function buildCvarSection(
 }
 
 /**
- * Groups `cvars` into cvar-group sections, in `CVAR_GROUP_ORDER`, plus a trailing "other" section
- * for names no `CvarDef` recognizes - nothing is dropped (AC: "cvars ... the launcher has no
- * section for still get written").
+ * The cvar-group sections, in `CVAR_GROUP_ORDER`, plus a trailing "other" section for names no
+ * `CvarDef` recognizes - nothing is dropped (AC: "cvars ... the launcher has no section for still
+ * get written").
  *
- * Within a recognized group, cvars render in `ALL_CVARS`' own index order (so a section reads like
- * the Settings tab); within "other", alphabetically - neither ordering depends on `Object.keys`'
- * insertion order, so the result stays deterministic. Cvar names are matched against the catalog
- * case-insensitively (`findCvar`'s own rule), and the catalog index lookup follows the same rule so
- * a differently-cased stored key still sorts correctly against its catalog entry - with the stored
- * name itself as the tie-break, since two such spellings share one catalog index.
+ * ## Story 048 D2: every catalogue cvar gets a line, not just the stored ones
+ *
+ * The recognized groups are built by walking `ALL_CVARS` itself, so a rendered file states the
+ * *complete* intended configuration rather than only the cvars the user happened to deviate on.
+ * That is what makes `exec`ing the file idempotent: whatever ran before it (`config.cfg`, an
+ * `autoexec.cfg`, another profile, a mod) cannot leave a stale value standing, because every
+ * catalogue cvar is written back to its intended value on every exec. A cvar the profile has no
+ * stored value for is written at `def.default` (`writeValueFor`, which also treats an empty or
+ * whitespace-only stored value as "nothing stored" - see its own doc comment).
+ *
+ * Iterating the catalogue also *is* the old ordering: `ALL_CVARS`' index order is what the previous
+ * implementation sorted the stored names back into, so a section still reads like the Settings tab
+ * and still cannot depend on `Object.keys`' insertion order. Only the *set* of lines changed, and
+ * the value on a line the profile did not store.
+ *
+ * ## Exactly one line per catalogue cvar
+ *
+ * `findCvar` matches case-insensitively, so a profile can carry two spellings of one cvar
+ * (`sensitivity` and `Sensitivity`, both reachable through an import that keeps a file's own
+ * casing). Before this deliverable those rendered as two `set` lines side by side; now they must
+ * not, because the second line would no longer be another *stored* value - it would be the
+ * catalogue default rendering after the user's real value and winning at exec time, a silent
+ * clobber. So the stored keys are bucketed by catalogue identity first, and each bucket contributes
+ * exactly one line.
+ *
+ * Which spelling of a colliding pair wins is decided by the stored name, largest last - i.e. the
+ * one that already rendered *last* before this change and therefore already won at exec time.
+ * Deterministic (a pure function of the key set, never of insertion order) and behaviour-preserving
+ * for the one case where the two spellings hold different values. The line is written under that
+ * winning stored spelling, not under `def.name`: a stored key's casing is the user's, and
+ * canonicalizing it here is a separate question from what this deliverable changes.
+ *
+ * A stored key `findCvar` does not recognize lands in "other" untouched - verbatim value, no default
+ * substitution, sorted alphabetically among its peers.
  *
  * Returns one block (a banner plus its lines) per non-empty group, in order - never includes an
  * empty group's banner (delegated to `section()`).
  */
 function buildCvarSections(cvars: Record<string, string>, style: SectionHeaderStyle): string[][] {
-  const names = Object.keys(cvars)
-  if (names.length === 0) return []
+  /** Catalogue identity (`def.name` lowercased, the key `findCvar` itself matches on) -> the stored
+   * line that claimed it. */
+  const claimed = new Map<string, CvarLine>()
+  const unknown: CvarLine[] = []
 
-  const catalogIndexByName = new Map(ALL_CVARS.map((def, index) => [def.name.toLowerCase(), index]))
-  const known: { name: string; group: CvarDef['group']; index: number }[] = []
-  const unknown: string[] = []
-
-  for (const name of names) {
+  for (const [name, value] of Object.entries(cvars)) {
     const def = findCvar(name)
-    if (def) {
-      known.push({ name, group: def.group, index: catalogIndexByName.get(def.name.toLowerCase())! })
-    } else {
-      unknown.push(name)
+    if (!def) {
+      unknown.push({ name, value })
+      continue
     }
+    const id = def.name.toLowerCase()
+    const held = claimed.get(id)
+    if (held === undefined || held.name < name) claimed.set(id, { name, value })
   }
 
   const blocks: string[][] = []
   for (const group of CVAR_GROUP_ORDER) {
-    const groupNames = known
-      .filter((entry) => entry.group === group)
-      // Name as the tie-break, not just the catalog index: `findCvar` matches case-insensitively,
-      // so two differently-cased spellings of one cvar (`sensitivity` and `Sensitivity`, both
-      // reachable via an import that keeps a file's own casing) resolve to the *same* index. With
-      // the index alone the comparator returns 0 for that pair and the stable sort falls back to
-      // `Object.keys` insertion order - the one insertion-order dependency AC5 rules out.
-      .sort((a, b) => a.index - b.index || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
-      .map((entry) => entry.name)
-    blocks.push(buildCvarSection(CVAR_GROUP_LABELS[group], groupNames, cvars, style))
+    const lines = ALL_CVARS.filter((def) => def.group === group).map((def) => {
+      const stored = claimed.get(def.name.toLowerCase())
+      return {
+        name: stored?.name ?? def.name,
+        value: writeValueFor(def, stored?.value),
+      }
+    })
+    blocks.push(buildCvarSection(CVAR_GROUP_LABELS[group], lines, style))
   }
-  blocks.push(buildCvarSection(OTHER_CVAR_GROUP_LABEL, [...unknown].sort(), cvars, style))
+  blocks.push(
+    buildCvarSection(
+      OTHER_CVAR_GROUP_LABEL,
+      [...unknown].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
+      style,
+    ),
+  )
 
   return blocks.filter((block) => block.length > 0)
 }
@@ -1145,9 +1185,12 @@ export function sentinelLine(profileId: string): string {
  * 2b. (story 040 D4) a single bare `unbindall` line, when `profile.writeUnbindall` is not
  *    explicitly `false` - the per-profile setting defaults to on, so a profile with no stored
  *    value carries this line exactly as one with `writeUnbindall: true` does;
- * 3. one `// --- <label> ---` section per cvar group in `CVAR_GROUP_ORDER`, plus an "other"
- *    section for cvars no `CvarDef` recognizes, each section's `set` lines name-column aligned
- *    among themselves and ordered by `ALL_CVARS`' catalog index (alphabetically in "other");
+ * 3. one `// --- <label> ---` section per cvar group in `CVAR_GROUP_ORDER`, carrying a `set` line
+ *    for *every* cvar in `ALL_CVARS` (story 048 D2 - a cvar the profile stored no value for is
+ *    written at its catalogue default, so the file states the complete intended configuration and
+ *    `exec`ing it is idempotent), plus an "other" section for cvars no `CvarDef` recognizes; each
+ *    section's `set` lines are name-column aligned among themselves and ordered by `ALL_CVARS`'
+ *    catalog index (alphabetically in "other");
  * 4. the action alias sections, one per category (built-in order, then `profile.categories` order,
  *    then "other"), entries in `profile.actions` order, every line carrying a trailing
  *    `// <display name>`;

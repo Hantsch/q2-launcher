@@ -97,29 +97,48 @@ export function isChanged(def: CvarDef, engine: EngineKind | null, value: string
   return !sameValue(normalizedValue, normalizedDefault)
 }
 
-/** One renderable row: the def plus whether its current value is changed, so callers never
- * recompute `isChanged` a second time for the same row. */
+/**
+ * Story 048 D6: whether `value` differs from `baselineValue` - the row's value the last time the
+ * profile was known to have no pending cvar edits (`useProfileDraft`'s `savedCvars`). This is the
+ * "edited and unsaved" signal the filter/counters/row-indicator now read, replacing `isChanged`'s
+ * "differs from the catalogue default" for that purpose: once the render always writes every cvar
+ * and read-back strips catalogue defaults back out (story 048 D2/D3), a saved profile can validly
+ * show default-differing rows that were saved ages ago, so "differs from default" no longer means
+ * "the user just touched this."
+ *
+ * Same normalization as `isChanged` (via `normalizeCvarValue`/`sameValue`), so `"1"` and `"true"`
+ * compare equal against a baseline of either - but no "empty is never changed" carve-out: unlike a
+ * default (which a blank value simply falls back to), a baseline is a concrete prior value, and
+ * clearing a field the baseline had something in *is* an edit.
+ */
+export function isEdited(def: CvarDef, value: string, baselineValue: string): boolean {
+  return !sameValue(normalizeCvarValue(def, value), normalizeCvarValue(def, baselineValue))
+}
+
+/** One renderable row: the def plus whether its current value is edited (differs from the saved
+ * baseline, story 048 D6), so callers never recompute `isEdited` a second time for the same row. */
 export interface CvarRowEntry {
   def: CvarDef
-  changed: boolean
+  edited: boolean
 }
 
 /** One group's rows plus the counts the group header and the Advanced "N more" affordance need. */
 export interface CvarGroupResult {
   group: CvarDef['group']
-  /** Every cvar in this group, regardless of filter/changedOnly/showAdvanced. */
+  /** Every cvar in this group, regardless of filter/editedOnly/showAdvanced. */
   total: number
-  /** How many of `total` are changed, regardless of filter/changedOnly/showAdvanced. */
-  changed: number
-  /** The rows to actually render, after filter, changedOnly and the Advanced collapse. */
+  /** How many of `total` are edited (differ from the saved baseline, story 048 D6), regardless of
+   * filter/editedOnly/showAdvanced. */
+  edited: number
+  /** The rows to actually render, after filter, editedOnly and the Advanced collapse. */
   rows: CvarRowEntry[]
-  /** Rows hidden by the Advanced collapse specifically (not by the filter or changedOnly) - the
+  /** Rows hidden by the Advanced collapse specifically (not by the filter or editedOnly) - the
    * count a "N more" affordance would show. May be 0 while the group still has advanced rows, e.g.
    * when `showAdvanced` is already true, or when the active filter already reveals every advanced
    * row on its own merits - see `hasAdvanced` for whether the toggle itself should still appear. */
   advancedHidden: number
   /** Whether this group contains any `def.common === false` row at all, computed over every def in
-   * the group independently of `filter`, `changedOnly` and `showAdvanced`. Unlike `advancedHidden`
+   * the group independently of `filter`, `editedOnly` and `showAdvanced`. Unlike `advancedHidden`
    * (which can legitimately read 0 while expanded, or while a filter already reveals everything),
    * this is what the "Show/Hide advanced" toggle button's own visibility should gate on - otherwise
    * expanding a group makes its own collapse button disappear, and an active filter can make the
@@ -130,7 +149,17 @@ export interface CvarGroupResult {
 export interface BuildCvarGroupsOptions {
   /** `draft.cvars`-shaped map; a missing key is treated as unset (`''`), same as `CvarRow` today. */
   values: Record<string, string>
+  /** Kept for callers that build the same options object for both `buildCvarGroups` and their own
+   * `isChanged`/`effectiveDefaultFor` calls (`SettingsTab.tsx`) - `buildCvarGroups` itself no longer
+   * reads it since story 048 D6 made `edited` a `baseline` comparison, not an engine-default one. */
   engine: EngineKind | null
+  /**
+   * Story 048 D6: `useProfileDraft`'s `savedCvars` snapshot - the baseline `isEdited` compares
+   * `values` against. A missing key is treated as unset (`''`), same convention as `values`.
+   * Defaults to `{}` (nothing has been seen as saved) so existing callers that only care about
+   * grouping/filtering keep working without threading a baseline through.
+   */
+  baseline?: Record<string, string>
   /** Case-insensitive; matched against the cvar's name and its resolved label/description text (per
    * the sprint decision "Filter matches cvar name, label and description (case-insensitive)") -
    * falling back to `labelKey`/`descriptionKey` themselves when no resolver is supplied. Empty/
@@ -145,8 +174,9 @@ export interface BuildCvarGroupsOptions {
    */
   labelText?: (def: CvarDef) => string
   descriptionText?: (def: CvarDef) => string
-  /** Restrict rendered rows to changed ones. Does not affect `total`/`changed` counts. */
-  changedOnly?: boolean
+  /** Restrict rendered rows to edited ones (story 048 D6 - differs from `baseline`, not from the
+   * catalogue default). Does not affect `total`/`edited` counts. */
+  editedOnly?: boolean
   /** When `false`, rows where `def.common` is falsy are hidden - unless the row also matches an
    * active `filter`, in which case it is revealed: a filter hit inside a collapsed Advanced
    * section must never look like "no results". */
@@ -178,20 +208,25 @@ function matchesFilter(
  * Groups `defs` into the fixed Player/Network/Graphics/Sound order, each with the rows to render
  * and the counts their header needs.
  *
- * `total`/`changed` are computed over every cvar in the group before filter, `changedOnly` or the
+ * `total`/`edited` are computed over every cvar in the group before filter, `editedOnly` or the
  * Advanced collapse are applied - the group header always reports the group's real size, not the
  * current view's. `rows` is what is left after all three: the Advanced collapse is checked first
- * (an active filter match rescues a non-common row from it), then the filter, then `changedOnly`.
+ * (an active filter match rescues a non-common row from it), then the filter, then `editedOnly`.
  */
 export function buildCvarGroups(
   defs: CvarDef[],
   {
     values,
-    engine,
+    // Story 048 D6: no longer read here - `edited` compares against `baseline`, not the
+    // engine-scoped default, so `engine` is kept in `BuildCvarGroupsOptions` only for callers
+    // (`SettingsTab.tsx`, this file's own tests) that still pass it alongside the other per-group
+    // options, and for `isChanged`/`effectiveDefaultFor`, which callers use directly for the
+    // default-value display and still take an `engine`.
+    baseline = {},
     filter = '',
     labelText,
     descriptionText,
-    changedOnly = false,
+    editedOnly = false,
     showAdvanced = true,
   }: BuildCvarGroupsOptions,
 ): CvarGroupResult[] {
@@ -199,19 +234,20 @@ export function buildCvarGroups(
 
   return GROUP_ORDER.map((group) => {
     const groupDefs = defs.filter((def) => def.group === group)
-    // Independent of `filter`/`changedOnly`/`showAdvanced` - the group genuinely has an advanced
+    // Independent of `filter`/`editedOnly`/`showAdvanced` - the group genuinely has an advanced
     // section iff any of its defs are non-common, full stop (review finding: this must not go to 0
     // just because the section happens to be expanded or a filter happens to reveal everything).
     const hasAdvanced = groupDefs.some((def) => def.common === false)
 
-    let changedCount = 0
+    let editedCount = 0
     let advancedHidden = 0
     const rows: CvarRowEntry[] = []
 
     for (const def of groupDefs) {
       const value = values[def.name] ?? ''
-      const changed = isChanged(def, engine, value)
-      if (changed) changedCount += 1
+      const baselineValue = baseline[def.name] ?? ''
+      const edited = isEdited(def, value, baselineValue)
+      if (edited) editedCount += 1
 
       const matches = !filterActive || matchesFilter(def, filter, labelText, descriptionText)
 
@@ -224,11 +260,11 @@ export function buildCvarGroups(
       }
 
       if (filterActive && !matches) continue
-      if (changedOnly && !changed) continue
+      if (editedOnly && !edited) continue
 
-      rows.push({ def, changed })
+      rows.push({ def, edited })
     }
 
-    return { group, total: groupDefs.length, changed: changedCount, rows, advancedHidden, hasAdvanced }
+    return { group, total: groupDefs.length, edited: editedCount, rows, advancedHidden, hasAdvanced }
   })
 }

@@ -6,7 +6,6 @@ import {
   ListChecks,
   Pencil,
   Plus,
-  RotateCcw,
   SlidersHorizontal,
   Trash2,
   TriangleAlert,
@@ -61,7 +60,6 @@ import {
 } from './lib/controls-row-entries'
 import { groupControlsRowEntries } from './lib/controls-row-groups'
 import { moveEntryWithinCategory } from './lib/entry-order'
-import { restoreDefaultActions } from './lib/restore-defaults'
 
 const SAVE_DEBOUNCE_MS = 500
 
@@ -147,9 +145,6 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
   const [showCreateAction, setShowCreateAction] = useState(false)
   const [renamingAction, setRenamingAction] = useState<ConfigAction | null>(null)
   const [editingActionId, setEditingActionId] = useState<string | null>(null)
-  /** Story 020 D10: "Restore defaults" asks before it discards every bind in the profile - opening
-   * the confirm never touches `actions` by itself; only a confirmed submit does. */
-  const [showRestoreDefaults, setShowRestoreDefaults] = useState(false)
   /** Story 020 D8: local, not persisted - the filter is a view concern, not a draft edit. Reset
    * whenever the selected category changes so a filter typed in one category never silently hides
    * rows in the next one. */
@@ -435,18 +430,6 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
         : action,
     )
     void persistCategoriesAndActions(categories, nextActions)
-  }
-
-  /**
-   * "Restore defaults" (D10, AC 11): acts on the whole profile, not the selected category (sprint
-   * decision) - `restoreDefaultActions` reads/writes the full `actions` array regardless of which
-   * category tab happens to be open. A discrete confirmed action, not a debounced one, same
-   * reasoning `persistCategoriesAndActions` already documents for category CRUD: one click should
-   * not risk being silently reverted by an unrelated debounce firing on stale data afterwards.
-   */
-  const handleRestoreDefaults = async (): Promise<void> => {
-    const ok = await persistCategoriesAndActions(categories, restoreDefaultActions(actions))
-    if (ok) setShowRestoreDefaults(false)
   }
 
   const selectedBuiltIn =
@@ -963,7 +946,7 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
     // - an ultrawide window otherwise stretches the category rail and toolbar full-width while the
     // grid caps underneath them, which reads as broken. `ControlsGrid`'s own `.ctrl-stage` still
     // caps the table itself (harmless redundancy, both centre on the same 1120px), but this outer
-    // wrapper is what actually caps the category rail and the filter/restore-defaults toolbar.
+    // wrapper is what actually caps the category rail and the filter toolbar.
     <div className="ctrl-stage space-y-6">
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
@@ -1123,14 +1106,6 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
             <Button
               variant="neutral"
               size="sm"
-              icon={<RotateCcw className="size-3.5" />}
-              onClick={() => setShowRestoreDefaults(true)}
-            >
-              {t('config.controls.restoreDefaults.button')}
-            </Button>
-            <Button
-              variant="neutral"
-              size="sm"
               icon={<Plus className="size-3.5" />}
               onClick={() => setShowCreateAction(true)}
             >
@@ -1171,36 +1146,6 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
           />
         )}
       </div>
-
-      {showRestoreDefaults && (
-        <Modal
-          open
-          size="sm"
-          title={t('config.controls.restoreDefaults.title')}
-          onClose={() => setShowRestoreDefaults(false)}
-          closeLabel={t('common.close')}
-          footer={
-            <>
-              <Button
-                variant="ghost"
-                disabled={saving}
-                onClick={() => setShowRestoreDefaults(false)}
-              >
-                {t('common.cancel')}
-              </Button>
-              <Button
-                variant="danger"
-                disabled={saving}
-                onClick={() => void handleRestoreDefaults()}
-              >
-                {t('config.controls.restoreDefaults.confirm')}
-              </Button>
-            </>
-          }
-        >
-          <p className="text-sm text-ink-dim">{t('config.controls.restoreDefaults.body')}</p>
-        </Modal>
-      )}
 
       {showCreateCategory && (
         <CreateCategoryDialog

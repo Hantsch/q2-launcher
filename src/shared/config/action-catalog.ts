@@ -12,8 +12,8 @@
  * All prose (`label`, `description`) has been replaced by `labelKey`/
  * `descriptionKey` i18n fields; the English text lives in
  * `src/renderer/src/i18n/locales/en.json` under `config.actionCatalog.*`.
- * `command`, `item`, `ammo`, `kind`, `category`, `continuous` and
- * `suggestedKeys` stay literal — they are game data, not UI prose.
+ * `command`, `item`, `ammo`, `kind`, `category` and `continuous` stay
+ * literal — they are game data, not UI prose.
  *
  * Story 040 D1 adds a plain ASCII `label` alongside every `labelKey`: the
  * config-file writer (`render.ts`, D3) runs in main as well as the renderer
@@ -39,7 +39,6 @@ export interface Action {
   /** `+commands` are press/release pairs: the engine fires `+x` on key down and `-x` on key
    * up, so they must never be combined with other commands on the same key. */
   continuous?: boolean
-  suggestedKeys?: string[]
 }
 
 export const MOVEMENT_ACTIONS: Action[] = [
@@ -50,7 +49,6 @@ export const MOVEMENT_ACTIONS: Action[] = [
     command: '+forward',
     category: 'movement',
     continuous: true,
-    suggestedKeys: ['w'],
   },
   {
     id: 'back',
@@ -59,7 +57,6 @@ export const MOVEMENT_ACTIONS: Action[] = [
     command: '+back',
     category: 'movement',
     continuous: true,
-    suggestedKeys: ['s'],
   },
   {
     id: 'moveleft',
@@ -68,7 +65,6 @@ export const MOVEMENT_ACTIONS: Action[] = [
     command: '+moveleft',
     category: 'movement',
     continuous: true,
-    suggestedKeys: ['a'],
   },
   {
     id: 'moveright',
@@ -77,7 +73,6 @@ export const MOVEMENT_ACTIONS: Action[] = [
     command: '+moveright',
     category: 'movement',
     continuous: true,
-    suggestedKeys: ['d'],
   },
   {
     id: 'moveup',
@@ -86,7 +81,6 @@ export const MOVEMENT_ACTIONS: Action[] = [
     command: '+moveup',
     category: 'movement',
     continuous: true,
-    suggestedKeys: ['SPACE', 'MOUSE2'],
   },
   {
     id: 'movedown',
@@ -95,7 +89,6 @@ export const MOVEMENT_ACTIONS: Action[] = [
     command: '+movedown',
     category: 'movement',
     continuous: true,
-    suggestedKeys: ['CTRL'],
   },
   {
     id: 'attack',
@@ -104,7 +97,6 @@ export const MOVEMENT_ACTIONS: Action[] = [
     command: '+attack',
     category: 'movement',
     continuous: true,
-    suggestedKeys: ['MOUSE1'],
   },
   {
     id: 'speed',

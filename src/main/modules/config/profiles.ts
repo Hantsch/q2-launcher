@@ -23,6 +23,7 @@ import type { AltLayer } from '@shared/config/alt-layers'
 import type { StateStore } from '../../services/state'
 import { applyActionBindMirror } from '@shared/config/action-mirror'
 import { adoptRawBinds } from '@shared/config/bind-adoption'
+import { stripCatalogDefaults } from '@shared/config/cvar-defaults'
 import { applyActionLayerMirror } from '@shared/config/modifier-layers'
 import {
   assign as assignProfile,
@@ -439,6 +440,23 @@ export class ProfilesStore {
    *
    * `updatedAt` IS bumped: unlike `setFileState`/`setDirty`/`markFileSeen` above (pure cache
    * bookkeeping), this genuinely replaces the profile's content with what is now on disk.
+   *
+   * ## Story 048 D3: `cvars` is stripped back to the deviations on the way in
+   *
+   * Since 048 D2 the writer emits a `set` line for EVERY catalogue cvar (`render.ts`'s
+   * `buildCvarSections`, `writeValueFor`), so a launcher-written file carries ~30 of them where the
+   * profile stored one. Storing that map verbatim would turn "this was a default" into "the user
+   * chose this" for every cvar the user never touched - which is what story 049's edited-and-unsaved
+   * indicator and story 042 AC3's round-trip both forbid. `stripCatalogDefaults` (048 D1, the same
+   * module `writeValueFor` comes from, so the two rules cannot drift) removes exactly the catalogue
+   * cvars sitting at `def.default` again, leaving genuine deviations and every foreign/unknown cvar
+   * untouched.
+   *
+   * This is deliberately the *launcher-authored* read-back path only: it is reached from
+   * `refreshFromFiles` for a profile's own canonical `.cfg` (the file whose ownership sentinel
+   * carries this very `profileId`), never for a foreign config. Importing an external file goes
+   * through `createFromImport` above, which keeps what the file said verbatim - a foreign file's
+   * values were never produced by the always-write, so there is nothing there to strip back off.
    */
   adoptFromFile(
     profileId: string,
@@ -461,7 +479,8 @@ export class ProfilesStore {
     const next: ConfigProfile = {
       ...current,
       name: fields.name,
-      cvars: { ...fields.cvars },
+      // Returns a fresh map, so this is the copy `{ ...fields.cvars }` used to make.
+      cvars: stripCatalogDefaults(fields.cvars),
       binds: { ...fields.binds },
       actions: fields.actions,
       categories: fields.categories,

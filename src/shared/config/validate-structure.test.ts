@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { ALL_CVARS } from './cvar-catalog'
+import { writeValueFor } from './cvar-defaults'
+import { ROUND_TRIP_FIXTURES } from './fixtures/profiles'
+import { renderProfileFile } from './render'
 import type { Finding } from './validation'
 import {
   STRUCTURE_MESSAGE_PREFIX,
@@ -392,5 +396,54 @@ describe('validateStructure - an engine with no source-cited limits', () => {
     // Neither r1q2's buffer nor its line limit may be attributed to yquake2.
     expect(rules(findings)).toEqual(['aliasTooLong'])
     expect(findings[0].engine).toBe('yquake2')
+  })
+})
+
+describe('story 048 D4 - the bigger default-filled file stays honest', () => {
+  /** Every catalogue cvar's `set` line exactly as D2's writer emits one when nothing overrides the
+   * default (`writeValueFor(def, undefined)` is `def.default`) - built as plain lines rather than
+   * through `renderProfileFile`'s alignment/section machinery, since `validateStructure` only ever
+   * sees rendered text and does not care how it was aligned. */
+  function defaultCvarLines(): string[] {
+    return ALL_CVARS.map((def) => `set ${def.name} "${writeValueFor(def, undefined)}"`)
+  }
+
+  it('produces no findings at all from the ~30 always-written default lines on their own', () => {
+    const findings = validateStructure([file(defaultCvarLines())], 'r1q2')
+    expect(rules(findings)).toEqual([])
+  })
+
+  it('reports the real, larger byte count once default lines are appended, with the size rule\'s wording unchanged', () => {
+    const withoutDefaults = fileOfAtLeast(9 * 1024) // already over vanilla's 8190-byte buffer
+    const bigger: StructureFile = {
+      name: withoutDefaults.name,
+      content: withoutDefaults.content + defaultCvarLines().join('\n') + '\n',
+    }
+    expect(bigger.content.length).toBeGreaterThan(withoutDefaults.content.length)
+
+    const before = validateStructure([withoutDefaults], 'vanilla')
+    const after = validateStructure([bigger], 'vanilla')
+
+    // Same rule, same level, same message key - only the numbers grew. Nothing here exempts a
+    // "default" line from the count; the file really is bigger and is reported as such.
+    expect(rules(before)).toEqual(['sizeOverDiscarded'])
+    expect(rules(after)).toEqual(['sizeOverDiscarded'])
+    expect(after[0].level).toBe(before[0].level)
+    expect(after[0].messageKey).toBe(before[0].messageKey)
+
+    expect(before[0].params?.bytes).toBe(withoutDefaults.content.length)
+    expect(after[0].params?.bytes).toBe(bigger.content.length)
+    expect(after[0].params?.bytes).toBeGreaterThan(before[0].params?.bytes as number)
+  })
+
+  it('spot-checks a real rendered fixture: every catalogue default is present and validateStructure stays clean', () => {
+    for (const profile of ROUND_TRIP_FIXTURES) {
+      const content = renderProfileFile(profile)
+      // D2 really did write every catalogue cvar - this would be a false positive test otherwise.
+      expect(content).toMatch(/^set sensitivity\s+"4"$/m)
+
+      const findings = validateStructure([{ name: 'q2l-profile-fixture.cfg', content }], 'r1q2')
+      expect(rules(findings)).toEqual([])
+    }
   })
 })

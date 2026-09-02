@@ -43,6 +43,7 @@ import type { Stats } from 'node:fs'
 import { join } from 'node:path'
 import { resolveProfileFileNames, sanitizeProfileFileBase } from '@shared/config/profile-files'
 import { HAND_EDIT_SENTENCE, renderProfileFile } from '@shared/config/render'
+import { stripCatalogDefaults } from '@shared/config/cvar-defaults'
 import type { ConfigProfile } from '@shared/modules/config'
 import type { Logger } from '../../lib/logger'
 import { readCanonicalOwnership, writeCanonicalProfileFile } from './canonical'
@@ -222,6 +223,15 @@ export interface RebuiltProfileInput {
  * - `unrecognized` - the preserved-verbatim lines an *import* records. They are still physically in
  *   the file (nothing deleted them), and the file is now the source of truth, so an empty list here
  *   costs a Care tidy-up suggestion, not data.
+ *
+ * Story 048 D3: `cvars` goes through `stripCatalogDefaults` for the same reason
+ * `profiles.ts#adoptFromFile` does - see that method's own doc comment. A rebuild reads a file the
+ * launcher itself wrote (nothing without a recognised `OWNERSHIP_MARKER` + id is ever a candidate,
+ * see `rebuildMissingProfileRecords`), and since D2 such a file states every catalogue cvar
+ * explicitly; adopting all ~30 verbatim would record "the user chose this" for every default the
+ * writer merely restated. A cvar the catalogue does not know is kept exactly as the file had it, so
+ * nothing the file carries beyond the catalogue is lost. The foreign-import path
+ * (`ProfilesStore.createFromImport`) is untouched by this.
  */
 export function buildRebuiltProfile(input: RebuiltProfileInput): ConfigProfile {
   const { content, parsed } = input
@@ -234,7 +244,8 @@ export function buildRebuiltProfile(input: RebuiltProfileInput): ConfigProfile {
     id: input.id,
     name,
     ...timestampsFor(input.stats, input.now),
-    cvars: { ...parsed.cvars },
+    // Returns a fresh map, so this is the copy `{ ...parsed.cvars }` used to make.
+    cvars: stripCatalogDefaults(parsed.cvars),
     binds: { ...parsed.binds },
     assignments: [],
     unrecognized: [],

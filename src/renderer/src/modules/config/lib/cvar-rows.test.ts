@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CvarDef } from '@shared/config/cvar-facts'
 import { ALL_CVARS, GRAPHICS_CVARS, PLAYER_CVARS } from '@shared/config/cvar-catalog'
-import { buildCvarGroups, effectiveDefaultFor, isChanged, normalizeCvarValue } from './cvar-rows'
+import { buildCvarGroups, effectiveDefaultFor, isChanged, isEdited, normalizeCvarValue } from './cvar-rows'
 
 const toggleDef: CvarDef = {
   name: 'freelook',
@@ -94,19 +94,69 @@ describe('isChanged', () => {
   })
 })
 
+describe('isEdited', () => {
+  // Story 048 D6: "edited" compares against a saved-cvars baseline, never against the catalogue
+  // default - a value can differ from the default and still be unedited (it was saved that way),
+  // and a value equal to the default can still be edited (the user just set it back to that number).
+  it('is false when the value equals the baseline, even though it differs from the catalogue default', () => {
+    // toggleDef's catalog default is '1' - baseline '0' with a current value that matches the
+    // baseline, not the default, must read as unedited.
+    expect(isEdited(toggleDef, '0', '0')).toBe(false)
+  })
+
+  it('is true when the value differs from the baseline, even though it equals the catalogue default', () => {
+    // Value equals the def's own default ('1'), but the baseline says '0' was last saved.
+    expect(isEdited(toggleDef, '1', '0')).toBe(true)
+  })
+
+  it('treats "1" and "true" as equally unedited against a "1" baseline (same normalization as isChanged)', () => {
+    expect(isEdited(toggleDef, 'true', '1')).toBe(false)
+  })
+
+  it('numeric-normalizes non-toggle values against the baseline, same as sameValue elsewhere', () => {
+    const sliderDef = PLAYER_CVARS.find((d) => d.name === 'fov')!
+    expect(isEdited(sliderDef, '110', '110.0')).toBe(false)
+    expect(isEdited(sliderDef, '120', '110')).toBe(true)
+  })
+
+  it('is true when the value is cleared back to empty but the baseline had something saved', () => {
+    // Unlike isChanged (an empty value is never "changed from default"), a baseline is a concrete
+    // prior value - clearing a field the baseline had content in is itself an edit.
+    expect(isEdited(toggleDef, '', '1')).toBe(true)
+  })
+
+  it('is false when both the value and the baseline are unset', () => {
+    expect(isEdited(toggleDef, '', '')).toBe(false)
+  })
+})
+
 describe('buildCvarGroups', () => {
   it('orders groups exactly Player, Network, Graphics, Sound', () => {
     const groups = buildCvarGroups(ALL_CVARS, { values: {}, engine: null })
     expect(groups.map((g) => g.group)).toEqual(['player', 'network', 'graphics', 'sound'])
   })
 
-  it('computes correct per-group total and changed counts, independent of filter/changedOnly', () => {
+  it('computes correct per-group total and edited counts, independent of filter/editedOnly', () => {
     const playerGroupDefs = ALL_CVARS.filter((d) => d.group === 'player')
-    const values: Record<string, string> = { fov: '120' } // fov default is '100'
-    const groups = buildCvarGroups(ALL_CVARS, { values, engine: null })
+    // fov's saved baseline is its own default ('100') here on purpose - story 048 D6: what makes a
+    // row "edited" is the current value moving away from the baseline, not from the catalogue
+    // default, so this asserts against a baseline explicitly rather than relying on the default.
+    const baseline: Record<string, string> = { fov: '100' }
+    const values: Record<string, string> = { fov: '120' }
+    const groups = buildCvarGroups(ALL_CVARS, { values, baseline, engine: null })
     const player = groups.find((g) => g.group === 'player')!
     expect(player.total).toBe(playerGroupDefs.length)
-    expect(player.changed).toBe(1)
+    expect(player.edited).toBe(1)
+  })
+
+  it('is not edited when the value differs from the catalogue default but matches the saved baseline', () => {
+    // The exact scenario story 048 changed: a profile saved long ago with a non-default fov must
+    // not show as edited just because it still differs from the catalogue default.
+    const baseline: Record<string, string> = { fov: '120' }
+    const values: Record<string, string> = { fov: '120' }
+    const groups = buildCvarGroups(ALL_CVARS, { values, baseline, engine: null })
+    const player = groups.find((g) => g.group === 'player')!
+    expect(player.edited).toBe(0)
   })
 
   it('filter matches over the cvar name, case-insensitively, with no resolver supplied', () => {
@@ -161,9 +211,10 @@ describe('buildCvarGroups', () => {
     expect(byKeyFragment.flatMap((g) => g.rows).length).toBe(0)
   })
 
-  it('changedOnly restricts rows to changed ones without touching total/changed counts', () => {
+  it('editedOnly restricts rows to edited ones without touching total/edited counts', () => {
+    const baseline: Record<string, string> = { fov: '100' }
     const values: Record<string, string> = { fov: '120' }
-    const groups = buildCvarGroups(ALL_CVARS, { values, engine: null, changedOnly: true })
+    const groups = buildCvarGroups(ALL_CVARS, { values, baseline, engine: null, editedOnly: true })
     const player = groups.find((g) => g.group === 'player')!
     expect(player.rows.map((r) => r.def.name)).toEqual(['fov'])
     expect(player.total).toBe(ALL_CVARS.filter((d) => d.group === 'player').length)

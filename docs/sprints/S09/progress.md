@@ -1,0 +1,25 @@
+- 2026-09-02 20:46 · 048 · D1 shared default rule · started
+- 2026-09-02 20:49 · 048 · D1 shared default rule · done
+- 2026-09-02 20:49 · 048 · D2 every catalogue cvar written · started
+- 2026-09-02 21:04 · 048 · D2 every catalogue cvar written · done
+- 2026-09-02 21:04 · 048 · D3 read-back no inflation · started
+- 2026-09-02 21:19 · 048 · D3 read-back no inflation · done
+- 2026-09-02 21:19 · 048 · D4 Care/Raw File honesty · started
+- 2026-09-02 21:33 · 048 · D4 Care/Raw File honesty · done
+- 2026-09-02 21:33 · 048 · D5 Settings tab loses reset affordances · started
+- 2026-09-02 21:44 · 048 · D5 Settings tab reset affordances removed · done
+- 2026-09-02 21:44 · 048 · D6 changed becomes edited-and-unsaved · started
+- 2026-09-02 21:58 · 048 · D6 changed becomes edited-and-unsaved · done
+- 2026-09-02 21:58 · 048 · D7 Controls tab loses restore defaults · started
+- 2026-09-02 22:07 · 048 · D7 Controls restore defaults removed · done
+- 2026-09-02 22:07 · 048 · D8 suggestedKeys dead data removal · started
+- 2026-09-02 22:16 · 048 · D8 suggestedKeys removed · done
+- 2026-09-02 22:16 · 048 · D9 verification pass · started
+- 2026-09-02 22:28 · 048 · D9 verification pass · done
+- 2026-09-02 22:28 · 048 · story review (hard) · started
+- 2026-09-02 22:44 · 048 · story review (hard) round 1 · done (FAIL, fix dispatched)
+- 2026-09-02 22:44 · 048 · fix cvar-defaults.ts regressions · started
+- 2026-09-02 22:52 · 048 · fix cvar-defaults.ts regressions · done
+- 2026-09-02 22:52 · 048 · story review (hard) round 2 · started
+- 2026-09-02 23:02 · 048 · story review (hard) round 2 · done (PASS)
+- 2026-09-02 23:05 · 048 · story done, moved to done/

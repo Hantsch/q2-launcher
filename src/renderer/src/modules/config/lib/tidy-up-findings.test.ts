@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { aliasNameFor } from '@shared/config/alias-render'
 import type { AltLayer } from '@shared/config/alt-layers'
+import { ALL_CVARS } from '@shared/config/cvar-catalog'
+import { writeValueFor } from '@shared/config/cvar-defaults'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import { analyzeTidyUp, type TidyUpFinding } from './tidy-up-findings'
 
@@ -368,5 +370,30 @@ describe('analyzeTidyUp - the auto set', () => {
     // Ids are unique and deterministic - the UI keys rows on them.
     expect(new Set(result.map((finding) => finding.id)).size).toBe(result.length)
     expect(analyzeTidyUp(profile()).length).toBe(0)
+  })
+})
+
+describe('story 048 D4 - a default-filled profile offers no new tidy-up clutter', () => {
+  it('analyzeTidyUp never reads profile.cvars, so the ~30 always-written default lines are never findings', () => {
+    // What D2's writer puts in `cvars` for every catalogue entry when nothing overrides the default
+    // (`writeValueFor(def, undefined)` is `def.default`) - the exact shape a default-filled file
+    // round-trips as, before D3's `stripCatalogDefaults` even runs.
+    const allDefaultsWritten = Object.fromEntries(
+      ALL_CVARS.map((def) => [def.name, writeValueFor(def, undefined)]),
+    )
+
+    const bare = profile({
+      actions: [action()],
+      binds: { w: aliasNameFor(action()) },
+      layers: [layer()],
+      unrecognized: [{ file: 'config.cfg', line: 3, text: 'cl_run 1' }],
+    })
+    const withDefaults = profile({ ...bare, cvars: allDefaultsWritten })
+
+    // Same findings whether `cvars` is empty or stuffed with every catalogue default: the tidy-up
+    // analyzer has no cvar-clutter rule at all (its four sources are shadowed binds, empty layers,
+    // alias wiring and preserved lines), so a bigger, default-filled cvar block cannot become a
+    // fresh "clean this up" suggestion.
+    expect(analyzeTidyUp(withDefaults)).toEqual(analyzeTidyUp(bare))
   })
 })

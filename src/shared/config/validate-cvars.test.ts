@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { findCvar } from './cvar-catalog'
+import { ALL_CVARS, findCvar } from './cvar-catalog'
+import { stripCatalogDefaults, writeValueFor } from './cvar-defaults'
 import { validateCvars } from './validate-cvars'
 
 function must(name: string) {
@@ -107,5 +108,43 @@ describe('validateCvars — choice values only another engine accepts', () => {
   it('does not flag cl_async 2 on q2pro, which accepts it', () => {
     const findings = validateCvars({ cl_async: '2' }, 'q2pro')
     expect(findings.some((f) => f.subject.id === 'cl_async')).toBe(false)
+  })
+})
+
+describe('story 048 D4 — a default-filled file does not storm validateCvars with cvar-absent findings', () => {
+  /**
+   * What D2's writer now puts in `cvars` for every catalogue entry when nothing overrides the
+   * default - `writeValueFor(def, undefined)` is exactly `def.default`, the same fallback
+   * `render.ts`'s cvar section resolves for a line the profile never stored a value for.
+   */
+  const allDefaultsWritten = Object.fromEntries(
+    ALL_CVARS.map((def) => [def.name, writeValueFor(def, undefined)]),
+  )
+
+  it('sanity check: naively keeping every default (the pre-048 shape) really would storm r1q2/vanilla with ch_scale', () => {
+    // ch_scale is the same known example `validateCvars — absent cvars` above already uses: present
+    // in the catalog, absent on r1q2 and vanilla. A naive read-back that stored every catalogue
+    // cvar verbatim (never stripping restated defaults) would report it as a fresh error on every
+    // profile that merely round-tripped through the launcher's own writer - the storm D3 exists to
+    // prevent.
+    expect(findCvar('ch_scale')).toBeDefined()
+    const naive = validateCvars(allDefaultsWritten, 'r1q2')
+    expect(naive.some((f) => f.messageKey === 'config.validation.cvar.absent' && f.subject.id === 'ch_scale')).toBe(
+      true,
+    )
+  })
+
+  it('produces no findings at all once D3\'s stripCatalogDefaults is applied, on every engine with cvar facts', () => {
+    // Every catalogue cvar in `allDefaultsWritten` sits at its own default, so the strip - the exact
+    // step `ProfilesStore.adoptFromFile`/`buildRebuiltProfile` run on read-back - removes all of it.
+    const stripped = stripCatalogDefaults(allDefaultsWritten)
+    expect(stripped).toEqual({})
+
+    // `validateCvars` only ever looks at cvars actually present in the map (its own doc comment), so
+    // an empty map produces nothing to flag - no absent/range/choice noise for a cvar the current
+    // engine happens not to support, on any engine this app has facts for.
+    expect(validateCvars(stripped, 'r1q2')).toEqual([])
+    expect(validateCvars(stripped, 'q2pro')).toEqual([])
+    expect(validateCvars(stripped, 'vanilla')).toEqual([])
   })
 })

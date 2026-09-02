@@ -3,6 +3,7 @@ import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import type { AltLayer } from '@shared/config/alt-layers'
 import { generateLayerAliases } from '@shared/config/alt-layers'
 import { aliasNameFor, renderActionAliasLines } from '@shared/config/alias-render'
+import { ALL_CVARS } from '@shared/config/cvar-catalog'
 import { effectiveSize } from '@shared/config/engine-limits'
 import type { SwitchBindChainInput } from './switch-bind'
 import { renderSwitchBindChain } from './switch-bind'
@@ -90,6 +91,89 @@ function entryTag(
 const TEST_PROFILE_UNBINDALL = ['', 'unbindall']
 
 /**
+ * Story 048 D2: a rendered file now carries a `set` line for *every* cvar in `ALL_CVARS`, not only
+ * the ones the profile stored a value for - so this block appears in every rendered file, exactly
+ * like `TEST_PROFILE_HEADER` and `TEST_PROFILE_UNBINDALL` do, and every exact-match test in this
+ * file that predates D2 has to grow it.
+ *
+ * Spelled out as a literal rather than derived from `ALL_CVARS`: this is the byte-exact anchor for
+ * the whole cvar block - the group order, the group banners, the catalog ordering inside a group,
+ * the per-section name-column alignment (which now has to hold with *every* cvar present, not just
+ * a sparse subset) and each cvar's catalogue default. Deriving it from the catalogue would make it
+ * agree with the renderer by construction. Completeness is pinned separately, against `ALL_CVARS`
+ * itself, by the "writes a line for every catalogue cvar" test further down - so a cvar added to the
+ * catalogue fails there even though this literal knows nothing about it.
+ */
+const TEST_PROFILE_CVAR_DEFAULTS = [
+  '',
+  '// --- Player ------------------------------------------------------------------',
+  'set name        "player"',
+  'set skin        "male/grunt"',
+  'set fov         "100"',
+  'set sensitivity "4"',
+  'set m_pitch     "0.022"',
+  'set freelook    "1"',
+  'set cl_run      "1"',
+  'set hand        "2"',
+  'set crosshair   "1"',
+  'set ch_scale    "1"',
+  'set msg         "0"',
+  '',
+  '// --- Network -----------------------------------------------------------------',
+  'set rate      "25000"',
+  'set cl_maxfps "125"',
+  'set cl_async  "1"',
+  '',
+  '// --- Graphics ----------------------------------------------------------------',
+  'set vid_fullscreen  "1"',
+  'set vid_gamma       "0.8"',
+  'set gl_modulate     "2"',
+  'set gl_picmip       "0"',
+  'set gl_texturemode  "GL_LINEAR_MIPMAP_LINEAR"',
+  'set cl_gun          "0"',
+  'set cl_blend        "0"',
+  'set gl_polyblend    "0"',
+  'set gl_shadows      "0"',
+  'set gl_dynamic      "0"',
+  'set gl_swapinterval "0"',
+  'set cl_noskins      "0"',
+  'set r_maxfps        "125"',
+  'set con_alpha       "1"',
+  '',
+  '// --- Sound -------------------------------------------------------------------',
+  'set s_volume "0.7"',
+  'set s_khz    "44"',
+]
+
+/** The four cvar group banners `TEST_PROFILE_CVAR_DEFAULTS` carries, as `banners()` reports them -
+ * every rendered file has all four now, since no group can be empty once every catalogue cvar is
+ * written. */
+const CVAR_GROUP_BANNERS = ['Player', 'Network', 'Graphics', 'Sound']
+
+/**
+ * `TEST_PROFILE_CVAR_DEFAULTS` with the given cvars carrying a stored value instead of their
+ * catalogue default.
+ *
+ * A key is matched against the block case-insensitively (the renderer resolves stored keys through
+ * `findCvar`, which does the same) and the line is rewritten under the *stored* spelling, keeping
+ * the section's existing name-column padding - which stays correct because only the casing can
+ * differ, never the length. Throws rather than silently doing nothing for a name the block has no
+ * line for, so a typo in a test cannot quietly assert against the defaults.
+ */
+function cvarBlock(overrides: Record<string, string> = {}): string[] {
+  const lines = [...TEST_PROFILE_CVAR_DEFAULTS]
+  for (const [name, value] of Object.entries(overrides)) {
+    const index = lines.findIndex((line) =>
+      line.toLowerCase().startsWith(`set ${name.toLowerCase()} `),
+    )
+    if (index === -1) throw new Error(`no catalogue cvar line for "${name}"`)
+    const padding = /^ +/.exec(lines[index]!.slice(`set ${name}`.length))![0]
+    lines[index] = `set ${name}${padding}"${value}"`
+  }
+  return lines
+}
+
+/**
  * One rendered bind/alias line stripped back to the bare command it was before story 040 D3
  * aligned it and hung a `// <label>` off it: the trailing comment removed, and the multi-space
  * column padding collapsed back to the single space the old flat dump used.
@@ -108,6 +192,16 @@ function unformat(line: string): string {
   return line.replace(/\s{2,}\/\/ .*$/, '').replace(/\s{2,}/g, ' ')
 }
 
+/** Every `set <name> <value>` line of a rendered file, in file order. */
+function setLines(rendered: string): string[] {
+  return rendered.split('\n').filter((line) => line.startsWith('set '))
+}
+
+/** The cvar name a `set` line writes - the token between `set ` and the aligned value column. */
+function setName(line: string): string {
+  return line.slice('set '.length).trimEnd().split(' ')[0]!
+}
+
 describe('renderProfileFile', () => {
   it('renders the sentinel line, the header block, then cvars grouped by catalog order, then the unowned binds', () => {
     const p = profile({
@@ -121,14 +215,12 @@ describe('renderProfileFile', () => {
         '// q2-launcher profile abc123 - hand-edited changes are read back',
         ...TEST_PROFILE_HEADER,
         ...TEST_PROFILE_UNBINDALL,
-        '',
-        '// --- Player ------------------------------------------------------------------',
         // Catalog order (ALL_CVARS index), not alphabetical: sensitivity, then cl_run, then
         // crosshair - alphabetical would be cl_run/crosshair/sensitivity, a different order,
-        // so this also pins that the sort key really is the catalog, not the key string.
-        'set sensitivity "3"',
-        'set cl_run      "0"',
-        'set crosshair   "0"',
+        // so this also pins that the sort key really is the catalog, not the key string. Since
+        // story 048 D2 the three stored values sit among every *other* catalogue cvar too, each
+        // at its default - the file states the whole configuration, not just the deviations.
+        ...cvarBlock({ sensitivity: '3', cl_run: '0', crosshair: '0' }),
         '',
         // Story 040 D3: this profile has no actions at all, so no bind here has an owning entry
         // and every one of them lands in the "other binds" section - written, not dropped, and
@@ -143,7 +235,13 @@ describe('renderProfileFile', () => {
     )
   })
 
-  it('emits the sentinel line and the header block for an empty profile, with no cvar section at all', () => {
+  /**
+   * Story 048 D2's headline acceptance: an empty `cvars` map still renders the complete catalogue,
+   * every cvar at its own `def.default`, in the existing grouped and name-aligned layout. This is
+   * what makes `exec`ing the file idempotent - whatever `config.cfg`, `autoexec.cfg`, another
+   * profile or a mod set before it is written back to the intended value.
+   */
+  it('writes every catalogue cvar at its default for a profile with an empty cvars map', () => {
     const p = profile({ id: 'empty-id', cvars: {}, binds: {} })
 
     expect(renderProfileFile(p)).toBe(
@@ -151,6 +249,7 @@ describe('renderProfileFile', () => {
         '// q2-launcher profile empty-id - hand-edited changes are read back',
         ...TEST_PROFILE_HEADER,
         ...TEST_PROFILE_UNBINDALL,
+        ...cvarBlock(),
         '',
       ].join('\n'),
     )
@@ -178,6 +277,7 @@ describe('renderProfileFile', () => {
         '// q2-launcher profile unbindall-on - hand-edited changes are read back',
         ...TEST_PROFILE_HEADER,
         ...TEST_PROFILE_UNBINDALL,
+        ...cvarBlock(),
         '',
       ].join('\n'),
     )
@@ -187,9 +287,12 @@ describe('renderProfileFile', () => {
     const p = profile({ id: 'unbindall-off', cvars: {}, binds: {}, writeUnbindall: false })
 
     expect(renderProfileFile(p)).toBe(
-      ['// q2-launcher profile unbindall-off - hand-edited changes are read back', ...TEST_PROFILE_HEADER, ''].join(
-        '\n',
-      ),
+      [
+        '// q2-launcher profile unbindall-off - hand-edited changes are read back',
+        ...TEST_PROFILE_HEADER,
+        ...cvarBlock(),
+        '',
+      ].join('\n'),
     )
   })
 
@@ -699,6 +802,7 @@ describe('renderProfileFile with actions', () => {
           '// q2-launcher profile dead-alias - hand-edited changes are read back',
           ...TEST_PROFILE_HEADER,
           ...TEST_PROFILE_UNBINDALL,
+          ...cvarBlock(),
           '',
           // Both binds are owned (each row's `bindValueFor` is the bare command sitting on the
           // key that row holds), so they are filed under the owning action's category and
@@ -1042,7 +1146,10 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       // category minted from the banner's title). The two "Other" buckets carry no tag: their
       // members' `categoryId` matches no category the profile has, so there is no id to record and
       // a tag would invent one. "Other binds" carries none either - those lines have no owner.
+      // Story 048 D2: the four cvar group banners lead every file now - no group can be empty once
+      // every catalogue cvar is written.
       expect(banners(renderProfileFile(grouped))).toEqual([
+        ...CVAR_GROUP_BANNERS,
         'Aliases: Movement [q2l cat=movement]',
         'Aliases: Weapons [q2l cat=weapons]',
         'Aliases: Weapon dropping [q2l cat=drops]',
@@ -1309,7 +1416,10 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         ],
       })
 
-      expect(banners(renderProfileFile(p))).toEqual(['Aliases: Weapons [q2l cat=weapons]'])
+      expect(banners(renderProfileFile(p))).toEqual([
+        ...CVAR_GROUP_BANNERS,
+        'Aliases: Weapons [q2l cat=weapons]',
+      ])
     })
   })
 
@@ -1516,19 +1626,22 @@ describe('story 040 D3: alias, layer and bind sections', () => {
     })
 
     /**
-     * `findCvar` matches case-insensitively, so two spellings of one cvar share a catalog index.
-     * The in-section sort has to break that tie on the stored name, or the pair falls back to
-     * `Object.keys` insertion order - the one thing AC5 rules out ("never insertion-order-
-     * dependent"). Two profiles differing only in how their `cvars` map was built must render
-     * identically.
+     * `findCvar` matches case-insensitively, so two spellings of one cvar are one cvar. Since story
+     * 048 D2 the pair must collapse to a single `set` line: a second line for the same cvar would
+     * now be a *default* rendering after the user's real value and winning at exec time (the engine
+     * runs the whole file top to bottom, last `set` wins), which is a silent clobber rather than a
+     * cosmetic duplicate. The surviving line is the spelling that sorts last - the one that already
+     * rendered last, and therefore already won, before this change - and the choice cannot depend on
+     * `Object.keys` insertion order (AC5: "never insertion-order-dependent").
      */
-    it('orders two differently-cased spellings of one cvar independently of insertion order', () => {
+    it('collapses two differently-cased spellings of one cvar into a single set line', () => {
       const forward = renderProfileFile(profile({ cvars: { sensitivity: '3', Sensitivity: '4' } }))
       const reversed = renderProfileFile(profile({ cvars: { Sensitivity: '4', sensitivity: '3' } }))
 
       expect(forward).toBe(reversed)
-      expect(forward).toContain('set Sensitivity')
-      expect(forward).toContain('set sensitivity')
+      expect(setLines(forward).filter((line) => /^set sensitivity\b/i.test(line))).toEqual([
+        'set sensitivity "3"',
+      ])
     })
 
     /**
@@ -1555,6 +1668,132 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         }
       }
     })
+  })
+})
+
+/**
+ * Story 048 D2 - the rendered file carries a `set` line for *every* cvar in `ALL_CVARS`, so it
+ * states the complete intended configuration and `exec`ing it is idempotent no matter what ran
+ * before (`config.cfg`, an `autoexec.cfg`, another profile, a mod).
+ *
+ * The failure mode this block exists for is a silent clobber: two `set` lines for one cvar, the
+ * catalogue default rendering *after* the user's real value. The engine executes the file top to
+ * bottom and the last `set` on a cvar wins, so such a pair does not look broken in the file and
+ * does not fail a layout assertion - it just quietly throws the user's setting away in-game. The
+ * differently-cased-stored-key case below is exactly that trap, since `findCvar` matches
+ * case-insensitively while a plain `Object.keys` walk does not.
+ */
+describe('story 048 D2: every catalogue cvar is written', () => {
+  /** The cvar name of every `set` line, lowercased - the granularity a duplicate has to be checked
+   * at, since `sensitivity` and `Sensitivity` are one cvar to `findCvar` and to the catalogue. */
+  function setNamesLower(rendered: string): string[] {
+    return setLines(rendered).map((line) => setName(line).toLowerCase())
+  }
+
+  it('writes one line for every catalogue cvar, and no cvar twice', () => {
+    const names = setNamesLower(renderProfileFile(profile({ cvars: {} })))
+
+    // Counted against the real array, not against a number in this file: a cvar added to the
+    // catalogue has to fail here even though `TEST_PROFILE_CVAR_DEFAULTS`' literal knows nothing
+    // about it.
+    expect(names).toHaveLength(ALL_CVARS.length)
+    expect([...names].sort()).toEqual(ALL_CVARS.map((def) => def.name.toLowerCase()).sort())
+  })
+
+  it('writes each catalogue cvar at its own default when the profile stored nothing for it', () => {
+    const rendered = renderProfileFile(profile({ cvars: {} }))
+    const written = new Map(
+      setLines(rendered).map((line) => [setName(line), /"([^"]*)"$/.exec(line)![1]!]),
+    )
+
+    for (const def of ALL_CVARS) expect(written.get(def.name)).toBe(def.default)
+  })
+
+  /**
+   * The named risk of this deliverable, asserted head-on. A profile that stored `Sensitivity`
+   * (reachable through an import that keeps a file's own casing) must produce *one* line, carrying
+   * the stored value - not a second one at the catalogue default that would win at exec time.
+   */
+  it('writes a differently-cased stored cvar exactly once, with the stored value and no default line', () => {
+    const rendered = renderProfileFile(profile({ id: 'cased', cvars: { Sensitivity: '9' } }))
+
+    expect(setLines(rendered).filter((line) => /^set sensitivity\b/i.test(line))).toEqual([
+      'set Sensitivity "9"',
+    ])
+    // `sensitivity`'s catalogue default is 4; it must appear nowhere in the file, in any casing.
+    expect(rendered).not.toMatch(/^set sensitivity +"4"$/im)
+    // And the file still carries every catalogue cvar exactly once overall.
+    expect(setNamesLower(rendered)).toHaveLength(ALL_CVARS.length)
+    expect(new Set(setNamesLower(rendered)).size).toBe(ALL_CVARS.length)
+  })
+
+  it('keeps exactly one line per cvar when the profile stores several spellings of several cvars', () => {
+    const rendered = renderProfileFile(
+      profile({
+        id: 'many-spellings',
+        cvars: { Sensitivity: '9', sensitivity: '3', FOV: '110', fov: '95', CL_RUN: '0' },
+      }),
+    )
+
+    expect(new Set(setNamesLower(rendered)).size).toBe(setNamesLower(rendered).length)
+    // Largest stored spelling wins - the one that already rendered last, and so already won at
+    // exec time, before this deliverable collapsed the pair.
+    expect(setLines(rendered)).toContain('set sensitivity "3"')
+    expect(setLines(rendered)).toContain('set fov         "95"')
+    // A single stored spelling wins whatever its casing, and keeps that casing.
+    expect(setLines(rendered)).toContain('set CL_RUN      "0"')
+  })
+
+  it('falls back to the catalogue default for a stored value that is empty or whitespace only', () => {
+    const blank = renderProfileFile(
+      profile({ id: 'blank', cvars: { fov: '', sensitivity: '   ', crosshair: '0' } }),
+    )
+
+    // Byte-identical to a profile that never stored the two blank keys at all: `writeValueFor`
+    // treats "nothing there" and "not stored" as the same thing, and the stored spelling of both
+    // happens to be the catalogue's own.
+    expect(blank).toBe(renderProfileFile(profile({ id: 'blank', cvars: { crosshair: '0' } })))
+    expect(setLines(blank)).toContain('set fov         "100"')
+    expect(setLines(blank)).toContain('set sensitivity "4"')
+    expect(setLines(blank)).toContain('set crosshair   "0"')
+  })
+
+  it('leaves an unrecognized stored cvar in the Other section, verbatim and never defaulted', () => {
+    const lines = renderProfileFile(
+      profile({
+        id: 'unknown-cvars',
+        cvars: { zz_unknown: 'kept', gl_frobnicate: '7', q_empty: '' },
+      }),
+    ).split('\n')
+    const start = lines.findIndex((line) => line.startsWith('// --- Other '))
+
+    expect(start).toBeGreaterThan(-1)
+    // Alphabetical inside "Other" (never `Object.keys` insertion order), aligned among themselves
+    // only, and `q_empty` keeps its empty value - the default substitution is for catalogue cvars,
+    // and an unrecognized name has no default to substitute.
+    expect(lines.slice(start + 1, start + 4)).toEqual([
+      'set gl_frobnicate "7"',
+      'set q_empty       ""',
+      'set zz_unknown    "kept"',
+    ])
+    expect(lines[start + 4]).toBe('')
+  })
+
+  it('renders byte-identically on a second render, with every cvar now emitted', () => {
+    const p = profile({
+      id: 'stable',
+      cvars: { Sensitivity: '9', sensitivity: '3', zz_unknown: 'kept', vid_gamma: '1.0' },
+      actions: [action({ id: 'st-1', name: 'One', key: 'q', aliasName: 'one_e' })],
+      binds: { q: 'one_e' },
+    })
+
+    expect(renderProfileFile(p)).toBe(renderProfileFile(p))
+  })
+
+  it('keeps every cvar line inside the engine line budget with the whole catalogue written', () => {
+    for (const line of renderProfileFile(profile({ cvars: {} })).split('\n')) {
+      expect(line.length).toBeLessThan(STRICTEST_LINE_BUDGET)
+    }
   })
 })
 

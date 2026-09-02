@@ -110,7 +110,22 @@ describe('runFileSourceStartup: rebuilding a lost record', () => {
     expect(rebuilt).toHaveLength(1)
     expect(rebuilt[0]!.id).toBe(original.id)
     expect(rebuilt[0]!.name).toBe('Frag Setup')
-    expect(rebuilt[0]!.cvars).toEqual(original.cvars)
+    // Story 048 D3: the file now states every catalogue cvar (D2's always-write), and the rebuild
+    // strips the ones sitting at `def.default` back out again - so what comes back is the template's
+    // genuine deviations, not the ~30 lines the file physically carries. `m_pitch` is the one
+    // template value that IS its catalogue default ('0.022'), and a file cannot express the
+    // difference between "the user picked the default" and "the writer restated it"; every other
+    // template cvar deviates and survives, `volume` because the catalogue does not know it at all.
+    expect(rebuilt[0]!.cvars).toEqual({
+      sensitivity: '3',
+      cl_run: '0',
+      crosshair: '0',
+      cl_gun: '1',
+      volume: '0.7',
+    })
+    expect(Object.keys(original.cvars).sort()).toEqual(
+      ['m_pitch', ...Object.keys(rebuilt[0]!.cvars)].sort(),
+    )
     expect(rebuilt[0]!.binds).toEqual(original.binds)
   })
 

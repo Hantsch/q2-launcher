@@ -5,9 +5,7 @@ import type { CvarDef } from '@shared/config/cvar-facts'
 import { CVAR_GROUP_ORDER } from '@shared/config/cvar-facts'
 import type { EngineKind } from '@shared/types/engine'
 import { ALL_CVARS } from '@shared/config/cvar-catalog'
-import { Button } from '../../components/ui/Button'
 import { Input, Switch } from '../../components/ui/controls'
-import { Modal } from '../../components/ui/Modal'
 import { useLauncher } from '../../store/useLauncher'
 import { CvarRow } from './components/CvarRow'
 import { EngineScopeSelect } from './components/EngineScopeSelect'
@@ -38,6 +36,9 @@ export interface SettingsTabProps {
   /** Story 009 D6: the shared in-progress draft, owned by `ConfigView`'s `useProfileDraft`. */
   draft: ConfigProfile
   patch: (partial: Partial<ConfigProfile> | ((prev: ConfigProfile) => Partial<ConfigProfile>)) => void
+  /** Story 048 D6: `useProfileDraft`'s saved-cvars baseline - what "edited" (the filter, the
+   * counters and `CvarRow`'s left-border indicator) compares `draft.cvars` against. */
+  savedCvars: Record<string, string>
   onChanged: (profiles: ConfigProfile[]) => void
 }
 
@@ -45,7 +46,9 @@ export interface SettingsTabProps {
  * The settings/cvar section of a config profile's detail view (story 021 D4): a capped, dense list
  * of every `ALL_CVARS` entry, grouped by `def.group` into sticky-headed Player/Network/Graphics/
  * Sound sections, with a header bar for the catalogue-wide counts, a session-local filter and
- * "changed only" toggle, a "Reset all" confirm dialog and a per-group Advanced collapse.
+ * "changed only" toggle and a per-group Advanced collapse. Both reset affordances ("Reset all" here
+ * and the per-row reset in `CvarRow`) were removed in story 048 D5; only the default-value text
+ * remains.
  *
  * This rewrite replaces the two hard-coded `PLAYER_CVARS`/`GRAPHICS_CVARS` panels the tab used to
  * render - `buildCvarGroups` (story 021 D1) now owns grouping, filtering and the "changed" count,
@@ -65,20 +68,19 @@ export interface SettingsTabProps {
  * assigned engines through `lib/engine-scope.ts`, so neither owns a second copy of story 002's
  * assignment cross-reference.
  */
-export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabProps) {
+export function SettingsTab({ profile, draft, patch, savedCvars, onChanged }: SettingsTabProps) {
   const { t } = useTranslation()
   const installations = useLauncher((state) => state.installations)
   const [engine, setEngine] = useState<EngineKind | null>(null)
   const [status, setStatus] = useState<SaveStatus>('idle')
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Filter, "changed only" and the per-group Advanced collapse are session-local UI state (story
+  // Filter, "edited only" and the per-group Advanced collapse are session-local UI state (story
   // 021 Decisions: "not persisted per profile, no extra saved UI state") - reset below whenever the
   // selected profile changes, alongside the save/status reset that already ran here.
   const [filter, setFilter] = useState('')
-  const [changedOnly, setChangedOnly] = useState(false)
+  const [editedOnly, setEditedOnly] = useState(false)
   const [expandedGroups, setExpandedGroups] = useState<Set<CvarDef['group']>>(new Set())
-  const [confirmResetAllOpen, setConfirmResetAllOpen] = useState(false)
 
   const assignedEngines = useMemo(
     () => assignedEngineKinds(profile, installations),
@@ -104,9 +106,8 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
     setStatus('idle')
     clearPendingSave()
     setFilter('')
-    setChangedOnly(false)
+    setEditedOnly(false)
     setExpandedGroups(new Set())
-    setConfirmResetAllOpen(false)
   }, [profile.id])
 
   useEffect(() => clearPendingSave, [])
@@ -146,14 +147,18 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
   // One `buildCvarGroups` call per group, each scoped to that group's own defs and its own
   // Advanced-expand state: `buildCvarGroups` takes a single `showAdvanced` for the whole call, and
   // the Advanced collapse here is a per-group affordance, not a catalogue-wide one. `total`/
-  // `changed` still come out right per group because `buildCvarGroups` computes them over the defs
-  // it is given, before filter/changedOnly/showAdvanced are applied.
+  // `edited` still come out right per group because `buildCvarGroups` computes them over the defs
+  // it is given, before filter/editedOnly/showAdvanced are applied.
   const groupResults = useMemo<CvarGroupResult[]>(() => {
     return GROUP_ORDER.map((group) => {
       const groupDefs = ALL_CVARS.filter((def) => def.group === group)
       const results = buildCvarGroups(groupDefs, {
         values: draft.cvars,
         engine,
+        // Story 048 D6: `edited` (the filter, the counters below and `CvarRow`'s own indicator)
+        // compares against this baseline, not the catalogue default - see `savedCvars`'s own doc
+        // comment on `SettingsTabProps`.
+        baseline: savedCvars,
         filter,
         // `cvar-rows.ts` stays i18n-free (like every other `lib/*.ts` file here); resolving
         // `labelKey`/`descriptionKey` to the English text a user would actually type is this
@@ -161,15 +166,15 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
         // label and description, not their i18n keys - review finding).
         labelText: (def) => t(def.labelKey),
         descriptionText: (def) => t(def.descriptionKey),
-        changedOnly,
+        editedOnly,
         showAdvanced: expandedGroups.has(group),
       })
       return results.find((result) => result.group === group)!
     })
-  }, [draft.cvars, engine, filter, changedOnly, expandedGroups, t])
+  }, [draft.cvars, engine, savedCvars, filter, editedOnly, expandedGroups, t])
 
   const catalogTotal = groupResults.reduce((sum, group) => sum + group.total, 0)
-  const catalogChanged = groupResults.reduce((sum, group) => sum + group.changed, 0)
+  const catalogEdited = groupResults.reduce((sum, group) => sum + group.edited, 0)
 
   const toggleAdvanced = (group: CvarDef['group']): void => {
     setExpandedGroups((prev) => {
@@ -178,26 +183,6 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
       else next.add(group)
       return next
     })
-  }
-
-  const handleResetAll = (): void => {
-    patch((prev) => {
-      // Only the catalogue's own keys are cleared - `prev.cvars` is spread first so an imported
-      // cvar outside `ALL_CVARS` (visible on the Raw File tab) survives untouched (story 021
-      // Decisions: a full `{}` would silently delete values this tab never showed). Deleting the key
-      // rather than writing `effectiveDefaultFor(def, engine)` into it (review finding) matters for
-      // three reasons: it never bakes an engine-scoped number into the profile that would go stale
-      // if the engine scope changes afterward; it does not create an explicit line for a cvar the
-      // profile never had; and it never writes a value for a row whose own per-row reset is disabled
-      // because the cvar is absent on the scoped engine.
-      const next = { ...prev.cvars }
-      for (const def of ALL_CVARS) {
-        delete next[def.name]
-      }
-      scheduleSave(next)
-      return { cvars: next }
-    })
-    setConfirmResetAllOpen(false)
   }
 
   return (
@@ -222,7 +207,7 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
 
       <div className="flex flex-wrap items-center gap-3 rounded-sm border border-line bg-raised/60 px-3 py-2.5">
         <span className="shrink-0 text-xs text-ink-muted">
-          {t('config.settings.header.count', { total: catalogTotal, changed: catalogChanged })}
+          {t('config.settings.header.count', { total: catalogTotal, edited: catalogEdited })}
         </span>
         <Input
           type="text"
@@ -233,18 +218,10 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
           className="h-8 min-w-40 flex-1"
         />
         <Switch
-          checked={changedOnly}
-          onChange={setChangedOnly}
-          label={t('config.settings.header.changedOnly')}
+          checked={editedOnly}
+          onChange={setEditedOnly}
+          label={t('config.settings.header.editedOnly')}
         />
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={catalogChanged === 0}
-          onClick={() => setConfirmResetAllOpen(true)}
-        >
-          {t('config.settings.header.resetAll')}
-        </Button>
       </div>
 
       <div className="space-y-6">
@@ -255,18 +232,19 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
                 {t(GROUP_LABEL_KEY[group.group])}
               </span>
               <span className="numeric text-xs text-ink-faint">
-                {t('config.settings.header.count', { total: group.total, changed: group.changed })}
+                {t('config.settings.header.count', { total: group.total, edited: group.edited })}
               </span>
             </div>
 
             <div>
-              {group.rows.map(({ def }) => (
+              {group.rows.map(({ def, edited }) => (
                 <CvarRow
                   key={def.name}
                   def={def}
                   engine={engine}
                   otherAssignedEngines={otherAssignedEngines}
                   value={draft.cvars[def.name] ?? ''}
+                  edited={edited}
                   onChange={(value) => handleChange(def.name, value)}
                 />
               ))}
@@ -277,7 +255,7 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
               // `advancedHidden > 0` (how many rows the collapse is hiding *right now*) - the latter
               // legitimately reads 0 once the group is expanded, which used to make this button
               // disappear and leave no way back to the collapsed state (review finding). The "N
-              // more" count itself still comes from `advancedHidden`, post-filter/changedOnly, and is
+              // more" count itself still comes from `advancedHidden`, post-filter/editedOnly, and is
               // simply omitted when it would misleadingly read 0 or when the section is expanded.
               <button
                 type="button"
@@ -298,34 +276,10 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
       <p className="flex flex-wrap items-center gap-4 text-xs text-ink-faint">
         <span className="flex items-center gap-1.5">
           <span aria-hidden className="inline-block h-3 w-0.5 bg-flame-600" />
-          {t('config.settings.legend.changed')}
+          {t('config.settings.legend.edited')}
         </span>
         <span>{t('config.settings.legend.default')}</span>
       </p>
-
-      {confirmResetAllOpen && (
-        <Modal
-          open
-          size="sm"
-          title={t('config.settings.resetAllDialog.title')}
-          onClose={() => setConfirmResetAllOpen(false)}
-          closeLabel={t('common.close')}
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => setConfirmResetAllOpen(false)}>
-                {t('common.cancel')}
-              </Button>
-              <Button variant="danger" onClick={handleResetAll}>
-                {t('config.settings.resetAllDialog.confirm')}
-              </Button>
-            </>
-          }
-        >
-          <p className="text-sm leading-relaxed text-ink-dim">
-            {t('config.settings.resetAllDialog.body', { count: catalogChanged })}
-          </p>
-        </Modal>
-      )}
     </div>
   )
 }

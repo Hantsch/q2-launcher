@@ -1,6 +1,5 @@
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
-import { RotateCcw } from 'lucide-react'
 import type { EngineKind } from '@shared/types/engine'
 import { engineLabel } from '@shared/types/engine'
 import type { CvarDef, EngineDisagreement, ResolvedCvar } from '@shared/config/cvar-facts'
@@ -13,7 +12,6 @@ import {
 } from '@shared/config/cvar-facts'
 import { effectiveDefaultFor, isChanged, normalizeCvarValue } from '../lib/cvar-rows'
 import { cn } from '../../../lib/cn'
-import { IconButton } from '../../../components/ui/Button'
 import { Input, Select } from '../../../components/ui/controls'
 import { Badge, type BadgeTone } from '../../../components/ui/primitives'
 
@@ -60,8 +58,9 @@ interface RowFlag {
   text: string
 }
 
-/** Fixed dense-row grid: label · control · value · reset (story 021 D2). */
-const ROW_GRID = 'grid-cols-[minmax(0,1fr)_250px_108px_24px]'
+/** Fixed dense-row grid: label · control · value (story 021 D2; the reset column was removed in
+ * story 048 D5). */
+const ROW_GRID = 'grid-cols-[minmax(0,1fr)_250px_108px]'
 
 export interface CvarRowProps {
   def: CvarDef
@@ -75,6 +74,14 @@ export interface CvarRowProps {
   engine: EngineKind | null
   /** Current value, empty string for "unset" - falls back to the engine/catalog default for display. */
   value: string
+  /**
+   * Story 048 D6: whether this row's value differs from `useProfileDraft`'s saved-cvars baseline -
+   * "edited and unsaved," not "differs from the catalogue default" (that stays `isChanged`, used
+   * below only for the default-value text). Computed by the caller (`SettingsTab`'s
+   * `buildCvarGroups` call), not here, so the filter/counters/this border always read the exact
+   * same predicate rather than three separate re-implementations of it.
+   */
+  edited: boolean
   onChange: (value: string) => void
   /**
    * The other engines this profile is assigned to. Each one that disagrees
@@ -86,18 +93,19 @@ export interface CvarRowProps {
 
 /**
  * One dense grid row for a single cvar: label + mono name + one-line
- * description, the kind-specific control, a two-line value/default cell and
- * an always-reachable reset (story 021 D2 - prototype
- * `docs/prototypes/settings/a-dense-rows.html`).
+ * description, the kind-specific control and a two-line value/default cell
+ * (story 021 D2 - prototype `docs/prototypes/settings/a-dense-rows.html`; the
+ * per-row reset button was removed in story 048 D5, the default-value text
+ * stays).
  *
- * Engine caveats (story 021 D3) are full-width flag sub-rows below the four
+ * Engine caveats (story 021 D3) are full-width flag sub-rows below the three
  * columns - badge word plus one sentence, one row per caveat: the def's own
  * engine-independent caution, what the engine in scope says about this exact
  * value, an out-of-range/clamp breach, and one row per other assigned engine
  * that disagrees, naming that engine and its numbers. A cvar the engine in
- * scope does not have gets no flag at all: the row is dimmed, control and
- * reset are disabled and the value cell reads "not on <engine>", which says it
- * more plainly than a badge would.
+ * scope does not have gets no flag at all: the row is dimmed, the control is
+ * disabled and the value cell reads "not on <engine>", which says it more
+ * plainly than a badge would.
  *
  * The honesty rule from story 009 is what shapes all of it: every
  * engine-specific line here is gated on an engine that is in scope *and*
@@ -108,7 +116,7 @@ export interface CvarRowProps {
  * "no engine in scope" note lives once above the list in `EngineScopeSelect`
  * rather than being repeated on all 30 rows.
  */
-export function CvarRow({ def, engine, value, onChange, otherAssignedEngines }: CvarRowProps) {
+export function CvarRow({ def, engine, value, edited, onChange, otherAssignedEngines }: CvarRowProps) {
   const { t } = useTranslation()
   const controlId = useId()
   const labelId = useId()
@@ -256,8 +264,6 @@ export function CvarRow({ def, engine, value, onChange, otherAssignedEngines }: 
     })
   }
 
-  const reset = (): void => onChange(effectiveDefault)
-
   /**
    * Whether the numbers `valueDetail` is about to print for this cvar came from `factEngine`'s own
    * `byEngine` entry, as opposed to `def.min`/`def.max` (the catalog's widest-range recommendation,
@@ -292,7 +298,7 @@ export function CvarRow({ def, engine, value, onChange, otherAssignedEngines }: 
         'grid items-center gap-3.5 border-b border-line border-l-2 px-3 py-1.5',
         ROW_GRID,
         'min-h-11',
-        changed ? 'border-l-flame-600' : 'border-l-transparent',
+        edited ? 'border-l-flame-600' : 'border-l-transparent',
         disabled && 'opacity-50',
       )}
     >
@@ -352,17 +358,8 @@ export function CvarRow({ def, engine, value, onChange, otherAssignedEngines }: 
         )}
       </div>
 
-      <IconButton
-        label={t('config.cvar.resetToDefault')}
-        size="sm"
-        onClick={reset}
-        disabled={disabled || !changed}
-      >
-        <RotateCcw className="size-3.5" />
-      </IconButton>
-
       {flags.map((flag) => (
-        <div key={flag.key} className="col-span-4 flex items-start gap-2 pt-0.5 pb-1">
+        <div key={flag.key} className="col-span-3 flex items-start gap-2 pt-0.5 pb-1">
           <Badge tone={flag.tone} className="mt-px shrink-0">
             {flag.badge}
           </Badge>

@@ -236,7 +236,10 @@ describe('writeProfileToAssignedInstallations', () => {
     const defaultProfile = profile({
       id: 'p-default',
       name: 'Default',
-      cvars: { crosshair: '1' },
+      // Deliberately not `crosshair`'s catalogue default ("1"): since story 048 D2 every rendered
+      // file carries every catalogue cvar, so a stored value equal to the default would show up in
+      // *both* profiles' files and the assertion below would no longer tell them apart.
+      cvars: { crosshair: '3' },
       assignments: [{ installationId: 'i1', isDefault: true }],
     })
     const other = profile({
@@ -261,7 +264,7 @@ describe('writeProfileToAssignedInstallations', () => {
     expect(ownFile).toContain('set sensitivity "5"')
     // ...and so does the default's own file, which is what the loader execs.
     const defaultFile = await readFile(join(dir, 'baseq2', 'Default.cfg'), 'latin1')
-    expect(defaultFile).toContain('set crosshair "1"')
+    expect(defaultFile).toContain('set crosshair   "3"')
     const loader = await readFile(join(dir, 'baseq2', 'autoexec.cfg'), 'latin1')
     expect(loader).toContain('exec Default.cfg')
   })
@@ -445,7 +448,8 @@ describe('previewProfileFiles', () => {
     const defaultProfile = profile({
       id: 'p-default',
       name: 'Default',
-      cvars: { crosshair: '1' },
+      // Not the catalogue default, for the same reason as the F1 write test above.
+      cvars: { crosshair: '3' },
       assignments: [{ installationId: 'i1', isDefault: true }],
     })
     const p = profile({ id: 'p1', assignments: [{ installationId: 'i1', isDefault: false }] })
@@ -458,7 +462,7 @@ describe('previewProfileFiles', () => {
       'Profile.cfg',
       'autoexec.cfg',
     ])
-    expect(files[0]!.content).toContain('set crosshair "1"')
+    expect(files[0]!.content).toContain('set crosshair   "3"')
   })
 
   it('story 007: includes the switch-bind chain in the loader preview when a key and 2 assigned profiles are given', () => {

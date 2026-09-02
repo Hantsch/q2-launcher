@@ -108,7 +108,7 @@ export function ConfigView() {
   // effect fires after this render), the same one-tick staleness the removed
   // per-tab local states already had - `draftOrSelected` is what every child
   // below actually receives, so that gap is never visible outside this file.
-  const { draft, patch } = useProfileDraft(selected)
+  const { draft, patch, savedCvars } = useProfileDraft(selected)
 
   const draftOrSelected = draft ?? selected
   /**
@@ -547,6 +547,7 @@ export function ConfigView() {
                   profile={selected}
                   draft={activeProfile(selected)}
                   patch={patch}
+                  savedCvars={savedCvars}
                   onChanged={setProfiles}
                 />
               )}

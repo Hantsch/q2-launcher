@@ -10,6 +10,10 @@ import { restoreProfileParts } from '@shared/config/profile-restore'
 import { ROUND_TRIP_FIXTURES } from '@shared/config/fixtures/profiles'
 import { readImportableConfig } from './core/import-reader'
 import { toRestoreInput } from './import'
+import { StateStore } from '../../services/state'
+import { ProfilesStore } from './profiles'
+import { hashCanonicalFileContent } from './file-source'
+import { detectSectionHeaderStyle, detectWriteUnbindall, recoverProfileName } from './rebuild'
 
 /**
  * Story 042 D9: `render(parse(render(p))) === render(p)` over the real production pipeline -
@@ -43,11 +47,17 @@ import { toRestoreInput } from './import'
 
 let root: string
 
+/** Every `StateStore` an adopt case below opened, settled before the temp directory goes away so no
+ * pending `state.json` write outlives it. */
+const openStores: StateStore[] = []
+
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), 'q2-launcher-round-trip-'))
 })
 
 afterEach(async () => {
+  for (const store of openStores) await store.settle()
+  openStores.length = 0
   await rm(root, { recursive: true, force: true })
 })
 
@@ -507,5 +517,164 @@ describe('adversarial mangling (story 042 D9 - not accepted on a green diff read
     expect(entry).toBeDefined()
     expect(entry!.kind).not.toBe('alias')
     expect(restored.warnings.some((w) => w.reason === 'tag-kind-contradicted')).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Story 048 D3: render -> parse -> ADOPT -> render.
+//
+// The loop at the top of this file rebuilds `profile2.cvars` straight from the
+// parser's output, which is what the *writer* has to be a fixed point over. The
+// production read-back does one more thing to that map - `stripCatalogDefaults`
+// (048 D1) in `ProfilesStore.adoptFromFile` - because since D2 the file states
+// every catalogue cvar, and storing all ~30 verbatim would record "the user
+// chose this" for every default the writer merely restated. These cases drive
+// the real store method, so the strip is pinned as the exact inverse of the
+// always-write rather than as something merely plausible.
+// ---------------------------------------------------------------------------
+
+/**
+ * Renders `profile`, reads the text back through the real parser, and adopts the result onto a real
+ * `ProfilesStore` record exactly the way `index.ts`'s `refreshFromFiles` does - same field mapping,
+ * same header/format recovery, same `adoptFromFile` entry point. Returns the record as the store
+ * holds it afterwards.
+ *
+ * A fresh store per call, so a case can adopt the *same* profile id twice (the convergence case
+ * below) without the second round tripping over the first one's record.
+ */
+async function adoptRendered(
+  profile: ConfigProfile,
+): Promise<{ adopted: ConfigProfile; text1: string }> {
+  const text1 = renderProfileFile(profile)
+  const result = await reimport(text1)
+  const restored = restoreProfileParts(toRestoreInput(result, [], randomUUID))
+
+  const store = new StateStore(join(root, `state-${openStores.length}.json`))
+  await store.load()
+  openStores.push(store)
+  const profiles = new ProfilesStore(store)
+  // The record as it stood before the file was read back: the very profile `text1` was rendered
+  // from, under its own id (`addRebuilt` is the one store entry point that appends a finished record
+  // without minting a new one - the id has to match, or the sentinel line alone would make every
+  // byte comparison below fail for a reason that has nothing to do with cvars).
+  const id = profile.id
+  profiles.addRebuilt({ ...profile })
+  expect(profiles.find(id)!.cvars).toEqual(profile.cvars)
+
+  const list = profiles.adoptFromFile(
+    id,
+    {
+      name: recoverProfileName(text1) ?? profile.name,
+      cvars: result.cvars,
+      binds: result.binds,
+      actions: restored.actions,
+      categories: restored.categories,
+      layers: restored.layers,
+      writeUnbindall: detectWriteUnbindall(text1),
+      sectionHeaderStyle: detectSectionHeaderStyle(text1) ?? profile.sectionHeaderStyle,
+    },
+    hashCanonicalFileContent(text1),
+    Date.now(),
+  )
+  return { adopted: list.find((p) => p.id === id)!, text1 }
+}
+
+describe('story 048 D3: adopting the launcher\'s own file back does not inflate profile.cvars', () => {
+  for (const profile of ROUND_TRIP_FIXTURES) {
+    it(`"${profile.name}": the adopted record re-renders the same file, with no cvar it did not store`, async () => {
+      const { adopted, text1 } = await adoptRendered(profile)
+
+      // The file really does state the catalogue explicitly - without this the rest of the case
+      // would pass for the wrong reason (nothing to strip).
+      expect(text1).toMatch(/^set sensitivity\s+"4"$/m)
+
+      // Not one key appeared that the profile did not already store, and not one stored value
+      // changed on the way back in. Every fixture carries `cvars: {}` today, so this currently says
+      // "all ~30 catalogue lines were stripped again"; written as the general property so a fixture
+      // that gains a cvar tomorrow is still held to it.
+      for (const [name, value] of Object.entries(adopted.cvars)) {
+        expect(profile.cvars[name]).toBe(value)
+      }
+      expect(Object.keys(adopted.cvars).length).toBeLessThanOrEqual(
+        Object.keys(profile.cvars).length,
+      )
+
+      // ...and the cvar block the adopted record re-renders is byte-for-byte the one it was adopted
+      // from: a stripped catalogue cvar renders from the same `def.default` the first render wrote.
+      //
+      // The *whole* file is compared by the fixed-point loop at the top of this file; it is not
+      // repeated here because `adoptFromFile` commits through `ProfilesStore.commit`, whose
+      // `adoptRawBinds` pass (story 034's "actions is the only authority for a catalogue bind"
+      // invariant) can legitimately mint an entry for a raw bind the file carries - visible on the
+      // "Hold layer" fixture, unrelated to cvars, and unchanged by this deliverable. The two
+      // purpose-built cases below do assert the whole file, byte for byte.
+      expect(setLines(renderProfileFile(adopted))).toEqual(setLines(text1))
+    })
+  }
+})
+
+/** Every `set` line of a rendered file, in order - the cvar block, alignment included. */
+function setLines(text: string): string[] {
+  return text.split('\n').filter((line) => line.startsWith('set '))
+}
+
+describe('story 048 D3: which cvars survive an adopt, by shape', () => {
+  /** Every shape the strip has to tell apart, in one profile. No actions/binds - this case is about
+   * the cvar block alone. */
+  function cvarShapes(cvars: Record<string, string>): ConfigProfile {
+    return {
+      id: randomUUID(),
+      name: 'Cvar shapes',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      cvars,
+      binds: {},
+      assignments: [],
+    }
+  }
+
+  it('keeps genuine deviations (own casing included) and unknown cvars, drops restated defaults', async () => {
+    const profile = cvarShapes({
+      // A real deviation: `sensitivity`'s catalogue default is '4'.
+      sensitivity: '3',
+      // A deviation stored under the user's own casing - `crosshair`'s default is '1'. The writer
+      // emits it under the stored spelling (D2), so the strip must recognise it case-insensitively
+      // (`findCvar`'s rule) and still hand the key back verbatim.
+      Crosshair: '2',
+      // Stored, but equal to the catalogue default ('0'): a file cannot express the difference
+      // between "the user picked the default" and "the writer restated it", so this is the one
+      // shape that legitimately does not survive.
+      cl_gun: '0',
+      // Stored empty = unset (D1's rule), rendered at the default, and not stored again.
+      m_pitch: '',
+      // Not in the catalogue at all: written to "Other", never a candidate for stripping.
+      my_own_cvar: 'keep me',
+    })
+
+    const { adopted, text1 } = await adoptRendered(profile)
+
+    expect(adopted.cvars).toEqual({ sensitivity: '3', Crosshair: '2', my_own_cvar: 'keep me' })
+    // And the file the adopted record re-renders is byte-for-byte the one it was adopted from: the
+    // three survivors are written from the stored values, the two dropped ones from the identical
+    // catalogue defaults the first render already wrote.
+    expect(renderProfileFile(adopted)).toBe(text1)
+  })
+
+  it('a value that is the default in a different spelling normalizes once and then holds still', async () => {
+    // `sensitivity`'s default is '4'; '4.0' is the same number, so D1's numeric-aware rule (the
+    // sprint's own decision: write value and strip comparison are numeric-/toggle-normalized) drops
+    // it. The stored *spelling* is therefore lost - a one-off normalization to the canonical
+    // default, not a growing file: the very next round is a true fixed point.
+    const first = await adoptRendered(cvarShapes({ sensitivity: '4.0' }))
+    expect(first.text1).toMatch(/^set sensitivity\s+"4\.0"$/m)
+    expect(first.adopted.cvars).toEqual({})
+
+    const text2 = renderProfileFile(first.adopted)
+    expect(text2).not.toBe(first.text1)
+    expect(text2).toMatch(/^set sensitivity\s+"4"$/m)
+
+    const second = await adoptRendered(first.adopted)
+    expect(second.adopted.cvars).toEqual({})
+    expect(renderProfileFile(second.adopted)).toBe(text2)
   })
 })
