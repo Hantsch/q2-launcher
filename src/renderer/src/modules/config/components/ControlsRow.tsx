@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
-import { RotateCcw } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { PencilLine, RotateCcw } from 'lucide-react'
 import { BindPromptHostContext } from './BindSlot'
 
 /**
@@ -51,6 +52,14 @@ export interface ControlsRowProps {
   optionsCell: ReactNode
   /** Explicit zebra parity - see the module doc comment for why this is not CSS-only. */
   odd?: boolean
+  /**
+   * Story 049 D8: whether this row (a catalogue row's action, or a plain action) is in the
+   * profile's pending change set (`useProfileChanges()`, `@shared/config/profile-diff`) - "edited
+   * and unsaved," the same predicate `CvarRow`'s `edited` prop reads. Computed by the caller
+   * (`ControlsTab`'s two render functions), not here, mirroring D7's split: this component only
+   * renders the marker, it never decides what counts as edited.
+   */
+  edited?: boolean
   /** Optional full-width sub-row rendered below the prompt host (story 029 D3) - e.g. a drops
    * row's "with message" inline message-text-plus-Edit row. Absent for every row today; when
    * absent, nothing extra is rendered at all, so the grid renders exactly as before this prop
@@ -68,18 +77,37 @@ export function ControlsRow({
   secondarySlot,
   optionsCell,
   odd,
+  edited,
   subRow,
 }: ControlsRowProps) {
+  const { t } = useTranslation()
   // A callback ref in state, not a `useRef`: the slots need to re-render once the host element
   // exists, and only a state update does that.
   const [promptHost, setPromptHost] = useState<HTMLDivElement | null>(null)
 
+  const rowClassName = ['ctrl-row', odd && 'is-odd', edited && 'is-edited']
+    .filter((part): part is string => Boolean(part))
+    .join(' ')
+
   return (
     <BindPromptHostContext.Provider value={promptHost}>
-      <div className={odd ? 'ctrl-row is-odd' : 'ctrl-row'} role="row">
-        <span className="ctrl-label flex min-w-0 items-center" role="cell">
+      <div className={rowClassName} role="row">
+        <span className="ctrl-label flex min-w-0 items-center gap-1.5" role="cell">
           <span className="min-w-0 truncate">{name}</span>
           {command && <span className="ctrl-label-cmd truncate">{command}</span>}
+          {edited && (
+            // Story 049 D8 / AC10: the left border alone is colour-only, so an edited row also
+            // carries a shape-based glyph with its own translated `aria-label` - mirrors
+            // `CvarRow.tsx`'s identical treatment (story 049 D7).
+            <span
+              role="img"
+              aria-label={t('config.controls.unsavedLabel')}
+              title={t('config.controls.unsavedLabel')}
+              className="ctrl-unsaved-glyph"
+            >
+              <PencilLine aria-hidden className="size-3" />
+            </span>
+          )}
         </span>
         <span role="cell">
           <button type="button" className="ctrl-reset" aria-label={resetLabel} onClick={onReset}>

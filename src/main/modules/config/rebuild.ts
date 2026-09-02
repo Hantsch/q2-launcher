@@ -44,6 +44,7 @@ import { join } from 'node:path'
 import { resolveProfileFileNames, sanitizeProfileFileBase } from '@shared/config/profile-files'
 import { HAND_EDIT_SENTENCE, renderProfileFile } from '@shared/config/render'
 import { stripCatalogDefaults } from '@shared/config/cvar-defaults'
+import { captureBaseline } from '@shared/config/profile-baseline'
 import type { ConfigProfile } from '@shared/modules/config'
 import type { Logger } from '../../lib/logger'
 import { readCanonicalOwnership, writeCanonicalProfileFile } from './canonical'
@@ -259,6 +260,9 @@ export function buildRebuiltProfile(input: RebuiltProfileInput): ConfigProfile {
     ...(style === undefined ? {} : { sectionHeaderStyle: style }),
     fileHash: input.fileHash,
     fileSeenAt: input.now,
+    // Story 049 D1 seeds the `baseline` that belongs next to this hash one step later, in
+    // `ProfilesStore.addRebuilt` - see `ProfilesStore.seedBaseline` for why it has to be taken after
+    // the adoption pass, which this pure builder does not (and must not) run.
     dirty: false,
     // The bytes on disk are exactly the bytes `fileHash` was taken over, which is what
     // `unchanged` means (see `ProfileFileState`) - not a claim that re-rendering this record
@@ -350,13 +354,20 @@ async function migrateCanonicalFiles(
       // Sequential, never `Promise.all`: two overlapping writes into the same directory can race
       // over each other's rename target - the same reasoning `sync.ts`'s write loops give.
       await writeCanonicalProfileFile(deps.baseDir, profile, fileName, liveProfileIds)
-      deps.replaceProfile({
+      const migrated: ConfigProfile = {
         ...profile,
         fileHash: hashCanonicalFileContent(renderProfileFile(profile)),
         fileSeenAt: now,
         dirty: false,
         fileState: 'unchanged',
-      })
+      }
+      // Story 049 D1: the file now holds this record's render, so this record IS the baseline
+      // "unsaved" is measured against from here on - seeded wherever `fileHash` is. Captured from
+      // `migrated` rather than routed through `ProfilesStore.seedBaseline`, because the commit path
+      // this step uses (`replaceProfile`) is shared with `tidyUp.apply`, which is an *edit* and must
+      // not reseed anything. Nothing is adopted in between either: `profile` came out of the store
+      // and has already been through `adoptProfileBinds`, and this step changes no content field.
+      deps.replaceProfile({ ...migrated, baseline: captureBaseline(migrated) })
       migratedProfileIds.push(profile.id)
     } catch (error) {
       deps.log.error(

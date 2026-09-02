@@ -1,6 +1,10 @@
 import type { AltLayer } from '../config/alt-layers'
 import type { AmbiguousRebindAlias } from '../config/alias-import'
 import type { ModifierTrigger } from '../config/modifier-layers'
+// Type-only both ways: `profile-baseline.ts` needs `ConfigProfile` to describe what it snapshots,
+// this file needs its result type. Both imports are erased at compile time, so the cycle exists in
+// the type graph only - there is no runtime import between the two modules.
+import type { ProfileBaseline } from '../config/profile-baseline'
 import type { TidyUpOp } from '../config/tidy-up'
 
 /**
@@ -36,6 +40,7 @@ export const CONFIG_HANDLERS = {
   setSwitchBind: 'setSwitchBind',
   setWriteUnbindall: 'setWriteUnbindall',
   setSectionHeaderStyle: 'setSectionHeaderStyle',
+  discard: 'discard',
   importScan: 'import.scan',
   importPreview: 'import.preview',
   importCommit: 'import.commit',
@@ -270,6 +275,23 @@ export interface ConfigAction {
  * the classification. Same convention as `writeUnbindall`/`sectionHeaderStyle`: optional,
  * `.catch()`-defaulted in the persisted schema (`main/lib/schemas.ts`), no migration entry - a
  * profile predating this story simply has none of the four fields.
+ *
+ * `baseline` (story 049 D1) is the render-relevant subset of this profile as it stood the last time
+ * the launcher and its `.cfg` agreed - `captureBaseline` (`@shared/config/profile-baseline`), whose
+ * own doc comment covers what is in the subset and why it is a subset of the record rather than the
+ * file's text. It is what "unsaved change" is measured against, and what a discard restores.
+ *
+ * It is (re)seeded at exactly the points `fileHash` is, and by the same calls - `markFileSeen`,
+ * `adoptFromFile` and `addRebuilt` (`main/modules/config/profiles.ts`), plus the one-time format
+ * migration (`main/modules/config/rebuild.ts`). Tying the two together is deliberate (story 049,
+ * Decisions): "the file now holds exactly this" and "this is what unsaved is measured against" are
+ * the same fact, so an external edit adopted by 043's refresh, or a conflict resolved through its
+ * dialog, cannot leave a stale snapshot behind for one of them and not the other.
+ *
+ * Optional, same convention as everything above it: a profile whose canonical file has never been
+ * written - and every profile persisted before this story - simply has no `baseline`, which reads as
+ * "no known saved state" (the bar then reports that and disables discard rather than guessing a
+ * baseline by re-parsing the file).
  */
 export interface ConfigProfile {
   id: string
@@ -289,6 +311,7 @@ export interface ConfigProfile {
   fileSeenAt?: number
   dirty?: boolean
   fileState?: ProfileFileState
+  baseline?: ProfileBaseline
 }
 
 /**
@@ -583,6 +606,41 @@ export interface SetSectionHeaderStyleInput {
   profileId: string
   sectionHeaderStyle: 'dashes' | 'brackets' | 'plain'
 }
+
+/**
+ * Story 049 D3: `discard`'s input - a profile id, nothing else. What is restored is always
+ * `profile.baseline` (`@shared/config/profile-baseline`), never something the caller chooses, so
+ * there is nothing more to carry: discard is "go back to what I last saved", never a partial or
+ * targeted undo (the story's own Decisions: "Discard exists on the profile-wide bar only
+ * (all-or-nothing)").
+ */
+export interface DiscardProfileInput {
+  profileId: string
+}
+
+/**
+ * Story 049 D3: `discard` restored the profile's render-relevant fields to its `baseline` and
+ * returns the full, updated profile list - same "returns the list every mutation returns" shape as
+ * `rename`/`setCvars`/etc., just discriminated on `status` because there is a second, non-mutating
+ * outcome below.
+ */
+export interface DiscardProfileDiscarded {
+  status: 'discarded'
+  profiles: ConfigProfile[]
+}
+
+/**
+ * Story 049 D3: the profile named by `discard`'s input has no `baseline` - never saved, or a
+ * pre-story `state.json` record with `dirty === true` and nothing to fall back to (the Decisions'
+ * "honest for one upgrade cycle instead of guessing a baseline by re-parsing the file"). Nothing was
+ * mutated; the renderer is expected to show why discard is unavailable rather than treat this as a
+ * silent no-op success.
+ */
+export interface DiscardProfileNoBaseline {
+  status: 'noBaseline'
+}
+
+export type DiscardProfileResult = DiscardProfileDiscarded | DiscardProfileNoBaseline
 
 /**
  * Which installation is currently waiting for a retry, and for which profile -

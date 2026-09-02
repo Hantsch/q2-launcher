@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   CONFIG_HANDLERS,
   type ConfigProfile,
+  type DiscardProfileResult,
   type PreviewProfileResult,
   type ProfileSyncState,
   type RawFilesResult,
@@ -758,6 +759,46 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
       expect(await pathExists(join(userDataBox.current, 'Renamed.cfg'))).toBe(false)
       expect(await pathExists(join(dir, 'baseq2', 'Renamed.cfg'))).toBe(false)
     }
+  })
+
+  it('discard restores the baseline and leaves both files byte-identical (story 049 D3)', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot({ installations: [inst] })
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    // The save is what seeds the baseline, and what puts the files there that a discard could clobber.
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const canonical = join(userDataBox.current, 'Profile.cfg')
+    const installationCopy = join(dir, 'baseq2', 'Profile.cfg')
+    const saved = await readFile(canonical, 'latin1')
+    const savedCopy = await readFile(installationCopy, 'latin1')
+
+    // Unsaved edits of three kinds, including the rename that a save would move the file for.
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '99' } })
+    await handlers.get(CONFIG_HANDLERS.setBinds)!({ profileId: 'p1', binds: { x: '+attack' } })
+    await handlers.get(CONFIG_HANDLERS.rename)!({ id: 'p1', name: 'Renamed' })
+
+    const result = (await handlers.get(CONFIG_HANDLERS.discard)!({
+      profileId: 'p1',
+    })) as DiscardProfileResult
+    expect(result.status).toBe('discarded')
+    if (result.status !== 'discarded') throw new Error('unreachable')
+
+    // The returned profile is back at what the file on disk says...
+    const restored = result.profiles.find((p) => p.id === 'p1')!
+    expect(restored.cvars['sensitivity']).toBe('3')
+    expect(restored.binds).toEqual({})
+    expect(restored.name).toBe('Profile')
+    expect(restored.dirty).toBe(false)
+    expect(state.configProfiles()[0]!.name).toBe('Profile')
+
+    // ...and getting there wrote nothing: same bytes in both places, and no file under the name the
+    // profile briefly had. Rendering the restored profile reproduces the file it never touched.
+    expect(await readFile(canonical, 'latin1')).toBe(saved)
+    expect(await readFile(installationCopy, 'latin1')).toBe(savedCopy)
+    expect(renderProfileFile(restored)).toBe(saved)
+    expect(await pathExists(join(userDataBox.current, 'Renamed.cfg'))).toBe(false)
+    expect(await pathExists(join(dir, 'baseq2', 'Renamed.cfg'))).toBe(false)
   })
 
   it('setSectionHeaderStyle (story 042 D7) persists the new style, marks the profile dirty and writes nothing until a save', async () => {

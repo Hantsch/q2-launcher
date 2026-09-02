@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
+import { PencilLine } from 'lucide-react'
 import type { EngineKind } from '@shared/types/engine'
 import { engineLabel } from '@shared/types/engine'
 import type { CvarDef, EngineDisagreement, ResolvedCvar } from '@shared/config/cvar-facts'
@@ -75,11 +76,12 @@ export interface CvarRowProps {
   /** Current value, empty string for "unset" - falls back to the engine/catalog default for display. */
   value: string
   /**
-   * Story 048 D6: whether this row's value differs from `useProfileDraft`'s saved-cvars baseline -
-   * "edited and unsaved," not "differs from the catalogue default" (that stays `isChanged`, used
-   * below only for the default-value text). Computed by the caller (`SettingsTab`'s
-   * `buildCvarGroups` call), not here, so the filter/counters/this border always read the exact
-   * same predicate rather than three separate re-implementations of it.
+   * Story 049 D7: whether this row's key is in the profile's pending change set
+   * (`useProfileChanges().keys.cvars`, `@shared/config/profile-diff`) - "edited and unsaved," not
+   * "differs from the catalogue default" (that stays `isChanged`, used below only for the
+   * default-value text). Computed by the caller (`SettingsTab`'s `buildCvarGroups` call), not here,
+   * so the filter/counters/this border/the glyph below always read the exact same predicate rather
+   * than four separate re-implementations of it.
    */
   edited: boolean
   onChange: (value: string) => void
@@ -308,6 +310,19 @@ export function CvarRow({ def, engine, value, edited, onChange, otherAssignedEng
             {t(def.labelKey)}
           </span>
           <span className="shrink-0 font-mono text-[11px] text-ink-faint">{def.name}</span>
+          {edited && (
+            // Story 049 D7 / AC10: the left border alone is colour-only, so every unsaved row also
+            // carries a shape-based glyph with its own translated `aria-label` - the border stays as
+            // a helpful visual cue, this is the non-colour signal that makes the same fact.
+            <span
+              role="img"
+              aria-label={t('config.cvar.unsavedLabel')}
+              title={t('config.cvar.unsavedLabel')}
+              className="shrink-0 text-flame-500"
+            >
+              <PencilLine aria-hidden className="size-3" />
+            </span>
+          )}
         </div>
         {/*
           Written out in full rather than truncated-with-hover-expand: the row simply grows to fit

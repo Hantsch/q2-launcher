@@ -11,6 +11,7 @@ import { CvarRow } from './components/CvarRow'
 import { EngineScopeSelect } from './components/EngineScopeSelect'
 import { assignedEngineKinds } from './lib/engine-scope'
 import { buildCvarGroups, type CvarGroupResult } from './lib/cvar-rows'
+import { useProfileChanges } from './lib/profile-changes'
 import { updateProfileCvars } from './client'
 
 const SAVE_DEBOUNCE_MS = 500
@@ -36,9 +37,6 @@ export interface SettingsTabProps {
   /** Story 009 D6: the shared in-progress draft, owned by `ConfigView`'s `useProfileDraft`. */
   draft: ConfigProfile
   patch: (partial: Partial<ConfigProfile> | ((prev: ConfigProfile) => Partial<ConfigProfile>)) => void
-  /** Story 048 D6: `useProfileDraft`'s saved-cvars baseline - what "edited" (the filter, the
-   * counters and `CvarRow`'s left-border indicator) compares `draft.cvars` against. */
-  savedCvars: Record<string, string>
   onChanged: (profiles: ConfigProfile[]) => void
 }
 
@@ -46,12 +44,12 @@ export interface SettingsTabProps {
  * The settings/cvar section of a config profile's detail view (story 021 D4): a capped, dense list
  * of every `ALL_CVARS` entry, grouped by `def.group` into sticky-headed Player/Network/Graphics/
  * Sound sections, with a header bar for the catalogue-wide counts, a session-local filter and
- * "changed only" toggle and a per-group Advanced collapse. Both reset affordances ("Reset all" here
+ * "unsaved only" toggle and a per-group Advanced collapse. Both reset affordances ("Reset all" here
  * and the per-row reset in `CvarRow`) were removed in story 048 D5; only the default-value text
  * remains.
  *
  * This rewrite replaces the two hard-coded `PLAYER_CVARS`/`GRAPHICS_CVARS` panels the tab used to
- * render - `buildCvarGroups` (story 021 D1) now owns grouping, filtering and the "changed" count,
+ * render - `buildCvarGroups` (story 021 D1) now owns grouping, filtering and the "edited" count,
  * so this file only wires state to it and to `CvarRow` (D2/D3).
  *
  * Edits write into the shared `draft` (story 009 D6) immediately and persist to the main process,
@@ -67,10 +65,22 @@ export interface SettingsTabProps {
  * engine - never with r1q2's numbers under another engine's name. Both components derive the
  * assigned engines through `lib/engine-scope.ts`, so neither owns a second copy of story 002's
  * assignment cross-reference.
+ *
+ * Story 049 D7: the "edited"/"unsaved" signal for the row border, the filter and both counters comes
+ * from `useProfileChanges()` - the main-process-computed diff of the live profile against its own
+ * `profile.baseline` (`@shared/config/profile-diff`) - not from a renderer-local baseline snapshot
+ * (the old `savedCvars` mechanism, story 048 D6, since removed from `useProfileDraft` for having no
+ * consumer left). That renderer-local baseline lagged an external file adopt or a conflict-dialog
+ * resolution because it only reseeded on this hook's own effect; the change set is reseeded
+ * main-side at exactly those moments, so this tab, the save bar and every other row can never
+ * disagree about what is pending (story 049, Decisions).
  */
-export function SettingsTab({ profile, draft, patch, savedCvars, onChanged }: SettingsTabProps) {
+export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabProps) {
   const { t } = useTranslation()
   const installations = useLauncher((state) => state.installations)
+  // Story 049 D7: the change set every row's "edited"/"unsaved" indicator reads - `ConfigView`
+  // mounts `ProfileChangesProvider` around this tab, so this always resolves rather than throwing.
+  const changeSet = useProfileChanges()
   const [engine, setEngine] = useState<EngineKind | null>(null)
   const [status, setStatus] = useState<SaveStatus>('idle')
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -155,10 +165,11 @@ export function SettingsTab({ profile, draft, patch, savedCvars, onChanged }: Se
       const results = buildCvarGroups(groupDefs, {
         values: draft.cvars,
         engine,
-        // Story 048 D6: `edited` (the filter, the counters below and `CvarRow`'s own indicator)
-        // compares against this baseline, not the catalogue default - see `savedCvars`'s own doc
-        // comment on `SettingsTabProps`.
-        baseline: savedCvars,
+        // Story 049 D7: `edited` (the filter, the counters below and `CvarRow`'s own indicator)
+        // is a lookup into the profile's pending change set, not a comparison against the
+        // catalogue default or a renderer-local baseline - see `useProfileChanges`'s own doc
+        // comment.
+        unsavedKeys: changeSet.keys.cvars,
         filter,
         // `cvar-rows.ts` stays i18n-free (like every other `lib/*.ts` file here); resolving
         // `labelKey`/`descriptionKey` to the English text a user would actually type is this
@@ -171,7 +182,7 @@ export function SettingsTab({ profile, draft, patch, savedCvars, onChanged }: Se
       })
       return results.find((result) => result.group === group)!
     })
-  }, [draft.cvars, engine, savedCvars, filter, editedOnly, expandedGroups, t])
+  }, [draft.cvars, engine, changeSet, filter, editedOnly, expandedGroups, t])
 
   const catalogTotal = groupResults.reduce((sum, group) => sum + group.total, 0)
   const catalogEdited = groupResults.reduce((sum, group) => sum + group.edited, 0)
@@ -220,7 +231,7 @@ export function SettingsTab({ profile, draft, patch, savedCvars, onChanged }: Se
         <Switch
           checked={editedOnly}
           onChange={setEditedOnly}
-          label={t('config.settings.header.editedOnly')}
+          label={t('config.settings.header.unsavedOnly')}
         />
       </div>
 
@@ -276,7 +287,7 @@ export function SettingsTab({ profile, draft, patch, savedCvars, onChanged }: Se
       <p className="flex flex-wrap items-center gap-4 text-xs text-ink-faint">
         <span className="flex items-center gap-1.5">
           <span aria-hidden className="inline-block h-3 w-0.5 bg-flame-600" />
-          {t('config.settings.legend.edited')}
+          {t('config.settings.legend.unsaved')}
         </span>
         <span>{t('config.settings.legend.default')}</span>
       </p>

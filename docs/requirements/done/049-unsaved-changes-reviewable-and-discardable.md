@@ -1,7 +1,7 @@
 ---
 id: 049
 title: I can see what an unsaved change is, review it, and throw it away
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-02
 ---
 
@@ -42,30 +42,30 @@ different thing: "back to what I last saved", never "back to the catalogue's def
 
 ## Acceptance Criteria
 
-- [ ] A cvar row's orange left indicator is on exactly when that row carries an unsaved edit, and
+- [x] A cvar row's orange left indicator is on exactly when that row carries an unsaved edit, and
       goes off when the profile is saved (or the edit is discarded), not when the value happens to
       equal the default.
-- [ ] The Settings tab's filter and the group/catalogue counters mean the same thing as the
+- [x] The Settings tab's filter and the group/catalogue counters mean the same thing as the
       indicator (whatever wording refine settles on), so the header count and the orange rows can
       never disagree.
-- [ ] The unsaved-changes bar can be expanded to show the pending changes as before/after, and
+- [x] The unsaved-changes bar can be expanded to show the pending changes as before/after, and
       collapsed again; the expanded state does not block saving.
-- [ ] The expanded view covers everything a Save would write - cvars, binds, actions, layers and
+- [x] The expanded view covers everything a Save would write - cvars, binds, actions, layers and
       per-profile settings - not only cvars.
-- [ ] The expanded view is readable without hunting: a profile section with no pending change
+- [x] The expanded view is readable without hunting: a profile section with no pending change
       does not contribute noise to it.
-- [ ] The bar offers a discard that returns the profile to the last saved state and clears the
+- [x] The bar offers a discard that returns the profile to the last saved state and clears the
       unsaved-changes indicator on the bar and on every row. It never writes to the file.
-- [ ] Discard is unavailable (not silently a no-op) when there is no saved state to return to -
+- [x] Discard is unavailable (not silently a no-op) when there is no saved state to return to -
       e.g. a profile whose file does not exist yet - and says why.
-- [ ] Discard is confirmed before it destroys work, in the same idiom the existing destructive
+- [x] Discard is confirmed before it destroys work, in the same idiom the existing destructive
       dialogs use.
-- [ ] An external edit adopted by story 043's refresh, or a conflict resolved through its dialog,
+- [x] An external edit adopted by story 043's refresh, or a conflict resolved through its dialog,
       leaves the baseline correct: what the bar and the rows call "unsaved" afterwards is measured
       against the file as it now stands, not against a stale snapshot.
 - [ ] `ui:verify` stays green (0 axe violations) and covers the expanded bar and the discard
       confirm as screens, per the screen-registry convention (story 047).
-- [ ] `/frontend-guidelines` and `/design-tokens` hold - no image assets, tokens only, keyboard
+- [x] `/frontend-guidelines` and `/design-tokens` hold - no image assets, tokens only, keyboard
       reachable, and the indicator is not colour-only.
 
 ## Open Questions
@@ -159,7 +159,7 @@ always-write; nothing here materialises defaults into `profile.cvars`.
 
 ## Deliverables
 
-- **D1 — Baseline field, captured wherever `fileHash` is.**
+- [x] **D1 — Baseline field, captured wherever `fileHash` is.**
   Files: `src/shared/config/profile-baseline.ts` (new) + `.test.ts`, `src/shared/modules/config.ts`,
   `src/main/lib/schemas.ts`, `src/main/modules/config/profiles.ts`,
   `src/main/modules/config/rebuild.ts`, `src/main/modules/config/index.ts`.
@@ -169,7 +169,7 @@ always-write; nothing here materialises defaults into `profile.cvars`.
   import/migration, `profile.baseline` equals `captureBaseline(profile as written)`; a profile that
   has never been saved has no baseline; existing `state.json` records load without error.
 
-- **D2 — Pure `diffProfileAgainstBaseline`.**
+- [x] **D2 — Pure `diffProfileAgainstBaseline`.**
   Files: `src/shared/config/profile-diff.ts` (new) + `profile-diff.test.ts` (new).
   Mirror: `src/shared/config/render-invariants.test.ts` for the test shape, `render.ts` for which
   fields count as "written".
@@ -178,7 +178,7 @@ always-write; nothing here materialises defaults into `profile.cvars`.
   added/removed/changed with before/after strings; a profile equal to its baseline yields an empty
   set; sections with no change are absent from the buckets.
 
-- **D3 — `discard` handler end to end (no UI).**
+- [x] **D3 — `discard` handler end to end (no UI).**
   Files: `src/shared/modules/config.ts` (`CONFIG_HANDLERS.discard`, in/out types),
   `src/main/modules/config/schemas.ts`, `src/main/modules/config/index.ts`,
   `src/main/modules/config/profiles.ts`, `src/renderer/src/modules/config/client.ts`.
@@ -187,13 +187,13 @@ always-write; nothing here materialises defaults into `profile.cvars`.
   the full profile list, and provably writes no `.cfg` (file mtime/content unchanged); discarding a
   profile without a baseline returns a typed "no baseline" outcome instead of succeeding.
 
-- **D4 — Change set in the renderer.**
+- [x] **D4 — Change set in the renderer.**
   Files: `src/renderer/src/modules/config/lib/profile-changes.tsx` (new) + `.test.ts`,
   `src/renderer/src/modules/config/ConfigView.tsx`.
   Acceptance: one memoised change set per selected profile, available to the save bar and every tab
   via `useProfileChanges()`; recomputed when the profile object changes, not on every render.
 
-- **D5 — Expandable bar with the before/after list.**
+- [x] **D5 — Expandable bar with the before/after list.**
   Files: `src/renderer/src/modules/config/components/ProfileSaveBar.tsx`,
   `src/renderer/src/modules/config/components/ProfileChangeList.tsx` (new),
   `src/renderer/src/i18n/locales/en.json`.
@@ -203,7 +203,7 @@ always-write; nothing here materialises defaults into `profile.cvars`.
   stays enabled while expanded, sections without a change are not rendered at all, and cvars, binds,
   actions, layers and per-profile settings all appear.
 
-- **D6 — Discard button, confirm dialog, unavailable state.**
+- [x] **D6 — Discard button, confirm dialog, unavailable state.**
   Files: `src/renderer/src/modules/config/components/ProfileSaveBar.tsx`,
   `src/renderer/src/modules/config/DiscardChangesDialog.tsx` (new),
   `src/renderer/src/modules/config/ConfigView.tsx` (draft reset after discard),
@@ -213,7 +213,7 @@ always-write; nothing here materialises defaults into `profile.cvars`.
   without the `.cfg` changing; with no baseline the button is disabled and a visible sentence next
   to it says why.
 
-- **D7 — Settings: indicator, filter and counters mean "unsaved".**
+- [x] **D7 — Settings: indicator, filter and counters mean "unsaved".**
   Files: `src/renderer/src/modules/config/lib/cvar-rows.ts` + `cvar-rows.test.ts`,
   `src/renderer/src/modules/config/components/CvarRow.tsx`,
   `src/renderer/src/modules/config/SettingsTab.tsx`,
@@ -222,7 +222,7 @@ always-write; nothing here materialises defaults into `profile.cvars`.
   the filter and the group/catalogue counters count the same rows; the printed default value stays;
   `isChanged` is removed if nothing consumes it any more.
 
-- **D8 — Controls, layers and Raw File carry the same marker.**
+- [x] **D8 — Controls, layers and Raw File carry the same marker.**
   Files: `src/renderer/src/modules/config/components/ControlsRow.tsx`,
   `src/renderer/src/styles/controls-grid.css`,
   `src/renderer/src/modules/config/ControlsTab.tsx`,
@@ -234,7 +234,7 @@ always-write; nothing here materialises defaults into `profile.cvars`.
   labelled glyph; the Raw File tab states that N unsaved changes are not in the shown file; nothing
   is marked after a save or discard.
 
-- **D9 — `ui:verify` covers the new screens.**
+- [x] **D9 — `ui:verify` covers the new screens.**
   Files: `scripts/lib/screens.mjs`, plus the `data-testid`s the new components need.
   Acceptance: `config-save-expanded` and `config-discard-confirm` are registered and screenshot;
   `npm run ui:verify` reports 0 axe violations.
@@ -276,3 +276,120 @@ always-write; nothing here materialises defaults into `profile.cvars`.
     confirm.
 
 ## Done
+
+**Summary.** Built the full unsaved/discard mechanism on top of 048's always-write render: a
+`ProfileBaseline` snapshot (`src/shared/config/profile-baseline.ts`) seeded at every site
+`fileHash` already is (save write-back, adopt-from-file, rebuild/migration/import), a pure
+`diffProfileAgainstBaseline` (`src/shared/config/profile-diff.ts`) that measures the live profile
+against it on cvars' *resolved* values (agreeing with `render.ts`/`writeValueFor`), binds, actions,
+layers, per-profile settings (`writeUnbindall`, `sectionHeaderStyle`, `name`) and preserved lines, a
+`discard` IPC handler that restores the baseline without ever touching a file, and a
+`ProfileChangesContext` that feeds one shared change set to the save bar's new expandable
+before/after view + Discard button/dialog and to the Settings/Controls/Layers/Raw-File row markers
+(border + non-colour-only glyph), replacing story 048 D6's renderer-local `savedCvars`/`isEdited`
+mechanism.
+
+**Commit message:** `049: unsaved changes are reviewable and discardable`
+
+**Verification:**
+- `npm run typecheck` - clean (node + web).
+- `npm run build` - clean.
+- `npm test` - 1730/1731 passing; the one failure
+  (`src/main/modules/config/core/import-reader.test.ts`, the 512-file fan-out depth-guard test) is a
+  pre-existing environment-speed timeout, confirmed identical on the unmodified tree before this
+  story and unrelated to any change here (it also passed on a rerun during the review-fix pass).
+- `npm run ui:verify` (P2 live smoke, required per `.claude/ai-scrum.md`) - **now run successfully,
+  fully green**: 52/52 shots written, 0 axe violations, `run: full (26/26 screens)`. The implementing
+  agent's build-time `EPERM` on `.ui-verify/fixture/populated/userdata/...` was not actually an
+  external VS Code process (that diagnosis does not hold up): the orchestrator reproduced it
+  independently with zero Electron/Node/Chrome processes running at all, and a controlled timing
+  test showed the directory's Dawn WebGPU/Graphite cache genuinely stays locked for **up to ~48s**
+  after the Electron session that created it has already fully exited - consistent with Windows
+  real-time AV scanning the freshly-closed cache blobs, not a live handle. Root-caused and fixed at
+  the source: `scripts/lib/fixture.mjs`'s `rmSync` calls now pass Node's own documented
+  `maxRetries`/`retryDelay` remedy for this exact Windows delete-failure class (`RM_RETRY_OPTIONS`,
+  sized with real margin above the measured 48s). Running the suite with this fix also caught one
+  more, unrelated pre-existing regression this story's own new text introduced: `config-conflict-dialog`'s
+  navigate() in `screens.mjs` used a non-exact `getByText('Unsaved changes')`, which this story's
+  own new toggle-button text ("N unsaved changes") and the D8 Raw-File notice both match as a
+  case-insensitive substring, producing a 3-way strict-mode violation once a prior screen in the
+  same shared session had already left the profile dirty. Fixed by making all three
+  `getByText('Unsaved changes')` waits (`config-save-expanded`, `config-discard-confirm`,
+  `config-conflict-dialog`) exact-match. Both fixes are infra/test-harness only - no production code
+  changed - and are included in this story's diff since they were required to actually clear its own
+  P2 gate. **Status moves to `done`.**
+- Code review: one clean `story-review-hard` pass (Model Hints require it for this story). Initial
+  verdict **FAIL** on two confirmed defects; both fixed in a review-fix cycle (1 of the allowed 3),
+  then build/test/typecheck re-verified green as above. No second review round was run since both
+  blocking findings were concrete and independently verified by tests that reproduced the bug before
+  the fix.
+
+**Review-fix cycle (findings and outcomes):**
+- **Fixed** - Discard did not restore a renamed profile's `name` (only cvars/binds/actions/layers/
+  settings were in `ProfileBaseline`). Added `name` to `ProfileBaseline`/`captureBaseline`, to the
+  diff (`settings` section, key `name`) and to `discard`'s restore, plus a rename-then-discard test
+  in both `profile-diff.test.ts`/`profiles.test.ts` that reproduced the bug before the fix
+  (`expected 'Renamed' to be 'Profile'`) and passes after it. `src/main/lib/schemas.ts`'s persisted
+  baseline schema keeps `name` optional and back-fills it from the profile's own `name` on read, so
+  a `state.json` written before this fix (a baseline with no `name`) still loads instead of the
+  whole baseline being dropped as malformed.
+- **Fixed** - `scripts/lib/screens.mjs`'s two new D9 screens toggled the same boolean
+  (`writeUnbindall`) the pre-existing `config-conflict-dialog` screen also toggles, on a fixture
+  shared across all `populated`-variant screens in one run - order-dependent and flaky. Switched
+  both to selecting an explicit, different `sectionHeaderStyle` value (`'brackets'`, the fixture's
+  baseline is always `'dashes'`), which is idempotent regardless of what any other screen already
+  did.
+- **Fixed** (hardening, not a defect) - added an end-to-end `discard` test in `index.test.ts`
+  asserting the canonical `.cfg`'s mtime/content are byte-identical before and after a discard, and
+  removed the now-dead `savedCvars` state from `useProfileDraft.ts` (D7 replaced its only consumer;
+  zero references remained outside its own file and historical comments).
+- **Accepted, documented, not fixed** - `ProfileBaseline`/the diff's six fixed sections (per this
+  story's own Plan) exclude `categories`: a category-rename-only edit (no action/cvar change) marks
+  the profile dirty and is silently reverted by Discard without ever appearing in the before/after
+  list. This was an explicit Plan decision (`profile-diff.ts`'s own doc comment: "the profile's
+  custom category names... have no change row of their own here"), not an implementation gap;
+  narrow in practice since `setActions` always writes `categories` and `actions` together, so a
+  pure category-only edit is rare. Left as a known limitation for a future story rather than
+  reopened here.
+- **Accepted, documented, not fixed** - the diff's `unrecognized`/preserved-lines section (also an
+  explicit Plan-listed section) compares data `render.ts` never actually writes into the `.cfg` (a
+  file-only-when-launcher-owns-it corner: preserved lines are cache bookkeeping, not rendered
+  content). A tidy-up that only reclassifies a preserved line can show a "pending change" and bump
+  the bar's count even though a Save would produce a byte-identical file. Matches the Plan's
+  explicit section list; left as-is rather than redesigning the six-section shape mid-review.
+- **Accepted, documented, not fixed** - a debounced Settings/Controls save in flight at the moment a
+  user confirms Discard (the 500ms window between a keystroke and its autosave landing) can, in a
+  narrow race, re-persist the pre-discard value shortly after the discard completes. Neither tab's
+  debounce is currently cancellable from outside; fixing this cleanly needs a small API addition to
+  both tabs' save-scheduling and was judged out of scope for a review-fix cycle. Flagged as
+  `PLAUSIBLE`, not `CONFIRMED`, by the reviewer.
+- **Accepted, documented, not fixed** - typing a numeric- or boolean-spelling-equivalent edit into a
+  cvar (e.g. `3` -> `3.0`, or `1` -> `true`) marks the profile `dirty` (a real `setCvars` call ran)
+  but the resolved-value diff correctly reports no change (the file would be byte-identical) - so
+  the bar's "Unsaved changes" badge can show with no disclosure button and no row marked. This is
+  the deliberate, documented consequence of comparing *resolved* values the way `render.ts` actually
+  writes them (`profile-diff.ts`'s own `sameCvarValue` doc comment), which is what keeps AC1
+  ("indicator on exactly when the row differs from the file, never from the catalogue default")
+  true; `dirty` itself is a coarser, main-side "did any setter run" flag from story 043 and was
+  never claimed to agree with the finer-grained diff.
+- **Documentation-only correction** - AC7/the manual Test Plan's step 8 example ("create a new
+  profile that has never been saved") does not exercise the "no baseline" / disabled-Discard path:
+  story 043's `create` handler writes the canonical file immediately and seeds a baseline in the
+  same call, so every profile has a baseline the instant it exists. The mechanism itself is correct
+  and unit-tested (a pre-049 `state.json` record with `dirty: true` and no `baseline` field is the
+  actually-reachable case, per this story's own Decisions - "honest for one upgrade cycle"); only
+  the AC's illustrative example predates that realization. Not changed here since the AC's intent
+  ("says why when there's no saved state") is met by the legacy-record path.
+
+**Decisions (implementation-time, beyond what refine already settled):**
+- `name` was added to `ProfileBaseline`/the diff/`discard`'s restore even though the Plan's baseline
+  field list (Plan item 1) did not name it - discovered as a real AC6 gap during review (a rename
+  survives Discard otherwise), not a scope choice; the persisted schema keeps it optional and
+  back-fills from the live profile's name so an already-persisted pre-fix baseline still loads.
+- Kept `isChanged` (`cvar-rows.ts`) - it now serves only the differs-from-catalogue-default text in
+  the value cell, a distinct concept from the "unsaved" border/glyph, per this story's own Decisions
+  ("changed-vs-default information stays available through the default value printed in the value
+  cell").
+- The row-marker glyph idiom (D7 cvars, D8 Controls/Layers) is a small `PencilLine` icon with a
+  translated `aria-label` next to the row's name, consistently reused across all three surfaces
+  rather than three different non-colour-only treatments.

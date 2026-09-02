@@ -15,6 +15,7 @@ import {
   updateProfileWriteUnbindall,
 } from './client'
 import { ConfigCodeView } from './components/ConfigCodeView'
+import { useProfileChanges } from './lib/profile-changes'
 import { RawConfigPanel } from './RawConfigPanel'
 
 /**
@@ -37,6 +38,10 @@ export function RawFileTab({
   const { t } = useTranslation()
   const pushToast = useLauncher((state) => state.pushToast)
   const installations = useLauncher((state) => state.installations)
+  // Story 049 D8: this tab shows the on-disk file, so the honest statement about pending edits is
+  // a notice, not a per-row border (the story's own Decisions) - the same change set the save bar
+  // and every other tab read (`useProfileChanges`, `lib/profile-changes.tsx`).
+  const changeSet = useProfileChanges()
 
   const [loading, setLoading] = useState(true)
   const [result, setResult] = useState<Outcome<RawFilesResult> | null>(null)
@@ -180,6 +185,11 @@ export function RawFileTab({
         </div>
         {!canonical.onDisk && (
           <p className="text-xs text-ink-muted">{t('config.raw.ownNotOnDisk')}</p>
+        )}
+        {changeSet.count > 0 && (
+          <p className="text-xs text-ink-muted">
+            {t('config.raw.unsavedNotice', { count: changeSet.count })}
+          </p>
         )}
         <div className="space-y-1">
           <Checkbox

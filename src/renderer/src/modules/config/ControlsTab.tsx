@@ -34,6 +34,7 @@ import { ControlsOptionsCell } from './components/ControlsOptionsCell'
 import { ControlsRow } from './components/ControlsRow'
 import { MessageEditor } from './components/MessageEditor'
 import { updateProfileActions } from './client'
+import { useProfileChanges } from './lib/profile-changes'
 import { findBindConflicts, findSlotConflictOwner, indexBindConflicts } from './lib/bind-conflicts'
 import {
   applyModifierReplace,
@@ -106,6 +107,10 @@ export interface ControlsTabProps {
  */
 export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabProps) {
   const { t } = useTranslation()
+  // Story 049 D8: the profile's pending change set, read once here so `renderCatalogRow`/
+  // `renderPlainActionRow` can each ask "is my action id in `keys.actions`" - same predicate the
+  // save bar's badge and count use (`useProfileChanges`, `lib/profile-changes.tsx`).
+  const changeSet = useProfileChanges()
 
   // Story 009 D6: `localCategories`/`localActions` used to live here as their
   // own `useState`; they are now `draft.categories`/`draft.actions`, lifted
@@ -719,6 +724,11 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
     const message = isDropRow ? deriveRowState(action, row).message : ''
     const showMessageRow =
       isDropRow && (message.trim().length > 0 || revealedMessageRows.has(row.catalogId))
+    // Story 049 D8: an unbound catalogue row has no materialised `action`, so there is nothing
+    // about it that could carry an unsaved edit yet - once a bind/message is set it gets an
+    // `action` (see `messageEditorSeed`/the catalogue write paths above), and only then can it
+    // appear in `changeSet.keys.actions`.
+    const edited = action ? changeSet.keys.actions.has(action.id) : false
     return (
       <ControlsRow
         key={row.catalogId}
@@ -727,6 +737,7 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
         resetLabel={t('config.controls.actions.reset', { name: label })}
         onReset={() => handleResetCatalogRow(row)}
         odd={odd}
+        edited={edited}
         primarySlot={renderCatalogSlot(row, action, 'primary')}
         secondarySlot={renderCatalogSlot(row, action, 'secondary')}
         optionsCell={renderCatalogOptionsCell(row, action)}
@@ -850,6 +861,7 @@ export function ControlsTab({ profile, draft, patch, onChanged }: ControlsTabPro
         resetLabel={t('config.controls.actions.reset', { name: action.name })}
         onReset={() => handleResetAction(action.id)}
         odd={odd}
+        edited={changeSet.keys.actions.has(action.id)}
         primarySlot={inertSlots ? <BindSlotPlaceholder /> : renderPlainSlot(action, 'primary')}
         secondarySlot={inertSlots ? <BindSlotPlaceholder /> : renderPlainSlot(action, 'secondary')}
         optionsCell={

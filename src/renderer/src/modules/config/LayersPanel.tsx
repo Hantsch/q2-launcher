@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil, PencilLine, Plus, Trash2 } from 'lucide-react'
 import {
   generateLayerAliases,
   type AltLayer,
@@ -14,6 +14,7 @@ import { Field, Input, Select } from '../../components/ui/controls'
 import { Modal } from '../../components/ui/Modal'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
 import { updateProfileLayers } from './client'
+import { useProfileChanges } from './lib/profile-changes'
 
 /**
  * Issue keys shown in D5's per-layer banner. `layer.plusbind` is now included:
@@ -55,6 +56,9 @@ export function LayersPanel({
 }) {
   const { t } = useTranslation()
   const layers = profile.layers ?? []
+  // Story 049 D8: same "is this in the pending change set" predicate the save bar and the
+  // Controls rows read (`useProfileChanges`, `lib/profile-changes.tsx`), applied to layers.
+  const changeSet = useProfileChanges()
 
   const [showCreate, setShowCreate] = useState(false)
   const [renamingLayer, setRenamingLayer] = useState<AltLayer | null>(null)
@@ -156,12 +160,33 @@ export function LayersPanel({
             const visibleIssues = preview?.issues.filter((issue) =>
               VISIBLE_ISSUE_KEYS.has(issue.key),
             )
+            const edited = changeSet.keys.layers.has(layer.id)
 
             return (
-              <li key={layer.id} className="space-y-2 rounded-sm border border-line px-2.5 py-2">
+              <li
+                key={layer.id}
+                className={cn(
+                  'space-y-2 rounded-sm border border-line px-2.5 py-2',
+                  edited && 'border-l-2 border-l-flame-600',
+                )}
+              >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="min-w-0 truncate text-sm text-ink">{layer.name}</span>
+                    {edited && (
+                      // Story 049 D8 / AC10: the left border alone is colour-only, so an edited
+                      // layer also carries a shape-based glyph with its own translated
+                      // `aria-label` - mirrors `CvarRow.tsx`/`ControlsRow.tsx`'s identical
+                      // treatment (story 049 D7/D8).
+                      <span
+                        role="img"
+                        aria-label={t('config.layersPanel.unsavedLabel')}
+                        title={t('config.layersPanel.unsavedLabel')}
+                        className="shrink-0 text-flame-500"
+                      >
+                        <PencilLine aria-hidden className="size-3" />
+                      </span>
+                    )}
                     <div className="w-28 shrink-0">
                       <Select
                         aria-label={t('config.layersPanel.modeLabel')}

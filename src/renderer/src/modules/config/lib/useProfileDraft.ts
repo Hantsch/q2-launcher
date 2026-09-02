@@ -77,13 +77,17 @@ export interface UseProfileDraftResult {
    */
   patch: (partial: Partial<ConfigProfile> | ((prev: ConfigProfile) => Partial<ConfigProfile>)) => void
   /**
-   * Story 048 D6: a snapshot of `profile.cvars` taken the last time the profile was known to have
-   * no pending cvar edits - "edited" (`isEdited` in `cvar-rows.ts`) means "differs from this",
-   * never "differs from the catalogue default". Deliberately an interim, cvar-scoped baseline (a
-   * later story widens it to the whole profile) - see this hook's own doc comment for the seeding
-   * rules.
+   * Story 049 D6: force-adopts `profile` as the draft outright, bypassing `mergeProfileUpdate`'s
+   * usual "keep locally-patched fields that have not echoed back yet" rule. A discard restores
+   * `cvars`/`categories`/`actions` to the baseline *without* going through `patch()`, so from this
+   * hook's point of view it looks like a same-id update whose incoming fields simply disagree with
+   * whatever the draft has in flight - `dirtyRef` would keep treating the draft's now-stale values
+   * as "the edit main hasn't echoed back yet" and never let the reverted baseline through
+   * (`mergeProfileUpdate`'s field-freeze only clears once the incoming profile matches the *draft*,
+   * which discard deliberately does not). Callers that just discarded must call this instead of
+   * relying on the reconcile effect to notice on its own.
    */
-  savedCvars: Record<string, string>
+  resetDraft: (profile: ConfigProfile) => void
 }
 
 /**
@@ -129,16 +133,6 @@ export function useProfileDraft(profile: ConfigProfile | null): UseProfileDraftR
    */
   const dirtyRef = useRef<Set<LocallyPatchedField>>(new Set())
 
-  /**
-   * Story 048 D6's "edited" baseline - see `UseProfileDraftResult.savedCvars`'s doc comment for
-   * what it means. Seeded from whatever `profile` this hook is first handed, which is exactly
-   * "the current cvars at this moment" for a profile that just arrived (there is no other draft
-   * yet to disagree with it) - so a profile that loads already `dirty: true` still starts every row
-   * unedited, per the sprint decision that a pre-existing, unsaved difference must not retroactively
-   * light up as "just edited".
-   */
-  const [savedCvars, setSavedCvars] = useState<Record<string, string>>(profile?.cvars ?? {})
-
   useEffect(() => {
     const prev = draftRef.current
     const isNewProfile = !profile || !prev || prev.id !== profile.id
@@ -152,23 +146,6 @@ export function useProfileDraft(profile: ConfigProfile | null): UseProfileDraftR
     const merged = mergeProfileUpdate(prev, profile, dirtyRef.current)
     draftRef.current = merged
     setDraft(merged)
-
-    // Baseline reseed. Three cases:
-    // - No profile at all (selection cleared): nothing to compare against.
-    // - A fresh profile (switch, or the very first one this hook ever saw): the baseline is
-    //   exactly its own `cvars` - `merged` above equals `profile` in this branch too, so there is
-    //   no local edit this could be discarding.
-    // - The same profile, and it now reads as not dirty (`dirty !== true`, the `false`/`undefined`
-    //   convention `main/modules/config` already uses elsewhere): a save just landed, or an
-    //   external reload replaced the cache outright - either way "what is saved" moved, so the
-    //   baseline resets to it and every previously-edited row's marker clears.
-    // Anything else (same profile, still `dirty: true`) is a same-id update to a field *other*
-    // than cvars (categories/actions/name/...) - the baseline is left exactly as it was.
-    if (!profile) {
-      setSavedCvars({})
-    } else if (isNewProfile || profile.dirty !== true) {
-      setSavedCvars(profile.cvars)
-    }
   }, [profile])
 
   const patch = (
@@ -185,5 +162,17 @@ export function useProfileDraft(profile: ConfigProfile | null): UseProfileDraftR
     setDraft(next)
   }
 
-  return { draft, patch, savedCvars }
+  /**
+   * Story 049 D6: see `UseProfileDraftResult.resetDraft`'s doc comment. Clears `dirtyRef` outright
+   * (there is nothing left "in flight" once the caller has decided to force-adopt `profile`
+   * verbatim) - a discard clears `dirty` on the server profile (D3), so this mirrors what the
+   * effect would do itself if `dirtyRef` were not in the way.
+   */
+  const resetDraft = (profile: ConfigProfile): void => {
+    dirtyRef.current = new Set()
+    draftRef.current = profile
+    setDraft(profile)
+  }
+
+  return { draft, patch, resetDraft }
 }

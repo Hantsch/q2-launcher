@@ -3,8 +3,9 @@ import { configProfileSchema, parseConfigProfiles } from './schemas'
 import { setProfileActionsInputSchema } from '../modules/config/schemas'
 import { legacyAliasNameFor } from '@shared/config/alias-render'
 import { bindValueFor } from '@shared/config/action-mirror'
+import { captureBaseline } from '@shared/config/profile-baseline'
 import { validateActions } from '@shared/config/validate-actions'
-import type { ConfigAction } from '@shared/modules/config'
+import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 
 /**
  * Story 008's persisted-state shape for `ConfigProfile.categories`/`.actions`. Unlike `layers`
@@ -533,5 +534,62 @@ describe('configProfileSchema - legacy alias references migrated on read (story 
     expect(validateActions(once.actions, 'r1q2', { binds: once.binds, layers: once.layers })).toEqual(
       [],
     )
+  })
+})
+
+/**
+ * Story 049 D1: the last-saved `baseline` snapshot. The field is `.optional().catch(undefined)`, so
+ * a schema that did not match what `captureBaseline` produces would drop every baseline *silently* -
+ * the launcher would just quietly forget what "unsaved" means across a restart. Hence the round-trip
+ * assertion below, next to the two forgiving cases the `.catch()` exists for.
+ */
+describe('configProfileSchema - baseline (story 049)', () => {
+  const baseProfile = {
+    id: 'p1',
+    name: 'My profile',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    assignments: [],
+  }
+
+  const profileWithContent: ConfigProfile = {
+    ...baseProfile,
+    cvars: { sensitivity: '4.5' },
+    binds: { w: '+forward' },
+    layers: [{ id: 'l1', name: 'Alt', mode: 'hold', triggerKey: 'ALT', overrides: { r: '+attack' } }],
+    categories: [{ id: 'c1', name: 'Chat' }],
+    actions: [
+      {
+        id: 'a1',
+        categoryId: 'c1',
+        name: 'gg',
+        kind: 'message',
+        commands: [{ kind: 'message', channel: 'say', text: 'gg' }],
+        key: 'F1',
+      },
+    ],
+    writeUnbindall: false,
+    sectionHeaderStyle: 'brackets',
+    unrecognized: [{ file: 'config.cfg', line: 12, text: 'somethingodd 1' }],
+  }
+
+  it('round-trips a captured baseline unchanged', () => {
+    const baseline = captureBaseline(profileWithContent)
+    const result = configProfileSchema.parse({ ...profileWithContent, baseline })
+    expect(result.baseline).toEqual(baseline)
+  })
+
+  it('leaves a profile with no baseline key undefined rather than failing (every pre-049 record)', () => {
+    expect(configProfileSchema.parse(baseProfile).baseline).toBeUndefined()
+  })
+
+  it('degrades a malformed baseline to undefined instead of dropping the profile', () => {
+    const result = configProfileSchema.parse({
+      ...baseProfile,
+      cvars: { sensitivity: '4.5' },
+      baseline: { cvars: 'not a map' },
+    })
+    expect(result.baseline).toBeUndefined()
+    expect(result.cvars).toEqual({ sensitivity: '4.5' })
   })
 })

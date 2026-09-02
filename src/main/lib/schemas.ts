@@ -9,6 +9,7 @@ import {
   stripAliasActionOverrides,
   type ModifierTrigger,
 } from '@shared/config/modifier-layers'
+import type { ProfileBaseline } from '@shared/config/profile-baseline'
 import type {
   ActionEntryKind,
   ConfigAction,
@@ -184,6 +185,53 @@ const configActionPersistedSchema = z.object({
 })
 
 /**
+ * Story 049 D1: the persisted `ProfileBaseline` - the snapshot of the profile as its `.cfg` last
+ * had it, which "unsaved change" is measured against and which a discard restores.
+ *
+ * Strict *within* the field, forgiving *about* it: every member but `name` (see below) is required
+ * here (a half-read
+ * snapshot is worse than none - it would report changes that are not changes, and a discard would
+ * then destroy real work), and the whole field degrades to `undefined` at the call site below
+ * (`.optional().catch(undefined)`), which is the documented "no known saved state" reading.
+ *
+ * The action rows reuse `configActionPersistedSchema` above with one change: `kind` is required
+ * here, defaulted rather than left `undefined`. `normalizeConfigProfile`'s derive-from-the-category
+ * fallback cannot apply to a snapshot (it has no legacy `entryKind` to read - every baseline was
+ * written by this story or later), so `'bind'` is the same last-resort answer that function gives,
+ * for the same reason: it is the only kind an entry of unknown type can safely be.
+ *
+ * The live fields are additionally normalised on read (`normalizeConfigProfile`: legacy alias
+ * references, the alias strip, `adoptRawBinds`); the snapshot deliberately is not. Every baseline
+ * this schema can encounter was captured *after* those passes had already run on the record it came
+ * from (`ProfilesStore` seeds it post-adoption), so re-running them would be a no-op at best and a
+ * second, divergent normalisation rule at worst.
+ *
+ * `name` is the one member this schema does *not* require, and the one whose absence is not a
+ * half-read snapshot: it joined `ProfileBaseline` after the field first shipped (review finding,
+ * story 049), so a baseline written in between carries every other member and simply no name.
+ * Dropping the whole snapshot over it would disable discard and hide real pending changes;
+ * `normalizeConfigProfile` below instead completes it from the profile's *current* name, which
+ * reads as "the name was never tracked, so it is not what changed" - the same treat-it-as-its-own-
+ * baseline idiom the story uses for a profile with no snapshot at all, and never a phantom rename
+ * that a discard would then "restore" over the real name.
+ */
+type PersistedProfileBaseline = Omit<ProfileBaseline, 'name'> & { name?: string }
+
+const profileBaselinePersistedSchema: z.ZodType<PersistedProfileBaseline> = z.object({
+  name: z.string().optional(),
+  cvars: z.record(z.string(), z.string()),
+  binds: z.record(z.string(), z.string()),
+  layers: z.array(altLayerPersistedSchema),
+  categories: z.array(z.object({ id: z.string().min(1), name: z.string().min(1) })),
+  actions: z.array(
+    configActionPersistedSchema.extend({ kind: actionEntryKindPersistedSchema.catch('bind') }),
+  ),
+  writeUnbindall: z.boolean(),
+  sectionHeaderStyle: z.enum(['dashes', 'brackets', 'plain']),
+  unrecognized: z.array(z.object({ file: z.string(), line: z.number(), text: z.string() })),
+})
+
+/**
  * Parses `raw` as an array, keeping only the elements that pass `schema` and dropping the rest -
  * the row-level counterpart to a whole-field `.catch()`. Same idea as `parseInstallations`/
  * `parseConfigProfiles` below, generalized so `categories` and `actions` can reuse it instead of
@@ -266,6 +314,13 @@ const configProfileObjectSchema = z.object({
     .enum(['unchanged', 'changedOnDisk', 'missing', 'unparseable', 'readError'])
     .optional()
     .catch(undefined),
+  // Story 049 D1: the last-saved snapshot (`profileBaselinePersistedSchema` above). Additive and
+  // forgiving in exactly the shape of `fileHash` right above - a profile persisted before this
+  // story, or one whose canonical file has never been written, simply has no key here, and a
+  // hand-mangled one degrades to the same absent value rather than dropping the profile. Both read
+  // as "no known saved state": nothing is reported as unsaved and discard is unavailable, which is
+  // the honest answer for one upgrade cycle (story 049, Decisions) - never a guessed baseline.
+  baseline: profileBaselinePersistedSchema.optional().catch(undefined),
 })
 
 /**
@@ -458,8 +513,15 @@ function normalizeConfigProfile(
     randomUUID,
   )
 
+  // Story 049 (review finding): complete a baseline written before `name` was part of the snapshot.
+  // Only reachable here, at profile level - the baseline's own schema cannot see the sibling `name`,
+  // exactly like the `kind` derive above cannot see `categories`. Taken out of the spread rather
+  // than written over it, so "no baseline" stays an absent key instead of a present `undefined` one.
+  const { baseline, ...rest } = parsed
+
   return {
-    ...parsed,
+    ...rest,
+    ...(baseline ? { baseline: { ...baseline, name: baseline.name ?? parsed.name } } : {}),
     categories: parsed.categories.map(({ id, name }) => ({ id, name })),
     actions: adopted.actions,
     binds: adopted.binds,

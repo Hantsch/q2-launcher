@@ -12,6 +12,8 @@ import {
 import type { AltLayer } from '@shared/config/alt-layers'
 import { StateStore } from '../../services/state'
 import { aliasNameFor } from '@shared/config/alias-render'
+import { captureBaseline } from '@shared/config/profile-baseline'
+import { diffProfileAgainstBaseline } from '@shared/config/profile-diff'
 import { ProfilesStore } from './profiles'
 import { renderProfileFile } from './render'
 import {
@@ -1061,6 +1063,201 @@ describe('ProfilesStore', () => {
       const railgun = (persisted.actions ?? []).find((a) => a.catalogId === 'weaponUse:use_railgun')!
       expect(railgun.key).toBe('q')
       expect(persisted.binds['q']).toBe(aliasNameFor(railgun))
+    })
+  })
+
+  /**
+   * Story 049 D1: the last-saved `baseline` is seeded at exactly the points `fileHash` is, and from
+   * the record as it is actually stored - i.e. *after* the `adoptProfileBinds` pass `commit` runs
+   * over everything. A snapshot taken before that pass would differ from the stored profile in
+   * `binds`/`actions` and make a freshly adopted profile report unsaved changes it does not have.
+   */
+  describe('story 049: the last-saved baseline', () => {
+    it('is absent on a profile whose file has never been confirmed', () => {
+      const [created] = profiles.create({ name: 'Never saved', from: 'template' })
+      expect(created!.baseline).toBeUndefined()
+    })
+
+    it('is seeded by markFileSeen and left alone by a later edit', () => {
+      const [created] = profiles.create({ name: 'Saved', from: 'empty' })
+      const seen = profiles
+        .markFileSeen(created!.id, 'hash-1', 1_700_000_000_000)
+        .find((p) => p.id === created!.id)!
+
+      expect(seen.baseline).toEqual(captureBaseline(seen))
+      expect(seen.baseline!.cvars).toEqual({})
+
+      // An edit is exactly what the baseline must NOT follow - that is the unsaved change.
+      const edited = profiles
+        .setCvars({ profileId: created!.id, cvars: { sensitivity: '4.5' } })
+        .find((p) => p.id === created!.id)!
+      expect(edited.baseline!.cvars).toEqual({})
+      expect(edited.cvars).toEqual({ sensitivity: '4.5' })
+    })
+
+    it('is seeded by adoptFromFile from the adopted, stripped fields - not from the raw file ones', () => {
+      const [created] = profiles.create({ name: 'Adopting', from: 'empty' })
+      const adopted = profiles
+        .adoptFromFile(
+          created!.id,
+          {
+            name: 'From the file',
+            cvars: { sensitivity: '4.5' },
+            // A hand-added raw catalogue bind: the adoption pass turns this into the Controls row's
+            // own action and rewrites the bind, so the stored record is not the one passed in here.
+            binds: { q: 'use railgun' },
+            actions: [],
+            categories: [],
+            layers: [],
+            writeUnbindall: false,
+            sectionHeaderStyle: 'brackets',
+          },
+          'hash-2',
+          1_700_000_000_001,
+        )
+        .find((p) => p.id === created!.id)!
+
+      const railgun = (adopted.actions ?? []).find((a) => a.catalogId === 'weaponUse:use_railgun')!
+      expect(adopted.baseline).toEqual(captureBaseline(adopted))
+      expect(adopted.baseline!.binds).toEqual({ q: aliasNameFor(railgun) })
+      expect(adopted.baseline!.actions).toEqual(adopted.actions)
+      expect(adopted.baseline!.writeUnbindall).toBe(false)
+      expect(adopted.baseline!.sectionHeaderStyle).toBe('brackets')
+    })
+
+    it('is seeded by addRebuilt, and survives a reload of state.json', async () => {
+      const rebuilt = profiles
+        .addRebuilt({
+          id: 'rebuilt-1',
+          name: 'Rebuilt',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          cvars: { sensitivity: '4.5' },
+          binds: { q: 'use railgun' },
+          assignments: [],
+          fileHash: 'hash-3',
+          fileSeenAt: 1_700_000_000_002,
+          dirty: false,
+          fileState: 'unchanged',
+        })
+        .find((p) => p.id === 'rebuilt-1')!
+
+      expect(rebuilt.baseline).toEqual(captureBaseline(rebuilt))
+      await state.settle()
+
+      const reloaded = new StateStore(filePath)
+      await reloaded.load()
+      const persisted = new ProfilesStore(reloaded).find('rebuilt-1')!
+      expect(persisted.baseline).toEqual(rebuilt.baseline)
+      // And the record it describes still matches it, so nothing reads as unsaved after a restart.
+      expect(persisted.baseline).toEqual(captureBaseline(persisted))
+    })
+  })
+
+  /**
+   * Story 049 D3: `discard` restores a profile's content to its `baseline`, without writing any
+   * file - `ProfilesStore.discard` never imports or calls anything from `./writer`/`./sync`/
+   * `./canonical` (the file-writing modules), so this is structurally, not just behaviourally, a
+   * no-file-touched operation. Verified here purely against the in-memory `ProfilesStore`/
+   * `StateStore` pair the rest of this file already uses - no real filesystem profile file is ever
+   * created for these tests, so there is nothing for `discard` to have touched.
+   */
+  describe('discard (story 049 D3)', () => {
+    it('restores every baseline-covered field, clears dirty, and bumps updatedAt', async () => {
+      const [created] = profiles.create({ name: 'Saved', from: 'empty' })
+      const seen = profiles
+        .markFileSeen(created!.id, 'hash-1', 1_700_000_000_000)
+        .find((p) => p.id === created!.id)!
+      const savedUpdatedAt = seen.updatedAt
+
+      // Edit everything the baseline covers.
+      profiles.rename({ id: created!.id, name: 'Renamed' })
+      profiles.setCvars({ profileId: created!.id, cvars: { sensitivity: '4.5' } })
+      profiles.setBinds({ profileId: created!.id, binds: { q: 'use railgun' } })
+      profiles.setWriteUnbindall({ profileId: created!.id, writeUnbindall: false })
+      profiles.setSectionHeaderStyle({ profileId: created!.id, sectionHeaderStyle: 'brackets' })
+      const edited = profiles.setDirty(created!.id, true).find((p) => p.id === created!.id)!
+      expect(edited.dirty).toBe(true)
+      expect(edited.cvars).toEqual({ sensitivity: '4.5' })
+
+      await new Promise((resolve) => setTimeout(resolve, 2))
+      const result = profiles.discard(created!.id)
+      expect(result.outcome).toBe('discarded')
+      if (result.outcome !== 'discarded') throw new Error('unreachable')
+
+      const discarded = result.profiles.find((p) => p.id === created!.id)!
+      expect(discarded.name).toBe(seen.baseline!.name)
+      expect(discarded.cvars).toEqual(seen.baseline!.cvars)
+      expect(discarded.binds).toEqual(seen.baseline!.binds)
+      expect(discarded.writeUnbindall).toBe(seen.baseline!.writeUnbindall)
+      expect(discarded.sectionHeaderStyle).toBe(seen.baseline!.sectionHeaderStyle)
+      expect(discarded.layers).toEqual(seen.baseline!.layers)
+      expect(discarded.categories).toEqual(seen.baseline!.categories)
+      expect(discarded.actions).toEqual(seen.baseline!.actions)
+      expect(discarded.unrecognized).toEqual(seen.baseline!.unrecognized)
+      expect(discarded.dirty).toBe(false)
+      expect(discarded.updatedAt).not.toBe(savedUpdatedAt)
+
+      // The cache-of-the-file fields are untouched by a discard - it never wrote anything.
+      expect(discarded.fileHash).toBe(seen.fileHash)
+      expect(discarded.fileSeenAt).toBe(seen.fileSeenAt)
+      expect(discarded.fileState).toBe(seen.fileState)
+      expect(discarded.baseline).toEqual(seen.baseline)
+    })
+
+    it('restores the name after a rename, the one edit that reaches the file without writing it', () => {
+      // Review finding: a `rename` marks the profile dirty and defers both the header banner and the
+      // file rename to the next save (story 043), so it is pending file content like any cvar edit.
+      // Before the fix the diff did not see it and the discard left the profile renamed - every
+      // other field back at the last saved state, the name not.
+      const [created] = profiles.create({ name: 'Saved', from: 'empty' })
+      const seen = profiles
+        .markFileSeen(created!.id, 'hash-1', 1_700_000_000_000)
+        .find((p) => p.id === created!.id)!
+      expect(seen.baseline!.name).toBe('Saved')
+
+      const renamed = profiles
+        .rename({ id: created!.id, name: 'Renamed' })
+        .find((p) => p.id === created!.id)!
+      expect(renamed.name).toBe('Renamed')
+      // The baseline still describes the file, which no rename has reached.
+      expect(renamed.baseline!.name).toBe('Saved')
+
+      const pending = diffProfileAgainstBaseline(renamed)
+      expect(pending.sections.settings).toEqual([
+        {
+          section: 'settings',
+          kind: 'changed',
+          key: 'name',
+          label: 'name',
+          before: 'Saved',
+          after: 'Renamed',
+        },
+      ])
+
+      const result = profiles.discard(created!.id)
+      if (result.outcome !== 'discarded') throw new Error('unreachable')
+      const discarded = result.profiles.find((p) => p.id === created!.id)!
+
+      expect(discarded.name).toBe('Saved')
+      expect(discarded.dirty).toBe(false)
+      // ...and the profile now genuinely equals its baseline again: nothing pending at all.
+      expect(diffProfileAgainstBaseline(discarded).count).toBe(0)
+    })
+
+    it('returns noBaseline and mutates nothing for a profile that was never saved', () => {
+      const [created] = profiles.create({ name: 'Never saved', from: 'template' })
+      expect(created!.baseline).toBeUndefined()
+
+      const result = profiles.discard(created!.id)
+      expect(result).toEqual({ outcome: 'noBaseline' })
+
+      const unchanged = profiles.find(created!.id)!
+      expect(unchanged).toEqual(created)
+    })
+
+    it('throws for an unknown profile id', () => {
+      expect(() => profiles.discard('missing')).toThrow('config profile not found: missing')
     })
   })
 })

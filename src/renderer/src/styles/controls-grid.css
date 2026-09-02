@@ -119,6 +119,20 @@
 .ctrl-row {
   height: 40px;
   border-bottom: 1px solid rgb(41 44 51 / 0.55);
+  border-left: 2px solid transparent;
+}
+
+/* Story 049 D8: "this row has an unsaved edit" - mirrors the cvar row's left-border accent
+   (`CvarRow.tsx`) so all three edited-row surfaces (Settings, Controls, layers) read the same way.
+   Colour is never the only signal - see `.ctrl-unsaved-glyph` below for the paired labelled glyph
+   next to the row's name (AC10, non-colour-only). */
+.ctrl-row.is-edited {
+  border-left-color: var(--color-flame-600);
+}
+
+.ctrl-unsaved-glyph {
+  color: var(--color-flame-500);
+  flex-shrink: 0;
 }
 
 /* Story 020 D4: explicit class rather than `:nth-of-type(odd)` — a catalogue group's `.ctrl-group`

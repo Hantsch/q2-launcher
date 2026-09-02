@@ -439,7 +439,24 @@
       "action": "Save",
       "saving": "Saving\u2026",
       "unreadableUnparseable": "The file on disk could not be parsed ({{message}}) \u2014 fix the file, then try saving again. Your edits are still safe.",
-      "unreadableReadError": "The file on disk could not be read ({{message}}) \u2014 try saving again. Your edits are still safe."
+      "unreadableReadError": "The file on disk could not be read ({{message}}) \u2014 try saving again. Your edits are still safe.",
+      "toggle_one": "{{count}} unsaved change",
+      "toggle_other": "{{count}} unsaved changes",
+      "discard": "Discard\u2026",
+      "discarding": "Discarding\u2026",
+      "discardNoBaseline": "There is no saved state to return to yet \u2014 this profile has never been saved.",
+      "changes": {
+        "section": {
+          "cvars": "Cvars",
+          "binds": "Binds",
+          "actions": "Actions",
+          "layers": "Layers",
+          "settings": "Settings",
+          "unrecognized": "Preserved lines"
+        },
+        "unset": "unset",
+        "unbound": "unbound"
+      }
     },
     "conflictDialog": {
       "title": "The file changed on disk",
@@ -487,6 +504,11 @@
       "title": "Delete \u201c{{name}}\u201d?",
       "body": "This deletes the profile from the launcher. It is not tied to any installation's files on disk, but it cannot be undone \u2013 once deleted, its cvars and binds are gone.",
       "confirm": "Delete profile"
+    },
+    "discardDialog": {
+      "title": "Discard unsaved changes?",
+      "body": "This returns the profile to its last saved state. It does not touch the file on disk.",
+      "confirm": "Discard changes"
     },
     "assignment": {
       "label": "Assigned installations",
@@ -792,6 +814,7 @@
       "recommendedDefault": "Recommended default",
       "range": "Range",
       "equalsDefault": "= default",
+      "unsavedLabel": "Unsaved change",
       "flag": {
         "note": "Note",
         "caution": "Caution",
@@ -949,9 +972,9 @@
         "sound": "Sound"
       },
       "header": {
-        "count": "{{total}} cvars · {{edited}} edited",
+        "count": "{{total}} cvars · {{edited}} unsaved",
         "filterPlaceholder": "Filter cvars…",
-        "editedOnly": "Edited only"
+        "unsavedOnly": "Unsaved only"
       },
       "advanced": {
         "show": "{{count}} more…",
@@ -959,7 +982,7 @@
         "hide": "Hide advanced"
       },
       "legend": {
-        "edited": "Edited since last save",
+        "unsaved": "Unsaved change",
         "default": "“= default” means the value matches the default shown"
       }
     },
@@ -983,7 +1006,9 @@
       "sectionHeaderStylePlain": "Plain (`Weapons`)",
       "playedMods": "Played mods",
       "noMods": "No other mod folders found.",
-      "previewEmpty": "Nothing would be written."
+      "previewEmpty": "Nothing would be written.",
+      "unsavedNotice_one": "{{count}} unsaved change is not in this file yet.",
+      "unsavedNotice_other": "{{count}} unsaved changes are not in this file yet."
     },
     "codeView": {
       "search": {
@@ -1198,6 +1223,7 @@
       }
     },
     "layersPanel": {
+      "unsavedLabel": "Unsaved change",
       "label": "Alt layers",
       "hint": "A layer's keys are bound independently of the base layer while the trigger key is held (hold) or on (toggle).",
       "create": "New layer",
@@ -1239,6 +1265,7 @@
       }
     },
     "controls": {
+      "unsavedLabel": "Unsaved change",
       "categories": {
         "movement": "Movement",
         "weapons": "Weapons",

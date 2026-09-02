@@ -9,6 +9,8 @@ import {
   type CleanupScanResult,
   type ConfigProfile,
   type CreateConfigProfileInput,
+  type DiscardProfileInput,
+  type DiscardProfileResult,
   type ImportCommitInput,
   type ImportPreviewInput,
   type ImportPreviewResult,
@@ -121,6 +123,19 @@ export function updateProfileSectionHeaderStyle(
   input: SetSectionHeaderStyleInput,
 ): Promise<Outcome<ConfigProfile[]>> {
   return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setSectionHeaderStyle, input)
+}
+
+/**
+ * Story 049 D3: restores a profile to its last-saved/loaded baseline, writing no file. Same direct
+ * (non-double-wrapped) shape as `updateProfileWriteUnbindall`/`updateProfileSectionHeaderStyle`
+ * above - the main handler returns a `DiscardProfileResult` itself, not a second `Outcome` - the
+ * `status` field on the resolved value then discriminates `'discarded'` (carries the full, updated
+ * profile list) from `'noBaseline'` (nothing to discard from; nothing was mutated).
+ */
+export function discardConfigProfile(
+  input: DiscardProfileInput,
+): Promise<Outcome<DiscardProfileResult>> {
+  return callModule<DiscardProfileResult>('config', CONFIG_HANDLERS.discard, input)
 }
 
 /**

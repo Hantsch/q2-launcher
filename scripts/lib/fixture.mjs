@@ -393,10 +393,21 @@ function writeRestoreConfigCfg(installDir) {
   writeFileSync(join(dir, 'config.cfg'), FIXTURE_RESTORE_CONFIG_CFG, 'utf8')
 }
 
+/**
+ * On Windows, closing an Electron session's GPU process (Dawn's WebGPU/Graphite disk cache
+ * under `userData`) doesn't release its cache files immediately - `app.close()` returns before
+ * Windows (observed: real-time AV scanning the freshly-closed cache blobs, up to ~50s, with no
+ * live process holding the handle) actually lets go, so the very next fixture reseed can hit
+ * `EPERM`/`EBUSY` on a directory nothing still wants. `maxRetries`/`retryDelay` are Node's own
+ * documented remedy for exactly this class of transient Windows delete failure; the budget here
+ * is sized with real margin above the measured worst case, not a guessed small number.
+ */
+const RM_RETRY_OPTIONS = { recursive: true, force: true, maxRetries: 90, retryDelay: 1000 }
+
 /** Deletes and rewrites the `populated` variant's userdata + game dirs. */
 export function writePopulatedFixture() {
   const userDataDir = variantUserDataDir('populated')
-  rmSync(userDataDir, { recursive: true, force: true })
+  rmSync(userDataDir, RM_RETRY_OPTIONS)
   mkdirSync(userDataDir, { recursive: true })
 
   writeJson(join(userDataDir, STATE_FILE), populatedStateDocument())
@@ -405,7 +416,7 @@ export function writePopulatedFixture() {
   const installIds = [INSTALL_ONE_ID, INSTALL_TWO_ID]
   for (const id of installIds) {
     const baseq2Dir = join(gameRoot(), id, 'baseq2')
-    rmSync(join(gameRoot(), id), { recursive: true, force: true })
+    rmSync(join(gameRoot(), id), RM_RETRY_OPTIONS)
     mkdirSync(baseq2Dir, { recursive: true })
     if (id === INSTALL_TWO_ID) {
       writeConfigCfg(baseq2Dir)
@@ -423,7 +434,7 @@ export function writePopulatedFixture() {
 /** Deletes and rewrites the `empty` variant's userdata (defaults only). */
 export function writeEmptyFixture() {
   const userDataDir = variantUserDataDir('empty')
-  rmSync(userDataDir, { recursive: true, force: true })
+  rmSync(userDataDir, RM_RETRY_OPTIONS)
   mkdirSync(userDataDir, { recursive: true })
 
   writeJson(join(userDataDir, STATE_FILE), emptyStateDocument())

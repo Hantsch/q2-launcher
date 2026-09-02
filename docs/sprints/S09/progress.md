@@ -23,3 +23,24 @@
 - 2026-09-02 22:52 · 048 · story review (hard) round 2 · started
 - 2026-09-02 23:02 · 048 · story review (hard) round 2 · done (PASS)
 - 2026-09-02 23:05 · 048 · story done, moved to done/
+- 2026-09-02 21:57 · 049 · D1 Baseline field, captured wherever fileHash is · started
+- 2026-09-02 22:10 · 049 · D1 Baseline field, captured wherever fileHash is · done
+- 2026-09-02 22:10 · 049 · D2 Pure diffProfileAgainstBaseline · started
+- 2026-09-02 22:20 · 049 · D2 Pure diffProfileAgainstBaseline · done
+- 2026-09-02 22:20 · 049 · D3 discard handler end to end · started
+- 2026-09-02 22:24 · 049 · D3 discard handler end to end (no UI) · done
+- 2026-09-02 22:24 · 049 · D4 Change set in the renderer · started
+- 2026-09-02 22:30 · 049 · D4 Change set in the renderer · done
+- 2026-09-02 22:30 · 049 · D5 Expandable bar with before/after list · started
+- 2026-09-02 22:33 · 049 · D5 Expandable bar with before/after list · done
+- 2026-09-02 22:33 · 049 · D6 Discard button, confirm dialog, unavailable state · started
+- 2026-09-02 22:37 · 049 · D6 Discard button, confirm dialog, unavailable state · done
+- 2026-09-02 22:37 · 049 · D7 Settings indicator/filter/counters mean unsaved · started
+- 2026-09-02 22:44 · 049 · D7 Settings indicator/filter/counters mean unsaved · done
+- 2026-09-02 22:44 · 049 · D8 Controls, layers and Raw File markers · started
+- 2026-09-02 22:50 · 049 · D8 Controls, layers and Raw File markers · done
+- 2026-09-02 22:50 · 049 · D9 ui:verify covers new screens · started
+- 2026-09-02 23:31 · 049 · D9 ui:verify covers new screens · done
+- 2026-09-02 23:31 · 049 · review-fix cycle (discard name restore, screens.mjs flake, dead code) · done
+- 2026-09-02 23:31 · 049 · story left in-progress: ui:verify blocked by local env file lock, handed to user for live smoke · blocked
+- 2026-09-03 00:00 · 049 · orchestrator · unblocked P2 live-smoke: root-caused/fixed ui:verify EPERM (scripts/lib/fixture.mjs rmSync retry) + a screens.mjs strict-mode locator collision; ui:verify green, story marked done

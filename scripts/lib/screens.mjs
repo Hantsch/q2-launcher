@@ -59,6 +59,23 @@
 // ConfigConflictDialog.tsx before changing these:
 //   config-save               (ProfileSaveBar.tsx, the explicit Save button)
 //   config-conflict-dialog    (ConfigConflictDialog.tsx, the two-pane content container)
+//
+// Story 049 D9 adds one more testid (the other two screens below reuse existing D5/D6/D8
+// testids and the `install-remove-dialog` testid-less-dialog pattern) — read ProfileSaveBar.tsx:
+//   config-save-changes-panel (ProfileSaveBar.tsx, the disclosure's expanded panel - added
+//                               alongside its pre-existing `id` since no screen here waits on a
+//                               CSS id, only testids)
+//
+// `config-save-expanded`/`config-discard-confirm` (D9) dirty the fixture profile via
+// RawFileTab.tsx's "Section header style" `<Select>`, not the "Start the file with `unbindall`"
+// checkbox `config-conflict-dialog` (D8) uses: all `populated`-variant screens share one Electron
+// session (session.mjs's `runVariantSession`/`resetToBaseState` only routes home between visits, it
+// never reloads the fixture or resets in-memory profile state), so a *toggle* is order-dependent —
+// whichever screen runs second would flip it back to the first screen's starting value and could
+// land back on a no-op. Selecting an explicit value (`'brackets'`, the fixture's baseline is the
+// default `'dashes'` — `fixture.mjs`'s `populatedConfigProfiles()` never sets `sectionHeaderStyle`)
+// is idempotent: it produces the same real diff-from-disk-baseline regardless of what either screen
+// left the select at, and regardless of registry order.
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -182,6 +199,55 @@ export const SCREENS = [
     // tab's per-installation section renders that assignment's row alongside
     // the profile's own canonical file (RawFileTab.tsx).
     navigate: configDetail('raw'),
+  },
+  {
+    id: 'config-save-expanded',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 049 D5/D9: real-dirty setup, not a mocked one - `configDetail('raw')` lands on Plain
+    // Profile's Raw File tab, whose "Section header style" `<Select>` (RawFileTab.tsx) is a real
+    // content setter that marks the profile dirty server-side the instant it changes, so
+    // `ProfileSaveBar` shows "Unsaved changes" - see the module-level comment above for why this
+    // uses that select (an explicit, idempotent value) rather than the checkbox
+    // `config-conflict-dialog` (D8) toggles. Instead of hand-editing the file and saving to trigger
+    // a conflict, this clicks the bar's own disclosure (`config-save-toggle`) to expand
+    // `ProfileChangeList` (D5) and waits for the panel (`config-save-changes-panel`, ProfileSaveBar.tsx)
+    // to actually be visible, rather than just clicking-and-hoping, since the panel is conditionally
+    // rendered (`dirty && expanded`) and a race against that render would otherwise screenshot the
+    // pre-expansion state.
+    navigate: async (page) => {
+      await configDetail('raw')(page)
+      await page.getByLabel('Section header style').selectOption('brackets')
+      await page
+        .getByText('Unsaved changes', { exact: true })
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+
+      await click(page, 'config-save-toggle')
+      await page
+        .getByTestId('config-save-changes-panel')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'config-discard-confirm',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 049 D6/D9: same real-dirty setup as `config-save-expanded` above (the "Section header
+    // style" select, not the checkbox - see the module-level comment above), but instead clicks the
+    // bar's Discard button (`config-discard`) to open `DiscardChangesDialog` - which, like
+    // `RemoveInstallationDialog` (`install-remove-dialog` above), renders via `Modal` (role="dialog")
+    // and carries no `data-testid` of its own, so this mirrors that screen's wait exactly rather
+    // than inventing a new pattern.
+    navigate: async (page) => {
+      await configDetail('raw')(page)
+      await page.getByLabel('Section header style').selectOption('brackets')
+      await page
+        .getByText('Unsaved changes', { exact: true })
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+
+      await click(page, 'config-discard')
+      await page.getByRole('dialog').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
   },
   {
     id: 'config-care',
@@ -438,7 +504,7 @@ export const SCREENS = [
         .getByText('Start the file with `unbindall`', { exact: true })
         .click({ timeout: CLICK_TIMEOUT_MS })
       await page
-        .getByText('Unsaved changes')
+        .getByText('Unsaved changes', { exact: true })
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
 
       const canonicalPath = join(variantUserDataDir('populated'), PLAIN_PROFILE_FILE_NAME)

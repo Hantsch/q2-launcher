@@ -285,6 +285,15 @@ export const setSectionHeaderStyleInputSchema = z.object({
 })
 
 /**
+ * Story 049 (D3): `discard`'s payload - a profile id, nothing else (see `DiscardProfileInput`'s own
+ * doc comment for why). Same strict convention as every other config-module IPC schema in this
+ * file.
+ */
+export const discardProfileInputSchema = z.object({
+  profileId: z.string().min(1),
+})
+
+/**
  * Story 005 import payloads. Deviation from the story text: it says these
  * belong in `main/lib/schemas.ts`, but every other config-module IPC payload
  * schema already lives here instead - that repo convention wins over the

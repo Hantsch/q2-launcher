@@ -8,6 +8,7 @@ import {
   type CleanupRestoreResult,
   type CleanupScanResult,
   type ConfigProfile,
+  type DiscardProfileResult,
   type ImportPreviewResult,
   type ImportScanResult,
   type PreviewFile,
@@ -54,6 +55,7 @@ import {
   cleanupRestoreInputSchema,
   cleanupScanInputSchema,
   createConfigProfileInputSchema,
+  discardProfileInputSchema,
   importCommitInputSchema,
   importPreviewInputSchema,
   importScanInputSchema,
@@ -445,7 +447,18 @@ async function syncAndPersist(
       // every assign of an unchanged profile does) has nothing new to record, and committing the
       // whole profile list for it would be pure churn.
       const cached = profiles.find(profileId)
-      if (cached && (cached.fileHash !== fileHash || cached.fileState !== 'unchanged')) {
+      if (
+        cached &&
+        (cached.fileHash !== fileHash ||
+          cached.fileState !== 'unchanged' ||
+          // Story 049 D1: `markFileSeen` also seeds the last-saved baseline, so a record that has
+          // none yet - every profile persisted before this story - has something new to record even
+          // when its hash is already right, and gets its baseline on the first sync that confirms
+          // its file instead of waiting for the next content change. Safe for a `dirty` profile
+          // too: an id only appears in `canonicalHashes` when the file was read back byte-identical
+          // to this profile's own render (`sync.ts`), so the snapshot describes the file either way.
+          cached.baseline === undefined)
+      ) {
         profiles.markFileSeen(profileId, fileHash, now)
       }
     }
@@ -687,6 +700,27 @@ export const configModule: MainModule = {
       (input): ConfigProfile[] => {
         profiles.setSectionHeaderStyle(input)
         return markUnsaved(input.profileId)
+      },
+    )
+
+    /**
+     * Story 049 D3: discard - restores a profile's pending edits to its last-saved/loaded baseline,
+     * without touching any file. Deliberately does NOT go through `markUnsaved`/`syncAndPersist`:
+     * discard writes nothing to disk (the story's explicit requirement - "It never writes to the
+     * file"), so it needs neither the dirty-marking tail every content setter above ends in (the
+     * profile comes back out of `discard` already clean) nor a sync run.
+     *
+     * `profiles.discard` throws only for an unknown profile id, same as every other setter; the
+     * "no baseline to discard from" case is a typed result, not an error, and is reported as such
+     * rather than mapped onto `fail(...)`.
+     */
+    handle(
+      CONFIG_HANDLERS.discard,
+      discardProfileInputSchema,
+      (input): DiscardProfileResult => {
+        const outcome = profiles.discard(input.profileId)
+        if (outcome.outcome === 'noBaseline') return { status: 'noBaseline' }
+        return { status: 'discarded', profiles: withLiveAssignments(outcome.profiles) }
       },
     )
 

@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CircleCheck, PencilLine, Save } from 'lucide-react'
+import { ChevronDown, ChevronRight, CircleCheck, PencilLine, Save, Undo2 } from 'lucide-react'
 import type { ConfigProfile, SaveProfileConflict } from '@shared/modules/config'
 import { Button } from '../../../components/ui/Button'
 import { Badge } from '../../../components/ui/primitives'
 import { useLauncher } from '../../../store/useLauncher'
 import { ConfigConflictDialog } from '../ConfigConflictDialog'
+import { DiscardChangesDialog } from '../DiscardChangesDialog'
 import { saveConfigProfile } from '../client'
+import { useProfileChanges } from '../lib/profile-changes'
 import { isProfileDirty, resolveSaveOutcome } from '../lib/save-bar'
+import { ProfileChangeList } from './ProfileChangeList'
 
 /**
  * Story 043 D6: the unsaved-changes indicator + explicit Save button that replaces the deleted
@@ -30,18 +33,45 @@ import { isProfileDirty, resolveSaveOutcome } from '../lib/save-bar'
  * this component already has `profile.id` and the exact `onSaved` callback the dialog's own
  * `onResolved` needs to reuse) instead of the D6 toast stub - see `resolveSaveOutcome`'s own doc
  * comment for why that action type exists.
+ *
+ * Story 049 D5: a disclosure next to the badge expands into `ProfileChangeList`, the before/after
+ * view of everything a Save would write. It reads `useProfileChanges()` - the same context-shared
+ * change set every row and the bar itself consume (story 049, Decisions) - rather than computing or
+ * receiving its own copy, so the count on the button and the rows it expands into can never
+ * disagree with each other or with a cvar row's indicator (D7/D8). The disclosure only appears
+ * while `dirty` is true: once saved there is no pending count left to show, and gating on `dirty`
+ * rather than a second "changeSet is non-empty" check keeps this bar with exactly one notion of
+ * "there is something to show" (the story's own wording for this). Expanding/collapsing is local,
+ * transient UI state that does not touch `saving`/`conflict` or the Save button's own
+ * `disabled`/`onClick` - the story requires Save to stay fully usable while expanded.
+ *
+ * Story 049 D6: a Discard button sits next to Save, shown only while `dirty` is true (nothing to
+ * discard otherwise, same disclosure-only-when-dirty precedent D5 set). It is enabled only when
+ * `profile.baseline` is set; when there is no baseline it renders disabled with a visible sentence
+ * next to it explaining why - not a `title` tooltip, since a disabled button is not keyboard
+ * focusable and a tooltip would be unreachable (the story's own Decisions). `DiscardChangesDialog`
+ * is owned and opened right here, the same way `ConfigConflictDialog` already is - the closer
+ * precedent, since both are confirm/resolve dialogs this bar itself triggers rather than ones
+ * `ConfigView` opens over the whole detail screen (compare `DeleteProfileDialog`, which the header's
+ * delete button owns at that level instead).
  */
 export function ProfileSaveBar({
   profile,
   onSaved,
+  onDiscarded,
 }: {
   profile: ConfigProfile
   onSaved: (profile: ConfigProfile) => void
+  /** The full, updated profile list, per the config module's discard contract. */
+  onDiscarded: (profiles: ConfigProfile[]) => void
 }) {
   const { t } = useTranslation()
   const pushToast = useLauncher((state) => state.pushToast)
   const [saving, setSaving] = useState(false)
   const [conflict, setConflict] = useState<SaveProfileConflict | null>(null)
+  const [expanded, setExpanded] = useState(false)
+  const [showDiscard, setShowDiscard] = useState(false)
+  const changeSet = useProfileChanges()
 
   const dirty = isProfileDirty(profile)
 
@@ -72,36 +102,101 @@ export function ProfileSaveBar({
     })
   }
 
+  const canDiscard = dirty && profile.baseline !== undefined
+
   return (
     <>
-      <div className="flex items-center justify-between gap-3 rounded-sm border border-line bg-panel px-3 py-2">
-        <div className="flex items-center gap-2">
-          {dirty ? (
-            <>
-              <Badge tone="warning" className="gap-1">
-                <PencilLine className="size-3" />
-                {t('config.save.unsaved')}
+      <div className="rounded-sm border border-line bg-panel">
+        <div className="flex items-center justify-between gap-3 px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {dirty ? (
+              <>
+                <Badge tone="warning" className="gap-1">
+                  <PencilLine className="size-3" />
+                  {t('config.save.unsaved')}
+                </Badge>
+                <span className="text-xs text-ink-muted">{t('config.save.unsavedHint')}</span>
+                {changeSet.count > 0 && (
+                  <Button
+                    data-testid="config-save-toggle"
+                    variant="ghost"
+                    size="sm"
+                    trailingIcon={
+                      expanded ? (
+                        <ChevronDown className="size-3.5" />
+                      ) : (
+                        <ChevronRight className="size-3.5" />
+                      )
+                    }
+                    aria-expanded={expanded}
+                    aria-controls="config-save-changes-panel"
+                    onClick={() => setExpanded((current) => !current)}
+                  >
+                    {t('config.save.toggle', { count: changeSet.count })}
+                  </Button>
+                )}
+              </>
+            ) : (
+              <Badge tone="success" className="gap-1">
+                <CircleCheck className="size-3" />
+                {t('config.save.saved')}
               </Badge>
-              <span className="text-xs text-ink-muted">{t('config.save.unsavedHint')}</span>
-            </>
-          ) : (
-            <Badge tone="success" className="gap-1">
-              <CircleCheck className="size-3" />
-              {t('config.save.saved')}
-            </Badge>
-          )}
+            )}
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {dirty && (
+              <>
+                {!canDiscard && (
+                  <span className="text-xs text-ink-muted">
+                    {t('config.save.discardNoBaseline')}
+                  </span>
+                )}
+                <Button
+                  data-testid="config-discard"
+                  variant="ghost"
+                  size="sm"
+                  icon={<Undo2 className="size-3.5" />}
+                  disabled={!canDiscard}
+                  onClick={() => setShowDiscard(true)}
+                >
+                  {t('config.save.discard')}
+                </Button>
+              </>
+            )}
+            <Button
+              data-testid="config-save"
+              variant="primary"
+              size="sm"
+              icon={<Save className="size-3.5" />}
+              disabled={!dirty || saving}
+              onClick={() => void handleSave()}
+            >
+              {saving ? t('config.save.saving') : t('config.save.action')}
+            </Button>
+          </div>
         </div>
-        <Button
-          data-testid="config-save"
-          variant="primary"
-          size="sm"
-          icon={<Save className="size-3.5" />}
-          disabled={!dirty || saving}
-          onClick={() => void handleSave()}
-        >
-          {saving ? t('config.save.saving') : t('config.save.action')}
-        </Button>
+
+        {dirty && expanded && (
+          <div
+            id="config-save-changes-panel"
+            data-testid="config-save-changes-panel"
+            className="border-t border-line px-3 py-2"
+          >
+            <ProfileChangeList changeSet={changeSet} />
+          </div>
+        )}
       </div>
+
+      {showDiscard && (
+        <DiscardChangesDialog
+          profile={profile}
+          onClose={() => setShowDiscard(false)}
+          onDiscarded={(profiles) => {
+            setShowDiscard(false)
+            onDiscarded(profiles)
+          }}
+        />
+      )}
 
       {conflict && (
         <ConfigConflictDialog

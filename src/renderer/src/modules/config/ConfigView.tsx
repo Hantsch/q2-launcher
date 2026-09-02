@@ -26,6 +26,7 @@ import { InstallationProfilesPanel } from './InstallationProfilesPanel'
 import { LayersPanel } from './LayersPanel'
 import { dedupedFindingCounts } from './lib/care-summary'
 import { applyRefreshedProfile, noticeForRefreshedProfile } from './lib/file-source-refresh'
+import { ProfileChangesProvider } from './lib/profile-changes'
 import { resolveSaveOutcome } from './lib/save-bar'
 import { analyzeTidyUp } from './lib/tidy-up-findings'
 import { validateProfileForEngines } from './lib/validation-scope'
@@ -108,7 +109,11 @@ export function ConfigView() {
   // effect fires after this render), the same one-tick staleness the removed
   // per-tab local states already had - `draftOrSelected` is what every child
   // below actually receives, so that gap is never visible outside this file.
-  const { draft, patch, savedCvars } = useProfileDraft(selected)
+  // Story 049 D7: `SettingsTab`'s "edited"/"unsaved" signal now comes from `useProfileChanges()`
+  // (main-process `profile.baseline` diff), not from a renderer-local baseline inside
+  // `useProfileDraft` - that mechanism (`savedCvars`, story 048 D6) had no other consumer left, so
+  // it was removed from the hook outright rather than kept around unread.
+  const { draft, patch, resetDraft } = useProfileDraft(selected)
 
   const draftOrSelected = draft ?? selected
   /**
@@ -210,6 +215,21 @@ export function ConfigView() {
    */
   const handleProfileUpdated = (updated: ConfigProfile): void => {
     setProfiles((prev) => prev.map((profile) => (profile.id === updated.id ? updated : profile)))
+  }
+
+  /**
+   * Story 049 D6: `discard` (like `remove`/`rename`) returns the full, updated profile list.
+   * `resetDraft` is called with the discarded profile itself (found in that list, not re-read from
+   * `selected`, which still holds the pre-discard value at this point in the render) so
+   * `useProfileDraft` force-adopts the reverted baseline instead of keeping the stale locally-patched
+   * cvars/actions its own reconcile effect would otherwise protect - see `resetDraft`'s own doc
+   * comment for why the effect alone cannot do this.
+   */
+  const handleDiscarded = (updated: ConfigProfile[]): void => {
+    setProfiles(updated)
+    if (!selectedId) return
+    const discarded = updated.find((profile) => profile.id === selectedId)
+    if (discarded) resetDraft(discarded)
   }
 
   /**
@@ -384,62 +404,67 @@ export function ConfigView() {
         )}
 
         {screen === 'detail' && selected && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between gap-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={<ArrowLeft className="size-3.5" />}
-                onClick={backToList}
-              >
-                {t('config.nav.back')}
-              </Button>
-              <div className="flex items-center gap-2">
-                <AssignmentsMenu profile={selected} onChanged={setProfiles} />
-                <div className="flex items-center gap-1">
-                  <IconButton
-                    label={t('config.detail.rename')}
-                    size="sm"
-                    onClick={() => setShowRename(true)}
-                  >
-                    <Pencil className="size-3.5" />
-                  </IconButton>
-                  <IconButton
-                    label={t('config.detail.delete')}
-                    size="sm"
-                    variant="danger"
-                    onClick={() => setShowDelete(true)}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </IconButton>
+          <ProfileChangesProvider profile={selected}>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between gap-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<ArrowLeft className="size-3.5" />}
+                  onClick={backToList}
+                >
+                  {t('config.nav.back')}
+                </Button>
+                <div className="flex items-center gap-2">
+                  <AssignmentsMenu profile={selected} onChanged={setProfiles} />
+                  <div className="flex items-center gap-1">
+                    <IconButton
+                      label={t('config.detail.rename')}
+                      size="sm"
+                      onClick={() => setShowRename(true)}
+                    >
+                      <Pencil className="size-3.5" />
+                    </IconButton>
+                    <IconButton
+                      label={t('config.detail.delete')}
+                      size="sm"
+                      variant="danger"
+                      onClick={() => setShowDelete(true)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </IconButton>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <h2 className="font-display text-lg tracking-[0.06em] text-ink uppercase">
-                {selected.name}
-              </h2>
-              <div className="flex flex-wrap gap-x-6 gap-y-1">
-                <KeyValue label={t('config.detail.created')}>
-                  {formatRelativeTime(selected.createdAt) ?? '-'}
-                </KeyValue>
-                <KeyValue label={t('config.detail.updated')}>
-                  {formatRelativeTime(selected.updatedAt) ?? '-'}
-                </KeyValue>
+              <div className="space-y-2">
+                <h2 className="font-display text-lg tracking-[0.06em] text-ink uppercase">
+                  {selected.name}
+                </h2>
+                <div className="flex flex-wrap gap-x-6 gap-y-1">
+                  <KeyValue label={t('config.detail.created')}>
+                    {formatRelativeTime(selected.createdAt) ?? '-'}
+                  </KeyValue>
+                  <KeyValue label={t('config.detail.updated')}>
+                    {formatRelativeTime(selected.updatedAt) ?? '-'}
+                  </KeyValue>
+                </div>
               </div>
-            </div>
 
-            {/*
+              {/*
               Story 043 D6: mounted at the detail level, not inside any `activeTab === ...` branch,
               so Save works no matter which tab is showing - the same placement the deleted
               `useProfileAutoWrite` hook used. `handleProfileUpdated` is the existing single-profile
               merge-by-id path (`CareTab`'s `onProfileUpdated`), reused rather than inventing a
               second update path for `save`'s single-profile result.
             */}
-            <ProfileSaveBar profile={selected} onSaved={handleProfileUpdated} />
+              <ProfileSaveBar
+                profile={selected}
+                onSaved={handleProfileUpdated}
+                onDiscarded={handleDiscarded}
+              />
 
-            {/*
+              {/*
               Story 043 D7: persistent (never a toast) banner for a profile whose canonical file
               was deleted outside the launcher - `fileState` comes straight off the profile record,
               which `applyRefreshedProfile` patched from the last `refreshFromFiles` result. The two
@@ -447,132 +472,132 @@ export function ConfigView() {
               handler as-is (see `handleRewriteFromCache`'s doc comment), "Remove profile" opens the
               exact same confirmation dialog the detail header's own delete button opens.
             */}
-            {selected.fileState === 'missing' && (
-              <div className="space-y-3 rounded-sm border border-danger/35 bg-danger/8 p-3">
-                <div className="flex items-start gap-2">
-                  <TriangleAlert className="mt-0.5 size-4 shrink-0 text-danger" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-danger">
-                      {t('config.fileSource.missingBanner.title')}
-                    </p>
-                    <p className="text-xs leading-relaxed text-ink-dim">
-                      {t('config.fileSource.missingBanner.body')}
-                    </p>
+              {selected.fileState === 'missing' && (
+                <div className="space-y-3 rounded-sm border border-danger/35 bg-danger/8 p-3">
+                  <div className="flex items-start gap-2">
+                    <TriangleAlert className="mt-0.5 size-4 shrink-0 text-danger" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-danger">
+                        {t('config.fileSource.missingBanner.title')}
+                      </p>
+                      <p className="text-xs leading-relaxed text-ink-dim">
+                        {t('config.fileSource.missingBanner.body')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="neutral"
+                      size="sm"
+                      icon={<RotateCcw className="size-3.5" />}
+                      disabled={rewriting}
+                      onClick={() => void handleRewriteFromCache()}
+                    >
+                      {t('config.fileSource.missingBanner.rewrite')}
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      icon={<Trash2 className="size-3.5" />}
+                      onClick={() => setShowDelete(true)}
+                    >
+                      {t('config.fileSource.missingBanner.remove')}
+                    </Button>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="neutral"
-                    size="sm"
-                    icon={<RotateCcw className="size-3.5" />}
-                    disabled={rewriting}
-                    onClick={() => void handleRewriteFromCache()}
-                  >
-                    {t('config.fileSource.missingBanner.rewrite')}
-                  </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    icon={<Trash2 className="size-3.5" />}
-                    onClick={() => setShowDelete(true)}
-                  >
-                    {t('config.fileSource.missingBanner.remove')}
-                  </Button>
-                </div>
-              </div>
-            )}
+              )}
 
-            {/*
+              {/*
               Story 043 D7: the last-good-cache diagnostic for an unparseable/unreadable file -
               persistent (not a toast, per AC4) but never disables the profile: the tabs below stay
               exactly as reachable as they are for any other profile.
             */}
-            {fileDiagnostic && fileDiagnostic.profileId === selected.id && (
-              <div className="flex items-start gap-2 rounded-sm border border-warning/35 bg-warning/8 p-3">
-                <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-warning">
-                    {fileDiagnostic.file !== undefined && fileDiagnostic.line !== undefined
-                      ? t('config.fileSource.diagnostic.titleWithLine', {
-                          file: fileDiagnostic.file,
-                          line: fileDiagnostic.line,
-                        })
-                      : t('config.fileSource.diagnostic.title')}
-                  </p>
-                  <p className="text-xs leading-relaxed text-ink-dim">{fileDiagnostic.message}</p>
-                  <p className="text-xs text-ink-muted">{t('config.fileSource.diagnostic.hint')}</p>
+              {fileDiagnostic && fileDiagnostic.profileId === selected.id && (
+                <div className="flex items-start gap-2 rounded-sm border border-warning/35 bg-warning/8 p-3">
+                  <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-warning">
+                      {fileDiagnostic.file !== undefined && fileDiagnostic.line !== undefined
+                        ? t('config.fileSource.diagnostic.titleWithLine', {
+                            file: fileDiagnostic.file,
+                            line: fileDiagnostic.line,
+                          })
+                        : t('config.fileSource.diagnostic.title')}
+                    </p>
+                    <p className="text-xs leading-relaxed text-ink-dim">{fileDiagnostic.message}</p>
+                    <p className="text-xs text-ink-muted">
+                      {t('config.fileSource.diagnostic.hint')}
+                    </p>
+                  </div>
                 </div>
+              )}
+
+              <div className="flex flex-wrap gap-1.5 border-b border-line pb-2">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    data-testid={`config-tab-${tab.id}`}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs font-medium transition-colors duration-[--dur-fast]',
+                      activeTab === tab.id
+                        ? 'bg-flame-900/30 text-flame-200'
+                        : 'text-ink-dim hover:bg-hover hover:text-ink',
+                    )}
+                  >
+                    {tab.label}
+                    {tab.badge && <Badge tone={tab.badgeTone ?? 'neutral'}>{tab.badge}</Badge>}
+                  </button>
+                ))}
               </div>
-            )}
 
-            <div className="flex flex-wrap gap-1.5 border-b border-line pb-2">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  data-testid={`config-tab-${tab.id}`}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    'flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs font-medium transition-colors duration-[--dur-fast]',
-                    activeTab === tab.id
-                      ? 'bg-flame-900/30 text-flame-200'
-                      : 'text-ink-dim hover:bg-hover hover:text-ink',
-                  )}
-                >
-                  {tab.label}
-                  {tab.badge && <Badge tone={tab.badgeTone ?? 'neutral'}>{tab.badge}</Badge>}
-                </button>
-              ))}
+              <Panel className="p-6">
+                {activeTab === 'overview' && (
+                  <div className="space-y-6">
+                    <OverviewKeyboardPanel
+                      profile={selected}
+                      activeLayer={activeLayer}
+                      onChanged={setProfiles}
+                      onSelectLayer={setActiveLayerId}
+                    />
+                    <LayersPanel
+                      profile={selected}
+                      activeLayerId={activeLayerId}
+                      onSelectLayer={setActiveLayerId}
+                      onChanged={setProfiles}
+                    />
+                  </div>
+                )}
+                {activeTab === 'settings' && (
+                  <SettingsTab
+                    profile={selected}
+                    draft={activeProfile(selected)}
+                    patch={patch}
+                    onChanged={setProfiles}
+                  />
+                )}
+                {activeTab === 'controls' && (
+                  <ControlsTab
+                    profile={selected}
+                    draft={activeProfile(selected)}
+                    patch={patch}
+                    onChanged={setProfiles}
+                  />
+                )}
+                {activeTab === 'raw' && <RawFileTab profile={selected} onChanged={setProfiles} />}
+                {activeTab === 'care' && (
+                  <CareTab
+                    profile={selected}
+                    validation={validation}
+                    onProfileUpdated={handleProfileUpdated}
+                    installations={installations}
+                    assignedInstallationIds={assignedInstallationIds}
+                  />
+                )}
+              </Panel>
             </div>
-
-            <Panel className="p-6">
-              {activeTab === 'overview' && (
-                <div className="space-y-6">
-                  <OverviewKeyboardPanel
-                    profile={selected}
-                    activeLayer={activeLayer}
-                    onChanged={setProfiles}
-                    onSelectLayer={setActiveLayerId}
-                  />
-                  <LayersPanel
-                    profile={selected}
-                    activeLayerId={activeLayerId}
-                    onSelectLayer={setActiveLayerId}
-                    onChanged={setProfiles}
-                  />
-                </div>
-              )}
-              {activeTab === 'settings' && (
-                <SettingsTab
-                  profile={selected}
-                  draft={activeProfile(selected)}
-                  patch={patch}
-                  savedCvars={savedCvars}
-                  onChanged={setProfiles}
-                />
-              )}
-              {activeTab === 'controls' && (
-                <ControlsTab
-                  profile={selected}
-                  draft={activeProfile(selected)}
-                  patch={patch}
-                  onChanged={setProfiles}
-                />
-              )}
-              {activeTab === 'raw' && (
-                <RawFileTab profile={selected} onChanged={setProfiles} />
-              )}
-              {activeTab === 'care' && (
-                <CareTab
-                  profile={selected}
-                  validation={validation}
-                  onProfileUpdated={handleProfileUpdated}
-                  installations={installations}
-                  assignedInstallationIds={assignedInstallationIds}
-                />
-              )}
-            </Panel>
-          </div>
+          </ProfileChangesProvider>
         )}
       </div>
 

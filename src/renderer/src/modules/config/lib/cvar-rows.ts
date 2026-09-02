@@ -23,6 +23,7 @@
 
 import type { CvarDef } from '@shared/config/cvar-facts'
 import { CVAR_GROUP_ORDER, hasEngineFacts, resolveCvar } from '@shared/config/cvar-facts'
+import { cvarChangeKey } from '@shared/config/profile-diff'
 import type { EngineKind } from '@shared/types/engine'
 
 /** Fixed group order for the Settings tab; `def.group` also carries `network`/`sound` entries that
@@ -97,26 +98,9 @@ export function isChanged(def: CvarDef, engine: EngineKind | null, value: string
   return !sameValue(normalizedValue, normalizedDefault)
 }
 
-/**
- * Story 048 D6: whether `value` differs from `baselineValue` - the row's value the last time the
- * profile was known to have no pending cvar edits (`useProfileDraft`'s `savedCvars`). This is the
- * "edited and unsaved" signal the filter/counters/row-indicator now read, replacing `isChanged`'s
- * "differs from the catalogue default" for that purpose: once the render always writes every cvar
- * and read-back strips catalogue defaults back out (story 048 D2/D3), a saved profile can validly
- * show default-differing rows that were saved ages ago, so "differs from default" no longer means
- * "the user just touched this."
- *
- * Same normalization as `isChanged` (via `normalizeCvarValue`/`sameValue`), so `"1"` and `"true"`
- * compare equal against a baseline of either - but no "empty is never changed" carve-out: unlike a
- * default (which a blank value simply falls back to), a baseline is a concrete prior value, and
- * clearing a field the baseline had something in *is* an edit.
- */
-export function isEdited(def: CvarDef, value: string, baselineValue: string): boolean {
-  return !sameValue(normalizeCvarValue(def, value), normalizeCvarValue(def, baselineValue))
-}
-
-/** One renderable row: the def plus whether its current value is edited (differs from the saved
- * baseline, story 048 D6), so callers never recompute `isEdited` a second time for the same row. */
+/** One renderable row: the def plus whether its current value is unsaved (present in the profile's
+ * change set against `profile.baseline`, story 049 D7), so callers never recompute the change-set
+ * lookup a second time for the same row. */
 export interface CvarRowEntry {
   def: CvarDef
   edited: boolean
@@ -127,7 +111,7 @@ export interface CvarGroupResult {
   group: CvarDef['group']
   /** Every cvar in this group, regardless of filter/editedOnly/showAdvanced. */
   total: number
-  /** How many of `total` are edited (differ from the saved baseline, story 048 D6), regardless of
+  /** How many of `total` are unsaved (present in the change set, story 049 D7), regardless of
    * filter/editedOnly/showAdvanced. */
   edited: number
   /** The rows to actually render, after filter, editedOnly and the Advanced collapse. */
@@ -147,19 +131,27 @@ export interface CvarGroupResult {
 }
 
 export interface BuildCvarGroupsOptions {
-  /** `draft.cvars`-shaped map; a missing key is treated as unset (`''`), same as `CvarRow` today. */
+  /** `draft.cvars`-shaped map; a missing key is treated as unset (`''`), same as `CvarRow` today.
+   * Kept for callers that build the same options object for both `buildCvarGroups` and their own
+   * `isChanged`/`effectiveDefaultFor` calls (`SettingsTab.tsx`) - `buildCvarGroups` itself no longer
+   * reads it since story 049 D7 made `edited` an `unsavedKeys` lookup, not a value comparison. */
   values: Record<string, string>
   /** Kept for callers that build the same options object for both `buildCvarGroups` and their own
    * `isChanged`/`effectiveDefaultFor` calls (`SettingsTab.tsx`) - `buildCvarGroups` itself no longer
-   * reads it since story 048 D6 made `edited` a `baseline` comparison, not an engine-default one. */
+   * reads it since story 049 D7 made `edited` an `unsavedKeys` lookup, not an engine-default one. */
   engine: EngineKind | null
   /**
-   * Story 048 D6: `useProfileDraft`'s `savedCvars` snapshot - the baseline `isEdited` compares
-   * `values` against. A missing key is treated as unset (`''`), same convention as `values`.
-   * Defaults to `{}` (nothing has been seen as saved) so existing callers that only care about
-   * grouping/filtering keep working without threading a baseline through.
+   * Story 049 D7: the current profile's pending change set, scoped to cvars
+   * (`useProfileChanges().changeSet.keys.cvars`, `@shared/config/profile-diff`'s
+   * `ProfileChangeSet.keys.cvars`) - a set of `cvarChangeKey`-shaped keys. A row is "edited"
+   * (unsaved) exactly when its key is in this set, replacing story 048 D6's renderer-local
+   * `baseline`/`isEdited` comparison: the change set is computed main-side from `profile.baseline`
+   * (D1/D2), so it is reseeded at exactly the moments an adopt/conflict-resolution/save happens,
+   * never lagging behind a renderer-local snapshot. Defaults to an empty set (nothing pending) so
+   * existing callers that only care about grouping/filtering keep working without threading a
+   * change set through.
    */
-  baseline?: Record<string, string>
+  unsavedKeys?: ReadonlySet<string>
   /** Case-insensitive; matched against the cvar's name and its resolved label/description text (per
    * the sprint decision "Filter matches cvar name, label and description (case-insensitive)") -
    * falling back to `labelKey`/`descriptionKey` themselves when no resolver is supplied. Empty/
@@ -174,8 +166,8 @@ export interface BuildCvarGroupsOptions {
    */
   labelText?: (def: CvarDef) => string
   descriptionText?: (def: CvarDef) => string
-  /** Restrict rendered rows to edited ones (story 048 D6 - differs from `baseline`, not from the
-   * catalogue default). Does not affect `total`/`edited` counts. */
+  /** Restrict rendered rows to edited/unsaved ones (story 049 D7 - present in `unsavedKeys`, not
+   * differing from the catalogue default). Does not affect `total`/`edited` counts. */
   editedOnly?: boolean
   /** When `false`, rows where `def.common` is falsy are hidden - unless the row also matches an
    * active `filter`, in which case it is revealed: a filter hit inside a collapsed Advanced
@@ -216,13 +208,13 @@ function matchesFilter(
 export function buildCvarGroups(
   defs: CvarDef[],
   {
-    values,
-    // Story 048 D6: no longer read here - `edited` compares against `baseline`, not the
-    // engine-scoped default, so `engine` is kept in `BuildCvarGroupsOptions` only for callers
-    // (`SettingsTab.tsx`, this file's own tests) that still pass it alongside the other per-group
-    // options, and for `isChanged`/`effectiveDefaultFor`, which callers use directly for the
-    // default-value display and still take an `engine`.
-    baseline = {},
+    // Story 049 D7: neither `values` nor `engine` is read here any more - `edited` compares
+    // `def.name` against `unsavedKeys`, not against a value read from `values` or an engine-scoped
+    // default. Both stay in `BuildCvarGroupsOptions` only for callers (`SettingsTab.tsx`, this
+    // file's own tests) that still pass them alongside the other per-group options, and for
+    // `isChanged`/`effectiveDefaultFor`, which callers use directly for the default-value display
+    // and still take a value and an `engine`.
+    unsavedKeys = new Set<string>(),
     filter = '',
     labelText,
     descriptionText,
@@ -244,9 +236,7 @@ export function buildCvarGroups(
     const rows: CvarRowEntry[] = []
 
     for (const def of groupDefs) {
-      const value = values[def.name] ?? ''
-      const baselineValue = baseline[def.name] ?? ''
-      const edited = isEdited(def, value, baselineValue)
+      const edited = unsavedKeys.has(cvarChangeKey(def.name))
       if (edited) editedCount += 1
 
       const matches = !filterActive || matchesFilter(def, filter, labelText, descriptionText)

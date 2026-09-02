@@ -25,6 +25,7 @@ import { applyActionBindMirror } from '@shared/config/action-mirror'
 import { adoptRawBinds } from '@shared/config/bind-adoption'
 import { stripCatalogDefaults } from '@shared/config/cvar-defaults'
 import { applyActionLayerMirror } from '@shared/config/modifier-layers'
+import { captureBaseline } from '@shared/config/profile-baseline'
 import {
   assign as assignProfile,
   unassign as unassignProfile,
@@ -139,7 +140,10 @@ export class ProfilesStore {
    */
   addRebuilt(profile: ConfigProfile): ConfigProfile[] {
     if (this.find(profile.id)) throw new Error(`config profile already exists: ${profile.id}`)
-    return this.commit([...this.state.configProfiles(), profile])
+    // Story 049 D1: a rebuild reads the file and seeds `fileHash` from it, so it is one of the
+    // points the baseline is seeded at too - see `seedBaseline` for why the seeding happens here,
+    // after the adoption pass, rather than inside `rebuild.ts#buildRebuiltProfile` next to the hash.
+    return this.commit([...this.state.configProfiles(), this.seedBaseline(profile)])
   }
 
   rename(input: RenameConfigProfileInput): ConfigProfile[] {
@@ -363,6 +367,63 @@ export class ProfilesStore {
   }
 
   /**
+   * Story 049 D3: restores a profile's render-relevant fields to its `baseline` - the "go back to
+   * what I last saved" discard, and the only thing that survives the removal of 048's reset
+   * affordances.
+   *
+   * Returns a discriminated outcome rather than throwing for the "nothing to discard from" case
+   * (mirrors the story's decision that this must be distinguishable from success, not a silent
+   * no-op): `profile.baseline === undefined` - never saved, or a pre-story record that still has
+   * `dirty === true` with nothing to fall back to - returns `{ outcome: 'noBaseline' }` and mutates
+   * nothing. An unknown `profileId` still throws, exactly like every other setter in this file - it
+   * is the same "caller bug" case `rename`/`setCvars`/etc. already treat that way, not a "nothing to
+   * discard" state.
+   *
+   * Deliberately spreads the baseline's fields back onto `current` rather than replacing the whole
+   * record: `id`/`createdAt`/`assignments`/`fileHash`/`fileSeenAt`/`fileState`/`baseline` itself all
+   * describe something other than "the profile's edited content" (identity, installation links, or
+   * the file-on-disk cache) and must survive a discard untouched - discard never writes a file, so
+   * the cache describing that file has nothing new to record. `baseline` itself is left as it was:
+   * it already describes the same last-saved-or-loaded state, and live state now equals it again.
+   *
+   * Goes through the same `commit()` every other setter uses (which re-runs `adoptProfileBinds`),
+   * so a discarded profile is adopted exactly as it would be if this same content had just been
+   * loaded from a file - never a discard-specific code path that could drift from the ordinary one.
+   */
+  discard(profileId: string): { outcome: 'discarded'; profiles: ConfigProfile[] } | { outcome: 'noBaseline' } {
+    const current = this.find(profileId)
+    if (!current) throw new Error(`config profile not found: ${profileId}`)
+    if (!current.baseline) return { outcome: 'noBaseline' }
+
+    const { baseline } = current
+    const next: ConfigProfile = {
+      ...current,
+      // Review finding (story 049): a `rename` marks the profile dirty and leaves both the header
+      // banner and the file rename to the next save (story 043), so an un-restored name is a pending
+      // edit the discard would have kept - the one field of the snapshot that is edited outside the
+      // config tabs, and no less part of "the last saved state" for it.
+      name: baseline.name,
+      cvars: { ...baseline.cvars },
+      binds: { ...baseline.binds },
+      layers: baseline.layers.map((layer) => ({ ...layer, overrides: { ...layer.overrides } })),
+      categories: baseline.categories.map((category) => ({ ...category })),
+      actions: baseline.actions.map((action) => ({
+        ...action,
+        commands: action.commands.map((command) => ({ ...command })),
+      })),
+      writeUnbindall: baseline.writeUnbindall,
+      sectionHeaderStyle: baseline.sectionHeaderStyle,
+      unrecognized: baseline.unrecognized.map((line) => ({ ...line })),
+      dirty: false,
+      updatedAt: new Date().toISOString(),
+    }
+    return {
+      outcome: 'discarded',
+      profiles: this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p))),
+    }
+  }
+
+  /**
    * Story 043 D4: marks whether the profile carries edits that are not in its canonical `.cfg` yet.
    *
    * Same shape as `setWriteUnbindall`/`setSectionHeaderStyle` above (one field, full replace, throws
@@ -389,6 +450,12 @@ export class ProfilesStore {
    * as a side effect of hashing its file would silently lose the fact that it has unsaved edits.
    * Clearing `dirty` is `save`'s own explicit step, through `setDirty` above. `updatedAt` is not
    * bumped either, same reasoning as `setDirty`.
+   *
+   * Story 049 D1: this is also where the profile's `baseline` is reseeded, from `current` - the
+   * record as it stands, which is exactly what the file was just confirmed to hold (this method is
+   * only ever reached from a sync run that wrote or verified those bytes). Every save's write-back
+   * comes through here (`index.ts`'s `syncAndPersist` -> `markFileSeen`), so the save path needs no
+   * seeding of its own.
    */
   markFileSeen(profileId: string, fileHash: string, fileSeenAt: number): ConfigProfile[] {
     const current = this.find(profileId)
@@ -400,7 +467,9 @@ export class ProfilesStore {
       fileSeenAt,
       fileState: 'unchanged',
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(
+      this.state.configProfiles().map((p) => (p.id === next.id ? this.seedBaseline(next) : p)),
+    )
   }
 
   /**
@@ -492,7 +561,14 @@ export class ProfilesStore {
       fileSeenAt,
       fileState: 'unchanged',
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    // Story 049 D1: the second of the two seeding points in this class, and the one AC9 rests on -
+    // "take the file" (and the ordinary adopt) must leave the baseline describing the file as it NOW
+    // stands, or the very next edit would be measured against a snapshot that predates the external
+    // change. Captured from `next`, i.e. from the *stripped* cvars and the adopted fields as they
+    // are about to be stored - never from `fields` as read.
+    return this.commit(
+      this.state.configProfiles().map((p) => (p.id === next.id ? this.seedBaseline(next) : p)),
+    )
   }
 
   /**
@@ -543,6 +619,26 @@ export class ProfilesStore {
    */
   private commit(profiles: ConfigProfile[]): ConfigProfile[] {
     return this.state.setConfigProfiles(profiles.map((profile) => adoptProfileBinds(profile)))
+  }
+
+  /**
+   * Story 049 D1: `profile` with its `baseline` reseeded - the one place that snapshot is taken, so
+   * the three seeding call sites above (`markFileSeen`, `adoptFromFile`, `addRebuilt`) cannot
+   * disagree about how.
+   *
+   * The `adoptProfileBinds` call is the whole reason this is a helper rather than a `captureBaseline`
+   * at each call site. `commit` runs that pass over every profile it persists, so the record that
+   * actually lands in `state.json` is the *adopted* one; a snapshot taken before it would differ from
+   * the stored profile in `binds`/`actions`/`layers` the moment there was anything to adopt - which
+   * is precisely the case the two file-reading seeders produce (a hand-added `bind w "+forward"` in
+   * the file becomes the Movement row's action on the way in). The result would be a profile that
+   * reports unsaved changes the instant it was loaded, and a discard that undoes the adoption.
+   * Adoption is idempotent, so doing it here and again in `commit` costs one pass over the binds map
+   * and changes nothing else.
+   */
+  private seedBaseline(profile: ConfigProfile): ConfigProfile {
+    const adopted = adoptProfileBinds(profile)
+    return { ...adopted, baseline: captureBaseline(adopted) }
   }
 }
 
