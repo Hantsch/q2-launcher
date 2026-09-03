@@ -268,7 +268,7 @@ first four stories, all **done**: 038 (writer stops emitting dead alias lines), 
 user-controlled alias names), 040 (structured, commented, human-readable file), 041 (import
 understands aliases/press-release/`unbindall`). See `docs/sprints/done/S07/review.md` and
 `docs/sprints/done/S07/testplan.md` for the manual acceptance pass. 042/043 are now cut into
-`docs/sprints/S08` with their decision round moved into that sprint's clarification step; 044/045
+`docs/sprints/done/S08` with their decision round moved into that sprint's clarification step; 044/045
 remain unscheduled.
 
 **039 turned out far riskier than scoped** — the story the sprint plan below already flagged as
@@ -332,7 +332,7 @@ Eight stories were originally filed; **038–041 built in S07, 042/043 in S08, 0
   `-slow`) and `wait` chains as first-class entries rather than opaque raw text. Lowest priority of
   the eight; 041 already imports them without mangling them.
 
-`docs/sprints/S08` **built, acceptance pending (2026-08-23)** — closed this milestone's held-back
+`docs/sprints/done/S08` **accepted (2026-09-03)** — closed this milestone's held-back
 chain: **046** (drop `'unsafe-inline'` from the production CSP's `style-src`) and **047**
 (`MessageEditor`, `RemoveInstallationDialog`, `DetectDialog` into the `ui:verify` screen registry)
 went first as planned, then **042** (round-trip losslessly, via a versioned `[q2l …]` trailing-tag
@@ -340,8 +340,8 @@ format plus fixed-anchor category section headers, up to two levels, style-confi
 **043** (the `.cfg` becomes the source of truth, `state.json` becomes a cache: explicit Save,
 hash-based external-change detection, a whole-file conflict dialog, rebuild-from-file on a missing/
 corrupt cache record). All four **done**: `npm run build`/`test` (1612 tests)/`typecheck` green,
-live `npm run ui:verify` clean (0 axe violations, 24/24 screens). See `docs/sprints/S08/review.md`
-and `docs/sprints/S08/testplan.md` for the manual acceptance pass. 042/043's parked decisions
+live `npm run ui:verify` clean (0 axe violations, 24/24 screens). See `docs/sprints/done/S08/review.md`
+and `docs/sprints/done/S08/testplan.md` for the manual acceptance pass. 042/043's parked decisions
 (metadata comment format, change detection, write cadence, conflict granularity) were resolved by
 the user in `/sprint`'s clarification round before refine, recorded in each story's own
 `## Decisions (Sprint)`. **042 needed eight adversarial review/fix rounds** — the carry-over rule
@@ -360,20 +360,20 @@ reference doc of its own: [docs/systems/profile-file-format.md](systems/profile-
   mod config may already have set a cvar the launcher shows as "default". A `set` line for every
   catalogue cvar, and "reset/restore to default" removed everywhere (Settings rows, "Reset all",
   Controls' "Restore defaults", `lib/restore-defaults.ts` and the now-dead `suggestedKeys`) with
-  **nothing** taking its place. Cut into `docs/sprints/S09`.
+  **nothing** taking its place. Cut into `docs/sprints/done/S09`.
 - **049** (2026-09-02) — I can see what an unsaved change is, review it, and throw it away. Split
   out of 048 when S09 was cut: the orange cvar-row indicator re-pointed from "differs from
   default" to "I edited this and have not saved", the unsaved-changes bar gaining an expandable
   before/after view of what a Save would write, and a discard that returns the profile to its last
-  saved state without touching the file. Cut into `docs/sprints/S09`.
+  saved state without touching the file. Cut into `docs/sprints/done/S09`.
 
-`docs/sprints/S09` **built, acceptance pending (2026-09-03)** — 048 → 049 → 044, in that build
+`docs/sprints/done/S09` **accepted (2026-09-03)** — 048 → 049 → 044, in that build
 order. **All three done**: `npm run build`/`typecheck` green, `npm test` green (1765 tests, two
 known-flaky failures unrelated to this sprint's diff and pre-dating it — `src/main/ipc/
 index.test.ts`'s module-registration-order flake, untouched since story 036, and
 `import-reader.test.ts`'s pre-existing 512-file fan-out timeout), live `npm run ui:verify` clean (0
 axe violations at every impact level, 27/27 screens, 54/54 screenshots, including the new
-`config-aliases` screen). See `docs/sprints/S09/review.md` and `docs/sprints/S09/testplan.md` for
+`config-aliases` screen). See `docs/sprints/done/S09/review.md` and `docs/sprints/done/S09/testplan.md` for
 the manual acceptance pass.
 
 048 writes a `set` line for every catalogue cvar on every render (the engine-neutral
@@ -393,6 +393,18 @@ layer-owner link and a missed single-command over-budget case.
 **045 was deliberately held back** to a following sprint rather than filling a fourth slot behind
 three large stories — the same call S04 made with 022–025. After S09, only 045 is left in this
 milestone.
+
+**049** turned out to spark one more finding, filed 2026-09-03: **050** (2026-09-03) — the
+`[q2l …]` tag story 042 added has grown into noise on every generated line (`e`, `k`, `slot` fields
+that carry nothing the file or its line order does not already say); the tag shrinks to the
+non-derivable minimum (catalogue link, display name, category, layer membership, and a modified
+key's anchor), slot identity comes from file order instead of a field, and story 042's round-trip
+property must still hold.
+
+`docs/sprints/S10` **planned (2026-09-03)** — closes this milestone: **050** (tag-format cleanup),
+then **045** (toggles, press/release pairs and `wait` chains as first-class entries), in that build
+order — 050 first so 045's new entry kinds render straight onto the already-reduced tag format
+instead of the shape changing twice in one milestone.
 
 Open, named in the stories rather than guessed at: the metadata comment format (042), bind grouping
 by keyboard region vs. category (040 — region means moving `KEYBOARD_ROWS`/`ARROW_CLUSTER`/
@@ -446,7 +458,7 @@ machine, and each is a one-line fix in a data table:
 - Auto-update via `electron-updater`, and a decision on code signing — unsigned
   builds give users a SmartScreen warning.
 - ~~Drop `'unsafe-inline'` from the production CSP's `style-src`~~ — **done, story 046** in
-  `docs/sprints/S08`. Production `style-src` is now `'self'` only (`DEV_CSP` unchanged for Fast
+  `docs/sprints/done/S08`. Production `style-src` is now `'self'` only (`DEV_CSP` unchanged for Fast
   Refresh); `ui:verify`'s harness gates its exit code on both a live CSP-violation collector and
   the served header itself, closing a gap where violations were collected but never actually
   failed the run.
@@ -472,7 +484,7 @@ machine, and each is a one-line fix in a data table:
   axe violations (`page-has-heading-one` deliberately disabled for this single-window desktop app,
   documented in the report). Both are **done** as of S06's acceptance (2026-08-22), when the
   shared human desktop check — a full run never steals window focus — was confirmed. ~~Remaining
-  known blind spot: `MessageEditor.tsx`~~ — **done, story 047** in `docs/sprints/S08`:
+  known blind spot: `MessageEditor.tsx`~~ — **done, story 047** in `docs/sprints/done/S08`:
   `MessageEditor`, `RemoveInstallationDialog` and `DetectDialog` all joined the screen registry
   (18 → 22 screens), the same unwired-label defect 037 fixed elsewhere was fixed here too via the
   shared `Field`/`useId()` helper, and the full run stayed at zero critical/serious/moderate/minor
