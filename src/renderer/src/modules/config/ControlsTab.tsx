@@ -10,6 +10,7 @@ import {
   Trash2,
   TriangleAlert,
 } from 'lucide-react'
+import { actionKeySlots, keySlotAt, withKeySlot } from '@shared/config/action-slots'
 import type { ModifierTrigger } from '@shared/config/modifier-layers'
 import { pressReleasePairs, type PressReleasePair } from '@shared/config/press-release'
 import {
@@ -48,6 +49,7 @@ import {
   applyPlainSlot,
   applySlot,
   deriveRowState,
+  editorKeySlot,
   type CatalogRow,
 } from './lib/catalog-binds'
 import {
@@ -73,6 +75,7 @@ type SaveStatus = 'idle' | 'saving' | 'saved'
  * this file's own `renderCatalogRow`/`renderCatalogSlot`/`renderCatalogOptionsCell`.
  */
 const DUAL_BIND_CATEGORY_IDS = new Set<string>(['movement', 'weapons', 'drops'])
+
 
 export interface ControlsTabProps {
   profile: ConfigProfile
@@ -472,18 +475,17 @@ export function ControlsTab({
   }
 
   /** A plain action's own reset: clears its key slots, never its `commands` and never the action
-   * itself - the action stays in the profile exactly as `ActionEditor` left it. */
+   * itself - the action stays in the profile exactly as `ActionEditor` left it.
+   *
+   * Story 050: only the two editable slots (0/1) are cleared, through the same `applyPlainSlot`
+   * write path the slot UI itself uses - a hand-added third slot is left untouched, exactly as
+   * `applySlot`'s own doc comment requires. */
   const handleResetAction = (actionId: string): void => {
-    const nextActions = actions.map((action) =>
-      action.id === actionId
-        ? {
-            ...action,
-            key: undefined,
-            secondaryKey: undefined,
-            keyModifier: undefined,
-            secondaryKeyModifier: undefined,
-          }
-        : action,
+    const nextActions = applyPlainSlot(
+      applyPlainSlot(actions, actionId, 'primary', undefined),
+      actionId,
+      'secondary',
+      undefined,
     )
     void persistCategoriesAndActions(categories, nextActions)
   }
@@ -572,7 +574,7 @@ export function ControlsTab({
       const state = deriveRowState(entry.action, entry.row)
       return Boolean(state.primary) || Boolean(state.secondary)
     }
-    return Boolean(entry.action.key?.trim()) || Boolean(entry.action.secondaryKey?.trim())
+    return actionKeySlots(entry.action).some((slot) => slot.key.trim().length > 0)
   }).length
 
   /** One catalogue row's Primary/Secondary `BindSlot`, wired exactly like `DualBindPanel`'s
@@ -607,7 +609,11 @@ export function ControlsTab({
         isConflicted={isConflicted}
         checkModifierCollision={checkModifierCollision}
         checkCollision={(key) =>
-          findSlotCollision(draft, key, action ? { actionId: action.id, slot } : undefined)
+          findSlotCollision(
+            draft,
+            key,
+            action ? { actionId: action.id, slot: slot === 'primary' ? 0 : 1 } : undefined,
+          )
         }
         onAssign={(key) => handleCatalogActionsChange(applySlot(actions, row, slot, key))}
         onAssignModifier={({ modifier, key }) =>
@@ -818,8 +824,9 @@ export function ControlsTab({
    * `applyPlainReplace`/`applyPlainModifierReplace` instead of a `CatalogRow`.
    */
   const renderPlainSlot = (action: ConfigAction, slot: 'primary' | 'secondary') => {
-    const boundKey = slot === 'primary' ? action.key : action.secondaryKey
-    const boundModifier = slot === 'primary' ? action.keyModifier : action.secondaryKeyModifier
+    const slotState = keySlotAt(action, slot === 'primary' ? 0 : 1)
+    const boundKey = slotState?.key || undefined
+    const boundModifier = boundKey ? slotState?.modifier : undefined
     const isConflicted = Boolean(
       findSlotConflictOwner(conflictIndex, layers, boundKey, boundModifier, action.name),
     )
@@ -837,7 +844,9 @@ export function ControlsTab({
         isPrimary={slot === 'primary'}
         isConflicted={isConflicted}
         checkModifierCollision={checkModifierCollision}
-        checkCollision={(key) => findSlotCollision(draft, key, { actionId: action.id, slot })}
+        checkCollision={(key) =>
+          findSlotCollision(draft, key, { actionId: action.id, slot: slot === 'primary' ? 0 : 1 })
+        }
         onAssign={(key) =>
           handleCatalogActionsChange(applyPlainSlot(actions, action.id, slot, key))
         }
@@ -876,21 +885,29 @@ export function ControlsTab({
    * Review fix (finding 2): a plain action's Options cell used to be *only* the move/edit/rename/
    * remove icon buttons - unlike a catalogue row, it never showed the modifier layer name, the
    * "also: <owner>" conflict text or the plain dash. Mirrors `renderCatalogOptionsCell`'s
-   * conflict/layer lookup exactly, just keyed by the action's own `key`/`secondaryKey`/
-   * `keyModifier`/`secondaryKeyModifier` instead of `deriveRowState`'s catalogue-row read - there
+   * conflict/layer lookup exactly, just keyed by the action's own key slots (slots 0 and 1 of
+   * `action.keys`) instead of `deriveRowState`'s catalogue-row read - there
    * is no drops-only ammo/message `extra` slot here, that machinery is catalogue-only (drops rows
    * are always catalogue rows, never plain actions).
    */
   const renderPlainOptionsCell = (action: ConfigAction) => {
-    const modifier = action.keyModifier ?? action.secondaryKeyModifier
+    const slot0 = keySlotAt(action, 0)
+    const slot1 = keySlotAt(action, 1)
+    const modifier = (slot0?.key ? slot0.modifier : undefined) ?? (slot1?.key ? slot1.modifier : undefined)
     const layer = modifier ? layerNameForModifier(draft.layers ?? [], modifier) : undefined
     const conflictOwner =
-      findSlotConflictOwner(conflictIndex, layers, action.key, action.keyModifier, action.name) ??
       findSlotConflictOwner(
         conflictIndex,
         layers,
-        action.secondaryKey,
-        action.secondaryKeyModifier,
+        slot0?.key || undefined,
+        slot0?.key ? slot0.modifier : undefined,
+        action.name,
+      ) ??
+      findSlotConflictOwner(
+        conflictIndex,
+        layers,
+        slot1?.key || undefined,
+        slot1?.key ? slot1.modifier : undefined,
         action.name,
       )
     const conflict = conflictOwner ? { owner: conflictOwner } : null
@@ -1264,13 +1281,22 @@ export function ControlsTab({
           cvars={draft.cvars}
           onClose={() => setEditingActionId(null)}
           onSave={(draft) =>
-            void handleSaveAction({
-              ...editingAction,
-              commands: [
-                { kind: 'message', channel: draft.channel as 'say' | 'say_team', text: draft.text },
-              ],
-              key: draft.key,
-            })
+            void handleSaveAction(
+              withKeySlot(
+                {
+                  ...editingAction,
+                  commands: [
+                    { kind: 'message', channel: draft.channel as 'say' | 'say_team', text: draft.text },
+                  ],
+                },
+                0,
+                // Story-050 review, finding 2: this editor has no modifier capture, so its save
+                // must carry the slot's existing modifier over rather than write a bare `{ key }`
+                // and silently turn an `Alt+F1` binding into a plain `F1` one. Same helper
+                // `ActionEditor`'s save uses for the identical case.
+                editorKeySlot(editingAction, draft.key),
+              ),
+            )
           }
         />
       )}

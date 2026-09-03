@@ -27,7 +27,7 @@ describe('adoptRawBinds - base binds', () => {
         kind: 'bind',
         catalogId: 'movement:forward',
         commands: [{ kind: 'raw', text: '+forward' }],
-        key: 'w',
+        keys: [{ key: 'w' }],
       },
     ])
     // A continuous command is bound directly (see `action-mirror.ts`), so the bind text a working
@@ -40,20 +40,24 @@ describe('adoptRawBinds - base binds', () => {
 
     expect(result.actions).toHaveLength(1)
     expect(result.actions[0]!.catalogId).toBe('movement:moveup')
-    // Sorted key order, so which key lands in Primary is deterministic.
-    expect(result.actions[0]!.key).toBe('MOUSE2')
-    expect(result.actions[0]!.secondaryKey).toBe('SPACE')
+    // Sorted key order, so which key lands in the first slot is deterministic.
+    expect(result.actions[0]!.keys).toEqual([{ key: 'MOUSE2' }, { key: 'SPACE' }])
     expect(result.binds).toEqual({ SPACE: '+moveup', MOUSE2: '+moveup' })
   })
 
-  it('leaves a third key on the same command raw - a row holds two slots, not three', () => {
+  it('appends a third key on the same command as a new slot rather than leaving it raw (story 050)', () => {
     const result = adoptRawBinds(
       { binds: { SPACE: '+moveup', MOUSE2: '+moveup', UPARROW: '+moveup' } },
       idFactory(),
     )
 
     expect(result.actions).toHaveLength(1)
-    expect(result.binds['UPARROW']).toBe('+moveup')
+    expect(result.actions[0]!.keys).toEqual([
+      { key: 'MOUSE2' },
+      { key: 'SPACE' },
+      { key: 'UPARROW' },
+    ])
+    expect(result.binds).toEqual({ SPACE: '+moveup', MOUSE2: '+moveup', UPARROW: '+moveup' })
   })
 
   it('mirrors a non-continuous row through its alias', () => {
@@ -109,13 +113,13 @@ describe('adoptRawBinds - base binds', () => {
       kind: 'bind',
       catalogId: 'movement:forward',
       commands: [{ kind: 'raw', text: '+forward' }],
-      key: 'w',
+      keys: [{ key: 'w' }],
     }
 
     const result = adoptRawBinds({ binds: { UPARROW: '+forward' }, actions: [existing] }, idFactory())
 
     expect(result.actions).toHaveLength(1)
-    expect(result.actions[0]!.secondaryKey).toBe('UPARROW')
+    expect(result.actions[0]!.keys).toEqual([{ key: 'w' }, { key: 'UPARROW' }])
   })
 
   it('refuses to adopt into a row whose commands differ from the bind', () => {
@@ -128,7 +132,7 @@ describe('adoptRawBinds - base binds', () => {
       kind: 'bind',
       catalogId: 'dropWeapon:shotgun',
       commands: [{ kind: 'raw', text: 'drop shotgun' }],
-      key: 'g',
+      keys: [{ key: 'g' }],
     }
 
     const result = adoptRawBinds(
@@ -139,6 +143,48 @@ describe('adoptRawBinds - base binds', () => {
     expect(result.adopted).toBe(0)
     expect(result.actions).toEqual([existing])
     expect(result.binds['h']).toBe('drop shotgun; drop shells')
+  })
+
+  it('joins a hand-made entry whose alias name the minted row would have taken (story 050)', () => {
+    // No `catalogId` to match on, but "Drop rockets" slugs to the same alias name the row's own
+    // command text does (`drop_rockets`). Minting would write that `alias` line twice - one entry
+    // for the engine, one entry for the reader (`groupEntryLines` groups by exactly that name),
+    // and the hand-made one's display name gone. The raw bind is a second key on it instead.
+    const existing: ConfigAction = {
+      id: 'a1',
+      categoryId: 'drops',
+      name: 'Drop rockets',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'drop rockets' }],
+      keys: [{ key: '1' }],
+    }
+
+    const result = adoptRawBinds({ binds: { g: 'drop rockets' }, actions: [existing] }, idFactory())
+
+    expect(result.actions).toHaveLength(1)
+    expect(result.actions[0]!.name).toBe('Drop rockets')
+    expect(result.actions[0]!.keys).toEqual([{ key: '1' }, { key: 'g' }])
+    expect(result.binds['g']).toBe(aliasNameFor(existing))
+  })
+
+  it('leaves the raw bind raw when the entry owning that alias name runs something else', () => {
+    // Same name collision, different commands: adopting would change what the key does, minting
+    // would duplicate the alias name. Neither is allowed, so the line stays a raw bind.
+    const existing: ConfigAction = {
+      id: 'a1',
+      categoryId: 'drops',
+      name: 'Drop rockets',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'drop rockets' }, { kind: 'raw', text: 'say dropped' }],
+      keys: [{ key: '1' }],
+    }
+    const binds = { g: 'drop rockets' }
+
+    const result = adoptRawBinds({ binds, actions: [existing] }, idFactory())
+
+    expect(result.adopted).toBe(0)
+    expect(result.actions).toEqual([existing])
+    expect(result.binds).toBe(binds)
   })
 
   it('never adopts a value a mirror pass wrote', () => {
@@ -158,7 +204,7 @@ describe('adoptRawBinds - base binds', () => {
       catalogId: 'weaponUse:use_sshotgun',
       aliasName: 'ssg_sg',
       commands: [{ kind: 'raw', text: 'use super shotgun' }],
-      key: 'q',
+      keys: [{ key: 'q' }],
     }
 
     const result = adoptRawBinds({ binds: { q: 'ssg_sg' }, actions: [existing] }, idFactory())
@@ -202,14 +248,13 @@ describe('adoptRawBinds - layer overrides', () => {
 
     const adopted = result.actions[0]!
     expect(adopted.catalogId).toBe('dropWeapon:shotgun')
-    expect(adopted.key).toBe('q')
-    expect(adopted.keyModifier).toBe('ALT')
+    expect(adopted.keys).toEqual([{ key: 'q', modifier: 'ALT' }])
     expect(result.layers[0]!.overrides).toEqual({ q: aliasNameFor(adopted) })
   })
 
   it('leaves a layer whose trigger is not a modifier completely alone', () => {
-    // `keyModifier` only knows ALT/CTRL/SHIFT, so an override in a layer triggered by `-` has no
-    // representation in `actions` at all.
+    // A slot's `modifier` only knows ALT/CTRL/SHIFT, so an override in a layer triggered by `-`
+    // has no representation in `actions` at all.
     const layers = [layer({ id: 'l2', name: 'test', triggerKey: '-', overrides: { w: '+forward' } })]
     const result = adoptRawBinds({ binds: {}, layers }, idFactory())
 
@@ -226,9 +271,7 @@ describe('adoptRawBinds - layer overrides', () => {
 
     const railgun = result.actions.find((a) => a.catalogId === 'dropWeapon:railgun')!
     const shotgun = result.actions.find((a) => a.catalogId === 'dropWeapon:shotgun')!
-    expect(railgun.key).toBe('g')
-    expect(railgun.keyModifier).toBeUndefined()
-    expect(shotgun.key).toBe('g')
-    expect(shotgun.keyModifier).toBe('ALT')
+    expect(railgun.keys).toEqual([{ key: 'g' }])
+    expect(shotgun.keys).toEqual([{ key: 'g', modifier: 'ALT' }])
   })
 })

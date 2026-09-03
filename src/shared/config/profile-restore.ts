@@ -14,9 +14,9 @@
  * ## The one rule: the config line wins
  *
  * A tag is a *record* of what the UI knew; the config line is the *observable state* of the file
- * the engine will actually read. Where the two disagree - the tag claims `k=alias` for an entry a
- * `bind` line points a key at, a `mod` value that is not a modifier, two lines claiming the same key
- * slot - the line wins and the discrepancy is reported (AC6). A malformed tag degrades that one
+ * the engine will actually read. Where the two disagree - a `mod` value that is not a modifier, a
+ * layer whose `mode`/`trigger` tag its own alias names contradict - the line wins and the
+ * discrepancy is reported (AC6). A malformed tag degrades that one
  * line to inference and is reported (AC5); it never fails the file and never discards the line, and
  * it cannot: `profile.binds`/`profile.cvars` are imported from the parsed lines directly by
  * `import.ts`, entirely independent of anything here. The worst a mangled tag can cost is the
@@ -36,26 +36,50 @@
  *
  * ## How an entry is put back together
  *
- * `e` (an FNV-1a of the original `action.id`, never an index) is the join key: every line carrying
- * the same `e` belongs to one entry. That is what pairs the two physical `bind` lines of a two-slot
- * entry (`slot=1` -> `key`, `slot=2` -> `secondaryKey`) and what ties them to the `alias` line that
- * defines what the entry *does*. The id itself is never adopted - `e` is an opaque token here, and
- * every id in the result comes from `newId` (AC4's rule, applied to entries, categories and layers
- * alike: importing a colleague's file must not collide with a local profile).
+ * Story 050 took the join key (`e`, an FNV-1a of the original `action.id`) out of the format
+ * together with `k` and `slot`, because all three restate something the config text already says.
+ * Identity is therefore read out of the *text* now (`groupEntryLines`):
+ *
+ * - an **alias line** is identified by its own alias name - a chunk-split `_p<n>` family folds onto
+ *   the base line that references it, exactly as `commandsFromAliases` recombines their bodies;
+ * - a **bind line** by its bind value, so the several physical `bind` lines running one command are
+ *   one entry with several keys (AC4) with no ref involved;
+ * - the two **join** when a bind value equals a grouped alias name - which is precisely what
+ *   `bindValueFor`/`applyActionMirror` wrote there in the first place;
+ * - an **anchor line** (see below) pairs with its entry inside the same category section, by `cid`
+ *   when it carries one, else by its display prose - *exactly*, and by nothing wider: a prose
+ *   prefix relation would merge two sibling entries whose names happen to nest (`Reload` inside
+ *   `Reload weapon`), which costs one of them its keys and its commands outright.
+ *
+ * Tag *presence* is what tells a launcher-owned code line from a raw bind the user typed and
+ * commented themselves, so `render.ts` gives every entry line at least the bare `[q2l]` marker and
+ * a code line with no tag at all is not an entry line here.
+ *
+ * An id is never adopted: every id in the result comes from `newId` (AC4's rule, applied to
+ * entries, categories and layers alike - importing a colleague's file must not collide with a local
+ * profile).
  *
  * What comes from where:
  *
  * | field                     | source                                                        |
  * | ------------------------- | ------------------------------------------------------------- |
  * | display `name`            | the comment's prose (story 040), alias line first             |
- * | `kind`                    | `k`, reconciled against the line (see `resolveKind`)          |
+ * | `kind`                    | inferred from the commands and the lines (`entryKindFor`)      |
  * | `catalogId`               | `cid`                                                          |
  * | `aliasName`               | the alias line's own name; for an anchor-only entry, its `an`  |
  * | `commands` + their order  | the alias line's body, in body order                          |
  * | `keepEmptyAlias`          | a rendered `alias <name> ""`                                   |
- * | `key`/`secondaryKey`      | the `slot`-tagged bind (or anchor) lines sharing this `e`      |
+ * | `keys`                    | the bind (then anchor) lines of this entry, in file order      |
  * | modifiers                 | a slot's own `mod`, or the modifier layer that overrides it     |
  * | `categoryId`              | the section header the line sits under                         |
+ *
+ * Slot identity is file order and nothing else (story 050): every claim simply appends, bind lines
+ * before anchor lines, with no cap of two - so a hand-added third `bind` line on an entry's value
+ * comes back as that entry's slot 3 rather than as a conflict. One consequence is accepted and
+ * documented in `docs/systems/profile-file-format.md`: an entry whose *modified* slot was slot 1
+ * and whose plain slot was slot 2 comes back with the two swapped, since the plain slot's bind line
+ * is claimed before the modified slot's anchor. Both keys and both modifiers survive and the file
+ * re-renders byte-identically; only the intra-entry order flips.
  *
  * ## Sections, and why attribution is positional
  *
@@ -94,25 +118,23 @@
  * That value match needs an entry to match *against*, and an entry bound only through a modifier has
  * neither an alias line nor a bind line to be rebuilt from - it used to be lost entirely. Since the
  * story-042 review fixes the writer gives every such slot an **anchor line**: a comment-only,
- * `[q2l e=… k=… cid=… an=… slot=… mod=… key=…]`-tagged line under its own category section
- * (`render.ts#buildAnchorLines`). It is read here like any other tagged line, fills its slot from
- * its own `slot`/`mod`/`key`, and its command is then taken from the layer override it names - the
- * only place the file records what such an entry actually does. A modified slot is anchored even
- * when the entry keeps an alias line, since that line carries no `slot`/`mod`: without the anchor,
- * an entry whose *both* slots are modified had its primary and secondary decided by the guessed
- * (modifier, key) fallback in `restoreModifierSlots` rather than by the file.
+ * `[q2l cid=… an=… mod=… key=…]`-tagged line under its own category section
+ * (`render.ts#buildAnchorLines`). It is read here like any other tagged line, appends its slot from
+ * its own `key`/`mod`, and its command is then taken from the layer override it names - the only
+ * place the file records what such an entry actually does. A modified slot is anchored even when the
+ * entry keeps an alias line, since that line carries no `key`/`mod`: without the anchor, an entry
+ * whose slots are *all* modified had them decided by the guessed (modifier, key) fallback in
+ * `restoreModifierSlots` rather than by the file.
  *
- * An anchor with no `slot`/`key` at all is *read* here - it restores the entry's identity (name,
- * `kind`, `categoryId`, `catalogId`, `aliasName`) but not its `commands`, since with no key, no
- * alias line and no layer override the file records nowhere what such an entry runs. The writer no
- * longer emits that shape (see `render.ts#buildAnchorLines` for why an entry with no line at all is
- * deliberately dropped on import instead), so it only reaches this module out of a hand-edited or
- * older file - and tolerating one costs nothing, whereas refusing it would throw away a record the
- * user did not touch.
+ * The `key` field is also the read-side *discriminator* for an anchor (story 050): only an anchor
+ * line ever carries one, so a comment-only line with a `key` is an entry anchor and a comment
+ * carrying `cat`/`layer`/`v` stays a section header. A comment-only line with neither is neither -
+ * it stays a preserved, unrecognised line rather than becoming a keyless, commandless entry.
  */
 
 import type { AltLayer, AltLayerMode } from '@shared/config/alt-layers'
 import { bindValueFor } from '@shared/config/action-mirror'
+import { actionKeySlots, keySlotCount, withKeySlot } from '@shared/config/action-slots'
 import {
   buildImportedActions,
   configCommandFor,
@@ -134,6 +156,7 @@ import { STEP_ALIAS_PREFIX, SWITCH_ALIAS } from '@shared/config/switch-bind'
 import {
   BUILT_IN_ACTION_CATEGORIES,
   type ActionEntryKind,
+  type ActionKeySlot,
   type ConfigAction,
   type ConfigActionCategory,
   type ConfigCommand,
@@ -229,22 +252,39 @@ export type RestoreWarningReason =
   | 'tag-missing'
   /** The tag carried keys this build's registry does not know (`subject` lists them). */
   | 'tag-unknown-keys'
-  /** `k` was a value that is not an `ActionEntryKind`. */
-  | 'tag-kind-unknown'
-  /** `k` contradicted the line: an alias entry is never bound, yet a bind line claimed this entry. */
-  | 'tag-kind-contradicted'
-  /** Two lines claimed the same key slot of one entry; the first one kept it. */
-  | 'tag-slot-conflict'
   /** `mod` was a value that is not a `ModifierTrigger`. */
   | 'tag-modifier-unknown'
   /** A tagged line sits under no section header, so its category could not be recovered. */
   | 'entry-section-unknown'
+  /**
+   * An `alias` line whose name a later `alias` line in the same file re-defines (`subject` is that
+   * name), so the earlier definition's body never reaches this function at all - the engine keeps
+   * only the last definition of a name and every reader in this codebase folds `alias` lines the
+   * same way before calling here (`main/modules/config/file-source.ts#foldConfig`,
+   * `main/modules/config/core/import-reader.ts#applyAlias`).
+   *
+   * **Produced by that fold, not by this module** (story-050 review, finding 4, second round). The
+   * first version of this reason was reported from `buildEntry` instead, on the theory that two
+   * same-named `alias` lines would meet in one entry group here - they cannot: the fold has already
+   * collapsed them to one line by the time `restoreProfileParts` sees the input, so the branch was
+   * unreachable and a user's entry still vanished without a word. Reporting it where the body is
+   * actually discarded is what makes the loss visible; see `file-source.ts#discardedAliasWarnings`.
+   *
+   * Kept in this union rather than given a vocabulary of its own because it is a statement about
+   * reading one profile file back, which is exactly what `RestoreWarning` is the vocabulary for,
+   * and because `ParsedCanonicalProfile.warnings` is the one list the read path carries.
+   */
+  | 'entry-alias-duplicate'
   /** A layer section's `mode` tag disagreed with the alias names the section actually contains. */
   | 'layer-mode-contradicted'
   /** A layer section's `trigger` tag disagreed with the section's own trigger bind. */
   | 'layer-trigger-contradicted'
-  /** A modifier layer overrides a key for an entry whose two slots are already both taken. */
-  | 'modifier-slot-unavailable'
+
+// Story 050 removed four reasons together with the `k` and `slot` tag fields they reported on:
+// `tag-kind-unknown`/`tag-kind-contradicted` (kind is inferred now, so there is no tagged kind left
+// to contradict) and `tag-slot-conflict`/`modifier-slot-unavailable` (slot claims simply append in
+// file order, so "this slot is already taken" and "no free slot" are both structurally
+// unreachable). Their `en.json` strings went with them.
 
 export interface RestoreWarning {
   reason: RestoreWarningReason
@@ -367,10 +407,20 @@ interface ParsedComment {
   tagSliced: boolean
 }
 
+/**
+ * The tag's literal sigil, exactly the substring `parseMetaTag` anchors on.
+ *
+ * Since story 050 dropped `e`, the *presence* of this substring in a code line's trailing comment is
+ * the only thing left that distinguishes a launcher-written `bind`/`alias` line from a raw one the
+ * user typed and commented themselves - which is why `render.ts#entryTag` never returns `''` and
+ * gives a fieldless entry line the bare `[q2l]` marker. `groupEntryLines` tests for it directly.
+ */
+const TAG_SIGIL = '[q2l'
+
 /** Index just past a well-formed tag's `]`, or `-1` when the text carries no tag whose tail is
  * followed by nothing but decoration. */
 function tagEndIndex(text: string): number {
-  const sigil = text.lastIndexOf('[q2l')
+  const sigil = text.lastIndexOf(TAG_SIGIL)
   if (sigil === -1) return -1
   const close = text.indexOf(']', sigil)
   if (close === -1) return -1
@@ -380,7 +430,7 @@ function tagEndIndex(text: string): number {
 function parseComment(text: string): ParsedComment {
   const end = tagEndIndex(text)
   const parsed = parseMetaTag(end === -1 ? text : text.slice(0, end))
-  return { ...parsed, tagged: text.includes('[q2l'), tagSliced: end !== -1 }
+  return { ...parsed, tagged: text.includes(TAG_SIGIL), tagSliced: end !== -1 }
 }
 
 /**
@@ -388,7 +438,7 @@ function parseComment(text: string): ParsedComment {
  * (`render.ts#buildAnchorLines`), or any other tagged line kind that names an entry?
  *
  * The one predicate both scans over the comment lines consult, because they must agree: a line the
- * anchor scan in `groupByEntryRef` takes as an entry anchor must never *also* be read as a section
+ * anchor scan in `groupEntryLines` takes as an entry anchor must never *also* be read as a section
  * header by `scanComments`. It could, before this was factored out - the banner test only looked at
  * the line's prose, so an anchor whose display name happened to contain three consecutive `-` or `=`
  * characters (`Strafe --- left`, a name nothing stops a user typing) was read as an untagged banner
@@ -396,15 +446,19 @@ function parseComment(text: string): ParsedComment {
  * same section under it, with no warning and no way for a fixed-point test on the rendered text to
  * notice, since the second render is a valid file - just a different profile.
  *
- * A `cat`/`layer`/`v` field is what makes a tagged line a *header* rather than an entry line, so a
- * line carrying one is not claimed here even if someone hand-edited an `e` into it. Malformedness is
- * deliberately not consulted: `parseMetaTag` yields `fields: {}` for a tag it could not parse at all
- * (so `e` is absent and this returns `false` anyway), and for a tag with one garbled token among
- * good ones the entry scan does claim the line - this predicate has to say the same thing it does.
+ * Story 050: the discriminator is the `key` field, which replaced `e` here. Only an anchor line
+ * ever carries `key` - a real `bind` line spells its key as code and never gets one
+ * (`render.ts#entryTag`) - so it is exactly as narrow a signal as `e` was, without the ref. A
+ * `cat`/`layer`/`v` field is what makes a tagged line a *header* rather than an entry line, so a
+ * line carrying one is not claimed here even if someone hand-edited a `key` into it. Malformedness
+ * is deliberately not consulted: `parseMetaTag` yields `fields: {}` for a tag it could not parse at
+ * all (so `key` is absent and this returns `false` anyway), and for a tag with one garbled token
+ * among good ones the entry scan does claim the line - this predicate has to say the same thing it
+ * does.
  */
-function claimsEntryRef(parsed: ParsedComment): boolean {
-  const ref = parsed.fields.e
-  if (ref === undefined || ref.length === 0) return false
+function claimsEntryAnchor(parsed: ParsedComment): boolean {
+  const key = parsed.fields.key
+  if (key === undefined || key.trim().length === 0) return false
   return (
     parsed.fields.cat === undefined &&
     parsed.fields.layer === undefined &&
@@ -623,7 +677,7 @@ function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
     } else if (parsed.fields.layer !== undefined) {
       sections.push({ kind: 'layer', title, fields: parsed.fields, file, line })
       if (!parsed.malformed) consumed.push({ file, line })
-    } else if (!claimsEntryRef(parsed) && title.length > 0 && OTHER_BUCKET_TITLES.has(title)) {
+    } else if (!claimsEntryAnchor(parsed) && title.length > 0 && OTHER_BUCKET_TITLES.has(title)) {
       // Story-042-review round 5, fix-cycle-8: the reserved "Other"/"Other binds" bucket gets its
       // own section kind, recognised by its fixed, non-user-configurable title rather than by
       // `BANNER_RULE`'s decoration test - `plain` header style draws no decoration at all
@@ -636,7 +690,7 @@ function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
       // `categoryRegistry`'s `'other'` case for why that minting broke AC2 one render later.
       sections.push({ kind: 'other', title, fields: parsed.fields, file, line })
     } else if (
-      !claimsEntryRef(parsed) &&
+      !claimsEntryAnchor(parsed) &&
       title.length > 0 &&
       (BANNER_RULE.test(comment.text) || CATEGORY_TITLE_PREFIX.test(comment.text.trim()))
     ) {
@@ -645,7 +699,7 @@ function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
       // above, regardless of header style). It opens a section all the same; whether anything is
       // ever filed under it decides whether a category gets minted for it.
       //
-      // `claimsEntryRef` first, and only then the decoration test: an entry line's prose is a
+      // `claimsEntryAnchor` first, and only then the decoration test: an entry line's prose is a
       // user-typed display name and may contain anything at all, `---` included, so the tag decides
       // what the line *is* and the decoration is only consulted for a line no tag has claimed.
       //
@@ -791,17 +845,26 @@ interface TaggedLine<T> {
   prose: string
 }
 
-/** Every line sharing one `e` ref: the entry's alias line(s), its bind line(s) and its anchor
- * line(s) - the comment-only lines `render.ts#buildAnchorLines` writes for a key slot that has no
- * config line of its own because its modifier lives in a layer. */
+/** Every line the config text identifies as one entry: the entry's alias line(s), its bind line(s)
+ * and its anchor line(s) - the comment-only lines `render.ts#buildAnchorLines` writes for a key slot
+ * that has no config line of its own because its modifier lives in a layer. */
 interface EntryGroup {
-  ref: string
+  /**
+   * How the text identified this entry: the grouped alias name, the shared bind value, or - for an
+   * anchor that matched no entry at all - `anchor:<file>:<line>`. File data, so it doubles as a
+   * warning `subject` and as the last-resort display name, the two things the old `e` ref was
+   * borrowed for.
+   *
+   * The *map* key `groupEntryLines` files a group under is this plus the line's category scope
+   * (see `groupFor` there) - not repeated here, because a warning must name what the file says, not
+   * an internal scope token.
+   */
+  key: string
   aliases: TaggedLine<RestoreAliasLine>[]
   binds: TaggedLine<RestoreBindLine>[]
   anchors: TaggedLine<RestoreCommentLine>[]
 }
 
-const ENTRY_KINDS = new Set<string>(['bind', 'message', 'alias'])
 const MODIFIER_TRIGGERS = new Set<string>(['ALT', 'CTRL', 'SHIFT'])
 
 /** `alias <base>_p<n>` - a chunk of a body too long for one line (`alias-render.ts`). */
@@ -817,9 +880,11 @@ const HELPER_SUFFIX = /_c\d+$/
  * split only ever happened at a command boundary, so nothing has to be re-parsed to undo it - and
  * the parent's own body is dropped, since it holds the chunk names rather than commands.
  */
-function commandsFromAliases(
-  lines: readonly TaggedLine<RestoreAliasLine>[],
-): { commands: ConfigCommand[]; aliasName: string; emptyBody: boolean } {
+function commandsFromAliases(lines: readonly TaggedLine<RestoreAliasLine>[]): {
+  commands: ConfigCommand[]
+  aliasName: string
+  emptyBody: boolean
+} {
   const names = new Set(lines.map((line) => line.item.name))
   const chunks: { index: number; body: string }[] = []
   const parents: RestoreAliasLine[] = []
@@ -847,38 +912,26 @@ function commandsFromAliases(
 }
 
 /**
- * The entry's `kind`, reconciled.
+ * The entry's `kind`, inferred - the only way there is since story 050 dropped `k` from the tag
+ * (the field restated something the lines already say, and a second source could only ever drift
+ * from them).
  *
- * `k` is adopted when it is one of the three real kinds and the line supports it. The one shape it
- * cannot be is `alias` on an entry a `bind` line points a key at: a `kind: 'alias'` entry is never
- * bound (story 019), so the writer can never have produced that pair - a bind line claiming it is a
- * hand-edit, and the bind line is the observable truth. An unreadable or absent `k` falls back to
- * what the commands themselves say (`entryKindFor`, the same table the untagged path uses).
+ * A single `say`/`say_team` body is a message (`entryKindFor`, story 041 - the same table the
+ * untagged path uses). Otherwise: an entry some line claims a key for, or one with no alias line to
+ * be defined by, is a `bind`; an alias line nothing claims a key for is a `kind: 'alias'` entry,
+ * which is exactly story 019's definition of one (never bound).
+ *
+ * `bound` counts *every* slot claim, anchors included, not just bind lines: an entry bound only
+ * through a modifier layer has its key on an anchor line and no bind line at all
+ * (`render.ts#buildAnchorLines`), and it is still a bound entry.
  */
-function resolveKind(
-  tagged: string | undefined,
+function inferKind(
   commands: readonly ConfigCommand[],
   hasAliasLine: boolean,
   bound: boolean,
-  report: (reason: RestoreWarningReason, subject?: string) => void,
 ): ActionEntryKind {
-  const inferred = entryKindFor(commands) === 'message' ? 'message' : bound || !hasAliasLine ? 'bind' : 'alias'
-
-  if (tagged === undefined) return inferred
-  if (!ENTRY_KINDS.has(tagged)) {
-    report('tag-kind-unknown', tagged)
-    return inferred
-  }
-  if (tagged === 'alias' && bound) {
-    report('tag-kind-contradicted', tagged)
-    return inferred === 'message' ? 'message' : 'bind'
-  }
-  return tagged as ActionEntryKind
-}
-
-/** A `slot` value as one of the entry's two key slots, or `null` for anything else. */
-function slotOf(value: string | undefined): 1 | 2 | null {
-  return value === '1' ? 1 : value === '2' ? 2 : null
+  if (entryKindFor(commands) === 'message') return 'message'
+  return bound || !hasAliasLine ? 'bind' : 'alias'
 }
 
 /** One line's claim on a key slot: a bind line (whose key is the config text's own) or an anchor
@@ -890,18 +943,20 @@ interface SlotClaim {
 }
 
 /**
- * One entry out of one `e` group.
+ * One entry out of one group of lines the config text identified as one entry.
  *
- * The bind lines fill the two key slots by their own `slot` tag (the two lines of a two-slot entry
- * differ in exactly that field); a line whose slot is already taken is reported and dropped rather
- * than allowed to overwrite the line that claimed it first, because a bind reassigned to the wrong
- * slot is precisely the silent damage this module exists to avoid. A slot with no readable `slot`
- * tag takes the first free one - the file still says this key belongs to this entry, only not which
- * of its two slots.
+ * **Slot claims simply append, in file order, uncapped** (story 050). Every bind line of the group
+ * claims the next slot, in the order the lines appear in the file, and then every anchor line does -
+ * bind lines first because a bind line is an observable config line and an anchor is only a record
+ * of a slot the file's bind table deliberately has no line for. "This slot is already taken" and
+ * "no free slot" are therefore not states this can reach any more, which is why the two warnings
+ * that reported them are gone: a hand-added third `bind` line on the entry's value becomes its slot
+ * 3 rather than an error, exactly as AC3 asks.
  *
- * An anchor line claims a slot the same way, and is processed *after* every bind line: a bind line
- * is an observable config line and an anchor is only a record, so where the two disagree the line
- * wins (this module's one rule) and the anchor is reported as a slot conflict.
+ * The one consequence, accepted and documented: an entry whose modified slot came first in the UI
+ * and whose plain slot came second comes back with the two swapped, because the plain slot's bind
+ * line is claimed before the modified slot's anchor. Nothing is lost - both keys and both modifiers
+ * survive, and the file re-renders byte-identically.
  */
 function buildEntry(
   group: EntryGroup,
@@ -918,46 +973,30 @@ function buildEntry(
   const fromAliases = group.aliases.length > 0 ? commandsFromAliases(group.aliases) : null
   const commands = fromAliases?.commands ?? []
 
+  // No `entry-alias-duplicate` report here (story-050 review, finding 4, second round): two
+  // same-named `alias` lines never reach one group, because every caller folds `alias` lines
+  // last-definition-wins by name *before* calling this module (see that reason's own doc comment).
+  // The one place the second body is actually discarded is that fold, and that is where the warning
+  // is raised now - `file-source.ts#discardedAliasWarnings`.
+
   const claims: SlotClaim[] = [
     ...group.binds.map((line) => ({ at: line.item, fields: line.fields, key: line.item.key })),
-    // An anchor with no `key` field records no slot at all. The writer emits no such line today
-    // (`render.ts#buildAnchorLines`), so this is a hand-edited or older file; it still contributes
-    // the entry's identity below, just no key.
-    ...group.anchors
-      .filter((line) => (line.fields.key ?? '').trim().length > 0)
-      .map((line) => ({ at: line.item, fields: line.fields, key: line.fields.key!.trim() })),
+    // Every anchor carries a non-empty `key` - that field is what made the line an anchor at all
+    // (`claimsEntryAnchor`), so there is no keyless-anchor case to filter out here since story 050.
+    ...group.anchors.map((line) => ({
+      at: line.item,
+      fields: line.fields,
+      key: line.fields.key!.trim(),
+    })),
   ]
 
-  const slots: ({ key: string; modifier?: ModifierTrigger } | undefined)[] = [undefined, undefined]
-  for (const claim of claims) {
-    const wanted = slotOf(claim.fields.slot)
-    // A claim that names a slot (`wanted !== null`) which is already taken is a genuine conflict -
-    // it must be reported and dropped here, never silently re-homed into the *other* slot by the
-    // `findIndex` fallback below. Falling through there was fix-cycle-5's slot-swap bug: a duplicated
-    // `slot=1` tag landed in slot 2 instead of being rejected, quietly turning a conflicting claim
-    // into the entry's secondary key. Only a claim with NO slot opinion at all (`wanted === null`,
-    // a hand-edited or older line) asks `findIndex` for whichever slot is still free.
-    if (wanted !== null && slots[wanted - 1] !== undefined) {
-      warnings.push({
-        reason: 'tag-slot-conflict',
-        file: claim.at.file,
-        line: claim.at.line,
-        subject: claim.key,
-      })
-      continue
-    }
-    const index = wanted !== null ? wanted - 1 : slots.findIndex((slot) => slot === undefined)
-    if (index === -1) {
-      warnings.push({
-        reason: 'tag-slot-conflict',
-        file: claim.at.file,
-        line: claim.at.line,
-        subject: claim.key,
-      })
-      continue
-    }
+  // One claim, one slot, in claim order - see this function's doc comment for why there is no
+  // conflict case left to handle.
+  const slots: ActionKeySlot[] = claims.map((claim) => {
     const modifier = claim.fields.mod
-    if (modifier !== undefined && !MODIFIER_TRIGGERS.has(modifier.toUpperCase())) {
+    const trigger = modifier?.toUpperCase()
+    const known = trigger !== undefined && MODIFIER_TRIGGERS.has(trigger)
+    if (modifier !== undefined && !known) {
       warnings.push({
         reason: 'tag-modifier-unknown',
         file: claim.at.file,
@@ -965,17 +1004,14 @@ function buildEntry(
         subject: modifier,
       })
     }
-    slots[index] = {
+    return {
       key: normalizeBindKey(claim.key),
-      ...(modifier !== undefined && MODIFIER_TRIGGERS.has(modifier.toUpperCase())
-        ? { modifier: modifier.toUpperCase() as ModifierTrigger }
-        : {}),
+      ...(known ? { modifier: trigger as ModifierTrigger } : {}),
     }
-  }
+  })
 
-  const bound = group.binds.length > 0
   const fields = group.aliases[0]?.fields ?? group.binds[0]?.fields ?? group.anchors[0]!.fields
-  const kind = resolveKind(fields.k, commands, fromAliases !== null, bound, report)
+  const kind = inferKind(commands, fromAliases !== null, slots.length > 0)
 
   // The display name is the comment's prose - the alias line's first, since that line *is* the
   // entry; a bind line's prose says the same thing, and a line whose prose gave way to its tag
@@ -988,14 +1024,14 @@ function buildEntry(
   ).trim()
 
   const section = sectionFor(sections, first)
-  if (section === null) report('entry-section-unknown', group.ref)
+  if (section === null) report('entry-section-unknown', group.key)
 
   const catalogId = fields.cid
 
-  const action: ConfigAction = {
+  const base: ConfigAction = {
     id: newId(),
     categoryId: categories.idFor(section),
-    name: prose.length > 0 ? prose : (fromAliases?.aliasName ?? slots[0]?.key ?? group.ref),
+    name: prose.length > 0 ? prose : (fromAliases?.aliasName ?? slots[0]?.key ?? group.key),
     kind,
     // A body's own order is the command order (the story's decision: the config text already
     // carries it, so no tag repeats it). With no alias line at all - a continuous catalogue row
@@ -1003,14 +1039,15 @@ function buildEntry(
     // command is the entry's one command, which is exactly what that line records.
     commands: fromAliases !== null ? commands : bindCommands(group.binds),
     ...(catalogId ? { catalogId } : {}),
-    ...(slots[0] ? { key: slots[0]!.key } : {}),
-    ...(slots[1] ? { secondaryKey: slots[1]!.key } : {}),
-    ...(slots[0]?.modifier ? { keyModifier: slots[0]!.modifier } : {}),
-    ...(slots[1]?.modifier ? { secondaryKeyModifier: slots[1]!.modifier } : {}),
     ...(fromAliases !== null && kind === 'alias' && fromAliases.emptyBody
       ? { keepEmptyAlias: true as const }
       : {}),
   }
+
+  // Through the accessor rather than by writing `keys` here: `action-slots.ts` is the single access
+  // point for that array (its own doc comment), and appending at `index === keySlotCount` is
+  // exactly the "next free slot" call it documents.
+  const action = slots.reduce((carried, slot, index) => withKeySlot(carried, index, slot), base)
 
   // The alias line's own name is the entry's `aliasName` (story 039) - never a tag, since the line
   // already carries it verbatim. With no alias line there are two fallbacks, in this order:
@@ -1193,44 +1230,34 @@ function buildLayer(
   }
 }
 
-/** A restored layer plus the position of the section header it came from - the locator every warning
- * about one of its overrides carries. The override itself lives inside a generated `+x`/`-x` alias
- * body that may hold every other override of the same layer too, so the section header is the
- * finest-grained *real* file position an override has; anything narrower would be invented. */
-interface RestoredLayer {
-  layer: AltLayer
-  at: RestoreSourcePosition
-}
-
 /** One override of one modifier-triggered layer, ready to be handed to an entry. */
 interface ModifierOverride {
   modifier: ModifierTrigger
   /** Normalized override key. */
   key: string
   command: string
-  at: RestoreSourcePosition
 }
 
 /**
  * Every modifier-triggered layer's overrides in **one stable order: modifier, then key**.
  *
- * Deliberately not `layers` array order (nor `Object.entries` insertion order). Which of an entry's
- * two slots an override lands in used to follow whichever layer happened to come first in the array,
- * so two files that differ only in the order their layer sections appear restored the same entry
- * with its primary and secondary key *swapped* - silently, with no warning, and invisibly to a
- * fixed-point test, since both orderings re-render as valid (just different) profiles.
+ * Deliberately not `layers` array order (nor `Object.entries` insertion order). The slot an override
+ * lands in used to follow whichever layer happened to come first in the array, so two files that
+ * differ only in the order their layer sections appear restored the same entry with its slots in a
+ * different order - silently, with no warning, and invisibly to a fixed-point test, since both
+ * orderings re-render as valid (just different) profiles.
  *
- * For an entry whose slots are both modifier-only there is nothing in the file that records which
- * one was the primary (a modifier slot has no bind line, and the layer's override body carries no
- * per-override tag), so this cannot always restore the original assignment. What it can do - and
- * what matters for "a wrong restore must not reassign a user's binds differently every time" - is be
- * a pure function of the file's own content: the same file always produces the same slot assignment.
- * A slot whose anchor line does record its `slot` (`render.ts#buildAnchorLines`) never reaches
- * this fallback at all - `buildEntry` has already filled it from the tag.
+ * For an entry whose slots are all modifier-only there is nothing in the file that records which one
+ * came first (a modifier slot has no bind line, and the layer's override body carries no
+ * per-override tag), so this cannot always restore the original order. What it can do - and what
+ * matters for "a wrong restore must not reassign a user's binds differently every time" - is be a
+ * pure function of the file's own content: the same file always produces the same slot order. A slot
+ * whose anchor line records its `key`/`mod` (`render.ts#buildAnchorLines`) never reaches this
+ * fallback at all - `buildEntry` has already claimed it from that line, in file order.
  */
-function modifierOverridesInStableOrder(layers: readonly RestoredLayer[]): ModifierOverride[] {
+function modifierOverridesInStableOrder(layers: readonly AltLayer[]): ModifierOverride[] {
   const overrides: ModifierOverride[] = []
-  for (const { layer, at } of layers) {
+  for (const layer of layers) {
     const trigger = normalizeBindKey(layer.triggerKey ?? '')
     if (!MODIFIER_TRIGGERS.has(trigger)) continue
     for (const [key, command] of Object.entries(layer.overrides)) {
@@ -1238,7 +1265,6 @@ function modifierOverridesInStableOrder(layers: readonly RestoredLayer[]): Modif
         modifier: trigger as ModifierTrigger,
         key: normalizeBindKey(key),
         command: command.trim(),
-        at,
       })
     }
   }
@@ -1255,14 +1281,13 @@ function modifierOverridesInStableOrder(layers: readonly RestoredLayer[]): Modif
   )
 }
 
-/** Does `action` already hold exactly this `(key, modifier)` slot - because an anchor line's tag
- * said so? Then the override that anchor stands for must not be handed out a second time. */
+/** Does `action` already hold exactly this `(key, modifier)` slot in *any* of its slots - because an
+ * anchor line's tag said so? Then the override that anchor stands for must not be handed out a
+ * second time. Every slot, not just the first two: story 050 uncapped `keys`, and `render.ts` writes
+ * an anchor for every modified slot there is. */
 function holdsModifiedSlot(action: ConfigAction, key: string, modifier: ModifierTrigger): boolean {
-  return (
-    (action.key !== undefined && normalizeBindKey(action.key) === key && action.keyModifier === modifier) ||
-    (action.secondaryKey !== undefined &&
-      normalizeBindKey(action.secondaryKey) === key &&
-      action.secondaryKeyModifier === modifier)
+  return actionKeySlots(action).some(
+    (slot) => normalizeBindKey(slot.key) === key && slot.modifier === modifier,
   )
 }
 
@@ -1278,31 +1303,34 @@ function holdsModifiedSlot(action: ConfigAction, key: string, modifier: Modifier
  *    command yet: the only place the file records what it does is the override itself. So the
  *    override's command becomes that entry's one command, which is exactly what the writer put
  *    there (`bindValueFor`) and therefore re-renders identically.
- * 2. **Slots.** Every other override whose value is an entry's own mirrored value hands that entry a
- *    modified slot, matched by value the same way `applyActionLayerMirror`'s own strip pass
- *    recognises what it wrote. An override already accounted for by pass 1's anchor
- *    (`holdsModifiedSlot`) is skipped, so an anchored slot is never duplicated into the entry's other
- *    slot as well.
+ * 2. **Slots.** Every other override whose value is an entry's own mirrored value **appends** a
+ *    modified slot to that entry, matched by value the same way `applyActionLayerMirror`'s own strip
+ *    pass recognises what it wrote. An override already accounted for by pass 1's anchor
+ *    (`holdsModifiedSlot`) is skipped, so an anchored slot is never duplicated. Appending is why
+ *    story 050 could delete `modifier-slot-unavailable`: `keys` is uncapped, so "the entry's slots
+ *    are all taken" is not a state this can reach.
  *
  * The override stays on the layer either way: it is a derived mirror of this exact field, and the
  * next save would write it back identically.
  *
- * Mutates the actions in place - they were just constructed here and are not shared yet.
+ * Replaces entries of `actions` in place - they were just constructed here and are not shared yet -
+ * but never mutates a `ConfigAction` itself, so `withKeySlot`'s immutability contract holds.
  */
-function restoreModifierSlots(
-  actions: ConfigAction[],
-  layers: readonly RestoredLayer[],
-  warnings: RestoreWarning[],
-): void {
+function restoreModifierSlots(actions: ConfigAction[], layers: readonly AltLayer[]): void {
   const overrides = modifierOverridesInStableOrder(layers)
 
   for (const override of overrides) {
     if (override.command.length === 0) continue
-    const anchored = actions.find(
+    const anchored = actions.findIndex(
       (action) =>
         action.commands.length === 0 && holdsModifiedSlot(action, override.key, override.modifier),
     )
-    if (anchored) anchored.commands = [configCommandFor(override.command)]
+    if (anchored !== -1) {
+      actions[anchored] = {
+        ...actions[anchored]!,
+        commands: [configCommandFor(override.command)],
+      }
+    }
   }
 
   for (const override of overrides) {
@@ -1312,23 +1340,15 @@ function restoreModifierSlots(
     // write constructs two entries with the same `bindValueFor` (every writer is find-or-create on
     // `catalogId`, and a launcher-written file records every modified slot as an anchor line, which
     // is filled above and skipped below), so reaching it needs a hand-edited or foreign file.
-    const owner = actions.find((action) => bindValueFor(action) === override.command)
-    if (!owner || owner.kind === 'alias') continue
+    const index = actions.findIndex((action) => bindValueFor(action) === override.command)
+    if (index === -1) continue
+    const owner = actions[index]!
+    if (owner.kind === 'alias') continue
     if (holdsModifiedSlot(owner, override.key, override.modifier)) continue
-    if (owner.key === undefined) {
-      owner.key = override.key
-      owner.keyModifier = override.modifier
-    } else if (owner.secondaryKey === undefined) {
-      owner.secondaryKey = override.key
-      owner.secondaryKeyModifier = override.modifier
-    } else {
-      warnings.push({
-        reason: 'modifier-slot-unavailable',
-        file: override.at.file,
-        line: override.at.line,
-        subject: override.key,
-      })
-    }
+    actions[index] = withKeySlot(owner, keySlotCount(owner), {
+      key: override.key,
+      modifier: override.modifier,
+    })
   }
 }
 
@@ -1337,8 +1357,82 @@ function restoreModifierSlots(
 // ---------------------------------------------------------------------------
 
 /**
- * Every tagged line, grouped by its `e` ref, in first-appearance order, plus any `alias` definition
- * that carries no `[q2l` tag at all (`untaggedAliases`).
+ * How this section identifies its *category*, for the "within the same section" scope an anchor is
+ * matched in (the story's decision).
+ *
+ * Not the `Section` object itself: one category writes three separate banners in a launcher file
+ * (`Aliases: X`, `Binds: X`, `Entries: X` - `render.ts`), so an anchor and the entry it belongs to
+ * sit under three *different* header lines of the same category by construction. A tagged header's
+ * `cat` id is that identity; the reserved "Other" bucket is one shared scope (all three of its
+ * banners are `kind: 'other'`); an untagged banner falls back to its own title, which is what a
+ * category whose `cat=` tag was hand-deleted still has in common across its three banners. A layer
+ * header stays per-line, since layer membership is positional and never shared.
+ */
+function sectionCategoryKey(section: Section | null): string {
+  if (section === null) return 'none'
+  if (section.kind === 'layer') return `layer:${section.file}:${section.line}`
+  if (section.kind === 'other') return 'other'
+  const tagged = section.fields.cat
+  if (tagged !== undefined && tagged.length > 0) return `cat:${tagged}`
+  return `title:${section.pairedTitle ?? section.title}`
+}
+
+/**
+ * Every launcher-owned line, grouped into entries by what the config *text* says, in the order the
+ * file itself puts those entries in (`orderGroupsByFile`), plus any `alias` definition that carries
+ * no `[q2l` tag at all (`untaggedAliases`).
+ *
+ * ## What identifies an entry (story 050)
+ *
+ * There is no ref to group by any more, so identity comes out of the lines themselves - one shared
+ * `Map`, whose keys are alias names and bind values, each **scoped to the category section the line
+ * sits in** (`groupKey`):
+ *
+ * - **an alias line, by its own alias name.** A chunk-split body (`alias <base>_p<n>`,
+ *   `alias-render.ts`) folds onto the base line that calls the chunks - the same family
+ *   `commandsFromAliases` recombines the bodies of, so the fold and the recombination cannot
+ *   disagree about what one entry is. Only a launcher-owned alias name in the *same* category counts
+ *   as a base: folding onto an untagged line would pull a hand-added or layer-internal alias into an
+ *   entry it has nothing to do with.
+ * - **a bind line, by its bind value.** `render.ts` writes one value per entry (`bindValueFor`) on
+ *   every one of its keys, so the several `bind` lines running one command are one entry with
+ *   several keys (AC4), a third such line is a third key (AC3), and nothing has to agree about a
+ *   field for that to hold.
+ * - **the two join** by sharing that one key space: a bind value that *equals* a grouped alias name
+ *   lands in that alias line's group, which is exactly what the mirror wrote there - a lookup
+ *   rather than a guess, and the pairing AC4 asks for with no ref involved.
+ * - **an anchor line, by `matchAnchor`** (see there): `cid`, then exact prose, within its own
+ *   category section.
+ *
+ * ## Why the key is scoped to the category (story-050 review, finding 4)
+ *
+ * An entry's derived alias name is a slug of its display name with no id suffix
+ * (`alias-render.ts#derivedAliasName`, story 039), so two entries the user happened to name the same
+ * thing - `Fire` under Weapons and `Fire` under Movement - render two `alias fire` lines. Keyed on
+ * the bare name, those two collapsed into one group here: one display name, one set of commands and
+ * one `cid` survived, and the *other* entry vanished silently, its body and its keys with it. Every
+ * line of one entry sits in one category scope by construction (`render.ts` writes an entry's alias
+ * line under `Aliases: <cat>` and every one of its bind lines under `Binds: <cat>`, and
+ * `sectionCategoryKey` deliberately collapses a category's three banners into one scope), which is
+ * the same scope `matchAnchor` already matched anchors in - so scoping the whole key space costs
+ * nothing a healthy file needs and keeps the two entries apart.
+ *
+ * The scope keeps the *groups* apart; it cannot put back a body the engine's own alias name space
+ * already lost. Two entries whose alias names collide - in one category or in two - render two
+ * `alias fire` lines, and every reader folds those to one line (last definition wins) before this
+ * function runs, so one entry's commands are gone before grouping starts. That loss is reported
+ * where it happens, by the fold itself (`entry-alias-duplicate`, see its own doc comment), not from
+ * here: from here the surviving line is indistinguishable from a file that only ever had one.
+ *
+ * A code line carrying no `[q2l` at all is not an entry line: tag *presence* is the whole
+ * launcher-owned signal since `e` went away, which is why `render.ts#entryTag` gives every entry
+ * line at least the bare `[q2l]` marker. A line whose tag is present but *unreadable* (malformed,
+ * with nothing parseable out of it) is not claimed either - it is already reported as
+ * `tag-malformed`, and inventing an entry out of a value whose tag may not even have belonged to
+ * this entry is the one thing a reader must not do. Its `bind`/`alias` line survives untouched in
+ * `profile.binds` either way (see this module's doc comment).
+ *
+ * ## Why an untagged alias line is different
  *
  * A hand-added `alias my_macro "…"` in an otherwise launcher-written file is not malformed - it
  * simply predates this restore pass entirely - but dropping it (the pre-fix-cycle-5 behaviour) is
@@ -1353,10 +1447,15 @@ function restoreModifierSlots(
  *
  * A *malformed* tag (present but broken) is deliberately excluded from `untaggedAliases`: it is
  * already reported via `tag-malformed`, and re-running it through inference here as well - on top
- * of whatever this same `e` ref's other lines (a surviving bind or anchor) already contributed to
- * its group - would risk a second, duplicate entry for one alias name rather than one degraded one.
+ * of whatever the same alias name's other lines already contributed to its group - would risk a
+ * second, duplicate entry for one alias name rather than one degraded one.
+ *
+ * A raw `bind` line, by contrast, legitimately carries no tag at all (it points straight at an
+ * engine command, never at one of this entry model's aliases), so warning on every one of those
+ * would fire on every healthy launcher-written file - the exact false positive AC6's "config line
+ * wins" rule and 041's "raw bind stays a raw bind" decision both already reject.
  */
-function groupByEntryRef(
+function groupEntryLines(
   aliases: readonly RestoreAliasLine[],
   binds: readonly RestoreBindLine[],
   comments: readonly RestoreCommentLine[],
@@ -1365,128 +1464,332 @@ function groupByEntryRef(
   warnings: RestoreWarning[],
   consumed: RestoreSourcePosition[],
 ): { groups: EntryGroup[]; untaggedAliases: RestoreAliasLine[] } {
-  const groups = new Map<string, EntryGroup>()
-  const groupFor = (ref: string): EntryGroup => {
-    const existing = groups.get(ref)
+  /** Category scope -> (alias name / bind value -> the group). */
+  const groups = new Map<string, Map<string, EntryGroup>>()
+  /**
+   * Find-or-create, by the line's category scope and then by its own name/value. Two nested maps
+   * rather than one composite string key: a bind value is arbitrary config text (`bind x "wait;
+   * +attack"`), so there is no printable separator a composite key could safely be joined on, and
+   * the per-category map is exactly the candidate set `matchAnchor` needs anyway.
+   *
+   * The group's own `key` field stays the bare file datum - the alias name, the bind value - because
+   * that is what a warning's `subject` and the last-resort display name are allowed to be.
+   */
+  const groupFor = (category: string, key: string): EntryGroup => {
+    let scope = groups.get(category)
+    if (!scope) {
+      scope = new Map<string, EntryGroup>()
+      groups.set(category, scope)
+    }
+    const existing = scope.get(key)
     if (existing) return existing
-    const created: EntryGroup = { ref, aliases: [], binds: [], anchors: [] }
-    groups.set(ref, created)
+    const created: EntryGroup = { key, aliases: [], binds: [], anchors: [] }
+    scope.set(key, created)
     return created
   }
 
+  /** The category scope a line sits in - the same key `matchAnchor` scopes an anchor by, so an
+   * entry's own lines and the anchors that belong to them are scoped identically. */
+  const categoryKeyOf = (position: RestoreSourcePosition): string =>
+    sectionCategoryKey(sectionFor(sections, position))
+
+  /** Every group built so far, in creation order (category first seen, then name first seen within
+   * it) - the fallback order `orderGroupsByFile` breaks its ties with. */
+  const allGroups = (): EntryGroup[] => [...groups.values()].flatMap((scope) => [...scope.values()])
+
+  /**
+   * A line inside a layer section belongs to the layer, not to an entry. This protects real
+   * content: `render.ts#buildLayerSections` emits a hold layer's `+x`/`-x` alias pair (and a toggle
+   * layer's dispatch/chunk/helper aliases, `alt-layers.ts`) with no tag at all - membership is
+   * positional, by design (see that function's own doc comment) - so the alias scan needs this
+   * exclusion just as much as the bind scan always has.
+   *
+   * Story-042-review round-5 (fix-cycle-7): an earlier version of this fix dropped `insideLayer`
+   * from the *alias* recovery gate on the theory that no alias line is ever layer content - that
+   * was wrong (proven by re-running a hold layer through this exact path: its `+alt`/`-alt` pair
+   * came back as two bogus Controls-tab entries with false `tag-missing` warnings the moment the
+   * gate stopped excluding them). Known, accepted limitation left in its place: `sectionEnd`
+   * returns `Infinity` for a file's *last* section (there is no next one to bound it), so a
+   * genuinely hand-added alias a user appends after a file's last layer - the position someone
+   * editing the synced file in Notepad would actually pick - still reads as "inside that layer"
+   * and is not recovered. Telling the two apart would need either the parser to carry blank-line
+   * positions it does not today, or re-deriving `alt-layers.ts`'s full chunk/helper naming budget
+   * here to whitelist a layer's *exact* alias family - both a materially larger change than that
+   * fix-cycle's budget, for a narrower gap than the two false-positive entries the revert closes.
+   */
   const insideLayer = (position: RestoreSourcePosition): boolean =>
     layerSections.some((section) => {
       const end = sectionEnd(sections, section)
       return position.file === section.file && position.line > section.line && position.line < end
     })
 
-  const untaggedAliases: RestoreAliasLine[] = []
-
-  const scan = <T extends RestoreSourcePosition & { comment: string }>(
-    items: readonly T[],
-    add: (group: EntryGroup, line: TaggedLine<T>) => void,
-    // Returns whether `item` was actually recovered - `false` for a tagless line the caller
-    // recognises as never having carried a tag by design (a switch-bind chain alias), so no warning
-    // fires for it either. `T` here is generic (`scan` is shared with the bind pass, which never
-    // supplies this callback), so a name-based exclusion has to live in the caller's own typed
-    // callback rather than here.
-    onUntagged?: (item: T) => boolean,
-  ): void => {
-    for (const item of items) {
-      const parsed = parseMetaTag(item.comment)
-      if (parsed.malformed) warnings.push({ reason: 'tag-malformed', file: item.file, line: item.line })
-      if (parsed.unknownKeys.length > 0) {
-        warnings.push({
-          reason: 'tag-unknown-keys',
-          file: item.file,
-          line: item.line,
-          subject: parsed.unknownKeys.join(','),
-        })
-      }
-      const ref = parsed.fields.e
-      // A line inside a layer section belongs to the layer, not to an entry (it carries no `e` of
-      // its own either - the check is belt-and-braces against a hand-moved line). This protects real
-      // content: `render.ts#buildLayerSections` emits a hold layer's `+x`/`-x` alias pair (and a
-      // toggle layer's dispatch/chunk/helper aliases, `alt-layers.ts`) with no tag at all - membership
-      // is positional, by design (see that function's own doc comment) - so the alias scan needs this
-      // exclusion just as much as the bind scan always has.
-      //
-      // Story-042-review round-5 (fix-cycle-7): an earlier version of this fix dropped `insideLayer`
-      // from the *alias* recovery gate on the theory that no alias line is ever layer content - that
-      // was wrong (proven by re-running a hold layer through this exact path: its `+alt`/`-alt` pair
-      // came back as two bogus Controls-tab entries with false `tag-missing` warnings the moment the
-      // gate stopped excluding them). Known, accepted limitation left in its place: `sectionEnd`
-      // returns `Infinity` for a file's *last* section (there is no next one to bound it), so a
-      // genuinely hand-added alias a user appends after a file's last layer - the position someone
-      // editing the synced file in Notepad would actually pick - still reads as "inside that layer"
-      // and is not recovered. Telling the two apart would need either the parser to carry blank-line
-      // positions it does not today, or re-deriving `alt-layers.ts`'s full chunk/helper naming budget
-      // here to whitelist a layer's *exact* alias family - both a materially larger change than this
-      // fix-cycle's budget, for a narrower gap than the two false-positive entries this revert closes.
-      if (ref === undefined || ref.length === 0 || insideLayer(item)) {
-        // Only a caller that passed `onUntagged` (the alias scan) treats a tagless line as a gap to
-        // report and recover: a raw `bind` line pointing straight at an engine command, never at one
-        // of this entry model's aliases, legitimately carries no tag at all - warning on every one of
-        // those would fire on every healthy launcher-written file, the exact false-positive AC6's
-        // "config line wins" rule and 041's "raw bind stays a raw bind" decision both already reject.
-        //
-        // Story-042-review round-5 finding 1 (fix-cycle-7): a switch-bind chain alias
-        // (`switch-bind.ts`'s `SWITCH_ALIAS`/`q2l_sw<n>`, story 007) lives in the *loader*
-        // `autoexec.cfg` every import reads through its `exec` chain, and is untagged by design -
-        // `renderLoaderFile` is explicitly outside this story's metadata system (see the Plan's "Not
-        // touched" list). Without this exclusion every restore of an installation with in-session
-        // profile switching configured grew three junk Controls-tab entries and three false
-        // `tag-missing` warnings for the launcher's own generated lines.
-        if (onUntagged && ref === undefined && !parsed.malformed && !insideLayer(item) && onUntagged(item)) {
-          warnings.push({ reason: 'tag-missing', file: item.file, line: item.line })
-        }
-        continue
-      }
-      add(groupFor(ref), { item, fields: parsed.fields, prose: parsed.prose })
+  /**
+   * One code line's trailing comment, read once: its parsed tag, whether it carried a `[q2l` at all,
+   * and whether this pass claims it for an entry. Reported here rather than at the two call sites,
+   * so a malformed tag or an unknown key is warned about exactly once per line whatever becomes of
+   * the line afterwards.
+   */
+  const readTag = <T extends RestoreSourcePosition & { comment: string }>(
+    item: T,
+  ): { line: TaggedLine<T>; owned: boolean; tagged: boolean } => {
+    const tagged = item.comment.includes(TAG_SIGIL)
+    const parsed = parseMetaTag(item.comment)
+    if (parsed.malformed) {
+      warnings.push({ reason: 'tag-malformed', file: item.file, line: item.line })
+    }
+    if (parsed.unknownKeys.length > 0) {
+      warnings.push({
+        reason: 'tag-unknown-keys',
+        file: item.file,
+        line: item.line,
+        subject: parsed.unknownKeys.join(','),
+      })
+    }
+    // A tag with one garbled token among good ones still identifies its line as the launcher's -
+    // only a tag nothing at all could be read out of does not. `claimsEntryAnchor` says the same
+    // thing for a comment-only line, and the two predicates have to agree (see there).
+    const readable = !parsed.malformed || Object.keys(parsed.fields).length > 0
+    return {
+      line: { item, fields: parsed.fields, prose: parsed.prose },
+      owned: tagged && readable && !insideLayer(item),
+      tagged,
     }
   }
 
-  scan(
-    aliases,
-    (group, line) => group.aliases.push(line),
-    (item) => {
-      // A switch-bind chain alias (story 007) is never a hand-added definition - it is
-      // `renderLoaderFile`'s own generated content, untagged by this story's own design (the Plan's
-      // "Not touched" list). Recovering it through 041's inference would file it as a real
-      // Controls-tab entry and warn about metadata that was never supposed to exist.
-      //
-      // Story-042-review round 5, fix-cycle-8: `startsWith(STEP_ALIAS_PREFIX)` was too broad - a
-      // hand-added `alias q2l_sword "…"` (a real word starting with the same prefix, `switch-bind.ts`
-      // only ever emits `q2l_sw<digits>`) was silently excluded too, the exact data-loss class this
-      // exclusion exists to avoid introducing. The exact shape (prefix, then digits, then end of
-      // string) is what `stepAliasName` in `switch-bind.ts` actually generates.
-      if (item.name === SWITCH_ALIAS || STEP_ALIAS_NAME.test(item.name)) return false
-      untaggedAliases.push(item)
-      return true
-    },
-  )
-  scan(binds, (group, line) => group.binds.push(line))
+  const untaggedAliases: RestoreAliasLine[] = []
+  const aliasLines: TaggedLine<RestoreAliasLine>[] = []
 
-  // The anchor lines (`render.ts#buildAnchorLines`). Scanned last, so an entry that exists *only*
-  // as an anchor is discovered after every entry that has a real config line - the same
-  // scan-order-not-document-order rule the alias/bind passes above already follow.
+  for (const item of aliases) {
+    const { line, owned, tagged } = readTag(item)
+    if (owned) {
+      aliasLines.push(line)
+      continue
+    }
+    if (tagged || insideLayer(item)) continue
+    // A switch-bind chain alias (story 007) is never a hand-added definition - it is
+    // `renderLoaderFile`'s own generated content, untagged by this story's own design (the Plan's
+    // "Not touched" list). Recovering it through 041's inference would file it as a real
+    // Controls-tab entry and warn about metadata that was never supposed to exist.
+    //
+    // Story-042-review round 5, fix-cycle-8: `startsWith(STEP_ALIAS_PREFIX)` was too broad - a
+    // hand-added `alias q2l_sword "…"` (a real word starting with the same prefix; `switch-bind.ts`
+    // only ever emits `q2l_sw<digits>`) was silently excluded too, the exact data-loss class this
+    // exclusion exists to avoid introducing. The exact shape (prefix, then digits, then end of
+    // string) is what `stepAliasName` in `switch-bind.ts` actually generates.
+    if (item.name === SWITCH_ALIAS || STEP_ALIAS_NAME.test(item.name)) continue
+    untaggedAliases.push(item)
+    warnings.push({ reason: 'tag-missing', file: item.file, line: item.line })
+  }
+
+  /**
+   * The three per-line-kind chains `orderGroupsByFile` orders the result with: each group in the
+   * order its *first* line of that kind appears in the file. Collected here, while the input arrays
+   * (document order, per `RestoreProfilePartsInput`) are being walked, rather than reconstructed
+   * from line positions afterwards - a position pair would need a cross-file ordering this module
+   * has no way to know, and the arrays already carry the answer.
+   */
+  const chains: { aliases: EntryGroup[]; binds: EntryGroup[]; anchors: EntryGroup[] } = {
+    aliases: [],
+    binds: [],
+    anchors: [],
+  }
+  const chain = (kind: keyof typeof chains, group: EntryGroup): void => {
+    if (!chains[kind].includes(group)) chains[kind].push(group)
+  }
+
+  // The `_p<n>` fold needs every owned alias name up front, which is why the alias lines were
+  // collected first rather than grouped as they were read. Scoped by category like the group key
+  // itself: a chunk line and the base line that calls it are always emitted into one alias section.
+  const ownedAliasNames = new Map<string, Set<string>>()
+  for (const line of aliasLines) {
+    const category = categoryKeyOf(line.item)
+    const named = ownedAliasNames.get(category) ?? new Set<string>()
+    named.add(line.item.name)
+    ownedAliasNames.set(category, named)
+  }
+  for (const line of aliasLines) {
+    const category = categoryKeyOf(line.item)
+    const chunk = CHUNK_SUFFIX.exec(line.item.name)
+    const key =
+      chunk && ownedAliasNames.get(category)?.has(chunk[1]!) ? chunk[1]! : line.item.name
+    const group = groupFor(category, key)
+    group.aliases.push(line)
+    chain('aliases', group)
+  }
+
+  for (const item of binds) {
+    const { line, owned } = readTag(item)
+    if (!owned) continue
+    // The bind value, straight into the same key space the alias names live in - see the join rule
+    // in this function's doc comment. Two lines with one value therefore meet in one group without
+    // either of them having to say so.
+    const group = groupFor(categoryKeyOf(item), item.command.trim())
+    group.binds.push(line)
+    chain('binds', group)
+  }
+
+  /** Every non-empty display prose the group's lines carry, in alias -> bind -> anchor order. All of
+   * them, not just the first: an entry's lines can legitimately disagree about their prose (one of
+   * them hand-renamed, or one of them budget-cut), so an anchor's own prose is compared against each
+   * of them rather than against a single designated one. */
+  const prosesOf = (group: EntryGroup): string[] =>
+    [...group.aliases, ...group.binds, ...group.anchors]
+      .map((line) => line.prose.trim())
+      .filter((prose) => prose.length > 0)
+
+  /** The catalogue id the group's lines record, `''` for an entry with no catalogue link. Every line
+   * of one entry carries the same `cid` (`render.ts#entryTag` reads it off the action, and the tag
+   * is never the half that gives way under budget pressure), so the first line that has one speaks
+   * for the group. */
+  const cidOf = (group: EntryGroup): string =>
+    [...group.aliases, ...group.binds, ...group.anchors]
+      .map((line) => (line.fields.cid ?? '').trim())
+      .find((cid) => cid.length > 0) ?? ''
+
+  /**
+   * The entry an anchor line belongs to, or `null` when the file does not say unambiguously.
+   *
+   * Scoped to the anchor's own category section (`sectionCategoryKey`) and then, per the story's
+   * decision, in two steps: by `cid` when the anchor carries one, else by *exact* display prose.
+   * The second step is consulted only when the first had nothing to say, and each demands exactly
+   * one candidate - two candidates is ambiguity, and the file has stopped being able to say which.
+   *
+   * **Exact prose, and nothing wider** (story-050 review, finding 1). An earlier version had a
+   * third step that paired an anchor with an entry whose prose was merely a *prefix* of the
+   * anchor's (in either direction), meant for one display name `fitProseAndTag` had cut at two
+   * different lengths on two line kinds. That relation cannot tell such a cut apart from two
+   * genuinely different sibling names where one is a prefix of the other (`Reload` next to
+   * `Reload weapon`), and merging those two is the one outcome this function must never produce -
+   * the merged-away entry loses its name, its commands and its key in one go, with no warning.
+   * The case the step existed for is unreachable anyway: a prose cut only happens once a comment
+   * exceeds `COMMENT_LINE_BUDGET`, which needs a display name over a thousand characters long,
+   * while `main/modules/config/schemas.ts` caps a stored entry name at 120. The User's decision
+   * names the entry's "own prose display name" as the anchor's link, and an exact match is exactly
+   * that.
+   *
+   * `null` is not a failure and never drops a line: the caller gives such an anchor an entry of its
+   * own. That is the drift the User accepted when the anchor's link became its prose - "if the user
+   * later renames the entry's display text inconsistently across its lines, the anchor and the entry
+   * drift apart into two separate rows in the UI, accepted as the user's own mistake, not something
+   * the parser must reconcile". Splitting is also the safe direction to fail in: a wrong *merge*
+   * would silently rewrite which keys one Controls-tab row owns, whereas a split leaves both rows,
+   * both keys and every config line intact and visible.
+   */
+  const matchAnchor = (anchor: TaggedLine<RestoreCommentLine>): EntryGroup | null => {
+    // The group map is keyed by category scope first, so the anchor's own scope *is* its candidate
+    // set - the entry a match lands on can therefore never sit in a different category than the
+    // anchor, which is what keeps the slot the anchor contributes inside the row the user sees it on.
+    const candidates = [...(groups.get(categoryKeyOf(anchor.item))?.values() ?? [])]
+    if (candidates.length === 0) return null
+
+    const cid = (anchor.fields.cid ?? '').trim()
+    if (cid.length > 0) {
+      const byCid = candidates.filter((group) => cidOf(group) === cid)
+      return byCid.length === 1 ? byCid[0]! : null
+    }
+
+    const prose = anchor.prose.trim()
+    if (prose.length === 0) return null
+
+    const exact = candidates.filter((group) => prosesOf(group).includes(prose))
+    return exact.length === 1 ? exact[0]! : null
+  }
+
+  // The anchor lines (`render.ts#buildAnchorLines`). Scanned last, and in document order, so every
+  // entry that has a real config line already exists to be matched against - and so an anchor-only
+  // entry's *second* anchor can match the group its first one created.
   //
   // `parseComment`, not `parseMetaTag`: a comment-only line may be a banner, whose tag sits inside
   // trailing decoration. Malformed tags and unknown keys are *not* reported here - `scanComments`
   // already walked every one of these lines and reported them once.
   for (const item of comments) {
     const parsed = parseComment(item.text)
-    // `claimsEntryRef` is the shared predicate: a section header or the header block's version
-    // marker is not an entry anchor even if someone hand-edited an `e` into it, and - the other way
+    // `claimsEntryAnchor` is the shared predicate: a section header or the header block's version
+    // marker is not an entry anchor even if someone hand-edited a `key` into it, and - the other way
     // round - a line this claims is never read as a section header either (see that function). A
     // tagged comment inside a layer section belongs to the layer, which is positional and therefore
     // stays here rather than moving into the predicate.
-    if (!claimsEntryRef(parsed) || insideLayer(item)) continue
+    if (!claimsEntryAnchor(parsed) || insideLayer(item)) continue
     if (!parsed.malformed) consumed.push({ file: item.file, line: item.line })
-    groupFor(parsed.fields.e!).anchors.push({ item, fields: parsed.fields, prose: parsed.prose })
+    const anchor: TaggedLine<RestoreCommentLine> = {
+      item,
+      fields: parsed.fields,
+      prose: parsed.prose,
+    }
+    // An unmatched anchor becomes its own entry, created *inside its own category scope* so a later
+    // anchor of the same (anchor-only) entry can still find it - `anchor:<file>:<line>` is unique
+    // per line, so its own second anchor never lands here at all: it matches by `cid`/prose above.
+    const owner =
+      matchAnchor(anchor) ?? groupFor(categoryKeyOf(item), `anchor:${item.file}:${item.line}`)
+    owner.anchors.push(anchor)
+    chain('anchors', owner)
   }
 
-  return { groups: [...groups.values()], untaggedAliases }
+  return {
+    groups: orderGroupsByFile(allGroups(), [chains.aliases, chains.binds, chains.anchors]),
+    untaggedAliases,
+  }
+}
+
+/**
+ * The groups in an order the file's own line order can vouch for (story-050 review, finding 3).
+ *
+ * Why this is not just "sorted by first line": the writer does not lay an entry's lines out in one
+ * run. `renderProfileFile` emits *every* category's alias section, then every category's bind
+ * section, then the anchor sections - and sorts each of those independently by the owning action's
+ * index (`compareOwnedBinds`). So the file carries the action order three times over, once per line
+ * kind, each as a *subsequence* of it, and nothing else. Grouping in map-insertion order ignored all
+ * three: groups were created from the alias lines before any bind line was read, so an aliasless
+ * entry (a continuous catalogue row bound to its bare `+command`) always sorted *after* every
+ * alias-backed entry of its category no matter where its bind line actually sat. `compareOwnedBinds`
+ * then re-sorted that category's bind lines by the new index on the next render and the two key
+ * lines swapped places - a byte difference on a file nobody had touched, which is exactly what
+ * story 042's fixed point forbids.
+ *
+ * So the answer is the one order consistent with all three subsequences at once: a topological sort
+ * over the chains, tie-broken by creation order for the pairs the file genuinely does not order (an
+ * alias-only entry and a bind-only entry never share a section, so their relative order cannot be
+ * read off the file - and cannot matter either, since no section re-renders them side by side).
+ *
+ * A cycle can only come from a hand-edited file whose sections were physically reordered against
+ * each other; it is resolved by taking the earliest-created group still left and dropping its
+ * incoming edges, so this always terminates and always returns every group exactly once.
+ */
+function orderGroupsByFile(
+  all: readonly EntryGroup[],
+  chains: readonly (readonly EntryGroup[])[],
+): EntryGroup[] {
+  const successors = new Map<EntryGroup, EntryGroup[]>(all.map((group) => [group, []]))
+  const indegree = new Map<EntryGroup, number>(all.map((group) => [group, 0]))
+
+  for (const chain of chains) {
+    for (let index = 1; index < chain.length; index += 1) {
+      const from = chain[index - 1]!
+      const to = chain[index]!
+      successors.get(from)!.push(to)
+      indegree.set(to, indegree.get(to)! + 1)
+    }
+  }
+
+  const remaining = new Set(all)
+  const ordered: EntryGroup[] = []
+  while (remaining.size > 0) {
+    let next: EntryGroup | undefined
+    for (const group of remaining) {
+      if (indegree.get(group) === 0) {
+        next = group
+        break
+      }
+    }
+    next ??= remaining.values().next().value!
+    remaining.delete(next)
+    ordered.push(next)
+    for (const successor of successors.get(next)!) {
+      indegree.set(successor, Math.max(0, indegree.get(successor)! - 1))
+    }
+  }
+
+  return ordered
 }
 
 /**
@@ -1501,7 +1804,7 @@ function groupByEntryRef(
 export function restoreProfileParts(input: RestoreProfilePartsInput): RestoreProfilePartsResult {
   const scan = scanComments(input.comments)
   const taggedLines = [...input.aliases, ...input.binds, ...input.cvars].some((line) =>
-    line.comment.includes('[q2l'),
+    line.comment.includes(TAG_SIGIL),
   )
 
   // No `[q2l` anywhere: not a 042-era file. Story 041's path, wholesale - no ids minted before the
@@ -1537,7 +1840,7 @@ export function restoreProfileParts(input: RestoreProfilePartsInput): RestorePro
   const layerSections = scan.sections.filter((section) => section.kind === 'layer')
 
   const consumedCommentLines = [...scan.consumed]
-  const { groups, untaggedAliases } = groupByEntryRef(
+  const { groups, untaggedAliases } = groupEntryLines(
     input.aliases,
     input.binds,
     input.comments,
@@ -1550,7 +1853,7 @@ export function restoreProfileParts(input: RestoreProfilePartsInput): RestorePro
     buildEntry(group, scan.sections, categories, input.newId, warnings),
   )
 
-  // A hand-added `alias` line that carries no `[q2l` tag at all (`groupByEntryRef`'s doc comment) -
+  // A hand-added `alias` line that carries no `[q2l` tag at all (`groupEntryLines`' doc comment) -
   // 041's own inference is what "degrading to what the plain config lines say" (AC5) means for a
   // line this pass never generated. `layerAliases: []` on purpose: the tagged path already reports
   // no `ambiguous` list at all (D4 - "there is nothing to guess" for an own-written file), so a
@@ -1569,13 +1872,11 @@ export function restoreProfileParts(input: RestoreProfilePartsInput): RestorePro
     delegatedCategories.push(...delegated.categories)
   }
 
-  const restoredLayers: RestoredLayer[] = layerSections.map((section) => ({
-    layer: buildLayer(section, scan.sections, input, warnings),
-    at: { file: section.file, line: section.line },
-  }))
-  const layers = restoredLayers.map((restored) => restored.layer)
+  const layers = layerSections.map((section) =>
+    buildLayer(section, scan.sections, input, warnings),
+  )
 
-  restoreModifierSlots(actions, restoredLayers, warnings)
+  restoreModifierSlots(actions, layers)
 
   // Cvar lines carry no tag of their own (`render.ts`: a `set` line is not an entry), so the only
   // thing to say about one is that somebody hand-edited a `[q2l` into or out of it.

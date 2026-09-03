@@ -74,8 +74,9 @@ import { useKeyCapture } from '../lib/useKeyCapture'
  * collision and still applies immediately - the case this doc comment used to
  * describe as unconditional.
  *
- * Story 016 D9: a modifier is now part of the row's `ConfigAction`
- * (`keyModifier`/`secondaryKeyModifier`, written by `applySlot`), which
+ * Story 016 D9: a modifier is now part of the row's `ConfigAction` (the
+ * `modifier` of the key slot this column maps onto - slot 0 or 1 of
+ * `action.keys`, written by `applySlot`), which
  * collapses this component's display model to a single source. A slot shows
  * `boundKey`, prefixed with `boundModifier` when the pair carries one - there
  * is no longer a state where an assignment exists *only* inside a layer and
@@ -205,8 +206,8 @@ export function BindSlot({
   boundKey: string | undefined
   /**
    * Story 016 D9: the modifier this slot's key was captured with, read straight
-   * off the row's action (`keyModifier`/`secondaryKeyModifier` via
-   * `deriveRowState`). Renders as a composite `Alt+R` label on the one badge -
+   * off the row's action (this column's own key slot, via `deriveRowState`'s
+   * `primaryModifier`/`secondaryModifier`). Renders as a composite `Alt+R` label on the one badge -
    * not a second, competing source of what this slot shows, which is what the
    * removed `modifierDisplay` was. Meaningless without `boundKey`, and
    * `applySlot` cannot produce that combination.

@@ -13,6 +13,7 @@ import type { AltLayer } from '@shared/config/alt-layers'
 import { StateStore } from '../../services/state'
 import { aliasNameFor } from '@shared/config/alias-render'
 import { captureBaseline } from '@shared/config/profile-baseline'
+import { keySlotAt } from '@shared/config/action-slots'
 import { diffProfileAgainstBaseline } from '@shared/config/profile-diff'
 import { ProfilesStore } from './profiles'
 import { renderProfileFile } from './render'
@@ -245,7 +246,7 @@ describe('ProfilesStore', () => {
       // `setBinds` test above), so this stays the hand-typed bind the test is about.
       profiles.setBinds({ profileId: created!.id, binds: { w: 'kill' } })
 
-      const keyed = action({ key: 'f' })
+      const keyed = action({ keys: [{ key: 'f' }] })
       const result = profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -259,7 +260,7 @@ describe('ProfilesStore', () => {
     it('produces binds[normalizedKey] === aliasNameFor(action) for a keyed action', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
 
-      const keyed = action({ key: 'f' })
+      const keyed = action({ keys: [{ key: 'f' }] })
       const result = profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -295,7 +296,7 @@ describe('ProfilesStore', () => {
 
     it('removing a previously-keyed action makes its bind disappear entirely', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      const keyed = action({ key: 'f' })
+      const keyed = action({ keys: [{ key: 'f' }] })
       profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -314,8 +315,8 @@ describe('ProfilesStore', () => {
 
     it('when two actions land on the same normalized key, the later one in the array wins', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      const first = action({ key: 'f', name: 'First' })
-      const second = action({ key: 'f', name: 'Second' })
+      const first = action({ keys: [{ key: 'f' }], name: 'First' })
+      const second = action({ keys: [{ key: 'f' }], name: 'Second' })
 
       const result = profiles.setActions({
         profileId: created!.id,
@@ -330,7 +331,7 @@ describe('ProfilesStore', () => {
 
     it('a lowercase "f9" and an uppercase "F9" land on the same normalized bind entry', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      const lower = action({ key: 'f9', name: 'Lower' })
+      const lower = action({ keys: [{ key: 'f9' }], name: 'Lower' })
 
       const result = profiles.setActions({
         profileId: created!.id,
@@ -349,7 +350,7 @@ describe('ProfilesStore', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
       await new Promise((resolve) => setTimeout(resolve, 10))
 
-      const keyed = action({ key: 'f' })
+      const keyed = action({ keys: [{ key: 'f' }] })
       const result = profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -367,7 +368,10 @@ describe('ProfilesStore', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
       // Story 015: `secondaryKey`/`catalogId` are persisted like any other action
       // field, so a reload has to hand back both slots and the row identity.
-      const keyed = action({ key: 'f', secondaryKey: 'MOUSE2', catalogId: 'movement.jump' })
+      const keyed = action({
+        keys: [{ key: 'f' }, { key: 'MOUSE2' }],
+        catalogId: 'movement.jump',
+      })
       profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -398,7 +402,7 @@ describe('ProfilesStore', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
       profiles.setBinds({ profileId: created!.id, binds: { f: 'weapnext' } })
 
-      const keyed = action({ key: 'f' })
+      const keyed = action({ keys: [{ key: 'f' }] })
       const result = profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -416,7 +420,7 @@ describe('ProfilesStore', () => {
     // Story 015 (decision 1): `key` and `secondaryKey` are two bind entries on one alias.
     it('an action with only a secondaryKey produces exactly that one bind', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      const secondaryOnly = action({ secondaryKey: 'MOUSE2' })
+      const secondaryOnly = action({ keys: [{ key: 'MOUSE2' }] })
 
       const result = profiles.setActions({
         profileId: created!.id,
@@ -430,7 +434,7 @@ describe('ProfilesStore', () => {
 
     it('an action with both keys produces two binds pointing at the same alias', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      const both = action({ key: 'f', secondaryKey: 'MOUSE2' })
+      const both = action({ keys: [{ key: 'f' }, { key: 'MOUSE2' }] })
 
       const result = profiles.setActions({
         profileId: created!.id,
@@ -448,7 +452,7 @@ describe('ProfilesStore', () => {
 
     it("clearing only the secondaryKey removes only that key's bind", () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      const both = action({ key: 'f', secondaryKey: 'MOUSE2' })
+      const both = action({ keys: [{ key: 'f' }, { key: 'MOUSE2' }] })
       profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -456,8 +460,7 @@ describe('ProfilesStore', () => {
       })
 
       // Same action (same id, so the same alias name), second slot cleared.
-      const primaryOnly: ConfigAction = { ...both }
-      delete primaryOnly.secondaryKey
+      const primaryOnly: ConfigAction = { ...both, keys: [{ key: 'f' }] }
       const result = profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -471,7 +474,7 @@ describe('ProfilesStore', () => {
 
     it('an action whose two slots normalize to the same key writes it once', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      const sameKeyTwice = action({ key: 'f9', secondaryKey: 'F9' })
+      const sameKeyTwice = action({ keys: [{ key: 'f9' }, { key: 'F9' }] })
 
       const result = profiles.setActions({
         profileId: created!.id,
@@ -487,7 +490,7 @@ describe('ProfilesStore', () => {
 
     it('trims a whitespace-padded key before normalizing it (review finding)', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      const keyed = action({ key: '  f9  ' })
+      const keyed = action({ keys: [{ key: '  f9  ' }] })
 
       const result = profiles.setActions({
         profileId: created!.id,
@@ -534,7 +537,7 @@ describe('ProfilesStore', () => {
 
     it('writes no base bind for a slot that carries a modifier, only the layer override', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      const altBound = action({ key: 'r', keyModifier: 'ALT' })
+      const altBound = action({ keys: [{ key: 'r', modifier: 'ALT' }] })
 
       const result = profiles.setActions({
         profileId: created!.id,
@@ -554,7 +557,7 @@ describe('ProfilesStore', () => {
 
     it('judges the two slots independently: Primary on Alt, Secondary on the base layer', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      const mixed = action({ key: 'r', keyModifier: 'ALT', secondaryKey: 'MOUSE2' })
+      const mixed = action({ keys: [{ key: 'r', modifier: 'ALT' }, { key: 'MOUSE2' }] })
 
       const result = profiles.setActions({
         profileId: created!.id,
@@ -569,7 +572,7 @@ describe('ProfilesStore', () => {
 
     it('judges the two slots independently the other way round: Primary base, Secondary on Ctrl', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      const mixed = action({ key: 'r', secondaryKey: 'MOUSE2', secondaryKeyModifier: 'CTRL' })
+      const mixed = action({ keys: [{ key: 'r' }, { key: 'MOUSE2', modifier: 'CTRL' }] })
 
       const result = profiles.setActions({
         profileId: created!.id,
@@ -589,7 +592,7 @@ describe('ProfilesStore', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
       profiles.setBinds({ profileId: created!.id, binds: { r: 'kill' } })
 
-      const altBound = action({ key: 'r', keyModifier: 'ALT' })
+      const altBound = action({ keys: [{ key: 'r', modifier: 'ALT' }] })
       const result = profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -605,7 +608,7 @@ describe('ProfilesStore', () => {
 
     it('a slot that loses its modifier becomes a base bind again and leaves no stale override', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      const altBound = action({ key: 'r', keyModifier: 'ALT' })
+      const altBound = action({ keys: [{ key: 'r', modifier: 'ALT' }] })
       profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -613,8 +616,7 @@ describe('ProfilesStore', () => {
       })
 
       // Same action (same id, so the same alias name), modifier cleared.
-      const baseBound: ConfigAction = { ...altBound }
-      delete baseBound.keyModifier
+      const baseBound: ConfigAction = { ...altBound, keys: [{ key: 'r' }] }
       const result = profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -630,7 +632,7 @@ describe('ProfilesStore', () => {
 
     it('a slot that gains a modifier drops its own stale generated base bind', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      const baseBound = action({ key: 'r' })
+      const baseBound = action({ keys: [{ key: 'r' }] })
       const first = profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -641,7 +643,7 @@ describe('ProfilesStore', () => {
       const result = profiles.setActions({
         profileId: created!.id,
         categories: [category],
-        actions: [{ ...baseBound, keyModifier: 'ALT' }],
+        actions: [{ ...baseBound, keys: [{ key: 'r', modifier: 'ALT' }] }],
       })
 
       // Otherwise bare `r` would keep firing the row with no modifier held.
@@ -666,7 +668,7 @@ describe('ProfilesStore', () => {
       }
       profiles.setLayers({ profileId: created!.id, layers: [zoom, handMadeAlt] })
 
-      const altBound = action({ key: 'r', keyModifier: 'ALT' })
+      const altBound = action({ keys: [{ key: 'r', modifier: 'ALT' }] })
       const result = profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -696,7 +698,7 @@ describe('ProfilesStore', () => {
       }
       profiles.setLayers({ profileId: created!.id, layers: [staleSnapshot] })
 
-      const altBound = action({ key: 'r', keyModifier: 'ALT' })
+      const altBound = action({ keys: [{ key: 'r', modifier: 'ALT' }] })
       profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -740,7 +742,7 @@ describe('ProfilesStore', () => {
 
     it('setLayers does not touch a non-modifier layer or the actions array', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      const altBound = action({ key: 'r', keyModifier: 'ALT' })
+      const altBound = action({ keys: [{ key: 'r', modifier: 'ALT' }] })
       profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -766,7 +768,7 @@ describe('ProfilesStore', () => {
     // AC 5: one action, two ways of reaching it, one executed command.
     it('renders the identical executed command whether the row is base-bound or modifier-bound', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      const dropRow = action({ key: 'r' })
+      const dropRow = action({ keys: [{ key: 'r' }] })
       const alias = aliasNameFor(dropRow)
       // The ammo + say_team row renders as one alias body either way; the ALT
       // layer's own aliases slug off its name ("Alt" -> `+alt`/`-alt`).
@@ -783,7 +785,7 @@ describe('ProfilesStore', () => {
       profiles.setActions({
         profileId: created!.id,
         categories: [category],
-        actions: [{ ...dropRow, keyModifier: 'ALT' }],
+        actions: [{ ...dropRow, keys: [{ key: 'r', modifier: 'ALT' }] }],
       })
       const modifierLines = renderProfileFile(profiles.find(created!.id)!).split('\n').map(unformat)
 
@@ -843,8 +845,8 @@ describe('ProfilesStore', () => {
         // The UI has no key slot for an alias entry (D5), but the mirror may
         // not rely on that: key data on an alias row is still never bound.
         actions: [
-          { ...aliasEntry, key: 'r' },
-          { ...aliasEntry, id: 'cccc2222', name: '-test', key: 'g', keyModifier: 'ALT' },
+          { ...aliasEntry, keys: [{ key: 'r' }] },
+          { ...aliasEntry, id: 'cccc2222', name: '-test', keys: [{ key: 'g', modifier: 'ALT' }] },
         ],
       })
 
@@ -859,7 +861,7 @@ describe('ProfilesStore', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
       profiles.setBinds({ profileId: created!.id, binds: { w: 'kill' } })
 
-      const wasBound = action({ key: 'r' })
+      const wasBound = action({ keys: [{ key: 'r' }] })
       const first = profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -882,7 +884,7 @@ describe('ProfilesStore', () => {
 
     it('drops the stale override of a modifier-bound row that has just become an alias', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      const wasBound = action({ key: 'r', keyModifier: 'ALT' })
+      const wasBound = action({ keys: [{ key: 'r', modifier: 'ALT' }] })
       profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -905,7 +907,7 @@ describe('ProfilesStore', () => {
 
     it('renders the alias definition before the binding that calls it, and no bind for it', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
-      const binding = action({ key: 'f' })
+      const binding = action({ keys: [{ key: 'f' }] })
       profiles.setActions({
         profileId: created!.id,
         categories: [category],
@@ -1020,9 +1022,9 @@ describe('ProfilesStore', () => {
       const forward = (updated.actions ?? []).find((a) => a.catalogId === 'movement:forward')!
       const jump = (updated.actions ?? []).find((a) => a.catalogId === 'movement:moveup')!
 
-      expect(forward.key).toBe('w')
-      expect(jump.key).toBe('MOUSE2')
-      expect(jump.secondaryKey).toBe('SPACE')
+      expect(keySlotAt(forward, 0)?.key).toBe('w')
+      expect(keySlotAt(jump, 0)?.key).toBe('MOUSE2')
+      expect(keySlotAt(jump, 1)?.key).toBe('SPACE')
       // The binds themselves still say what they said - adoption re-encodes, it does not re-bind.
       expect(updated.binds).toEqual({ w: '+forward', SPACE: '+moveup', MOUSE2: '+moveup', x: 'kill' })
     })
@@ -1045,8 +1047,8 @@ describe('ProfilesStore', () => {
       const updated = result.find((p) => p.id === created!.id)!
       const dropShotgun = (updated.actions ?? []).find((a) => a.catalogId === 'dropWeapon:shotgun')!
 
-      expect(dropShotgun.key).toBe('q')
-      expect(dropShotgun.keyModifier).toBe('ALT')
+      expect(keySlotAt(dropShotgun, 0)?.key).toBe('q')
+      expect(keySlotAt(dropShotgun, 0)?.modifier).toBe('ALT')
       expect(updated.layers![0]!.overrides).toEqual({ q: aliasNameFor(dropShotgun) })
       expect(updated.binds).toEqual({})
     })
@@ -1061,7 +1063,7 @@ describe('ProfilesStore', () => {
       const persisted = new ProfilesStore(reloaded).find(created!.id)!
 
       const railgun = (persisted.actions ?? []).find((a) => a.catalogId === 'weaponUse:use_railgun')!
-      expect(railgun.key).toBe('q')
+      expect(keySlotAt(railgun, 0)?.key).toBe('q')
       expect(persisted.binds['q']).toBe(aliasNameFor(railgun))
     })
   })

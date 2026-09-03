@@ -4,8 +4,9 @@
  * Quake 2 has no modifiers (see `alt-layers.ts`'s file doc comment): a capture
  * of "Alt+R" cannot be stored as a literal bind, only as an override inside an
  * alt layer whose `triggerKey` is `ALT`. `applyActionLayerMirror` rebuilds
- * every layer's `overrides` map from scratch as a **derived mirror** of
- * `actions`' `keyModifier`/`secondaryKeyModifier` slots, the exact layer-side
+ * every layer's `overrides` map from scratch as a **derived mirror** of every
+ * modifier-carrying key slot of every action (`action.keys`, story 050 - all of
+ * them, no cap of two), the exact layer-side
  * counterpart of `setActions`'s `binds` mirror in
  * `src/main/modules/config/profiles.ts`. This is the only writer of a
  * modifier override on the normal save path.
@@ -36,6 +37,7 @@
  */
 
 import type { AltLayer, AltLayerMode } from '@shared/config/alt-layers'
+import { actionKeySlots } from '@shared/config/action-slots'
 import { LEGACY_ACTION_ALIAS_PREFIX, legacyAliasNameFor } from '@shared/config/alias-render'
 import { bindValueFor } from '@shared/config/action-mirror'
 import { normalizeBindKey } from '@shared/config/key-names'
@@ -58,23 +60,13 @@ export const MODIFIER_LAYER_NAME: Record<ModifierTrigger, string> = {
 const MODIFIER_LAYER_MODE: AltLayerMode = 'hold'
 
 /**
- * A single key+modifier slot an action may carry - `{ key: action.key,
- * modifier: action.keyModifier }` or the secondary equivalent. Local to
- * `applyActionLayerMirror`; not worth exporting on its own.
- */
-interface ActionModifierSlot {
-  key: string | undefined
-  modifier: ModifierTrigger | undefined
-}
-
-/**
  * Derive, for every alt/ctrl/shift layer, the `overrides` mirror of `actions`'
  * modifier slots - the layer-side equivalent of `setActions`'s `binds` mirror
  * in `src/main/modules/config/profiles.ts` (decision 17 there; this is its
  * D7 counterpart for story 016's re-plan, decisions 14-21).
  *
- * A modifier binding is a property of the `ConfigAction` itself
- * (`keyModifier`/`secondaryKeyModifier`), never derived from command text -
+ * A modifier binding is a property of the `ConfigAction` itself (the
+ * `modifier` of one of its key slots), never derived from command text -
  * that was the bug this redesign replaces: two distinct actions can render
  * the identical command string (e.g. `dropWeapon:grenades` and
  * `dropAmmo:hgrenades` both rendering `drop grenades`), so a lookup keyed by
@@ -111,8 +103,8 @@ interface ActionModifierSlot {
  *    strip is returned as the same object reference, so an untouched layer
  *    stays untouched by identity too, not just by value.
  * 2. Rewrite. For every action, in array order (later wins on a key
- *    collision, the same determinism rule as `setActions`), each of its two
- *    slots (`key`+`keyModifier`, `secondaryKey`+`secondaryKeyModifier`) that
+ *    collision, the same determinism rule as `setActions`), each of its key
+ *    slots (`actionKeySlots(action)`, every index) that
  *    carries **both** a key and a modifier gets one
  *    `overrides[normalizeBindKey(key)] = aliasNameFor(action)` written into
  *    the layer for that modifier - found by normalized `triggerKey`, never by
@@ -153,10 +145,7 @@ export function applyActionLayerMirror(
   // older version generated, not a second ownership test; see the doc comment.
   const staleByKey = new Map<string, Set<string>>()
   for (const previous of previousActions) {
-    for (const slot of [
-      { key: previous.key, modifier: previous.keyModifier },
-      { key: previous.secondaryKey, modifier: previous.secondaryKeyModifier },
-    ]) {
+    for (const slot of actionKeySlots(previous)) {
       const key = slot.key?.trim()
       if (!key || !slot.modifier) continue
       const normalized = normalizeBindKey(key)
@@ -193,12 +182,7 @@ export function applyActionLayerMirror(
     // override disappear.
     if (action.kind === 'alias') continue
 
-    const slots: ActionModifierSlot[] = [
-      { key: action.key, modifier: action.keyModifier },
-      { key: action.secondaryKey, modifier: action.secondaryKeyModifier },
-    ]
-
-    for (const slot of slots) {
+    for (const slot of actionKeySlots(action)) {
       const key = slot.key?.trim()
       const modifier = slot.modifier
       if (!key || !modifier) continue

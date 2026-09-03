@@ -12,6 +12,7 @@ import { resolveProfileFileNames } from '@shared/config/profile-files'
 import { neutralizeProse } from '@shared/config/profile-metadata'
 import {
   ROUND_TRIP_FIXTURES,
+  collidingAliasNameProfile,
   holdLayerProfile,
   latin1CategoryNameProfile,
   layeredTwoSlotEntryProfile,
@@ -909,5 +910,83 @@ describe('write -> external edit -> re-read -> render over every 042 fixture', (
     // The profile itself survives; the keyless entry does not, because the file never held it.
     expect(state.configProfiles()).toHaveLength(1)
     expect(inventory(only(state)).entries).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 8. Two entries whose display names derive one alias name (story-050 review,
+//    finding 4, second round).
+// ---------------------------------------------------------------------------
+
+/**
+ * The collision the launcher can write itself, driven end to end through the real handlers:
+ * `save` renders the profile to its canonical file, the file is touched by hand so the next read
+ * classifies it as an external edit, and `refreshFromFiles` reads it back and adopts it.
+ *
+ * This exists because the *first* fix for this finding was tested by handing
+ * `restoreProfileParts` two same-named `alias` lines directly - an input no reader can produce,
+ * since both readers fold `alias` lines last-definition-wins by name before that function is ever
+ * called. The warning therefore never fired on any real path and a user's entry still vanished from
+ * Controls without a word. So nothing below constructs a parser input: the file is whatever
+ * `renderProfileFile` writes for `collidingAliasNameProfile`, and the assertions are about what
+ * comes back out of the handler the UI actually calls.
+ */
+describe('two entries deriving one alias name', () => {
+  it('reports the entry the reload loses instead of dropping it silently', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([seededProfile(collidingAliasNameProfile)])
+    await state.settle()
+    const saved = await save(handlers)
+    if (!saved.ok || saved.value.status !== 'saved') throw new Error('expected the save to work')
+    const fileName = fileNameOf(state)
+
+    // Two entries went in, and the file the launcher wrote genuinely holds the ambiguity: one alias
+    // name, defined twice, plus the two `bind` lines that point at it. Neither is a hand-edit.
+    expect(only(state).actions).toHaveLength(2)
+    const written = await readFile(canonicalPath(fileName), 'latin1')
+    expect(written.match(/^alias fire /gm)).toHaveLength(2)
+    expect(written).toContain('bind q "fire"')
+    expect(written).toContain('bind r "fire"')
+
+    // The touch is only there to make the next read an external edit rather than `unchanged` - it
+    // adds no alias line and changes none.
+    await writeFile(canonicalPath(fileName), `${written}// touched by hand\n`, 'latin1')
+
+    const results = await refresh(handlers, { profileId: 'p1' })
+
+    expect(results[0]!.outcome).toBe('adopted')
+    // The loss is real and unavoidable at read time (the engine keeps only the last definition of an
+    // alias name, and so does every reader here) - so what the fix owes the user is the *statement*
+    // of it, on the result the UI renders its toast from.
+    const adopted = results[0]!
+    if (adopted.outcome !== 'adopted') throw new Error('expected an adopt')
+    expect(adopted.droppedAliases).toEqual(['fire'])
+    // One entry left, carrying the surviving definition's commands. Pinned so the warning can never
+    // be satisfied by a file that lost nothing.
+    expect(adopted.profile.actions).toHaveLength(1)
+    expect(adopted.profile.actions?.[0]?.commands).toEqual([
+      { kind: 'raw', text: 'use railgun' },
+    ])
+    // Both keys survive on the surviving entry - the collision costs a body, not a binding.
+    expect(Object.keys(adopted.profile.binds).sort()).toEqual(['q', 'r'])
+  })
+
+  it('says nothing for a healthy profile taking the same save -> edit -> reload path', async () => {
+    // The guard against a warning that fires on every reload: the identical sequence over a fixture
+    // with a hold layer (whose own generated alias family is the most alias-dense thing the writer
+    // emits) reports no dropped alias at all.
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([seededProfile(holdLayerProfile)])
+    await state.settle()
+    await save(handlers)
+    const fileName = fileNameOf(state)
+    const written = await readFile(canonicalPath(fileName), 'latin1')
+    await writeFile(canonicalPath(fileName), `${written}// touched by hand\n`, 'latin1')
+
+    const results = await refresh(handlers, { profileId: 'p1' })
+
+    const adopted = results[0]!
+    if (adopted.outcome !== 'adopted') throw new Error('expected an adopt')
+    expect(adopted.droppedAliases).toEqual([])
   })
 })

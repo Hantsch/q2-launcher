@@ -268,10 +268,10 @@ export class ProfilesStore {
    * anything from an alt layer's own overrides, which live in a separate map
    * entirely) is untouched.
    *
-   * Story 015 (decision 1): "every key an action carries" is `key` *and*
-   * `secondaryKey`, both pointing at the same `aliasNameFor(action)` - the alias
-   * is per action, not per slot, so a two-slot row costs one alias and two bind
-   * lines. The consequences fall out of that single rule rather than needing
+   * Story 015 (decision 1), story 050: "every key an action carries" is every
+   * slot of `action.keys` (read through `@shared/config/action-slots`, no cap of
+   * two), all of them pointing at the same `aliasNameFor(action)` - the alias is
+   * per action, not per slot, so an N-slot row costs one alias and N bind lines. The consequences fall out of that single rule rather than needing
    * their own branches: clearing one slot drops only that key's bind (the whole
    * mirror is rebuilt from the surviving slots anyway), and an action whose two
    * slots normalize to the same key writes that key twice with the same value,
@@ -281,14 +281,13 @@ export class ProfilesStore {
    * *two* mirrors over the same one loop's worth of information, not one mirror
    * with a branch:
    *
-   * - A slot that carries a modifier (`keyModifier` for `key`,
-   *   `secondaryKeyModifier` for `secondaryKey`) is skipped by the `binds`
+   * - A slot that carries its own `modifier` is skipped by the `binds`
    *   mirror above. Quake 2 has no modifiers, so `Alt+R` is not a bind at all -
    *   it is an override inside the ALT layer. Writing a base `bind r` for it
    *   would make the action fire on bare `r` too, which is precisely the
-   *   collision the modifier exists to avoid. The two slots are judged
-   *   independently: a row can have Primary on `Alt+R` and Secondary on plain
-   *   `MOUSE2` at the same time, and each slot's own modifier field decides only
+   *   collision the modifier exists to avoid. The slots are judged
+   *   independently: a row can have slot 0 on `Alt+R` and slot 1 on plain
+   *   `MOUSE2` at the same time, and each slot's own `modifier` decides only
    *   that slot's own fate.
    * - Skipping is not the same as *dropping*: the strip pass above only removes
    *   a bind that is either the key-scoped mirror value for that same action or

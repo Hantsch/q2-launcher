@@ -31,7 +31,9 @@ import {
   releaseKey,
   type BindCollision,
   type BindCollisionIgnore,
+  type BindSlot,
 } from '@shared/config/bind-collision'
+import { actionKeySlots, withKeySlot } from '@shared/config/action-slots'
 import { isMirroredValue } from '@shared/config/action-mirror'
 import { MODIFIER_LAYER_NAME, type ModifierTrigger } from '@shared/config/modifier-layers'
 import { normalizeBindKey } from '@shared/config/key-names'
@@ -119,18 +121,20 @@ export function findSlotCollision(
  * Gated on `catalogId` on purpose: a pre-015 free-form action ("Other
  * actions", decision 5) that loses its key must stay in the list. The user
  * created it by hand and can re-bind it; deleting it would be data loss.
+ *
+ * Story 050: checked across every key slot (`actionKeySlots`), not just the two editable ones - a
+ * hand-added third slot still counts as "something assigned".
  */
 function isEmptyCatalogAction(action: ConfigAction): boolean {
   if (!action.catalogId) return false
-  const hasKey = Boolean(action.key?.trim())
-  const hasSecondary = Boolean(action.secondaryKey?.trim())
+  const hasKey = actionKeySlots(action).some((slot) => slot.key.trim().length > 0)
   const hasMessage = action.commands.some(
     (command) =>
       command.kind === 'message' &&
       command.channel === 'say_team' &&
       command.text.trim().length > 0,
   )
-  return !hasKey && !hasSecondary && !hasMessage
+  return !hasKey && !hasMessage
 }
 
 export interface ReplaceInput {
@@ -232,8 +236,8 @@ export interface ModifierSlotCollision {
   /** Shown as "the layer" in the confirm banner. */
   layerName: string
   /**
-   * Shown as "the thing that already has this override": another action's `name` when an
-   * action's `keyModifier`/`secondaryKeyModifier` slot occupies `(modifier, key)` (mirroring
+   * Shown as "the thing that already has this override": another action's `name` when one of that
+   * action's key slots occupies `(modifier, key)` with its own `modifier` (mirroring
    * `ownerLabel`'s `'action'` case above), or the raw command text when a hand-made override
    * occupies it instead (mirroring `ownerLabel`'s `baseBind` case - a hand-written override
    * carries no action id to resolve a friendlier name from).
@@ -241,11 +245,11 @@ export interface ModifierSlotCollision {
   owner: string
   /**
    * Set only when `owner` names an action (never for a hand-made override) - which action, and
-   * which of its two slots, a Replace has to clear before writing the new one
-   * (`applyModifierReplace`).
+   * which of its key slots (story 050: any index, not just 0/1 - see the file's `findModifierSlotCollision`
+   * doc comment), a Replace has to clear before writing the new one (`applyModifierReplace`).
    */
   actionId?: string
-  actionSlot?: 'primary' | 'secondary'
+  actionSlot?: BindSlot
 }
 
 /**
@@ -282,6 +286,10 @@ export interface ModifierSlotCollision {
  *
  * `layers` should be the in-progress draft's layers, same freshness requirement `findSlotCollision`
  * documents for `profile`.
+ *
+ * Story 050: every key slot of a candidate action is checked (`actionKeySlots`), not just the two
+ * the Controls tab edits - a hand-added third slot must be found and released exactly like slot 0
+ * or 1 would be, even though nothing in the UI can ever *create* a third slot itself.
  */
 export function findModifierSlotCollision(
   actions: ConfigAction[],
@@ -300,22 +308,19 @@ export function findModifierSlotCollision(
     // An alias entry is never bound (story 019) - skip it even if it still carries stale
     // key/modifier data from before it became an alias (review fix, Finding 4).
     if (action.kind === 'alias') continue
-    if (action.keyModifier === modifier && action.key && normalizeBindKey(action.key) === normalizedKey) {
-      return { modifier, key, layerId, layerName, owner: action.name, actionId: action.id, actionSlot: 'primary' }
-    }
-    if (
-      action.secondaryKeyModifier === modifier &&
-      action.secondaryKey &&
-      normalizeBindKey(action.secondaryKey) === normalizedKey
-    ) {
-      return {
-        modifier,
-        key,
-        layerId,
-        layerName,
-        owner: action.name,
-        actionId: action.id,
-        actionSlot: 'secondary',
+    const slots = actionKeySlots(action)
+    for (let slotIndex = 0; slotIndex < slots.length; slotIndex += 1) {
+      const slot = slots[slotIndex]!
+      if (slot.modifier === modifier && slot.key && normalizeBindKey(slot.key) === normalizedKey) {
+        return {
+          modifier,
+          key,
+          layerId,
+          layerName,
+          owner: action.name,
+          actionId: action.id,
+          actionSlot: slotIndex,
+        }
       }
     }
   }
@@ -354,8 +359,8 @@ export interface ModifierReplaceInput {
  * spells out for the base-layer case; see it before changing this wiring).
  *
  * Without this release step, confirming Replace over an action B that currently holds
- * `(ALT, R)` would leave B's `keyModifier`/`key` (or `secondaryKeyModifier`/`secondaryKey`)
- * stale: `applySlot` only ever touches the row being edited, so B would still claim `(ALT, R)`
+ * `(ALT, R)` would leave the B slot that holds it (whichever index of `B.keys` that is) stale:
+ * `applySlot` only ever touches the row being edited, so B would still claim `(ALT, R)`
  * after the save, and `applyActionLayerMirror`'s "later action in the array wins" tie-break would
  * silently decide whose alias the override actually points at - correct immediately after this
  * save, wrong (or at least undiscoverable without a reload) the moment array order changes, and
@@ -378,11 +383,12 @@ export function applyModifierReplace({
 }: ModifierReplaceInput): ConfigAction[] {
   if (!collision?.actionId) return applySlot(actions, row, slot, key, modifier)
 
+  // Story 050: blanks the exact slot `findModifierSlotCollision` named (`{ key: '' }` via
+  // `withKeySlot`, never `clearKeySlot`) - clearing by array index rather than removing the entry
+  // keeps every other slot's position untouched, the same invariant `applySlot` documents.
   const released = actions.map((action) => {
     if (action.id !== collision.actionId) return action
-    return collision.actionSlot === 'primary'
-      ? { ...action, key: undefined, keyModifier: undefined }
-      : { ...action, secondaryKey: undefined, secondaryKeyModifier: undefined }
+    return withKeySlot(action, collision.actionSlot!, { key: '' })
   })
 
   const applied = applySlot(released, row, slot, key, modifier)
@@ -417,9 +423,7 @@ export function applyPlainModifierReplace({
 
   const released = actions.map((action) => {
     if (action.id !== collision.actionId) return action
-    return collision.actionSlot === 'primary'
-      ? { ...action, key: undefined, keyModifier: undefined }
-      : { ...action, secondaryKey: undefined, secondaryKeyModifier: undefined }
+    return withKeySlot(action, collision.actionSlot!, { key: '' })
   })
 
   const applied = applyPlainSlot(released, actionId, slot, key, modifier)

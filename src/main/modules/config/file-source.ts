@@ -89,8 +89,10 @@ interface LiveBind {
 
 /**
  * The keys actually bound after every `bind`/`unbind`/`unbindall` in `items` is applied, in order -
- * `import-reader.ts#applyBind`'s own rule, minus the duplicate-bind reporting this module has no
- * use for (nothing here surfaces an import-style warning list). `parseConfigText` already
+ * `import-reader.ts#applyBind`'s own rule, minus its duplicate-bind reporting: a re-`bind` of a key
+ * loses nothing but a *binding*, which the surviving line still states in full, unlike a re-defined
+ * `alias`, whose earlier body is gone for good (hence `FoldedConfig.discardedAliases`).
+ * `parseConfigText` already
  * interleaves all three kinds into one `binds` array in document order (they are pushed together as
  * each line is visited), so a single left-to-right pass is exact - there is no second array to
  * reconcile against the way a multi-file import has to.
@@ -122,14 +124,58 @@ interface FoldedConfig {
   cvars: Map<string, ParsedCvar>
   aliases: Map<string, ParsedAlias>
   binds: Map<string, LiveBind>
+  /**
+   * The `alias` definitions this fold threw away - every line whose name a later line in the same
+   * file re-defines, in file order. `[]` for every healthy file.
+   *
+   * Collected rather than dropped because this is the exact point at which a whole entry can
+   * disappear from a profile (story-050 review, finding 4, second round). Two entries whose display
+   * names derive to one alias name (`alias-render.ts#derivedAliasName` has no id suffix by story
+   * 039's own decision - the name is the user's contract with whatever binding calls it, so it is
+   * reported as a duplicate, never silently renamed) render two `alias fire` lines; the engine keeps
+   * only the last of the two and so does this fold, and everything downstream - `restoreProfileParts`
+   * included - then sees a file that looks like it only ever had one such entry. Warning about it
+   * anywhere further down is impossible for want of the evidence, which is why it happens here.
+   *
+   * Not filtered to entry aliases: a duplicated layer helper or chunk alias is a lost body just the
+   * same, and a `.cfg` the launcher itself wrote never repeats a name unless something is genuinely
+   * ambiguous about it.
+   */
+  discardedAliases: ParsedAlias[]
 }
 
 function foldConfig(parsed: ParseConfigResult): FoldedConfig {
+  const aliases = lastWins(parsed.aliases, (alias) => alias.name)
   return {
     cvars: lastWins(parsed.cvars, (cvar) => cvar.name),
-    aliases: lastWins(parsed.aliases, (alias) => alias.name),
+    aliases,
     binds: foldBinds(parsed.binds),
+    // Exactly the lines the winning map does not point at - an identity comparison against the
+    // fold's own result rather than a second name-counting pass, so the two can never disagree
+    // about which definition survived.
+    discardedAliases: parsed.aliases.filter((alias) => aliases.get(alias.name) !== alias),
   }
+}
+
+/**
+ * One `entry-alias-duplicate` warning per definition `foldConfig` discarded, at that definition's
+ * own line - the line whose commands are gone - with the colliding alias name as the `subject`.
+ *
+ * Positioned on the *discarded* line rather than on the surviving one (the convention
+ * `import-reader.ts#DuplicateAlias` uses for its own duplicate report) because this warning is read
+ * as "this line's content did not survive the read", and every other `RestoreWarning` likewise
+ * points at the line it is about.
+ */
+function discardedAliasWarnings(
+  file: string,
+  discarded: readonly ParsedAlias[],
+): RestoreWarning[] {
+  return discarded.map((alias) => ({
+    reason: 'entry-alias-duplicate' as const,
+    file,
+    line: alias.line,
+    subject: alias.name,
+  }))
 }
 
 /** `foldConfig`'s maps, shaped into `restoreProfileParts`'s input - every line tagged with `file`
@@ -186,9 +232,11 @@ export interface ParsedCanonicalProfile {
   actions: ConfigAction[]
   categories: ConfigActionCategory[]
   layers: AltLayer[]
-  /** Every discrepancy `restoreProfileParts` found - a malformed tag, a hand-deleted version
-   * marker, a tag that disagreed with the config line it sat on - never fatal to the parse itself
-   * (see `readFileState`'s doc comment). */
+  /** Every discrepancy reading this file back turned up - a malformed tag, a hand-deleted version
+   * marker, a tag that disagreed with the config line it sat on (all `restoreProfileParts`'), plus
+   * the `entry-alias-duplicate` reports from this module's own `alias` fold, which happens before
+   * that pass and is the only place those are still visible (`FoldedConfig.discardedAliases`).
+   * Never fatal to the parse itself (see `readFileState`'s doc comment). */
   warnings: RestoreWarning[]
   sourceProfileId: string | null
   metadataVersion: number | null
@@ -205,7 +253,9 @@ function parseCanonicalProfile(file: string, content: string): ParsedCanonicalPr
     actions: restored.actions,
     categories: restored.categories,
     layers: restored.layers,
-    warnings: restored.warnings,
+    // The fold's own reports first: they are about lines `restoreProfileParts` was never handed,
+    // and they name content that is missing from everything below them in this result.
+    warnings: [...discardedAliasWarnings(file, folded.discardedAliases), ...restored.warnings],
     sourceProfileId: restored.sourceProfileId,
     metadataVersion: restored.metadataVersion,
   }

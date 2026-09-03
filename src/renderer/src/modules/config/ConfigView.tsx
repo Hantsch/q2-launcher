@@ -26,7 +26,11 @@ import { ImportProfileDialog } from './ImportProfileDialog'
 import { InstallationProfilesPanel } from './InstallationProfilesPanel'
 import { LayersPanel } from './LayersPanel'
 import { dedupedFindingCounts } from './lib/care-summary'
-import { applyRefreshedProfile, noticeForRefreshedProfile } from './lib/file-source-refresh'
+import {
+  applyRefreshedProfile,
+  droppedAliasWarning,
+  noticeForRefreshedProfile,
+} from './lib/file-source-refresh'
 import { ProfileChangesProvider } from './lib/profile-changes'
 import { resolveSaveOutcome } from './lib/save-bar'
 import { analyzeTidyUp } from './lib/tidy-up-findings'
@@ -308,6 +312,14 @@ export function ConfigView() {
     const notice = noticeForRefreshedProfile(result)
     if (notice?.kind === 'reloaded') {
       pushToast({ level: 'info', messageKey: 'config.fileSource.reloaded', timeoutMs: 6000 })
+      // Story-050 review (finding 4, second round): the reload kept only the last definition of an
+      // alias name the file spelled twice, so an entry's commands are gone from the profile that
+      // just replaced the cached one. Its own toast next to the `info` one above, built by
+      // `droppedAliasWarning` - the same single definition Care's Reload and the conflict dialog's
+      // "Take the file" push through `adoptProfileFromFile` (finding 1, third round), so the three
+      // adopt paths can never word this differently or forget it.
+      const warning = droppedAliasWarning(notice.droppedAliases)
+      if (warning) pushToast(warning)
     } else if (notice?.kind === 'conflict') {
       pushToast({ level: 'error', messageKey: 'config.fileSource.conflict', timeoutMs: 0 })
     }

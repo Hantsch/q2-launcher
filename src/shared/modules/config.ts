@@ -160,11 +160,18 @@ export type ConfigCommand =
  * can); a `kind: 'alias'` entry never is — it exists to be referenced by name, not bound, and the
  * UI offers no key slot for it at all (story 019).
  *
- * `secondaryKey` (story 015, decision 1) is a second key bound to the *same* generated alias —
- * the engine has no notion of a "primary" and "secondary" bind, so a two-slot row is two `binds`
- * entries pointing at one alias rather than two duplicate actions. Optional and purely additive:
- * a pre-015 action simply omits it, so there is no migration and one-slot rows stay exactly as
- * they were.
+ * `keys` (story 015, decisions 1/016; replaced by story 050's arbitrary-slot model) lists every key
+ * this action's generated alias is bound to - the engine has no notion of a "primary" and
+ * "secondary" bind, so an N-slot row is N `binds` entries (or layer `overrides` entries, for a
+ * modified slot) pointing at one alias rather than N duplicate actions. Slot identity comes from
+ * the order entries appear in this array, not from a stable id or field name, so the sole access
+ * point is `@shared/config/action-slots.ts` (`actionKeySlots`/`keySlotAt`/`withKeySlot`/
+ * `clearKeySlot`/`keySlotCount`) - nothing in this codebase reads or writes `keys` directly.
+ * Optional and purely additive: an action with no bound key simply omits it, same as an empty array
+ * would mean. A pre-050 persisted row instead carries the four fields this array replaced -
+ * `key`/`secondaryKey`/`keyModifier`/`secondaryKeyModifier` - and is normalised into up to two
+ * `keys` slots on read by both zod mirrors (`main/lib/schemas.ts`, `main/modules/config/schemas.ts`),
+ * so no state migration and no data loss for a profile already on a dev machine.
  *
  * `catalogId` (story 015, decision 2) marks an action as the materialised form of a catalogue row
  * (a known movement/weapon/drop entry the editor offers). Identity lives in this field and never
@@ -177,15 +184,14 @@ export type ConfigCommand =
  * rejects a missing or unknown value rather than guessing) while a pre-019 persisted row gets it
  * derived from its category's legacy `entryKind` at parse time.
  *
- * `keyModifier`/`secondaryKeyModifier` (story 016) record the modifier - `ALT`/`CTRL`/`SHIFT` -
- * that was held while capturing `key`/`secondaryKey` respectively. Quake 2 itself has no notion of
- * a modified bind (see `modifier-layers.ts`'s file doc comment): a captured "Alt+R" is not stored
- * as a literal bind at all. These two fields are the authoritative source the write pipeline
- * consults: `setActions`/`setLayers` (`main/modules/config/profiles.ts`) derive every modifier
- * layer's overrides from them via `applyActionLayerMirror`, skipping the matching key from the
- * base `binds` mirror - a layer override is a generated mirror of these fields, never a second
- * place they could drift from. Optional and additive like `secondaryKey`/`catalogId`: a pre-016
- * action simply omits them, and a plain (unmodified) key or slot omits the corresponding field too.
+ * Each `ActionKeySlot.modifier` (story 016) records the modifier - `ALT`/`CTRL`/`SHIFT` - that was
+ * held while capturing that slot's key. Quake 2 itself has no notion of a modified bind (see
+ * `modifier-layers.ts`'s file doc comment): a captured "Alt+R" is not stored as a literal bind at
+ * all. `keys` is the authoritative source the write pipeline consults: `setActions`/`setLayers`
+ * (`main/modules/config/profiles.ts`) derive every modifier layer's overrides from it via
+ * `applyActionLayerMirror`, skipping the matching key from the base `binds` mirror - a layer
+ * override is a generated mirror of these slots, never a second place they could drift from. A
+ * plain (unmodified) slot simply omits `modifier`.
  *
  * `aliasName` (story 039, D1) is the human-readable alias name the user typed for this action -
  * `+slow`, not `q2l_a_slow_9a2f`. Optional and additive like `catalogId`: an action without it
@@ -209,13 +215,21 @@ export interface ConfigAction {
   name: string
   kind: ActionEntryKind
   commands: ConfigCommand[]
-  key?: string
-  secondaryKey?: string
+  keys?: readonly ActionKeySlot[]
   catalogId?: string
-  keyModifier?: ModifierTrigger
-  secondaryKeyModifier?: ModifierTrigger
   aliasName?: string
   keepEmptyAlias?: true
+}
+
+/**
+ * One key slot on a `ConfigAction` - the engine key this action's generated alias is bound to
+ * (`key`), plus the modifier (`modifier`) that was held while capturing it, if any. See
+ * `ConfigAction.keys`'s doc comment above for what an array of these represents and why nothing
+ * outside `@shared/config/action-slots.ts` reads or writes it directly.
+ */
+export interface ActionKeySlot {
+  key: string
+  modifier?: ModifierTrigger
 }
 
 /**
@@ -524,7 +538,27 @@ export interface RefreshFromFilesInput {
  */
 export type RefreshedProfileResult =
   | { profileId: string; outcome: 'unchanged'; fileState: 'unchanged' }
-  | { profileId: string; outcome: 'adopted'; fileState: 'changedOnDisk'; profile: ConfigProfile }
+  | {
+      profileId: string
+      outcome: 'adopted'
+      fileState: 'changedOnDisk'
+      profile: ConfigProfile
+      /**
+       * Alias names the file defined more than once, so the adopted profile is missing whatever the
+       * earlier definition of each said (story-050 review, finding 4, second round). File data - the
+       * names as the file spells them - never prose, and never empty-vs-absent: `[]` is the normal
+       * case and means the adopt lost nothing.
+       *
+       * On the wire because the loss is invisible everywhere else: main's own `alias` fold discards
+       * the earlier body before the profile is reconstructed
+       * (`main/modules/config/file-source.ts#foldConfig`), and the adopted profile that arrives here
+       * looks exactly like one written from a file that only ever had one such entry - Care's
+       * `aliasDuplicate` rule cannot fire on it either, because the colliding entry it would name is
+       * the one that just disappeared. Without this field an adopt silently drops a user's entry,
+       * which is precisely what AC3's "never a silent swap" forbids.
+       */
+      droppedAliases: string[]
+    }
   | {
       profileId: string
       outcome: 'conflict'

@@ -128,6 +128,71 @@ describe('configProfileSchema - categories/actions (story 008)', () => {
 })
 
 /**
+ * Story 050: `keys` replaces the old fixed `key`/`secondaryKey`/`keyModifier`/
+ * `secondaryKeyModifier` fields. `configActionPersistedSchema` (this file) still accepts the
+ * legacy shape and normalises it into `keys` on read - the decision that keeps every profile
+ * already on a dev machine from silently losing its binds on the next load.
+ */
+describe('configProfileSchema - keys (story 050)', () => {
+  const baseProfile = {
+    id: 'p1',
+    name: 'My profile',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    assignments: [],
+  }
+
+  it('loads a legacy-shaped stored action with its two slots intact', () => {
+    const result = configProfileSchema.parse({
+      ...baseProfile,
+      actions: [
+        {
+          id: 'a1',
+          categoryId: 'c1',
+          name: 'Jump forward',
+          kind: 'bind',
+          commands: [],
+          key: 'W',
+          secondaryKey: 'X',
+          secondaryKeyModifier: 'ALT',
+        },
+      ],
+    })
+
+    expect(result.actions[0]!.keys).toEqual([{ key: 'W' }, { key: 'X', modifier: 'ALT' }])
+  })
+
+  it('round-trips an action with five key slots through the strict and persisted schemas', () => {
+    const payload = {
+      profileId: 'p1',
+      categories: [],
+      actions: [
+        {
+          id: 'a1',
+          categoryId: 'c1',
+          name: 'Jump forward',
+          kind: 'bind' as const,
+          commands: [],
+          keys: [
+            { key: 'W' },
+            { key: 'X', modifier: 'ALT' as const },
+            { key: 'Y' },
+            { key: 'Z', modifier: 'CTRL' as const },
+            { key: 'Q', modifier: 'SHIFT' as const },
+          ],
+        },
+      ],
+    }
+
+    const strict = setProfileActionsInputSchema.parse(payload)
+    const persisted = configProfileSchema.parse({ ...baseProfile, actions: strict.actions })
+
+    expect(persisted.actions[0]!.keys).toHaveLength(5)
+    expect(persisted.actions[0]!.keys).toEqual(strict.actions[0]!.keys)
+  })
+})
+
+/**
  * Story 011: `AltLayer.triggerKey` becomes nullable (`null` = "no trigger
  * assigned yet"). `configProfileSchema`'s `layers` field degrades the whole
  * array to `[]` on a structural failure (see `altLayerPersistedSchema` in
@@ -281,8 +346,8 @@ describe('configProfileSchema - entry kind derived on read (story 019)', () => {
       name: 'Taunt',
       kind: 'message',
       commands: [{ kind: 'message', channel: 'say_team', text: 'nice shot' }],
-      key: 'F5',
-      keyModifier: 'ALT',
+      // Story 050: the legacy `key`/`keyModifier` pair is normalised into one `keys` slot on read.
+      keys: [{ key: 'F5', modifier: 'ALT' }],
       catalogId: 'movement:forward',
     })
   })
@@ -331,11 +396,15 @@ describe('configProfileSchema - entry kind derived on read (story 019)', () => {
    * documents for its own, otherwise-identical helper.
    */
   it('strips a stale binds entry and layer override for a legacy alias-turned entry that carried a key', () => {
-    const staleAliasAction: Omit<ConfigAction, 'kind'> = {
+    // Legacy on-disk shape (pre-050 `key`/`secondaryKey`/`secondaryKeyModifier` fields) rather than
+    // `ConfigAction`, deliberately untyped: this fixture stands in for an old `state.json` row, the
+    // shape `configProfileSchema`'s forgiving read path (not the strict `ConfigAction` type) still
+    // has to accept and normalise.
+    const staleAliasAction = {
       id: 'a-alias',
       categoryId: 'c-alias',
       name: '+test',
-      commands: [{ kind: 'raw', text: '+attack' }],
+      commands: [{ kind: 'raw' as const, text: '+attack' }],
       key: 'r',
       secondaryKey: 'f',
       secondaryKeyModifier: 'ALT',
@@ -379,7 +448,7 @@ describe('configProfileSchema - entry kind derived on read (story 019)', () => {
       id: 'a-alias',
       categoryId: 'c-alias',
       name: '+test',
-      commands: [{ kind: 'raw', text: '+attack' }],
+      commands: [{ kind: 'raw' as const, text: '+attack' }],
       key: 'r',
       secondaryKey: 'f',
       secondaryKeyModifier: 'ALT',
@@ -438,9 +507,7 @@ describe('configProfileSchema - legacy alias references migrated on read (story 
       { kind: 'raw', text: 'use super shotgun' },
       { kind: 'raw', text: 'use shotgun' },
     ],
-    key: 'q',
-    secondaryKey: 'x',
-    secondaryKeyModifier: 'ALT',
+    keys: [{ key: 'q' }, { key: 'x', modifier: 'ALT' }],
   }
 
   const legacyName = legacyAliasNameFor(ssgAction)
@@ -565,7 +632,7 @@ describe('configProfileSchema - baseline (story 049)', () => {
         name: 'gg',
         kind: 'message',
         commands: [{ kind: 'message', channel: 'say', text: 'gg' }],
-        key: 'F1',
+        keys: [{ key: 'F1' }],
       },
     ],
     writeUnbindall: false,

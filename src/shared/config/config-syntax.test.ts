@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
-import { entryRefFor, renderProfileFile } from '@shared/config/render'
+import { renderProfileFile } from '@shared/config/render'
 import {
   tokenizeConfigText,
   type ConfigSyntaxLine,
@@ -261,7 +261,7 @@ function richProfile(): ConfigProfile {
         categoryId: 'weapons',
         name: 'SSG + SG',
         kind: 'bind',
-        key: 'q',
+        keys: [{ key: 'q' }],
         aliasName: 'ssg_sg',
         commands: [
           { kind: 'raw', text: 'use super shotgun' },
@@ -273,7 +273,7 @@ function richProfile(): ConfigProfile {
         categoryId: 'weapons',
         name: 'Attack',
         kind: 'bind',
-        key: 'x',
+        keys: [{ key: 'x' }],
         aliasName: 'attack_e',
         commands: [{ kind: 'raw', text: '+attack' }],
       },
@@ -317,11 +317,13 @@ describe('tokenizeConfigText - section banners and aligned commented rows (story
     expect(space1.text).toBe(' ')
     expect(key).toEqual({ kind: 'key', text: 'q' })
     expect(value).toEqual({ kind: 'string', text: '"ssg_sg"' })
-    // Story 042 D2: the display name now carries the entry's `[q2l ...]` tail, and the whole
-    // thing - prose and tag - is still one `comment` token.
+    // Story 042 D2 / story 050 D6: the display name carries the entry's `[q2l ...]` tail (now
+    // pared down to just the fields that aren't otherwise derivable from the file itself - none,
+    // for this catalogue-less, unmodified, single-alias-name-carrying action, hence the bare
+    // marker), and the whole thing - prose and tag - is still one `comment` token.
     expect(comment).toEqual({
       kind: 'comment',
-      text: `// SSG + SG [q2l e=${entryRefFor('e-ssg')} k=bind slot=1]`,
+      text: '// SSG + SG [q2l]',
     })
 
     // The alignment gap - the column padding plus attachComment's own two spaces - lands

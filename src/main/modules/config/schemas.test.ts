@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { configWriteFailuresSchema, parseConfigWriteFailures } from '../../lib/schemas'
 import {
   actionTextSchema,
+  configActionSchema,
   setProfileActionsInputSchema,
   setSwitchBindInputSchema,
   syncStateInputSchema,
@@ -183,6 +184,59 @@ describe('setProfileActionsInputSchema', () => {
     const payload = { ...validPayload, categories: [{ id: 'c1', name: 'My Category' }] }
     const parsed = setProfileActionsInputSchema.parse(payload)
     expect(parsed.categories[0]).toEqual({ id: 'c1', name: 'My Category' })
+  })
+})
+
+/**
+ * Story 050: `keys` replaces the old fixed `key`/`secondaryKey`/`keyModifier`/
+ * `secondaryKeyModifier` fields, with arbitrary length rather than the previous two-slot cap.
+ * `normalizeActionKeys` also still accepts the legacy shape here, not just in the persisted
+ * schema (`main/lib/schemas.test.ts`), so a caller that has not yet moved to `keys` still gets a
+ * valid payload rather than a thrown error.
+ */
+describe('configActionSchema - keys (story 050)', () => {
+  const base = {
+    id: 'a1',
+    categoryId: 'c1',
+    name: 'Jump forward',
+    kind: 'bind' as const,
+    commands: [],
+  }
+
+  it('accepts an action with five key slots', () => {
+    const result = configActionSchema.parse({
+      ...base,
+      keys: [
+        { key: 'W' },
+        { key: 'X', modifier: 'ALT' },
+        { key: 'Y' },
+        { key: 'Z', modifier: 'CTRL' },
+        { key: 'Q', modifier: 'SHIFT' },
+      ],
+    })
+
+    expect(result.keys).toHaveLength(5)
+    expect(result.keys?.[4]).toEqual({ key: 'Q', modifier: 'SHIFT' })
+  })
+
+  it('normalises the legacy key/keyModifier/secondaryKey/secondaryKeyModifier shape into keys', () => {
+    const result = configActionSchema.parse({
+      ...base,
+      key: 'W',
+      keyModifier: 'ALT',
+      secondaryKey: 'X',
+    })
+
+    expect(result.keys).toEqual([{ key: 'W', modifier: 'ALT' }, { key: 'X' }])
+    expect(result).not.toHaveProperty('key')
+    expect(result).not.toHaveProperty('secondaryKey')
+    expect(result).not.toHaveProperty('keyModifier')
+    expect(result).not.toHaveProperty('secondaryKeyModifier')
+  })
+
+  it('leaves an action with no key fields at all with no keys property', () => {
+    const result = configActionSchema.parse(base)
+    expect(result.keys).toBeUndefined()
   })
 })
 

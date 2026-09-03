@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, CircleX, TriangleAlert } from 'lucide-react'
+import { keySlotAt } from '@shared/config/action-slots'
 import { bindValueFor } from '@shared/config/action-mirror'
 import type { TidyUpBindClaim, TidyUpOp } from '@shared/config/tidy-up'
 import type { ConfigProfile } from '@shared/modules/config'
@@ -299,6 +300,22 @@ function shadowedClaimCommand(profile: ConfigProfile, claim: TidyUpBindClaim): s
   return action ? bindValueFor(action) : ''
 }
 
+/**
+ * Story 050: a parenthetical slot label appended to an `action`-sourced claim's preview line, but
+ * only for a slot index of 2 and up - slot 0/1 are the Controls tab's own "primary"/"secondary"
+ * columns and need no extra label here (this preview never named them before this story either);
+ * a slot beyond that can only exist from a hand-edited `.cfg`, so it is called out explicitly, one
+ * generic `config.care.tidyUp.slotLabel` string for every such index rather than a dedicated
+ * string per index.
+ */
+function shadowedClaimSlotLabel(
+  claim: TidyUpBindClaim,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  if (claim.source !== 'action' || claim.slot < 2) return ''
+  return ` (${t('config.care.tidyUp.slotLabel', { index: claim.slot + 1 })})`
+}
+
 /** Before/after text for one op, built purely from the op's own fields (plus a
  * lookup on `profile` for the human-readable name a claim/layer/alias id
  * points at) - never a byte diff, this is a presentational rendering of data
@@ -313,7 +330,7 @@ export function opPreview(
   switch (op.kind) {
     case 'removeShadowedBind':
       return {
-        before: `bind ${op.key} "${shadowedClaimCommand(profile, op.claim)}"`,
+        before: `bind ${op.key} "${shadowedClaimCommand(profile, op.claim)}"${shadowedClaimSlotLabel(op.claim, t)}`,
         after: removed,
       }
     case 'removeEmptyLayer': {
@@ -334,7 +351,7 @@ export function opPreview(
       if (target.field === 'binds') {
         return { before: op.text, after: `bind ${target.key} "${target.command}"` }
       }
-      const key = target.action.key ?? target.action.secondaryKey ?? '?'
+      const key = keySlotAt(target.action, 0)?.key || keySlotAt(target.action, 1)?.key || '?'
       return { before: op.text, after: `bind ${key} "${target.action.name}"` }
     }
   }

@@ -473,6 +473,8 @@
     },
     "fileSource": {
       "reloaded": "This profile's file changed on disk and was reloaded.",
+      "aliasDropped_one": "The file defines the alias {{names}} more than once, so only its last definition survived the reload \u2014 the entry that shared the name lost its commands. Give the two entries different alias names and save to fix the file.",
+      "aliasDropped_other": "The file defines these aliases more than once: {{names}}. Only the last definition of each survived the reload \u2014 the entries that shared those names lost their commands. Give them different alias names and save to fix the file.",
       "conflict": "The file changed on disk while this profile has unsaved edits \u2014 press Save to open the conflict dialog and resolve it. Nothing was overwritten.",
       "diagnostic": {
         "titleWithLine": "This file could not be parsed ({{file}}, line {{line}})",
@@ -1065,14 +1067,11 @@
         "tag-malformed": "A launcher metadata tag in this file could not be read ({{file}}:{{line}}).",
         "tag-missing": "An alias added by hand has no launcher metadata tag; it was imported from its plain definition ({{file}}:{{line}}).",
         "tag-unknown-keys": "A launcher metadata tag has fields this version does not recognize: {{subject}} ({{file}}:{{line}}).",
-        "tag-kind-unknown": "A launcher metadata tag names an entry type this version does not recognize ({{file}}:{{line}}).",
-        "tag-kind-contradicted": "A launcher metadata tag says this entry is an alias, but a key is bound to it — the key bind was kept ({{file}}:{{line}}).",
-        "tag-slot-conflict": "Two key binds claimed the same slot of one entry; the first was kept ({{file}}:{{line}}).",
         "tag-modifier-unknown": "A launcher metadata tag names a modifier this version does not recognize ({{file}}:{{line}}).",
         "entry-section-unknown": "An entry's category could not be recovered ({{file}}:{{line}}).",
+        "entry-alias-duplicate": "The alias {{subject}} is defined more than once; this definition was replaced by a later one, so its commands were dropped ({{file}}:{{line}}).",
         "layer-mode-contradicted": "A layer's recorded mode disagreed with its own key binds ({{file}}:{{line}}).",
-        "layer-trigger-contradicted": "A layer's recorded trigger key disagreed with its own key binds ({{file}}:{{line}}).",
-        "modifier-slot-unavailable": "A modifier key bind could not be restored — both of its entry's key slots were already taken ({{file}}:{{line}})."
+        "layer-trigger-contradicted": "A layer's recorded trigger key disagreed with its own key binds ({{file}}:{{line}})."
       }
     },
     "importDialog": {
@@ -1202,6 +1201,7 @@
           "showInAliases": "Show in Aliases"
         },
         "applying": "Applying…",
+        "slotLabel": "slot {{index}}",
         "preview": {
           "before": "Before:",
           "after": "After:",

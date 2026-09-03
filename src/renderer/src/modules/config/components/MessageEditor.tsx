@@ -8,6 +8,7 @@ import {
   tokenizeMessage,
 } from '@shared/config/chat-macros'
 import { fromAltCharset, hasAltCharset, toAltCharset, toDisplaySegments } from '@shared/config/q2-charset'
+import { keySlotAt } from '@shared/config/action-slots'
 import { colorCvarTokens } from '@shared/config/color-cvars'
 import { Button } from '../../../components/ui/Button'
 import { Field, Select } from '../../../components/ui/controls'
@@ -112,7 +113,7 @@ export function MessageEditor({
   )
   const [channel, setChannel] = useState<'say' | 'say_team'>(seed?.channel ?? 'say_team')
   const [text, setText] = useState(seed?.text ?? '')
-  const [key, setKey] = useState<string | undefined>(action.key)
+  const [key, setKey] = useState<string | undefined>(keySlotAt(action, 0)?.key)
   const [capturingKey, setCapturingKey] = useState(false)
   const [selection, setSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 })
 

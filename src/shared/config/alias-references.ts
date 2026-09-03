@@ -69,6 +69,7 @@
  */
 
 import type { ConfigAction } from '../modules/config'
+import { actionKeySlots } from './action-slots'
 import { generateLayerAliases, sanitizeCommand, type AltLayer } from './alt-layers'
 import { aliasNameFor, commandLineFor } from './alias-render'
 import { bindValueFor } from './action-mirror'
@@ -118,10 +119,9 @@ function collectFromText(text: string, tokens: Set<string>): void {
 
 /**
  * The `sources.binds` key(s) `action`'s own base-layer mirror
- * (`action-mirror.ts#applyActionBindMirror`) writes for it: its `key`/
- * `secondaryKey` slot, whichever of the two carries no modifier (a modified
- * slot mirrors into a layer override instead, see `ownMirrorLayerKeys`
- * below). Not conditioned on the slot's current value matching
+ * (`action-mirror.ts#applyActionBindMirror`) writes for it: every one of its key
+ * slots (`action.keys`, story 050) that carries no modifier (a modified slot
+ * mirrors into a layer override instead, see `ownMirrorLayerKeys` below). Not conditioned on the slot's current value matching
  * `aliasNameFor(action)` - by the profile's own invariant a key this action
  * holds unmodified can only ever carry that mirror's value, so membership by
  * key alone is exact, same reasoning `action-mirror.ts#isMirroredValue`'s
@@ -129,10 +129,7 @@ function collectFromText(text: string, tokens: Set<string>): void {
  */
 function ownMirrorBindKeys(action: ConfigAction): Set<string> {
   const keys = new Set<string>()
-  for (const slot of [
-    { key: action.key, modifier: action.keyModifier },
-    { key: action.secondaryKey, modifier: action.secondaryKeyModifier },
-  ]) {
+  for (const slot of actionKeySlots(action)) {
     if (slot.key && !slot.modifier) keys.add(normalizeBindKey(slot.key))
   }
   return keys
@@ -149,10 +146,7 @@ function ownMirrorBindKeys(action: ConfigAction): Set<string> {
 function ownMirrorLayerKeys(action: ConfigAction, layer: AltLayer): Set<string> {
   const keys = new Set<string>()
   const layerTrigger = normalizeBindKey(layer.triggerKey ?? '')
-  for (const slot of [
-    { key: action.key, modifier: action.keyModifier },
-    { key: action.secondaryKey, modifier: action.secondaryKeyModifier },
-  ]) {
+  for (const slot of actionKeySlots(action)) {
     if (slot.key && slot.modifier && slot.modifier === layerTrigger) keys.add(normalizeBindKey(slot.key))
   }
   return keys

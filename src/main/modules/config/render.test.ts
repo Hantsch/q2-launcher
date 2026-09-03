@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
+import type { ActionKeySlot, ConfigAction, ConfigProfile } from '@shared/modules/config'
 import type { AltLayer } from '@shared/config/alt-layers'
 import { generateLayerAliases } from '@shared/config/alt-layers'
+import { keySlotAt } from '@shared/config/action-slots'
+import { ROUND_TRIP_FIXTURES } from '@shared/config/fixtures/profiles'
 import { aliasNameFor, renderActionAliasLines } from '@shared/config/alias-render'
 import { ALL_CVARS } from '@shared/config/cvar-catalog'
 import { effectiveSize } from '@shared/config/engine-limits'
@@ -10,7 +12,6 @@ import { renderSwitchBindChain } from './switch-bind'
 import {
   OWNERSHIP_MARKER,
   STRICTEST_LINE_BUDGET,
-  entryRefFor,
   profileFileName,
   renderLoaderFile,
   renderProfileFile,
@@ -62,25 +63,30 @@ const TEST_PROFILE_HEADER = [
   '// =============================================================================',
 ]
 
+/** Builds an action's `keys` array from a sparse list of slots - `undefined` entries are skipped,
+ * so a caller can express "no primary slot, only a secondary one" as `keySlots(undefined, slot)`.
+ * Same helper `action-mirror.test.ts` uses since story 050 D3. */
+function keySlots(...slots: (ActionKeySlot | undefined)[]): ActionKeySlot[] {
+  return slots.filter((slot): slot is ActionKeySlot => slot !== undefined)
+}
+
 /**
- * The `[q2l ...]` tag story 042 D2 attaches to one entry's generated line. Built from
- * `entryRefFor` rather than from a hand-copied hex literal for the same reason the assertions
- * below already compare against `alias-render.ts`'s own `aliasNameFor`: the ref belongs to
- * `render.ts`, and a second copy of the hash in this file would drift.
+ * The `[q2l ...]` tag story 042 D2 attaches to one entry's generated line, as story 050 D6 cut it
+ * down: `cid` when the entry is catalogue-backed, an anchor line's own `key`/`mod`/`an` where it
+ * has them, and *nothing at all* otherwise - a fieldless entry line still carries the bare `[q2l]`
+ * marker, which is what tells a generated line from a hand-typed one on read-back.
  *
- * The hash *function itself* is pinned by its own test (`entryRefFor` further down), spelled out as
- * a literal, so using it here cannot make these expectations tautological - a broken hash fails
- * there, a broken tag *shape* fails here.
+ * Spelled out here as plain string building (never by calling into `profile-metadata.ts`) so a
+ * change to the emitted field order or to the marker's spelling fails these assertions instead of
+ * agreeing with the renderer by construction. Field order mirrors `KNOWN_META_KEYS`.
  */
-function entryTag(
-  actionId: string,
-  fields: { k?: string; cid?: string; slot?: 1 | 2; mod?: string } = {},
-): string {
-  const parts = [`e=${entryRefFor(actionId)}`, `k=${fields.k ?? 'bind'}`]
+function entryTag(fields: { cid?: string; an?: string; key?: string; mod?: string } = {}): string {
+  const parts: string[] = []
   if (fields.cid !== undefined) parts.push(`cid=${fields.cid}`)
-  if (fields.slot !== undefined) parts.push(`slot=${fields.slot}`)
+  if (fields.an !== undefined) parts.push(`an=${fields.an}`)
+  if (fields.key !== undefined) parts.push(`key=${fields.key}`)
   if (fields.mod !== undefined) parts.push(`mod=${fields.mod}`)
-  return `[q2l ${parts.join(' ')}]`
+  return parts.length > 0 ? `[q2l ${parts.join(' ')}]` : '[q2l]'
 }
 
 /**
@@ -644,7 +650,7 @@ describe('renderProfileFile with actions', () => {
       name: 'Two',
       id: 'bbbb1111',
       commands: [{ kind: 'raw', text: 'wave 2' }],
-      key: 'x',
+      keys: keySlots({ key: 'x' }),
     })
     const p = profile({
       id: 'actions-id',
@@ -678,12 +684,12 @@ describe('renderProfileFile with actions', () => {
     expect(lines).toContain(
       '// --- Aliases: Weapons [q2l cat=weapons] --------------------------------------',
     )
-    expect(lines).toContain(`alias one drop rl  // One ${entryTag('aaaa0000')}`)
-    expect(lines).toContain(`alias two wave 2   // Two ${entryTag('bbbb1111')}`)
+    expect(lines).toContain(`alias one drop rl  // One ${entryTag()}`)
+    expect(lines).toContain(`alias two wave 2   // Two ${entryTag()}`)
     expect(lines).toContain(
       '// --- Binds: Weapons [q2l cat=weapons] ----------------------------------------',
     )
-    expect(lines).toContain(`bind x "two"  // Two ${entryTag('bbbb1111', { slot: 1 })}`)
+    expect(lines).toContain(`bind x "two"  // Two ${entryTag()}`)
   })
 
   it('renders a profile with actions: [] identically to one without the field', () => {
@@ -775,14 +781,14 @@ describe('renderProfileFile with actions', () => {
       id: 'f0f0',
       name: 'Forward',
       catalogId: 'movement:forward',
-      key: 'w',
+      keys: keySlots({ key: 'w' }),
       commands: [{ kind: 'raw', text: '+forward' }],
     })
     const attackRow = catalogueRow({
       id: 'a1a1',
       name: 'Attack',
       catalogId: 'attack:primary',
-      key: 'MOUSE1',
+      keys: keySlots({ key: 'MOUSE1' }),
       commands: [{ kind: 'raw', text: '+attack' }],
     })
     const forwardAlias = aliasNameFor(forwardRow)
@@ -809,8 +815,8 @@ describe('renderProfileFile with actions', () => {
           // ordered by that action's index in `profile.actions` - `w` before `MOUSE1`, which is
           // neither alphabetical nor insertion order.
           '// --- Binds: Movement [q2l cat=movement] --------------------------------------',
-          `bind w      "+forward"  // Forward ${entryTag('f0f0', { cid: 'movement:forward', slot: 1 })}`,
-          `bind MOUSE1 "+attack"   // Attack ${entryTag('a1a1', { cid: 'attack:primary', slot: 1 })}`,
+          `bind w      "+forward"  // Forward ${entryTag({ cid: 'movement:forward' })}`,
+          `bind MOUSE1 "+attack"   // Attack ${entryTag({ cid: 'attack:primary' })}`,
           '',
         ].join('\n'),
       )
@@ -874,7 +880,7 @@ describe('renderProfileFile with actions', () => {
         triggerKey: 'ALT',
         overrides: { r: forwardAlias },
       }
-      const modified = { ...forwardRow, key: 'r', keyModifier: 'ALT' as const }
+      const modified = { ...forwardRow, keys: keySlots({ key: 'r', modifier: 'ALT' }) }
       const p = profile({ id: 'modifier-mirror', layers: [alt], actions: [modified] })
 
       const rendered = renderProfileFile(p)
@@ -955,7 +961,7 @@ describe('renderProfileFile with actions', () => {
         id: 'hhhh5555',
         name: 'Huge',
         catalogId: 'movement:forward',
-        key: 'w',
+        keys: keySlots({ key: 'w' }),
         commands: [{ kind: 'raw', text: `+forward ${'z'.repeat(2000)}` }],
       })
       const p = profile({
@@ -983,7 +989,7 @@ describe('renderProfileFile with actions', () => {
         actions: [
           forwardRow,
           attackRow,
-          action({ id: 'qqqq6666', name: 'SSG SG', key: 'q' }),
+          action({ id: 'qqqq6666', name: 'SSG SG', keys: keySlots({ key: 'q' }) }),
           action({ id: 'aliasent', name: '+test', kind: 'alias' }),
         ],
       })
@@ -1005,8 +1011,7 @@ describe('renderProfileFile with actions', () => {
         id: 'ab12cd34',
         categoryId: 'drops',
         catalogId: 'dropWeapon:rlauncher',
-        key: 'r',
-        secondaryKey: 'PGUP',
+        keys: keySlots({ key: 'r' }, { key: 'PGUP' }),
         commands: [
           { kind: 'raw', text: 'drop rocket launcher' },
           { kind: 'raw', text: 'drop rockets' },
@@ -1035,24 +1040,22 @@ describe('renderProfileFile with actions', () => {
         `alias ${aliasName} "drop rocket launcher; drop rockets; say_team need ammo"`,
       ])
 
-      // Story 042 D2's own acceptance for this shape: both bind lines carry the *same* `e` (they
-      // are one entry) and differ only in `slot`, which is what pairs the two physical lines back
-      // into one two-key entry on import. The alias line shares that `e` and carries no `slot` at
-      // all - it is the entry, not one of its keys.
+      // Story 050 D6's own acceptance for this shape (AC4): the two bind lines are *identical*
+      // past the key - same catalogue tag, no `e` to pair them and no `slot` to tell them apart.
+      // What pairs them back into one two-key entry on import is the bind value they share, and
+      // which of the two is slot 1 is the order they appear in the file, not a field.
       const catalogue = { cid: 'dropWeapon:rlauncher' }
       expect(bindLines.map((line) => line.slice(line.indexOf('  // ') + '  // '.length))).toEqual([
-        `Rocket Launcher ${entryTag('ab12cd34', { ...catalogue, slot: 2 })}`,
-        `Rocket Launcher ${entryTag('ab12cd34', { ...catalogue, slot: 1 })}`,
+        `Rocket Launcher ${entryTag(catalogue)}`,
+        `Rocket Launcher ${entryTag(catalogue)}`,
       ])
-      expect(aliasLines[0]!.endsWith(`  // Rocket Launcher ${entryTag('ab12cd34', catalogue)}`)).toBe(
-        true,
-      )
+      expect(aliasLines[0]!.endsWith(`  // Rocket Launcher ${entryTag(catalogue)}`)).toBe(true)
 
-      // Asserted as a property too, not only against the literals above: whatever the ref is, the
-      // two slots of one entry must never disagree on it.
-      const refs = bindLines.map((line) => /\[q2l e=([^ \]]+)/.exec(line)![1])
-      expect(refs[0]).toBe(refs[1])
-      expect(refs[0]).toBe(entryRefFor('ab12cd34'))
+      // Asserted as a property too, not only against the literals above: no line of this entry
+      // carries any of the three keys story 050 removed.
+      for (const line of [...bindLines, ...aliasLines]) {
+        expect(line).not.toMatch(/\be=|\bk=|\bslot=/)
+      }
     })
 
     it('renders a movement row with only a Primary key as exactly one bind line', () => {
@@ -1061,7 +1064,7 @@ describe('renderProfileFile with actions', () => {
         id: 'cccc2222',
         categoryId: 'movement',
         catalogId: 'movement:jump',
-        key: 'SPACE',
+        keys: keySlots({ key: 'SPACE' }),
         commands: [{ kind: 'raw', text: '+moveup' }],
       })
       const aliasName = aliasNameFor(movementRow)
@@ -1116,12 +1119,12 @@ describe('story 040 D3: alias, layer and bind sections', () => {
     /** One entry per section a category can produce, plus one whose category the profile no
      * longer has - built so both the alias and the bind side of each category is exercised. */
     const entries: ConfigAction[] = [
-      action({ id: 'e-move', name: 'Strafe left', categoryId: 'movement', key: 'a', aliasName: 'strafe_l', commands: [{ kind: 'raw', text: 'wait' }, { kind: 'raw', text: '+moveleft' }] }),
-      action({ id: 'e-weap', name: 'SSG + SG', categoryId: 'weapons', key: 'q', aliasName: 'ssg_sg', commands: [{ kind: 'raw', text: 'use super shotgun' }, { kind: 'raw', text: 'use shotgun' }] }),
-      action({ id: 'e-drop', name: 'Drop RL', categoryId: 'drops', key: 'r', aliasName: 'drop_rl', commands: [{ kind: 'raw', text: 'drop rocket launcher' }, { kind: 'raw', text: 'say_team dropped rl' }] }),
-      action({ id: 'e-bravo', name: 'Bravo entry', categoryId: 'cat-bravo', key: 'b', aliasName: 'bravo_e', commands: [{ kind: 'raw', text: 'wave 1' }, { kind: 'raw', text: 'wait' }] }),
-      action({ id: 'e-alpha', name: 'Alpha entry', categoryId: 'cat-alpha', key: 'z', aliasName: 'alpha_e', commands: [{ kind: 'raw', text: 'wave 2' }, { kind: 'raw', text: 'wait' }] }),
-      action({ id: 'e-gone', name: 'Orphan entry', categoryId: 'deleted-category', key: 'o', aliasName: 'orphan_e', commands: [{ kind: 'raw', text: 'wave 3' }, { kind: 'raw', text: 'wait' }] }),
+      action({ id: 'e-move', name: 'Strafe left', categoryId: 'movement', keys: keySlots({ key: 'a' }), aliasName: 'strafe_l', commands: [{ kind: 'raw', text: 'wait' }, { kind: 'raw', text: '+moveleft' }] }),
+      action({ id: 'e-weap', name: 'SSG + SG', categoryId: 'weapons', keys: keySlots({ key: 'q' }), aliasName: 'ssg_sg', commands: [{ kind: 'raw', text: 'use super shotgun' }, { kind: 'raw', text: 'use shotgun' }] }),
+      action({ id: 'e-drop', name: 'Drop RL', categoryId: 'drops', keys: keySlots({ key: 'r' }), aliasName: 'drop_rl', commands: [{ kind: 'raw', text: 'drop rocket launcher' }, { kind: 'raw', text: 'say_team dropped rl' }] }),
+      action({ id: 'e-bravo', name: 'Bravo entry', categoryId: 'cat-bravo', keys: keySlots({ key: 'b' }), aliasName: 'bravo_e', commands: [{ kind: 'raw', text: 'wave 1' }, { kind: 'raw', text: 'wait' }] }),
+      action({ id: 'e-alpha', name: 'Alpha entry', categoryId: 'cat-alpha', keys: keySlots({ key: 'z' }), aliasName: 'alpha_e', commands: [{ kind: 'raw', text: 'wave 2' }, { kind: 'raw', text: 'wait' }] }),
+      action({ id: 'e-gone', name: 'Orphan entry', categoryId: 'deleted-category', keys: keySlots({ key: 'o' }), aliasName: 'orphan_e', commands: [{ kind: 'raw', text: 'wave 3' }, { kind: 'raw', text: 'wait' }] }),
     ]
 
     const grouped = profile({
@@ -1131,7 +1134,9 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       binds: {
         // The mirror `setActions` would have written for each entry above, plus one bind the
         // user typed themselves.
-        ...Object.fromEntries(entries.map((entry) => [entry.key!, entry.aliasName!])),
+        ...Object.fromEntries(
+          entries.map((entry) => [keySlotAt(entry, 0)!.key, entry.aliasName!]),
+        ),
         F1: 'say hello',
       },
     })
@@ -1177,13 +1182,13 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         // Every category here holds exactly one entry, so no column padding is in play and the
         // bind line can be pinned byte-for-byte, comment and (story 042 D2) metadata tag included.
         expect(lines).toContain(
-          `bind ${entry.key} "${entry.aliasName}"  // ${entry.name} ${entryTag(entry.id, { slot: 1 })}`,
+          `bind ${keySlotAt(entry, 0)!.key} "${entry.aliasName}"  // ${entry.name} ${entryTag()}`,
         )
         expect(
           lines.some(
             (line) =>
               line.startsWith(`alias ${entry.aliasName} `) &&
-              line.endsWith(`  // ${entry.name} ${entryTag(entry.id)}`),
+              line.endsWith(`  // ${entry.name} ${entryTag()}`),
           ),
         ).toBe(true)
       }
@@ -1198,8 +1203,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         id: 'e-two-slots',
         name: 'Two slots',
         categoryId: 'movement',
-        key: 'k',
-        secondaryKey: 'HOME',
+        keys: keySlots({ key: 'k' }, { key: 'HOME' }),
         aliasName: 'two_slots',
         commands: [{ kind: 'raw', text: 'wave 1' }, { kind: 'raw', text: 'wait' }],
       })
@@ -1207,7 +1211,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         id: 'e-first',
         name: 'First',
         categoryId: 'movement',
-        key: 'zzz_last_key',
+        keys: keySlots({ key: 'zzz_last_key' }),
         aliasName: 'first_e',
         commands: [{ kind: 'raw', text: 'wave 2' }, { kind: 'raw', text: 'wait' }],
       })
@@ -1244,7 +1248,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       id: 'own-1',
       name: 'SSG + SG',
       categoryId: 'weapons',
-      key: 'q',
+      keys: keySlots({ key: 'q' }),
       aliasName: 'ssg_sg',
       commands: [{ kind: 'raw', text: 'use super shotgun' }, { kind: 'raw', text: 'use shotgun' }],
     })
@@ -1255,7 +1259,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       const p = profile({ id: 'key-scoped', actions: [ssgSg], binds: { q: 'ssg_sg', e: 'ssg_sg' } })
       const lines = renderProfileFile(p).split('\n')
 
-      expect(lines).toContain(`bind q "ssg_sg"  // SSG + SG ${entryTag('own-1', { slot: 1 })}`)
+      expect(lines).toContain(`bind q "ssg_sg"  // SSG + SG ${entryTag()}`)
       // The unclaimed key keeps no comment at all - neither the label nor a tag that would hand a
       // hand-typed bind to an entry that does not own it.
       expect(lines).toContain('bind e "ssg_sg"')
@@ -1276,7 +1280,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
     it('does not claim a plain key for an action whose slot carries a modifier (story 016)', () => {
       // `Alt+R` is mirrored into the ALT layer's overrides, never into `binds`, so a plain `r`
       // in `binds` belongs to whoever typed it - not to this entry.
-      const modified = { ...ssgSg, key: 'r', keyModifier: 'ALT' as const }
+      const modified = { ...ssgSg, keys: keySlots({ key: 'r', modifier: 'ALT' }) }
       const p = profile({ id: 'modified-slot', actions: [modified], binds: { r: 'ssg_sg' } })
       const rendered = renderProfileFile(p)
 
@@ -1290,7 +1294,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         name: '+slow',
         kind: 'alias',
         categoryId: 'weapons',
-        key: 'g',
+        keys: keySlots({ key: 'g' }),
         commands: [{ kind: 'raw', text: 'cl_maxfps 30' }],
       })
       const p = profile({ id: 'alias-owner', actions: [aliasEntry], binds: { g: '+slow' } })
@@ -1307,7 +1311,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         name: 'Forward',
         categoryId: 'movement',
         catalogId: 'movement:forward',
-        key: 'w',
+        keys: keySlots({ key: 'w' }),
         commands: [{ kind: 'raw', text: '+forward' }],
       })
       const p = profile({ id: 'direct-mirror', actions: [forward], binds: { w: '+forward' } })
@@ -1315,7 +1319,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       // `bindValueFor` returns the bare command here, so the reverse index has to match on that
       // and not on the alias name - the catalogue label is what proves it did.
       expect(renderProfileFile(p).split('\n')).toContain(
-        `bind w "+forward"  // Forward ${entryTag('cat-forward', { cid: 'movement:forward', slot: 1 })}`,
+        `bind w "+forward"  // Forward ${entryTag({ cid: 'movement:forward' })}`,
       )
     })
   })
@@ -1381,7 +1385,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         id: 'e-attack',
         name: 'Attack',
         categoryId: 'weapons',
-        key: 'ALT',
+        keys: keySlots({ key: 'ALT' }),
         aliasName: 'attack_e',
         commands: [{ kind: 'raw', text: 'use blaster' }, { kind: 'raw', text: '+attack' }],
       })
@@ -1430,7 +1434,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         id: 'rich-1',
         name: `Nahkampf${nameSuffix}`,
         categoryId: 'cat-melee',
-        key: 'x',
+        keys: keySlots({ key: 'x' }),
         aliasName: 'melee_x',
         commands: [{ kind: 'raw', text: 'use blaster' }, { kind: 'raw', text: '+attack' }],
       })
@@ -1488,7 +1492,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       // The command survives whole; only the label is cut, and it is cut from its own end.
       expect(aliasLine).toContain(command)
       const comment = aliasLine.slice(aliasLine.indexOf('  // ') + '  // '.length)
-      const tag = entryTag('long')
+      const tag = entryTag()
       expect(comment.endsWith(` ${tag}`)).toBe(true)
 
       const prose = comment.slice(0, comment.length - tag.length - 1)
@@ -1503,7 +1507,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
      * of what story 040 would have done with the same line.
      */
     it('drops the display name entirely before it shortens the metadata tag', () => {
-      const tag = entryTag('drop-prose', { cid: 'movement:forward', slot: 1 })
+      const tag = entryTag({ cid: 'movement:forward' })
       // Sized so `bind w "<command>"  // ` plus the bare tag lands exactly on the last byte the
       // engine's line budget allows, leaving nothing at all for the name.
       const filler = STRICTEST_LINE_BUDGET - 1 - 'bind w ""  // '.length - tag.length
@@ -1513,7 +1517,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         name: 'A display name that has to go',
         categoryId: 'movement',
         catalogId: 'movement:forward',
-        key: 'w',
+        keys: keySlots({ key: 'w' }),
         commands: [{ kind: 'raw', text: command }],
       })
       const p = profile({ id: 'dropped-prose', actions: [huge], binds: { w: command } })
@@ -1536,7 +1540,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
      * which is why it is handled rather than asserted away.
      */
     it('drops the metadata tag whole - never a half tag - when not even the bare tag fits', () => {
-      const tag = entryTag('no-room', { cid: 'movement:forward', slot: 1 })
+      const tag = entryTag({ cid: 'movement:forward' })
       const filler = STRICTEST_LINE_BUDGET - 1 - 'bind w ""  // '.length - tag.length + 1
       const command = `+forward ${'z'.repeat(filler - '+forward '.length)}`
       const huge = action({
@@ -1544,7 +1548,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         name: 'Forward',
         categoryId: 'movement',
         catalogId: 'movement:forward',
-        key: 'w',
+        keys: keySlots({ key: 'w' }),
         commands: [{ kind: 'raw', text: command }],
       })
       const p = profile({ id: 'no-room-at-all', actions: [huge], binds: { w: command } })
@@ -1567,7 +1571,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         name: 'Forward',
         categoryId: 'movement',
         catalogId: 'movement:forward',
-        key: 'w',
+        keys: keySlots({ key: 'w' }),
         commands: [{ kind: 'raw', text: command }],
       })
       const p = profile({ id: 'dropped-comment', actions: [huge], binds: { w: command } })
@@ -1611,7 +1615,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         id: 'sep-1',
         name: 'Alpha',
         categoryId: 'movement',
-        key: 'a',
+        keys: keySlots({ key: 'a' }),
         aliasName: 'bc',
         commands: [{ kind: 'raw', text: 'use rl' }],
       })
@@ -1657,7 +1661,13 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       const withLongCategory = renderProfileFile(
         profile({
           categories: [{ id: 'cat-long', name: long }],
-          actions: [action({ id: 'long-cat', name: 'E', categoryId: 'cat-long', key: 'z', aliasName: 'e' })],
+          actions: [action({
+            id: 'long-cat',
+            name: 'E',
+            categoryId: 'cat-long',
+            keys: keySlots({ key: 'z' }),
+            aliasName: 'e',
+          })],
           binds: { z: 'e' },
         }),
       )
@@ -1783,7 +1793,7 @@ describe('story 048 D2: every catalogue cvar is written', () => {
     const p = profile({
       id: 'stable',
       cvars: { Sensitivity: '9', sensitivity: '3', zz_unknown: 'kept', vid_gamma: '1.0' },
-      actions: [action({ id: 'st-1', name: 'One', key: 'q', aliasName: 'one_e' })],
+      actions: [action({ id: 'st-1', name: 'One', keys: keySlots({ key: 'q' }), aliasName: 'one_e' })],
       binds: { q: 'one_e' },
     })
 
@@ -1807,23 +1817,11 @@ describe('story 048 D2: every catalogue cvar is written', () => {
  * layout assertion, so each gets its own case here.
  */
 describe('story 042 D2: the [q2l ...] metadata the writer emits', () => {
-  it('derives the entry ref from the action id, 8 lowercase hex digits, pinned as a literal', () => {
-    // Spelled out rather than computed: this is the one place the hash function itself is pinned,
-    // which is what lets every other assertion in this file build its expected tag from
-    // `entryRefFor` without becoming a tautology.
-    expect(entryRefFor('ab12cd34')).toBe('495141c5')
-    expect(entryRefFor('e-move')).toBe('4f1d3dc4')
-    expect(entryRefFor('')).toMatch(/^[0-9a-f]{8}$/)
-    // Not an index: the ref of an id does not depend on anything else in the profile, which is the
-    // whole reason inserting an entry does not renumber the file.
-    expect(entryRefFor('e-move')).not.toBe(entryRefFor('e-weap'))
-  })
-
   it('carries the version marker exactly once, in the header block and never on the sentinel line', () => {
     const lines = renderProfileFile(
       profile({
         id: 'versioned',
-        actions: [action({ id: 'v-1', name: 'One', key: 'q', aliasName: 'one_e' })],
+        actions: [action({ id: 'v-1', name: 'One', keys: keySlots({ key: 'q' }), aliasName: 'one_e' })],
         binds: { q: 'one_e' },
         layers: [
           { id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'ALT', overrides: { '1': 'drop rl' } },
@@ -1847,7 +1845,7 @@ describe('story 042 D2: the [q2l ...] metadata the writer emits', () => {
           id: 'forge-1',
           name: 'Gib [q2l cid=attack:primary]',
           categoryId: 'cat-real',
-          key: 'q',
+          keys: keySlots({ key: 'q' }),
           aliasName: 'gib_e',
         }),
       ],
@@ -1861,7 +1859,7 @@ describe('story 042 D2: the [q2l ...] metadata the writer emits', () => {
     for (const line of rendered.split('\n')) {
       expect(line.split('[q2l').length - 1).toBeLessThanOrEqual(1)
     }
-    expect(rendered).toContain(`// Gib (q2l cid=attack:primary] ${entryTag('forge-1')}`)
+    expect(rendered).toContain(`// Gib (q2l cid=attack:primary] ${entryTag()}`)
     expect(rendered).toContain('// --- Aliases: Weapons (q2l cat=movement] [q2l cat=cat-real] ')
     // The forged fields did not become real ones - the only `cid` and `cat` in the file are the
     // ones the writer put there itself.
@@ -1875,7 +1873,13 @@ describe('story 042 D2: the [q2l ...] metadata the writer emits', () => {
     const p = profile({
       id: 'escaped',
       actions: [
-        action({ id: 'esc-1', name: 'Odd', catalogId: 'weird id]with/slash%', key: 'q', aliasName: 'odd_e' }),
+        action({
+          id: 'esc-1',
+          name: 'Odd',
+          catalogId: 'weird id]with/slash%',
+          keys: keySlots({ key: 'q' }),
+          aliasName: 'odd_e',
+        }),
       ],
       binds: { q: 'odd_e' },
     })
@@ -1899,7 +1903,13 @@ describe('story 042 D2: the [q2l ...] metadata the writer emits', () => {
       profile({
         id: 'long-cat-id',
         categories: [{ id, name: 'Long id' }],
-        actions: [action({ id: 'long-1', name: 'E', categoryId: id, key: 'z', aliasName: 'e' })],
+        actions: [action({
+          id: 'long-1',
+          name: 'E',
+          categoryId: id,
+          keys: keySlots({ key: 'z' }),
+          aliasName: 'e',
+        })],
         binds: { z: 'e' },
       }),
     )
@@ -1923,8 +1933,7 @@ describe('story 042 D2: the [q2l ...] metadata the writer emits', () => {
             name: 'Nahkampf',
             categoryId: 'cat-melee',
             catalogId: 'weapon:blaster',
-            key: 'x',
-            secondaryKey: 'MOUSE3',
+            keys: keySlots({ key: 'x' }, { key: 'MOUSE3' }),
             aliasName: 'melee_x',
             commands: [{ kind: 'raw', text: 'use blaster' }, { kind: 'raw', text: '+attack' }],
           }),
@@ -1940,16 +1949,18 @@ describe('story 042 D2: the [q2l ...] metadata the writer emits', () => {
 
     expect(renderProfileFile(build())).toBe(rendered)
     expect(Buffer.from(rendered, 'latin1').toString('latin1')).toBe(rendered)
-    // The two slots of the one entry: same ref, different slot, and both catalogue-tagged.
+    // The two slots of the one entry: one catalogue tag, twice, with nothing left to tell the
+    // two lines apart but the key each of them binds.
     const catalogue = { cid: 'weapon:blaster' }
-    expect(rendered).toContain(`  // Nahkampf ${entryTag('rich-a', { ...catalogue, slot: 1 })}`)
-    expect(rendered).toContain(`  // Nahkampf ${entryTag('rich-a', { ...catalogue, slot: 2 })}`)
+    expect(
+      rendered.split('\n').filter((line) => line.endsWith(`  // Nahkampf ${entryTag(catalogue)}`)),
+    ).toHaveLength(3)
     // The trigger-less layer's header still records the layer and its mode, just no trigger.
     expect(rendered).toContain('[q2l layer=l2 mode=toggle]')
     expect(rendered).toContain('[q2l layer=l1 mode=hold trigger=ALT]')
   })
 
-  it('gives an alias entry its own kind, and never a slot', () => {
+  it('marks a fieldless entry line with the bare [q2l] tag, and never a kind or a slot', () => {
     const p = profile({
       id: 'kinds',
       actions: [
@@ -1960,9 +1971,202 @@ describe('story 042 D2: the [q2l ...] metadata the writer emits', () => {
 
     const lines = renderProfileFile(p).split('\n')
 
-    expect(lines.some((line) => line.endsWith(`// +slow ${entryTag('k-alias', { k: 'alias' })}`))).toBe(true)
-    expect(lines.some((line) => line.endsWith(`// GG ${entryTag('k-msg', { k: 'message' })}`))).toBe(true)
-    expect(lines.every((line) => !line.includes('slot='))).toBe(true)
+    // Neither entry is catalogue-backed, so neither tag has a single field left to carry - and
+    // both lines still get one. That bare marker is the only thing that still says "the launcher
+    // wrote this line", so a line rendering without it would come back as a hand-typed bind.
+    expect(lines.some((line) => line.endsWith(`// +slow ${entryTag()}`))).toBe(true)
+    expect(lines.some((line) => line.endsWith(`// GG ${entryTag()}`))).toBe(true)
+    expect(entryTag()).toBe('[q2l]')
+    for (const line of lines) expect(line).not.toMatch(/\be=|\bk=|\bslot=/)
+  })
+})
+
+/**
+ * Story 050 D6 - the writer's half of the tag shrink.
+ *
+ * Every byte on these lines is what story 042's round-trip property is measured against, and both
+ * failure modes of this deliverable are silent: a tag that carries one field too many reads back
+ * as an unknown key, and a tag (or an anchor line) that carries one field too *few* reads back as
+ * a different set of entries and slots than was saved - no error either way, just a file that
+ * reconstructs into something else. So the three things the reader depends on are pinned here
+ * byte-for-byte: what an entry line's tag says, that every entry line has one, and that an
+ * entry's anchors appear once per modified slot in slot order.
+ */
+describe('story 050 D6: the reduced [q2l ...] tag', () => {
+  /**
+   * The story's own example, byte for byte, alignment included.
+   *
+   * `movement:attack` is a real continuous catalogue row, so its mirror value is the bare
+   * `+attack` (story 034) and it keeps no alias line - which is exactly the shape the story's
+   * example line has. The `movement:forward` row next to it is what puts the third space in front
+   * of the `//`: the two rows share one category section, so `"+attack"` is padded to the width of
+   * `"+forward"` before `attachTaggedComment` adds its own two spaces.
+   */
+  it("renders the story's example line exactly", () => {
+    const catalogueRow = (overrides: Partial<ConfigAction>): ConfigAction =>
+      action({ categoryId: 'movement', kind: 'bind', ...overrides })
+    const forward = catalogueRow({
+      id: 'ex-forward',
+      name: 'Forward',
+      catalogId: 'movement:forward',
+      keys: keySlots({ key: 'w' }),
+      commands: [{ kind: 'raw', text: '+forward' }],
+    })
+    const attack = catalogueRow({
+      id: 'ex-attack',
+      name: 'Attack',
+      catalogId: 'movement:attack',
+      keys: keySlots({ key: 'mouse1' }),
+      commands: [{ kind: 'raw', text: '+attack' }],
+    })
+    const lines = renderProfileFile(
+      profile({
+        id: 'story-example',
+        actions: [forward, attack],
+        binds: { w: '+forward', mouse1: '+attack' },
+      }),
+    ).split('\n')
+
+    expect(lines).toContain('bind mouse1 "+attack"   // Attack [q2l cid=movement:attack]')
+    expect(lines).toContain('bind w      "+forward"  // Forward [q2l cid=movement:forward]')
+    // The comment on its own, so this half of the acceptance holds independently of whatever the
+    // surrounding section's column alignment happens to be.
+    const bindLine = lines.find((line) => line.startsWith('bind mouse1'))!
+    expect(bindLine.slice(bindLine.indexOf('// '))).toBe('// Attack [q2l cid=movement:attack]')
+  })
+
+  /**
+   * The multi-slot half of the story (its "more than two key slots" decision) meeting the anchor
+   * rule: an anchor per *modified* slot, for every slot, in slot order.
+   *
+   * Slot order is the whole point of the assertion being an `toEqual` over an ordered list rather
+   * than three `toContain`s. Since `slot` left the tag, the only record of which key is slot 1 is
+   * the order the claiming lines appear in the file, so an anchor block emitted in any other order
+   * silently permutes the entry's keys on the next import - and every individual line would still
+   * look perfectly correct.
+   */
+  it('emits one anchor line per modified slot, for all slots, in slot order', () => {
+    const multi = action({
+      id: 'multi-slot',
+      name: 'Multi key',
+      categoryId: 'movement',
+      aliasName: 'multi_e',
+      keys: keySlots(
+        { key: 'r', modifier: 'ALT' },
+        { key: 'p' },
+        { key: 'F5', modifier: 'CTRL' },
+        { key: 'F6', modifier: 'SHIFT' },
+      ),
+      commands: [{ kind: 'raw', text: 'use rl' }, { kind: 'raw', text: 'wait' }],
+    })
+    const lines = renderProfileFile(
+      profile({ id: 'multi-anchor', actions: [multi], binds: { p: 'multi_e' } }),
+    ).split('\n')
+
+    // One anchor per modified slot - slots 0, 2 and 3 - in that order, and none for the plain
+    // slot 1, whose `bind p` line already says everything the file needs about it.
+    expect(lines.filter((line) => line.startsWith('// Multi key'))).toEqual([
+      `// Multi key ${entryTag({ key: 'r', mod: 'ALT' })}`,
+      `// Multi key ${entryTag({ key: 'F5', mod: 'CTRL' })}`,
+      `// Multi key ${entryTag({ key: 'F6', mod: 'SHIFT' })}`,
+    ])
+    expect(lines).toContain(`bind p "multi_e"  // Multi key ${entryTag()}`)
+    expect(lines.filter((line) => line.includes('key=p'))).toEqual([])
+    // `an` is omitted: this entry keeps a real alias line (the `bind p` mirror references it), and
+    // that line's own name is the authoritative spelling of the alias name.
+    expect(lines.some((line) => line.includes('an='))).toBe(false)
+  })
+
+  /**
+   * The one shape that still needs `an`: a continuous catalogue row on a *modified* key. Its
+   * mirror is the bare `+forward` rather than its alias (story 034), so story 038 drops the alias
+   * line as unreachable, and the modifier means story 016 writes no `bind` line either - leaving no
+   * code in the file whose own text could spell the entry's alias name. Its anchor is the only
+   * place that name can live, which is why `an` survived the cut.
+   */
+  it('carries an= on the anchor of an entry that has no other line in the file', () => {
+    const lonely = action({
+      id: 'lonely',
+      name: 'Forward',
+      categoryId: 'movement',
+      kind: 'bind',
+      catalogId: 'movement:forward',
+      aliasName: 'lonely_e',
+      keys: keySlots({ key: 'w', modifier: 'ALT' }),
+      commands: [{ kind: 'raw', text: '+forward' }],
+    })
+    const lines = renderProfileFile(profile({ id: 'lonely-anchor', actions: [lonely] })).split('\n')
+
+    expect(lines.some((line) => line.startsWith('alias lonely_e'))).toBe(false)
+    expect(lines.some((line) => line.startsWith('bind '))).toBe(false)
+    expect(lines).toContain(
+      `// Forward ${entryTag({ cid: 'movement:forward', an: 'lonely_e', key: 'w', mod: 'ALT' })}`,
+    )
+  })
+
+  /**
+   * AC1, as a whole-file audit rather than as one more literal: no tag the writer emits anywhere
+   * carries `e`, `k` or `slot`.
+   *
+   * Checked by parsing each line's tag and looking at its *keys*, never by searching the line for
+   * the substring `e=` - `[q2l layer=l1 mode=hold]` contains that substring inside `mode=`, and a
+   * substring check would either fail on a legitimate layer header or have to be weakened into
+   * something that no longer proves anything. The corpus is both the round-trip fixtures (the
+   * profiles story 042's fixed point is measured on) and a local set covering the line kinds those
+   * fixtures do not all have at once: an anchor block, a multi-slot entry, a layer with and
+   * without a trigger, an unowned bind and an orphaned category.
+   */
+  it('emits no e=, k= or slot= field in any tag, on any line, for the whole fixture corpus', () => {
+    const local: ConfigProfile[] = [
+      profile({
+        id: 'audit-1',
+        categories: [{ id: 'cat-melee', name: 'Nähkampf' }],
+        actions: [
+          action({
+            id: 'audit-a',
+            name: 'Nahkampf',
+            categoryId: 'cat-melee',
+            catalogId: 'weapon:blaster',
+            aliasName: 'melee_x',
+            keys: keySlots({ key: 'x' }, { key: 'MOUSE3' }, { key: 'F7', modifier: 'CTRL' }),
+            commands: [{ kind: 'raw', text: 'use blaster' }, { kind: 'raw', text: '+attack' }],
+          }),
+          action({
+            id: 'audit-b',
+            name: 'Orphaned',
+            categoryId: 'category-that-is-gone',
+            aliasName: 'orphan_e',
+            keys: keySlots({ key: 'o', modifier: 'ALT' }),
+            commands: [{ kind: 'raw', text: 'wave 3' }, { kind: 'raw', text: 'wait' }],
+          }),
+        ],
+        binds: { x: 'melee_x', MOUSE3: 'melee_x', F1: 'say hello' },
+        layers: [
+          { id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'ALT', overrides: { '1': 'drop rl' } },
+          { id: 'l2', name: 'Zoom', mode: 'toggle', triggerKey: null, overrides: { MOUSE2: 'zoom' } },
+        ],
+      }),
+      ...ROUND_TRIP_FIXTURES,
+    ]
+
+    const removed = ['e', 'k', 'slot']
+    for (const p of local) {
+      for (const line of renderProfileFile(p).split('\n')) {
+        const tag = /\[q2l(?<body>(?:\s+[^\s\]]+)*)\s*\]\s*$/.exec(line)
+        if (!tag) continue
+        const keys = (tag.groups!.body ?? '')
+          .trim()
+          .split(/\s+/)
+          .filter((token) => token.length > 0)
+          .map((token) => token.slice(0, token.indexOf('=')))
+        for (const key of removed) expect(keys).not.toContain(key)
+        // Positive side of the same check, so a tag that renders no field at all cannot make the
+        // assertion above pass by emitting nothing: every key is one the post-050 registry has.
+        for (const key of keys) {
+          expect(['v', 'cid', 'an', 'key', 'mod', 'cat', 'layer', 'mode', 'trigger']).toContain(key)
+        }
+      }
+    }
   })
 })
 

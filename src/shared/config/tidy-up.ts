@@ -75,6 +75,7 @@
  */
 
 import type { AltLayer } from './alt-layers'
+import { actionKeySlots, keySlotAt, withKeySlot } from './action-slots'
 import type { BindSlot } from './bind-collision'
 import type {
   ConfigAction,
@@ -109,8 +110,9 @@ export type TidyUpBindScope = 'base' | { layerId: string }
  *   something else is a reject rather than a blind delete. Only ever valid in
  *   `scope: 'base'`.
  * - `action` - one slot of one `ConfigAction`, named by the action's `id` (never
- *   its `name`: a label is user-editable and translatable, an id is not) plus
- *   which of the two slots. Lives in `scope: 'base'` when that slot carries no
+ *   its `name`: a label is user-editable and translatable, an id is not) plus the
+ *   slot's numeric index into `keys` (story 050 - any number of slots, not just
+ *   two). Lives in `scope: 'base'` when that slot carries no
  *   modifier, and in the matching modifier layer's scope when it does - a
  *   mismatch between the op's stated scope and the slot's current one is exactly
  *   the "the row moved to Alt+R since you looked at it" staleness this rejects.
@@ -221,17 +223,17 @@ function modifierForLayer(layer: AltLayer): ModifierTrigger | undefined {
 /** A slot's raw key when that slot claims the *base* layer (no modifier), else
  * `undefined` - `bind-collision.ts`'s `slotValue` rule. */
 function baseSlotKey(action: ConfigAction, slot: BindSlot): string | undefined {
-  const modifier = slot === 'primary' ? action.keyModifier : action.secondaryKeyModifier
-  if (modifier) return undefined
-  return slot === 'primary' ? action.key : action.secondaryKey
+  const found = keySlotAt(action, slot)
+  if (!found || found.modifier) return undefined
+  return found.key
 }
 
 function slotKey(action: ConfigAction, slot: BindSlot): string | undefined {
-  return slot === 'primary' ? action.key : action.secondaryKey
+  return keySlotAt(action, slot)?.key
 }
 
 function slotModifier(action: ConfigAction, slot: BindSlot): ModifierTrigger | undefined {
-  return slot === 'primary' ? action.keyModifier : action.secondaryKeyModifier
+  return keySlotAt(action, slot)?.modifier
 }
 
 /** Every entry of `map` whose key normalizes to `normalizedKey`, dropped. Same
@@ -330,7 +332,7 @@ export function bindClaimsFor(
     const ownMirrors = new Set<string>()
     for (const action of actions) {
       if (action.kind === 'alias') continue
-      for (const slot of ['primary', 'secondary'] as const) {
+      for (let slot = 0; slot < actionKeySlots(action).length; slot += 1) {
         const raw = baseSlotKey(action, slot)
         if (!raw || normalizeBindKey(raw) !== normalizedKey) continue
         claims.push({ source: 'action', actionId: action.id, slot })
@@ -352,7 +354,7 @@ export function bindClaimsFor(
   if (modifier) {
     for (const action of actions) {
       if (action.kind === 'alias') continue
-      for (const slot of ['primary', 'secondary'] as const) {
+      for (let slot = 0; slot < actionKeySlots(action).length; slot += 1) {
         if (slotModifier(action, slot) !== modifier) continue
         const raw = slotKey(action, slot)
         if (!raw || normalizeBindKey(raw) !== normalizedKey) continue
@@ -420,16 +422,30 @@ function applyRemoveShadowedBind(
   const modifier = slotModifier(action, claim.slot)
   const mirrorValue = bindValueFor(action)
 
-  // The slot's key and its modifier are always cleared together, never one
-  // without the other - `releaseKey`/`applyModifierReplace` keep the same
-  // invariant, and a stranded `keyModifier` would put the row in a state the
-  // editor has no way to render.
-  const actions = (profile.actions ?? []).map((candidate) => {
-    if (candidate.id !== action.id) return candidate
-    return claim.slot === 'primary'
-      ? { ...candidate, key: undefined, keyModifier: undefined }
-      : { ...candidate, secondaryKey: undefined, secondaryKeyModifier: undefined }
-  })
+  // The whole slot is cleared as one unit, never leaving its modifier behind -
+  // `releaseKey`/`applyModifierReplace` keep the same invariant, and a stranded
+  // modifier would put the row in a state the editor has no way to render.
+  //
+  // Written **in place** (`withKeySlot` with an empty key, never `clearKeySlot`),
+  // story-050 review finding 2 (third round): this is the one slot-clearing path
+  // that still removed the array entry, and removing it shifts every later slot
+  // down by one - which breaks *this* function's own contract on a batch. Every
+  // op in an `applyTidyUpOps` batch is re-checked against the draft the previous
+  // ops produced (`bindClaimsFor` + `sameClaim`), and an `action` claim is
+  // identified by `(actionId, slot)` where `slot` is an array index. So with
+  // "Fix all safe findings" queueing two ops against two slots of the *same*
+  // action, the first removal renumbered the second op's slot and that op was
+  // rejected as stale: one of two shadowed keys stayed bound, with the Care row
+  // reporting a partial apply for no reason the user could see. Clearing in
+  // place keeps every later slot's index, so each op in the batch still finds
+  // the claim it was minted for. Empty-key slots are skipped by every reader
+  // (`bindClaimsFor` above, `action-mirror.ts`'s mirror pass,
+  // `render.ts#buildBindOwnerIndex`), which is the same reasoning
+  // `bind-collision.ts#releaseKey` and `bind-slot-collision.ts`' replace paths
+  // already record.
+  const actions = (profile.actions ?? []).map((candidate) =>
+    candidate.id !== action.id ? candidate : withKeySlot(candidate, claim.slot, { key: '' }),
+  )
 
   // Clearing a slot leaves its generated mirror behind, and a stale mirror is
   // exactly as broken as the duplicate this op removes - the key would keep
@@ -618,9 +634,9 @@ function applyReclassifyPreservedLine(
   const actions = profile.actions ?? []
   if (actions.some((candidate) => candidate.id === action.id)) return null
   if (!categoryExists(profile, action.categoryId)) return null
-  if (action.keyModifier || action.secondaryKeyModifier) return null
-  for (const key of [action.key, action.secondaryKey]) {
-    if (key && !baseKeyIsFree(profile, key)) return null
+  if (actionKeySlots(action).some((slot) => slot.modifier)) return null
+  for (const slot of actionKeySlots(action)) {
+    if (slot.key && !baseKeyIsFree(profile, slot.key)) return null
   }
 
   const nextActions = [...actions, action]

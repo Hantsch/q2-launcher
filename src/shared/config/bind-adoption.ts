@@ -23,20 +23,27 @@
  *   chained macro). Those stay raw binds, visible on the Overview board only -
  *   Controls has no category that could hold them.
  * - Touch a non-modifier layer's overrides. A `ConfigAction` can only express a
- *   modifier binding (`keyModifier`, i.e. ALT/CTRL/SHIFT - see
+ *   modifier binding (a key slot's own `modifier`, i.e. ALT/CTRL/SHIFT - see
  *   `modifier-layers.ts`); an override inside a layer triggered by, say, `-`
  *   has no representation in `actions` at all.
+ * - Mint an entry on an identity the profile already uses. An entry's identity in the file is the
+ *   alias name it renders under (story 050), so a second entry claiming it would write a second
+ *   `alias <same name>` line and come back as one entry on the next read. Such a raw entry either
+ *   joins the entry that owns the identity - when it runs exactly its commands - or stays raw
+ *   (`identityOwnerIndex`).
  * - Change what a key does. Adoption is a re-encoding, never a re-binding: a
  *   raw entry is only adopted when the row it resolves to would render exactly
- *   the commands that entry already runs, and an entry that cannot be adopted
- *   losslessly (a full row - both slots taken; an existing action whose
- *   commands differ) is left exactly as it was.
+ *   the commands that entry already runs; an existing action whose commands
+ *   differ is left exactly as it was, and a raw entry on a key the row does
+ *   not yet hold gets its own new slot appended (story 050 - no longer capped
+ *   at two) rather than being rejected.
  *
  * Pure by contract, `newId` is the caller's id factory (same idiom as
  * `applyActionLayerMirror`): no node, no DOM, no electron.
  */
 
 import type { AltLayer } from '@shared/config/alt-layers'
+import { actionKeySlots, keySlotCount, withKeySlot } from '@shared/config/action-slots'
 import { aliasNameFor } from '@shared/config/alias-render'
 import { bindValueFor } from '@shared/config/action-mirror'
 import { allCatalogRows, commandsForRow, type CatalogRow } from '@shared/config/catalog-rows'
@@ -120,44 +127,67 @@ function materialise(
     kind: 'bind',
     catalogId: row.catalogId,
     commands: commandsForRow(row, withAmmo),
-    key,
-    ...(modifier ? { keyModifier: modifier } : {}),
+    keys: [{ key, ...(modifier ? { modifier } : {}) }],
   }
 }
 
-/** Does `action` already carry `(key, modifier)` in one of its two slots? */
+/**
+ * Index of the entry that already renders under the identity a freshly minted action for `match`
+ * would take - its alias name, or the value a mirror pass writes for it (`bindValueFor`) - or
+ * `-1` when that identity is free.
+ *
+ * Consulted before minting, because since story 050 that identity *is* the entry's identity in the
+ * file: the reader groups an alias line by its own name and a bind line by its bind value
+ * (`profile-restore.ts#groupEntryLines`), so two entries rendering under one name are one entry
+ * again on the next read - and the file they render to holds two `alias <same name> …` lines, of
+ * which the engine keeps exactly one. Matching by `catalogId` alone could not see that: an entry
+ * the user assembled by hand carries no `cid`, and its display name may slug to the very alias
+ * name the row's own command text does ("Drop rockets" and `drop rockets` both give
+ * `drop_rockets` - the `holdLayerProfile` fixture's shape, where a `drop rockets` override in the
+ * ALT layer used to mint a second, identically-named entry and cost the hand-made one its display
+ * name on the next read).
+ *
+ * Finding an owner is not by itself permission to adopt into it - the caller still applies the
+ * same-commands rule - but it does forbid minting: a second entry on a taken identity is a lost
+ * entry, so the raw line stays raw instead.
+ *
+ * The identity is probed off `materialise` itself rather than re-derived here, so this can never
+ * drift from what would actually be minted; neither name depends on the probe's id or slot.
+ */
+function identityOwnerIndex(actions: readonly ConfigAction[], match: CatalogMatch): number {
+  const minted = materialise(match.row, match.withAmmo, '', undefined, () => '')
+  const aliasName = aliasNameFor(minted)
+  const value = bindValueFor(minted)
+  return actions.findIndex(
+    (action) => aliasNameFor(action) === aliasName || bindValueFor(action) === value,
+  )
+}
+
+/** Does `action` already carry `(key, modifier)` in one of its slots? */
 function alreadyHolds(
   action: ConfigAction,
   normalizedKey: string,
   modifier: ModifierTrigger | undefined,
 ): boolean {
-  const primary =
-    action.key && normalizeBindKey(action.key) === normalizedKey && action.keyModifier === modifier
-  const secondary =
-    action.secondaryKey &&
-    normalizeBindKey(action.secondaryKey) === normalizedKey &&
-    action.secondaryKeyModifier === modifier
-  return Boolean(primary || secondary)
+  return actionKeySlots(action).some(
+    (slot) => slot.key.trim() && normalizeBindKey(slot.key) === normalizedKey && slot.modifier === modifier,
+  )
 }
 
 /**
- * Write `(key, modifier)` into `action`'s first free slot, or return `null` when
- * both are taken - a row holds at most two keys (story 015 decision 1), so a
- * third raw bind on the same command stays raw rather than silently replacing
- * one of them.
+ * Write `(key, modifier)` into `action`'s first free slot, or the next new slot when
+ * every existing one is taken - story 050 removed the two-slot cap, so adoption now
+ * appends rather than leaving a third raw bind on the same command unadopted.
  */
 function withSlot(
   action: ConfigAction,
   key: string,
   modifier: ModifierTrigger | undefined,
-): ConfigAction | null {
-  if (!action.key?.trim()) {
-    return { ...action, key, keyModifier: modifier }
-  }
-  if (!action.secondaryKey?.trim()) {
-    return { ...action, secondaryKey: key, secondaryKeyModifier: modifier }
-  }
-  return null
+): ConfigAction {
+  const slots = actionKeySlots(action)
+  const emptyIndex = slots.findIndex((slot) => !slot.key.trim())
+  const index = emptyIndex >= 0 ? emptyIndex : keySlotCount(action)
+  return withKeySlot(action, index, { key, ...(modifier ? { modifier } : {}) })
 }
 
 /** The modifier a layer stands for, or `undefined` when its trigger is not one of the three
@@ -237,7 +267,10 @@ function adoptEntry(
   if (!match) return null
 
   const normalizedKey = normalizeBindKey(key)
-  const existingIndex = state.actions.findIndex((action) => action.catalogId === match.row.catalogId)
+  const byCatalogId = state.actions.findIndex((action) => action.catalogId === match.row.catalogId)
+  // No action carries the row yet - but before minting one, look for the entry that already
+  // renders under the identity the fresh one would take (`identityOwnerIndex`).
+  const existingIndex = byCatalogId >= 0 ? byCatalogId : identityOwnerIndex(state.actions, match)
 
   if (existingIndex < 0) {
     const created = materialise(match.row, match.withAmmo, normalizedKey, modifier, newId)
@@ -246,6 +279,11 @@ function adoptEntry(
   }
 
   const existing = state.actions[existingIndex]!
+  // An entry that only *shares* the identity has to be a legal mirror target as well: a
+  // `kind: 'alias'` entry renders under its own name and is never mirrored into a bind or an
+  // override at all (story 019), so it cannot take this slot - and minting next to it would still
+  // duplicate its name. Leave the raw entry raw; the Overview board keeps showing it.
+  if (byCatalogId < 0 && existing.kind === 'alias') return null
   // The action is the authority on what the row runs (its ammo choice, its
   // message). An entry whose commands differ from it is a *different*
   // instruction that happens to resolve to the same row, so re-encoding it
@@ -254,7 +292,6 @@ function adoptEntry(
   if (alreadyHolds(existing, normalizedKey, modifier)) return bindValueFor(existing)
 
   const updated = withSlot(existing, normalizedKey, modifier)
-  if (!updated) return null
   state.actions = state.actions.map((action, i) => (i === existingIndex ? updated : action))
   return bindValueFor(updated)
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DROPPABLES, MOVEMENT_ACTIONS, WEAPON_ACTIONS, WEAPON_EXTRA_ACTIONS } from '@shared/config/action-catalog'
+import { keySlotAt } from '@shared/config/action-slots'
 import type { ConfigAction } from '@shared/modules/config'
 import {
   applyAmmo,
@@ -10,6 +11,7 @@ import {
   buildMovementRows,
   buildWeaponRows,
   deriveRowState,
+  editorKeySlot,
   type CatalogRow,
 } from './catalog-binds'
 
@@ -109,10 +111,10 @@ describe('deriveRowState', () => {
       kind: 'bind',
       catalogId: row.catalogId,
       commands: [{ kind: 'raw', text: '+forward' }],
-      key: 'r',
-      keyModifier: 'ALT',
-      secondaryKey: 'f',
-      secondaryKeyModifier: 'CTRL',
+      keys: [
+        { key: 'r', modifier: 'ALT' },
+        { key: 'f', modifier: 'CTRL' },
+      ],
     }
 
     expect(deriveRowState(action, row)).toMatchObject({
@@ -131,8 +133,7 @@ describe('deriveRowState', () => {
       kind: 'bind',
       catalogId: row.catalogId,
       commands: [{ kind: 'raw', text: '+forward' }],
-      key: 'w',
-      secondaryKey: 'UPARROW',
+      keys: [{ key: 'w' }, { key: 'UPARROW' }],
     }
 
     const state = deriveRowState(action, row)
@@ -216,8 +217,8 @@ describe('applySlot', () => {
     const actions = applySlot([], row, 'primary', 'r', 'ALT')
     const created = findAction(actions, row)!
 
-    expect(created.key).toBe('r')
-    expect(created.keyModifier).toBe('ALT')
+    expect(keySlotAt(created, 0)?.key).toBe('r')
+    expect(keySlotAt(created, 0)?.modifier).toBe('ALT')
   })
 
   it('keeps the two slots\' keys and modifiers independent', () => {
@@ -225,18 +226,14 @@ describe('applySlot', () => {
     actions = applySlot(actions, row, 'secondary', 'f', 'CTRL')
 
     let created = findAction(actions, row)!
-    expect(created).toMatchObject({
-      key: 'r',
-      keyModifier: 'ALT',
-      secondaryKey: 'f',
-      secondaryKeyModifier: 'CTRL',
-    })
+    expect(keySlotAt(created, 0)).toEqual({ key: 'r', modifier: 'ALT' })
+    expect(keySlotAt(created, 1)).toEqual({ key: 'f', modifier: 'CTRL' })
 
     // Rewriting one slot leaves the other's key *and* modifier untouched.
     actions = applySlot(actions, row, 'primary', 'w')
     created = findAction(actions, row)!
-    expect(created).toMatchObject({ key: 'w', secondaryKey: 'f', secondaryKeyModifier: 'CTRL' })
-    expect(created.keyModifier).toBeUndefined()
+    expect(keySlotAt(created, 0)).toEqual({ key: 'w' })
+    expect(keySlotAt(created, 1)).toEqual({ key: 'f', modifier: 'CTRL' })
   })
 
   it('clears a slot\'s modifier along with its key', () => {
@@ -247,20 +244,46 @@ describe('applySlot', () => {
     actions = applySlot(actions, row, 'primary', undefined)
 
     const created = findAction(actions, row)!
-    expect(created.key).toBeUndefined()
-    expect(created.keyModifier).toBeUndefined()
-    expect(created.secondaryKeyModifier).toBe('SHIFT')
+    expect(keySlotAt(created, 0)?.key).toBe('')
+    expect(keySlotAt(created, 0)?.modifier).toBeUndefined()
+    expect(keySlotAt(created, 1)?.modifier).toBe('SHIFT')
   })
 
   it('drops a previous modifier when the slot is re-captured as a plain key', () => {
     let actions = applySlot([], row, 'secondary', 'r', 'ALT')
-    expect(findAction(actions, row)!.secondaryKeyModifier).toBe('ALT')
+    expect(keySlotAt(findAction(actions, row)!, 1)?.modifier).toBe('ALT')
 
     actions = applySlot(actions, row, 'secondary', 'r')
 
     const created = findAction(actions, row)!
-    expect(created.secondaryKey).toBe('r')
-    expect(created.secondaryKeyModifier).toBeUndefined()
+    expect(keySlotAt(created, 1)?.key).toBe('r')
+    expect(keySlotAt(created, 1)?.modifier).toBeUndefined()
+  })
+
+  /**
+   * Story 050 (D5 acceptance criterion): a hand-added third slot (only reachable by editing the
+   * `.cfg` directly - `applySlot`/`applyPlainSlot` never write index 2+ themselves) survives
+   * editing or clearing either editable slot, because `applySlot` writes through `withKeySlot`
+   * rather than `clearKeySlot` and so never shifts a later slot's array position.
+   */
+  it('leaves a hand-added third slot untouched when editing or clearing slot 1', () => {
+    let actions = applySlot([], row, 'primary', 'w')
+    actions = applySlot(actions, row, 'secondary', 'UPARROW')
+    let created = findAction(actions, row)!
+    // Simulate a hand-edited `.cfg` that added a third bind for this alias.
+    actions = actions.map((action) =>
+      action.id === created.id ? { ...action, keys: [...(action.keys ?? []), { key: 'g' }] } : action,
+    )
+
+    actions = applySlot(actions, row, 'secondary', 'f')
+    created = findAction(actions, row)!
+    expect(keySlotAt(created, 1)?.key).toBe('f')
+    expect(keySlotAt(created, 2)?.key).toBe('g')
+
+    actions = applySlot(actions, row, 'secondary', undefined)
+    created = findAction(actions, row)!
+    expect(keySlotAt(created, 1)?.key).toBe('')
+    expect(keySlotAt(created, 2)?.key).toBe('g')
   })
 })
 
@@ -313,8 +336,8 @@ describe('applyMessage', () => {
     const actions = applyMessage([], row, 'HELP')
     const created = findAction(actions, row)!
 
-    expect(created.key).toBeUndefined()
-    expect(created.secondaryKey).toBeUndefined()
+    expect(keySlotAt(created, 0)).toBeUndefined()
+    expect(keySlotAt(created, 1)).toBeUndefined()
     expect(deriveRowState(created, row).message).toBe('HELP')
   })
 
@@ -405,15 +428,15 @@ describe('applyPlainSlot', () => {
   it('sets a slot by actionId', () => {
     const actions = applyPlainSlot([plainAction()], 'plain-1', 'primary', 'f')
 
-    expect(actions[0]!.key).toBe('f')
-    expect(actions[0]!.secondaryKey).toBeUndefined()
+    expect(keySlotAt(actions[0]!, 0)?.key).toBe('f')
+    expect(keySlotAt(actions[0]!, 1)).toBeUndefined()
   })
 
   it('stores the modifier alongside the key it was captured with', () => {
     const actions = applyPlainSlot([plainAction()], 'plain-1', 'secondary', 'r', 'ALT')
 
-    expect(actions[0]!.secondaryKey).toBe('r')
-    expect(actions[0]!.secondaryKeyModifier).toBe('ALT')
+    expect(keySlotAt(actions[0]!, 1)?.key).toBe('r')
+    expect(keySlotAt(actions[0]!, 1)?.modifier).toBe('ALT')
   })
 
   it('clears a slot (and its modifier) without pruning the action, unlike applySlot', () => {
@@ -423,8 +446,8 @@ describe('applyPlainSlot', () => {
     // Both slots are now empty, but a plain action survives - it was created by hand and the
     // user can re-bind it (unlike a catalogue-materialised row, which `applySlot` would prune).
     expect(cleared).toHaveLength(1)
-    expect(cleared[0]!.key).toBeUndefined()
-    expect(cleared[0]!.keyModifier).toBeUndefined()
+    expect(keySlotAt(cleared[0]!, 0)?.key).toBe('')
+    expect(keySlotAt(cleared[0]!, 0)?.modifier).toBeUndefined()
   })
 
   it('leaves the other slot untouched', () => {
@@ -432,15 +455,15 @@ describe('applyPlainSlot', () => {
     actions = applyPlainSlot(actions, 'plain-1', 'secondary', 'f', 'CTRL')
     actions = applyPlainSlot(actions, 'plain-1', 'primary', 'w')
 
-    expect(actions[0]).toMatchObject({ key: 'w', secondaryKey: 'f', secondaryKeyModifier: 'CTRL' })
-    expect(actions[0]!.keyModifier).toBeUndefined()
+    expect(keySlotAt(actions[0]!, 0)).toEqual({ key: 'w' })
+    expect(keySlotAt(actions[0]!, 1)).toEqual({ key: 'f', modifier: 'CTRL' })
   })
 
   it('never mutates the array or action it was given', () => {
     const original = [plainAction()]
     const result = applyPlainSlot(original, 'plain-1', 'primary', 'f')
 
-    expect(original[0]!.key).toBeUndefined()
+    expect(keySlotAt(original[0]!, 0)).toBeUndefined()
     expect(result).not.toBe(original)
     expect(result[0]).not.toBe(original[0])
   })
@@ -451,5 +474,49 @@ describe('applyPlainSlot', () => {
 
     expect(result).toEqual(original)
     expect(result).not.toBe(original)
+  })
+})
+
+describe('editorKeySlot', () => {
+  /** The shape `ActionEditor`/`MessageEditor` are handed: an entry whose slot 0 carries a modifier
+   * neither editor has any control for. */
+  const altBound = (): ConfigAction => ({
+    id: 'msg-1',
+    categoryId: 'movement',
+    name: 'Taunt',
+    kind: 'message',
+    commands: [{ kind: 'message', channel: 'say_team', text: 'incoming' }],
+    keys: [{ key: 'F1', modifier: 'ALT' }, { key: 'F2' }],
+  })
+
+  it('keeps slot 0`s modifier when the editor saves the same key (review finding 2)', () => {
+    // `ControlsTab`'s `MessageEditor` save wrote a fresh `{ key: draft.key }` here, so editing a
+    // message text turned `Alt+F1` into plain `F1` - and that plain `F1` then took the key away
+    // from whatever else held it. The modifier is not the editor's to drop: it has no control for
+    // it and cannot even display it.
+    expect(editorKeySlot(altBound(), 'F1')).toEqual({ key: 'F1', modifier: 'ALT' })
+  })
+
+  it('keeps the modifier when the editor saves a different key', () => {
+    expect(editorKeySlot(altBound(), 'F5')).toEqual({ key: 'F5', modifier: 'ALT' })
+  })
+
+  it('drops the modifier with the key when the editor clears it', () => {
+    // A modifier with no key is not a binding - the same invariant `applySlot` documents - and the
+    // slot is blanked in place rather than removed, so slot 1 keeps its position.
+    expect(editorKeySlot(altBound(), undefined)).toEqual({ key: '' })
+    expect(editorKeySlot(altBound(), '   ')).toEqual({ key: '' })
+  })
+
+  it('writes a plain slot for an entry that has no slots at all yet', () => {
+    const bare: ConfigAction = {
+      id: 'msg-2',
+      categoryId: 'movement',
+      name: 'Taunt',
+      kind: 'message',
+      commands: [],
+    }
+
+    expect(editorKeySlot(bare, 'F1')).toEqual({ key: 'F1' })
   })
 })

@@ -159,7 +159,53 @@ const modifierTriggerPersistedSchema: z.ZodType<ModifierTrigger | undefined> = z
   .optional()
   .catch(undefined)
 
-const configActionPersistedSchema = z.object({
+/**
+ * Story 050: one persisted `ActionKeySlot`, forgiving the way every field on
+ * `configActionPersistedSchema` is - an unreadable `modifier` degrades to `undefined` rather than
+ * dropping the slot, and (unlike the strict IPC schema) `key` carries no length rule either.
+ */
+const actionKeySlotPersistedSchema = z.object({
+  key: z.string(),
+  modifier: modifierTriggerPersistedSchema,
+})
+
+/**
+ * Story 050: `configActionSchema`'s `normalizeActionKeys`
+ * (`main/modules/config/schemas.ts`), but forgiving - this is the persisted-state mirror, so a
+ * pre-050 row (every row on a dev machine's disk before this story) keeps its up-to-two slots
+ * intact instead of being dropped for a shape the row-level schema no longer recognises. Input
+ * already carrying `keys` passes through untouched.
+ */
+function normalizeLegacyActionKeys(raw: unknown): unknown {
+  if (typeof raw !== 'object' || raw === null) return raw
+  const value = raw as Record<string, unknown>
+  if ('keys' in value) return raw
+
+  const slots: unknown[] = []
+  if (typeof value.key === 'string') {
+    slots.push({ key: value.key, modifier: value.keyModifier })
+  }
+  if (typeof value.secondaryKey === 'string') {
+    slots.push({ key: value.secondaryKey, modifier: value.secondaryKeyModifier })
+  }
+  if (slots.length === 0) return raw
+
+  const {
+    key: _key,
+    secondaryKey: _secondaryKey,
+    keyModifier: _keyModifier,
+    secondaryKeyModifier: _secondaryKeyModifier,
+    ...rest
+  } = value
+  return { ...rest, keys: slots }
+}
+
+/**
+ * The object shape underneath `configActionPersistedSchema`'s legacy-key preprocess, kept as its
+ * own `z.object` (rather than inlined) so `profileBaselinePersistedSchema` below can `.extend()`
+ * it - a `ZodEffects` (what `z.preprocess` returns) has no `.extend`.
+ */
+const configActionPersistedObjectSchema = z.object({
   id: z.string().min(1),
   categoryId: z.string().min(1),
   name: z.string().min(1),
@@ -169,20 +215,21 @@ const configActionPersistedSchema = z.object({
   // up `undefined` and are filled in by `normalizeConfigProfile`, which is the only place that can
   // see the sibling `categories` the derive needs. A row is never dropped over this field.
   kind: actionEntryKindPersistedSchema.optional().catch(undefined),
-  key: z.string().optional(),
-  // Story 015: same two additive fields as the strict IPC schema, and forgiving in
-  // the same way `key` is here - no length or non-empty rule, because a persisted
-  // row that merely carries an odd key must not be dropped along with its commands.
-  secondaryKey: z.string().optional(),
+  // Story 050: replaces the old fixed `key`/`secondaryKey`/`keyModifier`/`secondaryKeyModifier`
+  // fields - see `ActionKeySlot`/`@shared/config/action-slots.ts`. `normalizeLegacyActionKeys`
+  // above accepts the pre-050 shape and folds it into this field first, so a stored profile with
+  // up to two slots still loads with both intact.
+  keys: z.array(actionKeySlotPersistedSchema).optional().catch(undefined),
   catalogId: z.string().optional(),
-  // Story 016 (D6): the modifier held during capture of `key`/`secondaryKey`. A
-  // pre-016 row simply omits both, same as every other optional field here.
-  keyModifier: modifierTriggerPersistedSchema,
-  secondaryKeyModifier: modifierTriggerPersistedSchema,
   // Story 039 (D1): same additive, forgiving treatment as `catalogId` - a row without it (every
   // row written before this field existed) simply omits it.
   aliasName: z.string().optional(),
 })
+
+const configActionPersistedSchema = z.preprocess(
+  normalizeLegacyActionKeys,
+  configActionPersistedObjectSchema,
+)
 
 /**
  * Story 049 D1: the persisted `ProfileBaseline` - the snapshot of the profile as its `.cfg` last
@@ -224,7 +271,12 @@ const profileBaselinePersistedSchema: z.ZodType<PersistedProfileBaseline> = z.ob
   layers: z.array(altLayerPersistedSchema),
   categories: z.array(z.object({ id: z.string().min(1), name: z.string().min(1) })),
   actions: z.array(
-    configActionPersistedSchema.extend({ kind: actionEntryKindPersistedSchema.catch('bind') }),
+    z.preprocess(
+      normalizeLegacyActionKeys,
+      configActionPersistedObjectSchema.extend({
+        kind: actionEntryKindPersistedSchema.catch('bind'),
+      }),
+    ),
   ),
   writeUnbindall: z.boolean(),
   sectionHeaderStyle: z.enum(['dashes', 'brackets', 'plain']),

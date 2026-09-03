@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AltLayer } from './alt-layers'
-import type { ConfigAction, ConfigProfile } from '../modules/config'
+import type { ActionKeySlot, ConfigAction, ConfigProfile } from '../modules/config'
 import { aliasNameFor } from './alias-render'
 import { applyTidyUpOps, type TidyUpOp } from './tidy-up'
 
@@ -43,6 +43,11 @@ function layer(overrides: Partial<AltLayer> = {}): AltLayer {
   return { id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'ALT', overrides: {}, ...overrides }
 }
 
+/** An action whose `keys` array is exactly the given slots, in order. */
+function withKeys(base: ConfigAction, ...keys: ActionKeySlot[]): ConfigAction {
+  return { ...base, keys }
+}
+
 describe('applyTidyUpOps - removeShadowedBind', () => {
   /**
    * The real duplicate-bind shape an import produces: two differently spelled
@@ -70,8 +75,8 @@ describe('applyTidyUpOps - removeShadowedBind', () => {
   })
 
   it('clears the named action slot and drops that slot own binds mirror, keeping the other claimant', () => {
-    const shadowed = action({ id: 'a1', name: 'Shadowed', key: 'w' })
-    const winner = action({ id: 'a2', name: 'Winner', key: 'w' })
+    const shadowed = withKeys(action({ id: 'a1', name: 'Shadowed' }), { key: 'w' })
+    const winner = withKeys(action({ id: 'a2', name: 'Winner' }), { key: 'w' })
     const before = profile({
       actions: [shadowed, winner],
       // `setActions`' later-wins mirror: the winner owns the key, and the
@@ -82,20 +87,50 @@ describe('applyTidyUpOps - removeShadowedBind', () => {
       kind: 'removeShadowedBind',
       scope: 'base',
       key: 'w',
-      claim: { source: 'action', actionId: 'a1', slot: 'primary' },
+      claim: { source: 'action', actionId: 'a1', slot: 0 },
     }
 
     const result = applyTidyUpOps(before, [op])
 
     expect(result.applied).toEqual([op])
-    expect(result.profile.actions![0]!.key).toBeUndefined()
-    expect(result.profile.actions![1]!.key).toBe('w')
+    // Cleared *in place* (story-050 review finding 2): the slot stays at its index carrying an
+    // empty key rather than being spliced out, so no later slot is renumbered. Every reader skips
+    // an empty key, so the row is unbound all the same.
+    expect(result.profile.actions![0]!.keys).toEqual([{ key: '' }])
+    expect(result.profile.actions![1]!.keys).toEqual([{ key: 'w' }])
+    expect(result.profile.binds).toEqual({ w: aliasNameFor(winner) })
+  })
+
+  it('story 050: clears a claim on a third key slot (index 2), keeping the first two intact', () => {
+    const shadowed = withKeys(
+      action({ id: 'a1', name: 'Shadowed' }),
+      { key: 'q' },
+      { key: 'e' },
+      { key: 'w' },
+    )
+    const winner = withKeys(action({ id: 'a2', name: 'Winner' }), { key: 'w' })
+    const before = profile({
+      actions: [shadowed, winner],
+      binds: { w: aliasNameFor(winner), W: aliasNameFor(shadowed) },
+    })
+    const op: TidyUpOp = {
+      kind: 'removeShadowedBind',
+      scope: 'base',
+      key: 'w',
+      claim: { source: 'action', actionId: 'a1', slot: 2 },
+    }
+
+    const result = applyTidyUpOps(before, [op])
+
+    expect(result.applied).toEqual([op])
+    expect(result.profile.actions![0]!.keys).toEqual([{ key: 'q' }, { key: 'e' }, { key: '' }])
+    expect(result.profile.actions![1]!.keys).toEqual([{ key: 'w' }])
     expect(result.profile.binds).toEqual({ w: aliasNameFor(winner) })
   })
 
   it('clears a modifier-carrying slot and its layer override, never a base bind', () => {
-    const shadowed = action({ id: 'a1', name: 'Shadowed', key: 'r', keyModifier: 'ALT' })
-    const winner = action({ id: 'a2', name: 'Winner', key: 'r', keyModifier: 'ALT' })
+    const shadowed = withKeys(action({ id: 'a1', name: 'Shadowed' }), { key: 'r', modifier: 'ALT' })
+    const winner = withKeys(action({ id: 'a2', name: 'Winner' }), { key: 'r', modifier: 'ALT' })
     const before = profile({
       actions: [shadowed, winner],
       binds: { r: 'weapnext' },
@@ -107,14 +142,15 @@ describe('applyTidyUpOps - removeShadowedBind', () => {
       kind: 'removeShadowedBind',
       scope: { layerId: 'l1' },
       key: 'r',
-      claim: { source: 'action', actionId: 'a1', slot: 'primary' },
+      claim: { source: 'action', actionId: 'a1', slot: 0 },
     }
 
     const result = applyTidyUpOps(before, [op])
 
     expect(result.applied).toEqual([op])
-    expect(result.profile.actions![0]!.key).toBeUndefined()
-    expect(result.profile.actions![0]!.keyModifier).toBeUndefined()
+    // In place again, and the whole slot goes: the `ALT` modifier is not left stranded on an
+    // empty key.
+    expect(result.profile.actions![0]!.keys).toEqual([{ key: '' }])
     expect(result.profile.layers![0]!.overrides).toEqual({ r: aliasNameFor(winner) })
     // A plain `bind r` is a different, legitimate claim (decision 14) and the
     // modifier slot never mirrored into `binds` in the first place.
@@ -139,7 +175,7 @@ describe('applyTidyUpOps - removeShadowedBind', () => {
   })
 
   it('removes a hand-made layer override that an action slot also claims', () => {
-    const claimant = action({ id: 'a1', name: 'Alt drop', key: '1', keyModifier: 'ALT' })
+    const claimant = withKeys(action({ id: 'a1', name: 'Alt drop' }), { key: '1', modifier: 'ALT' })
     const before = profile({
       actions: [claimant],
       layers: [layer({ overrides: { '1': 'drop rl' } })],
@@ -191,14 +227,14 @@ describe('applyTidyUpOps - removeShadowedBind', () => {
 
   /** The slot moved to `Alt+w` after the scan: same key, different scope. */
   it('rejects an action claim whose slot changed scope since the scan', () => {
-    const moved = action({ id: 'a1', key: 'w', keyModifier: 'ALT' })
-    const other = action({ id: 'a2', name: 'Other', key: 'w' })
+    const moved = withKeys(action({ id: 'a1' }), { key: 'w', modifier: 'ALT' })
+    const other = withKeys(action({ id: 'a2', name: 'Other' }), { key: 'w' })
     const before = profile({ actions: [moved, other], binds: { w: aliasNameFor(other) } })
     const op: TidyUpOp = {
       kind: 'removeShadowedBind',
       scope: 'base',
       key: 'w',
-      claim: { source: 'action', actionId: 'a1', slot: 'primary' },
+      claim: { source: 'action', actionId: 'a1', slot: 0 },
     }
 
     const result = applyTidyUpOps(before, [op])
@@ -259,7 +295,7 @@ describe('applyTidyUpOps - removeUnreferencedAlias', () => {
   const alias = action({ id: 'x1', name: '+test', kind: 'alias', commands: [{ kind: 'raw', text: 'echo hi' }] })
 
   it('removes an alias action nothing calls', () => {
-    const keeper = action({ id: 'a1', name: 'Keeper', key: 'w' })
+    const keeper = withKeys(action({ id: 'a1', name: 'Keeper' }), { key: 'w' })
     const before = profile({ actions: [alias, keeper] })
     const op: TidyUpOp = { kind: 'removeUnreferencedAlias', actionId: 'x1' }
 
@@ -350,7 +386,7 @@ describe('applyTidyUpOps - reclassifyPreservedLine', () => {
   })
 
   it('appends the action, mirrors its key into binds, and removes the line in the same result', () => {
-    const promoted = action({ id: 'n1', name: 'Zoom', key: 'z' })
+    const promoted = withKeys(action({ id: 'n1', name: 'Zoom' }), { key: 'z' })
     const before = profile({ actions: [], unrecognized: [line] })
     const op: TidyUpOp = {
       kind: 'reclassifyPreservedLine',
@@ -384,7 +420,7 @@ describe('applyTidyUpOps - reclassifyPreservedLine', () => {
   })
 
   it('rejects a bind target whose key an action already claims', () => {
-    const owner = action({ id: 'a1', key: 'F9' })
+    const owner = withKeys(action({ id: 'a1' }), { key: 'F9' })
     const before = profile({ actions: [owner], binds: { F9: aliasNameFor(owner) }, unrecognized: [line] })
     const op: TidyUpOp = {
       kind: 'reclassifyPreservedLine',
@@ -406,7 +442,7 @@ describe('applyTidyUpOps - reclassifyPreservedLine', () => {
 
     const unknownCategory = target(action({ id: 'n1', categoryId: 'nope' }))
     const duplicateId = target(action({ id: 'a1' }))
-    const withModifier = target(action({ id: 'n2', key: 'r', keyModifier: 'ALT' }))
+    const withModifier = target(withKeys(action({ id: 'n2' }), { key: 'r', modifier: 'ALT' }))
 
     for (const op of [unknownCategory, duplicateId, withModifier]) {
       const result = applyTidyUpOps(before, [op])

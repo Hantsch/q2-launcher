@@ -90,7 +90,7 @@ describe('mergeProfileUpdate', () => {
           kind: 'bind',
           catalogId: 'movement:forward',
           commands: [{ kind: 'raw', text: '+forward' }],
-          key: 'w',
+          keys: [{ key: 'w' }],
         },
       ],
     })

@@ -226,8 +226,7 @@ describe('renderActionAlias (story 015: drop-catalogue row)', () => {
       id: 'ab12cd34',
       categoryId: 'drops',
       catalogId: 'dropWeapon:rlauncher',
-      key: 'r',
-      secondaryKey: 'PGUP',
+      keys: [{ key: 'r' }, { key: 'PGUP' }],
       commands: [
         { kind: 'raw', text: 'drop rocket launcher' },
         { kind: 'raw', text: 'drop rockets' },
@@ -363,7 +362,7 @@ describe('renderActionAliasLines', () => {
       name: '+attack',
       id: 'aaaa0000',
       catalogId: 'attack:primary',
-      key: 'MOUSE1',
+      keys: [{ key: 'MOUSE1' }],
       commands: [{ kind: 'raw', text: '+attack' }],
     })
 
@@ -565,7 +564,7 @@ describe('kind: alias entries', () => {
       id: 'binding-0000',
       name: 'Test binding',
       kind: 'bind',
-      key: 'f',
+      keys: [{ key: 'f' }],
       commands: [{ kind: 'raw', text: '+test' }],
     })
 

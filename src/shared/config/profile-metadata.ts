@@ -33,17 +33,19 @@
  * | key       | meaning                                                              |
  * | --------- | --------------------------------------------------------------------- |
  * | `v`       | format version (header block only) — see `META_FORMAT_VERSION`        |
- * | `e`       | entry ref: deterministic 8-hex FNV-1a of `action.id`, not an index    |
- * | `k`       | entry `kind`                                                           |
  * | `cid`     | catalogue id (`catalogId`)                                             |
  * | `an`      | entry's own `aliasName` - anchor lines only (an alias line spells it)  |
- * | `slot`    | which of the entry's two key slots this bind line is (`1` or `2`)     |
- * | `mod`     | that slot's `keyModifier`                                              |
  * | `key`     | that slot's key - anchor lines only (a bind line spells its own key)  |
+ * | `mod`     | that slot's own `modifier` (`ActionKeySlot`)                            |
  * | `cat`     | category id (section header only)                                      |
  * | `layer`   | layer ref (section header only)                                        |
  * | `mode`    | layer mode (section header only)                                       |
  * | `trigger` | layer trigger key, omitted entirely when null (section header only)   |
+ *
+ * Story 050 dropped `e` (entry ref hash), `k` (entry kind) and `slot` (key slot index) from this
+ * registry: all three duplicated information the config text or the profile model already carries
+ * elsewhere, so a hand-written `e=...`/`k=...`/`slot=...` field is now just an unknown key — it
+ * still round-trips (see below), it is simply no longer meaningful.
  *
  * `KNOWN_META_KEYS` lists these in the fixed order `formatMetaTag` always emits them in — that
  * order, not the registry table, is the contract a byte-level renderer test pins against. A key
@@ -101,21 +103,18 @@ const SIGIL = '[q2l'
  * dropped, always reported. */
 export const KNOWN_META_KEYS = [
   'v',
-  'e',
-  'k',
   'cid',
   // The entry's own `aliasName`, and - like `key` below - only ever emitted on an *anchor* line,
   // where no alias line exists to spell it out as code. An entry that keeps its alias line gets no
   // `an`: that line's own name IS the value (story 039), and a tag repeating it would be a second
   // source able to drift from the line the engine reads.
   'an',
-  'slot',
-  'mod',
-  // `key` sits next to `slot`/`mod` because it belongs to the same subject - one key slot of one
-  // entry - and is only ever emitted where the config text itself cannot say it: an *anchor* line
-  // (a comment-only line for a slot that has no `bind` line of its own, because its modifier lives
-  // in a layer instead). A real `bind` line never carries it; the line already spells the key.
+  // `key` sits next to `mod` because it belongs to the same subject - one key slot of one entry -
+  // and is only ever emitted where the config text itself cannot say it: an *anchor* line (a
+  // comment-only line for a slot that has no `bind` line of its own, because its modifier lives in
+  // a layer instead). A real `bind` line never carries it; the line already spells the key.
   'key',
+  'mod',
   'cat',
   'layer',
   'mode',
@@ -130,13 +129,10 @@ export type KnownMetaKey = (typeof KNOWN_META_KEYS)[number]
  * being silently dropped. */
 export interface MetaTagFields {
   v?: string
-  e?: string
-  k?: string
   cid?: string
   an?: string
-  slot?: string
-  mod?: string
   key?: string
+  mod?: string
   cat?: string
   layer?: string
   mode?: string
@@ -265,8 +261,20 @@ export function formatMetaTag(fields: Record<string, string | undefined>): strin
  * defined value. With no fields at all, this returns the neutralised prose alone — no bare `[q2l]`
  * tag is ever emitted for a line that has nothing to say, so a plain 040-era comment with no
  * metadata renders exactly as it did before this story.
+ *
+ * A caller that *does* need the bare marker on a fieldless line - the launcher-owned entry lines,
+ * where the tag's mere presence is the ownership signal - composes it the other way round, from
+ * `formatMetaTag({})`: `render.ts#entryTag` returns that `[q2l]` and `cfg-layout.ts#fitProseAndTag`
+ * joins it to the prose under the line's own byte budget, which this function knows nothing about.
+ * D1 originally gave this function a `{ marker: true }` mode for that job; it never acquired a
+ * caller (the writer needs the two halves separately, precisely so prose can give way to the tag
+ * under budget pressure), and an option no production path exercises is a second, untested way to
+ * spell the format - so the story-050 review took it back out.
  */
-export function formatMetaComment(prose: string, fields: Record<string, string | undefined>): string {
+export function formatMetaComment(
+  prose: string,
+  fields: Record<string, string | undefined>,
+): string {
   const safeProse = neutralizeProse(prose).replace(/\s+$/, '')
   const hasFields = Object.values(fields).some((value) => value !== undefined)
   if (!hasFields) return safeProse

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { AltLayer } from '@shared/config/alt-layers'
 import { aliasNameFor } from '@shared/config/alias-render'
 import { applyActionBindMirror } from '@shared/config/action-mirror'
-import type { ConfigAction } from '@shared/modules/config'
+import type { ActionKeySlot, ConfigAction } from '@shared/modules/config'
 import { applyActionLayerMirror } from './modifier-layers'
 
 function layer(overrides: Partial<AltLayer> = {}): AltLayer {
@@ -27,6 +27,11 @@ function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
   }
 }
 
+/** Builds a `keys` array from a sparse list of slots - `undefined` entries are skipped. */
+function keySlots(...slots: (ActionKeySlot | undefined)[]): ActionKeySlot[] {
+  return slots.filter((slot): slot is ActionKeySlot => slot !== undefined)
+}
+
 /** Sequential id generator for tests that create more than one layer. */
 function idSequence(...ids: string[]): () => string {
   let index = 0
@@ -45,15 +50,13 @@ describe('applyActionLayerMirror', () => {
       id: 'a1e29f00-0000-4000-8000-000000000001',
       catalogId: 'dropWeapon:grenades',
       name: 'Grenades',
-      key: 'G',
-      keyModifier: 'ALT',
+      keys: keySlots({ key: 'G', modifier: 'ALT' }),
     })
     const dropAmmoHgrenades = action({
       id: 'b7c48d11-0000-4000-8000-000000000002',
       catalogId: 'dropAmmo:hgrenades',
       name: 'Hand Grenades',
-      key: 'H',
-      keyModifier: 'ALT',
+      keys: keySlots({ key: 'H', modifier: 'ALT' }),
     })
 
     const result = applyActionLayerMirror(
@@ -95,8 +98,8 @@ describe('applyActionLayerMirror', () => {
   })
 
   it('gives Alt+R and Ctrl+R two separate layers, each owning its own R', () => {
-    const altR = action({ id: 'alt-r-action', name: 'Alt R', key: 'R', keyModifier: 'ALT' })
-    const ctrlR = action({ id: 'ctrl-r-action', name: 'Ctrl R', key: 'R', keyModifier: 'CTRL' })
+    const altR = action({ id: 'alt-r-action', name: 'Alt R', keys: keySlots({ key: 'R', modifier: 'ALT' }) })
+    const ctrlR = action({ id: 'ctrl-r-action', name: 'Ctrl R', keys: keySlots({ key: 'R', modifier: 'CTRL' }) })
 
     const result = applyActionLayerMirror([], [altR, ctrlR], idSequence('alt-layer', 'ctrl-layer'))
 
@@ -110,7 +113,7 @@ describe('applyActionLayerMirror', () => {
 
   it('reuses a pre-existing hand-made ALT layer instead of creating a second one', () => {
     const handMade = layer({ id: 'hand-1', name: 'Rocketjump', triggerKey: 'ALT', overrides: {} })
-    const rocketJump = action({ id: 'rj-action', name: 'Rocket Jump', key: 'R', keyModifier: 'ALT' })
+    const rocketJump = action({ id: 'rj-action', name: 'Rocket Jump', keys: keySlots({ key: 'R', modifier: 'ALT' }) })
 
     const result = applyActionLayerMirror([handMade], [rocketJump], idSequence())
 
@@ -122,8 +125,8 @@ describe('applyActionLayerMirror', () => {
   })
 
   it('is idempotent: calling it twice with the same inputs yields the same result both times', () => {
-    const altR = action({ id: 'alt-r-action', name: 'Alt R', key: 'R', keyModifier: 'ALT' })
-    const ctrlR = action({ id: 'ctrl-r-action', name: 'Ctrl R', key: 'R', keyModifier: 'CTRL' })
+    const altR = action({ id: 'alt-r-action', name: 'Alt R', keys: keySlots({ key: 'R', modifier: 'ALT' }) })
+    const ctrlR = action({ id: 'ctrl-r-action', name: 'Ctrl R', keys: keySlots({ key: 'R', modifier: 'CTRL' }) })
     const actions = [altR, ctrlR]
 
     const first = applyActionLayerMirror([], actions, idSequence('alt-layer', 'ctrl-layer'))
@@ -144,7 +147,7 @@ describe('applyActionLayerMirror', () => {
     })
 
     // The action no longer carries a modifier at all (plain base bind now).
-    const stillPresentNoModifier = action({ id: 'stale', name: 'Stale', key: 'G' })
+    const stillPresentNoModifier = action({ id: 'stale', name: 'Stale', keys: keySlots({ key: 'G' }) })
 
     const result = applyActionLayerMirror([altLayerWithStale], [stillPresentNoModifier], idSequence())
 
@@ -185,7 +188,7 @@ describe('applyActionLayerMirror', () => {
     }
 
     it('leaves hand-made overrides alone, including one referencing the alias by hand', () => {
-      const bound = ssgSg({ key: 'g', keyModifier: 'ALT' })
+      const bound = ssgSg({ keys: keySlots({ key: 'g', modifier: 'ALT' }) })
 
       const result = applyActionLayerMirror([altLayerWithHandMade()], [bound], idSequence(), [bound])
 
@@ -199,8 +202,8 @@ describe('applyActionLayerMirror', () => {
     })
 
     it('clears the override of a slot the user cleared in the Controls grid', () => {
-      const before = ssgSg({ key: 'g', keyModifier: 'ALT' })
-      const cleared = ssgSg({ key: undefined, keyModifier: undefined })
+      const before = ssgSg({ keys: keySlots({ key: 'g', modifier: 'ALT' }) })
+      const cleared = ssgSg({ keys: [] })
 
       const result = applyActionLayerMirror([altLayerWithHandMade()], [cleared], idSequence(), [
         before,
@@ -210,7 +213,9 @@ describe('applyActionLayerMirror', () => {
     })
 
     it('leaves nothing behind when the action is deleted', () => {
-      const before = ssgSg({ key: 'g', keyModifier: 'ALT', secondaryKey: 'h', secondaryKeyModifier: 'ALT' })
+      const before = ssgSg({
+        keys: keySlots({ key: 'g', modifier: 'ALT' }, { key: 'h', modifier: 'ALT' }),
+      })
       const withBoth = layer({
         id: 'alt-1',
         name: 'Alt',
@@ -226,8 +231,8 @@ describe('applyActionLayerMirror', () => {
     it('hands a slot that gains a modifier over from `binds` to the layer, and back', () => {
       // The two mirrors run in the same save and must agree: exactly one of them may hold the slot,
       // or the key is either bound twice or not at all.
-      const base = ssgSg({ key: 'g' })
-      const modified = ssgSg({ key: 'g', keyModifier: 'ALT' })
+      const base = ssgSg({ keys: keySlots({ key: 'g' }) })
+      const modified = ssgSg({ keys: keySlots({ key: 'g', modifier: 'ALT' }) })
 
       // base -> ALT: the base bind goes, the override appears.
       expect(applyActionBindMirror({ g: 'ssg_sg' }, [modified], [base])).toEqual({})
@@ -240,6 +245,23 @@ describe('applyActionLayerMirror', () => {
       expect(lost[0]!.overrides).toEqual({})
       expect(applyActionBindMirror({}, [base], [modified])).toEqual({ g: 'ssg_sg' })
     })
+
+    it('mirrors a third slot (index 2) into its modifier layer too, not just the first two', () => {
+      // Story 050, D3's acceptance criterion: an action with a third key slot that carries a
+      // modifier gets an override for it exactly like the first two, since the mirror loops over
+      // every slot the accessor returns.
+      const threeSlots = ssgSg({
+        keys: keySlots({ key: 'g' }, { key: 'h' }, { key: 'j', modifier: 'ALT' }),
+      })
+
+      const result = applyActionLayerMirror([], [threeSlots], idSequence('alt-layer'))
+
+      expect(result).toHaveLength(1)
+      expect(result[0]!.triggerKey).toBe('ALT')
+      expect(result[0]!.overrides).toEqual({ j: 'ssg_sg' })
+      // The two unmodified slots stay out of the layer - they belong to `applyActionBindMirror`.
+      expect(applyActionBindMirror({}, [threeSlots])).toEqual({ g: 'ssg_sg', h: 'ssg_sg' })
+    })
   })
 
   // Story 019 D2: an alias entry defines an alias for other bindings to call.
@@ -251,8 +273,7 @@ describe('applyActionLayerMirror', () => {
         id: 'alias-entry',
         name: '+test',
         kind: 'alias',
-        key: 'R',
-        keyModifier: 'ALT',
+        keys: keySlots({ key: 'R', modifier: 'ALT' }),
       })
 
       const result = applyActionLayerMirror([], [aliasEntry], idSequence('alt-layer'))
@@ -262,7 +283,7 @@ describe('applyActionLayerMirror', () => {
     })
 
     it('strips the stale override of an entry that has just become an alias', () => {
-      const before = action({ id: 'turned', name: '+test', key: 'R', keyModifier: 'ALT' })
+      const before = action({ id: 'turned', name: '+test', keys: keySlots({ key: 'R', modifier: 'ALT' }) })
       const created = applyActionLayerMirror([], [before], idSequence('alt-layer'))
       expect(created[0]!.overrides).toEqual({ r: aliasNameFor(before) })
 
@@ -292,10 +313,9 @@ describe('applyActionLayerMirror', () => {
         id: 'alias-entry',
         name: '+test',
         kind: 'alias',
-        key: 'R',
-        keyModifier: 'ALT',
+        keys: keySlots({ key: 'R', modifier: 'ALT' }),
       })
-      const bound = action({ id: 'bound', name: 'Rocket Jump', key: 'G', keyModifier: 'ALT' })
+      const bound = action({ id: 'bound', name: 'Rocket Jump', keys: keySlots({ key: 'G', modifier: 'ALT' }) })
 
       const result = applyActionLayerMirror([handMade], [aliasEntry, bound], idSequence())
 

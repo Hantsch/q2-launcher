@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { holdLayerProfile } from '@shared/config/fixtures/profiles'
+import { collidingAliasNameProfile, holdLayerProfile } from '@shared/config/fixtures/profiles'
 import { renderProfileFile } from '@shared/config/render'
 import { writeCanonicalProfileFile } from './canonical'
 import { hashCanonicalFileContent, readFileState } from './file-source'
@@ -76,6 +76,62 @@ describe('readFileState', () => {
       // last bind, made after that unbindall, survives.
       expect(result.profile.binds).toEqual({ y: '+moveright' })
     }
+  })
+
+  // ---------------------------------------------------------------------------
+  // Story-050 review, finding 4 (second round): the `alias` fold is where a
+  // whole entry can disappear, so the fold is what has to say so. Driven through
+  // the real writer rather than a hand-typed file, because the point of the
+  // finding was that the previous fix's test fed an input no reader can produce.
+  // ---------------------------------------------------------------------------
+
+  it('reports entry-alias-duplicate for a definition its own alias fold discards', async () => {
+    // `Fire` and `fire!` in one category both derive the alias name `fire`, so the writer emits
+    // `alias fire` twice - see `collidingAliasNameProfile`. Everything below is the real pipeline:
+    // `renderProfileFile` writes it, `readFileState` reads it back.
+    const text = renderProfileFile(collidingAliasNameProfile)
+    expect(text.match(/^alias fire /gm)).toHaveLength(2)
+    await writeFile(join(dir, 'p.cfg'), Buffer.from(text, 'latin1'))
+
+    const result = await readFileState(dir, 'p.cfg', undefined)
+
+    expect(result.state).toBe('changedOnDisk')
+    if (result.state !== 'changedOnDisk') return
+
+    const duplicates = result.profile.warnings.filter(
+      (warning) => warning.reason === 'entry-alias-duplicate',
+    )
+    expect(duplicates).toHaveLength(1)
+    expect(duplicates[0]?.subject).toBe('fire')
+    expect(duplicates[0]?.file).toBe('p.cfg')
+    // The *discarded* line - the one whose body did not survive the read - identified by finding
+    // `alias fire use blaster` in the very text that was written, so this cannot drift with the
+    // header block's length.
+    const discardedLine =
+      text.split('\n').findIndex((line) => line.startsWith('alias fire use blaster')) + 1
+    expect(discardedLine).toBeGreaterThan(0)
+    expect(duplicates[0]?.line).toBe(discardedLine)
+
+    // And the loss the warning is about is real: one entry, carrying the surviving body, with both
+    // keys folded onto it. Asserted so the warning can never be "fixed" by making it fire on a file
+    // that lost nothing.
+    expect(result.profile.actions).toHaveLength(1)
+    expect(result.profile.actions[0]?.commands).toEqual([{ kind: 'raw', text: 'use railgun' }])
+  })
+
+  it('reports no entry-alias-duplicate for a healthy launcher-written file', async () => {
+    // The false-positive guard: the fold reports every re-defined alias name in the file, layer and
+    // chunk aliases included, so a fixture that emits a full hold layer must stay silent.
+    const text = renderProfileFile(holdLayerProfile)
+    await writeFile(join(dir, 'p.cfg'), Buffer.from(text, 'latin1'))
+
+    const result = await readFileState(dir, 'p.cfg', undefined)
+
+    expect(result.state).toBe('changedOnDisk')
+    if (result.state !== 'changedOnDisk') return
+    expect(
+      result.profile.warnings.filter((warning) => warning.reason === 'entry-alias-duplicate'),
+    ).toEqual([])
   })
 
   // ---------------------------------------------------------------------------

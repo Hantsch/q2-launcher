@@ -41,7 +41,7 @@ export interface ControlsRowProps {
   /** Accessible name for the reset button - names *this* row, not "Reset". */
   resetLabel: string
   /** Resets this row's binds - a catalogue row's key slots (+ its own ammo/message, caller's
-   * call), or a plain action's key/secondaryKey/keyModifier/secondaryKeyModifier. */
+   * call), or a plain action's own key slots (`action.keys`, keys and modifiers alike). */
   onReset: () => void
   /** Opaque slot content - `ControlsTab` wires the existing `BindSlot` into these today; D5
    * rewrites what fills them without this component changing. */

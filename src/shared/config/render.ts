@@ -1,5 +1,6 @@
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import { BUILT_IN_ACTION_CATEGORIES } from '@shared/modules/config'
+import { actionKeySlots } from '@shared/config/action-slots'
 import type { AltLayer, GeneratedAlias, GenerateLayerResult } from '@shared/config/alt-layers'
 import { generateLayerAliases } from '@shared/config/alt-layers'
 import { renderActionAlias } from '@shared/config/alias-render'
@@ -87,168 +88,69 @@ export const STRICTEST_LINE_BUDGET = Math.min(
 const COMMENT_LINE_BUDGET = STRICTEST_LINE_BUDGET - 1
 
 // ---------------------------------------------------------------------------
-// Story 042 D2: the `[q2l ...]` metadata tags this file attaches.
+// Story 042 D2 / story 050 D6: the `[q2l ...]` metadata tags this file attaches.
 //
 // `profile-metadata.ts` owns the grammar (how a tag is spelled and read back);
 // `cfg-layout.ts` owns the budget rule (prose gives way, the tag survives).
 // What lives here is the only part that needs profile knowledge: *which* fields
-// each kind of line gets, and how an entry ref is derived from an action id.
+// each kind of line gets.
+//
+// Story 050 cut that down to almost nothing. `e` (an 8-hex entry ref), `k` (the
+// entry kind) and `slot` (which key slot a line renders) are all gone: the
+// first only ever existed to pair the several lines of one entry, which the
+// config text itself now does (an alias line by its name, a bind line by its
+// value); the second is derivable from the line's own body (`entryKindFor`,
+// story 041); the third is derivable from the order the lines appear in the
+// file (first claim = slot 1, and so on). With `e` went this file's whole ref
+// machinery - `fnv1a32`, `entryRefHex`, `entryRefFor`, `buildEntryRefs` and
+// their collision tie-break - because there are no refs left to build.
 // ---------------------------------------------------------------------------
-
-/** FNV-1a's 32-bit offset basis and prime. */
-const FNV_OFFSET_BASIS = 0x811c9dc5
-const FNV_PRIME = 0x01000193
-
-/**
- * FNV-1a over `text`, 32 bits, `Math.imul` for the wrap-around multiply (a plain `*` overflows
- * into a float and stops being FNV after the first few characters).
- *
- * Each UTF-16 code unit is folded in as two bytes, low then high, rather than as one masked byte:
- * an `action.id` is a UUID today and therefore pure ASCII, but masking would map two different
- * non-ASCII ids onto the same hash for no reason at all, and a hash collision here costs a longer
- * ref at best and a mis-paired entry at worst.
- */
-function fnv1a32(text: string): number {
-  let hash = FNV_OFFSET_BASIS
-  for (let index = 0; index < text.length; index++) {
-    const unit = text.charCodeAt(index)
-    hash = Math.imul(hash ^ (unit & 0xff), FNV_PRIME)
-    hash = Math.imul(hash ^ ((unit >>> 8) & 0xff), FNV_PRIME)
-  }
-  return hash >>> 0
-}
-
-/** One round of the ref: exactly 8 lowercase hex digits, zero-padded so the width never varies. */
-function refRound(text: string): string {
-  return fnv1a32(text).toString(16).padStart(8, '0')
-}
-
-/**
- * `rounds * 8` hex digits for `actionId`: the plain FNV-1a of the id, then (only when a collision
- * forces it) 8 more digits per extra round, each round hashing `<round>:<id length>:<id>`.
- *
- * Written as a *chained* hash rather than a wider one because FNV-1a-32 has only 8 hex digits to
- * give: "extend the prefix" needs digits that do not exist in a 32-bit hash, and a chain produces
- * them deterministically from the id alone - no counter, no clock, no dependence on what else is
- * in the profile. The extra round's input is length-prefixed rather than merely separated, so no
- * pair of ids can construct the same round input out of two different `(id, round)` pairs.
- */
-function entryRefHex(actionId: string, rounds: number): string {
-  let out = refRound(actionId)
-  for (let round = 1; round < rounds; round++) {
-    out += refRound(`${round}:${actionId.length}:${actionId}`)
-  }
-  return out
-}
-
-/**
- * The `e` ref for `actionId` as it renders when nothing collides with it: 8 hex digits of FNV-1a
- * over the id.
- *
- * Exported for `render.test.ts`, which pins rendered lines byte-for-byte and would otherwise have
- * to carry a second copy of the hash - the same reason it already asserts against
- * `alias-render.ts`'s own `aliasNameFor`. The hash *function* is pinned separately by a test that
- * spells one known id's ref out as a literal, so this export cannot make the byte-exact
- * assertions tautological.
- */
-export function entryRefFor(actionId: string): string {
-  return entryRefHex(actionId, 1)
-}
-
-/**
- * How far a colliding ref may grow before the last-resort suffix takes over. Four rounds is 32 hex
- * digits, i.e. four independent 32-bit collisions on the same id pair; the suffix below exists
- * because an unbounded loop on adversarial input is a hang, not because this cap can be reached.
- */
-const MAX_ENTRY_REF_ROUNDS = 4
-
-/**
- * `action.id` -> its `e` ref, for every action in the profile.
- *
- * `e` is a hash of the id and not an index on purpose (the story's own decision): it stays the same
- * when an entry is inserted above it, so story 043 can show a whole-file diff that is not a wall of
- * renumbered refs. The price is that two ids can hash alike, and two entries sharing an `e` inside
- * one file would be *merged* on import - so a collision has to be broken, and broken the same way
- * on every render of the same profile:
- *
- * - Ids are walked in sorted order, not `profile.actions` order. Sorting is what keeps the
- *   tie-break local: which member of a colliding pair grows depends only on that pair, so
- *   inserting an unrelated entry cannot move the growth to the other one and rewrite two lines
- *   that did not change.
- * - The first id to claim a ref keeps its 8 digits; a later id whose ref is already taken grows by
- *   8 more digits at a time (`entryRefHex`) until it is free.
- * - Past `MAX_ENTRY_REF_ROUNDS` (unreachable: four consecutive 32-bit collisions) the ref takes a
- *   `-<n>` suffix, `n` being how many refs were already assigned - still a pure function of the
- *   sorted id list, still distinct, and still parseable (`e` is an opaque token to the reader).
- *
- * Two actions that genuinely share an `id` (only reachable through a hand-edited store) share one
- * ref, which is the honest answer: they are one entry as far as every other id-keyed lookup in
- * this codebase is concerned.
- */
-function buildEntryRefs(actions: readonly ConfigAction[]): Map<string, string> {
-  const refs = new Map<string, string>()
-  const used = new Set<string>()
-
-  for (const id of [...new Set(actions.map((action) => action.id))].sort()) {
-    let ref = entryRefHex(id, 1)
-    for (let rounds = 2; used.has(ref) && rounds <= MAX_ENTRY_REF_ROUNDS; rounds++) {
-      ref = entryRefHex(id, rounds)
-    }
-    if (used.has(ref)) ref = `${ref}-${used.size}`
-    used.add(ref)
-    refs.set(id, ref)
-  }
-
-  return refs
-}
-
-/** Which of an entry's two key slots a bind line renders. `1` is `key`, `2` is `secondaryKey` -
- * the same two slots `action-mirror.ts` mirrors into `profile.binds`, in the same order. */
-type KeySlot = 1 | 2
 
 /**
  * The fields only an *anchor* line (`buildAnchorLines`) ever contributes - a comment-only line that
  * stands in for something the file's config text has no place for.
  *
- * `key` and `aliasName` are never passed for a real bind or alias line: those lines already carry
- * both as code (`bind <key> …`, `alias <name> …`), and a second, tag-side copy could only ever drift
- * from the line the engine actually reads.
+ * None of the three is ever passed for a real bind or alias line: a bind line already spells its own
+ * key as code and can never carry a modifier at all (a modified slot has no bind line by
+ * construction - `buildBindOwnerIndex` skips it, story 016 mirrors it into a modifier layer
+ * instead), and an alias line already spells the entry's own alias name. A second, tag-side copy of
+ * any of them could only ever drift from the line the engine actually reads.
  */
 interface AnchorTagFields {
   /** The slot's key, as tag content - only where no `bind` line spells it out. */
   key?: string
+  /**
+   * The slot's own `modifier`. Read off the slot the anchor renders rather than off the action as a
+   * whole, because an entry's slots can each carry a different modifier - and only reachable here,
+   * since a modified slot never produces a `bind` line to put a `mod` on.
+   */
+  modifier?: string
   /** The entry's own `aliasName` - only where no alias line in the file carries it. */
   aliasName?: string
 }
 
 /**
- * The `[q2l ...]` tag for one line that belongs to an entry: `e` and `k` always, `cid` when the
- * entry is catalogue-backed, and `slot`/`mod` only for a line that renders one specific key slot
- * (a bind or layer-override line - an alias line is the entry itself, not one of its keys).
+ * The `[q2l ...]` tag for one line that belongs to an entry: `cid` when the entry is
+ * catalogue-backed, plus - on an anchor line only - the `key`/`mod`/`an` that line's own subject
+ * needs (see `AnchorTagFields`). Nothing else: everything story 042 also put here is derivable
+ * from the file itself (see the block comment above).
  *
- * `mod` is read off the slot the line renders rather than off the action as a whole, because an
- * entry's two slots can carry two different modifiers. It is unreachable on a *base* bind line as
- * this file stands - `buildBindOwnerIndex` never claims a modified slot, since story 016 mirrors
- * those into a modifier layer instead of into `profile.binds` - and is emitted from the slot
- * anyway, so the field is right the day a line does render one.
- *
- * `anchor` carries the two fields only an anchor line has anywhere to put (see `AnchorTagFields`).
+ * **Never returns `''`.** An entry line with no catalogue link and no anchor fields still gets the
+ * bare `[q2l]` marker - `formatMetaTag` renders exactly that for empty fields, and
+ * `cfg-layout.ts#fitProseAndTag` joins it to the line's prose under that line's own byte budget
+ * (which is why the two halves stay separate here rather than being composed in one call - prose is
+ * the half that gives way under pressure). That marker is load-bearing rather than tidy: with `e`
+ * gone, the tag's mere *presence* is the only thing left that tells a launcher-owned bind line from a raw
+ * bind the user typed and commented themselves. Drop it and such a line reads back unowned, moves
+ * into the "other binds" section on the next render, and story 042's fixed point is gone one render
+ * later.
  */
-function entryTag(
-  action: ConfigAction,
-  ref: string,
-  slot?: KeySlot,
-  anchor: AnchorTagFields = {},
-): string {
-  const modifier = slot === 2 ? action.secondaryKeyModifier : action.keyModifier
+function entryTag(action: ConfigAction, anchor: AnchorTagFields = {}): string {
   return formatMetaTag({
-    e: ref,
-    k: action.kind,
     cid: action.catalogId || undefined,
     an: anchor.aliasName,
-    slot: slot === undefined ? undefined : String(slot),
-    mod: slot === undefined || !modifier ? undefined : modifier,
     key: anchor.key,
+    mod: anchor.modifier,
   })
 }
 
@@ -516,16 +418,17 @@ function categoryTitle(categoryId: string | null, profile: ConfigProfile): strin
 function buildAliasSections(
   profile: ConfigProfile,
   actions: ConfigAction[],
-  refs: Map<string, string>,
   style: SectionHeaderStyle,
 ): string[][] {
   return groupByCategory(profile, actions, (action) => action.categoryId).map((group) => {
     const rows: CodeRow[] = []
     for (const action of group.items) {
       const comment = proseText(commentLabelFor(action, profile))
-      // No `slot`: an alias line is the entry itself, not one of its two key slots. A chunk-split
-      // action's whole `_p<n>` family shares the one tag, exactly as it shares the one label.
-      const tag = entryTag(action, refs.get(action.id) ?? entryRefFor(action.id))
+      // No anchor fields: an alias line is the entry itself, not one of its key slots, and the line
+      // already spells the entry's alias name as code. A chunk-split action's whole `_p<n>` family
+      // shares the one tag, exactly as it shares the one label. A catalogue-less entry still gets
+      // the bare `[q2l]` marker here - see `entryTag`.
+      const tag = entryTag(action)
       for (const alias of renderActionAlias(action).aliases) {
         rows.push({ ...splitAliasLine(alias), comment, tag })
       }
@@ -608,9 +511,6 @@ function buildLayerSections(
 interface BindOwner {
   action: ConfigAction
   index: number
-  /** Which of the owner's two key slots this bind sits in - what story 042's `slot` field records,
-   * and what pairs the two bind lines of one entry back together on import. */
-  slot: KeySlot
 }
 
 /**
@@ -661,20 +561,13 @@ function buildBindOwnerIndex(profile: ConfigProfile): Map<string, BindOwner> {
   ;(profile.actions ?? []).forEach((action, index) => {
     if (action.kind === 'alias') return
     const value = bindValueFor(action)
-    // The two mirror slots, read exactly as `action-mirror.ts#mirrorSlots` (private there) and
-    // `alias-references.ts#ownMirrorBindKeys` read them - a modified slot is not a base bind.
-    const slots = [
-      { number: 1 as KeySlot, key: action.key, modified: Boolean(action.keyModifier) },
-      { number: 2 as KeySlot, key: action.secondaryKey, modified: Boolean(action.secondaryKeyModifier) },
-    ]
-    for (const slot of slots) {
+    // *Every* mirror slot, read exactly as `action-mirror.ts#mirrorSlots` and
+    // `alias-references.ts#ownMirrorBindKeys` read them (all of `actionKeySlots`, no cap of two
+    // since story 050) - a modified slot is not a base bind.
+    for (const slot of actionKeySlots(action)) {
       const key = slot.key?.trim()
-      if (!key || slot.modified) continue
-      owners.set(ownerIndexKey(normalizeBindKey(key), value), {
-        action,
-        index,
-        slot: slot.number,
-      })
+      if (!key || slot.modifier) continue
+      owners.set(ownerIndexKey(normalizeBindKey(key), value), { action, index })
     }
   })
 
@@ -791,7 +684,6 @@ function collectBindEntries(
  */
 function buildBindSections(
   profile: ConfigProfile,
-  refs: Map<string, string>,
   entries: BindEntries,
   style: SectionHeaderStyle,
 ): string[][] {
@@ -805,9 +697,10 @@ function buildBindSections(
       // An unowned bind gets neither: the file has no display name for a line the user typed, and
       // no entry to point a `[q2l ...]` tag at either.
       comment: owner ? proseText(commentLabelFor(owner.action, profile)) : '',
-      tag: owner
-        ? entryTag(owner.action, refs.get(owner.action.id) ?? entryRefFor(owner.action.id), owner.slot)
-        : '',
+      // An owned line always gets a tag, even a fieldless `[q2l]` one: its mere presence is what
+      // marks the line as the launcher's on read-back (see `entryTag`). Which of the entry's slots
+      // this line is comes from its position in the file, not from a field.
+      tag: owner ? entryTag(owner.action) : '',
     }
   }
 
@@ -847,9 +740,13 @@ const ANCHOR_TITLE_PREFIX = 'Entries: '
  */
 interface AnchorLine {
   action: ConfigAction
-  slot: KeySlot
-  /** Normalized key of `slot` - see the normalisation note in `buildAnchorLines`. */
+  /** Normalized key of the slot this anchor stands for - see the normalisation note in
+   * `buildAnchorLines`. Which slot index that is, is not recorded: it comes back from the order the
+   * anchor lines appear in the file (story 050), which is why `buildAnchorLines` walks an entry's
+   * slots in index order. */
   key: string
+  /** The slot's modifier. Always set - an unmodified slot never gets an anchor at all. */
+  modifier: string
   /** The entry's own `aliasName`, carried only when no alias line in the file carries it. */
   aliasName?: string
 }
@@ -861,13 +758,19 @@ interface AnchorLine {
  * **A modified slot** (story 016's `Alt+R`) has no `bind` line of its own - it is mirrored into the
  * modifier layer's overrides instead (`buildBindOwnerIndex` skips such a slot deliberately) - and a
  * layer's overrides render as *one* `+alt`/`-alt` alias pair covering all of them, so there is no
- * per-override line for a `[q2l …]` tag to ride on either. Nothing else in the file can say *which*
- * of the entry's two slots that key is, or which modifier it carries. So every modified slot gets
- * its own anchor - including for an entry that does keep an alias line, because that line is the
- * entry, not one of its keys, and carries no `slot`/`mod` at all. Without this, an entry whose
- * *both* slots are modified left the two keys to `profile-restore.ts`' stable-but-guessed
- * (modifier, key) fallback, which silently swapped primary and secondary for half of all such
- * entries.
+ * per-override line for a `[q2l …]` tag to ride on either. Nothing else in the file can say that
+ * this entry claims that key, or which modifier it carries there. So **every** modified slot gets
+ * its own anchor - every slot of every entry, in slot order, with no cap of two (story 050) -
+ * including for an entry that does keep an alias line, because that line is the entry, not one of
+ * its keys, and carries no `key`/`mod` at all. Without this, an entry whose slots are *all*
+ * modified would leave every one of its keys to `profile-restore.ts`' stable-but-guessed
+ * (modifier, key) fallback.
+ *
+ * **Slot order is the only record of which slot is which** since story 050 dropped the `slot`
+ * field: the reader takes claims in file order (bind lines first, then anchors), so the anchors of
+ * one entry have to be emitted in ascending slot index - the `for` loop below over
+ * `actionKeySlots(action)` is that guarantee, and reordering it would silently permute an entry's
+ * keys on the next import.
  *
  * A slot that *does* have a bind line never gets an anchor (one fact, one place), and an unmodified
  * slot with no bind line gets none either: the file's bind table is the observable truth about which
@@ -911,16 +814,13 @@ function buildAnchorLines(
     // bind line to read the mirrored value off, the tag is the only place it can live.
     const aliasName = withAliasLine.has(action.id) ? undefined : action.aliasName?.trim() || undefined
 
-    const slots = [
-      { number: 1 as KeySlot, key: action.key, modifier: action.keyModifier },
-      { number: 2 as KeySlot, key: action.secondaryKey, modifier: action.secondaryKeyModifier },
-    ]
-    for (const slot of slots) {
+    // Every slot, in slot order - see the slot-order note in this function's doc comment.
+    for (const slot of actionKeySlots(action)) {
       const key = slot.key?.trim()
       if (!key || !slot.modifier) continue
       anchors.push({
         action,
-        slot: slot.number,
+        modifier: slot.modifier,
         // Normalized, not verbatim: the key is *tag content* here rather than a rendered command, and
         // the layer override this anchor pairs with is stored normalized too (`applyActionLayerMirror`
         // / `collectOverrides` both normalize). Writing the stored spelling instead would make the
@@ -936,9 +836,10 @@ function buildAnchorLines(
 /** One anchor line: a bare `// <display name> [q2l …]` comment, no code at all. The budget is
  * `COMMENT_LINE_BUDGET` minus the `// ` this line spends on its own marker, and the prose gives way
  * to the tag under pressure exactly as it does on a code line (`fitProseAndTag`). */
-function anchorRow(anchor: AnchorLine, ref: string, profile: ConfigProfile): string {
-  const tag = entryTag(anchor.action, ref, anchor.slot, {
+function anchorRow(anchor: AnchorLine, profile: ConfigProfile): string {
+  const tag = entryTag(anchor.action, {
     key: anchor.key,
+    modifier: anchor.modifier,
     aliasName: anchor.aliasName,
   })
   const prose = proseText(commentLabelFor(anchor.action, profile))
@@ -956,16 +857,16 @@ function anchorRow(anchor: AnchorLine, ref: string, profile: ConfigProfile): str
 function buildAnchorSections(
   profile: ConfigProfile,
   anchors: readonly AnchorLine[],
-  refs: Map<string, string>,
   style: SectionHeaderStyle,
 ): string[][] {
   return groupByCategory(profile, anchors, (anchor) => anchor.action.categoryId).map((group) =>
     titledSection(
       `${ANCHOR_TITLE_PREFIX}${categoryTitle(group.categoryId, profile)}`,
       categoryTag(group.categoryId),
-      group.items.map((anchor) =>
-        anchorRow(anchor, refs.get(anchor.action.id) ?? entryRefFor(anchor.action.id), profile),
-      ),
+      // `groupByCategory` keeps the caller's order inside a bucket, so an entry's anchors stay in
+      // the slot order `buildAnchorLines` produced them in - which is what the reader's file-order
+      // slot claims depend on.
+      group.items.map((anchor) => anchorRow(anchor, profile)),
       style,
     ),
   )
@@ -1209,16 +1110,23 @@ export function sentinelLine(profileId: string): string {
  * or bind the launcher has no category for lands in an explicit "other" section instead.
  *
  * Story 042 D2 hangs a machine-readable `[q2l ...]` tail off the comments blocks 2 and 4-7 already
- * carried, so a rendered file records what the plain Quake II syntax has no place for: which entry
- * a line belongs to (`e`), its `kind` (`k`), its catalogue identity (`cid`), which of its two key
- * slots a bind line is (`slot`, `mod`), which category a section holds (`cat`) and which layer
- * (`layer`, `mode`, `trigger`). Three properties of that are load-bearing rather than cosmetic and
- * are each pinned by their own test: the tags never touch line 1 (`sentinelLine()` stays
- * byte-identical, because three ownership checks elsewhere match on it), `v` appears exactly once
- * in the whole file, and under line-budget pressure the *prose* gives way while the tag survives -
- * the inverse of story 040's rule, since the display name is decoration and the tag is state. The
- * cvar sections and the unowned-bind section carry no tags at all: a `set` line is not an entry,
- * and a bind no action owns has nothing to point a tag at.
+ * carried, so a rendered file records what the plain Quake II syntax has no place for; story 050 D6
+ * then cut it back to exactly that and nothing more: an entry's catalogue identity (`cid`), an
+ * anchor line's own key and modifier (`key`, `mod`) and its entry's alias name where no alias line
+ * spells it (`an`), which category a section holds (`cat`) and which layer (`layer`, `mode`,
+ * `trigger`). What a line's own text already says is no longer repeated in its tag: the entry a
+ * line belongs to (story 042's `e` ref) now comes from the alias name or bind value the line
+ * carries as code, its kind from the line's body, and which key slot of that entry it is from the
+ * order the claiming lines appear in the file. Four properties of the result are load-bearing
+ * rather than cosmetic and are each pinned by their own test: the tags never touch line 1
+ * (`sentinelLine()` stays byte-identical, because three ownership checks elsewhere match on it),
+ * `v` appears exactly once in the whole file, under line-budget pressure the *prose* gives way
+ * while the tag survives - the inverse of story 040's rule, since the display name is decoration
+ * and the tag is state - and **every** line an entry owns carries a tag, down to a bare `[q2l]`
+ * with no fields at all, because that presence is now the only thing distinguishing a generated
+ * bind line from a raw one the user typed and commented (see `entryTag`). The cvar sections and the
+ * unowned-bind section carry no tags at all: a `set` line is not an entry, and a bind no action
+ * owns has nothing to point a tag at.
  *
  * The two layer skip rules predate this story and are unchanged. A layer with no valid overrides
  * generates `aliases: []` but still returns a nominal `triggerBind` - emitting that bind would
@@ -1289,15 +1197,10 @@ export function renderProfileFile(profile: ConfigProfile): string {
     layers,
   })
 
-  // Story 042: one ref table for the whole file, built over *every* action rather than only the
-  // ones that keep an alias line - a bind's owner may well be an action `actionsWithAliasLine`
-  // filtered out, and the alias section and the bind section have to agree on its `e`.
-  const entryRefs = buildEntryRefs(profile.actions ?? [])
-
   const bindEntries = collectBindEntries(profile, layerResults)
 
   // Story 042 (review fix): every key slot the file's own config lines cannot record - a modified
-  // slot has no `bind` line by construction, and no `slot`/`mod` anywhere else either.
+  // slot has no `bind` line by construction, and no `key`/`mod` anywhere else either.
   // `buildAnchorLines` gives each one a comment-only anchor line to carry its `[q2l …]` tag; see its
   // doc comment, including why an entry with no line at all deliberately gets nothing.
   const aliasLineActions = aliasActions.filter(
@@ -1311,11 +1214,11 @@ export function renderProfileFile(profile: ConfigProfile): string {
       buildHeaderBlock(profile),
       buildUnbindallBlock(profile),
       ...buildCvarSections(profile.cvars, sectionHeaderStyle),
-      ...buildAliasSections(profile, aliasActions, entryRefs, sectionHeaderStyle),
+      ...buildAliasSections(profile, aliasActions, sectionHeaderStyle),
       // The bind sections come *before* the layer sections, so that a layer's trigger bind is the
       // last `bind` line in the file - see `buildLayerSections`' doc comment.
-      ...buildBindSections(profile, entryRefs, bindEntries, sectionHeaderStyle),
-      ...buildAnchorSections(profile, anchors, entryRefs, sectionHeaderStyle),
+      ...buildBindSections(profile, bindEntries, sectionHeaderStyle),
+      ...buildAnchorSections(profile, anchors, sectionHeaderStyle),
       ...buildLayerSections(profile, layerResults, sectionHeaderStyle),
     ]),
   ]

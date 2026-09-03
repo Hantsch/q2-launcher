@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ConfigAction, ConfigProfile } from '../modules/config'
+import type { ActionKeySlot, ConfigAction, ConfigProfile } from '../modules/config'
 import type { AltLayer } from './alt-layers'
 import { captureBaseline, type ProfileBaseline } from './profile-baseline'
 import {
@@ -47,6 +47,11 @@ function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
     commands: [{ kind: 'raw', text: 'use rocket launcher' }],
     ...overrides,
   }
+}
+
+/** An action whose `keys` array is exactly the given slots, in order. */
+function withKeys(base: ConfigAction, ...keys: ActionKeySlot[]): ConfigAction {
+  return { ...base, keys }
 }
 
 function layer(overrides: Partial<AltLayer> = {}): AltLayer {
@@ -350,10 +355,10 @@ describe('diffProfileAgainstBaseline - actions', () => {
   })
 
   it('reports nothing when an action object is rebuilt with its keys in another order', () => {
-    const saved = action({ id: 'a1', key: 'F1', catalogId: 'rl' })
+    const saved = withKeys(action({ id: 'a1', catalogId: 'rl' }), { key: 'F1' })
     const rebuilt: ConfigAction = {
       catalogId: 'rl',
-      key: 'F1',
+      keys: [{ key: 'F1' }],
       commands: [{ kind: 'raw', text: 'use rocket launcher' }],
       kind: 'bind',
       name: 'Rocket',
@@ -368,10 +373,13 @@ describe('diffProfileAgainstBaseline - actions', () => {
   it('reports an edited action as changed, with a legible before/after', () => {
     const changes = diffProfileAgainstBaseline(
       withBaseline(
-        { actions: [action({ key: 'F1' })] },
+        { actions: [withKeys(action({}), { key: 'F1' })] },
         {
           actions: [
-            action({ key: 'F2', commands: [{ kind: 'message', channel: 'say', text: 'gg' }] }),
+            withKeys(
+              action({ commands: [{ kind: 'message', channel: 'say', text: 'gg' }] }),
+              { key: 'F2' },
+            ),
           ],
         },
       ),
@@ -389,13 +397,28 @@ describe('diffProfileAgainstBaseline - actions', () => {
   it('shows a modified key slot with its modifier', () => {
     const changes = diffProfileAgainstBaseline(
       withBaseline(
-        { actions: [action({ key: 'r' })] },
-        { actions: [action({ key: 'r', keyModifier: 'ALT', secondaryKey: 'F5' })] },
+        { actions: [withKeys(action({}), { key: 'r' })] },
+        { actions: [withKeys(action({}), { key: 'r', modifier: 'ALT' }, { key: 'F5' })] },
       ),
     )
     expect(only(changes, 'actions')).toMatchObject({
       before: 'Rocket (bind) r: use rocket launcher',
       after: 'Rocket (bind) ALT+r, F5: use rocket launcher',
+    })
+  })
+
+  it('story 050: names a change on a slot beyond index 1 (a third key)', () => {
+    const changes = diffProfileAgainstBaseline(
+      withBaseline(
+        { actions: [withKeys(action({}), { key: 'q' }, { key: 'e' }, { key: 'w' })] },
+        { actions: [withKeys(action({}), { key: 'q' }, { key: 'e' }, { key: 'r' })] },
+      ),
+    )
+    expect(only(changes, 'actions')).toMatchObject({
+      kind: 'changed',
+      key: 'a1',
+      before: 'Rocket (bind) q, e, w: use rocket launcher',
+      after: 'Rocket (bind) q, e, r: use rocket launcher',
     })
   })
 

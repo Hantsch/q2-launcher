@@ -66,7 +66,7 @@ const plainAction = baseAction({
   id: 'p1a1',
   name: 'SSG SG',
   categoryId: 'weapons',
-  key: 'q',
+  keys: [{ key: 'q' }],
   commands: [{ kind: 'raw', text: 'use shotgun' }, { kind: 'raw', text: 'use sshotgun' }],
 })
 
@@ -88,7 +88,7 @@ const catalogueMirrorAction = baseAction({
   name: 'Forward',
   categoryId: 'movement',
   catalogId: 'movement:forward',
-  key: 'w',
+  keys: [{ key: 'w' }],
   commands: [{ kind: 'raw', text: '+forward' }],
 })
 
@@ -162,7 +162,7 @@ const chunkSplitAction = baseAction({
   name: 'Huge',
   categoryId: 'movement',
   catalogId: 'movement:forward',
-  key: 'w',
+  keys: [{ key: 'w' }],
   commands: [{ kind: 'raw', text: CHUNK_SPLIT_COMMAND }],
 })
 
@@ -185,8 +185,7 @@ const modifierAction = baseAction({
   name: 'Forward Alt',
   categoryId: 'movement',
   catalogId: 'movement:forward',
-  key: 'r',
-  keyModifier: 'ALT',
+  keys: [{ key: 'r', modifier: 'ALT' }],
   commands: [{ kind: 'raw', text: '+forward' }],
 })
 
@@ -273,7 +272,7 @@ const discreteMirrorAction = baseAction({
   name: 'weapnext',
   categoryId: 'weapons',
   catalogId: 'weaponExtra:weapnext',
-  key: 'MWHEELUP',
+  keys: [{ key: 'MWHEELUP' }],
   commands: [{ kind: 'raw', text: 'weapnext' }],
 })
 
@@ -312,7 +311,7 @@ const chunkedSignedBodyAction = baseAction({
   id: 'cs1a1',
   name: 'Forward',
   categoryId: 'movement',
-  key: 'w',
+  keys: [{ key: 'w' }],
   commands: CHUNKED_SIGNED_COMMANDS.map((text) => ({ kind: 'raw' as const, text })),
 })
 
@@ -344,7 +343,7 @@ const discreteMirrorComboAction = baseAction({
   id: 'd2a1',
   name: 'weapnext',
   categoryId: 'weapons',
-  key: 'MWHEELUP',
+  keys: [{ key: 'MWHEELUP' }],
   commands: [{ kind: 'raw', text: 'weapnext' }, { kind: 'raw', text: 'centerview' }],
 })
 
@@ -366,7 +365,7 @@ const trailingSelfCallAction = baseAction({
   id: 'd3a1',
   name: 'centerview',
   categoryId: 'weapons',
-  key: 'MOUSE3',
+  keys: [{ key: 'MOUSE3' }],
   commands: [{ kind: 'raw', text: '+attack' }, { kind: 'raw', text: 'centerview' }],
 })
 

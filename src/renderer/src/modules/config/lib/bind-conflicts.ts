@@ -1,3 +1,4 @@
+import { actionKeySlots } from '@shared/config/action-slots'
 import { bindValueFor, isMirroredValue } from '@shared/config/action-mirror'
 import type { AltLayer } from '@shared/config/alt-layers'
 import { normalizeBindKey } from '@shared/config/key-names'
@@ -18,13 +19,13 @@ import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
  * Two independent scan channels, per decision 14 in `bind-collision.ts`'s doc comment ("layers
  * legitimately coexist with the base bind they temporarily override"):
  *
- * - `'base'` scope: `profile.binds` plus every non-alias action's `key`/`secondaryKey`, but only
- *   the slot half that is *not* modifier-carrying (`slotValue`'s rule in `bind-collision.ts` -
- *   a slot with a `keyModifier`/`secondaryKeyModifier` lives only inside that modifier's layer,
- *   never on the base layer).
+ * - `'base'` scope: `profile.binds` plus every key slot of every non-alias action
+ *   (`action.keys`, story 050 - all of them, not two), but only the slots that are *not*
+ *   modifier-carrying (`slotValue`'s rule in `bind-collision.ts` - a slot with a `modifier` lives
+ *   only inside that modifier's layer, never on the base layer).
  * - `{ layerId }` scope, one per `AltLayer` in `profile.layers`: that layer's own modifier-carrying
- *   claims only - another action's `keyModifier`/`key` (or secondary) pair targeting this layer's
- *   modifier, plus this layer's own hand-made `overrides` entries. A base-layer conflict and a
+ *   claims only - any slot of another action whose `modifier` targets this layer's own trigger,
+ *   plus this layer's own hand-made `overrides` entries. A base-layer conflict and a
  *   same-layer modifier conflict on the "same" physical key are two separate, functionally
  *   independent claims (decision 14), so they are reported as two separate `BindConflict`s, never
  *   merged.
@@ -73,8 +74,8 @@ class ClaimTracker {
 }
 
 /**
- * The base-layer channel: `profile.binds` plus every non-alias action's non-modifier-carrying
- * `key`/`secondaryKey`.
+ * The base-layer channel: `profile.binds` plus every non-modifier-carrying key slot of every
+ * non-alias action.
  *
  * `setActions` (main) mirrors every action's key onto `profile.binds[normalizeBindKey(key)] =
  * bindValueFor(action)` (see `bind-collision.ts`'s file doc comment) - so an action's own current
@@ -82,6 +83,10 @@ class ClaimTracker {
  * conflicting with its own mirror. That mirror entry is recognised by value (`bindValueFor` of an
  * action already claiming this exact same normalized key) and skipped, exactly the reasoning
  * `findBindCollision`'s `isOwnMirror` check applies to a single candidate.
+ *
+ * Story 050: every key slot is checked, not just the two the Controls tab edits
+ * (`actionKeySlots`, `@shared/config/action-slots`) - a third, hand-added slot must still
+ * participate in conflict detection exactly like the first two.
  */
 function findBaseConflicts(profile: ConfigProfile): BindConflict[] {
   const actions = (profile.actions ?? []).filter((action) => action.kind !== 'alias')
@@ -101,8 +106,9 @@ function findBaseConflicts(profile: ConfigProfile): BindConflict[] {
     // A slot carrying a modifier lives only inside that modifier's layer (`slotValue`'s rule in
     // `bind-collision.ts`) - invisible to the base layer, so it must not be counted as a base
     // claim here.
-    if (!action.keyModifier) addActionClaim(action.key, action)
-    if (!action.secondaryKeyModifier) addActionClaim(action.secondaryKey, action)
+    for (const slot of actionKeySlots(action)) {
+      if (!slot.modifier) addActionClaim(slot.key, action)
+    }
   }
 
   for (const [rawKey, command] of Object.entries(profile.binds)) {
@@ -116,7 +122,7 @@ function findBaseConflicts(profile: ConfigProfile): BindConflict[] {
 }
 
 /** The three literal modifier triggers a layer can be keyed by - narrows a layer's raw
- * `triggerKey` down to the type `ConfigAction.keyModifier` actually carries. */
+ * `triggerKey` down to the type an `ActionKeySlot.modifier` actually carries. */
 function modifierForLayer(layer: AltLayer): ModifierTrigger | undefined {
   if (!layer.triggerKey) return undefined
   const normalized = normalizeBindKey(layer.triggerKey)
@@ -130,8 +136,8 @@ function modifierForLayer(layer: AltLayer): ModifierTrigger | undefined {
  *
  * Two sources, both scoped to this one layer:
  *
- * - Every non-alias action whose `keyModifier`/`secondaryKeyModifier` matches this layer's own
- *   trigger, by its `key`/`secondaryKey`. Read straight off `actions`, not off `layer.overrides` -
+ * - Every key slot of every non-alias action whose own `modifier` matches this layer's trigger, by
+ *   that slot's key. Read straight off `actions`, not off `layer.overrides` -
  *   `applyActionLayerMirror` writes one value per key into a plain object, so if two actions
  *   raced to claim the same `(modifier, key)` the mirror already resolved to "last one wins" and
  *   the conflict would be invisible if this scan only looked at the persisted map (the same
@@ -149,8 +155,9 @@ function findLayerConflicts(actions: ConfigAction[], layer: AltLayer): BindConfl
   if (modifier) {
     for (const action of actions) {
       if (action.kind === 'alias') continue
-      if (action.keyModifier === modifier) tracker.add(action.key, action.name)
-      if (action.secondaryKeyModifier === modifier) tracker.add(action.secondaryKey, action.name)
+      for (const slot of actionKeySlots(action)) {
+        if (slot.modifier === modifier) tracker.add(slot.key, action.name)
+      }
     }
   }
 

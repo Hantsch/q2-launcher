@@ -3,6 +3,7 @@ import { aliasNameFor } from '@shared/config/alias-render'
 import type { AltLayer } from '@shared/config/alt-layers'
 import { ALL_CVARS } from '@shared/config/cvar-catalog'
 import { writeValueFor } from '@shared/config/cvar-defaults'
+import { applyTidyUpOps, type TidyUpOp } from '@shared/config/tidy-up'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import { analyzeTidyUp, type TidyUpFinding } from './tidy-up-findings'
 
@@ -54,8 +55,8 @@ function ofKind(findings: TidyUpFinding[], kind: TidyUpFinding['kind']): TidyUpF
 
 describe('analyzeTidyUp - shadowed binds', () => {
   it('offers an op for the losing action only, never for the one the mirror left in effect', () => {
-    const first = action({ id: 'a1', name: 'Old forward', key: 'w' })
-    const second = action({ id: 'a2', name: 'Forward', key: 'w' })
+    const first = action({ id: 'a1', name: 'Old forward', keys: [{ key: 'w' }] })
+    const second = action({ id: 'a2', name: 'Forward', keys: [{ key: 'w' }] })
     // What `applyActionBindMirror` leaves behind: array order, later wins.
     const result = analyzeTidyUp(
       profile({ actions: [first, second], binds: { w: aliasNameFor(second) } }),
@@ -72,7 +73,7 @@ describe('analyzeTidyUp - shadowed binds', () => {
         kind: 'removeShadowedBind',
         scope: 'base',
         key: 'w',
-        claim: { source: 'action', actionId: 'a1', slot: 'primary' },
+        claim: { source: 'action', actionId: 'a1', slot: 0 },
       },
     ])
   })
@@ -84,8 +85,8 @@ describe('analyzeTidyUp - shadowed binds', () => {
    * the winner back out of `binds` instead of re-deriving it from `actions`.
    */
   it('follows the rendered binds entry, not the actions array order', () => {
-    const first = action({ id: 'a1', name: 'Forward', key: 'w' })
-    const second = action({ id: 'a2', name: 'Stale forward', key: 'w' })
+    const first = action({ id: 'a1', name: 'Forward', keys: [{ key: 'w' }] })
+    const second = action({ id: 'a2', name: 'Stale forward', keys: [{ key: 'w' }] })
     const result = analyzeTidyUp(
       profile({ actions: [first, second], binds: { w: aliasNameFor(first) } }),
     )
@@ -97,7 +98,7 @@ describe('analyzeTidyUp - shadowed binds', () => {
         kind: 'removeShadowedBind',
         scope: 'base',
         key: 'w',
-        claim: { source: 'action', actionId: 'a2', slot: 'primary' },
+        claim: { source: 'action', actionId: 'a2', slot: 0 },
       },
     ])
   })
@@ -135,7 +136,7 @@ describe('analyzeTidyUp - shadowed binds', () => {
     const first = action({
       id: 'a1',
       name: 'Forward',
-      key: 'w',
+      keys: [{ key: 'w' }],
       catalogId: 'movement.forward',
       commands: [{ kind: 'raw', text: '+forward' }],
     })
@@ -151,8 +152,8 @@ describe('analyzeTidyUp - shadowed binds', () => {
   })
 
   it('reports without ops when nothing is stored for the contested key at all', () => {
-    const first = action({ id: 'a1', name: 'One', key: 'w' })
-    const second = action({ id: 'a2', name: 'Two', key: 'w' })
+    const first = action({ id: 'a1', name: 'One', keys: [{ key: 'w' }] })
+    const second = action({ id: 'a2', name: 'Two', keys: [{ key: 'w' }] })
     const result = analyzeTidyUp(profile({ actions: [first, second], binds: {} }))
 
     const [finding] = ofKind(result, 'shadowedBind')
@@ -172,8 +173,8 @@ describe('analyzeTidyUp - shadowed binds', () => {
   })
 
   it('names the losing modifier slot inside the layer that carries the conflict', () => {
-    const first = action({ id: 'a1', name: 'Old drop', key: 'r', keyModifier: 'ALT' })
-    const second = action({ id: 'a2', name: 'Drop', key: 'r', keyModifier: 'ALT' })
+    const first = action({ id: 'a1', name: 'Old drop', keys: [{ key: 'r', modifier: 'ALT' }] })
+    const second = action({ id: 'a2', name: 'Drop', keys: [{ key: 'r', modifier: 'ALT' }] })
     const result = analyzeTidyUp(
       profile({
         actions: [first, second],
@@ -189,7 +190,7 @@ describe('analyzeTidyUp - shadowed binds', () => {
         kind: 'removeShadowedBind',
         scope: { layerId: 'l1' },
         key: 'r',
-        claim: { source: 'action', actionId: 'a1', slot: 'primary' },
+        claim: { source: 'action', actionId: 'a1', slot: 0 },
       },
     ])
   })
@@ -202,7 +203,7 @@ describe('analyzeTidyUp - shadowed binds', () => {
    * only working binding.
    */
   it('keeps a hand-made override that is what the layer actually renders', () => {
-    const claimant = action({ id: 'a1', name: 'Alt drop', key: '1', keyModifier: 'ALT' })
+    const claimant = action({ id: 'a1', name: 'Alt drop', keys: [{ key: '1', modifier: 'ALT' }] })
     const result = analyzeTidyUp(
       profile({ actions: [claimant], layers: [layer({ overrides: { '1': 'drop rl' } })] }),
     )
@@ -214,7 +215,7 @@ describe('analyzeTidyUp - shadowed binds', () => {
         kind: 'removeShadowedBind',
         scope: { layerId: 'l1' },
         key: '1',
-        claim: { source: 'action', actionId: 'a1', slot: 'primary' },
+        claim: { source: 'action', actionId: 'a1', slot: 0 },
       },
     ])
   })
@@ -339,8 +340,8 @@ describe('analyzeTidyUp - the auto set', () => {
    * source added to this analyzer cannot quietly become automatic.
    */
   it('contains exactly the shadowed-bind and empty-layer findings', () => {
-    const first = action({ id: 'a1', name: 'Old forward', key: 'w' })
-    const second = action({ id: 'a2', name: 'Forward', key: 'w' })
+    const first = action({ id: 'a1', name: 'Old forward', keys: [{ key: 'w' }] })
+    const second = action({ id: 'a2', name: 'Forward', keys: [{ key: 'w' }] })
     const alias = action({
       id: 'x1',
       name: 'Sprint',
@@ -395,5 +396,91 @@ describe('story 048 D4 - a default-filled profile offers no new tidy-up clutter'
     // alias wiring and preserved lines), so a bigger, default-filled cvar block cannot become a
     // fresh "clean this up" suggestion.
     expect(analyzeTidyUp(withDefaults)).toEqual(analyzeTidyUp(bare))
+  })
+})
+
+/**
+ * Story-050 review, finding 2 (third round): the "Fix all safe findings" batch, end to end.
+ *
+ * Nothing here hand-writes a `TidyUpOp`. The ops are whatever `analyzeTidyUp` mints for the
+ * profile, filtered and flattened exactly the way the UI does it - `CareTidyUpSection.tsx` keeps
+ * `findings.filter((f) => f.mode === 'auto')` and `CareBatchFixDialog.tsx` sends
+ * `findings.flatMap((f) => f.ops)` as **one** `tidyUp.apply` call (story 025 decision 13) - and
+ * they are handed to the same `applyTidyUpOps` that call's main handler runs
+ * (`main/modules/config/index.ts`). That whole chain is the reason the bug existed and was
+ * invisible: each op is correct on its own, and only the batch broke.
+ */
+function fixAllOps(input: ConfigProfile): TidyUpOp[] {
+  return analyzeTidyUp(input)
+    .filter((finding) => finding.mode === 'auto')
+    .flatMap((finding) => finding.ops)
+}
+
+describe('story 050 - Fix all safe findings across two slots of one action', () => {
+  it('applies both removals instead of renumbering the second op out of existence', () => {
+    // One row losing two contested keys at once, which is the ordinary shape of a re-imported
+    // profile: `Winner` holds `q` and `w` in the rendered file, and `Loser` claims both of them
+    // plus a third key nothing contests. `Q`/`W` are `Loser`'s own stale mirrors (the
+    // un-normalized spellings an import leaves behind); `q`/`w` sort last, so the rendered file
+    // leaves `Winner` in effect for both and every one of `Loser`'s two claims is a proven loser.
+    const loser = action({
+      id: 'a1',
+      name: 'Loser',
+      keys: [{ key: 'q' }, { key: 'w' }, { key: 'f' }],
+    })
+    const winner = action({ id: 'a2', name: 'Winner', keys: [{ key: 'q' }, { key: 'w' }] })
+    const before = profile({
+      actions: [loser, winner],
+      binds: {
+        q: aliasNameFor(winner),
+        w: aliasNameFor(winner),
+        f: aliasNameFor(loser),
+        Q: aliasNameFor(loser),
+        W: aliasNameFor(loser),
+      },
+    })
+
+    const ops = fixAllOps(before)
+
+    // Two ops, both naming `Loser` - and crucially two *different* slot indices of the same
+    // action, which is the input that used to go wrong.
+    expect(ops).toEqual([
+      {
+        kind: 'removeShadowedBind',
+        scope: 'base',
+        key: 'q',
+        claim: { source: 'action', actionId: 'a1', slot: 0 },
+      },
+      {
+        kind: 'removeShadowedBind',
+        scope: 'base',
+        key: 'w',
+        claim: { source: 'action', actionId: 'a1', slot: 1 },
+      },
+    ])
+
+    const result = applyTidyUpOps(before, ops)
+
+    // Both applied. With the old index-shifting clear, the first op renumbered `w` from slot 1 to
+    // slot 0, so the second op's claim no longer existed and came back `rejected` - the user saw
+    // "some fixes no longer applied" and `w` stayed doubly claimed.
+    expect(result.applied).toEqual(ops)
+    expect(result.rejected).toEqual([])
+
+    // Both contested slots cleared in place, and the uncontested third key still sits at index 2 -
+    // the position-preserving property the rest of story 050's slot-clearing paths already have.
+    expect(result.profile.actions![0]!.keys).toEqual([{ key: '' }, { key: '' }, { key: 'f' }])
+    expect(result.profile.actions![1]!.keys).toEqual([{ key: 'q' }, { key: 'w' }])
+
+    // Both of the loser's stale mirrors are gone with their slots; the winner keeps both keys and
+    // the loser keeps its own uncontested one.
+    expect(result.profile.binds).toEqual({
+      q: aliasNameFor(winner),
+      w: aliasNameFor(winner),
+      f: aliasNameFor(loser),
+    })
+
+    // And the point of the fix: re-running the analyzer on the result finds nothing left to do.
+    expect(fixAllOps(result.profile)).toEqual([])
   })
 })

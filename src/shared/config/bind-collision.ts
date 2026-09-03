@@ -5,7 +5,7 @@
  * for in three different, independent places:
  *
  * - the base layer's `profile.binds` map (a hand-written or imported bind),
- * - another action's `key`/`secondaryKey` slot (the alias that
+ * - another action's `keys` slot (the alias that
  *   `renderActionAlias`/`setActions` bind that key to),
  * - an alt-layer's `overrides` map (a key that only does something while
  *   that layer is active — see `alt-layers.ts`).
@@ -17,7 +17,7 @@
  * warning and never something `releaseKey` acts on.
  *
  * `setActions` (`src/main/modules/config/profiles.ts`) mirrors every action's
- * `key`/`secondaryKey` onto `profile.binds[normalizeBindKey(key)] =
+ * every key slot onto `profile.binds[normalizeBindKey(key)] =
  * bindValueFor(action)`. That mirror means an action's own current key always
  * shows up in `profile.binds` too — without accounting for that, re-capturing
  * a slot to the key it already holds would collide with itself. The `ignore`
@@ -29,11 +29,13 @@
  */
 
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
+import { actionKeySlots, withKeySlot } from '@shared/config/action-slots'
 import { bindValueFor } from '@shared/config/action-mirror'
 import { normalizeBindKey } from '@shared/config/key-names'
 
-/** Which of an action's two bindable slots a key was found in, or is being captured for. */
-export type BindSlot = 'primary' | 'secondary'
+/** Which of an action's key slots a key was found in, or is being captured for - the slot's
+ * 0-based index in `action.keys` (story 050: a slot count is no longer capped at two). */
+export type BindSlot = number
 
 /**
  * The action/slot currently being (re-)captured. When it names the exact
@@ -50,17 +52,17 @@ export type BindCollision =
   | { kind: 'layerOverride'; key: string; layerId: string; command: string }
 
 /**
- * A slot's key, but only when it is actually a base-layer claim. Story 016: a slot that carries a
- * `keyModifier`/`secondaryKeyModifier` is never mirrored onto `profile.binds` at all (AC 4) - its
- * key lives only inside that modifier's layer override - so such a slot must be invisible here,
- * exactly as invisible as it is to the real base-bind mirror `setActions` writes. Without this
- * check, an action on `Alt+R` would falsely appear to own the *plain* key `r`, blocking (and, via
+ * A slot's key, but only when it is actually a base-layer claim. Story 016/050: a slot that
+ * carries a `modifier` is never mirrored onto `profile.binds` at all (AC 4) - its key lives only
+ * inside that modifier's layer override - so such a slot must be invisible here, exactly as
+ * invisible as it is to the real base-bind mirror `setActions` writes. Without this check, an
+ * action on `Alt+R` would falsely appear to own the *plain* key `r`, blocking (and, via
  * `releaseKey`, destroying) a legitimate plain-`r` capture on a different action.
  */
-function slotValue(action: ConfigAction, slot: BindSlot): string | undefined {
-  const modifier = slot === 'primary' ? action.keyModifier : action.secondaryKeyModifier
-  if (modifier) return undefined
-  return slot === 'primary' ? action.key : action.secondaryKey
+function slotValue(action: ConfigAction, index: number): string | undefined {
+  const slot = actionKeySlots(action)[index]
+  if (!slot || slot.modifier) return undefined
+  return slot.key
 }
 
 /** The command bound to `normalizedKey` in `binds`, matched by normalized key. */
@@ -137,7 +139,7 @@ export function findBindCollision(
     // never legitimately own a collision even if a migrated/in-memory row still carries stale
     // key data (review fix, Finding 4).
     if (action.kind === 'alias') continue
-    for (const slot of ['primary', 'secondary'] as const) {
+    for (let slot = 0; slot < actionKeySlots(action).length; slot += 1) {
       if (ignore && ignore.actionId === action.id && ignore.slot === slot) continue
       const raw = slotValue(action, slot)
       if (!raw) continue
@@ -147,8 +149,8 @@ export function findBindCollision(
     }
   }
 
-  // 2. Base bind. By construction, if this loop finds anything, no action's
-  // key/secondaryKey matched above - so the only way this entry could still
+  // 2. Base bind. By construction, if this loop finds anything, no action
+  // slot matched above - so the only way this entry could still
   // be an action's alias mirror is the ignored action's own (the one slot
   // deliberately excluded from the loop above). That is not a real collision
   // either, since it is exactly the key the caller is re-capturing to.
@@ -181,8 +183,10 @@ export function findBindCollision(
  *
  * - `baseBind`: the offending entry is removed from `binds`. `actions` is
  *   returned unchanged — a base bind is never an action's slot.
- * - `action`: the offending action's matching slot (`key` or `secondaryKey`)
- *   is cleared. The same key is also dropped from `binds` if it still points
+ * - `action`: the offending action's matching key slot is blanked in place -
+ *   the slot stays at its own index holding an empty key, so no later slot
+ *   changes position (see the write itself for why that matters). The same key
+ *   is also dropped from `binds` if it still points
  *   at that action's own alias — `setActions` would otherwise be the only
  *   thing that eventually cleans up that stale mirror, and doing it here too
  *   keeps `actions` and `binds` consistent with each other immediately after
@@ -208,13 +212,23 @@ export function releaseKey(
   const released = actions.find((action) => action.id === collision.actionId)
   const nextActions = actions.map((action) => {
     if (action.id !== collision.actionId) return action
-    // Story 016: a slot's modifier is never left behind on its own - `slotValue` above already
-    // keeps this branch from ever firing on a slot that actually carries one today, but clearing
-    // both fields together (never just the key) keeps that invariant true regardless of how this
-    // branch is reached, matching `applyModifierReplace`'s identical release step.
-    return collision.slot === 'primary'
-      ? { ...action, key: undefined, keyModifier: undefined }
-      : { ...action, secondaryKey: undefined, secondaryKeyModifier: undefined }
+    // Story 016/050: the whole slot is released as one unit, so a slot's modifier is never left
+    // behind on its own - `slotValue` above already keeps this branch from ever firing on a slot
+    // that actually carries one today, but writing the whole slot (never just the key) keeps that
+    // invariant true regardless of how this branch is reached.
+    //
+    // Written **in place** (`withKeySlot` with an empty key, never `clearKeySlot`), story-050
+    // review finding 5: this is a release-so-something-else-can-take-the-key step, and every other
+    // one of them (`bind-slot-collision.ts#applyModifierReplace`/`applyPlainModifierReplace`, and
+    // `catalog-binds.ts#applySlot`'s own clear) writes the empty slot at its index rather than
+    // removing the array entry. Removing it shifted every later slot down by one, so which UI
+    // column a key showed up in after a Replace-conflict flow depended on *which* release path had
+    // run - and a hand-added third slot could be promoted into the editable secondary column,
+    // precisely what the position-preserving write exists to prevent. A trailing empty slot is
+    // harmless everywhere it is read: every consumer skips an empty `key` (`action-mirror.ts`'s
+    // mirror pass, `render.ts#buildBindOwnerIndex`, `bind-slot-collision.ts`'s
+    // `isEmptyCatalogAction`).
+    return withKeySlot(action, collision.slot, { key: '' })
   })
 
   const mirroredCommand = released ? commandForNormalizedKey(binds, collision.key) : undefined

@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigAction, ConfigProfile } from '../modules/config'
+import { actionKeySlots } from './action-slots'
 import { aliasNameFor, renderActionAlias } from './alias-render'
 import { bindValueFor } from './action-mirror'
 import { generateLayerAliases } from './alt-layers'
+import { ROUND_TRIP_FIXTURES } from './fixtures/profiles'
+import { KNOWN_META_KEYS, parseMetaTag } from './profile-metadata'
 import { PROFILE_FIXTURES, SELF_REFERENCE_FIXTURES } from './profile-fixtures'
-import { renderProfileFile } from './render'
+import { renderProfileFile, STRICTEST_LINE_BUDGET } from './render'
 import { validateActions } from './validate-actions'
 import { validateStructure } from './validate-structure'
 
@@ -161,6 +164,153 @@ describe('render invariants (story 038 D3, AC4)', () => {
    * the structural finding describes the rendered file, the Care finding names
    * the entry and the command the user can actually change.
    */
+  // -------------------------------------------------------------------------
+  // Story 050 D8: the tag-shape invariants, asserted over BOTH corpora - this
+  // file's own (`profile-fixtures.ts`) and the round-trip corpus
+  // (`fixtures/profiles.ts`, which is where every key-slot shape lives).
+  //
+  // These are the writer-side half of D8. The reader-side half (parse ->
+  // restore -> re-render, and the adversarial hand edits) lives in
+  // `src/main/modules/config/round-trip.test.ts` and cannot move here: the
+  // parser that turns config text back into lines is `import-reader.ts`, a
+  // main-process module, and `src/shared` may not import from main (CLAUDE.md).
+  // -------------------------------------------------------------------------
+
+  /** Every `[q2l …]` tag in a rendered file, as the tag text alone. A code line's tag ends the
+   * line, a banner's sits inside trailing decoration, so the tail is cut at its own `]` - the same
+   * cut `profile-restore.ts#tagEndIndex` makes before handing a comment to the grammar. */
+  function tagsIn(rendered: string): { line: string; tag: string }[] {
+    const tags: { line: string; tag: string }[] = []
+    for (const line of rendered.split('\n')) {
+      const sigil = line.lastIndexOf('[q2l')
+      if (sigil === -1) continue
+      const close = line.indexOf(']', sigil)
+      tags.push({ line, tag: line.slice(sigil, close === -1 ? undefined : close + 1) })
+    }
+    return tags
+  }
+
+  /** Could this rendered line have carried even the bare `[q2l]` marker? `attachTaggedComment`
+   * needs `<code>  // ` (five characters past the code) plus the tag inside
+   * `STRICTEST_LINE_BUDGET - 1`; a five-character marker is the smallest tag there is. */
+  function roomForATag(line: string): boolean {
+    const code = line.replace(/\s+\/\/.*$/, '')
+    return code.length + '  // '.length + '[q2l]'.length <= STRICTEST_LINE_BUDGET - 1
+  }
+
+  const ALL_FIXTURES: [string, ConfigProfile][] = [
+    ...Object.entries(PROFILE_FIXTURES),
+    ...ROUND_TRIP_FIXTURES.map((profile): [string, ConfigProfile] => [profile.name, profile]),
+  ]
+
+  it('every tag the writer emits is well-formed and carries only registered keys', () => {
+    for (const [fixtureName, profile] of ALL_FIXTURES) {
+      const rendered = renderProfileFile(profile)
+      const tags = tagsIn(rendered)
+      // Every launcher file has at least the header block's `[q2l v=1]`, so an empty list would mean
+      // this fixture proves nothing.
+      expect(tags.length, `"${fixtureName}" rendered no tag at all`).toBeGreaterThan(0)
+
+      for (const { line, tag } of tags) {
+        const parsed = parseMetaTag(tag)
+        expect(parsed.malformed, `"${fixtureName}": malformed tag on "${line}"`).toBe(false)
+        expect(parsed.unknownKeys, `"${fixtureName}": unregistered key on "${line}"`).toEqual([])
+        for (const key of Object.keys(parsed.fields)) {
+          expect(KNOWN_META_KEYS as readonly string[], `"${fixtureName}": "${line}"`).toContain(key)
+        }
+      }
+    }
+  })
+
+  it('no tag carries a key story 050 removed (AC1: e, k and slot are never written)', () => {
+    // The story's first AC, stated directly rather than left implied by the unknown-key check above:
+    // those three were registered keys once, so a reintroduction would parse cleanly and pass every
+    // other assertion in this file.
+    for (const [fixtureName, profile] of ALL_FIXTURES) {
+      for (const { line, tag } of tagsIn(renderProfileFile(profile))) {
+        const fields = Object.keys(parseMetaTag(tag).fields)
+        for (const removed of ['e', 'k', 'slot']) {
+          expect(fields, `"${fixtureName}": removed key "${removed}" on "${line}"`).not.toContain(
+            removed,
+          )
+        }
+      }
+    }
+  })
+
+  it('every entry line carries a tag, down to the bare [q2l] marker on a fieldless one', () => {
+    // Tag *presence* is the only thing left that tells a launcher-owned line from a raw bind the
+    // user typed and commented themselves (story 050's own decision), so a missing marker is not a
+    // cosmetic slip: such a line reads back unowned, moves into "Other binds" on the next render,
+    // and story 042's fixed point is gone one render later. Asserted per line the writer *must*
+    // have emitted, derived from the model through the same two accessors the writer itself uses.
+    let checked = 0
+    for (const [fixtureName, profile] of ALL_FIXTURES) {
+      const rendered = renderProfileFile(profile)
+      const lines = rendered.split('\n')
+      const layerNames = layerGeneratedAliasNames(profile)
+
+      for (const action of profile.actions ?? []) {
+        const value = bindValueFor(action)
+
+        // A slot with no modifier is mirrored into `profile.binds` and gets a real `bind` line -
+        // unless the profile's own bind table says something else runs on that key, which is the
+        // "the config line wins" case and not this entry's line at all.
+        for (const slot of actionKeySlots(action)) {
+          if (slot.modifier) continue
+          const bound = Object.entries(profile.binds).find(
+            ([key]) => key.toLowerCase() === slot.key.toLowerCase(),
+          )
+          if (!bound || bound[1] !== value) continue
+          const bindLine = lines.find((line) =>
+            new RegExp(`^bind\\s+${bound[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s`, 'i').test(line),
+          )
+          expect(bindLine, `"${fixtureName}": no bind line for slot "${slot.key}"`).toBeDefined()
+          if (!roomForATag(bindLine!)) {
+            // The one documented exception, and it outranks the marker: "the command is the
+            // contract, so when command and comment cannot both fit, the comment is what gives"
+            // (`cfg-layout.ts#attachTaggedComment`). A command long enough to fill a whole 1024-byte
+            // engine line on its own therefore leaves no room for even the bare `[q2l]`, and the
+            // comment is dropped WHOLE - which is what is asserted here instead, since a half tag
+            // would be worse than none. Under story 050 that costs the line its ownership (tag
+            // presence is the ownership signal), so such an entry's key reads back unowned; only
+            // `profile-fixtures.ts`' deliberately pathological `chunkSplit` fixture reaches it, and
+            // shortening the tag is what made it *less* reachable than it was before this story.
+            expect(bindLine!, `"${fixtureName}": a tag was cut instead of dropped`).not.toContain('[q2l')
+            continue
+          }
+          expect(bindLine!, `"${fixtureName}": bind line without a tag`).toContain('[q2l')
+          checked++
+        }
+      }
+
+      // The same for the alias lines: every rendered `alias` line that belongs to an action (a
+      // layer's own generated aliases are out of scope, exactly as in the AC4 test above).
+      const actionAliasNames = new Set(
+        (profile.actions ?? []).flatMap((action) =>
+          renderActionAlias(action).aliases.map((alias) => alias.name.toLowerCase()),
+        ),
+      )
+      for (const line of lines) {
+        const match = /^alias\s+(\S+)/i.exec(line)
+        if (!match) continue
+        const name = match[1]!.toLowerCase()
+        if (layerNames.has(name) || !actionAliasNames.has(name)) continue
+        expect(line, `"${fixtureName}": alias line without a tag`).toContain('[q2l')
+        checked++
+      }
+
+    }
+
+    // A floor across the whole corpus, not per fixture (a keyless or alias-less fixture
+    // legitimately contributes nothing). It is what stops this test passing vacuously, which is not
+    // hypothetical: while the two fixture corpora still carried the pre-050 `key`/`secondaryKey`
+    // field names, every action in them rendered with no key slots at all - the files came out as
+    // bare headers and this loop would have checked exactly zero lines while reporting green.
+    expect(checked, 'the fixture corpora rendered almost no entry lines - have they gone inert?')
+      .toBeGreaterThan(40)
+  })
+
   for (const [fixtureName, profile] of Object.entries(SELF_REFERENCE_FIXTURES)) {
     it(`"${fixtureName}": the kept self-referencing line reports aliasCycle *and* aliasSelfReference`, () => {
       const rendered = renderProfileFile(profile)

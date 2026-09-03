@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ConfigAction } from '../modules/config'
+import type { ActionKeySlot, ConfigAction } from '../modules/config'
 import { aliasNameFor } from './alias-render'
 import {
   actionsWithAliasLine,
@@ -14,6 +14,11 @@ import { generateLayerAliases, type AltLayer } from './alt-layers'
 
 function action(overrides: Partial<ConfigAction> & Pick<ConfigAction, 'id' | 'kind' | 'name'>): ConfigAction {
   return { categoryId: 'c1', commands: [], ...overrides }
+}
+
+/** Builds a `keys` array from a sparse list of slots - `undefined` entries are skipped. */
+function keySlots(...slots: (ActionKeySlot | undefined)[]): ActionKeySlot[] {
+  return slots.filter((slot): slot is ActionKeySlot => slot !== undefined)
 }
 
 /** A continuous catalogue row (story 034): mirrors as its own bare command, not an alias. */
@@ -232,7 +237,7 @@ describe('actionsWithAliasLine self-reference guard (story 039)', () => {
       kind: 'bind',
       name: 'weapnext',
       catalogId: 'weaponExtra:weapnext',
-      key: 'MWHEELUP',
+      keys: keySlots({ key: 'MWHEELUP' }),
       commands: [{ kind: 'raw', text: 'weapnext' }],
       ...overrides,
     })
@@ -316,7 +321,7 @@ describe('actionsWithAliasLine self-reference guard (story 039)', () => {
       id: 'm1',
       kind: 'bind',
       name: 'weapnext',
-      key: 'MWHEELUP',
+      keys: keySlots({ key: 'MWHEELUP' }),
       commands: [{ kind: 'raw', text: 'weapnext' }, { kind: 'raw', text: 'centerview' }],
     })
     const actions = [combo]
@@ -331,7 +336,7 @@ describe('actionsWithAliasLine self-reference guard (story 039)', () => {
       id: 'm2',
       kind: 'bind',
       name: 'centerview',
-      key: 'MOUSE3',
+      keys: keySlots({ key: 'MOUSE3' }),
       commands: [{ kind: 'raw', text: '+attack' }, { kind: 'raw', text: 'centerview' }],
     })
     const actions = [combo]
@@ -363,7 +368,7 @@ describe('actionsWithAliasLine self-reference guard (story 039)', () => {
       id: 'm7',
       kind: 'bind',
       name: 'weapnext',
-      key: 'MWHEELUP',
+      keys: keySlots({ key: 'MWHEELUP' }),
       commands: [{ kind: 'raw', text: 'weapnext 2' }],
     })
     const actions = [combo]
@@ -378,7 +383,7 @@ describe('actionsWithAliasLine self-reference guard (story 039)', () => {
       id: 'm4',
       kind: 'bind',
       name: 'Forward',
-      key: 'w',
+      keys: keySlots({ key: 'w' }),
       commands: [{ kind: 'raw', text: '+forward' }, { kind: 'raw', text: 'centerview' }],
     })
     expect(aliasNameFor(combo)).toBe('forward')
@@ -414,7 +419,7 @@ describe('actionsWithAliasLine self-reference guard (story 039)', () => {
       id: 'm6',
       kind: 'bind',
       name: 'zoom',
-      key: 'MOUSE2',
+      keys: keySlots({ key: 'MOUSE2' }),
       commands: [{ kind: 'raw', text: 'set fov 30' }, { kind: 'raw', text: '-zoom' }],
     })
     const actions = [zoom]
@@ -425,7 +430,7 @@ describe('actionsWithAliasLine self-reference guard (story 039)', () => {
 
 describe('collectAliasReferences ignoreOwnMirrorOf option (story 039, D9)', () => {
   it('ignores the own base bind slot the action holds', () => {
-    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', key: 'q', commands: [] })
+    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', keys: keySlots({ key: 'q' }), commands: [] })
     const aliasName = aliasNameFor(owner)
 
     const tokens = collectAliasReferences(
@@ -437,7 +442,7 @@ describe('collectAliasReferences ignoreOwnMirrorOf option (story 039, D9)', () =
   })
 
   it('still reports the same alias name on a key the action does not hold as a reference', () => {
-    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', key: 'q', commands: [] })
+    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', keys: keySlots({ key: 'q' }), commands: [] })
     const aliasName = aliasNameFor(owner)
 
     const tokens = collectAliasReferences(
@@ -453,8 +458,7 @@ describe('collectAliasReferences ignoreOwnMirrorOf option (story 039, D9)', () =
       id: 'a1',
       kind: 'bind',
       name: 'SSG SG',
-      key: 'q',
-      keyModifier: 'ALT',
+      keys: keySlots({ key: 'q', modifier: 'ALT' }),
       commands: [],
     })
     const aliasName = aliasNameFor(owner)
@@ -470,8 +474,7 @@ describe('collectAliasReferences ignoreOwnMirrorOf option (story 039, D9)', () =
       id: 'a1',
       kind: 'bind',
       name: 'SSG SG',
-      key: 'q',
-      keyModifier: 'ALT',
+      keys: keySlots({ key: 'q', modifier: 'ALT' }),
       commands: [],
     })
     const aliasName = aliasNameFor(owner)
@@ -485,7 +488,7 @@ describe('collectAliasReferences ignoreOwnMirrorOf option (story 039, D9)', () =
   })
 
   it('default (no options) behaves exactly as before - own mirror slot still counts as a reference', () => {
-    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', key: 'q', commands: [] })
+    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', keys: keySlots({ key: 'q' }), commands: [] })
     const aliasName = aliasNameFor(owner)
 
     const tokens = collectAliasReferences({ actions: [owner], binds: { q: aliasName } })
@@ -496,7 +499,7 @@ describe('collectAliasReferences ignoreOwnMirrorOf option (story 039, D9)', () =
 
 describe('findAliasReferrers (story 039, D9)', () => {
   it('finds nothing for an unreferenced entry', () => {
-    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', key: 'q', commands: [] })
+    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', keys: keySlots({ key: 'q' }), commands: [] })
 
     expect(findAliasReferrers(owner, { actions: [owner], binds: { q: aliasNameFor(owner) } })).toEqual([])
   })
@@ -506,9 +509,7 @@ describe('findAliasReferrers (story 039, D9)', () => {
       id: 'a1',
       kind: 'bind',
       name: 'SSG SG',
-      key: 'q',
-      secondaryKey: 'r',
-      secondaryKeyModifier: 'ALT',
+      keys: keySlots({ key: 'q' }, { key: 'r', modifier: 'ALT' }),
       commands: [],
     })
     const aliasName = aliasNameFor(owner)
@@ -520,7 +521,7 @@ describe('findAliasReferrers (story 039, D9)', () => {
   })
 
   it('reports a hand-typed bind on an unrelated key by that key', () => {
-    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', key: 'q', commands: [] })
+    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', keys: keySlots({ key: 'q' }), commands: [] })
     const aliasName = aliasNameFor(owner)
 
     const referrers = findAliasReferrers(owner, { actions: [owner], binds: { q: aliasName, x: aliasName } })
@@ -528,8 +529,30 @@ describe('findAliasReferrers (story 039, D9)', () => {
     expect(referrers).toEqual([{ kind: 'bind', key: 'x' }])
   })
 
+  it('ignores a third slot (index 2) exactly like the first two - unmodified into binds, modified into its layer', () => {
+    // Story 050, D3's acceptance criterion, restated for `findAliasReferrers`: slot identity comes
+    // from array order, not from a fixed "primary"/"secondary" pair, so the own-mirror exclusion
+    // must reach every slot the accessor returns, not just the first two.
+    const owner = action({
+      id: 'a1',
+      kind: 'bind',
+      name: 'SSG SG',
+      keys: keySlots({ key: 'q' }, { key: 'r', modifier: 'ALT' }, { key: 't', modifier: 'CTRL' }),
+      commands: [],
+    })
+    const aliasName = aliasNameFor(owner)
+    const layers: AltLayer[] = [
+      { id: 'l1', name: 'Alt', mode: 'hold' as const, triggerKey: 'ALT', overrides: { r: aliasName } },
+      { id: 'l2', name: 'Ctrl', mode: 'hold' as const, triggerKey: 'CTRL', overrides: { t: aliasName } },
+    ]
+
+    const referrers = findAliasReferrers(owner, { actions: [owner], binds: { q: aliasName }, layers })
+
+    expect(referrers).toEqual([])
+  })
+
   it('reports a hand-typed layer override on an unrelated modifier by its key and layer name', () => {
-    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', key: 'q', commands: [] })
+    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', keys: keySlots({ key: 'q' }), commands: [] })
     const aliasName = aliasNameFor(owner)
     const layers = [{ id: 'l1', name: 'Ctrl', mode: 'hold' as const, triggerKey: 'CTRL', overrides: { z: aliasName } }]
 
@@ -539,7 +562,7 @@ describe('findAliasReferrers (story 039, D9)', () => {
   })
 
   it('reports another action whose command text calls the alias by name', () => {
-    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', key: 'q', commands: [] })
+    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', keys: keySlots({ key: 'q' }), commands: [] })
     const aliasName = aliasNameFor(owner)
     const caller = action({
       id: 'c1',
@@ -570,7 +593,7 @@ describe('buildAliasIndex (story 044, D1)', () => {
   it('emits one row per entry, in actions order, before any layer row (the contract validate-actions.ts pairs on)', () => {
     const actions = [
       action({ id: 'a1', kind: 'alias', name: '+test', commands: [{ kind: 'raw', text: 'wait' }] }),
-      action({ id: 'b1', kind: 'bind', name: 'SSG SG', key: 'q', commands: [{ kind: 'raw', text: 'use ssg' }] }),
+      action({ id: 'b1', kind: 'bind', name: 'SSG SG', keys: keySlots({ key: 'q' }), commands: [{ kind: 'raw', text: 'use ssg' }] }),
     ]
 
     const index = buildAliasIndex({ actions, layers: [holdLayer()] })
@@ -595,7 +618,7 @@ describe('buildAliasIndex (story 044, D1)', () => {
   })
 
   it('labels a keyed entry\'s alias as generated and read-only', () => {
-    const keyed = action({ id: 'b1', kind: 'bind', name: 'SSG SG', key: 'q', commands: [{ kind: 'raw', text: 'use ssg' }] })
+    const keyed = action({ id: 'b1', kind: 'bind', name: 'SSG SG', keys: keySlots({ key: 'q' }), commands: [{ kind: 'raw', text: 'use ssg' }] })
 
     const [row] = buildAliasIndex({ actions: [keyed] })
 
@@ -645,7 +668,7 @@ describe('buildAliasIndex (story 044, D1)', () => {
       id: 'a1',
       kind: 'bind',
       name: 'weapnext',
-      key: 'MWHEELUP',
+      keys: keySlots({ key: 'MWHEELUP' }),
       commands: [{ kind: 'raw', text: 'weapnext' }, { kind: 'raw', text: 'centerview' }],
     })
 

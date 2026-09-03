@@ -151,7 +151,7 @@ describe('validateActions', () => {
         id: 'b1',
         kind: 'bind',
         name: 'weapnext',
-        key: 'MWHEELUP',
+        keys: [{ key: 'MWHEELUP' }],
         commands: [{ kind: 'raw', text: 'weapnext' }, { kind: 'raw', text: 'centerview' }],
       }),
     ]
@@ -171,7 +171,7 @@ describe('validateActions', () => {
         id: 'b1',
         kind: 'bind',
         name: 'centerview',
-        key: 'MOUSE3',
+        keys: [{ key: 'MOUSE3' }],
         commands: [{ kind: 'raw', text: '+attack' }, { kind: 'raw', text: 'centerview' }],
       }),
     ]
@@ -194,7 +194,7 @@ describe('validateActions', () => {
         id: 'b1',
         kind: 'bind',
         name: 'weapnext',
-        key: 'MWHEELUP',
+        keys: [{ key: 'MWHEELUP' }],
         commands: [{ kind: 'raw', text: 'weapnext' }],
       }),
     ]
@@ -208,7 +208,7 @@ describe('validateActions', () => {
         id: 'b1',
         kind: 'bind',
         name: 'Forward',
-        key: 'w',
+        keys: [{ key: 'w' }],
         commands: [{ kind: 'raw', text: '+forward' }, { kind: 'raw', text: 'centerview' }],
       }),
     ]

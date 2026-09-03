@@ -7,6 +7,7 @@ import { SectionLabel } from '../../components/ui/primitives'
 import { useLauncher } from '../../store/useLauncher'
 import { refreshProfilesFromFiles, saveConfigProfile } from './client'
 import { ConfigCodeView } from './components/ConfigCodeView'
+import { adoptProfileFromFile } from './lib/file-source-refresh'
 
 /**
  * Story 043 D8: the whole-file conflict dialog - `save`'s `SaveProfileConflict` shown as two
@@ -52,18 +53,26 @@ export function ConfigConflictDialog({
     pushToast({ level: 'error', messageKey, timeoutMs: 0, ...(params ? { params } : {}) })
   }
 
+  /**
+   * Shares its body with Care -> Sync -> Reload through `adoptProfileFromFile`
+   * (`lib/file-source-refresh.ts`) - story-050 review, finding 1: taking the file can *lose* an
+   * entry when the file defines one alias name twice, and that warning has to come from the adopt
+   * itself rather than from whichever button happened to trigger it. `failed` means the call's own
+   * error toast has already been pushed, so this must not add a second one.
+   */
   const takeFile = async (): Promise<void> => {
     setBusy('take')
-    const outcome = await refreshProfilesFromFiles({ profileId, discardLocalEdits: true })
+    const result = await adoptProfileFromFile({
+      profileId,
+      discardLocalEdits: true,
+      refresh: refreshProfilesFromFiles,
+      pushToast,
+    })
     setBusy(null)
 
-    if (!outcome.ok) {
-      reportUnexpected(outcome.error.key, outcome.error.params)
-      return
-    }
-    const entry = outcome.value.find((result) => result.profileId === profileId)
-    if (entry?.outcome === 'adopted') {
-      onResolved(entry.profile)
+    if (result.kind === 'failed') return
+    if (result.kind === 'adopted') {
+      onResolved(result.profile)
       onClose()
       return
     }

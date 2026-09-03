@@ -28,8 +28,7 @@ describe('resolveAliasChain (story 015: dual-bound drop row)', () => {
   it('resolves a two-key action alias to its full command list from the alias name alone', () => {
     const dropRow = action({
       catalogId: 'dropWeapon:rlauncher',
-      key: 'r',
-      secondaryKey: 'PGUP',
+      keys: [{ key: 'r' }, { key: 'PGUP' }],
       commands: [
         { kind: 'raw', text: 'drop rocket launcher' },
         { kind: 'raw', text: 'drop rockets' },
@@ -54,7 +53,7 @@ describe('resolveAliasChain (story 015: dual-bound drop row)', () => {
     const ssgRow = action({
       catalogId: 'weaponUse:use_sshotgun',
       aliasName: 'ssg_sg',
-      key: 'q',
+      keys: [{ key: 'q' }],
       commands: [{ kind: 'raw', text: 'use super shotgun' }],
     })
 
@@ -67,7 +66,7 @@ describe('resolveAliasChain (story 015: dual-bound drop row)', () => {
     const ssgRow = action({
       catalogId: 'weaponUse:use_sshotgun',
       aliasName: 'ssg_sg',
-      key: 'q',
+      keys: [{ key: 'q' }],
       commands: [{ kind: 'raw', text: 'use super shotgun' }],
     })
 

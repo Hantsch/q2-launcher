@@ -1095,11 +1095,32 @@ export const configModule: MainModule = {
             // `adoptFromFile` throws on an unknown id and cannot remove the profile, so this
             // cannot miss.
             const adopted = list.find((p) => p.id === profile.id)!
+            // Story-050 review (finding 4, second round): an `alias` name the file defined twice
+            // cost the adopt one entry's commands before `readFileState` ever got to reconstruct the
+            // profile - reported so the UI can say so, and logged so a support copy of the log says
+            // it too. Deduplicated by name: the field names *which* alias collided, and one name
+            // repeated three times is still one thing to tell the user about.
+            const droppedAliases = [
+              ...new Set(
+                read.profile.warnings
+                  .filter((warning) => warning.reason === 'entry-alias-duplicate')
+                  .map((warning) => warning.subject)
+                  .filter((subject): subject is string => subject !== undefined),
+              ),
+            ]
+            for (const warning of read.profile.warnings) {
+              if (warning.reason !== 'entry-alias-duplicate') continue
+              log.warn(
+                `refresh: alias "${warning.subject}" is defined more than once in ${warning.file}; ` +
+                  `the definition at line ${warning.line} was discarded (profile ${profile.id})`,
+              )
+            }
             results.push({
               profileId: profile.id,
               outcome: 'adopted',
               fileState: 'changedOnDisk',
               profile: adopted,
+              droppedAliases,
             })
             continue
           }

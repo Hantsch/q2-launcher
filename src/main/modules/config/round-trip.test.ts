@@ -3,7 +3,8 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { ConfigProfile } from '@shared/modules/config'
+import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
+import { actionKeySlots } from '@shared/config/action-slots'
 import { generateLayerAliases } from '@shared/config/alt-layers'
 import { renderProfileFile } from '@shared/config/render'
 import { restoreProfileParts } from '@shared/config/profile-restore'
@@ -25,10 +26,12 @@ import { detectSectionHeaderStyle, detectWriteUnbindall, recoverProfileName } fr
  * Two normalisations are applied to BOTH renders before comparing, both explained and justified in
  * this D's report rather than snuck in silently:
  *
- * - `canonicalizeRefs` - the ownership sentinel's profile id and every `e=`/`cat=`/`layer=` tag
+ * - `canonicalizeMintedIds` - the ownership sentinel's profile id and every `cat=`/`layer=` tag
  *   value are opaque, freshly-minted identifiers by construction (a fresh `newId()` per restored
- *   entry/category/layer): their literal value carries no more meaning than `profile.id` does, only
+ *   category/layer): their literal value carries no more meaning than `profile.id` does, only
  *   the *grouping* they express matters, which first-appearance canonicalisation preserves.
+ *   Story 050 removed this normaliser's fourth and original subject, `e=`, together with the field
+ *   itself - see the function's own comment for why the remaining three are not optional.
  * - `stripBannerDashPadding` - a `dashes`-style section banner's trailing fill is padded out to a
  *   fixed on-screen width, so a `cat=`/`layer=` value of a different LENGTH than the original
  *   (inevitable once the id itself is freshly minted) changes the dash count even though nothing
@@ -69,12 +72,25 @@ async function reimport(text: string) {
   return readImportableConfig(root, 'baseq2')
 }
 
-/** Replaces every opaque, freshly-minted identifier with a canonical, first-appearance-indexed
- * token: the ownership sentinel's profile id, and every `e=`/`cat=`/`layer=` tag value. */
-function canonicalizeRefs(text: string): string {
+/**
+ * Replaces every opaque, freshly-minted identifier with a canonical, first-appearance-indexed
+ * token: the ownership sentinel's profile id, and every `cat=`/`layer=` tag value.
+ *
+ * Story 050 D8: this used to canonicalise `e=` as well, and the story's plan calls for the whole
+ * function to go away with that field ("there are no refs left to canonicalise"). Only the `e`
+ * half could actually go. The other three subjects are *not* refs and never were: a restored
+ * custom category gets a locally minted id (`profile-restore.ts#categoryRegistry` - a colleague's
+ * category id means nothing here), a restored layer likewise, and the sentinel names the profile
+ * the file was written for. All three are freshly minted by construction on every read-back, so
+ * comparing them literally would fail for every fixture with a custom category or a layer no
+ * matter how correct the writer is - it would test `randomUUID`, not the fixed point. Measured
+ * rather than assumed: with this call removed from `normalize`, 20 of the corpus' 31 fixtures fail
+ * on nothing but a `cat=`/`layer=` value (every modifier-slot fixture included, since a modifier
+ * slot always mints a layer), each one with an otherwise byte-identical file.
+ */
+function canonicalizeMintedIds(text: string): string {
   const maps: Record<string, Map<string, string>> = {
     sentinel: new Map(),
-    e: new Map(),
     cat: new Map(),
     layer: new Map(),
   }
@@ -93,7 +109,7 @@ function canonicalizeRefs(text: string): string {
   let out = text.replace(/(\/\/ q2-launcher profile )(\S+)( -)/, (_m, pre, id, post) =>
     `${pre}${tokenFor('sentinel', id)}${post}`,
   )
-  out = out.replace(/\b(e|cat|layer)=([^\s\]]+)/g, (_m, key: string, value: string) =>
+  out = out.replace(/\b(cat|layer)=([^\s\]]+)/g, (_m, key: string, value: string) =>
     `${key}=${tokenFor(key, value)}`,
   )
   return out
@@ -117,11 +133,31 @@ function canonicalizeRefs(text: string): string {
  * rule instead of a looser approximation of it.
  */
 function stripBannerDashPadding(text: string): string {
-  return text.replace(/^(\/\/ --- .*) -{2,}$/gm, '$1')
+  // `-+`, not `-{2,}`: `DASHES_SUFFIX` is ` -+$`, and a fill of *exactly one* dash is a shape
+  // `banner()` really does draw (story 050 D8 found it on the two new fixtures whose only
+  // variable-length tag value is a layer id - one render's fill was ` -`, the other's empty, and
+  // nothing else on the line differed). Requiring two dashes made this normaliser stop being the
+  // inverse of what the writer writes for that one length, which is exactly the "a normaliser that
+  // silently stops normalising" trap `canonicalizeMintedIds`' own comment above records.
+  return text.replace(/^(\/\/ --- .*) -+$/gm, '$1')
 }
 
 function normalize(text: string): string {
-  return stripBannerDashPadding(canonicalizeRefs(text))
+  return stripBannerDashPadding(canonicalizeMintedIds(text))
+}
+
+/**
+ * One entry's key slots as `KEY` / `MOD+KEY` strings, in slot order (story 050).
+ *
+ * Every slot assertion below goes through this rather than through `entry.keys` directly: slots are
+ * an array whose *order* is the whole subject (order is what the file records instead of the removed
+ * `slot` field), and reading them through `action-slots.ts`' accessor is the discipline that module
+ * asks of every reader.
+ */
+function slotsOf(action: ConfigAction): string[] {
+  return actionKeySlots(action).map((slot) =>
+    slot.modifier ? `${slot.modifier}+${slot.key}` : slot.key,
+  )
 }
 
 /** Rebuilds a fresh `ConfigProfile` out of one real render->parse pass over `profile`, carrying
@@ -168,7 +204,7 @@ describe('round-trip: render(parse(render(p))) === render(p) (story 042 D9)', ()
  */
 describe('closed gap: an entry bound only through a modifier keeps its identity (review Bug 1)', () => {
   for (const name of ['Modifier-only catalogue entry', 'Self-mirroring alias']) {
-    it(`"${name}": name, kind, categoryId, catalogId, key and keyModifier all survive`, async () => {
+    it(`"${name}": name, kind, categoryId, catalogId and its one modified key slot all survive`, async () => {
       const profile = findFixture(name)
       const original = profile.actions![0]!
       const { profile2 } = await reimportProfile(profile)
@@ -181,9 +217,9 @@ describe('closed gap: an entry bound only through a modifier keeps its identity 
       expect(restored.kind).toBe(original.kind)
       expect(restored.categoryId).toBe(original.categoryId)
       expect(restored.catalogId).toBe(original.catalogId)
-      expect(restored.key).toBe(original.key)
-      expect(restored.keyModifier).toBe(original.keyModifier)
-      expect(restored.secondaryKey).toBeUndefined()
+      // One slot, still modified, still the same key - and no second slot invented for it.
+      expect(slotsOf(restored)).toEqual(slotsOf(original))
+      expect(slotsOf(restored)).toHaveLength(1)
       // The command itself comes back out of the layer override the anchor names, so the entry still
       // renders (and binds) identically rather than coming back as an empty nameplate.
       expect(restored.commands).toEqual(original.commands)
@@ -198,38 +234,25 @@ describe('closed gap: slot assignment does not depend on layer array order (revi
     const altFirst = findFixture('Two-slot two-modifier entry')
     const ctrlFirst = findFixture('Two-slot two-modifier entry (layers reversed)')
 
-    // Same logical profile: one entry, r/ALT primary and t/CTRL secondary, two layers.
-    expect(ctrlFirst.actions![0]!.key).toBe(altFirst.actions![0]!.key)
+    // Same logical profile: one entry, r/ALT in slot 1 and t/CTRL in slot 2, two layers.
+    expect(slotsOf(ctrlFirst.actions![0]!)).toEqual(slotsOf(altFirst.actions![0]!))
     expect(ctrlFirst.layers!.map((layer) => layer.triggerKey)).toEqual(
       [...altFirst.layers!].reverse().map((layer) => layer.triggerKey),
     )
 
     const slots = async (profile: ConfigProfile) => {
       const { profile2 } = await reimportProfile(profile)
-      return profile2.actions!.map((entry) => ({
-        name: entry.name,
-        key: entry.key,
-        keyModifier: entry.keyModifier,
-        secondaryKey: entry.secondaryKey,
-        secondaryKeyModifier: entry.secondaryKeyModifier,
-      }))
+      return profile2.actions!.map((entry) => ({ name: entry.name, slots: slotsOf(entry) }))
     }
 
     const fromAltFirst = await slots(altFirst)
     const fromCtrlFirst = await slots(ctrlFirst)
 
     expect(fromCtrlFirst).toEqual(fromAltFirst)
-    // And the stable order really is (modifier, key), not "whatever the array said" - which for this
-    // profile also happens to be the original assignment.
-    expect(fromAltFirst).toEqual([
-      {
-        name: 'Reload weapon',
-        key: 'r',
-        keyModifier: 'ALT',
-        secondaryKey: 't',
-        secondaryKeyModifier: 'CTRL',
-      },
-    ])
+    // And the order really comes from the file - the anchor lines, in the order the writer emitted
+    // them - not from whichever layer section happened to come first, which for this profile is also
+    // the original assignment.
+    expect(fromAltFirst).toEqual([{ name: 'Reload weapon', slots: ['ALT+r', 'CTRL+t'] }])
   })
 })
 
@@ -244,37 +267,25 @@ describe('closed gap: both slots modified plus an alias line keeps its slot assi
     const { profile2 } = await reimportProfile(profile)
     expect(profile2.actions).toHaveLength(1)
     const entry = profile2.actions![0]!
-    return {
-      key: entry.key,
-      keyModifier: entry.keyModifier,
-      secondaryKey: entry.secondaryKey,
-      secondaryKeyModifier: entry.secondaryKeyModifier,
-      aliasName: entry.aliasName,
-    }
+    return { slots: slotsOf(entry), aliasName: entry.aliasName }
   }
 
-  it('the anti-alphabetical assignment (t/CTRL primary, r/ALT secondary) is not swapped', async () => {
+  it('the anti-alphabetical assignment (t/CTRL first, r/ALT second) is not swapped', async () => {
     // Before the fix the anchor gate was per action, not per slot: this entry HAS a line (its alias
-    // line, kept because it carries an own alias name), but that line records no `slot`/`mod`, so
-    // both slots fell through to the (modifier, key) fallback - which sorts ALT first and therefore
-    // handed `r`/ALT the primary slot.
+    // line, kept because it carries an own alias name), but that line records no key or modifier at
+    // all, so both slots fell through to the (modifier, key) fallback - which sorts ALT first and
+    // therefore handed `r`/ALT the first slot.
     expect(await slots(findFixture('Own alias name, both slots modified'))).toEqual({
-      key: 't',
-      keyModifier: 'CTRL',
-      secondaryKey: 'r',
-      secondaryKeyModifier: 'ALT',
+      slots: ['CTRL+t', 'ALT+r'],
       aliasName: 'rail_combo',
     })
   })
 
-  it('the mirrored assignment (r/ALT primary, t/CTRL secondary) is not swapped either', async () => {
+  it('the mirrored assignment (r/ALT first, t/CTRL second) is not swapped either', async () => {
     // The same shape with its two slots exchanged: a "fix" that merely inverted the guess would
     // break exactly here.
     expect(await slots(findFixture('Own alias name, both slots modified (mirrored slots)'))).toEqual({
-      key: 'r',
-      keyModifier: 'ALT',
-      secondaryKey: 't',
-      secondaryKeyModifier: 'CTRL',
+      slots: ['ALT+r', 'CTRL+t'],
       aliasName: 'rail_combo',
     })
   })
@@ -298,8 +309,7 @@ describe('closed gap: an anchored entry keeps its own alias name (round 2, NEW-3
     // modified), the anchor's `an` field is the only place this name can live.
     expect(restored.aliasName).toBe(original.aliasName)
     expect(restored.name).toBe(original.name)
-    expect(restored.key).toBe(original.key)
-    expect(restored.keyModifier).toBe(original.keyModifier)
+    expect(slotsOf(restored)).toEqual(slotsOf(original))
     expect(restored.commands).toEqual(original.commands)
 
     // Before the fix the second render dropped the anchor and grew a real `alias next_weapon
@@ -402,16 +412,133 @@ describe('closed gap: a layer\'s own trigger bind does not leak into "Other bind
   }
 })
 
-// ---------------------------------------------------------------------------
-// Adversarial mangling: hand-corrupt the rendered text, re-import, and confirm
-// no line is dropped, nothing throws, and a warning is produced (not silence).
-// ---------------------------------------------------------------------------
-
 function findFixture(name: string): ConfigProfile {
   const found = ROUND_TRIP_FIXTURES.find((p) => p.name === name)
   if (!found) throw new Error(`no fixture named "${name}"`)
   return found
 }
+
+// ---------------------------------------------------------------------------
+// Story 050 D8: the shapes the reduced tag and the uncapped slot model added.
+//
+// The fixed-point loop above already covers all five as *text* (they are in the
+// corpus), which is necessary and not sufficient for the same reason the
+// story-042 blocks above exist: a restore that reassigns slots consistently
+// re-renders as a valid file - just not the same profile. What each new fixture
+// is actually about is therefore asserted against the restored objects, and
+// against the one or two literal bytes of the file that carry the claim.
+// ---------------------------------------------------------------------------
+
+describe('story 050: slot identity comes from file order, uncapped', () => {
+  it('"Hand-added third key": three bind lines on one value come back as three slots, no field involved', async () => {
+    const profile = findFixture('Hand-added third key')
+    const { profile2, text1 } = await reimportProfile(profile)
+
+    // Three physical bind lines, all running the same value, each carrying only `cid` - no `e=`, no
+    // `slot=`. Without this the rest of the case could pass on a two-key entry.
+    const bindLines = text1.split('\n').filter((line) => /^bind \S+\s+"drop_rockets"/.test(line))
+    expect(bindLines).toHaveLength(3)
+    for (const line of bindLines) {
+      expect(line).toContain('[q2l cid=drop-rockets]')
+    }
+
+    expect(profile2.actions).toHaveLength(1)
+    // Slot order is the file's line order (the writer sorts a section's bind lines by key), which is
+    // f, g, h - not the g, h, f the fixture was constructed with. That reordering is the story's own
+    // rule ("first occurrence is slot 1"), and it is why the third key survives at all: the pre-050
+    // cap of two would have dropped one of these three or reported a slot conflict.
+    expect(slotsOf(profile2.actions![0]!)).toEqual(['f', 'g', 'h'])
+    expect(profile2.actions![0]!.catalogId).toBe('drop-rockets')
+  })
+
+  it('"Third slot carries a modifier": bind-line claims come before the anchor claim', async () => {
+    const { profile2 } = await reimportProfile(findFixture('Third slot carries a modifier'))
+
+    expect(profile2.actions).toHaveLength(1)
+    // Two plain keys off their bind lines, then the modified one off its anchor line - the claim
+    // order `buildEntry` documents, on an entry that exercises both claim paths at once.
+    expect(slotsOf(profile2.actions![0]!)).toEqual(['j', 'k', 'CTRL+l'])
+  })
+
+  it('"Modified slot 1 next to a plain slot 2": both slots survive, swapped, and the file holds still', async () => {
+    const profile = findFixture('Modified slot 1 next to a plain slot 2')
+    expect(slotsOf(profile.actions![0]!)).toEqual(['ALT+r', 't'])
+
+    const { profile2, text1 } = await reimportProfile(profile)
+    expect(profile2.actions).toHaveLength(1)
+    // The documented consequence, asserted rather than hoped for: the plain slot's `bind` line is
+    // claimed before the modified slot's anchor, so the two exchange places exactly once. Nothing is
+    // lost - both keys and the modifier are all still here.
+    expect(slotsOf(profile2.actions![0]!)).toEqual(['t', 'ALT+r'])
+
+    // And the swap is a one-off, not a drift: the second render is the same file, and a third render
+    // (from the re-restored profile) is too - the flipped order is itself a fixed point.
+    const text2 = renderProfileFile(profile2)
+    expect(normalize(text2)).toBe(normalize(text1))
+    const { profile2: profile3 } = await reimportProfile(profile2)
+    expect(slotsOf(profile3.actions![0]!)).toEqual(['t', 'ALT+r'])
+  })
+
+  it('"Two bind lines on one value": paired into one entry with two keys, with no alias line at all (AC4)', async () => {
+    const profile = findFixture('Two bind lines on one value')
+    const { profile2, text1 } = await reimportProfile(profile)
+
+    // The file really does hold two bind lines and NO alias line for this entry - the pairing has
+    // nothing but the shared bind value to work from.
+    expect(text1).toMatch(/^bind UPARROW\s+"\+forward"\s+\/\/ Forward \[q2l cid=forward\]$/m)
+    expect(text1).toMatch(/^bind w\s+"\+forward"\s+\/\/ Forward \[q2l cid=forward\]$/m)
+    expect(text1).not.toContain('alias')
+
+    expect(profile2.actions).toHaveLength(1)
+    expect(slotsOf(profile2.actions![0]!)).toEqual(['UPARROW', 'w'])
+    expect(profile2.actions![0]!.commands).toEqual([{ kind: 'raw', text: '+forward' }])
+  })
+
+  it('"Anchor-only entry with two anchors": two anchors, one entry, both slots and the alias name intact', async () => {
+    const profile = findFixture('Anchor-only entry with two anchors')
+    const original = profile.actions![0]!
+    const { profile2, text1 } = await reimportProfile(profile)
+
+    // No `bind` and no `alias` line for this entry anywhere: its two anchor lines and the layer
+    // overrides they name are its entire presence in the file. `an=` is the only place its own alias
+    // name can live, which is why the tag cut kept that key.
+    expect(text1).toContain('// Next weapon [q2l an=weapnext key=MWHEELUP mod=ALT]')
+    expect(text1).toContain('// Next weapon [q2l an=weapnext key=MWHEELDOWN mod=CTRL]')
+    expect(text1).not.toMatch(/^alias weapnext/m)
+
+    // One row, not two: the second anchor found the group the first one created (by prose, since
+    // neither carries a `cid`) instead of splitting off.
+    expect(profile2.actions).toHaveLength(1)
+    const restored = profile2.actions![0]!
+    expect(slotsOf(restored)).toEqual(slotsOf(original))
+    expect(restored.aliasName).toBe('weapnext')
+    expect(restored.name).toBe('Next weapon')
+    expect(restored.commands).toEqual(original.commands)
+  })
+
+  it('"Marker-tag-only entry pair": a fieldless entry line carries the bare [q2l] and stays owned', async () => {
+    const profile = findFixture('Marker-tag-only entry pair')
+    const { profile2, text1 } = await reimportProfile(profile)
+
+    // The marker is load-bearing: it is the only thing left that tells these lines from a raw bind a
+    // user typed and commented themselves.
+    expect(text1).toMatch(/^bind j\s+"pick_blaster"\s+\/\/ Pick blaster \[q2l\]$/m)
+    expect(text1).toMatch(/^alias pick_blaster use blaster\s+\/\/ Pick blaster \[q2l\]$/m)
+
+    // Two entries, one key each - and neither line ended up unowned in an "Other binds" section,
+    // which is what the missing marker would have cost.
+    expect(profile2.actions!.map((entry) => [entry.name, slotsOf(entry)])).toEqual([
+      ['Pick blaster', ['j']],
+      ['Pick shotgun', ['k']],
+    ])
+    expect(renderProfileFile(profile2)).not.toContain('Other binds')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Adversarial mangling: hand-corrupt the rendered text, re-import, and confirm
+// no line is dropped, nothing throws, and a warning is produced (not silence).
+// ---------------------------------------------------------------------------
 
 /** Counts every physically importable config line - used to confirm a mangled variant still
  * imports "no config line dropped" (every cvar/bind/alias survives as *something*, even if its
@@ -430,6 +557,77 @@ function countConfigLines(result: {
   )
 }
 
+/**
+ * "No config line is silently lost", asserted end to end rather than by counting: restores the
+ * parsed result and checks that every `bind` and `alias` line the mangled file still carried
+ * reappears in the file the restored profile *re-renders*.
+ *
+ * That is the strictest form of the claim story 050 D8 has to make. `countConfigLines` only says
+ * the parser still saw the line; this says the line also survived reconstruction - either owned by
+ * an entry, or unowned in an `Other binds` section, or as an alias 041's inference recovered. A
+ * mangled tag may legitimately cost a line its *attribution* (the entry row it belonged to); it may
+ * never cost the line itself, which is exactly the "costs the entry, never the bind" contract
+ * `profile-restore.ts`'s doc comment states.
+ *
+ * Not byte-identity: a hand-mangled file is not expected to be a fixed point (the whole point of
+ * the mangle is that something in it is now different from what the writer would write).
+ */
+function expectEveryLineSurvivesRerender(
+  result: Awaited<ReturnType<typeof reimport>>,
+  rendered: string,
+  /** Alias names this case *knowingly* loses, each one named here so a loss is always a statement
+   * in the test source rather than a gap in what it checks. Only the truncated-tag case below
+   * passes one; see there for the defect it records. */
+  knownLostAliases: readonly string[] = [],
+): void {
+  for (const [key, command] of Object.entries(result.binds)) {
+    expect(rendered, `bind ${key} "${command}" is missing from the re-render`).toMatch(
+      new RegExp(`^bind\\s+${escapeRegExp(key)}\\s+"?${escapeRegExp(command)}"?`, 'm'),
+    )
+  }
+  for (const alias of result.aliases) {
+    if (knownLostAliases.includes(alias.name)) {
+      // Held to the *opposite* assertion instead of skipped, so this list can never quietly outlive
+      // the defect that justifies it.
+      expect(rendered, `alias ${alias.name} was expected to be lost, but survived`).not.toMatch(
+        new RegExp(`^alias\\s+${escapeRegExp(alias.name)}\\s`, 'm'),
+      )
+      continue
+    }
+    expect(rendered, `alias ${alias.name} is missing from the re-render`).toMatch(
+      new RegExp(`^alias\\s+${escapeRegExp(alias.name)}\\s`, 'm'),
+    )
+  }
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** One render -> parse -> restore pass over hand-mangled `text`, plus the profile that restore
+ * rebuilds (same field mapping as `reimportProfile`, minus the render the caller supplies). */
+async function restoreFromText(text: string): Promise<{
+  result: Awaited<ReturnType<typeof reimport>>
+  restored: ReturnType<typeof restoreProfileParts>
+  rerendered: string
+}> {
+  const result = await reimport(text)
+  const restored = restoreProfileParts(toRestoreInput(result, [], randomUUID))
+  const rerendered = renderProfileFile({
+    id: randomUUID(),
+    name: 'Mangled',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    cvars: result.cvars,
+    binds: result.binds,
+    assignments: [],
+    categories: restored.categories,
+    actions: restored.actions,
+    layers: restored.layers,
+  })
+  return { result, restored, rerendered }
+}
+
 describe('adversarial mangling (story 042 D9 - not accepted on a green diff read)', () => {
   it('two-slot entry with a layer override: deleting the [q2l ...] tail from the base bind line', async () => {
     const profile = findFixture('Two-slot entry with a layer override')
@@ -438,47 +636,70 @@ describe('adversarial mangling (story 042 D9 - not accepted on a green diff read
     expect(mangled).not.toBe(text)
 
     const before = await reimport(text)
-    const after = await reimport(mangled)
+    const { result: after, restored, rerendered } = await restoreFromText(mangled)
     expect(after.binds.i).toBe('use_item')
     expect(countConfigLines(after)).toBe(countConfigLines(before))
 
-    const restored = restoreProfileParts(toRestoreInput(after, [], randomUUID))
     // The bind survives verbatim in `result.binds` (an unowned bind now, since its tag - the only
     // thing that could have attributed it to the "Use item" entry - is gone): no config line is
     // lost. The entry itself is rebuilt from its alias line, and recovers a key slot ONLY through
     // `restoreModifierSlots`' unrelated ALT-layer path (its `u`/ALT override still names this
-    // entry's `bindValueFor`) - `key: 'i'` is genuinely gone, degraded to "no attribution", exactly
-    // the "costs the entry, never the bind" contract `profile-restore.ts`'s own doc comment states.
+    // entry's `bindValueFor`) - the `i` slot is genuinely gone, degraded to "no attribution",
+    // exactly the "costs the entry, never the bind" contract `profile-restore.ts`'s doc comment
+    // states.
     const entry = restored.actions.find((a) => a.name === 'Use item')
     expect(entry).toBeDefined()
-    expect(entry!.key).not.toBe('i')
-    expect(entry!.key === 'u' || entry!.secondaryKey === 'u').toBe(true)
+    expect(slotsOf(entry!)).toEqual(['ALT+u'])
+    expectEveryLineSurvivesRerender(after, rerendered)
   })
 
-  it('two-slot-two-modifier entry: truncating the alias line\'s tag mid-way ([q2l e=)', async () => {
+  it('two-slot-two-modifier entry: truncating an entry line\'s tag mid-way ([q2l)', async () => {
     const profile = findFixture('Two-slot two-modifier entry')
     const text = renderProfileFile(profile)
-    const mangled = text.replace(/\[q2l e=[0-9a-f]+ k=bind\]/, '[q2l e=')
+    // Story 050: this used to truncate `[q2l e=<hex> k=bind]` to `[q2l e=`. With the tag down to its
+    // marker on this entry's alias line, the equivalent mangle is the unclosed marker itself - a
+    // `[q2l` whose `]` the user deleted, which is what a half-finished hand edit leaves behind.
+    const mangled = text.replace(/\[q2l\]/, '[q2l')
     expect(mangled).not.toBe(text)
 
     const before = await reimport(text)
-    const after = await reimport(mangled)
+    const { result: after, restored, rerendered } = await restoreFromText(mangled)
     expect(countConfigLines(after)).toBe(countConfigLines(before))
     expect(after.aliases.some((a) => a.name === 'reload_weapon')).toBe(true)
-
-    const restored = restoreProfileParts(toRestoreInput(after, [], randomUUID))
     expect(restored.warnings.some((w) => w.reason === 'tag-malformed')).toBe(true)
+
+    // KNOWN DEFECT, pre-dates story 050 and out of D8's scope to fix - recorded here rather than
+    // normalised away, because D8's own acceptance ("every adversarial variant loses no config
+    // line") does not hold for this one inherited mangle:
+    //
+    // An `alias` line whose tag is present but *unreadable* is deliberately excluded from
+    // `untaggedAliases` (`profile-restore.ts#groupEntryLines`, with its reason: re-running it
+    // through 041's inference could produce a second, duplicate entry for one alias name). The
+    // parser does keep the line - it is in `result.aliases`, and `tag-malformed` is reported for it,
+    // so the loss is not *silent* - but nothing reconstructs it into an entry, the line is not in
+    // `unrecognized` either (the parser classified it fine), and `render.ts` re-derives alias lines
+    // from `actions` alone. So the next save drops `alias reload_weapon reload` outright, while the
+    // layer override that calls it survives: in-game, `Alt+r` then binds `r` to an alias nothing
+    // defines - the dead-key failure mode `render.ts#buildAnchorLines`' own doc comment argues
+    // against for the keyless-entry case. The entry itself survives from its two anchor lines, with
+    // `commands` degraded from `reload` to the alias *name* the override carries.
+    //
+    // Pre-050 this exact mangle (`[q2l e=<hex> k=bind]` -> `[q2l e=`) behaved the same way; the old
+    // version of this case only counted *parsed* lines, which is why it never showed.
+    expect(restored.actions).toHaveLength(1)
+    expect(restored.actions[0]!.commands).toEqual([{ kind: 'raw', text: 'reload_weapon' }])
+    expectEveryLineSurvivesRerender(after, rerendered, ['reload_weapon'])
   })
 
-  it('collision-forced pair: [q2l v=999] unknown future version in the header', async () => {
-    const profile = findFixture('Colliding entry refs')
+  it('marker-tag-only pair: [q2l v=999] unknown future version in the header', async () => {
+    const profile = findFixture('Marker-tag-only entry pair')
     const text = renderProfileFile(profile)
     const mangled = text.replace(/\[q2l v=\d+\]/, '[q2l v=999]')
     expect(mangled).not.toBe(text)
 
     const after = await reimport(mangled)
     const restored = restoreProfileParts(toRestoreInput(after, [], randomUUID))
-    expect(restored.actions.map((a) => a.name).sort()).toEqual(['Collider A', 'Collider B'])
+    expect(restored.actions.map((a) => a.name).sort()).toEqual(['Pick blaster', 'Pick shotgun'])
     expect(restored.warnings.some((w) => w.reason === 'metadata-version-newer')).toBe(true)
   })
 
@@ -498,25 +719,123 @@ describe('adversarial mangling (story 042 D9 - not accepted on a green diff read
     expect(restored.warnings.filter((w) => w.reason.startsWith('tag-'))).toEqual([])
   })
 
-  it('a bind line tag claiming a kind that contradicts the physical bind line itself', async () => {
-    const profile = findFixture('Two-slot entry with a layer override')
+  // -------------------------------------------------------------------------
+  // Story 050 D8's own four hand-edit passes. The pre-050 fifth case - a tag
+  // claiming `k=alias` on a line the config text says is a bind - is gone with
+  // the field: kind is inferred from the lines now (`entryKindFor`), so there is
+  // no tagged kind left for a hand edit to contradict.
+  // -------------------------------------------------------------------------
+
+  it('story 050: the tag deleted from ONE of an entry\'s three bind lines', async () => {
+    const profile = findFixture('Hand-added third key')
     const text = renderProfileFile(profile)
-    // Claim `k=alias` on the entry's own alias-line tag (the field `resolveKind` actually reads
-    // first, when an alias line exists) while the entry is still physically `bind`-ed on key `i` -
-    // the one shape `resolveKind` explicitly refuses: an alias entry is never bound.
-    const mangled = text.replace(/(alias use_item invuse\s*\/\/[^[]*\[q2l e=[0-9a-f]+ )k=bind/, '$1k=alias')
+    // The middle of three identical-value bind lines loses its whole `// … [q2l …]` tail - the shape
+    // a user produces by deleting a comment they found noisy.
+    const mangled = text.replace(/^(bind g\s+"drop_rockets")\s*\/\/.*$/m, '$1')
     expect(mangled).not.toBe(text)
 
     const before = await reimport(text)
-    const after = await reimport(mangled)
-    expect(after.binds.i).toBe('use_item')
+    const { result: after, restored, rerendered } = await restoreFromText(mangled)
     expect(countConfigLines(after)).toBe(countConfigLines(before))
 
-    const restored = restoreProfileParts(toRestoreInput(after, [], randomUUID))
-    const entry = restored.actions.find((a) => a.key === 'i')
+    // The entry keeps the two slots whose lines still carry the marker; the untagged one is no
+    // longer attributable to it (tag presence is the whole ownership signal since `e` went away), so
+    // it degrades to an unowned bind - and appears as one, rather than vanishing.
+    const entry = restored.actions.find((a) => a.name === 'Drop rockets')
     expect(entry).toBeDefined()
-    expect(entry!.kind).not.toBe('alias')
-    expect(restored.warnings.some((w) => w.reason === 'tag-kind-contradicted')).toBe(true)
+    expect(slotsOf(entry!)).toEqual(['f', 'h'])
+    expect(after.binds.g).toBe('drop_rockets')
+    expect(rerendered).toContain('Other binds')
+    expect(rerendered).toMatch(/^bind g\s+"drop_rockets"$/m)
+    expectEveryLineSurvivesRerender(after, rerendered)
+  })
+
+  it('story 050: the display prose renamed on one of an entry\'s lines splits it into two rows', async () => {
+    const profile = findFixture('Modified slot 1 next to a plain slot 2')
+    const text = renderProfileFile(profile)
+    // The anchor line's prose is renamed to something that is not even a prefix of the entry's other
+    // lines, so none of `matchAnchor`'s three steps (cid - this entry has none - then exact prose,
+    // then a unique prefix relationship) can pair the two any more.
+    const mangled = text.replace('// Reload weapon [q2l key=r mod=ALT]', '// Rocket reload [q2l key=r mod=ALT]')
+    expect(mangled).not.toBe(text)
+
+    const before = await reimport(text)
+    const { result: after, restored, rerendered } = await restoreFromText(mangled)
+    expect(countConfigLines(after)).toBe(countConfigLines(before))
+
+    // Exactly the drift the User accepted in this story's Decisions: two rows, not one, and not a
+    // crash and not a lost line. Splitting is the safe direction to fail in - a wrong *merge* would
+    // silently rewrite which row owns which key.
+    expect(restored.actions.map((a) => a.name).sort()).toEqual(['Reload weapon', 'Rocket reload'])
+    const orphan = restored.actions.find((a) => a.name === 'Rocket reload')!
+    expect(slotsOf(orphan)).toEqual(['ALT+r'])
+    // The `r`/ALT modifier slot is also handed to the original entry by `restoreModifierSlots`' pass
+    // 2, because the layer override that carries it still names that entry's own mirrored value and
+    // the split-off row is no longer recognisable as its owner. That is the known limitation
+    // `restoreModifierSlots` documents (round 2, NEW-4), reached here exactly as it says: only
+    // through a hand-edited file. It is a duplicate *claim* on one key, which the Care tab reports
+    // as a collision - not a lost key and not a lost line, which is what this pass is about.
+    expect(slotsOf(restored.actions.find((a) => a.name === 'Reload weapon')!)).toEqual(['t', 'ALT+r'])
+    expectEveryLineSurvivesRerender(after, rerendered)
+  })
+
+  it('story 050: a forged cat= field on a bind line that should not carry one is ignored', async () => {
+    const profile = findFixture('Hand-added third key')
+    const text = renderProfileFile(profile)
+    // `cat` belongs on a section header, never on a code line. Forged onto one, it must not move the
+    // entry into that category, and must not turn the bind line into a section boundary.
+    const mangled = text.replace(
+      /^(bind f\s+"drop_rockets"\s+\/\/ Drop rockets \[q2l cid=drop-rockets)\]$/m,
+      '$1 cat=weapons]',
+    )
+    expect(mangled).not.toBe(text)
+
+    const before = await reimport(text)
+    const { result: after, restored, rerendered } = await restoreFromText(mangled)
+    expect(countConfigLines(after)).toBe(countConfigLines(before))
+
+    // `cat` is a *known* key, so there is nothing unknown to report - and the reader takes an
+    // entry's category from the section header above it, never from the entry line's own tag, so the
+    // forged field changes nothing at all. Ignored, which is the graceful half of "ignored or
+    // reported": no warning, no crash, no line lost, and no category minted for it.
+    expect(restored.actions).toHaveLength(1)
+    expect(slotsOf(restored.actions[0]!)).toEqual(['f', 'g', 'h'])
+    expect(restored.actions[0]!.categoryId).toBe('drops')
+    expect(restored.categories).toEqual([])
+    expect(restored.warnings.filter((w) => w.reason.startsWith('tag-'))).toEqual([])
+    expectEveryLineSurvivesRerender(after, rerendered)
+  })
+
+  it('story 050: leftover e=/slot= from a hand-edited older file is reported, not obeyed and not fatal', async () => {
+    const profile = findFixture('Hand-added third key')
+    const text = renderProfileFile(profile)
+    // The shape a file saved by a pre-050 build and then hand-edited further has: the two fields
+    // this story removed, still sitting in a tag next to a key this build does know. D1's rule is
+    // that `parseMetaTag` round-trips them into `fields` and names them in `unknownKeys` rather than
+    // failing the tag - asserted here end to end, through restore.
+    const mangled = text.replace(
+      /^(bind f\s+"drop_rockets"\s+\/\/ Drop rockets \[q2l) (cid=drop-rockets)\]$/m,
+      '$1 e=b8df77ed $2 slot=1]',
+    )
+    expect(mangled).not.toBe(text)
+
+    const before = await reimport(text)
+    const { result: after, restored, rerendered } = await restoreFromText(mangled)
+    expect(countConfigLines(after)).toBe(countConfigLines(before))
+
+    const unknown = restored.warnings.filter((w) => w.reason === 'tag-unknown-keys')
+    expect(unknown).toHaveLength(1)
+    expect(unknown[0]!.subject!.split(',').sort()).toEqual(['e', 'slot'])
+    // The line stays the launcher's own (a tag with one unreadable token among good ones still
+    // identifies its line), so the entry keeps all three of its keys - the leftover `slot=1` does
+    // not renumber anything, and the dead `e=` does not regroup anything.
+    expect(restored.actions).toHaveLength(1)
+    expect(slotsOf(restored.actions[0]!)).toEqual(['f', 'g', 'h'])
+    expect(restored.actions[0]!.catalogId).toBe('drop-rockets')
+    expectEveryLineSurvivesRerender(after, rerendered)
+    // And the re-render drops the two dead fields rather than carrying them forward.
+    expect(rerendered).not.toContain('e=b8df77ed')
+    expect(rerendered).not.toContain('slot=')
   })
 })
 

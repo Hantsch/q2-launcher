@@ -26,6 +26,7 @@
  */
 
 import type { ConfigAction } from '@shared/modules/config'
+import { actionKeySlots } from '@shared/config/action-slots'
 import { LEGACY_ACTION_ALIAS_PREFIX, aliasNameFor } from '@shared/config/alias-render'
 import { normalizeBindKey } from '@shared/config/key-names'
 
@@ -94,17 +95,16 @@ export function isMirroredValue(
   }
   const normalizedKey = normalizeBindKey(key)
   const holdsKey = (action: ConfigAction): boolean =>
-    (Boolean(action.key) && normalizeBindKey(action.key!) === normalizedKey) ||
-    (Boolean(action.secondaryKey) && normalizeBindKey(action.secondaryKey!) === normalizedKey)
+    actionKeySlots(action).some(
+      (slot) => Boolean(slot.key) && normalizeBindKey(slot.key) === normalizedKey,
+    )
   return actions.some((action) => holdsKey(action) && bindValueFor(action) === trimmed)
 }
 
-/** The two bindable slots, as the mirrors read them off an action. */
+/** Every bindable slot on `action`, as the mirrors read them - all of `actionKeySlots(action)`, not
+ * just the first two (story 050). */
 function mirrorSlots(action: ConfigAction): { key: string | undefined; modified: boolean }[] {
-  return [
-    { key: action.key, modified: Boolean(action.keyModifier) },
-    { key: action.secondaryKey, modified: Boolean(action.secondaryKeyModifier) },
-  ]
+  return actionKeySlots(action).map((slot) => ({ key: slot.key, modified: Boolean(slot.modifier) }))
 }
 
 /**

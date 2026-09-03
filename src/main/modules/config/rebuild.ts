@@ -431,6 +431,25 @@ async function rebuildMissingProfileRecords(
       continue
     }
 
+    // Story-050 review, finding 3 (third round): the same `entry-alias-duplicate` reports that
+    // become `RefreshedProfileResult.droppedAliases` on the reload path (its own warning toast)
+    // reach this startup path too, and the rebuilt record cannot carry them - there is no renderer
+    // yet, and `ConfigProfile` has no field for a read warning. So they go to the log, which is
+    // the only channel a startup step has: without this the rebuilt profile is simply missing an
+    // entry, with nothing anywhere saying so. Only the duplicate-alias reason is logged, not every
+    // warning - a metadata-stripped file legitimately produces a `tag-missing` per line, and
+    // drowning this one out is how it stayed invisible in the first place.
+    const droppedAliases = read.profile.warnings.flatMap((warning) =>
+      warning.reason === 'entry-alias-duplicate' && warning.subject ? [warning.subject] : [],
+    )
+    if (droppedAliases.length > 0) {
+      deps.log.warn(
+        `config rebuild: ${fileName} defines ${droppedAliases.length} alias name(s) more than ` +
+          `once (${droppedAliases.join(', ')}); only the last definition of each survives, so ` +
+          `profile ${profileId} is rebuilt without the earlier one(s)`,
+      )
+    }
+
     const path = join(deps.baseDir, fileName)
     // A second, best-effort read: the D2 seam (`readFileState`) hands back parsed profile *parts*,
     // not the raw text the header/format recovery above needs, and widening that seam for this one

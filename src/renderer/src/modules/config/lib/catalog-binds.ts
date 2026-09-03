@@ -23,8 +23,9 @@
  * file's own vitest suite can import it without a DOM environment.
  *
  * Story 016 D9: a modifier held during a capture ("Alt+R") is an ordinary
- * property of the row's action - `keyModifier`/`secondaryKeyModifier`, sitting
- * right next to `key`/`secondaryKey` - so `RowState` carries it and `applySlot`
+ * property of the row's action - the `modifier` of the key slot it was captured
+ * for (`ActionKeySlot`, story 050: one entry of `action.keys`, read through
+ * `@shared/config/action-slots`) - so `RowState` carries it and `applySlot`
  * writes it, and that is the whole of the renderer's involvement. Nothing here
  * touches `layers`: main derives every modifier layer's `overrides` from the
  * actions array on save (`applyActionLayerMirror`, called inside `setActions`).
@@ -40,9 +41,10 @@
  * `ControlsTab.tsx`/`LayersPanel.tsx` already use for a fresh action/layer id.
  */
 
+import { actionKeySlots, keySlotAt, withKeySlot } from '@shared/config/action-slots'
 import { commandsForRow, type CatalogRow } from '@shared/config/catalog-rows'
 import type { ModifierTrigger } from '@shared/config/modifier-layers'
-import type { ConfigAction, ConfigCommand } from '@shared/modules/config'
+import type { ActionKeySlot, ConfigAction, ConfigCommand } from '@shared/modules/config'
 
 /**
  * Story 034: the row model itself (`CatalogRow`, the three builders, the
@@ -64,10 +66,11 @@ export interface RowState {
   primary?: string
   secondary?: string
   /** Story 016 D9: the modifier that was held while capturing `primary`, straight off the
-   * action's `keyModifier`. Only ever set when `primary` is - a modifier without a key is not a
-   * binding (see `applySlot`) - so a slot renders `Alt+R` from the pair and `R` without it. */
+   * `modifier` of the action's key slot 0. Only ever set when `primary` is - a modifier without a
+   * key is not a binding (see `applySlot`) - so a slot renders `Alt+R` from the pair and `R`
+   * without it. */
   primaryModifier?: ModifierTrigger
-  /** The `secondary` twin of `primaryModifier` (`action.secondaryKeyModifier`). */
+  /** The `secondary` twin of `primaryModifier` (the `modifier` of key slot 1). */
   secondaryModifier?: ModifierTrigger
   /** Meaningless for a row with no `ammoCommand` - always a boolean anyway, defaulting to true
    * (decision 7), so a caller never has to special-case `undefined`. */
@@ -110,14 +113,22 @@ export function deriveRowState(action: ConfigAction | undefined, row: CatalogRow
     ? action.commands.some((command) => command.kind === 'raw' && command.text === row.ammoCommand)
     : true
 
+  // Story 050: the two editable UI columns ("primary"/"secondary") map onto slots 0/1 of the
+  // action's `keys` array via `@shared/config/action-slots`'s accessor - the sole place this
+  // codebase reads `action.keys`. A slot with an empty `key` (the "cleared but still occupies its
+  // array position" state `applySlot` below writes so a further hand-added slot never shifts) reads
+  // back here as `undefined`, exactly like a slot that was never set at all.
+  const slot0 = keySlotAt(action, 0)
+  const slot1 = keySlotAt(action, 1)
+
   return {
-    primary: action.key,
-    secondary: action.secondaryKey,
+    primary: slot0?.key || undefined,
+    secondary: slot1?.key || undefined,
     // Story 016 D9: a straight passthrough, deliberately not a derivation. The
-    // modifier is stored on the action, so reading it back is a field read -
+    // modifier is stored on the slot, so reading it back is a field read -
     // there is nothing to look up in `layers` and no command text to parse.
-    primaryModifier: action.keyModifier,
-    secondaryModifier: action.secondaryKeyModifier,
+    primaryModifier: slot0?.key ? slot0.modifier : undefined,
+    secondaryModifier: slot1?.key ? slot1.modifier : undefined,
     withAmmo,
     message: lastMessage?.kind === 'message' ? lastMessage.text : '',
     messageChannel: lastMessage?.kind === 'message' ? lastMessage.channel : undefined,
@@ -164,14 +175,17 @@ function lastMessageCommand(commands: ConfigCommand[]): ConfigCommand | undefine
  * it, i.e. once a key or a message exists too. Without either, the `drop`
  * commands the row would carry can never run, so persisting the action would
  * only add a dead alias to the rendered file with nothing pointing at it.
+ *
+ * Story 050: checked across *every* key slot, not just the two editable ones - a hand-added third
+ * slot (only reachable by editing the `.cfg` directly) still counts as "something assigned" and
+ * must keep the action alive even when both editable slots are empty.
  */
 function isEmptyAction(action: ConfigAction): boolean {
-  const hasKey = Boolean(action.key && action.key.trim().length > 0)
-  const hasSecondary = Boolean(action.secondaryKey && action.secondaryKey.trim().length > 0)
+  const hasKey = actionKeySlots(action).some((slot) => slot.key.trim().length > 0)
   const hasMessage = action.commands.some(
     (command) => command.kind === 'message' && command.text.trim().length > 0,
   )
-  return !hasKey && !hasSecondary && !hasMessage
+  return !hasKey && !hasMessage
 }
 
 /** Replace/insert `updated` at `index` (or append when `index < 0`), unless it is now empty, in
@@ -205,6 +219,12 @@ function upsertOrPrune(actions: ConfigAction[], index: number, updated: ConfigAc
  * "both a key and a modifier" rule from ever seeing a half-filled slot.
  * The slot that is *not* being written is left exactly as it was, key and
  * modifier alike.
+ *
+ * Story 050: `primary`/`secondary` are this editor's own vocabulary for slots 0/1 of
+ * `action.keys` (`@shared/config/action-slots`) - the two editable columns the Controls tab keeps.
+ * Written through `withKeySlot`, never `clearKeySlot`: clearing a slot writes an empty-key slot
+ * (`{ key: '' }`) in place rather than removing the array entry, so a slot at index 2+ that arrived
+ * from a hand-edited `.cfg` never shifts position and is never touched by this function.
  */
 export function applySlot(
   actions: ConfigAction[],
@@ -216,14 +236,13 @@ export function applySlot(
   const normalizedKey = key && key.trim().length > 0 ? key : undefined
   const index = actions.findIndex((action) => action.catalogId === row.catalogId)
   const base = index >= 0 ? actions[index]! : freshAction(row)
-  const updated: ConfigAction = {
-    ...base,
-    key: slot === 'primary' ? normalizedKey : base.key,
-    keyModifier: slot === 'primary' ? (normalizedKey ? modifier : undefined) : base.keyModifier,
-    secondaryKey: slot === 'secondary' ? normalizedKey : base.secondaryKey,
-    secondaryKeyModifier:
-      slot === 'secondary' ? (normalizedKey ? modifier : undefined) : base.secondaryKeyModifier,
-  }
+  const slotIndex = slot === 'primary' ? 0 : 1
+  const nextSlot: ActionKeySlot = normalizedKey
+    ? modifier
+      ? { key: normalizedKey, modifier }
+      : { key: normalizedKey }
+    : { key: '' }
+  const updated = withKeySlot(base, slotIndex, nextSlot)
   return upsertOrPrune(actions, index, updated)
 }
 
@@ -257,15 +276,42 @@ export function applyPlainSlot(
   const index = actions.findIndex((action) => action.id === actionId)
   if (index < 0) return [...actions]
   const base = actions[index]!
-  const updated: ConfigAction = {
-    ...base,
-    key: slot === 'primary' ? normalizedKey : base.key,
-    keyModifier: slot === 'primary' ? (normalizedKey ? modifier : undefined) : base.keyModifier,
-    secondaryKey: slot === 'secondary' ? normalizedKey : base.secondaryKey,
-    secondaryKeyModifier:
-      slot === 'secondary' ? (normalizedKey ? modifier : undefined) : base.secondaryKeyModifier,
-  }
+  const slotIndex = slot === 'primary' ? 0 : 1
+  const nextSlot: ActionKeySlot = normalizedKey
+    ? modifier
+      ? { key: normalizedKey, modifier }
+      : { key: normalizedKey }
+    : { key: '' }
+  const updated = withKeySlot(base, slotIndex, nextSlot)
   return actions.map((action, i) => (i === index ? updated : action))
+}
+
+/**
+ * Slot 0 as a **modifier-blind editor** has to write it: the key that editor captured, with the
+ * slot's existing `modifier` carried over untouched.
+ *
+ * `ActionEditor` and `MessageEditor` both edit an entry as a whole (its commands, its message) and
+ * both offer exactly one key field with no modifier capture at all - so neither can show a modifier
+ * and neither may drop one. That makes them the opposite case from `applySlot`/`applyPlainSlot`
+ * above, where the *absence* of a `modifier` argument is a real user statement ("this capture was
+ * plain, clear whatever was there") because that UI does capture modifiers.
+ *
+ * Extracted here (story-050 review, finding 2) because it was inlined in `ActionEditor.save` and
+ * *missing* from `ControlsTab`'s `MessageEditor` save, which wrote a fresh `{ key }` instead: an
+ * entry bound to `Alt+F1` silently became one bound to plain `F1` the moment its message text was
+ * edited, and that plain `F1` then overwrote whatever else held it. One helper, one behaviour, one
+ * place to test it.
+ *
+ * An empty/blank `key` clears the slot the same way `applySlot` does - in place, `{ key: '' }`, so
+ * no later slot moves - and takes the modifier with it, since a modifier with no key is not a
+ * binding.
+ */
+export function editorKeySlot(action: ConfigAction, key: string | undefined): ActionKeySlot {
+  const normalizedKey = key && key.trim().length > 0 ? key : ''
+  const existing = keySlotAt(action, 0)
+  return normalizedKey.length > 0 && existing?.modifier !== undefined
+    ? { key: normalizedKey, modifier: existing.modifier }
+    : { key: normalizedKey }
 }
 
 /**

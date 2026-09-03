@@ -1,0 +1,24 @@
+- 2026-09-03 15:24 · 050 · D1 Tag registry shrink · started
+- 2026-09-03 15:24 · 050 · D1 Tag registry shrink · done
+- 2026-09-03 15:27 · 050 · D2 Arbitrary key slots in the model · started
+- 2026-09-03 15:33 · 050 · D2 Arbitrary key slots in the model · done
+- 2026-09-03 15:34 · 050 · D3 Shared slot consumers array batch · started
+- 2026-09-03 15:34 · 050 · D4 Shared slot consumers primary/secondary batch · started
+- 2026-09-03 15:44 · 050 · D3 Shared slot consumers array batch · done
+- 2026-09-03 15:44 · 050 · D4 Shared slot consumers primary/secondary batch · done
+- 2026-09-03 15:44 · 050 · D5 Renderer on the accessor · started
+- 2026-09-03 16:02 · 050 · D5 Renderer on the accessor · done
+- 2026-09-03 16:02 · 050 · D6 Writer emits the reduced tag · started
+- 2026-09-03 16:20 · 050 · D6 Writer emits the reduced tag · done
+- 2026-09-03 16:20 · 050 · D7 Reader recovers identity and slots · started
+- 2026-09-03 16:47 · 050 · D7 Reader recovers identity and slots · done
+- 2026-09-03 16:47 · 050 · D8 Round-trip re-verification · started
+- 2026-09-03 17:20 · 050 · D8 Round-trip re-verification · done
+- 2026-09-03 17:20 · 050 · fixup: entry-identity collision bug + remaining typecheck fallout · started
+- 2026-09-03 17:52 · 050 · fixup: entry-identity collision bug + remaining typecheck fallout · done
+- 2026-09-03 17:20 · 050 · D9 Format documentation · started
+- 2026-09-03 17:33 · 050 · D9 Format documentation · done
+- 2026-09-03 20:57 · 050 · review-fix cycle 1 (8 findings) · done
+- 2026-09-03 20:57 · 050 · review-fix cycle 2 (1 finding) · done
+- 2026-09-03 20:57 · 050 · review-fix cycle 3 (2 findings) · done
+- 2026-09-03 20:57 · 050 · story complete · done

@@ -2,6 +2,14 @@
  * Constructed `ConfigProfile` fixtures for the story 042 D9 round-trip property test
  * (`src/main/modules/config/round-trip.test.ts`) and its adversarial-mangling pass.
  *
+ * Story 050 D8 re-verified that property against the reduced `[q2l …]` tag and the uncapped
+ * key-slot model: every fixture's keys moved from the four `key`/`secondaryKey`/`keyModifier`/
+ * `secondaryKeyModifier` fields onto `keys: ActionKeySlot[]` (same content, one field), and the
+ * corpus gained the shapes only the new model can express - see the story-050 block further down.
+ * A note on why the field rename mattered more than it looks: while the fixtures still carried the
+ * pre-050 names, every action in this file rendered with *no key slots at all*, so the whole corpus
+ * produced bare header files and the fixed-point test held over near-empty text.
+ *
  * Every fixture is built through `buildFixtureProfile`, which derives `binds`/`layers.overrides`
  * from `actions` the same way the real save path does (`applyActionBindMirror`/
  * `applyActionLayerMirror`) - a fixture whose mirror maps were hand-typed out of sync with its
@@ -102,8 +110,7 @@ export const selfMirroringAliasProfile: ConfigProfile = buildFixtureProfile({
       name: 'weapnext',
       kind: 'bind',
       commands: [{ kind: 'raw', text: 'weapnext' }],
-      key: 'MWHEELUP',
-      keyModifier: 'ALT',
+      keys: [{ key: 'MWHEELUP', modifier: 'ALT' }],
       categoryId: 'weapons',
     }),
   ],
@@ -127,8 +134,7 @@ export const modifierOnlyCatalogueProfile: ConfigProfile = buildFixtureProfile({
       kind: 'bind',
       commands: [{ kind: 'raw', text: '+forward' }],
       catalogId: 'forward',
-      key: 'w',
-      keyModifier: 'ALT',
+      keys: [{ key: 'w', modifier: 'ALT' }],
       categoryId: 'movement',
     }),
   ],
@@ -143,10 +149,7 @@ export const twoSlotTwoModifierProfile: ConfigProfile = buildFixtureProfile({
       name: 'Reload weapon',
       kind: 'bind',
       commands: [{ kind: 'raw', text: 'reload' }],
-      key: 'r',
-      keyModifier: 'ALT',
-      secondaryKey: 't',
-      secondaryKeyModifier: 'CTRL',
+      keys: [{ key: 'r', modifier: 'ALT' }, { key: 't', modifier: 'CTRL' }],
       categoryId: 'weapons',
     }),
   ],
@@ -172,10 +175,7 @@ export const twoSlotTwoModifierLayersReversedProfile: ConfigProfile = (() => {
         name: 'Reload weapon',
         kind: 'bind',
         commands: [{ kind: 'raw', text: 'reload' }],
-        key: 'r',
-        keyModifier: 'ALT',
-        secondaryKey: 't',
-        secondaryKeyModifier: 'CTRL',
+        keys: [{ key: 'r', modifier: 'ALT' }, { key: 't', modifier: 'CTRL' }],
         categoryId: 'weapons',
       }),
     ],
@@ -203,10 +203,7 @@ export const ownAliasBothSlotsModifiedProfile: ConfigProfile = buildFixtureProfi
       kind: 'bind',
       commands: [{ kind: 'raw', text: 'use railgun' }, { kind: 'raw', text: 'say_team rail out' }],
       aliasName: 'rail_combo',
-      key: 't',
-      keyModifier: 'CTRL',
-      secondaryKey: 'r',
-      secondaryKeyModifier: 'ALT',
+      keys: [{ key: 't', modifier: 'CTRL' }, { key: 'r', modifier: 'ALT' }],
       categoryId: 'weapons',
     }),
   ],
@@ -223,10 +220,7 @@ export const ownAliasBothSlotsModifiedAlphabeticalProfile: ConfigProfile = build
       kind: 'bind',
       commands: [{ kind: 'raw', text: 'use railgun' }, { kind: 'raw', text: 'say_team rail out' }],
       aliasName: 'rail_combo',
-      key: 'r',
-      keyModifier: 'ALT',
-      secondaryKey: 't',
-      secondaryKeyModifier: 'CTRL',
+      keys: [{ key: 'r', modifier: 'ALT' }, { key: 't', modifier: 'CTRL' }],
       categoryId: 'weapons',
     }),
   ],
@@ -258,8 +252,7 @@ export const ownAliasAnchoredProfile: ConfigProfile = buildFixtureProfile({
       kind: 'bind',
       commands: [{ kind: 'raw', text: 'weapnext' }],
       aliasName: 'weapnext',
-      key: 'MWHEELUP',
-      keyModifier: 'ALT',
+      keys: [{ key: 'MWHEELUP', modifier: 'ALT' }],
       categoryId: 'weapons',
     }),
   ],
@@ -289,8 +282,7 @@ export const anchorProseWithBannerRuleProfile: ConfigProfile = buildFixtureProfi
       kind: 'bind',
       commands: [{ kind: 'raw', text: '+moveleft' }],
       catalogId: 'moveleft',
-      key: 'q',
-      keyModifier: 'ALT',
+      keys: [{ key: 'q', modifier: 'ALT' }],
       categoryId: 'movement',
     }),
     action({
@@ -298,8 +290,7 @@ export const anchorProseWithBannerRuleProfile: ConfigProfile = buildFixtureProfi
       kind: 'bind',
       commands: [{ kind: 'raw', text: '+moveright' }],
       catalogId: 'moveright',
-      key: 'x',
-      keyModifier: 'ALT',
+      keys: [{ key: 'x', modifier: 'ALT' }],
       categoryId: 'movement',
     }),
   ],
@@ -343,7 +334,7 @@ export const pressReleaseAndEmptyAliasProfile: ConfigProfile = buildFixtureProfi
       kind: 'alias',
       commands: [{ kind: 'raw', text: '+speed' }, { kind: 'raw', text: 'cl_run 0' }],
       aliasName: '+slow',
-      key: 'CAPSLOCK',
+      keys: [{ key: 'CAPSLOCK' }],
       categoryId: 'movement',
     }),
     action({
@@ -381,7 +372,7 @@ export const catalogueAndUserEntryProfile: ConfigProfile = buildFixtureProfile({
       name: 'My macro',
       kind: 'bind',
       commands: [{ kind: 'raw', text: 'say hi' }, { kind: 'raw', text: 'wait' }],
-      key: 'g',
+      keys: [{ key: 'g' }],
       categoryId: 'movement',
     }),
     action({
@@ -389,7 +380,7 @@ export const catalogueAndUserEntryProfile: ConfigProfile = buildFixtureProfile({
       kind: 'bind',
       commands: [{ kind: 'raw', text: '+forward' }],
       catalogId: 'forward',
-      key: 'w',
+      keys: [{ key: 'w' }],
       categoryId: 'movement',
     }),
   ],
@@ -406,7 +397,7 @@ export const forgedCategoryNameProfile: ConfigProfile = buildFixtureProfile({
       kind: 'bind',
       commands: [{ kind: 'raw', text: '+moveup' }],
       catalogId: 'moveup',
-      key: 'SPACE',
+      keys: [{ key: 'SPACE' }],
       categoryId: 'forged-cat',
     }),
   ],
@@ -424,7 +415,7 @@ export const latin1CategoryNameProfile: ConfigProfile = buildFixtureProfile({
       kind: 'bind',
       commands: [{ kind: 'raw', text: '+back' }],
       catalogId: 'back',
-      key: 's',
+      keys: [{ key: 's' }],
       categoryId: 'latin1-cat',
     }),
   ],
@@ -439,36 +430,71 @@ export const sneakyDisplayNameProfile: ConfigProfile = buildFixtureProfile({
       name: 'Say // hello ] world',
       kind: 'bind',
       commands: [{ kind: 'raw', text: 'say hello' }],
-      key: 'y',
+      keys: [{ key: 'y' }],
       categoryId: 'movement',
     }),
   ],
 })
 
 /**
- * Two entries whose `e` hash prefixes are forced to collide: `render.ts#buildEntryRefs` extends a
- * later-sorted id by one more FNV-1a round whenever the plain 8-hex ref is already taken. Two ids
- * chosen so the base story 042 collision path is exercised directly - the ids below are literal,
- * pinned strings (not random) chosen because their plain FNV-1a-32 refs are equal; see
- * `round-trip.test.ts` for the assertion that this fixture really does collide (if it did not,
- * `buildEntryRefs` would still be correct, just untested for this path - the test itself checks the
- * two rendered `e=` values differ in length).
+ * Two same-shaped entries in one category, each with one plain key and no catalogue link - so both
+ * of their lines carry the bare `[q2l]` **marker tag** and nothing else, and the pair only stays two
+ * entries because their bind *values* differ (`groupEntryLines`' key space, story 050).
+ *
+ * This fixture used to be about something that no longer exists: two ids whose FNV-1a-32 `e` refs
+ * were forced to collide, pinning `render.ts#buildEntryRefs`' tie-break. Story 050 deleted `e` and
+ * the whole ref machinery with it, so the pinned ids, the collision and the "the two rendered `e=`
+ * values differ in length" assertion in `round-trip.test.ts` all went with them. It is kept (under
+ * its new name) rather than deleted because the shape is still worth a corpus slot: it is the
+ * smallest profile in which two entries have to be told apart with no field at all to tell them
+ * apart by, which is exactly what identity-from-the-config-text has to get right.
  */
-export const collidingEntryRefsProfile: ConfigProfile = (() => {
-  // Found by brute-force search over random UUIDs (see this D's report): these two ids really do
-  // share one FNV-1a-32 hash (`fnv1a32('e17589a8-df2e-4ad4-81cb-7ebed4895ffa') ===
-  // fnv1a32('027b4af5-d95e-4c04-9382-35e4039568cd')`), so `buildEntryRefs`'s tie-break
-  // (`entryRefHex`, second round) is genuinely exercised rather than merely plausible.
-  const idA = 'e17589a8-df2e-4ad4-81cb-7ebed4895ffa'
-  const idB = '027b4af5-d95e-4c04-9382-35e4039568cd'
-  return buildFixtureProfile({
-    name: 'Colliding entry refs',
-    actions: [
-      { id: idA, categoryId: 'movement', name: 'Collider A', kind: 'bind', commands: [{ kind: 'raw', text: 'say a' }], key: 'j' },
-      { id: idB, categoryId: 'movement', name: 'Collider B', kind: 'bind', commands: [{ kind: 'raw', text: 'say b' }], key: 'k' },
-    ],
-  })
-})()
+export const markerTagOnlyPairProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Marker-tag-only entry pair',
+  actions: [
+    // Deliberately not a `say`/`say_team` body: `entryKindFor` reads one of those back as a
+    // `kind: 'message'` entry, which would make this fixture about kind inference instead.
+    action({ name: 'Pick blaster', kind: 'bind', commands: [{ kind: 'raw', text: 'use blaster' }], keys: [{ key: 'j' }] }),
+    action({ name: 'Pick shotgun', kind: 'bind', commands: [{ kind: 'raw', text: 'use shotgun' }], keys: [{ key: 'k' }] }),
+  ],
+})
+
+/**
+ * An **aliasless** entry ordered *before* an alias-backed one inside the same category (story-050
+ * review, finding 3).
+ *
+ * `Attack` is a continuous catalogue row, so it mirrors as its own bare `+attack` and gets no alias
+ * line at all; `SSG + SG` gets one. The rendered file therefore holds a `Aliases: Weapons` section
+ * with only the second entry's line in it, and a `Binds: Weapons` section whose *first* line belongs
+ * to the first entry (`compareOwnedBinds` sorts by the owning action's index). Reading that back by
+ * "alias lines first" put the two entries in the opposite order, and the next render swapped the two
+ * bind lines - a byte difference on a file nobody had edited, which is precisely what this corpus
+ * exists to catch. Nothing but the entry order distinguishes this fixture from a healthy one, which
+ * is why it needs its own slot.
+ */
+export const aliaslessBindBeforeAliasProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Aliasless entry before an alias-backed one',
+  actions: [
+    action({
+      name: 'Attack',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: '+attack' }],
+      catalogId: 'weapon:attack',
+      keys: [{ key: 'MOUSE1' }],
+      categoryId: 'weapons',
+    }),
+    action({
+      name: 'SSG + SG',
+      kind: 'bind',
+      commands: [
+        { kind: 'raw', text: 'use super shotgun' },
+        { kind: 'raw', text: 'use shotgun' },
+      ],
+      keys: [{ key: 'q' }],
+      categoryId: 'weapons',
+    }),
+  ],
+})
 
 /** A hold layer (`+x`/`-x` dispatch), triggered by ALT. */
 export const holdLayerProfile: ConfigProfile = buildFixtureProfile({
@@ -478,7 +504,7 @@ export const holdLayerProfile: ConfigProfile = buildFixtureProfile({
       name: 'Drop rockets',
       kind: 'bind',
       commands: [{ kind: 'raw', text: 'drop rockets' }],
-      key: '1',
+      keys: [{ key: '1' }],
       categoryId: 'drops',
     }),
   ],
@@ -502,7 +528,7 @@ export const toggleLayerNoTriggerProfile: ConfigProfile = buildFixtureProfile({
       name: 'Zoom target',
       kind: 'bind',
       commands: [{ kind: 'raw', text: 'zoom_in' }],
-      key: '2',
+      keys: [{ key: '2' }],
       categoryId: 'weapons',
     }),
   ],
@@ -530,9 +556,140 @@ export const layeredTwoSlotEntryProfile: ConfigProfile = buildFixtureProfile({
       name: 'Use item',
       kind: 'bind',
       commands: [{ kind: 'raw', text: 'invuse' }],
-      key: 'i',
-      secondaryKey: 'u',
-      secondaryKeyModifier: 'ALT',
+      keys: [{ key: 'i' }, { key: 'u', modifier: 'ALT' }],
+      categoryId: 'weapons',
+    }),
+  ],
+})
+
+// ---------------------------------------------------------------------------
+// Story 050: the shapes the reduced tag and the uncapped key-slot model added.
+// Slot identity is file order now, so every one of these is a statement about
+// what the *text* says rather than about what a `slot=` field claimed.
+// ---------------------------------------------------------------------------
+
+/**
+ * Story 050 AC3: a **hand-added third key**. Three plain slots on one catalogue-backed entry, which
+ * renders as three `bind` lines all running the same value - the shape a user produces by copying an
+ * entry's `bind` line in Notepad and changing the key.
+ *
+ * Nothing in the file says "three": the third line is a third key purely because it is the third
+ * claim in file order (`buildEntry`'s appending claims), and the cap of two the model had before
+ * this story is what would have turned it into a dropped key or a conflict warning. Three plain
+ * slots and not "two plain plus a modified one" on purpose - a modified slot's claim comes off an
+ * anchor line, which is a different code path (`layeredThirdModifiedSlotProfile` below covers that
+ * one).
+ */
+export const handAddedThirdKeyProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Hand-added third key',
+  actions: [
+    action({
+      name: 'Drop rockets',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'drop rockets' }],
+      catalogId: 'drop-rockets',
+      keys: [{ key: 'g' }, { key: 'h' }, { key: 'f' }],
+      categoryId: 'drops',
+    }),
+  ],
+})
+
+/**
+ * The same uncapped-slots statement with a **modified** third slot: two plain keys with `bind` lines
+ * plus a third slot carrying CTRL, which has no bind line at all and comes back off its own anchor
+ * line. Both claim paths (bind lines, then anchors) therefore run on one entry at once, in that
+ * order, which is exactly the order `buildEntry` documents.
+ */
+export const layeredThirdModifiedSlotProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Third slot carries a modifier',
+  actions: [
+    action({
+      name: 'Rail zoom',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'use railgun' }, { kind: 'raw', text: 'zoom_in' }],
+      keys: [{ key: 'j' }, { key: 'k' }, { key: 'l', modifier: 'CTRL' }],
+      categoryId: 'weapons',
+    }),
+  ],
+})
+
+/**
+ * The story's own documented **slot swap**: a *modified* slot at index 0 next to a *plain* slot at
+ * index 1.
+ *
+ * The plain slot has a real `bind` line; the modified one has only an anchor line, and claims are
+ * taken bind-lines-first (`buildEntry`), so this entry comes back with its two slots exchanged -
+ * `keys[0]` is the plain `t`, `keys[1]` the modified `r`/ALT. Accepted and documented in
+ * `docs/systems/profile-file-format.md`: nothing is lost (both keys and both modifiers survive) and
+ * the file re-renders byte-identically, because the writer derives the bind line and the anchor from
+ * the slots' *contents*, not from their positions - so the second render is a fixed point even
+ * though the intra-entry order flipped once on the way there.
+ *
+ * No `catalogId` deliberately: that makes the anchor's link to its entry the *prose* path of
+ * `matchAnchor` rather than the `cid` shortcut, which is the path the story's accepted "rename one
+ * line's prose and the two drift apart" consequence lives on (see `round-trip.test.ts`'s
+ * adversarial pass).
+ */
+export const modifiedFirstPlainSecondProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Modified slot 1 next to a plain slot 2',
+  actions: [
+    action({
+      name: 'Reload weapon',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'reload' }],
+      keys: [{ key: 'r', modifier: 'ALT' }, { key: 't' }],
+      categoryId: 'weapons',
+    }),
+  ],
+})
+
+/**
+ * Story 050 AC4, in its purest form: **two `bind` lines running one command**, with no alias line
+ * anywhere to pair them through.
+ *
+ * A catalogue-backed continuous row mirrors as its own bare `+forward` (story 034/038 drops the
+ * alias line), so the file holds nothing but two `bind` lines with the same value - and they come
+ * back as one entry with two keys because the *value* is the group key (`groupEntryLines`), with no
+ * `e` ref and no `slot` field involved. Before story 050 those same two lines were paired by their
+ * shared `e=` hash; this fixture is the proof that removing it changed nothing about the outcome.
+ */
+export const twoBindLinesOneValueProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Two bind lines on one value',
+  actions: [
+    action({
+      name: 'Forward',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: '+forward' }],
+      catalogId: 'forward',
+      keys: [{ key: 'w' }, { key: 'UPARROW' }],
+      categoryId: 'movement',
+    }),
+  ],
+})
+
+/**
+ * An **anchor-only entry with two anchors**: an entry whose alias line is dropped as a self-mirror
+ * (story 039) and *both* of whose slots are modified, so the file contains no `bind` line and no
+ * `alias` line for it at all - its entire presence is two comment-only anchor lines plus the two
+ * layer overrides they name.
+ *
+ * `ownAliasAnchoredProfile` above is the one-anchor version of this shape. The second anchor is what
+ * this fixture adds, and it is a different code path: the first anchor matches no group (there is no
+ * config line for this entry to have created one) and therefore *creates* the group under an
+ * `anchor:<file>:<line>` key, and the second one has to find that group by prose to become its
+ * second slot rather than a second Controls-tab row. Both anchors carry `an=weapnext`, which per the
+ * registry decision is why `an` survived the tag cut at all: an anchor-only entry has no line whose
+ * *code* could spell its alias name.
+ */
+export const anchorOnlyTwoSlotProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Anchor-only entry with two anchors',
+  actions: [
+    action({
+      name: 'Next weapon',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'weapnext' }],
+      aliasName: 'weapnext',
+      keys: [{ key: 'MWHEELUP', modifier: 'ALT' }, { key: 'MWHEELDOWN', modifier: 'CTRL' }],
       categoryId: 'weapons',
     }),
   ],
@@ -574,14 +731,14 @@ export const orphanedCategoryProfiles: ConfigProfile[] = (
         name: 'Still here',
         kind: 'alias',
         commands: [{ kind: 'raw', text: '+forward' }],
-        key: 'w',
+        keys: [{ key: 'w' }],
         categoryId: 'kept-cat',
       }),
       action({
         name: 'Orphaned entry',
         kind: 'alias',
         commands: [{ kind: 'raw', text: 'say orphaned' }],
-        key: 'o',
+        keys: [{ key: 'o' }],
         categoryId: 'a-category-that-was-deleted',
       }),
     ],
@@ -602,12 +759,56 @@ export const sectionHeaderStyleProfiles: ConfigProfile[] = (
         kind: 'bind',
         commands: [{ kind: 'raw', text: '+attack' }],
         catalogId: 'attack',
-        key: 'MOUSE1',
+        keys: [{ key: 'MOUSE1' }],
         categoryId: 'weapons',
       }),
     ],
   }),
 )
+
+/**
+ * Two entries in **one** category whose different display names slug to the **same** derived alias
+ * name (story-050 review, finding 4, second round).
+ *
+ * `Fire` and `fire!` both derive `fire` (`alias-render.ts#derivedAliasName` - a sign-free slug of
+ * the display name with no id suffix, story 039's own decision: the name is the user's contract with
+ * whatever binding calls it, so a collision is *reported*, never silently renamed), so the writer
+ * emits `alias fire use blaster` and `alias fire use railgun` under one `Aliases: Combat` banner.
+ * The engine keeps only the last of those two definitions and so does every reader here, which means
+ * `Fire`'s commands are gone from any profile read back out of this file. Nothing downstream of the
+ * fold can even tell that happened - hence the `entry-alias-duplicate` warning being raised by the
+ * fold itself (`main/modules/config/file-source.ts#foldConfig`).
+ *
+ * **Deliberately not in `ROUND_TRIP_FIXTURES`.** This is the one shape the launcher can write that
+ * is genuinely lossy, so the D8 fixed-point property (`render(parse(render(p))) === render(p)`) does
+ * not and must not hold for it - a second render has only one `fire` entry left to write. It is a
+ * fixture rather than an inline literal because two test files drive it: the unit pass over the fold
+ * (`file-source.test.ts`) and the end-to-end pass over the real save/reload pipeline
+ * (`file-source-pipeline.test.ts`).
+ *
+ * Both entries are `kind: 'bind'` with a plain key each, so the file carries the full shape: two
+ * colliding `alias` lines *and* the two `bind fire` mirror lines that point at them.
+ */
+export const collidingAliasNameProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Colliding derived alias names',
+  categories: [{ id: 'combat', name: 'Combat' }],
+  actions: [
+    action({
+      name: 'Fire',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'use blaster' }],
+      keys: [{ key: 'q' }],
+      categoryId: 'combat',
+    }),
+    action({
+      name: 'fire!',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'use railgun' }],
+      keys: [{ key: 'r' }],
+      categoryId: 'combat',
+    }),
+  ],
+})
 
 /** Every fixture the D9 round-trip property test iterates over. */
 export const ROUND_TRIP_FIXTURES: ConfigProfile[] = [
@@ -626,7 +827,13 @@ export const ROUND_TRIP_FIXTURES: ConfigProfile[] = [
   forgedCategoryNameProfile,
   latin1CategoryNameProfile,
   sneakyDisplayNameProfile,
-  collidingEntryRefsProfile,
+  markerTagOnlyPairProfile,
+  aliaslessBindBeforeAliasProfile,
+  handAddedThirdKeyProfile,
+  layeredThirdModifiedSlotProfile,
+  modifiedFirstPlainSecondProfile,
+  twoBindLinesOneValueProfile,
+  anchorOnlyTwoSlotProfile,
   holdLayerProfile,
   toggleLayerNoTriggerProfile,
   layeredTwoSlotEntryProfile,

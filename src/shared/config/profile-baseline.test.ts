@@ -44,7 +44,7 @@ function fullProfile(): ConfigProfile {
         name: 'gg',
         kind: 'message',
         commands: [{ kind: 'message', channel: 'say', text: 'gg' }],
-        key: 'F1',
+        keys: [{ key: 'F1' }],
       },
     ],
     writeUnbindall: false,
@@ -85,7 +85,7 @@ describe('captureBaseline', () => {
           name: 'gg',
           kind: 'message',
           commands: [{ kind: 'message', channel: 'say', text: 'gg' }],
-          key: 'F1',
+          keys: [{ key: 'F1' }],
         },
       ],
       writeUnbindall: false,
@@ -125,7 +125,7 @@ describe('captureBaseline', () => {
     live.categories![0]!.name = 'Renamed'
     live.categories!.pop()
     live.actions![0]!.commands[0]!.text = 'bg'
-    live.actions![0]!.key = 'F2'
+    live.actions![0]!.keys = [{ key: 'F2' }]
     live.actions!.length = 0
     live.unrecognized![0]!.text = 'changed'
     live.unrecognized!.push({ file: 'x.cfg', line: 1, text: 'more' })

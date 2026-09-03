@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
+import { keySlotAt, withKeySlot } from '@shared/config/action-slots'
 import type { ConfigAction, ConfigCommand } from '@shared/modules/config'
 import { sanitizeCommand } from '@shared/config/alt-layers'
 import {
@@ -19,6 +20,7 @@ import { Field, Input, Select } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'
 import { Badge } from '../../../components/ui/primitives'
 import { getAliasSuggestions } from '../lib/alias-suggestions'
+import { editorKeySlot } from '../lib/catalog-binds'
 import { resolveQuakeKeyName } from '../lib/keyboard-layout'
 
 /**
@@ -93,7 +95,10 @@ export function ActionEditor({
     initialMessage?.channel ?? 'say_team',
   )
   const [messageText, setMessageText] = useState(initialMessage?.text ?? '')
-  const [key, setKey] = useState<string | undefined>(action.key)
+  // Story 050: this editor only ever edits slot 0 of `action.keys` (there is no secondary-slot
+  // capture here, unlike the Controls grid's `BindSlot`s) - `@shared/config/action-slots`'s
+  // accessor is the sole place `keys` is read/written.
+  const [key, setKey] = useState<string | undefined>(keySlotAt(action, 0)?.key || undefined)
   const [capturingKey, setCapturingKey] = useState(false)
   const [filter, setFilter] = useState('')
   const [rawCommandText, setRawCommandText] = useState('')
@@ -210,21 +215,28 @@ export function ActionEditor({
   }
 
   const save = (): void => {
-    onSave({
-      ...action,
-      commands: effectiveCommands,
-      // An alias entry has no key slot at all (D5) - all four key-related
-      // fields are forced to `undefined` here (review fix, Finding 5: the
-      // `...action` spread above would otherwise still carry through a
-      // secondary key/modifier the row happened to hold before it became an
-      // alias) rather than trusting whatever the row/local state happen to
-      // hold, so this editor can never be the path that leaves stale key data
-      // on an alias even if some arrived pre-set.
-      key: isAlias ? undefined : key && key.trim().length > 0 ? key : undefined,
-      ...(isAlias
-        ? { secondaryKey: undefined, keyModifier: undefined, secondaryKeyModifier: undefined }
-        : {}),
-    })
+    const withCommands: ConfigAction = { ...action, commands: effectiveCommands }
+
+    if (isAlias) {
+      // An alias entry has no key slot at all (D5) - every slot is dropped here (review fix,
+      // Finding 5: the `...action` spread above would otherwise still carry through key slots the
+      // row happened to hold before it became an alias) rather than trusting whatever the row/local
+      // state happen to hold, so this editor can never be the path that leaves stale key data on an
+      // alias even if some arrived pre-set.
+      const { keys: _keys, ...rest } = withCommands
+      onSave(rest)
+      return
+    }
+
+    // Only slot 0 is ever written by this editor (there is no secondary-slot capture here) - its
+    // existing modifier, if any, is preserved untouched, matching this editor's pre-050 behaviour
+    // of never itself setting/clearing a modifier. Any further slot (1+) the action already carries
+    // is passed straight through by `withKeySlot`, untouched.
+    //
+    // Story-050 review, finding 2: that preservation lives in `editorKeySlot` now rather than
+    // inline here, because `MessageEditor`'s save path needs the identical rule and had been
+    // written without it - one helper, one behaviour, one place it is tested.
+    onSave(withKeySlot(withCommands, 0, editorKeySlot(action, key)))
   }
 
   return (

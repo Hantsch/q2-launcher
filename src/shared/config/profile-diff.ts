@@ -42,6 +42,7 @@ import type {
   ConfigProfile,
   UnrecognizedConfigLine,
 } from '../modules/config'
+import { actionKeySlots } from './action-slots'
 import type { AltLayer } from './alt-layers'
 import { findCvar } from './cvar-catalog'
 import type { CvarDef } from './cvar-facts'
@@ -360,12 +361,12 @@ function describeSlot(key: string | undefined, modifier: string | undefined): st
 }
 
 /** An action as one legible line: `Quick gg (message) F1: say gg`. Deliberately free of prose -
- * every word in it is profile data - so nothing here needs translating. */
+ * every word in it is profile data - so nothing here needs translating. All of an action's key
+ * slots are listed, in `keys` order, not just the first two (story 050). */
 function describeAction(action: ConfigAction): string {
-  const slots = [
-    describeSlot(action.key, action.keyModifier),
-    describeSlot(action.secondaryKey, action.secondaryKeyModifier),
-  ].filter((slot) => slot.length > 0)
+  const slots = actionKeySlots(action)
+    .map((slot) => describeSlot(slot.key, slot.modifier))
+    .filter((slot) => slot.length > 0)
   const head = `${action.name || action.id} (${action.kind})`
   const keys = slots.length > 0 ? ` ${slots.join(', ')}` : ''
   const alias = action.aliasName ? ` [${action.aliasName}]` : ''

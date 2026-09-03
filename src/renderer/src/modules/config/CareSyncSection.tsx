@@ -10,6 +10,7 @@ import { useLauncher } from '../../store/useLauncher'
 import { ConfigConflictDialog } from './ConfigConflictDialog'
 import { getProfileSyncState, refreshProfilesFromFiles, saveConfigProfile, writeConfigProfile } from './client'
 import type { CareSyncStatus } from './lib/care-summary'
+import { adoptProfileFromFile } from './lib/file-source-refresh'
 import {
   canonicalOutOfSyncReason,
   toCareSyncRows,
@@ -139,24 +140,24 @@ export function CareSyncSection({
    * `ConfigConflictDialog.takeFile`'s own doc comment on why this is a fresh read rather than a
    * replay of anything already shown: the file could in principle have moved again since this
    * section's last fetch.
+   *
+   * The adopt itself goes through `adoptProfileFromFile` (`lib/file-source-refresh.ts`), shared with
+   * the conflict dialog's "Take the file" - story-050 review, finding 1: what an adopt owes the user
+   * (its error toast, and the dropped-aliases warning when the file defined one alias name twice)
+   * belongs to that one function, not to each button that triggers one.
    */
   const handleReload = async (): Promise<void> => {
     setCanonicalBusy('reload')
-    const outcome = await refreshProfilesFromFiles({ profileId: profile.id })
+    const result = await adoptProfileFromFile({
+      profileId: profile.id,
+      refresh: refreshProfilesFromFiles,
+      pushToast,
+    })
     setCanonicalBusy(null)
 
-    if (!outcome.ok) {
-      pushToast({
-        level: 'error',
-        messageKey: outcome.error.key,
-        timeoutMs: 0,
-        ...(outcome.error.params ? { params: outcome.error.params } : {}),
-      })
-      return
-    }
-    const entry = outcome.value.find((item) => item.profileId === profile.id)
-    if (entry?.outcome === 'adopted') {
-      onProfileUpdated(entry.profile)
+    if (result.kind === 'failed') return
+    if (result.kind === 'adopted') {
+      onProfileUpdated(result.profile)
     }
     // Whatever the outcome - adopted, or the rare race where the file moved again between this
     // section's last fetch and this click (unchanged/missing/unparseable/readError) - re-fetch so

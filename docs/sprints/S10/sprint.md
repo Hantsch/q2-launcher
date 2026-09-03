@@ -1,7 +1,7 @@
 ---
 sprint: S10
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S10
 milestone: Config, round two
 ---
 
@@ -18,7 +18,7 @@ launcher understands and can render, not opaque alias rows (045).
 
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
-- [ ] 050 — The metadata tag carries only what the file cannot say
+- [x] 050 — The metadata tag carries only what the file cannot say
 - [ ] 045 — Toggles, press/release pairs and wait chains as first-class entries
 
 ## Notes
