@@ -367,21 +367,32 @@ reference doc of its own: [docs/systems/profile-file-format.md](systems/profile-
   before/after view of what a Save would write, and a discard that returns the profile to its last
   saved state without touching the file. Cut into `docs/sprints/S09`.
 
-`docs/sprints/S09` **planned (2026-09-02)** — 048 → 049 → 044. Goal: the file states the whole
-intended configuration, the unsaved-changes state story 043 introduced becomes legible, and the
-alias name space gets one surface. 048 → 049 is a hard dependency (049's row indicator and its
-"unsaved" baseline both fall out of where 048 lands the always-write); 044 goes last as the
-independent, cuttable one. All three carry parked decisions for `/sprint`'s clarification round —
-which default a shared-across-engines file writes for an untouched cvar, where the always-write
-happens, the unsaved baseline, text diff vs. structured change list, and where 044's surface
-lives. **045 was deliberately held back** to S10 rather than filling a fourth slot behind three
-large stories — the same call S04 made with 022–025.
+`docs/sprints/S09` **built, acceptance pending (2026-09-03)** — 048 → 049 → 044, in that build
+order. **All three done**: `npm run build`/`typecheck` green, `npm test` green (1765 tests, two
+known-flaky failures unrelated to this sprint's diff and pre-dating it — `src/main/ipc/
+index.test.ts`'s module-registration-order flake, untouched since story 036, and
+`import-reader.test.ts`'s pre-existing 512-file fan-out timeout), live `npm run ui:verify` clean (0
+axe violations at every impact level, 27/27 screens, 54/54 screenshots, including the new
+`config-aliases` screen). See `docs/sprints/S09/review.md` and `docs/sprints/S09/testplan.md` for
+the manual acceptance pass.
 
-Suggested order: 038 alone, then 039 → 040 → 041 → 042 → 043 as one chain, with 044 after 039 and
-045 after 041. 038–040 are shippable on their own and already answer most of the "my config looks
-machine-generated" complaint; 042/043 are the ones that need a decision round before refine.
-048/049 sit after 043 (they need the authoritative file and the explicit-Save model) and are
-independent of 044/045. After S09, only 045 is left in this milestone.
+048 writes a `set` line for every catalogue cvar on every render (the engine-neutral
+`def.default` for an untouched or engine-unsupported cvar, decided explicitly rather than
+inherited) and removes every "reset/restore to default" affordance (Settings per-row, "Reset
+all", Controls' "Restore defaults") with nothing taking their place — a `story-review-hard` pass
+caught and fixed a real data-loss regression in the new toggle/text-kind default comparison before
+it landed. 049 builds a `ProfileBaseline` snapshot (seeded everywhere `fileHash` already is) and a
+pure diff against it, backing the unsaved-changes bar's new expandable before/after view, a
+Discard that never touches the file, and row indicators re-pointed from "differs from default" to
+"edited and unsaved" — a review pass found and fixed a rename-survives-discard gap. 044 adds a
+fifth "Aliases" tab listing the whole alias name space (authored, generated, layer) off one shared
+reference graph Care was refactored onto, with create/rename/edit/delete, reference/unreferenced
+state, duplicate-name flagging and line-budget warnings — a review pass found and fixed a dead
+layer-owner link and a missed single-command over-budget case.
+
+**045 was deliberately held back** to a following sprint rather than filling a fourth slot behind
+three large stories — the same call S04 made with 022–025. After S09, only 045 is left in this
+milestone.
 
 Open, named in the stories rather than guessed at: the metadata comment format (042), bind grouping
 by keyboard region vs. category (040 — region means moving `KEYBOARD_ROWS`/`ARROW_CLUSTER`/
@@ -466,6 +477,18 @@ machine, and each is a one-line fix in a data table:
   (18 → 22 screens), the same unwired-label defect 037 fixed elsewhere was fixed here too via the
   shared `Field`/`useId()` helper, and the full run stayed at zero critical/serious/moderate/minor
   axe violations with all three added. No named blind spot remains.
+- **S09 found and fixed a real, reproducible harness bug, specific to Windows:** closing an
+  Electron `ui:verify` session leaves its GPU shader-cache directory
+  (`DawnGraphiteCache`/`DawnWebGPUCache` under `userData`) transiently locked with no live process
+  attached — observed durations ranged from under a second up to several minutes under load, so no
+  fixed retry budget could be sized to always win. `writePopulatedFixture`/`writeEmptyFixture` in
+  `scripts/lib/fixture.mjs` now treat that cleanup as best-effort (`rmDirBestEffort`): retry with a
+  budget, then log a warning and continue regardless, since a fixture reseed only actually needs
+  `state.json`/`window-state.json` refreshed — a locked, stale cache leftover is harmless. **Carry-
+  over rule:** if a future `ui:verify` run reports `EPERM`/`EBUSY` on
+  `.ui-verify/fixture/*/userdata`, this is now self-healing — check `fixture.mjs`'s behavior before
+  treating it as an external, unfixable blocker (two build agents lost real time doing exactly that
+  before it was root-caused).
 
 **UX:**
 
