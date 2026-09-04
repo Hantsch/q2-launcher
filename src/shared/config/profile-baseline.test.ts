@@ -124,7 +124,8 @@ describe('captureBaseline', () => {
     live.layers!.push({ id: 'l2', name: 'Ctrl', mode: 'toggle', triggerKey: null, overrides: {} })
     live.categories![0]!.name = 'Renamed'
     live.categories!.pop()
-    live.actions![0]!.commands[0]!.text = 'bg'
+    const firstCommand = live.actions![0]!.commands[0]!
+    if (firstCommand.kind === 'raw' || firstCommand.kind === 'message') firstCommand.text = 'bg'
     live.actions![0]!.keys = [{ key: 'F2' }]
     live.actions!.length = 0
     live.unrecognized![0]!.text = 'changed'

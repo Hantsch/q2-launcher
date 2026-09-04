@@ -6,6 +6,7 @@ import { keySlotAt } from '@shared/config/action-slots'
 import { ROUND_TRIP_FIXTURES } from '@shared/config/fixtures/profiles'
 import { aliasNameFor, renderActionAliasLines } from '@shared/config/alias-render'
 import { ALL_CVARS } from '@shared/config/cvar-catalog'
+import { parseMetaTag } from '@shared/config/profile-metadata'
 import { effectiveSize } from '@shared/config/engine-limits'
 import type { SwitchBindChainInput } from './switch-bind'
 import { renderSwitchBindChain } from './switch-bind'
@@ -80,12 +81,15 @@ function keySlots(...slots: (ActionKeySlot | undefined)[]): ActionKeySlot[] {
  * change to the emitted field order or to the marker's spelling fails these assertions instead of
  * agreeing with the renderer by construction. Field order mirrors `KNOWN_META_KEYS`.
  */
-function entryTag(fields: { cid?: string; an?: string; key?: string; mod?: string } = {}): string {
+function entryTag(
+  fields: { cid?: string; an?: string; key?: string; mod?: string; lbl?: string } = {},
+): string {
   const parts: string[] = []
   if (fields.cid !== undefined) parts.push(`cid=${fields.cid}`)
   if (fields.an !== undefined) parts.push(`an=${fields.an}`)
   if (fields.key !== undefined) parts.push(`key=${fields.key}`)
   if (fields.mod !== undefined) parts.push(`mod=${fields.mod}`)
+  if (fields.lbl !== undefined) parts.push(`lbl=${fields.lbl}`)
   return parts.length > 0 ? `[q2l ${parts.join(' ')}]` : '[q2l]'
 }
 
@@ -2163,10 +2167,129 @@ describe('story 050 D6: the reduced [q2l ...] tag', () => {
         // Positive side of the same check, so a tag that renders no field at all cannot make the
         // assertion above pass by emitting nothing: every key is one the post-050 registry has.
         for (const key of keys) {
-          expect(['v', 'cid', 'an', 'key', 'mod', 'cat', 'layer', 'mode', 'trigger']).toContain(key)
+          // `lbl` (story 045, D4) is the tenth and newest registered key - a toggle/press-release
+          // state's own display label. It joined the list here rather than replacing anything,
+          // which is exactly what "a key addition alone needs no `META_FORMAT_VERSION` bump" means.
+          expect([
+            'v',
+            'cid',
+            'an',
+            'key',
+            'mod',
+            'cat',
+            'layer',
+            'mode',
+            'trigger',
+            'lbl',
+          ]).toContain(key)
         }
       }
     }
+  })
+})
+
+/**
+ * Story 045, D4: a toggle/press-release entry's `lbl` tag field. `buildAliasSections` has to put a
+ * state's own `parts[i].label` on that state's own rendered alias line - never on the dispatch alias
+ * or on a `_p<n>` chunk line - which `entryTag`/`twoPartAliasNames` are what this deliverable added.
+ */
+describe('story 045 D4: toggle/press-release state labels ride the `lbl` tag', () => {
+  const zoom = action({
+    id: 'zoom-lbl',
+    name: 'Zoom',
+    categoryId: 'weapons',
+    kind: 'toggle',
+    catalogId: 'movement:zoom',
+    commands: [],
+    keys: keySlots({ key: 'v' }),
+    parts: [
+      { label: 'In', commands: [{ kind: 'raw', text: 'zoom_fov' }] },
+      { label: 'Out', commands: [{ kind: 'raw', text: 'norm_fov' }] },
+    ],
+  })
+
+  it('puts each state`s label on that state`s own alias line, and neither on the dispatch line', () => {
+    const lines = renderProfileFile(profile({ id: 'zoom-lbl', actions: [zoom] })).split('\n')
+    const commentOf = (prefix: string): string => {
+      const line = lines.find((l) => l.startsWith(prefix))!
+      return line.slice(line.indexOf('// '))
+    }
+
+    expect(commentOf('alias zoom_s1 ')).toBe(`// Zoom ${entryTag({ cid: 'movement:zoom', lbl: 'In' })}`)
+    expect(commentOf('alias zoom_s2 ')).toBe(`// Zoom ${entryTag({ cid: 'movement:zoom', lbl: 'Out' })}`)
+    // Note the trailing space: distinguishes the dispatch line (`alias zoom zoom_s1`) from either
+    // state line (`alias zoom_s1 ...`) - both share the `alias zoom` prefix otherwise.
+    expect(commentOf('alias zoom ')).toBe(`// Zoom ${entryTag({ cid: 'movement:zoom' })}`)
+  })
+
+  it('puts no `lbl` on a chunk line of either half', () => {
+    const longHalf = Array.from({ length: 40 }, (_, i) => ({
+      kind: 'raw' as const,
+      text: `command_number_${i}_padded_to_be_long_enough_to_force_a_chunk_split`,
+    }))
+    const chunked = action({
+      ...zoom,
+      id: 'zoom-lbl-chunked',
+      parts: [
+        { label: 'In', commands: longHalf },
+        { label: 'Out', commands: [{ kind: 'raw', text: 'norm_fov' }] },
+      ],
+    })
+    const lines = renderProfileFile(profile({ id: 'zoom-lbl-chunked', actions: [chunked] })).split(
+      '\n',
+    )
+    const chunkLines = lines.filter((line) => line.startsWith('alias zoom_s1_p'))
+
+    expect(chunkLines.length).toBeGreaterThan(0)
+    for (const line of chunkLines) expect(line).not.toContain('lbl=')
+  })
+
+  it('round-trips a label containing characters the tag grammar escapes', () => {
+    const rawLabel = 'In/Out 100% [x]'
+    const withEscapes = action({
+      ...zoom,
+      id: 'zoom-lbl-escape',
+      parts: [
+        { label: rawLabel, commands: [{ kind: 'raw', text: 'zoom_fov' }] },
+        { label: 'Out', commands: [{ kind: 'raw', text: 'norm_fov' }] },
+      ],
+    })
+    const lines = renderProfileFile(
+      profile({ id: 'zoom-lbl-escape', actions: [withEscapes] }),
+    ).split('\n')
+    const stateLine = lines.find((line) => line.startsWith('alias zoom_s1 '))!
+    const tagStart = stateLine.lastIndexOf('[q2l')
+    const tagText = stateLine.slice(tagStart)
+
+    // The escaped form actually reached the file - space, `%` and `]` are all among the four
+    // characters `escapeMetaValue` percent-encodes, so a byte-identical round trip is not a no-op.
+    expect(tagText).not.toContain(rawLabel)
+    const parsed = parseMetaTag(tagText)
+    expect(parsed.fields.lbl).toBe(rawLabel)
+  })
+
+  it('renders a press/release entry with no labels exactly as D3 already verified - no `lbl` anywhere', () => {
+    const slow = action({
+      id: 'slow-no-lbl',
+      name: 'Slow',
+      categoryId: 'weapons',
+      kind: 'press-release',
+      commands: [],
+      keys: keySlots({ key: 'CTRL' }),
+      parts: [
+        { commands: [{ kind: 'raw', text: 'cl_run 0' }] },
+        { commands: [{ kind: 'raw', text: 'cl_run 1' }] },
+      ],
+    })
+    const lines = renderProfileFile(profile({ id: 'slow-no-lbl', actions: [slow] })).split('\n')
+    const commentOf = (prefix: string): string => {
+      const line = lines.find((l) => l.startsWith(prefix))!
+      return line.slice(line.indexOf('// '))
+    }
+
+    expect(commentOf('alias +slow ')).toBe(`// Slow ${entryTag()}`)
+    expect(commentOf('alias -slow ')).toBe(`// Slow ${entryTag()}`)
+    expect(lines.some((line) => line.includes('lbl='))).toBe(false)
   })
 })
 

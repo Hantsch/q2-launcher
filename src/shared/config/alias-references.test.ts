@@ -221,6 +221,56 @@ describe('actionsWithAliasLine', () => {
 
     expect(kept).toEqual([freeform])
   })
+
+  /**
+   * Story 045, D3: both two-part kinds are always kept. A press/release entry is the case that
+   * would otherwise be dropped - its `bindValueFor` is `+<base>`, not its own alias name, so the
+   * "does anything call it" guard would decide the fate of an entry the user created.
+   */
+  it('keeps an unbound, unreferenced toggle and press/release entry', () => {
+    const zoom = action({
+      id: 't1',
+      kind: 'toggle',
+      name: 'Zoom',
+      parts: [
+        { commands: [{ kind: 'raw', text: 'zoom_fov' }] },
+        { commands: [{ kind: 'raw', text: 'norm_fov' }] },
+      ],
+    })
+    const slow = action({
+      id: 'p1',
+      kind: 'press-release',
+      name: 'Slow',
+      parts: [
+        { commands: [{ kind: 'raw', text: 'cl_forwardspeed 110' }] },
+        { commands: [{ kind: 'raw', text: 'cl_forwardspeed 200' }] },
+      ],
+    })
+    const actions = [zoom, slow]
+
+    expect(actionsWithAliasLine(actions, { actions })).toEqual([zoom, slow])
+  })
+
+  it('counts a two-part entry`s half as a reference, so the alias it calls survives', () => {
+    // Before story 045 those commands lived nowhere the reference scan could see, so a plain alias
+    // entry called only from a toggle state would have been dropped as unreferenced - a live key
+    // going dead, exactly what this module exists to prevent.
+    const row = catalogueRow({ id: 'b1', name: '+forward' })
+    const aliasName = aliasNameFor(row)
+    const zoom = action({
+      id: 't1',
+      kind: 'toggle',
+      name: 'Zoom',
+      parts: [{ commands: [{ kind: 'raw', text: aliasName }] }, { commands: [] }],
+    })
+
+    // The same row, dropped when nothing calls it (the first case in this block).
+    expect(actionsWithAliasLine([row], { actions: [row] })).toEqual([])
+
+    const actions = [row, zoom]
+    expect(collectAliasReferences({ actions })).toContain(aliasName)
+    expect(actionsWithAliasLine(actions, { actions })).toContainEqual(row)
+  })
 })
 
 /**
@@ -709,6 +759,105 @@ describe('buildAliasIndex (story 044, D1)', () => {
 
     expect(index[0]!.duplicateOf).toEqual(['Drops'])
     expect(layerRow?.duplicateOf).toEqual(['My alias'])
+  })
+
+  /**
+   * Story 045, D8 widens the "one row per definition" contract above: a two-part entry
+   * (`kind: 'toggle'`/`'press-release'`) renders under more than one alias name, and every one of
+   * them needs a row or it reads as `undefinedAlias`/`aliasUnreferenced` noise (the story's own
+   * acceptance). This is a deliberate *extension* of the row-cardinality contract, not a weakening
+   * of it: the "one row per `sources.actions` element, in array order, before any layer row" rule
+   * asserted above still holds for exactly the first `sources.actions.length` rows - these new tests
+   * pin the *extra* rows a two-part action contributes after that prefix and before any layer row.
+   */
+  function toggleAction(overrides: Partial<ConfigAction> = {}): ConfigAction {
+    return action({
+      id: 't1',
+      kind: 'toggle',
+      name: 'Zoom',
+      commands: [],
+      keys: [{ key: 'v' }],
+      parts: [
+        { label: 'In', commands: [{ kind: 'raw', text: 'zoom_fov' }] },
+        { label: 'Out', commands: [{ kind: 'raw', text: 'norm_fov' }] },
+      ],
+      ...overrides,
+    })
+  }
+
+  function pressReleaseAction(overrides: Partial<ConfigAction> = {}): ConfigAction {
+    return action({
+      id: 'p1',
+      kind: 'press-release',
+      name: 'Slow',
+      commands: [],
+      keys: [{ key: 'SHIFT' }],
+      parts: [
+        { commands: [{ kind: 'raw', text: 'cl_forwardspeed 110' }] },
+        { commands: [{ kind: 'raw', text: 'cl_forwardspeed 200' }] },
+      ],
+      ...overrides,
+    })
+  }
+
+  it('story 045 D8: a toggle contributes three rows - its dispatch (primary, at its array position) plus its two state names', () => {
+    const toggle = toggleAction()
+
+    const index = buildAliasIndex({ actions: [toggle] })
+
+    expect(index).toHaveLength(3)
+    expect(index[0]).toMatchObject({ name: 'zoom', origin: 'generated', owner: 'Zoom', ownerActionId: 't1' })
+    expect(index[1]).toMatchObject({ name: 'zoom_s1', origin: 'generated', owner: 'Zoom', ownerActionId: 't1' })
+    expect(index[2]).toMatchObject({ name: 'zoom_s2', origin: 'generated', owner: 'Zoom', ownerActionId: 't1' })
+  })
+
+  it('story 045 D8: a press/release entry contributes two rows - its +base primary row (not the sign-free base) plus its -base release row', () => {
+    const pair = pressReleaseAction()
+
+    const index = buildAliasIndex({ actions: [pair] })
+
+    expect(index).toHaveLength(2)
+    expect(index[0]).toMatchObject({ name: '+slow', origin: 'generated', owner: 'Slow', ownerActionId: 'p1' })
+    expect(index[1]).toMatchObject({ name: '-slow', origin: 'generated', owner: 'Slow', ownerActionId: 'p1' })
+  })
+
+  it('story 045 D8: the "one primary row per actions element, in array order" contract holds even with a two-part action mixed in', () => {
+    const actions = [
+      action({ id: 'a1', kind: 'alias', name: '+test', commands: [{ kind: 'raw', text: 'wait' }] }),
+      toggleAction(),
+      action({ id: 'b1', kind: 'bind', name: 'SSG SG', keys: [{ key: 'q' }], commands: [{ kind: 'raw', text: 'use ssg' }] }),
+    ]
+
+    const index = buildAliasIndex({ actions, layers: [holdLayer()] })
+
+    // The primary-row prefix is exactly `actions.length` long and pairs back by position.
+    expect(index.slice(0, actions.length).map((row) => row.ownerActionId)).toEqual(['a1', 't1', 'b1'])
+    // The toggle's two extra state rows follow, before any layer row.
+    expect(index.slice(actions.length, actions.length + 2).map((row) => row.name)).toEqual(['zoom_s1', 'zoom_s2'])
+    expect(index.slice(actions.length, actions.length + 2).every((row) => row.origin === 'generated')).toBe(true)
+    expect(index.slice(actions.length + 2).every((row) => row.origin === 'layer')).toBe(true)
+  })
+
+  it('story 045 D8: a toggle bound by its dispatch name resolves as referenced, never as a dangling name', () => {
+    const toggle = toggleAction()
+
+    const index = buildAliasIndex({ actions: [toggle], binds: { v: 'zoom' } })
+
+    const dispatchRow = index.find((row) => row.name === 'zoom')!
+    expect(dispatchRow.referrers).toEqual([{ kind: 'bind', key: 'v' }])
+    // The two state rows exist (are "known") even though nothing in this profile's authored text
+    // happens to mention them by name - the dispatch-rewrite wiring is synthesized at render time,
+    // not stored as a command, so it is the row's mere existence (not its referrer count) that keeps
+    // `zoom_s1`/`zoom_s2` from reading as undefined.
+    expect(index.map((row) => row.name)).toEqual(['zoom', 'zoom_s1', 'zoom_s2'])
+  })
+
+  it('story 045 D8: a press/release entry bound by its +base name is seen as referenced on the primary row', () => {
+    const pair = pressReleaseAction()
+
+    const index = buildAliasIndex({ actions: [pair], binds: { SHIFT: '+slow' } })
+
+    expect(index[0]).toMatchObject({ name: '+slow', referrers: [{ kind: 'bind', key: 'SHIFT' }] })
   })
 })
 

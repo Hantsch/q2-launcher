@@ -196,6 +196,7 @@ function toRestoreInput(
       file,
       line: alias.line,
       comment: alias.comment,
+      codeWidth: alias.codeWidth,
     })),
     binds: [...folded.binds.values()].map((bind) => ({
       key: bind.key,

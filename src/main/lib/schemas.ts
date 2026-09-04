@@ -9,6 +9,7 @@ import {
   stripAliasActionOverrides,
   type ModifierTrigger,
 } from '@shared/config/modifier-layers'
+import { MAX_WAIT_FRAMES } from '@shared/config/engine-limits'
 import type { ProfileBaseline } from '@shared/config/profile-baseline'
 import type {
   ActionEntryKind,
@@ -121,6 +122,18 @@ const persistedActionTextSchema = z
   .string()
   .refine((value) => isLatin1Text(value) && !value.includes('"'))
 
+/**
+ * Story 045 D1: a `wait <frames>` step, persisted-schema mirror of the strict IPC schema's
+ * `configWaitCommandSchema`. Deliberately not `.catch()`-softened on `frames`: an out-of-range or
+ * non-integer value fails this command, which fails the whole `commands` array, which fails the
+ * action row - the same "drop the row, not the field" treatment `persistedActionTextSchema`'s
+ * latin-1/no-quote rule already gets for `raw`/`message` text.
+ */
+const waitCommandPersistedSchema = z.object({
+  kind: z.literal('wait'),
+  frames: z.number().int().min(1).max(MAX_WAIT_FRAMES),
+})
+
 const configCommandPersistedSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('raw'), text: persistedActionTextSchema }),
   z.object({
@@ -128,11 +141,28 @@ const configCommandPersistedSchema = z.discriminatedUnion('kind', [
     channel: z.enum(['say', 'say_team']),
     text: persistedActionTextSchema,
   }),
+  waitCommandPersistedSchema,
 ])
 
 /** Story 019: what one entry is. Same vocabulary as the strict IPC schema's
- * `actionEntryKindSchema`. */
-const actionEntryKindPersistedSchema = z.enum(['bind', 'message', 'alias'])
+ * `actionEntryKindSchema`. Story 045 D1 adds the two-part `'toggle'`/`'press-release'` kinds. */
+const actionEntryKindPersistedSchema = z.enum(['bind', 'message', 'alias', 'toggle', 'press-release'])
+
+/**
+ * Story 045 D1: one state's worth of commands for a two-part action, persisted-schema mirror of the
+ * strict IPC schema's `actionEntryPartSchema`. Not `.catch()`-softened for the same "drop the row"
+ * reason `waitCommandPersistedSchema` above is not: a malformed part means the row that needs it -
+ * a `toggle`/`press-release` action - is itself malformed.
+ */
+const actionEntryPartPersistedSchema = z.object({
+  commands: z.array(configCommandPersistedSchema),
+  label: z.string().optional(),
+  aliasName: z.string().optional(),
+})
+
+/** The `ActionEntryKind`s that require exactly two `parts` (story 045 D1). Same vocabulary as the
+ * strict IPC schema's `TWO_PART_ACTION_KINDS`. */
+const TWO_PART_ACTION_KINDS = new Set(['toggle', 'press-release'])
 
 /**
  * Story 019: story 008's per-category entry kind. The field is gone from `ConfigActionCategory`,
@@ -224,11 +254,28 @@ const configActionPersistedObjectSchema = z.object({
   // Story 039 (D1): same additive, forgiving treatment as `catalogId` - a row without it (every
   // row written before this field existed) simply omits it.
   aliasName: z.string().optional(),
+  // Story 045 (D1): the second half of a two-part `toggle`/`press-release` entry. Structurally
+  // optional here, same as the strict IPC schema; `refineActionParts` below is what actually
+  // requires exactly two elements for those two kinds, dropping the row otherwise.
+  parts: z.array(actionEntryPartPersistedSchema).optional(),
 })
+
+/**
+ * Story 045 D1: rejects (so the row is dropped by `parseForgivingRows`/`.safeParse`, never thrown)
+ * a `toggle`/`press-release` action whose `parts` is not exactly two elements. Applied via
+ * `.superRefine` at each of `configActionPersistedObjectSchema`'s two use sites below, rather than
+ * on the object schema itself, because the baseline site needs `.extend()` first and `.extend` only
+ * exists on a plain `ZodObject` - see `configActionPersistedObjectSchema`'s own doc comment.
+ */
+function refineActionParts(action: { kind?: string; parts?: unknown }, ctx: z.RefinementCtx): void {
+  if (!action.kind || !TWO_PART_ACTION_KINDS.has(action.kind)) return
+  if (Array.isArray(action.parts) && action.parts.length === 2) return
+  ctx.addIssue({ code: z.ZodIssueCode.custom, message: `'${action.kind}' actions require exactly two 'parts'` })
+}
 
 const configActionPersistedSchema = z.preprocess(
   normalizeLegacyActionKeys,
-  configActionPersistedObjectSchema,
+  configActionPersistedObjectSchema.superRefine(refineActionParts),
 )
 
 /**
@@ -273,9 +320,11 @@ const profileBaselinePersistedSchema: z.ZodType<PersistedProfileBaseline> = z.ob
   actions: z.array(
     z.preprocess(
       normalizeLegacyActionKeys,
-      configActionPersistedObjectSchema.extend({
-        kind: actionEntryKindPersistedSchema.catch('bind'),
-      }),
+      configActionPersistedObjectSchema
+        .extend({
+          kind: actionEntryKindPersistedSchema.catch('bind'),
+        })
+        .superRefine(refineActionParts),
     ),
   ),
   writeUnbindall: z.boolean(),

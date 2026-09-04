@@ -141,6 +141,24 @@ export interface ParsedAlias {
   body: string
   line: number
   comment: string
+  /**
+   * How many characters of the raw line sit *before* its `//` comment marker - the code plus
+   * whatever the writer padded it with, the two spaces `attachTaggedComment` puts in front of the
+   * marker included. Equal to the whole line's length when it carried no comment at all.
+   *
+   * Story-045 review round 2 (findings 1 and 4): a launcher-written line's trailing comment holds
+   * the entry's display name, and `cfg-layout.ts#fitProseAndTag` **cuts that name** when the code
+   * plus the comment plus the `[q2l …]` tag do not fit one line budget. A reader that has to tell a
+   * cut spelling of one name apart from a genuinely different, shorter sibling name needs to know
+   * how much room the line actually had for its prose, and that number is only knowable from the
+   * raw line: the writer's column alignment and the body's optional quoting are both gone by the
+   * time the line has been parsed into name + body. Measured here, where the raw line still exists,
+   * rather than estimated downstream.
+   *
+   * A `;`-chained line has one code width for the whole line, the same way it has one trailing
+   * comment - every alias classified out of it gets that same number.
+   */
+  codeWidth: number
 }
 
 export interface PreservedLine {
@@ -197,7 +215,12 @@ type Classified =
  * name without enough arguments is a no-op in the real engine, so it is
  * reported as unrecognized rather than guessed at with an empty value.
  */
-function classifySegment(segment: string, line: number, comment: string): Classified {
+function classifySegment(
+  segment: string,
+  line: number,
+  comment: string,
+  codeWidth: number,
+): Classified {
   const tokens = tokenize(segment)
   if (tokens.length === 0) return { kind: 'unrecognized' }
 
@@ -252,7 +275,7 @@ function classifySegment(segment: string, line: number, comment: string): Classi
     if (tokens.length < 2) return { kind: 'unrecognized' }
     return {
       kind: 'alias',
-      item: { name: tokens[1], body: tokens.slice(2).join(' '), line, comment },
+      item: { name: tokens[1], body: tokens.slice(2).join(' '), line, comment, codeWidth },
     }
   }
 
@@ -302,7 +325,7 @@ export function parseConfigText(text: string): ParseConfigResult {
       // line (not the comment-stripped/trimmed segment) so formatting and
       // any trailing comment survive untouched when it turns out to be
       // unrecognized.
-      const result = classifySegment(segments[0], line, comment)
+      const result = classifySegment(segments[0], line, comment, active.length)
       switch (result.kind) {
         case 'cvar':
           cvars.push(result.item)
@@ -329,7 +352,7 @@ export function parseConfigText(text: string): ParseConfigResult {
     // `comment` string is attached to every classified sibling rather than
     // split or duplicated as distinct fragments.
     for (const segment of segments) {
-      const result = classifySegment(segment, line, comment)
+      const result = classifySegment(segment, line, comment, active.length)
       switch (result.kind) {
         case 'cvar':
           cvars.push(result.item)

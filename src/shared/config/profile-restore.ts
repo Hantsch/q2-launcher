@@ -133,20 +133,29 @@
  */
 
 import type { AltLayer, AltLayerMode } from '@shared/config/alt-layers'
+import { fitProseAndTag } from '@shared/config/cfg-layout'
 import { bindValueFor } from '@shared/config/action-mirror'
 import { actionKeySlots, keySlotCount, withKeySlot } from '@shared/config/action-slots'
 import {
   buildImportedActions,
+  collapseWaitRuns,
   configCommandFor,
   entryKindFor,
   splitAliasBody,
   type ImportedActionsResult,
 } from '@shared/config/alias-import'
 import { splitTopLevelSemicolons, tokenize } from '@shared/config/command-tokenizer'
+import {
+  recognizeEntryIdioms,
+  type RecognizedPressRelease,
+  type RecognizedToggle,
+} from '@shared/config/entry-idioms'
 import { normalizeBindKey } from '@shared/config/key-names'
 import type { ModifierTrigger } from '@shared/config/modifier-layers'
 import { META_FORMAT_VERSION, parseMetaTag } from '@shared/config/profile-metadata'
 import {
+  COMMENT_LINE_BUDGET,
+  COMMENT_PREFIX,
   HAND_EDIT_SENTENCE,
   OTHER_CATEGORY_LABEL,
   OWNERSHIP_MARKER,
@@ -156,6 +165,7 @@ import { STEP_ALIAS_PREFIX, SWITCH_ALIAS } from '@shared/config/switch-bind'
 import {
   BUILT_IN_ACTION_CATEGORIES,
   type ActionEntryKind,
+  type ActionEntryPart,
   type ActionKeySlot,
   type ConfigAction,
   type ConfigActionCategory,
@@ -186,6 +196,18 @@ export interface RestoreAliasLine extends RestoreSourcePosition {
   body: string
   /** The line's trailing comment (marker stripped), `''` when it had none. */
   comment: string
+  /**
+   * Characters of the raw line before its `//` marker, the two-space separator included -
+   * `config-parser.ts#ParsedAlias.codeWidth`, carried through the reader unchanged.
+   *
+   * Optional because it is *evidence about the file*, not content: with it, this module can
+   * reproduce exactly how much room `fitProseAndTag` had left for the line's display prose and
+   * therefore whether a shorter prose on one line is that same name **cut** or a different name
+   * (`proseCutOf`). Without it - a caller that assembles lines from something other than a parsed
+   * file - the comparison falls back to plain equality, which splits rather than merges: the safe
+   * direction, since a split loses no name.
+   */
+  codeWidth?: number
 }
 
 /** One live `bind <key> <command>` line, after `unbind`/`unbindall` folding. */
@@ -873,17 +895,41 @@ const CHUNK_SUFFIX = /^(.*)_p(\d+)$/
 const HELPER_SUFFIX = /_c\d+$/
 
 /**
- * An entry's commands, in body order, out of the alias line(s) that define it.
+ * One entry's alias line(s) folded back into the single body they were split out of.
  *
  * A body too long for one line was split into `<name>_p<n>` chunks called by a parent whose own
  * body is nothing but their names. Recombining is therefore concatenation in `_p<n>` order - the
  * split only ever happened at a command boundary, so nothing has to be re-parsed to undo it - and
  * the parent's own body is dropped, since it holds the chunk names rather than commands.
+ *
+ * Its own function (story 045, D7) because two readers need this exact fold and must not disagree
+ * about it: `commandsFromAliases` below, which classifies the recombined body into commands, and
+ * `recognizeTwoPartGroups`, which hands the recombined body *as text* to `entry-idioms.ts`. That
+ * recogniser deliberately does not see through a chunk family itself (its own "`_p<n>` chunks are
+ * the caller's problem" section) - a chunked toggle state reads `alias zoom_s1 "zoom_s1_p1;
+ * zoom_s1_p2"` and its `alias zoom zoom_s2` rewrite sits inside the *last chunk*, so an unfolded
+ * body is not the idiom and would fall back. Folding here, once, is what makes a chunk-split toggle
+ * restore as a toggle.
+ *
+ * ## `chunkBodies`: where the writer's own command boundaries are (story-045 review round 2,
+ * finding 3)
+ *
+ * `body` is the fold as *text*, which is all the recogniser wants. A reader that turns the fold back
+ * into *commands* needs one thing the joined text has lost: `renderActionAlias` only ever splits a
+ * chunk **between two commands**, so a chunk boundary is a command boundary the file records - and
+ * the one command kind that spans several segments (`{ kind: 'wait' }` -> `frames` literal `wait`
+ * segments) is therefore never split across two chunks. Two *adjacent* wait commands can be, and
+ * once the two chunk bodies are joined, `collapseWaitRuns` cannot tell that run from one longer
+ * wait: `wait(3)` + `wait(2)` came back as one `wait(5)`, whose 28-character expansion no longer
+ * fits where the 16-character one did, so the next render moved the chunk boundary and story 042's
+ * fixed point was gone on a file nobody had touched. `chunkBodies` keeps the bodies apart, in order,
+ * so a caller can classify each one on its own and concatenate.
  */
-function commandsFromAliases(lines: readonly TaggedLine<RestoreAliasLine>[]): {
-  commands: ConfigCommand[]
+function foldedAliasBody(lines: readonly TaggedLine<RestoreAliasLine>[]): {
+  body: string
+  /** The folded body per source line, in `_p<n>` order - one element for an unchunked entry. */
+  chunkBodies: string[]
   aliasName: string
-  emptyBody: boolean
 } {
   const names = new Set(lines.map((line) => line.item.name))
   const chunks: { index: number; body: string }[] = []
@@ -896,19 +942,52 @@ function commandsFromAliases(lines: readonly TaggedLine<RestoreAliasLine>[]): {
   }
 
   const parent = parents[0] ?? lines[0]!.item
-  const body =
+  const chunkBodies =
     chunks.length > 0
-      ? chunks
-          .sort((a, b) => a.index - b.index)
-          .map((chunk) => chunk.body)
-          .join('; ')
-      : parent.body
-
+      ? chunks.sort((a, b) => a.index - b.index).map((chunk) => chunk.body)
+      : [parent.body]
   return {
-    commands: splitAliasBody(body).map(configCommandFor),
+    body: chunkBodies.join('; '),
+    chunkBodies,
     aliasName: parent.name,
+  }
+}
+
+/**
+ * An entry's commands, in body order, out of the alias line(s) that define it.
+ *
+ * `collapseWaitRuns` (story 045, D7) is what turns the `frames` literal `wait` segments
+ * `commandLineFor` writes for a `{ kind: 'wait' }` command back into that one command - the exact
+ * inverse of the writer, and the same call `alias-import.ts` makes on the foreign-config path, so
+ * "how many literal waits are one command" has one answer rather than two. Without it a
+ * launcher-written `alias hop_wait "wait; wait; wait; wait; wait"` came back as five raw commands
+ * and the entry lost its wait-row identity on every reload (AC6).
+ *
+ * Run **per chunk body**, not over the fold (story-045 review round 2, finding 3): a chunk boundary
+ * is a command boundary the writer recorded, so a wait run that ends one chunk and a wait run that
+ * opens the next are two commands, not one - see `foldedAliasBody`'s `chunkBodies` for what
+ * collapsing across the join cost.
+ */
+function commandsFromAliases(lines: readonly TaggedLine<RestoreAliasLine>[]): {
+  commands: ConfigCommand[]
+  aliasName: string
+  emptyBody: boolean
+} {
+  const { body, chunkBodies, aliasName } = foldedAliasBody(lines)
+  return {
+    commands: chunkBodies.flatMap((chunk) => commandsFromSegments(splitAliasBody(chunk))),
+    aliasName,
     emptyBody: body.trim().length === 0,
   }
+}
+
+/**
+ * One body's worth of segments as `ConfigCommand`s - the single pipeline every restored command
+ * list goes through, whole-body or per-half (`alias-import.ts#commandsForHalf` is its twin on the
+ * import side).
+ */
+function commandsFromSegments(segments: readonly string[]): ConfigCommand[] {
+  return collapseWaitRuns(segments.map(configCommandFor))
 }
 
 /**
@@ -940,6 +1019,47 @@ interface SlotClaim {
   at: RestoreSourcePosition
   fields: Record<string, string>
   key: string
+}
+
+/**
+ * The key slots `group`'s own lines claim, in file order, bind lines before anchor lines - see
+ * `buildEntry`'s doc comment for why claims simply append and neither "already taken" nor "no free
+ * slot" is a state this can reach.
+ *
+ * Its own function (story 045, D7) so a merged `toggle`/`press-release` entry reads its slots
+ * through the identical rule instead of a second copy of it - including the `tag-modifier-unknown`
+ * report, which has to fire exactly once per claim whichever entry shape the group ends up in.
+ */
+function keySlotsFrom(group: EntryGroup, warnings: RestoreWarning[]): ActionKeySlot[] {
+  const claims: SlotClaim[] = [
+    ...group.binds.map((line) => ({ at: line.item, fields: line.fields, key: line.item.key })),
+    // Every anchor carries a non-empty `key` - that field is what made the line an anchor at all
+    // (`claimsEntryAnchor`), so there is no keyless-anchor case to filter out here since story 050.
+    ...group.anchors.map((line) => ({
+      at: line.item,
+      fields: line.fields,
+      key: line.fields.key!.trim(),
+    })),
+  ]
+
+  // One claim, one slot, in claim order.
+  return claims.map((claim) => {
+    const modifier = claim.fields.mod
+    const trigger = modifier?.toUpperCase()
+    const known = trigger !== undefined && MODIFIER_TRIGGERS.has(trigger)
+    if (modifier !== undefined && !known) {
+      warnings.push({
+        reason: 'tag-modifier-unknown',
+        file: claim.at.file,
+        line: claim.at.line,
+        subject: modifier,
+      })
+    }
+    return {
+      key: normalizeBindKey(claim.key),
+      ...(known ? { modifier: trigger as ModifierTrigger } : {}),
+    }
+  })
 }
 
 /**
@@ -979,49 +1099,14 @@ function buildEntry(
   // The one place the second body is actually discarded is that fold, and that is where the warning
   // is raised now - `file-source.ts#discardedAliasWarnings`.
 
-  const claims: SlotClaim[] = [
-    ...group.binds.map((line) => ({ at: line.item, fields: line.fields, key: line.item.key })),
-    // Every anchor carries a non-empty `key` - that field is what made the line an anchor at all
-    // (`claimsEntryAnchor`), so there is no keyless-anchor case to filter out here since story 050.
-    ...group.anchors.map((line) => ({
-      at: line.item,
-      fields: line.fields,
-      key: line.fields.key!.trim(),
-    })),
-  ]
-
   // One claim, one slot, in claim order - see this function's doc comment for why there is no
   // conflict case left to handle.
-  const slots: ActionKeySlot[] = claims.map((claim) => {
-    const modifier = claim.fields.mod
-    const trigger = modifier?.toUpperCase()
-    const known = trigger !== undefined && MODIFIER_TRIGGERS.has(trigger)
-    if (modifier !== undefined && !known) {
-      warnings.push({
-        reason: 'tag-modifier-unknown',
-        file: claim.at.file,
-        line: claim.at.line,
-        subject: modifier,
-      })
-    }
-    return {
-      key: normalizeBindKey(claim.key),
-      ...(known ? { modifier: trigger as ModifierTrigger } : {}),
-    }
-  })
+  const slots = keySlotsFrom(group, warnings)
 
   const fields = group.aliases[0]?.fields ?? group.binds[0]?.fields ?? group.anchors[0]!.fields
   const kind = inferKind(commands, fromAliases !== null, slots.length > 0)
 
-  // The display name is the comment's prose - the alias line's first, since that line *is* the
-  // entry; a bind line's prose says the same thing, and a line whose prose gave way to its tag
-  // under budget pressure has none at all, which is why there is a fall-back rather than a warning.
-  const prose = (
-    group.aliases[0]?.prose ??
-    group.binds.find((line) => line.prose.trim().length > 0)?.prose ??
-    group.anchors.find((line) => line.prose.trim().length > 0)?.prose ??
-    ''
-  ).trim()
+  const prose = entryProse(group)
 
   const section = sectionFor(sections, first)
   if (section === null) report('entry-section-unknown', group.key)
@@ -1067,6 +1152,464 @@ function buildEntry(
       ? fromAliases.aliasName
       : (anchoredAliasName ?? ownAliasNameFromBind(action, group.binds))
   return aliasName ? { ...action, aliasName } : action
+}
+
+/**
+ * The entry's display name as its own lines record it - the **least-cut** spelling any of them still
+ * carries.
+ *
+ * Extracted (story 045, D7) because it is also the *identity* test a two-part merge needs: story
+ * 050 made prose the entry's identity, so two alias lines that disagree about their prose are two
+ * entries whatever their bodies are wired like (`twoPartMergeFor`).
+ *
+ * ## Why not simply the first alias line's prose (story-045 review round 2, finding 4)
+ *
+ * The writer puts the entry's one display name on *every* line of its family, but each line pays for
+ * its own code first, so a line with a long body carries a cut name - or, past `attachTaggedComment`'s
+ * last resort, no name at all. The first alias line is very often exactly that line: a chunk-split
+ * entry emits `<name>_p1` before its parent, and `_p1` is a line filled to the byte with commands
+ * while the parent (`"<name>_p1; <name>_p2"`) and the bind line have room to spare. Reading the
+ * entry's name off it restored the *cut* spelling, and the next render then wrote that shortened
+ * name onto the roomy lines as well - a file that differs from the one on disk with nobody having
+ * touched it, which is what story 042's fixed point forbids.
+ *
+ * So the longest prose the group's lines carry wins, on one condition: every shorter alias-line
+ * prose has to be what the writer would have put there for that longer name (`proseCutOf`, the same
+ * exact reconstruction `twoPartProse` uses - not a prefix test). Lines that disagree for any other
+ * reason (a hand-renamed comment) keep the old answer, the first alias line's own prose, rather than
+ * letting an unrelated bind-line comment rename the entry.
+ *
+ * A bind or anchor line's prose is compared by *length* only, since neither records a `codeWidth` to
+ * reconstruct a cut from. That costs nothing here and risks nothing: unlike `twoPartProse`, this
+ * function decides no merge - the group is already one entry, identified by name and tag - so the
+ * only question left is which of its own lines spells its name most completely.
+ */
+function entryProse(group: EntryGroup): string {
+  // The pre-review answer, and still the answer whenever the group's lines disagree for a reason
+  // the budget does not explain. `||`, not `??`: a line whose prose gave way to its tag entirely
+  // carries `''`, and that is the fall-through this chain always meant to describe (`??` only ever
+  // fell through for a *missing line*, so a nameless alias line took the name off the bind line
+  // beside it and turned it into the alias name instead).
+  const fallback =
+    group.aliases[0]?.prose.trim() ||
+    group.binds.find((line) => line.prose.trim().length > 0)?.prose.trim() ||
+    group.anchors.find((line) => line.prose.trim().length > 0)?.prose.trim() ||
+    ''
+
+  const otherProses = [...group.binds, ...group.anchors].map((line) => line.prose.trim())
+  const longest = [...group.aliases.map((line) => line.prose.trim()), ...otherProses].reduce(
+    (carried, prose) => (prose.length > carried.length ? prose : carried),
+    '',
+  )
+  if (longest === fallback) return fallback
+
+  const explained =
+    group.aliases.every(
+      (line) => line.prose.trim() === longest || proseCutOf(line.prose.trim(), longest, line),
+    ) && otherProses.every((prose) => longest.startsWith(prose))
+  return explained ? longest : fallback
+}
+
+// ---------------------------------------------------------------------------
+// Two-part entries: the toggle trio and the `+x`/`-x` pair (story 045, D7)
+// ---------------------------------------------------------------------------
+
+/**
+ * One accepted merge: the 2-3 `EntryGroup`s the config text wires into a single `toggle`/
+ * `press-release` entry, and which of them the entry stands in for.
+ */
+interface TwoPartMerge {
+  kind: 'toggle' | 'press-release'
+  /**
+   * The entry's one display prose, reassembled across the merged groups' lines: the longest of them,
+   * and the merge only happened at all because every shorter one is exactly the cut that line's own
+   * byte budget would have made of it (see `twoPartProse`). Carried on the merge rather than re-read
+   * off `primary` in `buildTwoPartEntry`,
+   * since `primary` is not always the line that kept the whole name - a press/release entry's
+   * primary *is* its `+` half, and that is exactly the half a long body can truncate.
+   */
+  prose: string
+  /**
+   * The group the merged entry takes the place of - its position in the output, its prose, its
+   * `cid`, its section and, crucially, its key slots. That is the group whose own name is what
+   * `action-mirror.ts#bindValueFor` writes on every one of the entry's keys, so it is the group a
+   * `bind` line lands in: the **dispatch** alias for a toggle (`bind v "zoom"`), the **press** half
+   * for a pair (`bind SHIFT "+slow"`, sign and all - there is no group keyed on the sign-free base,
+   * because `groupEntryLines` keys strictly on the literal alias name / bind value text).
+   */
+  primary: EntryGroup
+  /** The name the merged entry renders under: the dispatch name, or the pair's sign-free base. */
+  aliasName: string
+  /** State 1 then state 2, or press then release - the order `parts` is stored in. */
+  halves: { group: EntryGroup; keptName: string; segments: readonly string[] }[]
+  /** Every group the merge consumes, `primary` included, so none of them also becomes its own entry. */
+  consumed: EntryGroup[]
+}
+
+/**
+ * Does this group claim a key of its own (a `bind` line or an anchor line)?
+ *
+ * Recognition runs before the anchor scan (see `merges` in `groupEntryLines`), so in practice only
+ * the bind half can be non-empty here. Both are checked anyway: an anchor is a key claim by
+ * definition, and a predicate that silently depends on *when* it is called is the kind of thing a
+ * later reordering breaks without a failing test.
+ */
+function claimsAKey(group: EntryGroup): boolean {
+  return group.binds.length > 0 || group.anchors.length > 0
+}
+
+/**
+ * What `render.ts` would have written as this line's display prose if the entry's name were `full` -
+ * `full` itself when it fits, the exact cut `fitProseAndTag` makes when it does not, and `''` when
+ * the line's budget left no room for prose at all. `null` when the line does not record how wide its
+ * code was, so the question cannot be answered rather than guessed at.
+ *
+ * ## Reconstructed, not estimated (story-045 review round 2, findings 1 and 4)
+ *
+ * `attachTaggedComment` composes `<code>  // <prose> <tag>` inside `COMMENT_LINE_BUDGET` and cuts
+ * the *prose*, never the tag, when the three do not fit. Three of those four lengths are knowable
+ * from the parsed line: the budget is a constant, the separator is a constant, and the tag is the
+ * literal tail of the line's own comment. The fourth, `code`, is **not** derivable from `name` and
+ * `body` - the writer's column alignment padded it and the body may have been quoted, and both are
+ * gone by the time a line has been parsed - so it is measured off the raw line by the parser and
+ * carried here as `codeWidth`.
+ *
+ * With all four known, the cut is reproduced by calling the very function that made it, which is
+ * what makes the comparison in `proseCutOf` a *proof* rather than a tolerance: a first review round
+ * accepted any shorter prose that was a prefix of the longer one whenever the longer one would not
+ * have fitted, which cannot tell a cut apart from three genuinely different sibling names that
+ * happen to be prefixes of each other ("Slow", "Slow mo", "Slow motion walk") - the same
+ * merge-away-a-name defect story 050's own review closed in `matchAnchor`.
+ */
+function writtenProseFor(line: TaggedLine<RestoreAliasLine>, full: string): string | null {
+  const codeWidth = line.item.codeWidth
+  if (codeWidth === undefined) return null
+
+  // `comment` is the raw text after the `//` marker, so the tag is its literal tail from the last
+  // sigil on - the same anchor `parseComment` reads the tag off.
+  const sigil = line.item.comment.lastIndexOf(TAG_SIGIL)
+  const tag = sigil === -1 ? '' : line.item.comment.slice(sigil).trimEnd()
+
+  // `codeWidth` counts the code plus the two spaces before the marker; `attachTaggedComment`'s own
+  // prefix is those two spaces plus `// `, i.e. one character more than the marker itself.
+  const prefix = codeWidth + COMMENT_PREFIX.length - 2
+  if (prefix >= COMMENT_LINE_BUDGET) return ''
+
+  const written = fitProseAndTag(full, tag, COMMENT_LINE_BUDGET - prefix)
+  if (tag.length === 0) return written
+  if (written === tag) return ''
+  return written.endsWith(` ${tag}`) ? written.slice(0, -(tag.length + 1)) : written
+}
+
+/**
+ * Is `prose` what this line would carry if the entry's display name were `full` - the *whole* name
+ * when the line had room for it, or the exact cut its own budget forced? See `writtenProseFor` for
+ * why this is answered by re-running the writer rather than by a prefix test.
+ *
+ * `false` when the line does not carry the evidence to answer (no `codeWidth`): a caller that cannot
+ * prove a cut keeps the two names apart, which loses nothing.
+ */
+function proseCutOf(prose: string, full: string, line: TaggedLine<RestoreAliasLine>): boolean {
+  const written = writtenProseFor(line, full)
+  return written !== null && written.trim() === prose
+}
+
+/**
+ * The one display prose the groups a two-part merge would collapse all agree on, or `null` when they
+ * do not - the gate that decides whether the config text says these 2-3 alias families are *one
+ * entry* (story 050 made prose the entry's identity) or several entries whose bodies happen to be
+ * wired into an idiom.
+ *
+ * ## Why this is not plain string equality (story-045 review, finding 1)
+ *
+ * `render.ts` writes the entry's one display name onto every line of its alias family, but each line
+ * spends its own byte budget on its own *code* first: a 900-character toggle state and the
+ * `alias zoom zoom_s1` dispatch beside it get very different amounts of what is left over, so one
+ * line can carry `Zoom with a long name` while the other carries `Zoom with a l`. Both are the same
+ * entry, and requiring them to match character for character split it back into three plain alias
+ * entries on read-back - kind, `parts` and `lbl` labels gone, and a next render that differs from
+ * the last, which is exactly what AC6's fixed point forbids.
+ *
+ * ## And why it is not a plain prefix relation either
+ *
+ * Story 050's own review (finding 1, `matchAnchor` below) removed a prefix-tolerant prose match for
+ * a good reason: `Reload` is a prefix of `Reload weapon`, and merging two genuinely different
+ * sibling names loses one of them whole. Nor is "a prefix, on a line the whole name would not have
+ * fitted on" enough (story-045 review round 2, finding 2): that admits three real, never-cut
+ * sibling names on three cramped lines - `Slow`, `Slow mo`, `Slow motion walk` - collapsing into one
+ * entry and losing two names with no warning, because it never checks that the shorter spelling sits
+ * *at* the cut point. A line with four characters of room and `Slow` on it says nothing about
+ * `Slow motion walk`; a line with eleven characters of room whose prose reads `Slow motion` does.
+ *
+ * So the condition is exact: every line's prose must be **what the writer would have written there**
+ * for the candidate name, cut or whole (`proseCutOf`, which re-runs `fitProseAndTag` against that
+ * line's own measured budget).
+ *
+ * The returned prose is the *longest* candidate, i.e. the least-cut spelling of the name the file
+ * still has. Restoring the truncated one instead would make the next render write that shortened
+ * name onto the short lines too - a different file, one render later.
+ */
+function twoPartProse(primary: EntryGroup, groups: readonly EntryGroup[]): string | null {
+  const lines = groups.flatMap((group) => group.aliases)
+  // `entryProse(primary)` is in the candidate set, not just the alias lines': a primary whose alias
+  // line lost its prose entirely still has its bind/anchor lines to name it, and that fallback is
+  // the one `buildEntry` would have used had this group stayed an entry of its own.
+  const candidates = [...lines.map((line) => line.prose.trim()), entryProse(primary)]
+  const full = candidates.reduce((longest, prose) => (prose.length > longest.length ? prose : longest), '')
+
+  for (const line of lines) {
+    const prose = line.prose.trim()
+    if (prose === full) continue
+    if (!proseCutOf(prose, full, line)) return null
+  }
+  return full
+}
+
+/**
+ * A recognised toggle trio -> one merge, or `null` when the *file* says these are separate
+ * entries after all.
+ *
+ * `entry-idioms.ts` decides whether the three bodies are *wired* as a toggle; the two extra
+ * conditions here are about whether they are *one entry*, which only this reader can know:
+ *
+ *  - **One prose across all three lines** (`twoPartProse` - up to the per-line budget cut it
+ *    documents). `render.ts#buildAliasSections` writes the entry's one display name on every line of
+ *    its alias family, so a launcher-written toggle always agrees with itself. Three lines that
+ *    disagree are three entries whose bodies happen to be wired into a loop - merging them would take
+ *    two display names, and on the next render two `//` comments, out of the file. Story 050 made
+ *    prose the entry's identity; this is that rule applied.
+ *  - **Neither state claims a key of its own.** The writer binds a toggle's *dispatch* and nothing
+ *    else, so a `bind`/anchor line on a state is a shape this reader has never written. Merging it
+ *    would move that key onto the dispatch value (`bindValueFor`) and rewrite a bind line the user
+ *    put there by hand, which is the one thing "the config line wins" forbids.
+ *
+ * Both fall back to the plain per-group `buildEntry` path, untouched - the story's all-or-nothing
+ * rule, and what makes a hand-edited broken trio come back as plain alias entries for D8's Care
+ * checks to report rather than as a half-built toggle.
+ */
+function toggleMergeFor(
+  toggle: RecognizedToggle,
+  byName: ReadonlyMap<string, EntryGroup>,
+): TwoPartMerge | null {
+  const dispatch = byName.get(toggle.dispatchName.toLowerCase())
+  const first = byName.get(toggle.states[0].name.toLowerCase())
+  const second = byName.get(toggle.states[1].name.toLowerCase())
+  if (!dispatch || !first || !second) return null
+  if (claimsAKey(first) || claimsAKey(second)) return null
+
+  const prose = twoPartProse(dispatch, [dispatch, first, second])
+  if (prose === null) return null
+
+  return {
+    kind: 'toggle',
+    prose,
+    primary: dispatch,
+    aliasName: toggle.dispatchName,
+    halves: [
+      { group: first, keptName: toggle.states[0].name, segments: toggle.states[0].segments },
+      { group: second, keptName: toggle.states[1].name, segments: toggle.states[1].segments },
+    ],
+    consumed: [dispatch, first, second],
+  }
+}
+
+/**
+ * A recognised `+x`/`-x` pair -> one merge, or `null`.
+ *
+ * The same two conditions as `toggleMergeFor` (one prose per `twoPartProse`, no key of the release
+ * half's own), plus
+ * one this shape needs on its own: the release half's name must be **exactly** `-<base>`, casing
+ * included. `entry-idioms.ts` pairs the two halves case-insensitively, because the engine's own
+ * alias lookup is - but a `press-release` entry stores only the sign-free base and appends `+`/`-`
+ * at render time (story 045's Decisions), so merging `+Slow` with a hand-written `-slow` would
+ * re-render that definition as `-Slow`: a rename of a line the user typed, and a byte the fixed
+ * point would lose.
+ */
+function pressReleaseMergeFor(
+  pair: RecognizedPressRelease,
+  byName: ReadonlyMap<string, EntryGroup>,
+): TwoPartMerge | null {
+  if (pair.release.name !== `-${pair.baseName}`) return null
+
+  const press = byName.get(pair.press.name.toLowerCase())
+  const release = byName.get(pair.release.name.toLowerCase())
+  if (!press || !release) return null
+  if (claimsAKey(release)) return null
+
+  const prose = twoPartProse(press, [press, release])
+  if (prose === null) return null
+
+  return {
+    kind: 'press-release',
+    prose,
+    primary: press,
+    aliasName: pair.baseName,
+    halves: [
+      { group: press, keptName: pair.press.name, segments: pair.press.segments },
+      { group: release, keptName: pair.release.name, segments: pair.release.segments },
+    ],
+    consumed: [press, release],
+  }
+}
+
+/**
+ * Every two-part entry the config text wires out of `groups`, found by the one shared recogniser
+ * `alias-import.ts` uses (story 045's Decisions: "one recogniser, because 050 removes `k`" - there
+ * is no `k` tag left to read a kind off, so both readers derive it from the text).
+ *
+ * ## Folded bodies, one per group
+ *
+ * The recogniser wants one `{ name, body }` per entry with the body already recombined - see
+ * `foldedAliasBody`. `groupEntryLines` has already folded the `_p<n>` *lines* onto their base
+ * group, so one group is one alias definition here; folding the *text* is what is left to do, and
+ * it is what lets a chunk-split toggle state (`alias zoom_s1 "zoom_s1_p1; zoom_s1_p2"`, its
+ * `alias zoom zoom_s2` rewrite hiding in the last chunk) be recognised at all.
+ *
+ * ## Scoped per category section
+ *
+ * Recognition runs once per category scope, the same scope `groupEntryLines` keys its groups in.
+ * An entry's whole alias family is written into one category's alias section by construction
+ * (`render.ts#buildAliasSections`), so scoping costs a healthy file nothing - and merging across
+ * two sections would produce one entry where the file has two, which re-renders into a different
+ * file and loses story 042's fixed point outright.
+ *
+ * ## `waitAliases` is deliberately not used here
+ *
+ * The recogniser also resolves a `waitN` family to a frame count, which is right for a *foreign*
+ * config (D6) and wrong for our own file: `alias hop20 "hop5; hop5; hop5; hop5"` would become one
+ * `{ kind: 'wait', frames: 20 }` command and re-render as twenty literal `wait`s, silently
+ * rewriting four references the user's other bodies may still call. The launcher's own file already
+ * writes a `wait` command as literal `wait` segments, and `commandsFromAliases`' `collapseWaitRuns`
+ * reads exactly those back - no name resolution needed, and none wanted.
+ */
+function recognizeTwoPartGroups(
+  groups: readonly EntryGroup[],
+  sections: readonly Section[],
+): TwoPartMerge[] {
+  const byScope = new Map<string, { group: EntryGroup; name: string; body: string }[]>()
+  for (const group of groups) {
+    const firstAlias = group.aliases[0]
+    if (!firstAlias) continue
+    const { body, aliasName } = foldedAliasBody(group.aliases)
+    const scope = sectionCategoryKey(sectionFor(sections, firstAlias.item))
+    const list = byScope.get(scope) ?? []
+    list.push({ group, name: aliasName, body })
+    byScope.set(scope, list)
+  }
+
+  const merges: TwoPartMerge[] = []
+  for (const definitions of byScope.values()) {
+    const recognized = recognizeEntryIdioms(definitions.map(({ name, body }) => ({ name, body })))
+    if (recognized.toggles.length === 0 && recognized.pressReleases.length === 0) continue
+
+    const byName = new Map<string, EntryGroup>(
+      definitions.map(({ group, name }) => [name.toLowerCase(), group]),
+    )
+    for (const toggle of recognized.toggles) {
+      const merge = toggleMergeFor(toggle, byName)
+      if (merge) merges.push(merge)
+    }
+    for (const pair of recognized.pressReleases) {
+      const merge = pressReleaseMergeFor(pair, byName)
+      if (merge) merges.push(merge)
+    }
+  }
+  return merges
+}
+
+/**
+ * One `toggle`/`press-release` entry out of the groups `merge` collapses.
+ *
+ * A parallel path to `buildEntry` rather than a branch inside it: everything that function derives
+ * per group - `kind` inference, the single `commands` list, `keepEmptyAlias`, the `aliasName`
+ * fallbacks - is either already known here or does not apply to an entry whose bodies live in
+ * `parts`. What *is* shared is shared through the same helpers (`entryProse`, `keySlotsFrom`,
+ * `categories.idFor`), so the two paths cannot disagree about a name, a category or a key slot.
+ *
+ * - `parts[i].aliasName` carries the half's kept name verbatim for a toggle, exactly as D6 does on
+ *   the import side, which is what makes `alias-render.ts#twoPartHalfNames` reproduce an imported
+ *   `zoomin`/`zoomout` trio (or our own `zoom_s1`/`zoom_s2`) byte for byte instead of deriving a
+ *   fresh pair. A `press-release` half gets none: the renderer appends `+`/`-` to the entry's own
+ *   base name and ignores a per-part name there by design, so storing one would be dead data.
+ * - `parts[i].label` is the half's own line's `lbl` (story 045, D4) - read off the line named
+ *   exactly like the half, never off a `_p<n>` chunk, which is precisely where `render.ts` puts it.
+ * - `commands` stays `[]`, per `ConfigAction.parts`' own contract.
+ */
+function buildTwoPartEntry(
+  merge: TwoPartMerge,
+  sections: readonly Section[],
+  categories: ReturnType<typeof categoryRegistry>,
+  newId: () => string,
+  warnings: RestoreWarning[],
+): ConfigAction {
+  const group = merge.primary
+  const first = group.aliases[0]?.item ?? group.binds[0]?.item ?? group.anchors[0]!.item
+
+  const section = sectionFor(sections, first)
+  if (section === null) warnings.push({ reason: 'entry-section-unknown', file: first.file, line: first.line, subject: group.key })
+
+  // `merge.prose`, not `entryProse(group)`: the primary's own line is not always the one that kept
+  // the whole display name (story-045 review, finding 1 - see `twoPartProse`).
+  const prose = merge.prose
+  const catalogId = group.aliases[0]?.fields.cid
+
+  const parts = merge.halves.map((half): ActionEntryPart => {
+    const label = half.group.aliases
+      .find((line) => line.item.name === half.keptName)
+      ?.fields.lbl?.trim()
+    return {
+      commands: commandsForHalf(half),
+      ...(label ? { label } : {}),
+      ...(merge.kind === 'toggle' ? { aliasName: half.keptName } : {}),
+    }
+  })
+
+  const base: ConfigAction = {
+    id: newId(),
+    categoryId: categories.idFor(section),
+    name: prose.length > 0 ? prose : merge.aliasName,
+    kind: merge.kind,
+    commands: [],
+    ...(catalogId ? { catalogId } : {}),
+    aliasName: merge.aliasName,
+    parts: [parts[0]!, parts[1]!],
+  }
+
+  return keySlotsFrom(group, warnings).reduce(
+    (carried, slot, index) => withKeySlot(carried, index, slot),
+    base,
+  )
+}
+
+/**
+ * One half of a two-part entry's commands, with the chunk boundaries the file records still in place
+ * (story-045 review round 2, finding 3 - the same defect `commandsFromAliases` closes, on the path
+ * a toggle state or a `+`/`-` half takes).
+ *
+ * `half.segments` comes from the recogniser, which reads the half's *folded* body and therefore
+ * cannot say where the writer's chunk boundaries were. The half's own alias lines can: they are the
+ * `<half>_p<n>` family, and re-splitting each chunk body on its own is what keeps two adjacent
+ * `wait` commands that straddle the boundary two commands.
+ *
+ * The recogniser's list stays the authority on *what the half's body is* - the two splits are
+ * compared segment by segment first, and the recogniser's answer is used unchanged unless the chunk
+ * split reproduces it exactly (a toggle state's list is the same one minus its trailing
+ * `alias <dispatch> <other state>` rewrite, hence the one allowed missing tail segment). So a future
+ * change to either splitter degrades to today's behaviour rather than to a silently different body.
+ */
+function commandsForHalf(half: TwoPartMerge['halves'][number]): ConfigCommand[] {
+  const chunks = foldedAliasBody(half.group.aliases).chunkBodies.map(splitAliasBody)
+  const flat = chunks.flat()
+  const tail = flat.length - half.segments.length
+  const aligned =
+    (tail === 0 || tail === 1) &&
+    half.segments.every((segment, index) => segment === flat[index])
+  if (!aligned) return commandsFromSegments(half.segments)
+
+  const kept = [...chunks]
+  const last = kept.length - 1
+  if (tail === 1) kept[last] = kept[last]!.slice(0, -1)
+  return kept.flatMap((chunk) => commandsFromSegments(chunk))
 }
 
 /** An aliasless entry's commands: its bind line's command, classified the same way an alias body's
@@ -1321,9 +1864,20 @@ function restoreModifierSlots(actions: ConfigAction[], layers: readonly AltLayer
 
   for (const override of overrides) {
     if (override.command.length === 0) continue
+    // `action.parts === undefined` (story-045 review, finding 4): a `toggle`/`press-release` entry
+    // keeps `commands: []` **by contract** - its real bodies live in `parts` - so "no command yet"
+    // is not a statement about it at all. Without this guard the first modifier override whose
+    // command matched fell straight into the branch below and wrote a raw command into a two-part
+    // entry's `commands`, producing exactly the half-an-entry shape `ConfigAction.parts`' own doc
+    // comment says the model must never hold (`modifiedSlotToggleProfile` is the reachable case: its
+    // only slot is modified, so its key really does arrive on an anchor line). Such an entry needs
+    // nothing from this pass anyway - its commands came off its own alias lines, and its slot off the
+    // anchor - and pass 2 below already skips it through `holdsModifiedSlot`.
     const anchored = actions.findIndex(
       (action) =>
-        action.commands.length === 0 && holdsModifiedSlot(action, override.key, override.modifier),
+        action.parts === undefined &&
+        action.commands.length === 0 &&
+        holdsModifiedSlot(action, override.key, override.modifier),
     )
     if (anchored !== -1) {
       actions[anchored] = {
@@ -1463,7 +2017,7 @@ function groupEntryLines(
   sections: readonly Section[],
   warnings: RestoreWarning[],
   consumed: RestoreSourcePosition[],
-): { groups: EntryGroup[]; untaggedAliases: RestoreAliasLine[] } {
+): { groups: EntryGroup[]; untaggedAliases: RestoreAliasLine[]; merges: TwoPartMerge[] } {
   /** Category scope -> (alias name / bind value -> the group). */
   const groups = new Map<string, Map<string, EntryGroup>>()
   /**
@@ -1628,6 +2182,26 @@ function groupEntryLines(
     chain('binds', group)
   }
 
+  /**
+   * The two-part idioms (story 045, D7), recognised here - after every alias and bind line has
+   * found its group, before the anchor scan below.
+   *
+   * The *position* matters, and it is the anchor scan that forces it. `render.ts` writes the
+   * entry's one display prose on every line of its alias family, so a toggle's three groups carry
+   * three *identical* proses - and `matchAnchor` demands exactly one candidate, which means a
+   * toggle whose only key slot is a modified one (its claim lives on an anchor line, since a
+   * modifier binding has no bind line at all - story 016) matched three candidates, matched none,
+   * and its key came back as a separate, commandless entry of its own. Excluding the two half
+   * groups from the candidate set leaves exactly the group the anchor is *for*: the dispatch alias
+   * for a toggle, the `+` half for a pair - the same group `bindValueFor` mirrors onto, and the
+   * same one `buildTwoPartEntry` reads the merged entry's slots off.
+   */
+  const merges = recognizeTwoPartGroups(allGroups(), sections)
+  /** The non-primary half of every accepted merge - a group that is no longer an entry of its own. */
+  const halfGroups = new Set(
+    merges.flatMap((merge) => merge.consumed.filter((group) => group !== merge.primary)),
+  )
+
   /** Every non-empty display prose the group's lines carry, in alias -> bind -> anchor order. All of
    * them, not just the first: an entry's lines can legitimately disagree about their prose (one of
    * them hand-renamed, or one of them budget-cut), so an anchor's own prose is compared against each
@@ -1661,11 +2235,20 @@ function groupEntryLines(
    * genuinely different sibling names where one is a prefix of the other (`Reload` next to
    * `Reload weapon`), and merging those two is the one outcome this function must never produce -
    * the merged-away entry loses its name, its commands and its key in one go, with no warning.
-   * The case the step existed for is unreachable anyway: a prose cut only happens once a comment
-   * exceeds `COMMENT_LINE_BUDGET`, which needs a display name over a thousand characters long,
-   * while `main/modules/config/schemas.ts` caps a stored entry name at 120. The User's decision
-   * names the entry's "own prose display name" as the anchor's link, and an exact match is exactly
-   * that.
+   * The User's decision names the entry's "own prose display name" as the anchor's link, and an
+   * exact match is exactly that.
+   *
+   * **Correction to that reasoning** (story-045 review, finding 1). The original wording said a
+   * prose cut needs "a display name over a thousand characters long", which is wrong: the budget is
+   * spent on the line's *code* first, so a 120-character name on a 900-byte alias line is cut too
+   * (see `writtenProseFor`). What keeps exact matching correct here is a different fact - an anchor is a
+   * comment-only line, so it has the whole budget to itself and always carries the *whole* name, and
+   * `prosesOf` offers **every** prose the candidate group's lines carry rather than one designated
+   * one. So the anchor's full name still meets the group's own full-length line. The only shape that
+   * misses is a group whose lines were *all* cut, which fails in the safe direction: the anchor
+   * becomes its own row, nothing is merged away, and no line is lost. The two-part merge gates
+   * cannot afford that fallback (splitting there loses the entry's kind), which is why they use
+   * `twoPartProse`' budget-aware comparison instead of this one.
    *
    * `null` is not a failure and never drops a line: the caller gives such an anchor an entry of its
    * own. That is the drift the User accepted when the anchor's link became its prose - "if the user
@@ -1679,7 +2262,10 @@ function groupEntryLines(
     // The group map is keyed by category scope first, so the anchor's own scope *is* its candidate
     // set - the entry a match lands on can therefore never sit in a different category than the
     // anchor, which is what keeps the slot the anchor contributes inside the row the user sees it on.
-    const candidates = [...(groups.get(categoryKeyOf(anchor.item))?.values() ?? [])]
+    // Minus the half groups a two-part merge already claimed - see `merges` above for why.
+    const candidates = [...(groups.get(categoryKeyOf(anchor.item))?.values() ?? [])].filter(
+      (group) => !halfGroups.has(group),
+    )
     if (candidates.length === 0) return null
 
     const cid = (anchor.fields.cid ?? '').trim()
@@ -1728,6 +2314,7 @@ function groupEntryLines(
   return {
     groups: orderGroupsByFile(allGroups(), [chains.aliases, chains.binds, chains.anchors]),
     untaggedAliases,
+    merges,
   }
 }
 
@@ -1840,7 +2427,7 @@ export function restoreProfileParts(input: RestoreProfilePartsInput): RestorePro
   const layerSections = scan.sections.filter((section) => section.kind === 'layer')
 
   const consumedCommentLines = [...scan.consumed]
-  const { groups, untaggedAliases } = groupEntryLines(
+  const { groups, untaggedAliases, merges } = groupEntryLines(
     input.aliases,
     input.binds,
     input.comments,
@@ -1849,9 +2436,29 @@ export function restoreProfileParts(input: RestoreProfilePartsInput): RestorePro
     warnings,
     consumedCommentLines,
   )
-  const actions = groups.map((group) =>
-    buildEntry(group, scan.sections, categories, input.newId, warnings),
-  )
+  // Story 045, D7: `groupEntryLines` already ran the recogniser (it has to, so `matchAnchor` can
+  // tell a toggle's three same-prose groups apart - see `merges` there). Applying it is strictly
+  // additive: a group no merge consumed goes through `buildEntry` exactly as it did before this
+  // story, which is what the story's all-or-nothing rule means on this side - a shape the recogniser
+  // rejects (a cross-wired trio, a `+x` with no `-x`) restores as the same plain alias entries as
+  // ever, and D8's Care checks report it from there. No warning is raised here for a rejected shape:
+  // this module reports what a *tag* and its config line disagree about, and these bodies disagree
+  // with nothing.
+  const mergeByPrimary = new Map(merges.map((merge) => [merge.primary, merge]))
+  const consumedGroups = new Set(merges.flatMap((merge) => merge.consumed))
+
+  const actions: ConfigAction[] = []
+  for (const group of groups) {
+    const merge = mergeByPrimary.get(group)
+    if (merge) {
+      actions.push(buildTwoPartEntry(merge, scan.sections, categories, input.newId, warnings))
+      continue
+    }
+    // A consumed non-primary group (a toggle's state, a pair's release half) already lives inside
+    // the merged entry's `parts`; emitting it again would put its body in the file twice.
+    if (consumedGroups.has(group)) continue
+    actions.push(buildEntry(group, scan.sections, categories, input.newId, warnings))
+  }
 
   // A hand-added `alias` line that carries no `[q2l` tag at all (`groupEntryLines`' doc comment) -
   // 041's own inference is what "degrading to what the plain config lines say" (AC5) means for a

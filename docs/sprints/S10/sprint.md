@@ -19,7 +19,7 @@ launcher understands and can render, not opaque alias rows (045).
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
 - [x] 050 — The metadata tag carries only what the file cannot say
-- [ ] 045 — Toggles, press/release pairs and wait chains as first-class entries
+- [x] 045 — Toggles, press/release pairs and wait chains as first-class entries
 
 ## Notes
 

@@ -60,11 +60,13 @@
  * A caller only wants one reason back, so when several would apply the first
  * match wins, in the order a person would naturally read a name: is there
  * anything here at all (`empty`), is it made of the right characters
- * (`illegalCharacters`), does it fit (`tooLong`), does it collide with a name
- * that already means something (`reserved`), does it collide with a name
- * another entry chose (`duplicate`).
+ * (`illegalCharacters`), may it carry the sign it carries (`signedBaseName`,
+ * `press-release` only - story 045), does it fit (`tooLong`), does it collide
+ * with a name that already means something (`reserved`), does it collide with a
+ * name another entry chose (`duplicate`).
  */
 
+import type { ActionEntryKind } from '../modules/config'
 import { ALL_CVARS } from './cvar-catalog'
 import { DROP_ACTIONS, MOVEMENT_ACTIONS, WEAPON_ACTIONS, WEAPON_EXTRA_ACTIONS } from './action-catalog'
 import { MAX_ALIAS_NAME } from './engine-limits'
@@ -83,10 +85,47 @@ const USABLE_ALIAS_NAME = MAX_ALIAS_NAME - 1
 const PART_SUFFIX_RESERVE = '_p'.length + 2
 
 /**
+ * Reserve for the `_s<n>` state suffix a toggle's two halves render under (`<name>_s1`/`<name>_s2`
+ * - story 045, D3; mirrors `alias-render.ts`'s own `STATE_SUFFIX_RESERVE`, restated for exactly
+ * the reason `PART_SUFFIX_RESERVE` above is): `'_s'.length` plus one digit. A toggle has two
+ * states by definition, so unlike the chunk suffix there is no growth to budget for.
+ */
+const STATE_SUFFIX_RESERVE = '_s'.length + 1
+
+/**
  * The full budget for a user-typed own alias name, sign included. Exported so a UI hint (D9) can
  * state the limit without re-deriving it.
+ *
+ * Unchanged by story 045, and deliberately: `Math.max(PART_SUFFIX_RESERVE, STATE_SUFFIX_RESERVE)`
+ * is still `PART_SUFFIX_RESERVE` (4 > 3), so the three single-body kinds keep the exact number
+ * they had. The two new kinds do *not* fit this budget, because they are the one case where two
+ * suffixes stack onto the typed name - see `maxOwnAliasNameLength` below.
  */
 export const MAX_OWN_ALIAS_NAME_LENGTH = USABLE_ALIAS_NAME - PART_SUFFIX_RESERVE
+
+/**
+ * The budget for a user-typed own alias name of `kind`, which is `MAX_OWN_ALIAS_NAME_LENGTH` for
+ * every kind that renders as one alias body, and tighter for the two that render as a family
+ * (story 045, D3):
+ *
+ * - `toggle` (24): the name is the dispatch alias, its states hang off it (`<name>_s1`) and a long
+ *   state's chunks hang off *those* (`<name>_s1_p2`), so both suffixes have to be paid for - the
+ *   sum, not the max, and the only place in this codebase where that is true. Same number, same
+ *   reasoning as `alias-render.ts`'s `TOGGLE_DERIVED_ALIAS_NAME_BUDGET`, which shortens the
+ *   *derived* name of a toggle the user never typed a name for.
+ * - `press-release` (26): the typed name is the sign-free base, and render time prepends the `+`/
+ *   `-` (see `validateAliasName`'s `signedBaseName` rejection), so one character of the budget is
+ *   spent on a sign that is not in the typed string - unlike every other kind, where a sign the
+ *   user typed is part of what is measured.
+ *
+ * A caller that passes no kind gets `MAX_OWN_ALIAS_NAME_LENGTH`, i.e. exactly the pre-045
+ * behaviour.
+ */
+export function maxOwnAliasNameLength(kind?: ActionEntryKind): number {
+  if (kind === 'toggle') return USABLE_ALIAS_NAME - STATE_SUFFIX_RESERVE - PART_SUFFIX_RESERVE
+  if (kind === 'press-release') return USABLE_ALIAS_NAME - 1 - PART_SUFFIX_RESERVE
+  return MAX_OWN_ALIAS_NAME_LENGTH
+}
 
 /** Optional leading `+`/`-`, then one or more of `[a-z0-9_]`. No uppercase, no space, no hyphen
  * inside the body, nothing else. */
@@ -145,7 +184,18 @@ export function reservedAliasNames(): Set<string> {
 }
 
 /** Why `validateAliasName` rejected a candidate name. */
-export type AliasNameRejectReason = 'empty' | 'illegalCharacters' | 'tooLong' | 'reserved' | 'duplicate'
+export type AliasNameRejectReason =
+  | 'empty'
+  | 'illegalCharacters'
+  | 'tooLong'
+  | 'reserved'
+  | 'duplicate'
+  /**
+   * A `press-release` entry's name carried a leading `+`/`-` (story 045, D3). Only reachable for
+   * that kind, so no existing call site can produce it; the renderer string for it lands with D9,
+   * which is what makes `ActionEditor`/`RenameActionDialog` pass a `kind` in the first place.
+   */
+  | 'signedBaseName'
 
 export type AliasNameValidation =
   | { ok: true }
@@ -158,8 +208,27 @@ export type AliasNameValidation =
  * against them) - this function has no profile to look them up in itself, see the file doc
  * comment's "Duplicates" section. Defaults to empty so a caller checking a name in isolation (e.g.
  * a unit test) does not have to pass one.
+ *
+ * `kind` (story 045, D3) is the entry the name is for, and changes three things for the two kinds
+ * that render as an alias *family* rather than as one body - every other kind, and a caller that
+ * passes no kind at all, behaves byte-for-byte as before:
+ *
+ * - the length budget is `maxOwnAliasNameLength(kind)` (see there for the two numbers and why);
+ * - the duplicate check runs over every name the family would define, not just the typed one
+ *   (`renderedNamesFor` - story-045 review, finding 3), so a toggle called `zoom` is refused while a
+ *   user alias named `zoom_s1` exists. `params.name` then names the *colliding* name rather than the
+ *   typed one, which is the only spelling that tells the user what the clash actually is;
+ * - a `press-release` name is validated **sign-free** (`signedBaseName`). The stored name is the
+ *   base only; `alias-render.ts` appends the `+`/`-` per half at render time so the two halves can
+ *   never drift (story 045's Decisions), which means a typed `+slow` would render as `++slow`.
+ *   Reported as its own reason rather than folded into `illegalCharacters`: the character is legal,
+ *   it is the sign the launcher already adds that is not the user's to type.
  */
-export function validateAliasName(name: string, context: readonly string[] = []): AliasNameValidation {
+export function validateAliasName(
+  name: string,
+  context: readonly string[] = [],
+  kind?: ActionEntryKind,
+): AliasNameValidation {
   if (name.trim().length === 0) {
     return { ok: false, reason: 'empty', params: {} }
   }
@@ -168,11 +237,18 @@ export function validateAliasName(name: string, context: readonly string[] = [])
     return { ok: false, reason: 'illegalCharacters', params: { name } }
   }
 
-  if (name.length > MAX_OWN_ALIAS_NAME_LENGTH) {
+  // After the character rule (a `+` on its own is `illegalCharacters`, not a signed base name) and
+  // before the length check, whose budget already assumes the sign is not part of the string.
+  if (kind === 'press-release' && (name.startsWith('+') || name.startsWith('-'))) {
+    return { ok: false, reason: 'signedBaseName', params: { name, base: name.slice(1) } }
+  }
+
+  const maxLength = maxOwnAliasNameLength(kind)
+  if (name.length > maxLength) {
     return {
       ok: false,
       reason: 'tooLong',
-      params: { name, length: name.length, max: MAX_OWN_ALIAS_NAME_LENGTH },
+      params: { name, length: name.length, max: maxLength },
     }
   }
 
@@ -182,9 +258,38 @@ export function validateAliasName(name: string, context: readonly string[] = [])
     return { ok: false, reason: 'reserved', params: { name } }
   }
 
-  if (context.some((other) => other.toLowerCase() === lower)) {
-    return { ok: false, reason: 'duplicate', params: { name } }
+  const taken = new Set(context.map((other) => other.toLowerCase()))
+  for (const candidate of renderedNamesFor(name, kind)) {
+    if (taken.has(candidate.toLowerCase())) {
+      return { ok: false, reason: 'duplicate', params: { name: candidate } }
+    }
   }
 
   return { ok: true }
+}
+
+/**
+ * Every alias name an entry of `kind` called `name` would actually define in the file - the set the
+ * duplicate check has to run over, not just the typed string (story-045 review, finding 3).
+ *
+ * For the three single-body kinds that is the name itself, exactly as before. The two family kinds
+ * define more than they are called:
+ *
+ * - `toggle`: the dispatch alias plus its two derived states, `<name>_s1`/`<name>_s2`. The file
+ *   comment's "Length budget" section already reserved room for that suffix; reserving *room* is not
+ *   reserving the *name*, and without this a user alias literally called `zoom_s1` was silently
+ *   overwritten by a toggle called `zoom` - the launcher's own line wins in the file, and the user's
+ *   alias is simply gone the next time the profile is written.
+ * - `press-release`: `+<name>`/`-<name>`, the two halves `alias-render.ts#twoPartHalfNames` prepends
+ *   the signs to. The sign-free base itself defines nothing, so it is not checked.
+ *
+ * The suffix and the signs are restated here rather than imported from `alias-render.ts` for the
+ * same reason `STATE_SUFFIX_RESERVE` above is restated: this module is the gate that runs *before*
+ * anything is stored, and `alias-render.ts` imports nothing from here, so the dependency would only
+ * go the wrong way. `alias-names.test.ts` pins the two spellings against `twoPartAliasNames`' own.
+ */
+function renderedNamesFor(name: string, kind?: ActionEntryKind): string[] {
+  if (kind === 'toggle') return [name, `${name}_s1`, `${name}_s2`]
+  if (kind === 'press-release') return [`+${name}`, `-${name}`]
+  return [name]
 }

@@ -322,6 +322,115 @@ export const chunkedSignedBodyProfile: ConfigProfile = baseProfile('fixture-chun
 })
 
 // ---------------------------------------------------------------------------
+// 10. toggle - story 045's own `zoom` shape: a `kind: 'toggle'` entry with two
+//     labelled states, bound to one key. The writer emits the three-alias
+//     reassignment idiom (`zoom_s1`, `zoom_s2`, then the `zoom` dispatch) plus
+//     one `bind v "zoom"` mirror.
+//
+//     Every one of those three names is referenced elsewhere in the file, which
+//     is why this fixture belongs in the clean corpus rather than needing an
+//     exemption: the dispatch by its bind line (and, incidentally, by the
+//     `bindValueFor === aliasNameFor` exemption a toggle satisfies anyway), and
+//     each state by the other state's `alias <dispatch> <state>` rewrite.
+// ---------------------------------------------------------------------------
+
+const toggleAction: ConfigAction = {
+  id: 'tg1a1',
+  categoryId: 'movement',
+  name: 'Zoom',
+  kind: 'toggle',
+  // `[]` on purpose - a two-part entry's bodies live in `parts` (story 045, D1).
+  commands: [],
+  keys: [{ key: 'v' }],
+  parts: [
+    {
+      commands: [
+        { kind: 'raw', text: 'fov 30' },
+        { kind: 'raw', text: 'sensitivity 1.5' },
+      ],
+      label: 'In',
+    },
+    { commands: [{ kind: 'raw', text: 'fov 90' }], label: 'Out' },
+  ],
+}
+
+export const toggleProfile: ConfigProfile = baseProfile('fixture-toggle', {
+  name: 'Toggle Entry',
+  binds: { v: bindValueFor(toggleAction) },
+  actions: [toggleAction],
+})
+
+// ---------------------------------------------------------------------------
+// 11. pressRelease - a `kind: 'press-release'` entry: `alias +slow` /
+//     `alias -slow` under one name, with `bind SHIFT "+slow"` carrying the `+`
+//     half verbatim (the engine only sends the `-` half on key-up when the bind
+//     string itself starts with `+`).
+//
+//     The `-` half is the one action-generated alias name in this corpus that is
+//     referenced by *nothing* in the file text, by design - the engine's own
+//     key-release convention is its only caller, exactly like a hold layer's
+//     `-drops` half. `render-invariants.test.ts` exempts it for that reason and
+//     names it there.
+// ---------------------------------------------------------------------------
+
+const pressReleaseAction: ConfigAction = {
+  id: 'pr1a1',
+  categoryId: 'movement',
+  name: 'slow',
+  kind: 'press-release',
+  commands: [],
+  keys: [{ key: 'SHIFT' }],
+  parts: [
+    {
+      commands: [
+        { kind: 'raw', text: 'cl_forwardspeed 110' },
+        { kind: 'raw', text: 'cl_sidespeed 110' },
+      ],
+    },
+    {
+      commands: [
+        { kind: 'raw', text: 'cl_forwardspeed 200' },
+        { kind: 'raw', text: 'cl_sidespeed 200' },
+      ],
+    },
+  ],
+}
+
+export const pressReleaseProfile: ConfigProfile = baseProfile('fixture-press-release', {
+  name: 'Press/Release Entry',
+  binds: { SHIFT: bindValueFor(pressReleaseAction) },
+  actions: [pressReleaseAction],
+})
+
+// ---------------------------------------------------------------------------
+// 12. waitChain - an ordinary `kind: 'bind'` entry whose body carries two
+//     `{ kind: 'wait', frames }` commands (story 045, D2) with raw commands on
+//     either side of each, so the wait expansion is exercised mid-body rather
+//     than only as a whole body of its own.
+// ---------------------------------------------------------------------------
+
+const waitChainAction = baseAction({
+  id: 'wc1a1',
+  name: 'Rocket jump',
+  categoryId: 'movement',
+  keys: [{ key: 'x' }],
+  commands: [
+    { kind: 'raw', text: '+moveup' },
+    { kind: 'wait', frames: 3 },
+    { kind: 'raw', text: '+attack' },
+    { kind: 'wait', frames: 1 },
+    { kind: 'raw', text: '-attack' },
+    { kind: 'raw', text: '-moveup' },
+  ],
+})
+
+export const waitChainProfile: ConfigProfile = baseProfile('fixture-wait-chain', {
+  name: 'Wait Chain Entry',
+  binds: { x: bindValueFor(waitChainAction) },
+  actions: [waitChainAction],
+})
+
+// ---------------------------------------------------------------------------
 // The two self-referencing shapes below are deliberately *not* part of
 // `PROFILE_FIXTURES`: since the User's decision (story 039, Decisions (Sprint))
 // the writer keeps their alias line as authored, so `validateStructure`
@@ -389,6 +498,9 @@ export const PROFILE_FIXTURES: Record<string, ConfigProfile> = {
   holdLayer: holdLayerProfile,
   discreteMirror: discreteMirrorProfile,
   chunkedSignedBody: chunkedSignedBodyProfile,
+  toggle: toggleProfile,
+  pressRelease: pressReleaseProfile,
+  waitChain: waitChainProfile,
 }
 
 /**

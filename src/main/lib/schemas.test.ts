@@ -56,6 +56,64 @@ describe('configProfileSchema - categories/actions (story 008)', () => {
     expect(result.categories[0]).toMatchObject({ id: 'c2', name: 'Good category' })
   })
 
+  /**
+   * Story 045 D1: `toggle`/`press-release` need exactly two `parts`; a `wait` command needs
+   * `frames` in `[1, MAX_WAIT_FRAMES]`. Persisted schemas are forgiving - a row failing either rule
+   * is dropped, never thrown, and never takes the rest of the profile with it.
+   */
+  it('drops a toggle row whose parts is not exactly two, keeping a well-formed row', () => {
+    const result = configProfileSchema.parse({
+      ...baseProfile,
+      actions: [
+        {
+          id: 'a1',
+          categoryId: 'c1',
+          name: 'Bad toggle',
+          kind: 'toggle',
+          commands: [],
+          parts: [{ commands: [{ kind: 'raw', text: 'zoom 1' }] }],
+        },
+        {
+          id: 'a2',
+          categoryId: 'c1',
+          name: 'Good toggle',
+          kind: 'toggle',
+          commands: [],
+          parts: [
+            { commands: [{ kind: 'raw', text: 'zoom 1' }] },
+            { commands: [{ kind: 'raw', text: 'zoom 0' }] },
+          ],
+        },
+      ],
+    })
+    expect(result.actions).toHaveLength(1)
+    expect(result.actions[0]).toMatchObject({ id: 'a2' })
+  })
+
+  it('drops a row whose wait command frames is out of range, keeping a well-formed row', () => {
+    const result = configProfileSchema.parse({
+      ...baseProfile,
+      actions: [
+        {
+          id: 'a1',
+          categoryId: 'c1',
+          name: 'Bad wait',
+          kind: 'bind',
+          commands: [{ kind: 'wait', frames: 0 }],
+        },
+        {
+          id: 'a2',
+          categoryId: 'c1',
+          name: 'Good wait',
+          kind: 'bind',
+          commands: [{ kind: 'wait', frames: 10 }],
+        },
+      ],
+    })
+    expect(result.actions).toHaveLength(1)
+    expect(result.actions[0]).toMatchObject({ id: 'a2' })
+  })
+
   it('drops a row whose command text is not latin-1, keeping unrelated well-formed rows', () => {
     const result = configProfileSchema.parse({
       ...baseProfile,

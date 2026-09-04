@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AltLayer } from '@shared/config/alt-layers'
-import { aliasNameFor, derivedAliasName } from '@shared/config/alias-render'
+import { derivedAliasName, renderedAliasNames } from '@shared/config/alias-render'
 import { validateAliasName } from '@shared/config/alias-names'
 import { findAliasReferrers, type AliasReferrer } from '@shared/config/alias-references'
 import type { ConfigAction } from '@shared/modules/config'
@@ -47,8 +47,14 @@ export function RenameActionDialog({
 
   // The other entries' already-resolved alias names - `validateAliasName`'s duplicate check, same
   // shape D2's own doc comment describes (`alias-names.ts`).
+  //
+  // `renderedAliasNames`, not `aliasNameFor` (story-045 review, finding 3): a two-part entry defines
+  // more names than the one it is called by (a toggle's `_s1`/`_s2` states, a press/release pair's
+  // `+`/`-` halves), and every one of them is a name this dialog must refuse to hand out a second
+  // time - the file has one definition per name, so a collision means the loser's body is simply
+  // gone on the next save.
   const otherAliasNames = useMemo(
-    () => actions.filter((other) => other.id !== action.id).map((other) => aliasNameFor(other)),
+    () => actions.filter((other) => other.id !== action.id).flatMap((other) => renderedAliasNames(other)),
     [actions, action.id],
   )
 
@@ -56,7 +62,9 @@ export function RenameActionDialog({
   // An empty own-name field means "use the derived name" - not a candidate to validate at all
   // (design decision: clearing the field returns the entry to the derived name).
   const aliasValidation =
-    trimmedOwnAliasName.length > 0 ? validateAliasName(trimmedOwnAliasName, otherAliasNames) : { ok: true as const }
+    trimmedOwnAliasName.length > 0
+      ? validateAliasName(trimmedOwnAliasName, otherAliasNames, action.kind)
+      : { ok: true as const }
   const aliasError = aliasValidation.ok
     ? undefined
     : t(

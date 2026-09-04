@@ -350,7 +350,9 @@ function pairById<T extends { id: string }>(
 }
 
 function describeCommand(command: ConfigCommand): string {
-  return command.kind === 'message' ? `${command.channel} ${command.text}` : command.text
+  if (command.kind === 'message') return `${command.channel} ${command.text}`
+  if (command.kind === 'wait') return Array(Math.max(0, command.frames)).fill('wait').join('; ')
+  return command.text
 }
 
 /** One key slot as `ALT+r` / `r`, or `''` for an empty slot. */

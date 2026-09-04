@@ -311,8 +311,8 @@ describe('readImportableConfig', () => {
     const result = await readImportableConfig(root, 'baseq2')
 
     expect(result.aliases).toEqual([
-      { name: 'qq', body: 'disconnect', file: 'config.cfg', line: 3, comment: '' },
-      { name: '+slow', body: 'cl_run 0', file: 'config.cfg', line: 2, comment: '' },
+      { name: 'qq', body: 'disconnect', file: 'config.cfg', line: 3, comment: '', codeWidth: 21 },
+      { name: '+slow', body: 'cl_run 0', file: 'config.cfg', line: 2, comment: '', codeWidth: 22 },
     ])
     expect(result.duplicateAliases).toEqual([{ name: 'qq', file: 'config.cfg', line: 3 }])
   })
@@ -324,7 +324,7 @@ describe('readImportableConfig', () => {
     const result = await readImportableConfig(root, 'baseq2')
 
     expect(result.aliases).toEqual([
-      { name: 'qq', body: 'disconnect', file: 'extra.cfg', line: 1, comment: '' },
+      { name: 'qq', body: 'disconnect', file: 'extra.cfg', line: 1, comment: '', codeWidth: 21 },
     ])
     expect(result.duplicateAliases).toEqual([{ name: 'qq', file: 'extra.cfg', line: 1 }])
   })
@@ -339,7 +339,7 @@ describe('readImportableConfig', () => {
     const result = await readImportableConfig(root, 'baseq2')
 
     expect(result.aliases).toEqual([
-      { name: 'quickquit', body: 'quit', file: 'aliases.cfg', line: 1, comment: '' },
+      { name: 'quickquit', body: 'quit', file: 'aliases.cfg', line: 1, comment: '', codeWidth: 22 },
     ])
     expect(result.binds).toEqual({ MOUSE2: 'quickquit' })
   })
@@ -356,8 +356,8 @@ describe('readImportableConfig', () => {
     // stream and both survive regardless of which side of it they are on.
     expect(result.binds).toEqual({})
     expect(result.aliases).toEqual([
-      { name: 'before', body: 'say hi', file: 'config.cfg', line: 1, comment: '' },
-      { name: 'after', body: 'say bye', file: 'config.cfg', line: 4, comment: '' },
+      { name: 'before', body: 'say hi', file: 'config.cfg', line: 1, comment: '', codeWidth: 21 },
+      { name: 'after', body: 'say bye', file: 'config.cfg', line: 4, comment: '', codeWidth: 21 },
     ])
   })
 
@@ -382,7 +382,7 @@ describe('readImportableConfig', () => {
     ])
     expect(result.comments).toEqual([{ file: 'config.cfg', line: 3, text: ' a trailing note' }])
     expect(result.aliases).toEqual([
-      { name: 'qq', body: 'quit', file: 'config.cfg', line: 1, comment: '' },
+      { name: 'qq', body: 'quit', file: 'config.cfg', line: 1, comment: '', codeWidth: 15 },
     ])
   })
 
@@ -405,7 +405,7 @@ describe('readImportableConfig', () => {
     // `alias hi "..."` is now a real alias (story 041), not an unrecognized line.
     expect(result.unrecognized).toEqual([])
     expect(result.aliases).toEqual([
-      { name: 'hi', body: 'say hÿ!', file: 'config.cfg', line: 2, comment: '' },
+      { name: 'hi', body: 'say hÿ!', file: 'config.cfg', line: 2, comment: '', codeWidth: 18 },
     ])
     // The bytes, not just the characters: what came off disk re-encodes to
     // exactly what was written.
@@ -509,7 +509,11 @@ describe('readImportableConfig', () => {
     const result = await readImportableConfig(root, 'baseq2')
 
     expect(result.aliases).toEqual([
-      { name: 'qq', body: 'disconnect', file: 'config.cfg', line: 2, comment: ' second' },
+      { name: 'qq', body: 'disconnect', file: 'config.cfg', line: 2, comment: ' second', codeWidth: 22 },
     ])
+    // And its own code width with it (story-045 review round 2): the number is the offset of that
+    // line's `//`, i.e. everything the writer put in front of the comment, so a reader can work out
+    // how much room the comment had - see `ParsedAlias.codeWidth`.
+    expect(result.aliases[0]!.codeWidth).toBe('alias qq "disconnect" '.length)
   })
 })

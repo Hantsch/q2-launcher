@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_OWN_ALIAS_NAME_LENGTH, reservedAliasNames, validateAliasName } from './alias-names'
+import { MAX_ALIAS_NAME } from './engine-limits'
+import {
+  MAX_OWN_ALIAS_NAME_LENGTH,
+  maxOwnAliasNameLength,
+  reservedAliasNames,
+  validateAliasName,
+} from './alias-names'
 
 describe('validateAliasName', () => {
   it('accepts a plain lowercase name', () => {
@@ -110,6 +116,103 @@ describe('validateAliasName', () => {
     const result = validateAliasName(tooLongAndWeird, [tooLongAndWeird])
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.reason).toBe('tooLong')
+  })
+})
+
+/**
+ * Story 045, D3: the two kinds that render as an alias family rather than as one body - a
+ * press/release entry stores the sign-free base only, and a toggle's name has to survive both a
+ * state suffix and a chunk suffix.
+ */
+describe('validateAliasName - two-part kinds', () => {
+  it('rejects a signed press/release base name, either sign', () => {
+    for (const name of ['+slow', '-slow']) {
+      const result = validateAliasName(name, [], 'press-release')
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
+        expect(result.reason).toBe('signedBaseName')
+        expect(result.params).toEqual({ name, base: 'slow' })
+      }
+    }
+    // The base itself is fine - render time is what adds the `+`/`-`.
+    expect(validateAliasName('slow', [], 'press-release')).toEqual({ ok: true })
+  })
+
+  it('leaves a signed name accepted for every other kind, and for a caller passing no kind', () => {
+    expect(validateAliasName('+slow')).toEqual({ ok: true })
+    expect(validateAliasName('+slow', [], 'alias')).toEqual({ ok: true })
+    expect(validateAliasName('+slow', [], 'toggle')).toEqual({ ok: true })
+  })
+
+  it('reports illegalCharacters before signedBaseName for a lone sign', () => {
+    const result = validateAliasName('+', [], 'press-release')
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.reason).toBe('illegalCharacters')
+  })
+
+  it('budgets a toggle name for the stacked _s1_p<n> suffix and a press/release one for its sign', () => {
+    expect(maxOwnAliasNameLength()).toBe(MAX_OWN_ALIAS_NAME_LENGTH)
+    expect(maxOwnAliasNameLength('bind')).toBe(MAX_OWN_ALIAS_NAME_LENGTH)
+    expect(maxOwnAliasNameLength('toggle')).toBe(24)
+    expect(maxOwnAliasNameLength('press-release')).toBe(26)
+
+    // What the two numbers are *for*: the longest name each kind accepts still fits every alias
+    // name its family renders, terminator included (`MAX_ALIAS_NAME` counts that).
+    const toggle = 'a'.repeat(maxOwnAliasNameLength('toggle'))
+    expect(`${toggle}_s2_p12`.length).toBeLessThan(MAX_ALIAS_NAME)
+    const base = 'a'.repeat(maxOwnAliasNameLength('press-release'))
+    expect(`+${base}_p12`.length).toBeLessThan(MAX_ALIAS_NAME)
+  })
+
+  it('rejects a toggle name that only a single-body kind would have room for', () => {
+    const name = 'a'.repeat(MAX_OWN_ALIAS_NAME_LENGTH)
+    expect(validateAliasName(name)).toEqual({ ok: true })
+    const result = validateAliasName(name, [], 'toggle')
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.reason).toBe('tooLong')
+      expect(result.params).toEqual({ name, length: name.length, max: 24 })
+    }
+  })
+
+  /**
+   * Story-045 review, finding 3. Reserving *room* for the `_s<n>` suffix (the two budgets above) is
+   * not the same as reserving the *name*: the file keeps one definition per name, so a toggle called
+   * `zoom` next to a user alias called `zoom_s1` means one of the two bodies is simply gone after the
+   * next save. The rename dialog feeds this function the whole occupied name space
+   * (`alias-render.ts#renderedAliasNames`), and this is where the refusal happens.
+   */
+  it('refuses a toggle name whose derived _s1/_s2 state would overwrite an existing alias', () => {
+    for (const taken of ['zoom_s1', 'zoom_s2', 'ZOOM_S1']) {
+      const result = validateAliasName('zoom', [taken], 'toggle')
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
+        expect(result.reason).toBe('duplicate')
+        // The colliding name, not the typed one - the only spelling that says what the clash is.
+        expect(result.params).toEqual({ name: taken.toLowerCase() })
+      }
+    }
+    // The dispatch name itself still collides the way it always did, and an unrelated neighbour
+    // does not.
+    expect(validateAliasName('zoom', ['zoom'], 'toggle').ok).toBe(false)
+    expect(validateAliasName('zoom', ['zoomer', 'zoom_s10'], 'toggle')).toEqual({ ok: true })
+  })
+
+  it('refuses a press/release base whose +/- half would overwrite an existing alias', () => {
+    for (const taken of ['+slow', '-slow']) {
+      const result = validateAliasName('slow', [taken], 'press-release')
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.reason).toBe('duplicate')
+    }
+    // The sign-free base defines nothing on its own, so an entry that resolves to bare `slow` is not
+    // a partner this kind can collide with.
+    expect(validateAliasName('slow', ['slow'], 'press-release')).toEqual({ ok: true })
+  })
+
+  it('leaves the single-body kinds checking exactly one name, as before', () => {
+    expect(validateAliasName('zoom', ['zoom_s1'])).toEqual({ ok: true })
+    expect(validateAliasName('zoom', ['zoom_s1'], 'alias')).toEqual({ ok: true })
+    expect(validateAliasName('zoom', ['zoom'], 'alias').ok).toBe(false)
   })
 })
 

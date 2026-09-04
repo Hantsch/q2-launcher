@@ -42,7 +42,7 @@ never learns the format never has to.
 
 ## Key registry
 
-The current registry, after story 050's cut, is nine keys:
+The current registry, after story 050's cut and story 045's addition, is ten keys:
 
 | key       | where it appears           | meaning                                                        |
 | --------- | --------------------------- | --------------------------------------------------------------- |
@@ -55,6 +55,7 @@ The current registry, after story 050's cut, is nine keys:
 | `layer`   | section header (layer)      | layer ref                                                        |
 | `mode`    | section header (layer)      | layer mode                                                       |
 | `trigger` | section header (layer)      | layer trigger key; the key is omitted entirely (not emitted as empty) when the trigger is `null` |
+| `lbl`     | a toggle/press-release state's own alias line only | that state's display label (story 045) — never on the dispatch alias or a `_p<n>` chunk line |
 
 `KNOWN_META_KEYS` in `profile-metadata.ts` lists these in the exact order `formatMetaTag` always
 emits them — that fixed order is part of the format's determinism guarantee: the same fields always
@@ -80,6 +81,29 @@ no longer looks for them.
   entry's key count stopped being capped at two: file order already says which slot is which — the
   first line that claims a key for an entry is slot 1, the next is slot 2, and so on (see "Slot
   identity: file order, not a field" below).
+
+## Toggle and press/release entries
+
+A `toggle` entry (story 045) renders as three alias lines: two state aliases plus a dispatch alias
+that always points at state 1. A `press-release` entry renders as two independent aliases, `+<base>`
+and `-<base>`, with no dispatch alias between them.
+
+```
+alias zoom_s1 "fov 90; alias zoom zoom_s2"    // Zoom [q2l cid=movement:zoom lbl=In]
+alias zoom_s2 "fov 120; alias zoom zoom_s1"   // Zoom [q2l cid=movement:zoom lbl=Out]
+alias zoom zoom_s1                            // Zoom [q2l cid=movement:zoom]
+
+alias +duck "+moveDown"                       // Duck [q2l cid=movement:duck]
+alias -duck "-moveDown"                       // Duck [q2l cid=movement:duck]
+```
+
+`lbl` is the state's own display label (set on `ActionEntryPart.label`), and it rides only on that
+state's own alias line — the line whose name is that half's rendered name
+(`alias-render.ts#twoPartAliasNames`). Every other line the entry produces (the dispatch alias, and
+any `_p<n>` chunk line under either half) carries the entry's plain tag, with no `lbl` at all — a
+chunk line is a fragment of one half's body, not the state itself, and the dispatch alias is neither
+state. A `press-release` half can carry a `lbl` too, by the same rule, even though today's UI does not
+expose one for that kind.
 
 ## Slot identity: file order, not a field
 

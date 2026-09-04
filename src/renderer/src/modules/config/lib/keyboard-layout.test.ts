@@ -76,4 +76,66 @@ describe('resolveAliasChain (story 015: dual-bound drop row)', () => {
 
     expect(resolved).toEqual(['weapnext'])
   })
+
+  /**
+   * Story 045, D10: a toggle binds to its dispatch alias name (`aliasNameFor`), same as a plain
+   * `kind: 'alias'` action - the story's own acceptance line ("key V ... reads Zoom with both
+   * state labels, not zoom_s1") is what this pins: one returned step naming the entry plus both
+   * state labels, not the raw dispatch/state alias text.
+   */
+  it('resolves a toggle bind to its own name plus both state labels, in one step', () => {
+    const zoom = action({
+      kind: 'toggle',
+      name: 'Zoom',
+      aliasName: 'zoom',
+      commands: [],
+      parts: [
+        { commands: [{ kind: 'raw', text: 'zoom_fov' }], label: 'In' },
+        { commands: [{ kind: 'raw', text: 'norm_fov' }], label: 'Out' },
+      ],
+    })
+
+    const resolved = resolveAliasChain('zoom', [zoom])
+
+    expect(resolved).toEqual(['Zoom: In / Out'])
+  })
+
+  it('falls back to a placeholder label for a toggle state with no label or aliasName', () => {
+    const zoom = action({
+      kind: 'toggle',
+      name: 'Zoom',
+      aliasName: 'zoom',
+      commands: [],
+      parts: [
+        { commands: [{ kind: 'raw', text: 'zoom_fov' }] },
+        { commands: [{ kind: 'raw', text: 'norm_fov' }] },
+      ],
+    })
+
+    const resolved = resolveAliasChain('zoom', [zoom])
+
+    expect(resolved).toEqual(['Zoom: State 1 / State 2'])
+  })
+
+  /**
+   * Story 045, D10: a press/release entry's bind value is its `+base` form (`bindValueFor`), not
+   * its sign-free `aliasNameFor` - the lookup has to match on `bindValueFor` too, or a real key's
+   * bind value never finds the action at all.
+   */
+  it('resolves a press/release bind (its "+base" bind value) to its own name', () => {
+    const slow = action({
+      kind: 'press-release',
+      name: 'slow',
+      aliasName: 'slow',
+      commands: [],
+      parts: [
+        { commands: [{ kind: 'raw', text: 'cl_forwardspeed 110' }] },
+        { commands: [{ kind: 'raw', text: 'cl_forwardspeed 200' }] },
+      ],
+    })
+
+    const resolved = resolveAliasChain('+slow', [slow])
+
+    expect(resolved).toEqual(['slow'])
+  })
 })

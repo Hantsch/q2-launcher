@@ -46,6 +46,21 @@ import { normalizeBindKey } from '@shared/config/key-names'
  * `validate-actions.ts` already warns about the press/release case).
  */
 export function bindValueFor(action: ConfigAction): string {
+  // Story 045, D3. Both two-part kinds are spelled out here rather than left to fall through:
+  // their commands live in `parts`, so `action.commands` is `[]` and the catalogue fast path below
+  // could not fire anyway - but "could not fire because another field happens to be empty" is not
+  // a guarantee a reader of this function can see, and this is the function that decides which
+  // value a save writes over a user's binds.
+  //
+  // A press/release entry's key must carry the `+` half *verbatim*: the engine only sends the
+  // matching `-` on key-up when the bind string itself starts with `+` (`keys.c`, see the file doc
+  // comment), so binding the sign-free base would press `+slow` and never release it.
+  if (action.kind === 'press-release') return `+${aliasNameFor(action)}`
+  // A toggle binds to its dispatch alias, which *is* `aliasNameFor(action)` - the same value the
+  // `alias <dispatch> <state>` rewrites in its own state bodies point at
+  // (`alias-render.ts#renderTwoPartAliases`), so the key keeps working after either state ran.
+  if (action.kind === 'toggle') return aliasNameFor(action)
+
   const [command] = action.commands
   if (
     action.kind !== 'alias' &&

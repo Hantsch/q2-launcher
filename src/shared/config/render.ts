@@ -3,7 +3,7 @@ import { BUILT_IN_ACTION_CATEGORIES } from '@shared/modules/config'
 import { actionKeySlots } from '@shared/config/action-slots'
 import type { AltLayer, GeneratedAlias, GenerateLayerResult } from '@shared/config/alt-layers'
 import { generateLayerAliases } from '@shared/config/alt-layers'
-import { renderActionAlias } from '@shared/config/alias-render'
+import { renderActionAlias, twoPartAliasNames } from '@shared/config/alias-render'
 import { actionsWithAliasLine } from '@shared/config/alias-references'
 import { bindValueFor } from '@shared/config/action-mirror'
 import { categoryLabelFor, commentLabelFor } from '@shared/config/comment-labels'
@@ -84,8 +84,19 @@ export const STRICTEST_LINE_BUDGET = Math.min(
  * decoration is squeezed by this; the command part is never measured against it at all (see
  * `attachComment`'s own contract), so an over-long *command* stays over-long and visible rather
  * than being silently cut.
+ *
+ * Exported since the story-045 review (finding 1): `profile-restore.ts` has to be able to tell a
+ * display prose this budget *cut* on one line apart from a genuinely different prose on another, and
+ * the only honest way to do that is to measure against the very number the writer measured against.
  */
-const COMMENT_LINE_BUDGET = STRICTEST_LINE_BUDGET - 1
+export const COMMENT_LINE_BUDGET = STRICTEST_LINE_BUDGET - 1
+
+/**
+ * The two spaces plus `// ` `attachTaggedComment` puts between a line's code and its comment body.
+ * Exported for the same reason `COMMENT_LINE_BUDGET` is - a reader reconstructing how much room a
+ * line had for its prose has to subtract exactly what the writer added.
+ */
+export const COMMENT_PREFIX = '  // '
 
 // ---------------------------------------------------------------------------
 // Story 042 D2 / story 050 D6: the `[q2l ...]` metadata tags this file attaches.
@@ -127,6 +138,14 @@ interface AnchorTagFields {
   modifier?: string
   /** The entry's own `aliasName` - only where no alias line in the file carries it. */
   aliasName?: string
+  /**
+   * A toggle/press-release state's own display label (story 045, D4) - only on the one rendered
+   * alias line that *is* that state (the line whose name is `twoPartAliasNames(action).first` or
+   * `.second`). Never on the dispatch alias line or a `_p<n>` chunk line: those are not a state
+   * themselves, they are the entry's plumbing or a fragment of one half's body, and putting the
+   * label there would let a reader find "In"/"Out" on the wrong line.
+   */
+  label?: string
 }
 
 /**
@@ -151,6 +170,7 @@ function entryTag(action: ConfigAction, anchor: AnchorTagFields = {}): string {
     an: anchor.aliasName,
     key: anchor.key,
     mod: anchor.modifier,
+    lbl: anchor.label,
   })
 }
 
@@ -429,8 +449,20 @@ function buildAliasSections(
       // shares the one tag, exactly as it shares the one label. A catalogue-less entry still gets
       // the bare `[q2l]` marker here - see `entryTag`.
       const tag = entryTag(action)
+      // A toggle/press-release entry's two state lines each carry their own `lbl` (story 045, D4) -
+      // every other line for the entry (the dispatch alias, any `_p<n>` chunk of either half) keeps
+      // the plain `tag` above. `twoPartAliasNames` is the one place that knows which rendered name
+      // is which half, so the two files can never disagree about it.
+      const halfNames = twoPartAliasNames(action)
+      const parts = action.parts
+      const labelTagFor = (aliasName: string): string => {
+        if (!halfNames || !parts) return tag
+        if (aliasName === halfNames.first) return entryTag(action, { label: parts[0]?.label })
+        if (aliasName === halfNames.second) return entryTag(action, { label: parts[1]?.label })
+        return tag
+      }
       for (const alias of renderActionAlias(action).aliases) {
-        rows.push({ ...splitAliasLine(alias), comment, tag })
+        rows.push({ ...splitAliasLine(alias), comment, tag: labelTagFor(alias.name) })
       }
     }
     return titledSection(

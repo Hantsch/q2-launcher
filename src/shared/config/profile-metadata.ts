@@ -41,6 +41,7 @@
  * | `layer`   | layer ref (section header only)                                        |
  * | `mode`    | layer mode (section header only)                                       |
  * | `trigger` | layer trigger key, omitted entirely when null (section header only)   |
+ * | `lbl`     | a toggle/press-release state's display label - that state's own alias line only (story 045) |
  *
  * Story 050 dropped `e` (entry ref hash), `k` (entry kind) and `slot` (key slot index) from this
  * registry: all three duplicated information the config text or the profile model already carries
@@ -119,6 +120,13 @@ export const KNOWN_META_KEYS = [
   'layer',
   'mode',
   'trigger',
+  // A toggle/press-release state's own display label (story 045, D4) - appended rather than slotted
+  // in near `an`/`key`/`mod` even though it is also a per-line, entry-scoped field, because insertion
+  // order here is the format's determinism guarantee (this file's own doc comment) and every key
+  // above already shipped in earlier stories. Only ever emitted on the one rendered alias line that
+  // *is* that state, never the dispatch alias or a `_p<n>` chunk line - `render.ts#buildAliasSections`
+  // decides which.
+  'lbl',
 ] as const
 
 export type KnownMetaKey = (typeof KNOWN_META_KEYS)[number]
@@ -137,6 +145,7 @@ export interface MetaTagFields {
   layer?: string
   mode?: string
   trigger?: string
+  lbl?: string
   [key: string]: string | undefined
 }
 

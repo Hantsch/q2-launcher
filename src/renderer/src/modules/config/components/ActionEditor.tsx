@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
 import { keySlotAt, withKeySlot } from '@shared/config/action-slots'
-import type { ConfigAction, ConfigCommand } from '@shared/modules/config'
+import type { ActionEntryPart, ConfigAction, ConfigCommand } from '@shared/modules/config'
 import { sanitizeCommand } from '@shared/config/alt-layers'
 import {
   commandLineFor,
   renderActionAlias,
   type RenderedActionAliases,
 } from '@shared/config/alias-render'
+import { MAX_WAIT_FRAMES } from '@shared/config/engine-limits'
 import {
   DROP_ACTIONS,
   MOVEMENT_ACTIONS,
@@ -22,6 +23,228 @@ import { Badge } from '../../../components/ui/primitives'
 import { getAliasSuggestions } from '../lib/alias-suggestions'
 import { editorKeySlot } from '../lib/catalog-binds'
 import { resolveQuakeKeyName } from '../lib/keyboard-layout'
+
+/** One catalogue entry the "pick from catalogue" list offers - shared shape across every command
+ * list section, since the catalogue itself does not vary by which section is picking from it. */
+interface CatalogEntry {
+  id: string
+  labelKey: string
+  commands: string[]
+}
+
+/**
+ * One command list's worth of UI: the row list (with move/remove), the raw-command adder, the
+ * wait-frame adder, and the pick-from-catalogue list.
+ *
+ * Story 045, D9: factored out of `ActionEditor`'s body so the same UI can be rendered once for a
+ * `bind`/`alias` entry's single command list, or twice for a `toggle`/`press-release` entry's two
+ * parts, without three separate editor bodies ("one editor, not three" - the story's own Decisions).
+ * Each instance owns its own raw-command text and catalogue filter - two independent drafts, not one
+ * shared between both halves of a two-part entry.
+ */
+function CommandListSection({
+  title,
+  labelField,
+  commands,
+  setCommands,
+  aliasSuggestions,
+  catalogEntries,
+  datalistId,
+}: {
+  title: string
+  /** Only present for a toggle's state sections (story 045: labels are toggle-only, a press/release
+   * half never shows this field even though `ActionEntryPart.label` could technically hold one). */
+  labelField?: { value: string; onChange: (value: string) => void; label: string; placeholder: string }
+  commands: ConfigCommand[]
+  setCommands: Dispatch<SetStateAction<ConfigCommand[]>>
+  aliasSuggestions: string[]
+  catalogEntries: CatalogEntry[]
+  datalistId: string
+}) {
+  const { t } = useTranslation()
+  const [filter, setFilter] = useState('')
+  const [rawCommandText, setRawCommandText] = useState('')
+  const [waitFrames, setWaitFrames] = useState(5)
+
+  const filteredCatalog = useMemo(() => {
+    const query = filter.trim().toLowerCase()
+    if (!query) return catalogEntries
+    return catalogEntries.filter((entry) => t(entry.labelKey).toLowerCase().includes(query))
+  }, [catalogEntries, filter, t])
+
+  const appendCommands = (texts: string[]): void => {
+    setCommands((prev) => [...prev, ...texts.map((text): ConfigCommand => ({ kind: 'raw', text }))])
+  }
+
+  const addRawCommand = (): void => {
+    // Sanitized on commit (quotes dropped, whitespace collapsed) - see `ActionEditor`'s own file
+    // doc comment for why this happens at commit time rather than on every keystroke.
+    const sanitized = sanitizeCommand(rawCommandText)
+    if (!sanitized) return
+    appendCommands([sanitized])
+    setRawCommandText('')
+  }
+
+  const addWait = (): void => {
+    const frames = Math.min(MAX_WAIT_FRAMES, Math.max(1, Math.round(waitFrames) || 1))
+    setCommands((prev) => [...prev, { kind: 'wait', frames }])
+  }
+
+  const removeCommandAt = (index: number): void => {
+    setCommands((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const moveCommand = (index: number, direction: -1 | 1): void => {
+    setCommands((prev) => {
+      const target = index + direction
+      if (target < 0 || target >= prev.length) return prev
+      const next = [...prev]
+      const [moved] = next.splice(index, 1)
+      next.splice(target, 0, moved!)
+      return next
+    })
+  }
+
+  return (
+    <div className="space-y-3">
+      {labelField && (
+        <Field label={labelField.label}>
+          <Input
+            value={labelField.value}
+            placeholder={labelField.placeholder}
+            onChange={(event) => labelField.onChange(event.target.value)}
+          />
+        </Field>
+      )}
+
+      <div className="space-y-2">
+        <span className="stencil block">{title}</span>
+
+        {commands.length === 0 ? (
+          <p className="text-xs text-ink-muted">{t('config.controls.editor.commandsEmpty')}</p>
+        ) : (
+          <ul className="space-y-1">
+            {commands.map((command, index) => (
+              <li
+                key={index}
+                className="flex items-center justify-between gap-2 rounded-sm border border-line px-2.5 py-1.5"
+              >
+                <code className="min-w-0 flex-1 truncate text-xs text-ink-dim">
+                  {command.kind === 'wait'
+                    ? t('config.controls.editor.wait.rowLabel', { frames: command.frames })
+                    : commandLineFor(command)}
+                </code>
+                <div className="flex shrink-0 items-center gap-1">
+                  <IconButton
+                    label={t('config.controls.editor.moveUp')}
+                    size="sm"
+                    disabled={index === 0}
+                    onClick={() => moveCommand(index, -1)}
+                  >
+                    <ArrowUp className="size-3.5" />
+                  </IconButton>
+                  <IconButton
+                    label={t('config.controls.editor.moveDown')}
+                    size="sm"
+                    disabled={index === commands.length - 1}
+                    onClick={() => moveCommand(index, 1)}
+                  >
+                    <ArrowDown className="size-3.5" />
+                  </IconButton>
+                  <IconButton
+                    label={t('config.controls.editor.removeCommand')}
+                    size="sm"
+                    variant="danger"
+                    onClick={() => removeCommandAt(index)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </IconButton>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <Field label={t('config.controls.editor.rawCommandLabel')}>
+        <div className="flex gap-2">
+          <Input
+            value={rawCommandText}
+            placeholder={t('config.controls.editor.rawCommandPlaceholder')}
+            aria-label={t('config.controls.editor.rawCommandLabel')}
+            list={datalistId}
+            onChange={(event) => setRawCommandText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') addRawCommand()
+            }}
+          />
+          {/* Story 019 D6: native datalist, no new dependency - typing `+` in the field above
+              offers the profile's own aliases, and picking one just writes that exact string
+              (native `<input list>` behavior, no extra wiring needed). */}
+          <datalist id={datalistId}>
+            {aliasSuggestions.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
+          <Button
+            variant="neutral"
+            onClick={addRawCommand}
+            // Disabled on the *sanitized* emptiness, not the raw text's - a quote-only input like
+            // `"` sanitizes to `''` and would otherwise leave this enabled for a click that
+            // silently does nothing (review follow-up finding).
+            disabled={!sanitizeCommand(rawCommandText)}
+          >
+            {t('config.controls.editor.addCommand')}
+          </Button>
+        </div>
+      </Field>
+
+      {/* Story 045 D9: a `wait` row helper - appends `{ kind: 'wait', frames }` without the user
+          typing the literal word `wait` themselves. */}
+      <Field label={t('config.controls.editor.wait.frameCountLabel')}>
+        <div className="flex gap-2">
+          <Input
+            type="number"
+            min={1}
+            max={MAX_WAIT_FRAMES}
+            value={waitFrames}
+            aria-label={t('config.controls.editor.wait.frameCountLabel')}
+            onChange={(event) => setWaitFrames(Number(event.target.value))}
+            className="max-w-24"
+          />
+          <Button variant="neutral" onClick={addWait}>
+            {t('config.controls.editor.wait.addButton')}
+          </Button>
+        </div>
+      </Field>
+
+      <Field label={t('config.controls.editor.pickListLabel')}>
+        <Input
+          value={filter}
+          placeholder={t('config.controls.editor.filterPlaceholder')}
+          onChange={(event) => setFilter(event.target.value)}
+        />
+        <div className="mt-2 max-h-40 space-y-0.5 overflow-y-auto rounded-sm border border-line">
+          {filteredCatalog.length === 0 ? (
+            <p className="px-2.5 py-2 text-xs text-ink-muted">{t('common.none')}</p>
+          ) : (
+            filteredCatalog.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => appendCommands(entry.commands)}
+                className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-xs text-ink transition-colors duration-[--dur-fast] hover:bg-hover"
+              >
+                <span>{t(entry.labelKey)}</span>
+                <code className="text-ink-muted">{entry.commands.join('; ')}</code>
+              </button>
+            ))
+          )}
+        </div>
+      </Field>
+    </div>
+  )
+}
 
 /**
  * Story 008 D7 / 019 D5: the multi-command composer and key-assignment
@@ -40,6 +263,12 @@ import { resolveQuakeKeyName } from '../lib/keyboard-layout'
  *   `binds`/`overrides` exclusion); rendering a disabled or hidden key
  *   control here would still be a path back to a control whose effect is
  *   silently discarded, which is exactly what the story rules out.
+ *
+ * Story 045 D9 adds the other two kinds:
+ * - `toggle`/`press-release`: two independent command lists (`ConfigAction.parts`, always exactly
+ *   two), rendered via two `CommandListSection`s instead of the single-list branch above. Both
+ *   kinds ARE bindable (`@shared/config/action-mirror.ts#bindValueFor` handles both), so the key
+ *   section still shows for them - only `alias` has none.
  *
  * Mirrors `KeyBindDialog`'s shape (a `Modal`, a local draft, an explicit
  * commit rather than continuous auto-save) and `SwitchBindControl`'s
@@ -72,6 +301,7 @@ export function ActionEditor({
 }) {
   const { t } = useTranslation()
   const isAlias = action.kind === 'alias'
+  const isTwoPart = action.kind === 'toggle' || action.kind === 'press-release'
 
   // Story 019 D5 (comment corrected, Finding 6): whether a `bind` action's
   // payload is currently "message" or "command" is decided by whether ANY of
@@ -86,7 +316,7 @@ export function ActionEditor({
     (command): command is Extract<ConfigCommand, { kind: 'message' }> => command.kind === 'message',
   )
   const [payloadType, setPayloadType] = useState<'command' | 'message'>(
-    !isAlias && initialMessage ? 'message' : 'command',
+    !isAlias && !isTwoPart && initialMessage ? 'message' : 'command',
   )
   const [commands, setCommands] = useState<ConfigCommand[]>(
     payloadType === 'command' ? action.commands : [],
@@ -95,13 +325,21 @@ export function ActionEditor({
     initialMessage?.channel ?? 'say_team',
   )
   const [messageText, setMessageText] = useState(initialMessage?.text ?? '')
+
+  // Story 045 D9: a two-part entry's halves live in `action.parts`, not `action.commands` (which
+  // stays `[]` for these two kinds) - see `ConfigAction.parts`'s doc comment.
+  const [part1Commands, setPart1Commands] = useState<ConfigCommand[]>(action.parts?.[0]?.commands ?? [])
+  const [part2Commands, setPart2Commands] = useState<ConfigCommand[]>(action.parts?.[1]?.commands ?? [])
+  // Only actually shown/editable for `kind: 'toggle'` - a press/release half's `label` is left
+  // unset by this editor even though the type technically allows one (story's UI scope).
+  const [part1Label, setPart1Label] = useState(action.parts?.[0]?.label ?? '')
+  const [part2Label, setPart2Label] = useState(action.parts?.[1]?.label ?? '')
+
   // Story 050: this editor only ever edits slot 0 of `action.keys` (there is no secondary-slot
   // capture here, unlike the Controls grid's `BindSlot`s) - `@shared/config/action-slots`'s
   // accessor is the sole place `keys` is read/written.
   const [key, setKey] = useState<string | undefined>(keySlotAt(action, 0)?.key || undefined)
   const [capturingKey, setCapturingKey] = useState(false)
-  const [filter, setFilter] = useState('')
-  const [rawCommandText, setRawCommandText] = useState('')
 
   useEffect(() => {
     if (!capturingKey) return
@@ -132,17 +370,43 @@ export function ActionEditor({
       ? [{ kind: 'message', channel: messageChannel, text: messageText }]
       : commands
 
+  // Story 045 D9: a two-part entry's preview has to go through `renderActionAlias`'s two-part
+  // branch (`action.commands` is always `[]` for these kinds, so the single-list draft below would
+  // render nothing) - built from both parts' current draft commands/labels, `parts[i].aliasName`
+  // carried through untouched (this editor has no UI to change a part's own alias name).
+  const twoPartDraftParts = useMemo(
+    (): [ActionEntryPart, ActionEntryPart] => [
+      {
+        commands: part1Commands,
+        label: part1Label.trim() || undefined,
+        aliasName: action.parts?.[0]?.aliasName,
+      },
+      {
+        commands: part2Commands,
+        label: part2Label.trim() || undefined,
+        aliasName: action.parts?.[1]?.aliasName,
+      },
+    ],
+    [part1Commands, part1Label, part2Commands, part2Label, action.parts],
+  )
+
   const preview: RenderedActionAliases = useMemo(
-    () => renderActionAlias({ ...action, commands: effectiveCommands }),
-    [action, effectiveCommands],
+    () =>
+      isTwoPart
+        ? renderActionAlias({ ...action, commands: [], parts: twoPartDraftParts })
+        : renderActionAlias({ ...action, commands: effectiveCommands }),
+    [action, effectiveCommands, isTwoPart, twoPartDraftParts],
   )
   const totalBytes = useMemo(
     () => preview.aliases.reduce((sum, alias) => sum + alias.line.length, 0),
     [preview],
   )
-  const willSplit = preview.aliases.length > 1
+  // A two-part entry always renders as more than one alias by construction (its two halves, plus a
+  // dispatch alias for a toggle) - that is not the same event a single-body entry's overflow split
+  // is, so the "splits into N parts" warning is scoped to the single-body case it was written for.
+  const willSplit = !isTwoPart && preview.aliases.length > 1
 
-  const catalogEntries = useMemo(
+  const catalogEntries: CatalogEntry[] = useMemo(
     () => [
       ...MOVEMENT_ACTIONS.map((entry) => ({
         id: `movement:${entry.id}`,
@@ -175,46 +439,15 @@ export function ActionEditor({
   // entries, never itself.
   const aliasSuggestions = useMemo(() => getAliasSuggestions(actions), [actions])
 
-  const filteredCatalog = useMemo(() => {
-    const query = filter.trim().toLowerCase()
-    if (!query) return catalogEntries
-    return catalogEntries.filter((entry) => t(entry.labelKey).toLowerCase().includes(query))
-  }, [catalogEntries, filter, t])
-
-  const appendCommands = (texts: string[]): void => {
-    setCommands((prev) => [...prev, ...texts.map((text): ConfigCommand => ({ kind: 'raw', text }))])
-  }
-
-  const addRawCommand = (): void => {
-    // Sanitized on commit (quotes dropped, whitespace collapsed) - the same
-    // point `KeyBindDialog` sanitizes a hand-typed command, and the same
-    // decision-12 reasoning: a `"` cannot be represented in Quake 2 at all,
-    // so it is filtered here rather than let through to look fine in this
-    // editor's own preview (which already renders the sanitized form via
-    // `commandLineFor`) and then be rejected by the save schema with no
-    // visible reason.
-    const sanitized = sanitizeCommand(rawCommandText)
-    if (!sanitized) return
-    appendCommands([sanitized])
-    setRawCommandText('')
-  }
-
-  const removeCommandAt = (index: number): void => {
-    setCommands((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  const moveCommand = (index: number, direction: -1 | 1): void => {
-    setCommands((prev) => {
-      const target = index + direction
-      if (target < 0 || target >= prev.length) return prev
-      const next = [...prev]
-      const [moved] = next.splice(index, 1)
-      next.splice(target, 0, moved!)
-      return next
-    })
-  }
-
   const save = (): void => {
+    if (isTwoPart) {
+      const withParts: ConfigAction = { ...action, commands: [], parts: twoPartDraftParts }
+      // Toggle/press-release ARE bindable (same slot-0-only behaviour as everything else this
+      // editor writes) - see the file doc comment.
+      onSave(withKeySlot(withParts, 0, editorKeySlot(action, key)))
+      return
+    }
+
     const withCommands: ConfigAction = { ...action, commands: effectiveCommands }
 
     if (isAlias) {
@@ -258,9 +491,9 @@ export function ActionEditor({
       }
     >
       <div className="space-y-5">
-        {/* Story 019 D5: only a `bind` entry's payload can be a message - an
-            alias is always a command list, so it never sees this toggle. */}
-        {!isAlias && (
+        {/* Story 019 D5: only a `bind` entry's payload can be a message - an alias, toggle or
+            press/release entry is always a command list (or two), so none of them see this toggle. */}
+        {!isAlias && !isTwoPart && (
           <Field label={t('config.controls.editor.payloadType.label')}>
             <Select
               value={payloadType}
@@ -273,7 +506,69 @@ export function ActionEditor({
           </Field>
         )}
 
-        {payloadType === 'message' ? (
+        {isTwoPart ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="stencil">{t('config.controls.editor.commandsLabel')}</span>
+              <div className="flex items-center gap-2 text-xs text-ink-muted">
+                <span className="numeric">
+                  {t('config.controls.editor.byteLength', { bytes: totalBytes })}
+                </span>
+                {willSplit && (
+                  <Badge tone="warning">
+                    {t('config.controls.editor.willSplit', { count: preview.aliases.length })}
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <CommandListSection
+                title={
+                  action.kind === 'toggle'
+                    ? t('config.controls.editor.toggle.state1Label')
+                    : t('config.controls.editor.pressRelease.pressLabel')
+                }
+                labelField={
+                  action.kind === 'toggle'
+                    ? {
+                        value: part1Label,
+                        onChange: setPart1Label,
+                        label: t('config.controls.editor.toggle.labelFieldLabel'),
+                        placeholder: t('config.controls.editor.toggle.state1LabelPlaceholder'),
+                      }
+                    : undefined
+                }
+                commands={part1Commands}
+                setCommands={setPart1Commands}
+                aliasSuggestions={aliasSuggestions}
+                catalogEntries={catalogEntries}
+                datalistId="action-editor-alias-suggestions-1"
+              />
+              <CommandListSection
+                title={
+                  action.kind === 'toggle'
+                    ? t('config.controls.editor.toggle.state2Label')
+                    : t('config.controls.editor.pressRelease.releaseLabel')
+                }
+                labelField={
+                  action.kind === 'toggle'
+                    ? {
+                        value: part2Label,
+                        onChange: setPart2Label,
+                        label: t('config.controls.editor.toggle.labelFieldLabel'),
+                        placeholder: t('config.controls.editor.toggle.state2LabelPlaceholder'),
+                      }
+                    : undefined
+                }
+                commands={part2Commands}
+                setCommands={setPart2Commands}
+                aliasSuggestions={aliasSuggestions}
+                catalogEntries={catalogEntries}
+                datalistId="action-editor-alias-suggestions-2"
+              />
+            </div>
+          </div>
+        ) : payloadType === 'message' ? (
           <div className="space-y-5">
             <Field label={t('config.controls.messageEditor.channelLabel')} className="max-w-48">
               <Select
@@ -295,131 +590,35 @@ export function ActionEditor({
           </div>
         ) : (
           <>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <span className="stencil">{t('config.controls.editor.commandsLabel')}</span>
-                <div className="flex items-center gap-2 text-xs text-ink-muted">
-                  <span className="numeric">
-                    {t('config.controls.editor.byteLength', { bytes: totalBytes })}
-                  </span>
-                  {willSplit && (
-                    <Badge tone="warning">
-                      {t('config.controls.editor.willSplit', { count: preview.aliases.length })}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-
-              {commands.length === 0 ? (
-                <p className="text-xs text-ink-muted">{t('config.controls.editor.commandsEmpty')}</p>
-              ) : (
-                <ul className="space-y-1">
-                  {commands.map((command, index) => (
-                    <li
-                      key={index}
-                      className="flex items-center justify-between gap-2 rounded-sm border border-line px-2.5 py-1.5"
-                    >
-                      <code className="min-w-0 flex-1 truncate text-xs text-ink-dim">
-                        {commandLineFor(command)}
-                      </code>
-                      <div className="flex shrink-0 items-center gap-1">
-                        <IconButton
-                          label={t('config.controls.editor.moveUp')}
-                          size="sm"
-                          disabled={index === 0}
-                          onClick={() => moveCommand(index, -1)}
-                        >
-                          <ArrowUp className="size-3.5" />
-                        </IconButton>
-                        <IconButton
-                          label={t('config.controls.editor.moveDown')}
-                          size="sm"
-                          disabled={index === commands.length - 1}
-                          onClick={() => moveCommand(index, 1)}
-                        >
-                          <ArrowDown className="size-3.5" />
-                        </IconButton>
-                        <IconButton
-                          label={t('config.controls.editor.removeCommand')}
-                          size="sm"
-                          variant="danger"
-                          onClick={() => removeCommandAt(index)}
-                        >
-                          <Trash2 className="size-3.5" />
-                        </IconButton>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <Field label={t('config.controls.editor.rawCommandLabel')}>
-              <div className="flex gap-2">
-                <Input
-                  value={rawCommandText}
-                  placeholder={t('config.controls.editor.rawCommandPlaceholder')}
-                  aria-label={t('config.controls.editor.rawCommandLabel')}
-                  list="action-editor-alias-suggestions"
-                  onChange={(event) => setRawCommandText(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') addRawCommand()
-                  }}
-                />
-                {/* Story 019 D6: native datalist, no new dependency - typing
-                    `+` in the field above offers the profile's own aliases,
-                    and picking one just writes that exact string (native
-                    `<input list>` behavior, no extra wiring needed). */}
-                <datalist id="action-editor-alias-suggestions">
-                  {aliasSuggestions.map((name) => (
-                    <option key={name} value={name} />
-                  ))}
-                </datalist>
-                <Button
-                  variant="neutral"
-                  onClick={addRawCommand}
-                  // Disabled on the *sanitized* emptiness, not the raw text's -
-                  // a quote-only input like `"` sanitizes to `''` and would
-                  // otherwise leave this enabled for a click that silently does
-                  // nothing (review follow-up finding).
-                  disabled={!sanitizeCommand(rawCommandText)}
-                >
-                  {t('config.controls.editor.addCommand')}
-                </Button>
-              </div>
-            </Field>
-
-            <Field label={t('config.controls.editor.pickListLabel')}>
-              <Input
-                value={filter}
-                placeholder={t('config.controls.editor.filterPlaceholder')}
-                onChange={(event) => setFilter(event.target.value)}
-              />
-              <div className="mt-2 max-h-40 space-y-0.5 overflow-y-auto rounded-sm border border-line">
-                {filteredCatalog.length === 0 ? (
-                  <p className="px-2.5 py-2 text-xs text-ink-muted">{t('common.none')}</p>
-                ) : (
-                  filteredCatalog.map((entry) => (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      onClick={() => appendCommands(entry.commands)}
-                      className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-xs text-ink transition-colors duration-[--dur-fast] hover:bg-hover"
-                    >
-                      <span>{t(entry.labelKey)}</span>
-                      <code className="text-ink-muted">{entry.commands.join('; ')}</code>
-                    </button>
-                  ))
+            <div className="flex items-center justify-between gap-3">
+              <span className="sr-only">{t('config.controls.editor.commandsLabel')}</span>
+              <div className="flex items-center gap-2 text-xs text-ink-muted">
+                <span className="numeric">
+                  {t('config.controls.editor.byteLength', { bytes: totalBytes })}
+                </span>
+                {willSplit && (
+                  <Badge tone="warning">
+                    {t('config.controls.editor.willSplit', { count: preview.aliases.length })}
+                  </Badge>
                 )}
               </div>
-            </Field>
+            </div>
+            <CommandListSection
+              title={t('config.controls.editor.commandsLabel')}
+              commands={commands}
+              setCommands={setCommands}
+              aliasSuggestions={aliasSuggestions}
+              catalogEntries={catalogEntries}
+              datalistId="action-editor-alias-suggestions"
+            />
           </>
         )}
 
-        {/* Story 019 D5: the load-bearing bit - an alias entry has no key
-            slot at all. This branch is skipped entirely for `isAlias`, not
-            hidden/disabled, so there is no control here whose effect binding
-            a key to an alias would silently discard. */}
+        {/* Story 019 D5 / 045 D9: the load-bearing bit - only an alias entry has no key slot at
+            all. This branch is skipped entirely for `isAlias`, not hidden/disabled, so there is no
+            control here whose effect binding a key to an alias would silently discard. `toggle` and
+            `press-release` ARE bindable (`action-mirror.ts#bindValueFor`), so they keep this
+            section - `!isAlias` alone already gets that right. */}
         {!isAlias && (
           <div className="space-y-1.5">
             <span className="stencil block">{t('config.controls.editor.keyLabel')}</span>

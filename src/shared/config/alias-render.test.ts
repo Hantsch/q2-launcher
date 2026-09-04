@@ -4,10 +4,12 @@ import { MAX_ALIAS_NAME, MAX_LINE_BYTES } from '@shared/config/alt-layers'
 import {
   aliasLineBudget,
   aliasNameFor,
+  commandLineFor,
   derivedAliasName,
   legacyAliasNameFor,
   renderActionAlias,
   renderActionAliasLines,
+  renderedAliasNames,
 } from './alias-render'
 
 /**
@@ -372,6 +374,22 @@ describe('renderActionAliasLines', () => {
   })
 })
 
+// Story 045, D2: a `{ kind: 'wait' }` command renders as `frames` literal `wait` segments.
+describe('commandLineFor - wait', () => {
+  it('renders frames literal wait segments joined by "; "', () => {
+    expect(commandLineFor({ kind: 'wait', frames: 5 })).toBe('wait; wait; wait; wait; wait')
+  })
+
+  it('renders a single frame as one bare wait, no separator', () => {
+    expect(commandLineFor({ kind: 'wait', frames: 1 })).toBe('wait')
+  })
+
+  it('renders a rogue 0 (or negative) frames as an empty string rather than throwing', () => {
+    expect(commandLineFor({ kind: 'wait', frames: 0 })).toBe('')
+    expect(commandLineFor({ kind: 'wait', frames: -3 })).toBe('')
+  })
+})
+
 /**
  * Story 044, D2. The point of every case here is agreement: the numbers
  * `aliasLineBudget` reports have to be the ones `renderActionAlias` acts on, so
@@ -492,6 +510,23 @@ describe('aliasLineBudget', () => {
       expect(aliasLineBudget(subject).chunks, label).toBe(expected)
     }
   })
+
+  // Story 045, D2: `aliasLineBudget` calls `commandLineFor` per command (via `bodyCommandsFor`),
+  // so a `wait` command's expanded form is what gets counted - not the 4 bytes of the literal
+  // string "wait" regardless of `frames`.
+  it('counts a wait command by its expanded form, not by the word "wait" alone', () => {
+    const withWait = action({
+      name: 'Wait Five',
+      id: 'ab12cd34',
+      aliasName: 'wait_five',
+      commands: [{ kind: 'wait', frames: 5 }],
+    })
+    const budget = aliasLineBudget(withWait)
+
+    // The body contains `;`, so `renderAliasLine` quotes it: `alias wait_five "wait; wait; ..."`.
+    expect(budget.bytes).toBe('alias wait_five "wait; wait; wait; wait; wait"'.length)
+    expect(budget.bytes).toBeGreaterThan('alias wait_five "wait"'.length)
+  })
 })
 
 /**
@@ -576,5 +611,261 @@ describe('kind: alias entries', () => {
     // slug - the same "no `q2l_a_` anywhere in the output" invariant this deliverable's acceptance
     // criteria calls for.
     expect(lines.join('\n')).not.toContain('q2l_a_')
+  })
+})
+
+/**
+ * Story 045, D3: the two kinds whose halves live in `parts` render as a family - the three-alias
+ * reassignment idiom for a toggle, the `+`/`-` pair for a press/release entry.
+ */
+describe('kind: toggle entries', () => {
+  /** The story's own example, as the launcher's own entry: `Zoom`, two states, no typed names. */
+  const zoom = action({
+    id: 'zoom-0000',
+    name: 'Zoom',
+    kind: 'toggle',
+    commands: [],
+    keys: [{ key: 'v' }],
+    parts: [
+      {
+        label: 'In',
+        commands: [
+          { kind: 'raw', text: 'zoom_fov' },
+          { kind: 'raw', text: 'zoom_sens' },
+        ],
+      },
+      {
+        label: 'Out',
+        commands: [
+          { kind: 'raw', text: 'norm_fov' },
+          { kind: 'raw', text: 'norm_sens' },
+        ],
+      },
+    ],
+  })
+
+  it('renders the story`s zoom example as the three-alias reassignment idiom', () => {
+    expect(renderActionAliasLines([zoom])).toEqual([
+      'alias zoom_s1 "zoom_fov; zoom_sens; alias zoom zoom_s2"',
+      'alias zoom_s2 "norm_fov; norm_sens; alias zoom zoom_s1"',
+      // Unquoted, unlike the story's prose spelling of the idiom: `renderAliasLine` quotes a body
+      // only when it carries a `;` (`alt-layers.ts`'s rule, shared by every generator here), and
+      // `Cmd_Alias_f` joins the remaining arguments either way.
+      'alias zoom zoom_s1',
+    ])
+  })
+
+  it('defines the dispatch alias last and pointing at state 1 (a toggle always starts there)', () => {
+    const { aliases } = renderActionAlias(zoom)
+
+    expect(aliases.map((alias) => alias.name)).toEqual(['zoom_s1', 'zoom_s2', 'zoom'])
+    expect(aliases.at(-1)).toEqual({ name: 'zoom', body: 'zoom_s1', line: 'alias zoom zoom_s1' })
+  })
+
+  it('reports every name the entry defines, not just the one it is called by (review finding 3)', () => {
+    // What `RenameActionDialog` feeds `validateAliasName` as the occupied name space: without the
+    // two state names in it, a toggle could be renamed onto a base whose `_s1` state silently
+    // overwrites a user's own alias of that name.
+    expect(renderedAliasNames(zoom)).toEqual(['zoom', 'zoom_s1', 'zoom_s2'])
+    expect(
+      renderedAliasNames(
+        action({
+          ...zoom,
+          kind: 'press-release',
+          aliasName: 'slow',
+          parts: [{ commands: [] }, { commands: [] }],
+        }),
+      ),
+      // The sign-free base defines nothing - only the two signed halves reach the file.
+    ).toEqual(['+slow', '-slow'])
+    // Every single-body kind keeps reporting exactly its one name.
+    expect(
+      renderedAliasNames(
+        action({ name: 'Rail combo', kind: 'alias', aliasName: 'rail_combo', commands: [] }),
+      ),
+    ).toEqual(['rail_combo'])
+  })
+
+  it('keeps an imported toggle`s own state names verbatim', () => {
+    const imported = action({
+      ...zoom,
+      aliasName: 'zoom',
+      parts: [
+        { aliasName: 'zoomin', commands: [{ kind: 'raw', text: 'zoom_fov' }] },
+        { aliasName: 'zoomout', commands: [{ kind: 'raw', text: 'norm_fov' }] },
+      ],
+    })
+
+    expect(renderActionAliasLines([imported])).toEqual([
+      'alias zoomin "zoom_fov; alias zoom zoomout"',
+      'alias zoomout "norm_fov; alias zoom zoomin"',
+      'alias zoom zoomin',
+    ])
+  })
+
+  it('falls back to the derived state pair when the two typed names would collapse the entry', () => {
+    const names = (parts: NonNullable<ConfigAction['parts']>): string[] =>
+      renderActionAlias(action({ ...zoom, parts })).aliases.map((alias) => alias.name)
+
+    // Both states under one name: the engine keeps one definition per name, so this would silently
+    // lose a half. Same for a state named after the dispatch alias, and for a half-named pair.
+    expect(names([
+      { aliasName: 'zoomin', commands: [] },
+      { aliasName: 'ZoomIn', commands: [] },
+    ])).toEqual(['zoom_s1', 'zoom_s2', 'zoom'])
+    expect(names([
+      { aliasName: 'zoom', commands: [] },
+      { aliasName: 'zoomout', commands: [] },
+    ])).toEqual(['zoom_s1', 'zoom_s2', 'zoom'])
+    expect(names([
+      { aliasName: 'zoomin', commands: [] },
+      { commands: [] },
+    ])).toEqual(['zoom_s1', 'zoom_s2', 'zoom'])
+  })
+
+  it('still emits all three lines for a toggle whose states carry no commands at all', () => {
+    // A state body is never empty even then - the dispatch rewrite is part of it - so this needs
+    // none of the `keepEmptyAlias` spelling.
+    expect(
+      renderActionAliasLines([action({ ...zoom, parts: [{ commands: [] }, { commands: [] }] })]),
+    ).toEqual(['alias zoom_s1 alias zoom zoom_s2', 'alias zoom_s2 alias zoom zoom_s1', 'alias zoom zoom_s1'])
+  })
+
+  it('chunks a long state under its own state name, numbered per half', () => {
+    const half = (prefix: string) =>
+      Array.from({ length: 25 }, (_, index) => ({
+        kind: 'raw' as const,
+        text: `echo ${prefix}${String(index).padStart(2, '0')}${'x'.repeat(89)}`,
+      }))
+    const { aliases } = renderActionAlias(
+      action({ ...zoom, parts: [{ commands: half('a') }, { commands: half('b') }] }),
+    )
+
+    expect(aliases.map((alias) => alias.name)).toEqual([
+      'zoom_s1_p1',
+      'zoom_s1_p2',
+      'zoom_s1_p3',
+      'zoom_s2_p1',
+      'zoom_s2_p2',
+      'zoom_s2_p3',
+      'zoom_s1',
+      'zoom_s2',
+      'zoom',
+    ])
+    // Per-half numbering repeats the numbers, never the names - the prefix already separates the
+    // two halves (`alt-layers.ts#buildHalf` shares one counter because its chunks share one prefix).
+    expect(new Set(aliases.map((alias) => alias.name)).size).toBe(aliases.length)
+    for (const alias of aliases) {
+      expect(alias.name.length).toBeLessThanOrEqual(USABLE_ALIAS_NAME)
+      expect(alias.line.length).toBeLessThan(MAX_LINE_BYTES)
+    }
+    // The state's own parent calls its chunks in order and still ends in the dispatch rewrite.
+    expect(aliases.find((alias) => alias.name === 'zoom_s1')!.body).toBe(
+      'zoom_s1_p1; zoom_s1_p2; zoom_s1_p3',
+    )
+    expect(aliases.find((alias) => alias.name === 'zoom_s2_p3')!.body).toContain(
+      'alias zoom zoom_s1',
+    )
+  })
+
+  it('leaves room for both stacked suffixes in a derived toggle name', () => {
+    const name = aliasNameFor(action({ ...zoom, name: 'A Really Very Long Toggle Name' }))
+
+    // 24 characters, not the 26 a single-body kind gets: a toggle's chunk names carry `_s1` *and*
+    // `_p<nn>`, the one place two suffixes stack.
+    expect(name).toBe('a_really_very_long_toggl')
+    expect(name.length).toBe(24)
+    expect(`${name}_s1_p12`.length).toBeLessThanOrEqual(USABLE_ALIAS_NAME)
+  })
+
+  it('emits nothing for a two-part entry whose parts field is missing or malformed', () => {
+    // The zod mirrors are the real guard (exactly two parts for these kinds); this is the floor
+    // under a hand-edited state.json.
+    expect(renderActionAlias(action({ ...zoom, parts: undefined })).aliases).toEqual([])
+    expect(renderActionAlias(action({ ...zoom, parts: [{ commands: [] }] })).aliases).toEqual([])
+  })
+})
+
+describe('kind: press-release entries', () => {
+  /** The story's own `+slow`/`-slow` example. */
+  const slow = action({
+    id: 'slow-0000',
+    name: 'Slow',
+    kind: 'press-release',
+    commands: [],
+    keys: [{ key: 'SHIFT' }],
+    parts: [
+      {
+        commands: [
+          { kind: 'raw', text: 'cl_forwardspeed 110' },
+          { kind: 'raw', text: 'cl_sidespeed 110' },
+        ],
+      },
+      {
+        commands: [
+          { kind: 'raw', text: 'cl_forwardspeed 200' },
+          { kind: 'raw', text: 'cl_sidespeed 200' },
+        ],
+      },
+    ],
+  })
+
+  it('renders the story`s example as exactly the +x/-x pair, no dispatch alias', () => {
+    expect(renderActionAliasLines([slow])).toEqual([
+      'alias +slow "cl_forwardspeed 110; cl_sidespeed 110"',
+      'alias -slow "cl_forwardspeed 200; cl_sidespeed 200"',
+    ])
+  })
+
+  it('derives both halves off the sign-free base and ignores a per-part name', () => {
+    // Per the story's Decisions the halves are always `+base`/`-base`, so they cannot drift - a
+    // per-part name (which an imported pair does not need either) is deliberately not consulted.
+    const named = action({
+      ...slow,
+      aliasName: 'walk',
+      parts: [
+        { aliasName: 'something_else', commands: [{ kind: 'raw', text: 'cl_run 0' }] },
+        { aliasName: 'and_another', commands: [{ kind: 'raw', text: 'cl_run 1' }] },
+      ],
+    })
+
+    expect(renderActionAliasLines([named])).toEqual(['alias +walk cl_run 0', 'alias -walk cl_run 1'])
+  })
+
+  it('emits both halves even when one is empty, spelled as an explicit empty body', () => {
+    const pressOnly = action({ ...slow, parts: [slow.parts![0], { commands: [] }] })
+
+    expect(renderActionAliasLines([pressOnly])).toEqual([
+      'alias +slow "cl_forwardspeed 110; cl_sidespeed 110"',
+      'alias -slow ""',
+    ])
+  })
+
+  it('chunks each half under its own signed name', () => {
+    const longHalf = Array.from({ length: 25 }, (_, index) => ({
+      kind: 'raw' as const,
+      text: `echo ${String(index).padStart(2, '0')}${'x'.repeat(89)}`,
+    }))
+    const { aliases } = renderActionAlias(
+      action({ ...slow, parts: [{ commands: longHalf }, { commands: [{ kind: 'raw', text: 'cl_run 1' }] }] }),
+    )
+
+    expect(aliases.map((alias) => alias.name)).toEqual([
+      '+slow_p1',
+      '+slow_p2',
+      '+slow_p3',
+      '+slow',
+      '-slow',
+    ])
+    for (const alias of aliases) {
+      expect(alias.name.length).toBeLessThanOrEqual(USABLE_ALIAS_NAME)
+      expect(alias.line.length).toBeLessThan(MAX_LINE_BYTES)
+    }
+  })
+
+  it('keeps the sign slot free in a derived base name', () => {
+    const base = aliasNameFor(action({ ...slow, name: 'A Really Very Long Hold Name Here' }))
+
+    expect(`+${base}_p12`.length).toBeLessThanOrEqual(USABLE_ALIAS_NAME)
   })
 })

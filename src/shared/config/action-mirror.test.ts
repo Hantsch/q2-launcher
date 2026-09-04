@@ -56,6 +56,53 @@ describe('bindValueFor', () => {
     const freeForm = action({ catalogId: undefined })
     expect(bindValueFor(freeForm)).toBe(aliasNameFor(freeForm))
   })
+
+  // Story 045, D3: the two kinds whose halves live in `parts`.
+  it('binds a press/release entry to the + half, never to the sign-free base', () => {
+    const slow = action({
+      name: 'Slow',
+      kind: 'press-release',
+      catalogId: undefined,
+      commands: [],
+      parts: [
+        { commands: [{ kind: 'raw', text: 'cl_forwardspeed 110' }] },
+        { commands: [{ kind: 'raw', text: 'cl_forwardspeed 200' }] },
+      ],
+    })
+
+    // Same engine rule as the catalogue case above: a bind value that does not start with `+` gets
+    // no key-up event, so the `-slow` half would never run.
+    expect(bindValueFor(slow)).toBe('+slow')
+    expect(aliasNameFor(slow)).toBe('slow')
+  })
+
+  it('binds a toggle to its dispatch alias, and neither kind takes the catalogue fast path', () => {
+    const zoom = action({
+      name: 'Zoom',
+      kind: 'toggle',
+      // Both fields the fast path reads are set on purpose: a two-part entry must be excluded by
+      // its kind, not by its (always empty) `commands` happening not to match.
+      catalogId: 'movement:forward',
+      commands: [{ kind: 'raw', text: '+forward' }],
+      parts: [{ commands: [] }, { commands: [] }],
+    })
+
+    expect(bindValueFor(zoom)).toBe('zoom')
+    expect(bindValueFor({ ...zoom, kind: 'press-release' })).toBe('+zoom')
+  })
+
+  it('mirrors a press/release entry`s + half onto its key', () => {
+    const slow = action({
+      name: 'Slow',
+      kind: 'press-release',
+      catalogId: undefined,
+      commands: [],
+      keys: keySlots({ key: 'SHIFT' }),
+      parts: [{ commands: [] }, { commands: [] }],
+    })
+
+    expect(applyActionBindMirror({}, [slow])).toEqual({ SHIFT: '+slow' })
+  })
 })
 
 describe('isMirroredValue', () => {

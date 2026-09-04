@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildImportedActions,
+  collapseWaitRuns,
+  configCommandFor,
   splitAliasBody,
   type ImportedAliasDefinition,
 } from '@shared/config/alias-import'
+import { commandLineFor } from '@shared/config/alias-render'
+import { MAX_WAIT_FRAMES } from '@shared/config/engine-limits'
 
 /** Deterministic ids, so the entries and categories a case produces are pinnable. */
 function idFactory(): () => string {
@@ -46,6 +50,49 @@ describe('splitAliasBody', () => {
     expect(splitAliasBody('')).toEqual([])
     expect(splitAliasBody('   ')).toEqual([])
     expect(splitAliasBody('// nothing but a comment')).toEqual([])
+  })
+})
+
+// Story 045, D2: a run of literal `wait` segments collapses back into `{ kind: 'wait' }` commands.
+describe('collapseWaitRuns', () => {
+  it('collapses a run of consecutive literal waits, leaving other commands untouched', () => {
+    const commands = ['wait', 'wait', 'use rl', 'wait'].map(configCommandFor)
+
+    expect(collapseWaitRuns(commands)).toEqual([
+      { kind: 'wait', frames: 2 },
+      { kind: 'raw', text: 'use rl' },
+      { kind: 'wait', frames: 1 },
+    ])
+  })
+
+  it('splits a run longer than MAX_WAIT_FRAMES into multiple wait commands, no frames dropped', () => {
+    const commands = Array.from({ length: 120 }, () => configCommandFor('wait'))
+    const collapsed = collapseWaitRuns(commands)
+
+    expect(collapsed).toEqual([
+      { kind: 'wait', frames: MAX_WAIT_FRAMES },
+      { kind: 'wait', frames: MAX_WAIT_FRAMES },
+      { kind: 'wait', frames: 20 },
+    ])
+    expect(collapsed.reduce((sum, c) => sum + (c.kind === 'wait' ? c.frames : 0), 0)).toBe(120)
+  })
+
+  it('does not collapse a segment that is not exactly the literal word wait', () => {
+    const commands = ['wait5', 'wait extra', 'Wait'].map(configCommandFor)
+
+    expect(collapseWaitRuns(commands)).toEqual([
+      { kind: 'raw', text: 'wait5' },
+      { kind: 'raw', text: 'wait extra' },
+      { kind: 'raw', text: 'Wait' },
+    ])
+  })
+
+  it('round-trips a rendered wait command back to itself', () => {
+    const rendered = commandLineFor({ kind: 'wait', frames: 5 })
+    const segments = splitAliasBody(rendered)
+    const collapsed = collapseWaitRuns(segments.map(configCommandFor))
+
+    expect(collapsed).toEqual([{ kind: 'wait', frames: 5 }])
   })
 })
 
@@ -143,15 +190,16 @@ describe('buildImportedActions - entry kind', () => {
 
 describe('buildImportedActions - names', () => {
   it('keeps a signed name verbatim in both name and aliasName', () => {
+    // `+slow` alone, with no `-slow` counterpart, does not match the story 045
+    // press/release idiom (D6) and stays a plain, loose alias entry - which is
+    // exactly the case this test is pinning: a signed name kept verbatim.
     const { actions } = build([
       def('+slow', 'cl_forwardspeed 110; cl_sidespeed 110'),
-      def('-slow', 'cl_forwardspeed 200; cl_sidespeed 200'),
       def('drop_rail', 'drop railgun'),
     ])
 
     expect(actions.map((a) => [a.name, a.aliasName])).toEqual([
       ['+slow', '+slow'],
-      ['-slow', '-slow'],
       ['drop_rail', 'drop_rail'],
     ])
   })
@@ -385,36 +433,30 @@ describe('buildImportedActions - adversarial bodies', () => {
       def('t', 't_on'),
     ])
 
-    expect(actions.map((a) => a.name)).toEqual(['a1', 'a2', 'a3', 'a4', 't_on', 't_off', 't'])
-    expect(actions.map((a) => a.kind)).toEqual([
-      'alias',
-      'alias',
-      'alias',
-      'message',
-      'alias',
-      'alias',
-      'alias',
-    ])
-    // Only `a4` is a message; the toggle's rewrites stayed raw and defined nothing.
+    // `t_on`/`t_off`/`t` is exactly the toggle-by-alias-reassignment idiom (story
+    // 045, D5/D6): one `kind: 'toggle'` entry at `t`'s position, not three loose
+    // aliases.
+    expect(actions.map((a) => a.name)).toEqual(['a1', 'a2', 'a3', 'a4', 't'])
+    expect(actions.map((a) => a.kind)).toEqual(['alias', 'alias', 'alias', 'message', 'toggle'])
+    // Only `a4` is a message; the toggle's rewrites never reach `commands` at all.
     expect(categories.map((c) => c.name)).toEqual(['Imported', 'Messages'])
-    expect(actions[4]!.commands).toEqual([
-      { kind: 'raw', text: 'cl_gun 0' },
-      { kind: 'raw', text: 'alias t t_off' },
+    expect(actions[4]!.commands).toEqual([])
+    expect(actions[4]!.parts).toEqual([
+      { commands: [{ kind: 'raw', text: 'cl_gun 0' }], aliasName: 't_on' },
+      { commands: [{ kind: 'raw', text: 'cl_gun 1' }], aliasName: 't_off' },
     ])
     expect(ambiguous).toEqual([])
   })
 
-  it('keeps a wait chain around a use command intact', () => {
+  it('collapses a wait chain around a use command into wait commands (story 045, D2)', () => {
     const { actions } = build([def('rl_swap', 'wait;wait;wait;use rocket launcher;wait;+attack')])
 
     expect(actions[0]!.categoryId).toBe('weapons')
-    expect(actions[0]!.commands.map((c) => c.text)).toEqual([
-      'wait',
-      'wait',
-      'wait',
-      'use rocket launcher',
-      'wait',
-      '+attack',
+    expect(actions[0]!.commands).toEqual([
+      { kind: 'wait', frames: 3 },
+      { kind: 'raw', text: 'use rocket launcher' },
+      { kind: 'wait', frames: 1 },
+      { kind: 'raw', text: '+attack' },
     ])
   })
 
@@ -444,5 +486,112 @@ describe('buildImportedActions - adversarial bodies', () => {
 
     expect(ambiguous.map((a) => a.name)).toEqual(['armed'])
     expect(actions[0]!.commands).toHaveLength(4)
+  })
+})
+
+// Story 045, D6: `entry-idioms.ts`'s recogniser wired into `buildImportedActions`.
+describe('buildImportedActions - recognised idioms (story 045, D6)', () => {
+  it('imports the zoom/zoomin/zoomout trio as one toggle entry, names kept verbatim', () => {
+    const { actions } = build(
+      [
+        def('zoomin', 'zoom_fov 40;zoom_sens;alias zoom zoomout'),
+        def('zoomout', 'norm_fov;norm_sens;alias zoom zoomin'),
+        def('zoom', 'zoomin'),
+      ],
+      { binds: { v: 'zoom' } },
+    )
+
+    expect(actions).toHaveLength(1)
+    const [toggle] = actions
+    expect(toggle).toMatchObject({ name: 'zoom', kind: 'toggle', aliasName: 'zoom', commands: [] })
+    expect(toggle!.parts).toEqual([
+      {
+        commands: [
+          { kind: 'raw', text: 'zoom_fov 40' },
+          { kind: 'raw', text: 'zoom_sens' },
+        ],
+        aliasName: 'zoomin',
+      },
+      {
+        commands: [
+          { kind: 'raw', text: 'norm_fov' },
+          { kind: 'raw', text: 'norm_sens' },
+        ],
+        aliasName: 'zoomout',
+      },
+    ])
+  })
+
+  it('imports a +slow/-slow pair as one press-release entry', () => {
+    const { actions } = build([
+      def('+slow', 'cl_forwardspeed 110;cl_sidespeed 110'),
+      def('-slow', 'cl_forwardspeed 200;cl_sidespeed 200'),
+    ])
+
+    expect(actions).toHaveLength(1)
+    const [pair] = actions
+    expect(pair).toMatchObject({
+      name: 'slow',
+      kind: 'press-release',
+      aliasName: 'slow',
+      commands: [],
+    })
+    expect(pair!.parts).toEqual([
+      {
+        commands: [
+          { kind: 'raw', text: 'cl_forwardspeed 110' },
+          { kind: 'raw', text: 'cl_sidespeed 110' },
+        ],
+      },
+      {
+        commands: [
+          { kind: 'raw', text: 'cl_forwardspeed 200' },
+          { kind: 'raw', text: 'cl_sidespeed 200' },
+        ],
+      },
+    ])
+  })
+
+  it('imports a waitN family as two separate alias entries, neither merged away', () => {
+    const { actions } = build([
+      def('wait5', 'wait;wait;wait;wait;wait'),
+      def('wait20', 'wait5;wait5;wait5;wait5'),
+    ])
+
+    expect(actions.map((a) => [a.name, a.kind, a.commands])).toEqual([
+      ['wait5', 'alias', [{ kind: 'wait', frames: 5 }]],
+      ['wait20', 'alias', [{ kind: 'wait', frames: 20 }]],
+    ])
+  })
+
+  it('never emits a duplicate loose-alias entry for a name a recognised idiom consumed', () => {
+    const { actions } = build(
+      [
+        def('zoomin', 'zoom_fov 40;alias zoom zoomout'),
+        def('zoomout', 'norm_fov;alias zoom zoomin'),
+        def('zoom', 'zoomin'),
+      ],
+      { binds: { v: 'zoom' } },
+    )
+
+    expect(actions).toHaveLength(1)
+    expect(actions.map((a) => a.name)).toEqual(['zoom'])
+  })
+
+  it('falls back to plain alias entries when a toggle-shaped pair is missing its counterpart', () => {
+    // `zoomout` rewrites to a third name instead of pointing back at `zoomin`,
+    // so the trio is not a two-state loop and every name involved falls back.
+    const { actions } = build([
+      def('zoomin', 'zoom_fov 40;alias zoom zoomout'),
+      def('zoomout', 'norm_fov;alias zoom somethingelse'),
+      def('zoom', 'zoomin'),
+    ])
+
+    expect(actions.map((a) => [a.name, a.kind])).toEqual([
+      ['zoomin', 'alias'],
+      ['zoomout', 'alias'],
+      ['zoom', 'alias'],
+    ])
+    expect(actions.every((a) => a.parts === undefined)).toBe(true)
   })
 })

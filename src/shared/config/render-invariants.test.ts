@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigAction, ConfigProfile } from '../modules/config'
 import { actionKeySlots } from './action-slots'
-import { aliasNameFor, renderActionAlias } from './alias-render'
+import { aliasNameFor, renderActionAlias, twoPartAliasNames } from './alias-render'
 import { bindValueFor } from './action-mirror'
 import { generateLayerAliases } from './alt-layers'
 import { ROUND_TRIP_FIXTURES } from './fixtures/profiles'
@@ -104,9 +104,18 @@ describe('render invariants (story 038 D3, AC4)', () => {
         ).toBeDefined()
 
         // The two documented exemptions (AC6, User decision) - expressed via
-        // `kind`/`bindValueFor`/`aliasNameFor`, never the `q2l_a_` prefix.
+        // `kind`/`bindValueFor`/`aliasNameFor`, never the `q2l_a_` prefix - plus
+        // a third one story 045 adds for the same reason the file doc comment
+        // already exempts a hold layer's `-drops` half: a `press-release`
+        // entry's `-` half is invoked by the engine's own key-release
+        // convention and by nothing in the file text, so no token can reference
+        // it by design. `twoPartAliasNames` is what the writer names the two
+        // halves with, so this cannot drift from what is rendered.
         const exempt =
-          action!.kind === 'alias' || bindValueFor(action!) === aliasNameFor(action!)
+          action!.kind === 'alias' ||
+          bindValueFor(action!) === aliasNameFor(action!) ||
+          (action!.kind === 'press-release' &&
+            twoPartAliasNames(action!)?.second.toLowerCase() === lower)
         if (exempt) return
 
         expect(

@@ -939,7 +939,10 @@
         "aliasUnreferenced": "The alias “{{name}}” is not called by anything in this profile. It is still written to the config file, but nothing ever runs it.",
         "aliasDuplicate": "“{{entry}}” and “{{other}}” both resolve to the alias name “{{name}}”. Quake II only keeps the last one it reads – whichever binding calls this name reaches only that one, never the others.",
         "aliasShadowsCommand": "“{{entry}}” resolves to the alias name “{{name}}”, which is already a built-in command or cvar. Quake II would define an alias that calls itself, so pressing the key runs nothing new. Give it its own alias name.",
-        "aliasSelfReference": "“{{entry}}” runs “{{command}}”, which is its own alias name “{{name}}”. The line is written exactly as you wrote it, but that command calls the entry back into itself – so either a built-in command of the same name wins and the entry never runs, or Quake II loops until it gives up. Remove that command, give the entry its own alias name, or leave it if you meant it."
+        "aliasSelfReference": "“{{entry}}” runs “{{command}}”, which is its own alias name “{{name}}”. The line is written exactly as you wrote it, but that command calls the entry back into itself – so either a built-in command of the same name wins and the entry never runs, or Quake II loops until it gives up. Remove that command, give the entry its own alias name, or leave it if you meant it.",
+        "toggleCrossWired": "“{{dispatch}}”, “{{first}}” and “{{second}}” look like a toggle, but the two states are cross-wired: a working one has “{{first}}” hand control to “{{second}}” and “{{second}}” hand it back to “{{first}}”, and these do not – so the switch never loops between its two states. Recreate it as a toggle entry, or fix the “alias {{dispatch}} …” line at the end of each state so that each one points at the other.",
+        "pressWithoutRelease": "“{{entry}}” is a press command (“{{name}}”) with no matching release alias. Quake II keeps running it until something else stops it, since there is nothing bound to run on key-up. Add a matching release alias, or recreate this as a press/release entry so the pair can never drift apart.",
+        "releaseWithoutPress": "“{{entry}}” is a release command (“{{name}}”) with no matching press alias. Nothing in this profile ever triggers it. Add a matching press alias, or recreate this as a press/release entry so the pair can never drift apart."
       },
       "empty": {
         "title": "Nothing to validate against",
@@ -1282,7 +1285,9 @@
       "entryKind": {
         "bind": "Bind",
         "message": "Message",
-        "alias": "Alias"
+        "alias": "Alias",
+        "toggle": "Toggle",
+        "press-release": "Press/release"
       },
       "grid": {
         "ariaLabel": "Controls — {{category}}",
@@ -1349,7 +1354,8 @@
               "illegalCharacters": "“{{name}}” can only use lowercase letters, numbers and underscores, with an optional leading + or -.",
               "tooLong": "“{{name}}” is {{length}} characters long; an alias name can be at most {{max}}.",
               "reserved": "“{{name}}” is already a built-in command or cvar. Defining an alias with that name would call itself and do nothing.",
-              "duplicate": "“{{name}}” is already used by another entry's alias. Alias names must be unique within a profile."
+              "duplicate": "“{{name}}” is already used by another entry's alias. Alias names must be unique within a profile.",
+              "signedBaseName": "“{{name}}” cannot start with + or -. Press/release entries add the sign automatically — type “{{base}}” instead."
             }
           },
           "refusal": {
@@ -1389,6 +1395,22 @@
         },
         "payloadMessage": {
           "textPlaceholder": "e.g. Need backup!"
+        },
+        "toggle": {
+          "state1Label": "State 1",
+          "state2Label": "State 2",
+          "labelFieldLabel": "Label",
+          "state1LabelPlaceholder": "e.g. In",
+          "state2LabelPlaceholder": "e.g. Out"
+        },
+        "pressRelease": {
+          "pressLabel": "Press",
+          "releaseLabel": "Release"
+        },
+        "wait": {
+          "frameCountLabel": "Frames",
+          "addButton": "Add wait",
+          "rowLabel": "Wait × {{frames}}"
         }
       },
       "dualBind": {
@@ -1416,9 +1438,6 @@
         "layer": "layer {{layer}}",
         "alsoUsedBy": "also: {{owner}}",
         "none": "—"
-      },
-      "pressRelease": {
-        "pairLabel": "{{base}} · press / release pair"
       },
       "collision": {
         "baseBind": "{{key}} is already bound to “{{owner}}”. Replace that bind?",

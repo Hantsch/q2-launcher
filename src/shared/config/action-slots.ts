@@ -7,8 +7,8 @@
  * in that array, not from a stable id or field name - the same way a slot's identity in the
  * rendered `.cfg` comes from the order `bind`/layer-override lines appear in the file rather than
  * from a field. This module is the single access point for that array: nothing else in the
- * codebase reads or writes `action.keys` directly, the same discipline `press-release.ts` applies
- * to pairing `+x`/`-x` actions by `name`.
+ * codebase reads or writes `action.keys` directly, the same "one access point" discipline
+ * `validate-actions.ts` applies to its own `+x`/`-x` name-based pairing.
  *
  * All five functions are pure and treat `ConfigAction` as immutable - `withKeySlot`/`clearKeySlot`
  * return a new action with a new `keys` array rather than mutating the one handed in, so a caller

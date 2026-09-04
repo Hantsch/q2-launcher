@@ -106,7 +106,7 @@ describe('parseConfigText', () => {
     const result = parseConfigText('alias lol "lol1;lol2;lol3"\n')
 
     expect(result.aliases).toEqual([
-      { name: 'lol', body: 'lol1;lol2;lol3', line: 1, comment: '' },
+      { name: 'lol', body: 'lol1;lol2;lol3', line: 1, comment: '', codeWidth: 26 },
     ])
     expect(result.preserved).toEqual([])
   })
@@ -115,8 +115,8 @@ describe('parseConfigText', () => {
     const result = parseConfigText(['alias zoom zoomin', 'alias +foo bind 1 use blaster'].join('\n'))
 
     expect(result.aliases).toEqual([
-      { name: 'zoom', body: 'zoomin', line: 1, comment: '' },
-      { name: '+foo', body: 'bind 1 use blaster', line: 2, comment: '' },
+      { name: 'zoom', body: 'zoomin', line: 1, comment: '', codeWidth: 17 },
+      { name: '+foo', body: 'bind 1 use blaster', line: 2, comment: '', codeWidth: 29 },
     ])
   })
 
@@ -124,7 +124,7 @@ describe('parseConfigText', () => {
     const result = parseConfigText('alias blaster_settings ""\n')
 
     expect(result.aliases).toEqual([
-      { name: 'blaster_settings', body: '', line: 1, comment: '' },
+      { name: 'blaster_settings', body: '', line: 1, comment: '', codeWidth: 25 },
     ])
     expect(result.preserved).toEqual([])
   })
@@ -133,9 +133,28 @@ describe('parseConfigText', () => {
     const result = parseConfigText(['alias +slow "cl_run 0"', 'alias -slow "cl_run 1"'].join('\n'))
 
     expect(result.aliases).toEqual([
-      { name: '+slow', body: 'cl_run 0', line: 1, comment: '' },
-      { name: '-slow', body: 'cl_run 1', line: 2, comment: '' },
+      { name: '+slow', body: 'cl_run 0', line: 1, comment: '', codeWidth: 22 },
+      { name: '-slow', body: 'cl_run 1', line: 2, comment: '', codeWidth: 22 },
     ])
+  })
+
+  it('records an alias line`s code width - the offset of its `//` marker, padding included', () => {
+    // Story-045 review round 2 (findings 1 and 4): `profile-restore.ts` reconstructs how much room
+    // `fitProseAndTag` had left for a line's display prose, and the only place the writer's column
+    // padding and the body's quotes are still visible is the raw line. So the number has to be
+    // measured here, and it has to be the marker's real offset - not `alias <name> <body>`'s length,
+    // which is what a downstream reader could have re-derived on its own (and which is 8 characters
+    // shorter than the truth for this very line).
+    const line = 'alias zoom  "zoomin"   // Zoom [q2l]'
+    const result = parseConfigText(`${line}\n`)
+
+    expect(result.aliases).toEqual([
+      { name: 'zoom', body: 'zoomin', line: 1, comment: ' Zoom [q2l]', codeWidth: line.indexOf('//') },
+    ])
+    // Both `;`-chained siblings get the line's one code width, the same way they share its one
+    // trailing comment.
+    const chained = parseConfigText('alias a b; alias c d  // Both [q2l]\n')
+    expect(chained.aliases.map((alias) => alias.codeWidth)).toEqual([22, 22])
   })
 
   it('preserves a bare "alias" with no name at all, unlike a named alias', () => {

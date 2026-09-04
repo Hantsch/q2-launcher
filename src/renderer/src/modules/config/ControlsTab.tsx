@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowDown,
@@ -12,7 +12,6 @@ import {
 } from 'lucide-react'
 import { actionKeySlots, keySlotAt, withKeySlot } from '@shared/config/action-slots'
 import type { ModifierTrigger } from '@shared/config/modifier-layers'
-import { pressReleasePairs, type PressReleasePair } from '@shared/config/press-release'
 import {
   BUILT_IN_ACTION_CATEGORIES,
   type ActionEntryKind,
@@ -383,6 +382,12 @@ export function ControlsTab({
       // category can no longer answer for the entry.
       kind,
       commands: [],
+      // Story 045 D9: `toggle`/`press-release` render from `parts`, not `commands` (which stays
+      // `[]` for them) - both zod mirrors require exactly two parts for these kinds, so a freshly
+      // created entry must seed them here or fail the strict payload schema on the very first save.
+      ...(kind === 'toggle' || kind === 'press-release'
+        ? { parts: [{ commands: [] }, { commands: [] }] }
+        : {}),
     }
     scheduleActionsSave([...actions, action])
     setShowCreateAction(false)
@@ -501,41 +506,14 @@ export function ControlsTab({
     ? (actions.find((action) => action.id === editingActionId) ?? null)
     : null
 
-  /**
-   * Story 041 D5: `+x`/`-x` alias pairs (e.g. an imported `+slow`/`-slow`) read as a pair rather
-   * than as two unrelated rows. `pressReleasePairs` (`@shared/config/press-release.ts`) is the only
-   * place that knows the `+`/`-` convention; scoped to the selected category, since that is the
-   * only list rendered together on screen. `pairByPressId` looks up a pair by its press half's
-   * action id (the anchor `renderActionRow` below renders both halves under), and
-   * `releaseIdsInPairs` is every release half already accounted for by that press row, so the flat
-   * row list built below can leave it out rather than rendering it a second time as its own row.
-   */
-  const categoryPressReleasePairs = useMemo(
-    () => pressReleasePairs(actionsForCategory).pairs,
-    [actionsForCategory],
-  )
-  const pairByPressId = useMemo(
-    () => new Map(categoryPressReleasePairs.map((pair) => [pair.press.id, pair] as const)),
-    [categoryPressReleasePairs],
-  )
-  const releaseIdsInPairs = useMemo(
-    () => new Set(categoryPressReleasePairs.map((pair) => pair.release.id)),
-    [categoryPressReleasePairs],
-  )
-
   // Story 020 D4: movement/weapons/drops are catalogue-driven - every catalogue action is a row
   // whether or not it has a matching persisted `ConfigAction` yet (lazy materialisation), unioned
   // with that category's legacy free-form actions. Every other category keeps showing exactly its
   // persisted `actionsForCategory`, one entry per action.
   const isDualBindCategory = DUAL_BIND_CATEGORY_IDS.has(selectedCategoryId)
-  const allRowEntriesForCategory: ControlsRowEntry[] = isDualBindCategory
+  const rowEntries: ControlsRowEntry[] = isDualBindCategory
     ? buildCatalogControlsRowEntries(selectedCategoryId as DualBindCategoryId, actions)
     : actionsForCategory.map((action) => ({ kind: 'action', action }))
-  // Story 041 D5: a matched pair's release half is dropped here - `renderActionRow` renders it
-  // itself, immediately below the press half, once per pair rather than once here and once there.
-  const rowEntries: ControlsRowEntry[] = allRowEntriesForCategory.filter(
-    (entry) => entry.kind !== 'action' || !releaseIdsInPairs.has(entry.action.id),
-  )
 
   /** A raw text preview of a plain action's commands, mirroring what a catalogue row's own
    * `row.commands` already give it - the first raw command, or nothing for a pure alias/message
@@ -1002,40 +980,6 @@ export function ControlsTab({
     )
   }
 
-  /**
-   * Story 041 D5: a `+x`/`-x` press/release pair renders as two adjacent rows under one shared
-   * pair label - the release half is left out of `rowEntries` above precisely so it only ever
-   * renders here, immediately below its press half, rather than a second time at its own position
-   * in the list. The label reuses `ControlsGrid`'s own catalogue-group divider markup
-   * (`.ctrl-group`/`.ctrl-group-cell`/`.ctrl-group-eyebrow`/`.ctrl-group-rule`, all token-driven,
-   * `controls-grid.css`) - the Controls tab's one existing "rows grouped under a heading" pattern,
-   * reused rather than a second one invented for this. An action with no partner (the common case)
-   * never reaches this function at all; `renderActionRow` below is the only caller.
-   */
-  const renderPairedActionRows = (pair: PressReleasePair, odd: boolean) => (
-    <Fragment key={pair.press.id}>
-      <div className="ctrl-group" role="row">
-        <span className="ctrl-group-cell" role="cell">
-          <span className="ctrl-group-eyebrow">
-            {t('config.controls.pressRelease.pairLabel', { base: pair.base })}
-          </span>
-          <span className="ctrl-group-rule" aria-hidden="true" />
-        </span>
-      </div>
-      {renderPlainActionRow(pair.press, odd)}
-      {renderPlainActionRow(pair.release, !odd)}
-    </Fragment>
-  )
-
-  /** `ControlsGrid`'s row-rendering seam for a plain `ConfigAction` entry: a paired press half
-   * renders itself plus its release partner via `renderPairedActionRows`, everything else
-   * (including the release half, which never appears in `rowEntries` on its own) goes straight to
-   * `renderPlainActionRow` unchanged. */
-  const renderActionRow = (action: ConfigAction, odd: boolean) => {
-    const pair = pairByPressId.get(action.id)
-    return pair ? renderPairedActionRows(pair, odd) : renderPlainActionRow(action, odd)
-  }
-
   return (
     // Story 020 review fix: AC 2's ~1120px cap has to hold the whole tab body, not just the grid
     // - an ultrawide window otherwise stretches the category rail and toolbar full-width while the
@@ -1236,7 +1180,7 @@ export function ControlsTab({
               const odd = index % 2 === 0
               return entry.kind === 'catalog'
                 ? renderCatalogRow(entry, odd)
-                : renderActionRow(entry.action, odd)
+                : renderPlainActionRow(entry.action, odd)
             }}
           />
         )}
@@ -1451,7 +1395,7 @@ function RenameCategoryDialog({
   )
 }
 
-const ENTRY_KIND_OPTIONS: ActionEntryKind[] = ['bind', 'message', 'alias']
+const ENTRY_KIND_OPTIONS: ActionEntryKind[] = ['bind', 'message', 'alias', 'toggle', 'press-release']
 
 /** Create-action form: name plus the kind (story 019 D4 - the entry, not the category, carries
  * the kind). Debounced-saved by the caller, so this dialog does not wait on a network round trip

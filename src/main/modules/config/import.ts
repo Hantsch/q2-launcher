@@ -159,12 +159,13 @@ export function toRestoreInput(
   newId: () => string,
 ): RestoreProfilePartsInput {
   return {
-    aliases: result.aliases.map(({ name, body, file, line, comment }) => ({
+    aliases: result.aliases.map(({ name, body, file, line, comment, codeWidth }) => ({
       name,
       body,
       file,
       line,
       comment,
+      codeWidth,
     })),
     binds: Object.entries(result.binds).map(([key, command]) => {
       const position = result.bindLines[key]

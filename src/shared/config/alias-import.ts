@@ -129,6 +129,13 @@ import {
   stripLineComment,
   tokenize,
 } from '@shared/config/command-tokenizer'
+import { MAX_WAIT_FRAMES } from '@shared/config/engine-limits'
+import {
+  recognizeEntryIdioms,
+  type RecognizedPressRelease,
+  type RecognizedToggle,
+  type RecognizedWaitAlias,
+} from '@shared/config/entry-idioms'
 import { normalizeBindKey } from '@shared/config/key-names'
 import {
   BUILT_IN_ACTION_CATEGORIES,
@@ -270,6 +277,56 @@ export function configCommandFor(segment: string): ConfigCommand {
   return { kind: 'message', channel, text: unquoteMessage(match[2]!) }
 }
 
+/** Exactly the raw `wait` command, no arguments - the literal segment `commandLineFor`
+ * (`alias-render.ts`) writes for a `{ kind: 'wait' }` command. Case-sensitive and exact:
+ * `wait5`, `Wait`, `wait ` (trailing junk already trimmed away by the caller anyway) do not
+ * match, because those are a different alias's name or a different engine command, not a
+ * literal wait frame. */
+function isLiteralWaitCommand(command: ConfigCommand): boolean {
+  return command.kind === 'raw' && command.text.trim() === 'wait'
+}
+
+/**
+ * Collapses every maximal run of consecutive literal `wait` commands (story 045, D2) into one
+ * or more `{ kind: 'wait', frames }` commands, capped at `MAX_WAIT_FRAMES` each so a body never
+ * resolves to a `wait` command longer than the launcher's own cap - a run of 120 becomes
+ * `wait(50), wait(50), wait(20)`, not one `wait(50)` that silently drops 70 frames. Everything
+ * else in the list passes through unchanged, in order.
+ *
+ * Has to run over the whole list rather than per-segment (unlike `configCommandFor`, which turns
+ * one segment into one command) because a run of several segments becomes one command - the
+ * inverse of what `commandLineFor` expands one `wait` command back into. Exported for the same
+ * reason `configCommandFor`/`entryKindFor` are (story 042, D4): `profile-restore.ts` reads a
+ * launcher-written alias body back with the identical rule, and two implementations of "how many
+ * literal waits collapse into one command" would be two answers.
+ */
+export function collapseWaitRuns(commands: readonly ConfigCommand[]): ConfigCommand[] {
+  const result: ConfigCommand[] = []
+  let run = 0
+
+  const flush = (): void => {
+    let remaining = run
+    while (remaining > 0) {
+      const frames = Math.min(remaining, MAX_WAIT_FRAMES)
+      result.push({ kind: 'wait', frames })
+      remaining -= frames
+    }
+    run = 0
+  }
+
+  for (const command of commands) {
+    if (isLiteralWaitCommand(command)) {
+      run++
+      continue
+    }
+    flush()
+    result.push(command)
+  }
+  flush()
+
+  return result
+}
+
 /** Exactly one message command and nothing else, or anything else at all. Exported (story 042, D4)
  * for `profile-restore.ts`'s kind inference, for the same reason `configCommandFor` is: the
  * "message vs. everything else" test is one table, not two. */
@@ -393,10 +450,107 @@ function toLayer(
 }
 
 /**
+ * Builds a two-part idiom's commands for one recognised half: its raw segments
+ * (already stripped of any toggle rewrite by the recogniser) through the exact
+ * same `configCommandFor`/`collapseWaitRuns` pipeline a normal entry's body goes
+ * through - one table, not two, same as everywhere else in this file.
+ */
+function commandsForHalf(segments: readonly string[]): ConfigCommand[] {
+  return collapseWaitRuns(segments.map(configCommandFor))
+}
+
+/**
+ * A recognised toggle trio -> one `kind: 'toggle'` entry. `parts[i].aliasName`
+ * carries the recognised state's own name verbatim (story 045's Decisions: "an
+ * imported toggle keeps its own state names in `parts[i].aliasName`"), which is
+ * what makes `alias-render.ts`'s `twoPartHalfNames` render `zoomin`/`zoomout`
+ * instead of deriving a fresh `_s1`/`_s2` name.
+ */
+function toggleEntry(
+  toggle: RecognizedToggle,
+  categories: ReturnType<typeof categoryRegistry>,
+  newId: () => string,
+): ConfigAction {
+  const state1 = commandsForHalf(toggle.states[0].segments)
+  const state2 = commandsForHalf(toggle.states[1].segments)
+  return {
+    id: newId(),
+    categoryId: categories.idFor(guessCategoryKey([...state1, ...state2])),
+    name: toggle.dispatchName,
+    kind: 'toggle',
+    commands: [],
+    aliasName: toggle.dispatchName,
+    parts: [
+      { commands: state1, aliasName: toggle.states[0].name },
+      { commands: state2, aliasName: toggle.states[1].name },
+    ],
+  }
+}
+
+/**
+ * A recognised `+x`/`-x` pair -> one `kind: 'press-release'` entry. No
+ * per-part `aliasName`: the sign-free base name lives on the action itself and
+ * `+`/`-` are appended at render time (story 045's Decisions), so setting a
+ * per-part name here would only be ignored by `alias-render.ts`.
+ */
+function pressReleaseEntry(
+  pair: RecognizedPressRelease,
+  categories: ReturnType<typeof categoryRegistry>,
+  newId: () => string,
+): ConfigAction {
+  const press = commandsForHalf(pair.press.segments)
+  const release = commandsForHalf(pair.release.segments)
+  return {
+    id: newId(),
+    categoryId: categories.idFor(guessCategoryKey([...press, ...release])),
+    name: pair.baseName,
+    kind: 'press-release',
+    commands: [],
+    aliasName: pair.baseName,
+    parts: [{ commands: press }, { commands: release }],
+  }
+}
+
+/**
+ * A recognised `waitN` alias -> one ordinary `kind: 'alias'` entry with a
+ * single `{ kind: 'wait', frames }` command. Not a new `ActionEntryKind` - the
+ * entry (and its name, so every other body still referencing it stays valid)
+ * is just an alias whose one command happens to be a wait.
+ */
+function waitAliasEntry(
+  wait: RecognizedWaitAlias,
+  categories: ReturnType<typeof categoryRegistry>,
+  newId: () => string,
+): ConfigAction {
+  const commands: ConfigCommand[] = [{ kind: 'wait', frames: wait.frames }]
+  return {
+    id: newId(),
+    categoryId: categories.idFor(guessCategoryKey(commands)),
+    name: wait.name,
+    kind: entryKindFor(commands),
+    commands,
+    aliasName: wait.name,
+  }
+}
+
+/**
  * Converts an import's alias definitions into catalogue entries.
  *
  * Independent of the order the definitions arrive in, and of everything in
  * `binds` except a layer's trigger - see the file doc comment.
+ *
+ * Story 045, D6: before the per-definition loop below, `entry-idioms.ts`'s
+ * shared recogniser runs once over this same de-duplicated, last-definition-
+ * wins set and finds the toggle/press-release/`waitN` idioms. A name it claims
+ * is skipped in the loop - never converted twice - and instead produces exactly
+ * one `toggle`/`press-release`/`alias` entry, built once, at the position of
+ * that idiom's primary defining name (the toggle's dispatch, the pair's `+`
+ * half, the wait alias's own name) so the result stays in the same document
+ * order the untouched per-definition path already produces. A name a
+ * recognised idiom did not claim falls through to the loop exactly as before -
+ * AC4's "falls back to plain alias entries" - including every rebind/ambiguous
+ * check (D5's recogniser never claims a body with a top-level `bind` segment,
+ * so a consumed name could never have reached that check anyway).
  */
 export function buildImportedActions(input: ImportedActionsInput): ImportedActionsResult {
   const { newId } = input
@@ -410,11 +564,39 @@ export function buildImportedActions(input: ImportedActionsInput): ImportedActio
   const byName = new Map<string, ImportedAliasDefinition>()
   for (const definition of input.aliases) byName.set(definition.name, definition)
 
+  const recognized = recognizeEntryIdioms(
+    [...byName.values()].map(({ name, body }) => ({ name, body })),
+  )
+  const consumedKeys = new Set(recognized.consumedNames.map((name) => name.toLowerCase()))
+  const toggleByPrimaryKey = new Map(
+    recognized.toggles.map((toggle) => [toggle.dispatchName.toLowerCase(), toggle]),
+  )
+  const pairByPrimaryKey = new Map(
+    recognized.pressReleases.map((pair) => [pair.press.name.toLowerCase(), pair]),
+  )
+  const waitByPrimaryKey = new Map(
+    recognized.waitAliases.map((wait) => [wait.name.toLowerCase(), wait]),
+  )
+
   const actions: ConfigAction[] = []
   const layers: AltLayer[] = []
   const ambiguous: AmbiguousRebindAlias[] = []
 
   for (const definition of byName.values()) {
+    const nameKey = definition.name.toLowerCase()
+    if (consumedKeys.has(nameKey)) {
+      const toggle = toggleByPrimaryKey.get(nameKey)
+      if (toggle) actions.push(toggleEntry(toggle, categories, newId))
+      const pair = pairByPrimaryKey.get(nameKey)
+      if (pair) actions.push(pressReleaseEntry(pair, categories, newId))
+      const wait = waitByPrimaryKey.get(nameKey)
+      if (wait) actions.push(waitAliasEntry(wait, categories, newId))
+      // A name consumed but matching none of the maps above is a non-primary
+      // member of an already-built idiom (a toggle's state, a pair's release
+      // half) - it produced no entry of its own and is simply skipped here.
+      continue
+    }
+
     const segments = splitAliasBody(definition.body)
     const rebinds = segments.some(isBindSegment)
 
@@ -427,7 +609,7 @@ export function buildImportedActions(input: ImportedActionsInput): ImportedActio
       }
     }
 
-    const commands = segments.map(configCommandFor)
+    const commands = collapseWaitRuns(segments.map(configCommandFor))
     const kind = entryKindFor(commands)
     actions.push({
       id: newId(),

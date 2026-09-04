@@ -3,7 +3,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { AltLayer } from '@shared/config/alt-layers'
-import { pressReleasePairs } from '@shared/config/press-release'
 import type {
   ConfigAction,
   ConfigActionCategory,
@@ -22,9 +21,9 @@ import { commitImport, previewImport, type ImportInstallations } from '../import
  * Every count and every list below was confirmed against the actual parsed
  * output before being written: `grep -c '^alias ' docs/fixtures/dmalias.cfg`
  * for the alias count, a throwaway script dumping `readImportableConfig` +
- * `buildImportedActions` + `pressReleasePairs` output for everything else.
- * Nothing here encodes an assumption that wasn't checked against real output
- * first - see the per-item comments for what was actually found.
+ * `buildImportedActions` output for everything else. Nothing here encodes an
+ * assumption that wasn't checked against real output first - see the
+ * per-item comments for what was actually found.
  */
 
 const log = scopedLogger('import-fixtures-test')
@@ -278,20 +277,15 @@ describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story
     // wait20's body calls wait5 five times, and wait50's body calls wait20
     // twice and wait5 twice - the higher number refers DOWN to the lower one,
     // not the other way round.
-    expect(actionByName.get('wait5')!.commands).toEqual([
-      { kind: 'raw', text: 'wait' },
-      { kind: 'raw', text: 'wait' },
-      { kind: 'raw', text: 'wait' },
-      { kind: 'raw', text: 'wait' },
-      { kind: 'raw', text: 'wait' },
-    ])
-    expect(actionByName.get('wait20')!.commands).toEqual([
-      { kind: 'raw', text: 'wait5' },
-      { kind: 'raw', text: 'wait5' },
-      { kind: 'raw', text: 'wait5' },
-      { kind: 'raw', text: 'wait5' },
-      { kind: 'raw', text: 'wait5' },
-    ])
+    //
+    // Story 045, D5/D6: `wait5` (5 frames) and `wait20` (5*5 = 25 frames) both
+    // resolve within MAX_WAIT_FRAMES (50) and are recognised as `waitN` aliases
+    // - one surviving entry each, `commands` collapsed to a single `wait`
+    // command, name kept so `wait50`'s still-raw references to both keep
+    // working. `wait50` itself resolves to 2*25 + 2*5 = 60 frames, over the cap,
+    // so it stays unresolved and falls through as a plain alias entry (below).
+    expect(actionByName.get('wait5')!.commands).toEqual([{ kind: 'wait', frames: 5 }])
+    expect(actionByName.get('wait20')!.commands).toEqual([{ kind: 'wait', frames: 25 }])
     expect(actionByName.get('wait50')!.commands).toEqual([
       { kind: 'raw', text: 'wait20' },
       { kind: 'raw', text: 'wait20' },
@@ -304,10 +298,19 @@ describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story
     // is already only five pairs (ten names), and all five really are
     // complete in the fixture; no sixth pair and no leftover unmatched signed
     // name exists.
-    const pairs = pressReleasePairs(committed.actions)
-    expect(pairs.pairs.map((p) => p.base).sort()).toEqual(['dj', 'kl', 'rj', 'slow', 'zoom'])
+    //
+    // Story 045, D6: each complete pair is now recognised as one first-class
+    // `kind: 'press-release'` entry (`entry-idioms.ts` via `buildImportedActions`)
+    // rather than two loose `+x`/`-x` alias entries - so nothing is left with a
+    // `+`/`-`-prefixed name to pair, and the committed actions themselves are
+    // the source of truth here instead (story 045 D10 retired the name-based
+    // `pressReleasePairs` stand-in this used to also assert against).
+    const recognizedPairs = committed.actions.filter((action) => action.kind === 'press-release')
+    expect(recognizedPairs.map((a) => a.name).sort()).toEqual(['dj', 'kl', 'rj', 'slow', 'zoom'])
     expect(
-      pairs.unmatched.filter((action) => action.name.startsWith('+') || action.name.startsWith('-')),
+      committed.actions.filter(
+        (action) => action.name.startsWith('+') || action.name.startsWith('-'),
+      ),
     ).toEqual([])
 
     // 5. `blaster_settings` and its siblings: dmalias.cfg defines exactly ten

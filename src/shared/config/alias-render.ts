@@ -1,4 +1,4 @@
-import type { ConfigAction, ConfigCommand } from '@shared/modules/config'
+import type { ActionEntryPart, ConfigAction, ConfigCommand } from '@shared/modules/config'
 import type { GeneratedAlias } from '@shared/config/alt-layers'
 import {
   MAX_ALIAS_NAME,
@@ -99,6 +99,33 @@ const LEGACY_SLUG_LENGTH = Math.min(
 const DERIVED_ALIAS_NAME_BUDGET = USABLE_ALIAS_NAME - PART_SUFFIX_RESERVE - 1
 
 /**
+ * Reserve for the `_s<n>` state suffix a toggle's two halves render under (`<dispatch>_s1`,
+ * `<dispatch>_s2` - story 045, D3): `'_s'.length` plus one digit. Unlike `_p<n>` there is nothing
+ * to grow into - a toggle has exactly two states, by its own kind's definition.
+ */
+const STATE_SUFFIX_RESERVE = '_s'.length + 1
+
+/**
+ * Content budget for a *toggle's* derived dispatch name: `USABLE_ALIAS_NAME` (31) minus **both**
+ * the state suffix (3) and the `_p<n>` chunk-suffix reserve (4) - 24 characters.
+ *
+ * This is the one place in the codebase where two affixes stack, which is why it is its own number
+ * rather than `DERIVED_ALIAS_NAME_BUDGET` above: a toggle's chunk aliases hang off the *state*
+ * name (`<dispatch>_s1_p2` - story 045, D3's acceptance), whereas
+ * `alt-layers.ts#generateLayerAliases` hangs its chunks off the bare base and can therefore
+ * reserve the maximum of its affixes rather than their sum. A state name is what the chunker names
+ * its parts after here, so the state suffix has to be paid for *before* the chunk suffix is
+ * reserved on top of it.
+ *
+ * No sign slot, unlike `DERIVED_ALIAS_NAME_BUDGET`: a toggle's dispatch alias is called by name,
+ * never pressed, so nothing ever prepends a `+`/`-` to it. A `press-release` entry is the opposite
+ * case and needs no constant of its own - `DERIVED_ALIAS_NAME_BUDGET` already keeps exactly one
+ * character free for a sign, which is precisely the `+`/`-` its halves prepend, and its chunks
+ * hang off that signed name (`+slow_p1`), one affix deep.
+ */
+const TOGGLE_DERIVED_ALIAS_NAME_BUDGET = USABLE_ALIAS_NAME - STATE_SUFFIX_RESERVE - PART_SUFFIX_RESERVE
+
+/**
  * Bytes kept free at the end of every generated line. The same 16 bytes
  * `alt-layers.ts` reserves (its `LINE_HEADROOM`, which is private): the engine
  * appends its own separator, and a line landing exactly on the limit is the one
@@ -155,6 +182,16 @@ function lineFits(name: string, body: string): boolean {
  * second reimplementation that can drift from what lands on disk.
  */
 export function commandLineFor(command: ConfigCommand): string {
+  if (command.kind === 'wait') {
+    // `frames` literal `wait` segments, `Cbuf_Execute`-joined the same way any other
+    // multi-command body is (story 045, D2). No per-command splitting is added here even
+    // though a very long run could threaten a chunk's byte budget: no other single command
+    // string gets that treatment either (the chunker in `renderActionAlias` below operates
+    // on the list of line-strings, not on characters within one), and `MAX_WAIT_FRAMES`
+    // already keeps this string short in practice.
+    const frames = Math.max(0, command.frames)
+    return Array.from({ length: frames }, () => 'wait').join('; ')
+  }
   const raw = command.kind === 'message' ? `${command.channel} ${command.text}` : command.text
   return sanitizeCommand(raw)
 }
@@ -168,7 +205,19 @@ export function commandLineFor(command: ConfigCommand): string {
  * down to which commands `commandLineFor` sanitizes away entirely.
  */
 function bodyCommandsFor(action: ConfigAction): string[] {
-  return action.commands.map(commandLineFor).filter((command) => command.length > 0)
+  return bodyLinesFor(action.commands)
+}
+
+/**
+ * The same list for any `ConfigCommand[]` - one alias body's worth of commands, blanks dropped.
+ *
+ * Split out of `bodyCommandsFor` (story 045, D3) because a two-part entry's halves live in
+ * `ConfigAction.parts[i].commands`, not in `action.commands`: both readers have to render and drop
+ * commands identically, or a state's body would disagree with a plain action's about what a
+ * sanitized-to-nothing command means.
+ */
+function bodyLinesFor(commands: readonly ConfigCommand[]): string[] {
+  return commands.map(commandLineFor).filter((command) => command.length > 0)
 }
 
 /**
@@ -234,7 +283,11 @@ export function legacyAliasNameFor(action: ConfigAction): string {
 export function derivedAliasName(action: ConfigAction): string {
   const raw = action.name.trim()
   const sign = action.kind === 'alias' && (raw.startsWith('+') || raw.startsWith('-')) ? raw.slice(0, 1) : ''
-  return `${sign}${slugAliasName(raw.slice(sign.length), DERIVED_ALIAS_NAME_BUDGET, 'entry')}`
+  // A toggle's name is shortened further, because its chunk names carry two stacked affixes -
+  // see `TOGGLE_DERIVED_ALIAS_NAME_BUDGET`. Every other kind, `press-release` included, keeps the
+  // budget it had before story 045, so no name already on disk moves.
+  const budget = action.kind === 'toggle' ? TOGGLE_DERIVED_ALIAS_NAME_BUDGET : DERIVED_ALIAS_NAME_BUDGET
+  return `${sign}${slugAliasName(raw.slice(sign.length), budget, 'entry')}`
 }
 
 /**
@@ -259,6 +312,198 @@ export interface RenderedActionAliases {
    * `generateLayerAliases` emits.
    */
   aliases: GeneratedAlias[]
+}
+
+/**
+ * A two-part entry's kinds (story 045, D1): the two whose halves live in `ConfigAction.parts`
+ * instead of in `commands` - which stays `[]` for them, so every single-body reader sees an entry
+ * with nothing in it rather than half of one.
+ */
+function isTwoPartKind(kind: ConfigAction['kind']): kind is 'toggle' | 'press-release' {
+  return kind === 'toggle' || kind === 'press-release'
+}
+
+/**
+ * One half of a two-part entry's body, chunked exactly the way `renderActionAlias` chunks a plain
+ * action's - same incremental fill-then-flush pass, same "a chunk always takes at least one
+ * command" rule - but named off `name`, the half's *own* alias name, so a split state reads
+ * `<dispatch>_s1_p1`/`<dispatch>_s1_p2` (story 045, D3's acceptance) and a split press half reads
+ * `+slow_p1`.
+ *
+ * `chunks` empty means the whole half fits one line and `body` is it.
+ *
+ * One `_p<n>` counter per half, where `alt-layers.ts#buildHalf` deliberately shares one across the
+ * whole layer: it has to, because both of its halves' chunks hang off the same bare base, so equal
+ * numbers would be equal names. Here the two halves' chunk names already differ in their prefix
+ * (`_s1_p1` vs `_s2_p1`, `+slow_p1` vs `-slow_p1`), so per-half numbering is collision-free by
+ * construction and keeps each half's numbers dense, starting at 1, the way a reader of the file
+ * expects.
+ */
+function chunkHalf(name: string, commands: string[]): { body: string; chunks: GeneratedAlias[] } {
+  const oneLine = commands.join('; ')
+  if (commands.length === 0 || lineFits(name, oneLine)) return { body: oneLine, chunks: [] }
+
+  const chunks: GeneratedAlias[] = []
+  const chunkNames: string[] = []
+  let current: string[] = []
+
+  const flush = (): void => {
+    if (current.length === 0) return
+    const chunkName = `${name}_p${chunks.length + 1}`
+    chunks.push(makeAlias(chunkName, current.join('; ')))
+    chunkNames.push(chunkName)
+    current = []
+  }
+
+  for (const command of commands) {
+    const pendingName = `${name}_p${chunks.length + 1}`
+    if (current.length > 0 && !lineFits(pendingName, [...current, command].join('; '))) flush()
+    current.push(command)
+  }
+  flush()
+
+  return { body: chunkNames.join('; '), chunks }
+}
+
+/**
+ * The alias name for a half of a two-part entry, with the one line an empty body needs spelled
+ * out: `alias <name> ""`, exactly as `renderActionAlias`'s `keepEmptyAlias` branch spells it and
+ * for the same reason (`makeAlias(name, '')` would render `alias <name> `, which *prints* an alias
+ * instead of defining one).
+ *
+ * Only a press/release half can actually be empty - a toggle state's body always carries its
+ * dispatch rewrite - and it is still emitted rather than dropped: the pair is atomic (story 045
+ * AC3, "renaming or deleting it moves both halves"), and the `+` half is what a key is bound to,
+ * so a silently missing `-` half would leave the key stuck down in-engine.
+ */
+function halfAlias(name: string, body: string): GeneratedAlias {
+  return body.length === 0 ? { name, body: '', line: `alias ${name} ""` } : makeAlias(name, body)
+}
+
+/**
+ * The two alias names a two-part entry's halves render under.
+ *
+ * - `press-release`: always `+<base>`/`-<base>` off the entry's own (sign-free) `aliasNameFor`.
+ *   `parts[i].aliasName` is deliberately **not** consulted (story 045's Decisions: "Press/release
+ *   stores only the sign-free base name; `+`/`-` are appended at render time, so the two halves
+ *   cannot drift"), which is what makes AC3 hold by construction instead of by bookkeeping.
+ * - `toggle`: the state names the parts carry (an imported `zoomin`/`zoomout` trio keeps its own
+ *   names verbatim - same Decisions), else the derived `<dispatch>_s1`/`<dispatch>_s2`.
+ *
+ * The derived pair is used for *both* states unless both parts carry a usable name **and** all
+ * three names (dispatch and the two states) are distinct case-insensitively. Half-verbatim naming
+ * would read as two unrelated aliases, and a repeat among the three would be worse than ugly: the
+ * engine keeps one definition per name, so two states sharing a name - or a state named after the
+ * dispatch alias - silently collapses the entry into a single, self-rewriting line. Recognising
+ * such a shape at all is D5's all-or-nothing job; this is the floor under it, so a hand-edited
+ * `state.json` cannot make the writer lose a half.
+ */
+function twoPartHalfNames(
+  action: ConfigAction,
+  base: string,
+  parts: readonly [ActionEntryPart, ActionEntryPart],
+): { first: string; second: string } {
+  if (action.kind === 'press-release') return { first: `+${base}`, second: `-${base}` }
+
+  const derived = { first: `${base}_s1`, second: `${base}_s2` }
+  const own = [parts[0].aliasName?.trim(), parts[1].aliasName?.trim()] as const
+  if (!own[0] || !own[1]) return derived
+
+  const distinct = new Set([own[0].toLowerCase(), own[1].toLowerCase(), base.toLowerCase()]).size
+  return distinct === 3 ? { first: own[0], second: own[1] } : derived
+}
+
+/**
+ * Public wrapper around `twoPartHalfNames` (story 045, D4) - the two alias names a `toggle`/
+ * `press-release` action's halves render under, for a caller outside this file that needs to tell
+ * the two apart without recomputing the naming rule itself (`render.ts#buildAliasSections`, which
+ * has to know which rendered line is which half so it can put the right `lbl` on the right tag).
+ * "One function, not two": `renderTwoPartAliases` and this wrapper must never be able to disagree
+ * about a name, so both go through `twoPartHalfNames`.
+ *
+ * `null` for any action that is not a well-formed two-part entry (wrong `kind`, or `parts` missing/
+ * short - the same defensive floor `renderTwoPartAliases` applies), so a caller can tell "not a
+ * two-part entry" apart from "a two-part entry whose first half happens to be named ''".
+ */
+export function twoPartAliasNames(action: ConfigAction): { first: string; second: string } | null {
+  if (!isTwoPartKind(action.kind)) return null
+  const [first, second] = action.parts ?? []
+  if (!first || !second || action.parts?.length !== 2) return null
+  return twoPartHalfNames(action, aliasNameFor(action), [first, second])
+}
+
+/**
+ * Every alias name `action` actually **defines** in the rendered file (story-045 review, finding 3).
+ *
+ * One name for the three single-body kinds - `aliasNameFor`, as it has always been. Three for a
+ * toggle (its dispatch plus both states) and two for a press/release entry (`+base`/`-base`, the
+ * sign-free base itself defining nothing). Order is dispatch-first, so `[0]` is still the name a
+ * bind points at for every kind that has one.
+ *
+ * Exists so a caller that needs the profile's occupied name space - the rename dialog's duplicate
+ * check, which otherwise offered a toggle a name whose `_s1` state would silently overwrite a user's
+ * own alias - reads it off the one function that decides those names, instead of re-deriving the
+ * suffix rule. `alias-references.ts#buildAliasIndex` builds the same set row by row for the Aliases
+ * tab; both go through `twoPartAliasNames`, so the two cannot disagree.
+ */
+export function renderedAliasNames(action: ConfigAction): string[] {
+  const halves = twoPartAliasNames(action)
+  if (!halves) return [aliasNameFor(action)]
+  return action.kind === 'toggle'
+    ? [aliasNameFor(action), halves.first, halves.second]
+    : [halves.first, halves.second]
+}
+
+/**
+ * Render a two-part entry's alias family (story 045, D3).
+ *
+ * **Toggle** - the engine has no toggle command, so a two-state switch is built out of an alias
+ * that rewrites the alias the key is bound to. Three aliases: one per state, each ending in
+ * `alias <dispatch> <the other state>`, plus the dispatch alias itself pointing at state 1
+ * (`alias zoom zoom_s1`). State 1 is where a toggle always starts after `exec` - the file's static
+ * text cannot say otherwise (story 045's Decisions), which is also why nothing here tries to
+ * remember a live state.
+ *
+ * **Press/release** - the engine's own hold idiom: two independent definitions under `+<base>` and
+ * `-<base>`, no dispatch alias and no cross-reference between them. The engine sends the `-` half
+ * on key-up on its own, provided the *bind value* starts with `+` - which is
+ * `action-mirror.ts#bindValueFor`'s job, not this one's.
+ *
+ * The emission order mirrors `alt-layers.ts#generateLayerAliases` exactly: every chunk first, then
+ * the two halves, then (toggle only) the dispatch alias last. Quake 2 resolves an alias body when
+ * it runs, not when it is defined, so this is for readability - except for the dispatch alias,
+ * which must end up pointing at state 1 once the block has been executed.
+ */
+function renderTwoPartAliases(action: ConfigAction): RenderedActionAliases {
+  const parts = action.parts
+  // Defensive floor only: both zod mirrors already guarantee exactly two parts for these two
+  // kinds (`ConfigAction.parts`' own doc comment). A row that got past them - a hand-edited
+  // `state.json` - emits nothing rather than a half-wired family or a crash mid-render.
+  const [first, second] = parts ?? []
+  if (!first || !second || parts?.length !== 2) return { aliases: [] }
+
+  const base = aliasNameFor(action)
+  const names = twoPartHalfNames(action, base, [first, second])
+
+  const firstCommands = bodyLinesFor(first.commands)
+  const secondCommands = bodyLinesFor(second.commands)
+  const firstBody =
+    action.kind === 'toggle' ? [...firstCommands, `alias ${base} ${names.second}`] : firstCommands
+  const secondBody =
+    action.kind === 'toggle' ? [...secondCommands, `alias ${base} ${names.first}`] : secondCommands
+
+  const firstHalf = chunkHalf(names.first, firstBody)
+  const secondHalf = chunkHalf(names.second, secondBody)
+
+  const aliases: GeneratedAlias[] = [
+    ...firstHalf.chunks,
+    ...secondHalf.chunks,
+    halfAlias(names.first, firstHalf.body),
+    halfAlias(names.second, secondHalf.body),
+  ]
+  if (action.kind === 'toggle') aliases.push(makeAlias(base, names.first))
+
+  return { aliases }
 }
 
 /**
@@ -293,8 +538,15 @@ export interface RenderedActionAliases {
  * `alias blaster_settings ""` the importer preserved - still emits its one line with an empty body
  * even though it has zero usable commands, because that alias definition is the entry, not a
  * leftover of one, and dropping it on the first save would be silent data loss.
+ *
+ * A `toggle`/`press-release` entry (story 045, D3) never reaches any of that: its two halves live
+ * in `action.parts`, `action.commands` is `[]`, and `renderTwoPartAliases` above renders the
+ * three-alias toggle family or the `+`/`-` pair instead. Everything below is unchanged for the
+ * three single-body kinds.
  */
 export function renderActionAlias(action: ConfigAction): RenderedActionAliases {
+  if (isTwoPartKind(action.kind)) return renderTwoPartAliases(action)
+
   const name = aliasNameFor(action)
   const commands = bodyCommandsFor(action)
   if (commands.length === 0) {
@@ -384,6 +636,12 @@ export interface AliasLineBudget {
  * quotes, one sanitize pass - is exactly how a UI number starts disagreeing
  * with the file on disk by a byte or two, which is the one thing this function
  * must never do. Nothing about rendering changes here; this only reports on it.
+ *
+ * Single-body kinds only. A `toggle`/`press-release` entry has no single body to cost - its two
+ * halves are two independent lines with two independent budgets - so what it reports for one is
+ * not meaningful (`bytes` falls out of the `commands.length === 0` branch, i.e. the first line the
+ * family happens to emit). No caller passes one today: the editor's byte preview reads one command
+ * list at a time, so the per-half readout is D9's to add when it grows the second list.
  */
 export function aliasLineBudget(action: ConfigAction): AliasLineBudget {
   const { aliases } = renderActionAlias(action)

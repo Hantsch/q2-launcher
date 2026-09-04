@@ -39,7 +39,8 @@
  *
  * - every `kind: 'raw'` command of every action in `sources.actions` (not
  *   only "candidate bindings" — an alias's own recursive body, a message
- *   entry's text, anything). Action command text is already
+ *   entry's text, anything), including both halves of a two-part entry's
+ *   `parts` (story 045). Action command text is already
  *   schema-guaranteed quote-free (`actionTextSchema`), so sanitizing it here
  *   is a no-op kept only for uniformity with the other two sources;
  * - every value of `sources.binds` (a hand-typed `bind r "+test"` on the raw
@@ -68,10 +69,10 @@
  * reference is the safe side (keeping a line beats dropping a live one).
  */
 
-import type { ConfigAction } from '../modules/config'
+import type { ConfigAction, ConfigCommand } from '../modules/config'
 import { actionKeySlots } from './action-slots'
 import { generateLayerAliases, sanitizeCommand, type AltLayer } from './alt-layers'
-import { aliasNameFor, commandLineFor } from './alias-render'
+import { aliasNameFor, commandLineFor, twoPartAliasNames } from './alias-render'
 import { bindValueFor } from './action-mirror'
 import { normalizeBindKey } from './key-names'
 
@@ -152,6 +153,23 @@ function ownMirrorLayerKeys(action: ConfigAction, layer: AltLayer): Set<string> 
   return keys
 }
 
+/**
+ * Every `ConfigCommand` of `action` a body is rendered from: its own `commands`, plus both halves
+ * of a two-part entry (`parts`, story 045).
+ *
+ * Both, unconditionally, rather than one or the other by kind - the scan below only ever *adds*
+ * reference candidates, and this module's own rule is that missing a real reference means the
+ * writer drops an alias line something still calls (see the file doc comment). A toggle state that
+ * calls `zoom_fov` is exactly as real a reference as a bind entry's command is, and before story
+ * 045 those halves lived nowhere this pass could see them.
+ */
+function allActionCommands(action: ConfigAction): ConfigCommand[] {
+  const parts = action.parts ?? []
+  return parts.length === 0
+    ? action.commands
+    : [...action.commands, ...parts.flatMap((part) => part.commands)]
+}
+
 /** One thing that currently calls an alias name - what `findAliasReferrers` reports one of, what the
  * D9 rename-refusal dialog names in its message, and what fills an index row's `referrers` (story
  * 044, D1). */
@@ -209,7 +227,7 @@ function buildReferrerIndex(
   for (const action of sources.actions) {
     if (options.excludeActionId !== undefined && action.id === options.excludeActionId) continue
     const tokens = new Set<string>()
-    for (const command of action.commands) {
+    for (const command of allActionCommands(action)) {
       if (command.kind !== 'raw') continue
       collectFromText(sanitizeCommand(command.text), tokens)
     }
@@ -364,10 +382,28 @@ export interface AliasIndexRow {
  *
  * ## Order
  *
- * Every entry of `sources.actions` produces exactly one row, in array order, before any layer row -
- * a contract `validate-actions.ts` relies on to pair a row back with the entry it came from, and
- * one `alias-references.test.ts` asserts. Layer rows follow, per layer in `sources.layers` order and
- * within a layer in `generateLayerAliases`' own emission order.
+ * Every entry of `sources.actions` produces exactly one *primary* row, in array order, before any
+ * layer row - a contract `validate-actions.ts` relies on to pair a row back with the entry it came
+ * from by array position (`index[position]`), and one `alias-references.test.ts` asserts. That
+ * contract is about the first `sources.actions.length` rows only, and is unaffected by the extra
+ * rows below.
+ *
+ * A two-part entry (`kind: 'toggle'`/`'press-release'`, story 045) renders under more than one alias
+ * name - a toggle's dispatch plus its two states, a press/release pair's `+base`/`-base` - and every
+ * one of those names has to be a known, referenceable row or it reads as `undefinedAlias`/
+ * `aliasUnreferenced` noise (story 045, D8). The primary row (in array position) carries the name a
+ * *bind* would use - `bindValueFor(action)`, which is the dispatch alias for a toggle and `+base` for
+ * a press/release entry, not the sign-free `aliasNameFor` a press/release action's `commands`-based
+ * kinds otherwise resolve to (`twoPartAliasNames`'s doc comment explains why `aliasNameFor` alone is
+ * not one of the two real rendered names for these two kinds). One extra row per *other* generated
+ * name follows immediately after all primary rows and before any layer row: two for a toggle (its
+ * two state names off `twoPartAliasNames`), one for a press/release entry (its release half, `-base`
+ * - the press half is already the primary row). Both extra-row kinds share the owning action's
+ * `owner`/`ownerActionId`, `origin: 'generated'` and `editable: false` - same as the primary row,
+ * since renaming or deleting the entry moves every one of its names together (story 045 AC3).
+ *
+ * Layer rows follow the extra rows, per layer in `sources.layers` order and within a layer in
+ * `generateLayerAliases`' own emission order.
  *
  * A row exists for every entry, including one whose alias line the writer may end up dropping
  * (`actionsWithAliasLine` above: a continuous catalogue mirror, a self-mirroring alias). That is
@@ -405,7 +441,12 @@ export function buildAliasIndex(sources: AliasReferenceSources): AliasIndexRow[]
   const referrersFor = (name: string): AliasReferrer[] => [...(referrers.get(name.toLowerCase()) ?? [])]
 
   const rows: AliasIndexRow[] = sources.actions.map((action) => {
-    const name = aliasNameFor(action)
+    // `aliasNameFor` for every kind but `press-release`, where it is sign-free (`base`, not `+base`)
+    // and therefore not one of the two names the file actually renders - `bindValueFor` is what
+    // returns the real `+base` bind-facing name for that one kind (see the file doc comment's
+    // "## Order" section). A toggle's `bindValueFor` already equals its `aliasNameFor` (both are the
+    // dispatch alias), so this only actually changes behaviour for `press-release`.
+    const name = action.kind === 'press-release' ? bindValueFor(action) : aliasNameFor(action)
     return {
       name,
       key: name.toLowerCase(),
@@ -417,6 +458,28 @@ export function buildAliasIndex(sources: AliasReferenceSources): AliasIndexRow[]
       duplicateOf: [],
     }
   })
+
+  // A two-part entry's *other* generated name(s), one row each - the toggle's two state names, or a
+  // press/release entry's release half. Appended after every primary row and before any layer row,
+  // so the "one row per `sources.actions` element, in array order" contract above still holds for
+  // exactly the first `sources.actions.length` rows.
+  for (const action of sources.actions) {
+    const halves = twoPartAliasNames(action)
+    if (!halves) continue
+    const extraNames = action.kind === 'toggle' ? [halves.first, halves.second] : [halves.second]
+    for (const name of extraNames) {
+      rows.push({
+        name,
+        key: name.toLowerCase(),
+        origin: 'generated',
+        owner: action.name,
+        ownerActionId: action.id,
+        editable: false,
+        referrers: referrersFor(name),
+        duplicateOf: [],
+      })
+    }
+  }
 
   for (const layer of sources.layers ?? []) {
     // The real generator, never a re-derivation of its slug/affix budget here (the same S04
@@ -629,6 +692,14 @@ export function actionsWithAliasLine(
 ): ConfigAction[] {
   const referenced = collectAliasReferences(sources)
   return actions.filter((action) => {
+    // Story 045, D3: a two-part entry's lines are always kept, checked before every other guard.
+    // Its internal wiring makes plain reference counting unreliable - a toggle's states are only
+    // ever called by the dispatch alias and by each other's `alias <dispatch> <state>` rewrite,
+    // and a press/release entry's `bindValueFor` is `+<base>`, which is *not* its own alias name,
+    // so the third guard below would put a keyless pair's survival down to whether something else
+    // in the profile happens to mention it. Dropping either kind's family is never right: it is
+    // one entry the user created, and a half-emitted family is worse than an unreferenced one.
+    if (action.kind === 'toggle' || action.kind === 'press-release') return true
     if (isSelfMirroringAlias(action)) return false
     if (action.kind === 'alias') return true
     if (bindValueFor(action) === aliasNameFor(action)) return true

@@ -80,7 +80,11 @@ function signature(commands: string[]): string {
 function actionSignature(action: ConfigAction): string {
   return signature(
     action.commands.map((command: ConfigCommand) =>
-      command.kind === 'message' ? `${command.channel} ${command.text}` : command.text,
+      command.kind === 'message'
+        ? `${command.channel} ${command.text}`
+        : command.kind === 'wait'
+          ? Array(Math.max(0, command.frames)).fill('wait').join('; ')
+          : command.text,
     ),
   )
 }

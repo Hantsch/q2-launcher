@@ -113,8 +113,13 @@ export interface DuplicateAliasLine {
  * to the binding that references it. The old category field is gone from both category types; a
  * pre-019 `state.json` keeps working because the persisted schema
  * (`main/lib/schemas.ts`) derives each row's `kind` from its category's legacy `entryKind` on read.
+ *
+ * `'toggle'`/`'press-release'` (story 045 D1) are two-part entries: one alias-worth of commands per
+ * state (toggle: state1/state2; press-release: press/release) instead of the single body every
+ * other kind has. `commands` stays `[]`, unused, for these two kinds - both halves live in the new
+ * `ConfigAction.parts` array instead. See `ActionEntryPart`'s doc comment below for why.
  */
-export type ActionEntryKind = 'bind' | 'message' | 'alias'
+export type ActionEntryKind = 'bind' | 'message' | 'alias' | 'toggle' | 'press-release'
 
 /** A built-in category — a shared constant, never persisted (decision: profiles only persist
  * their custom categories, so built-in labels stay translatable and adding one needs no
@@ -149,6 +154,12 @@ export interface ConfigActionCategory {
 export type ConfigCommand =
   | { kind: 'raw'; text: string }
   | { kind: 'message'; channel: 'say' | 'say_team'; text: string }
+  /**
+   * Story 045: a `wait <frames>` step - the engine defers the rest of the alias body by `frames`
+   * client frames. `frames` is validated against `MAX_WAIT_FRAMES`
+   * (`@shared/config/engine-limits`), a launcher sanity cap, not an engine one.
+   */
+  | { kind: 'wait'; frames: number }
 
 /**
  * One shape for all three entry kinds (bind/message/alias): a message and a multi-command bind
@@ -208,6 +219,17 @@ export type ConfigCommand =
  * (`@shared/config/alias-import.ts#buildImportedActions`) on an empty-body `kind: 'alias'` entry, so
  * a generated action alias with no usable commands - the case story 038 AC6 is actually about -
  * simply omits it and keeps producing no line.
+ *
+ * `parts` (story 045 D1) holds the second half of a two-part entry - `kind: 'toggle'` (state1/
+ * state2) or `kind: 'press-release'` (press/release) - as exactly two `ActionEntryPart`s. Optional
+ * and additive like every `ConfigAction` field since story 015: a pre-045 persisted row simply omits
+ * it, no `STATE_SCHEMA_VERSION` bump, no migration. Absent for every kind but those two; when
+ * present it always has exactly two entries, enforced by both zod mirrors
+ * (`main/modules/config/schemas.ts`'s strict payload schema rejects any other length,
+ * `main/lib/schemas.ts`'s persisted schema drops the row). `commands` on the action itself stays
+ * `[]` for `toggle`/`press-release` - it is not where either half lives, so an unaudited reader that
+ * only ever looked at `commands` (every reader written before this story) sees an entry with no
+ * commands at all rather than silently running half of one.
  */
 export interface ConfigAction {
   id: string
@@ -219,6 +241,21 @@ export interface ConfigAction {
   catalogId?: string
   aliasName?: string
   keepEmptyAlias?: true
+  parts?: ActionEntryPart[]
+}
+
+/**
+ * Story 045 D1: one state's worth of commands for a two-part `ConfigAction` (`kind: 'toggle'` or
+ * `kind: 'press-release'`) - `commands` is that state's alias body, `label` an optional
+ * user-facing name for the state/phase (e.g. "on"/"off", "press"/"release"), and `aliasName` the
+ * same per-part "user typed this name verbatim" affordance `ConfigAction.aliasName` gives the
+ * single-body kinds. `ConfigAction.parts`, when present, always holds exactly two of these - see
+ * its own doc comment for why the first half never lives in `ConfigAction.commands`.
+ */
+export interface ActionEntryPart {
+  commands: ConfigCommand[]
+  label?: string
+  aliasName?: string
 }
 
 /**

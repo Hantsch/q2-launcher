@@ -185,17 +185,20 @@ describe('validateProfileForEngines - story 019 D8 alias-wiring findings', () =>
   })
 
   it('produces no alias-wiring findings for a profile whose alias is defined and referenced', () => {
+    // Sign-free name (story 045, D8): a lone signed alias with no matching opposite half now also
+    // gets its own `pressWithoutRelease`/`releaseWithoutPress` finding, which would be noise here -
+    // this test is about `undefinedAlias`/`aliasUnreferenced`/`aliasDuplicate`, not the sign pairing.
     const p = profile({
       assignments: [{ installationId: 'a', isDefault: true }],
       categories: [{ id: 'cat1', name: 'Custom' }],
       actions: [
-        { id: 'a1', categoryId: 'cat1', name: '+test', kind: 'alias', commands: [{ kind: 'raw', text: 'wait' }] },
+        { id: 'a1', categoryId: 'cat1', name: 'test', kind: 'alias', commands: [{ kind: 'raw', text: 'wait' }] },
         {
           id: 'b1',
           categoryId: 'cat1',
           name: 'Test binding',
           kind: 'bind',
-          commands: [{ kind: 'raw', text: '+test' }],
+          commands: [{ kind: 'raw', text: 'test' }],
         },
       ],
     })

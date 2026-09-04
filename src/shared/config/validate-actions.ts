@@ -166,11 +166,21 @@
  * bound), so an imported `+slow`/`-slow` pair got a permanent, unfixable
  * `aliasUnreferenced` finding on the `-slow` half even though `+slow` was
  * correctly bound. The fix widens `referencedKeys` (not `collectAliasReferences`
- * itself - see the "referenced-by-anything" section below) using
- * `pressReleasePairs` (D5, `press-release.ts`, already on disk and reused
- * verbatim): when a matched pair's press half is referenced, its release half
- * is now treated as referenced too. One direction only, and only for halves
- * `pressReleasePairs` actually pairs - see that section for why.
+ * itself - see the "referenced-by-anything" section below): when a plain
+ * `kind: 'alias'` `+x`/`-x` pair's press half is referenced, its release half
+ * is now treated as referenced too. One direction only, and only for a
+ * genuinely matched pair - see the "referenced-by-anything" section below for
+ * the pairing itself.
+ *
+ * Story 045, D10 folded the standalone `press-release.ts` pairing helper
+ * (`pressReleasePairs`) into this widening directly: it was written for
+ * exactly this purpose (D5's own doc comment named `ControlsTab.tsx` as its
+ * *other*, UI-only caller, which story 045 gave a real `kind: 'press-release'`
+ * entry and no longer needs name-pairing for), and this file's own copy of the
+ * same `+`/`-` base-name match is the one remaining, still-necessary use -
+ * a plain `kind: 'alias'` fallback pair (the shape D5-D7's recogniser declined
+ * to promote to a first-class entry) still needs this to avoid a permanent
+ * false `aliasUnreferenced` on its release half.
  *
  * ## Story 044, D1 - one name space, two surfaces
  *
@@ -210,7 +220,6 @@ import {
   selfReferencingSegments,
   type AliasIndexRow,
 } from './alias-references'
-import { pressReleasePairs } from './press-release'
 import type { Finding } from './validation'
 
 /** Shared prefix of every message key this module emits, alongside D3/D4's own. */
@@ -292,6 +301,106 @@ function isCandidateBinding(action: ConfigAction): boolean {
 }
 
 /**
+ * Story 045, D8 - Care on the *fallback* shapes.
+ *
+ * A first-class `kind: 'toggle'`/`'press-release'` entry cannot be cross-wired or
+ * half-missing by construction (story 045's Decisions), so the three checks below
+ * look at every *other* entry - the ones `entry-idioms.ts`'s recogniser (D5)
+ * declined to merge into one of the two new kinds, whether because the shape was
+ * broken to begin with or because the user hand-edited a previously-recognised
+ * trio/pair back apart.
+ *
+ * **Every other entry, not just the `kind: 'alias'` ones** (story-045 review,
+ * finding 2). What an entry's *kind* records is whether the file also binds it to
+ * a key, not what its alias body is wired like: a broken toggle's dispatch alias
+ * comes back as `kind: 'bind'` precisely because it carries the `bind v "zoom"`
+ * the player actually uses, and a broken pair's `+` half likewise. Scanning only
+ * `kind: 'alias'` therefore saw the orphan - an unbound, unreachable leftover -
+ * and missed the realistic case the story's own Test Plan step 6 describes.
+ * `bodySegmentsOf` reads the body off `commands`, which every one of these kinds
+ * stores it in; the two `parts`-based kinds are the only ones excluded, and they
+ * are excluded because they cannot be broken, not because they are bound.
+ *
+ * The sign checks additionally skip `KNOWN_PRESS_RELEASE_COMMANDS`: widening past
+ * `kind: 'alias'` brings in the entries `adoptRawBinds`/`ownAliasNameFromBind`
+ * name after their own bind command, so a hand-typed `bind MOUSE1 "+attack"`
+ * arrives here as an entry called `+attack` - an engine command with no `-attack`
+ * definition to find and nothing broken about it.
+ *
+ * `toggleCrossWired` is a narrower, standalone structural check rather than a
+ * reuse of `entry-idioms.ts#recognizeEntryIdioms`: that module is deliberately
+ * all-or-nothing and reports only what *did* match, never why a near-miss was
+ * rejected (its own file doc comment). Reimplementing its "why" here as a second,
+ * best-effort diagnostic would risk the two readings drifting apart on the shapes
+ * that matter for that decision (an extra segment, a third state); this check
+ * instead asks one narrower structural question - "do the states the file wires
+ * onto this dispatch form a two-cycle" - directly off the resolved alias bodies,
+ * using the same segment/token rules `bareSegments` above and
+ * `entry-idioms.ts#bodySegments` already use (top-level `;`, no comment stripping
+ * needed - `action.commands` text is schema-guaranteed comment-free, unlike a raw
+ * `.cfg` line).
+ *
+ * That question is asked **symmetrically**, over every state at once (story-045
+ * review round 2, finding 1). Asking it by walking from the dispatch through
+ * state 1 to state 2 could only ever report a broken *state 2*: any shape where
+ * state 1 itself is what is wrong - it rewrites the dispatch to itself (the
+ * story's Test Plan step 6: "both toggle states reassign to `zoom_s1`"), or to a
+ * state the file no longer defines, or a third state joins the family - ended the
+ * walk early and produced no finding at all.
+ */
+
+/** Every top-level (`;`-separated) segment of every `kind: 'raw'` command of `action`, trimmed,
+ * blanks dropped - the same split `bareSegments` performs, minus its argument-less filter, since a
+ * toggle's dispatch rewrite segment (`alias zoom zoomout`) has arguments and must not be dropped. */
+function bodySegmentsOf(action: ConfigAction): string[] {
+  const segments: string[] = []
+  for (const command of action.commands) {
+    if (command.kind !== 'raw') continue
+    for (const segment of command.text.split(';')) {
+      const trimmed = segment.trim()
+      if (trimmed.length > 0) segments.push(trimmed)
+    }
+  }
+  return segments
+}
+
+/** The single bare name `segments` consists of, or `null` - `entry-idioms.ts#loneReference`,
+ * restated over already-split segments. */
+function loneReferenceOf(segments: string[]): string | null {
+  if (segments.length !== 1) return null
+  const tokens = segments[0]!.split(/\s+/).filter((token) => token.length > 0)
+  return tokens.length === 1 ? tokens[0]! : null
+}
+
+/** One candidate for the three checks below: an entry whose alias body lives in `commands`, with
+ * its resolved alias name and that body already split into segments. */
+interface FallbackEntry {
+  action: ConfigAction
+  name: string
+  segments: string[]
+}
+
+/**
+ * The `alias <dispatch> <target>` rewrite `segments`' **last** entry is, or `null` when the body
+ * does not end in one - `entry-idioms.ts#reassignmentTarget`, restated over already-split segments
+ * and answering with *both* names rather than only the target.
+ *
+ * Both names, because the check below has to work from the states inwards as well as from the
+ * dispatch outwards (story-045 review round 2, finding 1): a broken toggle is exactly the case where
+ * walking from the dispatch through state 1 does not reach state 2, so "which entries rewrite this
+ * dispatch" has to be answerable without already knowing which entry state 2 is.
+ */
+function trailingReassignmentOf(segments: string[]): { dispatch: string; target: string } | null {
+  const last = segments[segments.length - 1]
+  if (last === undefined) return null
+  const tokens = last.split(/\s+/).filter((token) => token.length > 0)
+  if (tokens.length !== 3) return null
+  if (tokens[0]!.toLowerCase() !== 'alias') return null
+  if (tokens[1]!.length === 0 || tokens[2]!.length === 0) return null
+  return { dispatch: tokens[1]!, target: tokens[2]! }
+}
+
+/**
  * Alias-wiring findings for `actions` - a binding calling an undefined alias,
  * an alias nobody calls, and a duplicate alias name. `engine` is carried on
  * every finding only to fit `Finding.engine` (same shape D3/D4 use); nothing
@@ -360,24 +469,41 @@ export function validateActions(
   // flags, but reporting it here would be a new Care finding this deliverable does not introduce),
   // and the findings are emitted group by group, in first-appearance order of the name, which is
   // the order this rule has always produced them in.
-  const byKey = new Map<string, typeof allResolvedNames>()
-  for (const entry of allResolvedNames) {
+  //
+  // Story-045 review, finding 3: the candidate rows are every row the index owns *for an entry*, not
+  // only the one primary row per action. A two-part entry defines more names than it is called by -
+  // a toggle's `<name>_s1`/`<name>_s2` states, a press/release entry's `-<base>` half - and the file
+  // holds one definition per name, so a user alias colliding with one of those loses its body on the
+  // next save exactly as a primary-name collision would. `buildAliasIndex` already emits those rows
+  // (its "## Order" section) and the Aliases tab already flags them through `duplicateOf`; Care was
+  // the one surface still blind to them. Layer rows stay excluded, for the reason above.
+  const actionById = new Map(actions.map((action) => [action.id, action]))
+  const entryRows = index.flatMap((row) => {
+    const action = row.ownerActionId === undefined ? undefined : actionById.get(row.ownerActionId)
+    return action ? [{ action, name: row.name, row }] : []
+  })
+
+  const byKey = new Map<string, typeof entryRows>()
+  for (const entry of entryRows) {
     const key = entry.row.key
     const group = byKey.get(key) ?? []
     group.push(entry)
     byKey.set(key, group)
   }
+  // One finding per colliding *entry*, not per colliding name: two press/release entries sharing a
+  // base collide on both `+base` and `-base`, which is one problem the user fixes once.
+  const reportedDuplicates = new Set<string>()
   for (const group of byKey.values()) {
     if (group.length < 2) continue
     for (const entry of group) {
-      const other = group
-        .filter((candidate) => candidate !== entry)
-        .map((candidate) => candidate.action.name)
-        .join(', ')
+      const partners = group.filter((candidate) => candidate !== entry)
+      const signature = [entry.action.id, ...partners.map((p) => p.action.id).sort()].join('|')
+      if (reportedDuplicates.has(signature)) continue
+      reportedDuplicates.add(signature)
       add('aliasDuplicate', 'warning', entry.action.name, {
         name: entry.name,
         entry: entry.action.name,
-        other,
+        other: partners.map((candidate) => candidate.action.name).join(', '),
       })
     }
   }
@@ -503,24 +629,36 @@ export function validateActions(
   // forever - not a false positive that clears once the user "fixes" anything,
   // since there is nothing to fix.
   //
-  // `pressReleasePairs` (D5, `press-release.ts`) is the one place that already
-  // knows the `+x`/`-x` convention for pairing purposes, so it is reused here
-  // rather than re-deriving the sign/base-name rule. One direction only: a
-  // referenced press half implies its release half is reachable too (the
-  // engine's key-up call), but a referenced release half says nothing about
-  // the press half (nothing in the engine calls `+x` because `-x` happens to
-  // be referenced). An unmatched pair (only one half wired) is left exactly as
-  // strict as before - only a *found* pair's press half being referenced adds
-  // its release half here.
+  // One direction only: a referenced press half implies its release half is
+  // reachable too (the engine's key-up call), but a referenced release half
+  // says nothing about the press half (nothing in the engine calls `+x`
+  // because `-x` happens to be referenced). An unmatched pair (only one half
+  // wired) is left exactly as strict as before - only a *found* pair's press
+  // half being referenced adds its release half here. Pairing mirrors the
+  // retired `press-release.ts#pressReleasePairs`: first `-x` seen per base is
+  // that base's release half, first `+x` seen per base is matched against it.
   //
   // "Is the press half referenced" is the index's answer too: both halves are entries, so each has
   // a row, and a row's `referrers` covers the same sources the flat token set did.
   const rowByKey = new Map<string, AliasIndexRow>()
   for (const row of index) if (!rowByKey.has(row.key)) rowByKey.set(row.key, row)
-  for (const pair of pressReleasePairs(actions).pairs) {
-    const pressKey = aliasNameFor(pair.press).toLowerCase()
+  const releaseHalfByBase = new Map<string, ConfigAction>()
+  for (const candidate of actions) {
+    if (!candidate.name.startsWith('-') || candidate.name.length <= 1) continue
+    const base = candidate.name.slice(1)
+    if (!releaseHalfByBase.has(base)) releaseHalfByBase.set(base, candidate)
+  }
+  const seenPressBases = new Set<string>()
+  for (const candidate of actions) {
+    if (!candidate.name.startsWith('+') || candidate.name.length <= 1) continue
+    const base = candidate.name.slice(1)
+    if (seenPressBases.has(base)) continue
+    seenPressBases.add(base)
+    const release = releaseHalfByBase.get(base)
+    if (!release) continue
+    const pressKey = aliasNameFor(candidate).toLowerCase()
     if (!rowByKey.get(pressKey)?.referrers.length) continue
-    referencedKeys.add(aliasNameFor(pair.release).toLowerCase())
+    referencedKeys.add(aliasNameFor(release).toLowerCase())
   }
 
   // --- undefined alias reference (strict: candidate bindings, signed, not a known engine command) --
@@ -553,6 +691,117 @@ export function validateActions(
   for (const entry of aliasNames) {
     if (referencedKeys.has(entry.name.toLowerCase())) continue
     add('aliasUnreferenced', 'warning', entry.action.name, { name: entry.name })
+  }
+
+  // --- story 045, D8: broken toggle/press-release shapes on the fallback entries -----------------
+  // See the block comment above `bodySegmentsOf` for why these checks exist, why `toggleCrossWired`
+  // is a standalone structural check rather than a reuse of `entry-idioms.ts#recognizeEntryIdioms`,
+  // and why the candidate set is every entry whose body lives in `commands` rather than the
+  // `kind: 'alias'` subset (story-045 review, finding 2: a *bound* dispatch or `+` half restores as
+  // `kind: 'bind'`, which is the normal case, and was invisible here).
+  const fallbackEntries = new Map<string, FallbackEntry>()
+  for (const entry of allResolvedNames) {
+    if (entry.action.kind === 'toggle' || entry.action.kind === 'press-release') continue
+    fallbackEntries.set(entry.name.toLowerCase(), {
+      action: entry.action,
+      name: entry.name,
+      segments: bodySegmentsOf(entry.action),
+    })
+  }
+
+  // Every state the file wires onto a dispatch name, found from the *state* side: an entry whose
+  // body ends in `alias <dispatch> <target>` is a toggle state of `<dispatch>`, whatever it hands
+  // over to. Indexed once, by dispatch name, so the check below can ask "which states does this
+  // dispatch have" instead of walking from one state to the next (story-045 review round 2,
+  // finding 1: walking is what made a broken state 1 invisible - the walk stopped there).
+  const statesByDispatch = new Map<string, { entry: FallbackEntry; target: string }[]>()
+  for (const entry of fallbackEntries.values()) {
+    const rewrite = trailingReassignmentOf(entry.segments)
+    if (rewrite === null) continue
+    const key = rewrite.dispatch.toLowerCase()
+    const list = statesByDispatch.get(key) ?? []
+    list.push({ entry, target: rewrite.target })
+    statesByDispatch.set(key, list)
+  }
+
+  // toggleCrossWired: `dispatch`'s body is a lone reference to `first`, and `first` rewrites
+  // `dispatch` - so far exactly a healthy toggle's opening move - but the two states the file wires
+  // onto `dispatch` are not a **two-cycle**: a healthy toggle has exactly two of them, each
+  // rewriting the dispatch to the other, with three distinct names. Anything else is reported, and
+  // that is the symmetric question this used to get wrong: it navigated *through* state 1 to find
+  // state 2, so state 1 rewriting to itself (the story's Test Plan step 6 verbatim - "both toggle
+  // states reassign to `zoom_s1`"), a state 2 the file no longer defines, and a third state all
+  // walked off the end of the check and reported nothing at all.
+  //
+  // One finding per trio, not per participating alias - mirrors `aliasSelfReference`/
+  // `aliasDuplicate`'s "one finding per group" convention.
+  const reportedToggleTrios = new Set<string>()
+  for (const dispatch of fallbackEntries.values()) {
+    const firstName = loneReferenceOf(dispatch.segments)
+    if (firstName === null) continue
+    const first = fallbackEntries.get(firstName.toLowerCase())
+    if (!first || first === dispatch) continue
+
+    const states = statesByDispatch.get(dispatch.name.toLowerCase()) ?? []
+    const firstState = states.find((state) => state.entry === first)
+    // `first` rewrites nothing of `dispatch`'s: an ordinary alias calling another alias, no toggle
+    // shape claimed and nothing for this check to say. The one branch that still declines to look.
+    if (firstState === undefined) continue
+
+    // The other state: the one state 1 hands over to, when that is a state of this dispatch at all;
+    // otherwise any other state the file wires onto it. Its *name* is what the finding reports, and
+    // with no other state defined at all that is the name state 1 points at - the state 2 the file
+    // is missing.
+    const pointedAt = states.find(
+      (state) =>
+        state.entry !== first && state.entry.name.toLowerCase() === firstState.target.toLowerCase(),
+    )
+    const other = pointedAt ?? states.find((state) => state.entry !== first)
+    const secondName = other?.entry.name ?? firstState.target
+
+    const namesDistinct =
+      new Set([dispatch.name, first.name, secondName].map((n) => n.toLowerCase())).size === 3
+    const closesCleanly =
+      states.length === 2 &&
+      other !== undefined &&
+      other === pointedAt &&
+      other.target.toLowerCase() === first.name.toLowerCase() &&
+      namesDistinct
+    if (closesCleanly) continue
+
+    const groupKey = [dispatch.name, first.name, secondName]
+      .map((n) => n.toLowerCase())
+      .sort()
+      .join('|')
+    if (reportedToggleTrios.has(groupKey)) continue
+    reportedToggleTrios.add(groupKey)
+
+    add('toggleCrossWired', 'warning', dispatch.action.name, {
+      dispatch: dispatch.name,
+      first: first.name,
+      second: secondName,
+    })
+  }
+
+  // pressWithoutRelease / releaseWithoutPress: a signed entry with no matching opposite-sign entry
+  // among the profile's own fallback entries, case-insensitively - not the names a first-class
+  // press/release entry generates (those are a pair by construction and never a candidate).
+  // `KNOWN_PRESS_RELEASE_COMMANDS` is skipped: an entry named after the engine command its own bind
+  // line runs (`+attack`) has no missing half - see the block comment above `bodySegmentsOf`.
+  for (const entry of fallbackEntries.values()) {
+    const lower = entry.name.toLowerCase()
+    if (KNOWN_PRESS_RELEASE_COMMANDS.has(lower)) continue
+    if (entry.name.startsWith('+')) {
+      const base = entry.name.slice(1)
+      if (base.length === 0) continue
+      if (fallbackEntries.has(`-${base}`.toLowerCase())) continue
+      add('pressWithoutRelease', 'warning', entry.action.name, { entry: entry.action.name, name: entry.name })
+    } else if (entry.name.startsWith('-')) {
+      const base = entry.name.slice(1)
+      if (base.length === 0) continue
+      if (fallbackEntries.has(`+${base}`.toLowerCase())) continue
+      add('releaseWithoutPress', 'warning', entry.action.name, { entry: entry.action.name, name: entry.name })
+    }
   }
 
   return findings

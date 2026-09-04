@@ -188,6 +188,97 @@ describe('setProfileActionsInputSchema', () => {
 })
 
 /**
+ * Story 045 D1: `'toggle'`/`'press-release'` are two-part kinds - `commands` stays `[]`, both
+ * halves live in `parts`, exactly two of them. `wait` is a new `ConfigCommand` kind, bounded by
+ * `MAX_WAIT_FRAMES`.
+ */
+describe('setProfileActionsInputSchema - toggle/press-release parts, wait command (story 045)', () => {
+  const validPayload = {
+    profileId: 'p1',
+    categories: [{ id: 'c1', name: 'My Category' }],
+    actions: [
+      {
+        id: 'a1',
+        categoryId: 'c1',
+        name: 'Zoom',
+        kind: 'toggle' as const,
+        commands: [],
+        parts: [
+          { commands: [{ kind: 'raw' as const, text: 'zoom 1' }] },
+          { commands: [{ kind: 'raw' as const, text: 'zoom 0' }] },
+        ],
+      },
+    ],
+  }
+
+  it('accepts a well-formed two-part toggle action', () => {
+    expect(setProfileActionsInputSchema.safeParse(validPayload).success).toBe(true)
+  })
+
+  it('accepts a well-formed two-part press-release action', () => {
+    const payload = {
+      ...validPayload,
+      actions: [{ ...validPayload.actions[0], kind: 'press-release' as const }],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(true)
+  })
+
+  it('accepts a wait command within range', () => {
+    const payload = {
+      ...validPayload,
+      actions: [
+        {
+          ...validPayload.actions[0],
+          parts: [
+            { commands: [{ kind: 'wait' as const, frames: 50 }] },
+            validPayload.actions[0]!.parts[1],
+          ],
+        },
+      ],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(true)
+  })
+
+  it.each([0, 51])('rejects a wait command with frames out of range (%d)', (frames) => {
+    const payload = {
+      ...validPayload,
+      actions: [
+        {
+          ...validPayload.actions[0],
+          parts: [
+            { commands: [{ kind: 'wait' as const, frames }] },
+            validPayload.actions[0]!.parts[1],
+          ],
+        },
+      ],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(false)
+  })
+
+  it('rejects a toggle action with parts missing', () => {
+    const { parts: _parts, ...action } = validPayload.actions[0]!
+    expect(
+      setProfileActionsInputSchema.safeParse({ ...validPayload, actions: [action] }).success,
+    ).toBe(false)
+  })
+
+  it.each([1, 3])('rejects a toggle action with %d parts', (count) => {
+    const payload = {
+      ...validPayload,
+      actions: [
+        {
+          ...validPayload.actions[0],
+          parts: Array.from({ length: count }, () => ({
+            commands: [{ kind: 'raw' as const, text: 'zoom 1' }],
+          })),
+        },
+      ],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(false)
+  })
+})
+
+/**
  * Story 050: `keys` replaces the old fixed `key`/`secondaryKey`/`keyModifier`/
  * `secondaryKeyModifier` fields, with arbitrary length rather than the previous two-slot cap.
  * `normalizeActionKeys` also still accepts the legacy shape here, not just in the persisted

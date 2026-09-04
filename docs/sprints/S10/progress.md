@@ -22,3 +22,28 @@
 - 2026-09-03 20:57 · 050 · review-fix cycle 2 (1 finding) · done
 - 2026-09-03 20:57 · 050 · review-fix cycle 3 (2 findings) · done
 - 2026-09-03 20:57 · 050 · story complete · done
+- 2026-09-03 20:58 · 045 · D1 model + schemas · started
+- 2026-09-03 21:03 · 045 · D1 model + schemas · done
+- 2026-09-03 21:03 · 045 · D2 wait command kind · started
+- 2026-09-03 21:06 · 045 · D2 wait command kind · done
+- 2026-09-03 21:06 · 045 · D3 render toggle/press-release (hard) · started
+- 2026-09-03 21:19 · 045 · D3 render toggle/press-release (hard) · done
+- 2026-09-03 21:19 · 045 · D4 tag emission (lbl) · started
+- 2026-09-03 21:26 · 045 · D4 tag emission (lbl) · done
+- 2026-09-03 21:26 · 045 · D5 entry-idioms recogniser (hard) · started
+- 2026-09-03 21:40 · 045 · D5 entry-idioms recogniser (hard) · done
+- 2026-09-03 21:40 · 045 · D6 import wiring · started
+- 2026-09-03 21:45 · 045 · D6 import wiring · done
+- 2026-09-03 21:45 · 045 · D7 restore wiring + round-trip (hard) · started
+- 2026-09-03 22:06 · 045 · D7 restore wiring + round-trip (hard) · done
+- 2026-09-03 22:06 · 045 · D8 Care checks · started
+- 2026-09-03 22:17 · 045 · D8 Care checks · done
+- 2026-09-03 22:17 · 045 · fixup: D1 wait fallout typecheck errors · done
+- 2026-09-03 22:17 · 045 · D9 UI create/edit · started
+- 2026-09-03 22:24 · 045 · D9 UI create/edit · done
+- 2026-09-03 22:24 · 045 · D10 UI show as one thing · started
+- 2026-09-03 22:32 · 045 · D10 UI show as one thing · done
+- 2026-09-04 10:30 · 045 · review-fix cycle 1 (4 findings) · done
+- 2026-09-04 10:30 · 045 · review-fix cycle 2 (4 findings) · done
+- 2026-09-04 10:30 · 045 · review-fix cycle 3 (0 remaining, 1 documented) · done
+- 2026-09-04 10:30 · 045 · story complete · done

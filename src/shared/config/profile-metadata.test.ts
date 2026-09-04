@@ -210,6 +210,24 @@ describe('formatMetaTag / parseMetaTag round trip', () => {
   })
 })
 
+describe('KNOWN_META_KEYS (story 045 D4)', () => {
+  it('appends `lbl` after the pre-existing nine keys without moving any of them', () => {
+    expect(KNOWN_META_KEYS.slice(0, 9)).toEqual([
+      'v',
+      'cid',
+      'an',
+      'key',
+      'mod',
+      'cat',
+      'layer',
+      'mode',
+      'trigger',
+    ])
+    expect(KNOWN_META_KEYS.at(-1)).toBe('lbl')
+    expect(KNOWN_META_KEYS).toHaveLength(10)
+  })
+})
+
 describe('neutralizeProse', () => {
   it('rewrites a literal [q2l occurrence so it can never be mistaken for a tag', () => {
     const neutralised = neutralizeProse('GG [q2l cat=weapons]')

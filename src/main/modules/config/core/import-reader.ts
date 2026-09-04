@@ -214,6 +214,9 @@ export interface ImportedAlias {
   line: number
   /** The winning definition's trailing comment (story 042 D3), `''` when it had none. */
   comment: string
+  /** The winning definition's own line width before its `//` marker - see `ParsedAlias.codeWidth`
+   * for what a reader needs it for. */
+  codeWidth: number
 }
 
 /**
@@ -407,6 +410,7 @@ function applyAlias(ctx: ReaderContext, alias: ParsedAlias, file: string): void 
     file,
     line: alias.line,
     comment: alias.comment,
+    codeWidth: alias.codeWidth,
   })
 }
 

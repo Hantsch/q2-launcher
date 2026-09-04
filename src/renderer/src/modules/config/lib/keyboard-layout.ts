@@ -13,6 +13,7 @@
 
 import type { ConfigAction } from '@shared/modules/config'
 import { aliasNameFor, commandLineFor } from '@shared/config/alias-render'
+import { bindValueFor } from '@shared/config/action-mirror'
 
 export interface KeyDef {
   /** The exact token used as a `profile.binds` key. */
@@ -215,6 +216,22 @@ export const NUMPAD_KEYS: KeyDef[] = [
  * gate on, and the lookup alone is exactly as precise - a value that is not
  * any action's alias name falls through to the plain split below, whether or
  * not it happens to look like a generated name.
+ *
+ * Story 045 D10: a `toggle`/`press-release` action's bind value (`bindValueFor`) is not always
+ * its `aliasNameFor` - a press/release entry binds to `+<base>` while `aliasNameFor` returns the
+ * sign-free base, so the lookup also matches on `bindValueFor` to find these two kinds. Once
+ * found, `action.commands` is always `[]` for them (story 045 D1 - their real content lives in
+ * `action.parts`), so they get their own one-thing-not-two-states rendering instead of the
+ * generic `commands.map(commandLineFor)` body:
+ * - a **toggle** reads as its own name plus both state labels in one string, e.g.
+ *   `Zoom: In / Out` - one returned step, so `keycapCommandLabel` (`command-catalog.ts`) shows it
+ *   as the keycap's headline with zero "extra steps", rather than burying either label behind an
+ *   extra-steps count.
+ * - a **press/release** entry has no per-state labels in this story's UI scope, so it reads as
+ *   just its own name.
+ * This module has no `t()` available (a hook-free pure lib, unlike its caller
+ * `OverviewKeyboardPanel.tsx`), so state-label fallbacks are plain, untranslated placeholders
+ * ("State 1"/"State 2") rather than i18n keys.
  */
 export function resolveAliasChain(
   command: string | undefined,
@@ -222,11 +239,21 @@ export function resolveAliasChain(
 ): string[] {
   if (!command) return []
   const trimmed = command.trim()
-  const action = actions.find((candidate) => aliasNameFor(candidate) === trimmed)
+  const action = actions.find(
+    (candidate) => aliasNameFor(candidate) === trimmed || bindValueFor(candidate) === trimmed,
+  )
   if (action) {
+    if (action.kind === 'toggle') {
+      const label1 = action.parts?.[0]?.label ?? action.parts?.[0]?.aliasName ?? 'State 1'
+      const label2 = action.parts?.[1]?.label ?? action.parts?.[1]?.aliasName ?? 'State 2'
+      return [`${action.name}: ${label1} / ${label2}`]
+    }
+    if (action.kind === 'press-release') {
+      return [action.name]
+    }
     return action.commands.map(commandLineFor).filter((line) => line.trim().length > 0)
   }
-  // Not any action's alias name - either a stale bind pointing at an action that no longer
+  // Not any action's alias/bind value - either a stale bind pointing at an action that no longer
   // exists, or a plain command/chain the user typed. Same graceful-degradation either way: fall
   // through to the plain `;` split.
   return command

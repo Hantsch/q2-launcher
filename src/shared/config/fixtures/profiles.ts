@@ -810,6 +810,394 @@ export const collidingAliasNameProfile: ConfigProfile = buildFixtureProfile({
   ],
 })
 
+// ---------------------------------------------------------------------------
+// Story 045: the two-part entry kinds and the `wait` command kind. These are
+// the shapes whose *kind* has to survive a round trip with no `k` tag to carry
+// it - `profile-restore.ts` re-derives it from the wiring of the alias bodies
+// through `entry-idioms.ts`, so a fixed point here is a statement about the
+// recogniser and the writer agreeing, not just about text.
+// ---------------------------------------------------------------------------
+
+/**
+ * Story 045 AC1/AC6 - the story's own `zoom` shape: a `kind: 'toggle'` entry with two labelled
+ * states, bound to one key. Four lines in the file (`zoom_s1`, `zoom_s2`, the `zoom` dispatch and
+ * one `bind v "zoom"` mirror), which have to come back as *one* entry with two `parts`, both `lbl`
+ * labels, and its key.
+ *
+ * The two state bodies are deliberately unequal in length and content so a half swapped for the
+ * other would be visible rather than symmetric.
+ */
+export const toggleEntryProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Toggle entry with two labelled states',
+  actions: [
+    action({
+      name: 'Zoom',
+      kind: 'toggle',
+      commands: [],
+      keys: [{ key: 'v' }],
+      categoryId: 'movement',
+      parts: [
+        {
+          commands: [
+            { kind: 'raw', text: 'fov 30' },
+            { kind: 'raw', text: 'sensitivity 1.5' },
+          ],
+          label: 'In',
+        },
+        {
+          commands: [{ kind: 'raw', text: 'fov 90' }],
+          label: 'Out',
+        },
+      ],
+    }),
+  ],
+})
+
+/**
+ * Story 045 AC3/AC6 - a `kind: 'press-release'` entry: two alias lines under `+slow`/`-slow` and
+ * one `bind SHIFT "+slow"` (the `+` half verbatim, `bindValueFor`'s own rule, because the engine
+ * only sends the `-` half on key-up when the bind string itself starts with `+`).
+ *
+ * Next to it, on purpose, an ordinary `kind: 'alias'` entry named `+zoom` with **no** `-zoom` next
+ * to it: a lone `+` half is not a pair (D5's all-or-nothing rule), so it has to stay the plain
+ * alias entry it is - which is what D8's `pressWithoutRelease` will report - rather than get
+ * dragged into the recognised pair beside it.
+ */
+export const pressReleaseEntryProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Press/release entry next to a lone + half',
+  actions: [
+    action({
+      name: 'Slow',
+      kind: 'press-release',
+      commands: [],
+      keys: [{ key: 'SHIFT' }],
+      categoryId: 'movement',
+      parts: [
+        {
+          commands: [
+            { kind: 'raw', text: 'cl_forwardspeed 110' },
+            { kind: 'raw', text: 'cl_sidespeed 110' },
+          ],
+        },
+        {
+          commands: [
+            { kind: 'raw', text: 'cl_forwardspeed 200' },
+            { kind: 'raw', text: 'cl_sidespeed 200' },
+          ],
+        },
+      ],
+    }),
+    action({
+      name: '+zoom',
+      kind: 'alias',
+      commands: [{ kind: 'raw', text: 'fov 30' }],
+      categoryId: 'movement',
+    }),
+  ],
+})
+
+/**
+ * Story 045 AC5/AC6 - a `{ kind: 'wait', frames }` command *inside* an ordinary entry's body, twice
+ * and with different frame counts, with raw commands on both sides of each.
+ *
+ * `commandLineFor` writes a wait as `frames` literal `wait` segments, and only a run of literal
+ * `wait` segments collapses back (story 045's Decisions), so this fixture is what pins the two
+ * halves of that as actual inverses: three-then-one has to come back as three-then-one, not as one
+ * `wait(4)` and not as four raw commands.
+ */
+export const waitChainProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Wait chain inside an entry body',
+  actions: [
+    action({
+      name: 'Rocket jump',
+      kind: 'bind',
+      commands: [
+        { kind: 'raw', text: '+moveup' },
+        { kind: 'wait', frames: 3 },
+        { kind: 'raw', text: '+attack' },
+        { kind: 'wait', frames: 1 },
+        { kind: 'raw', text: '-attack' },
+        { kind: 'raw', text: '-moveup' },
+      ],
+      keys: [{ key: 'x' }],
+      categoryId: 'movement',
+    }),
+  ],
+})
+
+/**
+ * Story 045's Plan step 5, "a `wait` at the chunk boundary" - the adversarial case the second
+ * review round found still open (round-2 finding 3).
+ *
+ * `commandLineFor` expands one `{ kind: 'wait', frames }` command into `frames` literal `wait`
+ * segments *inside one string*, and `renderActionAlias` chunks the list of those strings, never the
+ * characters within one - so a single wait command is atomic to the chunker and cannot be split.
+ * Two **adjacent** wait commands can be, and the 46 padding commands below put the split exactly
+ * between them: `_p1` ends in the three `wait`s of the first, `_p2` opens with the two of the
+ * second. Read back, the chunk fold rejoins the two chunk bodies into one body of five consecutive
+ * literal `wait` segments, and a wait-run collapse that ran over the folded text saw one
+ * `wait(5)` - which re-renders as one 28-character atomic string that no longer fits where the
+ * three-`wait` one did, moving the chunk boundary and breaking AC6's fixed point on a file nobody
+ * had touched.
+ *
+ * The commands on both sides are asserted as objects in `round-trip.test.ts`, not just as bytes:
+ * the frame counts (3 then 2, never one 5) are the part the text alone cannot show.
+ */
+export const waitAtChunkBoundaryProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Wait run straddling a chunk boundary',
+  actions: [
+    action({
+      name: 'Boundary hop',
+      kind: 'bind',
+      aliasName: 'boundary',
+      commands: [
+        ...budgetEatingCommands(46),
+        { kind: 'wait', frames: 3 },
+        { kind: 'wait', frames: 2 },
+        { kind: 'raw', text: 'fov 90' },
+      ],
+      keys: [{ key: 'x' }],
+      categoryId: 'movement',
+    }),
+  ],
+})
+
+/**
+ * The adversarial one (the sprint's carry-over rule, and story 045's Plan step 5): a toggle whose
+ * **first state is long enough to be chunk-split**, so the file reads
+ *
+ * ```
+ * alias long_zoom_s1_p1 "…"
+ * alias long_zoom_s1_p2 "…; alias long_zoom long_zoom_s2"
+ * alias long_zoom_s1    "long_zoom_s1_p1; long_zoom_s1_p2"
+ * ```
+ *
+ * and the `alias <dispatch> <other state>` rewrite that identifies a toggle state at all sits
+ * inside the **last chunk**, not in the state's own body. `entry-idioms.ts` deliberately does not
+ * see through that (its "`_p<n>` chunks are the caller's problem" section), so this fixture is the
+ * one that fails if `profile-restore.ts` hands the recogniser unfolded bodies: the trio would fall
+ * back to three plain alias entries and the next render would write the family a second time, in a
+ * different shape.
+ *
+ * A `wait` sits mid-body too, so the wait collapse and the chunk fold are exercised on the same
+ * line family rather than in two separate fixtures.
+ */
+const LONG_STATE_COMMANDS: ConfigAction['commands'] = [
+  { kind: 'raw', text: '+moveup' },
+  { kind: 'wait', frames: 2 },
+  // `message`, not `raw` with a `say_team ` prefix: `configCommandFor` classifies such a segment as
+  // a message on the way back (`entryKindFor`'s own table, story 041), so a raw spelling would
+  // round-trip byte-identically but not object-identically - and it is the object comparison that
+  // proves the chunk fold reassembled the state in the right order.
+  ...Array.from({ length: 6 }, (_, index) => ({
+    kind: 'message' as const,
+    channel: 'say_team' as const,
+    text: `going in ${index} ${'a'.repeat(200)}`,
+  })),
+]
+
+export const chunkedToggleStateProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Toggle whose first state is chunk-split',
+  actions: [
+    action({
+      name: 'Long zoom',
+      kind: 'toggle',
+      commands: [],
+      keys: [{ key: 'b' }],
+      categoryId: 'movement',
+      parts: [
+        { commands: LONG_STATE_COMMANDS, label: 'On' },
+        { commands: [{ kind: 'raw', text: 'fov 90' }], label: 'Off' },
+      ],
+    }),
+  ],
+})
+
+/**
+ * The second adversarial one, and the case that found a real defect while D7 was being built: a
+ * toggle whose **only** key slot carries a modifier.
+ *
+ * A modifier binding is not a bind line anywhere - it lives as an override inside the ALT layer
+ * (story 016) - so the entry's key comes back off the comment-only **anchor line** the writer emits
+ * for it. `matchAnchor` pairs an anchor with an entry by exact display prose and demands exactly
+ * one candidate; a toggle's three alias lines all carry the entry's one prose, so all three groups
+ * matched, none was chosen, and the key came back as a separate commandless entry beside the
+ * toggle. `groupEntryLines` therefore recognises the two-part idioms *before* it scans anchors and
+ * takes the two half groups out of the candidate set - this fixture is what pins that ordering.
+ */
+export const modifiedSlotToggleProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Toggle whose only slot carries a modifier',
+  layers: [],
+  actions: [
+    action({
+      name: 'Zoom',
+      kind: 'toggle',
+      commands: [],
+      keys: [{ key: 'v', modifier: 'ALT' }],
+      categoryId: 'movement',
+      parts: [
+        { commands: [{ kind: 'raw', text: 'fov 30' }], label: 'In' },
+        { commands: [{ kind: 'raw', text: 'fov 90' }], label: 'Out' },
+      ],
+    }),
+  ],
+})
+
+/**
+ * Story-045 review, finding 1: **a two-part entry whose two halves are cut differently.**
+ *
+ * `attachTaggedComment` fits `<code>  // <prose> <tag>` into one line budget and cuts the *prose*
+ * when the three do not fit - and how much room is left over is decided by that line's own code. A
+ * two-part entry has two (or three) lines of very different code lengths under one display name, so
+ * a long half carries a truncated name while the short half beside it carries the whole one. Both
+ * merge gates in `profile-restore.ts` used to demand the two proses be *equal*, so exactly this
+ * entry came back as two or three plain alias entries: kind, `parts` and labels gone, and the next
+ * render different from the last - AC6's fixed point, lost on a file nobody touched.
+ *
+ * The name below is deliberately long, and the body deliberately sized just under the chunk
+ * threshold (`alias-render.ts#lineFits`), so the *whole* body stays on one line and that one line is
+ * what eats the prose. `round-trip.test.ts` asserts the two spellings really do differ, so the
+ * fixture cannot quietly stop exercising the case.
+ */
+const LONG_DISPLAY_NAME = 'Slow motion walk with a deliberately long display name'
+
+/**
+ * `count` same-width (21-character) `set` commands - enough of them to eat the prose budget on the
+ * line they render on, few enough that `chunkHalf` still keeps them on one line.
+ *
+ * The two counts differ because the two shapes spend their line differently: a toggle state's body
+ * also carries the trailing `alias <dispatch> <other state>` rewrite, and its `lbl` tag is longer
+ * than a press half's bare `[q2l]`.
+ */
+function budgetEatingCommands(count: number): ConfigAction['commands'] {
+  return Array.from({ length: count }, (_, index) => ({
+    kind: 'raw' as const,
+    text: `seta q2l_pad_${index.toString().padStart(2, '0')} 100`,
+  }))
+}
+
+export const budgetCutPressReleaseProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Press/release entry whose press half outgrows its own display name',
+  actions: [
+    action({
+      name: LONG_DISPLAY_NAME,
+      kind: 'press-release',
+      aliasName: 'slowmotion',
+      commands: [],
+      keys: [{ key: 'SHIFT' }],
+      categoryId: 'movement',
+      parts: [
+        { commands: budgetEatingCommands(46) },
+        { commands: [{ kind: 'raw', text: 'cl_forwardspeed 200' }] },
+      ],
+    }),
+  ],
+})
+
+/**
+ * The same defect on the toggle side, and the harder half of it: here the truncated line is a
+ * *state*, while the dispatch and the other state keep the whole name. The trailing
+ * `alias <dispatch> <other state>` rewrite is part of the long body, so this also pins that the
+ * budget maths and the recogniser agree about where the state's own body ends.
+ */
+export const budgetCutToggleProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Toggle whose first state outgrows its own display name',
+  actions: [
+    action({
+      name: LONG_DISPLAY_NAME,
+      kind: 'toggle',
+      aliasName: 'padzoom',
+      commands: [],
+      keys: [{ key: 'n' }],
+      categoryId: 'movement',
+      parts: [
+        { commands: budgetEatingCommands(45), label: 'In' },
+        { commands: [{ kind: 'raw', text: 'fov 90' }], label: 'Out' },
+      ],
+    }),
+  ],
+})
+
+/**
+ * Story-045 review round 2, finding 4: **a plain entry whose own alias line eats its display name
+ * while its bind line keeps it whole.**
+ *
+ * The same budget arithmetic as the two fixtures above, on the shape that has nothing to do with the
+ * two new kinds - one ordinary bound entry, one alias line, one bind line. `render.ts` writes the
+ * entry's display name on both, and only the alias line pays for a 950-byte body first, so the
+ * *alias* line carries a cut name and the *bind* line carries the whole one. Reading the entry's
+ * name off its first alias line (which is what `entryProse` did) therefore restored the cut spelling
+ * and the next render wrote that shortened name onto the bind line too: a file that differs from the
+ * one on disk with nobody having touched it.
+ */
+export const budgetCutSingleBodyProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Entry whose alias line outgrows its own display name',
+  actions: [
+    action({
+      name: LONG_DISPLAY_NAME,
+      kind: 'bind',
+      aliasName: 'padwalk',
+      commands: budgetEatingCommands(45),
+      keys: [{ key: 'n' }],
+      categoryId: 'movement',
+    }),
+  ],
+})
+
+/**
+ * Story-045 review round 2, finding 2: **three real, distinct entries whose names are prefixes of
+ * each other, wired like a toggle trio.**
+ *
+ * `slow` calls `slow_a`, `slow_a` hands the dispatch to `slow_b` and `slow_b` hands it back - the
+ * toggle idiom exactly, so `entry-idioms.ts` recognises it and only the *prose* gate in
+ * `profile-restore.ts` decides whether these three lines are one entry or three. They are three, and
+ * the file says so: each carries its own, whole, never-cut display name.
+ *
+ * What makes it adversarial is that the three names are prefixes of each other and the two state
+ * lines are deliberately sized so that the longest of the three (`Slow motion walk`, 16 characters)
+ * would *not* have fitted on them - 15 characters of room, one short. A merge gate that accepts "a
+ * prefix, on a line the long name could not have fitted on" (the first review round's rule) collapses
+ * all three into one toggle named `Slow motion walk` and loses two display names with no warning at
+ * all. The exact rule reproduces the cut the writer would have made (`Slow motion wal`), sees that
+ * neither line carries it, and keeps the three entries apart.
+ *
+ * The one padding command with the wider value is what buys that last character: 45 same-width
+ * commands leave exactly 16 characters of room, which the whole name fits into, and a line the name
+ * fits on is not a counter-example to anything.
+ */
+const PREFIX_NAME_STATE_COMMANDS = (target: string): ConfigAction['commands'] => [
+  ...budgetEatingCommands(45),
+  { kind: 'raw', text: 'seta q2l_pad_ff 1000' },
+  { kind: 'raw', text: `alias slow ${target}` },
+]
+
+export const prefixNamedTrioProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Three prefix-named entries wired like a toggle',
+  actions: [
+    action({
+      name: 'Slow motion walk',
+      kind: 'alias',
+      aliasName: 'slow',
+      commands: [{ kind: 'raw', text: 'slow_a' }],
+      categoryId: 'movement',
+    }),
+    action({
+      name: 'Slow',
+      kind: 'alias',
+      aliasName: 'slow_a',
+      commands: PREFIX_NAME_STATE_COMMANDS('slow_b'),
+      categoryId: 'movement',
+    }),
+    action({
+      name: 'Slow mo',
+      kind: 'alias',
+      aliasName: 'slow_b',
+      commands: PREFIX_NAME_STATE_COMMANDS('slow_a'),
+      categoryId: 'movement',
+    }),
+  ],
+})
+
 /** Every fixture the D9 round-trip property test iterates over. */
 export const ROUND_TRIP_FIXTURES: ConfigProfile[] = [
   selfMirroringAliasProfile,
@@ -838,6 +1226,16 @@ export const ROUND_TRIP_FIXTURES: ConfigProfile[] = [
   toggleLayerNoTriggerProfile,
   layeredTwoSlotEntryProfile,
   unownedBindProfile,
+  toggleEntryProfile,
+  pressReleaseEntryProfile,
+  waitChainProfile,
+  waitAtChunkBoundaryProfile,
+  chunkedToggleStateProfile,
+  modifiedSlotToggleProfile,
+  budgetCutPressReleaseProfile,
+  budgetCutToggleProfile,
+  budgetCutSingleBodyProfile,
+  prefixNamedTrioProfile,
   ...sectionHeaderStyleProfiles,
   ...orphanedCategoryProfiles,
 ]

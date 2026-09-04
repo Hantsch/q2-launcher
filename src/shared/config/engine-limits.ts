@@ -38,6 +38,18 @@ export const MAX_ALIAS_NAME = 32
 export const ALIAS_LOOP_COUNT = 16
 
 /**
+ * Story 045: the largest `frames` value a `{ kind: 'wait' }` `ConfigCommand` may carry.
+ *
+ * Not an engine-enforced limit - the engine's `wait` command has no such cap, a config can queue
+ * as many frames as it likes. This is a launcher-imposed sanity cap only, to stop a user (or a
+ * careless generator) from producing a `wait` chain hundreds of frames long that is really a typo
+ * or a runaway loop. 50 matches the story's own example of a `wait50`-style alias - long enough for
+ * any real press/release timing use, short enough that a form control asking for it stays a small
+ * number field rather than inviting an arbitrary integer.
+ */
+export const MAX_WAIT_FRAMES = 50
+
+/**
  * Per-engine hard limits the Quake 2 command interpreter imposes, ported
  * verbatim from upstream `src/core/engines.ts`'s `EngineLimits` interface.
  *
