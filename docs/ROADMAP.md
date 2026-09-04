@@ -290,8 +290,8 @@ chat-message text variables (`$r`) are now recognised and rendered by the messag
 than staying an opaque cvar, and the `alias cali "bind ...; ..."`-style rebind-key construct is
 resolved by asking the launcher's user during import rather than auto-classified.
 
-Eight stories were originally filed; **038–041 built in S07, 042/043 in S08, 044/045 still
-`draft`** (048 was filed later, see below):
+Eight stories were originally filed; **038–041 built in S07, 042/043 in S08, 044 in S09, 045 in
+S10 — all eight now done** (048/049/050 were filed later, see below):
 
 - **038** — no alias line for an action the engine can bind directly. Story 034 made continuous
   catalogue rows mirror as their own command (`bind MOUSE1 "+attack"`) but the writer kept emitting
@@ -391,8 +391,8 @@ state, duplicate-name flagging and line-budget warnings — a review pass found 
 layer-owner link and a missed single-command over-budget case.
 
 **045 was deliberately held back** to a following sprint rather than filling a fourth slot behind
-three large stories — the same call S04 made with 022–025. After S09, only 045 is left in this
-milestone.
+three large stories — the same call S04 made with 022–025. After S09, only 045 was left in this
+milestone; it built in S10, see below.
 
 **049** turned out to spark one more finding, filed 2026-09-03: **050** (2026-09-03) — the
 `[q2l …]` tag story 042 added has grown into noise on every generated line (`e`, `k`, `slot` fields
@@ -401,10 +401,33 @@ non-derivable minimum (catalogue link, display name, category, layer membership,
 key's anchor), slot identity comes from file order instead of a field, and story 042's round-trip
 property must still hold.
 
-`docs/sprints/S10` **planned (2026-09-03)** — closes this milestone: **050** (tag-format cleanup),
-then **045** (toggles, press/release pairs and `wait` chains as first-class entries), in that build
-order — 050 first so 045's new entry kinds render straight onto the already-reduced tag format
-instead of the shape changing twice in one milestone.
+`docs/sprints/S10` **built (2026-09-04), live acceptance pending** — closes this milestone: **050**
+(tag-format cleanup) then **045** (toggles, press/release pairs and `wait` chains as first-class
+entries), in that build order — 050 first so 045's new entry kinds render straight onto the
+already-reduced tag format instead of the shape changing twice in one milestone. Both **done**:
+`npm run build`/`test` (2043 tests)/`typecheck` green; live `npm run ui:verify` smoke pass not run
+this session, so both stories' UI paths are accepted only on the manual test plan below pending a
+live pass. See `docs/sprints/S10/review.md` and `docs/sprints/S10/testplan.md`.
+
+**Both stories needed the full 3-cycle review-fix budget**, same as 039/042 earlier in this
+milestone — the carry-over rule for `alias-references.ts`-adjacent code held again. 050's rounds
+caught two real data-loss bugs (an anchor prefix-match merging two distinct entries; a silently
+dropped key modifier on save) and, in later rounds, that the alias-name-collision warning was wired
+downstream of where the loss actually happens, then that it only covered one of three adopt paths.
+045's rounds caught a truncation-triggered round-trip break, Care checks blind to bound (not just
+orphaned) broken shapes, unchecked `_s1`/`_s2` name collisions, and a chunk-boundary `wait` bug.
+Each round only caught what it did because review verified the *previous* round's fix through the
+real render→import/restore pipeline rather than trusting a diff read — the same lesson 039/042
+already established, holding under repetition.
+
+**Both stories closed with one accepted residual limitation each, both rooted in the same tradeoff**
+(050's decision to key an entry's restore-time identity off its own prose text rather than a
+synthetic ref): 050 — two same-category entries whose display names derive the same alias slug can
+still lose one at the engine's own alias-name fold (mitigated with a warning on every adopt path,
+not eliminated — the file itself is ambiguous). 045 — three entries whose full names form an exact
+prefix chain can, under specific line-length conditions, still merge on restore; reproducible only
+via an adversarial sweep, not from any fixture or realistic UI path. Both documented in their
+stories' `## Decisions (Sprint)`; neither blocks acceptance.
 
 Open, named in the stories rather than guessed at: the metadata comment format (042), bind grouping
 by keyboard region vs. category (040 — region means moving `KEYBOARD_ROWS`/`ARROW_CLUSTER`/

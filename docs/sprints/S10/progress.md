@@ -47,3 +47,4 @@
 - 2026-09-04 10:30 · 045 · review-fix cycle 2 (4 findings) · done
 - 2026-09-04 10:30 · 045 · review-fix cycle 3 (0 remaining, 1 documented) · done
 - 2026-09-04 10:30 · 045 · story complete · done
+- 2026-09-04 10:45 · sprint · review + testplan + roadmap · done
