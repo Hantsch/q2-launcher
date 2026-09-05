@@ -19,6 +19,7 @@ import {
   type ActionEntryKind,
   type ConfigAction,
   type ConfigActionCategory,
+  type ConfigActionSubcategory,
   type ConfigProfile,
 } from '@shared/modules/config'
 import { Button, IconButton } from '../../components/ui/Button'
@@ -165,6 +166,13 @@ export function ControlsTab({
   const [deletingCategory, setDeletingCategory] = useState<ConfigActionCategory | null>(null)
   const [showCreateAction, setShowCreateAction] = useState(false)
   const [renamingAction, setRenamingAction] = useState<ConfigAction | null>(null)
+  /** Story 053 D6: the group header's own create/rename dialogs, mirroring
+   * `showCreateCategory`/`renamingCategory` one level down - both are scoped to
+   * `selectedCategory`, so there is no separate "which category" state to carry. */
+  const [showCreateSubcategory, setShowCreateSubcategory] = useState(false)
+  const [renamingSubcategory, setRenamingSubcategory] = useState<ConfigActionSubcategory | null>(
+    null,
+  )
   const [editingActionId, setEditingActionId] = useState<string | null>(null)
   /** Story 020 D8: local, not persisted - the filter is a view concern, not a draft edit. Reset
    * whenever the selected category changes so a filter typed in one category never silently hides
@@ -596,9 +604,108 @@ export function ControlsTab({
 
   const selectedCategory = categories.find((category) => category.id === selectedCategoryId) ?? null
   const selectedCategoryLabel = selectedCategory ? categoryDisplayName(selectedCategory) : ''
+
+  /**
+   * Story 053 D6: sub-category CRUD, scoped to `selectedCategory` - the group headers a user can
+   * see and click all belong to it. Mirrors the category rail's own rename/move/delete handlers
+   * above almost verbatim, just one level down: the same `{ ...category, subcategories: [...] }`
+   * splice, saved through the same immediate `persistCategoriesAndActions` path (a create/rename/
+   * reorder/delete click is a discrete edit, not typed input, exactly the reasoning
+   * `handleMoveCategory`'s own doc comment gives).
+   */
+  const handleCreateSubcategory = async (name: string): Promise<boolean> => {
+    if (!selectedCategory) return false
+    const subcategory: ConfigActionSubcategory = { id: crypto.randomUUID(), name }
+    const nextCategories = categories.map((category) =>
+      category.id === selectedCategory.id
+        ? { ...category, subcategories: [...(category.subcategories ?? []), subcategory] }
+        : category,
+    )
+    const ok = await persistCategoriesAndActions(nextCategories, actions)
+    if (ok) setShowCreateSubcategory(false)
+    return ok
+  }
+
+  const handleRenameSubcategory = async (subcategoryId: string, name: string): Promise<boolean> => {
+    if (!selectedCategory) return false
+    const nextCategories = categories.map((category) =>
+      category.id === selectedCategory.id
+        ? {
+            ...category,
+            subcategories: (category.subcategories ?? []).map((subcategory) =>
+              subcategory.id === subcategoryId ? { ...subcategory, name } : subcategory,
+            ),
+          }
+        : category,
+    )
+    const ok = await persistCategoriesAndActions(nextCategories, actions)
+    if (ok) setRenamingSubcategory(null)
+    return ok
+  }
+
+  const handleMoveSubcategory = (subcategoryId: string, direction: 'up' | 'down'): void => {
+    if (!selectedCategory) return
+    const subcategories = selectedCategory.subcategories ?? []
+    const index = subcategories.findIndex((subcategory) => subcategory.id === subcategoryId)
+    if (index === -1) return
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= subcategories.length) return
+    const nextSubcategories = [...subcategories]
+    const moved = nextSubcategories[index]!
+    nextSubcategories[index] = nextSubcategories[targetIndex]!
+    nextSubcategories[targetIndex] = moved
+    const nextCategories = categories.map((category) =>
+      category.id === selectedCategory.id
+        ? { ...category, subcategories: nextSubcategories }
+        : category,
+    )
+    void persistCategoriesAndActions(nextCategories, actions)
+  }
+
+  /**
+   * Story 053 (Decisions): "deleting a sub-category keeps its entries in the parent category" -
+   * unconditionally, unlike a category delete (052 D9's delete-or-move choice). No confirm dialog
+   * at all: there is no real choice to ask about, only one outcome. Every one of this category's
+   * entries pointing at the deleted id has its `subcategoryId` dropped (not set to `undefined` -
+   * omitted entirely, same `{ id, name }` rebuild idiom `handleRenameCategory` already uses to drop
+   * a stale `nameKey`) so the data model does not keep a dangling reference around, even though
+   * `groupControlsRowEntries` would already treat it as ungrouped either way (D1/D5's own "no id is
+   * special" rule).
+   */
+  const handleDeleteSubcategory = (subcategoryId: string): void => {
+    if (!selectedCategory) return
+    const nextCategories = categories.map((category) =>
+      category.id === selectedCategory.id
+        ? {
+            ...category,
+            subcategories: (category.subcategories ?? []).filter(
+              (subcategory) => subcategory.id !== subcategoryId,
+            ),
+          }
+        : category,
+    )
+    const nextActions = actions.map((action) => {
+      if (action.categoryId !== selectedCategory.id || action.subcategoryId !== subcategoryId) {
+        return action
+      }
+      const { subcategoryId: _removed, ...rest } = action
+      return rest as ConfigAction
+    })
+    void persistCategoriesAndActions(nextCategories, nextActions)
+  }
   const editingAction = editingActionId
     ? (actions.find((action) => action.id === editingActionId) ?? null)
     : null
+  /** Story 053 D7: the category `editingAction` actually belongs to, looked up from `categories`
+   * rather than assumed to be `selectedCategory` - a dangling `categoryId` (its category deleted
+   * out from under it) falls back to a no-subcategories stand-in so `ActionEditor` still opens,
+   * just without a sub-category control to offer. */
+  const editingActionCategory: ConfigActionCategory = editingAction
+    ? (categories.find((category) => category.id === editingAction.categoryId) ?? {
+        id: editingAction.categoryId,
+        name: '',
+      })
+    : { id: '', name: '' }
   /** Story 052 D8: the drops row whose message modal is open, resolved out of `actions` on every
    * render rather than captured into state - the editor then always opens on the entry as it is
    * now, and an entry that disappeared under it (its category deleted) closes the modal instead of
@@ -643,7 +750,7 @@ export function ControlsTab({
         )
       })
     : rowEntries
-  const rowGroups = groupControlsRowEntries(filteredRowEntries)
+  const rowGroups = groupControlsRowEntries(filteredRowEntries, selectedCategory?.subcategories ?? [])
   /** Story 052 review (finding 4): move up/down reads its neighbour - and therefore its own
    * enabled state - off `rowGroups`, the structure the grid actually draws, not off the raw
    * `actions` order. Cheap enough to rebuild per render (one pass over the rows already built
@@ -1311,6 +1418,19 @@ export function ControlsTab({
                 {t('config.controls.grid.conflictCount', { count: conflicts.length })}
               </span>
             )}
+            {/* Story 053 D6: create is the one sub-category operation that has no group header of
+                its own to sit on yet - mirrors "New category" living in the rail rather than on a
+                category chip. Scoped to `selectedCategory` (disabled instead of hidden while none
+                is selected, matching every other button in this toolbar). */}
+            <Button
+              variant="neutral"
+              size="sm"
+              icon={<Plus className="size-3.5" />}
+              disabled={!selectedCategory}
+              onClick={() => setShowCreateSubcategory(true)}
+            >
+              {t('config.controls.subcategory.create')}
+            </Button>
             <Button
               variant="neutral"
               size="sm"
@@ -1351,6 +1471,9 @@ export function ControlsTab({
                 ? renderCatalogRow(entry, odd)
                 : renderPlainActionRow(entry.action, odd)
             }}
+            onRenameSubcategory={(subcategory) => setRenamingSubcategory(subcategory)}
+            onMoveSubcategory={handleMoveSubcategory}
+            onDeleteSubcategory={handleDeleteSubcategory}
           />
         )}
       </div>
@@ -1383,6 +1506,21 @@ export function ControlsTab({
           category={renamingCategory}
           onClose={() => setRenamingCategory(null)}
           onSubmit={(name) => handleRenameCategory(renamingCategory.id, name)}
+        />
+      )}
+
+      {showCreateSubcategory && selectedCategory && (
+        <CreateSubcategoryDialog
+          onClose={() => setShowCreateSubcategory(false)}
+          onSubmit={handleCreateSubcategory}
+        />
+      )}
+
+      {renamingSubcategory && (
+        <RenameSubcategoryDialog
+          subcategory={renamingSubcategory}
+          onClose={() => setRenamingSubcategory(null)}
+          onSubmit={(name) => handleRenameSubcategory(renamingSubcategory.id, name)}
         />
       )}
 
@@ -1434,6 +1572,7 @@ export function ControlsTab({
         <ActionEditor
           action={editingAction}
           actions={actions}
+          category={editingActionCategory}
           onClose={() => setEditingActionId(null)}
           onSave={(next) => void handleSaveAction(next)}
         />
@@ -1612,6 +1751,117 @@ function RenameCategoryDialog({
       }
     >
       <Field label={t('config.controls.renameDialog.label')}>
+        <Input
+          value={name}
+          autoFocus
+          maxLength={120}
+          onChange={(event) => setName(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && name.trim().length > 0) void submit()
+          }}
+        />
+      </Field>
+    </Modal>
+  )
+}
+
+/** Create-sub-category form: name only (story 053 D6) - a sub-category has no template
+ * suggestions to offer, unlike `CreateCategoryDialog`. Exported like the category/action create
+ * dialogs so it can be unit-tested directly. */
+export function CreateSubcategoryDialog({
+  onClose,
+  onSubmit,
+}: {
+  onClose: () => void
+  onSubmit: (name: string) => Promise<boolean>
+}) {
+  const { t } = useTranslation()
+  const [name, setName] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const canSubmit = name.trim().length > 0 && !submitting
+
+  const submit = async (): Promise<void> => {
+    setSubmitting(true)
+    const ok = await onSubmit(name.trim())
+    setSubmitting(false)
+    if (!ok) return
+  }
+
+  return (
+    <Modal
+      open
+      size="sm"
+      title={t('config.controls.subcategory.createDialog.title')}
+      onClose={onClose}
+      closeLabel={t('common.close')}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
+            {t('config.controls.subcategory.createDialog.submit')}
+          </Button>
+        </>
+      }
+    >
+      <Field label={t('config.controls.subcategory.createDialog.nameLabel')}>
+        <Input
+          value={name}
+          autoFocus
+          maxLength={120}
+          onChange={(event) => setName(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && canSubmit) void submit()
+          }}
+        />
+      </Field>
+    </Modal>
+  )
+}
+
+/** Renames one sub-category. Mirrors `RenameCategoryDialog`'s shape one level down. */
+export function RenameSubcategoryDialog({
+  subcategory,
+  onClose,
+  onSubmit,
+}: {
+  subcategory: ConfigActionSubcategory
+  onClose: () => void
+  onSubmit: (name: string) => Promise<boolean>
+}) {
+  const { t } = useTranslation()
+  const [name, setName] = useState(subcategory.name)
+  const [submitting, setSubmitting] = useState(false)
+
+  const canSubmit = name.trim().length > 0 && !submitting
+
+  const submit = async (): Promise<void> => {
+    setSubmitting(true)
+    await onSubmit(name.trim())
+    setSubmitting(false)
+  }
+
+  return (
+    <Modal
+      open
+      size="sm"
+      title={t('config.controls.subcategory.renameDialog.title')}
+      onClose={onClose}
+      closeLabel={t('common.close')}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
+            {t('common.save')}
+          </Button>
+        </>
+      }
+    >
+      <Field label={t('config.controls.subcategory.renameDialog.label')}>
         <Input
           value={name}
           autoFocus

@@ -94,3 +94,26 @@ export function categoryLabelFor(categoryIdOrName: string, profile: ConfigProfil
   const category = (profile.categories ?? []).find((entry) => entry.id === categoryIdOrName)
   return category?.name ?? categoryIdOrName
 }
+
+/**
+ * The display name a second-level section banner shows for a sub-category id (story 053 D2) -
+ * mirrors `categoryLabelFor` one level down: the profile's own stored `name` for that
+ * sub-category, and nothing else (never `nameKey` - `ConfigActionSubcategory` has none, since a
+ * sub-category is always user-typed, never seeded from a translated built-in).
+ *
+ * `categoryId` narrows the search to the one category the sub-category has to belong to (a
+ * sub-category id is only unique within its own category's `subcategories` array, never
+ * profile-wide) - the same reason `render.ts` never calls this without already knowing which
+ * category section the banner sits inside. A `subcategoryId` the named category does not carry -
+ * stale data, or a category looked up by the wrong id - falls back to the id itself, so a banner
+ * is never empty, exactly like `categoryLabelFor`'s own fallback.
+ */
+export function subcategoryLabelFor(
+  categoryId: string,
+  subcategoryId: string,
+  profile: ConfigProfile,
+): string {
+  const category = (profile.categories ?? []).find((entry) => entry.id === categoryId)
+  const subcategory = category?.subcategories?.find((entry) => entry.id === subcategoryId)
+  return subcategory?.name ?? subcategoryId
+}

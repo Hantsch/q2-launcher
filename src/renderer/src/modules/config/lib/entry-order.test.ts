@@ -4,15 +4,27 @@ import { buildMoveTargets, swapEntries } from './entry-order'
 import { groupControlsRowEntries } from './controls-row-groups'
 import type { ControlsRowEntry } from './controls-row-entries'
 
-function action(id: string, categoryId: string, catalogId?: string): ConfigAction {
-  return { id, categoryId, name: id, kind: 'bind', commands: [], ...(catalogId ? { catalogId } : {}) }
+function action(id: string, categoryId: string, subcategoryId?: string): ConfigAction {
+  return {
+    id,
+    categoryId,
+    name: id,
+    kind: 'bind',
+    commands: [],
+    ...(subcategoryId ? { subcategoryId } : {}),
+  }
 }
 
-/** A plain (non-catalogue) row entry - grouping reads `action.catalogId` for these, so a
- * `catalogId` given here still lands the row in that catalogue group. */
+/** A plain (non-catalogue) row entry - grouping reads `action.subcategoryId` for these (story 053
+ * D5), so a `subcategoryId` given here still lands the row in that sub-category's group. */
 function entry(action: ConfigAction): ControlsRowEntry {
   return { kind: 'action', action }
 }
+
+const WEAPON_USE_SUBCATEGORIES = [
+  { id: 'weaponUse', name: 'Use weapon' },
+  { id: 'weaponExtra', name: 'Cycling' },
+]
 
 describe('swapEntries', () => {
   it('swaps the two named entries, wherever they sit in the array', () => {
@@ -54,11 +66,14 @@ describe('swapEntries', () => {
 
 describe('buildMoveTargets', () => {
   it('names the previous/next row of the same group, and nothing at either end', () => {
-    const groups = groupControlsRowEntries([
-      entry(action('a1', 'weapons', 'weaponUse:blaster')),
-      entry(action('a2', 'weapons', 'weaponUse:shotgun')),
-      entry(action('a3', 'weapons', 'weaponUse:railgun')),
-    ])
+    const groups = groupControlsRowEntries(
+      [
+        entry(action('a1', 'weapons', 'weaponUse')),
+        entry(action('a2', 'weapons', 'weaponUse')),
+        entry(action('a3', 'weapons', 'weaponUse')),
+      ],
+      WEAPON_USE_SUBCATEGORIES,
+    )
 
     const targets = buildMoveTargets(groups)
 
@@ -71,12 +86,15 @@ describe('buildMoveTargets', () => {
     // The bug this exists to prevent: "Use weapon" ends and "Cycling" begins, so the last
     // `weaponUse` row's move-down used to swap with the first `weaponExtra` row - a real mutation
     // with no visible effect, because each row stayed inside its own group's contiguous run.
-    const groups = groupControlsRowEntries([
-      entry(action('a1', 'weapons', 'weaponUse:blaster')),
-      entry(action('a2', 'weapons', 'weaponUse:shotgun')),
-      entry(action('b1', 'weapons', 'weaponExtra:next')),
-      entry(action('b2', 'weapons', 'weaponExtra:prev')),
-    ])
+    const groups = groupControlsRowEntries(
+      [
+        entry(action('a1', 'weapons', 'weaponUse')),
+        entry(action('a2', 'weapons', 'weaponUse')),
+        entry(action('b1', 'weapons', 'weaponExtra')),
+        entry(action('b2', 'weapons', 'weaponExtra')),
+      ],
+      WEAPON_USE_SUBCATEGORIES,
+    )
 
     const targets = buildMoveTargets(groups)
 
@@ -89,11 +107,14 @@ describe('buildMoveTargets', () => {
     // Grouping keeps each group's entries in array order but not contiguous in the array itself,
     // so a group's neighbour can sit two array positions away - the swap is still visible, because
     // both rows render inside the same group.
-    const groups = groupControlsRowEntries([
-      entry(action('a1', 'weapons', 'weaponUse:blaster')),
-      entry(action('b1', 'weapons', 'weaponExtra:next')),
-      entry(action('a2', 'weapons', 'weaponUse:shotgun')),
-    ])
+    const groups = groupControlsRowEntries(
+      [
+        entry(action('a1', 'weapons', 'weaponUse')),
+        entry(action('b1', 'weapons', 'weaponExtra')),
+        entry(action('a2', 'weapons', 'weaponUse')),
+      ],
+      WEAPON_USE_SUBCATEGORIES,
+    )
 
     const targets = buildMoveTargets(groups)
 
@@ -102,10 +123,11 @@ describe('buildMoveTargets', () => {
   })
 
   it('treats every ungrouped row as one run', () => {
-    // Free-form entries (no `catalogId`) and movement rows (a catalogue prefix with no subgroup)
-    // all collapse into the single `labelKey: null` bucket, so they move against each other.
+    // Entries with no `subcategoryId` (movement never has sub-categories) and one whose
+    // `subcategoryId` matches nothing all collapse into the single `subcategory: null` bucket, so
+    // they move against each other.
     const groups = groupControlsRowEntries([
-      entry(action('m1', 'movement', 'movement:forward')),
+      entry(action('m1', 'movement', 'no-such-subcategory')),
       entry(action('f1', 'movement')),
     ])
 
@@ -116,7 +138,10 @@ describe('buildMoveTargets', () => {
   })
 
   it('gives a row that is alone in its group no target on either side', () => {
-    const groups = groupControlsRowEntries([entry(action('a1', 'weapons', 'weaponUse:blaster'))])
+    const groups = groupControlsRowEntries(
+      [entry(action('a1', 'weapons', 'weaponUse'))],
+      WEAPON_USE_SUBCATEGORIES,
+    )
 
     expect(buildMoveTargets(groups).get('a1')).toEqual({ up: undefined, down: undefined })
   })

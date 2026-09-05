@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from
 import { useTranslation } from 'react-i18next'
 import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
 import { keySlotAt, withKeySlot } from '@shared/config/action-slots'
-import type { ActionEntryPart, ConfigAction, ConfigCommand } from '@shared/modules/config'
+import type {
+  ActionEntryPart,
+  ConfigAction,
+  ConfigActionCategory,
+  ConfigCommand,
+} from '@shared/modules/config'
 import { sanitizeCommand } from '@shared/config/alt-layers'
 import {
   commandLineFor,
@@ -283,6 +288,7 @@ function CommandListSection({
 export function ActionEditor({
   action,
   actions,
+  category,
   onClose,
   onSave,
 }: {
@@ -296,6 +302,16 @@ export function ActionEditor({
    * about to be merged back into.
    */
   actions: ConfigAction[]
+  /**
+   * Story 053 D7: `action`'s own parent category, passed down so the sub-category select below can
+   * be scoped to `category.subcategories` - never another category's, and this editor has no
+   * control to change `action.categoryId` itself, so there is nothing to recompute against a
+   * "newly picked" category. Optional: `AliasesTab` opens this same editor for `kind: 'alias'`
+   * entries, which live outside the Controls category/sub-category model entirely (story scope is
+   * Controls-only) - omitting it there is exactly equivalent to a category with no sub-categories,
+   * so the select stays hidden rather than needing a stand-in category threaded through.
+   */
+  category?: ConfigActionCategory
   onClose: () => void
   onSave: (next: ConfigAction) => void
 }) {
@@ -340,6 +356,12 @@ export function ActionEditor({
   // accessor is the sole place `keys` is read/written.
   const [key, setKey] = useState<string | undefined>(keySlotAt(action, 0)?.key || undefined)
   const [capturingKey, setCapturingKey] = useState(false)
+
+  // Story 053 D7: which of `category.subcategories` this entry sits under, or `undefined` for
+  // "no sub-category" - the select below is the only way to move an entry in and out of one.
+  // Defaults to whatever the entry already has, matching every other identity field in this editor.
+  const [subcategoryId, setSubcategoryId] = useState<string | undefined>(action.subcategoryId)
+  const subcategories = category?.subcategories ?? []
 
   useEffect(() => {
     if (!capturingKey) return
@@ -441,14 +463,19 @@ export function ActionEditor({
 
   const save = (): void => {
     if (isTwoPart) {
-      const withParts: ConfigAction = { ...action, commands: [], parts: twoPartDraftParts }
+      const withParts: ConfigAction = {
+        ...action,
+        commands: [],
+        parts: twoPartDraftParts,
+        subcategoryId,
+      }
       // Toggle/press-release ARE bindable (same slot-0-only behaviour as everything else this
       // editor writes) - see the file doc comment.
       onSave(withKeySlot(withParts, 0, editorKeySlot(action, key)))
       return
     }
 
-    const withCommands: ConfigAction = { ...action, commands: effectiveCommands }
+    const withCommands: ConfigAction = { ...action, commands: effectiveCommands, subcategoryId }
 
     if (isAlias) {
       // An alias entry has no key slot at all (D5) - every slot is dropped here (review fix,
@@ -491,6 +518,29 @@ export function ActionEditor({
       }
     >
       <div className="space-y-5">
+        {/* Story 053 D7: move this entry in and out of one of `category`'s sub-categories - hidden
+            entirely (not disabled/empty) when the category has none, per the story's own "hides the
+            control" accept criterion. The "no sub-category" option always maps to `undefined`, never
+            an empty-string id, matching `ConfigAction.subcategoryId`'s own "no id is special" rule. */}
+        {subcategories.length > 0 && (
+          <Field label={t('config.controls.editor.subcategory.label')}>
+            <Select
+              value={subcategoryId ?? ''}
+              onChange={(event) => {
+                const value = event.target.value
+                setSubcategoryId(value === '' ? undefined : value)
+              }}
+              options={[
+                { value: '', label: t('config.controls.editor.subcategory.none') },
+                ...subcategories.map((subcategory) => ({
+                  value: subcategory.id,
+                  label: subcategory.name,
+                })),
+              ]}
+            />
+          </Field>
+        )}
+
         {/* Story 019 D5: only a `bind` entry's payload can be a message - an alias, toggle or
             press/release entry is always a command list (or two), so none of them see this toggle. */}
         {!isAlias && !isTwoPart && (

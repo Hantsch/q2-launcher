@@ -211,7 +211,7 @@ describe('formatMetaTag / parseMetaTag round trip', () => {
 })
 
 describe('KNOWN_META_KEYS (story 045 D4)', () => {
-  it('appends `lbl`, then `ord`, after the pre-existing nine keys without moving any of them', () => {
+  it('appends `lbl`, then `ord`, then `sub`, after the pre-existing nine keys without moving any of them', () => {
     expect(KNOWN_META_KEYS.slice(0, 9)).toEqual([
       'v',
       'cid',
@@ -224,10 +224,11 @@ describe('KNOWN_META_KEYS (story 045 D4)', () => {
       'trigger',
     ])
     // Story 052's F3 fix appended `ord` behind `lbl` for the same reason 045 appended `lbl` behind
-    // `trigger`: this order is the format's determinism guarantee, so a new key goes at the end and
-    // every key that already shipped keeps its place.
-    expect(KNOWN_META_KEYS.slice(9)).toEqual(['lbl', 'ord'])
-    expect(KNOWN_META_KEYS).toHaveLength(11)
+    // `trigger`, and story 053 D2 appends `sub` behind that for the same reason again: this order
+    // is the format's determinism guarantee, so a new key goes at the end and every key that
+    // already shipped keeps its place.
+    expect(KNOWN_META_KEYS.slice(9)).toEqual(['lbl', 'ord', 'sub'])
+    expect(KNOWN_META_KEYS).toHaveLength(12)
   })
 })
 

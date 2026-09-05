@@ -435,7 +435,9 @@ describe('ProfilesStore', () => {
       const reloadedProfiles = new ProfilesStore(reloaded)
 
       const persisted = reloadedProfiles.find(created!.id)!
-      expect(persisted.categories).toEqual([category])
+      // Story 053 D1: a reload runs the persisted schema, which fills in `subcategories: []` for a
+      // category row that predates the field - `category` itself has no `subcategories` key.
+      expect(persisted.categories).toEqual([{ ...category, subcategories: [] }])
       expect(persisted.actions).toEqual([keyed])
       // `bindValueFor`, not `aliasNameFor`: this row is a catalogue row (`catalogId`) whose whole
       // body is one continuous `+command`, and story 034 binds those directly - an alias would

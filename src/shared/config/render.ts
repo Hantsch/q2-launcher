@@ -1,11 +1,11 @@
-import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
+import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
 import { actionKeySlots } from '@shared/config/action-slots'
 import type { AltLayer, GeneratedAlias, GenerateLayerResult } from '@shared/config/alt-layers'
 import { generateLayerAliases } from '@shared/config/alt-layers'
 import { renderActionAlias, twoPartAliasNames } from '@shared/config/alias-render'
 import { actionsWithAliasLine } from '@shared/config/alias-references'
 import { bindValueFor } from '@shared/config/action-mirror'
-import { categoryLabelFor, commentLabelFor } from '@shared/config/comment-labels'
+import { categoryLabelFor, commentLabelFor, subcategoryLabelFor } from '@shared/config/comment-labels'
 import { normalizeBindKey } from '@shared/config/key-names'
 import { ALL_CVARS, findCvar } from '@shared/config/cvar-catalog'
 import { CVAR_GROUP_LABELS, CVAR_GROUP_ORDER } from '@shared/config/cvar-facts'
@@ -183,6 +183,17 @@ function categoryTag(categoryId: string | null, ordinals: ReadonlyMap<string, nu
   if (categoryId === null) return ''
   const ordinal = ordinals.get(categoryId)
   return formatMetaTag({ cat: categoryId, ord: ordinal === undefined ? undefined : String(ordinal) })
+}
+
+/** The `[q2l sub=<id>]` tag for a second-level (sub-category) section banner (story 053 D2/story
+ * 050's "minimum tag" rule) - nothing else rides alongside it, because the parent category is
+ * already derivable from the section the banner sits inside (positional attribution, the same
+ * reasoning `buildAnchorSections`'s own doc comment gives for why a line needs no `cat` beyond its
+ * header). Unlike `categoryTag`, this never returns `''`: every bucket `withSubcategoryBuckets`
+ * builds a banner for really is one of `category.subcategories`, so there is always an id to
+ * record. */
+function subcategoryTag(subcategoryId: string): string {
+  return formatMetaTag({ sub: subcategoryId })
 }
 
 /**
@@ -403,6 +414,72 @@ function groupByCategory<T>(
 }
 
 /**
+ * Renders one category bucket's lines with story 053 D2's second bucketing level applied:
+ * `items`' own ungrouped run first (an entry whose `subcategoryId` is absent or matches none of
+ * `category.subcategories`, mirroring how `groupByCategory` itself treats a dangling
+ * `categoryId`), then one banner-and-body block per sub-category in `category.subcategories`
+ * order - emitted **even for a sub-category whose bucket is empty** (story 052's "the file is the
+ * source of truth for an empty section" mechanism, reused one level down: a sub-category the user
+ * just created must not vanish on the next reload).
+ *
+ * `categoryId === null` (the trailing "other" bucket `groupByCategory` always appends) and a
+ * `categoryId` the profile no longer carries a category for both take the flat path straight
+ * through to `renderLines` - there is no `ConfigActionCategory` to read `subcategories` off of
+ * either way, so the whole bucket renders as one ungrouped run, exactly as every category rendered
+ * before this story.
+ *
+ * `renderLines` is handed each bucket's items and renders that bucket's own lines in isolation
+ * (its own `renderRows` alignment pass, or its own plain per-item mapping) - each bucket gets
+ * exactly the same per-section treatment a category's own top-level bucket already got, one level
+ * further down, mirroring `buildAliasSections`/`buildBindSections`/`buildAnchorSections`'s
+ * existing per-category call to `renderRows`.
+ *
+ * The sub-banner itself is `banner()` in the same `sectionHeaderStyle` as a category banner (the
+ * story's decision: no new decoration, indent or width), tagged with `subcategoryTag` and titled
+ * with `subcategoryTitle` - carrying no `Binds: `/`Aliases: `/`Entries: ` prefix, since inside an
+ * already-prefixed category section that prefix would be noise. Built with `banner()` directly
+ * rather than through `titledSection`/`section()`, because `section()` drops a banner outright
+ * when its body is empty - exactly the "empty sub-category" case this function must keep.
+ */
+function withSubcategoryBuckets<T>(
+  profile: ConfigProfile,
+  categoryId: string | null,
+  items: readonly T[],
+  subcategoryIdOf: (item: T) => string | undefined,
+  renderLines: (items: readonly T[]) => string[],
+  style: SectionHeaderStyle,
+): string[] {
+  const category: ConfigActionCategory | undefined =
+    categoryId === null ? undefined : (profile.categories ?? []).find((entry) => entry.id === categoryId)
+  if (!category) return renderLines(items)
+
+  const subcategories = category.subcategories ?? []
+  const buckets = new Map<string, T[]>(subcategories.map((sub) => [sub.id, [] as T[]]))
+  const ungrouped: T[] = []
+  for (const item of items) {
+    const subcategoryId = subcategoryIdOf(item)
+    const bucket = subcategoryId !== undefined ? buckets.get(subcategoryId) : undefined
+    ;(bucket ?? ungrouped).push(item)
+  }
+
+  const lines = renderLines(ungrouped)
+  for (const subcategory of subcategories) {
+    lines.push(
+      ...banner(
+        fitProseAndTag(
+          bannerText(subcategoryTitle(category.id, subcategory.id, profile)),
+          subcategoryTag(subcategory.id),
+          BANNER_CONTENT_BUDGET,
+        ),
+        { style },
+      ),
+      ...renderLines(buckets.get(subcategory.id)!),
+    )
+  }
+  return lines
+}
+
+/**
  * Longest banner *content* (a title, or one header line) this file will emit.
  *
  * AC7 - "every line stays inside the engine's line-length budget, comments included" - covers the
@@ -470,6 +547,16 @@ function categoryTitle(categoryId: string | null, profile: ConfigProfile): strin
   return sanitizeComment(categoryLabelFor(categoryId, profile))
 }
 
+/** The plain-English banner text for a sub-category (story 053 D2) - mirrors `categoryTitle` one
+ * level down, `sanitizeComment`d for the same reason a user-typed category name is: a sub-category
+ * name is user-typed prose too. No "other" case: unlike a category id, a bucket this file ever
+ * builds a sub-banner for always names one of `category.subcategories` (`withSubcategoryBuckets`
+ * only iterates that array) - an entry whose own `subcategoryId` matches nothing lands in the
+ * category's ungrouped run instead, never in a synthesized sub-category bucket. */
+function subcategoryTitle(categoryId: string, subcategoryId: string, profile: ConfigProfile): string {
+  return sanitizeComment(subcategoryLabelFor(categoryId, subcategoryId, profile))
+}
+
 /**
  * The alias sections: one per category, each carrying every alias line the actions in that
  * category produce, with a trailing `// <label>` naming the entry (AC3).
@@ -480,6 +567,38 @@ function categoryTitle(categoryId: string | null, profile: ConfigProfile): strin
  * the parts are one entry to the user, and a `_p2` line with no comment would read like an
  * orphan.
  */
+/** One category/sub-category bucket's worth of alias rows, for every action in `actions` - the
+ * per-action logic `buildAliasSections` ran inline before story 053 D2 needed to call it once per
+ * bucket (the category's own ungrouped run, then once per sub-category) instead of once per
+ * category. */
+function aliasRowsFor(actions: readonly ConfigAction[], profile: ConfigProfile): CodeRow[] {
+  const rows: CodeRow[] = []
+  for (const action of actions) {
+    const comment = proseText(commentLabelFor(action, profile))
+    // No anchor fields: an alias line is the entry itself, not one of its key slots, and the line
+    // already spells the entry's alias name as code. A chunk-split action's whole `_p<n>` family
+    // shares the one tag, exactly as it shares the one label. A catalogue-less entry still gets
+    // the bare `[q2l]` marker here - see `entryTag`.
+    const tag = entryTag(action)
+    // A toggle/press-release entry's two state lines each carry their own `lbl` (story 045, D4) -
+    // every other line for the entry (the dispatch alias, any `_p<n>` chunk of either half) keeps
+    // the plain `tag` above. `twoPartAliasNames` is the one place that knows which rendered name
+    // is which half, so the two files can never disagree about it.
+    const halfNames = twoPartAliasNames(action)
+    const parts = action.parts
+    const labelTagFor = (aliasName: string): string => {
+      if (!halfNames || !parts) return tag
+      if (aliasName === halfNames.first) return entryTag(action, { label: parts[0]?.label })
+      if (aliasName === halfNames.second) return entryTag(action, { label: parts[1]?.label })
+      return tag
+    }
+    for (const alias of renderActionAlias(action).aliases) {
+      rows.push({ ...splitAliasLine(alias), comment, tag: labelTagFor(alias.name) })
+    }
+  }
+  return rows
+}
+
 function buildAliasSections(
   profile: ConfigProfile,
   actions: ConfigAction[],
@@ -487,34 +606,18 @@ function buildAliasSections(
 ): string[][] {
   const ordinals = categoryOrdinals(profile)
   return groupByCategory(profile, actions, (action) => action.categoryId).map((group) => {
-    const rows: CodeRow[] = []
-    for (const action of group.items) {
-      const comment = proseText(commentLabelFor(action, profile))
-      // No anchor fields: an alias line is the entry itself, not one of its key slots, and the line
-      // already spells the entry's alias name as code. A chunk-split action's whole `_p<n>` family
-      // shares the one tag, exactly as it shares the one label. A catalogue-less entry still gets
-      // the bare `[q2l]` marker here - see `entryTag`.
-      const tag = entryTag(action)
-      // A toggle/press-release entry's two state lines each carry their own `lbl` (story 045, D4) -
-      // every other line for the entry (the dispatch alias, any `_p<n>` chunk of either half) keeps
-      // the plain `tag` above. `twoPartAliasNames` is the one place that knows which rendered name
-      // is which half, so the two files can never disagree about it.
-      const halfNames = twoPartAliasNames(action)
-      const parts = action.parts
-      const labelTagFor = (aliasName: string): string => {
-        if (!halfNames || !parts) return tag
-        if (aliasName === halfNames.first) return entryTag(action, { label: parts[0]?.label })
-        if (aliasName === halfNames.second) return entryTag(action, { label: parts[1]?.label })
-        return tag
-      }
-      for (const alias of renderActionAlias(action).aliases) {
-        rows.push({ ...splitAliasLine(alias), comment, tag: labelTagFor(alias.name) })
-      }
-    }
+    const lines = withSubcategoryBuckets(
+      profile,
+      group.categoryId,
+      group.items,
+      (action) => action.subcategoryId,
+      (items) => renderRows(aliasRowsFor(items, profile)),
+      style,
+    )
     return titledSection(
       `Aliases: ${categoryTitle(group.categoryId, profile)}`,
       categoryTag(group.categoryId, ordinals),
-      renderRows(rows),
+      lines,
       style,
     )
   })
@@ -787,14 +890,22 @@ function buildBindSections(
     profile,
     owned,
     (entry) => entry.owner!.action.categoryId,
-  ).map((group) =>
-    titledSection(
+  ).map((group) => {
+    const lines = withSubcategoryBuckets(
+      profile,
+      group.categoryId,
+      group.items,
+      (entry) => entry.owner!.action.subcategoryId,
+      (items) => renderRows(items.map(bindRow)),
+      style,
+    )
+    return titledSection(
       `Binds: ${categoryTitle(group.categoryId, profile)}`,
       categoryTag(group.categoryId, ordinals),
-      renderRows(group.items.map(bindRow)),
+      lines,
       style,
-    ),
-  )
+    )
+  })
 
   return [
     ...categorySections,
@@ -1085,16 +1196,26 @@ function buildAnchorSections(
 ): string[][] {
   const items = buildEntrySectionItems(profile, anchors, unboundActions)
   const ordinals = categoryOrdinals(profile)
-  return groupByCategory(profile, items, (item) => item.action.categoryId).map((group) =>
-    titledSection(
+  return groupByCategory(profile, items, (item) => item.action.categoryId).map((group) => {
+    // `groupByCategory`/`withSubcategoryBuckets` keep the caller's order inside a bucket, so each
+    // rendered bucket's rows stay in the merged file order `buildEntrySectionItems` produced them
+    // in. No `renderRows` alignment here (unlike the alias/bind buckets): an entry-section row is a
+    // bare `//` comment, never a code+value pair to align a column for.
+    const lines = withSubcategoryBuckets(
+      profile,
+      group.categoryId,
+      group.items,
+      (item) => item.action.subcategoryId,
+      (bucketItems) => bucketItems.map((item) => entrySectionItemRow(item, profile)),
+      style,
+    )
+    return titledSection(
       `${ANCHOR_TITLE_PREFIX}${categoryTitle(group.categoryId, profile)}`,
       categoryTag(group.categoryId, ordinals),
-      // `groupByCategory` keeps the caller's order inside a bucket, so this section's rows stay in
-      // the merged file order `buildEntrySectionItems` produced them in.
-      group.items.map((item) => entrySectionItemRow(item, profile)),
+      lines,
       style,
-    ),
-  )
+    )
+  })
 }
 
 /**

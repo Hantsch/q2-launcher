@@ -181,11 +181,33 @@ const legacyCategoryEntryKindSchema = actionEntryKindPersistedSchema.optional().
  */
 const categoryNameKeyPersistedSchema = z.string().min(1).optional().catch(undefined)
 
+/**
+ * Story 053 D1: the persisted-schema mirror of `ConfigActionSubcategory` - same "strict on the
+ * fields that make the row meaningful" rule the category schema itself follows.
+ */
+const configActionSubcategoryPersistedSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+})
+
+/**
+ * Story 053 D1: the persisted-schema mirror of `ConfigActionCategory.subcategories`. Defaults to
+ * `[]` rather than `undefined` - every category predating this field simply lacks the key on
+ * disk, and "no sub-categories yet" reads the same as "field never existed" for every reader that
+ * groups by it. A malformed row is dropped from the array (not the whole category) the same way
+ * `parseForgivingRows` drops a malformed category/action from its own array.
+ */
+const configActionSubcategoriesPersistedSchema = z.preprocess(
+  (raw) => parseForgivingRows(configActionSubcategoryPersistedSchema, raw),
+  z.array(configActionSubcategoryPersistedSchema),
+)
+
 const configActionCategoryPersistedSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   entryKind: legacyCategoryEntryKindSchema,
   nameKey: categoryNameKeyPersistedSchema,
+  subcategories: configActionSubcategoriesPersistedSchema,
 })
 
 // Story 016 (D6): same modifier vocabulary as the strict IPC schema
@@ -246,6 +268,12 @@ function normalizeLegacyActionKeys(raw: unknown): unknown {
 const configActionPersistedObjectSchema = z.object({
   id: z.string().min(1),
   categoryId: z.string().min(1),
+  // Story 053 (D1): which of `categoryId`'s `subcategories` this entry sits under. Optional and
+  // forgiving like `catalogId`/`aliasName` below - a row without it (every row written before this
+  // field existed) simply omits it, and one naming a sub-category the category no longer has is
+  // still a valid string, not a validation failure (schema-level, no cross-reference check; the
+  // ungrouped fallback is a render/grouping concern for a later deliverable).
+  subcategoryId: z.string().optional(),
   name: z.string().min(1),
   commands: z.array(configCommandPersistedSchema),
   // Story 019: required on the type, deliberately optional-and-forgiving here - every row written
@@ -325,7 +353,12 @@ const profileBaselinePersistedSchema: z.ZodType<PersistedProfileBaseline> = z.ob
   binds: z.record(z.string(), z.string()),
   layers: z.array(altLayerPersistedSchema),
   categories: z.array(
-    z.object({ id: z.string().min(1), name: z.string().min(1), nameKey: categoryNameKeyPersistedSchema }),
+    z.object({
+      id: z.string().min(1),
+      name: z.string().min(1),
+      nameKey: categoryNameKeyPersistedSchema,
+      subcategories: configActionSubcategoriesPersistedSchema,
+    }),
   ),
   actions: z.array(
     z.preprocess(
@@ -633,7 +666,12 @@ function normalizeConfigProfile(
   return {
     ...rest,
     ...(baseline ? { baseline: { ...baseline, name: baseline.name ?? parsed.name } } : {}),
-    categories: parsed.categories.map(({ id, name, nameKey }) => ({ id, name, ...(nameKey ? { nameKey } : {}) })),
+    categories: parsed.categories.map(({ id, name, nameKey, subcategories }) => ({
+      id,
+      name,
+      ...(nameKey ? { nameKey } : {}),
+      subcategories,
+    })),
     actions: adopted.actions,
     binds: adopted.binds,
     layers: adopted.layers,

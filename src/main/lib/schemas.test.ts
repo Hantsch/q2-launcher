@@ -57,6 +57,52 @@ describe('configProfileSchema - categories/actions (story 008)', () => {
   })
 
   /**
+   * Story 053 D1: a category defaults `subcategories` to `[]` when the persisted row predates the
+   * field, and round-trips a real sub-category list; an action's `subcategoryId` survives
+   * persist/load even when it names a sub-category the category no longer has (schema-level, no
+   * cross-reference check - the ungrouped fallback is a later deliverable's rendering concern).
+   */
+  it('defaults a category with no subcategories field to subcategories: []', () => {
+    const result = configProfileSchema.parse({
+      ...baseProfile,
+      categories: [{ id: 'c1', name: 'Movement' }],
+    })
+    expect(result.categories[0]).toMatchObject({ id: 'c1', name: 'Movement', subcategories: [] })
+  })
+
+  it('round-trips a category with subcategories and an action with a subcategoryId, including an unknown one', () => {
+    const result = configProfileSchema.parse({
+      ...baseProfile,
+      categories: [
+        { id: 'c1', name: 'Movement', subcategories: [{ id: 'sub1', name: 'Strafing' }] },
+      ],
+      actions: [
+        {
+          id: 'a1',
+          categoryId: 'c1',
+          subcategoryId: 'sub1',
+          name: 'Strafe left',
+          commands: [{ kind: 'raw', text: '+moveleft' }],
+        },
+        {
+          id: 'a2',
+          categoryId: 'c1',
+          subcategoryId: 'unknown-sub',
+          name: 'Unknown sub',
+          commands: [{ kind: 'raw', text: '+moveright' }],
+        },
+      ],
+    })
+    expect(result.categories[0]).toMatchObject({
+      id: 'c1',
+      subcategories: [{ id: 'sub1', name: 'Strafing' }],
+    })
+    expect(result.actions).toHaveLength(2)
+    expect(result.actions[0]).toMatchObject({ id: 'a1', subcategoryId: 'sub1' })
+    expect(result.actions[1]).toMatchObject({ id: 'a2', subcategoryId: 'unknown-sub' })
+  })
+
+  /**
    * Story 045 D1: `toggle`/`press-release` need exactly two `parts`; a `wait` command needs
    * `frames` in `[1, MAX_WAIT_FRAMES]`. Persisted schemas are forgiving - a row failing either rule
    * is dropped, never thrown, and never takes the rest of the profile with it.
@@ -160,7 +206,11 @@ describe('configProfileSchema - categories/actions (story 008)', () => {
       actions: strict.actions,
     })
 
-    expect(persisted.categories).toEqual(strict.categories)
+    // Story 053 D1: the persisted schema fills in `subcategories: []` for a category row that
+    // carries none (the strict IPC schema leaves the field absent when the caller omits it).
+    expect(persisted.categories).toEqual(
+      strict.categories.map((c) => ({ ...c, subcategories: [] })),
+    )
     expect(persisted.actions).toEqual(strict.actions)
   })
 
@@ -372,11 +422,11 @@ describe('configProfileSchema - entry kind derived on read (story 019)', () => {
     const result = configProfileSchema.parse(legacyProfile)
 
     expect(result.categories).toEqual([
-      { id: 'c-msg', name: 'Chat' },
-      { id: 'c-alias', name: 'Aliases' },
-      { id: 'c-bind', name: 'My binds' },
-      { id: 'c-odd', name: 'Odd' },
-      { id: 'c-plain', name: 'No kind at all' },
+      { id: 'c-msg', name: 'Chat', subcategories: [] },
+      { id: 'c-alias', name: 'Aliases', subcategories: [] },
+      { id: 'c-bind', name: 'My binds', subcategories: [] },
+      { id: 'c-odd', name: 'Odd', subcategories: [] },
+      { id: 'c-plain', name: 'No kind at all', subcategories: [] },
     ])
     expect(result.categories.every((category) => !('entryKind' in category))).toBe(true)
   })
@@ -682,7 +732,7 @@ describe('configProfileSchema - baseline (story 049)', () => {
     cvars: { sensitivity: '4.5' },
     binds: { w: '+forward' },
     layers: [{ id: 'l1', name: 'Alt', mode: 'hold', triggerKey: 'ALT', overrides: { r: '+attack' } }],
-    categories: [{ id: 'c1', name: 'Chat' }],
+    categories: [{ id: 'c1', name: 'Chat', subcategories: [] }],
     actions: [
       {
         id: 'a1',

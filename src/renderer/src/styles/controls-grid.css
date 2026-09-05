@@ -118,6 +118,17 @@
   background: linear-gradient(90deg, var(--color-line-strong), transparent);
 }
 
+/* --- group header CRUD: rename/reorder/delete for the sub-category itself (story 053 D6) ---
+   Sits at the end of the same `.ctrl-group-cell` flex row as the eyebrow/rule/count, after the
+   rule (`flex: 1`) has already claimed the remaining width - `shrink-0` keeps the four icon
+   buttons from being squeezed under a long sub-category name. */
+.ctrl-group-crud {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
 /*
   Row height is 40px and the slot below is 30px — below the /design-tokens
   skill's 44px touch-target floor. This is a deliberate, documented deviation

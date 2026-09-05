@@ -43,6 +43,8 @@
  * | `mode`    | layer mode (section header only)                                       |
  * | `trigger` | layer trigger key, omitted entirely when null (section header only)   |
  * | `lbl`     | a toggle/press-release state's display label - that state's own alias line only (story 045) |
+ * | `sub`     | sub-category id (second-level section header only, story 053) - the parent category is |
+ * |           | derivable from the section the banner sits in, so no `cat`/`ord` rides alongside it     |
  *
  * Story 050 dropped `e` (entry ref hash), `k` (entry kind) and `slot` (key slot index) from this
  * registry: all three duplicated information the config text or the profile model already carries
@@ -136,6 +138,12 @@ export const KNOWN_META_KEYS = [
   // a comparable pair - see `render.ts#categoryOrdinals`. Its absence is not an error: a file from
   // an older build simply has its order read off the section layout alone, exactly as before.
   'ord',
+  // A second-level section header's own sub-category id (story 053 D2) - appended for the same
+  // reason `ord` was: emission order here is the format's determinism guarantee and every key
+  // above it already shipped. Only a sub-category banner carries it; its parent category is
+  // derivable from the section the banner sits in (the header, story 050's "minimum tag" rule),
+  // so no `cat`/`ord` rides alongside it here.
+  'sub',
 ] as const
 
 export type KnownMetaKey = (typeof KNOWN_META_KEYS)[number]
@@ -156,6 +164,7 @@ export interface MetaTagFields {
   trigger?: string
   lbl?: string
   ord?: string
+  sub?: string
   [key: string]: string | undefined
 }
 

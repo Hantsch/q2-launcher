@@ -1,11 +1,15 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ArrowDown, ArrowUp, Pencil, Trash2 } from 'lucide-react'
+import type { ConfigActionSubcategory } from '@shared/modules/config'
+import { IconButton } from '../../../components/ui/Button'
 import type { ControlsRowEntry } from '../lib/controls-row-entries'
 import type { ControlsRowGroup } from '../lib/controls-row-groups'
 
 /**
  * The grid shell for the Controls tab (story 020 D3): the 1120px-capped stage, the sticky column
- * header, catalogue group dividers and the footer legend/counts. `DualBindPanel`/`DropBindPanel`'s
+ * header, sub-category group dividers (story 053 D5) and the footer legend/counts.
+ * `DualBindPanel`/`DropBindPanel`'s
  * three separate row idioms collapse into this one grid for every category (movement, weapons,
  * drops and every custom category alike) — see the story's Decisions section.
  *
@@ -22,7 +26,7 @@ import type { ControlsRowGroup } from '../lib/controls-row-groups'
 export interface ControlsGridProps {
   /** Accessible name for the `role="table"` container, e.g. "Controls — Movement". */
   ariaLabel: string
-  /** Catalogue-grouped, category-filtered rows in profile order — see `groupControlsRowEntries`. */
+  /** Sub-category-grouped, category-filtered rows in profile order — see `groupControlsRowEntries`. */
   groups: ControlsRowGroup[]
   /**
    * Renders one row's content. `index` is this row's position across the *whole* filtered row
@@ -35,6 +39,15 @@ export interface ControlsGridProps {
   rowCount: number
   /** Footer's "m bound" — how many of `rowCount` carry at least one key. */
   boundCount: number
+  /**
+   * Story 053 D6: the group header's own rename/reorder/delete affordances - mirroring the
+   * category rail's chip CRUD (`ControlsTab.tsx`'s category rail), just one level down. Optional so
+   * a caller with nothing to wire (there are none today, but `renderRow`'s own default shows the
+   * precedent) still gets a plain header with no buttons rather than a crash.
+   */
+  onRenameSubcategory?: (subcategory: ConfigActionSubcategory) => void
+  onMoveSubcategory?: (subcategoryId: string, direction: 'up' | 'down') => void
+  onDeleteSubcategory?: (subcategoryId: string) => void
 }
 
 /** Fallback row for a caller that has not wired D4's `ControlsRow` yet: the entry's name only, in
@@ -59,12 +72,21 @@ export function ControlsGrid({
   renderRow = renderPlaceholderRow,
   rowCount,
   boundCount,
+  onRenameSubcategory,
+  onMoveSubcategory,
+  onDeleteSubcategory,
 }: ControlsGridProps) {
   const { t } = useTranslation()
 
   // Running index across the *whole* filtered row list, not per-group — see `ControlsRow`'s doc
   // comment for why zebra parity is computed here rather than left to CSS `:nth-of-type`.
   let rowIndex = 0
+  // Story 053 D6: move up/down is disabled at the first/last *sub-category* group - the ungrouped
+  // run (`subcategory: null`) is never itself a target, so it does not count. Counted up front
+  // (not read off `categories.subcategories.length` directly) so this stays correct even for a
+  // filtered view where a whole sub-category group can still be empty but always renders (D5).
+  const subcategoryCount = groups.filter((group) => group.subcategory !== null).length
+  let subcategoryOrdinal = -1
 
   return (
     // Review fix (finding 1): `.ctrl-foot` is a caption/summary area below the table, not part of
@@ -86,26 +108,70 @@ export function ControlsGrid({
           <span role="columnheader">{t('config.controls.grid.colOptions')}</span>
         </div>
 
-        {groups.map((group, groupIndex) => (
-          <div key={group.labelKey ?? `ungrouped-${groupIndex}`} role="rowgroup">
-            {group.labelKey && (
-              <div className="ctrl-group" role="row">
-                {/* Review fix (finding 1): an ARIA `row` may only contain `cell`/`columnheader`/
-                    `rowheader` children - the divider's three spans used to be bare `row` children
-                    (an invalid "row with no cells"). One `role="cell"` spanning the full row now
-                    carries the eyebrow/rule/count as a single announcement. */}
-                <span className="ctrl-group-cell" role="cell">
-                  <span className="ctrl-group-eyebrow">{t(group.labelKey)}</span>
-                  <span className="ctrl-group-rule" aria-hidden="true" />
-                  <span className="ctrl-group-eyebrow">
-                    {t('config.controls.grid.groupCount', { count: group.entries.length })}
+        {groups.map((group, groupIndex) => {
+          const subcategory = group.subcategory
+          if (subcategory) subcategoryOrdinal += 1
+          const subcategoryIndex = subcategoryOrdinal
+          return (
+            <div key={subcategory?.id ?? `ungrouped-${groupIndex}`} role="rowgroup">
+              {subcategory && (
+                <div className="ctrl-group" role="row">
+                  {/* Review fix (finding 1): an ARIA `row` may only contain `cell`/`columnheader`/
+                      `rowheader` children - the divider's three spans used to be bare `row` children
+                      (an invalid "row with no cells"). One `role="cell"` spanning the full row now
+                      carries the eyebrow/rule/count as a single announcement.
+
+                      Story 053 D5: the header is the sub-category's own `name` - the profile's data,
+                      not an i18n key lookup (a sub-category is user-typed/user-authored structure,
+                      same reasoning `categoryDisplayName` already applies to a renamed category). */}
+                  <span className="ctrl-group-cell" role="cell">
+                    <span className="ctrl-group-eyebrow">{subcategory.name}</span>
+                    <span className="ctrl-group-rule" aria-hidden="true" />
+                    <span className="ctrl-group-eyebrow">
+                      {t('config.controls.grid.groupCount', { count: group.entries.length })}
+                    </span>
+                    {/* Story 053 D6: create/reorder lives one level up (the category's own toolbar,
+                        `ControlsTab.tsx`) - only rename/move/delete are scoped to a single header. */}
+                    <span className="ctrl-group-crud">
+                      <IconButton
+                        label={t('config.controls.subcategory.moveUp')}
+                        size="sm"
+                        disabled={subcategoryIndex === 0}
+                        onClick={() => onMoveSubcategory?.(subcategory.id, 'up')}
+                      >
+                        <ArrowUp className="size-3.5" />
+                      </IconButton>
+                      <IconButton
+                        label={t('config.controls.subcategory.moveDown')}
+                        size="sm"
+                        disabled={subcategoryIndex === subcategoryCount - 1}
+                        onClick={() => onMoveSubcategory?.(subcategory.id, 'down')}
+                      >
+                        <ArrowDown className="size-3.5" />
+                      </IconButton>
+                      <IconButton
+                        label={t('config.controls.subcategory.rename')}
+                        size="sm"
+                        onClick={() => onRenameSubcategory?.(subcategory)}
+                      >
+                        <Pencil className="size-3.5" />
+                      </IconButton>
+                      <IconButton
+                        label={t('config.controls.subcategory.delete')}
+                        size="sm"
+                        variant="danger"
+                        onClick={() => onDeleteSubcategory?.(subcategory.id)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </IconButton>
+                    </span>
                   </span>
-                </span>
-              </div>
-            )}
-            {group.entries.map((entry) => renderRow(entry, rowIndex++))}
-          </div>
-        ))}
+                </div>
+              )}
+              {group.entries.map((entry) => renderRow(entry, rowIndex++))}
+            </div>
+          )
+        })}
       </div>
 
       <div className="ctrl-foot">

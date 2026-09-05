@@ -561,6 +561,27 @@ export const SCREENS = [
     navigate: configDetail('controls', 'Template Profile'),
   },
   {
+    id: 'config-controls-template-subcategories',
+    variant: 'controls-seed',
+    viewports: BOTH_VIEWPORTS,
+    // Story 053 D8: same `controls-seed`/"Template Profile" fixture as `config-controls-template-
+    // seeded` above, but on the Weapons category tab rather than the default first category
+    // (Movement, which has no sub-categories) - `configDetail()` never selects a category itself,
+    // it always lands on the profile's first one. `templateSeededConfigProfile()`
+    // (scripts/lib/fixture.mjs) now mirrors STANDARD_TEMPLATE.categories' own `subcategories`
+    // (story 053 D5): Weapons carries "Use weapon"/"Cycling", so this screen is the one that
+    // actually demonstrates the story's "a category with sub-categories" acceptance criterion with
+    // real group headers on screen, alongside `ui:flow controls-subcategory`'s live create+move.
+    navigate: async (page) => {
+      await configDetail('controls', 'Template Profile')(page)
+      // No testid/role on the rail's category chips (plain `<button>`s) - selecting by translated
+      // accessible name, same convention `config-controls-message`/`config-controls-drop-message`
+      // above already use.
+      await page.getByRole('button', { name: 'Weapons' }).click({ timeout: CLICK_TIMEOUT_MS })
+      await page.locator('.ctrl-group').first().waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
     id: 'config-controls-imported-only',
     variant: 'controls-seed',
     viewports: BOTH_VIEWPORTS,

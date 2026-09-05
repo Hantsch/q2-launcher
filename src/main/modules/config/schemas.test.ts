@@ -185,6 +185,28 @@ describe('setProfileActionsInputSchema', () => {
     const parsed = setProfileActionsInputSchema.parse(payload)
     expect(parsed.categories[0]).toEqual({ id: 'c1', name: 'My Category' })
   })
+
+  /**
+   * Story 053 D1: a category's `subcategories` and an action's `subcategoryId` are both optional
+   * and accepted verbatim - no cross-reference check at the schema level (an id the category
+   * doesn't carry is an ungrouped entry, a later deliverable's rendering concern).
+   */
+  it('accepts a category with subcategories and an action referencing one by id', () => {
+    const payload = {
+      ...validPayload,
+      categories: [{ id: 'c1', name: 'My Category', subcategories: [{ id: 'sub1', name: 'Sub' }] }],
+      actions: [{ ...validPayload.actions[0], subcategoryId: 'sub1' }],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(true)
+  })
+
+  it('accepts an action whose subcategoryId matches no subcategory (ungrouped, not an error)', () => {
+    const payload = {
+      ...validPayload,
+      actions: [{ ...validPayload.actions[0], subcategoryId: 'nonexistent' }],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(true)
+  })
 })
 
 /**

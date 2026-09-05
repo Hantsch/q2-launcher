@@ -22,3 +22,21 @@
 - 2026-09-05 18:57 · 052 · Review cycle 1 (FAIL, F1-F10) · started fixes
 - 2026-09-05 19:26 · 052 · Review cycle 1 fixes (F1-F5,F7-F10) · done, F6 disclosed residual
 - 2026-09-05 19:26 · 052 · Story verification (build/typecheck/test/ui:verify/ui:flow) · done, status done
+- 2026-09-05 19:28 · 053 · D1 Model and schemas · started
+- 2026-09-05 19:32 · 053 · D1 Model and schemas · done
+- 2026-09-05 19:32 · 053 · D2 The file writes sub-categories · started
+- 2026-09-05 19:39 · 053 · D2 The file writes sub-categories · done
+- 2026-09-05 19:39 · 053 · D3 The file reads sub-categories back · started
+- 2026-09-05 19:53 · 053 · D3 The file reads sub-categories back · done
+- 2026-09-05 19:53 · 053 · D4 Foreign two-level import · started
+- 2026-09-05 20:10 · 053 · D4 Foreign two-level import · done
+- 2026-09-05 20:10 · 053 · D5 Controls groups by sub-category · started
+- 2026-09-05 20:15 · 053 · D5 Controls groups by sub-category · done
+- 2026-09-05 20:15 · 053 · D6 Sub-category CRUD in the grid · started
+- 2026-09-05 20:22 · 053 · D6 Sub-category CRUD in the grid · done
+- 2026-09-05 20:22 · 053 · D7 Move an entry in and out · started
+- 2026-09-05 20:26 · 053 · D7 Move an entry in and out · done
+- 2026-09-05 20:26 · 053 · D8 Live verification · started
+- 2026-09-05 20:35 · 053 · D8 Live verification · done
+- 2026-09-05 20:49 · 053 · Review cycle 1 (FAIL, Finding 1 blocks AC6/D4) · started fixes
+- 2026-09-05 20:58 · 053 · Review cycle 1 fix (Finding 1) · done

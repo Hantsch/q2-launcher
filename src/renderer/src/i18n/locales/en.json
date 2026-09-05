@@ -1328,6 +1328,22 @@
         "title": "Rename category",
         "label": "Name"
       },
+      "subcategory": {
+        "create": "New sub-category",
+        "moveUp": "Move sub-category up",
+        "moveDown": "Move sub-category down",
+        "rename": "Rename sub-category",
+        "delete": "Delete sub-category",
+        "createDialog": {
+          "title": "Create sub-category",
+          "nameLabel": "Name",
+          "submit": "Create sub-category"
+        },
+        "renameDialog": {
+          "title": "Rename sub-category",
+          "label": "Name"
+        }
+      },
       "deleteCategoryDialog": {
         "title": "Delete “{{name}}”?",
         "confirm": "Delete category",
@@ -1414,6 +1430,10 @@
         "notBindable": "Not bindable",
         "slotLabel": "{{slot}}: {{value}}",
         "slotLabelConflict": "{{slot}}: {{value}} — conflict",
+        "subcategory": {
+          "label": "Sub-category",
+          "none": "No sub-category"
+        },
         "payloadType": {
           "label": "Payload",
           "command": "Command",
@@ -1442,8 +1462,6 @@
       "dualBind": {
         "primary": "Primary",
         "secondary": "Secondary",
-        "weaponsUseGroup": "Use weapon",
-        "weaponsCycleGroup": "Cycling",
         "otherActions": "Other actions",
         "modifierHint": {
           "multipleModifiers": "Hold only one modifier at a time (Alt, Ctrl or Shift).",
@@ -1451,9 +1469,6 @@
         }
       },
       "dropBind": {
-        "weaponsGroup": "Weapons",
-        "ammoGroup": "Ammunition",
-        "miscGroup": "Misc",
         "withAmmo": "With ammo",
         "withMessage": "With message",
         "messagePlaceholder": "No message set yet",

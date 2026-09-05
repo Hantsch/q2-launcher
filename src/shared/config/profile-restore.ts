@@ -75,6 +75,7 @@
  * | `keys`                    | the bind (then anchor) lines of this entry, in file order      |
  * | modifiers                 | a slot's own `mod`, or the modifier layer that overrides it     |
  * | `categoryId`              | the section header the line sits under                         |
+ * | `subcategoryId`           | that header's own `sub` id, when it is a second-level banner    |
  *
  * Slot identity is file order and nothing else (story 050): every claim simply appends, bind lines
  * before anchor lines, with no cap of two - so a hand-added third `bind` line on an entry's value
@@ -96,10 +97,34 @@
  * prose title.
  *
  * An **untagged** banner (a cvar group, the `Other binds` section, a hand-written header in a file
- * that is otherwise ours) opens a section too, named from its title, and two adjacent untagged
- * banners collapse into one `Main / Sub` category - the read-only two-level capability the User
- * asked for, applied where the file offers it. Nothing is minted for a section no entry lands in,
- * so the cvar-group banners of a normal launcher file produce no categories at all.
+ * that is otherwise ours) opens a section too, named from its title. Nothing is minted for a section
+ * no entry lands in, so the cvar-group banners of a normal launcher file produce no categories at
+ * all.
+ *
+ * ## The second level (story 053 D3)
+ *
+ * A `[q2l sub=<id>]` banner opens a **sub-category** section (`Section.kind: 'subcategory'`). It
+ * carries nothing but that one id, because its parent is positional: the nearest preceding
+ * `kind: 'category'` header in the same file, which is exactly where `render.ts`'s
+ * `withSubcategoryBuckets` puts it (inside the category section it belongs to, after that
+ * category's own ungrouped run). A line under such a banner is filed with **both** ids - its
+ * parent's `categoryId` and this section's `subcategoryId` - so the two levels are one lookup, not
+ * a second attribution pass.
+ *
+ * Unlike a category, a sub-category is registered **eagerly**, the moment its banner is seen
+ * (`categoryRegistry`'s own `subcategories` pass), and registering it mints its parent category
+ * eagerly with it. Lazy minting is right for a category - it is what keeps a cvar group's banner
+ * from becoming a drawer nothing is in - and wrong here, for the one shape story 052 already had to
+ * solve one level up: a sub-category the user has just created holds no entries at all, its banner
+ * is the only trace of it in the file (`render.ts` emits an empty sub-banner deliberately), and
+ * minting it only when something lands under it would make it vanish on the first reload.
+ *
+ * Story 042's read-only two-level import - two adjacent *untagged* banners collapsed into one
+ * `Main / Sub` category name - is gone with this deliverable: the tagged form above replaces it,
+ * and recognising an untagged foreign pair as a real category + sub-category pair is story 053 D4's
+ * own job. A hand-deleted `sub=` tag therefore degrades to exactly what any other untagged banner
+ * is - an ordinary section, minting an ordinary category for whatever lands under it - which is the
+ * "never crashes, never loses the lines" direction this module fails in everywhere else.
  *
  * ## Layers, and the one thing the tags cannot say
  *
@@ -194,6 +219,7 @@ import {
   type ActionKeySlot,
   type ConfigAction,
   type ConfigActionCategory,
+  type ConfigActionSubcategory,
   type ConfigCommand,
 } from '@shared/modules/config'
 
@@ -509,8 +535,173 @@ function claimsEntryAnchor(parsed: ParsedComment): boolean {
   return (
     parsed.fields.cat === undefined &&
     parsed.fields.layer === undefined &&
-    parsed.fields.v === undefined
+    parsed.fields.v === undefined &&
+    taggedSubcategoryId(parsed.fields) === null
   )
+}
+
+/**
+ * The sub-category id a `[q2l …]` tag states (story 053 D3), or `null` for a tag that carries no
+ * `sub` field or carries an empty one.
+ *
+ * One reader for the field rather than three `fields.sub` reads, because the three places that
+ * consult it must agree about what "this line is a sub-category banner" means: `scanComments`, which
+ * opens the section, and `claimsEntryAnchor`/`claimsUnboundEntry`, which must *not* claim such a line
+ * for an entry (`claimedByEntryScan`'s own doc comment - a line one scan claims and the other reads
+ * as a header re-files everything below it). `sub` joins `cat`/`layer`/`v` in both predicates for
+ * exactly that reason: it is a *header* marker field, and a hand-edited `key=` or `bind …` prose
+ * next to it must not turn a banner into an entry.
+ *
+ * An empty value (`[q2l sub=]`, only reachable by hand-editing) is not an id, so it opens no
+ * sub-category section - the line falls through to the ordinary untagged-banner path instead, which
+ * is the same "degrade to what the line still says" direction a hand-deleted `sub=` takes.
+ */
+function taggedSubcategoryId(fields: Record<string, string>): string | null {
+  const id = (fields.sub ?? '').trim()
+  return id.length > 0 ? id : null
+}
+
+/**
+ * The prefix this module gives a heuristically-detected sub-category's synthetic `sub` key (story
+ * 053 D4), so that a foreign, untagged second-level marker can reuse every mechanism D3 built for a
+ * tagged `[q2l sub=…]` banner - `registerSubcategory`, `categoryKeyFor`, `idFor`,
+ * `subcategoryIdFor` - all keyed off `section.fields.sub` and none of them caring *where* that value
+ * came from. Prefixed (rather than a bare line number) so a caller can tell "this section's identity
+ * is inferred, not stated by the file" apart from a real `sub=` value without a second field.
+ */
+const HEURISTIC_SUBCATEGORY_PREFIX = 'heur:'
+
+/**
+ * Is `comment.text` symmetrically wrapped in a run of >=3 identical punctuation characters
+ * (`##### 1st row #####`, `*** Setup ***`, `~~~ Extras ~~~`) - the shape a foreign author's own
+ * hand-typed second-level marker takes, with no `[q2l …]` tag to say so (story 053 D4, "Foreign
+ * second-level markers" in the story's Decisions)?
+ *
+ * `key` is the decoration *character* alone, not its run length: `##### Row A #####` and
+ * `### Row B ###` are the same author's same decoration typed at two different widths, and treating
+ * them as different keys would defeat the "occurs on at least two lines" gate below for exactly the
+ * files it exists for. Not restricted to `#`: real Quake II config collections use `*`, `~`, `.`,
+ * `_` and others just as often, so the character class is "any punctuation", not a fixed set - except
+ * `-` and `=`, excluded on purpose: those are `BANNER_RULE`'s own two characters, and *this* writer's
+ * own dashes/brackets banners (`cfg-layout.ts#banner`) are themselves symmetric dash-wrapped text
+ * (`--- Weapons ----------`, `----- [ Weapons ] -----`) - matching them here would let this writer's
+ * own, already-recognised category and cvar-group banners count toward "repeated decoration" and
+ * mint bogus sub-categories out of an ordinary launcher file. A foreign author's own decoration is
+ * never this writer's `-`/`=`, so excluding them costs the heuristic nothing it is meant to catch.
+ */
+function decorationWrap(text: string): { key: string; title: string } | null {
+  const match = /^([^A-Za-z0-9\s\-=])\1{2,}\s+(.+?)\s+\1{2,}$/.exec(text.trim())
+  if (!match) return null
+  const [, char, title] = match
+  return { key: char!, title: title! }
+}
+
+/**
+ * A comment-only line wrapped in a **mirrored** run of punctuation - `.: Main Key's :.`,
+ * `<< Setup >>`, `|: Extras :|` - as its bare title, or `null` for a line that is not shaped that
+ * way. Story 053 D4 (review fix): the *top-level* companion to `decorationWrap` below.
+ *
+ * Why this exists at all: a foreign file's own top-level header decides whether the second level can
+ * be read at all, because `heuristicSubcategoryParent` only attaches a repeated-decoration sub-marker
+ * to a `'category'`/`'plain'` section that already precedes it. Before this, the only untagged line
+ * that opened such a section was one carrying this writer's *own* decoration (`BANNER_RULE`'s `-`/`=`
+ * runs) or one of its three fixed title prefixes (`CATEGORY_TITLE_PREFIX`) - so the exact header the
+ * story names (`.: Main Key's :.`, `dm.cfg`'s own) opened no section, and the `##### 1st row #####`
+ * markers under it were orphaned and contributed nothing. This is deliberately a *recognition* rule
+ * only: the line opens an ordinary untagged `'plain'` section like any other foreign banner, and
+ * nothing here revives story 042's `Main / Sub` name-fusion, which stays gone (D3's decision).
+ *
+ * Three conditions keep the shape narrow enough to be safe on a launcher-written file:
+ *
+ * 1. **Mirrored, not merely symmetric.** The trailing run must be the leading run read backwards,
+ *    with paired delimiters flipped (`<<` ↔ `>>`, `[:` ↔ `:]`) - the property a hand-drawn wrap has
+ *    and an ordinary sentence does not, which is what keeps a comment whose first and last words
+ *    happen to be non-Latin script (letters and digits of *every* script are excluded from the
+ *    decoration class for this reason) from being read as a header.
+ * 2. **Not a uniform run of one character.** `##### 1st row #####` is `decorationWrap`'s shape, and
+ *    it stays exclusively `decorationWrap`'s: that shape is only ever a section marker when it
+ *    *recurs* (the story's own "repeated" gate, and the reason a single stray `##### note #####`
+ *    mints nothing). A mirrored run of two *different* punctuation characters is a deliberately typed
+ *    matched pair, so it does not need a second occurrence to vouch for it.
+ * 3. **`-` and `=` excluded**, exactly as in `decorationWrap` and for the same reason: those are this
+ *    writer's own banner characters (`BANNER_RULE`, `cfg-layout.ts#banner`), already recognised by
+ *    the branch this one sits in, and matching them here would give a second, competing answer for a
+ *    line that already has one.
+ */
+const MIRROR_WRAP = /^([^\s\-=\p{L}\p{N}]{2,})\s+(.+?)\s+([^\s\-=\p{L}\p{N}]{2,})$/u
+
+/** A title has to say *something*: at least one letter or digit, in any script. Without this,
+ * `.: :: :.` would mint a category literally named `::`. */
+const MIRROR_TITLE_CONTENT = /[\p{L}\p{N}]/u
+
+/** The paired delimiters that mirror into each other rather than into themselves, so `<< X >>` reads
+ * as wrapped and `<< X <<` does not. Every other punctuation character mirrors to itself. */
+const MIRROR_PAIRS: Record<string, string> = { '<': '>', '>': '<', '[': ']', ']': '[', '(': ')', ')': '(', '{': '}', '}': '{' }
+
+function mirroredWrapTitle(text: string): string | null {
+  const match = MIRROR_WRAP.exec(text.trim())
+  if (!match) return null
+  const [, open, title, close] = match
+  const mirrored = [...open!].reverse().map((char) => MIRROR_PAIRS[char] ?? char).join('')
+  if (close !== mirrored) return null
+  if ([...open!].every((char) => char === open![0])) return null
+  if (!MIRROR_TITLE_CONTENT.test(title!)) return null
+  return title!.trim()
+}
+
+/**
+ * How many comment-only lines, per file and per decoration character, are wrapped the way
+ * `decorationWrap` recognises - the "repeated" half of the repeated-decoration heuristic: "a comment-
+ * only line whose text is symmetrically wrapped in a run of >=3 identical punctuation characters
+ * counts as a banner only if that same decoration occurs on at least two lines of the imported file"
+ * (the story's own words). One stray hand-typed decorated comment - the single-occurrence case - is
+ * exactly what this count is for telling apart from a real, repeated section-marker convention.
+ *
+ * Scoped to *untagged* lines only (`TAG_SIGIL` absent): a launcher-written file's own tagged category
+ * banners routinely reuse this writer's dashes/equals decoration too, and counting those in would let
+ * an unrelated real category header vouch for a single stray foreign-looking comment elsewhere in a
+ * mixed file. Scoped per file for the same reason `sectionFor`/`categoryKeyFor`'s parent search is:
+ * two files handed to one restore (`config.cfg` + `autoexec.cfg`) are unrelated documents, and a
+ * decoration repeating across both would say nothing true about either one.
+ */
+function decorationCounts(comments: readonly RestoreCommentLine[]): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const comment of comments) {
+    if (comment.text.includes(TAG_SIGIL)) continue
+    const wrap = decorationWrap(comment.text)
+    if (!wrap) continue
+    const key = `${comment.file}:${wrap.key}`
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+  return counts
+}
+
+/**
+ * The category-shaped section a heuristically-detected sub-banner should nest under, or `undefined`
+ * when this line does not qualify at all (not decorated, its decoration is not repeated, or nothing
+ * category-shaped precedes it in this file).
+ *
+ * "Category-shaped" is deliberately `'category'` *or* `'plain'` - a real tagged category and a
+ * foreign file's own untagged banner (`.: Main Key's :.`, recognised the ordinary way by
+ * `mirroredWrapTitle`/`BANNER_RULE`/`CATEGORY_TITLE_PREFIX` before this function ever runs) both
+ * count, because a foreign
+ * file's own top-level header is never going to carry a `cat=` tag either. Depth stays exactly two
+ * levels (the story's own Decisions): the nearest preceding header of *either* shape is taken, never
+ * a preceding `'subcategory'`, so a run of several decorated banners under one top-level header nest
+ * as flat siblings rather than a chain this reader would otherwise invent.
+ */
+function heuristicSubcategoryParent(
+  sections: readonly Section[],
+  wrap: { key: string; title: string } | null,
+  tally: ReadonlyMap<string, number>,
+  file: string,
+): Section | undefined {
+  if (!wrap) return undefined
+  const repeated = (tally.get(`${file}:${wrap.key}`) ?? 0) >= 2
+  if (!repeated) return undefined
+  return [...sections]
+    .reverse()
+    .find((candidate) => candidate.file === file && (candidate.kind === 'category' || candidate.kind === 'plain'))
 }
 
 /**
@@ -547,7 +738,7 @@ const UNBOUND_CODE = /^bind\s+\S/
  *    with one garbled token among good ones still identifies the line, a tag nothing at all can be
  *    read out of does not.
  * 3. **None of the marker fields another tagged shape carries** - `key` (an anchor line), `cat`/
- *    `layer` (a section header), `v` (the header block). This is how an unbound line is told apart
+ *    `layer`/`sub` (a section header), `v` (the header block). This is how an unbound line is told apart
  *    from every other tagged comment *without* inventing a marker field of its own, and it makes
  *    this predicate and `claimsEntryAnchor` mutually exclusive by construction: an anchor needs a
  *    non-empty `key`, this needs the absence of one.
@@ -560,7 +751,8 @@ function claimsUnboundEntry(parsed: ParsedComment): boolean {
     (parsed.fields.key ?? '').trim().length === 0 &&
     parsed.fields.cat === undefined &&
     parsed.fields.layer === undefined &&
-    parsed.fields.v === undefined
+    parsed.fields.v === undefined &&
+    taggedSubcategoryId(parsed.fields) === null
   )
 }
 
@@ -689,13 +881,25 @@ function bannerTitle(prose: string, tagSliced: boolean): { title: string; block?
 const OTHER_BUCKET_TITLES = new Set<string>([OTHER_CATEGORY_LABEL, UNOWNED_BINDS_LABEL])
 
 /** One section header, in document order. `kind: 'plain'` is an untagged banner; `kind: 'other'` is
- * specifically the reserved "Other"/"Other binds" bucket (see `OTHER_BUCKET_TITLES`). */
+ * specifically the reserved "Other"/"Other binds" bucket (see `OTHER_BUCKET_TITLES`);
+ * `kind: 'subcategory'` is a `[q2l sub=…]` second-level banner (story 053 D3), whose parent is the
+ * `parent` field below. */
 interface Section extends RestoreSourcePosition {
-  kind: 'category' | 'layer' | 'plain' | 'other'
-  /** The header's own title, decoration stripped - a category name, or a layer's rendered title. */
+  kind: 'category' | 'subcategory' | 'layer' | 'plain' | 'other'
+  /** The header's own title, decoration stripped - a category name, a sub-category name, or a
+   * layer's rendered title. */
   title: string
-  /** The combined `Main / Sub` name for the second of two adjacent untagged banners. */
-  pairedTitle?: string
+  /**
+   * For `kind: 'subcategory'` only: the category section this banner sits inside - the nearest
+   * preceding `kind: 'category'` header in the same file, resolved once here rather than re-derived
+   * at every use, so "the parent is positional" is stated in exactly one place.
+   *
+   * `undefined` when there is none (a hand-edited file whose sub-banner sits above every category
+   * header, or under an untagged one). Such a section still opens - it is a section boundary either
+   * way - it simply has no category to register its sub-category into, so the lines under it fall
+   * into the shared fallback drawer like any other tagged line with no section of its own.
+   */
+  parent?: Section
   /**
    * Which of the writer's per-category blocks this header opened, as the literal `TITLE_PREFIXES`
    * entry it carried (`'Aliases: '`, `'Binds: '`, `'Entries: '`), or `undefined` for a header with
@@ -783,6 +987,11 @@ function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
   const consumed: RestoreSourcePosition[] = []
   let version: CommentScan['version'] = null
   let anyTag = false
+  // Story 053 D4: computed once, up front, since the heuristic needs to know the *whole* file's
+  // decoration usage before it can tell a real repeated marker from one stray decorated comment -
+  // a per-line, streaming count could not answer "does this recur?" the first time a decoration is
+  // seen.
+  const decorationTally = decorationCounts(comments)
 
   for (let index = 0; index < comments.length; index++) {
     const comment = comments[index]!
@@ -829,8 +1038,41 @@ function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
     }
 
     const { title, block } = bannerTitle(parsed.prose, parsed.tagSliced)
+    // Story 053 D4: computed once per line, ahead of the section-kind chain below, since the
+    // heuristic sub-category branch and its "did this qualify at all" condition need the same
+    // answer - see `heuristicSubcategoryParent`'s own doc comment for what "qualify" means.
+    const heuristicWrap = parsed.tagged ? null : decorationWrap(comment.text)
+    const heuristicParent = heuristicSubcategoryParent(sections, heuristicWrap, decorationTally, file)
+    // Story 053 D4 (review fix): the same "an untagged line the file itself decorated" question, one
+    // level up - see `mirroredWrapTitle`. Untagged only, for the same reason `heuristicWrap` is: a
+    // tagged line's tag has already said what the line is.
+    const mirroredTitle = parsed.tagged ? null : mirroredWrapTitle(comment.text)
     if (parsed.fields.cat !== undefined) {
       sections.push({ kind: 'category', title, block, fields: parsed.fields, file, line })
+      if (!parsed.malformed) consumed.push({ file, line })
+    } else if (taggedSubcategoryId(parsed.fields) !== null) {
+      // A second-level banner (story 053 D3). Checked after `cat` and before `layer`, so a
+      // hand-edited line carrying two header markers at once resolves to the outer level rather
+      // than to whichever branch happens to come first - and never to no section at all.
+      //
+      // Its parent is read here, while the sections seen so far are still in document order: the
+      // nearest preceding *category* header in this same file, which is where
+      // `render.ts#withSubcategoryBuckets` writes it. Never a preceding sub-banner - depth is
+      // exactly two levels (the story's own Decisions), so a sub-banner's parent is a category or
+      // nothing, and a chain of sub-banners under one category is a flat list of siblings rather
+      // than a nesting this reader would otherwise invent.
+      const parent = [...sections]
+        .reverse()
+        .find((candidate) => candidate.kind === 'category' && candidate.file === file)
+      sections.push({
+        kind: 'subcategory',
+        title,
+        block,
+        fields: parsed.fields,
+        file,
+        line,
+        ...(parent ? { parent } : {}),
+      })
       if (!parsed.malformed) consumed.push({ file, line })
     } else if (parsed.fields.layer !== undefined) {
       sections.push({ kind: 'layer', title, block, fields: parsed.fields, file, line })
@@ -847,10 +1089,27 @@ function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
       // `'other'` kind too, instead of minting a real, persisted "Other" category - seeing
       // `categoryRegistry`'s `'other'` case for why that minting broke AC2 one render later.
       sections.push({ kind: 'other', title, block, fields: parsed.fields, file, line })
+    } else if (!claimedByEntryScan(parsed) && heuristicWrap && heuristicParent) {
+      // Story 053 D4: an untagged, decorated comment-only line whose decoration recurs elsewhere in
+      // this file, sitting under a category-shaped header already seen - a foreign author's own
+      // second-level marker (`##### 1st row #####`), promoted to a real `Section.kind: 'subcategory'`
+      // exactly like a tagged `sub=` banner (D3), just detected from the file's own repetition
+      // instead of a tag. The synthetic `sub` key is never rendered or shown - it exists only so
+      // `registerSubcategory`/`categoryKeyFor`/`idFor` can key this section the same way they key a
+      // tagged one, without a second lookup mechanism for the same idea.
+      sections.push({
+        kind: 'subcategory',
+        title: heuristicWrap.title,
+        fields: { sub: `${HEURISTIC_SUBCATEGORY_PREFIX}${file}:${line}` },
+        file,
+        line,
+        parent: heuristicParent,
+      })
     } else if (
       !claimedByEntryScan(parsed) &&
-      title.length > 0 &&
-      (BANNER_RULE.test(comment.text) || CATEGORY_TITLE_PREFIX.test(comment.text.trim()))
+      ((title.length > 0 &&
+        (BANNER_RULE.test(comment.text) || CATEGORY_TITLE_PREFIX.test(comment.text.trim()))) ||
+        mirroredTitle !== null)
     ) {
       // An untagged banner - a cvar group, or a hand-written header in a file that is otherwise
       // ours (never the reserved "Other"/"Other binds" bucket - that is claimed by the branch just
@@ -884,32 +1143,20 @@ function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
       // for the genuine case. No warning fires because nothing here is malformed or missing relative
       // to what this line claims to be; the ambiguity is inherent to choosing this narrow, safe
       // signal over a broader, less safe one, not a bug in the signal itself.
-      const previous = sections[sections.length - 1]
-      // Story-042-review finding 4 (fix-cycle-5 continuation): pairing used to trigger whenever the
-      // *previous section pushed at all* was plain, with no regard for what actually sits between
-      // the two lines. A launcher-written file has several untagged banners of its own by design -
-      // each cvar group, the alias/bind `Other` bucket (`render.ts`'s `categoryTag(null) === ''`),
-      // `Other binds` - and whichever of those happened to render immediately before another one (a
-      // `Graphics` cvar group followed by the `Other` entries bucket, say) got fused into one
-      // fabricated category name (`Graphics / Other`) nothing in the file ever asked for. A genuine
-      // two-level header (dm.cfg's `Main Key's` directly above `1st row`) has its two banner lines
-      // truly adjacent - nothing else between them, not even a blank line; every one of this
-      // writer's own untagged banners is always followed by its own real content (`set` lines, an
-      // entry, or at minimum `joinBlocks`' blank-line separator) before the next banner, so requiring
-      // exact line adjacency (same file, `line === previous.line + 1`) is what tells the two cases
-      // apart without needing to know this module's own label constants.
-      const adjacent =
-        previous !== undefined && previous.file === file && previous.line === line - 1
-      const paired = adjacent && previous.kind === 'plain' ? `${previous.title} / ${title}` : undefined
-      sections.push({
-        kind: 'plain',
-        title,
-        pairedTitle: paired,
-        block,
-        fields: parsed.fields,
-        file,
-        line,
-      })
+      //
+      // Story 053 D3: two *adjacent* untagged banners used to be fused here into one category named
+      // `Main / Sub` - story 042's read-only second level, which the model could not express any
+      // other way. It can now (`ConfigActionCategory.subcategories`), the tagged `sub=` branch above
+      // reads this writer's own second level back, and recognising an *untagged* foreign pair as a
+      // real category + sub-category is story 053 D4's separate job with its own (repeated-
+      // decoration) heuristic. So the fusion is gone rather than reworked: until D4 lands, two
+      // adjacent untagged banners are simply two sections, and nothing invents a name the file never
+      // states.
+      //
+      // Story 053 D4 (review fix): a mirror-wrapped foreign header (`mirroredWrapTitle`) lands here
+      // too, and brings its own stripped title - `bannerTitle` knows only this writer's three banner
+      // shapes, so for `.: Main Key's :.` it would hand back the whole decorated line as the name.
+      sections.push({ kind: 'plain', title: mirroredTitle ?? title, block, fields: parsed.fields, file, line })
     }
   }
 
@@ -963,6 +1210,12 @@ const FALLBACK_CATEGORY_KEY = 'fallback'
  */
 function categoryKeyFor(section: Section | null): string | null {
   if (section === null) return FALLBACK_CATEGORY_KEY
+  // A sub-category section files its lines under its *parent* (story 053 D3): the second level is a
+  // grouping inside a category, never a category of its own, so `categoryId` has to come out the
+  // same for an entry in a sub-category as for one in that category's ungrouped run. A sub-banner
+  // with no parent header at all (hand-edited) yields the shared fallback drawer, exactly like any
+  // other tagged line whose section cannot be determined.
+  if (section.kind === 'subcategory') return categoryKeyFor(section.parent ?? null)
   if (section.kind === 'other') return null
   const tagged = section.fields.cat
   if (tagged !== undefined && tagged.length > 0) return `cat:${tagged}`
@@ -1030,6 +1283,14 @@ function orderByFileSections(
   const statedOrdinals = new Map<string, number>()
 
   sections.forEach((section, index) => {
+    // A sub-category banner states nothing about the *category* order and must not be read as if it
+    // did (story 053 D3). Its `categoryKeyFor` is its parent's, and its `block` is `undefined` (a
+    // sub-banner carries no `Aliases: `/`Binds: `/`Entries: ` prefix by design), so leaving it in
+    // would drop every category that has sub-categories into the one shared `''` sequence below -
+    // where the three per-block subsequences are interleaved rather than comparable, and an edge
+    // between two categories that share no block would be invented from nothing but which block the
+    // writer happens to emit first. That is precisely the pair `ord` exists to answer.
+    if (section.kind === 'subcategory') return
     const key = categoryKeyFor(section)
     if (key === null || !created.has(key)) return
     if (!firstAt.has(key)) firstAt.set(key, index)
@@ -1173,9 +1434,12 @@ function categoryRegistry(
   sections: readonly Section[],
 ): {
   idFor: (section: Section | null) => string
+  subcategoryIdFor: (section: Section | null) => string | undefined
   created: () => ConfigActionCategory[]
 } {
   const created = new Map<string, ConfigActionCategory>()
+  /** `<category key>` -> `<the `sub` id the file states>` -> the locally minted record. */
+  const subcategories = new Map<string, Map<string, ConfigActionSubcategory>>()
 
   const mint = (key: string, name: string): string => {
     const existing = created.get(key)
@@ -1207,36 +1471,103 @@ function categoryRegistry(
     return category.id
   }
 
+  /**
+   * The category id a section's lines are filed under, minting the category if this is the first
+   * thing to ask for it. Hoisted out of the returned object so the eager sub-category pass below can
+   * call it too - registering a sub-category has to mint its parent, or the second level would be
+   * attached to nothing.
+   */
+  const idFor = (section: Section | null): string => {
+    if (section === null) return mint(FALLBACK_CATEGORY_KEY, FALLBACK_CATEGORY_NAME)
+    // A sub-category banner is not a category: its lines belong to the category it sits inside, so
+    // the whole question is delegated one level up (story 053 D3). Delegating rather than reading
+    // `categoryKeyFor`'s parent key and minting from *this* section is what keeps the category's
+    // name the category's own - minting from here would name it after the sub-category.
+    if (section.kind === 'subcategory') return idFor(section.parent ?? null)
+    // Story-042-review round 5, fix-cycle-8: the reserved "Other"/"Other binds" bucket
+    // (`Section.kind === 'other'`) is deliberately never `mint()`-ed into a real, persisted
+    // `ConfigActionCategory` - `ConfigAction.categoryId` still has to be *some* real string (the
+    // field is non-nullable), but `render.ts`'s "Other" bucket is defined as "this categoryId
+    // matches nothing the profile has" (`groupByCategory`'s trailing bucket), not as a stored
+    // `null`. Handing back a fresh id from `newId()` that is never registered anywhere satisfies
+    // both: the action gets a valid id, and because that id was never added to any category list,
+    // the very next render buckets it right back into the untagged "Other" section - the same
+    // outcome the original (unrecoverable) orphaned id would have produced, and the actual fixed
+    // point AC2 asks for. Minting a real "Other" category here, as an earlier version of this fix
+    // did, created a category the source profile never had and stopped matching nothing on the
+    // next render - an AC2 regression discovered by round 5's adversarial pass.
+    // `categoryKeyFor` is `null` for exactly that bucket, and is the *only* place a key is
+    // derived from a section - `orderByFileSections` reads the same one back off the file.
+    const key = categoryKeyFor(section)
+    if (key === null) return newId()
+    const tagged = section.fields.cat
+    if (tagged !== undefined && tagged.length > 0) {
+      // A colleague's category id means nothing locally, so an id this build does not recognise
+      // mints a local category named from the header's own title (the story's own rule). A
+      // template id keeps its id but is minted just the same - see this registry's doc comment.
+      const template = TEMPLATE_ACTION_CATEGORIES.find((category) => category.id === tagged)
+      return template ? mintTemplate(key, template, section.title) : mint(key, section.title)
+    }
+    return mint(key, section.title)
+  }
+
+  /**
+   * One sub-category section registered into its parent category - **eagerly**, before a single
+   * entry has been read (story 053 D3, the story's own "Empty sub-category" decision).
+   *
+   * That is the one place this registry is deliberately not lazy, and the reason is the shape the
+   * lazy rule cannot see: a sub-category the user has just created holds no entries, so nothing
+   * would ever ask for it, and `render.ts#withSubcategoryBuckets` writes its banner anyway
+   * (`banner()` rather than `section()`, precisely so an empty one still leaves a trace). Registering
+   * from the tag itself is what makes that trace mean something - it is story 052's "the file is the
+   * source of truth for an empty row" mechanism one level down.
+   *
+   * Minting the *parent* eagerly with it follows from the same file: a category whose only content
+   * is a sub-category renders a section too, and dropping the category would take the sub-category
+   * with it. A category with neither is still minted by nothing at all, so a cvar group's banner
+   * stays what it always was.
+   *
+   * The local id is minted, never adopted, exactly like a category's (AC4 - a colleague's id means
+   * nothing here). The `sub` id the file states is only ever a *lookup key*, scoped to its parent's
+   * key, which is also what keeps two categories that happen to state the same `sub` id apart.
+   */
+  const registerSubcategory = (section: Section): void => {
+    const stated = taggedSubcategoryId(section.fields)
+    if (stated === null) return
+    const key = categoryKeyFor(section)
+    // `null` is the reserved "Other" bucket, which is the *absence* of a category (see `idFor`) and
+    // so has nothing to hang a sub-category on. Nothing is registered; the lines under the banner
+    // still land where they would have.
+    if (key === null) return
+    // Mints the parent if this is the first mention of it - see this function's doc comment.
+    idFor(section)
+    const category = created.get(key)
+    if (!category) return
+    const known = subcategories.get(key) ?? new Map<string, ConfigActionSubcategory>()
+    subcategories.set(key, known)
+    if (known.has(stated)) return
+    const record: ConfigActionSubcategory = { id: newId(), name: section.title }
+    known.set(stated, record)
+    // Attached in first-seen document order, which is the order `withSubcategoryBuckets` wrote them
+    // in: it walks `category.subcategories` for every one of the category's three sections, so all
+    // three state the same order and the first of them settles it. The field is only created once
+    // there is something to put in it, so a category with no sub-categories keeps the exact shape it
+    // had before this story.
+    category.subcategories = [...(category.subcategories ?? []), record]
+  }
+
+  for (const section of sections) {
+    if (section.kind === 'subcategory') registerSubcategory(section)
+  }
+
   return {
-    idFor(section) {
-      if (section === null) return mint(FALLBACK_CATEGORY_KEY, FALLBACK_CATEGORY_NAME)
-      // Story-042-review round 5, fix-cycle-8: the reserved "Other"/"Other binds" bucket
-      // (`Section.kind === 'other'`) is deliberately never `mint()`-ed into a real, persisted
-      // `ConfigActionCategory` - `ConfigAction.categoryId` still has to be *some* real string (the
-      // field is non-nullable), but `render.ts`'s "Other" bucket is defined as "this categoryId
-      // matches nothing the profile has" (`groupByCategory`'s trailing bucket), not as a stored
-      // `null`. Handing back a fresh id from `newId()` that is never registered anywhere satisfies
-      // both: the action gets a valid id, and because that id was never added to any category list,
-      // the very next render buckets it right back into the untagged "Other" section - the same
-      // outcome the original (unrecoverable) orphaned id would have produced, and the actual fixed
-      // point AC2 asks for. Minting a real "Other" category here, as an earlier version of this fix
-      // did, created a category the source profile never had and stopped matching nothing on the
-      // next render - an AC2 regression discovered by round 5's adversarial pass.
-      // `categoryKeyFor` is `null` for exactly that bucket, and is the *only* place a key is
-      // derived from a section - `orderByFileSections` reads the same one back off the file.
+    idFor,
+    subcategoryIdFor(section) {
+      if (section === null || section.kind !== 'subcategory') return undefined
+      const stated = taggedSubcategoryId(section.fields)
+      if (stated === null) return undefined
       const key = categoryKeyFor(section)
-      if (key === null) return newId()
-      const tagged = section.fields.cat
-      if (tagged !== undefined && tagged.length > 0) {
-        // A colleague's category id means nothing locally, so an id this build does not recognise
-        // mints a local category named from the header's own title (the story's own rule). A
-        // template id keeps its id but is minted just the same - see this registry's doc comment.
-        const template = TEMPLATE_ACTION_CATEGORIES.find((category) => category.id === tagged)
-        return template
-          ? mintTemplate(key, template, section.title)
-          : mint(key, section.title)
-      }
-      return mint(key, section.pairedTitle ?? section.title)
+      return key === null ? undefined : subcategories.get(key)?.get(stated)?.id
     },
     created: () => orderByFileSections(created, sections),
   }
@@ -1529,9 +1860,16 @@ function buildEntry(
 
   const catalogId = fields.cid
 
+  // Both levels come off the one section the line sits under (story 053 D3): `idFor` resolves a
+  // sub-category banner to its parent category, and `subcategoryIdFor` is non-`undefined` for
+  // exactly the sections that are one. Written only when there is one, so an entry in a category's
+  // ungrouped run keeps the shape it had before this story.
+  const subcategoryId = categories.subcategoryIdFor(section)
+
   const base: ConfigAction = {
     id: newId(),
     categoryId: categories.idFor(section),
+    ...(subcategoryId ? { subcategoryId } : {}),
     name: prose.length > 0 ? prose : (fromAliases?.aliasName ?? slots[0]?.key ?? group.key),
     kind,
     // A body's own order is the command order (the story's decision: the config text already
@@ -1997,9 +2335,12 @@ function buildTwoPartEntry(
     }
   })
 
+  const subcategoryId = categories.subcategoryIdFor(section)
+
   const base: ConfigAction = {
     id: newId(),
     categoryId: categories.idFor(section),
+    ...(subcategoryId ? { subcategoryId } : {}),
     name: prose.length > 0 ? prose : merge.aliasName,
     kind: merge.kind,
     commands: [],
@@ -2379,9 +2720,19 @@ function sectionCategoryKey(section: Section | null): string {
   if (section === null) return 'none'
   if (section.kind === 'layer') return `layer:${section.file}:${section.line}`
   if (section.kind === 'other') return 'other'
+  // A sub-category narrows the scope rather than sharing its parent's (story 053 D3). The three
+  // banners of one sub-category (its category's `Aliases: `/`Binds: `/`Entries: ` sections each carry
+  // it, `withSubcategoryBuckets`) state the same parent and the same `sub` id, so an entry's own
+  // lines still meet - and two entries the user named the same thing in two different
+  // sub-categories of one category stay two entries, for exactly the reason the scope was made
+  // per-category in the first place (story-050 review, finding 4: keyed on the bare name, the two
+  // collapsed into one group and one of them vanished with its keys and its body).
+  if (section.kind === 'subcategory') {
+    return `${sectionCategoryKey(section.parent ?? null)}|sub:${taggedSubcategoryId(section.fields) ?? ''}`
+  }
   const tagged = section.fields.cat
   if (tagged !== undefined && tagged.length > 0) return `cat:${tagged}`
-  return `title:${section.pairedTitle ?? section.title}`
+  return `title:${section.title}`
 }
 
 /**
@@ -2861,6 +3212,71 @@ function orderGroupsByFile(
 }
 
 /**
+ * Story 053 D4: promotes the sections `scanComments`'s repeated-decoration heuristic detected into
+ * the actions `buildImportedActions` (story 041) already produced, for a wholly foreign file (no
+ * `[q2l …]` tag anywhere) whose own untagged headers happen to state a real category + sub-category
+ * pair (a `dm.cfg`-shaped file: `.: Main Key's :.` with `##### 1st row #####` blocks beneath).
+ *
+ * Deliberately additive rather than a parallel entry-builder: `buildImportedActions` already turns
+ * every `alias` definition into a `ConfigAction` (AC8 - a foreign config still imports exactly as
+ * story 041 leaves it), complete with its own content-guessed `categoryId` (`guessCategoryKey`). This
+ * function only *overrides* that guess, and only for an action whose defining `alias` line's own
+ * position falls inside a section the heuristic actually recognised - every other action, and every
+ * file with no heuristic pair at all (the overwhelming majority; AC8's own pinned fixture included,
+ * since its two banners each use a decoration seen only once and so never clears the "recurs on at
+ * least two lines" gate), comes back untouched, categories and all.
+ *
+ * A raw bind with no alias line of its own is not reachable here - `buildImportedActions` never
+ * builds a `ConfigAction` for one at all (`profile.binds` carries it directly, independent of this
+ * whole module - the file's own doc comment), so it stays exactly as unowned as it always was; only
+ * an alias-backed entry, which is what a foreign author's own `bind key aliasname` + `alias aliasname
+ * …` pair always is, can be re-homed.
+ */
+function applyForeignSubcategoryHeuristic(
+  delegated: Pick<ImportedActionsResult, 'actions' | 'categories'>,
+  aliases: readonly RestoreAliasLine[],
+  sections: readonly Section[],
+  newId: () => string,
+): { actions: ConfigAction[]; categories: ConfigActionCategory[] } {
+  const heuristicSections = sections.filter(
+    (section) =>
+      section.kind === 'subcategory' && (section.fields.sub ?? '').startsWith(HEURISTIC_SUBCATEGORY_PREFIX),
+  )
+  if (heuristicSections.length === 0) return { actions: [...delegated.actions], categories: [...delegated.categories] }
+
+  // Last definition of a name wins - the same fold every reader of this format applies before a body
+  // ever reaches here (file doc comment); `aliases` is already that folded array, so "the" position
+  // of a name is unambiguous.
+  const positionByName = new Map(aliases.map((alias) => [alias.name, alias]))
+  const registry = categoryRegistry(newId, sections)
+
+  const actions = delegated.actions.map((action) => {
+    if (!action.aliasName) return action
+    const position = positionByName.get(action.aliasName)
+    if (!position) return action
+    const section = sectionFor(sections, position)
+    if (!section) return action
+    const isHeuristicSub = heuristicSections.includes(section)
+    const isHeuristicParent = heuristicSections.some((sub) => sub.parent === section)
+    if (!isHeuristicSub && !isHeuristicParent) return action
+    const categoryId = registry.idFor(section)
+    const subcategoryId = registry.subcategoryIdFor(section)
+    return { ...action, categoryId, ...(subcategoryId ? { subcategoryId } : {}) }
+  })
+
+  // Only the categories an action still points at survive: a category `guessCategoryKey` minted for
+  // an action this pass just re-homed would otherwise linger in the result with nothing in it,
+  // contradicting "one category with sub-categories" (D4's own Accept). Every category this registry
+  // itself mints *is* referenced, by construction (`idFor` only ever runs for an action being
+  // re-homed onto it), so the filter only ever drops `delegated.categories` entries, never its own.
+  const usedIds = new Set(actions.map((action) => action.categoryId))
+  const categories = [...registry.created(), ...delegated.categories].filter((category) =>
+    usedIds.has(category.id),
+  )
+  return { actions, categories }
+}
+
+/**
  * Rebuilds a profile's entries, categories and layers from a launcher-written config's metadata,
  * reconciled against its config lines - or, for a file that carries no metadata at all, from story
  * 041's inference by delegating to `buildImportedActions`.
@@ -2884,9 +3300,15 @@ export function restoreProfileParts(input: RestoreProfilePartsInput): RestorePro
       layerAliases: input.layerAliases,
       newId: input.newId,
     })
+    const { actions, categories } = applyForeignSubcategoryHeuristic(
+      delegated,
+      input.aliases,
+      scan.sections,
+      input.newId,
+    )
     return {
-      actions: delegated.actions,
-      categories: delegated.categories,
+      actions,
+      categories,
       layers: delegated.layers,
       ambiguous: delegated.ambiguous,
       warnings: [],

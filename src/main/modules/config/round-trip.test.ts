@@ -101,6 +101,13 @@ function canonicalizeMintedIds(text: string): string {
     sentinel: new Map(),
     cat: new Map(),
     layer: new Map(),
+    // Story 053 D3: a restored sub-category gets a locally minted id for the same reason a restored
+    // category does (`profile-restore.ts#categoryRegistry` - no id is ever adopted, AC4), so `sub=`
+    // is freshly minted on every read-back too and belongs in exactly the same normalisation. Only
+    // the grouping it expresses is meaningful, and first-appearance canonicalisation preserves that:
+    // two lines that shared a `sub` value still share one afterwards, and two that did not still do
+    // not - a sub-category dropped, invented or swapped between banners still fails the comparison.
+    sub: new Map(),
   }
   const tokenFor = (kind: string, value: string): string => {
     const map = maps[kind]!
@@ -117,7 +124,7 @@ function canonicalizeMintedIds(text: string): string {
   let out = text.replace(/(\/\/ q2-launcher profile )(\S+)( -)/, (_m, pre, id, post) =>
     `${pre}${tokenFor('sentinel', id)}${post}`,
   )
-  out = out.replace(/\b(cat|layer)=([^\s\]]+)/g, (_m, key: string, value: string) =>
+  out = out.replace(/\b(cat|layer|sub)=([^\s\]]+)/g, (_m, key: string, value: string) =>
     `${key}=${tokenFor(key, value)}`,
   )
   return out
@@ -775,6 +782,152 @@ describe('story 052: a fully keyless catalogue entry rides on its unbound line (
 
     // ...and the file is a fixed point across that round trip, unbound line included.
     expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
+  })
+})
+
+/**
+ * Story 053 D3: the second level survives as *objects*, not just as bytes.
+ *
+ * The fixed-point loop above is genuinely strong for this shape - a lost `subcategoryId` moves the
+ * entry into the ungrouped run of the next render, a lost sub-category deletes its banner, an
+ * invented one adds a banner - but it cannot say *which* sub-category an entry came back in, nor
+ * that the two levels are wired to each other rather than merely both present. That is what these
+ * cases state.
+ */
+describe('story 053 D3: sub-categories come back off the file', () => {
+  /** The restored profile's sub-category names per category, and each entry's `(category,
+   * sub-category)` pair - by *name*, since every id in a restored profile is freshly minted. */
+  const shapeOf = (profile: ConfigProfile) => {
+    const categories = new Map((profile.categories ?? []).map((category) => [category.id, category]))
+    const nameOf = (action: ConfigAction): [string, string | null] => {
+      const category = categories.get(action.categoryId)
+      const sub = category?.subcategories?.find((entry) => entry.id === action.subcategoryId)
+      return [category?.name ?? `<orphan:${action.categoryId}>`, sub?.name ?? null]
+    }
+    return {
+      subcategories: (profile.categories ?? []).map((category) => [
+        category.name,
+        (category.subcategories ?? []).map((sub) => sub.name),
+      ]),
+      entries: (profile.actions ?? []).map((action) => [action.name, ...nameOf(action)]),
+    }
+  }
+
+  it('"Category with two sub-categories": both levels, in order, with the ungrouped run intact', async () => {
+    const profile = findFixture('Category with two sub-categories')
+    const { profile2, text1 } = await reimportProfile(profile)
+
+    // The file really does carry the second level as its own banner, in all three of the writer's
+    // per-category blocks - without this the rest of the case could pass over a flat file.
+    expect(text1.match(/^\/\/ --- Use weapon \[q2l sub=\S+\] -+$/gm)).toHaveLength(3)
+    expect(text1.match(/^\/\/ --- Cycling \[q2l sub=\S+\] -+$/gm)).toHaveLength(3)
+
+    expect(shapeOf(profile2)).toEqual({
+      subcategories: [['Weapons', ['Use weapon', 'Cycling']]],
+      entries: [
+        // The ungrouped run first, exactly as the writer laid it out - the reader takes the file's
+        // order, not the fixture's declaration order.
+        ['Rail gun', 'Weapons', null],
+        ['Fire', 'Weapons', 'Use weapon'],
+        ['Blaster', 'Weapons', 'Use weapon'],
+        ['Next weapon', 'Weapons', 'Cycling'],
+      ],
+    })
+    // Ids are minted locally, never adopted from the file's `sub=` values (AC4), same rule as a
+    // restored category's.
+    expect(profile2.categories![0]!.subcategories!.map((sub) => sub.id)).not.toEqual([
+      'sub-use',
+      'sub-cycle',
+    ])
+  })
+
+  it('"Empty sub-category next to a populated one": the empty one survives with nothing under it', async () => {
+    const profile = findFixture('Empty sub-category next to a populated one')
+    const { profile2, text1 } = await reimportProfile(profile)
+
+    // `Spare` really is empty in the file: each of its three banners is followed by another banner
+    // (or by nothing at all), never by content. This is the shape lazy registration cannot see.
+    const lines = text1.split('\n')
+    const spareBanners = lines.flatMap((line, index) =>
+      /^\/\/ --- Spare \[q2l sub=\S+\] -+$/.test(line) ? [index] : [],
+    )
+    expect(spareBanners).toHaveLength(3)
+    for (const at of spareBanners) {
+      const next = lines.slice(at + 1).find((line) => line.trim().length > 0)
+      expect(next === undefined || next.startsWith('// ---')).toBe(true)
+    }
+
+    expect(shapeOf(profile2)).toEqual({
+      subcategories: [['Movement', ['Strafing', 'Spare']]],
+      entries: [
+        ['Forward', 'Movement', null],
+        ['Strafe left', 'Movement', 'Strafing'],
+      ],
+    })
+  })
+
+  it('"Two categories with sub-categories and a modifier slot": an anchored entry keeps its sub-category', async () => {
+    const profile = findFixture('Two categories with sub-categories and a modifier slot')
+    const { profile2, text1 } = await reimportProfile(profile)
+
+    // The modifier-bound entry's only line is an anchor - a comment-only line sitting directly under
+    // a sub-banner, which is a comment-only line too. Telling those two apart is the whole risk.
+    expect(text1).toMatch(/^\/\/ Drop rockets \[q2l cid=drop-rockets key=r mod=ALT\]$/m)
+
+    expect(shapeOf(profile2)).toEqual({
+      subcategories: [
+        ['Drops', ['Ammunition']],
+        ['My stuff', ['Chat', 'Later']],
+      ],
+      // File order, which is section order: Drops first (its entry rides on an anchor line in the
+      // `Entries: Drops` section), then My stuff's own ungrouped run before its `Chat` bucket - the
+      // writer's "ungrouped entries first" rule read straight back off the file.
+      entries: [
+        ['Drop rockets', 'Drops', 'Ammunition'],
+        ['Salute', 'My stuff', null],
+        ['Taunt', 'My stuff', 'Chat'],
+      ],
+    })
+    expect(slotsOf(profile2.actions!.find((entry) => entry.name === 'Drop rockets')!)).toEqual([
+      'ALT+r',
+    ])
+  })
+
+  /**
+   * The story's own "hand-deleted `sub=`" case (D3's acceptance): a sub-banner whose tag a user
+   * removed in the Raw File tab is no longer a sub-banner at all, and has to degrade to what it
+   * still visibly is - an ordinary untagged section header - rather than throwing, swallowing the
+   * lines beneath it, or being guessed back into the second level. Guessing is D4's job and D4's
+   * heuristic; this is what happens until then, stated rather than left to chance.
+   */
+  it('a hand-deleted `sub=` tag degrades to a plain category, loses no line, and settles', async () => {
+    const text = renderProfileFile(findFixture('Empty sub-category next to a populated one'))
+    // Every occurrence of the one sub-banner, in all three blocks - a user deleting a tag they found
+    // noisy deletes it wherever they see it, and deleting only one copy would just split the entry
+    // across two sections for the ordinary reason (a line belongs to the header above it).
+    const mangled = text.replace(/ \[q2l sub=sub-strafe\]/g, '')
+    expect(mangled).not.toBe(text)
+    expect(mangled).toMatch(/^\/\/ --- Strafing -+$/m)
+
+    const before = await reimport(text)
+    const { result: after, restored, rerendered } = await restoreFromText(mangled)
+    expect(countConfigLines(after)).toBe(countConfigLines(before))
+    expectEveryLineSurvivesRerender(after, rerendered)
+
+    // Degraded to a category of its own, named from the banner's own title, with the entry that sat
+    // under it inside it and no `subcategoryId` left over pointing at nothing. The sub-category whose
+    // tag is still intact is untouched.
+    expect(restored.categories.map((category) => category.name)).toEqual(['Movement', 'Strafing'])
+    expect(restored.categories[0]!.subcategories!.map((sub) => sub.name)).toEqual(['Spare'])
+    expect(restored.categories[1]!.subcategories).toBeUndefined()
+    const strafe = restored.actions.find((entry) => entry.name === 'Strafe left')!
+    expect(strafe.categoryId).toBe(restored.categories[1]!.id)
+    expect(strafe.subcategoryId).toBeUndefined()
+
+    // And the degraded reading is itself a fixed point: whatever it settled on, it stays there
+    // instead of drifting one category further on every reload.
+    const { rerendered: third } = await restoreFromText(rerendered)
+    expect(normalize(third)).toBe(normalize(rerendered))
   })
 })
 

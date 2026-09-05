@@ -1267,17 +1267,155 @@ describe('restoreProfileParts - hand-edited and unknown metadata', () => {
     expect(result.actions.map((action) => action.aliasName)).toEqual(['rl', 'my_macro'])
   })
 
-  it('maps two adjacent untagged banners to one `Main / Sub` category', () => {
+  // Story 053 D4: two adjacent untagged banners used to be read as two independent plain sections
+  // (D3's own stopgap, since the `Main / Sub` string-fusion that read them before it went with the
+  // rest of the read-only second level). Now that the model has a real second level
+  // (`ConfigActionCategory.subcategories`), an untagged pair like this - a foreign author's own
+  // category header, followed by two untagged banners in a decoration this writer never uses itself
+  // (`-`/`=` are `BANNER_RULE`'s own, deliberately excluded - see `decorationWrap`'s doc comment) that
+  // recurs at least twice - is promoted into a real category + sub-categories instead, via the
+  // repeated-decoration heuristic.
+  it('promotes an adjacent untagged pair into a category with real sub-categories', () => {
     const file = doc()
     file.version()
     file.header('Main Key`s')
-    file.header('1st row')
+    file.comment(' ##### 1st row #####')
     file.bind('1', 'weapon_1', tagged('Blaster'))
+    file.comment(' ##### 2nd row #####')
 
     const result = file.restore()
 
-    expect(result.categories).toEqual([{ id: 'id2', name: 'Main Key`s / 1st row' }])
-    expect(result.actions[0]!.categoryId).toBe('id2')
+    expect(result.categories).toEqual([
+      {
+        id: 'id1',
+        name: 'Main Key`s',
+        subcategories: [
+          { id: 'id2', name: '1st row' },
+          { id: 'id3', name: '2nd row' },
+        ],
+      },
+    ])
+    expect(result.actions[0]!.categoryId).toBe('id1')
+    expect(result.actions[0]!.subcategoryId).toBe('id2')
+    // No string-fused name anywhere - the two levels are structural, not concatenated prose.
+    expect(result.categories.map((category) => category.name)).not.toContain('Main Key`s / 1st row')
+  })
+
+  it('does not promote a single stray decorated comment - its decoration is not repeated', () => {
+    const file = doc()
+    file.version()
+    file.header('Aliases: Weapons', formatMetaTag({ cat: 'weapons' }))
+    file.alias('rl', 'use rocket launcher', tagged('RL'))
+    file.comment(' ##### stray row #####')
+
+    const result = file.restore()
+
+    // The category the tag states still mints, exactly as ever; the stray decorated comment mints
+    // nothing at all - it is not even a plain section, since its decoration (`#`) occurs on no other
+    // line in this file.
+    expect(result.categories).toEqual([
+      { id: 'weapons', name: 'Weapons', nameKey: 'config.controls.categories.weapons' },
+    ])
+    expect(result.categories.some((category) => category.subcategories)).toBe(false)
+  })
+
+  it('leaves an existing category name containing " / " alone - no retroactive splitting', () => {
+    const file = doc()
+    file.version()
+    file.header('Aliases: Old Name / Sub', formatMetaTag({ cat: 'their-cat-id' }))
+    file.alias('rl', 'use rocket launcher', tagged('RL'))
+
+    const result = file.restore()
+
+    // A category a colleague's earlier import already fused into one name (story 042-era behaviour,
+    // or a hand-typed name) is just a category whose name happens to contain " / " - read back
+    // verbatim, never guessed apart into a category + sub-category.
+    expect(result.categories).toEqual([{ id: 'id2', name: 'Old Name / Sub' }])
+  })
+
+  // Story 053 D4: the motivating shape - a `dm.cfg`-style file with no `[q2l …]` tag anywhere at all
+  // (a genuinely foreign config), a top-level header recognised the ordinary way (`brackets` style,
+  // same as AC8's own pinned fixture), and two repeated `#####`-decorated row headers beneath it.
+  // AC8's own fixture (a single `1st row` banner, decoration seen once) is deliberately left
+  // untouched by this - see the "produces exactly what `buildImportedActions` produces today" test
+  // above, still green - this is the case where the decoration genuinely repeats.
+  it('imports a wholly foreign dm.cfg-shaped file as one category with real sub-categories', () => {
+    const file = doc('dm.cfg')
+    file.comment(' ----- [ Main Key`s ] -----')
+    file.comment(' ##### 1st row #####')
+    file.alias('drop_shotgun', 'drop shotgun; say_team dropped sg; wave 1')
+    file.bind('KP_END', 'drop_shotgun')
+    file.comment(' ##### 2nd row #####')
+    file.alias('gg', 'say gg')
+    file.bind('KP_DOWNARROW', 'gg')
+
+    const result = file.restore()
+
+    expect(result.categories).toHaveLength(1)
+    const [category] = result.categories
+    expect(category!.name).toBe('Main Key`s')
+    expect(category!.name).not.toContain('/')
+    expect(category!.subcategories?.map((sub) => sub.name)).toEqual(['1st row', '2nd row'])
+
+    const dropShotgun = result.actions.find((action) => action.aliasName === 'drop_shotgun')
+    const gg = result.actions.find((action) => action.aliasName === 'gg')
+    expect(dropShotgun!.categoryId).toBe(category!.id)
+    expect(gg!.categoryId).toBe(category!.id)
+    expect(dropShotgun!.subcategoryId).toBe(category!.subcategories![0]!.id)
+    expect(gg!.subcategoryId).toBe(category!.subcategories![1]!.id)
+    expect(result.metadataVersion).toBeNull()
+  })
+
+  // Story 053 D4, review finding 1: the same file as the case above, but with the top-level header
+  // in the decoration the story, AC6 and `dm.cfg` itself actually use - `.: Main Key`s :.`, a
+  // mirrored punctuation wrap - instead of a dash-decorated banner this writer would have drawn
+  // itself. That header matches neither `BANNER_RULE` nor `CATEGORY_TITLE_PREFIX`, so it opened no
+  // section at all and left the `#####` markers below it with no category-shaped parent to attach to:
+  // the whole file fell back to `buildImportedActions`' content guess (one `Weapons` category, no
+  // sub-categories). `mirroredWrapTitle` is what recognises it now.
+  it('imports a foreign file whose top-level header is a mirrored punctuation wrap', () => {
+    const file = doc('dm.cfg')
+    file.comment(' .: Main Key`s :.')
+    file.comment(' ##### 1st row #####')
+    file.alias('row1a', 'use blaster')
+    file.bind('1', 'row1a')
+    file.comment(' ##### 2nd row #####')
+    file.alias('row2a', 'use rocket launcher')
+    file.bind('q', 'row2a')
+
+    const result = file.restore()
+
+    expect(result.categories).toHaveLength(1)
+    const [category] = result.categories
+    // The decoration is stripped the way every other header's is - the name is what the file says,
+    // never the drawing around it.
+    expect(category!.name).toBe('Main Key`s')
+    expect(category!.subcategories?.map((sub) => sub.name)).toEqual(['1st row', '2nd row'])
+
+    const row1 = result.actions.find((action) => action.aliasName === 'row1a')
+    const row2 = result.actions.find((action) => action.aliasName === 'row2a')
+    expect(row1!.categoryId).toBe(category!.id)
+    expect(row2!.categoryId).toBe(category!.id)
+    expect(row1!.subcategoryId).toBe(category!.subcategories![0]!.id)
+    expect(row2!.subcategoryId).toBe(category!.subcategories![1]!.id)
+    // AC6's own words: a real second level, not a name with a slash in it.
+    expect(category!.name).not.toContain('/')
+  })
+
+  // The mirrored wrap is a *recognition* rule and nothing more: it opens the same untagged `plain`
+  // section a `--- Upper Row ---` banner opens, one level, no promotion, no name fusion - and, like
+  // that one, mints a category only because an entry is filed under it.
+  it('reads a mirrored-wrap header on its own as one plain category, no sub-categories', () => {
+    const file = doc()
+    file.version()
+    file.comment(' <<: Upper Row :>>')
+    file.bind('KP_END', 'gg', tagged('GG'))
+
+    const result = file.restore()
+
+    expect(result.categories.map((category) => category.name)).toEqual(['Upper Row'])
+    expect(result.categories.some((category) => category.subcategories)).toBe(false)
+    expect(result.actions[0]!.subcategoryId).toBeUndefined()
   })
 
   it('mints nothing for a section no entry is filed under', () => {

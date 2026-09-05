@@ -1689,6 +1689,232 @@ export const collidingSlugWithUnboundProfile: ConfigProfile = buildFixtureProfil
   ],
 })
 
+// ---------------------------------------------------------------------------
+// Story 053 D3: the second level (category -> sub-category).
+//
+// `render.ts#withSubcategoryBuckets` (D2) writes a category's ungrouped run
+// first, then one `[q2l sub=<id>]` banner per sub-category in
+// `category.subcategories` order - the empty ones included. These fixtures are
+// what holds the reader to reading exactly that back: the fixed-point loop fails
+// the moment an entry loses its `subcategoryId` (the next render writes it into
+// the ungrouped run instead), the moment a sub-category is dropped (its banner
+// disappears) and the moment one is invented (a banner appears).
+// ---------------------------------------------------------------------------
+
+/**
+ * The headline shape: one category, two sub-categories, entries in the ungrouped run **and** in
+ * both sub-categories, deliberately declared out of file order (`Cycling`'s entry is listed before
+ * the ungrouped one) so the fixture also states that the writer's "ungrouped first" bucketing and
+ * the reader's file-order grouping agree about the result.
+ *
+ * The three entry shapes are picked so all three of the writer's per-category blocks carry a
+ * sub-banner, not just one: `Fire` is an alias-backed bound entry (an `Aliases: ` line and a
+ * `Binds: ` line), `Next weapon` is a catalogue-backed continuous row that mirrors as its own bare
+ * command (a `Binds: ` line and no alias line), and `Blaster` is keyless (an `Entries: ` unbound
+ * line and nothing else). Reading the sub-category back off only one of the three blocks would
+ * therefore still pass the entry assertions and still fail this fixture's fixed point.
+ */
+export const subcategoryProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Category with two sub-categories',
+  categories: [
+    {
+      id: 'weapons',
+      name: 'Weapons',
+      nameKey: 'config.controls.categories.weapons',
+      subcategories: [
+        { id: 'sub-use', name: 'Use weapon' },
+        { id: 'sub-cycle', name: 'Cycling' },
+      ],
+    },
+  ],
+  actions: [
+    action({
+      name: 'Next weapon',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'weapnext' }],
+      catalogId: 'weapnext',
+      keys: [{ key: 'MWHEELUP' }],
+      categoryId: 'weapons',
+      subcategoryId: 'sub-cycle',
+    }),
+    action({
+      name: 'Rail gun',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'use railgun' }],
+      keys: [{ key: '5' }],
+      categoryId: 'weapons',
+    }),
+    action({
+      name: 'Fire',
+      kind: 'bind',
+      commands: [
+        { kind: 'raw', text: 'use blaster' },
+        { kind: 'raw', text: '+attack' },
+      ],
+      keys: [{ key: 'MOUSE1' }],
+      categoryId: 'weapons',
+      subcategoryId: 'sub-use',
+    }),
+    action({
+      name: 'Blaster',
+      kind: 'bind',
+      commands: [],
+      categoryId: 'weapons',
+      subcategoryId: 'sub-use',
+    }),
+  ],
+})
+
+/**
+ * **An empty sub-category** - the story's own "the user just created it and saved" shape, and the
+ * one the *lazy* registration a category gets cannot survive: nothing is ever filed under `Spare`,
+ * so a reader that mints a sub-category only when an entry asks for one loses it silently, and the
+ * next render is a file with one banner fewer.
+ *
+ * Kept next to a populated sibling and an ungrouped run in the same category, because "the empty one
+ * survives" and "the empty one does not swallow the lines after it" are two different claims and
+ * only a category holding both shapes states them at once.
+ */
+export const emptySubcategoryProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Empty sub-category next to a populated one',
+  categories: [
+    {
+      id: 'movement',
+      name: 'Movement',
+      nameKey: 'config.controls.categories.movement',
+      subcategories: [
+        { id: 'sub-strafe', name: 'Strafing' },
+        { id: 'sub-spare', name: 'Spare' },
+      ],
+    },
+  ],
+  actions: [
+    action({
+      name: 'Forward',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: '+forward' }],
+      catalogId: 'forward',
+      keys: [{ key: 'w' }],
+      categoryId: 'movement',
+    }),
+    action({
+      name: 'Strafe left',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: '+moveleft' }],
+      catalogId: 'moveleft',
+      keys: [{ key: 'a' }],
+      categoryId: 'movement',
+      subcategoryId: 'sub-strafe',
+    }),
+  ],
+})
+
+/**
+ * Two categories that both carry sub-categories, with one entry bound through a **modifier** (so it
+ * has an anchor line inside a sub-category's bucket rather than a bind line) - the section
+ * attribution shape most likely to go wrong quietly, since an anchor is a comment-only line and the
+ * reader has to tell it from the sub-banner sitting right above it.
+ *
+ * Also the case that pins `orderByFileSections` against the second level: a sub-banner carries no
+ * `Aliases: `/`Binds: `/`Entries: ` prefix, so a reader that let one take part in the category-order
+ * merge would read the two categories' order off the interleaved blocks instead of off `ord`.
+ */
+export const twoCategoriesWithSubcategoriesProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Two categories with sub-categories and a modifier slot',
+  categories: [
+    {
+      id: 'drops',
+      name: 'Drops',
+      nameKey: 'config.controls.categories.drops',
+      subcategories: [{ id: 'sub-ammo', name: 'Ammunition' }],
+    },
+    {
+      id: 'cat-mine',
+      name: 'My stuff',
+      subcategories: [
+        { id: 'sub-say', name: 'Chat' },
+        { id: 'sub-empty', name: 'Later' },
+      ],
+    },
+  ],
+  actions: [
+    action({
+      name: 'Drop rockets',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'drop rockets' }],
+      catalogId: 'drop-rockets',
+      keys: [{ key: 'r', modifier: 'ALT' }],
+      categoryId: 'drops',
+      subcategoryId: 'sub-ammo',
+    }),
+    action({
+      name: 'Taunt',
+      kind: 'message',
+      commands: [{ kind: 'message', channel: 'say', text: 'take that' }],
+      keys: [{ key: 'F5' }],
+      categoryId: 'cat-mine',
+      subcategoryId: 'sub-say',
+    }),
+    // Named `Salute` rather than `Wave`: the derived alias name of an entry called "Wave" is `wave`,
+    // which is the engine's own `wave` command, so `alias wave wave 1` is a self-referential alias
+    // and `validate-structure.ts` rightly reports an `aliasCycle` for it - a real defect of the
+    // fixture, not of anything this deliverable touches.
+    action({
+      name: 'Salute',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'wave 1' }],
+      keys: [{ key: 'g' }],
+      categoryId: 'cat-mine',
+    }),
+  ],
+})
+
+/**
+ * One fixture per `sectionHeaderStyle`, because a sub-banner is the same `banner()` call as a
+ * category banner (the story's own "no new decoration" decision) and every banner-stripping path the
+ * reader has is style-specific: `DASHES_PREFIX`/`DASHES_SUFFIX`, `BRACKETS_PREFIX`/
+ * `BRACKETS_SUFFIX`, and - for `plain`, which draws no decoration at all - nothing but the `sub=`
+ * tag itself. `plain` is the one that would have caught a reader relying on `BANNER_RULE` to notice
+ * a second-level header, exactly as it did for the "Other" bucket in story 042's round 5.
+ */
+export const subcategoryHeaderStyleProfiles: ConfigProfile[] = (
+  ['dashes', 'brackets', 'plain'] as const
+).map((style) =>
+  buildFixtureProfile({
+    name: `Sub-category header style: ${style}`,
+    sectionHeaderStyle: style,
+    categories: [
+      {
+        id: 'weapons',
+        name: 'Weapons',
+        nameKey: 'config.controls.categories.weapons',
+        subcategories: [
+          { id: 'sub-use', name: 'Use weapon' },
+          { id: 'sub-empty', name: 'Nothing here yet' },
+        ],
+      },
+    ],
+    actions: [
+      action({
+        name: 'Attack',
+        kind: 'bind',
+        commands: [{ kind: 'raw', text: '+attack' }],
+        catalogId: 'attack',
+        keys: [{ key: 'MOUSE1' }],
+        categoryId: 'weapons',
+      }),
+      action({
+        name: 'Shotgun',
+        kind: 'bind',
+        commands: [{ kind: 'raw', text: 'use shotgun' }],
+        keys: [{ key: '2' }],
+        categoryId: 'weapons',
+        subcategoryId: 'sub-use',
+      }),
+    ],
+  }),
+)
+
 /** Every fixture the D9 round-trip property test iterates over. */
 export const ROUND_TRIP_FIXTURES: ConfigProfile[] = [
   selfMirroringAliasProfile,
@@ -1740,4 +1966,9 @@ export const ROUND_TRIP_FIXTURES: ConfigProfile[] = [
   collidingSlugWithUnboundProfile,
   scrambledCategoryOrderProfile,
   blockDisjointCategoryOrderProfile,
+  // Story 053 D3's second level.
+  subcategoryProfile,
+  emptySubcategoryProfile,
+  twoCategoriesWithSubcategoriesProfile,
+  ...subcategoryHeaderStyleProfiles,
 ]

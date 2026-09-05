@@ -140,10 +140,23 @@ const modifierTriggerSchema: z.ZodType<ModifierTrigger> = z.enum(['ALT', 'CTRL',
  * `catalogId`/`aliasName` below - this schema only guards shape, not whether the key is one the
  * renderer actually recognises.
  */
+/**
+ * Story 053 D1: one sub-category - the second and final level below a category. Same shape and
+ * length rule as the category's own `name` field right below.
+ */
+const configActionSubcategorySchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(120),
+})
+
 const configActionCategorySchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(120),
   nameKey: z.string().min(1).optional(),
+  // Story 053 (D1): a category's own sub-categories. Optional (a category with none simply omits
+  // it) and capped the same way `categories`/`actions` are capped on `setProfileActionsInputSchema`
+  // below, so a renderer payload cannot grow this array without bound either.
+  subcategories: z.array(configActionSubcategorySchema).max(64).optional(),
 })
 
 /**
@@ -209,6 +222,11 @@ export const configActionSchema = z.preprocess(
     .object({
       id: z.string().min(1),
       categoryId: z.string().min(1),
+      // Story 053 (D1): which of `categoryId`'s `subcategories` this entry sits under. Same
+      // "non-empty string, no cross-reference check" rule as `catalogId` below - a value naming a
+      // sub-category the category doesn't have is still a valid string; falling into the
+      // ungrouped bucket for that case is a render/grouping concern, not this schema's job.
+      subcategoryId: z.string().min(1).optional(),
       name: z.string().min(1).max(120),
       kind: actionEntryKindSchema,
       commands: z.array(configCommandSchema).max(64),

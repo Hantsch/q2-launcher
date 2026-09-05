@@ -175,11 +175,32 @@ export const BUILT_IN_ACTION_CATEGORIES = TEMPLATE_ACTION_CATEGORIES
  * and later the migration/restore paths D4-D6 touch) as `{ name: <english default>, nameKey }`;
  * any rename drops it (a later deliverable's job - renaming is a plain-string field). Absent for
  * every category that predates this field and for any category a user typed themselves.
+ *
+ * `subcategories` (story 053 D1) is an optional second level below this category: each entry is
+ * `{ id, name }`, the same shape as the category itself minus `nameKey` (a sub-category is always
+ * user-typed, never seeded from a translated built-in). Depth is exactly two levels - a
+ * sub-category cannot itself have sub-categories. Optional and additive like `nameKey`: a
+ * category that predates this field, or one nobody has added a sub-category to, simply omits it
+ * (persisted/IPC schemas default a missing value to `[]`, so in-memory code can treat "absent" and
+ * "empty" the same way). `ConfigAction.subcategoryId` references one of these by `id`; same "no id
+ * is special" rule story 052 D4 gave `categoryId` applies here too - a `subcategoryId` matching
+ * nothing in this array is simply an ungrouped entry within the category, not a validation error.
  */
 export interface ConfigActionCategory {
   id: string
   name: string
   nameKey?: string
+  subcategories?: ConfigActionSubcategory[]
+}
+
+/**
+ * One sub-category (story 053 D1) - the second and final level below a `ConfigActionCategory`.
+ * `name` is user-typed prose, same rule as `ConfigActionCategory.name`; no `nameKey` because a
+ * sub-category is never seeded from a translated built-in.
+ */
+export interface ConfigActionSubcategory {
+  id: string
+  name: string
 }
 
 export type ConfigCommand =
@@ -267,6 +288,14 @@ export type ConfigCommand =
 export interface ConfigAction {
   id: string
   categoryId: string
+  /**
+   * Story 053 D1: which of `categoryId`'s `subcategories` this entry sits under. Optional and
+   * additive like every field since story 015: a pre-053 persisted row simply omits it, which
+   * means "directly under the category, ungrouped" - the same reading given to a value that
+   * doesn't match any of the category's `subcategories` (mirrors `categoryId` itself: no id is
+   * special, an unrecognised one just falls into the ungrouped bucket rather than erroring).
+   */
+  subcategoryId?: string
   name: string
   kind: ActionEntryKind
   commands: ConfigCommand[]
@@ -476,9 +505,45 @@ export const TEMPLATE_BOUND_CATALOG_IDS = new Set(['forward', 'back', 'moveup', 
  * One `ConfigAction` per `allCatalogRows()` row - see `STANDARD_TEMPLATE`'s own doc comment for
  * why every row but the template's six binds is unbound (`commands: []`).
  */
+/**
+ * Story 053 D5: the five sub-categories the standard template seeds, replacing the old
+ * catalogue-id-prefix grouping (`controls-row-groups.ts`'s deleted `GROUP_LABEL_KEY_BY_PREFIX`,
+ * which mapped `weaponUse`/`weaponExtra`/`dropWeapon`/`dropAmmo`/`dropMisc` `CatalogRowKind`
+ * prefixes to these same five headers). Literal English `name`s, no `nameKey` - "a profile's
+ * structure is user data, not i18n keys" (story decision), unlike `TEMPLATE_ACTION_CATEGORIES`'s
+ * own translated `label`/`labelKey` pair.
+ */
+const WEAPONS_USE_SUBCATEGORY_ID = 'weapons-use'
+const WEAPONS_CYCLING_SUBCATEGORY_ID = 'weapons-cycling'
+const DROPS_WEAPONS_SUBCATEGORY_ID = 'drops-weapons'
+const DROPS_AMMO_SUBCATEGORY_ID = 'drops-ammo'
+const DROPS_MISC_SUBCATEGORY_ID = 'drops-misc'
+
+/** `CatalogRowKind` prefix (`row.catalogId.split(':')[0]`) -> the template sub-category it seeds
+ * into, mirroring exactly what the deleted `GROUP_LABEL_KEY_BY_PREFIX` used to map visually. A
+ * prefix missing here (`movement`) gets no `subcategoryId` - it lands in the ungrouped run, same
+ * as before. */
+const TEMPLATE_SUBCATEGORY_ID_BY_CATALOG_PREFIX: Record<string, string> = {
+  weaponUse: WEAPONS_USE_SUBCATEGORY_ID,
+  weaponExtra: WEAPONS_CYCLING_SUBCATEGORY_ID,
+  dropWeapon: DROPS_WEAPONS_SUBCATEGORY_ID,
+  dropAmmo: DROPS_AMMO_SUBCATEGORY_ID,
+  dropMisc: DROPS_MISC_SUBCATEGORY_ID,
+}
+
+function templateSubcategoryIdFor(catalogId: string): string | undefined {
+  const prefix = catalogId.split(':')[0] ?? ''
+  return TEMPLATE_SUBCATEGORY_ID_BY_CATALOG_PREFIX[prefix]
+}
+
+/**
+ * One `ConfigAction` per `allCatalogRows()` row - see `STANDARD_TEMPLATE`'s own doc comment for
+ * why every row but the template's six binds is unbound (`commands: []`).
+ */
 function buildTemplateActions(): ConfigAction[] {
   return allCatalogRows().map((row) => {
     const bound = TEMPLATE_BOUND_CATALOG_IDS.has(row.catalogId)
+    const subcategoryId = templateSubcategoryIdFor(row.catalogId)
     return {
       id: `template:${row.catalogId}`,
       categoryId: row.categoryId,
@@ -486,6 +551,7 @@ function buildTemplateActions(): ConfigAction[] {
       kind: 'bind',
       catalogId: row.catalogId,
       commands: bound ? commandsForRow(row, false) : [],
+      ...(subcategoryId ? { subcategoryId } : {}),
     }
   })
 }
@@ -511,6 +577,23 @@ export const STANDARD_TEMPLATE: ConfigProfileTemplate = {
     id: category.id,
     name: category.label,
     nameKey: category.labelKey,
+    ...(category.id === 'weapons'
+      ? {
+          subcategories: [
+            { id: WEAPONS_USE_SUBCATEGORY_ID, name: 'Use weapon' },
+            { id: WEAPONS_CYCLING_SUBCATEGORY_ID, name: 'Cycling' },
+          ],
+        }
+      : {}),
+    ...(category.id === 'drops'
+      ? {
+          subcategories: [
+            { id: DROPS_WEAPONS_SUBCATEGORY_ID, name: 'Weapons' },
+            { id: DROPS_AMMO_SUBCATEGORY_ID, name: 'Ammunition' },
+            { id: DROPS_MISC_SUBCATEGORY_ID, name: 'Misc' },
+          ],
+        }
+      : {}),
   })),
   actions: buildTemplateActions(),
 }

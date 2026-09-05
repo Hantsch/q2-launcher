@@ -223,37 +223,49 @@ describe('catalogRowInfo / controlsRowEntryFor', () => {
 })
 
 /**
- * Story 052 D8: the grouping rules themselves are untouched (they stay catalogue-derived until
- * story 053), but they now only ever see rows the profile has - so a group with no entries is not
- * rendered at all, instead of showing the catalogue's full shape with empty rows in it.
+ * Story 053 D5: grouping is now real sub-categories (`ConfigActionCategory.subcategories`) plus
+ * each entry's `subcategoryId`, not the catalogue-id-prefix rule story 052 D8 still described here.
+ * Every subcategory the category has gets its own group, in the category's own order, even one
+ * with no rows yet (so it stays visible for D6's CRUD) - the ungrouped run is always first.
  */
 describe('groupControlsRowEntries over the profile\'s own rows', () => {
-  it('emits only the groups the profile actually has entries in', () => {
+  const dropsCategory = STANDARD_TEMPLATE.categories.find((category) => category.id === 'drops')!
+  const subcategories = dropsCategory.subcategories ?? []
+  const weaponsSubId = subcategories.find((sub) => sub.name === 'Weapons')!.id
+  const ammoSubId = subcategories.find((sub) => sub.name === 'Ammunition')!.id
+
+  it('emits a group per subcategory, in the category\'s own order, including an empty one', () => {
     const actions = [
-      seeded('dropAmmo:rockets', 'drops', 'a'),
-      seeded('dropWeapon:rlauncher', 'drops', 'w'),
+      action({ id: 'a', categoryId: 'drops', name: 'Rockets', subcategoryId: ammoSubId }),
+      action({ id: 'w', categoryId: 'drops', name: 'Launcher', subcategoryId: weaponsSubId }),
     ]
 
-    const groups = groupControlsRowEntries(buildControlsRowEntries('drops', actions))
+    const groups = groupControlsRowEntries(buildControlsRowEntries('drops', actions), subcategories)
 
-    expect(groups.map((group) => group.labelKey)).toEqual([
-      'config.controls.dropBind.ammoGroup',
-      'config.controls.dropBind.weaponsGroup',
+    expect(groups.map((group) => group.subcategory?.name ?? null)).toEqual([
+      null,
+      'Weapons',
+      'Ammunition',
+      'Misc',
     ])
-    expect(groups.map((group) => group.entries.length)).toEqual([1, 1])
+    expect(groups.map((group) => group.entries.length)).toEqual([0, 1, 1, 0])
   })
 
-  it('puts a free-form entry in the ungrouped run wherever the profile ordered it', () => {
+  it('puts a free-form entry, and one whose subcategoryId matches nothing, in the ungrouped run first', () => {
     const actions = [
       action({ id: 'free', categoryId: 'drops', name: 'My own drop' }),
-      seeded('dropWeapon:rlauncher', 'drops', 'w'),
+      action({ id: 'stale', categoryId: 'drops', name: 'Orphaned', subcategoryId: 'no-such-id' }),
+      action({ id: 'w', categoryId: 'drops', name: 'Launcher', subcategoryId: weaponsSubId }),
     ]
 
-    const groups = groupControlsRowEntries(buildControlsRowEntries('drops', actions))
+    const groups = groupControlsRowEntries(buildControlsRowEntries('drops', actions), subcategories)
 
-    expect(groups.map((group) => group.labelKey)).toEqual([
+    expect(groups.map((group) => group.subcategory?.name ?? null)).toEqual([
       null,
-      'config.controls.dropBind.weaponsGroup',
+      'Weapons',
+      'Ammunition',
+      'Misc',
     ])
+    expect(groups[0]!.entries.map((entry) => entry.action.id)).toEqual(['free', 'stale'])
   })
 })

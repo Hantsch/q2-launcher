@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigAction, ConfigProfile } from '../modules/config'
+import type { SectionHeaderStyle } from './cfg-layout'
 import { actionKeySlots } from './action-slots'
 import { aliasNameFor, renderActionAlias, twoPartAliasNames } from './alias-render'
 import { bindValueFor } from './action-mirror'
@@ -346,4 +347,150 @@ describe('render invariants (story 038 D3, AC4)', () => {
       expect(selfReferences[0]!.level).toBe('warning')
     })
   }
+
+  // -------------------------------------------------------------------------
+  // Story 053 D2: the writer's second bucketing level (a category's ungrouped
+  // run, then one banner-and-body block per sub-category, emitted even for an
+  // empty one) - asserted directly on a fixture built for this shape, since
+  // none of the corpora above carry `subcategories` yet (that only starts
+  // once D3's `profile-restore.ts` can read a sub-banner back, so this
+  // fixture stays local to this test rather than joining `profile-fixtures.ts`).
+  // -------------------------------------------------------------------------
+  describe('sub-category bucketing and banner emission (story 053 D2)', () => {
+    const ungroupedAction: ConfigAction = {
+      id: 'sub-a-ungrouped',
+      categoryId: 'weapons',
+      name: 'Ungrouped Entry',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'centerview' }],
+      keys: [{ key: 'v' }],
+    }
+    const useWeaponAction: ConfigAction = {
+      id: 'sub-a-use',
+      categoryId: 'weapons',
+      subcategoryId: 'use',
+      name: 'Use SSG',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'use shotgun' }],
+      keys: [{ key: 'q' }],
+    }
+    const cyclingAction: ConfigAction = {
+      id: 'sub-a-cycling',
+      categoryId: 'weapons',
+      subcategoryId: 'cycling',
+      name: 'Weapon next',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'weapnext' }],
+      keys: [{ key: 'mwheelup' }],
+    }
+    // A dangling `subcategoryId` - matches none of the category's `subcategories` - falls into the
+    // ungrouped run, mirroring how a dangling `categoryId` falls into `groupByCategory`'s "other"
+    // bucket (Decisions (Sprint)).
+    const danglingSubAction: ConfigAction = {
+      id: 'sub-a-dangling',
+      categoryId: 'weapons',
+      subcategoryId: 'does-not-exist',
+      name: 'Dangling Sub',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: '+strafe' }],
+      keys: [{ key: 'j' }],
+    }
+
+    function subcategoryProfile(style: SectionHeaderStyle): ConfigProfile {
+      const actions = [ungroupedAction, useWeaponAction, cyclingAction, danglingSubAction]
+      return {
+        id: 'fixture-subcategories',
+        name: 'Sub-category Fixture',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        cvars: {},
+        binds: Object.fromEntries(
+          actions.flatMap((action) => actionKeySlots(action).map((slot) => [slot.key, bindValueFor(action)])),
+        ),
+        assignments: [],
+        sectionHeaderStyle: style,
+        categories: [
+          {
+            id: 'weapons',
+            name: 'Weapons',
+            subcategories: [
+              { id: 'use', name: 'Use weapon' },
+              { id: 'cycling', name: 'Cycling' },
+              // Never claimed by any action - the "empty sub-category still writes its banner" case.
+              { id: 'empty', name: 'Empty Sub' },
+            ],
+          },
+        ],
+        actions,
+      }
+    }
+
+    /** Every sub-banner and category-banner line, in file order, for the `Binds: Weapons` section
+     * only - the section this test asserts structure over. */
+    function bindsWeaponsSectionLines(rendered: string): string[] {
+      const lines = rendered.split('\n')
+      const start = lines.findIndex((line) => line.includes('Binds: Weapons'))
+      expect(start, 'no "Binds: Weapons" section header found').toBeGreaterThanOrEqual(0)
+      // The next blank line (`joinBlocks`' own separator) ends the section - or end of file.
+      let end = lines.indexOf('', start)
+      if (end === -1) end = lines.length
+      return lines.slice(start, end)
+    }
+
+    for (const style of ['dashes', 'brackets', 'plain'] as const) {
+      it(`renders category header -> ungrouped rows -> sub-banner + rows, in profile order (${style} style)`, () => {
+        const rendered = renderProfileFile(subcategoryProfile(style))
+        const section = bindsWeaponsSectionLines(rendered)
+
+        const categoryHeaderIndex = section.findIndex((line) => line.includes('Binds: Weapons'))
+        const ungroupedIndex = section.findIndex((line) => line.includes('bind v '))
+        const danglingIndex = section.findIndex((line) => line.includes('bind j '))
+        const useBannerIndex = section.findIndex((line) => line.includes('[q2l sub=use]'))
+        const useRowIndex = section.findIndex((line) => line.includes('bind q '))
+        const cyclingBannerIndex = section.findIndex((line) => line.includes('[q2l sub=cycling]'))
+        const cyclingRowIndex = section.findIndex((line) => line.includes('bind mwheelup '))
+        const emptyBannerIndex = section.findIndex((line) => line.includes('[q2l sub=empty]'))
+
+        // Every index has to actually be found (never -1) before the ordering comparison below
+        // means anything.
+        for (const [label, index] of Object.entries({
+          categoryHeaderIndex,
+          ungroupedIndex,
+          danglingIndex,
+          useBannerIndex,
+          useRowIndex,
+          cyclingBannerIndex,
+          cyclingRowIndex,
+          emptyBannerIndex,
+        })) {
+          expect(index, `"${label}" not found in the ${style}-style Binds: Weapons section`).toBeGreaterThanOrEqual(0)
+        }
+
+        // Category header, then the ungrouped run (profile order: the untagged entry, then the
+        // dangling-subcategory one), then each sub-category's own banner immediately followed by
+        // its row, in `category.subcategories` order - and the empty sub-category's banner still
+        // appears, with nothing of its own between it and the end of the section.
+        expect(categoryHeaderIndex).toBeLessThan(ungroupedIndex)
+        expect(ungroupedIndex).toBeLessThan(danglingIndex)
+        expect(danglingIndex).toBeLessThan(useBannerIndex)
+        expect(useBannerIndex).toBeLessThan(useRowIndex)
+        expect(useRowIndex).toBeLessThan(cyclingBannerIndex)
+        expect(cyclingBannerIndex).toBeLessThan(cyclingRowIndex)
+        expect(cyclingRowIndex).toBeLessThan(emptyBannerIndex)
+        // The empty sub-category's banner is the section's last line - nothing follows it.
+        expect(emptyBannerIndex).toBe(section.length - 1)
+
+        // No stray `cat=`/`ord=` on a sub-banner: the parent category is derivable from the
+        // section it sits in (story 050's minimum-tag rule).
+        expect(section[useBannerIndex]).not.toContain('cat=')
+        expect(section[cyclingBannerIndex]).not.toContain('cat=')
+        expect(section[emptyBannerIndex]).not.toContain('cat=')
+      })
+    }
+
+    it('an unrecognised subcategoryId falls into the ungrouped run, not its own bucket', () => {
+      const rendered = renderProfileFile(subcategoryProfile('dashes'))
+      expect(rendered).not.toContain('sub=does-not-exist')
+    })
+  })
 })

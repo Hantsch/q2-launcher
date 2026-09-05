@@ -2209,10 +2209,11 @@ describe('story 050 D6: the reduced [q2l ...] tag', () => {
         // assertion above pass by emitting nothing: every key is one the post-050 registry has.
         for (const key of keys) {
           // `lbl` (story 045, D4) is the tenth registered key - a toggle/press-release state's own
-          // display label - and `ord` (story 052's F3 fix) the eleventh, a category section header's
-          // own position in `profile.categories`. Each joined the list here rather than replacing
-          // anything, which is exactly what "a key addition alone needs no `META_FORMAT_VERSION`
-          // bump" means.
+          // display label - `ord` (story 052's F3 fix) the eleventh, a category section header's
+          // own position in `profile.categories`, and `sub` (story 053 D2) the twelfth, a
+          // second-level section header's own sub-category id. Each joined the list here rather than
+          // replacing anything, which is exactly what "a key addition alone needs no
+          // `META_FORMAT_VERSION` bump" means.
           expect([
             'v',
             'cid',
@@ -2225,6 +2226,7 @@ describe('story 050 D6: the reduced [q2l ...] tag', () => {
             'trigger',
             'lbl',
             'ord',
+            'sub',
           ]).toContain(key)
         }
       }

@@ -503,6 +503,37 @@ const TEMPLATE_BOUND_KEYS = {
 }
 
 /**
+ * Story 053 D8: mirrors `src/shared/modules/config.ts`'s five template sub-category ids/names
+ * (`WEAPONS_USE_SUBCATEGORY_ID` etc., added by D5) and its `TEMPLATE_SUBCATEGORY_ID_BY_CATALOG_PREFIX`
+ * - this fixture's `templateSeededConfigProfile()` predates D5 and, until this deliverable, never
+ * carried any `subcategories`/`subcategoryId`, so the `config-controls-template-seeded` screen never
+ * actually showed a sub-categorised view even after D5 landed. Kept as its own literal block, not
+ * imported, for the same "plain Node ESM can't import from the src TS trees" reason every other
+ * mirror in this file gives (see the file's own doc comment at the top).
+ */
+const WEAPONS_USE_SUBCATEGORY_ID = 'weapons-use'
+const WEAPONS_CYCLING_SUBCATEGORY_ID = 'weapons-cycling'
+const DROPS_WEAPONS_SUBCATEGORY_ID = 'drops-weapons'
+const DROPS_AMMO_SUBCATEGORY_ID = 'drops-ammo'
+const DROPS_MISC_SUBCATEGORY_ID = 'drops-misc'
+
+/** `CatalogRowKind` prefix (`row.catalogId.split(':')[0]`) -> the template sub-category it seeds
+ * into. Mirrors `TEMPLATE_SUBCATEGORY_ID_BY_CATALOG_PREFIX` (`src/shared/modules/config.ts`). A
+ * prefix missing here (`movement`) gets no `subcategoryId` - it lands in the ungrouped run. */
+const TEMPLATE_SUBCATEGORY_ID_BY_CATALOG_PREFIX = {
+  weaponUse: WEAPONS_USE_SUBCATEGORY_ID,
+  weaponExtra: WEAPONS_CYCLING_SUBCATEGORY_ID,
+  dropWeapon: DROPS_WEAPONS_SUBCATEGORY_ID,
+  dropAmmo: DROPS_AMMO_SUBCATEGORY_ID,
+  dropMisc: DROPS_MISC_SUBCATEGORY_ID,
+}
+
+function templateSubcategoryIdFor(catalogId) {
+  const prefix = catalogId.split(':')[0] ?? ''
+  return TEMPLATE_SUBCATEGORY_ID_BY_CATALOG_PREFIX[prefix]
+}
+
+/**
  * A profile shaped exactly like "create from template" would produce (mirrors
  * `STANDARD_TEMPLATE`/`buildTemplateActions` in src/shared/modules/config.ts): the three template
  * categories, and one action per catalogue row - unbound (`commands: []`) except the six rows
@@ -525,10 +556,33 @@ function templateSeededConfigProfile() {
     cvars: { sensitivity: '3', cl_run: '0', crosshair: '0', cl_gun: '1', m_pitch: '0.022', volume: '0.7' },
     binds,
     assignments: [],
-    categories: TEMPLATE_CATEGORIES.map((category) => ({ ...category })),
+    // Story 053 D8: `weapons`/`drops` now carry the same `subcategories` STANDARD_TEMPLATE.categories
+    // seeds (D5) - so a template-seeded profile shows real group headers, not just three flat
+    // categories, matching what "create from template" actually produces today.
+    categories: TEMPLATE_CATEGORIES.map((category) => ({
+      ...category,
+      ...(category.id === 'weapons'
+        ? {
+            subcategories: [
+              { id: WEAPONS_USE_SUBCATEGORY_ID, name: 'Use weapon' },
+              { id: WEAPONS_CYCLING_SUBCATEGORY_ID, name: 'Cycling' },
+            ],
+          }
+        : {}),
+      ...(category.id === 'drops'
+        ? {
+            subcategories: [
+              { id: DROPS_WEAPONS_SUBCATEGORY_ID, name: 'Weapons' },
+              { id: DROPS_AMMO_SUBCATEGORY_ID, name: 'Ammunition' },
+              { id: DROPS_MISC_SUBCATEGORY_ID, name: 'Misc' },
+            ],
+          }
+        : {}),
+    })),
     actions: TEMPLATE_CATALOG_ROWS.map((row) => {
       const key = TEMPLATE_BOUND_KEYS[row.catalogId]
       const slug = row.catalogId.replace(/[^a-z0-9]+/gi, '-')
+      const subcategoryId = templateSubcategoryIdFor(row.catalogId)
       return {
         id: `fixture-template-seed-${slug}`,
         categoryId: row.categoryId,
@@ -537,6 +591,7 @@ function templateSeededConfigProfile() {
         catalogId: row.catalogId,
         commands: key ? [{ kind: 'raw', text: row.command }] : [],
         ...(key ? { key } : {}),
+        ...(subcategoryId ? { subcategoryId } : {}),
       }
     }),
   }

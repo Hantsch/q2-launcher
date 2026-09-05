@@ -4,7 +4,12 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { initI18n } from '../../i18n'
 import { DeleteCategoryDialog } from './components/DeleteCategoryDialog'
-import { CreateActionDialog, CreateCategoryDialog } from './ControlsTab'
+import {
+  CreateActionDialog,
+  CreateCategoryDialog,
+  CreateSubcategoryDialog,
+  RenameSubcategoryDialog,
+} from './ControlsTab'
 
 /**
  * Story 052 D9: "Add action" and "New category" each gain a suggestions list next to their
@@ -125,6 +130,40 @@ describe('CreateActionDialog', () => {
     const filterField = screen.getByLabelText('Filter actions…')
     expect(nameField.tagName).toBe('INPUT')
     expect(nameField).not.toBe(filterField)
+  })
+})
+
+describe('CreateSubcategoryDialog', () => {
+  it('creates a sub-category by typing a name', () => {
+    const onSubmit = vi.fn().mockResolvedValue(true)
+    render(createElement(CreateSubcategoryDialog, { onClose: () => {}, onSubmit }))
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Cycling' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create sub-category' }))
+    expect(onSubmit).toHaveBeenCalledWith('Cycling')
+  })
+
+  it('disables submit while the name is blank', () => {
+    render(createElement(CreateSubcategoryDialog, { onClose: () => {}, onSubmit: async () => true }))
+    expect(
+      (screen.getByRole('button', { name: 'Create sub-category' }) as HTMLButtonElement).disabled,
+    ).toBe(true)
+  })
+})
+
+describe('RenameSubcategoryDialog', () => {
+  it('starts pre-filled with the sub-category’s current name and submits the edited one', () => {
+    const onSubmit = vi.fn().mockResolvedValue(true)
+    render(
+      createElement(RenameSubcategoryDialog, {
+        subcategory: { id: 'sub-1', name: 'Use weapon' },
+        onClose: () => {},
+        onSubmit,
+      }),
+    )
+    expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Use weapon')
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Fire modes' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(onSubmit).toHaveBeenCalledWith('Fire modes')
   })
 })
 
