@@ -486,6 +486,32 @@ they are spread over three sprints rather than two. Deliberately not in this mil
 on the downloads module), any engine beyond r1q2/Q2PRO/vanilla, and the `alias cali "bind …"`
 key-block-as-layer question story 041 left open.
 
+`docs/sprints/S11` **built (2026-09-05), live acceptance pending** — 052 → 053 → 056 → 055, in
+that build order. **All four done**: `npm run build`/`typecheck` green, `npm test` green
+(2217/2217, plus 6 jsdom-environment-only failures on `webidl.util.markAsUncloneable` confirmed
+unrelated and pre-existing), live `npm run ui:verify` clean at every checkpoint (last full run
+64/64 screens, 0 axe violations). See `docs/sprints/S11/review.md` and
+`docs/sprints/S11/testplan.md`.
+
+052 turned every category (including the former built-in three) into ordinary, persisted, ordered
+profile data, seeded once from a template; an unbound row now survives reload as a commented-out
+bind line, and existing profiles migrate every catalogue row once so nothing disappears. 053 added
+a real second level (sub-categories), read from and written back to the file, with the foreign
+`.: Main Key's :.`/`##### 1st row #####` decoration recognised on import instead of flattened. 056
+replaced the Primary/Secondary columns with one Key column plus foldable indented sub-rows for
+every further key — the N-slot surface story 050 deferred. 055 made a `drop_` alias a drop wherever
+it lives (name plus body shape, one shared recognition module), replaced the two checkboxes with
+two icon toggle buttons, and — by user decision, a deviation from the story's own "no"
+recommendation — brought the same toggles to the Aliases tab.
+
+**Carry-over rule held again**: 052 and 053 each hit one real round-trip defect only an
+adversarial re-render pass caught (052: category order lost for block-disjoint categories, fixed
+via a new `ord` tag; 053: an unrecognised foreign outer-header decoration silently dropped its
+sub-category markers, fixed via `mirroredWrapTitle`). 056 needed three review cycles — its own
+fix for a raw/compacted key-index bug introduced a second index-mismatch regression in collision
+self-exclusion, caught and fixed one cycle later. Full findings and the disclosed residual
+limitations for each story are in `docs/sprints/S11/review.md`.
+
 ### Mods — game directories
 
 - `+set game <dir>` is already built and validated (single ASCII token). The rest
