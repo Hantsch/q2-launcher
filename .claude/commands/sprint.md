@@ -5,7 +5,7 @@ model: sonnet
 effort: medium
 ---
 
-<!-- ai-scrum:managed 2.1.1 - plugin-owned, written by /ai-scrum:setup. Do not edit:
+<!-- ai-scrum:managed 2.1.2 - plugin-owned, written by /ai-scrum:setup. Do not edit:
      setup diffs this file on update and asks before replacing it. Project facts go in .claude/ai-scrum.md. -->
 
 Run sprint **$1**.
@@ -126,15 +126,13 @@ Prompt (self-contained):
     return `BLOCKED: <reason>`. QA rules apply without exception — never weaken tests to go
     green.
   - Do not commit (the orchestrator does that).
-  - **Progress trail:** get the real current timestamp by running a shell command
-    (`date "+%Y-%m-%d %H:%M"` or the PowerShell equivalent `Get-Date -Format "yyyy-MM-dd
-    HH:mm"`) — never guess or estimate it — both right before delegating a deliverable and
-    right after it returns, and append one line each time to `<sprints>/$1/progress.md`
-    (create the file if it is missing):
-    `- <YYYY-MM-DD HH:MM> · <story id> · D<n> <short title> · started|done|blocked`. It costs
-    almost nothing and it is the only thing that tells the user a long build is alive — they
-    watch the working tree, where a running agent and a dead one look identical. The
-    started/done pair per deliverable also gives a real duration instead of a guess.
+  - **Progress file:** `<sprints>/$1/progress.md` (spell out the resolved path; the file is
+    created by the first append). Apply the "Progress trail" rule from `build.md`'s
+    `## Delegation rules` for every deliverable: one shell command per `started`/`done`/
+    `blocked` event, the timestamp produced by the shell inside that same command, never
+    typed. It costs almost nothing and it is the only thing that tells the user a long build
+    is alive — they watch the working tree, where a running agent and a dead one look
+    identical.
 - Return: `done` or `BLOCKED: <reason>`, the commit message from the Done section, changed
   files, findings/decisions as bullet points — **at most 20 lines**, no diffs and no pasted
   file contents. Everything it returns stays in your context for the rest of the sprint.
@@ -145,6 +143,10 @@ and only on the sprint branch (never push, never on a `protected-branches` entry
 
 - Story `done`: tick the checkbox in `sprint.md`, then `git add -A` and commit with the
   prepared message (story ID first, e.g. `042: finish team-based combat`).
+- Either way, glance at the new lines in `<sprints>/$1/progress.md`: timestamps must be
+  monotonic and none may be later than `date`/`Get-Date` says now. If they are not, the build
+  agent typed them instead of running the trail command — note that under findings for
+  `review.md` (phase 3) so it is visible, and do not repair the lines by hand.
 - Story `BLOCKED`: commit the partial changes as `WIP <id>: blocked — <reason>` so they do
   not bleed into the next story's diff; mark the story in `sprint.md`. If a later story
   depends on the blocked one, skip it too (with a note) instead of building on a broken base.

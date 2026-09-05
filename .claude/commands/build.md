@@ -5,7 +5,7 @@ model: sonnet
 effort: medium
 ---
 
-<!-- ai-scrum:managed 2.1.1 - plugin-owned, written by /ai-scrum:setup. Do not edit:
+<!-- ai-scrum:managed 2.1.2 - plugin-owned, written by /ai-scrum:setup. Do not edit:
      setup diffs this file on update and asks before replacing it. Project facts go in .claude/ai-scrum.md. -->
 
 Implement the story with ID **$1**.
@@ -33,7 +33,7 @@ implementation agents together. Back to `/refine $1`.
 
 ## Delegation rules
 
-You delegate every line of code in this command, so these four decide whether the build
+You delegate every line of code in this command, so these five decide whether the build
 finishes or quietly stops with nothing in the working tree to show for it.
 
 - **Never start a background child.** Put `run_in_background: false` on every `Agent` call you
@@ -52,6 +52,25 @@ finishes or quietly stops with nothing in the working tree to show for it.
   was delivered. Look at the working tree first — a terminated agent often leaves partial
   edits behind — then re-dispatch that one deliverable once with the same prompt. Only if it
   fails twice is it a blocker.
+- **Progress trail — the timestamp is never typed, only produced.** When the caller (`/sprint`)
+  names a progress file, every delegation event gets ONE shell command that reads the clock and
+  appends the line in the same step. You fill in only story id, deliverable and status:
+
+  ```powershell
+  Add-Content -Encoding utf8 <progress-file> ("- " + (Get-Date -Format "yyyy-MM-dd HH:mm") + " · <id> · D<n> <short title> · started")
+  ```
+  ```bash
+  echo "- $(date '+%Y-%m-%d %H:%M') · <id> · D<n> <short title> · started" >> <progress-file>
+  ```
+
+  Run it **immediately before** each `Agent` call (`started`) and **immediately after** it
+  returns (`done` or `blocked`) — one command per event, at the moment it happens. Never write
+  the line with `Edit`/`Write`, never batch several events into one command, never fill the
+  timestamp in yourself, not even when you "know" it. Every previous wording of this rule
+  ("read the clock, then write the line") produced trails with invented times: hours off, in
+  the future, running backwards. A trail like that is worse than none — the user reads it to
+  decide whether the build is alive, and a plausible-looking lie tells them nothing. Standalone
+  `/build` (no progress file named) skips this rule.
 
 ## Flow (scrum-like: small deliverables, acceptance at the end)
 
@@ -79,7 +98,9 @@ finishes or quietly stops with nothing in the working tree to show for it.
      complicated. No marking means default tier. If an unmarked D turns out to feel risky
      enough for the hard tier while implementing, that is a plan-gap signal → stop briefly
      and ask the user instead of silently escalating.
-   - **Delegate:** ONE `Agent` call with **`run_in_background: false`** spelled out, and a
+   - **Delegate:** if a progress file was named, run the `started` trail command first (see
+     the delegation rules — one command, timestamp produced by the shell). Then ONE `Agent`
+     call with **`run_in_background: false`** spelled out, and a
      self-contained prompt. Spelling it out is the point: `false` is *not* the default, and a
      background child never wakes you again — see the delegation rules above. The agent
      cannot see this conversation, so give it:
@@ -99,9 +120,10 @@ finishes or quietly stops with nothing in the working tree to show for it.
        result, and anything genuinely notable — no diffs, no pasted file contents, no
        restatement of the deliverable. Every line it returns lands in your context and is
        paid for again on each of your remaining turns.
-   - **Check and continue:** review the agent's result briefly (file diff, build relevance),
-     tick `- [ ] D…` to `- [x]` in the file and start the next D immediately — no stop at the
-     user. Tick it **right away, not at the end of the story**: that tick is the only liveness
+   - **Check and continue:** if a progress file was named, run the `done` (or `blocked`) trail
+     command now, before anything else. Review the agent's result briefly (file diff, build
+     relevance), tick `- [ ] D…` to `- [x]` in the file and start the next D immediately — no
+     stop at the user. Tick it **right away, not at the end of the story**: that tick is the only liveness
      signal the user has — they watch the working tree, where a healthy build and a dead one
      look identical except that the ticks keep moving.
      **Keep a note of which files each D actually changed** — the code review in step 6

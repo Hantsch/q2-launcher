@@ -14,7 +14,7 @@
   update those files (`/ai-scrum:setup`). Hashes of the managed copies: .claude/ai-scrum.lock
 -->
 
-ai-scrum-version: 2.1.1
+ai-scrum-version: 2.1.2
 project: Q2 Launcher
 
 ## Verify
