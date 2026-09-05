@@ -6,6 +6,7 @@ import {
   sanitizeCommand,
   slugAliasName,
 } from '@shared/config/alt-layers'
+import { DROP_CATALOG_ROW_KINDS } from '@shared/config/catalog-rows'
 
 /**
  * Advanced-tab actions (story 008) -> alias lines.
@@ -124,6 +125,44 @@ const STATE_SUFFIX_RESERVE = '_s'.length + 1
  * hang off that signed name (`+slow_p1`), one affix deep.
  */
 const TOGGLE_DERIVED_ALIAS_NAME_BUDGET = USABLE_ALIAS_NAME - STATE_SUFFIX_RESERVE - PART_SUFFIX_RESERVE
+
+/**
+ * The prefix a *launcher-generated* drop entry's alias name carries (story 055, D2): the same
+ * `drop_<slug>` shape a hand-written config uses for every one of its drops
+ * (`docs/fixtures/dmalias.cfg:86-103` - `drop_rail`, `drop_shells`, `drop_tech`), so one rule -
+ * `drop-entries.ts#isDropEntry`, "the name starts with `drop_` and the body carries a `drop <item>`
+ * command" - recognises a hand-written and a generated drop alike (AC 2).
+ *
+ * Only the *derived* name gets it. An explicit `aliasName` still wins verbatim in `aliasNameFor`,
+ * because story 039 made that name the user's contract; and an imported `drop_rail` already carries
+ * its own name as `aliasName` (`alias-import.ts`, `profile-restore.ts`), so nothing here can rename
+ * a foreign alias - or `dall`, whose whole body is `drop` commands but whose name is its own.
+ */
+const DROP_ALIAS_PREFIX = 'drop_'
+
+/**
+ * Is this one of the launcher's *own* drop entries - a template Weapon-dropping row, a row adopted
+ * from a raw `bind r "drop rocket launcher"`, or one the user created in that category?
+ *
+ * Deliberately the story's own wording ("entries in category `drops` / with a drop catalogue row")
+ * and deliberately *not* `drop-entries.ts#isDropEntry`: that predicate reads the entry's rendered
+ * alias name, which is what this function helps compute, so calling it here would recurse. It also
+ * does not look at the body at all, which means a non-drop entry a user filed under Weapon dropping
+ * derives a `drop_`-prefixed name too. That is cosmetic and self-correcting: `isDropEntry` requires
+ * a `drop <item>` command as well, so such an entry still gets no drop options - it just reads like
+ * a drop in the file.
+ *
+ * `DROP_CATALOG_ROW_KINDS` (the `CatalogRowKind` prefixes of the three drop row families) lives next
+ * to the `CatalogRowKind` union in `catalog-rows.ts`, not here - `isDropCatalogRow` there needs the
+ * same signal for a row whose entry has no body yet, and two copies would drift. Read here alongside
+ * the `drops` category id rather than instead of it: a drop row that the user moved into a category
+ * of their own is still a drop row.
+ */
+function isDropCatalogueEntry(action: ConfigAction): boolean {
+  if (action.categoryId === 'drops') return true
+  const kind = action.catalogId?.split(':')[0] ?? ''
+  return DROP_CATALOG_ROW_KINDS.has(kind)
+}
 
 /**
  * Bytes kept free at the end of every generated line. The same 16 bytes
@@ -279,6 +318,21 @@ export function legacyAliasNameFor(action: ConfigAction): string {
  * No id suffix means two entries that derive to the same name collide into one engine alias. That is
  * deliberate - the name is the contract with whatever binding calls it - and it is reported as a
  * duplicate rather than silently disambiguated (D8's validation).
+ *
+ * Story 055, D2: one of the launcher's own drop entries (`isDropCatalogueEntry` above) derives
+ * `drop_<slug>` instead, under a budget reduced by exactly the prefix, so `drop_` + the slug still
+ * fits the same 26 characters every other derived name does. Two properties this branch is built to
+ * hold, both of them regression risks rather than niceties:
+ *
+ * - **A slug that already begins with `drop_` is kept as it is**, prefix and budget untouched. Every
+ *   template Weapon-dropping row is named after its own raw command (`nameForCatalogRow` ->
+ *   `drop rocket launcher`), so it already derived `drop_rocket_launcher` before this story: keeping
+ *   it verbatim means no drop name already written to disk moves, and no `drop_drop_...` is ever
+ *   produced. What actually changes is the entry the user renamed - `Rail Gun` derived `rail_gun`
+ *   and now derives `drop_rail_gun`.
+ * - **A signed name is left alone.** A sign only survives for a `kind: 'alias'` entry, where it is
+ *   the engine's press/release idiom (`+slow`); `+drop_...` would not satisfy `isDropEntry`'s
+ *   name test anyway, so prefixing there would mangle the user's name for nothing.
  */
 export function derivedAliasName(action: ConfigAction): string {
   const raw = action.name.trim()
@@ -287,7 +341,11 @@ export function derivedAliasName(action: ConfigAction): string {
   // see `TOGGLE_DERIVED_ALIAS_NAME_BUDGET`. Every other kind, `press-release` included, keeps the
   // budget it had before story 045, so no name already on disk moves.
   const budget = action.kind === 'toggle' ? TOGGLE_DERIVED_ALIAS_NAME_BUDGET : DERIVED_ALIAS_NAME_BUDGET
-  return `${sign}${slugAliasName(raw.slice(sign.length), budget, 'entry')}`
+  const slug = slugAliasName(raw.slice(sign.length), budget, 'entry')
+  if (sign || slug.startsWith(DROP_ALIAS_PREFIX) || !isDropCatalogueEntry(action)) {
+    return `${sign}${slug}`
+  }
+  return `${DROP_ALIAS_PREFIX}${slugAliasName(raw, budget - DROP_ALIAS_PREFIX.length, 'entry')}`
 }
 
 /**

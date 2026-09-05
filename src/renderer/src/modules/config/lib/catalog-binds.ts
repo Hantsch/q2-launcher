@@ -53,6 +53,7 @@ import {
   withKeySlot,
 } from '@shared/config/action-slots'
 import { commandsForRow, type CatalogRow } from '@shared/config/catalog-rows'
+import { withDropAmmo, withDropMessage } from '@shared/config/drop-entries'
 import type { ModifierTrigger } from '@shared/config/modifier-layers'
 import type { ActionKeySlot, ConfigAction, ConfigCommand } from '@shared/modules/config'
 
@@ -182,7 +183,13 @@ export function rawKeyIndex(action: ConfigAction, compactedIndex: number): numbe
 }
 
 export function deriveRowState(action: ConfigAction, row: CatalogRow): RowState {
-  const lastMessage = [...action.commands].reverse().find((command) => command.kind === 'message')
+  // First occurrence, not last: `@shared/config/drop-entries#withDropMessage` removes the FIRST
+  // `say`/`say_team` command it finds (`dropStateFor`'s `messageIndex` locks onto the first match
+  // and never overwrites it), so a body with two message commands - an edge case this story's own
+  // entries never produce, but an imported/hand-written one could - has to show the same one here
+  // that turning the toggle off would delete. Showing the last one instead would let a user see text
+  // that a follow-up "turn off" then fails to remove (story 055 review, finding 2).
+  const firstMessage = action.commands.find((command) => command.kind === 'message')
 
   // Decision 7: ammo defaults to ON. An entry with no commands at all has not had its catalogue
   // body written yet (`withCatalogBody` below does that on the first real assignment), so reading
@@ -202,8 +209,8 @@ export function deriveRowState(action: ConfigAction, row: CatalogRow): RowState 
     // nothing to look up in `layers` and no command text to parse (story 016 D9).
     keys: actionKeySlots(action).filter((slot) => hasKey(slot)),
     withAmmo,
-    message: lastMessage?.kind === 'message' ? lastMessage.text : '',
-    messageChannel: lastMessage?.kind === 'message' ? lastMessage.channel : undefined,
+    message: firstMessage?.kind === 'message' ? firstMessage.text : '',
+    messageChannel: firstMessage?.kind === 'message' ? firstMessage.channel : undefined,
   }
 }
 
@@ -419,4 +426,45 @@ export function applyMessage(
     text.trim().length > 0 ? [...withoutMessage, { kind: 'message', channel, text }] : withoutMessage
 
   return actions.map((action, i) => (i === index ? { ...action, commands } : action))
+}
+
+/**
+ * Story 055 D3: `applyAmmo`'s action-based sibling - toggles the ammo command of the entry
+ * `actionId` names by delegating to D1's `withDropAmmo` (`@shared/config/drop-entries`), which
+ * splices the command in or out by index rather than rebuilding the row from `commandsForRow`.
+ *
+ * Needed because `isDropEntry` now recognises a drop wherever it sits - a `drop_` alias imported
+ * into any category, or living outside the catalogue entirely, has no `CatalogRow` for the old
+ * `applyAmmo` to rebuild from, but still has to survive its own extras (`wave 1`, a second
+ * `drop shells`) exactly like a catalogue drops row does. `actionId` not naming an entry returns the
+ * array unchanged, matching every other write function here.
+ */
+export function applyDropAmmo(
+  actions: ConfigAction[],
+  actionId: string,
+  on: boolean,
+): ConfigAction[] {
+  const index = actions.findIndex((action) => action.id === actionId)
+  if (index < 0) return [...actions]
+  return actions.map((action, i) => (i === index ? withDropAmmo(action, on) : action))
+}
+
+/**
+ * Story 055 D3: `applyMessage`'s action-based-and-surgical sibling, delegating to D1's
+ * `withDropMessage` - same reasoning as `applyDropAmmo` above. Unlike `applyMessage` (which always
+ * rebuilds the message command from `text`/`channel`), `on: false` here is a pure removal call with
+ * no text argument needed, mirroring `withDropMessage`'s own on/off shape.
+ */
+export function applyDropMessage(
+  actions: ConfigAction[],
+  actionId: string,
+  on: boolean,
+  message?: string,
+  channel?: 'say' | 'say_team',
+): ConfigAction[] {
+  const index = actions.findIndex((action) => action.id === actionId)
+  if (index < 0) return [...actions]
+  return actions.map((action, i) =>
+    i === index ? withDropMessage(action, on, message, channel) : action,
+  )
 }

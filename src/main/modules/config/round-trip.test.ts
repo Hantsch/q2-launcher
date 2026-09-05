@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import { actionKeySlots } from '@shared/config/action-slots'
-import { aliasNameFor } from '@shared/config/alias-render'
+import { aliasNameFor, derivedAliasName } from '@shared/config/alias-render'
 import { generateLayerAliases } from '@shared/config/alt-layers'
 import { COMMENT_LINE_BUDGET, COMMENT_PREFIX, renderProfileFile } from '@shared/config/render'
 import { restoreProfileParts } from '@shared/config/profile-restore'
@@ -2080,5 +2080,110 @@ describe('story 052 D5: a scrambled category order survives the round trip', () 
     // Nothing else degrades with it: both categories are back, with their entries.
     expect(restored.actions).toHaveLength(3)
     expect(restored.warnings.filter((warning) => warning.reason === 'tag-unknown-keys')).toEqual([])
+  })
+})
+
+/**
+ * Story 055 D2: the launcher's own drops now render as `drop_<slug>` aliases (AC 2), which changes
+ * what a rendered `.cfg` contains - so the property story 042 exists for has to be re-stated over
+ * exactly that shape, drops carrying ammo, a team message and an extra command (AC 6, AC 8).
+ *
+ * The carry-over the story's Decisions call structural rather than incidental is what makes it hold:
+ * `profile-restore.ts` captures an alias line's own name into `aliasName`, so the *second* render
+ * reproduces the new name verbatim (story 039's rule) instead of deriving it again. Both halves are
+ * asserted - the names really are the new ones on the way out, and they really do come back as
+ * `aliasName` - because a rule that silently stopped applying would still be a fixed point.
+ */
+describe('story 055 D2: a profile of drops is a fixed point under the new `drop_<slug>` naming', () => {
+  const dropsProfile = buildFixtureProfile({
+    name: 'Drops with ammo, a message and extras',
+    actions: [
+      {
+        // A renamed Weapon-dropping row: the shape whose name this D actually moves
+        // (`rail_gun` -> `drop_rail_gun`), with ammo, a team message and an extra `wave 1` after it.
+        id: 'd2-rail',
+        categoryId: 'drops',
+        catalogId: 'dropWeapon:railgun',
+        name: 'Rail Gun',
+        kind: 'bind',
+        keys: [{ key: 'r' }],
+        commands: [
+          { kind: 'raw', text: 'drop railgun' },
+          { kind: 'raw', text: 'drop slugs' },
+          { kind: 'message', channel: 'say_team', text: 'Dropped [ Rail Gun ] %l' },
+          { kind: 'raw', text: 'wave 1' },
+        ],
+      },
+      {
+        // No ammo of its own (`drop_tech`'s case), message only.
+        id: 'd2-tech',
+        categoryId: 'drops',
+        catalogId: 'dropMisc:rebreather',
+        name: 'Rebreather',
+        kind: 'bind',
+        keys: [{ key: 't' }],
+        commands: [
+          { kind: 'raw', text: 'drop rebreather' },
+          { kind: 'message', channel: 'say_team', text: 'Dropped a rebreather' },
+        ],
+      },
+      {
+        // A template-named ammo row, i.e. a name that already begins with `drop_`: it must come out
+        // exactly as it did before this story, not as `drop_drop_shells`.
+        id: 'd2-shells',
+        categoryId: 'drops',
+        catalogId: 'dropAmmo:shells',
+        name: 'drop shells',
+        kind: 'alias',
+        commands: [
+          { kind: 'raw', text: 'drop shells' },
+          { kind: 'raw', text: 'drop shells' },
+          { kind: 'raw', text: 'wave 1' },
+        ],
+      },
+    ],
+  })
+
+  it('renders all three as `drop_<slug>`, recovers the names, and re-renders the same file', async () => {
+    const { profile2, text1 } = await reimportProfile(dropsProfile)
+
+    // The premise: the new naming really is in the file, extras and all - without this the fixed
+    // point below would hold over the old, display-name-derived names just as happily.
+    expect(text1).toMatch(
+      /^alias drop_rail_gun\s+"drop railgun; drop slugs; say_team Dropped \[ Rail Gun \] %l; wave 1"/m,
+    )
+    expect(text1).toMatch(/^alias drop_rebreather\s+"drop rebreather; say_team Dropped a rebreather"/m)
+    // The already-`drop_` name is untouched, in both directions.
+    expect(text1).toMatch(/^alias drop_shells\s+"drop shells; drop shells; wave 1"/m)
+    expect(text1).not.toContain('drop_drop_')
+    expect(text1).not.toMatch(/^alias rail_gun /m)
+
+    // The names come back as the entries' own `aliasName` - the carry-over the fixed point rests on.
+    // (The *display* names are the catalogue's own labels rather than the fixture's: a `cid=`-tagged
+    // line carries the catalogue label as its prose, which is unchanged by this story and is exactly
+    // why the alias name cannot be re-derived on the way back - see the assertion below it.)
+    const byName = new Map(profile2.actions!.map((entry) => [entry.name, entry]))
+    expect([...byName.keys()].sort()).toEqual(['Railgun', 'Rebreather', 'Shells'])
+    expect(byName.get('Railgun')!.aliasName).toBe('drop_rail_gun')
+    expect(byName.get('Rebreather')!.aliasName).toBe('drop_rebreather')
+    expect(byName.get('Shells')!.aliasName).toBe('drop_shells')
+
+    // What the carry-over is worth here: deriving the name again from the restored entry would give
+    // a *different* `drop_` name, so this shape would not be a fixed point without `aliasName`.
+    expect(derivedAliasName(byName.get('Railgun')!)).toBe('drop_railgun')
+    expect(aliasNameFor(byName.get('Railgun')!)).toBe('drop_rail_gun')
+
+    // Ammo, message and the extra `wave 1` all survive as the commands they were (AC 6), so the
+    // toggles D1 splices have the same body to work on after a reload as before it.
+    for (const original of dropsProfile.actions!) {
+      const restored = profile2.actions!.find((entry) => entry.aliasName === aliasNameFor(original))!
+      expect(restored.commands).toEqual(original.commands)
+    }
+    expect(slotsOf(byName.get('Railgun')!)).toEqual(['r'])
+
+    // The property itself, and one more pass to show it settles rather than merely alternating.
+    expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
+    const { text1: text2 } = await reimportProfile(profile2)
+    expect(normalize(text2)).toBe(normalize(text1))
   })
 })

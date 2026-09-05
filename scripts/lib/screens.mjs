@@ -512,12 +512,19 @@ export const SCREENS = [
     // trigger (ControlsTab.tsx:701) for the `dropWeapon:railgun` catalogue row
     // (scripts/lib/fixture.mjs's `fixture-action-drop-message`) — that row's
     // message sub-row is already revealed because the fixture action carries
-    // a non-empty message (ControlsTab.tsx:670/738), so no checkbox click is
+    // a non-empty message (ControlsTab.tsx:670/738), so no toggle click is
     // needed first. Opens MessageEditor with `showKeyCapture` off; same
     // `message-editor-content` wait, same `$r` colour-cvar badge. The row's
     // `categoryId` is `drops`, not the rail's default `movement`, so the
     // "Weapon dropping" category chip has to be selected first (same rail,
     // no testid, selecting by translated accessible name).
+    //
+    // Story 055 D5: the row's two options are `DropToggles` icon buttons now,
+    // not the two `Checkbox`es this comment used to describe ("no checkbox
+    // click is needed first" above), but `drop-message-edit-<catalogId>` is
+    // unchanged (still keyed off the row's `catalogId`, ControlsTab.tsx's
+    // `renderMessageSubRow`) so this screen's `navigate()` needed no code
+    // change - verified against a rebuilt app.
     navigate: async (page) => {
       await configDetail('controls')(page)
       await page

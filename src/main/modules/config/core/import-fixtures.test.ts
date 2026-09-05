@@ -10,6 +10,8 @@ import type {
   UnrecognizedConfigLine,
 } from '@shared/modules/config'
 import type { Installation } from '@shared/types'
+import { aliasNameFor } from '@shared/config/alias-render'
+import { isDropEntry } from '@shared/config/drop-entries'
 import { scopedLogger } from '../../../lib/logger'
 import { commitImport, previewImport, type ImportInstallations } from '../import'
 
@@ -392,5 +394,60 @@ describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story
     // `preserved`; pinned again here, explicitly, as the AC8 compatibility check this D's report
     // calls for.
     expect(preview.preserved).toHaveLength(73)
+  })
+
+  /**
+   * Story 055 (AC 7, and D2's own acceptance for the import half): the fixture's sixteen `drop_*`
+   * aliases arrive as drop entries and `dall` does not - over the real file, through the real
+   * importer, rather than over D1's transcribed bodies (`drop-entries.test.ts`).
+   *
+   * It also states the property D2 must not break: an imported alias keeps its own name, because
+   * `alias-import.ts` records every alias line's name in `aliasName` and `aliasNameFor` returns that
+   * verbatim. Nothing about the new `drop_<slug>` derivation can reach a foreign alias - which is
+   * exactly what leaves `dall` (a body of nothing but `drop` commands) a plain alias.
+   */
+  it('imports the sixteen drop_* aliases as drop entries and leaves `dall` a plain alias', async () => {
+    await buildFixtureGamedir()
+
+    let actions: ConfigAction[] = []
+    const result = await commitImport(
+      installations(fixtureInstallation()),
+      log,
+      { installationId: 'fixture-install', gameDir: 'baseq2', name: 'Fixture' },
+      (input) => {
+        actions = input.actions
+        return []
+      },
+    )
+
+    expect(result.ok).toBe(true)
+
+    const drops = actions.filter(isDropEntry)
+    expect(drops.map((action) => aliasNameFor(action)).sort()).toEqual([
+      'drop_bullets',
+      'drop_cells',
+      'drop_chain',
+      'drop_grenadel',
+      'drop_grens',
+      'drop_hyperb',
+      'drop_machine',
+      'drop_powers',
+      'drop_rail',
+      'drop_rocketl',
+      'drop_rocks',
+      'drop_shells',
+      'drop_shotgun',
+      'drop_slugs',
+      'drop_sshotgun',
+      'drop_tech',
+    ])
+    expect(drops).toHaveLength(16)
+
+    const dall = actions.find((action) => action.name === 'dall')!
+    expect(aliasNameFor(dall)).toBe('dall')
+    expect(isDropEntry(dall)).toBe(false)
+    // ... and that holds even though the importer files it under `drops` (its body is all `drop`
+    // commands), which is the one category D2's derivation keys off: its own `aliasName` wins.
+    expect(dall.categoryId).toBe('drops')
   })
 })

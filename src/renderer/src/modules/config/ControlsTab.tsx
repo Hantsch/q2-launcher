@@ -12,7 +12,8 @@ import {
   X,
 } from 'lucide-react'
 import { actionKeySlots, withKeySlot } from '@shared/config/action-slots'
-import { nameForCatalogRow } from '@shared/config/catalog-rows'
+import { isDropCatalogRow, nameForCatalogRow } from '@shared/config/catalog-rows'
+import { dropStateFor, isDropEntry } from '@shared/config/drop-entries'
 import type { ModifierTrigger } from '@shared/config/modifier-layers'
 import {
   STANDARD_TEMPLATE,
@@ -24,7 +25,7 @@ import {
   type ConfigProfile,
 } from '@shared/modules/config'
 import { Button, IconButton } from '../../components/ui/Button'
-import { Checkbox, Field, Input, Select } from '../../components/ui/controls'
+import { Field, Input, Select } from '../../components/ui/controls'
 import { Modal } from '../../components/ui/Modal'
 import { EmptyState, SectionLabel } from '../../components/ui/primitives'
 import { ActionEditor } from './components/ActionEditor'
@@ -33,6 +34,7 @@ import { ControlsGrid } from './components/ControlsGrid'
 import { ControlsOptionsCell } from './components/ControlsOptionsCell'
 import { ControlsRow } from './components/ControlsRow'
 import { DeleteCategoryDialog } from './components/DeleteCategoryDialog'
+import { DropToggles } from './components/DropToggles'
 import { MessageEditor } from './components/MessageEditor'
 import { RenameActionDialog } from './components/RenameActionDialog'
 import { updateProfileActions } from './client'
@@ -47,6 +49,8 @@ import {
 } from './lib/bind-slot-collision'
 import {
   applyAmmo,
+  applyDropAmmo,
+  applyDropMessage,
   applyMessage,
   applySlot,
   deriveRowState,
@@ -180,12 +184,15 @@ export function ControlsTab({
    * whenever the selected category changes so a filter typed in one category never silently hides
    * rows in the next one. */
   const [filterText, setFilterText] = useState('')
-  /** Review fix (findings 4/5): which drops row's message `Modal` is open, or `null` for none.
+  /** Review fix (findings 4/5): which drop row's message `Modal` is open, or `null` for none.
    * The editor reads its initial channel/text off `actions` itself (looked up by the entry's id,
    * story 052 D8), so this only has to remember *which* row - plus the row's already-resolved i18n
-   * label, because a `CatalogRow` carries no `labelKey` and the modal's title needs one (029 D4). */
+   * label, because a `CatalogRow` carries no `labelKey` and the modal's title needs one (029 D4).
+   * Story 055 D3: `row` is `undefined` for a drop entry that is not a catalogue row at all (a
+   * `drop_` alias imported outside the catalogue) - there is then no catalogue body to fill in via
+   * `catalogWriteBase` on save, only the message command itself to write (see the `onSave` below). */
   const [messageEditorRow, setMessageEditorRow] = useState<{
-    row: CatalogRow
+    row?: CatalogRow
     actionId: string
     label: string
   } | null>(null)
@@ -575,19 +582,20 @@ export function ControlsTab({
   }
 
   /**
-   * Story 029 D4: the drops row's "With message" checkbox (AC 5/6).
+   * Story 055 D3: the drop row's message toggle (AC 5/6), rewritten from the removed "With
+   * message" `Checkbox`'s `handleToggleRowMessage` - action-based now, via D1's `dropStateFor`/
+   * `withDropMessage` (through `applyDropMessage`), rather than a `CatalogRow`-keyed read. That is
+   * what lets it work for a `drop_` alias that is not a catalogue row at all (isDropEntry's whole
+   * point), not only for a catalogue drops row.
    *
-   * Checking only reveals the inline message row - there is no text to write yet, and writing an
-   * empty one would immediately be pruned again, taking the checked state with it (story
-   * decision: the "just checked" state lives in `revealedMessageRows`). Unchecking clears the
-   * stored message right away, no confirm - exactly how "With ammo" already mutates on toggle,
-   * and required by AC 6: a hidden-but-still-saved message would contradict the box being a
-   * mirror of the stored command.
-   *
-   * Only the message command is touched either way: `applyMessage` merges into the action's
-   * existing `commands`, so the row's `drop <item>` / ammo raw commands survive an uncheck.
+   * Turning the toggle on only reveals the inline message row - there is no text to write yet, and
+   * writing an empty one would immediately be pruned again, taking the toggle's on state with it
+   * (story decision: the "just turned on" state lives in `revealedMessageRows`). Turning it off
+   * clears the stored message right away, no confirm - exactly how the ammo toggle already mutates
+   * on click, and required by AC 6: a hidden-but-still-saved message would contradict the toggle
+   * being a mirror of the stored command.
    */
-  const handleToggleRowMessage = (row: CatalogRow, action: ConfigAction, next: boolean): void => {
+  const handleToggleDropMessage = (action: ConfigAction, next: boolean): void => {
     setRevealedMessageRows((current) => {
       const updated = new Set(current)
       if (next) updated.add(action.id)
@@ -597,9 +605,68 @@ export function ControlsTab({
     if (next) return
     // Nothing stored means nothing to clear - skip the save rather than persisting an array that
     // is identical to the one already on disk.
-    if (deriveRowState(action, row).message.trim().length > 0) {
-      handleCatalogActionsChange(applyMessage(actions, action.id, ''))
+    if ((dropStateFor(action).message ?? '').trim().length > 0) {
+      handleCatalogActionsChange(applyDropMessage(actions, action.id, false))
     }
+  }
+
+  /**
+   * Story 055 D3: the drop row's ammo toggle - action-based (D1's `withDropAmmo`, through
+   * `applyDropAmmo`) instead of the old `CatalogRow`-keyed `applyAmmo` rebuild, so it also works
+   * for a `drop_` alias sitting outside the catalogue entirely.
+   *
+   * Story 055 review, finding 1: with one exception - a catalogue row whose entry has no body at
+   * all yet (`commands: []`, the shape the template seed and D6's migration leave every unbound
+   * drop row in, `migrations.ts#materialiseTemplateCategories`). D1's surgical transform has no
+   * `drop <item>` command to splice around there and would silently do nothing, so that one case
+   * goes through the row-based `applyAmmo`, which builds the row's whole body from the catalogue
+   * (`commandsForRow`) - exactly what it has always done for a still-unbound drops row. Once the
+   * entry carries a body, the surgical path takes over and the extras stay put (AC 6).
+   */
+  const handleToggleDropAmmo = (action: ConfigAction, next: boolean, row?: CatalogRow): void => {
+    if (row && action.commands.length === 0) {
+      handleCatalogActionsChange(applyAmmo(actions, action.id, row, next))
+      return
+    }
+    handleCatalogActionsChange(applyDropAmmo(actions, action.id, next))
+  }
+
+  /**
+   * Story 055 D3: the Options cell's two icon toggles for any drop entry (`isDropEntry`), replacing
+   * the two `Checkbox`es both `renderCatalogOptionsCell` and `renderPlainOptionsCell` used to build
+   * inline - one render helper for both call sites, since the toggles' state and handlers are
+   * identical either way (only the surrounding cell differs).
+   *
+   * Story 055 D5 (live-smoke fix): `row` is optional and, when given, its testids key off
+   * `row.catalogId` rather than `action.id` - same fallback `renderMessageSubRow` already uses for
+   * its own testids. A catalogue-mirror action's `id` is a fresh `randomUUID()` minted by
+   * `migrateCatalogActions` (`src/main/services/migrations.ts`) on every seed, so a flow script can
+   * never hardcode it; `catalogId` (e.g. `dropWeapon:shotgun`) is the stable, literal identifier the
+   * harness fixtures and flows actually key off.
+   */
+  const renderDropToggles = (action: ConfigAction, row?: CatalogRow) => {
+    const state = dropStateFor(action)
+    const messageOn = (state.message ?? '').trim().length > 0 || revealedMessageRows.has(action.id)
+    const testIdBase = row?.catalogId ?? action.id
+    // Story 055 review, finding 1: a catalogue drop row whose entry has no body yet has nothing for
+    // `dropStateFor` to read, so its ammo state comes from the row instead - `ammoCommand` present
+    // means the toggle is operable, and it reads as ON because that is the default a body-less row
+    // has always shown (`deriveRowState`'s decision-7 default, which the two `Checkbox`es rendered
+    // before D3). Every entry that does carry a body answers from its own commands, including
+    // `canToggleAmmo`, which keeps pressed and disabled from contradicting each other (finding 4).
+    const fromRow = row !== undefined && action.commands.length === 0
+    const rowAmmo = Boolean(row?.ammoCommand)
+    return (
+      <DropToggles
+        ammoEnabled={fromRow ? rowAmmo : state.canToggleAmmo}
+        ammoOn={fromRow ? rowAmmo : state.hasAmmo}
+        messageOn={messageOn}
+        onToggleAmmo={(next) => handleToggleDropAmmo(action, next, row)}
+        onToggleMessage={(next) => handleToggleDropMessage(action, next)}
+        ammoTestId={`drop-ammo-${testIdBase}`}
+        messageTestId={`drop-message-${testIdBase}`}
+      />
+    )
   }
 
   /** A row's own reset (AC 4/5): clears its key slots, never its `commands` and never the entry
@@ -874,18 +941,22 @@ export function ControlsTab({
   /**
    * The Options cell for a catalogue row (D6): a modifier-bound slot names its layer, a
    * conflicting row reads "also: <owner>" (D7's scan), an ordinary row reads "—"
-   * (`ControlsOptionsCell`'s own dash fallback), and - for drops - the ammo toggle sits alongside
-   * that text via `extra`.
+   * (`ControlsOptionsCell`'s own dash fallback), and - for a drop entry - the two icon toggles sit
+   * alongside that text via `extra`.
    *
-   * Review fix (findings 4/5): the message is not a `w-28` `Input` living directly in this
-   * 150px-wide column - a free-text field does not fit next to the ammo checkbox and the
-   * layer/conflict text (sprint decision).
+   * Story 055 D3: gated on `isDropEntry(action)` rather than `row.categoryId === 'drops'`, so a
+   * `drop_` alias shows the toggles wherever it sits, not only inside the Weapon-dropping category -
+   * and rendered via `renderDropToggles` (`DropToggles`, two `IconButton`s) rather than the two
+   * `Checkbox`es this used to build inline. The message toggle still only reveals the row's own
+   * full-width message row (`renderMessageSubRow`); editing the text itself still happens in
+   * `MessageEditor` from there (AC 5).
    *
-   * Story 029 D4 (AC 1/2): nor is it the icon button that replaced that field. A drops row now
-   * carries a plain "With message" `Checkbox` with the same weight as "With ammo"; checking it
-   * reveals the row's own full-width message row (`renderMessageSubRow`), and the editing itself
-   * happens in `MessageEditor` from there. So this cell holds two checkboxes and no icon button,
-   * and "is a message set" is stated in words rather than by a filled-vs-outline glyph.
+   * Story 055 review, finding 1: `|| isDropCatalogRow(row)`. `isDropEntry` needs a real
+   * `drop <item>` command in the body, and every template drop row is seeded with `commands: []`
+   * until something is assigned to it - so on a brand-new profile the gate above hid the options on
+   * all ~27 of them, a regression against the `row.categoryId === 'drops'` gate it replaced. The row
+   * knows it is a drop row from its `catalogId` alone; the two conditions together cover both "this
+   * body is a drop" and "this row is a drop row that has not been written yet".
    */
   const renderCatalogOptionsCell = (row: CatalogRow, action: ConfigAction) => {
     const state = deriveRowState(action, row)
@@ -900,68 +971,32 @@ export function ControlsTab({
       .map((slot) => findSlotConflictOwner(conflictIndex, layers, slot.key, slot.modifier, ownerName))
       .find((owner) => owner !== undefined)
     const conflict = conflictOwner ? { owner: conflictOwner } : null
-    // Review fix (finding 2): a `shrink-0` wrapper keeps the ammo/message checkboxes from being
-    // squeezed by the flex layout - only the conflict/layer text (which now truncates, see
-    // `ControlsOptionsCell.tsx`) gives up space in the Options column (150px, 200px since story
-    // 052 D8 put the move buttons in it too).
-    //
-    // Story 029 D4: the two checkboxes stack instead of sitting on one line. "With ammo" plus
-    // "With message" is ~190px of content, and the Options track was a fixed 150px with
-    // `overflow: hidden` (`controls-grid.css`) - side by side, the left checkbox would be clipped
-    // instead of the layer/conflict text truncating, which is exactly the regression AC 7 forbids.
-    // `leading-4` holds the pair at 2x16px, inside the row's fixed 40px height, so no grid
-    // geometry and no zebra parity changes for this (and a row with no ammo item still shows a
-    // single checkbox, unchanged in position). `items-start` keeps both boxes on one x.
     const extra =
-      row.categoryId === 'drops' ? (
-        <span className="flex shrink-0 flex-col items-start gap-0.5">
-          {row.ammoCommand && (
-            // Story 029 live-smoke flow (test-only, additive): a stable selector for the
-            // ui:flow harness - `Checkbox` itself takes no pass-through props, so the testid
-            // sits on a `contents` wrapper that does not affect the flex layout above.
-            <span className="contents" data-testid={`drop-ammo-${row.catalogId}`}>
-              <Checkbox
-                className="leading-4"
-                checked={state.withAmmo}
-                onChange={(next) =>
-                  handleCatalogActionsChange(applyAmmo(actions, action.id, row, next))
-                }
-                label={t('config.controls.dropBind.withAmmo')}
-              />
-            </span>
-          )}
-          <span className="contents" data-testid={`drop-message-${row.catalogId}`}>
-            <Checkbox
-              className="leading-4"
-              // AC 6: checked = the action carries a message, OR the user just checked the box and
-              // has not written one yet (`revealedMessageRows`) - same expression the sub-row's own
-              // visibility uses in `renderCatalogRow`.
-              checked={state.message.trim().length > 0 || revealedMessageRows.has(action.id)}
-              onChange={(next) => handleToggleRowMessage(row, action, next)}
-              label={t('config.controls.dropBind.withMessage')}
-            />
-          </span>
-        </span>
-      ) : undefined
+      isDropEntry(action) || isDropCatalogRow(row) ? renderDropToggles(action, row) : undefined
     return <ControlsOptionsCell layer={layer} conflict={conflict} extra={extra} />
   }
 
   /**
-   * Story 029 D4 (AC 3): the inline message row under a revealed drops row - the stored message
+   * Story 029 D4 (AC 3): the inline message row under a revealed drop row - the stored message
    * text, or a placeholder while none is set yet, plus the button into `MessageEditor`. Read-only:
    * every edit goes through that modal, so nothing here writes to the draft. Rendered through
    * `ControlsRow`'s `subRow` slot (D3), which owns the `role="row"`/`role="cell"` pair and the
    * `.ctrl-msgrow` styling.
+   *
+   * Story 055 D3: `row` is now optional - a `drop_` alias `isDropEntry` recognises outside the
+   * catalogue entirely (a plain action row) has no `CatalogRow` to key its testids/message-editor
+   * write base off, so both fall back to the action's own id (`catalogWriteBase` is simply skipped
+   * for that case, see the message editor's `onSave` below).
    */
   const renderMessageSubRow = (
-    row: CatalogRow,
+    row: CatalogRow | undefined,
     action: ConfigAction,
     label: string,
     message: string,
   ) => (
     // Story 029 live-smoke flow (test-only, additive): `contents` keeps this span out of the
     // `.ctrl-msgrow` flex layout while still giving the harness one selector for the whole row.
-    <span className="contents" data-testid={`drop-message-row-${row.catalogId}`}>
+    <span className="contents" data-testid={`drop-message-row-${row?.catalogId ?? action.id}`}>
       <span
         className={
           message ? 'min-w-0 truncate text-xs text-ink' : 'min-w-0 truncate text-xs text-ink-faint'
@@ -972,7 +1007,7 @@ export function ControlsTab({
       </span>
       <Button
         size="sm"
-        data-testid={`drop-message-edit-${row.catalogId}`}
+        data-testid={`drop-message-edit-${row?.catalogId ?? action.id}`}
         // The grid renders one of these per revealed row, so "Edit message" alone would read as a
         // wall of identical buttons - the accessible name names the row, same rule as
         // `ControlsRow`'s per-row reset button.
@@ -1024,10 +1059,14 @@ export function ControlsTab({
   const renderCatalogRow = (entry: CatalogControlsRowEntry, odd: boolean) => {
     const { row, labelKey, action } = entry
     const label = t(labelKey)
-    // Story 029 D4 (AC 3/5): only drops rows have a message at all, and the row is revealed on the
-    // same condition its checkbox is checked on - a stored message, or a box the user just ticked.
-    const isDropRow = row.categoryId === 'drops'
-    const message = isDropRow ? deriveRowState(action, row).message : ''
+    // Story 055 D3: only a drop entry has a message at all (`isDropEntry`, not
+    // `row.categoryId === 'drops'`), and the row is revealed on the same condition its message
+    // toggle is on - a stored message, or a toggle the user just turned on.
+    // Story 055 review, finding 1: the same widened gate the Options cell uses, for the same
+    // reason - a still-body-less template drop row has to be able to reveal this row, or its
+    // message toggle would press with nothing appearing under it.
+    const isDropRow = isDropEntry(action) || isDropCatalogRow(row)
+    const message = isDropRow ? (dropStateFor(action).message ?? '') : ''
     const showMessageRow =
       isDropRow && (message.trim().length > 0 || revealedMessageRows.has(action.id))
     return (
@@ -1262,10 +1301,13 @@ export function ControlsTab({
    * Review fix (finding 2): a plain action's Options cell used to be *only* the move/edit/rename/
    * remove icon buttons - unlike a catalogue row, it never showed the modifier layer name, the
    * "also: <owner>" conflict text or the plain dash. Mirrors `renderCatalogOptionsCell`'s
-   * conflict/layer lookup exactly, just keyed by the action's own key slots (slots 0 and 1 of
-   * `action.keys`) instead of `deriveRowState`'s catalogue-row read - there
-   * is no drops-only ammo/message `extra` slot here, that machinery is catalogue-only (drops rows
-   * are always catalogue rows, never plain actions).
+   * conflict/layer lookup exactly, just keyed by the action's own key slots instead of
+   * `deriveRowState`'s catalogue-row read.
+   *
+   * Story 055 D3: a plain action CAN now carry the drop `extra` too - `isDropEntry` recognises a
+   * `drop_` alias regardless of whether it is a catalogue row at all (an imported one, or one
+   * living in a custom category, is a plain `kind: 'alias'` action with no `CatalogRow`), so the old
+   * "drops rows are always catalogue rows, never plain actions" is no longer true.
    */
   const renderPlainOptionsCell = (action: ConfigAction) => {
     // Story 056: scan every real slot in order, same "first modifier wins / first conflict wins"
@@ -1277,7 +1319,8 @@ export function ControlsTab({
       .map((slot) => findSlotConflictOwner(conflictIndex, layers, slot.key, slot.modifier, action.name))
       .find((owner) => owner !== undefined)
     const conflict = conflictOwner ? { owner: conflictOwner } : null
-    return <ControlsOptionsCell layer={layer} conflict={conflict} />
+    const extra = isDropEntry(action) ? renderDropToggles(action) : undefined
+    return <ControlsOptionsCell layer={layer} conflict={conflict} extra={extra} />
   }
 
   /**
@@ -1297,6 +1340,13 @@ export function ControlsTab({
     // `message` entry gets a live, capturable slot exactly like a catalogue row (story 020
     // D6 plan-gap fix) - `renderPlainSlot`'s `applyPlainSlot` write path.
     const inertSlots = action.kind === 'alias'
+    // Story 055 D3: an imported `drop_` alias (or any other drop entry that is not a catalogue row)
+    // still gets the two toggles and, when its message toggle is on, the same inline message row a
+    // catalogue drops row shows (`renderMessageSubRow`, `row` left `undefined` here since there is
+    // no `CatalogRow` behind it).
+    const isDrop = isDropEntry(action)
+    const message = isDrop ? (dropStateFor(action).message ?? '') : ''
+    const showMessageRow = isDrop && (message.trim().length > 0 || revealedMessageRows.has(action.id))
     return (
       <ControlsRow
         key={action.id}
@@ -1317,7 +1367,13 @@ export function ControlsTab({
           // entirely (`min-w-0` + `overflow-hidden` lets it collapse below its content width);
           // conflict/layer state stays visible on the slots themselves and the header badge.
           <div className="flex w-full items-center justify-end gap-0.5">
-            {!inertSlots && (
+            {/* Story 055 D3: the cell itself now also renders for an inert (alias) row that is a
+                drop entry. A keyless action has no modifier layer and no conflict to name, so
+                `ControlsOptionsCell` falls back to its plain "—" next to the two toggles - the same
+                "no value" dash every unmodified, unconflicted row shows (review finding 9: the
+                comment that used to sit here claimed the text was suppressed entirely, which it
+                never was). */}
+            {(!inertSlots || isDrop) && (
               <div className="min-w-0 overflow-hidden">{renderPlainOptionsCell(action)}</div>
             )}
             {renderMoveButtons(action)}
@@ -1346,6 +1402,7 @@ export function ControlsTab({
             </IconButton>
           </div>
         }
+        subRow={showMessageRow ? renderMessageSubRow(undefined, action, action.name, message) : undefined}
         rowRef={(el) => {
           if (el) focusRowRefs.current.set(action.id, el)
           else focusRowRefs.current.delete(action.id)
@@ -1717,8 +1774,9 @@ export function ControlsTab({
           - channel, macro bar, symbol picker, live preview - with key capture hidden, because a
           catalogue row's key belongs to the grid's `BindSlot`s and their collision/replace flow
           (story decision; a second, collision-blind key field here would regress AC 7). The save
-          merges through `applyMessage`, which only adds/replaces/removes the row's message
-          command: the `drop <item>` and ammo raw commands are carried over untouched. */}
+          merges through the same two write paths the message toggle uses, so only the row's own
+          message command is added/replaced/removed: the `drop <item>` and ammo raw commands are
+          carried over untouched. */}
       {messageEditorAction && messageEditorRow && (
         <MessageEditor
           action={messageEditorAction}
@@ -1732,17 +1790,29 @@ export function ControlsTab({
             // gives it the `drop <item>` commands the message is meant to accompany, exactly as the
             // pre-D8 lazy `freshAction` did. Clearing the message writes nothing new: an entry with
             // no body has none of its own to keep either.
+            // Story 055 D3: no `row` at all (a drop entry outside the catalogue) already carries its
+            // own body from wherever it was created/imported - there is no catalogue row to fill in.
+            const bodyless = messageEditorAction.commands.length === 0
             const base =
-              draft.text.trim().length > 0
+              draft.text.trim().length > 0 && messageEditorRow.row
                 ? catalogWriteBase(messageEditorRow.row, messageEditorAction.id)
                 : actions
+            const channel = draft.channel as 'say' | 'say_team'
+            // Story 055 review, finding 5: an entry that already has a body is edited *surgically*
+            // (D1's `withDropMessage`, via `applyDropMessage`), which updates the message command in
+            // place. The old `applyMessage` stripped every message command and re-appended the new
+            // one at the END of the list, so saving a text on an imported `drop_tech`
+            // (`say_team ...; drop tech`) silently reordered its body - exactly what D1's
+            // "index-based surgery, not body rebuild" decision exists to prevent. Only the
+            // body-less catalogue-row case keeps the old path: its body was just minted from the
+            // catalogue by `catalogWriteBase` above, so there is no authored order to preserve and
+            // appending the message after the `drop` commands is precisely right.
             handleCatalogActionsChange(
-              applyMessage(
-                base,
-                messageEditorAction.id,
-                draft.text,
-                draft.channel as 'say' | 'say_team',
-              ),
+              bodyless && messageEditorRow.row
+                ? applyMessage(base, messageEditorAction.id, draft.text, channel)
+                : draft.text.trim().length > 0
+                  ? applyDropMessage(base, messageEditorAction.id, true, draft.text, channel)
+                  : applyDropMessage(base, messageEditorAction.id, false),
             )
             setMessageEditorRow(null)
           }}

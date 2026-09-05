@@ -1471,8 +1471,15 @@
         }
       },
       "dropBind": {
-        "withAmmo": "With ammo",
-        "withMessage": "With message",
+        "ammo": {
+          "label": "Drop ammo too",
+          "tooltip": "Also drop this item's ammo when it's dropped",
+          "tooltipDisabled": "This item has no ammo of its own to drop"
+        },
+        "message": {
+          "label": "Announce to team",
+          "tooltip": "Say the drop to your team when it happens"
+        },
         "messagePlaceholder": "No message set yet",
         "editMessage": "Edit message",
         "editMessageFor": "Edit message for {{name}}"

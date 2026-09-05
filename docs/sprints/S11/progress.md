@@ -60,3 +60,18 @@
 - 2026-09-05 21:53 · 056 · Verification (build/typecheck/test/ui:verify/ui:flow) · done, all green
 - 2026-09-05 21:53 · 056 · Review cycle 3 (final confirmation) · started
 - 2026-09-05 22:02 · 056 · Review cycle 3 (PASS) · done, status done, moved to done/
+- 2026-09-05 22:03 · 055 · D1 drop-entries.ts: recognition + transforms · started
+- 2026-09-05 22:10 · 055 · D1 drop-entries.ts: recognition + transforms · done
+- 2026-09-05 22:10 · 055 · D2 launcher drops render as drop_<slug>, round-trip pinned · started
+- 2026-09-05 22:18 · 055 · D2 launcher drops render as drop_<slug>, round-trip pinned · done
+- 2026-09-05 22:19 · 055 · D3 DropToggles component + Controls Options cell · started
+- 2026-09-05 22:28 · 055 · D3 DropToggles component + Controls Options cell · done
+- 2026-09-05 22:28 · 055 · D4 Aliases tab surface · started
+- 2026-09-05 22:32 · 055 · D4 Aliases tab surface · done
+- 2026-09-05 22:32 · 055 · D5 live smoke + screens · started
+- 2026-09-05 22:45 · 055 · D5 live smoke + screens · done
+- 2026-09-05 22:54 · 055 · Review cycle 1 (FAIL, F1-F9) · started fixes
+- 2026-09-05 23:06 · 055 · Review cycle 1 fixes (F1-F9) · done
+- 2026-09-05 23:16 · 055 · Review cycle 2 (PASS, 7 new findings) · started fixes
+- 2026-09-05 23:21 · 055 · Review cycle 2 fixes (A-D) · done
+- 2026-09-05 23:21 · 055 · Story verification (build/typecheck/test/ui:verify) · done, status done

@@ -2,6 +2,7 @@
 
 One line per finished story, appended by `/build` when it moves the file here.
 Format: `- NNN — <title> · <sprint or —> · <one-sentence result>`.
+- 055 — A `drop_` alias is a drop, with two toggles instead of two checkboxes · S11 · a shared `isDropEntry`/`dropStateFor` rule now recognises drops by name+body everywhere, launcher drops render `drop_<slug>`, and the Options cell on both Controls and Aliases shows two accessible icon toggles instead of two checkboxes.
 
 The full texts live next to this file. This index is the fast overview — do not turn it into a
 second roadmap.

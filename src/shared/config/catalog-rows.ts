@@ -26,6 +26,35 @@ import type { ConfigCommand } from '@shared/modules/config'
  * never collide. */
 export type CatalogRowKind = 'movement' | 'weaponUse' | 'weaponExtra' | 'dropWeapon' | 'dropAmmo' | 'dropMisc'
 
+/**
+ * The three `CatalogRowKind`s that make a row a *drop* row (story 055). Typed as a set of plain
+ * strings because both readers start from a `catalogId`'s first segment, which is a `string`:
+ * `alias-render.ts#isDropCatalogueEntry` (does this entry render under a `drop_` name?) and
+ * `isDropCatalogRow` below (does this row get the two drop toggles?). One set, next to the kind
+ * union it enumerates - two copies of "which kinds are drops" would drift the moment a fourth drop
+ * family is added.
+ */
+export const DROP_CATALOG_ROW_KINDS: ReadonlySet<string> = new Set([
+  'dropWeapon',
+  'dropAmmo',
+  'dropMisc',
+])
+
+/**
+ * Is this catalogue row a drop row - *regardless of what its entry's body currently says*?
+ *
+ * Story 055 review, finding 1: `drop-entries.ts#isDropEntry` needs an actual `drop <item>` command
+ * in the body, and a freshly-seeded template drop row starts with `commands: []`
+ * (`migrations.ts#materialiseTemplateCategories`), so on a brand-new profile every one of the
+ * template's drop rows would show no options at all. The row itself still knows what it is, from
+ * its `catalogId`'s kind prefix - the same signal `alias-render.ts` reads - so the Options cell
+ * gates on `isDropEntry(action) || isDropCatalogRow(row)` and gets the pre-D3 behaviour back for a
+ * row whose body has not been written yet.
+ */
+export function isDropCatalogRow(row: CatalogRow): boolean {
+  return DROP_CATALOG_ROW_KINDS.has(row.catalogId.split(':')[0] ?? '')
+}
+
 export interface CatalogRow {
   /** Stable id used to find/create the matching `ConfigAction` - never the row's label. */
   catalogId: string

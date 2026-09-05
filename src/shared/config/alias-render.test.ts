@@ -112,6 +112,142 @@ describe('derivedAliasName', () => {
   })
 })
 
+/**
+ * Story 055, D2 (AC 2): the launcher's own drop entries render as `drop_<slug>` aliases, so the one
+ * rule that recognises a hand-written `drop_rail` (`drop-entries.ts#isDropEntry`: a `drop_` name plus
+ * a `drop <item>` command) recognises a generated drop too.
+ */
+describe('derivedAliasName: the launcher`s own drops (story 055, D2)', () => {
+  /** A template Weapon-dropping row as `STANDARD_TEMPLATE` seeds it: named after its own raw
+   * command (`catalog-rows.ts#nameForCatalogRow`), in the `drops` category, with a drop row's
+   * `catalogId`. */
+  const templateDrop = (name: string, catalogId: string, commands: ConfigAction['commands']) =>
+    action({ name, categoryId: 'drops', catalogId, commands })
+
+  it('leaves a template row`s already-`drop_` name exactly where it was - no `drop_drop_`', () => {
+    const entry = templateDrop('drop rocket launcher', 'dropWeapon:rlauncher', [
+      { kind: 'raw', text: 'drop rocket launcher' },
+      { kind: 'raw', text: 'drop rockets' },
+    ])
+
+    expect(derivedAliasName(entry)).toBe('drop_rocket_launcher')
+    // The point of that branch: the name a template drop already had before this story does not
+    // move, so nothing already written to disk is renamed by the upgrade.
+    expect(derivedAliasName(entry)).toBe(derivedAliasName({ ...entry, categoryId: 'weapons' }))
+  })
+
+  it('prefixes a renamed drop entry, which used to derive a name with no `drop_` in it at all', () => {
+    const entry = templateDrop('Rail Gun', 'dropWeapon:railgun', [
+      { kind: 'raw', text: 'drop railgun' },
+      { kind: 'raw', text: 'drop slugs' },
+    ])
+
+    expect(derivedAliasName(entry)).toBe('drop_rail_gun')
+    // The old, display-name-only derivation, still what any other category gets.
+    expect(derivedAliasName({ ...entry, categoryId: 'weapons', catalogId: undefined })).toBe('rail_gun')
+  })
+
+  it('recognises a drop catalogue row the user moved into a category of their own', () => {
+    // Category alone is not the rule - a drop row carries its family in its `catalogId`, and moving
+    // it out of Weapon dropping does not stop it being a drop.
+    expect(
+      derivedAliasName(
+        action({
+          name: 'Quad Damage',
+          categoryId: 'cat-mine',
+          catalogId: 'dropMisc:quad',
+          commands: [{ kind: 'raw', text: 'drop quad damage' }],
+        }),
+      ),
+    ).toBe('drop_quad_damage')
+  })
+
+  it('also covers a drop the user created by hand in the category, with no catalogId', () => {
+    expect(
+      derivedAliasName(
+        action({
+          name: 'My combo',
+          categoryId: 'drops',
+          catalogId: undefined,
+          kind: 'alias',
+          commands: [{ kind: 'raw', text: 'drop railgun' }],
+        }),
+      ),
+    ).toBe('drop_my_combo')
+  })
+
+  it('leaves every other entry alone, drop-looking body or not', () => {
+    expect(derivedAliasName(action({ name: 'Rail Gun', categoryId: 'weapons' }))).toBe('rail_gun')
+    expect(
+      derivedAliasName(
+        action({
+          name: 'Drop everything',
+          categoryId: 'cat-mine',
+          kind: 'alias',
+          commands: [{ kind: 'raw', text: 'drop railgun' }],
+        }),
+      ),
+    ).toBe('drop_everything')
+  })
+
+  it('keeps `drop_` + slug inside the same 26-character derived-name budget', () => {
+    const name = derivedAliasName(
+      templateDrop('A Really Very Long Action Name', 'dropWeapon:rlauncher', []),
+    )
+
+    expect(name).toBe('drop_a_really_very_long_ac')
+    expect(name.length).toBeLessThanOrEqual(26)
+    // ... which still leaves the `_p<n>` chunk suffix and a sign slot inside the engine's usable 31.
+    expect(name.length).toBeLessThanOrEqual(USABLE_ALIAS_NAME - '_p9'.length - 1)
+  })
+
+  it('does not prefix a signed `kind: alias` entry - the sign is the engine`s press/release idiom', () => {
+    expect(
+      derivedAliasName(
+        action({ name: '+slow', kind: 'alias', categoryId: 'drops', commands: [] }),
+      ),
+    ).toBe('+slow')
+  })
+
+  /**
+   * Story 039's contract, restated for this branch: an explicit `aliasName` wins verbatim. This is
+   * what keeps an imported `drop_rail` (and `dall`, AC 7) under its own name - the importer records
+   * every alias line's own name in `aliasName` (`alias-import.ts`), so no foreign alias is ever
+   * renamed by the rule above.
+   */
+  it('never overrides an explicit aliasName, in either direction', () => {
+    expect(
+      aliasNameFor(action({ name: 'Rail Gun', categoryId: 'drops', aliasName: 'rail' })),
+    ).toBe('rail')
+    expect(
+      aliasNameFor(
+        action({
+          name: 'dall',
+          kind: 'alias',
+          categoryId: 'drops',
+          aliasName: 'dall',
+          commands: [{ kind: 'raw', text: 'drop railgun' }],
+        }),
+      ),
+    ).toBe('dall')
+  })
+
+  it('renders the whole line under the new name', () => {
+    const { aliases } = renderActionAlias(
+      templateDrop('Rail Gun', 'dropWeapon:railgun', [
+        { kind: 'raw', text: 'drop railgun' },
+        { kind: 'raw', text: 'drop slugs' },
+        { kind: 'message', channel: 'say_team', text: 'dropped rail' },
+      ]),
+    )
+
+    expect(aliases).toHaveLength(1)
+    expect(aliases[0]!.line).toBe(
+      'alias drop_rail_gun "drop railgun; drop slugs; say_team dropped rail"',
+    )
+  })
+})
+
 describe('renderActionAlias', () => {
   it('renders a single-command action unquoted', () => {
     const { aliases } = renderActionAlias(action({ name: 'Drop RL', id: 'ab12cd34' }))

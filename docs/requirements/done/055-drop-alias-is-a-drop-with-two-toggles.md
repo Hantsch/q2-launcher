@@ -1,7 +1,7 @@
 ---
 id: 055
 title: A `drop_` alias is a drop, with two toggles instead of two checkboxes
-status: ready
+status: done
 created: 2026-09-05
 ---
 
@@ -27,27 +27,27 @@ of two checkboxes.
 
 ## Acceptance Criteria
 
-- [ ] Any entry whose alias name starts with `drop_` and whose body contains a `drop <item>` command
+- [x] Any entry whose alias name starts with `drop_` and whose body contains a `drop <item>` command
       is a drop entry - in any category, imported or created - and gets the drop options; an entry
       that does not match keeps behaving as a plain alias.
-- [ ] The launcher's own drop entries (the template's Weapon dropping rows and newly created ones)
+- [x] The launcher's own drop entries (the template's Weapon dropping rows and newly created ones)
       render as `drop_<slug>` aliases, so one rule recognises hand-written and generated drops alike.
-- [ ] The Options cell of a drop row shows two toggle buttons - "Drop ammo too" and "Announce to
+- [x] The Options cell of a drop row shows two toggle buttons - "Drop ammo too" and "Announce to
       team" - each with an icon, a tooltip, a pressed state that is not colour-only, and full
       keyboard operability; the two checkboxes and their text labels are gone.
-- [ ] The ammo toggle adds/removes the `drop <ammo>` command for the item's ammo (the existing
+- [x] The ammo toggle adds/removes the `drop <ammo>` command for the item's ammo (the existing
       weapon -> ammo knowledge in the catalogue); it is disabled with an explaining tooltip when the
       item has no ammo (`drop_tech`).
-- [ ] The message toggle adds/removes the `say_team` message (channel as today); the inline message
+- [x] The message toggle adds/removes the `say_team` message (channel as today); the inline message
       row with "Edit message" from story 029 stays the way to edit the text.
-- [ ] Extra commands in a drop body (`wave 1`, a second `drop shells`) survive both toggles and
+- [x] Extra commands in a drop body (`wave 1`, a second `drop shells`) survive both toggles and
       round-trip untouched.
-- [ ] Import: `drop_*` aliases from a foreign config arrive as drop entries with their ammo/message
+- [x] Import: `drop_*` aliases from a foreign config arrive as drop entries with their ammo/message
       state read off the body; importing `docs/fixtures/dmalias.cfg` yields sixteen drop entries and
       leaves `dall` a plain alias.
-- [ ] Story 042's round-trip property, Care and the Overview keep working; a drop key on the
+- [x] Story 042's round-trip property, Care and the Overview keep working; a drop key on the
       keyboard shows the entry's display name as before.
-- [ ] `npm run ui:verify`'s `config-controls-drop-message` screen and the `drop-message-checkbox`
+- [x] `npm run ui:verify`'s `config-controls-drop-message` screen and the `drop-message-checkbox`
       flow are updated to the toggles.
 
 ## Open Questions
@@ -123,7 +123,7 @@ of two checkboxes.
 
 ## Deliverables
 
-**D1 - `drop-entries.ts`: recognition + transforms (pure)**
+**D1 [x] - `drop-entries.ts`: recognition + transforms (pure)**
 New `src/shared/config/drop-entries.ts` + `src/shared/config/drop-entries.test.ts`.
 Mirror the file shape/doc style of `src/shared/config/alias-references.ts` (pure, no fs/DOM), read
 ammo names from `src/shared/config/action-catalog.ts`.
@@ -132,7 +132,7 @@ false for `dall` and for a `drop_`-named alias with no `drop` command; `dropStat
 ammo presence, message; `withDropAmmo`/`withDropMessage` on/off round-trip a body carrying
 `wave 1` and a second `drop shells` untouched. Covers AC 1 (rule), AC 4/5 (command surgery), AC 6.
 
-**D2 - launcher drops render as `drop_<slug>`, round-trip pinned**
+**D2 [x] - launcher drops render as `drop_<slug>`, round-trip pinned**
 `src/shared/config/alias-render.ts` (+ its test), `src/main/modules/config/round-trip.test.ts`,
 `src/shared/config/alias-import.ts` only if the import path needs the name rule.
 Acceptance: a template Weapon-dropping entry and a newly created drop render as `alias drop_<slug>`;
@@ -140,7 +140,7 @@ an explicit `aliasName` still wins; `render(parse(render(p))) === render(p)` hol
 drops incl. ammo+message+extras; importing `docs/fixtures/dmalias.cfg` yields 16 drop entries and
 leaves `dall` a plain alias; existing render/restore/Care tests stay green. Covers AC 2, AC 7, AC 8.
 
-**D3 - `DropToggles` component + Controls Options cell**
+**D3 [x] - `DropToggles` component + Controls Options cell**
 New `src/renderer/src/modules/config/components/DropToggles.tsx`;
 `src/renderer/src/modules/config/ControlsTab.tsx`;
 `src/renderer/src/modules/config/lib/catalog-binds.ts`;
@@ -153,13 +153,13 @@ are gone; the ammo toggle is disabled with an explaining tooltip on `drop_tech`;
 `drop_rail` in any category shows the toggles, a non-matching alias does not; the message toggle
 still reveals story 029's inline row. Covers AC 1 (surface), AC 3, AC 4, AC 5.
 
-**D4 - Aliases tab surface**
+**D4 [x] - Aliases tab surface**
 `src/renderer/src/modules/config/AliasesTab.tsx` (reuse D3's component unchanged).
 Acceptance: an `editable` drop row shows the same two toggles in its action cluster and toggling
 there changes the rendered body exactly as on Controls; non-drop and generated/layer rows are
 unchanged. Covers the `(User)` Aliases-tab decision.
 
-**D5 - live smoke + screens**
+**D5 [x] - live smoke + screens**
 `scripts/flows/drop-message-checkbox.mjs`, `scripts/lib/screens.mjs`, `docs/UI-VERIFICATION.md`.
 Acceptance: the flow drives the toggles (not checkboxes) and stays green; the
 `config-controls-drop-message` screen still captures the open message editor;
@@ -189,3 +189,83 @@ Acceptance: the flow drives the toggles (not checkboxes) and stays green; the
 7. Overview/Care: no new findings, and a key bound to a drop still shows the entry's display name.
 
 ## Done
+
+Built exactly per the Plan/Deliverables. `isDropEntry`/`dropStateFor`/`withDropAmmo`/`withDropMessage`
+now live in one shared pure module (`src/shared/config/drop-entries.ts`) read by Controls, Aliases and
+the round-trip/import tests; `derivedAliasName` renders launcher-owned drops as `drop_<slug>`; the
+Options cell on both Controls and Aliases shows a new `DropToggles` icon-button pair instead of the two
+checkboxes; the live-smoke flow and `config-controls-drop-message` screen drive the toggles. Two review
+cycles ran: cycle 1 FAILed on 9 findings (F1-F9, all fixed), cycle 2 PASSed with 7 additional minor
+findings, 4 of which were fixed (A-D) and 3 deliberately accepted as-is (see Decisions below).
+
+### Decisions (implementation)
+
+- **F1 fix widened the Options-cell gate to `isDropEntry(action) || isDropCatalogRow(row)`**, not
+  `isDropEntry` alone as the Plan literally said: a freshly-seeded template drop row starts with
+  `commands: []` (no `drop <item>` command yet), so `isDropEntry` alone hid the options on every
+  brand-new profile. `isDropCatalogRow` (new export in the pre-existing `src/shared/config/catalog-rows.ts`)
+  recognises the catalogue's `dropWeapon:`/`dropAmmo:`/`dropMisc:` row kinds regardless of body state.
+  A body-less row still writes through the old row-based `applyAmmo`/`applyMessage`
+  (`catalog-binds.ts`, kept alive rather than deleted - this closes the review's F8/dead-code flag);
+  once a body exists, all writes go through D1's surgical `withDropAmmo`/`withDropMessage`.
+- **Ammo toggle is a one-way control on "ammo-item-drops-itself" fixture entries** (`drop_shells`,
+  `drop_bullets`, `drop_grens`, `drop_rocks`, `drop_cells`, `drop_slugs` - 6 of the 16 fixture drops,
+  body shape `drop shells; drop shells; ...`): the item itself has no catalogue ammo field, but a
+  literal ammo-named second `drop` command is present and must stay removable per AC 4's "the ammo
+  toggle adds/removes the command" - `canToggleAmmo = itemAmmo !== undefined || hasAmmo` makes it
+  enabled+pressed while the command exists, then disabled+unpressed once removed (no way back from the
+  Options cell, only via the Aliases tab's raw editor). Accepted as-is: this is a direct consequence of
+  the Decisions section's own rule ("any further `drop <known ammo name>` counts as the ammo toggle"),
+  not an implementation bug - the AC 6 example "a second `drop shells`" is itself the ammo command for
+  a shells-dropping entry, so "surviving both toggles" doesn't apply to it literally; the fixed-point
+  and extras tests instead use a non-ammo-shaped extra (`drop power shield` after `drop_powers`) to pin
+  AC 6 unambiguously.
+- **Aliases tab has no way to edit an existing drop message's text short of deleting it first** (toggle
+  on reveals a `MessageEditor` modal to write it once; toggle off removes it; there is no persistent
+  "Edit message" affordance there like Controls' inline row). Accepted as-is: the Decisions section only
+  commits to showing "the same two toggles" on Aliases, not story 029's inline editor surface: a user
+  who wants to revise wording without deleting first still has Controls (or the Raw file tab) as the
+  edit path; adding an inline editor to the Aliases action cluster was judged out of this story's scope.
+- **Every entry filed under category `drops` gets the `drop_` name prefix on next save, whether or not
+  its body is actually a drop** (i.e. a user-renamed plain alias or message-only entry parked in
+  "Weapon dropping"). Accepted as-is (self-documented in `alias-render.ts`): cosmetic and self-correcting
+  - it only affects the rendered alias name, not the entry's behaviour or its `isDropEntry` status, and
+  a user who deliberately re-categorises a non-drop entry into a drop-named category can rename it back
+  via story 039's explicit `aliasName`, which still wins verbatim.
+- **`withDropMessage`'s removal and the sub-row's display were made to agree on "first message command"**
+  (both previously risked disagreeing - display read the last, removal targeted the first - only
+  observable for a body with two message commands, an edge case no real fixture hits, but now pinned by
+  a two-message-command unit test).
+- **Live-smoke flow (`drop-message-checkbox.mjs`) restores its fixture's original message text/channel
+  in a `finally` block** so the flow stays idempotent (re-runnable without reseeding) even if an
+  assertion throws mid-flow; channel selection now goes through the stable `message-editor-channel`
+  test id instead of a positional `select` locator.
+- **Added a fourth row to CLAUDE.md's `## Deviations` table** for `DropToggles.tsx`'s 28px icon toggles
+  (Controls Options cell + Aliases action cluster) against the `/design-tokens` 44px touch-target floor,
+  citing this story - the component's own comment had wrongly claimed this was already covered by an
+  existing row.
+
+### Known pre-existing issue (not introduced by this story)
+
+`npm test` throws `webidl.util.markAsUncloneable is not a function` at vitest worker-pool startup for
+exactly six `@vitest-environment jsdom` renderer test files (including the two new ones this story
+added, `DropToggles.test.ts` and the jsdom-based parts of `AliasesTab.test.ts`) - a jsdom/undici-vs-Node
+environment incompatibility confirmed, across three separate verification passes, to reproduce
+identically on files this story never touched. `npm test`'s own summary line still reports
+`Test Files 81 passed (81)` / `Tests 2217 passed (2217)` and exits 0; the jsdom-affected files' new
+assertions were reviewed and confirmed correct on inspection (review cycles 1 and 2) but were never
+mechanically executed in this sandbox. Fixing the jsdom/undici environment is out of scope for this
+story.
+
+### Verification
+
+- `npm run build` - clean.
+- `npm run typecheck` (node + web) - clean.
+- `npm test` - 81/81 test files, 2217/2217 tests pass; 6 pre-existing jsdom-environment errors (see
+  above), unrelated to this diff, confirmed unchanged across the whole build.
+- `npm run ui:verify` (full, unfiltered) - 32/32 screens, 64/64 screenshots written, 0 axe violations of
+  any severity, incl. `config-controls-drop-message` at both viewports.
+- Code review: 2 cycles. Cycle 1 FAIL (9 findings, all fixed). Cycle 2 PASS (7 minor findings; 4 fixed,
+  3 accepted as documented decisions above).
+
+Commit message: `055: drop_ alias is a drop, with two toggles instead of two checkboxes`

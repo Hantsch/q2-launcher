@@ -5,6 +5,8 @@ import type { ConfigAction } from '@shared/modules/config'
 import {
   appendKeySlot,
   applyAmmo,
+  applyDropAmmo,
+  applyDropMessage,
   applyMessage,
   applySlot,
   buildDropGroups,
@@ -214,6 +216,24 @@ describe('deriveRowState', () => {
     const state = deriveRowState(action, row)
     expect(state.message).toBe('GG')
     expect(state.messageChannel).toBe('say')
+  })
+
+  // Story 055 review, finding 2: displays the FIRST message command, matching
+  // `@shared/config/drop-entries#withDropMessage`'s removal (its `dropStateFor` locks onto the first
+  // `say`/`say_team` command it sees) - so a body with two message commands never shows text here
+  // that turning the message toggle off then fails to delete.
+  it('shows the FIRST message when the body carries two', () => {
+    const action = catalogAction(row, {
+      commands: [
+        { kind: 'raw', text: '+forward' },
+        { kind: 'message', channel: 'say_team', text: 'first' },
+        { kind: 'message', channel: 'say', text: 'second' },
+      ],
+    })
+
+    const state = deriveRowState(action, row)
+    expect(state.message).toBe('first')
+    expect(state.messageChannel).toBe('say_team')
   })
 })
 
@@ -586,6 +606,85 @@ describe('applyMessage', () => {
     const before = bodied()
 
     expect(applyMessage(before, 'missing', 'HELP')).toEqual(before)
+  })
+})
+
+describe('applyDropAmmo', () => {
+  const row = buildDropGroups().weapon.find((r) => r.catalogId === 'dropWeapon:rlauncher')!
+  const id = `entry-${row.catalogId}`
+
+  it('adds the ammo command right after the item command, and removes it again, via D1\'s withDropAmmo', () => {
+    let actions = withCatalogBody([catalogAction(row, { name: 'drop_rail' })], id, row)
+    // `withCatalogBody(row, true)` already writes the ammo command (decision 7's default-on) -
+    // start from off so "turn on" has something to prove.
+    actions = applyDropAmmo(actions, id, false)
+    expect(findAction(actions, row)!.commands).toEqual([{ kind: 'raw', text: 'drop rocket launcher' }])
+
+    actions = applyDropAmmo(actions, id, true)
+    expect(findAction(actions, row)!.commands).toEqual([
+      { kind: 'raw', text: 'drop rocket launcher' },
+      { kind: 'raw', text: 'drop rockets' },
+    ])
+  })
+
+  it('leaves an unrelated extra command (`wave 1`) in place across both directions', () => {
+    const withExtra = catalogAction(row, {
+      name: 'drop_rail',
+      commands: [
+        { kind: 'raw', text: 'drop rocket launcher' },
+        { kind: 'raw', text: 'drop rockets' },
+        { kind: 'raw', text: 'wave 1' },
+      ],
+    })
+    let actions = applyDropAmmo([withExtra], id, false)
+    expect(findAction(actions, row)!.commands).toEqual([
+      { kind: 'raw', text: 'drop rocket launcher' },
+      { kind: 'raw', text: 'wave 1' },
+    ])
+
+    actions = applyDropAmmo(actions, id, true)
+    expect(findAction(actions, row)!.commands).toEqual([
+      { kind: 'raw', text: 'drop rocket launcher' },
+      { kind: 'raw', text: 'drop rockets' },
+      { kind: 'raw', text: 'wave 1' },
+    ])
+  })
+
+  it('is a no-op for an id the array does not have', () => {
+    const before = [catalogAction(row, { name: 'drop_rail' })]
+    expect(applyDropAmmo(before, 'missing', true)).toEqual(before)
+  })
+})
+
+describe('applyDropMessage', () => {
+  const row = buildDropGroups().weapon.find((r) => r.catalogId === 'dropWeapon:rlauncher')!
+  const id = `entry-${row.catalogId}`
+  const bodied = (): ConfigAction[] =>
+    withCatalogBody([catalogAction(row, { name: 'drop_rail' })], id, row)
+
+  it('adds a message command and removes it again, via D1\'s withDropMessage', () => {
+    let actions = applyDropMessage(bodied(), id, true, 'HELP', 'say')
+    expect(findAction(actions, row)!.commands).toEqual([
+      { kind: 'raw', text: 'drop rocket launcher' },
+      { kind: 'raw', text: 'drop rockets' },
+      { kind: 'message', channel: 'say', text: 'HELP' },
+    ])
+
+    actions = applyDropMessage(actions, id, false)
+    expect(findAction(actions, row)!.commands).toEqual([
+      { kind: 'raw', text: 'drop rocket launcher' },
+      { kind: 'raw', text: 'drop rockets' },
+    ])
+  })
+
+  it('is a no-op turning off an entry with no message', () => {
+    const before = bodied()
+    expect(applyDropMessage(before, id, false)).toEqual(before)
+  })
+
+  it('is a no-op for an id the array does not have', () => {
+    const before = bodied()
+    expect(applyDropMessage(before, 'missing', true, 'HELP')).toEqual(before)
   })
 })
 
