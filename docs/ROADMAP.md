@@ -436,6 +436,56 @@ rewrites or refuses (039), change detection and write cadence under an authorita
 and whether `alias cali "bind KP_END ...; ..."`-style key-block aliases are recognised as layers
 (041).
 
+## Config, round three — the editor reflects the file
+
+Filed 2026-09-05 out of hands-on feedback on the S10 build; cut into `docs/sprints/S11`–`S13`
+(**planned, not built**). The theme: round two made the file honest, readable and authoritative —
+the surfaces around it still behave as if the launcher owned the structure. The Controls tab is a
+catalogue with the profile laid over it (three constant categories, every catalogue row rendered
+whether the profile has it or not, only free-form rows movable, no drag and drop anywhere); the
+file opens with a technical header (an id, `[q2l v=1]`, the same sentence twice); the Raw file tab
+gives the actual file a 256px box under two paragraphs of options and one card per installation;
+Care renders six sections of empty states on a healthy profile; Settings hides every cvar the
+catalogue does not know; and a `drop_` alias — the one idiom every drop in a real config uses — is
+not recognised as a drop.
+
+Nine stories, one per complaint:
+
+- **051** — the file header is a small banner: profile name, a frame, one compact machine tag; no
+  id in prose, no duplicated sentence. Constraint: ownership, rebuild-from-file (`canonical.ts`,
+  `rebuild.ts`, `writer.ts`) and the round-trip property keep working.
+- **052** — Controls shows the profile's categories and rows only; the built-in three become a
+  template that seeds a new profile; every category can be renamed, reordered and deleted; the
+  catalogue becomes a suggestion source inside "Add action". Decision to take: how an unbound
+  template row lives in the file — the file is the source of truth, so a row that exists only in
+  `state.json` vanishes on the first reload.
+- **053** — sub-categories are real (two levels), come from the file, go back to the file, and
+  replace the catalogue-derived group headers in Controls.
+- **054** — drag and drop for everything that has an order (rows, sub-categories, categories,
+  Settings sections and cvars), keyboard path kept; the renderer's first DnD dependency.
+- **055** — a `drop_` alias is a drop wherever it lives (name pattern plus body shape, as in
+  `docs/fixtures/dmalias.cfg`); the launcher's own drops render as `drop_<slug>`; the two checkboxes
+  become two icon toggle buttons with tooltips.
+- **056** — the N-slot editing surface story 050 deferred: one Key column, extra keys as indented
+  sub-rows under the primary row, collapsible beyond one extra key, "add key" on the row.
+- **057** — Raw file is an editor first: the code view fills the tab, options become a toolbar,
+  installation copies are one line each (or move to Care), and the text is editable inline with
+  Save going through the existing conflict guard and adopt path. Constraint from 046: no runtime
+  `<style>` injection under the production CSP.
+- **058** — Care is a to-do list: one "All clear" block when there is nothing to do, one row per
+  item otherwise, preserved lines shown once, in-sync files folded into a count, the
+  installation-wide cleanup moved out of the profile's tab.
+- **059** — Settings mirrors the file's cvar sections; every cvar in the profile has a row
+  (non-catalogue ones as plain name/value rows); sections are user-owned like categories.
+
+Sprint cut: **S11** 052 → 053 → 056 → 055 (Controls reflects the file's structure), **S12** 051 →
+059 → 057 (the file is the hero), **S13** 054 → 058 (order by hand, Care gets out of the way). The
+carry-over rule for `render.ts` / `profile-restore.ts` / `alias-render.ts`-adjacent code applies to
+051, 052, 053, 055 and 059 — five of the nine change what a rendered file contains, which is why
+they are spread over three sprints rather than two. Deliberately not in this milestone: 032 (blocked
+on the downloads module), any engine beyond r1q2/Q2PRO/vanilla, and the `alias cali "bind …"`
+key-block-as-layer question story 041 left open.
+
 ### Mods — game directories
 
 - `+set game <dir>` is already built and validated (single ASCII token). The rest
