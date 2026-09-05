@@ -21,7 +21,7 @@ is a drop wherever it lives — with two icon toggles instead of two checkboxes.
 
 - [x] 052 — Controls shows my categories, the template only seeds them
 - [x] 053 — Sub-categories come from the file, and Controls shows them
-- [ ] 056 — Extra keys group under the primary row
+- [x] 056 — Extra keys group under the primary row
 - [ ] 055 — A `drop_` alias is a drop, with two toggles instead of two checkboxes
 
 ## Notes

@@ -144,22 +144,22 @@ describe('editing a catalogue-backed row, as ControlsTab drives it', () => {
 
     // 1. Primary bind: the assignment materialises the row's catalogue body, so the key runs
     //    something rather than pointing at an empty alias.
-    actions = applySlot(withCatalogBody(actions, id, rowInfo.row), id, 'primary', 'f')
+    actions = applySlot(withCatalogBody(actions, id, rowInfo.row), id, 0, 'f')
     expect(rowOf(actions)!.commands).toEqual([
       { kind: 'raw', text: 'drop rocket launcher' },
       { kind: 'raw', text: 'drop rockets' },
     ])
     expect(deriveRowState(rowOf(actions)!, rowInfo.row)).toMatchObject({
-      primary: 'f',
+      keys: [{ key: 'f' }],
       withAmmo: true,
     })
 
-    // 2. Secondary bind, with a modifier.
-    actions = applySlot(withCatalogBody(actions, id, rowInfo.row), id, 'secondary', 'r', 'ALT')
-    expect(deriveRowState(rowOf(actions)!, rowInfo.row)).toMatchObject({
-      secondary: 'r',
-      secondaryModifier: 'ALT',
-    })
+    // 2. A second key, with a modifier.
+    actions = applySlot(withCatalogBody(actions, id, rowInfo.row), id, 1, 'r', 'ALT')
+    expect(deriveRowState(rowOf(actions)!, rowInfo.row).keys).toEqual([
+      { key: 'f' },
+      { key: 'r', modifier: 'ALT' },
+    ])
 
     // 3. "With ammo" off.
     actions = applyAmmo(actions, id, rowInfo.row, false)
@@ -171,32 +171,26 @@ describe('editing a catalogue-backed row, as ControlsTab drives it', () => {
       message: 'rockets!',
       messageChannel: 'say_team',
       withAmmo: false,
-      primary: 'f',
+      keys: [{ key: 'f' }, { key: 'r', modifier: 'ALT' }],
     })
 
     // 5. "With message" off again: the message goes, the drop command and the binds stay.
     actions = applyMessage(actions, id, '')
     expect(rowOf(actions)!.commands).toEqual([{ kind: 'raw', text: 'drop rocket launcher' }])
 
-    // 6. Row reset: both slots cleared. Before D8 this pruned the entry - which would now delete
+    // 6. Row reset: every slot cleared. Before D8 this pruned the entry - which would now delete
     //    the row from the grid (AC 3: a row is an entry, and the profile still has this entry).
-    actions = applySlot(applySlot(actions, id, 'primary', undefined), id, 'secondary', undefined)
+    //    Story 056: a clear removes its slot and promotes the rest, so a reset clears slot 0 as
+    //    many times as the row has keys - clearing 0 then 1 would leave the promoted key behind.
+    actions = applySlot(applySlot(actions, id, 0, undefined), id, 0, undefined)
     const row = rowOf(actions)
     expect(row).toBeDefined()
-    expect(deriveRowState(row!, rowInfo.row)).toMatchObject({
-      primary: undefined,
-      secondary: undefined,
-    })
+    expect(deriveRowState(row!, rowInfo.row).keys).toEqual([])
     expect(buildControlsRowEntries('drops', actions)).toHaveLength(2)
   })
 
   it('leaves a free-form neighbour in the same category untouched throughout', () => {
-    const actions = applySlot(
-      withCatalogBody(seedProfile(), id, rowInfo.row),
-      id,
-      'primary',
-      'f',
-    )
+    const actions = applySlot(withCatalogBody(seedProfile(), id, rowInfo.row), id, 0, 'f')
 
     expect(actions.find((entry) => entry.id === 'other')).toEqual(
       seedProfile().find((entry) => entry.id === 'other'),

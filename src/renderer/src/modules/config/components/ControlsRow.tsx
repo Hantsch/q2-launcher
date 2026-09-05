@@ -43,10 +43,20 @@ export interface ControlsRowProps {
   /** Resets this row's binds - a catalogue row's key slots (+ its own ammo/message, caller's
    * call), or a plain action's own key slots (`action.keys`, keys and modifiers alike). */
   onReset: () => void
-  /** Opaque slot content - `ControlsTab` wires the existing `BindSlot` into these today; D5
-   * rewrites what fills them without this component changing. */
-  primarySlot: ReactNode
-  secondarySlot: ReactNode
+  /** Story 056 D2: the one Key column's content, replacing the old `primarySlot`/`secondarySlot`
+   * pair now that the grid has a single Key column - `ControlsTab` (D3) wires the slot-0
+   * `BindSlot` plus the "+n" fold chevron or `+` add-key button into this. Opaque `ReactNode`,
+   * same spirit as the slot props it replaces. */
+  keyCell: ReactNode
+  /** Story 056 D2: the row's further keys, rendered as full-width indented sub-row(s) below the
+   * prompt-host row and above the `subRow` message row (see this component's render order).
+   * Optional - absent means no extra keys and nothing extra renders, the same "no prop = no
+   * extra DOM" discipline `subRow` already follows. Opaque content supplied by `ControlsTab`
+   * (D3): 0-N `.ctrl-keysub-row` elements plus, conditionally, the add-key button. If it renders
+   * more than one sub-row itself, each of *those* sub-rows is responsible for stamping its own
+   * `data-row-id` - this component only stamps the single wrapper it renders around
+   * `extraKeyRows` as a whole. */
+  extraKeyRows?: ReactNode
   /** Opaque Options-column content - `ControlsOptionsCell` for a catalogue row (D6), or the
    * move/edit/rename/remove icon buttons for a plain action row. */
   optionsCell: ReactNode
@@ -71,6 +81,11 @@ export interface ControlsRowProps {
    * mirrors `AliasRow`'s identical `rowRef` in `AliasesTab.tsx`. Optional and normally unset;
    * `ControlsTab` only ever wires it for rows that carry a real `ConfigAction`. */
   rowRef?: (el: HTMLDivElement | null) => void
+  /** Story 056 D2: this row's stable identity, stamped as `data-row-id` on every element of the
+   * row (`.ctrl-row`, the prompt-host row, the `extraKeyRows` wrapper, the `subRow` message row) -
+   * preparation for story 054's drag-and-drop, which needs one stable unit per row to grab.
+   * Required: every row has an identity now, unlike the previously-optional `rowRef`. */
+  rowId: string
 }
 
 export function ControlsRow({
@@ -78,13 +93,14 @@ export function ControlsRow({
   command,
   resetLabel,
   onReset,
-  primarySlot,
-  secondarySlot,
+  keyCell,
+  extraKeyRows,
   optionsCell,
   odd,
   edited,
   subRow,
   rowRef,
+  rowId,
 }: ControlsRowProps) {
   const { t } = useTranslation()
   // A callback ref in state, not a `useRef`: the slots need to re-render once the host element
@@ -101,6 +117,7 @@ export function ControlsRow({
         className={rowClassName}
         role="row"
         ref={rowRef}
+        data-row-id={rowId}
         // Story 044 D6: not part of the Tab order - only ever focused programmatically by the
         // deep-link effect in `ControlsTab.tsx`, which still gets the app-wide `:focus-visible`
         // amber ring for free (`styles/index.css`).
@@ -128,8 +145,9 @@ export function ControlsRow({
             <RotateCcw className="size-3.5" />
           </button>
         </span>
-        <span role="cell">{primarySlot}</span>
-        <span role="cell">{secondarySlot}</span>
+        <span className="ctrl-keycell" role="cell">
+          {keyCell}
+        </span>
         <span className="ctrl-opts" role="cell">
           {optionsCell}
         </span>
@@ -141,9 +159,23 @@ export function ControlsRow({
           target (`ctrl-subrow-host`, still keyed off `:empty` for the collapse-to-nothing CSS) is
           the row's one `role="cell"` child, so an expanded collision banner reads as a legitimate
           row instead of stray content inside a table. */}
-      <div className="ctrl-subrow-host-row" role="row">
+      <div className="ctrl-subrow-host-row" role="row" data-row-id={rowId}>
         <div className="ctrl-subrow-host" role="cell" ref={setPromptHost} />
       </div>
+
+      {/* Story 056 D2: the row's extra keys, rendered as a full-width wrapper below the prompt-
+          host row and above the `subRow` message row (so a blocked-capture banner on the primary
+          slot still appears directly under the main row, and message ordering stays: main row ->
+          prompt host -> extra keys -> message row). Rendered only when `extraKeyRows` is passed -
+          same "no prop = no extra DOM" discipline `subRow` already follows. `extraKeyRows` itself
+          is opaque content (D3 supplies 0-N `.ctrl-keysub-row` elements plus, conditionally, the
+          add-key button) - if it renders more than one sub-row, each of those sub-rows is
+          responsible for its own `data-row-id`; this wrapper only stamps the one it owns. */}
+      {extraKeyRows && (
+        <div className="ctrl-keysub-container" data-row-id={rowId}>
+          {extraKeyRows}
+        </div>
+      )}
 
       {/* Story 029 D3: the generic sub-row slot. Rendered only when `subRow` is passed - no
           always-present wrapper here, unlike the prompt host above (which needs a permanent
@@ -154,7 +186,7 @@ export function ControlsRow({
           zebra class, for the same reason the prompt host doesn't carry one: this is an expansion
           of one row, not a row of its own in the `odd` parity. */}
       {subRow && (
-        <div className="ctrl-msgrow-row" role="row">
+        <div className="ctrl-msgrow-row" role="row" data-row-id={rowId}>
           <div className="ctrl-msgrow" role="cell">
             {subRow}
           </div>

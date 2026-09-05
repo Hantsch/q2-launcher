@@ -197,6 +197,43 @@ export const SCREENS = [
     navigate: configDetail('controls'),
   },
   {
+    id: 'config-controls-extra-keys-folded',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 056 D5: the fixture's own three-key "Multi Bind" action
+    // (scripts/lib/fixture.mjs's `fixture-action-multibind`, keys G/H/J, `categoryId: 'movement'`
+    // - the rail's default first category, so no chip click is needed) in its default fold state.
+    // `expandedKeyRows` never contains this action's id on a fresh load, so nothing needs
+    // clicking - just wait for the row and its "+2" chevron (`.ctrl-keymore`, `ControlsTab.tsx`'s
+    // `renderKeyCell`) to actually be visible before shooting, ruling out a race against the
+    // initial render rather than clicking-and-hoping.
+    navigate: async (page) => {
+      await configDetail('controls')(page)
+      const row = page.locator('.ctrl-row[data-row-id="fixture-action-multibind"]')
+      await row.waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await row.locator('.ctrl-keymore').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await row.scrollIntoViewIfNeeded()
+    },
+  },
+  {
+    id: 'config-controls-extra-keys-unfolded',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 056 D5: same row as `config-controls-extra-keys-folded` above, but with its chevron
+    // clicked to expand the group - waits for both `.ctrl-keysub-row` sub-rows (keys H and J, plus
+    // the trailing add-key sub-row) to be visible before shooting.
+    navigate: async (page) => {
+      await configDetail('controls')(page)
+      const row = page.locator('.ctrl-row[data-row-id="fixture-action-multibind"]')
+      await row.waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await row.locator('.ctrl-keymore').click({ timeout: CLICK_TIMEOUT_MS })
+      const subRows = page.locator('.ctrl-keysub-row[data-row-id="fixture-action-multibind"]')
+      await subRows.nth(0).waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await subRows.nth(1).waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await row.scrollIntoViewIfNeeded()
+    },
+  },
+  {
     id: 'config-aliases',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,

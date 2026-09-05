@@ -242,6 +242,28 @@ function populatedConfigProfiles() {
         kind: 'message',
         commands: [{ kind: 'message', channel: 'say_team', text: 'Need ammo $r' }],
       },
+      // 6. Story 056 D5: a free-form, three-key action ("Multi Bind") so the extra-keys group
+      //    (folded "+2" chevron, indented sub-rows) has a real row to render against - AC 6's
+      //    "hand-added third key" is now editable/clearable in Controls itself, not only in Care.
+      //    `categoryId: 'movement'` puts it in the rail's default first category (mirrors action 1)
+      //    so the new `config-controls-extra-keys-*` screens below need no category-chip click.
+      //    `keys` (not the legacy singular `key`, see `ConfigAction.keys` in
+      //    src/shared/modules/config.ts) uses three keys not already claimed by `binds`/any other
+      //    action's `key`/`keys` above (`MOUSE1`, `SPACE`, `q`). No `binds` entry: `binds` only
+      //    mirrors the PRIMARY key of a single-command action for the base bind table
+      //    (`action-mirror.ts`), and this fixture's whole point is to view/edit the action in the
+      //    Controls tab, not round-trip a specific alias line.
+      {
+        id: 'fixture-action-multibind',
+        categoryId: 'movement',
+        name: 'Multi Bind',
+        kind: 'bind',
+        commands: [
+          { kind: 'raw', text: 'wait' },
+          { kind: 'raw', text: '+attack' },
+        ],
+        keys: [{ key: 'G' }, { key: 'H' }, { key: 'J' }],
+      },
     ],
   }
 

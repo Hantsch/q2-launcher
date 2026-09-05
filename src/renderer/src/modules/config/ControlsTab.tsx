@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowDown,
@@ -9,8 +9,9 @@ import {
   SlidersHorizontal,
   Trash2,
   TriangleAlert,
+  X,
 } from 'lucide-react'
-import { actionKeySlots, keySlotAt, withKeySlot } from '@shared/config/action-slots'
+import { actionKeySlots, withKeySlot } from '@shared/config/action-slots'
 import { nameForCatalogRow } from '@shared/config/catalog-rows'
 import type { ModifierTrigger } from '@shared/config/modifier-layers'
 import {
@@ -50,6 +51,7 @@ import {
   applySlot,
   deriveRowState,
   editorKeySlot,
+  rawKeyIndex,
   withCatalogBody,
   type CatalogRow,
 } from './lib/catalog-binds'
@@ -199,6 +201,26 @@ export function ControlsTab({
   const [revealedMessageRows, setRevealedMessageRows] = useState<ReadonlySet<string>>(
     () => new Set(),
   )
+
+  /**
+   * Story 056 D3: which rows' extra-key sub-rows are folded open, keyed by `action.id` - mirrors
+   * `revealedMessageRows` exactly (local view state, tab-lifetime persistence per AC 3, not a
+   * draft edit). Default fold state is collapsed (the sprint decision), so this starts empty
+   * rather than pre-populated: a row is "open" whenever its id is in the set (two-or-more-extras
+   * case), or unconditionally when it has exactly one extra (the fold rule's "always visible"
+   * case, which `renderKeyCell`/`renderExtraKeyRows` both compute without consulting this set at
+   * all).
+   */
+  const [expandedKeyRows, setExpandedKeyRows] = useState<ReadonlySet<string>>(() => new Set())
+
+  const toggleExpandedKeyRow = (actionId: string): void => {
+    setExpandedKeyRows((current) => {
+      const updated = new Set(current)
+      if (updated.has(actionId)) updated.delete(actionId)
+      else updated.add(actionId)
+      return updated
+    })
+  }
 
   const clearPendingSave = (): void => {
     if (saveTimeout.current) {
@@ -589,16 +611,18 @@ export function ControlsTab({
    * settings ("resets that row's binds" is the key slots, not the row's other settings - D4's own
    * judgement call, see the story requirement).
    *
-   * Story 050: only the two editable slots (0/1) are cleared, through the same `applySlot`
-   * write path the slot UI itself uses - a hand-added third slot is left untouched, exactly as
-   * `applySlot`'s own doc comment requires. */
+   * Story 056: `applySlot` clears by index now, and clearing compacts - each clear at index 0
+   * removes the current first slot and shifts every later one down, so a plain loop that also
+   * advances its index would skip every other slot as the array shrinks under it. Clearing index 0
+   * repeatedly, once per real slot the entry has, empties the whole list without that hazard and
+   * without needing a new shared-layer "clear all" helper for this one call site. */
   const handleResetAction = (actionId: string): void => {
-    const nextActions = applySlot(
-      applySlot(actions, actionId, 'primary', undefined),
-      actionId,
-      'secondary',
-      undefined,
-    )
+    const action = actions.find((candidate) => candidate.id === actionId)
+    const slotCount = action ? actionKeySlots(action).length : 0
+    let nextActions = actions
+    for (let i = 0; i < slotCount; i += 1) {
+      nextActions = applySlot(nextActions, actionId, 0, undefined)
+    }
     void persistCategoriesAndActions(categories, nextActions)
   }
 
@@ -761,7 +785,7 @@ export function ControlsTab({
   const boundCount = filteredRowEntries.filter((entry) => {
     if (entry.kind === 'catalog') {
       const state = deriveRowState(entry.action, entry.row)
-      return Boolean(state.primary) || Boolean(state.secondary)
+      return state.keys.some((slot) => Boolean(slot.key))
     }
     return actionKeySlots(entry.action).some((slot) => slot.key.trim().length > 0)
   }).length
@@ -779,14 +803,19 @@ export function ControlsTab({
    * `CatalogBindRow` - same collision plumbing, same `apply*` helpers, just inside `ControlsRow`'s
    * layout instead of the old `<li>` one. Story 052 D8: `action` is the row's real entry, so every
    * write below is keyed by its id, exactly like a free-form row's. */
-  const renderCatalogSlot = (
-    row: CatalogRow,
-    action: ConfigAction,
-    slot: 'primary' | 'secondary',
-  ) => {
+  /** Story 056 D3: the accessible name of one key slot - "Primary key" for slot 0, "Key n"
+   * (1-based) for every extra slot (the story's Wording decision), replacing the old
+   * Primary/Secondary pair now that a row can carry any number of keys. */
+  const keySlotLabel = (slotIndex: number): string =>
+    slotIndex === 0
+      ? t('config.controls.dualBind.primaryKey')
+      : t('config.controls.dualBind.keyN', { n: slotIndex + 1 })
+
+  const renderCatalogSlot = (row: CatalogRow, action: ConfigAction, slotIndex: number) => {
     const state = deriveRowState(action, row)
-    const boundKey = slot === 'primary' ? state.primary : state.secondary
-    const boundModifier = slot === 'primary' ? state.primaryModifier : state.secondaryModifier
+    const slot = state.keys[slotIndex]
+    const boundKey = slot?.key
+    const boundModifier = boundKey ? slot?.modifier : undefined
     const ownerName = action.name
     const isConflicted = Boolean(
       findSlotConflictOwner(conflictIndex, layers, boundKey, boundModifier, ownerName),
@@ -795,24 +824,20 @@ export function ControlsTab({
       findModifierSlotCollision(actions, draft.layers ?? [], modifier, key, action.id)
     return (
       <BindSlot
-        label={t(
-          slot === 'primary'
-            ? 'config.controls.dualBind.primary'
-            : 'config.controls.dualBind.secondary',
-        )}
+        label={keySlotLabel(slotIndex)}
         boundKey={boundKey}
         boundModifier={boundModifier}
         // AC 6: a bound Primary cell is the strongest element in its row. AC 8: a slot whose key
         // collides with another owner anywhere in the profile is marked (D7's whole-profile scan).
-        isPrimary={slot === 'primary'}
+        isPrimary={slotIndex === 0}
         isConflicted={isConflicted}
         checkModifierCollision={checkModifierCollision}
         checkCollision={(key) =>
-          findSlotCollision(draft, key, { actionId: action.id, slot: slot === 'primary' ? 0 : 1 })
+          findSlotCollision(draft, key, { actionId: action.id, slot: rawKeyIndex(action, slotIndex) })
         }
         onAssign={(key) =>
           handleCatalogActionsChange(
-            applySlot(catalogWriteBase(row, action.id), action.id, slot, key),
+            applySlot(catalogWriteBase(row, action.id), action.id, slotIndex, key),
           )
         }
         onAssignModifier={({ modifier, key }) =>
@@ -821,7 +846,7 @@ export function ControlsTab({
               actions: catalogWriteBase(row, action.id),
               collision: checkModifierCollision(modifier, key),
               actionId: action.id,
-              slot,
+              slotIndex,
               key,
               modifier,
             }),
@@ -834,13 +859,13 @@ export function ControlsTab({
               binds: draft.binds,
               collision,
               actionId: action.id,
-              slot,
+              slotIndex,
               key,
             }),
           )
         }
         onClear={() =>
-          handleCatalogActionsChange(applySlot(actions, action.id, slot, undefined))
+          handleCatalogActionsChange(applySlot(actions, action.id, slotIndex, undefined))
         }
       />
     )
@@ -864,28 +889,16 @@ export function ControlsTab({
    */
   const renderCatalogOptionsCell = (row: CatalogRow, action: ConfigAction) => {
     const state = deriveRowState(action, row)
-    // A row can carry a modifier on either slot, on both, or on neither; the prototype's common
-    // case is one modifier per row, so the primary slot's modifier wins when both happen to carry
-    // one (the rare case - documenting the choice per the deliverable's own note). The same
-    // primary-first tie-break applies to which slot's conflict the Options cell names.
-    const modifier = state.primaryModifier ?? state.secondaryModifier
+    // Story 056: a row can carry a modifier on any of its N slots, or none; the Options cell scans
+    // every slot in order and the first one with a modifier wins (the "one modifier per row"
+    // prototype case is by far the common one - documenting the choice per the deliverable's own
+    // note). The same first-in-order tie-break applies to which slot's conflict the cell names.
+    const modifier = state.keys.find((slot) => slot.modifier !== undefined)?.modifier
     const layer = modifier ? layerNameForModifier(draft.layers ?? [], modifier) : undefined
     const ownerName = action.name
-    const conflictOwner =
-      findSlotConflictOwner(
-        conflictIndex,
-        layers,
-        state.primary,
-        state.primaryModifier,
-        ownerName,
-      ) ??
-      findSlotConflictOwner(
-        conflictIndex,
-        layers,
-        state.secondary,
-        state.secondaryModifier,
-        ownerName,
-      )
+    const conflictOwner = state.keys
+      .map((slot) => findSlotConflictOwner(conflictIndex, layers, slot.key, slot.modifier, ownerName))
+      .find((owner) => owner !== undefined)
     const conflict = conflictOwner ? { owner: conflictOwner } : null
     // Review fix (finding 2): a `shrink-0` wrapper keeps the ammo/message checkboxes from being
     // squeezed by the flex layout - only the conflict/layer text (which now truncates, see
@@ -1030,8 +1043,9 @@ export function ControlsTab({
         onReset={() => handleResetAction(action.id)}
         odd={odd}
         edited={changeSet.keys.actions.has(action.id)}
-        primarySlot={renderCatalogSlot(row, action, 'primary')}
-        secondarySlot={renderCatalogSlot(row, action, 'secondary')}
+        keyCell={renderKeyCell(row, action, label)}
+        extraKeyRows={renderExtraKeyRows(row, action, label)}
+        rowId={action.id}
         optionsCell={
           <div className="flex w-full items-center justify-end gap-0.5">
             <div className="min-w-0 overflow-hidden">{renderCatalogOptionsCell(row, action)}</div>
@@ -1059,8 +1073,16 @@ export function ControlsTab({
    * paths keyed by `action.id`. Story 052 D8: the only thing left that a catalogue row does
    * differently is `withCatalogBody` (an entry with no commands of its own gets the catalogue's).
    */
-  const renderPlainSlot = (action: ConfigAction, slot: 'primary' | 'secondary') => {
-    const slotState = keySlotAt(action, slot === 'primary' ? 0 : 1)
+  const renderPlainSlot = (action: ConfigAction, slotIndex: number) => {
+    // Review fix (finding 1): read off the same filtered/compacted view `renderKeyCell`/
+    // `renderExtraKeyRows` already build for a plain row (`plainKeySlots`, defined below) - not the
+    // raw, uncompacted `action.keys[slotIndex]` `keySlotAt` gives. `applySlot` (the write side)
+    // already compacts before writing at `slotIndex`, so a mid-array `{ key: '' }` blank (left by
+    // `releaseKey`/`applyModifierReplace` blanking another row's slot in place, story 056 D1's
+    // deliberate choice) must be invisible here too - otherwise this render shows the row as
+    // unbound at a slot the next write actually lands on a *different*, still-real key, silently
+    // overwriting it.
+    const slotState = plainKeySlots(action)[slotIndex]
     const boundKey = slotState?.key || undefined
     const boundModifier = boundKey ? slotState?.modifier : undefined
     const isConflicted = Boolean(
@@ -1070,27 +1092,23 @@ export function ControlsTab({
       findModifierSlotCollision(actions, draft.layers ?? [], modifier, key, action.id)
     return (
       <BindSlot
-        label={t(
-          slot === 'primary'
-            ? 'config.controls.dualBind.primary'
-            : 'config.controls.dualBind.secondary',
-        )}
+        label={keySlotLabel(slotIndex)}
         boundKey={boundKey}
         boundModifier={boundModifier}
-        isPrimary={slot === 'primary'}
+        isPrimary={slotIndex === 0}
         isConflicted={isConflicted}
         checkModifierCollision={checkModifierCollision}
         checkCollision={(key) =>
-          findSlotCollision(draft, key, { actionId: action.id, slot: slot === 'primary' ? 0 : 1 })
+          findSlotCollision(draft, key, { actionId: action.id, slot: rawKeyIndex(action, slotIndex) })
         }
-        onAssign={(key) => handleCatalogActionsChange(applySlot(actions, action.id, slot, key))}
+        onAssign={(key) => handleCatalogActionsChange(applySlot(actions, action.id, slotIndex, key))}
         onAssignModifier={({ modifier, key }) =>
           handleCatalogActionsChange(
             applyModifierReplace({
               actions,
               collision: checkModifierCollision(modifier, key),
               actionId: action.id,
-              slot,
+              slotIndex,
               key,
               modifier,
             }),
@@ -1103,14 +1121,141 @@ export function ControlsTab({
               binds: draft.binds,
               collision,
               actionId: action.id,
-              slot,
+              slotIndex,
               key,
             }),
           )
         }
-        onClear={() => handleCatalogActionsChange(applySlot(actions, action.id, slot, undefined))}
+        onClear={() =>
+          handleCatalogActionsChange(applySlot(actions, action.id, slotIndex, undefined))
+        }
       />
     )
+  }
+
+  /** Every real key slot of `action` (the same "empty key is not a slot" filter `deriveRowState`
+   * applies for a catalogue row, story 056), for a plain action - which has no `deriveRowState` of
+   * its own to read this off. */
+  const plainKeySlots = (action: ConfigAction) => actionKeySlots(action).filter((slot) => slot.key)
+
+  /**
+   * Story 056 D3: the Key column's content for a row that can be bound - a catalogue row (`row`
+   * set) or a plain `bind`/`message` entry (`row` undefined; an alias never reaches this, see
+   * `renderPlainActionRow`). Always the slot-0 `BindSlot`, then:
+   *
+   * - no extra key: the `+` add-key affordance sits right next to it (next free index, i.e.
+   *   `keys.length`).
+   * - exactly one extra: the fold rule says it always renders with no chevron - `renderExtraKeyRows`
+   *   below puts it in a sub-row, so nothing more appears here.
+   * - two or more extras: a "+n" toggle button switches `expandedKeyRows`; the `+` also stays here
+   *   while the group is collapsed (the "+ placement" decision - a collapsed group still needs an
+   *   add path) and moves into `renderExtraKeyRows`'s output once expanded.
+   *
+   * One implementation for both row kinds (rather than two near-identical copies) via `renderSlot`,
+   * which is the only thing that differs between them.
+   */
+  const renderKeyCell = (row: CatalogRow | undefined, action: ConfigAction, label: string) => {
+    const keys = row ? deriveRowState(action, row).keys : plainKeySlots(action)
+    const renderSlot = (slotIndex: number) =>
+      row ? renderCatalogSlot(row, action, slotIndex) : renderPlainSlot(action, slotIndex)
+    const extraCount = Math.max(keys.length - 1, 0)
+    const expanded = expandedKeyRows.has(action.id)
+    // The group is "open" - its extras rendered as sub-rows rather than folded - whenever there is
+    // exactly one extra (always visible, no chevron) or two-plus and the user expanded it.
+    const isOpen = extraCount === 1 || (extraCount >= 2 && expanded)
+    return (
+      <>
+        {renderSlot(0)}
+        {extraCount >= 2 && (
+          <button
+            type="button"
+            className="ctrl-keymore"
+            aria-expanded={expanded}
+            aria-label={t(
+              expanded ? 'config.controls.grid.keyMoreHide' : 'config.controls.grid.keyMoreShow',
+              { count: extraCount, name: label },
+            )}
+            onClick={() => toggleExpandedKeyRow(action.id)}
+          >
+            {`+${extraCount}`}
+          </button>
+        )}
+        {/* Story 056 "+ placement" decision: the add-key affordance sits here only while the
+            group is not open (no extras yet, or a collapsed 2+ group) - once open it is the last
+            sub-row `renderExtraKeyRows` renders instead, never both places at once. Reusing the
+            row's own `BindSlot` for the next free index (rather than a plain `+` button) is
+            deliberate: `BindSlot` owns its capture lifecycle internally and exposes no way to
+            start it from outside, so the only affordance that can actually begin a capture *is* a
+            real `BindSlot` instance - its own "Empty" idle state doubles as the "+" trigger. Left
+            at its natural full-slot size rather than squeezed into the 26px `.ctrl-keymore`
+            footprint: shrinking an unmodified `BindSlot` (out of scope to edit) would clip its
+            label unreadably, so it renders exactly like every other slot instance. */}
+        {/* Review fix (finding 2): with zero keys, the primary `BindSlot` rendered above (also
+            slot 0, since there is nothing to shift it past) already *is* the add-key affordance -
+            clicking it starts capture at index 0. Rendering this add-key slot too would duplicate
+            it verbatim (same index, same "Empty" idle state, same write target), which is exactly
+            the two-column look this story exists to remove. Once the row has >=1 key, slot
+            `keys.length` is a genuinely different index and this is the only place to add one. */}
+        {!isOpen && keys.length >= 1 && renderSlot(keys.length)}
+      </>
+    )
+  }
+
+  /**
+   * Story 056 D3: a row's further keys (slots 1..n) as full-width sub-rows below it, one
+   * `.ctrl-keysub-row` per extra key plus - only while the group is "open" (`renderKeyCell`'s own
+   * rule, computed identically here) - one more carrying the `+` add-key affordance. `undefined`
+   * when there is nothing to show below the row at all: no extra keys, and the `+` is not
+   * homeless (`renderKeyCell` is still showing it).
+   */
+  const renderExtraKeyRows = (
+    row: CatalogRow | undefined,
+    action: ConfigAction,
+    label: string,
+  ): ReactNode => {
+    const keys = row ? deriveRowState(action, row).keys : plainKeySlots(action)
+    const renderSlot = (slotIndex: number) =>
+      row ? renderCatalogSlot(row, action, slotIndex) : renderPlainSlot(action, slotIndex)
+    const extraCount = Math.max(keys.length - 1, 0)
+    const expanded = expandedKeyRows.has(action.id)
+    const isOpen = extraCount === 1 || (extraCount >= 2 && expanded)
+    if (!isOpen) return undefined
+
+    // Clearing a sub-row's key: the exact same write every slot's own `onClear` already performs
+    // (`applySlot` removes the slot and compacts the rest, story 056 D1) - `BindSlot` itself
+    // renders no visible Clear button (its own doc comment), so AC 4's "clear button" per sub-row
+    // is this dedicated icon button instead.
+    const clearSlot = (slotIndex: number): void =>
+      handleCatalogActionsChange(applySlot(actions, action.id, slotIndex, undefined))
+
+    const rows: ReactNode[] = []
+    for (let slotIndex = 1; slotIndex < keys.length; slotIndex += 1) {
+      rows.push(
+        <div key={`key-${slotIndex}`} className="ctrl-keysub-row" data-row-id={action.id} role="row">
+          <div className="ctrl-keysub" role="cell">
+            {renderSlot(slotIndex)}
+            <IconButton
+              label={t('config.controls.actions.clearKey', { name: label, n: slotIndex + 1 })}
+              size="sm"
+              onClick={() => clearSlot(slotIndex)}
+            >
+              <X className="size-3.5" />
+            </IconButton>
+          </div>
+        </div>,
+      )
+    }
+    // The last sub-row while the group is open: the `+` add-key affordance, moved here from the
+    // Key cell per the "+ placement" decision - same `BindSlot`-as-trigger reasoning as
+    // `renderKeyCell`'s own copy above.
+    rows.push(
+      <div key="key-add" className="ctrl-keysub-row" data-row-id={action.id} role="row">
+        <div className="ctrl-keysub" role="cell">
+          {renderSlot(keys.length)}
+        </div>
+      </div>,
+    )
+    return <>{rows}</>
   }
 
   /**
@@ -1123,25 +1268,14 @@ export function ControlsTab({
    * are always catalogue rows, never plain actions).
    */
   const renderPlainOptionsCell = (action: ConfigAction) => {
-    const slot0 = keySlotAt(action, 0)
-    const slot1 = keySlotAt(action, 1)
-    const modifier = (slot0?.key ? slot0.modifier : undefined) ?? (slot1?.key ? slot1.modifier : undefined)
+    // Story 056: scan every real slot in order, same "first modifier wins / first conflict wins"
+    // rule as `renderCatalogOptionsCell`, generalized from the old fixed slot-0/slot-1 check.
+    const keys = actionKeySlots(action).filter((slot) => slot.key)
+    const modifier = keys.find((slot) => slot.modifier !== undefined)?.modifier
     const layer = modifier ? layerNameForModifier(draft.layers ?? [], modifier) : undefined
-    const conflictOwner =
-      findSlotConflictOwner(
-        conflictIndex,
-        layers,
-        slot0?.key || undefined,
-        slot0?.key ? slot0.modifier : undefined,
-        action.name,
-      ) ??
-      findSlotConflictOwner(
-        conflictIndex,
-        layers,
-        slot1?.key || undefined,
-        slot1?.key ? slot1.modifier : undefined,
-        action.name,
-      )
+    const conflictOwner = keys
+      .map((slot) => findSlotConflictOwner(conflictIndex, layers, slot.key, slot.modifier, action.name))
+      .find((owner) => owner !== undefined)
     const conflict = conflictOwner ? { owner: conflictOwner } : null
     return <ControlsOptionsCell layer={layer} conflict={conflict} />
   }
@@ -1172,8 +1306,9 @@ export function ControlsTab({
         onReset={() => handleResetAction(action.id)}
         odd={odd}
         edited={changeSet.keys.actions.has(action.id)}
-        primarySlot={inertSlots ? <BindSlotPlaceholder /> : renderPlainSlot(action, 'primary')}
-        secondarySlot={inertSlots ? <BindSlotPlaceholder /> : renderPlainSlot(action, 'secondary')}
+        keyCell={inertSlots ? <BindSlotPlaceholder /> : renderKeyCell(undefined, action, action.name)}
+        extraKeyRows={inertSlots ? undefined : renderExtraKeyRows(undefined, action, action.name)}
+        rowId={action.id}
         optionsCell={
           // Story 028 D1: no `flex-wrap`, and gap-0.5 — the Options track (150px then, 200px since
           // story 052 D8) fits the five 28px icon buttons only at 2px gaps (5x28 + 4x2 = 148px).

@@ -40,3 +40,23 @@
 - 2026-09-05 20:35 · 053 · D8 Live verification · done
 - 2026-09-05 20:49 · 053 · Review cycle 1 (FAIL, Finding 1 blocks AC6/D4) · started fixes
 - 2026-09-05 20:58 · 053 · Review cycle 1 fix (Finding 1) · done
+- 2026-09-05 21:00 · 056 · D1 The write layer counts slots, and a clear compacts · started
+- 2026-09-05 21:09 · 056 · D1 The write layer counts slots, and a clear compacts · done
+- 2026-09-05 21:09 · 056 · D2 One Key column in the grid shell · started
+- 2026-09-05 21:13 · 056 · D2 One Key column in the grid shell · done
+- 2026-09-05 21:14 · 056 · D3 Primary key, extra-key sub-rows, fold and add · started
+- 2026-09-05 21:21 · 056 · D3 Primary key, extra-key sub-rows, fold and add · done
+- 2026-09-05 21:21 · 056 · D4 Promotion, counts and the Options cell go N-ary · started
+- 2026-09-05 21:23 · 056 · D4 Promotion, counts and the Options cell go N-ary · done
+- 2026-09-05 21:24 · 056 · D5 Wording, fixture, screenshots and the flow · started
+- 2026-09-05 21:31 · 056 · D5 Wording, fixture, screenshots and the flow · done
+- 2026-09-05 21:31 · 056 · Review cycle 1 · started
+- 2026-09-05 21:40 · 056 · Review cycle 1 (FAIL, findings 1-6) · started fixes
+- 2026-09-05 21:42 · 056 · Review cycle 1 fixes (F1, F2) · done, F3/F5 skipped (documented), F4/F6 accepted as-is
+- 2026-09-05 21:42 · 056 · Review cycle 2 · started
+- 2026-09-05 21:48 · 056 · Review cycle 2 (FAIL, new F1 collision-index regression) · started fixes
+- 2026-09-05 21:52 · 056 · Review cycle 2 fix (F1 collision-index regression) · done, CSS sub-row width also fixed
+- 2026-09-05 21:52 · 056 · Verification (build/typecheck/test/ui:verify/ui:flow) · started
+- 2026-09-05 21:53 · 056 · Verification (build/typecheck/test/ui:verify/ui:flow) · done, all green
+- 2026-09-05 21:53 · 056 · Review cycle 3 (final confirmation) · started
+- 2026-09-05 22:02 · 056 · Review cycle 3 (PASS) · done, status done, moved to done/

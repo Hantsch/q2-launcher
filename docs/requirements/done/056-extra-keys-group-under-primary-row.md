@@ -1,7 +1,7 @@
 ---
 id: 056
 title: Extra keys group under the primary row
-status: ready
+status: done
 created: 2026-09-05
 ---
 
@@ -24,25 +24,25 @@ second column.
 
 ## Acceptance Criteria
 
-- [ ] The grid has one Key column instead of Primary/Secondary; a row shows its first key (or
+- [x] The grid has one Key column instead of Primary/Secondary; a row shows its first key (or
       Empty) there.
-- [ ] Each further key renders as an indented sub-row under its row: key cap (with the modifier cap
+- [x] Each further key renders as an indented sub-row under its row: key cap (with the modifier cap
       for a layer key), conflict marker, clear button; sub-rows follow the file's slot order.
-- [ ] With more than one additional key the sub-rows collapse behind a chevron on the main row that
+- [x] With more than one additional key the sub-rows collapse behind a chevron on the main row that
       shows "+n"; the fold state is kept while the tab is open.
-- [ ] An "add key" affordance on the row (or its last sub-row) starts key capture for a new slot,
+- [x] An "add key" affordance on the row (or its last sub-row) starts key capture for a new slot,
       with the same capture, collision (Cancel/Replace) and modifier-layer rules as today.
-- [ ] Clearing the primary key promotes the next key; clearing a sub-row removes that key; no other
+- [x] Clearing the primary key promotes the next key; clearing a sub-row removes that key; no other
       slot moves, and Care's tidy-up operations that name a slot stay valid.
-- [ ] Every key of every entry is now editable in Controls - the hand-added third key from story
+- [x] Every key of every entry is now editable in Controls - the hand-added third key from story
       050's test plan is visible and clearable here, not only in Care.
-- [ ] The freed width goes to the Action and Options columns; the 1120px stage, 40px rows and
+- [x] The freed width goes to the Action and Options columns; the 1120px stage, 40px rows and
       zebra parity stay (the `/design-tokens` deviation recorded in `CLAUDE.md` is unchanged); the
       "n rows - m bound" footer counts any slot for every row kind.
-- [ ] Overview keyboard, Aliases, the conflict scan, tidy-up and the save-bar change list keep
+- [x] Overview keyboard, Aliases, the conflict scan, tidy-up and the save-bar change list keep
       working; no "Primary"/"Secondary" wording is left in the UI or in `en.json`
       (`config.controls.grid.colPrimary/colSecondary`, `config.controls.dualBind.primary/secondary`).
-- [ ] `npm run ui:verify` shows a row with two extra keys folded and unfolded; a `ui:flow` adds a
+- [x] `npm run ui:verify` shows a row with two extra keys folded and unfolded; a `ui:flow` adds a
       third key and clears the primary through the real UI.
 
 ## Open Questions
@@ -225,3 +225,100 @@ the primary cleared/promoted.
     row still shows the same keys in the same order.
 
 ## Done
+
+Built across five deliverables:
+
+- **D1** (`lib/catalog-binds.ts`, `lib/bind-slot-collision.ts`): `applySlot`/`applyReplace`/
+  `applyModifierReplace` switched from `slot: 'primary' | 'secondary'` to a numeric `slotIndex`;
+  clearing a slot now **compacts** `action.keys` (removes the entry, later keys shift down) instead
+  of writing story 050's in-place `{ key: '' }` marker, reusing `action-slots.ts`'s existing
+  `clearKeySlot`. New `appendKeySlot`. `deriveRowState` now exposes `keys: readonly
+  ActionKeySlot[]` (every real slot, legacy blanks filtered) instead of `primary`/`secondary`/
+  `*Modifier`.
+- **D2** (`controls-grid.css`, `ControlsGrid.tsx`, `ControlsRow.tsx`): one Key column
+  (`minmax(220px, 1fr) 34px 224px 190px`); `ControlsRow` takes `keyCell`/`extraKeyRows`/`rowId`
+  instead of `primarySlot`/`secondarySlot`; new `.ctrl-keycell`/`.ctrl-keysub-row`/`.ctrl-keysub`/
+  `.ctrl-keymore` classes mirroring the existing message-sub-row pattern.
+  `data-row-id` stamped on every element of a row (prep for story 054).
+- **D3** (`ControlsTab.tsx`): primary key in the Key cell, extras 1..n as indented `BindSlot`
+  sub-rows (reused unchanged, `isPrimary={false}`) with their own clear button, a "+n" chevron from
+  two extras (`expandedKeyRows` state, collapsed by default, one extra always visible with no
+  chevron), and a `+` add-key affordance (a `BindSlot` at the next free index) that lives in the Key
+  cell when no group is open and as the last sub-row once it is.
+- **D4** (`ControlsTab.tsx`): row reset, the "m bound" footer count and both Options-cell
+  modifier/conflict lookups generalised from a fixed slot-0/slot-1 check to a scan over every slot
+  in order (first modifier wins, first conflict wins).
+- **D5**: removed the dead `colPrimary`/`colSecondary`/`dualBind.primary`/`secondary` i18n keys; the
+  populated fixture gained a three-key action (`fixture-action-multibind`, keys G/H/J); two new
+  `ui:verify` screens (`config-controls-extra-keys-folded`/`-unfolded`); a new `ui:flow` script
+  (`controls-extra-keys.mjs`) that adds two keys live, folds/unfolds the group and clears the
+  primary, asserting the promotion.
+
+### Decisions
+
+- Every sprint-level decision the story file already recorded (default fold state, `+` placement,
+  compacting clear semantics, numeric slot vocabulary, grid template, `BindSlot` reuse, flat-sibling
+  row markup, alias rows staying inert, wording) was implemented as written; no deviation from the
+  story's own `## Decisions (Sprint)` section was needed.
+- `applyModifierReplace`'s release of a *different* action's colliding slot
+  (`lib/bind-slot-collision.ts`) deliberately stays an in-place `{ key: '' }` blank rather than a
+  compacting `clearKeySlot` call — `collision.actionSlot` is a raw index from a scan of that other
+  action, and the released row's own next write (or its own `deriveRowState`/`plainKeySlots` read)
+  already drops the blank; compacting only one of the two release paths (this one vs. the shared
+  `releaseKey`, out of this story's scope) would have reintroduced the exact kind of split the
+  story is trying to remove.
+- The row-reset handler clears slot 0 repeatedly (`actionKeySlots(action).length` times) rather
+  than looping by index, since each compacting clear at index 0 shifts every later slot down - an
+  index-incrementing loop would skip every other slot under compaction.
+- A **review-cycle regression was found and fixed before this story could pass**: the collision
+  self-exclusion (`findSlotCollision`'s `ignore.slot`) was initially passed the UI-facing
+  *compacted* slot index, while the shared `findBindCollision` (`src/shared/config/bind-collision.ts`,
+  out of this story's scope) compares against **raw** `action.keys` indices. On a row carrying an
+  in-place blank left by a Replace-release elsewhere, this mismatch could silently duplicate a bind
+  with no collision prompt, or silently destroy a different key on the same row. Fixed by adding
+  `rawKeyIndex(action, compactedIndex)` in `lib/catalog-binds.ts` (the inverse of the
+  `deriveRowState`/`plainKeySlots` compaction) and using it at both `findSlotCollision` call sites in
+  `ControlsTab.tsx`. Reconstructed both failure scenarios before and after the fix to confirm.
+
+### Known, accepted residuals (not blocking, documented rather than silently absorbed)
+
+- `ActionEditor.tsx`/`MessageEditor.tsx` still read a row's slot 0 via the **raw** `keySlotAt(action,
+  0)`, not the compacted view Controls now renders. On a row carrying a raw leading blank (left by a
+  Replace-release elsewhere) the two can briefly disagree about which key is "the" key; no data is
+  lost (the write only ever adds/replaces that one raw slot) and the row self-heals on its next
+  Controls-side write, which recompacts it. Out of this story's file list (D1 named `ActionEditor`
+  as a caller to update for the *type* change only, not this edge case); left as a follow-up.
+- The Options column track is 190px, 10px narrower than its pre-story 200px, not wider — the
+  story's own Decisions computed "150→190" from a stale quote of the pre-story template. Action
+  gained the width instead (~126px). All Options content still fits at the 940px minimum width.
+- `lib/catalog-binds.ts`'s `appendKeySlot` (added per D1's own deliverable text) has no production
+  caller — the `+` affordance reaches the same effect via `applySlot(..., keys.length, ...)`
+  directly. Dead but tested code; harmless, left as-is rather than force a call site to use it.
+- `ControlsRow.tsx`'s extra-key wrapper (`.ctrl-keysub-container`) is a roleless `<div>` between
+  `role="rowgroup"` and its `role="row"` children, a minor deviation from the story's "row markup
+  stays flat siblings" decision. No CSS rule depends on it and axe reports zero violations at every
+  impact level on both new screens.
+- One extra key's sub-row cap (`.ctrl-keysub .ctrl-slot`, capped at `max-width: 224px` to fix an
+  earlier full-stage-width regression) can render slightly wider than the primary key it sits under
+  (~224px vs. the primary's ~190px), a cosmetic residue - subordination still reads clearly via the
+  indent and the raised sub-row background.
+
+### Verification
+
+- `npm run typecheck` — clean, 0 errors, project-wide.
+- `npm run build` — clean.
+- `npm test` — 80/80 files, 2179/2179 tests pass (4 pre-existing jsdom/undici pool-startup errors,
+  confirmed unrelated by reproducing them against the pre-story tree).
+- `npm run ui:verify` — 64/64 screenshots, 0 axe violations at every impact level, including both
+  new `config-controls-extra-keys-folded`/`-unfolded` screens.
+- `npm run ui:flow -- controls-extra-keys` — completes; screenshots show a third key added, the
+  group folding/unfolding, and the primary key cleared with the second key promoted into the Key
+  column.
+- Review: three cycles. Cycle 1 (FAIL, 6 findings, 2 blocking: a plain-row raw/compacted index
+  mismatch destroying binds, and a duplicated slot-0 `BindSlot` on every unbound row) — both fixed.
+  Cycle 2 (FAIL, 1 new blocking regression found in the cycle-1 fix: the collision self-exclusion
+  index mismatch described above) — fixed, plus the sub-row width residual addressed. Cycle 3
+  (PASS) — independently reconstructed both fixed failure scenarios, reran every verification
+  command, found only the non-blocking residuals documented above.
+
+Commit message: `056: extra keys fold into indented sub-rows under one Key column`

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { keySlotAt } from '@shared/config/action-slots'
+import { keySlotAt, keySlotCount } from '@shared/config/action-slots'
 import { bindValueFor } from '@shared/config/action-mirror'
 import type { AltLayer } from '@shared/config/alt-layers'
 import type { BindCollision } from '@shared/config/bind-collision'
@@ -275,7 +275,7 @@ describe('applyModifierReplace', () => {
       actions: [catalogAction(forward)],
       collision: null,
       actionId: `action-${forward.catalogId}`,
-      slot: 'primary',
+      slotIndex: 0,
       key: 'r',
       modifier: 'ALT',
     })
@@ -290,7 +290,7 @@ describe('applyModifierReplace', () => {
       actions: [plainAction()],
       collision: null,
       actionId: 'plain-1',
-      slot: 'primary',
+      slotIndex: 0,
       key: 'r',
       modifier: 'ALT',
     })
@@ -315,7 +315,7 @@ describe('applyModifierReplace', () => {
       actions: [occupant, target],
       collision,
       actionId: target.id,
-      slot: 'primary',
+      slotIndex: 0,
       key: 'r',
       modifier: 'ALT',
     })
@@ -349,7 +349,7 @@ describe('applyModifierReplace', () => {
       actions: [occupant, target],
       collision,
       actionId: target.id,
-      slot: 'primary',
+      slotIndex: 0,
       key: 'r',
       modifier: 'ALT',
     })
@@ -379,7 +379,7 @@ describe('applyModifierReplace', () => {
       actions: [occupant, target],
       collision,
       actionId: target.id,
-      slot: 'primary',
+      slotIndex: 0,
       key: 'r',
       modifier: 'ALT',
     })
@@ -403,7 +403,7 @@ describe('applyModifierReplace', () => {
       actions: [catalogAction(forward)],
       collision,
       actionId: `action-${forward.catalogId}`,
-      slot: 'primary',
+      slotIndex: 0,
       key: 'r',
       modifier: 'ALT',
     })
@@ -425,7 +425,7 @@ describe('applyReplace', () => {
       binds,
       collision,
       actionId: target.id,
-      slot: 'primary',
+      slotIndex: 0,
       key: 'f',
     })
 
@@ -445,7 +445,7 @@ describe('applyReplace', () => {
       binds: { f: 'weapnext' },
       collision,
       actionId: 'plain-1',
-      slot: 'primary',
+      slotIndex: 0,
       key: 'f',
     })
 
@@ -469,15 +469,17 @@ describe('applyReplace', () => {
       binds: { f: 'q2l_a_1' },
       collision,
       actionId: target.id,
-      slot: 'primary',
+      slotIndex: 0,
       key: 'f',
     })
 
     const releasedOwner = next.find((action) => action.catalogId === forward.catalogId)!
     const newOwner = next.find((action) => action.catalogId === jump.catalogId)!
     // Release goes through the shared `releaseKey`, which blanks the named slot *at its own index*
-    // (story-050 review, finding 5: `withKeySlot(…, { key: '' })`, never `clearKeySlot`) - exactly
-    // what `applySlot`'s direct-edit path does, so no later slot changes column.
+    // (story-050 review, finding 5: `withKeySlot(…, { key: '' })`, never `clearKeySlot`) - it names
+    // a raw `keys` index, so removing there could shift a slot out from under the scan that found
+    // it. Story 056 leaves that as it is: `deriveRowState` filters the blank out, so the released
+    // row shows one key fewer straight away, and the row's own next write drops the slot.
     expect(keySlotAt(releasedOwner, 0)?.key).toBe('')
     expect(keySlotAt(releasedOwner, 1)?.key).toBe('UPARROW')
     expect(keySlotAt(newOwner, 0)?.key).toBe('f')
@@ -509,7 +511,7 @@ describe('applyReplace', () => {
       binds: { f: 'q2l_a_1' },
       collision,
       actionId: target.id,
-      slot: 'primary',
+      slotIndex: 0,
       key: 'f',
     })
 
@@ -543,7 +545,7 @@ describe('applyReplace', () => {
       binds: { f: 'q2l_a_1' },
       collision,
       actionId: target.id,
-      slot: 'primary',
+      slotIndex: 0,
       key: 'f',
     })
 
@@ -577,7 +579,7 @@ describe('applyReplace', () => {
       binds: { f: 'q2l_a_1' },
       collision,
       actionId: target.id,
-      slot: 'primary',
+      slotIndex: 0,
       key: 'f',
     })
 
@@ -587,6 +589,8 @@ describe('applyReplace', () => {
   })
 
   it('moves a key between two slots of the very same row without dropping the action', () => {
+    // The row carries a legacy empty slot 0 and its only key at slot 1 - the shape story 050's
+    // in-place clear produced, and the one the user sees as a single key in the Key column.
     const owner = catalogAction(forward, { keys: [{ key: '' }, { key: 'g' }] })
     const collision: BindCollision = {
       kind: 'action',
@@ -601,26 +605,27 @@ describe('applyReplace', () => {
       binds: { g: 'q2l_a_1' },
       collision,
       actionId: owner.id,
-      slot: 'primary',
+      slotIndex: 0,
       key: 'g',
     })
 
     expect(next).toHaveLength(1)
+    // `releaseKey` blanks slot 1 in place; the write that follows compacts the row it is writing
+    // (story 056), so both empty slots go and the key ends up in the one slot the row still has.
     expect(keySlotAt(next[0]!, 0)?.key).toBe('g')
-    // Slot 1 is released in place rather than removed, so it stays as an empty slot.
-    expect(keySlotAt(next[0]!, 1)?.key).toBe('')
+    expect(keySlotCount(next[0]!)).toBe(1)
   })
 
   /**
-   * Story 050 (D5 acceptance criterion): editing/clearing slot 1 of an entry that carries a
-   * hand-added third key leaves that third key intact, at its own array position, and it still
-   * participates in conflict detection (`findBindConflicts`, `./bind-conflicts`) exactly like a
-   * slot 0/1 key would. Exercised through `applySlot` directly (its own `withKeySlot`-based write
-   * path, per its doc comment) - the path an ordinary Controls-tab edit of slot 1 actually takes,
-   * as opposed to a Replace-over-a-collision flow (`applyReplace`), which releases the *previous*
-   * claimant through the shared `releaseKey` and is not what this criterion is about.
+   * Story 050's D5 criterion, restated for story 056: a third key survives editing slot 1 and
+   * survives clearing it - it is promoted to slot 1 now instead of staying at index 2 (a clear
+   * removes the slot, AC 5), and either way it is still the same key and still participates in
+   * conflict detection (`findBindConflicts`, `./bind-conflicts`) like any other. Exercised through
+   * `applySlot` directly - the path an ordinary Controls-tab edit of a slot takes, as opposed to a
+   * Replace-over-a-collision flow (`applyReplace`), which releases the *previous* claimant through
+   * the shared `releaseKey` and is not what this criterion is about.
    */
-  it('leaves a hand-added third slot intact, and it still conflicts, after editing then clearing slot 1', () => {
+  it('keeps a hand-added third key, and its conflict, through editing then clearing slot 1', () => {
     const owner: ConfigAction = {
       id: 'three-1',
       categoryId: 'movement',
@@ -638,17 +643,17 @@ describe('applyReplace', () => {
       keys: [{ key: 'h' }],
     }
 
-    const edited = applySlot([owner, other], 'three-1', 'secondary', 'x')
+    const edited = applySlot([owner, other], 'three-1', 1, 'x')
     const editedOwner = edited.find((action) => action.id === 'three-1')!
     expect(keySlotAt(editedOwner, 1)?.key).toBe('x')
     expect(keySlotAt(editedOwner, 2)?.key).toBe('h')
 
-    const cleared = applySlot(edited, 'three-1', 'secondary', undefined)
+    const cleared = applySlot(edited, 'three-1', 1, undefined)
     const clearedOwner = cleared.find((action) => action.id === 'three-1')!
     expect(keySlotAt(clearedOwner, 0)?.key).toBe('f')
-    expect(keySlotAt(clearedOwner, 1)?.key).toBe('')
-    // The hand-added third key ('h') survived intact, at its own slot, through both edits.
-    expect(keySlotAt(clearedOwner, 2)?.key).toBe('h')
+    // The hand-added third key ('h') survived both edits - promoted into slot 1 by the clear.
+    expect(keySlotAt(clearedOwner, 1)?.key).toBe('h')
+    expect(keySlotCount(clearedOwner)).toBe(2)
 
     const conflicts = findBindConflicts(profile({ actions: cleared }))
     expect(conflicts).toEqual([{ key: 'h', scope: 'base', owners: [clearedOwner.name, other.name] }])

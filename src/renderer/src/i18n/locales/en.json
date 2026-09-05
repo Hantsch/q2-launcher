@@ -1300,8 +1300,7 @@
         "ariaLabel": "Controls — {{category}}",
         "colAction": "Action",
         "colReset": "Reset",
-        "colPrimary": "Primary",
-        "colSecondary": "Secondary",
+        "colKey": "Key",
         "colOptions": "Options",
         "legendCancel": "cancel",
         "legendClear": "clear",
@@ -1313,7 +1312,9 @@
         "footerRows_other": "{{count}} rows",
         "footerBound": "{{count}} bound",
         "conflictCount_one": "{{count}} conflict",
-        "conflictCount_other": "{{count}} conflicts"
+        "conflictCount_other": "{{count}} conflicts",
+        "keyMoreShow": "Show {{count}} more keys for “{{name}}”",
+        "keyMoreHide": "Hide {{count}} more keys for “{{name}}”"
       },
       "createDialog": {
         "title": "Create category",
@@ -1371,6 +1372,7 @@
         "moveUp": "Move entry up",
         "moveDown": "Move entry down",
         "reset": "Reset “{{name}}” binds",
+        "clearKey": "Clear key {{n}} of “{{name}}”",
         "empty": {
           "title": "No actions yet",
           "body": "Add an action to this category to give it a bind, message or alias."
@@ -1460,8 +1462,8 @@
         }
       },
       "dualBind": {
-        "primary": "Primary",
-        "secondary": "Secondary",
+        "primaryKey": "Primary key",
+        "keyN": "Key {{n}}",
         "otherActions": "Other actions",
         "modifierHint": {
           "multipleModifiers": "Hold only one modifier at a time (Alt, Ctrl or Shift).",

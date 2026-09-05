@@ -49,18 +49,18 @@
 }
 
 /* --- shared grid template for header + rows -----------------------------
-   Story 052 D8: every row is one of the profile's entries and every row can be
-   moved, so the Options track now carries the move-up/move-down pair on
-   catalogue rows too - 56px of buttons that did not fit next to a drops row's
-   two stacked checkboxes in the old 150px track. The 60px comes out of the two
-   slot columns (190px -> 165px) rather than out of the label column: the sum of
-   the fixed tracks is unchanged (564px), so the grid still fits the 940px
-   minimum window exactly as before, and a slot's content ("Empty", "ALT R",
-   "MWHEELDOWN") is nowhere near 165px wide. */
+   Story 056 D2: the two peer key columns (Primary/Secondary) collapse into one
+   Key column - a row's further keys are subordinate extras rendered as indented
+   sub-rows underneath (`.ctrl-keysub-row`), not a second grid track. The freed
+   190px goes to Action (+~116px, minmax(180px,1fr) -> minmax(220px,1fr)) and
+   Options (165px -> 190px) per the story's Decisions ("Grid template"); the Key
+   track itself grows to 224px (165px slot width plus the 34px+gap "+n"/`+`
+   affordance area that sits inline after the slot). The 1120px stage is
+   unchanged: 220+34+224+190 fixed/min tracks + gaps match the old sum. */
 .ctrl-colhead,
 .ctrl-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 34px 165px 165px 200px;
+  grid-template-columns: minmax(220px, 1fr) 34px 224px 190px;
   align-items: center;
   gap: 10px;
   padding: 0 16px;
@@ -209,6 +209,33 @@
   opacity: 1;
 }
 
+/* --- fold/add affordance next to the Key slot (story 056 D2) -------------
+   Mirrors `.ctrl-reset`'s 26x26 icon-button sizing/tokens, but this one is a
+   meaningful fold control (the "+n" chevron) or the primary add-key action,
+   not a rarely-used reset - so unlike `.ctrl-reset` it is always visible, not
+   hover/focus-only. D3 wires the actual chevron/"+" content and click
+   handling; this only sizes/tokens the button. */
+.ctrl-keymore {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: var(--color-ink-muted);
+  background: var(--color-raised);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    color var(--dur-fast) var(--ease-out-quart),
+    border-color var(--dur-fast) var(--ease-out-quart);
+}
+
+.ctrl-keymore:hover {
+  color: var(--color-flame-500);
+  border-color: var(--color-flame-700);
+}
+
 /* --- the bind slot: a full-width, always-visible filled cell ------------ */
 .ctrl-slot {
   height: 30px;
@@ -317,6 +344,52 @@
 .ctrl-slot.is-conflict {
   border-color: var(--color-danger);
   color: var(--color-danger);
+}
+
+/* --- Key column cell (story 056 D2) --------------------------------------
+   Holds the primary `.ctrl-slot` (unchanged, 30px) plus, inline after it,
+   either the "+n" fold chevron or the `+` add-key button (`.ctrl-keymore`,
+   D3 wires which one and its content) - a flex row so the two sit side by
+   side inside the 224px track without breaking its width. `min-width: 0` on
+   the slot side of the pairing is `.ctrl-slot`'s own `width: 100%`, so this
+   cell only needs `min-width: 0` on itself (mirrors `.ctrl-opts`) so a long
+   key cap still truncates/ellipsizes inside the fixed track instead of
+   forcing the column wider. */
+.ctrl-keycell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* --- extra-key sub-row (story 056 D2) ------------------------------------
+   Same full-width-row pattern as `.ctrl-msgrow-row`/`.ctrl-msgrow` above (one
+   extra key per row, indented under the Action column so it reads as
+   subordinate to the row's primary key), but sized to hold a 30px `BindSlot`
+   plus its clear button instead of a text label - flex row, centered, with a
+   small gap between slot and clear affordance. D3 supplies the actual
+   `BindSlot`/clear-button content; this only shapes the row. */
+.ctrl-keysub-row {
+  display: block;
+}
+
+.ctrl-keysub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 8px calc(16px + 34px + 10px);
+  background: var(--color-raised);
+  border-bottom: 1px solid var(--color-line);
+}
+
+/* Review fix (medium, story 056 second pass): `.ctrl-slot`'s own `width: 100%` has nothing to
+   bound it here (`.ctrl-keysub` is a plain flex row), so an extra key's cap stretched across
+   almost the whole 1120px stage instead of reading as subordinate to the primary. Capped at the
+   Key column's own 224px track width (D2's grid template) so the sub-row visibly reads as a
+   narrower, indented child of the primary key cell. */
+.ctrl-keysub .ctrl-slot {
+  max-width: 224px;
 }
 
 /* --- blocked-capture sub-row --------------------------------------------

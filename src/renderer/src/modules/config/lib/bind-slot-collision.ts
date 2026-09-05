@@ -120,7 +120,9 @@ export interface ReplaceInput {
   /** The entry being assigned. Story 052 D8: an id, not a `CatalogRow` - a catalogue row is an
    * ordinary entry now, so there is one Replace path instead of a catalogue and a plain one. */
   actionId: string
-  slot: 'primary' | 'secondary'
+  /** Which of the entry's key slots the capture was for - story 056: an index into the compacted
+   * slot list `deriveRowState` renders, the same one `applySlot` writes against. */
+  slotIndex: number
   key: string
 }
 
@@ -156,11 +158,11 @@ export function applyReplace({
   binds,
   collision,
   actionId,
-  slot,
+  slotIndex,
   key,
 }: ReplaceInput): ConfigAction[] {
   const released = releaseKey(actions, binds, collision).actions
-  return applySlot(released, actionId, slot, key)
+  return applySlot(released, actionId, slotIndex, key)
 }
 
 /** What a modifier capture is about to overwrite, if anything (story 016 D4/D10, AC 6). */
@@ -282,7 +284,8 @@ export interface ModifierReplaceInput {
    * without knowing which path it is on; it is a plain `applySlot` passthrough when `null`.
    */
   collision: ModifierSlotCollision | null
-  slot: 'primary' | 'secondary'
+  /** Which of the entry's key slots the capture was for - see `ReplaceInput.slotIndex`. */
+  slotIndex: number
   key: string
   modifier: ModifierTrigger
 }
@@ -313,19 +316,31 @@ export function applyModifierReplace({
   actions,
   collision,
   actionId,
-  slot,
+  slotIndex,
   key,
   modifier,
 }: ModifierReplaceInput): ConfigAction[] {
-  if (!collision?.actionId) return applySlot(actions, actionId, slot, key, modifier)
+  if (!collision?.actionId) return applySlot(actions, actionId, slotIndex, key, modifier)
 
-  // Story 050: blanks the exact slot `findModifierSlotCollision` named (`{ key: '' }` via
-  // `withKeySlot`, never `clearKeySlot`) - clearing by array index rather than removing the entry
-  // keeps every other slot's position untouched, the same invariant `applySlot` documents.
+  // Blanks the exact slot `findModifierSlotCollision` named (`{ key: '' }` via `withKeySlot`, never
+  // `clearKeySlot`), and story 056 deliberately keeps it that way even though a user-initiated
+  // clear now compacts:
+  //
+  // - `collision.actionSlot` is a *raw* `action.keys` index (the scan above walks the array), not
+  //   the compacted index the Controls tab passes as `slotIndex`. Removing at a raw index is the
+  //   one operation here that could shift a slot the scan had already accounted for.
+  // - This is the same "release so something else can take the key" step as the shared
+  //   `releaseKey` (`applyReplace`'s path, `@shared/config/bind-collision`), which blanks in place
+  //   and cannot be changed from here (`src/shared/**` is out of this story's scope). Compacting in
+  //   one of the two release paths and not the other is exactly the split that story 050's review
+  //   finding 5 was about.
+  //
+  // The released row is still correct: `deriveRowState` filters an empty-key slot out, so it never
+  // renders as a phantom key, and `applySlot`/`appendKeySlot` drop it on that row's next write.
   const released = actions.map((action) => {
     if (action.id !== collision.actionId) return action
     return withKeySlot(action, collision.actionSlot!, { key: '' })
   })
 
-  return applySlot(released, actionId, slot, key, modifier)
+  return applySlot(released, actionId, slotIndex, key, modifier)
 }

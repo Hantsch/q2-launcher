@@ -45,7 +45,13 @@
  * `crypto.randomUUID()` either.
  */
 
-import { keySlotAt, withKeySlot } from '@shared/config/action-slots'
+import {
+  actionKeySlots,
+  clearKeySlot,
+  keySlotAt,
+  keySlotCount,
+  withKeySlot,
+} from '@shared/config/action-slots'
 import { commandsForRow, type CatalogRow } from '@shared/config/catalog-rows'
 import type { ModifierTrigger } from '@shared/config/modifier-layers'
 import type { ActionKeySlot, ConfigAction, ConfigCommand } from '@shared/modules/config'
@@ -67,15 +73,23 @@ export {
 } from '@shared/config/catalog-rows'
 
 export interface RowState {
-  primary?: string
-  secondary?: string
-  /** Story 016 D9: the modifier that was held while capturing `primary`, straight off the
-   * `modifier` of the action's key slot 0. Only ever set when `primary` is - a modifier without a
-   * key is not a binding (see `applySlot`) - so a slot renders `Alt+R` from the pair and `R`
-   * without it. */
-  primaryModifier?: ModifierTrigger
-  /** The `secondary` twin of `primaryModifier` (the `modifier` of key slot 1). */
-  secondaryModifier?: ModifierTrigger
+  /**
+   * Every key the row actually has, in file/array order (story 056 D1). This replaces the
+   * `primary`/`secondary`/`primaryModifier`/`secondaryModifier` quartet: the Controls grid renders
+   * one key per line - `keys[0]` in the Key column, `keys[1..n]` as sub-rows - so a row's slot
+   * count is data now, not a fixed pair of columns.
+   *
+   * Slots holding an empty `key` are filtered out (the legacy cleared marker story 050's in-place
+   * clear used to leave behind, and the one the shared `releaseKey` still writes when another row
+   * takes a key away). They would otherwise render as a phantom sub-row with no cap in it. That
+   * makes an index into this array a *compacted* index, which is exactly the index the write
+   * functions below take - they compact the same way before writing, so the two can never disagree.
+   *
+   * Story 016 D9: a slot's `modifier` (the modifier held while it was captured) rides along on the
+   * slot itself, so a sub-row renders `Alt+R` from the pair and `R` without it. A modifier can
+   * never appear without its key here, since a slot with no key is not in this list at all.
+   */
+  keys: readonly ActionKeySlot[]
   /** Meaningless for a row with no `ammoCommand` - always a boolean anyway, defaulting to true
    * (decision 7), so a caller never has to special-case `undefined`. */
   withAmmo: boolean
@@ -84,6 +98,47 @@ export interface RowState {
   /** The channel of the message command `message` was read from - `say` or `say_team`. Undefined
    * alongside `message === ''`, since there is then no message command to have a channel at all. */
   messageChannel?: 'say' | 'say_team'
+}
+
+// ---------------------------------------------------------------------------
+// Slot list normalisation
+// ---------------------------------------------------------------------------
+
+/** Does this slot hold a key at all? An empty `key` is "nothing assigned" everywhere it is read
+ * (`action-mirror.ts`'s mirror pass, `render.ts#buildBindOwnerIndex`), and story 056 makes it
+ * invisible in the Controls tab too. */
+function hasKey(slot: ActionKeySlot): boolean {
+  return Boolean(slot.key)
+}
+
+/**
+ * The action with every empty-key slot dropped - the shape story 056's decision "a `{ key: '' }`
+ * slot read from an existing profile is filtered out on read and dropped on the next write" calls
+ * for on the write side.
+ *
+ * Every write path below runs the entry through this *before* applying its `slotIndex`, and that is
+ * not tidiness: `deriveRowState` hands the UI a filtered slot list, so the index the UI hands back
+ * is an index into that filtered list. Writing it against the raw array would put a key in the
+ * wrong slot (or clear the wrong one) for any entry still carrying an empty slot - and two of them
+ * are still produced outside this module, by the shared `releaseKey` and by `applyModifierReplace`,
+ * both of which blank a *different* row's slot in place when it loses its key to a Replace.
+ * Normalising here is what keeps read indices and write indices the same thing, and it heals such a
+ * row on its own next edit.
+ *
+ * Returns the action unchanged (same object) when it has no empty slot to drop, and drops `keys`
+ * entirely rather than leaving `[]` when nothing survives - matching `clearKeySlot`'s own
+ * "absent means none" reading.
+ */
+function withoutEmptySlots(action: ConfigAction): ConfigAction {
+  const slots = actionKeySlots(action)
+  if (slots.every(hasKey)) return action
+
+  const kept = slots.filter(hasKey)
+  if (kept.length === 0) {
+    const { keys: _keys, ...rest } = action
+    return rest
+  }
+  return { ...action, keys: kept }
 }
 
 // ---------------------------------------------------------------------------
@@ -98,6 +153,34 @@ export interface RowState {
  * entry that carries no commands at all (`commands: []`), the shape the template seed and D6's
  * migration give a still-unbound catalogue row; see the ammo rule below.
  */
+/**
+ * The RAW `action.keys` array index that corresponds to the Nth non-empty ("compacted"/UI-facing)
+ * slot - the inverse of what `deriveRowState`'s `keys` filtering (and `ControlsTab.tsx`'s
+ * `plainKeySlots`) already do in the read direction.
+ *
+ * Needed anywhere a compacted slot index has to be compared against `action.keys` directly (e.g.
+ * `findBindCollision`'s `ignore.slot`, which is a raw index): a raw in-place blank (written by the
+ * shared `releaseKey` or `bind-slot-collision.ts#applyModifierReplace`, both of which deliberately
+ * still blank a slot in place rather than compact) can leave raw and compacted indices out of step
+ * for a row until its next write recompacts it. Passing a compacted index straight through as
+ * `ignore.slot` then names the wrong raw slot - see story 056's second review pass.
+ *
+ * Returns `actionKeySlots(action).length` (an append position, one past the last raw slot) for a
+ * `compactedIndex` at or past the end of the row's real keys, so a not-yet-existing "add key" slot
+ * still resolves to a sane, always-safe-to-ignore raw index.
+ */
+export function rawKeyIndex(action: ConfigAction, compactedIndex: number): number {
+  const slots = actionKeySlots(action)
+  let seen = 0
+  for (let i = 0; i < slots.length; i += 1) {
+    if (hasKey(slots[i]!)) {
+      if (seen === compactedIndex) return i
+      seen += 1
+    }
+  }
+  return slots.length
+}
+
 export function deriveRowState(action: ConfigAction, row: CatalogRow): RowState {
   const lastMessage = [...action.commands].reverse().find((command) => command.kind === 'message')
 
@@ -112,22 +195,12 @@ export function deriveRowState(action: ConfigAction, row: CatalogRow): RowState 
       action.commands.some((command) => command.kind === 'raw' && command.text === row.ammoCommand)
     : true
 
-  // Story 050: the two editable UI columns ("primary"/"secondary") map onto slots 0/1 of the
-  // action's `keys` array via `@shared/config/action-slots`'s accessor - the sole place this
-  // codebase reads `action.keys`. A slot with an empty `key` (the "cleared but still occupies its
-  // array position" state `applySlot` below writes so a further hand-added slot never shifts) reads
-  // back here as `undefined`, exactly like a slot that was never set at all.
-  const slot0 = keySlotAt(action, 0)
-  const slot1 = keySlotAt(action, 1)
-
   return {
-    primary: slot0?.key || undefined,
-    secondary: slot1?.key || undefined,
-    // Story 016 D9: a straight passthrough, deliberately not a derivation. The
-    // modifier is stored on the slot, so reading it back is a field read -
-    // there is nothing to look up in `layers` and no command text to parse.
-    primaryModifier: slot0?.key ? slot0.modifier : undefined,
-    secondaryModifier: slot1?.key ? slot1.modifier : undefined,
+    // Story 056: the whole slot list, minus the empty-key ones (see `RowState.keys`). Read through
+    // `@shared/config/action-slots` like every other access to `action.keys` in this codebase, and
+    // a straight passthrough of each slot - the `modifier` is stored on the slot, so there is
+    // nothing to look up in `layers` and no command text to parse (story 016 D9).
+    keys: actionKeySlots(action).filter((slot) => hasKey(slot)),
     withAmmo,
     message: lastMessage?.kind === 'message' ? lastMessage.text : '',
     messageChannel: lastMessage?.kind === 'message' ? lastMessage.channel : undefined,
@@ -195,34 +268,61 @@ export function withCatalogBody(
  * instead of silently keeping the old modifier. A modifier with no key is not a
  * state this function can produce, which is what keeps the mirror's
  * "both a key and a modifier" rule from ever seeing a half-filled slot.
- * The slot that is *not* being written is left exactly as it was, key and
- * modifier alike.
+ * No slot other than the one being written has its key or modifier changed - a
+ * clear moves the later ones up a position (see below) but never edits one.
  *
- * Story 050: `primary`/`secondary` are this editor's own vocabulary for slots 0/1 of
- * `action.keys` (`@shared/config/action-slots`) - the two editable columns the Controls tab keeps.
- * Written through `withKeySlot`, never `clearKeySlot`: clearing a slot writes an empty-key slot
- * (`{ key: '' }`) in place rather than removing the array entry, so a slot at index 2+ that arrived
- * from a hand-edited `.cfg` never shifts position and is never touched by this function.
+ * Story 056: `slotIndex` is a plain index into the entry's key list, replacing story 050's
+ * `'primary' | 'secondary'` union - the last place in the codebase that capped the already-N-ary
+ * `action.keys` at two. It is an index into the *compacted* list `deriveRowState` returns (see
+ * `withoutEmptySlots`), which is the list the Controls grid renders one line per.
+ *
+ * And a clear now **removes** the slot (`clearKeySlot`), so every later key moves up one: with each
+ * slot editable in its own right, story 050's "blank it in place so a hand-added slot at index 2+
+ * never shifts column" has nothing left to protect, and AC 5's "clearing the primary key promotes
+ * the next key" is precisely that removal. Clearing an index the entry does not have is a no-op.
  */
 export function applySlot(
   actions: ConfigAction[],
   actionId: string,
-  slot: 'primary' | 'secondary',
+  slotIndex: number,
   key: string | undefined,
   modifier?: ModifierTrigger,
 ): ConfigAction[] {
   const normalizedKey = key && key.trim().length > 0 ? key : undefined
   const index = actions.findIndex((action) => action.id === actionId)
   if (index < 0) return [...actions]
-  const base = actions[index]!
-  const slotIndex = slot === 'primary' ? 0 : 1
-  const nextSlot: ActionKeySlot = normalizedKey
+  const base = withoutEmptySlots(actions[index]!)
+  const nextSlot: ActionKeySlot | undefined = normalizedKey
     ? modifier
       ? { key: normalizedKey, modifier }
       : { key: normalizedKey }
-    : { key: '' }
-  const updated = withKeySlot(base, slotIndex, nextSlot)
+    : undefined
+  const updated = nextSlot
+    ? withKeySlot(base, slotIndex, nextSlot)
+    : clearKeySlot(base, slotIndex)
   return actions.map((action, i) => (i === index ? updated : action))
+}
+
+/**
+ * Add one more key to the entry `actionId` names, after its last one (story 056 AC 4's "add key"
+ * affordance).
+ *
+ * A thin wrapper around `applySlot` rather than a second write path: the index it appends at is the
+ * entry's *real* slot count - empty slots dropped first, same normalisation every write does - so
+ * a row carrying a legacy `{ key: '' }` gains its new key at the end of what the user can actually
+ * see, not one position past a slot that renders as nothing. Unknown `actionId` returns the array
+ * unchanged, like `applySlot`; a blank `key` is not an append at all and falls through to
+ * `applySlot`'s clear, which is a no-op one past the end.
+ */
+export function appendKeySlot(
+  actions: ConfigAction[],
+  actionId: string,
+  key: string,
+  modifier?: ModifierTrigger,
+): ConfigAction[] {
+  const action = actions.find((candidate) => candidate.id === actionId)
+  if (!action) return [...actions]
+  return applySlot(actions, actionId, keySlotCount(withoutEmptySlots(action)), key, modifier)
 }
 
 /**
@@ -241,9 +341,14 @@ export function applySlot(
  * edited, and that plain `F1` then overwrote whatever else held it. One helper, one behaviour, one
  * place to test it.
  *
- * An empty/blank `key` clears the slot the same way `applySlot` does - in place, `{ key: '' }`, so
- * no later slot moves - and takes the modifier with it, since a modifier with no key is not a
- * binding.
+ * An empty/blank `key` blanks the slot **in place** (`{ key: '' }`) and takes the modifier with it,
+ * since a modifier with no key is not a binding. Story 056 deliberately leaves this as it was
+ * rather than following `applySlot` into a compacting removal: this is a single-key editor with no
+ * notion of a slot list to promote within (`ActionEditor`/`MessageEditor` write the result at
+ * index 0 with `withKeySlot`, and neither can show, let alone edit, a further slot), so removing
+ * the entry here would silently promote a key those editors never displayed into the field they
+ * do. The blank it leaves is filtered out of `deriveRowState` and dropped by the entry's next
+ * Controls-tab write, so it never shows up as a phantom key in the grid.
  */
 export function editorKeySlot(action: ConfigAction, key: string | undefined): ActionKeySlot {
   const normalizedKey = key && key.trim().length > 0 ? key : ''

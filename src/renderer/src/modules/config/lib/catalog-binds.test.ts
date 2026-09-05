@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { DROPPABLES, MOVEMENT_ACTIONS, WEAPON_ACTIONS, WEAPON_EXTRA_ACTIONS } from '@shared/config/action-catalog'
-import { keySlotAt } from '@shared/config/action-slots'
+import { actionKeySlots, keySlotAt, keySlotCount } from '@shared/config/action-slots'
 import type { ConfigAction } from '@shared/modules/config'
 import {
+  appendKeySlot,
   applyAmmo,
   applyMessage,
   applySlot,
@@ -11,6 +12,7 @@ import {
   buildWeaponRows,
   deriveRowState,
   editorKeySlot,
+  rawKeyIndex,
   withCatalogBody,
   type CatalogRow,
 } from './catalog-binds'
@@ -106,10 +108,7 @@ describe('deriveRowState', () => {
 
   it('returns the "nothing bound" default for a seeded entry that carries nothing yet', () => {
     expect(deriveRowState(catalogAction(row), row)).toEqual({
-      primary: undefined,
-      secondary: undefined,
-      primaryModifier: undefined,
-      secondaryModifier: undefined,
+      keys: [],
       withAmmo: true,
       message: '',
       messageChannel: undefined,
@@ -155,12 +154,10 @@ describe('deriveRowState', () => {
       ],
     })
 
-    expect(deriveRowState(action, row)).toMatchObject({
-      primary: 'r',
-      primaryModifier: 'ALT',
-      secondary: 'f',
-      secondaryModifier: 'CTRL',
-    })
+    expect(deriveRowState(action, row).keys).toEqual([
+      { key: 'r', modifier: 'ALT' },
+      { key: 'f', modifier: 'CTRL' },
+    ])
   })
 
   it('reports no modifier for a pre-016 action that carries neither field', () => {
@@ -170,8 +167,40 @@ describe('deriveRowState', () => {
     })
 
     const state = deriveRowState(action, row)
-    expect(state.primaryModifier).toBeUndefined()
-    expect(state.secondaryModifier).toBeUndefined()
+    expect(state.keys).toEqual([{ key: 'w' }, { key: 'UPARROW' }])
+    expect(state.keys.every((slot) => slot.modifier === undefined)).toBe(true)
+  })
+
+  /**
+   * Story 056: every key of the entry is editable now, so `keys` is the whole list in file order,
+   * not slots 0/1 - a third key is no longer invisible outside Care's tidy-up.
+   */
+  it('returns every key slot in file order, however many there are', () => {
+    const action = catalogAction(row, {
+      commands: [{ kind: 'raw', text: '+forward' }],
+      keys: [{ key: 'w' }, { key: 'UPARROW' }, { key: 'g', modifier: 'ALT' }],
+    })
+
+    expect(deriveRowState(action, row).keys).toEqual([
+      { key: 'w' },
+      { key: 'UPARROW' },
+      { key: 'g', modifier: 'ALT' },
+    ])
+  })
+
+  /**
+   * Story 056's legacy rule: a `{ key: '' }` slot is story 050's cleared marker (and what the
+   * shared `releaseKey` still writes when another row takes a key away). It is not a key, so it
+   * must not render as a phantom sub-row - and filtering it here is what makes an index into
+   * `keys` mean the same thing as the index `applySlot` writes at.
+   */
+  it('filters a legacy empty-key slot out entirely, keeping the real keys in order', () => {
+    const action = catalogAction(row, {
+      commands: [{ kind: 'raw', text: '+forward' }],
+      keys: [{ key: '' }, { key: 'UPARROW' }, { key: '', modifier: 'ALT' }, { key: 'g' }],
+    })
+
+    expect(deriveRowState(action, row).keys).toEqual([{ key: 'UPARROW' }, { key: 'g' }])
   })
 
   it('picks up a `say`-channel message and reports its channel', () => {
@@ -199,37 +228,32 @@ describe('applySlot', () => {
   const entry = (): ConfigAction[] => [catalogAction(row)]
   const id = `entry-${row.catalogId}`
 
-  it('round-trips primary/secondary assignment and clearing, keeping the entry throughout', () => {
+  it('round-trips assignment and clearing across two slots, keeping the entry throughout', () => {
     let actions = entry()
 
-    actions = applySlot(actions, id, 'primary', 'w')
-    expect(deriveRowState(findAction(actions, row)!, row).primary).toBe('w')
-    expect(deriveRowState(findAction(actions, row)!, row).secondary).toBeUndefined()
+    actions = applySlot(actions, id, 0, 'w')
+    expect(deriveRowState(findAction(actions, row)!, row).keys).toEqual([{ key: 'w' }])
 
-    actions = applySlot(actions, id, 'secondary', 'UPARROW')
-    expect(deriveRowState(findAction(actions, row)!, row)).toMatchObject({
-      primary: 'w',
-      secondary: 'UPARROW',
-    })
+    actions = applySlot(actions, id, 1, 'UPARROW')
+    expect(deriveRowState(findAction(actions, row)!, row).keys).toEqual([
+      { key: 'w' },
+      { key: 'UPARROW' },
+    ])
 
-    actions = applySlot(actions, id, 'primary', undefined)
-    expect(deriveRowState(findAction(actions, row)!, row)).toMatchObject({
-      primary: undefined,
-      secondary: 'UPARROW',
-    })
+    // Story 056: clearing a slot removes it, so the next key moves up (AC 5).
+    actions = applySlot(actions, id, 0, undefined)
+    expect(deriveRowState(findAction(actions, row)!, row).keys).toEqual([{ key: 'UPARROW' }])
 
     // Story 052 D8: clearing the last key leaves an unbound *row*, it does not delete the entry -
     // a pruned entry is a row that disappears from the Controls tab (AC 3).
-    actions = applySlot(actions, id, 'secondary', undefined)
+    actions = applySlot(actions, id, 0, undefined)
     expect(findAction(actions, row)).toBeDefined()
-    expect(deriveRowState(findAction(actions, row)!, row)).toMatchObject({
-      primary: undefined,
-      secondary: undefined,
-    })
+    expect(deriveRowState(findAction(actions, row)!, row).keys).toEqual([])
+    expect(keySlotCount(findAction(actions, row)!)).toBe(0)
   })
 
   it('never creates an entry for an id the array does not have', () => {
-    const result = applySlot(entry(), 'missing', 'primary', 'w')
+    const result = applySlot(entry(), 'missing', 0, 'w')
 
     expect(result).toHaveLength(1)
     expect(keySlotAt(result[0]!, 0)).toBeUndefined()
@@ -237,7 +261,7 @@ describe('applySlot', () => {
 
   it('never mutates the array or action it was given', () => {
     const original = entry()
-    const result = applySlot(original, id, 'primary', 'w')
+    const result = applySlot(original, id, 0, 'w')
 
     expect(keySlotAt(original[0]!, 0)).toBeUndefined()
     expect(result).not.toBe(original)
@@ -253,64 +277,98 @@ describe('applySlot', () => {
    * half-filled slot to interpret.
    */
   it('stores the modifier alongside the key it was captured with', () => {
-    const actions = applySlot(entry(), id, 'primary', 'r', 'ALT')
+    const actions = applySlot(entry(), id, 0, 'r', 'ALT')
 
     expect(keySlotAt(actions[0]!, 0)).toEqual({ key: 'r', modifier: 'ALT' })
   })
 
-  it('keeps the two slots\' keys and modifiers independent', () => {
-    let actions = applySlot(entry(), id, 'primary', 'r', 'ALT')
-    actions = applySlot(actions, id, 'secondary', 'f', 'CTRL')
+  it('keeps two slots\' keys and modifiers independent', () => {
+    let actions = applySlot(entry(), id, 0, 'r', 'ALT')
+    actions = applySlot(actions, id, 1, 'f', 'CTRL')
 
     expect(keySlotAt(actions[0]!, 0)).toEqual({ key: 'r', modifier: 'ALT' })
     expect(keySlotAt(actions[0]!, 1)).toEqual({ key: 'f', modifier: 'CTRL' })
 
     // Rewriting one slot leaves the other's key *and* modifier untouched.
-    actions = applySlot(actions, id, 'primary', 'w')
+    actions = applySlot(actions, id, 0, 'w')
     expect(keySlotAt(actions[0]!, 0)).toEqual({ key: 'w' })
     expect(keySlotAt(actions[0]!, 1)).toEqual({ key: 'f', modifier: 'CTRL' })
   })
 
   it('clears a slot\'s modifier along with its key', () => {
-    let actions = applySlot(entry(), id, 'primary', 'r', 'ALT')
-    actions = applySlot(actions, id, 'secondary', 'f', 'SHIFT')
-    actions = applySlot(actions, id, 'primary', undefined)
+    let actions = applySlot(entry(), id, 0, 'r', 'ALT')
+    actions = applySlot(actions, id, 1, 'f', 'SHIFT')
+    actions = applySlot(actions, id, 0, undefined)
 
-    expect(keySlotAt(actions[0]!, 0)?.key).toBe('')
-    expect(keySlotAt(actions[0]!, 0)?.modifier).toBeUndefined()
-    expect(keySlotAt(actions[0]!, 1)?.modifier).toBe('SHIFT')
+    // Story 056: the cleared slot is gone, not blanked - so slot 1 is promoted, modifier included.
+    expect(actionKeySlots(actions[0]!)).toEqual([{ key: 'f', modifier: 'SHIFT' }])
   })
 
   it('drops a previous modifier when the slot is re-captured as a plain key', () => {
-    let actions = applySlot(entry(), id, 'secondary', 'r', 'ALT')
+    let actions = applySlot(entry(), id, 0, 'w')
+    actions = applySlot(actions, id, 1, 'r', 'ALT')
     expect(keySlotAt(actions[0]!, 1)?.modifier).toBe('ALT')
 
-    actions = applySlot(actions, id, 'secondary', 'r')
+    actions = applySlot(actions, id, 1, 'r')
 
     expect(keySlotAt(actions[0]!, 1)).toEqual({ key: 'r' })
   })
 
   /**
-   * Story 050 (D5 acceptance criterion): a hand-added third slot (only reachable by editing the
-   * `.cfg` directly - `applySlot` never writes index 2+ itself) survives editing or clearing
-   * either editable slot, because `applySlot` writes through `withKeySlot` rather than
-   * `clearKeySlot` and so never shifts a later slot's array position.
+   * Story 056 AC 5, the case story 050 deliberately could not do: clearing the first of three keys
+   * promotes the other two by one position and changes nothing else about them. (Story 050's
+   * in-place `{ key: '' }` existed only so a hand-added slot at index 2+ - unreachable from the UI
+   * back then - never shifted column; every slot is editable in its own right now.)
    */
-  it('leaves a hand-added third slot untouched when editing or clearing slot 1', () => {
-    let actions = applySlot(entry(), id, 'primary', 'w')
-    actions = applySlot(actions, id, 'secondary', 'UPARROW')
-    // Simulate a hand-edited `.cfg` that added a third bind for this alias.
-    actions = actions.map((action) =>
-      action.id === id ? { ...action, keys: [...(action.keys ?? []), { key: 'g' }] } : action,
+  it('promotes the later keys when slot 0 of a three-key entry is cleared', () => {
+    const threeKeys = (): ConfigAction[] => [
+      catalogAction(row, { keys: [{ key: 'w' }, { key: 'UPARROW', modifier: 'ALT' }, { key: 'g' }] }),
+    ]
+
+    const actions = applySlot(threeKeys(), id, 0, undefined)
+
+    expect(actionKeySlots(actions[0]!)).toEqual([{ key: 'UPARROW', modifier: 'ALT' }, { key: 'g' }])
+    // Nothing but the slot list changed, and the entry itself is still there (AC 3).
+    expect(actions[0]!.commands).toEqual(threeKeys()[0]!.commands)
+    expect(actions[0]!.name).toBe(threeKeys()[0]!.name)
+    expect(actions).toHaveLength(1)
+  })
+
+  it('removes only the cleared middle slot, keeping slot 0 and moving the last one up', () => {
+    const actions = applySlot(
+      [catalogAction(row, { keys: [{ key: 'w' }, { key: 'UPARROW' }, { key: 'g' }] })],
+      id,
+      1,
+      undefined,
     )
 
-    actions = applySlot(actions, id, 'secondary', 'f')
-    expect(keySlotAt(actions[0]!, 1)?.key).toBe('f')
-    expect(keySlotAt(actions[0]!, 2)?.key).toBe('g')
+    expect(actionKeySlots(actions[0]!)).toEqual([{ key: 'w' }, { key: 'g' }])
+  })
 
-    actions = applySlot(actions, id, 'secondary', undefined)
-    expect(keySlotAt(actions[0]!, 1)?.key).toBe('')
-    expect(keySlotAt(actions[0]!, 2)?.key).toBe('g')
+  it('is a no-op for a clear of a slot index the entry does not have', () => {
+    const before = [catalogAction(row, { keys: [{ key: 'w' }] })]
+
+    expect(applySlot(before, id, 3, undefined)).toEqual(before)
+  })
+
+  /**
+   * Story 056's legacy rule, write half: an empty-key slot (story 050's cleared marker, or the one
+   * the shared `releaseKey` leaves on a row that lost its key to a Replace) is dropped by the next
+   * write. That is not cosmetic - `deriveRowState` filters those slots out, so the index the UI
+   * hands back counts only real keys, and the write has to count them the same way or it would
+   * edit the wrong slot.
+   */
+  it('drops legacy empty-key slots on the next write, and indexes past the real keys only', () => {
+    const legacy = (): ConfigAction[] => [
+      catalogAction(row, { keys: [{ key: '' }, { key: 'w' }, { key: '' }, { key: 'g' }] }),
+    ]
+
+    // The UI sees ['w', 'g']; index 1 must land on 'g', not on the empty slot at raw index 2.
+    const edited = applySlot(legacy(), id, 1, 'f')
+    expect(actionKeySlots(edited[0]!)).toEqual([{ key: 'w' }, { key: 'f' }])
+
+    const cleared = applySlot(legacy(), id, 0, undefined)
+    expect(actionKeySlots(cleared[0]!)).toEqual([{ key: 'g' }])
   })
 
   /** A free-form entry (no `catalogId`) is written by the exact same function - that is the point
@@ -323,10 +381,52 @@ describe('applySlot', () => {
       kind: 'bind',
       commands: [],
     }
-    const actions = applySlot([plain], 'plain-1', 'primary', 'f')
+    const actions = applySlot([plain], 'plain-1', 0, 'f')
 
     expect(keySlotAt(actions[0]!, 0)?.key).toBe('f')
     expect(actions).toHaveLength(1)
+  })
+})
+
+/**
+ * Story 056 AC 4: the "add key" affordance. One more slot at the end of the entry's list, through
+ * the same write path as any other assignment.
+ */
+describe('appendKeySlot', () => {
+  const row = buildMovementRows().find((r) => r.catalogId === 'movement:forward')!
+  const id = `entry-${row.catalogId}`
+
+  it('lands after the last key, whatever the entry already has', () => {
+    let actions = [catalogAction(row)]
+
+    actions = appendKeySlot(actions, id, 'w')
+    expect(actionKeySlots(actions[0]!)).toEqual([{ key: 'w' }])
+
+    actions = appendKeySlot(actions, id, 'UPARROW')
+    actions = appendKeySlot(actions, id, 'g', 'ALT')
+    expect(actionKeySlots(actions[0]!)).toEqual([
+      { key: 'w' },
+      { key: 'UPARROW' },
+      { key: 'g', modifier: 'ALT' },
+    ])
+  })
+
+  it('appends after the real keys, not after a legacy empty slot', () => {
+    const actions = appendKeySlot(
+      [catalogAction(row, { keys: [{ key: 'w' }, { key: '' }] })],
+      id,
+      'g',
+    )
+
+    expect(actionKeySlots(actions[0]!)).toEqual([{ key: 'w' }, { key: 'g' }])
+  })
+
+  it('never creates an entry for an id the array does not have', () => {
+    const before = [catalogAction(row)]
+    const result = appendKeySlot(before, 'missing', 'w')
+
+    expect(result).toHaveLength(1)
+    expect(keySlotCount(result[0]!)).toBe(0)
   })
 })
 
@@ -459,13 +559,13 @@ describe('applyMessage', () => {
   })
 
   it('leaves the entry\'s keys alone', () => {
-    let actions = applySlot(bodied(), id, 'primary', 'f')
+    let actions = applySlot(bodied(), id, 0, 'f')
     actions = applyMessage(actions, id, 'HELP')
     actions = applyMessage(actions, id, '')
 
     const entry = findAction(actions, row)!
     expect(deriveRowState(entry, row).message).toBe('')
-    expect(deriveRowState(entry, row).primary).toBe('f')
+    expect(deriveRowState(entry, row).keys).toEqual([{ key: 'f' }])
   })
 
   it('writes a `say` channel message when passed, and defaults to `say_team`', () => {
@@ -496,7 +596,7 @@ describe('command ordering', () => {
 
     // The order the UI drives it in: the first assignment materialises the row's body
     // (`withCatalogBody`, what `freshAction` used to do lazily), then key, ammo and message.
-    let actions = applySlot(withCatalogBody([catalogAction(row)], id, row), id, 'primary', 'f')
+    let actions = applySlot(withCatalogBody([catalogAction(row)], id, row), id, 0, 'f')
     actions = applyAmmo(actions, id, row, true)
     actions = applyMessage(actions, id, 'Rockets incoming!')
 
@@ -533,8 +633,11 @@ describe('editorKeySlot', () => {
   })
 
   it('drops the modifier with the key when the editor clears it', () => {
-    // A modifier with no key is not a binding - the same invariant `applySlot` documents - and the
-    // slot is blanked in place rather than removed, so slot 1 keeps its position.
+    // A modifier with no key is not a binding - the same invariant `applySlot` documents. Story
+    // 056: this one keeps blanking in place (`{ key: '' }`) where `applySlot` now removes the slot,
+    // because a single-key editor has no slot list to promote within - it would otherwise pull a
+    // key it never displayed (slot 1's `F2` here) into the field it does. `deriveRowState` filters
+    // the blank out, and the entry's next Controls-tab write drops it.
     expect(editorKeySlot(altBound(), undefined)).toEqual({ key: '' })
     expect(editorKeySlot(altBound(), '   ')).toEqual({ key: '' })
   })
@@ -549,5 +652,52 @@ describe('editorKeySlot', () => {
     }
 
     expect(editorKeySlot(bare, 'F1')).toEqual({ key: 'F1' })
+  })
+})
+
+describe('rawKeyIndex', () => {
+  const action = (keys: ConfigAction['keys']): ConfigAction => ({
+    id: 'entry-raw',
+    categoryId: 'movement',
+    name: '+forward',
+    kind: 'bind',
+    commands: [],
+    keys,
+  })
+
+  it('is the identity mapping when the row has no blank slots', () => {
+    const a = action([{ key: 'w' }, { key: 'shift' }])
+
+    expect(rawKeyIndex(a, 0)).toBe(0)
+    expect(rawKeyIndex(a, 1)).toBe(1)
+  })
+
+  it('shifts past a leading blank left in place by releaseKey/applyModifierReplace', () => {
+    // Displayed/compacted: just `y` at slot 0. Raw: the blank sits at index 0, `y` at index 1.
+    const a = action([{ key: '' }, { key: 'y' }])
+
+    expect(rawKeyIndex(a, 0)).toBe(1)
+  })
+
+  it('skips a blank sitting in the middle of the raw array', () => {
+    // Displayed/compacted: `y` at slot 0, `z` at slot 1. Raw: blank at index 0.
+    const a = action([{ key: '' }, { key: 'y' }, { key: 'z' }])
+
+    expect(rawKeyIndex(a, 0)).toBe(1)
+    expect(rawKeyIndex(a, 1)).toBe(2)
+  })
+
+  it('resolves a compacted index past the end of the row’s real keys to an append position', () => {
+    const a = action([{ key: '' }, { key: 'y' }])
+
+    // Only one real key exists (compacted index 0); asking for the next ("add key") slot must land
+    // one past the last RAW slot, not one past the last compacted one.
+    expect(rawKeyIndex(a, 1)).toBe(2)
+  })
+
+  it('treats an entry with no keys at all as append-at-zero', () => {
+    const a = action(undefined)
+
+    expect(rawKeyIndex(a, 0)).toBe(0)
   })
 })
