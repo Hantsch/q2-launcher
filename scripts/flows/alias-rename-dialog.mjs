@@ -18,11 +18,8 @@ export default async function aliasRenameDialog({ page, shot, step }) {
 
   step('add custom action "Alias Flow Test"')
   await page.getByRole('button', { name: 'Add action' }).click({ timeout: CLICK_TIMEOUT_MS })
-  await page
-    .getByRole('dialog')
-    .locator('input[type="text"], input:not([type])')
-    .first()
-    .fill('Alias Flow Test')
+  // Story 052 review (finding 2): by label, not by DOM position - see custom-action-row.mjs.
+  await page.getByRole('dialog').getByLabel('Name', { exact: true }).fill('Alias Flow Test')
   await page.getByRole('button', { name: 'Create action' }).click({ timeout: CLICK_TIMEOUT_MS })
 
   step('open its rename dialog')

@@ -48,11 +48,19 @@
   border-radius: var(--radius-sm);
 }
 
-/* --- shared grid template for header + rows ----------------------------- */
+/* --- shared grid template for header + rows -----------------------------
+   Story 052 D8: every row is one of the profile's entries and every row can be
+   moved, so the Options track now carries the move-up/move-down pair on
+   catalogue rows too - 56px of buttons that did not fit next to a drops row's
+   two stacked checkboxes in the old 150px track. The 60px comes out of the two
+   slot columns (190px -> 165px) rather than out of the label column: the sum of
+   the fixed tracks is unchanged (564px), so the grid still fits the 940px
+   minimum window exactly as before, and a slot's content ("Empty", "ALT R",
+   "MWHEELDOWN") is nowhere near 165px wide. */
 .ctrl-colhead,
 .ctrl-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 34px 190px 190px 150px;
+  grid-template-columns: minmax(180px, 1fr) 34px 165px 165px 200px;
   align-items: center;
   gap: 10px;
   padding: 0 16px;
@@ -351,9 +359,9 @@
 }
 
 /* --- options column: right-aligned badge/content row ---------------------
-   Review fix (finding 2): the 150px track needs `min-width: 0`/`overflow: hidden` or its content
-   (layer name, "also: <owner>" conflict text) forces the column wider than its fixed width instead
-   of truncating inside it. */
+   Review fix (finding 2): the fixed track (150px, 200px since story 052 D8) needs
+   `min-width: 0`/`overflow: hidden` or its content (layer name, "also: <owner>" conflict text)
+   forces the column wider than its fixed width instead of truncating inside it. */
 .ctrl-opts {
   display: flex;
   align-items: center;

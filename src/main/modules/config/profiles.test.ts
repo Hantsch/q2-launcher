@@ -6,9 +6,11 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   STANDARD_TEMPLATE,
+  TEMPLATE_ACTION_CATEGORIES,
   type ConfigAction,
   type ConfigActionCategory,
 } from '@shared/modules/config'
+import { allCatalogRows } from '@shared/config/catalog-rows'
 import type { AltLayer } from '@shared/config/alt-layers'
 import { StateStore } from '../../services/state'
 import { aliasNameFor } from '@shared/config/alias-render'
@@ -68,6 +70,14 @@ describe('ProfilesStore', () => {
     expect(created.createdAt).toBe(created.updatedAt)
   })
 
+  // Story 052 D1: "Creating an empty profile seeds no categories" (AC4).
+  it('creates an empty profile with neither categories nor actions', () => {
+    const [created] = profiles.create({ name: 'My Profile', from: 'empty' })
+
+    expect(created!.categories ?? []).toEqual([])
+    expect(created!.actions ?? []).toEqual([])
+  })
+
   it('creates a profile from the standard template', () => {
     const result = profiles.create({ name: 'Vanilla', from: 'template' })
 
@@ -77,6 +87,47 @@ describe('ProfilesStore', () => {
     // Copied, not aliased: mutating the profile must never touch the shared template.
     created.cvars['sensitivity'] = '10'
     expect(STANDARD_TEMPLATE.cvars['sensitivity']).not.toBe('10')
+  })
+
+  // Story 052 D1 (AC4): "a template profile has the three categories with every catalogue row
+  // (unbound except the template's own 6 binds)".
+  it('creates a profile from the standard template with the three categories and every catalogue row', () => {
+    const [created] = profiles.create({ name: 'Vanilla', from: 'template' })
+
+    expect(created!.categories).toHaveLength(3)
+    expect(created!.categories!.map((c) => c.id).sort()).toEqual(['drops', 'movement', 'weapons'])
+    for (const category of created!.categories!) {
+      const template = TEMPLATE_ACTION_CATEGORIES.find((t) => t.id === category.id)!
+      expect(category.name).toBe(template.label)
+      expect(category.nameKey).toBe(template.labelKey)
+    }
+
+    const allRows = allCatalogRows()
+    expect(created!.actions).toHaveLength(allRows.length)
+    // Every action id is fresh, not the shared template's own static id, and unique per profile.
+    const ids = new Set(created!.actions!.map((a) => a.id))
+    expect(ids.size).toBe(created!.actions!.length)
+    for (const action of created!.actions!) {
+      expect(action.id.startsWith('template:')).toBe(false)
+    }
+
+    // The template's own 6 binds keep their commands; every other catalogue row is unbound.
+    const boundCommands = new Set(Object.values(STANDARD_TEMPLATE.binds))
+    const boundActions = created!.actions!.filter((a) => a.commands.length > 0)
+    expect(boundActions).toHaveLength(6)
+    for (const action of boundActions) {
+      const command = action.commands[0]!
+      expect(command.kind).toBe('raw')
+      expect(boundCommands.has(command.kind === 'raw' ? command.text : '')).toBe(true)
+    }
+    const unboundActions = created!.actions!.filter((a) => a.commands.length === 0)
+    expect(unboundActions).toHaveLength(allRows.length - 6)
+
+    // Copied, not aliased: mutating the created profile must never touch the shared template.
+    created!.categories![0]!.name = 'Mutated'
+    expect(STANDARD_TEMPLATE.categories[0]!.name).not.toBe('Mutated')
+    created!.actions![0]!.name = 'Mutated'
+    expect(STANDARD_TEMPLATE.actions[0]!.name).not.toBe('Mutated')
   })
 
   it('allows duplicate names', () => {

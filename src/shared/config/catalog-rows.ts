@@ -114,6 +114,15 @@ export function allCatalogRows(): CatalogRow[] {
   return [...buildMovementRows(), ...useRows, ...extraRows, ...drops.weapon, ...drops.ammo, ...drops.misc]
 }
 
+/** Plain, non-translated, stable text for a catalogue row with no other display name yet - the
+ * row's own raw command, the same "unbound row" name lazy materialisation already uses for these
+ * rows (`catalog-binds.ts`'s `nameForRow`, `bind-adoption.ts`'s `materialise`). Exposed here so
+ * `STANDARD_TEMPLATE` (`@shared/modules/config`, story 052 D1) can seed the same name for a
+ * still-unbound row without a third, potentially-drifting copy of the rule. */
+export function nameForCatalogRow(row: CatalogRow): string {
+  return row.commands[0] ?? row.catalogId
+}
+
 /** A row's raw commands as `ConfigCommand`s, with the ammo command appended when applicable -
  * the shared piece of "what should this action's `commands` look like right now" that the
  * renderer's lazy materialisation and main's bind adoption both need. */

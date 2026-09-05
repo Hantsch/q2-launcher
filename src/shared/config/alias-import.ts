@@ -74,10 +74,12 @@
  *    command word is. A substring test would file `say mouse settings` under
  *    weapons (`"mouse "` contains `"use "`).
  *
- * `messages`, `sounds` and `imported` are not built-in categories, so they are
- * synthesized on first use with `newId()` and returned in `categories`; the
- * three built-ins (`movement`/`weapons`/`drops`) are referenced by their
- * constant ids and never created.
+ * Every category a guess lands on is created on first use and returned in `categories` (story 052
+ * D4): an import produces exactly the categories the file gave it, and no others.
+ * `messages`/`sounds`/`imported` are the importer's own inventions and get a `newId()`;
+ * `movement`/`weapons`/`drops` name a template category and keep that id, with the template's
+ * English default name and `nameKey`. Before 052 the latter three were referenced by their constant
+ * ids and never created, because the Controls tab showed them whether the profile had them or not.
  *
  * ## Order independence
  *
@@ -138,7 +140,7 @@ import {
 } from '@shared/config/entry-idioms'
 import { normalizeBindKey } from '@shared/config/key-names'
 import {
-  BUILT_IN_ACTION_CATEGORIES,
+  TEMPLATE_ACTION_CATEGORIES,
   type ConfigAction,
   type ConfigActionCategory,
   type ConfigCommand,
@@ -190,7 +192,8 @@ export interface ImportedActionsInput {
 export interface ImportedActionsResult {
   /** One entry per alias definition, minus the ones that became layers. */
   actions: ConfigAction[]
-  /** Only the categories that had to be created (`messages`/`sounds`/`imported`). */
+  /** Every category the conversion filed an entry into, in first-use order - each one created here
+   * (story 052 D4), because a profile only has the categories it carries. */
   categories: ConfigActionCategory[]
   /** One toggle layer per name in `layerAliases` that really did rebind keys. */
   layers: AltLayer[]
@@ -201,12 +204,32 @@ export interface ImportedActionsResult {
 /** The six categories the guess table can land on. */
 type CategoryKey = 'movement' | 'weapons' | 'drops' | 'messages' | 'sounds' | 'imported'
 
-const BUILT_IN_CATEGORY_IDS = new Set<string>(BUILT_IN_ACTION_CATEGORIES.map((c) => c.id))
+/** The three guess keys the importer invents a drawer for, as opposed to the three that name a
+ * template category. A plain predicate rather than a lookup in `TEMPLATE_ACTION_CATEGORIES`,
+ * because it has to narrow `key` for `IMPORT_CATEGORY_NAMES` below. */
+function isInventedCategory(key: CategoryKey): key is 'messages' | 'sounds' | 'imported' {
+  return key === 'messages' || key === 'sounds' || key === 'imported'
+}
 
 /**
- * Names for the three categories an import may have to create. Plain English
- * data, not UI prose: `ConfigActionCategory.name` is user-typed text the user can
- * rename, so it is not translatable (unlike `BuiltInActionCategory.labelKey`).
+ * The record a `movement`/`weapons`/`drops` guess mints: the template's own id (so a `cat=` tag, a
+ * later template seed and this import all mean the same drawer - the story's Decisions), its English
+ * default name, and its `nameKey` so the renderer can still show a translated label for a category
+ * nobody has renamed. The `??` arm is unreachable while `CategoryKey`'s three non-invented members
+ * are the template's three ids, and exists so a future template edit degrades to a plainly named
+ * category rather than a non-null assertion.
+ */
+function templateCategory(key: 'movement' | 'weapons' | 'drops'): ConfigActionCategory {
+  const template = TEMPLATE_ACTION_CATEGORIES.find((category) => category.id === key)
+  return template
+    ? { id: template.id, name: template.label, nameKey: template.labelKey }
+    : { id: key, name: key }
+}
+
+/**
+ * Names for the three categories the guess table invents on its own. Plain English data, not UI
+ * prose: `ConfigActionCategory.name` is user-typed text the user can rename, so it is not
+ * translatable (unlike a template category's `labelKey`).
  */
 const IMPORT_CATEGORY_NAMES: Record<'messages' | 'sounds' | 'imported', string> = {
   messages: 'Messages',
@@ -363,16 +386,26 @@ function guessCategoryKey(commands: readonly ConfigCommand[]): CategoryKey {
   return 'imported'
 }
 
-/** A category that has to be synthesized, i.e. one the built-in list does not already
- * carry - `BUILT_IN_ACTION_CATEGORIES` stays the authority on which those are. */
-function isCreatedCategory(key: CategoryKey): key is 'messages' | 'sounds' | 'imported' {
-  return !BUILT_IN_CATEGORY_IDS.has(key)
-}
-
 /**
- * Hands out category ids: a built-in id verbatim, or one `newId()` per created
- * category, remembered so twenty imported aliases share one `imported` drawer
- * instead of getting twenty.
+ * Hands out category ids, creating every category it files an entry into (story 052 D4) and
+ * remembering it, so twenty imported aliases share one `imported` drawer instead of getting twenty.
+ *
+ * Until 052 the three built-in keys returned their id verbatim and created *nothing*: the Controls
+ * tab showed Movement/Weapons/Weapon dropping whether or not the profile carried them, and the
+ * writer emitted their sections regardless, so a category record would have been redundant. Both of
+ * those are gone - an import now produces exactly the categories the file gave it (AC 7), and an
+ * entry filed under a category the profile does not carry would be invisible in the rail and land in
+ * the file's trailing "other" bucket.
+ *
+ * The two halves of "created" differ only in where the id and the name come from:
+ *
+ * - a key that names a template category (`movement`/`weapons`/`drops`) keeps that id - existing
+ *   files, `cat=` tags and a later template seed all identify it by that id (the story's Decisions:
+ *   "built-in ids stay `movement`/`weapons`/`drops`") - and takes the template's English default
+ *   name plus its `nameKey`, so the renderer can still show a translated label for a category nobody
+ *   has renamed;
+ * - `messages`/`sounds`/`imported` are the importer's own inventions, so they get a fresh `newId()`
+ *   and a plain English name with no `nameKey` to resolve.
  */
 function categoryRegistry(newId: () => string): {
   idFor: (key: CategoryKey) => string
@@ -381,10 +414,11 @@ function categoryRegistry(newId: () => string): {
   const created = new Map<CategoryKey, ConfigActionCategory>()
   return {
     idFor(key: CategoryKey): string {
-      if (!isCreatedCategory(key)) return key
       const existing = created.get(key)
       if (existing) return existing.id
-      const category: ConfigActionCategory = { id: newId(), name: IMPORT_CATEGORY_NAMES[key] }
+      const category: ConfigActionCategory = isInventedCategory(key)
+        ? { id: newId(), name: IMPORT_CATEGORY_NAMES[key] }
+        : templateCategory(key)
       created.set(key, category)
       return category.id
     },

@@ -42,16 +42,17 @@ never learns the format never has to.
 
 ## Key registry
 
-The current registry, after story 050's cut and story 045's addition, is ten keys:
+The current registry, after story 050's cut and story 045's and 052's additions, is eleven keys:
 
 | key       | where it appears           | meaning                                                        |
 | --------- | --------------------------- | --------------------------------------------------------------- |
 | `v`       | header block only           | format version this file was written with (`META_FORMAT_VERSION`, still 1) |
-| `cid`     | bind/alias/anchor lines      | catalogue id (`catalogId`), when the entry is catalogue-backed  |
-| `an`      | anchor lines only           | the entry's own `aliasName`. Emitted only where no alias line exists to spell it out as code — an entry that keeps its alias line gets no `an`, since that line's own name *is* the value and a tag would be a second source able to drift from it |
-| `key`     | anchor lines only           | the key of the slot this line records. Only ever emitted where the config text cannot say it — an anchor line is a comment, so it has no code to read a key off. A real `bind` line never carries it: the line already spells its key |
+| `cid`     | bind/alias/anchor/unbound lines | catalogue id (`catalogId`), when the entry is catalogue-backed  |
+| `an`      | anchor lines and unbound lines | the entry's own `aliasName`. Emitted only where no alias line exists to spell it out as code — an entry that keeps its alias line gets no `an`, since that line's own name *is* the value and a tag would be a second source able to drift from it. On an anchor or unbound line, present exactly when the entry actually has a non-empty `aliasName` of its own — never unconditionally, since forcing it onto a line for an entry with no alias name at all would let the reader restore a name the file never really recorded |
+| `key`     | anchor lines only           | the key of the slot this line records. Only ever emitted where the config text cannot say it — an anchor line is a comment, so it has no code to read a key off. A real `bind` line never carries it: the line already spells its key. Never on an unbound line (story 052 D2) — an unbound entry has no key slot at all |
 | `mod`     | anchor lines only           | that slot's `modifier`                                          |
-| `cat`     | section header (category)   | category id — a built-in id is adopted as-is on import; an unrecognised one mints a local category named from the header's title |
+| `cat`     | section header (category)   | category id — since story 052 D4, a template id (`movement`/`weapons`/`drops`) is minted as an ordinary local category like any other, keeping only its own id (not a fresh one) rather than being adopted as-is with nothing created; its `nameKey` is re-attached when the header's title is still exactly the template's own default name. An id this build doesn't recognise as a template mints a local category named from the header's title |
+| `ord`     | section header (category)   | that category's position in `profile.categories`, counting only the categories that carry at least one entry — the same value on all three of a category's headers. It is the only thing in the file that can state the order of two categories whose sections never share a block: the writer emits its category sections in three separate passes (aliases, then binds, then `Entries:`), so a category whose entries are all unbound (`Entries:` only) and one whose entries are all bound (`Binds:` only) render byte-identically whichever order the profile has them in. A file written without the field (an older build, or a hand-deleted tag) simply falls back to the section layout, as this reader always did |
 | `layer`   | section header (layer)      | layer ref                                                        |
 | `mode`    | section header (layer)      | layer mode                                                       |
 | `trigger` | section header (layer)      | layer trigger key; the key is omitted entirely (not emitted as empty) when the trigger is `null` |
@@ -181,16 +182,24 @@ the registry specifically for that case: such an entry has no other line whose o
 its display name, so the tag is the only place left for it to live. An entry that does have an
 alias or bind line never gets `an`/`key`/`mod` repeated on its other lines — one fact, one place.
 
-**An entry with no line at all gets nothing, on purpose.** A continuous catalogue row with no key
-mirrors as its own bare `+forward`, so its alias line is dropped (a self-mirroring `alias weapnext
-weapnext` is dropped outright too) and with no key there is no bind line either — so such an entry
-leaves no trace in the file and is dropped on re-import, exactly as before this story. An earlier
-review round did give it a slotless *entry* anchor to keep its name, kind, category and catalogue
-id; that was reverted, because the file has nowhere to record what an unbound entry *runs*, so the
-entry came back with `commands: []` — and the Controls tab's slot editor is find-or-create on
-`catalogId` (`catalog-binds.ts#applySlot`), so the next bind of that same row reused the empty entry
-and produced a key pointing at an alias nothing defines. Being dropped is better: `freshAction` then
-regenerates the row's commands from the catalogue.
+**An entry with no line at all used to get nothing, on purpose — story 052 D2 gives it one instead.**
+A continuous catalogue row with no key mirrors as its own bare `+forward`, so its alias line is
+dropped (a self-mirroring `alias weapnext weapnext` is dropped outright too) and with no key there is
+no bind line either — so before story 052 such an entry left no trace in the file at all and was
+dropped on re-import. An earlier review round (story 042) did give it a slotless *entry* anchor to
+keep its name, kind, category and catalogue id; that was reverted, because the file had nowhere to
+record what an unbound entry *runs*, so the entry came back with `commands: []` — and the Controls
+tab's slot editor is find-or-create on `catalogId` (`catalog-binds.ts#applySlot`), so the next bind of
+that same row reused the empty entry and produced a key pointing at an alias nothing defines. Being
+dropped was better than that, at the time: `freshAction` would regenerate the row's commands from the
+catalogue.
+
+Story 052 removes the reason that revert was needed (its own D4/D8 replace the lazy
+find-or-create-by-`catalogId` path with something that no longer treats a restored empty entry as
+dangerous), and gives this exact entry shape a line that *does* carry what it runs — see "Unbound
+lines" below. D2 wrote that line and D3 reads it back
+(`profile-restore.ts#claimsUnboundEntry`), so such an entry now survives a save/reload/re-import
+round trip with its name, category, `catalogId` and command intact.
 
 A **slotless anchor** is not an anchor to the reader either, and the doc used to claim otherwise: a
 comment-only line whose tag carries no `key` fails `profile-restore.ts#claimsEntryAnchor` (that
@@ -235,6 +244,78 @@ deliberately left out of the tag: it is already carried by the plain config text
 body order, a rendered `""`), so a tag for it would just be a second, driftable source of the same
 fact.
 
+## Unbound lines
+
+Story 052 D2 gives the `Entries: <category>` section a second shape, a sibling of the anchor line
+rather than a section of its own: an **unbound line**, for the one entry shape neither a real config
+line nor an anchor line ever covers — a plain `bind`/`message` entry with no key slot at all (so no
+`bind` line, and no modifier layer to anchor it into) and no alias line either (a catalogue's own
+continuous row that nothing calls by name, or an entry seeded with no commands at all — see
+`STANDARD_TEMPLATE`, story 052 D1's "every catalogue row becomes an action, unbound"). Before this
+deliverable such an entry left nothing in the file at all (see "An entry with no line at all" above);
+an unbound line is what a re-import needs so the entry's identity and, load-bearingly, its *command*
+are not lost.
+
+```
+// --- Entries: Movement [q2l cat=movement] -----------------------------------
+//bind "+moveleft"   // Strafe left [q2l cid=movement:moveleft]
+//bind ""            // Crouch [q2l cid=movement:crouch]
+```
+
+The grammar is a whole config line commented out, `//bind "<cmd>"`, with the same trailing
+`  // <prose> [q2l ...]` every real bind/alias/anchor line in this file carries
+(`attachTaggedComment`). To a human it reads as a bind the launcher has commented out because nothing
+is bound there yet; to the reader (`profile-restore.ts#claimsUnboundEntry`, story 052 D3) the tag's
+presence is what says the line is launcher-owned rather than something the user typed and commented
+themselves — the same rule "The marker tag" above states for every other entry line.
+
+**How it is read back.** `claimsUnboundEntry` is the discriminator, the sibling of
+`claimsEntryAnchor` and consulted by the same two scans (`claimedByEntryScan`, so a claimed line can
+never *also* be minted as a section header out of its own display prose): the comment text starts
+`bind ` with an argument, a readable `[q2l …]` tag is present, and the tag carries none of the
+fields that make a tagged comment something else — `key` (an anchor), `cat`/`layer` (a section
+header), `v` (the header block). The line is then split back into its two halves with the config
+tokenizer itself (`stripLineComment`, `tokenize` — so a `//` inside a quoted body is part of the
+command, not the start of the display comment) and restores an entry with that command (`""` → no
+commands at all), the display prose as its name, `cid` as its `catalogId`, `an` as its `aliasName`
+and the section it sits in as its category. Every unbound line becomes an entry **of its own**,
+never matched onto an existing group the way an anchor is: the writer emits one only for an entry
+with no other line, so there is nothing to match onto, and matching could only fold two rows into
+one — two commandless seeded rows in one category say the same thing (`//bind ""`) by design. For
+the same reason an anchor line is never matched onto an unbound entry: an unbound entry has no key
+slot at all, which is precisely why it got this shape instead of an anchor. Being claimed is also
+what keeps the line out of the import preview's `preserved` list
+(`RestoreProfilePartsResult.consumedCommentLines`, subtracted by `import.ts#preservedLinesFor`).
+
+**The body carries the command, never just a marker.** `<cmd>` is `bindValueFor(action)` — the exact
+value the mirror would write on a key if this entry had one, the same function `buildBindOwnerIndex`
+itself uses — for an entry that has at least one command, and the empty string `""` for an entry with
+no commands at all (most of `STANDARD_TEMPLATE`'s seeded rows). This is the fix for exactly what made
+story 042's reverted "entry anchor" attempt worse than the loss it was trying to prevent: that shape
+carried no command at all, so a restored entry came back with `commands: []` and the Controls tab's
+find-or-create-by-`catalogId` slot editor could reuse it as the base of a fresh bind, producing a key
+that pointed at an alias nothing defined. An unbound line's body is what lets the restore recover
+the real command instead of an empty stand-in — even when that command is deliberately the empty
+string, which is why `//bind ""` round-trips as "genuinely no command" rather than being treated as
+garbage.
+
+**Tag fields, and which ones an unbound line never carries.** Same as an anchor-only entry: `cid`
+when catalogue-backed, and `an` (the entry's own `aliasName`) — present exactly when the entry has
+one, since an unbound entry by definition has no alias line of its own to spell it out as code, but
+an entry seeded with no name of its own gets no `an` either; forcing one on would fabricate a name
+the file never really carried. Never `key`/`mod`: an unbound entry
+has no key slot at all, modified or otherwise — if it did, it would be an anchor (or a real bind),
+not this shape. `render.ts#isUnboundEntry` is the one predicate that decides which shape an entry
+gets; the two are mutually exclusive by construction (an anchored entry's command already lives in
+its modifier layer's alias, so it never also qualifies as unbound).
+
+**Only a `bind`/`message` entry can be unbound.** A `kind: 'alias'`, `'toggle'` or `'press-release'`
+entry always renders at least one alias line of its own (story 045 D3's "always kept" guard in
+`actionsWithAliasLine`), so giving one of those an unbound line too would record the same fact twice
+— "one fact, one place" holds here exactly as it does for the anchor/bind-line split above. A bound
+entry (a real key, a real bind or alias line) is likewise never given a second, unbound trace next to
+it.
+
 ## Entry identity and grouping on read
 
 With no `e` ref to key on, `profile-restore.ts#groupEntryLines` groups a file's tagged lines back
@@ -253,6 +334,9 @@ into entries purely from what the config text itself says:
   second consulted only when the first had nothing to say — by `cid` when the anchor carries one,
   else by **exact** display prose. Each step demands exactly one candidate; two candidates is
   ambiguity and the file has stopped being able to say which.
+- **An unbound line**, by its own position (`unbound:<file>:<line>`) and nothing else: it is one
+  entry per line, by construction (see "Unbound lines" above for why matching it onto anything would
+  only ever fold two rows into one).
 
   The prose match is exact and nothing wider. An earlier version had a third step that accepted a
   *prefix* relationship in either direction, for a long display name `fitProseAndTag` might cut to

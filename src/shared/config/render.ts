@@ -1,5 +1,4 @@
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
-import { BUILT_IN_ACTION_CATEGORIES } from '@shared/modules/config'
 import { actionKeySlots } from '@shared/config/action-slots'
 import type { AltLayer, GeneratedAlias, GenerateLayerResult } from '@shared/config/alt-layers'
 import { generateLayerAliases } from '@shared/config/alt-layers'
@@ -174,11 +173,49 @@ function entryTag(action: ConfigAction, anchor: AnchorTagFields = {}): string {
   })
 }
 
-/** The `[q2l cat=<id>]` tag for a category section header, or `''` for the trailing "other"
+/** The `[q2l cat=<id> ord=<n>]` tag for a category section header, or `''` for the trailing "other"
  * bucket - that bucket is the *absence* of a category (its members' `categoryId` matches none the
- * profile has), so there is no id to record and a tag would invent one. */
-function categoryTag(categoryId: string | null): string {
-  return categoryId === null ? '' : formatMetaTag({ cat: categoryId })
+ * profile has), so there is no id to record and a tag would invent one. `ord` is the category's own
+ * position (`categoryOrdinals`); a header whose category has no ordinal cannot occur, since every
+ * bucket a section is built for comes from `orderedCategoryIds` and every one of those that renders
+ * a section has at least one entry. */
+function categoryTag(categoryId: string | null, ordinals: ReadonlyMap<string, number>): string {
+  if (categoryId === null) return ''
+  const ordinal = ordinals.get(categoryId)
+  return formatMetaTag({ cat: categoryId, ord: ordinal === undefined ? undefined : String(ordinal) })
+}
+
+/**
+ * Each category's position in `profile.categories`, as the `ord` field records it (story 052, F3
+ * fix).
+ *
+ * **Why the file has to say this at all.** The section headers alone cannot: the writer emits its
+ * category sections in three separate passes over `profile.categories` (the alias sections, then the
+ * bind sections, then the `Entries:` ones), and a category only gets a section in a pass that has
+ * something to put in it. Document order is therefore three interleaved *subsequences* of the
+ * profile's order, and two categories that share no pass - one whose entries are all still unbound
+ * (an `Entries:` section and nothing else), one whose entries are all bound (a `Binds:` section and
+ * nothing else) - have no header pair to compare at all. Rendering such a profile with its two
+ * categories swapped produces a **byte-identical** file, so no reader could tell the two apart; the
+ * rail silently flipped them on the first rebuild-from-file (AC 8's "the file's section order follows
+ * the profile's category order"). `profile-restore.ts#orderByFileSections` merges what the headers
+ * *do* state and reads this field for the rest.
+ *
+ * **Why it counts only categories that carry an entry.** A category with no entries writes no section
+ * at all, so a restore cannot bring it back (`profile-restore.ts` mints a category from the entries
+ * filed under it, never from a bare header). Numbering it anyway would leave a gap in the ordinals
+ * the *next* render - of a profile that no longer has it - closes, and the file would differ from the
+ * one on disk with nobody having touched it: story 042's fixed point, broken by the very field meant
+ * to protect the order it guards. Counting exactly the categories a restore reproduces keeps both
+ * renders numbering identically.
+ */
+function categoryOrdinals(profile: ConfigProfile): Map<string, number> {
+  const withEntries = new Set((profile.actions ?? []).map((action) => action.categoryId))
+  const ordinals = new Map<string, number>()
+  for (const id of orderedCategoryIds(profile)) {
+    if (withEntries.has(id)) ordinals.set(id, ordinals.size)
+  }
+  return ordinals
 }
 
 /** The `[q2l layer=... mode=... trigger=...]` tag for a layer section header. `trigger` is omitted
@@ -310,14 +347,22 @@ function splitAliasLine(alias: GeneratedAlias): { head: string; body: string } {
 }
 
 /**
- * Every category id a section can be built for, in the order the story fixes: the built-in
- * categories first (movement, weapons, drops - the Controls tab's own order), then the profile's
- * own categories in their stored array order. Deduplicated, so a custom category that reuses a
- * built-in id cannot produce two sections with the same banner.
+ * Every category id a section can be built for: the profile's own categories, in their stored array
+ * order, and nothing else (story 052 D4).
+ *
+ * Until 052 this list started with the three built-in categories (movement, weapons, drops), which
+ * hardwired both their presence and their position in the file regardless of what the profile
+ * actually carried. Categories are ordinary, profile-owned data now, so the file's section order is
+ * simply `profile.categories`' order - reordering a category in the Controls rail moves its section,
+ * and a profile that has no `movement` category writes no Movement section. Entries filed under an
+ * id the profile no longer has are not lost: they land in `groupByCategory`'s trailing "other"
+ * bucket, same as before.
+ *
+ * Deduplicated, so a profile that somehow carries one id twice cannot produce two sections with the
+ * same banner.
  */
 function orderedCategoryIds(profile: ConfigProfile): string[] {
   const ids: string[] = []
-  for (const category of BUILT_IN_ACTION_CATEGORIES) if (!ids.includes(category.id)) ids.push(category.id)
   for (const category of profile.categories ?? []) if (!ids.includes(category.id)) ids.push(category.id)
   return ids
 }
@@ -440,6 +485,7 @@ function buildAliasSections(
   actions: ConfigAction[],
   style: SectionHeaderStyle,
 ): string[][] {
+  const ordinals = categoryOrdinals(profile)
   return groupByCategory(profile, actions, (action) => action.categoryId).map((group) => {
     const rows: CodeRow[] = []
     for (const action of group.items) {
@@ -467,7 +513,7 @@ function buildAliasSections(
     }
     return titledSection(
       `Aliases: ${categoryTitle(group.categoryId, profile)}`,
-      categoryTag(group.categoryId),
+      categoryTag(group.categoryId, ordinals),
       renderRows(rows),
       style,
     )
@@ -736,6 +782,7 @@ function buildBindSections(
     }
   }
 
+  const ordinals = categoryOrdinals(profile)
   const categorySections = groupByCategory(
     profile,
     owned,
@@ -743,7 +790,7 @@ function buildBindSections(
   ).map((group) =>
     titledSection(
       `Binds: ${categoryTitle(group.categoryId, profile)}`,
-      categoryTag(group.categoryId),
+      categoryTag(group.categoryId, ordinals),
       renderRows(group.items.map(bindRow)),
       style,
     ),
@@ -878,9 +925,153 @@ function anchorRow(anchor: AnchorLine, profile: ConfigProfile): string {
   return `// ${fitProseAndTag(prose, tag, COMMENT_LINE_BUDGET - 3)}`
 }
 
+// ---------------------------------------------------------------------------
+// Story 052 D2: the unbound line - a second shape this same section carries,
+// for the one entry shape an anchor line does not cover at all: no key of any
+// kind (so no bind line and no modifier layer to anchor), and no alias line
+// either (see `actionsWithAliasLine`/`renderActionAlias` - a catalogue's own
+// continuous row with nothing calling its alias, or an entry seeded with no
+// commands at all, never gets one). Before this deliverable such an entry left
+// literally nothing in the file (`buildAnchorLines`'s own doc comment,
+// "An entry with no line anywhere gets nothing - deliberately, twice over").
+//
+// D2 gives it a sibling of the anchor line, in the very same `Entries: <cat>`
+// section and read back through the same category-scoped matcher (a later
+// deliverable, D3) - not a parallel mechanism, one more shape the section
+// already has a home for.
+// ---------------------------------------------------------------------------
+
 /**
- * The anchor sections: one per category, in the same order the alias and bind sections use, holding
- * every anchor line `buildAnchorLines` found in that category.
+ * Is `action` a candidate for the unbound line - would it otherwise leave no trace at all?
+ *
+ * Deliberately narrower than "has no key": a `kind: 'alias'`, `'toggle'` or `'press-release'` entry
+ * always emits its own alias line(s) (story 045 D3's "always kept" guard in `actionsWithAliasLine`),
+ * so giving one of those a second, commented-out trace here would double-emit the same fact - "one
+ * fact, one place" (the story's own decision). Only a plain `'bind'`/`'message'` entry can end up
+ * with literally nothing: `aliasLineActionIds` is exactly the set of actions
+ * `renderActionAlias` produced at least one line for (whether or not anything calls that alias -
+ * `actionsWithAliasLine`'s own "keyless, unreferenced survives" guard already covers the ordinary
+ * case), `ownedBindActionIds` is who `collectBindEntries` matched a `binds` key to, and
+ * `anchoredActionIds` is who `buildAnchorLines` already gave a modified-slot anchor to (that anchor
+ * is not this entry's *command* trace, but the command itself still lives in the modifier layer's
+ * alias - a real trace this deliverable must not duplicate).
+ */
+function isUnboundEntry(
+  action: ConfigAction,
+  aliasLineActionIds: ReadonlySet<string>,
+  ownedBindActionIds: ReadonlySet<string>,
+  anchoredActionIds: ReadonlySet<string>,
+): boolean {
+  if (action.kind !== 'bind' && action.kind !== 'message') return false
+  if (aliasLineActionIds.has(action.id)) return false
+  if (ownedBindActionIds.has(action.id)) return false
+  if (anchoredActionIds.has(action.id)) return false
+  return true
+}
+
+/**
+ * Every action `isUnboundEntry` holds for, in `profile.actions` order - the same order
+ * `buildAnchorLines` walks, so the two lists can be merged back into one file order by the caller.
+ */
+function collectUnboundActions(
+  profile: ConfigProfile,
+  aliasLineActions: readonly ConfigAction[],
+  bindEntries: BindEntries,
+  anchors: readonly AnchorLine[],
+): ConfigAction[] {
+  const aliasLineActionIds = new Set(aliasLineActions.map((action) => action.id))
+  const ownedBindActionIds = new Set(bindEntries.owned.map((entry) => entry.owner!.action.id))
+  const anchoredActionIds = new Set(anchors.map((anchor) => anchor.action.id))
+  return (profile.actions ?? []).filter((action) =>
+    isUnboundEntry(action, aliasLineActionIds, ownedBindActionIds, anchoredActionIds),
+  )
+}
+
+/**
+ * The command an unbound line's body carries - a real, would-be bind command, never a bare marker
+ * (the reverted "entry anchor" attempt's mistake, see `buildAnchorLines`'s doc comment): `""` for an
+ * entry with no commands at all (most of `STANDARD_TEMPLATE`'s seeded rows - story 052 D1), else
+ * `bindValueFor(action)`, the exact value the mirror would write on a key if this entry had one -
+ * the same function `buildBindOwnerIndex`/`collectBindEntries` use, so a row that later *does* get
+ * bound through the UI (D3, a later deliverable) restores to the identical value a fresh bind of it
+ * would have produced.
+ */
+function unboundCommand(action: ConfigAction): string {
+  return action.commands.length === 0 ? '' : bindValueFor(action)
+}
+
+/**
+ * One unbound line: `//bind "<cmd>"   // <name> [q2l …]` - the commented-out bind an entry with no
+ * key and no alias line otherwise never gets. Shares its trailing-comment machinery
+ * (`attachTaggedComment`, `COMMENT_LINE_BUDGET`) with every real code line in this file, with the
+ * literal `//bind "<cmd>"` standing in for `code`: to a human it reads as a bind the launcher has
+ * commented out, and the tag is what tells `profile-restore.ts` (D3) it is launcher-owned rather than
+ * a hand-typed comment.
+ *
+ * Carries `an` (the entry's own `aliasName`) exactly as an anchor-only entry does - only where no
+ * alias line exists to spell it out as code, which for an unbound entry is unconditionally true (it
+ * is unbound precisely because it has none). No `key`/`mod`: an unbound entry has no key slot at all,
+ * modified or otherwise, by construction (`isUnboundEntry` excludes anything `buildAnchorLines`
+ * already anchored).
+ */
+function unboundLine(action: ConfigAction, profile: ConfigProfile): string {
+  const code = `//bind "${unboundCommand(action)}"`
+  const tag = entryTag(action, { aliasName: action.aliasName?.trim() || undefined })
+  const prose = proseText(commentLabelFor(action, profile))
+  return attachTaggedComment(code, prose, tag, COMMENT_LINE_BUDGET)
+}
+
+/** One item of an `Entries: <cat>` section - either an existing anchor line or (story 052 D2) an
+ * unbound line. A discriminated union rather than two parallel arrays so the section builder below
+ * can sort both shapes back into one file order without caring which is which until it renders a
+ * row. */
+type EntrySectionItem =
+  | { kind: 'anchor'; action: ConfigAction; anchor: AnchorLine }
+  | { kind: 'unbound'; action: ConfigAction }
+
+/**
+ * The anchor and unbound-line entries, merged back into `profile.actions` order.
+ *
+ * The two lists are disjoint by construction (`isUnboundEntry` excludes every action
+ * `anchors` already covers), so this is a plain stable sort by each item's action index rather than
+ * a real merge - `Array#sort` in V8/every engine this app targets is stable, so an entry with more
+ * than one anchor (several modified slots) keeps those anchors in the slot order `buildAnchorLines`
+ * produced them in.
+ */
+function buildEntrySectionItems(
+  profile: ConfigProfile,
+  anchors: readonly AnchorLine[],
+  unboundActions: readonly ConfigAction[],
+): EntrySectionItem[] {
+  const actionIndex = new Map<string, number>()
+  ;(profile.actions ?? []).forEach((action, index) => actionIndex.set(action.id, index))
+
+  const items: (EntrySectionItem & { index: number })[] = [
+    ...anchors.map((anchor) => ({
+      kind: 'anchor' as const,
+      action: anchor.action,
+      anchor,
+      index: actionIndex.get(anchor.action.id) ?? 0,
+    })),
+    ...unboundActions.map((action) => ({
+      kind: 'unbound' as const,
+      action,
+      index: actionIndex.get(action.id) ?? 0,
+    })),
+  ]
+  return items.sort((a, b) => a.index - b.index)
+}
+
+/** One `EntrySectionItem` rendered to its line - `anchorRow` for an anchor, `unboundLine` (story 052
+ * D2) for an unbound entry. */
+function entrySectionItemRow(item: EntrySectionItem, profile: ConfigProfile): string {
+  return item.kind === 'anchor' ? anchorRow(item.anchor, profile) : unboundLine(item.action, profile)
+}
+
+/**
+ * The entry sections: one per category, in the same order the alias and bind sections use, holding
+ * every anchor line `buildAnchorLines` found in that category plus (story 052 D2) every unbound line
+ * `collectUnboundActions` found in it - siblings in the same section, in `profile.actions` order.
  *
  * Emitted after the bind sections and before the layer sections, so the line sits under its own
  * category header (attribution is positional on the reading side) and outside every layer section
@@ -889,16 +1080,18 @@ function anchorRow(anchor: AnchorLine, profile: ConfigProfile): string {
 function buildAnchorSections(
   profile: ConfigProfile,
   anchors: readonly AnchorLine[],
+  unboundActions: readonly ConfigAction[],
   style: SectionHeaderStyle,
 ): string[][] {
-  return groupByCategory(profile, anchors, (anchor) => anchor.action.categoryId).map((group) =>
+  const items = buildEntrySectionItems(profile, anchors, unboundActions)
+  const ordinals = categoryOrdinals(profile)
+  return groupByCategory(profile, items, (item) => item.action.categoryId).map((group) =>
     titledSection(
       `${ANCHOR_TITLE_PREFIX}${categoryTitle(group.categoryId, profile)}`,
-      categoryTag(group.categoryId),
-      // `groupByCategory` keeps the caller's order inside a bucket, so an entry's anchors stay in
-      // the slot order `buildAnchorLines` produced them in - which is what the reader's file-order
-      // slot claims depend on.
-      group.items.map((anchor) => anchorRow(anchor, profile)),
+      categoryTag(group.categoryId, ordinals),
+      // `groupByCategory` keeps the caller's order inside a bucket, so this section's rows stay in
+      // the merged file order `buildEntrySectionItems` produced them in.
+      group.items.map((item) => entrySectionItemRow(item, profile)),
       style,
     ),
   )
@@ -1130,9 +1323,12 @@ export function sentinelLine(profileId: string): string {
  * 5. the bind sections, one per category in the same order as the alias sections, each bind
  *    ordered by its owning action's index and carrying that entry's display name as a comment;
  * 6. an "other binds" section, sorted by key, for every bind no action owns;
- * 6b. (story 042, review fix) one `Entries: <category>` section per category holding an *anchor*
- *    line - a comment-only, `[q2l …]`-tagged line - for every key slot no config line can record,
- *    i.e. every slot bound only through a modifier layer (`buildAnchorLines`);
+ * 6b. (story 042, review fix; story 052 D2 adds the second shape) one `Entries: <category>` section
+ *    per category holding an *anchor* line - a comment-only, `[q2l …]`-tagged line - for every key
+ *    slot no config line can record, i.e. every slot bound only through a modifier layer
+ *    (`buildAnchorLines`), plus an *unbound* line - `//bind "<cmd>"   // <name> [q2l …]` - for every
+ *    plain bind/message entry that would otherwise leave no trace in the file at all
+ *    (`collectUnboundActions`);
  * 7. one section per layer in `profile.layers` order, holding that layer's generated aliases and
  *    the `bind <trigger> <command>` line that reaches them - last in the file on purpose, so a
  *    layer's trigger always wins the key it shares with a base bind (see `buildLayerSections`).
@@ -1240,6 +1436,10 @@ export function renderProfileFile(profile: ConfigProfile): string {
   )
   const anchors = buildAnchorLines(profile, aliasLineActions)
 
+  // Story 052 D2: every plain bind/message entry the lines above leave with no trace at all - see
+  // `isUnboundEntry`'s doc comment for exactly which shape that is.
+  const unboundActions = collectUnboundActions(profile, aliasLineActions, bindEntries, anchors)
+
   const lines: string[] = [
     sentinelLine(profile.id),
     ...joinBlocks([
@@ -1250,7 +1450,7 @@ export function renderProfileFile(profile: ConfigProfile): string {
       // The bind sections come *before* the layer sections, so that a layer's trigger bind is the
       // last `bind` line in the file - see `buildLayerSections`' doc comment.
       ...buildBindSections(profile, bindEntries, sectionHeaderStyle),
-      ...buildAnchorSections(profile, anchors, sectionHeaderStyle),
+      ...buildAnchorSections(profile, anchors, unboundActions, sectionHeaderStyle),
       ...buildLayerSections(profile, layerResults, sectionHeaderStyle),
     ]),
   ]

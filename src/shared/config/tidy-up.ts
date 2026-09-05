@@ -82,7 +82,6 @@ import type {
   ConfigProfile,
   UnrecognizedConfigLine,
 } from '../modules/config'
-import { BUILT_IN_ACTION_CATEGORIES } from '../modules/config'
 import { ACTIONS_MESSAGE_PREFIX, validateActions } from './validate-actions'
 import { applyActionBindMirror, bindValueFor, isMirroredValue } from './action-mirror'
 import { aliasNameFor } from './alias-render'
@@ -555,10 +554,17 @@ function applyDropPreservedLine(
 }
 
 /** Does `categoryId` resolve to a category the UI can actually show the row
- * under - a built-in, or one this profile carries? An action filed under a
- * category that does not exist is invisible, which is not a tidy-up. */
+ * under - i.e. one this profile carries? An action filed under a category that
+ * does not exist is invisible, which is not a tidy-up.
+ *
+ * Story 052 D4: this used to answer "yes" for the three built-in ids whatever
+ * the profile held, because those categories were a fixture the Controls tab
+ * always rendered. They are ordinary, deletable, profile-owned data now, so a
+ * `movement` that the user deleted is exactly as invisible as any other missing
+ * category - and a promotion into it has to be rejected, not waved through
+ * (the story's Decisions: "otherwise a deleted former built-in leaves its
+ * entries un-flagged"). */
 function categoryExists(profile: ConfigProfile, categoryId: string): boolean {
-  if (BUILT_IN_ACTION_CATEGORIES.some((category) => category.id === categoryId)) return true
   return (profile.categories ?? []).some((category) => category.id === categoryId)
 }
 

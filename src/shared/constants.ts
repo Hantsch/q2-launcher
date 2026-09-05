@@ -11,7 +11,7 @@ export const STATE_FILE = 'state.json'
 export const WINDOW_STATE_FILE = 'window-state.json'
 
 /** Bumped whenever the shape of `state.json` changes; see `src/main/services/migrations.ts`. */
-export const STATE_SCHEMA_VERSION = 1
+export const STATE_SCHEMA_VERSION = 2
 
 /** Window sizing. The shell layout below ~940x620 starts to break down. */
 export const WINDOW_DEFAULT_WIDTH = 1280

@@ -174,10 +174,18 @@ const TWO_PART_ACTION_KINDS = new Set(['toggle', 'press-release'])
  */
 const legacyCategoryEntryKindSchema = actionEntryKindPersistedSchema.optional().catch(undefined)
 
+/**
+ * Story 052 D1: the persisted-schema mirror of `ConfigActionCategory.nameKey` - forgiving like
+ * every other field here (`.optional().catch(undefined)`), so a hand-mangled value degrades to
+ * "no display hint" rather than dropping the whole category row.
+ */
+const categoryNameKeyPersistedSchema = z.string().min(1).optional().catch(undefined)
+
 const configActionCategoryPersistedSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   entryKind: legacyCategoryEntryKindSchema,
+  nameKey: categoryNameKeyPersistedSchema,
 })
 
 // Story 016 (D6): same modifier vocabulary as the strict IPC schema
@@ -316,7 +324,9 @@ const profileBaselinePersistedSchema: z.ZodType<PersistedProfileBaseline> = z.ob
   cvars: z.record(z.string(), z.string()),
   binds: z.record(z.string(), z.string()),
   layers: z.array(altLayerPersistedSchema),
-  categories: z.array(z.object({ id: z.string().min(1), name: z.string().min(1) })),
+  categories: z.array(
+    z.object({ id: z.string().min(1), name: z.string().min(1), nameKey: categoryNameKeyPersistedSchema }),
+  ),
   actions: z.array(
     z.preprocess(
       normalizeLegacyActionKeys,
@@ -623,7 +633,7 @@ function normalizeConfigProfile(
   return {
     ...rest,
     ...(baseline ? { baseline: { ...baseline, name: baseline.name ?? parsed.name } } : {}),
-    categories: parsed.categories.map(({ id, name }) => ({ id, name })),
+    categories: parsed.categories.map(({ id, name, nameKey }) => ({ id, name, ...(nameKey ? { nameKey } : {}) })),
     actions: adopted.actions,
     binds: adopted.binds,
     layers: adopted.layers,

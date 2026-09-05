@@ -11,9 +11,11 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 import { actionKeySlots, keySlotAt, withKeySlot } from '@shared/config/action-slots'
+import { nameForCatalogRow } from '@shared/config/catalog-rows'
 import type { ModifierTrigger } from '@shared/config/modifier-layers'
 import {
-  BUILT_IN_ACTION_CATEGORIES,
+  STANDARD_TEMPLATE,
+  TEMPLATE_ACTION_CATEGORIES,
   type ActionEntryKind,
   type ConfigAction,
   type ConfigActionCategory,
@@ -28,6 +30,7 @@ import { BindSlot, BindSlotPlaceholder } from './components/BindSlot'
 import { ControlsGrid } from './components/ControlsGrid'
 import { ControlsOptionsCell } from './components/ControlsOptionsCell'
 import { ControlsRow } from './components/ControlsRow'
+import { DeleteCategoryDialog } from './components/DeleteCategoryDialog'
 import { MessageEditor } from './components/MessageEditor'
 import { RenameActionDialog } from './components/RenameActionDialog'
 import { updateProfileActions } from './client'
@@ -35,8 +38,6 @@ import { useProfileChanges } from './lib/profile-changes'
 import { findBindConflicts, findSlotConflictOwner, indexBindConflicts } from './lib/bind-conflicts'
 import {
   applyModifierReplace,
-  applyPlainModifierReplace,
-  applyPlainReplace,
   applyReplace,
   findModifierSlotCollision,
   findSlotCollision,
@@ -45,36 +46,27 @@ import {
 import {
   applyAmmo,
   applyMessage,
-  applyPlainSlot,
   applySlot,
   deriveRowState,
   editorKeySlot,
+  withCatalogBody,
   type CatalogRow,
 } from './lib/catalog-binds'
 import {
-  buildCatalogControlsRowEntries,
+  allCatalogRowInfos,
+  buildControlsRowEntries,
   type CatalogControlsRowEntry,
+  type CatalogRowInfo,
   type ControlsRowEntry,
-  type DualBindCategoryId,
 } from './lib/controls-row-entries'
 import { groupControlsRowEntries } from './lib/controls-row-groups'
-import { moveEntryWithinCategory } from './lib/entry-order'
+import { categoryDisplayName as resolveCategoryDisplayName } from './lib/category-display'
+import { applyCategoryDeletion, type DeleteCategoryChoice } from './lib/delete-category'
+import { buildMoveTargets, swapEntries } from './lib/entry-order'
 
 const SAVE_DEBOUNCE_MS = 500
 
 type SaveStatus = 'idle' | 'saving' | 'saved'
-
-/**
- * Story 015 D5/D6: the three built-in categories that used to get their own dedicated dual-bind
- * editor. Story 020 D3 collapsed `DualBindPanel`/`DropBindPanel`/the generic action list into one
- * `ControlsGrid` for every category (see the render below) - this set now only decides which
- * categories are catalogue-driven (`isDualBindCategory` below), not which component renders the
- * action list. `DualBindPanel.tsx`/`DropBindPanel.tsx` themselves were deleted once nothing
- * imported them any more (review fix); their `lib/catalog-binds.ts` helpers live on, called from
- * this file's own `renderCatalogRow`/`renderCatalogSlot`/`renderCatalogOptionsCell`.
- */
-const DUAL_BIND_CATEGORY_IDS = new Set<string>(['movement', 'weapons', 'drops'])
-
 
 export interface ControlsTabProps {
   profile: ConfigProfile
@@ -116,7 +108,7 @@ export function ControlsTab({
   onChanged,
   focusActionId,
 }: ControlsTabProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   // Story 049 D8: the profile's pending change set, read once here so `renderCatalogRow`/
   // `renderPlainActionRow` can each ask "is my action id in `keys.actions`" - same predicate the
   // save bar's badge and count use (`useProfileChanges`, `lib/profile-changes.tsx`).
@@ -142,8 +134,11 @@ export function ControlsTab({
   )
   const conflictIndex = useMemo(() => indexBindConflicts(conflicts), [conflicts])
   const layers = draft.layers ?? []
+  // Story 052 D7: no category is special any more - the rail's initial selection is simply the
+  // profile's first category (in its own order), or '' for a freshly-created, still-empty profile
+  // (the empty state below offers the template instead of a selectable category).
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
-    BUILT_IN_ACTION_CATEGORIES[0].id,
+    () => (profile.categories ?? [])[0]?.id ?? '',
   )
   const [status, setStatus] = useState<SaveStatus>('idle')
   const [saving, setSaving] = useState(false)
@@ -164,6 +159,10 @@ export function ControlsTab({
   const [showCreateCategory, setShowCreateCategory] = useState(false)
   const [renamingCategory, setRenamingCategory] = useState<ConfigActionCategory | null>(null)
   const [pendingDeleteCategoryId, setPendingDeleteCategoryId] = useState<string | null>(null)
+  /** Story 052 D9: a category with entries opens `DeleteCategoryDialog` instead of the plain
+   * inline confirm `pendingDeleteCategoryId` still drives for an empty one - "move 0 entries" is
+   * not a real choice to force on the user (story's own judgement call). */
+  const [deletingCategory, setDeletingCategory] = useState<ConfigActionCategory | null>(null)
   const [showCreateAction, setShowCreateAction] = useState(false)
   const [renamingAction, setRenamingAction] = useState<ConfigAction | null>(null)
   const [editingActionId, setEditingActionId] = useState<string | null>(null)
@@ -172,20 +171,22 @@ export function ControlsTab({
    * rows in the next one. */
   const [filterText, setFilterText] = useState('')
   /** Review fix (findings 4/5): which drops row's message `Modal` is open, or `null` for none.
-   * The editor reads its initial channel/text off `actions` itself (looked up by `catalogId`), so
-   * this only has to remember *which* row - plus the row's already-resolved i18n label, because a
-   * `CatalogRow` carries no `labelKey` and the modal's title needs one (story 029 D4). */
+   * The editor reads its initial channel/text off `actions` itself (looked up by the entry's id,
+   * story 052 D8), so this only has to remember *which* row - plus the row's already-resolved i18n
+   * label, because a `CatalogRow` carries no `labelKey` and the modal's title needs one (029 D4). */
   const [messageEditorRow, setMessageEditorRow] = useState<{
     row: CatalogRow
+    actionId: string
     label: string
   } | null>(null)
   /**
    * Story 029 D4: which drops rows have their inline message row revealed *without* a message
    * being stored yet (AC 3/5). Local view state, not a draft edit - and deliberately not derived:
-   * an empty message is never persisted (`applyMessage('')` prunes it), so a row the user just
-   * checked has nothing in `actions` to read the checked state back from. The checkbox and the
+   * an empty message is never persisted (`applyMessage('')` removes the command), so a row the user
+   * just checked has nothing in `actions` to read the checked state back from. The checkbox and the
    * sub-row are both rendered from "has a stored message OR is in this set", so the two can never
-   * disagree (story decision).
+   * disagree (story decision). Keyed by the entry's id, not its `catalogId` (story 052 D8): a row is
+   * an entry, and two entries could name the same catalogue row.
    */
   const [revealedMessageRows, setRevealedMessageRows] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -204,7 +205,7 @@ export function ControlsTab({
   // `useProfileDraft`'s job now (story 009 D6), keyed on the same
   // `profile.id`.
   useEffect(() => {
-    setSelectedCategoryId(BUILT_IN_ACTION_CATEGORIES[0].id)
+    setSelectedCategoryId((profile.categories ?? [])[0]?.id ?? '')
     setStatus('idle')
     clearPendingSave()
     // Story 029 D4: the reveal set and an open message editor both name a row of the profile being
@@ -329,11 +330,26 @@ export function ControlsTab({
     }, SAVE_DEBOUNCE_MS)
   }
 
-  const handleCreateCategory = async (input: { name: string }): Promise<boolean> => {
-    const category: ConfigActionCategory = {
-      id: crypto.randomUUID(),
-      name: input.name,
-    }
+  /**
+   * Story 052 D9: "New category" offers the template's three categories next to a blank one
+   * (AC 6). `input.templateId`, when set, names one of `TEMPLATE_ACTION_CATEGORIES` - the created
+   * category then carries that template's own fixed id plus `{ name: label, nameKey }`, exactly the
+   * shape `STANDARD_TEMPLATE.categories` and the migration already give a template-seeded category,
+   * so a catalogue suggestion filed under it later lines up with `row.categoryId` the same way it
+   * would have from the start. `CreateCategoryDialog` only ever offers a template id the profile
+   * does not already carry (`existingCategoryIds`), so the two ids colliding here is not a real
+   * path - the free-form fallback (no `templateId`) is unaffected and keeps minting a fresh id.
+   */
+  const handleCreateCategory = async (input: {
+    name: string
+    templateId?: string
+  }): Promise<boolean> => {
+    const template = input.templateId
+      ? TEMPLATE_ACTION_CATEGORIES.find((candidate) => candidate.id === input.templateId)
+      : undefined
+    const category: ConfigActionCategory = template
+      ? { id: template.id, name: template.label, nameKey: template.labelKey }
+      : { id: crypto.randomUUID(), name: input.name }
     const ok = await persistCategoriesAndActions([...categories, category], actions)
     if (ok) {
       setShowCreateCategory(false)
@@ -343,23 +359,105 @@ export function ControlsTab({
   }
 
   const handleRenameCategory = async (categoryId: string, name: string): Promise<boolean> => {
+    // Story 052 D7 decision: "a rename drops it" - the object is rebuilt from just `id`/`name`
+    // rather than spread from the previous category, so a `nameKey` a template seed or the
+    // migration attached is dropped the moment the category gets a user-typed name of its own.
     const nextCategories = categories.map((category) =>
-      category.id === categoryId ? { ...category, name } : category,
+      category.id === categoryId ? { id: category.id, name } : category,
     )
     const ok = await persistCategoriesAndActions(nextCategories, actions)
     if (ok) setRenamingCategory(null)
     return ok
   }
 
+  /** The plain, no-choice delete path (story 052 D7) - kept for a category with no entries at all,
+   * where "delete or move" is not a real question (story 052 D9's judgement call). */
   const handleDeleteCategory = async (categoryId: string): Promise<void> => {
     const nextCategories = categories.filter((category) => category.id !== categoryId)
     const nextActions = actions.filter((action) => action.categoryId !== categoryId)
     const ok = await persistCategoriesAndActions(nextCategories, nextActions)
     if (ok) {
       setPendingDeleteCategoryId(null)
-      if (categoryId === selectedCategoryId) setSelectedCategoryId(BUILT_IN_ACTION_CATEGORIES[0].id)
+      // No category is special any more (story 052 D7): fall back to whatever is now first in the
+      // profile's own order, or '' if that was the last one - the empty state below then offers
+      // the template again.
+      if (categoryId === selectedCategoryId) setSelectedCategoryId(nextCategories[0]?.id ?? '')
     }
   }
+
+  /**
+   * Story 052 D9: a category with entries goes through `DeleteCategoryDialog` instead - AC 9's
+   * "asks first and says what happens to its entries", with a real delete-or-move choice defaulting
+   * to move. The array math itself is `applyCategoryDeletion` (pure, its own tests) - this just
+   * persists the result through the same `persistCategoriesAndActions` path every other category
+   * edit uses and closes the dialog on success.
+   */
+  const handleDeleteCategoryChoice = async (
+    categoryId: string,
+    choice: DeleteCategoryChoice,
+    targetCategoryId?: string,
+  ): Promise<void> => {
+    const { categories: nextCategories, actions: nextActions } = applyCategoryDeletion(
+      categories,
+      actions,
+      categoryId,
+      choice,
+      targetCategoryId,
+    )
+    const ok = await persistCategoriesAndActions(nextCategories, nextActions)
+    if (ok) {
+      setDeletingCategory(null)
+      if (categoryId === selectedCategoryId) setSelectedCategoryId(nextCategories[0]?.id ?? '')
+    }
+  }
+
+  /**
+   * Story 052 D7: category reorder mirrors `moveEntryWithinCategory`'s adjacent-swap idiom, but
+   * over the flat `categories` array itself rather than a same-category subset of `actions` - every
+   * category is its own "group" of one, so there is no neighbour-skip to do. Saves through the same
+   * immediate `persistCategoriesAndActions` path `handleMoveAction` uses - a reorder is a discrete
+   * click, not typed input.
+   */
+  const handleMoveCategory = (categoryId: string, direction: 'up' | 'down'): void => {
+    const index = categories.findIndex((category) => category.id === categoryId)
+    if (index === -1) return
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= categories.length) return
+    const nextCategories = [...categories]
+    const moved = nextCategories[index]!
+    nextCategories[index] = nextCategories[targetIndex]!
+    nextCategories[targetIndex] = moved
+    void persistCategoriesAndActions(nextCategories, actions)
+  }
+
+  /**
+   * Story 052 D7: the empty state's one-click "Add the standard template" - reuses
+   * `STANDARD_TEMPLATE` itself (D1) rather than re-deriving the seed client-side, copying it with a
+   * fresh id per action exactly the way `profiles.ts#create`'s own `from: 'template'` branch does
+   * (category ids stay the template's own `movement`/`weapons`/`drops` - only offered here while the
+   * profile has none yet, so there is nothing for them to collide with).
+   */
+  const handleAddStandardTemplate = async (): Promise<void> => {
+    const nextCategories = STANDARD_TEMPLATE.categories.map((category) => ({ ...category }))
+    const nextActions = STANDARD_TEMPLATE.actions.map((action) => ({
+      ...action,
+      id: crypto.randomUUID(),
+      commands: action.commands.map((command) => ({ ...command })),
+    }))
+    const ok = await persistCategoriesAndActions(nextCategories, nextActions)
+    if (ok) setSelectedCategoryId(nextCategories[0]?.id ?? '')
+  }
+
+  /** Story 052 D1/D7: the renderer prefers a category's `nameKey` (a still-unrenamed template
+   * seed) over its stored `name`; a category the user has renamed, or one they typed themselves,
+   * carries no `nameKey` and shows its stored prose verbatim. The rule itself (including the
+   * fallback for a `nameKey` this build does not know - review finding 9) is
+   * `lib/category-display.ts`, so it can be tested without mounting the tab. */
+  const categoryDisplayName = (category: ConfigActionCategory): string =>
+    resolveCategoryDisplayName(category, {
+      t: (key) => t(key),
+      exists: (key) => i18n.exists(key),
+    })
 
   const handleRenameAction = async (
     actionId: string,
@@ -373,7 +471,16 @@ export function ControlsTab({
     return ok
   }
 
-  const handleCreateAction = (name: string, kind: ActionEntryKind): void => {
+  /**
+   * Story 052 D9: "Add action" offers catalogue suggestions next to a free-form entry (AC 6).
+   * `catalogId`, when a suggestion was picked, is the only difference from the free-form path - it
+   * is what makes `controlsRowEntryFor` render the new entry as a `'catalog'` row (translated
+   * label, fixed command preview, ammo/message affordances for a drops row) the moment it exists,
+   * exactly like any other catalogue-backed entry. `commands` stays `[]` either way: a suggestion is
+   * unbound until the user actually assigns a key, same as a template-seeded row
+   * (`withCatalogBody` fills the body on that first assignment).
+   */
+  const handleCreateAction = (name: string, kind: ActionEntryKind, catalogId?: string): void => {
     const action: ConfigAction = {
       id: crypto.randomUUID(),
       categoryId: selectedCategoryId,
@@ -382,6 +489,7 @@ export function ControlsTab({
       // category can no longer answer for the entry.
       kind,
       commands: [],
+      ...(catalogId ? { catalogId } : {}),
       // Story 045 D9: `toggle`/`press-release` render from `parts`, not `commands` (which stays
       // `[]` for them) - both zod mirrors require exactly two parts for these kinds, so a freshly
       // created entry must seed them here or fail the strict payload schema on the very first save.
@@ -403,12 +511,14 @@ export function ControlsTab({
    * category CRUD uses, rather than the debounced `scheduleActionsSave` add/
    * remove use - one click should not risk being reverted by a later failed
    * debounce firing on stale data.
+   *
+   * Story 052 review (finding 4): the row it swaps with is named by the caller (`moveTargets`,
+   * built from the *rendered* groups) rather than derived from `actions` here - see
+   * `lib/entry-order.ts` for why a neighbour picked out of the raw array could be a row rendered
+   * in another catalogue group, i.e. a real mutation with nothing visibly moving.
    */
-  const handleMoveAction = (actionId: string, direction: 'up' | 'down'): void => {
-    void persistCategoriesAndActions(
-      categories,
-      moveEntryWithinCategory(actions, actionId, direction),
-    )
+  const handleMoveAction = (actionId: string, targetId: string): void => {
+    void persistCategoriesAndActions(categories, swapEntries(actions, actionId, targetId))
   }
 
   /**
@@ -435,22 +545,6 @@ export function ControlsTab({
   }
 
   /**
-   * A catalogue row's own reset (AC 4/5): both key slots go through the same `applySlot` helper
-   * `DualBindPanel`/`DropBindPanel` already use, one combined save rather than two round trips.
-   * Ammo/message are left untouched - "resets that row's binds" is the key slots, not the row's
-   * other settings (D4's own judgement call, see the story requirement).
-   */
-  const handleResetCatalogRow = (row: CatalogRow): void => {
-    const cleared = applySlot(
-      applySlot(actions, row, 'primary', undefined),
-      row,
-      'secondary',
-      undefined,
-    )
-    handleCatalogActionsChange(cleared)
-  }
-
-  /**
    * Story 029 D4: the drops row's "With message" checkbox (AC 5/6).
    *
    * Checking only reveals the inline message row - there is no text to write yet, and writing an
@@ -463,31 +557,36 @@ export function ControlsTab({
    * Only the message command is touched either way: `applyMessage` merges into the action's
    * existing `commands`, so the row's `drop <item>` / ammo raw commands survive an uncheck.
    */
-  const handleToggleRowMessage = (row: CatalogRow, next: boolean): void => {
+  const handleToggleRowMessage = (row: CatalogRow, action: ConfigAction, next: boolean): void => {
     setRevealedMessageRows((current) => {
       const updated = new Set(current)
-      if (next) updated.add(row.catalogId)
-      else updated.delete(row.catalogId)
+      if (next) updated.add(action.id)
+      else updated.delete(action.id)
       return updated
     })
     if (next) return
-    const action = actions.find((entry) => entry.catalogId === row.catalogId)
     // Nothing stored means nothing to clear - skip the save rather than persisting an array that
     // is identical to the one already on disk.
     if (deriveRowState(action, row).message.trim().length > 0) {
-      handleCatalogActionsChange(applyMessage(actions, row, ''))
+      handleCatalogActionsChange(applyMessage(actions, action.id, ''))
     }
   }
 
-  /** A plain action's own reset: clears its key slots, never its `commands` and never the action
-   * itself - the action stays in the profile exactly as `ActionEditor` left it.
+  /** A row's own reset (AC 4/5): clears its key slots, never its `commands` and never the entry
+   * itself - the entry stays in the profile exactly as it was, unbound.
    *
-   * Story 050: only the two editable slots (0/1) are cleared, through the same `applyPlainSlot`
+   * Story 052 D8: one handler for every row. A catalogue row used to reset through a
+   * `CatalogRow`-keyed `applySlot` that could prune the whole action away; it is an ordinary entry
+   * now, so both kinds of row clear their two slots the same way and both keep their ammo/message
+   * settings ("resets that row's binds" is the key slots, not the row's other settings - D4's own
+   * judgement call, see the story requirement).
+   *
+   * Story 050: only the two editable slots (0/1) are cleared, through the same `applySlot`
    * write path the slot UI itself uses - a hand-added third slot is left untouched, exactly as
    * `applySlot`'s own doc comment requires. */
   const handleResetAction = (actionId: string): void => {
-    const nextActions = applyPlainSlot(
-      applyPlainSlot(actions, actionId, 'primary', undefined),
+    const nextActions = applySlot(
+      applySlot(actions, actionId, 'primary', undefined),
       actionId,
       'secondary',
       undefined,
@@ -495,25 +594,25 @@ export function ControlsTab({
     void persistCategoriesAndActions(categories, nextActions)
   }
 
-  const selectedBuiltIn =
-    BUILT_IN_ACTION_CATEGORIES.find((category) => category.id === selectedCategoryId) ?? null
-  const selectedCustom = categories.find((category) => category.id === selectedCategoryId)
-  const selectedCategoryLabel = selectedBuiltIn
-    ? t(selectedBuiltIn.labelKey)
-    : (selectedCustom?.name ?? '')
-  const actionsForCategory = actions.filter((action) => action.categoryId === selectedCategoryId)
+  const selectedCategory = categories.find((category) => category.id === selectedCategoryId) ?? null
+  const selectedCategoryLabel = selectedCategory ? categoryDisplayName(selectedCategory) : ''
   const editingAction = editingActionId
     ? (actions.find((action) => action.id === editingActionId) ?? null)
     : null
+  /** Story 052 D8: the drops row whose message modal is open, resolved out of `actions` on every
+   * render rather than captured into state - the editor then always opens on the entry as it is
+   * now, and an entry that disappeared under it (its category deleted) closes the modal instead of
+   * editing a stale copy. */
+  const messageEditorAction = messageEditorRow
+    ? (actions.find((action) => action.id === messageEditorRow.actionId) ?? null)
+    : null
 
-  // Story 020 D4: movement/weapons/drops are catalogue-driven - every catalogue action is a row
-  // whether or not it has a matching persisted `ConfigAction` yet (lazy materialisation), unioned
-  // with that category's legacy free-form actions. Every other category keeps showing exactly its
-  // persisted `actionsForCategory`, one entry per action.
-  const isDualBindCategory = DUAL_BIND_CATEGORY_IDS.has(selectedCategoryId)
-  const rowEntries: ControlsRowEntry[] = isDualBindCategory
-    ? buildCatalogControlsRowEntries(selectedCategoryId as DualBindCategoryId, actions)
-    : actionsForCategory.map((action) => ({ kind: 'action', action }))
+  // Story 052 D8: one rule for every category - a row is one of the profile's own entries, in the
+  // profile's own order, and no row is rendered for an entry the profile does not have (AC 3).
+  // movement/weapons/drops used to render one row per *catalogue* entry regardless (lazy
+  // materialisation); the catalogue now only says what an entry the profile already carries means
+  // (`controls-row-entries.ts`).
+  const rowEntries: ControlsRowEntry[] = buildControlsRowEntries(selectedCategoryId, actions)
 
   /** A raw text preview of a plain action's commands, mirroring what a catalogue row's own
    * `row.commands` already give it - the first raw command, or nothing for a pure alias/message
@@ -545,6 +644,11 @@ export function ControlsTab({
       })
     : rowEntries
   const rowGroups = groupControlsRowEntries(filteredRowEntries)
+  /** Story 052 review (finding 4): move up/down reads its neighbour - and therefore its own
+   * enabled state - off `rowGroups`, the structure the grid actually draws, not off the raw
+   * `actions` order. Cheap enough to rebuild per render (one pass over the rows already built
+   * above), same as `rowGroups`/`boundCount` themselves. */
+  const moveTargets = buildMoveTargets(rowGroups)
   // "n rows · m bound" follows the filter (D8) - unlike `conflicts.length` below, which stays a
   // profile-wide scan per D7's own decision and must NOT be recomputed off the filtered subset.
   const boundCount = filteredRowEntries.filter((entry) => {
@@ -555,23 +659,33 @@ export function ControlsTab({
     return actionKeySlots(entry.action).some((slot) => slot.key.trim().length > 0)
   }).length
 
+  /**
+   * The actions array a catalogue row's *assigning* write starts from: the row's entry with its
+   * catalogue commands filled in if it had none yet (story 052 D8's `withCatalogBody` - see its doc
+   * comment for why a seeded, body-less entry must get one before a key can point at it). Not used
+   * on a clear, where there is nothing to make real.
+   */
+  const catalogWriteBase = (row: CatalogRow, actionId: string): ConfigAction[] =>
+    withCatalogBody(actions, actionId, row)
+
   /** One catalogue row's Primary/Secondary `BindSlot`, wired exactly like `DualBindPanel`'s
    * `CatalogBindRow` - same collision plumbing, same `apply*` helpers, just inside `ControlsRow`'s
-   * layout instead of the old `<li>` one. */
+   * layout instead of the old `<li>` one. Story 052 D8: `action` is the row's real entry, so every
+   * write below is keyed by its id, exactly like a free-form row's. */
   const renderCatalogSlot = (
     row: CatalogRow,
-    action: ConfigAction | undefined,
+    action: ConfigAction,
     slot: 'primary' | 'secondary',
   ) => {
     const state = deriveRowState(action, row)
     const boundKey = slot === 'primary' ? state.primary : state.secondary
     const boundModifier = slot === 'primary' ? state.primaryModifier : state.secondaryModifier
-    const ownerName = action?.name ?? row.commands[0] ?? row.catalogId
+    const ownerName = action.name
     const isConflicted = Boolean(
       findSlotConflictOwner(conflictIndex, layers, boundKey, boundModifier, ownerName),
     )
     const checkModifierCollision = (modifier: ModifierTrigger, key: string) =>
-      findModifierSlotCollision(actions, draft.layers ?? [], modifier, key, action?.id)
+      findModifierSlotCollision(actions, draft.layers ?? [], modifier, key, action.id)
     return (
       <BindSlot
         label={t(
@@ -587,19 +701,19 @@ export function ControlsTab({
         isConflicted={isConflicted}
         checkModifierCollision={checkModifierCollision}
         checkCollision={(key) =>
-          findSlotCollision(
-            draft,
-            key,
-            action ? { actionId: action.id, slot: slot === 'primary' ? 0 : 1 } : undefined,
+          findSlotCollision(draft, key, { actionId: action.id, slot: slot === 'primary' ? 0 : 1 })
+        }
+        onAssign={(key) =>
+          handleCatalogActionsChange(
+            applySlot(catalogWriteBase(row, action.id), action.id, slot, key),
           )
         }
-        onAssign={(key) => handleCatalogActionsChange(applySlot(actions, row, slot, key))}
         onAssignModifier={({ modifier, key }) =>
           handleCatalogActionsChange(
             applyModifierReplace({
-              actions,
+              actions: catalogWriteBase(row, action.id),
               collision: checkModifierCollision(modifier, key),
-              row,
+              actionId: action.id,
               slot,
               key,
               modifier,
@@ -608,10 +722,19 @@ export function ControlsTab({
         }
         onReplace={(key, collision) =>
           handleCatalogActionsChange(
-            applyReplace({ actions, binds: draft.binds, collision, row, slot, key }),
+            applyReplace({
+              actions: catalogWriteBase(row, action.id),
+              binds: draft.binds,
+              collision,
+              actionId: action.id,
+              slot,
+              key,
+            }),
           )
         }
-        onClear={() => handleCatalogActionsChange(applySlot(actions, row, slot, undefined))}
+        onClear={() =>
+          handleCatalogActionsChange(applySlot(actions, action.id, slot, undefined))
+        }
       />
     )
   }
@@ -632,7 +755,7 @@ export function ControlsTab({
    * happens in `MessageEditor` from there. So this cell holds two checkboxes and no icon button,
    * and "is a message set" is stated in words rather than by a filled-vs-outline glyph.
    */
-  const renderCatalogOptionsCell = (row: CatalogRow, action: ConfigAction | undefined) => {
+  const renderCatalogOptionsCell = (row: CatalogRow, action: ConfigAction) => {
     const state = deriveRowState(action, row)
     // A row can carry a modifier on either slot, on both, or on neither; the prototype's common
     // case is one modifier per row, so the primary slot's modifier wins when both happen to carry
@@ -640,7 +763,7 @@ export function ControlsTab({
     // primary-first tie-break applies to which slot's conflict the Options cell names.
     const modifier = state.primaryModifier ?? state.secondaryModifier
     const layer = modifier ? layerNameForModifier(draft.layers ?? [], modifier) : undefined
-    const ownerName = action?.name ?? row.commands[0] ?? row.catalogId
+    const ownerName = action.name
     const conflictOwner =
       findSlotConflictOwner(
         conflictIndex,
@@ -659,10 +782,11 @@ export function ControlsTab({
     const conflict = conflictOwner ? { owner: conflictOwner } : null
     // Review fix (finding 2): a `shrink-0` wrapper keeps the ammo/message checkboxes from being
     // squeezed by the flex layout - only the conflict/layer text (which now truncates, see
-    // `ControlsOptionsCell.tsx`) gives up space in the 150px column.
+    // `ControlsOptionsCell.tsx`) gives up space in the Options column (150px, 200px since story
+    // 052 D8 put the move buttons in it too).
     //
     // Story 029 D4: the two checkboxes stack instead of sitting on one line. "With ammo" plus
-    // "With message" is ~190px of content, and the Options track is a fixed 150px with
+    // "With message" is ~190px of content, and the Options track was a fixed 150px with
     // `overflow: hidden` (`controls-grid.css`) - side by side, the left checkbox would be clipped
     // instead of the layer/conflict text truncating, which is exactly the regression AC 7 forbids.
     // `leading-4` holds the pair at 2x16px, inside the row's fixed 40px height, so no grid
@@ -679,7 +803,9 @@ export function ControlsTab({
               <Checkbox
                 className="leading-4"
                 checked={state.withAmmo}
-                onChange={(next) => handleCatalogActionsChange(applyAmmo(actions, row, next))}
+                onChange={(next) =>
+                  handleCatalogActionsChange(applyAmmo(actions, action.id, row, next))
+                }
                 label={t('config.controls.dropBind.withAmmo')}
               />
             </span>
@@ -690,8 +816,8 @@ export function ControlsTab({
               // AC 6: checked = the action carries a message, OR the user just checked the box and
               // has not written one yet (`revealedMessageRows`) - same expression the sub-row's own
               // visibility uses in `renderCatalogRow`.
-              checked={state.message.trim().length > 0 || revealedMessageRows.has(row.catalogId)}
-              onChange={(next) => handleToggleRowMessage(row, next)}
+              checked={state.message.trim().length > 0 || revealedMessageRows.has(action.id)}
+              onChange={(next) => handleToggleRowMessage(row, action, next)}
               label={t('config.controls.dropBind.withMessage')}
             />
           </span>
@@ -707,7 +833,12 @@ export function ControlsTab({
    * `ControlsRow`'s `subRow` slot (D3), which owns the `role="row"`/`role="cell"` pair and the
    * `.ctrl-msgrow` styling.
    */
-  const renderMessageSubRow = (row: CatalogRow, label: string, message: string) => (
+  const renderMessageSubRow = (
+    row: CatalogRow,
+    action: ConfigAction,
+    label: string,
+    message: string,
+  ) => (
     // Story 029 live-smoke flow (test-only, additive): `contents` keeps this span out of the
     // `.ctrl-msgrow` flex layout while still giving the harness one selector for the whole row.
     <span className="contents" data-testid={`drop-message-row-${row.catalogId}`}>
@@ -726,7 +857,7 @@ export function ControlsTab({
         // wall of identical buttons - the accessible name names the row, same rule as
         // `ControlsRow`'s per-row reset button.
         aria-label={t('config.controls.dropBind.editMessageFor', { name: label })}
-        onClick={() => setMessageEditorRow({ row, label })}
+        onClick={() => setMessageEditorRow({ row, actionId: action.id, label })}
       >
         {t('config.controls.dropBind.editMessage')}
       </Button>
@@ -734,21 +865,41 @@ export function ControlsTab({
   )
 
   /**
-   * The seed `MessageEditor` opens with for a drops row. A row nobody has touched yet has no
-   * `ConfigAction` at all (decision 3's lazy materialisation), and the editor takes one - so this
-   * hands it a stand-in carrying no commands, which is exactly "no message set". It is never
-   * persisted: the save path is `applyMessage(actions, row, ...)`, which does its own
-   * find-or-create against the real array.
+   * Story 052 D8 (AC 3): "every row can be moved". The same up/down pair every free-form row has
+   * had since story 019, rendered for catalogue rows too - one helper rather than two copies of the
+   * pair, since the only thing that differs is which options cell it sits next to.
+   *
+   * Story 052 review (finding 4): both the target and the disabled state come from `moveTargets`,
+   * i.e. from the row's position inside the group it is *rendered* in (`rowGroups`, filter
+   * included). They used to come from the raw `actions` order, which the grid does not draw: at a
+   * catalogue-group boundary the button was enabled, the click swapped two entries of different
+   * groups, the profile went dirty - and nothing on screen moved. A button with no target is now
+   * disabled instead of promising a move it cannot show; the grouping itself stays purely derived
+   * from the rows that exist (AC 4), nothing here rewrites a row's `catalogId`.
    */
-  const messageEditorSeed = (row: CatalogRow, label: string): ConfigAction =>
-    actions.find((action) => action.catalogId === row.catalogId) ?? {
-      id: row.catalogId,
-      categoryId: row.categoryId,
-      name: label,
-      kind: 'bind',
-      catalogId: row.catalogId,
-      commands: [],
-    }
+  const renderMoveButtons = (action: ConfigAction) => {
+    const target = moveTargets.get(action.id)
+    return (
+      <>
+        <IconButton
+          label={t('config.controls.actions.moveUp')}
+          size="sm"
+          disabled={!target?.up}
+          onClick={() => target?.up && handleMoveAction(action.id, target.up)}
+        >
+          <ArrowUp className="size-3.5" />
+        </IconButton>
+        <IconButton
+          label={t('config.controls.actions.moveDown')}
+          size="sm"
+          disabled={!target?.down}
+          onClick={() => target?.down && handleMoveAction(action.id, target.down)}
+        >
+          <ArrowDown className="size-3.5" />
+        </IconButton>
+      </>
+    )
+  }
 
   const renderCatalogRow = (entry: CatalogControlsRowEntry, odd: boolean) => {
     const { row, labelKey, action } = entry
@@ -758,36 +909,35 @@ export function ControlsTab({
     const isDropRow = row.categoryId === 'drops'
     const message = isDropRow ? deriveRowState(action, row).message : ''
     const showMessageRow =
-      isDropRow && (message.trim().length > 0 || revealedMessageRows.has(row.catalogId))
-    // Story 049 D8: an unbound catalogue row has no materialised `action`, so there is nothing
-    // about it that could carry an unsaved edit yet - once a bind/message is set it gets an
-    // `action` (see `messageEditorSeed`/the catalogue write paths above), and only then can it
-    // appear in `changeSet.keys.actions`.
-    const edited = action ? changeSet.keys.actions.has(action.id) : false
+      isDropRow && (message.trim().length > 0 || revealedMessageRows.has(action.id))
     return (
       <ControlsRow
-        key={row.catalogId}
+        // Story 052 D8: keyed by the entry, not by `catalogId` - a row *is* an entry now, and a
+        // move reorders entries.
+        key={action.id}
         name={label}
+        // The catalogue's own command text, not the entry's: a seeded row that carries no commands
+        // yet still says what it will run once bound (`withCatalogBody`).
         command={row.commands.join(', ')}
         resetLabel={t('config.controls.actions.reset', { name: label })}
-        onReset={() => handleResetCatalogRow(row)}
+        onReset={() => handleResetAction(action.id)}
         odd={odd}
-        edited={edited}
+        edited={changeSet.keys.actions.has(action.id)}
         primarySlot={renderCatalogSlot(row, action, 'primary')}
         secondarySlot={renderCatalogSlot(row, action, 'secondary')}
-        optionsCell={renderCatalogOptionsCell(row, action)}
-        subRow={showMessageRow ? renderMessageSubRow(row, label, message) : undefined}
-        // Story 044 D6: only rows backed by a real `ConfigAction` are addressable by the
-        // `focusActionId` deep link - an unbound catalogue slot has nothing an alias's owner could
-        // point at.
-        rowRef={
-          action
-            ? (el) => {
-                if (el) focusRowRefs.current.set(action.id, el)
-                else focusRowRefs.current.delete(action.id)
-              }
-            : undefined
+        optionsCell={
+          <div className="flex w-full items-center justify-end gap-0.5">
+            <div className="min-w-0 overflow-hidden">{renderCatalogOptionsCell(row, action)}</div>
+            {renderMoveButtons(action)}
+          </div>
         }
+        subRow={showMessageRow ? renderMessageSubRow(row, action, label, message) : undefined}
+        // Story 044 D6: every row carries a real `ConfigAction` now, so every row is addressable by
+        // the `focusActionId` deep link.
+        rowRef={(el) => {
+          if (el) focusRowRefs.current.set(action.id, el)
+          else focusRowRefs.current.delete(action.id)
+        }}
       />
     )
   }
@@ -798,8 +948,9 @@ export function ControlsTab({
    * catalogue category, gets a live capturable slot exactly like a catalogue row - only an
    * `alias` entry gets the inert placeholder (story 019). Wired the same way `renderCatalogSlot`
    * wires a catalogue row's slot - same collision plumbing, same immediate
-   * `handleCatalogActionsChange` save - just keyed by `action.id` through `applyPlainSlot`/
-   * `applyPlainReplace`/`applyPlainModifierReplace` instead of a `CatalogRow`.
+   * `handleCatalogActionsChange` save, same `applySlot`/`applyReplace`/`applyModifierReplace` write
+   * paths keyed by `action.id`. Story 052 D8: the only thing left that a catalogue row does
+   * differently is `withCatalogBody` (an entry with no commands of its own gets the catalogue's).
    */
   const renderPlainSlot = (action: ConfigAction, slot: 'primary' | 'secondary') => {
     const slotState = keySlotAt(action, slot === 'primary' ? 0 : 1)
@@ -825,12 +976,10 @@ export function ControlsTab({
         checkCollision={(key) =>
           findSlotCollision(draft, key, { actionId: action.id, slot: slot === 'primary' ? 0 : 1 })
         }
-        onAssign={(key) =>
-          handleCatalogActionsChange(applyPlainSlot(actions, action.id, slot, key))
-        }
+        onAssign={(key) => handleCatalogActionsChange(applySlot(actions, action.id, slot, key))}
         onAssignModifier={({ modifier, key }) =>
           handleCatalogActionsChange(
-            applyPlainModifierReplace({
+            applyModifierReplace({
               actions,
               collision: checkModifierCollision(modifier, key),
               actionId: action.id,
@@ -842,7 +991,7 @@ export function ControlsTab({
         }
         onReplace={(key, collision) =>
           handleCatalogActionsChange(
-            applyPlainReplace({
+            applyReplace({
               actions,
               binds: draft.binds,
               collision,
@@ -852,9 +1001,7 @@ export function ControlsTab({
             }),
           )
         }
-        onClear={() =>
-          handleCatalogActionsChange(applyPlainSlot(actions, action.id, slot, undefined))
-        }
+        onClear={() => handleCatalogActionsChange(applySlot(actions, action.id, slot, undefined))}
       />
     )
   }
@@ -895,16 +1042,15 @@ export function ControlsTab({
   /**
    * A plain `ConfigAction` row: a custom category's own entry, or a legacy free-form action
    * living inside a catalogue category ("Other actions", decision 5). Both get the full move/
-   * edit/rename/remove treatment D3's placeholder already offered every action - the neighbour
-   * index is `actionsForCategory`'s (every action sharing this `categoryId`, catalogue-bound or
-   * not), matching `moveEntryWithinCategory`'s own neighbour walk exactly.
+   * edit/rename/remove treatment D3's placeholder already offered every action - the move pair is
+   * `renderMoveButtons`', so its neighbour is the row rendered next to this one (story 052 review,
+   * finding 4), free-form and catalogue-backed rows alike.
    *
    * Renders exactly one row - the press/release grouping (story 041 D5) wraps this, it never
    * replaces it, so an unpaired action (the overwhelming majority: every custom-category entry,
    * every bind/message row) renders through here completely unchanged from before D5 existed.
    */
   const renderPlainActionRow = (action: ConfigAction, odd: boolean) => {
-    const index = actionsForCategory.findIndex((candidate) => candidate.id === action.id)
     // Story 019/020 decision: an alias entry gets inert placeholder cells, never a live slot -
     // binding an alias has to be impossible through the UI, not merely discouraged. A `bind`/
     // `message` entry gets a live, capturable slot exactly like a catalogue row (story 020
@@ -922,31 +1068,17 @@ export function ControlsTab({
         primarySlot={inertSlots ? <BindSlotPlaceholder /> : renderPlainSlot(action, 'primary')}
         secondarySlot={inertSlots ? <BindSlotPlaceholder /> : renderPlainSlot(action, 'secondary')}
         optionsCell={
-          // Story 028 D1: no `flex-wrap`, and gap-0.5 — the 150px Options track fits the five
-          // 28px icon buttons only at 2px gaps (5x28 + 4x2 = 148px). With wrap enabled the
-          // buttons spilled onto extra lines outside the 40px row. The options text yields
+          // Story 028 D1: no `flex-wrap`, and gap-0.5 — the Options track (150px then, 200px since
+          // story 052 D8) fits the five 28px icon buttons only at 2px gaps (5x28 + 4x2 = 148px).
+          // With wrap enabled the buttons spilled onto extra lines outside the 40px row. The
+          // options text yields
           // entirely (`min-w-0` + `overflow-hidden` lets it collapse below its content width);
           // conflict/layer state stays visible on the slots themselves and the header badge.
           <div className="flex w-full items-center justify-end gap-0.5">
             {!inertSlots && (
               <div className="min-w-0 overflow-hidden">{renderPlainOptionsCell(action)}</div>
             )}
-            <IconButton
-              label={t('config.controls.actions.moveUp')}
-              size="sm"
-              disabled={index === 0}
-              onClick={() => handleMoveAction(action.id, 'up')}
-            >
-              <ArrowUp className="size-3.5" />
-            </IconButton>
-            <IconButton
-              label={t('config.controls.actions.moveDown')}
-              size="sm"
-              disabled={index === actionsForCategory.length - 1}
-              onClick={() => handleMoveAction(action.id, 'down')}
-            >
-              <ArrowDown className="size-3.5" />
-            </IconButton>
+            {renderMoveButtons(action)}
             <IconButton
               label={t('config.controls.actions.edit')}
               size="sm"
@@ -998,128 +1130,165 @@ export function ControlsTab({
         </div>
 
         {/*
-          Story 020 D9: a single-row, horizontally scrollable rail (sprint decision) instead of
-          the old `flex flex-wrap` strip - `.ctrl-category-rail` (controls-grid.css) adds
-          `overflow-x-auto` and a themed scrollbar, and every chip carries `shrink-0` so the row
-          scrolls instead of squeezing. "+ New category" moves into the rail as its own trailing
-          item, matching the prototype's single-row `Movement | Weapons | ... | + New category`
-          (a-column-grid.html) rather than living as a separate button above the strip - the
-          create dialog it opens (`showCreateCategory`) is unchanged. The stale "Built-in" badge
-          (story 019 removed `entryKind` from categories) is gone; `DUAL_BIND_CATEGORY_IDS` stays
-          for `isDualBindCategory` below.
+          Story 052 D7: no category is special any more - the rail renders exactly
+          `profile.categories`, in the profile's own order, and every one of them (including a
+          former built-in) gets the same rename/delete/move-up/move-down affordances the old
+          custom-chip loop alone used to offer. A profile with none yet gets the empty state below
+          instead of an empty rail.
         */}
-        <div className="ctrl-category-rail">
-          {BUILT_IN_ACTION_CATEGORIES.map((category) => (
-            <div
-              key={category.id}
-              ref={(el) => {
-                if (el) categoryChipRefs.current.set(category.id, el)
-                else categoryChipRefs.current.delete(category.id)
-              }}
-              className="flex shrink-0 items-center gap-1.5 rounded-sm border border-line px-1.5 py-1"
-            >
-              {/* Story 020 review fix (round 2): a real `tablist`/`tab` pairing requires every
-                  direct child of the tablist to carry `role="tab"` (axe: aria-required-children)
-                  - the "+ New category" button and the rename/delete icon buttons sitting next to
-                  a category button are not tabs, so a full ARIA tabs pattern does not fit this
-                  rail's mixed content. Selection is already conveyed visually (`variant='primary'`)
-                  and via `aria-pressed` below - no `role`/`aria-selected` claim that isn't backed
-                  by real tab semantics (arrow-key roving tabindex, `aria-controls`). */}
-              <Button
-                aria-pressed={selectedCategoryId === category.id}
-                variant={selectedCategoryId === category.id ? 'primary' : 'neutral'}
-                size="sm"
-                onClick={() => setSelectedCategoryId(category.id)}
-              >
-                {t(category.labelKey)}
-              </Button>
-            </div>
-          ))}
-
-          {categories.map((category) => {
-            const isPendingDelete = pendingDeleteCategoryId === category.id
-            return (
-              <div
-                key={category.id}
-                ref={(el) => {
-                  if (el) categoryChipRefs.current.set(category.id, el)
-                  else categoryChipRefs.current.delete(category.id)
-                }}
-                className="flex shrink-0 items-center gap-1.5 rounded-sm border border-line px-1.5 py-1"
-              >
-                <Button
-                  aria-pressed={selectedCategoryId === category.id}
-                  variant={selectedCategoryId === category.id ? 'primary' : 'neutral'}
-                  size="sm"
-                  onClick={() => setSelectedCategoryId(category.id)}
-                >
-                  {category.name}
+        {categories.length === 0 ? (
+          <EmptyState
+            icon={<ListChecks className="size-6" />}
+            title={t('config.controls.categoriesEmpty.title')}
+            body={t('config.controls.categoriesEmpty.body')}
+            actions={
+              <>
+                <Button variant="primary" size="sm" onClick={() => void handleAddStandardTemplate()}>
+                  {t('config.controls.categoriesEmpty.addTemplate')}
                 </Button>
-                {isPendingDelete ? (
-                  <>
-                    <span className="text-xs text-danger whitespace-nowrap">
-                      {t('config.controls.deleteConfirm')}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={saving}
-                      onClick={() => setPendingDeleteCategoryId(null)}
-                    >
-                      {t('common.cancel')}
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      disabled={saving}
-                      onClick={() => void handleDeleteCategory(category.id)}
-                    >
-                      {t('config.controls.deleteConfirmAction')}
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <IconButton
-                      label={t('config.controls.rename')}
-                      size="sm"
-                      onClick={() => setRenamingCategory(category)}
-                    >
-                      <Pencil className="size-3.5" />
-                    </IconButton>
-                    <IconButton
-                      label={t('config.controls.delete')}
-                      size="sm"
-                      variant="danger"
-                      onClick={() => setPendingDeleteCategoryId(category.id)}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </IconButton>
-                  </>
-                )}
-              </div>
-            )
-          })}
+                <Button
+                  variant="neutral"
+                  size="sm"
+                  icon={<Plus className="size-3.5" />}
+                  onClick={() => setShowCreateCategory(true)}
+                >
+                  {t('config.controls.create')}
+                </Button>
+              </>
+            }
+          />
+        ) : (
+          // Story 020 D9: a single-row, horizontally scrollable rail (sprint decision) instead of
+          // the old `flex flex-wrap` strip - `.ctrl-category-rail` (controls-grid.css) adds
+          // `overflow-x-auto` and a themed scrollbar, and every chip carries `shrink-0` so the row
+          // scrolls instead of squeezing. "+ New category" stays the rail's own trailing item,
+          // matching the prototype's single-row `Movement | Weapons | ... | + New category`
+          // (a-column-grid.html).
+          <div className="ctrl-category-rail">
+            {categories.map((category, index) => {
+              const isPendingDelete = pendingDeleteCategoryId === category.id
+              return (
+                <div
+                  key={category.id}
+                  ref={(el) => {
+                    if (el) categoryChipRefs.current.set(category.id, el)
+                    else categoryChipRefs.current.delete(category.id)
+                  }}
+                  className="flex shrink-0 items-center gap-1.5 rounded-sm border border-line px-1.5 py-1"
+                >
+                  {/* Story 020 review fix (round 2): a real `tablist`/`tab` pairing requires every
+                      direct child of the tablist to carry `role="tab"` (axe: aria-required-children)
+                      - the "+ New category" button and the rename/delete/move icon buttons sitting
+                      next to a category button are not tabs, so a full ARIA tabs pattern does not
+                      fit this rail's mixed content. Selection is already conveyed visually
+                      (`variant='primary'`) and via `aria-pressed` below - no `role`/`aria-selected`
+                      claim that isn't backed by real tab semantics (arrow-key roving tabindex,
+                      `aria-controls`). */}
+                  <Button
+                    aria-pressed={selectedCategoryId === category.id}
+                    variant={selectedCategoryId === category.id ? 'primary' : 'neutral'}
+                    size="sm"
+                    onClick={() => setSelectedCategoryId(category.id)}
+                  >
+                    {categoryDisplayName(category)}
+                  </Button>
+                  {isPendingDelete ? (
+                    <>
+                      <span className="text-xs text-danger whitespace-nowrap">
+                        {t('config.controls.deleteConfirm')}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={saving}
+                        onClick={() => setPendingDeleteCategoryId(null)}
+                      >
+                        {t('common.cancel')}
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        disabled={saving}
+                        onClick={() => void handleDeleteCategory(category.id)}
+                      >
+                        {t('config.controls.deleteConfirmAction')}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <IconButton
+                        label={t('config.controls.categoryMoveUp')}
+                        size="sm"
+                        disabled={index === 0}
+                        onClick={() => handleMoveCategory(category.id, 'up')}
+                      >
+                        <ArrowUp className="size-3.5" />
+                      </IconButton>
+                      <IconButton
+                        label={t('config.controls.categoryMoveDown')}
+                        size="sm"
+                        disabled={index === categories.length - 1}
+                        onClick={() => handleMoveCategory(category.id, 'down')}
+                      >
+                        <ArrowDown className="size-3.5" />
+                      </IconButton>
+                      <IconButton
+                        label={t('config.controls.rename')}
+                        size="sm"
+                        onClick={() => setRenamingCategory(category)}
+                      >
+                        <Pencil className="size-3.5" />
+                      </IconButton>
+                      <IconButton
+                        label={t('config.controls.delete')}
+                        size="sm"
+                        variant="danger"
+                        // Story 052 D9 (AC 9): a category with entries opens the delete-or-move
+                        // modal; an empty one keeps the plain inline confirm right above (nothing
+                        // to move, so a choice would be pointless - story's own judgement call).
+                        onClick={() => {
+                          const hasEntries = actions.some(
+                            (candidate) => candidate.categoryId === category.id,
+                          )
+                          if (hasEntries) setDeletingCategory(category)
+                          else setPendingDeleteCategoryId(category.id)
+                        }}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </IconButton>
+                    </>
+                  )}
+                </div>
+              )
+            })}
 
-          <Button
-            variant="neutral"
-            size="sm"
-            className="shrink-0"
-            icon={<Plus className="size-3.5" />}
-            onClick={() => setShowCreateCategory(true)}
-          >
-            {t('config.controls.create')}
-          </Button>
-        </div>
+            <Button
+              variant="neutral"
+              size="sm"
+              className="shrink-0"
+              icon={<Plus className="size-3.5" />}
+              onClick={() => setShowCreateCategory(true)}
+            >
+              {t('config.controls.create')}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/*
         Story 020 D3/D4: one grid for every category - `DualBindPanel`, `DropBindPanel` and the
-        old bare `<ul>` collapse into `ControlsGrid`. movement/weapons/drops read `rowEntries` off
-        the catalogue (lazy materialisation - an unbound catalogue row is still a real row); every
-        other category keeps showing exactly its persisted actions. D5/D6 still own the real slot
-        surface and Options-cell content respectively - `renderCatalogRow`/`renderActionRow` above
-        wire today's `BindSlot`/CRUD affordances into D4's `ControlsRow` shell.
+        old bare `<ul>` collapse into `ControlsGrid`. D5/D6 own the real slot surface and
+        Options-cell content respectively - `renderCatalogRow`/`renderPlainActionRow` above wire
+        today's `BindSlot`/CRUD affordances into D4's `ControlsRow` shell.
+
+        Story 052 D8: every category, catalogue-backed or not, shows exactly its persisted entries
+        (`rowEntries`) - the catalogue no longer contributes rows of its own, only what a row of the
+        profile's means.
+
+        Story 052 D7: hidden entirely while the profile has no categories - the empty state above
+        already offers the only actions that make sense with nothing selected.
       */}
+      {categories.length > 0 && (
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <SectionLabel>
@@ -1185,11 +1354,27 @@ export function ControlsTab({
           />
         )}
       </div>
+      )}
 
       {showCreateCategory && (
         <CreateCategoryDialog
+          existingCategoryIds={categories.map((category) => category.id)}
           onClose={() => setShowCreateCategory(false)}
           onSubmit={handleCreateCategory}
+        />
+      )}
+
+      {deletingCategory && (
+        <DeleteCategoryDialog
+          categoryLabel={categoryDisplayName(deletingCategory)}
+          entryCount={actions.filter((action) => action.categoryId === deletingCategory.id).length}
+          otherCategories={categories
+            .filter((category) => category.id !== deletingCategory.id)
+            .map((category) => ({ id: category.id, label: categoryDisplayName(category) }))}
+          onClose={() => setDeletingCategory(null)}
+          onConfirm={(choice, targetCategoryId) =>
+            handleDeleteCategoryChoice(deletingCategory.id, choice, targetCategoryId)
+          }
         />
       )}
 
@@ -1260,18 +1445,27 @@ export function ControlsTab({
           (story decision; a second, collision-blind key field here would regress AC 7). The save
           merges through `applyMessage`, which only adds/replaces/removes the row's message
           command: the `drop <item>` and ammo raw commands are carried over untouched. */}
-      {messageEditorRow && (
+      {messageEditorAction && messageEditorRow && (
         <MessageEditor
-          action={messageEditorSeed(messageEditorRow.row, messageEditorRow.label)}
+          action={messageEditorAction}
           cvars={draft.cvars}
           titleName={messageEditorRow.label}
           showKeyCapture={false}
           onClose={() => setMessageEditorRow(null)}
           onSave={(draft) => {
+            // Story 052 D8: the row's entry is real, so the message is written straight onto it -
+            // through `withCatalogBody` first, so setting a message on a still-body-less seeded row
+            // gives it the `drop <item>` commands the message is meant to accompany, exactly as the
+            // pre-D8 lazy `freshAction` did. Clearing the message writes nothing new: an entry with
+            // no body has none of its own to keep either.
+            const base =
+              draft.text.trim().length > 0
+                ? catalogWriteBase(messageEditorRow.row, messageEditorAction.id)
+                : actions
             handleCatalogActionsChange(
               applyMessage(
-                actions,
-                messageEditorRow.row,
+                base,
+                messageEditorAction.id,
                 draft.text,
                 draft.channel as 'say' | 'say_team',
               ),
@@ -1284,13 +1478,23 @@ export function ControlsTab({
   )
 }
 
-/** Create-category form: name only - story 019 moved the entry kind onto the entry itself. */
-function CreateCategoryDialog({
+/**
+ * Create-category form: name, plus (story 052 D9, AC 6) a suggestions list offering the template's
+ * own three categories next to the blank/free-form field. `existingCategoryIds` filters out a
+ * template category the profile already has - its fixed id (`movement`/`weapons`/`drops`) cannot be
+ * created twice, so offering it again would either collide or silently do nothing.
+ *
+ * Exported (not module-local like most of this file's dialogs) so it can be unit-tested directly -
+ * story 052 D9's accept criteria name both suggestion lists as something to verify.
+ */
+export function CreateCategoryDialog({
+  existingCategoryIds,
   onClose,
   onSubmit,
 }: {
+  existingCategoryIds: readonly string[]
   onClose: () => void
-  onSubmit: (input: { name: string }) => Promise<boolean>
+  onSubmit: (input: { name: string; templateId?: string }) => Promise<boolean>
 }) {
   const { t } = useTranslation()
   const [name, setName] = useState('')
@@ -1304,6 +1508,16 @@ function CreateCategoryDialog({
     setSubmitting(false)
     if (!ok) return
   }
+
+  const pickTemplate = async (templateId: string): Promise<void> => {
+    setSubmitting(true)
+    await onSubmit({ name: '', templateId })
+    setSubmitting(false)
+  }
+
+  const suggestions = TEMPLATE_ACTION_CATEGORIES.filter(
+    (category) => !existingCategoryIds.includes(category.id),
+  )
 
   return (
     <Modal
@@ -1324,6 +1538,23 @@ function CreateCategoryDialog({
       }
     >
       <div className="space-y-4">
+        {suggestions.length > 0 && (
+          <Field label={t('config.controls.createDialog.suggestions.label')}>
+            <div className="space-y-0.5 rounded-sm border border-line">
+              {suggestions.map((category) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => void pickTemplate(category.id)}
+                  className="flex w-full items-center px-2.5 py-1.5 text-left text-xs text-ink transition-colors duration-[--dur-fast] hover:bg-hover disabled:opacity-50"
+                >
+                  {t(category.labelKey)}
+                </button>
+              ))}
+            </div>
+          </Field>
+        )}
         <Field label={t('config.controls.createDialog.nameLabel')}>
           <Input
             value={name}
@@ -1397,19 +1628,27 @@ function RenameCategoryDialog({
 
 const ENTRY_KIND_OPTIONS: ActionEntryKind[] = ['bind', 'message', 'alias', 'toggle', 'press-release']
 
-/** Create-action form: name plus the kind (story 019 D4 - the entry, not the category, carries
- * the kind). Debounced-saved by the caller, so this dialog does not wait on a network round trip
- * - it hands the trimmed name and chosen kind back and closes immediately. */
-function CreateActionDialog({
+/**
+ * Create-action form: name plus the kind (story 019 D4 - the entry, not the category, carries
+ * the kind), plus (story 052 D9, AC 6) a catalogue suggestions list above the free-form fields.
+ * Picking a suggestion submits immediately with that row's `catalogId` - the same "one entry, one
+ * click" shape `ActionEditor`'s own "pick from the catalogue" list already uses for a command, just
+ * one level up (an entire entry instead of one of its commands). Debounced-saved by the caller
+ * either way, so this dialog never waits on a network round trip.
+ *
+ * Exported (like `CreateCategoryDialog`) so both suggestion lists can be unit-tested directly.
+ */
+export function CreateActionDialog({
   onClose,
   onSubmit,
 }: {
   onClose: () => void
-  onSubmit: (name: string, kind: ActionEntryKind) => void
+  onSubmit: (name: string, kind: ActionEntryKind, catalogId?: string) => void
 }) {
   const { t } = useTranslation()
   const [name, setName] = useState('')
   const [kind, setKind] = useState<ActionEntryKind>('bind')
+  const [filter, setFilter] = useState('')
 
   const canSubmit = name.trim().length > 0
 
@@ -1417,6 +1656,26 @@ function CreateActionDialog({
     if (!canSubmit) return
     onSubmit(name.trim(), kind)
   }
+
+  /**
+   * Story 052 review (finding 8): the *stored* name is the catalogue's own locale-independent one
+   * (`nameForCatalogRow`), never `t(info.labelKey)`. `ConfigAction.name` is persisted and written
+   * verbatim into the `.cfg` comment by `render.ts`, so a translated label here would make the
+   * user's file depend on the UI language it happened to be created in - and every other
+   * catalogue-backed entry (`STANDARD_TEMPLATE`, the D6 migration, `bind-adoption.ts#materialise`)
+   * already uses `nameForCatalogRow` for exactly that reason. The list above still *shows* the
+   * translated label: that is UI chrome, and the row renders under its translated label either way
+   * once it exists, because it carries the `catalogId`.
+   */
+  const pickSuggestion = (info: CatalogRowInfo): void => {
+    onSubmit(nameForCatalogRow(info.row), 'bind', info.row.catalogId)
+  }
+
+  const suggestions = useMemo(() => {
+    const all = allCatalogRowInfos()
+    const query = filter.trim().toLowerCase()
+    return query ? all.filter((info) => t(info.labelKey).toLowerCase().includes(query)) : all
+  }, [filter, t])
 
   return (
     <Modal
@@ -1437,10 +1696,46 @@ function CreateActionDialog({
       }
     >
       <div className="space-y-4">
+        <Field label={t('config.controls.actions.createDialog.suggestions.label')}>
+          <Input
+            value={filter}
+            placeholder={t('config.controls.actions.createDialog.suggestions.filterPlaceholder')}
+            aria-label={t('config.controls.actions.createDialog.suggestions.filterPlaceholder')}
+            onChange={(event) => setFilter(event.target.value)}
+          />
+          <div className="mt-2 max-h-40 space-y-0.5 overflow-y-auto rounded-sm border border-line">
+            {suggestions.length === 0 ? (
+              <p className="px-2.5 py-2 text-xs text-ink-muted">{t('common.none')}</p>
+            ) : (
+              suggestions.map((info) => (
+                <button
+                  key={info.row.catalogId}
+                  type="button"
+                  onClick={() => pickSuggestion(info)}
+                  className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-xs text-ink transition-colors duration-[--dur-fast] hover:bg-hover"
+                >
+                  <span>{t(info.labelKey)}</span>
+                  <code className="text-ink-muted">
+                    {info.row.commands.join('; ')}
+                    {info.row.ammoCommand
+                      ? ` +${t('config.controls.actions.createDialog.suggestions.ammoBadge')}`
+                      : ''}
+                  </code>
+                </button>
+              ))
+            )}
+          </div>
+        </Field>
+
         <Field label={t('config.controls.actions.createDialog.nameLabel')}>
           <Input
             value={name}
-            autoFocus
+            // Story 052 review (finding 2): no `autoFocus` here, deliberately - `Modal` focuses the
+            // first control in its body on open (`Modal.tsx`), which since D9 put the suggestions
+            // list on top is the catalogue filter, and that wins over any `autoFocus` set here. The
+            // field is instead identified by its `Field` label ("Name"), which is what the two
+            // `ui:flow` scripts that fill it now locate it by, rather than by being the dialog's
+            // first text input.
             maxLength={120}
             onChange={(event) => setName(event.target.value)}
             onKeyDown={(event) => {

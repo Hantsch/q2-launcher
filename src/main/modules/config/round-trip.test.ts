@@ -5,11 +5,18 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import { actionKeySlots } from '@shared/config/action-slots'
+import { aliasNameFor } from '@shared/config/alias-render'
 import { generateLayerAliases } from '@shared/config/alt-layers'
 import { COMMENT_LINE_BUDGET, COMMENT_PREFIX, renderProfileFile } from '@shared/config/render'
 import { restoreProfileParts } from '@shared/config/profile-restore'
 import { validateActions } from '@shared/config/validate-actions'
-import { ROUND_TRIP_FIXTURES } from '@shared/config/fixtures/profiles'
+import {
+  ROUND_TRIP_FIXTURES,
+  beyondLatin1NamesProfile,
+  blockDisjointCategoryOrderProfile,
+  buildFixtureProfile,
+  scrambledCategoryOrderProfile,
+} from '@shared/config/fixtures/profiles'
 import { readImportableConfig } from './core/import-reader'
 import { toRestoreInput } from './import'
 import { StateStore } from '../../services/state'
@@ -737,30 +744,36 @@ describe('closed gap: an anchored entry keeps its own alias name (round 2, NEW-3
 })
 
 /**
- * Story 042 review round 3, the deliberate *revert* of round 2's NEW-1 "fix". Round 2 gave a fully
- * keyless entry an entry anchor so its identity survived; this test pins that it no longer does, and
- * why that is the better answer - see `render.ts#buildAnchorLines` for the full argument and
- * `catalog-binds.ts#applySlot` for the find-or-create-on-`catalogId` path that made the "fix" worse
- * than the loss: a restored entry with `commands: []` gets reused as the base for the next bind of
- * that catalogue row, producing a key that points at an alias nothing defines.
+ * Story 052 D2/D3, superseding story 042 review round 3's *revert*. Round 2 gave a fully keyless
+ * entry a slotless entry anchor and round 3 took it back out, because that shape carried no command:
+ * the entry came back with `commands: []` and `catalog-binds.ts#applySlot`'s
+ * find-or-create-on-`catalogId` reused it as the base of the next bind of that row, producing a key
+ * that pointed at an alias nothing defined. Story 052 gives the same entry a line that *does* carry
+ * what it runs - `//bind "<cmd>"`, `render.ts#unboundLine` - and D3 reads it back, so the identity
+ * now returns *with* its command rather than instead of it.
  */
-describe('reverted: a fully keyless catalogue entry leaves no line and is dropped (round 3)', () => {
-  it('"Keyless catalogue entry": no anchor is written and the entry is absent on reimport', async () => {
+describe('story 052: a fully keyless catalogue entry rides on its unbound line (D2/D3)', () => {
+  it('"Keyless catalogue entry": the unbound line is written and read back with its command', async () => {
     const profile = findFixture('Keyless catalogue entry')
     const original = profile.actions![0]!
     const { profile2, text1 } = await reimportProfile(profile)
 
-    // No alias line (a continuous catalogue row mirrors as its own bare command), no bind line (no
-    // key), and - since round 3 - no anchor line either: nothing in the file mentions this entry.
-    expect(text1).not.toContain('Entries:')
-    expect(text1).not.toContain(original.catalogId!)
-    expect(text1).not.toContain(original.name)
+    // No alias line (a continuous catalogue row mirrors as its own bare command) and no bind line
+    // (no key) - so the entry's one trace is the commented-out bind in its category's entry section,
+    // command and all.
+    expect(text1).toMatch(/^\/\/bind "\+moveleft"\s+\/\/ Strafe left \[q2l cid=moveleft\]$/m)
 
-    // Harmless, documented, and exactly the pre-042 behaviour: binding this catalogue row through
-    // the UI later goes through `freshAction`, which regenerates `+moveleft` from the catalogue.
-    expect(profile2.actions).toEqual([])
+    // And it comes back whole: name, category, catalogue id and - the point of the whole shape -
+    // the command the reverted anchor could not carry.
+    expect(profile2.actions).toHaveLength(1)
+    const restored = profile2.actions![0]!
+    expect(restored.name).toBe(original.name)
+    expect(restored.catalogId).toBe(original.catalogId)
+    expect(restored.categoryId).toBe(original.categoryId)
+    expect(restored.commands).toEqual(original.commands)
+    expect(actionKeySlots(restored)).toEqual([])
 
-    // And the fixed point holds across the loss.
+    // ...and the file is a fixed point across that round trip, unbound line included.
     expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
   })
 })
@@ -788,9 +801,11 @@ describe('closed gap: a `---` in a display name is not read as a section header 
     // under it.
     expect(byName.get('Strafe --- left')!.categoryId).toBe('movement')
     expect(byName.get('Strafe right')!.categoryId).toBe('movement')
-    // `movement` is a built-in id, adopted rather than created - so nothing at all should have been
-    // minted locally, least of all a category named after somebody's display name.
-    expect(profile2.categories).toEqual([])
+    // Story 052 D4: `movement` is minted like any other category (keeping its id), so what this
+    // pins is that it is the *only* one - no second category named after somebody's display name.
+    expect(profile2.categories).toEqual([
+      { id: 'movement', name: 'Movement', nameKey: 'config.controls.categories.movement' },
+    ])
 
     // ...and therefore the second render is the same file, with no section header named after that
     // display name (a header is the only line that carries a `cat=` tag).
@@ -1217,7 +1232,9 @@ describe('adversarial mangling (story 042 D9 - not accepted on a green diff read
     expect(restored.actions).toHaveLength(1)
     expect(slotsOf(restored.actions[0]!)).toEqual(['f', 'g', 'h'])
     expect(restored.actions[0]!.categoryId).toBe('drops')
-    expect(restored.categories).toEqual([])
+    // Only the one the *header* names (story 052 D4 mints template ids too, keeping the id) - the
+    // forged `cat=weapons` on the bind line minted nothing.
+    expect(restored.categories.map((category) => category.id)).toEqual(['drops'])
     expect(restored.warnings.filter((w) => w.reason.startsWith('tag-'))).toEqual([])
     expectEveryLineSurvivesRerender(after, rerendered)
   })
@@ -1411,5 +1428,504 @@ describe('story 048 D3: which cvars survive an adopt, by shape', () => {
     const second = await adoptRendered(first.adopted)
     expect(second.adopted.cvars).toEqual({})
     expect(renderProfileFile(second.adopted)).toBe(text2)
+  })
+})
+
+/**
+ * Story 052 D4: the file's section order is the profile's category order, and a category's header is
+ * the profile's own name for it - nothing about `movement`/`weapons`/`drops` is special any more.
+ *
+ * Driven end to end (render -> real parser -> `restoreProfileParts`) rather than off `render.ts`
+ * alone, because the failure mode this D exists to prevent is a *silent* one: a reader that still
+ * knew the three ids as a fixture would re-file these entries under a fabricated order or lose the
+ * renamed header, and only a full round trip shows that.
+ */
+describe('story 052 D4: category sections follow the profile, not a built-in list', () => {
+  /** Categories deliberately out of template order, with one former built-in renamed and one
+   * ordinary custom category wedged in front of the rest. */
+  const categories = [
+    { id: 'cat-mine', name: 'My stuff' },
+    { id: 'drops', name: 'Drops' },
+    { id: 'movement', name: 'Movement', nameKey: 'config.controls.categories.movement' },
+  ]
+
+  const reordered = buildFixtureProfile({
+    name: 'Reordered and renamed categories',
+    categories,
+    actions: [
+      {
+        id: 'd4-move',
+        categoryId: 'movement',
+        name: 'Strafe left',
+        kind: 'bind',
+        commands: [{ kind: 'raw', text: '+moveleft' }],
+        keys: [{ key: 'a' }],
+        aliasName: 'strafe_l',
+      },
+      {
+        id: 'd4-drop',
+        categoryId: 'drops',
+        name: 'Drop RL',
+        kind: 'bind',
+        commands: [{ kind: 'raw', text: 'drop rocket launcher' }],
+        keys: [{ key: 'r' }],
+        aliasName: 'drop_rl',
+      },
+      {
+        id: 'd4-mine',
+        categoryId: 'cat-mine',
+        name: 'Wave',
+        kind: 'bind',
+        commands: [{ kind: 'raw', text: 'wave 1' }],
+        keys: [{ key: 'g' }],
+        aliasName: 'wave_g',
+      },
+    ],
+  })
+
+  /** The category banners of one kind of section, in file order, decoration stripped. */
+  function sectionTitles(text: string, prefix: string): string[] {
+    return text
+      .split('\n')
+      .filter((line) => line.includes(`--- ${prefix}: `))
+      .map((line) => line.slice(line.indexOf(`${prefix}: `) + prefix.length + 2).replace(/\s*(\[q2l .*)?-+$/, '').trim())
+  }
+
+  it('writes the sections in profile.categories order, under the profile`s own names', async () => {
+    const { profile2, text1 } = await reimportProfile(reordered)
+
+    // Not movement/weapons/drops first, and "Drops" rather than the template's "Weapon dropping".
+    expect(sectionTitles(text1, 'Aliases')).toEqual(['My stuff', 'Drops', 'Movement'])
+    expect(sectionTitles(text1, 'Binds')).toEqual(['My stuff', 'Drops', 'Movement'])
+
+    // The read-back profile carries those same categories, in the same order, with the rename kept
+    // and `nameKey` re-attached only where the name is still the template's English default.
+    expect(profile2.categories!.map((category) => category.name)).toEqual([
+      'My stuff',
+      'Drops',
+      'Movement',
+    ])
+    expect(profile2.categories!.map((category) => category.nameKey)).toEqual([
+      undefined,
+      undefined,
+      'config.controls.categories.movement',
+    ])
+    // Template ids keep their id (so a seed, a `cat=` tag and a migration all mean one drawer);
+    // a category of the file's own making gets a local one.
+    expect(profile2.categories!.map((category) => category.id).slice(1)).toEqual([
+      'drops',
+      'movement',
+    ])
+
+    // Every entry is still in its own category, and the file is a fixed point - nothing reordered,
+    // nothing swept into "Other".
+    // (`cat-mine` is re-minted locally on read - a foreign category id means nothing here, which is
+    // unchanged by this D - so it is checked against the restored category rather than literally.)
+    expect(
+      profile2.actions!.map((entry) => [entry.name, entry.categoryId] as const),
+    ).toEqual([
+      ['Wave', profile2.categories![0]!.id],
+      ['Drop RL', 'drops'],
+      ['Strafe left', 'movement'],
+    ])
+    expect(text1).not.toContain('Aliases: Other')
+    expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
+  })
+
+  it('writes no section for a category the profile does not have', async () => {
+    // AC 7's import half, on the writer: an imported-only profile has one category, so the file has
+    // one category section - no Movement/Weapons/Weapon dropping alongside it.
+    const importedOnly = buildFixtureProfile({
+      name: 'Imported only',
+      categories: [{ id: 'cat-imported', name: 'Imported' }],
+      actions: [
+        {
+          id: 'd4-imported',
+          categoryId: 'cat-imported',
+          name: 'Cali',
+          kind: 'alias',
+          commands: [{ kind: 'raw', text: 'wave 2' }],
+          aliasName: 'cali',
+        },
+      ],
+    })
+
+    const { profile2, text1 } = await reimportProfile(importedOnly)
+
+    expect(sectionTitles(text1, 'Aliases')).toEqual(['Imported'])
+    expect(text1).not.toMatch(/\[q2l cat=(movement|weapons|drops)\]/)
+    expect(profile2.categories!.map((category) => category.name)).toEqual(['Imported'])
+    expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Story 052 D5: the adversarial pass over the shapes D2-D4 invented.
+//
+// The fixed-point loop at the top of this file already covers six of the seven
+// new fixtures as *text* (they are in `ROUND_TRIP_FIXTURES`), which is necessary
+// and - for exactly the reason every earlier block here exists - not sufficient:
+// a restore that merges two entries, loses a category or re-files an entry
+// *consistently* re-renders as a perfectly valid file, just not the same
+// profile. So each shape is also asserted against the restored objects, and
+// against the one or two literal lines of the file that carry its claim, so a
+// fixture cannot quietly stop exercising the case it is named after.
+//
+// Both fixtures that are *not* in the corpus are driven here too, and for the
+// same reason they are excluded there: the property genuinely does not hold for
+// them. See each one's own case below.
+// ---------------------------------------------------------------------------
+
+/** A category id the profile has no category for - `render.ts`'s trailing "other" bucket, which is
+ * defined by absence rather than by a stored value, so it has no name to compare. */
+const NO_CATEGORY = '(no category the profile has)'
+
+/**
+ * One entry reduced to everything the round trip has to carry: its display name, the *name* of the
+ * category it sits in, its catalogue link and its commands.
+ *
+ * By category name rather than id on purpose: a restored custom category is minted locally
+ * (`profile-restore.ts#categoryRegistry` - a colleague's id means nothing here), exactly like the
+ * `cat=` values `canonicalizeMintedIds` above normalises, so comparing ids literally would fail for
+ * every fixture with a custom category however correct the reader is. The *drawer* is what must
+ * survive, and its name is what says which drawer it is.
+ */
+function entryShapes(profile: ConfigProfile): {
+  name: string
+  category: string
+  catalogId: string | null
+  commands: ConfigAction['commands']
+}[] {
+  const names = new Map((profile.categories ?? []).map((category) => [category.id, category.name]))
+  return (profile.actions ?? []).map((entry) => ({
+    name: entry.name,
+    category: names.get(entry.categoryId) ?? NO_CATEGORY,
+    catalogId: entry.catalogId ?? null,
+    commands: entry.commands,
+  }))
+}
+
+/**
+ * `entryShapes` sorted by display name - the "no entry merges or disappears" comparison.
+ *
+ * Sorted, and only sorted, because the *array* order of `profile.actions` is knowingly not preserved
+ * across the alias-line/aliasless boundary: `groupEntryLines` discovers every entry that has an alias
+ * line before any entry that only has a bind, anchor or unbound line, which is a scan-order choice
+ * `fixtures/profiles.ts#catalogueAndUserEntryProfile`'s own comment records and reports separately.
+ * That reordering is invisible in the rendered file (the writer derives each section's rows from the
+ * entries' contents, so the fixed-point loop above still holds) and it is not what this pass is
+ * about. A merge, a drop or a re-filing is - and none of those can hide behind a sort.
+ */
+function sortedEntryShapes(profile: ConfigProfile): ReturnType<typeof entryShapes> {
+  return [...entryShapes(profile)].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/** Every category the profile carries, as `name` in array order - the order that *is* the file's
+ * section order since D4. */
+function categoryNames(profile: ConfigProfile): string[] {
+  return (profile.categories ?? []).map((category) => category.name)
+}
+
+describe('story 052 D5: an unbound entry with no commands at all', () => {
+  it('"Unbound entries with no commands": three `//bind` lines, three entries, none merged', async () => {
+    const profile = findFixture('Unbound entries with no commands')
+    const { profile2, text1 } = await reimportProfile(profile)
+
+    // The premise. Two of the three unbound lines are byte-identical in their code half - `//bind ""`
+    // is what `render.ts#unboundCommand` writes for an entry with no commands, which is most of what
+    // `STANDARD_TEMPLATE` seeds (D1) - so the only thing telling them apart in the file is their own
+    // prose and their position.
+    const unbound = text1.split('\n').filter((line) => line.startsWith('//bind '))
+    expect(unbound).toHaveLength(3)
+    expect(unbound[0]).toMatch(/^\/\/bind ""\s+\/\/ Crouch \[q2l\]$/)
+    expect(unbound[1]).toMatch(/^\/\/bind "\+moveleft"\s+\/\/ Strafe left \[q2l cid=moveleft\]$/)
+    expect(unbound[2]).toMatch(/^\/\/bind ""\s+\/\/ Sprint \[q2l\]$/)
+    // All three under one `Entries: Movement` header, i.e. read back through one category scope.
+    expect(text1).toContain('Entries: Movement')
+
+    // Three entries back, not one and not two: an empty command list comes back empty rather than
+    // being folded into the neighbour that does have one.
+    expect(profile2.actions).toHaveLength(3)
+    expect(sortedEntryShapes(profile2)).toEqual(sortedEntryShapes(profile))
+    const byName = new Map(profile2.actions!.map((entry) => [entry.name, entry]))
+    expect(byName.get('Crouch')!.commands).toEqual([])
+    expect(byName.get('Sprint')!.commands).toEqual([])
+    expect(byName.get('Strafe left')!.commands).toEqual([{ kind: 'raw', text: '+moveleft' }])
+    for (const entry of profile2.actions!) expect(actionKeySlots(entry)).toEqual([])
+  })
+})
+
+describe('story 052 D5: display names that look like this writer own section banners', () => {
+  it('"Names that look like section banners": no fabricated section, no re-filed entry, one prefix stripped', async () => {
+    const profile = findFixture('Names that look like section banners')
+    const { profile2, text1 } = await reimportProfile(profile)
+
+    // The premise, three lines of it. A comment-only unbound line whose prose is a *reserved bucket
+    // title* behind a *reserved prefix*; a comment-only anchor line whose prose carries a reserved
+    // prefix and a banner rule; and a category whose own name is a reserved prefix, so its section
+    // banner reads `Aliases: Binds: Movement`.
+    expect(text1).toMatch(/^\/\/bind ""\s+\/\/ Binds: Other \[q2l\]$/m)
+    expect(text1).toMatch(/^\/\/ Entries: Movement --- extra \[q2l /m)
+    expect(text1).toContain('Aliases: Binds: Movement [q2l cat=cat-banner ord=0]')
+
+    // Two categories, both the profile's own, with the *one* title prefix taken back off - not two,
+    // which would rename the category, and not zero, which would grow one.
+    expect(categoryNames(profile2)).toEqual(['Binds: Movement', 'After'])
+    // Nothing minted from a display name: no `Other` bucket category, no category named after an
+    // entry.
+    expect(categoryNames(profile2)).not.toContain('Other')
+    expect(categoryNames(profile2)).not.toContain('Binds: Other')
+
+    // All four entries, each still in its own drawer - a fabricated section boundary inside the
+    // first category would show up here as `Wave`'s or `Aliases: Weapons`' category changing.
+    expect(profile2.actions).toHaveLength(4)
+    expect(sortedEntryShapes(profile2)).toEqual(sortedEntryShapes(profile))
+    expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
+  })
+})
+
+describe('story 052 D5: two categories with the same display name', () => {
+  it('"Duplicate category names": two drawers, not one, each with its own entry', async () => {
+    const profile = findFixture('Duplicate category names')
+    const { profile2, text1 } = await reimportProfile(profile)
+
+    // The premise: two sections whose banners differ in nothing but the `cat=` id (and the `ord`
+    // that follows from it).
+    expect(text1).toContain('Aliases: Combat [q2l cat=cat-combat-a ord=0]')
+    expect(text1).toContain('Aliases: Combat [q2l cat=cat-combat-b ord=1]')
+
+    // A name-keyed category registry would return one category here and quietly move the second
+    // entry into the first one's drawer.
+    expect(categoryNames(profile2)).toEqual(['Combat', 'Combat'])
+    expect(new Set(profile2.categories!.map((category) => category.id)).size).toBe(2)
+    expect(profile2.actions).toHaveLength(2)
+    expect(
+      [...profile2.actions!]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((entry) => [entry.name, entry.categoryId] as const),
+    ).toEqual([
+      ['Fire blaster', profile2.categories![0]!.id],
+      ['Fire shotgun', profile2.categories![1]!.id],
+    ])
+  })
+})
+
+describe('story 052 D5: a real category named "Other" next to the trailing "other" bucket', () => {
+  it('"A real category named Other": the real one survives, the bucket stays a bucket', async () => {
+    const profile = findFixture('A real category named Other')
+    const { profile2, text1 } = await reimportProfile(profile)
+
+    // The premise, and the reason for `sectionHeaderStyle: 'plain'`: the file carries *two* sections
+    // titled `Aliases: Other`, one tagged (the user's real category) and one not (`render.ts`'s
+    // trailing bucket for the orphaned entry) - and under `plain` style neither carries any
+    // decoration for `BANNER_RULE` to tell them apart by.
+    const otherBanners = text1.split('\n').filter((line) => line.startsWith('// Aliases: Other'))
+    expect(otherBanners).toEqual([
+      '// Aliases: Other [q2l cat=cat-other ord=0]',
+      '// Aliases: Other',
+    ])
+
+    // Exactly the two categories the profile has: the real `Other` was not swallowed by the reserved
+    // title, and the untagged bucket did not mint a third.
+    expect(categoryNames(profile2)).toEqual(['Other', 'Kept'])
+    expect(profile2.actions).toHaveLength(3)
+    expect(sortedEntryShapes(profile2)).toEqual(sortedEntryShapes(profile))
+    // And the orphan still matches nothing, which is what keeps it in the trailing bucket on the
+    // *next* render too (`categoryRegistry`'s `'other'` case - an id handed out but never registered).
+    const orphan = profile2.actions!.find((entry) => entry.name === 'Orphaned')!
+    expect(profile2.categories!.some((category) => category.id === orphan.categoryId)).toBe(false)
+    expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
+  })
+})
+
+describe('story 052 D5: non-ASCII display and category names', () => {
+  it('"Non-ASCII (latin-1) names": every name survives byte for byte, unbound line included', async () => {
+    const profile = findFixture('Non-ASCII (latin-1) names')
+    const { profile2, text1 } = await reimportProfile(profile)
+
+    // The premise: the high-bit characters really are in the file, on the category banner, on a code
+    // line's trailing comment, on an unbound line and on an anchor line - the two comment-only kinds
+    // being the ones where the display name is the file's *only* copy of itself.
+    expect(text1).toContain(profile.categories![0]!.name)
+    expect(text1).toMatch(/^bind w\s+\S+\s+\/\/ Vorwärts \[q2l\]$/m)
+    expect(text1).toMatch(/^\/\/bind ""\s+\/\/ Rückwärts ñ \[q2l\]$/m)
+    expect(text1).toMatch(/^\/\/ Über-Sprung ß \[q2l /m)
+
+    expect(categoryNames(profile2)).toEqual([profile.categories![0]!.name])
+    expect(sortedEntryShapes(profile2)).toEqual(sortedEntryShapes(profile))
+  })
+
+  /**
+   * The deliberate other side of the latin-1 line, and a fixture the corpus loops must not carry -
+   * see `beyondLatin1NamesProfile`'s own doc comment.
+   *
+   * `cfg-layout.ts#sanitizeComment` drops every code point above `0xFF` rather than writing it
+   * mangled, because the file is encoded latin1. That is a **write-time** loss and it predates this
+   * story (story 040's latin-1 decision); none of D1-D4 changed it. What this case has to say is
+   * therefore not "the name survives" - it does not - but the two things that are actually this
+   * story's business: the new unbound line loses characters the same way every older line kind does
+   * (rather than, say, truncating at the first dropped one), and the loss happens **once**, so
+   * everything after the first write is a true fixed point with no further erosion and no entry
+   * merged or dropped by the shortening.
+   */
+  it('"Names beyond latin-1": dropped once at write time, stable and lossless from there on', async () => {
+    const { profile2, text1 } = await reimportProfile(beyondLatin1NamesProfile)
+
+    // The characters never reach the file at all - not as `?`, not as mojibake, not as a truncation
+    // point. Everything around them, the trailing half of each name included, is kept.
+    expect(text1).not.toMatch(/[^ -ÿ]/)
+    expect(text1).toContain('Aliases: Move  group')
+    expect(text1).toMatch(/^bind SPACE\s+\S+\s+\/\/ Jump  up \[q2l\]$/m)
+    expect(text1).toMatch(/^\/\/bind ""\s+\/\/ Rocket  dance \[q2l\]$/m)
+
+    // Both entries come back, distinct, with the shortened spelling the file states - and the
+    // category with them.
+    expect(categoryNames(profile2)).toEqual(['Move  group'])
+    expect(profile2.actions!.map((entry) => entry.name).sort()).toEqual([
+      'Jump  up',
+      'Rocket  dance',
+    ])
+    expect(
+      profile2.actions!.find((entry) => entry.name === 'Rocket  dance')!.commands,
+    ).toEqual([])
+
+    // Once, not on every pass: the second render is the same file as the first, and a third pass
+    // changes neither the file nor the names again.
+    expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
+    const { profile2: profile3, text1: text2 } = await reimportProfile(profile2)
+    expect(normalize(text2)).toBe(normalize(text1))
+    expect(profile3.actions!.map((entry) => entry.name).sort()).toEqual([
+      'Jump  up',
+      'Rocket  dance',
+    ])
+  })
+})
+
+describe('story 052 D5: an unbound entry whose derived alias name collides with another', () => {
+  it('"Unbound entries whose alias slug collides": four entries, two collisions, no merge and no alias line', async () => {
+    const profile = findFixture('Unbound entries whose alias slug collides')
+    const { profile2, text1 } = await reimportProfile(profile)
+
+    // The premise, part one: the four display names really do collapse to two derived alias names.
+    expect(aliasNameFor(profile.actions![0]!)).toBe(aliasNameFor(profile.actions![1]!))
+    expect(aliasNameFor(profile.actions![2]!)).toBe(aliasNameFor(profile.actions![3]!))
+    // Part two, and what separates this from `collidingAliasNameProfile`'s genuinely lossy shape: not
+    // one of the four emits an `alias` line, so the collision lives purely in the model. Nothing is
+    // shadowed in-engine, and nothing may therefore be folded on the way back either.
+    expect(text1).not.toMatch(/^alias /m)
+    expect(text1).toMatch(/^bind a\s+"\+moveleft"\s+\/\/ Strafe left \[q2l cid=moveleft\]$/m)
+    expect(text1).toMatch(/^\/\/bind "\+moveright"\s+\/\/ Strafe right \[q2l cid=moveright\]$/m)
+    expect(text1.split('\n').filter((line) => line.startsWith('//bind ""'))).toHaveLength(2)
+
+    // Four entries, four names, four command lists - the prefix relationship inside each pair
+    // (`Strafe left` is a strict prefix of `Strafe left!`) does not pair them.
+    expect(profile2.actions).toHaveLength(4)
+    expect(sortedEntryShapes(profile2)).toEqual(sortedEntryShapes(profile))
+    expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
+  })
+})
+
+/**
+ * The category order the rail shows after a rebuild-from-file has to be the one the user put the
+ * categories in, and story 042's fixed point does **not** imply it: `restoreProfileParts` used to
+ * return the restored `categories` in *mint* order (a category is minted the first time an entry asks
+ * for it, so the array followed entry discovery - alias-line entries, then bind-line-only ones, then
+ * anchors and unbound lines - which says nothing about where the sections sit in the file), and since
+ * D4 made `render.ts#orderedCategoryIds` follow `profile.categories`, that array *is* the next file's
+ * section order. `orderByFileSections` closed it.
+ *
+ * Both cases below assert the restored order itself rather than the rendered bytes, because bytes
+ * cannot see this: the second case's two orders render to a byte-identical file, so the fixed-point
+ * loop (which both fixtures are in) held over the wrong order too.
+ */
+describe('story 052 D5: a scrambled category order survives the round trip', () => {
+  it('"Scrambled category order": the file section order is the profile order, and comes back as it', async () => {
+    const { profile2, text1 } = await reimportProfile(scrambledCategoryOrderProfile)
+
+    // The premise: D4's writer half works - the file's sections really are in the profile's own
+    // scrambled order, not template order and not alphabetical.
+    const banners = text1
+      .split('\n')
+      .filter((line) => line.includes('--- Binds: '))
+      .map((line) =>
+        line
+          .slice(line.indexOf('Binds: ') + 'Binds: '.length)
+          .replace(/\s*(\[q2l .*)?-+$/, '')
+          .trim(),
+      )
+    expect(banners).toEqual(['Weapon dropping', 'Zulu', 'Bewegung', 'Alpha', 'Weapons'])
+
+    // The reader half: the same order has to come back, or the next render moves the sections.
+    expect(categoryNames(profile2)).toEqual([
+      'Weapon dropping',
+      'Zulu',
+      'Bewegung',
+      'Alpha',
+      'Weapons',
+    ])
+    expect(sortedEntryShapes(profile2)).toEqual(sortedEntryShapes(scrambledCategoryOrderProfile))
+    expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
+  })
+
+  /**
+   * Review finding F3, and the case the merge of the three section blocks provably cannot decide:
+   * `Alpha`'s entries are all unbound (an `Entries:` section and nothing else) and `Bravo`'s one
+   * entry is a catalogue-backed bound row (a `Binds:` section and nothing else), so the two never
+   * appear in a comparable pair of headers - and the writer emits every `Binds:` section before every
+   * `Entries:` one, so the layout alone reads `Bravo, Alpha` whichever way round the profile has
+   * them. The order is recorded in the header's `ord` field for exactly this reason
+   * (`render.ts#categoryOrdinals`).
+   */
+  it('"Block-disjoint category order": the profile order survives a layout that states the opposite', async () => {
+    const profile = blockDisjointCategoryOrderProfile
+    const { profile2, text1 } = await reimportProfile(profile)
+
+    // The premise, both halves. One: the two categories really do share no section block.
+    expect(text1).not.toContain('Aliases: Alpha')
+    expect(text1).not.toContain('Aliases: Bravo')
+    expect(text1).not.toContain('Binds: Alpha')
+    expect(text1).not.toContain('Entries: Bravo')
+    // Two: the one section each has puts them in the file the wrong way round - `Bravo`'s bind
+    // section physically precedes `Alpha`'s entries section, though the profile has Alpha first.
+    expect(text1.indexOf('Binds: Bravo')).toBeGreaterThan(-1)
+    expect(text1.indexOf('Entries: Alpha')).toBeGreaterThan(text1.indexOf('Binds: Bravo'))
+    // And the field that says so anyway, on the headers themselves.
+    expect(text1).toContain('// --- Binds: Bravo [q2l cat=cat-bravo ord=1]')
+    expect(text1).toContain('// --- Entries: Alpha [q2l cat=cat-alpha ord=0]')
+
+    // The claim: the rail comes back in the profile's order, not the file layout's.
+    expect(categoryNames(profile2)).toEqual(['Alpha', 'Bravo'])
+    expect(sortedEntryShapes(profile2)).toEqual(sortedEntryShapes(profile))
+    expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
+
+    // Why the fixed point above cannot stand in for that assertion, and why the fix had to be a
+    // writer-side field rather than a cleverer reader: without `ord` the same profile with its two
+    // categories swapped renders the *same bytes*, so no reader could have told the two apart. With
+    // it, the two files differ - which is what makes the order recoverable at all.
+    const swapped = { ...profile, categories: [...profile.categories!].reverse() }
+    expect(normalize(renderProfileFile(swapped))).not.toBe(normalize(text1))
+    expect(normalize(renderProfileFile(swapped).replace(/ ord=\d+/g, ''))).toBe(
+      normalize(text1.replace(/ ord=\d+/g, '')),
+    )
+  })
+
+  /**
+   * A file written before `ord` existed (or one a player edited the field out of) still restores -
+   * it simply falls back to what the section layout states, exactly as this reader did before the
+   * field was added. Pinned rather than assumed: `orderByFileSections` runs its block merge first and
+   * only re-sorts by `ord`, so a file with no ordinals must come out of it untouched.
+   */
+  it('an ord-less file falls back to the section layout instead of failing', async () => {
+    const text = renderProfileFile(blockDisjointCategoryOrderProfile).replace(/ ord=\d+/g, '')
+    const result = await reimport(text)
+    const restored = restoreProfileParts(toRestoreInput(result, [], randomUUID))
+
+    expect(text).not.toContain('ord=')
+    // The layout's own order - the honest answer for a file that records nothing else, and the one
+    // this reader gave before the field existed.
+    expect(restored.categories.map((category) => category.name)).toEqual(['Bravo', 'Alpha'])
+    // Nothing else degrades with it: both categories are back, with their entries.
+    expect(restored.actions).toHaveLength(3)
+    expect(restored.warnings.filter((warning) => warning.reason === 'tag-unknown-keys')).toEqual([])
   })
 })

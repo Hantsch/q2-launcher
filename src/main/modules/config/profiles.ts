@@ -66,7 +66,20 @@ export class ProfilesStore {
       createdAt: now,
       updatedAt: now,
       ...(input.from === 'template'
-        ? { cvars: { ...STANDARD_TEMPLATE.cvars }, binds: { ...STANDARD_TEMPLATE.binds } }
+        ? {
+            cvars: { ...STANDARD_TEMPLATE.cvars },
+            binds: { ...STANDARD_TEMPLATE.binds },
+            // Story 052 D1: the template's own categories/actions, deep-copied (never the shared
+            // seed's own arrays/objects - `STANDARD_TEMPLATE` is reused by every "create from
+            // template" call) with a fresh id per action so two profiles created from the template
+            // never share an action id.
+            categories: STANDARD_TEMPLATE.categories.map((category) => ({ ...category })),
+            actions: STANDARD_TEMPLATE.actions.map((action) => ({
+              ...action,
+              id: randomUUID(),
+              commands: action.commands.map((command) => ({ ...command })),
+            })),
+          }
         : { cvars: {}, binds: {} }),
       assignments: [],
     }

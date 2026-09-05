@@ -255,6 +255,9 @@ describe('tokenizeConfigText - every token kind is exercised', () => {
 function richProfile(): ConfigProfile {
   return profile({
     id: 'syntax-rich',
+    // Story 052 D4: the writer's sections are the profile's own categories, so a profile whose
+    // entries sit in `weapons` has to carry that category to get a `Binds: Weapons` banner at all.
+    categories: [{ id: 'weapons', name: 'Weapons' }],
     actions: [
       {
         id: 'e-ssg',

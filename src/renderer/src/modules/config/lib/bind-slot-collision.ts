@@ -39,7 +39,7 @@ import { MODIFIER_LAYER_NAME, type ModifierTrigger } from '@shared/config/modifi
 import { normalizeBindKey } from '@shared/config/key-names'
 import type { AltLayer } from '@shared/config/alt-layers'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
-import { applyPlainSlot, applySlot, type CatalogRow } from './catalog-binds'
+import { applySlot } from './catalog-binds'
 
 /**
  * A collision plus the single label the UI shows for whoever currently owns
@@ -111,39 +111,15 @@ export function findSlotCollision(
   return { collision, owner: ownerLabel(profile, collision) }
 }
 
-/**
- * Mirrors `catalog-binds.ts`'s own (non-exported) `isEmptyAction` rule
- * (decision 4): a catalogue row's action with no key in either slot and no
- * non-empty team message is "nothing assigned" and must not be persisted -
- * its `drop`/`+move` commands can never fire, so it would only add a dead
- * alias to the generated file.
- *
- * Gated on `catalogId` on purpose: a pre-015 free-form action ("Other
- * actions", decision 5) that loses its key must stay in the list. The user
- * created it by hand and can re-bind it; deleting it would be data loss.
- *
- * Story 050: checked across every key slot (`actionKeySlots`), not just the two editable ones - a
- * hand-added third slot still counts as "something assigned".
- */
-function isEmptyCatalogAction(action: ConfigAction): boolean {
-  if (!action.catalogId) return false
-  const hasKey = actionKeySlots(action).some((slot) => slot.key.trim().length > 0)
-  const hasMessage = action.commands.some(
-    (command) =>
-      command.kind === 'message' &&
-      command.channel === 'say_team' &&
-      command.text.trim().length > 0,
-  )
-  return !hasKey && !hasMessage
-}
-
 export interface ReplaceInput {
   /** The full draft actions array, same one `applySlot` is given elsewhere. */
   actions: ConfigAction[]
   /** `draft.binds` - only read, never returned (see the doc comment below). */
   binds: Record<string, string>
   collision: BindCollision
-  row: CatalogRow
+  /** The entry being assigned. Story 052 D8: an id, not a `CatalogRow` - a catalogue row is an
+   * ordinary entry now, so there is one Replace path instead of a catalogue and a plain one. */
+  actionId: string
   slot: 'primary' | 'secondary'
   key: string
 }
@@ -168,64 +144,23 @@ export interface ReplaceInput {
  *   an `updateProfileBinds` call (or into two action saves) would reintroduce
  *   exactly that window - please do not "simplify" it that way.
  *
- * The trailing prune handles the owner that just became empty: `releaseKey` is
- * shared and pure and knows nothing about catalogue rows, so it cannot apply
- * decision 4's rule itself. Running it after `applySlot` means an owner that is
- * the very action being re-assigned (both slots of one row on one key) is
- * already non-empty again and is correctly left alone.
+ * Story 052 D8: the previous owner is released and *kept*. It used to be pruned when losing the
+ * key left a catalogue-materialised action with nothing assigned (decision 4) - the mirror image of
+ * the lazy creation this story removes. A row is one of `profile.actions` now, so deleting the
+ * entry would delete the row from the Controls tab: the user would take a key away from "Drop
+ * shotgun" and watch that row disappear. An entry with nothing assigned is an unbound row, a shape
+ * both the profile and the file (D2/D3's unbound line) carry.
  */
 export function applyReplace({
-  actions,
-  binds,
-  collision,
-  row,
-  slot,
-  key,
-}: ReplaceInput): ConfigAction[] {
-  const released = releaseKey(actions, binds, collision).actions
-  const applied = applySlot(released, row, slot, key)
-  if (collision.kind !== 'action') return applied
-  return applied.filter(
-    (action) => !(action.id === collision.actionId && isEmptyCatalogAction(action)),
-  )
-}
-
-export interface PlainReplaceInput {
-  /** The full draft actions array, same one `applyPlainSlot` is given elsewhere. */
-  actions: ConfigAction[]
-  /** `draft.binds` - only read, never returned (see `applyReplace`'s doc comment). */
-  binds: Record<string, string>
-  collision: BindCollision
-  actionId: string
-  slot: 'primary' | 'secondary'
-  key: string
-}
-
-/**
- * `applyReplace`'s counterpart for a plain action (`catalog-binds.ts`'s `applyPlainSlot` - see
- * its doc comment for why a `CatalogRow`-keyed `applySlot` does not fit an action that already
- * exists as a concrete entry). Same one-array, one-save invariant `applyReplace` documents: the
- * previous owner is released and the new slot is written before either goes back to
- * `updateProfileActions`, so there is no split-brain window - do not split this into two saves.
- *
- * The trailing prune reuses `isEmptyCatalogAction` unchanged, which is gated on `catalogId` - so
- * a previous owner that is itself a plain action is correctly never pruned here, only a
- * catalogue-materialised one that lost its last key.
- */
-export function applyPlainReplace({
   actions,
   binds,
   collision,
   actionId,
   slot,
   key,
-}: PlainReplaceInput): ConfigAction[] {
+}: ReplaceInput): ConfigAction[] {
   const released = releaseKey(actions, binds, collision).actions
-  const applied = applyPlainSlot(released, actionId, slot, key)
-  if (collision.kind !== 'action') return applied
-  return applied.filter(
-    (action) => !(action.id === collision.actionId && isEmptyCatalogAction(action)),
-  )
+  return applySlot(released, actionId, slot, key)
 }
 
 /** What a modifier capture is about to overwrite, if anything (story 016 D4/D10, AC 6). */
@@ -253,9 +188,9 @@ export interface ModifierSlotCollision {
 }
 
 /**
- * Would capturing `(modifier, key)` for the row currently being edited (`ignoreActionId`, or
- * `undefined` while the row is still unmaterialised - decision 3) replace a *different*
- * assignment already sitting there?
+ * Would capturing `(modifier, key)` for the row currently being edited (`ignoreActionId` - always
+ * a real entry id since story 052 D8, though the parameter stays optional for callers with no row
+ * of their own to exclude) replace a *different* assignment already sitting there?
  *
  * Story 016 D10: reads `actions` directly rather than the layer's stored override text, because
  * the actions array is what actually decides who owns a `(modifier, key)` pair since D7's
@@ -336,6 +271,8 @@ export function findModifierSlotCollision(
 export interface ModifierReplaceInput {
   /** The full draft actions array, same one `applySlot` is given elsewhere. */
   actions: ConfigAction[]
+  /** The entry being assigned - an id, not a `CatalogRow` (story 052 D8, see `ReplaceInput`). */
+  actionId: string
   /**
    * `findModifierSlotCollision`'s result for this exact `(modifier, key)`, or `null` when
    * nothing occupies it. Deliberately accepted as `null` (rather than requiring the caller to
@@ -345,7 +282,6 @@ export interface ModifierReplaceInput {
    * without knowing which path it is on; it is a plain `applySlot` passthrough when `null`.
    */
   collision: ModifierSlotCollision | null
-  row: CatalogRow
   slot: 'primary' | 'secondary'
   key: string
   modifier: ModifierTrigger
@@ -370,18 +306,18 @@ export interface ModifierReplaceInput {
  * actions side to clear, and `applyActionLayerMirror` overwrites that raw value with the new
  * alias on the very next mirror pass regardless.
  *
- * The trailing prune mirrors `applyReplace`'s: an occupant left with nothing assigned after
- * losing its slot (decision 4) does not survive the save.
+ * Story 052 D8: the released occupant is kept, never pruned - same reasoning `applyReplace`'s doc
+ * comment spells out (a pruned entry is a row that vanishes from the Controls tab).
  */
 export function applyModifierReplace({
   actions,
   collision,
-  row,
+  actionId,
   slot,
   key,
   modifier,
 }: ModifierReplaceInput): ConfigAction[] {
-  if (!collision?.actionId) return applySlot(actions, row, slot, key, modifier)
+  if (!collision?.actionId) return applySlot(actions, actionId, slot, key, modifier)
 
   // Story 050: blanks the exact slot `findModifierSlotCollision` named (`{ key: '' }` via
   // `withKeySlot`, never `clearKeySlot`) - clearing by array index rather than removing the entry
@@ -391,41 +327,5 @@ export function applyModifierReplace({
     return withKeySlot(action, collision.actionSlot!, { key: '' })
   })
 
-  const applied = applySlot(released, row, slot, key, modifier)
-  return applied.filter((action) => !(action.id === collision.actionId && isEmptyCatalogAction(action)))
-}
-
-export interface PlainModifierReplaceInput {
-  /** The full draft actions array, same one `applyPlainSlot` is given elsewhere. */
-  actions: ConfigAction[]
-  collision: ModifierSlotCollision | null
-  actionId: string
-  slot: 'primary' | 'secondary'
-  key: string
-  modifier: ModifierTrigger
-}
-
-/**
- * `applyModifierReplace`'s counterpart for a plain action - same release-then-write invariant
- * (see `applyModifierReplace`'s doc comment for why skipping the release step corrupts a
- * profile), just committing through `applyPlainSlot` instead of the `CatalogRow`-keyed
- * `applySlot`.
- */
-export function applyPlainModifierReplace({
-  actions,
-  collision,
-  actionId,
-  slot,
-  key,
-  modifier,
-}: PlainModifierReplaceInput): ConfigAction[] {
-  if (!collision?.actionId) return applyPlainSlot(actions, actionId, slot, key, modifier)
-
-  const released = actions.map((action) => {
-    if (action.id !== collision.actionId) return action
-    return withKeySlot(action, collision.actionSlot!, { key: '' })
-  })
-
-  const applied = applyPlainSlot(released, actionId, slot, key, modifier)
-  return applied.filter((action) => !(action.id === collision.actionId && isEmptyCatalogAction(action)))
+  return applySlot(released, actionId, slot, key, modifier)
 }

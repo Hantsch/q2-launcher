@@ -132,10 +132,18 @@ const modifierTriggerSchema: z.ZodType<ModifierTrigger> = z.enum(['ALT', 'CTRL',
 /**
  * Story 019: a category is a named drawer and nothing else - the entry kind moved onto the entry
  * (`actionEntryKindSchema` below), so story 008's `entryKind` field is gone from this payload.
+ *
+ * `nameKey` (story 052 D1) is the optional i18n display hint `ConfigActionCategory.nameKey`
+ * documents - carried through here (rather than stripped as an unrecognised field) so a category
+ * seeded from `TEMPLATE_ACTION_CATEGORIES` keeps it across an ordinary `setActions` round-trip
+ * until a rename drops it. Same "non-empty string, no further vocabulary check" rule as
+ * `catalogId`/`aliasName` below - this schema only guards shape, not whether the key is one the
+ * renderer actually recognises.
  */
 const configActionCategorySchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(120),
+  nameKey: z.string().min(1).optional(),
 })
 
 /**

@@ -1282,6 +1282,13 @@
       "delete": "Delete…",
       "deleteConfirm": "Delete this category? Its actions are removed too.",
       "deleteConfirmAction": "Confirm delete",
+      "categoryMoveUp": "Move category up",
+      "categoryMoveDown": "Move category down",
+      "categoriesEmpty": {
+        "title": "No categories yet",
+        "body": "This profile has no categories of its own. Add the standard template to start from Movement, Weapons and Weapon dropping, or create a blank one.",
+        "addTemplate": "Add the standard template"
+      },
       "entryKind": {
         "bind": "Bind",
         "message": "Message",
@@ -1312,11 +1319,25 @@
         "title": "Create category",
         "nameLabel": "Name",
         "entryKindLabel": "Entry kind",
-        "submit": "Create category"
+        "submit": "Create category",
+        "suggestions": {
+          "label": "From the standard template"
+        }
       },
       "renameDialog": {
         "title": "Rename category",
         "label": "Name"
+      },
+      "deleteCategoryDialog": {
+        "title": "Delete “{{name}}”?",
+        "confirm": "Delete category",
+        "choiceMove": "Move its entries to another category",
+        "choiceDelete": "Delete its entries with it",
+        "targetLabel": "Move entries to",
+        "bodyMove_one": "{{count}} entry will move to “{{target}}”.",
+        "bodyMove_other": "{{count}} entries will move to “{{target}}”.",
+        "bodyDelete_one": "{{count}} entry will be deleted with this category.",
+        "bodyDelete_other": "{{count}} entries will be deleted with this category."
       },
       "filter": {
         "placeholder": "Filter actions…",
@@ -1341,7 +1362,12 @@
         "createDialog": {
           "title": "Create action",
           "nameLabel": "Name",
-          "submit": "Create action"
+          "submit": "Create action",
+          "suggestions": {
+            "label": "Pick from the catalogue",
+            "filterPlaceholder": "Filter actions…",
+            "ammoBadge": "ammo"
+          }
         },
         "renameDialog": {
           "title": "Rename action",

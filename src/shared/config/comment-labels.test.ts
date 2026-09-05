@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
-import { BUILT_IN_ACTION_CATEGORIES } from '@shared/modules/config'
+import { TEMPLATE_ACTION_CATEGORIES } from '@shared/modules/config'
 import {
   DROP_ACTIONS,
   DROPPABLES,
@@ -90,18 +90,37 @@ describe('commentLabelFor', () => {
 })
 
 describe('categoryLabelFor', () => {
-  it('resolves a built-in category id to its plain label', () => {
-    expect(categoryLabelFor('weapons', profile())).toBe('Weapons')
-  })
-
   it("resolves a user-created category id to that category's stored name, verbatim", () => {
     const category: ConfigActionCategory = { id: 'cat-1', name: 'Comms' }
 
     expect(categoryLabelFor('cat-1', profile({ categories: [category] }))).toBe('Comms')
   })
 
-  it('falls back to the id itself when neither a built-in nor a stored category matches', () => {
+  it("resolves a template-seeded category to the profile's copy of the template name", () => {
+    // Story 052 D4: a seeded category is ordinary data - `STANDARD_TEMPLATE` writes the English
+    // default into `name`, and that (not a constant this module used to consult) is what the
+    // banner shows.
+    const seeded: ConfigActionCategory = {
+      id: 'weapons',
+      name: 'Weapons',
+      nameKey: 'config.controls.categories.weapons',
+    }
+
+    expect(categoryLabelFor('weapons', profile({ categories: [seeded] }))).toBe('Weapons')
+  })
+
+  it('follows a rename of a former built-in category, rather than the template label', () => {
+    // The whole point of D4 on this function: before it, `weapons` resolved to the constant
+    // `'Weapons'` whatever the profile said, so a renamed category kept writing the old header.
+    const renamed: ConfigActionCategory = { id: 'weapons', name: 'Guns' }
+
+    expect(categoryLabelFor('weapons', profile({ categories: [renamed] }))).toBe('Guns')
+  })
+
+  it('falls back to the id itself for a category the profile does not carry - a former built-in included', () => {
     expect(categoryLabelFor('ghost-category', profile())).toBe('ghost-category')
+    // No longer special: a profile that deleted (or never had) `weapons` has no name for it.
+    expect(categoryLabelFor('weapons', profile())).toBe('weapons')
   })
 
   it('treats a profile with no categories field the same as an empty list (pre-story-008 profiles)', () => {
@@ -159,8 +178,8 @@ describe('DROP_ACTIONS labels', () => {
   )
 })
 
-describe('BUILT_IN_ACTION_CATEGORIES labels', () => {
-  it.each(BUILT_IN_ACTION_CATEGORIES.map((category) => [category.id, category.labelKey, category.label] as const))(
+describe('TEMPLATE_ACTION_CATEGORIES labels', () => {
+  it.each(TEMPLATE_ACTION_CATEGORIES.map((category) => [category.id, category.labelKey, category.label] as const))(
     '%s: label is non-empty ASCII and matches en.json',
     (_id, labelKey, label) => {
       expect(label).toMatch(ASCII_PRINTABLE)

@@ -118,7 +118,8 @@ describe('restoreProfileParts - what a launcher-written file gives back', () => 
     expect(result.actions).toHaveLength(1)
     expect(result.actions[0]).toEqual({
       id: 'id1',
-      // A built-in `cat` id is adopted verbatim, so no category is created for it.
+      // A template `cat` id keeps its id (so `cat=` tags, the seed and the migration all mean the
+      // same drawer) - but story 052 D4 mints a real category record for it all the same.
       categoryId: 'weapons',
       name: 'SSG + SG',
       kind: 'bind',
@@ -130,7 +131,44 @@ describe('restoreProfileParts - what a launcher-written file gives back', () => 
       keys: [{ key: 'q' }, { key: 'MOUSE2' }],
       aliasName: 'ssg_sg',
     })
-    expect(result.categories).toEqual([])
+    // Story 052 D4: minted as an ordinary category, named from the header's own title, with the
+    // template's `nameKey` re-attached because that title is still the template's English default.
+    // Before D4 this was `[]` - the id was adopted invisibly, which now would leave the entry
+    // pointing at a category the profile does not have.
+    expect(result.categories).toEqual([
+      { id: 'weapons', name: 'Weapons', nameKey: 'config.controls.categories.weapons' },
+    ])
+  })
+
+  it('mints a renamed template category under its own name, with no nameKey', () => {
+    // AC 8's rename half, on the read side: the user renamed "Weapons" to "Guns" in the rail, the
+    // writer put that in the header, and it has to come back as the profile's name for `weapons` -
+    // not be overwritten by the template default the id used to imply.
+    const file = doc()
+    file.version()
+    file.header('Aliases: Guns', formatMetaTag({ cat: 'weapons' }))
+    file.alias('ssg_sg', 'use super shotgun; use shotgun', tagged('SSG + SG'))
+
+    const result = file.restore()
+
+    expect(result.categories).toEqual([{ id: 'weapons', name: 'Guns' }])
+    expect(result.actions[0]!.categoryId).toBe('weapons')
+  })
+
+  it('creates only the categories the file has (AC 7)', () => {
+    // A foreign-shaped file with one section: no Movement/Weapons/Weapon dropping alongside it.
+    const file = doc()
+    file.version()
+    file.header('Aliases: Imported', formatMetaTag({ cat: 'their-cat-id' }))
+    file.alias('rl', 'use rocket launcher', tagged('RL'))
+
+    const result = file.restore()
+
+    expect(result.categories).toHaveLength(1)
+    expect(result.categories[0]!.name).toBe('Imported')
+    // Their id means nothing locally, so a local one is minted - the entry follows it.
+    expect(result.categories[0]!.id).not.toBe('their-cat-id')
+    expect(result.actions[0]!.categoryId).toBe(result.categories[0]!.id)
   })
 
   it('pairs two bind lines running one command into one entry with two keys, in file order', () => {
@@ -899,6 +937,225 @@ describe('restoreProfileParts - anchor lines and how they find their entry', () 
   })
 })
 
+describe('restoreProfileParts - unbound lines (story 052 D3)', () => {
+  /**
+   * One unbound line exactly as `render.ts#unboundLine` writes it, marker stripped the way
+   * `config-parser.ts` hands a comment-only line over: the whole `bind` command commented out, then
+   * the same `  // <prose> [q2l …]` trailing comment every other entry line carries.
+   */
+  function unbound(command: string, prose: string, fields: Record<string, string> = {}): string {
+    return `bind "${command}"  //${tagged(prose, fields)}`
+  }
+
+  it('rebuilds an entry that has no line at all but its unbound one, command included', () => {
+    const file = doc()
+    file.version()
+    file.header('Entries: Movement', formatMetaTag({ cat: 'movement' }))
+    file.comment(unbound('+moveleft', 'Strafe left', { cid: 'movement:moveleft' }))
+
+    const result = file.restore()
+
+    expect(result.warnings).toEqual([])
+    expect(result.actions).toEqual([
+      {
+        id: 'id1',
+        // From the section the line sits in, exactly as an anchor's category is.
+        categoryId: 'movement',
+        name: 'Strafe left',
+        kind: 'bind',
+        // The point of the whole shape: the body carries what the entry runs, so this is not the
+        // `commands: []` the reverted 042 "entry anchor" came back with.
+        commands: [{ kind: 'raw', text: '+moveleft' }],
+        catalogId: 'movement:moveleft',
+      },
+    ])
+    expect(keysOf(result.actions[0])).toEqual([])
+  })
+
+  it('claims the line, so it never reaches the import preview`s preserved list', () => {
+    const file = doc()
+    file.version()
+    file.header('Entries: Movement', formatMetaTag({ cat: 'movement' }))
+    file.comment(unbound('+moveleft', 'Strafe left', { cid: 'movement:moveleft' }))
+
+    // `import.ts#preservedLinesFor` subtracts exactly this list from what the dialog calls
+    // "preserved" - a launcher-owned line the reader fully understood is the opposite of "we did
+    // not understand this, so we kept it verbatim".
+    expect(file.restore().consumedCommentLines).toContainEqual({
+      file: 'q2l-profile-src.cfg',
+      line: 3,
+    })
+  })
+
+  it('reads `//bind ""` as an entry that genuinely has no commands', () => {
+    const file = doc()
+    file.version()
+    file.header('Entries: Movement', formatMetaTag({ cat: 'movement' }))
+    // The shape most of `STANDARD_TEMPLATE`'s seeded rows have (story 052 D1): a real row, with a
+    // name and a catalogue id, that the user has not given a command yet.
+    file.comment(unbound('', 'Crouch', { cid: 'movement:crouch' }))
+
+    const result = file.restore()
+
+    expect(result.actions).toEqual([
+      {
+        id: 'id1',
+        categoryId: 'movement',
+        name: 'Crouch',
+        kind: 'bind',
+        commands: [],
+        catalogId: 'movement:crouch',
+      },
+    ])
+  })
+
+  it('keeps two commandless rows in one category apart instead of folding them into one', () => {
+    // The collapse this shape invites: keyed on what the line says - an empty bind value - every
+    // seeded row of a template profile is the same key. Each unbound line gets a group of its own
+    // for exactly that reason.
+    const file = doc()
+    file.version()
+    file.header('Entries: Movement', formatMetaTag({ cat: 'movement' }))
+    file.comment(unbound('', 'Crouch', { cid: 'movement:crouch' }))
+    file.comment(unbound('', 'Jump', { cid: 'movement:jump' }))
+
+    const result = file.restore()
+
+    expect(result.actions.map((entry) => entry.name)).toEqual(['Crouch', 'Jump'])
+    expect(result.actions.map((entry) => entry.catalogId)).toEqual([
+      'movement:crouch',
+      'movement:jump',
+    ])
+  })
+
+  it('takes the entry`s own alias name off the line`s `an` field', () => {
+    const file = doc()
+    file.version()
+    file.header('Entries: Weapons', formatMetaTag({ cat: 'weapons' }))
+    file.comment(unbound('weapnext', 'Next weapon', { an: 'weapnext' }))
+
+    const result = file.restore()
+
+    expect(result.actions[0]!.aliasName).toBe('weapnext')
+    expect(result.actions[0]!.commands).toEqual([{ kind: 'raw', text: 'weapnext' }])
+  })
+
+  it('leaves a bound entry and its lines exactly as they were', () => {
+    // The no-regression half: the same file carries an ordinary alias+bind entry next to the
+    // unbound one, and neither reads the other's lines.
+    const file = doc()
+    file.version()
+    file.header('Aliases: Weapons', formatMetaTag({ cat: 'weapons' }))
+    file.alias('ssg_sg', 'use super shotgun; use shotgun', tagged('SSG + SG', { cid: 'weapon:ssg_sg' }))
+    file.header('Binds: Weapons', formatMetaTag({ cat: 'weapons' }))
+    file.bind('q', 'ssg_sg', tagged('SSG + SG', { cid: 'weapon:ssg_sg' }))
+    file.header('Entries: Weapons', formatMetaTag({ cat: 'weapons' }))
+    file.comment(unbound('+attack', 'Attack', { cid: 'weapon:attack' }))
+
+    const result = file.restore()
+
+    expect(result.warnings).toEqual([])
+    expect(result.actions).toEqual([
+      {
+        id: 'id1',
+        categoryId: 'weapons',
+        name: 'SSG + SG',
+        kind: 'bind',
+        commands: [
+          { kind: 'raw', text: 'use super shotgun' },
+          { kind: 'raw', text: 'use shotgun' },
+        ],
+        catalogId: 'weapon:ssg_sg',
+        keys: [{ key: 'q' }],
+        aliasName: 'ssg_sg',
+      },
+      {
+        id: 'id2',
+        categoryId: 'weapons',
+        name: 'Attack',
+        kind: 'bind',
+        commands: [{ kind: 'raw', text: '+attack' }],
+        catalogId: 'weapon:attack',
+      },
+    ])
+  })
+
+  it('does not let an anchor line of another entry land on an unbound one', () => {
+    // An unbound entry has no key slot at all - that is why it got this line rather than an anchor -
+    // so an anchor, which is nothing but a key claim, must never be matched onto it, not even when
+    // the two share a `cid`. The anchor keeps its own entry instead.
+    const file = doc()
+    file.version()
+    file.header('Entries: Movement', formatMetaTag({ cat: 'movement' }))
+    file.comment(unbound('+moveleft', 'Strafe left', { cid: 'movement:moveleft' }))
+    file.comment(tagged('Strafe left', { cid: 'movement:moveleft', key: 'a', mod: 'ALT' }))
+
+    const result = file.restore()
+
+    expect(result.actions).toHaveLength(2)
+    const [unboundEntry, anchored] = result.actions
+    expect(unboundEntry!.commands).toEqual([{ kind: 'raw', text: '+moveleft' }])
+    expect(keysOf(unboundEntry)).toEqual([])
+    expect(slotsOf(anchored)).toEqual([{ key: 'a', modifier: 'ALT' }])
+  })
+
+  it('is not read as a section banner when its display name carries a banner rule', () => {
+    // The claiming-order defect this predicate exists to prevent, in its `---` form: the prose of an
+    // unbound line is a user-typed display name, so `scanComments`' decoration test would have taken
+    // this line for an untagged banner, minted a category named after it and re-filed the line below
+    // it under that category.
+    const file = doc()
+    file.version()
+    file.header('Entries: Movement', formatMetaTag({ cat: 'movement' }))
+    file.comment(unbound('+moveleft', 'Strafe --- left', { cid: 'movement:moveleft' }))
+    file.comment(unbound('+moveright', 'Strafe right', { cid: 'movement:moveright' }))
+
+    const result = file.restore()
+
+    // Exactly one category - the `Entries: Movement` header's - and none named after the display
+    // name: a second category here would be the very defect this predicate prevents.
+    expect(result.categories).toEqual([
+      { id: 'movement', name: 'Movement', nameKey: 'config.controls.categories.movement' },
+    ])
+    expect(result.actions.map((entry) => entry.categoryId)).toEqual(['movement', 'movement'])
+    expect(result.actions.map((entry) => entry.name)).toEqual(['Strafe --- left', 'Strafe right'])
+  })
+
+  it('leaves a hand-typed comment that merely mentions a bind alone', () => {
+    // Tag presence is the whole launcher-owned signal (story 050): without a `[q2l …]` this is a
+    // player's own note, and reading an entry out of it would invent a row nobody created - and
+    // consume a line the import preview is supposed to show.
+    const file = doc()
+    file.version()
+    file.header('Entries: Movement', formatMetaTag({ cat: 'movement' }))
+    file.comment(' bind "+moveleft" - maybe later')
+
+    const result = file.restore()
+
+    expect(result.actions).toEqual([])
+    expect(result.consumedCommentLines).not.toContainEqual({
+      file: 'q2l-profile-src.cfg',
+      line: 3,
+    })
+  })
+
+  it('keeps a `//` inside a quoted command out of the display prose', () => {
+    // Read with the config tokenizer's own rules, so a `//` inside the quoted body is part of the
+    // command rather than the start of the trailing comment.
+    const file = doc()
+    file.version()
+    file.header('Entries: Other', formatMetaTag({ cat: 'chat' }))
+    file.comment(unbound('say see http://q2.example', 'Site'))
+
+    const result = file.restore()
+
+    expect(result.actions[0]!.name).toBe('Site')
+    expect(result.actions[0]!.commands).toEqual([
+      { kind: 'message', channel: 'say', text: 'see http://q2.example' },
+    ])
+  })
+})
+
 describe('restoreProfileParts - hand-edited and unknown metadata', () => {
   it('reports a mangled tag, loses only that line`s entry, and keeps the rest', () => {
     const file = doc()
@@ -1031,7 +1288,12 @@ describe('restoreProfileParts - hand-edited and unknown metadata', () => {
     file.header('Aliases: Weapons', formatMetaTag({ cat: 'weapons' }))
     file.alias('rl', 'use rocket launcher', tagged('RL'))
 
-    expect(file.restore().categories).toEqual([])
+    // The `Mouse` cvar-group banner mints nothing (no entry is filed under it); the one section that
+    // does hold an entry mints exactly one category - story 052 D4, where a template id is minted
+    // like any other rather than adopted invisibly.
+    expect(file.restore().categories).toEqual([
+      { id: 'weapons', name: 'Weapons', nameKey: 'config.controls.categories.weapons' },
+    ])
   })
 
   it('files a tagged line that sits under no header at all in one fallback drawer, and says so', () => {

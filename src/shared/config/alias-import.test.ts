@@ -245,11 +245,11 @@ describe('buildImportedActions - category guess', () => {
   }
 
   it('files a drop body under drops - before use, first match wins', () => {
-    expect(categoryOf('drop Shotgun; use blaster')).toBe('drops')
+    expect(categoryOf('drop Shotgun; use blaster')).toBe('Weapon dropping')
   })
 
   it('files a use body under weapons', () => {
-    expect(categoryOf('use rocket launcher;+attack')).toBe('weapons')
+    expect(categoryOf('use rocket launcher;+attack')).toBe('Weapons')
   })
 
   it('files a say/say_team-only body under a new messages category', () => {
@@ -266,10 +266,10 @@ describe('buildImportedActions - category guess', () => {
   })
 
   it('files movement commands and cvars under movement', () => {
-    expect(categoryOf('cl_forwardspeed 110; cl_sidespeed 110')).toBe('movement')
-    expect(categoryOf('+forward')).toBe('movement')
-    expect(categoryOf('+back;wait')).toBe('movement')
-    expect(categoryOf('+moveup')).toBe('movement')
+    expect(categoryOf('cl_forwardspeed 110; cl_sidespeed 110')).toBe('Movement')
+    expect(categoryOf('+forward')).toBe('Movement')
+    expect(categoryOf('+back;wait')).toBe('Movement')
+    expect(categoryOf('+moveup')).toBe('Movement')
   })
 
   it('falls back to a new imported category, empty bodies included', () => {
@@ -284,7 +284,7 @@ describe('buildImportedActions - category guess', () => {
     expect(categoryOf('say mouse settings')).toBe('Messages')
   })
 
-  it('creates each new category once and returns only the created ones', () => {
+  it('creates every category it files into, once each - a template one included (story 052 D4)', () => {
     const { actions, categories } = build([
       def('a', 'say one'),
       def('b', 'say two;say three'),
@@ -292,9 +292,32 @@ describe('buildImportedActions - category guess', () => {
       def('d', 'drop rail'),
     ])
 
-    expect(categories.map((c) => c.name)).toEqual(['Messages', 'Imported'])
+    // Before 052 the `drops` guess created nothing, because the Controls tab showed that category
+    // whether the profile carried it or not. It has to be a real category now - an import produces
+    // exactly the categories the file gave it, and no entry may point at one that does not exist.
+    expect(categories.map((c) => c.name)).toEqual(['Messages', 'Imported', 'Weapon dropping'])
     expect(actions[0]!.categoryId).toBe(actions[1]!.categoryId)
     expect(actions[3]!.categoryId).toBe('drops')
+  })
+
+  it('keeps the template id, name and nameKey on a category a guess lands on', () => {
+    // The id stays `drops` (story's Decisions: "built-in ids stay movement/weapons/drops"), so a
+    // `cat=` tag, a template seed and this import all mean the same drawer; `nameKey` is what lets
+    // the renderer show a translated label for a category nobody has renamed.
+    const { categories } = build([def('d', 'drop rail')])
+
+    expect(categories).toEqual([
+      { id: 'drops', name: 'Weapon dropping', nameKey: 'config.controls.categories.drops' },
+    ])
+  })
+
+  it('creates only the categories the file actually has', () => {
+    // AC 7: a one-category file gets one category - no Movement/Weapons/Weapon dropping alongside.
+    const { actions, categories } = build([def('a', 'say one')])
+
+    expect(categories.map((c) => c.name)).toEqual(['Messages'])
+    expect(categories.map((c) => c.id)).not.toContain('movement')
+    expect(actions[0]!.categoryId).toBe(categories[0]!.id)
   })
 })
 

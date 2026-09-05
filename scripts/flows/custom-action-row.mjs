@@ -10,11 +10,10 @@ export default async function customActionRow({ page, shot, step }) {
 
   step('add custom action "test"')
   await page.getByRole('button', { name: 'Add action' }).click()
-  await page
-    .getByRole('dialog')
-    .locator('input[type="text"], input:not([type])')
-    .first()
-    .fill('test')
+  // Story 052 review (finding 2): the Name field is located by its label, not by being the
+  // dialog's first text input - D9's catalogue-suggestion filter now sits above it, so a
+  // positional `.first()` filled the filter and left "Create action" permanently disabled.
+  await page.getByRole('dialog').getByLabel('Name', { exact: true }).fill('test')
   await page.getByRole('button', { name: 'Create action' }).click()
 
   step('locate the test row')

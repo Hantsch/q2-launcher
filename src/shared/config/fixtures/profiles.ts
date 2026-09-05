@@ -27,11 +27,45 @@ import type {
   ConfigActionCategory,
   ConfigProfile,
 } from '@shared/modules/config'
+import { TEMPLATE_ACTION_CATEGORIES } from '@shared/modules/config'
 
 let counter = 0
 /** Deterministic id factory - fixtures need no randomness, only distinctness. */
 function nextId(prefix: string): () => string {
   return () => `${prefix}-${(counter++).toString(36)}`
+}
+
+/**
+ * The categories `actions` actually file entries under, in first-use order - the default for a
+ * fixture that does not name its own.
+ *
+ * Story 052 D4: the file's category sections are `profile.categories` in that array's order, and
+ * the three former built-ins are no longer prepended by the writer. A fixture whose entries sit in
+ * `movement`/`weapons`/`drops` (the `action()` helper's default is `movement`) therefore has to
+ * *carry* those categories to render a named section at all; without them the whole corpus would
+ * write its entries into the trailing "Other" bucket and stop exercising category sections
+ * altogether. Named from `TEMPLATE_ACTION_CATEGORIES` exactly as `STANDARD_TEMPLATE` seeds them
+ * (`{ id, name: <english default>, nameKey }`), so a fixture profile looks like a template-seeded
+ * one.
+ *
+ * Derived from the actions rather than fixed at "all three" on purpose: a category with no entries
+ * has nothing to write, so the file cannot carry it and a re-read profile cannot get it back
+ * (`file-source-pipeline.test.ts` checks exactly that nothing is lost). A fixture that passes its
+ * own `categories` replaces this wholesale, and each of those files its entries under an id from its
+ * own list - or, for `orphanedCategoryProfiles`, deliberately not.
+ */
+function categoriesForActions(actions: readonly ConfigAction[]): ConfigActionCategory[] {
+  const categories: ConfigActionCategory[] = []
+  for (const { categoryId } of actions) {
+    if (categories.some((category) => category.id === categoryId)) continue
+    const template = TEMPLATE_ACTION_CATEGORIES.find((category) => category.id === categoryId)
+    categories.push(
+      template
+        ? { id: template.id, name: template.label, nameKey: template.labelKey }
+        : { id: categoryId, name: categoryId },
+    )
+  }
+  return categories
 }
 
 export interface FixtureProfileInput {
@@ -68,7 +102,7 @@ export function buildFixtureProfile(input: FixtureProfileInput): ConfigProfile {
     cvars: input.cvars ?? {},
     binds: baseBinds,
     assignments: [],
-    categories: input.categories ?? [],
+    categories: input.categories ?? categoriesForActions(input.actions),
     actions: input.actions,
     layers,
     writeUnbindall: input.writeUnbindall ?? true,
@@ -301,15 +335,16 @@ export const anchorProseWithBannerRuleProfile: ConfigProfile = buildFixtureProfi
  * `removeShadowedBind` fix leaves behind, and one a user can equally create without binding it yet.
  *
  * It gets no alias line (a continuous row mirrors as its own bare `+moveleft`, so story 034/038
- * drops it) and no bind line (no key to bind), so it leaves **no trace in the file at all** and is
- * dropped on re-import. That is the documented, accepted behaviour, not a gap: story 042 review
- * round 2 (NEW-1) gave it an entry anchor to keep its identity, and round 3 reverted that, because
- * the identity came back with `commands: []` and `catalog-binds.ts#applySlot` would then find and
- * reuse that empty entry the next time the user bound the same catalogue row - producing a key
- * pointing at an alias nothing defines. See `render.ts#buildAnchorLines` for the full argument.
+ * drops it) and no bind line (no key to bind). Until story 052 that left **no trace in the file at
+ * all** and the entry was dropped on re-import - the accepted answer at the time, because story 042
+ * review round 2's entry anchor brought the identity back *without* its command (`commands: []`),
+ * which `catalog-binds.ts#applySlot` would then reuse as the base of the next bind of that row,
+ * producing a key pointing at an alias nothing defines.
  *
- * Kept as a fixture because that "no trace" is exactly what `round-trip.test.ts` asserts, and
- * because the fixed point has to hold across the loss too.
+ * Story 052 D2/D3 gives exactly this shape a line that carries the command as well as the identity
+ * (`render.ts#unboundLine`, read back by `profile-restore.ts#claimsUnboundEntry`), so the row now
+ * survives the round trip whole - which is what `round-trip.test.ts` and
+ * `file-source-pipeline.test.ts` assert on this fixture.
  */
 export const keylessCatalogueProfile: ConfigProfile = buildFixtureProfile({
   name: 'Keyless catalogue entry',
@@ -1198,6 +1233,462 @@ export const prefixNamedTrioProfile: ConfigProfile = buildFixtureProfile({
   ],
 })
 
+// ---------------------------------------------------------------------------
+// Story 052 D5: the adversarial pass over the shapes this story invents.
+//
+// D2 gave an entry that would otherwise leave no trace a commented-out `bind`
+// line, D3 reads it back, and D4 made every category ordinary, profile-owned
+// data whose array order *is* the file's section order. Both changes put
+// user-typed prose in places that the reader has to tell from its own
+// structural markers - a comment-only line that is really a code line, and a
+// section banner whose title is now whatever the user called the category. The
+// seven fixtures below are the hostile inputs for exactly those two seams; each
+// is driven through the real render -> parse -> restore -> render pipeline in
+// `round-trip.test.ts`, and each is in `ROUND_TRIP_FIXTURES` (bar the one noted
+// below), so it is also held to the whole-pipeline "nothing is lost" property
+// in `file-source-pipeline.test.ts` and to the writer-side tag invariants in
+// `render-invariants.test.ts`.
+// ---------------------------------------------------------------------------
+
+/**
+ * **Unbound entries with no commands at all**, one on either side of an unbound entry that does
+ * carry one - the `//bind ""` shape `render.ts#unboundCommand` writes for `STANDARD_TEMPLATE`'s
+ * seeded-but-unbound rows (story 052 D1), which is most of a template profile's file.
+ *
+ * `keylessCatalogueProfile` above covers the single, command-carrying unbound line. What this adds
+ * is the empty body *and* the neighbourhood: three unbound lines in one `Entries: Movement` section,
+ * two of them byte-identical in their code half (`//bind ""`), so the only thing telling them apart
+ * is their own display prose and their position. `groupEntryLines` keys an unbound line's group on
+ * `unbound:<file>:<line>` precisely so those two cannot fold into one entry - the shape a
+ * value-keyed grouping (what every *bind* line uses) would merge on sight.
+ */
+export const unboundNoCommandsProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Unbound entries with no commands',
+  actions: [
+    action({ name: 'Crouch', kind: 'bind', commands: [], categoryId: 'movement' }),
+    action({
+      name: 'Strafe left',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: '+moveleft' }],
+      catalogId: 'moveleft',
+      categoryId: 'movement',
+    }),
+    action({ name: 'Sprint', kind: 'bind', commands: [], categoryId: 'movement' }),
+  ],
+})
+
+/**
+ * **Display names and a category name that read like this writer's own section banners.**
+ *
+ * `render.ts` opens every category section with one of exactly three literal prefixes
+ * (`Aliases: `, `Binds: `, `Entries: ` - `profile-restore.ts#TITLE_PREFIXES`), and story-042-review
+ * round 5/6 made the reader treat *both* that prefix and the reserved `Other`/`Other binds` bucket
+ * titles as section signals in their own right, on top of `BANNER_RULE`'s decoration test. Every one
+ * of those signals is now aimed at user-typed prose:
+ *
+ * - the category is literally named `Binds: Movement`, so its own alias section reads
+ *   `// --- Aliases: Binds: Movement [q2l cat=…] ---` - one prefix must come off on read-back, not
+ *   two, or the category comes back renamed and the file stops being a fixed point;
+ * - the first entry is an *unbound* line (D2/D3) whose display name is `Binds: Other` - a reserved
+ *   bucket title behind a reserved prefix, on a comment-only line. Only `claimsUnboundEntry`
+ *   stands between that and `scanComments` reading it as an `Other`-bucket section boundary that
+ *   re-files every entry below it;
+ * - the second is an *anchor* line (its one slot is modified, so it has no bind line) named
+ *   `Entries: Movement --- extra`, which carries a banner rule as well as a reserved prefix -
+ *   `claimsEntryAnchor`'s own case, restated for the prefix signal that did not exist when that
+ *   defect was found;
+ * - the third is an ordinary bound entry named `Aliases: Weapons`, whose prose therefore rides on a
+ *   real `alias`/`bind` code line rather than on a comment-only one.
+ *
+ * A second category with an entry of its own follows, so a fabricated section boundary inside the
+ * first one would show up as a *re-filed* entry rather than only as a stray extra category.
+ */
+export const bannerLookalikeNameProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Names that look like section banners',
+  categories: [
+    { id: 'cat-banner', name: 'Binds: Movement' },
+    { id: 'cat-after', name: 'After' },
+  ],
+  actions: [
+    action({ name: 'Binds: Other', kind: 'bind', commands: [], categoryId: 'cat-banner' }),
+    action({
+      name: 'Entries: Movement --- extra',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'reload' }],
+      keys: [{ key: 'r', modifier: 'ALT' }],
+      categoryId: 'cat-banner',
+    }),
+    action({
+      name: 'Aliases: Weapons',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'use blaster' }],
+      keys: [{ key: 'z' }],
+      categoryId: 'cat-banner',
+    }),
+    // `invuse`, not the `wave 1` such a fixture reads most naturally with: an entry named `Wave`
+    // derives the alias name `wave`, and a body whose head token is the alias' own name is a real
+    // `aliasCycle` (`alias-references.ts#selfReferencingSegments`) that `validate-structure.test.ts`
+    // rightly reports over this whole corpus. That is a different subject from this fixture's.
+    action({
+      name: 'Wave',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'invuse' }],
+      keys: [{ key: 'g' }],
+      categoryId: 'cat-after',
+    }),
+  ],
+})
+
+/**
+ * **Two categories with the same display name and different ids.**
+ *
+ * The file records a category by `cat=<id>` in the section banner and its *name* as the banner
+ * title, so two same-named categories produce two sections that differ in nothing a reader can see
+ * except that tag. `categoryRegistry` keys its mint on `cat:<id>`, never on the title, which is what
+ * keeps these two drawers apart on read-back; a name-keyed registry would fold both sections into
+ * one category and quietly move the second entry into the first one's drawer.
+ */
+export const duplicateCategoryNamesProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Duplicate category names',
+  categories: [
+    { id: 'cat-combat-a', name: 'Combat' },
+    { id: 'cat-combat-b', name: 'Combat' },
+  ],
+  actions: [
+    action({
+      name: 'Fire blaster',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'use blaster' }],
+      keys: [{ key: '1' }],
+      categoryId: 'cat-combat-a',
+    }),
+    action({
+      name: 'Fire shotgun',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'use shotgun' }],
+      keys: [{ key: '2' }],
+      categoryId: 'cat-combat-b',
+    }),
+  ],
+})
+
+/**
+ * **A real, persisted category literally named `Other`, next to the trailing "other" bucket it
+ * collides with by name.**
+ *
+ * `render.ts#OTHER_CATEGORY_LABEL` is the title the writer gives its trailing bucket - the entries
+ * whose `categoryId` matches nothing the profile carries - and `profile-restore.ts` recognises that
+ * reserved title by *string* (`OTHER_BUCKET_TITLES`) so that a `plain`-style banner, which carries no
+ * decoration for `BANNER_RULE` to match, is still seen as a section boundary. This profile makes the
+ * file carry both at once: a genuine `Aliases: Other` section with a `cat=` tag, and a second,
+ * untagged `Aliases: Other` for the orphaned entry.
+ *
+ * The two must not converge in either direction. If the tagged one were read as the reserved bucket,
+ * a real user category would silently disappear and its entry would land in a drawer the rail does
+ * not show; if the untagged one were minted into a real category named `Other`, the profile would
+ * gain a category it never had and the orphan would stop matching nothing on the very next render -
+ * the AC2 regression story-042-review round 5 found and `categoryRegistry`'s `'other'` case exists
+ * to prevent, now with a real `Other` in the same file to confuse it with.
+ *
+ * `sectionHeaderStyle: 'plain'` deliberately: that is the style where the untagged banner has
+ * nothing but its title to be recognised by, so it is the style where the two are hardest to tell
+ * apart.
+ */
+export const literalOtherCategoryProfile: ConfigProfile = buildFixtureProfile({
+  name: 'A real category named Other',
+  sectionHeaderStyle: 'plain',
+  categories: [
+    { id: 'cat-other', name: 'Other' },
+    { id: 'cat-kept', name: 'Kept' },
+  ],
+  actions: [
+    // `invuse`/`invnext` rather than `wave 1`/`wave 2` - see the note on the same choice in
+    // `bannerLookalikeNameProfile` above.
+    action({
+      name: 'Wave',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'invuse' }],
+      keys: [{ key: 'g' }],
+      categoryId: 'cat-other',
+    }),
+    action({
+      name: 'Salute',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'invnext' }],
+      keys: [{ key: 'h' }],
+      categoryId: 'cat-kept',
+    }),
+    // Deliberately not a `say`/`say_team` body, unlike `orphanedCategoryProfiles` above:
+    // `entryKindFor` reads one of those back as a `kind: 'message'` entry with a `message` command
+    // (story 041), which is correct and intended but would make this fixture's object comparison
+    // about kind inference instead of about the two "Other" sections.
+    action({
+      name: 'Orphaned',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'use railgun' }],
+      keys: [{ key: 'j' }],
+      categoryId: 'a-category-that-was-deleted',
+    }),
+  ],
+})
+
+/**
+ * **Five categories in a deliberately scrambled order** - not alphabetical, not id order, not
+ * template order, with the three former built-ins interleaved among two custom ones and one of them
+ * renamed away from its template default.
+ *
+ * D4's own case (`round-trip.test.ts`, "category sections follow the profile, not a built-in list")
+ * uses three; this one is wide enough that any of the plausible wrong orders - template first,
+ * alphabetical, first-encountered-entry - produces a visibly different file, and it carries the two
+ * shapes that reach the reader through different paths at once: a template id (minted with its id
+ * kept, `nameKey` re-attached only where the name is still the English default) and a locally minted
+ * one. The restored `categories` array's order is what the *next* render's section order comes from,
+ * so a reader that rebuilt the list in discovery order rather than in file order would pass a
+ * single-render check and fail the fixed point.
+ *
+ * The defect it was written for is closed. `profile-restore.ts` used to return the restored
+ * `categories` in **mint** order - a category is minted the first time an *entry* asks for it, so the
+ * array came back in entry-discovery order (every alias-line entry, then every bind-line-only one,
+ * then anchors and unbound lines) rather than in the file's own section order, and since D4 made
+ * `render.ts#orderedCategoryIds` follow `profile.categories`, the next render moved sections nobody
+ * had touched. `orderByFileSections` orders by the file's sections now, so this fixture is in
+ * `ROUND_TRIP_FIXTURES` like every other: the generic fixed-point loop and
+ * `file-source-pipeline.test.ts`'s "nothing is lost" loop both cover it, and the dedicated case in
+ * `round-trip.test.ts` additionally pins the *names* in order, which byte-equality alone would not.
+ *
+ * `blockDisjointCategoryOrderProfile` below is the other half of the same subject: this one's five
+ * categories all have a `Binds:` section, so the file states their order outright, and it therefore
+ * cannot reach the case where two categories share no section block at all.
+ */
+export const scrambledCategoryOrderProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Scrambled category order',
+  categories: [
+    { id: 'drops', name: 'Weapon dropping', nameKey: 'config.controls.categories.drops' },
+    { id: 'cat-zulu', name: 'Zulu' },
+    { id: 'movement', name: 'Bewegung' },
+    { id: 'cat-alpha', name: 'Alpha' },
+    { id: 'weapons', name: 'Weapons', nameKey: 'config.controls.categories.weapons' },
+  ],
+  actions: [
+    action({
+      name: 'Drop rockets',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'drop rockets' }],
+      keys: [{ key: '1' }],
+      categoryId: 'drops',
+    }),
+    action({
+      name: 'Zulu entry',
+      // Not a `say`/`say_team` body: `entryKindFor` reads one back as a `kind: 'message'` entry
+      // (story 041), which is correct and would make this fixture about kind inference.
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'invnext' }],
+      keys: [{ key: '2' }],
+      categoryId: 'cat-zulu',
+    }),
+    action({
+      name: 'Forward',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: '+forward' }],
+      catalogId: 'forward',
+      keys: [{ key: 'w' }],
+      categoryId: 'movement',
+    }),
+    action({
+      name: 'Alpha entry',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'invprev' }],
+      keys: [{ key: '3' }],
+      categoryId: 'cat-alpha',
+    }),
+    action({
+      name: 'Attack',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: '+attack' }],
+      catalogId: 'attack',
+      keys: [{ key: 'MOUSE1' }],
+      categoryId: 'weapons',
+    }),
+  ],
+})
+
+/**
+ * **Two categories that share no section block**, in an order the file's section layout alone
+ * contradicts (story 052, review finding F3).
+ *
+ * `Alpha` comes first in the profile and its entries are *all* unbound, so its only section is an
+ * `Entries: Alpha` one (block 6b). `Bravo` comes second and its one entry is a catalogue-backed
+ * continuous row bound to a key, which emits no alias line at all (story 038) - so its only section
+ * is a `Binds: Bravo` one (block 5), which the writer emits *before* every `Entries:` section.
+ *
+ * That is the one shape `orderByFileSections`' merge of the three blocks cannot decide on its own:
+ * there is no pair of headers from the same block to compare, so the merge falls back to document
+ * position and reads the layout's pass order (`Bravo`, `Alpha`) as if it were the profile's. It is
+ * not a misread signal but the absence of one - rendering this profile with its two categories
+ * swapped produces a **byte-identical** file - which is why the fix is a writer-side `ord` field
+ * (`render.ts#categoryOrdinals`) rather than a cleverer reader.
+ *
+ * The byte-identical part is also why this fixture's presence in `ROUND_TRIP_FIXTURES` is necessary
+ * but nowhere near sufficient: the fixed-point property held over the broken order too (both orders
+ * render the same file, so the second render matched the first while the rail had silently flipped).
+ * `round-trip.test.ts`'s dedicated case is what asserts the restored order itself.
+ */
+export const blockDisjointCategoryOrderProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Block-disjoint category order',
+  categories: [
+    { id: 'cat-alpha', name: 'Alpha' },
+    { id: 'cat-bravo', name: 'Bravo' },
+  ],
+  actions: [
+    // No commands at all: `render.ts#unboundCommand` writes `//bind ""` for it and no alias line -
+    // exactly what `STANDARD_TEMPLATE` seeds a row as (story 052 D1), and the reason a whole
+    // category can legitimately have nothing but an `Entries:` section.
+    action({ name: 'Alpha unbound', kind: 'bind', commands: [], categoryId: 'cat-alpha' }),
+    action({ name: 'Alpha empty', kind: 'bind', commands: [], categoryId: 'cat-alpha' }),
+    action({
+      // A continuous catalogue row mirrors as its own bare `+forward` on the key, so story 038 drops
+      // its alias line: one `bind` line, no alias line, no anchor, no unbound line.
+      name: 'Forward',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: '+forward' }],
+      catalogId: 'forward',
+      keys: [{ key: 'w' }],
+      categoryId: 'cat-bravo',
+    }),
+  ],
+})
+
+/**
+ * **Non-ASCII names within latin-1**, on every surface this story's new line shape put prose on: a
+ * category name, an ordinary bound entry, an *unbound* entry (D2's `//bind` line) and an
+ * anchor-carrying one.
+ *
+ * `latin1CategoryNameProfile` above covers the category banner alone. What this adds is the same
+ * character set on the two comment-only line kinds, where the display name is the *only* copy of
+ * itself in the file - a bound entry's name is repeated on its alias line and its bind line, so a
+ * corruption on one of them can still be outvoted; an unbound entry's cannot.
+ *
+ * Every character here is inside latin-1 (code point <= 0xFF), which is the range the writer's whole
+ * round trip promises to survive: `render.ts` encodes the file as latin1 and `sanitizeComment` drops
+ * anything above it. `beyondLatin1NamesProfile` below is the deliberate other side of that line.
+ */
+export const nonAsciiLatin1NamesProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Non-ASCII (latin-1) names',
+  categories: [{ id: 'cat-umlaut', name: 'Bewegung & Größe (Café)' }],
+  actions: [
+    action({
+      name: 'Vorwärts',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: '+forward' }],
+      keys: [{ key: 'w' }],
+      categoryId: 'cat-umlaut',
+    }),
+    action({ name: 'Rückwärts ñ', kind: 'bind', commands: [], categoryId: 'cat-umlaut' }),
+    action({
+      name: 'Über-Sprung ß',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: '+moveup' }],
+      keys: [{ key: 'SPACE', modifier: 'ALT' }],
+      categoryId: 'cat-umlaut',
+    }),
+  ],
+})
+
+/**
+ * **Names carrying characters above latin-1** - CJK and an emoji, each mixed with ASCII so the
+ * sanitized remainder is still non-empty.
+ *
+ * **Deliberately not in `ROUND_TRIP_FIXTURES`**, for the same reason `collidingAliasNameProfile`
+ * above is not: the property those loops assert does not hold for it, and pretending otherwise would
+ * mean weakening the property. `cfg-layout.ts#sanitizeComment` **drops** every code point above
+ * `0xFF` outright - the file is encoded latin1, so a character that cannot survive that encoding must
+ * never reach the output rather than be written mangled - so the first render already spells these
+ * names without them, and the profile read back out of it carries the shortened spelling. That is a
+ * *lossy* first pass, exactly like the colliding-alias fixture, and `file-source-pipeline.test.ts`'s
+ * "nothing lost" inventory (which compares entry and category names) would rightly flag it.
+ *
+ * It is still driven end to end in `round-trip.test.ts`, where the honest statement can be made:
+ * the loss happens **once, at write time, deterministically**, and everything after that is a true
+ * fixed point - no further erosion on the second, third or fourth pass, and no entry merged or
+ * dropped by the character loss (two names that differ only above `0xFF` would collide, which is why
+ * the ASCII parts below are distinct).
+ *
+ * Pre-existing and out of story 052's scope: the rule predates it (story 040's latin-1 decision) and
+ * none of D1-D4 changed it. It is fixtured here because D2's unbound line is a *new* place for a
+ * display name to live, and it had to be shown that the new line kind behaves the same way the old
+ * ones do rather than, say, truncating at the first dropped character.
+ */
+export const beyondLatin1NamesProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Names beyond latin-1',
+  categories: [{ id: 'cat-cjk', name: 'Move 移動 group' }],
+  actions: [
+    action({
+      name: 'Jump 跳 up',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: '+moveup' }],
+      keys: [{ key: 'SPACE' }],
+      categoryId: 'cat-cjk',
+    }),
+    action({ name: 'Rocket 🚀 dance', kind: 'bind', commands: [], categoryId: 'cat-cjk' }),
+  ],
+})
+
+/**
+ * **Unbound entries whose derived alias name collides with another entry's** - twice, once against a
+ * bound entry and once against a second unbound one, covering both of D2's line bodies.
+ *
+ * `derivedAliasName` slugs the display name with no id suffix (story 039's decision: the name is the
+ * user's contract with whatever calls it), so `Strafe left` and `Strafe left!` both derive
+ * `strafe_left`, and `Strafe right`/`Strafe right!` both derive `strafe_right`. Four entries, two
+ * colliding pairs:
+ *
+ * - `Strafe left` is a bound catalogue row (`bind a "+moveleft"`); `Strafe left!` is unbound with no
+ *   commands at all, so its whole presence is `//bind ""`.
+ * - `Strafe right` is an *unbound* catalogue row, so its presence is `//bind "+moveright"`;
+ *   `Strafe right!` is unbound and empty, `//bind ""` again.
+ *
+ * `collidingAliasNameProfile` above is the genuinely **lossy** version of a slug collision - two
+ * entries that each *emit* an `alias <name>` line, of which the engine keeps only the last. This
+ * profile deliberately is not that, and the difference is what makes it a fair test of D2/D3 rather
+ * than a restatement of story 039's known loss: not one of these four entries emits an alias line at
+ * all. A catalogue-backed continuous row mirrors as its own bare command, so `actionsWithAliasLine`
+ * drops its line (story 034/038), and an entry with no commands has no body to render one from. The
+ * collision therefore lives purely in the *model*, which is exactly where a merge would happen.
+ *
+ * Both partners of each pair also sit in one category and differ by a single trailing character, so
+ * `Strafe left` is a strict *prefix* of `Strafe left!` - the relationship `matchAnchor`'s second and
+ * third steps (exact prose, then unique prefix) pair an anchor to a group by. An unbound line is
+ * deliberately keyed on its own file position instead (`unbound:<file>:<line>`,
+ * `profile-restore.ts#groupEntryLines`), and this fixture is what fails if that ever becomes a prose
+ * match "for symmetry" with the anchor path.
+ *
+ * Note which entries carry the catalogue link: `commentLabelFor` writes the *catalogue's* label for
+ * an entry with a `catalogId`, so the two catalogue rows' prose is the catalogue's own spelling and
+ * the two free-form ones keep the typed name with the `!`.
+ */
+export const collidingSlugWithUnboundProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Unbound entries whose alias slug collides',
+  actions: [
+    action({
+      name: 'Strafe left',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: '+moveleft' }],
+      catalogId: 'moveleft',
+      keys: [{ key: 'a' }],
+      categoryId: 'movement',
+    }),
+    action({ name: 'Strafe left!', kind: 'bind', commands: [], categoryId: 'movement' }),
+    action({
+      name: 'Strafe right',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: '+moveright' }],
+      catalogId: 'moveright',
+      categoryId: 'movement',
+    }),
+    action({ name: 'Strafe right!', kind: 'bind', commands: [], categoryId: 'movement' }),
+  ],
+})
+
 /** Every fixture the D9 round-trip property test iterates over. */
 export const ROUND_TRIP_FIXTURES: ConfigProfile[] = [
   selfMirroringAliasProfile,
@@ -1238,4 +1729,15 @@ export const ROUND_TRIP_FIXTURES: ConfigProfile[] = [
   prefixNamedTrioProfile,
   ...sectionHeaderStyleProfiles,
   ...orphanedCategoryProfiles,
+  // Story 052 D5's adversarial pass, plus the two category-order shapes its review added. One of
+  // its seven shapes is deliberately absent, for the reason stated in its own doc comment:
+  // `beyondLatin1NamesProfile` (lossy by design at write time).
+  unboundNoCommandsProfile,
+  bannerLookalikeNameProfile,
+  duplicateCategoryNamesProfile,
+  literalOtherCategoryProfile,
+  nonAsciiLatin1NamesProfile,
+  collidingSlugWithUnboundProfile,
+  scrambledCategoryOrderProfile,
+  blockDisjointCategoryOrderProfile,
 ]

@@ -549,6 +549,28 @@ export const SCREENS = [
     },
   },
   {
+    id: 'config-controls-template-seeded',
+    variant: 'controls-seed',
+    viewports: BOTH_VIEWPORTS,
+    // Story 052 D10: the `controls-seed` fixture's "Template Profile" (scripts/lib/fixture.mjs's
+    // `templateSeededConfigProfile()`) - a profile shaped exactly like "create from template"
+    // would produce, seeded at the fixture's own current schema version so no migration touches
+    // it (see that file's D10 comment block). Demonstrates AC4: the three template categories
+    // with every catalogue row, unbound except the template's own six binds (Forward/Back/
+    // Jump/Crouch/Walk/Attack).
+    navigate: configDetail('controls', 'Template Profile'),
+  },
+  {
+    id: 'config-controls-imported-only',
+    variant: 'controls-seed',
+    viewports: BOTH_VIEWPORTS,
+    // Story 052 D10: the `controls-seed` fixture's "Imported Category Profile" - a single,
+    // non-template "Imported" category with its own free-form entries, no Movement/Weapons/
+    // Weapon dropping at all (scripts/lib/fixture.mjs's `importedOnlyConfigProfile()`).
+    // Demonstrates AC1/AC7: a profile with only an imported category shows only that.
+    navigate: configDetail('controls', 'Imported Category Profile'),
+  },
+  {
     id: 'install-detect-dialog',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,

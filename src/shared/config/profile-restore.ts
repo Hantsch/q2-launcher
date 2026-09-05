@@ -49,7 +49,10 @@
  * - an **anchor line** (see below) pairs with its entry inside the same category section, by `cid`
  *   when it carries one, else by its display prose - *exactly*, and by nothing wider: a prose
  *   prefix relation would merge two sibling entries whose names happen to nest (`Reload` inside
- *   `Reload weapon`), which costs one of them its keys and its commands outright.
+ *   `Reload weapon`), which costs one of them its keys and its commands outright;
+ * - an **unbound line** (story 052 D3, see below) is one entry per line and pairs with nothing: the
+ *   writer emits one only for an entry that has no other line at all, so there is nothing for it to
+ *   pair with, and pairing could only ever fold two rows into one.
  *
  * Tag *presence* is what tells a launcher-owned code line from a raw bind the user typed and
  * commented themselves, so `render.ts` gives every entry line at least the bare `[q2l]` marker and
@@ -87,9 +90,10 @@
  * the next section header in the same file; a line belongs to the last header above it. That is the
  * User's own decision (the category lives on the header, not on a per-entry tag), and it is why
  * every input line carries `file`/`line`: without a position, a line cannot be attributed to a
- * section at all. A built-in `cat` id is adopted verbatim; any other mints one local category per
- * distinct id, named from the header's prose title - a colleague's category id means nothing here,
- * their category *name* does.
+ * section at all. Every `cat` id mints a real, ordinary category (story 052 D4): a template id
+ * (`movement`/`weapons`/`drops`) keeps that id, any other gets a local one - a colleague's category
+ * id means nothing here, their category *name* does - and both are named from the header's own
+ * prose title.
  *
  * An **untagged** banner (a cvar group, the `Other binds` section, a hand-written header in a file
  * that is otherwise ours) opens a section too, named from its title, and two adjacent untagged
@@ -130,6 +134,23 @@
  * line ever carries one, so a comment-only line with a `key` is an entry anchor and a comment
  * carrying `cat`/`layer`/`v` stays a section header. A comment-only line with neither is neither -
  * it stays a preserved, unrecognised line rather than becoming a keyless, commandless entry.
+ *
+ * ## The unbound line (story 052 D3)
+ *
+ * One shape used to leave no trace in the file at all: a plain `bind`/`message` entry with no key
+ * (so no bind line, and no modifier layer to anchor it into) and no alias line either - a continuous
+ * catalogue row nothing calls by name, or a row seeded with no commands at all. `render.ts` now
+ * writes it a commented-out bind of its own, `//bind "<cmd>"   // <name> [q2l …]`, in the same
+ * `Entries: <cat>` section as the anchors; `claimsUnboundEntry` recognises it here and
+ * `unboundLineParts` reads its two halves back with the config tokenizer's own rules.
+ *
+ * What makes reading it back safe is what the reverted 042 "entry anchor" lacked: the body carries
+ * the entry's *command*, so the restored entry is the entry rather than an empty stand-in - down to
+ * `//bind ""`, which restores "genuinely no commands" rather than "the file could not say".
+ * Recognition lives here rather than in `config-parser.ts` (the story's own decision): the tokenizer
+ * stays untouched and a foreign file's comments are unaffected, since a line has to carry a readable
+ * `[q2l …]` tag *and* start with a `bind` command *and* carry none of the marker fields every other
+ * tagged shape has before anything here claims it.
  */
 
 import type { AltLayer, AltLayerMode } from '@shared/config/alt-layers'
@@ -144,7 +165,11 @@ import {
   splitAliasBody,
   type ImportedActionsResult,
 } from '@shared/config/alias-import'
-import { splitTopLevelSemicolons, tokenize } from '@shared/config/command-tokenizer'
+import {
+  splitTopLevelSemicolons,
+  stripLineComment,
+  tokenize,
+} from '@shared/config/command-tokenizer'
 import {
   recognizeEntryIdioms,
   type RecognizedPressRelease,
@@ -163,7 +188,7 @@ import {
 } from '@shared/config/render'
 import { STEP_ALIAS_PREFIX, SWITCH_ALIAS } from '@shared/config/switch-bind'
 import {
-  BUILT_IN_ACTION_CATEGORIES,
+  TEMPLATE_ACTION_CATEGORIES,
   type ActionEntryKind,
   type ActionEntryPart,
   type ActionKeySlot,
@@ -488,6 +513,99 @@ function claimsEntryAnchor(parsed: ParsedComment): boolean {
   )
 }
 
+/**
+ * The code half of an unbound line: a whole `bind` command commented out, with an argument
+ * (`render.ts#unboundLine` writes `bind "<cmd>"`, and `<cmd>` is `""` for an entry with no commands
+ * at all - both spellings start `bind ` and both carry a token after it). Tested against the
+ * *prose* half of a parsed comment, i.e. the text with the `[q2l …]` tail already cut off.
+ */
+const UNBOUND_CODE = /^bind\s+\S/
+
+/**
+ * Is this comment-only line an **unbound line** (story 052 D2/D3) - the commented-out `bind` the
+ * writer gives an entry that would otherwise leave no trace in the file at all
+ * (`render.ts#isUnboundEntry`: a plain `bind`/`message` entry with no key slot, no bind line and no
+ * alias line)?
+ *
+ * The sibling of `claimsEntryAnchor`, and deliberately shaped like it: a comment-only line the entry
+ * scan claims must never *also* be read as a section header by `scanComments` (an unbound line's
+ * prose is a user-typed display name and may contain `---`, which `BANNER_RULE` would otherwise
+ * take for decoration - the very defect `claimsEntryAnchor`'s own doc comment describes), so both
+ * scans consult this one predicate. `claimedByEntryScan` below is what makes that hard to get wrong.
+ *
+ * Three conditions, and the *combination* is what makes the signal narrow enough to be safe on a
+ * foreign file:
+ *
+ * 1. **The comment text starts with `bind ` + an argument** (the story's own decision on the
+ *    discriminator). Read off the prose, so the trailing `// <name> [q2l …]` the line also carries
+ *    is not part of the test.
+ * 2. **A `[q2l` tag is present and readable.** Tag presence is the whole launcher-owned signal since
+ *    story 050 dropped `e` (see "The marker tag" in `docs/systems/profile-file-format.md`), and it
+ *    is what tells this line from a player's own hand-typed `// bind "+forward" - maybe later`,
+ *    which is otherwise indistinguishable from it. "Readable" is `readTag`'s own rule for a code
+ *    line, restated here because an unbound line *is* a code line, just a commented-out one: a tag
+ *    with one garbled token among good ones still identifies the line, a tag nothing at all can be
+ *    read out of does not.
+ * 3. **None of the marker fields another tagged shape carries** - `key` (an anchor line), `cat`/
+ *    `layer` (a section header), `v` (the header block). This is how an unbound line is told apart
+ *    from every other tagged comment *without* inventing a marker field of its own, and it makes
+ *    this predicate and `claimsEntryAnchor` mutually exclusive by construction: an anchor needs a
+ *    non-empty `key`, this needs the absence of one.
+ */
+function claimsUnboundEntry(parsed: ParsedComment): boolean {
+  if (!UNBOUND_CODE.test(parsed.prose.trim())) return false
+  if (!parsed.tagged) return false
+  if (parsed.malformed && Object.keys(parsed.fields).length === 0) return false
+  return (
+    (parsed.fields.key ?? '').trim().length === 0 &&
+    parsed.fields.cat === undefined &&
+    parsed.fields.layer === undefined &&
+    parsed.fields.v === undefined
+  )
+}
+
+/**
+ * Is this comment-only line claimed by the entry scan in *any* of its shapes - an anchor line or an
+ * unbound line?
+ *
+ * The one call `scanComments` makes, so a shape added to the entry scan can never be forgotten in
+ * the header scan: the two passes have to agree about every line, or a line the entries claim is
+ * *also* minted as a section (a bogus category named after a display name, re-filing every line
+ * below it) - `claimsEntryAnchor`'s doc comment describes what that cost the first time.
+ */
+function claimedByEntryScan(parsed: ParsedComment): boolean {
+  return claimsEntryAnchor(parsed) || claimsUnboundEntry(parsed)
+}
+
+/**
+ * An unbound line split back into the two halves the writer composed it from: the `bind` command's
+ * own argument, and the display prose of the trailing comment `attachTaggedComment` put after it.
+ *
+ * Read with the *same* tokenizer primitives `config-parser.ts` reads a real `bind` line with
+ * (`stripLineComment`, then `tokenize`), because that is exactly what this line is - a config line
+ * that happens to be commented out. Doing it by hand instead would have to re-derive the two rules
+ * that matter here and could get either wrong: a `//` inside a quoted command (`say "see
+ * http://…"`) is not the start of the display comment, and an empty argument (`bind ""`) is a real,
+ * meaningful token rather than a missing one - `//bind ""` round-trips as "this entry genuinely has
+ * no commands", which is most of what `STANDARD_TEMPLATE` seeds (story 052 D1).
+ *
+ * `parsed.prose` is the input rather than the raw text, so the `[q2l …]` tail is already gone and
+ * cannot be mistaken for part of the display name.
+ */
+function unboundLineParts(parsed: ParsedComment): { command: string; prose: string } {
+  const code = stripLineComment(parsed.prose)
+  const tokens = tokenize(code)
+  return {
+    // Everything after the `bind` verb. No key token to skip, unlike `config-parser.ts`'s own
+    // `bind <key> <command>`: an unbound entry has no key at all - that is what makes it unbound.
+    command: tokens.slice(1).join(' ').trim(),
+    // `COMMENT_PREFIX`'s two spaces plus the `//` marker sit between the two halves; the marker is
+    // where `stripLineComment` stopped, so the prose starts two characters later - the same slice
+    // `config-parser.ts` takes for a real line's trailing comment.
+    prose: code.length < parsed.prose.length ? parsed.prose.slice(code.length + 2).trim() : '',
+  }
+}
+
 /** Pure `banner()` decoration and nothing else - the header block's own `=`-rule lines
  * (`buildHeaderBlock`), post-`//`-strip. Used only to recognise (and zero out) a rule line that
  * `BANNER_RULE` would otherwise misread as an untagged section title with real content. */
@@ -535,7 +653,7 @@ const PURE_DECORATION = /^[\s\-=[\]]*$/
  * genuinely untagged banner (where fill really can still be in `prose`) still tries it, and that
  * exact-width coincidence remains the one honestly-unreached limitation.
  */
-function bannerTitle(prose: string, tagSliced: boolean): string {
+function bannerTitle(prose: string, tagSliced: boolean): { title: string; block?: string } {
   const trimmedStart = prose.replace(/^\s+/, '')
   let bare: string
   if (trimmedStart.startsWith(BRACKETS_PREFIX)) {
@@ -558,8 +676,11 @@ function bannerTitle(prose: string, tagSliced: boolean): string {
   } else {
     bare = trimmedStart.trimEnd()
   }
+  // The stripped prefix is *reported* as well as removed (story 052, D5 fix): it names which of the
+  // writer's three per-category blocks the header belongs to, and `categoryRegistry`'s ordering
+  // needs that to read the file's category order back off the sections - see `Section.block`.
   const prefix = TITLE_PREFIXES.find((candidate) => bare.startsWith(candidate))
-  return prefix ? bare.slice(prefix.length) : bare
+  return prefix ? { title: bare.slice(prefix.length), block: prefix } : { title: bare }
 }
 
 /** The reserved, non-user-configurable "Other"/"Other binds" bucket titles (`render.ts`) - see
@@ -575,6 +696,21 @@ interface Section extends RestoreSourcePosition {
   title: string
   /** The combined `Main / Sub` name for the second of two adjacent untagged banners. */
   pairedTitle?: string
+  /**
+   * Which of the writer's per-category blocks this header opened, as the literal `TITLE_PREFIXES`
+   * entry it carried (`'Aliases: '`, `'Binds: '`, `'Entries: '`), or `undefined` for a header with
+   * no such prefix (a cvar group, a layer, a foreign file's own banner).
+   *
+   * `render.ts` writes one section per category in *three* separate passes - the alias sections
+   * (block 4), then the bind sections (block 5), then the `Entries:` anchor/unbound sections (6b) -
+   * and each pass walks `profile.categories` in the profile's own order. So the document order of
+   * category headers is three interleaved subsequences of one order, not that order itself, and
+   * "first header wins" would read `Aliases: Alpha` (block 4) as coming before `Binds: Bewegung`
+   * (block 5) even where the profile has Bewegung first. Keeping the prefix is what lets
+   * `categoryRegistry` compare only headers from the *same* block and merge the three subsequences
+   * back into the one order the file was written from.
+   */
+  block?: string
   fields: Record<string, string>
 }
 
@@ -692,14 +828,14 @@ function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
       }
     }
 
-    const title = bannerTitle(parsed.prose, parsed.tagSliced)
+    const { title, block } = bannerTitle(parsed.prose, parsed.tagSliced)
     if (parsed.fields.cat !== undefined) {
-      sections.push({ kind: 'category', title, fields: parsed.fields, file, line })
+      sections.push({ kind: 'category', title, block, fields: parsed.fields, file, line })
       if (!parsed.malformed) consumed.push({ file, line })
     } else if (parsed.fields.layer !== undefined) {
-      sections.push({ kind: 'layer', title, fields: parsed.fields, file, line })
+      sections.push({ kind: 'layer', title, block, fields: parsed.fields, file, line })
       if (!parsed.malformed) consumed.push({ file, line })
-    } else if (!claimsEntryAnchor(parsed) && title.length > 0 && OTHER_BUCKET_TITLES.has(title)) {
+    } else if (!claimedByEntryScan(parsed) && title.length > 0 && OTHER_BUCKET_TITLES.has(title)) {
       // Story-042-review round 5, fix-cycle-8: the reserved "Other"/"Other binds" bucket gets its
       // own section kind, recognised by its fixed, non-user-configurable title rather than by
       // `BANNER_RULE`'s decoration test - `plain` header style draws no decoration at all
@@ -710,9 +846,9 @@ function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
       // below so `dashes`/`brackets` (where `BANNER_RULE` *would* otherwise match) get the same
       // `'other'` kind too, instead of minting a real, persisted "Other" category - seeing
       // `categoryRegistry`'s `'other'` case for why that minting broke AC2 one render later.
-      sections.push({ kind: 'other', title, fields: parsed.fields, file, line })
+      sections.push({ kind: 'other', title, block, fields: parsed.fields, file, line })
     } else if (
-      !claimsEntryAnchor(parsed) &&
+      !claimedByEntryScan(parsed) &&
       title.length > 0 &&
       (BANNER_RULE.test(comment.text) || CATEGORY_TITLE_PREFIX.test(comment.text.trim()))
     ) {
@@ -721,7 +857,7 @@ function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
       // above, regardless of header style). It opens a section all the same; whether anything is
       // ever filed under it decides whether a category gets minted for it.
       //
-      // `claimsEntryAnchor` first, and only then the decoration test: an entry line's prose is a
+      // `claimedByEntryScan` first, and only then the decoration test: an entry line's prose is a
       // user-typed display name and may contain anything at all, `---` included, so the tag decides
       // what the line *is* and the decoration is only consulted for a line no tag has claimed.
       //
@@ -765,7 +901,15 @@ function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
       const adjacent =
         previous !== undefined && previous.file === file && previous.line === line - 1
       const paired = adjacent && previous.kind === 'plain' ? `${previous.title} / ${title}` : undefined
-      sections.push({ kind: 'plain', title, pairedTitle: paired, fields: parsed.fields, file, line })
+      sections.push({
+        kind: 'plain',
+        title,
+        pairedTitle: paired,
+        block,
+        fields: parsed.fields,
+        file,
+        line,
+      })
     }
   }
 
@@ -798,19 +942,236 @@ function sectionEnd(sections: readonly Section[], section: Section): number {
 // Categories
 // ---------------------------------------------------------------------------
 
-const BUILT_IN_CATEGORY_IDS = new Set<string>(BUILT_IN_ACTION_CATEGORIES.map((c) => c.id))
-
 /** Name for the drawer a tagged entry lands in when its own section cannot be determined - the
  * same plain-English label `alias-import.ts` gives an import's leftovers. */
 const FALLBACK_CATEGORY_NAME = 'Imported'
 
+/** Registry key of the shared fallback drawer - the one key that belongs to no section at all, which
+ * is why it sorts last (`orderByFileSections`). Distinct by construction from every section-derived
+ * key, which is either `cat:<id>` or `<kind>:<file>:<line>`. */
+const FALLBACK_CATEGORY_KEY = 'fallback'
+
 /**
- * Hands out category ids, lazily: a built-in `cat` id verbatim (never created), one `newId()` per
- * distinct unknown `cat` id, one per untagged section, and one shared fallback drawer. Lazy is what
- * keeps a normal launcher file's cvar-group and `Other binds` banners from minting categories
- * nothing is ever filed under.
+ * The registry key a section's entries are filed under - the identity a category's `Aliases: `,
+ * `Binds: ` and `Entries: ` headers share (all three carry the same `cat=` tag), `null` for a
+ * section that never mints a category at all (the reserved "Other" bucket).
+ *
+ * Pure and side-effect free on purpose: `idFor` mints from it, and `orderByFileSections` re-derives
+ * it for **every** header in the file - including the ones no entry happened to be filed under, so a
+ * category whose `Binds:` header carries all its entries still takes its place in the `Aliases:`
+ * block's sequence.
  */
-function categoryRegistry(newId: () => string): {
+function categoryKeyFor(section: Section | null): string | null {
+  if (section === null) return FALLBACK_CATEGORY_KEY
+  if (section.kind === 'other') return null
+  const tagged = section.fields.cat
+  if (tagged !== undefined && tagged.length > 0) return `cat:${tagged}`
+  return `${section.kind}:${section.file}:${section.line}`
+}
+
+/**
+ * The minted categories in the order their sections appear in the file (story 052 D5).
+ *
+ * Not simply "sort by the first header that mentions the category": `render.ts` writes the category
+ * sections in three separate passes over `profile.categories` (aliases, then binds, then `Entries:`
+ * anchors/unbound lines), and a category only gets a section in a pass that has something to put in
+ * it. Document order is therefore three interleaved *subsequences* of one order - `Aliases: Alpha`
+ * really does precede `Binds: Bewegung` in a file whose profile has Bewegung first - so the first
+ * header alone reorders the rail exactly the way the bug being fixed here did, only more subtly.
+ *
+ * So each block (`Section.block`) contributes its own sequence, ordered within that block only, and
+ * the sequences are merged: an edge per consecutive pair, then a topological walk that picks, among
+ * the categories nothing is waiting on, the one whose first header comes first in the file. Since
+ * every sequence is a subsequence of one and the same profile order, the merge reproduces that
+ * order whenever the file states enough to determine it, and falls back to plain document order for
+ * the pairs it does not (two categories that never share a block - possible only for a category
+ * whose entries are all keyless aliases, where the file genuinely does not record the answer).
+ *
+ * Total and deterministic for any input, hand-edited files included: a contradictory pair of
+ * sequences would leave a cycle with no zero-indegree node, and the loop then takes the earliest
+ * remaining category by document position rather than dropping it. The fallback drawer belongs to no
+ * section at all and so always sorts last.
+ *
+ * ## `ord`, and the pairs the sections genuinely cannot state (story 052, F3 fix)
+ *
+ * The merge above is exact for every pair of categories that share a block, and *guesses* for the
+ * rest - two categories whose blocks never meet have no header pair to compare, so it falls back to
+ * document position, which only says which of their two blocks the writer emits first. That is not a
+ * near-miss: a profile whose category Alpha has only unbound entries (an `Entries:` section) and
+ * whose category Bravo has only bound ones (a `Binds:` section) renders **byte-identically** with
+ * those two swapped, so the reader was not misreading a signal - there was none, and Alpha and Bravo
+ * changed places in the rail on the first rebuild-from-file whichever way round the user had put
+ * them.
+ *
+ * `render.ts#categoryOrdinals` therefore records each category's position in the header's own tag,
+ * and it is applied *on top of* the merge rather than instead of it: the merged order stands, and
+ * `ord` re-sorts it. That ordering keeps three things a plain "sort by `ord`" would not:
+ *
+ * - a file written before this field existed (or one whose tags were hand-deleted) orders exactly as
+ *   it did, since a missing `ord` changes nothing;
+ * - a category with no `ord` - a hand-added section in an otherwise launcher-written file, the
+ *   fallback drawer - keeps its merged position *relative to the numbered ones* by carrying the last
+ *   `ord` seen before it forward, instead of being swept to one end of the rail;
+ * - hand-edited nonsense (a duplicated or non-numeric `ord`) degrades to the merged order for the
+ *   categories it affects rather than reordering the file at random, because the sort is stable and
+ *   an unreadable value is treated as absent.
+ */
+function orderByFileSections(
+  created: ReadonlyMap<string, ConfigActionCategory>,
+  sections: readonly Section[],
+): ConfigActionCategory[] {
+  const keys = [...created.keys()]
+  const firstAt = new Map<string, number>()
+  const sequences = new Map<string, string[]>()
+  /** The `ord` the file states for a category, from the first of its headers that carries a readable
+   * one - all three of a category's headers carry the same value when this writer wrote them, so
+   * "the first readable one wins" only ever picks between hand-edited disagreements, and it picks
+   * deterministically. */
+  const statedOrdinals = new Map<string, number>()
+
+  sections.forEach((section, index) => {
+    const key = categoryKeyFor(section)
+    if (key === null || !created.has(key)) return
+    if (!firstAt.has(key)) firstAt.set(key, index)
+    if (!statedOrdinals.has(key)) {
+      const ordinal = readOrdinal(section.fields.ord)
+      if (ordinal !== null) statedOrdinals.set(key, ordinal)
+    }
+    const block = section.block ?? ''
+    const sequence = sequences.get(block) ?? []
+    // A key repeated inside one block (only reachable by hand-editing two headers of the same
+    // category into the same block) keeps its first position rather than adding a self-edge.
+    if (!sequence.includes(key)) sequence.push(key)
+    sequences.set(block, sequence)
+  })
+
+  const successors = new Map<string, Set<string>>()
+  const waitingOn = new Map<string, number>(keys.map((key) => [key, 0]))
+  for (const sequence of sequences.values()) {
+    for (let index = 1; index < sequence.length; index += 1) {
+      const from = sequence[index - 1]!
+      const to = sequence[index]!
+      const edges = successors.get(from) ?? new Set<string>()
+      if (!edges.has(to)) {
+        edges.add(to)
+        waitingOn.set(to, (waitingOn.get(to) ?? 0) + 1)
+      }
+      successors.set(from, edges)
+    }
+  }
+
+  // A category with no header of its own (the fallback drawer) sorts behind every one that has one.
+  const position = (key: string): number => firstAt.get(key) ?? Number.MAX_SAFE_INTEGER
+  const remaining = new Set(keys)
+  const ordered: ConfigActionCategory[] = []
+  while (remaining.size > 0) {
+    let pick: string | null = null
+    for (const key of remaining) {
+      if (waitingOn.get(key) !== 0) continue
+      if (pick === null || position(key) < position(pick)) pick = key
+    }
+    // Only a cycle (a hand-edited file whose blocks contradict each other) gets here.
+    if (pick === null) {
+      for (const key of remaining) if (pick === null || position(key) < position(pick)) pick = key
+    }
+    const next = pick!
+    remaining.delete(next)
+    ordered.push(created.get(next)!)
+    for (const successor of successors.get(next) ?? []) {
+      waitingOn.set(successor, (waitingOn.get(successor) ?? 1) - 1)
+    }
+  }
+  return applyStatedOrdinals(ordered, created, statedOrdinals)
+}
+
+/** A category header's `ord` value as a number, or `null` when the header carries none or carries
+ * something no writer of this format ever wrote (a hand-edited `ord=first`, a value past the safe
+ * integer range). `null` means "this category is unnumbered", which `applyStatedOrdinals` handles as
+ * a position to preserve rather than as an error - the file is never rejected over decoration. */
+function readOrdinal(value: string | undefined): number | null {
+  if (value === undefined) return null
+  const trimmed = value.trim()
+  if (!/^-?\d+$/.test(trimmed)) return null
+  const parsed = Number(trimmed)
+  return Number.isSafeInteger(parsed) ? parsed : null
+}
+
+/**
+ * `merged` re-sorted by the `ord` the file states for each category (`render.ts#categoryOrdinals`),
+ * with the merged order kept wherever the file states nothing - see `orderByFileSections`' doc
+ * comment for why both halves are needed.
+ *
+ * The sort key is `(ord, offset)`: a numbered category takes its own `ord` at offset 0, and every
+ * unnumbered category takes the last `ord` seen before it in the merged order at a growing offset,
+ * so it lands immediately behind the numbered category it already followed. A category before any
+ * numbered one carries `-Infinity` and stays at the front, in merged order. The comparison is by
+ * `<` rather than by subtraction, so an infinite carry never produces `NaN`, and it is stable, so
+ * two categories a hand-edited file gives the same `ord` keep the merged order between them.
+ */
+function applyStatedOrdinals(
+  merged: readonly ConfigActionCategory[],
+  created: ReadonlyMap<string, ConfigActionCategory>,
+  statedOrdinals: ReadonlyMap<string, number>,
+): ConfigActionCategory[] {
+  if (statedOrdinals.size === 0) return [...merged]
+
+  const byCategory = new Map<ConfigActionCategory, number>()
+  for (const [key, category] of created) {
+    const ordinal = statedOrdinals.get(key)
+    if (ordinal !== undefined) byCategory.set(category, ordinal)
+  }
+
+  const sortKeys = new Map<ConfigActionCategory, { ordinal: number; offset: number }>()
+  let ordinal = Number.NEGATIVE_INFINITY
+  let offset = 0
+  for (const category of merged) {
+    const stated = byCategory.get(category)
+    if (stated === undefined) offset += 1
+    else {
+      ordinal = stated
+      offset = 0
+    }
+    sortKeys.set(category, { ordinal, offset })
+  }
+
+  return [...merged].sort((a, b) => {
+    const left = sortKeys.get(a)!
+    const right = sortKeys.get(b)!
+    if (left.ordinal !== right.ordinal) return left.ordinal < right.ordinal ? -1 : 1
+    return left.offset - right.offset
+  })
+}
+
+/**
+ * Hands out category ids, lazily: one category per distinct `cat` id, one per untagged section, and
+ * one shared fallback drawer. Lazy is what keeps a normal launcher file's cvar-group and
+ * `Other binds` banners from minting categories nothing is ever filed under.
+ *
+ * Story 052 D5 found the order the minted categories come back in to be the missing half of D4.
+ * `created()` used to hand them out in *mint* order, and a category is minted the first time an
+ * **entry** asks for it - so the array was in entry-discovery order (`groupEntryLines` walks every
+ * alias-line entry, then every bind-line-only one, then anchors and unbound lines), which says
+ * nothing about where the categories' sections sit in the file. That was harmless while `render.ts`
+ * hardwired movement/weapons/drops first; since D4 made `orderedCategoryIds` follow
+ * `profile.categories`, this array *is* the next file's section order, so a rebuild-from-file or a
+ * re-import silently moved sections nobody had touched (story 042's fixed point, AC 8). `created()`
+ * therefore orders by the file's own section order - see `orderByFileSections`.
+ *
+ * Story 052 D4: a *template* `cat` id (`movement`/`weapons`/`drops`) used to be adopted verbatim and
+ * created nothing at all, because those three categories existed whether a profile carried them or
+ * not - the rail always showed them and `render.ts` always wrote their sections. Now that a profile
+ * has exactly the categories it carries, adopting an id without minting a record would silently
+ * lose the section: the restored entries would point at a category the profile does not have, so the
+ * rail would not show them and the next render would sweep them into the trailing "Other" bucket,
+ * losing both the name and the position the file plainly stated. So a template id mints a real,
+ * ordinary category like any other - it only keeps its *id* rather than getting a local one, so that
+ * `cat=` tags, the template seed and the migration all keep meaning the same drawer (the story's
+ * Decisions: "built-in ids stay `movement`/`weapons`/`drops`").
+ */
+function categoryRegistry(
+  newId: () => string,
+  sections: readonly Section[],
+): {
   idFor: (section: Section | null) => string
   created: () => ConfigActionCategory[]
 } {
@@ -824,9 +1185,31 @@ function categoryRegistry(newId: () => string): {
     return category.id
   }
 
+  /**
+   * A `cat` id that names a template category: the id verbatim, the header's own title as the name
+   * (a renamed category must come back renamed - AC 8), and the template's `nameKey` re-attached
+   * only when the title is still exactly the template's English default, per the story's Decisions.
+   * A renamed one is plain prose from here on, exactly like a user-created category.
+   */
+  const mintTemplate = (
+    key: string,
+    template: (typeof TEMPLATE_ACTION_CATEGORIES)[number],
+    title: string,
+  ): string => {
+    const existing = created.get(key)
+    if (existing) return existing.id
+    const category: ConfigActionCategory = {
+      id: template.id,
+      name: title,
+      ...(title === template.label ? { nameKey: template.labelKey } : {}),
+    }
+    created.set(key, category)
+    return category.id
+  }
+
   return {
     idFor(section) {
-      if (section === null) return mint('fallback', FALLBACK_CATEGORY_NAME)
+      if (section === null) return mint(FALLBACK_CATEGORY_KEY, FALLBACK_CATEGORY_NAME)
       // Story-042-review round 5, fix-cycle-8: the reserved "Other"/"Other binds" bucket
       // (`Section.kind === 'other'`) is deliberately never `mint()`-ed into a real, persisted
       // `ConfigActionCategory` - `ConfigAction.categoryId` still has to be *some* real string (the
@@ -839,20 +1222,23 @@ function categoryRegistry(newId: () => string): {
       // point AC2 asks for. Minting a real "Other" category here, as an earlier version of this fix
       // did, created a category the source profile never had and stopped matching nothing on the
       // next render - an AC2 regression discovered by round 5's adversarial pass.
-      if (section.kind === 'other') return newId()
+      // `categoryKeyFor` is `null` for exactly that bucket, and is the *only* place a key is
+      // derived from a section - `orderByFileSections` reads the same one back off the file.
+      const key = categoryKeyFor(section)
+      if (key === null) return newId()
       const tagged = section.fields.cat
       if (tagged !== undefined && tagged.length > 0) {
         // A colleague's category id means nothing locally, so an id this build does not recognise
-        // mints a local category named from the header's own title (the story's own rule); a
-        // built-in id is adopted as-is, and is the one case that creates nothing.
-        return BUILT_IN_CATEGORY_IDS.has(tagged) ? tagged : mint(`cat:${tagged}`, section.title)
+        // mints a local category named from the header's own title (the story's own rule). A
+        // template id keeps its id but is minted just the same - see this registry's doc comment.
+        const template = TEMPLATE_ACTION_CATEGORIES.find((category) => category.id === tagged)
+        return template
+          ? mintTemplate(key, template, section.title)
+          : mint(key, section.title)
       }
-      return mint(
-        `${section.kind}:${section.file}:${section.line}`,
-        section.pairedTitle ?? section.title,
-      )
+      return mint(key, section.pairedTitle ?? section.title)
     },
-    created: () => [...created.values()],
+    created: () => orderByFileSections(created, sections),
   }
 }
 
@@ -867,9 +1253,21 @@ interface TaggedLine<T> {
   prose: string
 }
 
-/** Every line the config text identifies as one entry: the entry's alias line(s), its bind line(s)
- * and its anchor line(s) - the comment-only lines `render.ts#buildAnchorLines` writes for a key slot
- * that has no config line of its own because its modifier lives in a layer. */
+/**
+ * One unbound line (story 052 D3), with the two halves `unboundLineParts` split its code out of:
+ * `prose` is the display name only (the `TaggedLine` field it stands in for) and `command` is the
+ * commented-out `bind`'s own argument - the entry's one command, or `''` for an entry that
+ * genuinely has none.
+ */
+interface UnboundEntryLine extends TaggedLine<RestoreCommentLine> {
+  command: string
+}
+
+/** Every line the config text identifies as one entry: the entry's alias line(s), its bind line(s),
+ * its anchor line(s) - the comment-only lines `render.ts#buildAnchorLines` writes for a key slot
+ * that has no config line of its own because its modifier lives in a layer - and its unbound line,
+ * the commented-out `bind` `render.ts#unboundLine` writes for an entry that has none of the other
+ * three (story 052 D2). */
 interface EntryGroup {
   /**
    * How the text identified this entry: the grouped alias name, the shared bind value, or - for an
@@ -885,6 +1283,16 @@ interface EntryGroup {
   aliases: TaggedLine<RestoreAliasLine>[]
   binds: TaggedLine<RestoreBindLine>[]
   anchors: TaggedLine<RestoreCommentLine>[]
+  /**
+   * The group's unbound line(s) - at most one in a launcher-written file, and never together with
+   * any of the three above: an unbound line is written *because* the entry has no other line, so
+   * `groupEntryLines` gives every one of them a group of its own (`unbound:<file>:<line>`) rather
+   * than matching it onto an existing entry the way an anchor is matched. Two rows the file
+   * legitimately spells the same way - two commandless seeded rows in one category, whose bodies are
+   * both `""` - must not collapse into one, and a merge here is exactly the "one row loses its name,
+   * its commands and its keys" failure `matchAnchor`'s own doc comment refuses to risk.
+   */
+  unbounds: UnboundEntryLine[]
 }
 
 const MODIFIER_TRIGGERS = new Set<string>(['ALT', 'CTRL', 'SHIFT'])
@@ -1085,7 +1493,11 @@ function buildEntry(
   newId: () => string,
   warnings: RestoreWarning[],
 ): ConfigAction {
-  const first = group.aliases[0]?.item ?? group.binds[0]?.item ?? group.anchors[0]!.item
+  const first =
+    group.aliases[0]?.item ??
+    group.binds[0]?.item ??
+    group.anchors[0]?.item ??
+    group.unbounds[0]!.item
   const report = (reason: RestoreWarningReason, subject?: string): void => {
     warnings.push({ reason, file: first.file, line: first.line, subject })
   }
@@ -1103,7 +1515,11 @@ function buildEntry(
   // conflict case left to handle.
   const slots = keySlotsFrom(group, warnings)
 
-  const fields = group.aliases[0]?.fields ?? group.binds[0]?.fields ?? group.anchors[0]!.fields
+  const fields =
+    group.aliases[0]?.fields ??
+    group.binds[0]?.fields ??
+    group.anchors[0]?.fields ??
+    group.unbounds[0]!.fields
   const kind = inferKind(commands, fromAliases !== null, slots.length > 0)
 
   const prose = entryProse(group)
@@ -1121,8 +1537,15 @@ function buildEntry(
     // A body's own order is the command order (the story's decision: the config text already
     // carries it, so no tag repeats it). With no alias line at all - a continuous catalogue row
     // bound to its bare `+command`, or a self-mirroring alias the writer drops - the bind line's
-    // command is the entry's one command, which is exactly what that line records.
-    commands: fromAliases !== null ? commands : bindCommands(group.binds),
+    // command is the entry's one command, which is exactly what that line records; and with no bind
+    // line either, the unbound line's commented-out body records that same one command (story 052
+    // D3), down to the empty `""` of an entry that genuinely has none.
+    commands:
+      fromAliases !== null
+        ? commands
+        : group.binds.length > 0
+          ? bindCommands(group.binds)
+          : unboundCommands(group.unbounds),
     ...(catalogId ? { catalogId } : {}),
     ...(fromAliases !== null && kind === 'alias' && fromAliases.emptyBody
       ? { keepEmptyAlias: true as const }
@@ -1137,14 +1560,18 @@ function buildEntry(
   // The alias line's own name is the entry's `aliasName` (story 039) - never a tag, since the line
   // already carries it verbatim. With no alias line there are two fallbacks, in this order:
   //
-  // 1. an anchor line's `an` field. An anchor-only entry has no line whose *code* could carry the
-  //    name, so the tag is the only place the writer can record it (`render.ts#buildAnchorLines`) -
-  //    and with no alias line in the file there is nothing for it to drift from.
+  // 1. an anchor line's - or an unbound line's - `an` field. Such an entry has no line whose *code*
+  //    could carry the name, so the tag is the only place the writer can record it
+  //    (`render.ts#buildAnchorLines`, `render.ts#unboundLine`) - and with no alias line in the file
+  //    there is nothing for it to drift from. An unbound line carries `an` exactly when the entry
+  //    had an `aliasName` at all, so restoring it only where the field is present is what keeps the
+  //    entry rendering the same shape - an unconditional one would grow an alias line the file
+  //    never had.
   // 2. the bind value: what the file records this entry mirrors as, adopted exactly when the
   //    reconstructed entry would otherwise mirror as something else - which is what keeps a dropped
   //    self-mirroring alias (`alias weapnext weapnext`) from coming back as a second,
   //    differently-named alias line.
-  const anchoredAliasName = group.anchors
+  const anchoredAliasName = [...group.anchors, ...group.unbounds]
     .map((line) => (line.fields.an ?? '').trim())
     .find((name) => name.length > 0)
   const aliasName =
@@ -1194,9 +1621,15 @@ function entryProse(group: EntryGroup): string {
     group.aliases[0]?.prose.trim() ||
     group.binds.find((line) => line.prose.trim().length > 0)?.prose.trim() ||
     group.anchors.find((line) => line.prose.trim().length > 0)?.prose.trim() ||
+    // An unbound group has this line and nothing else, so this is its only spelling of the name
+    // (story 052 D3) - `prose` here is already the display half alone, `unboundLineParts` having
+    // split the commented-out `bind` off it.
+    group.unbounds.find((line) => line.prose.trim().length > 0)?.prose.trim() ||
     ''
 
-  const otherProses = [...group.binds, ...group.anchors].map((line) => line.prose.trim())
+  const otherProses = [...group.binds, ...group.anchors, ...group.unbounds].map((line) =>
+    line.prose.trim(),
+  )
   const longest = [...group.aliases.map((line) => line.prose.trim()), ...otherProses].reduce(
     (carried, prose) => (prose.length > carried.length ? prose : carried),
     '',
@@ -1612,11 +2045,31 @@ function commandsForHalf(half: TwoPartMerge['halves'][number]): ConfigCommand[] 
   return kept.flatMap((chunk) => commandsFromSegments(chunk))
 }
 
-/** An aliasless entry's commands: its bind line's command, classified the same way an alias body's
- * segment is (so `bind t "say hi"` comes back as a message, not as raw text). */
-function bindCommands(binds: readonly TaggedLine<RestoreBindLine>[]): ConfigCommand[] {
-  const command = binds[0]?.item.command.trim() ?? ''
+/** One line's whole command text as an entry's commands - classified the same way an alias body's
+ * segment is (so `say hi` comes back as a message, not as raw text), and an empty text as no
+ * commands at all rather than as one empty command. */
+function soleCommand(text: string): ConfigCommand[] {
+  const command = text.trim()
   return command.length > 0 ? [configCommandFor(command)] : []
+}
+
+/** An aliasless entry's commands: its bind line's command (see `soleCommand`). */
+function bindCommands(binds: readonly TaggedLine<RestoreBindLine>[]): ConfigCommand[] {
+  return soleCommand(binds[0]?.item.command ?? '')
+}
+
+/**
+ * An unbound entry's commands: the body of its commented-out `bind` line (story 052 D3), read
+ * through the very same rule a bind line's command is read through - which is the point of that
+ * line's shape. `render.ts#unboundCommand` writes `bindValueFor(action)` there, the exact value the
+ * mirror would have put on a key, so this is the writer's inverse: a `//bind "+moveleft"` restores
+ * the one `+moveleft` command a `bind w "+moveleft"` line would have, and a `//bind ""` restores
+ * `[]` - "this entry genuinely has no commands", which is what most of `STANDARD_TEMPLATE`'s seeded
+ * rows are (story 052 D1) and what the reverted 042 "entry anchor" could not tell apart from "the
+ * file never recorded what this entry runs".
+ */
+function unboundCommands(unbounds: readonly UnboundEntryLine[]): ConfigCommand[] {
+  return soleCommand(unbounds[0]?.command ?? '')
 }
 
 /**
@@ -2037,7 +2490,7 @@ function groupEntryLines(
     }
     const existing = scope.get(key)
     if (existing) return existing
-    const created: EntryGroup = { key, aliases: [], binds: [], anchors: [] }
+    const created: EntryGroup = { key, aliases: [], binds: [], anchors: [], unbounds: [] }
     scope.set(key, created)
     return created
   }
@@ -2207,7 +2660,7 @@ function groupEntryLines(
    * them hand-renamed, or one of them budget-cut), so an anchor's own prose is compared against each
    * of them rather than against a single designated one. */
   const prosesOf = (group: EntryGroup): string[] =>
-    [...group.aliases, ...group.binds, ...group.anchors]
+    [...group.aliases, ...group.binds, ...group.anchors, ...group.unbounds]
       .map((line) => line.prose.trim())
       .filter((prose) => prose.length > 0)
 
@@ -2216,7 +2669,7 @@ function groupEntryLines(
    * is never the half that gives way under budget pressure), so the first line that has one speaks
    * for the group. */
   const cidOf = (group: EntryGroup): string =>
-    [...group.aliases, ...group.binds, ...group.anchors]
+    [...group.aliases, ...group.binds, ...group.anchors, ...group.unbounds]
       .map((line) => (line.fields.cid ?? '').trim())
       .find((cid) => cid.length > 0) ?? ''
 
@@ -2263,8 +2716,13 @@ function groupEntryLines(
     // set - the entry a match lands on can therefore never sit in a different category than the
     // anchor, which is what keeps the slot the anchor contributes inside the row the user sees it on.
     // Minus the half groups a two-part merge already claimed - see `merges` above for why.
+    // Minus every group an unbound line created (story 052 D3), too: an unbound entry has no key
+    // slot at all - that is *why* the writer gave it that line instead of an anchor - so an anchor,
+    // which is nothing but a key-slot claim, can never belong to one. Leaving them in the candidate
+    // set could only ever cost a real anchor its entry, by making a `cid` or a prose the two happen
+    // to share ambiguous.
     const candidates = [...(groups.get(categoryKeyOf(anchor.item))?.values() ?? [])].filter(
-      (group) => !halfGroups.has(group),
+      (group) => !halfGroups.has(group) && group.unbounds.length === 0,
     )
     if (candidates.length === 0) return null
 
@@ -2290,24 +2748,47 @@ function groupEntryLines(
   // already walked every one of these lines and reported them once.
   for (const item of comments) {
     const parsed = parseComment(item.text)
-    // `claimsEntryAnchor` is the shared predicate: a section header or the header block's version
-    // marker is not an entry anchor even if someone hand-edited a `key` into it, and - the other way
-    // round - a line this claims is never read as a section header either (see that function). A
-    // tagged comment inside a layer section belongs to the layer, which is positional and therefore
-    // stays here rather than moving into the predicate.
-    if (!claimsEntryAnchor(parsed) || insideLayer(item)) continue
-    if (!parsed.malformed) consumed.push({ file: item.file, line: item.line })
-    const anchor: TaggedLine<RestoreCommentLine> = {
-      item,
-      fields: parsed.fields,
-      prose: parsed.prose,
+    // A tagged comment inside a layer section belongs to the layer, which is positional and
+    // therefore stays here rather than moving into either predicate.
+    if (insideLayer(item)) continue
+
+    // `claimsEntryAnchor`/`claimsUnboundEntry` are the shared predicates: a section header or the
+    // header block's version marker is not an entry line even if someone hand-edited a `key` into
+    // it, and - the other way round - a line either of them claims is never read as a section header
+    // either (`claimedByEntryScan`, see there). The two are mutually exclusive, so the order of
+    // these two branches decides nothing; both run *here*, in the one pass that consumes a comment
+    // line, so a claimed line never reaches the import preview's `preserved` list.
+    if (claimsEntryAnchor(parsed)) {
+      if (!parsed.malformed) consumed.push({ file: item.file, line: item.line })
+      const anchor: TaggedLine<RestoreCommentLine> = {
+        item,
+        fields: parsed.fields,
+        prose: parsed.prose,
+      }
+      // An unmatched anchor becomes its own entry, created *inside its own category scope* so a
+      // later anchor of the same (anchor-only) entry can still find it - `anchor:<file>:<line>` is
+      // unique per line, so its own second anchor never lands here at all: it matches by `cid`/prose
+      // above.
+      const owner =
+        matchAnchor(anchor) ?? groupFor(categoryKeyOf(item), `anchor:${item.file}:${item.line}`)
+      owner.anchors.push(anchor)
+      chain('anchors', owner)
+      continue
     }
-    // An unmatched anchor becomes its own entry, created *inside its own category scope* so a later
-    // anchor of the same (anchor-only) entry can still find it - `anchor:<file>:<line>` is unique
-    // per line, so its own second anchor never lands here at all: it matches by `cid`/prose above.
-    const owner =
-      matchAnchor(anchor) ?? groupFor(categoryKeyOf(item), `anchor:${item.file}:${item.line}`)
-    owner.anchors.push(anchor)
+
+    if (!claimsUnboundEntry(parsed)) continue
+    if (!parsed.malformed) consumed.push({ file: item.file, line: item.line })
+    const { command, prose } = unboundLineParts(parsed)
+    // Always its own group, never matched onto an existing one - the writer emits this line *only*
+    // for an entry that has no other line in the file (`render.ts#isUnboundEntry`), so there is
+    // nothing here for a match to attach to and a match could only ever fold two rows into one (see
+    // `EntryGroup.unbounds`). Filed in the line's own category scope all the same, so the entry
+    // lands in the `Entries: <cat>` section it sits under, exactly as an anchor does.
+    const owner = groupFor(categoryKeyOf(item), `unbound:${item.file}:${item.line}`)
+    owner.unbounds.push({ item, fields: parsed.fields, prose, command })
+    // The same chain the anchors use: unbound lines and anchor lines are siblings in one `Entries:`
+    // section, emitted in one merged `profile.actions` order (`render.ts#buildEntrySectionItems`),
+    // so they are one subsequence of that order rather than two.
     chain('anchors', owner)
   }
 
@@ -2423,7 +2904,7 @@ export function restoreProfileParts(input: RestoreProfilePartsInput): RestorePro
     warnings.push({ reason: 'metadata-version-missing', file: first?.file ?? '', line: first?.line ?? 0 })
   }
 
-  const categories = categoryRegistry(input.newId)
+  const categories = categoryRegistry(input.newId, scan.sections)
   const layerSections = scan.sections.filter((section) => section.kind === 'layer')
 
   const consumedCommentLines = [...scan.consumed]

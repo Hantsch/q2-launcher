@@ -21,7 +21,10 @@ import { variantUserDataDir } from './harness.mjs'
 const STATE_FILE = 'state.json'
 /** Mirrors src/shared/constants.ts:11 (`WINDOW_STATE_FILE`). */
 const WINDOW_STATE_FILE = 'window-state.json'
-/** Mirrors src/shared/constants.ts:14 (`STATE_SCHEMA_VERSION`). */
+/** Deliberately kept one version behind the real `STATE_SCHEMA_VERSION`
+ * (`src/shared/constants.ts`, currently `2`) rather than mirroring it - see the comment block
+ * above `CONTROLS_SEED_SCHEMA_VERSION` below for why `populated`/`empty` need every reseed to run
+ * story 052 D6's migration fresh. */
 const STATE_SCHEMA_VERSION = 1
 
 /** Mirrors src/shared/types/settings.ts:22-32 (`DEFAULT_SETTINGS`). */
@@ -377,6 +380,240 @@ bind s "+back" // note [q2l bogus]
 
 // --- writers ----------------------------------------------------------------
 
+// --- story 052 D10: template-seeded / imported-only Controls fixtures --------
+//
+// `populated`'s `STATE_SCHEMA_VERSION` mirror above (`1`) is deliberately never bumped in step
+// with `src/shared/constants.ts` (currently `2`): every `populated`/`empty` run starts one schema
+// version behind the real app on purpose, so the real migration
+// (`src/main/services/migrations.ts`, story 052 D6) runs fresh on every reseed and materialises
+// `TEMPLATE_ACTION_CATEGORIES` plus one action per `allCatalogRows()` row into every pre-existing
+// profile at runtime - exactly the "existing profiles migrate once" behaviour AC8 describes. That
+// is what already makes the `config-controls`/`config-controls-message`/
+// `config-controls-drop-message` screens and the `drop-message-checkbox` flow show Plain Profile's
+// full Movement/Weapons/Weapon-dropping rail today, without hand-authoring roughly fifty catalogue
+// rows here.
+//
+// The two profiles below need the opposite guarantee: a profile with only its own "Imported"
+// category must show *only* that (AC1/AC7). If it shared a document with `STATE_SCHEMA_VERSION`
+// still at `1`, that very same migration would blindly add Movement/Weapons/Weapon dropping to it
+// too - the migration has no way to tell "predates story 052" apart from "genuinely has just one
+// category". A dedicated third fixture variant, seeded at the real, current schema version (so no
+// migration runs for anyone in this document), is what keeps that guarantee intact without
+// touching `populated`/`empty` at all.
+/** Mirrors src/shared/constants.ts:14 (`STATE_SCHEMA_VERSION`), unlike the deliberately-stale
+ * `STATE_SCHEMA_VERSION` above - see the comment block just above this constant. */
+const CONTROLS_SEED_SCHEMA_VERSION = 2
+
+/** Mirrors src/shared/modules/config.ts:146-150 (`TEMPLATE_ACTION_CATEGORIES`). */
+const TEMPLATE_CATEGORIES = [
+  { id: 'movement', name: 'Movement', nameKey: 'config.controls.categories.movement' },
+  { id: 'weapons', name: 'Weapons', nameKey: 'config.controls.categories.weapons' },
+  { id: 'drops', name: 'Weapon dropping', nameKey: 'config.controls.categories.drops' },
+]
+
+/**
+ * Mirrors src/shared/config/catalog-rows.ts's `allCatalogRows()` (in turn built from
+ * src/shared/config/action-catalog.ts's `MOVEMENT_ACTIONS`/`WEAPONS`/`WEAPON_ACTIONS`/
+ * `WEAPON_EXTRA_ACTIONS`/`DROPPABLES`), in the exact order the real function produces them:
+ * movement, `use <weapon>`, weapon cycling, then the three drop groups (weapon/ammo/misc). Each
+ * tuple is `[kind, id, categoryId, command]`; `catalogId` is `${kind}:${id}` (`makeCatalogId`) and
+ * a row's display name is its own raw command (`nameForCatalogRow`), since every row here carries
+ * exactly one command.
+ */
+const TEMPLATE_CATALOG_ROW_TUPLES = [
+  // movement (MOVEMENT_ACTIONS)
+  ['movement', 'forward', 'movement', '+forward'],
+  ['movement', 'back', 'movement', '+back'],
+  ['movement', 'moveleft', 'movement', '+moveleft'],
+  ['movement', 'moveright', 'movement', '+moveright'],
+  ['movement', 'moveup', 'movement', '+moveup'],
+  ['movement', 'movedown', 'movement', '+movedown'],
+  ['movement', 'attack', 'movement', '+attack'],
+  ['movement', 'speed', 'movement', '+speed'],
+  ['movement', 'strafe', 'movement', '+strafe'],
+  ['movement', 'left', 'movement', '+left'],
+  ['movement', 'right', 'movement', '+right'],
+  ['movement', 'klook', 'movement', '+klook'],
+  ['movement', 'mlook', 'movement', '+mlook'],
+  ['movement', 'centerview', 'movement', 'centerview'],
+  // weaponUse (WEAPON_ACTIONS, one per WEAPONS entry)
+  ['weaponUse', 'blaster', 'weapons', 'use blaster'],
+  ['weaponUse', 'shotgun', 'weapons', 'use shotgun'],
+  ['weaponUse', 'sshotgun', 'weapons', 'use super shotgun'],
+  ['weaponUse', 'machinegun', 'weapons', 'use machinegun'],
+  ['weaponUse', 'chaingun', 'weapons', 'use chaingun'],
+  ['weaponUse', 'grenades', 'weapons', 'use grenades'],
+  ['weaponUse', 'glauncher', 'weapons', 'use grenade launcher'],
+  ['weaponUse', 'rlauncher', 'weapons', 'use rocket launcher'],
+  ['weaponUse', 'hyperblaster', 'weapons', 'use hyperblaster'],
+  ['weaponUse', 'railgun', 'weapons', 'use railgun'],
+  ['weaponUse', 'bfg', 'weapons', 'use bfg10k'],
+  // weaponExtra (WEAPON_EXTRA_ACTIONS)
+  ['weaponExtra', 'weapnext', 'weapons', 'weapnext'],
+  ['weaponExtra', 'weapprev', 'weapons', 'weapprev'],
+  ['weaponExtra', 'weaplast', 'weapons', 'weaplast'],
+  // dropWeapon (DROPPABLES kind === 'weapon', i.e. WEAPONS minus blaster)
+  ['dropWeapon', 'shotgun', 'drops', 'drop shotgun'],
+  ['dropWeapon', 'sshotgun', 'drops', 'drop super shotgun'],
+  ['dropWeapon', 'machinegun', 'drops', 'drop machinegun'],
+  ['dropWeapon', 'chaingun', 'drops', 'drop chaingun'],
+  ['dropWeapon', 'grenades', 'drops', 'drop grenades'],
+  ['dropWeapon', 'glauncher', 'drops', 'drop grenade launcher'],
+  ['dropWeapon', 'rlauncher', 'drops', 'drop rocket launcher'],
+  ['dropWeapon', 'hyperblaster', 'drops', 'drop hyperblaster'],
+  ['dropWeapon', 'railgun', 'drops', 'drop railgun'],
+  ['dropWeapon', 'bfg', 'drops', 'drop bfg10k'],
+  // dropAmmo (DROPPABLES kind === 'ammo')
+  ['dropAmmo', 'shells', 'drops', 'drop shells'],
+  ['dropAmmo', 'bullets', 'drops', 'drop bullets'],
+  ['dropAmmo', 'rockets', 'drops', 'drop rockets'],
+  ['dropAmmo', 'cells', 'drops', 'drop cells'],
+  ['dropAmmo', 'slugs', 'drops', 'drop slugs'],
+  ['dropAmmo', 'hgrenades', 'drops', 'drop grenades'],
+  // dropMisc (DROPPABLES kind === 'powerup' || 'tech')
+  ['dropMisc', 'powershield', 'drops', 'drop power shield'],
+  ['dropMisc', 'powerscreen', 'drops', 'drop power screen'],
+  ['dropMisc', 'quad', 'drops', 'drop quad damage'],
+  ['dropMisc', 'invuln', 'drops', 'drop invulnerability'],
+  ['dropMisc', 'silencer', 'drops', 'drop silencer'],
+  ['dropMisc', 'rebreather', 'drops', 'drop rebreather'],
+  ['dropMisc', 'envsuit', 'drops', 'drop environment suit'],
+  ['dropMisc', 'adrenaline', 'drops', 'drop adrenaline'],
+  ['dropMisc', 'bandolier', 'drops', 'drop bandolier'],
+  ['dropMisc', 'ammopack', 'drops', 'drop ammo pack'],
+  ['dropMisc', 'tech', 'drops', 'drop tech'],
+]
+
+const TEMPLATE_CATALOG_ROWS = TEMPLATE_CATALOG_ROW_TUPLES.map(([kind, id, categoryId, command]) => ({
+  catalogId: `${kind}:${id}`,
+  categoryId,
+  command,
+}))
+
+/** Mirrors src/shared/modules/config.ts's `TEMPLATE_BOUND_CATALOG_IDS` and `STANDARD_TEMPLATE.binds`
+ * - the six catalogue rows a freshly created template profile binds immediately, and the key each
+ * is bound to. */
+const TEMPLATE_BOUND_KEYS = {
+  'movement:forward': 'UPARROW',
+  'movement:back': 'DOWNARROW',
+  'movement:moveup': 'SPACE',
+  'movement:movedown': 'c',
+  'movement:speed': 'SHIFT',
+  'movement:attack': 'MOUSE1',
+}
+
+/**
+ * A profile shaped exactly like "create from template" would produce (mirrors
+ * `STANDARD_TEMPLATE`/`buildTemplateActions` in src/shared/modules/config.ts): the three template
+ * categories, and one action per catalogue row - unbound (`commands: []`) except the six rows
+ * `TEMPLATE_BOUND_KEYS` names, which carry their real command and key exactly as a fresh template
+ * profile's first commit would. Demonstrates AC4 on the `config-controls-template-seeded` screen.
+ */
+function templateSeededConfigProfile() {
+  const binds = {}
+  for (const [catalogId, key] of Object.entries(TEMPLATE_BOUND_KEYS)) {
+    const row = TEMPLATE_CATALOG_ROWS.find((candidate) => candidate.catalogId === catalogId)
+    binds[key] = row.command
+  }
+
+  return {
+    id: 'fixture-profile-template-seeded',
+    name: 'Template Profile',
+    createdAt: FIXED_TIMESTAMP,
+    updatedAt: FIXED_TIMESTAMP,
+    // Mirrors STANDARD_TEMPLATE.cvars (src/shared/modules/config.ts).
+    cvars: { sensitivity: '3', cl_run: '0', crosshair: '0', cl_gun: '1', m_pitch: '0.022', volume: '0.7' },
+    binds,
+    assignments: [],
+    categories: TEMPLATE_CATEGORIES.map((category) => ({ ...category })),
+    actions: TEMPLATE_CATALOG_ROWS.map((row) => {
+      const key = TEMPLATE_BOUND_KEYS[row.catalogId]
+      const slug = row.catalogId.replace(/[^a-z0-9]+/gi, '-')
+      return {
+        id: `fixture-template-seed-${slug}`,
+        categoryId: row.categoryId,
+        name: row.command,
+        kind: 'bind',
+        catalogId: row.catalogId,
+        commands: key ? [{ kind: 'raw', text: row.command }] : [],
+        ...(key ? { key } : {}),
+      }
+    }),
+  }
+}
+
+/**
+ * A profile with a single, non-template category ("Imported") and a few free-form entries of its
+ * own - no `movement`/`weapons`/`drops` at all. Demonstrates AC1/AC7: "a profile with only an
+ * Imported category shows only that" on the `config-controls-imported-only` screen.
+ */
+function importedOnlyConfigProfile() {
+  return {
+    id: 'fixture-profile-imported-only',
+    name: 'Imported Category Profile',
+    createdAt: FIXED_TIMESTAMP,
+    updatedAt: FIXED_TIMESTAMP,
+    cvars: {},
+    // No `binds` mirror for the "Use item" action below: unlike a catalogue-backed row,
+    // `bindValueFor` (@shared/config/action-mirror.ts) only passes a bare `+command` through
+    // verbatim when the action carries a `catalogId` - a free-form action's mirror is always its
+    // alias name, so a hand-authored `binds.e: '+use'` here would read as a *second*, independent
+    // claimant on `e` to `bind-conflicts.ts`'s scan and raise a spurious conflict badge that has
+    // nothing to do with this screen's own point (AC1/AC7's "shows only its own category").
+    binds: {},
+    assignments: [],
+    categories: [{ id: 'imported', name: 'Imported' }],
+    actions: [
+      {
+        id: 'fixture-imported-use',
+        categoryId: 'imported',
+        name: 'Use item',
+        kind: 'bind',
+        commands: [{ kind: 'raw', text: '+use' }],
+        key: 'e',
+      },
+      {
+        id: 'fixture-imported-inventory',
+        categoryId: 'imported',
+        name: 'Inventory',
+        kind: 'bind',
+        commands: [{ kind: 'raw', text: 'inven' }],
+      },
+      {
+        id: 'fixture-imported-gg',
+        categoryId: 'imported',
+        name: 'GG',
+        kind: 'message',
+        commands: [{ kind: 'message', channel: 'say', text: 'gg' }],
+      },
+    ],
+  }
+}
+
+function controlsSeedStateDocument() {
+  return {
+    schemaVersion: CONTROLS_SEED_SCHEMA_VERSION,
+    settings: { ...DEFAULT_SETTINGS, scanOnFirstRun: false },
+    installations: [],
+    configProfiles: [templateSeededConfigProfile(), importedOnlyConfigProfile()],
+    configPlayedMods: {},
+    configPendingWrites: {},
+    configSwitchBinds: {},
+  }
+}
+
+/** Deletes and rewrites the `controls-seed` variant's userdata (no installations). */
+export function writeControlsSeedFixture() {
+  const userDataDir = variantUserDataDir('controls-seed')
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  writeJson(join(userDataDir, STATE_FILE), controlsSeedStateDocument())
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  return { userDataDir, installations: 0, configProfiles: 2 }
+}
+
 function writeJson(path, value) {
   mkdirSync(join(path, '..'), { recursive: true })
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, 'utf8')
@@ -465,7 +702,8 @@ export function writeEmptyFixture() {
 export function writeFixture(variant) {
   if (variant === 'populated') return writePopulatedFixture()
   if (variant === 'empty') return writeEmptyFixture()
+  if (variant === 'controls-seed') return writeControlsSeedFixture()
   throw new Error(`unknown fixture variant: ${variant}`)
 }
 
-export const FIXTURE_VARIANTS = ['populated', 'empty']
+export const FIXTURE_VARIANTS = ['populated', 'empty', 'controls-seed']

@@ -1,5 +1,8 @@
 import type { AltLayer } from '../config/alt-layers'
 import type { AmbiguousRebindAlias } from '../config/alias-import'
+// `catalog-rows.ts` imports `ConfigCommand` back from this file, but only as an `import type` -
+// erased at compile time, so this is a value import into a type-only cycle, not a runtime one.
+import { allCatalogRows, commandsForRow, nameForCatalogRow } from '../config/catalog-rows'
 import type { ModifierTrigger } from '../config/modifier-layers'
 // Type-only both ways: `profile-baseline.ts` needs `ConfigProfile` to describe what it snapshots,
 // this file needs its result type. Both imports are erased at compile time, so the cycle exists in
@@ -121,9 +124,11 @@ export interface DuplicateAliasLine {
  */
 export type ActionEntryKind = 'bind' | 'message' | 'alias' | 'toggle' | 'press-release'
 
-/** A built-in category — a shared constant, never persisted (decision: profiles only persist
- * their custom categories, so built-in labels stay translatable and adding one needs no
- * migration).
+/** A template category — the seed/suggestion source `STANDARD_TEMPLATE` and "New category ->
+ * from template" (story 052) draw from, not a special/built-in list any more: story 052 turns
+ * categories into ordinary, persisted, profile-owned data, so nothing here is "always shown"
+ * regardless of what a profile actually carries. Kept as a shared constant purely because a
+ * translatable seed needs one canonical id/label/labelKey triple to draw from.
  *
  * `label` (story 040 D1) is the plain ASCII English text `labelKey` resolves to in the renderer -
  * `comment-labels.ts`'s `categoryLabelFor` uses it directly, since the config-file writer
@@ -135,20 +140,46 @@ export interface BuiltInActionCategory {
   label: string
 }
 
-/** Exactly the three the story's AC names, matching upstream's `group: 'main'` set. */
-export const BUILT_IN_ACTION_CATEGORIES: readonly BuiltInActionCategory[] = [
+/** Exactly the three the story's AC names, matching upstream's `group: 'main'` set - the template
+ * `STANDARD_TEMPLATE.categories` seeds a profile with (story 052 D1), and the suggestion list
+ * "New category -> from template" offers alongside a blank one (later deliverable). */
+export const TEMPLATE_ACTION_CATEGORIES: readonly BuiltInActionCategory[] = [
   { id: 'movement', labelKey: 'config.controls.categories.movement', label: 'Movement' },
   { id: 'weapons', labelKey: 'config.controls.categories.weapons', label: 'Weapons' },
   { id: 'drops', labelKey: 'config.controls.categories.drops', label: 'Weapon dropping' },
 ]
 
-/** A user-defined category. Its `name` is user-typed text (not translatable UI prose, hence a
- * plain string, unlike `BuiltInActionCategory.labelKey`). Persisted on `ConfigProfile.categories`
- * — built-ins above are never persisted rows. Carries no entry kind (story 019): what is typed is
- * the entry (`ConfigAction.kind`), not the drawer it sits in. */
+/**
+ * Story 052 D1: `TEMPLATE_ACTION_CATEGORIES` under its pre-052 name.
+ *
+ * D4 has since migrated the whole core off it - `render.ts`, `profile-restore.ts`,
+ * `alias-import.ts`, `comment-labels.ts` and `tidy-up.ts` no longer treat these three ids as
+ * special at all. The renderer's `ControlsTab.tsx` is the one remaining consumer, and rewriting the
+ * category rail is D7's job.
+ *
+ * @deprecated Use `TEMPLATE_ACTION_CATEGORIES` - this name will be dropped once story 052 D7 has
+ * updated the last call site (`ControlsTab.tsx`).
+ */
+export const BUILT_IN_ACTION_CATEGORIES = TEMPLATE_ACTION_CATEGORIES
+
+/**
+ * A user-defined category. Its `name` is user-typed text (not translatable UI prose, hence a
+ * plain string, unlike `BuiltInActionCategory.labelKey`). Persisted on `ConfigProfile.categories`.
+ * Carries no entry kind (story 019): what is typed is the entry (`ConfigAction.kind`), not the
+ * drawer it sits in.
+ *
+ * `nameKey` (story 052 D1) is an optional i18n display hint: `name` is always prose (main must
+ * never send a bare key across IPC as if it were text, CLAUDE.md's rule), but when a category was
+ * seeded from `TEMPLATE_ACTION_CATEGORIES` and never renamed, the renderer can still show the
+ * translated label instead of the frozen English `name`. Set only by a seed (`STANDARD_TEMPLATE`,
+ * and later the migration/restore paths D4-D6 touch) as `{ name: <english default>, nameKey }`;
+ * any rename drops it (a later deliverable's job - renaming is a plain-string field). Absent for
+ * every category that predates this field and for any category a user typed themselves.
+ */
 export interface ConfigActionCategory {
   id: string
   name: string
+  nameKey?: string
 }
 
 export type ConfigCommand =
@@ -164,8 +195,10 @@ export type ConfigCommand =
 /**
  * One shape for all three entry kinds (bind/message/alias): a message and a multi-command bind
  * are the same thing to the engine (an alias body), so one type serves both instead of two
- * parallel entities needing two renderers/validators. `categoryId` may reference either a
- * `BUILT_IN_ACTION_CATEGORIES` id or a `ConfigProfile.categories` custom category's id.
+ * parallel entities needing two renderers/validators. `categoryId` references a
+ * `ConfigProfile.categories` entry (story 052 D4: no id is special any more - one that matches
+ * nothing the profile carries is an uncategorised entry, written into the file's trailing "Other"
+ * bucket).
  * `key`, when set, is the engine key name this action's generated alias is bound to. `bind` and
  * `message` entries may be keyed (a message can sit on a key exactly like a multi-command bind
  * can); a `kind: 'alias'` entry never is — it exists to be referenced by name, not bound, and the
@@ -381,12 +414,19 @@ export type ConfigProfileSeed = 'empty' | 'template'
 
 /**
  * The read-only seed a profile can be created from. Read-only on purpose: a
- * profile's own maps are mutable, so a caller has to copy this rather than
- * hand the shared module-level object to a profile that is about to be edited.
+ * profile's own maps/arrays are mutable, so a caller has to copy this rather
+ * than hand the shared module-level object to a profile that is about to be
+ * edited.
+ *
+ * `categories`/`actions` (story 052 D1) are the template's own seed of
+ * `TEMPLATE_ACTION_CATEGORIES` plus one action per `catalog-rows.ts` row - see
+ * `STANDARD_TEMPLATE`'s own doc comment for what each contains.
  */
 export interface ConfigProfileTemplate {
   readonly cvars: Readonly<Record<string, string>>
   readonly binds: Readonly<Record<string, string>>
+  readonly categories: readonly ConfigActionCategory[]
+  readonly actions: readonly ConfigAction[]
 }
 
 /**
@@ -394,7 +434,62 @@ export interface ConfigProfileTemplate {
  * from template" is visibly different from "create empty". The full,
  * source-cited cvar catalogue belongs to the settings/cvar editor story - this
  * is not it, and it is not meant to be exhaustive.
+ *
+ * `categories` (story 052 D1) is `TEMPLATE_ACTION_CATEGORIES` materialised into ordinary,
+ * persisted `ConfigActionCategory` rows: `{ id, name: <english default>, nameKey }` each - `name`
+ * is the frozen English default so a profile that never renames the category still has real prose
+ * to show even before `nameKey` resolves to anything (CLAUDE.md's "main never sends bare prose
+ * disguised as a key" rule cuts the other way too: an i18n key alone is not a valid `name`).
+ *
+ * `actions` is one `ConfigAction` per `allCatalogRows()` row (`@shared/config/catalog-rows`) -
+ * "every catalogue row becomes an action, unbound" (story 052 AC4) - except the six rows this
+ * template's own `binds` above already names (the five continuous movement commands plus
+ * `+attack`), which keep that row's own command as their `commands` so the profile's first
+ * `commit()` (`ProfilesStore`, which runs `adoptRawBinds` on every write) recognises the matching
+ * `binds` entry as *this* row rather than minting a second, duplicate action for it. Every other
+ * row's `commands` is `[]`: present in the profile, nothing to render into the file yet (story
+ * 052 D2/D3's "unbound line" is what gives a row like that a trace in the `.cfg` at all - out of
+ * scope for this deliverable). Ids are stable per catalogue row (`template:<catalogId>`) since
+ * this object is itself immutable and shared across every "create from template" call -
+ * `profiles.ts#create` mints fresh ids when it copies this array into a new profile, exactly as it
+ * already does for every other generated id.
  */
+/**
+ * Story 052 D1: catalogue rows this template's own `binds` above already names - the five
+ * continuous movement commands plus `+attack` (also a `MOVEMENT_ACTIONS` row upstream, despite the
+ * name), all of them `movement:*` catalogIds. `buildTemplateActions` below is what keeps this list
+ * and `STANDARD_TEMPLATE.binds` from drifting apart - both are read off the same six keys.
+ *
+ * Exported (story 052 review, F1) so `migrations.ts`'s D6 step can give a newly-materialised action
+ * for one of these six catalogIds the same real `commandsForRow(row, false)` command
+ * `buildTemplateActions` writes, instead of `commands: []` - a migrated action for a row the profile
+ * has *always* had a matching raw bind for must look identical to what a fresh `from: 'template'`
+ * profile gets, or `adoptRawBinds`' signature match (`@shared/config/bind-adoption.ts`) cannot
+ * recognise the raw bind as this row and the Controls tab shows it as unbound despite the key
+ * working in-game.
+ */
+export const TEMPLATE_BOUND_CATALOG_IDS = new Set(['forward', 'back', 'moveup', 'movedown', 'speed', 'attack'].map(
+  (id) => `movement:${id}`,
+))
+
+/**
+ * One `ConfigAction` per `allCatalogRows()` row - see `STANDARD_TEMPLATE`'s own doc comment for
+ * why every row but the template's six binds is unbound (`commands: []`).
+ */
+function buildTemplateActions(): ConfigAction[] {
+  return allCatalogRows().map((row) => {
+    const bound = TEMPLATE_BOUND_CATALOG_IDS.has(row.catalogId)
+    return {
+      id: `template:${row.catalogId}`,
+      categoryId: row.categoryId,
+      name: nameForCatalogRow(row),
+      kind: 'bind',
+      catalogId: row.catalogId,
+      commands: bound ? commandsForRow(row, false) : [],
+    }
+  })
+}
+
 export const STANDARD_TEMPLATE: ConfigProfileTemplate = {
   cvars: {
     sensitivity: '3',
@@ -412,6 +507,12 @@ export const STANDARD_TEMPLATE: ConfigProfileTemplate = {
     SHIFT: '+speed',
     MOUSE1: '+attack',
   },
+  categories: TEMPLATE_ACTION_CATEGORIES.map((category) => ({
+    id: category.id,
+    name: category.label,
+    nameKey: category.labelKey,
+  })),
+  actions: buildTemplateActions(),
 }
 
 export interface CreateConfigProfileInput {

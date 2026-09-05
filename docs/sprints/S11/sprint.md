@@ -1,7 +1,7 @@
 ---
 sprint: S11
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S11
 milestone: Config, round three
 ---
 
@@ -19,7 +19,7 @@ is a drop wherever it lives — with two icon toggles instead of two checkboxes.
 
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
-- [ ] 052 — Controls shows my categories, the template only seeds them
+- [x] 052 — Controls shows my categories, the template only seeds them
 - [ ] 053 — Sub-categories come from the file, and Controls shows them
 - [ ] 056 — Extra keys group under the primary row
 - [ ] 055 — A `drop_` alias is a drop, with two toggles instead of two checkboxes

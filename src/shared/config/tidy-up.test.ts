@@ -387,7 +387,14 @@ describe('applyTidyUpOps - reclassifyPreservedLine', () => {
 
   it('appends the action, mirrors its key into binds, and removes the line in the same result', () => {
     const promoted = withKeys(action({ id: 'n1', name: 'Zoom' }), { key: 'z' })
-    const before = profile({ actions: [], unrecognized: [line] })
+    // Story 052 D4: `movement` is an ordinary category now, so the profile has to carry it for the
+    // promotion to have somewhere visible to go - `categoryExists` no longer assumes the three
+    // former built-ins are always there.
+    const before = profile({
+      actions: [],
+      categories: [{ id: 'movement', name: 'Movement' }],
+      unrecognized: [line],
+    })
     const op: TidyUpOp = {
       kind: 'reclassifyPreservedLine',
       ...line,
@@ -432,8 +439,29 @@ describe('applyTidyUpOps - reclassifyPreservedLine', () => {
     expect(applyTidyUpOps(before, [op]).profile).toBe(before)
   })
 
+  it('rejects an action target filed under a former built-in the profile no longer carries', () => {
+    // Story 052 D4 ("a deleted former built-in leaves its entries un-flagged" otherwise): `movement`
+    // used to be valid by fiat. A profile whose user deleted it has nowhere to show the row, so the
+    // promotion is refused exactly like one naming a category that never existed.
+    const before = profile({ actions: [], categories: [], unrecognized: [line] })
+    const op: TidyUpOp = {
+      kind: 'reclassifyPreservedLine',
+      ...line,
+      target: { field: 'actions', action: action({ id: 'n1', categoryId: 'movement' }) },
+    }
+
+    const result = applyTidyUpOps(before, [op])
+
+    expect(result.rejected).toEqual([op])
+    expect(result.profile).toBe(before)
+  })
+
   it('rejects an action target with an unknown category, a duplicate id or a modifier slot', () => {
-    const before = profile({ actions: [action({ id: 'a1' })], categories: [], unrecognized: [line] })
+    const before = profile({
+      actions: [action({ id: 'a1' })],
+      categories: [{ id: 'movement', name: 'Movement' }],
+      unrecognized: [line],
+    })
     const target = (candidate: ConfigAction): TidyUpOp => ({
       kind: 'reclassifyPreservedLine',
       ...line,

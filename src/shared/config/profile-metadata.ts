@@ -38,6 +38,7 @@
  * | `key`     | that slot's key - anchor lines only (a bind line spells its own key)  |
  * | `mod`     | that slot's own `modifier` (`ActionKeySlot`)                            |
  * | `cat`     | category id (section header only)                                      |
+ * | `ord`     | that category's position in the profile (category section header only) |
  * | `layer`   | layer ref (section header only)                                        |
  * | `mode`    | layer mode (section header only)                                       |
  * | `trigger` | layer trigger key, omitted entirely when null (section header only)   |
@@ -127,6 +128,14 @@ export const KNOWN_META_KEYS = [
   // *is* that state, never the dispatch alias or a `_p<n>` chunk line - `render.ts#buildAliasSections`
   // decides which.
   'lbl',
+  // A category section header's own position in `profile.categories` (story 052's F3 fix) -
+  // appended for the same reason `lbl` was: emission order here is the format's determinism
+  // guarantee and every key above it already shipped. Only a category header carries it; it is the
+  // one thing about a category the *section layout* cannot say, because the writer emits its
+  // category sections in three separate passes and two categories that share no pass never meet in
+  // a comparable pair - see `render.ts#categoryOrdinals`. Its absence is not an error: a file from
+  // an older build simply has its order read off the section layout alone, exactly as before.
+  'ord',
 ] as const
 
 export type KnownMetaKey = (typeof KNOWN_META_KEYS)[number]
@@ -146,6 +155,7 @@ export interface MetaTagFields {
   mode?: string
   trigger?: string
   lbl?: string
+  ord?: string
   [key: string]: string | undefined
 }
 

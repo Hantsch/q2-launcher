@@ -822,17 +822,13 @@ describe('rebuild from the file with the sentinel id', () => {
 // ---------------------------------------------------------------------------
 
 describe('write -> external edit -> re-read -> render over every 042 fixture', () => {
-  /**
-   * The one fixture whose content the file format genuinely cannot carry, so it gets its own,
-   * explicit test below instead of being silently excluded here: an entry with **no key** whose
-   * command is exactly its catalogue default renders to nothing at all - no alias line (a
-   * self-mirroring catalogue command drops its own line, story 034/038), no bind line (there is no
-   * key), no anchor line (those exist for modifier-carrying slots). See the test for what that means
-   * and why it is a named limitation rather than a bug fixed here.
-   */
-  const NO_FILE_REPRESENTATION = new Set(['Keyless catalogue entry'])
-
-  for (const fixture of ROUND_TRIP_FIXTURES.filter((f) => !NO_FILE_REPRESENTATION.has(f.name))) {
+  // Story 052 D2/D3: no fixture is excluded here any more. "Keyless catalogue entry" - an entry
+  // with no key whose command is exactly its catalogue default - used to render to nothing at all
+  // (no alias line, no bind line, no anchor line) and was therefore listed as a named limitation
+  // below; it now rides on its own unbound line (`render.ts#unboundLine`, read back by
+  // `profile-restore.ts#claimsUnboundEntry`) and survives this cycle like every other shape. The
+  // test below pins that specifically.
+  for (const fixture of ROUND_TRIP_FIXTURES) {
     it(`keeps every bind, entry, category and layer of "${fixture.name}"`, async () => {
       const { handlers, state } = await boot()
       state.setConfigProfiles([{ ...fixture, id: 'p1', assignments: [] }])
@@ -875,41 +871,33 @@ describe('write -> external edit -> re-read -> render over every 042 fixture', (
   }
 
   /**
-   * ACCEPTED LIMITATION, pinned rather than hidden (story 043 D10).
-   *
-   * An entry with no key at all whose command is exactly its catalogue default has no
-   * representation in the rendered file - the whole profile renders to a header plus `unbindall`.
-   * Once the file is the source of truth, adopting that file (or rebuilding from it) therefore
-   * cannot bring the entry back, and the row disappears from the Controls grid.
-   *
-   * Not fixed here, deliberately: the fix is a new anchor line in `render.ts`'s output for keyless
-   * entries, i.e. a change to story 042's on-disk format and to every test that pins it, which is
-   * neither this deliverable's file set nor a change to make in a story's last deliverable. The
-   * bounded cost is what makes that acceptable: such an entry is by definition not bound to
-   * anything, so nothing about the profile's actual behaviour in the engine is lost with it - only a
-   * half-configured row in the UI, and only once the file has actually been edited outside the
-   * launcher. Worth a follow-up story; recorded here so it can never be found again as a surprise.
+   * The limitation story 043 D10 named here - "an entry with no key at all whose command is exactly
+   * its catalogue default has no representation in the rendered file", so adopting the file dropped
+   * the row - is closed by story 052 D2/D3, and this test is what pins the closure: the entry now
+   * has a line (`//bind "<cmd>"   // <name> [q2l …]`) and that line carries the *command*, which is
+   * what the reverted 042 entry anchor lacked and what makes reading it back safe at all.
    */
-  it('names, rather than hides, the one shape the file cannot carry: a keyless catalogue entry', async () => {
+  it('carries the one shape the file used to lose: a keyless catalogue entry, command and all', async () => {
     const fixture = ROUND_TRIP_FIXTURES.find((f) => f.name === 'Keyless catalogue entry')!
     const { handlers, state } = await boot()
     state.setConfigProfiles([{ ...fixture, id: 'p1', assignments: [] }])
     await state.settle()
     await save(handlers)
     const fileName = fileNameOf(state)
-    expect(inventory(only(state)).entries).not.toEqual([])
+    const before = inventory(only(state))
+    expect(before.entries).not.toEqual([])
 
-    // The rendered file carries no line for the entry - which is the limitation itself.
+    // The rendered file carries the entry as a commented-out bind, not as nothing.
     const written = await readFile(canonicalPath(fileName), 'latin1')
-    expect(written).not.toContain('moveleft')
+    expect(written).toMatch(/^\/\/bind "\+moveleft"\s+\/\/ Strafe left \[q2l cid=moveleft\]$/m)
 
     await writeFile(canonicalPath(fileName), `${written}// touched by hand\n`, 'latin1')
     const results = await refresh(handlers, { profileId: 'p1' })
 
     expect(results[0]!.outcome).toBe('adopted')
-    // The profile itself survives; the keyless entry does not, because the file never held it.
     expect(state.configProfiles()).toHaveLength(1)
-    expect(inventory(only(state)).entries).toEqual([])
+    // The row survives the adopt with everything the unbound line records.
+    expectNothingLost(before, inventory(only(state)), 'keyless catalogue entry after adopting')
   })
 })
 

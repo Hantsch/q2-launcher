@@ -43,7 +43,7 @@ export interface ControlsOptionsCellProps {
 export function ControlsOptionsCell({ layer, conflict, extra }: ControlsOptionsCellProps) {
   const { t } = useTranslation()
 
-  // Review fix (finding 2): the 150px Options column has no room to grow, so the conflict/layer
+  // Review fix (finding 2): the fixed Options column has no room to grow, so the conflict/layer
   // text needs `min-w-0 truncate` (mirrors `ControlsRow.tsx`'s Action-cell name/command spans)
   // plus a `title` carrying the untruncated value, rather than forcing the column wider.
   const text = conflict ? (

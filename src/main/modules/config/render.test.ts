@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import type { ActionKeySlot, ConfigAction, ConfigProfile } from '@shared/modules/config'
+import type {
+  ActionKeySlot,
+  ConfigAction,
+  ConfigActionCategory,
+  ConfigProfile,
+} from '@shared/modules/config'
+import { TEMPLATE_ACTION_CATEGORIES } from '@shared/modules/config'
 import type { AltLayer } from '@shared/config/alt-layers'
 import { generateLayerAliases } from '@shared/config/alt-layers'
 import { keySlotAt } from '@shared/config/action-slots'
@@ -19,6 +25,21 @@ import {
   sentinelLine,
 } from './render'
 
+/**
+ * The three template categories as `STANDARD_TEMPLATE` seeds them (`{ id, name, nameKey }`).
+ *
+ * Story 052 D4: the file's category sections are `profile.categories`, in that array's order, and
+ * nothing else - the three former built-ins are no longer prepended by the writer. So a test profile
+ * whose actions sit in `movement`/`weapons`/`drops` has to *carry* those categories, exactly as a
+ * template-seeded profile does; without them its entries are uncategorised and land in the trailing
+ * "Other" bucket (which is what several tests below now deliberately check).
+ */
+const TEMPLATE_CATEGORIES: ConfigActionCategory[] = TEMPLATE_ACTION_CATEGORIES.map((category) => ({
+  id: category.id,
+  name: category.label,
+  nameKey: category.labelKey,
+}))
+
 function profile(overrides: Partial<ConfigProfile> = {}): ConfigProfile {
   return {
     id: 'test-id',
@@ -28,6 +49,7 @@ function profile(overrides: Partial<ConfigProfile> = {}): ConfigProfile {
     cvars: {},
     binds: {},
     assignments: [],
+    categories: TEMPLATE_CATEGORIES,
     ...overrides,
   }
 }
@@ -686,12 +708,12 @@ describe('renderProfileFile with actions', () => {
     // Both actions sit in the same (weapons) category, so they share one alias section, and the
     // keyed one's bind is filed under that same category with the entry's name on it.
     expect(lines).toContain(
-      '// --- Aliases: Weapons [q2l cat=weapons] --------------------------------------',
+      '// --- Aliases: Weapons [q2l cat=weapons ord=0] --------------------------------',
     )
     expect(lines).toContain(`alias one drop rl  // One ${entryTag()}`)
     expect(lines).toContain(`alias two wave 2   // Two ${entryTag()}`)
     expect(lines).toContain(
-      '// --- Binds: Weapons [q2l cat=weapons] ----------------------------------------',
+      '// --- Binds: Weapons [q2l cat=weapons ord=0] ----------------------------------',
     )
     expect(lines).toContain(`bind x "two"  // Two ${entryTag()}`)
   })
@@ -818,7 +840,7 @@ describe('renderProfileFile with actions', () => {
           // key that row holds), so they are filed under the owning action's category and
           // ordered by that action's index in `profile.actions` - `w` before `MOUSE1`, which is
           // neither alphabetical nor insertion order.
-          '// --- Binds: Movement [q2l cat=movement] --------------------------------------',
+          '// --- Binds: Movement [q2l cat=movement ord=0] --------------------------------',
           `bind w      "+forward"  // Forward ${entryTag({ cid: 'movement:forward' })}`,
           `bind MOUSE1 "+attack"   // Attack ${entryTag({ cid: 'attack:primary' })}`,
           '',
@@ -1115,9 +1137,18 @@ describe('story 040 D3: alias, layer and bind sections', () => {
   }
 
   describe('grouping and order', () => {
-    const categories = [
+    /**
+     * Story 052 D4: deliberately neither alphabetical nor built-ins-first, and with one former
+     * built-in (`drops`) renamed by its `name`. The section order below is exactly this array's
+     * order, which is what makes reordering and renaming a category in the rail move and rename its
+     * section in the file (AC 8).
+     */
+    const categories: ConfigActionCategory[] = [
       { id: 'cat-bravo', name: 'Bravo' },
+      { id: 'drops', name: 'Drops' },
       { id: 'cat-alpha', name: 'Alpha' },
+      { id: 'movement', name: 'Movement', nameKey: 'config.controls.categories.movement' },
+      { id: 'weapons', name: 'Weapons', nameKey: 'config.controls.categories.weapons' },
     ]
 
     /** One entry per section a category can produce, plus one whose category the profile no
@@ -1145,9 +1176,12 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       },
     })
 
-    it('orders alias and bind sections by category: built-ins, then profile.categories array order, then other', () => {
+    it('orders alias and bind sections by profile.categories array order, then other', () => {
       // `profile.categories` is deliberately stored Bravo-before-Alpha, so a section order of
       // Alpha-before-Bravo would prove the code sorted by name instead of following the array.
+      // Story 052 D4: the three former built-ins are in that same array and get no head start -
+      // `drops` sits second because the array says so, under the profile's own name for it
+      // ("Drops", not the template's "Weapon dropping"), and `movement`/`weapons` come last.
       // (This profile has no layers; the layer sections' own placement - last, after "Other
       // binds" - is pinned by the tests in the layers block above.)
       // Story 042 D2: every category section header carries its own `cat` id, which is what lets
@@ -1155,21 +1189,24 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       // category minted from the banner's title). The two "Other" buckets carry no tag: their
       // members' `categoryId` matches no category the profile has, so there is no id to record and
       // a tag would invent one. "Other binds" carries none either - those lines have no owner.
+      // Story 052 (F3 fix): each of those headers also carries `ord`, the category's own position in
+      // `profile.categories` - the same value on all three of a category's headers, and the only
+      // thing that tells a reader the order apart when two categories share no section block.
       // Story 048 D2: the four cvar group banners lead every file now - no group can be empty once
       // every catalogue cvar is written.
       expect(banners(renderProfileFile(grouped))).toEqual([
         ...CVAR_GROUP_BANNERS,
-        'Aliases: Movement [q2l cat=movement]',
-        'Aliases: Weapons [q2l cat=weapons]',
-        'Aliases: Weapon dropping [q2l cat=drops]',
-        'Aliases: Bravo [q2l cat=cat-bravo]',
-        'Aliases: Alpha [q2l cat=cat-alpha]',
+        'Aliases: Bravo [q2l cat=cat-bravo ord=0]',
+        'Aliases: Drops [q2l cat=drops ord=1]',
+        'Aliases: Alpha [q2l cat=cat-alpha ord=2]',
+        'Aliases: Movement [q2l cat=movement ord=3]',
+        'Aliases: Weapons [q2l cat=weapons ord=4]',
         'Aliases: Other',
-        'Binds: Movement [q2l cat=movement]',
-        'Binds: Weapons [q2l cat=weapons]',
-        'Binds: Weapon dropping [q2l cat=drops]',
-        'Binds: Bravo [q2l cat=cat-bravo]',
-        'Binds: Alpha [q2l cat=cat-alpha]',
+        'Binds: Bravo [q2l cat=cat-bravo ord=0]',
+        'Binds: Drops [q2l cat=drops ord=1]',
+        'Binds: Alpha [q2l cat=cat-alpha ord=2]',
+        'Binds: Movement [q2l cat=movement ord=3]',
+        'Binds: Weapons [q2l cat=weapons ord=4]',
         'Binds: Other',
         'Other binds',
       ])
@@ -1407,7 +1444,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
 
       // The base bind really did land in its owning category's section, not in "other binds" -
       // otherwise this case would silently be the previous test over again.
-      expect(banners(rendered)).toContain('Binds: Weapons [q2l cat=weapons]')
+      expect(banners(rendered)).toContain('Binds: Weapons [q2l cat=weapons ord=0]')
       expect(codeLines).toContain('bind ALT "attack_e"')
       expect(codeLines).toContain('bind ALT +drops')
       expect(codeLines.indexOf('bind ALT +drops')).toBeGreaterThan(
@@ -1418,7 +1455,8 @@ describe('story 040 D3: alias, layer and bind sections', () => {
     it('emits no banner for a category with nothing in it', () => {
       const p = profile({
         id: 'sparse',
-        categories: [{ id: 'cat-empty', name: 'Empty category' }],
+        // The empty one first, so its absence from the output cannot be an ordering artefact.
+        categories: [{ id: 'cat-empty', name: 'Empty category' }, ...TEMPLATE_CATEGORIES],
         actions: [
           action({ id: 'only', name: 'Only', categoryId: 'weapons', aliasName: 'only_e', commands: [{ kind: 'raw', text: 'wave 1' }, { kind: 'raw', text: 'wait' }] }),
         ],
@@ -1426,7 +1464,10 @@ describe('story 040 D3: alias, layer and bind sections', () => {
 
       expect(banners(renderProfileFile(p))).toEqual([
         ...CVAR_GROUP_BANNERS,
-        'Aliases: Weapons [q2l cat=weapons]',
+        // `ord=0`, not `ord=1`: `categoryOrdinals` numbers only the categories that carry an entry,
+        // so the empty one that writes no section does not consume an ordinal either - see that
+        // function's own doc comment for why a gap here would cost story 042's fixed point.
+        'Aliases: Weapons [q2l cat=weapons ord=0]',
       ])
     })
   })
@@ -1864,7 +1905,7 @@ describe('story 042 D2: the [q2l ...] metadata the writer emits', () => {
       expect(line.split('[q2l').length - 1).toBeLessThanOrEqual(1)
     }
     expect(rendered).toContain(`// Gib (q2l cid=attack:primary] ${entryTag()}`)
-    expect(rendered).toContain('// --- Aliases: Weapons (q2l cat=movement] [q2l cat=cat-real] ')
+    expect(rendered).toContain('// --- Aliases: Weapons (q2l cat=movement] [q2l cat=cat-real ord=0] ')
     // The forged fields did not become real ones - the only `cid` and `cat` in the file are the
     // ones the writer put there itself.
     expect(rendered).not.toContain('[q2l cid=attack:primary]')
@@ -2167,9 +2208,11 @@ describe('story 050 D6: the reduced [q2l ...] tag', () => {
         // Positive side of the same check, so a tag that renders no field at all cannot make the
         // assertion above pass by emitting nothing: every key is one the post-050 registry has.
         for (const key of keys) {
-          // `lbl` (story 045, D4) is the tenth and newest registered key - a toggle/press-release
-          // state's own display label. It joined the list here rather than replacing anything,
-          // which is exactly what "a key addition alone needs no `META_FORMAT_VERSION` bump" means.
+          // `lbl` (story 045, D4) is the tenth registered key - a toggle/press-release state's own
+          // display label - and `ord` (story 052's F3 fix) the eleventh, a category section header's
+          // own position in `profile.categories`. Each joined the list here rather than replacing
+          // anything, which is exactly what "a key addition alone needs no `META_FORMAT_VERSION`
+          // bump" means.
           expect([
             'v',
             'cid',
@@ -2181,6 +2224,7 @@ describe('story 050 D6: the reduced [q2l ...] tag', () => {
             'mode',
             'trigger',
             'lbl',
+            'ord',
           ]).toContain(key)
         }
       }

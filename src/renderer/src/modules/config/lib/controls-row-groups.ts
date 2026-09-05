@@ -9,13 +9,15 @@
  * not off `categoryId` — movement has a `CatalogRowKind` of its own but no subgroup, so it (like
  * every custom category, and any entry with no `catalogId` at all) falls into the ungrouped run.
  *
- * D4 widens this from `ConfigAction[]` to `ControlsRowEntry[]` (`lib/controls-row-entries.ts`):
- * a catalogue row's group has to be knowable before it is ever materialised into a `ConfigAction`
- * (lazy materialisation), so a `'catalog'` entry's group comes off `row.catalogId` directly rather
- * than off an `action` that may not exist yet. A plain `'action'` entry (custom category, or a
- * legacy free-form action under "Other actions") keeps reading `action.catalogId`, which is
- * always empty for those - so it always lands in the ungrouped run, matching the pre-D4 behaviour
- * exactly.
+ * D4 widens this from `ConfigAction[]` to `ControlsRowEntry[]` (`lib/controls-row-entries.ts`): a
+ * `'catalog'` entry's group comes off `row.catalogId`, a plain `'action'` entry's off
+ * `action.catalogId` (empty for a free-form entry, so it lands in the ungrouped run).
+ *
+ * Story 052 D8 changes nothing here, deliberately: this module is a pure function of whatever row
+ * list it is handed, and that list is now the profile's own entries in the profile's own order
+ * instead of the catalogue's full shape. So the headers stay catalogue-derived (until story 053
+ * makes them real sub-categories) but only ever over rows that exist - a group the profile has no
+ * entries for is never rendered, and a group's rows are however many the profile carries.
  *
  * Pure and hook-free like `catalog-binds.ts`, so `ControlsTab`/`ControlsGrid` can resolve the
  * group's i18n label with `useTranslation()` while this module stays trivially testable.
@@ -53,7 +55,7 @@ export interface ControlsRowGroup {
 
 /**
  * Groups `entries` (already filtered to one category, in the profile's own array order — story
- * 019's ordering model for legacy/custom entries, catalogue order for catalogue rows) by
+ * 019's ordering model, which story 052 D8 extends to catalogue-backed rows) by
  * catalogue group. Preserves each entry's relative order and each group's first-seen position;
  * every entry with no group (including all of a custom category's, and every legacy "Other
  * actions" entry) collapses into a single `labelKey: null` bucket rather than one group per entry.

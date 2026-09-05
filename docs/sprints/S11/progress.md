@@ -1,0 +1,24 @@
+- 2026-09-05 16:27 · 052 · D1 Template seeds categories and rows · started
+- 2026-09-05 16:33 · 052 · D1 Template seeds categories and rows · done
+- 2026-09-05 16:33 · 052 · D2 The unbound line is written · started
+- 2026-09-05 16:44 · 052 · D2 The unbound line is written · done
+- 2026-09-05 16:44 · 052 · D3 The unbound line is read back · started
+- 2026-09-05 16:59 · 052 · D3 The unbound line is read back · done
+- 2026-09-05 16:59 · 052 · D4 No category is special in the core · started
+- 2026-09-05 17:15 · 052 · D4 No category is special in the core · done
+- 2026-09-05 17:15 · 052 · D5 Adversarial round-trip pass · started
+- 2026-09-05 17:30 · 052 · D5 Adversarial round-trip pass · found-defect (D4 category ordering, fix dispatched before continuing)
+- 2026-09-05 17:39 · 052 · D5 Adversarial round-trip pass · done (D4 category-order defect fixed)
+- 2026-09-05 17:39 · 052 · D6 Existing profiles migrate once · started
+- 2026-09-05 17:41 · 052 · D6 Existing profiles migrate once · done
+- 2026-09-05 17:41 · 052 · D7 The rail is the profile's · started
+- 2026-09-05 17:46 · 052 · D7 The rail is the profile's · done
+- 2026-09-05 17:46 · 052 · D8 Rows are the profile's entries · started
+- 2026-09-05 18:11 · 052 · D8 Rows are the profile's entries · done
+- 2026-09-05 18:11 · 052 · D9 Suggestions and the delete choice · started
+- 2026-09-05 18:21 · 052 · D9 Suggestions and the delete choice · done
+- 2026-09-05 18:21 · 052 · D10 Harness coverage · started
+- 2026-09-05 18:38 · 052 · D10 Harness coverage · done
+- 2026-09-05 18:57 · 052 · Review cycle 1 (FAIL, F1-F10) · started fixes
+- 2026-09-05 19:26 · 052 · Review cycle 1 fixes (F1-F5,F7-F10) · done, F6 disclosed residual
+- 2026-09-05 19:26 · 052 · Story verification (build/typecheck/test/ui:verify/ui:flow) · done, status done
