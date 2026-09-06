@@ -512,6 +512,42 @@ fix for a raw/compacted key-index bug introduced a second index-mismatch regress
 self-exclusion, caught and fixed one cycle later. Full findings and the disclosed residual
 limitations for each story are in `docs/sprints/S11/review.md`.
 
+`docs/sprints/S12` **built (2026-09-06), live acceptance pending** — 051 → 059 → 057, in that
+build order (the file is the hero). **All three done**: `npm run build`/`typecheck` green,
+`npm test` green (2458/2458 tests), live `npm run ui:verify` clean (0 axe violations, every
+screen) plus a dedicated `ui:flow` script per UI-facing story (settings section rename + add
+cvar, raw inline edit). See `docs/sprints/S12/review.md` and `docs/sprints/S12/testplan.md`.
+
+051 collapsed the header to four lines — profile name framed by two rules, one fixed launcher
+look, the `[q2l v=1 id=...]` tag alone on its own last (right-aligned) line — with one shared
+`file-ownership.ts` module replacing three separate line-1 ownership checks; a file carrying the
+old S10 header is still recognised and rewritten to the new shape on its next save. 059 gave
+Settings a real, user-owned two-level section model (`profile.cvarSections`, mirroring 052/053's
+category/sub-category model) in place of the fixed Player/Network/Graphics/Sound grouping, so
+every cvar in the profile has a row (catalogue or plain), plus a per-profile toggle governing
+whether an imported profile's unplaced catalogue defaults (048) get written at all. 057 made the
+Raw file tab's code view fill the available height and editable in place via a hand-rolled
+transparent textarea over the existing tokenised `<pre>` (keeps the production CSP's
+`style-src 'self'` intact, no CodeMirror), with a raw edit as a first-class unsaved change through
+the existing conflict guard and adopt path; per-installation copies were removed from this tab
+entirely (058, S13, rehomes them into Care's Sync section).
+
+**By user decision, three stories landed against their own recommendation:** 051's banner uses one
+fixed launcher look rather than following the profile's section style, and puts the `[q2l ...]`
+tag on its own last header line rather than the name line; 059 uses two levels of cvar sections
+(not one) and an explicit per-profile toggle for whether unplaced catalogue defaults get written,
+rather than a fixed auto-section. All recorded as `(User)` decisions in each story's file.
+
+**Carry-over rule held again**: 051 and 059 each hit a real bug only an adversarial re-render pass
+caught (051: a blank profile name left a trailing-whitespace line; 059: an IPC list-length cap
+mixed up with a section-count cap silently broke Settings edits on any profile past 64 cvars, plus
+a first-vs-last cvar-attribution mismatch against the literal `dm.cfg` acceptance criterion). 057's
+review round 2 caught a real conflict-guard bypass in the raw-edit focus-resume path that round 1's
+fix had missed — same "verify the previous round's fix through the real pipeline" lesson holding
+again. 059 also left one accepted, documented tradeoff: its template-profile writer output is no
+longer byte-identical, a side effect of tags now being required for section-rename identity. Full
+findings in `docs/sprints/S12/review.md`.
+
 ### Mods — game directories
 
 - `+set game <dir>` is already built and validated (single ASCII token). The rest
