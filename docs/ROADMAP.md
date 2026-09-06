@@ -438,8 +438,11 @@ and whether `alias cali "bind KP_END ...; ..."`-style key-block aliases are reco
 
 ## Config, round three — the editor reflects the file
 
-Filed 2026-09-05 out of hands-on feedback on the S10 build; cut into `docs/sprints/S11`–`S13`
-(**planned, not built**). The theme: round two made the file honest, readable and authoritative —
+Filed 2026-09-05 out of hands-on feedback on the S10 build; cut into `docs/sprints/S11`–`S13`.
+**All three sprints built (2026-09-06), live acceptance pending** — the milestone's nine stories
+are all `done`; the user still owes the live UI acceptance pass across S11–S13 before this
+milestone can be marked accepted. The theme: round two made the file honest, readable and
+authoritative —
 the surfaces around it still behave as if the launcher owned the structure. The Controls tab is a
 catalogue with the profile laid over it (three constant categories, every catalogue row rendered
 whether the profile has it or not, only free-form rows movable, no drag and drop anywhere); the
@@ -547,6 +550,37 @@ fix had missed — same "verify the previous round's fix through the real pipeli
 again. 059 also left one accepted, documented tradeoff: its template-profile writer output is no
 longer byte-identical, a side effect of tags now being required for section-rename identity. Full
 findings in `docs/sprints/S12/review.md`.
+
+`docs/sprints/S13` **built (2026-09-06), live acceptance pending** — 054 → 058, in that build
+order (deliberately last and small: 054 depends on S11/S12's finished row/section model, 058 on
+057's decision to home per-installation file rows in Care). **Both done**: `npm run build`/
+`typecheck` green, `npm test` green (2565/2565 tests), live `npm run ui:verify` clean (0 axe
+violations at every screen) plus a `ui:flow` script per story (`controls-drag-reorder`,
+`care-fix-item`). This closes the "Config, round three" milestone. See `docs/sprints/S13/review.md`
+and `docs/sprints/S13/testplan.md`.
+
+054 added `@dnd-kit` (`core`/`sortable`/`utilities`/`modifiers`) as the renderer's first
+drag-and-drop dependency behind one shared primitive, and made every ordered thing in Controls and
+Settings draggable — rows within and across sub-categories, onto another category (chip drop, or a
+spring-loaded switch into that category's own grid, **by user decision** going beyond the story's
+chip-only recommendation), sub-category headers, category chips, and Settings sections/
+sub-sections/cvars — with the old inline move buttons relocated behind a row kebab menu
+(**by user decision**) as part of the kept keyboard path. 058 rebuilt Care from four
+always-mounted section panels into one derived to-do list (`lib/care-items.ts`): a healthy profile
+gets one "All clear" summary line per checked area instead of empty-state illustrations and a
+disabled button; the installation-wide redundant-copies cleanup left the profile's Care tab
+entirely for a new per-installation dialog on the Library installation row (**by user decision** —
+Library over the story's own interim fallback), keeping its scan → apply → undo flow untouched.
+
+**Carry-over rule does not apply to either story** — 054 and 058 change how the editor behaves,
+not what a rendered file contains, so neither touches `render.ts`/`profile-restore.ts`/
+`alias-render.ts`. Both still hit a real pre-existing bug: 054 found `cvarSections` was never
+captured by baseline/Discard and had drifted into a *required* schema field, silently discarding
+every pre-story baseline on read; 058's review (two cycles) found a nested-modal Escape/Tab-trap
+route that could strand the destructive cleanup flow's Undo affordance. Both are fixed and tested.
+054 also disclosed a mid-build incident (a build subagent accidentally reset `ControlsTab.tsx` to
+its pre-story version via a stray `git show` redirect) that was caught and fully reconstructed
+before commit. Full findings in `docs/sprints/S13/review.md`.
 
 ### Mods — game directories
 
