@@ -619,14 +619,25 @@ part of the registry and don't take a `variant`/`viewports` of their own.
 Flows shipped so far, alongside `open-keycap-dialog` above:
 `alias-rename-dialog`, `controls-category-rename-reorder`,
 `controls-extra-keys`, `controls-subcategory`, `custom-action-row`,
-`drop-message-checkbox`, `settings-section-rename-add-cvar`, and (story 057
-D7) **`raw-inline-edit`** — types a line into the Raw file tab's real inline
+`drop-message-checkbox`, `settings-section-rename-add-cvar`, (story 057
+D7) `raw-inline-edit` — types a line into the Raw file tab's real inline
 editor (`.cfg-code-textarea`), saves it via the save bar's `config-save`
 button (the same path Ctrl+S in the editor calls), then asserts both the
 read-back result panel (`config-raw-save-result`, `RawFileTab.tsx`) and the
 profile's canonical file on disk, read straight off `.ui-verify/fixture/
 populated/userdata/Plain-Profile.cfg` with `node:fs`, actually contain the
-typed text.
+typed text, and (story 054 D12) **`controls-drag-reorder`** — a real drag
+through the running app via low-level `page.mouse.move/down/up` (not
+`locator.dragTo()`: `SortableZone`'s `PointerSensor` has an 8px
+`activationConstraint.distance`, `SortableList.tsx`, so the pointer has to
+actually move past that threshold, in steps, before dnd-kit starts the drag
+and registers the hover-over-target along the way). Drags Plain Profile's
+"Multi Bind" fixture row onto "Attack" to reorder within the Movement
+category, asserting the rendered row order (`[role="rowgroup"][data-row-id]`)
+actually changed; then drags "Attack" onto the "Weapons" category chip
+(`[data-drop-category="weapons"]`, `ControlsDragZone.tsx`'s
+`CategoryDropTarget`), asserting the row left the Movement grid and is
+appended at the end of the Weapons grid after switching category.
 
 ## Baselines and CI
 

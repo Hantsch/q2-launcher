@@ -21,8 +21,13 @@
  * save. A baseline without it meant a discard restored every cvar, bind, action and layer but left
  * the profile renamed, which is not "the last saved state" (AC6).
  *
- * `id` is the one field a save writes that is deliberately absent: it is never editable, so it can
- * never differ from its baseline.
+ * `cvarSections` (story 054 D11) is the same kind of render-relevant field as `categories`: story
+ * 059 D8 made `setCvars` replace it wholesale, alongside the cvar values `cvars` already covered, so
+ * a section/sub-section move (or a cvar moved between sections) is exactly as much "not in the file
+ * yet" as a cvar value edit is - and `discard()` restoring `categories`/`actions` but not
+ * `cvarSections` would put every Controls row back where it was while leaving Settings' own grouping
+ * wherever the unsaved edit had left it. `id` is the one field a save writes that is deliberately
+ * absent: it is never editable, so it can never differ from its baseline.
  *
  * Pure by contract, like every other `src/shared/config` module: no node, no DOM, no electron.
  */
@@ -30,6 +35,7 @@
 import type {
   ConfigAction,
   ConfigActionCategory,
+  ConfigCvarSection,
   ConfigProfile,
   UnrecognizedConfigLine,
 } from '../modules/config'
@@ -57,6 +63,7 @@ export interface ProfileBaseline {
   layers: AltLayer[]
   categories: ConfigActionCategory[]
   actions: ConfigAction[]
+  cvarSections: ConfigCvarSection[]
   writeUnbindall: boolean
   /** Kept in lockstep with the field it snapshots rather than restating the three literals. */
   sectionHeaderStyle: NonNullable<ConfigProfile['sectionHeaderStyle']>
@@ -91,6 +98,13 @@ export function captureBaseline(profile: ConfigProfile): ProfileBaseline {
     actions: (profile.actions ?? []).map((action) => ({
       ...action,
       commands: action.commands.map((command) => ({ ...command })),
+    })),
+    cvarSections: (profile.cvarSections ?? []).map((section) => ({
+      ...section,
+      cvars: [...section.cvars],
+      ...(section.subsections
+        ? { subsections: section.subsections.map((sub) => ({ ...sub, cvars: [...sub.cvars] })) }
+        : {}),
     })),
     // The same two reads `render.ts` performs, so the snapshot says what the file would have said.
     writeUnbindall: profile.writeUnbindall !== false,

@@ -37,6 +37,8 @@ import {
   literalOtherCvarSectionProfile,
   mixedCatalogueCvarSectionProfile,
   scrambledCategoryOrderProfile,
+  scrambledCvarSectionOrderProfile,
+  scrambledSubcategoryOrderProfile,
   unplacedCatalogueDefaultsOffProfile,
 } from '@shared/config/fixtures/profiles'
 import { readImportableConfig } from './core/import-reader'
@@ -2145,6 +2147,71 @@ describe('story 052 D5: a scrambled category order survives the round trip', () 
     // Nothing else degrades with it: both categories are back, with their entries.
     expect(restored.actions).toHaveLength(3)
     expect(restored.warnings.filter((warning) => warning.reason === 'tag-unknown-keys')).toEqual([])
+  })
+})
+
+/**
+ * Story 054 D11: the drag-reorder dimensions D6 (Controls sub-categories) and D10 (Settings
+ * sections/sub-sections) added, one level below the categories `scrambledCategoryOrderProfile`
+ * already pins above - story 042's fixed-point property restated specifically over a reordered
+ * structure, per that D's acceptance line ("a rendered file emits categories/sub-categories/
+ * sections/rows in the new order after a reorder, and re-reading that rendered output reproduces
+ * the same order").
+ *
+ * Neither dimension had a dedicated order-assertion case before this story: the sub-category and
+ * cvar-section fixtures already in the corpus (`subcategoryProfile`, `mixedCatalogueCvarSectionProfile`
+ * and friends) all declare their sub-categories/sections in a harmless order, so nothing in the
+ * existing suite would have caught a reader that silently re-sorted either array while still
+ * producing an internally consistent (and therefore fixed-point-passing) file.
+ */
+describe('story 054 D11: a scrambled sub-category / cvar-section order survives the round trip', () => {
+  it('"Scrambled sub-category order": the sub-categories come back in the profile\'s own order, not file-discovery order', async () => {
+    const { profile2, text1 } = await reimportProfile(scrambledSubcategoryOrderProfile)
+
+    // The premise: the file's sub-banners really are in the scrambled order the profile declared,
+    // not creation order and not alphabetical. Each of the writer's per-category blocks
+    // (`Aliases:`/`Binds:`/`Entries:`) repeats the same sub-banner sequence once for its own rows, so
+    // dedupe by first appearance rather than asserting the raw (repeating) list.
+    const banners = text1
+      .split('\n')
+      .filter((line) => line.startsWith('// --- ') && line.includes('[q2l sub='))
+      .map((line) => line.slice('// --- '.length).replace(/\s*\[q2l .*$/, '').trim())
+    expect([...new Set(banners)]).toEqual(['Cycling', 'Ammo', 'Beta'])
+
+    // The reader half: `category.subcategories` has to come back in that same order, or the next
+    // render moves the sub-banners.
+    expect(profile2.categories).toHaveLength(1)
+    expect(profile2.categories![0]!.subcategories!.map((sub) => sub.name)).toEqual([
+      'Cycling',
+      'Ammo',
+      'Beta',
+    ])
+    expect(sortedEntryShapes(profile2)).toEqual(sortedEntryShapes(scrambledSubcategoryOrderProfile))
+    expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
+  })
+
+  it('"Scrambled cvar section and sub-section order": both levels come back in the profile\'s own order', async () => {
+    const { profile2, text1 } = await reimportProfile(scrambledCvarSectionOrderProfile)
+
+    // The premise: `Network` really is written before `Player`, and `Look` before `Move` inside it.
+    // Every fixture also carries the reserved, untagged-by-name `Defaults` bucket
+    // (`profile.writeCatalogDefaults` defaults to `true`, and this fixture's `cvars` do not name
+    // every catalogue cvar) trailing after the real sections, which is not what this case is about.
+    const banners = text1
+      .split('\n')
+      .filter((line) => line.startsWith('// --- ') && (line.includes('[q2l cvs=') || line.includes('[q2l cvsub=')))
+      .map((line) => line.slice('// --- '.length).replace(/\s*\[q2l .*$/, '').trim())
+      .filter((name) => name !== 'Defaults')
+    expect(banners).toEqual(['Network', 'Player', 'Look', 'Move'])
+
+    // The reader half.
+    expect(profile2.cvarSections!.map((section) => section.name)).toEqual(['Network', 'Player'])
+    expect(
+      profile2.cvarSections!.find((section) => section.name === 'Player')!.subsections!.map(
+        (sub) => sub.name,
+      ),
+    ).toEqual(['Look', 'Move'])
+    expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
   })
 })
 

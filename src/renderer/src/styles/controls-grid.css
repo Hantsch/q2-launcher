@@ -56,14 +56,90 @@
    Options (165px -> 190px) per the story's Decisions ("Grid template"); the Key
    track itself grows to 224px (165px slot width plus the 34px+gap "+n"/`+`
    affordance area that sits inline after the slot). The 1120px stage is
-   unchanged: 220+34+224+190 fixed/min tracks + gaps match the old sum. */
+   unchanged: 220+34+224+190 fixed/min tracks + gaps match the old sum.
+
+   Story 054 D3: a leading grip column reserves space for D4's `DragHandle` -
+   always in the DOM (`ControlsRow`/`ControlsGrid`'s header) so the column never
+   reflows once a real grip lands in it.
+
+   Story 054 D4: that track is 28px, not D3's placeholder 20px. The grip is an
+   `IconButton` (`size="sm"` = 28px, the same size as every other dense icon
+   button in this grid), and shrinking its box below that would either clip the
+   button or leave a hit target smaller than the row's own dense controls for the
+   one affordance that has to be grabbed with a pointer. The 8px comes out of the
+   Action column's `1fr`, so the 1120px stage and every other track are
+   unchanged. */
 .ctrl-colhead,
 .ctrl-row {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 34px 224px 190px;
+  grid-template-columns: 28px minmax(220px, 1fr) 34px 224px 190px;
   align-items: center;
   gap: 10px;
   padding: 0 16px;
+}
+
+/* --- grip column (story 054 D3/D4) ---------------------------------------
+   The cell is always rendered, with or without a handle in it. */
+.ctrl-grip {
+  display: flex;
+  align-items: center;
+  width: 28px;
+  height: 100%;
+}
+
+/* Story 054's decision: the grip is always in the DOM and visually revealed on
+   row hover/focus-within, so a dense grid of 40px rows does not grow a permanent
+   column of grip icons. Revealed for keyboard users by `:focus-within` (the
+   handle is a real, tabbable button and dnd-kit's keyboard sensor starts a drag
+   from it) and kept visible while its own row is being dragged, since the pointer
+   has left the row by then. */
+.ctrl-grip-handle {
+  opacity: 0;
+  cursor: grab;
+  transition: opacity var(--dur-fast) var(--ease-out-quart);
+}
+
+.ctrl-row:hover .ctrl-grip-handle,
+.ctrl-row:focus-within .ctrl-grip-handle,
+.ctrl-rowgroup.is-dragging .ctrl-grip-handle,
+/* Story 054 D6: the sub-category header's own grip follows the same hover/focus/dragging
+   reveal rule as a row's. */
+.ctrl-group:hover .ctrl-grip-handle,
+.ctrl-group:focus-within .ctrl-grip-handle,
+.ctrl-group.is-dragging .ctrl-grip-handle,
+/* Story 054 D7: the category rail's own chip grip follows the same reveal rule. */
+.ctrl-category-chip:hover .ctrl-grip-handle,
+.ctrl-category-chip:focus-within .ctrl-grip-handle,
+.ctrl-category-chip.is-dragging .ctrl-grip-handle {
+  opacity: 1;
+}
+
+/* A disabled grip (the filter is narrowing the list) stays visible instead of
+   hiding until hover: `DragHandle`'s own `opacity-45` is a Tailwind utility and
+   this file is in the `components` layer, so the utility wins - and that is the
+   better behaviour anyway. The one affordance the user is being told they cannot
+   use right now should be on screen carrying its explaining tooltip, not
+   invisible until they happen to hover the row. */
+.ctrl-grip-handle[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
+:root[data-motion='reduced'] .ctrl-grip-handle {
+  transition: none;
+}
+
+/* The row being dragged stays in the flow (that is what keeps the list's height
+   and the zebra parity stable) but recedes, since a copy of it is riding under
+   the pointer - see `ControlsGrid`'s `renderOverlay`. */
+.ctrl-rowgroup.is-dragging,
+/* Story 054 D6: the sub-category header being dragged recedes the same way a dragged row does -
+   there is no separate `DragOverlay` copy for a header (see `ControlsGrid`'s doc comment), so the
+   header itself moves under the pointer via its own `useSortable` transform. */
+.ctrl-group.is-dragging,
+/* Story 054 D7: a category chip being dragged recedes the same way - no separate `DragOverlay`
+   copy for a chip either, so it moves under the pointer via its own `useSortable` transform. */
+.ctrl-category-chip.is-dragging {
+  opacity: 0.4;
 }
 
 /* --- sticky column header ------------------------------------------------ */
@@ -378,7 +454,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px 8px calc(16px + 34px + 10px);
+  /* Review-fix (finding 6): story 054 D3/D4 inserted a 28px grip column plus its 10px grid gap
+     ahead of the Action column (`.ctrl-row`'s `grid-template-columns` above), pushing the primary
+     row's label 38px further right. This sub-row's indent is relative to that label, so the same
+     28px + 10px is added here too - otherwise the two drift back to nearly flush. */
+  padding: 8px 16px 8px calc(16px + 28px + 10px + 34px + 10px);
   background: var(--color-raised);
   border-bottom: 1px solid var(--color-line);
 }
@@ -433,7 +513,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px 8px calc(16px + 34px + 10px);
+  /* Review-fix (finding 6): same 28px grip + 10px gap added as `.ctrl-keysub` above, for the same
+     reason - restores this row's indent relative to the primary row's label. */
+  padding: 8px 16px 8px calc(16px + 28px + 10px + 34px + 10px);
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
@@ -506,4 +588,60 @@
 
 :root[data-motion='reduced'] .ctrl-slot.is-capturing {
   animation: none;
+}
+
+/* --- drag-and-drop drop indicator (story 054 D1) -------------------------
+   A thin line shown between two rows during a drag-over, so the exact drop
+   position is unambiguous. Consumers (D4+) toggle this class on whichever
+   edge of a row is closer to the pointer - this file only owns its look.
+   `::before`/`::after` so the indicator draws without affecting the row's
+   own layout or height (AC 4: the dragged row keeps its 40px height). */
+.ctrl-drop-indicator {
+  position: relative;
+}
+
+.ctrl-drop-indicator-top::before,
+.ctrl-drop-indicator-bottom::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  height: 2px;
+  background: var(--color-flame-500);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+
+.ctrl-drop-indicator-top::before {
+  top: -1px;
+}
+
+.ctrl-drop-indicator-bottom::after {
+  bottom: -1px;
+}
+
+/* --- drag preview (story 054 D4) -----------------------------------------
+   The copy that rides under the pointer inside dnd-kit's `DragOverlay`: the
+   row's own 40px `.ctrl-row` shell with just the grip cell and the row's name,
+   lifted off the grid with a panel background and a border so it reads as one
+   detached row over whatever it passes. */
+.ctrl-drag-preview {
+  background: var(--color-raised);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 0.45);
+  cursor: grabbing;
+}
+
+/* --- category chip as a drop target (story 054 D5) -----------------------
+   While a row is being dragged and the pointer rests on a category chip, the
+   chip has to read as "let go here and the row lands in this category". The
+   same flame accent the drop indicator between two rows uses, so both drop
+   affordances of one drag speak with one voice - plus a dashed border, so the
+   state is not carried by colour alone (`/design-tokens`). It is applied to
+   the chip's wrapper, which already has a 1px border, so nothing reflows. */
+.ctrl-chip-drop-over {
+  border-style: dashed;
+  border-color: var(--color-flame-500);
+  background: color-mix(in srgb, var(--color-flame-500) 12%, transparent);
 }

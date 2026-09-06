@@ -219,7 +219,16 @@ export const SCREENS = [
     id: 'config-controls',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,
-    navigate: configDetail('controls'),
+    // Story 054 D12: a row's drag grip (`.ctrl-grip-handle`, controls-grid.css) is opacity-0 until
+    // its row is hovered/focus-within/dragging - correct for a dense 40px grid in normal use, but it
+    // would mean this screen's static screenshot never shows the affordance it exists to
+    // demonstrate. Hovering the first row is a real Playwright pointer hover, so it triggers the
+    // same `:hover` CSS rule a real user's mouse would, rather than adding a screenshot-only style
+    // override or bypass.
+    navigate: async (page) => {
+      await configDetail('controls')(page)
+      await page.locator('.ctrl-row').first().hover()
+    },
   },
   {
     id: 'config-controls-extra-keys-folded',

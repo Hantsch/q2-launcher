@@ -2247,6 +2247,98 @@ export const mixedCatalogueCvarSectionProfile: ConfigProfile = buildFixtureProfi
   cvarSections: [{ id: 'cvs-mixed', name: 'Mixed bag', cvars: ['cl_maxfps', 'zz_test'] }],
 })
 
+/**
+ * Story 054 D11: **a scrambled sub-category order**, the D6 (drag-reorder) counterpart of
+ * `scrambledCategoryOrderProfile` above one level down - a category whose `subcategories` array is
+ * deliberately not in file-discovery, alphabetical or id order, so a reader that fell back to
+ * "the order the sub-banners are first seen in" rather than `category.subcategories` itself would
+ * still pass the fixed-point loop (the file it produces is internally consistent either way) while
+ * silently reordering the rail's own sub-category list on every reload.
+ *
+ * Every populated sub-category holds one alias-backed bound entry - the same single-block shape
+ * `subcategoryProfile` uses for `Use weapon`/`Cycling` - so every sub-banner appears in exactly one
+ * of the writer's three per-category blocks (`Aliases:`/`Binds:`) and the block-disjoint ambiguity
+ * `blockDisjointCategoryOrderProfile` pins one level up never arises here; this fixture is about
+ * `category.subcategories`' own array order surviving, not about resolving a second `ord`-less
+ * layout question sub-categories have no field for.
+ */
+export const scrambledSubcategoryOrderProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Scrambled sub-category order',
+  categories: [
+    {
+      id: 'weapons',
+      name: 'Weapons',
+      nameKey: 'config.controls.categories.weapons',
+      subcategories: [
+        { id: 'sub-cycle', name: 'Cycling' },
+        { id: 'sub-ammo', name: 'Ammo' },
+        { id: 'sub-beta', name: 'Beta' },
+      ],
+    },
+  ],
+  actions: [
+    action({
+      name: 'Rail gun',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'use railgun' }],
+      keys: [{ key: '5' }],
+      categoryId: 'weapons',
+    }),
+    action({
+      name: 'Next weapon',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'weapnext' }],
+      keys: [{ key: 'MWHEELUP' }],
+      categoryId: 'weapons',
+      subcategoryId: 'sub-cycle',
+    }),
+    action({
+      name: 'Reload',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'reload' }],
+      keys: [{ key: 'r' }],
+      categoryId: 'weapons',
+      subcategoryId: 'sub-ammo',
+    }),
+    action({
+      name: 'Beta entry',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'echo beta' }],
+      keys: [{ key: 'b' }],
+      categoryId: 'weapons',
+      subcategoryId: 'sub-beta',
+    }),
+  ],
+})
+
+/**
+ * Story 054 D11: **a scrambled cvar section AND sub-section order**, the D10 (Settings drag)
+ * counterpart of `scrambledCategoryOrderProfile` - `Network` is declared before `Player` (not
+ * alphabetical, not id order) and `Player`'s own two sub-sections are declared `Look` before `Move`,
+ * the same "deliberately not the obvious order" discipline. `render.ts#buildCvarSections` writes
+ * `profile.cvarSections` in that array's own order (D2's rule, one namespace over from
+ * `categories`), so a reader that recovered the sections in banner-discovery order rather than
+ * preserving the array position itself would still fix-point the text while reordering Settings'
+ * own section list on every reload.
+ */
+export const scrambledCvarSectionOrderProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Scrambled cvar section and sub-section order',
+  actions: [],
+  cvars: { cl_maxfps: '250', fov: '95', m_pitch: '0.02', cl_forwardspeed: '200' },
+  cvarSections: [
+    { id: 'cvs-network', name: 'Network', cvars: ['cl_maxfps'] },
+    {
+      id: 'cvs-player',
+      name: 'Player',
+      cvars: ['fov'],
+      subsections: [
+        { id: 'cvsub-look', name: 'Look', cvars: ['m_pitch'] },
+        { id: 'cvsub-move', name: 'Move', cvars: ['cl_forwardspeed'] },
+      ],
+    },
+  ],
+})
+
 /** Story 059 D4's own corpus - see the block comment above for why these are not in
  * `ROUND_TRIP_FIXTURES`. `round-trip.test.ts` holds every one of them to story 042's fixed-point
  * property and to "no cvar duplicated, moved or lost", and each additionally has its own case
@@ -2318,6 +2410,9 @@ export const ROUND_TRIP_FIXTURES: ConfigProfile[] = [
   emptySubcategoryProfile,
   twoCategoriesWithSubcategoriesProfile,
   ...subcategoryHeaderStyleProfiles,
+  // Story 054 D11: the drag-reorder dimensions D6/D10 added, one level below `scrambledCategoryOrderProfile`.
+  scrambledSubcategoryOrderProfile,
+  scrambledCvarSectionOrderProfile,
   // Story 051 D6's header shapes. All three are ordinary, losslessly renderable profiles - what is
   // adversarial about them is the header their *profile-level* fields produce - so unlike the two
   // deliberate exclusions above they belong in the corpus loops in full.

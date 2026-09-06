@@ -7,6 +7,7 @@ const BASELINE_FIELDS: readonly (keyof ProfileBaseline)[] = [
   'actions',
   'binds',
   'categories',
+  'cvarSections',
   'cvars',
   'layers',
   'name',
@@ -45,6 +46,14 @@ function fullProfile(): ConfigProfile {
         kind: 'message',
         commands: [{ kind: 'message', channel: 'say', text: 'gg' }],
         keys: [{ key: 'F1' }],
+      },
+    ],
+    cvarSections: [
+      {
+        id: 'cvs-1',
+        name: 'Player',
+        cvars: ['sensitivity'],
+        subsections: [{ id: 'cvsub-1', name: 'Movement', cvars: ['cl_forwardspeed'] }],
       },
     ],
     writeUnbindall: false,
@@ -88,6 +97,14 @@ describe('captureBaseline', () => {
           keys: [{ key: 'F1' }],
         },
       ],
+      cvarSections: [
+        {
+          id: 'cvs-1',
+          name: 'Player',
+          cvars: ['sensitivity'],
+          subsections: [{ id: 'cvsub-1', name: 'Movement', cvars: ['cl_forwardspeed'] }],
+        },
+      ],
       writeUnbindall: false,
       sectionHeaderStyle: 'brackets',
       unrecognized: [{ file: 'config.cfg', line: 12, text: 'somethingodd 1' }],
@@ -96,8 +113,9 @@ describe('captureBaseline', () => {
 
   it('normalises the optional fields a profile may simply not carry', () => {
     // A never-edited profile straight out of `create()`: no layers, no categories, no actions, no
-    // unrecognized lines, and neither of the two per-profile settings. The snapshot resolves each
-    // to what a render would use, so a later `layers: []` cannot read as a change.
+    // cvar sections, no unrecognized lines, and neither of the two per-profile settings. The
+    // snapshot resolves each to what a render would use, so a later `layers: []` cannot read as a
+    // change.
     expect(captureBaseline(profile())).toEqual({
       name: 'Profile One',
       cvars: {},
@@ -105,6 +123,7 @@ describe('captureBaseline', () => {
       layers: [],
       categories: [],
       actions: [],
+      cvarSections: [],
       writeUnbindall: true,
       sectionHeaderStyle: 'dashes',
       unrecognized: [],
@@ -128,6 +147,10 @@ describe('captureBaseline', () => {
     if (firstCommand.kind === 'raw' || firstCommand.kind === 'message') firstCommand.text = 'bg'
     live.actions![0]!.keys = [{ key: 'F2' }]
     live.actions!.length = 0
+    live.cvarSections![0]!.cvars.push('crosshair')
+    live.cvarSections![0]!.subsections![0]!.cvars.push('cl_sidespeed')
+    live.cvarSections![0]!.name = 'Renamed'
+    live.cvarSections!.length = 0
     live.unrecognized![0]!.text = 'changed'
     live.unrecognized!.push({ file: 'x.cfg', line: 1, text: 'more' })
 
@@ -149,6 +172,10 @@ describe('captureBaseline', () => {
     expect(captured.actions[0]).not.toBe(live.actions![0])
     expect(captured.actions[0]!.commands).not.toBe(live.actions![0]!.commands)
     expect(captured.actions[0]!.commands[0]).not.toBe(live.actions![0]!.commands[0])
+    expect(captured.cvarSections).not.toBe(live.cvarSections)
+    expect(captured.cvarSections[0]).not.toBe(live.cvarSections![0])
+    expect(captured.cvarSections[0]!.cvars).not.toBe(live.cvarSections![0]!.cvars)
+    expect(captured.cvarSections[0]!.subsections![0]).not.toBe(live.cvarSections![0]!.subsections![0])
     expect(captured.unrecognized).not.toBe(live.unrecognized)
     expect(captured.unrecognized[0]).not.toBe(live.unrecognized![0])
   })

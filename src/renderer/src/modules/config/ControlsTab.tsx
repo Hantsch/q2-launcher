@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowDown,
@@ -11,6 +11,7 @@ import {
   TriangleAlert,
   X,
 } from 'lucide-react'
+import { horizontalListSortingStrategy, SortableContext } from '@dnd-kit/sortable'
 import { actionKeySlots, withKeySlot } from '@shared/config/action-slots'
 import { isDropCatalogRow, nameForCatalogRow } from '@shared/config/catalog-rows'
 import { dropStateFor, isDropEntry } from '@shared/config/drop-entries'
@@ -28,14 +29,18 @@ import { Button, IconButton } from '../../components/ui/Button'
 import { Field, Input, Select } from '../../components/ui/controls'
 import { Modal } from '../../components/ui/Modal'
 import { EmptyState, SectionLabel } from '../../components/ui/primitives'
+import { DragHandle, SortableItem } from '../../components/dnd'
 import { ActionEditor } from './components/ActionEditor'
 import { BindSlot, BindSlotPlaceholder } from './components/BindSlot'
+import { CategoryDropTarget, ControlsDragZone, categoryDragId } from './components/ControlsDragZone'
 import { ControlsGrid } from './components/ControlsGrid'
 import { ControlsOptionsCell } from './components/ControlsOptionsCell'
 import { ControlsRow } from './components/ControlsRow'
+import { ControlsRowMenu } from './components/ControlsRowMenu'
 import { DeleteCategoryDialog } from './components/DeleteCategoryDialog'
 import { DropToggles } from './components/DropToggles'
 import { MessageEditor } from './components/MessageEditor'
+import { MoveEntryDialog } from './components/MoveEntryDialog'
 import { RenameActionDialog } from './components/RenameActionDialog'
 import { updateProfileActions } from './client'
 import { useProfileChanges } from './lib/profile-changes'
@@ -69,7 +74,18 @@ import {
 import { groupControlsRowEntries } from './lib/controls-row-groups'
 import { categoryDisplayName as resolveCategoryDisplayName } from './lib/category-display'
 import { applyCategoryDeletion, type DeleteCategoryChoice } from './lib/delete-category'
-import { buildMoveTargets, swapEntries } from './lib/entry-order'
+import {
+  buildMoveTargets,
+  entryPlacementOptions,
+  moveCategory,
+  moveEntryToCategory,
+  moveEntryToDropTarget,
+  moveEntryToSubcategory,
+  moveSubcategory,
+  swapEntries,
+  type EntryDropTarget,
+  type EntryPlacementOption,
+} from './lib/entry-order'
 
 const SAVE_DEBOUNCE_MS = 500
 
@@ -108,13 +124,7 @@ export interface ControlsTabProps {
  * continuously, but so a burst of quick adds/removes does not fire one
  * `updateProfileActions` per click.
  */
-export function ControlsTab({
-  profile,
-  draft,
-  patch,
-  onChanged,
-  focusActionId,
-}: ControlsTabProps) {
+export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }: ControlsTabProps) {
   const { t, i18n } = useTranslation()
   // Story 049 D8: the profile's pending change set, read once here so `renderCatalogRow`/
   // `renderPlainActionRow` can each ask "is my action id in `keys.actions`" - same predicate the
@@ -220,6 +230,30 @@ export function ControlsTab({
    */
   const [expandedKeyRows, setExpandedKeyRows] = useState<ReadonlySet<string>>(() => new Set())
 
+  /**
+   * Story 054 D4-D7: the drag currently in flight, if it is a *row* drag.
+   *
+   * `null` for a sub-category header or a category chip drag (`ControlsDragZone` announces every
+   * pick-up through the same `onDragStarted`, and only a row drag can spring-load a category) and
+   * between drags. The ref is what the spring-load callback reads: that callback has to keep a
+   * stable identity across renders, or `CategoryDropTarget`'s timer effect would tear down and
+   * restart its 600 ms timer on every re-render dnd-kit causes while the pointer rests on a chip -
+   * i.e. the delay would never elapse. The state copy is what the render below derives the
+   * provisional view from.
+   */
+  const draggingRowIdRef = useRef<string | null>(null)
+  const [draggingRowId, setDraggingRowId] = useState<string | null>(null)
+  /**
+   * Story 054 D5: the category a spring-load switched the grid to *provisionally*, mid-drag - not
+   * `selectedCategoryId`, deliberately. Nothing about a spring-load may survive a cancel (AC: "the
+   * model untouched"), so the switch lives in state that `onDragFinished` unconditionally drops,
+   * and only a drop that actually moved the row commits it to `selectedCategoryId`.
+   */
+  const [springCategoryId, setSpringCategoryId] = useState<string | null>(null)
+  /** Story 054 D8: which row's "Move to…" picker is open - the entry's id plus its already-resolved
+   * display label, since a catalogue row's label needs `t()` and the dialog only shows it. */
+  const [movingEntry, setMovingEntry] = useState<{ actionId: string; label: string } | null>(null)
+
   const toggleExpandedKeyRow = (actionId: string): void => {
     setExpandedKeyRows((current) => {
       const updated = new Set(current)
@@ -254,6 +288,9 @@ export function ControlsTab({
     // same reasoning as the reveal set/message editor just above.
     setPendingFocusActionId(null)
     focusAppliedRef.current = null
+    // Story 054 D8: a "Move to…" picker names a row of the profile being switched away from, and
+    // its submit would land on the wrong profile's actions - same reasoning as the message editor.
+    setMovingEntry(null)
   }, [profile.id])
 
   useEffect(() => clearPendingSave, [])
@@ -693,7 +730,25 @@ export function ControlsTab({
     void persistCategoriesAndActions(categories, nextActions)
   }
 
-  const selectedCategory = categories.find((category) => category.id === selectedCategoryId) ?? null
+  /**
+   * Story 054 D5: what the grid is showing *right now*, which is `selectedCategoryId` except while
+   * a spring-load has provisionally carried the drag into another category.
+   *
+   * `viewActions` is the entry list that provisional view is rendered from: the real `actions` with
+   * the dragged row already re-homed into the spring-loaded category (`moveEntryToCategory`, which
+   * appends it to the end of that category's run - exactly where the story says a cross-category
+   * move lands). Nothing is persisted and nothing is patched into the draft: this array exists only
+   * for the duration of the drag, so an Escape cancel simply drops `springCategoryId` and the
+   * previous view is back, byte for byte. A drop that lands is applied to *this* array rather than
+   * to `actions`, so one gesture is one move - the category change and the exact position it was
+   * dropped at persist together, in a single save.
+   */
+  const viewCategoryId = springCategoryId ?? selectedCategoryId
+  const viewActions =
+    springCategoryId && draggingRowId
+      ? moveEntryToCategory(actions, draggingRowId, springCategoryId)
+      : actions
+  const selectedCategory = categories.find((category) => category.id === viewCategoryId) ?? null
   const selectedCategoryLabel = selectedCategory ? categoryDisplayName(selectedCategory) : ''
 
   /**
@@ -810,7 +865,10 @@ export function ControlsTab({
   // movement/weapons/drops used to render one row per *catalogue* entry regardless (lazy
   // materialisation); the catalogue now only says what an entry the profile already carries means
   // (`controls-row-entries.ts`).
-  const rowEntries: ControlsRowEntry[] = buildControlsRowEntries(selectedCategoryId, actions)
+  // Story 054 D5: built from the *view* (see `viewActions` above), so a spring-loaded drag renders
+  // the target category with the dragged row already in it - it has to stay a live sortable item,
+  // or there would be no exact position in that category to drop it at.
+  const rowEntries: ControlsRowEntry[] = buildControlsRowEntries(viewCategoryId, viewActions)
 
   /** A raw text preview of a plain action's commands, mirroring what a catalogue row's own
    * `row.commands` already give it - the first raw command, or nothing for a pure alias/message
@@ -841,12 +899,132 @@ export function ControlsTab({
         )
       })
     : rowEntries
-  const rowGroups = groupControlsRowEntries(filteredRowEntries, selectedCategory?.subcategories ?? [])
+  const rowGroups = groupControlsRowEntries(
+    filteredRowEntries,
+    selectedCategory?.subcategories ?? [],
+  )
   /** Story 052 review (finding 4): move up/down reads its neighbour - and therefore its own
    * enabled state - off `rowGroups`, the structure the grid actually draws, not off the raw
    * `actions` order. Cheap enough to rebuild per render (one pass over the rows already built
    * above), same as `rowGroups`/`boundCount` themselves. */
   const moveTargets = buildMoveTargets(rowGroups)
+
+  /**
+   * Story 054's decision: dragging is off while the Controls filter narrows the list - a drop
+   * between two *visible* rows has no defined array position among the hidden ones, and order is
+   * array position (story 019). Every grip stays rendered and focusable, disabled with an
+   * explaining tooltip (`DragHandle`), and D8's row menu keeps offering move up/down/"Move to…".
+   */
+  const dragDisabled = filterQuery.length > 0
+
+  /** Story 054 D7: the rail's own order - the id-space a chip drop resolves an index within, and
+   * (namespaced through `categoryDragId`) the chips' `SortableContext` item list. Derived from
+   * `categories` rather than from `rowGroups`, which only ever covers the visible category. */
+  const categoryOrder = categories.map((category) => category.id)
+  const categoryDragIds = categoryOrder.map((categoryId) => categoryDragId(categoryId))
+
+  const handleDragStarted = (activeId: string): void => {
+    // Only a row drag counts: `ControlsDragZone` announces a sub-category header (D6) and a
+    // category chip (D7) pick-up through this same callback, and neither of those may spring-load
+    // a category or be re-homed by a drop.
+    const isRow = actions.some((action) => action.id === activeId)
+    draggingRowIdRef.current = isRow ? activeId : null
+    setDraggingRowId(isRow ? activeId : null)
+  }
+
+  /** Every way a drag can end (drop, release over nothing, Escape) lands here, after whatever
+   * outcome handler ran - so the provisional spring-load state is dropped exactly once, on every
+   * path. That is what makes "Escape leaves the model untouched" true by construction. */
+  const handleDragFinished = (): void => {
+    draggingRowIdRef.current = null
+    setDraggingRowId(null)
+    setSpringCategoryId(null)
+  }
+
+  /** Stable across renders on purpose - see `draggingRowIdRef`'s doc comment: a fresh identity here
+   * would restart `CategoryDropTarget`'s 600 ms timer on every re-render the drag causes. */
+  const handleSpringLoad = useCallback((categoryId: string): void => {
+    if (!draggingRowIdRef.current) return
+    setSpringCategoryId(categoryId)
+  }, [])
+
+  /**
+   * Story 054 D4/D5: a row was dropped at a position among the rendered rows. Applied to
+   * `viewActions`, not `actions`, so a drop that follows a spring-load persists the category change
+   * and the exact position in one save (see `viewActions`' own doc comment).
+   */
+  const handleReorderRow = (drop: EntryDropTarget): void => {
+    const nextActions = moveEntryToDropTarget(viewActions, drop)
+    // Nothing resolved (a stale drop target) *and* no provisional category change to commit.
+    if (nextActions === viewActions && viewActions === actions) return
+    // A spring-load that ended in a real drop commits the view it switched to, so the user can see
+    // where the row landed; `handleDragFinished` clears the provisional state right afterwards.
+    if (springCategoryId) setSelectedCategoryId(springCategoryId)
+    void persistCategoriesAndActions(categories, nextActions)
+  }
+
+  /** Story 054 D5: a row was dropped straight onto a category chip - moved there, appended at the
+   * end of that category's run (`moveEntryToCategory`). The tab deliberately does not follow it:
+   * the user stays where they were working, exactly as the story's own test plan describes. */
+  const handleDropOnCategory = (actionId: string, targetCategoryId: string): void => {
+    const action = actions.find((candidate) => candidate.id === actionId)
+    // Dropped back on the category it already belongs to - nothing to move, so nothing is saved.
+    if (!action || action.categoryId === targetCategoryId) return
+    void persistCategoriesAndActions(
+      categories,
+      moveEntryToCategory(viewActions, actionId, targetCategoryId),
+    )
+  }
+
+  /** Story 054 D6: a sub-category header was dropped on another header's position. Same immediate
+   * persist path the header's own move up/down buttons already use (`handleMoveSubcategory`), just
+   * with the index coming from the drop instead of a direction. */
+  const handleReorderSubcategory = (subcategoryId: string, toIndex: number): void => {
+    if (!selectedCategory) return
+    const nextCategory = moveSubcategory(selectedCategory, subcategoryId, toIndex)
+    if (nextCategory === selectedCategory) return
+    void persistCategoriesAndActions(
+      categories.map((category) => (category.id === nextCategory.id ? nextCategory : category)),
+      actions,
+    )
+  }
+
+  /** Story 054 D7: a category chip was dropped on another chip's position - the rail's own order,
+   * persisted through the same path `handleMoveCategory`'s arrow buttons use. */
+  const handleReorderCategory = (categoryId: string, toIndex: number): void => {
+    const nextCategories = moveCategory(categories, categoryId, toIndex)
+    if (nextCategories === categories) return
+    void persistCategoriesAndActions(nextCategories, actions)
+  }
+
+  /**
+   * Story 054 D8: the row menu's "Move to…" pick, applied. Composed from D2's two pure helpers in
+   * this order: the category move appends the entry to the end of its new category's run, and the
+   * sub-category move then re-homes it *in place* - `before` names whatever follows it in the array
+   * afterwards, so it keeps the position the first step gave it and only `subcategoryId` changes.
+   * A target with no `subcategoryId` is the category's ungrouped run, which the first step already
+   * produced (`moveEntryToCategory` drops the old sub-category outright).
+   */
+  const handleMoveEntryTo = async (
+    actionId: string,
+    target: EntryPlacementOption,
+  ): Promise<boolean> => {
+    const withCategory = moveEntryToCategory(actions, actionId, target.categoryId)
+    const index = withCategory.findIndex((action) => action.id === actionId)
+    if (index === -1) return false
+    const nextActions =
+      target.subcategoryId === undefined
+        ? withCategory
+        : moveEntryToSubcategory(
+            withCategory,
+            actionId,
+            target.subcategoryId,
+            withCategory[index + 1]?.id ?? 'end',
+          )
+    const ok = await persistCategoriesAndActions(categories, nextActions)
+    if (ok) setMovingEntry(null)
+    return ok
+  }
   // "n rows · m bound" follows the filter (D8) - unlike `conflicts.length` below, which stays a
   // profile-wide scan per D7's own decision and must NOT be recomputed off the filtered subset.
   const boundCount = filteredRowEntries.filter((entry) => {
@@ -900,7 +1078,10 @@ export function ControlsTab({
         isConflicted={isConflicted}
         checkModifierCollision={checkModifierCollision}
         checkCollision={(key) =>
-          findSlotCollision(draft, key, { actionId: action.id, slot: rawKeyIndex(action, slotIndex) })
+          findSlotCollision(draft, key, {
+            actionId: action.id,
+            slot: rawKeyIndex(action, slotIndex),
+          })
         }
         onAssign={(key) =>
           handleCatalogActionsChange(
@@ -968,7 +1149,9 @@ export function ControlsTab({
     const layer = modifier ? layerNameForModifier(draft.layers ?? [], modifier) : undefined
     const ownerName = action.name
     const conflictOwner = state.keys
-      .map((slot) => findSlotConflictOwner(conflictIndex, layers, slot.key, slot.modifier, ownerName))
+      .map((slot) =>
+        findSlotConflictOwner(conflictIndex, layers, slot.key, slot.modifier, ownerName),
+      )
       .find((owner) => owner !== undefined)
     const conflict = conflictOwner ? { owner: conflictOwner } : null
     const extra =
@@ -1020,43 +1203,41 @@ export function ControlsTab({
   )
 
   /**
-   * Story 052 D8 (AC 3): "every row can be moved". The same up/down pair every free-form row has
-   * had since story 019, rendered for catalogue rows too - one helper rather than two copies of the
-   * pair, since the only thing that differs is which options cell it sits next to.
+   * Story 054 D8: the row's ordering affordance - a kebab holding `Move up`, `Move down` and
+   * `Move to…` (`ControlsRowMenu`), which replaces the inline up/down arrow pair `renderMoveButtons`
+   * rendered into every row's action cluster since story 052 D8. Drag is the primary ordering
+   * gesture now (D4-D7), so the two buttons that used to occupy a third of the Options cell move
+   * behind one (the story's own decision); this is also the keyboard path for the one move drag
+   * deliberately does not offer by keyboard - a cross-category one (see
+   * `controlsCollisionDetection`'s doc comment).
    *
-   * Story 052 review (finding 4): both the target and the disabled state come from `moveTargets`,
-   * i.e. from the row's position inside the group it is *rendered* in (`rowGroups`, filter
-   * included). They used to come from the raw `actions` order, which the grid does not draw: at a
-   * catalogue-group boundary the button was enabled, the click swapped two entries of different
-   * groups, the profile went dirty - and nothing on screen moved. A button with no target is now
-   * disabled instead of promising a move it cannot show; the grouping itself stays purely derived
-   * from the rows that exist (AC 4), nothing here rewrites a row's `catalogId`.
+   * One helper for both row kinds, exactly as `renderMoveButtons` was. `entryName` is the row's
+   * already-resolved display label (a catalogue row's translated one, a free-form row's
+   * `action.name`), so the kebab's accessible name names *this* row instead of reading as a wall of
+   * identical "Ordering options" buttons - the same rule the per-row reset button already follows.
+   *
+   * Story 052 review (finding 4) is untouched by the move: both the target and the disabled state
+   * still come from `moveTargets`, i.e. from the row's position inside the group it is *rendered*
+   * in (`rowGroups`, filter included), never the raw `actions` order the grid does not draw.
    */
-  const renderMoveButtons = (action: ConfigAction) => {
+  const renderRowMenu = (action: ConfigAction, entryName: string) => {
     const target = moveTargets.get(action.id)
     return (
-      <>
-        <IconButton
-          label={t('config.controls.actions.moveUp')}
-          size="sm"
-          disabled={!target?.up}
-          onClick={() => target?.up && handleMoveAction(action.id, target.up)}
-        >
-          <ArrowUp className="size-3.5" />
-        </IconButton>
-        <IconButton
-          label={t('config.controls.actions.moveDown')}
-          size="sm"
-          disabled={!target?.down}
-          onClick={() => target?.down && handleMoveAction(action.id, target.down)}
-        >
-          <ArrowDown className="size-3.5" />
-        </IconButton>
-      </>
+      <ControlsRowMenu
+        entryName={entryName}
+        moveTarget={target}
+        onMoveUp={() => {
+          if (target?.up) handleMoveAction(action.id, target.up)
+        }}
+        onMoveDown={() => {
+          if (target?.down) handleMoveAction(action.id, target.down)
+        }}
+        onMoveTo={() => setMovingEntry({ actionId: action.id, label: entryName })}
+      />
     )
   }
 
-  const renderCatalogRow = (entry: CatalogControlsRowEntry, odd: boolean) => {
+  const renderCatalogRow = (entry: CatalogControlsRowEntry, odd: boolean, grip: ReactNode) => {
     const { row, labelKey, action } = entry
     const label = t(labelKey)
     // Story 055 D3: only a drop entry has a message at all (`isDropEntry`, not
@@ -1085,10 +1266,11 @@ export function ControlsTab({
         keyCell={renderKeyCell(row, action, label)}
         extraKeyRows={renderExtraKeyRows(row, action, label)}
         rowId={action.id}
+        grip={grip}
         optionsCell={
           <div className="flex w-full items-center justify-end gap-0.5">
             <div className="min-w-0 overflow-hidden">{renderCatalogOptionsCell(row, action)}</div>
-            {renderMoveButtons(action)}
+            {renderRowMenu(action, label)}
           </div>
         }
         subRow={showMessageRow ? renderMessageSubRow(row, action, label, message) : undefined}
@@ -1138,9 +1320,14 @@ export function ControlsTab({
         isConflicted={isConflicted}
         checkModifierCollision={checkModifierCollision}
         checkCollision={(key) =>
-          findSlotCollision(draft, key, { actionId: action.id, slot: rawKeyIndex(action, slotIndex) })
+          findSlotCollision(draft, key, {
+            actionId: action.id,
+            slot: rawKeyIndex(action, slotIndex),
+          })
         }
-        onAssign={(key) => handleCatalogActionsChange(applySlot(actions, action.id, slotIndex, key))}
+        onAssign={(key) =>
+          handleCatalogActionsChange(applySlot(actions, action.id, slotIndex, key))
+        }
         onAssignModifier={({ modifier, key }) =>
           handleCatalogActionsChange(
             applyModifierReplace({
@@ -1270,7 +1457,12 @@ export function ControlsTab({
     const rows: ReactNode[] = []
     for (let slotIndex = 1; slotIndex < keys.length; slotIndex += 1) {
       rows.push(
-        <div key={`key-${slotIndex}`} className="ctrl-keysub-row" data-row-id={action.id} role="row">
+        <div
+          key={`key-${slotIndex}`}
+          className="ctrl-keysub-row"
+          data-row-id={action.id}
+          role="row"
+        >
           <div className="ctrl-keysub" role="cell">
             {renderSlot(slotIndex)}
             <IconButton
@@ -1316,7 +1508,9 @@ export function ControlsTab({
     const modifier = keys.find((slot) => slot.modifier !== undefined)?.modifier
     const layer = modifier ? layerNameForModifier(draft.layers ?? [], modifier) : undefined
     const conflictOwner = keys
-      .map((slot) => findSlotConflictOwner(conflictIndex, layers, slot.key, slot.modifier, action.name))
+      .map((slot) =>
+        findSlotConflictOwner(conflictIndex, layers, slot.key, slot.modifier, action.name),
+      )
       .find((owner) => owner !== undefined)
     const conflict = conflictOwner ? { owner: conflictOwner } : null
     const extra = isDropEntry(action) ? renderDropToggles(action) : undefined
@@ -1326,15 +1520,15 @@ export function ControlsTab({
   /**
    * A plain `ConfigAction` row: a custom category's own entry, or a legacy free-form action
    * living inside a catalogue category ("Other actions", decision 5). Both get the full move/
-   * edit/rename/remove treatment D3's placeholder already offered every action - the move pair is
-   * `renderMoveButtons`', so its neighbour is the row rendered next to this one (story 052 review,
-   * finding 4), free-form and catalogue-backed rows alike.
+   * edit/rename/remove treatment D3's placeholder already offered every action - ordering is
+   * `renderRowMenu`'s kebab since story 054 D8, so its neighbour is the row rendered next to this
+   * one (story 052 review, finding 4), free-form and catalogue-backed rows alike.
    *
    * Renders exactly one row - the press/release grouping (story 041 D5) wraps this, it never
    * replaces it, so an unpaired action (the overwhelming majority: every custom-category entry,
    * every bind/message row) renders through here completely unchanged from before D5 existed.
    */
-  const renderPlainActionRow = (action: ConfigAction, odd: boolean) => {
+  const renderPlainActionRow = (action: ConfigAction, odd: boolean, grip: ReactNode) => {
     // Story 019/020 decision: an alias entry gets inert placeholder cells, never a live slot -
     // binding an alias has to be impossible through the UI, not merely discouraged. A `bind`/
     // `message` entry gets a live, capturable slot exactly like a catalogue row (story 020
@@ -1346,7 +1540,8 @@ export function ControlsTab({
     // no `CatalogRow` behind it).
     const isDrop = isDropEntry(action)
     const message = isDrop ? (dropStateFor(action).message ?? '') : ''
-    const showMessageRow = isDrop && (message.trim().length > 0 || revealedMessageRows.has(action.id))
+    const showMessageRow =
+      isDrop && (message.trim().length > 0 || revealedMessageRows.has(action.id))
     return (
       <ControlsRow
         key={action.id}
@@ -1356,12 +1551,17 @@ export function ControlsTab({
         onReset={() => handleResetAction(action.id)}
         odd={odd}
         edited={changeSet.keys.actions.has(action.id)}
-        keyCell={inertSlots ? <BindSlotPlaceholder /> : renderKeyCell(undefined, action, action.name)}
+        keyCell={
+          inertSlots ? <BindSlotPlaceholder /> : renderKeyCell(undefined, action, action.name)
+        }
         extraKeyRows={inertSlots ? undefined : renderExtraKeyRows(undefined, action, action.name)}
         rowId={action.id}
+        grip={grip}
         optionsCell={
           // Story 028 D1: no `flex-wrap`, and gap-0.5 — the Options track (150px then, 200px since
           // story 052 D8) fits the five 28px icon buttons only at 2px gaps (5x28 + 4x2 = 148px).
+          // Story 054 D8 leaves four of them (the up/down pair became one kebab), so the cluster is
+          // 30px narrower than the track's tightest case ever was.
           // With wrap enabled the buttons spilled onto extra lines outside the 40px row. The
           // options text yields
           // entirely (`min-w-0` + `overflow-hidden` lets it collapse below its content width);
@@ -1376,7 +1576,7 @@ export function ControlsTab({
             {(!inertSlots || isDrop) && (
               <div className="min-w-0 overflow-hidden">{renderPlainOptionsCell(action)}</div>
             )}
-            {renderMoveButtons(action)}
+            {renderRowMenu(action, action.name)}
             <IconButton
               label={t('config.controls.actions.edit')}
               size="sm"
@@ -1402,7 +1602,9 @@ export function ControlsTab({
             </IconButton>
           </div>
         }
-        subRow={showMessageRow ? renderMessageSubRow(undefined, action, action.name, message) : undefined}
+        subRow={
+          showMessageRow ? renderMessageSubRow(undefined, action, action.name, message) : undefined
+        }
         rowRef={(el) => {
           if (el) focusRowRefs.current.set(action.id, el)
           else focusRowRefs.current.delete(action.id)
@@ -1418,64 +1620,134 @@ export function ControlsTab({
     // caps the table itself (harmless redundancy, both centre on the same 1120px), but this outer
     // wrapper is what actually caps the category rail and the filter toolbar.
     <div className="ctrl-stage space-y-6">
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <SectionLabel>{t('config.controls.label')}</SectionLabel>
-          {status !== 'idle' && (
-            <span className="text-xs text-ink-muted">
-              {status === 'saving' ? t('config.settings.saving') : t('config.settings.saved')}
-            </span>
-          )}
-        </div>
+      {/*
+        Story 054 D5: exactly one `DndContext` for the whole tab, spanning the category rail *and*
+        the grid - a row has to be draggable from the grid onto a chip in the rail, and one drag
+        operation may only ever live in one context. `ControlsDragZone` renders no DOM of its own
+        (see `SortableZone`), so wrapping both blocks here changes nothing structurally: the rail's
+        chips and the grid's rows stay exactly the DOM children of `.ctrl-stage` they were.
 
-        {/*
+        What a drop *means* is resolved there (dnd-kit ids -> "this row, before that one" /
+        "onto that category" / "that header to index n"); applying it to the profile and persisting
+        it stays here, through the same `persistCategoriesAndActions` every other reorder uses.
+      */}
+      <ControlsDragZone
+        groups={rowGroups}
+        disabled={dragDisabled}
+        onReorderRow={handleReorderRow}
+        onDropOnCategory={handleDropOnCategory}
+        onReorderSubcategory={handleReorderSubcategory}
+        categoryOrder={categoryOrder}
+        onReorderCategory={handleReorderCategory}
+        onDragStarted={handleDragStarted}
+        onDragFinished={handleDragFinished}
+      >
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <SectionLabel>{t('config.controls.label')}</SectionLabel>
+            {status !== 'idle' && (
+              <span className="text-xs text-ink-muted">
+                {status === 'saving' ? t('config.settings.saving') : t('config.settings.saved')}
+              </span>
+            )}
+          </div>
+
+          {/*
           Story 052 D7: no category is special any more - the rail renders exactly
           `profile.categories`, in the profile's own order, and every one of them (including a
           former built-in) gets the same rename/delete/move-up/move-down affordances the old
           custom-chip loop alone used to offer. A profile with none yet gets the empty state below
           instead of an empty rail.
         */}
-        {categories.length === 0 ? (
-          <EmptyState
-            icon={<ListChecks className="size-6" />}
-            title={t('config.controls.categoriesEmpty.title')}
-            body={t('config.controls.categoriesEmpty.body')}
-            actions={
-              <>
-                <Button variant="primary" size="sm" onClick={() => void handleAddStandardTemplate()}>
-                  {t('config.controls.categoriesEmpty.addTemplate')}
-                </Button>
-                <Button
-                  variant="neutral"
-                  size="sm"
-                  icon={<Plus className="size-3.5" />}
-                  onClick={() => setShowCreateCategory(true)}
-                >
-                  {t('config.controls.create')}
-                </Button>
-              </>
-            }
-          />
-        ) : (
-          // Story 020 D9: a single-row, horizontally scrollable rail (sprint decision) instead of
-          // the old `flex flex-wrap` strip - `.ctrl-category-rail` (controls-grid.css) adds
-          // `overflow-x-auto` and a themed scrollbar, and every chip carries `shrink-0` so the row
-          // scrolls instead of squeezing. "+ New category" stays the rail's own trailing item,
-          // matching the prototype's single-row `Movement | Weapons | ... | + New category`
-          // (a-column-grid.html).
-          <div className="ctrl-category-rail">
-            {categories.map((category, index) => {
-              const isPendingDelete = pendingDeleteCategoryId === category.id
-              return (
-                <div
-                  key={category.id}
-                  ref={(el) => {
-                    if (el) categoryChipRefs.current.set(category.id, el)
-                    else categoryChipRefs.current.delete(category.id)
-                  }}
-                  className="flex shrink-0 items-center gap-1.5 rounded-sm border border-line px-1.5 py-1"
-                >
-                  {/* Story 020 review fix (round 2): a real `tablist`/`tab` pairing requires every
+          {categories.length === 0 ? (
+            <EmptyState
+              icon={<ListChecks className="size-6" />}
+              title={t('config.controls.categoriesEmpty.title')}
+              body={t('config.controls.categoriesEmpty.body')}
+              actions={
+                <>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => void handleAddStandardTemplate()}
+                  >
+                    {t('config.controls.categoriesEmpty.addTemplate')}
+                  </Button>
+                  <Button
+                    variant="neutral"
+                    size="sm"
+                    icon={<Plus className="size-3.5" />}
+                    onClick={() => setShowCreateCategory(true)}
+                  >
+                    {t('config.controls.create')}
+                  </Button>
+                </>
+              }
+            />
+          ) : (
+            // Story 020 D9: a single-row, horizontally scrollable rail (sprint decision) instead of
+            // the old `flex flex-wrap` strip - `.ctrl-category-rail` (controls-grid.css) adds
+            // `overflow-x-auto` and a themed scrollbar, and every chip carries `shrink-0` so the row
+            // scrolls instead of squeezing. "+ New category" stays the rail's own trailing item,
+            // matching the prototype's single-row `Movement | Weapons | ... | + New category`
+            // (a-column-grid.html).
+            <div className="ctrl-category-rail">
+              {/*
+              Story 054 D7: the rail is its own sortable axis, horizontal (`chipCentreX`, not
+              `rowCentreY`) and with its own id space (`categoryDragId`) - so a chip drag can never
+              resolve to a row, nor to the chip's *drop* id, which is D5's separate "a row was
+              dropped on this chip" gesture on the very same element. It needs its own
+              `SortableContext` inside `ControlsDragZone`'s one `DndContext` for the same reason
+              `ControlsGrid`'s sub-category headers do: the enclosing context's `items` are the
+              grid's row ids, and a chip is never one of those. The "+ New category" button is a
+              plain sibling in the rail, not a sortable item - `SortableContext` never requires its
+              items to be contiguous in the DOM.
+            */}
+              <SortableContext items={categoryDragIds} strategy={horizontalListSortingStrategy}>
+                {categories.map((category, index) => {
+                  const isPendingDelete = pendingDeleteCategoryId === category.id
+                  const categoryLabel = categoryDisplayName(category)
+                  return (
+                    <SortableItem
+                      key={category.id}
+                      id={categoryDragId(category.id)}
+                      data={{ label: categoryLabel }}
+                    >
+                      {({ setNodeRef, style, attributes, listeners, isDragging }) => (
+                        <CategoryDropTarget
+                          categoryId={category.id}
+                          label={categoryLabel}
+                          style={style}
+                          // One DOM node, three roles: the chip itself, the drop target a dragged row
+                          // lands on (D5) and the sortable item the rail reorders (D7). The scroll-into-
+                          // view map (story 020 D9) keeps the same node it always had.
+                          elementRef={(el) => {
+                            setNodeRef(el)
+                            if (el) categoryChipRefs.current.set(category.id, el as HTMLElement)
+                            else categoryChipRefs.current.delete(category.id)
+                          }}
+                          onSpringLoad={handleSpringLoad}
+                          // Nothing to spring-load to: this category's grid is already the one on screen.
+                          springLoadDisabled={category.id === viewCategoryId}
+                          className={[
+                            'ctrl-category-chip flex shrink-0 items-center gap-1.5 rounded-sm border border-line px-1.5 py-1',
+                            isDragging && 'is-dragging',
+                          ]
+                            .filter((part): part is string => Boolean(part))
+                            .join(' ')}
+                        >
+                          {/* Story 054 D7: the same grip every row and sub-category header carries, with
+                      the same disabled-while-filtering tooltip - and the chip's existing
+                      move-left/move-right buttons below stay exactly as they are, as the keyboard
+                      path (the story's D7 text). */}
+                          <DragHandle
+                            className="ctrl-grip-handle"
+                            attributes={attributes}
+                            listeners={listeners}
+                            disabled={dragDisabled}
+                            disabledReason={t('config.controls.grid.gripFilterActive')}
+                          />
+                          {/* Story 020 review fix (round 2): a real `tablist`/`tab` pairing requires every
                       direct child of the tablist to carry `role="tab"` (axe: aria-required-children)
                       - the "+ New category" button and the rename/delete/move icon buttons sitting
                       next to a category button are not tabs, so a full ARIA tabs pattern does not
@@ -1483,98 +1755,101 @@ export function ControlsTab({
                       (`variant='primary'`) and via `aria-pressed` below - no `role`/`aria-selected`
                       claim that isn't backed by real tab semantics (arrow-key roving tabindex,
                       `aria-controls`). */}
-                  <Button
-                    aria-pressed={selectedCategoryId === category.id}
-                    variant={selectedCategoryId === category.id ? 'primary' : 'neutral'}
-                    size="sm"
-                    onClick={() => setSelectedCategoryId(category.id)}
-                  >
-                    {categoryDisplayName(category)}
-                  </Button>
-                  {isPendingDelete ? (
-                    <>
-                      <span className="text-xs text-danger whitespace-nowrap">
-                        {t('config.controls.deleteConfirm')}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={saving}
-                        onClick={() => setPendingDeleteCategoryId(null)}
-                      >
-                        {t('common.cancel')}
-                      </Button>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        disabled={saving}
-                        onClick={() => void handleDeleteCategory(category.id)}
-                      >
-                        {t('config.controls.deleteConfirmAction')}
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <IconButton
-                        label={t('config.controls.categoryMoveUp')}
-                        size="sm"
-                        disabled={index === 0}
-                        onClick={() => handleMoveCategory(category.id, 'up')}
-                      >
-                        <ArrowUp className="size-3.5" />
-                      </IconButton>
-                      <IconButton
-                        label={t('config.controls.categoryMoveDown')}
-                        size="sm"
-                        disabled={index === categories.length - 1}
-                        onClick={() => handleMoveCategory(category.id, 'down')}
-                      >
-                        <ArrowDown className="size-3.5" />
-                      </IconButton>
-                      <IconButton
-                        label={t('config.controls.rename')}
-                        size="sm"
-                        onClick={() => setRenamingCategory(category)}
-                      >
-                        <Pencil className="size-3.5" />
-                      </IconButton>
-                      <IconButton
-                        label={t('config.controls.delete')}
-                        size="sm"
-                        variant="danger"
-                        // Story 052 D9 (AC 9): a category with entries opens the delete-or-move
-                        // modal; an empty one keeps the plain inline confirm right above (nothing
-                        // to move, so a choice would be pointless - story's own judgement call).
-                        onClick={() => {
-                          const hasEntries = actions.some(
-                            (candidate) => candidate.categoryId === category.id,
-                          )
-                          if (hasEntries) setDeletingCategory(category)
-                          else setPendingDeleteCategoryId(category.id)
-                        }}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </IconButton>
-                    </>
-                  )}
-                </div>
-              )
-            })}
+                          <Button
+                            aria-pressed={selectedCategoryId === category.id}
+                            variant={selectedCategoryId === category.id ? 'primary' : 'neutral'}
+                            size="sm"
+                            onClick={() => setSelectedCategoryId(category.id)}
+                          >
+                            {categoryLabel}
+                          </Button>
+                          {isPendingDelete ? (
+                            <>
+                              <span className="text-xs text-danger whitespace-nowrap">
+                                {t('config.controls.deleteConfirm')}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={saving}
+                                onClick={() => setPendingDeleteCategoryId(null)}
+                              >
+                                {t('common.cancel')}
+                              </Button>
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                disabled={saving}
+                                onClick={() => void handleDeleteCategory(category.id)}
+                              >
+                                {t('config.controls.deleteConfirmAction')}
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <IconButton
+                                label={t('config.controls.categoryMoveUp')}
+                                size="sm"
+                                disabled={index === 0}
+                                onClick={() => handleMoveCategory(category.id, 'up')}
+                              >
+                                <ArrowUp className="size-3.5" />
+                              </IconButton>
+                              <IconButton
+                                label={t('config.controls.categoryMoveDown')}
+                                size="sm"
+                                disabled={index === categories.length - 1}
+                                onClick={() => handleMoveCategory(category.id, 'down')}
+                              >
+                                <ArrowDown className="size-3.5" />
+                              </IconButton>
+                              <IconButton
+                                label={t('config.controls.rename')}
+                                size="sm"
+                                onClick={() => setRenamingCategory(category)}
+                              >
+                                <Pencil className="size-3.5" />
+                              </IconButton>
+                              <IconButton
+                                label={t('config.controls.delete')}
+                                size="sm"
+                                variant="danger"
+                                // Story 052 D9 (AC 9): a category with entries opens the delete-or-move
+                                // modal; an empty one keeps the plain inline confirm right above (nothing
+                                // to move, so a choice would be pointless - story's own judgement call).
+                                onClick={() => {
+                                  const hasEntries = actions.some(
+                                    (candidate) => candidate.categoryId === category.id,
+                                  )
+                                  if (hasEntries) setDeletingCategory(category)
+                                  else setPendingDeleteCategoryId(category.id)
+                                }}
+                              >
+                                <Trash2 className="size-3.5" />
+                              </IconButton>
+                            </>
+                          )}
+                        </CategoryDropTarget>
+                      )}
+                    </SortableItem>
+                  )
+                })}
+              </SortableContext>
 
-            <Button
-              variant="neutral"
-              size="sm"
-              className="shrink-0"
-              icon={<Plus className="size-3.5" />}
-              onClick={() => setShowCreateCategory(true)}
-            >
-              {t('config.controls.create')}
-            </Button>
-          </div>
-        )}
-      </div>
+              <Button
+                variant="neutral"
+                size="sm"
+                className="shrink-0"
+                icon={<Plus className="size-3.5" />}
+                onClick={() => setShowCreateCategory(true)}
+              >
+                {t('config.controls.create')}
+              </Button>
+            </div>
+          )}
+        </div>
 
-      {/*
+        {/*
         Story 020 D3/D4: one grid for every category - `DualBindPanel`, `DropBindPanel` and the
         old bare `<ul>` collapse into `ControlsGrid`. D5/D6 own the real slot surface and
         Options-cell content respectively - `renderCatalogRow`/`renderPlainActionRow` above wire
@@ -1587,89 +1862,91 @@ export function ControlsTab({
         Story 052 D7: hidden entirely while the profile has no categories - the empty state above
         already offers the only actions that make sense with nothing selected.
       */}
-      {categories.length > 0 && (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <SectionLabel>
-            {t('config.controls.actions.label', { category: selectedCategoryLabel })}
-          </SectionLabel>
-          <div className="flex items-center gap-3">
-            <Input
-              value={filterText}
-              onChange={(event) => setFilterText(event.target.value)}
-              placeholder={t('config.controls.filter.placeholder')}
-              aria-label={t('config.controls.filter.placeholder')}
-              className="w-48"
-            />
-            {/* Story 020 review fix: AC 8/9 put the profile-wide conflict count in the header,
+        {categories.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <SectionLabel>
+                {t('config.controls.actions.label', { category: selectedCategoryLabel })}
+              </SectionLabel>
+              <div className="flex items-center gap-3">
+                <Input
+                  value={filterText}
+                  onChange={(event) => setFilterText(event.target.value)}
+                  placeholder={t('config.controls.filter.placeholder')}
+                  aria-label={t('config.controls.filter.placeholder')}
+                  className="w-48"
+                />
+                {/* Story 020 review fix: AC 8/9 put the profile-wide conflict count in the header,
                 not the footer (mirrors the prototype's toolbar: filter, conflict badge, Restore
                 defaults, in that order) - `ControlsGrid` no longer renders this itself. */}
-            {conflicts.length > 0 && (
-              <span className="ctrl-conflict-badge" role="status">
-                <TriangleAlert className="size-3.5" aria-hidden="true" />
-                {t('config.controls.grid.conflictCount', { count: conflicts.length })}
-              </span>
-            )}
-            {/* Story 053 D6: create is the one sub-category operation that has no group header of
+                {conflicts.length > 0 && (
+                  <span className="ctrl-conflict-badge" role="status">
+                    <TriangleAlert className="size-3.5" aria-hidden="true" />
+                    {t('config.controls.grid.conflictCount', { count: conflicts.length })}
+                  </span>
+                )}
+                {/* Story 053 D6: create is the one sub-category operation that has no group header of
                 its own to sit on yet - mirrors "New category" living in the rail rather than on a
                 category chip. Scoped to `selectedCategory` (disabled instead of hidden while none
                 is selected, matching every other button in this toolbar). */}
-            <Button
-              variant="neutral"
-              size="sm"
-              icon={<Plus className="size-3.5" />}
-              disabled={!selectedCategory}
-              onClick={() => setShowCreateSubcategory(true)}
-            >
-              {t('config.controls.subcategory.create')}
-            </Button>
-            <Button
-              variant="neutral"
-              size="sm"
-              icon={<Plus className="size-3.5" />}
-              onClick={() => setShowCreateAction(true)}
-            >
-              {t('config.controls.actions.add')}
-            </Button>
-          </div>
-        </div>
+                <Button
+                  variant="neutral"
+                  size="sm"
+                  icon={<Plus className="size-3.5" />}
+                  disabled={!selectedCategory}
+                  onClick={() => setShowCreateSubcategory(true)}
+                >
+                  {t('config.controls.subcategory.create')}
+                </Button>
+                <Button
+                  variant="neutral"
+                  size="sm"
+                  icon={<Plus className="size-3.5" />}
+                  onClick={() => setShowCreateAction(true)}
+                >
+                  {t('config.controls.actions.add')}
+                </Button>
+              </div>
+            </div>
 
-        {rowEntries.length === 0 ? (
-          <EmptyState
-            icon={<ListChecks className="size-6" />}
-            title={t('config.controls.actions.empty.title')}
-            body={t('config.controls.actions.empty.body')}
-          />
-        ) : filteredRowEntries.length === 0 ? (
-          // Story 020 D8 AC 10: a filter that matches nothing in this category still needs an
-          // explanation, not a silently empty grid - distinct copy from the "category has zero
-          // rows at all" EmptyState above so it reads as "narrow your search", not "add an action".
-          <EmptyState
-            icon={<ListChecks className="size-6" />}
-            title={t('config.controls.filter.noMatches.title')}
-            body={t('config.controls.filter.noMatches.body')}
-          />
-        ) : (
-          <ControlsGrid
-            ariaLabel={t('config.controls.grid.ariaLabel', { category: selectedCategoryLabel })}
-            groups={rowGroups}
-            rowCount={filteredRowEntries.length}
-            boundCount={boundCount}
-            renderRow={(entry, index) => {
-              // Story 020 D4: parity across the whole filtered row list, not per group - see
-              // `ControlsRow`'s doc comment for why this replaces CSS `:nth-of-type`.
-              const odd = index % 2 === 0
-              return entry.kind === 'catalog'
-                ? renderCatalogRow(entry, odd)
-                : renderPlainActionRow(entry.action, odd)
-            }}
-            onRenameSubcategory={(subcategory) => setRenamingSubcategory(subcategory)}
-            onMoveSubcategory={handleMoveSubcategory}
-            onDeleteSubcategory={handleDeleteSubcategory}
-          />
+            {rowEntries.length === 0 ? (
+              <EmptyState
+                icon={<ListChecks className="size-6" />}
+                title={t('config.controls.actions.empty.title')}
+                body={t('config.controls.actions.empty.body')}
+              />
+            ) : filteredRowEntries.length === 0 ? (
+              // Story 020 D8 AC 10: a filter that matches nothing in this category still needs an
+              // explanation, not a silently empty grid - distinct copy from the "category has zero
+              // rows at all" EmptyState above so it reads as "narrow your search", not "add an action".
+              <EmptyState
+                icon={<ListChecks className="size-6" />}
+                title={t('config.controls.filter.noMatches.title')}
+                body={t('config.controls.filter.noMatches.body')}
+              />
+            ) : (
+              <ControlsGrid
+                ariaLabel={t('config.controls.grid.ariaLabel', { category: selectedCategoryLabel })}
+                groups={rowGroups}
+                rowCount={filteredRowEntries.length}
+                boundCount={boundCount}
+                renderRow={(entry, index, grip) => {
+                  // Story 020 D4: parity across the whole filtered row list, not per group - see
+                  // `ControlsRow`'s doc comment for why this replaces CSS `:nth-of-type`.
+                  const odd = index % 2 === 0
+                  return entry.kind === 'catalog'
+                    ? renderCatalogRow(entry, odd, grip)
+                    : renderPlainActionRow(entry.action, odd, grip)
+                }}
+                onRenameSubcategory={(subcategory) => setRenamingSubcategory(subcategory)}
+                onMoveSubcategory={handleMoveSubcategory}
+                onDeleteSubcategory={handleDeleteSubcategory}
+                dragDisabled={dragDisabled}
+              />
+            )}
+          </div>
         )}
-      </div>
-      )}
+      </ControlsDragZone>
 
       {showCreateCategory && (
         <CreateCategoryDialog
@@ -1734,6 +2011,18 @@ export function ControlsTab({
         />
       )}
 
+      {/* Story 054 D8: the row menu's "Move to…" - the keyboard path for a cross-category or
+          cross-sub-category move. Gated on the entry still existing (it can be removed from under
+          an open dialog), same rule `messageEditorAction` above already applies. */}
+      {movingEntry && actions.some((action) => action.id === movingEntry.actionId) && (
+        <MoveEntryDialog
+          entryName={movingEntry.label}
+          targets={entryPlacementOptions(categories, categoryDisplayName)}
+          onClose={() => setMovingEntry(null)}
+          onSubmit={(target) => handleMoveEntryTo(movingEntry.actionId, target)}
+        />
+      )}
+
       {editingAction && editingAction.kind === 'message' && (
         <MessageEditor
           action={editingAction}
@@ -1745,7 +2034,11 @@ export function ControlsTab({
                 {
                   ...editingAction,
                   commands: [
-                    { kind: 'message', channel: draft.channel as 'say' | 'say_team', text: draft.text },
+                    {
+                      kind: 'message',
+                      channel: draft.channel as 'say' | 'say_team',
+                      text: draft.text,
+                    },
                   ],
                 },
                 0,
@@ -2081,7 +2374,13 @@ export function RenameSubcategoryDialog({
   )
 }
 
-const ENTRY_KIND_OPTIONS: ActionEntryKind[] = ['bind', 'message', 'alias', 'toggle', 'press-release']
+const ENTRY_KIND_OPTIONS: ActionEntryKind[] = [
+  'bind',
+  'message',
+  'alias',
+  'toggle',
+  'press-release',
+]
 
 /**
  * Create-action form: name plus the kind (story 019 D4 - the entry, not the category, carries

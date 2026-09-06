@@ -1,3 +1,4 @@
+import { CVAR_DEFAULTS_SECTION_ID } from '@shared/config/render'
 import type { ConfigCvarSection, ConfigCvarSubsection } from '@shared/modules/config'
 
 /**
@@ -233,4 +234,123 @@ export function cvarPlacementOptions(
     }
   }
   return options
+}
+
+/**
+ * Story 054 D9: index-position reorder for drag-and-drop, one level more precise than
+ * `moveCvarSection`'s adjacent up/down swap - a drop needs "land at this exact index", not "nudge
+ * one step". `Defaults`/`Other` (`cvar-rows.ts`'s reserved `CvarGroupKind`s) are never minted as
+ * entries of `profile.cvarSections` in the first place - `buildCvarSectionGroups` computes and
+ * appends them at render time (`render.ts#buildCvarSections` never writes an id for them into the
+ * profile either) - so there is structurally no reserved-bucket element in `sections` for a real
+ * section to ever displace. `RESERVED_CVAR_SECTION_IDS` is only a defensive guard against a caller
+ * that (mistakenly) passes one of those reserved ids as `sectionId` - it makes the "reserved
+ * buckets are never reordered themselves" rule hold even if that structural guarantee is ever
+ * broken upstream, rather than relying on `findIndex` returning -1 by accident.
+ */
+const RESERVED_CVAR_SECTION_IDS = new Set<string>([CVAR_DEFAULTS_SECTION_ID, 'other'])
+
+/** Removes the item at `fromIndex` and reinserts it at `toIndex`, clamped to the array's bounds -
+ * the shared index-move primitive `moveSectionToIndex`/`moveSubsectionToIndex` both reduce to. */
+function moveItemToIndex<T>(items: readonly T[], fromIndex: number, toIndex: number): T[] {
+  const next = [...items]
+  const [moved] = next.splice(fromIndex, 1)
+  const clampedIndex = Math.max(0, Math.min(toIndex, next.length))
+  next.splice(clampedIndex, 0, moved as T)
+  return next
+}
+
+/** Reorders top-level sections by index (story 054 D9). No-op for an unknown `sectionId` or one of
+ * the reserved bucket ids (see above) - never for a real section id, however far `toIndex` is out
+ * of range: `moveItemToIndex` clamps that instead of refusing the move. */
+export function moveSectionToIndex(
+  sections: ConfigCvarSection[],
+  sectionId: string,
+  toIndex: number,
+): ConfigCvarSection[] {
+  if (RESERVED_CVAR_SECTION_IDS.has(sectionId)) return sections
+  const index = sections.findIndex((section) => section.id === sectionId)
+  if (index === -1) return sections
+  return moveItemToIndex(sections, index, toIndex)
+}
+
+/** Reorders one section's sub-sections by index (story 054 D9), mirroring `moveSectionToIndex` one
+ * level down. Sub-sections have no reserved counterpart - the `Defaults`/`Other` buckets are always
+ * top-level groups (`cvar-rows.ts#finishGroup` never nests one under a sub-section) - so there is no
+ * reserved-id guard to mirror here. No-op for an unknown `subsectionId`. */
+export function moveSubsectionToIndex(
+  section: ConfigCvarSection,
+  subsectionId: string,
+  toIndex: number,
+): ConfigCvarSection {
+  const subsections = section.subsections ?? []
+  const index = subsections.findIndex((subsection) => subsection.id === subsectionId)
+  if (index === -1) return section
+  return { ...section, subsections: moveItemToIndex(subsections, index, toIndex) }
+}
+
+/** Where `moveCvarToPosition` should land a cvar: `CvarPlacementTarget`'s section/sub-section pair
+ * plus the index within that list's (post-removal) run to insert at - the same `sectionId`/
+ * `subsectionId` field names `moveCvarToSection`/`cvarPlacementOptions` already use, so a caller
+ * building this from a `CvarPlacementOption` only has to add `index`. */
+export interface CvarPositionTarget extends CvarPlacementTarget {
+  index: number
+}
+
+/**
+ * Moves `name` to an exact index within `target`'s section (or sub-section) run (story 054 D9),
+ * the drag-and-drop counterpart to `moveCvarToSection`'s "append to this section" - reusing
+ * `removeCvarFromSections` for the same "strip it from wherever it sits first" step so a cvar can
+ * never end up listed twice.
+ *
+ * No-op when `target.sectionId` names a reserved bucket (`Defaults`/`Other` are computed, never
+ * populated by hand - see `RESERVED_CVAR_SECTION_IDS` above) or an unknown section/sub-section id.
+ *
+ * Deliberately does *not* require `name` to already be present in `sections`: the reserved buckets
+ * hold every catalogue/unplaced cvar the profile's sections do not mention (`cvar-rows.ts`), so a
+ * name "moved out of Defaults/Other" is, from this array's point of view, a name `sections` has
+ * never heard of - exactly the case D9 requires to work (moving out of a reserved bucket into a
+ * real section). Treating an unfamiliar name as an error would make that direction impossible, so
+ * the only "unknown id" no-op here is the destination's, not the cvar's.
+ */
+export function moveCvarToPosition(
+  sections: ConfigCvarSection[],
+  name: string,
+  target: CvarPositionTarget,
+): ConfigCvarSection[] {
+  if (RESERVED_CVAR_SECTION_IDS.has(target.sectionId)) return sections
+  const targetSection = sections.find((section) => section.id === target.sectionId)
+  if (!targetSection) return sections
+  if (
+    target.subsectionId &&
+    !(targetSection.subsections ?? []).some((subsection) => subsection.id === target.subsectionId)
+  ) {
+    return sections
+  }
+
+  const cleaned = removeCvarFromSections(sections, name)
+  return cleaned.map((section) => {
+    if (section.id !== target.sectionId) return section
+    if (!target.subsectionId) {
+      return { ...section, cvars: insertAt(section.cvars, target.index, name) }
+    }
+    return {
+      ...section,
+      subsections: (section.subsections ?? []).map((subsection) =>
+        subsection.id === target.subsectionId
+          ? { ...subsection, cvars: insertAt(subsection.cvars, target.index, name) }
+          : subsection,
+      ),
+    }
+  })
+}
+
+/** Inserts `value` at `index`, clamped to `[0, items.length]` - the same clamping rule
+ * `moveItemToIndex` uses, so an out-of-range drop index never throws, it just lands at the nearer
+ * end. */
+function insertAt<T>(items: readonly T[], index: number, value: T): T[] {
+  const next = [...items]
+  const clampedIndex = Math.max(0, Math.min(index, next.length))
+  next.splice(clampedIndex, 0, value)
+  return next
 }

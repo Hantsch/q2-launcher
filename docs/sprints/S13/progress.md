@@ -1,0 +1,27 @@
+# Sprint S13 Progress
+- 2026-09-06 15:45 · 054 · D1 DnD primitive · started
+- 2026-09-06 15:56 · 054 · D1 DnD primitive · done
+- 2026-09-06 15:56 · 054 · D2 Controls order helpers · started
+- 2026-09-06 15:56 · 054 · D9 Settings order helpers · started
+- 2026-09-06 15:59 · 054 · D2 Controls order helpers · done
+- 2026-09-06 15:59 · 054 · D9 Settings order helpers · done
+- 2026-09-06 15:59 · 054 · D3 One element per row + grip column · started
+- 2026-09-06 16:05 · 054 · D3 One element per row + grip column · done
+- 2026-09-06 16:05 · 054 · D4 Rows drag within a category (hard) · started
+- 2026-09-06 16:30 · 054 · D4 Rows drag within a category (hard) · done
+- 2026-09-06 16:30 · 054 · D5 Cross-category drops (hard) · started
+- 2026-09-06 16:53 · 054 · D5 Cross-category drops (hard) · done
+- 2026-09-06 16:53 · 054 · D6 Sub-category headers reorder · started
+- 2026-09-06 17:05 · 054 · D6 Sub-category headers reorder · done
+- 2026-09-06 17:05 · 054 · D7 Category chips reorder · started
+- 2026-09-06 17:14 · 054 · D7 Category chips reorder · done
+- 2026-09-06 17:14 · 054 · D8 Row menu takes over move up/down · started
+- 2026-09-06 17:41 · 054 · D8 blocked: subagent accidentally reset ControlsTab.tsx to HEAD, losing D4-D7 wiring in that file; recovering via reconstruction
+- 2026-09-06 17:55 · 054 · D8 Row menu takes over move up/down · done (after recovery)
+- 2026-09-06 17:55 · 054 · D10 Settings drags · started
+- 2026-09-06 18:15 · 054 · D10 Settings drags · done
+- 2026-09-06 18:15 · 054 · D11 Order survives save/discard/render · started
+- 2026-09-06 18:29 · 054 · D11 Order survives save/discard/render · done
+- 2026-09-06 18:29 · 054 · D12 Seen and driven in the real app · started
+- 2026-09-06 18:42 · 054 · D12 Seen and driven in the real app · done
+- 2026-09-06 19:03 · 054 · story complete, moved to done

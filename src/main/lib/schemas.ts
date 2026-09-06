@@ -408,6 +408,16 @@ const profileBaselinePersistedSchema: z.ZodType<PersistedProfileBaseline> = z.ob
         .superRefine(refineActionParts),
     ),
   ),
+  // Story 054 D11: `cvarSections` joined `ProfileBaseline` alongside `categories`/`actions` above.
+  // Unlike those, it must tolerate being *absent entirely* - review-fix: every baseline persisted
+  // before this story has no `cvarSections` key at all, and this whole object is read through
+  // `.optional().catch(undefined)` (below), so a required field here silently discarded every
+  // pre-existing baseline on upgrade. `captureBaseline` already normalises a missing value to `[]`
+  // (`profile-baseline.ts`), so defaulting here just matches that at the parse boundary. A
+  // malformed *section* inside an array that IS present still fails the whole snapshot rather than
+  // being dropped row-by-row, the way the live `configProfileObjectSchema.cvarSections` field
+  // (below) forgives one.
+  cvarSections: z.array(configCvarSectionPersistedSchema).optional().default([]),
   writeUnbindall: z.boolean(),
   sectionHeaderStyle: z.enum(['dashes', 'brackets', 'plain']),
   unrecognized: z.array(z.object({ file: z.string(), line: z.number(), text: z.string() })),

@@ -13,14 +13,22 @@ import { BindPromptHostContext } from './BindSlot'
  * or the plain dash, plus a drops row's ammo/message controls) - this component still only takes
  * it as opaque `ReactNode`, so nothing here changed to support that.
  *
- * Zebra striping: `controls-grid.css`'s `.ctrl-row:nth-of-type(odd)` (D2/D3) resets its count at
- * every catalogue group divider, because each `ControlsGrid` group renders into its own
- * `role="rowgroup"` div and the divider itself is a `.ctrl-group` sibling `div` ahead of the first
- * row - `nth-of-type` counts by tag, not by class, so the running parity is not the same thing as
- * "every other row in the whole list". Rather than restructure the grouped DOM to keep one
+ * Zebra striping: `controls-grid.css`'s `.ctrl-row:nth-of-type(odd)` (D2/D3) would reset its count
+ * at every catalogue group divider and every per-row `role="rowgroup"` wrapper (story 054 D3 - see
+ * below), because `nth-of-type` counts by tag, not by class, so the running parity is not the same
+ * thing as "every other row in the whole list". Rather than restructure the grouped DOM to keep one
  * flat run of `.ctrl-row` siblings (`role="rowgroup"` is worth keeping for the AT tree), `odd` is
  * computed by `ControlsGrid` across the *whole* filtered row list and passed in explicitly; the
  * CSS rule is `.ctrl-row.is-odd` instead of an `:nth-of-type` selector.
+ *
+ * Story 054 D3: `ControlsGrid` wraps this component's whole return value in one `role="rowgroup"`
+ * div (`data-row-id={rowId}`), a direct child of the `role="table"` div - a future sortable item
+ * needs one DOM element with one ref per row, and this component still renders a multi-element
+ * fragment (row, prompt host, extra keys, message row), so the wrapping happens one level up
+ * instead of here. The sub-category divider is not wrapped this way; it is its own `role="row"`
+ * direct child of the table. D3 also adds a leading grip column (`.ctrl-grip`) to `.ctrl-row`'s
+ * grid template; D4 fills it with the `grip` prop below and widens the track from D3's placeholder
+ * 20px to the 28px an `IconButton`-sized handle actually needs (`controls-grid.css`).
  *
  * Story 020 D5: a row is two sibling elements, not one - `.ctrl-row` plus the
  * `.ctrl-subrow-host` under it, which is where a slot's blocked-capture Cancel/Replace prompt
@@ -86,6 +94,12 @@ export interface ControlsRowProps {
    * preparation for story 054's drag-and-drop, which needs one stable unit per row to grab.
    * Required: every row has an identity now, unlike the previously-optional `rowRef`. */
   rowId: string
+  /** Story 054 D4: the row's drag grip, rendered into the leading `.ctrl-grip` cell D3 reserved.
+   * Opaque `ReactNode` in the same spirit as `keyCell`/`optionsCell` - `ControlsGrid` builds the
+   * `DragHandle` (it owns the sortable item the handle belongs to) and this component only places
+   * it. Absent for a caller that has no drag wiring, in which case the cell stays the empty
+   * placeholder it was in D3 and the column still does not reflow. */
+  grip?: ReactNode
 }
 
 export function ControlsRow({
@@ -101,6 +115,7 @@ export function ControlsRow({
   subRow,
   rowRef,
   rowId,
+  grip,
 }: ControlsRowProps) {
   const { t } = useTranslation()
   // A callback ref in state, not a `useRef`: the slots need to re-render once the host element
@@ -123,6 +138,12 @@ export function ControlsRow({
         // amber ring for free (`styles/index.css`).
         tabIndex={-1}
       >
+        {/* Story 054 D3 reserved this leading cell; D4 fills it with the row's `DragHandle`
+            (`grip`), built by `ControlsGrid` because that is where the sortable item lives. Still
+            rendered when there is no grip, so the column never reflows. */}
+        <span className="ctrl-grip" role="cell">
+          {grip}
+        </span>
         <span className="ctrl-label flex min-w-0 items-center gap-1.5" role="cell">
           <span className="min-w-0 truncate">{name}</span>
           {command && <span className="ctrl-label-cmd truncate">{command}</span>}

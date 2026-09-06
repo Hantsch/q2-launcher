@@ -1,7 +1,7 @@
 ---
 sprint: S13
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S13
 milestone: Config, round three
 ---
 
@@ -18,7 +18,7 @@ nothing to do.
 
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
-- [ ] 054 — Order everything by drag and drop
+- [x] 054 — Order everything by drag and drop
 - [ ] 058 — Care says only what needs doing
 
 ## Notes

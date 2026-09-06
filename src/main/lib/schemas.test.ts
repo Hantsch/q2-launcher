@@ -844,6 +844,14 @@ describe('configProfileSchema - baseline (story 049)', () => {
     expect(configProfileSchema.parse(baseProfile).baseline).toBeUndefined()
   })
 
+  it('review-fix (finding 3): defaults baseline.cvarSections to [] when absent, rather than dropping the whole baseline (every pre-054 baseline)', () => {
+    const baseline = captureBaseline(profileWithContent)
+    const { cvarSections: _omitted, ...preO54Baseline } = baseline
+    const result = configProfileSchema.parse({ ...profileWithContent, baseline: preO54Baseline })
+    expect(result.baseline).not.toBeUndefined()
+    expect(result.baseline?.cvarSections).toEqual([])
+  })
+
   it('degrades a malformed baseline to undefined instead of dropping the profile', () => {
     const result = configProfileSchema.parse({
       ...baseProfile,

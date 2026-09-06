@@ -815,6 +815,130 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     expect(await pathExists(join(dir, 'baseq2', 'Renamed.cfg'))).toBe(false)
   })
 
+  /**
+   * Story 054 D11: order is array position (story 019/052/053/059), and every reorder already
+   * persists through the same `setActions`/`setCvars` handlers a rename or an edit does - so a pure
+   * reorder (nothing about any row/section changed, only its array position) has to mark the profile
+   * dirty exactly like the "every content mutation" case above, and Discard has to put the array back
+   * the way it was, not just the fields a value-level diff would notice.
+   *
+   * The reordered arrays below are handed to `setActions`/`setCvars` directly rather than through
+   * `entry-order.ts`/`cvar-sections.ts`'s `moveCategory`/`moveSubcategory`/`moveSectionToIndex`/
+   * `moveSubsectionToIndex` helpers those stories added: this is a main-process test
+   * (`tsconfig.node.json`), and those pure helpers live under `src/renderer` (`tsconfig.web.json`) -
+   * out of reach here by the same module-boundary rule `docs/ARCHITECTURE.md` draws elsewhere. The
+   * arrays constructed by hand are exactly what those helpers would produce (same ids, same content,
+   * only the position swapped), and the helpers themselves are unit-tested against every one of these
+   * moves in `entry-order.test.ts`/`cvar-sections.test.ts`.
+   */
+  it('story 054 D11: a pure reorder of categories/sub-categories/actions/cvar sections marks the profile dirty, and Discard restores the previous order', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot({ installations: [inst] })
+
+    const categoryA = {
+      id: 'cat-a',
+      name: 'Alpha',
+      subcategories: [
+        { id: 'sub-1', name: 'One' },
+        { id: 'sub-2', name: 'Two' },
+      ],
+    }
+    const categoryB = { id: 'cat-b', name: 'Bravo' }
+    const actionA1 = {
+      id: 'a1',
+      categoryId: 'cat-a',
+      name: 'First',
+      kind: 'bind' as const,
+      commands: [{ kind: 'raw' as const, text: '+forward' }],
+    }
+    const actionA2 = {
+      id: 'a2',
+      categoryId: 'cat-a',
+      name: 'Second',
+      kind: 'bind' as const,
+      commands: [{ kind: 'raw' as const, text: '+back' }],
+    }
+    const cvarSectionOne = {
+      id: 'cvs-1',
+      name: 'Player',
+      cvars: [],
+      subsections: [
+        { id: 'cvsub-1', name: 'Movement', cvars: [] },
+        { id: 'cvsub-2', name: 'Look', cvars: [] },
+      ],
+    }
+    const cvarSectionTwo = { id: 'cvs-2', name: 'Network', cvars: [] }
+
+    state.setConfigProfiles([
+      profile({
+        categories: [categoryA, categoryB],
+        actions: [actionA1, actionA2],
+        cvarSections: [cvarSectionOne, cvarSectionTwo],
+      }),
+    ])
+    await state.settle()
+    // The saved baseline Discard has to come back to.
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+
+    // The reorder: category B moves before A, A's two sub-categories swap, the two actions swap -
+    // no name, no id, no content anywhere changed, only array position (D2's `moveCategory`/
+    // `moveSubcategory`/`moveEntryToPosition`).
+    const reorderedCategoryA = {
+      ...categoryA,
+      subcategories: [categoryA.subcategories[1]!, categoryA.subcategories[0]!],
+    }
+    const actionsResult = (await handlers.get(CONFIG_HANDLERS.setActions)!({
+      profileId: 'p1',
+      categories: [categoryB, reorderedCategoryA],
+      actions: [actionA2, actionA1],
+    })) as ConfigProfile[]
+    const afterActionsReorder = actionsResult.find((p) => p.id === 'p1')!
+    expect(afterActionsReorder.categories!.map((c) => c.id)).toEqual(['cat-b', 'cat-a'])
+    expect(
+      afterActionsReorder.categories!.find((c) => c.id === 'cat-a')!.subcategories!.map((s) => s.id),
+    ).toEqual(['sub-2', 'sub-1'])
+    expect(afterActionsReorder.actions!.map((a) => a.id)).toEqual(['a2', 'a1'])
+    // AC1: the reorder alone already shows up as an unsaved change.
+    expect(afterActionsReorder.dirty).toBe(true)
+
+    // The cvar-section half of the same reorder: the two sections swap, and the one section's two
+    // sub-sections swap too (D9's `moveSectionToIndex`/`moveSubsectionToIndex`).
+    const reorderedCvarSectionOne = {
+      ...cvarSectionOne,
+      subsections: [cvarSectionOne.subsections[1]!, cvarSectionOne.subsections[0]!],
+    }
+    const cvarsResult = (await handlers.get(CONFIG_HANDLERS.setCvars)!({
+      profileId: 'p1',
+      cvars: profile().cvars,
+      cvarSections: [cvarSectionTwo, reorderedCvarSectionOne],
+    })) as ConfigProfile[]
+    const afterCvarsReorder = cvarsResult.find((p) => p.id === 'p1')!
+    expect(afterCvarsReorder.cvarSections!.map((s) => s.id)).toEqual(['cvs-2', 'cvs-1'])
+    expect(
+      afterCvarsReorder.cvarSections!.find((s) => s.id === 'cvs-1')!.subsections!.map((s) => s.id),
+    ).toEqual(['cvsub-2', 'cvsub-1'])
+    expect(afterCvarsReorder.dirty).toBe(true)
+
+    // AC2: Discard puts every one of those arrays back to the saved order - categories, the
+    // sub-categories inside them, the actions array and the cvar sections/sub-sections alike.
+    const discardResult = (await handlers.get(CONFIG_HANDLERS.discard)!({
+      profileId: 'p1',
+    })) as DiscardProfileResult
+    expect(discardResult.status).toBe('discarded')
+    if (discardResult.status !== 'discarded') throw new Error('unreachable')
+    const restored = discardResult.profiles.find((p) => p.id === 'p1')!
+    expect(restored.dirty).toBe(false)
+    expect(restored.categories!.map((c) => c.id)).toEqual(['cat-a', 'cat-b'])
+    expect(
+      restored.categories!.find((c) => c.id === 'cat-a')!.subcategories!.map((s) => s.id),
+    ).toEqual(['sub-1', 'sub-2'])
+    expect(restored.actions!.map((a) => a.id)).toEqual(['a1', 'a2'])
+    expect(restored.cvarSections!.map((s) => s.id)).toEqual(['cvs-1', 'cvs-2'])
+    expect(
+      restored.cvarSections!.find((s) => s.id === 'cvs-1')!.subsections!.map((s) => s.id),
+    ).toEqual(['cvsub-1', 'cvsub-2'])
+  })
+
   it('setSectionHeaderStyle (story 042 D7) persists the new style, marks the profile dirty and writes nothing until a save', async () => {
     const inst = installation()
     const { handlers, state } = await boot({ installations: [inst] })

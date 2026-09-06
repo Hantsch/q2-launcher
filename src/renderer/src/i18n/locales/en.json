@@ -1016,6 +1016,7 @@
         "addCvar": "Add cvar",
         "moveCvar": "Move “{{name}}”…",
         "removeCvar": "Remove “{{name}}”",
+        "gripDisabledReason": "Clear the filter, turn off Unsaved only, and expand Advanced to reorder by dragging",
         "createDialog": {
           "title": "Create section",
           "nameLabel": "Name",
@@ -1367,10 +1368,12 @@
       },
       "grid": {
         "ariaLabel": "Controls — {{category}}",
+        "colGrip": "Reorder",
         "colAction": "Action",
         "colReset": "Reset",
         "colKey": "Key",
         "colOptions": "Options",
+        "gripFilterActive": "Clear the filter to reorder by dragging",
         "legendCancel": "cancel",
         "legendClear": "clear",
         "legendKey": "key",
@@ -1425,6 +1428,12 @@
         "bodyDelete_one": "{{count}} entry will be deleted with this category.",
         "bodyDelete_other": "{{count}} entries will be deleted with this category."
       },
+      "moveEntryDialog": {
+        "title": "Move “{{name}}”",
+        "targetLabel": "Move to",
+        "submit": "Move",
+        "empty": "This profile has no categories to move an entry into yet."
+      },
       "filter": {
         "placeholder": "Filter actions…",
         "noMatches": {
@@ -1440,6 +1449,8 @@
         "remove": "Remove…",
         "moveUp": "Move entry up",
         "moveDown": "Move entry down",
+        "moveTo": "Move to…",
+        "moveMenuFor": "Ordering options for “{{name}}”",
         "reset": "Reset “{{name}}” binds",
         "clearKey": "Clear key {{n}} of “{{name}}”",
         "empty": {
@@ -1826,6 +1837,23 @@
   "ipc": {
     "error": {
       "invalidPayload": "The launcher sent an invalid request. This is a bug."
+    }
+  },
+
+  "dnd": {
+    "dragHandle": {
+      "label": "Drag to reorder"
+    },
+    "instructions": {
+      "draggable": "To pick up a draggable item, press the space bar. While dragging, use the arrow keys to move the item. Press space again to drop the item in its new position, or press escape to cancel."
+    },
+    "announcements": {
+      "pickedUp": "Picked up item {{id}}. It is at position {{position}} of {{total}}.",
+      "movedOver": "Item {{id}} was moved into position {{position}} of {{total}}.",
+      "movedOverTarget": "Item {{id}} is over {{target}}.",
+      "dropped": "Item {{id}} was dropped at position {{position}} of {{total}}.",
+      "droppedOnTarget": "Item {{id}} was dropped on {{target}}.",
+      "cancelled": "Dragging was cancelled. Item {{id}} was returned to position {{position}} of {{total}}."
     }
   },
 

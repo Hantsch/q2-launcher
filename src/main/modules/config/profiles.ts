@@ -467,6 +467,16 @@ export class ProfilesStore {
         ...action,
         commands: action.commands.map((command) => ({ ...command })),
       })),
+      // Story 054 D11: `cvarSections` is render-relevant exactly like `categories`/`actions` (story
+      // 059 D8 made `setCvars` replace it wholesale) and was missing from this restore entirely - a
+      // section/sub-section reorder, or a cvar moved between sections, survived a Discard untouched.
+      cvarSections: baseline.cvarSections.map((section) => ({
+        ...section,
+        cvars: [...section.cvars],
+        ...(section.subsections
+          ? { subsections: section.subsections.map((sub) => ({ ...sub, cvars: [...sub.cvars] })) }
+          : {}),
+      })),
       writeUnbindall: baseline.writeUnbindall,
       sectionHeaderStyle: baseline.sectionHeaderStyle,
       unrecognized: baseline.unrecognized.map((line) => ({ ...line })),
