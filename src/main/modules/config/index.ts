@@ -22,12 +22,15 @@ import {
   type RefreshedProfileResult,
   type RefreshFromFilesResult,
   type SaveProfileResult,
+  type SaveRawTextResult,
   type TidyUpApplyResult,
   type WriteState,
   type WriteTargetResult,
 } from '@shared/modules/config'
 import type { Installation, LaunchState } from '@shared/types'
 import { reconcileAssignments } from './assignments'
+import { isLatin1Text } from '@shared/config/q2-charset'
+import type { RestoreWarning } from '@shared/config/profile-restore'
 import { applyTidyUpOps } from '@shared/config/tidy-up'
 import { resolveProfileFileNames } from '@shared/config/profile-files'
 import { fail, ok, type Outcome } from '@shared/types'
@@ -37,7 +40,7 @@ import type { Logger } from '../../lib/logger'
 import { userDataDir } from '../../lib/paths'
 import type { MainModule } from '../types'
 import { readCanonicalOwnership, removeCanonicalProfileFile } from './canonical'
-import { readFileState } from './file-source'
+import { corruptContentDiagnostic, hashCanonicalFileContent, readFileState } from './file-source'
 import { syncProfile } from './sync'
 import { removeRedundantCopies, restoreRemovedCopies, scanRedundantCopies } from './cleanup'
 import { commitImport, previewImport, scanImportCandidates } from './import'
@@ -67,6 +70,7 @@ import {
   removeConfigProfileInputSchema,
   renameConfigProfileInputSchema,
   saveProfileInputSchema,
+  saveRawTextInputSchema,
   setDefaultProfileInputSchema,
   setPlayedModsInputSchema,
   setProfileActionsInputSchema,
@@ -91,6 +95,7 @@ import {
   ownedProfileIdFromContent,
   readExisting,
   writeInstallationFiles,
+  writeTargetFile,
 } from './writer'
 
 export interface WriteProfileDeps {
@@ -493,6 +498,40 @@ async function readSyncFileStatus(
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { status: 'missing' }
     return { status: 'error', messageKey: 'config.error.writeFailed' }
   }
+}
+
+/**
+ * The alias names a file read lost, deduplicated, plus one log line per lost definition.
+ *
+ * Story-050 review (finding 4, second round): an `alias` name a file defines twice costs the read
+ * one entry's commands before the profile is ever reconstructed (`file-source.ts#foldConfig`), and
+ * the result looks exactly like a file that only ever had one such entry - so the only place the
+ * loss is still visible is the warning list, and every path that adopts a file has to report it.
+ * Extracted verbatim from `refreshFromFiles`' own fold when story 057 D4 added the second such path
+ * (`saveRawText`): two copies of this would be two chances for one of them to stop reporting.
+ * `context` is the caller's own prefix for the log line, the one thing the two differ in.
+ */
+function droppedAliasNames(
+  warnings: readonly RestoreWarning[],
+  profileId: string,
+  context: string,
+  log: Logger,
+): string[] {
+  for (const warning of warnings) {
+    if (warning.reason !== 'entry-alias-duplicate') continue
+    log.warn(
+      `${context}: alias "${warning.subject}" is defined more than once in ${warning.file}; ` +
+        `the definition at line ${warning.line} was discarded (profile ${profileId})`,
+    )
+  }
+  return [
+    ...new Set(
+      warnings
+        .filter((warning) => warning.reason === 'entry-alias-duplicate')
+        .map((warning) => warning.subject)
+        .filter((subject): subject is string => subject !== undefined),
+    ),
+  ]
 }
 
 /**
@@ -995,6 +1034,207 @@ export const configModule: MainModule = {
     )
 
     /**
+     * Story 057 D4: the Raw file tab's inline editor saving the text the user typed, byte for byte.
+     *
+     * `save` above writes what the cached profile *renders to*; this writes what the user *typed*,
+     * and then brings the profile in line with the file by reading it back. The direction is the
+     * whole guarantee (AC: "the file on disk is exactly what I typed"), so nothing in this handler
+     * ever renders the profile over these bytes - not before the write, not after the adopt, and not
+     * through the installation cascade (see the note on that below).
+     *
+     * Same order as `save`, and for the same reasons - read before write, because the order IS the
+     * guarantee:
+     *
+     * 1. Two pre-flights on the text itself, before anything is read or written, both of them things
+     *    a user can genuinely produce in an editor rather than caller bugs (hence i18n keys and not
+     *    a schema throw):
+     *    - the ownership tag must still be there and still name THIS profile. It is what every guard
+     *      in this module keys on (`save`'s own file lookup, `refreshFromFiles`, `openFile`,
+     *      `removeCanonicalProfileFile`), so writing text that has lost it would orphan the file from
+     *      its profile - the launcher would go looking for a canonical file and find none, while the
+     *      user's config sits right there under its own name.
+     *    - the text has to be storable as a Quake II config: latin-1 only (the file encoding - a
+     *      higher code point cannot survive the round trip) and free of the control bytes
+     *      `readFileState` classifies a file as `unparseable` for. Checked with the read side's own
+     *      `corruptContentDiagnostic`, so the write side can never accept bytes the read side then
+     *      refuses.
+     * 2. The file that actually carries this profile's ownership stamp (`readCanonicalOwnership`),
+     *    never merely the name the profile resolves to - identical to `save`'s step 1, and load
+     *    bearing for the same reason (a renamed-but-unsaved profile's file still sits under its old
+     *    name). Note the difference from `save`: this handler writes to wherever that file IS and
+     *    never renames it. A raw save is an edit of a file's *content*; moving it would break the
+     *    conflict baseline the very same call just established.
+     * 3. The same `readFileState` conflict guard, answering `save`'s own `conflict`/`unreadable`
+     *    shapes, with the same `force` bypass. The one nuance: `ourContent` is the typed text, since
+     *    that is what this save would have written.
+     * 4. The write, through `writer.ts#writeTargetFile` - the same diff-skip/backup-once/atomic write
+     *    every other file in this module goes through, handed the text verbatim.
+     * 5. The file-state record is refreshed from a re-read of the file, checked against the hash of
+     *    the bytes we just wrote. That is what keeps the next conflict guard from reporting a phantom
+     *    external edit, and it doubles as `save`'s "verify the write by reading it back" step: a
+     *    read-back that is not `unchanged` means the bytes on disk are not ours, so nothing is
+     *    adopted and the call fails honestly.
+     * 6. The adopt, through `ProfilesStore.adoptFromFile` - the exact path `refreshFromFiles` uses
+     *    for an external edit, given the same fields from the same read, because a raw save IS an
+     *    external edit as far as the profile is concerned; it just happens to have come from our own
+     *    editor.
+     *
+     * Deliberately NOT run here: the installation cascade (`syncAndPersist`). It would ask
+     * `writeSourceFor` for this profile's bytes, get `renderProfileFile(profile)` - the profile is
+     * clean and its hash matches the disk after the adopt above - and write that straight over the
+     * text the user just typed. Publishing to installations stays `save`/`write`'s job, exactly as it
+     * is after `refreshFromFiles` adopts a hand-edit.
+     */
+    handle(
+      CONFIG_HANDLERS.saveRawText,
+      saveRawTextInputSchema,
+      async (input): Promise<Outcome<SaveRawTextResult>> => {
+        const profile = profiles.find(input.profileId)
+        if (!profile) return fail('config.error.profileNotFound')
+
+        if (ownedProfileIdFromContent(input.text) !== profile.id) {
+          log.warn(
+            `refusing a raw save for profile ${profile.id}: the text no longer carries this ` +
+              `profile's ownership stamp`,
+          )
+          return fail('config.error.rawTextNotOwned')
+        }
+        // `corruptContentDiagnostic`'s file/line/message describe a file being read; here only its
+        // yes/no answer is used (the text is not a file yet, and the rejection is one message about
+        // the whole payload), hence the empty file name.
+        if (!isLatin1Text(input.text) || corruptContentDiagnostic('', input.text) !== null) {
+          log.warn(
+            `refusing a raw save for profile ${profile.id}: the text holds characters a config ` +
+              `file cannot carry`,
+          )
+          return fail('config.error.rawTextNotLatin1')
+        }
+
+        const baseDir = userDataDir()
+        // `profile` came out of the list, so this lookup cannot miss.
+        const resolvedName = resolveProfileFileNames(profiles.list()).get(profile.id)!
+
+        let ownedName: string | undefined
+        try {
+          ownedName = (await readCanonicalOwnership(baseDir)).get(profile.id)
+        } catch (error) {
+          // Same refusal `save` makes: nothing is written on a disk we cannot survey.
+          log.error(`failed to survey the canonical directory before a raw save of ${profile.id}`, error)
+          return ok({
+            status: 'unreadable',
+            fileName: resolvedName,
+            path: join(baseDir, resolvedName),
+            reason: 'readError',
+            message: error instanceof Error ? error.message : String(error),
+          })
+        }
+        const fileName = ownedName ?? resolvedName
+        const path = join(baseDir, fileName)
+
+        if (input.force !== true) {
+          const read = await readFileState(baseDir, fileName, profile.fileHash)
+          if (read.state === 'changedOnDisk') {
+            return ok({
+              status: 'conflict',
+              fileName,
+              path,
+              diskContent: read.content,
+              // What this save would have written - which, unlike `save`'s, is the typed text
+              // itself. The dialog's "Overwrite" re-sends exactly this with `force: true`.
+              ourContent: input.text,
+            })
+          }
+          if (read.state === 'unparseable') {
+            return ok({
+              status: 'unreadable',
+              fileName,
+              path,
+              reason: 'unparseable',
+              line: read.line,
+              message: read.message,
+            })
+          }
+          if (read.state === 'readError') {
+            return ok({
+              status: 'unreadable',
+              fileName,
+              path,
+              reason: 'readError',
+              message: read.error instanceof Error ? read.error.message : String(read.error),
+            })
+          }
+        }
+
+        // `unchanged` or `missing`, or `force === true`: the file is ours to write.
+        try {
+          await writeTargetFile(path, input.text)
+        } catch (error) {
+          log.error(`failed to write the raw config text for profile ${profile.id}`, error)
+          return fail('config.error.writeFailed')
+        }
+
+        // The hash of the bytes we just handed the writer. `hashCanonicalFileContent` encodes latin1
+        // exactly as `writeFileAtomic` does, so this IS the file's hash - and passing it as the
+        // cached hash below turns the read-back into a verification: anything but `unchanged` means
+        // what is on disk is not what we wrote.
+        const written = hashCanonicalFileContent(input.text)
+        const readBack = await readFileState(baseDir, fileName, written)
+        if (readBack.state !== 'unchanged') {
+          log.error(
+            `raw save for profile ${profile.id} did not land: reading ${fileName} back gave ` +
+              `"${readBack.state}" instead of the bytes just written`,
+          )
+          return fail('config.error.writeFailed')
+        }
+
+        // The file is the source of truth and now says exactly what the user typed, so any structured
+        // edit that was still unsaved has been superseded by it. The renderer keeps the two apart
+        // (story 057's mutual exclusion: no raw draft while the profile is dirty), so this is the
+        // belt to that braces - and it is explicit rather than left to `adoptFromFile`, which
+        // deliberately never touches `dirty` (same step `refreshFromFiles`' `discardLocalEdits`
+        // branch makes for the same reason).
+        if (profile.dirty === true) {
+          log.warn(
+            `raw save for profile ${profile.id} replaced unsaved structured edits: the file the ` +
+              `user typed is the profile now`,
+          )
+        }
+        profiles.setDirty(profile.id, false)
+
+        const list = withLiveAssignments(
+          profiles.adoptFromFile(
+            profile.id,
+            {
+              name: recoverProfileName(readBack.content) ?? profile.name,
+              cvars: readBack.profile.cvars,
+              binds: readBack.profile.binds,
+              actions: readBack.profile.actions,
+              categories: readBack.profile.categories,
+              cvarSections: readBack.profile.cvarSections,
+              layers: readBack.profile.layers,
+              writeUnbindall: detectWriteUnbindall(readBack.content),
+              sectionHeaderStyle:
+                detectSectionHeaderStyle(readBack.content) ?? profile.sectionHeaderStyle,
+            },
+            readBack.hash,
+            Date.now(),
+          ),
+        )
+        // `adoptFromFile` throws on an unknown id and cannot remove the profile, so this cannot miss.
+        const adopted = list.find((p) => p.id === profile.id)!
+
+        return ok({
+          status: 'saved',
+          fileName,
+          path,
+          profile: adopted,
+          droppedAliases: droppedAliasNames(readBack.profile.warnings, profile.id, 'raw save', log),
+          preservedLines: readBack.profile.preserved,
+        })
+      },
+    )
+
+    /**
      * Story 043 D5: the re-read side of the story's "re-read on window focus, tab open, and before
      * write" decision. `input.profileId` scopes the check to that one profile (the story's own
      * "Decided during refine": window focus/tab open re-read only the selected profile, so focus
@@ -1113,22 +1353,15 @@ export const configModule: MainModule = {
             // cost the adopt one entry's commands before `readFileState` ever got to reconstruct the
             // profile - reported so the UI can say so, and logged so a support copy of the log says
             // it too. Deduplicated by name: the field names *which* alias collided, and one name
-            // repeated three times is still one thing to tell the user about.
-            const droppedAliases = [
-              ...new Set(
-                read.profile.warnings
-                  .filter((warning) => warning.reason === 'entry-alias-duplicate')
-                  .map((warning) => warning.subject)
-                  .filter((subject): subject is string => subject !== undefined),
-              ),
-            ]
-            for (const warning of read.profile.warnings) {
-              if (warning.reason !== 'entry-alias-duplicate') continue
-              log.warn(
-                `refresh: alias "${warning.subject}" is defined more than once in ${warning.file}; ` +
-                  `the definition at line ${warning.line} was discarded (profile ${profile.id})`,
-              )
-            }
+            // repeated three times is still one thing to tell the user about. Story 057 D4 moved the
+            // fold itself into `droppedAliasNames` above, unchanged, so the raw-save adopt reports
+            // the same loss the same way.
+            const droppedAliases = droppedAliasNames(
+              read.profile.warnings,
+              profile.id,
+              'refresh',
+              log,
+            )
             results.push({
               profileId: profile.id,
               outcome: 'adopted',

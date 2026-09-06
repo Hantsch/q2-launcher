@@ -28,6 +28,8 @@ import {
   type RenameConfigProfileInput,
   type SaveProfileInput,
   type SaveProfileResult,
+  type SaveRawTextInput,
+  type SaveRawTextResult,
   type SetDefaultProfileInput,
   type SetPlayedModsInput,
   type SetProfileActionsInput,
@@ -207,6 +209,28 @@ export function writeConfigProfile(
  */
 export async function saveConfigProfile(input: SaveProfileInput): Promise<Outcome<SaveProfileResult>> {
   const result = await callModule<Outcome<SaveProfileResult>>('config', CONFIG_HANDLERS.save, input)
+  return result.ok ? result.value : result
+}
+
+/**
+ * Story 057 D4: saves the Raw file tab's edited text - writes exactly `input.text` to the profile's
+ * canonical file under the same conflict guard `saveConfigProfile` above uses, then reads it back
+ * into the profile.
+ *
+ * Same double-unwrap gotcha as `saveConfigProfile` above, and the same division of labour between
+ * the two `Outcome`s - with one addition worth knowing at the call site: the outer `Outcome` is also
+ * where a *rejected* text lands (`config.error.rawTextNotOwned` when the ownership header was edited
+ * away, `config.error.rawTextNotLatin1` when the text holds characters a `.cfg` cannot carry), so a
+ * caller that only switches on `status` would show those as a generic failure.
+ */
+export async function saveConfigProfileRawText(
+  input: SaveRawTextInput,
+): Promise<Outcome<SaveRawTextResult>> {
+  const result = await callModule<Outcome<SaveRawTextResult>>(
+    'config',
+    CONFIG_HANDLERS.saveRawText,
+    input,
+  )
   return result.ok ? result.value : result
 }
 

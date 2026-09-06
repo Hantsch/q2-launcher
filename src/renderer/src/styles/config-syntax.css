@@ -134,6 +134,80 @@
   overflow-x: auto;
 }
 
+/* --- fill mode (story 057 D1) --------------------------------------------
+   Drops the fixed `max-height: 16rem` cap so the grid can size to whatever
+   its container gives it instead. Sizing that container to the viewport is a
+   different deliverable's job - this only removes the cap in this
+   component. */
+.cfg-code--fill {
+  max-height: none;
+  height: 100%;
+}
+
+/* --- editable overlay (story 057 D1) --------------------------------------
+   `ConfigCodeView`'s `editable` mode wraps the tokenised `<pre>` (still doing
+   all the highlighting) and a transparent `<textarea>` in this element, so
+   `inset: 0` on the textarea can line it up with the `<pre>`'s own box
+   exactly - the `<pre>` is what defines the size here, not the other way
+   round, which is why the wrapper never gets an explicit width/height of its
+   own beyond what its (visible) `<pre>` child needs.
+
+   `width: max-content` (not the `.cfg-code-content`/`stretch` default the
+   read-only `<pre>` gets from the grid) is deliberate: a stretched box would
+   clip at the track's width and leave the textarea's own box narrower than a
+   long line, so typing past that point would scroll the textarea's native
+   viewport out of sync with the `<pre>` beside it - the two would drift
+   apart with nothing left to keep them aligned. Sizing to content instead
+   means a long line genuinely widens the wrapper (and therefore the
+   textarea), so the existing single scroller - `.cfg-code`'s own
+   `overflow: auto` - still does the only scrolling, exactly as it does for
+   the read-only `<pre>` today. `min-width: 100%` keeps the wrapper (and the
+   background it paints through the textarea) filling the row when the
+   content is shorter than that. */
+.cfg-code-content-wrap {
+  position: relative;
+  width: max-content;
+  min-width: 100%;
+  border-radius: var(--radius-sm);
+}
+
+/* Focus-visible indicator for the editable textarea (story 057, deviation table in CLAUDE.md
+   keeps focus-visible in full even where the touch-target floor is relaxed). The textarea itself
+   suppresses its own outline below - it sits transparently over the tokenised `<pre>`, and an
+   outline on the wrapper reads more reliably than one on the textarea's own (content-sized,
+   possibly scrolled) box. Deliberately `:focus-visible`, not `:focus`, so a mouse click into the
+   editor does not draw a ring a keyboard user never needed - same convention as the app-wide rule
+   in `styles/index.css`, reused here (same colour/offset) because that rule lives on `:focus-visible`
+   directly and cannot target `.cfg-code-content-wrap` through the textarea's own `:focus-visible`
+   state via plain CSS inheritance. */
+.cfg-code-content-wrap:has(.cfg-code-textarea:focus-visible) {
+  outline: 2px solid var(--color-flame-500);
+  outline-offset: 2px;
+}
+
+.cfg-code-textarea {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--cfg-code-gap) var(--cfg-code-pad);
+  border: 0;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  /* Transparent text, not `visibility: hidden` or an opacity trick: the caret and the native
+     text-selection highlight must still render, only the glyphs themselves are invisible so the
+     tokenised `<pre>` behind shows through instead. */
+  color: transparent;
+  caret-color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: var(--cfg-code-line-h);
+  tab-size: 4;
+  white-space: pre;
+}
+
 /* --- token kinds --------------------------------------------------------
    Colour is never the only signal (see /design-tokens): comments carry
    italics and the two command kinds carry weight, so the three structural

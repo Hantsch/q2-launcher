@@ -34,6 +34,7 @@ export const CONFIG_HANDLERS = {
   setActions: 'setActions',
   write: 'write',
   save: 'save',
+  saveRawText: 'saveRawText',
   refreshFromFiles: 'refreshFromFiles',
   preview: 'preview',
   writeState: 'writeState',
@@ -824,6 +825,76 @@ export interface SaveProfileUnreadable {
 }
 
 export type SaveProfileResult = SaveProfileSaved | SaveProfileConflict | SaveProfileUnreadable
+
+/**
+ * Story 057 D4: `saveRawText` - the Raw file tab's inline editor saving the text the user typed
+ * straight onto the profile's canonical `.cfg`, byte for byte.
+ *
+ * The deliberate difference from `save` above: `save` writes what the *cached profile renders to*,
+ * this writes what the *user typed*, and the profile is then brought in line with the file by
+ * reading it back (the same adopt path `refreshFromFiles` uses for an external edit) - never the
+ * other way round. Nothing re-renders the profile over these bytes at any point in the call, which
+ * is what makes AC "the file on disk is exactly what I typed" true.
+ *
+ * `text` is the whole file, not a patch: the editor holds the whole file and a patch protocol would
+ * need a base revision this channel deliberately does not have (the conflict guard below is that
+ * base revision, at whole-file granularity, exactly like `save`'s).
+ *
+ * `force` is the same "overwrite with my version" resolution `SaveProfileInput.force` is, and means
+ * the same thing here: skip the re-read/conflict check and write `text` unconditionally, only ever
+ * set right after the user was shown a `SaveProfileConflict` and chose to keep their own version.
+ *
+ * There is no path field, and never will be: which file this lands in is resolved in main from the
+ * profile's own ownership stamp, exactly as `save` resolves it.
+ */
+export interface SaveRawTextInput {
+  profileId: string
+  /** The complete file content to write, latin-1 text. */
+  text: string
+  force?: boolean
+}
+
+/**
+ * The typed text is on disk and the profile has been brought in line with it.
+ *
+ * `droppedAliases`/`preservedLines` are what the read-back could NOT keep in the structured profile,
+ * and the whole reason this result is richer than `save`'s: the file may now say things the launcher
+ * does not model, and AC6 ("text the launcher cannot read back cleanly is never silently mangled")
+ * requires saying so rather than letting the difference surface later as a silent loss.
+ */
+export interface SaveRawTextSaved {
+  status: 'saved'
+  /** Name the profile's canonical file actually carries on disk - the file this write landed in. */
+  fileName: string
+  path: string
+  /** The profile as adopted from the freshly written file, `fileHash` reseeded from those bytes. */
+  profile: ConfigProfile
+  /**
+   * Alias names the written text defines more than once, so the adopted profile is missing whatever
+   * the earlier definition of each said - the same field, from the same fold, as
+   * `RefreshedProfileResult`'s `adopted` branch carries. `[]` is the normal case.
+   */
+  droppedAliases: string[]
+  /**
+   * Lines of the written file the launcher kept verbatim but does not model as a cvar/bind/alias -
+   * they live in the file (which is the source of truth) but not in the structured profile, so the
+   * next *structured* save would render them away.
+   *
+   * Comment-only lines are deliberately NOT in here, unlike the import preview's own `preserved`
+   * list: every launcher-written file is full of banner comments the writer regenerates from the
+   * profile anyway, and counting those would drown the one thing this field exists to report.
+   */
+  preservedLines: UnrecognizedConfigLine[]
+}
+
+/**
+ * Reuses `save`'s own `conflict`/`unreadable` shapes rather than declaring look-alikes, so the
+ * renderer handles one conflict concept and one unreadable concept for both save paths (the same
+ * reasoning `RefreshedProfileResult`'s `conflict` branch already applies). One nuance:
+ * `SaveProfileConflict.ourContent` is documented as "what the save would have written" - for this
+ * channel that is the typed text itself, not a render of the cached profile.
+ */
+export type SaveRawTextResult = SaveRawTextSaved | SaveProfileConflict | SaveProfileUnreadable
 
 /**
  * Story 043 D5: `refreshFromFiles` - the re-read side of the story's "re-read on window focus, tab

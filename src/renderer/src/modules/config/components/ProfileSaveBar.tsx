@@ -9,6 +9,7 @@ import { ConfigConflictDialog } from '../ConfigConflictDialog'
 import { DiscardChangesDialog } from '../DiscardChangesDialog'
 import { saveConfigProfile } from '../client'
 import { useProfileChanges } from '../lib/profile-changes'
+import { useRawDraft } from '../lib/raw-draft'
 import { isProfileDirty, resolveSaveOutcome } from '../lib/save-bar'
 import { ProfileChangeList } from './ProfileChangeList'
 
@@ -54,6 +55,15 @@ import { ProfileChangeList } from './ProfileChangeList'
  * precedent, since both are confirm/resolve dialogs this bar itself triggers rather than ones
  * `ConfigView` opens over the whole detail screen (compare `DeleteProfileDialog`, which the header's
  * delete button owns at that level instead).
+ *
+ * Story 057 D5: a raw-text draft (`useRawDraft`, `lib/raw-draft.tsx`) is the *second* thing this bar
+ * can report as unsaved, and the two are mutually exclusive by construction (see that file). While a
+ * draft is active the bar names that one change inline ("file text edited") rather than expanding a
+ * `ProfileChangeList` - there is exactly one change, it is a whole file's text, and it has no
+ * before/after row to show - and both actions route to the draft: Save writes the typed text through
+ * `config:saveRawText`, Discard drops it. A raw Discard opens no confirmation dialog and carries no
+ * ellipsis in its label: nothing is written and nothing on disk changes, and the story's own test
+ * plan (step 6) expects the edit to be gone on the click itself.
  */
 export function ProfileSaveBar({
   profile,
@@ -72,8 +82,14 @@ export function ProfileSaveBar({
   const [expanded, setExpanded] = useState(false)
   const [showDiscard, setShowDiscard] = useState(false)
   const changeSet = useProfileChanges()
+  const rawDraft = useRawDraft()
 
-  const dirty = isProfileDirty(profile)
+  // A raw draft takes precedence over the structured diff wherever the two could both be true at
+  // once (`lib/raw-draft.tsx` explains why): the typed text is the only thing here that exists
+  // nowhere else, so it is what Save and Discard must act on.
+  const rawEdited = rawDraft.active
+  const dirty = isProfileDirty(profile) && !rawEdited
+  const unsaved = dirty || rawEdited
 
   const handleSave = async (): Promise<void> => {
     setSaving(true)
@@ -109,14 +125,16 @@ export function ProfileSaveBar({
       <div className="rounded-sm border border-line bg-panel">
         <div className="flex items-center justify-between gap-3 px-3 py-2">
           <div className="flex flex-wrap items-center gap-2">
-            {dirty ? (
+            {unsaved ? (
               <>
                 <Badge tone="warning" className="gap-1">
                   <PencilLine className="size-3" />
                   {t('config.save.unsaved')}
                 </Badge>
-                <span className="text-xs text-ink-muted">{t('config.save.unsavedHint')}</span>
-                {changeSet.count > 0 && (
+                <span className="text-xs text-ink-muted" data-testid="config-save-summary">
+                  {rawEdited ? t('config.save.rawEdited') : t('config.save.unsavedHint')}
+                </span>
+                {dirty && changeSet.count > 0 && (
                   <Button
                     data-testid="config-save-toggle"
                     variant="ghost"
@@ -144,34 +162,47 @@ export function ProfileSaveBar({
             )}
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {dirty && (
-              <>
-                {!canDiscard && (
-                  <span className="text-xs text-ink-muted">
-                    {t('config.save.discardNoBaseline')}
-                  </span>
-                )}
-                <Button
-                  data-testid="config-discard"
-                  variant="ghost"
-                  size="sm"
-                  icon={<Undo2 className="size-3.5" />}
-                  disabled={!canDiscard}
-                  onClick={() => setShowDiscard(true)}
-                >
-                  {t('config.save.discard')}
-                </Button>
-              </>
+            {rawEdited ? (
+              <Button
+                data-testid="config-discard"
+                variant="ghost"
+                size="sm"
+                icon={<Undo2 className="size-3.5" />}
+                disabled={rawDraft.saving}
+                onClick={() => rawDraft.discard()}
+              >
+                {t('config.save.discardRaw')}
+              </Button>
+            ) : (
+              dirty && (
+                <>
+                  {!canDiscard && (
+                    <span className="text-xs text-ink-muted">
+                      {t('config.save.discardNoBaseline')}
+                    </span>
+                  )}
+                  <Button
+                    data-testid="config-discard"
+                    variant="ghost"
+                    size="sm"
+                    icon={<Undo2 className="size-3.5" />}
+                    disabled={!canDiscard}
+                    onClick={() => setShowDiscard(true)}
+                  >
+                    {t('config.save.discard')}
+                  </Button>
+                </>
+              )
             )}
             <Button
               data-testid="config-save"
               variant="primary"
               size="sm"
               icon={<Save className="size-3.5" />}
-              disabled={!dirty || saving}
-              onClick={() => void handleSave()}
+              disabled={!unsaved || saving || rawDraft.saving}
+              onClick={() => (rawEdited ? rawDraft.save() : void handleSave())}
             >
-              {saving ? t('config.save.saving') : t('config.save.action')}
+              {saving || rawDraft.saving ? t('config.save.saving') : t('config.save.action')}
             </Button>
           </div>
         </div>

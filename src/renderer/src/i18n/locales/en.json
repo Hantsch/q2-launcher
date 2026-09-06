@@ -445,6 +445,8 @@
       "toggle_other": "{{count}} unsaved changes",
       "discard": "Discard\u2026",
       "discarding": "Discarding\u2026",
+      "rawEdited": "File text edited \u2014 Save writes exactly this text to the file on disk.",
+      "discardRaw": "Discard",
       "discardNoBaseline": "There is no saved state to return to yet \u2014 this profile has never been saved.",
       "changes": {
         "section": {
@@ -539,7 +541,9 @@
       "installationRunning": "This installation is currently running. Close the game first.",
       "fileNotFound": "That file could not be found on disk.",
       "openFailed": "Could not open that file: {{message}}",
-      "invalidLayerAlias": "One of the aliases you chose to import as a layer is not one this import found."
+      "invalidLayerAlias": "One of the aliases you chose to import as a layer is not one this import found.",
+      "rawTextNotOwned": "This text no longer carries the profile header the launcher identifies this file by. Keep the header at the top of the file, or edit the file outside the launcher instead.",
+      "rawTextNotLatin1": "This text contains characters a Quake II config file cannot hold. Only plain latin-1 text works."
     },
     "cvar": {
       "name": {
@@ -1058,13 +1062,9 @@
       "own": "This profile's file",
       "onDisk": "On disk",
       "notOnDisk": "Not on disk",
-      "present": "In sync",
-      "differs": "Differs from this profile",
       "notWritten": "Not written to this installation yet",
-      "ownNotOnDisk": "Not written to disk yet",
       "openEditor": "Open in editor",
       "reveal": "Reveal in folder",
-      "expand": "Show rendered files",
       "writeUnbindall": "Start the file with `unbindall`",
       "writeUnbindallHint": "Clears every engine default bind before this profile's own binds are applied.",
       "sectionHeaderStyle": "Section header style",
@@ -1072,13 +1072,20 @@
       "sectionHeaderStyleDashes": "Dashes (`--- Weapons ---`)",
       "sectionHeaderStyleBrackets": "Brackets (`----- [ Weapons ] -----`)",
       "sectionHeaderStylePlain": "Plain (`Weapons`)",
-      "playedMods": "Played mods",
-      "noMods": "No other mod folders found.",
       "previewEmpty": "Nothing would be written.",
+      "editLockedByChanges": "Save or discard this profile's unsaved changes to edit the file text here.",
+      "tabsLockedByDraft": "The file text has unsaved edits — save or discard them on the Raw file tab to change these settings.",
       "unsavedNotice_one": "{{count}} unsaved change is not in this file yet.",
-      "unsavedNotice_other": "{{count}} unsaved changes are not in this file yet."
+      "unsavedNotice_other": "{{count}} unsaved changes are not in this file yet.",
+      "result": {
+        "preserved_one": "{{count}} line in this file isn't modeled by the launcher and was kept as-is.",
+        "preserved_other": "{{count}} lines in this file aren't modeled by the launcher and were kept as-is.",
+        "aliasDropped_one": "The alias {{names}} was defined more than once in this file; only its last definition was kept, so the entry that shared the name lost its commands.",
+        "aliasDropped_other": "These aliases were defined more than once in this file: {{names}}. Only the last definition of each was kept, so the entries that shared those names lost their commands."
+      }
     },
     "codeView": {
+      "editorLabel": "Raw config file editor",
       "search": {
         "label": "Search config text",
         "placeholder": "Find in file…",

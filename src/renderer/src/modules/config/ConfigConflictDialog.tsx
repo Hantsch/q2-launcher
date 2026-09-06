@@ -33,17 +33,32 @@ import { adoptProfileFromFile } from './lib/file-source-refresh'
  * Either resolution lands through `onResolved`, the same single-profile update path `ProfileSaveBar`
  * already gets from `ConfigView` (`handleProfileUpdated`) - there is no separate result shape for a
  * dialog-resolved save than for an ordinary one.
+ *
+ * Story 057 D5: the raw-text editor hits the same conflict guard, and shows *this* dialog for it
+ * rather than a second one - the two panes mean exactly the same thing there (`ourContent` is then
+ * the typed text, per `SaveRawTextResult`'s own doc comment). Only what "Overwrite with my version"
+ * *writes* differs, so that one action is parameterized through `onOverwrite` instead of the
+ * component being forked.
  */
 export function ConfigConflictDialog({
   profileId,
   conflict,
   onClose,
   onResolved,
+  onOverwrite,
 }: {
   profileId: string
   conflict: SaveProfileConflict
   onClose: () => void
   onResolved: (profile: ConfigProfile) => void
+  /**
+   * Story 057 D5: replaces the default "re-save the cached profile with `force`" body of the
+   * Overwrite button - the raw editor force-saves the text the user typed instead. The callback owns
+   * its own result handling (including reporting its own failures and handing the updated profile on,
+   * which is why `onResolved` is not called for it) and answers whether the conflict is resolved:
+   * `true` closes this dialog, `false` leaves it open so the user can still take the file instead.
+   */
+  onOverwrite?: () => Promise<boolean>
 }) {
   const { t } = useTranslation()
   const pushToast = useLauncher((state) => state.pushToast)
@@ -84,6 +99,16 @@ export function ConfigConflictDialog({
 
   const overwrite = async (): Promise<void> => {
     setBusy('overwrite')
+
+    if (onOverwrite) {
+      const resolved = await onOverwrite()
+      setBusy(null)
+      // A `false` answer means the caller already reported whatever went wrong; the dialog stays
+      // open so "Take the file" is still reachable.
+      if (resolved) onClose()
+      return
+    }
+
     const outcome = await saveConfigProfile({ profileId, force: true })
     setBusy(null)
 

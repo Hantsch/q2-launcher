@@ -1,32 +1,34 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronRight, ExternalLink, FolderOpen } from 'lucide-react'
+import { ExternalLink, FolderOpen } from 'lucide-react'
 import type { ConfigProfile, RawFilesResult } from '@shared/modules/config'
 import type { Outcome } from '@shared/types'
-import { Button, IconButton } from '../../components/ui/Button'
-import { Checkbox, Field, Select } from '../../components/ui/controls'
-import { Badge, SectionLabel, Spinner } from '../../components/ui/primitives'
+import { IconButton } from '../../components/ui/Button'
+import { Checkbox, Select } from '../../components/ui/controls'
+import { HoverCard } from '../../components/ui/HoverCard'
+import { Badge, Panel, Spinner } from '../../components/ui/primitives'
 import { useLauncher } from '../../store/useLauncher'
 import {
   getRawFiles,
   openProfileFile,
-  setPlayedMods,
   updateProfileSectionHeaderStyle,
   updateProfileWriteUnbindall,
 } from './client'
 import { ConfigCodeView } from './components/ConfigCodeView'
 import { useProfileChanges } from './lib/profile-changes'
-import { RawConfigPanel } from './RawConfigPanel'
+import { rawEditingMode, useRawDraft } from './lib/raw-draft'
+import { isProfileDirty } from './lib/save-bar'
 
 /**
- * Raw File tab (story 023): replaces the old Write targets + Raw file split.
- * Always shows the profile's own canonical file first - even for a profile
- * assigned nowhere (AC 3) - then one row per assigned installation (D5),
- * each expandable into `RawConfigPanel` for that installation's rendered
- * files.
+ * Raw File tab (story 023, compacted by story 057 D3): shows the profile's
+ * own canonical file - even for a profile assigned nowhere (AC 3) - as one
+ * path/status line, one file-options toolbar row, and the read-only code
+ * view below. The per-installation cards this tab used to show (one per
+ * assigned installation, each expandable into `RawConfigPanel`) moved out;
+ * story 058 ("Care's Sync") remounts that view in a different feature.
  *
- * Module-local, props-based, same idiom as `RawConfigPanel`: owns its own
- * fetch, no shell-store dependency beyond `pushToast` for action failures.
+ * Module-local, props-based: owns its own fetch, no shell-store dependency
+ * beyond `pushToast` for action failures.
  */
 export function RawFileTab({
   profile,
@@ -37,37 +39,19 @@ export function RawFileTab({
 }) {
   const { t } = useTranslation()
   const pushToast = useLauncher((state) => state.pushToast)
-  const installations = useLauncher((state) => state.installations)
   // Story 049 D8: this tab shows the on-disk file, so the honest statement about pending edits is
   // a notice, not a per-row border (the story's own Decisions) - the same change set the save bar
   // and every other tab read (`useProfileChanges`, `lib/profile-changes.tsx`).
   const changeSet = useProfileChanges()
+  // Story 057 D5: the renderer-local text draft this tab's editor writes into.
+  const rawDraft = useRawDraft()
+  // Story 057 D3 fix: the section-header-style label is a bare `<span>` beside a `HoverCard`
+  // tooltip (not a `Field`), so it needs its own id/`aria-labelledby` pairing with the `<select>`
+  // to keep an accessible name - `Field`'s `htmlFor` trick doesn't apply here.
+  const sectionHeaderStyleLabelId = useId()
 
   const [loading, setLoading] = useState(true)
   const [result, setResult] = useState<Outcome<RawFilesResult> | null>(null)
-  const [expandedInstallationId, setExpandedInstallationId] = useState<string | null>(null)
-
-  /**
-   * Played-mods overrides, keyed by installation id. Unlike the old
-   * `WriteTargets.tsx` (which started this map empty with no getter to seed
-   * from), `target.playedMods` below is always read as the fallback when an
-   * installation has no override yet, so a row always reflects the
-   * persisted selection on first render - the map here only exists to
-   * reflect a toggle's confirmed round-trip immediately, without waiting for
-   * the next `getRawFiles` fetch.
-   */
-  const [playedModsOverride, setPlayedModsOverride] = useState<Record<string, string[]>>({})
-
-  // `assign`/`unassign`/`setDefault` change which installations this profile is assigned to
-  // WITHOUT bumping `updatedAt` (deliberately - see `assignments.ts`'s own file doc comment), so a
-  // plain `profile.updatedAt` dependency alone misses exactly those three changes - a newly
-  // assigned installation would just be missing from `rows` until something else re-triggers a
-  // fetch. This key changes whenever the *set* of assigned installations changes, independent of
-  // `updatedAt`.
-  const assignmentKey = profile.assignments
-    .map((assignment) => assignment.installationId)
-    .sort()
-    .join(',')
 
   // Re-reads on a profile switch AND on a save (`updatedAt` bump) - AC 7:
   // "switching profiles or installations re-reads the file rather than
@@ -84,10 +68,10 @@ export function RawFileTab({
     return () => {
       cancelled = true
     }
-  }, [profile.id, profile.updatedAt, assignmentKey])
+  }, [profile.id, profile.updatedAt])
 
-  const openFile = async (installationId: string | null, mode: 'open' | 'reveal'): Promise<void> => {
-    const outcome = await openProfileFile({ profileId: profile.id, installationId, mode })
+  const openFile = async (mode: 'open' | 'reveal'): Promise<void> => {
+    const outcome = await openProfileFile({ profileId: profile.id, installationId: null, mode })
     if (!outcome.ok) {
       pushToast({
         level: 'error',
@@ -99,7 +83,10 @@ export function RawFileTab({
   }
 
   const toggleWriteUnbindall = async (checked: boolean): Promise<void> => {
-    const outcome = await updateProfileWriteUnbindall({ profileId: profile.id, writeUnbindall: checked })
+    const outcome = await updateProfileWriteUnbindall({
+      profileId: profile.id,
+      writeUnbindall: checked,
+    })
     if (outcome.ok) {
       onChanged(outcome.value)
     }
@@ -108,22 +95,12 @@ export function RawFileTab({
   const changeSectionHeaderStyle = async (
     style: 'dashes' | 'brackets' | 'plain',
   ): Promise<void> => {
-    const outcome = await updateProfileSectionHeaderStyle({ profileId: profile.id, sectionHeaderStyle: style })
+    const outcome = await updateProfileSectionHeaderStyle({
+      profileId: profile.id,
+      sectionHeaderStyle: style,
+    })
     if (outcome.ok) {
       onChanged(outcome.value)
-    }
-  }
-
-  const togglePlayedMod = async (
-    installationId: string,
-    currentMods: string[],
-    mod: string,
-    checked: boolean,
-  ): Promise<void> => {
-    const next = checked ? [...currentMods, mod] : currentMods.filter((entry) => entry !== mod)
-    const outcome = await setPlayedMods({ installationId, playedMods: next })
-    if (outcome.ok) {
-      setPlayedModsOverride((prev) => ({ ...prev, [installationId]: outcome.value }))
     }
   }
 
@@ -141,172 +118,194 @@ export function RawFileTab({
 
   if (!result) return null
 
-  const { canonical, installations: targets } = result.value
+  const { canonical } = result.value
 
-  const rows = profile.assignments
-    .map((assignment) => {
-      const installation = installations.find((inst) => inst.id === assignment.installationId)
-      const target = targets.find((entry) => entry.installationId === assignment.installationId)
-      return installation && target ? { installation, target } : null
-    })
-    .filter((row): row is { installation: (typeof installations)[number]; target: (typeof targets)[number] } => row !== null)
+  /*
+    Story 057 D5. Three things decide what the code view is:
+
+    - `mode` (`rawEditingMode`, `lib/raw-draft.tsx`) - the same pure rule the draft context itself
+      applies to `setText`, so the view and the guard can never disagree about whether typing is
+      allowed. `'lockedByChanges'` renders the read-only view plus a one-line hint, which is how the
+      "the editor is read-only while `profile.dirty`" half of AC7 is met without a second editing
+      mode to keep in sync.
+    - the seed text: the draft's own text when there is one, so a remount (see below) restores what
+      the user typed rather than the file underneath it.
+    - the `key`: `ConfigCodeView`'s editable mode seeds its textarea from `text` exactly once (its
+      own doc comment), so it has to be remounted whenever the text it should show changes for a
+      reason other than typing - a profile switch, a save/adopt (`updatedAt`) or a Discard
+      (`resetToken`).
+  */
+  const mode = rawEditingMode({
+    onDisk: canonical.onDisk,
+    profileDirty: isProfileDirty(profile),
+    draftActive: rawDraft.active,
+  })
+  const editorText = rawDraft.text ?? canonical.content
+  const editorKey = `${profile.id}:${profile.updatedAt}:${rawDraft.resetToken}`
+
+  /* Ctrl+S saves the draft through the exact same `rawDraft.save()` the save bar's own button
+     calls - one save path, not two. Scoped to the editor's own container (never a `window`
+     listener), the same idiom `ConfigCodeView` uses for its Ctrl+F: the keystroke only means
+     "save the file text" while focus is actually inside the editor. */
+  const handleEditorKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+      event.preventDefault()
+      event.stopPropagation()
+      rawDraft.save()
+    }
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-1.5">
-        <SectionLabel>{t('config.raw.own')}</SectionLabel>
-        <div className="flex items-center gap-2">
-          <p
-            className="numeric min-w-0 flex-1 truncate text-xs text-ink-dim"
-            title={canonical.path}
-            data-selectable
-          >
-            {canonical.path}
-          </p>
-          <Badge tone={canonical.onDisk ? 'success' : 'neutral'}>
-            {canonical.onDisk ? t('config.raw.onDisk') : t('config.raw.notOnDisk')}
-          </Badge>
-          <IconButton
-            label={t('config.raw.openEditor')}
-            size="sm"
-            disabled={!canonical.onDisk}
-            onClick={() => void openFile(null, 'open')}
-          >
-            <ExternalLink className="size-3.5" />
-          </IconButton>
-          <IconButton
-            label={t('config.raw.reveal')}
-            size="sm"
-            disabled={!canonical.onDisk}
-            onClick={() => void openFile(null, 'reveal')}
-          >
-            <FolderOpen className="size-3.5" />
-          </IconButton>
-        </div>
-        {!canonical.onDisk && (
-          <p className="text-xs text-ink-muted">{t('config.raw.ownNotOnDisk')}</p>
-        )}
+    <div className="flex flex-1 min-h-0 flex-col gap-0.5">
+      {/* Story 057 D3's separate "This profile's file" `SectionLabel` was dropped in the review fix
+          for blocker 1 (AC1 - "at least 30 lines visible at 1280x800"): the tab strip already reads
+          "Raw file" for the selected tab and the path row right below names the actual file, so the
+          label carried no information neither of those two already gave - only height. */}
+
+      {/* Story 057 D3: one path/status line - path, on-disk state, unsaved-change count (when
+          any), open-in-editor, reveal-in-folder - merged with the file-options toolbar row
+          (`unbindall` checkbox, section header style select) into this single row in the blocker-1
+          review fix, the same "reduced padding" compaction the story's own plan already called for
+          in this spot: two one-line rows cost a whole extra row of chrome that 30 visible code lines
+          at 1280x800 cannot spare. Wraps at the narrower viewport instead of clipping. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+        <p
+          className="numeric min-w-0 flex-1 truncate text-xs text-ink-dim"
+          title={canonical.path}
+          data-selectable
+        >
+          {canonical.path}
+        </p>
+        <Badge tone={canonical.onDisk ? 'success' : 'neutral'}>
+          {canonical.onDisk ? t('config.raw.onDisk') : t('config.raw.notOnDisk')}
+        </Badge>
         {changeSet.count > 0 && (
-          <p className="text-xs text-ink-muted">
-            {t('config.raw.unsavedNotice', { count: changeSet.count })}
-          </p>
+          <Badge tone="warning">{t('config.raw.unsavedNotice', { count: changeSet.count })}</Badge>
         )}
-        <div className="space-y-1">
+        <IconButton
+          label={t('config.raw.openEditor')}
+          size="sm"
+          disabled={!canonical.onDisk}
+          onClick={() => void openFile('open')}
+        >
+          <ExternalLink className="size-3.5" />
+        </IconButton>
+        <IconButton
+          label={t('config.raw.reveal')}
+          size="sm"
+          disabled={!canonical.onDisk}
+          onClick={() => void openFile('reveal')}
+        >
+          <FolderOpen className="size-3.5" />
+        </IconButton>
+
+        {/* Story 057 D3: the `unbindall` checkbox and the section header style select, each with
+            its former help paragraph moved into a `HoverCard` tooltip instead. Neither control's
+            IPC call/state wiring changed.
+
+            Review fix (blocker 2, AC7): both controls end in `markUnsaved`, and sat outside
+            `StructuredTabsGuard` (which only wraps the non-raw tab branch in `ConfigView` - it
+            never covered this tab at all). Disabled here directly, driven by the same
+            `useRawDraft().active` flag `StructuredTabsGuard` itself reads - otherwise a toggle made
+            here while a raw draft is open would mark the profile dirty *and* keep the draft active
+            at once, which is exactly the two-unsaved-truths state AC7 forbids (the save bar would
+            show only the raw draft, and Save would silently drop the toggle).
+
+            The lock reason (`config.raw.tabsLockedByDraft`, the identical string
+            `StructuredTabsGuard`'s own hint paragraph uses) replaces each control's normal
+            description in its existing `HoverCard` while the draft is active, rather than adding a
+            *third* always-visible hint line next to the toolbar row's own path-row line above it
+            and `StructuredTabsGuard`'s line elsewhere - the same information, through the one
+            mechanism this row already had, not a new one. `RenameHeaderButton` (`ConfigView.tsx`)
+            makes the identical trade for the same reason (its `title` swaps to this same string). */}
+        <HoverCard
+          content={
+            <p className="text-xs leading-relaxed text-ink-muted">
+              {rawDraft.active
+                ? t('config.raw.tabsLockedByDraft')
+                : t('config.raw.writeUnbindallHint')}
+            </p>
+          }
+        >
           <Checkbox
             checked={profile.writeUnbindall !== false}
             onChange={(next) => void toggleWriteUnbindall(next)}
             label={t('config.raw.writeUnbindall')}
+            disabled={rawDraft.active}
           />
-          <p className="text-xs leading-relaxed text-ink-muted">{t('config.raw.writeUnbindallHint')}</p>
-        </div>
-        <Field label={t('config.raw.sectionHeaderStyle')} hint={t('config.raw.sectionHeaderStyleHint')} className="max-w-72">
-          <Select
-            value={profile.sectionHeaderStyle ?? 'dashes'}
-            onChange={(event) =>
-              void changeSectionHeaderStyle(event.target.value as 'dashes' | 'brackets' | 'plain')
-            }
-            options={[
-              { value: 'dashes', label: t('config.raw.sectionHeaderStyleDashes') },
-              { value: 'brackets', label: t('config.raw.sectionHeaderStyleBrackets') },
-              { value: 'plain', label: t('config.raw.sectionHeaderStylePlain') },
-            ]}
-          />
-        </Field>
-        <ConfigCodeView text={canonical.content} searchable />
+        </HoverCard>
+        <HoverCard
+          content={
+            <p className="text-xs leading-relaxed text-ink-muted">
+              {rawDraft.active
+                ? t('config.raw.tabsLockedByDraft')
+                : t('config.raw.sectionHeaderStyleHint')}
+            </p>
+          }
+        >
+          <div className="flex items-center gap-1.5">
+            <span id={sectionHeaderStyleLabelId} className="stencil shrink-0">
+              {t('config.raw.sectionHeaderStyle')}
+            </span>
+            <Select
+              aria-labelledby={sectionHeaderStyleLabelId}
+              value={profile.sectionHeaderStyle ?? 'dashes'}
+              onChange={(event) =>
+                void changeSectionHeaderStyle(event.target.value as 'dashes' | 'brackets' | 'plain')
+              }
+              className="h-7 w-auto text-xs"
+              disabled={rawDraft.active}
+              options={[
+                { value: 'dashes', label: t('config.raw.sectionHeaderStyleDashes') },
+                { value: 'brackets', label: t('config.raw.sectionHeaderStyleBrackets') },
+                { value: 'plain', label: t('config.raw.sectionHeaderStylePlain') },
+              ]}
+            />
+          </div>
+        </HoverCard>
       </div>
 
-      {rows.length === 0 ? (
-        <p className="text-xs text-ink-muted">{t('config.assignment.noInstallations')}</p>
-      ) : (
-        <ul className="space-y-2">
-          {rows.map(({ installation, target }) => {
-            const expanded = expandedInstallationId === installation.id
-            const tone = !target.onDisk ? 'neutral' : target.matches ? 'success' : 'warning'
-            const statusKey = !target.onDisk
-              ? 'config.raw.notOnDisk'
-              : target.matches
-                ? 'config.raw.present'
-                : 'config.raw.differs'
-            const mods = installation.gameDirs.filter((dir) => dir.toLowerCase() !== 'baseq2')
-            const checkedMods = playedModsOverride[installation.id] ?? target.playedMods
+      {/* Story 057 D6: the raw save's read-back result - names the preserved-line count and any
+          dropped-alias warnings, and stays until `rawDraft.setText` clears `lastResult` on the next
+          edit (`lib/raw-draft.tsx`). Inline, not a toast: the toast path (`resolveRawSaveOutcome`)
+          only ever fires for a *failed* save, so a successful one has no other surface today. */}
+      {rawDraft.lastResult && (
+        <Panel className="flex flex-col gap-1.5 px-3 py-2" data-testid="config-raw-save-result">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone="success">
+              {t('config.raw.result.preserved', { count: rawDraft.lastResult.preservedLines.length })}
+            </Badge>
+            {rawDraft.lastResult.droppedAliases.length > 0 && (
+              <Badge tone="warning">
+                {t('config.raw.result.aliasDropped', {
+                  count: rawDraft.lastResult.droppedAliases.length,
+                  names: rawDraft.lastResult.droppedAliases.join(', '),
+                })}
+              </Badge>
+            )}
+          </div>
+        </Panel>
+      )}
 
-            return (
-              <li
-                key={installation.id}
-                className="space-y-2 rounded-sm border border-line px-2.5 py-2"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate text-sm text-ink">
-                    {installation.name}
-                  </span>
-                  <Badge tone={tone}>{t(statusKey)}</Badge>
-                  <IconButton
-                    label={t('config.raw.openEditor')}
-                    size="sm"
-                    disabled={!target.onDisk}
-                    onClick={() => void openFile(installation.id, 'open')}
-                  >
-                    <ExternalLink className="size-3.5" />
-                  </IconButton>
-                  <IconButton
-                    label={t('config.raw.reveal')}
-                    size="sm"
-                    disabled={!target.onDisk}
-                    onClick={() => void openFile(installation.id, 'reveal')}
-                  >
-                    <FolderOpen className="size-3.5" />
-                  </IconButton>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    data-testid="config-raw-expand"
-                    aria-label={t('config.raw.expand')}
-                    aria-expanded={expanded}
-                    onClick={() =>
-                      setExpandedInstallationId(expanded ? null : installation.id)
-                    }
-                  >
-                    {expanded ? (
-                      <ChevronDown className="size-3.5" />
-                    ) : (
-                      <ChevronRight className="size-3.5" />
-                    )}
-                  </Button>
-                </div>
-                <p
-                  className="numeric min-w-0 truncate text-xs text-ink-dim"
-                  title={target.path}
-                  data-selectable
-                >
-                  {target.path}
-                </p>
-                {!target.onDisk && (
-                  <p className="text-xs text-ink-muted">{t('config.raw.notWritten')}</p>
-                )}
-                <div className="space-y-1">
-                  <span className="stencil">{t('config.raw.playedMods')}</span>
-                  {mods.length === 0 ? (
-                    <p className="text-xs text-ink-muted">{t('config.raw.noMods')}</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-x-4 gap-y-1">
-                      {mods.map((mod) => (
-                        <Checkbox
-                          key={mod}
-                          checked={checkedMods.includes(mod)}
-                          onChange={(next) =>
-                            void togglePlayedMod(installation.id, checkedMods, mod, next)
-                          }
-                          label={mod}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {expanded && <RawConfigPanel profile={profile} installationId={installation.id} />}
-              </li>
-            )
-          })}
-        </ul>
+      {mode === 'lockedByChanges' && (
+        <p className="text-xs text-ink-muted" data-testid="config-raw-locked-hint">
+          {t('config.raw.editLockedByChanges')}
+        </p>
+      )}
+
+      {mode === 'editable' ? (
+        <div className="flex flex-1 min-h-0 flex-col" onKeyDown={handleEditorKeyDown}>
+          <ConfigCodeView
+            key={editorKey}
+            className="flex-1 min-h-0"
+            text={editorText}
+            editable
+            fill
+            onChange={(next) => rawDraft.setText(next, canonical.content)}
+          />
+        </div>
+      ) : (
+        <ConfigCodeView className="flex-1 min-h-0" text={canonical.content} searchable fill />
       )}
     </div>
   )

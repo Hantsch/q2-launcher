@@ -20,7 +20,7 @@ and one line per installation, and I can type a quick change straight into the f
 
 - [x] 051 — The file header is a small banner, not a technical block
 - [x] 059 — Settings mirrors the file's own sections
-- [ ] 057 — Raw file is an editor first, and I can edit inline
+- [x] 057 — Raw file is an editor first, and I can edit inline
 
 ## Notes
 

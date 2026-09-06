@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft,
@@ -32,6 +32,7 @@ import {
   noticeForRefreshedProfile,
 } from './lib/file-source-refresh'
 import { ProfileChangesProvider } from './lib/profile-changes'
+import { RawDraftProvider, useRawDraft } from './lib/raw-draft'
 import { resolveSaveOutcome } from './lib/save-bar'
 import { analyzeTidyUp } from './lib/tidy-up-findings'
 import { validateProfileForEngines } from './lib/validation-scope'
@@ -73,6 +74,61 @@ interface TabFocusState {
   focusAlias?: string
   focusActionId?: string
   focusLayerName?: string
+}
+
+/**
+ * Story 057 D5, the other half of AC7 ("raw editing and the structured tabs never hold two unsaved
+ * truths at once"): while the Raw file tab holds a typed-but-unsaved draft, every *other* tab's
+ * content is `inert` - not focusable, not clickable, not reachable by assistive tech - with one line
+ * saying why. Enforced in this one place rather than by threading a `disabled` prop through five
+ * tabs' worth of controls (story Decisions); `inert` is a real HTML attribute React 19 passes
+ * through, so it covers controls this file has never heard of.
+ *
+ * Its own component (rather than inline in `ConfigView`) for one reason: `useRawDraft` has to be
+ * called *below* the `RawDraftProvider` that `ConfigView` itself renders.
+ */
+function StructuredTabsGuard({ children }: { children: ReactNode }) {
+  const { t } = useTranslation()
+  const rawDraft = useRawDraft()
+
+  return (
+    <>
+      {rawDraft.active && (
+        <p className="mb-3 text-xs text-ink-muted" data-testid="config-tabs-locked-hint">
+          {t('config.raw.tabsLockedByDraft')}
+        </p>
+      )}
+      <div inert={rawDraft.active}>{children}</div>
+    </>
+  )
+}
+
+/**
+ * Review fix (story 057, blocker 2): the detail header's Rename control also ends in a
+ * `markUnsaved`-shaped update (`RenameProfileDialog`'s own submit), and sat outside
+ * `StructuredTabsGuard` - which only wraps the non-raw tab branch, so it never covered this header,
+ * rendered above the tabs regardless of which one is active. Its own component for the same reason
+ * `StructuredTabsGuard` is: `useRawDraft` must be called *below* the `RawDraftProvider` `ConfigView`
+ * itself renders, not inside `ConfigView`'s own body. Reuses the identical
+ * `config.raw.tabsLockedByDraft` hint text as a `title` tooltip - the same string
+ * `StructuredTabsGuard`/`RawFileTab`'s toolbar-row hint use, just surfaced through the icon button's
+ * existing `title` mechanism (`IconButton` already renders one from `label`) rather than a new
+ * paragraph squeezed into the header row.
+ */
+function RenameHeaderButton({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation()
+  const rawDraft = useRawDraft()
+  return (
+    <IconButton
+      label={t('config.detail.rename')}
+      size="sm"
+      disabled={rawDraft.active}
+      title={rawDraft.active ? t('config.raw.tabsLockedByDraft') : t('config.detail.rename')}
+      onClick={onClick}
+    >
+      <Pencil className="size-3.5" />
+    </IconButton>
+  )
 }
 
 /**
@@ -340,7 +396,24 @@ export function ConfigView() {
     })
   }
 
-  useFileSourceRefresh({ profileId: selectedId, onResult: handleFileSourceResult })
+  /**
+   * Review fix (story 057): whether the Raw file tab currently holds a typed-but-unsaved draft.
+   *
+   * A ref, written by `RawDraftProvider`'s `onActiveChange` below and never read during render, for
+   * two reasons: this view must not re-render on every keystroke that starts or ends a draft, and
+   * `useFileSourceRefresh` asks the question at trigger time anyway. It cannot come from
+   * `useRawDraft()` here - that provider is mounted *inside* this component's own tree (which is why
+   * `StructuredTabsGuard`/`RenameHeaderButton` exist as separate components), while the re-read hook
+   * has to keep running for the whole view. See the prop's own doc comment for why re-reading under
+   * an open draft silently destroyed external edits.
+   */
+  const rawDraftActiveRef = useRef(false)
+
+  useFileSourceRefresh({
+    profileId: selectedId,
+    isSuspended: () => rawDraftActiveRef.current,
+    onResult: handleFileSourceResult,
+  })
 
   /**
    * The "Rewrite from cache" action on the `fileState: 'missing'` banner (story 043 D7) - reuses
@@ -400,11 +473,56 @@ export function ConfigView() {
       },
     ]
 
+  // Story 057 D2: the raw tab turns this whole view into a full-height code editor, so the page
+  // itself must stop scrolling and hand its vertical space down a flex chain instead (outer
+  // container -> content wrapper -> detail wrapper -> the Panel around tab content) - every other
+  // tab keeps the original scrolling-page layout untouched. Gated on `screen === 'detail'` too:
+  // `activeTab` does not reset on `backToList`, so a user who backs out of a raw-tab profile back
+  // to the list must not have the list itself go non-scrolling.
+  const isRawFill = screen === 'detail' && activeTab === 'raw'
+
+  // Review fix (blocker 1): the tab buttons themselves, computed once so `isRawFill` can place them
+  // either in their own bordered row (every other tab, unchanged) or inline in the header row (raw
+  // tab only) without two copies of this `.map()` to keep in sync. `py-0`/no badge-tone change:
+  // only the *position* differs between the two placements, not the buttons' own look.
+  const tabButtons = tabs.map((tab) => (
+    <button
+      key={tab.id}
+      type="button"
+      data-testid={`config-tab-${tab.id}`}
+      onClick={() => goToTab(tab.id)}
+      className={cn(
+        'flex items-center gap-1.5 rounded-sm px-2.5 text-xs font-medium transition-colors duration-[--dur-fast]',
+        isRawFill ? 'py-0' : 'py-1.5',
+        activeTab === tab.id
+          ? 'bg-flame-900/30 text-flame-200'
+          : 'text-ink-dim hover:bg-hover hover:text-ink',
+      )}
+    >
+      {tab.label}
+      {tab.badge && <Badge tone={tab.badgeTone ?? 'neutral'}>{tab.badge}</Badge>}
+    </button>
+  ))
+
   // `scrollbar-gutter-stable`: tabs flip between overflowing and not (Overview <-> Settings);
   // without the reserve the content box width jumps when the scrollbar appears (story 028).
   return (
-    <div className="h-full overflow-y-auto scrollbar-gutter-stable">
-      <div className="mx-auto max-w-[92rem] space-y-6 p-8">
+    <div
+      className={cn(
+        'h-full scrollbar-gutter-stable',
+        isRawFill ? 'flex flex-col overflow-hidden' : 'overflow-y-auto',
+      )}
+    >
+      <div
+        className={cn(
+          'mx-auto max-w-[92rem]',
+          // Review fix (blocker 1, AC1 - "at least 30 lines visible at 1280x800"): the raw tab's
+          // own outer padding/gap, trimmed to the bare minimum that still keeps a visible seam
+          // between the rows above the editor. Never touches the `else` branch below, so every
+          // other tab's padding/gap is pixel-identical to before.
+          isRawFill ? 'flex flex-1 min-h-0 flex-col space-y-0 p-0' : 'space-y-6 p-8',
+        )}
+      >
         {screen === 'list' && (
           <>
             <header className="flex flex-wrap items-end justify-between gap-3">
@@ -474,66 +592,105 @@ export function ConfigView() {
 
         {screen === 'detail' && selected && (
           <ProfileChangesProvider profile={selected}>
-            <div className="space-y-6">
-              <div className="flex items-center justify-between gap-3">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={<ArrowLeft className="size-3.5" />}
-                  onClick={backToList}
-                >
-                  {t('config.nav.back')}
-                </Button>
-                <div className="flex items-center gap-2">
-                  <AssignmentsMenu profile={selected} onChanged={setProfiles} />
-                  <div className="flex items-center gap-1">
-                    <IconButton
-                      label={t('config.detail.rename')}
+            {/*
+              Story 057 D5: the raw-text draft lives next to the structured change set, not inside
+              it (story Decisions) - one provider per source of "unsaved", both wrapping the whole
+              detail screen so the save bar can act on either without knowing which tab is showing.
+              `handleProfileUpdated` is the same single-profile merge `ProfileSaveBar`'s own `onSaved`
+              already uses: a raw save returns an ordinary updated profile.
+            */}
+            <RawDraftProvider
+              profile={selected}
+              onSaved={handleProfileUpdated}
+              onActiveChange={(active) => {
+                rawDraftActiveRef.current = active
+              }}
+            >
+              <div
+                className={cn(
+                  // Review fix (blocker 1): same trim as the outer wrapper above, applied to this
+                  // level's own row gap - only while `isRawFill`, so the non-raw `space-y-6` layout
+                  // (list of rows: header, name, save bar, banners, tabs, panel) is untouched.
+                  isRawFill ? 'flex flex-1 min-h-0 flex-col space-y-0' : 'space-y-6',
+                )}
+              >
+                {/* Review fix (blocker 1): while `isRawFill`, the profile name folds into this row
+                    (next to the back button) instead of its own row below - the back
+                    button/tab strip already say which profile this is and the raw tab's own path
+                    row (`RawFileTab.tsx`) names the actual file, so a whole separate heading row
+                    was pure chrome the 30-visible-lines budget at 1280x800 could not spare. The tab
+                    strip (`tabButtons`) folds into this same row too, for the same reason - its own
+                    bordered row below (unchanged for every other tab) cost a whole row of chrome
+                    none of the three groups here actually needs a full row height to fit; `flex-wrap`
+                    on this row means the narrower viewport still gets a working, just taller, header
+                    instead of clipped/overflowing tabs. Every other tab keeps the original two-row
+                    header (this row, then the name block) plus its own separate tab strip below,
+                    untouched. */}
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Button
+                      variant="ghost"
                       size="sm"
-                      onClick={() => setShowRename(true)}
+                      icon={<ArrowLeft className="size-3.5" />}
+                      onClick={backToList}
                     >
-                      <Pencil className="size-3.5" />
-                    </IconButton>
-                    <IconButton
-                      label={t('config.detail.delete')}
-                      size="sm"
-                      variant="danger"
-                      onClick={() => setShowDelete(true)}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </IconButton>
+                      {t('config.nav.back')}
+                    </Button>
+                    {isRawFill && (
+                      <h2 className="truncate font-display text-sm tracking-[0.06em] text-ink uppercase">
+                        {selected.name}
+                      </h2>
+                    )}
+                  </div>
+                  {isRawFill && (
+                    <div className="flex flex-wrap items-center gap-1.5">{tabButtons}</div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <AssignmentsMenu profile={selected} onChanged={setProfiles} />
+                    <div className="flex items-center gap-1">
+                      <RenameHeaderButton onClick={() => setShowRename(true)} />
+                      <IconButton
+                        label={t('config.detail.delete')}
+                        size="sm"
+                        variant="danger"
+                        onClick={() => setShowDelete(true)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </IconButton>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <h2 className="font-display text-lg tracking-[0.06em] text-ink uppercase">
-                  {selected.name}
-                </h2>
-                <div className="flex flex-wrap gap-x-6 gap-y-1">
-                  <KeyValue label={t('config.detail.created')}>
-                    {formatRelativeTime(selected.createdAt) ?? '-'}
-                  </KeyValue>
-                  <KeyValue label={t('config.detail.updated')}>
-                    {formatRelativeTime(selected.updatedAt) ?? '-'}
-                  </KeyValue>
-                </div>
-              </div>
+                {!isRawFill && (
+                  <div className="space-y-2">
+                    <h2 className="font-display text-lg tracking-[0.06em] text-ink uppercase">
+                      {selected.name}
+                    </h2>
+                    <div className="flex flex-wrap gap-x-6 gap-y-1">
+                      <KeyValue label={t('config.detail.created')}>
+                        {formatRelativeTime(selected.createdAt) ?? '-'}
+                      </KeyValue>
+                      <KeyValue label={t('config.detail.updated')}>
+                        {formatRelativeTime(selected.updatedAt) ?? '-'}
+                      </KeyValue>
+                    </div>
+                  </div>
+                )}
 
-              {/*
+                {/*
               Story 043 D6: mounted at the detail level, not inside any `activeTab === ...` branch,
               so Save works no matter which tab is showing - the same placement the deleted
               `useProfileAutoWrite` hook used. `handleProfileUpdated` is the existing single-profile
               merge-by-id path (`CareTab`'s `onProfileUpdated`), reused rather than inventing a
               second update path for `save`'s single-profile result.
             */}
-              <ProfileSaveBar
-                profile={selected}
-                onSaved={handleProfileUpdated}
-                onDiscarded={handleDiscarded}
-              />
+                <ProfileSaveBar
+                  profile={selected}
+                  onSaved={handleProfileUpdated}
+                  onDiscarded={handleDiscarded}
+                />
 
-              {/*
+                {/*
               Story 043 D7: persistent (never a toast) banner for a profile whose canonical file
               was deleted outside the launcher - `fileState` comes straight off the profile record,
               which `applyRefreshedProfile` patched from the last `refreshFromFiles` result. The two
@@ -541,144 +698,145 @@ export function ConfigView() {
               handler as-is (see `handleRewriteFromCache`'s doc comment), "Remove profile" opens the
               exact same confirmation dialog the detail header's own delete button opens.
             */}
-              {selected.fileState === 'missing' && (
-                <div className="space-y-3 rounded-sm border border-danger/35 bg-danger/8 p-3">
-                  <div className="flex items-start gap-2">
-                    <TriangleAlert className="mt-0.5 size-4 shrink-0 text-danger" />
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-danger">
-                        {t('config.fileSource.missingBanner.title')}
-                      </p>
-                      <p className="text-xs leading-relaxed text-ink-dim">
-                        {t('config.fileSource.missingBanner.body')}
-                      </p>
+                {selected.fileState === 'missing' && (
+                  <div className="space-y-3 rounded-sm border border-danger/35 bg-danger/8 p-3">
+                    <div className="flex items-start gap-2">
+                      <TriangleAlert className="mt-0.5 size-4 shrink-0 text-danger" />
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-danger">
+                          {t('config.fileSource.missingBanner.title')}
+                        </p>
+                        <p className="text-xs leading-relaxed text-ink-dim">
+                          {t('config.fileSource.missingBanner.body')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="neutral"
+                        size="sm"
+                        icon={<RotateCcw className="size-3.5" />}
+                        disabled={rewriting}
+                        onClick={() => void handleRewriteFromCache()}
+                      >
+                        {t('config.fileSource.missingBanner.rewrite')}
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        icon={<Trash2 className="size-3.5" />}
+                        onClick={() => setShowDelete(true)}
+                      >
+                        {t('config.fileSource.missingBanner.remove')}
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="neutral"
-                      size="sm"
-                      icon={<RotateCcw className="size-3.5" />}
-                      disabled={rewriting}
-                      onClick={() => void handleRewriteFromCache()}
-                    >
-                      {t('config.fileSource.missingBanner.rewrite')}
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      icon={<Trash2 className="size-3.5" />}
-                      onClick={() => setShowDelete(true)}
-                    >
-                      {t('config.fileSource.missingBanner.remove')}
-                    </Button>
-                  </div>
-                </div>
-              )}
+                )}
 
-              {/*
+                {/*
               Story 043 D7: the last-good-cache diagnostic for an unparseable/unreadable file -
               persistent (not a toast, per AC4) but never disables the profile: the tabs below stay
               exactly as reachable as they are for any other profile.
             */}
-              {fileDiagnostic && fileDiagnostic.profileId === selected.id && (
-                <div className="flex items-start gap-2 rounded-sm border border-warning/35 bg-warning/8 p-3">
-                  <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-warning">
-                      {fileDiagnostic.file !== undefined && fileDiagnostic.line !== undefined
-                        ? t('config.fileSource.diagnostic.titleWithLine', {
-                            file: fileDiagnostic.file,
-                            line: fileDiagnostic.line,
-                          })
-                        : t('config.fileSource.diagnostic.title')}
-                    </p>
-                    <p className="text-xs leading-relaxed text-ink-dim">{fileDiagnostic.message}</p>
-                    <p className="text-xs text-ink-muted">
-                      {t('config.fileSource.diagnostic.hint')}
-                    </p>
+                {fileDiagnostic && fileDiagnostic.profileId === selected.id && (
+                  <div className="flex items-start gap-2 rounded-sm border border-warning/35 bg-warning/8 p-3">
+                    <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-warning">
+                        {fileDiagnostic.file !== undefined && fileDiagnostic.line !== undefined
+                          ? t('config.fileSource.diagnostic.titleWithLine', {
+                              file: fileDiagnostic.file,
+                              line: fileDiagnostic.line,
+                            })
+                          : t('config.fileSource.diagnostic.title')}
+                      </p>
+                      <p className="text-xs leading-relaxed text-ink-dim">
+                        {fileDiagnostic.message}
+                      </p>
+                      <p className="text-xs text-ink-muted">
+                        {t('config.fileSource.diagnostic.hint')}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              <div className="flex flex-wrap gap-1.5 border-b border-line pb-2">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    data-testid={`config-tab-${tab.id}`}
-                    onClick={() => goToTab(tab.id)}
-                    className={cn(
-                      'flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs font-medium transition-colors duration-[--dur-fast]',
-                      activeTab === tab.id
-                        ? 'bg-flame-900/30 text-flame-200'
-                        : 'text-ink-dim hover:bg-hover hover:text-ink',
-                    )}
-                  >
-                    {tab.label}
-                    {tab.badge && <Badge tone={tab.badgeTone ?? 'neutral'}>{tab.badge}</Badge>}
-                  </button>
-                ))}
+                {/* Review fix (blocker 1): this row is now `isRawFill`'s tab strip too, folded into
+                    the header row above instead (`tabButtons` placed inline there) - see that
+                    row's own comment for why. Every other tab keeps this exact row untouched. */}
+                {!isRawFill && (
+                  <div className="flex flex-wrap gap-1.5 border-b border-line pb-2">
+                    {tabButtons}
+                  </div>
+                )}
+
+                <Panel className={cn(isRawFill ? 'flex flex-1 min-h-0 flex-col p-0' : 'p-6')}>
+                  {activeTab === 'raw' ? (
+                    <div className="flex flex-1 min-h-0 flex-col">
+                      <RawFileTab profile={selected} onChanged={setProfiles} />
+                    </div>
+                  ) : (
+                    <StructuredTabsGuard>
+                      {activeTab === 'overview' && (
+                        <div className="space-y-6">
+                          <OverviewKeyboardPanel
+                            profile={selected}
+                            activeLayer={activeLayer}
+                            onChanged={setProfiles}
+                            onSelectLayer={setActiveLayerId}
+                          />
+                          <LayersPanel
+                            profile={selected}
+                            activeLayerId={activeLayerId}
+                            onSelectLayer={setActiveLayerId}
+                            onChanged={setProfiles}
+                          />
+                        </div>
+                      )}
+                      {activeTab === 'settings' && (
+                        <SettingsTab
+                          profile={selected}
+                          draft={activeProfile(selected)}
+                          patch={patch}
+                          onChanged={setProfiles}
+                        />
+                      )}
+                      {activeTab === 'controls' && (
+                        <ControlsTab
+                          profile={selected}
+                          draft={activeProfile(selected)}
+                          patch={patch}
+                          onChanged={setProfiles}
+                          focusActionId={tabState.focusActionId}
+                        />
+                      )}
+                      {activeTab === 'aliases' && (
+                        <AliasesTab
+                          profile={selected}
+                          draft={activeProfile(selected)}
+                          patch={patch}
+                          onChanged={setProfiles}
+                          focusAlias={tabState.focusAlias}
+                          onNavigateToAction={(actionId) => goToTab('controls', { actionId })}
+                          onNavigateToLayer={(layerName) => goToTab('overview', { layerName })}
+                        />
+                      )}
+                      {activeTab === 'care' && (
+                        <CareTab
+                          profile={selected}
+                          validation={validation}
+                          onProfileUpdated={handleProfileUpdated}
+                          installations={installations}
+                          assignedInstallationIds={assignedInstallationIds}
+                          onNavigateToAlias={(aliasName) =>
+                            goToTab('aliases', { alias: aliasName })
+                          }
+                        />
+                      )}
+                    </StructuredTabsGuard>
+                  )}
+                </Panel>
               </div>
-
-              <Panel className="p-6">
-                {activeTab === 'overview' && (
-                  <div className="space-y-6">
-                    <OverviewKeyboardPanel
-                      profile={selected}
-                      activeLayer={activeLayer}
-                      onChanged={setProfiles}
-                      onSelectLayer={setActiveLayerId}
-                    />
-                    <LayersPanel
-                      profile={selected}
-                      activeLayerId={activeLayerId}
-                      onSelectLayer={setActiveLayerId}
-                      onChanged={setProfiles}
-                    />
-                  </div>
-                )}
-                {activeTab === 'settings' && (
-                  <SettingsTab
-                    profile={selected}
-                    draft={activeProfile(selected)}
-                    patch={patch}
-                    onChanged={setProfiles}
-                  />
-                )}
-                {activeTab === 'controls' && (
-                  <ControlsTab
-                    profile={selected}
-                    draft={activeProfile(selected)}
-                    patch={patch}
-                    onChanged={setProfiles}
-                    focusActionId={tabState.focusActionId}
-                  />
-                )}
-                {activeTab === 'aliases' && (
-                  <AliasesTab
-                    profile={selected}
-                    draft={activeProfile(selected)}
-                    patch={patch}
-                    onChanged={setProfiles}
-                    focusAlias={tabState.focusAlias}
-                    onNavigateToAction={(actionId) => goToTab('controls', { actionId })}
-                    onNavigateToLayer={(layerName) => goToTab('overview', { layerName })}
-                  />
-                )}
-                {activeTab === 'raw' && <RawFileTab profile={selected} onChanged={setProfiles} />}
-                {activeTab === 'care' && (
-                  <CareTab
-                    profile={selected}
-                    validation={validation}
-                    onProfileUpdated={handleProfileUpdated}
-                    installations={installations}
-                    assignedInstallationIds={assignedInstallationIds}
-                    onNavigateToAlias={(aliasName) => goToTab('aliases', { alias: aliasName })}
-                  />
-                )}
-              </Panel>
-            </div>
+            </RawDraftProvider>
           </ProfileChangesProvider>
         )}
       </div>

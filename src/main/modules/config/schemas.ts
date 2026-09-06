@@ -321,6 +321,32 @@ export const saveProfileInputSchema = z.object({
   force: z.boolean().optional(),
 })
 
+/**
+ * Story 057 D4: how much text one `saveRawText` call may carry - a bounding-one-payload's-work cap
+ * in the same spirit as `setProfileActionsInputSchema`'s 500 actions, sized for a *file* rather than
+ * a field. A canonical profile `.cfg` the launcher writes is a few kilobytes; the largest
+ * hand-written Quake II config anyone has ever produced is orders of magnitude below this, so the
+ * cap can only ever reject a payload that is not a config file at all.
+ */
+export const MAX_RAW_CONFIG_TEXT_LENGTH = 1_000_000
+
+/**
+ * Story 057 D4: `saveRawText`'s payload - the whole file the Raw file tab's editor holds, plus the
+ * same `force` bypass `saveProfileInputSchema` above carries, and no path (see `SaveRawTextInput`).
+ *
+ * Deliberately shape-and-size only. The two content rules the story names - the ownership tag and
+ * latin-1 - are checked in the handler instead, with their own i18n keys: both are things the *user*
+ * can do to their own text in an editor, and a caller bug (which is all this schema's `.parse()`
+ * throw can mean, per this file's own convention) is exactly what they are not. `z.string()` without
+ * `.min(1)` on purpose: emptying the file is a legitimate edit, and the ownership check below is what
+ * actually rejects it.
+ */
+export const saveRawTextInputSchema = z.object({
+  profileId: z.string().min(1),
+  text: z.string().max(MAX_RAW_CONFIG_TEXT_LENGTH),
+  force: z.boolean().optional(),
+})
+
 /** Story 022 (D7): `writeState` takes no payload, same pattern as `listInputSchema` above. */
 export const writeStateInputSchema = z.void()
 

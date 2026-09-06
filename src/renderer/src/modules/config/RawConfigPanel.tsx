@@ -11,6 +11,10 @@ import { ConfigCodeView } from './components/ConfigCodeView'
 import { previewConfigProfile } from './client'
 
 /**
+ * Story 057 D3: unmounted. `RawFileTab` no longer renders this panel (its
+ * per-installation cards were removed), but the component and its logic stay
+ * here as-is - story 058 ("Care's Sync") remounts it in a different feature.
+ *
  * Read-only preview of the exact files a `write` would put on one
  * installation's disk for a profile, without writing them. Module-local,
  * like the rest of this module's dialogs: props-based, no shell store.
@@ -19,7 +23,7 @@ import { previewConfigProfile } from './client'
  * (or would be) on disk, so no trimming, no reformatting, no markdown.
  *
  * Owns its own fetch rather than taking the preview as a prop, so any caller
- * (currently `RawFileTab`'s per-row expand) can mount it standalone.
+ * (currently none - see the unmounted note above) can mount it standalone.
  */
 export function RawConfigPanel({
   profile,

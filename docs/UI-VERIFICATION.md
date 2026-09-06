@@ -403,16 +403,9 @@ but three things matter in practice:
 
 ### Two dialog/panel screens already in the registry
 
-`scripts/lib/screens.mjs` has two such entries, both added by story 037 D3:
+`scripts/lib/screens.mjs` had two such entries added by story 037 D3;
+`config-write-preview` is retired as of story 057 D7 (see below), leaving one:
 
-- **`config-write-preview`** — the write-preview panel inside `RawFileTab`
-  (`src/renderer/src/modules/config/RawFileTab.tsx`). Reached via the Raw tab
-  of a config profile's detail view, clicking the per-installation
-  `config-raw-expand` toggle, which mounts `RawConfigPanel`
-  (`src/renderer/src/modules/config/RawConfigPanel.tsx`) inline — no modal.
-  `navigate()` waits for the *second* `.cfg-code-content` block (the first is
-  the profile's own canonical file, always rendered already) to be visible,
-  then scrolls it into view.
 - **`config-import-preview`** — the import-preview panel inside
   `ImportProfileDialog` (`src/renderer/src/modules/config/ImportProfileDialog.tsx`).
   Reached via Config list → "New profile" (`config-create-profile`) → source `import`
@@ -490,6 +483,46 @@ panel at all — it flips a switch on a plain tab:
   for the "Generated" origin badge text rather than returning right after the
   click, since the toggle only flips local component state and nothing else
   here would fail fast if the re-render hadn't happened yet.
+
+Story 057 D3 compacted `RawFileTab` down to one path/status line, one
+file-options toolbar row and the profile's own canonical file — the
+per-installation cards and `RawConfigPanel`'s only mount point are both gone
+from this tab (`RawConfigPanel.tsx` itself still exists, just unmounted).
+`config-write-preview` (story 037 D3, described above in earlier revisions of
+this doc) is **retired** as a result: there is no longer any click path that
+reaches it. Story 058 ("Care's Sync") remounts that view in a different
+feature — a screen entry for it returns there, once it has a new reachable
+trigger; see the retirement comment left in place of its old entry in
+`scripts/lib/screens.mjs`.
+
+Story 057 D7 adds one more in its place, still on the Raw tab but with no
+dialog or panel involved:
+
+- **`config-raw-editing`** — Plain Profile's Raw file tab with a dirty raw
+  draft: text typed into the editable code view's real `<textarea>`
+  (`.cfg-code-textarea`, `ConfigCodeView.tsx`), not yet saved. `navigate()`
+  opens the tab via `configDetail('raw')`, clicks into the textarea and types
+  a line, then waits for the save bar's raw-specific summary text
+  (`config-save-summary`, `ProfileSaveBar.tsx`, `config.save.rawEdited` — "File
+  text edited…") rather than the structured-diff wording the bar shows for an
+  ordinary dirty profile. It runs early in the registry, before any other
+  `config-*` screen puts Plain Profile's *structured* state (not this
+  renderer-local draft) into a dirty state server-side — `rawEditingMode`
+  requires the profile clean to allow typing at all (`lib/raw-draft.tsx`), and
+  the batched `populated` session never resets in-memory profile state between
+  screens (see the module-level comment in `scripts/lib/screens.mjs`).
+
+Story 057 D3 also retargets two existing entries whose `navigate()` used to
+reach the raw tab's "Section header style" control via
+`page.getByLabel('Section header style')` — `config-save-expanded` and
+`config-discard-confirm`. That control used to sit inside a `Field`
+(`components/ui/controls.tsx`), which rendered a real `<label htmlFor>`; D3's
+compacted toolbar row replaced it with a plain `<span className="stencil">`
+next to the `<select>`, with no label association at all, so `getByLabel` no
+longer resolves. Both now select `RawFileTab`'s one native `<select>` directly
+(`page.locator('select')`) instead. `config-conflict-dialog`'s own locator (the
+"Start the file with `unbindall`" checkbox, selected by its visible label text,
+not `getByLabel`) was unaffected by this layout change and was left as-is.
 
 ### Cold-start screens
 
@@ -582,6 +615,18 @@ meaningful action, drive `page` the same way the example does, and call
 `npm run ui:flow -- <name>`. The flow always launches against the `populated`
 fixture at the default 1280x800 viewport (`scripts/flow.mjs`) — flows aren't
 part of the registry and don't take a `variant`/`viewports` of their own.
+
+Flows shipped so far, alongside `open-keycap-dialog` above:
+`alias-rename-dialog`, `controls-category-rename-reorder`,
+`controls-extra-keys`, `controls-subcategory`, `custom-action-row`,
+`drop-message-checkbox`, `settings-section-rename-add-cvar`, and (story 057
+D7) **`raw-inline-edit`** — types a line into the Raw file tab's real inline
+editor (`.cfg-code-textarea`), saves it via the save bar's `config-save`
+button (the same path Ctrl+S in the editor calls), then asserts both the
+read-back result panel (`config-raw-save-result`, `RawFileTab.tsx`) and the
+profile's canonical file on disk, read straight off `.ui-verify/fixture/
+populated/userdata/Plain-Profile.cfg` with `node:fs`, actually contain the
+typed text.
 
 ## Baselines and CI
 

@@ -97,6 +97,16 @@ const BOTH_VIEWPORTS = [VIEWPORT_DEFAULT, VIEWPORT_MIN]
 const CLICK_TIMEOUT_MS = 8_000
 
 /**
+ * The Raw file tab's own `getRawFiles` fetch (real IPC, reads the profile's canonical file plus
+ * every assigned installation's copy off disk) has been observed taking noticeably longer than
+ * `CLICK_TIMEOUT_MS` to settle in a batched session - long enough that a plain click on its
+ * `.cfg-code-textarea` can still be waiting on a spinner when the shorter timeout gives up. Used
+ * only by `config-raw-editing` below, which needs the editor actually mounted before it can type
+ * into it.
+ */
+const RAW_TAB_LOAD_TIMEOUT_MS = 20_000
+
+/**
  * Story 043 D8: `Plain Profile`'s canonical file name, as `resolveProfileFileNames`
  * (`@shared/config/profile-files.ts`) actually resolves it - the sanitizer maps the space to `-`,
  * so this is NOT `Plain Profile.cfg`. Used only by the `config-conflict-dialog` screen below to
@@ -284,6 +294,45 @@ export const SCREENS = [
     navigate: configDetail('raw'),
   },
   {
+    id: 'config-raw-editing',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 057 D7: a dirty raw draft, mid-edit, not yet saved - the state D5's editable
+    // `<textarea>` (`.cfg-code-textarea`, `ConfigCodeView.tsx`) can be in. Plain Profile's own
+    // canonical file is on disk and the profile isn't dirty by default, so `rawEditingMode` reads
+    // 'editable' (`lib/raw-draft.tsx`) and the tab already shows the real editor - no toggling
+    // needed first, only typing into it. Waits for the save bar's own raw-specific summary
+    // (`config-save-summary`, `ProfileSaveBar.tsx`, text `config.save.rawEdited`) rather than just
+    // clicking-and-hoping, since that text is what actually distinguishes "a raw draft is active"
+    // from "the structured diff is dirty" - the two save-bar states this registry's other raw-tab
+    // screens (`config-save-expanded`/`config-discard-confirm`) exercise instead.
+    navigate: async (page) => {
+      await configDetail('raw')(page)
+      const textarea = page.locator('.cfg-code-textarea')
+      // The tab shows a spinner until `getRawFiles` resolves (see `RAW_TAB_LOAD_TIMEOUT_MS`
+      // above) - waiting for the textarea itself, rather than clicking straight away, keeps this
+      // screen from racing that fetch the way a bare `.click()` did (observed as an intermittent
+      // `unreachable` at the narrower viewport during this screen's own verification).
+      await textarea.waitFor({ state: 'visible', timeout: RAW_TAB_LOAD_TIMEOUT_MS })
+      // A plain `.click()` targets the element's center, which at `VIEWPORT_MIN`'s shorter height
+      // sits below the fold, under the always-on-top installation-status footer - Playwright's own
+      // "element intercepts pointer events" retry loop confirmed this rather than a load race.
+      // Clicking a point inside the textarea's own top-left corner, which sits right below the
+      // toolbar row and is never covered, sidesteps that instead of fighting the footer's z-index.
+      await textarea.click({ timeout: CLICK_TIMEOUT_MS, position: { x: 10, y: 10 } })
+      // The click above lands the caret near whatever character sits at that pixel, not
+      // necessarily the very start of the text - `Control+Home` normalizes that to a real "start
+      // of file" position first, so the typed line always lands as its own clean first line
+      // rather than splicing into the middle of the file's existing first line.
+      await page.keyboard.press('Control+Home')
+      await page.keyboard.type('// q2l-ui-verify raw edit\n')
+      await page
+        .getByTestId('config-save-summary')
+        .filter({ hasText: 'File text edited' })
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
     id: 'config-save-expanded',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,
@@ -298,9 +347,19 @@ export const SCREENS = [
     // to actually be visible, rather than just clicking-and-hoping, since the panel is conditionally
     // rendered (`dirty && expanded`) and a race against that render would otherwise screenshot the
     // pre-expansion state.
+    //
+    // Story 057 D3 retarget: the select used to sit inside a `Field` (`components/ui/controls.tsx`),
+    // which rendered a real `<label htmlFor>` - `getByLabel('Section header style')` worked against
+    // that. D3 compacted the "unbindall" checkbox and this select into one toolbar row, each wrapped
+    // in a `HoverCard` instead, with the visible text now a plain `<span className="stencil">` that
+    // carries no `for`/`id` association at all - `getByLabel` no longer finds anything here. RawFileTab
+    // renders exactly one native `<select>` (verified by reading the whole module), so this selects it
+    // directly rather than by label; `HoverCard`'s children always render in the DOM regardless of
+    // hover/focus state (`HoverCard.tsx`), so the select is present and interactable without opening
+    // the tooltip first.
     navigate: async (page) => {
       await configDetail('raw')(page)
-      await page.getByLabel('Section header style').selectOption('brackets')
+      await page.locator('select').selectOption('brackets')
       await page
         .getByText('Unsaved changes', { exact: true })
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
@@ -321,9 +380,13 @@ export const SCREENS = [
     // `RemoveInstallationDialog` (`install-remove-dialog` above), renders via `Modal` (role="dialog")
     // and carries no `data-testid` of its own, so this mirrors that screen's wait exactly rather
     // than inventing a new pattern.
+    //
+    // Story 057 D3 retarget: same reason as `config-save-expanded` above - `getByLabel` no longer
+    // resolves against the compacted toolbar row, so this selects RawFileTab's one native `<select>`
+    // directly instead.
     navigate: async (page) => {
       await configDetail('raw')(page)
-      await page.getByLabel('Section header style').selectOption('brackets')
+      await page.locator('select').selectOption('brackets')
       await page
         .getByText('Unsaved changes', { exact: true })
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
@@ -376,28 +439,14 @@ export const SCREENS = [
       await click(page, 'nav-downloads')
     },
   },
-  {
-    id: 'config-write-preview',
-    variant: 'populated',
-    viewports: BOTH_VIEWPORTS,
-    // Story 037 D3: the Raw tab's per-installation expand toggle mounts
-    // `RawConfigPanel` (RawFileTab.tsx), which fetches its own preview and
-    // shows a spinner first — waiting for a *second* `.cfg-code-content`
-    // block (the first is the profile's own canonical file, always rendered
-    // already) is what tells apart "still loading" from "preview rendered".
-    // Plain Profile is assigned to `fixture-install-favorite` by default
-    // (scripts/lib/fixture.mjs), which is the row this renders. The rendered
-    // panel sits below the profile's own (always-empty-here, not-on-disk)
-    // canonical file, so it scrolls itself into view once ready — otherwise
-    // it would render correctly but sit below the screenshot's fold.
-    navigate: async (page) => {
-      await configDetail('raw')(page)
-      await click(page, 'config-raw-expand')
-      const rendered = page.locator('.cfg-code-content').nth(1)
-      await rendered.waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
-      await rendered.scrollIntoViewIfNeeded()
-    },
-  },
+  // `config-write-preview` (story 037 D3) is RETIRED here: it drove the Raw tab's per-installation
+  // expand toggle (`config-raw-expand`) into `RawConfigPanel`, but story 057 D3 compacted RawFileTab
+  // down to one path/status line, one file-options toolbar row and the profile's own canonical file
+  // - the per-installation cards and `RawConfigPanel`'s mount point are both gone from this tab (not
+  // deleted: `RawConfigPanel.tsx` itself still exists, just unmounted). There is currently no way to
+  // reach it, so there is nothing left for a `navigate()` here to click. Story 058 ("Care's Sync")
+  // remounts that view in a different feature - re-add a screen entry for it there, once it has a new
+  // reachable trigger.
   {
     id: 'config-import-preview',
     variant: 'populated',

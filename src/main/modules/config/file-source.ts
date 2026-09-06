@@ -36,7 +36,12 @@ import {
   type RestoreProfilePartsInput,
   type RestoreWarning,
 } from '@shared/config/profile-restore'
-import type { ConfigAction, ConfigActionCategory, ConfigCvarSection } from '@shared/modules/config'
+import type {
+  ConfigAction,
+  ConfigActionCategory,
+  ConfigCvarSection,
+  UnrecognizedConfigLine,
+} from '@shared/modules/config'
 import {
   parseConfigText,
   type ParsedAlias,
@@ -245,6 +250,26 @@ export interface ParsedCanonicalProfile {
    * that pass and is the only place those are still visible (`FoldedConfig.discardedAliases`).
    * Never fatal to the parse itself (see `readFileState`'s doc comment). */
   warnings: RestoreWarning[]
+  /**
+   * Story 057 D4: the file's lines that carry no command this reader understands - what the parser
+   * itself buckets as `preserved`, minus every comment-only line.
+   *
+   * The subtraction is the whole point of the field. `parseConfigText`'s own `preserved` deliberately
+   * also carries comment-only lines (story 042 D3, AC8), and a launcher-written file is full of
+   * banner comments the writer regenerates from the profile on the next render - so the unfiltered
+   * bucket reports a dozen "preserved lines" for a perfectly round-tripping file and says nothing
+   * about the one case a caller cares about: a line that is in the FILE but not in the PROFILE, and
+   * that a later structured save would therefore render away.
+   *
+   * Deliberately a different subtraction from `import.ts#preservedLinesFor`, which instead removes
+   * the `[q2l ...]` comments `restoreProfileParts` fully understood: that leaves the untagged
+   * decoration (the `--- Other binds ---` banner, the header block's prose) in the list, which is
+   * exactly the noise this consumer must not show. Nothing is *lost* by the wider filter - a comment
+   * line is still physically in the file, which is the source of truth.
+   *
+   * Empty for a file the launcher wrote and nobody has hand-edited.
+   */
+  preserved: UnrecognizedConfigLine[]
   sourceProfileId: string | null
   metadataVersion: number | null
 }
@@ -253,6 +278,9 @@ function parseCanonicalProfile(file: string, content: string): ParsedCanonicalPr
   const parsed = parseConfigText(content)
   const folded = foldConfig(parsed)
   const restored = restoreProfileParts(toRestoreInput(file, parsed, folded, randomUUID))
+  // Comment-ONLY lines, by line number - `parseConfigText` collects those into `comments`
+  // additionally to `preserved`, never instead of it, so this is the exact set to subtract.
+  const commentOnlyLines = new Set(parsed.comments.map((comment) => comment.line))
 
   return {
     cvars: Object.fromEntries([...folded.cvars.values()].map((cvar) => [cvar.name, cvar.value])),
@@ -264,6 +292,9 @@ function parseCanonicalProfile(file: string, content: string): ParsedCanonicalPr
     // The fold's own reports first: they are about lines `restoreProfileParts` was never handed,
     // and they name content that is missing from everything below them in this result.
     warnings: [...discardedAliasWarnings(file, folded.discardedAliases), ...restored.warnings],
+    preserved: parsed.preserved
+      .filter((line) => !commentOnlyLines.has(line.line))
+      .map((line) => ({ file, line: line.line, text: line.text })),
     sourceProfileId: restored.sourceProfileId,
     metadataVersion: restored.metadataVersion,
   }
@@ -297,6 +328,12 @@ function parseCanonicalProfile(file: string, content: string): ParsedCanonicalPr
  * Written as an explicit code test rather than a character-class regex so the control bytes it is
  * about never have to appear literally in this source file. `content` is read as latin1, so
  * `charCodeAt` IS the byte on disk.
+ *
+ * Story 057 D4 exports it: `saveRawText` has to answer the same question about text it is about to
+ * WRITE, before it writes it - a raw save that put such a byte on disk would leave the profile's own
+ * file classified `unparseable` by the very next read, which is precisely the state this function
+ * exists to keep the launcher out of. One definition, so the write side can never accept bytes the
+ * read side then refuses.
  */
 const TAB = 9
 const LINE_FEED = 10
@@ -316,7 +353,7 @@ function isCorruptByte(code: number): boolean {
  * placeholder the previously-unreachable branch below had to use - because "the file and line" is
  * what AC4 promises the user and what D7 renders.
  */
-function corruptContentDiagnostic(
+export function corruptContentDiagnostic(
   fileName: string,
   content: string,
 ): { file: string; line: number; message: string } | null {

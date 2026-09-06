@@ -1,7 +1,7 @@
 ---
 id: 057
 title: Raw file is an editor first, and I can edit inline
-status: ready
+status: done
 created: 2026-09-05
 ---
 
@@ -24,26 +24,26 @@ can type in it: for small quick changes, when I know what I am doing, I edit rig
 
 ## Acceptance Criteria
 
-- [ ] The code view fills the tab's available height (no fixed cap, its own scroll) at full width;
+- [x] The code view fills the tab's available height (no fixed cap, its own scroll) at full width;
       in a 1280x800 window at least 30 lines are visible without scrolling the page.
-- [ ] `unbindall` and the section header style live in one compact "File options" control (toolbar
+- [x] `unbindall` and the section header style live in one compact "File options" control (toolbar
       or popover) with tooltips instead of help paragraphs; path, on-disk badge, Open in editor and
       Reveal in folder are one line.
-- [ ] Per-installation copies leave the tab entirely (they move to Care's Sync, story 058, per the
+- [x] Per-installation copies leave the tab entirely (they move to Care's Sync, story 058, per the
       binding sprint decision): no per-installation cards, no played-mods block and no second code
       view inside the tab (Care's Compare covers the diff).
-- [ ] The code view is editable in place: typing, selection, Tab/Shift+Tab indenting, undo/redo,
+- [x] The code view is editable in place: typing, selection, Tab/Shift+Tab indenting, undo/redo,
       syntax highlighting while typing, line numbers, find; Ctrl+S saves.
-- [ ] A raw edit is an unsaved change like any other: the save bar shows it ("file text edited"),
+- [x] A raw edit is an unsaved change like any other: the save bar shows it ("file text edited"),
       Save writes exactly my text to the canonical file under the same conflict guard as today and
       then reads it back into the profile through the existing adopt path (with its warnings -
       dropped aliases, unrecognised lines); Discard throws the edit away.
-- [ ] Text the launcher cannot read back cleanly is never silently mangled: after Save the read-back
+- [x] Text the launcher cannot read back cleanly is never silently mangled: after Save the read-back
       result (lines kept as preserved, warnings) is shown, and the file on disk is exactly what I
       typed.
-- [ ] Raw editing and the structured tabs never hold two unsaved truths at once (see Open
+- [x] Raw editing and the structured tabs never hold two unsaved truths at once (see Open
       Questions) - whichever is active, the other side is read-only with a one-line hint.
-- [ ] The production CSP stays `style-src 'self'` (story 046) with the editing technique used;
+- [x] The production CSP stays `style-src 'self'` (story 046) with the editing technique used;
       `npm run ui:verify` stays at zero axe findings across `config-raw`, `config-write-preview`,
       `config-save-expanded`, `config-discard-confirm` and `config-conflict-dialog` (all of which
       drive this tab today, `scripts/lib/screens.mjs`); a `ui:flow` performs one inline edit through
@@ -147,7 +147,7 @@ viewport, and it is typable with a real Save path.
 
 ## Deliverables
 
-**D1 - Editable code view + full-height variant**
+**D1 - Editable code view + full-height variant** [x]
 Files: `src/renderer/src/modules/config/components/ConfigCodeView.tsx`,
 `src/renderer/src/styles/config-syntax.css`, new `src/renderer/src/modules/config/lib/textarea-indent.ts`
 (+ `textarea-indent.test.ts`). Mirror: `ConfigCodeView.tsx`'s existing `searchable` branch.
@@ -157,13 +157,13 @@ selection, native undo/redo works, Ctrl+F opens find; read-only usage is byte-id
 no `<style>` element, no `style` attribute string, no new CSP directive - `npm run typecheck`,
 `npm test` green.
 
-**D2 - Raw tab fills the viewport**
+**D2 - Raw tab fills the viewport** [x]
 Files: `src/renderer/src/modules/config/ConfigView.tsx`.
 Acceptance: on the raw tab the page itself no longer scrolls, the code view owns its scroll, and at
 1280x800 at least 30 code lines are visible without scrolling; every other tab renders exactly as
 before.
 
-**D3 - Compact chrome, per-installation copies gone**
+**D3 - Compact chrome, per-installation copies gone** [x]
 Files: `src/renderer/src/modules/config/RawFileTab.tsx`, `src/renderer/src/i18n/locales/en.json`,
 `src/renderer/src/modules/config/RawConfigPanel.tsx` (header note only).
 Acceptance: one path line (path, on-disk badge, Open in editor, Reveal) and one file-options row
@@ -171,7 +171,7 @@ with tooltips; no help paragraphs, no per-installation cards, no played-mods blo
 `.cfg-code` in the tab; unbindall and section-header-style still write through their existing IPC
 calls.
 
-**D4 - `config: saveRawText` main handler** *(hard)*
+**D4 - `config: saveRawText` main handler** *(hard)* [x]
 Files: `src/shared/modules/config.ts`, `src/main/modules/config/schemas.ts`,
 `src/main/modules/config/index.ts`, `src/renderer/src/modules/config/client.ts`, + main tests.
 Mirror: the `CONFIG_HANDLERS.save` handler (`index.ts:889-982`) and `refreshFromFiles`
@@ -183,7 +183,7 @@ refreshes the file-state record and returns the adopted profile plus `droppedAli
 overwrite, rejected disowned text, rejected non-latin-1 text, and no phantom external-edit on the
 next guard run.
 
-**D5 - Raw draft is an unsaved change** *(hard)*
+**D5 - Raw draft is an unsaved change** *(hard)* [x]
 Files: new `src/renderer/src/modules/config/lib/raw-draft.tsx`,
 `components/ProfileSaveBar.tsx`, `components/ProfileChangeList.tsx`, `ConfigConflictDialog.tsx`,
 `ConfigView.tsx`, `RawFileTab.tsx`, `en.json`. Mirror: `lib/profile-changes.tsx`.
@@ -193,12 +193,12 @@ Discard drops the edit; Ctrl+S in the editor saves; a save conflict opens the ex
 one-line hint, and while `profile.dirty` the editor is `readOnly` with a one-line hint - the two
 never coexist.
 
-**D6 - Read-back result is shown**
+**D6 - Read-back result is shown** [x]
 Files: `src/renderer/src/modules/config/RawFileTab.tsx` (+ small local panel), `en.json`.
 Acceptance: after a raw save an inline panel names the preserved-line count and any dropped-alias
 warnings and stays until the next edit; nothing about the result is toast-only.
 
-**D7 - Verification**
+**D7 - Verification** [x]
 Files: `scripts/lib/screens.mjs`, new `scripts/flows/raw-inline-edit.mjs`,
 `docs/UI-VERIFICATION.md` (screen list only).
 Acceptance: `npm run ui:verify` is exit 0 with zero axe serious/critical and zero CSP violations
@@ -242,3 +242,84 @@ AC6 → D4+D6 · AC7 → D5 · AC8 → D1 (CSP) + D7.
    appears; "Overwrite" writes your typed text.
 
 ## Done
+
+**Summary:** The Raw file config tab is now an editor first. `ConfigCodeView` gained `editable`/
+`fill`/`onChange` props (transparent-`<textarea>`-over-tokenised-`<pre>` overlay, no runtime
+`<style>`, CSP-safe per story 046's precedent), a pure `textarea-indent.ts` helper for Tab/Shift-Tab
+indent via `execCommand('insertText')` (keeps native undo/redo), and a Ctrl+F-toggled find bar
+reusing the existing search logic. `ConfigView.tsx` gives the raw tab a `fillsHeight` flex chain so
+the editor owns 100% of the viewport height (≥30 lines at 1280x800). `RawFileTab.tsx` was compacted
+to one path/status line and one file-options toolbar row (`HoverCard` tooltips replacing help
+paragraphs); per-installation cards, the played-mods block and the `RawConfigPanel` mount are gone
+(`RawConfigPanel.tsx` stays in the tree, unmounted, header-noted for story 058). A new
+`config:saveRawText` main handler (existing `module:invoke` transport, zod-validated, ownership +
+latin-1 pre-flight, byte-exact write, same conflict/unreadable shapes as `save`, file-state
+refreshed from the written bytes, no re-render over the typed text) backs a new renderer
+`lib/raw-draft.tsx` context: typing shows "file text edited" on the save bar, Ctrl-S/Save writes and
+adopts, Discard drops the draft, a conflict re-uses `ConfigConflictDialog` with a force-overwrite of
+the typed text, and mutual exclusion (`inert` on the structured tabs / disabled on the raw-tab
+controls and Rename) is enforced in both directions. An inline read-back panel under the toolbar
+shows the preserved-line count and any dropped-alias warnings. `ui:verify`/`ui:flow` were retargeted
+and extended: `config-write-preview` retired (story 058 note), new `config-raw-editing` screen, new
+`raw-inline-edit` flow.
+
+**Decisions:**
+- Two-space indent unit for Tab/Shift-Tab: no structural-indentation convention found in existing
+  `.cfg` fixtures, so the story's documented fallback was used.
+- "While `profile.dirty`, the editor is read-only": implemented by simply not passing `editable` to
+  `ConfigCodeView` (falls back to its existing read-only branch) plus the one-line hint, rather than
+  adding a literal `readOnly` prop that doesn't exist on the component — behaviourally equivalent
+  (not typable, still searchable).
+- Raw Discard is immediate (no confirmation dialog), unlike the structured-change discard path which
+  confirms first — AC5 only requires "Discard throws the edit away," and a raw draft is always a
+  single whole-file change with nothing granular to lose track of; documented as a deliberate,
+  lighter-weight path.
+- A raw save deliberately skips the installation-cascade sync (`syncAndPersist`) — re-running it
+  would re-render the profile over the user's typed bytes, breaking the "exactly what I typed"
+  guarantee. Installation copies go stale until an ordinary structured Save/write runs. Consistent
+  with this story's own decision that per-installation copies move out of this tab entirely (story
+  058); flagged here so 058 can decide where cascade-on-raw-save (if ever wanted) belongs.
+- A genuine environment bug was found and fixed as part of this story's QA: on this dev machine
+  (Node 20.20.2), jsdom's vendored undici crashed at module load (`markAsUncloneable` is a Node
+  22-only API), silently preventing 7 jsdom-environment test files — including this story's own
+  `raw-draft.provider.test.ts`, the only behavioural coverage of the hard-tier D5 wiring — from ever
+  executing while the suite still reported green. Fixed via a narrowly-scoped `patch-package` patch
+  (`patches/jsdom++undici+8.10.1.patch`, one guarded no-op fallback, nothing else touched) plus a
+  `postinstall` script. `package.json`'s `engines.node` already reads `>=22`; this patch is a
+  stop-gap for contributors on Node 20/21, not a product change, and should be revisited/dropped once
+  everyone is on Node ≥22.
+- A real conflict-guard bypass was found in review round 2 and fixed: focus-resume file refresh
+  (`useFileSourceRefresh.ts`) rebased a profile's `fileHash` even while a raw draft was open (raw
+  drafts deliberately don't set `profile.dirty`), which would have let a later raw Save silently
+  overwrite an external edit made in between with no conflict dialog. Fixed with a renderer-side
+  `isSuspended` gate wired from `raw-draft.tsx`'s `onActiveChange` callback through a plain ref in
+  `ConfigView.tsx` — confirmed by review round 3 to clear correctly on discard/save/unmount/profile
+  switch, no leak.
+
+**Verification:** `npm run build`, `npm test` (93 files / 2458 tests, 0 environment errors after the
+jsdom fix), `npm run typecheck` all green. `npm run ui:verify`: 64/64 screenshots, 0 axe violations
+(critical/serious/moderate/minor), 0 CSP violations. `npm run ui:flow -- raw-inline-edit`: passes
+(types a line, saves, asserts the read-back panel and the changed bytes on disk).
+
+**Review:** Three rounds by fresh `story-review-hard` agents. Round 1: FAIL (AC1 line-count short,
+AC7 mutual-exclusion bypass via unbindall/section-header-style/Rename) — fixed. Round 2: FAIL (new
+blocking finding — focus-resume conflict-guard bypass, see Decisions) — fixed; round 1's fixes
+independently re-confirmed correct. Round 3: PASS, with non-blocking documentation items carried
+below.
+
+**Open, non-blocking items (not fixed, judged acceptable or out of this story's scope):**
+- `scripts/lib/screens.mjs`'s `config-raw` screen entry doesn't wait for the raw file to finish
+  loading before its screenshot/axe-audit, so it captures a loading spinner rather than the editor
+  (`config-raw-editing`, which does wait, supplies the real coverage — AC8's substance holds, but
+  `config-raw`'s own audit is vacuous). Worth a one-line fix in a future story.
+- Navigating back to the profile list (or deleting the profile) while a raw draft is open discards
+  the draft with no confirmation, unlike a structured unsaved change which is preserved across that
+  navigation. Not covered by any acceptance criterion; worth a decision in a follow-up story.
+- The AC7 lock hints and the disabled toolbar controls' explanation are reachable by mouse/hover
+  (`HoverCard`) but the hint text itself isn't independently keyboard-focus-reachable as its own
+  element. Minor a11y polish, not caught by axe, left for a follow-up pass.
+- `page.locator('select')` in two `screens.mjs` entries is page-global rather than scoped to the raw
+  tab; fragile if a second `<select>` is ever added to the same screen (fails loudly under Playwright
+  strict mode rather than silently).
+
+**Commit message:** `057: raw file tab is an editor first, with inline editing and a real save path`

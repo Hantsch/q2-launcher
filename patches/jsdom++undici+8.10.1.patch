@@ -1,0 +1,22 @@
+diff --git a/node_modules/jsdom/node_modules/undici/lib/web/webidl/index.js b/node_modules/jsdom/node_modules/undici/lib/web/webidl/index.js
+index 05a6a4b..814e849 100644
+--- a/node_modules/jsdom/node_modules/undici/lib/web/webidl/index.js
++++ b/node_modules/jsdom/node_modules/undici/lib/web/webidl/index.js
+@@ -2,7 +2,16 @@
+ 
+ const assert = require('node:assert')
+ const { types, inspect } = require('node:util')
+-const { markAsUncloneable } = require('node:worker_threads')
++// `markAsUncloneable` was added to node:worker_threads in Node 22; on older
++// Node versions (still supported by this repo's dev environment) it is
++// undefined, which otherwise crashes CacheStorage installation at import
++// time. Fall back to a no-op so importing undici/jsdom doesn't throw; the
++// only effect on Node < 22 is that structured-clone-uncloneable marking of
++// Cache-API objects is skipped, which this project's tests never exercise.
++let { markAsUncloneable } = require('node:worker_threads')
++if (typeof markAsUncloneable !== 'function') {
++  markAsUncloneable = () => {}
++}
+ 
+ const UNDEFINED = 1
+ const BOOLEAN = 2

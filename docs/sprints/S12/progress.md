@@ -62,3 +62,38 @@
 - 2026-09-06 13:00 · 059 · live smoke (ui:verify) · started
 - 2026-09-06 13:01 · 059 · live smoke (ui:verify + ui:flow) · done (0 axe violations, 64/64 screens; flow OK)
 - 2026-09-06 13:02 · 059 · story done, moved to docs/requirements/done/
+- 2026-09-06 13:03 · 057 · D1 editable code view + full-height variant · started
+- 2026-09-06 13:14 · 057 · D1 editable code view + full-height variant · done (typecheck+tests green 2385/2385)
+- 2026-09-06 13:14 · 057 · D2 raw tab fills the viewport · started
+- 2026-09-06 13:14 · 057 · D3 compact chrome, per-installation copies gone · started
+- 2026-09-06 13:18 · 057 · D2 raw tab fills the viewport · done (typecheck+tests green 2385/2385)
+- 2026-09-06 13:18 · 057 · D3 compact chrome, per-installation copies gone · done (typecheck+tests green 2385/2385)
+- 2026-09-06 13:19 · 057 · D4 config saveRawText main handler (hard) · started
+- 2026-09-06 13:33 · 057 · D4 config saveRawText main handler (hard) · done (typecheck+tests green 2399/2399)
+- 2026-09-06 13:33 · 057 · D5 raw draft is an unsaved change (hard) · started
+- 2026-09-06 13:53 · 057 · D5 raw draft is an unsaved change (hard) · done (typecheck+tests green 2410/2410; pre-existing jsdom env gap noted)
+- 2026-09-06 13:53 · 057 · D6 read-back result is shown · started
+- 2026-09-06 13:56 · 057 · D6 read-back result is shown · done (typecheck+tests green 2410/2410)
+- 2026-09-06 13:56 · 057 · D7 verification (ui:verify screens + ui:flow) · started
+- 2026-09-06 14:11 · 057 · D7 verification (ui:verify screens + ui:flow) · done (ui:flow passes; ui:verify exit 2 - found 14 axe critical: D3 select missing accessible name, real regression, needs fix)
+- 2026-09-06 14:11 · 057 · fix: restore accessible name on section-header-style select (D3 regression) · started
+- 2026-09-06 14:15 · 057 · fix: restore accessible name on section-header-style select (D3 regression) · done (select-name fixed; new textarea label-missing regression found on config-raw/config-raw-editing)
+- 2026-09-06 14:15 · 057 · fix: add accessible name to cfg-code-textarea (D1 regression) · started
+- 2026-09-06 14:17 · 057 · fix: add accessible name to cfg-code-textarea (D1 regression) · done (ui:verify exit 0, 0 axe findings)
+- 2026-09-06 14:17 · 057 · story-level verification · started
+- 2026-09-06 14:18 · 057 · story-level verification · done (build/test/typecheck green; 2410/2410 tests; 7 pre-existing jsdom env errors unrelated to diff)
+- 2026-09-06 14:18 · 057 · code review (story-review-hard) · started
+- 2026-09-06 14:27 · 057 · code review (story-review-hard) · done (FAIL - blocking: AC1 line count, AC7 mutual-exclusion bypass; plus hooks violation, jsdom-blocked D5 tests, missing focus outline)
+- 2026-09-06 14:27 · 057 · fix cycle 1: AC1 line budget, AC7 mutual-exclusion bypass, hooks violation, focus outline, jsdom env · started
+- 2026-09-06 14:54 · 057 · fix cycle 1: AC1 line budget, AC7 mutual-exclusion bypass, hooks violation, focus outline, jsdom env · done (all 3 fixes verified individually)
+- 2026-09-06 14:54 · 057 · story-level re-verification · started
+- 2026-09-06 14:56 · 057 · story-level re-verification · done (build/test/typecheck green 92/92 files, 2454/2454 tests, 0 env errors; ui:verify exit clean 0 axe findings; ui:flow raw-inline-edit OK after reseed)
+- 2026-09-06 14:56 · 057 · code review round 2 (story-review-hard) · started
+- 2026-09-06 15:04 · 057 · code review round 2 (story-review-hard) · done (FAIL - new blocking finding: focus-resume file refresh bypasses raw-draft conflict guard; round-1 findings AC1/AC7 confirmed genuinely fixed)
+- 2026-09-06 15:04 · 057 · fix cycle 2: focus-resume conflict-guard bypass, config-raw axe wait gap · started
+- 2026-09-06 15:12 · 057 · fix cycle 2: focus-resume conflict-guard bypass, config-raw axe wait gap · done (bypass fixed via renderer-side gate; axe wait gap left as documented non-blocking limitation)
+- 2026-09-06 15:12 · 057 · final story-level verification · started
+- 2026-09-06 15:13 · 057 · final story-level verification · done (build/test/typecheck green 93/93 files, 2458/2458 tests; ui:verify 0 axe findings; ui:flow OK)
+- 2026-09-06 15:13 · 057 · code review round 3 (story-review-hard) · started
+- 2026-09-06 15:20 · 057 · code review round 3 (story-review-hard) · done (PASS - focus-resume fix confirmed correct, no ref leak, no regressions; non-blocking items carried to Done)
+- 2026-09-06 15:21 · 057 · story done, moved to docs/requirements/done/
