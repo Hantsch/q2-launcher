@@ -22,7 +22,7 @@ import { StateStore } from '../../services/state'
 import type { ModuleHandler, ModuleSetup } from '../types'
 import { scanRedundantCopies } from './cleanup'
 import { hashCanonicalFileContent, readFileState } from './file-source'
-import { renderProfileFile } from './render'
+import { renderProfileFile, sentinelLine } from './render'
 import {
   applyCleanupIfNotRunning,
   configModule,
@@ -1625,6 +1625,30 @@ describe('CONFIG_HANDLERS.openFile handler (story 023 D2)', () => {
     expect(result).toEqual({ ok: false, error: { key: 'config.error.fileNotFound' } })
     expect(shellMock.openPath).not.toHaveBeenCalled()
     expect(shellMock.showItemInFolder).not.toHaveBeenCalled()
+  })
+
+  it('opens a canonical file still in the legacy sentinel shape too (story 051 D3)', async () => {
+    // A file synced by a pre-051 launcher build never gets rewritten just by
+    // being read - the open-in-editor guard must still recognise it as p1's
+    // own file via the legacy sentinel, not only the new banner shape.
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    await mkdir(userDataBox.current, { recursive: true })
+    await writeFile(
+      join(userDataBox.current, 'Profile.cfg'),
+      `${sentinelLine('p1')}\nset sensitivity "3"\n`,
+      'latin1',
+    )
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'p1',
+      installationId: null,
+      mode: 'open',
+    })
+
+    expect(result).toEqual({ ok: true, value: null })
+    expect(shellMock.openPath).toHaveBeenCalledWith(join(userDataBox.current, 'Profile.cfg'))
   })
 
   it("refuses a foreign file sitting at the resolved path - not this profile's own file", async () => {

@@ -4,9 +4,23 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { Installation } from '@shared/types'
 import { pathExists } from '../../lib/fs-utils'
+import type { ConfigProfile } from '@shared/modules/config'
+import { OWNERSHIP_MARKER, renderProfileFile } from '@shared/config/render'
 import { BACKUP_SUFFIX } from './backup'
-import { OWNERSHIP_MARKER } from './render'
 import { removeRedundantCopies, restoreRemovedCopies, scanRedundantCopies } from './cleanup'
+
+function profile(overrides: Partial<ConfigProfile> = {}): ConfigProfile {
+  return {
+    id: 'p1',
+    name: 'Test',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    cvars: { sensitivity: '3' },
+    binds: {},
+    assignments: [],
+    ...overrides,
+  }
+}
 
 const HAND_WRITTEN = 'bind mouse2 "+attack"\nset name "player"\n'
 const HAND_WRITTEN_VARIANT = 'bind mouse2 "+attack2"\nset name "someone else"\n'
@@ -104,6 +118,15 @@ describe('scanRedundantCopies', () => {
       'ctf/hud.cfg',
       `${OWNERSHIP_MARKER} p1 - hand-edited changes are read back\nset sensitivity "3"\n`,
     )
+
+    const findings = await scanRedundantCopies(installation({ gameDirs: ['baseq2', 'ctf'] }))
+
+    expect(findings).toEqual([])
+  })
+
+  it('never reports a launcher-generated file in the new banner shape (story 051 D3)', async () => {
+    await seed('baseq2/hud.cfg', HAND_WRITTEN)
+    await seed('ctf/hud.cfg', renderProfileFile(profile()))
 
     const findings = await scanRedundantCopies(installation({ gameDirs: ['baseq2', 'ctf'] }))
 

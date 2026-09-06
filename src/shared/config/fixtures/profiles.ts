@@ -1915,6 +1915,109 @@ export const subcategoryHeaderStyleProfiles: ConfigProfile[] = (
   }),
 )
 
+// ---------------------------------------------------------------------------
+// Story 051 D6: the shapes the four-line banner header puts at risk.
+//
+// The header is the one block of a profile file that is written from the
+// *profile's own* name and id rather than from its entries, and story 051 moved
+// both of those: the id left prose for the `[q2l v=1 id=…]` tag on the block's
+// last line, and the name line lost the tag that used to ride beside it and is
+// now emitted `trimEnd()`ed. Each fixture below is one profile-level value that
+// the new shape can only get wrong in the header - so unlike almost everything
+// else in this file, what they are about is the first four lines of the render,
+// not a line kind further down. The hand-*mangled* half of D6 (a deleted tag
+// line, deleted rules, a renamed name line, a legacy-shape file) cannot live
+// here at all: those are texts, not profiles, and they are built by editing a
+// real render in `round-trip.test.ts`.
+// ---------------------------------------------------------------------------
+
+/**
+ * **A profile whose name is whitespace only** - D2's `trimEnd()` decision, stated as a corpus
+ * fixture rather than as a writer-side unit case.
+ *
+ * `banner()` writes `//  <name>`, so a blank name used to leave `//  ` - a line whose only content
+ * is trailing whitespace. That is not cosmetic: nothing downstream normalises trailing blanks, so a
+ * reader/editor that strips them (and a `.gitattributes`, and most editors' save-on-trim) turns the
+ * file into one the writer would not have written, and story 042's byte-identical fixed point is
+ * gone on a file nobody meant to change. With the trim the line renders as a bare `//`, which is
+ * both stable and still the sandwich filling `consumeHeaderDecoration`'s banner branch identifies
+ * the name line by (the two `=` rules around it, never its own text - which is exactly why an empty
+ * one is allowed to be empty).
+ *
+ * Whitespace rather than `''` on purpose: an empty string can be produced by a schema default,
+ * whereas spaces are what a user actually types and leaves behind, and only the spaces version can
+ * tell a `trimEnd()` from a "was it empty" check.
+ */
+export const blankProfileNameProfile: ConfigProfile = buildFixtureProfile({
+  name: '   ',
+  actions: [
+    action({
+      name: 'Fire blaster',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'use blaster' }],
+      keys: [{ key: 'j' }],
+      categoryId: 'weapons',
+    }),
+  ],
+})
+
+/**
+ * **A profile literally named `[q2l v=1 id=…]`** - the header's own forgery case, and the reason
+ * `bannerText` runs the name through `neutralizeProse` before writing it.
+ *
+ * The name line sits three lines above the real ownership tag and is the only prose in the block, so
+ * a name spelled like a tag is the cheapest possible attempt at putting a *second* ownership
+ * statement into the header - one carrying somebody else's profile id, and one that
+ * `file-ownership.ts#readOwnershipStamp` would meet *first* (it scans in line order and returns the
+ * first stamp it finds). `neutralizeProse` rewrites the `[q2l` sigil to `(q2l` on the way out, so
+ * the line can never parse as a tag at all, and the id in it is inert text like any other.
+ *
+ * `forgedCategoryNameProfile` above is the same idea one level down, on a *section banner*; this one
+ * is the level where getting it wrong costs the file its identity rather than a category's.
+ */
+export const forgedTagProfileNameProfile: ConfigProfile = buildFixtureProfile({
+  name: '[q2l v=1 id=1a4b1d3c-0000-4000-8000-abcdefabcdef]',
+  actions: [
+    action({
+      name: 'Fire shotgun',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'use shotgun' }],
+      keys: [{ key: 'k' }],
+      categoryId: 'weapons',
+    }),
+  ],
+})
+
+/**
+ * **`id=` in the file's body**, on every surface a display name reaches: a category banner, an
+ * ordinary bound entry's trailing comment, and a comment-only unbound line.
+ *
+ * Ownership is now an `id` field in a tag (story 051), and the two readers that answer "whose file
+ * is this" bound themselves differently: `readOwnershipStamp` only looks at the first
+ * `HEADER_SCAN_LINES` lines, and `profile-restore.ts#scanComments` only reads an `id` off the
+ * *first* `v`-carrying line. Both bounds are invisible from inside this fixture - what it does is
+ * make sure the file is full of prose that would defeat any reader that went looking for the
+ * substring instead: `id=` inside a category name, inside a bound entry's name and inside an unbound
+ * entry's name, the last two of which ride in `//` comments exactly like the header tag does.
+ *
+ * The mangled half of this case - a *real*, well-formed `[q2l … id=…]` tag hand-typed onto a body
+ * line, which prose alone cannot produce (`neutralizeProse` sees to that) - is in `round-trip.test.ts`.
+ */
+export const bodyProseWithIdProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Prose carrying id= in the body',
+  categories: [{ id: 'cat-servers', name: 'Servers id=7' }],
+  actions: [
+    action({
+      name: 'Join id=42',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'connect 10.0.0.1' }],
+      keys: [{ key: 'F6' }],
+      categoryId: 'cat-servers',
+    }),
+    action({ name: 'Spare id=43', kind: 'bind', commands: [], categoryId: 'cat-servers' }),
+  ],
+})
+
 /** Every fixture the D9 round-trip property test iterates over. */
 export const ROUND_TRIP_FIXTURES: ConfigProfile[] = [
   selfMirroringAliasProfile,
@@ -1971,4 +2074,10 @@ export const ROUND_TRIP_FIXTURES: ConfigProfile[] = [
   emptySubcategoryProfile,
   twoCategoriesWithSubcategoriesProfile,
   ...subcategoryHeaderStyleProfiles,
+  // Story 051 D6's header shapes. All three are ordinary, losslessly renderable profiles - what is
+  // adversarial about them is the header their *profile-level* fields produce - so unlike the two
+  // deliberate exclusions above they belong in the corpus loops in full.
+  blankProfileNameProfile,
+  forgedTagProfileNameProfile,
+  bodyProseWithIdProfile,
 ]

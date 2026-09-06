@@ -328,7 +328,9 @@ export async function previewImport(
  * Story 042 D5: `restoreProfileParts` replaces the direct `buildImportedActions`
  * call - a foreign config still delegates to it wholesale (AC8), while a
  * launcher-written file (`restored.sourceProfileId !== null`, the same
- * OWNERSHIP_MARKER check `previewImport` reports as `ownWrittenFile`)
+ * ownership check `previewImport` reports as `ownWrittenFile` - the header
+ * tag's `id` field, or the legacy sentinel, read either way through
+ * `scanComments` in `@shared/config/profile-restore`)
  * reconstructs entries/categories/layers from its `[q2l ...]` metadata
  * instead. `restoreProfileParts` always reports an empty `ambiguous` list on
  * that path (D4: "there is nothing to guess"), so the `layerAliases` review

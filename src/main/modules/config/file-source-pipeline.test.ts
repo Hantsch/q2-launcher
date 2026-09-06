@@ -10,6 +10,7 @@ import {
 } from '@shared/modules/config'
 import { resolveProfileFileNames } from '@shared/config/profile-files'
 import { neutralizeProse } from '@shared/config/profile-metadata'
+import { readOwnershipStamp } from '@shared/config/file-ownership'
 import {
   ROUND_TRIP_FIXTURES,
   collidingAliasNameProfile,
@@ -487,7 +488,7 @@ describe('conflicting simultaneous changes', () => {
       const profile = only(state, profileId)
       const fileName = fileNameOf(state, profileId)
       const content = await readFile(canonicalPath(fileName), 'latin1')
-      expect(content, `${profileId} owns ${fileName}`).toContain(`profile ${profileId} `)
+      expect(readOwnershipStamp(content)?.id, `${profileId} owns ${fileName}`).toBe(profileId)
       expect(profile.fileHash).toBe(hashCanonicalFileContent(content))
       expectNothingLost(before[profileId], inventory(profile), `${profileId} after the cascade`)
     }
@@ -813,7 +814,7 @@ describe('rebuild from the file with the sentinel id', () => {
     expect(profiles).toHaveLength(1)
     expect(profiles[0]!.id).toBe('p1')
     expectNothingLost(before, inventory(profiles[0]!), 'rebuild from a corrupt row')
-    expect(await readFile(canonicalPath(fileName), 'latin1')).toContain('profile p1 ')
+    expect(readOwnershipStamp(await readFile(canonicalPath(fileName), 'latin1'))?.id).toBe('p1')
   })
 })
 

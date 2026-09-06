@@ -192,14 +192,19 @@ central, assigned to installations) and the UI (launcher design system) change.
      already-correct file is a diff-skipped no-op). The guard is write-once in `StateStore`, so
      nothing can reset it and re-run the migration over files that are, by then, authoritative.
   2. **Rebuild-on-missing-record**, every start: every launcher-owned `.cfg` in the canonical
-     directory whose ownership-sentinel id has no record in `state.json` gets a record rebuilt from
-     that file, **keeping the sentinel's id**. That is the deliberate opposite of story 042's import
-     rule (an import of a foreign file always mints a *new* id): the sentinel id *is* the profile's
-     identity, so reusing it is what keeps every installation assignment pointing at that profile
-     valid. A `.cfg` with no recognised ownership marker — a hand-written config, or another tool's
-     file — is never adopted. Only installation assignments and played mods are lost by a rebuild
-     (they are launcher bookkeeping, not file content); name, cvars, binds, entries, categories,
-     layers, the `unbindall` setting and the section-header style all come back off the file.
+     directory whose ownership id has no record in `state.json` gets a record rebuilt from that
+     file, **keeping that file's own id**. Since story 051, a profile file's ownership id is read
+     through `src/shared/config/file-ownership.ts`'s `readOwnershipStamp`, which recognises both the
+     current header-block shape (the id lives in the header's `[q2l v=1 id=…]` tag,
+     `docs/systems/profile-file-format.md#header-block`) and a pre-051 file's legacy sentinel line —
+     the id is always on the *file*, never derived from `state.json`. That is the deliberate opposite
+     of story 042's import rule (an import of a foreign file always mints a *new* id): the file's own
+     id *is* the profile's identity, so reusing it is what keeps every installation assignment
+     pointing at that profile valid. A `.cfg` with no recognised ownership marker — a hand-written
+     config, or another tool's file — is never adopted. Only installation assignments and played mods
+     are lost by a rebuild (they are launcher bookkeeping, not file content); name, cvars, binds,
+     entries, categories, layers, the `unbindall` setting and the section-header style all come back
+     off the file.
 
   Neither step deletes anything, and neither adds backup logic: `writeTargetFile`'s existing
   diff-skip / backup-once / atomic-write contract and `state.json.bak` are untouched.
@@ -208,8 +213,9 @@ central, assigned to installations) and the UI (launcher design system) change.
   `setActions`, `rename`, `setWriteUnbindall`, `setSectionHeaderStyle`) still persist into
   `state.json` at once — a crash must not lose an edit — but touch no file; they mark the profile
   `dirty`. `CONFIG_HANDLERS.save` is the only writer of profile content: it re-reads the canonical
-  file (found by its ownership sentinel, not by the name the profile currently resolves to, so a
-  renamed-but-unsaved profile is still checked against the file it actually has), refuses with a
+  file (found by its ownership id — the header block's `id` tag field, or a pre-051 file's legacy
+  sentinel line, both read through `file-ownership.ts` — not by the name the profile currently
+  resolves to, so a renamed-but-unsaved profile is still checked against the file it actually has), refuses with a
   whole-file conflict when the file changed underneath or cannot be read, and otherwise writes it
   and runs the unchanged installation cascade. Every other sync trigger (`assign`, `unassign`,
   `setDefault`, `write`, `create`, `tidyUp.apply`, the startup retry sweep) still syncs immediately,

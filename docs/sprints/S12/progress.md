@@ -1,0 +1,26 @@
+- 2026-09-06 09:31 · 051 · story started
+- 2026-09-06 09:31 · 051 · D1 tag grammar + ownership module · started
+- 2026-09-06 09:35 · 051 · D1 tag grammar + ownership module · done
+- 2026-09-06 09:35 · 051 · D2 writer emits banner · started
+- 2026-09-06 09:41 · 051 · D2 writer emits banner · done
+- 2026-09-06 09:41 · 051 · D3 main-side ownership readers · started
+- 2026-09-06 09:48 · 051 · D3 main-side ownership readers · done
+- 2026-09-06 09:48 · 051 · D4 rebuild recovers name and id · started
+- 2026-09-06 09:53 · 051 · D5 restore reader (deliverable-hard) · started
+- 2026-09-06 09:59 · 051 · D4 rebuild recovers name and id · done
+- 2026-09-06 09:59 · 051 · D5 restore reader (deliverable-hard) · done
+- 2026-09-06 09:59 · 051 · D6 round trip and adversarial re-render (deliverable-hard) · started
+- 2026-09-06 10:13 · 051 · D6 round trip and adversarial re-render (deliverable-hard) · done
+- 2026-09-06 10:13 · 051 · fix: blank-name trailing-whitespace bug + stale sentinel assertions · started
+- 2026-09-06 10:16 · 051 · fix: blank-name trailing-whitespace bug + stale sentinel assertions · done
+- 2026-09-06 10:16 · 051 · D7 docs, highlighting check, fixture note · started
+- 2026-09-06 10:19 · 051 · D7 docs, highlighting check, fixture note · done
+- 2026-09-06 10:19 · 051 · story-level verification · started
+- 2026-09-06 10:20 · 051 · story-level verification · done (build/test/typecheck green; 6 pre-existing jsdom env errors unrelated to diff)
+- 2026-09-06 10:20 · 051 · code review (story-review-hard) · started
+- 2026-09-06 10:31 · 051 · code review (story-review-hard) · done (PASS, low-severity findings)
+- 2026-09-06 10:31 · 051 · fix: stale ownership doc comments + dead ownedProfileId · started
+- 2026-09-06 10:34 · 051 · fix: stale ownership doc comments + dead ownedProfileId · done
+- 2026-09-06 10:34 · 051 · live smoke (ui:verify) · started
+- 2026-09-06 10:36 · 051 · live smoke (ui:verify) · done (config-write-preview screen confirms new 4-line banner header + syntax highlighting; axe clean)
+- 2026-09-06 10:37 · 051 · story done, moved to docs/requirements/done/

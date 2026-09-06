@@ -190,6 +190,22 @@ describe('writeCanonicalProfileFile', () => {
     expect(await read('New.cfg')).toBe(renderProfileFile(p))
   })
 
+  it('recognises its own file in the new banner shape too (story 051 D3, no backup on rename)', async () => {
+    // The header block D2 writes carries the id only in the tag's `id=` field
+    // on the fourth line, no sentinel prefix any more. `findOwnCanonicalFile`
+    // must still find this as `p1`'s own file via `ownedProfileIdFromContent`.
+    const p = profile({ id: 'p1' })
+    const bannerContent = renderProfileFile(p)
+    await seed('Old.cfg', bannerContent)
+
+    const result = await writeCanonicalProfileFile(dir, p, 'New.cfg')
+
+    expect(result.outcome).toBe('unchanged')
+    expect(await pathExists(join(dir, 'Old.cfg'))).toBe(false)
+    expect(await read('New.cfg')).toBe(bannerContent)
+    expect(await pathExists(join(dir, `New.cfg${BACKUP_SUFFIX}`))).toBe(false)
+  })
+
   it('creates baseDir itself when it does not exist yet', async () => {
     const fresh = join(dir, 'userData')
     const p = profile()
@@ -230,6 +246,23 @@ describe('removeCanonicalProfileFile', () => {
     await removeCanonicalProfileFile(dir, 'p1')
 
     expect(await pathExists(join(dir, 'p1.cfg'))).toBe(false)
+  })
+
+  it('deletes a file carrying the new banner shape too (story 051 D3)', async () => {
+    const p = profile({ id: 'p1' })
+    await seed('p1.cfg', renderProfileFile(p))
+
+    await removeCanonicalProfileFile(dir, 'p1')
+
+    expect(await pathExists(join(dir, 'p1.cfg'))).toBe(false)
+  })
+
+  it('never touches a foreign file carrying neither ownership shape', async () => {
+    await seed('config.cfg', HAND_WRITTEN)
+
+    await removeCanonicalProfileFile(dir, 'p1')
+
+    expect(await pathExists(join(dir, 'config.cfg'))).toBe(true)
   })
 
   it('never touches a different profile own canonical file', async () => {

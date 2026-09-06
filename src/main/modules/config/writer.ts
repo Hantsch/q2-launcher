@@ -1,9 +1,9 @@
 import { readdir, readFile, rename, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Installation } from '@shared/types'
+import { isLauncherOwnedFile, readOwnershipStamp } from '@shared/config/file-ownership'
 import { pathKey, writeFileAtomic } from '../../lib/fs-utils'
 import { BACKUP_SUFFIX, backupOnce } from './backup'
-import { OWNERSHIP_MARKER } from './render'
 
 export { BACKUP_SUFFIX }
 
@@ -152,10 +152,11 @@ export async function writeTargetFile(filePath: string, content: string): Promis
     // mtimes stable and makes a resave into N mod folders cheap.
     if (existing === content) return 'unchanged'
 
-    // About to overwrite. A file that starts with our marker is our own
-    // previous output - possibly rendered for a different profile id, which is
-    // why only the prefix is compared - and is never worth preserving.
-    if (!existing.startsWith(OWNERSHIP_MARKER)) {
+    // About to overwrite. A file the launcher already owns - either shape,
+    // possibly rendered for a different profile id, which is why only
+    // ownership (never a specific id) is compared - is our own previous
+    // output and is never worth preserving.
+    if (!isLauncherOwnedFile(existing)) {
       await backupOnce(filePath)
     }
   }
@@ -215,32 +216,23 @@ export async function writeInstallationFiles(
 }
 
 /**
- * The profile id carried by a file's sentinel line, or null when the file is not
- * one of ours.
- *
- * `sentinelLine()` (`@shared/config/render`) emits exactly
- * `<OWNERSHIP_MARKER> <profileId> - hand-edited changes are read back`, so
- * the id is the first whitespace-delimited token after the marker. Two shapes deliberately
- * return null rather than a guess:
- *
- * - the marker prefix is not followed by whitespace (`// q2-launcher profiles`
- *   is a different word, not our marker plus an id);
- * - there is no non-empty token after it.
+ * The profile id carried by a file's ownership stamp, or null when the file is
+ * not one of ours - delegates to `readOwnershipStamp`
+ * (`@shared/config/file-ownership`, story 051 D3), which is the one place both
+ * ownership shapes (banner and legacy sentinel) are read, scanning the whole
+ * file's first `HEADER_SCAN_LINES` lines rather than only the first, since
+ * that is the only way to recognise a banner-shape header (its `id` field
+ * lives on line 4, never line 1).
  *
  * Anything null means "treat as the user's own file", which is the only safe
  * direction: the caller's two actions are rename and delete.
  *
  * Exported for `canonical.ts`, which needs the exact same "who owns this file"
- * answer for the canonical directory - one parser for the sentinel, so the two
- * directories can never disagree about what ownership means.
+ * answer for the canonical directory - one parser, so the two directories can
+ * never disagree about what ownership means.
  */
-export function ownedProfileId(firstLine: string): string | null {
-  if (!firstLine.startsWith(OWNERSHIP_MARKER)) return null
-  const rest = firstLine.slice(OWNERSHIP_MARKER.length)
-  // `trim()` also drops the `\r` of a CRLF file's first line.
-  if (rest.length > 0 && !/^\s/.test(rest)) return null
-  const id = rest.trim().split(/\s/, 1)[0]
-  return id.length > 0 ? id : null
+export function ownedProfileIdFromContent(content: string): string | null {
+  return readOwnershipStamp(content)?.id ?? null
 }
 
 /**
@@ -337,7 +329,7 @@ export async function reconcileOwnedProfileFiles(
       continue
     }
 
-    const profileId = ownedProfileId(content.split('\n', 1)[0])
+    const profileId = ownedProfileIdFromContent(content)
     if (profileId === null) continue
 
     const expectedName = expected.get(profileId)
@@ -368,7 +360,7 @@ export async function reconcileOwnedProfileFiles(
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     }
-    if (destination !== null && !destination.startsWith(OWNERSHIP_MARKER)) {
+    if (destination !== null && !isLauncherOwnedFile(destination)) {
       await backupOnce(targetPath)
     }
 

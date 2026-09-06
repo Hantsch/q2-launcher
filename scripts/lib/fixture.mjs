@@ -386,6 +386,15 @@ alias q2l_fixture_layer "bind e +use"
 //   `scrollable-region-focusable` axe violation story 042's fix-cycle-5 closed, because an
 //   unrecognised long comment line renders as its own scrollable single-line code block with no
 //   keyboard access.
+// - Story 051 (the header-block rewrite: sentinel line dropped from profile files, ownership id
+//   moved into the `[q2l ...]` tag's `id` field, four-line `=`-ruled banner replacing this five-line
+//   block) deliberately leaves this whole literal in the OLD/legacy shape rather than updating it to
+//   match `buildHeaderBlock`'s new output. That is not staleness: this fixture is now the
+//   live-smoke regression probe for story 051's AC7 - "a file carrying the previous header shape is
+//   still recognised as launcher-owned and is rewritten in the new shape on its next save" - so
+//   `npm run ui:verify`'s config-import-restore screen exercises the legacy-shape read path in the
+//   real app on every run. Do not "fix" this to the new banner shape in a future change; that would
+//   delete the one place in the repo that keeps the legacy-shape reader honest end to end.
 const FIXTURE_RESTORE_CONFIG_CFG = `// q2-launcher profile fixture-profile-plain - generated, do not edit
 // ================================================================
 // Fixture Restored Profile [q2l v=1]

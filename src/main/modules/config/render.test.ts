@@ -67,24 +67,25 @@ function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
 }
 
 /**
- * The header block story 040 D2 now emits unconditionally, for the default `profile()` name
- * ("Test") - every exact-match test in this file that predates D2 has to grow this block, since it
- * appears even for a profile with no cvars/binds at all. Built once here (rather than hand-counted
- * inline) so the fill width can't silently drift between the tests that need it; still a literal,
- * not a call into `render.ts`'s own `banner()` - the point is to pin the real output, not to test
- * the implementation against itself.
+ * The four-line header block story 051 D2 now emits unconditionally, for the default `profile()`
+ * name ("Test") - every exact-match test in this file that predates D2 has to grow this block,
+ * since it appears even for a profile with no cvars/binds at all, and it is now the *whole* header
+ * (`renderProfileFile` no longer prepends `sentinelLine()` in front of it). Built once here as a
+ * function of `id` (rather than hand-counted inline) so the fill width and the right-aligned tag's
+ * padding can't silently drift between the tests that need them; still a literal computation, not a
+ * call into `render.ts`'s own `banner()`/`headerTagLine()` - the point is to pin the real output,
+ * not to test the implementation against itself.
  *
- * Story 042 D2 hangs the metadata format's version marker off the profile-name line, which is why
- * `[q2l v=1]` is part of this literal: it is the one place in a rendered file `v` appears, and it
- * has to be here rather than on the sentinel line above (which stays byte-identical, see the
- * `sentinelLine` block at the bottom of this file).
+ * Story 051 moved ownership (the profile id) into this block's own tag, alongside the metadata
+ * format's `v` marker - both now live on the same right-aligned fourth line, and nowhere else in a
+ * rendered file (see the `sentinelLine` block at the bottom of this file for the *loader*'s own,
+ * unchanged sentinel).
  */
-const TEST_PROFILE_HEADER = [
-  '// =============================================================================',
-  '//  Test [q2l v=1]',
-  '//  Q2 Launcher - hand-edited changes to this file are read back',
-  '// =============================================================================',
-]
+function testProfileHeader(id: string): string[] {
+  const tag = `[q2l v=1 id=${id}]`
+  const rule = '// ============================================================================='
+  return [rule, '//  Test', rule, `//${' '.repeat(rule.length - 2 - tag.length)}${tag}`]
+}
 
 /** Builds an action's `keys` array from a sparse list of slots - `undefined` entries are skipped,
  * so a caller can express "no primary slot, only a secondary one" as `keySlots(undefined, slot)`.
@@ -235,7 +236,7 @@ function setName(line: string): string {
 }
 
 describe('renderProfileFile', () => {
-  it('renders the sentinel line, the header block, then cvars grouped by catalog order, then the unowned binds', () => {
+  it('renders the header block, then cvars grouped by catalog order, then the unowned binds', () => {
     const p = profile({
       id: 'abc123',
       cvars: { sensitivity: '3', cl_run: '0', crosshair: '0' },
@@ -244,8 +245,7 @@ describe('renderProfileFile', () => {
 
     expect(renderProfileFile(p)).toBe(
       [
-        '// q2-launcher profile abc123 - hand-edited changes are read back',
-        ...TEST_PROFILE_HEADER,
+        ...testProfileHeader('abc123'),
         ...TEST_PROFILE_UNBINDALL,
         // Catalog order (ALL_CVARS index), not alphabetical: sensitivity, then cl_run, then
         // crosshair - alphabetical would be cl_run/crosshair/sensitivity, a different order,
@@ -278,8 +278,7 @@ describe('renderProfileFile', () => {
 
     expect(renderProfileFile(p)).toBe(
       [
-        '// q2-launcher profile empty-id - hand-edited changes are read back',
-        ...TEST_PROFILE_HEADER,
+        ...testProfileHeader('empty-id'),
         ...TEST_PROFILE_UNBINDALL,
         ...cvarBlock(),
         '',
@@ -306,8 +305,7 @@ describe('renderProfileFile', () => {
 
     expect(renderProfileFile(p)).toBe(
       [
-        '// q2-launcher profile unbindall-on - hand-edited changes are read back',
-        ...TEST_PROFILE_HEADER,
+        ...testProfileHeader('unbindall-on'),
         ...TEST_PROFILE_UNBINDALL,
         ...cvarBlock(),
         '',
@@ -320,8 +318,7 @@ describe('renderProfileFile', () => {
 
     expect(renderProfileFile(p)).toBe(
       [
-        '// q2-launcher profile unbindall-off - hand-edited changes are read back',
-        ...TEST_PROFILE_HEADER,
+        ...testProfileHeader('unbindall-off'),
         ...cvarBlock(),
         '',
       ].join('\n'),
@@ -831,8 +828,7 @@ describe('renderProfileFile with actions', () => {
 
       expect(renderProfileFile(p)).toBe(
         [
-          '// q2-launcher profile dead-alias - hand-edited changes are read back',
-          ...TEST_PROFILE_HEADER,
+          ...testProfileHeader('dead-alias'),
           ...TEST_PROFILE_UNBINDALL,
           ...cvarBlock(),
           '',
@@ -1853,6 +1849,82 @@ describe('story 048 D2: every catalogue cvar is written', () => {
 })
 
 /**
+ * Story 051 D2 - the writer emits the header as a small four-line banner (rule / name / rule /
+ * right-aligned tag) instead of a `sentinelLine()` prefix plus a five-line block carrying the old
+ * hand-edit sentence. Each case here pins one bullet of the deliverable's own "Accepted when" list.
+ */
+describe('story 051 D2: the header block is a small banner', () => {
+  it('starts the file with exactly the four header lines, and nothing before them', () => {
+    const p = profile({ id: 'header-shape', cvars: {}, binds: {} })
+    const lines = renderProfileFile(p).split('\n')
+
+    expect(lines.slice(0, 4)).toEqual(testProfileHeader('header-shape'))
+  })
+
+  it('contains the profile id exactly once, only inside the header tag', () => {
+    const p = profile({
+      id: 'only-in-tag',
+      actions: [action({ id: 'a-1', name: 'One', keys: keySlots({ key: 'q' }), aliasName: 'one_e' })],
+      binds: { q: 'one_e' },
+    })
+    const rendered = renderProfileFile(p)
+    const lines = rendered.split('\n')
+
+    expect(lines[3]).toBe(testProfileHeader('only-in-tag')[3])
+    expect(rendered.split('only-in-tag').length - 1).toBe(1)
+  })
+
+  it('never writes "hand-edited", "metadata", "version" or "generated", case-insensitively', () => {
+    const p = profile({
+      id: 'no-banned-words',
+      cvars: { sensitivity: '3' },
+      binds: { q: '+forward' },
+      layers: [
+        { id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'ALT', overrides: { '1': 'drop rl' } },
+      ],
+    })
+    const rendered = renderProfileFile(p).toLowerCase()
+
+    for (const word of ['hand-edited', 'metadata', 'version', 'generated']) {
+      expect(rendered).not.toContain(word)
+    }
+  })
+
+  it('renders the header frame as pure ASCII, even with a non-ASCII (latin1) profile name', () => {
+    // The name line carries the user's own prose (latin1-safe, not ASCII-only - see the round-trip
+    // tests) and is deliberately excluded here; the *frame* - both rules and the tag line - is what
+    // this AC pins as ASCII-only, same as every other decoration this writer emits.
+    const p = profile({ id: 'ascii-frame', name: 'Bjørn', cvars: {}, binds: {} })
+    const [topRule, , bottomRule, tagLine] = renderProfileFile(p).split('\n')
+
+    for (const line of [topRule!, bottomRule!, tagLine!]) {
+      for (const ch of line) expect(ch.charCodeAt(0)).toBeLessThanOrEqual(0x7f)
+    }
+  })
+
+  it('renders byte-identically twice in a row', () => {
+    const p = profile({ id: 'idempotent-header', cvars: { sensitivity: '3' }, binds: { q: '+forward' } })
+
+    expect(renderProfileFile(p)).toBe(renderProfileFile(p))
+  })
+
+  it('neutralises a profile named literally "[q2l id=x]" on the name line', () => {
+    const p = profile({ id: 'neutral-name', name: '[q2l id=x]', cvars: {}, binds: {} })
+    const lines = renderProfileFile(p).split('\n')
+
+    expect(lines[1]).toBe('//  (q2l id=x]')
+  })
+
+  it('falls back to a left-aligned tag line when the tag alone exceeds BANNER_WIDTH - 3', () => {
+    const id = 'x'.repeat(200)
+    const p = profile({ id, cvars: {}, binds: {} })
+    const lines = renderProfileFile(p).split('\n')
+
+    expect(lines[3]).toBe(`//  [q2l v=1 id=${id}]`)
+  })
+})
+
+/**
  * Story 042 D2 - the metadata the writer now emits, as a format rather than as decoration.
  *
  * The failure mode this block exists for is a tag that renders but cannot be read back: a hash
@@ -1862,7 +1934,7 @@ describe('story 048 D2: every catalogue cvar is written', () => {
  * layout assertion, so each gets its own case here.
  */
 describe('story 042 D2: the [q2l ...] metadata the writer emits', () => {
-  it('carries the version marker exactly once, in the header block and never on the sentinel line', () => {
+  it('carries the version marker exactly once, only in the header block\'s own tag line (story 051 D2)', () => {
     const lines = renderProfileFile(
       profile({
         id: 'versioned',
@@ -1874,10 +1946,12 @@ describe('story 042 D2: the [q2l ...] metadata the writer emits', () => {
       }),
     ).split('\n')
 
-    expect(lines.filter((line) => line.includes('v=1'))).toEqual(['//  Test [q2l v=1]'])
-    // AC: `sentinelLine()`'s output is byte-identical to before this story - three ownership
-    // checks in the writer match on that first line, one of them exactly.
-    expect(lines[0]).toBe(sentinelLine('versioned'))
+    const tagLine = testProfileHeader('versioned')[3]!
+    // Ownership travels only as the `id` field in this same tag now (story 051) - no second,
+    // sentinel-shaped line repeats the profile id anywhere else in the file.
+    expect(lines.filter((line) => line.includes('v=1'))).toEqual([tagLine])
+    expect(lines.filter((line) => line.includes('versioned'))).toEqual([tagLine])
+    expect(lines[3]).toBe(tagLine)
     expect(lines[0]).not.toContain('[q2l')
   })
 
@@ -2214,8 +2288,11 @@ describe('story 050 D6: the reduced [q2l ...] tag', () => {
           // second-level section header's own sub-category id. Each joined the list here rather than
           // replacing anything, which is exactly what "a key addition alone needs no
           // `META_FORMAT_VERSION` bump" means.
+          // `id` (story 051 D2) is the profile's own stable id - like `v`, only ever emitted on the
+          // header block's own tag line, never a per-line one.
           expect([
             'v',
+            'id',
             'cid',
             'an',
             'key',

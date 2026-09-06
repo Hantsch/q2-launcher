@@ -87,7 +87,7 @@ import { assignedProfilesFor, defaultProfileFor, isInstallationRunning } from '.
 import {
   BASE_GAME_DIR,
   LOADER_FILE_NAME,
-  ownedProfileId,
+  ownedProfileIdFromContent,
   readExisting,
   writeInstallationFiles,
 } from './writer'
@@ -1350,7 +1350,7 @@ export const configModule: MainModule = {
       // happens on a file we could not verify.
       const content = await readExisting(path)
       if (content === null) return fail('config.error.fileNotFound')
-      if (ownedProfileId(content.split('\n', 1)[0]) !== profile.id) {
+      if (ownedProfileIdFromContent(content) !== profile.id) {
         return fail('config.error.fileNotFound')
       }
 

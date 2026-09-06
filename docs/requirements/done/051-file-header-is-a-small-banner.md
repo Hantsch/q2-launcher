@@ -1,7 +1,7 @@
 ---
 id: 051
 title: The file header is a small banner, not a technical block
-status: ready
+status: done
 created: 2026-09-05
 ---
 
@@ -45,26 +45,26 @@ looks cool for the player, it is right.
 
 ## Acceptance Criteria
 
-- [ ] The header contains no profile id in prose and no sentence that appears twice.
-- [ ] The header is at most four lines including its frame; the profile name is the visually
+- [x] The header contains no profile id in prose and no sentence that appears twice.
+- [x] The header is at most four lines including its frame; the profile name is the visually
       dominant element; every word in it is written for the player - no "hand-edited", no
       "metadata", no "version", no "generated".
-- [ ] Everything the launcher needs to recognise its own file - ownership (the profile id) and the
+- [x] Everything the launcher needs to recognise its own file - ownership (the profile id) and the
       format version - travels in exactly one compact `[q2l ...]` tag on one header line; that tag
       is the only technical thing in the header.
-- [ ] Ownership detection, rebuild-from-file (name and id recovered), the overwrite/delete/
+- [x] Ownership detection, rebuild-from-file (name and id recovered), the overwrite/delete/
       open-in-editor guards, external-edit detection and the import's "this is a launcher file"
       recognition all keep working against the new header - proven by tests that render the new
       shape and read it back through the real pipeline, not by a diff read (carry-over rule).
-- [ ] The header lines never show up as unrecognised/preserved lines on import or reload.
-- [ ] Story 042's round-trip property still holds (render -> parse -> restore -> render is
+- [x] The header lines never show up as unrecognised/preserved lines on import or reload.
+- [x] Story 042's round-trip property still holds (render -> parse -> restore -> render is
       byte-identical) across the whole fixture corpus.
-- [ ] A file carrying the previous header shape (as written by the S10 build) is still recognised as
+- [x] A file carrying the previous header shape (as written by the S10 build) is still recognised as
       launcher-owned and is rewritten in the new shape on its next save - no profile on a dev
       machine goes missing or is reported as "changed outside the launcher" because of this story.
-- [ ] Rendering stays deterministic and latin-1 safe (no timestamp, nothing outside ASCII in the
+- [x] Rendering stays deterministic and latin-1 safe (no timestamp, nothing outside ASCII in the
       frame).
-- [ ] The Raw file tab and the write-preview dialog show the new header with syntax highlighting
+- [x] The Raw file tab and the write-preview dialog show the new header with syntax highlighting
       intact; `docs/systems/profile-file-format.md` describes the header block.
 
 ## Open Questions
@@ -168,7 +168,7 @@ bodies, `META_FORMAT_VERSION`.
 
 ## Deliverables
 
-**D1 - `id` in the tag grammar + the ownership module.** Register `id` in `KNOWN_META_KEYS` /
+**D1 [x] - `id` in the tag grammar + the ownership module.** Register `id` in `KNOWN_META_KEYS` /
 `MetaTagFields` (directly after `v`, with a registry doc entry in the file's existing style). New
 `src/shared/config/file-ownership.ts` exporting `readOwnershipStamp(text: string)` and
 `isLauncherOwnedFile(text: string)`, both accepting **banner** (tag with `id` within the first 8
@@ -179,7 +179,7 @@ Mirror for module shape and doc style: `src/shared/config/action-slots.ts`.
 stamp returns `null` (never a guess), a foreign `.cfg` (`docs/fixtures/dm.cfg`) returns `null`, and a
 `[q2l id=…]` appearing *after* line 8 is not treated as ownership.
 
-**D2 - The writer emits the banner.** `buildHeaderBlock` → four lines (rule / `//  <name>` trimmed /
+**D2 [x] - The writer emits the banner.** `buildHeaderBlock` → four lines (rule / `//  <name>` trimmed /
 rule / right-aligned `[q2l v=1 id=<profile.id>]`, falling back to `//  <tag>` when the tag alone
 exceeds `BANNER_WIDTH - 3`); `renderProfileFile` drops the `sentinelLine` prefix;
 `HAND_EDIT_SENTENCE` kept as an export but unreferenced by any render path. `renderLoaderFile`
@@ -189,7 +189,7 @@ exactly once and only inside the tag, contains none of the words "hand-edited", 
 "version", "generated", is pure ASCII in the frame, renders byte-identically twice in a row, and a
 profile named `[q2l id=x]` renders `(q2l id=x` on the name line (`neutralizeProse`).
 
-**D3 - Main-side ownership readers onto the module.** `ownedProfileId` in `writer.ts` delegates to
+**D3 [x] - Main-side ownership readers onto the module.** `ownedProfileId` in `writer.ts` delegates to
 `readOwnershipStamp` (keeping its signature where callers pass a first line, plus a whole-text
 entry point); `writer.ts:158` / `writer.ts:371` / `cleanup.ts:133` use `isLauncherOwnedFile`;
 `canonical.ts` and `index.ts:1353` pass full content instead of `split('\n', 1)[0]`. Files:
@@ -199,7 +199,7 @@ entry point); `writer.ts:158` / `writer.ts:371` / `cleanup.ts:133` use `isLaunch
 backup-once on overwrite, skipped by cleanup, found by `findOwnCanonicalFile`, open-in-editor
 allowed), a legacy-shape file still is, and a foreign `config.cfg` still is not.
 
-**D4 - Rebuild recovers name and id from both shapes.** `rebuild.ts`: ownership/id via
+**D4 [x] - Rebuild recovers name and id from both shapes.** `rebuild.ts`: ownership/id via
 `readOwnershipStamp`; `recoverProfileName` returns the line after the first `=` rule for the new
 shape (nothing to strip) and keeps the legacy tag-strip + `HAND_EDIT_SENTENCE` guard. Files:
 `src/main/modules/config/rebuild.ts`, `rebuild.test.ts`.
@@ -207,7 +207,7 @@ shape (nothing to strip) and keeps the legacy tag-strip + `HAND_EDIT_SENTENCE` g
 the id from the tag (so story 043's installation assignments survive), and a legacy-shape file does
 exactly what it does today.
 
-**D5 - The restore reader.** `profile-restore.ts`: a `v` line carrying `id` contributes
+**D5 [x] - The restore reader.** `profile-restore.ts`: a `v` line carrying `id` contributes
 `{ id, file }` to `sentinels` and is consumed; `consumeHeaderDecoration` consumes the three lines
 *before* it for the banner shape and keeps the forward legacy branch; `SENTINEL_TEXT` path unchanged
 for the loader and legacy files. Files: `src/shared/config/profile-restore.ts`,
@@ -217,7 +217,7 @@ for the loader and legacy files. Files: `src/shared/config/profile-restore.ts`,
 loader still resolve to the profile's own id, and a hand-mangled header (one rule deleted) leaves the
 remaining lines in `preserved` without crashing or inventing a section.
 
-**D6 - Round trip and adversarial re-render (carry-over rule).** Re-run story 042's property over the
+**D6 [x] - Round trip and adversarial re-render (carry-over rule).** Re-run story 042's property over the
 whole corpus and add fixtures/variants: legacy-shape file, tag line deleted, `id=` removed from the
 tag, both rules deleted, name line hand-renamed, empty profile name, a profile named `[q2l id=…]`,
 and a file where a *body* comment also carries `id=`. Every case goes through the real
@@ -228,7 +228,7 @@ never a diff read. Files: `src/shared/config/fixtures/profiles.ts`,
 `expectEveryLineSurvivesRerender` holds for every adversarial variant, and a legacy-shape file
 re-renders into the *new* shape while keeping its id and name.
 
-**D7 - Docs, highlighting check, fixture note.** `docs/systems/profile-file-format.md`: a "Header
+**D7 [x] - Docs, highlighting check, fixture note.** `docs/systems/profile-file-format.md`: a "Header
 block" description (the four lines, the `id` key in the registry, the version rule, and the legacy
 shape named as read-only), plus `docs/systems/config-module.md` wherever it describes the sentinel as
 line 1. One regression test in `src/shared/config/config-syntax.test.ts` that the four header lines
@@ -289,3 +289,51 @@ if that were current, and the highlighting test passes.
 | Raw file tab + write preview highlight intact; format doc describes the header block | D7 (+ Test Plan 2/3) |
 
 ## Done
+
+**Summary.** The profile `.cfg` header is now a 4-line cosmetic banner (`=` rule / name / `=` rule /
+right-aligned `[q2l v=1 id=<uuid>]` tag) instead of the old 5-line sentinel+banner block. Ownership
+travels as a new `id` key in the existing `[q2l ...]` tag grammar; a new shared
+`src/shared/config/file-ownership.ts` module (`readOwnershipStamp`/`isLauncherOwnedFile`) is the one
+place every main-process reader (writer, cleanup, canonical, index, rebuild) and the restore reader
+now check ownership through, reading full file content (first 8 lines) instead of line 1 only. The
+old sentinel-line shape is still read (backward compatible) and migrates to the new shape on next
+save. The loader (`autoexec.cfg`) is untouched and still uses the sentinel line.
+
+**Decisions.**
+- `ownedProfileId(firstLine)` (legacy single-line signature) turned out to have zero real callers
+  once every reader was migrated onto full-content `ownedProfileIdFromContent`; deleted rather than
+  kept as unused surface (found and fixed during review follow-up).
+- A real bug surfaced by D6's adversarial fixtures: `cfg-layout.ts#banner()`'s `=`-fill branch didn't
+  trim its composed line, so a blank/whitespace-only profile name still rendered a trailing-whitespace
+  `//  ` line, contradicting the story's own "name line is emitted `trimEnd()`ed" decision. Fixed in
+  `cfg-layout.ts` (mirrors the `dashes` branch's existing trim); confirmed a no-op for every other
+  `banner()` caller.
+- Two pre-existing tests (`round-trip.test.ts`'s `[q2l v=999]` mangle-regex case, and two
+  `file-source-pipeline.test.ts` assertions) had gone stale against the new header shape (a
+  no-longer-matching mangle regex, and a literal old-sentinel substring check); both updated to the
+  current mechanism (`readOwnershipStamp`) rather than left red or weakened.
+- Story-review-hard findings (all low severity, PASS verdict): several stale doc comments describing
+  ownership detection as "OWNERSHIP_MARKER on line 1 only" (in `writer.ts`, `rebuild.ts` ×3,
+  `import.ts`, `canonical.ts`) were corrected to describe both shapes via the shared module; one
+  open, deliberately-unfixed item remains (see below).
+- Deliberately left open: `readOwnershipStamp` accepts a hand-edited tag carrying only `id` (no `v`),
+  while `profile-restore.ts`'s `scanComments` only harvests `id` off a line that also carries `v` —
+  a hand-edit-only edge case (a header tag manually stripped to `[q2l id=…]`), not covered by any
+  Acceptance Criterion. Fixing it would mean changing `scanComments`' parsing condition, which risks
+  reopening the "phantom section" risk D5 was specifically hardened against — left alone per the
+  review's own "safe direction, not blocking" assessment.
+
+**Verification.** `npm run typecheck` clean (node + web). `npm run build` clean. `npm test`: 2276
+passed, 82 test files passed; 6 renderer test files (`AliasesTab`, `DropToggles`, `ActionEditor`,
+`ControlsGrid` and others under `src/renderer`) fail to even start under a pre-existing
+`jsdom`/`undici` `markAsUncloneable` incompatibility, confirmed via `git stash` to be present
+identically before this story's changes — unrelated to this diff. Code review (`story-review-hard`):
+**PASS**, all 9 acceptance criteria individually confirmed with evidence, no weakened/deleted tests,
+no scope creep; low-severity doc-staleness findings fixed in a follow-up pass (see Decisions).
+Live smoke (`npm run ui:verify -- --screens=config-write-preview`): screenshot shows the real running
+app rendering the exact 4-line banner (`// ====`, `//  Plain Profile`, `// ====`,
+`//                              [q2l v=1 id=fixture-profile-plain]`) with syntax highlighting intact
+(all four lines tokenize as comments) and the loader's `autoexec.cfg` still carrying the old sentinel
+line unchanged; axe: 0 violations.
+
+**Commit message:** `051: file header is a small banner, not a technical block`

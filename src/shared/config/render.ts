@@ -15,6 +15,7 @@ import {
   alignRows,
   attachTaggedComment,
   banner,
+  BANNER_WIDTH,
   fitProseAndTag,
   sanitizeComment,
   section,
@@ -1219,25 +1220,53 @@ function buildAnchorSections(
 }
 
 /**
- * Builds the file's header block: a `=`-ruled banner carrying the profile name and the hand-edit
- * sentence (AC1). The profile name is passed through `sanitizeComment` first - a user-typed name
- * could otherwise carry a CR/LF (which would split this single banner line into several,
- * corrupting the file's structure) or a character outside latin1 (which would break the writer's
- * latin1 round-trip) - the same reason trailing comments get sanitized, just applied one line
- * earlier in the file.
+ * Builds the file's header block (story 051 D2): a small four-line banner, and now the *whole*
+ * header - `renderProfileFile` no longer prepends `sentinelLine()` in front of it, so this is
+ * literally the first thing a rendered file contains.
  *
- * Story 042 D2 hangs the format's version marker (`[q2l v=<META_FORMAT_VERSION>]`) off the profile
- * name line. It rides *here* and not on the sentinel line above deliberately: `writer.ts`,
- * `cleanup.ts` and `canonical.ts` all match on that first line - one of them on its exact bytes -
- * so `sentinelLine()` stays byte-identical and the version lives on the first line that is free to
- * change. One marker per file; no per-line tag repeats `v`.
+ * ```
+ * // ==============================================================================
+ * //  <name>
+ * // ==============================================================================
+ * //                              [q2l v=1 id=<profile.id>]
+ * ```
+ *
+ * - The two rules and the name line come from `banner([...], { fill: '=' })` - the same primitive
+ *   every other header this codebase draws uses, just with one content line. The profile name is
+ *   passed through `bannerText` first (sanitize + neutralize-prose + length cap - a user-typed name
+ *   could otherwise carry a CR/LF that splits this single line into several, a character outside
+ *   latin1 that breaks the writer's round-trip, or a literal `[q2l` that forges a tag) and then
+ *   `trimEnd()`ed: with no tag riding beside it any more, a name that is empty or ends in whitespace
+ *   would otherwise leave `//  <name>` carrying trailing blanks it does not need.
+ * - The fourth line is *only* the tag - `formatMetaTag({ v: String(META_FORMAT_VERSION), id:
+ *   profile.id })` - which is what carries ownership now (story 051): no second, sentinel-shaped
+ *   line repeats the id. It is right-aligned so its closing `]` lands on `BANNER_WIDTH`, reading as
+ *   a small stamp rather than another line of prose - `//` followed by exactly enough spaces to push
+ *   the tag flush to the right edge. When the tag alone is too long for that to leave even one space
+ *   of padding (longer than `BANNER_WIDTH - 3`, only reachable from a hand-edited store with an
+ *   absurd profile id), it falls back to a plain left-aligned `//  <tag>`, the same shape the name
+ *   line uses - never truncated, since a truncated tag is unparseable and worse than an unaligned
+ *   one.
+ *
+ * The former hand-edit sentence line is gone from this block entirely: `HAND_EDIT_SENTENCE` stays
+ * exported for `profile-restore.ts`/`rebuild.ts` to recognise on a *read* of an older file, but no
+ * render path writes it any more.
  */
 function buildHeaderBlock(profile: ConfigProfile): string[] {
-  const version = formatMetaTag({ v: String(META_FORMAT_VERSION) })
-  return banner(
-    [fitProseAndTag(bannerText(profile.name), version, BANNER_CONTENT_BUDGET), HAND_EDIT_SENTENCE],
-    { fill: '=' },
-  )
+  const [topRule, nameLine, bottomRule] = banner([bannerText(profile.name).trimEnd()], { fill: '=' })
+  const tag = formatMetaTag({ v: String(META_FORMAT_VERSION), id: profile.id })
+  return [topRule!, nameLine!, bottomRule!, headerTagLine(tag)]
+}
+
+/**
+ * The header block's fourth line: `tag` alone, right-aligned so its closing `]` sits on column
+ * `BANNER_WIDTH` - `//` plus just enough spaces to push it flush right. Falls back to a plain
+ * left-aligned `//  <tag>` (the name line's own shape) when the tag by itself is longer than
+ * `BANNER_WIDTH - 3`, so a pathological id never leaves *negative* padding.
+ */
+function headerTagLine(tag: string): string {
+  if (tag.length > BANNER_WIDTH - 3) return `//  ${tag}`
+  return `//${' '.repeat(BANNER_WIDTH - 2 - tag.length)}${tag}`
 }
 
 /**
@@ -1423,12 +1452,13 @@ export function sentinelLine(profileId: string): string {
  * a clock, so the same profile always renders byte-identical output regardless of how its maps
  * were built.
  *
- * Layout (story 040; D2 built the first two blocks, D3 everything from the aliases on):
+ * Layout (story 040; D2 built the first two blocks, D3 everything from the aliases on; story 051 D2
+ * folded what was blocks 1+2 into one four-line header block, see `buildHeaderBlock`):
  *
- * 1. the unchanged `sentinelLine()`, still literally line 1 - every ownership check in
- *    `writer.ts`/`cleanup.ts`/`canonical.ts` matches on it;
- * 2. a `=`-ruled header banner (profile name plus the metadata format's `[q2l v=...]` version
- *    marker, then the hand-edit sentence);
+ * 1. the four-line header block: a `=`-ruled banner around the profile name, then a right-aligned
+ *    `[q2l v=<META_FORMAT_VERSION> id=<profile.id>]` tag line - the file's *only* ownership
+ *    marker now (story 051; the old separate `sentinelLine()` prefix and hand-edit sentence are
+ *    gone from this render path, `sentinelLine()` itself only still used by `renderLoaderFile`);
  * 2b. (story 040 D4) a single bare `unbindall` line, when `profile.writeUnbindall` is not
  *    explicitly `false` - the per-profile setting defaults to on, so a profile with no stored
  *    value carries this line exactly as one with `writeUnbindall: true` does;
@@ -1458,7 +1488,7 @@ export function sentinelLine(profileId: string): string {
  * exactly one blank line (`joinBlocks`). Nothing is dropped to make the layout tidy: a cvar, alias
  * or bind the launcher has no category for lands in an explicit "other" section instead.
  *
- * Story 042 D2 hangs a machine-readable `[q2l ...]` tail off the comments blocks 2 and 4-7 already
+ * Story 042 D2 hangs a machine-readable `[q2l ...]` tail off the comments blocks 4-7 already
  * carried, so a rendered file records what the plain Quake II syntax has no place for; story 050 D6
  * then cut it back to exactly that and nothing more: an entry's catalogue identity (`cid`), an
  * anchor line's own key and modifier (`key`, `mod`) and its entry's alias name where no alias line
@@ -1466,11 +1496,11 @@ export function sentinelLine(profileId: string): string {
  * `trigger`). What a line's own text already says is no longer repeated in its tag: the entry a
  * line belongs to (story 042's `e` ref) now comes from the alias name or bind value the line
  * carries as code, its kind from the line's body, and which key slot of that entry it is from the
- * order the claiming lines appear in the file. Four properties of the result are load-bearing
- * rather than cosmetic and are each pinned by their own test: the tags never touch line 1
- * (`sentinelLine()` stays byte-identical, because three ownership checks elsewhere match on it),
- * `v` appears exactly once in the whole file, under line-budget pressure the *prose* gives way
- * while the tag survives - the inverse of story 040's rule, since the display name is decoration
+ * order the claiming lines appear in the file. Several properties of the result are load-bearing
+ * rather than cosmetic and are each pinned by their own test: the profile id appears exactly once
+ * in the whole file, and only inside the header block's tag (story 051 D2 - no second,
+ * sentinel-shaped copy of it anywhere else), under line-budget pressure the *prose* gives way while
+ * a per-line tag survives - the inverse of story 040's rule, since the display name is decoration
  * and the tag is state - and **every** line an entry owns carries a tag, down to a bare `[q2l]`
  * with no fields at all, because that presence is now the only thing distinguishing a generated
  * bind line from a raw one the user typed and commented (see `entryTag`). The cvar sections and the
@@ -1562,7 +1592,6 @@ export function renderProfileFile(profile: ConfigProfile): string {
   const unboundActions = collectUnboundActions(profile, aliasLineActions, bindEntries, anchors)
 
   const lines: string[] = [
-    sentinelLine(profile.id),
     ...joinBlocks([
       buildHeaderBlock(profile),
       buildUnbindallBlock(profile),

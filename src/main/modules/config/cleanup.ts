@@ -1,11 +1,11 @@
 import { copyFile, readFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { BASE_GAME_DIR } from '@shared/constants'
+import { isLauncherOwnedFile } from '@shared/config/file-ownership'
 import type { Installation } from '@shared/types'
 import { fileSize, isFile, listDir, pathExists } from '../../lib/fs-utils'
 import { BACKUP_SUFFIX, backupOnce } from './backup'
 import { gameDirBelongsToInstallation } from './import'
-import { OWNERSHIP_MARKER } from './render'
 import { isSafeGameDirName, LOADER_FILE_NAME } from './writer'
 
 /**
@@ -90,8 +90,9 @@ export interface CleanupFinding {
  *
  * Excluded, per the sprint decisions: `autoexec.cfg` (case-insensitive -
  * story 004 puts it there on purpose), anything that is not a regular file,
- * and any file whose first line starts with `OWNERSHIP_MARKER` (the launcher's
- * own previous output, never a "leftover" the user needs reviewing).
+ * and any file `isLauncherOwnedFile` recognises (the launcher's own previous
+ * output, either ownership shape, never a "leftover" the user needs
+ * reviewing).
  */
 export async function scanRedundantCopies(installation: Installation): Promise<CleanupFinding[]> {
   const baseDir = join(installation.rootPath, BASE_GAME_DIR)
@@ -127,10 +128,9 @@ export async function scanRedundantCopies(installation: Installation): Promise<C
       const modContent = await readFile(modFilePath, 'latin1')
 
       // Our own previous output is never a finding, regardless of which
-      // profile id it currently carries (same prefix-only check the writer
+      // profile id it currently carries (same ownership check the writer
       // itself uses to recognise its own files).
-      const firstLine = modContent.split('\n', 1)[0]
-      if (firstLine.startsWith(OWNERSHIP_MARKER)) continue
+      if (isLauncherOwnedFile(modContent)) continue
 
       const baseContent = await readFile(baseFilePath, 'latin1')
 

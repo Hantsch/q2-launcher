@@ -40,13 +40,63 @@ never learns the format never has to.
   of `[q2l` in the text for exactly this reason: prose comes first, the machine part comes last, and
   there is never more than one tag per comment.
 
+## Header block
+
+Every rendered profile file opens with a fixed, four-line header block (`render.ts#buildHeaderBlock`)
+— a small, cosmetic name card, not a technical dump:
+
+```
+// ==============================================================================
+//  My Profile
+// ==============================================================================
+//                              [q2l v=1 id=3f9c2a1e-fd01-4353-81c9-3e6961d5ac72]
+```
+
+In order: an `=`-ruled banner line, the profile's own name (`trimEnd()`ed — the only prose in the
+block), a second `=`-ruled banner line, then the `[q2l ...]` tag alone on its own last line,
+right-aligned so its closing `]` lands on `BANNER_WIDTH` (80) — falling back to a plain
+left-aligned `//  <tag>` (the name line's own shape) on the rare file whose tag alone is too long
+for that (only reachable from a hand-edited store with an absurd profile id), never truncated.
+
+That tag line is the file's *only* technical content, and it is the one compact
+`[q2l v=1 id=<uuid>]` line — nothing else in the block is machine-readable. `v` is the format
+version (`META_FORMAT_VERSION`, still 1 as of this story) and `id` is the profile's own stable
+ownership id; `id` is registered in `KNOWN_META_KEYS` (`profile-metadata.ts`) directly after `v`,
+and — like `v` — is only ever emitted in the header block's tag, never on a per-line tag. `id`'s
+*presence* alongside `v` is what tells this new banner shape apart from the header-only,
+`v`-alone tag that shipped before it; its *absence* on an otherwise well-formed header tag is not
+an error, it just means the file predates this shape (see "Legacy header shape" below).
+
+### Legacy header shape (read-only)
+
+A profile file written before this story carries a different, five-line header instead:
+
+```
+// q2-launcher profile 3f9c2a1e-fd01-4353-81c9-3e6961d5ac72 - hand-edited changes are read back
+// ==============================================================================
+//  My Profile [q2l v=1]
+//  Q2 Launcher - hand-edited changes to this file are read back
+// ==============================================================================
+```
+
+A sentinel comment line naming the profile's id in prose, an `=` rule, the name with an inline
+`[q2l v=1]` tag (no `id`), a fixed hand-edit sentence (`HAND_EDIT_SENTENCE`), then a closing `=`
+rule. This shape is still **read** — `src/shared/config/file-ownership.ts`'s
+`readOwnershipStamp`/`isLauncherOwnedFile` recognise it as launcher-owned exactly as before, so a
+profile from before this story is not orphaned or reported as "changed outside the launcher" — but
+it is never **written** any more: the very next time that profile is saved, its header is rewritten
+into the new four-line banner shape above, keeping its id and name. Treat this shape as legacy and
+read-only, not as an alternative current format.
+
 ## Key registry
 
-The current registry, after story 050's cut and story 045's and 052's additions, is eleven keys:
+The current registry, after story 050's cut and story 045's, 051's and 052's additions, is twelve
+keys:
 
 | key       | where it appears           | meaning                                                        |
 | --------- | --------------------------- | --------------------------------------------------------------- |
 | `v`       | header block only           | format version this file was written with (`META_FORMAT_VERSION`, still 1) |
+| `id`      | header block only           | the profile's own stable ownership id (story 051) — see "Header block" above; registered in `KNOWN_META_KEYS` directly after `v`, and, like `v`, never emitted on a per-line tag |
 | `cid`     | bind/alias/anchor/unbound lines | catalogue id (`catalogId`), when the entry is catalogue-backed  |
 | `an`      | anchor lines and unbound lines | the entry's own `aliasName`. Emitted only where no alias line exists to spell it out as code — an entry that keeps its alias line gets no `an`, since that line's own name *is* the value and a tag would be a second source able to drift from it. On an anchor or unbound line, present exactly when the entry actually has a non-empty `aliasName` of its own — never unconditionally, since forcing it onto a line for an entry with no alias name at all would let the reader restore a name the file never really recorded |
 | `key`     | anchor lines only           | the key of the slot this line records. Only ever emitted where the config text cannot say it — an anchor line is a comment, so it has no code to read a key off. A real `bind` line never carries it: the line already spells its key. Never on an unbound line (story 052 D2) — an unbound entry has no key slot at all |
@@ -435,11 +485,14 @@ the whole tag — or worse, the whole line.
 `v` lives once, in the header block's tag — never repeated on a per-line tag. It stays at `1`;
 story 050 did not bump it, since the writer and reader both moved to the reduced tag shape directly
 with no dual-format support (a pre-release app has no installed base of files in the old shape to
-migrate). An unrecognised `v` (larger than this build's `META_FORMAT_VERSION`) is not fatal.
-Parsing is tag-by-tag and key-by-key regardless of `v`: an unknown `v` just means "this file may
-carry keys I don't recognise", and any key that genuinely is unrecognised is reported the same way
-an unknown key under a *known* `v` would be. A file with no `v` at all (no `[q2l …]` tag anywhere) is
-not a 042-era file at all — it falls back to the plain, pre-042 import path.
+migrate). Story 051 did not bump it either, for the same reason: `v` alongside `id` versus `v`
+alone is already a free discriminator between the new banner header shape and the legacy one (see
+"Header block" above), so nothing about the version number itself needed to change. An
+unrecognised `v` (larger than this build's `META_FORMAT_VERSION`) is not fatal. Parsing is
+tag-by-tag and key-by-key regardless of `v`: an unknown `v` just means "this file may carry keys I
+don't recognise", and any key that genuinely is unrecognised is reported the same way an unknown
+key under a *known* `v` would be. A file with no `v` at all (no `[q2l …]` tag anywhere) is not a
+042-era file at all — it falls back to the plain, pre-042 import path.
 
 ## Escaping
 
@@ -502,13 +555,13 @@ A category section header:
 // --- Weapons [q2l cat=weapons] -------------------------------------------
 ```
 
-A header block carrying the version marker:
+A header block carrying the version and ownership marker (see "Header block" above):
 
 ```
-// ================================================================================
-//  My Profile [q2l v=1]
-//  Hand-edit at your own risk — the launcher will overwrite this file on save.
-// ================================================================================
+// ==============================================================================
+//  My Profile
+// ==============================================================================
+//                              [q2l v=1 id=3f9c2a1e-fd01-4353-81c9-3e6961d5ac72]
 ```
 
 A display name that tried to forge a tag, after `neutralizeProse`:

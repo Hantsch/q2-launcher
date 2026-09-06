@@ -377,8 +377,10 @@ export interface RestoreProfilePartsResult {
   layers: AltLayer[]
   /** Every discrepancy, malformed tag and unrecognised field, in the order they were met. */
   warnings: RestoreWarning[]
-  /** The profile id the file's ownership sentinel names, reported so the import dialog can say
-   * *which* profile is being restored - never adopted (AC4). `null` for a file with no sentinel. */
+  /** The profile id the file's ownership stamp names - the header banner's own `[q2l … id=…]` tag
+   * (story 051) or a pre-051 sentinel line, whichever the file carries - reported so the import
+   * dialog can say *which* profile is being restored, never adopted (AC4). `null` for a file with
+   * neither. */
   sourceProfileId: string | null
   /** The `v` the file was written with, or `null` when it carries none (a foreign config, or a
    * launcher file whose header marker was hand-deleted - the warning tells those two apart). */
@@ -937,18 +939,73 @@ interface CommentScan {
 const HEADER_RULE = /^=+$/
 
 /**
- * `buildHeaderBlock` (`render.ts`) always emits exactly four consecutive comment lines around the
- * version-tag line at `comments[versionIndex]`: a `=`-rule, the name+tag line itself, the fixed
- * `HAND_EDIT_SENTENCE`, and a closing `=`-rule. None of the other three carry a tag of their own,
- * so without this they fall through to `preserved` as "unrecognised" - which for a real file is both
- * misleading (this *is* recognised, launcher-owned decoration) and, being a single long line in a
- * single-line code view, the source of an axe `scrollable-region-focusable` violation in the import
- * dialog.
+ * Is the `v` line at hand the **banner** header's own tag line (story 051 D2) rather than the
+ * legacy header block's name+tag line?
  *
- * Deliberately positional-and-content-checked, not positional alone: each neighbour is consumed
- * only if it is immediately adjacent by line number (same file, `line ± 1`/`± 2`) *and* matches the
- * exact shape `buildHeaderBlock` produces. A hand-edited or missing neighbour simply is not
- * consumed and stays visible in `preserved` - never a crash, never a wrong guess.
+ * The two shapes are told apart by what the line itself carries, since that is all this module ever
+ * sees (`file-ownership.ts#readOwnershipStamp` answers the same question one layer up, from the raw
+ * file text, and cannot be reused here - it takes a blob, this takes parsed comment lines):
+ *
+ * - a banner tag line is **tag-only** - `headerTagLine` writes the tag alone, right-aligned, with no
+ *   prose beside it - and carries the `id` field story 051 added;
+ * - a legacy header's tag rides on the *name* line, so it always has prose, and never carries `id`
+ *   (the field did not exist when that shape was written).
+ *
+ * Both conditions are required rather than either: `id` alone would let a hand-edit that pasted an
+ * `id=` into an old name+tag line flip that file onto the backward branch, where the lines above it
+ * are the wrong ones; empty prose alone would do the same for a pre-051 file whose profile name was
+ * blank. A line failing this test simply takes the legacy branch, exactly as it did before.
+ */
+function isBannerHeaderTagLine(parsed: ParsedComment): boolean {
+  return (parsed.fields.id ?? '').trim().length > 0 && parsed.prose.trim().length === 0
+}
+
+/**
+ * The comment line at `index`, but only when it really is the file's `line` (same file, that exact
+ * line number) - the adjacency half of `consumeHeaderDecoration`'s positional check, in one place so
+ * neither branch below can spell it differently.
+ */
+function neighbourAt(
+  comments: readonly RestoreCommentLine[],
+  index: number,
+  file: string,
+  line: number,
+): RestoreCommentLine | undefined {
+  const candidate = comments[index]
+  return candidate && candidate.file === file && candidate.line === line ? candidate : undefined
+}
+
+/**
+ * The header block's own decoration lines, consumed so they do not surface as "unrecognised"
+ * leftovers - none of them carries a tag of its own, so without this they fall through to
+ * `preserved`, which for a real file is both misleading (this *is* recognised, launcher-owned
+ * decoration) and, being a single long line in a single-line code view, the source of an axe
+ * `scrollable-region-focusable` violation in the import dialog.
+ *
+ * Two block shapes, and the tag sits at a different end of each - which is the whole reason this
+ * function has two branches (story 051 D5):
+ *
+ * - **banner** (story 051 D2, `render.ts#buildHeaderBlock`): `=`-rule / name / `=`-rule / tag-only
+ *   line. The tag is the block's **last** line, so the three decoration lines are consumed
+ *   *backward* from it - `versionIndex - 1` is the closing rule, `- 2` the name, `- 3` the opening
+ *   rule.
+ * - **legacy** (pre-051, still read forever): `=`-rule / name+tag / `HAND_EDIT_SENTENCE` / `=`-rule.
+ *   The tag sits in the block's middle, so its rule at `- 1` and the sentence and closing rule at
+ *   `+ 1`/`+ 2` are consumed *forward*, exactly as before this deliverable - the branch is
+ *   deliberately untouched.
+ *
+ * Both branches stay positional-**and**-content-checked, not positional alone: a neighbour is
+ * consumed only if it is immediately adjacent by line number (same file, `line ± n`) *and* matches
+ * the exact shape the writer produces there. A hand-edited or missing neighbour is simply not
+ * consumed and stays visible in `preserved` - never a crash, never a wrong guess. The one line whose
+ * content cannot be checked is the banner's name line (a user-typed profile name is arbitrary text),
+ * so it is consumed only when *both* `=` rules around it are really there: the sandwich is what
+ * identifies it, not its own text.
+ *
+ * Note what consumption is and is not: this only marks lines as understood for the import preview's
+ * `preserved` list. Section attribution happens independently in `scanComments`' own chain, so no
+ * branch here can ever swallow a real section header - the worst a wrong guess could cost is one
+ * line's visibility in `preserved`, never a category or the lines under it.
  */
 function consumeHeaderDecoration(
   comments: readonly RestoreCommentLine[],
@@ -956,7 +1013,25 @@ function consumeHeaderDecoration(
   file: string,
   line: number,
   consumed: RestoreSourcePosition[],
+  banner: boolean,
 ): void {
+  if (banner) {
+    const closingRule = neighbourAt(comments, versionIndex - 1, file, line - 1)
+    if (!closingRule || !HEADER_RULE.test(closingRule.text.trim())) return
+    consumed.push({ file, line: closingRule.line })
+
+    const nameLine = neighbourAt(comments, versionIndex - 2, file, line - 2)
+    const openingRule = neighbourAt(comments, versionIndex - 3, file, line - 3)
+    if (!nameLine || !openingRule) return
+    if (!HEADER_RULE.test(openingRule.text.trim())) return
+    // A tag on the name line means this is not the plain `//  <name>` line `banner()` writes but
+    // some other launcher line that has a meaning of its own; leave it to whichever branch owns it.
+    if (nameLine.text.includes(TAG_SIGIL)) return
+    consumed.push({ file, line: nameLine.line })
+    consumed.push({ file, line: openingRule.line })
+    return
+  }
+
   const openingRule = comments[versionIndex - 1]
   if (openingRule && openingRule.file === file && openingRule.line === line - 1) {
     if (HEADER_RULE.test(openingRule.text.trim())) consumed.push({ file, line: openingRule.line })
@@ -973,12 +1048,15 @@ function consumeHeaderDecoration(
 }
 
 /**
- * One pass over the comment-only lines: the ownership sentinel, the `v` marker, and the section
+ * One pass over the comment-only lines: the ownership stamp, the `v` marker, and the section
  * headers in document order.
  *
- * The sentinel found in the *same file* as the version marker wins, since that is the profile file
- * whose metadata is being read; a loader `autoexec.cfg` carries a sentinel of its own (naming
- * whichever profile was the installation's default) and must not outvote it.
+ * Ownership arrives in either of two shapes and both land in the same `sentinels` list: a pre-051
+ * `OWNERSHIP_MARKER` line, and (story 051 D5) the header banner's own tag line, whose `id` field
+ * replaced that separate line in a profile file. The stamp found in the *same file* as the version
+ * marker wins, since that is the profile file whose metadata is being read; a loader `autoexec.cfg`
+ * still carries a sentinel of its own (naming whichever profile was the installation's default,
+ * `renderLoaderFile` writes it unchanged) and must not outvote it.
  */
 function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
   const warnings: RestoreWarning[] = []
@@ -1032,8 +1110,19 @@ function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
       }
       version = { value: valid ? value : null, file, line }
       if (!parsed.malformed) {
+        // Story 051 D5: the banner header's tag line carries the profile id the pre-051 sentinel
+        // line used to carry on its own, so it is the ownership statement for this file and joins
+        // `sentinels` on exactly the sentinel branch's terms - a non-empty id, from a tag that
+        // parsed cleanly. That is what makes `sourceProfileId` (and therefore `import.ts`'s
+        // `ownWrittenFile`) resolve for a new-shape file at all, and it agrees with
+        // `file-ownership.ts#readOwnershipStamp`, which likewise skips a malformed tag rather than
+        // reading an id out of it. `preferred` below still prefers the id found in the *same* file
+        // as the version marker, so a profile file and its loader `autoexec.cfg` (whose sentinel
+        // names whichever profile is the installation's default) resolve to the profile's own id.
+        const ownershipId = (parsed.fields.id ?? '').trim()
+        if (ownershipId.length > 0) sentinels.push({ id: ownershipId, file })
         consumed.push({ file, line })
-        consumeHeaderDecoration(comments, index, file, line, consumed)
+        consumeHeaderDecoration(comments, index, file, line, consumed, isBannerHeaderTagLine(parsed))
       }
     }
 

@@ -7,14 +7,26 @@ import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import { actionKeySlots } from '@shared/config/action-slots'
 import { aliasNameFor, derivedAliasName } from '@shared/config/alias-render'
 import { generateLayerAliases } from '@shared/config/alt-layers'
-import { COMMENT_LINE_BUDGET, COMMENT_PREFIX, renderProfileFile } from '@shared/config/render'
+import {
+  COMMENT_LINE_BUDGET,
+  COMMENT_PREFIX,
+  HAND_EDIT_SENTENCE,
+  OWNERSHIP_MARKER,
+  renderProfileFile,
+  sentinelLine,
+} from '@shared/config/render'
+import { isLauncherOwnedFile, readOwnershipStamp } from '@shared/config/file-ownership'
+import { META_FORMAT_VERSION, formatMetaTag } from '@shared/config/profile-metadata'
 import { restoreProfileParts } from '@shared/config/profile-restore'
 import { validateActions } from '@shared/config/validate-actions'
 import {
   ROUND_TRIP_FIXTURES,
   beyondLatin1NamesProfile,
+  blankProfileNameProfile,
   blockDisjointCategoryOrderProfile,
+  bodyProseWithIdProfile,
   buildFixtureProfile,
+  forgedTagProfileNameProfile,
   scrambledCategoryOrderProfile,
 } from '@shared/config/fixtures/profiles'
 import { readImportableConfig } from './core/import-reader'
@@ -123,6 +135,21 @@ function canonicalizeMintedIds(text: string): string {
   // exactly the kind of thing that hides the next real regression.
   let out = text.replace(/(\/\/ q2-launcher profile )(\S+)( -)/, (_m, pre, id, post) =>
     `${pre}${tokenFor('sentinel', id)}${post}`,
+  )
+  // Story 051 D6: the profile id moved out of that sentinel line and into the header block's own
+  // `[q2l v=<n> id=<uuid>]` stamp, so the *same* subject now needs normalising in its new spelling -
+  // and through the same map, so a legacy-shape file and the banner-shape file it re-renders into
+  // canonicalise one id to one token rather than to two. Without this, every case that restores a
+  // file into a *fresh* profile record (`restoreFromText` below, which mints an id exactly as a
+  // rebuild-from-file does) compares two headers differing in nothing but a `randomUUID` - which is
+  // what "the header holds still" would then be measuring.
+  //
+  // Anchored on the whole `[q2l v=… id=` prefix rather than on `id=` alone, deliberately: `id=` is
+  // also perfectly ordinary prose (`bodyProseWithIdProfile` puts it in a category name, an entry
+  // name and an unbound line on purpose), and a normaliser that rewrote user text would be able to
+  // hide a real regression in exactly the place this story made prose dangerous.
+  out = out.replace(/(\[q2l v=\d+ id=)([^\s\]]+)/g, (_m, prefix: string, id: string) =>
+    `${prefix}${tokenFor('sentinel', id)}`,
   )
   out = out.replace(/\b(cat|layer|sub)=([^\s\]]+)/g, (_m, key: string, value: string) =>
     `${key}=${tokenFor(key, value)}`,
@@ -1278,7 +1305,12 @@ describe('adversarial mangling (story 042 D9 - not accepted on a green diff read
   it('marker-tag-only pair: [q2l v=999] unknown future version in the header', async () => {
     const profile = findFixture('Marker-tag-only entry pair')
     const text = renderProfileFile(profile)
-    const mangled = text.replace(/\[q2l v=\d+\]/, '[q2l v=999]')
+    // Story 051 D6: the header tag is `[q2l v=1 id=<uuid>]` now, so the old `\[q2l v=\d+\]` pattern
+    // (which required the version to be the tag's *only* field) matched nothing at all and this case
+    // silently ran its assertions over an unmangled file - the `expect(mangled).not.toBe(text)`
+    // guard below is what caught it. Left open-ended on the right so it keeps working whichever
+    // fields the header tag gains or loses.
+    const mangled = text.replace(/\[q2l v=\d+/, '[q2l v=999')
     expect(mangled).not.toBe(text)
 
     const after = await reimport(mangled)
@@ -2185,5 +2217,419 @@ describe('story 055 D2: a profile of drops is a fixed point under the new `drop_
     expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
     const { text1: text2 } = await reimportProfile(profile2)
     expect(normalize(text2)).toBe(normalize(text1))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Story 051 D6: the four-line banner header, through the real pipeline.
+//
+// The header is the one block a profile file carries that is written from the
+// *profile's own* identity rather than from its entries, and this story moved
+// both halves of it: the id left its own sentinel line for the `[q2l v=1 id=…]`
+// stamp on the block's last line, and the name line lost the tag that used to
+// ride beside it. That turns "is this file ours" from a line-1 prefix test into
+// a header scan, and it inverts the direction `consumeHeaderDecoration` walks -
+// so every reader that used to be handed the answer on line 1 now has to find
+// it, and a *hand-edited* header is where finding it can go wrong.
+//
+// Three fixtures below are ordinary profiles whose header is adversarial by
+// construction (in `ROUND_TRIP_FIXTURES`, so the fixed-point loop at the top of
+// this file and `file-source-pipeline.test.ts`' "nothing is lost" loop both
+// already cover them as text - what is added here is what the *bytes* cannot
+// say). The rest are hand-mangled *texts*: a file in the pre-051 shape, and one
+// header edit each of the four kinds a player can make in the Raw File tab. A
+// mangled file is deliberately NOT held to byte-identity - it is a file being
+// repaired, not a fixed point - so the property asserted over those is the
+// weaker, stricter-to-earn one every adversarial pass in this file uses: no
+// config line is lost, nothing is read as a section that is not one, and the
+// re-render is a well-formed header again rather than a second broken one.
+// ---------------------------------------------------------------------------
+
+/** The header block as the writer draws it - the file's first four lines. */
+function headerOf(text: string): string[] {
+  return text.split('\n').slice(0, 4)
+}
+
+/**
+ * The lines the import dialog would list as **preserved** ("we did not understand this, so we kept
+ * it verbatim"): every unrecognised line minus everything `restoreProfileParts` reported as
+ * understood.
+ *
+ * Mirrors `import.ts#preservedLinesFor`, which is module-private - both halves of the subtraction
+ * come from real production output, so this is the same statement AC5 makes ("the header lines never
+ * show up as unrecognised/preserved lines"), computed the same way, rather than a re-reading of the
+ * text with the test's own idea of what a header line looks like.
+ */
+function preservedLines(
+  result: Awaited<ReturnType<typeof reimport>>,
+  restored: ReturnType<typeof restoreProfileParts>,
+): string[] {
+  const consumed = new Set(
+    restored.consumedCommentLines.map((position) => `${position.file}:${position.line}`),
+  )
+  return result.unrecognized
+    .filter((line) => !consumed.has(`${line.file}:${line.line}`))
+    .map((line) => line.text)
+}
+
+/**
+ * One render -> parse -> restore -> render pass over `text`, rendered back **the way a rebuild from
+ * the file does it**: the id comes from the file's ownership stamp (`readOwnershipStamp`, D1) and
+ * the name from its header (`recoverProfileName`, D4), exactly as `rebuild.ts#buildRebuiltProfile`
+ * takes them.
+ *
+ * That is what separates this from `restoreFromText` above, which mints a fresh id and a fixed name
+ * because its cases are about the file's *body*. Here the header is the subject, so a helper that
+ * invented an id would make every assertion about identity vacuous - and "the same id and name come
+ * back out" is precisely what AC7 promises for a file in the old shape.
+ */
+async function rerenderFromFile(text: string): Promise<{
+  result: Awaited<ReturnType<typeof reimport>>
+  restored: ReturnType<typeof restoreProfileParts>
+  rerendered: string
+}> {
+  const result = await reimport(text)
+  const restored = restoreProfileParts(toRestoreInput(result, [], randomUUID))
+  const rerendered = renderProfileFile({
+    id: readOwnershipStamp(text)?.id ?? randomUUID(),
+    // `rebuild.ts#fallbackProfileName` falls back to the file's own base name; the literal below
+    // stands in for it, and every case that reaches it says so.
+    name: recoverProfileName(text) ?? 'Rebuilt from a nameless header',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    cvars: result.cvars,
+    binds: result.binds,
+    assignments: [],
+    categories: restored.categories,
+    actions: restored.actions,
+    layers: restored.layers,
+  })
+  return { result, restored, rerendered }
+}
+
+describe('story 051 D6: a legacy-shape file re-renders into the banner shape', () => {
+  /**
+   * A file exactly as the S10 build wrote it, built out of a current render so the two differ in
+   * *nothing but the header*: the sentinel line, then the old five-line block (`=` rule / name +
+   * `[q2l v=1]` / the hand-edit sentence / `=` rule), then the same body.
+   *
+   * Assembled from the real render's own rule and name lines rather than from hand-typed literals,
+   * so it cannot drift from what `banner()` draws - and with `sentinelLine`/`HAND_EDIT_SENTENCE`,
+   * the two exports story 051 kept alive for exactly this read path.
+   */
+  function legacyShapeOf(profile: ConfigProfile): { legacy: string; current: string } {
+    const current = renderProfileFile(profile)
+    const [rule, nameLine] = headerOf(current)
+    const legacy = [
+      sentinelLine(profile.id),
+      rule!,
+      `${nameLine!} ${formatMetaTag({ v: String(META_FORMAT_VERSION) })}`,
+      `//  ${HAND_EDIT_SENTENCE}`,
+      rule!,
+      ...current.split('\n').slice(4),
+    ].join('\n')
+    return { legacy, current }
+  }
+
+  it('keeps its id and name, is still recognised as owned, and comes out in the new shape', async () => {
+    const profile = findFixture('Marker-tag-only entry pair')
+    const { legacy, current } = legacyShapeOf(profile)
+
+    // The premise: this really is the old shape - a sentinel on line 1, the tag riding on the name
+    // line, the hand-edit sentence, and no `id` field anywhere.
+    expect(legacy.startsWith(OWNERSHIP_MARKER)).toBe(true)
+    expect(legacy).toContain(`//  ${HAND_EDIT_SENTENCE}`)
+    expect(legacy).not.toContain('id=')
+    // AC7's first half, read by D1's module: an old file is still the launcher's own file.
+    expect(isLauncherOwnedFile(legacy)).toBe(true)
+    expect(readOwnershipStamp(legacy)).toEqual({ id: profile.id, version: '', shape: 'sentinel' })
+    expect(recoverProfileName(legacy)).toBe(profile.name)
+
+    const { result, restored, rerendered } = await rerenderFromFile(legacy)
+
+    // The import half: ownership resolves to the same profile (this is what `import.ts`'s
+    // `ownWrittenFile` asks), and the five header lines are understood rather than listed back at
+    // the user as things the launcher did not recognise.
+    expect(restored.sourceProfileId).toBe(profile.id)
+    expect(restored.metadataVersion).toBe(META_FORMAT_VERSION)
+    for (const line of legacy.split('\n').slice(0, 5)) {
+      expect(preservedLines(result, restored)).not.toContain(line)
+    }
+
+    // AC7's second half: the next save writes the new shape - four lines, the same id, the same
+    // name, and no sentinel line left anywhere in the file.
+    expect(headerOf(rerendered)).toEqual(headerOf(current))
+    expect(rerendered).not.toContain(OWNERSHIP_MARKER)
+    expect(rerendered).not.toContain(HAND_EDIT_SENTENCE)
+    expect(readOwnershipStamp(rerendered)).toEqual({
+      id: profile.id,
+      version: String(META_FORMAT_VERSION),
+      shape: 'banner',
+    })
+    expect(recoverProfileName(rerendered)).toBe(profile.name)
+
+    // And nothing else moved: the file it re-renders into is the one the current writer would have
+    // written for this profile all along, and every line the old file carried is still in it.
+    expect(normalize(rerendered)).toBe(normalize(current))
+    expectEveryLineSurvivesRerender(result, rerendered)
+  })
+
+  it('the converted file is itself a fixed point - the conversion happens once', async () => {
+    // A one-way conversion that kept converting would rewrite the file on every start, which is the
+    // "changed outside the launcher" noise AC7 exists to prevent.
+    const { legacy } = legacyShapeOf(findFixture('Hand-added third key'))
+    const first = await rerenderFromFile(legacy)
+    const second = await rerenderFromFile(first.rerendered)
+    expect(normalize(second.rerendered)).toBe(normalize(first.rerendered))
+  })
+})
+
+describe('story 051 D6: hand-edited header blocks', () => {
+  /** The healthy render every case below mangles, plus what a clean read of it produces - so each
+   * case can state what its edit cost *relative to* the undamaged file rather than in absolutes. */
+  async function healthy() {
+    const profile = findFixture('Marker-tag-only entry pair')
+    const text = renderProfileFile(profile)
+    const before = await reimport(text)
+    const clean = await rerenderFromFile(text)
+    return { profile, text, before, clean }
+  }
+
+  /** Every claim that holds for *all* of these edits: nothing throws, no config line is lost, no
+   * entry or category is invented or dropped, and the re-render is a well-formed, owned banner
+   * header again rather than a second broken one. */
+  function expectRepairedAndLossless(
+    clean: Awaited<ReturnType<typeof rerenderFromFile>>,
+    mangledResult: Awaited<ReturnType<typeof rerenderFromFile>>,
+  ): void {
+    expect(mangledResult.restored.actions.map((entry) => entry.name)).toEqual(
+      clean.restored.actions.map((entry) => entry.name),
+    )
+    // No line was read as a section header that is not one - a fabricated category is how a
+    // mis-read header line would show up.
+    expect(mangledResult.restored.categories.map((category) => category.name)).toEqual(
+      clean.restored.categories.map((category) => category.name),
+    )
+    expectEveryLineSurvivesRerender(mangledResult.result, mangledResult.rerendered)
+    expect(headerOf(mangledResult.rerendered)).toHaveLength(4)
+    expect(isLauncherOwnedFile(mangledResult.rerendered)).toBe(true)
+    expect(readOwnershipStamp(mangledResult.rerendered)?.shape).toBe('banner')
+  }
+
+  it('the tag line deleted: ownership is gone, the rest is not, and the next save restores it', async () => {
+    const { text, before, clean } = await healthy()
+    const mangled = text
+      .split('\n')
+      .filter((_line, index) => index !== 3)
+      .join('\n')
+    expect(mangled).not.toBe(text)
+
+    const mangledResult = await rerenderFromFile(mangled)
+
+    // The honest consequence, and the Test Plan's own step 6: with the tag gone there is nothing in
+    // the file that says whose it is, so it is not launcher-owned any more and the three orphaned
+    // decoration lines are listed as unrecognised - which is correct, not a defect.
+    expect(readOwnershipStamp(mangled)).toBeNull()
+    expect(mangledResult.restored.sourceProfileId).toBeNull()
+    expect(preservedLines(mangledResult.result, mangledResult.restored)).toEqual(
+      expect.arrayContaining(headerOf(text).slice(0, 3)),
+    )
+    // One comment-only line fewer, and not one config line fewer.
+    expect(countConfigLines(mangledResult.result)).toBe(countConfigLines(before) - 1)
+    // The name is on the line after the first rule either way, so a rebuild still recovers it - and
+    // the file it writes back carries a fresh, complete stamp instead of staying half-headed.
+    expect(recoverProfileName(mangled)).toBe(recoverProfileName(text))
+    expectRepairedAndLossless(clean, mangledResult)
+  })
+
+  it('`id=` stripped from the tag: reads as a pre-051 header, not as a broken one', async () => {
+    const { text, before, clean } = await healthy()
+    // `[q2l v=1 id=…]` -> `[q2l v=1]`, which is exactly the header tag the S10 build wrote - so this
+    // edit does not produce a malformed tag, it produces an *older* one, and the version marker has
+    // to go on working while ownership falls back to "no stamp here".
+    const mangled = text.replace(/\[q2l v=(\d+) id=[^\]\s]+\]/, '[q2l v=$1]')
+    expect(mangled).not.toBe(text)
+
+    const mangledResult = await rerenderFromFile(mangled)
+
+    expect(readOwnershipStamp(mangled)).toBeNull()
+    expect(mangledResult.restored.sourceProfileId).toBeNull()
+    expect(mangledResult.restored.metadataVersion).toBe(META_FORMAT_VERSION)
+    // No line lost at all this time (nothing was deleted), and no warning: a tag without `id` is a
+    // legal tag, not a mangled one.
+    expect(countConfigLines(mangledResult.result)).toBe(countConfigLines(before))
+    expect(mangledResult.restored.warnings.filter((w) => w.reason.startsWith('tag-'))).toEqual([])
+    expectRepairedAndLossless(clean, mangledResult)
+  })
+
+  it('both `=` rules deleted: the id survives, the name does not, and nothing is invented', async () => {
+    const { profile, text, before, clean } = await healthy()
+    const mangled = text
+      .split('\n')
+      .filter((_line, index) => index !== 0 && index !== 2)
+      .join('\n')
+    expect(mangled).not.toBe(text)
+
+    const mangledResult = await rerenderFromFile(mangled)
+
+    // Ownership rides on the tag alone (D1 scans for a tag, never for the frame around it), so it is
+    // untouched by losing the decoration - which is the whole reason the id moved into the tag.
+    expect(readOwnershipStamp(mangled)).toEqual({
+      id: profile.id,
+      version: String(META_FORMAT_VERSION),
+      shape: 'banner',
+    })
+    expect(mangledResult.restored.sourceProfileId).toBe(profile.id)
+    // The name, on the other hand, is identified by the sandwich and by nothing else: with both
+    // rules gone, that line is arbitrary prose again. It is therefore neither recovered as a name
+    // nor consumed as decoration - it stays visible as an unrecognised line, which is the safe
+    // direction to fail in (a guess here would rename the profile from a stray comment).
+    expect(recoverProfileName(mangled)).toBeNull()
+    expect(preservedLines(mangledResult.result, mangledResult.restored)).toContain(headerOf(text)[1])
+    // ...and, critically, that line is not read as a section header either: no category is minted
+    // from it, and the entries stay where they were.
+    expect(countConfigLines(mangledResult.result)).toBe(countConfigLines(before) - 2)
+    expectRepairedAndLossless(clean, mangledResult)
+    expect(readOwnershipStamp(mangledResult.rerendered)?.id).toBe(profile.id)
+  })
+
+  it('the name line hand-renamed: the new name is adopted, the id is not touched', async () => {
+    const { profile, text, before, clean } = await healthy()
+    const renamed = '//  Duel config - do not delete'
+    const mangled = text.replace(headerOf(text)[1]!, renamed)
+    expect(mangled).not.toBe(text)
+
+    const mangledResult = await rerenderFromFile(mangled)
+
+    // `rebuild.ts`' own rule: the header carries the name as the user typed it, and a user who
+    // renames the profile *in the header* means it. The identity is a different field and does not
+    // move with it.
+    expect(recoverProfileName(mangled)).toBe('Duel config - do not delete')
+    expect(readOwnershipStamp(mangled)?.id).toBe(profile.id)
+    expect(mangledResult.restored.sourceProfileId).toBe(profile.id)
+    // The sandwich identifies the name line by its two rules, not by its text, so a renamed line is
+    // still consumed - a hand-renamed profile must not start listing its own header back at the user.
+    expect(preservedLines(mangledResult.result, mangledResult.restored)).not.toContain(renamed)
+    expect(countConfigLines(mangledResult.result)).toBe(countConfigLines(before))
+
+    // The next save writes the new name, keeps the id, and changes nothing below the header.
+    expect(headerOf(mangledResult.rerendered)[1]).toBe(renamed)
+    expect(readOwnershipStamp(mangledResult.rerendered)?.id).toBe(profile.id)
+    const body = (value: string): string => value.split('\n').slice(4).join('\n')
+    expect(normalize(body(mangledResult.rerendered))).toBe(normalize(body(text)))
+    expectRepairedAndLossless(clean, mangledResult)
+  })
+
+  it('a body comment carrying a full `[q2l v=… id=…]` stamp never outvotes the header', async () => {
+    const { profile, text, before, clean } = await healthy()
+    // The forgery a player can type by hand and `neutralizeProse` cannot prevent (it only guards
+    // prose the *writer* emits): a real, well-formed ownership stamp on an ordinary entry line, far
+    // below the header - naming somebody else's profile.
+    const forged = 'f0f0f0f0-dead-4000-8000-000000000001'
+    const mangled = text.replace(
+      /^(bind k\s+"pick_shotgun"\s+\/\/ Pick shotgun \[q2l)\]$/m,
+      `$1 v=${META_FORMAT_VERSION} id=${forged}]`,
+    )
+    expect(mangled).not.toBe(text)
+    expect(mangled).toContain(`id=${forged}`)
+
+    const mangledResult = await rerenderFromFile(mangled)
+
+    // Two independent bounds keep this inert, and both are asserted because either alone would let
+    // the other rot: `readOwnershipStamp` never looks past `HEADER_SCAN_LINES`, and `scanComments`
+    // only takes an `id` off the *first* `v`-carrying line, which the header already is.
+    expect(readOwnershipStamp(mangled)?.id).toBe(profile.id)
+    expect(mangledResult.restored.sourceProfileId).toBe(profile.id)
+    expect(countConfigLines(mangledResult.result)).toBe(countConfigLines(before))
+    // The forged fields are not carried forward into the next render either - an entry line's tag is
+    // rebuilt from the entry, so the forgery dies at the first save.
+    expect(mangledResult.rerendered).not.toContain(forged)
+    expect(readOwnershipStamp(mangledResult.rerendered)?.id).toBe(profile.id)
+    expectRepairedAndLossless(clean, mangledResult)
+  })
+})
+
+describe('story 051 D6: profile names the header has to survive', () => {
+  it('a whitespace-only name still renders one stable header line', async () => {
+    const text1 = renderProfileFile(blankProfileNameProfile)
+    const header = headerOf(text1)
+
+    // Story 051's Decisions say the name line is emitted `trimEnd()`ed precisely so that "an empty
+    // or whitespace-only name would [not] write `//  ` - a trailing-whitespace line, and a risk to
+    // the byte-identical fixed point". `render.ts#buildHeaderBlock` trims the *name*
+    // (`bannerText(profile.name).trimEnd()`) and `cfg-layout.ts#banner`'s `=` branch trims its own
+    // composed `//  ${line}` too, the same way its `dashes` branch already did ("no line this writer
+    // emits ends in whitespace that has nothing after it"). So a blank name renders a bare `//`. The
+    // trim does work for every non-empty name too (`'My Profile   '` -> `//  My Profile`).
+    expect(header[1]).toBe('//')
+    for (const line of [header[0], header[2], header[3]]) expect(line).toBe(line!.trimEnd())
+
+    const { result, restored, rerendered } = await rerenderFromFile(text1)
+
+    // The empty name line is still consumed: the sandwich identifies it by the two rules around it,
+    // which is exactly why it is allowed to be empty in the first place.
+    expect(preservedLines(result, restored)).not.toContain(header[1])
+    expect(restored.sourceProfileId).toBe(blankProfileNameProfile.id)
+    // Nothing to recover, so a rebuild falls back to the file name rather than adopting a blank -
+    // stated here because it is the visible consequence of allowing the empty line at all.
+    expect(recoverProfileName(text1)).toBeNull()
+    expect(rerendered.split('\n')[1]).toBe('//  Rebuilt from a nameless header')
+
+    // And the profile itself (name included, as the store still holds it) is a fixed point.
+    const { profile2 } = await reimportProfile(blankProfileNameProfile)
+    expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
+  })
+
+  it('a profile named `[q2l …]` is written inert and never read as a second stamp', async () => {
+    const profile = forgedTagProfileNameProfile
+    const text1 = renderProfileFile(profile)
+    const header = headerOf(text1)
+
+    // `neutralizeProse` rewrites the sigil on the way out, so the name line cannot parse as a tag at
+    // all - and the block therefore contains exactly one `[q2l`, the real stamp on its last line.
+    expect(header[1]).toContain('(q2l v=1 id=1a4b1d3c-0000-4000-8000-abcdefabcdef]')
+    expect(header[1]).not.toContain('[q2l')
+    expect(header.filter((line) => line.includes('[q2l'))).toEqual([header[3]])
+
+    // The forged id sits *above* the real one, and `readOwnershipStamp` returns the first stamp it
+    // finds in line order - so a name that still spelled `[q2l` would hand this file somebody else's
+    // identity, which is the whole point of neutralising it.
+    expect(readOwnershipStamp(text1)).toEqual({
+      id: profile.id,
+      version: String(META_FORMAT_VERSION),
+      shape: 'banner',
+    })
+
+    const { result, restored, rerendered } = await rerenderFromFile(text1)
+    expect(restored.sourceProfileId).toBe(profile.id)
+    expect(restored.sourceProfileId).not.toBe('1a4b1d3c-0000-4000-8000-abcdefabcdef')
+    // The neutralised spelling is what a rebuild recovers as the name, so it survives verbatim and
+    // the header line is understood rather than preserved.
+    expect(recoverProfileName(text1)).toBe(header[1]!.slice(4))
+    expect(preservedLines(result, restored)).not.toContain(header[1])
+    expect(headerOf(rerendered)[1]).toBe(header[1])
+    expectEveryLineSurvivesRerender(result, rerendered)
+  })
+
+  it('`id=` in ordinary body prose is prose, on every line kind that carries a name', async () => {
+    const profile = bodyProseWithIdProfile
+    const { profile2, text1 } = await reimportProfile(profile)
+
+    // The premise: the literal really is in the file, on a section banner, on a bound entry's
+    // trailing comment and on a comment-only unbound line - the three places a display name lives.
+    expect(text1).toContain('Servers id=7')
+    expect(text1).toMatch(/^bind F6\s+\S+\s+\/\/ Join id=42 \[q2l\]$/m)
+    expect(text1).toMatch(/^\/\/bind ""\s+\/\/ Spare id=43 \[q2l\]$/m)
+
+    // None of it is ownership: the stamp is the header's, and it is the only one.
+    expect(readOwnershipStamp(text1)?.id).toBe(profile.id)
+    expect(text1.split('\n').filter((line) => /\[q2l[^\]]*\bid=/.test(line))).toEqual([
+      headerOf(text1)[3],
+    ])
+
+    // ...and none of it moved an entry or minted a category either.
+    expect(profile2.categories!.map((category) => category.name)).toEqual(['Servers id=7'])
+    expect(profile2.actions!.map((entry) => entry.name)).toEqual(['Join id=42', 'Spare id=43'])
+    expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
   })
 })

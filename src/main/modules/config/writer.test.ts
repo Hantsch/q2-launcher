@@ -2,11 +2,25 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { ConfigProfile } from '@shared/modules/config'
 import type { Installation } from '@shared/types'
 import { pathExists } from '../../lib/fs-utils'
-import { OWNERSHIP_MARKER, sentinelLine } from './render'
+import { OWNERSHIP_MARKER, renderProfileFile, sentinelLine } from './render'
 import { BACKUP_SUFFIX, reconcileOwnedProfileFiles, writeInstallationFiles } from './writer'
 import type { WriteInstallationFilesOptions } from './writer'
+
+function profile(overrides: Partial<ConfigProfile> = {}): ConfigProfile {
+  return {
+    id: 'p1',
+    name: 'Test',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    cvars: { sensitivity: '3' },
+    binds: {},
+    assignments: [],
+    ...overrides,
+  }
+}
 
 const PROFILE_FILE = 'q2l-profile-p1.cfg'
 const PROFILE_CONTENT = `${OWNERSHIP_MARKER} p1 - hand-edited changes are read back\nset sensitivity "3"\n`
@@ -211,6 +225,29 @@ describe('writeInstallationFiles', () => {
     expect(outcomeOf(result, 'baseq2', 'autoexec.cfg')).toBe('written')
   })
 
+  it('never backs up a file already in the new banner shape either (story 051 D3)', async () => {
+    // The profile-file header D2 writes carries ownership only in the tag's
+    // `id=` field on line 4, no sentinel prefix any more - `writeTargetFile`'s
+    // backup-once guard must still recognise it as ours.
+    const bannerOwn = renderProfileFile(profile({ id: 'p0' }))
+    await seed('baseq2/autoexec.cfg', bannerOwn)
+
+    const result = await writeInstallationFiles(options())
+
+    expect(await read('baseq2', 'autoexec.cfg')).toBe(LOADER_CONTENT)
+    expect(await pathExists(join(dir, 'baseq2', `autoexec.cfg${BACKUP_SUFFIX}`))).toBe(false)
+    expect(outcomeOf(result, 'baseq2', 'autoexec.cfg')).toBe('written')
+  })
+
+  it('backs up a foreign file that carries neither ownership shape', async () => {
+    await seed('baseq2/autoexec.cfg', HAND_WRITTEN)
+
+    await writeInstallationFiles(options())
+
+    expect(await read('baseq2', `autoexec.cfg${BACKUP_SUFFIX}`)).toBe(HAND_WRITTEN)
+    expect(await read('baseq2', 'autoexec.cfg')).toBe(LOADER_CONTENT)
+  })
+
   it('writes each target only once when a mod resolves to an existing target', async () => {
     const result = await writeInstallationFiles(
       options({
@@ -268,6 +305,16 @@ describe('reconcileOwnedProfileFiles', () => {
 
     expect(outcomeOf(result, 'baseq2', 'Name.cfg')).toBe('unchanged')
     expect(await pathExists(join(dir, 'baseq2', `Name.cfg${BACKUP_SUFFIX}`))).toBe(false)
+  })
+
+  it('renames a banner-shape file too (story 051 D3, no sentinel prefix on it)', async () => {
+    const bannerOwn = renderProfileFile(profile({ id: 'p1' }))
+    await seed('baseq2/q2l-profile-p1.cfg', bannerOwn)
+
+    await reconcileOwnedProfileFiles(installation(), new Map([['p1', 'Name.cfg']]))
+
+    expect(await baseq2Names()).toEqual(['Name.cfg'])
+    expect(await read('baseq2', 'Name.cfg')).toBe(bannerOwn)
   })
 
   it("backs up a hand-written file sitting at the rename destination before replacing it", async () => {

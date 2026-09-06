@@ -33,6 +33,7 @@
  * | key       | meaning                                                              |
  * | --------- | --------------------------------------------------------------------- |
  * | `v`       | format version (header block only) — see `META_FORMAT_VERSION`        |
+ * | `id`      | ownership: this profile's stable id (header block only, story 051)    |
  * | `cid`     | catalogue id (`catalogId`)                                             |
  * | `an`      | entry's own `aliasName` - anchor lines only (an alias line spells it)  |
  * | `key`     | that slot's key - anchor lines only (a bind line spells its own key)  |
@@ -107,6 +108,12 @@ const SIGIL = '[q2l'
  * dropped, always reported. */
 export const KNOWN_META_KEYS = [
   'v',
+  // The profile's own stable id (story 051) - like `v`, only ever emitted in the header block's
+  // tag, never on a per-line tag. Its presence alongside `v` is what distinguishes the new banner
+  // header shape from the header-only `v`-alone tag that shipped before it; its *absence* on an
+  // otherwise well-formed header tag is not an error, it just means the file predates story 051 and
+  // ownership is read the legacy sentinel way instead (see `file-ownership.ts`).
+  'id',
   'cid',
   // The entry's own `aliasName`, and - like `key` below - only ever emitted on an *anchor* line,
   // where no alias line exists to spell it out as code. An entry that keeps its alias line gets no
@@ -154,6 +161,7 @@ export type KnownMetaKey = (typeof KNOWN_META_KEYS)[number]
  * being silently dropped. */
 export interface MetaTagFields {
   v?: string
+  id?: string
   cid?: string
   an?: string
   key?: string

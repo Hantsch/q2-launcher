@@ -397,6 +397,26 @@ describe('tokenizeConfigText - a [q2l ...] metadata tail is part of its comment 
     expect(line.tokens).toEqual([{ kind: 'comment', text: raw }])
   })
 
+  it('tokenizes the four-line new-shape header block as four comment tokens (story 051)', () => {
+    // Real output of `buildHeaderBlock` (`@shared/config/render.ts`), taken off a real
+    // `renderProfileFile` render rather than hand-typed, so this pins the actual current shape:
+    // `=` rule / name / `=` rule / right-aligned `[q2l v=1 id=...]` tag line - and regresses if the
+    // highlighter ever starts looking at the sentinel, the rules or the tag instead of treating the
+    // whole line as one flat comment.
+    const rendered = renderProfileFile(profile())
+    const headerLines = rendered.split('\n').slice(0, 4)
+
+    expect(headerLines[0]).toMatch(/^\/\/ =+$/)
+    expect(headerLines[1]).toBe('//  Test')
+    expect(headerLines[2]).toMatch(/^\/\/ =+$/)
+    expect(headerLines[3]).toMatch(/\[q2l v=1 id=profile-1\]$/)
+
+    for (const raw of headerLines) {
+      const [line] = tokenizeConfigText(raw)
+      expect(line.tokens).toEqual([{ kind: 'comment', text: raw }])
+    }
+  })
+
   it('keeps a tagged layer banner as one comment token', () => {
     const raw = '// --- Layer: Drops (hold, on ALT) [q2l layer=l1 mode=hold trigger=ALT] ------'
 

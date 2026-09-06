@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { bindValueFor } from '@shared/config/action-mirror'
 import { resolveProfileFileNames } from '@shared/config/profile-files'
+import { META_FORMAT_VERSION, formatMetaTag } from '@shared/config/profile-metadata'
 import { OWNERSHIP_MARKER, renderProfileFile, sentinelLine } from '@shared/config/render'
 import type { ConfigProfile } from '@shared/modules/config'
 import { scopedLogger } from '../../lib/logger'
@@ -143,6 +144,26 @@ describe('runFileSourceStartup: rebuilding a lost record', () => {
     expect(rebuilt.assignments).toEqual([])
     expect(rebuilt.cvars.sensitivity).toBe('4.25')
     expect(rebuilt.binds).toEqual(original.binds)
+  })
+
+  it('rebuilds a hand-authored new-shape (banner) file, recovering both the name and the id from the tag - story 043 needs exactly this id to keep installation assignments pointed at the right profile', async () => {
+    const id = randomUUID()
+    const content = [
+      `// ${'='.repeat(77)}`,
+      '//  Banner Shape',
+      `// ${'='.repeat(77)}`,
+      `//                              ${formatMetaTag({ v: '1', id })}`,
+      'set sensitivity "3"',
+    ].join('\n')
+    await writeFile(join(canonicalDir(), 'Banner-Shape.cfg'), content, 'latin1')
+
+    const report = await runFileSourceStartup(deps())
+
+    expect(report.rebuiltProfileIds).toEqual([id])
+    const rebuilt = profiles.list()
+    expect(rebuilt).toHaveLength(1)
+    expect(rebuilt[0]!.id).toBe(id)
+    expect(rebuilt[0]!.name).toBe('Banner Shape')
   })
 
   it('seeds the rebuilt record with the hash of the bytes on disk, so the next read is unchanged', async () => {
@@ -286,7 +307,11 @@ describe('runFileSourceStartup: AC8 one-time migration', () => {
       const stored = profiles.find(seeded.profile.id)!
       const onDisk = await readFile(join(canonicalDir(), seeded.fileName), 'latin1')
       expect(onDisk).toBe(renderProfileFile(stored))
-      expect(onDisk.startsWith(sentinelLine(stored.id))).toBe(true)
+      // Story 051 D2: the migration writes the *current* format, which is the four-line banner
+      // header - no more `sentinelLine()` prefix on a profile file - carrying the id in its tag
+      // rather than on line 1.
+      expect(onDisk.startsWith(OWNERSHIP_MARKER)).toBe(false)
+      expect(onDisk).toContain(formatMetaTag({ v: String(META_FORMAT_VERSION), id: stored.id }))
       expect(stored.fileHash).toBe(hashCanonicalFileContent(onDisk))
       expect(stored.fileSeenAt).toBe(NOW)
       expect(stored.dirty).toBe(false)
@@ -412,6 +437,18 @@ describe('recoverProfileName', () => {
     }
 
     expect(recoverProfileName(renderProfileFile(profile))).toBe('My Config (LAN)')
+  })
+
+  it('reads a new-shape (banner) header, whose name line carries no [q2l ...] tag at all', () => {
+    const content = [
+      `// ${'='.repeat(77)}`,
+      '//  Banner Shape',
+      `// ${'='.repeat(77)}`,
+      `//                              ${formatMetaTag({ v: '1', id: randomUUID() })}`,
+      'set sensitivity "3"',
+    ].join('\n')
+
+    expect(recoverProfileName(content)).toBe('Banner Shape')
   })
 
   it('reads a pre-042 header that carries no [q2l v=...] marker', () => {

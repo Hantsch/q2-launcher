@@ -10,8 +10,10 @@
  *    always mints a new id - and the two therefore stay separate functions with separate
  *    `ProfilesStore` entry points (`addRebuilt` vs. `createFromImport`), because reusing the import
  *    path here would silently mint a new id and orphan every installation assignment pointing at
- *    the old one. A `.cfg` that carries no recognised `OWNERSHIP_MARKER` + id at all is never
- *    adopted: `readCanonicalOwnership` reports no owner for it, so it is not even a candidate.
+ *    the old one. A `.cfg` that carries neither recognised ownership shape - the legacy sentinel
+ *    line nor story 051's banner-tag `id` field, both read via `readOwnershipStamp`/
+ *    `isLauncherOwnedFile` (`@shared/config/file-ownership`) - is never adopted:
+ *    `readCanonicalOwnership` reports no owner for it, so it is not even a candidate.
  *
  * 2. **The one-time format migration** (`migrateCanonicalFiles`, AC8, gated by
  *    `configFileSourceMigratedAt`): every profile record that already exists in `state.json` gets
@@ -43,6 +45,7 @@ import type { Stats } from 'node:fs'
 import { join } from 'node:path'
 import { resolveProfileFileNames, sanitizeProfileFileBase } from '@shared/config/profile-files'
 import { HAND_EDIT_SENTENCE, renderProfileFile } from '@shared/config/render'
+import { HEADER_SCAN_LINES } from '@shared/config/file-ownership'
 import { stripCatalogDefaults } from '@shared/config/cvar-defaults'
 import { captureBaseline } from '@shared/config/profile-baseline'
 import type { ConfigProfile } from '@shared/modules/config'
@@ -66,19 +69,28 @@ const MAX_RECOVERED_NAME_LENGTH = 120
 // ---------------------------------------------------------------------------
 
 /**
- * `render.ts`'s header block, as it is on disk:
+ * `render.ts`'s header block, as it is on disk - one of two shapes (story 051):
  *
  * ```
- * // q2-launcher profile <id> - hand-edited changes are read back   <- the sentinel, line 1
+ * // q2-launcher profile <id> - hand-edited changes are read back   <- legacy: the sentinel, line 1
  * // =============================================================  <- the `=` rule
  * //  <profile name> [q2l v=1]                                      <- the line this reads
  * //  Q2 Launcher - hand-edited changes to this file are read back
  * // =============================================================
  * ```
  *
- * so the name is the comment line directly after the first `=` rule. That rule is what anchors
- * this: `banner({ fill: '=' })` is used for the header block and nowhere else in a profile file, so
- * there is no other `=`-ruled line for this to latch onto.
+ * ```
+ * // =============================================================  <- new (D2): the `=` rule
+ * //  <profile name>                                                <- the line this reads
+ * // =============================================================
+ * //                              [q2l v=1 id=<uuid>]
+ * ```
+ *
+ * so the name is the comment line directly after the *first* `=` rule, in both shapes. That rule is
+ * what anchors this: `banner({ fill: '=' })` is used for the header block and nowhere else in a
+ * profile file, so there is no other `=`-ruled line for this to latch onto. The new shape's name
+ * line carries no `[q2l ...]` tag at all (the tag moved to its own line), which `recoverProfileName`
+ * handles by having its tag-strip be a no-op rather than by branching on shape.
  */
 const HEADER_RULE = /^\/\/\s*={3,}\s*\r?$/
 
@@ -87,10 +99,9 @@ const HEADER_RULE = /^\/\/\s*={3,}\s*\r?$/
  * so a name that merely *contains* something bracket-shaped is left alone. */
 const TRAILING_META_TAG = /\s*\[q2l[^\]]*\]\s*$/
 
-/** How far into the file the header block can possibly reach - the sentinel, the rule, the name,
- * the sentence, the closing rule, plus slack for a hand-inserted line or two. Bounded so this never
- * walks a 30 KB file looking for a rule that is not there. */
-const HEADER_SCAN_LINES = 8
+// How far into the file the header block can possibly reach is `HEADER_SCAN_LINES`, imported above
+// from `@shared/config/file-ownership` - the same bound that module uses to scan for an ownership
+// stamp, so the two never diverge over how much of a hand-edited file's head counts as "header".
 
 /**
  * The profile display name the file's header block carries, or `null` when the header does not look
@@ -101,6 +112,16 @@ const HEADER_SCAN_LINES = 8
  * character to `-`), so `"My Config"` would come back as `"My-Config"`. The header carries the name
  * as the user typed it, modulo `sanitizeComment`/`neutralizeProse`, and - now that the file is the
  * source of truth - a user who renames the profile *in the header* means it.
+ *
+ * Story 051 D4: this reads both header shapes with the *same* logic, because the new (banner) shape
+ * is a strict subset of what this already handled. Legacy shape is `sentinel / rule / name+tag /
+ * HAND_EDIT_SENTENCE / rule` - the first `=` rule is on line 2, and the line after it carries an
+ * inline `[q2l ...]` tag that `TRAILING_META_TAG` strips. New shape is `rule / name / rule / tag` -
+ * the first (only) `=` rule this scan finds is on line 1, and the line after it is the name with no
+ * tag riding on it at all, so `TRAILING_META_TAG`'s replace is simply a no-op (no match, string
+ * unchanged) rather than needing a separate branch. The `HAND_EDIT_SENTENCE` guard only ever fires
+ * for a legacy-shape file whose name line was hand-removed; a new-shape file has no such line to
+ * collide with it.
  */
 export function recoverProfileName(content: string): string | null {
   const lines = content.split('\n', HEADER_SCAN_LINES)
@@ -227,8 +248,9 @@ export interface RebuiltProfileInput {
  *
  * Story 048 D3: `cvars` goes through `stripCatalogDefaults` for the same reason
  * `profiles.ts#adoptFromFile` does - see that method's own doc comment. A rebuild reads a file the
- * launcher itself wrote (nothing without a recognised `OWNERSHIP_MARKER` + id is ever a candidate,
- * see `rebuildMissingProfileRecords`), and since D2 such a file states every catalogue cvar
+ * launcher itself wrote (nothing failing both `readOwnershipStamp`/`isLauncherOwnedFile` ownership
+ * shapes - legacy sentinel or story 051's banner tag - is ever a candidate, see
+ * `rebuildMissingProfileRecords`), and since D2 such a file states every catalogue cvar
  * explicitly; adopting all ~30 verbatim would record "the user chose this" for every default the
  * writer merely restated. A cvar the catalogue does not know is kept exactly as the file had it, so
  * nothing the file carries beyond the catalogue is lost. The foreign-import path
@@ -391,9 +413,11 @@ async function migrateCanonicalFiles(
  * **keeping the id the file's sentinel carries**.
  *
  * Ownership is `readCanonicalOwnership`'s answer and nothing else, which is what keeps a foreign
- * file out: a `.cfg` whose first line is not `OWNERSHIP_MARKER` followed by an id - a hand-written
- * config, or another tool's file with its own marker - has no owner in that map and is therefore
- * never a candidate here. That map is keyed by profile id, so two files claiming the same id yield
+ * file out: a `.cfg` recognised by neither ownership shape - the legacy sentinel line nor story
+ * 051's banner-tag `id` field, both read via `readOwnershipStamp`/`isLauncherOwnedFile`
+ * (`@shared/config/file-ownership`) - a hand-written config, or another tool's file with its own
+ * marker, has no owner in that map and is therefore never a candidate here. That map is keyed by
+ * profile id, so two files claiming the same id yield
  * at most one rebuild, and a record that already exists is skipped before anything is read, so this
  * can never produce a duplicate id (`ProfilesStore.addRebuilt` refuses one independently).
  *

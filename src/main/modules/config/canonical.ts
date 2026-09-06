@@ -1,9 +1,10 @@
 import { readdir, readFile, rename, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { ConfigProfile } from '@shared/modules/config'
-import { OWNERSHIP_MARKER, renderProfileFile } from '@shared/config/render'
+import { isLauncherOwnedFile } from '@shared/config/file-ownership'
+import { renderProfileFile } from '@shared/config/render'
 import { backupOnce } from './backup'
-import { ownedProfileId, writeTargetFile } from './writer'
+import { ownedProfileIdFromContent, writeTargetFile } from './writer'
 import type { WriteFileOutcome } from './writer'
 
 /**
@@ -15,18 +16,20 @@ import type { WriteFileOutcome } from './writer'
  * resolves it to `app.getPath('userData')`.
  *
  * Both functions below identify "this profile's own file" the same way: by
- * reading a `*.cfg` file's first line and running it through `writer.ts`'s
- * `ownedProfileId` - the same forgiving sentinel parser every other ownership
- * check in this codebase uses - and comparing the id it returns to
+ * reading a `*.cfg` file's whole content and running it through `writer.ts`'s
+ * `ownedProfileIdFromContent` - the same forgiving ownership reader every
+ * other ownership check in this codebase uses (banner or legacy sentinel,
+ * `@shared/config/file-ownership`) - and comparing the id it returns to
  * `profileId`. This is deliberately stricter than plain
- * `OWNERSHIP_MARKER`-prefix matching (`writer.ts`, `cleanup.ts`): a file that
- * carries the marker but for a *different* profile id is still one of ours,
+ * `isLauncherOwnedFile` matching (`writer.ts`, `cleanup.ts`): a file that is
+ * launcher-owned but for a *different* profile id is still one of ours,
  * globally, but it is never THIS profile's file, and this module must never
  * rename or delete another profile's canonical file while acting on this
- * one. Going through `ownedProfileId` rather than an exact-string sentinel
- * comparison is what lets a file written with an older sentinel wording
- * still be recognised as this profile's own (story 043 D1): only the marker
- * and the id after it are load-bearing, never the trailing clause.
+ * one. Going through `ownedProfileIdFromContent` rather than an exact-string
+ * sentinel comparison is what lets a file written with an older sentinel
+ * wording, or the newer banner shape, still be recognised as this profile's
+ * own (story 043 D1, story 051 D3): only the id is load-bearing, never the
+ * surrounding wording or shape.
  */
 
 /** One target file's on-disk write result, plus the path it resolved to. */
@@ -36,15 +39,17 @@ export interface WriteCanonicalProfileFileResult {
 }
 
 /**
- * Current first line of `filePath`, or null if the file cannot be read
- * (missing, a directory, anything else). Only used for the sentinel
- * comparison below, so a file that cannot be read is never a match - the
- * conservative direction, since it means "leave it alone", not "delete it".
+ * Current content of `filePath`, or null if the file cannot be read (missing,
+ * a directory, anything else). Only used for the ownership comparison below,
+ * so a file that cannot be read is never a match - the conservative
+ * direction, since it means "leave it alone", not "delete it". Whole content,
+ * not just the first line, is what `ownedProfileIdFromContent` needs to
+ * recognise a banner-shape header (story 051 D3) - its `id` field lives on
+ * line 4, never line 1.
  */
-async function firstLineOf(filePath: string): Promise<string | null> {
+async function contentOf(filePath: string): Promise<string | null> {
   try {
-    const content = await readFile(filePath, 'latin1')
-    return content.split('\n', 1)[0]
+    return await readFile(filePath, 'latin1')
   } catch {
     return null
   }
@@ -69,7 +74,7 @@ async function readdirSafe(dir: string): Promise<string[]> {
 /**
  * Current content of `filePath`, or null when it does not exist. Same
  * ENOENT-only-swallowed contract as `writer.ts`'s own `readExisting` -
- * deliberately NOT `firstLineOf`'s "any read failure means null" contract,
+ * deliberately NOT `contentOf`'s "any read failure means null" contract,
  * because this one decides whether a rename below is about to destroy a
  * foreign file; an unreadable-for-some-other-reason file must not be treated
  * as "safe to overwrite silently".
@@ -85,12 +90,13 @@ async function readExistingIfAny(filePath: string): Promise<string | null> {
 
 /**
  * Finds this profile's own canonical file wherever it currently sits in
- * `baseDir`, by matching `ownedProfileId(firstLine) === profileId` - never a
- * prefix match on `OWNERSHIP_MARKER` alone, which would also match a
- * different profile's file. Tolerant of the sentinel's trailing wording:
- * only the marker and the id after it decide ownership, so a file written
- * before story 043 D1's wording change is still found. Returns null when
- * `baseDir` does not exist yet, or no `*.cfg` file in it matches.
+ * `baseDir`, by matching `ownedProfileIdFromContent(content) === profileId` -
+ * never a bare `isLauncherOwnedFile` match, which would also match a
+ * different profile's file. Tolerant of either ownership shape and the
+ * sentinel's trailing wording: only the id decides ownership, so a file
+ * written before story 043 D1's wording change, or before story 051's banner
+ * shape, is still found. Returns null when `baseDir` does not exist yet, or
+ * no `*.cfg` file in it matches.
  */
 async function findOwnCanonicalFile(baseDir: string, profileId: string): Promise<string | null> {
   const names = await readdirSafe(baseDir)
@@ -98,8 +104,8 @@ async function findOwnCanonicalFile(baseDir: string, profileId: string): Promise
   for (const name of names) {
     if (!name.toLowerCase().endsWith('.cfg')) continue
     const path = join(baseDir, name)
-    const firstLine = await firstLineOf(path)
-    if (firstLine !== null && ownedProfileId(firstLine) === profileId) return path
+    const content = await contentOf(path)
+    if (content !== null && ownedProfileIdFromContent(content) === profileId) return path
   }
   return null
 }
@@ -117,11 +123,11 @@ async function findOwnCanonicalFile(baseDir: string, profileId: string): Promise
  * after a crash halfway through a previous sync).
  *
  * Ownership is read the same forgiving way `writer.ts` reads it inside an
- * installation (`ownedProfileId` on the first line, reused rather than
- * reimplemented): a file we cannot read, or whose first line is not our
- * sentinel, simply has no owner here. `<name>.cfg` only - a `.q2l-backup`
- * file's name does not end in `.cfg`, so the user's backed-up originals are
- * never reported as anyone's file.
+ * installation (`ownedProfileIdFromContent` on the whole file, reused rather
+ * than reimplemented): a file we cannot read, or whose content carries
+ * neither ownership shape, simply has no owner here. `<name>.cfg` only - a
+ * `.q2l-backup` file's name does not end in `.cfg`, so the user's backed-up
+ * originals are never reported as anyone's file.
  */
 export async function readCanonicalOwnership(baseDir: string): Promise<Map<string, string>> {
   const names = await readdirSafe(baseDir)
@@ -129,9 +135,9 @@ export async function readCanonicalOwnership(baseDir: string): Promise<Map<strin
 
   for (const name of names) {
     if (!name.toLowerCase().endsWith('.cfg')) continue
-    const firstLine = await firstLineOf(join(baseDir, name))
-    if (firstLine === null) continue
-    const owner = ownedProfileId(firstLine)
+    const content = await contentOf(join(baseDir, name))
+    if (content === null) continue
+    const owner = ownedProfileIdFromContent(content)
     if (owner !== null) owners.set(owner, name)
   }
   return owners
@@ -154,11 +160,12 @@ export async function readCanonicalOwnership(baseDir: string): Promise<Map<strin
  * a foreign file there is backed up first (review finding: this is exactly
  * the boundary decision 7 says must not weaken - "a file that is not ours is
  * the user's" applies to a rename's destination just as much as to a plain
- * write). A destination that already carries `OWNERSHIP_MARKER` is one of
- * ours (this profile's own stale output) and is never worth backing up.
+ * write). A destination that is already launcher-owned (either shape, story
+ * 051 D3) is one of ours (this profile's own stale output) and is never worth
+ * backing up.
  *
  * `liveProfileIds`, when given, turns the one case that used to be waved away
- * into a hard refusal (review finding): a destination whose first line names
+ * into a hard refusal (review finding): a destination whose content names
  * a DIFFERENT profile that still exists is that profile's canonical file, and
  * `rename()`/an overwrite would destroy it. It happens whenever a rename
  * makes this profile claim a name another profile currently occupies on disk
@@ -185,7 +192,7 @@ export async function writeCanonicalProfileFile(
   if (existingOwnPath !== targetPath) {
     const destination = await readExistingIfAny(targetPath)
     if (destination !== null) {
-      const owner = ownedProfileId(destination.split('\n', 1)[0])
+      const owner = ownedProfileIdFromContent(destination)
       if (owner !== null && owner !== profile.id && liveProfileIds?.has(owner) === true) {
         throw new Error(
           `refusing to write canonical file ${fileName} for profile ${profile.id}: ` +
@@ -194,7 +201,7 @@ export async function writeCanonicalProfileFile(
       }
       // Only a rename needs a backup decision here; a plain write's own
       // backup-once lives in `writeTargetFile` below.
-      if (existingOwnPath !== null && !destination.startsWith(OWNERSHIP_MARKER)) {
+      if (existingOwnPath !== null && !isLauncherOwnedFile(destination)) {
         await backupOnce(targetPath)
       }
     }

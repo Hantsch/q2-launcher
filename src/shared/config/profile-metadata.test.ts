@@ -17,6 +17,24 @@ describe('META_FORMAT_VERSION', () => {
   })
 })
 
+describe('id (story 051)', () => {
+  it('is registered directly after v in KNOWN_META_KEYS', () => {
+    const vIndex = KNOWN_META_KEYS.indexOf('v')
+    expect(KNOWN_META_KEYS[vIndex + 1]).toBe('id')
+  })
+
+  it('renders and round-trips alongside v in the header tag', () => {
+    const tag = formatMetaTag({ v: '1', id: 'abc-123' })
+    expect(tag).toBe('[q2l v=1 id=abc-123]')
+
+    const parsed = parseMetaTag(tag)
+    expect(parsed.fields.id).toBe('abc-123')
+    expect(parsed.fields.v).toBe('1')
+    expect(parsed.unknownKeys).toEqual([])
+    expect(parsed.malformed).toBe(false)
+  })
+})
+
 describe('formatMetaTag', () => {
   it('renders known keys in the fixed registry order regardless of input order', () => {
     const inOrder = formatMetaTag({ v: '1', cid: 'ssg_sg', an: 'ssg', key: 'MOUSE1', mod: 'shift' })
@@ -212,8 +230,7 @@ describe('formatMetaTag / parseMetaTag round trip', () => {
 
 describe('KNOWN_META_KEYS (story 045 D4)', () => {
   it('appends `lbl`, then `ord`, then `sub`, after the pre-existing nine keys without moving any of them', () => {
-    expect(KNOWN_META_KEYS.slice(0, 9)).toEqual([
-      'v',
+    expect(KNOWN_META_KEYS.slice(2, 10)).toEqual([
       'cid',
       'an',
       'key',
@@ -227,8 +244,16 @@ describe('KNOWN_META_KEYS (story 045 D4)', () => {
     // `trigger`, and story 053 D2 appends `sub` behind that for the same reason again: this order
     // is the format's determinism guarantee, so a new key goes at the end and every key that
     // already shipped keeps its place.
-    expect(KNOWN_META_KEYS.slice(9)).toEqual(['lbl', 'ord', 'sub'])
-    expect(KNOWN_META_KEYS).toHaveLength(12)
+    expect(KNOWN_META_KEYS.slice(10)).toEqual(['lbl', 'ord', 'sub'])
+    expect(KNOWN_META_KEYS).toHaveLength(13)
+  })
+
+  it('registers `id` directly after `v` (story 051), the one exception to the append-only order', () => {
+    // Ownership is conceptually paired with the format version - both header-block-only, both
+    // "about the file" rather than about a bind/alias/category - so `id` is the one key inserted
+    // rather than appended; every key that shipped before it keeps its own relative place.
+    expect(KNOWN_META_KEYS[0]).toBe('v')
+    expect(KNOWN_META_KEYS[1]).toBe('id')
   })
 })
 

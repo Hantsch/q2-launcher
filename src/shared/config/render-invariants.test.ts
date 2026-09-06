@@ -5,10 +5,16 @@ import { actionKeySlots } from './action-slots'
 import { aliasNameFor, renderActionAlias, twoPartAliasNames } from './alias-render'
 import { bindValueFor } from './action-mirror'
 import { generateLayerAliases } from './alt-layers'
+import { readOwnershipStamp } from './file-ownership'
 import { ROUND_TRIP_FIXTURES } from './fixtures/profiles'
-import { KNOWN_META_KEYS, parseMetaTag } from './profile-metadata'
+import { KNOWN_META_KEYS, META_FORMAT_VERSION, parseMetaTag } from './profile-metadata'
 import { PROFILE_FIXTURES, SELF_REFERENCE_FIXTURES } from './profile-fixtures'
-import { renderProfileFile, STRICTEST_LINE_BUDGET } from './render'
+import {
+  HAND_EDIT_SENTENCE,
+  OWNERSHIP_MARKER,
+  renderProfileFile,
+  STRICTEST_LINE_BUDGET,
+} from './render'
 import { validateActions } from './validate-actions'
 import { validateStructure } from './validate-structure'
 
@@ -319,6 +325,79 @@ describe('render invariants (story 038 D3, AC4)', () => {
     // bare headers and this loop would have checked exactly zero lines while reporting green.
     expect(checked, 'the fixture corpora rendered almost no entry lines - have they gone inert?')
       .toBeGreaterThan(40)
+  })
+
+  // -------------------------------------------------------------------------
+  // Story 051 D6: the header block, as a writer-side invariant over BOTH corpora.
+  //
+  // D2 pins the shape on one profile; what has no home until here is the same
+  // statement over every profile the corpora carry - including the three whose
+  // *profile-level* fields are adversarial (a blank name, a name spelled like a
+  // tag, `id=` all over the body). The header is written from `profile.name` and
+  // `profile.id` and from nothing else, so a profile is the only thing that can
+  // break it, and a corpus-wide loop is the only way to be sure none of them
+  // does. The reader-side half (parse -> restore -> re-render, plus the
+  // hand-mangled headers) lives in `round-trip.test.ts`, for the reason the
+  // block above already gives: the parser is a main-process module.
+  // -------------------------------------------------------------------------
+  describe('the header block (story 051 D6)', () => {
+    /** The `=` rule `banner(…, { fill: '=' })` draws - the block's first and third line. */
+    const HEADER_RULE = /^\/\/ ={10,}$/
+
+    it('every corpus profile renders the four-line banner, tag last and id nowhere else', () => {
+      for (const [fixtureName, profile] of ALL_FIXTURES) {
+        const rendered = renderProfileFile(profile)
+        const [openingRule, nameLine, closingRule, tagLine] = rendered.split('\n')
+        const where = `"${fixtureName}"`
+
+        expect(openingRule, `${where}: no opening rule`).toMatch(HEADER_RULE)
+        expect(closingRule, `${where}: the two rules differ`).toBe(openingRule)
+        expect(nameLine!.startsWith('//'), `${where}: the name line is not a comment`).toBe(true)
+        // The tag alone on the block's last line, right-aligned (the User's decision), and carrying
+        // exactly the two fields ownership needs - never riding on the name line any more.
+        expect(tagLine, `${where}: the tag line is not the tag alone`).toMatch(
+          new RegExp(`^// +\\[q2l v=${META_FORMAT_VERSION} id=\\S+\\]$`),
+        )
+        expect(nameLine, `${where}: a tag on the name line`).not.toContain('[q2l')
+
+        // AC3: the id travels in that one tag and in no other line of the file - not in prose, not
+        // in a sentinel, not twice.
+        expect(
+          rendered.split('\n').filter((line) => line.includes(profile.id)),
+          `${where}: the profile id appears outside the header tag`,
+        ).toEqual([tagLine])
+        expect(rendered, `${where}: a sentinel line`).not.toContain(OWNERSHIP_MARKER)
+        expect(rendered, `${where}: the hand-edit sentence`).not.toContain(HAND_EDIT_SENTENCE)
+
+        // AC2: not one word the *writer* puts in this block is a technical one. Deliberately not
+        // applied to the name line: that is the player's own text and they may call a profile
+        // anything they like ("Hold Layer Generated Body" is a real fixture name), so asserting
+        // over it would be a test of the corpus' vocabulary rather than of this writer's.
+        expect(
+          [openingRule, closingRule, tagLine].join('\n'),
+          `${where}: a technical word in the header`,
+        ).not.toMatch(/hand-edited|metadata|version|generated/i)
+
+        // AC8: the frame is plain ASCII (the name line may legitimately carry latin-1 - that is the
+        // range the whole writer promises, and `sanitizeComment` drops everything above it).
+        for (const line of [openingRule, closingRule, tagLine]) {
+          expect(line, `${where}: a non-ASCII character in the frame`).toMatch(/^[ -~]*$/)
+        }
+        expect(nameLine, `${where}: a character beyond latin-1 on the name line`).toMatch(/^[ -ÿ]*$/)
+
+        // The header the launcher writes is one D1 reads back as its own, with the profile's own id
+        // - the property every ownership guard in `main/modules/config` rests on.
+        expect(readOwnershipStamp(rendered), `${where}: not recognised as launcher-owned`).toEqual({
+          id: profile.id,
+          version: String(META_FORMAT_VERSION),
+          shape: 'banner',
+        })
+
+        // AC8's other half: no timestamp, nothing else per-run - two renders of one profile are the
+        // same bytes, header included.
+        expect(renderProfileFile(profile), `${where}: the render is not deterministic`).toBe(rendered)
+      }
+    })
   })
 
   for (const [fixtureName, profile] of Object.entries(SELF_REFERENCE_FIXTURES)) {

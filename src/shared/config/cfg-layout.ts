@@ -55,9 +55,11 @@ export const BANNER_WIDTH = 80
  * name).
  *
  * - `fill: '='` — a full-width rule (`// ====...`) above and below every entry in `lines`, each
- *   emitted as its own `//  <line>` comment. This is the file's header block: profile name plus the
- *   hand-edit sentence sit between two rules, exactly like the story's own sketch. `style` is not
- *   consulted here - the header block is not a section banner.
+ *   emitted as its own `//  <line>` comment (`trimEnd()`ed, so a blank/whitespace-only entry never
+ *   leaves a trailing-whitespace-only line). This is the file's header block: since story 051's D2
+ *   removed the hand-edit sentence from the render path, `lines` is just the profile name sitting
+ *   between two rules, exactly like the story's own sketch. `style` is not consulted here - the
+ *   header block is not a section banner.
  * - `fill: '-'` (default) — one line per entry in `lines`, decorated per `options.style` (story
  *   042 D7, defaulting to `'dashes'`, today's only format). This is a section banner.
  *
@@ -72,7 +74,11 @@ export function banner(lines: string | string[], options: BannerOptions = {}): s
 
   if (fill === '=') {
     const rule = `// ${'='.repeat(Math.max(0, width - 3))}`
-    return [rule, ...items.map((line) => `//  ${line}`), rule]
+    // Trimmed for the same reason the `dashes` branch below trims its own decoration: an empty or
+    // whitespace-only `line` (e.g. a blank profile name) would otherwise leave `//  ` - a line
+    // whose only content is trailing whitespace. A non-empty `line` already ends in a non-space
+    // character, so this is a no-op for every other caller.
+    return [rule, ...items.map((line) => `//  ${line}`.trimEnd()), rule]
   }
 
   if (style === 'plain') return items.map((line) => `// ${line}`)

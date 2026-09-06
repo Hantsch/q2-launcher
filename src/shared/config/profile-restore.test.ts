@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { banner, fitProseAndTag } from '@shared/config/cfg-layout'
+import { BANNER_WIDTH, banner, fitProseAndTag } from '@shared/config/cfg-layout'
 import { actionKeySlots } from '@shared/config/action-slots'
 import { buildImportedActions } from '@shared/config/alias-import'
 import { META_FORMAT_VERSION, formatMetaTag } from '@shared/config/profile-metadata'
-import { COMMENT_LINE_BUDGET, COMMENT_PREFIX } from '@shared/config/render'
+import { COMMENT_LINE_BUDGET, COMMENT_PREFIX, HAND_EDIT_SENTENCE } from '@shared/config/render'
 import {
   restoreProfileParts,
   type RestoreProfilePartsInput,
@@ -32,6 +32,9 @@ interface DocBuilder {
   comment: (text: string) => void
   version: (value?: number) => void
   sentinel: (profileId: string) => void
+  bannerHeader: (profileId: string, name?: string) => void
+  headerRule: () => void
+  headerTag: (fields: Record<string, string>) => void
   header: (title: string, tag?: string) => void
   alias: (name: string, body: string, comment?: string, codeWidth?: number) => void
   bind: (key: string, command: string, comment?: string) => void
@@ -53,6 +56,23 @@ function doc(file = 'q2l-profile-src.cfg'): DocBuilder {
       self.comment(`  My Profile ${formatMetaTag({ v: String(value) })}`),
     sentinel: (profileId: string): void =>
       self.comment(` q2-launcher profile ${profileId} - generated, do not edit`),
+    /** One `=`-rule line of the header block, from `banner`'s own `fill: '='` output. */
+    headerRule: (): void => self.comment(banner([''], { fill: '=' })[0]!.slice(2)),
+    /** The header block's tag-only last line (story 051 D2, `render.ts#headerTagLine`): the tag
+     * alone, right-aligned so its closing `]` lands on `BANNER_WIDTH`. */
+    headerTag: (fields: Record<string, string>): void => {
+      const tag = formatMetaTag(fields)
+      self.comment(`${' '.repeat(BANNER_WIDTH - 2 - tag.length)}${tag}`)
+    },
+    /** The whole story-051 header block, exactly the four lines `render.ts#buildHeaderBlock`
+     * writes: `=` rule, profile name, `=` rule, `[q2l v=… id=…]` tag alone on the last line. */
+    bannerHeader: (profileId: string, name = 'My Profile'): void => {
+      const [topRule, nameLine, bottomRule] = banner([name], { fill: '=' })
+      self.comment(topRule!.slice(2))
+      self.comment(nameLine!.slice(2))
+      self.comment(bottomRule!.slice(2))
+      self.headerTag({ v: String(META_FORMAT_VERSION), id: profileId })
+    },
     /** A section banner exactly as `render.ts#titledSection` renders it, marker stripped. */
     header: (title: string, tag = ''): void =>
       self.comment(banner(fitProseAndTag(title, tag, 300))[0]!.slice(2)),
@@ -1153,6 +1173,135 @@ describe('restoreProfileParts - unbound lines (story 052 D3)', () => {
     expect(result.actions[0]!.commands).toEqual([
       { kind: 'message', channel: 'say', text: 'see http://q2.example' },
     ])
+  })
+})
+
+/**
+ * Story 051 D5 - the header block is a four-line banner now (`=` rule / name / `=` rule / the
+ * `[q2l v=… id=…]` tag alone), so ownership rides on that tag instead of a separate sentinel line
+ * and the block's decoration sits *before* the tag rather than after it. Both directions are pinned
+ * here: what the new shape gives back, and that the legacy shape still gives back exactly what it
+ * did.
+ */
+describe('restoreProfileParts - the story-051 banner header', () => {
+  const file0 = 'q2l-profile-src.cfg'
+
+  it('reads ownership off the header tag and consumes all four header lines', () => {
+    const file = doc()
+    file.bannerHeader('profile-9')
+    file.header('Aliases: Weapons', formatMetaTag({ cat: 'weapons' }))
+    file.alias('rl', 'use rocket launcher', tagged('RL'))
+
+    const result = file.restore()
+
+    // The tag's `id` is what `import.ts` turns into `ownWrittenFile` - without it a new-shape file
+    // would import as a foreign config, since no sentinel line is written any more.
+    expect(result.sourceProfileId).toBe('profile-9')
+    expect(result.metadataVersion).toBe(META_FORMAT_VERSION)
+    expect(result.warnings).toEqual([])
+    // Still reported, never adopted (AC4).
+    expect(result.actions.map((action) => action.id)).not.toContain('profile-9')
+    // All four header lines are understood, so `preservedLinesFor` (import.ts) subtracts every one
+    // of them from the preview's `preserved` list - AC5's "none of the four appears there".
+    for (const line of [1, 2, 3, 4]) {
+      expect(result.consumedCommentLines).toContainEqual({ file: file0, line })
+    }
+    // And the name line between the two rules invented no section of its own: the file's one real
+    // category is the only one minted.
+    expect(result.categories.map((category) => category.name)).toEqual(['Weapons'])
+  })
+
+  it('lets the profile file`s own header outvote the loader`s sentinel', () => {
+    // The real read order: `autoexec.cfg` is the entry file and carries a sentinel naming whichever
+    // profile is the installation's default; the profile file it `exec`s carries the banner header.
+    const loader = doc('autoexec.cfg')
+    loader.sentinel('installation-default')
+
+    const profileFile = doc('q2l-profile-p9.cfg')
+    profileFile.bannerHeader('p9')
+    profileFile.header('Aliases: Weapons', formatMetaTag({ cat: 'weapons' }))
+    profileFile.alias('rl', 'use rocket launcher', tagged('RL'))
+
+    const first = loader.input()
+    const second = profileFile.input()
+    const result = restoreProfileParts({
+      aliases: [...first.aliases, ...second.aliases],
+      binds: [...first.binds, ...second.binds],
+      cvars: [...first.cvars, ...second.cvars],
+      comments: [...first.comments, ...second.comments],
+      newId: idFactory(),
+    })
+
+    expect(result.sourceProfileId).toBe('p9')
+    // The loader's own sentinel is still understood, just outvoted - it must not resurface as an
+    // unrecognised leftover either.
+    expect(result.consumedCommentLines).toContainEqual({ file: 'autoexec.cfg', line: 1 })
+  })
+
+  it('keeps the leftovers of a header whose closing rule was hand-deleted in `preserved`', () => {
+    // `=` rule / name / tag - the rule under the name is gone, so the backward walk finds prose
+    // where it expects decoration and stops there rather than guessing.
+    const file = doc()
+    file.headerRule()
+    file.comment('  My Profile')
+    file.headerTag({ v: String(META_FORMAT_VERSION), id: 'profile-9' })
+    file.header('Aliases: Weapons', formatMetaTag({ cat: 'weapons' }))
+    file.alias('rl', 'use rocket launcher', tagged('RL'))
+
+    const result = file.restore()
+
+    // Ownership rides on the tag line and is unaffected by the mangled decoration around it.
+    expect(result.sourceProfileId).toBe('profile-9')
+    expect(result.consumedCommentLines).toContainEqual({ file: file0, line: 3 })
+    // The two lines the writer's shape no longer accounts for stay visible instead.
+    expect(result.consumedCommentLines).not.toContainEqual({ file: file0, line: 1 })
+    expect(result.consumedCommentLines).not.toContainEqual({ file: file0, line: 2 })
+    // And neither of them was read as a section header: only the file's real category is minted,
+    // and the entry is still filed under it.
+    expect(result.categories.map((category) => category.name)).toEqual(['Weapons'])
+    expect(result.actions).toHaveLength(1)
+    expect(result.actions[0]!.categoryId).toBe('weapons')
+  })
+
+  it('keeps the name line of a header whose opening rule was hand-deleted in `preserved`', () => {
+    // name / `=` rule / tag - the adjacent rule still matches and is consumed, the name line above
+    // it is not: without both rules around it, nothing identifies that arbitrary prose as ours.
+    const file = doc()
+    file.comment('  My Profile')
+    file.headerRule()
+    file.headerTag({ v: String(META_FORMAT_VERSION), id: 'profile-9' })
+    file.header('Aliases: Weapons', formatMetaTag({ cat: 'weapons' }))
+    file.alias('rl', 'use rocket launcher', tagged('RL'))
+
+    const result = file.restore()
+
+    expect(result.sourceProfileId).toBe('profile-9')
+    expect(result.consumedCommentLines).toContainEqual({ file: file0, line: 3 })
+    expect(result.consumedCommentLines).toContainEqual({ file: file0, line: 2 })
+    expect(result.consumedCommentLines).not.toContainEqual({ file: file0, line: 1 })
+    expect(result.categories.map((category) => category.name)).toEqual(['Weapons'])
+  })
+
+  it('still consumes the legacy header block forward from its name+tag line', () => {
+    // Pre-051: `=` rule / name+tag / hand-edit sentence / `=` rule. The tag sits in the middle and
+    // carries no `id`, so ownership comes from the sentinel line above the block, exactly as before.
+    const file = doc()
+    file.sentinel('profile-42')
+    file.headerRule()
+    file.version()
+    file.comment(` ${HAND_EDIT_SENTENCE}`)
+    file.headerRule()
+    file.header('Aliases: Weapons', formatMetaTag({ cat: 'weapons' }))
+    file.alias('rl', 'use rocket launcher', tagged('RL'))
+
+    const result = file.restore()
+
+    expect(result.sourceProfileId).toBe('profile-42')
+    expect(result.metadataVersion).toBe(META_FORMAT_VERSION)
+    for (const line of [1, 2, 3, 4, 5]) {
+      expect(result.consumedCommentLines).toContainEqual({ file: file0, line })
+    }
+    expect(result.categories.map((category) => category.name)).toEqual(['Weapons'])
   })
 })
 
