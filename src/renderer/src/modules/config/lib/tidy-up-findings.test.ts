@@ -76,6 +76,9 @@ describe('analyzeTidyUp - shadowed binds', () => {
         claim: { source: 'action', actionId: 'a1', slot: 0 },
       },
     ])
+    // Story 058 D5: the deep link names the losing claim (the one this row is actually about),
+    // never the winner that already works.
+    expect(finding!.actionId).toBe('a1')
   })
 
   /**
@@ -123,6 +126,8 @@ describe('analyzeTidyUp - shadowed binds', () => {
         claim: { source: 'baseBind', command: '+attack' },
       },
     ])
+    // Neither claim is action-sourced, so there is no Controls row to name.
+    expect(finding!.actionId).toBeUndefined()
   })
 
   /**
@@ -149,6 +154,9 @@ describe('analyzeTidyUp - shadowed binds', () => {
     expect(finding!.mode).toBe('report')
     expect(finding!.ops).toEqual([])
     expect(finding!.messageKey).toBe('config.care.tidyUp.shadowedBindUnresolved')
+    // No proven winner to prefer against, so the deep link still names the first action claim -
+    // "an" entry worth a look, even though which one is at fault could not be proven.
+    expect(finding!.actionId).toBe('a1')
   })
 
   it('reports without ops when nothing is stored for the contested key at all', () => {

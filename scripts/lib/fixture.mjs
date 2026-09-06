@@ -646,9 +646,28 @@ function templateSeededConfigProfile() {
 }
 
 /**
+ * Story 058 D7: the `controls-seed` variant's own installation, used only so
+ * `importedOnlyConfigProfile()` below can be assigned to one for the `config-care-clear` screen
+ * (the healthy Care fixture). None of `config-controls-imported-only`/`config-controls-template-
+ * seeded`/`config-controls-template-subcategories` or the `controls-subcategory` flow touch
+ * installations at all, so adding one here does not change anything about how those screens read.
+ */
+const INSTALL_CONTROLS_SEED_ID = 'fixture-install-controls-seed'
+
+/**
  * A profile with a single, non-template category ("Imported") and a few free-form entries of its
  * own - no `movement`/`weapons`/`drops` at all. Demonstrates AC1/AC7: "a profile with only an
  * Imported category shows only that" on the `config-controls-imported-only` screen.
+ *
+ * Story 058 D7: also the `config-care-clear` screen's healthy fixture - deliberately NOT
+ * `templateSeededConfigProfile()`/a migrated `populated` profile, both of which carry the full
+ * movement/weapons/drops catalogue and therefore always raise `aliasShadowsCommand` findings for
+ * several of its rows (`+moveleft` etc. resolve to alias names that collide with a reserved
+ * command name - `validate-actions.ts`'s own doc comment confirms this fires for a catalogue row
+ * too, not just a hand-typed one). This profile's three free-form entries do not collide with
+ * anything reserved, so it is the one fixture profile that can actually reach Care's "All clear".
+ * Assigned to `INSTALL_CONTROLS_SEED_ID` below so AC 1's "assigned, in-sync installation" is real,
+ * not merely "nothing to validate against".
  */
 function importedOnlyConfigProfile() {
   return {
@@ -664,7 +683,7 @@ function importedOnlyConfigProfile() {
     // claimant on `e` to `bind-conflicts.ts`'s scan and raise a spurious conflict badge that has
     // nothing to do with this screen's own point (AC1/AC7's "shows only its own category").
     binds: {},
-    assignments: [],
+    assignments: [{ installationId: INSTALL_CONTROLS_SEED_ID, isDefault: true }],
     categories: [{ id: 'imported', name: 'Imported' }],
     actions: [
       {
@@ -672,7 +691,16 @@ function importedOnlyConfigProfile() {
         categoryId: 'imported',
         name: 'Use item',
         kind: 'bind',
-        commands: [{ kind: 'raw', text: '+use' }],
+        // Story 058 D7: real Quake II has no continuous `+use`/`-use` pair (the actual console
+        // command is the discrete `use <item>`), so a signed `+use` token here reads to
+        // `validate-actions.ts`'s `undefinedAlias` rule exactly like a hand-typed reference to an
+        // alias that does not exist - it is neither a known engine command nor a defined alias.
+        // Harmless for this profile's original purpose (`config-controls-imported-only` only checks
+        // that the "Imported" category renders, never this row's exact command), but it is also now
+        // the `config-care-clear` screen's healthy fixture (added in this deliverable), which needs
+        // this profile to carry zero validation findings. The bare `use` command is exactly what a
+        // real "Use item" bind would send.
+        commands: [{ kind: 'raw', text: 'use' }],
         key: 'e',
       },
       {
@@ -697,7 +725,15 @@ function controlsSeedStateDocument() {
   return {
     schemaVersion: CONTROLS_SEED_SCHEMA_VERSION,
     settings: { ...DEFAULT_SETTINGS, scanOnFirstRun: false },
-    installations: [],
+    installations: [
+      makeInstallation({
+        id: INSTALL_CONTROLS_SEED_ID,
+        name: 'Controls Seed Install',
+        rootPath: join(gameRoot(), INSTALL_CONTROLS_SEED_ID),
+        favorite: false,
+        sortOrder: 0,
+      }),
+    ],
     configProfiles: [templateSeededConfigProfile(), importedOnlyConfigProfile()],
     configPlayedMods: {},
     configPendingWrites: {},
@@ -705,7 +741,8 @@ function controlsSeedStateDocument() {
   }
 }
 
-/** Deletes and rewrites the `controls-seed` variant's userdata (no installations). */
+/** Deletes and rewrites the `controls-seed` variant's userdata, plus its one installation's game
+ * dir (story 058 D7 - see `INSTALL_CONTROLS_SEED_ID`'s own doc comment). */
 export function writeControlsSeedFixture() {
   const userDataDir = variantUserDataDir('controls-seed')
   rmDirBestEffort(userDataDir)
@@ -714,7 +751,11 @@ export function writeControlsSeedFixture() {
   writeJson(join(userDataDir, STATE_FILE), controlsSeedStateDocument())
   writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
 
-  return { userDataDir, installations: 0, configProfiles: 2 }
+  const baseq2Dir = join(gameRoot(), INSTALL_CONTROLS_SEED_ID, 'baseq2')
+  rmDirBestEffort(join(gameRoot(), INSTALL_CONTROLS_SEED_ID))
+  mkdirSync(baseq2Dir, { recursive: true })
+
+  return { userDataDir, installations: 1, configProfiles: 2 }
 }
 
 function writeJson(path, value) {

@@ -195,6 +195,57 @@ export const SCREENS = [
     navigate: configDetail('overview'),
   },
   {
+    id: 'config-care-clear',
+    variant: 'controls-seed',
+    viewports: BOTH_VIEWPORTS,
+    // Story 058 D7 (decision 11): AC 9 names both Care states, and one screenshot cannot show both
+    // - `config-care` further below is the findings fixture (`PROFILE_UNRECOGNIZED`), this is the
+    // healthy one.
+    //
+    // Deliberately NOT a `populated`-variant profile: every profile in that variant either goes
+    // through story 052 D6's migration (which seeds the full movement/weapons/drops catalogue into
+    // `actions`, several of whose rows - `+moveleft` etc. - raise a permanent `aliasShadowsCommand`
+    // Config health warning; `validate-actions.ts`'s own doc comment confirms this fires for a
+    // catalogue row too, not just a hand-typed one) or is `PROFILE_UNRECOGNIZED` itself (unassigned).
+    // `controls-seed`'s "Imported Category Profile" (`fixture.mjs`'s `importedOnlyConfigProfile()`)
+    // is the one fixture profile with neither problem: it carries only three free-form entries that
+    // do not collide with anything reserved, and is seeded at the CURRENT schema version so the
+    // catalogue migration never touches it. Story 058 D7 additionally assigns it to a new
+    // `controls-seed`-only installation (`INSTALL_CONTROLS_SEED_ID`, `fixture.mjs`) so AC 1's
+    // "assigned, in-sync installation" is real, not merely "nothing to validate against".
+    //
+    // The one thing the fixture itself cannot hand it "in sync": `state.json` is written directly
+    // (`scripts/lib/fixture.mjs`), never through the app's own write pipeline, so the installation's
+    // on-disk copy of this profile's `.cfg` has simply never existed on a fresh seed - and the app's
+    // own startup retry sweep (`main/modules/config/index.ts`) only retries a profile already
+    // recorded as failed/pending, never one it has no history for, so it never creates it either.
+    // Left alone, the Files group would show that copy `missing` forever. Rather than
+    // hand-duplicating `renderProfileFile`'s exact byte output here (a second copy of logic this
+    // file's own doc comment already warns is easy to drift - see the alias-mirror note above), this
+    // calls the real `config/write` handler once through the app's own bridge (`window.q2.invoke`,
+    // the same call `writeConfigProfile`/Care's Retry action makes) before opening the tab - the same
+    // "reach past `page` for a real setup step" precedent `config-conflict-dialog` already uses, just
+    // through the app's supported IPC surface instead of `node:fs`. Idempotent: once the copy exists
+    // and matches, writing it again changes nothing, so this is safe to run on every visit.
+    navigate: async (page) => {
+      const outcome = await page.evaluate(
+        async (profileId) =>
+          window.q2.invoke('module:invoke', { moduleId: 'config', type: 'write', payload: { profileId } }),
+        'fixture-profile-imported-only',
+      )
+      if (!outcome?.ok) {
+        throw new Error(
+          `config-care-clear: priming the fixture profile's installation copy failed: ${JSON.stringify(outcome)}`,
+        )
+      }
+
+      await configDetail('care', 'Imported Category Profile')(page)
+      await page
+        .getByText('All clear — nothing to do on this profile.', { exact: true })
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
     id: 'config-settings',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,
@@ -411,7 +462,21 @@ export const SCREENS = [
     // Story 025 D1: Care replaces the old separate Validation tab and the
     // conditional Preserved tab (dropped) - `PROFILE_UNRECOGNIZED` so this
     // one shot also covers the preserved-lines section having content.
-    navigate: configDetail('care', PROFILE_UNRECOGNIZED),
+    //
+    // Story 058 review finding: the Files group's `useCareSync` fetch is async, and since D3 its
+    // loading state renders an explicit notice (`config.care.files.loading`, CareTab.tsx's
+    // `FilesGroup`) instead of nothing - a fast run would screenshot the settled Files group, a slow
+    // run the loading notice, so this has to wait for the fetch to settle the same way
+    // `config-care-clear` above waits on its own settled text (`All clear — nothing to do on this
+    // profile.`). There is no equivalent single settled string here (the profile is unassigned, so
+    // Files can settle into rows or an error), so this waits for the loading notice to go away
+    // instead - true whether it never showed at all or already resolved.
+    navigate: async (page) => {
+      await configDetail('care', PROFILE_UNRECOGNIZED)(page)
+      await page
+        .getByText('Checking whether your files are in sync…', { exact: true })
+        .waitFor({ state: 'hidden', timeout: CLICK_TIMEOUT_MS })
+    },
   },
   {
     id: 'settings',
@@ -451,11 +516,11 @@ export const SCREENS = [
   // `config-write-preview` (story 037 D3) is RETIRED here: it drove the Raw tab's per-installation
   // expand toggle (`config-raw-expand`) into `RawConfigPanel`, but story 057 D3 compacted RawFileTab
   // down to one path/status line, one file-options toolbar row and the profile's own canonical file
-  // - the per-installation cards and `RawConfigPanel`'s mount point are both gone from this tab (not
-  // deleted: `RawConfigPanel.tsx` itself still exists, just unmounted). There is currently no way to
-  // reach it, so there is nothing left for a `navigate()` here to click. Story 058 ("Care's Sync")
-  // remounts that view in a different feature - re-add a screen entry for it there, once it has a new
-  // reachable trigger.
+  // - the per-installation cards and `RawConfigPanel`'s mount point were both gone from this tab
+  // already. Story 058 D3 deleted `RawConfigPanel.tsx` outright (it is not merely unmounted) and
+  // folds Files rows into the shared `CareItemRow` instead. There is no way to reach it, and none is
+  // coming - the view it targeted no longer exists, so this retirement is permanent, not "until a
+  // new trigger shows up".
   {
     id: 'config-import-preview',
     variant: 'populated',
@@ -722,6 +787,33 @@ export const SCREENS = [
       await click(page, 'nav-library')
       await click(page, 'library-auto-detect')
       await page.getByRole('dialog').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'config-cleanup-dialog',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 058 D7: `CleanupConfigCopiesDialog` (D6), the redundant-config-copies cleanup now
+    // reached from an icon button on the installation row in Library rather than from Care - see
+    // LibraryView.tsx's per-row action cluster (mirrors rename/remove's own "row action opens a
+    // dialog" pattern) and CleanupConfigCopiesDialog.tsx. No testid on the trigger (an `IconButton`
+    // with only a translated `label`, same as the row's favorite/reveal/revalidate/rename buttons
+    // beside it), so this selects it by that accessible name, same convention the category-chip
+    // clicks elsewhere in this file already use. Waits on the dialog's own title text
+    // (`dialog.cleanup.title`, "Redundant config copies") rather than a bare `getByRole('dialog')`,
+    // since `install-remove-dialog` above already proves the bare role wait for a testid-less
+    // `Modal`, and this dialog's own content (the scan button) renders synchronously with no
+    // spinner - naming it rules out a false-positive match against some other dialog transiently
+    // present during the batched session's reset.
+    navigate: async (page) => {
+      await click(page, 'nav-library')
+      await page
+        .getByRole('button', { name: 'Clean up redundant config copies…' })
+        .first()
+        .click({ timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByRole('dialog', { name: 'Redundant config copies' })
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },
 ]

@@ -25,3 +25,22 @@
 - 2026-09-06 18:29 · 054 · D12 Seen and driven in the real app · started
 - 2026-09-06 18:42 · 054 · D12 Seen and driven in the real app · done
 - 2026-09-06 19:03 · 054 · story complete, moved to done
+- 2026-09-06 19:04 · 058 · D1 Care item model and honest summary · started
+- 2026-09-06 19:15 · 058 · D1 Care item model and honest summary · done
+- 2026-09-06 19:15 · 058 · D2 Care renders to-do list · started
+- 2026-09-06 19:21 · 058 · D2 Care renders to-do list · done
+- 2026-09-06 19:21 · 058 · D3 Files group only what needs attention · started
+- 2026-09-06 19:27 · 058 · D3 Files group only what needs attention · done
+- 2026-09-06 19:27 · 058 · D4 Tidy-up group, preserved lines once · started
+- 2026-09-06 19:33 · 058 · D4 Tidy-up group, preserved lines once · done
+- 2026-09-06 19:33 · 058 · D5 Show in Controls deep link · started
+- 2026-09-06 19:38 · 058 · D5 Show in Controls deep link · done
+- 2026-09-06 19:38 · 058 · D6 Redundant-copies cleanup moves to Library · started
+- 2026-09-06 19:44 · 058 · D6 Redundant-copies cleanup moves to Library · done
+- 2026-09-06 19:45 · 058 · D7 Verification two Care screens, Library dialog, one flow · started
+- 2026-09-06 20:13 · 058 · D7 Verification two Care screens, Library dialog, one flow · done
+- 2026-09-06 20:22 · 058 · review cycle 1 · started
+- 2026-09-06 20:29 · 058 · review cycle 1 fixes applied · done
+- 2026-09-06 20:36 · 058 · review cycle 2 · started
+- 2026-09-06 20:39 · 058 · review cycle 2 fixes applied · done
+- 2026-09-06 20:40 · 058 · story complete, moved to done

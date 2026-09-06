@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  CopyX,
   FolderOpen,
   FolderPlus,
   HardDriveDownload,
@@ -322,6 +323,17 @@ function InstallationRow({ installation }: { installation: Installation }) {
             onClick={() => openDialog({ kind: 'rename', installationId: installation.id })}
           >
             <Pencil className="size-3.5" />
+          </IconButton>
+
+          {/* Story 058 D6: the redundant-config-copies cleanup belongs to the installation, not to
+              a config profile's Care tab - so it opens from the row that names its scope, the same
+              way rename does. The dialog itself removes nothing without a confirm. */}
+          <IconButton
+            label={t('installation.action.cleanup')}
+            size="sm"
+            onClick={() => openDialog({ kind: 'cleanup', installationId: installation.id })}
+          >
+            <CopyX className="size-3.5" />
           </IconButton>
 
           {/* Destructive action kept visually apart from the routine ones. */}

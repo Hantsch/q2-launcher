@@ -1,27 +1,25 @@
 import { describe, expect, it } from 'vitest'
 import type { Finding } from '@shared/config/validation'
+import { buildCareItems, type CareItem } from './care-items'
 import type { CareSyncRow } from './care-sync'
 import { careSummary, dedupedFindingCounts, type CareSyncStatus } from './care-summary'
 import type { TidyUpFinding } from './tidy-up-findings'
 import type { ProfileValidation } from './validation-scope'
 
 /**
- * Story 025 D8's acceptance: an unscanned cleanup must never yield "all
- * clear" even when every other section is clean, and a finding id shared by
- * the validation report and the tidy-up list must count once, not twice -
- * both pin the exact reason this module exists (the alias-wiring rules feed
- * both lists, and cleanup is the one section that needs a user action before
- * it can say anything at all).
+ * Story 025 D8's acceptance for `dedupedFindingCounts` (the tab badge) is
+ * unchanged by story 058 - AC 8 keeps the badge and its dedup rules exactly as
+ * they are - so those cases are carried over verbatim, including review finding
+ * F1 (an id shared across the report and the tidy-up list must still collide
+ * when the two ran at different engines).
  *
- * The review-fix cases below pin three more: F1 (an id shared across the
- * report and the tidy-up list must still collide when the tidy-up list's
- * fixed engine differs from the report's assigned engine - alias-wiring ids
- * carry no engine-specific facts, so the engine tag alone must not defeat the
- * dedup); F2 (an unvalidated profile - `validation.status !== 'ok'` - must
- * never read as a clean report just because there is nothing to count); F3
- * (a sync fetch that is still loading or has errored must never read as a
- * clean sync section, and the whole summary must still answer for every
- * other section regardless).
+ * `careSummary` is rewritten (058 D1): the cleanup branch is gone with the
+ * cleanup itself (decision 4), and `allClear` is now "zero items AND every
+ * source answered". F2 (an unvalidated profile is never a clean report) and F3
+ * (a loading or errored sync fetch is never a clean files group, and the
+ * summary still answers for everything else) are re-pinned against the new
+ * shape, because those are precisely the two regressions this rewrite could
+ * bring back.
  */
 
 function validation(
@@ -145,122 +143,147 @@ describe('dedupedFindingCounts', () => {
 })
 
 describe('careSummary', () => {
-  const cleanInput = {
-    validation: validation([{ engine: 'r1q2', findings: [], summary: { errors: 0, warnings: 0, infos: 0 } }]),
-    tidyUpFindings: [] as TidyUpFinding[],
-    sync: loadedSync([syncRow()]),
+  const healthyValidation = validation([
+    { engine: 'r1q2', findings: [], summary: { errors: 0, warnings: 0, infos: 0 } },
+  ])
+  const healthySync = loadedSync([syncRow(), syncRow({ target: 'inst-1', path: 'C:/a/p.cfg' })])
+
+  /** The whole model at once, the way `CareTab` calls it - the summary is a
+   * rollup over the very list the tab renders, so a test that built the items
+   * differently from the tab would be pinning nothing. */
+  function summaryFor(
+    overrides: {
+      validation?: ProfileValidation
+      sync?: CareSyncStatus
+      tidyUp?: TidyUpFinding[]
+      items?: CareItem[]
+    } = {},
+  ) {
+    const validationInput = overrides.validation ?? healthyValidation
+    const sync = overrides.sync ?? healthySync
+    const items =
+      overrides.items ??
+      buildCareItems({
+        validation: validationInput,
+        syncRows: sync.kind === 'loaded' ? sync.rows : [],
+        tidyUp: overrides.tidyUp ?? [],
+      })
+    return careSummary({ items, validation: validationInput, sync })
   }
 
-  it('never reports allClear when the cleanup has not been scanned, even with every other section clean', () => {
-    const result = careSummary({ ...cleanInput, cleanup: { scanned: false, itemCount: 0 } })
+  it('a healthy profile is all clear, with one summary line per checked thing', () => {
+    const result = summaryFor()
 
-    expect(result.cleanup).toEqual({ kind: 'notChecked' })
-    expect(result.allClear).toBe(false)
-  })
-
-  it('reports allClear once every section is clean and the cleanup has been scanned with nothing found', () => {
-    const result = careSummary({ ...cleanInput, cleanup: { scanned: true, itemCount: 0 } })
-
-    expect(result).toEqual({
-      report: { kind: 'clean' },
-      sync: { kind: 'clean' },
-      tidyUp: { kind: 'clean' },
-      cleanup: { kind: 'clean' },
+    expect(result).toMatchObject({
+      health: { kind: 'clean' },
+      files: { kind: 'clean' },
+      tidy: { kind: 'clean' },
       allClear: true,
     })
+    expect(result.lines).toEqual([
+      {
+        group: 'health',
+        messageKey: 'config.care.allClear.health',
+        params: { engines: 'R1Q2', count: 1 },
+      },
+      { group: 'files', messageKey: 'config.care.allClear.files', params: { count: 2 } },
+      { group: 'tidy', messageKey: 'config.care.allClear.tidy', params: {} },
+    ])
   })
 
-  it('a scanned cleanup that found items keeps the overall rollup not-all-clear', () => {
-    const result = careSummary({ ...cleanInput, cleanup: { scanned: true, itemCount: 3 } })
+  it('F2: an unassigned profile (nothing validated against) reads health as notChecked, never clean, and is never all clear', () => {
+    const result = summaryFor({ validation: validation([], 'unassigned') })
 
-    expect(result.cleanup).toEqual({ kind: 'items', count: 3 })
+    expect(result.health).toEqual({ kind: 'notChecked' })
+    expect(result.files).toEqual({ kind: 'clean' })
+    expect(result.tidy).toEqual({ kind: 'clean' })
+    expect(result.allClear).toBe(false)
+    expect(result.lines[0]).toEqual({
+      group: 'health',
+      messageKey: 'config.care.allClear.healthNotChecked',
+      params: {},
+    })
+  })
+
+  it('F2: an assigned-but-unresolved profile also reads health as notChecked', () => {
+    const result = summaryFor({ validation: validation([], 'unresolved') })
+
+    expect(result.health).toEqual({ kind: 'notChecked' })
     expect(result.allClear).toBe(false)
   })
 
-  it('an out-of-sync row keeps the overall rollup not-all-clear even when nothing else has items', () => {
-    const result = careSummary({
-      ...cleanInput,
-      sync: loadedSync([syncRow({ state: 'outOfSync' })]),
-      cleanup: { scanned: true, itemCount: 0 },
+  it('F3: a sync fetch that is still loading is never clean, never all clear, and the summary still answers for every other group', () => {
+    const result = summaryFor({ sync: { kind: 'loading' } })
+
+    expect(result.files).toEqual({ kind: 'notChecked' })
+    expect(result.health).toEqual({ kind: 'clean' })
+    expect(result.tidy).toEqual({ kind: 'clean' })
+    expect(result.allClear).toBe(false)
+    expect(result.lines[1]).toEqual({
+      group: 'files',
+      messageKey: 'config.care.allClear.filesNotChecked',
+      params: {},
+    })
+  })
+
+  it('F3: a sync fetch that errored is not evidence of cleanliness either', () => {
+    const result = summaryFor({ sync: { kind: 'error' } })
+
+    expect(result.files).toEqual({ kind: 'notChecked' })
+    expect(result.allClear).toBe(false)
+  })
+
+  it('an out-of-sync row keeps the rollup not-all-clear and counts in the files group', () => {
+    const result = summaryFor({
+      sync: loadedSync([syncRow(), syncRow({ target: 'inst-1', path: 'C:/a/p.cfg', state: 'outOfSync' })]),
     })
 
-    expect(result.sync).toEqual({ kind: 'items', count: 1 })
+    expect(result.files).toEqual({ kind: 'items', count: 1 })
     expect(result.allClear).toBe(false)
+    // The in-sync rows are still counted for the line the All clear block prints.
+    expect(result.lines[1]!.params).toEqual({ count: 1 })
   })
 
-  it('a pending sync row (a running installation deferring the write) is not "clean" either', () => {
-    const result = careSummary({
-      ...cleanInput,
-      sync: loadedSync([syncRow({ state: 'pending' })]),
-      cleanup: { scanned: true, itemCount: 0 },
+  it('a pending sync row (a running installation deferring the write) is not clean either', () => {
+    const result = summaryFor({
+      sync: loadedSync([syncRow({ target: 'inst-1', path: 'C:/a/p.cfg', state: 'pending' })]),
     })
 
-    expect(result.sync).toEqual({ kind: 'items', count: 1 })
+    expect(result.files).toEqual({ kind: 'items', count: 1 })
     expect(result.allClear).toBe(false)
   })
 
-  it('tidy-up findings that carry the same id as a report finding do not affect either section\'s own count - each counts what it would itself show', () => {
-    const shared = finding({ id: 'r1q2:actions:aliasUnreferenced:0', level: 'warning' })
-    const sharedTidyUp = tidyUpFinding({ sourceFindingId: shared.id })
+  it('a tidy-up finding keeps the rollup not-all-clear', () => {
+    const result = summaryFor({ tidyUp: [tidyUpFinding()] })
 
-    const result = careSummary({
+    expect(result.tidy).toEqual({ kind: 'items', count: 1 })
+    expect(result.health).toEqual({ kind: 'clean' })
+    expect(result.allClear).toBe(false)
+  })
+
+  it('a finding both lists report is one item, so it inflates neither group twice', () => {
+    const shared = finding()
+    const result = summaryFor({
       validation: validation([
         { engine: 'r1q2', findings: [shared], summary: { errors: 0, warnings: 1, infos: 0 } },
       ]),
-      tidyUpFindings: [sharedTidyUp],
-      sync: loadedSync([syncRow()]),
-      cleanup: { scanned: true, itemCount: 0 },
+      tidyUp: [tidyUpFinding({ sourceFindingId: shared.id })],
     })
 
-    expect(result.report).toEqual({ kind: 'items', count: 1 })
-    expect(result.tidyUp).toEqual({ kind: 'items', count: 1 })
+    expect(result.health).toEqual({ kind: 'clean' })
+    expect(result.tidy).toEqual({ kind: 'items', count: 1 })
     expect(result.allClear).toBe(false)
   })
 
-  it('F2: an unassigned profile (nothing validated against) reads the report as notChecked, never clean, even with tidy-up/sync/cleanup all clean', () => {
-    const result = careSummary({
-      ...cleanInput,
-      validation: validation([], 'unassigned'),
-      cleanup: { scanned: true, itemCount: 0 },
+  it('names every validated engine in the health line', () => {
+    const result = summaryFor({
+      validation: validation([
+        { engine: 'r1q2', findings: [], summary: { errors: 0, warnings: 0, infos: 0 } },
+        { engine: 'q2pro', findings: [], summary: { errors: 0, warnings: 0, infos: 0 } },
+      ]),
     })
 
-    expect(result.report).toEqual({ kind: 'notChecked' })
-    expect(result.allClear).toBe(false)
-  })
-
-  it('F2: an assigned-but-unresolved profile also reads the report as notChecked', () => {
-    const result = careSummary({
-      ...cleanInput,
-      validation: validation([], 'unresolved'),
-      cleanup: { scanned: true, itemCount: 0 },
-    })
-
-    expect(result.report).toEqual({ kind: 'notChecked' })
-    expect(result.allClear).toBe(false)
-  })
-
-  it('F3: a sync fetch that is still loading reads the sync section as notChecked, never clean, and the summary still answers for every other section', () => {
-    const result = careSummary({
-      ...cleanInput,
-      sync: { kind: 'loading' },
-      cleanup: { scanned: true, itemCount: 0 },
-    })
-
-    expect(result.sync).toEqual({ kind: 'notChecked' })
-    expect(result.report).toEqual({ kind: 'clean' })
-    expect(result.tidyUp).toEqual({ kind: 'clean' })
-    expect(result.cleanup).toEqual({ kind: 'clean' })
-    expect(result.allClear).toBe(false)
-  })
-
-  it('F3: a sync fetch that errored reads the sync section as notChecked too - an error is not evidence of cleanliness', () => {
-    const result = careSummary({
-      ...cleanInput,
-      sync: { kind: 'error' },
-      cleanup: { scanned: true, itemCount: 0 },
-    })
-
-    expect(result.sync).toEqual({ kind: 'notChecked' })
-    expect(result.allClear).toBe(false)
+    expect(result.lines[0]!.params).toEqual({ engines: 'R1Q2, Q2PRO', count: 2 })
+    expect(result.allClear).toBe(true)
   })
 })

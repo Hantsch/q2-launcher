@@ -1,7 +1,7 @@
 ---
 id: 058
 title: Care says only what needs doing
-status: ready
+status: done
 created: 2026-09-05
 ---
 
@@ -25,30 +25,30 @@ screen.
 
 ## Acceptance Criteria
 
-- [ ] A healthy profile shows one "All clear" block: one line per thing that was checked (engines
+- [x] A healthy profile shows one "All clear" block: one line per thing that was checked (engines
       validated, files in sync, nothing to tidy) - no empty-state illustrations, no disabled buttons,
       no section headers over nothing.
-- [ ] "Not all clear" is only ever caused by an actual item; anything that requires a manual scan
+- [x] "Not all clear" is only ever caused by an actual item; anything that requires a manual scan
       is not a status but an action offered in one line.
-- [ ] Every item is one row: title, one-sentence consequence, the action (Fix / Reload / Compare /
+- [x] Every item is one row: title, one-sentence consequence, the action (Fix / Reload / Compare /
       Retry / Drop / Re-classify / Show in Controls / Show in Aliases); rows are grouped by area
       (Config health - Files - Tidy-up) and sorted errors first; a group with no items is not
       rendered.
-- [ ] Preserved lines appear exactly once, as tidy-up items with the line text and their Drop /
+- [x] Preserved lines appear exactly once, as tidy-up items with the line text and their Drop /
       Re-classify actions.
-- [ ] Files: only files that need attention are listed (out of sync, missing, failed, pending,
+- [x] Files: only files that need attention are listed (out of sync, missing, failed, pending,
       changed outside the launcher); in-sync files are counted in the All clear block; the
       per-installation rows the Raw file tab shows today are consolidated here per story 057's
       decision, keeping open/reveal.
-- [ ] "Fix all safe findings" is shown only when at least one safe item exists.
-- [ ] The installation-wide redundant-copies cleanup (story 010/025) leaves the profile's Care tab
+- [x] "Fix all safe findings" is shown only when at least one safe item exists.
+- [x] The installation-wide redundant-copies cleanup (story 010/025) leaves the profile's Care tab
       (see Open Questions), keeping its scan -> review -> apply -> undo flow and the backup-once
       contract untouched.
-- [ ] The tab badge, the deep links, the validation rules and their honesty (per engine, live
+- [x] The tab badge, the deep links, the validation rules and their honesty (per engine, live
       against unsaved edits, an explicit "nothing to validate against" for an unassigned profile)
       are unchanged in substance; a "Show in Controls" deep link exists for findings that name an
       entry (today Care links to Aliases only, `CareTidyUpSection.tsx:199-203`).
-- [ ] `npm run ui:verify` covers Care healthy and Care with findings; both stay at zero axe findings.
+- [x] `npm run ui:verify` covers Care healthy and Care with findings; both stay at zero axe findings.
 
 ## Open Questions
 
@@ -141,7 +141,7 @@ independent of 2–5 and could run in parallel; 7 needs 2 and 6.
 
 ## Deliverables
 
-### D1 — The Care item model and the honest summary
+### D1 — The Care item model and the honest summary [x]
 
 New `lib/care-items.ts` (+ test) with `CareItem` and `buildCareItems`, folding validation findings,
 non-`inSync` sync rows and tidy-up findings into one grouped, errors-first list; each item carries
@@ -160,7 +160,7 @@ All clear block prints. Pure model only, no UI.
   warnings within a group; that a healthy profile yields zero items and the three summary lines.
   Covers AC 1 (data half), AC 2, AC 3 (grouping/sorting), AC 8 (badge dedup unchanged).
 
-### D2 — Care renders a to-do list: All clear block or grouped rows
+### D2 — Care renders a to-do list: All clear block or grouped rows [x]
 
 `CareTab.tsx` is rebuilt around D1: either one All clear block (one summary line per checked thing,
 no illustrations, no disabled buttons, no headers over nothing) or the groups that actually have
@@ -180,7 +180,7 @@ cluster). The Config health group is wired in this deliverable; `ValidationPanel
   row; an unassigned profile still says explicitly that there is nothing to validate against.
   Covers AC 1, AC 3 (row shape).
 
-### D3 — Files group: only what needs attention, with Open and Reveal
+### D3 — Files group: only what needs attention, with Open and Reveal [x]
 
 The sync fetch moves out of `CareSyncSection.tsx` into a `useCareSync` hook; only rows whose state
 is not `inSync` become items (Retry on `failed`, Reload/Compare on the canonical `outOfSync` /
@@ -200,7 +200,7 @@ the All clear block. `CareSyncSection.tsx` and `RawConfigPanel.tsx` are deleted.
   working Reveal; a `failed` row still retries; `pending` is still labelled as its own state.
   Covers AC 5.
 
-### D4 — Tidy-up group, preserved lines once, conditional batch fix
+### D4 — Tidy-up group, preserved lines once, conditional batch fix [x]
 
 Tidy-up findings become rows in the Tidy-up group using D2's `CareItemRow`: preserved lines appear
 exactly once with the line text and their Drop / Re-classify actions (the separate preserved-lines
@@ -219,7 +219,7 @@ with a duplicated explanation. `CareBatchFixDialog.tsx` is reused unchanged.
   all; with two, the existing dialog still names both operations before anything changes.
   Covers AC 4, AC 6.
 
-### D5 — "Show in Controls" for findings that name an entry
+### D5 — "Show in Controls" for findings that name an entry [x]
 
 Tidy-up findings that resolve to a `ConfigAction` carry its `actionId`; the row renders a "Show in
 Controls" action next to the existing "Show in Aliases", wired through the existing
@@ -236,7 +236,7 @@ Controls" action next to the existing "Show in Aliases", wired through the exist
   Controls with it focused; a finding that names no entry offers no such link; the existing Aliases
   deep link still works. Covers AC 8 (deep-link half).
 
-### D6 — The redundant-copies cleanup becomes an action on the installation (Library)
+### D6 — The redundant-copies cleanup becomes an action on the installation (Library) [x]
 
 `CleanupPanel` unmounts from `CareTab` and loses its installation picker, its "scan any
 installation" scope control and its `onStatusChange` callback; it is mounted instead by a new
@@ -256,7 +256,7 @@ review → apply → undo and the backup-once contract are untouched.
   removal** round trip restores the file byte-for-byte and `src/main/modules/config/cleanup.test.ts`
   stays green untouched. Covers AC 7, and AC 2's "manual scan is not a status".
 
-### D7 — Verification: two Care screens, the Library dialog, one flow
+### D7 — Verification: two Care screens, the Library dialog, one flow [x]
 
 `scripts/lib/screens.mjs` gains `config-care-clear` (healthy fixture profile) next to the existing
 `config-care` (findings fixture) and a screen for the new Library cleanup dialog; a `ui:flow` script
@@ -331,3 +331,61 @@ Run `npm run dev` and drive the real UI (P1: every step is a real user action).
    every impact level.
 
 ## Done
+
+Care is now a derived to-do list. `lib/care-items.ts` folds validation findings, non-`inSync` sync
+rows and tidy-up findings into one grouped, errors-first `CareItem[]`; `lib/care-summary.ts`'s
+`allClear` requires zero items *and* every source resolved, keeping "nothing to validate against"
+an explicit third state. `CareTab.tsx` renders either one All-clear block or the groups that have
+items via the shared `CareItemRow`; `ValidationPanel.tsx`, `PreservedLinesPanel.tsx`,
+`CareSyncSection.tsx`, `CareTidyUpSection.tsx` and `RawConfigPanel.tsx` are deleted. The
+redundant-copies cleanup moved out of Care entirely into a new per-installation dialog on the
+Library installation row (`CleanupConfigCopiesDialog.tsx`), reusing `CleanupPanel` scoped to one
+installation. A "Show in Controls" deep link was added next to the existing "Show in Aliases".
+`ui:verify` gained a second Care screen (`config-care-clear`) and a Library cleanup-dialog screen,
+plus a `ui:flow` script (`care-fix-item`) driving one tidy-up item from listed to fixed.
+
+**Commit message:** `058: care says only what needs doing`
+
+**Changed files:**
+New: `src/renderer/src/modules/config/lib/care-items.ts` (+ test),
+`src/renderer/src/modules/config/lib/use-care-sync.ts`,
+`src/renderer/src/modules/config/CareItemRow.tsx`,
+`src/renderer/src/components/installations/CleanupConfigCopiesDialog.tsx`,
+`scripts/flows/care-fix-item.mjs`.
+Modified: `src/renderer/src/modules/config/{CareTab.tsx, CleanupPanel.tsx, ConfigView.tsx,
+CareBatchFixDialog.tsx, RawFileTab.tsx, lib/care-summary.ts (+test), lib/tidy-up-findings.ts
+(+test)}`, `src/renderer/src/{store/useLauncher.ts, views/LibraryView.tsx,
+components/installations/Dialogs.tsx, components/ui/Modal.tsx}`,
+`src/renderer/src/i18n/locales/en.json`, `scripts/lib/{screens.mjs, fixture.mjs}`,
+`docs/UI-VERIFICATION.md`.
+Deleted: `src/renderer/src/modules/config/{ValidationPanel.tsx, PreservedLinesPanel.tsx,
+CareSyncSection.tsx, CareTidyUpSection.tsx, RawConfigPanel.tsx}`.
+
+**Verification:** `npm run build`, `npm test` (2565/2565), `npm run typecheck` all green.
+`npm run ui:verify` green: 34 screens / 68 shots, 0 axe violations at every impact level, including
+both Care states (`config-care`, `config-care-clear`) and the new Library cleanup dialog.
+`npm run ui:flow -- care-fix-item` green. Two review-fix cycles ran (of the 3 allowed): cycle 1
+fixed a blank-Care-tab-on-sync-error/loading regression (AC 2), a nested-modal-Escape bug that
+could strand the destructive cleanup flow's "Undo removal" affordance, dropped `fixKey`/`source`
+health-finding text, an unused `messageKey`/file-path on Files rows, and doc/dead-code drift; cycle
+2 closed a follow-on keyboard-Tab-trap escape route into the same data-loss path and a
+timing-dependent `config-care` screenshot. Final review verdict: PASS, all 9 acceptance criteria
+individually confirmed PASS with file:line evidence.
+
+**Decisions:**
+- `buildCareItems` takes an optional `profileDirty` (beyond the story's named signature) so a dirty
+  canonical `outOfSync` row offers no Reload — reloading would discard unsaved edits.
+- `CareSummary`'s fields are named after the item groups (`health`/`files`/`tidy`) rather than
+  `report`/`sync`/`tidyUp`, matching the vocabulary AC 3 itself uses.
+- `config-care-clear`'s fixture profile is `controls-seed`'s "Imported Category Profile" (not Plain
+  Profile), because every catalogue-templated profile permanently trips a genuine, pre-existing
+  `aliasShadowsCommand` validation warning (confirmed intended behaviour in `validate-actions.ts`'s
+  own tests, unrelated to this story) and so can never reach a clean Config-health state; its
+  installation file is primed once via the same `module:invoke`/`write` call Care's own Retry makes.
+- `care-fix-item.mjs` asserts the fixed row disappears but not that the All-clear block reappears
+  afterward — Plain Profile (the flow's fixture) carries other pre-existing findings and the
+  flow's own keycap-dialog save leaves the canonical file `outOfSync` without an explicit Save this
+  flow doesn't perform. AC 9 only requires `ui:verify` coverage, which is unaffected.
+- `Modal.tsx` gained a module-level open-modal stack (keyed by `useId()`) so only the topmost modal
+  reacts to Escape, plus a `preventClose` prop, so the cleanup confirm step can block Escape/
+  backdrop/close-button while an apply is in flight without also closing whatever dialog hosts it.

@@ -25,7 +25,9 @@ import { isProfileDirty } from './lib/save-bar'
  * path/status line, one file-options toolbar row, and the read-only code
  * view below. The per-installation cards this tab used to show (one per
  * assigned installation, each expandable into `RawConfigPanel`) moved out;
- * story 058 ("Care's Sync") remounts that view in a different feature.
+ * story 058 D3 consolidated Open/Reveal into Care's Files group instead and
+ * deleted `RawConfigPanel` outright (decision 5 - a card grid previewing
+ * every installation copy is exactly the surface that story removes).
  *
  * Module-local, props-based: owns its own fetch, no shell-store dependency
  * beyond `pushToast` for action failures.

@@ -147,6 +147,12 @@ export interface TidyUpFinding {
    * de-duplicates the tab badge across the validation report and this list by
    * this field, so it is deterministic rather than unique-per-row. */
   sourceFindingId: string
+  /** The `ConfigAction.id` this finding names, when it names one at all - story
+   * 058 D5's "Show in Controls" deep link is wired off this. Only
+   * `shadowedBind` ever sets it today (see `shadowedBindActionId` below); every
+   * other kind names a key with no owning action, an alias, or a layer/line,
+   * none of which are a Controls row. */
+  actionId?: string
 }
 
 function scopeId(scope: TidyUpBindScope): string {
@@ -264,6 +270,27 @@ function resolveWinner(
 }
 
 /**
+ * The `ConfigAction.id` to offer "Show in Controls" for, given a contested
+ * key's claims and its (possibly unproven) winner - story 058 D5.
+ *
+ * When a winner is proven, the row is about the claim that lost: pointing
+ * "Show in Controls" at the winner would land on the row that already works,
+ * not the one the user actually needs to look at. So this reads the *losing*
+ * claims first and takes the first one that names an action; a conflict
+ * between two hand-made entries (no action involved at all) offers no link.
+ *
+ * Without a proven winner (the `'report'` mode), there is no losing/winning
+ * split to prefer, so this takes the first action claim among all of them -
+ * still "an" entry worth looking at, even though which one is at fault is
+ * exactly what could not be proven.
+ */
+function shadowedBindActionId(claims: TidyUpBindClaim[], winner: number | undefined): string | undefined {
+  const candidates = winner === undefined ? claims : claims.filter((_claim, index) => index !== winner)
+  const found = candidates.find((claim) => claim.source === 'action')
+  return found?.source === 'action' ? found.actionId : undefined
+}
+
+/**
  * One finding per key `findBindConflicts` reports as contested, with a
  * `removeShadowedBind` op for every claim that is *not* the one in effect.
  *
@@ -297,6 +324,7 @@ function shadowedBindFindings(profile: ConfigProfile): TidyUpFinding[] {
         messageKey: `${TIDY_UP_MESSAGE_PREFIX}shadowedBindUnresolved`,
         params: { key: conflict.key, owners: conflict.owners.join(', '), count: conflict.owners.length },
         ops: [],
+        actionId: shadowedBindActionId(claims, winner),
       }
     }
 
@@ -320,6 +348,7 @@ function shadowedBindFindings(profile: ConfigProfile): TidyUpFinding[] {
         winner: claimOwnerName(profile, claims[winner]!),
       },
       ops,
+      actionId: shadowedBindActionId(claims, winner),
     }
   })
 }

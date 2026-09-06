@@ -232,14 +232,6 @@ export function ConfigView() {
     [validation, tidyUpFindings],
   )
 
-  // Story 025 D7: the ids `CleanupPanel` (mounted inside `CareTab` now) defaults
-  // its installation picker to, before the "scan any installation" control widens
-  // it back to the full `installations` list.
-  const assignedInstallationIds = useMemo(
-    () => selected?.assignments.map((assignment) => assignment.installationId) ?? [],
-    [selected],
-  )
-
   const openProfile = (id: string): void => {
     setSelectedId(id)
     setTabState({ tab: 'overview' })
@@ -826,10 +818,10 @@ export function ConfigView() {
                           validation={validation}
                           onProfileUpdated={handleProfileUpdated}
                           installations={installations}
-                          assignedInstallationIds={assignedInstallationIds}
                           onNavigateToAlias={(aliasName) =>
                             goToTab('aliases', { alias: aliasName })
                           }
+                          onNavigateToAction={(actionId) => goToTab('controls', { actionId })}
                         />
                       )}
                     </StructuredTabsGuard>

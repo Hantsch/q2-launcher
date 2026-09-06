@@ -6,7 +6,7 @@ import type { Outcome } from '@shared/types'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
-import { KIND_ORDER, opPreview } from './CareTidyUpSection'
+import { KIND_ORDER, opPreview } from './CareItemRow'
 import { applyTidyUp } from './client'
 import type { TidyUpFinding } from './lib/tidy-up-findings'
 
@@ -20,7 +20,7 @@ import type { TidyUpFinding } from './lib/tidy-up-findings'
  * `report` - those have no business here, since "safe" *is* `mode ===
  * 'auto'`). Grouped by `TidyUpFindingKind` the same way the section body
  * groups its rows, and each op gets the same before/after preview
- * (`opPreview`, exported from `CareTidyUpSection` rather than duplicated) so
+ * (`opPreview`, exported from `CareItemRow` rather than duplicated) so
  * this dialog never shows a coarser preview than the individual rows already
  * do - AC 6 requires nothing be applied without a preview, and "N operations"
  * would not be one.

@@ -108,7 +108,7 @@ page state — story 026's two-script split could not promise that, since a
 screenshot from `shot.mjs` and an axe reading from `a11y.mjs` came from two
 independent app instances that could, in principle, differ.
 
-Today's registry is 22 screens (count the `SCREENS` array in
+Today's registry is 34 screens (count the `SCREENS` array in
 `scripts/lib/screens.mjs` — do not carry this number forward uncounted, it
 has drifted before) across 2 fixture variants (`populated`, `empty`) with no
 screen marked `coldStart` (see below), so a full `ui:verify` run does **2**
@@ -486,14 +486,14 @@ panel at all — it flips a switch on a plain tab:
 
 Story 057 D3 compacted `RawFileTab` down to one path/status line, one
 file-options toolbar row and the profile's own canonical file — the
-per-installation cards and `RawConfigPanel`'s only mount point are both gone
-from this tab (`RawConfigPanel.tsx` itself still exists, just unmounted).
-`config-write-preview` (story 037 D3, described above in earlier revisions of
-this doc) is **retired** as a result: there is no longer any click path that
-reaches it. Story 058 ("Care's Sync") remounts that view in a different
-feature — a screen entry for it returns there, once it has a new reachable
-trigger; see the retirement comment left in place of its old entry in
-`scripts/lib/screens.mjs`.
+per-installation cards and `RawConfigPanel`'s only mount point were both gone
+from this tab already. Story 058 D3 deleted `RawConfigPanel.tsx` outright (it
+is not merely unmounted) and folds Files rows into the shared `CareItemRow`
+instead of ever remounting the old panel. `config-write-preview` (story 037
+D3, described above in earlier revisions of this doc) stays **retired** for
+that reason: there is no click path that reaches it, and none is coming —
+the view it targeted no longer exists; see the retirement comment left in
+place of its old entry in `scripts/lib/screens.mjs`.
 
 Story 057 D7 adds one more in its place, still on the Raw tab but with no
 dialog or panel involved:
@@ -523,6 +523,25 @@ longer resolves. Both now select `RawFileTab`'s one native `<select>` directly
 (`page.locator('select')`) instead. `config-conflict-dialog`'s own locator (the
 "Start the file with `unbindall`" checkbox, selected by its visible label text,
 not `getByLabel`) was unaffected by this layout change and was left as-is.
+
+Story 058 D7 adds two more, for the story's own AC 9 (Care's two states) and D6's relocated
+cleanup:
+
+- **`config-care-clear`** — Care's healthy counterpart to `config-care` above (that one uses the
+  findings fixture, `PROFILE_UNRECOGNIZED`; one screenshot cannot show both states — decision 11).
+  Uses "Plain Profile" instead: it is assigned to an installation, in sync (the app's own startup
+  retry sweep, `main/modules/config/index.ts`, writes and confirms its installation copy before the
+  renderer even exists), validated with nothing worse than `info`, and free of every tidy-up finding
+  `analyzeTidyUp` checks for — so `careSummary`'s `allClear` is true and the tab renders only the
+  All clear block. `navigate()` waits on that block's own text
+  (`config.care.summary.overall.allClear`) rather than a testid, since nothing else in the tab
+  renders it.
+- **`config-cleanup-dialog`** — `CleanupConfigCopiesDialog` (D6), reached from the new cleanup icon
+  button on an installation row in Library rather than from Care (the redundant-copies scan left
+  the profile entirely in this story). No testid on the trigger — an `IconButton` with only a
+  translated `label`, same as its row-mates — so this selects it by that accessible name ("Clean up
+  redundant config copies…"), and waits on the dialog's own title ("Redundant config copies") via
+  `getByRole('dialog', { name })`.
 
 ### Cold-start screens
 
@@ -554,7 +573,7 @@ size):
 },
 ```
 
-None of the 22 screens shipped so far set `coldStart` — every current screen
+None of the 34 screens shipped so far set `coldStart` — every current screen
 is reachable from a running app via clicks, so the field exists in the
 registry's shape but isn't exercised by any entry yet. Each `coldStart: true`
 screen adds one extra `_electron.launch()` per viewport it lists, on top of
@@ -637,7 +656,22 @@ category, asserting the rendered row order (`[role="rowgroup"][data-row-id]`)
 actually changed; then drags "Attack" onto the "Weapons" category chip
 (`[data-drop-category="weapons"]`, `ControlsDragZone.tsx`'s
 `CategoryDropTarget`), asserting the row left the Movement grid and is
-appended at the end of the Weapons grid after switching category.
+appended at the end of the Weapons grid after switching category, and (story
+058 D7) **`care-fix-item`** — drives one Care tidy-up item from listed to
+fixed through the row's own action, not the batch dialog: opens Plain
+Profile's Overview tab, rebinds `MOUSE1`'s keycap to a raw command that
+differs from the "Attack" action's own mirror (`KeyBindDialog` writes
+`profile.binds` directly, with no collision guard — the same base-bind-vs-
+action contest `analyzeTidyUp`'s `shadowedBind` rule exists to catch), then
+opens Care and asserts a `shadowedBind` Tidy-up row named `MOUSE1` appears,
+clicks its own **Apply** action, and asserts that row is gone. Stops there
+rather than asserting the All clear block reappears: Plain Profile already
+carries its own pre-existing findings (the standard catalogue's
+`aliasShadowsCommand` warnings and a `duplicateAlias` pair — see
+`config-care-clear`'s own comment in `scripts/lib/screens.mjs` for why that
+screen uses a different fixture profile), and the keycap dialog's save marks
+the profile dirty (story 043 D4), which keeps the canonical file `outOfSync`
+until an explicit Save this flow does not perform.
 
 ## Baselines and CI
 

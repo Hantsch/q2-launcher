@@ -36,6 +36,9 @@ export type DialogState =
   | { kind: 'create' }
   | { kind: 'remove'; installationId: string }
   | { kind: 'rename'; installationId: string }
+  /** Story 058 D6: the redundant-config-copies cleanup, scoped to one installation - the row it
+   * was opened from *is* the scope, so the panel no longer picks an installation of its own. */
+  | { kind: 'cleanup'; installationId: string }
 
 interface LauncherStore {
   // --- mirrored main-process state ----------------------------------------

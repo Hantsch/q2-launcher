@@ -162,6 +162,7 @@
       "revalidate": "Check again",
       "reveal": "Open folder",
       "rename": "Rename\u2026",
+      "cleanup": "Clean up redundant config copies\u2026",
       "remove": "Remove\u2026",
       "favorite": "Add to favourites",
       "unfavorite": "Remove from favourites",
@@ -321,6 +322,10 @@
     "rename": {
       "title": "Rename installation",
       "label": "Name"
+    },
+    "cleanup": {
+      "title": "Redundant config copies",
+      "description": "Looks through {{name}} for mod-folder config files that duplicate a baseq2 file of the same name. Nothing is removed until you confirm, and a removal can be undone here afterwards."
     },
     "gameDir": {
       "label": "Launch with",
@@ -1097,18 +1102,6 @@
       }
     },
     "cleanup": {
-      "label": "Redundant config copies",
-      "installationLabel": "Installation",
-      "installationPlaceholder": "Choose an installation…",
-      "noInstallations": {
-        "title": "No installations registered",
-        "body": "Register an installation first, then come back here to clean up its config folders."
-      },
-      "scope": {
-        "widen": "Scan any installation",
-        "hint": "Showing only this profile's assigned installations. Turn on “Scan any installation” to widen the picker to every registered installation.",
-        "hintWidened": "Widened to every registered installation, not just this profile's assigned ones."
-      },
       "scan": "Scan",
       "scanning": "Scanning…",
       "empty": {
@@ -1197,46 +1190,81 @@
       }
     },
     "care": {
+      "group": {
+        "health": "Config health",
+        "files": "Files",
+        "tidy": "Tidy-up"
+      },
+      "level": {
+        "error": "Error",
+        "warning": "Warning"
+      },
+      "action": {
+        "pending": "Working…"
+      },
+      "allClear": {
+        "health_one": "Validated against {{engines}}.",
+        "health_other": "Validated against all {{count}} assigned engines ({{engines}}).",
+        "files_one": "{{count}} file in sync.",
+        "files_other": "{{count}} files in sync.",
+        "tidy": "Nothing to tidy up."
+      },
+      "files": {
+        "loading": "Checking whether your files are in sync…",
+        "error": "Could not check whether your files are in sync. Try again shortly."
+      },
+      "item": {
+        "health": {
+          "title": {
+            "cvar": "Cvar “{{subject}}” ({{engine}})",
+            "bind": "Key “{{subject}}” ({{engine}})",
+            "alias": "Alias “{{subject}}” ({{engine}})",
+            "file": "File {{subject}} ({{engine}})",
+            "profile": "This profile ({{engine}})",
+            "action": "Entry “{{subject}}” ({{engine}})"
+          }
+        },
+        "files": {
+          "consequence": {
+            "outOfSync": "This copy no longer matches the profile, so what loads from it is not what the profile says.",
+            "missing": "The profile's file is not there, so nothing of this profile loads from it.",
+            "failed": "The last write to this file failed, so it still holds whatever was there before.",
+            "pending": "The installation was running when the last write ran, so this copy is still waiting for it."
+          }
+        },
+        "tidy": {
+          "title": {
+            "shadowedBind": "“{{key}}” is claimed more than once",
+            "emptyLayer": "Layer “{{name}}” is empty",
+            "unreferencedAlias": "Alias “{{name}}” is never called",
+            "undefinedAlias": "“{{action}}” calls a missing alias “{{alias}}”",
+            "duplicateAlias": "Alias name “{{name}}” is used twice",
+            "preservedLine": "Preserved line {{file}}:{{line}}"
+          }
+        }
+      },
       "summary": {
-        "label": "Overview",
         "overall": {
-          "allClear": "All clear — nothing to report and nothing to clean.",
-          "notAllClear": "Not all clear yet — see the sections below."
-        },
-        "section": {
-          "report": "Validation report",
-          "sync": "Sync",
-          "tidyUp": "Tidy-up",
-          "cleanup": "Cleanup"
-        },
-        "status": {
-          "clean": "Clean",
-          "notChecked": "Not checked yet",
-          "items_one": "{{count}} item",
-          "items_other": "{{count}} items"
+          "allClear": "All clear — nothing to do on this profile."
         }
       },
       "sync": {
-        "label": "Sync",
         "own": "This profile's file",
         "retry": "Retry",
-        "retrying": "Retrying…",
         "state": {
           "inSync": "In sync",
-          "outOfSync": "Out of sync",
-          "missing": "Missing",
-          "failed": "Failed",
-          "pending": "Pending"
+          "outOfSync": "{{name}}: Out of sync",
+          "missing": "{{name}}: Missing",
+          "failed": "{{name}}: Failed",
+          "pending": "{{name}}: Pending"
         },
         "canonical": {
-          "unsavedChanges": "Unsaved changes",
+          "unsavedChanges": "{{name}}: Unsaved changes",
           "unsavedChangesHint": "Save from the tabs above to write these changes to the file.",
-          "externalEdit": "Changed outside the launcher",
+          "externalEdit": "{{name}}: Changed outside the launcher",
           "externalEditHint": "The file on disk no longer matches what this profile last saved. Reload adopts the file's version; Compare shows both before you decide.",
           "reload": "Reload",
-          "reloading": "Reloading…",
-          "compare": "Compare",
-          "comparing": "Comparing…"
+          "compare": "Compare"
         }
       },
       "tidyUp": {
@@ -1249,11 +1277,6 @@
         "preservedLine": "{{file}} line {{line}} could not be classified when it was imported and is kept verbatim: {{text}}",
         "preservedLineCvar": "{{file}} line {{line}} reads as the cvar “{{name}}” set to “{{value}}”: {{text}}",
         "preservedLineBind": "{{file}} line {{line}} reads as “{{key}}” bound to “{{command}}”: {{text}}",
-        "label": "Tidy-up",
-        "empty": {
-          "title": "Nothing to tidy up",
-          "body": "No shadowed binds, empty layers, dangling aliases or preserved lines were found in this profile."
-        },
         "kindLabel": {
           "shadowedBind": "Shadowed binds",
           "emptyLayer": "Empty layers",
@@ -1262,16 +1285,12 @@
           "duplicateAlias": "Duplicate aliases",
           "preservedLine": "Preserved lines"
         },
-        "mode": {
-          "auto": "Auto",
-          "review": "Review",
-          "report": "Report only"
-        },
         "action": {
           "apply": "Apply",
           "drop": "Drop",
           "reclassify": "Re-classify",
-          "showInAliases": "Show in Aliases"
+          "showInAliases": "Show in Aliases",
+          "showInControls": "Show in Controls"
         },
         "applying": "Applying…",
         "slotLabel": "slot {{index}}",
@@ -1285,7 +1304,6 @@
         },
         "batch": {
           "button": "Fix all safe findings ({{count}})",
-          "nothingSafe": "Nothing is classified safe to fix automatically yet.",
           "title": "Fix all safe findings",
           "warning": "This applies all {{count}} operations below to the profile in one step – there is no per-item undo once you continue.",
           "operationsLabel": "Operations this will run:",

@@ -19,7 +19,7 @@ nothing to do.
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
 - [x] 054 — Order everything by drag and drop
-- [ ] 058 — Care says only what needs doing
+- [x] 058 — Care says only what needs doing
 
 ## Notes
 

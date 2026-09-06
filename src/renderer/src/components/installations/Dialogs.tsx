@@ -1,5 +1,6 @@
 import { useLauncher } from '../../store/useLauncher'
 import { AddExistingDialog } from './AddExistingDialog'
+import { CleanupConfigCopiesDialog } from './CleanupConfigCopiesDialog'
 import { CreateInstallationDialog } from './CreateInstallationDialog'
 import { DetectDialog } from './DetectDialog'
 import { RemoveInstallationDialog } from './RemoveInstallationDialog'
@@ -25,6 +26,8 @@ export function Dialogs() {
       return <RemoveInstallationDialog installationId={dialog.installationId} />
     case 'rename':
       return <RenameInstallationDialog installationId={dialog.installationId} />
+    case 'cleanup':
+      return <CleanupConfigCopiesDialog installationId={dialog.installationId} />
     case 'none':
       return null
   }
