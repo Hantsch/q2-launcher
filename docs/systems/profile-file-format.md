@@ -90,8 +90,8 @@ read-only, not as an alternative current format.
 
 ## Key registry
 
-The current registry, after story 050's cut and story 045's, 051's and 052's additions, is twelve
-keys:
+The current registry, after story 050's cut and story 045's, 051's, 052's, 053's and 059's
+additions:
 
 | key       | where it appears           | meaning                                                        |
 | --------- | --------------------------- | --------------------------------------------------------------- |
@@ -107,6 +107,9 @@ keys:
 | `mode`    | section header (layer)      | layer mode                                                       |
 | `trigger` | section header (layer)      | layer trigger key; the key is omitted entirely (not emitted as empty) when the trigger is `null` |
 | `lbl`     | a toggle/press-release state's own alias line only | that state's display label (story 045) — never on the dispatch alias or a `_p<n>` chunk line |
+| `sub`     | section header (sub-category, second level) | sub-category id (story 053) — the parent category is derivable from the section the banner sits inside, so no `cat`/`ord` rides alongside it |
+| `cvs`     | section header (cvar section) | cvar-section id (story 059) — a distinct namespace from `cat`: a cvar section and a bind category never share this key, so the reader can never adopt one as the other |
+| `cvsub`   | section header (cvar sub-section, second level) | cvar-sub-section id (story 059) — the `cvsub` counterpart of `sub`; the parent cvar section is likewise derivable from the section the banner sits inside |
 
 `KNOWN_META_KEYS` in `profile-metadata.ts` lists these in the exact order `formatMetaTag` always
 emits them — that fixed order is part of the format's determinism guarantee: the same fields always
@@ -468,6 +471,49 @@ same way a wholesale untagged file does, so nothing is silently lost.
 Entry **kind** (`bind`/`alias`/`message`/…) is always inferred from the line's own content
 (`entryKindFor`, story 041) — never stored in the tag. The old `resolveKind` function and the
 `tag-kind-unknown`/`tag-kind-contradicted` warnings it produced were removed along with `k`.
+
+## Cvar sections
+
+Story 059 gives cvars the same two-level, profile-owned section model story 052/053 gave binds and
+aliases: `ConfigProfile.cvarSections` (`ConfigCvarSection[]`, each with an optional
+`subsections: ConfigCvarSubsection[]`) replaces the catalogue's fixed `Player`/`Network`/`Graphics`/
+`Sound` grouping (`CvarDef.group`) as the source of the file's cvar-section layout. A section's own
+`cvars: string[]` lists the names it holds directly (its ungrouped run), a sub-section's own `cvars`
+list the names one level further down — the same "ungrouped run first, then sub-sections" order
+`Aliases:`/`Binds:` categories already use for sub-categories.
+
+```
+// --- Player [q2l cvs=player] ---------------------------------------------------
+set sensitivity "4"
+
+// --- Weapon feel [q2l cvsub=weapon-feel] ----------------------------------------
+set gun_x "0"
+```
+
+A cvar section banner carries no `Settings: ` prefix — the same bare-label rule every other section
+banner already follows — and, like a sub-category banner, is written even when the section (or
+sub-section) is empty: an empty section still gets a line in the file, so a freshly-created one
+survives to the next reload. Unlike a category section, a cvar section's own file position is the
+*only* record of the profile's section order — `buildCvarSections` renders `profile.cvarSections` in
+one single pass, never split across several the way alias/bind/entry sections are, so there is no
+`ord=`-style field to disambiguate two sections that never share a block.
+
+A cvar name that appears in none of the profile's sections is *unplaced*, never an error — mirroring
+a dangling `categoryId`/`subcategoryId` falling into the trailing "other" bucket — and a name listed
+in two sections is claimed by whichever placement the writer reaches first. Unplaced cvars land in
+one of two reserved, never-user-owned buckets, both always written last:
+
+- **`Defaults`** (tag `cvs=defaults`) — every catalogue cvar (a `CvarDef` in `ALL_CVARS`) no real
+  section claimed, at its stored value or `def.default` — written only while
+  `ConfigProfile.writeCatalogDefaults` is not `false`. With that flag off, an unplaced catalogue cvar
+  produces no line anywhere, not even under `Other`. `defaults` is a reserved id: it is never a real
+  entry in `profile.cvarSections`, and a reader must never mint a real section from it.
+- **`Other`** (untagged) — every non-catalogue cvar no real section claimed, sorted alphabetically —
+  the same bucket this format has always had, unaffected by the toggle above.
+
+A template-seeded profile places every `ALL_CVARS` name across its four seeded sections, so neither
+reserved bucket ever has anything to hold for one — the file renders byte-identical to what the
+catalogue-grouped writer produced before this story, whichever way the toggle is set.
 
 ## Unknown keys
 

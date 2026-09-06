@@ -1,33 +1,58 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ConfigProfile } from '@shared/modules/config'
-import type { CvarDef } from '@shared/config/cvar-facts'
-import { CVAR_GROUP_ORDER } from '@shared/config/cvar-facts'
+import { ArrowDown, ArrowLeftRight, ArrowUp, FolderPlus, Pencil, Plus, Trash2 } from 'lucide-react'
+import type { ConfigCvarSection, ConfigCvarSubsection, ConfigProfile } from '@shared/modules/config'
 import type { EngineKind } from '@shared/types/engine'
-import { ALL_CVARS } from '@shared/config/cvar-catalog'
+import { Button, IconButton } from '../../components/ui/Button'
 import { Input, Switch } from '../../components/ui/controls'
 import { useLauncher } from '../../store/useLauncher'
-import { CvarRow } from './components/CvarRow'
+import { AddCvarDialog } from './components/AddCvarDialog'
+import { CreateCvarSectionDialog } from './components/CreateCvarSectionDialog'
+import { CreateCvarSubsectionDialog } from './components/CreateCvarSubsectionDialog'
+import { CvarRow, PlainCvarRow } from './components/CvarRow'
 import { EngineScopeSelect } from './components/EngineScopeSelect'
+import { MoveCvarDialog } from './components/MoveCvarDialog'
+import { RenameCvarSectionDialog } from './components/RenameCvarSectionDialog'
+import { RenameCvarSubsectionDialog } from './components/RenameCvarSubsectionDialog'
+import { namedDisplayName } from './lib/category-display'
+import {
+  createCvarSection,
+  createCvarSubsection,
+  cvarPlacementOptions,
+  deleteCvarSection,
+  deleteCvarSubsection,
+  moveCvarSection,
+  moveCvarSubsection,
+  moveCvarToSection,
+  removeCvarFromSections,
+  renameCvarSection,
+  renameCvarSubsection,
+  type CvarPlacementOption,
+} from './lib/cvar-sections'
+import {
+  buildCvarSectionGroups,
+  visibleRowsOf,
+  type CvarRowEntry,
+  type CvarSectionResult,
+} from './lib/cvar-rows'
 import { assignedEngineKinds } from './lib/engine-scope'
-import { buildCvarGroups, type CvarGroupResult } from './lib/cvar-rows'
 import { useProfileChanges } from './lib/profile-changes'
-import { updateProfileCvars } from './client'
+import { updateProfileCvars, updateProfileWriteCatalogDefaults } from './client'
 
 const SAVE_DEBOUNCE_MS = 500
 
-/** Fixed group order for the Settings tab - mirrors `cvar-rows.ts`'s own `GROUP_ORDER`, which is
- * not exported: this file only needs to iterate the four groups once each to build one
- * `buildCvarGroups` call per group (each call scoped to that group's own defs, so its
- * `showAdvanced` can be that group's own local expand state). Sourced from the shared
- * `CVAR_GROUP_ORDER` (story 040 D1) rather than a local copy, same reason `cvar-rows.ts` does. */
-const GROUP_ORDER: CvarDef['group'][] = [...CVAR_GROUP_ORDER]
+/** The one-line explanation each reserved bucket gets under its header - neither is a section the
+ * profile owns, so saying why it is there (and that its structure is not editable) beats letting it
+ * look like a section the user forgot creating. `'section'` groups get none: their name is the
+ * user's own. */
+const RESERVED_HINT_KEY: Record<'defaults' | 'other', string> = {
+  defaults: 'config.settings.reserved.defaultsHint',
+  other: 'config.settings.reserved.otherHint',
+}
 
-const GROUP_LABEL_KEY: Record<CvarDef['group'], string> = {
-  player: 'config.settings.groups.player',
-  network: 'config.settings.groups.network',
-  graphics: 'config.settings.groups.graphics',
-  sound: 'config.settings.groups.sound',
+const RESERVED_LABEL_KEY: Record<'defaults' | 'other', string> = {
+  defaults: 'config.settings.reserved.defaults',
+  other: 'config.settings.reserved.other',
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved'
@@ -42,22 +67,40 @@ export interface SettingsTabProps {
 
 /**
  * The settings/cvar section of a config profile's detail view (story 021 D4): a capped, dense list
- * of every `ALL_CVARS` entry, grouped by `def.group` into sticky-headed Player/Network/Graphics/
- * Sound sections, with a header bar for the catalogue-wide counts, a session-local filter and
- * "unsaved only" toggle and a per-group Advanced collapse. Both reset affordances ("Reset all" here
- * and the per-row reset in `CvarRow`) were removed in story 048 D5; only the default-value text
- * remains.
+ * of the profile's cvars in sticky-headed sections, with a header bar for the profile-wide counts,
+ * a session-local filter and "unsaved only" toggle and a per-section Advanced collapse. Both reset
+ * affordances ("Reset all" here and the per-row reset in `CvarRow`) were removed in story 048 D5;
+ * only the default-value text remains.
  *
- * This rewrite replaces the two hard-coded `PLAYER_CVARS`/`GRAPHICS_CVARS` panels the tab used to
- * render - `buildCvarGroups` (story 021 D1) now owns grouping, filtering and the "edited" count,
- * so this file only wires state to it and to `CvarRow` (D2/D3).
+ * Story 059 D7 changed what a section *is*: `buildCvarSectionGroups` groups the profile's own
+ * `cvarSections` (D1), ungrouped run first, then sub-sections, then the two reserved buckets the
+ * file writer appends (`Defaults`, `Other`). Story 059 D8 (this deliverable) makes that structure
+ * editable: create/rename/reorder/delete a section and a sub-section from its own header (mirroring
+ * `ControlsTab.tsx`'s category/sub-category CRUD, stories 052/053), move a cvar to another section,
+ * and add/remove a cvar by name and value. Every one of those writes both `cvars` and
+ * `cvarSections` through the same `updateProfileCvars` (`setCvars`) patch path D1 already extended
+ * to carry `cvarSections` - see `persistSections` below.
  *
- * Edits write into the shared `draft` (story 009 D6) immediately and persist to the main process,
- * debounced, via `updateProfileCvars` - which replaces the whole cvars map, so every save sends the
- * full merged `draft.cvars`, not a diff. The autosave mechanism below
- * (`SAVE_DEBOUNCE_MS`/`scheduleSave`/`handleChange`/the failure-path `patch({ cvars: profile.cvars
- * })` revert) is carried over unchanged from the previous version of this file - the redesign only
- * replaces the JSX around it (story 021 Decisions).
+ * Only `'section'` groups (the profile's own, as opposed to the two reserved buckets) get CRUD
+ * chrome at all - a reserved bucket's shape is computed, not stored, so there is nothing in it to
+ * rename, reorder or delete (the same rule `cvar-rows.ts`'s own doc comment gives for why creating/
+ * renaming/reordering/deleting only ever applies to `'section'`).
+ *
+ * Edits write into the shared `draft` (story 009 D6) immediately and persist to the main process.
+ * Value edits (`handleChange`) stay debounced, same as before D8; every structural edit (section/
+ * sub-section CRUD, move/add/remove-cvar) is a discrete click, so it saves immediately through
+ * `persistSections` instead - the same "a click is not typed input" reasoning
+ * `ControlsTab#persistCategoriesAndActions` documents for category/action CRUD.
+ *
+ * Judgement call (story's own "remove a cvar" wording, Test Plan step 7 - "gone from Settings and
+ * from the Raw File"): a catalogue cvar's per-row "Remove" only *unplaces* it (drops it from every
+ * section's `cvars` list, keeps its value in `profile.cvars`) - it can still resurface under
+ * `Defaults` if `writeCatalogDefaults` is on, exactly the story's "removing a catalogue cvar from a
+ * section unplaces it rather than erasing it from the world" decision. A cvar the catalogue does
+ * not know (a `PlainCvarRow`) has no such afterlife - its only reason to exist in `profile.cvars` at
+ * all *is* its section placement, and the writer's own reserved `Other` bucket would otherwise keep
+ * emitting it even after "removing" it from every section. So a plain cvar's "Remove" deletes its
+ * key from `profile.cvars` outright, which is what actually satisfies "gone from the Raw File".
  *
  * The engine every row resolves its facts against is owned here and chosen by `EngineScopeSelect`
  * from the profile's assignments. It is deliberately nullable: when the profile is assigned
@@ -76,13 +119,19 @@ export interface SettingsTabProps {
  * disagree about what is pending (story 049, Decisions).
  */
 export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const installations = useLauncher((state) => state.installations)
+  // Story 059 review Fix 2: same "no shell-store dependency beyond pushToast for action failures"
+  // idiom `RawFileTab.tsx` uses - a rejected structural save (schema validation failure or any
+  // other IPC error) must not just silently reset the status, or the dialog stays open with no
+  // explanation.
+  const pushToast = useLauncher((state) => state.pushToast)
   // Story 049 D7: the change set every row's "edited"/"unsaved" indicator reads - `ConfigView`
   // mounts `ProfileChangesProvider` around this tab, so this always resolves rather than throwing.
   const changeSet = useProfileChanges()
   const [engine, setEngine] = useState<EngineKind | null>(null)
   const [status, setStatus] = useState<SaveStatus>('idle')
+  const [saving, setSaving] = useState(false)
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Filter, "edited only" and the per-group Advanced collapse are session-local UI state (story
@@ -90,7 +139,24 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
   // selected profile changes, alongside the save/status reset that already ran here.
   const [filter, setFilter] = useState('')
   const [editedOnly, setEditedOnly] = useState(false)
-  const [expandedGroups, setExpandedGroups] = useState<Set<CvarDef['group']>>(new Set())
+  // Keyed by `CvarSectionResult.key` (`cvarGroupKey`), not by a section id: a profile may own a
+  // section whose id happens to be `defaults` or `other`, and the key's kind prefix is what keeps it
+  // from sharing an expand state with the reserved bucket of that name.
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
+
+  /** Story 059 D8: section/sub-section CRUD dialog state, mirroring `ControlsTab.tsx`'s own
+   * `showCreateCategory`/`renamingCategory`/etc. one level down. */
+  const [showCreateSection, setShowCreateSection] = useState(false)
+  const [renamingSection, setRenamingSection] = useState<ConfigCvarSection | null>(null)
+  const [creatingSubsectionFor, setCreatingSubsectionFor] = useState<string | null>(null)
+  const [renamingSubsection, setRenamingSubsection] = useState<{
+    sectionId: string
+    subsection: ConfigCvarSubsection
+  } | null>(null)
+  const [addingCvarTo, setAddingCvarTo] = useState<{ sectionId: string; label: string } | null>(
+    null,
+  )
+  const [movingCvar, setMovingCvar] = useState<string | null>(null)
 
   const assignedEngines = useMemo(
     () => assignedEngineKinds(profile, installations),
@@ -117,7 +183,7 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
     clearPendingSave()
     setFilter('')
     setEditedOnly(false)
-    setExpandedGroups(new Set())
+    setExpandedSections(new Set())
   }, [profile.id])
 
   useEffect(() => clearPendingSave, [])
@@ -154,17 +220,152 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
     })
   }
 
-  // One `buildCvarGroups` call per group, each scoped to that group's own defs and its own
-  // Advanced-expand state: `buildCvarGroups` takes a single `showAdvanced` for the whole call, and
-  // the Advanced collapse here is a per-group affordance, not a catalogue-wide one. `total`/
-  // `edited` still come out right per group because `buildCvarGroups` computes them over the defs
-  // it is given, before filter/editedOnly/showAdvanced are applied.
-  const groupResults = useMemo<CvarGroupResult[]>(() => {
-    return GROUP_ORDER.map((group) => {
-      const groupDefs = ALL_CVARS.filter((def) => def.group === group)
-      const results = buildCvarGroups(groupDefs, {
+  /**
+   * Story 059 D8: the structural-edit save path - section/sub-section CRUD, move/add/remove-cvar
+   * all go through this, immediately (a discrete click, not typed input, same reasoning
+   * `ControlsTab#persistCategoriesAndActions` gives for category/action CRUD). Cancels any pending
+   * debounced value-edit save first, for the same "a stale debounce must not overwrite what this
+   * call is about to persist" reason that function documents.
+   */
+  const persistSections = async (
+    nextCvars: Record<string, string>,
+    nextSections: ConfigCvarSection[],
+  ): Promise<boolean> => {
+    clearPendingSave()
+    setSaving(true)
+    setStatus('saving')
+    const result = await updateProfileCvars({
+      profileId: profile.id,
+      cvars: nextCvars,
+      cvarSections: nextSections,
+    })
+    setSaving(false)
+    if (result.ok) {
+      patch({ cvars: nextCvars, cvarSections: nextSections })
+      onChanged(result.value)
+      setStatus('saved')
+    } else {
+      // Story 059 review Fix 2: surface the rejection instead of leaving the dialog open with no
+      // explanation - same `pushToast`/`error.key`/`timeoutMs: 0` shape `RawFileTab.tsx`'s
+      // `openFile` uses for a failed action.
+      pushToast({
+        level: 'error',
+        messageKey: result.error.key,
+        timeoutMs: 0,
+        ...(result.error.params ? { params: result.error.params } : {}),
+      })
+      setStatus('idle')
+    }
+    return result.ok
+  }
+
+  const sections = draft.cvarSections ?? []
+
+  const handleCreateSection = async (name: string): Promise<boolean> => {
+    const section = createCvarSection(name)
+    const ok = await persistSections(draft.cvars, [...sections, section])
+    if (ok) setShowCreateSection(false)
+    return ok
+  }
+
+  const handleRenameSection = async (sectionId: string, name: string): Promise<boolean> => {
+    const ok = await persistSections(draft.cvars, renameCvarSection(sections, sectionId, name))
+    if (ok) setRenamingSection(null)
+    return ok
+  }
+
+  const handleMoveSection = (sectionId: string, direction: 'up' | 'down'): void => {
+    void persistSections(draft.cvars, moveCvarSection(sections, sectionId, direction))
+  }
+
+  /** Dialog-free (story 059 Decisions - mirrors 053's dialog-free sub-category delete, not 052's
+   * delete-or-move modal): every cvar the section held keeps its value in `profile.cvars`
+   * regardless (AC: deleting a section keeps every cvar), only where it is *placed* changes. */
+  const handleDeleteSection = (sectionId: string): void => {
+    void persistSections(draft.cvars, deleteCvarSection(sections, sectionId))
+  }
+
+  const handleCreateSubsection = async (sectionId: string, name: string): Promise<boolean> => {
+    const ok = await persistSections(draft.cvars, createCvarSubsection(sections, sectionId, name))
+    if (ok) setCreatingSubsectionFor(null)
+    return ok
+  }
+
+  const handleRenameSubsection = async (
+    sectionId: string,
+    subsectionId: string,
+    name: string,
+  ): Promise<boolean> => {
+    const ok = await persistSections(
+      draft.cvars,
+      renameCvarSubsection(sections, sectionId, subsectionId, name),
+    )
+    if (ok) setRenamingSubsection(null)
+    return ok
+  }
+
+  const handleMoveSubsection = (
+    sectionId: string,
+    subsectionId: string,
+    direction: 'up' | 'down',
+  ): void => {
+    void persistSections(draft.cvars, moveCvarSubsection(sections, sectionId, subsectionId, direction))
+  }
+
+  /** Dialog-free (story 059 Decisions, same as `handleDeleteSection`): a sub-section's cvars fall
+   * into the parent section's own ungrouped run, never deleted. */
+  const handleDeleteSubsection = (sectionId: string, subsectionId: string): void => {
+    void persistSections(draft.cvars, deleteCvarSubsection(sections, sectionId, subsectionId))
+  }
+
+  /**
+   * Story 059 D8: adds a cvar by name and value, placing it directly into the section whose
+   * toolbar the dialog was opened from. `moveCvarToSection` also strips the name out of any
+   * section it already sat in first, so re-"adding" an already-placed cvar under a new value
+   * simply relocates it rather than listing it twice.
+   */
+  const handleAddCvar = async (sectionId: string, name: string, value: string): Promise<boolean> => {
+    const nextCvars = { ...draft.cvars, [name]: value }
+    const nextSections = moveCvarToSection(sections, name, { sectionId })
+    const ok = await persistSections(nextCvars, nextSections)
+    if (ok) setAddingCvarTo(null)
+    return ok
+  }
+
+  const handleMoveCvarSubmit = async (target: CvarPlacementOption): Promise<boolean> => {
+    if (!movingCvar) return false
+    const ok = await persistSections(draft.cvars, moveCvarToSection(sections, movingCvar, target))
+    if (ok) setMovingCvar(null)
+    return ok
+  }
+
+  /** Story 059 D8: see this component's own doc comment for the remove-vs-unplace judgement call.
+   * A catalogue row keeps its value (`removeCvarFromSections` only edits placement); a plain row's
+   * key is deleted from `profile.cvars` outright, since a plain cvar's only reason to exist there
+   * at all is the section that used to place it. */
+  const handleRemoveCvar = (entry: CvarRowEntry): void => {
+    const nextSections = removeCvarFromSections(sections, entry.name)
+    if (entry.kind === 'catalog') {
+      void persistSections(draft.cvars, nextSections)
+      return
+    }
+    const { [entry.name]: _removed, ...nextCvars } = draft.cvars
+    void persistSections(nextCvars, nextSections)
+  }
+
+  // One call for the whole tab now: grouping is the profile's section list (story 059 D7), so the
+  // per-group Advanced state travels in as `expandedSections` rather than as one call per group.
+  // `total`/`edited` still come out right per group because `buildCvarSectionGroups` computes them
+  // over that group's own rows before filter/editedOnly/the collapse are applied.
+  //
+  // Everything is read off `draft`, not `profile`: the values are already the draft's (an edit must
+  // show before its debounced save lands), and taking the sections from the same object is what
+  // keeps a row's placement and its value from ever coming from two different snapshots.
+  const groups = useMemo<CvarSectionResult[]>(
+    () =>
+      buildCvarSectionGroups({
+        sections: draft.cvarSections,
         values: draft.cvars,
-        engine,
         // Story 049 D7: `edited` (the filter, the counters below and `CvarRow`'s own indicator)
         // is a lookup into the profile's pending change set, not a comparison against the
         // catalogue default or a renderer-local baseline - see `useProfileChanges`'s own doc
@@ -178,23 +379,149 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
         labelText: (def) => t(def.labelKey),
         descriptionText: (def) => t(def.descriptionKey),
         editedOnly,
-        showAdvanced: expandedGroups.has(group),
-      })
-      return results.find((result) => result.group === group)!
-    })
-  }, [draft.cvars, engine, changeSet, filter, editedOnly, expandedGroups, t])
+        expandedSections,
+        writeCatalogDefaults: draft.writeCatalogDefaults,
+      }),
+    [
+      draft.cvarSections,
+      draft.cvars,
+      draft.writeCatalogDefaults,
+      changeSet,
+      filter,
+      editedOnly,
+      expandedSections,
+      t,
+    ],
+  )
 
-  const catalogTotal = groupResults.reduce((sum, group) => sum + group.total, 0)
-  const catalogEdited = groupResults.reduce((sum, group) => sum + group.edited, 0)
+  // Summed over the very groups rendered below, so the header can never claim a size the sections
+  // do not add up to (story 059 AC8: no counter may disagree with the rows).
+  const profileTotal = groups.reduce((sum, group) => sum + group.total, 0)
+  const profileEdited = groups.reduce((sum, group) => sum + group.edited, 0)
+  const profileVisible = groups.reduce((sum, group) => sum + visibleRowsOf(group).length, 0)
 
-  const toggleAdvanced = (group: CvarDef['group']): void => {
-    setExpandedGroups((prev) => {
+  /** Whether the view is currently narrower than the profile: only then can "N cvars" (the
+   * section's real size, story 021's semantics, which the Advanced collapse and "N more" are
+   * measured against) differ from what is on screen. */
+  const narrowed = filter.trim() !== '' || editedOnly
+
+  /** A count readout that cannot disagree with the rows under it (story 059 AC8): the section's own
+   * size and unsaved count as before, plus - only while a filter or "Unsaved only" is narrowing the
+   * view - how many rows are actually showing. `visible` is counted off the very row arrays the JSX
+   * maps over, never recomputed from the predicates. */
+  const countLabel = (total: number, edited: number, visible: number): string => {
+    const size = t('config.settings.header.count', { total, edited })
+    return narrowed ? `${size} · ${t('config.settings.header.shown', { count: visible })}` : size
+  }
+
+  const toggleAdvanced = (key: string): void => {
+    setExpandedSections((prev) => {
       const next = new Set(prev)
-      if (next.has(group)) next.delete(group)
-      else next.add(group)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
   }
+
+  /**
+   * Story 059 D9: toggles the profile's `writeCatalogDefaults` flag - mirrors `RawFileTab.tsx`'s
+   * `toggleWriteUnbindall` exactly, a direct write-through with no debounce (a click, not typed
+   * input), since it changes whether the `Defaults` bucket appears at all, here and in the Raw
+   * File tab.
+   */
+  const toggleWriteCatalogDefaults = async (checked: boolean): Promise<void> => {
+    const outcome = await updateProfileWriteCatalogDefaults({
+      profileId: profile.id,
+      writeCatalogDefaults: checked,
+    })
+    if (outcome.ok) {
+      onChanged(outcome.value)
+    }
+  }
+
+  /** A section's own name (the profile's prose, or its seed's `nameKey` while it still carries the
+   * default one - `namedDisplayName`, 052's rule), or the fixed label of a reserved bucket. */
+  const groupLabel = (group: CvarSectionResult): string =>
+    group.section
+      ? namedDisplayName(group.section, { t, exists: (key) => i18n.exists(key) })
+      : t(RESERVED_LABEL_KEY[group.kind === 'defaults' ? 'defaults' : 'other'])
+
+  /**
+   * Story 059 D8/review Fix 5: the move/remove icon-button pair next to a row. Story Decisions
+   * text: "Settings shows the 'Defaults' section only while the toggle is on, read-only in
+   * structure (no rename/delete/reorder) but a cvar can be dragged/moved out of it, which places it
+   * in a real section" - so "move to..." (the non-drag mechanism this deliverable actually built)
+   * has to work FROM a reserved `Defaults`/`Other` group too, even though every *structural* action
+   * on those two groups (rename/delete/reorder the group itself) stays disabled. `showRemove` is
+   * `false` for a reserved group's rows: unlike a real section, there is nothing there to "remove
+   * from" - a catalogue cvar in `Defaults` is already unplaced, and a plain cvar's "remove" (which
+   * deletes its `profile.cvars` key outright, see this component's own doc comment) is a distinct,
+   * still section-scoped affordance this fix does not touch.
+   *
+   * Accessible names carry the row's own name (same rule `ControlsTab`'s per-row buttons already
+   * follow), so a screen reader over a wall of identical icons still says which row each acts on.
+   */
+  const renderRowActions = (entry: CvarRowEntry, showRemove: boolean) => (
+    <div className="flex shrink-0 items-center gap-0.5">
+      <IconButton
+        label={t('config.settings.section.moveCvar', { name: entry.name })}
+        size="sm"
+        onClick={() => setMovingCvar(entry.name)}
+      >
+        <ArrowLeftRight className="size-3.5" />
+      </IconButton>
+      {showRemove && (
+        <IconButton
+          label={t('config.settings.section.removeCvar', { name: entry.name })}
+          variant="danger"
+          size="sm"
+          onClick={() => handleRemoveCvar(entry)}
+        >
+          <Trash2 className="size-3.5" />
+        </IconButton>
+      )}
+    </div>
+  )
+
+  const renderRow = (entry: CvarRowEntry, showRemove: boolean) => {
+    const row =
+      entry.kind === 'catalog' ? (
+        <CvarRow
+          def={entry.def}
+          engine={engine}
+          otherAssignedEngines={otherAssignedEngines}
+          value={entry.value}
+          edited={entry.edited}
+          onChange={(value) => handleChange(entry.name, value)}
+        />
+      ) : (
+        <PlainCvarRow
+          name={entry.name}
+          value={entry.value}
+          edited={entry.edited}
+          onChange={(value) => handleChange(entry.name, value)}
+        />
+      )
+    // Story 059 review Fix 5: every row - reserved-group ones included - gets the move affordance
+    // now, so this no longer early-returns a bare, action-less row for a reserved group.
+    return (
+      <div key={entry.name} className="flex items-stretch gap-1">
+        <div className="min-w-0 flex-1">{row}</div>
+        {renderRowActions(entry, showRemove)}
+      </div>
+    )
+  }
+
+  const placementTargets = useMemo(
+    () =>
+      cvarPlacementOptions(sections, (section) => namedDisplayName(section, { t, exists: (key) => i18n.exists(key) })),
+    [sections, t, i18n],
+  )
+
+  // Story 059 review Fix 6: every name `AddCvarDialog` must warn about overwriting rather than
+  // silently blanking - `draft.cvars`' own keys, not just what is currently placed in a section (an
+  // unplaced/`Defaults` cvar's value is just as real and just as blankable).
+  const existingCvarNames = useMemo(() => new Set(Object.keys(draft.cvars)), [draft.cvars])
 
   return (
     <div className="mx-auto max-w-[1000px] space-y-4">
@@ -202,11 +529,22 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
         <h3 className="font-display text-sm tracking-[0.06em] text-ink uppercase">
           {t('config.settings.title')}
         </h3>
-        {status !== 'idle' && (
-          <span className="text-xs text-ink-muted">
-            {status === 'saving' ? t('config.settings.saving') : t('config.settings.saved')}
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          {status !== 'idle' && (
+            <span className="text-xs text-ink-muted">
+              {status === 'saving' ? t('config.settings.saving') : t('config.settings.saved')}
+            </span>
+          )}
+          <Button
+            variant="neutral"
+            size="sm"
+            icon={<Plus className="size-3.5" />}
+            disabled={saving}
+            onClick={() => setShowCreateSection(true)}
+          >
+            {t('config.settings.section.create')}
+          </Button>
+        </div>
       </div>
 
       {/*
@@ -218,7 +556,7 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
 
       <div className="flex flex-wrap items-center gap-3 rounded-sm border border-line bg-raised/60 px-3 py-2.5">
         <span className="shrink-0 text-xs text-ink-muted">
-          {t('config.settings.header.count', { total: catalogTotal, edited: catalogEdited })}
+          {countLabel(profileTotal, profileEdited, profileVisible)}
         </span>
         <Input
           type="text"
@@ -233,55 +571,175 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
           onChange={setEditedOnly}
           label={t('config.settings.header.unsavedOnly')}
         />
+        <Switch
+          checked={profile.writeCatalogDefaults !== false}
+          onChange={(next) => void toggleWriteCatalogDefaults(next)}
+          label={t('config.settings.header.writeCatalogDefaults')}
+          hint={t('config.settings.header.writeCatalogDefaultsHint')}
+        />
       </div>
 
       <div className="space-y-6">
-        {groupResults.map((group) => (
-          <section key={group.group}>
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line bg-panel px-1 py-2">
-              <span className="font-display text-xs tracking-[0.06em] text-ink-dim uppercase">
-                {t(GROUP_LABEL_KEY[group.group])}
-              </span>
-              <span className="numeric text-xs text-ink-faint">
-                {t('config.settings.header.count', { total: group.total, edited: group.edited })}
-              </span>
-            </div>
+        {groups.map((group, groupIndex) => {
+          const movable = group.kind === 'section'
+          return (
+            <section key={group.key}>
+              <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line bg-panel px-1 py-2">
+                <span className="font-display text-xs tracking-[0.06em] text-ink-dim uppercase">
+                  {groupLabel(group)}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="numeric text-xs text-ink-faint">
+                    {countLabel(group.total, group.edited, visibleRowsOf(group).length)}
+                  </span>
+                  {movable && group.section && (
+                    <div className="flex items-center gap-0.5">
+                      <IconButton
+                        label={t('config.settings.section.addCvar')}
+                        size="sm"
+                        onClick={() =>
+                          setAddingCvarTo({ sectionId: group.section!.id, label: groupLabel(group) })
+                        }
+                      >
+                        <Plus className="size-3.5" />
+                      </IconButton>
+                      <IconButton
+                        label={t('config.settings.section.subsection.create')}
+                        size="sm"
+                        onClick={() => setCreatingSubsectionFor(group.section!.id)}
+                      >
+                        <FolderPlus className="size-3.5" />
+                      </IconButton>
+                      <IconButton
+                        label={t('config.settings.section.moveUp')}
+                        size="sm"
+                        disabled={groupIndex === 0}
+                        onClick={() => handleMoveSection(group.section!.id, 'up')}
+                      >
+                        <ArrowUp className="size-3.5" />
+                      </IconButton>
+                      <IconButton
+                        label={t('config.settings.section.moveDown')}
+                        size="sm"
+                        disabled={groupIndex === groups.filter((g) => g.kind === 'section').length - 1}
+                        onClick={() => handleMoveSection(group.section!.id, 'down')}
+                      >
+                        <ArrowDown className="size-3.5" />
+                      </IconButton>
+                      <IconButton
+                        label={t('config.settings.section.rename')}
+                        size="sm"
+                        onClick={() => setRenamingSection(group.section!)}
+                      >
+                        <Pencil className="size-3.5" />
+                      </IconButton>
+                      <IconButton
+                        label={t('config.settings.section.delete')}
+                        variant="danger"
+                        size="sm"
+                        onClick={() => handleDeleteSection(group.section!.id)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </IconButton>
+                    </div>
+                  )}
+                </div>
+              </div>
 
-            <div>
-              {group.rows.map(({ def, edited }) => (
-                <CvarRow
-                  key={def.name}
-                  def={def}
-                  engine={engine}
-                  otherAssignedEngines={otherAssignedEngines}
-                  value={draft.cvars[def.name] ?? ''}
-                  edited={edited}
-                  onChange={(value) => handleChange(def.name, value)}
-                />
+              {group.kind !== 'section' && (
+                <p className="px-1 py-1.5 text-xs text-ink-faint">
+                  {t(RESERVED_HINT_KEY[group.kind === 'defaults' ? 'defaults' : 'other'])}
+                </p>
+              )}
+
+              <div>{group.rows.map((entry) => renderRow(entry, movable))}</div>
+
+              {/* Sub-sections always render their own header, even with no rows left after the
+                  filter and even when genuinely empty - an empty sub-section still has to be visible
+                  so it can be renamed, reordered or deleted, exactly the rule `ControlsGrid` follows
+                  one level up (story 053 D5). */}
+              {group.subgroups.map((sub, subIndex) => (
+                <div key={sub.subsection.id}>
+                  <div className="flex items-center justify-between gap-3 border-b border-line/70 py-1.5 pr-1 pl-4">
+                    <span className="font-display text-[11px] tracking-[0.06em] text-ink-faint uppercase">
+                      {sub.subsection.name}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="numeric text-xs text-ink-faint">
+                        {countLabel(sub.total, sub.edited, sub.rows.length)}
+                      </span>
+                      {movable && group.section && (
+                        <div className="flex items-center gap-0.5">
+                          <IconButton
+                            label={t('config.settings.section.subsection.moveUp')}
+                            size="sm"
+                            disabled={subIndex === 0}
+                            onClick={() =>
+                              handleMoveSubsection(group.section!.id, sub.subsection.id, 'up')
+                            }
+                          >
+                            <ArrowUp className="size-3.5" />
+                          </IconButton>
+                          <IconButton
+                            label={t('config.settings.section.subsection.moveDown')}
+                            size="sm"
+                            disabled={subIndex === group.subgroups.length - 1}
+                            onClick={() =>
+                              handleMoveSubsection(group.section!.id, sub.subsection.id, 'down')
+                            }
+                          >
+                            <ArrowDown className="size-3.5" />
+                          </IconButton>
+                          <IconButton
+                            label={t('config.settings.section.subsection.rename')}
+                            size="sm"
+                            onClick={() =>
+                              setRenamingSubsection({
+                                sectionId: group.section!.id,
+                                subsection: sub.subsection,
+                              })
+                            }
+                          >
+                            <Pencil className="size-3.5" />
+                          </IconButton>
+                          <IconButton
+                            label={t('config.settings.section.subsection.delete')}
+                            variant="danger"
+                            size="sm"
+                            onClick={() => handleDeleteSubsection(group.section!.id, sub.subsection.id)}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </IconButton>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div>{sub.rows.map((entry) => renderRow(entry, movable))}</div>
+                </div>
               ))}
-            </div>
 
-            {group.hasAdvanced && (
-              // Gated on `hasAdvanced` (does this group have an advanced section at all), not on
-              // `advancedHidden > 0` (how many rows the collapse is hiding *right now*) - the latter
-              // legitimately reads 0 once the group is expanded, which used to make this button
-              // disappear and leave no way back to the collapsed state (review finding). The "N
-              // more" count itself still comes from `advancedHidden`, post-filter/editedOnly, and is
-              // simply omitted when it would misleadingly read 0 or when the section is expanded.
-              <button
-                type="button"
-                onClick={() => toggleAdvanced(group.group)}
-                className="w-full rounded-sm px-1 py-1.5 text-left text-xs text-ink-muted transition-colors duration-[--dur-fast] hover:text-ink"
-              >
-                {expandedGroups.has(group.group)
-                  ? t('config.settings.advanced.hide')
-                  : group.advancedHidden > 0
-                    ? t('config.settings.advanced.show', { count: group.advancedHidden })
-                    : t('config.settings.advanced.showAdvanced')}
-              </button>
-            )}
-          </section>
-        ))}
+              {group.hasAdvanced && (
+                // Gated on `hasAdvanced` (does this group have an advanced section at all), not on
+                // `advancedHidden > 0` (how many rows the collapse is hiding *right now*) - the latter
+                // legitimately reads 0 once the group is expanded, which used to make this button
+                // disappear and leave no way back to the collapsed state (review finding). The "N
+                // more" count itself still comes from `advancedHidden`, post-filter/editedOnly, and is
+                // simply omitted when it would misleadingly read 0 or when the section is expanded.
+                <button
+                  type="button"
+                  onClick={() => toggleAdvanced(group.key)}
+                  className="w-full rounded-sm px-1 py-1.5 text-left text-xs text-ink-muted transition-colors duration-[--dur-fast] hover:text-ink"
+                >
+                  {expandedSections.has(group.key)
+                    ? t('config.settings.advanced.hide')
+                    : group.advancedHidden > 0
+                      ? t('config.settings.advanced.show', { count: group.advancedHidden })
+                      : t('config.settings.advanced.showAdvanced')}
+                </button>
+              )}
+            </section>
+          )
+        })}
       </div>
 
       <p className="flex flex-wrap items-center gap-4 text-xs text-ink-faint">
@@ -291,6 +749,56 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
         </span>
         <span>{t('config.settings.legend.default')}</span>
       </p>
+
+      {showCreateSection && (
+        <CreateCvarSectionDialog
+          onClose={() => setShowCreateSection(false)}
+          onSubmit={handleCreateSection}
+        />
+      )}
+
+      {renamingSection && (
+        <RenameCvarSectionDialog
+          section={renamingSection}
+          onClose={() => setRenamingSection(null)}
+          onSubmit={(name) => handleRenameSection(renamingSection.id, name)}
+        />
+      )}
+
+      {creatingSubsectionFor && (
+        <CreateCvarSubsectionDialog
+          onClose={() => setCreatingSubsectionFor(null)}
+          onSubmit={(name) => handleCreateSubsection(creatingSubsectionFor, name)}
+        />
+      )}
+
+      {renamingSubsection && (
+        <RenameCvarSubsectionDialog
+          subsection={renamingSubsection.subsection}
+          onClose={() => setRenamingSubsection(null)}
+          onSubmit={(name) =>
+            handleRenameSubsection(renamingSubsection.sectionId, renamingSubsection.subsection.id, name)
+          }
+        />
+      )}
+
+      {addingCvarTo && (
+        <AddCvarDialog
+          sectionLabel={addingCvarTo.label}
+          existingCvarNames={existingCvarNames}
+          onClose={() => setAddingCvarTo(null)}
+          onSubmit={(name, value) => handleAddCvar(addingCvarTo.sectionId, name, value)}
+        />
+      )}
+
+      {movingCvar && (
+        <MoveCvarDialog
+          cvarName={movingCvar}
+          targets={placementTargets}
+          onClose={() => setMovingCvar(null)}
+          onSubmit={handleMoveCvarSubmit}
+        />
+      )}
     </div>
   )
 }

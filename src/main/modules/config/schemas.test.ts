@@ -4,6 +4,7 @@ import {
   actionTextSchema,
   configActionSchema,
   setProfileActionsInputSchema,
+  setProfileCvarsInputSchema,
   setSwitchBindInputSchema,
   syncStateInputSchema,
 } from './schemas'
@@ -206,6 +207,103 @@ describe('setProfileActionsInputSchema', () => {
       actions: [{ ...validPayload.actions[0], subcategoryId: 'nonexistent' }],
     }
     expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(true)
+  })
+})
+
+/**
+ * Story 059 D1: `setProfileCvarsInputSchema`'s optional `cvarSections` - the Settings-tab
+ * counterpart of `setProfileActionsInputSchema`'s `categories`/`actions`. Structural validation
+ * only: cvar names inside a section are never cross-validated against the catalogue, same rule
+ * `subcategoryId` gets above.
+ */
+describe('setProfileCvarsInputSchema - cvarSections (story 059)', () => {
+  const validPayload = {
+    profileId: 'p1',
+    cvars: { sensitivity: '3' },
+  }
+
+  it('accepts a payload with no cvarSections at all', () => {
+    expect(setProfileCvarsInputSchema.safeParse(validPayload).success).toBe(true)
+  })
+
+  it('accepts a well-formed cvarSections payload with subsections', () => {
+    const payload = {
+      ...validPayload,
+      cvarSections: [
+        {
+          id: 'player',
+          name: 'Player',
+          nameKey: 'config.settings.groups.player',
+          cvars: ['sensitivity', 'name'],
+          subsections: [{ id: 'sub1', name: 'Aim', cvars: ['sensitivity'] }],
+        },
+      ],
+    }
+    expect(setProfileCvarsInputSchema.safeParse(payload).success).toBe(true)
+  })
+
+  // Story 059 D1: "an unknown cvar name in a section list does not fail validation" - this schema
+  // guards shape only, never cross-references `ALL_CVARS`.
+  it('accepts a section listing a cvar name the catalogue does not recognize', () => {
+    const payload = {
+      ...validPayload,
+      cvarSections: [{ id: 's1', name: 'Custom', cvars: ['not_a_real_cvar'] }],
+    }
+    expect(setProfileCvarsInputSchema.safeParse(payload).success).toBe(true)
+  })
+
+  it('rejects a section name over 120 characters', () => {
+    const payload = {
+      ...validPayload,
+      cvarSections: [{ id: 's1', name: 'x'.repeat(121), cvars: [] }],
+    }
+    expect(setProfileCvarsInputSchema.safeParse(payload).success).toBe(false)
+  })
+
+  it('rejects more than 64 sections', () => {
+    const payload = {
+      ...validPayload,
+      cvarSections: Array.from({ length: 65 }, (_, i) => ({ id: `s${i}`, name: `S${i}`, cvars: [] })),
+    }
+    expect(setProfileCvarsInputSchema.safeParse(payload).success).toBe(false)
+  })
+
+  /**
+   * Story 059 review Fix 1 (BLOCKING): the 64-cap belongs to how many sections/sub-sections a
+   * profile can have (D1's own spec), never to how many cvar NAMES one section's `cvars` list can
+   * hold. A migrated or imported profile can easily land more than 64 legitimate cvar names in one
+   * section (an "Other" bucket, or - the concrete failure this pins - `docs/fixtures/dm.cfg`'s own
+   * `Grafik Settings` section, which holds 68) - and rejecting that payload outright used to brick
+   * every structural edit `SettingsTab.tsx#persistSections` makes, since it always resends the whole
+   * `cvarSections` list.
+   */
+  it('accepts a section whose cvars list holds far more than 64 names', () => {
+    const payload = {
+      ...validPayload,
+      cvarSections: [
+        {
+          id: 's1',
+          name: 'Grafik Settings',
+          cvars: Array.from({ length: 68 }, (_, i) => `cvar_${i}`),
+        },
+      ],
+    }
+    expect(setProfileCvarsInputSchema.safeParse(payload).success).toBe(true)
+  })
+
+  it('rejects more than 64 subsections within one section', () => {
+    const payload = {
+      ...validPayload,
+      cvarSections: [
+        {
+          id: 's1',
+          name: 'Custom',
+          cvars: [],
+          subsections: Array.from({ length: 65 }, (_, i) => ({ id: `sub${i}`, name: `Sub${i}`, cvars: [] })),
+        },
+      ],
+    }
+    expect(setProfileCvarsInputSchema.safeParse(payload).success).toBe(false)
   })
 })
 

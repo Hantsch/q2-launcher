@@ -36,6 +36,7 @@ import {
   type SetProfileLayersInput,
   type SetSectionHeaderStyleInput,
   type SetSwitchBindInput,
+  type SetWriteCatalogDefaultsInput,
   type SetWriteUnbindallInput,
   type SyncProfileStateInput,
   type TidyUpApplyInput,
@@ -112,6 +113,17 @@ export function updateProfileWriteUnbindall(
   input: SetWriteUnbindallInput,
 ): Promise<Outcome<ConfigProfile[]>> {
   return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setWriteUnbindall, input)
+}
+
+/**
+ * Sets whether a profile's writer still emits unplaced catalogue cvars into the reserved
+ * `Defaults` section (story 059 D9) and returns the full, updated profile list. Mirrors
+ * `updateProfileWriteUnbindall` right above exactly.
+ */
+export function updateProfileWriteCatalogDefaults(
+  input: SetWriteCatalogDefaultsInput,
+): Promise<Outcome<ConfigProfile[]>> {
+  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setWriteCatalogDefaults, input)
 }
 
 /**

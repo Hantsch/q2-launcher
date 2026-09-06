@@ -15,6 +15,7 @@ import type {
   ActionEntryKind,
   ConfigAction,
   ConfigActionCategory,
+  ConfigCvarSection,
   ConfigProfile,
 } from '@shared/modules/config'
 import { isLatin1Text } from '@shared/config/q2-charset'
@@ -208,6 +209,43 @@ const configActionCategoryPersistedSchema = z.object({
   entryKind: legacyCategoryEntryKindSchema,
   nameKey: categoryNameKeyPersistedSchema,
   subcategories: configActionSubcategoriesPersistedSchema,
+})
+
+/**
+ * Story 059 D1: the persisted-schema mirror of `ConfigCvarSubsection` - same "strict on the fields
+ * that make the row meaningful" rule `configActionSubcategoryPersistedSchema` follows. `cvars`
+ * degrades to `[]` rather than dropping the row: a section that could not read its cvar list is
+ * still a real, named drawer worth keeping, same reasoning `cvars`/`binds` on the profile itself get
+ * a `.catch(() => [])`-equivalent default below.
+ */
+const configCvarSubsectionPersistedSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  cvars: z.array(z.string()).catch(() => []),
+})
+
+/**
+ * Story 059 D1: the persisted-schema mirror of `ConfigCvarSection.subsections` - same defaults-to-
+ * `[]`, drop-the-malformed-row convention as `configActionSubcategoriesPersistedSchema`.
+ */
+const configCvarSubsectionsPersistedSchema = z.preprocess(
+  (raw) => parseForgivingRows(configCvarSubsectionPersistedSchema, raw),
+  z.array(configCvarSubsectionPersistedSchema),
+)
+
+/**
+ * Story 059 D1: the persisted-schema mirror of `ConfigCvarSection` - the Settings-tab counterpart of
+ * `configActionCategoryPersistedSchema` right above. No `entryKind`-style legacy field to carry:
+ * this type is new as of this story, so there is nothing pre-059 to be forgiving about beyond the
+ * usual "malformed row is dropped, not the whole profile" (`parseForgivingRows`, at the `cvarSections`
+ * field below) and "cvar names are not cross-validated against the catalogue" rules.
+ */
+const configCvarSectionPersistedSchema: z.ZodType<ConfigCvarSection> = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  nameKey: categoryNameKeyPersistedSchema,
+  cvars: z.array(z.string()).catch(() => []),
+  subsections: configCvarSubsectionsPersistedSchema,
 })
 
 // Story 016 (D6): same modifier vocabulary as the strict IPC schema
@@ -434,12 +472,27 @@ const configProfileObjectSchema = z.object({
     (raw) => parseForgivingRows(configActionPersistedSchema, raw),
     z.array(configActionPersistedSchema),
   ),
+  // Story 059 D1: the profile's own cvar sections/sub-sections - the Settings-tab counterpart of
+  // `categories`/`actions` right above. Same forgiving, row-level-drop convention: a malformed
+  // section is dropped on its own via `parseForgivingRows` rather than degrading the whole field to
+  // `[]`, and a profile predating this story (or created with `from: 'empty'`) simply has no key
+  // here, which yields `[]` same as every other optional field of this shape.
+  cvarSections: z.preprocess(
+    (raw) => parseForgivingRows(configCvarSectionPersistedSchema, raw),
+    z.array(configCvarSectionPersistedSchema),
+  ),
   // Story 040 D4: whether the rendered file opens with `unbindall`, right after the header.
   // Defaults to true (the User decision) - a missing/malformed value, including every profile
   // persisted before this story, degrades to `true` rather than `false`, same forgiving
   // convention as `favorite` above. No migration entry: purely additive, same precedent as
   // story 039's `aliasName`.
   writeUnbindall: z.boolean().catch(true),
+  // Story 059 D1: whether the writer should keep emitting a `set` line for every catalogue cvar a
+  // profile's own `cvarSections` do not mention - `true` (today's own unconditional behaviour,
+  // story 048 D2) is the default a missing/malformed value degrades to, same `writeUnbindall`
+  // precedent right above: no migration entry, and a profile persisted before this story renders
+  // byte-identical to what it always did.
+  writeCatalogDefaults: z.boolean().catch(true),
   // Story 042 D7: which decoration a rendered file's section banners use. Defaults to `'dashes'`
   // (the User decision) - a missing/malformed value, including every profile persisted before
   // this deliverable, degrades to `'dashes'` rather than throwing, which is also today's only
@@ -477,6 +530,7 @@ export type PersistedConfigProfile = ConfigProfile & {
   layers: AltLayer[]
   categories: ConfigActionCategory[]
   actions: ConfigAction[]
+  cvarSections: ConfigCvarSection[]
 }
 
 /**

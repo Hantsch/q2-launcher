@@ -1,14 +1,24 @@
-import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
+import type {
+  ConfigAction,
+  ConfigActionCategory,
+  ConfigCvarSection,
+  ConfigProfile,
+} from '@shared/modules/config'
 import { actionKeySlots } from '@shared/config/action-slots'
 import type { AltLayer, GeneratedAlias, GenerateLayerResult } from '@shared/config/alt-layers'
 import { generateLayerAliases } from '@shared/config/alt-layers'
 import { renderActionAlias, twoPartAliasNames } from '@shared/config/alias-render'
 import { actionsWithAliasLine } from '@shared/config/alias-references'
 import { bindValueFor } from '@shared/config/action-mirror'
-import { categoryLabelFor, commentLabelFor, subcategoryLabelFor } from '@shared/config/comment-labels'
+import {
+  categoryLabelFor,
+  commentLabelFor,
+  cvarSectionLabelFor,
+  cvarSubsectionLabelFor,
+  subcategoryLabelFor,
+} from '@shared/config/comment-labels'
 import { normalizeBindKey } from '@shared/config/key-names'
 import { ALL_CVARS, findCvar } from '@shared/config/cvar-catalog'
-import { CVAR_GROUP_LABELS, CVAR_GROUP_ORDER } from '@shared/config/cvar-facts'
 import { writeValueFor } from '@shared/config/cvar-defaults'
 import type { ColumnSpec, SectionHeaderStyle } from '@shared/config/cfg-layout'
 import {
@@ -195,6 +205,25 @@ function categoryTag(categoryId: string | null, ordinals: ReadonlyMap<string, nu
  * record. */
 function subcategoryTag(subcategoryId: string): string {
   return formatMetaTag({ sub: subcategoryId })
+}
+
+/** The `[q2l cvs=<id>]` tag for a cvar-section banner (story 059 D2) - the cvar-section counterpart
+ * of `categoryTag`, minus the `ord` field: unlike a category (whose sections are split across three
+ * separate render passes, so two categories that never share a pass need a stated order),
+ * `buildCvarSections` renders every cvar section in exactly one pass over `profile.cvarSections`, so
+ * the file's own banner order already states the profile's order in full - no `ord` tag is needed
+ * (the story's own "Decisions (Sprint)"). Never `''`: every section this file builds a banner for is
+ * one of `profile.cvarSections`, so there is always an id to record - the reserved `Defaults`
+ * section is no exception (see `CVAR_DEFAULTS_SECTION_ID`). */
+function cvarSectionTag(sectionId: string): string {
+  return formatMetaTag({ cvs: sectionId })
+}
+
+/** The `[q2l cvsub=<id>]` tag for a cvar-sub-section banner (story 059 D2) - the `cvsub` counterpart
+ * of `subcategoryTag`, same "no `cvs` alongside it" reasoning: the parent cvar section is already
+ * derivable from the section the banner sits inside. */
+function cvarSubsectionTag(subsectionId: string): string {
+  return formatMetaTag({ cvsub: subsectionId })
 }
 
 /**
@@ -541,6 +570,16 @@ function titledSection(title: string, tag: string, lines: string[], style: Secti
   return section(fitProseAndTag(bannerText(title), tag, BANNER_CONTENT_BUDGET), lines, { style })
 }
 
+/** Like `titledSection`, but the banner is emitted unconditionally, even when `lines` is empty -
+ * the cvar-section counterpart of the sub-banner `withSubcategoryBuckets` already emits this way
+ * (story 059 D2's "an empty section still writes its banner", mirroring 053 D2's identical rule
+ * one level down: a user-created section with no cvars yet must not vanish on the next reload).
+ * Built with `banner()` directly rather than through `section()`, which drops a banner outright
+ * when its body is empty - exactly the case this function must keep. */
+function bannerSection(title: string, tag: string, lines: string[], style: SectionHeaderStyle): string[] {
+  return [...banner(fitProseAndTag(bannerText(title), tag, BANNER_CONTENT_BUDGET), { style }), ...lines]
+}
+
 /** The plain-English banner text for a category bucket. User-typed custom category names run
  * through `sanitizeComment` first, for the same reason the profile name does in the header. */
 function categoryTitle(categoryId: string | null, profile: ConfigProfile): string {
@@ -556,6 +595,19 @@ function categoryTitle(categoryId: string | null, profile: ConfigProfile): strin
  * category's ungrouped run instead, never in a synthesized sub-category bucket. */
 function subcategoryTitle(categoryId: string, subcategoryId: string, profile: ConfigProfile): string {
   return sanitizeComment(subcategoryLabelFor(categoryId, subcategoryId, profile))
+}
+
+/** The plain-English banner text for a cvar section (story 059 D2) - mirrors `categoryTitle`
+ * exactly, bare label and no title prefix (the story's own decision: "cvar banners keep today's
+ * bare label"), `sanitizeComment`d for the same reason a user-typed category name is. */
+function cvarSectionTitle(sectionId: string, profile: ConfigProfile): string {
+  return sanitizeComment(cvarSectionLabelFor(sectionId, profile))
+}
+
+/** The plain-English banner text for a cvar sub-section (story 059 D2) - mirrors `subcategoryTitle`
+ * one level down, same bare-label rule. */
+function cvarSubsectionTitle(sectionId: string, subsectionId: string, profile: ConfigProfile): string {
+  return sanitizeComment(cvarSubsectionLabelFor(sectionId, subsectionId, profile))
 }
 
 /**
@@ -1292,79 +1344,156 @@ interface CvarLine {
   value: string
 }
 
-/**
- * Builds one cvar group's section: `set <name> "<value>"` per entry in `lines`, name-column aligned
- * within this section only, under a `// --- <label> ---...` banner - omitted entirely when `lines`
- * is empty (`section()`'s own job). `lines` is already in the order the group should render.
- *
- * Takes resolved name/value pairs rather than names plus the profile's `cvars` map (story 048 D2):
- * the value on a line is no longer `cvars[name]` - a catalogue cvar the profile never stored has a
- * line all the same, carrying `def.default` - so the lookup cannot live here any more without this
- * function needing the catalogue too. One place resolves the value, one place renders it.
- */
-function buildCvarSection(label: string, lines: CvarLine[], style: SectionHeaderStyle): string[] {
+/** `set <name> "<value>"` per entry in `lines`, name-column aligned within this call only (the same
+ * per-bucket alignment scope `renderRows` gives a bind/alias bucket) - `lines` is already in the
+ * order it should render. The shared building block every cvar bucket below renders through,
+ * whether that bucket is a real section's own ungrouped run, one of its sub-sections, or the
+ * reserved `Defaults`/`Other` buckets. */
+function renderCvarRows(lines: readonly CvarLine[]): string[] {
   const rows = alignRows(
     lines.map((line) => [line.name, `"${line.value}"`]),
     [CVAR_NAME_COLUMN],
   )
-  // No tag: a cvar group is not one of the profile's categories and a `set` line is not an entry,
-  // so there is no `cat` id to record and nothing for a per-line tag to say.
-  return titledSection(label, '', rows.map(([name, value]) => `set ${name}${value}`), style)
+  return rows.map(([name, value]) => `set ${name}${value}`)
 }
 
 /**
- * The cvar-group sections, in `CVAR_GROUP_ORDER`, plus a trailing "other" section for names no
- * `CvarDef` recognizes - nothing is dropped (AC: "cvars ... the launcher has no section for still
- * get written").
- *
- * ## Story 048 D2: every catalogue cvar gets a line, not just the stored ones
- *
- * The recognized groups are built by walking `ALL_CVARS` itself, so a rendered file states the
- * *complete* intended configuration rather than only the cvars the user happened to deviate on.
- * That is what makes `exec`ing the file idempotent: whatever ran before it (`config.cfg`, an
- * `autoexec.cfg`, another profile, a mod) cannot leave a stale value standing, because every
- * catalogue cvar is written back to its intended value on every exec. A cvar the profile has no
- * stored value for is written at `def.default` (`writeValueFor`, which also treats an empty or
- * whitespace-only stored value as "nothing stored" - see its own doc comment).
- *
- * Iterating the catalogue also *is* the old ordering: `ALL_CVARS`' index order is what the previous
- * implementation sorted the stored names back into, so a section still reads like the Settings tab
- * and still cannot depend on `Object.keys`' insertion order. Only the *set* of lines changed, and
- * the value on a line the profile did not store.
- *
- * ## Exactly one line per catalogue cvar
- *
- * `findCvar` matches case-insensitively, so a profile can carry two spellings of one cvar
- * (`sensitivity` and `Sensitivity`, both reachable through an import that keeps a file's own
- * casing). Before this deliverable those rendered as two `set` lines side by side; now they must
- * not, because the second line would no longer be another *stored* value - it would be the
- * catalogue default rendering after the user's real value and winning at exec time, a silent
- * clobber. So the stored keys are bucketed by catalogue identity first, and each bucket contributes
- * exactly one line.
- *
- * Which spelling of a colliding pair wins is decided by the stored name, largest last - i.e. the
- * one that already rendered *last* before this change and therefore already won at exec time.
- * Deterministic (a pure function of the key set, never of insertion order) and behaviour-preserving
- * for the one case where the two spellings hold different values. The line is written under that
- * winning stored spelling, not under `def.name`: a stored key's casing is the user's, and
- * canonicalizing it here is a separate question from what this deliverable changes.
- *
- * A stored key `findCvar` does not recognize lands in "other" untouched - verbatim value, no default
- * substitution, sorted alphabetically among its peers.
- *
- * Returns one block (a banner plus its lines) per non-empty group, in order - never includes an
- * empty group's banner (delegated to `section()`).
+ * Builds one reserved cvar bucket's section - `Defaults` or `Other` - under a `// --- <label>
+ * ---...` banner, omitted entirely when `lines` is empty (`section()`'s own job, unlike a
+ * profile-owned cvar section, which `bannerSection` always keeps - see `buildCvarSectionBlock`).
+ * `tag` is `cvarSectionTag(CVAR_DEFAULTS_SECTION_ID)` for `Defaults`, `''` for `Other` (untagged,
+ * same as `UNOWNED_BINDS_LABEL` - there is no id to record for "the absence of a section").
  */
-function buildCvarSections(cvars: Record<string, string>, style: SectionHeaderStyle): string[][] {
-  /** Catalogue identity (`def.name` lowercased, the key `findCvar` itself matches on) -> the stored
-   * line that claimed it. */
-  const claimed = new Map<string, CvarLine>()
-  const unknown: CvarLine[] = []
+function buildReservedCvarSection(
+  label: string,
+  lines: CvarLine[],
+  style: SectionHeaderStyle,
+  tag: string,
+): string[] {
+  return titledSection(label, tag, renderCvarRows(lines), style)
+}
 
-  for (const [name, value] of Object.entries(cvars)) {
+/** Reserved id for the auto-generated `Defaults` bucket (story 059 D2's "ON writes them into one
+ * trailing, reserved auto-section 'Defaults'") - never a real entry in `profile.cvarSections`, and
+ * never minted as one on read (that reader-side rule is D3's job; this constant only has to exist
+ * so the writer's tag and D3's special-case agree on the same string). Exported for that reason -
+ * a future `profile-restore.ts` has to recognise exactly this id, not a re-derived copy of it. */
+export const CVAR_DEFAULTS_SECTION_ID = 'defaults'
+
+/** Banner label for the reserved `Defaults` bucket - plain ASCII, same rule as `OTHER_CVAR_GROUP_LABEL`
+ * and `OTHER_CATEGORY_LABEL`, never routed through `cvarSectionLabelFor` since this id is never a
+ * real section the profile owns. */
+const CVAR_DEFAULTS_SECTION_LABEL = 'Defaults'
+
+/**
+ * Resolves the cvars a `ConfigCvarSection`/`ConfigCvarSubsection` lists (`cvars: string[]`) into
+ * the `CvarLine`s they actually render, given `claimed` (catalogue id -> the profile's stored
+ * line, exactly as the pre-059 writer built it) and `unknownAll` (every non-catalogue `cvars` entry,
+ * raw). Threads two claim sets across the whole call (`placedCatalogIds`/`placedUnknownNames`) so
+ * "a name listed twice is claimed by its first placement" (the story's decision, mirroring how a
+ * dangling `categoryId`/`subcategoryId` falls into render's trailing bucket) holds across every
+ * section and sub-section, not just within one.
+ *
+ * A listed name that resolves to nothing - a non-catalogue name the profile never actually stored a
+ * value for - produces no line at all, the same "unplaced, never an error" rule the story gives a
+ * name nowhere in a section: there is nothing here to write and nothing to complain about either.
+ */
+function makeCvarResolver(
+  claimed: ReadonlyMap<string, CvarLine>,
+  unknownAll: readonly CvarLine[],
+  placedCatalogIds: Set<string>,
+  placedUnknownNames: Set<string>,
+): (name: string) => CvarLine | undefined {
+  return (name: string): CvarLine | undefined => {
+    const def = findCvar(name)
+    if (def) {
+      const id = def.name.toLowerCase()
+      if (placedCatalogIds.has(id)) return undefined
+      placedCatalogIds.add(id)
+      const stored = claimed.get(id)
+      return { name: stored?.name ?? def.name, value: writeValueFor(def, stored?.value) }
+    }
+    if (placedUnknownNames.has(name)) return undefined
+    const found = unknownAll.find((line) => line.name === name)
+    if (!found) return undefined
+    placedUnknownNames.add(name)
+    return found
+  }
+}
+
+/**
+ * Renders one `ConfigCvarSection`: its own `cvars` (the ungrouped run) first, then one
+ * `bannerSection` per `subsections` entry in order - mirroring `withSubcategoryBuckets` one level
+ * down, "ungrouped run first, then sub-sections" (the story's own phrasing for this deliverable).
+ * The section's own banner is emitted through `bannerSection` too, unconditionally: an empty,
+ * freshly-created section (no cvars yet, no sub-sections) still writes its banner, so it survives
+ * to the next reload instead of looking deleted.
+ */
+function buildCvarSectionBlock(
+  section: ConfigCvarSection,
+  profile: ConfigProfile,
+  resolveNamed: (name: string) => CvarLine | undefined,
+  style: SectionHeaderStyle,
+): string[] {
+  const ownLines = renderCvarRows(section.cvars.map(resolveNamed).filter(isCvarLine))
+  const lines = [...ownLines]
+  for (const sub of section.subsections ?? []) {
+    const subLines = renderCvarRows(sub.cvars.map(resolveNamed).filter(isCvarLine))
+    lines.push(
+      ...bannerSection(
+        cvarSubsectionTitle(section.id, sub.id, profile),
+        cvarSubsectionTag(sub.id),
+        subLines,
+        style,
+      ),
+    )
+  }
+  return bannerSection(cvarSectionTitle(section.id, profile), cvarSectionTag(section.id), lines, style)
+}
+
+function isCvarLine(line: CvarLine | undefined): line is CvarLine {
+  return line !== undefined
+}
+
+/**
+ * The cvar sections: `profile.cvarSections` rendered in profile order (story 059 D2), each in its
+ * own `bannerSection` (always written, even empty - see `buildCvarSectionBlock`), followed by two
+ * reserved buckets that never come from the profile's own section list:
+ *
+ * - **`Defaults`** (tag `cvs=defaults`, `CVAR_DEFAULTS_SECTION_ID`) - every catalogue cvar no real
+ *   section placed, written at its stored value or `def.default` (`writeValueFor`, unchanged from
+ *   the pre-059 writer) - but only when `profile.writeCatalogDefaults !== false`. With the toggle
+ *   off, an unplaced catalogue cvar produces **no line at all**, not even under `Other` - "what
+ *   Settings shows is what the file gets" (the story's decision) applies to the file the other way
+ *   too. `!== false` rather than `=== true`, the same convention `writeUnbindall` uses: a profile
+ *   with no stored value (every profile persisted before this story) behaves exactly as `true`.
+ * - **`Other`** (untagged, same as `UNOWNED_BINDS_LABEL`) - every non-catalogue cvar no real section
+ *   placed, sorted alphabetically, exactly as the pre-059 writer's "other" bucket did. Never gated by
+ *   the toggle: an unrecognised cvar has no catalogue default to omit in the first place.
+ *
+ * A template profile places every `ALL_CVARS` name in its four seeded sections
+ * (`STANDARD_TEMPLATE.cvarSections`), so `Defaults` never has anything to hold for one regardless of
+ * the toggle, and its `cvars` carries no non-catalogue names either, so `Other` stays empty too -
+ * both reserved buckets render as `[]` and `joinBlocks` drops them, which is what keeps a template
+ * profile's rendered file byte-identical to what the pre-059 writer produced.
+ *
+ * A profile with no `cvarSections` at all (every profile predating this story, or one created
+ * `from: 'empty'`) renders no real sections and puts everything into the two reserved buckets - the
+ * story's explicit trade: Settings shows what the file gets, and a profile with no sections of its
+ * own has nothing else to show cvars under until it (or a migration) gets some.
+ */
+function buildCvarSections(profile: ConfigProfile, style: SectionHeaderStyle): string[][] {
+  /** Catalogue identity (`def.name` lowercased, the key `findCvar` itself matches on) -> the stored
+   * line that claimed it - same bucketing the pre-059 writer did, kept verbatim (see that function's
+   * old doc comment, preserved in git history, for the "exactly one line per catalogue cvar" and
+   * "which spelling wins" rules this still follows). */
+  const claimed = new Map<string, CvarLine>()
+  const unknownAll: CvarLine[] = []
+
+  for (const [name, value] of Object.entries(profile.cvars)) {
     const def = findCvar(name)
     if (!def) {
-      unknown.push({ name, value })
+      unknownAll.push({ name, value })
       continue
     }
     const id = def.name.toLowerCase()
@@ -1372,22 +1501,38 @@ function buildCvarSections(cvars: Record<string, string>, style: SectionHeaderSt
     if (held === undefined || held.name < name) claimed.set(id, { name, value })
   }
 
-  const blocks: string[][] = []
-  for (const group of CVAR_GROUP_ORDER) {
-    const lines = ALL_CVARS.filter((def) => def.group === group).map((def) => {
-      const stored = claimed.get(def.name.toLowerCase())
-      return {
-        name: stored?.name ?? def.name,
-        value: writeValueFor(def, stored?.value),
-      }
-    })
-    blocks.push(buildCvarSection(CVAR_GROUP_LABELS[group], lines, style))
+  const placedCatalogIds = new Set<string>()
+  const placedUnknownNames = new Set<string>()
+  const resolveNamed = makeCvarResolver(claimed, unknownAll, placedCatalogIds, placedUnknownNames)
+
+  const blocks: string[][] = (profile.cvarSections ?? []).map((section) =>
+    buildCvarSectionBlock(section, profile, resolveNamed, style),
+  )
+
+  if (profile.writeCatalogDefaults !== false) {
+    const defaultLines = ALL_CVARS.filter((def) => !placedCatalogIds.has(def.name.toLowerCase())).map(
+      (def) => {
+        const stored = claimed.get(def.name.toLowerCase())
+        return { name: stored?.name ?? def.name, value: writeValueFor(def, stored?.value) }
+      },
+    )
+    blocks.push(
+      buildReservedCvarSection(
+        CVAR_DEFAULTS_SECTION_LABEL,
+        defaultLines,
+        style,
+        cvarSectionTag(CVAR_DEFAULTS_SECTION_ID),
+      ),
+    )
   }
+
+  const unplacedUnknown = unknownAll.filter((line) => !placedUnknownNames.has(line.name))
   blocks.push(
-    buildCvarSection(
+    buildReservedCvarSection(
       OTHER_CVAR_GROUP_LABEL,
-      [...unknown].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
+      [...unplacedUnknown].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
       style,
+      '',
     ),
   )
 
@@ -1595,7 +1740,7 @@ export function renderProfileFile(profile: ConfigProfile): string {
     ...joinBlocks([
       buildHeaderBlock(profile),
       buildUnbindallBlock(profile),
-      ...buildCvarSections(profile.cvars, sectionHeaderStyle),
+      ...buildCvarSections(profile, sectionHeaderStyle),
       ...buildAliasSections(profile, aliasActions, sectionHeaderStyle),
       // The bind sections come *before* the layer sections, so that a layer's trigger bind is the
       // last `bind` line in the file - see `buildLayerSections`' doc comment.

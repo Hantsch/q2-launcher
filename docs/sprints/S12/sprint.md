@@ -19,7 +19,7 @@ and one line per installation, and I can type a quick change straight into the f
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
 - [x] 051 — The file header is a small banner, not a technical block
-- [ ] 059 — Settings mirrors the file's own sections
+- [x] 059 — Settings mirrors the file's own sections
 - [ ] 057 — Raw file is an editor first, and I can edit inline
 
 ## Notes

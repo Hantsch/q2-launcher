@@ -4,7 +4,7 @@ import { NAMED_KEYS, normalizeBindKey } from '@shared/config/key-names'
 import { isLatin1Text } from '@shared/config/q2-charset'
 import type { ModifierTrigger } from '@shared/config/modifier-layers'
 import type { TidyUpOp } from '@shared/config/tidy-up'
-import type { TidyUpApplyInput } from '@shared/modules/config'
+import type { ConfigCvarSection, TidyUpApplyInput } from '@shared/modules/config'
 
 /**
  * IPC payload validation for the config module's own handlers.
@@ -44,14 +44,57 @@ export const unassignProfileInputSchema = assignProfileInputSchema
 export const setDefaultProfileInputSchema = assignProfileInputSchema
 
 /**
+ * Story 059 D1: one cvar sub-section - the second and final level below a `ConfigCvarSection`. Same
+ * shape and length rule as `configActionSubcategorySchema`'s own `name`, and same "cvar names are
+ * shape-only, never cross-validated against the catalogue" rule as `cvars` on the section schema
+ * below: a section carrying a name the catalogue does not recognise is not this schema's problem
+ * to reject - the Settings tab (a later deliverable) simply has nothing to show for it.
+ */
+const configCvarSubsectionSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(120),
+  // Story 059 review Fix 1: this caps how many cvar NAMES a sub-section can carry, not how many
+  // sub-sections a section can have (that cap lives on `subsections` below). A migrated or
+  // imported profile can legitimately hold a sub-section with far more than 64 cvar names (e.g. a
+  // foreign file's single large section), so this is a generous sanity ceiling, not a structural
+  // limit - it must never reject a real config file's cvar list.
+  cvars: z.array(z.string().min(1)).max(512),
+})
+
+/**
+ * Story 059 D1: one profile-owned cvar section - the Settings-tab counterpart of
+ * `configActionCategorySchema` above. `nameKey` is carried through unstripped for the same reason
+ * that schema's own `nameKey` is: a section seeded from `STANDARD_TEMPLATE.cvarSections` keeps its
+ * display hint across an ordinary `setCvars` round-trip until a rename drops it. `subsections` is
+ * capped at 64, same bound `configActionCategorySchema` gives its own `subcategories`.
+ */
+const configCvarSectionSchema: z.ZodType<ConfigCvarSection> = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(120),
+  nameKey: z.string().min(1).optional(),
+  // Story 059 review Fix 1: same "generous sanity ceiling on cvar-name-list length, not a
+  // structural cap" reasoning as `configCvarSubsectionSchema.cvars` above - a section (e.g. an
+  // imported file's single big section, or the "Other" bucket) can legitimately hold far more than
+  // 64 cvar names. The *structural* cap this schema is meant to enforce is on `subsections`'s own
+  // length, right below.
+  cvars: z.array(z.string().min(1)).max(512),
+  subsections: z.array(configCvarSubsectionSchema).max(64).optional(),
+})
+
+/**
  * Structural validation only - a cvar name must be a non-empty string, same as
  * a cvar value. This deliberately does not validate cvar-name semantics (that
  * is a later story's job); it only rejects garbage shapes before they reach
  * `ProfilesStore`.
+ *
+ * `cvarSections` (story 059 D1) is optional - a caller not yet sending the profile's own sections
+ * (every renderer call site before a later deliverable wires this up) simply omits it, capped at 64
+ * sections same as `setProfileActionsInputSchema`'s own `categories` cap.
  */
 export const setProfileCvarsInputSchema = z.object({
   profileId: z.string().min(1),
   cvars: z.record(z.string().min(1), z.string()),
+  cvarSections: z.array(configCvarSectionSchema).max(64).optional(),
 })
 
 /** Structural validation only, same rationale as `setProfileCvarsInputSchema` above. */
@@ -370,6 +413,16 @@ export const switchBindsInputSchema = z.void()
 export const setWriteUnbindallInputSchema = z.object({
   profileId: z.string().min(1),
   writeUnbindall: z.boolean(),
+})
+
+/**
+ * Story 059 D9: `setWriteCatalogDefaults`'s payload. Same strict convention as
+ * `setWriteUnbindallInputSchema` right above - a bad payload is a caller bug, not a state to
+ * repair.
+ */
+export const setWriteCatalogDefaultsInputSchema = z.object({
+  profileId: z.string().min(1),
+  writeCatalogDefaults: z.boolean(),
 })
 
 /**

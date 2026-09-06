@@ -229,7 +229,7 @@ describe('formatMetaTag / parseMetaTag round trip', () => {
 })
 
 describe('KNOWN_META_KEYS (story 045 D4)', () => {
-  it('appends `lbl`, then `ord`, then `sub`, after the pre-existing nine keys without moving any of them', () => {
+  it('appends `lbl`, then `ord`, then `sub`, then `cvs`/`cvsub`, after the pre-existing nine keys without moving any of them', () => {
     expect(KNOWN_META_KEYS.slice(2, 10)).toEqual([
       'cid',
       'an',
@@ -241,11 +241,11 @@ describe('KNOWN_META_KEYS (story 045 D4)', () => {
       'trigger',
     ])
     // Story 052's F3 fix appended `ord` behind `lbl` for the same reason 045 appended `lbl` behind
-    // `trigger`, and story 053 D2 appends `sub` behind that for the same reason again: this order
-    // is the format's determinism guarantee, so a new key goes at the end and every key that
-    // already shipped keeps its place.
-    expect(KNOWN_META_KEYS.slice(10)).toEqual(['lbl', 'ord', 'sub'])
-    expect(KNOWN_META_KEYS).toHaveLength(13)
+    // `trigger`, story 053 D2 appends `sub` behind that for the same reason again, and story 059 D2
+    // appends `cvs`/`cvsub` behind `sub`: this order is the format's determinism guarantee, so a new
+    // key goes at the end and every key that already shipped keeps its place.
+    expect(KNOWN_META_KEYS.slice(10)).toEqual(['lbl', 'ord', 'sub', 'cvs', 'cvsub'])
+    expect(KNOWN_META_KEYS).toHaveLength(15)
   })
 
   it('registers `id` directly after `v` (story 051), the one exception to the append-only order', () => {

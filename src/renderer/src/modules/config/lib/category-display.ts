@@ -25,8 +25,22 @@ export interface CategoryNameResolver {
 
 export function categoryDisplayName(
   category: ConfigActionCategory,
+  resolver: CategoryNameResolver,
+): string {
+  return namedDisplayName(category, resolver)
+}
+
+/**
+ * The same rule for anything else the profile owns that carries user prose plus an optional
+ * seed-only `nameKey` hint - story 059 D1 gives `ConfigCvarSection` exactly that pair, for exactly
+ * 052's reasons, so the Settings tab resolves its section names through this rather than growing a
+ * second copy of the "only trust a hint this build actually has" check (story 052 review, finding 9).
+ * A `ConfigCvarSubsection` has no `nameKey` at all and simply always falls through to `name`.
+ */
+export function namedDisplayName(
+  named: { name: string; nameKey?: string },
   { t, exists }: CategoryNameResolver,
 ): string {
-  if (category.nameKey && exists(category.nameKey)) return t(category.nameKey)
-  return category.name
+  if (named.nameKey && exists(named.nameKey)) return t(named.nameKey)
+  return named.name
 }

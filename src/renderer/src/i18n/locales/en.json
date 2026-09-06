@@ -818,6 +818,9 @@
       "range": "Range",
       "equalsDefault": "= default",
       "unsavedLabel": "Unsaved change",
+      "plain": {
+        "noFacts": "Not in the catalogue"
+      },
       "flag": {
         "note": "Note",
         "caution": "Caution",
@@ -977,10 +980,19 @@
         "graphics": "Graphics",
         "sound": "Sound"
       },
+      "reserved": {
+        "defaults": "Defaults",
+        "defaultsHint": "Catalogue cvars no section of this profile holds. They are written to the file at their default value.",
+        "other": "Other",
+        "otherHint": "Cvars in this profile that no section holds and the catalogue does not know."
+      },
       "header": {
         "count": "{{total}} cvars · {{edited}} unsaved",
+        "shown": "{{count}} shown",
         "filterPlaceholder": "Filter cvars…",
-        "unsavedOnly": "Unsaved only"
+        "unsavedOnly": "Unsaved only",
+        "writeCatalogDefaults": "Write unset catalogue defaults",
+        "writeCatalogDefaultsHint": "Keeps every catalogue cvar this profile does not place in a section written to the file under Defaults."
       },
       "advanced": {
         "show": "{{count}} more…",
@@ -990,6 +1002,56 @@
       "legend": {
         "unsaved": "Unsaved change",
         "default": "“= default” means the value matches the default shown"
+      },
+      "section": {
+        "create": "New section",
+        "moveUp": "Move section up",
+        "moveDown": "Move section down",
+        "rename": "Rename section",
+        "delete": "Delete section",
+        "addCvar": "Add cvar",
+        "moveCvar": "Move “{{name}}”…",
+        "removeCvar": "Remove “{{name}}”",
+        "createDialog": {
+          "title": "Create section",
+          "nameLabel": "Name",
+          "submit": "Create section"
+        },
+        "renameDialog": {
+          "title": "Rename section",
+          "label": "Name"
+        },
+        "subsection": {
+          "create": "New sub-section",
+          "moveUp": "Move sub-section up",
+          "moveDown": "Move sub-section down",
+          "rename": "Rename sub-section",
+          "delete": "Delete sub-section",
+          "createDialog": {
+            "title": "Create sub-section",
+            "nameLabel": "Name",
+            "submit": "Create sub-section"
+          },
+          "renameDialog": {
+            "title": "Rename sub-section",
+            "label": "Name"
+          }
+        },
+        "addCvarDialog": {
+          "title": "Add cvar to “{{section}}”",
+          "nameLabel": "Cvar name",
+          "namePlaceholder": "e.g. cl_maxfps",
+          "valueLabel": "Value",
+          "submit": "Add cvar",
+          "suggestionsLabel": "Catalogue suggestions",
+          "existingNameWarning": "“{{name}}” already has a value - enter one here to overwrite it, or its stored value will be blanked."
+        },
+        "moveCvarDialog": {
+          "title": "Move “{{name}}”",
+          "targetLabel": "Move to",
+          "submit": "Move",
+          "empty": "This profile has no sections to move a cvar into yet."
+        }
       }
     },
     "raw": {

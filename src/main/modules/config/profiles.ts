@@ -4,6 +4,7 @@ import {
   type AssignProfileInput,
   type ConfigAction,
   type ConfigActionCategory,
+  type ConfigCvarSection,
   type ConfigProfile,
   type CreateConfigProfileInput,
   type ProfileFileState,
@@ -15,6 +16,7 @@ import {
   type SetProfileCvarsInput,
   type SetProfileLayersInput,
   type SetSectionHeaderStyleInput,
+  type SetWriteCatalogDefaultsInput,
   type SetWriteUnbindallInput,
   type UnassignProfileInput,
   type UnrecognizedConfigLine,
@@ -79,6 +81,18 @@ export class ProfilesStore {
               id: randomUUID(),
               commands: action.commands.map((command) => ({ ...command })),
             })),
+            // Story 059 D1: the template's own cvar sections, deep-copied for the same reason
+            // `categories`/`actions` are right above - `STANDARD_TEMPLATE` is one shared, reused
+            // object, so a profile must never end up holding its arrays/objects by reference. Ids
+            // are stable per group already (`buildTemplateCvarSections`), so - unlike `actions` -
+            // there is no per-row id to mint fresh here.
+            cvarSections: STANDARD_TEMPLATE.cvarSections.map((section) => ({
+              ...section,
+              cvars: [...section.cvars],
+              ...(section.subsections
+                ? { subsections: section.subsections.map((sub) => ({ ...sub, cvars: [...sub.cvars] })) }
+                : {}),
+            })),
           }
         : { cvars: {}, binds: {} }),
       assignments: [],
@@ -114,6 +128,11 @@ export class ProfilesStore {
     actions: ConfigAction[]
     categories: ConfigActionCategory[]
     layers: AltLayer[]
+    /** Story 059 D5: `restoreProfileParts`'s own cvar sections, stored alongside `categories`/
+     * `actions` above instead of being silently dropped - the Settings tab's own grouping for an
+     * imported profile, filed by the cvar-group banner each `set` line actually sat under in the
+     * source file. */
+    cvarSections: ConfigCvarSection[]
   }): ConfigProfile[] {
     const now = new Date().toISOString()
     const profile: ConfigProfile = {
@@ -128,6 +147,7 @@ export class ProfilesStore {
       actions: input.actions,
       categories: input.categories,
       layers: input.layers,
+      cvarSections: input.cvarSections,
     }
 
     return this.commit([...this.state.configProfiles(), profile])
@@ -195,6 +215,12 @@ export class ProfilesStore {
    * merge - the renderer is expected to send the full map it wants persisted
    * (see D4's debounced save), so a caller wanting to keep existing entries
    * must include them.
+   *
+   * Story 059 D8: `input.cvarSections`, when sent, replaces the profile's own section list the
+   * same whole-array way - optional and additive (the shared-layer doc comment on
+   * `SetProfileCvarsInput.cvarSections`): a caller not yet updated to send it (every call site
+   * before this deliverable) simply omits it, which leaves the profile's stored `cvarSections`
+   * untouched rather than wiping it out.
    */
   setCvars(input: SetProfileCvarsInput): ConfigProfile[] {
     const current = this.find(input.profileId)
@@ -203,6 +229,7 @@ export class ProfilesStore {
     const next: ConfigProfile = {
       ...current,
       cvars: { ...input.cvars },
+      ...(input.cvarSections !== undefined ? { cvarSections: input.cvarSections } : {}),
       updatedAt: new Date().toISOString(),
     }
     return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
@@ -356,6 +383,23 @@ export class ProfilesStore {
     const next: ConfigProfile = {
       ...current,
       writeUnbindall: input.writeUnbindall,
+      updatedAt: new Date().toISOString(),
+    }
+    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+  }
+
+  /**
+   * Sets a profile's `writeCatalogDefaults` flag outright (story 059 D9) - mirrors
+   * `setWriteUnbindall` above exactly, just a different boolean field: throws if the profile is
+   * unknown, bumps `updatedAt`, and goes through the same `commit`.
+   */
+  setWriteCatalogDefaults(input: SetWriteCatalogDefaultsInput): ConfigProfile[] {
+    const current = this.find(input.profileId)
+    if (!current) throw new Error(`config profile not found: ${input.profileId}`)
+
+    const next: ConfigProfile = {
+      ...current,
+      writeCatalogDefaults: input.writeCatalogDefaults,
       updatedAt: new Date().toISOString(),
     }
     return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
@@ -547,6 +591,9 @@ export class ProfilesStore {
       binds: Record<string, string>
       actions: ConfigAction[]
       categories: ConfigActionCategory[]
+      /** Story 059 D3: the cvar sections the file's own banners state, adopted exactly like
+       * `categories` - the file is the source of truth for the grouping too. */
+      cvarSections: ConfigCvarSection[]
       layers: AltLayer[]
       writeUnbindall: boolean
       sectionHeaderStyle: ConfigProfile['sectionHeaderStyle']
@@ -565,6 +612,7 @@ export class ProfilesStore {
       binds: { ...fields.binds },
       actions: fields.actions,
       categories: fields.categories,
+      cvarSections: fields.cvarSections,
       layers: fields.layers,
       writeUnbindall: fields.writeUnbindall,
       sectionHeaderStyle: fields.sectionHeaderStyle,

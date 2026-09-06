@@ -188,7 +188,22 @@ export const SCREENS = [
     id: 'config-settings',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,
-    navigate: configDetail('settings'),
+    // Story 059 D10: waits for the fixture's own user-named cvar section (`fixture-section-custom`,
+    // "Fixture Section" - scripts/lib/fixture.mjs) and its plain, non-catalogue cvar row
+    // (`q2l_fixture_note`, rendered as a `PlainCvarRow` with no `data-testid`, so this waits on its
+    // own text like every other testid-less wait in this file) before shooting - both render
+    // synchronously off the draft with no async gap to race, but waiting on the real content this
+    // screen exists to demonstrate (rather than trusting `configDetail`'s tab click alone) rules out
+    // silently screenshotting a stale/empty tab if a future change makes either conditional.
+    navigate: async (page) => {
+      await configDetail('settings')(page)
+      await page
+        .getByText('Fixture Section', { exact: true })
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByText('q2l_fixture_note', { exact: true })
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
   },
   {
     id: 'config-controls',

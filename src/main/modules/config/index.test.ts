@@ -11,6 +11,7 @@ import {
   type RawFilesResult,
   type RefreshFromFilesResult,
   type SaveProfileResult,
+  STANDARD_TEMPLATE,
   type TidyUpApplyResult,
   type WriteTargetResult,
 } from '@shared/modules/config'
@@ -135,6 +136,15 @@ function installation(overrides: Partial<Installation> = {}): Installation {
   }
 }
 
+/**
+ * Story 059 D2: the writer's cvar sections now come from `profile.cvarSections`, not from
+ * `CvarDef.group` directly - without one, every catalogue cvar in this file's fixtures would fall
+ * into the single reserved `Defaults` bucket, whose name-column alignment spans *every* catalogue
+ * cvar (not just one group's) and would pad `set sensitivity`/`set crosshair` differently from what
+ * this file's `toContain` assertions below pin. Seeding `cvarSections` with
+ * `STANDARD_TEMPLATE.cvarSections` (the same four groups the pre-059 writer grouped by) keeps the
+ * alignment - and therefore every literal assertion here - unchanged.
+ */
 function profile(overrides: Partial<ConfigProfile> = {}): ConfigProfile {
   return {
     id: 'p1',
@@ -144,6 +154,7 @@ function profile(overrides: Partial<ConfigProfile> = {}): ConfigProfile {
     cvars: { sensitivity: '3' },
     binds: {},
     assignments: [{ installationId: 'i1', isDefault: true }],
+    cvarSections: STANDARD_TEMPLATE.cvarSections.map((section) => ({ ...section })),
     ...overrides,
   }
 }
@@ -743,6 +754,7 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
       [CONFIG_HANDLERS.setLayers, { profileId: 'p1', layers: [] }],
       [CONFIG_HANDLERS.setActions, { profileId: 'p1', categories: [], actions: [] }],
       [CONFIG_HANDLERS.setWriteUnbindall, { profileId: 'p1', writeUnbindall: false }],
+      [CONFIG_HANDLERS.setWriteCatalogDefaults, { profileId: 'p1', writeCatalogDefaults: false }],
       [CONFIG_HANDLERS.setSectionHeaderStyle, { profileId: 'p1', sectionHeaderStyle: 'brackets' }],
       // `rename` last, and named `id` rather than `profileId`: it is the one whose file name would
       // move on disk, so it is also the one whose skipped write is most visible below.
@@ -826,6 +838,63 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     const expected = renderProfileFile(updated)
     expect(await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')).toBe(expected)
     expect(await readFile(join(dir, 'baseq2', 'Profile.cfg'), 'latin1')).toBe(expected)
+  })
+
+  it('setWriteCatalogDefaults (story 059 D9) toggles whether an imported profile\'s rendered file carries a Defaults section, and survives reload', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot({ installations: [inst] })
+    // Story 059 decision: `cvarSections: []` is what an imported/empty-seeded profile looks like -
+    // no real section places `sensitivity`, so it is the catalogue cvar `Defaults` either does or
+    // does not pick up depending on the toggle.
+    state.setConfigProfiles([profile({ cvarSections: [] })])
+    await state.settle()
+
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const onText = await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')
+    expect(onText).toContain('Defaults')
+
+    const toggledOff = (await handlers.get(CONFIG_HANDLERS.setWriteCatalogDefaults)!({
+      profileId: 'p1',
+      writeCatalogDefaults: false,
+    })) as ConfigProfile[]
+    const updated = toggledOff.find((p) => p.id === 'p1')!
+    expect(updated.writeCatalogDefaults).toBe(false)
+    expect(updated.dirty).toBe(true)
+
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const offText = await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')
+    expect(offText).not.toContain('Defaults')
+
+    // Toggling back on restores the section - the flag round-trips through state, not just render.
+    const toggledOn = (await handlers.get(CONFIG_HANDLERS.setWriteCatalogDefaults)!({
+      profileId: 'p1',
+      writeCatalogDefaults: true,
+    })) as ConfigProfile[]
+    expect(toggledOn.find((p) => p.id === 'p1')!.writeCatalogDefaults).toBe(true)
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    expect(await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')).toContain('Defaults')
+  })
+
+  it('setWriteCatalogDefaults (story 059 D9) is a no-op for a template profile\'s rendered file either way', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot({ installations: [inst] })
+    // The default `profile()` fixture carries `STANDARD_TEMPLATE.cvarSections`, which places every
+    // catalogue cvar in a real section - nothing is ever unplaced, so `Defaults` never has anything
+    // to hold regardless of the toggle (D1/D2's design).
+    state.setConfigProfiles([profile()])
+    await state.settle()
+
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const onText = await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')
+    expect(onText).not.toContain('Defaults')
+
+    await handlers.get(CONFIG_HANDLERS.setWriteCatalogDefaults)!({
+      profileId: 'p1',
+      writeCatalogDefaults: false,
+    })
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const offText = await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')
+    expect(offText).toBe(onText)
   })
 
   it('syncState reports inSync for both copies right after a save synced them', async () => {

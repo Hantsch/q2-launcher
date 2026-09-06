@@ -126,6 +126,68 @@
  * is - an ordinary section, minting an ordinary category for whatever lands under it - which is the
  * "never crashes, never loses the lines" direction this module fails in everywhere else.
  *
+ * ## Cvar sections (story 059 D3)
+ *
+ * The Settings tab's own two-level grouping is read back the same positional way, by a **second,
+ * parallel attribution pass** (`cvarSectionRegistry`) that walks the `set` lines and files each one
+ * under the section it sits in. Parallel rather than folded into the entry pass above, because the
+ * two share nothing but `sectionFor`: a `set` line is not an entry, carries no tag of its own
+ * (`render.ts` - the section banner is the only thing that says where it belongs), and a cvar
+ * section is a `ConfigCvarSection`, never a `ConfigActionCategory`. `cvs` is a namespace of its own
+ * for exactly that reason, so no id can be adopted as the wrong kind of grouping.
+ *
+ * Same eager/lazy split as one level up:
+ *
+ * - a `[q2l cvs=<id>]` banner registers its section **eagerly**, so a section the user just created
+ *   and has put no cvars in yet survives the reload - `render.ts#buildCvarSectionBlock` emits its
+ *   banner deliberately (`bannerSection`, not `section()`) for that to be possible at all. Eager
+ *   registration is also what makes a *rename* stick: the tag, not the banner text, is the identity,
+ *   so a section whose prose changed is still the same section;
+ * - a `[q2l cvsub=<id>]` banner does the same one level down, minting its parent with it. Its parent
+ *   is positional, the nearest preceding `cvs=` banner in the same file, exactly where
+ *   `buildCvarSectionBlock` writes it;
+ * - an **untagged** banner (a foreign `.cfg`'s own group header, a pre-059 launcher file, a
+ *   hand-deleted tag) mints **lazily**, from its own title, only once a `set` line actually lands
+ *   under it - the same rule that keeps a bind category from being minted for a banner nothing is
+ *   in. A hand-deleted `cvs=` therefore degrades to precisely what the line still says, never a
+ *   crash and never a lost value: `profile.cvars` is read from the `set` lines directly, entirely
+ *   independent of this pass.
+ *
+ * Two buckets are **never** minted, and this is the round-trip fixed point the whole pass turns on:
+ * the reserved `Defaults` section (`cvs=defaults`, `CVAR_DEFAULTS_SECTION_ID` - the writer's
+ * always-write bucket for catalogue cvars no real section placed) and the untagged `Other` bucket
+ * (`Section.kind: 'other'`, recognised by its reserved title exactly as the bind side's is). Their
+ * `set` lines read back as ordinary *values* and stay **unplaced**, which is the one state that
+ * re-renders the same two buckets. Minting either would move ~30 catalogue cvars into a real,
+ * persisted section on the first reload - a section the profile never had, and one the next render
+ * would then write out in full *on top of* the bucket it came from.
+ *
+ * A cvar under no banner at all is unplaced too, and so is one under a section that is not a cvar
+ * section (a `Binds: …` category banner someone moved a `set` line under): unplaced is never an
+ * error, it simply means the reserved buckets decide where the line goes. A name that would be
+ * placed twice is claimed by its first placement, mirroring `render.ts#makeCvarResolver`'s claim
+ * sets on the writing side so the two agree about which of two spellings of one catalogue cvar wins.
+ *
+ * ### Importing a foreign file's own sections (story 059 D5)
+ *
+ * Everything above already runs on **both** paths - the tagged reconstruction and the untagged/
+ * foreign delegation - because `readCvarSections` is called last regardless of which branch
+ * `restoreProfileParts` takes (see its own comment). So a wholly foreign config's cvars are filed by
+ * exactly the same lazy-minting-from-an-untagged-banner's-own-title rule a pre-059 launcher file's
+ * cvar-group banners already used - no separate importer-side logic needed, only wiring
+ * (`import.ts#commitImport`/`previewImport` now pass `restored.cvarSections` through to
+ * `createProfile`/the preview result, where they used to be silently dropped).
+ *
+ * The one real gap this deliverable closes is `scanComments`'s own blind spot: it only ever looks at
+ * `RestoreProfilePartsInput.comments`, and a foreign author's ASCII-art banner sometimes carries no
+ * `//` marker at all (`dm.cfg`'s own `<<--- .: General Settings :. --->>` and
+ * `##### 1st row #####` conventions), so `config-parser.ts` classifies it as `unrecognized` rather
+ * than a comment and it would otherwise never become a section boundary at all. `import.ts` closes
+ * that by running `foreignBannerCommentText` over the import's own `unrecognized` lines and merging
+ * the ones it recognises into `comments`, in document order, before this function ever sees them -
+ * so from here on such a line **is** an ordinary untagged banner, recognised through the same
+ * `mirroredWrapTitle`/`decorationWrap` shapes as ever.
+ *
  * ## Layers, and the one thing the tags cannot say
  *
  * A layer section header records the layer's identity, `mode` and `trigger`. Its *overrides* have no
@@ -200,12 +262,14 @@ import {
   type RecognizedPressRelease,
   type RecognizedToggle,
 } from '@shared/config/entry-idioms'
+import { findCvar } from '@shared/config/cvar-catalog'
 import { normalizeBindKey } from '@shared/config/key-names'
 import type { ModifierTrigger } from '@shared/config/modifier-layers'
 import { META_FORMAT_VERSION, parseMetaTag } from '@shared/config/profile-metadata'
 import {
   COMMENT_LINE_BUDGET,
   COMMENT_PREFIX,
+  CVAR_DEFAULTS_SECTION_ID,
   HAND_EDIT_SENTENCE,
   OTHER_CATEGORY_LABEL,
   OWNERSHIP_MARKER,
@@ -213,6 +277,7 @@ import {
 } from '@shared/config/render'
 import { STEP_ALIAS_PREFIX, SWITCH_ALIAS } from '@shared/config/switch-bind'
 import {
+  STANDARD_TEMPLATE,
   TEMPLATE_ACTION_CATEGORIES,
   type ActionEntryKind,
   type ActionEntryPart,
@@ -221,6 +286,8 @@ import {
   type ConfigActionCategory,
   type ConfigActionSubcategory,
   type ConfigCommand,
+  type ConfigCvarSection,
+  type ConfigCvarSubsection,
 } from '@shared/modules/config'
 
 // ---------------------------------------------------------------------------
@@ -270,11 +337,23 @@ export interface RestoreBindLine extends RestoreSourcePosition {
 
 /** One live `set <name> <value>` line. Read for its trailing comment only - a `set` line is not an
  * entry and carries no tag of its own (`render.ts`), so the only thing a cvar's comment can
- * contribute here is a *report* that someone hand-edited a tag into or out of it. */
+ * contribute here is a *report* that someone hand-edited a tag into or out of it.
+ *
+ * `file`/`line` are the WINNING (last-assignment-wins) definition's position - what the malformed-
+ * tag warning below reports against, and what a launcher-written file's own reconciliation uses.
+ * `firstFile`/`firstLine` (story 059 review Fix 3), when a caller has them, are the name's FIRST
+ * occurrence's position instead - section attribution (`readCvarSections`) is placement, not value,
+ * and the story's own "a name listed twice is claimed by its first placement" rule applies to a
+ * name's SECTION the same way it applies to a bind's category, independently of which occurrence's
+ * VALUE actually wins at runtime. Optional and defaulting to `file`/`line` when absent, so a caller
+ * that never had two occurrences of the same name to begin with (the launcher's own round-trip
+ * reader, `file-source.ts`) needs no change at all. */
 export interface RestoreCvarLine extends RestoreSourcePosition {
   name: string
   value: string
   comment: string
+  firstFile?: string
+  firstLine?: number
 }
 
 /** One comment-only line - `import-reader.ts`'s `ImportedCommentLine`. */
@@ -374,6 +453,14 @@ export interface RestoreProfilePartsResult {
   actions: ConfigAction[]
   /** Only the categories that had to be created locally - a built-in `cat` id is adopted, not created. */
   categories: ConfigActionCategory[]
+  /**
+   * The profile's cvar sections as the file's own banners state them (story 059 D3), in banner
+   * order, each carrying the names of the `set` lines that sit under it - see "Cvar sections" in
+   * this file's doc comment. Never carries the reserved `Defaults`/`Other` buckets, so a launcher
+   * file with the always-write toggle on reads back with those cvars *unplaced*, which is the state
+   * that re-renders the same file.
+   */
+  cvarSections: ConfigCvarSection[]
   layers: AltLayer[]
   /** Every discrepancy, malformed tag and unrecognised field, in the order they were met. */
   warnings: RestoreWarning[]
@@ -538,7 +625,12 @@ function claimsEntryAnchor(parsed: ParsedComment): boolean {
     parsed.fields.cat === undefined &&
     parsed.fields.layer === undefined &&
     parsed.fields.v === undefined &&
-    taggedSubcategoryId(parsed.fields) === null
+    taggedSubcategoryId(parsed.fields) === null &&
+    // Story 059 D3: `cvs`/`cvsub` join the header marker fields for the same reason `sub` did - a
+    // cvar section banner is a header, and a hand-edited `key=` next to one must not let this
+    // predicate and `scanComments` disagree about what the line is.
+    taggedCvarSectionId(parsed.fields) === null &&
+    taggedCvarSubsectionId(parsed.fields) === null
   )
 }
 
@@ -560,6 +652,24 @@ function claimsEntryAnchor(parsed: ParsedComment): boolean {
  */
 function taggedSubcategoryId(fields: Record<string, string>): string | null {
   const id = (fields.sub ?? '').trim()
+  return id.length > 0 ? id : null
+}
+
+/**
+ * The cvar-section id a `[q2l …]` tag states (story 059 D3), or `null` for a tag carrying no `cvs`
+ * field or an empty one - `taggedSubcategoryId`'s counterpart for the Settings tab's own grouping,
+ * with the identical "an empty value is not an id, so the line degrades to an untagged banner"
+ * rule.
+ */
+function taggedCvarSectionId(fields: Record<string, string>): string | null {
+  const id = (fields.cvs ?? '').trim()
+  return id.length > 0 ? id : null
+}
+
+/** The cvar-sub-section id a `[q2l …]` tag states (story 059 D3) - `cvsub`, the second level's own
+ * field, read exactly like `cvs` above. */
+function taggedCvarSubsectionId(fields: Record<string, string>): string | null {
+  const id = (fields.cvsub ?? '').trim()
   return id.length > 0 ? id : null
 }
 
@@ -649,6 +759,69 @@ function mirroredWrapTitle(text: string): string | null {
   if ([...open!].every((char) => char === open![0])) return null
   if (!MIRROR_TITLE_CONTENT.test(title!)) return null
   return title!.trim()
+}
+
+/**
+ * The outer bracket-and-dash-fill layer a foreign author sometimes draws around their own
+ * `mirroredWrapTitle`-shaped banner, with no `//` marker anywhere on the line at all (story 059 D5) -
+ * `dm.cfg`'s own convention: `<<--------------------------- .: General Settings :. ----------------
+ * ------------>>`. `config-parser.ts` classifies a line like this as `unrecognized`, never as a
+ * comment, since nothing on it ever starts with `//`; `foreignBannerCommentText` below is what lets
+ * such a line reach `scanComments` at all, and this is the layer that sits *outside* the
+ * `.: … :.`-shaped title `mirroredWrapTitle` already knows how to read.
+ *
+ * The same mirror-pair rule as `mirroredWrapTitle` (open/close delimiters must be genuine mirrors of
+ * each other, via `MIRROR_PAIRS`), with a run of `-` allowed - and only `-` - between the delimiter
+ * and the inner text on each side: that is the one character this writer's own decoration
+ * (`BANNER_RULE`) also uses, and it is exactly the fill a foreign author draws to pad a banner out to
+ * a fixed width. Returns the inner text unchanged (decoration and delimiters stripped, whitespace
+ * still surrounding it), or `null` for a line that is not wrapped this way at all - the caller still
+ * has to decide whether what's left is itself a recognisable title.
+ */
+const FOREIGN_OUTER_WRAP = /^([^\s\-=\p{L}\p{N}]{1,})-*\s+(.+?)\s+-*([^\s\-=\p{L}\p{N}]{1,})$/u
+
+function peelForeignBracketWrap(text: string): string | null {
+  const match = FOREIGN_OUTER_WRAP.exec(text)
+  if (!match) return null
+  const [, open, inner, close] = match
+  const mirrored = [...open!].reverse().map((char) => MIRROR_PAIRS[char] ?? char).join('')
+  return close === mirrored ? inner! : null
+}
+
+/**
+ * Does this raw, **unrecognized** config line (story 059 D5 - one `config-parser.ts` could not
+ * classify as any command at all, carrying no `//` marker either) look like a foreign author's own
+ * section banner?
+ *
+ * `scanComments` only ever looks at `RestoreProfilePartsInput.comments`, so a banner drawn with no
+ * comment marker at all - `dm.cfg`'s own `<<--- .: General Settings :. --->>` and
+ * `      ########## 1st Block ########` conventions - would otherwise never become a section
+ * boundary, and every cvar (or bind) under it would read back unplaced instead of filed under the
+ * name the file itself gives it. This is the recognizer `import.ts#toRestoreInput` calls to decide
+ * which of a foreign file's `unrecognized` lines are worth promoting into a synthetic comment line
+ * for `scanComments` to judge on the exact same terms as a real one - never a second, parallel
+ * section-boundary mechanism: `scanComments` still owns "is this a banner", `cvarSectionRegistry`
+ * still owns "what cvars belong to it".
+ *
+ * Recognised through the *same* shapes any other untagged banner already is - `mirroredWrapTitle`
+ * (`.: Main Key's :.`, with `peelForeignBracketWrap`'s outer layer stripped first when the line
+ * carries one) and `decorationWrap` (`##### 1st row #####`, which needs no peeling - it already
+ * matches on the raw, un-commented text directly) - so nothing here invents a fourth banner shape;
+ * it only widens *where* the first three are allowed to look. A bare command, a `wait`, an `echo` -
+ * the overwhelming majority of a foreign file's own `unrecognized` lines - matches none of them and
+ * is correctly left alone.
+ *
+ * Returns the text `scanComments` should treat as this line's comment (marker-already-stripped) text,
+ * or `null` for a line this does not recognise at all.
+ */
+export function foreignBannerCommentText(rawText: string): string | null {
+  const trimmed = rawText.trim()
+  if (trimmed.length === 0) return null
+  const peeled = peelForeignBracketWrap(trimmed)
+  if (peeled !== null && mirroredWrapTitle(peeled) !== null) return peeled
+  if (mirroredWrapTitle(trimmed) !== null) return trimmed
+  if (decorationWrap(trimmed) !== null) return trimmed
+  return null
 }
 
 /**
@@ -754,7 +927,10 @@ function claimsUnboundEntry(parsed: ParsedComment): boolean {
     parsed.fields.cat === undefined &&
     parsed.fields.layer === undefined &&
     parsed.fields.v === undefined &&
-    taggedSubcategoryId(parsed.fields) === null
+    taggedSubcategoryId(parsed.fields) === null &&
+    // Story 059 D3 - same addition, same reason, as in `claimsEntryAnchor` above.
+    taggedCvarSectionId(parsed.fields) === null &&
+    taggedCvarSubsectionId(parsed.fields) === null
   )
 }
 
@@ -885,16 +1061,19 @@ const OTHER_BUCKET_TITLES = new Set<string>([OTHER_CATEGORY_LABEL, UNOWNED_BINDS
 /** One section header, in document order. `kind: 'plain'` is an untagged banner; `kind: 'other'` is
  * specifically the reserved "Other"/"Other binds" bucket (see `OTHER_BUCKET_TITLES`);
  * `kind: 'subcategory'` is a `[q2l sub=…]` second-level banner (story 053 D3), whose parent is the
- * `parent` field below. */
+ * `parent` field below; `kind: 'cvarsection'`/`'cvarsubsection'` are the `[q2l cvs=…]`/
+ * `[q2l cvsub=…]` cvar-section banners of story 059 D3, structurally the same pair one namespace
+ * over. */
 interface Section extends RestoreSourcePosition {
-  kind: 'category' | 'subcategory' | 'layer' | 'plain' | 'other'
-  /** The header's own title, decoration stripped - a category name, a sub-category name, or a
-   * layer's rendered title. */
+  kind: 'category' | 'subcategory' | 'layer' | 'plain' | 'other' | 'cvarsection' | 'cvarsubsection'
+  /** The header's own title, decoration stripped - a category name, a sub-category name, a cvar
+   * section's name, or a layer's rendered title. */
   title: string
   /**
-   * For `kind: 'subcategory'` only: the category section this banner sits inside - the nearest
-   * preceding `kind: 'category'` header in the same file, resolved once here rather than re-derived
-   * at every use, so "the parent is positional" is stated in exactly one place.
+   * For `kind: 'subcategory'`/`'cvarsubsection'` only: the section this banner sits inside - the
+   * nearest preceding `kind: 'category'`/`kind: 'cvarsection'` header in the same file, resolved
+   * once here rather than re-derived at every use, so "the parent is positional" is stated in
+   * exactly one place.
    *
    * `undefined` when there is none (a hand-edited file whose sub-banner sits above every category
    * header, or under an untagged one). Such a section still opens - it is a section boundary either
@@ -1165,6 +1344,35 @@ function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
       if (!parsed.malformed) consumed.push({ file, line })
     } else if (parsed.fields.layer !== undefined) {
       sections.push({ kind: 'layer', title, block, fields: parsed.fields, file, line })
+      if (!parsed.malformed) consumed.push({ file, line })
+    } else if (taggedCvarSectionId(parsed.fields) !== null) {
+      // A cvar section banner (story 059 D3), the Settings tab's counterpart of the `cat=` branch
+      // above. Checked *before* the reserved-"Other" branch below on purpose: a section the user
+      // really did name "Other" carries a real `cvs=<id>` of its own, and the reserved bucket is
+      // defined by having no tag at all - so the tag decides, and a user-named "Other" section is
+      // an ordinary section rather than the writer's untagged leftovers bucket. The reserved
+      // `cvs=defaults` id is *not* filtered out here either: it opens a section boundary like any
+      // other banner (the lines under it must not be attributed to the section above), and it is
+      // `cvarSectionRegistry` that refuses to mint it - see its `cvarSectionKeyFor`.
+      sections.push({ kind: 'cvarsection', title, block, fields: parsed.fields, file, line })
+      if (!parsed.malformed) consumed.push({ file, line })
+    } else if (taggedCvarSubsectionId(parsed.fields) !== null) {
+      // The second level (story 059 D3), parent resolved positionally exactly as the `sub=` branch
+      // above resolves a sub-category's: the nearest preceding cvar-section header in this same
+      // file, which is where `render.ts#buildCvarSectionBlock` writes it. Never a preceding
+      // sub-section - depth is exactly two levels, same as one namespace over.
+      const parent = [...sections]
+        .reverse()
+        .find((candidate) => candidate.kind === 'cvarsection' && candidate.file === file)
+      sections.push({
+        kind: 'cvarsubsection',
+        title,
+        block,
+        fields: parsed.fields,
+        file,
+        line,
+        ...(parent ? { parent } : {}),
+      })
       if (!parsed.malformed) consumed.push({ file, line })
     } else if (!claimedByEntryScan(parsed) && title.length > 0 && OTHER_BUCKET_TITLES.has(title)) {
       // Story-042-review round 5, fix-cycle-8: the reserved "Other"/"Other binds" bucket gets its
@@ -1659,6 +1867,208 @@ function categoryRegistry(
       return key === null ? undefined : subcategories.get(key)?.get(stated)?.id
     },
     created: () => orderByFileSections(created, sections),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Cvar sections (story 059 D3)
+// ---------------------------------------------------------------------------
+
+/**
+ * The registry key a section's `set` lines are filed under, or `null` for a section that never holds
+ * a cvar placement at all - `categoryKeyFor`'s counterpart one namespace over, pure and side-effect
+ * free for the same reason (`cvarSectionRegistry` mints from it, and `created()` re-derives it for
+ * every banner in the file to read the section order back off the document).
+ *
+ * Four `null` cases, and each one is a deliberate rule rather than a gap:
+ *
+ * - **the reserved `Defaults` bucket** (`cvs=defaults`, `CVAR_DEFAULTS_SECTION_ID`). The writer's
+ *   always-write bucket for catalogue cvars no real section placed - never one of
+ *   `profile.cvarSections`, so minting it here would turn the whole catalogue into a persisted
+ *   section on the first reload and make the very next render write it out twice over. Its lines
+ *   stay unplaced, which re-renders exactly the same bucket.
+ * - **the reserved `Other` bucket** (`Section.kind: 'other'`), for the same reason and by the same
+ *   rule the bind side already applies to it: "Other" is the absence of a section, not a section.
+ * - **a bind-side or layer section.** A `set` line someone moved under an `Aliases: Weapons` banner
+ *   is unplaced, not the seed of a cvar section named "Weapons" - the two groupings are separate
+ *   namespaces (`cvs` vs `cat`), and minting across them would invent a section on one round trip
+ *   and write it into the file on the next.
+ * - **no section at all** - a `set` line above every banner in the file.
+ *
+ * `'plain'` (an untagged banner: a foreign `.cfg`'s group header, a pre-059 launcher file, a
+ * hand-deleted `cvs=`) keys positionally, so it mints from its own title once something lands under
+ * it - the lazy half, exactly as `categoryKeyFor` does for an untagged category banner.
+ */
+function cvarSectionKeyFor(section: Section | null): string | null {
+  if (section === null) return null
+  // A sub-section files its lines under its parent section, which is where the placement lives; the
+  // sub-section record itself is looked up separately (`registerSubsection`), exactly as
+  // `categoryKeyFor`/`subcategoryIdFor` split the same question one namespace over.
+  if (section.kind === 'cvarsubsection') return cvarSectionKeyFor(section.parent ?? null)
+  // Story 059 review Fix 4: a `'subcategory'`-kind section - a real `[q2l sub=…]` banner or 053
+  // D4's own repeated-decoration heuristic (`heuristicSubcategoryParent`) - carries no `cvs=`/
+  // `cvsub=` tag of its own (`scanComments` never gives one both kinds of tag at once), so it has no
+  // cvar-section identity independent of whatever it sits inside. Recursing into its own `parent`
+  // (the nearest preceding `'category'`/`'plain'` header, same field the bind side's
+  // `categoryKeyFor` already walks one namespace over) is what lets a foreign sub-banner under a
+  // cvar-holding `'plain'` banner attribute its `set` lines correctly instead of falling to `null`
+  // and reading back unplaced - see `registerSubsection`'s own doc comment for the second half (the
+  // sub-section record itself).
+  if (section.kind === 'subcategory') return cvarSectionKeyFor(section.parent ?? null)
+  if (section.kind === 'cvarsection') {
+    const stated = taggedCvarSectionId(section.fields)
+    if (stated === null || stated === CVAR_DEFAULTS_SECTION_ID) return null
+    return `cvs:${stated}`
+  }
+  if (section.kind === 'plain') return `plain:${section.file}:${section.line}`
+  return null
+}
+
+/**
+ * Hands out cvar sections and sub-sections and files `set` lines into them - the Settings-tab
+ * counterpart of `categoryRegistry`, and deliberately built to the same shape: eager registration
+ * from a `cvs=`/`cvsub=` tag, lazy minting from an untagged banner's own title, ids minted and never
+ * adopted (AC4 - a colleague's id means nothing here), and the file's own banner order as the order
+ * the sections come back in.
+ *
+ * Eager is the important half, and for the same reason it is one namespace over: a section (or
+ * sub-section) the user has just created holds no cvars, its banner is its only trace in the file -
+ * `render.ts#buildCvarSectionBlock` writes it through `bannerSection` precisely so an empty one
+ * still leaves one - and minting it only when a `set` line lands under it would make it vanish on
+ * the first reload. It is also what makes a rename stick: the tag is the identity, so a section
+ * whose banner text the user changed is still the same section rather than a new one.
+ *
+ * Unlike `categoryRegistry` there is no `ord`/three-block merge to undo here: `buildCvarSections`
+ * renders every section in exactly one pass over `profile.cvarSections`, so document order already
+ * *is* the profile's order (the story's own Decisions) and `created()` simply reads it back.
+ *
+ * The `cvs`/`cvsub` ids the file states are only ever lookup *keys*, with one exception mirroring
+ * `categoryRegistry`'s `mintTemplate`: an id naming one of the four seeded template sections
+ * (`STANDARD_TEMPLATE.cvarSections` - `player`/`network`/`graphics`/`sound`) keeps that id and gets
+ * its `nameKey` back, but only while the banner still carries the template's frozen English name.
+ * A renamed one is plain prose from here on, exactly like a user-created section.
+ */
+function cvarSectionRegistry(
+  newId: () => string,
+  sections: readonly Section[],
+): {
+  place: (section: Section | null, name: string) => void
+  created: () => ConfigCvarSection[]
+} {
+  const created = new Map<string, ConfigCvarSection>()
+  /** `<section key>` -> `<the `cvsub` id the file states>` -> the locally minted record. */
+  const subsections = new Map<string, Map<string, ConfigCvarSubsection>>()
+  /** The writer's own two claim sets (`render.ts#makeCvarResolver`), mirrored: a catalogue cvar is
+   * claimed by its catalogue identity (so two spellings of one cvar are one placement, exactly as
+   * the writer emits one line for them) and anything else by its literal name. First placement in
+   * the file wins, which is the story's rule and the writer's rule in one. */
+  const placedCatalogIds = new Set<string>()
+  const placedNames = new Set<string>()
+
+  /**
+   * The cvar section a line under `section` belongs to, minting it if this is the first thing to ask
+   * for it - `null` for every section that holds no placements (`cvarSectionKeyFor`).
+   */
+  const ownerFor = (section: Section | null): ConfigCvarSection | null => {
+    if (section === null) return null
+    if (section.kind === 'cvarsubsection') return ownerFor(section.parent ?? null)
+    // Story 059 review Fix 4: same recursion, one section kind over - see `cvarSectionKeyFor`'s own
+    // doc comment for why a `'subcategory'`-kind section has no cvar identity of its own.
+    if (section.kind === 'subcategory') return ownerFor(section.parent ?? null)
+    const key = cvarSectionKeyFor(section)
+    if (key === null) return null
+    const existing = created.get(key)
+    if (existing) return existing
+    const stated = taggedCvarSectionId(section.fields)
+    const template =
+      stated === null ? undefined : STANDARD_TEMPLATE.cvarSections.find((seed) => seed.id === stated)
+    const record: ConfigCvarSection = template
+      ? {
+          id: template.id,
+          name: section.title,
+          ...(section.title === template.name && template.nameKey
+            ? { nameKey: template.nameKey }
+            : {}),
+          cvars: [],
+        }
+      : { id: newId(), name: section.title, cvars: [] }
+    created.set(key, record)
+    return record
+  }
+
+  /**
+   * One sub-section registered into its parent section, minting both if needed. Returns the record a
+   * `set` line under this banner is filed into, or `null` when the banner has no parent that can
+   * hold placements (a hand-edited `cvsub=` above every section header, or one under `Defaults`) -
+   * in which case the lines under it are simply unplaced, never an error.
+   */
+  const registerSubsection = (section: Section): ConfigCvarSubsection | null => {
+    // Story 059 review Fix 4: a `'subcategory'`-kind section (real `sub=` tag or 053 D4's heuristic
+    // one, which reuses the same `sub` field for its synthetic key - see `HEURISTIC_SUBCATEGORY_PREFIX`)
+    // has no `cvsub=` of its own to key by; `sub` is the only identity it carries, and reusing it here
+    // is exactly what lets one physical sub-banner be both a bind sub-category and a cvar sub-section
+    // independently (the story's "an untagged section mints a cvar section and a category
+    // independently" rule, one level down).
+    const stated =
+      section.kind === 'subcategory'
+        ? taggedSubcategoryId(section.fields)
+        : taggedCvarSubsectionId(section.fields)
+    if (stated === null) return null
+    const key = cvarSectionKeyFor(section)
+    if (key === null) return null
+    // Mints the parent if this is the first mention of it - a section whose only content is a
+    // sub-section still writes a banner, and dropping it would take the sub-section with it.
+    const owner = ownerFor(section)
+    if (owner === null) return null
+    const known = subsections.get(key) ?? new Map<string, ConfigCvarSubsection>()
+    subsections.set(key, known)
+    const existing = known.get(stated)
+    if (existing) return existing
+    const record: ConfigCvarSubsection = { id: newId(), name: section.title, cvars: [] }
+    known.set(stated, record)
+    // First-seen document order, which is the order `buildCvarSectionBlock` wrote them in. The
+    // field is only created once there is something to put in it, so a section with no sub-sections
+    // keeps the exact shape it had before.
+    owner.subsections = [...(owner.subsections ?? []), record]
+    return record
+  }
+
+  for (const section of sections) {
+    if (section.kind === 'cvarsection') ownerFor(section)
+    if (section.kind === 'cvarsubsection') registerSubsection(section)
+  }
+
+  return {
+    place(section, name) {
+      const owner = ownerFor(section)
+      if (owner === null) return
+      const def = findCvar(name)
+      const claimed = def ? placedCatalogIds : placedNames
+      const claim = def ? def.name.toLowerCase() : name
+      if (claimed.has(claim)) return
+      claimed.add(claim)
+      // Story 059 review Fix 4: a `'subcategory'`-kind section is the other shape a cvar sub-section
+      // can arrive in - see `registerSubsection`'s own doc comment.
+      const bucket =
+        section?.kind === 'cvarsubsection' || section?.kind === 'subcategory'
+          ? registerSubsection(section)
+          : null
+      ;(bucket ?? owner).cvars.push(name)
+    },
+    created() {
+      const ordered: ConfigCvarSection[] = []
+      const seen = new Set<string>()
+      for (const section of sections) {
+        if (section.kind !== 'cvarsection' && section.kind !== 'plain') continue
+        const key = cvarSectionKeyFor(section)
+        if (key === null || seen.has(key)) continue
+        const record = created.get(key)
+        if (record === undefined) continue
+        seen.add(key)
+        ordered.push(record)
+      }
+      return ordered
+    },
   }
 }
 
@@ -3380,6 +3790,36 @@ export function restoreProfileParts(input: RestoreProfilePartsInput): RestorePro
     line.comment.includes(TAG_SIGIL),
   )
 
+  /**
+   * Story 059 D3: the cvar sections, attributed in a pass of their own - see "Cvar sections" in this
+   * file's doc comment for why it is parallel to the entry pass rather than part of it. Run on both
+   * paths below, because it depends on nothing the tagged path recovers: a `set` line carries no tag
+   * either way, and a foreign `.cfg`'s own group banners are exactly the untagged case the lazy half
+   * exists for. `profile.cvars` is read from the same lines by the caller, independently, so an
+   * unplaced cvar loses its grouping and never its value.
+   *
+   * Deferred into a function, and called **last** on both paths, for one reason worth stating: this
+   * pass mints ids, and every id in this module comes from the caller's one `newId` sequence. Called
+   * up here it would shift that sequence out from under everything below it - which on the untagged
+   * path breaks AC8 outright ("no ids minted before the delegation, so the ids it hands out are
+   * exactly the ones it would hand out on its own"), and on the tagged path would silently renumber
+   * every restored category, entry and layer. Running last means a parallel pass stays parallel.
+   */
+  const readCvarSections = (): ConfigCvarSection[] => {
+    const registry = cvarSectionRegistry(input.newId, scan.sections)
+    for (const cvar of input.cvars) {
+      // Story 059 review Fix 3: placement is decided by the name's FIRST occurrence, never the
+      // winning (last-assignment-wins) one `cvar` itself points at - see `RestoreCvarLine`'s own
+      // doc comment for why the two can differ and must not be conflated.
+      const position =
+        cvar.firstFile !== undefined && cvar.firstLine !== undefined
+          ? { file: cvar.firstFile, line: cvar.firstLine }
+          : cvar
+      registry.place(sectionFor(scan.sections, position), cvar.name)
+    }
+    return registry.created()
+  }
+
   // No `[q2l` anywhere: not a 042-era file. Story 041's path, wholesale - no ids minted before the
   // delegation, so the ids it hands out are exactly the ones it would hand out on its own.
   if (!scan.anyTag && !taggedLines) {
@@ -3398,6 +3838,7 @@ export function restoreProfileParts(input: RestoreProfilePartsInput): RestorePro
     return {
       actions,
       categories,
+      cvarSections: readCvarSections(),
       layers: delegated.layers,
       ambiguous: delegated.ambiguous,
       warnings: [],
@@ -3487,6 +3928,7 @@ export function restoreProfileParts(input: RestoreProfilePartsInput): RestorePro
   return {
     actions,
     categories: [...categories.created(), ...delegatedCategories],
+    cvarSections: readCvarSections(),
     layers,
     ambiguous: [],
     warnings,

@@ -274,6 +274,11 @@ export function buildRebuiltProfile(input: RebuiltProfileInput): ConfigProfile {
     unrecognized: [],
     actions: parsed.actions,
     categories: parsed.categories,
+    // Story 059 D3: carried through exactly like `categories` above - the file's own `cvs=`/`cvsub=`
+    // banners are the record of the profile's Settings-tab grouping, and a rebuild has no other
+    // source for it. Empty for a file that states none (a pre-059 file with no group banners at
+    // all), which is the same "no sections yet" state a `from: 'empty'` profile starts in.
+    cvarSections: parsed.cvarSections,
     layers: parsed.layers,
     // `content === null` cannot be reached through `rebuildMissingProfileRecords` (the file was
     // just read successfully by `readFileState`), so the `true` here is the persisted default

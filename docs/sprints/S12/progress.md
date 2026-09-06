@@ -24,3 +24,41 @@
 - 2026-09-06 10:34 · 051 · live smoke (ui:verify) · started
 - 2026-09-06 10:36 · 051 · live smoke (ui:verify) · done (config-write-preview screen confirms new 4-line banner header + syntax highlighting; axe clean)
 - 2026-09-06 10:37 · 051 · story done, moved to docs/requirements/done/
+- 2026-09-06 10:38 · 059 · story started
+- 2026-09-06 10:38 · 059 · D1 model, schemas and template seed · started
+- 2026-09-06 10:43 · 059 · D1 model, schemas and template seed · done
+- 2026-09-06 10:43 · 059 · D2 writer emits cvar sections · started
+- 2026-09-06 10:55 · 059 · D2 writer emits cvar sections · done
+- 2026-09-06 10:55 · 059 · D3 reader files cvar sections back (deliverable-hard) · started
+- 2026-09-06 11:10 · 059 · D3 reader files cvar sections back (deliverable-hard) · done
+- 2026-09-06 11:10 · 059 · D4 adversarial round-trip pass (deliverable-hard) · started
+- 2026-09-06 11:25 · 059 · D4 adversarial round-trip pass (deliverable-hard) · done
+- 2026-09-06 11:25 · 059 · D5 import files cvars under section · started
+- 2026-09-06 11:41 · 059 · D5 import files cvars under section · done (flag: dm.cfg attribution uses last-value-wins, review must check literal AC of 25 cvars in one section)
+- 2026-09-06 11:41 · 059 · D6 existing profiles migrate once · started
+- 2026-09-06 11:45 · 059 · D6 existing profiles migrate once · done
+- 2026-09-06 11:45 · 059 · D7 Settings renders the profile sections (deliverable-hard) · started
+- 2026-09-06 12:00 · 059 · D7 Settings renders profile sections (deliverable-hard) · done
+- 2026-09-06 12:00 · 059 · D8 sections and cvars are editable · started
+- 2026-09-06 12:11 · 059 · D8 sections and cvars are editable · done (fixed setCvars persistence gap from D1)
+- 2026-09-06 12:11 · 059 · D9 write-unset-catalogue-defaults toggle · started
+- 2026-09-06 12:16 · 059 · D9 write-unset-catalogue-defaults toggle · done
+- 2026-09-06 12:16 · 059 · D10 harness coverage · started
+- 2026-09-06 12:20 · 059 · D10 harness coverage · done
+- 2026-09-06 12:20 · 059 · story-level verification · started
+- 2026-09-06 12:20 · 059 · story-level verification · done (build/test/typecheck green; 2369/2369 tests; 6 pre-existing jsdom env errors unrelated to diff)
+- 2026-09-06 12:20 · 059 · code review (story-review-hard) · started
+- 2026-09-06 12:33 · 059 · code review (story-review-hard) · done (FAIL - blocking findings: 64-cap bug, AC6 first-vs-last-placement, D5 subsection heuristic gap, Defaults move affordance)
+- 2026-09-06 12:33 · 059 · fix cycle 1: cap bug, import attribution, subsection heuristic, defaults move, addcvar blank-value, rebuild detector · started
+- 2026-09-06 12:45 · 059 · fix cycle 1: cap bug, import attribution, subsection heuristic, defaults move, addcvar blank-value, rebuild detector · done (fixes 1-6 completed, fix 7 skipped)
+- 2026-09-06 12:45 · 059 · story-level re-verification · started
+- 2026-09-06 12:45 · 059 · story-level re-verification · done (build/test/typecheck green; 2372/2372)
+- 2026-09-06 12:45 · 059 · code review round 2 (story-review-hard) · started
+- 2026-09-06 12:56 · 059 · code review round 2 (story-review-hard) · done (PASS - 7 low/should-fix findings, none blocking)
+- 2026-09-06 12:56 · 059 · fix cycle 2: migration seeds full ALL_CVARS, test assertion strength, design-tokens deviation entry · started
+- 2026-09-06 13:00 · 059 · fix cycle 2 · done
+- 2026-09-06 13:00 · 059 · final story-level verification · started
+- 2026-09-06 13:00 · 059 · final story-level verification · done (build/test/typecheck green; 2374/2374)
+- 2026-09-06 13:00 · 059 · live smoke (ui:verify) · started
+- 2026-09-06 13:01 · 059 · live smoke (ui:verify + ui:flow) · done (0 axe violations, 64/64 screens; flow OK)
+- 2026-09-06 13:02 · 059 · story done, moved to docs/requirements/done/

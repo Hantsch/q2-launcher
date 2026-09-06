@@ -1,7 +1,7 @@
 ---
 id: 059
 title: Settings mirrors the file's own sections
-status: ready
+status: done
 created: 2026-09-05
 ---
 
@@ -24,28 +24,28 @@ cvars between them - and every cvar in my file has a row, catalogue or not.
 
 ## Acceptance Criteria
 
-- [ ] Settings shows the profile's cvar sections in the profile's order, each with its cvars in the
+- [x] Settings shows the profile's cvar sections in the profile's order, each with its cvars in the
       profile's order; the file's cvar section headers are read back as these sections and written
       from them; story 042's round-trip property holds.
-- [ ] Sections can be created, renamed, reordered and deleted (deleting moves its cvars to the
+- [x] Sections can be created, renamed, reordered and deleted (deleting moves its cvars to the
       previous section); a cvar can be moved to another section (drag and drop comes with story 054).
-- [ ] Every cvar in the profile has a row: catalogue cvars keep today's rich row (label, control,
+- [x] Every cvar in the profile has a row: catalogue cvars keep today's rich row (label, control,
       engine facts, caveats, unsaved marker); non-catalogue cvars get a plain row with name, a text
       value and the unsaved marker - never hidden, and never validated against facts the catalogue
       does not have.
-- [ ] A cvar can be added to a section by name and value, and removed; adding a catalogue cvar by
+- [x] A cvar can be added to a section by name and value, and removed; adding a catalogue cvar by
       name gives it its rich row.
-- [ ] A profile created from the template seeds Player / Network / Graphics / Sound with the
+- [x] A profile created from the template seeds Player / Network / Graphics / Sound with the
       catalogue's cvars as today; story 048's every-cvar-written rule is unchanged (see Open
       Questions for where those lines sit in an imported profile).
-- [ ] Import files each cvar under the section it was found in (the banner text as the section
+- [x] Import files each cvar under the section it was found in (the banner text as the section
       name), or under "Other" when the file has no sections; importing `docs/fixtures/dm.cfg` yields
       one "General Settings" section with all 25 cvars visible in Settings.
-- [ ] Filter, "Unsaved only", the Advanced collapse (`def.common`) and the engine-facts selector
+- [x] Filter, "Unsaved only", the Advanced collapse (`def.common`) and the engine-facts selector
       keep working; counts stay per section and in total.
-- [ ] Existing profiles migrate once: catalogue cvars land in the four default sections,
+- [x] Existing profiles migrate once: catalogue cvars land in the four default sections,
       non-catalogue cvars in "Other" - no value is lost.
-- [ ] `npm run ui:verify` shows a Settings tab with a user-named section and a plain non-catalogue
+- [x] `npm run ui:verify` shows a Settings tab with a user-named section and a plain non-catalogue
       row; a `ui:flow` renames a section and adds a raw cvar through the real UI.
 
 ## Open Questions
@@ -181,7 +181,7 @@ Files, in order: `src/shared/modules/config.ts`, `src/main/lib/schemas.ts`,
 
 ## Deliverables
 
-- [ ] **D1 - Model, schemas and the template seed.** `ConfigCvarSection { id, name, nameKey?, cvars,
+- [x] **D1 - Model, schemas and the template seed.** `ConfigCvarSection { id, name, nameKey?, cvars,
   subsections? }`, `ConfigProfile.cvarSections?`, `ConfigProfile.writeCatalogDefaults?`; persisted zod
   (forgiving `.catch`) and IPC zod (names capped at 120, 64 sections / 64 sub-sections);
   `setProfileCvarsInputSchema` gains optional `cvarSections`; `STANDARD_TEMPLATE.cvarSections` = the
@@ -194,7 +194,7 @@ Files, in order: `src/shared/modules/config.ts`, `src/main/lib/schemas.ts`,
   `ALL_CVARS` name; an empty profile carries none; an unknown cvar name in a section list does not
   fail validation. *(AC5, seed half)*
 
-- [ ] **D2 - The file writes cvar sections.** `buildCvarSections` renders `profile.cvarSections` in
+- [x] **D2 - The file writes cvar sections.** `buildCvarSections` renders `profile.cvarSections` in
   profile order - ungrouped run first, then sub-sections - with `cvs=<id>` / `cvsub=<id>` banners
   (bare label, no title prefix, empty banner still emitted); unplaced catalogue cvars into the
   reserved `Defaults` section when `writeCatalogDefaults !== false`; unplaced unknown cvars into
@@ -207,7 +207,7 @@ Files, in order: `src/shared/modules/config.ts`, `src/main/lib/schemas.ts`,
   in all three header styles; an empty section still writes its banner; with the toggle off, unplaced
   catalogue cvars produce no lines; alignment and `writeValueFor` unchanged. *(AC1 write half, AC5)*
 
-- [ ] **D3 - The file reads cvar sections back.** `cvarSectionRegistry` in `profile-restore.ts`:
+- [x] **D3 - The file reads cvar sections back.** `cvarSectionRegistry` in `profile-restore.ts`:
   `set` lines filed under the section/sub-section they sit in, eager registration from `cvs=`/
   `cvsub=`, lazy minting from an untagged banner's text, `defaults` and `Other` never minted, section
   order from banner position; adopt/rebuild carry `cvarSections` and 048's `stripCatalogDefaults`
@@ -220,7 +220,7 @@ Files, in order: `src/shared/modules/config.ts`, `src/main/lib/schemas.ts`,
   never a crash; a launcher file with the toggle on does not materialise the `Defaults` lines into
   real placements or into `profile.cvars`. *(AC1 read half)*
 
-- [ ] **D4 - Adversarial round-trip pass.** Fixtures: an empty section, a section named `Other` and
+- [x] **D4 - Adversarial round-trip pass.** Fixtures: an empty section, a section named `Other` and
   one named like a bind category, a cvar listed in two sections, a section holding a name not in
   `profile.cvars`, non-ASCII and 120-char names, a profile with the toggle off and unplaced catalogue
   cvars, a section holding both catalogue and non-catalogue cvars, a foreign file whose cvars sit
@@ -230,7 +230,7 @@ Files, in order: `src/shared/modules/config.ts`, `src/main/lib/schemas.ts`,
   *Accept:* `render(parse(render(p))) === render(p)` green for every fixture; no cvar duplicates,
   moves or disappears; the file does not grow a line per round-trip. *(AC1 round-trip clause)*
 
-- [ ] **D5 - Import files cvars under their section.** The importer assigns each cvar the section it
+- [x] **D5 - Import files cvars under their section.** The importer assigns each cvar the section it
   was found in (banner text as the name, 053's sub-header heuristic for the second level) and `Other`
   when the file has none.
   Files: `src/main/modules/config/import.ts`, `src/shared/config/profile-restore.ts` (import path) +
@@ -239,7 +239,7 @@ Files, in order: `src/shared/modules/config.ts`, `src/main/lib/schemas.ts`,
   (`allow_download_*`, `adr0`-`adr8`, `hostname`, `m_filter`, `cl_vwep`, `cl_blend`, …); a file with
   no banners yields one `Other` section; the import preview shows the same. *(AC6)*
 
-- [ ] **D6 - Existing profiles migrate once.** One `MigrationStep` + `STATE_SCHEMA_VERSION` bump:
+- [x] **D6 - Existing profiles migrate once.** One `MigrationStep` + `STATE_SCHEMA_VERSION` bump:
   seed the four sections from `ALL_CVARS` by group, put non-catalogue keys of `profile.cvars` into
   `Other`, set `writeCatalogDefaults: true`, mark the profile dirty.
   Files: `src/main/services/migrations.ts`, `src/shared/constants.ts` + migration test.
@@ -248,7 +248,7 @@ Files, in order: `src/shared/modules/config.ts`, `src/main/lib/schemas.ts`,
   in the four sections, the rest in `Other`; no value is lost; running the migration twice changes
   nothing. *(AC7)*
 
-- [ ] **D7 - Settings renders the profile's sections.** `lib/cvar-rows.ts` builds groups from
+- [x] **D7 - Settings renders the profile's sections.** `lib/cvar-rows.ts` builds groups from
   `profile.cvarSections` (ungrouped run first, then sub-sections) instead of `def.group`; a
   non-catalogue cvar gets a plain row (name, text value, unsaved marker, no facts, no validation);
   filter, "Unsaved only", the Advanced collapse (`def.common`, non-catalogue = common) and the
@@ -260,7 +260,7 @@ Files, in order: `src/shared/modules/config.ts`, `src/main/lib/schemas.ts`,
   rich and the rest plain; a template profile looks as today; filter/Unsaved/Advanced/engine selector
   behave as before and no counter can disagree with the visible rows. *(AC3, AC8)*
 
-- [ ] **D8 - Sections and cvars are editable.** Create / rename / reorder / delete a section and a
+- [x] **D8 - Sections and cvars are editable.** Create / rename / reorder / delete a section and a
   sub-section from its header (delete moves cvars to the previous section / the parent's ungrouped
   run); move a cvar to another section; add a cvar by name and value (catalogue names suggested, a
   catalogue name giving the rich row) and remove one. All through the existing `setCvars` patch path
@@ -271,7 +271,7 @@ Files, in order: `src/shared/modules/config.ts`, `src/main/lib/schemas.ts`,
   section keeps every cvar; adding `cl_maxfps` gives a rich row and adding `zz_unknown` a plain one.
   *(AC2, AC4)*
 
-- [ ] **D9 - The "write unset catalogue defaults" toggle.** `setWriteCatalogDefaults` handler
+- [x] **D9 - The "write unset catalogue defaults" toggle.** `setWriteCatalogDefaults` handler
   (contract in `src/shared/modules/config.ts` first, then the IPC schema and the main handler),
   checkbox in the Settings header with its label and help text, default on.
   Files: `src/shared/modules/config.ts`, `src/main/modules/config/schemas.ts`,
@@ -282,7 +282,7 @@ Files, in order: `src/shared/modules/config.ts`, `src/main/lib/schemas.ts`,
   Settings tab and the Raw File tab and survives reload; on a template profile the rendered file does
   not change either way; the preload allowlist derives without a manual edit. *(AC5, choice half)*
 
-- [ ] **D10 - Harness coverage.** A `ui:verify` screen showing a Settings tab with a user-named
+- [x] **D10 - Harness coverage.** A `ui:verify` screen showing a Settings tab with a user-named
   section and a plain non-catalogue row; a `ui:flow` that renames a section and adds a raw cvar
   through the real UI.
   Files: `scripts/lib/screens.mjs`, `scripts/lib/fixture.mjs`,
@@ -335,3 +335,66 @@ AC3 → D7 · AC4 → D8 · AC5 → D1 + D2 + D9 · AC6 → D5 · AC7 → D6 · 
     settings-section-rename-add-cvar` passes.
 
 ## Done
+
+Settings now mirrors the profile's own cvar sections end to end: `ConfigCvarSection`/
+`ConfigCvarSubsection` model + schemas (D1), a writer that renders `profile.cvarSections` with
+`cvs=`/`cvsub=` banner tags and a reserved `Defaults` bucket gated by `writeCatalogDefaults` (D2), a
+reader that files `set` lines back under their section on save/reload/rebuild (D3, hardened by an
+adversarial round-trip pass, D4), an importer that attributes a foreign file's cvars to the section
+they first appear under while still folding to the last-set value (D5), a one-time migration for
+pre-existing profiles (D6), a renderer that groups rows by section with a plain row for
+non-catalogue cvars (D7), full section/sub-section CRUD plus add/remove/move-cvar (D8), the
+"write unset catalogue defaults" toggle in the Settings header (D9), and `ui:verify`/`ui:flow`
+harness coverage (D10). Two review rounds (story-review-hard) ran; round 1 found four blocking bugs
+and three should-fix items, all of which were fixed and re-verified in round 2 (PASS), then three
+further low-severity findings from round 2 were also fixed.
+
+**Decisions**
+- D5 import decouples section *placement* (first `set` occurrence's banner wins) from *value*
+  folding (last `set` occurrence wins, matching real engine semantics) - this was a genuine
+  deviation the first D5 pass introduced (last-value-wins for both) that broke the literal AC6
+  wording ("all 25 cvars … in one section"); fixed in review round 1 to keep the story's own
+  "first placement wins" rule consistent between the round-trip reader and the importer.
+- D6 migration seeds the full four-group catalogue (`buildTemplateCvarSections()` unfiltered),
+  not just cvars the profile already customizes - matches a template profile's shape 1:1, fixed
+  after round 2 flagged the narrower, sparser seeding as a spec deviation.
+- The IPC schema's per-section `cvars` name-list cap was raised from 64 (miscopied from the
+  section/sub-section *count* cap) to 512 - the 64 cap stays on how many sections/sub-sections a
+  profile may have (per D1's literal spec); the cvar-list-length cap only needed to be generous
+  enough that no real config file's biggest section (dm.cfg's largest is 68 names) can silently
+  brick every subsequent Settings edit on that profile.
+- A cvar can now be moved out of the reserved `Defaults`/`Other` groups via the per-row "move
+  to…" action (its structural chrome - rename/reorder/delete - stays disabled), per the story's
+  explicit Decision text; this was missing from the first D8 pass.
+- `SettingsTab.tsx`'s new per-row/per-section-header `IconButton size="sm"` (28px) is recorded as
+  a new row in CLAUDE.md's Deviations table, mirroring the existing `DropToggles.tsx` precedent
+  (desktop, mouse-and-keyboard-only app, no touch surface).
+
+**Open, deliberately unfixed (documented, not blocking):**
+- D2's/Test-Plan-step-1's "byte-identical to today" wording is not literally true for a template
+  profile's rendered file: the four group banners now carry `cvs=<id>` tags, which is required
+  for rename identity to survive reload. The spec text is self-contradictory here (a section
+  needs a stable tag to rename-and-persist, but a tag is new content); the round-2 reviewer
+  confirmed no other regression from it.
+- `mergeForeignBannerComments` (D5) widens the "recognized comment" set used by the whole restore
+  pass, not just the cvar side; empirically checked against the dm+dmalias+gfx fixture (identical
+  bind-side category/action/sub-category output before and after), but there is no dedicated test
+  pinning that the bind side is unaffected by future foreign-file shapes.
+- No dedicated `SettingsTab.test.ts` component test exists for the new editing UI (mirrors an
+  existing gap - `ControlsTab.dialogs.test.ts` covers the bind side, no exact Settings analogue
+  existed before this story either); coverage instead comes from `cvar-rows.test.ts`,
+  `cvar-sections.test.ts`, and the live `ui:flow` smoke test.
+- `detectWriteCatalogDefaults` (recovering the toggle's value purely from a rebuilt file when
+  `state.json` is lost) was not added, mirroring `detectWriteUnbindall`/`detectSectionHeaderStyle`
+  - low-impact (defaults to `true`, the safe/no-data-loss direction) and explicitly deferred by
+  the fix-cycle scope.
+
+**Verification:** `npm run build`, `npm run typecheck`, `npm test` all green (83 test files, 2374
+tests passed; 6 pre-existing jsdom/undici "webidl.util.markAsUncloneable" environment errors in
+unrelated renderer test files, reproduced identically on a clean stashed tree, unrelated to this
+diff). Live smoke: `npm run ui:verify` green, 0 axe violations (critical/serious/moderate/minor),
+64/64 screenshots, 32/32 screens; `npm run ui:flow -- settings-section-rename-add-cvar` passed,
+screenshots confirm the renamed section and the new raw cvar row. Code review: two rounds
+(story-review-hard), round 2 verdict PASS.
+
+**Commit message:** `059: Settings mirrors the file's own cvar sections`

@@ -25,6 +25,7 @@ import { applyActionLayerMirror } from '@shared/config/modifier-layers'
 import type {
   ConfigAction,
   ConfigActionCategory,
+  ConfigCvarSection,
   ConfigProfile,
 } from '@shared/modules/config'
 import { TEMPLATE_ACTION_CATEGORIES } from '@shared/modules/config'
@@ -78,6 +79,14 @@ export interface FixtureProfileInput {
    * modifier slots). */
   layers?: AltLayer[]
   cvars?: Record<string, string>
+  /** Story 059 D1/D2: the profile's own cvar sections. Passed straight through - unlike `binds` and
+   * a modifier layer's `overrides`, nothing derives this from anything else, so a fixture states it
+   * verbatim and `render.ts#buildCvarSections` reads exactly what is written here (dangling names
+   * and duplicate placements included, which is the point of the D4 fixtures below). */
+  cvarSections?: ConfigCvarSection[]
+  /** Story 059 D1/D2. Left absent unless a fixture states it, so every pre-059 fixture keeps the
+   * exact object shape it had - `render.ts` reads it as `!== false`, so absent behaves as `true`. */
+  writeCatalogDefaults?: boolean
   writeUnbindall?: boolean
   sectionHeaderStyle?: 'dashes' | 'brackets' | 'plain'
 }
@@ -104,8 +113,12 @@ export function buildFixtureProfile(input: FixtureProfileInput): ConfigProfile {
     assignments: [],
     categories: input.categories ?? categoriesForActions(input.actions),
     actions: input.actions,
+    ...(input.cvarSections ? { cvarSections: input.cvarSections } : {}),
     layers,
     writeUnbindall: input.writeUnbindall ?? true,
+    ...(input.writeCatalogDefaults === undefined
+      ? {}
+      : { writeCatalogDefaults: input.writeCatalogDefaults }),
     sectionHeaderStyle: input.sectionHeaderStyle ?? 'dashes',
   }
 }
@@ -2017,6 +2030,237 @@ export const bodyProseWithIdProfile: ConfigProfile = buildFixtureProfile({
     action({ name: 'Spare id=43', kind: 'bind', commands: [], categoryId: 'cat-servers' }),
   ],
 })
+
+// ---------------------------------------------------------------------------
+// Story 059 D4: the adversarial pass over the cvar-section writer (D2) and
+// reader (D3).
+//
+// The seam these eight fixtures attack is the same one story 052 D5 attacked
+// one namespace over, and it is hostile for the same two reasons: a cvar
+// section's banner title is now user-typed prose sitting in a line the reader
+// has to tell from its own structural markers, and the writer emits two
+// RESERVED buckets (`Defaults`, `Other`) that look exactly like sections but
+// must never become ones. Getting either wrong is invisible in a single render
+// and shows up as the file growing a section - and a copy of every line in it -
+// on each reload, which is the failure story 042 kept rediscovering and the
+// reason this deliverable exists at all.
+//
+// **Deliberately their own array, not part of `ROUND_TRIP_FIXTURES`.** That
+// corpus is consumed by four other suites, and two of them make assumptions
+// these fixtures are specifically built to break:
+// `validate-structure.test.ts` asserts every fixture's render carries
+// `set sensitivity "4"` (false for `unplacedCatalogueDefaultsOffProfile`, whose
+// whole point is that the toggle suppresses those lines) and
+// `file-source-pipeline.test.ts`'s "nothing is lost" loop is about binds,
+// entries, categories and layers, which most of these carry none of. So D4
+// re-runs 042's fixed-point property over `CVAR_SECTION_ADVERSARIAL_FIXTURES`
+// explicitly in `round-trip.test.ts` - the same `normalize`, the same
+// `reimportProfile`, the same assertion - rather than weakening a property four
+// suites rely on.
+// ---------------------------------------------------------------------------
+
+/**
+ * **A cvar section with nothing in it at all** - no cvars, no sub-sections - next to one that does
+ * hold a cvar.
+ *
+ * The shape lazy registration cannot see, and the reason `render.ts#buildCvarSectionBlock` goes
+ * through `bannerSection` (which keeps a banner over an empty body) rather than `section()` (which
+ * drops it): a section the user has just created has its banner and nothing else, so a writer that
+ * omitted it, or a reader that only minted a section once a `set` line landed under it, would delete
+ * it on the first reload. Its banner is also immediately followed by another banner, which is the
+ * one arrangement where "a line belongs to the header above it" has to cope with there being no
+ * lines.
+ */
+export const emptyCvarSectionProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Empty cvar section next to a populated one',
+  actions: [],
+  cvars: { zz_kept: 'yes' },
+  cvarSections: [
+    { id: 'cvs-empty', name: 'Nothing here yet', cvars: [] },
+    { id: 'cvs-full', name: 'Something', cvars: ['zz_kept'] },
+  ],
+})
+
+/**
+ * **A real cvar section the user named `Other`**, sitting in the same file as the writer's own
+ * reserved, untagged `Other` bucket - which is where the profile's second, unplaced non-catalogue
+ * cvar lands, so both banners genuinely appear.
+ *
+ * `literalOtherCategoryProfile` above is the identical trap one namespace over. What tells the two
+ * apart is the tag and only the tag: the user's section carries a real `cvs=<id>`, the reserved
+ * bucket carries none at all (`render.ts#buildCvarSections` passes `''`). A reader that recognised
+ * the bucket by its *title* would refuse to mint the user's section - deleting it, and moving its
+ * cvar into the leftovers - or, worse, mint the reserved one and write the whole leftovers bucket
+ * back out as a persisted section on the next save.
+ */
+export const literalOtherCvarSectionProfile: ConfigProfile = buildFixtureProfile({
+  name: 'A real cvar section named Other',
+  actions: [],
+  cvars: { zz_mine: 'placed', zz_stray: 'unplaced' },
+  cvarSections: [{ id: 'cvs-other', name: 'Other', cvars: ['zz_mine'] }],
+})
+
+/**
+ * **A cvar section and a bind category with the same name**, in one file.
+ *
+ * `cvs=` and `cat=` are separate namespaces (D3's decision - "cvar and bind namespaces don't
+ * cross-mint"), and nothing but the tag says which of the two a banner opens. A reader keying either
+ * registry on the banner's *title* would fuse the two into one section, so the `set` line would come
+ * back filed under the bind category (or the entry under the cvar section), and the next render
+ * would move it - a line that walks between two sections on every reload.
+ */
+export const cvarSectionNamedLikeCategoryProfile: ConfigProfile = buildFixtureProfile({
+  name: 'A cvar section named like a bind category',
+  cvars: { cl_maxfps: '250' },
+  cvarSections: [{ id: 'cvs-movement', name: 'Movement', cvars: ['cl_maxfps'] }],
+  actions: [
+    action({
+      name: 'Forward',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: '+forward' }],
+      keys: [{ key: 'w' }],
+      categoryId: 'movement',
+    }),
+  ],
+})
+
+/**
+ * **One cvar name listed under two different sections**, and a second one listed both in a section's
+ * own ungrouped run and in that same section's sub-section.
+ *
+ * Hand-constructed: the UI cannot produce this, but the model does not forbid it and a hand-edited
+ * `state.json` can. The story's rule is "a name listed twice is claimed by its first placement", and
+ * the writer implements it with two claim sets threaded across every section *and* sub-section
+ * (`render.ts#makeCvarResolver`) precisely so the second mention writes nothing - because writing it
+ * twice would make the file state the same cvar under two banners, and the reader would then have to
+ * pick one, silently *moving* the cvar for whoever wrote the file.
+ *
+ * `crosshair` is a catalogue cvar and `zz_dup` is not, so both of the writer's claim sets
+ * (`placedCatalogIds`, keyed on the catalogue identity, and `placedUnknownNames`, keyed on the
+ * literal name) are exercised, along with the reader's mirrored pair in `cvarSectionRegistry`.
+ */
+export const cvarInTwoSectionsProfile: ConfigProfile = buildFixtureProfile({
+  name: 'One cvar listed in two cvar sections',
+  actions: [],
+  cvars: { crosshair: '2', zz_dup: 'once' },
+  cvarSections: [
+    { id: 'cvs-first', name: 'First', cvars: ['crosshair', 'zz_dup'] },
+    {
+      id: 'cvs-second',
+      name: 'Second',
+      cvars: ['crosshair'],
+      subsections: [{ id: 'cvs-second-deep', name: 'Deeper still', cvars: ['zz_dup'] }],
+    },
+  ],
+})
+
+/**
+ * **A section naming a cvar the profile has no value for** - a dangling reference in `cvars`, next
+ * to a name that does resolve.
+ *
+ * The `cvars` list is a membership list, not a second value store, and it is never cross-validated
+ * against `profile.cvars` (the story's "a cvar named in no section is unplaced, never an error",
+ * read the other way round). So `zz_ghost` must produce no `set` line - there is no value to write -
+ * without throwing and without leaving a placeholder the next read could resurrect as a cvar with an
+ * empty value.
+ *
+ * Deliberately a *non-catalogue* name: a catalogue name listed but unstored is not dangling at all,
+ * it renders at `writeValueFor`'s catalogue default (D3's own fixture already covers that with
+ * `m_pitch`). Only a name the catalogue has never heard of and the profile does not store has
+ * nothing behind it whatsoever.
+ */
+export const danglingCvarReferenceProfile: ConfigProfile = buildFixtureProfile({
+  name: 'A cvar section naming a cvar the profile does not have',
+  actions: [],
+  cvars: { zz_real: 'yes' },
+  cvarSections: [{ id: 'cvs-ghosts', name: 'Has a ghost', cvars: ['zz_ghost', 'zz_real'] }],
+})
+
+/** Exactly 120 characters - `configCvarSectionSchema`'s own `name` cap (story 059 D1), so this is
+ * the longest section name that can reach the model through IPC at all. Padded with `.` rather than
+ * `-` or a space: `-` is `bannerTitle`'s `DASHES_SUFFIX` character (a name ending in one would be
+ * indistinguishable from the banner's own fill for an untagged banner) and a trailing space would
+ * make the test about `trimEnd` instead of about the length. The test asserts the length, so the
+ * fixture cannot quietly stop being a cap case. */
+export const LONG_CVAR_SECTION_NAME =
+  'Aiming, mouse smoothing and every other thing that belongs to the mouse'.padEnd(120, '.')
+
+/**
+ * **A non-ASCII section name and a 120-character one**, in one profile.
+ *
+ * Both travel as banner prose through `sanitizeComment` (which drops every code point above `0xFF`,
+ * since the file is written latin1) and `fitProseAndTag` (which truncates prose to keep the tag
+ * whole). `Öffnungswinkel & Mausempfindlichkeit` is entirely inside latin1 on purpose - unlike
+ * `beyondLatin1NamesProfile` above, which is lossy by design and therefore cannot hold a fixed
+ * point - so nothing here is *allowed* to be dropped, and the cap-length name has to survive whole
+ * as well: `BANNER_CONTENT_BUDGET` is ~1015 characters, so 120 plus a tag fits with room to spare
+ * and a truncation here would mean the budget, not the name, had changed.
+ */
+export const hostileCvarSectionNamesProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Non-ASCII and cap-length cvar section names',
+  actions: [],
+  cvars: { zz_umlaut: 'ja', sensitivity: '5' },
+  cvarSections: [
+    { id: 'cvs-umlaut', name: 'Öffnungswinkel & Mausempfindlichkeit', cvars: ['zz_umlaut'] },
+    { id: 'cvs-long', name: LONG_CVAR_SECTION_NAME, cvars: ['sensitivity'] },
+  ],
+})
+
+/**
+ * **The always-write toggle off, with catalogue cvars the profile stores but no section places.**
+ *
+ * `fov` is placed and keeps its stored value; `cl_gun` is a catalogue cvar with a stored value that
+ * *no* section holds, and `zz_stray` is the same case for a non-catalogue name. With
+ * `writeCatalogDefaults: false` the writer emits no `Defaults` bucket at all, so `cl_gun` produces
+ * no line anywhere - not even under `Other`, which is only ever the non-catalogue leftovers bucket
+ * (`render.ts#buildCvarSections`, D2's documented rule and the story's "what Settings shows is what
+ * the file gets"). `zz_stray` is unaffected by the toggle and still lands under `Other`.
+ *
+ * The consequence that makes this worth a fixture rather than a line in a doc comment is stated
+ * outright in `round-trip.test.ts`: a value the file does not carry cannot come back off it, so the
+ * *file*, and any profile rebuilt from it, is one cvar shorter than the profile that wrote it. That
+ * is a deliberate trade, not a leak - but it is exactly the kind of thing that has to be asserted
+ * where someone changing the toggle will see it.
+ */
+export const unplacedCatalogueDefaultsOffProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Unplaced catalogue cvars with the defaults toggle off',
+  actions: [],
+  writeCatalogDefaults: false,
+  cvars: { fov: '110', cl_gun: '0', zz_stray: 'x' },
+  cvarSections: [{ id: 'cvs-placed', name: 'Placed', cvars: ['fov'] }],
+})
+
+/**
+ * **One section holding a catalogue cvar and a non-catalogue one**, in that order.
+ *
+ * The two travel through entirely different halves of the writer - `cl_maxfps` through `claimed`
+ * plus `writeValueFor` (catalogue identity, case-insensitive), `zz_test` through `unknownAll`
+ * (literal name) - and through the reader's mirrored pair. They still have to come out under one
+ * banner, in the order the section lists them, and come back into one section: a reader that split
+ * the section by cvar kind, or a writer that sorted the non-catalogue name into the `Other` bucket
+ * anyway, would move a line the user placed.
+ */
+export const mixedCatalogueCvarSectionProfile: ConfigProfile = buildFixtureProfile({
+  name: 'One cvar section holding a catalogue and a non-catalogue cvar',
+  actions: [],
+  cvars: { cl_maxfps: '250', zz_test: 'hello' },
+  cvarSections: [{ id: 'cvs-mixed', name: 'Mixed bag', cvars: ['cl_maxfps', 'zz_test'] }],
+})
+
+/** Story 059 D4's own corpus - see the block comment above for why these are not in
+ * `ROUND_TRIP_FIXTURES`. `round-trip.test.ts` holds every one of them to story 042's fixed-point
+ * property and to "no cvar duplicated, moved or lost", and each additionally has its own case
+ * pinning the thing byte-equality cannot see. */
+export const CVAR_SECTION_ADVERSARIAL_FIXTURES: ConfigProfile[] = [
+  emptyCvarSectionProfile,
+  literalOtherCvarSectionProfile,
+  cvarSectionNamedLikeCategoryProfile,
+  cvarInTwoSectionsProfile,
+  danglingCvarReferenceProfile,
+  hostileCvarSectionNamesProfile,
+  unplacedCatalogueDefaultsOffProfile,
+  mixedCatalogueCvarSectionProfile,
+]
 
 /** Every fixture the D9 round-trip property test iterates over. */
 export const ROUND_TRIP_FIXTURES: ConfigProfile[] = [

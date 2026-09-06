@@ -1,8 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import type { CvarDef } from '@shared/config/cvar-facts'
-import { ALL_CVARS, GRAPHICS_CVARS, PLAYER_CVARS } from '@shared/config/cvar-catalog'
+import { CVAR_GROUP_ORDER } from '@shared/config/cvar-facts'
+import { ALL_CVARS, GRAPHICS_CVARS, PLAYER_CVARS, findCvar } from '@shared/config/cvar-catalog'
 import { cvarChangeKey } from '@shared/config/profile-diff'
-import { buildCvarGroups, effectiveDefaultFor, isChanged, normalizeCvarValue } from './cvar-rows'
+import { STANDARD_TEMPLATE, type ConfigCvarSection } from '@shared/modules/config'
+import {
+  buildCvarSectionGroups,
+  cvarGroupKey,
+  effectiveDefaultFor,
+  isChanged,
+  normalizeCvarValue,
+  visibleRowsOf,
+  type CvarRowEntry,
+  type CvarSectionResult,
+} from './cvar-rows'
 
 const toggleDef: CvarDef = {
   name: 'freelook',
@@ -28,6 +39,26 @@ const noFactsDef: CvarDef = {
   descriptionKey: 'config.cvar.gl_shadows.description',
   default: '0',
   common: true,
+}
+
+/** Every section expanded, so the Advanced collapse is out of the way for the tests that are about
+ * grouping rather than about the collapse itself. */
+function allExpanded(sections: readonly ConfigCvarSection[]): Set<string> {
+  return new Set([
+    ...sections.map((section) => cvarGroupKey('section', section.id)),
+    cvarGroupKey('defaults', 'defaults'),
+    cvarGroupKey('other', 'other'),
+  ])
+}
+
+function rowNames(groups: CvarSectionResult[]): string[] {
+  return groups.flatMap((group) => visibleRowsOf(group).map((row) => row.name))
+}
+
+function groupNamed(groups: CvarSectionResult[], key: string): CvarSectionResult {
+  const found = groups.find((group) => group.key === key)
+  if (!found) throw new Error(`no group ${key} in ${groups.map((g) => g.key).join(', ')}`)
+  return found
 }
 
 describe('normalizeCvarValue', () => {
@@ -95,192 +126,485 @@ describe('isChanged', () => {
   })
 })
 
-describe('buildCvarGroups', () => {
-  it('orders groups exactly Player, Network, Graphics, Sound', () => {
-    const groups = buildCvarGroups(ALL_CVARS, { values: {}, engine: null })
-    expect(groups.map((g) => g.group)).toEqual(['player', 'network', 'graphics', 'sound'])
+/**
+ * Story 059 D7. The template case is the regression guard the story's acceptance names first ("a
+ * template profile looks as today"): `STANDARD_TEMPLATE.cvarSections` groups `ALL_CVARS` by
+ * `CVAR_GROUP_ORDER`, so grouping by section has to produce exactly the row order grouping by
+ * `def.group` produced before this deliverable.
+ */
+describe('buildCvarSectionGroups - a template profile is unchanged', () => {
+  const sections = STANDARD_TEMPLATE.cvarSections
+  const values = { ...STANDARD_TEMPLATE.cvars }
+  /** The template seeds one cvar the catalogue does not carry (`volume`, next to the catalogue's
+   * `s_volume`). The pre-059 writer already wrote it into the file's untagged `Other` bucket while
+   * the Settings tab - which iterated `ALL_CVARS` - showed no row for it at all. That is precisely
+   * the invisibility AC3 removes, so the template's four sections must look exactly as before *and*
+   * this one must now have a plain row. Derived rather than spelled out, so the assertion follows
+   * the template if it ever seeds another one. */
+  const templateUnknown = Object.keys(values).filter((name) => !findCvar(name))
+
+  it('renders the four seeded sections in the catalogue group order, then the Other bucket', () => {
+    const groups = buildCvarSectionGroups({ sections, values })
+    expect(groups.filter((group) => group.kind === 'section').map((group) => group.section?.id)).toEqual(
+      [...CVAR_GROUP_ORDER],
+    )
+    expect(groups.map((group) => group.kind)).toEqual(['section', 'section', 'section', 'section', 'other'])
   })
 
-  it('computes correct per-group total and edited counts, independent of filter/editedOnly', () => {
-    const playerGroupDefs = ALL_CVARS.filter((d) => d.group === 'player')
-    // Story 049 D7: "edited" is a lookup into `unsavedKeys` (the profile's pending change set),
-    // never a value comparison here - `fov`'s key being in the set is what makes it edited,
-    // independent of what `values` itself holds.
-    const unsavedKeys = new Set([cvarChangeKey('fov')])
-    const values: Record<string, string> = { fov: '120' }
-    const groups = buildCvarGroups(ALL_CVARS, { values, unsavedKeys, engine: null })
-    const player = groups.find((g) => g.group === 'player')!
-    expect(player.total).toBe(playerGroupDefs.length)
-    expect(player.edited).toBe(1)
-  })
-
-  it('is not edited when the row is absent from unsavedKeys, even if the value differs from the catalogue default', () => {
-    // The exact scenario story 049 D7 must still get right: a profile saved long ago with a
-    // non-default fov must not show as edited just because it still differs from the catalogue
-    // default - only presence in the change set decides "edited" now.
-    const values: Record<string, string> = { fov: '120' }
-    const groups = buildCvarGroups(ALL_CVARS, { values, unsavedKeys: new Set(), engine: null })
-    const player = groups.find((g) => g.group === 'player')!
-    expect(player.edited).toBe(0)
-  })
-
-  it('keys unsavedKeys via cvarChangeKey, the same identity the change set uses', () => {
-    // A key spelled some other way (e.g. differently-cased, or not run through cvarChangeKey at
-    // all) must not accidentally match - this guards against a caller passing raw cvar names when
-    // the catalogue key differs in casing.
-    const values: Record<string, string> = { fov: '120' }
-    const groups = buildCvarGroups(ALL_CVARS, {
+  it('produces exactly the rows the pre-059 def.group grouping produced, in the same order', () => {
+    const groups = buildCvarSectionGroups({
+      sections,
       values,
-      unsavedKeys: new Set(['FOV']),
-      engine: null,
+      expandedSections: allExpanded(sections),
     })
-    const player = groups.find((g) => g.group === 'player')!
-    expect(player.edited).toBe(0)
+    const expected = CVAR_GROUP_ORDER.flatMap((group) =>
+      ALL_CVARS.filter((def) => def.group === group).map((def) => def.name),
+    )
+    const sectionGroups = groups.filter((group) => group.kind === 'section')
+    expect(rowNames(sectionGroups)).toEqual(expected)
+    expect(sectionGroups.every((group) => visibleRowsOf(group).every((row) => row.kind === 'catalog'))).toBe(
+      true,
+    )
   })
 
-  it('filter matches over the cvar name, case-insensitively, with no resolver supplied', () => {
-    const byName = buildCvarGroups(ALL_CVARS, { values: {}, engine: null, filter: 'FOV' })
-    const namedRows = byName.flatMap((g) => g.rows.map((r) => r.def.name))
-    expect(namedRows).toContain('fov')
-    expect(namedRows).not.toContain('sensitivity')
+  it('has no Defaults bucket, because every catalogue cvar is placed', () => {
+    const groups = buildCvarSectionGroups({ sections, values })
+    expect(groups.some((group) => group.kind === 'defaults')).toBe(false)
+    // Even with the writer's toggle explicitly on - the bucket is empty, so it is not rendered at
+    // all (the writer drops the empty block, this drops the empty group).
+    const withToggle = buildCvarSectionGroups({ sections, values, writeCatalogDefaults: true })
+    expect(withToggle.map((group) => group.key)).toEqual(groups.map((group) => group.key))
+  })
 
-    const byNameFragment = buildCvarGroups(ALL_CVARS, {
+  it("gives the template's one non-catalogue cvar a plain row instead of hiding it", () => {
+    expect(templateUnknown.length).toBeGreaterThan(0)
+    const groups = buildCvarSectionGroups({ sections, values })
+    const other = groupNamed(groups, cvarGroupKey('other', 'other'))
+    expect(other.rows.map((row) => row.name)).toEqual([...templateUnknown].sort())
+    expect(other.rows.every((row) => row.kind === 'plain')).toBe(true)
+  })
+
+  it('counts per section and in total agree with the rows actually rendered', () => {
+    const groups = buildCvarSectionGroups({
+      sections,
+      values,
+      expandedSections: allExpanded(sections),
+    })
+    for (const group of groups) {
+      expect(group.total).toBe(visibleRowsOf(group).length)
+    }
+    expect(groups.reduce((sum, group) => sum + group.total, 0)).toBe(
+      ALL_CVARS.length + templateUnknown.length,
+    )
+  })
+})
+
+describe('buildCvarSectionGroups - the profile owns the grouping', () => {
+  const sections: ConfigCvarSection[] = [
+    {
+      id: 'general',
+      name: 'General Settings',
+      cvars: ['hostname', 'fov', 'adr0'],
+      subsections: [
+        { id: 'downloads', name: 'Downloads', cvars: ['allow_download', 'allow_download_maps'] },
+        { id: 'empty', name: 'Nothing yet', cvars: [] },
+      ],
+    },
+    { id: 'gfx', name: 'GRAFIK SETTINGS', cvars: ['gl_shadows'] },
+  ]
+  const values: Record<string, string> = {
+    hostname: 'my server',
+    fov: '110',
+    adr0: '1.2.3.4',
+    allow_download: '1',
+    allow_download_maps: '0',
+    gl_shadows: '1',
+  }
+
+  it('renders the ungrouped run first, then the sub-sections in the profile order', () => {
+    const groups = buildCvarSectionGroups({
+      sections,
+      values,
+      writeCatalogDefaults: false,
+      expandedSections: allExpanded(sections),
+    })
+    const general = groupNamed(groups, cvarGroupKey('section', 'general'))
+    expect(general.rows.map((row) => row.name)).toEqual(['hostname', 'fov', 'adr0'])
+    expect(general.subgroups.map((sub) => sub.subsection.id)).toEqual(['downloads', 'empty'])
+    expect(general.subgroups[0]!.rows.map((row) => row.name)).toEqual([
+      'allow_download',
+      'allow_download_maps',
+    ])
+  })
+
+  it('keeps an empty sub-section visible so it can still be renamed or deleted', () => {
+    const groups = buildCvarSectionGroups({ sections, values, writeCatalogDefaults: false })
+    const general = groupNamed(groups, cvarGroupKey('section', 'general'))
+    const empty = general.subgroups.find((sub) => sub.subsection.id === 'empty')!
+    expect(empty.rows).toEqual([])
+    expect(empty.total).toBe(0)
+  })
+
+  it('gives a non-catalogue cvar a plain row with its stored value, and a catalogue one a rich row', () => {
+    const groups = buildCvarSectionGroups({
+      sections,
+      values,
+      writeCatalogDefaults: false,
+      expandedSections: allExpanded(sections),
+    })
+    const general = groupNamed(groups, cvarGroupKey('section', 'general'))
+    const hostname = general.rows.find((row) => row.name === 'hostname')!
+    expect(hostname.kind).toBe('plain')
+    expect(hostname.value).toBe('my server')
+    expect('def' in hostname).toBe(false)
+
+    const fov = general.rows.find((row) => row.name === 'fov')!
+    expect(fov.kind).toBe('catalog')
+    expect(fov.kind === 'catalog' && fov.def.name).toBe('fov')
+    expect(fov.value).toBe('110')
+  })
+
+  it("counts a section's sub-section rows into the section's own total and edited counts", () => {
+    const unsavedKeys = new Set([cvarChangeKey('allow_download'), cvarChangeKey('fov')])
+    const groups = buildCvarSectionGroups({
+      sections,
+      values,
+      unsavedKeys,
+      writeCatalogDefaults: false,
+      expandedSections: allExpanded(sections),
+    })
+    const general = groupNamed(groups, cvarGroupKey('section', 'general'))
+    expect(general.total).toBe(5)
+    expect(general.edited).toBe(2)
+    expect(general.total).toBe(visibleRowsOf(general).length)
+    const downloads = general.subgroups[0]!
+    expect(downloads.total).toBe(2)
+    expect(downloads.edited).toBe(1)
+  })
+
+  it('claims a name listed twice by its first placement only', () => {
+    const twice: ConfigCvarSection[] = [
+      { id: 'a', name: 'A', cvars: ['fov', 'hostname'] },
+      { id: 'b', name: 'B', cvars: ['fov', 'hostname'] },
+    ]
+    const groups = buildCvarSectionGroups({
+      sections: twice,
+      values,
+      writeCatalogDefaults: false,
+      expandedSections: allExpanded(twice),
+    })
+    expect(groupNamed(groups, cvarGroupKey('section', 'a')).rows.map((r) => r.name)).toEqual([
+      'fov',
+      'hostname',
+    ])
+    expect(groupNamed(groups, cvarGroupKey('section', 'b')).rows).toEqual([])
+    expect(rowNames(groups).filter((name) => name === 'fov')).toHaveLength(1)
+  })
+
+  it('shows no row for a non-catalogue name a section lists but the profile has no value for', () => {
+    const dangling: ConfigCvarSection[] = [{ id: 'a', name: 'A', cvars: ['zz_never_stored'] }]
+    const groups = buildCvarSectionGroups({
+      sections: dangling,
       values: {},
-      engine: null,
-      filter: 'cl_maxfps',
+      writeCatalogDefaults: false,
     })
-    const rows2 = byNameFragment.flatMap((g) => g.rows.map((r) => r.def.name))
-    expect(rows2).toContain('cl_maxfps')
+    expect(rowNames(groups)).toEqual([])
   })
 
-  it('filter matches the resolved label/description text, not the i18n key, when a resolver is supplied', () => {
-    // Sprint decision: "Filter matches cvar name, label and description (case-insensitive)" - a user
-    // types words like "field of view", never the i18n key "config.cvar.fov.label" (review finding).
+  it('renders a catalogue name a section lists even with no stored value - the file gets its default', () => {
+    const listed: ConfigCvarSection[] = [{ id: 'a', name: 'A', cvars: ['fov'] }]
+    const groups = buildCvarSectionGroups({
+      sections: listed,
+      values: {},
+      writeCatalogDefaults: false,
+      expandedSections: allExpanded(listed),
+    })
+    const row = groupNamed(groups, cvarGroupKey('section', 'a')).rows[0]!
+    expect(row.kind).toBe('catalog')
+    expect(row.value).toBe('')
+  })
+
+  it("carries the profile's own spelling of a catalogue cvar rather than the catalogue's", () => {
+    const listed: ConfigCvarSection[] = [{ id: 'a', name: 'A', cvars: ['fov'] }]
+    const groups = buildCvarSectionGroups({
+      sections: listed,
+      values: { FOV: '120' },
+      writeCatalogDefaults: false,
+      expandedSections: allExpanded(listed),
+    })
+    // One row, not two: `FOV` and `fov` are the same cvar to `findCvar`, so it can never end up
+    // both placed here and in the reserved `Other` bucket as an unknown name.
+    expect(rowNames(groups)).toEqual(['FOV'])
+    expect(groupNamed(groups, cvarGroupKey('section', 'a')).rows[0]!.value).toBe('120')
+  })
+})
+
+describe('buildCvarSectionGroups - unplaced cvars are never hidden', () => {
+  const sections: ConfigCvarSection[] = [{ id: 'mine', name: 'Mine', cvars: ['fov'] }]
+  const values: Record<string, string> = { fov: '110', hostname: 'srv', adr0: '1.2.3.4' }
+
+  it('puts every unplaced non-catalogue cvar into the reserved Other group, alphabetically', () => {
+    const groups = buildCvarSectionGroups({ sections, values, writeCatalogDefaults: false })
+    const other = groupNamed(groups, cvarGroupKey('other', 'other'))
+    expect(other.section).toBeNull()
+    expect(other.rows.map((row) => row.name)).toEqual(['adr0', 'hostname'])
+    expect(other.rows.every((row) => row.kind === 'plain')).toBe(true)
+  })
+
+  it('puts every unplaced catalogue cvar into the reserved Defaults group when the toggle is on', () => {
+    const groups = buildCvarSectionGroups({
+      sections,
+      values,
+      expandedSections: allExpanded(sections),
+    })
+    const defaults = groupNamed(groups, cvarGroupKey('defaults', 'defaults'))
+    expect(defaults.total).toBe(ALL_CVARS.length - 1)
+    expect(defaults.rows.map((row) => row.name)).not.toContain('fov')
+    // Reserved buckets come last, in the writer's own order: sections, Defaults, Other.
+    expect(groups.map((group) => group.kind)).toEqual(['section', 'defaults', 'other'])
+  })
+
+  it('drops the Defaults group when the profile turns catalogue defaults off, keeping Other', () => {
+    const groups = buildCvarSectionGroups({ sections, values, writeCatalogDefaults: false })
+    expect(groups.map((group) => group.kind)).toEqual(['section', 'other'])
+  })
+
+  it('shows every cvar of a profile that has no sections at all', () => {
+    const groups = buildCvarSectionGroups({ values })
+    const names = rowNames(groups)
+    expect(names).toContain('hostname')
+    expect(names).toContain('adr0')
+    // `fov` is a catalogue cvar, so it lands in Defaults rather than Other - with its stored value.
+    const fov = groups
+      .flatMap((group) => visibleRowsOf(group))
+      .find((row) => row.name === 'fov')!
+    expect(fov.value).toBe('110')
+  })
+
+  it('never lets one cvar appear in two groups', () => {
+    const groups = buildCvarSectionGroups({
+      sections,
+      values,
+      expandedSections: allExpanded(sections),
+    })
+    const names = rowNames(groups)
+    expect(new Set(names).size).toBe(names.length)
+  })
+})
+
+describe('buildCvarSectionGroups - filter, unsaved-only and the Advanced collapse', () => {
+  const sections: ConfigCvarSection[] = [
+    {
+      id: 'player',
+      name: 'Player',
+      // m_pitch is `common: false` in the catalogue; hostname is not in the catalogue at all.
+      cvars: ['fov', 'm_pitch', 'hostname', 'sensitivity'],
+    },
+  ]
+  const values: Record<string, string> = { fov: '110', hostname: 'srv' }
+  const key = cvarGroupKey('section', 'player')
+
+  it('filters over the cvar name, case-insensitively, with no resolver supplied', () => {
+    const groups = buildCvarSectionGroups({
+      sections,
+      values,
+      writeCatalogDefaults: false,
+      filter: 'FOV',
+    })
+    expect(groupNamed(groups, key).rows.map((row) => row.name)).toEqual(['fov'])
+  })
+
+  it('filters a plain row over its name too', () => {
+    const groups = buildCvarSectionGroups({
+      sections,
+      values,
+      writeCatalogDefaults: false,
+      filter: 'hostn',
+    })
+    expect(groupNamed(groups, key).rows.map((row) => row.name)).toEqual(['hostname'])
+  })
+
+  it('filters over the resolved label/description text, not the i18n key', () => {
+    // Sprint decision (story 021): "Filter matches cvar name, label and description
+    // (case-insensitive)" - a user types words like "field of view", never "config.cvar.fov.label".
     const labelText = (def: CvarDef): string => (def.name === 'fov' ? 'Field of view' : def.name)
     const descriptionText = (def: CvarDef): string =>
       def.name === 'sensitivity' ? 'Mouse look speed' : def.name
 
-    const byLabel = buildCvarGroups(ALL_CVARS, {
-      values: {},
-      engine: null,
+    const byLabel = buildCvarSectionGroups({
+      sections,
+      values,
+      writeCatalogDefaults: false,
       filter: 'field of view',
       labelText,
       descriptionText,
     })
-    expect(byLabel.flatMap((g) => g.rows.map((r) => r.def.name))).toContain('fov')
+    expect(groupNamed(byLabel, key).rows.map((row) => row.name)).toEqual(['fov'])
 
-    const byDescription = buildCvarGroups(ALL_CVARS, {
-      values: {},
-      engine: null,
+    const byDescription = buildCvarSectionGroups({
+      sections,
+      values,
+      writeCatalogDefaults: false,
       filter: 'mouse look',
       labelText,
       descriptionText,
     })
-    expect(byDescription.flatMap((g) => g.rows.map((r) => r.def.name))).toContain('sensitivity')
+    expect(groupNamed(byDescription, key).rows.map((row) => row.name)).toEqual(['sensitivity'])
 
-    // Typing a substring of the i18n key itself ("label"/"config"/"cvar") must not match everything
-    // now that resolved text, not the key, is what filtering matches against.
-    const byKeyFragment = buildCvarGroups(ALL_CVARS, {
-      values: {},
-      engine: null,
+    // A plain row has no label or description at all, so a resolver can never rescue it - and the
+    // resolvers are never called for one either (they take a `CvarDef` there is none of).
+    const byKeyFragment = buildCvarSectionGroups({
+      sections,
+      values,
+      writeCatalogDefaults: false,
       filter: 'label',
       labelText,
       descriptionText,
     })
-    expect(byKeyFragment.flatMap((g) => g.rows).length).toBe(0)
+    expect(groupNamed(byKeyFragment, key).rows).toEqual([])
   })
 
-  it('editedOnly restricts rows to edited ones without touching total/edited counts', () => {
-    const unsavedKeys = new Set([cvarChangeKey('fov')])
-    const values: Record<string, string> = { fov: '120' }
-    const groups = buildCvarGroups(ALL_CVARS, {
+  it('editedOnly restricts rows to unsaved ones without touching total/edited', () => {
+    const unsavedKeys = new Set([cvarChangeKey('hostname')])
+    const groups = buildCvarSectionGroups({
+      sections,
       values,
       unsavedKeys,
-      engine: null,
+      writeCatalogDefaults: false,
       editedOnly: true,
+      expandedSections: new Set([key]),
     })
-    const player = groups.find((g) => g.group === 'player')!
-    expect(player.rows.map((r) => r.def.name)).toEqual(['fov'])
-    expect(player.total).toBe(ALL_CVARS.filter((d) => d.group === 'player').length)
+    const group = groupNamed(groups, key)
+    expect(group.rows.map((row) => row.name)).toEqual(['hostname'])
+    expect(group.total).toBe(4)
+    expect(group.edited).toBe(1)
+    // The header's "N unsaved" is exactly what "Unsaved only" leaves on screen - the two counters
+    // cannot disagree.
+    expect(group.edited).toBe(visibleRowsOf(group).length)
   })
 
-  it('showAdvanced=false hides non-common rows and counts them as advancedHidden', () => {
-    const groups = buildCvarGroups(ALL_CVARS, { values: {}, engine: null, showAdvanced: false })
-    const player = groups.find((g) => g.group === 'player')!
-    const rowNames = player.rows.map((r) => r.def.name)
-    // m_pitch is common: false in the catalog.
-    expect(rowNames).not.toContain('m_pitch')
-    expect(player.advancedHidden).toBeGreaterThan(0)
-    expect(player.rows.every((r) => r.def.common !== false)).toBe(true)
-  })
-
-  it('hasAdvanced stays true once the group is expanded, independent of advancedHidden', () => {
-    // Player has non-common rows (e.g. m_pitch), so hasAdvanced must be true whether the section is
-    // collapsed or expanded - unlike advancedHidden, which legitimately drops to 0 once expanded.
-    // Before the fix, the toggle button was gated on `advancedHidden > 0` and vanished here, leaving
-    // no way to re-collapse the section (review finding).
-    const collapsed = buildCvarGroups(ALL_CVARS, { values: {}, engine: null, showAdvanced: false })
-    const expanded = buildCvarGroups(ALL_CVARS, { values: {}, engine: null, showAdvanced: true })
-    const playerCollapsed = collapsed.find((g) => g.group === 'player')!
-    const playerExpanded = expanded.find((g) => g.group === 'player')!
-
-    expect(playerCollapsed.hasAdvanced).toBe(true)
-    expect(playerCollapsed.advancedHidden).toBeGreaterThan(0)
-    expect(playerExpanded.hasAdvanced).toBe(true)
-    expect(playerExpanded.advancedHidden).toBe(0)
-  })
-
-  it('hasAdvanced stays true when a filter already reveals every advanced row', () => {
-    // Filtering to "m_pitch" reveals the only non-common row that matches, so advancedHidden for the
-    // *other* non-common rows is unrelated to whether the group's advanced section exists at all -
-    // hasAdvanced must not depend on filter state (review finding: the toggle must not lie or vanish
-    // while filtering).
-    const groups = buildCvarGroups(ALL_CVARS, {
-      values: {},
-      engine: null,
-      showAdvanced: false,
-      filter: 'm_pitch',
+  it('keys unsavedKeys via cvarChangeKey, the same identity the change set uses', () => {
+    const groups = buildCvarSectionGroups({
+      sections,
+      values,
+      unsavedKeys: new Set(['FOV']),
+      writeCatalogDefaults: false,
     })
-    const player = groups.find((g) => g.group === 'player')!
-    expect(player.hasAdvanced).toBe(true)
+    expect(groupNamed(groups, key).edited).toBe(0)
   })
 
-  it('hasAdvanced is false for a group with no non-common rows at all', () => {
-    const allCommon: CvarDef[] = [{ ...toggleDef, group: 'network' }]
-    const groups = buildCvarGroups(allCommon, { values: {}, engine: null, showAdvanced: false })
-    const network = groups.find((g) => g.group === 'network')!
-    expect(network.hasAdvanced).toBe(false)
-    expect(network.advancedHidden).toBe(0)
+  it('resolves a plain row\'s unsaved key from its verbatim name', () => {
+    const groups = buildCvarSectionGroups({
+      sections,
+      values,
+      unsavedKeys: new Set([cvarChangeKey('hostname')]),
+      writeCatalogDefaults: false,
+    })
+    const hostname = groupNamed(groups, key).rows.find((row) => row.name === 'hostname')!
+    expect(hostname.edited).toBe(true)
+  })
+
+  it('hides non-common rows while collapsed and counts them as advancedHidden', () => {
+    const groups = buildCvarSectionGroups({ sections, values, writeCatalogDefaults: false })
+    const group = groupNamed(groups, key)
+    expect(group.rows.map((row) => row.name)).not.toContain('m_pitch')
+    expect(group.advancedHidden).toBe(1)
+    expect(group.hasAdvanced).toBe(true)
+  })
+
+  it('never hides a non-catalogue row behind the Advanced collapse', () => {
+    // The story's decision: a cvar the catalogue knows nothing about is always "common", because
+    // calling it advanced would be a guess.
+    const groups = buildCvarSectionGroups({ sections, values, writeCatalogDefaults: false })
+    expect(groupNamed(groups, key).rows.map((row) => row.name)).toContain('hostname')
+  })
+
+  it('hasAdvanced stays true once the section is expanded, independent of advancedHidden', () => {
+    const expanded = buildCvarSectionGroups({
+      sections,
+      values,
+      writeCatalogDefaults: false,
+      expandedSections: new Set([key]),
+    })
+    const group = groupNamed(expanded, key)
+    expect(group.hasAdvanced).toBe(true)
+    expect(group.advancedHidden).toBe(0)
+    expect(group.rows.map((row) => row.name)).toContain('m_pitch')
+  })
+
+  it('hasAdvanced is false for a section with no non-common rows at all', () => {
+    const plainOnly: ConfigCvarSection[] = [{ id: 'x', name: 'X', cvars: ['hostname'] }]
+    const groups = buildCvarSectionGroups({
+      sections: plainOnly,
+      values,
+      writeCatalogDefaults: false,
+    })
+    const group = groupNamed(groups, cvarGroupKey('section', 'x'))
+    expect(group.hasAdvanced).toBe(false)
+    expect(group.advancedHidden).toBe(0)
   })
 
   it('reveals a filter hit inside a collapsed Advanced row instead of hiding it', () => {
-    // m_pitch is common: false - collapsed under showAdvanced: false, but a filter that matches it
-    // must reveal it rather than looking like "no results".
-    const groups = buildCvarGroups(ALL_CVARS, {
-      values: {},
-      engine: null,
-      showAdvanced: false,
+    const groups = buildCvarSectionGroups({
+      sections,
+      values,
+      writeCatalogDefaults: false,
       filter: 'm_pitch',
     })
-    const player = groups.find((g) => g.group === 'player')!
-    expect(player.rows.map((r) => r.def.name)).toContain('m_pitch')
-    // Revealed by the filter, so it is not counted among the rows still hidden by the collapse -
-    // only the other non-common player rows that do *not* match "m_pitch" are (ch_scale, msg).
-    const otherNonCommonPlayerRows = ALL_CVARS.filter(
-      (d) => d.group === 'player' && d.common === false && d.name !== 'm_pitch',
-    )
-    expect(player.advancedHidden).toBe(otherNonCommonPlayerRows.length)
+    const group = groupNamed(groups, key)
+    expect(group.rows.map((row) => row.name)).toEqual(['m_pitch'])
+    expect(group.advancedHidden).toBe(0)
+    expect(group.hasAdvanced).toBe(true)
   })
 
-  it('resolves an engine-absent cvar default from the catalog only, never attributing engine numbers', () => {
-    // No engine in scope at all.
-    const noEngine = buildCvarGroups(ALL_CVARS, { values: { fov: '' }, engine: null })
-    const fovNoEngine = noEngine.flatMap((g) => g.rows).find((r) => r.def.name === 'fov')!
-    expect(effectiveDefaultFor(fovNoEngine.def, null)).toBe('100') // catalog default, not any engine's '90'
+  it('applies the collapse inside a sub-section too, counting it into the section', () => {
+    const nested: ConfigCvarSection[] = [
+      {
+        id: 'player',
+        name: 'Player',
+        cvars: ['fov'],
+        subsections: [{ id: 'mouse', name: 'Mouse', cvars: ['m_pitch', 'hostname'] }],
+      },
+    ]
+    const collapsed = buildCvarSectionGroups({
+      sections: nested,
+      values,
+      writeCatalogDefaults: false,
+    })
+    const group = groupNamed(collapsed, key)
+    expect(group.subgroups[0]!.rows.map((row) => row.name)).toEqual(['hostname'])
+    expect(group.advancedHidden).toBe(1)
+    expect(group.hasAdvanced).toBe(true)
 
-    // An engine in scope that the catalog has no byEngine facts for on this cvar at all.
+    const expanded = buildCvarSectionGroups({
+      sections: nested,
+      values,
+      writeCatalogDefaults: false,
+      expandedSections: new Set([key]),
+    })
+    expect(groupNamed(expanded, key).subgroups[0]!.rows.map((row) => row.name)).toEqual([
+      'm_pitch',
+      'hostname',
+    ])
+  })
+})
+
+describe('buildCvarSectionGroups - the engine-facts selector has nothing to say about a plain row', () => {
+  it('carries no def for a plain row, so no default, range or note can be resolved for it', () => {
+    const groups = buildCvarSectionGroups({
+      sections: [{ id: 'a', name: 'A', cvars: ['hostname', 'gl_shadows'] }],
+      values: { hostname: 'srv', gl_shadows: '1' },
+      writeCatalogDefaults: false,
+      expandedSections: new Set([cvarGroupKey('section', 'a')]),
+    })
+    const rows: CvarRowEntry[] = groupNamed(groups, cvarGroupKey('section', 'a')).rows
+    const plain = rows.find((row) => row.name === 'hostname')!
+    expect(plain.kind).toBe('plain')
+
+    // The catalogue row next to it still resolves its facts exactly as before, engine or not.
+    const catalog = rows.find((row) => row.name === 'gl_shadows')!
     const shadowsDef = GRAPHICS_CVARS.find((d) => d.name === 'gl_shadows')!
-    expect(shadowsDef.byEngine).toBeUndefined()
+    expect(catalog.kind === 'catalog' && catalog.def).toBe(shadowsDef)
     expect(effectiveDefaultFor(shadowsDef, 'r1q2')).toBe(shadowsDef.default)
   })
 })

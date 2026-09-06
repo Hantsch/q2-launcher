@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { STATE_SCHEMA_VERSION } from '@shared/constants'
 import { allCatalogRows, commandsForRow, nameForCatalogRow } from '@shared/config/catalog-rows'
-import { TEMPLATE_ACTION_CATEGORIES, TEMPLATE_BOUND_CATALOG_IDS } from '@shared/modules/config'
+import { findCvar } from '@shared/config/cvar-catalog'
+import {
+  buildTemplateCvarSections,
+  TEMPLATE_ACTION_CATEGORIES,
+  TEMPLATE_BOUND_CATALOG_IDS,
+} from '@shared/modules/config'
 import { scopedLogger } from '../lib/logger'
 
 const log = scopedLogger('migrations')
@@ -57,6 +62,19 @@ export const MIGRATIONS: readonly MigrationStep[] = [
       return {
         ...doc,
         configProfiles: profiles.map((raw) => materialiseTemplateCategories(raw as Record<string, unknown>)),
+      }
+    },
+  },
+  {
+    to: 3,
+    describe:
+      'seed cvarSections (Player/Network/Graphics/Sound + Other) for every profile that predates ' +
+      'story 059 (D6: Settings used to render live from the catalogue group, never persisted)',
+    apply: (doc) => {
+      const profiles = Array.isArray(doc.configProfiles) ? doc.configProfiles : []
+      return {
+        ...doc,
+        configProfiles: profiles.map((raw) => materialiseCvarSections(raw as Record<string, unknown>)),
       }
     },
   },
@@ -117,6 +135,53 @@ function materialiseTemplateCategories(raw: Record<string, unknown>): Record<str
   }
 
   return { ...raw, categories, actions, dirty: true }
+}
+
+/** Reserved id/label for the migration's own "Other" section - a REAL, taggable `ConfigCvarSection`
+ * (`cvs=other` once rendered), not the writer's untagged reserved bucket of the same display name
+ * (`render.ts`'s `OTHER_CVAR_GROUP_LABEL`). The two coexist without collision: the writer's bucket
+ * only ever catches non-catalogue cvars that no *real* section claims, and this migration always
+ * gives every non-catalogue cvar it finds a real, explicit home in this section, so nothing is left
+ * for the writer's untagged bucket to pick up - both would render identically either way, since
+ * they use the same label. */
+const MIGRATED_OTHER_SECTION_ID = 'other'
+const MIGRATED_OTHER_SECTION_LABEL = 'Other'
+
+/**
+ * Story 059 D6: seeds `cvarSections` once for a profile that predates the feature - every profile
+ * whose `cvarSections` is missing entirely (a NEW profile created after D1 shipped already gets one
+ * from `create()`/import, so this only ever fires for an old one). Mirrors
+ * `materialiseTemplateCategories` right above: idempotent by construction (a profile that already
+ * has `cvarSections` - including one this step already seeded - is returned untouched, so a second
+ * run is a byte-identical no-op), and marks the profile dirty rather than touching its canonical
+ * file, same precedent and same reason.
+ *
+ * Seeds all four groups with EVERY `ALL_CVARS` name, exactly like `STANDARD_TEMPLATE.cvarSections`
+ * seeds a brand-new template profile - regardless of whether the migrating profile actually has a
+ * stored value for a given catalogue cvar. This makes a migrated profile's Settings tab match a
+ * template profile's shape (AC7 / Test Plan step 9: "catalogue ones in the four sections"), rather
+ * than a sparse subset that leaves most catalogue cvars to fall into the reserved `Defaults` bucket.
+ *
+ * Any key of `profile.cvars` that is not a catalogue cvar at all (`findCvar` - the same
+ * case-insensitive lookup the writer/reader use to tell "claimed" from "unclaimed" cvars) goes into
+ * one appended `Other` section, in the order `Object.keys` gives them (insertion order, same as
+ * every other raw-document read in this file) - omitted entirely when empty, so a profile with no
+ * non-catalogue cvars gets exactly the four groups and nothing else.
+ */
+function materialiseCvarSections(raw: Record<string, unknown>): Record<string, unknown> {
+  if (raw.cvarSections !== undefined) return raw
+
+  const cvars = raw.cvars && typeof raw.cvars === 'object' ? (raw.cvars as Record<string, string>) : {}
+  const keys = Object.keys(cvars)
+
+  const sections = buildTemplateCvarSections()
+
+  const otherCvars = keys.filter((key) => !findCvar(key))
+  if (otherCvars.length > 0) {
+    sections.push({ id: MIGRATED_OTHER_SECTION_ID, name: MIGRATED_OTHER_SECTION_LABEL, cvars: otherCvars })
+  }
+
+  return { ...raw, cvarSections: sections, writeCatalogDefaults: true, dirty: true }
 }
 
 export interface MigrationOutcome {

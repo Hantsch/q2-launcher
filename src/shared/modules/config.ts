@@ -3,6 +3,8 @@ import type { AmbiguousRebindAlias } from '../config/alias-import'
 // `catalog-rows.ts` imports `ConfigCommand` back from this file, but only as an `import type` -
 // erased at compile time, so this is a value import into a type-only cycle, not a runtime one.
 import { allCatalogRows, commandsForRow, nameForCatalogRow } from '../config/catalog-rows'
+import { ALL_CVARS } from '../config/cvar-catalog'
+import { CVAR_GROUP_LABELS, CVAR_GROUP_ORDER, type CvarDef } from '../config/cvar-facts'
 import type { ModifierTrigger } from '../config/modifier-layers'
 // Type-only both ways: `profile-baseline.ts` needs `ConfigProfile` to describe what it snapshots,
 // this file needs its result type. Both imports are erased at compile time, so the cycle exists in
@@ -42,6 +44,7 @@ export const CONFIG_HANDLERS = {
   switchBinds: 'switchBinds',
   setSwitchBind: 'setSwitchBind',
   setWriteUnbindall: 'setWriteUnbindall',
+  setWriteCatalogDefaults: 'setWriteCatalogDefaults',
   setSectionHeaderStyle: 'setSectionHeaderStyle',
   discard: 'discard',
   importScan: 'import.scan',
@@ -201,6 +204,39 @@ export interface ConfigActionCategory {
 export interface ConfigActionSubcategory {
   id: string
   name: string
+}
+
+/**
+ * Story 059 D1: a profile-owned grouping of cvars, the Settings-tab counterpart of
+ * `ConfigActionCategory` (stories 052/053) - Settings mirrors the profile's own sections instead of
+ * the catalogue's fixed `CvarDef.group` (Player/Network/Graphics/Sound). Same field-for-field shape
+ * as `ConfigActionCategory`: `name` is prose (user-typed or, for a seeded section, the frozen
+ * English default), `nameKey` is the optional i18n display hint set only by a seed
+ * (`STANDARD_TEMPLATE`) and dropped by a rename, and `subsections` is the second and final level
+ * below it - `{ id, name, cvars }`, no `nameKey`, same "always user-typed, never seeded from a
+ * translated built-in" rule `ConfigActionSubcategory` follows.
+ *
+ * `cvars` lists the cvar names (case as typed/seeded, not cross-validated against the catalogue -
+ * an unrecognised name is simply not shown anywhere the catalogue is consulted, not a validation
+ * error) this section holds, directly (not inside one of its `subsections`).
+ */
+export interface ConfigCvarSection {
+  id: string
+  name: string
+  nameKey?: string
+  cvars: string[]
+  subsections?: ConfigCvarSubsection[]
+}
+
+/**
+ * One sub-section (story 059 D1) - the second and final level below a `ConfigCvarSection`. `name`
+ * is user-typed prose, same rule as `ConfigActionSubcategory.name`; no `nameKey` for the same
+ * reason - a sub-section is never seeded from a translated built-in.
+ */
+export interface ConfigCvarSubsection {
+  id: string
+  name: string
+  cvars: string[]
 }
 
 export type ConfigCommand =
@@ -405,6 +441,22 @@ export interface ActionKeySlot {
  * written - and every profile persisted before this story - simply has no `baseline`, which reads as
  * "no known saved state" (the bar then reports that and disables discard rather than guessing a
  * baseline by re-parsing the file).
+ *
+ * `cvarSections` (story 059 D1) is the Settings-tab counterpart of `categories`/`actions` above -
+ * the profile's own cvar sections/sub-sections (`ConfigCvarSection`), which the Settings tab groups
+ * by instead of the catalogue's fixed `CvarDef.group`. Same precedent exactly: optional, so a
+ * profile predating this story simply omits it, and forgiving row-level-drop in the persisted
+ * schema (not a whole-array `.catch()`) so one malformed section does not wipe the rest. Only
+ * `from: 'template'` seeds it (`STANDARD_TEMPLATE.cvarSections`); `from: 'empty'` and every other
+ * creation path carry none.
+ *
+ * `writeCatalogDefaults` (story 059 D1) is a model/schema-only field this deliverable adds -
+ * whether the writer (a later deliverable) should still emit a `set` line for every catalogue cvar
+ * a profile's own sections do not mention, the way it does unconditionally today (story 048 D2).
+ * Optional and forgiving like `writeUnbindall`: a profile with no stored value, including every
+ * profile persisted before this story, behaves exactly as `true` - today's own behaviour - via
+ * `.catch(true)` in the persisted schema (`main/lib/schemas.ts`), so there is no migration step and
+ * no reshaping of existing profiles.
  */
 export interface ConfigProfile {
   id: string
@@ -418,7 +470,9 @@ export interface ConfigProfile {
   layers?: AltLayer[]
   categories?: ConfigActionCategory[]
   actions?: ConfigAction[]
+  cvarSections?: ConfigCvarSection[]
   writeUnbindall?: boolean
+  writeCatalogDefaults?: boolean
   sectionHeaderStyle?: 'dashes' | 'brackets' | 'plain'
   fileHash?: string
   fileSeenAt?: number
@@ -456,6 +510,7 @@ export interface ConfigProfileTemplate {
   readonly binds: Readonly<Record<string, string>>
   readonly categories: readonly ConfigActionCategory[]
   readonly actions: readonly ConfigAction[]
+  readonly cvarSections: readonly ConfigCvarSection[]
 }
 
 /**
@@ -556,6 +611,36 @@ function buildTemplateActions(): ConfigAction[] {
   })
 }
 
+/**
+ * Story 059 D1: `CVAR_GROUP_ORDER`'s four groups, materialised into ordinary, persisted
+ * `ConfigCvarSection` rows - `{ id: <group>, name: <english default>, nameKey, cvars }` each,
+ * mirroring exactly how `STANDARD_TEMPLATE.categories` materialises `TEMPLATE_ACTION_CATEGORIES`.
+ * `id` is the group name itself (`'player'`/`'network'`/`'graphics'`/`'sound'`) - stable and unique
+ * on its own, so no extra id scheme is needed. `name` is `CVAR_GROUP_LABELS`' plain-ASCII English
+ * default; `nameKey` is the same `config.settings.groups.<group>` key the Settings tab already
+ * resolves through i18n (`SettingsTab.tsx`'s own `GROUP_LABEL_KEY`) - not re-exported as a shared
+ * constant there today, so this is the key string spelled out directly, same value either way.
+ * `cvars` is every `ALL_CVARS` entry whose `group` matches (further narrowed by the optional
+ * `include` predicate, when given), in catalogue order. No `subsections` - the catalogue itself
+ * carries no third level.
+ *
+ * Exported (story 059 D6) so the one-time migration for pre-059 profiles
+ * (`main/services/migrations.ts`) can reuse the exact same grouping instead of re-deriving it -
+ * `include` is what lets the migration narrow each group down to only the cvar names a given
+ * profile's own `cvars` actually has, rather than seeding every `ALL_CVARS` name the way a fresh
+ * `STANDARD_TEMPLATE` profile does (the call below, with no `include`, is unaffected).
+ */
+export function buildTemplateCvarSections(include?: (name: string) => boolean): ConfigCvarSection[] {
+  return CVAR_GROUP_ORDER.map((group) => ({
+    id: group,
+    name: CVAR_GROUP_LABELS[group],
+    nameKey: `config.settings.groups.${group}`,
+    cvars: ALL_CVARS.filter((def: CvarDef) => def.group === group && (!include || include(def.name))).map(
+      (def: CvarDef) => def.name,
+    ),
+  }))
+}
+
 export const STANDARD_TEMPLATE: ConfigProfileTemplate = {
   cvars: {
     sensitivity: '3',
@@ -596,6 +681,7 @@ export const STANDARD_TEMPLATE: ConfigProfileTemplate = {
       : {}),
   })),
   actions: buildTemplateActions(),
+  cvarSections: buildTemplateCvarSections(),
 }
 
 export interface CreateConfigProfileInput {
@@ -627,9 +713,18 @@ export interface SetDefaultProfileInput {
   installationId: string
 }
 
+/**
+ * `cvarSections` (story 059 D1) is optional and additive: a caller not yet updated to send the
+ * profile's own cvar sections (every renderer call site before a later deliverable wires this up)
+ * simply omits it, which leaves the profile's stored `cvarSections` untouched - same "send nothing,
+ * change nothing" convention `SetProfileActionsInput`'s whole-field replace fields do not have (those
+ * are required), because this one field is meant to travel independently of the `cvars` map replace
+ * this input already performs.
+ */
 export interface SetProfileCvarsInput {
   profileId: string
   cvars: Record<string, string>
+  cvarSections?: ConfigCvarSection[]
 }
 
 export interface SetProfileBindsInput {
@@ -851,6 +946,16 @@ export interface SetSwitchBindInput {
 export interface SetWriteUnbindallInput {
   profileId: string
   writeUnbindall: boolean
+}
+
+/**
+ * Story 059 D9: sets one profile's `writeCatalogDefaults` flag - a dedicated handler mirroring
+ * `SetWriteUnbindallInput`/`setWriteUnbindall` exactly, just a different boolean field (whether
+ * unplaced catalogue cvars still get written into the reserved `Defaults` section, D1/D2).
+ */
+export interface SetWriteCatalogDefaultsInput {
+  profileId: string
+  writeCatalogDefaults: boolean
 }
 
 /**
@@ -1104,6 +1209,14 @@ export interface ImportPreviewResult {
    * file.
    */
   metadataWarnings: ImportMetadataWarning[]
+  /**
+   * Story 059 D5: the cvar sections `commitImport` would store on the created profile -
+   * `restoreProfileParts`'s own `cvarSections`, passed through unchanged so the preview reflects
+   * exactly what commit produces rather than a second, potentially stale computation. Empty for a
+   * file with no cvar-group banners at all (every cvar reads back unplaced - the reserved `Other`
+   * bucket is the absence of a section, not a section of its own).
+   */
+  cvarSections: ConfigCvarSection[]
 }
 
 export interface ImportCommitInput {

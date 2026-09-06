@@ -46,6 +46,10 @@
  * | `lbl`     | a toggle/press-release state's display label - that state's own alias line only (story 045) |
  * | `sub`     | sub-category id (second-level section header only, story 053) - the parent category is |
  * |           | derivable from the section the banner sits in, so no `cat`/`ord` rides alongside it     |
+ * | `cvs`     | cvar-section id (cvar section header only, story 059) - a distinct namespace from `cat`, |
+ * |           | so a cvar section can never be adopted as a bind category on read or vice versa         |
+ * | `cvsub`   | cvar-sub-section id (second-level cvar section header only, story 059) - the parent cvar |
+ * |           | section is derivable from the section the banner sits in, exactly like `sub`             |
  *
  * Story 050 dropped `e` (entry ref hash), `k` (entry kind) and `slot` (key slot index) from this
  * registry: all three duplicated information the config text or the profile model already carries
@@ -151,6 +155,15 @@ export const KNOWN_META_KEYS = [
   // derivable from the section the banner sits in (the header, story 050's "minimum tag" rule),
   // so no `cat`/`ord` rides alongside it here.
   'sub',
+  // A cvar section header's own id (story 059 D2) - a distinct namespace from `cat` (a cvar
+  // section and a bind category are unrelated groupings; sharing a key would let the reader adopt
+  // one as the other). Appended for the same reason `sub` was: emission order here is the
+  // format's determinism guarantee and every key above it already shipped.
+  'cvs',
+  // A cvar-sub-section header's own id (story 059 D2), the `cvsub` counterpart of `sub` - the
+  // parent cvar section is derivable from the section the banner sits in, so no `cvs` rides
+  // alongside it here either.
+  'cvsub',
 ] as const
 
 export type KnownMetaKey = (typeof KNOWN_META_KEYS)[number]
@@ -173,6 +186,8 @@ export interface MetaTagFields {
   lbl?: string
   ord?: string
   sub?: string
+  cvs?: string
+  cvsub?: string
   [key: string]: string | undefined
 }
 

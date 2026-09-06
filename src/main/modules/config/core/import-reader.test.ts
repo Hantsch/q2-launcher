@@ -65,6 +65,7 @@ describe('readImportableConfig', () => {
       cvars: {},
       cvarComments: {},
       cvarLines: {},
+      cvarFirstLines: {},
       binds: {},
       bindComments: {},
       bindLines: {},

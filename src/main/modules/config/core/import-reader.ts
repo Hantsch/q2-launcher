@@ -265,6 +265,14 @@ export interface ImportResult {
    * same way `cvarComments` is.
    */
   cvarLines: Record<string, ImportedLinePosition>
+  /**
+   * cvar name -> the name's FIRST occurrence's `file`/`line` across every file and exec depth
+   * (story 059 review Fix 3), independent of `cvarLines`' last-assignment-wins position. A cvar's
+   * VALUE is still last-assignment-wins (real engine semantics: a later `set` really does override
+   * an earlier one), but which section a name gets attributed to on import is a placement question,
+   * not a value one - the story's "a name listed twice is claimed by its first placement" rule.
+   */
+  cvarFirstLines: Record<string, ImportedLinePosition>
   /** key name -> bound command, after `unbind`/`unbindall` were applied. */
   binds: Record<string, string>
   /**
@@ -332,6 +340,9 @@ interface ReaderContext {
   filesOpened: number
   /** value + trailing comment + position of the winning `set`/`seta`/`setu`/`sets` for this name. */
   cvars: Map<string, { value: string; comment: string; file: string; line: number }>
+  /** Story 059 review Fix 3: the name's FIRST occurrence's position, recorded once and never
+   * overwritten - see `ImportResult.cvarFirstLines`'s own doc comment. */
+  cvarFirstPositions: Map<string, ImportedLinePosition>
   /** command + trailing comment + position of the bind currently live for this key. */
   binds: Map<string, { command: string; comment: string; file: string; line: number }>
   aliases: Map<string, ImportedAlias>
@@ -521,6 +532,11 @@ async function processFile(
     for (const entry of stream) {
       switch (entry.kind) {
         case 'cvar':
+          // Story 059 review Fix 3: record the FIRST occurrence's position before the value fold
+          // below (which always overwrites) has a chance to lose it.
+          if (!ctx.cvarFirstPositions.has(entry.item.name)) {
+            ctx.cvarFirstPositions.set(entry.item.name, { file, line: entry.item.line })
+          }
           ctx.cvars.set(entry.item.name, {
             value: entry.item.value,
             comment: entry.item.comment,
@@ -573,6 +589,7 @@ export async function readImportableConfig(
     chain: new Set<string>(),
     filesOpened: 0,
     cvars: new Map<string, { value: string; comment: string; file: string; line: number }>(),
+    cvarFirstPositions: new Map<string, ImportedLinePosition>(),
     binds: new Map<string, { command: string; comment: string; file: string; line: number }>(),
     aliases: new Map<string, ImportedAlias>(),
     comments: [],
@@ -597,6 +614,7 @@ export async function readImportableConfig(
     cvarLines: Object.fromEntries(
       Array.from(ctx.cvars, ([name, v]) => [name, { file: v.file, line: v.line }]),
     ),
+    cvarFirstLines: Object.fromEntries(ctx.cvarFirstPositions),
     binds: Object.fromEntries(Array.from(ctx.binds, ([key, v]) => [key, v.command])),
     bindComments: Object.fromEntries(Array.from(ctx.binds, ([key, v]) => [key, v.comment])),
     bindLines: Object.fromEntries(

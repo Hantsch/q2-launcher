@@ -5,7 +5,7 @@ import type {
   ConfigActionCategory,
   ConfigProfile,
 } from '@shared/modules/config'
-import { TEMPLATE_ACTION_CATEGORIES } from '@shared/modules/config'
+import { STANDARD_TEMPLATE, TEMPLATE_ACTION_CATEGORIES } from '@shared/modules/config'
 import type { AltLayer } from '@shared/config/alt-layers'
 import { generateLayerAliases } from '@shared/config/alt-layers'
 import { keySlotAt } from '@shared/config/action-slots'
@@ -40,6 +40,15 @@ const TEMPLATE_CATEGORIES: ConfigActionCategory[] = TEMPLATE_ACTION_CATEGORIES.m
   nameKey: category.labelKey,
 }))
 
+/**
+ * Story 059 D2: the writer's cvar sections now come from `profile.cvarSections`, not from
+ * `CvarDef.group`/`CVAR_GROUP_ORDER` directly - a test profile that carries no sections of its own
+ * would put every catalogue cvar into the reserved `Defaults` bucket instead of the four
+ * Player/Network/Graphics/Sound sections this file's literals below pin. Seeding the default
+ * `profile()` with `STANDARD_TEMPLATE.cvarSections` (which places every `ALL_CVARS` name across
+ * those same four sections) keeps every pre-059 assertion in this file byte-identical, exactly the
+ * same rebaselining `TEMPLATE_CATEGORIES` above did for story 052's category change.
+ */
 function profile(overrides: Partial<ConfigProfile> = {}): ConfigProfile {
   return {
     id: 'test-id',
@@ -50,6 +59,7 @@ function profile(overrides: Partial<ConfigProfile> = {}): ConfigProfile {
     binds: {},
     assignments: [],
     categories: TEMPLATE_CATEGORIES,
+    cvarSections: STANDARD_TEMPLATE.cvarSections.map((section) => ({ ...section })),
     ...overrides,
   }
 }
@@ -139,7 +149,7 @@ const TEST_PROFILE_UNBINDALL = ['', 'unbindall']
  */
 const TEST_PROFILE_CVAR_DEFAULTS = [
   '',
-  '// --- Player ------------------------------------------------------------------',
+  '// --- Player [q2l cvs=player] -------------------------------------------------',
   'set name        "player"',
   'set skin        "male/grunt"',
   'set fov         "100"',
@@ -152,12 +162,12 @@ const TEST_PROFILE_CVAR_DEFAULTS = [
   'set ch_scale    "1"',
   'set msg         "0"',
   '',
-  '// --- Network -----------------------------------------------------------------',
+  '// --- Network [q2l cvs=network] -----------------------------------------------',
   'set rate      "25000"',
   'set cl_maxfps "125"',
   'set cl_async  "1"',
   '',
-  '// --- Graphics ----------------------------------------------------------------',
+  '// --- Graphics [q2l cvs=graphics] ---------------------------------------------',
   'set vid_fullscreen  "1"',
   'set vid_gamma       "0.8"',
   'set gl_modulate     "2"',
@@ -173,15 +183,22 @@ const TEST_PROFILE_CVAR_DEFAULTS = [
   'set r_maxfps        "125"',
   'set con_alpha       "1"',
   '',
-  '// --- Sound -------------------------------------------------------------------',
+  '// --- Sound [q2l cvs=sound] ---------------------------------------------------',
   'set s_volume "0.7"',
   'set s_khz    "44"',
 ]
 
 /** The four cvar group banners `TEST_PROFILE_CVAR_DEFAULTS` carries, as `banners()` reports them -
  * every rendered file has all four now, since no group can be empty once every catalogue cvar is
- * written. */
-const CVAR_GROUP_BANNERS = ['Player', 'Network', 'Graphics', 'Sound']
+ * written. Story 059 D2: each now carries its own `cvs=<id>` tag, since `profile()`'s default
+ * `cvarSections` (`STANDARD_TEMPLATE.cvarSections`) makes these four real, profile-owned sections
+ * rather than the old untagged catalogue groups. */
+const CVAR_GROUP_BANNERS = [
+  'Player [q2l cvs=player]',
+  'Network [q2l cvs=network]',
+  'Graphics [q2l cvs=graphics]',
+  'Sound [q2l cvs=sound]',
+]
 
 /**
  * `TEST_PROFILE_CVAR_DEFAULTS` with the given cvars carrying a stored value instead of their
@@ -2285,9 +2302,10 @@ describe('story 050 D6: the reduced [q2l ...] tag', () => {
           // `lbl` (story 045, D4) is the tenth registered key - a toggle/press-release state's own
           // display label - `ord` (story 052's F3 fix) the eleventh, a category section header's
           // own position in `profile.categories`, and `sub` (story 053 D2) the twelfth, a
-          // second-level section header's own sub-category id. Each joined the list here rather than
-          // replacing anything, which is exactly what "a key addition alone needs no
-          // `META_FORMAT_VERSION` bump" means.
+          // second-level section header's own sub-category id. `cvs`/`cvsub` (story 059 D2) are the
+          // thirteenth and fourteenth, a cvar section/sub-section header's own id - a distinct
+          // namespace from `cat`/`sub`. Each joined the list here rather than replacing anything,
+          // which is exactly what "a key addition alone needs no `META_FORMAT_VERSION` bump" means.
           // `id` (story 051 D2) is the profile's own stable id - like `v`, only ever emitted on the
           // header block's own tag line, never a per-line one.
           expect([
@@ -2304,6 +2322,8 @@ describe('story 050 D6: the reduced [q2l ...] tag', () => {
             'lbl',
             'ord',
             'sub',
+            'cvs',
+            'cvsub',
           ]).toContain(key)
         }
       }

@@ -451,3 +451,210 @@ describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story
     expect(dall.categoryId).toBe('drops')
   })
 })
+
+/**
+ * Story 059 D5: `dm.cfg` files every cvar under the banner it actually sits beneath - drawn with no
+ * `//` marker at all (`<<--- .: General Settings :. --->>`, `config-parser.ts` classifies it as
+ * `unrecognized`, never as a comment), which is exactly the shape `foreignBannerCommentText`
+ * (`profile-restore.ts`) exists to recognise anyway.
+ *
+ * Section ATTRIBUTION and VALUE folding are two different questions (story 059 review Fix 3). The
+ * 25 `set` lines under `dm.cfg`'s `General Settings` banner (lines 8-33) name 25 *distinct* cvar
+ * names - `cl_vwep`, `in_mouse` and `in_joystick` are each `set` a second time further down, under
+ * `Grafik Settings` (lines 186, 230, 229), but a name's SECTION is claimed by its FIRST placement
+ * (the story's own decision, "a name listed twice is claimed by its first placement" - the same rule
+ * a dangling `categoryId` reference already gets), independent of which `set` line's VALUE actually
+ * wins at runtime (still the last one, unchanged - real engine semantics). So all three names stay
+ * attributed to `General Settings`, the section they are FIRST placed under, even though their
+ * stored value comes from the later `Grafik Settings` line. `m_filter` is a different case: its only
+ * line above `General Settings` (line 3, `m_filter 1`) has no `set`/`seta`/`setu`/`sets` keyword, so
+ * `config-parser.ts` never recognises it as a cvar assignment at all (it is a plain unrecognized
+ * line) - `m_filter`'s one and only real `set` is at line 233, under `Grafik Settings`, so that is
+ * where it is placed. Confirmed against the real fixture text line by line, not assumed.
+ */
+describe("story 059 D5: dm.cfg's own section banners become cvar sections", () => {
+  const GENERAL_SETTINGS_CVARS = [
+    'name',
+    'crosshair',
+    'hand',
+    'cl_blend',
+    'cl_vwep',
+    'freelook',
+    'in_mouse',
+    'in_joystick',
+    'm_pitch',
+    'allow_download_maps',
+    'allow_download_sounds',
+    'allow_download_models',
+    'allow_download_players',
+    'allow_download',
+    'sky',
+    'adr8',
+    'adr7',
+    'adr6',
+    'adr5',
+    'adr4',
+    'adr3',
+    'adr2',
+    'adr1',
+    'adr0',
+    'hostname',
+  ]
+
+  it("previews dm.cfg's General Settings banner as one cvar section carrying all 25 of its cvars, first-placement-wins", async () => {
+    await buildFixtureGamedir()
+
+    const result = await previewImport(installations(fixtureInstallation()), log, {
+      installationId: 'fixture-install',
+      gameDir: 'baseq2',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    const general = result.value.cvarSections.find((section) => section.name === 'General Settings')
+    expect(general).toBeDefined()
+    expect([...general!.cvars].sort()).toEqual([...GENERAL_SETTINGS_CVARS].sort())
+    // Every other cvar section the file's own banners state is still there too - this is not the
+    // only section, just the one D5's acceptance names.
+    expect(result.value.cvarSections.map((section) => section.name)).toContain('Grafik Settings')
+  })
+
+  it('commits dm.cfg with the same General Settings cvar section the preview reported', async () => {
+    await buildFixtureGamedir()
+
+    let committedCvarSections: { name: string; cvars: string[] }[] = []
+    const result = await commitImport(
+      installations(fixtureInstallation()),
+      log,
+      { installationId: 'fixture-install', gameDir: 'baseq2', name: 'Fixture' },
+      (input) => {
+        committedCvarSections = input.cvarSections
+        return []
+      },
+    )
+
+    expect(result.ok).toBe(true)
+    const general = committedCvarSections.find((section) => section.name === 'General Settings')
+    expect(general).toBeDefined()
+    expect([...general!.cvars].sort()).toEqual([...GENERAL_SETTINGS_CVARS].sort())
+  })
+
+  /**
+   * Story 059 review Fix 3: placement (first occurrence) and value (last occurrence) are decoupled
+   * on purpose - `cl_vwep` stays placed under `General Settings` (its first `set`, line 13) even
+   * though the value actually stored is `Grafik Settings`' later one (line 186), matching real
+   * engine semantics for a repeated `set`. `m_filter` is placed under `Grafik Settings` (its only
+   * real `set`, line 233) and does NOT appear in `General Settings` at all - the bare `m_filter 1` at
+   * line 3 has no `set` keyword, so it is never a cvar assignment in the first place.
+   */
+  it('keeps first-placement for section attribution independent of last-value-wins for the stored value', async () => {
+    await buildFixtureGamedir()
+
+    let committedCvars: Record<string, string> = {}
+    let committedCvarSections: { name: string; cvars: string[] }[] = []
+    const result = await commitImport(
+      installations(fixtureInstallation()),
+      log,
+      { installationId: 'fixture-install', gameDir: 'baseq2', name: 'Fixture' },
+      (input) => {
+        committedCvars = input.cvars
+        committedCvarSections = input.cvarSections
+        return []
+      },
+    )
+
+    expect(result.ok).toBe(true)
+    // The engine's own semantics: the later `set` really did win.
+    expect(committedCvars.cl_vwep).toBe('1')
+    expect(committedCvars.m_filter).toBe('1')
+
+    const general = committedCvarSections.find((section) => section.name === 'General Settings')
+    const grafik = committedCvarSections.find((section) => section.name === 'Grafik Settings')
+    expect(general!.cvars).toContain('cl_vwep')
+    expect(general!.cvars).not.toContain('m_filter')
+    expect(grafik!.cvars).toContain('m_filter')
+    expect(grafik!.cvars).not.toContain('cl_vwep')
+  })
+
+  /**
+   * Story 059 review round 2, Fix B: the dm.cfg-based test right above only proves the pipeline
+   * doesn't crash on a repeated `set` - `cl_vwep`/`m_filter` happen to carry the SAME value at both
+   * their first and second occurrence in the real fixture (lines 13/186, 15/230, 16/229), so that
+   * assertion would still pass even if last-value-wins folding were silently broken and the value
+   * came from the FIRST occurrence instead of the last. This is a small, hand-written synthetic
+   * fixture built specifically so the two banners disagree on the value, which genuinely
+   * distinguishes "placed under its first banner" from "valued from its last `set`".
+   */
+  it('decouples first-placement from last-value-wins with a synthetic fixture where the two banners disagree on the value', async () => {
+    const gamedir = join(root, 'baseq2')
+    await mkdir(gamedir, { recursive: true })
+    const synthetic = [
+      '<<--------------------------- .: First Banner :. ----------------------------->>',
+      'set probe_cvar "1"',
+      '<<--------------------------- .: Second Banner :. ----------------------------->>',
+      'set probe_cvar "2"',
+      'set other_cvar "x"',
+      '',
+    ].join('\n')
+    await writeFile(join(gamedir, 'config.cfg'), Buffer.from(synthetic, 'latin1'))
+
+    let committedCvars: Record<string, string> = {}
+    let committedCvarSections: { name: string; cvars: string[] }[] = []
+    const result = await commitImport(
+      installations(fixtureInstallation()),
+      log,
+      { installationId: 'fixture-install', gameDir: 'baseq2', name: 'Fixture' },
+      (input) => {
+        committedCvars = input.cvars
+        committedCvarSections = input.cvarSections
+        return []
+      },
+    )
+
+    expect(result.ok).toBe(true)
+    // The value stored is the LAST `set` - "Second Banner"'s "2", not "First Banner"'s "1".
+    expect(committedCvars.probe_cvar).toBe('2')
+
+    // The placement is still the FIRST banner it was ever seen under - "First Banner" - not the
+    // banner that won the value.
+    const first = committedCvarSections.find((section) => section.name === 'First Banner')
+    const second = committedCvarSections.find((section) => section.name === 'Second Banner')
+    expect(first!.cvars).toContain('probe_cvar')
+    expect(second!.cvars).not.toContain('probe_cvar')
+  })
+
+  // Acceptance's second half: a file with no recognisable banner at all - `gfx.cfg`'s own lone
+  // `//	[GRAFIK SETTINGS]` comment matches none of `scanComments`' recognisers (no `BANNER_RULE`
+  // dashes/equals run, no `mirroredWrapTitle`/`decorationWrap` shape), so every one of its cvars
+  // stays unplaced - the reserved `Other` bucket, which is the *absence* of a `ConfigCvarSection`,
+  // never a minted one (see `profile-restore.ts`'s own "Cvar sections" doc comment).
+  it('imports a file with no cvar banners at all with an empty cvarSections - every cvar in the reserved Other bucket', async () => {
+    const gamedir = join(root, 'baseq2')
+    await mkdir(gamedir, { recursive: true })
+    const gfx = await readFile(join(FIXTURES_DIR, 'gfx.cfg'), 'latin1')
+    await writeFile(join(gamedir, 'config.cfg'), Buffer.from(gfx, 'latin1'))
+
+    const preview = await previewImport(installations(fixtureInstallation()), log, {
+      installationId: 'fixture-install',
+      gameDir: 'baseq2',
+    })
+    expect(preview.ok).toBe(true)
+    if (!preview.ok) return
+    expect(preview.value.cvarCount).toBeGreaterThan(0)
+    expect(preview.value.cvarSections).toEqual([])
+
+    let committedCvarSections: unknown
+    const commitResult = await commitImport(
+      installations(fixtureInstallation()),
+      log,
+      { installationId: 'fixture-install', gameDir: 'baseq2', name: 'Fixture' },
+      (input) => {
+        committedCvarSections = input.cvarSections
+        return []
+      },
+    )
+    expect(commitResult.ok).toBe(true)
+    expect(committedCvarSections).toEqual([])
+  })
+})

@@ -5,6 +5,7 @@ import { buildImportedActions } from '@shared/config/alias-import'
 import { META_FORMAT_VERSION, formatMetaTag } from '@shared/config/profile-metadata'
 import { COMMENT_LINE_BUDGET, COMMENT_PREFIX, HAND_EDIT_SENTENCE } from '@shared/config/render'
 import {
+  foreignBannerCommentText,
   restoreProfileParts,
   type RestoreProfilePartsInput,
   type RestoreProfilePartsResult,
@@ -1931,5 +1932,115 @@ describe('restoreProfileParts - toggle and press/release entries (story 045)', (
       { kind: 'raw', text: 'wait5' },
       { kind: 'raw', text: 'wait5' },
     ])
+  })
+})
+
+describe('foreignBannerCommentText (story 059 D5)', () => {
+  it("peels dm.cfg's own double-wrapped banner and hands back a mirroredWrapTitle-shaped inner title", () => {
+    const raw =
+      '<<--------------------------- .: General Settings :. ----------------------------->>'
+    expect(foreignBannerCommentText(raw)).toBe('.: General Settings :.')
+  })
+
+  it('recognises a marker-less repeated-decoration sub-header unchanged, same as decorationWrap', () => {
+    expect(foreignBannerCommentText('      ########## 1st row ##########')).toBe(
+      '########## 1st row ##########',
+    )
+  })
+
+  it('recognises a plain mirrored wrap with no outer bracket layer at all', () => {
+    expect(foreignBannerCommentText(' .: Main Key`s :.')).toBe('.: Main Key`s :.')
+  })
+
+  it('does not mistake an ordinary command line for a banner', () => {
+    expect(foreignBannerCommentText('vid_restart')).toBeNull()
+    expect(foreignBannerCommentText('echo "real DArKStar config"')).toBeNull()
+    expect(foreignBannerCommentText('   ')).toBeNull()
+  })
+
+  it('rejects an asymmetric outer wrap - open and close delimiters must be real mirrors', () => {
+    // `<<` mirrors to `>>`, never to itself - a line closing with the wrong bracket is not this
+    // writer's own decoration, so peeling must not silently accept it.
+    expect(foreignBannerCommentText('<<--- .: Title :. ---<<')).toBeNull()
+  })
+})
+
+/**
+ * Story 059 D5: the same wiring `import.ts#mergeForeignBannerComments` does - a marker-less banner
+ * line recognised by `foreignBannerCommentText` and merged into `comments` - reproduced directly at
+ * this layer, so the cvar-section attribution this deliverable is actually about is pinned against
+ * `restoreProfileParts` itself, not only against the end-to-end importer.
+ */
+describe('restoreProfileParts - cvar sections from a marker-less foreign banner (story 059 D5)', () => {
+  it('files cvars under a banner drawn with no `//` marker at all, once its text is recognised', () => {
+    const file = doc('dm.cfg')
+    const banner = foreignBannerCommentText(
+      '<<--------------------------- .: General Settings :. ----------------------------->>',
+    )!
+    file.comment(banner)
+    file.cvar('hostname', '"DArKStar\'s Server"')
+    file.cvar('cl_blend', '"0"')
+    file.comment(
+      foreignBannerCommentText(
+        '<<--------------------------- .: Grafik Settings :. ----------------------------->>',
+      )!,
+    )
+    file.cvar('gl_picmip', '"10"')
+
+    const result = file.restore()
+
+    expect(result.cvarSections.map((section) => section.name)).toEqual([
+      'General Settings',
+      'Grafik Settings',
+    ])
+    const general = result.cvarSections.find((section) => section.name === 'General Settings')!
+    expect([...general.cvars].sort()).toEqual(['cl_blend', 'hostname'])
+    const grafik = result.cvarSections.find((section) => section.name === 'Grafik Settings')!
+    expect(grafik.cvars).toEqual(['gl_picmip'])
+  })
+
+  it('leaves every cvar unplaced when the file has no recognisable banner at all', () => {
+    const file = doc('gfx.cfg')
+    file.comment('\t[GRAFIK SETTINGS]') // gfx.cfg's own real, unrecognised comment
+    file.cvar('gl_jpg_quality', '"85"')
+    file.cvar('cl_maxfps', '"120"')
+
+    const result = file.restore()
+
+    expect(result.cvarSections).toEqual([])
+  })
+
+  /**
+   * Story 059 review Fix 4: 053 D4's repeated-decoration sub-header heuristic
+   * (`heuristicSubcategoryParent`) already promotes a `#####`-style marker-less sub-banner into a
+   * real `Section.kind: 'subcategory'` for the BIND side (`applyForeignSubcategoryHeuristic`'s own
+   * test above, "promotes an adjacent untagged pair into a category with real sub-categories"), but
+   * `cvarSectionKeyFor` had no branch for that kind at all, so a `set` line under the very same
+   * sub-banner fell through to `null` and read back unplaced. A top-level `set`-bearing banner
+   * followed by a `#####`-style sub-banner that ALSO has `set` lines under it is exactly the case
+   * that was silently dropping cvars.
+   */
+  it('files cvars under a repeated-decoration sub-banner exactly as the bind side already does', () => {
+    const file = doc('dm.cfg')
+    file.comment(
+      foreignBannerCommentText(
+        '<<--------------------------- .: General Settings :. ----------------------------->>',
+      )!,
+    )
+    file.cvar('hostname', '"DArKStar\'s Server"')
+    file.comment(' ##### 1st row #####')
+    file.cvar('cl_blend', '"0"')
+    file.comment(' ##### 2nd row #####')
+    file.cvar('cl_vwep', '"1"')
+
+    const result = file.restore()
+
+    expect(result.cvarSections.map((section) => section.name)).toEqual(['General Settings'])
+    const general = result.cvarSections[0]!
+    // The ungrouped run under the top-level banner keeps only what sits directly under it.
+    expect(general.cvars).toEqual(['hostname'])
+    expect(general.subsections?.map((sub) => sub.name)).toEqual(['1st row', '2nd row'])
+    expect(general.subsections![0]!.cvars).toEqual(['cl_blend'])
+    expect(general.subsections![1]!.cvars).toEqual(['cl_vwep'])
   })
 })

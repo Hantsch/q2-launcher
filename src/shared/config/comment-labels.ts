@@ -117,3 +117,36 @@ export function subcategoryLabelFor(
   const subcategory = category?.subcategories?.find((entry) => entry.id === subcategoryId)
   return subcategory?.name ?? subcategoryId
 }
+
+/**
+ * The display name a cvar-section banner shows for a section id (story 059 D2) - mirrors
+ * `categoryLabelFor` one level down, field for field: the profile's own stored `name`, never
+ * `nameKey` (a `ConfigCvarSection` carries one for the same reason a category does - a seeded
+ * section's renderer-side i18n hint - but `render.ts` runs in main, where no `t()` exists, so the
+ * frozen English `name` is the only prose this file may show, exactly as `categoryLabelFor`
+ * decided for categories). A `sectionId` the profile does not carry - stale data pointing at a
+ * section since removed, or the reserved `defaults`/`other` ids this file never looks up by name -
+ * falls back to the id itself, so a banner is never empty.
+ */
+export function cvarSectionLabelFor(sectionId: string, profile: ConfigProfile): string {
+  const section = (profile.cvarSections ?? []).find((entry) => entry.id === sectionId)
+  return section?.name ?? sectionId
+}
+
+/**
+ * The display name a cvar-sub-section banner shows for a sub-section id (story 059 D2) - mirrors
+ * `subcategoryLabelFor` one level down: the profile's own stored `name`, never `nameKey`
+ * (`ConfigCvarSubsection` has none, same "always user-typed, never seeded from a translated
+ * built-in" rule `ConfigActionSubcategory` follows). `sectionId` narrows the search to the one
+ * section the sub-section has to belong to, same reasoning `subcategoryLabelFor` gives. A
+ * `subsectionId` the named section does not carry falls back to the id itself.
+ */
+export function cvarSubsectionLabelFor(
+  sectionId: string,
+  subsectionId: string,
+  profile: ConfigProfile,
+): string {
+  const section = (profile.cvarSections ?? []).find((entry) => entry.id === sectionId)
+  const subsection = section?.subsections?.find((entry) => entry.id === subsectionId)
+  return subsection?.name ?? subsectionId
+}

@@ -36,7 +36,7 @@ import {
   type RestoreProfilePartsInput,
   type RestoreWarning,
 } from '@shared/config/profile-restore'
-import type { ConfigAction, ConfigActionCategory } from '@shared/modules/config'
+import type { ConfigAction, ConfigActionCategory, ConfigCvarSection } from '@shared/modules/config'
 import {
   parseConfigText,
   type ParsedAlias,
@@ -232,6 +232,12 @@ export interface ParsedCanonicalProfile {
   binds: Record<string, string>
   actions: ConfigAction[]
   categories: ConfigActionCategory[]
+  /** The cvar sections the file's own banners state (story 059 D3) - the Settings-tab counterpart
+   * of `categories` above, carried through here for the same two consumers: `rebuild.ts`'s rebuilt
+   * record and `ProfilesStore.adoptFromFile`'s overlay. Never carries the writer's reserved
+   * `Defaults`/`Other` buckets, so the cvars under those read back as plain values in `cvars` and
+   * stay unplaced - see `profile-restore.ts`' own doc comment. */
+  cvarSections: ConfigCvarSection[]
   layers: AltLayer[]
   /** Every discrepancy reading this file back turned up - a malformed tag, a hand-deleted version
    * marker, a tag that disagreed with the config line it sat on (all `restoreProfileParts`'), plus
@@ -253,6 +259,7 @@ function parseCanonicalProfile(file: string, content: string): ParsedCanonicalPr
     binds: Object.fromEntries([...folded.binds.values()].map((bind) => [bind.key, bind.command])),
     actions: restored.actions,
     categories: restored.categories,
+    cvarSections: restored.cvarSections,
     layers: restored.layers,
     // The fold's own reports first: they are about lines `restoreProfileParts` was never handed,
     // and they name content that is missing from everything below them in this result.

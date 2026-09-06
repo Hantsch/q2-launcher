@@ -3,13 +3,17 @@ import type { ConfigProfile } from '@shared/modules/config'
 
 /**
  * Fields this hook ever hands out through `patch()` ahead of their own
- * debounced save landing - `SettingsTab`'s cvars, `ControlsTab`'s categories
+ * debounced save landing - `SettingsTab`'s cvars and cvarSections, `ControlsTab`'s categories
  * and actions. Every other field (assignments, layers, binds, name, ...) is
  * never locally patched by anything, so it is always safe - and, per the
  * review finding below, necessary - to take those straight from the freshest
  * known `profile`.
+ *
+ * Story 059 D8: `cvarSections` joins the list - `SettingsTab`'s section/sub-section CRUD and its
+ * move/add/remove-cvar handlers all `patch({ cvarSections: ... })` ahead of their own save landing,
+ * same reasoning D7 already gives `cvars` itself.
  */
-const LOCALLY_PATCHED_FIELDS = ['cvars', 'categories', 'actions'] as const
+const LOCALLY_PATCHED_FIELDS = ['cvars', 'cvarSections', 'categories', 'actions'] as const
 
 export type LocallyPatchedField = (typeof LOCALLY_PATCHED_FIELDS)[number]
 

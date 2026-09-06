@@ -154,7 +154,24 @@ function populatedConfigProfiles() {
     // src/shared/config/color-cvars.ts:33 `isColorCvar` - every byte is 0x7f
     // or 0x80-0xff) so the message editor's colour-cvar badge has a real
     // token to resolve for the two message actions below.
-    cvars: { sensitivity: '3', crosshair: '0', r: '\x7f\x88\x88\x7f' },
+    //
+    // Story 059 D10: `q2l_fixture_note` is a name `ALL_CVARS` (src/shared/config/cvar-catalog.ts)
+    // does not know - it exists purely so the Settings tab has a real `PlainCvarRow` to show
+    // (D7's "the catalogue does not know this name" row), placed into `PLAIN_FIXTURE_SECTION_ID`
+    // below alongside a real catalogue cvar so the `config-settings` screen's screenshot shows a
+    // user-named section header with both kinds of row under it, not just one.
+    cvars: { sensitivity: '3', crosshair: '0', r: '\x7f\x88\x88\x7f', q2l_fixture_note: 'shown in raw file' },
+    // Story 059 D10: a real, user-named `ConfigCvarSection` (mirrors `ConfigCvarSection`,
+    // src/shared/modules/config.ts) - this profile's `cvarSections` predates D1, so without this
+    // the migration (`materialiseCvarSections`, src/main/services/migrations.ts D6) would seed the
+    // four template group sections instead and there would be no *user-named* section anywhere in
+    // the populated fixture, which is exactly what D10's `config-settings` screen and the
+    // `settings-section-rename-add-cvar` flow both need to show/rename. Holds one real catalogue
+    // cvar (`sensitivity`) alongside the plain one above, so the section's own row list already
+    // demonstrates both a rich `CvarRow` and a `PlainCvarRow` line up together (AC3).
+    cvarSections: [
+      { id: 'fixture-section-custom', name: 'Fixture Section', cvars: ['sensitivity', 'q2l_fixture_note'] },
+    ],
     binds: {
       MOUSE1: '+attack',
       SPACE: '+moveup',

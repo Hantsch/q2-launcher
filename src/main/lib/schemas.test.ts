@@ -236,6 +236,92 @@ describe('configProfileSchema - categories/actions (story 008)', () => {
 })
 
 /**
+ * Story 059 D1: the persisted-schema mirror of `ConfigProfile.cvarSections`/`writeCatalogDefaults` -
+ * the Settings-tab counterpart of `categories`/`actions` above. Same conventions: `cvarSections`
+ * defaults to `[]` when absent, a malformed row is dropped on its own (not the whole profile), cvar
+ * names are never cross-validated against the catalogue, and `writeCatalogDefaults` defaults to
+ * `true` (today's own unconditional-write behaviour) like `writeUnbindall`.
+ */
+describe('configProfileSchema - cvarSections/writeCatalogDefaults (story 059)', () => {
+  const baseProfile = {
+    id: 'p1',
+    name: 'My profile',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    assignments: [],
+  }
+
+  it('parses to cvarSections: [] when the key is absent', () => {
+    const result = configProfileSchema.parse(baseProfile)
+    expect(result.cvarSections).toEqual([])
+  })
+
+  it('defaults writeCatalogDefaults to true when absent or malformed', () => {
+    expect(configProfileSchema.parse(baseProfile).writeCatalogDefaults).toBe(true)
+    expect(
+      configProfileSchema.parse({ ...baseProfile, writeCatalogDefaults: 'nope' }).writeCatalogDefaults,
+    ).toBe(true)
+  })
+
+  it('round-trips a well-formed cvarSections list, including a section with subsections', () => {
+    const result = configProfileSchema.parse({
+      ...baseProfile,
+      cvarSections: [
+        {
+          id: 'player',
+          name: 'Player',
+          nameKey: 'config.settings.groups.player',
+          cvars: ['sensitivity', 'name'],
+          subsections: [{ id: 'sub1', name: 'Aim', cvars: ['sensitivity'] }],
+        },
+      ],
+    })
+    expect(result.cvarSections).toEqual([
+      {
+        id: 'player',
+        name: 'Player',
+        nameKey: 'config.settings.groups.player',
+        cvars: ['sensitivity', 'name'],
+        subsections: [{ id: 'sub1', name: 'Aim', cvars: ['sensitivity'] }],
+      },
+    ])
+  })
+
+  // Story 059 D1: "an unknown cvar name in a section list does not fail validation" - the schema
+  // guards shape only, never cross-references `ALL_CVARS`.
+  it('keeps a section listing a cvar name the catalogue does not recognize', () => {
+    const result = configProfileSchema.parse({
+      ...baseProfile,
+      cvarSections: [{ id: 's1', name: 'Custom', cvars: ['not_a_real_cvar'] }],
+    })
+    expect(result.cvarSections).toHaveLength(1)
+    expect(result.cvarSections[0]).toMatchObject({ cvars: ['not_a_real_cvar'] })
+  })
+
+  it('drops only the malformed section among two, keeping the well-formed one', () => {
+    const result = configProfileSchema.parse({
+      ...baseProfile,
+      cvarSections: [
+        // Missing `name` - malformed.
+        { id: 's1', cvars: [] },
+        // Well-formed.
+        { id: 's2', name: 'Good section', cvars: ['sensitivity'] },
+      ],
+    })
+    expect(result.cvarSections).toHaveLength(1)
+    expect(result.cvarSections[0]).toMatchObject({ id: 's2', name: 'Good section' })
+  })
+
+  it('defaults a section with no subsections field to subsections: []', () => {
+    const result = configProfileSchema.parse({
+      ...baseProfile,
+      cvarSections: [{ id: 's1', name: 'Custom', cvars: [] }],
+    })
+    expect(result.cvarSections[0]).toMatchObject({ subsections: [] })
+  })
+})
+
+/**
  * Story 050: `keys` replaces the old fixed `key`/`secondaryKey`/`keyModifier`/
  * `secondaryKeyModifier` fields. `configActionPersistedSchema` (this file) still accepts the
  * legacy shape and normalises it into `keys` on read - the decision that keeps every profile

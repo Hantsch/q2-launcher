@@ -22,12 +22,15 @@ import { randomUUID } from 'node:crypto'
 import { BASE_GAME_DIR } from '@shared/constants'
 import type { AltLayer } from '@shared/config/alt-layers'
 import {
+  foreignBannerCommentText,
   restoreProfileParts,
+  type RestoreCommentLine,
   type RestoreProfilePartsInput,
 } from '@shared/config/profile-restore'
 import {
   type ConfigAction,
   type ConfigActionCategory,
+  type ConfigCvarSection,
   type ConfigProfile,
   type ImportCommitInput,
   type ImportGamedirCandidate,
@@ -63,6 +66,14 @@ export type CreateProfileFromImport = (input: {
   actions: ConfigAction[]
   categories: ConfigActionCategory[]
   layers: AltLayer[]
+  /**
+   * Story 059 D5: `restoreProfileParts`'s own `cvarSections`, passed through unchanged - the
+   * Settings-tab counterpart of `categories` above. Always an array (possibly empty, never
+   * `undefined`): a foreign config with no cvar-group banners at all files every cvar unplaced,
+   * which is exactly what an empty list means (see `profile-restore.ts`'s "Cvar sections" doc
+   * comment - the reserved `Other` bucket is the *absence* of a section, not a section of its own).
+   */
+  cvarSections: ConfigCvarSection[]
 }) => ConfigProfile[]
 
 /**
@@ -153,6 +164,36 @@ function logDuplicateBinds(
  * empty file/line 0 rather than throwing, so a reader bug degrades to a mis-attributed category
  * instead of a crashed import.
  */
+/**
+ * `result.comments` plus every `result.unrecognized` line `foreignBannerCommentText` recognises as a
+ * foreign author's own marker-less section banner (story 059 D5 - `dm.cfg`'s own
+ * `<<--- .: General Settings :. --->>`/`##### 1st row #####` conventions, which
+ * `config-parser.ts` classifies as `unrecognized` rather than as a comment, since neither ever
+ * carries a `//` marker at all). Merged back into overall document order (`result.filesRead`'s own
+ * file order, then line number within a file) so `scanComments`' "last header above this line"
+ * search - which assumes its input arrives in that order - still works once the two are combined.
+ *
+ * Purely additive and read-only: `result.unrecognized`/`result.preserved` themselves are never
+ * touched, so a line promoted here is *also* still reported as unrecognized to the import dialog -
+ * exactly as any other untagged banner already is (a cvar group's plain label is never removed from
+ * `preserved` either). See `foreignBannerCommentText`'s own doc comment for why this can never
+ * become a second, competing section-boundary mechanism: it only decides what counts as candidate
+ * *input* for `scanComments`, never what a section actually is.
+ */
+function mergeForeignBannerComments(result: ImportResult): RestoreCommentLine[] {
+  const fileOrder = new Map(result.filesRead.map((file, index) => [file, index]))
+  const orderKey = (position: { file: string; line: number }): number =>
+    (fileOrder.get(position.file) ?? 0) * 1_000_000 + position.line
+
+  const bannerComments: RestoreCommentLine[] = []
+  for (const line of result.unrecognized) {
+    const text = foreignBannerCommentText(line.text)
+    if (text !== null) bannerComments.push({ file: line.file, line: line.line, text })
+  }
+
+  return [...result.comments, ...bannerComments].sort((a, b) => orderKey(a) - orderKey(b))
+}
+
 export function toRestoreInput(
   result: ImportResult,
   layerAliases: readonly string[] | undefined,
@@ -179,15 +220,21 @@ export function toRestoreInput(
     }),
     cvars: Object.entries(result.cvars).map(([name, value]) => {
       const position = result.cvarLines[name]
+      // Story 059 review Fix 3: `firstFile`/`firstLine` carry the name's FIRST occurrence
+      // (`result.cvarFirstLines`) separately from `file`/`line`'s last-assignment-wins position -
+      // `restoreProfileParts`'s `readCvarSections` uses the former for section attribution, the
+      // rest of the pipeline keeps using the latter unchanged.
+      const firstPosition = result.cvarFirstLines[name]
       return {
         name,
         value,
         file: position?.file ?? '',
         line: position?.line ?? 0,
         comment: result.cvarComments[name] ?? '',
+        ...(firstPosition ? { firstFile: firstPosition.file, firstLine: firstPosition.line } : {}),
       }
     }),
-    comments: result.comments,
+    comments: mergeForeignBannerComments(result),
     layerAliases,
     newId,
   }
@@ -297,6 +344,7 @@ export async function previewImport(
     metadataVersion: restored.metadataVersion,
     sourceProfileId: restored.sourceProfileId,
     metadataWarnings: toMetadataWarnings(restored.warnings),
+    cvarSections: restored.cvarSections,
   })
 }
 
@@ -398,6 +446,7 @@ export async function commitImport(
     actions: restored.actions,
     categories: restored.categories,
     layers: restored.layers,
+    cvarSections: restored.cvarSections,
   })
 
   return ok(profiles)

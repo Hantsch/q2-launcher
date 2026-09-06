@@ -11,6 +11,7 @@ import {
   type ConfigActionCategory,
 } from '@shared/modules/config'
 import { allCatalogRows } from '@shared/config/catalog-rows'
+import { ALL_CVARS } from '@shared/config/cvar-catalog'
 import type { AltLayer } from '@shared/config/alt-layers'
 import { StateStore } from '../../services/state'
 import { aliasNameFor } from '@shared/config/alias-render'
@@ -128,6 +129,37 @@ describe('ProfilesStore', () => {
     expect(STANDARD_TEMPLATE.categories[0]!.name).not.toBe('Mutated')
     created!.actions![0]!.name = 'Mutated'
     expect(STANDARD_TEMPLATE.actions[0]!.name).not.toBe('Mutated')
+  })
+
+  // Story 059 D1: "a template profile carries four sections holding every ALL_CVARS name".
+  it('creates a profile from the standard template with four cvar sections holding every cvar', () => {
+    const [created] = profiles.create({ name: 'Vanilla', from: 'template' })
+
+    expect(created!.cvarSections).toHaveLength(4)
+    expect(created!.cvarSections!.map((s) => s.id).sort()).toEqual(
+      ['graphics', 'network', 'player', 'sound'].sort(),
+    )
+
+    const allNames = new Set(ALL_CVARS.map((def) => def.name))
+    const sectionNames = created!.cvarSections!.flatMap((s) => s.cvars)
+    expect(new Set(sectionNames)).toEqual(allNames)
+    expect(sectionNames).toHaveLength(ALL_CVARS.length)
+
+    for (const section of created!.cvarSections!) {
+      const groupDefs = ALL_CVARS.filter((def) => def.group === section.id)
+      expect(section.cvars).toEqual(groupDefs.map((def) => def.name))
+    }
+
+    // Copied, not aliased: mutating the created profile must never touch the shared template.
+    created!.cvarSections![0]!.cvars.push('mutated')
+    expect(STANDARD_TEMPLATE.cvarSections[0]!.cvars).not.toContain('mutated')
+  })
+
+  // Story 059 D1: "an empty profile carries none".
+  it('creates an empty profile with no cvar sections', () => {
+    const [created] = profiles.create({ name: 'My Profile', from: 'empty' })
+
+    expect(created!.cvarSections ?? []).toEqual([])
   })
 
   it('allows duplicate names', () => {
@@ -1015,6 +1047,7 @@ describe('ProfilesStore', () => {
         actions: [aliasAction],
         categories: [category],
         layers: [layer],
+        cvarSections: [],
       })
 
       const created = result[0]!
@@ -1048,6 +1081,7 @@ describe('ProfilesStore', () => {
         actions: [weapnextAlias],
         categories: [category],
         layers: [],
+        cvarSections: [],
       })
 
       const created = result[0]!
@@ -1163,6 +1197,7 @@ describe('ProfilesStore', () => {
             binds: { q: 'use railgun' },
             actions: [],
             categories: [],
+            cvarSections: [],
             layers: [],
             writeUnbindall: false,
             sectionHeaderStyle: 'brackets',

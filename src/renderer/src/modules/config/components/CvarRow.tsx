@@ -79,7 +79,7 @@ export interface CvarRowProps {
    * Story 049 D7: whether this row's key is in the profile's pending change set
    * (`useProfileChanges().keys.cvars`, `@shared/config/profile-diff`) - "edited and unsaved," not
    * "differs from the catalogue default" (that stays `isChanged`, used below only for the
-   * default-value text). Computed by the caller (`SettingsTab`'s `buildCvarGroups` call), not here,
+   * default-value text). Computed by the caller (`SettingsTab`'s `buildCvarSectionGroups` call), not here,
    * so the filter/counters/this border/the glyph below always read the exact same predicate rather
    * than four separate re-implementations of it.
    */
@@ -381,6 +381,81 @@ export function CvarRow({ def, engine, value, edited, onChange, otherAssignedEng
           <p className="min-w-0 text-[11.5px] leading-snug text-ink-dim">{flag.text}</p>
         </div>
       ))}
+    </div>
+  )
+}
+
+export interface PlainCvarRowProps {
+  /** The cvar's name exactly as `profile.cvars` spells it - there is no `def.name` to normalise it
+   * against, and the file will carry this spelling verbatim. */
+  name: string
+  value: string
+  /** Same meaning as `CvarRowProps.edited` - presence in the profile's pending change set. */
+  edited: boolean
+  onChange: (value: string) => void
+}
+
+/**
+ * The row for a cvar the catalogue does not know (story 059 D7 / AC3): its name, a plain text value
+ * and the unsaved marker - and deliberately nothing else.
+ *
+ * No label, no description, no control widget beyond a text field, no default, no range, no engine
+ * facts, no caveat sub-rows and no validation: the catalogue carries no facts about this cvar, so
+ * every one of those would be a guess, which is exactly what AC3 forbids ("never validated against
+ * facts the catalogue does not have"). The engine-facts selector above the list therefore has
+ * nothing to say about this row either - the third column states that once, plainly, instead of
+ * leaving an empty cell that reads as "missing" rather than "not applicable".
+ *
+ * Same grid, row height and unsaved affordances as `CvarRow` above (`ROW_GRID`, `min-h-11`, the
+ * left border *and* the `PencilLine` glyph, so the unsaved signal is never colour-only - story 049
+ * AC10), so the two kinds of row line up column for column inside one section.
+ */
+export function PlainCvarRow({ name, value, edited, onChange }: PlainCvarRowProps) {
+  const { t } = useTranslation()
+  const labelId = useId()
+  const noFacts = t('config.cvar.plain.noFacts')
+
+  return (
+    <div
+      className={cn(
+        'grid items-center gap-3.5 border-b border-line border-l-2 px-3 py-1.5',
+        ROW_GRID,
+        'min-h-11',
+        edited ? 'border-l-flame-600' : 'border-l-transparent',
+      )}
+    >
+      <div className="min-w-0">
+        <div className="flex items-baseline gap-2">
+          <span id={labelId} className="truncate font-mono text-[13px] text-ink">
+            {name}
+          </span>
+          {edited && (
+            <span
+              role="img"
+              aria-label={t('config.cvar.unsavedLabel')}
+              title={t('config.cvar.unsavedLabel')}
+              className="shrink-0 text-flame-500"
+            >
+              <PencilLine aria-hidden className="size-3" />
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="min-w-0">
+        <Input
+          aria-labelledby={labelId}
+          type="text"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </div>
+
+      <div className="min-w-0 text-right text-xs leading-tight">
+        <div className="truncate text-ink-faint" title={noFacts}>
+          {noFacts}
+        </div>
+      </div>
     </div>
   )
 }

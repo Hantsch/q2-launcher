@@ -75,6 +75,7 @@ import {
   setProfileLayersInputSchema,
   setSectionHeaderStyleInputSchema,
   setSwitchBindInputSchema,
+  setWriteCatalogDefaultsInputSchema,
   setWriteUnbindallInputSchema,
   switchBindsInputSchema,
   syncStateInputSchema,
@@ -688,6 +689,18 @@ export const configModule: MainModule = {
       },
     )
 
+    // Story 059 D9: mirrors `setWriteUnbindall` right above exactly - a dedicated setter for one
+    // boolean, write-affecting (it changes whether `buildCvarSections` writes unplaced catalogue
+    // cvars into the reserved `Defaults` section, D1/D2), so it takes the same `markUnsaved` tail.
+    handle(
+      CONFIG_HANDLERS.setWriteCatalogDefaults,
+      setWriteCatalogDefaultsInputSchema,
+      (input): ConfigProfile[] => {
+        profiles.setWriteCatalogDefaults(input)
+        return markUnsaved(input.profileId)
+      },
+    )
+
     // Story 042 D7: mirrors `setWriteUnbindall` right above exactly - a dedicated setter for one
     // field, write-affecting (it changes which decoration `renderProfileFile` draws around every
     // section banner), so it takes the same `markUnsaved` tail. Story 043 D4's acceptance list does
@@ -1083,6 +1096,7 @@ export const configModule: MainModule = {
                   binds: read.profile.binds,
                   actions: read.profile.actions,
                   categories: read.profile.categories,
+                  cvarSections: read.profile.cvarSections,
                   layers: read.profile.layers,
                   writeUnbindall: detectWriteUnbindall(read.content),
                   sectionHeaderStyle:
