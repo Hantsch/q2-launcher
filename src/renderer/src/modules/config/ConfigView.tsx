@@ -33,13 +33,15 @@ import {
 } from './lib/file-source-refresh'
 import { ProfileChangesProvider } from './lib/profile-changes'
 import { RawDraftProvider, useRawDraft } from './lib/raw-draft'
-import { resolveSaveOutcome } from './lib/save-bar'
+import { isProfileDirty, resolveSaveOutcome } from './lib/save-bar'
 import { analyzeTidyUp } from './lib/tidy-up-findings'
 import { validateProfileForEngines } from './lib/validation-scope'
 import { useFileSourceRefresh } from './lib/useFileSourceRefresh'
 import { useProfileDraft } from './lib/useProfileDraft'
 import { OverviewKeyboardPanel } from './OverviewKeyboardPanel'
-import { ProfileSaveBar } from './components/ProfileSaveBar'
+import { ProfileSaveActions } from './components/ProfileSaveActions'
+import { UnsavedChangesTab } from './components/UnsavedChangesTab'
+import { UnsavedIndicator, UnsavedTabBadge } from './components/UnsavedIndicator'
 import { RawFileTab } from './RawFileTab'
 import { RenameProfileDialog } from './RenameProfileDialog'
 import { SettingsTab } from './SettingsTab'
@@ -57,7 +59,7 @@ interface FileDiagnostic {
 }
 
 type Screen = 'list' | 'detail'
-type DetailTab = 'overview' | 'settings' | 'controls' | 'aliases' | 'raw' | 'care'
+type DetailTab = 'overview' | 'settings' | 'controls' | 'aliases' | 'raw' | 'care' | 'unsaved'
 
 /**
  * Story 044 D6: the active tab, widened to optionally carry a focus target for the tab it is
@@ -354,8 +356,8 @@ export function ConfigView() {
    * on top of that.
    *
    * `adopted` is reported as a toast (AC3: "never a silent swap") - this module's existing one-shot
-   * transient-notice idiom, per `ProfileSaveBar`'s own `pushToast` usage. `conflict` is reported the
-   * same way `ProfileSaveBar`/`resolveSaveOutcome` (D6) stub it: a plain toast, no dialog - D5's own
+   * transient-notice idiom, per `ProfileSaveActions`'s own `pushToast` usage. `conflict` is reported the
+   * same way `ProfileSaveActions`/`resolveSaveOutcome` (D6) stub it: a plain toast, no dialog - D5's own
    * doc comment already says this pair of triggers should not realistically produce a conflict
    * (that needs a dirty profile plus an external edit in the same instant), and the real two-pane
    * resolution is D8's job.
@@ -406,6 +408,13 @@ export function ConfigView() {
    * an open draft silently destroyed external edits.
    */
   const rawDraftActiveRef = useRef(false)
+  /**
+   * The same `active` signal as the ref above, as state - the ref exists because
+   * `useFileSourceRefresh` must not re-render on it, but the Unsaved tab's own visibility must
+   * (it is a tab that appears and disappears). Both are set from the one `onActiveChange` call
+   * below, so they cannot drift.
+   */
+  const [rawDraftActive, setRawDraftActive] = useState(false)
 
   useFileSourceRefresh({
     profileId: selectedId,
@@ -418,7 +427,7 @@ export function ConfigView() {
    * D4's existing `save` handler exactly as-is: `save` writes from cache whenever the file is
    * missing or unchanged, so there is nothing new to build on the main side. `resolveSaveOutcome`
    * (D6, `lib/save-bar.ts`) is reused rather than re-implemented for the failure branches, so an
-   * unreadable-file surprise here reports through the identical toast `ProfileSaveBar` would.
+   * unreadable-file surprise here reports through the identical toast `ProfileSaveActions` would.
    *
    * A `'conflict'` outcome (story 043 D8's new action type) is not expected on this path - the
    * file was reported `missing` a moment ago, so a save reaching `changedOnDisk` here means it
@@ -450,26 +459,63 @@ export function ConfigView() {
     })
   }
 
-  const tabs: { id: DetailTab; label: string; badge?: string; badgeTone?: 'danger' | 'warning' }[] =
-    [
-      { id: 'overview', label: t('config.tabs.overview') },
-      { id: 'settings', label: t('config.tabs.settings') },
-      { id: 'controls', label: t('config.tabs.controls') },
-      { id: 'aliases', label: t('config.tabs.aliases') },
-      { id: 'raw', label: t('config.tabs.raw') },
-      {
-        id: 'care',
-        label: t('config.tabs.care'),
-        // Errors take priority over warnings for the one badge a tab button can
-        // show; the panel itself lists both. Always present (never conditional
-        // on findings existing) - see `ValidationPanel`'s own doc comment.
-        ...(validationCounts.errors > 0
-          ? { badge: String(validationCounts.errors), badgeTone: 'danger' as const }
-          : validationCounts.warnings > 0
-            ? { badge: String(validationCounts.warnings), badgeTone: 'warning' as const }
-            : {}),
-      },
-    ]
+  /**
+   * There is something unsaved right now - either structured edits (`profile.dirty`, the server's
+   * own flag) or a raw text draft (mirrored out of `RawDraftProvider` above, since this component
+   * mounts that provider and so cannot read its context). Computed here rather than inside the
+   * unsaved components because the *tab strip* needs it: the Unsaved tab exists only while it is
+   * true.
+   */
+  const hasUnsaved = selected !== null && (isProfileDirty(selected) || rawDraftActive)
+
+  /**
+   * Saving or discarding the last change makes the Unsaved tab disappear underneath the user, so
+   * the view falls back to Overview rather than leaving `activeTab` pointing at a tab with no
+   * button in the strip (which would render an empty Panel with no way back).
+   */
+  useEffect(() => {
+    if (activeTab === 'unsaved' && !hasUnsaved) setTabState({ tab: 'overview' })
+  }, [activeTab, hasUnsaved])
+
+  const tabs: {
+    id: DetailTab
+    label: string
+    badge?: string
+    badgeTone?: 'danger' | 'warning'
+    /** A rendered badge instead of a string, for a count only a component below the detail
+     * screen's providers can compute (`UnsavedTabBadge`). */
+    badgeNode?: ReactNode
+  }[] = [
+    { id: 'overview', label: t('config.tabs.overview') },
+    { id: 'settings', label: t('config.tabs.settings') },
+    { id: 'controls', label: t('config.tabs.controls') },
+    { id: 'aliases', label: t('config.tabs.aliases') },
+    { id: 'raw', label: t('config.tabs.raw') },
+    {
+      id: 'care',
+      label: t('config.tabs.care'),
+      // Errors take priority over warnings for the one badge a tab button can
+      // show; the panel itself lists both. Always present (never conditional
+      // on findings existing) - see `ValidationPanel`'s own doc comment.
+      ...(validationCounts.errors > 0
+        ? { badge: String(validationCounts.errors), badgeTone: 'danger' as const }
+        : validationCounts.warnings > 0
+          ? { badge: String(validationCounts.warnings), badgeTone: 'warning' as const }
+          : {}),
+    },
+    // Last in the strip, to the right of Care, and only while there is actually something
+    // unsaved - the two dirty states are transient, so unlike Care (always present) a permanent
+    // tab here would be empty most of the time. Its count badge is a node, see `badgeNode`.
+    ...(hasUnsaved && selected
+      ? [
+          {
+            id: 'unsaved' as const,
+            label: t('config.tabs.unsaved'),
+            badgeNode: <UnsavedTabBadge profile={selected} />,
+          },
+        ]
+      : []),
+  ]
 
   // Story 057 D2: the raw tab turns this whole view into a full-height code editor, so the page
   // itself must stop scrolling and hand its vertical space down a flex chain instead (outer
@@ -499,6 +545,7 @@ export function ConfigView() {
     >
       {tab.label}
       {tab.badge && <Badge tone={tab.badgeTone ?? 'neutral'}>{tab.badge}</Badge>}
+      {tab.badgeNode}
     </button>
   ))
 
@@ -594,7 +641,7 @@ export function ConfigView() {
               Story 057 D5: the raw-text draft lives next to the structured change set, not inside
               it (story Decisions) - one provider per source of "unsaved", both wrapping the whole
               detail screen so the save bar can act on either without knowing which tab is showing.
-              `handleProfileUpdated` is the same single-profile merge `ProfileSaveBar`'s own `onSaved`
+              `handleProfileUpdated` is the same single-profile merge `ProfileSaveActions`'s own `onSaved`
               already uses: a raw save returns an ordinary updated profile.
             */}
             <RawDraftProvider
@@ -602,6 +649,7 @@ export function ConfigView() {
               onSaved={handleProfileUpdated}
               onActiveChange={(active) => {
                 rawDraftActiveRef.current = active
+                setRawDraftActive(active)
               }}
             >
               <div
@@ -634,6 +682,14 @@ export function ConfigView() {
                     >
                       {t('config.nav.back')}
                     </Button>
+                    {/* No `UnsavedIndicator` in this row, unlike the non-raw name block below: the
+                        raw tab folds name, tabs and actions into one row, and adding Save/Discard
+                        to it already costs the width the badge would need to stay on one line -
+                        which is editor height, the one thing story 057 AC1 ("at least 30 lines
+                        visible at 1280x800") measures. The Unsaved tab's own count badge sits right
+                        there in the same row, and the raw tab's toolbar already names the pending
+                        changes ("N unsaved changes are not in this file yet"), so nothing here goes
+                        unsaid. */}
                     {isRawFill && (
                       <h2 className="truncate font-display text-sm tracking-[0.06em] text-ink uppercase">
                         {selected.name}
@@ -644,6 +700,20 @@ export function ConfigView() {
                     <div className="flex flex-wrap items-center gap-1.5">{tabButtons}</div>
                   )}
                   <div className="flex items-center gap-2">
+                    {/*
+                      Save and Discard live here, in the header's right-hand cluster, instead of the
+                      dedicated save-bar row that used to sit between the name and the tabs - that
+                      row is gone (its status is the indicator next to the name, its change list is
+                      the Unsaved tab). Ahead of Assignments/Rename/Delete in the cluster: they are
+                      the actions a user reaches for while editing, and they are the only ones here
+                      that come and go, so putting them first keeps the always-present controls at a
+                      stable position on the right edge.
+                    */}
+                    <ProfileSaveActions
+                      profile={selected}
+                      onSaved={handleProfileUpdated}
+                      onDiscarded={handleDiscarded}
+                    />
                     <AssignmentsMenu profile={selected} onChanged={setProfiles} />
                     <div className="flex items-center gap-1">
                       <RenameHeaderButton onClick={() => setShowRename(true)} />
@@ -661,9 +731,12 @@ export function ConfigView() {
 
                 {!isRawFill && (
                   <div className="space-y-2">
-                    <h2 className="font-display text-lg tracking-[0.06em] text-ink uppercase">
-                      {selected.name}
-                    </h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="font-display text-lg tracking-[0.06em] text-ink uppercase">
+                        {selected.name}
+                      </h2>
+                      <UnsavedIndicator profile={selected} />
+                    </div>
                     <div className="flex flex-wrap gap-x-6 gap-y-1">
                       <KeyValue label={t('config.detail.created')}>
                         {formatRelativeTime(selected.createdAt) ?? '-'}
@@ -674,19 +747,6 @@ export function ConfigView() {
                     </div>
                   </div>
                 )}
-
-                {/*
-              Story 043 D6: mounted at the detail level, not inside any `activeTab === ...` branch,
-              so Save works no matter which tab is showing - the same placement the deleted
-              `useProfileAutoWrite` hook used. `handleProfileUpdated` is the existing single-profile
-              merge-by-id path (`CareTab`'s `onProfileUpdated`), reused rather than inventing a
-              second update path for `save`'s single-profile result.
-            */}
-                <ProfileSaveBar
-                  profile={selected}
-                  onSaved={handleProfileUpdated}
-                  onDiscarded={handleDiscarded}
-                />
 
                 {/*
               Story 043 D7: persistent (never a toast) banner for a profile whose canonical file
@@ -772,6 +832,11 @@ export function ConfigView() {
                     <div className="flex flex-1 min-h-0 flex-col">
                       <RawFileTab profile={selected} onChanged={setProfiles} />
                     </div>
+                  ) : activeTab === 'unsaved' ? (
+                    // Outside `StructuredTabsGuard` on purpose: this is the one tab whose content is
+                    // *about* the raw draft, so making it `inert` while a draft is open would hide
+                    // the only place that says what the draft is.
+                    <UnsavedChangesTab profile={selected} />
                   ) : (
                     <StructuredTabsGuard>
                       {activeTab === 'overview' && (

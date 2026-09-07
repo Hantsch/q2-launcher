@@ -378,7 +378,8 @@
       "controls": "Controls",
       "aliases": "Aliases",
       "raw": "Raw file",
-      "care": "Care"
+      "care": "Care",
+      "unsaved": "Unsaved"
     },
     "overview": {
       "label": "Keyboard overview",
@@ -442,6 +443,7 @@
       "unsaved": "Unsaved changes",
       "unsavedHint": "Kept safely for now, but the file on disk hasn\u2019t been updated yet.",
       "saved": "Saved",
+      "upToDate": "Everything on this profile is written to the file on disk.",
       "action": "Save",
       "saving": "Saving\u2026",
       "unreadableUnparseable": "The file on disk could not be parsed ({{message}}) \u2014 fix the file, then try saving again. Your edits are still safe.",

@@ -13,7 +13,7 @@ import { adoptProfileFromFile } from './lib/file-source-refresh'
  * Story 043 D8: the whole-file conflict dialog - `save`'s `SaveProfileConflict` shown as two
  * side-by-side panes, both built from 024's `ConfigCodeView` (single-pane by design, composed
  * twice here rather than rewritten into a diff component). Replaces the plain toast stub D6 left
- * in `ProfileSaveBar`/`lib/save-bar.ts` for the `'conflict'` outcome.
+ * in `ProfileSaveActions`/`lib/save-bar.ts` for the `'conflict'` outcome.
  *
  * Mirrors `ImportProfileDialog` for the dialog shell: a `Modal` with a footer of real buttons, no
  * home-grown focus trap - `Modal` already owns focus-on-open/Tab-confinement/Escape-to-close, and
@@ -30,7 +30,7 @@ import { adoptProfileFromFile } from './lib/file-source-refresh'
  *   `save`'s new `force` flag (D8), which skips the re-read/conflict check entirely - the user has
  *   just been shown the disk content and explicitly chosen to replace it regardless.
  *
- * Either resolution lands through `onResolved`, the same single-profile update path `ProfileSaveBar`
+ * Either resolution lands through `onResolved`, the same single-profile update path `ProfileSaveActions`
  * already gets from `ConfigView` (`handleProfileUpdated`) - there is no separate result shape for a
  * dialog-resolved save than for an ordinary one.
  *

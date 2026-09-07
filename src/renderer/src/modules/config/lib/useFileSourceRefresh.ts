@@ -22,7 +22,7 @@ import { didFocusResume } from './file-source-refresh'
  * not whatever was selected when this hook first mounted.
  *
  * The pure decision logic behind it lives in `file-source-refresh.ts`, which IS tested on its own;
- * same split as `ProfileSaveBar.tsx` (untested, calls `client.ts`) and `lib/save-bar.ts` (tested,
+ * same split as `ProfileSaveActions.tsx` (untested, calls `client.ts`) and `lib/save-bar.ts` (tested,
  * pure). Its own wiring - which of the two triggers actually reaches `refreshProfilesFromFiles`, and
  * when `isSuspended` stops one - is covered by `useFileSourceRefresh.test.ts` under jsdom, because
  * that wiring is exactly where a silent-edit-loss bug hid once (see `isSuspended` below).

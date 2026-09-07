@@ -5,7 +5,7 @@
  * every row's "unsaved" indicator (D7/D8) can never disagree about what is pending.
  *
  * Computed from the **server** profile (`ConfigView`'s `selected`, the same object
- * `isProfileDirty`/`ProfileSaveBar` already read), never from `useProfileDraft`'s locally patched
+ * `isProfileDirty`/`ProfileSaveActions` already read), never from `useProfileDraft`'s locally patched
  * copy (story 049, Decisions) - the change set lags a save/discard round-trip exactly as much as the
  * existing dirty badge already does, which is the accepted cost of the three surfaces never
  * disagreeing.
@@ -30,7 +30,7 @@ const ProfileChangesContext = createContext<ProfileChangeSet | null>(null)
  * how every mutation (save, discard, an adopted external edit) reaches the renderer.
  *
  * Mount this only where a selected profile exists (`ConfigView`'s `selected && (...)` block) - there
- * is no "no profile" case to support here, matching how `ProfileSaveBar` is already scoped in that
+ * is no "no profile" case to support here, matching how `ProfileSaveActions` is already scoped in that
  * file.
  */
 export function ProfileChangesProvider(props: { profile: ConfigProfile; children: ReactNode }) {

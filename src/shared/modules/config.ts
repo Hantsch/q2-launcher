@@ -491,7 +491,8 @@ export interface ConfigProfile {
  * `readFileState`'s own doc comment for the exact rule that tells `changedOnDisk` apart from
  * `unparseable` - a hand-deleted metadata comment degrades to the former, never the latter.
  */
-export type ProfileFileState = 'unchanged' | 'changedOnDisk' | 'missing' | 'unparseable' | 'readError'
+export type ProfileFileState =
+  'unchanged' | 'changedOnDisk' | 'missing' | 'unparseable' | 'readError'
 
 /** Where a new profile's content comes from. */
 export type ConfigProfileSeed = 'empty' | 'template'
@@ -553,9 +554,9 @@ export interface ConfigProfileTemplate {
  * recognise the raw bind as this row and the Controls tab shows it as unbound despite the key
  * working in-game.
  */
-export const TEMPLATE_BOUND_CATALOG_IDS = new Set(['forward', 'back', 'moveup', 'movedown', 'speed', 'attack'].map(
-  (id) => `movement:${id}`,
-))
+export const TEMPLATE_BOUND_CATALOG_IDS = new Set(
+  ['forward', 'back', 'moveup', 'movedown', 'speed', 'attack'].map((id) => `movement:${id}`),
+)
 
 /**
  * One `ConfigAction` per `allCatalogRows()` row - see `STANDARD_TEMPLATE`'s own doc comment for
@@ -631,14 +632,16 @@ function buildTemplateActions(): ConfigAction[] {
  * profile's own `cvars` actually has, rather than seeding every `ALL_CVARS` name the way a fresh
  * `STANDARD_TEMPLATE` profile does (the call below, with no `include`, is unaffected).
  */
-export function buildTemplateCvarSections(include?: (name: string) => boolean): ConfigCvarSection[] {
+export function buildTemplateCvarSections(
+  include?: (name: string) => boolean,
+): ConfigCvarSection[] {
   return CVAR_GROUP_ORDER.map((group) => ({
     id: group,
     name: CVAR_GROUP_LABELS[group],
     nameKey: `config.settings.groups.${group}`,
-    cvars: ALL_CVARS.filter((def: CvarDef) => def.group === group && (!include || include(def.name))).map(
-      (def: CvarDef) => def.name,
-    ),
+    cvars: ALL_CVARS.filter(
+      (def: CvarDef) => def.group === group && (!include || include(def.name)),
+    ).map((def: CvarDef) => def.name),
   }))
 }
 
@@ -775,7 +778,7 @@ export interface WriteProfileInput {
  * when true, the handler skips the re-read/conflict check entirely and writes the cached profile's
  * render unconditionally, exactly as it would for `unchanged`/`missing`. It exists only to be set
  * right after the user has explicitly been shown a `SaveProfileConflict` (both whole-file versions)
- * and chosen to keep theirs - never set by the ordinary `ProfileSaveBar` save path, which always
+ * and chosen to keep theirs - never set by the ordinary `ProfileSaveActions` save path, which always
  * omits it (equivalent to `false`).
  */
 export interface SaveProfileInput {

@@ -170,7 +170,7 @@ interface DraftState {
 /**
  * Owns the draft for `profile` and the conflict dialog a raw save can open.
  *
- * The dialog is mounted *here*, not in `ProfileSaveBar`, precisely because a raw save has two
+ * The dialog is mounted *here*, not in `ProfileSaveActions`, precisely because a raw save has two
  * triggers (the bar's Save button and Ctrl+S in the editor) - mounting it at the one place that
  * performs the save keeps a conflict from depending on which of the two the user reached for.
  * `ConfigConflictDialog`'s "Overwrite with my version" is redirected through `onOverwrite` so it
@@ -178,7 +178,7 @@ interface DraftState {
  * file" keeps its own meaning and, since it adopts whatever is on disk, drops the draft with it.
  *
  * `onSaved` is `ConfigView`'s existing single-profile merge (`handleProfileUpdated`), the same one
- * `ProfileSaveBar` already gets - a raw save produces an ordinary updated profile, not a new shape.
+ * `ProfileSaveActions` already gets - a raw save produces an ordinary updated profile, not a new shape.
  */
 export function RawDraftProvider({
   profile,
@@ -192,7 +192,7 @@ export function RawDraftProvider({
    * Review fix (story 057): the one way `active` reaches a consumer that cannot read the context
    * because it sits *above* this provider - `ConfigView`'s `useFileSourceRefresh` (story 043 D7),
    * which must not re-read the file from disk while a draft is open. Every other consumer
-   * (`ProfileSaveBar`, `RawFileTab`, `StructuredTabsGuard`, `RenameHeaderButton`) renders below and
+   * (`ProfileSaveActions`, `RawFileTab`, `StructuredTabsGuard`, `RenameHeaderButton`) renders below and
    * reads `useRawDraft()` instead; nothing else should reach for this.
    *
    * Why that matters, and why it is `active` rather than a new flag: a raw draft deliberately never

@@ -8,7 +8,7 @@ import type { Outcome, ToastMessage } from '@shared/types'
 
 /**
  * The pure decision + merge logic behind `useFileSourceRefresh.ts` (story 043 D7), split out the
- * same way `lib/save-bar.ts` is split from `ProfileSaveBar.tsx`: no React, no `./client`, no
+ * same way `lib/save-bar.ts` is split from `ProfileSaveActions.tsx`: no React, no `./client`, no
  * `store/useLauncher` - so it is unit-testable under this repo's plain `.test.ts` convention
  * (`vitest.config.ts` runs `environment: 'node'`, no jsdom/`@testing-library`), without rendering
  * anything. `useFileSourceRefresh.ts` itself imports `client.ts` (`refreshProfilesFromFiles`) and
@@ -131,9 +131,7 @@ export function droppedAliasWarning(droppedAliases: readonly string[]): FileSour
  *   caller's, since the two call sites word it differently.
  */
 export type AdoptFileResult =
-  | { kind: 'adopted'; profile: ConfigProfile }
-  | { kind: 'failed' }
-  | { kind: 'notAdopted' }
+  { kind: 'adopted'; profile: ConfigProfile } | { kind: 'failed' } | { kind: 'notAdopted' }
 
 /**
  * "Adopt whatever is on disk right now for this one profile" - the shared body of **every**

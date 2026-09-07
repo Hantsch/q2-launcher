@@ -2,7 +2,7 @@ import type { ConfigProfile, SaveProfileConflict, SaveProfileResult } from '@sha
 import type { Outcome } from '@shared/types'
 
 /**
- * The pure decision logic behind `ProfileSaveBar` (story 043 D6), split out the same way
+ * The pure decision logic behind `ProfileSaveActions` (story 043 D6), split out the same way
  * `auto-write.ts` split the write-trigger rule out of `useProfileAutoWrite.ts`: no React, no
  * `./client` - so it is unit-testable under this repo's plain `.test.ts` convention (`vitest.config.ts`
  * runs `environment: 'node'` with no jsdom/`@testing-library` in this project), without rendering
@@ -18,13 +18,13 @@ export function isProfileDirty(profile: Pick<ConfigProfile, 'dirty'>): boolean {
   return profile.dirty === true
 }
 
-/** What `ProfileSaveBar` should do once a `saveConfigProfile` call settles. */
+/** What `ProfileSaveActions` should do once a `saveConfigProfile` call settles. */
 export type SaveBarAction =
   | { type: 'saved'; profile: ConfigProfile }
   | { type: 'toast'; messageKey: string; params?: Record<string, string | number> }
   /**
    * Story 043 D8: the file changed underneath the launcher, so nothing was written. Carries the
-   * whole-file conflict payload so `ProfileSaveBar` can open `ConfigConflictDialog` with it -
+   * whole-file conflict payload so `ProfileSaveActions` can open `ConfigConflictDialog` with it -
    * replaces the plain-toast stub D6 left here (`config.save.conflict` is no longer reached).
    */
   | { type: 'conflict'; conflict: SaveProfileConflict }

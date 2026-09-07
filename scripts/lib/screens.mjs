@@ -55,14 +55,23 @@
 //   library-auto-detect             (LibraryView.tsx, header "Auto Detect" button)
 //   installation-remove-<installationId> (LibraryView.tsx, installation-rail remove button)
 //
-// Story 043 D8 adds one more, same mirroring convention — read ProfileSaveBar.tsx and
+// Story 043 D8 adds one more, same mirroring convention — read ProfileSaveActions.tsx and
 // ConfigConflictDialog.tsx before changing these:
-//   config-save               (ProfileSaveBar.tsx, the explicit Save button)
+//   config-save               (ProfileSaveActions.tsx, the explicit Save button - since the
+//                             save-bar row was replaced by header actions + the Unsaved tab, this
+//                             lives in the detail header's right-hand cluster and only renders
+//                             while something is unsaved)
 //   config-conflict-dialog    (ConfigConflictDialog.tsx, the two-pane content container)
 //
 // Story 049 D9 adds one more testid (the other two screens below reuse existing D5/D6/D8
-// testids and the `install-remove-dialog` testid-less-dialog pattern) — read ProfileSaveBar.tsx:
-//   config-save-changes-panel (ProfileSaveBar.tsx, the disclosure's expanded panel - added
+// testids and the `install-remove-dialog` testid-less-dialog pattern) — read ProfileSaveActions.tsx:
+//   config-unsaved-indicator  (UnsavedIndicator.tsx, the "Unsaved changes" badge next to the
+//                             profile name - the save-bar row's status, moved to the name; not
+//                             rendered in the raw tab's single-row header)
+//   config-tab-unsaved        (ConfigView.tsx, the Unsaved tab button - only in the strip while
+//                             something is unsaved)
+//   config-save-changes       (ProfileChangeList.tsx, the before/after list, now the Unsaved tab's
+//                             content instead of a disclosure panel - added
 //                               alongside its pre-existing `id` since no screen here waits on a
 //                               CSS id, only testids)
 //
@@ -230,7 +239,11 @@ export const SCREENS = [
     navigate: async (page) => {
       const outcome = await page.evaluate(
         async (profileId) =>
-          window.q2.invoke('module:invoke', { moduleId: 'config', type: 'write', payload: { profileId } }),
+          window.q2.invoke('module:invoke', {
+            moduleId: 'config',
+            type: 'write',
+            payload: { profileId },
+          }),
         'fixture-profile-imported-only',
       )
       if (!outcome?.ok) {
@@ -361,11 +374,13 @@ export const SCREENS = [
     // `<textarea>` (`.cfg-code-textarea`, `ConfigCodeView.tsx`) can be in. Plain Profile's own
     // canonical file is on disk and the profile isn't dirty by default, so `rawEditingMode` reads
     // 'editable' (`lib/raw-draft.tsx`) and the tab already shows the real editor - no toggling
-    // needed first, only typing into it. Waits for the save bar's own raw-specific summary
-    // (`config-save-summary`, `ProfileSaveBar.tsx`, text `config.save.rawEdited`) rather than just
-    // clicking-and-hoping, since that text is what actually distinguishes "a raw draft is active"
-    // from "the structured diff is dirty" - the two save-bar states this registry's other raw-tab
-    // screens (`config-save-expanded`/`config-discard-confirm`) exercise instead.
+    // needed first, only typing into it. Waits for the Unsaved tab to appear in the strip
+    // (`config-tab-unsaved`, `ConfigView.tsx`) rather than just clicking-and-hoping: Plain Profile
+    // is not `dirty` at this point, so the only thing that can put that tab there is the raw draft
+    // the typing just started. (The raw-specific wording, `config.save.rawEdited`, now lives in
+    // that tab's content - reaching it would mean leaving the raw tab this screen is a shot of. The
+    // "Unsaved changes" badge is not in the raw tab's header at all, by design - see the row's own
+    // comment in `ConfigView.tsx`.)
     navigate: async (page) => {
       await configDetail('raw')(page)
       const textarea = page.locator('.cfg-code-textarea')
@@ -387,8 +402,7 @@ export const SCREENS = [
       await page.keyboard.press('Control+Home')
       await page.keyboard.type('// q2l-ui-verify raw edit\n')
       await page
-        .getByTestId('config-save-summary')
-        .filter({ hasText: 'File text edited' })
+        .getByTestId('config-tab-unsaved')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },
@@ -399,14 +413,15 @@ export const SCREENS = [
     // Story 049 D5/D9: real-dirty setup, not a mocked one - `configDetail('raw')` lands on Plain
     // Profile's Raw File tab, whose "Section header style" `<Select>` (RawFileTab.tsx) is a real
     // content setter that marks the profile dirty server-side the instant it changes, so
-    // `ProfileSaveBar` shows "Unsaved changes" - see the module-level comment above for why this
-    // uses that select (an explicit, idempotent value) rather than the checkbox
-    // `config-conflict-dialog` (D8) toggles. Instead of hand-editing the file and saving to trigger
-    // a conflict, this clicks the bar's own disclosure (`config-save-toggle`) to expand
-    // `ProfileChangeList` (D5) and waits for the panel (`config-save-changes-panel`, ProfileSaveBar.tsx)
-    // to actually be visible, rather than just clicking-and-hoping, since the panel is conditionally
-    // rendered (`dirty && expanded`) and a race against that render would otherwise screenshot the
-    // pre-expansion state.
+    // the Unsaved tab appears in the strip (`config-tab-unsaved`; the "Unsaved changes" badge
+    // itself, `UnsavedIndicator.tsx`, is not rendered in the raw tab's one-row header) -
+    // see the module-level comment above for why this uses that select (an explicit, idempotent
+    // value) rather than the checkbox `config-conflict-dialog` (D8) toggles. Instead of
+    // hand-editing the file and saving to trigger a conflict, this opens the Unsaved tab
+    // (`config-tab-unsaved`, which only exists in the strip while something is unsaved) and waits
+    // for `ProfileChangeList` (D5, `config-save-changes`) to actually be visible, rather than just
+    // clicking-and-hoping - the tab button and its content both render conditionally, and a race
+    // against that would otherwise screenshot the wrong tab.
     //
     // Story 057 D3 retarget: the select used to sit inside a `Field` (`components/ui/controls.tsx`),
     // which rendered a real `<label htmlFor>` - `getByLabel('Section header style')` worked against
@@ -421,12 +436,12 @@ export const SCREENS = [
       await configDetail('raw')(page)
       await page.locator('select').selectOption('brackets')
       await page
-        .getByText('Unsaved changes', { exact: true })
+        .getByTestId('config-tab-unsaved')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
 
-      await click(page, 'config-save-toggle')
+      await click(page, 'config-tab-unsaved')
       await page
-        .getByTestId('config-save-changes-panel')
+        .getByTestId('config-save-changes')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },
@@ -436,7 +451,8 @@ export const SCREENS = [
     viewports: BOTH_VIEWPORTS,
     // Story 049 D6/D9: same real-dirty setup as `config-save-expanded` above (the "Section header
     // style" select, not the checkbox - see the module-level comment above), but instead clicks the
-    // bar's Discard button (`config-discard`) to open `DiscardChangesDialog` - which, like
+    // header cluster's Discard button (`config-discard`, `ProfileSaveActions.tsx`) to open
+    // `DiscardChangesDialog` - which, like
     // `RemoveInstallationDialog` (`install-remove-dialog` above), renders via `Modal` (role="dialog")
     // and carries no `data-testid` of its own, so this mirrors that screen's wait exactly rather
     // than inventing a new pattern.
@@ -448,7 +464,7 @@ export const SCREENS = [
       await configDetail('raw')(page)
       await page.locator('select').selectOption('brackets')
       await page
-        .getByText('Unsaved changes', { exact: true })
+        .getByTestId('config-tab-unsaved')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
 
       await click(page, 'config-discard')
@@ -593,9 +609,7 @@ export const SCREENS = [
       await page
         .getByTestId('config-import-installation')
         .selectOption({ label: 'Fixture WriteDir Install' })
-      await page
-        .getByTestId('config-import-gamedir')
-        .selectOption({ label: 'q2l-restore-fixture' })
+      await page.getByTestId('config-import-gamedir').selectOption({ label: 'q2l-restore-fixture' })
       await page
         .getByTestId('config-import-restore-banner')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
@@ -696,14 +710,15 @@ export const SCREENS = [
     // Story 043 D8: a real save-time conflict, not a mocked one. `configDetail('raw')` lands on
     // Plain Profile's Raw File tab, whose "Start the file with `unbindall`" checkbox
     // (RawFileTab.tsx) is a real content setter (`setWriteUnbindall`) that marks the profile
-    // dirty server-side the instant it is toggled - `ProfileSaveBar` (mounted at the detail
-    // level, reachable regardless of which tab is open) then shows "Unsaved changes".
+    // dirty server-side the instant it is toggled - `ProfileSaveActions` (mounted at the detail
+    // level, reachable regardless of which tab is open) then shows Save/Discard and the Unsaved
+    // tab.
     //
     // With the profile dirty, this hand-edits the profile's canonical file directly from the
     // Node side - never through `page`, since the point is a change the launcher has not read -
     // the same "hand-edit in Notepad" idiom `index.test.ts`'s own D4/D8 tests use: read the
     // current bytes and append one well-formed comment line, which changes the hash without
-    // risking `unparseable`. Clicking Save (`config-save`, ProfileSaveBar.tsx) then hits `save`'s
+    // risking `unparseable`. Clicking Save (`config-save`, ProfileSaveActions.tsx) then hits `save`'s
     // `changedOnDisk` refusal and opens this dialog - waiting on `config-conflict-dialog`
     // (ConfigConflictDialog.tsx) rules out both "still saving" and a save that unexpectedly
     // succeeded.
@@ -717,7 +732,7 @@ export const SCREENS = [
         .getByText('Start the file with `unbindall`', { exact: true })
         .click({ timeout: CLICK_TIMEOUT_MS })
       await page
-        .getByText('Unsaved changes', { exact: true })
+        .getByTestId('config-tab-unsaved')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
 
       const canonicalPath = join(variantUserDataDir('populated'), PLAIN_PROFILE_FILE_NAME)
@@ -760,7 +775,10 @@ export const SCREENS = [
       // accessible name, same convention `config-controls-message`/`config-controls-drop-message`
       // above already use.
       await page.getByRole('button', { name: 'Weapons' }).click({ timeout: CLICK_TIMEOUT_MS })
-      await page.locator('.ctrl-group').first().waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page
+        .locator('.ctrl-group')
+        .first()
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },
   {

@@ -10,12 +10,15 @@
 //   config-tab-raw          ConfigView.tsx (`{ id: 'raw', label: t('config.tabs.raw') }`)
 //   .cfg-code-textarea      ConfigCodeView.tsx - the editable code view's real `<textarea>` (story
 //                           057 D1), overlaid on the tokenised `<pre>`
-//   config-save-summary     ProfileSaveBar.tsx - shows `config.save.rawEdited` ("File text edited
-//                           — Save writes exactly this text to the file on disk.") while a raw
-//                           draft is active (story 057 D5)
-//   config-save             ProfileSaveBar.tsx - the same Save button the structured flow uses;
-//                           while a raw draft is active its `onClick` calls `rawDraft.save()`
-//                           instead of `handleSave()` (story 057 D5) - one button, two save paths
+//   config-tab-unsaved      ConfigView.tsx - the Unsaved tab, in the strip only while something is
+//                           unsaved, which a raw draft raises just like a structured edit; its
+//                           content (`config-save-summary`, UnsavedChangesTab.tsx)
+//                           names the raw draft with `config.save.rawEdited` ("File text edited —
+//                           Save writes exactly this text to the file on disk.")
+//   config-save             ProfileSaveActions.tsx - the same Save button the structured flow uses,
+//                           now in the detail header's right-hand cluster; while a raw draft is
+//                           active its `onClick` calls `rawDraft.save()` instead of `handleSave()`
+//                           (story 057 D5) - one button, two save paths
 //   config-raw-save-result  RawFileTab.tsx - the inline read-back panel a raw save's result renders
 //                           into (story 057 D6), holding the preserved-line count and any
 //                           dropped-alias warning
@@ -76,15 +79,22 @@ export default async function rawInlineEdit({ page, shot, step }) {
   await page.keyboard.press('Control+End')
   await page.keyboard.type(`\n${TYPED_LINE}`)
 
-  step('assert the save bar reports the raw draft ("file text edited")')
+  step('assert the draft raises the Unsaved tab, and that the tab names it')
+  await page.getByTestId('config-tab-unsaved').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+
+  await shot('draft-typed')
+
+  // The draft lives in `RawDraftProvider` at detail level, not in the tab, so leaving the raw tab
+  // and coming back keeps the typed text (`RawFileTab`'s editor seeds from `rawDraft.text`) - which
+  // is what makes this round trip a real assertion rather than a risk to the save below.
+  await page.getByTestId('config-tab-unsaved').click({ timeout: TIMEOUT_MS })
   await page
     .getByTestId('config-save-summary')
     .filter({ hasText: 'File text edited' })
     .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.getByTestId('config-tab-raw').click({ timeout: TIMEOUT_MS })
 
-  await shot('draft-typed')
-
-  step('save (the save bar\'s Save button - same path Ctrl+S in the editor calls, rawDraft.save())')
+  step("save (the header's Save button - same path Ctrl+S in the editor calls, rawDraft.save())")
   await page.getByTestId('config-save').click({ timeout: TIMEOUT_MS })
 
   step('assert the read-back result panel appears')
@@ -99,7 +109,7 @@ export default async function rawInlineEdit({ page, shot, step }) {
 
   await shot('saved')
 
-  step('assert the profile\'s canonical file on disk now contains the typed line')
+  step("assert the profile's canonical file on disk now contains the typed line")
   const canonicalPath = join(variantUserDataDir('populated'), PLAIN_PROFILE_FILE_NAME)
   const onDisk = readFileSync(canonicalPath, 'latin1')
   if (!onDisk.includes(TYPED_LINE)) {

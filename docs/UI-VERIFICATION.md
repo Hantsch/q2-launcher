@@ -250,7 +250,7 @@ trusting it by convention:
   missing directive throws a `HarnessError` naming the actual origin, or
   every missing directive together with the actual (or missing) header — not
   a generic assertion failure.
-- That header check only catches a *declared* regression. To also catch a
+- That header check only catches a _declared_ regression. To also catch a
   `style-src 'self'` header that is still correct on paper but violated at
   runtime (e.g. a reintroduced inline `style="..."` attribute), the harness
   installs a `securitypolicyviolation` listener in the page — once
@@ -452,19 +452,22 @@ Story 043 D8 adds one more, and it is the first entry in the registry whose
 - **`config-conflict-dialog`** — `ConfigConflictDialog`
   (`src/renderer/src/modules/config/ConfigConflictDialog.tsx`), the whole-file
   save conflict dialog. Unlike every other dialog entry, its precondition
-  (the profile's edits dirty in the launcher *and* its canonical file changed
+  (the profile's edits dirty in the launcher _and_ its canonical file changed
   on disk at the same time) cannot be produced by clicks alone. `navigate()`
   opens the "Plain Profile" fixture's Raw tab, toggles its "Start the file
   with `unbindall`" checkbox (`RawFileTab.tsx`) to make the profile dirty —
   a real `setWriteUnbindall` IPC round trip, not local-only state — waits for
-  `ProfileSaveBar`'s "Unsaved changes" text, then drops to the Node side and
+  the Unsaved tab to appear in the strip (`config-tab-unsaved`; the
+  "Unsaved changes" badge itself, `UnsavedIndicator.tsx`, sits next to the
+  profile name on every tab but the raw one), then drops to the Node side and
   appends one well-formed comment line directly onto the profile's canonical
   `Plain-Profile.cfg` under the fixture's userData dir
   (`variantUserDataDir('populated')`, `scripts/lib/harness.mjs`) — the same
   "hand-edit in Notepad" the story's own acceptance criteria describe, done
   with `node:fs` rather than through `page` since the whole point is a change
   the launcher process has not read. Clicking `config-save`
-  (`ProfileSaveBar.tsx`'s Save button) then hits `save`'s `changedOnDisk`
+  (`ProfileSaveActions.tsx`'s Save button, in the detail header's right-hand
+  cluster) then hits `save`'s `changedOnDisk`
   refusal, and `navigate()` waits for `config-conflict-dialog`
   (`ConfigConflictDialog.tsx`'s two-pane content container) before returning.
 
@@ -478,7 +481,7 @@ panel at all — it flips a switch on a plain tab:
   usual `configDetail('aliases')` helper, then clicks the tab's own "Show
   generated and layer aliases" switch by its translated accessible name (no
   testid on it — `Switch`, `components/ui/controls.tsx`, links its `<label
-  for>` to the `role="switch"` button instead), which reveals the `generated`
+for>` to the `role="switch"` button instead), which reveals the `generated`
   row every one of those five actions produces (`buildAliasIndex`). It waits
   for the "Generated" origin badge text rather than returning right after the
   click, since the toggle only flips local component state and nothing else
@@ -502,11 +505,13 @@ dialog or panel involved:
   draft: text typed into the editable code view's real `<textarea>`
   (`.cfg-code-textarea`, `ConfigCodeView.tsx`), not yet saved. `navigate()`
   opens the tab via `configDetail('raw')`, clicks into the textarea and types
-  a line, then waits for the save bar's raw-specific summary text
-  (`config-save-summary`, `ProfileSaveBar.tsx`, `config.save.rawEdited` — "File
-  text edited…") rather than the structured-diff wording the bar shows for an
-  ordinary dirty profile. It runs early in the registry, before any other
-  `config-*` screen puts Plain Profile's *structured* state (not this
+  a line, then waits for the Unsaved tab to appear in the strip
+  (`config-tab-unsaved`, `ConfigView.tsx`) — the profile is not dirty at that
+  point, so the draft is the only thing that can put that tab there. (The
+  raw-specific wording, `config.save.rawEdited`, now lives in that tab's
+  content, `UnsavedChangesTab.tsx`, which this screen does not open — it is a
+  shot of the raw tab.) It runs early in the registry, before any other
+  `config-*` screen puts Plain Profile's _structured_ state (not this
   renderer-local draft) into a dirty state server-side — `rawEditingMode`
   requires the profile clean to allow typing at all (`lib/raw-draft.tsx`), and
   the batched `populated` session never resets in-memory profile state between
@@ -640,7 +645,7 @@ Flows shipped so far, alongside `open-keycap-dialog` above:
 `controls-extra-keys`, `controls-subcategory`, `custom-action-row`,
 `drop-message-checkbox`, `settings-section-rename-add-cvar`, (story 057
 D7) `raw-inline-edit` — types a line into the Raw file tab's real inline
-editor (`.cfg-code-textarea`), saves it via the save bar's `config-save`
+editor (`.cfg-code-textarea`), saves it via the header's `config-save`
 button (the same path Ctrl+S in the editor calls), then asserts both the
 read-back result panel (`config-raw-save-result`, `RawFileTab.tsx`) and the
 profile's canonical file on disk, read straight off `.ui-verify/fixture/

@@ -7,7 +7,8 @@ import type {
 import { SectionLabel } from '../../../components/ui/primitives'
 
 /**
- * Story 049 D5: the before/after list a `ProfileSaveBar` expands into - a structured list of
+ * Story 049 D5: the before/after list of what a Save would write, rendered by `UnsavedChangesTab`
+ * (originally a disclosure inside the save-bar row) - a structured list of
  * `changeSet`'s per-section buckets (story Decisions: a structured list, not a text diff of the
  * rendered file), grouped the same way `ProfileChangeSet.sections` already groups them.
  *

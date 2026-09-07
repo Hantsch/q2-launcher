@@ -14,7 +14,7 @@ import { discardConfigProfile } from './client'
  * applies, just calling `discardConfigProfile` instead of `removeConfigProfile`.
  *
  * `onDiscarded` mirrors `DeleteProfileDialog`'s `onDeleted(profiles)` naming/shape rather than
- * `ProfileSaveBar`'s own single-profile `onSaved` - `discard` (like `remove`/`rename`) returns the
+ * `ProfileSaveActions`'s own single-profile `onSaved` - `discard` (like `remove`/`rename`) returns the
  * full, updated profile list, not one profile.
  *
  * The button that opens this dialog is only enabled when `profile.baseline` is set, so the
