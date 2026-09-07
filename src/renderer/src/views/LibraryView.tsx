@@ -86,6 +86,7 @@ export function LibraryView() {
               variant="neutral"
               size="sm"
               icon={<FolderPlus className="size-3.5" />}
+              data-testid="library-create"
               onClick={() => openDialog({ kind: 'create' })}
             >
               {t('library.create')}

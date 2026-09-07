@@ -1,7 +1,7 @@
 ---
 sprint: S15
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S15
 milestone: Identity, icons and the first profile
 ---
 
@@ -19,7 +19,7 @@ handed template, or their own config files.
 
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
-- [ ] 068 — The app says engine, not client
+- [x] 068 — The app says engine, not client
 - [ ] 067 — An installation carries an icon I choose
 - [ ] 069 — The profile header breathes in two lines
 - [ ] 066 — A new profile starts empty, from a handed template, or from my own config files

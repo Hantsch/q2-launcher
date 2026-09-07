@@ -1,7 +1,8 @@
 // Story 065 D5 acceptance flow: every surface that names an installation shows that
 // installation's engine as a badge next to the name (AC1), an `unknown` engine reads as
-// "Unknown engine" rather than blank (AC3), and a long name truncates instead of pushing the
-// badge out of its panel (AC4).
+// "Unknown engine (unsupported)" rather than blank (AC3 here, plus story 068's AC4 marker - see
+// `UNKNOWN_ENGINE_LABEL` below), and a long name truncates instead of pushing the badge out of
+// its panel (AC4).
 //
 // Runs the whole walk at the app's own minimum window size (`940x620`, mirrors
 // `scripts/lib/screens.mjs`'s `VIEWPORT_MIN`), because AC4 is only a real measurement in a panel
@@ -33,8 +34,13 @@ const TIMEOUT_MS = 8_000
 /** Mirrors src/shared/constants.ts (`WINDOW_MIN_WIDTH/HEIGHT`) and `screens.mjs`'s VIEWPORT_MIN. */
 const NARROW_VIEWPORT = { width: 940, height: 620 }
 
-/** Mirrors `engineLabel('unknown')` (src/shared/types/engine.ts) - deliberately untranslated. */
-const UNKNOWN_ENGINE_LABEL = 'Unknown engine'
+/**
+ * Mirrors `engineDisplayLabel('unknown', t)` (src/renderer/src/lib/engine-display.ts): story 068
+ * D4 composes `engine.unsupportedLabel` onto `engineLabel('unknown')`, because `unknown` is not a
+ * supported engine - so this flow's AC3 assertions read the marked form. The engine name half is
+ * still `engineLabel`'s deliberately untranslated literal.
+ */
+const UNKNOWN_ENGINE_LABEL = 'Unknown engine (unsupported)'
 
 /** The two short-named, `r1q2` fixture installs, so AC1 is asserted for ordinary rows too. */
 const SHORT_NAMED_INSTALLS = ['Fixture Favorite Install', 'Fixture WriteDir Install']

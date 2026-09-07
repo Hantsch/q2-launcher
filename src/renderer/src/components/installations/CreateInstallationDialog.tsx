@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Info } from 'lucide-react'
-import { ENGINE_DEFINITIONS, type EngineKind } from '@shared/types'
+import { SUPPORTED_ENGINE_DEFINITIONS, type EngineKind } from '@shared/types'
 import { invoke } from '../../lib/bridge'
 import { useLauncher } from '../../store/useLauncher'
 import { Button } from '../ui/Button'
@@ -88,7 +88,7 @@ export function CreateInstallationDialog() {
           <Select
             value={engineKind}
             onChange={(event) => setEngineKind(event.target.value as EngineKind)}
-            options={ENGINE_DEFINITIONS.map((definition) => ({
+            options={SUPPORTED_ENGINE_DEFINITIONS.map((definition) => ({
               value: definition.kind,
               label: definition.label,
             }))}

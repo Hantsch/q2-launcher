@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FolderOpen, Search } from 'lucide-react'
-import { engineLabel } from '@shared/types'
+import { engineDisplayLabel } from '../../lib/engine-display'
 import { cn } from '../../lib/cn'
 import { formatDuration, formatRelativeTime, shortenPath } from '../../lib/format'
 import { statusTone } from '../../lib/status'
@@ -105,8 +105,8 @@ export function HeroPanel() {
                     value={String(installation.gameDirs.length)}
                   />
                   <HeroStat
-                    label={t('hero.stat.client')}
-                    value={engineLabel(installation.engineKind)}
+                    label={t('hero.stat.engine')}
+                    value={engineDisplayLabel(installation.engineKind, t)}
                   />
                 </dl>
               )}

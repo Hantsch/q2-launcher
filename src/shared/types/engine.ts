@@ -30,7 +30,13 @@ export interface EngineDefinition {
   /** Short label for the UI. Not translated - these are product names. */
   label: string
   /**
-   * Client executables, most specific first, matched case-insensitively against
+   * Whether this engine is fully supported by the launcher today. `false` does
+   * not mean detection degrades it to `unknown` - it still gets classified and
+   * labelled normally, just flagged as not fully supported in the UI.
+   */
+  supported: boolean
+  /**
+   * Engine executables, most specific first, matched case-insensitively against
    * the file names directly inside the installation root.
    */
   executables: string[]
@@ -69,6 +75,7 @@ export const ENGINE_DEFINITIONS: readonly EngineDefinition[] = [
   {
     kind: 'r1q2',
     label: 'R1Q2',
+    supported: true,
     executables: ['r1q2.exe', 'r1q2'],
     dedicatedExecutables: ['r1q2ded.exe', 'r1q2ded'],
     markers: ['r1q2.exe', 'r1q2ded.exe'],
@@ -88,6 +95,7 @@ export const ENGINE_DEFINITIONS: readonly EngineDefinition[] = [
   {
     kind: 'q2pro',
     label: 'Q2PRO',
+    supported: true,
     executables: ['q2pro.exe', 'q2pro'],
     dedicatedExecutables: ['q2proded.exe', 'q2proded'],
     markers: ['q2pro.exe'],
@@ -101,6 +109,7 @@ export const ENGINE_DEFINITIONS: readonly EngineDefinition[] = [
   {
     kind: 'yquake2',
     label: 'Yamagi Quake II',
+    supported: false,
     executables: ['yquake2.exe', 'quake2.exe', 'quake2'],
     dedicatedExecutables: ['q2ded.exe', 'q2ded'],
     // yquake2 ships renderer libraries the original never had.
@@ -114,6 +123,7 @@ export const ENGINE_DEFINITIONS: readonly EngineDefinition[] = [
   {
     kind: 'kmquake2',
     label: 'KMQuake II',
+    supported: false,
     executables: ['kmquake2.exe', 'kmquake2'],
     dedicatedExecutables: ['kmquake2ded.exe'],
     markers: ['kmquake2.exe'],
@@ -126,6 +136,7 @@ export const ENGINE_DEFINITIONS: readonly EngineDefinition[] = [
   {
     kind: 'vkquake2',
     label: 'vkQuake2',
+    supported: false,
     executables: ['vkquake2.exe', 'quake2_vk.exe'],
     dedicatedExecutables: [],
     markers: ['vkquake2.exe', 'quake2_vk.exe'],
@@ -138,6 +149,7 @@ export const ENGINE_DEFINITIONS: readonly EngineDefinition[] = [
   {
     kind: 'q2rtx',
     label: 'Quake II RTX',
+    supported: false,
     executables: ['q2rtx.exe', 'quake2rtx.exe'],
     dedicatedExecutables: ['q2rtxded.exe'],
     markers: ['q2rtx.exe', 'quake2rtx.exe'],
@@ -150,6 +162,7 @@ export const ENGINE_DEFINITIONS: readonly EngineDefinition[] = [
   {
     kind: 'remaster',
     label: 'Quake II (2023 Remaster)',
+    supported: false,
     executables: ['quake2ex_steam.exe', 'quake2ex.exe', 'quake2ex_gog.exe'],
     dedicatedExecutables: [],
     // Deliberately NOT keyed on the `rerelease` directory: the Steam build of
@@ -168,6 +181,7 @@ export const ENGINE_DEFINITIONS: readonly EngineDefinition[] = [
   {
     kind: 'vanilla',
     label: 'Quake II (original)',
+    supported: false,
     executables: ['quake2.exe', 'quake2'],
     dedicatedExecutables: ['q2ded.exe'],
     markers: ['quake2.exe'],
@@ -178,8 +192,22 @@ export const ENGINE_DEFINITIONS: readonly EngineDefinition[] = [
   },
 ]
 
+/** Engine definitions the launcher fully supports today, in table order. */
+export const SUPPORTED_ENGINE_DEFINITIONS: readonly EngineDefinition[] = ENGINE_DEFINITIONS.filter(
+  (definition) => definition.supported,
+)
+
 export function getEngineDefinition(kind: EngineKind): EngineDefinition | undefined {
   return ENGINE_DEFINITIONS.find((e) => e.kind === kind)
+}
+
+/**
+ * Whether `kind` is a fully supported engine. `custom` and `unknown` are not
+ * rows in `ENGINE_DEFINITIONS` at all - fallback/sentinel kinds - so they are
+ * never supported.
+ */
+export function isEngineSupported(kind: EngineKind): boolean {
+  return getEngineDefinition(kind)?.supported ?? false
 }
 
 export function engineLabel(kind: EngineKind): string {

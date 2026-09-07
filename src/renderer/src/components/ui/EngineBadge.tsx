@@ -1,5 +1,6 @@
+import { useTranslation } from 'react-i18next'
 import type { EngineKind } from '@shared/types/engine'
-import { engineLabel } from '@shared/types/engine'
+import { engineDisplayLabel } from '../../lib/engine-display'
 import { Badge } from './primitives'
 
 /**
@@ -14,9 +15,10 @@ import { Badge } from './primitives'
  * badges it replaces.
  */
 export function EngineBadge({ engineKind }: { engineKind: EngineKind }) {
+  const { t } = useTranslation()
   return (
     <Badge tone={engineKind === 'r1q2' ? 'flame' : 'neutral'} testId="engine-badge">
-      {engineLabel(engineKind)}
+      {engineDisplayLabel(engineKind, t)}
     </Badge>
   )
 }

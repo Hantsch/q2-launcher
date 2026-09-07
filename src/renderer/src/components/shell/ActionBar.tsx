@@ -270,7 +270,7 @@ function LaunchReadout({
   // unlabelled path floating in the middle of the bar.
   return (
     <div className="min-w-0 space-y-0.5">
-      <div className="stencil text-[9px]">{t('installation.engine')}</div>
+      <div className="stencil text-[9px]">{t('installation.engineExecutable')}</div>
       <p
         className="numeric truncate text-[11px] text-ink-muted"
         title={installation.executablePath ?? ''}

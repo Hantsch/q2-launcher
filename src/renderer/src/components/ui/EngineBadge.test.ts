@@ -65,7 +65,37 @@ describe('EngineBadge', () => {
 
   it('gives an unknown engine a labelled badge, not blank or omitted', () => {
     render(createElement(EngineBadge, { engineKind: 'unknown' }))
-    expect(screen.getByTestId('engine-badge').textContent).toBe('Unknown engine')
+    expect(screen.getByTestId('engine-badge').textContent).toBe('Unknown engine (unsupported)')
+  })
+
+  it('marks every unsupported engine kind as unsupported in the badge text, and leaves supported ones bare', () => {
+    const expected: Record<EngineKind, string> = {
+      r1q2: 'R1Q2',
+      q2pro: 'Q2PRO',
+      yquake2: 'Yamagi Quake II (unsupported)',
+      kmquake2: 'KMQuake II (unsupported)',
+      vkquake2: 'vkQuake2 (unsupported)',
+      q2rtx: 'Quake II RTX (unsupported)',
+      vanilla: 'Quake II (original) (unsupported)',
+      remaster: 'Quake II (2023 Remaster) (unsupported)',
+      custom: 'Custom (unsupported)',
+      unknown: 'Unknown engine (unsupported)',
+    }
+
+    for (const kind of ALL_ENGINE_KINDS) {
+      const { unmount } = render(createElement(EngineBadge, { engineKind: kind }))
+      const badge = screen.getByTestId('engine-badge')
+      // The marker must be part of the badge's own text content - not a
+      // second sibling/child node carrying it separately.
+      expect(badge.textContent).toBe(expected[kind])
+      expect(badge.children.length).toBe(0)
+      unmount()
+    }
+  })
+
+  it('keeps an unsupported engine\'s own name rather than degrading to a generic string', () => {
+    render(createElement(EngineBadge, { engineKind: 'q2rtx' }))
+    expect(screen.getByTestId('engine-badge').textContent).toBe('Quake II RTX (unsupported)')
   })
 
   it('renders no image asset - no img element, no inline background-image', () => {

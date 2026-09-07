@@ -124,7 +124,7 @@
   },
 
   "installation": {
-    "engine": "Client",
+    "engineExecutable": "Engine executable",
     "path": "Location",
     "version": "Version",
     "source": "Source",
@@ -176,7 +176,7 @@
     "error": {
       "duplicate": "That folder is already in your library as \u201c{{name}}\u201d.",
       "rootMissing": "The folder {{path}} does not exist.",
-      "notQuake2": "{{path}} does not look like a Quake II installation. It needs a baseq2 folder or a known Quake II client.",
+      "notQuake2": "{{path}} does not look like a Quake II installation. It needs a baseq2 folder or a known Quake II engine.",
       "notFound": "That installation is no longer in your library.",
       "createFailed": "The folder {{path}} could not be created. Check that you have permission to write there.",
       "alreadyContainsGame": "{{path}} already contains a Quake II installation. Use \u201cAdd existing installation\u201d instead.",
@@ -204,10 +204,10 @@
     "pak0MissingButPaksPresent": "pak0.pak is missing, but other pak files are present. This may be a repacked or remastered install.",
     "pak0NotRetail": "pak0.pak is not the size of the retail file. This is probably the shareware demo or a repacked copy – some maps and assets will be missing.",
     "retailPaksMissing": "pak1.pak and pak2.pak are missing \u2013 this looks like the shareware demo rather than the full game.",
-    "noExecutable": "No client executable found in this folder.",
+    "noExecutable": "No engine executable found in this folder.",
     "executableMissing": "The selected executable is gone: {{path}}",
     "notWritable": "{{path}} is not writable. Configs and save games cannot be stored there.",
-    "engineUnknown": "The Quake II client could not be identified.",
+    "engineUnknown": "The Quake II engine could not be identified.",
     "fix": {
       "locate-root": "Locate folder\u2026",
       "select-executable": "Choose executable\u2026",
@@ -218,6 +218,7 @@
   },
 
   "engine": {
+    "unsupportedLabel": "{{engine}} (unsupported)",
     "note": {
       "r1q2": "r1q2 has no separate user folder – it writes config.cfg, saves and screenshots straight into the installation. The folder has to be writable, so avoid Program Files.",
       "remaster": "The 2023 remaster is a different engine with its own game API, config location and network protocol. The launcher can start it, but it cannot join r1q2 servers and the config module will target r1q2 first."
@@ -235,7 +236,7 @@
       "lastPlayed": "Last played",
       "playtime": "Play time",
       "gameDirs": "Game dirs",
-      "client": "Client"
+      "engine": "Engine"
     }
   },
 
@@ -271,8 +272,8 @@
       "inspecting": "Checking folder\u2026",
       "detected": "Detected",
       "nameLabel": "Name in the launcher",
-      "executableLabel": "Client executable",
-      "executableHint": "Several clients were found. Pick the one you want to launch.",
+      "executableLabel": "Engine executable",
+      "executableHint": "Several engine executables were found. Pick the one you want to launch.",
       "gameDirsLabel": "Game directories",
       "submit": "Add installation"
     },
@@ -309,7 +310,7 @@
       "locationLabel": "Folder",
       "pickTitle": "Choose where to create the installation",
       "pickButton": "Create here",
-      "engineLabel": "Client",
+      "engineLabel": "Engine",
       "notice": "After creating it, the installation will show \u201cgame files missing\u201d until the downloads module can download them. You can also copy pak0.pak in by hand.",
       "submit": "Create installation"
     },
@@ -350,7 +351,7 @@
     },
     "column": {
       "name": "Installation",
-      "engine": "Client",
+      "engine": "Engine",
       "status": "Status",
       "path": "Location"
     }
@@ -636,7 +637,7 @@
         "description": "Permanent look-around with the mouse. Should always be on.",
         "byEngine": {
           "vanilla": {
-            "note": "Vanilla ships this off, which is why an unconfigured 3.20 client feels broken to anyone used to a modern build."
+            "note": "Vanilla ships this off, which is why an unconfigured 3.20 engine feels broken to anyone used to a modern build."
           }
         }
       },
@@ -647,7 +648,7 @@
       "hand": {
         "label": "Weapon hand",
         "description": "Which side the weapon is drawn on.",
-        "warning": "The value 2 (centred / hidden) is implemented by the game DLL, not by the client, so it depends on the mod being played rather than on the engine.",
+        "warning": "The value 2 (centred / hidden) is implemented by the game DLL, not by the engine, so it depends on the mod being played rather than on the engine.",
         "choice": {
           "0": "Right",
           "1": "Left",
@@ -689,7 +690,7 @@
       },
       "cl_maxfps": {
         "label": "Max FPS (packets / physics)",
-        "description": "Caps the client tick. In Quake 2 this rate affects jump height, which is why 125 is the classic compromise. On engines with asynchronous rendering it governs the packet rate only — the render rate is r_maxfps.",
+        "description": "Caps the local tick (packets and physics). In Quake 2 this rate affects jump height, which is why 125 is the classic compromise. On engines with asynchronous rendering it governs the packet rate only — the render rate is r_maxfps.",
         "byEngine": {
           "vanilla": {
             "note": "Vanilla has no asynchronous mode: this one value caps everything, and nothing clamps it."

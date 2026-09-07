@@ -1,0 +1,10 @@
+- 2026-09-07 18:18 · 068 · D1 Support is data on EngineDefinition · started
+- 2026-09-07 18:20 · 068 · D1 Support is data on EngineDefinition · done
+- 2026-09-07 18:20 · 068 · D2 The vocabulary says engine · started
+- 2026-09-07 18:22 · 068 · D2 The vocabulary says engine · done
+- 2026-09-07 18:22 · 068 · D3 Only supported engines are selectable · started
+- 2026-09-07 18:22 · 068 · D4 An unsupported engine says so · started
+- 2026-09-07 18:24 · 068 · D3 Only supported engines are selectable · done
+- 2026-09-07 18:24 · 068 · D4 An unsupported engine says so · done
+- 2026-09-07 18:24 · 068 · D5 Acceptance flow + green harness · started
+- 2026-09-07 18:33 · 068 · D5 Acceptance flow + green harness · done

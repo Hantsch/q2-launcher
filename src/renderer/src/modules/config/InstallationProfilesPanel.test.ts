@@ -98,7 +98,9 @@ describe('InstallationProfilesPanel', () => {
 
     const badges = screen.getAllByTestId('engine-badge')
     expect(badges).toHaveLength(2)
-    expect(within(rows[1]).getByTestId('engine-badge').textContent).toBe('Unknown engine')
+    expect(within(rows[1]).getByTestId('engine-badge').textContent).toBe(
+      'Unknown engine (unsupported)',
+    )
   })
 
   it('a long installation name does not push the badge out of the row', () => {
@@ -140,7 +142,9 @@ describe('ProfileAssignmentsPanel', () => {
 
     const badges = screen.getAllByTestId('engine-badge')
     expect(badges).toHaveLength(2)
-    expect(within(rows[1]).getByTestId('engine-badge').textContent).toBe('Unknown engine')
+    expect(within(rows[1]).getByTestId('engine-badge').textContent).toBe(
+      'Unknown engine (unsupported)',
+    )
   })
 
   it('a long installation name does not push the badge out of the row', () => {
