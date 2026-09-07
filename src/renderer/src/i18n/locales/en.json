@@ -1383,6 +1383,7 @@
       "deleteConfirmAction": "Confirm delete",
       "categoryMoveUp": "Move category up",
       "categoryMoveDown": "Move category down",
+      "categoryMenuFor": "Actions for “{{name}}”",
       "categoriesEmpty": {
         "title": "No categories yet",
         "body": "This profile has no categories of its own. Add the standard template to start from Movement, Weapons and Weapon dropping, or create a blank one.",

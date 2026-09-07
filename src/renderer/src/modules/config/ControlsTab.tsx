@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-  ArrowDown,
-  ArrowUp,
-  ListChecks,
-  Pencil,
-  Plus,
-  SlidersHorizontal,
-  Trash2,
-  TriangleAlert,
-  X,
-} from 'lucide-react'
+import { ListChecks, Pencil, Plus, SlidersHorizontal, Trash2, TriangleAlert, X } from 'lucide-react'
 import { horizontalListSortingStrategy, SortableContext } from '@dnd-kit/sortable'
 import { actionKeySlots, withKeySlot } from '@shared/config/action-slots'
 import { isDropCatalogRow, nameForCatalogRow } from '@shared/config/catalog-rows'
@@ -32,6 +22,7 @@ import { EmptyState, SectionLabel } from '../../components/ui/primitives'
 import { DragHandle, SortableItem } from '../../components/dnd'
 import { ActionEditor } from './components/ActionEditor'
 import { BindSlot, BindSlotPlaceholder } from './components/BindSlot'
+import { ControlsCategoryMenu } from './components/ControlsCategoryMenu'
 import { CategoryDropTarget, ControlsDragZone, categoryDragId } from './components/ControlsDragZone'
 import { ControlsGrid } from './components/ControlsGrid'
 import { ControlsOptionsCell } from './components/ControlsOptionsCell'
@@ -1719,6 +1710,7 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
                 {categories.map((category, index) => {
                   const isPendingDelete = pendingDeleteCategoryId === category.id
                   const categoryLabel = categoryDisplayName(category)
+                  const isSelected = selectedCategoryId === category.id
                   return (
                     <SortableItem
                       key={category.id}
@@ -1741,17 +1733,23 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
                           onSpringLoad={handleSpringLoad}
                           // Nothing to spring-load to: this category's grid is already the one on screen.
                           springLoadDisabled={category.id === viewCategoryId}
+                          // Story 062 D2: selection lives on this container (`data-selected`), which
+                          // is what lets the label button below drop its own border and background.
+                          selected={isSelected}
                           className={[
-                            'ctrl-category-chip flex shrink-0 items-center gap-1.5 rounded-sm border border-line px-1.5 py-1',
+                            // Story 062 D2: layout only. The chip's single border/background level
+                            // - and its selected state - are `.ctrl-category-chip`'s in
+                            // `controls-grid.css`, so no utility here can grow a second box.
+                            'ctrl-category-chip flex shrink-0 items-center gap-1.5 px-1.5 py-1',
                             isDragging && 'is-dragging',
                           ]
                             .filter((part): part is string => Boolean(part))
                             .join(' ')}
                         >
                           {/* Story 054 D7: the same grip every row and sub-category header carries, with
-                      the same disabled-while-filtering tooltip - and the chip's existing
-                      move-left/move-right buttons below stay exactly as they are, as the keyboard
-                      path (the story's D7 text). */}
+                      the same disabled-while-filtering tooltip. Story 062 D1: the keyboard path for
+                      reordering is now the chip's action menu below (Move up/down), not a pair of
+                      dedicated arrow buttons. */}
                           <DragHandle
                             className="ctrl-grip-handle"
                             attributes={attributes}
@@ -1761,19 +1759,30 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
                           />
                           {/* Story 020 review fix (round 2): a real `tablist`/`tab` pairing requires every
                       direct child of the tablist to carry `role="tab"` (axe: aria-required-children)
-                      - the "+ New category" button and the rename/delete/move icon buttons sitting
-                      next to a category button are not tabs, so a full ARIA tabs pattern does not
-                      fit this rail's mixed content. Selection is already conveyed visually
-                      (`variant='primary'`) and via `aria-pressed` below - no `role`/`aria-selected`
-                      claim that isn't backed by real tab semantics (arrow-key roving tabindex,
-                      `aria-controls`). */}
+                      - the "+ New category" button and the action-menu kebab sitting next to a
+                      category button are not tabs, so a full ARIA tabs pattern does not fit this
+                      rail's mixed content. Selection is already conveyed visually (the chip's own
+                      `data-selected` emphasis plus the marker and weight below) and via
+                      `aria-pressed` here - no `role`/`aria-selected` claim that isn't backed by
+                      real tab semantics (arrow-key roving tabindex, `aria-controls`). */}
+                          {/* Story 062 D2: the accent marker. Together with the semibold label it is
+                      the non-colour channel AC4 requires, so the selected chip stays readable when
+                      the border/background tint is not perceived. */}
+                          {isSelected && <span aria-hidden="true" className="ctrl-chip-marker" />}
                           <Button
-                            aria-pressed={selectedCategoryId === category.id}
-                            variant={selectedCategoryId === category.id ? 'primary' : 'neutral'}
+                            aria-pressed={isSelected}
+                            variant="ghost"
                             size="sm"
                             onClick={() => setSelectedCategoryId(category.id)}
                           >
-                            {categoryLabel}
+                            {/* The weight sits on an inner span, not in the button's own class list:
+                          `Button` already emits `font-medium`/`text-ink-dim` as utilities, and two
+                          conflicting utilities on one element are resolved by stylesheet order,
+                          not by class order (there is no tailwind-merge here). A child element
+                          simply overrides by inheritance. */}
+                            <span className={isSelected ? 'font-semibold text-ink' : undefined}>
+                              {categoryLabel}
+                            </span>
                           </Button>
                           {isPendingDelete ? (
                             <>
@@ -1798,48 +1807,26 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
                               </Button>
                             </>
                           ) : (
-                            <>
-                              <IconButton
-                                label={t('config.controls.categoryMoveUp')}
-                                size="sm"
-                                disabled={index === 0}
-                                onClick={() => handleMoveCategory(category.id, 'up')}
-                              >
-                                <ArrowUp className="size-3.5" />
-                              </IconButton>
-                              <IconButton
-                                label={t('config.controls.categoryMoveDown')}
-                                size="sm"
-                                disabled={index === categories.length - 1}
-                                onClick={() => handleMoveCategory(category.id, 'down')}
-                              >
-                                <ArrowDown className="size-3.5" />
-                              </IconButton>
-                              <IconButton
-                                label={t('config.controls.rename')}
-                                size="sm"
-                                onClick={() => setRenamingCategory(category)}
-                              >
-                                <Pencil className="size-3.5" />
-                              </IconButton>
-                              <IconButton
-                                label={t('config.controls.delete')}
-                                size="sm"
-                                variant="danger"
+                            <ControlsCategoryMenu
+                              // Story 062 D2: joins the grip's reveal rule in `controls-grid.css`.
+                              className="ctrl-chip-kebab"
+                              categoryName={categoryLabel}
+                              canMoveUp={index !== 0}
+                              canMoveDown={index !== categories.length - 1}
+                              onMoveUp={() => handleMoveCategory(category.id, 'up')}
+                              onMoveDown={() => handleMoveCategory(category.id, 'down')}
+                              onRename={() => setRenamingCategory(category)}
+                              onDelete={() => {
                                 // Story 052 D9 (AC 9): a category with entries opens the delete-or-move
                                 // modal; an empty one keeps the plain inline confirm right above (nothing
                                 // to move, so a choice would be pointless - story's own judgement call).
-                                onClick={() => {
-                                  const hasEntries = actions.some(
-                                    (candidate) => candidate.categoryId === category.id,
-                                  )
-                                  if (hasEntries) setDeletingCategory(category)
-                                  else setPendingDeleteCategoryId(category.id)
-                                }}
-                              >
-                                <Trash2 className="size-3.5" />
-                              </IconButton>
-                            </>
+                                const hasEntries = actions.some(
+                                  (candidate) => candidate.categoryId === category.id,
+                                )
+                                if (hasEntries) setDeletingCategory(category)
+                                else setPendingDeleteCategoryId(category.id)
+                              }}
+                            />
                           )}
                         </CategoryDropTarget>
                       )}

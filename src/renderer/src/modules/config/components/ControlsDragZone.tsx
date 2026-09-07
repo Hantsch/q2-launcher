@@ -168,6 +168,11 @@ export interface CategoryDropTargetProps {
   onSpringLoad?: (categoryId: string) => void
   /** True for the category already on screen: there is nothing to spring-load to. */
   springLoadDisabled?: boolean
+  /** Story 062 D2: the chip is one visual level, and this node - the one that already carries the
+   * drop target (D5), the sortable item (D7) and the scroll-into-view ref (story 020 D9) - is the
+   * level that owns it. So the selected state is reported *here*, as `data-selected="true"`, and
+   * the label button below stays a borderless ghost that only keeps `aria-pressed`. */
+  selected?: boolean
   children: ReactNode
 }
 
@@ -186,6 +191,7 @@ export function CategoryDropTarget({
   elementRef,
   onSpringLoad,
   springLoadDisabled = false,
+  selected = false,
   children,
 }: CategoryDropTargetProps) {
   const { setNodeRef, isOver } = useDroppable({ id: categoryDropId(categoryId), data: { label } })
@@ -206,6 +212,13 @@ export function CategoryDropTarget({
       }}
       style={style}
       data-drop-category={categoryId}
+      // Story 062 D2: stable handles for the unit tests and the `ui:flow` rail-order assertion,
+      // which used to walk "the first <button> inside the chip <div>" and broke whenever the
+      // chip's button order changed. `data-drop-category` stays what it was - dnd-kit's own
+      // bookkeeping (and the drag suites') handle - rather than being reused for two jobs.
+      data-category-id={categoryId}
+      data-category-name={label}
+      data-selected={selected ? 'true' : undefined}
       className={[className, dragging && isOver && 'ctrl-chip-drop-over']
         .filter((part): part is string => Boolean(part))
         .join(' ')}

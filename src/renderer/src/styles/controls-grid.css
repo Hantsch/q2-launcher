@@ -48,6 +48,53 @@
   border-radius: var(--radius-sm);
 }
 
+/* --- category chip: one visual level ------------------------------------
+   Story 062 D2: the chip used to be a box in a box - a bordered container
+   wrapping a bordered, filled `Button`. The container now owns the *single*
+   border/background level and the label button is a `variant="ghost"`
+   (transparent border and background), so nothing inside paints a second box.
+
+   This is deliberately the same node that carries the chip's three behavioural
+   roles - the row drop target (story 054 D5), the rail's sortable item (D7) and
+   the scroll-into-view ref (story 020 D9). Selection therefore lands here too,
+   as `data-selected`, instead of on the label button: `aria-pressed` stays on
+   the button, and the emphasis is the box's. */
+.ctrl-category-chip {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-raised);
+  transition:
+    background-color var(--dur-fast) var(--ease-out-quart),
+    border-color var(--dur-fast) var(--ease-out-quart);
+}
+
+.ctrl-category-chip:hover {
+  border-color: var(--color-line-strong);
+  background: var(--color-hover);
+}
+
+.ctrl-category-chip[data-selected='true'] {
+  border-color: var(--color-flame-500);
+  background: color-mix(in srgb, var(--color-flame-500) 14%, var(--color-raised));
+}
+
+/* The accent marker in front of the selected chip's label. With the label's
+   semibold weight it is the non-colour channel AC4 asks for: the selected chip
+   stays identifiable when its tint and border colour are not perceived at all.
+   Styled here rather than as a `bg-*` utility so the chip's *box* level stays
+   the single class-painted surface the unit test asserts. */
+.ctrl-chip-marker {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: var(--color-flame-500);
+}
+
+:root[data-motion='reduced'] .ctrl-category-chip {
+  transition: none;
+}
+
 /* --- shared grid template for header + rows -----------------------------
    Story 056 D2: the two peer key columns (Primary/Secondary) collapse into one
    Key column - a row's further keys are subordinate extras rendered as indented
@@ -112,6 +159,29 @@
 .ctrl-category-chip:focus-within .ctrl-grip-handle,
 .ctrl-category-chip.is-dragging .ctrl-grip-handle {
   opacity: 1;
+}
+
+/* Story 062 D2: the chip's kebab reveals exactly like the grip above, plus two
+   states the grip does not need. Its own menu being open (`aria-expanded`),
+   because `Menu` portals its list out of the chip and moves focus into it - so
+   the chip's `:focus-within` goes false the instant the menu opens and the
+   trigger would fade out underneath its own open menu. And the chip being
+   selected, since that chip is the one the user is acting on. */
+.ctrl-chip-kebab {
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out-quart);
+}
+
+.ctrl-category-chip:hover .ctrl-chip-kebab,
+.ctrl-category-chip:focus-within .ctrl-chip-kebab,
+.ctrl-category-chip.is-dragging .ctrl-chip-kebab,
+.ctrl-category-chip[data-selected='true'] .ctrl-chip-kebab,
+.ctrl-chip-kebab[aria-expanded='true'] {
+  opacity: 1;
+}
+
+:root[data-motion='reduced'] .ctrl-chip-kebab {
+  transition: none;
 }
 
 /* A disabled grip (the filter is narrowing the list) stays visible instead of
@@ -640,7 +710,11 @@
    affordances of one drag speak with one voice - plus a dashed border, so the
    state is not carried by colour alone (`/design-tokens`). It is applied to
    the chip's wrapper, which already has a 1px border, so nothing reflows. */
-.ctrl-chip-drop-over {
+/* Story 062 D2: qualified with `.ctrl-category-chip` so this keeps beating the
+   selected chip's `[data-selected='true']` border/background (same specificity,
+   later in the file). Dropping a row on the *selected* chip must show the same
+   dashed affordance as dropping it on any other. */
+.ctrl-category-chip.ctrl-chip-drop-over {
   border-style: dashed;
   border-color: var(--color-flame-500);
   background: color-mix(in srgb, var(--color-flame-500) 12%, transparent);

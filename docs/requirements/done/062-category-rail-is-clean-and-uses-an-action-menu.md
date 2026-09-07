@@ -1,7 +1,7 @@
 ---
 id: 062
 title: Controls category rail is a clean chip row with an action menu
-status: ready
+status: done
 created: 2026-09-07
 ---
 
@@ -33,18 +33,18 @@ looking different.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A category renders as a single chip (one border/background level, no nested box)
+- [x] **AC1** — A category renders as a single chip (one border/background level, no nested box)
       with its label and, when hovered/focused, its drag affordance and one action-menu trigger.
-- [ ] **AC2** — The move-up and move-down icon buttons are gone from the category rail; reordering
+- [x] **AC2** — The move-up and move-down icon buttons are gone from the category rail; reordering
       is drag-and-drop only and still works.
-- [ ] **AC3** — Rename and delete are reachable from a per-category action menu, and behave exactly
+- [x] **AC3** — Rename and delete are reachable from a per-category action menu, and behave exactly
       as before (including the delete-or-move modal for a non-empty category and the inline confirm
       for an empty one).
-- [ ] **AC4** — Selecting a category still works by clicking the chip, and the selected chip is
+- [x] **AC4** — Selecting a category still works by clicking the chip, and the selected chip is
       distinguishable without relying on colour alone.
-- [ ] **AC5** — Every action stays keyboard reachable with a visible focus state; the menu trigger
+- [x] **AC5** — Every action stays keyboard reachable with a visible focus state; the menu trigger
       and its items carry accessible names.
-- [ ] **AC6** — The rail loses no functionality: nothing that was on a chip becomes unreachable.
+- [x] **AC6** — The rail loses no functionality: nothing that was on a chip becomes unreachable.
 
 ## Open Questions
 
@@ -118,7 +118,7 @@ green untouched, which is the AC2 "drag-and-drop still works" guard.
 
 ## Deliverables
 
-- [ ] **D1 — Category action menu replaces the four icon buttons.**
+- [x] **D1 — Category action menu replaces the four icon buttons.**
       New `src/renderer/src/modules/config/components/ControlsCategoryMenu.tsx` (mirror:
       `components/ControlsRowMenu.tsx`), `ControlsTab.tsx` (rail `:1788-1831`),
       `src/renderer/src/i18n/locales/en.json` (new `config.controls.categoryMenuFor`, reuse
@@ -133,7 +133,7 @@ green untouched, which is the AC2 "drag-and-drop still works" guard.
       trigger and items are keyboard-operable; `en.json` has no orphaned keys; `npm test` and
       `npm run typecheck` green.
 
-- [ ] **D2 — The chip is one visual level.**
+- [x] **D2 — The chip is one visual level.**
       `ControlsTab.tsx` (chip `:1732-1765`), `src/renderer/src/styles/controls-grid.css`
       (`.ctrl-category-chip`, grip/kebab reveal block `:96-115`), plus cases added to
       `ControlsTab.category-menu.test.tsx`.
@@ -147,7 +147,7 @@ green untouched, which is the AC2 "drag-and-drop still works" guard.
       and `ControlsTab.category-drag.test.tsx` / `ControlsTab.dnd.test.tsx` stay green unmodified;
       a row dropped on a chip still moves category (story 054 D5 path intact).
 
-- [ ] **D3 — Seen and driven in the real app.**
+- [x] **D3 — Seen and driven in the real app.**
       `scripts/flows/controls-category-rename-reorder.mjs` (rename + reorder via the menu, select by
       chip click, order asserted via `data-category-name`), `scripts/lib/screens.mjs`
       (`config-controls`: hover a chip so grip + kebab are on the screenshot; mirror: story 054
@@ -191,3 +191,71 @@ green untouched, which is the AC2 "drag-and-drop still works" guard.
   reachable: select, drag grip, move up, move down, rename, delete" (D1/D2)
 
 ## Done
+
+**Summary.** The category rail chip is now one visual level: a single bordered/backgrounded
+container (`.ctrl-category-chip`) carrying `data-selected`/`data-category-id`/`data-category-name`,
+a ghost (borderless) label button with `aria-pressed`, and a grip + one kebab trigger that reveal on
+hover/focus/drag/selection/open-menu. The four permanent icon buttons (move up, move down, rename,
+delete) are gone; a new `ControlsCategoryMenu.tsx` (mirroring `ControlsRowMenu.tsx`) holds all four
+as menu items reusing the existing handlers and i18n keys, plus one new key
+(`config.controls.categoryMenuFor`). `scripts/flows/controls-category-rename-reorder.mjs` now drives
+rename/reorder through the new menu and asserts rail order via `data-category-name` instead of the
+old fragile DOM-order walk; `scripts/lib/screens.mjs` adds a chip-hover step so the `config-controls`
+screenshot shows grip + kebab.
+
+**Commit message:** `062: category rail is one chip with an action menu`
+
+**Decisions taken during build (none required re-derivation from the Decisions section, but two
+implementation-level calls came up that the plan didn't spell out):**
+- Selected/weight styling on the label button is applied via an inner `<span>` rather than directly
+  on the ghost button element, since this repo's `clsx` usage has no tailwind-merge, so stacking a
+  "ghost, no background" class with a "semibold when selected" class on the same element would be
+  order-dependent; splitting them onto container/label/span avoids that fragility.
+- `.ctrl-chip-drop-over` (story 054 D5's drop-target affordance) and the new
+  `.ctrl-category-chip[data-selected='true']` rule are equal-specificity selectors; the drop-over
+  rule was requalified to `.ctrl-category-chip.ctrl-chip-drop-over` and kept later in source order so
+  it still wins — a row dragged over the *selected* chip still shows the dashed drop affordance
+  instead of losing it to the new selected-state styling.
+- D3's real-app run surfaced that the new kebab's accessible name (`Actions for "Weapons"`)
+  substring-matched three unrelated, pre-existing `getByRole('button', { name: 'Weapons' })`
+  selectors in `scripts/lib/screens.mjs` (`config-controls-message`, `config-controls-drop-message`,
+  `config-controls-template-subcategories`); these were tightened to `exact: true` as part of D3 to
+  keep those unrelated screens passing.
+
+**Verification:**
+- `npm run build` — green.
+- `npm run typecheck` (node + web) — green.
+- `npm test` (`vitest run`) — 2614/2615 passed on the full run; the one failure
+  (`src/main/modules/config/file-source-pipeline.test.ts › rebuilds a record whose persisted row is
+  corrupt, keeping the id`, `EBUSY: resource busy or locked`) is an unrelated Windows temp-file-lock
+  flake in the main-process config pipeline (untouched by this story) — re-run of that file in
+  isolation: 85/85 passed.
+- `npm run ui:flow -- controls-category-rename-reorder` — PASS against the real running app;
+  screenshots show the one-level chip with an open action menu.
+- `npm run ui:verify` — PASS, 68/68 screenshots, 0 axe violations across the full 34-screen suite.
+- Clean-agent review (default tier): **PASS**, 0 findings — confirmed AC1-AC6 each with file:line
+  evidence, confirmed the AC-mapped tests are real assertions (not tautologies), confirmed
+  `ControlsTab.category-drag.test.tsx` / `ControlsTab.dnd.test.tsx` are byte-identical/untouched and
+  green, confirmed no scope creep and no CLAUDE.md/architecture violations, and specifically verified
+  the D2 chip's three simultaneous roles (sortable item, drop target, scroll-into-view ref) stayed on
+  one ref-composed node and that the drop-over/selected CSS specificity fix resolves correctly.
+
+**AC → test mapping, as verified:**
+- AC1 → `ControlsTab.category-menu.test.tsx` › "a category chip is one level…" (D2) — PASS; + e2e
+  `ui:verify` screen `config-controls` (chip hovered) (D3) — PASS.
+- AC2 → `ControlsTab.category-menu.test.tsx` › "has no move-up or move-down icon buttons left…"
+  (D1) — PASS; + unmodified `ControlsTab.category-drag.test.tsx` — PASS; + e2e
+  `ui:flow -- controls-category-rename-reorder` (reorder through the menu) (D3) — PASS.
+- AC3 → `ControlsTab.category-menu.test.tsx` › "rename opens the rename dialog", "delete on a
+  category with entries opens the delete-or-move modal", "delete on an empty category shows the
+  inline confirm…" (D1) — PASS; + e2e `ui:flow` rename step (D3) — PASS.
+- AC4 → e2e `ui:flow -- controls-category-rename-reorder` (chip click selects) (D3) — PASS; +
+  `ControlsTab.category-menu.test.tsx` › "the selected chip is marked by `data-selected`,
+  `aria-pressed` and a semibold label…" (D2) — PASS.
+- AC5 → `ControlsTab.category-menu.test.tsx` › "the menu trigger and every item carry an accessible
+  name and are reachable by keyboard" (D1) — PASS; + `ui:verify` axe report, 0 findings on
+  `config-controls` (D3) — PASS.
+- AC6 → `ControlsTab.category-menu.test.tsx` › "every action the chip used to carry is still
+  reachable…" (D1/D2) — PASS.
+
+No manual residue. No open blockers.

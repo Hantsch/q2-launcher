@@ -289,9 +289,16 @@ export const SCREENS = [
     // demonstrate. Hovering the first row is a real Playwright pointer hover, so it triggers the
     // same `:hover` CSS rule a real user's mouse would, rather than adding a screenshot-only style
     // override or bypass.
+    //
+    // Story 062 D3: the category rail's chip carries the same opacity-0-until-hover grip, plus its
+    // own kebab trigger (`.ctrl-chip-kebab`, controls-grid.css `:164-181`) - same reasoning as the
+    // row above, mirrored onto the first category chip. A real pointer only hovers one element at a
+    // time, so hovering the chip after the row moves the actual mouse position there for the final
+    // screenshot, showing the chip's grip and kebab rather than the row's.
     navigate: async (page) => {
       await configDetail('controls')(page)
       await page.locator('.ctrl-row').first().hover()
+      await page.locator('.ctrl-category-chip').first().hover()
     },
   },
   {
@@ -647,9 +654,17 @@ export const SCREENS = [
     // (BUILT_IN_ACTION_CATEGORIES[0], src/shared/modules/config.ts), so the
     // "Weapons" category chip has to be selected first (no testid on the
     // rail's category buttons — selecting by its translated accessible name).
+    //
+    // Story 062 D1: `exact: true` is required now — the chip's own kebab trigger
+    // (`ControlsCategoryMenu.tsx`, `config.controls.categoryMenuFor`) is named
+    // "Actions for “Weapons”", which a non-exact `name` filter matches as a substring
+    // alongside the chip's plain "Weapons" label button, tripping Playwright's strict
+    // mode ("resolved to 2 elements").
     navigate: async (page) => {
       await configDetail('controls')(page)
-      await page.getByRole('button', { name: 'Weapons' }).click({ timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByRole('button', { name: 'Weapons', exact: true })
+        .click({ timeout: CLICK_TIMEOUT_MS })
       await click(page, 'action-edit-fixture-action-team-message')
       await page
         .getByTestId('message-editor-content')
@@ -677,10 +692,14 @@ export const SCREENS = [
     // unchanged (still keyed off the row's `catalogId`, ControlsTab.tsx's
     // `renderMessageSubRow`) so this screen's `navigate()` needed no code
     // change - verified against a rebuilt app.
+    //
+    // Story 062 D1: `exact: true` for the same reason as `config-controls-message` above — the
+    // chip's kebab trigger is named "Actions for “Weapon dropping”", which a non-exact filter
+    // matches too.
     navigate: async (page) => {
       await configDetail('controls')(page)
       await page
-        .getByRole('button', { name: 'Weapon dropping' })
+        .getByRole('button', { name: 'Weapon dropping', exact: true })
         .click({ timeout: CLICK_TIMEOUT_MS })
       await click(page, 'drop-message-edit-dropWeapon:railgun')
       await page
@@ -773,8 +792,11 @@ export const SCREENS = [
       await configDetail('controls', 'Template Profile')(page)
       // No testid/role on the rail's category chips (plain `<button>`s) - selecting by translated
       // accessible name, same convention `config-controls-message`/`config-controls-drop-message`
-      // above already use.
-      await page.getByRole('button', { name: 'Weapons' }).click({ timeout: CLICK_TIMEOUT_MS })
+      // above already use. `exact: true` for the same story 062 D1 reason those two now need it -
+      // the chip's kebab trigger is named "Actions for “Weapons”", which a non-exact filter matches too.
+      await page
+        .getByRole('button', { name: 'Weapons', exact: true })
+        .click({ timeout: CLICK_TIMEOUT_MS })
       await page
         .locator('.ctrl-group')
         .first()

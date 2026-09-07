@@ -22,3 +22,10 @@
 2026-09-07 14:11:45 S14 061 D4 done geometry flow extended all 7 tabs asserted, full regression gate green (build/test/typecheck/ui:verify/raw-inline-edit)
 2026-09-07 14:17:44 S14 061 review done default-tier PASS, 2 test-rigor findings fixed (AC1 single-row bound, AC2 no-duplicate-identity assertion)
 2026-09-07 14:17:44 S14 061 story done status=done, moved to docs/requirements/done/
+2026-09-07 14:18:39 S14 062 D1 started category action menu component
+2026-09-07 14:24:06 S14 062 D1 done ControlsCategoryMenu.tsx wired, en.json key added, CLAUDE.md deviation row, tests+typecheck green
+2026-09-07 14:24:06 S14 062 D2 started chip one visual level (hard)
+2026-09-07 14:33:49 S14 062 D2 done chip one level, data-selected/category-id/category-name, drag/drop roles preserved, drag+dnd tests unmodified green (hard tier)
+2026-09-07 14:33:49 S14 062 D3 started ui:flow + screenshot hover step
+2026-09-07 14:39:56 S14 062 D3 done ui:flow controls-category-rename-reorder green via menu, screens.mjs hover step, ui:verify 0 axe violations
+2026-09-07 14:42:36 S14 062 review done default-tier PASS, 0 findings
