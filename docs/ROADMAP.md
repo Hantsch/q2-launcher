@@ -654,6 +654,33 @@ own new/touched flow.**
   of what a pack changed so it can be removed again. `Installation.moduleData` is
   the per-installation slot for that.
 
+## Identity, icons and the first profile
+
+Filed 2026-09-07 out of live UI feedback on S14's result plus two stories written the same day.
+Four stories, cut into `docs/sprints/S15` (build order **068 → 067 → 069 → 066**). Two threads:
+how an installation and its engine are named and recognised, and where a new profile starts.
+
+- **068** — the launcher says *engine*, not *client*: the remaining "Client" labels (create
+  dialog, library detail, detection errors) follow the vocabulary the domain layer has used all
+  along, and only R1Q2 and Q2PRO are selectable when creating an installation. Detection keeps
+  classifying every engine in `ENGINE_DEFINITIONS`; an unsupported one keeps its badge and is
+  marked unsupported in text. Which engines are supported becomes data on `EngineDefinition`.
+- **067** — an installation carries an icon the user picks, from the shipped set in
+  `assets/installations/` or their own file, replacing the engine-derived two-letter tile that
+  cannot tell two r1q2 installs apart.
+- **069** — the config profile header's identity zone becomes two lines: name + saved state on
+  the first, created/updated smaller on the second. Story 061's 30-visible-editor-line floor is
+  re-measured, not assumed.
+- **066** — creating a profile offers empty, one of two handed templates (right- and left-handed),
+  or an import of the user's own config files addressed through an id → path registry rather than
+  a renderer-supplied path.
+
+**Not in this milestone:** 032 (Downloads running-count badge) stays parked until the `downloads`
+module exists, per the story's own instruction.
+
+**068 demotes a standing follow-up:** "verify executable and marker names for engines other than
+r1q2/Q2PRO" (below) now only affects classification accuracy, never what the launcher will launch.
+
 ## Follow-ups worth doing
 
 **Verify while implementing.** These were researched but not confirmed on a real
