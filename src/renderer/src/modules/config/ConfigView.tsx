@@ -520,15 +520,21 @@ export function ConfigView() {
   // Story 057 D2: the raw tab turns this whole view into a full-height code editor, so the page
   // itself must stop scrolling and hand its vertical space down a flex chain instead (outer
   // container -> content wrapper -> detail wrapper -> the Panel around tab content) - every other
-  // tab keeps the original scrolling-page layout untouched. Gated on `screen === 'detail'` too:
+  // tab keeps the original scrolling-page layout untouched. Story 061 D3 narrowed this to *only*
+  // that fill chain plus the bottom padding: the header, the identity block, the tab strip and the
+  // top/side padding are now identical on every tab, so `isRawFill` no longer decides what the
+  // frame around the panel looks like, only how the panel gets the rest of the view's height.
+  // Gated on `screen === 'detail'` too:
   // `activeTab` does not reset on `backToList`, so a user who backs out of a raw-tab profile back
   // to the list must not have the list itself go non-scrolling.
   const isRawFill = screen === 'detail' && activeTab === 'raw'
 
-  // Review fix (blocker 1): the tab buttons themselves, computed once so `isRawFill` can place them
-  // either in their own bordered row (every other tab, unchanged) or inline in the header row (raw
-  // tab only) without two copies of this `.map()` to keep in sync. `py-0`/no badge-tone change:
-  // only the *position* differs between the two placements, not the buttons' own look.
+  // Story 061 D3: one strip, one padding value, on all seven tabs. Story 057's `isRawFill` branch
+  // (`py-0` inline in the header row, `py-1.5` everywhere else) is gone: AC3 names the tab strip
+  // explicitly, and a strip that changes height or position when the raw tab is picked has moved.
+  // `py-1` rather than the old non-raw `py-1.5` because this is a density story - the shared header
+  // has to fit inside the same 30-visible-line editor budget story 057's folded header bought for
+  // the raw tab alone (AC4, measured by `scripts/flows/config-header-geometry.mjs`).
   const tabButtons = tabs.map((tab) => (
     <button
       key={tab.id}
@@ -536,8 +542,7 @@ export function ConfigView() {
       data-testid={`config-tab-${tab.id}`}
       onClick={() => goToTab(tab.id)}
       className={cn(
-        'flex items-center gap-1.5 rounded-sm px-2.5 text-xs font-medium transition-colors duration-[--dur-fast]',
-        isRawFill ? 'py-0' : 'py-1.5',
+        'flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors duration-[--dur-fast]',
         activeTab === tab.id
           ? 'bg-flame-900/30 text-flame-200'
           : 'text-ink-dim hover:bg-hover hover:text-ink',
@@ -560,12 +565,20 @@ export function ConfigView() {
     >
       <div
         className={cn(
-          'mx-auto max-w-[92rem]',
-          // Review fix (blocker 1, AC1 - "at least 30 lines visible at 1280x800"): the raw tab's
-          // own outer padding/gap, trimmed to the bare minimum that still keeps a visible seam
-          // between the rows above the editor. Never touches the `else` branch below, so every
-          // other tab's padding/gap is pixel-identical to before.
-          isRawFill ? 'flex flex-1 min-h-0 flex-col space-y-0 p-0' : 'space-y-6 p-8',
+          'mx-auto max-w-[92rem] px-8',
+          // Story 061 D3 (AC3): the detail screen's padding no longer depends on which tab is
+          // open - a header that starts at a different `y` per tab has moved, which is exactly the
+          // relayout AC3 forbids, so story 057's raw-only `p-0` is gone. Only the *bottom* padding
+          // stays raw-specific (`pb-0`, together with the fill chain): it sits below the header, so
+          // it cannot move it. The profile *list* screen keeps its own `p-8`/`space-y-6` rhythm -
+          // it has no header row and no tab strip to be consistent with.
+          //
+          // `pt-2`, not the story's planned `pt-4`: the second of the story's own fallback levers,
+          // needed because the measured chrome came out 19px over the 30-line floor's allowance -
+          // see the tab strip's comment below for the full accounting.
+          screen === 'detail'
+            ? cn('pt-2', isRawFill ? 'flex flex-1 min-h-0 flex-col pb-0' : 'pb-8')
+            : 'space-y-6 py-8',
         )}
       >
         {screen === 'list' && (
@@ -654,52 +667,78 @@ export function ConfigView() {
             >
               <div
                 className={cn(
-                  // Review fix (blocker 1): same trim as the outer wrapper above, applied to this
-                  // level's own row gap - only while `isRawFill`, so the non-raw `space-y-6` layout
-                  // (list of rows: header, name, save bar, banners, tabs, panel) is untouched.
-                  isRawFill ? 'flex flex-1 min-h-0 flex-col space-y-0' : 'space-y-6',
+                  // Story 061 D3: one row rhythm for every tab - the gap between the header, any
+                  // banner, the tab strip and the panel is the same on all seven tabs (AC3), down
+                  // from story 009's `space-y-6`. The raw tab adds the fill chain on top of that
+                  // gap rather than replacing it with `space-y-0`, which is what used to move the
+                  // strip. `space-y-1` (4px), not the story's planned `space-y-2`: a fourth lever
+                  // the story's fallback list did not have, needed because its three named ones
+                  // only recovered 10px of the 19px the measured chrome was over - see the tab
+                  // strip's comment below.
+                  'space-y-1',
+                  isRawFill && 'flex flex-1 min-h-0 flex-col',
                 )}
               >
-                {/* Review fix (blocker 1): while `isRawFill`, the profile name folds into this row
-                    (next to the back button) instead of its own row below - the back
-                    button/tab strip already say which profile this is and the raw tab's own path
-                    row (`RawFileTab.tsx`) names the actual file, so a whole separate heading row
-                    was pure chrome the 30-visible-lines budget at 1280x800 could not spare. The tab
-                    strip (`tabButtons`) folds into this same row too, for the same reason - its own
-                    bordered row below (unchanged for every other tab) cost a whole row of chrome
-                    none of the three groups here actually needs a full row height to fit; `flex-wrap`
-                    on this row means the narrower viewport still gets a working, just taller, header
-                    instead of clipped/overflowing tabs. Every other tab keeps the original two-row
-                    header (this row, then the name block) plus its own separate tab strip below,
-                    untouched. */}
-                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon={<ArrowLeft className="size-3.5" />}
-                      onClick={backToList}
-                    >
-                      {t('config.nav.back')}
-                    </Button>
-                    {/* No `UnsavedIndicator` in this row, unlike the non-raw name block below: the
-                        raw tab folds name, tabs and actions into one row, and adding Save/Discard
-                        to it already costs the width the badge would need to stay on one line -
-                        which is editor height, the one thing story 057 AC1 ("at least 30 lines
-                        visible at 1280x800") measures. The Unsaved tab's own count badge sits right
-                        there in the same row, and the raw tab's toolbar already names the pending
-                        changes ("N unsaved changes are not in this file yet"), so nothing here goes
-                        unsaid. */}
-                    {isRawFill && (
-                      <h2 className="truncate font-display text-sm tracking-[0.06em] text-ink uppercase">
-                        {selected.name}
-                      </h2>
-                    )}
+                {/*
+                  Story 061 D3 (AC1/AC2): ONE header row, identical on all seven tabs - back left,
+                  the profile's identity centred, the action cluster right - and no second identity
+                  block below it. Both of the shapes this replaced are gone: the old two-row header
+                  (this row, then a name/created/updated block) and story 057's raw-only folded row
+                  (name + tab strip + actions, no unsaved indicator). The editor height that folded
+                  row bought is funded inside the raw tab itself now (D2: one merged toolbar row,
+                  `.cfg-code--fill` padding 6px) plus the denser shared strip below, so the raw tab
+                  no longer needs a header of its own - which is what AC3 asks for.
+
+                  Three flex zones, not `grid-cols-[1fr_auto_1fr]`: the middle zone grows and wraps,
+                  where a rigid three-column grid clips or overflows at the app's minimum 940px
+                  width (AC5). `gap-y-1` is what a wrapped line costs; `justify-between` keeps back
+                  and actions on the outer edges of the first line once the middle has wrapped away.
+                */}
+                <header
+                  data-testid="config-profile-header"
+                  className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
+                >
+                  {/* `Button` is already `shrink-0`, so the left zone needs no wrapper of its own. */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={<ArrowLeft className="size-3.5" />}
+                    onClick={backToList}
+                  >
+                    {t('config.nav.back')}
+                  </Button>
+
+                  {/*
+                    The identity zone, on every tab: name, created, updated and the unsaved
+                    indicator (AC2 - story 057 had dropped the indicator from the raw tab's header
+                    to buy width, which the funded budget now pays for). `KeyValue` and
+                    `UnsavedIndicator` reused as-is, and the three strings already exist - no new
+                    primitive, no new i18n key. `min-w-0` + `truncate` on the name is what keeps a
+                    long profile name from pushing the action cluster off the row.
+                  */}
+                  <div
+                    data-testid="config-profile-identity"
+                    className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-x-4 gap-y-1"
+                  >
+                    <h2 className="min-w-0 truncate font-display text-sm tracking-[0.06em] text-ink uppercase">
+                      {selected.name}
+                    </h2>
+                    <KeyValue label={t('config.detail.created')}>
+                      {formatRelativeTime(selected.createdAt) ?? '-'}
+                    </KeyValue>
+                    <KeyValue label={t('config.detail.updated')}>
+                      {formatRelativeTime(selected.updatedAt) ?? '-'}
+                    </KeyValue>
+                    <UnsavedIndicator profile={selected} />
                   </div>
-                  {isRawFill && (
-                    <div className="flex flex-wrap items-center gap-1.5">{tabButtons}</div>
-                  )}
-                  <div className="flex items-center gap-2">
+
+                  {/* `config-profile-actions`: D4 compares the action cluster's rect tab by tab
+                      (AC3) and needs an anchor for it, the same way the header and the identity
+                      zone have one. */}
+                  <div
+                    data-testid="config-profile-actions"
+                    className="flex shrink-0 items-center gap-2"
+                  >
                     {/*
                       Save and Discard live here, in the header's right-hand cluster, instead of the
                       dedicated save-bar row that used to sit between the name and the tabs - that
@@ -727,26 +766,7 @@ export function ConfigView() {
                       </IconButton>
                     </div>
                   </div>
-                </div>
-
-                {!isRawFill && (
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="font-display text-lg tracking-[0.06em] text-ink uppercase">
-                        {selected.name}
-                      </h2>
-                      <UnsavedIndicator profile={selected} />
-                    </div>
-                    <div className="flex flex-wrap gap-x-6 gap-y-1">
-                      <KeyValue label={t('config.detail.created')}>
-                        {formatRelativeTime(selected.createdAt) ?? '-'}
-                      </KeyValue>
-                      <KeyValue label={t('config.detail.updated')}>
-                        {formatRelativeTime(selected.updatedAt) ?? '-'}
-                      </KeyValue>
-                    </div>
-                  </div>
-                )}
+                </header>
 
                 {/*
               Story 043 D7: persistent (never a toast) banner for a profile whose canonical file
@@ -818,14 +838,30 @@ export function ConfigView() {
                   </div>
                 )}
 
-                {/* Review fix (blocker 1): this row is now `isRawFill`'s tab strip too, folded into
-                    the header row above instead (`tabButtons` placed inline there) - see that
-                    row's own comment for why. Every other tab keeps this exact row untouched. */}
-                {!isRawFill && (
-                  <div className="flex flex-wrap gap-1.5 border-b border-line pb-2">
-                    {tabButtons}
-                  </div>
-                )}
+                {/*
+                  Story 061 D3: the tab strip is back in its own row on the raw tab too, so all
+                  seven tabs get the same strip in the same place (AC3). No bottom padding under it
+                  (story 057's `pb-2`, the story's plan `pb-1`): the buttons sit directly on the
+                  bottom rule, which is the ordinary tab-strip idiom anyway.
+
+                  Why the padding went all the way to 0, in one place because this is where the
+                  budget was spent: a shared one-row header plus a shared strip costs the raw tab
+                  63px it did not pay before (8px page padding + 31px strip + 2x4px row gaps), and
+                  the 30-visible-line floor (AC4) only leaves 99px of chrome above the editor once
+                  D2's funding is counted. The measured chrome after the naive build was 118px, so
+                  19px had to come back out; the story's three named levers (strip `pb-1`->`pb-0.5`,
+                  `pt-4`->`pt-2`, header gap 4px->2px) only yield 10px, and the third yields nothing
+                  at all at 1280x800 since the header does not wrap there. So: this padding to 0
+                  (-4px), `pt-2` (-8px) and the detail wrapper's row gap to 4px (-8px) = -20px, all
+                  three uniform across every tab, which is what AC3 actually constrains. Verified,
+                  not estimated: `npm run ui:flow -- config-header-geometry` reports 31 lines.
+                */}
+                <div
+                  data-testid="config-tab-strip"
+                  className="flex flex-wrap gap-1.5 border-b border-line"
+                >
+                  {tabButtons}
+                </div>
 
                 <Panel className={cn(isRawFill ? 'flex flex-1 min-h-0 flex-col p-0' : 'p-6')}>
                   {activeTab === 'raw' ? (

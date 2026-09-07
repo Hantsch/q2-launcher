@@ -142,6 +142,11 @@
 .cfg-code--fill {
   max-height: none;
   height: 100%;
+  /* Story 061 D2: the raw tab funds the shared header's new row out of its own chrome - shrinking
+     this variant's block padding from the base `.cfg-code`'s 12px is one of the two levers the
+     story's Decisions section allows (the other is the merged toolbar row above), and it only
+     applies to `--fill` - the bounded, `max-h-64` read-only viewer elsewhere keeps the base 12px. */
+  padding-block: 6px;
 }
 
 /* --- editable overlay (story 057 D1) --------------------------------------

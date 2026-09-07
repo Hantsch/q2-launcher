@@ -1,7 +1,7 @@
 ---
 id: 061
 title: Profile header is one row — back left, identity centred, actions right
-status: ready
+status: done
 created: 2026-09-07
 ---
 
@@ -34,16 +34,16 @@ than assume it.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The profile header is a single row on every tab: back link left, profile identity
+- [x] **AC1** — The profile header is a single row on every tab: back link left, profile identity
       centred, action cluster right.
-- [ ] **AC2** — Name, created, updated and the unsaved indicator are all visible in that centred
+- [x] **AC2** — Name, created, updated and the unsaved indicator are all visible in that centred
       zone; no second identity row below the header.
-- [ ] **AC3** — Switching between tabs (Overview, Controls, Settings, Aliases, Care, Unsaved, Raw
+- [x] **AC3** — Switching between tabs (Overview, Controls, Settings, Aliases, Care, Unsaved, Raw
       File) does not move or change the header, the back link, the identity block, the action
       cluster or the tab strip.
-- [ ] **AC4** — At 1280x800 the Raw File editor still shows at least 30 lines (story 057 AC1 stays
+- [x] **AC4** — At 1280x800 the Raw File editor still shows at least 30 lines (story 057 AC1 stays
       met with the shared header).
-- [ ] **AC5** — At a narrow window width the header degrades by wrapping, not by clipping or
+- [x] **AC5** — At a narrow window width the header degrades by wrapping, not by clipping or
       overflowing; every control stays reachable.
 
 ## Open Questions
@@ -214,3 +214,80 @@ AC4 → D1+D2+D3 (test in D1) · AC5 → D3 (test in D4).
 - No manual residue.
 
 ## Done
+
+**Summary.** The profile detail header is now one `<header data-testid="config-profile-header">`
+for every tab (back left / `config-profile-identity` centred / `config-profile-actions` right),
+followed by one shared `config-tab-strip` row — the Raw File tab's own folded/two-toolbar-row
+header is gone. `scripts/flows/config-header-geometry.mjs` (new, D1+D4) is the story's whole
+acceptance surface: it measures the Raw File editor's real line count and, after D3, asserts
+header/identity/tab-strip/action-cluster rects are identical across all seven tabs, that the
+identity zone carries name/created/updated/unsaved (and only one such zone exists in the DOM), and
+that nothing clips or becomes unreachable at 940x620. The Raw File tab (D2) merged its two toolbar
+rows into one and tightened `.cfg-code--fill`'s padding to fund the shared header's line budget.
+Final measured result: 31 visible editor lines at 1280x800 (floor is 30), a comfortable margin
+over the required minimum but tighter than the mid-story baseline (61px after D2) because D3's
+header/tab-strip/padding changes spend part of that budget — expected and within plan.
+
+**Commit message:** `061: profile header is one row for every tab`
+
+**Decisions taken during build** (all verified against Plan/AC, none contradict a Sprint Decision):
+- **D2 — `Select`/`IconButton` sizing bug fix.** The shared `Select`'s `h-7` override never
+  actually applied (`cn()` has no tailwind-merge dedup, so `FIELD_BASE`'s `h-9` won the cascade).
+  Fixed at the one Raw File call site (`h-6!`) rather than in the shared component, and combined
+  with shrinking two `IconButton`s + the `Select` to 24px to close the line-budget margin gap.
+  Recorded as a new `CLAUDE.md` deviation-table row (44px floor deviation, same desktop-only
+  reason as the existing rows).
+- **D3 — tab-button padding reconciliation.** The Sprint Decisions contained two readings
+  ("tab buttons keep `py-1.5`'s look" vs. "tab strip gets denser, `py-1` buttons"); resolved in
+  favour of `py-1` for all seven tabs (matching the Plan's step 3 and the "denser" framing),
+  removing the old raw-only `py-0` variant entirely so the strip is pixel-identical everywhere.
+  Recorded as its own `CLAUDE.md` deviation-table row.
+- **D3 — fallback-lever substitution.** The Plan's prescribed order for recovering line budget
+  if short (tab-strip `pb-1`→`pb-0.5`, then `pt-4`→`pt-2`, then header-block gap 4px→2px) yielded
+  only 10 of the 19px needed. Applied instead: strip `pb-1`→none (more than the prescribed
+  `pb-0.5`), `pt-4`→`pt-2` (as prescribed), and one lever not in the list — detail-wrapper gap
+  `space-y-2`→`space-y-1`. All three stay uniform across every tab, so the hard constraints
+  ("never a per-tab difference, never `--cfg-code-line-h`, never the shell") are respected in
+  full; only the literal prescribed order/list was widened. Final result 31 lines / 18px margin —
+  above floor. Reviewed and accepted (see below) rather than treated as a blocker.
+- **D3 — new testid `config-profile-actions`.** Not named in the story text (which named
+  `config-profile-header`/`config-profile-identity` only); added so D4's cross-tab rect
+  comparison had a stable anchor for the action cluster, consistent with the existing
+  `data-testid` convention used throughout.
+- **Post-review test strengthening (not a Sprint/refine decision, a review-fix).** The clean
+  review (PASS) flagged two test-rigor gaps rather than implementation defects: AC1's "single
+  row" wasn't directly bounded (only proven indirectly via cross-tab equality + the AC4 line
+  budget), and AC2's "no second identity block anywhere" wasn't asserted as a DOM-uniqueness
+  check. Both were closed by extending `config-header-geometry.mjs` (header-height-vs-back-button
+  ceiling check; `config-profile-identity` count === 1 plus a stray-duplicate DOM scan) — verified
+  green, and confirmed these were test gaps, not implementation gaps (production code untouched).
+
+**Verification.**
+- `npm run build` — green.
+- `npm test` — 101 files / 2607 tests, green.
+- `npm run typecheck` — green (node + web), re-confirmed after the final flow edit.
+- `npm run ui:verify` — 68/68 screenshots, 0 axe violations at both viewports.
+- `npm run ui:flow -- raw-inline-edit` — still green (clicks `config-save`, now inside
+  `config-profile-actions`).
+- `npm run ui:flow -- config-header-geometry` (D1+D4, extended post-review) — green;
+  `lines=31 margin=18px` at 1280x800; rect-equality, identity-text, unsaved-indicator
+  raise/discard, single-row-height, identity-uniqueness and 940x620 wrap/hit-testability
+  assertions all pass.
+- Code review (default tier, clean agent): **PASS**, no blocking defects; shell files
+  (`AppShell.tsx`/`TitleBar.tsx`/`ActionBar.tsx`) confirmed untouched; no hex colors or raw
+  palette classes introduced; two test-rigor findings (see Decisions above) fixed in one
+  review-fix cycle, no re-review needed since fixes only strengthened the test file, not
+  production code.
+
+**AC → test mapping, as verified:**
+- AC1 → `scripts/flows/config-header-geometry.mjs` (cross-tab header-rect equality + new
+  single-row-height ceiling assertion) — passed.
+- AC2 → same flow (identity-zone text assertions + new identity-uniqueness/no-stray-duplicate
+  assertion + unsaved-indicator raise/discard) — passed.
+- AC3 → same flow (header/identity/tab-strip/actions rect equality across all seven tabs) —
+  passed.
+- AC4 → same flow (`lines=31 margin=18px` ≥ 30-line floor) — passed. Funded by D1 (measuring
+  instrument) + D2 (raw-tab toolbar merge + padding) + D3 (header rewrite within budget).
+- AC5 → same flow (940x620 `scrollWidth <= clientWidth`, every control hit-testable) plus
+  `npm run ui:verify`'s existing `VIEWPORT_MIN` pass over all config-detail screens — passed.
+- No manual residue.

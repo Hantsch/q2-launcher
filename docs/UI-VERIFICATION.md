@@ -676,7 +676,11 @@ carries its own pre-existing findings (the standard catalogue's
 `config-care-clear`'s own comment in `scripts/lib/screens.mjs` for why that
 screen uses a different fixture profile), and the keycap dialog's save marks
 the profile dirty (story 043 D4), which keeps the canonical file `outOfSync`
-until an explicit Save this flow does not perform.
+until an explicit Save this flow does not perform, and (story 061 D1)
+**`config-header-geometry`** — opens Plain Profile's Raw file tab and computes the visible line
+count from `.cfg-code`'s real `clientHeight`, its `padding-block` and `--cfg-code-line-h` (each read
+via `getComputedStyle`), printing `lines=N margin=Mpx` and failing if the computed count drops below
+the story's 30-line budget — the measuring instrument for that budget, not a layout change.
 
 ## Baselines and CI
 

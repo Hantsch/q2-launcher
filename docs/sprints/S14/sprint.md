@@ -19,7 +19,7 @@ Weapons can take a key again.
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
 - [x] 063 — Hand grenades and Grenade Launcher can be bound to a key
-- [ ] 061 — Profile header is one row: back left, identity centred, actions right
+- [x] 061 — Profile header is one row: back left, identity centred, actions right
 - [ ] 062 — Controls category rail is a clean chip row with an action menu
 - [ ] 064 — Unsaved changes read as a real diff
 - [ ] 065 — Installation name carries an engine badge everywhere it is shown

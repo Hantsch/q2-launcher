@@ -158,7 +158,7 @@ export function RawFileTab({
   }
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col gap-0.5">
+    <div className="flex flex-1 min-h-0 flex-col gap-0">
       {/* Story 057 D3's separate "This profile's file" `SectionLabel` was dropped in the review fix
           for blocker 1 (AC1 - "at least 30 lines visible at 1280x800"): the tab strip already reads
           "Raw file" for the selected tab and the path row right below names the actual file, so the
@@ -170,6 +170,16 @@ export function RawFileTab({
           review fix, the same "reduced padding" compaction the story's own plan already called for
           in this spot: two one-line rows cost a whole extra row of chrome that 30 visible code lines
           at 1280x800 cannot spare. Wraps at the narrower viewport instead of clipping. */}
+      {/* Story 061 D2: this row is one of the two levers the header's new line budget funds itself
+          out of (`docs/requirements/061-profile-header-is-one-row.md`'s Decisions). Its two
+          `IconButton`s and the section-header-style `Select` below are forced to 24px (`size-6`/
+          `h-6`, CLAUDE.md's deviation table) - one size step below the app's usual 28px dense
+          floor - because 28px alone (plus the `.cfg-code--fill` padding cut in `config-syntax.css`)
+          still fell 3px short of the flow's required margin. Each override needs a trailing `!`:
+          `IconButton`'s own `size-7`/`Select`'s `FIELD_BASE` `h-9` are utility classes too, and
+          `cn()` here is a plain `clsx` with no `tailwind-merge` dedup, so without `!` the winner is
+          whichever rule Tailwind happens to emit later in the stylesheet, not the one written last
+          in this file. */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
         <p
           className="numeric min-w-0 flex-1 truncate text-xs text-ink-dim"
@@ -187,6 +197,7 @@ export function RawFileTab({
         <IconButton
           label={t('config.raw.openEditor')}
           size="sm"
+          className="size-6!"
           disabled={!canonical.onDisk}
           onClick={() => void openFile('open')}
         >
@@ -195,6 +206,7 @@ export function RawFileTab({
         <IconButton
           label={t('config.raw.reveal')}
           size="sm"
+          className="size-6!"
           disabled={!canonical.onDisk}
           onClick={() => void openFile('reveal')}
         >
@@ -255,7 +267,7 @@ export function RawFileTab({
               onChange={(event) =>
                 void changeSectionHeaderStyle(event.target.value as 'dashes' | 'brackets' | 'plain')
               }
-              className="h-7 w-auto text-xs"
+              className="h-6! w-auto text-xs"
               disabled={rawDraft.active}
               options={[
                 { value: 'dashes', label: t('config.raw.sectionHeaderStyleDashes') },
