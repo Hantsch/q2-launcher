@@ -31,7 +31,8 @@
 //   config-create-profile       (ConfigView.tsx, "New profile" button)
 //   config-create-source        (CreateProfileDialog.tsx, source <select>)
 //   config-create-submit        (CreateProfileDialog.tsx, footer submit button)
-//   config-import-installation  (ImportProfileDialog.tsx, installation <select>)
+//   config-import-installation  (ImportProfileDialog.tsx, installation <select>) — RETIRED by
+//                                 story 066 D8, see below.
 //
 // Story 041 D7 adds one more, same mirroring convention — read
 // ImportProfileDialog.tsx before changing it:
@@ -41,9 +42,24 @@
 // Story 042 D6 adds two more, same mirroring convention — read
 // ImportProfileDialog.tsx before changing them:
 //   config-import-gamedir       (ImportProfileDialog.tsx, the gamedir <select> - needed to pick
-//                                 a candidate other than the auto-selected first one)
+//                                 a candidate other than the auto-selected first one) — RETIRED by
+//                                 story 066 D8, see below.
 //   config-import-restore-banner (ImportProfileDialog.tsx, the "restoring a launcher profile"
-//                                 banner, rendered only when `ownWrittenFile` is true)
+//                                 banner, rendered only when `ownWrittenFile` is true) — RETIRED by
+//                                 story 066 D8, see below.
+//
+// Story 066 D8 retires `config-import-installation`/`config-import-gamedir`/
+// `config-import-restore-banner` above along with the three screens that drove them
+// (`config-import-preview`/`config-import-review`/`config-import-restore`) — story 066 re-addressed
+// import from `{ installationId, gameDir }` to a picked-files list, so `ImportProfileDialog.tsx` no
+// longer has an installation or gamedir `<select>` at all. One new screen, `config-import-files`,
+// replaces all three (see its own entry, further down) — read ImportProfileDialog.tsx before
+// changing these:
+//   config-import-file-list     (ImportProfileDialog.tsx, the ordered `<ul>` of picked files)
+//   config-import-file-row      (ImportProfileDialog.tsx, one `<li>` per picked file, in load order)
+//   "Choose files…"              (ImportProfileDialog.tsx, the picker-trigger button — no testid,
+//                                 selected by its own translated accessible name like the rail's
+//                                 category chips elsewhere in this file)
 //
 // Story 047 D3 adds four more, same mirroring convention — read MessageEditor.tsx,
 // ControlsTab.tsx and LibraryView.tsx before changing these:
@@ -545,80 +561,30 @@ export const SCREENS = [
   // coming - the view it targeted no longer exists, so this retirement is permanent, not "until a
   // new trigger shows up".
   {
-    id: 'config-import-preview',
+    id: 'config-import-files',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,
-    // Story 037 D3: config list -> "New profile" -> source "import" ->
-    // continue -> pick the one installation with a real config.cfg fixture
-    // (D2's `fixture-install-writedir`, display name "Fixture WriteDir
-    // Install" - scripts/lib/fixture.mjs). Picking it triggers a scan, which
-    // auto-selects the first gamedir candidate and triggers a preview -
-    // ImportProfileDialog.tsx's two effects - with no further click needed.
-    // `.cfg-code-single` is only ever rendered by this dialog's
-    // duplicate-bind/preserved-line lists, and the fixture config.cfg has
-    // both (a `bind w` repeated with no `unbind` between, and one
-    // unrecognized `alias` line), so waiting for it rules out both the
-    // spinner and the "no config files" empty state.
+    // Story 066 D8: replaces `config-import-preview`/`config-import-review`/`config-import-restore`
+    // (all retired above along with the installation/gamedir selects they drove) - `ImportProfileDialog.tsx`
+    // now opens a native multi-select file picker instead of addressing an installation/gamedir.
+    // config list -> "New profile" -> source "import" -> continue -> "Choose files…" (no testid,
+    // selected by its own translated accessible name) triggers `DialogService`'s harness-only stub
+    // (`Q2L_UI_HARNESS==='1' && isDev`, src/main/services/dialog.ts), which hands back the three
+    // fixture files `scripts/lib/fixture.mjs` stages under `.ui-verify/fixture/import-files/`
+    // (`dm.cfg`, `dmalias.cfg`, `gfx.cfg`) instead of opening a real OS dialog - no native dialog
+    // ever appears for this harness to fight with. Waits for the third listed row
+    // (`config-import-file-row`, ImportProfileDialog.tsx) to be visible - this dialog's own preview
+    // effect fires on every file-list change, so waiting for all three rows (not just the first)
+    // rules out a screenshot mid-render, before the picker result even fully landed.
     navigate: async (page) => {
       await openConfigList(page)
       await click(page, 'config-create-profile')
       await page.getByTestId('config-create-source').selectOption('import')
       await click(page, 'config-create-submit')
+      await page.getByRole('button', { name: 'Choose files…' }).click({ timeout: CLICK_TIMEOUT_MS })
       await page
-        .getByTestId('config-import-installation')
-        .selectOption({ label: 'Fixture WriteDir Install' })
-      await page
-        .locator('.cfg-code-single')
-        .first()
-        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
-    },
-  },
-  {
-    id: 'config-import-review',
-    variant: 'populated',
-    viewports: BOTH_VIEWPORTS,
-    // Story 041 D7: same path as `config-import-preview` above (config list ->
-    // "New profile" -> source "import" -> continue -> pick "Fixture WriteDir
-    // Install"), but waits on `config-import-review` instead of
-    // `.cfg-code-single` - that's the review step's own container
-    // (ImportProfileDialog.tsx), which only renders once the fixture's
-    // `alias q2l_fixture_layer "bind e +use"` line (scripts/lib/fixture.mjs)
-    // comes back in `ambiguousRebindAliases`, so waiting on it rules out both
-    // the spinner and a preview with nothing ambiguous.
-    navigate: async (page) => {
-      await openConfigList(page)
-      await click(page, 'config-create-profile')
-      await page.getByTestId('config-create-source').selectOption('import')
-      await click(page, 'config-create-submit')
-      await page
-        .getByTestId('config-import-installation')
-        .selectOption({ label: 'Fixture WriteDir Install' })
-      await page
-        .getByTestId('config-import-review')
-        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
-    },
-  },
-  {
-    id: 'config-import-restore',
-    variant: 'populated',
-    viewports: BOTH_VIEWPORTS,
-    // Story 042 D6: same installation as `config-import-preview`/`config-import-review`
-    // ("Fixture WriteDir Install"), but picks its second gamedir - `RESTORE_GAME_DIR`
-    // (scripts/lib/fixture.mjs) - which holds a launcher-written fixture config carrying the
-    // `OWNERSHIP_MARKER` sentinel for the "Plain Profile" fixture's own id. Waiting on
-    // `config-import-restore-banner` (ImportProfileDialog.tsx) rules out both the spinner and a
-    // preview that resolved to the foreign-config `baseq2` candidate instead.
-    navigate: async (page) => {
-      await openConfigList(page)
-      await click(page, 'config-create-profile')
-      await page.getByTestId('config-create-source').selectOption('import')
-      await click(page, 'config-create-submit')
-      await page
-        .getByTestId('config-import-installation')
-        .selectOption({ label: 'Fixture WriteDir Install' })
-      await page.getByTestId('config-import-gamedir').selectOption({ label: 'q2l-restore-fixture' })
-      await page
-        .getByTestId('config-import-restore-banner')
+        .getByTestId('config-import-file-row')
+        .nth(2)
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },

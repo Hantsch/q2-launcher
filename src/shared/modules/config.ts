@@ -48,9 +48,12 @@ export const CONFIG_HANDLERS = {
   setWriteCatalogDefaults: 'setWriteCatalogDefaults',
   setSectionHeaderStyle: 'setSectionHeaderStyle',
   discard: 'discard',
-  importScan: 'import.scan',
-  importPreview: 'import.preview',
-  importCommit: 'import.commit',
+  // Story 066 D3/D5/D7: the file-id-addressed import trio - see `PickedConfigFile`'s doc comment.
+  // Replaces the old `{ installationId, gameDir }` addressing, which D7 removed together with the
+  // renderer's installation/gamedir UI.
+  importPickFiles: 'import.pickFiles',
+  importPreviewFiles: 'import.previewFiles',
+  importCommitFiles: 'import.commitFiles',
   cleanupScan: 'cleanup.scan',
   cleanupApply: 'cleanup.apply',
   cleanupRestore: 'cleanup.restore',
@@ -480,6 +483,15 @@ export interface ConfigProfile {
   dirty?: boolean
   fileState?: ProfileFileState
   baseline?: ProfileBaseline
+  /**
+   * Story 066 D3: which `ConfigProfileSeed` this profile was created from, when it is worth
+   * recording at all - a profile created empty or from an import has nothing meaningful to record
+   * here (there is no handedness to remember), so this is only ever set to `'template-right'` or
+   * `'template-left'`, never `'empty'`. Optional and additive like every other field on this
+   * interface: a profile persisted before this story, or created empty/imported, simply omits it.
+   * `ProfilesStore.create` (a later deliverable) is what actually writes it.
+   */
+  seedFrom?: Exclude<ConfigProfileSeed, 'empty'>
 }
 
 /**
@@ -494,8 +506,16 @@ export interface ConfigProfile {
 export type ProfileFileState =
   'unchanged' | 'changedOnDisk' | 'missing' | 'unparseable' | 'readError'
 
-/** Where a new profile's content comes from. */
-export type ConfigProfileSeed = 'empty' | 'template'
+/**
+ * Where a new profile's content comes from.
+ *
+ * Story 066 D3: the single `'template'` value split into `'template-right'`/`'template-left'` - a
+ * new profile from either one is still seeded from `STANDARD_TEMPLATE` below (the two handed
+ * layouts themselves are a later story's content, not this deliverable's), but the profile now
+ * records *which* of the two it asked for (`ConfigProfile.seedFrom`) so that later story can fill
+ * in content without re-touching the picker, the contract or this seed field again.
+ */
+export type ConfigProfileSeed = 'empty' | 'template-right' | 'template-left'
 
 /**
  * The read-only seed a profile can be created from. Read-only on purpose: a
@@ -1179,30 +1199,15 @@ export interface OpenProfileFileInput {
 
 // ---------------------------------------------------------------------------
 // Import (story 005): read an existing hand-written config into a new profile.
-// Addressed by `{ installationId, gameDir }`, never by a path (decision 2) -
-// main resolves the real path from the registered installation itself.
+//
+// Story 066 D7: the original `{ installationId, gameDir }` addressing (`ImportScanInput`,
+// `ImportGamedirCandidate`, `ImportScanResult`, `ImportPreviewInput`, `ImportCommitInput`, and the
+// `importScan`/`importPreview`/`importCommit` channels they belonged to) is gone - superseded by
+// the `fileIds`-addressed picker flow below (`PickedConfigFile`, `ImportFilesPreviewInput`,
+// `ImportFilesCommitInput`). `ImportMetadataWarning`/`ImportPreviewResult` right below carry over
+// unchanged: both flows analyse the same picked config content into the same preview shape, only
+// how the files are addressed changed.
 // ---------------------------------------------------------------------------
-
-export interface ImportScanInput {
-  installationId: string
-}
-
-/** One gamedir that has at least one importable file (decision 12). */
-export interface ImportGamedirCandidate {
-  gameDir: string
-  hasConfigCfg: boolean
-  hasAutoexecCfg: boolean
-}
-
-export interface ImportScanResult {
-  /** `baseq2` first when present, so "pick candidates[0]" is a correct default. */
-  candidates: ImportGamedirCandidate[]
-}
-
-export interface ImportPreviewInput {
-  installationId: string
-  gameDir: string
-}
 
 /**
  * One thing `restoreProfileParts` (story 042 D4) had to say about a launcher-written file's
@@ -1293,21 +1298,49 @@ export interface ImportPreviewResult {
   cvarSections: ConfigCvarSection[]
 }
 
-export interface ImportCommitInput {
-  installationId: string
-  gameDir: string
+// ---------------------------------------------------------------------------
+// Import from files (story 066): the renderer-driven multi-file picker that replaces the
+// `{ installationId, gameDir }` addressing above. Main owns every picked absolute path - the
+// renderer only ever holds the opaque handles below, never a path it composed or observed itself
+// (CLAUDE.md: "paths from the renderer are never trusted").
+// ---------------------------------------------------------------------------
+
+/**
+ * The opaque handle `import.pickFiles` hands the renderer for one file the user picked -
+ * deliberately carries no absolute path field. Main keeps the real path in its own
+ * session-scoped registry (`picked-files.ts`, D5) keyed by `id`; the renderer only ever sends the
+ * `id` back, ordered, to `import.previewFiles`/`import.commitFiles` (D7: `ImportProfileDialog.tsx`
+ * is the one renderer component that holds this list at all, as an ordered array whose order IS
+ * the load order - see that file's own doc comment).
+ */
+export interface PickedConfigFile {
+  id: string
+  /** Bare file name, for display only (e.g. `dm.cfg`). */
+  fileName: string
+  /** The containing folder's own display name, for telling apart same-named files from different folders. */
+  dirName: string
+}
+
+/**
+ * `import.previewFiles`' input: the picked files to fold, left to right, into one preview - a later
+ * assignment (a file further right in this list) wins over an earlier one, same last-wins rule the
+ * reader already applies within a single file's document order. Addressed entirely by
+ * `PickedConfigFile.id`, never a path.
+ */
+export interface ImportFilesPreviewInput {
+  fileIds: string[]
+}
+
+/**
+ * `import.commitFiles`' input: same `fileIds` ordering as `ImportFilesPreviewInput`, plus the new
+ * profile's `name`, and `layerAliases` (story 041 D6's "attempt as layer" choice - optional,
+ * absent or empty meaning the default for every ambiguous alias). Story 066 decision: commit
+ * re-reads the picked files from disk rather than trusting `import.previewFiles`' result (story
+ * 005 decisions 3 + 14), so this input carries nothing from the preview response itself.
+ */
+export interface ImportFilesCommitInput {
+  fileIds: string[]
   name: string
-  /**
-   * Story 041 (D6): names (from `ImportPreviewResult.ambiguousRebindAliases`)
-   * the user chose to "attempt as layer" - passed straight through to
-   * `buildImportedActions`'s own `layerAliases` parameter. Optional, absent or
-   * empty meaning the default for every ambiguous alias (import as a plain
-   * `kind: 'alias'` entry) - same convention as that function's own optional
-   * parameter, and what keeps every caller that predates this deliverable (the
-   * import dialog has no UI for it yet) compiling and behaving unchanged.
-   * Validated at commit time against *that import's own* ambiguous list (never
-   * trust a renderer-supplied name) - `main/modules/config/import.ts#commitImport`.
-   */
   layerAliases?: string[]
 }
 

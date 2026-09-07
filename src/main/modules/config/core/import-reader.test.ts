@@ -2,7 +2,14 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { ALIAS_LOOP_COUNT, MAX_EXEC_EXPANSIONS, readImportableConfig } from './import-reader'
+import { restoreProfileParts } from '@shared/config/profile-restore'
+import { toRestoreInput } from '../import'
+import {
+  ALIAS_LOOP_COUNT,
+  MAX_EXEC_EXPANSIONS,
+  readImportableConfig,
+  readImportableFiles,
+} from './import-reader'
 
 /**
  * Every fixture below lives under `root`, a throwaway temp tree created per
@@ -516,5 +523,227 @@ describe('readImportableConfig', () => {
     // line's `//`, i.e. everything the writer put in front of the comment, so a reader can work out
     // how much room the comment had - see `ParsedAlias.codeWidth`.
     expect(result.aliases[0]!.codeWidth).toBe('alias qq "disconnect" '.length)
+  })
+})
+
+/**
+ * Story 066 D1: the second entry point. Same core fold as `readImportableConfig` above (that is the
+ * point of the shared `ReaderContext`), differing only in where the read starts and where an `exec`
+ * may look - so these tests are about exactly those two things, plus the guarantee that the
+ * structures handed on are identical to the installation reader's.
+ */
+describe('readImportableFiles', () => {
+  /** Absolute path of a fixture, i.e. what a real caller hands this reader. */
+  function at(relativePath: string): string {
+    return join(root, relativePath)
+  }
+
+  it('folds a file list left to right, so a later assignment wins over an earlier one', async () => {
+    await write(
+      'picked/first.cfg',
+      lines('set name "from-first"', 'bind w "+forward"', 'alias qq "quit"'),
+    )
+    await write(
+      'picked/second.cfg',
+      lines('set name "from-second"', 'bind w "+back"', 'alias qq "disconnect"'),
+    )
+
+    const result = await readImportableFiles([at('picked/first.cfg'), at('picked/second.cfg')])
+
+    // The later file wins for all three kinds, exactly as a later line inside one file would.
+    expect(result.cvars).toEqual({ name: 'from-second' })
+    expect(result.binds).toEqual({ w: '+back' })
+    expect(result.aliases.map(({ name, body }) => ({ name, body }))).toEqual([
+      { name: 'qq', body: 'disconnect' },
+    ])
+    // ... and the overridden definitions are reported, not silently dropped.
+    expect(result.duplicateBinds).toEqual([{ key: 'w', file: 'second.cfg', line: 2 }])
+    expect(result.duplicateAliases).toEqual([{ name: 'qq', file: 'second.cfg', line: 3 }])
+    expect(result.filesRead).toEqual(['first.cfg', 'second.cfg'])
+    expect(result.warnings).toEqual([])
+  })
+
+  it('reverses with the list order, so the order is the fold and not the alphabet', async () => {
+    await write('picked/first.cfg', lines('set name "from-first"'))
+    await write('picked/second.cfg', lines('set name "from-second"'))
+
+    const result = await readImportableFiles([at('picked/second.cfg'), at('picked/first.cfg')])
+
+    expect(result.cvars).toEqual({ name: 'from-first' })
+    expect(result.filesRead).toEqual(['second.cfg', 'first.cfg'])
+  })
+
+  it('yields the same structures as an installation read of the same content', async () => {
+    // One body of content, written twice: once where the installation reader finds it by its fixed
+    // entry-file names, once in a folder the file reader is pointed at explicitly. The file NAMES
+    // are the same in both places, since every result bucket is tagged with the on-disk name - so
+    // the two results have to come out identical, field for field.
+    const configCfg = lines(
+      '.: Keys :.',
+      '##### General #####',
+      'set sensitivity "3" // feel',
+      'set name "player"',
+      '##### Movement #####',
+      'bind w "+forward"',
+      'bind mouse1 "+attack"',
+      'bind t "messagemode"',
+      'bind y "say hi"',
+      'alias +zoom "set fov 30"',
+      'alias -zoom "set fov 90"',
+      'alias altmode "bind 1 use blaster; bind 2 use shotgun"',
+      'bind x "altmode"',
+      'exec extra.cfg',
+      'some garbage line',
+    )
+    const extraCfg = lines('##### Extras #####', 'set cl_run "1"', 'bind s "+back"')
+    const autoexecCfg = lines('// a note', 'set name "final"', 'bind a "+moveleft"')
+
+    for (const dir of ['baseq2', 'picked']) {
+      await write(`${dir}/config.cfg`, configCfg)
+      await write(`${dir}/extra.cfg`, extraCfg)
+      await write(`${dir}/autoexec.cfg`, autoexecCfg)
+    }
+
+    const fromInstallation = await readImportableConfig(root, 'baseq2')
+    const fromFiles = await readImportableFiles([
+      at('picked/config.cfg'),
+      at('picked/autoexec.cfg'),
+    ])
+
+    expect(fromFiles).toEqual(fromInstallation)
+
+    // Non-trivially populated, so the equality above is not two empty results agreeing: cvars,
+    // binds (press `+forward`/`+attack`, release `-zoom` via its alias pair, message
+    // `messagemode`/`say`), aliases, preserved lines and the exec'd file all took part.
+    expect(fromFiles.cvars).toEqual({ sensitivity: '3', name: 'final', cl_run: '1' })
+    expect(fromFiles.binds).toMatchObject({
+      w: '+forward',
+      MOUSE1: '+attack',
+      t: 'messagemode',
+      y: 'say hi',
+      s: '+back',
+      a: '+moveleft',
+    })
+    expect(fromFiles.aliases.map((alias) => alias.name)).toEqual(['+zoom', '-zoom', 'altmode'])
+    expect(fromFiles.unrecognized.length).toBeGreaterThan(0)
+    expect(fromFiles.filesRead).toEqual(['config.cfg', 'extra.cfg', 'autoexec.cfg'])
+    expect(fromFiles.warnings).toEqual([])
+
+    // And the same again one stage downstream, where the reader's flat maps become the profile's
+    // own structures: categories/sub-categories, cvar sections, layers and preserved lines. Ids
+    // come from a fresh deterministic sequence per call, so a difference here would be a real
+    // structural difference and never a minted-id mismatch.
+    const restore = (result: typeof fromFiles): ReturnType<typeof restoreProfileParts> => {
+      let id = 0
+      return restoreProfileParts(toRestoreInput(result, ['altmode'], () => `id${++id}`))
+    }
+    const restoredFromFiles = restore(fromFiles)
+
+    expect(restoredFromFiles).toEqual(restore(fromInstallation))
+    expect(restoredFromFiles.actions.length).toBeGreaterThan(0)
+    expect(restoredFromFiles.categories.length).toBeGreaterThan(0)
+    expect(restoredFromFiles.cvarSections.length).toBeGreaterThan(0)
+    expect(restoredFromFiles.layers.map((layer) => layer.name)).toEqual(['altmode'])
+  })
+
+  it('resolves an exec inside the file’s own folder', async () => {
+    await write('picked/main.cfg', lines('set a "1"', 'exec sibling.cfg'))
+    await write('picked/sibling.cfg', lines('set from_sibling "1"'))
+
+    const result = await readImportableFiles([at('picked/main.cfg')])
+
+    expect(result.cvars).toEqual({ a: '1', from_sibling: '1' })
+    expect(result.filesRead).toEqual(['main.cfg', 'sibling.cfg'])
+    expect(result.warnings).toEqual([])
+  })
+
+  it('does not let an exec escape the file’s own folder', async () => {
+    await write('escape.cfg', lines('set escaped "1"'))
+    await write('picked/nested/main.cfg', lines('set a "1"', 'exec ../../escape.cfg'))
+
+    const result = await readImportableFiles([at('picked/nested/main.cfg')])
+
+    // `..` never appears in a directory listing, so the hop simply fails to resolve - the file
+    // above is never opened, the line is kept verbatim and the import carries on.
+    expect(result.cvars).toEqual({ a: '1' })
+    expect(result.filesRead).toEqual(['main.cfg'])
+    expect(result.warnings).toEqual([
+      { file: 'main.cfg', line: 2, reason: 'exec-missing', target: '../../escape.cfg' },
+    ])
+    expect(result.unrecognized).toEqual([
+      { file: 'main.cfg', line: 2, text: 'exec ../../escape.cfg' },
+    ])
+  })
+
+  it('does not let an exec reach an absolute path elsewhere', async () => {
+    await write('escape.cfg', lines('set escaped "1"'))
+    await write('picked/main.cfg', lines(`exec "${at('escape.cfg')}"`, 'set a "1"'))
+
+    const result = await readImportableFiles([at('picked/main.cfg')])
+
+    expect(result.cvars).toEqual({ a: '1' })
+    expect(result.filesRead).toEqual(['main.cfg'])
+    expect(result.warnings.map((warning) => warning.reason)).toEqual(['exec-missing'])
+  })
+
+  it('does not fall back to a sibling folder the way the installation search path would', async () => {
+    // The engine's gamedir -> `baseq2` fallback has no meaning for a picked file: there is no
+    // installation behind it, so `baseq2` next door is just another folder it may not read.
+    await write('baseq2/shared.cfg', lines('set from_baseq2 "1"'))
+    await write('picked/main.cfg', lines('exec shared.cfg'))
+
+    const result = await readImportableFiles([at('picked/main.cfg')])
+
+    expect(result.cvars).toEqual({})
+    expect(result.warnings.map((warning) => warning.reason)).toEqual(['exec-missing'])
+  })
+
+  it('preserves an unresolvable exec with a warning instead of aborting the import', async () => {
+    await write('picked/main.cfg', lines('set a "1"', 'exec nope.cfg', 'set b "2"'))
+
+    const result = await readImportableFiles([at('picked/main.cfg')])
+
+    // Both sides of the failed exec are still imported - the same shape of degradation the
+    // installation reader gives ("preserves a missing exec ..." above), just rooted differently.
+    expect(result.cvars).toEqual({ a: '1', b: '2' })
+    expect(result.warnings).toEqual([
+      { file: 'main.cfg', line: 2, reason: 'exec-missing', target: 'nope.cfg' },
+    ])
+    expect(result.unrecognized).toEqual([{ file: 'main.cfg', line: 2, text: 'exec nope.cfg' }])
+  })
+
+  it('skips a path that cannot be read and keeps the rest of the list', async () => {
+    await write('picked/present.cfg', lines('set a "1"'))
+    await mkdir(join(root, 'picked', 'folder.cfg'), { recursive: true })
+
+    const result = await readImportableFiles([
+      at('picked/gone.cfg'),
+      at('picked/folder.cfg'),
+      at('picked/present.cfg'),
+    ])
+
+    expect(result.cvars).toEqual({ a: '1' })
+    expect(result.filesRead).toEqual(['present.cfg'])
+  })
+
+  it('returns an empty result for an empty list', async () => {
+    const result = await readImportableFiles([])
+
+    expect(result).toEqual({
+      cvars: {},
+      cvarComments: {},
+      cvarLines: {},
+      cvarFirstLines: {},
+      binds: {},
+      bindComments: {},
+      bindLines: {},
+      aliases: [],
+      comments: [],
+      unrecognized: [],
+      filesRead: [],
+      warnings: [],
+      duplicateBinds: [],
+      duplicateAliases: [],
+    })
   })
 })

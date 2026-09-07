@@ -538,6 +538,14 @@ const configProfileObjectSchema = z.object({
   // as "no known saved state": nothing is reported as unsaved and discard is unavailable, which is
   // the honest answer for one upgrade cycle (story 049, Decisions) - never a guessed baseline.
   baseline: profileBaselinePersistedSchema.optional().catch(undefined),
+  // Story 066 D3: which handed template (if any) this profile was created from - additive and
+  // forgiving in exactly the shape of `fileHash`/`fileState` above. A profile persisted before this
+  // story, one created empty, or one created from an import simply has no key here; a hand-mangled
+  // value degrades to absent rather than dropping the profile. `'template'` (this field's own
+  // pre-split value) is deliberately not in the enum below - `ConfigProfileSeed` no longer has it
+  // either, so a profile written by a launcher version old enough to have recorded it would find it
+  // rejected and dropped here too, same as any other now-unrecognised value.
+  seedFrom: z.enum(['template-right', 'template-left']).optional().catch(undefined),
 })
 
 /**

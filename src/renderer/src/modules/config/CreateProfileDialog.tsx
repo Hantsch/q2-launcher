@@ -9,18 +9,25 @@ import { createConfigProfile } from './client'
 /**
  * The "Start from" choice this dialog offers. `ConfigProfileSeed` (shared, and
  * also spent on the real `create` IPC call's `from` field) only ever knows
- * `'empty' | 'template'` - importing is a whole separate flow with its own
- * multi-step dialog (`ImportProfileDialog`) and never goes through `create`,
- * so `'import'` is added here, renderer-local, rather than widening the shared
- * type for a value main would never accept.
+ * `'empty' | 'template-right' | 'template-left'` - importing is a whole
+ * separate flow with its own multi-step dialog (`ImportProfileDialog`) and
+ * never goes through `create`, so `'import'` is added here, renderer-local,
+ * rather than widening the shared type for a value main would never accept.
  */
 type ProfileSource = ConfigProfileSeed | 'import'
 
 /**
- * Creates a config profile, empty, seeded from the standard template, or - by
- * handing off to `ImportProfileDialog` - imported from an installation's
- * existing config files (story 005, decision 10: import is a fourth "Start
- * from" option here, not a separate screen).
+ * Creates a config profile: empty, seeded from the standard template in
+ * either handedness, or - by handing off to `ImportProfileDialog` - imported
+ * from an installation's existing config files (story 005, decision 10:
+ * import is a fourth "Start from" option here, not a separate screen).
+ *
+ * Story 066 D6: the template choice splits into "right-handed"/"left-handed"
+ * (`'template-right'`/`'template-left'`), each wired to its own distinct
+ * `from` value on the `create` call - both still seed byte-for-byte identical
+ * content today (`STANDARD_TEMPLATE`, main-side `ProfilesStore.create`), which
+ * is what `templateHandednessNote`'s caption says outright rather than
+ * implying a difference that does not exist yet.
  *
  * Module-local, like the rest of the config module's dialogs: it owns its own
  * form state and talks to the config client directly, rather than going through
@@ -51,6 +58,7 @@ export function CreateProfileDialog({
   const [submitting, setSubmitting] = useState(false)
 
   const isImport = from === 'import'
+  const isTemplate = from === 'template-right' || from === 'template-left'
   const canSubmit = (isImport || name.trim().length > 0) && !submitting
 
   const submit = async (): Promise<void> => {
@@ -88,14 +96,18 @@ export function CreateProfileDialog({
       }
     >
       <div className="space-y-4">
-        <Field label={t('config.createDialog.sourceLabel')}>
+        <Field
+          label={t('config.createDialog.sourceLabel')}
+          hint={isTemplate ? t('config.createDialog.templateHandednessNote') : undefined}
+        >
           <Select
             data-testid="config-create-source"
             value={from}
             onChange={(event) => setFrom(event.target.value as ProfileSource)}
             options={[
               { value: 'empty', label: t('config.createDialog.sourceEmpty') },
-              { value: 'template', label: t('config.createDialog.sourceTemplate') },
+              { value: 'template-right', label: t('config.createDialog.sourceTemplateRight') },
+              { value: 'template-left', label: t('config.createDialog.sourceTemplateLeft') },
               { value: 'import', label: t('config.createDialog.sourceImport') },
             ]}
           />

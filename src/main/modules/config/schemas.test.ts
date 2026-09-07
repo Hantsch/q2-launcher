@@ -3,6 +3,9 @@ import { configWriteFailuresSchema, parseConfigWriteFailures } from '../../lib/s
 import {
   actionTextSchema,
   configActionSchema,
+  importFilesCommitInputSchema,
+  importFilesPreviewInputSchema,
+  MAX_IMPORT_FILE_IDS,
   setProfileActionsInputSchema,
   setProfileCvarsInputSchema,
   setSwitchBindInputSchema,
@@ -516,5 +519,79 @@ describe('configWriteFailuresSchema / parseConfigWriteFailures', () => {
 
   it('exposes the same behavior via configWriteFailuresSchema directly', () => {
     expect(configWriteFailuresSchema.parse(null)).toEqual({})
+  })
+})
+
+/**
+ * Story 066 D3's own acceptance test: the `fileIds` shape shared by `import.previewFiles`'s and
+ * `import.commitFiles`' payloads (`ImportFilesPreviewInput`/`ImportFilesCommitInput`,
+ * `@shared/modules/config`) - the ordered list of `PickedConfigFile` ids to fold left-to-right.
+ * Whether an id actually names a file the session's picker registry knows about is not a shape
+ * question (see `importFilesPreviewInputSchema`'s own doc comment in `schemas.ts`) - only structural
+ * validity is this schema's job, and that is what these cases pin.
+ */
+describe('importFilesPreviewInputSchema (fileIds)', () => {
+  it('accepts a normal small array of id strings', () => {
+    const result = importFilesPreviewInputSchema.parse({ fileIds: ['a1', 'a2', 'a3'] })
+    expect(result).toEqual({ fileIds: ['a1', 'a2', 'a3'] })
+  })
+
+  it('rejects an empty array', () => {
+    expect(importFilesPreviewInputSchema.safeParse({ fileIds: [] }).success).toBe(false)
+  })
+
+  it('rejects an array over the cap', () => {
+    const tooMany = Array.from({ length: MAX_IMPORT_FILE_IDS + 1 }, (_, i) => `id${i}`)
+    expect(importFilesPreviewInputSchema.safeParse({ fileIds: tooMany }).success).toBe(false)
+  })
+
+  it('accepts an array exactly at the cap', () => {
+    const atCap = Array.from({ length: MAX_IMPORT_FILE_IDS }, (_, i) => `id${i}`)
+    expect(importFilesPreviewInputSchema.safeParse({ fileIds: atCap }).success).toBe(true)
+  })
+
+  it('rejects a value that is not an array of strings', () => {
+    expect(importFilesPreviewInputSchema.safeParse({ fileIds: [1, 2, 3] }).success).toBe(false)
+    expect(
+      importFilesPreviewInputSchema.safeParse({ fileIds: [{ id: 'a1' }] }).success,
+    ).toBe(false)
+    expect(importFilesPreviewInputSchema.safeParse({ fileIds: 'a1' }).success).toBe(false)
+  })
+
+  it('rejects a missing fileIds field entirely', () => {
+    expect(importFilesPreviewInputSchema.safeParse({}).success).toBe(false)
+  })
+})
+
+/**
+ * `import.commitFiles`'s payload adds `name` (required) and `layerAliases` (optional) to the same
+ * `fileIds` shape - this only pins that the shared `fileIds` rules still hold here too, since the
+ * two schemas intentionally do not share more than that field's definition.
+ */
+describe('importFilesCommitInputSchema (fileIds)', () => {
+  const base = { name: 'Imported' }
+
+  it('accepts a normal small array of id strings alongside name', () => {
+    expect(
+      importFilesCommitInputSchema.safeParse({ ...base, fileIds: ['a1', 'a2'] }).success,
+    ).toBe(true)
+  })
+
+  it('rejects an empty fileIds array', () => {
+    expect(importFilesCommitInputSchema.safeParse({ ...base, fileIds: [] }).success).toBe(false)
+  })
+
+  it('rejects a fileIds array over the cap', () => {
+    const tooMany = Array.from({ length: MAX_IMPORT_FILE_IDS + 1 }, (_, i) => `id${i}`)
+    expect(
+      importFilesCommitInputSchema.safeParse({ ...base, fileIds: tooMany }).success,
+    ).toBe(false)
+  })
+
+  it('rejects a fileIds value that is not an array of strings', () => {
+    expect(importFilesCommitInputSchema.safeParse({ ...base, fileIds: [1, 2] }).success).toBe(
+      false,
+    )
+    expect(importFilesCommitInputSchema.safeParse({ ...base, fileIds: 'a1' }).success).toBe(false)
   })
 })

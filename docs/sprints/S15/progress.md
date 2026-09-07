@@ -32,3 +32,19 @@
 - 2026-09-07 21:17 · 069 · review-fix cycle 2 (Ctrl+F no-op when already open) · done
 - 2026-09-07 21:26 · 069 · review-fix cycle 1 (D1 find-bar focus bugs) · done (belated log entry — actually completed before cycle 2 started at 21:13)
 - 2026-09-07 21:26 · 069 · story-review-hard (3 passes, F1-F3 found+fixed, final PASS) · done
+- 2026-09-07 21:30 · 066 · D1 readImportableFiles(paths) in the reader · started
+- 2026-09-07 21:39 · 066 · D1 readImportableFiles(paths) in the reader · done
+- 2026-09-07 21:39 · 066 · D2 fixture reference case · started
+- 2026-09-07 21:39 · 066 · D3 contract + schemas · started
+- 2026-09-07 21:39 · 066 · D4 DialogService + harness stub · started
+- 2026-09-07 21:47 · 066 · D2 fixture reference case · done
+- 2026-09-07 21:47 · 066 · D3 contract + schemas · done
+- 2026-09-07 21:47 · 066 · D4 DialogService + harness stub · done
+- 2026-09-07 21:48 · 066 · D5 picked-file registry + import handlers · started
+- 2026-09-07 22:03 · 066 · D5 picked-file registry + import handlers · done
+- 2026-09-07 22:03 · 066 · D6 CreateProfileDialog four start-from options · started
+- 2026-09-07 22:09 · 066 · D6 CreateProfileDialog four start-from options · done
+- 2026-09-07 22:09 · 066 · D7 ImportProfileDialog ordered file list · started
+- 2026-09-07 22:22 · 066 · D7 ImportProfileDialog ordered file list · done
+- 2026-09-07 22:22 · 066 · D8 e2e coverage of the flow · started
+- 2026-09-07 22:42 · 066 · D8 e2e coverage of the flow · done

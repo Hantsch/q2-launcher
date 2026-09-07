@@ -11,12 +11,11 @@ import {
   type CreateConfigProfileInput,
   type DiscardProfileInput,
   type DiscardProfileResult,
-  type ImportCommitInput,
-  type ImportPreviewInput,
+  type ImportFilesCommitInput,
+  type ImportFilesPreviewInput,
   type ImportPreviewResult,
-  type ImportScanInput,
-  type ImportScanResult,
   type OpenProfileFileInput,
+  type PickedConfigFile,
   type PreviewProfileInput,
   type PreviewProfileResult,
   type ProfileSyncState,
@@ -364,48 +363,49 @@ export function setSwitchBind(
 }
 
 /**
- * Import (story 005): `importScan`/`importPreview`/`importCommit` each return,
- * as the transport-level `Outcome`'s own value, an inner `Outcome<T>` built by
- * the main process handler - same flattening as `assign`/`unassign`/
- * `setDefault` above, needed so callers only ever see a flat `Outcome<T>`.
+ * Import from files (story 066 D5/D7): `importPickFiles`/`importPreviewFiles`/`importCommitFiles`
+ * each return, as the transport-level `Outcome`'s own value, an inner `Outcome<T>` built by the
+ * main process handler - same flattening as `assign`/`unassign`/`setDefault` above, needed so
+ * callers only ever see a flat `Outcome<T>`.
+ *
+ * None of the three takes or returns a path: `pickImportFiles` opens the real OS picker and hands
+ * back opaque `PickedConfigFile` handles (id + display-only `fileName`/`dirName`), and the other
+ * two are addressed entirely by the ids this function returned - see `PickedConfigFile`'s own doc
+ * comment (`@shared/modules/config`) for why there is no path field to carry here at all.
  */
 
-/** Gamedirs of an installation that have an importable `config.cfg`/`autoexec.cfg`. */
-export async function scanImportCandidates(
-  input: ImportScanInput,
-): Promise<Outcome<ImportScanResult>> {
-  const result = await callModule<Outcome<ImportScanResult>>(
+/** Opens the native multi-select config-file picker and registers what came back. */
+export async function pickImportFiles(): Promise<Outcome<PickedConfigFile[]>> {
+  const result = await callModule<Outcome<PickedConfigFile[]>>(
     'config',
-    CONFIG_HANDLERS.importScan,
-    input,
+    CONFIG_HANDLERS.importPickFiles,
   )
   return result.ok ? result.value : result
 }
 
-/** Previews what an import of one gamedir would produce, without writing anything. */
-export async function previewImportCandidates(
-  input: ImportPreviewInput,
+/** Previews what importing the given, ordered picked files would produce, without writing anything. */
+export async function previewImportFiles(
+  input: ImportFilesPreviewInput,
 ): Promise<Outcome<ImportPreviewResult>> {
   const result = await callModule<Outcome<ImportPreviewResult>>(
     'config',
-    CONFIG_HANDLERS.importPreview,
+    CONFIG_HANDLERS.importPreviewFiles,
     input,
   )
   return result.ok ? result.value : result
 }
 
 /**
- * Re-parses the chosen gamedir and creates a new profile from it, returning the full, updated
- * profile list. `input.layerAliases` (story 041 D7) carries the names `ImportProfileDialog`'s
- * review step flipped to "attempt as layer" - `ImportCommitInput` already types the field, so
- * this wrapper needs no shape change of its own to forward it.
+ * Re-reads the given, ordered picked files from disk and creates a new profile from them,
+ * returning the full, updated profile list. `input.layerAliases` (story 041 D7) carries the names
+ * `ImportProfileDialog`'s review step flipped to "attempt as layer".
  */
-export async function commitImportProfile(
-  input: ImportCommitInput,
+export async function commitImportFiles(
+  input: ImportFilesCommitInput,
 ): Promise<Outcome<ConfigProfile[]>> {
   const result = await callModule<Outcome<ConfigProfile[]>>(
     'config',
-    CONFIG_HANDLERS.importCommit,
+    CONFIG_HANDLERS.importCommitFiles,
     input,
   )
   return result.ok ? result.value : result

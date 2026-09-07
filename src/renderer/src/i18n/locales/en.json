@@ -544,8 +544,10 @@
       "namePlaceholder": "My profile",
       "sourceLabel": "Start from",
       "sourceEmpty": "Empty profile",
-      "sourceTemplate": "Standard template",
-      "sourceImport": "Import from installation",
+      "sourceTemplateRight": "Standard template (right-handed)",
+      "sourceTemplateLeft": "Standard template (left-handed)",
+      "sourceImport": "Import from files",
+      "templateHandednessNote": "Both layouts are the same for now — distinct content arrives in a later update.",
       "submit": "Create profile",
       "continue": "Continue"
     },
@@ -582,7 +584,6 @@
     },
     "error": {
       "installationNotFound": "That installation is no longer in your library.",
-      "gameDirNotFound": "That game directory could not be found on this installation.",
       "profileNotFound": "That config profile no longer exists.",
       "notAssigned": "This profile is not assigned to that installation.",
       "writeFailed": "Could not write this profile's files to disk.",
@@ -590,6 +591,7 @@
       "fileNotFound": "That file could not be found on disk.",
       "openFailed": "Could not open that file: {{message}}",
       "invalidLayerAlias": "One of the aliases you chose to import as a layer is not one this import found.",
+      "pickedFileNotFound": "One of the files you picked is no longer available to this import. Choose the files again.",
       "rawTextNotOwned": "This text no longer carries the profile header the launcher identifies this file by. Keep the header at the top of the file, or edit the file outside the launcher instead.",
       "rawTextNotLatin1": "This text contains characters a Quake II config file cannot hold. Only plain latin-1 text works."
     },
@@ -1184,17 +1186,17 @@
       }
     },
     "importDialog": {
-      "title": "Import from installation",
-      "installationLabel": "Installation",
-      "installationPlaceholder": "Choose an installation…",
-      "noInstallations": {
-        "title": "No installations registered",
-        "body": "Register an installation first, then come back here to import its config."
+      "title": "Import from files",
+      "filesLabel": "Files",
+      "chooseFiles": "Choose files…",
+      "noFilesPicked": {
+        "title": "No files chosen",
+        "body": "Choose one or more of your own config files to import — config.cfg, autoexec.cfg, or any file they exec."
       },
-      "gameDirLabel": "Game folder",
-      "noConfigFiles": {
-        "title": "Nothing to import",
-        "body": "This installation has no config.cfg or autoexec.cfg to import from."
+      "files": {
+        "moveUp": "Move file up",
+        "moveDown": "Move file down",
+        "remove": "Remove file"
       },
       "cvarCount": "Cvars",
       "bindCount": "Key binds",

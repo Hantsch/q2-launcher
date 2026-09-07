@@ -1,7 +1,7 @@
 ---
 id: 066
 title: A new profile starts empty, from a handed template, or from my own config files
-status: ready
+status: done
 created: 2026-09-07
 ---
 
@@ -46,34 +46,34 @@ written before Create, with commit re-reading from disk instead of trusting a pr
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The create dialog's "Start from" offers four options: Empty, Template
+- [x] **AC1** — The create dialog's "Start from" offers four options: Empty, Template
       (right-handed), Template (left-handed), Import from files.
-- [ ] **AC2** — Empty produces exactly the profile it produces today; no behaviour change.
-- [ ] **AC3** — Both template options create a profile and the created profile records which
+- [x] **AC2** — Empty produces exactly the profile it produces today; no behaviour change.
+- [x] **AC3** — Both template options create a profile and the created profile records which
       handedness it was seeded from, so the later layout story fills in content rather than
       re-touching the picker. Until that content exists the dialog does not pretend the two differ.
-- [ ] **AC4** — Import from files opens a native multi-select file picker filtered to `.cfg`, and
+- [x] **AC4** — Import from files opens a native multi-select file picker filtered to `.cfg`, and
       the picked files are listed in the dialog. The renderer never sends a path it composed
       itself — main owns the picked paths from picker to commit.
-- [ ] **AC5** — The listed order is the load order: files are folded left to right, a later
+- [x] **AC5** — The listed order is the load order: files are folded left to right, a later
       assignment wins over an earlier one, and the user can remove a file or change its position
       before importing.
-- [ ] **AC6** — The picked files are analysed by the same reader/parser the installation import
+- [x] **AC6** — The picked files are analysed by the same reader/parser the installation import
       uses: cvars, binds, aliases (plain, press/release, message), categories and sub-categories,
       cvar sections, layers and preserved lines all come out as they do today.
-- [ ] **AC7** — Reference case: importing `docs/fixtures/dm.cfg`, `dmalias.cfg` and `gfx.cfg`
+- [x] **AC7** — Reference case: importing `docs/fixtures/dm.cfg`, `dmalias.cfg` and `gfx.cfg`
       yields one profile containing every bind and every alias the fixture-corpus test already
       pins for those files, plus the last-set value of every cvar assignment across all three, with
       `bind RIGHTARROW "exec dmalias.cfg"` preserved as a working entry. Anything that could not
       become a structured entry is named in the import review step, not silently dropped.
-- [ ] **AC8** — An `exec` inside a picked file resolves relative to that file's own folder and
+- [x] **AC8** — An `exec` inside a picked file resolves relative to that file's own folder and
       cannot escape it; an unresolvable or refused `exec` is kept as a preserved line with a
       warning and never aborts the import — the guarantee today's reader already gives.
-- [ ] **AC9** — Importing from files needs no installation: the flow completes with no installation
+- [x] **AC9** — Importing from files needs no installation: the flow completes with no installation
       selected, and on a launcher with no installation registered at all.
-- [ ] **AC10** — Nothing is written until Create is pressed, and the commit re-reads the picked
+- [x] **AC10** — Nothing is written until Create is pressed, and the commit re-reads the picked
       files from disk rather than trusting anything the preview returned.
-- [ ] **AC11** — No image assets; the file list and its controls are CSS/inline SVG per the repo
+- [x] **AC11** — No image assets; the file list and its controls are CSS/inline SVG per the repo
       rule.
 
 ## Open Questions
@@ -235,39 +235,53 @@ flow ends on a created profile carrying the fixture's binds and aliases.
 
 ## Acceptance Tests
 
-- AC1 → e2e `scripts/flows/import-from-files.mjs` › "the Start from select offers four options"
-  (D8), plus unit `src/renderer/src/modules/config/CreateProfileDialog.test.tsx` › "four
-  start-from options render" (D6)
+- AC1 → e2e `scripts/flows/import-from-files.mjs` › step "open 'New profile' and assert the Start
+  from select offers four options (AC1)" (D8), plus unit
+  `src/renderer/src/modules/config/CreateProfileDialog.test.tsx` › "four start-from options
+  render, each non-import choice wires to its own seed value on submit, and import hands off
+  instead of creating directly (AC1)" (D6)
 - AC2 → unit `src/main/modules/config/profiles.test.ts` › "an empty seed produces the profile it
   produces today" (D6)
 - AC3 → unit `src/main/modules/config/profiles.test.ts` › "a template seed records its handedness
-  in seedFrom" (D6); e2e `scripts/flows/import-from-files.mjs` › "both template options create a
-  profile" (D8)
-- AC4 → e2e `SCREENS` entry `config-import-files` + `scripts/flows/import-from-files.mjs` ›
-  "picking files lists them in the dialog" (D8); unit `src/main/services/dialog.test.ts` › "the
-  config-file picker is multi-select and filtered to .cfg" (D4); unit
+  in seedFrom, and both handednesses seed identically for now" (D6); e2e
+  `scripts/flows/import-from-files.mjs` › step "both template options create a profile (AC3)" (D8)
+- AC4 → e2e `SCREENS` entry `config-import-files` + `scripts/flows/import-from-files.mjs` › step
+  "choose files - the harness stub answers, no real OS dialog ever appears (AC4)" (D8); unit
+  `src/main/services/dialog.test.ts` › "is multi-select and filtered to .cfg" (D4); unit
   `src/main/modules/config/import.test.ts` › "an id the renderer invented is refused" (D5).
   **manual residue:** that the window the OS puts on screen is a real native multi-select file
   dialog — Playwright cannot drive an OS-native dialog at all
   ([UI-VERIFICATION.md:701-706](../UI-VERIFICATION.md#L701-L706)); the stub covers everything from
   the resolved paths onward.
-- AC5 → e2e `scripts/flows/import-from-files.mjs` › "reordering and removing a file changes the
-  load order" (D8); unit `src/main/modules/config/core/import-reader.test.ts` › "a later
-  assignment wins over an earlier one" (D1)
-- AC6 → unit `src/main/modules/config/core/import-reader.test.ts` › "a file list yields the same
-  structures as an installation read" (D1)
+- AC5 → e2e `scripts/flows/import-from-files.mjs` › steps "reorder: move dm.cfg down one row
+  (AC5)" and "remove gfx.cfg ... (AC5)" (D8); unit
+  `src/main/modules/config/core/import-reader.test.ts` › "folds a file list left to right, so a
+  later assignment wins over an earlier one" and › "reverses with the list order, so the order is
+  the fold and not the alphabet" (D1); renderer unit
+  `src/renderer/src/modules/config/ImportProfileDialog.files.test.tsx` › "the list order is the
+  load order (AC5): the on-screen row order is exactly the fileIds sent to preview and commit" and
+  › "removing and reordering re-trigger the preview with the updated fileIds (AC5)" (D7)
+- AC6 → unit `src/main/modules/config/core/import-reader.test.ts` › "yields the same structures as
+  an installation read of the same content" (D1)
 - AC7 → unit `src/main/modules/config/core/import-fixtures.test.ts` › "dm, dmalias and gfx import
   as one profile with every bind and alias" (D2)
-- AC8 → unit `src/main/modules/config/core/import-reader.test.ts` › "exec resolves inside the
-  file's own folder and cannot escape it" and › "an unresolvable exec is preserved with a warning"
-  (D1)
-- AC9 → unit `src/main/modules/config/import.test.ts` › "import from files needs no installation"
-  (D5); e2e `scripts/flows/import-from-files.mjs` runs against the `empty` fixture variant, which
-  has no installation registered (D8)
+- AC8 → unit `src/main/modules/config/core/import-reader.test.ts` › "resolves an exec inside the
+  file's own folder", › "does not let an exec escape the file's own folder", › "does not let an
+  exec reach an absolute path elsewhere", › "does not fall back to a sibling folder the way the
+  installation search path would", and › "preserves an unresolvable exec with a warning instead of
+  aborting the import" (D1)
+- AC9 → unit `src/main/modules/config/import.test.ts` › "import from files needs no installation",
+  › "preview and commit work with no installation selected" and › "preview and commit work on an
+  empty installation list" (D5); e2e `scripts/flows/import-from-files.mjs` run against the `empty`
+  fixture variant, which has no installation registered (D8, `npm run ui:flow -- import-from-files
+  empty`)
 - AC10 → unit `src/main/modules/config/import.test.ts` › "commit re-reads the picked files from
   disk" (D5) and › "preview writes nothing" (D5)
-- AC11 → e2e `npm run ui:verify` a11y + screenshot for `config-import-files` (D8); the clean-agent
-  review checks that no image asset was added (D7)
+- AC11 → e2e `npm run ui:verify` a11y + screenshot for `config-import-files` (0 violations, both
+  viewports) (D8); the clean-agent review confirmed no image asset was added anywhere in the diff
+  (D7) and separately confirmed the one incidental `ConfigCodeView.tsx` accessibility fix
+  (`tabIndex={0}` on the `singleLine` `<pre>`, needed for the new screen's long preserved lines) is
+  legitimate, not scope creep
 
 ### Coverage gate
 
@@ -286,3 +300,97 @@ flow ends on a created profile carrying the fixture's binds and aliases.
 | AC11 | D7, D8 | e2e a11y / screenshot |
 
 ## Done
+
+**Summary.** The config-profile create flow now offers four "Start from" options (Empty,
+Template right/left, Import from files). Import is rebuilt on a renderer→main path-trust
+boundary: a new `DialogService` (env-double-gated `Q2L_UI_HARNESS=1` + `isDev` harness stub for
+the native multi-select `.cfg` picker, unreachable otherwise) hands main-owned absolute paths to
+a session-scoped `PickedFilesRegistry`; the renderer only ever holds `{ id, fileName, dirName }`
+and sends `fileIds` back. `previewImportFiles` reads for the review step; `commitImportFiles`
+re-reads from disk independently at Create time and never trusts the preview. The reader gained a
+`readImportableFiles(paths)` entry point sharing all fold/exec logic with the existing
+installation reader, with exec resolution split into an installation-mode and a file-mode
+strategy (file mode confined to the containing file's own folder, no fallback). The old
+`{ installationId, gameDir }`-addressed import (`import.scan` and friends) is fully removed. e2e
+coverage (`config-import-files` screen + `scripts/flows/import-from-files.mjs`, run against both
+a populated and an installation-less fixture) is the acceptance surface for every user-facing
+criterion; only the native OS dialog window itself is manual residue (Playwright cannot drive it).
+
+**Commit message:**
+```
+066: new profile starts empty, from a handed template, or from picked config files
+```
+
+**Decisions** (own calls made while implementing, checked against the plan/AC afterward):
+- `ConfigProfile.seedFrom` typed as `Exclude<ConfigProfileSeed, 'empty'>` (only meaningful for the
+  two template seeds; absent — not `undefined`-valued — for `empty` and for imported profiles).
+- `fileIds` payload cap: `MAX_IMPORT_FILE_IDS = 64` (no existing precedent for a picker-id-list
+  payload; sized like this schemas file's other generous array ceilings, e.g. `layerAliases`'
+  256). `PickedFilesRegistry` itself bounds at 512 entries, oldest-first eviction, well above the
+  64-id request cap so eviction never surfaces in practice.
+- `Q2L_UI_PICK_FILES` env format: `path.delimiter`-joined absolute paths (`;` on Windows, `:`
+  elsewhere — the same convention Node uses for `PATH`); empty/unset → no picked files.
+- `defaultPath` for the picker: the selected (or last-registered) installation's `baseq2`,
+  `{}`/no default when the installation list is empty — kept in scope per the story's Open
+  Questions rather than deferred.
+- The old `{ installationId, gameDir }` import contract (`import.scan`/`importPreview`/
+  `importCommit` channels, their shared types, their schemas) was fully deleted rather than left
+  dormant, once D7 confirmed nothing in main or renderer still referenced it.
+
+**Verification:**
+- `npm run build` — green.
+- `npm run typecheck` — green (both `tsconfig.node.json` and `tsconfig.web.json`).
+- `npm test` — 2755/2755 tests green (116 files), including every unit named in `## Acceptance
+  Tests` above (each confirmed present and passing, not just inferred from a green suite total).
+- `npm run ui:verify` — green: 64/64 screenshots written, 0 unreachable, 0 axe violations across
+  all 32 screens including the new `config-import-files` screen (both 1280×800 and 940×620).
+- `npm run ui:flow -- import-from-files` (populated) and `npm run ui:flow -- import-from-files
+  empty` — both pass end to end (new profile → four start-from options → both templates create a
+  profile and record `seedFrom` → Import from files → harness-stubbed pick → reorder → remove →
+  create → created profile carries dm.cfg's binds and dmalias.cfg's aliases; the `empty` run
+  proves AC9 with zero installations registered).
+- Acceptance-criteria → test mapping verified as listed in the (now corrected) `## Acceptance
+  Tests` section above; every test name there was checked to exist and pass, not paraphrased from
+  the plan.
+- **Manual residue** (AC4): that the OS actually puts up a real native multi-select file dialog —
+  Playwright cannot drive an OS-native dialog at all
+  ([UI-VERIFICATION.md:701-706](../UI-VERIFICATION.md#L701-L706)); the `Q2L_UI_HARNESS` stub
+  covers everything from the resolved paths onward, which is where all other criteria live.
+- One pre-existing, unrelated flaky test was observed during development (`import-reader.test.ts`
+  › the 512-file exec fan-out budget test occasionally times out at the default timeout only under
+  full-suite disk contention) — confirmed present at HEAD before this story's changes (reproduced
+  with the story's diff stashed) and absent in every scoped/isolated run; not touched, not
+  weakened, left as pre-existing flake for a separate ticket.
+
+**Clean-agent review (`story-review-hard`, single pass):** verdict **PASS**, 4 findings, none
+blocking.
+- **F1 (fixed)** — the fourth "Start from" option's i18n label had been left as "Import from
+  installation" (stale from before D7's rewrite), and D6's own unit test pinned that stale string
+  rather than catching it. Fixed: `en.json`'s `sourceImport` → "Import from files"; the
+  `CreateProfileDialog.test.tsx` assertion updated to match. Re-verified: full `npm test`,
+  `npm run typecheck`, `npm run build`, `npm run ui:verify`, and both `ui:flow` variants all green
+  again after the fix.
+- **F2 (fixed)** — `config.error.gameDirNotFound` was a dead i18n string left over from the
+  deleted gamedir-guard code path (no remaining producer anywhere in the repo). Removed.
+- **F3 (accepted, not fixed)** — retiring the `config-import-restore` e2e screen (D8) lost
+  screenshot/a11y coverage of the still-live "own-written file" restore banner in
+  `ImportProfileDialog.tsx`; the harness's fixed fixture set never triggers that banner. Unit
+  coverage of the same banner logic survives untouched in `import.test.ts`. Left as a coverage
+  gap rather than fixed in this story — restoring e2e coverage for that banner needs its own
+  fixture variant and is out of this story's scope; noted here for a follow-up story rather than
+  silently dropped.
+- **F4 (accepted, not fixed)** — the 64-id `fileIds` cap surfaces as a generic
+  "this is a bug"-style error if a user genuinely multi-selects more than 64 `.cfg` files at once,
+  with no cap-specific message. No acceptance criterion covers file count, and 64 comfortably
+  covers the story's own reference case (3 files) and any realistic manual pick; left as-is rather
+  than adding a bespoke error message not asked for by any AC.
+- The review separately scrutinized the one file changed outside the deliverable list
+  (`ConfigCodeView.tsx`'s `tabIndex={0}` on the `singleLine` `<pre>`, added by D8) and confirmed it
+  is a legitimate, narrowly-scoped accessibility fix consistent with its sibling render branches
+  (needed for the new screen's axe pass), not scope creep.
+- Both the path-trust boundary (D5) and the `Q2L_UI_HARNESS` production-unreachability of
+  `DialogService` (D4) — the two things this story named as its specific review risk — were
+  independently traced and confirmed sound by the reviewer, with file:line evidence for each half
+  (unknown-id rejection before any filesystem read; commit's independent re-read from disk; the
+  gate's `AND`, not `OR`; `isDev` sourced from `!app.isPackaged`, not from an env var, so the
+  double gate cannot collapse).

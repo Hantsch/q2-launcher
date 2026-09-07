@@ -28,9 +28,7 @@ function flowPath(name) {
 async function loadFlow(name) {
   const path = flowPath(name)
   if (!existsSync(path)) {
-    throw new HarnessError(
-      `unknown flow '${name}' — expected scripts/flows/${name}.mjs`,
-    )
+    throw new HarnessError(`unknown flow '${name}' — expected scripts/flows/${name}.mjs`)
   }
   const mod = await import(pathToFileURL(path).href)
   if (typeof mod.default !== 'function') {
@@ -39,7 +37,22 @@ async function loadFlow(name) {
   return mod.default
 }
 
-async function runFlow(name) {
+/**
+ * Story 066 D8: the one flow so far that needs to run against a fixture variant other than
+ * `populated` — AC9 ("import from files needs no installation") is only real e2e proof once it is
+ * shown on a launcher with zero installations registered at all, i.e. the `empty` fixture variant
+ * (`scripts/lib/fixture.mjs`), not merely "the flow never picked one". `variant` defaults to
+ * `'populated'`, so every flow that predates this story keeps its exact prior behaviour with no
+ * argument needed - only `import-from-files` (and any future flow with the same need) has to pass
+ * a second CLI argument. The flow function itself receives `variant` in its own context object
+ * (alongside `page`/`app`/`shot`/`log`/`step`), so it can tailor its own steps to whichever fixture
+ * it is actually running against, same as `import-from-files.mjs` does.
+ *
+ * Flows still never reseed their fixture (unlike `ui:shot`/`ui:a11y`/`ui:verify`'s
+ * `runVariantSession()`) - a stale non-`populated` fixture needs the same `npm run ui:seed` first
+ * that every other flow's own doc comment already asks for.
+ */
+async function runFlow(name, variant) {
   const flowFn = await loadFlow(name)
 
   let currentStep = null
@@ -50,7 +63,7 @@ async function runFlow(name) {
 
   mkdirSync(FLOWS_SCREENSHOTS_DIR, { recursive: true })
 
-  await withApp({ variant: 'populated', viewport: VIEWPORT_DEFAULT }, async ({ page, app, log }) => {
+  await withApp({ variant, viewport: VIEWPORT_DEFAULT }, async ({ page, app, log }) => {
     const shot = async (label) => {
       const filePath = join(FLOWS_SCREENSHOTS_DIR, `${name}-${label}.png`)
       await page.screenshot({ path: filePath })
@@ -58,7 +71,7 @@ async function runFlow(name) {
     }
 
     try {
-      await flowFn({ page, app, shot, log, step })
+      await flowFn({ page, app, shot, log, step, variant })
     } catch (error) {
       const stepInfo = currentStep ? ` at step '${currentStep}'` : ''
       throw new HarnessError(`flow '${name}' failed${stepInfo}: ${error.message}`, {
@@ -70,15 +83,16 @@ async function runFlow(name) {
 
 async function main() {
   const name = process.argv[2]
+  const variant = process.argv[3] || 'populated'
   if (!name) {
-    console.error('usage: node scripts/flow.mjs <name>')
+    console.error('usage: node scripts/flow.mjs <name> [variant]')
     process.exitCode = 1
     return
   }
 
   try {
-    await runFlow(name)
-    console.log(`flow '${name}' OK`)
+    await runFlow(name, variant)
+    console.log(`flow '${name}' OK (variant: ${variant})`)
     process.exitCode = 0
   } catch (error) {
     if (error instanceof HarnessError) {

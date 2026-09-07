@@ -21,9 +21,10 @@
 //
 // Run directly (`node scripts/lib/harness.mjs`) for a self-check.
 import { existsSync, mkdirSync, rmSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { delimiter, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
+import { importFilesFixturePaths, writeImportFilesFixture } from './fixture.mjs'
 import { assertInside, HarnessError, REPO_ROOT, UI_VERIFY_ROOT } from './paths.mjs'
 
 export { HarnessError }
@@ -201,13 +202,26 @@ export function childEnv() {
   delete env.ELECTRON_RUN_AS_NODE
   delete env.ELECTRON_RENDERER_URL
   for (const key of Object.keys(env)) {
-    if (key.toUpperCase() === 'ELECTRON_RUN_AS_NODE' || key.toUpperCase() === 'ELECTRON_RENDERER_URL') {
+    if (
+      key.toUpperCase() === 'ELECTRON_RUN_AS_NODE' ||
+      key.toUpperCase() === 'ELECTRON_RENDERER_URL'
+    ) {
       delete env[key]
     }
   }
   // Lets the app (and future assertions) tell a UI-verification run apart
   // from a normal launch.
   env.Q2L_UI_HARNESS = '1'
+  // Story 066 D8: `DialogService.pickConfigFiles()` (src/main/services/dialog.ts) returns these
+  // paths instead of opening a real OS dialog when `Q2L_UI_HARNESS==='1' && isDev` - both true for
+  // every harness launch (see that service's own doc comment for the double gate). Staging here,
+  // not only inside `writeFixture()`, is deliberate: `writeFixture()` is never called by `ui:flow`
+  // (docs/UI-VERIFICATION.md - a flow never reseeds), but every entry point without exception goes
+  // through `childEnv()`, so this is the one place that can guarantee the three files exist on disk
+  // before ANY of them could click "Choose files". `writeImportFilesFixture()` is a cheap,
+  // idempotent byte-copy (same source bytes every call), safe to run on every single launch.
+  writeImportFilesFixture()
+  env.Q2L_UI_PICK_FILES = importFilesFixturePaths().join(delimiter)
   return env
 }
 

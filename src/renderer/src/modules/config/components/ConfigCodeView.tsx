@@ -598,7 +598,15 @@ export function ConfigCodeView({
 
   if (singleLine) {
     return (
-      <pre className={cn('cfg-code-single', className)} data-selectable>
+      // tabIndex so a keyboard-only user can reach and scroll this element when its one line is
+      // wider than its container (`.cfg-code-single`'s own `overflow-x: auto`, config-syntax.css) -
+      // axe's scrollable-region-focusable rule, same reasoning as the non-singleLine branches'
+      // `tabIndex={0}` above. Every caller before story 066 D8 only ever fed this a short line, so
+      // the element never actually overflowed and the missing tabIndex went unnoticed; D8's
+      // `config-import-files` screen is the first to show a real long line here (dm.cfg's
+      // box-drawing banner comments, surfaced through the preserved-lines list) and is what caught
+      // it.
+      <pre className={cn('cfg-code-single', className)} data-selectable tabIndex={0}>
         {lines.map(renderLine)}
       </pre>
     )

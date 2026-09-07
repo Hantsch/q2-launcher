@@ -22,7 +22,7 @@ handed template, or their own config files.
 - [x] 068 — The app says engine, not client
 - [x] 067 — An installation carries an icon I choose
 - [x] 069 — The profile header breathes in two lines
-- [ ] 066 — A new profile starts empty, from a handed template, or from my own config files
+- [x] 066 — A new profile starts empty, from a handed template, or from my own config files
 
 ## Notes
 

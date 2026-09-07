@@ -69,7 +69,13 @@ async function bootstrap(): Promise<void> {
     optimizer.watchWindowShortcuts(window)
   })
 
-  context = await createAppContext({ isDev: is.dev })
+  context = await createAppContext({
+    isDev: is.dev,
+    // `mainWindow` is assigned a few lines below, after `createMainWindow(context)` returns - this
+    // closure reads the module-level `let` at call time, by which point it is always set, rather
+    // than capturing today's (still-null) value.
+    getMainWindow: () => mainWindow?.window ?? null,
+  })
   registerAllIpc(context)
   mainWindow = await createMainWindow(context)
 

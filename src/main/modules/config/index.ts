@@ -10,7 +10,7 @@ import {
   type ConfigProfile,
   type DiscardProfileResult,
   type ImportPreviewResult,
-  type ImportScanResult,
+  type PickedConfigFile,
   type PreviewFile,
   type PreviewProfileResult,
   type ProfileFileSyncStatus,
@@ -43,7 +43,8 @@ import { readCanonicalOwnership, removeCanonicalProfileFile } from './canonical'
 import { corruptContentDiagnostic, hashCanonicalFileContent, readFileState } from './file-source'
 import { syncProfile } from './sync'
 import { removeRedundantCopies, restoreRemovedCopies, scanRedundantCopies } from './cleanup'
-import { commitImport, previewImport, scanImportCandidates } from './import'
+import { commitImportFiles, pickImportFiles, previewImportFiles } from './import'
+import { PickedFilesRegistry } from './picked-files'
 import { ProfilesStore } from './profiles'
 import {
   detectSectionHeaderStyle,
@@ -59,9 +60,9 @@ import {
   cleanupScanInputSchema,
   createConfigProfileInputSchema,
   discardProfileInputSchema,
-  importCommitInputSchema,
-  importPreviewInputSchema,
-  importScanInputSchema,
+  importFilesCommitInputSchema,
+  importFilesPreviewInputSchema,
+  importPickFilesInputSchema,
   listInputSchema,
   openFileInputSchema,
   previewProfileInputSchema,
@@ -568,6 +569,30 @@ export async function restoreCleanupIfNotRunning(
     return fail('config.error.installationRunning')
   }
   return ok(await restoreRemovedCopies(installation, entries))
+}
+
+/**
+ * Story 066 D5: which folder the config-file picker opens in - the selected installation's
+ * `baseq2`, or the last registered installation's when nothing is selected, so the common "just
+ * read my baseq2" case costs two clicks (story decision "file import replaces the installation/
+ * gamedir import").
+ *
+ * Returns `{}` - no `defaultPath` at all, letting the OS pick its own default - when the launcher
+ * has no installation registered: the flow must not need one (AC9). This is a *starting folder*
+ * for the dialog and never a path that gets read; only what the user actually selects reaches the
+ * picked-files registry, so a stale or vanished folder here can at worst make the dialog open
+ * somewhere unhelpful.
+ */
+function importPickerStartFolder(app: AppContext): { defaultPath?: string } {
+  const list = app.installations.list()
+  if (list.length === 0) return {}
+
+  const activeId = app.state.settings().activeInstallationId
+  const selected =
+    (activeId ? list.find((installation) => installation.id === activeId) : undefined) ??
+    list[list.length - 1]
+
+  return selected ? { defaultPath: join(selected.rootPath, BASE_GAME_DIR) } : {}
 }
 
 /**
@@ -1703,28 +1728,36 @@ export const configModule: MainModule = {
       },
     )
 
-    // Story 005: read-only import of a hand-written config into a new
-    // profile. `import.ts` holds the fs-touching logic so it stays testable
-    // without booting this module; this handler only validates the payload
-    // shape and (for commit) reconciles live assignments the same way every
-    // other profile-list-returning handler does.
+    // Story 005 / 066 D5: read-only import of hand-written config FILES into a new profile.
+    // `import.ts` holds the fs-touching logic so it stays testable without booting this module;
+    // these handlers only validate the payload shape, supply the picker's starting folder and
+    // (for commit) reconcile live assignments the same way every other profile-list-returning
+    // handler does.
+    //
+    // `pickedFiles` is the session's id -> absolute path map (`picked-files.ts`). Created here, per
+    // `setup()` call, rather than as module-level state: one app run, one registry, never persisted
+    // (story 066: "no source paths are persisted"). It is the only thing the three handlers share,
+    // and the only thing that can turn a renderer-supplied id into a path.
+    const pickedFiles = new PickedFilesRegistry()
+
     handle(
-      CONFIG_HANDLERS.importScan,
-      importScanInputSchema,
-      (input): Promise<Outcome<ImportScanResult>> => scanImportCandidates(app.installations, input),
+      CONFIG_HANDLERS.importPickFiles,
+      importPickFilesInputSchema,
+      (): Promise<Outcome<PickedConfigFile[]>> =>
+        pickImportFiles(app.dialog, pickedFiles, log, importPickerStartFolder(app)),
     )
 
     handle(
-      CONFIG_HANDLERS.importPreview,
-      importPreviewInputSchema,
-      (input): Promise<Outcome<ImportPreviewResult>> => previewImport(app.installations, log, input),
+      CONFIG_HANDLERS.importPreviewFiles,
+      importFilesPreviewInputSchema,
+      (input): Promise<Outcome<ImportPreviewResult>> => previewImportFiles(pickedFiles, log, input),
     )
 
     handle(
-      CONFIG_HANDLERS.importCommit,
-      importCommitInputSchema,
+      CONFIG_HANDLERS.importCommitFiles,
+      importFilesCommitInputSchema,
       async (input): Promise<Outcome<ConfigProfile[]>> => {
-      const result = await commitImport(app.installations, log, input, (seed) =>
+      const result = await commitImportFiles(pickedFiles, log, input, (seed) =>
         profiles.createFromImport(seed),
       )
       // Nothing was created, so there is nothing to sync.

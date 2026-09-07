@@ -67,8 +67,16 @@ export class ProfilesStore {
       name: input.name,
       createdAt: now,
       updatedAt: now,
-      ...(input.from === 'template'
+      // Story 066 D3: `ConfigProfileSeed` split `'template'` into `'template-right'`/
+      // `'template-left'` - both still seed identically from `STANDARD_TEMPLATE` for now (the two
+      // handed layouts are a later story's content), so this branch keeps its pre-split behaviour
+      // for either value. Story 066 D6 additionally records *which* one was asked for
+      // (`seedFrom`) so a later story can fill in distinct content without re-touching this create
+      // path again - never set for `'empty'`, which has no handedness to remember
+      // (`ConfigProfile.seedFrom`'s own doc comment).
+      ...(input.from === 'template-right' || input.from === 'template-left'
         ? {
+            seedFrom: input.from,
             cvars: { ...STANDARD_TEMPLATE.cvars },
             binds: { ...STANDARD_TEMPLATE.binds },
             // Story 052 D1: the template's own categories/actions, deep-copied (never the shared

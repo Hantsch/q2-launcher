@@ -2,6 +2,22 @@
  * Reads a Quake II installation's hand-written config the way the engine
  * would load it, and folds it into one importable result (story 005, D2).
  *
+ * ## Two entry points, one core (story 066, D1)
+ *
+ * `readImportableConfig(root, gameDir)` follows an INSTALLATION: the gamedir's
+ * entry files by fixed name, `exec` chains resolved along the engine's search
+ * path. `readImportableFiles(paths)` reads N already-named files instead -
+ * files the user picked, with no installation and no gamedir behind them.
+ *
+ * Everything past "which files does the read start from" is shared verbatim:
+ * the same `processFile`, the same `documentOrder`, `applyBind`, `applyAlias`,
+ * the same guards and the same result shaping. The one thing that genuinely
+ * differs is where an `exec` target may be looked up, so that - and only that
+ * - is a strategy the context carries (`ReaderContext.resolveExec`, see
+ * `ExecResolver`). The two readers are therefore the same reader with a
+ * different starting set and a different exec root, never two implementations
+ * that have to be kept in step.
+ *
  * This is the only part of the importer that touches the filesystem - the
  * tokenizer next door (`config-parser.ts`) never sees a path. No Electron
  * either: plain `node:fs/promises` plus the shared fs helpers, so it stays
@@ -27,17 +43,22 @@
  * therefore overridden by a later line of the parent file, and overrides an
  * earlier one - the same thing the engine does.
  *
- * The target is looked up in the chosen gamedir first and in `baseq2`
- * second (the engine's search path); the second lookup is skipped when the
- * chosen gamedir already IS `baseq2`. Only regular files count - a directory
- * that happens to match the name is treated as "not found".
+ * In installation mode the target is looked up in the chosen gamedir first
+ * and in `baseq2` second (the engine's search path); the second lookup is
+ * skipped when the chosen gamedir already IS `baseq2`. In file mode there is
+ * no search path to walk, so the target is looked up in the OWN DIRECTORY of
+ * the file that contains the `exec` line - nowhere else, no fallback. Either
+ * way, only regular files count - a directory that happens to match the name
+ * is treated as "not found".
  *
  * Targets come from a file on disk, i.e. from outside this program, so they
- * are treated as untrusted input (CLAUDE.md). They cannot escape the
- * installation: `resolveRelaxed()` walks real directory entries one segment
- * at a time, and `..`, `.` or a drive letter never appear in a directory
- * listing, so such a segment simply fails to resolve and is reported as a
- * missing `exec` instead of reaching outside the root.
+ * are treated as untrusted input (CLAUDE.md). They cannot escape their root -
+ * the installation in installation mode, the containing file's own folder in
+ * file mode: `resolveRelaxed()` walks real directory entries one segment at a
+ * time, and `..`, `.` or a drive letter never appear in a directory listing,
+ * so such a segment simply fails to resolve and is reported as a missing
+ * `exec` instead of reaching outside the root. That guarantee is the same in
+ * shape for both modes; only what it is rooted at differs.
  *
  * ## Guards
  *
@@ -134,6 +155,7 @@
  */
 
 import { readFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import { BASE_GAME_DIR } from '@shared/constants'
 import { canonicalizePath, fileName, isFile, resolveRelaxed } from '../../../lib/fs-utils'
 import { parseConfigText } from './config-parser'
@@ -172,7 +194,12 @@ export interface ImportedCommentLine {
 }
 
 export type ImportWarningReason =
-  /** Not found in the gamedir nor in `baseq2`, or not readable. */
+  /**
+   * Not resolvable, or resolvable but not readable. "Not resolvable" depends on the mode: in
+   * installation mode, not found in the gamedir nor in `baseq2`; in file mode, not found in the
+   * own folder of the file whose `exec` line this is (including every target that would point
+   * outside that folder - see the `exec` section at the top of the file).
+   */
   | 'exec-missing'
   /** The target is already being expanded further up the chain. */
   | 'exec-cyclic'
@@ -331,9 +358,25 @@ export const MAX_EXEC_EXPANSIONS = 512
 /** The entry files of a gamedir, in engine load order (decision 4). */
 export const ENTRY_FILE_NAMES = ['config.cfg', 'autoexec.cfg'] as const
 
+/**
+ * Turns one `exec <target>` into an absolute path to read, or `null` when the target does not
+ * resolve to a regular file within the mode's own root (which the caller then reports as
+ * `exec-missing` - never as an abort; see `refuseExec`).
+ *
+ * The ONE thing that differs between the two entry points, factored out so both share every other
+ * line of the reader (story 066 D1). `containingFile` is the absolute path of the file the `exec`
+ * line was read from: installation mode ignores it (the engine's search path is the same wherever
+ * the line sits), file mode roots the lookup at its directory.
+ *
+ * A resolver is responsible for the "cannot escape" guarantee of its own root. Both implementations
+ * below get it from `resolveRelaxed()` walking real directory entries, so neither has to sanitise
+ * `..`, `.` or a drive letter itself - such a segment simply never matches a listing.
+ */
+type ExecResolver = (target: string, containingFile: string) => Promise<string | null>
+
 interface ReaderContext {
-  installationRoot: string
-  gameDir: string
+  /** Per-mode `exec` lookup strategy - see `ExecResolver`. */
+  resolveExec: ExecResolver
   /** Canonical paths of the files currently being expanded (the exec chain). */
   chain: Set<string>
   /** Total files opened so far (entry files + every expanded `exec`), capped at `MAX_EXEC_EXPANSIONS`. */
@@ -435,23 +478,51 @@ function reconstructExecLine(target: string): string {
   return /\s/.test(target) ? `exec "${target}"` : `exec ${target}`
 }
 
+/**
+ * Resolves `<root>/<relativePath>` case-insensitively; must be a real file. `root` is also the
+ * boundary the lookup cannot reach past, since `resolveRelaxed()` only ever descends into names it
+ * actually found in a directory listing.
+ */
+async function resolveFileUnder(root: string, relativePath: string): Promise<string | null> {
+  const resolved = await resolveRelaxed(root, relativePath)
+  if (!resolved) return null
+  return (await isFile(resolved)) ? resolved : null
+}
+
 /** Resolves `<gameDir>/<relative>` case-insensitively; must be a real file. */
 async function resolveFileIn(
   installationRoot: string,
   dir: string,
   relative: string,
 ): Promise<string | null> {
-  const resolved = await resolveRelaxed(installationRoot, `${dir}/${relative}`)
-  if (!resolved) return null
-  return (await isFile(resolved)) ? resolved : null
+  return await resolveFileUnder(installationRoot, `${dir}/${relative}`)
 }
 
-/** Chosen gamedir first, `baseq2` second - the engine's search path. */
-async function resolveExecTarget(ctx: ReaderContext, target: string): Promise<string | null> {
-  const inGameDir = await resolveFileIn(ctx.installationRoot, ctx.gameDir, target)
-  if (inGameDir) return inGameDir
-  if (ctx.gameDir.toLowerCase() === BASE_GAME_DIR) return null
-  return await resolveFileIn(ctx.installationRoot, BASE_GAME_DIR, target)
+/**
+ * Installation mode: chosen gamedir first, `baseq2` second - the engine's search path. The second
+ * lookup is skipped when the chosen gamedir already IS `baseq2`, so the same file is never probed
+ * twice. Rooted at the installation, not at the gamedir, exactly as before this became a strategy.
+ */
+function installationExecResolver(installationRoot: string, gameDir: string): ExecResolver {
+  return async (target) => {
+    const inGameDir = await resolveFileIn(installationRoot, gameDir, target)
+    if (inGameDir) return inGameDir
+    if (gameDir.toLowerCase() === BASE_GAME_DIR) return null
+    return await resolveFileIn(installationRoot, BASE_GAME_DIR, target)
+  }
+}
+
+/**
+ * File mode: the own folder of the file that contains the `exec` line, and nothing else - no
+ * gamedir, no `baseq2` fallback, no walking upwards. There is no installation behind a picked file,
+ * so there is no search path to imitate; a sibling is the only thing an `exec` in such a file can
+ * reasonably mean, and confining the lookup to that folder is what keeps a hand-written `exec` in
+ * an arbitrary file the user pointed at from turning into a read of an arbitrary path on the
+ * machine. Anything else (a `..` hop, an absolute path, a plain typo) fails to resolve and is
+ * reported as `exec-missing`, which preserves the line and continues the import.
+ */
+const fileExecResolver: ExecResolver = async (target, containingFile) => {
+  return await resolveFileUnder(dirname(containingFile), target)
 }
 
 function refuseExec(
@@ -464,10 +535,17 @@ function refuseExec(
   ctx.unrecognized.push({ file, line: exec.line, text: reconstructExecLine(exec.target) })
 }
 
+/**
+ * `file` is the on-disk NAME of the file the `exec` line sits in (what a warning is tagged with),
+ * `containingFile` its absolute path (what a file-mode `ExecResolver` roots its lookup at). Both,
+ * rather than deriving one from the other, because `file` is what every result bucket records and
+ * `containingFile` never travels into the result.
+ */
 async function expandExec(
   ctx: ReaderContext,
   exec: ParsedExec,
   file: string,
+  containingFile: string,
   depth: number,
 ): Promise<void> {
   if (depth + 1 > ALIAS_LOOP_COUNT) {
@@ -483,7 +561,7 @@ async function expandExec(
     return
   }
 
-  const resolved = await resolveExecTarget(ctx, exec.target)
+  const resolved = await ctx.resolveExec(exec.target, containingFile)
   if (!resolved) {
     refuseExec(ctx, exec, file, 'exec-missing')
     return
@@ -551,7 +629,7 @@ async function processFile(
           applyAlias(ctx, entry.item, file)
           break
         case 'exec':
-          await expandExec(ctx, entry.item, file, depth)
+          await expandExec(ctx, entry.item, file, absolutePath, depth)
           break
         case 'preserved':
           ctx.unrecognized.push({ file, line: entry.item.line, text: entry.item.text })
@@ -568,24 +646,10 @@ async function processFile(
   return true
 }
 
-/**
- * Reads the importable config of `<installationRoot>/<gameDir>`.
- *
- * `gameDir` is a plain folder name (`baseq2`, `xatrix`, ...); checking that it
- * really belongs to the installation happens at the IPC boundary (D3), which
- * is also where the installation root comes from - never from the renderer
- * (decision 2). Read-only: nothing is written (decision 14).
- *
- * Never throws for missing/cyclic/too-deep content; a gamedir without any
- * config file simply yields an empty result.
- */
-export async function readImportableConfig(
-  installationRoot: string,
-  gameDir: string,
-): Promise<ImportResult> {
-  const ctx: ReaderContext = {
-    installationRoot,
-    gameDir,
+/** A fresh, empty fold for one import, carrying the mode's `exec` strategy. */
+function createReaderContext(resolveExec: ExecResolver): ReaderContext {
+  return {
+    resolveExec,
     chain: new Set<string>(),
     filesOpened: 0,
     cvars: new Map<string, { value: string; comment: string; file: string; line: number }>(),
@@ -599,13 +663,10 @@ export async function readImportableConfig(
     duplicateBinds: [],
     duplicateAliases: [],
   }
+}
 
-  for (const entryFile of ENTRY_FILE_NAMES) {
-    const resolved = await resolveFileIn(installationRoot, gameDir, entryFile)
-    if (!resolved) continue
-    await processFile(ctx, resolved, await canonicalizePath(resolved), 0)
-  }
-
+/** Shapes a finished fold into the result both entry points return. */
+function toImportResult(ctx: ReaderContext): ImportResult {
   return {
     // `fromEntries` defines own properties, so a config containing a cvar or
     // key literally called `__proto__` cannot poison the returned objects.
@@ -628,4 +689,62 @@ export async function readImportableConfig(
     duplicateBinds: ctx.duplicateBinds,
     duplicateAliases: ctx.duplicateAliases,
   }
+}
+
+/**
+ * Reads the importable config of `<installationRoot>/<gameDir>`.
+ *
+ * `gameDir` is a plain folder name (`baseq2`, `xatrix`, ...); checking that it
+ * really belongs to the installation happens at the IPC boundary (D3), which
+ * is also where the installation root comes from - never from the renderer
+ * (decision 2). Read-only: nothing is written (decision 14).
+ *
+ * Never throws for missing/cyclic/too-deep content; a gamedir without any
+ * config file simply yields an empty result.
+ */
+export async function readImportableConfig(
+  installationRoot: string,
+  gameDir: string,
+): Promise<ImportResult> {
+  const ctx = createReaderContext(installationExecResolver(installationRoot, gameDir))
+
+  for (const entryFile of ENTRY_FILE_NAMES) {
+    const resolved = await resolveFileIn(installationRoot, gameDir, entryFile)
+    if (!resolved) continue
+    await processFile(ctx, resolved, await canonicalizePath(resolved), 0)
+  }
+
+  return toImportResult(ctx)
+}
+
+/**
+ * Reads N already-named config files as ONE import (story 066, D1) - the files a user picked,
+ * without an installation or a gamedir behind them.
+ *
+ * `paths` are absolute file paths in the order they are to be folded: the whole list is one ordered
+ * stream, so a later file's `set`/`bind`/`alias` overrides an earlier file's for the same name,
+ * exactly the way `autoexec.cfg` overrides `config.cfg` in installation mode and the way a line
+ * further down overrides one further up. Everything else about the fold - `exec` expansion in
+ * place, the depth/cycle/budget guards, `unbind`/`unbindall`, duplicate reporting, document-ordered
+ * comments and preserved lines - is the shared core, unchanged.
+ *
+ * `exec` inside such a file is confined to that file's OWN folder (`fileExecResolver`): a sibling
+ * resolves, anything pointing out of the folder does not. Read-only, and never throws: a path that
+ * is not readable (gone, a directory, no permission) is skipped exactly as a missing entry file is
+ * in installation mode, and an `exec` that does not resolve becomes a preserved line plus a
+ * warning rather than an abort.
+ *
+ * The paths themselves are the caller's responsibility, as in installation mode: they come from a
+ * real file-picker dialog in the main process, never from a renderer-supplied string (CLAUDE.md's
+ * path-trust rule). This function only guarantees that nothing the config FILES ask for widens the
+ * set of folders that get read.
+ */
+export async function readImportableFiles(paths: readonly string[]): Promise<ImportResult> {
+  const ctx = createReaderContext(fileExecResolver)
+
+  for (const path of paths) {
+    await processFile(ctx, path, await canonicalizePath(path), 0)
+  }
+
+  return toImportResult(ctx)
 }

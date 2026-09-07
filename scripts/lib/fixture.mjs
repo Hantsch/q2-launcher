@@ -10,9 +10,9 @@
 // `Date.now()`/`crypto.randomUUID()`. That is what makes `npm run ui:seed`
 // idempotent — re-running it regenerates byte-identical files rather than
 // merge-patching whatever is already on disk.
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { UI_VERIFY_ROOT } from './paths.mjs'
+import { REPO_ROOT, UI_VERIFY_ROOT } from './paths.mjs'
 import { variantUserDataDir } from './harness.mjs'
 
 // --- literals mirrored from src/shared -------------------------------------
@@ -247,7 +247,12 @@ function populatedConfigProfiles() {
     // (D7's "the catalogue does not know this name" row), placed into `PLAIN_FIXTURE_SECTION_ID`
     // below alongside a real catalogue cvar so the `config-settings` screen's screenshot shows a
     // user-named section header with both kinds of row under it, not just one.
-    cvars: { sensitivity: '3', crosshair: '0', r: '\x7f\x88\x88\x7f', q2l_fixture_note: 'shown in raw file' },
+    cvars: {
+      sensitivity: '3',
+      crosshair: '0',
+      r: '\x7f\x88\x88\x7f',
+      q2l_fixture_note: 'shown in raw file',
+    },
     // Story 059 D10: a real, user-named `ConfigCvarSection` (mirrors `ConfigCvarSection`,
     // src/shared/modules/config.ts) - this profile's `cvarSections` predates D1, so without this
     // the migration (`materialiseCvarSections`, src/main/services/migrations.ts D6) would seed the
@@ -257,7 +262,11 @@ function populatedConfigProfiles() {
     // cvar (`sensitivity`) alongside the plain one above, so the section's own row list already
     // demonstrates both a rich `CvarRow` and a `PlainCvarRow` line up together (AC3).
     cvarSections: [
-      { id: 'fixture-section-custom', name: 'Fixture Section', cvars: ['sensitivity', 'q2l_fixture_note'] },
+      {
+        id: 'fixture-section-custom',
+        name: 'Fixture Section',
+        cvars: ['sensitivity', 'q2l_fixture_note'],
+      },
     ],
     binds: {
       MOUSE1: '+attack',
@@ -411,7 +420,7 @@ function populatedConfigProfiles() {
         name: 'Drops',
         mode: 'hold',
         triggerKey: 'ALT',
-        overrides: { '1': 'drop rl', '2': 'drop rg' },
+        overrides: { 1: 'drop rl', 2: 'drop rg' },
       },
     ],
   }
@@ -645,11 +654,13 @@ const TEMPLATE_CATALOG_ROW_TUPLES = [
   ['dropMisc', 'tech', 'drops', 'drop tech'],
 ]
 
-const TEMPLATE_CATALOG_ROWS = TEMPLATE_CATALOG_ROW_TUPLES.map(([kind, id, categoryId, command]) => ({
-  catalogId: `${kind}:${id}`,
-  categoryId,
-  command,
-}))
+const TEMPLATE_CATALOG_ROWS = TEMPLATE_CATALOG_ROW_TUPLES.map(
+  ([kind, id, categoryId, command]) => ({
+    catalogId: `${kind}:${id}`,
+    categoryId,
+    command,
+  }),
+)
 
 /** Mirrors src/shared/modules/config.ts's `TEMPLATE_BOUND_CATALOG_IDS` and `STANDARD_TEMPLATE.binds`
  * - the six catalogue rows a freshly created template profile binds immediately, and the key each
@@ -714,7 +725,14 @@ function templateSeededConfigProfile() {
     createdAt: FIXED_TIMESTAMP,
     updatedAt: FIXED_TIMESTAMP,
     // Mirrors STANDARD_TEMPLATE.cvars (src/shared/modules/config.ts).
-    cvars: { sensitivity: '3', cl_run: '0', crosshair: '0', cl_gun: '1', m_pitch: '0.022', volume: '0.7' },
+    cvars: {
+      sensitivity: '3',
+      cl_run: '0',
+      crosshair: '0',
+      cl_gun: '1',
+      m_pitch: '0.022',
+      volume: '0.7',
+    },
     binds,
     assignments: [],
     // Story 053 D8: `weapons`/`drops` now carry the same `subcategories` STANDARD_TEMPLATE.categories
@@ -971,6 +989,10 @@ export function writeEmptyFixture() {
 }
 
 export function writeFixture(variant) {
+  // Story 066 D8: staged independently of which variant is being (re)written - see
+  // `writeImportFilesFixture()`'s own doc comment for why this has to happen on every reseed
+  // regardless of variant (AC9 points the same three files at the `empty` variant too).
+  writeImportFilesFixture()
   if (variant === 'populated') return writePopulatedFixture()
   if (variant === 'empty') return writeEmptyFixture()
   if (variant === 'controls-seed') return writeControlsSeedFixture()
@@ -978,3 +1000,56 @@ export function writeFixture(variant) {
 }
 
 export const FIXTURE_VARIANTS = ['populated', 'empty', 'controls-seed']
+
+// --- story 066 D8: the import-from-files flow's staged real-config corpus ---------------------
+//
+// `docs/requirements/066-new-profile-starts-empty-from-a-template-or-from-my-files.md`'s own
+// reference case: `docs/fixtures/{dm,dmalias,gfx}.cfg`, the same three real (anonymized) player
+// config files `import-fixtures.test.ts` (D2) reads straight out of the repo. This story's harness
+// stub (`DialogService.pickConfigFiles()`, `src/main/services/dialog.ts`) returns fixed paths from
+// `Q2L_UI_PICK_FILES` instead of opening a real OS dialog - those paths have to point at real files
+// on disk, so this stages byte-identical copies under `.ui-verify/` rather than pointing the env var
+// back into the repo tree itself (every other harness-owned artifact already lives under
+// `.ui-verify/`, never the repo).
+//
+// Deliberately NOT nested under any single variant's userData: `Q2L_UI_PICK_FILES` (built in
+// `scripts/lib/harness.mjs`'s `childEnv()`) is the same for every launch regardless of which
+// fixture variant the app under test is running against - AC9 ("import from files needs no
+// installation") is proven by pointing this exact corpus at the zero-installation `empty` variant,
+// not a copy of it.
+
+/** In the exact order `Q2L_UI_PICK_FILES` must hand back - dm.cfg, then dmalias.cfg, then gfx.cfg -
+ * matching the load order D2's fixture-corpus test pins (`bind RIGHTARROW "exec dmalias.cfg"`
+ * resolves as a preserved bind text, never a real config-time exec, only because dmalias.cfg is
+ * ALSO one of the picked files - see that test's own top comment). */
+const IMPORT_FILES_FIXTURE_NAMES = ['dm.cfg', 'dmalias.cfg', 'gfx.cfg']
+
+function importFilesFixtureDir() {
+  return join(UI_VERIFY_ROOT, 'fixture', 'import-files')
+}
+
+/** The staged, absolute paths in the fixed order above - what `harness.mjs` joins with
+ * `path.delimiter` for `Q2L_UI_PICK_FILES`. Exported so `scripts/flows/import-from-files.mjs` can
+ * assert against the exact same paths/order rather than a copy that could drift. */
+export function importFilesFixturePaths() {
+  return IMPORT_FILES_FIXTURE_NAMES.map((name) => join(importFilesFixtureDir(), name))
+}
+
+/**
+ * Copies `docs/fixtures/{dm,dmalias,gfx}.cfg` byte-for-byte into `.ui-verify/fixture/import-files/`.
+ * Raw `Buffer` in, raw `Buffer` out - these are real player files with latin1-only bytes in places
+ * (`import-fixtures.test.ts`'s own discipline for the same three files), so this never round-trips
+ * through a text encoding that could silently mangle one.
+ *
+ * Idempotent (same source bytes every call, `ui:seed`'s own guarantee) and cheap enough to call
+ * unconditionally on every `writeFixture()` reseed - see that function above.
+ */
+export function writeImportFilesFixture() {
+  const dir = importFilesFixtureDir()
+  mkdirSync(dir, { recursive: true })
+  for (const name of IMPORT_FILES_FIXTURE_NAMES) {
+    const bytes = readFileSync(join(REPO_ROOT, 'docs', 'fixtures', name))
+    writeFileSync(join(dir, name), bytes)
+  }
+  return importFilesFixturePaths()
+}

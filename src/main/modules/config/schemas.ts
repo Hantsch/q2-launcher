@@ -19,7 +19,10 @@ export const listInputSchema = z.void()
 
 export const createConfigProfileInputSchema = z.object({
   name: z.string().min(1).max(120),
-  from: z.enum(['empty', 'template']),
+  // Story 066 D3: `ConfigProfileSeed` split `'template'` into `'template-right'`/`'template-left'`
+  // (@shared/modules/config) - this enum mirrors that split so it cannot drift from the type it
+  // validates.
+  from: z.enum(['empty', 'template-right', 'template-left']),
 })
 
 export const renameConfigProfileInputSchema = z.object({
@@ -471,34 +474,50 @@ export const discardProfileInputSchema = z.object({
 })
 
 /**
- * Story 005 import payloads. Deviation from the story text: it says these
- * belong in `main/lib/schemas.ts`, but every other config-module IPC payload
- * schema already lives here instead - that repo convention wins over the
- * stale story text.
+ * Story 066 D3: how many `PickedConfigFile` ids one `import.previewFiles`/`import.commitFiles` call
+ * may fold. There is no existing precedent for a list-of-ids-from-a-native-picker payload in this
+ * file to mirror exactly, so this is a fresh, generous sanity ceiling in the same spirit as
+ * `cleanupApplyInputSchema`'s 256 entries and `layerAliases`' 256 above: a real multi-select pick of
+ * a player's own config files is a handful, never more than a few dozen, so this can only ever
+ * reject a payload that could not be a genuine pick.
  */
-export const importScanInputSchema = z.object({
-  installationId: z.string().min(1),
-})
+export const MAX_IMPORT_FILE_IDS = 64
 
-export const importPreviewInputSchema = z.object({
-  installationId: z.string().min(1),
-  gameDir: z.string().min(1).max(64),
+/**
+ * Shape-only: a non-empty array of non-empty id strings, capped at `MAX_IMPORT_FILE_IDS`. Whether
+ * a given id actually names a file this session's picker registry knows about is not a shape
+ * question - it depends on data (`picked-files.ts`'s session map) this schema never sees - so that
+ * check belongs to the handler, the same division of labour `importFilesCommitInputSchema`'s own
+ * doc comment describes for its `layerAliases` ambiguous-alias check below.
+ */
+const fileIdsSchema = z.array(z.string().min(1)).min(1).max(MAX_IMPORT_FILE_IDS)
+
+/**
+ * Story 066 D5: `import.pickFiles` takes no payload - the picker's starting folder is main's own
+ * business (`./index.ts` derives it from the selected installation), and the whole point of the
+ * flow is that the renderer contributes no path to it. Same `z.void()` pattern as
+ * `listInputSchema`/`switchBindsInputSchema` above.
+ */
+export const importPickFilesInputSchema = z.void()
+
+/**
+ * Story 066 D3: `import.previewFiles`'s payload - `ImportFilesPreviewInput`'s shared shape,
+ * addressed entirely by `fileIds` (the ordered list of picked-file ids to fold left-to-right), never
+ * a path.
+ */
+export const importFilesPreviewInputSchema = z.object({
+  fileIds: fileIdsSchema,
 })
 
 /**
- * Story 041 (D6): `layerAliases` shape only - an array of non-empty strings,
- * capped the same generous way `cleanupApplyInputSchema`'s `entries` is below.
- * Whether a given name is actually one of *this* import's ambiguous aliases is
- * not a shape question - it depends on data (`readImportableConfig`'s result)
- * this schema never sees - so that check lives in `commitImport`
- * (`main/modules/config/import.ts`), which has both the input and the
- * ambiguous list in scope. This schema only rejects garbage shapes (a number,
- * a bare string, an over-long array) before either the ambiguous check or the
- * conversion pipeline runs.
+ * Story 066 D3: `import.commitFiles`'s payload - `ImportFilesCommitInput`'s shared shape. Same
+ * `fileIds` addressing as `importFilesPreviewInputSchema` above, plus the new profile's `name` and
+ * the optional `layerAliases` (story 041 D6's "attempt as layer" choice - shape-only here, since
+ * the ambiguous-list cross-check needs the parsed import result, which this schema never sees; that
+ * check lives in `commitImportFiles`, `main/modules/config/import.ts`).
  */
-export const importCommitInputSchema = z.object({
-  installationId: z.string().min(1),
-  gameDir: z.string().min(1).max(64),
+export const importFilesCommitInputSchema = z.object({
+  fileIds: fileIdsSchema,
   name: z.string().min(1).max(120),
   layerAliases: z.array(z.string().min(1)).max(256).optional(),
 })
@@ -511,8 +530,8 @@ export const importCommitInputSchema = z.object({
  * to repair - hence `.safeParse()` + `fail('ipc.error.invalidPayload')` at the
  * handler, not a `.parse()` throw.
  *
- * `gameDir` is capped the same as `importPreviewInputSchema`'s. `fileName` is
- * capped more generously (128) than a typical cfg name needs, but still well
+ * `gameDir` is capped at 64, the same generous bound the old installation-addressed import
+ * payloads used. `fileName` is capped more generously (128) than a typical cfg name needs, but still well
  * above anything `cleanup.ts`'s `BARE_CFG_NAME` regex could ever match on a
  * real filesystem, so the cap never rejects a name the scan itself produced.
  */

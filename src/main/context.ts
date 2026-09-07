@@ -1,9 +1,11 @@
+import type { BrowserWindow } from 'electron'
 import { stateFilePath } from './lib/paths'
 import { scopedLogger } from './lib/logger'
 import { MainModuleRegistry } from './modules/registry'
 import { registerModules } from './modules'
 import { Broadcaster } from './services/broadcast'
 import { DetectionService } from './services/detection'
+import { DialogService } from './services/dialog'
 import { deleteStoredIcon, InstallationIconsService } from './services/installation-icons'
 import { InstallationsService } from './services/installations'
 import { JobsService } from './services/jobs'
@@ -31,9 +33,20 @@ export interface AppContext {
   jobs: JobsService
   modules: MainModuleRegistry
   broadcast: Broadcaster
+  /** Story 066 D4: the config-file picker modules reach through `ModuleSetup.app`, never `dialog` directly. */
+  dialog: DialogService
 }
 
-export async function createAppContext(options: { isDev: boolean }): Promise<AppContext> {
+export async function createAppContext(options: {
+  isDev: boolean
+  /**
+   * Resolves the tracked main `BrowserWindow`. `index.ts` creates the window *after* the context
+   * (`createMainWindow(context)` takes `context` as an argument), so this cannot be a `BrowserWindow`
+   * reference yet at this point - only a getter that will resolve to one by the time anything actually
+   * calls `DialogService.pickConfigFiles()`.
+   */
+  getMainWindow: () => BrowserWindow | null
+}): Promise<AppContext> {
   const broadcast = new Broadcaster()
 
   const state = new StateStore(stateFilePath())
@@ -62,6 +75,11 @@ export async function createAppContext(options: { isDev: boolean }): Promise<App
 
   const jobs = new JobsService((list) => broadcast.emit('jobs:changed', list))
 
+  const dialog = new DialogService({
+    getMainWindow: options.getMainWindow,
+    isDev: options.isDev,
+  })
+
   const context: AppContext = {
     isDev: options.isDev,
     state,
@@ -72,6 +90,7 @@ export async function createAppContext(options: { isDev: boolean }): Promise<App
     jobs,
     modules: new MainModuleRegistry(),
     broadcast,
+    dialog,
   }
 
   await registerModules(context)

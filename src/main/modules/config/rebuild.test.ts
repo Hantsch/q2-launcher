@@ -79,7 +79,7 @@ async function seedProfileWithFile(
   name: string,
   edit: (profile: ConfigProfile) => ConfigProfile = (profile) => profile,
 ): Promise<ConfigProfile> {
-  const created = profiles.create({ name, from: 'template' })
+  const created = profiles.create({ name, from: 'template-right' })
   const seeded = edit(created[created.length - 1]!)
   const list = profiles.replaceProfile(seeded)
   const profile = list.find((p) => p.id === seeded.id)!
@@ -277,7 +277,7 @@ describe('runFileSourceStartup: AC8 one-time migration', () => {
    * sentinel wording and a stale body. Still recognisably ours (`ownedProfileId` is wording
    * tolerant since D1), so the migration is expected to rewrite it in place with no backup. */
   async function seedProfileWithLegacyFile(name: string): Promise<{ profile: ConfigProfile; fileName: string }> {
-    const created = profiles.create({ name, from: 'template' })
+    const created = profiles.create({ name, from: 'template-right' })
     const profile = created[created.length - 1]!
     const fileName = resolveProfileFileNames(created).get(profile.id)!
     await writeFile(

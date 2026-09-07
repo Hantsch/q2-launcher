@@ -108,7 +108,7 @@ page state — story 026's two-script split could not promise that, since a
 screenshot from `shot.mjs` and an axe reading from `a11y.mjs` came from two
 independent app instances that could, in principle, differ.
 
-Today's registry is 34 screens (count the `SCREENS` array in
+Today's registry is 32 screens (count the `SCREENS` array in
 `scripts/lib/screens.mjs` — do not carry this number forward uncounted, it
 has drifted before) across 2 fixture variants (`populated`, `empty`) with no
 screen marked `coldStart` (see below), so a full `ui:verify` run does **2**
@@ -403,27 +403,29 @@ but three things matter in practice:
 
 ### Two dialog/panel screens already in the registry
 
-`scripts/lib/screens.mjs` had two such entries added by story 037 D3;
-`config-write-preview` is retired as of story 057 D7 (see below), leaving one:
+`scripts/lib/screens.mjs` had two such entries added by story 037 D3
+(`config-import-preview`, `config-import-restore`) plus one more added by story
+041 D7 (`config-import-review`); `config-write-preview` is retired as of story
+057 D7 (see below). All three import-dialog entries are themselves retired as
+of story 066 D8, replaced by one new entry, `config-import-files`:
 
-- **`config-import-preview`** — the import-preview panel inside
-  `ImportProfileDialog` (`src/renderer/src/modules/config/ImportProfileDialog.tsx`).
-  Reached via Config list → "New profile" (`config-create-profile`) → source `import`
-  (`config-create-source`) → submit (`config-create-submit`) → pick an
-  installation with a real `config.cfg` fixture from the
-  `config-import-installation` `<select>`. Picking the fixture installation
-  triggers a scan and a preview with no further click, and `navigate()` waits
-  for `.cfg-code-single` (only ever rendered by this dialog's
-  duplicate-bind/preserved-line lists) to be visible.
-- **`config-import-restore`** — same dialog, same installation, but Story 042
-  D6 picks its second gamedir (`config-import-gamedir` `<select>`, fixture
-  name `q2l-restore-fixture`) instead of the auto-selected `baseq2` one. That
-  gamedir's fixture config carries the launcher's own ownership sentinel
-  (`OWNERSHIP_MARKER`, `@shared/config/render.ts`) naming the "Plain Profile"
-  fixture, so the preview's `ownWrittenFile` is true and the dialog renders
-  its "restoring a launcher profile" banner instead of the plain best-effort
-  wording. `navigate()` waits for that banner's own testid,
-  `config-import-restore-banner`.
+- **`config-import-files`** — the import-from-files dialog inside
+  `ImportProfileDialog` (`src/renderer/src/modules/config/ImportProfileDialog.tsx`),
+  mid-flow: files picked and listed, before commit. Story 066 re-addressed
+  import from `{ installationId, gameDir }` to a user-picked file list, so the
+  dialog no longer has an installation or gamedir `<select>` at all —
+  `config-import-preview`/`config-import-review`/`config-import-restore`
+  above drove exactly those removed controls and could not be adapted, only
+  replaced. Reached via Config list → "New profile" (`config-create-profile`)
+  → source `import` (`config-create-source`) → submit (`config-create-submit`)
+  → "Choose files…" (no testid, selected by its own translated accessible
+  name), which triggers `DialogService`'s harness-only stub
+  (`Q2L_UI_HARNESS==='1' && isDev`, `src/main/services/dialog.ts`) instead of
+  a real OS dialog, handing back the three real fixture files
+  `scripts/lib/fixture.mjs` stages under `.ui-verify/fixture/import-files/`
+  (`dm.cfg`, `dmalias.cfg`, `gfx.cfg` — the same three files
+  `docs/fixtures/` and `import-fixtures.test.ts`'s corpus test use).
+  `navigate()` waits for the third `config-import-file-row` to be visible.
 
 Story 047 D3 adds three more dialog-entry screens, following the same shape:
 
@@ -578,7 +580,7 @@ size):
 },
 ```
 
-None of the 34 screens shipped so far set `coldStart` — every current screen
+None of the 32 screens shipped so far set `coldStart` — every current screen
 is reachable from a running app via clicks, so the field exists in the
 registry's shape but isn't exercised by any entry yet. Each `coldStart: true`
 screen adds one extra `_electron.launch()` per viewport it lists, on top of
@@ -636,9 +638,17 @@ To write your own: create `scripts/flows/<name>.mjs` with a default export
 `async function({ page, app, shot, log, step })`, call `step(...)` before each
 meaningful action, drive `page` the same way the example does, and call
 `shot(...)` wherever you want evidence saved. Run it with
-`npm run ui:flow -- <name>`. The flow always launches against the `populated`
-fixture at the default 1280x800 viewport (`scripts/flow.mjs`) — flows aren't
-part of the registry and don't take a `variant`/`viewports` of their own.
+`npm run ui:flow -- <name>`. The flow launches at the default 1280x800
+viewport (`scripts/flow.mjs`) — flows aren't part of the registry and don't
+take `viewports` of their own — against the `populated` fixture unless a
+second CLI argument names another variant: `npm run ui:flow -- <name>
+<variant>` (story 066 D8, added so `import-from-files` could prove AC9 —
+"import from files needs no installation" — against the zero-installation
+`empty` variant; `variant` is also passed into the flow function's own
+context object, alongside `page`/`app`/`shot`/`log`/`step`, so a flow can
+tailor its own steps to whichever fixture it is actually running against).
+Every flow that predates story 066 keeps its exact prior behaviour with no
+argument needed.
 
 Flows shipped so far, alongside `open-keycap-dialog` above:
 `alias-rename-dialog`, `controls-category-rename-reorder`,
@@ -693,7 +703,19 @@ hero panel (activating each install by clicking its rail tile, and restoring the
 active install at the end) while an `r1q2` install badges as bare `R1Q2`, and that no visible line
 of `document.body.innerText` on home or library matches `/\bclient\b/i` — with absolute filesystem
 paths stripped first, since a checkout under a directory called `client` is not the launcher's
-vocabulary, and with a sentinel check so an empty text read cannot pass that assertion vacuously.
+vocabulary, and with a sentinel check so an empty text read cannot pass that assertion vacuously,
+and (story 066 D8) **`import-from-files`** — the first flow to take a fixture variant argument (see
+above): run plain (`npm run ui:flow -- import-from-files`) it asserts the "Start from" select's four
+options (AC1), that both template options each create a profile carrying its own `seedFrom` (AC3),
+that "Choose files…" (`DialogService`'s harness stub, no real OS dialog) lists the three staged
+`dm.cfg`/`dmalias.cfg`/`gfx.cfg` fixtures in load order (AC4), and that moving a row and removing one
+changes that order (AC5) — `gfx.cfg` is the one removed, since it carries zero `bind`/`alias` lines
+of its own, so the profile created afterward still carries every one of `dm.cfg`'s 99 binds and
+`dmalias.cfg`'s 96 aliases (`import-fixtures.test.ts`'s corpus test, story 066 D2), read back via a
+real `window.q2.invoke('module:invoke', { moduleId: 'config', type: 'list' })` call rather than
+scraped off the DOM. Run again with `empty` (`npm run ui:flow -- import-from-files empty`) it skips
+the template/options steps and only proves the import path on a launcher with zero installations
+registered at all (AC9).
 
 ## Baselines and CI
 
@@ -720,4 +742,12 @@ any of them produces no screenshot and no axe finding:
   (`dialog.showOpenDialog`, used from `src/main/ipc/installations.ts`) —
   Playwright cannot drive an OS-native dialog at all, so any renderer state
   that only appears after that dialog resolves is unreachable by this
-  harness by construction, not by omission.
+  harness by construction, not by omission. Story 066 D4/D8 gives the
+  config-file picker specifically (`DialogService.pickConfigFiles()`,
+  `src/main/services/dialog.ts`) a harness-only stub for exactly this reason
+  — `Q2L_UI_HARNESS==='1' && isDev` skips the real dialog and returns fixed
+  paths from `Q2L_UI_PICK_FILES` instead, so `config-import-files` and
+  `scripts/flows/import-from-files.mjs` cover everything from the resolved
+  paths onward (list, reorder, remove, preview, create); only "the OS dialog
+  itself appears and is multi-select" stays manual residue, same as every
+  other picker below it in this list.

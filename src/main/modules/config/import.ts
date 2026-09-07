@@ -1,21 +1,27 @@
 /**
- * The three import handlers' logic (story 005, D3): scan an installation for
- * gamedirs with an importable config, preview what they contain, and commit
- * the result into a new profile.
+ * The three import handlers' logic (story 005 D3, re-addressed by story 066 D5): open the config
+ * file picker, preview what the picked files contain, and commit the result into a new profile.
  *
  * Kept as plain exported functions rather than inline in `configModule.setup()`
  * so they are testable against a real temp fixture tree without booting the
  * whole `MainModule`/`AppContext` machinery - same style as
- * `writeProfileToAssignedInstallations` in `./index.ts`. Each function takes
- * an `installations` lookup (not the concrete `InstallationsService`) as its
- * only main-process dependency, which is what lets a test fake "installation
- * not found" without a filesystem at all.
+ * `writeProfileToAssignedInstallations` in `./index.ts`.
  *
- * Path trust (CLAUDE.md, decision 2): every function is addressed by
- * `{ installationId, gameDir }`, never by a path. The installation's own
- * `rootPath` is the only path that ever reaches `readImportableConfig()`, and
- * `gameDir` is checked against the installation's own recorded gamedirs
- * before it is used for anything - see `gameDirBelongsToInstallation()`.
+ * **Path trust** (CLAUDE.md; story 005 decision 2, story 066 decision "picker ownership"). Story
+ * 066 D5 replaced the old `{ installationId, gameDir }` addressing - which confined every read to a
+ * registered installation's own folder - with file-picker addressing. What confines the reads now:
+ *
+ * - The renderer sends `fileIds` and nothing else. There is no path field on any of these inputs,
+ *   so there is no renderer-supplied path to validate, sanitise or accidentally trust.
+ * - An id only ever means something because `pickImportFiles` put it in the session registry
+ *   (`picked-files.ts`) together with a path a real OS picker returned. An id the renderer invented
+ *   resolves to nothing, and the whole request is refused before any file is opened.
+ * - Which folders the *config files themselves* can reach is the reader's guarantee, unchanged:
+ *   `readImportableFiles` confines an `exec` to the containing file's own folder (AC8).
+ *
+ * Neither `previewImportFiles` nor `commitImportFiles` has an installations dependency at all any
+ * more, which is what makes "import from files needs no installation" (AC9) true by construction
+ * rather than by a test.
  */
 
 import { randomUUID } from 'node:crypto'
@@ -32,28 +38,33 @@ import {
   type ConfigActionCategory,
   type ConfigCvarSection,
   type ConfigProfile,
-  type ImportCommitInput,
-  type ImportGamedirCandidate,
+  type ImportFilesCommitInput,
+  type ImportFilesPreviewInput,
   type ImportMetadataWarning,
-  type ImportPreviewInput,
   type ImportPreviewResult,
-  type ImportScanInput,
-  type ImportScanResult,
+  type PickedConfigFile,
   type UnrecognizedConfigLine,
 } from '@shared/modules/config'
 import { fail, ok, type Outcome } from '@shared/types'
 import type { Installation } from '@shared/types'
-import { isFile, resolveRelaxed } from '../../lib/fs-utils'
 import type { Logger } from '../../lib/logger'
-import { readImportableConfig, type ImportResult } from './core/import-reader'
+import { readImportableFiles, type ImportResult } from './core/import-reader'
+import {
+  UnknownPickedFileError,
+  type PickedFileRegistrar,
+  type PickedFileResolver,
+} from './picked-files'
 
-/** The subset of `InstallationsService` these handlers need. */
-export interface ImportInstallations {
-  find: (id: string) => Installation | undefined
+/**
+ * The subset of `DialogService` (`main/services/dialog.ts`) `pickImportFiles` needs - the concrete
+ * service is not taken, so a test drives the flow with a fake picker instead of an OS dialog.
+ */
+export interface ConfigFilePicker {
+  pickConfigFiles: (options: { defaultPath?: string }) => Promise<string[]>
 }
 
 /**
- * What `import.commit` calls to actually create the profile
+ * What `import.commitFiles` calls to actually create the profile
  * (`ProfilesStore.createFromImport`). Story 041 (D6) adds `actions`/
  * `categories`/`layers` - `buildImportedActions`'s own result, alongside the
  * cvars/binds/unrecognized story 005 already produced, never replacing them.
@@ -77,79 +88,41 @@ export type CreateProfileFromImport = (input: {
 }) => ConfigProfile[]
 
 /**
- * `installation.gameDirs` plus `baseq2`, deduplicated, `baseq2` always first -
- * so a naive "pick candidates[0]" default (D4) always lands on the normal
- * case (decision 12), even though `gameDirs` is not documented to ever
- * contain `baseq2` itself.
+ * True when `gameDir` is really one of `installation`'s own gamedirs.
+ *
+ * No import path uses this any more (story 066 D5 removed the gamedir-addressed handlers together
+ * with their guards); it stays here because `cleanup.ts` deliberately reuses story 005's rule for
+ * its own path-trust check (story 010 decision 10, `entryIsTrusted`) and that is its only caller.
  */
-function candidateGameDirNames(installation: Installation): string[] {
-  const seen = new Set<string>()
-  const result: string[] = []
-  for (const gameDir of [BASE_GAME_DIR, ...installation.gameDirs]) {
-    if (seen.has(gameDir)) continue
-    seen.add(gameDir)
-    result.push(gameDir)
-  }
-  return result
-}
-
-/** True when `gameDir` is really one of `installation`'s own gamedirs. */
 export function gameDirBelongsToInstallation(installation: Installation, gameDir: string): boolean {
   return gameDir === BASE_GAME_DIR || installation.gameDirs.includes(gameDir)
 }
 
-/** Case-insensitive existence check for `<rootPath>/<gameDir>/<fileName>`. */
-async function hasFile(rootPath: string, gameDir: string, fileName: string): Promise<boolean> {
-  const resolved = await resolveRelaxed(rootPath, `${gameDir}/${fileName}`)
-  return resolved !== null && (await isFile(resolved))
-}
-
 /**
- * `import.scan`: every gamedir of `installation` that actually has a
- * `config.cfg` or an `autoexec.cfg` (decision 12) - a gamedir with neither is
- * left out entirely rather than listed as an empty candidate.
+ * Story 066 D5: the reader's own warnings, logged without an installation to attribute them to -
+ * `file` is the bare file name the reader recorded (never an absolute path, see `processFile`), so
+ * this stays a log line about config content rather than about the user's folder layout.
  */
-export async function scanImportCandidates(
-  installations: ImportInstallations,
-  input: ImportScanInput,
-): Promise<Outcome<ImportScanResult>> {
-  const installation = installations.find(input.installationId)
-  if (!installation) return fail('config.error.installationNotFound')
-
-  const candidates: ImportGamedirCandidate[] = []
-  for (const gameDir of candidateGameDirNames(installation)) {
-    const hasConfigCfg = await hasFile(installation.rootPath, gameDir, 'config.cfg')
-    const hasAutoexecCfg = await hasFile(installation.rootPath, gameDir, 'autoexec.cfg')
-    if (hasConfigCfg || hasAutoexecCfg) {
-      candidates.push({ gameDir, hasConfigCfg, hasAutoexecCfg })
-    }
-  }
-
-  return ok({ candidates })
-}
-
 function logImportWarnings(
   log: Logger,
-  installationId: string,
   warnings: { file: string; line: number; reason: string; target: string }[],
 ): void {
   for (const warning of warnings) {
     log.warn(
       `import: ${warning.reason} for exec target "${warning.target}" ` +
-        `(${warning.file}:${warning.line}, installation ${installationId})`,
+        `(${warning.file}:${warning.line})`,
     )
   }
 }
 
 function logDuplicateBinds(
   log: Logger,
-  installationId: string,
   duplicateBinds: { key: string; file: string; line: number }[],
 ): void {
   for (const duplicate of duplicateBinds) {
     log.warn(
       `import: key "${duplicate.key}" bound more than once ` +
-        `(${duplicate.file}:${duplicate.line}, installation ${installationId})`,
+        `(${duplicate.file}:${duplicate.line})`,
     )
   }
 }
@@ -279,54 +252,109 @@ function toMetadataWarnings(
 /** Story 041 (D2/D6): mirrors `logDuplicateBinds` for alias redefinitions. */
 function logDuplicateAliases(
   log: Logger,
-  installationId: string,
   duplicateAliases: { name: string; file: string; line: number }[],
 ): void {
   for (const duplicate of duplicateAliases) {
     log.warn(
       `import: alias "${duplicate.name}" defined more than once ` +
-        `(${duplicate.file}:${duplicate.line}, installation ${installationId})`,
+        `(${duplicate.file}:${duplicate.line})`,
     )
   }
 }
 
 /**
- * `import.preview`: the installation + gamedir validation happens before any
- * filesystem access (the acceptance line this is tested against directly),
- * then `readImportableConfig()` is shaped into counts + preserved lines.
- * Nothing is written - `readImportableConfig()` is read-only by construction
- * (decision 14).
+ * Story 066 D5: `fileIds` -> absolute paths, or a refusal - the one gate every read in this file is
+ * behind.
+ *
+ * Runs before any filesystem access and rejects the WHOLE request if a single id is unknown
+ * (`PickedFilesRegistry.resolve`), so an invented id cannot ride along with real ones and get the
+ * rest of them imported. The failure is deliberately indistinguishable for a stale id and an
+ * invented one, and the log line deliberately does not echo the id: that value is renderer-supplied
+ * text of unbounded length (the payload schema only requires a non-empty string), which has no
+ * business in the log file.
+ */
+function resolvePickedPaths(
+  picked: PickedFileResolver,
+  log: Logger,
+  fileIds: readonly string[],
+): Outcome<string[]> {
+  try {
+    return ok(picked.resolve(fileIds))
+  } catch (error) {
+    if (error instanceof UnknownPickedFileError) {
+      log.warn(
+        `import: refused a request carrying ${fileIds.length} file id(s) - one of them was never ` +
+          `handed out by this session's file picker`,
+      )
+      return fail('config.error.pickedFileNotFound')
+    }
+    throw error
+  }
+}
+
+/**
+ * `import.pickFiles`: opens the real picker and registers what came back (story 066 D5).
+ *
+ * The only writer of the session registry, and the only place an absolute path enters this flow at
+ * all. A cancelled dialog yields `[]` from `DialogService.pickConfigFiles` and therefore an empty,
+ * successful result here - "the user picked nothing" is not an error, and it must not clear the
+ * files the dialog is already showing (which is why nothing is reset on this path).
+ *
+ * `defaultPath` is a convenience the caller computes (the selected or last installation's `baseq2`,
+ * see `./index.ts`); it is a *starting folder* for the OS dialog, never a path that gets read - the
+ * user's actual selection is the only thing that ends up in the registry.
+ */
+export async function pickImportFiles(
+  picker: ConfigFilePicker,
+  registry: PickedFileRegistrar,
+  log: Logger,
+  options: { defaultPath?: string } = {},
+): Promise<Outcome<PickedConfigFile[]>> {
+  const paths = await picker.pickConfigFiles(options)
+  if (paths.length === 0) {
+    log.info('import: file picker cancelled or nothing selected')
+    return ok([])
+  }
+
+  const files = registry.register(paths)
+  log.info(`import: registered ${files.length} picked config file(s)`)
+  return ok(files)
+}
+
+/**
+ * `import.previewFiles`: id resolution happens before any filesystem access (the acceptance line
+ * this is tested against directly), then `readImportableFiles()` is shaped into counts + preserved
+ * lines. Nothing is written - the reader is read-only by construction (story 005 decision 14), and
+ * `ProfilesStore` is not even reachable from here: `createProfile` is a parameter of
+ * `commitImportFiles` alone (AC10).
  *
  * Story 041 (D6): also runs the folded config through `restoreProfileParts`
  * (story 042 D4/D5) with an empty `layerAliases` - the user has not answered
  * anything yet, so this is purely for `aliasCount`/`messageCount`/
  * `ambiguousRebindAliases`/`ownWrittenFile`/`metadataVersion`/
  * `sourceProfileId`/`metadataWarnings`, never for the `actions`/`categories`/
- * `layers` it would otherwise produce (those are `commitImport`'s job, with
+ * `layers` it would otherwise produce (those are `commitImportFiles`'s job, with
  * the real answers). `newId` still has to be a real factory even though
  * preview discards its output, hence `randomUUID` here too.
  *
  * Story 042 D5: for a foreign config `restoreProfileParts` delegates wholesale
  * to story 041's `buildImportedActions` (same input, same `newId`), so this
- * call is a strict superset of what `previewImport` computed before this
+ * call is a strict superset of what `previewImportFiles` computed before this
  * deliverable - nothing about the pre-042 preview behaviour changes for a file
  * with no `[q2l ...]` metadata.
  */
-export async function previewImport(
-  installations: ImportInstallations,
+export async function previewImportFiles(
+  picked: PickedFileResolver,
   log: Logger,
-  input: ImportPreviewInput,
+  input: ImportFilesPreviewInput,
 ): Promise<Outcome<ImportPreviewResult>> {
-  const installation = installations.find(input.installationId)
-  if (!installation) return fail('config.error.installationNotFound')
-  if (!gameDirBelongsToInstallation(installation, input.gameDir)) {
-    return fail('config.error.gameDirNotFound')
-  }
+  const paths = resolvePickedPaths(picked, log, input.fileIds)
+  if (!paths.ok) return paths
 
-  const result = await readImportableConfig(installation.rootPath, input.gameDir)
-  logImportWarnings(log, installation.id, result.warnings)
-  logDuplicateBinds(log, installation.id, result.duplicateBinds)
-  logDuplicateAliases(log, installation.id, result.duplicateAliases)
+  const result = await readImportableFiles(paths.value)
+  logImportWarnings(log, result.warnings)
+  logDuplicateBinds(log, result.duplicateBinds)
+  logDuplicateAliases(log, result.duplicateAliases)
 
   const restored = restoreProfileParts(toRestoreInput(result, [], randomUUID))
 
@@ -349,12 +377,20 @@ export async function previewImport(
 }
 
 /**
- * `import.commit`: same validation as `previewImport` (never trust a path
- * from the renderer - decision 2), then re-reads and re-parses from disk
- * (decision 3) rather than trusting anything the renderer previously saw
- * from `preview`, and hands the result to `createProfile` (in practice
+ * `import.commitFiles`: same id resolution as `previewImportFiles` (never trust a path from the
+ * renderer - story 005 decision 2), then reads and parses **from disk again** (decision 3, story
+ * 066's own restatement of it) rather than trusting anything the renderer previously saw from
+ * `previewFiles`, and hands the result to `createProfile` (in practice
  * `ProfilesStore.createFromImport`, injected by the caller so this stays
  * testable without a `StateStore`).
+ *
+ * The re-read is the whole point of the flow's shape, so it is worth being precise about what makes
+ * it one: nothing from the preview reaches this function. The preview's `ImportPreviewResult` is
+ * not an input here (`ImportFilesCommitInput` carries only `fileIds`/`name`/`layerAliases`), and no
+ * parsed result is cached anywhere between the two calls - the only thing the two share is the
+ * registry's id -> path map. So whatever the file says at commit time is what gets stored, even if
+ * the user edited it after previewing, and there is no cached preview a replayed request could
+ * resurrect.
  *
  * Returns the raw created-profile list; live-assignment reconciliation
  * (`withLiveAssignments` in `./index.ts`) is the caller's job, not this
@@ -366,7 +402,7 @@ export async function previewImport(
  * (`asLayer.has(name)` never matches anything when nothing in this import
  * actually has that name with a rebinding body). So this function checks every
  * name in `input.layerAliases` against `imported.ambiguous` - the same
- * ambiguous list `previewImport` reported for *this* import - and fails the
+ * ambiguous list `previewImportFiles` reported for *this* import - and fails the
  * whole commit rather than silently dropping or accepting an invalid one. The
  * check runs after the one `restoreProfileParts` call (its `ambiguous` output
  * does not depend on `layerAliases` - see the alias-import file doc comment -
@@ -376,7 +412,7 @@ export async function previewImport(
  * Story 042 D5: `restoreProfileParts` replaces the direct `buildImportedActions`
  * call - a foreign config still delegates to it wholesale (AC8), while a
  * launcher-written file (`restored.sourceProfileId !== null`, the same
- * ownership check `previewImport` reports as `ownWrittenFile` - the header
+ * ownership check `previewImportFiles` reports as `ownWrittenFile` - the header
  * tag's `id` field, or the legacy sentinel, read either way through
  * `scanComments` in `@shared/config/profile-restore`)
  * reconstructs entries/categories/layers from its `[q2l ...]` metadata
@@ -393,22 +429,19 @@ export async function previewImport(
  * is never read here at all, so importing the same file twice yields two
  * profiles with two different ids by construction.
  */
-export async function commitImport(
-  installations: ImportInstallations,
+export async function commitImportFiles(
+  picked: PickedFileResolver,
   log: Logger,
-  input: ImportCommitInput,
+  input: ImportFilesCommitInput,
   createProfile: CreateProfileFromImport,
 ): Promise<Outcome<ConfigProfile[]>> {
-  const installation = installations.find(input.installationId)
-  if (!installation) return fail('config.error.installationNotFound')
-  if (!gameDirBelongsToInstallation(installation, input.gameDir)) {
-    return fail('config.error.gameDirNotFound')
-  }
+  const paths = resolvePickedPaths(picked, log, input.fileIds)
+  if (!paths.ok) return paths
 
-  const result = await readImportableConfig(installation.rootPath, input.gameDir)
-  logImportWarnings(log, installation.id, result.warnings)
-  logDuplicateBinds(log, installation.id, result.duplicateBinds)
-  logDuplicateAliases(log, installation.id, result.duplicateAliases)
+  const result = await readImportableFiles(paths.value)
+  logImportWarnings(log, result.warnings)
+  logDuplicateBinds(log, result.duplicateBinds)
+  logDuplicateAliases(log, result.duplicateAliases)
 
   const layerAliases = input.layerAliases ?? []
   const restored = restoreProfileParts(toRestoreInput(result, layerAliases, randomUUID))
@@ -423,8 +456,8 @@ export async function commitImport(
     )
     if (unknownLayerAliases.length > 0) {
       log.warn(
-        `import.commit: rejected layerAliases not ambiguous in this import ` +
-          `(installation ${installation.id}): ${unknownLayerAliases.join(', ')}`,
+        `import.commitFiles: rejected layerAliases not ambiguous in this import: ` +
+          `${unknownLayerAliases.join(', ')}`,
       )
       return fail('config.error.invalidLayerAlias')
     }
@@ -434,10 +467,10 @@ export async function commitImport(
     name: input.name,
     cvars: result.cvars,
     binds: result.binds,
-    // Story-042-review finding 5 (fix-cycle-5 continuation): `previewImport` already filters
+    // Story-042-review finding 5 (fix-cycle-5 continuation): `previewImportFiles` already filters
     // `restored.consumedCommentLines` out of what it calls "preserved" - the header block's
     // decoration, the sentinel, a well-formed section banner - because those are understood,
-    // launcher-owned lines, not foreign leftovers. `commitImport` handed `result.unrecognized`
+    // launcher-owned lines, not foreign leftovers. `commitImportFiles` handed `result.unrecognized`
     // to `createProfile` *unfiltered*, so the profile that got created carried every one of those
     // understood lines as `unrecognized` anyway; the Care tab (which reads a profile's own
     // `unrecognized` list) then asked the user to tidy up the launcher's own metadata on every

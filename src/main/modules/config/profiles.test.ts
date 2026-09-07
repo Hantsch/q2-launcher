@@ -71,6 +71,65 @@ describe('ProfilesStore', () => {
     expect(created.createdAt).toBe(created.updatedAt)
   })
 
+  // Story 066 D6 (AC2): "an empty seed produces the profile it produces today" - `from: 'empty'`
+  // must behave exactly as it did before this story split `'template'` into a handed pair and added
+  // `seedFrom`, so this pins the full shape rather than just the fields the pre-existing test above
+  // already covers.
+  it('an empty seed produces the profile it produces today', () => {
+    const [created] = profiles.create({ name: 'My Profile', from: 'empty' })
+
+    expect(created).toMatchObject({
+      name: 'My Profile',
+      cvars: {},
+      binds: {},
+      assignments: [],
+    })
+    // Same "omitted, not an empty array" shape the pre-existing "neither categories nor actions"/
+    // "no cvar sections" tests above already pin for an empty profile - unchanged by this story.
+    expect(created!.categories ?? []).toEqual([])
+    expect(created!.actions ?? []).toEqual([])
+    expect(created!.cvarSections ?? []).toEqual([])
+    // `seedFrom` only ever records a handedness (`ConfigProfile.seedFrom`'s own doc comment) - an
+    // empty profile has none, and must not carry the key at all, matching `ConfigProfileTemplate`'s
+    // "absent, not `undefined`-valued" convention every other optional field on this interface uses.
+    expect(created!.seedFrom).toBeUndefined()
+    expect('seedFrom' in created!).toBe(false)
+  })
+
+  // Story 066 D6 (AC3): "a template seed records its handedness in seedFrom" - and, since the two
+  // handed layouts do not diverge yet, both must currently seed byte-for-byte identical content.
+  // That equality assertion is deliberate: a later story that finally gives the two layouts distinct
+  // content should make this specific assertion start failing, which is the honest signal this
+  // story's own "identical for now" is supposed to leave behind.
+  it('a template seed records its handedness in seedFrom, and both handednesses seed identically for now', () => {
+    const [right] = profiles.create({ name: 'Right', from: 'template-right' })
+    const left = profiles.create({ name: 'Left', from: 'template-left' }).at(-1)
+
+    expect(right!.seedFrom).toBe('template-right')
+    expect(left!.seedFrom).toBe('template-left')
+
+    expect(right!.cvars).toEqual(STANDARD_TEMPLATE.cvars)
+    expect(left!.cvars).toEqual(STANDARD_TEMPLATE.cvars)
+    expect(right!.binds).toEqual(STANDARD_TEMPLATE.binds)
+    expect(left!.binds).toEqual(STANDARD_TEMPLATE.binds)
+    expect(right!.categories).toEqual(STANDARD_TEMPLATE.categories)
+    expect(left!.categories).toEqual(STANDARD_TEMPLATE.categories)
+    expect(right!.cvarSections).toEqual(STANDARD_TEMPLATE.cvarSections)
+    expect(left!.cvarSections).toEqual(STANDARD_TEMPLATE.cvarSections)
+
+    // Deliberately identical content between the two - a future story diverging the layouts must
+    // make this fail first, before anything else in this file does.
+    expect(right!.cvars).toEqual(left!.cvars)
+    expect(right!.binds).toEqual(left!.binds)
+    expect(right!.categories).toEqual(left!.categories)
+    expect(right!.cvarSections).toEqual(left!.cvarSections)
+    // Actions carry freshly-minted per-profile ids (`randomUUID` per `create()` call), so compare
+    // them with ids stripped rather than expecting the two arrays to be `toEqual`.
+    const withoutIds = (actions: typeof right.actions): unknown =>
+      (actions ?? []).map(({ id: _id, ...rest }) => rest)
+    expect(withoutIds(right!.actions)).toEqual(withoutIds(left!.actions))
+  })
+
   // Story 052 D1: "Creating an empty profile seeds no categories" (AC4).
   it('creates an empty profile with neither categories nor actions', () => {
     const [created] = profiles.create({ name: 'My Profile', from: 'empty' })
@@ -80,7 +139,7 @@ describe('ProfilesStore', () => {
   })
 
   it('creates a profile from the standard template', () => {
-    const result = profiles.create({ name: 'Vanilla', from: 'template' })
+    const result = profiles.create({ name: 'Vanilla', from: 'template-right' })
 
     const created = result[0]!
     expect(created.cvars).toEqual(STANDARD_TEMPLATE.cvars)
@@ -93,7 +152,7 @@ describe('ProfilesStore', () => {
   // Story 052 D1 (AC4): "a template profile has the three categories with every catalogue row
   // (unbound except the template's own 6 binds)".
   it('creates a profile from the standard template with the three categories and every catalogue row', () => {
-    const [created] = profiles.create({ name: 'Vanilla', from: 'template' })
+    const [created] = profiles.create({ name: 'Vanilla', from: 'template-right' })
 
     expect(created!.categories).toHaveLength(3)
     expect(created!.categories!.map((c) => c.id).sort()).toEqual(['drops', 'movement', 'weapons'])
@@ -133,7 +192,7 @@ describe('ProfilesStore', () => {
 
   // Story 059 D1: "a template profile carries four sections holding every ALL_CVARS name".
   it('creates a profile from the standard template with four cvar sections holding every cvar', () => {
-    const [created] = profiles.create({ name: 'Vanilla', from: 'template' })
+    const [created] = profiles.create({ name: 'Vanilla', from: 'template-right' })
 
     expect(created!.cvarSections).toHaveLength(4)
     expect(created!.cvarSections!.map((s) => s.id).sort()).toEqual(
@@ -246,7 +305,7 @@ describe('ProfilesStore', () => {
   })
 
   it('setBinds replaces rather than merges the binds map', () => {
-    const [created] = profiles.create({ name: 'Original', from: 'template' })
+    const [created] = profiles.create({ name: 'Original', from: 'template-right' })
 
     // `kill` on purpose, not a catalogue command: since story 034 a raw bind whose command *is*
     // a catalogue row's (`weapnext`, `+forward`, `drop shotgun`) is adopted into that row's action
@@ -1117,7 +1176,7 @@ describe('ProfilesStore', () => {
     })
 
     it('adopts a template profile the moment it is created', () => {
-      const [created] = profiles.create({ name: 'From template', from: 'template' })
+      const [created] = profiles.create({ name: 'From template', from: 'template-right' })
 
       expect((created!.actions ?? []).map((a) => a.catalogId)).toContain('movement:forward')
     })
@@ -1163,7 +1222,7 @@ describe('ProfilesStore', () => {
    */
   describe('story 049: the last-saved baseline', () => {
     it('is absent on a profile whose file has never been confirmed', () => {
-      const [created] = profiles.create({ name: 'Never saved', from: 'template' })
+      const [created] = profiles.create({ name: 'Never saved', from: 'template-right' })
       expect(created!.baseline).toBeUndefined()
     })
 
@@ -1336,7 +1395,7 @@ describe('ProfilesStore', () => {
     })
 
     it('returns noBaseline and mutates nothing for a profile that was never saved', () => {
-      const [created] = profiles.create({ name: 'Never saved', from: 'template' })
+      const [created] = profiles.create({ name: 'Never saved', from: 'template-right' })
       expect(created!.baseline).toBeUndefined()
 
       const result = profiles.discard(created!.id)

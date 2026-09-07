@@ -9,11 +9,16 @@ import type {
   ConfigProfile,
   UnrecognizedConfigLine,
 } from '@shared/modules/config'
-import type { Installation } from '@shared/types'
 import { aliasNameFor } from '@shared/config/alias-render'
 import { isDropEntry } from '@shared/config/drop-entries'
 import { scopedLogger } from '../../../lib/logger'
-import { commitImport, previewImport, type ImportInstallations } from '../import'
+import {
+  commitImportFiles,
+  previewImportFiles,
+  type CreateProfileFromImport,
+} from '../import'
+import { PickedFilesRegistry } from '../picked-files'
+import { readImportableFiles } from './import-reader'
 
 /**
  * D9 (story 041): the importer driven end to end against the three REAL
@@ -80,38 +85,93 @@ function atLine(lines: string[], n: number): string {
   return text
 }
 
-function fixtureInstallation(): Installation {
-  return {
-    id: 'fixture-install',
-    name: 'Fixture install',
-    rootPath: root,
-    engineKind: 'r1q2',
-    launchArgs: [],
-    activeGameDir: '',
-    source: 'manual',
-    status: 'ok',
-    checks: [],
-    gameDirs: [],
-    favorite: false,
-    sortOrder: 0,
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    totalPlaytimeSeconds: 0,
-  }
+/**
+ * The full expected `preserved`/`unrecognized` line list for dm.cfg + dmalias.cfg + gfx.cfg, in
+ * document order - factored out of the installation-mode preview test below so it can be reused,
+ * unchanged, by the `readImportableFiles` test (story 066 D2) further down: both read the exact
+ * same three files in the exact same order, and the installation-mode wrapper (`autoexec.cfg`)
+ * contributes nothing of its own here - it is three `exec` lines that all resolve cleanly, so
+ * neither adds to nor removes anything from this list.
+ *
+ * See the original computation's own comments (kept where each is used) for how every line number
+ * and classification below was arrived at - nothing here is new, only moved.
+ */
+function buildExpectedPreservedLines(
+  dmLines: string[],
+  dmaliasLines: string[],
+  gfxLines: string[],
+): { file: string; line: number; text: string }[] {
+  const dmLineNumbersBefore95 = [3, 5, 6, 7, 9, 34, 35, 36, 38, 53, 54, 55, 56, 71, 85]
+  const dmLineNumbersAfter95 = [
+    99, 112, 116, 117, 118, 119, 123, 127, 128, 129, 134, 135, 136, 137, 142, 147, 151, 156, 159,
+    160, 161, 169, 170, 171, 249, 250, 251, 252, 254, 255,
+  ]
+  const expectedDm = [
+    ...dmLineNumbersBefore95.map((n) => ({ file: 'dm.cfg', line: n, text: atLine(dmLines, n) })),
+    { file: 'dm.cfg', line: 95, text: 'bind' },
+    { file: 'dm.cfg', line: 95, text: '""' },
+    ...dmLineNumbersAfter95.map((n) => ({ file: 'dm.cfg', line: n, text: atLine(dmLines, n) })),
+  ]
+
+  const dmaliasLineNumbers = [
+    1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 20, 54, 55, 114, 120, 126, 130, 134, 146,
+  ]
+  const expectedDmalias = dmaliasLineNumbers.map((n) => ({
+    file: 'dmalias.cfg',
+    line: n,
+    text: atLine(dmaliasLines, n),
+  }))
+
+  const expectedGfx = [{ file: 'gfx.cfg', line: 1, text: atLine(gfxLines, 1) }]
+
+  return [...expectedDm, ...expectedDmalias, ...expectedGfx]
 }
 
-function installations(inst: Installation): ImportInstallations {
-  return { find: (id) => (id === inst.id ? inst : undefined) }
+/**
+ * Story 066 D5: these fixtures are now imported the way the launcher actually imports - through the
+ * file picker's session registry (`picked-files.ts`), with no installation record anywhere in
+ * sight. Registering `<root>/<relativePath>` here stands in for what the real `import.pickFiles`
+ * does with what the OS dialog returned; the tests only ever hold the opaque ids, exactly as the
+ * renderer does.
+ *
+ * Pointing this at the generated `autoexec.cfg` reproduces the pre-066, installation-addressed
+ * reads byte for byte: `autoexec.cfg` was the only entry file that existed in the fixture gamedir,
+ * and file mode resolves an `exec` inside a picked file against that file's own folder - so the
+ * three `exec` lines still expand to the three fixtures in the same order, and `filesRead` and
+ * every count below are unchanged from what the gamedir-addressed flow produced.
+ */
+function pickedFiles(relativePaths: readonly string[]): {
+  picked: PickedFilesRegistry
+  fileIds: string[]
+} {
+  const picked = new PickedFilesRegistry()
+  const fileIds = picked
+    .register(relativePaths.map((relativePath) => join(root, relativePath)))
+    .map((file) => file.id)
+  return { picked, fileIds }
+}
+
+async function previewPicked(
+  ...relativePaths: string[]
+): Promise<Awaited<ReturnType<typeof previewImportFiles>>> {
+  const { picked, fileIds } = pickedFiles(relativePaths)
+  return previewImportFiles(picked, log, { fileIds })
+}
+
+async function commitPicked(
+  relativePaths: readonly string[],
+  input: { name: string; layerAliases?: string[] },
+  createProfile: CreateProfileFromImport,
+): Promise<Awaited<ReturnType<typeof commitImportFiles>>> {
+  const { picked, fileIds } = pickedFiles(relativePaths)
+  return commitImportFiles(picked, log, { fileIds, ...input }, createProfile)
 }
 
 describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story 041 D9)', () => {
   it('previews the fixtures with the real alias/preserved-line facts', async () => {
     const { dmLines, dmaliasLines, gfxLines } = await buildFixtureGamedir()
 
-    const result = await previewImport(installations(fixtureInstallation()), log, {
-      installationId: 'fixture-install',
-      gameDir: 'baseq2',
-    })
+    const result = await previewPicked('baseq2/autoexec.cfg')
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -180,37 +240,11 @@ describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story
     // (AC 8 - nothing that used to survive in `preserved` stops surviving
     // there). Confirmed against the real parsed output exactly as the rest
     // of this fixture test is.
-    const dmLineNumbersBefore95 = [
-      3, 5, 6, 7, 9, 34, 35, 36, 38, 53, 54, 55, 56, 71, 85,
-    ]
-    const dmLineNumbersAfter95 = [
-      99, 112, 116, 117, 118, 119, 123, 127, 128, 129, 134, 135, 136, 137, 142, 147, 151, 156, 159,
-      160, 161, 169, 170, 171, 249, 250, 251, 252, 254, 255,
-    ]
-    const expectedDm: UnrecognizedConfigLine[] = [
-      ...dmLineNumbersBefore95.map((n) => ({ file: 'dm.cfg', line: n, text: atLine(dmLines, n) })),
-      { file: 'dm.cfg', line: 95, text: 'bind' },
-      { file: 'dm.cfg', line: 95, text: '""' },
-      ...dmLineNumbersAfter95.map((n) => ({ file: 'dm.cfg', line: n, text: atLine(dmLines, n) })),
-    ]
-
-    const dmaliasLineNumbers = [
-      1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 20, 54, 55, 114, 120, 126, 130, 134,
-      146,
-    ]
-    const expectedDmalias: UnrecognizedConfigLine[] = dmaliasLineNumbers.map((n) => ({
-      file: 'dmalias.cfg',
-      line: n,
-      text: atLine(dmaliasLines, n),
-    }))
-
-    // gfx.cfg's only non-command line (line 1) is a `//` comment - it is
-    // ADDITIONALLY collected into `comments` but still lands here (AC 8).
-    const expectedGfx: UnrecognizedConfigLine[] = [
-      { file: 'gfx.cfg', line: 1, text: atLine(gfxLines, 1) },
-    ]
-
-    const expectedPreserved = [...expectedDm, ...expectedDmalias, ...expectedGfx]
+    const expectedPreserved: UnrecognizedConfigLine[] = buildExpectedPreservedLines(
+      dmLines,
+      dmaliasLines,
+      gfxLines,
+    )
     expect(expectedPreserved).toHaveLength(73)
     expect(preview.preserved).toEqual(expectedPreserved)
   })
@@ -243,10 +277,9 @@ describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story
       return stubProfiles
     }
 
-    const result = await commitImport(
-      installations(fixtureInstallation()),
-      log,
-      { installationId: 'fixture-install', gameDir: 'baseq2', name: 'Fixture' },
+    const result = await commitPicked(
+      ['baseq2/autoexec.cfg'],
+      { name: 'Fixture' },
       createProfile,
     )
 
@@ -376,10 +409,7 @@ describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story
   it('still delegates wholesale to the untagged (story 041) path - no [q2l] tags, no metadata warnings', async () => {
     await buildFixtureGamedir()
 
-    const result = await previewImport(installations(fixtureInstallation()), log, {
-      installationId: 'fixture-install',
-      gameDir: 'baseq2',
-    })
+    const result = await previewPicked('baseq2/autoexec.cfg')
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -410,10 +440,9 @@ describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story
     await buildFixtureGamedir()
 
     let actions: ConfigAction[] = []
-    const result = await commitImport(
-      installations(fixtureInstallation()),
-      log,
-      { installationId: 'fixture-install', gameDir: 'baseq2', name: 'Fixture' },
+    const result = await commitPicked(
+      ['baseq2/autoexec.cfg'],
+      { name: 'Fixture' },
       (input) => {
         actions = input.actions
         return []
@@ -449,6 +478,175 @@ describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story
     // ... and that holds even though the importer files it under `drops` (its body is all `drop`
     // commands), which is the one category D2's derivation keys off: its own `aliasName` wins.
     expect(dall.categoryId).toBe('drops')
+  })
+})
+
+/**
+ * Story 066 D2: the story's own acceptance test for AC 7 - the same three real fixtures, but
+ * through `readImportableFiles`, the file-picker entry point (story 066 D1), with NO installation
+ * and NO fake gamedir behind them at all: just the three files' own absolute paths, resolved
+ * straight off the repo (`docs/fixtures/{dm,dmalias,gfx}.cfg`), in the natural
+ * `[dm.cfg, dmalias.cfg, gfx.cfg]` order.
+ *
+ * `dm.cfg`'s line 133, `bind RIGHTARROW "exec dmalias.cfg"`, is NOT a config-time `exec` - it is a
+ * `bind` command whose bound COMMAND happens to be the text "exec dmalias.cfg" (quoted, inside the
+ * `bind` line), confirmed by the corpus test above ("dm.cfg:133 - text of a bound command, never a
+ * config-time exec"). So dmalias.cfg's content reaches this import because the caller listed it as
+ * one of the three files, exactly as a real "pick these files" flow would, not because dm.cfg's
+ * line pulled it in - and that same bind survives untouched, as an ordinary working `RIGHTARROW`
+ * entry, never expanded, warned about, or dropped.
+ *
+ * Every count and value below was confirmed against the real parsed output of
+ * `readImportableFiles` before being written (same discipline as the corpus test's own top
+ * comment), not assumed from the installation-mode figures - though the two agree, because
+ * installation mode's own `autoexec.cfg` wrapper (`exec dm.cfg` / `exec dmalias.cfg` / `exec
+ * gfx.cfg`) contributes nothing of its own: it is three `exec` lines that all resolve cleanly, so
+ * it neither adds a cvar/bind/alias nor a preserved line that the direct file list wouldn't also
+ * produce, in the same order.
+ */
+describe('readImportableFiles against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story 066 D2)', () => {
+  function fixturePath(name: string): string {
+    return join(FIXTURES_DIR, name)
+  }
+
+  it('dm, dmalias and gfx import as one profile with every bind and alias', async () => {
+    const dm = await readFile(fixturePath('dm.cfg'), 'latin1')
+    const dmalias = await readFile(fixturePath('dmalias.cfg'), 'latin1')
+    const gfx = await readFile(fixturePath('gfx.cfg'), 'latin1')
+    const splitLines = (text: string): string[] => text.split(/\r\n|\r|\n/)
+    const dmLines = splitLines(dm)
+    const dmaliasLines = splitLines(dmalias)
+    const gfxLines = splitLines(gfx)
+
+    const result = await readImportableFiles([
+      fixturePath('dm.cfg'),
+      fixturePath('dmalias.cfg'),
+      fixturePath('gfx.cfg'),
+    ])
+
+    // No installation, no gamedir, no autoexec.cfg wrapper - just the three paths, read in the
+    // order they were listed.
+    expect(result.filesRead).toEqual(['dm.cfg', 'dmalias.cfg', 'gfx.cfg'])
+    expect(result.warnings).toEqual([])
+
+    // Same bind/alias facts the corpus test above pins for an installation-mode read of the same
+    // three files (dm.cfg's 100 `^bind ` lines minus the one unparseable `bind ; ""`, dmalias.cfg's
+    // 96 `^alias ` lines, none of them redefining an earlier one).
+    expect(Object.keys(result.binds)).toHaveLength(99)
+    expect(result.aliases).toHaveLength(96)
+    expect(result.duplicateAliases).toEqual([])
+    expect(result.duplicateBinds).toEqual([])
+
+    // A spread of dm.cfg binds - first, last, and a few named ones from the corpus test above.
+    expect(result.binds.ESCAPE).toBe('togglemenu') // dm.cfg:37, first bind after `unbindall`
+    expect(result.binds.MWHEELDOWN).toBe('rocket_launcher') // dm.cfg:166, last bind in the file
+    expect(result.binds.KP_END).toBe('drop_shotgun') // dm.cfg:158
+    expect(result.binds.KP_DEL).toBe('dall') // dm.cfg:158, next line
+    expect(result.binds.z).toBe('s_ok') // dm.cfg:102
+    expect(result.binds.v).toBe('zoom') // dm.cfg:105
+    expect(result.binds['3']).toBe('blaster') // dm.cfg:60
+
+    // dm.cfg:133 - preserved as a working bind entry, not expanded or warned about (see this
+    // describe block's own top comment for why it never triggers a config-time exec).
+    expect(result.binds.RIGHTARROW).toBe('exec dmalias.cfg')
+
+    // A spread of dmalias.cfg aliases the corpus test above names by hand.
+    const aliasNames = result.aliases.map((alias) => alias.name)
+    for (const name of [
+      'cali',
+      'wait5',
+      'wait20',
+      'wait50',
+      '+slow',
+      '-slow',
+      '+dj',
+      '-dj',
+      '+rj',
+      '-rj',
+      '+kl',
+      '-kl',
+      '+zoom',
+      '-zoom',
+      's_ok',
+      's_spawn',
+      'dall',
+      'blaster_settings',
+      'grenades_settings',
+      'shotgun_settings',
+      'machinegun_settings',
+      'super_shotgun_settings',
+      'hyperblaster_settings',
+      'chaingun_settings',
+      'grenade_launcher_settings',
+      'rocket_launcher_settings',
+      'railgun_settings',
+      'drop_shotgun',
+      'drop_sshotgun',
+      'drop_machine',
+      'drop_chain',
+      'drop_grenadel',
+      'drop_rocketl',
+      'drop_hyperb',
+      'drop_rail',
+      'drop_powers',
+      'drop_tech',
+      'drop_shells',
+      'drop_bullets',
+      'drop_grens',
+      'drop_rocks',
+      'drop_cells',
+      'drop_slugs',
+    ]) {
+      expect(aliasNames).toContain(name)
+    }
+
+    // The last-set value of every cvar assignment across all three files: gfx.cfg's 46 `set` lines
+    // (43 distinct names) plus dm.cfg's 93 (90 distinct - `cl_vwep`/`in_mouse`/`in_joystick` are each
+    // set twice within dm.cfg itself, see the story 059 describe block below) plus dmalias.cfg's own
+    // 6 (`y`/`r`/`b`/`g`/`p`/`s`), minus the names dm.cfg and gfx.cfg share, gives 100 distinct
+    // names once folding is done - confirmed against the real parsed output, not derived by adding
+    // up the counts above (dm.cfg and gfx.cfg share far more names than they don't, being different
+    // edits of nearly the same settings block).
+    expect(Object.keys(result.cvars)).toHaveLength(100)
+
+    // Names both dm.cfg and gfx.cfg set, where the two files genuinely DISAGREE on the value - so
+    // this proves gfx.cfg (the LAST file in the list) really does win, not merely "didn't crash".
+    expect(result.cvars.cl_maxfps).toBe('120') // dm.cfg's Grafik Settings sets "60" (line 182); gfx.cfg's own "120" (line 3) wins
+    expect(result.cvars.intensity).toBe('15') // dm.cfg sets "13" (line 231); gfx.cfg's "15" (line 42) wins
+    expect(result.cvars.vid_gamma).toBe('0.8') // dm.cfg sets "0.800000" (line 246); gfx.cfg's "0.8" (line 43) wins
+
+    // A name gfx.cfg never touches keeps dm.cfg's own value, untouched by the later file.
+    expect(result.cvars.name).toBe('sd.kgm/sauDove') // dm.cfg:8
+    expect(result.cvars.hostname).toBe(`DArKStar's Server`) // dm.cfg:33
+
+    // Names gfx.cfg introduces that dm.cfg never sets at all - genuinely new, not an override.
+    expect(result.cvars.cl_drawfps).toBe('1')
+    expect(result.cvars.cl_drawrate).toBe('1')
+    expect(result.cvars.cl_drawping).toBe('1')
+    expect(result.cvars.cl_drawtime).toBe('1')
+
+    // dmalias.cfg's own six colour cvars (lines 21-26) are present, and their stored value is
+    // exactly the quoted text on that line, byte for byte - several carry latin1-only bytes, so the
+    // expected value is pulled from the real fixture line (like `atLine` elsewhere in this file)
+    // rather than retyped.
+    const quotedValue = (line: string): string => {
+      const match = /"([^"]*)"/.exec(line)
+      if (!match) throw new Error(`no quoted value on: ${line}`)
+      return match[1]!
+    }
+    expect(result.cvars.y).toBe(quotedValue(atLine(dmaliasLines, 21)))
+    expect(result.cvars.r).toBe(quotedValue(atLine(dmaliasLines, 22)))
+    expect(result.cvars.b).toBe(quotedValue(atLine(dmaliasLines, 23)))
+    expect(result.cvars.g).toBe(quotedValue(atLine(dmaliasLines, 24)))
+    expect(result.cvars.p).toBe(quotedValue(atLine(dmaliasLines, 25)))
+    expect(result.cvars.s).toBe(quotedValue(atLine(dmaliasLines, 26)))
+
+    // Nothing that fails to become a structured cvar/bind/alias/exec is silently dropped: the exact
+    // same 73 preserved lines the installation-mode corpus test above pins (`buildExpectedPreservedLines`),
+    // in the same document order - `unrecognized` here is this reader's own name for that bucket.
+    const expectedPreserved = buildExpectedPreservedLines(dmLines, dmaliasLines, gfxLines)
+    expect(expectedPreserved).toHaveLength(73)
+    expect(result.unrecognized).toEqual(expectedPreserved)
   })
 })
 
@@ -504,10 +702,7 @@ describe("story 059 D5: dm.cfg's own section banners become cvar sections", () =
   it("previews dm.cfg's General Settings banner as one cvar section carrying all 25 of its cvars, first-placement-wins", async () => {
     await buildFixtureGamedir()
 
-    const result = await previewImport(installations(fixtureInstallation()), log, {
-      installationId: 'fixture-install',
-      gameDir: 'baseq2',
-    })
+    const result = await previewPicked('baseq2/autoexec.cfg')
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -524,10 +719,9 @@ describe("story 059 D5: dm.cfg's own section banners become cvar sections", () =
     await buildFixtureGamedir()
 
     let committedCvarSections: { name: string; cvars: string[] }[] = []
-    const result = await commitImport(
-      installations(fixtureInstallation()),
-      log,
-      { installationId: 'fixture-install', gameDir: 'baseq2', name: 'Fixture' },
+    const result = await commitPicked(
+      ['baseq2/autoexec.cfg'],
+      { name: 'Fixture' },
       (input) => {
         committedCvarSections = input.cvarSections
         return []
@@ -553,10 +747,9 @@ describe("story 059 D5: dm.cfg's own section banners become cvar sections", () =
 
     let committedCvars: Record<string, string> = {}
     let committedCvarSections: { name: string; cvars: string[] }[] = []
-    const result = await commitImport(
-      installations(fixtureInstallation()),
-      log,
-      { installationId: 'fixture-install', gameDir: 'baseq2', name: 'Fixture' },
+    const result = await commitPicked(
+      ['baseq2/autoexec.cfg'],
+      { name: 'Fixture' },
       (input) => {
         committedCvars = input.cvars
         committedCvarSections = input.cvarSections
@@ -601,10 +794,9 @@ describe("story 059 D5: dm.cfg's own section banners become cvar sections", () =
 
     let committedCvars: Record<string, string> = {}
     let committedCvarSections: { name: string; cvars: string[] }[] = []
-    const result = await commitImport(
-      installations(fixtureInstallation()),
-      log,
-      { installationId: 'fixture-install', gameDir: 'baseq2', name: 'Fixture' },
+    const result = await commitPicked(
+      ['baseq2/config.cfg'],
+      { name: 'Fixture' },
       (input) => {
         committedCvars = input.cvars
         committedCvarSections = input.cvarSections
@@ -635,20 +827,16 @@ describe("story 059 D5: dm.cfg's own section banners become cvar sections", () =
     const gfx = await readFile(join(FIXTURES_DIR, 'gfx.cfg'), 'latin1')
     await writeFile(join(gamedir, 'config.cfg'), Buffer.from(gfx, 'latin1'))
 
-    const preview = await previewImport(installations(fixtureInstallation()), log, {
-      installationId: 'fixture-install',
-      gameDir: 'baseq2',
-    })
+    const preview = await previewPicked('baseq2/config.cfg')
     expect(preview.ok).toBe(true)
     if (!preview.ok) return
     expect(preview.value.cvarCount).toBeGreaterThan(0)
     expect(preview.value.cvarSections).toEqual([])
 
     let committedCvarSections: unknown
-    const commitResult = await commitImport(
-      installations(fixtureInstallation()),
-      log,
-      { installationId: 'fixture-install', gameDir: 'baseq2', name: 'Fixture' },
+    const commitResult = await commitPicked(
+      ['baseq2/config.cfg'],
+      { name: 'Fixture' },
       (input) => {
         committedCvarSections = input.cvarSections
         return []
