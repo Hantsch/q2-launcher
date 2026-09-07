@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>B · Compact hero — home screen prototype</title>
+<link rel="stylesheet" href="../bindings/_proto.css" />
+<link rel="stylesheet" href="_home.css" />
+</head>
+<body class="v-b">
+
+<div class="proto-bar">
+  <strong>HOME SCREEN · B</strong>
+  <span>Compact hero over a wide dashboard — 176&nbsp;px news strip</span>
+  <span class="spacer"></span>
+  <a href="index.html">← all variants</a>
+  <a href="a-large-hero.html">A · large hero</a>
+  <a href="c-full-stage.html">C · full stage</a>
+</div>
+
+<div class="stage">
+  <h1>B · Compact hero</h1>
+  <p class="lead">
+    The news carousel is a <b>strip, not a stage</b>: 176&nbsp;px of 656&nbsp;px, about a quarter
+    of the main area. Everything else belongs to the dashboard — roughly nine grid rows without
+    scrolling, so two rows of tiles fit and the grid reads as a canvas the user is meant to fill.
+    The same two v1 modules are placed here as in A and C, deliberately unchanged, which is why
+    the free space below them is visible: that is what v1 actually looks like.
+  </p>
+
+  <ul class="metrics">
+    <li>hero <b>176 px</b> · 27% of the main area</li>
+    <li>dashboard visible <b>~9 rows</b> of 40 px</li>
+    <li>two rows of 5-row tiles fit <b>fully</b></li>
+    <li>window 1280 × 820 · chrome 68 / 76 / 96 px (real values)</li>
+  </ul>
+
+  <div class="dummy">
+    <input class="sw-in" type="radio" name="slide" id="s-split" checked />
+    <input class="sw-in" type="radio" name="slide" id="s-banner" />
+    <input class="sw-in" type="radio" name="slide" id="s-text" />
+    <input class="sw-in" type="radio" name="slide" id="s-offline" />
+    <input class="sw-in" type="checkbox" id="arrange" />
+
+    <div class="controls">
+      <span class="grp"><span>Slide</span>
+        <label class="pill" for="s-split">split</label>
+        <label class="pill" for="s-banner">banner</label>
+        <label class="pill" for="s-text">text</label>
+      </span>
+      <span class="grp"><span>State</span>
+        <label class="pill" for="s-offline">offline · no feed</label>
+      </span>
+      <span class="grp"><span>Dashboard</span>
+        <label class="pill" for="arrange">arrange mode</label>
+      </span>
+      <span class="hint">watch what 176 px does to the <b>split</b> slide's image and headline</span>
+    </div>
+
+    <div class="app">
+      <div class="tb">
+        <span class="mark">Q2 <i>LAUNCHER</i></span>
+        <nav>
+          <a href="#" class="is-on">Home</a>
+          <a href="#">Library</a>
+          <a href="#">Config</a>
+          <a href="#">Mods</a>
+          <a href="#">Assets</a>
+        </nav>
+        <span class="spacer"></span>
+        <span class="util"><i>↓</i><i>⚙</i></span>
+        <span class="wc"><span>—</span><span>▢</span><span>✕</span></span>
+      </div>
+
+      <div class="rail">
+        <span class="inst is-active">DM</span>
+        <span class="inst">R1</span>
+        <span class="inst">RO</span>
+        <span class="inst">XA</span>
+        <span class="fill"></span>
+        <span class="inst add">+</span>
+      </div>
+
+      <div class="main">
+        <div class="hero">
+          <div class="stale"><b>offline</b> no feed yet — showing the built-in welcome</div>
+
+          <div class="slide tpl-split">
+            <div class="shot"><span>feed image · img/q2pro-1-2.png</span></div>
+            <div class="txt">
+              <span class="tag">RELEASE</span>
+              <h2>Q2PRO 1.2 is out</h2>
+              <p>Netcode rewrite, a proper server browser protocol and the demo player everyone
+                asked for.</p>
+              <div class="cta">
+                <span class="btn is-primary">Changelog</span>
+                <span class="btn">Download</span>
+              </div>
+            </div>
+            <label class="nav-arrow prev" for="s-text">‹</label>
+            <label class="nav-arrow next" for="s-banner">›</label>
+            <div class="dots">
+              <label class="dot is-on" for="s-split"></label>
+              <label class="dot" for="s-banner"></label>
+              <label class="dot" for="s-text"></label>
+              <span class="pause">❙❙</span>
+            </div>
+          </div>
+
+          <div class="slide tpl-banner">
+            <div class="shot"><span>feed image · img/hd-pack-v2.png</span></div>
+            <div class="txt">
+              <span class="tag">PACK</span>
+              <h2>HD texture pack, volume 2</h2>
+              <div class="cta">
+                <span class="btn is-primary">Get the pack</span>
+                <span class="btn">Screenshots</span>
+                <span class="btn">Read the notes</span>
+              </div>
+            </div>
+            <label class="nav-arrow prev" for="s-split">‹</label>
+            <label class="nav-arrow next" for="s-text">›</label>
+            <div class="dots">
+              <label class="dot" for="s-split"></label>
+              <label class="dot is-on" for="s-banner"></label>
+              <label class="dot" for="s-text"></label>
+              <span class="pause">❙❙</span>
+            </div>
+          </div>
+
+          <div class="slide tpl-text">
+            <span class="tag">COMMUNITY</span>
+            <h2>OpenTDM season 14 — signups are open</h2>
+            <p>Two divisions, eight weeks, matches on Tuesdays and Sundays. Rosters close on
+              20&nbsp;September.</p>
+            <div class="cta">
+              <span class="btn is-primary">Sign up</span>
+            </div>
+            <label class="nav-arrow prev" for="s-banner">‹</label>
+            <label class="nav-arrow next" for="s-split">›</label>
+            <div class="dots">
+              <label class="dot" for="s-split"></label>
+              <label class="dot" for="s-banner"></label>
+              <label class="dot is-on" for="s-text"></label>
+              <span class="pause">❙❙</span>
+            </div>
+          </div>
+
+          <div class="slide tpl-welcome">
+            <svg class="glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4">
+              <path d="M24 3 6 12v18l18 15 18-15V12L24 3Z" />
+              <path d="M24 3v42M6 12l18 9 18-9M6 30l18-9 18 9" opacity="0.45" />
+            </svg>
+            <div>
+              <span class="tag">WELCOME</span>
+              <h2>Quake II, managed</h2>
+              <div class="steps">
+                <div><b>1 · FIND</b>Search this PC for installations</div>
+                <div><b>2 · CONFIG</b>Build a profile you can actually read</div>
+                <div><b>3 · PLAY</b>One button, the right engine</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dash">
+          <div class="dash-head">
+            <span>Your dashboard</span>
+            <span class="rule"></span>
+            <label class="btn is-ghost arrange-btn" for="arrange">Arrange</label>
+          </div>
+
+          <div class="grid">
+            <div class="grid-lines"></div>
+
+            <div class="tile" style="grid-column: 1 / span 6; grid-row: 1 / span 5">
+              <header>
+                <span class="grip">⠿</span>
+                <span>Playtime &amp; statistics</span>
+                <span class="spacer"></span>
+                <span class="cell">x0 y0 · 6×5</span>
+                <span class="rm">✕</span>
+              </header>
+              <div class="body">
+                <div class="stats">
+                  <div><div class="n">4</div><div class="k">installations</div></div>
+                  <div><div class="n">2</div><div class="k">engines</div></div>
+                  <div><div class="n">41h</div><div class="k">total played</div></div>
+                </div>
+                <div class="bars">
+                  <div class="row"><span>r1q2</span><span class="bar"><i style="width:62%"></i></span><span>26h</span></div>
+                  <div class="row"><span>Q2PRO</span><span class="bar"><i style="width:34%"></i></span><span>14h</span></div>
+                  <div class="row"><span>last</span><span class="bar"><i style="width:8%"></i></span><span>2d</span></div>
+                </div>
+              </div>
+              <span class="resize"></span>
+            </div>
+
+            <div class="tile" style="grid-column: 7 / span 6; grid-row: 1 / span 5">
+              <header>
+                <span class="grip">⠿</span>
+                <span>Config profiles</span>
+                <span class="spacer"></span>
+                <span class="cell">x6 y0 · 6×5</span>
+                <span class="rm">✕</span>
+              </header>
+              <div class="body">
+                <div class="plist">
+                  <div class="p"><span class="nm">dm-setup</span><span class="badge is-ok">in sync</span><span class="st">3 installs</span></div>
+                  <div class="p"><span class="nm">movement</span><span class="badge is-warn">unsaved</span><span class="st">1 install</span></div>
+                  <div class="p"><span class="nm">rogue</span><span class="badge is-warn">2 care items</span><span class="st">1 install</span></div>
+                  <div class="p"><span class="nm">vanilla-baseline</span><span class="badge is-ok">in sync</span><span class="st">—</span></div>
+                </div>
+              </div>
+              <span class="resize"></span>
+            </div>
+          </div>
+
+          <div class="catalog">
+            <span class="lbl">Catalog</span>
+            <span class="chip is-placed"><i>⠿</i> Playtime &amp; statistics <span class="st">placed</span></span>
+            <span class="chip is-placed"><i>⠿</i> Config profiles <span class="st">placed</span></span>
+            <span class="fyi">v1 ships two modules; in the app a placed module is not listed here</span>
+          </div>
+
+          <div class="announce">aria-live: “Playtime &amp; statistics lifted. Column 1, row 1, 6 by 5. Arrows move, Shift+arrows resize, Enter drops.”</div>
+        </div>
+
+        <div class="fold">↓ dashboard below the fold</div>
+      </div>
+
+      <div class="ab">
+        <div class="who">
+          <div class="n">DM Setup <span class="badge">Q2PRO</span></div>
+          <div class="m">D:\Games\Quake2-q2pro · baseq2</div>
+        </div>
+        <div class="read">ready · 2 days since last session</div>
+        <div class="play">PLAY</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="verdict">
+    <div class="panel good edge-flame">
+      <h3>What it gives</h3>
+      <ul>
+        <li>The dashboard is a <b>real canvas</b>: two rows of tiles fit, so the freedom the free
+          grid promises is actually usable on a 1280×820 window.</li>
+        <li>The user's own layout dominates their home screen, which is what the concept's vision
+          says the lower half is for.</li>
+        <li>News stay present and rotating without owning the screen.</li>
+      </ul>
+    </div>
+    <div class="panel bad">
+      <h3>What it costs</h3>
+      <ul>
+        <li>176&nbsp;px squeezes the <b>split</b> slide: the image is a thin band and the body text
+          has to be cut to two lines. <b>banner</b> is nearly unusable at this height.</li>
+        <li>The launcher looks less curated — closer to a tool than to a front page.</li>
+        <li>With only two v1 modules the free space reads as unfinished rather than as an invitation.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

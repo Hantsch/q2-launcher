@@ -681,6 +681,12 @@ module exists, per the story's own instruction.
 **068 demotes a standing follow-up:** "verify executable and marker names for engines other than
 r1q2/Q2PRO" (below) now only affects classification accuracy, never what the launcher will launch.
 
+## Open / unprioritised
+
+| Topic | State | Next step |
+| --- | --- | --- |
+| Home screen — news hero + customizable dashboard ([concepts/home-screen.md](concepts/home-screen.md)) | Concept drafted 2026-09-07; composition decided on the prototype (`docs/prototypes/home/`, variant A: 320px hero over the dashboard); 13 open points, the largest being a possible fixed friend-list column | `/roadmap plan` — cut the stories (content repo + feed, hero, `home` module + grid, the two v1 modules) |
+
 ## Follow-ups worth doing
 
 **Verify while implementing.** These were researched but not confirmed on a real
