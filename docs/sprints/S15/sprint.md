@@ -1,6 +1,6 @@
 ---
 sprint: S15
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/S15
 milestone: Identity, icons and the first profile
 ---

@@ -681,6 +681,73 @@ module exists, per the story's own instruction.
 **068 demotes a standing follow-up:** "verify executable and marker names for engines other than
 r1q2/Q2PRO" (below) now only affects classification accuracy, never what the launcher will launch.
 
+`docs/sprints/S15` **built and closed (2026-09-07)** — build order 068 → 067 → 069 → 066, as
+planned. **All four done**, closing this milestone: `npm run build`/`typecheck` green, `npm test`
+green (2755/2755, plus one pre-existing unrelated Windows timing flake in `import-reader.test.ts`'s
+512-file exec-expansion test, confirmed present before this sprint and clean in isolation), live
+`npm run ui:verify` clean at every story's checkpoint (0 axe violations throughout) plus a dedicated
+`ui:flow` script per user-facing story. See `docs/sprints/S15/review.md` and
+`docs/sprints/S15/testplan.md`.
+
+068 made "supported" a data flag on `EngineDefinition` (true only for `r1q2`/`q2pro`) driving both
+the create-dialog's dropdown and every "engine" label in `en.json`, with detection still
+classifying and labelling all eight known kinds. 067 replaced the engine-derived two-letter code
+tile with a user-chosen icon — a shipped set converted to 128px `.avif` at build time, or the user's
+own image, validated and re-encoded by main and never addressed by a renderer-supplied path — behind
+one shared `InstallationTile` used by rail, library card and action bar. 069 turned the config
+profile header's identity zone into two lines (name + saved state, then created/updated smaller and
+dimmer) while hardening story 061's 30-visible-editor-line floor to hold in both raw-tab states
+instead of one by accident. 066 gave the create-profile dialog two handed template options plus a
+file-based import addressed through an opaque id → path registry owned by main, replacing the old
+`{ installationId, gameDir }` import that missed 96 of a real reference config's aliases because
+nothing `exec`s them from the engine's own entry files.
+
+**A real orchestrator bug, not a story bug, surfaced and was fixed mid-sprint:** 068's first commit
+captured a stale pre-build snapshot of its own story file (a `git mv` staged the file's rename
+before its Done section was written; a follow-up `git add` never re-staged the finished content).
+Fixed with a dedicated follow-up commit; no code was affected. Every later story's build agent was
+told explicitly not to use `git mv` for its own done-move, and each commit's staged content was
+verified before committing. **Carry-over rule for any future sprint that moves a story file to
+`docs/requirements/done/` itself:** do the move with a plain filesystem move after the Done section
+is fully written, never `git mv` mid-build — `git mv` stages immediately, and a subsequent edit to
+the same path is easy to forget to re-stage.
+
+**Three of the four stories needed real review/fix cycles, all `story-review-hard`:** 067 (2 passes)
+caught a stale icon-cache invalidation bug and a ~5px rail-tile layout drift from its tile
+extraction; 069 (3 passes) caught two real regressions in its new on-demand find bar (lost keyboard
+reachability after Escape; Ctrl+F becoming a destructive no-op when already open); 066 confirmed
+its own named review risk — the renderer→main path-trust seam and the `Q2L_UI_HARNESS`+`isDev`
+double gate on the new `DialogService` — and separately fixed a stale label and a dead i18n string.
+Only 068 passed review clean on the first round.
+
+**069's refine surfaced and then corrected a false alarm worth remembering:** the first refine pass
+measured the acceptance guard as already red before any code change and blocked on a user decision
+for how to fix it (the user chose to have 069 absorb the repair). A second refine pass then found
+the "red" measurement was a stale/dirty test fixture from an unrelated earlier session, not a real
+regression — a fresh `npm run ui:seed` showed the guard green. The chosen repair was kept anyway
+(it hardens the floor to hold in both raw-tab states) and turned out to be the right call: it
+touched exactly the code where review's two find-bar regressions were later caught. **Carry-over
+rule:** never trust `scripts/flows/config-header-geometry.mjs` (or any geometry-sensitive flow)
+without a fresh `npm run ui:seed` first — `scripts/flows/raw-inline-edit.mjs` already documented
+this trap once; it cost a full refine round to rediscover it here.
+
+**Gaps/notes:**
+- 067 — AC2's e2e leg does not (and cannot) drive the real OS file dialog; see
+  `docs/sprints/S15/testplan.md`. Also: the icon-cache-invalidation fix's regression test was
+  written after the fact rather than test-first, and a stale test comment about the shipped-icon
+  lookup mechanism was left uncorrected until review's second pass caught it.
+- 069 — the on-demand find bar is undiscoverable on cold arrival at the read-only raw tab (no
+  visible affordance hints at Ctrl+F); intentional, matching the option chosen for the header-floor
+  hardening, not a defect. Escape restores focus to the wrong element in one case; one memo gate is
+  untested; a pre-existing query-clear asymmetry between the code view's two branches was found but
+  not fixed (none block any AC).
+- 066 — AC4's e2e leg does not (and cannot) drive the real OS multi-select file dialog; see
+  `docs/sprints/S15/testplan.md`. Retiring an old e2e screen during D8 lost screenshot/a11y coverage
+  of the still-live "own-written file" restore banner in `ImportProfileDialog.tsx` (unit coverage of
+  the same logic survives) — worth a follow-up story if that banner ever needs UI-level regression
+  coverage again. The 64-file `fileIds` cap surfaces a generic error rather than a cap-specific
+  message; no AC covers file count, left as-is.
+
 ## Open / unprioritised
 
 | Topic | State | Next step |
