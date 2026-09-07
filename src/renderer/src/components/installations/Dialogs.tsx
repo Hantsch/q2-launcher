@@ -5,6 +5,7 @@ import { CreateInstallationDialog } from './CreateInstallationDialog'
 import { DetectDialog } from './DetectDialog'
 import { RemoveInstallationDialog } from './RemoveInstallationDialog'
 import { RenameInstallationDialog } from './RenameInstallationDialog'
+import { SetInstallationIconDialog } from './SetInstallationIconDialog'
 
 /**
  * Single mounting point for every modal, driven by `store.dialog`.
@@ -28,6 +29,8 @@ export function Dialogs() {
       return <RenameInstallationDialog installationId={dialog.installationId} />
     case 'cleanup':
       return <CleanupConfigCopiesDialog installationId={dialog.installationId} />
+    case 'installationIcon':
+      return <SetInstallationIconDialog installationId={dialog.installationId} />
     case 'none':
       return null
   }

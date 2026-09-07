@@ -39,6 +39,16 @@ describe('resolveRendererSource', () => {
 })
 
 describe('PRODUCTION_CSP', () => {
+  it('the production CSP is unchanged', () => {
+    // Story 067 AC7: installation icons are delivered as `data:` URLs from main, which
+    // `img-src 'self' data: blob:` already allows - the feature needed no policy change at all.
+    // Pinned verbatim, so relaxing any directive for an image feature later fails right here
+    // instead of quietly widening the renderer's reach.
+    expect(PRODUCTION_CSP).toBe(
+      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'",
+    )
+  })
+
   it('allows no inline styles', () => {
     // Story 046 D2: the renderer has no `style="..."` attribute, no literal `<style>` block and
     // no `dangerouslySetInnerHTML` - dynamic values go through React's `style` prop, a CSSOM

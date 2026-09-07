@@ -65,6 +65,15 @@ export interface ValidationResult {
   checkedAt: string
 }
 
+/**
+ * An icon set on an installation (story 067). A shipped icon references a
+ * basename in `src/renderer/src/assets/installations` by id; a custom icon
+ * carries no path - the file lives at `userData/installation-icons/<id>.png`,
+ * derived from the installation id, so no renderer-supplied path is ever
+ * trusted or persisted.
+ */
+export type InstallationIcon = { kind: 'shipped'; id: string } | { kind: 'custom' }
+
 export interface Installation {
   /** Stable id, generated once. Never derived from the path. */
   id: string
@@ -91,6 +100,8 @@ export interface Installation {
   checks: ValidationCheck[]
   gameDirs: string[]
   favorite: boolean
+  /** Icon shown in the rail/header; absent means the default fallback icon. */
+  icon?: InstallationIcon
   /** Position in the installation rail. Lower comes first. */
   sortOrder: number
   createdAt: string

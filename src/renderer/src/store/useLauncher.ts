@@ -5,6 +5,7 @@ import type {
   AppInfo,
   CreateInstallationInput,
   Installation,
+  InstallationIcon,
   Job,
   LaunchState,
   LauncherSettings,
@@ -28,6 +29,27 @@ function isKnownRoute(route: string | undefined): route is string {
   return MODULE_MANIFESTS.some((manifest) => manifest.route === route)
 }
 
+/**
+ * `iconDataUrls` without `installationId`'s entry, if it had one - a plain no-op copy otherwise
+ * (`state` unchanged) so a `set()` call built from this never triggers a re-render for nothing.
+ *
+ * Story 067 review finding F1: `fetchIconDataUrl` caches by installation id and never expired that
+ * entry on its own. A custom icon's `{ kind: 'custom' }` shape does not change when the user
+ * re-picks a different image or clears-then-repicks, so without this, every mounted tile kept
+ * showing the *previous* `data:` URL from cache until the app was restarted - `setInstallationIcon`
+ * and `pickInstallationIconFile` both call this on a successful `Outcome` so the next render's
+ * `useInstallationIcon` sees a missing cache entry and fetches the fresh bytes.
+ */
+function withoutIconDataUrl(
+  iconDataUrls: Record<string, string | null>,
+  installationId: string,
+): Record<string, string | null> {
+  if (!(installationId in iconDataUrls)) return iconDataUrls
+  const next = { ...iconDataUrls }
+  delete next[installationId]
+  return next
+}
+
 /** Which modal the shell is showing. One at a time, by design. */
 export type DialogState =
   | { kind: 'none' }
@@ -39,6 +61,8 @@ export type DialogState =
   /** Story 058 D6: the redundant-config-copies cleanup, scoped to one installation - the row it
    * was opened from *is* the scope, so the panel no longer picks an installation of its own. */
   | { kind: 'cleanup'; installationId: string }
+  /** Story 067 D6: the icon picker, scoped to one installation the same way `rename`/`cleanup` are. */
+  | { kind: 'installationIcon'; installationId: string }
 
 interface LauncherStore {
   // --- mirrored main-process state ----------------------------------------
@@ -55,6 +79,15 @@ interface LauncherStore {
   route: string
   dialog: DialogState
   toasts: ToastMessage[]
+  /**
+   * Custom-icon data URLs (story 067 D5), keyed by installation id. A key is
+   * present (even as `null`, meaning "no file found" or "fetch in flight")
+   * the moment a fetch has been started, so `useInstallationIcon` never
+   * issues a second `installations:iconDataUrl` call for the same
+   * installation - `rail`/`card`/`actionBar` all mounting the same
+   * installation at once must still add up to exactly one request.
+   */
+  iconDataUrls: Record<string, string | null>
 
   // --- lifecycle -----------------------------------------------------------
   bootstrap: () => Promise<void>
@@ -74,11 +107,24 @@ interface LauncherStore {
   addExisting: (input: AddExistingInstallationInput) => Promise<Outcome<Installation>>
   createInstallation: (input: CreateInstallationInput) => Promise<Outcome<Installation>>
   updateInstallation: (input: UpdateInstallationInput) => Promise<Outcome<Installation>>
+  /**
+   * Story 067 D6: sets a shipped icon, or clears the current one with `icon: null`. Deliberately
+   * does not toast on failure the way `updateInstallation` does - the picker dialog shows the
+   * failed `Outcome`'s key inline itself (AC6), so a second, top-level toast would be redundant.
+   */
+  setInstallationIcon: (
+    installationId: string,
+    icon: InstallationIcon | null,
+  ) => Promise<Outcome<Installation>>
+  /** Story 067 D6: opens the native file-picker dialog in main, validates/stores the chosen image. */
+  pickInstallationIconFile: (installationId: string) => Promise<Outcome<Installation>>
   removeInstallation: (id: string) => Promise<void>
   validateInstallation: (id: string) => Promise<void>
   validateAll: () => Promise<void>
   reorderInstallations: (orderedIds: string[]) => Promise<void>
   importDetected: (rootPaths: string[]) => Promise<void>
+  /** Fetches a custom icon's data URL once and caches it. No-op if already fetched/in flight. */
+  fetchIconDataUrl: (installationId: string) => Promise<void>
 
   // --- playing -------------------------------------------------------------
   play: (installationId?: string) => Promise<void>
@@ -100,6 +146,7 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
   route: ROUTE_HOME,
   dialog: { kind: 'none' },
   toasts: [],
+  iconDataUrls: {},
 
   bootstrap: async () => {
     const [appInfo, settings, installations, modules, jobs, launch, chrome] = await Promise.all([
@@ -220,6 +267,22 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
     return result
   },
 
+  setInstallationIcon: async (installationId, icon) => {
+    const result = await invoke('installations:setIcon', { installationId, icon })
+    if (result.ok) {
+      set((state) => ({ iconDataUrls: withoutIconDataUrl(state.iconDataUrls, installationId) }))
+    }
+    return result
+  },
+
+  pickInstallationIconFile: async (installationId) => {
+    const result = await invoke('installations:pickIconFile', { installationId })
+    if (result.ok) {
+      set((state) => ({ iconDataUrls: withoutIconDataUrl(state.iconDataUrls, installationId) }))
+    }
+    return result
+  },
+
   removeInstallation: async (id) => {
     const installation = get().installations.find((entry) => entry.id === id)
     const result = await invoke('installations:remove', { id })
@@ -263,6 +326,16 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
     } else {
       toastError(get, result)
     }
+  },
+
+  fetchIconDataUrl: async (installationId) => {
+    // Reserved synchronously (before the `await`) so the rail/card/action-bar
+    // tiles for the same installation, all mounting in the same tick, only
+    // ever cause one real request (AC9-adjacent: "once per installation").
+    if (installationId in get().iconDataUrls) return
+    set((state) => ({ iconDataUrls: { ...state.iconDataUrls, [installationId]: null } }))
+    const url = await invoke('installations:iconDataUrl', installationId)
+    set((state) => ({ iconDataUrls: { ...state.iconDataUrls, [installationId]: url } }))
   },
 
   play: async (installationId) => {

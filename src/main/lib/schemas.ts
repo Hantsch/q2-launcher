@@ -79,6 +79,16 @@ const installationSchema = z.object({
   checks: z.array(checkSchema).catch([]),
   gameDirs: z.array(z.string()).catch([]),
   favorite: z.boolean().catch(false),
+  // Story 067 D3: additive and forgiving, same convention as `moduleData` below - a record
+  // predating this field simply lacks the key, and a hand-mangled value degrades to "no icon set"
+  // (the default fallback icon) rather than dropping the whole installation.
+  icon: z
+    .union([
+      z.object({ kind: z.literal('shipped'), id: z.string().min(1) }),
+      z.object({ kind: z.literal('custom') }),
+    ])
+    .optional()
+    .catch(undefined),
   sortOrder: z.number().finite().catch(0),
   createdAt: z.string().catch(nowIso),
   updatedAt: z.string().catch(nowIso),

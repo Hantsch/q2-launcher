@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { IpcInvokeMap } from './ipc'
+import type { InstallationIcon } from './types'
 import { absolutePathSchema, engineKindSchema, settingsObjectSchema, sourceSchema } from './schemas'
 
 /**
@@ -114,6 +115,39 @@ export const pickPathInputSchema: z.ZodType<IpcInvokeMap['installations:pickFold
 export const pathListSchema: z.ZodType<IpcInvokeMap['installations:import']['req']> = z
   .array(absolutePathSchema)
   .max(200)
+
+/**
+ * A shipped icon's id (story 067) is a basename in
+ * `src/renderer/src/assets/installations`, never a path: a bounded, lowercase
+ * slug only, so a value shaped like `../../etc/passwd` or an absolute path is
+ * rejected here rather than reaching any filesystem lookup.
+ */
+export const shippedIconIdSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z0-9-]+$/, 'must be a lowercase slug, not a path')
+
+export const installationIconSchema: z.ZodType<InstallationIcon> = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('shipped'), id: shippedIconIdSchema }),
+  z.object({ kind: z.literal('custom') }),
+])
+
+export const setInstallationIconInputSchema: z.ZodType<
+  IpcInvokeMap['installations:setIcon']['req']
+> = z.object({
+  installationId: z.string().min(1),
+  icon: installationIconSchema.nullable(),
+})
+
+export const pickIconFileInputSchema: z.ZodType<
+  IpcInvokeMap['installations:pickIconFile']['req']
+> = z.object({
+  installationId: z.string().min(1),
+})
+
+export const iconDataUrlInputSchema: z.ZodType<IpcInvokeMap['installations:iconDataUrl']['req']> =
+  z.string().min(1)
 
 // ---- detection ------------------------------------------------------------------
 

@@ -1,17 +1,20 @@
 import { BrowserWindow, dialog, type IpcMainInvokeEvent } from 'electron'
-import { ok } from '@shared/types'
+import { fail, ok } from '@shared/types'
 import { canonicalizePath } from '../lib/fs-utils'
 import {
   addExistingInputSchema,
   createInstallationInputSchema,
+  iconDataUrlInputSchema,
   idListSchema,
   idSchema,
   installationsInspectPathSchema,
   installationsListSchema,
   nullableIdSchema,
   pathListSchema,
+  pickIconFileInputSchema,
   pickPathInputSchema,
   removeInstallationInputSchema,
+  setInstallationIconInputSchema,
   updateInstallationInputSchema,
 } from '@shared/ipc-schemas'
 import { inspectInstallation } from '../services/inspector'
@@ -86,6 +89,30 @@ export function registerInstallationsIpc(app: AppContext): void {
       ...(options.buttonLabel ? { buttonLabel: options.buttonLabel } : {}),
       ...(options.defaultPath ? { defaultPath: options.defaultPath } : {}),
     })
+  })
+
+  // ---- icon (story 067) -----------------------------------------------------------------------
+
+  handleOutcome('installations:setIcon', setInstallationIconInputSchema, async (input) => {
+    if (input.icon === null) return app.icons.clear(input.installationId)
+    if (input.icon.kind === 'shipped') {
+      return app.icons.setShipped(input.installationId, input.icon.id)
+    }
+    // `{ kind: 'custom' }` is a *result*, not a request: a custom icon exists only once main has
+    // stored a file for it, which is `installations:pickIconFile`'s job. Accepting it here would
+    // persist an icon with no bytes behind it.
+    return fail('ipc.error.invalidPayload')
+  })
+
+  handleOutcome('installations:pickIconFile', pickIconFileInputSchema, async (input, event) => {
+    return app.icons.pickAndStore(
+      input.installationId,
+      BrowserWindow.fromWebContents(event.sender),
+    )
+  })
+
+  handle('installations:iconDataUrl', iconDataUrlInputSchema, (installationId) => {
+    return app.icons.dataUrl(installationId)
   })
 }
 

@@ -5,6 +5,7 @@ import {
   FolderOpen,
   FolderPlus,
   HardDriveDownload,
+  ImagePlus,
   Pencil,
   Play,
   RefreshCw,
@@ -16,7 +17,7 @@ import type { LibraryStats } from '@shared/modules/library'
 import type { Installation } from '@shared/types'
 import { cn } from '../lib/cn'
 import { invoke } from '../lib/bridge'
-import { formatDuration, formatRelativeTime, tileCode } from '../lib/format'
+import { formatDuration, formatRelativeTime } from '../lib/format'
 import { isPlayable, statusTone } from '../lib/status'
 import { useLauncher } from '../store/useLauncher'
 import { getLibraryStats } from '../modules/library/client'
@@ -24,6 +25,7 @@ import { Button, IconButton } from '../components/ui/Button'
 import { EngineBadge } from '../components/ui/EngineBadge'
 import { Badge, EmptyState, Panel, SectionLabel, StatusDot } from '../components/ui/primitives'
 import { ChecksList } from '../components/installations/ChecksList'
+import { InstallationTile } from '../components/installations/InstallationTile'
 
 /**
  * The library module's view: every installation with its health and the actions
@@ -215,16 +217,27 @@ function InstallationRow({ installation }: { installation: Installation }) {
           type="button"
           onClick={() => void setActive(installation.id)}
           title={t('rail.activeMarker')}
-          className={cn(
-            'grid size-11 shrink-0 place-items-center rounded-md border transition-colors duration-[--dur-base]',
-            active
-              ? 'border-flame-500 bg-flame-900/30 text-flame-200'
-              : 'border-line bg-raised text-ink-dim hover:border-line-strong hover:text-ink',
-          )}
+          // Story 067 review finding F6: before an icon existed, this button's accessible name
+          // came from its content text (the code span, e.g. "R1") - AC8 requires that name to
+          // survive an icon being set, but an icon's content is `<img alt="">` (decorative,
+          // contributes nothing), which would otherwise collapse every installation's card tile to
+          // the same generic `title` fallback ("Active installation"), indistinguishable from one
+          // another to a screen reader. An explicit `aria-label` with the installation's own name -
+          // the same source the rail's tile button already uses - keeps the name both present and
+          // distinguishing, icon or not.
+          aria-label={installation.name}
+          className="shrink-0"
         >
-          <span className="font-display text-sm font-semibold">
-            {tileCode(installation.engineKind, installation.name)}
-          </span>
+          <InstallationTile
+            installation={installation}
+            size="card"
+            className={cn(
+              'transition-colors duration-[--dur-base]',
+              active
+                ? 'border-flame-500 bg-flame-900/30 text-flame-200'
+                : 'border-line bg-raised text-ink-dim hover:border-line-strong hover:text-ink',
+            )}
+          />
         </button>
 
         <div className="min-w-0 flex-1 space-y-1.5">
@@ -324,6 +337,15 @@ function InstallationRow({ installation }: { installation: Installation }) {
             onClick={() => openDialog({ kind: 'rename', installationId: installation.id })}
           >
             <Pencil className="size-3.5" />
+          </IconButton>
+
+          {/* Story 067 D6: the icon picker belongs to the installation, same scoping as rename. */}
+          <IconButton
+            label={t('installation.action.setIcon')}
+            size="sm"
+            onClick={() => openDialog({ kind: 'installationIcon', installationId: installation.id })}
+          >
+            <ImagePlus className="size-3.5" />
           </IconButton>
 
           {/* Story 058 D6: the redundant-config-copies cleanup belongs to the installation, not to

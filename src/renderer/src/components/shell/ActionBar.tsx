@@ -8,12 +8,12 @@ import {
   formatPercent,
   formatSpeed,
   shortenPath,
-  tileCode,
 } from '../../lib/format'
 import { isPlayable, statusTone } from '../../lib/status'
 import { useActiveInstallation, useActiveJob, useLauncher } from '../../store/useLauncher'
 import { IconButton, PlayButton } from '../ui/Button'
 import { EngineBadge } from '../ui/EngineBadge'
+import { InstallationTile } from '../installations/InstallationTile'
 import { ProgressBar } from '../ui/ProgressBar'
 import { Select } from '../ui/controls'
 import { StatusDot } from '../ui/primitives'
@@ -65,16 +65,14 @@ export function ActionBar() {
     >
       {/* --- who --- */}
       <div className="flex min-w-0 flex-1 items-center gap-3.5">
-        <div
+        <InstallationTile
+          installation={installation}
+          size="actionBar"
           className={cn(
-            'grid size-12 shrink-0 place-items-center rounded-md border',
+            'shrink-0',
             installation ? 'border-flame-700 bg-flame-900/25' : 'border-line bg-raised',
           )}
-        >
-          <span className="font-display text-base font-semibold text-flame-300">
-            {installation ? tileCode(installation.engineKind, installation.name) : '--'}
-          </span>
-        </div>
+        />
 
         <div className="min-w-0 space-y-1">
           <div className="flex min-w-0 items-center gap-2">

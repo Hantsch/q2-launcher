@@ -81,6 +81,7 @@ function makeInstallation({
   sortOrder,
   gameDirs,
   engineKind,
+  icon,
 }) {
   return {
     id,
@@ -106,11 +107,37 @@ function makeInstallation({
     lastPlayedAt: undefined,
     totalPlaytimeSeconds: 0,
     moduleData: undefined,
+    // Story 067 D5: mirrors src/shared/types/installation.ts's `InstallationIcon` -
+    // `{ kind: 'shipped', id }` or `{ kind: 'custom' }`. Only set for the two installations
+    // `populatedInstallations()` below wires up; every other caller (including
+    // `controlsSeedStateDocument()`'s install) passes nothing and stays iconless.
+    ...(icon ? { icon } : {}),
   }
 }
 
 const INSTALL_ONE_ID = 'fixture-install-favorite'
 const INSTALL_TWO_ID = 'fixture-install-writedir'
+
+/**
+ * Story 067 D5: the shipped icon id `INSTALL_ONE_ID` is seeded with - one of the six basenames
+ * under `src/renderer/src/assets/installations/` (`installation-icons.ts`'s `SHIPPED_ICONS`).
+ * Exported so `scripts/flows/installation-icon-tile.mjs` asserts against the exact id the fixture
+ * wrote rather than a copy that can drift.
+ */
+export const INSTALL_ONE_ICON_ID = 'gate'
+
+/**
+ * Story 067 D5: the smallest possible well-formed PNG - enough for `installations:iconDataUrl`
+ * (D4) to read a real file back and for the rendered `<img>` to have a genuine `data:image/png;...`
+ * source, without the fixture needing an image-encoding dependency.
+ *
+ * A single *opaque* pixel (RGB 255,90,31 - this app's own `flame` accent colour), not a
+ * transparent one (review finding F5, story 067): a fully transparent pixel renders as an empty
+ * box in every screenshot the D5/D6 flows take, which proves the plumbing (a real file is read and
+ * delivered as a `data:` URL) but not that a real user image would actually be visible on the tile.
+ */
+const CUSTOM_ICON_PNG_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4HyUPAAPUAXnNtuHVAAAAAElFTkSuQmCC'
 
 /**
  * Story 065 D5: a third populated installation whose only job is to make AC3 ("an `unknown`
@@ -154,6 +181,9 @@ function populatedInstallations() {
       rootPath: join(gameRoot(), INSTALL_ONE_ID),
       favorite: true,
       sortOrder: 0,
+      // Story 067 D5: a shipped icon, resolved by `useInstallationIcon` synchronously (no IPC) -
+      // see `INSTALL_ONE_ICON_ID` for why `gate` specifically.
+      icon: { kind: 'shipped', id: INSTALL_ONE_ICON_ID },
     }),
     makeInstallation({
       id: INSTALL_TWO_ID,
@@ -162,6 +192,11 @@ function populatedInstallations() {
       writeDirPath: join(gameRoot(), INSTALL_TWO_ID, 'writedir'),
       favorite: false,
       sortOrder: 1,
+      // Story 067 D5: a custom icon - `writeCustomIconFile()` below writes the matching PNG into
+      // this variant's userData at `installation-icons/<INSTALL_TWO_ID>.png`, which
+      // `installations:iconDataUrl` (D4) reads back. `INSTALL_UNKNOWN_ENGINE_ID` below stays
+      // iconless on purpose, so the fixture also proves the code-tile fallback still renders.
+      icon: { kind: 'custom' },
       // Story 042 D6: a second gamedir, `RESTORE_GAME_DIR`, holding a launcher-written
       // (own-file) fixture config alongside the plain `baseq2` foreign-config one - `baseq2`
       // always sorts first (decision 12), so this is additive and does not change what
@@ -853,6 +888,18 @@ function writeRestoreConfigCfg(installDir) {
 }
 
 /**
+ * Story 067 D5: writes the custom-icon PNG an `icon: { kind: 'custom' }` installation's file lives
+ * at - `userData/installation-icons/<installationId>.png` (mirrors `InstallationIcon`'s own doc
+ * comment, `src/shared/types/installation.ts`), which is what `installations:iconDataUrl` (D4)
+ * reads back as a `data:` URL.
+ */
+function writeCustomIconFile(userDataDir, installationId) {
+  const dir = join(userDataDir, 'installation-icons')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, `${installationId}.png`), Buffer.from(CUSTOM_ICON_PNG_BASE64, 'base64'))
+}
+
+/**
  * On Windows, closing an Electron session's GPU process (Dawn's WebGPU/Graphite disk cache
  * under `userData`) doesn't release its cache files immediately - `app.close()` returns before
  * Windows (observed: real-time AV scanning the freshly-closed cache blobs, anywhere from a few
@@ -899,6 +946,8 @@ export function writePopulatedFixture() {
     if (id === INSTALL_TWO_ID) {
       writeConfigCfg(baseq2Dir)
       writeRestoreConfigCfg(join(gameRoot(), id))
+      // Story 067 D5: this is also the installation seeded with `icon: { kind: 'custom' }`.
+      writeCustomIconFile(userDataDir, id)
     }
   }
 

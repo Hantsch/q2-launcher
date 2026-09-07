@@ -30,13 +30,28 @@ vi.mock('electron', () => ({
 
 const fakeEvent = {} as unknown as IpcMainInvokeEvent
 
+/**
+ * Story 067 D4: the icon channels now delegate to `app.icons`, so the context handed to
+ * `registerAllIpc` carries a stub for it - these tests still assert only the wrapper's job
+ * (validation, delegation, pass-through), never the icon store's, which has its own suite in
+ * `src/main/services/installation-icons.test.ts`.
+ */
+const iconsMock = {
+  clear: vi.fn(async () => ({ ok: true as const, value: 'cleared' })),
+  setShipped: vi.fn(async () => ({ ok: true as const, value: 'shipped' })),
+  dataUrl: vi.fn(async () => 'data:image/png;base64,AAAA'),
+}
+
 function fakeApp(isDev: boolean): AppContext {
-  return { isDev } as unknown as AppContext
+  return { isDev, icons: iconsMock } as unknown as AppContext
 }
 
 beforeEach(() => {
   registered.clear()
   vi.resetModules()
+  iconsMock.clear.mockClear()
+  iconsMock.setShipped.mockClear()
+  iconsMock.dataUrl.mockClear()
 })
 
 describe('registerAllIpc', () => {
@@ -58,7 +73,7 @@ describe('registerAllIpc', () => {
     for (const channel of INVOKE_CHANNELS) {
       expect(registered.has(channel)).toBe(true)
     }
-    expect(registered.size).toBe(32)
+    expect(registered.size).toBe(35)
   })
 
   it('rejects an invalid payload on a plain (throwing) handle() channel synchronously', async () => {
@@ -103,5 +118,78 @@ describe('registerAllIpc', () => {
     const result = (await fn(fakeEvent, '')) as { ok: false; error: { key: string } }
     expect(result.ok).toBe(false)
     expect(result.error.key).toBe('app.error.invalidPath')
+  })
+
+  // ---- story 067: the icon channels (D3's contract, D4's handlers) --------------------------
+
+  it('resolves an invalid payload on installations:setIcon to a failed Outcome without running the handler', async () => {
+    const { registerAllIpc } = await import('./index')
+    registerAllIpc(fakeApp(false))
+
+    const fn = registered.get('installations:setIcon')!
+    const result = await fn(fakeEvent, { installationId: 'id', icon: { kind: 'shipped', id: '../etc' } })
+    expect(result).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
+  })
+
+  it('routes a null icon on installations:setIcon to the icon store and passes its outcome through', async () => {
+    const { registerAllIpc } = await import('./index')
+    registerAllIpc(fakeApp(false))
+
+    const fn = registered.get('installations:setIcon')!
+    const result = await fn(fakeEvent, { installationId: 'id', icon: null })
+
+    expect(iconsMock.clear).toHaveBeenCalledWith('id')
+    expect(result).toEqual({ ok: true, value: 'cleared' })
+  })
+
+  it('routes a shipped icon on installations:setIcon to the icon store', async () => {
+    const { registerAllIpc } = await import('./index')
+    registerAllIpc(fakeApp(false))
+
+    const fn = registered.get('installations:setIcon')!
+    const result = await fn(fakeEvent, { installationId: 'id', icon: { kind: 'shipped', id: 'ring' } })
+
+    expect(iconsMock.setShipped).toHaveBeenCalledWith('id', 'ring')
+    expect(result).toEqual({ ok: true, value: 'shipped' })
+  })
+
+  it('refuses a bare custom icon on installations:setIcon - only a stored pick may set that', async () => {
+    const { registerAllIpc } = await import('./index')
+    registerAllIpc(fakeApp(false))
+
+    const fn = registered.get('installations:setIcon')!
+    // Schema-valid, but `{ kind: 'custom' }` without stored bytes is not a state the renderer may
+    // ask for - `installations:pickIconFile` is the only way a custom icon comes into being.
+    const result = await fn(fakeEvent, { installationId: 'id', icon: { kind: 'custom' } })
+
+    expect(result).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
+    expect(iconsMock.clear).not.toHaveBeenCalled()
+    expect(iconsMock.setShipped).not.toHaveBeenCalled()
+  })
+
+  it('resolves an invalid payload on installations:pickIconFile to a failed Outcome without running the handler', async () => {
+    const { registerAllIpc } = await import('./index')
+    registerAllIpc(fakeApp(false))
+
+    const fn = registered.get('installations:pickIconFile')!
+    const result = await fn(fakeEvent, { garbage: true })
+    expect(result).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
+  })
+
+  it('rejects an invalid payload on installations:iconDataUrl synchronously', async () => {
+    const { registerAllIpc } = await import('./index')
+    registerAllIpc(fakeApp(true))
+
+    const fn = registered.get('installations:iconDataUrl')!
+    expect(() => fn(fakeEvent, 42)).toThrow()
+  })
+
+  it('answers a valid installations:iconDataUrl payload from the icon store', async () => {
+    const { registerAllIpc } = await import('./index')
+    registerAllIpc(fakeApp(true))
+
+    const fn = registered.get('installations:iconDataUrl')!
+    await expect(fn(fakeEvent, 'some-id')).resolves.toBe('data:image/png;base64,AAAA')
+    expect(iconsMock.dataUrl).toHaveBeenCalledWith('some-id')
   })
 })

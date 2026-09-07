@@ -4,6 +4,7 @@ import { MainModuleRegistry } from './modules/registry'
 import { registerModules } from './modules'
 import { Broadcaster } from './services/broadcast'
 import { DetectionService } from './services/detection'
+import { deleteStoredIcon, InstallationIconsService } from './services/installation-icons'
 import { InstallationsService } from './services/installations'
 import { JobsService } from './services/jobs'
 import { LaunchService } from './services/launch'
@@ -23,6 +24,8 @@ export interface AppContext {
   isDev: boolean
   state: StateStore
   installations: InstallationsService
+  /** Story 067: the per-installation icon store (`userData/installation-icons/`). */
+  icons: InstallationIconsService
   detection: DetectionService
   launch: LaunchService
   jobs: JobsService
@@ -40,7 +43,12 @@ export async function createAppContext(options: { isDev: boolean }): Promise<App
     state,
     onChange: (list) => broadcast.emit('installations:changed', list),
     onSettingsChange: (settings) => broadcast.emit('settings:changed', settings),
+    // Story 067: a removed installation takes its stored icon file with it, or `userData` keeps
+    // one orphan PNG per removal forever.
+    onRemoved: (id) => deleteStoredIcon(id),
   })
+
+  const icons = new InstallationIconsService(installations)
 
   const detection = new DetectionService({
     emitProgress: (progress) => broadcast.emit('detection:progress', progress),
@@ -58,6 +66,7 @@ export async function createAppContext(options: { isDev: boolean }): Promise<App
     isDev: options.isDev,
     state,
     installations,
+    icons,
     detection,
     launch,
     jobs,

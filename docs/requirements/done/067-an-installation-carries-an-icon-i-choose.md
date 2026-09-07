@@ -1,7 +1,7 @@
 ---
 id: 067
 title: An installation carries an icon I choose
-status: ready
+status: done
 created: 2026-09-07
 ---
 
@@ -52,24 +52,24 @@ is the existing edit path — it has `name` and `favorite`, but no icon field ye
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — From the library card I can open an icon picker and choose one of the icons shipped
+- [x] **AC1** — From the library card I can open an icon picker and choose one of the icons shipped
       in `assets/installations`; the picker shows every file in that set and no hardcoded list of
       names in a component.
-- [ ] **AC2** — I can instead pick my own image file from disk through a native dialog, and it is
+- [x] **AC2** — I can instead pick my own image file from disk through a native dialog, and it is
       used as that installation's icon.
-- [ ] **AC3** — The chosen icon replaces the code tile on every surface that shows one: rail,
+- [x] **AC3** — The chosen icon replaces the code tile on every surface that shows one: rail,
       library card, action bar — and it survives a restart of the launcher.
-- [ ] **AC4** — A custom icon keeps working after the file I picked it from is moved, renamed or
+- [x] **AC4** — A custom icon keeps working after the file I picked it from is moved, renamed or
       deleted.
-- [ ] **AC5** — I can clear the icon again; the tile falls back to today's engine/initials code,
+- [x] **AC5** — I can clear the icon again; the tile falls back to today's engine/initials code,
       pixel-for-pixel as it is now.
-- [ ] **AC6** — A pick that is not a usable image (wrong format, corrupt, oversized) is refused with
+- [x] **AC6** — A pick that is not a usable image (wrong format, corrupt, oversized) is refused with
       a translated message; the previous icon stays and nothing is persisted.
-- [ ] **AC7** — Main validates the picked path and reads the file; the renderer never reads a path
+- [x] **AC7** — Main validates the picked path and reads the file; the renderer never reads a path
       itself, and the production CSP is unchanged.
-- [ ] **AC8** — The tile keeps its accessible name (installation name / today's label) with an icon
+- [x] **AC8** — The tile keeps its accessible name (installation name / today's label) with an icon
       present; the icon itself is decorative and adds no new axe violation.
-- [ ] **AC9** — An installation with no icon renders exactly as today — no layout shift, no empty
+- [x] **AC9** — An installation with no icon renders exactly as today — no layout shift, no empty
       image box, no extra request.
 
 ## Open Questions
@@ -157,7 +157,7 @@ D1/D2/D3 are independent of each other; D4 needs D3; D5 needs D2+D3; D6 needs D1
 
 ## Deliverables
 
-### D1 — Shipped icon set in the bundle, plus the recorded deviation
+### D1 — Shipped icon set in the bundle, plus the recorded deviation ✅
 
 Add `sharp` as a **devDependency** only (never bundled — main uses `nativeImage`) and a
 `scripts/generate-installation-icons.mjs` that reads `assets/installations/*.png` and writes 128px
@@ -178,7 +178,7 @@ installation identity only*, reason = this story.
   literal (adding a fixture file changes the result); `npm run build` emits the assets; CLAUDE.md
   has the row.
 
-### D2 — One `InstallationTile`, three call sites, zero visual change
+### D2 — One `InstallationTile`, three call sites, zero visual change ✅
 
 Extract `src/renderer/src/components/installations/InstallationTile.tsx`. It takes the installation
 and a `size` variant and renders exactly today's markup per site — the rail's
@@ -196,7 +196,7 @@ box only, so no aria moves. No icon logic in this D.
   the values captured from today's source; `npm run ui:verify` produces no new axe violation and the
   existing screens still render the same tiles.
 
-### D3 — Contract: icon on the record and three channels
+### D3 — Contract: icon on the record and three channels ✅
 
 `InstallationIcon` + `icon?: InstallationIcon` on `Installation`
 ([installation.ts:68-106](../../src/shared/types/installation.ts#L68-L106)); the three channels in
@@ -216,7 +216,7 @@ are green.
   `src/main/ipc/index.test.ts` covers the three new channels including invalid-payload rejection;
   schema tests reject a path-shaped shipped-icon id.
 
-### D4 — Main: icon store, validation, delivery
+### D4 — Main: icon store, validation, delivery ✅
 
 New `src/main/services/installation-icons.ts`:
 
@@ -242,7 +242,7 @@ New `src/main/services/installation-icons.ts`:
   (>4 MB, wrong extension, corrupt bytes, cancelled) and AC4 (delete the source file after the pick,
   `dataUrl` still returns the icon).
 
-### D5 — The tile shows the icon, on all three surfaces
+### D5 — The tile shows the icon, on all three surfaces ✅
 
 `useInstallationIcon(installation)` in `src/renderer/src/components/installations/` — returns
 `shippedIconUrl(icon.id)` for `kind: 'shipped'`, and for `kind: 'custom'` fetches
@@ -264,7 +264,7 @@ into the fixture userData) and leaves the rest iconless.
   installs still show their code, and that the tile's accessible name is unchanged (AC8);
   `npm run ui:verify`'s axe report gains nothing.
 
-### D6 — The picker dialog and its trigger
+### D6 — The picker dialog and its trigger ✅
 
 New dialog kind `{ kind: 'installationIcon', installationId }` in the `DialogState` union
 ([useLauncher.ts:32-41](../../src/renderer/src/store/useLauncher.ts#L32-L41)), a case in
@@ -330,9 +330,19 @@ next to rename/cleanup
   string verbatim, so any later relaxation fails the suite)
 - AC8 → e2e `scripts/flows/installation-icon-tile.mjs` › "the tile keeps its accessible name with an
   icon present" (D5) + the `npm run ui:verify` axe report, which must gain no violation (D5)
-- AC9 → e2e `scripts/flows/installation-icon-tile.mjs` › "an iconless installation renders its code
-  tile and issues no icon request" (D5, asserts on the absence of an `iconDataUrl` invoke) + unit
-  `InstallationTile.test.tsx` › the variant class-list assertions (D2)
+- AC9 → unit `InstallationTile.test.tsx` › "never calls fetchIconDataUrl when the installation has
+  no icon (AC9)" (D5, the store-boundary proof that no `installations:iconDataUrl` invoke is
+  issued) + the variant class-list assertions (D2) + e2e
+  `scripts/flows/installation-icon-tile.mjs` › "rail: shipped icon renders as an `<img>`, iconless
+  install keeps its code tile" (D5, the DOM/visual half: no `<img>`, no layout placeholder, on the
+  real built app). **Narrowed from the original plan during finishing/review:** an earlier version
+  of the e2e flow tried to prove "no extra request" itself by reassigning `window.q2.invoke` from
+  Playwright; that is not possible, because Electron's `contextBridge.exposeInMainWorld` deep-freezes
+  the exposed bridge object (`Object.isFrozen(window.q2) === true`, `writable: false` on both
+  `window.q2` and `window.q2.invoke` - confirmed empirically), which is the same guarantee that
+  makes contextIsolation meaningful in the first place. Reaching around it would mean shipping
+  renderer-observability code for one test's sake. The call-count guarantee is fully proven by the
+  unit test instead; the e2e flow proves only what a unit test cannot reach (the real DOM render).
 
 ### Coverage gate
 
@@ -345,10 +355,123 @@ next to rename/cleanup
 | AC5 | D6 (+D2) | e2e picker flow + tile unit |
 | AC6 | D4 (+D6) | main unit (table) + dialog unit |
 | AC7 | D3, D4 | ipc coverage + schema unit + CSP-verbatim unit |
-| AC8 | D5 | e2e tile flow + axe report |
-| AC9 | D5 (+D2) | e2e tile flow + tile unit |
+| AC8 | D5 | e2e tile flow (rail + library-card accessible-name assertions) + axe report |
+| AC9 | D5 (+D2) | tile unit (call-count proof) + e2e tile flow (DOM proof) |
 
 Every criterion has a deliverable and a named test. The single residue is AC2's OS dialog, with a
 reason the profile accepts.
 
 ## Done
+
+Picked up mid-story: all six deliverables (D1–D6) were already implemented in the working tree
+when this session started, following a prior build agent's rate-limit cutoff before verification
+and review. This session verified each deliverable against the plan, ran the full verification
+suite, commissioned a `story-review-hard` review, fixed its findings, and closed out the story.
+
+**What was built** (per the Plan): a shipped icon set generated at build time
+(`scripts/generate-installation-icons.mjs` → 128px `.avif` in
+`src/renderer/src/assets/installations/`, discovered via `import.meta.glob` so no component names a
+file), one shared `InstallationTile` extracted from the rail/library-card/action-bar's previously
+duplicated markup, an `InstallationIcon` field on `Installation` plus three new IPC channels
+(`installations:setIcon`/`pickIconFile`/`iconDataUrl`, contract-first in `shared/ipc.ts` +
+`ipc-schemas.ts`), a main-process `InstallationIconsService` that owns the OS file dialog, validates
+(extension → size → decode, in that order), re-encodes to a fixed 128px PNG and stores it at
+`userData/installation-icons/<id>.png` (never a renderer-supplied path), a renderer-side
+`useInstallationIcon` hook with a request-once cache, and a `SetInstallationIconDialog` reachable
+from the library card's new "Set icon…" action.
+
+### Decisions
+
+- **AC9's e2e leg dropped an unworkable spy, not the guarantee.** The original flow tried to prove
+  "no extra `installations:iconDataUrl` call" by reassigning `window.q2.invoke` from Playwright.
+  Confirmed empirically that this cannot work: Electron's `contextBridge.exposeInMainWorld`
+  deep-freezes the exposed object (`Object.isFrozen(window.q2) === true`, `writable: false` on both
+  `window.q2` and `window.q2.invoke`) — the same property that makes contextIsolation meaningful.
+  Reaching around it would mean shipping renderer-observability code for one test's sake. The
+  call-count guarantee is now proven entirely by the unit test
+  (`InstallationTile.test.tsx` › "never calls fetchIconDataUrl when the installation has no icon
+  (AC9)"); the e2e flow proves only the DOM/visual half (no `<img>`, no layout placeholder). Story's
+  `## Acceptance Tests`/coverage gate updated to match.
+- **Shipped-icon `<img src>` assertions compare values, not substrings.** Two e2e flows originally
+  asserted an icon's `<img src>` contains its filename (e.g. `"gate"`). Wrong: Vite inlines bundled
+  assets under its default 4 KB threshold as `data:` URLs instead of emitting a named file — three of
+  the six shipped `.avif`s (`gate`, `portal`, `ring`) are under that threshold. Fixed both flows to
+  compare `<img src>` values for equality against a known-correct reference (rail vs. library-card
+  src equality in `installation-icon-tile.mjs`; the picker's own swatch `<img src>`, captured before
+  the click, in `installation-icon-pick.mjs`) instead of substring-matching a filename.
+- **Custom-icon fixture PNG made opaque, not transparent.** `scripts/lib/fixture.mjs`'s seeded custom
+  icon was a fully transparent 1×1 pixel — real plumbing, but every e2e screenshot showed an empty
+  box. Swapped for an opaque 1×1 orange pixel (this app's own flame accent, RGB 255,90,31), verified
+  byte-for-byte via `sharp` (already a devDependency from D1) before wiring it in.
+- **F1 fix left untested at first, then covered.** The `story-review-hard` review (see below) found a
+  real bug: `useLauncher`'s `iconDataUrls` cache was never invalidated, so re-picking a custom icon
+  (or clear-then-repick) would keep showing the *previous* `data:` URL on all three surfaces until a
+  restart. Fixed with a `withoutIconDataUrl` helper called from both `setInstallationIcon` and
+  `pickInstallationIconFile` on success. Initially shipped without a regression test on the
+  (incorrect) assumption that this store had no test precedent; the review's confirmation pass
+  pointed out `SetInstallationIconDialog.test.tsx` already stubs `window.q2.invoke` and drives the
+  real store, so a regression test was added there and verified to actually fail without the fix
+  (reverted the fix, confirmed red, restored it, confirmed green).
+
+### Verification
+
+- `npm run typecheck` — green.
+- `npm run build` — green; confirmed all 6 shipped `.avif` assets reach the bundle (3 emitted as
+  files, 3 inlined as `data:` URLs per Vite's default `assetsInlineLimit`, both valid).
+- `npm test` — 2712/2712 (1 pre-existing, unrelated Windows timing flake in
+  `import-reader.test.ts`'s 512-file-exec-expansion test under full-suite load; 32/32 green in
+  isolation — same class of flake already documented for stories 065/068).
+- `npm run ui:verify` — 34/34 screens, 0 axe violations.
+- `npm run ui:flow -- installation-icon-tile` and `-- installation-icon-pick` — both green.
+
+### Review
+
+Two `story-review-hard` passes (per Model Hints — the story crosses the shared IPC contract, main
+filesystem writes and three UI surfaces, plus a CLAUDE.md deviation from "no image assets in the
+UI").
+
+- **Pass 1: FAIL.** Confirmed AC1–AC9 individually PASS on the diff as it stood, but found two
+  must-fix defects: **F1** (icon-cache invalidation bug, above) and **F2** (D2's rail extraction had
+  moved `grid place-items-center` off `RailTile`'s `<button>` onto the child tile, leaving the button
+  `display: inline-block` by default — a ~5px inline-formatting-context gap that shifted every rail
+  tile below an icon-bearing one, breaking D2's own "zero visual change" claim; measured 59.33px vs.
+  64.33px). Also six lower-severity findings (F3–F8: CLAUDE.md deviation wording not naming the
+  picker dialog explicitly; AC9's story doc not yet updated for the dropped spy; the fixture's
+  transparent custom-icon PNG; a latent accessibility regression where the library card's tile lost
+  its distinguishing accessible name once an icon replaced its code-text content; a cancelled
+  file-dialog surfacing as a red alert; unrelated uncommitted changes to other stories' files in the
+  same branch).
+- **Fixes applied:** F1 (cache invalidation + later a regression test), F2 (`RailTile`'s button
+  className → `block`, re-measured pixel-identical to the untouched control tile), F3 (CLAUDE.md
+  wording), F4 (story doc), F5 (opaque fixture pixel), F6 (`aria-label={installation.name}` on the
+  library card's select-button, mirroring the rail's own pattern, plus a new e2e assertion). F7
+  (cancel → red alert) and F8 (unrelated file changes) accepted as-is: F7 matches the story's own
+  AC6 test-table design (cancel is one of four refusal cases, each with its own translated message);
+  F8 predates this session and is out of scope for a story that is never committed by this agent.
+- **Pass 2 (two independent confirmation runs, one via a fresh `story-review-hard` agent, one by
+  resuming pass 1's agent): both PASS.** Re-verified F1/F2 concretely (F1: read the full
+  invalidation→re-render→re-fetch chain; F2: re-measured all rail tiles at a uniform 59.333px,
+  identical to the untouched "Add an installation" control). One residual, non-blocking finding
+  (**R1**): the F1 fix's regression test didn't exist yet at review time — added afterward, verified
+  it fails without the fix and passes with it. Two informational notes accepted as documented, not
+  fixed: **N1**, the e2e tile flow's `railTile()` helper is a page-wide role+name locator that would
+  become ambiguous if a future edit reused it after navigating to Library (now that the library card
+  shares the rail's `aria-label` pattern) — commented in place rather than restructured, since no
+  current step does that; **N2**, a stale test comment in `ipc-schemas.test.ts` claiming the shipped
+  icon lookup does a filesystem join (it doesn't — it's a bundled manifest map) — corrected.
+
+### AC → test mapping, as verified
+
+| AC | Test(s) | Result |
+| --- | --- | --- |
+| AC1 | `installation-icons.test.ts` (manifest derived, not literal) + e2e `installation-icon-pick.mjs` | PASS |
+| AC2 | `installation-icons.test.ts` › pickAndStore + e2e trigger-present assertion; **manual residue:** the native `dialog.showOpenDialog` window, same class as `pickFolder`/`pickExecutable` | PASS (trigger); residue as planned |
+| AC3 | e2e `installation-icon-tile.mjs` (fixture is on-disk state, so a fresh launch is the restart) | PASS |
+| AC4 | `installation-icons.test.ts` › "the icon survives deleting the file it was picked from" | PASS |
+| AC5 | e2e `installation-icon-pick.mjs` + `InstallationTile.test.tsx` | PASS |
+| AC6 | `installation-icons.test.ts` (table: >4MB / wrong extension / corrupt bytes / cancelled) + `SetInstallationIconDialog.test.tsx` | PASS |
+| AC7 | `ipc/index.test.ts` + `ipc-schemas.test.ts` + `renderer-source.test.ts` (CSP pinned verbatim) | PASS |
+| AC8 | e2e `installation-icon-tile.mjs` (rail `aria-label` unaffected + library-card `aria-label` fix/assertion) + axe report | PASS |
+| AC9 | `InstallationTile.test.tsx` (call-count proof) + e2e `installation-icon-tile.mjs` (DOM proof) | PASS |
+
+Commit message: `067: an installation carries an icon I choose`

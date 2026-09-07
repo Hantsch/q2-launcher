@@ -163,6 +163,7 @@
       "reveal": "Open folder",
       "rename": "Rename\u2026",
       "cleanup": "Clean up redundant config copies\u2026",
+      "setIcon": "Set icon\u2026",
       "remove": "Remove\u2026",
       "favorite": "Add to favourites",
       "unfavorite": "Remove from favourites",
@@ -181,7 +182,12 @@
       "createFailed": "The folder {{path}} could not be created. Check that you have permission to write there.",
       "alreadyContainsGame": "{{path}} already contains a Quake II installation. Use \u201cAdd existing installation\u201d instead.",
       "deleteFromDiskUnsupported": "Deleting game files is not implemented yet. The installation was left untouched.",
-      "nothingImported": "Nothing was imported."
+      "nothingImported": "Nothing was imported.",
+      "iconPickCancelled": "No image was chosen. The icon was left as it was.",
+      "iconUnsupportedFormat": "Only PNG and JPEG images can be used as an icon.",
+      "iconTooLarge": "That image is too large. Choose a file smaller than {{limit}} MB.",
+      "iconUnreadable": "That file could not be read as an image. It may be damaged, or not really an image.",
+      "iconStoreFailed": "The icon could not be saved. Check that the launcher can write to its own data folder."
     },
     "toast": {
       "needsAttention_one": "{{count}} installation needs attention.",
@@ -327,6 +333,13 @@
     "cleanup": {
       "title": "Redundant config copies",
       "description": "Looks through {{name}} for mod-folder config files that duplicate a baseq2 file of the same name. Nothing is removed until you confirm, and a removal can be undone here afterwards."
+    },
+    "installationIcon": {
+      "title": "Set icon for “{{name}}”",
+      "shippedLabel": "Choose an icon",
+      "shippedIconLabel": "“{{id}}” icon",
+      "chooseFile": "Choose image file…",
+      "clear": "Clear icon"
     },
     "gameDir": {
       "label": "Launch with",

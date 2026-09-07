@@ -8,3 +8,16 @@
 - 2026-09-07 18:24 · 068 · D4 An unsupported engine says so · done
 - 2026-09-07 18:24 · 068 · D5 Acceptance flow + green harness · started
 - 2026-09-07 18:33 · 068 · D5 Acceptance flow + green harness · done
+- 2026-09-07 18:38 · 067 · D1 Shipped icon set in the bundle · started
+- 2026-09-07 18:38 · 067 · D2 One InstallationTile, three call sites · started
+- 2026-09-07 18:38 · 067 · D3 Contract: icon on the record and three channels · started
+- 2026-09-07 18:45 · 067 · D1 Shipped icon set in the bundle · done
+- 2026-09-07 18:45 · 067 · D2 One InstallationTile, three call sites · done
+- 2026-09-07 18:45 · 067 · D3 Contract: icon on the record and three channels · done
+- 2026-09-07 18:46 · 067 · D4 Main: icon store, validation, delivery · started
+- 2026-09-07 18:46 · 067 · D5 The tile shows the icon, on all three surfaces · started
+- 2026-09-07 18:58 · 067 · D4 Main: icon store, validation, delivery · done
+- 2026-09-07 18:58 · 067 · D5 The tile shows the icon, on all three surfaces · done
+- 2026-09-07 18:58 · 067 · D6 The picker dialog and its trigger · started
+- 2026-09-07 19:05 · 067 · D6 The picker dialog and its trigger · done
+- 2026-09-07 20:21 · 067 · verification + story-review-hard (2 passes, F1/F2 found+fixed) · done

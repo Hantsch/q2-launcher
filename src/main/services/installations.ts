@@ -8,6 +8,7 @@ import {
   type AddExistingInstallationInput,
   type CreateInstallationInput,
   type Installation,
+  type InstallationIcon,
   type LauncherSettings,
   type Outcome,
   type RemoveInstallationInput,
@@ -34,6 +35,16 @@ export interface InstallationsDeps {
    * "no installation selected" while three sat in the rail.
    */
   onSettingsChange: (settings: LauncherSettings) => void
+  /**
+   * Called after an installation has been removed, so anything keyed by its id can be torn down
+   * with it - story 067's `userData/installation-icons/<id>.png`. Optional, because this service
+   * stays usable (and testable) without any such owner wired in.
+   *
+   * Deliberately a hook rather than a direct call: this service knows nothing about `userData` or
+   * Electron, and a second remove path (a future module removing an installation) then cannot
+   * forget the teardown.
+   */
+  onRemoved?: (id: string) => Promise<void>
 }
 
 /**
@@ -48,11 +59,13 @@ export class InstallationsService {
   private readonly state: StateStore
   private readonly onChange: (installations: Installation[]) => void
   private readonly onSettingsChange: (settings: LauncherSettings) => void
+  private readonly onRemoved: ((id: string) => Promise<void>) | undefined
 
   constructor(deps: InstallationsDeps) {
     this.state = deps.state
     this.onChange = deps.onChange
     this.onSettingsChange = deps.onSettingsChange
+    this.onRemoved = deps.onRemoved
   }
 
   list(): Installation[] {
@@ -245,6 +258,27 @@ export class InstallationsService {
     return ok(next)
   }
 
+  /**
+   * Story 067: the icon is not part of `UpdateInstallationInput` - it has its own IPC channels and
+   * its own service - but it is part of the same record, so it goes through the same `commit` path
+   * as `update()` above rather than a second way of writing an installation.
+   *
+   * `null` removes the field entirely, which is what "no icon" means to the renderer (the tile
+   * falls back to the engine/initials code); an absent key is also what a record written before
+   * this story looks like.
+   */
+  setIcon(id: string, icon: InstallationIcon | null): Outcome<Installation> {
+    const current = this.find(id)
+    if (!current) return fail('installations.error.notFound')
+
+    const next: Installation = { ...current, updatedAt: new Date().toISOString() }
+    if (icon === null) delete next.icon
+    else next.icon = icon
+
+    this.commit(this.state.installations().map((i) => (i.id === next.id ? next : i)))
+    return ok(next)
+  }
+
   reorder(orderedIds: string[]): Installation[] {
     const byId = new Map(this.state.installations().map((i) => [i.id, i]))
     const ordered: Installation[] = []
@@ -287,6 +321,10 @@ export class InstallationsService {
         this.state.patchSettings({ activeInstallationId: fallback?.id ?? null }),
       )
     }
+
+    // Launcher-owned data keyed by this id goes with it (story 067: the stored icon file).
+    // The game folder itself is untouched - that is the `deleteFromDisk` rejection above.
+    await this.onRemoved?.(input.id)
 
     log.info(`removed installation ${current.name} (kept files on disk)`)
     return ok(null)

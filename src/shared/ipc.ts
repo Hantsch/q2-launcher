@@ -5,6 +5,7 @@ import type {
   DetectionProgress,
   DetectionResult,
   Installation,
+  InstallationIcon,
   Job,
   LaunchInput,
   LaunchPlan,
@@ -85,6 +86,15 @@ export interface IpcInvokeMap {
   'installations:pickFolder': { req: PickPathInput; res: string | null }
   'installations:pickExecutable': { req: PickPathInput; res: string | null }
   'installations:import': { req: string[]; res: Outcome<Installation[]> }
+  /** Sets or clears (`icon: null`) an installation's icon. Story 067. */
+  'installations:setIcon': {
+    req: { installationId: string; icon: InstallationIcon | null }
+    res: Outcome<Installation>
+  }
+  /** Opens a native file picker and adopts the chosen image as a custom icon. */
+  'installations:pickIconFile': { req: { installationId: string }; res: Outcome<Installation> }
+  /** Reads the custom icon file (if any) back as a `data:` URL for rendering. */
+  'installations:iconDataUrl': { req: string; res: string | null }
 
   // ---- detection ------------------------------------------------------------
   'detection:scan': { req: ScanOptions; res: DetectionResult }
@@ -156,6 +166,9 @@ export const INVOKE_CHANNELS = [
   'installations:pickFolder',
   'installations:pickExecutable',
   'installations:import',
+  'installations:setIcon',
+  'installations:pickIconFile',
+  'installations:iconDataUrl',
   'detection:scan',
   'detection:cancel',
   'detection:listDrives',
