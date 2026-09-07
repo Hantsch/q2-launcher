@@ -1,7 +1,7 @@
 ---
 id: 060
 title: Duplicate alias is fixable from Aliases
-status: ready
+status: done
 created: 2026-09-07
 ---
 
@@ -23,13 +23,13 @@ only makes the existing manual fix (rename/delete) reachable for a specific dupl
 
 ## Acceptance Criteria
 
-- [ ] From the Care tab, clicking "Show in Aliases" on a `duplicateAlias` finding jumps to
+- [x] From the Care tab, clicking "Show in Aliases" on a `duplicateAlias` finding jumps to
       and highlights the exact alias row the finding refers to — not just "a row with this
       name" — even when another row shares the same name.
-- [ ] In the Aliases tab, a row involved in a name collision is visibly marked as a
+- [x] In the Aliases tab, a row involved in a name collision is visibly marked as a
       duplicate (already partially true per the second screenshot's "DUPLICATE" badge —
       verify/keep it) so the user can tell the two colliding rows apart without guessing.
-- [ ] The user can rename or delete either one of the two colliding rows directly from the
+- [x] The user can rename or delete either one of the two colliding rows directly from the
       Aliases tab, resolving the Care finding (verified by the finding disappearing from
       Care once the names no longer collide).
 
@@ -72,7 +72,7 @@ needs". The `aliasDuplicate` check just doesn't carry it through yet.
 
 ## Deliverables
 
-- [ ] D1 — Thread the existing `ownerActionId` through the `aliasDuplicate` finding into the
+- [x] D1 — Thread the existing `ownerActionId` through the `aliasDuplicate` finding into the
       "Show in Aliases" deep-link, so it targets one specific colliding row instead of "first
       row with this name". Touches: `src/shared/config/validate-actions.ts` (add `actionId` to
       the `aliasDuplicate` finding params, ~line 496-508),
@@ -86,7 +86,7 @@ needs". The `aliasDuplicate` check just doesn't carry it through yet.
       and highlights the correct distinct row, confirmed by manual UI check (two duplicates,
       two different links, two different rows highlighted); existing non-duplicate deep-links
       (e.g. `undefinedAlias`) still work via the name-only fallback.
-- [ ] D2 — Confirm/adjust the duplicate-row marker in the Aliases tab so both colliding
+- [x] D2 — Confirm/adjust the duplicate-row marker in the Aliases tab so both colliding
       rows are clearly and independently flagged, and confirm the Care finding clears once
       renamed/deleted down to one entry. Touches:
       `src/renderer/src/modules/config/AliasesTab.tsx`,
@@ -112,3 +112,29 @@ Review: → default
 
 ## Done
 
+Threaded the existing `AliasIndexRow.ownerActionId` through the `aliasDuplicate` finding
+(`validate-actions.ts`), the "Show in Aliases" deep-link chain (`care-items.ts` params passthrough
+unchanged, `CareTab.tsx`, `ConfigView.tsx`'s `focusAliasActionId`, `AliasesTab.tsx`'s focus effect),
+so the link now targets one specific colliding row instead of "first row with this name". Non-id
+deep-links (`undefinedAlias` etc.) keep resolving by name only via the fallback. D2 was
+verification-only: the `DUPLICATE` badge already flags both colliding rows independently
+(`alias-rows.ts`/`alias-references.ts`), and Care's `useMemo`d Tidy-up findings already recompute
+automatically on save, so no code change was needed there.
+
+Commit message: `060: duplicate alias is fixable from aliases`
+
+Verification:
+- `npm run build` — green.
+- `npm test` — 2565/2565 passed (2 pre-existing `validate-actions.test.ts` assertions were updated
+  to include the new `actionId` param, verified correct per-entry, not loosened).
+- `npm run typecheck` — clean (node + web).
+- `npm run ui:verify` (e2e/axe smoke) — 68/68 screenshots, 0 axe violations; this story's criteria
+  are UI-observable but predate the automated Acceptance-Tests mapping, so this run served as a
+  no-regression smoke check, not a scenario-specific proof.
+- Code review (fresh agent, default tier): **PASS**, no findings requiring a fix. All three
+  acceptance criteria confirmed PASS against the code paths (deep-link targets the exact row via
+  `ownerActionId`; badge marks both colliding rows independently; save recomputes Care findings via
+  `useMemo`, so a resolved duplicate clears automatically). Story predates `## Acceptance Tests`,
+  so it is checked against its legacy `## Test Plan (manual acceptance)` steps rather than a
+  named-test mapping, per the workflow's rule for pre-mapping stories — no manual residue beyond
+  that; no automated-test retrofit performed.

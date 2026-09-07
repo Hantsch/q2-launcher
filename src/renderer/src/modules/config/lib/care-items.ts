@@ -66,6 +66,8 @@ export type CareActionKind =
   | 'reclassify'
   | 'showInAliases'
   | 'showInControls'
+  | 'renameEntry'
+  | 'deleteEntry'
   | 'retry'
   | 'reload'
   | 'compare'
@@ -80,6 +82,28 @@ export interface CareItemAction {
   labelKey: string
   /** The exact ops to apply, for `'apply' | 'drop' | 'reclassify'` only. */
   ops?: TidyUpOp[]
+  /** The `ConfigAction.id` this action acts on, for the per-entry actions of a detail row
+   * (`'renameEntry' | 'deleteEntry' | 'showInAliases'`): a detail names one specific entry, so the
+   * target cannot be read off the item the way `CareItem.actionId` is read for a whole row. */
+  actionId?: string
+}
+
+/**
+ * One line of a row's expandable details - the sides of a problem that has more than one, named
+ * individually, each with the actions that resolve *that* side (bug fix, 2026-09-07).
+ *
+ * Only `duplicateAlias` produces these today: a name claimed by two entries used to be reported as
+ * two identical rows that named neither entry. A collision is one item with N detail lines.
+ */
+export interface CareItemDetail {
+  /** Unique within the item - a React key, and the prefix of its actions' own keys. */
+  key: string
+  /** i18n key for the line's text. Never literal prose. */
+  labelKey: string
+  /** Interpolated into `labelKey`. `section`/`sectionKey` are a category's stored prose and its
+   * optional seed hint, resolved by the row through `lib/category-display.ts`. */
+  params: Record<string, string | number>
+  actions: CareItemAction[]
 }
 
 /** One row of the Care tab: what, why, and what can be done about it. */
@@ -97,6 +121,10 @@ export interface CareItem {
    * needs to resolve a display name and to open/reveal the file. */
   params: Record<string, string | number>
   actions: CareItemAction[]
+  /** The sides of this item, when it has more than one thing to name - rendered as an expandable
+   * block under the consequence sentence, collapsed by default. Empty/absent for every item that is
+   * fully described by its own two sentences. */
+  details?: CareItemDetail[]
   /** The `ConfigAction.id` this item names, when it names one - the "Show in
    * Controls" deep link (story 058 D5) is wired off this. Carried straight
    * through from the tidy-up finding it was built from (`tidyItems` below);
@@ -105,7 +133,8 @@ export interface CareItem {
   /** `Finding.fixKey` (`@shared/config/validation.ts`), carried straight through for a health item -
    * a row with no action button (nothing here is fixable from a list, see the doc comment below)
    * still owes the user the fix hint when the validator emitted one; `ValidationPanel`'s (deleted)
-   * `FindingRow` rendered this as a second line. Only Config health ever sets it. */
+   * `FindingRow` rendered this as a second line. Config health sets it from the finding; Tidy-up
+   * sets it for the one caveat a duplicate-name row needs (every side unbound - see `tidyItems`). */
   fixKey?: string
   /** `Finding.source` (`@shared/config/validation.ts`), same precedent - a literal engine citation,
    * never translated. Only Config health ever sets it. */
@@ -260,6 +289,7 @@ function tidyItems(findings: TidyUpFinding[]): CareItem[] {
   return findings.map((finding) => {
     const id = `tidy:${finding.id}`
     const actions: CareItemAction[] = []
+    const details = duplicateDetails(id, finding)
 
     if (finding.kind === 'preservedLine') {
       const drop = finding.ops[0]
@@ -289,7 +319,10 @@ function tidyItems(findings: TidyUpFinding[]): CareItem[] {
       })
     }
 
-    if (ALIAS_LINK_KINDS.has(finding.kind)) {
+    // A duplicate-name row keeps its link per *side* instead (see `duplicateDetails`): one row-level
+    // "Show in Aliases" could only ever point at one of the colliding entries, which is precisely
+    // the dead end story 060 had to work around.
+    if (ALIAS_LINK_KINDS.has(finding.kind) && details.length === 0) {
       actions.push({
         key: `${id}:showInAliases`,
         kind: 'showInAliases',
@@ -316,9 +349,70 @@ function tidyItems(findings: TidyUpFinding[]): CareItem[] {
       consequenceKey: finding.messageKey,
       params: finding.params,
       actions,
+      ...(details.length > 0 ? { details } : {}),
+      // The caveat the user's own bug report asked for: a collision between entries that are all
+      // unbound writes no `alias` line at all, so looking for one in the file finds nothing. Only
+      // said when it is true of *every* side - one bound side makes the alias line real.
+      ...(details.length > 0 && finding.duplicates?.every((entry) => entry.keys.length === 0)
+        ? { fixKey: 'config.care.tidyUp.duplicateAliasUnbound' }
+        : {}),
       ...(finding.actionId ? { actionId: finding.actionId } : {}),
     }
   })
+}
+
+/**
+ * The detail lines of a duplicate-name row - one per colliding entry, each with the three ways out
+ * that already exist for an entry: open it in Aliases, rename it (which resolves the collision and
+ * keeps both entries), or delete it.
+ *
+ * Delete is offered only for an entry nothing references, which is exactly the rule the Aliases
+ * tab's own delete affordance follows for deleting without a confirmation - a referenced entry is
+ * deleted where its referrers are named, i.e. behind "Show in Aliases".
+ *
+ * Empty for every other kind, and for a `duplicateAlias` finding whose entries could not be
+ * resolved (a profile that moved on) - the row then reads exactly as it did before.
+ */
+function duplicateDetails(id: string, finding: TidyUpFinding): CareItemDetail[] {
+  return (finding.duplicates ?? []).map((entry) => ({
+    key: `${id}:${entry.actionId}`,
+    labelKey:
+      entry.keys.length > 0
+        ? 'config.care.tidyUp.duplicate.entryBound'
+        : 'config.care.tidyUp.duplicate.entryUnbound',
+    params: {
+      entry: entry.entryName,
+      section: entry.sectionName,
+      keys: entry.keys.join(', '),
+      ...(entry.sectionKey ? { sectionKey: entry.sectionKey } : {}),
+      ...(entry.subsectionName ? { subsection: entry.subsectionName } : {}),
+      ...(entry.catalogId ? { catalogId: entry.catalogId } : {}),
+    },
+    actions: [
+      {
+        key: `${id}:${entry.actionId}:showInAliases`,
+        kind: 'showInAliases' as const,
+        labelKey: 'config.care.tidyUp.action.showInAliases',
+        actionId: entry.actionId,
+      },
+      {
+        key: `${id}:${entry.actionId}:rename`,
+        kind: 'renameEntry' as const,
+        labelKey: 'config.care.tidyUp.action.rename',
+        actionId: entry.actionId,
+      },
+      ...(entry.referenced
+        ? []
+        : [
+            {
+              key: `${id}:${entry.actionId}:delete`,
+              kind: 'deleteEntry' as const,
+              labelKey: 'config.care.tidyUp.action.deleteEntry',
+              actionId: entry.actionId,
+            },
+          ]),
+    ],
+  }))
 }
 
 /** Errors before warnings, everything else left in source order - `sort` is

@@ -72,6 +72,11 @@ type DetailTab = 'overview' | 'settings' | 'controls' | 'aliases' | 'raw' | 'car
 interface TabFocusState {
   tab: DetailTab
   focusAlias?: string
+  /** Story 060 D1: the duplicate-alias finding's owning entry id, alongside `focusAlias` - lets the
+   * Aliases tab's focus effect target one specific colliding row instead of "first row with this
+   * name" when two entries share a name. Unset for every other deep link into Aliases, which still
+   * resolves by name alone. */
+  focusAliasActionId?: string
   focusActionId?: string
   focusLayerName?: string
 }
@@ -250,11 +255,12 @@ export function ConfigView() {
    */
   const goToTab = (
     tab: DetailTab,
-    focus?: { alias?: string; actionId?: string; layerName?: string },
+    focus?: { alias?: string; aliasActionId?: string; actionId?: string; layerName?: string },
   ): void => {
     setTabState({
       tab,
       focusAlias: focus?.alias,
+      focusAliasActionId: focus?.aliasActionId,
       focusActionId: focus?.actionId,
       focusLayerName: focus?.layerName,
     })
@@ -808,6 +814,7 @@ export function ConfigView() {
                           patch={patch}
                           onChanged={setProfiles}
                           focusAlias={tabState.focusAlias}
+                          focusAliasActionId={tabState.focusAliasActionId}
                           onNavigateToAction={(actionId) => goToTab('controls', { actionId })}
                           onNavigateToLayer={(layerName) => goToTab('overview', { layerName })}
                         />
@@ -818,8 +825,8 @@ export function ConfigView() {
                           validation={validation}
                           onProfileUpdated={handleProfileUpdated}
                           installations={installations}
-                          onNavigateToAlias={(aliasName) =>
-                            goToTab('aliases', { alias: aliasName })
+                          onNavigateToAlias={(aliasName, actionId) =>
+                            goToTab('aliases', { alias: aliasName, aliasActionId: actionId })
                           }
                           onNavigateToAction={(actionId) => goToTab('controls', { actionId })}
                         />

@@ -949,7 +949,7 @@
       "actions": {
         "undefinedAlias": "“{{action}}” calls “{{alias}}”, but no alias with that name exists in this profile any more. The bind still gets written, but pressing the key runs nothing.",
         "aliasUnreferenced": "The alias “{{name}}” is not called by anything in this profile. It is still written to the config file, but nothing ever runs it.",
-        "aliasDuplicate": "“{{entry}}” and “{{other}}” both resolve to the alias name “{{name}}”. Quake II only keeps the last one it reads – whichever binding calls this name reaches only that one, never the others.",
+        "aliasDuplicate": "{{count}} entries resolve to the same alias name “{{name}}” ({{entries}}). Quake II only keeps the last definition it reads – whichever binding calls this name reaches only that one, never the others.",
         "aliasShadowsCommand": "“{{entry}}” resolves to the alias name “{{name}}”, which is already a built-in command or cvar. Quake II would define an alias that calls itself, so pressing the key runs nothing new. Give it its own alias name.",
         "aliasSelfReference": "“{{entry}}” runs “{{command}}”, which is its own alias name “{{name}}”. The line is written exactly as you wrote it, but that command calls the entry back into itself – so either a built-in command of the same name wins and the entry never runs, or Quake II loops until it gives up. Remove that command, give the entry its own alias name, or leave it if you meant it.",
         "toggleCrossWired": "“{{dispatch}}”, “{{first}}” and “{{second}}” look like a toggle, but the two states are cross-wired: a working one has “{{first}}” hand control to “{{second}}” and “{{second}}” hand it back to “{{first}}”, and these do not – so the switch never loops between its two states. Recreate it as a toggle entry, or fix the “alias {{dispatch}} …” line at the end of each state so that each one points at the other.",
@@ -1200,7 +1200,9 @@
         "warning": "Warning"
       },
       "action": {
-        "pending": "Working…"
+        "pending": "Working…",
+        "showDetails": "Show details",
+        "hideDetails": "Hide details"
       },
       "allClear": {
         "health_one": "Validated against {{engines}}.",
@@ -1238,7 +1240,7 @@
             "emptyLayer": "Layer “{{name}}” is empty",
             "unreferencedAlias": "Alias “{{name}}” is never called",
             "undefinedAlias": "“{{action}}” calls a missing alias “{{alias}}”",
-            "duplicateAlias": "Alias name “{{name}}” is used twice",
+            "duplicateAlias": "{{count}} entries write the same alias name “{{name}}”",
             "preservedLine": "Preserved line {{file}}:{{line}}"
           }
         }
@@ -1273,7 +1275,12 @@
         "emptyLayer": "The layer “{{name}}” has no key with a command on it, so it generates nothing at all – not even a way back out of it.",
         "unreferencedAlias": "The alias “{{name}}” is not called by anything in this profile. Removing it changes nothing that runs.",
         "undefinedAlias": "“{{action}}” calls “{{alias}}”, but no alias with that name exists here. Removing the binding and writing the missing alias are both valid fixes, so this one is yours to make.",
-        "duplicateAlias": "“{{name}}” is used by more than one alias entry. Quake II keeps only the last one it reads – decide which entry you meant to keep.",
+        "duplicateAlias": "{{count}} entries resolve to the alias name “{{name}}”. Quake II keeps only the last definition it reads, so only one of them can ever be reached by that name – open the details below to see which entries these are and to decide which one keeps the name.",
+        "duplicateAliasUnbound": "None of them is bound to a key, so no “alias {{name}}” line is written to the file yet – the collision only decides something once one of them gets a key or is called by name.",
+        "duplicate": {
+          "entryBound": "“{{entry}}” – {{section}}, bound to {{keys}}",
+          "entryUnbound": "“{{entry}}” – {{section}}, not bound to a key"
+        },
         "preservedLine": "{{file}} line {{line}} could not be classified when it was imported and is kept verbatim: {{text}}",
         "preservedLineCvar": "{{file}} line {{line}} reads as the cvar “{{name}}” set to “{{value}}”: {{text}}",
         "preservedLineBind": "{{file}} line {{line}} reads as “{{key}}” bound to “{{command}}”: {{text}}",
@@ -1290,7 +1297,9 @@
           "drop": "Drop",
           "reclassify": "Re-classify",
           "showInAliases": "Show in Aliases",
-          "showInControls": "Show in Controls"
+          "showInControls": "Show in Controls",
+          "rename": "Rename…",
+          "deleteEntry": "Delete entry"
         },
         "applying": "Applying…",
         "slotLabel": "slot {{index}}",

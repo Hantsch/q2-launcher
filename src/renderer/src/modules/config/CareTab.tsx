@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CircleCheck, CircleHelp, CircleX } from 'lucide-react'
-import type { ConfigProfile } from '@shared/modules/config'
+import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import type { Installation } from '@shared/types/installation'
 import { engineLabel } from '@shared/types/engine'
 import { Panel, SectionLabel, Spinner } from '../../components/ui/primitives'
@@ -10,7 +10,8 @@ import { useLauncher } from '../../store/useLauncher'
 import { CareBatchFixDialog } from './CareBatchFixDialog'
 import { CareItemRow } from './CareItemRow'
 import { ConfigConflictDialog } from './ConfigConflictDialog'
-import { applyTidyUp } from './client'
+import { RenameActionDialog } from './components/RenameActionDialog'
+import { applyTidyUp, updateProfileActions } from './client'
 import { buildCareItems, itemsInGroup, type CareItem, type CareItemAction } from './lib/care-items'
 import { careSummary, type CareSummary, type CareSyncStatus } from './lib/care-summary'
 import { analyzeTidyUp, type TidyUpFinding } from './lib/tidy-up-findings'
@@ -66,8 +67,11 @@ export function CareTab({
    * action on the installation row in Library. */
   installations: Installation[]
   /** Story 044 D6: the Tidy-up group's "show in Aliases" action, threaded straight through - this
-   * component owns no navigation logic of its own, same as every other prop it only stacks. */
-  onNavigateToAlias: (aliasName: string) => void
+   * component owns no navigation logic of its own, same as every other prop it only stacks. Story
+   * 060 D1 adds the optional owning-entry id: only a duplicate-name finding's per-entry detail rows
+   * carry one (`CareItemAction.actionId`), and it lets the Aliases tab focus one specific colliding
+   * row instead of the first row matching the name. */
+  onNavigateToAlias: (aliasName: string, actionId?: string) => void
   /** Story 058 D5: the Tidy-up group's "Show in Controls" action - mirrors `onNavigateToAlias`,
    * wired by `ConfigView` through the same lifted `goToTab('controls', { focusActionId })` state the
    * Aliases tab's own "show on Controls" link already uses. */
@@ -329,15 +333,65 @@ function TidyUpGroup({
   autoFindings: TidyUpFinding[]
   profile: ConfigProfile
   onProfileUpdated: (profile: ConfigProfile) => void
-  onNavigateToAlias: (aliasName: string) => void
+  onNavigateToAlias: (aliasName: string, actionId?: string) => void
   onNavigateToAction: (actionId: string) => void
 }) {
   const { t } = useTranslation()
   const pushToast = useLauncher((state) => state.pushToast)
   const [pendingKeys, setPendingKeys] = useState<ReadonlySet<string>>(new Set())
   const [batchDialogOpen, setBatchDialogOpen] = useState(false)
+  const [renamingActionId, setRenamingActionId] = useState<string | null>(null)
+  const renamingAction =
+    (profile.actions ?? []).find((action) => action.id === renamingActionId) ?? null
 
   if (items.length === 0) return null
+
+  /**
+   * Replaces the profile's actions - the same `config:setActions` channel the Controls and Aliases
+   * tabs write through (never a second write path), so a rename or delete decided here is byte-for-
+   * byte the one those tabs would have performed. Runs against `profile`, which Care is always
+   * handed as the *saved* profile, exactly like `applyTidyUp` above it.
+   */
+  const persistActions = async (nextActions: ConfigAction[], key: string): Promise<boolean> => {
+    setPendingKeys((prev) => new Set(prev).add(key))
+    const outcome = await updateProfileActions({
+      profileId: profile.id,
+      categories: profile.categories ?? [],
+      actions: nextActions,
+    })
+    setPendingKeys((prev) => {
+      const next = new Set(prev)
+      next.delete(key)
+      return next
+    })
+
+    if (!outcome.ok) {
+      pushToast({
+        level: 'error',
+        messageKey: outcome.error.key,
+        timeoutMs: 0,
+        ...(outcome.error.params ? { params: outcome.error.params } : {}),
+      })
+      return false
+    }
+    const updated = outcome.value.find((candidate) => candidate.id === profile.id)
+    if (updated) onProfileUpdated(updated)
+    return true
+  }
+
+  /** `RenameActionDialog`'s submit callback - same shape as the Aliases tab's own
+   * `handleRenameAction`, which is where this rename otherwise lives. */
+  const handleRenameEntry = async (
+    actionId: string,
+    input: { name: string; aliasName: string | undefined },
+  ): Promise<boolean> => {
+    const nextActions = (profile.actions ?? []).map((action) =>
+      action.id === actionId ? { ...action, name: input.name, aliasName: input.aliasName } : action,
+    )
+    const ok = await persistActions(nextActions, `${actionId}:rename`)
+    if (ok) setRenamingActionId(null)
+    return ok
+  }
 
   // `unreferencedAlias`/`duplicateAlias` name the alias as `params.name`, `undefinedAlias` as
   // `params.alias` (`@shared/config/validate-actions.ts`'s own param shapes) - the only three kinds
@@ -346,7 +400,29 @@ function TidyUpGroup({
   const handleAction = async (action: CareItemAction, item: CareItem): Promise<void> => {
     if (action.kind === 'showInAliases') {
       const aliasName = String(item.params['name'] ?? item.params['alias'] ?? '')
-      if (aliasName) onNavigateToAlias(aliasName)
+      // Story 060 D1 threaded the owning entry's real id into this link so a duplicate-name finding
+      // could target one specific colliding row rather than the first row matching the name. Since
+      // the collision is one row with one detail line per side (bug fix, 2026-09-07), that id comes
+      // off the clicked *detail's* action; a row-level link (`undefinedAlias` and friends) carries
+      // none and still resolves by name alone.
+      if (aliasName) onNavigateToAlias(aliasName, action.actionId)
+      return
+    }
+    // The two per-entry resolutions a duplicate-name detail offers (bug fix, 2026-09-07): rename
+    // keeps both entries and frees the name, delete removes this side. Delete needs no confirmation
+    // here because `lib/care-items.ts` only offers it for an entry nothing references - the same
+    // rule the Aliases tab's own delete affordance follows.
+    if (action.kind === 'renameEntry') {
+      if (action.actionId) setRenamingActionId(action.actionId)
+      return
+    }
+    if (action.kind === 'deleteEntry') {
+      const actionId = action.actionId
+      if (!actionId) return
+      await persistActions(
+        (profile.actions ?? []).filter((candidate) => candidate.id !== actionId),
+        action.key,
+      )
       return
     }
     // Story 058 D5: the item's own `actionId` (`lib/care-items.ts`'s `tidyItems`), not a params
@@ -412,6 +488,20 @@ function TidyUpGroup({
           findings={autoFindings}
           onClose={() => setBatchDialogOpen(false)}
           onProfileUpdated={onProfileUpdated}
+        />
+      )}
+
+      {/* The same dialog the Controls and Aliases tabs rename an entry through (story 044 D5's
+          extraction), so its refusal rules and its own-alias-name escape hatch apply here too -
+          which is the whole point of offering the rename on the finding itself. */}
+      {renamingAction && (
+        <RenameActionDialog
+          action={renamingAction}
+          actions={profile.actions ?? []}
+          binds={profile.binds}
+          layers={profile.layers ?? []}
+          onClose={() => setRenamingActionId(null)}
+          onSubmit={(input) => handleRenameEntry(renamingAction.id, input)}
         />
       )}
     </div>

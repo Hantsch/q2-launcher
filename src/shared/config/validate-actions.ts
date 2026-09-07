@@ -490,22 +490,31 @@ export function validateActions(
     group.push(entry)
     byKey.set(key, group)
   }
-  // One finding per colliding *entry*, not per colliding name: two press/release entries sharing a
-  // base collide on both `+base` and `-base`, which is one problem the user fixes once.
+  // One finding per *collision*, not one per colliding entry (bug fix, 2026-09-07): the rule used to
+  // emit one finding per entry, so a name shared by two entries produced two rows with identical
+  // title and identical sentence and nothing to tell them apart - the user's report was that Care
+  // says the same thing twice and names neither entry. A collision is one piece of work with two or
+  // more sides, so it is one finding that carries *all* of them: `entries` for the sentence and
+  // `actionIds` as the machine handle Care resolves into its own per-entry detail rows (which entry,
+  // which section, bound or not) plus a rename/delete/deep-link per side.
+  //
+  // Two press/release entries sharing a base still collide on both `+base` and `-base`, which is one
+  // problem the user fixes once - so the dedup is by the *set* of entries involved, not by the name.
   const reportedDuplicates = new Set<string>()
   for (const group of byKey.values()) {
     if (group.length < 2) continue
-    for (const entry of group) {
-      const partners = group.filter((candidate) => candidate !== entry)
-      const signature = [entry.action.id, ...partners.map((p) => p.action.id).sort()].join('|')
-      if (reportedDuplicates.has(signature)) continue
-      reportedDuplicates.add(signature)
-      add('aliasDuplicate', 'warning', entry.action.name, {
-        name: entry.name,
-        entry: entry.action.name,
-        other: partners.map((candidate) => candidate.action.name).join(', '),
-      })
-    }
+    const signature = group
+      .map((entry) => entry.action.id)
+      .sort()
+      .join('|')
+    if (reportedDuplicates.has(signature)) continue
+    reportedDuplicates.add(signature)
+    add('aliasDuplicate', 'warning', group[0]!.action.name, {
+      name: group[0]!.name,
+      count: group.length,
+      entries: group.map((entry) => entry.action.name).join(', '),
+      actionIds: group.map((entry) => entry.action.id).join(','),
+    })
   }
 
   // --- a derived name shadows a known engine command/cvar (D8) ----------------

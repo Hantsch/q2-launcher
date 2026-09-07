@@ -53,6 +53,107 @@ function ofKind(findings: TidyUpFinding[], kind: TidyUpFinding['kind']): TidyUpF
   return findings.filter((finding) => finding.kind === kind)
 }
 
+/**
+ * Bug fix, 2026-09-07: the reported case was the launcher's own two hand-grenade drop entries
+ * (`dropWeapon:grenades` and `dropAmmo:hgrenades` both render the command `drop grenades`, so both
+ * derive the alias name `drop_grenades`). Care showed that as two rows with an identical title and
+ * an identical sentence, named neither entry, and called them "alias entries" while both are unbound
+ * catalogue entries the file writes as commented-out `//bind` lines - i.e. with no `alias` line
+ * anywhere in it. One row per collision, with one resolved detail per side, is what fixes all three.
+ */
+describe('analyzeTidyUp - duplicate alias names', () => {
+  // The template's own drops category, plus its second level - which the *migration* for an older
+  // profile does not assign (`main/services/migrations.ts` sets `categoryId` and `catalogId` only),
+  // so `d2` below deliberately carries no `subcategoryId`: that is the real shape the bug was
+  // reported on.
+  const dropCategory = {
+    id: 'drops',
+    name: 'Weapon dropping',
+    nameKey: 'config.controls.categories.drops',
+    subcategories: [
+      { id: 'drops-weapons', name: 'Weapons' },
+      { id: 'drops-ammo', name: 'Ammunition' },
+    ],
+  }
+
+  function dropEntries(): ConfigAction[] {
+    return [
+      action({
+        id: 'd1',
+        categoryId: 'drops',
+        name: 'drop grenades',
+        catalogId: 'dropWeapon:grenades',
+        subcategoryId: 'drops-weapons',
+        commands: [{ kind: 'raw', text: 'drop grenades' }],
+      }),
+      action({
+        id: 'd2',
+        categoryId: 'drops',
+        name: 'drop grenades',
+        catalogId: 'dropAmmo:hgrenades',
+        commands: [{ kind: 'raw', text: 'drop grenades' }],
+      }),
+    ]
+  }
+
+  it('reports one row per collision, with one detail per colliding entry', () => {
+    const rows = ofKind(
+      analyzeTidyUp(profile({ actions: dropEntries(), categories: [dropCategory] })),
+      'duplicateAlias',
+    )
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.params['name']).toBe('drop_grenades')
+    expect(rows[0]!.params['count']).toBe(2)
+    // The two sides are only distinguishable by their catalogue id: same name, same section, same
+    // body, and (on a profile migrated from before the drops subcategories existed) no subcategory
+    // either - which is exactly why the id is carried.
+    expect(rows[0]!.duplicates).toEqual([
+      {
+        actionId: 'd1',
+        entryName: 'drop grenades',
+        sectionName: 'Weapon dropping',
+        sectionKey: 'config.controls.categories.drops',
+        subsectionName: 'Weapons',
+        catalogId: 'dropWeapon:grenades',
+        keys: [],
+        referenced: false,
+      },
+      {
+        actionId: 'd2',
+        entryName: 'drop grenades',
+        sectionName: 'Weapon dropping',
+        sectionKey: 'config.controls.categories.drops',
+        catalogId: 'dropAmmo:hgrenades',
+        keys: [],
+        referenced: false,
+      },
+    ])
+  })
+
+  it("names the keys a colliding side is bound to, and whether anything calls it", () => {
+    const [weapon, ammo] = dropEntries()
+    const bound = { ...weapon!, keys: [{ key: 'q' }] }
+    const rows = ofKind(
+      analyzeTidyUp(
+        profile({
+          actions: [bound, ammo!],
+          categories: [dropCategory],
+          // A hand-typed bind calling the name - the one thing that makes a side "referenced", and
+          // therefore the side Care must not offer a one-click delete for.
+          binds: { q: 'drop_grenades' },
+        }),
+      ),
+      'duplicateAlias',
+    )
+
+    expect(rows[0]!.duplicates?.map((entry) => [entry.actionId, entry.keys, entry.referenced])).toEqual([
+      ['d1', ['q'], true],
+      ['d2', [], true],
+    ])
+  })
+})
+
 describe('analyzeTidyUp - shadowed binds', () => {
   it('offers an op for the losing action only, never for the one the mirror left in effect', () => {
     const first = action({ id: 'a1', name: 'Old forward', keys: [{ key: 'w' }] })

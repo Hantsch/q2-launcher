@@ -396,6 +396,86 @@ describe('buildCareItems - tidy-up group', () => {
     expect(item!.actionId).toBe('a1')
   })
 
+  /**
+   * Bug fix, 2026-09-07: a duplicate-name row is one row with one detail line per colliding entry,
+   * each carrying the ways out that exist for an entry - open it in Aliases, rename it, delete it
+   * (delete only where nothing references it, the Aliases tab's own rule). The row-level
+   * "Show in Aliases" is gone for this kind, because it could only point at one of the sides.
+   */
+  it('turns each side of a duplicate-name collision into a detail row with its own actions', () => {
+    const [item] = itemsInGroup(
+      build({
+        tidyUp: [
+          tidyUpFinding({
+            id: 'duplicateAlias:r1q2:actions:aliasDuplicate:0',
+            kind: 'duplicateAlias',
+            mode: 'report',
+            messageKey: 'config.care.tidyUp.duplicateAlias',
+            params: { name: 'drop_grenades', count: 2, entries: 'A, B', actionIds: 'd1,d2' },
+            sourceFindingId: 'r1q2:actions:aliasDuplicate:0',
+            duplicates: [
+              {
+                actionId: 'd1',
+                entryName: 'A',
+                sectionName: 'Weapon dropping',
+                keys: [],
+                referenced: false,
+              },
+              {
+                actionId: 'd2',
+                entryName: 'B',
+                sectionName: 'Weapon dropping',
+                keys: ['q'],
+                referenced: true,
+              },
+            ],
+          }),
+        ],
+      }),
+      'tidy',
+    )
+
+    expect(item!.actions).toEqual([])
+    expect(item!.details?.map((detail) => detail.labelKey)).toEqual([
+      'config.care.tidyUp.duplicate.entryUnbound',
+      'config.care.tidyUp.duplicate.entryBound',
+    ])
+    expect(item!.details?.map((detail) => detail.actions.map((action) => action.kind))).toEqual([
+      ['showInAliases', 'renameEntry', 'deleteEntry'],
+      // Referenced: deleting it would leave a dangling call, so that decision stays where the
+      // referrers are named.
+      ['showInAliases', 'renameEntry'],
+    ])
+    expect(item!.details?.[0]?.actions.map((action) => action.actionId)).toEqual(['d1', 'd1', 'd1'])
+    expect(item!.details?.[1]?.params).toEqual({ entry: 'B', section: 'Weapon dropping', keys: 'q' })
+    // One side is bound, so the "no alias line is written at all" caveat does not apply.
+    expect(item!.fixKey).toBeUndefined()
+  })
+
+  it('says a collision writes no alias line at all while every side is unbound', () => {
+    const [item] = itemsInGroup(
+      build({
+        tidyUp: [
+          tidyUpFinding({
+            id: 'duplicateAlias:r1q2:actions:aliasDuplicate:0',
+            kind: 'duplicateAlias',
+            mode: 'report',
+            messageKey: 'config.care.tidyUp.duplicateAlias',
+            params: { name: 'drop_grenades', count: 2, entries: 'A, B', actionIds: 'd1,d2' },
+            sourceFindingId: 'r1q2:actions:aliasDuplicate:0',
+            duplicates: [
+              { actionId: 'd1', entryName: 'A', sectionName: 'Drops', keys: [], referenced: false },
+              { actionId: 'd2', entryName: 'B', sectionName: 'Drops', keys: [], referenced: false },
+            ],
+          }),
+        ],
+      }),
+      'tidy',
+    )
+
+    expect(item!.fixKey).toBe('config.care.tidyUp.duplicateAliasUnbound')
+  })
+
   it('every action key is unique across the whole list - the row keys pending state by it', () => {
     const items = build({
       syncRows: [

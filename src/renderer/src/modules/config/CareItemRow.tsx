@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CircleX, TriangleAlert } from 'lucide-react'
+import { ChevronDown, ChevronRight, CircleX, TriangleAlert } from 'lucide-react'
 import { keySlotAt } from '@shared/config/action-slots'
 import { bindValueFor } from '@shared/config/action-mirror'
 import type { TidyUpBindClaim, TidyUpOp } from '@shared/config/tidy-up'
@@ -7,7 +8,8 @@ import type { ConfigProfile } from '@shared/modules/config'
 import { cn } from '../../lib/cn'
 import { Badge, type BadgeTone } from '../../components/ui/primitives'
 import { Button, type ButtonProps } from '../../components/ui/Button'
-import type { CareItem, CareItemAction } from './lib/care-items'
+import { namedDisplayName } from './lib/category-display'
+import type { CareItem, CareItemAction, CareItemDetail } from './lib/care-items'
 import type { TidyUpFindingKind } from './lib/tidy-up-findings'
 
 /**
@@ -41,8 +43,11 @@ export function CareItemRow({
   pendingKeys?: ReadonlySet<string>
 }) {
   const { t } = useTranslation()
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const Icon = item.level === 'error' ? CircleX : TriangleAlert
   const tone: BadgeTone = item.level === 'error' ? 'danger' : 'warning'
+  const details = item.details ?? []
+  const detailsId = `${item.id}-details`
 
   return (
     <li className="flex flex-wrap items-start justify-between gap-2 rounded-sm border border-line px-2.5 py-2">
@@ -74,6 +79,36 @@ export function CareItemRow({
             <p className="text-xs text-ink-muted">{t(item.fixKey, item.params)}</p>
           )}
           {item.source && <p className="text-[10px] text-ink-faint">{item.source}</p>}
+          {details.length > 0 && (
+            <div className="space-y-1.5 pt-0.5">
+              <button
+                type="button"
+                aria-expanded={detailsOpen}
+                aria-controls={detailsId}
+                onClick={() => setDetailsOpen((open) => !open)}
+                className="flex items-center gap-1 rounded-sm text-xs text-ink-dim transition-colors hover:text-ink"
+              >
+                {detailsOpen ? (
+                  <ChevronDown className="size-3.5 shrink-0" aria-hidden="true" />
+                ) : (
+                  <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
+                )}
+                {t(detailsOpen ? 'config.care.action.hideDetails' : 'config.care.action.showDetails')}
+              </button>
+              {detailsOpen && (
+                <ul id={detailsId} className="space-y-1">
+                  {details.map((detail) => (
+                    <CareDetailRow
+                      key={detail.key}
+                      detail={detail}
+                      {...(onAction ? { onAction } : {})}
+                      {...(pendingKeys ? { pendingKeys } : {})}
+                    />
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -96,11 +131,74 @@ export function CareItemRow({
   )
 }
 
-/** `drop` and `apply` change or remove something on disk/in the profile, same weight the old
- * per-section rows gave them (`danger`); everything else is a lookup, a navigation or a
- * non-destructive re-check. */
+/**
+ * One detail line: what this side of the problem *is*, and the actions that resolve this side
+ * (bug fix, 2026-09-07 - see `CareItemDetail`). Same action cluster as the row itself, so a detail
+ * and a row can never offer the same fix in two shapes.
+ *
+ * The section name is resolved here, not in the model: `params.section` is the category's stored
+ * prose and `params.sectionKey` its optional seed hint, and whether a hint this build may not carry
+ * is trusted is `lib/category-display.ts`'s single decision (story 052 review, finding 9).
+ */
+function CareDetailRow({
+  detail,
+  onAction,
+  pendingKeys,
+}: {
+  detail: CareItemDetail
+  onAction?: (action: CareItemAction) => void
+  pendingKeys?: ReadonlySet<string>
+}) {
+  const { t, i18n } = useTranslation()
+  const sectionKey = detail.params['sectionKey']
+  const subsection = detail.params['subsection']
+  const catalogId = detail.params['catalogId']
+  // Section, then its second level when the entry sits in one - a separator, not prose, so it stays
+  // out of the message catalogue.
+  const section = [
+    namedDisplayName(
+      {
+        name: String(detail.params['section'] ?? ''),
+        ...(typeof sectionKey === 'string' ? { nameKey: sectionKey } : {}),
+      },
+      { t: (key) => t(key), exists: (key) => i18n.exists(key) },
+    ),
+    ...(typeof subsection === 'string' ? [subsection] : []),
+  ].join(' › ')
+
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-1.5 rounded-sm border border-line bg-raised px-2 py-1.5">
+      <span className="min-w-0 flex-1 text-xs text-ink-dim" data-selectable>
+        {t(detail.labelKey, { ...detail.params, section })}
+        {/* The catalogue id, verbatim and never translated: two catalogue entries can share their
+            name, their section and their body, and this is both the only thing that tells them apart
+            and the exact `cid=` tag the rendered `.cfg` marks the same two lines with. */}
+        {typeof catalogId === 'string' && (
+          <span className="numeric ml-1.5 text-[10px] text-ink-muted">{catalogId}</span>
+        )}
+      </span>
+      <span className="flex shrink-0 flex-wrap items-center gap-1.5">
+        {detail.actions.map((action) => (
+          <Button
+            key={action.key}
+            variant={actionVariant(action.kind)}
+            size="sm"
+            disabled={pendingKeys?.has(action.key)}
+            onClick={() => onAction?.(action)}
+          >
+            {pendingKeys?.has(action.key) ? t('config.care.action.pending') : t(action.labelKey)}
+          </Button>
+        ))}
+      </span>
+    </li>
+  )
+}
+
+/** `drop`, `apply` and `deleteEntry` change or remove something on disk/in the profile, same weight
+ * the old per-section rows gave them (`danger`); everything else is a lookup, a navigation, a
+ * dialog or a non-destructive re-check. */
 function actionVariant(kind: CareItemAction['kind']): ButtonProps['variant'] {
-  return kind === 'apply' || kind === 'drop' ? 'danger' : 'neutral'
+  return kind === 'apply' || kind === 'drop' || kind === 'deleteEntry' ? 'danger' : 'neutral'
 }
 
 /** Story 025's fixed tidy-up finding order, kept here (moved from the now-deleted

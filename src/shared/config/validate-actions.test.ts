@@ -40,7 +40,7 @@ describe('validateActions', () => {
     expect(findings[0].subject).toEqual({ kind: 'action', id: 'test' })
   })
 
-  it('reports two alias entries whose emitted names collide, as warnings naming both entries', () => {
+  it('reports two alias entries whose emitted names collide as ONE warning naming both entries', () => {
     const actions = [
       action({ id: 'a1', kind: 'alias', name: 'Test', commands: [{ kind: 'raw', text: 'wait' }] }),
       action({ id: 'a2', kind: 'alias', name: 'test', commands: [{ kind: 'raw', text: 'wait' }] }),
@@ -49,22 +49,20 @@ describe('validateActions', () => {
     const findings = validateActions(actions, 'r1q2')
     const duplicates = findings.filter((finding) => finding.messageKey.endsWith('aliasDuplicate'))
 
-    expect(duplicates).toHaveLength(2)
-    expect(duplicates.every((finding) => finding.level === 'warning')).toBe(true)
-    expect(duplicates.find((finding) => finding.params?.entry === 'Test')?.params).toEqual({
+    // One finding per *collision*, carrying every side: two rows with the same title and the same
+    // sentence told the user nothing about which entries were involved (bug fix, 2026-09-07).
+    expect(duplicates).toHaveLength(1)
+    expect(duplicates[0].level).toBe('warning')
+    expect(duplicates[0].params).toEqual({
       name: 'test',
-      entry: 'Test',
-      other: 'test',
-    })
-    expect(duplicates.find((finding) => finding.params?.entry === 'test')?.params).toEqual({
-      name: 'test',
-      entry: 'test',
-      other: 'Test',
+      count: 2,
+      entries: 'Test, test',
+      actionIds: 'a1,a2',
     })
     expect(findings.some((finding) => finding.level === 'error')).toBe(false)
   })
 
-  it('story 039 D8: a catalogue row and a user alias entry resolving to the same name both get a warning naming each other', () => {
+  it('story 039 D8: a catalogue row and a user alias entry resolving to the same name are one warning naming both', () => {
     const actions = [
       action({
         id: 'b1',
@@ -79,17 +77,13 @@ describe('validateActions', () => {
     const findings = validateActions(actions, 'r1q2')
     const duplicates = findings.filter((finding) => finding.messageKey.endsWith('aliasDuplicate'))
 
-    expect(duplicates).toHaveLength(2)
-    expect(duplicates.every((finding) => finding.level === 'warning')).toBe(true)
-    expect(duplicates.find((finding) => finding.params?.entry === 'Railgun')?.params).toEqual({
+    expect(duplicates).toHaveLength(1)
+    expect(duplicates[0].level).toBe('warning')
+    expect(duplicates[0].params).toEqual({
       name: 'railgun',
-      entry: 'Railgun',
-      other: 'railgun',
-    })
-    expect(duplicates.find((finding) => finding.params?.entry === 'railgun')?.params).toEqual({
-      name: 'railgun',
-      entry: 'railgun',
-      other: 'Railgun',
+      count: 2,
+      entries: 'Railgun, railgun',
+      actionIds: 'b1,a1',
     })
     expect(findings.some((finding) => finding.level === 'error')).toBe(false)
   })
@@ -860,13 +854,11 @@ describe('validateActions', () => {
       finding.messageKey.endsWith('aliasDuplicate'),
     )
 
-    // Both sides of the collision, the way `aliasDuplicate` has always reported a collision.
-    expect(duplicates).toHaveLength(2)
-    expect(duplicates.map((finding) => finding.params?.['name'])).toEqual(['zoom_s1', 'zoom_s1'])
-    expect(duplicates.map((finding) => finding.params?.['entry']).sort()).toEqual([
-      'My zoom step',
-      'Zoom',
-    ])
+    // Both sides of the collision, now on one finding rather than one finding each.
+    expect(duplicates).toHaveLength(1)
+    expect(duplicates[0].params?.['name']).toBe('zoom_s1')
+    expect(duplicates[0].params?.['entries']).toBe('My zoom step, Zoom')
+    expect(duplicates[0].params?.['actionIds']).toBe('a1,t1')
   })
 
   it('story-045 review: a user alias colliding with a press/release entry\'s generated -base half is reported too', () => {
@@ -896,8 +888,9 @@ describe('validateActions', () => {
       finding.messageKey.endsWith('aliasDuplicate'),
     )
 
-    expect(duplicates).toHaveLength(2)
-    expect(duplicates.map((finding) => finding.params?.['name'])).toEqual(['-slow', '-slow'])
+    expect(duplicates).toHaveLength(1)
+    expect(duplicates[0].params?.['name']).toBe('-slow')
+    expect(duplicates[0].params?.['entries']).toBe('My slow off, Slow')
   })
 
   it('story-045 review: a healthy toggle and press/release entry side by side still collide with nothing', () => {

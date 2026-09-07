@@ -76,6 +76,8 @@
  */
 
 import { bindValueFor } from '@shared/config/action-mirror'
+import { actionKeySlots } from '@shared/config/action-slots'
+import { buildAliasIndex } from '@shared/config/alias-references'
 import { sanitizeCommand, generateLayerAliases } from '@shared/config/alt-layers'
 import { findBindCollision } from '@shared/config/bind-collision'
 import { tokenizeConfigText, type ConfigSyntaxToken } from '@shared/config/config-syntax'
@@ -123,6 +125,44 @@ export type TidyUpFindingKind =
   | 'duplicateAlias'
   | 'preservedLine'
 
+/**
+ * One side of a duplicate-alias-name collision, resolved for display (bug fix, 2026-09-07).
+ *
+ * The finding itself only carries the colliding name and the entry ids (`validate-actions.ts`'s
+ * `params.actionIds`); this is what the Care row needs to actually *name* each side and offer a fix
+ * per side. Everything here is read off the profile the finding was computed from - no new rule, no
+ * second opinion about what collides.
+ */
+export interface TidyUpDuplicateEntry {
+  /** The `ConfigAction.id` of this side - the handle its rename/delete/deep-link all use. */
+  actionId: string
+  /** Its display name, the same string the Controls and Aliases tabs show. */
+  entryName: string
+  /** Its category's stored prose and (for a still-unrenamed template category) the seed's `nameKey`
+   * hint, both raw: the row resolves them through `lib/category-display.ts`, the one place that
+   * decides whether a hint this build may not have is trusted. */
+  sectionName: string
+  sectionKey?: string
+  /** Its subcategory's name within that section (story 053's second level), when it has one - a
+   * profile seeded before the drops subcategories existed carries none. */
+  subsectionName?: string
+  /** Its catalogue row id, when it is a catalogue entry. The one thing that reliably tells two
+   * catalogue entries apart: the launcher's own `dropWeapon:grenades` and `dropAmmo:hgrenades` rows
+   * share a name (`drop grenades`), a section and a body, and on a profile migrated from before the
+   * drops subcategories existed they share the subcategory too - so without this the two sides of
+   * that collision read identically. It is also the exact `cid=` tag the rendered `.cfg` puts on
+   * both lines, which is where a user looking for them starts. */
+  catalogId?: string
+  /** Every key this side is bound to, in slot order; empty for an unbound entry - which is the case
+   * that explains why a colliding name can be reported while the file holds no `alias` line for it
+   * at all (an unbound entry renders as a commented-out `//bind` line, never as an alias). */
+  keys: string[]
+  /** Does anything in this profile call this side by name (`buildAliasIndex`'s referrers, the same
+   * graph the validator itself used). Care offers an immediate delete only when nothing does -
+   * exactly the rule the Aliases tab's own delete affordance already follows. */
+  referenced: boolean
+}
+
 /** One row of the Care tab's tidy-up list. */
 export interface TidyUpFinding {
   /** Stable and deterministic across runs on an unchanged profile (never
@@ -153,6 +193,10 @@ export interface TidyUpFinding {
    * other kind names a key with no owning action, an alias, or a layer/line,
    * none of which are a Controls row. */
   actionId?: string
+  /** Only `duplicateAlias` sets this: one entry per side of the collision, in the order the
+   * validator grouped them. It is what turns one row into "here are the N entries that claim this
+   * name, fix whichever one you meant" instead of N rows all saying the same sentence. */
+  duplicates?: TidyUpDuplicateEntry[]
 }
 
 function scopeId(scope: TidyUpBindScope): string {
@@ -443,8 +487,12 @@ function aliasFindings(profile: ConfigProfile): TidyUpFinding[] {
     }
 
     if (finding.messageKey === `${ACTIONS_MESSAGE_PREFIX}aliasDuplicate`) {
-      // No op either: both rows are real entries the user made, and only they
-      // know which one they meant to keep.
+      // No op either: every side is a real entry, and only the user knows which one they meant to
+      // keep. What this module can do (bug fix, 2026-09-07) is *name* the sides: the finding is one
+      // per collision now and carries the ids of every entry involved, which `duplicateEntries`
+      // resolves into the per-entry detail rows Care expands - so the tab says which two entries
+      // claim the name, in which section, bound or not, instead of repeating one sentence per side.
+      const duplicates = duplicateEntries(profile, params['actionIds'])
       rows.push({
         id: `duplicateAlias:${finding.id}`,
         kind: 'duplicateAlias',
@@ -454,10 +502,58 @@ function aliasFindings(profile: ConfigProfile): TidyUpFinding[] {
         params,
         ops: [],
         sourceFindingId: finding.id,
+        ...(duplicates.length > 0 ? { duplicates } : {}),
       })
     }
   }
   return rows
+}
+
+/**
+ * The sides of one collision, resolved off `profile` - see `TidyUpDuplicateEntry`.
+ *
+ * `actionIds` is the finding's own comma-joined id list; an id the profile no longer carries is
+ * skipped rather than guessed at (the profile can have moved on since the finding was computed),
+ * and an empty result simply means the row renders without details, exactly as it did before.
+ */
+function duplicateEntries(
+  profile: ConfigProfile,
+  actionIds: string | number | undefined,
+): TidyUpDuplicateEntry[] {
+  const ids = String(actionIds ?? '')
+    .split(',')
+    .filter((id) => id.length > 0)
+  if (ids.length === 0) return []
+
+  const actions = profile.actions ?? []
+  // The one reference graph (`alias-references.ts`), the same one `validateActions` just read - asked
+  // here only for "is this entry called by anything", never for what collides.
+  const index = buildAliasIndex({ actions, binds: profile.binds, layers: profile.layers })
+
+  return ids.flatMap((id) => {
+    const action = actions.find((candidate) => candidate.id === id)
+    if (!action) return []
+    const category = (profile.categories ?? []).find((candidate) => candidate.id === action.categoryId)
+    const subcategory = (category?.subcategories ?? []).find(
+      (candidate) => candidate.id === action.subcategoryId,
+    )
+    return [
+      {
+        actionId: id,
+        entryName: action.name,
+        // No category at all can only come from a hand-edited profile; its id is a degraded but
+        // still distinguishable label, which beats inventing prose here.
+        sectionName: category?.name ?? action.categoryId,
+        ...(category?.nameKey ? { sectionKey: category.nameKey } : {}),
+        ...(subcategory ? { subsectionName: subcategory.name } : {}),
+        ...(action.catalogId ? { catalogId: action.catalogId } : {}),
+        keys: actionKeySlots(action)
+          .map((slot) => slot.key)
+          .filter((key) => key.length > 0),
+        referenced: index.some((row) => row.ownerActionId === id && row.referrers.length > 0),
+      },
+    ]
+  })
 }
 
 /** Command names (case-insensitive) that assign a cvar - `config-parser.ts`'s
