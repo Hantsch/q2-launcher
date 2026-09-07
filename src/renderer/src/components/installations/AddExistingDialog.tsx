@@ -8,6 +8,7 @@ import { useLauncher } from '../../store/useLauncher'
 import { Button } from '../ui/Button'
 import { Field, Input, PathPicker, Select } from '../ui/controls'
 import { Badge, Spinner } from '../ui/primitives'
+import { EngineBadge } from '../ui/EngineBadge'
 import { Modal } from '../ui/Modal'
 
 /**
@@ -120,9 +121,7 @@ export function AddExistingDialog() {
             <div className="space-y-2 rounded-md border border-line bg-void/40 p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="stencil">{t('dialog.addExisting.detected')}</span>
-                <Badge tone={inspection.engineKind === 'r1q2' ? 'flame' : 'neutral'}>
-                  {engineLabel(inspection.engineKind)}
-                </Badge>
+                <EngineBadge engineKind={inspection.engineKind} />
                 {inspection.gameDirs.map((dir) => (
                   <Badge key={dir} tone="strogg">
                     {dir}

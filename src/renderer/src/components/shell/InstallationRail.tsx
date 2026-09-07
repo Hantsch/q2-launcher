@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FolderOpen, FolderPlus, LayoutGrid, Play, Plus, Search } from 'lucide-react'
-import { engineLabel, type Installation } from '@shared/types'
+import type { Installation } from '@shared/types'
 import { cn } from '../../lib/cn'
 import { shortenPath, tileCode } from '../../lib/format'
 import { isPlayable, statusTone } from '../../lib/status'
 import { useLauncher } from '../../store/useLauncher'
 import { Badge, SectionLabel, StatusDot } from '../ui/primitives'
 import { Button, IconButton } from '../ui/Button'
+import { EngineBadge } from '../ui/EngineBadge'
 import { HoverCard } from '../ui/HoverCard'
 import { Menu, type MenuItem } from '../ui/Menu'
 
@@ -258,9 +259,7 @@ function RailCard({ installation }: { installation: Installation }) {
           {installation.name}
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge tone={installation.engineKind === 'r1q2' ? 'flame' : 'neutral'}>
-            {engineLabel(installation.engineKind)}
-          </Badge>
+          <EngineBadge engineKind={installation.engineKind} />
           {installation.detectedVersion && (
             <Badge tone="neutral">{installation.detectedVersion}</Badge>
           )}

@@ -8,6 +8,7 @@ import { statusTone } from '../../lib/status'
 import { useActiveInstallation, useLauncher } from '../../store/useLauncher'
 import { Badge, StatusDot } from '../ui/primitives'
 import { Button } from '../ui/Button'
+import { EngineBadge } from '../ui/EngineBadge'
 import { ChecksList } from '../installations/ChecksList'
 
 /** Placeholder slots for the news carousel a future module will fill. */
@@ -60,9 +61,7 @@ export function HeroPanel() {
           {installation ? (
             <>
               <div className="flex flex-wrap items-center gap-2">
-                <Badge tone={installation.engineKind === 'r1q2' ? 'flame' : 'neutral'}>
-                  {engineLabel(installation.engineKind)}
-                </Badge>
+                <EngineBadge engineKind={installation.engineKind} />
                 {installation.detectedVersion && (
                   <Badge tone="neutral">{installation.detectedVersion}</Badge>
                 )}

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Play, Wrench, X } from 'lucide-react'
-import { engineLabel, type Installation, type Job, type LaunchState } from '@shared/types'
+import type { Installation, Job, LaunchState } from '@shared/types'
 import { cn } from '../../lib/cn'
 import {
   formatBytes,
@@ -13,6 +13,7 @@ import {
 import { isPlayable, statusTone } from '../../lib/status'
 import { useActiveInstallation, useActiveJob, useLauncher } from '../../store/useLauncher'
 import { IconButton, PlayButton } from '../ui/Button'
+import { EngineBadge } from '../ui/EngineBadge'
 import { ProgressBar } from '../ui/ProgressBar'
 import { Select } from '../ui/controls'
 import { StatusDot } from '../ui/primitives'
@@ -76,8 +77,15 @@ export function ActionBar() {
         </div>
 
         <div className="min-w-0 space-y-1">
-          <div className="truncate font-display text-sm tracking-[0.08em] text-ink uppercase">
-            {installation?.name ?? t('actionbar.noInstallation')}
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="truncate font-display text-sm tracking-[0.08em] text-ink uppercase">
+              {installation?.name ?? t('actionbar.noInstallation')}
+            </div>
+            {installation && (
+              <span className="shrink-0">
+                <EngineBadge engineKind={installation.engineKind} />
+              </span>
+            )}
           </div>
 
           {installation ? (
@@ -87,8 +95,6 @@ export function ActionBar() {
                 <span className={statusTone(installation.status).text}>
                   {t(statusTone(installation.status).labelKey)}
                 </span>
-                <span className="text-ink-faint">/</span>
-                <span>{engineLabel(installation.engineKind)}</span>
                 <span className="text-ink-faint">/</span>
                 <span className="numeric truncate" title={installation.rootPath}>
                   {shortenPath(installation.rootPath, 34)}

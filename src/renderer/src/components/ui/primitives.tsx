@@ -57,13 +57,16 @@ export function Badge({
   tone = 'neutral',
   className,
   children,
+  testId,
 }: {
   tone?: BadgeTone
   className?: string
   children: ReactNode
+  testId?: string
 }) {
   return (
     <span
+      data-testid={testId}
       className={cn(
         'inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5',
         'font-display text-[10px] font-medium tracking-[0.12em] uppercase',

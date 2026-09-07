@@ -13,7 +13,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import type { LibraryStats } from '@shared/modules/library'
-import { engineLabel, type Installation } from '@shared/types'
+import type { Installation } from '@shared/types'
 import { cn } from '../lib/cn'
 import { invoke } from '../lib/bridge'
 import { formatDuration, formatRelativeTime, tileCode } from '../lib/format'
@@ -21,6 +21,7 @@ import { isPlayable, statusTone } from '../lib/status'
 import { useLauncher } from '../store/useLauncher'
 import { getLibraryStats } from '../modules/library/client'
 import { Button, IconButton } from '../components/ui/Button'
+import { EngineBadge } from '../components/ui/EngineBadge'
 import { Badge, EmptyState, Panel, SectionLabel, StatusDot } from '../components/ui/primitives'
 import { ChecksList } from '../components/installations/ChecksList'
 
@@ -230,6 +231,7 @@ function InstallationRow({ installation }: { installation: Installation }) {
             <h2 className="truncate font-display text-sm tracking-[0.08em] text-ink uppercase">
               {installation.name}
             </h2>
+            <EngineBadge engineKind={installation.engineKind} />
             {active && <Badge tone="flame">{t('rail.activeMarker')}</Badge>}
             {installation.favorite && (
               <Star className="size-3 text-flame-500" fill="currentColor" />
@@ -241,8 +243,6 @@ function InstallationRow({ installation }: { installation: Installation }) {
               <StatusDot className={tone.dot} />
               {t(tone.labelKey)}
             </span>
-            <span className="text-ink-faint">/</span>
-            <span>{engineLabel(installation.engineKind)}</span>
             <span className="text-ink-faint">/</span>
             <span>{t(`installation.source.${installation.source}`)}</span>
             {installation.gameDirs.length > 0 && (

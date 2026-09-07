@@ -72,13 +72,24 @@ function emptyStateDocument() {
 // --- installation.ts Installation shape ------------------------------------
 // Mirrors src/shared/types/installation.ts:68 (`Installation`).
 
-function makeInstallation({ id, name, rootPath, writeDirPath, favorite, sortOrder, gameDirs }) {
+function makeInstallation({
+  id,
+  name,
+  rootPath,
+  writeDirPath,
+  favorite,
+  sortOrder,
+  gameDirs,
+  engineKind,
+}) {
   return {
     id,
     name,
     rootPath,
     ...(writeDirPath ? { writeDirPath } : {}),
-    engineKind: 'r1q2',
+    // Story 065 D5: `engineKind` became a parameter (defaulting to the `r1q2` every caller
+    // relied on before) purely so `INSTALL_UNKNOWN_ENGINE_ID` below can be a non-r1q2 install.
+    engineKind: engineKind ?? 'r1q2',
     executablePath: undefined,
     launchArgs: [],
     activeGameDir: '',
@@ -100,6 +111,36 @@ function makeInstallation({ id, name, rootPath, writeDirPath, favorite, sortOrde
 
 const INSTALL_ONE_ID = 'fixture-install-favorite'
 const INSTALL_TWO_ID = 'fixture-install-writedir'
+
+/**
+ * Story 065 D5: a third populated installation whose only job is to make AC3 ("an `unknown`
+ * engine still gets a labelled badge") and AC4 ("a long name truncates, the badge stays
+ * visible") reachable in the real app at all - the two installs above are both `r1q2` with
+ * short names, and `CreateInstallationDialog` needs a native folder dialog the harness cannot
+ * drive, so there is no other way to get either case in front of a flow.
+ *
+ * Additive by design: every harness selector addresses an installation by its display label
+ * (`scripts/lib/screens.mjs`'s `selectOption({ label: 'Fixture WriteDir Install' })`), never by
+ * index or count, and this install is assigned to no config profile, so nothing that iterates
+ * a profile's assignments (Files rows, `engineScope`, `RawFileTab`'s per-installation section)
+ * gains a row either.
+ */
+const INSTALL_UNKNOWN_ENGINE_ID = 'fixture-install-unknown-long-name'
+
+/**
+ * 156 characters, exported so `scripts/flows/engine-badge-surfaces.mjs` selects on the exact
+ * same literal the fixture wrote rather than a copy that can drift.
+ *
+ * The length is not decorative and is not "100+ because the story said so": AC4 is only proven
+ * where the name element genuinely reports `scrollWidth > clientWidth`. The 320px assignments
+ * popover clips anything past roughly 40 characters, but `InstallationProfilesPanel`'s row in
+ * the config list is a `flex flex-wrap` box ~704px wide at the app's minimum window size, and a
+ * ~100-character name measured exactly 704px there - it fitted, the badge simply wrapped to a
+ * second line, and nothing truncated. This length clears that row's full width with margin, so
+ * the long name truncates (rather than the row growing) on every surface the flow visits.
+ */
+export const INSTALL_UNKNOWN_ENGINE_NAME =
+  'Fixture Unknown Engine Install With A Deliberately Very Long Display Name That Must Truncate Instead Of Pushing The Engine Badge Out Of Any Narrow Panel Row'
 
 /** Story 042 D6: the second gamedir under `INSTALL_TWO_ID` that holds the own-file (launcher
  * "restore") fixture config, distinct from `baseq2`'s foreign-config fixture above. */
@@ -126,6 +167,17 @@ function populatedInstallations() {
       // always sorts first (decision 12), so this is additive and does not change what
       // `config-import-preview`/`config-import-review` auto-select.
       gameDirs: ['baseq2', RESTORE_GAME_DIR],
+    }),
+    // Story 065 D5 - see `INSTALL_UNKNOWN_ENGINE_ID`/`INSTALL_UNKNOWN_ENGINE_NAME` above.
+    // `sortOrder: 2` puts it last in the rail/library order, so the two installs the existing
+    // screens and flows already reach stay exactly where they were.
+    makeInstallation({
+      id: INSTALL_UNKNOWN_ENGINE_ID,
+      name: INSTALL_UNKNOWN_ENGINE_NAME,
+      rootPath: join(gameRoot(), INSTALL_UNKNOWN_ENGINE_ID),
+      engineKind: 'unknown',
+      favorite: false,
+      sortOrder: 2,
     }),
   ]
 }
@@ -839,7 +891,7 @@ export function writePopulatedFixture() {
   writeJson(join(userDataDir, STATE_FILE), populatedStateDocument())
   writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
 
-  const installIds = [INSTALL_ONE_ID, INSTALL_TWO_ID]
+  const installIds = [INSTALL_ONE_ID, INSTALL_TWO_ID, INSTALL_UNKNOWN_ENGINE_ID]
   for (const id of installIds) {
     const baseq2Dir = join(gameRoot(), id, 'baseq2')
     rmDirBestEffort(join(gameRoot(), id))

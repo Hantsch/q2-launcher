@@ -35,3 +35,15 @@
 2026-09-07 14:55:39 S14 064 D2 done row reads as a diff, 5/5 + 566/566 tests, typecheck clean
 2026-09-07 14:55:45 S14 064 D3 started acceptance flow through real surface
 2026-09-07 15:14:46 S14 064 D3 done acceptance flow, ui:seed/ui:flow/ui:verify all green, 0 axe violations
+2026-09-07 15:20:08 S14 065 D1 started EngineBadge component + Badge.testId
+2026-09-07 15:21:34 S14 065 D1 done EngineBadge.tsx + Badge.testId + tests green
+2026-09-07 15:21:43 S14 065 D2 started migrate rail/hero/AddExistingDialog/DetectDialog to EngineBadge
+2026-09-07 15:23:26 S14 065 D2 done rail/hero/AddExistingDialog/DetectDialog migrated, no dupe tone expression left
+2026-09-07 15:23:31 S14 065 D3 started config lists get badge (InstallationProfilesPanel, ProfileAssignmentsPanel)
+2026-09-07 15:23:31 S14 065 D4 started library card + action bar promote meta text to badge
+2026-09-07 15:26:51 S14 065 D3 done InstallationProfilesPanel/ProfileAssignmentsPanel badges, InstallationProfilesPanel.test.ts 4/4 green
+2026-09-07 15:26:51 S14 065 D4 done LibraryView/ActionBar meta text promoted to badge, typecheck+full test suite green
+2026-09-07 15:27:01 S14 065 D5 started fixture third installation + engine-badge-surfaces flow (hard)
+2026-09-07 15:43:37 S14 065 D5 done fixture 3rd install + engine-badge-surfaces flow green, ui:verify 0 axe violations, full flow suite re-verified (hard tier)
+2026-09-07 15:48:31 S14 065 review done default-tier PASS, 1 stale-comment finding fixed
+2026-09-07 15:48:31 S14 065 story done status=done, moved to docs/requirements/done/

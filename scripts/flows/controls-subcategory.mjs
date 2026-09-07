@@ -22,7 +22,7 @@ export default async function controlsSubcategory({ page, shot, step }) {
   // No testid/role on the rail's category chips (plain `<button>`s, text is the category's own
   // display name) - same convention `scripts/lib/screens.mjs`'s `config-controls-message`/
   // `config-controls-drop-message` entries already use.
-  await page.getByRole('button', { name: 'Weapons' }).click()
+  await page.getByRole('button', { name: 'Weapons', exact: true }).click()
 
   step('create a new sub-category')
   await page.getByRole('button', { name: 'New sub-category' }).click()

@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import type { ConfigProfile } from '@shared/modules/config'
 import { Button } from '../../components/ui/Button'
 import { Checkbox } from '../../components/ui/controls'
+import { EngineBadge } from '../../components/ui/EngineBadge'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
 import { useLauncher } from '../../store/useLauncher'
 import { assignConfigProfile, setDefaultConfigProfile, unassignConfigProfile } from './client'
@@ -59,7 +60,14 @@ export function ProfileAssignmentsPanel({
                 <Checkbox
                   checked={assigned}
                   onChange={(next) => void toggle(installation.id, next)}
-                  label={<span className="truncate">{installation.name}</span>}
+                  label={
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="min-w-0 truncate">{installation.name}</span>
+                      <span className="shrink-0">
+                        <EngineBadge engineKind={installation.engineKind} />
+                      </span>
+                    </span>
+                  }
                   className="min-w-0"
                 />
 

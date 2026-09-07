@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { HardDrive, Search } from 'lucide-react'
-import { engineLabel, type DetectedInstallation, type DetectionProgress } from '@shared/types'
+import type { DetectedInstallation, DetectionProgress } from '@shared/types'
 import { cn } from '../../lib/cn'
 import { invoke, onEvent } from '../../lib/bridge'
 import { newId } from '../../lib/id'
@@ -10,6 +10,7 @@ import { useLauncher } from '../../store/useLauncher'
 import { Button } from '../ui/Button'
 import { Checkbox } from '../ui/controls'
 import { Badge, SectionLabel, Spinner } from '../ui/primitives'
+import { EngineBadge } from '../ui/EngineBadge'
 import { Modal } from '../ui/Modal'
 import { ProgressBar } from '../ui/ProgressBar'
 
@@ -226,9 +227,7 @@ export function DetectDialog({ autoStart = false }: { autoStart?: boolean }) {
                             <span className="truncate text-sm text-ink">
                               {candidate.suggestedName}
                             </span>
-                            <Badge tone={candidate.engineKind === 'r1q2' ? 'flame' : 'neutral'}>
-                              {engineLabel(candidate.engineKind)}
-                            </Badge>
+                            <EngineBadge engineKind={candidate.engineKind} />
                             <Badge tone="neutral">
                               {t(`installation.source.${candidate.source}`)}
                             </Badge>

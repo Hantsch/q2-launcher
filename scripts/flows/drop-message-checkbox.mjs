@@ -77,7 +77,7 @@ export default async function dropMessageCheckbox({ page, shot, step }) {
   await page.getByTestId('config-tab-controls').click({ timeout: TIMEOUT_MS })
 
   step('select drops category')
-  await page.getByRole('button', { name: 'Weapon dropping' }).click({ timeout: TIMEOUT_MS })
+  await page.getByRole('button', { name: 'Weapon dropping', exact: true }).click({ timeout: TIMEOUT_MS })
 
   const ammoToggle = page.getByTestId(`drop-ammo-${CATALOG_ID}`).getByRole('button')
   const messageToggle = page.getByTestId(`drop-message-${CATALOG_ID}`).getByRole('button')

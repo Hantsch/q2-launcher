@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ConfigProfile } from '@shared/modules/config'
+import { EngineBadge } from '../../components/ui/EngineBadge'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
 import { useLauncher } from '../../store/useLauncher'
 import { getSwitchBinds } from './client'
@@ -57,8 +58,11 @@ export function InstallationProfilesPanel({ profiles }: { profiles: ConfigProfil
                 key={installation.id}
                 className="flex flex-wrap items-center gap-2 rounded-sm border border-line px-2.5 py-2"
               >
-                <span className="min-w-0 shrink-0 truncate text-sm text-ink-dim">
+                <span className="min-w-0 truncate text-sm text-ink-dim">
                   {installation.name}
+                </span>
+                <span className="shrink-0">
+                  <EngineBadge engineKind={installation.engineKind} />
                 </span>
 
                 {assigned.length === 0 ? (

@@ -1,7 +1,7 @@
 ---
 id: 065
 title: Installation name carries an engine badge everywhere it is shown
-status: ready
+status: done
 created: 2026-09-07
 ---
 
@@ -32,16 +32,16 @@ repeated per call site.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Every surface that shows an installation name shows its engine as a badge next to
+- [x] **AC1** — Every surface that shows an installation name shows its engine as a badge next to
       that name: rail, hero, library cards, action bar, and the config module's installation lists
       (`InstallationProfilesPanel`, `ProfileAssignmentsPanel`).
-- [ ] **AC2** — The badge is one shared component; no call site repeats the tone-per-engine
+- [x] **AC2** — The badge is one shared component; no call site repeats the tone-per-engine
       expression.
-- [ ] **AC3** — An installation whose engine is `unknown` gets a badge too, labelled as unknown
+- [x] **AC3** — An installation whose engine is `unknown` gets a badge too, labelled as unknown
       rather than blank or omitted.
-- [ ] **AC4** — The badge does not squeeze the name out: with a long installation name in a narrow
+- [x] **AC4** — The badge does not squeeze the name out: with a long installation name in a narrow
       panel the name truncates and the badge stays visible.
-- [ ] **AC5** — No image assets; badge is CSS/inline SVG per the repo rule.
+- [x] **AC5** — No image assets; badge is CSS/inline SVG per the repo rule.
 
 ## Open Questions
 
@@ -113,7 +113,7 @@ i18n keys.
 
 ## Deliverables
 
-- **D1 — `EngineBadge` + `Badge.testId`.** New `src/renderer/src/components/ui/EngineBadge.tsx`;
+- [x] **D1 — `EngineBadge` + `Badge.testId`.** New `src/renderer/src/components/ui/EngineBadge.tsx`;
   `testId?: string` added to `Badge` in `src/renderer/src/components/ui/primitives.tsx` (mirror:
   `TitleBar.tsx`'s `testId` prop). Plus its test in
   `src/renderer/src/components/ui/EngineBadge.test.ts` (mirror:
@@ -122,13 +122,13 @@ i18n keys.
   *Accepted when:* the badge renders `R1Q2` with the flame tone classes for `r1q2`, the neutral
   tone for every other `EngineKind`, `Unknown engine` for `unknown`, and its subtree contains no
   `img` element.
-- **D2 — Existing badge call sites use it.** `src/renderer/src/components/shell/InstallationRail.tsx`,
+- [x] **D2 — Existing badge call sites use it.** `src/renderer/src/components/shell/InstallationRail.tsx`,
   `components/shell/HeroPanel.tsx`, `components/installations/AddExistingDialog.tsx`,
   `components/installations/DetectDialog.tsx`.
   *Accepted when:* no file in `src/renderer` still contains `engineKind === 'r1q2' ? 'flame'`, and
   the four surfaces render an identical badge to before (`npm run ui:shot` screenshots of `home`,
   `library`, `install-detect-dialog` unchanged in appearance).
-- **D3 — Config lists get the badge.** `src/renderer/src/modules/config/InstallationProfilesPanel.tsx`,
+- [x] **D3 — Config lists get the badge.** `src/renderer/src/modules/config/InstallationProfilesPanel.tsx`,
   `ProfileAssignmentsPanel.tsx`, plus their test in
   `src/renderer/src/modules/config/InstallationProfilesPanel.test.ts` (one file covering both
   panels; mirror: `DropToggles.test.ts`, with `useLauncher`'s `installations` seeded).
@@ -136,12 +136,12 @@ i18n keys.
   `unknown`-engine install shows a badge reading `Unknown engine`; with a 120-char name the name
   element carries `truncate` inside a `min-w-0` shrinking box and the badge node is still rendered
   as its sibling (jsdom does not lay out — the visual half of AC4 is D5's flow).
-- **D4 — Library card and action bar promote meta text to a badge.**
+- [x] **D4 — Library card and action bar promote meta text to a badge.**
   `src/renderer/src/views/LibraryView.tsx`, `src/renderer/src/components/shell/ActionBar.tsx`.
   *Accepted when:* both show the engine as a badge next to the name, the old plain-text engine span
   and its `/` separator are gone, and the surrounding meta row still reads without a dangling
   separator.
-- **D5 — Fixture install + acceptance flow.** `scripts/lib/fixture.mjs` (third populated
+- [x] **D5 — Fixture install + acceptance flow.** `scripts/lib/fixture.mjs` (third populated
   installation: new id constant, entry in `populatedInstallations()`, id added to the `installIds`
   mkdir loop; mirror: `INSTALL_CONTROLS_SEED_ID`), new
   `scripts/flows/engine-badge-surfaces.mjs` (mirror: `scripts/flows/care-duplicate-name.mjs`).
@@ -183,3 +183,67 @@ i18n keys.
   asset" (no `img` element, no inline `background-image`) — delivered by D1.
 
 ## Done
+
+A new `EngineBadge` component (`src/renderer/src/components/ui/EngineBadge.tsx`) holds the
+`r1q2`→flame / else→neutral tone expression and `engineLabel(kind)` text in one place, with
+`data-testid="engine-badge"` via a new `Badge.testId` prop (`primitives.tsx`). It replaced the
+inline tone expression at the four sites that already rendered a badge (`InstallationRail.tsx`,
+`HeroPanel.tsx`, `AddExistingDialog.tsx`, `DetectDialog.tsx`), was added to the two config-module
+lists (`InstallationProfilesPanel.tsx`, `ProfileAssignmentsPanel.tsx`, badge `shrink-0`, name
+`min-w-0 truncate` without `shrink-0`), and replaced the plain-text engine meta line (with its `/`
+separator) on `LibraryView.tsx` and `ActionBar.tsx` with a badge next to the name. The UI fixture
+(`scripts/lib/fixture.mjs`) gained a third populated installation (`engineKind: 'unknown'`, a
+156-character name) and a new acceptance flow `scripts/flows/engine-badge-surfaces.mjs` walks all
+six surfaces asserting a visible, non-zero-box badge everywhere, the "Unknown engine" label, and
+that the long name clips (`scrollWidth > clientWidth`) while the badge stays inside its panel.
+
+### Decisions
+- The 102-character name originally chosen for the fixture install did not actually clip inside
+  `InstallationProfilesPanel`'s `flex flex-wrap` row at the flow's 940px viewport (the badge just
+  wrapped to a second line, `scrollWidth === clientWidth`). Genuinely fixed by lengthening the
+  fixture name to 156 characters, which clips in both config panels, rather than weakening the
+  flow's assertion.
+- The rail hover card was intermittently flaky in the flow (`HoverCard` opens on `pointerenter`,
+  which Playwright's `hover()` does not fire when the pointer is already parked over the target
+  from a previous step). Fixed in the flow itself by parking the pointer at `(0,0)` and waiting for
+  the previous hover card to detach before each new hover, not by loosening the assertion.
+- Confirmed no existing `scripts/lib/screens.mjs`/`scripts/flows/*` assertion depended on an exact
+  installation count (all selectors are label-based, per the story's own note) — no code changes
+  were needed there. The new flow itself adds count assertions (3 rail tiles, 3 rows per config
+  panel) as a regression guard against a future silent fixture drop.
+
+### Verification
+- `npm run build` — pass.
+- `npm run typecheck` — pass (both `tsconfig.node.json` and `tsconfig.web.json`).
+- `npm test` — 2632/2633 pass; the one failure (`import-reader.test.ts` › "refuses further exec
+  once 512 files…") is a pre-existing 5s-timeout flake under full-suite parallel load, confirmed to
+  pass standalone (32/32) both before and independent of this story's changes — not caused by this
+  diff (no file this story touches is anywhere near that module).
+- `npm run ui:verify` — pass, 34/34 screens, 68 shots, 0 axe violations, with the fixture's third
+  installation present.
+- `npm run ui:flow engine-badge-surfaces` — pass (5 consecutive runs, after the hover-flake fix
+  above).
+- Full re-run of every other `scripts/flows/*.mjs` script (16 total): 12 pass; 4 fail
+  (`controls-drag-reorder`, `controls-subcategory`, `drop-message-checkbox`,
+  `custom-action-row`) — proven pre-existing by reverting `scripts/lib/fixture.mjs` to `HEAD` (back
+  to two installations) and re-running all four: identical failures. They stem from the
+  uncommitted, in-tree story-062 category-menu ARIA label (`Actions for "Weapons"` colliding with a
+  `getByRole('button', {name:'Weapons'})` selector) and an icon-button count assumption, both
+  unrelated to 065 and out of this story's scope to fix.
+- Clean-agent code review (default tier): **PASS**. One finding — a stale "102-character" comment
+  in `scripts/flows/engine-badge-surfaces.mjs` left over from the pre-fix fixture name — fixed
+  directly (now reads 156).
+
+### AC → test mapping, as verified
+- AC1 → `scripts/flows/engine-badge-surfaces.mjs`, pass — badge visible on rail/hero/action
+  bar/library card/`InstallationProfilesPanel`/`ProfileAssignmentsPanel`.
+- AC2 → `EngineBadge.test.ts` (tone-per-kind table, 4/4 pass) + repo-wide grep confirms
+  `engineKind === 'r1q2' ? 'flame'` exists nowhere in `src/renderer` outside `EngineBadge.tsx`.
+- AC3 → `EngineBadge.test.ts` ("unknown engine still gets a labelled badge") +
+  `InstallationProfilesPanel.test.ts` + the flow's "Unknown engine" assertions — all pass.
+- AC4 → the flow's `scrollWidth > clientWidth` + badge-boundingBox-inside-panel assertions (pass)
+  + `InstallationProfilesPanel.test.ts`'s DOM-structure assertion (name `truncate`/`min-w-0` without
+  `shrink-0`, badge sibling present) — pass.
+- AC5 → `EngineBadge.test.ts` (no `img`, no inline `background-image`) — pass.
+
+No manual residue; every criterion has an automated test.

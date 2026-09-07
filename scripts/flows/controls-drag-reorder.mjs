@@ -159,7 +159,7 @@ export default async function controlsDragReorder({ page, shot, step }) {
   await shot('dropped-onto-category-chip-source')
 
   step('switch to Weapons and assert "Attack" landed at the end, appended')
-  await page.getByRole('button', { name: 'Weapons' }).click({ timeout: CLICK_TIMEOUT_MS })
+  await page.getByRole('button', { name: 'Weapons', exact: true }).click({ timeout: CLICK_TIMEOUT_MS })
   const movedRow = page.locator('[role="rowgroup"][data-row-id="fixture-action-attack"]')
   await movedRow.waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
   const weaponsOrder = await rowOrder(page)
