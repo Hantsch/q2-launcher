@@ -2032,6 +2032,208 @@ export const bodyProseWithIdProfile: ConfigProfile = buildFixtureProfile({
 })
 
 // ---------------------------------------------------------------------------
+// Story 063 D3: the adversarial round-trip pass over D1 (the writer's unbound
+// line no longer excludes a bodied entry that also has an alias line) and D2
+// (the reader merges that pair into one `kind: 'bind'`/`'message'` entry
+// instead of misreading it as `kind: 'alias'`). See the story's own D2
+// `round-trip.test.ts` block (`story 063 D2: a keyless entry with a body keeps
+// its empty bind slot`) for the headline repro this pass generalises from.
+// ---------------------------------------------------------------------------
+
+/**
+ * Six keyless-or-referenced entries in one category, chosen to stress the edges D1/D2 touch at
+ * once - each is a different reason an entry can end up with *both* an alias line and an unbound
+ * line, or with neither, right next to entries that legitimately have only one:
+ *
+ * - `Grenade multi-throw` - a keyless entry with a **multi-command** body (two `use`-style
+ *   commands, the grenade-row shape itself). `unboundCommand` falls through to `bindValueFor`,
+ *   which for a non-continuous body *is* the alias name - so the unbound line's `//bind` body names
+ *   the alias line beside it rather than repeating a bare command, and the reader has to fold that
+ *   pair into one entry's `commands`, not one segment per line.
+ * - `Explicit alias pin` - the same shape, but with an **explicit `aliasName`** set before the very
+ *   first render. This is `unboundLine`'s own guard (story 063 D3, the writer's second gap): before
+ *   that fix, a bodied keyless entry reaching this shape *without* an explicit name got one pinned
+ *   onto it by the very first restore (`profile-restore.ts` pins the name it read off the alias
+ *   line), and the tag `unboundLine` wrote for it differed between the first and second render - a
+ *   fixed-point failure baked into the fixture's very first render, not something a second-iteration
+ *   check could even see coming. Here the name is explicit from the start and already matches what
+ *   the alias line spells as code, so the guard's "already spelled out as code, omit `an`" branch is
+ *   the one this entry exercises.
+ * - `Relay macro` - keyless, catalogue-backed, a **multi-command** body (so `bindValueFor` already
+ *   equals its alias name, same as `Grenade multi-throw` - `alias-references.ts#actionsWithAliasLine`'s
+ *   second guard keeps its alias line on its own merits) and, on top of that, called by name from
+ *   `Relay caller`'s own body right after it. This is the "referenced by another entry's body" case
+ *   story 063 D3 asks for: the reference and the referenced entry both have to survive the round
+ *   trip intact, side by side with a caller whose own body is exactly the text that names it.
+ * - `Relay caller` - the entry that calls `Relay macro`'s alias name in its own body; both have to
+ *   come back whole, and `Relay caller`'s own command list has to keep naming it by that exact text.
+ * - `Lone continuous relay` - keyless, catalogue-backed, a single **continuous** command
+ *   (`action-mirror.ts#bindValueFor`'s direct-mirror rule fires: `catalogId` set, one raw command
+ *   starting with `+`) with an explicit `aliasName` - and, deliberately, unreferenced by anything,
+ *   so nothing in `actionsWithAliasLine`'s three guards keeps an alias line for it at all. Its
+ *   `aliasName` is therefore the *only* place that name is ever spelled, which is exactly the case
+ *   `unboundLine`'s gap-B fix must not regress: `an` still has to be written for this one even while
+ *   it is correctly omitted for the two multi-command entries above.
+ * - `Deliberate macro` - a genuine `kind: 'alias'` entry: never bound, no unbound line by design
+ *   (story 019, restated by `isUnboundEntry`'s own kind guard), sitting right beside entries that
+ *   all *do* get one now. If D1/D2's new signal ever leaked onto a `kind: 'alias'` entry, this is
+ *   the neighbour that would catch it turning bindable on the next read.
+ * - `Continuous relay` + `Continuous relay caller` (story 063 D3 review) - the shape D3's Plan item 3
+ *   actually asks for and the two entries above only approximate: keyless, catalogue-backed, a
+ *   **single continuous** command *and* referenced by another body. That combination is the one place
+ *   where the file's two statements of the join are two different strings - `bindValueFor`'s fast
+ *   path mirrors the entry onto `+contrelay` (so the unbound line reads `//bind "+contrelay"`, with
+ *   no `an`, since an alias line spells the name as code), while the alias line that survives only
+ *   because `Continuous relay caller`'s body calls it is defined under `cont_relay`. `Relay macro`
+ *   above is deliberately multi-command, which puts it back on the name-matching path, so it cannot
+ *   catch this: before the fix this pair split into **two** `ConfigAction`s sharing one `catalogId`
+ *   (an inert `kind: 'alias'` row plus a keyless `kind: 'bind'` one) while the byte-level fixed point
+ *   still held - the exact reason the object-level assertions in `round-trip.test.ts` exist.
+ */
+export const keylessBodiedAdversarialProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Keyless bodied entries (story 063 D3)',
+  categories: [{ id: 'weapons', name: 'Weapons' }],
+  actions: [
+    action({
+      id: 'multi-cmd',
+      name: 'Grenade multi-throw',
+      kind: 'bind',
+      commands: [
+        { kind: 'raw', text: 'use grenades' },
+        { kind: 'raw', text: 'use grenade launcher' },
+      ],
+      categoryId: 'weapons',
+    }),
+    action({
+      id: 'explicit-alias',
+      name: 'Explicit alias pin',
+      kind: 'bind',
+      aliasName: 'pinned_alias_063',
+      commands: [
+        { kind: 'raw', text: 'use grenades' },
+        { kind: 'raw', text: '+attack' },
+      ],
+      categoryId: 'weapons',
+    }),
+    action({
+      id: 'ref-target',
+      name: 'Relay macro',
+      kind: 'bind',
+      catalogId: 'weapons:relay-macro',
+      aliasName: 'relay_macro',
+      commands: [
+        { kind: 'raw', text: 'use blaster' },
+        { kind: 'raw', text: 'zoom_in' },
+      ],
+      categoryId: 'weapons',
+    }),
+    action({
+      id: 'ref-caller',
+      name: 'Relay caller',
+      kind: 'bind',
+      commands: [
+        { kind: 'raw', text: 'relay_macro' },
+        { kind: 'raw', text: 'say relaying' },
+      ],
+      keys: [{ key: 'c' }],
+      categoryId: 'weapons',
+    }),
+    action({
+      id: 'lone-relay',
+      name: 'Lone continuous relay',
+      kind: 'bind',
+      catalogId: 'weapons:lone-relay',
+      aliasName: 'lone_relay',
+      commands: [{ kind: 'raw', text: '+lonerelay' }],
+      categoryId: 'weapons',
+    }),
+    action({
+      id: 'deliberate-alias',
+      name: 'Deliberate macro',
+      kind: 'alias',
+      commands: [
+        { kind: 'raw', text: 'use blaster' },
+        { kind: 'raw', text: 'say switching' },
+      ],
+      categoryId: 'weapons',
+    }),
+    action({
+      id: 'cont-relay',
+      name: 'Continuous relay',
+      kind: 'bind',
+      catalogId: 'weapons:cont-relay',
+      aliasName: 'cont_relay',
+      commands: [{ kind: 'raw', text: '+contrelay' }],
+      categoryId: 'weapons',
+    }),
+    action({
+      id: 'cont-relay-caller',
+      name: 'Continuous relay caller',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'cont_relay' }],
+      keys: [{ key: 'v' }],
+      categoryId: 'weapons',
+    }),
+  ],
+})
+
+/**
+ * Story 063 AC4's own repro shape: both grenade `use` rows (`Hand grenades`, `Grenade Launcher` -
+ * the only weapon-select command with two words after the verb) and both `drop grenades` rows
+ * (`Drop hand grenades`, `Drop grenade ammo`) in one profile, all four keyless.
+ *
+ * The two drop rows render the **identical** command text `drop grenades`
+ * (`catalog-binds.ts`/`catalog-rows.ts`'s own documented collision), which is exactly the shape the
+ * story's Requirement section flags as a plausible root cause: "a lookup that still keys on command
+ * text somewhere could tie the two grenade rows together". All four are keyless here, so all four
+ * ride an unbound line rather than a real `bind` line - `groupEntryLines` keys an unbound line's
+ * group on its own file position (`unbound:<file>:<line>`), never on the value it carries, and each
+ * carries its own distinct `cid=` tag - so this fixture is what fails first if identity ever drifted
+ * back onto rendered command text instead of the catalogue id.
+ */
+export const grenadeAndDropRowsProfile: ConfigProfile = buildFixtureProfile({
+  name: 'Grenade use rows and drop grenades rows (story 063 AC4)',
+  categories: [
+    { id: 'weapons', name: 'Weapons' },
+    { id: 'drops', name: 'Weapon dropping' },
+  ],
+  actions: [
+    action({
+      id: 'use-grenades',
+      name: 'Hand grenades',
+      kind: 'bind',
+      catalogId: 'weaponUse:use_grenades',
+      commands: [{ kind: 'raw', text: 'use grenades' }],
+      categoryId: 'weapons',
+    }),
+    action({
+      id: 'use-glauncher',
+      name: 'Grenade Launcher',
+      kind: 'bind',
+      catalogId: 'weaponUse:use_glauncher',
+      commands: [{ kind: 'raw', text: 'use grenade launcher' }],
+      categoryId: 'weapons',
+    }),
+    action({
+      id: 'drop-weapon-grenades',
+      name: 'Drop hand grenades',
+      kind: 'bind',
+      catalogId: 'dropWeapon:grenades',
+      commands: [{ kind: 'raw', text: 'drop grenades' }],
+      categoryId: 'drops',
+    }),
+    action({
+      id: 'drop-ammo-hgrenades',
+      name: 'Drop grenade ammo',
+      kind: 'bind',
+      catalogId: 'dropAmmo:hgrenades',
+      commands: [{ kind: 'raw', text: 'drop grenades' }],
+      categoryId: 'drops',
+    }),
+  ],
+})
+
+// ---------------------------------------------------------------------------
 // Story 059 D4: the adversarial pass over the cvar-section writer (D2) and
 // reader (D3).
 //
@@ -2419,4 +2621,7 @@ export const ROUND_TRIP_FIXTURES: ConfigProfile[] = [
   blankProfileNameProfile,
   forgedTagProfileNameProfile,
   bodyProseWithIdProfile,
+  // Story 063 D3: the adversarial pass over D1's unbound-line change and D2's reader merge.
+  keylessBodiedAdversarialProfile,
+  grenadeAndDropRowsProfile,
 ]

@@ -300,19 +300,35 @@ fact.
 ## Unbound lines
 
 Story 052 D2 gives the `Entries: <category>` section a second shape, a sibling of the anchor line
-rather than a section of its own: an **unbound line**, for the one entry shape neither a real config
-line nor an anchor line ever covers — a plain `bind`/`message` entry with no key slot at all (so no
-`bind` line, and no modifier layer to anchor it into) and no alias line either (a catalogue's own
-continuous row that nothing calls by name, or an entry seeded with no commands at all — see
-`STANDARD_TEMPLATE`, story 052 D1's "every catalogue row becomes an action, unbound"). Before this
-deliverable such an entry left nothing in the file at all (see "An entry with no line at all" above);
-an unbound line is what a re-import needs so the entry's identity and, load-bearingly, its *command*
-are not lost.
+rather than a section of its own: an **unbound line**, for a plain `bind`/`message` entry with no key
+slot at all — no `bind` line of its own, and no modifier layer to anchor it into
+(`render.ts#isUnboundEntry`). A commandless entry with no key gets nothing else in the file at all
+(see "An entry with no line at all" above), so for it the unbound line is the file's only trace (a
+catalogue's own continuous row that nothing calls by name, or an entry seeded with no commands at
+all — see `STANDARD_TEMPLATE`, story 052 D1's "every catalogue row becomes an action, unbound"); an
+unbound line is what a re-import needs so the entry's identity and, load-bearingly, its *command* are
+not lost.
+
+Story 063 D1: a keyless `bind`/`message` entry that *does* have a body — and therefore an alias
+line — gets the unbound line too, alongside that alias line rather than instead of it. The alias line
+records the entry's commands; only the unbound line records that its key slot is empty. Before this
+deliverable the two were treated as alternatives (an alias line was itself taken as "this entry left
+a trace"), which silently lost the "no key" fact for exactly this shape — the next read
+(`profile-restore.ts#inferKind`) then had no signal left to tell the entry apart from a plain
+`kind: 'alias'` row, and permanently disabled its bind slot in the UI.
 
 ```
 // --- Entries: Movement [q2l cat=movement] -----------------------------------
 //bind "+moveleft"   // Strafe left [q2l cid=movement:moveleft]
 //bind ""            // Crouch [q2l cid=movement:crouch]
+```
+
+```
+// --- Weapons [q2l cat=weapons] -------------------------------------------
+alias q2l_a_throw_grenade "use grenades; +attack"   // Throw grenade [q2l cid=weapons:grenade-throw]
+
+// --- Entries: Weapons [q2l cat=weapons] --------------------------------------
+//bind "q2l_a_throw_grenade"   // Throw grenade [q2l cid=weapons:grenade-throw]
 ```
 
 The grammar is a whole config line commented out, `//bind "<cmd>"`, with the same trailing
@@ -353,21 +369,29 @@ string, which is why `//bind ""` round-trips as "genuinely no command" rather th
 garbage.
 
 **Tag fields, and which ones an unbound line never carries.** Same as an anchor-only entry: `cid`
-when catalogue-backed, and `an` (the entry's own `aliasName`) — present exactly when the entry has
-one, since an unbound entry by definition has no alias line of its own to spell it out as code, but
-an entry seeded with no name of its own gets no `an` either; forcing one on would fabricate a name
-the file never really carried. Never `key`/`mod`: an unbound entry
+when catalogue-backed, and `an` (the entry's own `aliasName`) — but only where no alias line already
+spells that name out as code; when one does, the unbound line omits `an` (`render.ts#unboundLine`),
+so the name lives in exactly one place instead of becoming a second, driftable copy (story 063 D1:
+before it, an unbound entry could not also have an alias line, so this case did not exist). Never
+`key`/`mod`: an unbound entry
 has no key slot at all, modified or otherwise — if it did, it would be an anchor (or a real bind),
 not this shape. `render.ts#isUnboundEntry` is the one predicate that decides which shape an entry
-gets; the two are mutually exclusive by construction (an anchored entry's command already lives in
-its modifier layer's alias, so it never also qualifies as unbound).
+gets; unbound and anchor are mutually exclusive by construction (an anchored entry's command already
+lives in its modifier layer's alias, so it never also qualifies as unbound) — but unbound and
+"has an alias line" are not: a keyless `bind`/`message` entry with a body can now be both.
 
-**Only a `bind`/`message` entry can be unbound.** A `kind: 'alias'`, `'toggle'` or `'press-release'`
-entry always renders at least one alias line of its own (story 045 D3's "always kept" guard in
-`actionsWithAliasLine`), so giving one of those an unbound line too would record the same fact twice
-— "one fact, one place" holds here exactly as it does for the anchor/bind-line split above. A bound
-entry (a real key, a real bind or alias line) is likewise never given a second, unbound trace next to
-it.
+**Only a `bind`/`message` entry can be unbound — and it stays keyless whether or not it also has an
+alias line.** A `kind: 'alias'`, `'toggle'` or `'press-release'` entry always renders at least one
+alias line of its own (story 045 D3's "always kept" guard in `actionsWithAliasLine`), and none of
+those three kinds has a key slot of its own at all, so giving one of them an unbound line too would
+record the same fact twice — "one fact, one place" holds here exactly as it does for the
+anchor/bind-line split above. A `bind`/`message` entry is different: its alias line, when it has one,
+records its *commands*, not whether its key slot is filled, so the two are independent — the entry
+gets the unbound line whenever it has no owned bind line and no anchor, regardless of whether it also
+has an alias line (story 063 D1; before it, having an alias line wrongly suppressed the unbound line
+for this shape, which is what let a keyless bind/message entry with a body be misread as
+`kind: 'alias'` on the next file→state read). A bound entry (a real key, a real bind line) is still
+never given a second, unbound trace next to it.
 
 ## Entry identity and grouping on read
 
@@ -387,9 +411,14 @@ into entries purely from what the config text itself says:
   second consulted only when the first had nothing to say — by `cid` when the anchor carries one,
   else by **exact** display prose. Each step demands exactly one candidate; two candidates is
   ambiguity and the file has stopped being able to say which.
-- **An unbound line**, by its own position (`unbound:<file>:<line>`) and nothing else: it is one
-  entry per line, by construction (see "Unbound lines" above for why matching it onto anything would
-  only ever fold two rows into one).
+- **An unbound line**, by the alias-line group it names: the same rule an anchor uses, `an` when the
+  line carries one else the bare command text, matched against a group only when that group has an
+  alias line, claims no key, has no unbound line yet and agrees on `cid` — a keyless bodied
+  `bind`/`message` entry has both lines since story 063 D1, and they join into the one entry the
+  writer meant (`profile-restore.ts#matchUnbound`/`joinableUnboundGroup`). Failing that match, the
+  line falls back to its own position (`unbound:<file>:<line>`) and becomes an entry of its own — the
+  pre-D2 behaviour, still what happens for a genuinely unmatched line (see "Unbound lines" above for
+  why a *wrong* match would only ever fold two rows into one).
 
   The prose match is exact and nothing wider. An earlier version had a third step that accepted a
   *prefix* relationship in either direction, for a long display name `fitProseAndTag` might cut to

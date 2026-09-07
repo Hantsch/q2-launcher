@@ -172,6 +172,33 @@ describe('render: the unbound line (story 052 D2)', () => {
     expect(rendered).toContain('an=+hop')
   })
 
+  it('story 063 D1: a keyless bind/message entry with a body gets BOTH its alias line and the unbound line', () => {
+    // A "grenade row" shape: no key, a multi-command body that earns a real alias line
+    // (`bindValueFor` falls through to `aliasNameFor` for it, since it is not a single continuous
+    // `+`/`-` catalogue command). Before story 063 D1, having that alias line suppressed the
+    // unbound line entirely, so the file lost the "this is a keyless bind entry" fact and the next
+    // read misread it as `kind: 'alias'`.
+    const action: ConfigAction = {
+      id: 'a7',
+      categoryId: 'weapons',
+      name: 'Throw grenade',
+      kind: 'bind',
+      catalogId: 'weapons:grenade-throw',
+      commands: [{ kind: 'raw', text: 'use grenades' }, { kind: 'raw', text: '+attack' }],
+    }
+    const profile = baseProfile('fixture-grenade-row', { actions: [action] })
+
+    const rendered = renderProfileFile(profile)
+    const name = aliasNameFor(action)
+
+    // The alias line still renders, unchanged.
+    expect(rendered).toContain(`alias ${name} "use grenades; +attack"`)
+    // ...and now also the unbound line, carrying the alias name as its body (`bindValueFor`'s value
+    // for a bodied, non-continuous entry), tagged with the same catalogue id.
+    expect(rendered).toContain(`//bind "${name}"`)
+    expect(rendered).toContain('[q2l cid=weapons:grenade-throw]')
+  })
+
   it('an alias/toggle/press-release entry never gets a second, unbound trace even when unreferenced', () => {
     const aliasAction: ConfigAction = {
       id: 'a5',

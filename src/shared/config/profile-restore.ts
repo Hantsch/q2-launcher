@@ -50,9 +50,16 @@
  *   when it carries one, else by its display prose - *exactly*, and by nothing wider: a prose
  *   prefix relation would merge two sibling entries whose names happen to nest (`Reload` inside
  *   `Reload weapon`), which costs one of them its keys and its commands outright;
- * - an **unbound line** (story 052 D3, see below) is one entry per line and pairs with nothing: the
- *   writer emits one only for an entry that has no other line at all, so there is nothing for it to
- *   pair with, and pairing could only ever fold two rows into one.
+ * - an **unbound line** (story 052 D3, see below) pairs with the alias line of the same entry, by
+ *   name - its `an` field, else its commented-out bind's own value, which is the same
+ *   `aliasNameFor` and therefore the alias group's own key (story 063 D2: since D1 a keyless bodied
+ *   `bind`/`message` entry has both lines, and they are one entry) - or, for the one shape whose
+ *   mirror does not go through its alias at all (a catalogue-backed entry with a single continuous
+ *   command, whose alias line exists only because another body calls it by name), by that mirror
+ *   *value* against the alias line's own rendered body, `catalogueMirrorCandidate`. Anything that
+ *   join cannot vouch for is one entry per line, as every unbound line was before D2: the writer
+ *   emits one only for an entry with no key, and a pairing it cannot vouch for could only ever fold
+ *   two rows into one.
  *
  * Tag *presence* is what tells a launcher-owned code line from a raw bind the user typed and
  * commented themselves, so `render.ts` gives every entry line at least the bare `[q2l]` marker and
@@ -2114,13 +2121,24 @@ interface EntryGroup {
   binds: TaggedLine<RestoreBindLine>[]
   anchors: TaggedLine<RestoreCommentLine>[]
   /**
-   * The group's unbound line(s) - at most one in a launcher-written file, and never together with
-   * any of the three above: an unbound line is written *because* the entry has no other line, so
-   * `groupEntryLines` gives every one of them a group of its own (`unbound:<file>:<line>`) rather
-   * than matching it onto an existing entry the way an anchor is matched. Two rows the file
-   * legitimately spells the same way - two commandless seeded rows in one category, whose bodies are
-   * both `""` - must not collapse into one, and a merge here is exactly the "one row loses its name,
-   * its commands and its keys" failure `matchAnchor`'s own doc comment refuses to risk.
+   * The group's unbound line(s) - at most one in a launcher-written file.
+   *
+   * Never together with a `bind` or an anchor line: those two *are* key claims, and the writer emits
+   * this line precisely because the entry has none (`render.ts#isUnboundEntry`).
+   *
+   * **With an alias line, though, it now can be** (story 063, D1/D2): a keyless `bind`/`message`
+   * entry with a body has both, the alias line for what it runs and the unbound line for its empty
+   * key slot. `groupEntryLines#matchUnbound` is what joins those two into this one group - by the
+   * `an` field (else the commented-out bind's own value, which is the same `aliasNameFor` either
+   * way), onto an alias-line group of the same category that claims no key and whose `cid` agrees.
+   * Without that join the two lines became two entries: one alias row and one keyless bind row, both
+   * carrying the same name and body.
+   *
+   * Everything the join cannot vouch for keeps a group of its own (`unbound:<file>:<line>`) instead,
+   * which is also every unbound line's shape before D1. Two rows the file legitimately spells the
+   * same way - two commandless seeded rows in one category, whose bodies are both `""` - must not
+   * collapse into one, and a merge there is exactly the "one row loses its name, its commands and
+   * its keys" failure `matchAnchor`'s own doc comment refuses to risk.
    */
   unbounds: UnboundEntryLine[]
 }
@@ -2233,22 +2251,54 @@ function commandsFromSegments(segments: readonly string[]): ConfigCommand[] {
  * (the field restated something the lines already say, and a second source could only ever drift
  * from them).
  *
- * A single `say`/`say_team` body is a message (`entryKindFor`, story 041 - the same table the
- * untagged path uses). Otherwise: an entry some line claims a key for, or one with no alias line to
- * be defined by, is a `bind`; an alias line nothing claims a key for is a `kind: 'alias'` entry,
- * which is exactly story 019's definition of one (never bound).
+ * The `kind: 'alias'` test comes first and is the only way to reach that kind: an entry that has an
+ * alias line, that no line claims a key for **and** that carries no unbound line is story 019's
+ * definition of one (never bound). Everything else is a keyed kind, and a single `say`/`say_team`
+ * body makes that one a message (`entryKindFor`, story 041 - the same table the untagged path uses)
+ * rather than a `bind`.
  *
  * `bound` counts *every* slot claim, anchors included, not just bind lines: an entry bound only
  * through a modifier layer has its key on an anchor line and no bind line at all
  * (`render.ts#buildAnchorLines`), and it is still a bound entry.
+ *
+ * ## `hasUnboundLine`, and why it has to outrank the alias line (story 063, D2)
+ *
+ * An alias line records what an entry *runs*, never whether its key slot is filled, so on its own it
+ * cannot tell "a `kind: 'alias'` entry, deliberately never bound" apart from "a `bind`/`message`
+ * entry whose one key slot happens to be empty" - a grenade row, seeded with a body and no key. Both
+ * shapes reached this function as `hasAliasLine && !bound`, both came back `kind: 'alias'`, and the
+ * second one lost its bind slot permanently: the Controls tab has no key cell for an alias entry, so
+ * the row could never be bound again.
+ *
+ * Story 063 D1 gave the file the missing fact - `render.ts#isUnboundEntry` now writes the
+ * commented-out `//bind "<cmd>"` for a keyless `bind`/`message` entry *even when it also has an
+ * alias line* - and this is the reader that has to believe it. A group with an unbound line is a
+ * keyed kind with an empty slot; an alias line with no unbound line beside it is the deliberate
+ * alias entry. That is a real distinction the writer makes, which is why the unbound line outranks
+ * both the alias line and the message table here.
+ *
+ * Two consequences worth naming:
+ *
+ * - A `kind: 'alias'` entry whose body is a single `say` (`alias gg "say gg"`, never bound) now
+ *   stays an alias entry instead of being promoted to `kind: 'message'` on every read. Before D1
+ *   that promotion was invisible - a message entry with no key rendered the same bytes an alias
+ *   entry did - but D1 made the two shapes differ in the file, so a reader that still promoted it
+ *   grew an unbound line the original never had and story 042's fixed point was gone
+ *   (`orphanedCategoryProfiles`, whose own note called the promotion "correct and intended" back
+ *   when the file genuinely could not say otherwise). A keyless `kind: 'message'` entry keeps
+ *   coming back as one, off its own unbound line.
+ * - A file written *before* D1 has no unbound line for a keyless bodied `bind` entry, so it still
+ *   reads back as `kind: 'alias'`. Nothing here can recover a fact the file never recorded; the
+ *   first save after D1 writes it, and every read after that is right.
  */
 function inferKind(
   commands: readonly ConfigCommand[],
   hasAliasLine: boolean,
   bound: boolean,
+  hasUnboundLine: boolean,
 ): ActionEntryKind {
-  if (entryKindFor(commands) === 'message') return 'message'
-  return bound || !hasAliasLine ? 'bind' : 'alias'
+  if (hasAliasLine && !bound && !hasUnboundLine) return 'alias'
+  return entryKindFor(commands) === 'message' ? 'message' : 'bind'
 }
 
 /** One line's claim on a key slot: a bind line (whose key is the config text's own) or an anchor
@@ -2350,7 +2400,12 @@ function buildEntry(
     group.binds[0]?.fields ??
     group.anchors[0]?.fields ??
     group.unbounds[0]!.fields
-  const kind = inferKind(commands, fromAliases !== null, slots.length > 0)
+  const kind = inferKind(
+    commands,
+    fromAliases !== null,
+    slots.length > 0,
+    group.unbounds.length > 0,
+  )
 
   const prose = entryProse(group)
 
@@ -3504,6 +3559,9 @@ function groupEntryLines(
   const halfGroups = new Set(
     merges.flatMap((merge) => merge.consumed.filter((group) => group !== merge.primary)),
   )
+  /** Every group a merge consumed, `primary` included - the groups `buildTwoPartEntry`, not
+   * `buildEntry`, speaks for, and which therefore read no unbound line at all (`matchUnbound`). */
+  const twoPartGroups = new Set(merges.flatMap((merge) => merge.consumed))
 
   /** Every non-empty display prose the group's lines carry, in alias -> bind -> anchor order. All of
    * them, not just the first: an entry's lines can legitimately disagree about their prose (one of
@@ -3522,6 +3580,14 @@ function groupEntryLines(
     [...group.aliases, ...group.binds, ...group.anchors, ...group.unbounds]
       .map((line) => (line.fields.cid ?? '').trim())
       .find((cid) => cid.length > 0) ?? ''
+
+  /** A group the unbound scan created for an unbound line that joined nothing - one line, no config
+   * line of any kind beside it (story 052 D3's original shape, and still the fallback since D2). */
+  const unboundOnly = (group: EntryGroup): boolean =>
+    group.unbounds.length > 0 &&
+    group.aliases.length === 0 &&
+    group.binds.length === 0 &&
+    group.anchors.length === 0
 
   /**
    * The entry an anchor line belongs to, or `null` when the file does not say unambiguously.
@@ -3566,13 +3632,17 @@ function groupEntryLines(
     // set - the entry a match lands on can therefore never sit in a different category than the
     // anchor, which is what keeps the slot the anchor contributes inside the row the user sees it on.
     // Minus the half groups a two-part merge already claimed - see `merges` above for why.
-    // Minus every group an unbound line created (story 052 D3), too: an unbound entry has no key
-    // slot at all - that is *why* the writer gave it that line instead of an anchor - so an anchor,
-    // which is nothing but a key-slot claim, can never belong to one. Leaving them in the candidate
-    // set could only ever cost a real anchor its entry, by making a `cid` or a prose the two happen
-    // to share ambiguous.
+    // Minus every group an unbound line created a group *of its own* for (story 052 D3), too: such
+    // an entry has no key slot at all - that is *why* the writer gave it that line instead of an
+    // anchor - so an anchor, which is nothing but a key-slot claim, can never belong to one. Leaving
+    // them in the candidate set could only ever cost a real anchor its entry, by making a `cid` or a
+    // prose the two happen to share ambiguous.
+    //
+    // `unboundOnly`, not `unbounds.length === 0` (story 063, D2): since D1 an unbound line also
+    // joins the alias-line group of a keyless bodied entry (`matchUnbound`), and excluding *that*
+    // group would newly deny a real anchor the entry it belongs to.
     const candidates = [...(groups.get(categoryKeyOf(anchor.item))?.values() ?? [])].filter(
-      (group) => !halfGroups.has(group) && group.unbounds.length === 0,
+      (group) => !halfGroups.has(group) && !unboundOnly(group),
     )
     if (candidates.length === 0) return null
 
@@ -3587,6 +3657,113 @@ function groupEntryLines(
 
     const exact = candidates.filter((group) => prosesOf(group).includes(prose))
     return exact.length === 1 ? exact[0]! : null
+  }
+
+  /**
+   * The alias-line group an unbound line belongs to, or `null` when the file does not say (story
+   * 063, D2 - `matchAnchor`'s counterpart for the other shape an `Entries:` section carries).
+   *
+   * Since D1 a keyless `bind`/`message` entry with a body leaves *two* lines: `alias <name> "<body>"`
+   * in its `Aliases:` section and `//bind "<name>"` in its `Entries:` section. Those two are one
+   * entry, and without this they were grouped as two - the alias line under its own name, the
+   * unbound line under `unbound:<file>:<line>` - which split one grenade row into an alias row plus a
+   * commandless keyless row and, worse, left the alias half inferring `kind: 'alias'` (`inferKind`).
+   *
+   * Matched by **name**, not by prose: the unbound line's `an` field is the entry's `aliasName` when
+   * it has one, and its commented-out `bind`'s own value is `bindValueFor` - which for the ordinary
+   * shape (an entry whose mirror goes through its alias) is `aliasNameFor(action)`, the very name the
+   * alias line is defined under and therefore the group's own key. So the file states the join twice
+   * and the two statements agree; prose, which `matchAnchor` has to fall back on, is not needed and
+   * would be the weaker of the two anyway (both halves can be budget-cut).
+   *
+   * `catalogueMirrorCandidate` is the *one* shape where that name lookup cannot work, because the
+   * writer's two statements are two different strings (story 063 D3 review): a keyless,
+   * catalogue-backed entry with a single continuous (`+`/`-`) command mirrors onto its own command
+   * text rather than through its alias (`bindValueFor`'s fast path), so its unbound line reads
+   * `//bind "+lonerelay"` while its alias line - which exists only because another entry's body calls
+   * it by name (`alias-references.ts#actionsWithAliasLine`'s third guard) - is defined under
+   * `lone_relay`. Nothing in the file spells the join as a name at all, and the pair split into two
+   * `ConfigAction`s sharing one `catalogId`: an inert `kind: 'alias'` row plus a keyless `kind: 'bind'`
+   * one. See that helper for why matching the *mirror value* back is as narrow as the name lookup.
+   *
+   * Every gate below is a refusal to merge, and refusing is safe: the line keeps its own group and
+   * the result is exactly the pre-D2 behaviour - two rows, nothing lost, both visible. A wrong merge
+   * is not: it fuses two rows into one and the loser's name, body and keys go with it
+   * (`matchAnchor`'s doc comment, same rule).
+   *
+   * - **An alias-line group only.** A group keyed by a *bind value* is a bound entry, and two
+   *   unrelated rows can legitimately share one bind value (`//bind "+forward"` next to a real
+   *   `bind w "+forward"`), so keying an unbound line into that space is exactly how one row would
+   *   swallow another.
+   * - **That claims no key** (`claimsAKey`): the writer only ever writes this line for an entry with
+   *   no slot at all, so a group that has one cannot be its entry.
+   * - **Not a two-part half or primary.** `isUnboundEntry` excludes `alias`/`toggle`/`press-release`
+   *   outright, so a recognised toggle or `+`/`-` pair never has an unbound line of its own -
+   *   and `buildTwoPartEntry` reads none, so a line folded in there would be silently dropped.
+   * - **That has no unbound line yet.** One entry, one empty key slot, one such line.
+   * - **Whose `cid` agrees**, when both carry one: the catalogue link is per entry and the tag never
+   *   gives way under budget pressure, so two different `cid`s are two different entries whatever
+   *   they are named.
+   */
+  const joinableUnboundGroup = (candidate: EntryGroup, cid: string): boolean => {
+    if (candidate.aliases.length === 0) return false
+    if (claimsAKey(candidate)) return false
+    if (candidate.unbounds.length > 0) return false
+    if (twoPartGroups.has(candidate)) return false
+    const groupCid = cidOf(candidate)
+    return cid.length === 0 || groupCid.length === 0 || cid === groupCid
+  }
+
+  /**
+   * The alias-line group an unbound line belongs to when the two cannot possibly agree on a *name* -
+   * the continuous-catalogue mirror shape described in `matchUnbound`'s doc comment above (story 063
+   * D3 review). `undefined` for every other shape, so the name lookup stays the rule and this stays
+   * the one exception the writer's own `bindValueFor` fast path creates.
+   *
+   * Four conditions, and the combination is what makes it exactly as narrow as the name lookup - each
+   * one is a fact `render.ts` guarantees for this shape and for no other:
+   *
+   * - **the line carries no `an`.** `unboundLine` omits that field precisely when an alias line
+   *   already spells the entry's name as code, which is the case here; a line that *does* carry one
+   *   has stated its join as a name, and a name that matched nothing is a refusal, not an invitation
+   *   to guess. This is also what keeps every D2 refusal case (a bound entry's group, a toggle's
+   *   dispatch group, a press/release half, a disagreeing `cid`) exactly as refused as it was: all of
+   *   them state an `an`.
+   * - **its value is continuous** (`+`/`-`-prefixed) and **it carries a `cid`.** `bindValueFor`'s
+   *   fast path fires only for a catalogue-backed entry with a single such command, so a value that
+   *   is not one, or a line with no catalogue link, can never have been produced by it.
+   * - **the group's own folded alias body is that same value.** For this shape the entry's one
+   *   command *is* the mirror value, so the alias line beside it renders that exact text - the second
+   *   statement of the join the file does make, read off the code rather than off a tag.
+   * - **exactly one group in the category qualifies**, `joinableUnboundGroup` included, same
+   *   demand `matchAnchor` makes: two candidates means the file has stopped being able to say which,
+   *   and splitting loses nothing while a wrong merge takes a row's name, body and keys with it.
+   */
+  const catalogueMirrorCandidate = (
+    scope: ReadonlyMap<string, EntryGroup>,
+    line: UnboundEntryLine,
+    cid: string,
+  ): EntryGroup | undefined => {
+    if ((line.fields.an ?? '').trim().length > 0) return undefined
+    const value = line.command.trim()
+    if (cid.length === 0 || !/^[+-]/.test(value)) return undefined
+    const matches = [...scope.values()].filter(
+      (group) =>
+        joinableUnboundGroup(group, cid) && foldedAliasBody(group.aliases).body.trim() === value,
+    )
+    return matches.length === 1 ? matches[0] : undefined
+  }
+
+  const matchUnbound = (line: UnboundEntryLine): EntryGroup | null => {
+    const scope = groups.get(categoryKeyOf(line.item))
+    if (!scope) return null
+
+    const cid = (line.fields.cid ?? '').trim()
+    const name = (line.fields.an ?? '').trim() || line.command.trim()
+    const byName = name.length > 0 ? scope.get(name) : undefined
+    if (byName && joinableUnboundGroup(byName, cid)) return byName
+
+    return catalogueMirrorCandidate(scope, line, cid) ?? null
   }
 
   // The anchor lines (`render.ts#buildAnchorLines`). Scanned last, and in document order, so every
@@ -3629,13 +3806,17 @@ function groupEntryLines(
     if (!claimsUnboundEntry(parsed)) continue
     if (!parsed.malformed) consumed.push({ file: item.file, line: item.line })
     const { command, prose } = unboundLineParts(parsed)
-    // Always its own group, never matched onto an existing one - the writer emits this line *only*
-    // for an entry that has no other line in the file (`render.ts#isUnboundEntry`), so there is
-    // nothing here for a match to attach to and a match could only ever fold two rows into one (see
-    // `EntryGroup.unbounds`). Filed in the line's own category scope all the same, so the entry
-    // lands in the `Entries: <cat>` section it sits under, exactly as an anchor does.
-    const owner = groupFor(categoryKeyOf(item), `unbound:${item.file}:${item.line}`)
-    owner.unbounds.push({ item, fields: parsed.fields, prose, command })
+    const unbound: UnboundEntryLine = { item, fields: parsed.fields, prose, command }
+    // The alias line of the same entry when the file names one (story 063 D2 - a keyless bodied
+    // `bind`/`message` entry has both lines since D1, and they are one entry), else a group of this
+    // line's own: before D2 that was unconditional, because the writer only ever wrote this line for
+    // an entry with no other line at all, and a merge it cannot vouch for could only fold two rows
+    // into one (see `matchUnbound` and `EntryGroup.unbounds`). Filed in the line's own category scope
+    // either way, so an unjoined entry lands in the `Entries: <cat>` section it sits under, exactly
+    // as an anchor does.
+    const owner =
+      matchUnbound(unbound) ?? groupFor(categoryKeyOf(item), `unbound:${item.file}:${item.line}`)
+    owner.unbounds.push(unbound)
     // The same chain the anchors use: unbound lines and anchor lines are siblings in one `Entries:`
     // section, emitted in one merged `profile.actions` order (`render.ts#buildEntrySectionItems`),
     // so they are one subsequence of that order rather than two.

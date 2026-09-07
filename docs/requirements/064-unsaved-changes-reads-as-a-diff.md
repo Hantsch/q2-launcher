@@ -1,7 +1,7 @@
 ---
 id: 064
 title: Unsaved changes read as a real diff
-status: draft
+status: ready
 created: 2026-09-07
 ---
 
@@ -44,15 +44,155 @@ stays: the goal is a readable per-item before → after, not a patch view.
 
 ## Open Questions
 
-- [ ] Screenshot: which section(s) did the report look at? (Report referenced an image that did not
-      reach the repo.)
+- [x] ~~Screenshot: which section(s) did the report look at? (Report referenced an image that did not
+      reach the repo.)~~ answered → Decisions (Sprint)
+
+## Decisions (Sprint)
+
+- **(User)** No specific section identified from the report — refine checks all sections
+  (`cvars`, `binds`, `actions`, `layers`, `settings`, `unrecognized`) systematically, as the
+  Requirement already directs, and fixes whichever ones emit bare counts or prose instead of a
+  concrete before/after.
+- **Per-section audit result (refine).** No section emits a bare *count* — the change set is
+  per-item everywhere. Four sections already carry a usable before/after and only need better
+  rendering: `cvars` (resolved values, `profile-diff.ts:245-283`), `binds` (verbatim command,
+  `:316-328`), `unrecognized` (`file:line` label + verbatim text, `:553-566`), `settings`
+  (`:469-506`). Two need **diff-engine** work: `actions` and `layers` both report one
+  whole-entry summary line per side (`describeAction` `:368-376`, `describeLayer` `:380-388`)
+  — so a one-command edit shows two long, near-identical strings the user has to compare by
+  eye, which is exactly the report — plus a reachable fallback that prints raw
+  `canonical()` JSON when the two summaries read alike (`:418-425`, hit by a
+  `catalogId`/`keepEmptyAlias`-only change).
+- **The fix keeps one row per changed entry and adds a `details` array to `ProfileChange`**
+  (`{ field, before?, after? }`), rather than emitting one change per changed field. AC4 fixes
+  the count: `count = changes.length` feeds the tab badge, the per-row indicators and `keys`, so
+  splitting an action into five field changes would inflate all three. `before`/`after` stay as
+  the summary; the detail list is what makes the change readable.
+- **Details are derived from the union of both rows' top-level keys**, compared with the
+  existing `canonical()`, with a per-field formatter — not from a hand-written field list.
+  `profile-diff.ts`'s own doc comment names a second field list as the drift hazard; the key
+  union keeps completeness structural (a field added to `ConfigAction` later shows up
+  automatically, worst case via the canonical fallback). `id` is excluded — it is the pairing
+  identity, equal by construction.
+- **The `canonical()` JSON fallback on the change itself is dropped.** A canonical difference
+  implies some top-level key differs, so the detail list can never be empty where the change
+  exists; the unreadable case disappears instead of being formatted.
+- **AC5 is solved with a bounded, scrollable value block** (`max-h`, `overflow-y-auto`,
+  `whitespace-pre-line break-words`), not with `line-clamp` + `title`: a multi-command body is
+  the case that matters and a clamp would hide the very command that changed, while a `title`
+  is unreachable by keyboard. Multi-command bodies render one command per line.
+- **AC2 is a text marker, not a colour**: each row carries an `added`/`removed`/`changed`
+  `Badge` with translated text, next to the existing "unset"/"unbound" placeholder for the
+  missing side — `/design-tokens`' no-colour-alone rule, same as story 049's row glyph.
+- **`settings` rows get translated labels, values stay verbatim.** `profile-diff.ts:468` already
+  states the intent ("`key` is the field name, which is what a renderer translates on") but the
+  renderer never did it, so the tab prints `writeUnbindall true → false`. Labels move to
+  i18n keys; the values themselves stay the literal strings a save writes, because that is what
+  AC1 asks the row to state.
+- **Scope stays renderer + shared.** No IPC change, no main change: the change set already
+  reaches the renderer through `ProfileChangesContext` (story 049).
+- **Dependency:** story 061 (same sprint, earlier in build order) reshapes the profile detail
+  *header* in `ConfigView.tsx`. This story touches neither `ConfigView.tsx` nor the header, so
+  the only overlap is the e2e flow's path into the Unsaved tab — the flow selects
+  `config-tab-unsaved` by testid, which 061 keeps.
 
 ## Plan
 
+1. **Shared diff (`src/shared/config/profile-diff.ts`)** — add
+   `ProfileChangeDetail { field: string; before?: string; after?: string }` and an optional
+   `details` on `ProfileChange`. In `diffById`'s `changed` branch, build the details from the
+   union of both rows' top-level keys (`id` excluded), comparing with `canonical()`; format
+   per field:
+   - `commands` → `describeCommand` per command, newline-joined
+   - `parts` → per part, `label`/`aliasName` prefix + its commands
+   - `keys` → `describeSlot` list, comma-joined
+   - `overrides` (layers) → `key=command`, key-sorted, one per line
+   - scalars (`name`, `kind`, `mode`, `triggerKey`, `categoryId`, `subcategoryId`, `catalogId`,
+     `aliasName`, `keepEmptyAlias`) → `String(value)`, absent side → `undefined`
+   - anything unmodelled → `canonical(value)` (safety net, not the normal path)
+   Drop the `legible ? … : canonical(row)` fallback on `before`/`after` — always the summary.
+   `count`, `sections`, `keys` and the set of reported changes stay bit-for-bit as they are.
+2. **Row rendering (`ProfileChangeList.tsx`)** — `ChangeRow` becomes two parts: a header line
+   (label + kind `Badge` + the summary before → after) and, when `change.details` is present,
+   a nested list of `field: before → after`. Values render in a bounded block
+   (`max-h-24 overflow-y-auto whitespace-pre-line break-words min-w-0`), mirroring
+   `CareBatchFixDialog.tsx:126-137`'s before/after pair for the inline shape.
+   `settings` labels resolve through an i18n map keyed by `change.key`.
+3. **i18n (`src/renderer/src/i18n/locales/en.json`, under `config.save.changes`)** — new
+   `kind.{added,removed,changed}`, `field.<name>`, `settingsLabel.{name,writeUnbindall,
+   sectionHeaderStyle}`, and `before`/`after` column labels (sr-only where the arrow already
+   says it). Main process sends no prose — all of this is renderer-side, per CLAUDE.md.
+4. **Tests** — unit next to the diff, a new jsdom component test for the list, and one
+   `ui:flow` acceptance flow that dirties several sections and reads the tab back.
+
+Order: 1 → 2/3 (same file pair) → 4's flow last, since it asserts on the finished rows.
+
 ## Deliverables
+
+- **D1 — field-level details in the change model.**
+  `src/shared/config/profile-diff.ts`: `ProfileChangeDetail`, `ProfileChange.details`, details
+  for `actions` and `layers` from the top-level-key union + per-field formatters, JSON fallback
+  on `before`/`after` removed. Plus its tests in `src/shared/config/profile-diff.test.ts`
+  (mirror that file's existing per-section `describe` blocks).
+  *Acceptance:* an action whose one command changed reports **one** change with a `commands`
+  detail naming the old and new command; a `catalogId`-only change reports a `catalogId`
+  detail instead of JSON; `count` and the set of reported changes are unchanged for every
+  existing case in the suite.
+- **D2 — the row reads as a diff.**
+  `src/renderer/src/modules/config/components/ProfileChangeList.tsx`,
+  `src/renderer/src/i18n/locales/en.json`. Kind badge (text, not colour), summary
+  before → after, nested per-field detail rows, bounded/scrollable value blocks, translated
+  `settings` labels. Mirror `CareBatchFixDialog.tsx:126-137` (before → after pair) and
+  `ControlsOptionsCell.tsx:47-48` (`min-w-0` overflow discipline); `Badge` from
+  `components/ui/primitives`. Plus a new jsdom component test
+  `src/renderer/src/modules/config/components/ProfileChangeList.test.tsx` (mirror
+  `ControlsGrid.dnd.test.tsx`'s `// @vitest-environment jsdom` + i18n setup).
+  *Acceptance:* every row shows a concrete before and after; added/removed are marked in text;
+  a 40-command body neither grows the row past the bounded block nor overflows horizontally.
+- **D3 — acceptance flow through the real surface.**
+  `scripts/flows/unsaved-diff.mjs` (new), mirroring `scripts/flows/raw-inline-edit.mjs`
+  (structure, `shot`/`step`, real testids, real assertions). Dirties three sections on the
+  populated fixture — the Raw tab's "Section header style" select (`settings`, the idempotent
+  setter `screens.mjs:409-424` already relies on), one Settings-tab cvar (`cvars`), one
+  Controls-row key (`actions`/`binds`) — then opens `config-tab-unsaved` and asserts on
+  `config-save-changes`: every row has a label and both sides, the kind marker text, row count
+  equals the tab badge's count, and no value block overflows.
+  *Acceptance:* `npm run ui:flow unsaved-diff` passes on a freshly seeded fixture
+  (`npm run ui:seed` first — see `raw-inline-edit.mjs`'s precondition note), and
+  `npm run ui:verify` stays green including axe on `config-save-expanded`.
 
 ## Model Hints
 
+- `D1 → deliverable-hard` — the change model is what the tab badge, the per-row unsaved
+  indicators and Discard all read through one `count`/`keys`; adding details must not shift the
+  count or the reported entry set (AC4), and the module carries a seven-block regression suite
+  whose expectations must all still hold.
+- D2 → default.
+- D3 → default.
+- `Review: → default` — the risky logic is confined to D1 and is fully unit-covered; D2/D3 are
+  renderer markup and a new harness flow with no cross-module reach.
+
 ## Acceptance Tests
+
+- AC1 → unit `src/shared/config/profile-diff.test.ts` › "an action change names each changed
+  field with its own before and after" · component
+  `src/renderer/src/modules/config/components/ProfileChangeList.test.tsx` › "every change row
+  shows a concrete before and a concrete after" · e2e `npm run ui:flow unsaved-diff`
+  (`scripts/flows/unsaved-diff.mjs`) › step "the unsaved tab reads as a diff" (asserts label +
+  both sides on every row across cvars, binds/actions and settings)
+- AC2 → component `…/ProfileChangeList.test.tsx` › "an added change has no before and says
+  'added' in text" (and its removed counterpart) · e2e
+  `scripts/flows/unsaved-diff.mjs` › step "added and removed rows are marked in text"
+- AC3 → unit `src/shared/config/profile-diff.test.ts` › "a structurally different entry never
+  falls back to canonical JSON" · component `…/ProfileChangeList.test.tsx` › "no row renders a
+  bare count or an unlabelled sentence"
+- AC4 → unit `src/shared/config/profile-diff.test.ts` › "details do not change the change count
+  or which entries are reported" · e2e `scripts/flows/unsaved-diff.mjs` › step "the badge count
+  equals the number of rows"
+- AC5 → component `…/ProfileChangeList.test.tsx` › "a 40-command body stays inside the bounded
+  value block" (asserts the block's own clamp class/height, not a pixel snapshot) · e2e
+  `scripts/flows/unsaved-diff.mjs` › step "a long command body does not overflow the panel"
+  (`scrollWidth <= clientWidth` on the list, row height under the bound)
+- No manual residue.
 
 ## Done

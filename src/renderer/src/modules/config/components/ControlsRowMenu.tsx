@@ -14,6 +14,11 @@ import type { EntryMoveTarget } from '../lib/entry-order'
  * Kept to exactly the three ordering commands the story's own decision names ("The row menu is new
  * and holds only ordering commands") - edit/rename/remove stay the icon buttons they are today,
  * right next to this one.
+ *
+ * Story 063 D4: `onMakeBindable`, passed only for a row that is currently inert (`kind: 'alias'`,
+ * `ControlsTab.tsx`'s `inertSlots`), is the one deliberate exception to that "ordering only" rule -
+ * there is nowhere else in an inert row's Options cell to put a repair action, and it is exactly as
+ * situational as a menu item gets (most rows never show it at all).
  */
 export function ControlsRowMenu({
   entryName,
@@ -21,12 +26,14 @@ export function ControlsRowMenu({
   onMoveUp,
   onMoveDown,
   onMoveTo,
+  onMakeBindable,
 }: {
   entryName: string
   moveTarget: EntryMoveTarget | undefined
   onMoveUp: () => void
   onMoveDown: () => void
   onMoveTo: () => void
+  onMakeBindable?: () => void
 }) {
   const { t } = useTranslation()
   const label = t('config.controls.actions.moveMenuFor', { name: entryName })
@@ -49,6 +56,15 @@ export function ControlsRowMenu({
       label: t('config.controls.actions.moveTo'),
       onSelect: onMoveTo,
     },
+    ...(onMakeBindable
+      ? [
+          {
+            id: 'make-bindable',
+            label: t('config.controls.actions.makeBindable'),
+            onSelect: onMakeBindable,
+          },
+        ]
+      : []),
   ]
 
   return (

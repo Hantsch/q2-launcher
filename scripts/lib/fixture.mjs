@@ -281,6 +281,32 @@ function populatedConfigProfiles() {
         ],
         keys: [{ key: 'G' }, { key: 'H' }, { key: 'J' }],
       },
+      // 7-8. Story 063 D4: two already-damaged, keyless Weapons entries - one per grenade command -
+      //   seeded as `kind: 'alias'` so the Controls tab's "Make bindable" row-menu item
+      //   (`applyEntryKindBindable`) has real inert rows to repair. These are the shape a profile
+      //   that hit story 063's root-cause bug is stuck with forever (a keyless bind/message entry
+      //   that got silently misread back as `kind: 'alias'` on a file->state pass, decision 4) - and,
+      //   distinct from the catalogue's own `weaponUse:use_grenades`/`weaponUse:use_glauncher` rows
+      //   (which already round-trip correctly since D1/D2 and are not inert), these are user-created
+      //   entries with their own synthetic ids/names, same idea as `fixture-action-weapons`
+      //   ("Weapon Combo") above but one command each and no key, mirroring the real damaged
+      //   `Grenade + Launcher` entry the story's root-cause section describes split one-command-per-
+      //   entry per the D4 acceptance ("one keyless kind: 'alias' Weapons entry per grenade
+      //   command").
+      {
+        id: 'fixture-action-inert-grenades',
+        categoryId: 'weapons',
+        name: 'Grenades (inert)',
+        kind: 'alias',
+        commands: [{ kind: 'raw', text: 'use grenades' }],
+      },
+      {
+        id: 'fixture-action-inert-glauncher',
+        categoryId: 'weapons',
+        name: 'Grenade Launcher (inert)',
+        kind: 'alias',
+        commands: [{ kind: 'raw', text: 'use grenade launcher' }],
+      },
     ],
   }
 

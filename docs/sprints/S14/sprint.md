@@ -1,7 +1,7 @@
 ---
 sprint: S14
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S14
 milestone: Config, round three — live-acceptance findings
 ---
 
@@ -18,7 +18,7 @@ Weapons can take a key again.
 
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
-- [ ] 063 — Hand grenades and Grenade Launcher can be bound to a key
+- [x] 063 — Hand grenades and Grenade Launcher can be bound to a key
 - [ ] 061 — Profile header is one row: back left, identity centred, actions right
 - [ ] 062 — Controls category rail is a clean chip row with an action menu
 - [ ] 064 — Unsaved changes read as a real diff

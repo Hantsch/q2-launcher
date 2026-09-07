@@ -52,6 +52,7 @@ import {
   keySlotCount,
   withKeySlot,
 } from '@shared/config/action-slots'
+import { aliasNameFor } from '@shared/config/alias-render'
 import { commandsForRow, type CatalogRow } from '@shared/config/catalog-rows'
 import { withDropAmmo, withDropMessage } from '@shared/config/drop-entries'
 import type { ModifierTrigger } from '@shared/config/modifier-layers'
@@ -466,5 +467,35 @@ export function applyDropMessage(
   if (index < 0) return [...actions]
   return actions.map((action, i) =>
     i === index ? withDropMessage(action, on, message, channel) : action,
+  )
+}
+
+/**
+ * Story 063 D4: the Controls row menu's manual repair for an already-inert `kind: 'alias'` row - a
+ * profile that picked up the pre-D1/D2 writer/reader bug (a keyless bind/message entry silently
+ * misread back as `kind: 'alias'`, story 063's root cause) or one that carries a deliberately
+ * hand-made alias entry with no key, both land in the same shape and neither heals on its own:
+ * `state.json` is the live copy, so the file→file-format fix only reaches an entry the next time it
+ * is parsed off disk, never an entry already sitting in memory/state (decision 4).
+ *
+ * Flips the one named entry from `kind: 'alias'` to `kind: 'bind'` and pins its alias name
+ * explicitly (`aliasNameFor`, evaluated against the *pre*-flip action, while `kind` is still
+ * `'alias'`) rather than leaving `aliasName` to be recomputed later. That pin matters: `aliasNameFor`
+ * falls back to `derivedAliasName`, which only keeps a leading `+`/`-` sign when `action.kind ===
+ * 'alias'` (`alias-render.ts`) - so a `+signed` alias name re-derived after the kind flip would come
+ * back sign-stripped and silently detach from every reference to the old, signed name still on disk
+ * or in `layers`. Writing the alias-kind-derived name onto the action before the kind changes is
+ * what keeps the engine-visible name exactly where it was.
+ *
+ * A no-op (returns a shallow copy, matching every other write function here) for an `actionId` that
+ * names no entry, or one that is not currently `kind: 'alias'` - this is a one-way repair for that
+ * specific inert shape, not a general kind-setter, and no other entry in the array is ever touched.
+ */
+export function applyEntryKindBindable(actions: ConfigAction[], actionId: string): ConfigAction[] {
+  const index = actions.findIndex((action) => action.id === actionId)
+  if (index < 0 || actions[index]!.kind !== 'alias') return [...actions]
+
+  return actions.map((action, i) =>
+    i === index ? { ...action, kind: 'bind', aliasName: aliasNameFor(action) } : action,
   )
 }

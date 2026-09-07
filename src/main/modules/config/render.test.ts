@@ -1481,6 +1481,10 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         // so the empty one that writes no section does not consume an ordinal either - see that
         // function's own doc comment for why a gap here would cost story 042's fixed point.
         'Aliases: Weapons [q2l cat=weapons ord=0]',
+        // Story 063 D1: `only` is a keyless `kind: 'bind'` entry with a body, so besides its alias
+        // line it now also earns an unbound line (`isUnboundEntry`) recording its empty key slot -
+        // which means its category's `Entries:` section is no longer "nothing in it" either.
+        'Entries: Weapons [q2l cat=weapons ord=0]',
       ])
     })
   })

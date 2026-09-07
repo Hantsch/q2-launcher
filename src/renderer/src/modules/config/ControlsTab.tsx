@@ -56,6 +56,7 @@ import {
   applyAmmo,
   applyDropAmmo,
   applyDropMessage,
+  applyEntryKindBindable,
   applyMessage,
   applySlot,
   deriveRowState,
@@ -1219,6 +1220,12 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
    * Story 052 review (finding 4) is untouched by the move: both the target and the disabled state
    * still come from `moveTargets`, i.e. from the row's position inside the group it is *rendered*
    * in (`rowGroups`, filter included), never the raw `actions` order the grid does not draw.
+   *
+   * Story 063 D4: `onMakeBindable` is only ever passed for an inert (`kind: 'alias'`) row - the same
+   * condition `renderPlainActionRow`'s `inertSlots` renders `BindSlotPlaceholder` for - so the menu
+   * item it adds appears exactly where the row has no other way to become bindable again. The write
+   * goes through the same immediate `handleCatalogActionsChange` save every other row-menu action and
+   * slot edit in this file uses, keyed by the action's own `id` like `applyEntryKindBindable` itself.
    */
   const renderRowMenu = (action: ConfigAction, entryName: string) => {
     const target = moveTargets.get(action.id)
@@ -1233,6 +1240,11 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
           if (target?.down) handleMoveAction(action.id, target.down)
         }}
         onMoveTo={() => setMovingEntry({ actionId: action.id, label: entryName })}
+        onMakeBindable={
+          action.kind === 'alias'
+            ? () => handleCatalogActionsChange(applyEntryKindBindable(actions, action.id))
+            : undefined
+        }
       />
     )
   }

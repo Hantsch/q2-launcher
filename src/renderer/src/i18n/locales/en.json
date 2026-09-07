@@ -1480,6 +1480,7 @@
         "moveDown": "Move entry down",
         "moveTo": "Move to…",
         "moveMenuFor": "Ordering options for “{{name}}”",
+        "makeBindable": "Make bindable",
         "reset": "Reset “{{name}}” binds",
         "clearKey": "Clear key {{n}} of “{{name}}”",
         "empty": {

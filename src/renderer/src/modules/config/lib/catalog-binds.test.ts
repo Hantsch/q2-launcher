@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { DROPPABLES, MOVEMENT_ACTIONS, WEAPON_ACTIONS, WEAPON_EXTRA_ACTIONS } from '@shared/config/action-catalog'
 import { actionKeySlots, keySlotAt, keySlotCount } from '@shared/config/action-slots'
+import { aliasNameFor } from '@shared/config/alias-render'
 import type { ConfigAction } from '@shared/modules/config'
 import {
   appendKeySlot,
   applyAmmo,
   applyDropAmmo,
   applyDropMessage,
+  applyEntryKindBindable,
   applyMessage,
   applySlot,
   buildDropGroups,
@@ -798,5 +800,103 @@ describe('rawKeyIndex', () => {
     const a = action(undefined)
 
     expect(rawKeyIndex(a, 0)).toBe(0)
+  })
+})
+
+describe('applyEntryKindBindable', () => {
+  it('turns an inert alias entry into a bind entry, pinning its derived alias name', () => {
+    const alias: ConfigAction = {
+      id: 'entry-grenades',
+      categoryId: 'weapons',
+      name: 'Grenades (inert)',
+      kind: 'alias',
+      commands: [{ kind: 'raw', text: 'use grenades' }],
+    }
+    const derivedName = aliasNameFor(alias)
+
+    const result = applyEntryKindBindable([alias], 'entry-grenades')
+
+    expect(result).toHaveLength(1)
+    expect(result[0]).toEqual({ ...alias, kind: 'bind', aliasName: derivedName })
+  })
+
+  it('pins a +signed alias name explicitly instead of leaving it to be re-derived', () => {
+    // `derivedAliasName` only keeps a leading sign for `kind: 'alias'` - once the kind flips to
+    // `'bind'`, re-deriving without the pin would come back sign-stripped and detach from every
+    // reference to the old, signed name.
+    const alias: ConfigAction = {
+      id: 'entry-signed',
+      categoryId: 'weapons',
+      name: '+signed action',
+      kind: 'alias',
+      commands: [{ kind: 'raw', text: 'use grenade launcher' }],
+    }
+
+    const result = applyEntryKindBindable([alias], 'entry-signed')
+    const updated = result.find((action) => action.id === 'entry-signed')
+
+    expect(updated?.aliasName).toBe(aliasNameFor(alias))
+    expect(updated?.aliasName?.startsWith('+')).toBe(true)
+    expect(updated?.kind).toBe('bind')
+  })
+
+  it('is a no-op when the actionId names no entry', () => {
+    const alias: ConfigAction = {
+      id: 'entry-grenades',
+      categoryId: 'weapons',
+      name: 'Grenades (inert)',
+      kind: 'alias',
+      commands: [{ kind: 'raw', text: 'use grenades' }],
+    }
+
+    const result = applyEntryKindBindable([alias], 'does-not-exist')
+
+    expect(result).toEqual([alias])
+  })
+
+  it('is a no-op when the named entry is already kind: bind, not alias', () => {
+    const bound: ConfigAction = {
+      id: 'entry-bound',
+      categoryId: 'weapons',
+      name: 'Already bound',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'use grenades' }],
+      keys: [{ key: 'g' }],
+    }
+
+    const result = applyEntryKindBindable([bound], 'entry-bound')
+
+    expect(result).toEqual([bound])
+  })
+
+  it('does not touch any other entry in the array', () => {
+    const alias: ConfigAction = {
+      id: 'entry-grenades',
+      categoryId: 'weapons',
+      name: 'Grenades (inert)',
+      kind: 'alias',
+      commands: [{ kind: 'raw', text: 'use grenades' }],
+    }
+    const sibling: ConfigAction = {
+      id: 'entry-glauncher',
+      categoryId: 'weapons',
+      name: 'Grenade Launcher (inert)',
+      kind: 'alias',
+      commands: [{ kind: 'raw', text: 'use grenade launcher' }],
+    }
+    const unrelated: ConfigAction = {
+      id: 'entry-forward',
+      categoryId: 'movement',
+      name: '+forward',
+      kind: 'bind',
+      commands: [],
+      keys: [{ key: 'w' }],
+    }
+
+    const result = applyEntryKindBindable([sibling, alias, unrelated], 'entry-grenades')
+
+    expect(result.find((a) => a.id === 'entry-glauncher')).toEqual(sibling)
+    expect(result.find((a) => a.id === 'entry-forward')).toEqual(unrelated)
+    expect(result.find((a) => a.id === 'entry-grenades')?.kind).toBe('bind')
   })
 })

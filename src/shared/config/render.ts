@@ -1091,43 +1091,56 @@ function anchorRow(anchor: AnchorLine, profile: ConfigProfile): string {
 
 // ---------------------------------------------------------------------------
 // Story 052 D2: the unbound line - a second shape this same section carries,
-// for the one entry shape an anchor line does not cover at all: no key of any
-// kind (so no bind line and no modifier layer to anchor), and no alias line
-// either (see `actionsWithAliasLine`/`renderActionAlias` - a catalogue's own
-// continuous row with nothing calling its alias, or an entry seeded with no
-// commands at all, never gets one). Before this deliverable such an entry left
-// literally nothing in the file (`buildAnchorLines`'s own doc comment,
-// "An entry with no line anywhere gets nothing - deliberately, twice over").
+// for a `'bind'`/`'message'` entry with no key of any kind (no bind line and
+// no modifier layer to anchor). Before this deliverable such an entry, if it
+// also had no alias line (see `actionsWithAliasLine`/`renderActionAlias` - a
+// catalogue's own continuous row with nothing calling its alias, or an entry
+// seeded with no commands at all, never gets one), left literally nothing in
+// the file (`buildAnchorLines`'s own doc comment, "An entry with no line
+// anywhere gets nothing - deliberately, twice over").
 //
 // D2 gives it a sibling of the anchor line, in the very same `Entries: <cat>`
 // section and read back through the same category-scoped matcher (a later
 // deliverable, D3) - not a parallel mechanism, one more shape the section
 // already has a home for.
+//
+// Story 063 D1: an entry's alias line records its commands, not whether its
+// key slot is filled, so it is no longer a reason to withhold the unbound
+// line - a keyless `'bind'`/`'message'` entry now gets its unbound line
+// alongside its alias line when it has one. Losing that "no key" signal for
+// exactly this shape was the root cause of grenade-style rows silently
+// losing their bind slot on the next read - see this story's file.
 // ---------------------------------------------------------------------------
 
 /**
- * Is `action` a candidate for the unbound line - would it otherwise leave no trace at all?
+ * Is `action` a candidate for the unbound line - does it have no key slot of its own at all?
  *
- * Deliberately narrower than "has no key": a `kind: 'alias'`, `'toggle'` or `'press-release'` entry
- * always emits its own alias line(s) (story 045 D3's "always kept" guard in `actionsWithAliasLine`),
- * so giving one of those a second, commented-out trace here would double-emit the same fact - "one
- * fact, one place" (the story's own decision). Only a plain `'bind'`/`'message'` entry can end up
- * with literally nothing: `aliasLineActionIds` is exactly the set of actions
- * `renderActionAlias` produced at least one line for (whether or not anything calls that alias -
- * `actionsWithAliasLine`'s own "keyless, unreferenced survives" guard already covers the ordinary
- * case), `ownedBindActionIds` is who `collectBindEntries` matched a `binds` key to, and
- * `anchoredActionIds` is who `buildAnchorLines` already gave a modified-slot anchor to (that anchor
+ * Deliberately narrower than "has no line": a `kind: 'alias'`, `'toggle'` or `'press-release'`
+ * entry always emits its own alias line(s) and *only* those (story 045 D3's "always kept" guard in
+ * `actionsWithAliasLine`) - none of those kinds ever has a key slot to begin with, so a
+ * commented-out `//bind` next to their alias line would not record a missing key, it would just
+ * double-emit the same fact under a different spelling. Those three kinds stay excluded here.
+ *
+ * A plain `'bind'`/`'message'` entry is different: it *does* have a key slot, and having an alias
+ * line (because it happens to carry a body) says nothing about whether that slot is filled. Story
+ * 063 (D1): before this deliverable, `aliasLineActionIds` excluded such an entry too, on the theory
+ * that its alias line already left a trace - but that trace records the entry's *commands*, not
+ * that its key slot is empty. Losing the "no key" fact here is exactly what let the next
+ * file-to-state read (`profile-restore.ts`'s `inferKind`) misread a keyless bind/message entry with
+ * a body as `kind: 'alias'`, permanently disabling its bind slot. So a `'bind'`/`'message'` entry
+ * now gets the unbound line whenever it has neither an owned bind line
+ * (`ownedBindActionIds`, who `collectBindEntries` matched a `binds` key to) nor an anchor
+ * (`anchoredActionIds`, who `buildAnchorLines` already gave a modified-slot anchor to - that anchor
  * is not this entry's *command* trace, but the command itself still lives in the modifier layer's
- * alias - a real trace this deliverable must not duplicate).
+ * alias, a real trace this deliverable must not duplicate) - regardless of whether it also has an
+ * alias line.
  */
 function isUnboundEntry(
   action: ConfigAction,
-  aliasLineActionIds: ReadonlySet<string>,
   ownedBindActionIds: ReadonlySet<string>,
   anchoredActionIds: ReadonlySet<string>,
 ): boolean {
   if (action.kind !== 'bind' && action.kind !== 'message') return false
-  if (aliasLineActionIds.has(action.id)) return false
   if (ownedBindActionIds.has(action.id)) return false
   if (anchoredActionIds.has(action.id)) return false
   return true
@@ -1139,15 +1152,13 @@ function isUnboundEntry(
  */
 function collectUnboundActions(
   profile: ConfigProfile,
-  aliasLineActions: readonly ConfigAction[],
   bindEntries: BindEntries,
   anchors: readonly AnchorLine[],
 ): ConfigAction[] {
-  const aliasLineActionIds = new Set(aliasLineActions.map((action) => action.id))
   const ownedBindActionIds = new Set(bindEntries.owned.map((entry) => entry.owner!.action.id))
   const anchoredActionIds = new Set(anchors.map((anchor) => anchor.action.id))
   return (profile.actions ?? []).filter((action) =>
-    isUnboundEntry(action, aliasLineActionIds, ownedBindActionIds, anchoredActionIds),
+    isUnboundEntry(action, ownedBindActionIds, anchoredActionIds),
   )
 }
 
@@ -1173,14 +1184,27 @@ function unboundCommand(action: ConfigAction): string {
  * a hand-typed comment.
  *
  * Carries `an` (the entry's own `aliasName`) exactly as an anchor-only entry does - only where no
- * alias line exists to spell it out as code, which for an unbound entry is unconditionally true (it
- * is unbound precisely because it has none). No `key`/`mod`: an unbound entry has no key slot at all,
+ * alias line exists to spell it out as code. Before story 063 D1 that was unconditionally true for
+ * an unbound entry (it was unbound precisely because it had none); D1 dropped the "has an alias
+ * line" exclusion from `isUnboundEntry`, so an unbound entry can now *also* have an alias line
+ * rendered elsewhere in the file. `withAliasLine` is exactly `buildAnchorLines`' own set (same
+ * variable name, same test), so the two renderers can never disagree about which entries' alias
+ * names already live in the config text - writing `an` for one of those anyway would make the tag a
+ * second, driftable copy of what the alias line already states, and (the bug this guard fixes) would
+ * pop into existence on the *second* render only, once `profile-restore.ts` pins the name it read
+ * off that alias line back onto `action.aliasName` - breaking `render(parse(render(p))) ===
+ * render(p)` on the very first render. No `key`/`mod`: an unbound entry has no key slot at all,
  * modified or otherwise, by construction (`isUnboundEntry` excludes anything `buildAnchorLines`
  * already anchored).
  */
-function unboundLine(action: ConfigAction, profile: ConfigProfile): string {
+function unboundLine(
+  action: ConfigAction,
+  profile: ConfigProfile,
+  withAliasLine: ReadonlySet<string>,
+): string {
   const code = `//bind "${unboundCommand(action)}"`
-  const tag = entryTag(action, { aliasName: action.aliasName?.trim() || undefined })
+  const aliasName = withAliasLine.has(action.id) ? undefined : action.aliasName?.trim() || undefined
+  const tag = entryTag(action, { aliasName })
   const prose = proseText(commentLabelFor(action, profile))
   return attachTaggedComment(code, prose, tag, COMMENT_LINE_BUDGET)
 }
@@ -1227,9 +1251,16 @@ function buildEntrySectionItems(
 }
 
 /** One `EntrySectionItem` rendered to its line - `anchorRow` for an anchor, `unboundLine` (story 052
- * D2) for an unbound entry. */
-function entrySectionItemRow(item: EntrySectionItem, profile: ConfigProfile): string {
-  return item.kind === 'anchor' ? anchorRow(item.anchor, profile) : unboundLine(item.action, profile)
+ * D2) for an unbound entry. `withAliasLine` is `unboundLine`'s own guard against a redundant `an` -
+ * see that function's doc comment. */
+function entrySectionItemRow(
+  item: EntrySectionItem,
+  profile: ConfigProfile,
+  withAliasLine: ReadonlySet<string>,
+): string {
+  return item.kind === 'anchor'
+    ? anchorRow(item.anchor, profile)
+    : unboundLine(item.action, profile, withAliasLine)
 }
 
 /**
@@ -1245,6 +1276,7 @@ function buildAnchorSections(
   profile: ConfigProfile,
   anchors: readonly AnchorLine[],
   unboundActions: readonly ConfigAction[],
+  withAliasLine: ReadonlySet<string>,
   style: SectionHeaderStyle,
 ): string[][] {
   const items = buildEntrySectionItems(profile, anchors, unboundActions)
@@ -1259,7 +1291,7 @@ function buildAnchorSections(
       group.categoryId,
       group.items,
       (item) => item.action.subcategoryId,
-      (bucketItems) => bucketItems.map((item) => entrySectionItemRow(item, profile)),
+      (bucketItems) => bucketItems.map((item) => entrySectionItemRow(item, profile, withAliasLine)),
       style,
     )
     return titledSection(
@@ -1623,8 +1655,8 @@ export function sentinelLine(profileId: string): string {
  *    per category holding an *anchor* line - a comment-only, `[q2l …]`-tagged line - for every key
  *    slot no config line can record, i.e. every slot bound only through a modifier layer
  *    (`buildAnchorLines`), plus an *unbound* line - `//bind "<cmd>"   // <name> [q2l …]` - for every
- *    plain bind/message entry that would otherwise leave no trace in the file at all
- *    (`collectUnboundActions`);
+ *    plain bind/message entry with no key of its own (no owned bind line, no anchor), whether or
+ *    not it also has an alias line (story 063 D1 - `collectUnboundActions`);
  * 7. one section per layer in `profile.layers` order, holding that layer's generated aliases and
  *    the `bind <trigger> <command>` line that reaches them - last in the file on purpose, so a
  *    layer's trigger always wins the key it shares with a base bind (see `buildLayerSections`).
@@ -1731,10 +1763,11 @@ export function renderProfileFile(profile: ConfigProfile): string {
     (action) => renderActionAlias(action).aliases.length > 0,
   )
   const anchors = buildAnchorLines(profile, aliasLineActions)
+  const withAliasLine = new Set(aliasLineActions.map((action) => action.id))
 
   // Story 052 D2: every plain bind/message entry the lines above leave with no trace at all - see
   // `isUnboundEntry`'s doc comment for exactly which shape that is.
-  const unboundActions = collectUnboundActions(profile, aliasLineActions, bindEntries, anchors)
+  const unboundActions = collectUnboundActions(profile, bindEntries, anchors)
 
   const lines: string[] = [
     ...joinBlocks([
@@ -1745,7 +1778,7 @@ export function renderProfileFile(profile: ConfigProfile): string {
       // The bind sections come *before* the layer sections, so that a layer's trigger bind is the
       // last `bind` line in the file - see `buildLayerSections`' doc comment.
       ...buildBindSections(profile, bindEntries, sectionHeaderStyle),
-      ...buildAnchorSections(profile, anchors, unboundActions, sectionHeaderStyle),
+      ...buildAnchorSections(profile, anchors, unboundActions, withAliasLine, sectionHeaderStyle),
       ...buildLayerSections(profile, layerResults, sectionHeaderStyle),
     ]),
   ]
