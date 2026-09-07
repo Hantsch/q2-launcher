@@ -391,6 +391,10 @@ describe('diffProfileAgainstBaseline - actions', () => {
       label: 'Rocket',
       before: 'Rocket (bind) F1: use rocket launcher',
       after: 'Rocket (bind) F2: say gg',
+      details: [
+        { field: 'keys', before: 'F1', after: 'F2' },
+        { field: 'commands', before: 'use rocket launcher', after: 'say gg' },
+      ],
     })
   })
 
@@ -438,9 +442,94 @@ describe('diffProfileAgainstBaseline - actions', () => {
     expect(removed.keys.actions.has('a1')).toBe(true)
   })
 
-  it('falls back to the canonical form when two different actions summarise identically', () => {
-    // `catalogId` reaches the file (as `cid` in the `[q2l ...]` tag) but has no place in a legible
-    // summary - a change row whose before and after read the same would look like a bug.
+  it('an action change names each changed field with its own before and after', () => {
+    // Story 064 AC1: the row must state the concrete old and new value per field, not two long
+    // summary lines the reader has to compare by eye.
+    const changes = diffProfileAgainstBaseline(
+      withBaseline(
+        { actions: [withKeys(action({ name: 'Rocket' }), { key: 'F1' })] },
+        {
+          actions: [
+            withKeys(
+              action({
+                name: 'Rocket launcher',
+                commands: [
+                  { kind: 'raw', text: 'use rocket launcher' },
+                  { kind: 'message', channel: 'say', text: 'rl out' },
+                ],
+              }),
+              { key: 'F1', modifier: 'ALT' },
+            ),
+          ],
+        },
+      ),
+    )
+
+    expect(changes.count).toBe(1)
+    expect(only(changes, 'actions').details).toEqual([
+      { field: 'name', before: 'Rocket', after: 'Rocket launcher' },
+      { field: 'keys', before: 'F1', after: 'ALT+F1' },
+      {
+        field: 'commands',
+        before: 'use rocket launcher',
+        // One command per line, so the command that changed is not buried in a single long line.
+        after: 'use rocket launcher\nsay rl out',
+      },
+    ])
+  })
+
+  it('reports a one-command edit as one change whose commands detail names both commands', () => {
+    const changes = diffProfileAgainstBaseline(
+      withBaseline(
+        { actions: [action({ commands: [{ kind: 'raw', text: 'use rocket launcher' }] })] },
+        { actions: [action({ commands: [{ kind: 'raw', text: 'use bfg10k' }] })] },
+      ),
+    )
+    expect(changes.count).toBe(1)
+    expect(only(changes, 'actions').details).toEqual([
+      { field: 'commands', before: 'use rocket launcher', after: 'use bfg10k' },
+    ])
+  })
+
+  it('names each half of a two-part entry in its parts detail', () => {
+    const base = action({
+      kind: 'toggle',
+      commands: [],
+      parts: [
+        { commands: [{ kind: 'raw', text: 'cl_run 1' }], label: 'on' },
+        { commands: [{ kind: 'raw', text: 'cl_run 0' }], label: 'off' },
+      ],
+    })
+    const edited: ConfigAction = {
+      ...base,
+      parts: [
+        base.parts![0]!,
+        {
+          commands: [
+            { kind: 'raw', text: 'cl_run 0' },
+            { kind: 'wait', frames: 2 },
+          ],
+          label: 'off',
+        },
+      ],
+    }
+
+    const changes = diffProfileAgainstBaseline(
+      withBaseline({ actions: [base] }, { actions: [edited] }),
+    )
+    expect(only(changes, 'actions').details).toEqual([
+      {
+        field: 'parts',
+        before: 'on: cl_run 1\noff: cl_run 0',
+        after: 'on: cl_run 1\noff: cl_run 0; wait; wait',
+      },
+    ])
+  })
+
+  it('a structurally different entry never falls back to canonical JSON', () => {
+    // Story 064 AC3. `catalogId` reaches the file (as `cid` in the `[q2l ...]` tag) but has no place
+    // in a legible summary, so both sides summarise identically - the case that used to print raw
+    // canonical JSON at the reader. It now names the field instead.
     const changes = diffProfileAgainstBaseline(
       withBaseline(
         { actions: [action({ catalogId: 'rl' })] },
@@ -449,9 +538,32 @@ describe('diffProfileAgainstBaseline - actions', () => {
     )
     const change = only(changes, 'actions')
     expect(change.kind).toBe('changed')
-    expect(change.before).not.toBe(change.after)
-    expect(change.before).toContain('"catalogId":"rl"')
-    expect(change.after).toContain('"catalogId":"bfg"')
+    expect(change.before).toBe('Rocket (bind): use rocket launcher')
+    expect(change.after).toBe('Rocket (bind): use rocket launcher')
+    expect(change.details).toEqual([{ field: 'catalogId', before: 'rl', after: 'bfg' }])
+
+    // The other field that reaches the file without reaching the summary (story 041 D3).
+    const kept = diffProfileAgainstBaseline(
+      withBaseline(
+        { actions: [action({ kind: 'alias', commands: [] })] },
+        { actions: [action({ kind: 'alias', commands: [], keepEmptyAlias: true })] },
+      ),
+    )
+    expect(only(kept, 'actions').details).toEqual([
+      { field: 'keepEmptyAlias', before: undefined, after: 'true' },
+    ])
+
+    // No side of any change, and no detail of any change, is JSON in either case.
+    for (const change of [...changes.changes, ...kept.changes]) {
+      for (const value of [
+        change.before,
+        change.after,
+        ...(change.details ?? []).flatMap((detail) => [detail.before, detail.after]),
+      ]) {
+        expect(value ?? '').not.toMatch(/[{[]"/)
+      }
+      expect(change.details ?? []).not.toHaveLength(0)
+    }
   })
 })
 
@@ -495,7 +607,26 @@ describe('diffProfileAgainstBaseline - layers', () => {
       label: 'Drop weapons',
       before: 'Drops (hold, ALT): 1=drop rl',
       after: 'Drop weapons (hold): 1=drop bfg',
+      details: [
+        { field: 'name', before: 'Drops', after: 'Drop weapons' },
+        // An unassigned trigger has no value to state, so that side stays empty rather than
+        // reading "null" - the renderer decides what to show for a side that does not exist.
+        { field: 'triggerKey', before: 'ALT', after: undefined },
+        { field: 'overrides', before: '1=drop rl', after: '1=drop bfg' },
+      ],
     })
+  })
+
+  it('lists a layer\'s overrides one "key=command" per line, key-sorted', () => {
+    const changes = diffProfileAgainstBaseline(
+      withBaseline(
+        { layers: [layer({ overrides: { '2': 'drop rg', '1': 'drop rl' } })] },
+        { layers: [layer({ overrides: { '1': 'drop rl', '2': 'drop bfg' } })] },
+      ),
+    )
+    expect(only(changes, 'layers').details).toEqual([
+      { field: 'overrides', before: '1=drop rl\n2=drop rg', after: '1=drop rl\n2=drop bfg' },
+    ])
   })
 
   it('reports an added and a removed layer', () => {
@@ -677,6 +808,68 @@ describe('diffProfileAgainstBaseline - the whole change set', () => {
     for (const [section, bucket] of Object.entries(changes.sections)) {
       expect(bucket!.map((change) => change.key).sort()).toEqual(
         [...changes.keys[section as ProfileChangeSection]].sort(),
+      )
+    }
+  })
+
+  it('details do not change the change count or which entries are reported', () => {
+    // Story 064 AC4: five changed fields on one action and three on one layer are still one row
+    // each. The tab badge, the per-row unsaved indicators and Discard all read `count`/`keys`, so a
+    // field-level split would inflate all three.
+    const changes = diffProfileAgainstBaseline(
+      withBaseline(
+        {
+          cvars: { sensitivity: '3' },
+          binds: { F1: 'say gg' },
+          actions: [withKeys(action({ catalogId: 'rl', aliasName: '+rl' }), { key: 'F1' })],
+          layers: [layer()],
+          writeUnbindall: true,
+          unrecognized: [{ file: 'config.cfg', line: 12, text: 'oddity 1' }],
+        },
+        {
+          cvars: { sensitivity: '4.5' },
+          binds: { F1: 'say gl hf' },
+          actions: [
+            withKeys(
+              action({
+                name: 'RL',
+                catalogId: 'bfg',
+                aliasName: '+bfg',
+                commands: [{ kind: 'message', channel: 'say', text: 'boom' }],
+              }),
+              { key: 'F2' },
+            ),
+          ],
+          layers: [
+            layer({ name: 'Weapon drops', triggerKey: 'v', overrides: { '1': 'drop bfg' } }),
+          ],
+          writeUnbindall: false,
+          unrecognized: [{ file: 'config.cfg', line: 12, text: 'oddity 2' }],
+        },
+      ),
+    )
+
+    expect(changes.count).toBe(6)
+    expect(changes.changes.map((change) => `${change.section}/${change.key}`)).toEqual([
+      'cvars/sensitivity',
+      'binds/F1',
+      'actions/a1',
+      'layers/l1',
+      'settings/writeUnbindall',
+      'unrecognized/config.cfg:12',
+    ])
+    expect(only(changes, 'actions').details).toHaveLength(5)
+    expect(only(changes, 'layers').details).toHaveLength(3)
+    for (const [section, bucket] of Object.entries(changes.sections)) {
+      expect(bucket!.map((change) => change.key).sort()).toEqual(
+        [...changes.keys[section as ProfileChangeSection]].sort(),
+      )
+    }
+    // ...and only the two summary-line sections carry details at all: elsewhere the row already
+    // states the value itself, so a field breakdown would just restate it.
+    for (const change of changes.changes) {
+      expect(change.details === undefined).toBe(
+        change.section !== 'actions' && change.section !== 'layers',
       )
     }
   })

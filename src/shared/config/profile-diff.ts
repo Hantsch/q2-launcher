@@ -37,6 +37,8 @@
  */
 
 import type {
+  ActionEntryPart,
+  ActionKeySlot,
   ConfigAction,
   ConfigCommand,
   ConfigProfile,
@@ -92,6 +94,39 @@ export interface ProfileChange {
   kind: ProfileChangeKind
   key: string
   label: string
+  before?: string
+  after?: string
+  /**
+   * Which *fields* of this entry differ (story 064 D1) - present only on the `changed` rows of the
+   * `actions` and `layers` sections, the only ones whose `before`/`after` is a whole-entry summary
+   * rather than the value itself.
+   *
+   * Absent everywhere else, and deliberately so: a cvar, a bind, a setting and a preserved line
+   * *are* their value, so a field breakdown would restate the row; and an added or removed entry
+   * has no field-by-field story to tell - every field of it is new or gone, which is what `kind`
+   * already says.
+   */
+  details?: readonly ProfileChangeDetail[]
+}
+
+/**
+ * One field of a changed entry, stated on its own: `commands`, `keys`, `triggerKey`, `catalogId`...
+ *
+ * Exists because a whole-entry summary is unreadable as a diff (story 064, the reported "unsaved
+ * changes are no clean diff"): a one-command edit on an action produced two long, near-identical
+ * lines the user had to compare by eye. It is per *field* and not per change - one changed entry
+ * stays exactly one `ProfileChange` - because `count`, `keys` and the per-row unsaved indicators all
+ * key off the change list, so splitting an action into five rows would inflate all three (story 064,
+ * Decisions/AC4).
+ *
+ * `field` is the profile's own field name, which is what a renderer translates on (story 064 D2),
+ * never prose. `before`/`after` follow `ProfileChange`'s rule exactly: plain legible strings, and
+ * `undefined` for a side that has no value at all - the field is absent on that row, or holds the
+ * one `null` the model allows (`AltLayer.triggerKey`, "no trigger assigned"). What to *show* for
+ * such a side stays the renderer's decision.
+ */
+export interface ProfileChangeDetail {
+  field: string
   before?: string
   after?: string
 }
@@ -387,14 +422,121 @@ function describeLayer(layer: AltLayer): string {
   return `${head}: ${overrides}`
 }
 
+/** One part of a two-part entry (`kind: 'toggle'`/`'press-release'`), prefixed with whatever names
+ * it: its `label`, else the `aliasName` the user typed, else its 1-based position - which is the
+ * only identity the two halves otherwise have (state1/state2, press/release). */
+function describePart(part: ActionEntryPart, index: number): string {
+  const head = part.label?.trim() || part.aliasName?.trim() || String(index + 1)
+  return `${head}: ${part.commands.map(describeCommand).join('; ')}`
+}
+
+/**
+ * How each modelled field of an action or a layer is spelled in a detail row (story 064 D1).
+ *
+ * This map is **not** the completeness rule - `entryDetails` takes the union of both rows' own keys,
+ * so a field added to `ConfigAction` or `AltLayer` later shows up on its own (story 064, Decisions:
+ * a hand-written second field list is exactly the drift hazard this file's own doc comment names).
+ * It only decides how a field already known to differ is *printed*, and - as `Object.keys` order -
+ * the order the details are listed in, most-read fields first. A field it does not mention still
+ * gets a row, via `canonical`: a safety net, not the normal path.
+ *
+ * The multi-value fields are newline-joined rather than `; `-joined, so a multi-command body reads
+ * one command per line (story 064, AC5) instead of as one long line the changed command hides in.
+ */
+const DETAIL_FORMATTERS: Record<string, (value: unknown) => string> = {
+  name: (value) => String(value),
+  kind: (value) => String(value),
+  mode: (value) => String(value),
+  triggerKey: (value) => String(value),
+  keys: (value) =>
+    (value as readonly ActionKeySlot[])
+      .map((slot) => describeSlot(slot.key, slot.modifier))
+      .filter((slot) => slot.length > 0)
+      .join(', '),
+  commands: (value) => (value as readonly ConfigCommand[]).map(describeCommand).join('\n'),
+  parts: (value) => (value as readonly ActionEntryPart[]).map(describePart).join('\n'),
+  overrides: (value) =>
+    Object.entries(value as Record<string, string>)
+      .sort(([left], [right]) => compareText(left, right))
+      .map(([key, command]) => `${key}=${command}`)
+      .join('\n'),
+  aliasName: (value) => String(value),
+  keepEmptyAlias: (value) => String(value),
+  catalogId: (value) => String(value),
+  categoryId: (value) => String(value),
+  subcategoryId: (value) => String(value),
+}
+
+/** Declaration order of `DETAIL_FORMATTERS`, which is the order details are reported in. */
+const DETAIL_FIELD_ORDER = Object.keys(DETAIL_FORMATTERS)
+
+/** Where `field` sorts among the details: modelled fields in the formatter map's own order,
+ * anything unmodelled after them (alphabetically, via the tie-break at the call site). */
+function detailFieldRank(field: string): number {
+  const index = DETAIL_FIELD_ORDER.indexOf(field)
+  return index === -1 ? DETAIL_FIELD_ORDER.length : index
+}
+
+/**
+ * One field of one row in canonical form, with "this row has no such field" told apart from every
+ * value the field could hold - `''` is not producible by `canonical`, which always emits at least a
+ * `null`, a `{}` or a quote.
+ *
+ * "Absent" means exactly what it means to `canonical` for an object property: the value is
+ * `undefined`. Using the *same* rule here as `canonical` uses there is what makes the
+ * never-empty guarantee in `entryDetails` hold rather than merely be likely.
+ */
+function canonicalField(row: Record<string, unknown>, field: string): string {
+  const value = row[field]
+  return value === undefined ? '' : canonical(value)
+}
+
+/** One side of one detail: the formatted value, or `undefined` where that side has none - an absent
+ * field, or the `null` of an unassigned `AltLayer.triggerKey`, both of which `describeLayer` leaves
+ * out of its summary for the same reason. */
+function formatField(row: Record<string, unknown>, field: string): string | undefined {
+  const value = row[field]
+  if (value === undefined || value === null) return undefined
+  return (DETAIL_FORMATTERS[field] ?? canonical)(value)
+}
+
+/**
+ * The fields that differ between two paired rows, each formatted for reading.
+ *
+ * Never empty for a pair `diffById` calls `changed`: that verdict is
+ * `canonical(heldRow) !== canonical(liveRow)`, an object's canonical form is fully determined by its
+ * non-`undefined` properties, and `canonicalField` compares every property of both rows under that
+ * very rule - so a differing pair has at least one differing field. `id` is the only field left out,
+ * and it cannot be the one that differs: it is the identity the two rows were paired on. That is
+ * what lets story 064 drop the old "print the raw canonical JSON when the two summaries read alike"
+ * fallback outright instead of reformatting it - the unreadable case no longer exists.
+ */
+function entryDetails(heldRow: object, liveRow: object): ProfileChangeDetail[] {
+  const held = heldRow as Record<string, unknown>
+  const live = liveRow as Record<string, unknown>
+  const fields = [...new Set([...Object.keys(held), ...Object.keys(live)])]
+    .filter((field) => field !== 'id')
+    .sort(
+      (left, right) => detailFieldRank(left) - detailFieldRank(right) || compareText(left, right),
+    )
+
+  const details: ProfileChangeDetail[] = []
+  for (const field of fields) {
+    if (canonicalField(held, field) === canonicalField(live, field)) continue
+    details.push({ field, before: formatField(held, field), after: formatField(live, field) })
+  }
+
+  return details
+}
+
 /**
  * The added/removed/changed rows for one id-keyed section.
  *
  * "Changed" is decided by a deep structural comparison (`canonical`), so every field counts -
  * including the ones no summary line shows (`catalogId`, `keepEmptyAlias`), which do reach the file
- * as `[q2l ...]` tag content. Where two structurally different rows happen to summarise identically,
- * the canonical form is shown instead: a change row whose before and after read the same would
- * look like a bug, and this is the one place that can tell the two cases apart.
+ * as `[q2l ...]` tag content. Such a row is not left summarising identically on both sides either:
+ * `details` names each field that differs (story 064 D1), which is both what makes the row readable
+ * as a diff and why the two sides never need to fall back to raw JSON.
  */
 function diffById<T extends { id: string }>(
   section: ProfileChangeSection,
@@ -412,16 +554,14 @@ function diffById<T extends { id: string }>(
 
     if (heldRow && liveRow) {
       if (canonical(heldRow) === canonical(liveRow)) continue
-      const heldText = describe(heldRow)
-      const liveText = describe(liveRow)
-      const legible = heldText !== liveText
       changes.push({
         section,
         kind: 'changed',
         key: id,
         label: labelOf(liveRow),
-        before: legible ? heldText : canonical(heldRow),
-        after: legible ? liveText : canonical(liveRow),
+        before: describe(heldRow),
+        after: describe(liveRow),
+        details: entryDetails(heldRow, liveRow),
       })
     } else if (liveRow) {
       changes.push({

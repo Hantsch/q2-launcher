@@ -465,7 +465,34 @@
           "unrecognized": "Preserved lines"
         },
         "unset": "unset",
-        "unbound": "unbound"
+        "unbound": "unbound",
+        "before": "Before",
+        "after": "After",
+        "kind": {
+          "added": "Added",
+          "removed": "Removed",
+          "changed": "Changed"
+        },
+        "field": {
+          "name": "Name",
+          "kind": "Kind",
+          "mode": "Mode",
+          "triggerKey": "Trigger key",
+          "keys": "Keys",
+          "commands": "Commands",
+          "parts": "Parts",
+          "overrides": "Overrides",
+          "aliasName": "Alias name",
+          "keepEmptyAlias": "Keep empty alias",
+          "catalogId": "Catalog entry",
+          "categoryId": "Category",
+          "subcategoryId": "Subcategory"
+        },
+        "settingsLabel": {
+          "name": "Profile name",
+          "writeUnbindall": "Write unbindall",
+          "sectionHeaderStyle": "Section header style"
+        }
       }
     },
     "conflictDialog": {

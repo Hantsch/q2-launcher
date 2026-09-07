@@ -29,3 +29,9 @@
 2026-09-07 14:33:49 S14 062 D3 started ui:flow + screenshot hover step
 2026-09-07 14:39:56 S14 062 D3 done ui:flow controls-category-rename-reorder green via menu, screens.mjs hover step, ui:verify 0 axe violations
 2026-09-07 14:42:36 S14 062 review done default-tier PASS, 0 findings
+2026-09-07 14:44:29 S14 064 D1 started field-level details in change model
+2026-09-07 14:52:10 S14 064 D1 done field-level details, 46/46 tests, typecheck clean
+2026-09-07 14:52:14 S14 064 D2 started row reads as a diff
+2026-09-07 14:55:39 S14 064 D2 done row reads as a diff, 5/5 + 566/566 tests, typecheck clean
+2026-09-07 14:55:45 S14 064 D3 started acceptance flow through real surface
+2026-09-07 15:14:46 S14 064 D3 done acceptance flow, ui:seed/ui:flow/ui:verify all green, 0 axe violations
