@@ -1,6 +1,6 @@
 ---
 sprint: S14
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/S14
 milestone: Config, round three — live-acceptance findings
 ---

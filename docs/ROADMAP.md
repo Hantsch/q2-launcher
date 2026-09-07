@@ -582,6 +582,66 @@ route that could strand the destructive cleanup flow's Undo affordance. Both are
 its pre-story version via a stray `git show` redirect) that was caught and fully reconstructed
 before commit. Full findings in `docs/sprints/S13/review.md`.
 
+## Config, round three — live-acceptance findings
+
+Filed 2026-09-07 out of the live UI acceptance pass across S11–S13 owed by the previous
+milestone — using the surfaces those three sprints built surfaced five findings, four chrome/UX
+corrections and one real functional defect. Cut into a single sprint, `docs/sprints/S14`, built
+and closed the same day. **Done** — closes this milestone.
+
+- **063** (bug) — the *Hand grenades* / *Grenade Launcher* rows in Controls > Weapons could not
+  take a key. Root cause: a keyless `kind: 'bind'`/`'message'` entry with a body earned only an
+  alias line, never an unbound line, so the file carried no signal that its key slot was
+  deliberately empty; the next file→state read misread it as `kind: 'alias'`, permanently inert.
+  Fixed at the file contract (`render.ts`/`profile-restore.ts`), with a Controls row-menu repair
+  action for profiles already damaged by the bug.
+- **061** — one shared profile-detail header row for every tab (back left, identity centred,
+  actions right), replacing the two-row layout and Raw File's own folded exception; the 30-line
+  editor floor from story 057 is re-measured rather than assumed.
+- **062** — the category rail's chip collapsed from a box-in-a-box (grip + label + four
+  permanent icon buttons) to one visual level, with rename/delete/move-up/move-down behind a
+  per-category action menu mirroring the row's own kebab.
+- **064** — the Unsaved tab's per-row change now states a concrete field-level before/after
+  (`ProfileChange.details`, derived structurally from the union of both sides' keys) instead of
+  two long summary strings the user had to compare by eye.
+- **065** — a single `EngineBadge` component, wired into every surface that names an
+  installation (rail, hero, library card, action bar, both config-module installation lists, both
+  installation dialogs), replacing six repeats of the same tone-per-engine expression.
+
+`docs/sprints/S14` **built and closed (2026-09-07)** — build order 063 → 061 → 062 → 064 → 065
+(063 first as the only functional defect and, at sprint start, the only story with an unknown
+cause; 061 before 062/064 since it reshapes the header frame those stories render inside). **All
+five done**: `npm run build`/`typecheck` green, `npm test` green (2632/2633 — the one failure is a
+pre-existing, unrelated timeout flake, confirmed clean standalone), live `npm run ui:verify` clean
+(34/34 screens, 0 axe violations) plus a dedicated `ui:flow` script per story. See
+`docs/sprints/S14/review.md`; no `testplan.md` — every criterion across all five stories has an
+automated test, no manual residue.
+
+**A cross-story regression was caught by the sprint's own re-verification, not by any story's
+build or review**: 062's new per-category action menu gave every chip an accessible name of the
+shape `Actions for "<Category>"`, which started substring-matching three *other*, pre-existing
+`scripts/flows/*.mjs` scripts' `getByRole('button', { name: '<Category>' })` chip selectors
+(`controls-drag-reorder.mjs`, `controls-subcategory.mjs`, `drop-message-checkbox.mjs`). None of
+062's own build/review re-ran those unrelated flow scripts, and 065 (the next story to touch the
+fixture) found and correctly diagnosed the failures but left them for the sprint orchestrator to
+fix, being out of 065's own scope. Fixed by pinning the three selectors to `exact: true`. Worth a
+standing rule for later sprints: **a story that changes an accessible name used as a `getByRole`
+selector should grep `scripts/flows/` and `scripts/lib/screens.mjs` for that name, not just its
+own new/touched flow.**
+
+**Gaps/notes:**
+- `controls-drag-reorder.mjs`'s chip-drop step is flaky on a cold run (failed once, then passed
+  8/8 warm) — reproduced identically against the pre-sprint `dev` baseline, so not caused by this
+  milestone; worth a settle-wait before the first drag as a future hardening pass.
+- `custom-action-row.mjs` ("expected 5 icon buttons in the Options cell, found 4") and a
+  `controls-subcategory.mjs` sub-category-move timing assertion both fail identically on the
+  pre-sprint `dev` baseline — pre-existing, unrelated to this milestone, left open for whoever
+  picks up the Controls surface next.
+- 063 left two accepted, non-blocking trade-offs (both in its Done section): a pre-existing-file
+  keyless `say` entry now restores as `kind: 'alias'` instead of `kind: 'message'` (repairable via
+  063's own "Make bindable" action); and the grenade rows' keyed round-trip coverage rests partly
+  on generic pre-existing bound-entry tests rather than a story-specific reload-from-disk fixture.
+
 ### Mods — game directories
 
 - `+set game <dir>` is already built and validated (single ASCII token). The rest
