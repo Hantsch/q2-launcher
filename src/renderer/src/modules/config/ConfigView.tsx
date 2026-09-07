@@ -715,21 +715,47 @@ export function ConfigView() {
                     `UnsavedIndicator` reused as-is, and the three strings already exist - no new
                     primitive, no new i18n key. `min-w-0` + `truncate` on the name is what keeps a
                     long profile name from pushing the action cluster off the row.
+
+                    Story 069 D3: two lines instead of one - what a reader looks at first (which
+                    profile, and whether it is saved) on line 1, the created/updated context that is
+                    only read when looked for on line 2, which is what makes line 1 the focus (AC1)
+                    and gives the block air against the tab strip. Still exactly ONE
+                    `config-profile-identity` element, now with two child rows rather than two
+                    sibling zones (D-4): AC3 forbids a second identity block, and the guard asserts
+                    the testid exists exactly once and scans for stray duplicates.
+
+                    AC2 needs no new class: line 2's subordination is already in the tokens the two
+                    existing `KeyValue`s use (`stencil` 11px/`ink-muted` label, `text-xs`/`ink-dim`
+                    value), both smaller and dimmer than the `h2`'s `text-sm`/`ink` - so the `h2` is
+                    untouched (D-3) and `KeyValue` is not changed.
+
+                    No `gap-y` between the two rows, and the wrapper above keeps `space-y-1`
+                    (D-12): the zone is 20px + 16px = 36px, so the header - 28px, set by its 28px
+                    buttons - follows it to 36px, and that +8px is the whole remaining line budget
+                    over story 061's 30-visible-editor-line floor (AC4, measured by
+                    `scripts/flows/config-header-geometry.mjs`). A gap here, a `leading-*` or
+                    `items-start` instead of `items-center` costs an editor line for breathing room
+                    no acceptance criterion asks for. `items-center` on the header is what keeps
+                    back and actions centred against the now-taller zone (AC3).
                   */}
                   <div
                     data-testid="config-profile-identity"
-                    className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-x-4 gap-y-1"
+                    className="flex min-w-0 flex-1 flex-col items-center justify-center"
                   >
-                    <h2 className="min-w-0 truncate font-display text-sm tracking-[0.06em] text-ink uppercase">
-                      {selected.name}
-                    </h2>
-                    <KeyValue label={t('config.detail.created')}>
-                      {formatRelativeTime(selected.createdAt) ?? '-'}
-                    </KeyValue>
-                    <KeyValue label={t('config.detail.updated')}>
-                      {formatRelativeTime(selected.updatedAt) ?? '-'}
-                    </KeyValue>
-                    <UnsavedIndicator profile={selected} />
+                    <div className="flex min-w-0 items-center gap-2">
+                      <h2 className="min-w-0 truncate font-display text-sm tracking-[0.06em] text-ink uppercase">
+                        {selected.name}
+                      </h2>
+                      <UnsavedIndicator profile={selected} />
+                    </div>
+                    <div className="flex flex-wrap items-center justify-center gap-x-3">
+                      <KeyValue label={t('config.detail.created')}>
+                        {formatRelativeTime(selected.createdAt) ?? '-'}
+                      </KeyValue>
+                      <KeyValue label={t('config.detail.updated')}>
+                        {formatRelativeTime(selected.updatedAt) ?? '-'}
+                      </KeyValue>
+                    </div>
                   </div>
 
                   {/* `config-profile-actions`: D4 compares the action cluster's rect tab by tab

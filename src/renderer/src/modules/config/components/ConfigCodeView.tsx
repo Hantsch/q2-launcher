@@ -62,16 +62,18 @@ export interface ConfigCodeViewProps {
    * mode exists for small inline previews rather than a file worth searching. */
   singleLine?: boolean
   /**
-   * Renders an always-visible search header above the gutter+pre block (never a `Ctrl+F`
-   * overlay) with a text input, a live match-count region and previous/next controls. Ignored
+   * Renders an on-demand search header above the gutter+pre block - hidden until `Ctrl+F`/`Cmd+F`
+   * opens and focuses it, closed again (and its query cleared) on `Escape` - with a text input, a
+   * live match-count region and previous/next controls (story 069 D1: this used to be
+   * always-visible; `isFindOpen` is now shared 1:1 with the `editable` branch below, D-13). Ignored
    * when `singleLine` is set - see that prop's doc comment.
    */
   searchable?: boolean
   /**
    * Renders a transparent, editable `<textarea>` overlaid on the tokenised `<pre>` (story 057
    * D1) instead of the read-only D2/D3 rendering. Mutually exclusive with `singleLine` and
-   * `searchable` - callers that want editing get this mode's own Ctrl+F find bar instead, mirrored
-   * from the `searchable` branch but reused against the textarea's own selection.
+   * `searchable` - callers that want editing get the same on-demand Ctrl+F find bar as the
+   * `searchable` branch, reused against the textarea's own selection instead of the `<pre>`'s text.
    */
   editable?: boolean
   /**
@@ -237,6 +239,7 @@ export function ConfigCodeView({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const editSearchBarRef = useRef<HTMLDivElement | null>(null)
   const editCurrentMatchRef = useRef<HTMLSpanElement | null>(null)
+  const editPanelRef = useRef<HTMLDivElement | null>(null)
 
   const editMatches = useMemo(
     () => (editable === true && isFindOpen ? findMatches(editLines, editQuery) : []),
@@ -295,6 +298,19 @@ export function ConfigCodeView({
     // not a dependency: only its identity (`currentEditMatchKey`) should retrigger this effect.
   }, [editable, currentEditMatchKey, editLineStartOffsets])
 
+  // Focuses (and selects, so a repeat search overwrites the old query instead of appending to it)
+  // the find input once React has actually committed the bar into the DOM - replacing a
+  // `requestAnimationFrame` guess that raced React's commit and could leave focus on the textarea
+  // instead (story 069 D-13 bug fix). Keyed on `isFindOpen` alone, not on `editable`, because this
+  // effect is a no-op whenever the editable branch isn't the one rendering the bar: `editSearchBarRef`
+  // only points at a mounted node when this branch's JSX is what actually rendered.
+  useEffect(() => {
+    if (!isFindOpen) return
+    const input = editSearchBarRef.current?.querySelector('input')
+    input?.focus()
+    input?.select()
+  }, [isFindOpen])
+
   const goToNextEditMatch = (): void => {
     setEditMatchIndex((index) => (editMatches.length === 0 ? 0 : (index + 1) % editMatches.length))
   }
@@ -350,13 +366,27 @@ export function ConfigCodeView({
       event.preventDefault()
       event.stopPropagation()
       setIsFindOpen(false)
+      // Closing the bar unmounts its focused input, which would otherwise drop focus to
+      // `document.body` - and since Ctrl+F below is a container-scoped `onKeyDown`, a keydown
+      // that never bubbles from a focused descendant of this panel would never reach it again
+      // (story 069 D-13 bug fix). `editPanelRef`'s target is `tabIndex={-1}` for exactly this.
+      editPanelRef.current?.focus()
       return
     }
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
       event.preventDefault()
       event.stopPropagation()
       setIsFindOpen(true)
-      requestAnimationFrame(() => editSearchBarRef.current?.querySelector('input')?.focus())
+      // If the bar is already open (and therefore already mounted), `setIsFindOpen(true)` above is
+      // a no-op state update - React bails out because the value did not change, so the
+      // `isFindOpen`-keyed focus effect a few lines up never re-runs, and a second Ctrl+F after
+      // focus moved elsewhere (e.g. into the textarea) would otherwise do nothing observable. Mirror
+      // that effect's own focus+select here, synchronously, for the already-mounted case; when the
+      // bar isn't mounted yet this `querySelector` finds nothing and the mount-triggered effect run
+      // covers it instead, so the two paths never fight over the same focus call.
+      const input = editSearchBarRef.current?.querySelector('input')
+      input?.focus()
+      input?.select()
     }
   }
 
@@ -374,10 +404,14 @@ export function ConfigCodeView({
   // one `<input>` it contains.
   const searchBarRef = useRef<HTMLDivElement | null>(null)
   const currentMatchRef = useRef<HTMLSpanElement | null>(null)
+  const panelRef = useRef<HTMLDivElement | null>(null)
 
+  // Gated on `isFindOpen` too (story 069 D1, D-13) - shared with the editable branch's own state
+  // above - so highlights and the "X of Y" count come and go with the bar itself, exactly like the
+  // editable branch's `editMatches`.
   const matches = useMemo(
-    () => (isSearchActive ? findMatches(lines, query) : []),
-    [isSearchActive, lines, query],
+    () => (isSearchActive && isFindOpen ? findMatches(lines, query) : []),
+    [isSearchActive, isFindOpen, lines, query],
   )
 
   const matchesByLine = useMemo(() => {
@@ -418,6 +452,16 @@ export function ConfigCodeView({
     }
   }, [currentMatchKey])
 
+  // Mirrors the editable branch's own effect above (D-13): focuses (and selects) the find input
+  // once React has committed the bar into the DOM, replacing a `requestAnimationFrame` guess that
+  // raced React's commit and could leave focus on `.cfg-code` instead of the input.
+  useEffect(() => {
+    if (!isFindOpen) return
+    const input = searchBarRef.current?.querySelector('input')
+    input?.focus()
+    input?.select()
+  }, [isFindOpen])
+
   const goToNext = (): void => {
     setCurrentMatchIndex((index) => (matches.length === 0 ? 0 : (index + 1) % matches.length))
   }
@@ -428,29 +472,43 @@ export function ConfigCodeView({
     )
   }
 
-  // Escape clears the query wherever focus is within this component - the search input or the
-  // container itself, both of which bubble a keydown up to this container - and never bubbles
-  // further, so a dialog this view happens to sit inside does not also treat the same keypress
-  // as "close the dialog". A container-scoped Ctrl+F (never `window.addEventListener`)
-  // intercepts the browser's native find-in-page and redirects it at this view's own search box
-  // instead.
+  // Story 069 D1 (D-13): the bar itself is now on-demand, mirrored 1:1 from the editable branch's
+  // `handleEditContainerKeyDown` above - Escape closes it (and clears the query) wherever focus is
+  // within this component - the search input or the container itself, both of which bubble a
+  // keydown up to this container - and never bubbles further, so a dialog this view happens to sit
+  // inside does not also treat the same keypress as "close the dialog". Only swallowed while the
+  // bar is actually open: with it closed there is nothing for Escape to do here, so the event is
+  // left to propagate untouched - otherwise an ancestor's own Escape-to-close (e.g. a dialog
+  // listening on `document`, see `components/ui/Modal.tsx`) could never fire while focus happens to
+  // be inside this view. A container-scoped Ctrl+F (never `window.addEventListener`) intercepts the
+  // browser's native find-in-page, opens the bar and focuses its input instead.
   const handleContainerKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (event.key === 'Escape') {
-      // Only swallow Escape when there is actually something for it to do here (a non-empty
-      // query to clear). An empty query has nothing for this handler to act on, so the event is
-      // left to propagate untouched - otherwise an ancestor's own Escape-to-close (e.g. a dialog
-      // listening on `document`, see `components/ui/Modal.tsx`) could never fire while focus
-      // happens to be inside this view, even with no active search.
-      if (query.length === 0) return
+      if (!isFindOpen) return
       event.preventDefault()
       event.stopPropagation()
+      setIsFindOpen(false)
       setQuery('')
+      // Closing the bar unmounts its focused input, which would otherwise drop focus to
+      // `document.body` - and since Ctrl+F below is a container-scoped `onKeyDown`, a keydown
+      // that never bubbles from a focused descendant of this panel would never reach it again
+      // (story 069 D-13 bug fix). `panelRef`'s target is `tabIndex={-1}` for exactly this.
+      panelRef.current?.focus()
       return
     }
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
       event.preventDefault()
       event.stopPropagation()
-      searchBarRef.current?.querySelector('input')?.focus()
+      setIsFindOpen(true)
+      // Mirrors the editable branch's own already-open handling above (D-13 regression fix): when
+      // the bar is already open, `setIsFindOpen(true)` is a no-op state update and the
+      // `isFindOpen`-keyed focus effect never re-runs, so a second Ctrl+F after focus moved onto
+      // `.cfg-code` would otherwise be dropped silently. Focus+select the input directly here for
+      // that case; when the bar isn't mounted yet this is a no-op query and the mount-triggered
+      // effect covers it.
+      const input = searchBarRef.current?.querySelector('input')
+      input?.focus()
+      input?.select()
     }
   }
 
@@ -474,7 +532,15 @@ export function ConfigCodeView({
             })
 
     return (
-      <div className={cn('cfg-code-panel', className)} onKeyDown={handleEditContainerKeyDown}>
+      <div
+        className={cn('cfg-code-panel', className)}
+        onKeyDown={handleEditContainerKeyDown}
+        ref={editPanelRef}
+        // Script-focusable (never via Tab) so the Escape handler above can restore focus here
+        // after closing the find bar, exactly like the read-only branch below's own `tabIndex={-1}`
+        // panel div (see that div's comment for the full reasoning).
+        tabIndex={-1}
+      >
         {isFindOpen && (
           <div className="cfg-code-search" ref={editSearchBarRef}>
             <Input
@@ -564,6 +630,7 @@ export function ConfigCodeView({
     <div
       className={cn('cfg-code-panel', className)}
       onKeyDown={handleContainerKeyDown}
+      ref={panelRef}
       // Focusable via click/script (not via Tab) so that clicking anywhere in the highlighted
       // code below - not just the search input - moves focus onto this container. A keydown
       // event only ever bubbles from whatever currently has focus, so without this, clicking into
@@ -573,35 +640,37 @@ export function ConfigCodeView({
       // extra CSS here, while leaving the search `Input`'s own focus-visible ring untouched.
       tabIndex={-1}
     >
-      <div className="cfg-code-search" ref={searchBarRef}>
-        <Input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={handleSearchInputKeyDown}
-          placeholder={t('config.codeView.search.placeholder')}
-          aria-label={t('config.codeView.search.label')}
-          className="w-56"
-        />
-        <span className="cfg-code-search-count" aria-live="polite">
-          {countLabel}
-        </span>
-        <IconButton
-          label={t('config.codeView.search.previous')}
-          size="sm"
-          onClick={goToPrevious}
-          disabled={matches.length === 0}
-        >
-          <ChevronUp className="size-3.5" aria-hidden="true" />
-        </IconButton>
-        <IconButton
-          label={t('config.codeView.search.next')}
-          size="sm"
-          onClick={goToNext}
-          disabled={matches.length === 0}
-        >
-          <ChevronDown className="size-3.5" aria-hidden="true" />
-        </IconButton>
-      </div>
+      {isFindOpen && (
+        <div className="cfg-code-search" ref={searchBarRef}>
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={handleSearchInputKeyDown}
+            placeholder={t('config.codeView.search.placeholder')}
+            aria-label={t('config.codeView.search.label')}
+            className="w-56"
+          />
+          <span className="cfg-code-search-count" aria-live="polite">
+            {countLabel}
+          </span>
+          <IconButton
+            label={t('config.codeView.search.previous')}
+            size="sm"
+            onClick={goToPrevious}
+            disabled={matches.length === 0}
+          >
+            <ChevronUp className="size-3.5" aria-hidden="true" />
+          </IconButton>
+          <IconButton
+            label={t('config.codeView.search.next')}
+            size="sm"
+            onClick={goToNext}
+            disabled={matches.length === 0}
+          >
+            <ChevronDown className="size-3.5" aria-hidden="true" />
+          </IconButton>
+        </div>
+      )}
       {/* Same tabIndex reasoning as the non-searchable branch above: this is the actual
           scrollable overflow container, and it otherwise sits outside the tab order. */}
       <div className={cn('cfg-code', fill && 'cfg-code--fill')} tabIndex={0}>

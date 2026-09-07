@@ -127,9 +127,9 @@ export function RawFileTab({
 
     - `mode` (`rawEditingMode`, `lib/raw-draft.tsx`) - the same pure rule the draft context itself
       applies to `setText`, so the view and the guard can never disagree about whether typing is
-      allowed. `'lockedByChanges'` renders the read-only view plus a one-line hint, which is how the
-      "the editor is read-only while `profile.dirty`" half of AC7 is met without a second editing
-      mode to keep in sync.
+      allowed. `'lockedByChanges'` renders the read-only view plus a `Badge` hint in the merged
+      toolbar row above it (story 069 D2), which is how the "the editor is read-only while
+      `profile.dirty`" half of AC7 is met without a second editing mode to keep in sync.
     - the seed text: the draft's own text when there is one, so a remount (see below) restores what
       the user typed rather than the file underneath it.
     - the `key`: `ConfigCodeView`'s editable mode seeds its textarea from `text` exactly once (its
@@ -180,7 +180,10 @@ export function RawFileTab({
           `cn()` here is a plain `clsx` with no `tailwind-merge` dedup, so without `!` the winner is
           whichever rule Tailwind happens to emit later in the stylesheet, not the one written last
           in this file. */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+      <div
+        className="flex flex-wrap items-center gap-x-4 gap-y-1.5"
+        data-testid="config-raw-toolbar-row"
+      >
         <p
           className="numeric min-w-0 flex-1 truncate text-xs text-ink-dim"
           title={canonical.path}
@@ -191,8 +194,32 @@ export function RawFileTab({
         <Badge tone={canonical.onDisk ? 'success' : 'neutral'}>
           {canonical.onDisk ? t('config.raw.onDisk') : t('config.raw.notOnDisk')}
         </Badge>
-        {changeSet.count > 0 && (
-          <Badge tone="warning">{t('config.raw.unsavedNotice', { count: changeSet.count })}</Badge>
+        {/* Story 069 D2: while `mode === 'lockedByChanges'` the "why can't I type" hint used to be
+            a standalone paragraph below the whole row (costing a full extra line); it now lives in
+            the row itself as one `Badge`, in the row's own `HoverCard` idiom (used twice already
+            below for `writeUnbindall`/`sectionHeaderStyle`). Its label is the same unsaved-count
+            text the plain badge below would have shown when there is a count to show, so the two
+            are mutually exclusive rather than stacked - and falls back to
+            `config.raw.editLockedByChanges` for the case a profile is `dirty` but its change set
+            renders as empty, which is also the tooltip body either way (decision D-14). */}
+        {mode === 'lockedByChanges' ? (
+          <HoverCard
+            content={
+              <p className="text-xs leading-relaxed text-ink-muted">
+                {t('config.raw.editLockedByChanges')}
+              </p>
+            }
+          >
+            <Badge tone="warning" testId="config-raw-locked-hint">
+              {changeSet.count > 0
+                ? t('config.raw.unsavedNotice', { count: changeSet.count })
+                : t('config.raw.editLockedByChanges')}
+            </Badge>
+          </HoverCard>
+        ) : (
+          changeSet.count > 0 && (
+            <Badge tone="warning">{t('config.raw.unsavedNotice', { count: changeSet.count })}</Badge>
+          )
         )}
         <IconButton
           label={t('config.raw.openEditor')}
@@ -299,12 +326,6 @@ export function RawFileTab({
             )}
           </div>
         </Panel>
-      )}
-
-      {mode === 'lockedByChanges' && (
-        <p className="text-xs text-ink-muted" data-testid="config-raw-locked-hint">
-          {t('config.raw.editLockedByChanges')}
-        </p>
       )}
 
       {mode === 'editable' ? (

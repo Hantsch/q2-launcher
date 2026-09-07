@@ -21,3 +21,14 @@
 - 2026-09-07 18:58 · 067 · D6 The picker dialog and its trigger · started
 - 2026-09-07 19:05 · 067 · D6 The picker dialog and its trigger · done
 - 2026-09-07 20:21 · 067 · verification + story-review-hard (2 passes, F1/F2 found+fixed) · done
+- 2026-09-07 20:24 · 069 · D1 the read-only find bar opens on demand · started
+- 2026-09-07 20:32 · 069 · D1 the read-only find bar opens on demand · done
+- 2026-09-07 20:32 · 069 · D2 the locked hint lives in the merged toolbar row · started
+- 2026-09-07 20:38 · 069 · D2 the locked hint lives in the merged toolbar row · done
+- 2026-09-07 20:38 · 069 · D3 the identity zone renders two lines · started
+- 2026-09-07 20:46 · 069 · D3 the identity zone renders two lines · done
+- 2026-09-07 20:58 · 069 · review-fix cycle 1 (D1 find-bar focus bugs) · started
+- 2026-09-07 21:13 · 069 · review-fix cycle 2 (Ctrl+F no-op when already open) · started
+- 2026-09-07 21:17 · 069 · review-fix cycle 2 (Ctrl+F no-op when already open) · done
+- 2026-09-07 21:26 · 069 · review-fix cycle 1 (D1 find-bar focus bugs) · done (belated log entry — actually completed before cycle 2 started at 21:13)
+- 2026-09-07 21:26 · 069 · story-review-hard (3 passes, F1-F3 found+fixed, final PASS) · done

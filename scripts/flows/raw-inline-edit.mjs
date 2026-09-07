@@ -84,6 +84,87 @@ export default async function rawInlineEdit({ page, shot, step }) {
 
   await shot('draft-typed')
 
+  // Story 069 D-13 regression coverage (editable branch): no e2e assertions existed anywhere for
+  // this branch's own Ctrl+F/focus behaviour before this fix, even though the "Ctrl+F is a no-op
+  // once the bar is already open" bug is destructive here specifically - a second Ctrl+F that fails
+  // to refocus the find input leaves keystrokes landing in the textarea itself, corrupting the
+  // config text. Mirrors the read-only branch's own already-open assertion in
+  // `config-header-geometry.mjs`, against the editable find bar instead.
+  step('press Ctrl+F in the editable raw editor and assert the find bar opens, focused (D-13)')
+  await textarea.click({ timeout: TIMEOUT_MS })
+  await page.keyboard.press('Control+f')
+  const editSearchBar = page.locator('.cfg-code-search')
+  await editSearchBar.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  const editSearchInput = editSearchBar.locator('input')
+  const editInputFocusedOnFirstOpen = await editSearchInput.evaluate(
+    (el) => el === document.activeElement,
+  )
+  if (!editInputFocusedOnFirstOpen) {
+    const activeTag = await page.evaluate(() => document.activeElement?.tagName ?? '(none)')
+    throw new Error(
+      `Ctrl+F opened the editable find bar but did not focus its input - document.activeElement ` +
+        `is <${activeTag}> instead`,
+    )
+  }
+
+  step(
+    'click into the textarea to move focus off the input without closing the bar, then press ' +
+      'Ctrl+F again (already-open regression)',
+  )
+  // The bar is still open and focused in its input from the previous step. Clicking the textarea
+  // moves focus onto it without pressing Escape, so the bar stays mounted - exactly the
+  // "already open" state the regression needs: `setIsFindOpen(true)` is then a no-op state update,
+  // so the `isFindOpen`-keyed focus effect never re-runs on its own. Before the fix, the next
+  // keystrokes landed in the textarea instead of the (still unfocused) find input, mutating the
+  // config text.
+  await textarea.click({ timeout: TIMEOUT_MS })
+  const focusedOnTextareaAfterClick = await textarea.evaluate((el) => el === document.activeElement)
+  if (!focusedOnTextareaAfterClick) {
+    throw new Error(
+      'clicking the textarea did not move focus onto it - cannot exercise the already-open ' +
+        'regression',
+    )
+  }
+  await page.keyboard.press('Control+f')
+  const editInputFocusedOnSecondOpen = await editSearchInput.evaluate(
+    (el) => el === document.activeElement,
+  )
+  if (!editInputFocusedOnSecondOpen) {
+    throw new Error(
+      'a second Ctrl+F while the editable find bar was already open (focus moved to the textarea) ' +
+        'did not refocus its input - this is the already-open no-op regression',
+    )
+  }
+
+  step(
+    'type while the find input is focused and assert it lands in the find input, not the textarea',
+  )
+  const textareaValueBeforeFind = await textarea.inputValue()
+  await page.keyboard.type('sensitivity')
+  const textareaValueAfterFind = await textarea.inputValue()
+  if (textareaValueAfterFind !== textareaValueBeforeFind) {
+    throw new Error(
+      'typing while the find input was focused changed the textarea value - keystrokes leaked ' +
+        `into the config text (before=${JSON.stringify(textareaValueBeforeFind)} ` +
+        `after=${JSON.stringify(textareaValueAfterFind)})`,
+    )
+  }
+  const editSearchInputValue = await editSearchInput.inputValue()
+  if (editSearchInputValue !== 'sensitivity') {
+    throw new Error(
+      `typed text did not land in the editable find input - got ${JSON.stringify(editSearchInputValue)}`,
+    )
+  }
+
+  step('close the editable find bar before continuing')
+  await page.keyboard.press('Escape')
+  await editSearchBar.waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
+
+  console.log(
+    'editable find bar: opens focused on Ctrl+F, refocuses its input on a second Ctrl+F after ' +
+      'focus moved to the textarea, and typing while it is focused never reaches the textarea',
+  )
+
   // The draft lives in `RawDraftProvider` at detail level, not in the tab, so leaving the raw tab
   // and coming back keeps the typed text (`RawFileTab`'s editor seeds from `rawDraft.text`) - which
   // is what makes this round trip a real assertion rather than a risk to the save below.
