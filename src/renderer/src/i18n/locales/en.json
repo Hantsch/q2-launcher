@@ -1902,7 +1902,9 @@
     "openFolder": "Open",
     "repository": "Project page",
     "devTools": "Development",
-    "simulateJob": "Simulate a download job"
+    "simulateJob": "Simulate a download job",
+    "simulateJobStall": "Simulate a stalled job",
+    "simulateJobFailure": "Simulate a failed job"
   },
 
   "launch": {
@@ -1918,6 +1920,14 @@
 
   "jobs": {
     "simulatedDownload": "Simulated download (development)",
+    "status": {
+      "queued": "Queued",
+      "running": "Running",
+      "paused": "Paused",
+      "succeeded": "Done",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
     "error": {
       "notFound": "That job has already finished.",
       "notCancellable": "This job cannot be cancelled."
@@ -1926,7 +1936,19 @@
 
   "downloads": {
     "job": {
-      "download": "Downloading {{name}}"
+      "download": "Downloading {{name}}",
+      "cancel": "Cancel this download"
+    },
+    "cache": {
+      "title": "Archive cache",
+      "size": "Size"
+    },
+    "jobs": {
+      "title": "Active downloads",
+      "empty": {
+        "title": "Nothing downloading",
+        "body": "Jobs you start will show their progress here."
+      }
     },
     "error": {
       "manifestUnavailable": "Could not reach the download server, and nothing is cached yet. Check your connection and try again.",
@@ -1935,7 +1957,17 @@
       "extractorMissing": "The extraction tool is missing from this install. Reinstalling the launcher should fix this.",
       "extractionFailed": "The downloaded file could not be extracted.",
       "diskWrite": "The file could not be written to disk. Check your available space and try again.",
-      "network": "A network error interrupted the download."
+      "network": "A network error interrupted the download.",
+      "unknown": "The download failed for an unknown reason."
+    },
+    "failures": {
+      "title": "Failed downloads",
+      "installation": "Installation: {{name}}",
+      "dismiss": "Dismiss this failure",
+      "restore": "Restore this failure",
+      "dismissed": {
+        "summary": "Dismissed ({{count}})"
+      }
     }
   },
 

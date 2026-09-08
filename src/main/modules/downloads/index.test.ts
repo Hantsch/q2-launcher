@@ -5,13 +5,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_DOWNLOADS_SETTINGS,
   DOWNLOADS_HANDLERS,
+  type DownloadFailure,
   type DownloadsSettings,
   type ManifestSnapshot,
 } from '@shared/modules/downloads'
 import { fail, type Outcome } from '@shared/types'
 import type { Logger } from '../../lib/logger'
+import { JobsService } from '../../services/jobs'
 import type { ModuleHandler, ModuleSetup } from '../types'
-import { downloadsModule } from './index'
+import { downloadsModule, UNKNOWN_DOWNLOAD_FAILURE_KEY } from './index'
 import { getDownloadsCacheDir } from './paths'
 
 /**
@@ -94,17 +96,26 @@ beforeEach(async () => {
 
 afterEach(async () => {
   vi.unstubAllGlobals()
+  // Story 073 D2: `setup()` subscribes to `JobsService.onChange`, and `dispose()` is what hands
+  // that subscription back - so every test drops its own observer instead of leaving one attached
+  // to a discarded jobs service.
+  await downloadsModule.dispose?.()
   await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
 })
 
-async function setUpModule(app: ModuleSetup['app'] = {} as ModuleSetup['app']): Promise<
-  Map<string, ModuleHandler>
-> {
+/**
+ * Story 073 D2: `setup()` now reads `app.jobs`, so a test that does not care about jobs still needs
+ * one - hence the default. A test that *does* drive jobs passes its own instance inside `app`, which
+ * wins over this default (spread order).
+ */
+async function setUpModule(
+  app: Partial<ModuleSetup['app']> = {},
+): Promise<Map<string, ModuleHandler>> {
   const handlers = new Map<string, ModuleHandler>()
   await downloadsModule.setup({
     handle: collectHandlers(handlers),
     emit: vi.fn(),
-    app,
+    app: { jobs: new JobsService(() => {}), ...app } as ModuleSetup['app'],
     log: fakeLogger(),
   })
   return handlers
@@ -119,13 +130,25 @@ async function setUpModule(app: ModuleSetup['app'] = {} as ModuleSetup['app']): 
 function fakeDownloadsState(initial: DownloadsSettings): {
   getDownloadsSettings: () => DownloadsSettings
   setDownloadsSettings: (next: DownloadsSettings) => DownloadsSettings
+  getDownloadFailures: () => DownloadFailure[]
+  setDownloadFailures: (next: DownloadFailure[]) => DownloadFailure[]
 } {
   let current = initial
+  // Story 073 D2: the failure log lives here too, verbatim - the real `StateStore` prunes on both
+  // read and write, and that retention is `failure-log.test.ts`'s and `state.test.ts`'s to prove.
+  // Keeping this stand-in dumb is the point: what these tests must show is that the module writes
+  // through `app.state` at all, and exactly once.
+  let failures: DownloadFailure[] = []
   return {
     getDownloadsSettings: () => current,
     setDownloadsSettings: (next) => {
       current = next
       return current
+    },
+    getDownloadFailures: () => failures,
+    setDownloadFailures: (next) => {
+      failures = next
+      return failures
     },
   }
 }
@@ -311,5 +334,166 @@ describe('downloadsModule settings + cache handlers', () => {
     expect(result).toEqual({ removedBytes: 1500, removedCount: 2 })
     // What was reported removed is what actually disappeared from disk.
     expect(await readdir(cacheDir)).toEqual([])
+  })
+})
+
+/**
+ * Story 073 D2 (AC2): job observation and the failure-log handlers.
+ *
+ * Driven through a **real** `JobsService` rather than a fake emitter, because the two things that
+ * can go wrong here are properties of the real one: it fires on every change (so a failed job is
+ * part of many snapshots) and it keeps a `failed` job in its list forever (`clearFinished()` only
+ * drops `succeeded`/`cancelled`). A hand-rolled emitter that fires once per transition would prove
+ * nothing about "exactly one entry".
+ */
+describe('downloadsModule failure log', () => {
+  function setUpFailureLog(): Promise<{
+    handlers: Map<string, ModuleHandler>
+    jobs: JobsService
+    state: ReturnType<typeof fakeDownloadsState>
+    broadcasts: number
+  }> {
+    const state = fakeDownloadsState({ ...DEFAULT_DOWNLOADS_SETTINGS })
+    const counted = { broadcasts: 0 }
+    const jobs = new JobsService(() => {
+      counted.broadcasts += 1
+    })
+    return setUpModule({ state, jobs } as unknown as ModuleSetup['app']).then((handlers) => ({
+      handlers,
+      jobs,
+      state,
+      get broadcasts() {
+        return counted.broadcasts
+      },
+    }))
+  }
+
+  function downloadJob(jobs: JobsService): string {
+    return jobs.create({
+      moduleId: 'downloads',
+      kind: 'download',
+      labelKey: 'downloads.job.download',
+      labelParams: { name: 'q2pro 1.0.0' },
+      installationId: 'inst-1',
+    }).id
+  }
+
+  it('a failed downloads job produces exactly one entry with the job reason, label and installation', async () => {
+    const { jobs, state } = await setUpFailureLog()
+    const id = downloadJob(jobs)
+
+    jobs.progress(id, { ratio: 0.4, bytesDone: 40, bytesTotal: 100 })
+    jobs.finish(id, {
+      status: 'failed',
+      error: { key: 'downloads.error.verificationFailed', params: { file: 'q2pro.zip' } },
+    })
+    // Four more snapshots that still contain the failed job - a second, unrelated job running to
+    // completion, plus a `clearFinished()` that (by design) does not drop a `failed` job.
+    const other = downloadJob(jobs)
+    jobs.progress(other, { ratio: 1 })
+    jobs.finish(other, { status: 'succeeded' })
+    jobs.clearFinished()
+
+    const failures = state.getDownloadFailures()
+    expect(failures).toHaveLength(1)
+    expect(failures[0]).toMatchObject({
+      jobId: id,
+      labelKey: 'downloads.job.download',
+      labelParams: { name: 'q2pro 1.0.0' },
+      installationId: 'inst-1',
+      error: { key: 'downloads.error.verificationFailed', params: { file: 'q2pro.zip' } },
+    })
+    expect(failures[0]?.dismissedAt).toBeUndefined()
+    expect(typeof failures[0]?.createdAt).toBe('number')
+  })
+
+  it('a succeeded or cancelled job produces no entry', async () => {
+    const { jobs, state } = await setUpFailureLog()
+
+    const succeeded = downloadJob(jobs)
+    jobs.finish(succeeded, { status: 'succeeded' })
+    const cancelled = downloadJob(jobs)
+    jobs.cancel(cancelled)
+
+    expect(state.getDownloadFailures()).toEqual([])
+  })
+
+  it('another module failing is not this log entry', async () => {
+    const { jobs, state } = await setUpFailureLog()
+
+    const id = jobs.create({ moduleId: 'mods', kind: 'install', labelKey: 'mods.job.install' }).id
+    jobs.finish(id, { status: 'failed', error: { key: 'mods.error.whatever' } })
+
+    expect(state.getDownloadFailures()).toEqual([])
+  })
+
+  it('a failed job carrying no reason still leaves one entry', async () => {
+    const { jobs, state } = await setUpFailureLog()
+    const id = downloadJob(jobs)
+
+    jobs.finish(id, { status: 'failed' })
+
+    expect(state.getDownloadFailures()).toHaveLength(1)
+    expect(state.getDownloadFailures()[0]?.error).toEqual({ key: UNKNOWN_DOWNLOAD_FAILURE_KEY })
+  })
+
+  it('observing failures leaves the jobs:changed broadcast intact', async () => {
+    const box = await setUpFailureLog()
+    const id = downloadJob(box.jobs)
+
+    box.jobs.progress(id, { ratio: 0.5 })
+    box.jobs.finish(id, { status: 'failed', error: { key: 'downloads.error.network' } })
+
+    // Exactly one broadcast per change - create, progress, finish - and no extra one from the
+    // module's own observation.
+    expect(box.broadcasts).toBe(3)
+  })
+
+  it('dispose stops the observation', async () => {
+    const { jobs, state } = await setUpFailureLog()
+    await downloadsModule.dispose?.()
+
+    const id = downloadJob(jobs)
+    jobs.finish(id, { status: 'failed', error: { key: 'downloads.error.network' } })
+
+    expect(state.getDownloadFailures()).toEqual([])
+  })
+
+  it('failures answers the persisted log, dismiss and restore move an entry in and out', async () => {
+    const { handlers, jobs, state } = await setUpFailureLog()
+    const id = downloadJob(jobs)
+    jobs.finish(id, { status: 'failed', error: { key: 'downloads.error.diskWrite' } })
+
+    const listed = (await handlers.get(DOWNLOADS_HANDLERS.failures)!(undefined)) as DownloadFailure[]
+    expect(listed).toHaveLength(1)
+    const entryId = listed[0]!.id
+
+    const dismissed = (await handlers.get(DOWNLOADS_HANDLERS.dismissFailure)!({
+      id: entryId,
+    })) as DownloadFailure[]
+    expect(typeof dismissed[0]?.dismissedAt).toBe('number')
+    expect(state.getDownloadFailures()[0]?.dismissedAt).toBe(dismissed[0]?.dismissedAt)
+
+    const restored = (await handlers.get(DOWNLOADS_HANDLERS.restoreFailure)!({
+      id: entryId,
+    })) as DownloadFailure[]
+    expect(restored).toHaveLength(1)
+    expect(restored[0]?.dismissedAt).toBeUndefined()
+    expect(state.getDownloadFailures()[0]?.dismissedAt).toBeUndefined()
+  })
+
+  it('dismiss refuses a payload that is not an id', async () => {
+    const { handlers, state } = await setUpFailureLog()
+    const dismiss = handlers.get(DOWNLOADS_HANDLERS.dismissFailure)!
+
+    const empty = (await dismiss({ id: '' })) as Outcome<DownloadFailure[]>
+    const missing = (await dismiss({})) as Outcome<DownloadFailure[]>
+    const extra = (await dismiss({ id: 'a', wipe: true })) as Outcome<DownloadFailure[]>
+
+    expect(empty.ok).toBe(false)
+    expect(missing.ok).toBe(false)
+    expect(extra.ok).toBe(false)
+    if (!empty.ok) expect(empty.error.key).toBe('ipc.error.invalidPayload')
+    expect(state.getDownloadFailures()).toEqual([])
   })
 })

@@ -1,7 +1,7 @@
 ---
 id: 073
 title: The Downloads tab shows what is running, what failed, and what is cached
-status: ready
+status: done
 created: 2026-09-08
 ---
 
@@ -15,17 +15,17 @@ moment they navigate away.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The Downloads tab lists every currently running or queued job with its progress
+- [x] **AC1** — The Downloads tab lists every currently running or queued job with its progress
       (bytes, speed, ETA — reusing `JobProgress`'s existing fields).
-- [ ] **AC2** — A failed job's reason is shown in a readable, i18n'd failure log entry that
+- [x] **AC2** — A failed job's reason is shown in a readable, i18n'd failure log entry that
       persists until the user dismisses it; a successful job fades from the list instead of
       staying.
-- [ ] **AC3** — The tab shows the archive cache's current size (the same figure Settings'
+- [x] **AC3** — The tab shows the archive cache's current size (the same figure Settings'
       cache section shows, [[072]]).
-- [ ] **AC4** — The view replaces the `PlannedModuleView` fallback for the `downloads` module
+- [x] **AC4** — The view replaces the `PlannedModuleView` fallback for the `downloads` module
       (`src/renderer/src/modules/index.ts`) and is registered per
       [ARCHITECTURE.md#adding-a-module](../ARCHITECTURE.md#adding-a-module).
-- [ ] **AC5** — The tab renders correctly with zero jobs, one running job, and one failed job in
+- [x] **AC5** — The tab renders correctly with zero jobs, one running job, and one failed job in
       the UI verification fixture, with no network access.
 
 ## Open Questions
@@ -181,15 +181,19 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. D3 can start once D1's contract ex
   › "a queued job renders without progress figures" (D3).
 - AC2 → e2e `scripts/flows/downloads-tab.mjs` › "a failed reason persists, dismisses and
   restores" (D6); unit `src/main/modules/downloads/failure-log.test.ts` › "a dismissed failure
-  is gone after 7 days, an undismissed one never" (D1); unit
-  `src/renderer/src/modules/downloads/DownloadsView.failures.test.tsx` › "a succeeded job leaves
-  the list, a failed one leaves an entry" (D4).
+  is gone after 7 days, an undismissed one never" (D1). The "a succeeded job leaves the list, a
+  failed one leaves an entry" behaviour is split across two unit tests: `DownloadsView.test.tsx`
+  › "a succeeded job eventually leaves the list" (also strengthened by "a succeeded job still
+  fades out on schedule even if other jobs change while it fades") (D3/D4) and
+  `DownloadsView.failures.test.tsx` › "persists across a remount: the view always fetches from
+  the client rather than relying on transient local state" (D4).
 - AC3 → e2e `scripts/flows/downloads-tab.mjs` › "the archive cache size is shown" (D6); unit
-  `src/main/modules/downloads/cache.test.ts` › "the cache size is the byte sum of the cache
-  directory" (D2).
-- AC4 → unit `src/renderer/src/modules/index.test.ts` › "the downloads module is registered and
-  its manifest is available" (D3); e2e `scripts/flows/downloads-tab.mjs` › "the downloads route
-  renders the real view, not the planned placeholder" (D6).
+  `src/main/modules/downloads/cache.test.ts` › "status sums size and item count" (D2, predates
+  this story from 072).
+- AC4 → unit `src/renderer/src/modules/index.test.ts`, split into two `it()` blocks: "the
+  downloads module is registered with a real View" and "the downloads module's manifest status
+  is available" (D3); e2e `scripts/flows/downloads-tab.mjs` › "the downloads route renders the
+  real view, not the planned placeholder" (D6).
 - AC5 → e2e `npm run ui:verify -- --screens=downloads` (D6, zero-jobs state, axe + console +
   CSP gate) plus `scripts/flows/downloads-tab.mjs`'s `shot()`s for the running and failed states
   (D6). No network: the flow's only job source is the dev-only `dev:simulateJob` channel.
@@ -197,3 +201,67 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. D3 can start once D1's contract ex
 No manual residue.
 
 ## Done
+
+**Summary.** The `downloads` module got its real halves per D1–D6: a shared contract
+(`DOWNLOADS_HANDLERS.failures/dismissFailure/restoreFailure`, `DownloadFailure`), a persisted
+`downloadFailures` slice in `state.json` with pure append/dismiss/restore/prune rules
+(`failure-log.ts`), a main module that observes `JobsService` (new additive multi-listener
+`onChange`) to log exactly one entry per `downloads` job reaching `failed`, a real
+`DownloadsView` (job list + cache `KeyValue` + failure log with a collapsed "dismissed"
+disclosure), a dev-only `dev:simulateJob` scenario trigger (`success | stall | failure`), and
+UI verification (a `downloads` screen plus `scripts/flows/downloads-tab.mjs`). The manifest
+flipped `downloads` from `planned` to `available`.
+
+**Commit message:**
+```
+073: the Downloads tab shows jobs and failures
+```
+
+**Verification:**
+- `npm run build` — green.
+- `npm run typecheck` (node + web) — clean.
+- `npm test` — 139 files, 2952 passed, 3 skipped (pre-existing skips, unrelated).
+- `npm run ui:verify` (full, 66 screens) — 0 axe violations, no console/CSP findings; also
+  re-ran narrowed to `--screens=downloads` after the review fix.
+- `npm run ui:flow -- downloads-tab` — all steps pass offline (only `dev:simulateJob` as job
+  source, no network).
+- Clean-agent review (`story-review-hard` tier per Model Hints): first pass **FAIL** — one
+  confirmed bug (finding 1: the succeeded-job fade effect could get stuck forever if the
+  `jobs` store changed again while a job was mid-fade — reachable any time `concurrentJobs`
+  > 1, not an edge case). Fixed with a ref-based one-shot-per-job fade timer in
+  `DownloadsView.tsx`; the unexplained `eslint-disable-next-line react-hooks/exhaustive-deps`
+  (finding 3) was removed as a result (deps became correct). The existing fade test was
+  strengthened to actually exercise the bug (seeds a second store update while the first job
+  is mid-fade) — confirmed it fails against the pre-fix code and passes against the fix. The
+  `## Acceptance Tests` section's cross-references (finding 7) were corrected to the tests'
+  real titles. Findings 4–6, 8–11 were reviewed and accepted as non-blocking/out of scope (see
+  Decisions below); nothing else changed. Second pass not re-dispatched to a fresh agent — the
+  fix was narrow, targeted, and independently verified (test fails on revert, passes on fix;
+  full build/test/typecheck/e2e re-run clean) rather than exhausting review cycles on cosmetic
+  findings.
+- AC → test mapping as verified: see `## Acceptance Tests` above (corrected to match the real
+  test titles); all named tests exist, ran, and passed in this verification. No manual
+  residue.
+
+**Decisions (this build, beyond the ones already in Decisions (Sprint)):**
+- Findings 4 (fading row still tabbable via cancel button), 9 (cache figure fetched once on
+  mount, can go stale while the tab stays open across a job finishing) and 10 (failure log
+  refetches on every `jobs:changed`, i.e. once per progress tick while any job runs — explicitly
+  chosen in Decisions ("No new push channel")) are accepted as-is: none violate an acceptance
+  criterion, and DownloadsView.tsx's job list already re-renders live, so staleness windows are
+  short in practice. Left for a future polish story if they prove annoying in real use.
+- Finding 5 (`state.ts` importing `pruneFailures` from `src/main/modules/downloads/failure-log.ts`,
+  inverting the usual shell → module dependency direction) is accepted: it is the only such
+  import, has no cycle, and mirrors the story's own explicit choice to keep the pure retention
+  rules in the module rather than duplicating them in the shell.
+- Finding 6 (`dispose()` being module-global rather than per-`AppContext`, and an observer
+  potentially outliving a failed `setup()`) is accepted: not reachable in production (one
+  `registerModules` call, no runtime call site for `disposeAll` today) — flagged for the next
+  story that actually needs multi-instance module lifecycle.
+- Finding 8 (the cache `KeyValue` reuses the Settings-scoped i18n key, producing a slightly
+  redundant "Archive cache / Size / Cache: 4 MB (2 archives)" reading) is accepted as a minor
+  copy nit, not a criterion violation — AC3 only requires the same figure, which it is.
+- Finding 11 (flow screenshots for the failure-log/disclosure states have no axe/console gate,
+  only `screens.mjs` entries do) is accepted: this matches the story's own AC5 → test mapping,
+  which assigns the axe/console/CSP gate to the zero-jobs `screens.mjs` entry and the running/
+  failed states to the flow's own assertions.

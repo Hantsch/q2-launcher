@@ -531,6 +531,20 @@ longer resolves. Both now select `RawFileTab`'s one native `<select>` directly
 "Start the file with `unbindall`" checkbox, selected by its visible label text,
 not `getByLabel`) was unaffected by this layout change and was left as-is.
 
+Story 073 D6 updates one existing entry rather than adding a new one:
+
+- **`downloads`** (added by story 031) used to land on `PlannedModuleView`, since the `downloads`
+  manifest still had `status: 'planned'`. Story 073 D3 flips that to `'available'` and registers
+  the real `DownloadsView`, so the same click (`nav-downloads`) now reaches real content —
+  `navigate()` was given a wait on the empty-jobs body text (`downloads.jobs.empty.body`) so a
+  screenshot can never race a not-yet-mounted view the way a bare click could. Per the story's own
+  "Fixture split" decision, this screen only ever shows the *zero-jobs* state — a live job cannot
+  be seeded through the static `state.json` fixture — which is what `variant: 'populated'` means
+  here: "the real view, populated with its own UI" (the archive cache's real figure, from the two
+  dummy archives `scripts/lib/fixture.mjs` seeds under `cache/downloads/`), not "populated with
+  jobs". The running and failed states live in `scripts/flows/downloads-tab.mjs` instead (see
+  "Flows shipped so far" below), since only a flow can trigger `dev:simulateJob`.
+
 Story 058 D7 adds two more, for the story's own AC 9 (Care's two states) and D6's relocated
 cleanup:
 
@@ -715,7 +729,15 @@ of its own, so the profile created afterward still carries every one of `dm.cfg`
 real `window.q2.invoke('module:invoke', { moduleId: 'config', type: 'list' })` call rather than
 scraped off the DOM. Run again with `empty` (`npm run ui:flow -- import-from-files empty`) it skips
 the template/options steps and only proves the import path on a launcher with zero installations
-registered at all (AC9).
+registered at all (AC9), and (story 073 D6) **`downloads-tab`** — the Downloads tab's live states
+that the static `state.json` fixture cannot seed (Decisions (Sprint), "Fixture split"): asserts the
+real `DownloadsView` renders instead of `PlannedModuleView`'s placeholder copy (AC4) and that the
+archive cache's seeded 4 MB/2-archive figure is shown (AC3), then drives D5's dev-panel `stall`
+button ("Simulate a stalled job") and asserts the resulting job row's bytes/speed/ETA text (AC1),
+then drives the `failure` button ("Simulate a failed job") and asserts the resulting failure-log
+entry's translated reason persists across a `DownloadsView` remount, dismisses into the collapsed
+"Dismissed" disclosure, and restores back into the visible list (AC2) — the only job source is
+`dev:simulateJob`, so the flow never touches the network (AC5).
 
 ## Baselines and CI
 

@@ -3,16 +3,19 @@ import {
   DOWNLOADS_HANDLERS,
   type ArchiveCacheStatus,
   type ClearArchiveCacheResult,
+  type DownloadFailure,
   type DownloadsSettings,
   type ManifestSnapshot,
   type PackageSource,
 } from '@shared/modules/downloads'
-import { fail, ok, type Outcome } from '@shared/types'
+import { fail, ok, type Job, type Outcome } from '@shared/types'
+import type { Logger } from '../../lib/logger'
 import { userDataDir } from '../../lib/paths'
 import type { AppContext } from '../../context'
 import type { MainModule } from '../types'
 import { resolveExtractorPath } from './7za-path'
 import { clear, enforceBudget, NOTHING_IN_USE, status } from './cache'
+import { appendFailure, dismissFailure, restoreFailure } from './failure-log'
 import { ManifestService, ManifestUnavailableError } from './manifest-service'
 import {
   createDownloadPipeline,
@@ -21,9 +24,11 @@ import {
   type StartedDownload,
 } from './pipeline'
 import {
+  dismissFailureInputSchema,
   downloadsNoInputSchema,
   manifestGetInputSchema,
   patchDownloadsSettingsInputSchema,
+  restoreFailureInputSchema,
 } from './schemas'
 
 /** `DownloadsSettings.archiveCacheBudgetGB` is denominated in GB; `cache.ts` wants bytes. One
@@ -64,6 +69,10 @@ export const downloadsModule: MainModule = {
     // `app` is dereferenced here - every dependency below is a getter the pipeline calls when a
     // download actually starts, which is also what keeps the concurrency limit live ([[072]]).
     createPipelineFor(app, log)
+
+    // Story 073 D2: start observing job changes before any handler is registered, so no failure
+    // can slip past between setup and the first renderer call.
+    subscriptions.add(observeFailedJobs(app, log))
 
     handle(
       DOWNLOADS_HANDLERS.manifestGet,
@@ -146,8 +155,121 @@ export const downloadsModule: MainModule = {
         clear({ userDataPath: userDataDir(), isInUse: NOTHING_IN_USE, log }),
     )
 
+    // Story 073 D2 (AC2): the failure log. All three handlers read through
+    // `state.getDownloadFailures()`, which prunes on the way out, and write through
+    // `state.setDownloadFailures()`, which prunes again on the way in - so retention is applied
+    // whichever of them a call goes through, and none of them re-implements it.
+    handle(DOWNLOADS_HANDLERS.failures, downloadsNoInputSchema, (): DownloadFailure[] =>
+      app.state.getDownloadFailures(),
+    )
+
+    // Both mutating handlers answer the *new* list rather than nothing, so the renderer's dismiss/
+    // restore call is also its refetch - one round trip, and no window in which the tab shows a
+    // list main has already moved past.
+    handle(
+      DOWNLOADS_HANDLERS.dismissFailure,
+      dismissFailureInputSchema,
+      ({ id }): DownloadFailure[] =>
+        app.state.setDownloadFailures(dismissFailure(app.state.getDownloadFailures(), id)),
+    )
+
+    handle(
+      DOWNLOADS_HANDLERS.restoreFailure,
+      restoreFailureInputSchema,
+      ({ id }): DownloadFailure[] =>
+        app.state.setDownloadFailures(restoreFailure(app.state.getDownloadFailures(), id)),
+    )
+
     log.debug('downloads module ready')
   },
+
+  dispose() {
+    for (const unsubscribe of subscriptions) unsubscribe()
+    subscriptions.clear()
+  },
+}
+
+/**
+ * The `JobsService.onChange` unsubscribers handed out to this module, so `dispose()` gives them
+ * back. A set on the module object's behalf rather than a single field: `downloadsModule` is one
+ * shared const, and two `AppContext`s in the same process (which is exactly what a test does) each
+ * get their own subscription - a single field would leak the first one.
+ */
+const subscriptions = new Set<() => void>()
+
+/**
+ * Story 073 D2: the failure reason recorded for a `downloads` job that reached `failed` without
+ * carrying one. `JobsService.finish()` allows a terminal status with no `error`, and the acceptance
+ * is "a `downloads` job finishing `failed` produces exactly one log entry" - so an entry is written
+ * either way, with this key standing in for the missing reason rather than the entry being dropped
+ * (a failure the user is never told about is the one outcome the log exists to prevent).
+ *
+ * Not a member of `DOWNLOADS_ERROR_KEYS`, on purpose: that set enumerates the reasons the download
+ * pipeline *produces*, and this is the absence of one.
+ */
+export const UNKNOWN_DOWNLOAD_FAILURE_KEY = 'downloads.error.unknown'
+
+/**
+ * Story 073 D2 (AC2): appends one failure-log entry per `downloads` job that reaches `failed`
+ * (Decisions (Sprint): "the downloads main module observes job transitions ... so the log is
+ * truthful for any producer").
+ *
+ * Two things make "exactly one entry" true rather than merely likely:
+ *
+ *  - **the seen set.** `JobsService` fires on *every* change and keeps a `failed` job in its list
+ *    (`clearFinished()` only drops `succeeded`/`cancelled` ones), so the same failed job is part of
+ *    many snapshots. A job id is recorded here the first time it is seen `failed` and never acted
+ *    on again.
+ *  - **marking before appending.** The id is added to the set before the write is attempted, so a
+ *    write that throws *after* having persisted is not retried into a second entry. A genuinely
+ *    lost entry is the cheaper failure of the two, and it is logged.
+ *
+ * The set forgets ids that have left the job list, so a long session cannot grow it without bound;
+ * job ids are UUIDs, so a forgotten id can never come back and be logged twice.
+ */
+function observeFailedJobs(app: AppContext, log: Logger): () => void {
+  const recorded = new Set<string>()
+
+  return app.jobs.onChange((jobs) => {
+    for (const job of jobs) {
+      if (job.moduleId !== 'downloads') continue
+      if (job.status !== 'failed') continue
+      if (recorded.has(job.id)) continue
+      recorded.add(job.id)
+
+      try {
+        app.state.setDownloadFailures(
+          appendFailure(app.state.getDownloadFailures(), failureFor(job)),
+        )
+      } catch (error) {
+        log.error(`failed to record the failure of job ${job.id}`, error)
+      }
+    }
+
+    const present = new Set(jobs.map((job) => job.id))
+    for (const id of recorded) {
+      if (!present.has(id)) recorded.delete(id)
+    }
+  })
+}
+
+/**
+ * The log entry a failed job produces. Everything comes off the job itself - `labelKey`/
+ * `labelParams`, `installationId` and the `error` key/params - because the job is long gone from
+ * `JobsService` by the time the entry is read (`DownloadFailure`'s own doc comment). `error` is
+ * copied field by field rather than by reference, so the persisted entry cannot be changed by
+ * whoever still holds the job.
+ */
+function failureFor(job: Job): Omit<DownloadFailure, 'id' | 'createdAt' | 'dismissedAt'> {
+  return {
+    jobId: job.id,
+    labelKey: job.labelKey,
+    ...(job.labelParams ? { labelParams: { ...job.labelParams } } : {}),
+    ...(job.installationId ? { installationId: job.installationId } : {}),
+    error: job.error
+      ? { key: job.error.key, ...(job.error.params ? { params: { ...job.error.params } } : {}) }
+      : { key: UNKNOWN_DOWNLOAD_FAILURE_KEY },
+  }
 }
 
 /**

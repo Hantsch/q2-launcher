@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import { rm } from 'node:fs/promises'
+import { rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { DEFAULT_DOWNLOADS_SETTINGS } from '@shared/modules/downloads'
+import { DEFAULT_DOWNLOADS_SETTINGS, type DownloadFailure } from '@shared/modules/downloads'
 import { StateStore } from './state'
 
 describe('StateStore downloads settings (story 072 D2)', () => {
@@ -80,5 +80,95 @@ describe('StateStore downloads settings (story 072 D2)', () => {
     )
     expect(settings.concurrentJobs).toBe(3)
     expect(settings.archiveCacheBudgetGB).toBe(20)
+  })
+})
+
+describe('StateStore downloadFailures (story 073 D1)', () => {
+  let filePath: string
+  let state: StateStore
+
+  beforeEach(async () => {
+    filePath = join(tmpdir(), `q2-launcher-state-download-failures-${randomUUID()}.json`)
+    state = new StateStore(filePath)
+    await state.load()
+  })
+
+  afterEach(async () => {
+    await rm(filePath, { force: true })
+    await rm(`${filePath}.tmp`, { force: true })
+    await rm(`${filePath}.bak`, { force: true })
+  })
+
+  function failure(overrides: Partial<DownloadFailure> = {}): DownloadFailure {
+    return {
+      id: randomUUID(),
+      jobId: randomUUID(),
+      labelKey: 'downloads.job.engine',
+      error: { key: 'downloads.error.network' },
+      createdAt: Date.now(),
+      ...overrides,
+    }
+  }
+
+  it('starts empty', () => {
+    expect(state.getDownloadFailures()).toEqual([])
+  })
+
+  it('downloadFailures round-trips through state.json', async () => {
+    const written = state.setDownloadFailures([
+      failure({ jobId: 'job-1', installationId: 'inst-1' }),
+      failure({ jobId: 'job-2' }),
+    ])
+    await state.settle()
+
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+
+    expect(reloaded.getDownloadFailures()).toEqual(written)
+  })
+
+  it('a garbage entry is dropped row-wise instead of taking the file', async () => {
+    // Write state.json by hand with one valid entry and one entry missing everything meaningful.
+    const good = failure({ jobId: 'job-good' })
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        schemaVersion: 1,
+        settings: {},
+        installations: [],
+        configProfiles: [],
+        configPlayedMods: {},
+        configPendingWrites: {},
+        configSwitchBinds: {},
+        configWriteFailures: {},
+        configFileSourceMigratedAt: null,
+        downloads: {},
+        downloadFailures: [good, { garbage: true }],
+      }),
+      'utf-8',
+    )
+
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+
+    // The whole file survived (installations/settings still readable) and only the garbage row is
+    // gone - the good entry, and the rest of the document, are untouched.
+    expect(reloaded.getDownloadFailures()).toEqual([good])
+    expect(reloaded.installations()).toEqual([])
+  })
+
+  it('an entry with dismissedAt older than 7 days does not survive a reload', async () => {
+    const eightDaysAgo = Date.now() - 8 * 24 * 60 * 60 * 1000
+    state.setDownloadFailures([
+      failure({ jobId: 'old-dismissed', dismissedAt: eightDaysAgo }),
+      failure({ jobId: 'still-here' }),
+    ])
+    await state.settle()
+
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+
+    const jobIds = reloaded.getDownloadFailures().map((entry) => entry.jobId)
+    expect(jobIds).toEqual(['still-here'])
   })
 })

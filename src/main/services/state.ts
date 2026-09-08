@@ -1,8 +1,13 @@
 import { STATE_SCHEMA_VERSION } from '@shared/constants'
 import type { ConfigProfile } from '@shared/modules/config'
-import { DEFAULT_DOWNLOADS_SETTINGS, type DownloadsSettings } from '@shared/modules/downloads'
+import {
+  DEFAULT_DOWNLOADS_SETTINGS,
+  type DownloadFailure,
+  type DownloadsSettings,
+} from '@shared/modules/downloads'
 import { DEFAULT_SETTINGS, type Installation, type LauncherSettings } from '@shared/types'
 import { JsonStore } from '../lib/json-store'
+import { pruneFailures } from '../modules/downloads/failure-log'
 import {
   parseConfigFileSourceMigratedAt,
   parseConfigPendingWrites,
@@ -10,6 +15,7 @@ import {
   parseConfigProfiles,
   parseConfigSwitchBinds,
   parseConfigWriteFailures,
+  parseDownloadFailures,
   parseDownloadsSettings,
   parseInstallations,
   parseSettings,
@@ -74,6 +80,15 @@ export interface LauncherStateDocument {
    * existed simply lack it and load as `DEFAULT_DOWNLOADS_SETTINGS`.
    */
   downloads: DownloadsSettings
+  /**
+   * Story 073 D1: the Downloads tab's global failure log (AC2) - one entry per `downloads` job
+   * that reached `failed`, kept until the user dismisses it and then for 7 more days. A new
+   * top-level key, same "no `STATE_SCHEMA_VERSION` bump, no migration" precedent as `configProfiles`
+   * above: it is purely additive, and a file written before this story simply lacks it and loads as
+   * `[]`. Retention (the 7-day prune, the 50-entry cap) is `main/modules/downloads/failure-log.ts`'s
+   * job, not this store's - `getDownloadFailures()` below just applies it on read.
+   */
+  downloadFailures: DownloadFailure[]
 }
 
 function defaults(): LauncherStateDocument {
@@ -88,6 +103,7 @@ function defaults(): LauncherStateDocument {
     configWriteFailures: {},
     configFileSourceMigratedAt: null,
     downloads: { ...DEFAULT_DOWNLOADS_SETTINGS },
+    downloadFailures: [],
   }
 }
 
@@ -119,6 +135,7 @@ export class StateStore {
             doc['configFileSourceMigratedAt'],
           ),
           downloads: parseDownloadsSettings(doc['downloads']),
+          downloadFailures: parseDownloadFailures(doc['downloadFailures']),
         }
       },
     })
@@ -167,6 +184,15 @@ export class StateStore {
 
   getDownloadsSettings(): DownloadsSettings {
     return this.store.get().downloads
+  }
+
+  /**
+   * Story 073 D1: the failure log, pruned (retention is applied "on read and on write" per the
+   * story's Decisions) - a dismissed entry older than 7 days never reaches a caller even if it is
+   * still sitting in a `state.json` written before this access ran.
+   */
+  getDownloadFailures(): DownloadFailure[] {
+    return pruneFailures(this.store.get().downloadFailures, Date.now())
   }
 
   /**
@@ -223,6 +249,19 @@ export class StateStore {
 
   setDownloadsSettings(downloads: DownloadsSettings): DownloadsSettings {
     return this.store.update((current) => ({ ...current, downloads })).downloads
+  }
+
+  /**
+   * Persists the failure log, pruning again on the way in - the caller (a later deliverable's
+   * `append`/`dismiss`/`restore` handlers) already prunes via `failure-log.ts`'s own functions, but
+   * pruning here too means nothing can ever write an unpruned list to disk, whichever call site it
+   * comes from.
+   */
+  setDownloadFailures(downloadFailures: DownloadFailure[]): DownloadFailure[] {
+    return this.store.update((current) => ({
+      ...current,
+      downloadFailures: pruneFailures(downloadFailures, Date.now()),
+    })).downloadFailures
   }
 
   /** Waits for pending writes; called on quit. */

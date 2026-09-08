@@ -218,16 +218,34 @@ export function SettingsView(props: SettingsViewProps = {}) {
             <SectionLabel>{t('settings.devTools')}</SectionLabel>
             <p className="text-xs leading-relaxed text-ink-muted">
               Development builds only. Emits a fake download job so the action bar&rsquo;s progress
-              readout can be worked on before the downloads module exists.
+              readout and the Downloads tab can be worked on before the downloads module exists.
             </p>
-            <Button
-              variant="neutral"
-              size="sm"
-              icon={<FlaskConical className="size-3.5" />}
-              onClick={() => void invoke('dev:simulateJob')}
-            >
-              {t('settings.simulateJob')}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="neutral"
+                size="sm"
+                icon={<FlaskConical className="size-3.5" />}
+                onClick={() => void invoke('dev:simulateJob', { scenario: 'success' })}
+              >
+                {t('settings.simulateJob')}
+              </Button>
+              <Button
+                variant="neutral"
+                size="sm"
+                icon={<FlaskConical className="size-3.5" />}
+                onClick={() => void invoke('dev:simulateJob', { scenario: 'stall' })}
+              >
+                {t('settings.simulateJobStall')}
+              </Button>
+              <Button
+                variant="neutral"
+                size="sm"
+                icon={<FlaskConical className="size-3.5" />}
+                onClick={() => void invoke('dev:simulateJob', { scenario: 'failure' })}
+              >
+                {t('settings.simulateJobFailure')}
+              </Button>
+            </div>
           </Panel>
         )}
       </div>

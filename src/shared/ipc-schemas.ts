@@ -190,4 +190,7 @@ export const moduleInvokeSchema: z.ZodType<IpcInvokeMap['module:invoke']['req']>
 
 // ---- development only (registered only when `is.dev`) --------------------------------
 
-export const devSimulateJobSchema: z.ZodType<IpcInvokeMap['dev:simulateJob']['req']> = z.void()
+/** Story 073 D5: an unknown scenario string must be rejected here, not coerced. */
+export const devSimulateJobSchema: z.ZodType<IpcInvokeMap['dev:simulateJob']['req']> = z.object({
+  scenario: z.enum(['success', 'stall', 'failure']),
+})

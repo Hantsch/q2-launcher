@@ -24,6 +24,7 @@ import {
   MAX_CONCURRENT_DOWNLOAD_JOBS,
   MIN_CONCURRENT_DOWNLOAD_JOBS,
   type ArchiveCacheBudgetGB,
+  type DownloadFailure,
   type DownloadsSettings,
 } from '@shared/modules/downloads'
 import { isLatin1Text } from '@shared/config/q2-charset'
@@ -930,6 +931,37 @@ export const downloadsSettingsSchema = z
 
 export function parseDownloadsSettings(raw: unknown): DownloadsSettings {
   return downloadsSettingsSchema.parse(raw)
+}
+
+/**
+ * Story 073 D1: one persisted `DownloadFailure` row. Only the fields without which the entry is
+ * meaningless (`id`, `jobId`, `labelKey`, `error.key`, `createdAt`) are strict, so a hand-mangled
+ * entry is dropped on its own via `parseForgivingRows` - the same row-level-drop convention
+ * `configProfileObjectSchema` uses for `categories`/`actions` - instead of degrading the whole
+ * `downloadFailures` array to `[]` and losing every other entry with it.
+ */
+const downloadFailureObjectSchema = z.object({
+  id: z.string().min(1),
+  jobId: z.string().min(1),
+  labelKey: z.string().min(1),
+  labelParams: z.record(z.string(), z.union([z.string(), z.number()])).optional().catch(undefined),
+  installationId: z.string().min(1).optional().catch(undefined),
+  error: z.object({
+    key: z.string().min(1),
+    params: z.record(z.string(), z.union([z.string(), z.number()])).optional().catch(undefined),
+  }),
+  createdAt: z.number().finite(),
+  dismissedAt: z.number().finite().optional().catch(undefined),
+})
+
+/**
+ * The persisted `downloadFailures` top-level `state.json` key (story 073 D1). Mirrors
+ * `parseConfigProfiles` exactly: a malformed row is dropped on its own, a missing/garbled key loads
+ * as `[]`. Retention (7-day prune of dismissed entries, the 50-entry cap) is applied by
+ * `main/modules/downloads/failure-log.ts`, not here - this function only guards the shape.
+ */
+export function parseDownloadFailures(raw: unknown): DownloadFailure[] {
+  return parseForgivingRows(downloadFailureObjectSchema, raw)
 }
 
 // IPC-payload schemas moved to `src/shared/ipc-schemas.ts` (story 036, D1) -

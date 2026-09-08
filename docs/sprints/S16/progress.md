@@ -32,3 +32,15 @@
 - 2026-09-08 10:30 · 072 · D5 Downloads settings section UI · done
 - 2026-09-08 10:30 · 072 · D6 Acceptance surface: fixture, screen, flow · started
 - 2026-09-08 10:35 · 072 · D6 Acceptance surface: fixture, screen, flow · done
+- 2026-09-08 10:55 · 073 · D1 Contract, persisted slice, pure failure-log rules · started
+- 2026-09-08 11:00 · 073 · D1 Contract, persisted slice, pure failure-log rules · done
+- 2026-09-08 11:00 · 073 · D2 Main module: job observation, handlers, cache size · started
+- 2026-09-08 11:07 · 073 · D2 Main module: job observation, handlers, cache size · done
+- 2026-09-08 11:07 · 073 · D3 The view: live job list, cache figure, registration · started
+- 2026-09-08 11:13 · 073 · D3 The view: live job list, cache figure, registration · done
+- 2026-09-08 11:13 · 073 · D4 The failure log section · started
+- 2026-09-08 11:17 · 073 · D4 The failure log section · done
+- 2026-09-08 11:17 · 073 · D5 A real trigger for a running and a failed job · started
+- 2026-09-08 11:20 · 073 · D5 A real trigger for a running and a failed job · done
+- 2026-09-08 11:20 · 073 · D6 UI verification · started
+- 2026-09-08 11:26 · 073 · D6 UI verification · done

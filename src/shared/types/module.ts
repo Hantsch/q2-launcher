@@ -90,7 +90,7 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     icon: 'Download',
     route: '/downloads',
     nav: { section: 'secondary', order: 10 },
-    status: 'planned',
+    status: 'available',
     capabilities: ['mutates-installation', 'long-running-jobs', 'network'],
     ipcNamespace: 'module:downloads',
     requiresInstallation: false,

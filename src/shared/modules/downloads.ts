@@ -29,6 +29,12 @@ export const DOWNLOADS_HANDLERS = {
   cacheStatus: 'downloads.cacheStatus',
   /** Story 072 D2: deletes evictable cache entries and reports a `ClearArchiveCacheResult` (D3/D4). */
   clearCache: 'downloads.clearCache',
+  /** Story 073 D1: reads the persisted, pruned failure log (D2 implements the handler). */
+  failures: 'downloads.failures',
+  /** Story 073 D1: marks one failure entry dismissed - it stays in the 7-day history (D2). */
+  dismissFailure: 'downloads.dismissFailure',
+  /** Story 073 D1: un-dismisses a failure entry, moving it back out of the history (D2). */
+  restoreFailure: 'downloads.restoreFailure',
 } as const
 
 /**
@@ -184,3 +190,35 @@ export const DOWNLOADS_ERROR_KEYS = [
 ] as const
 
 export type DownloadsErrorKey = (typeof DOWNLOADS_ERROR_KEYS)[number]
+
+/**
+ * Story 073 D1: one persisted entry of the Downloads tab's failure log (AC2). The log is global
+ * across the app (Decisions (Sprint): "the list has no installation filter"), so this carries its
+ * own `labelKey`/`installationId` rather than being looked up from the job that produced it - the
+ * job itself is long gone from `JobsService` by the time this is read.
+ *
+ * `error` mirrors `Job.error` (`@shared/types/jobs`) field-for-field - the i18n key/params the
+ * failing job carried, never prose (CLAUDE.md's cross-IPC rule), so the renderer can translate a
+ * failure exactly like it already translates a live job's label.
+ *
+ * `createdAt`/`dismissedAt` are epoch milliseconds, not ISO strings - `failure-log.ts`'s retention
+ * math (the 7-day prune) is plain arithmetic against `Date.now()`, so both fields are in the same
+ * unit as what it is compared with. `dismissedAt` is absent for an entry the user has not dismissed
+ * yet, which `pruneFailures` never touches (Decisions (Sprint): "an undismissed entry is never
+ * pruned").
+ */
+export interface DownloadFailure {
+  id: string
+  /** The `Job.id` that produced this entry. The job itself may since have been cleared. */
+  jobId: string
+  /** i18n key describing the job that failed - the same key the live job's row would show. */
+  labelKey: string
+  labelParams?: Record<string, string | number>
+  /** The installation the failing job acted on, when it was installation-scoped. */
+  installationId?: string
+  /** The job's own failure reason - one of `DOWNLOADS_ERROR_KEYS`, never prose. */
+  error: { key: string; params?: Record<string, string | number> }
+  createdAt: number
+  /** Set once the user dismisses the entry; cleared again by a restore. */
+  dismissedAt?: number
+}

@@ -116,8 +116,17 @@ export interface IpcInvokeMap {
   'module:invoke': { req: ModuleInvokeRequest; res: Outcome<unknown> }
 
   // ---- development only (registered only when `is.dev`) ----------------------
-  /** Emits a fake download job so the action bar's progress UI can be worked on. */
-  'dev:simulateJob': { req: void; res: Outcome<null> }
+  /**
+   * Emits a fake download job so the action bar's progress UI and the Downloads
+   * tab (story 073) can be worked on without a real download. Story 073 D5:
+   * `scenario` picks what the fake job does -
+   * - `success` (default before D5, still the fade-and-drop case D3 relies on):
+   *   progresses to completion and finishes `succeeded`.
+   * - `stall`: progresses to ~40% then holds there, running, forever - the
+   *   Downloads tab's "a job in progress" fixture.
+   * - `failure`: finishes `failed` immediately with a real, i18n'd `error.key`.
+   */
+  'dev:simulateJob': { req: { scenario: 'success' | 'stall' | 'failure' }; res: Outcome<null> }
 }
 
 export type InvokeChannel = keyof IpcInvokeMap

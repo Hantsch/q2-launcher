@@ -109,6 +109,22 @@ export const manifestGetInputSchema = z.object({
 export const downloadsNoInputSchema = z.void()
 
 /**
+ * Story 073 D2: `dismissFailure`/`restoreFailure`'s payload - one failure-log entry id and nothing
+ * else. Shape-identical, so the two alias one schema rather than duplicate it (same convention as
+ * `unassignProfileInputSchema`/`setDefaultProfileInputSchema` in `main/modules/config/schemas.ts`),
+ * and shape-only on purpose: whether the id names an entry the log actually holds depends on
+ * persisted data this schema never sees, and a missing id is already a documented no-op in
+ * `failure-log.ts`, not an invalid payload.
+ *
+ * `.strict()` for the same reason `patchDownloadsSettingsInputSchema` below is strict - a payload
+ * carrying anything beyond the id is a caller bug, and this file's convention is to reject a caller
+ * bug rather than quietly ignore part of it.
+ */
+export const dismissFailureInputSchema = z.object({ id: z.string().min(1) }).strict()
+
+export const restoreFailureInputSchema = dismissFailureInputSchema
+
+/**
  * Story 072 D4: `patchSettings`'s payload - a partial `DownloadsSettings`. Each present field is
  * validated against the exact same bounds `main/lib/schemas.ts`'s `downloadsSettingsSchema` uses to
  * parse the persisted value (`MIN_CONCURRENT_DOWNLOAD_JOBS`-`MAX_CONCURRENT_DOWNLOAD_JOBS`,

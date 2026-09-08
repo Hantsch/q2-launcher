@@ -567,8 +567,23 @@ export const SCREENS = [
     // Story 031 moved Downloads into the titlebar's right utility cluster
     // (icon-only button next to Settings), but TitleBar.tsx's UtilityButton
     // keeps the same `nav-<moduleId>` testid convention as the primary nav.
+    //
+    // Story 073 D6: this used to land on `PlannedModuleView` (manifest `status: 'planned'`) - D3
+    // flipped the manifest to `'available'` and registered `DownloadsView`, so the same click now
+    // reaches the real view. Per the story's own "Fixture split" decision, a live job cannot be
+    // seeded through the static `state.json` fixture, so this screen only ever shows the *zero-jobs*
+    // state - "populated" here means "the real view, populated with its own UI" (the archive
+    // cache's real figure, from the two dummy archives `scripts/lib/fixture.mjs` seeds under
+    // `cache/downloads/`), not "populated with jobs". The running/failed states, and the failure log,
+    // live in `scripts/flows/downloads-tab.mjs` instead, since only a flow can trigger
+    // `dev:simulateJob`. Waits for the empty-jobs body text (`downloads.jobs.empty.body`) rather than
+    // just the click, since that text only renders once the real `DownloadsView` (not the planned
+    // placeholder, which never renders it) has mounted.
     navigate: async (page) => {
       await click(page, 'nav-downloads')
+      await page
+        .getByText('Jobs you start will show their progress here.', { exact: true })
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },
   // `config-write-preview` (story 037 D3) is RETIRED here: it drove the Raw tab's per-installation

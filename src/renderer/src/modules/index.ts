@@ -3,6 +3,7 @@ import type { ModuleId } from '@shared/types'
 import { LibraryView } from '../views/LibraryView'
 import { ConfigView } from './config/ConfigView'
 import { DownloadsSettingsSection } from './downloads/DownloadsSettingsSection'
+import { DownloadsView } from './downloads/DownloadsView'
 
 /**
  * The renderer half of a module: the view that owns its route.
@@ -32,8 +33,9 @@ export const RENDERER_MODULES: readonly RendererModule[] = [
   { id: 'library', View: LibraryView },
   {
     id: 'downloads',
-    // No `View` yet - `MODULE_MANIFESTS`' `downloads` status stays `planned` until [[073]]
-    // fills the route in; this story only gives the module a Settings section (AC1/AC2).
+    // Story 073 D3: the real route, replacing `PlannedModuleView` (AC4). `MODULE_MANIFESTS`'
+    // `downloads` status flips to `available` alongside this.
+    View: DownloadsView,
     settingsSection: {
       titleKey: 'module.downloads.settings.title',
       order: 10,
