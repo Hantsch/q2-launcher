@@ -1,7 +1,7 @@
 ---
 id: 032
 title: Downloads icon shows a running-count badge
-status: draft
+status: ready
 created: 2026-08-21
 ---
 
@@ -19,27 +19,138 @@ truth to bind to instead of a placeholder.
 
 ## Acceptance Criteria
 
-- [ ] The Downloads icon shows a small badge with the current number of running/queued
-      downloads whenever that number is greater than zero.
-- [ ] The badge disappears when no downloads are active.
-- [ ] The count is driven by real job state from the downloads module, not a placeholder or a
-      count of unrelated jobs (e.g. per-installation repair jobs shown in the action bar stay a
-      separate concept unless the downloads module explicitly folds them in).
-- [ ] Badge styling matches existing status/badge conventions (see `Badge` in
+- [ ] **AC1** — The Downloads icon shows a small badge with the current number of *active*
+      downloads whenever that number is greater than zero. "Active" is `isJobActive` —
+      `queued`, `running` or `paused` (see Decisions: D-paused).
+- [ ] **AC2** — The badge disappears when no downloads are active.
+- [ ] **AC3** — The count is driven by real job state from the downloads module, not a
+      placeholder or a count of unrelated jobs (jobs of other modules never count; jobs the
+      downloads module itself produces — including repair — do, see Decisions: D-scope).
+- [ ] **AC4** — Badge styling matches existing status/badge conventions (see `Badge` in
       [primitives.tsx](../../src/renderer/src/components/ui/primitives.tsx)) rather than
       introducing a new one-off style.
 
 ## Open Questions
 
-- The exact data shape to bind the count to (all `downloads`-module jobs, or a filtered subset)
-  should be settled once [[071]]'s job producer exists, during this story's own refine.
+- ~~The exact data shape to bind the count to~~ answered → Decisions (Sprint), D-shape.
+
+## Decisions (Sprint)
+
+- **D-shape (the story's open question): the badge binds to the renderer's existing `jobs: Job[]`
+  in `useLauncher`, filtered by `moduleId === 'downloads'` + `isJobActive`** — no new IPC channel,
+  no new main-side aggregate. Reason: the concept fixes `JobsService` + the `jobs:changed`
+  broadcast as unchanged (`docs/concepts/install-module.md` §13) and `Job.moduleId` is the
+  attribution field that already exists, so this interface is stable no matter which `kind`
+  values [[071]] ends up emitting.
+- **D-shape assumption:** the count deliberately does **not** filter on `Job.kind`. Reason:
+  `kind` is a module-defined discriminator still in flux in [[071]]/[[073]], while `moduleId`
+  is a closed union — filtering on `kind` would make this story break every time the module
+  adds a job kind.
+- **D-scope: every active `downloads`-module job counts, including repair and engine-update
+  jobs.** Reason: the concept has repair and update ride the same job machinery inside the same
+  module (§9, §11), which is exactly AC3's "unless the downloads module explicitly folds them
+  in"; only *other* modules' jobs are excluded.
+- **D-paused: `paused` counts as active, i.e. the shared `isJobActive` predicate is reused
+  verbatim.** Reason: a second, competing definition of "active" in the codebase is worse than
+  the wording gap, and a paused download is precisely the state whose pointer to the Downloads
+  tab the user still needs.
+- **D-generic: the count is rendered per utility module (`jobs` of `module.id`), not hardcoded
+  for `downloads`.** Reason: keeps [[031]]'s recorded decision that the titlebar stays
+  data-driven and no module id is hardcoded into the shell; `downloads` is simply the only
+  secondary module today.
+- **D-cap: the badge prints the exact count up to 99, then `99+`.** Reason: three digits do not
+  fit the 44px icon button, and a bootstrap queue of a dozen packages is realistic.
+- **D-a11y: with a count > 0 the button's `aria-label`/`title` becomes a pluralised i18n string
+  carrying the count; the badge digits themselves are not a second announcement.** Reason: the
+  button already has an `aria-label`, which overrides its content for AT — the count would
+  otherwise be invisible to a screen reader.
+- **D-fixture: the e2e path seeds jobs with the existing dev-only `dev:simulateJob` channel,
+  which already creates `moduleId: 'downloads'` jobs.** Reason: the concept names that channel
+  the fixture path for UI verification (§13), and it makes this story's acceptance independent
+  of [[071]] landing first.
+- **D-no-ipc: `src/shared/ipc.ts` and `ipc-schemas.ts` are not touched.** Reason: the whole
+  feature is a derived value over data the renderer already receives — adding a channel would
+  be a second source of truth for the same number.
 
 ## Plan
 
+Renderer-only, additive. Nothing in main, nothing in the IPC contract.
+
+1. **Shared predicate.** Add `countActiveJobs(jobs: Job[], moduleId: ModuleId): number` next to
+   `isJobActive` in `src/shared/types/jobs.ts` (pure, no DOM/node), unit-tested in
+   `src/shared/types/jobs.test.ts` — mirror `src/shared/types/engine.test.ts`.
+2. **Badge component.** New `src/renderer/src/components/shell/NavJobBadge.tsx`: renders
+   `null` for `count <= 0`, otherwise the existing `Badge` (`tone="flame"`, `testId`) absolutely
+   positioned in the button's top-right corner with `tabular-nums` and a `min-w`; `99+` above 99.
+   No new colours, no new one-off style — token classes only (`/design-tokens`).
+   i18n keys for the count-aware accessible name go into
+   `src/renderer/src/i18n/locales/en.json` (`nav.activeJobs_one` / `_other`, next to `nav.*`),
+   using the `{{count}}` plural precedent already in the file.
+3. **Store selector.** `useActiveJobCount(moduleId)` in
+   `src/renderer/src/store/useLauncher.ts`, next to `useActiveJob` (~line 396); returns the
+   primitive from `countActiveJobs(state.jobs, moduleId)`.
+4. **TitleBar wiring.** In `src/renderer/src/components/shell/TitleBar.tsx`: `UtilityButton`
+   gets `relative` plus an optional `badge?: number`; the utility-module loop passes
+   `useActiveJobCount(module.id)` and swaps `aria-label`/`title` to the count-aware string when
+   it is > 0. The Settings button and the window controls are untouched.
+5. **Machine-verified acceptance.** New flow `scripts/flows/downloads-badge-count.mjs` (mirror
+   `scripts/flows/import-from-files.mjs`) — seed two jobs via `dev:simulateJob`, assert the
+   badge reads `2`, cancel both via `jobs:cancel`, assert the badge is gone — plus a
+   `downloads-badge` entry in `scripts/lib/screens.mjs` so `npm run ui:verify` screenshots and
+   axe-checks the badged state.
+
+Order: 1 → 2 → 3 → 4 → 5. Guardrails: no image assets, no shell module-id hardcoding (D-generic),
+no `webPreferences`/CSP/IPC surface change.
+
 ## Deliverables
+
+- **D1 — shared active-job count.** `countActiveJobs(jobs, moduleId)` in
+  `src/shared/types/jobs.ts`, plus its test in `src/shared/types/jobs.test.ts` (new; mirror
+  `src/shared/types/engine.test.ts`). Accepted when the test proves: other modules' jobs are
+  excluded, `queued`/`running`/`paused` count, `succeeded`/`failed`/`cancelled` do not.
+  *(AC3)*
+- **D2 — the badge itself.** New `src/renderer/src/components/shell/NavJobBadge.tsx` +
+  `NavJobBadge.test.tsx` (jsdom docblock, `@testing-library/react`; mirror
+  `src/renderer/src/components/installations/InstallationTile.test.tsx`), plus the two
+  `nav.activeJobs_*` keys in `src/renderer/src/i18n/locales/en.json`. Accepted when the test
+  proves: nothing rendered at 0, `3` at 3, `99+` at 120, and the rendered node is the shared
+  `Badge` (no bespoke pill markup/colour). *(AC2, AC4)*
+- **D3 — wire it to real job state.** `useActiveJobCount` in
+  `src/renderer/src/store/useLauncher.ts` and the badge + count-aware `aria-label` in
+  `src/renderer/src/components/shell/TitleBar.tsx` (`UtilityButton` gains `relative` and
+  `badge`). Accepted when the Downloads button carries `nav-downloads-badge` whenever
+  `downloads` jobs are active, driven only by the store's `jobs`. *(AC1, AC3)*
+- **D4 — machine-verified through the real app.** New `scripts/flows/downloads-badge-count.mjs`
+  (mirror `scripts/flows/import-from-files.mjs`) and a `downloads-badge` screen entry in
+  `scripts/lib/screens.mjs`. Accepted when `npm run ui:flow downloads-badge-count` exits 0 and
+  `npm run ui:verify` is green (screenshot + axe on the badged titlebar). *(AC1, AC2)*
 
 ## Model Hints
 
+- D1 → default. Pure predicate over an existing type.
+- D2 → default. One small presentational component plus i18n keys.
+- D3 → default. Two additive edits along an existing, well-understood pattern.
+- D4 → default. Follows an existing flow script and screen-registry entry verbatim.
+- Review: → default. Renderer-only, additive, no IPC/main/CSP surface touched and no existing
+  behaviour rewired, so there is no cross-module regression path for a hard reviewer to find.
+
 ## Test Plan (manual acceptance)
+
+### Acceptance tests
+
+- AC1 → e2e `scripts/flows/downloads-badge-count.mjs` › "two active downloads badge the
+  Downloads button with 2" (run via `npm run ui:flow downloads-badge-count`; the project's
+  machine-verified flow harness, same driver as `npm run ui:verify`), backed at unit level by
+  `src/renderer/src/components/shell/NavJobBadge.test.tsx` › "renders the count".
+- AC2 → e2e `scripts/flows/downloads-badge-count.mjs` › "cancelling every job removes the
+  badge", plus unit `src/renderer/src/components/shell/NavJobBadge.test.tsx` › "renders nothing
+  at zero".
+- AC3 → unit `src/shared/types/jobs.test.ts` › "counts only the given module's active jobs"
+  (other-module jobs excluded, finished jobs excluded, paused included).
+- AC4 → unit `src/renderer/src/components/shell/NavJobBadge.test.tsx` › "uses the shared Badge
+  primitive", plus the axe/screenshot pass on the new `downloads-badge` screen entry in
+  `npm run ui:verify`.
+
+No manual residue: every criterion is observable through the real surface or a pure unit.
 
 ## Done

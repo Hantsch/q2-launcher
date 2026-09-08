@@ -1901,6 +1901,12 @@
     }
   },
 
+  "downloads": {
+    "error": {
+      "manifestUnavailable": "Could not reach the download server, and nothing is cached yet. Check your connection and try again."
+    }
+  },
+
   "modules": {
     "error": {
       "notImplemented": "The {{moduleId}} module has no handler for \u201c{{type}}\u201d yet.",

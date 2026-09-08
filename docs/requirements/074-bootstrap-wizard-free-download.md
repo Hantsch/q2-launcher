@@ -1,7 +1,7 @@
 ---
 id: 074
 title: The Library turns nothing into a playable Q2PRO demo installation
-status: draft
+status: ready
 created: 2026-09-08
 ---
 
@@ -43,21 +43,196 @@ sprint (see sprint.md).
 
 ## Open Questions
 
-- Naming and identity of a bootstrapped installation: what default name does it get, is any
-  icon assigned automatically, and where does it land in the rail's sort order relative to
-  manually-added installations? (concept open point 16)
-- Does the bootstrap also copy `baseq2/video/` and `players/` from the demo/point-release
-  archives, or only the paks strictly required for `inspectInstallation` to pass? (concept open
-  point 17)
-- Is a disk-space precheck in scope before the job starts, or is "the job fails partway with a
-  readable reason" acceptable for this first sprint? (concept open point 15)
+- ~~Naming and identity of a bootstrapped installation...~~ answered → Decisions (Sprint)
+- ~~Does the bootstrap also copy `baseq2/video/` and `players/`...~~ answered → Decisions (Sprint)
+- ~~Is a disk-space precheck in scope...~~ answered → Decisions (Sprint)
+
+None open. Everything else the refine needed (entry point, shell seam, registration point, demo-state
+modelling, 3.20 package choice, failure keys, offline e2e) was decided against the ACs, the concept
+and the guardrails — see "Decided during refine".
+
+## Decisions (Sprint)
+
+- **(User)** Bootstrapped installation identity: default name "Q2PRO Demo", default (existing)
+  icon assigned automatically, appended at the end of the rail's sort order like any
+  newly-created installation.
+- **(User)** `video/` and `players/`: not copied by default — the wizard offers a toggle to
+  include them, off by default, since most players only want multiplayer and treat the
+  cinematics as dead weight.
+
+- **(User)** Disk-space precheck: out of scope this sprint — the job fails partway with a
+  readable reason if space runs out (fixed at the sprint cut, see `sprint.md`'s "Deliberately
+  not in this sprint" list).
+
+### Decided during refine
+
+- **Entry point (concept §15/17):** the Library keeps `CreateInstallationDialog` and its bare-folder
+  `installations:create` path untouched; a second button ("Download & install") next to it opens the
+  wizard. Reason: AC1 says "next to", and replacing the bare-folder path would silently delete a
+  working flow this story was not asked to touch.
+- **Shell seam:** the wizard is a module-owned modal. `DialogState` gains one *generic*
+  `{ kind: 'module', moduleId, view }` variant and `RendererModule` an optional `Dialogs` component
+  that the shell's `Dialogs.tsx` mounts. Reason: keeps "a feature is a module — never edit the
+  shell" honest with one reusable seam (same resolution class as concept §12.1) instead of a
+  shell→downloads import per module.
+- **Registration point:** the job calls the existing `InstallationsService.create()` *before*
+  downloading (registers the empty folder, status from `inspectInstallation`, `source: 'created'`,
+  `nextSortOrder()` = appended, name from the wizard) and re-validates after each assemble step.
+  Reason: reuses the only code path that already computes status from the inspector (AC6) and makes
+  the installation visible in the Library from second one, instead of a second registration path.
+- **Target already containing a game blocks, clutter warns:** a target where `inspectInstallation`
+  already sees Quake II is a blocking target verdict ("add it as an existing installation instead");
+  any other non-empty folder is the AC3 warning with "continue anyway". Reason: `create()` already
+  refuses `alreadyContainsGame`, and bootstrapping over a working install would be a silent
+  overwrite, while loose files are the user's call.
+- **`Program Files` verdict** is computed in main by prefix-comparing the canonicalised target
+  against `process.env.ProgramFiles` / `ProgramFiles(x86)`; the remedy offered is the *existing*
+  `set-write-dir` mechanism (pick a write dir → persisted as `Installation.writeDirPath`, the same
+  field `ChecksList.tsx` writes). Reason: no second write-access concept, and the e2e flow can
+  exercise the verdict by pointing the child process's `ProgramFiles` at a fixture dir — no
+  production backdoor needed.
+- **Demo state (concept §15/13):** derived at read time from the inspector check
+  `validation.pak0NotRetail` already present in `Installation.checks` — no new field, no migration,
+  no hand-set flag. Reason: the same truth source AC6 insists on, and it also labels a demo folder
+  the user added by hand; the retail-upgrade action that would need persisted provenance is out of
+  scope this sprint.
+- **Demo marker shape:** a text-bearing `Badge` on the library card, the action bar and the rail
+  hover card, plus a small CSS-only "DEMO" corner microtag on `InstallationTile`. Reason: AC7 names
+  the tile, and a text label keeps the state non-colour-only per `/design-tokens`.
+- **`video/` + `players/` toggle** changes only *which extracted files are copied* into the
+  installation, never what is downloaded. Reason: both live inside packages we must download whole
+  anyway, so the AC4 size statement stays stable regardless of the toggle.
+- **AC8 is an allowlist, not a filter:** assemble copies an explicit list of files
+  (`baseq2/pak0.pak`, `baseq2/pak2.pak`, engine payload, optionally `baseq2/video/*`, `players/*`)
+  out of the extracted trees; nothing is ever copied recursively. Reason: the 3.20 package carries
+  `ctf`, so "no ctf directory" has to be a property of the code, not of the input.
+- **3.20 package choice:** `q2-3.20-x86-full-ctf.exe` (the twice-mirrored one) — the ctf payload is
+  simply not copied. Reason: mirror redundancy beats avoiding a payload the allowlist discards.
+- **Dependencies 070/071 are consumed through ports** this story owns
+  (`bootstrap/ports.ts`: `ManifestSource`, `PackageFetcher`, `Extractor`), wired to the real
+  services in the module's `index.ts`. Reason: 070/071 are being refined in parallel; a port keeps
+  the orchestrator unit-testable with fakes and turns an interface drift into one adapter edit.
+- **Failure reasons cross IPC as `downloads.error.*` i18n keys** enumerated in the job module.
+  Reason: CLAUDE.md forbids prose over IPC (concept §15/19 left the set open).
+- **Offline e2e:** the flow starts a `127.0.0.1` fixture package server and the manifest/package
+  base URL is overridable only under the double gate `Q2L_UI_HARNESS === '1' && isDev`, mirroring
+  `DialogService`'s stub including its production-unreachability test. Reason:
+  `ui-acceptance-required` demands the real surface, and the concept requires a verification run
+  that never touches the network.
 
 ## Plan
 
+1. **Contract + module skeleton.** `src/shared/modules/downloads.ts` gains the bootstrap handler
+   names and shapes (engine options, target verdict, start input, wizard summary); the main half
+   lands in `src/main/modules/downloads/` (`index.ts`, `schemas.ts`) and is registered in
+   `src/main/modules/index.ts`; renderer client under `src/renderer/src/modules/downloads/client.ts`.
+   Extend whatever 070/071/073 already created — never a second downloads module.
+2. **Target safety in main** (`bootstrap/target.ts`): canonicalise, absolute, not a device path, not
+   inside the app's own installation, writability, `Program Files` prefix, directory listing,
+   "already a Quake II installation" — the wizard renders verdicts, it never judges paths itself.
+3. **Assemble** (`bootstrap/assemble.ts`): pure file-plan builder + copier over an explicit
+   allowlist, `baseq2` only, `video/`+`players/` behind the toggle.
+4. **Bootstrap job** (`bootstrap/job.ts`): `create()` → resolve packages from the manifest port →
+   fetch+verify → extract → assemble core → revalidate (records `playableAtRatio` at the first
+   non-`invalid` verdict) → assemble auxiliary → revalidate → finish; cancel removes partial files
+   and the half-built installation; failures map to `downloads.error.*`.
+5. **Shell seam + Library entry**: generic `{ kind: 'module' }` dialog variant, `RendererModule.Dialogs`,
+   the Library button, i18n keys.
+6. **Wizard UI** (module-owned, 4 steps: engine → target + warnings → confirm → running).
+7. **Demo marker** on card, action bar, rail hover card, tile.
+8. **Offline e2e**: harness-gated folder-pick + base-URL stubs, fixture package server, a
+   `scripts/flows/bootstrap-wizard.mjs` walk-through and `SCREENS` entries for the wizard steps.
+
+Order: D1 → D2 → D3 → D4 → D5 → D6 → D7 → D8. D5/D6 may start once D1 exists.
+
 ## Deliverables
+
+- **D1 — Bootstrap contract + module registration.** `src/shared/modules/downloads.ts`,
+  `src/main/modules/downloads/index.ts`, `src/main/modules/downloads/schemas.ts`,
+  `src/main/modules/index.ts`, `src/renderer/src/modules/downloads/client.ts`. Mirror
+  `src/shared/modules/library.ts` + `src/renderer/src/modules/library/client.ts` +
+  `src/main/modules/config/schemas.ts`. *Acceptance:* `module:invoke` reaches a downloads handler
+  that lists engine options (only engines both `supported` and pinned by the manifest port → Q2PRO),
+  every handler has a zod schema, typecheck + build green. Test: `src/main/modules/downloads/engine-options.test.ts`.
+- **D2 — Target-folder verdict in main.** `src/main/modules/downloads/bootstrap/target.ts` (+
+  `target.test.ts`), schema in the module's `schemas.ts`. *Acceptance:* a verdict object carrying
+  `programFiles`, `notWritable`, `entries[]` (capped), `alreadyInstalled`, `blocked` — plus its unit
+  test over temp dirs, a `ProgramFiles`-prefixed path and a folder holding a `baseq2` with paks.
+- **D3 — Assemble `baseq2` from extracted trees.** `bootstrap/assemble.ts` + `assemble.test.ts`.
+  *Acceptance:* copies exactly the allowlisted files; with a fixture extraction tree that contains a
+  `ctf/` payload, the target afterwards holds `baseq2` only; the toggle off leaves `video/`+`players/`
+  out and on brings them in. Proves AC8.
+- **D4 — The bootstrap job.** `bootstrap/job.ts`, `bootstrap/ports.ts`, `bootstrap/errors.ts` (+
+  `job.test.ts`), wired in the module's `index.ts`. *Acceptance:* with fake ports, the job registers
+  via `InstallationsService.create()`, never sets a status by hand, revalidates after the core
+  assemble, records `playableAtRatio` at the first non-`invalid`/`missing` verdict while auxiliary
+  copying continues, and on cancel/verification failure leaves neither partial files nor the
+  half-built installation. Proves AC5 (orchestration) and AC6.
+- **D5 — Module-dialog seam + Library entry point.** `src/renderer/src/store/useLauncher.ts`,
+  `src/renderer/src/components/installations/Dialogs.tsx`, `src/renderer/src/modules/index.ts`,
+  `src/renderer/src/views/LibraryView.tsx` (button next to Create, and in the empty state),
+  `src/renderer/src/i18n/locales/en.json`. *Acceptance:* the button opens the module's modal;
+  `CreateInstallationDialog` still works unchanged; no shell file imports a downloads component.
+- **D6 — The wizard's four steps.** `src/renderer/src/modules/downloads/bootstrap/BootstrapWizard.tsx`
+  plus one small component per step and `Dialogs.tsx` inside the module, i18n keys, `data-testid`s.
+  Mirror `CreateInstallationDialog.tsx` for dialog shape and `ChecksList.tsx:110-117` for the
+  `set-write-dir` remedy call. *Acceptance:* engine step shows Q2PRO only; the target step renders
+  the D2 verdicts (Program Files warning naming the write-access consequence + remedy + acknowledge,
+  non-empty listing + "continue anyway", blocked reason); the confirm step names every package, the
+  summed total size and the target path; starting hands off to the D4 job. Proves AC1–AC4.
+- **D7 — The Demo marker.** `src/renderer/src/lib/demo-data.ts` (+ `demo-data.test.ts`),
+  `InstallationTile.tsx`, `LibraryView.tsx`, `components/shell/ActionBar.tsx`,
+  `components/shell/InstallationRail.tsx`, `styles/` (corner microtag), i18n. Mirror
+  `components/ui/EngineBadge.tsx`. *Acceptance:* derivation is true exactly when a
+  `validation.pak0NotRetail` check is present; the badge appears on card, action bar and hover card
+  and the microtag on the tile. Proves AC7.
+- **D8 — Offline end-to-end proof.** `src/main/modules/downloads/harness.ts` (+ `harness.test.ts`
+  mirroring `src/main/services/dialog.test.ts`'s four gate cases), `scripts/lib/screens.mjs`,
+  `scripts/flows/bootstrap-wizard.mjs`, `scripts/lib/fixture.mjs` (fixture packages + target dirs),
+  `docs/UI-VERIFICATION.md`. *Acceptance:* `npm run ui:flow bootstrap-wizard` walks the wizard on a
+  fixture target, runs the job against a loopback fixture server, sees Play enabled while the job is
+  still running, sees the Demo badge, and asserts on disk that the target holds `baseq2` only —
+  with no outbound network access and no production-reachable override.
 
 ## Model Hints
 
+- `D4 → deliverable-hard` — the only place that mutates a registered installation mid-job: a wrong
+  order of create/revalidate/`playableAtRatio` or an incomplete cancel path leaves the user with a
+  half-built installation the shell believes in.
+- `D8 → deliverable-hard` — a harness-only override of the download source is a security-relevant
+  backdoor that must be provably unreachable in production while still carrying the whole AC map.
+- All other deliverables: default tier.
+- `Review: → story-review-hard` — the story spans main pipeline, a new shell seam and
+  renderer-supplied paths, and AC8 is a negative requirement a diff-blind review would miss.
+
 ## Acceptance Tests
+
+- AC1 → e2e `npm run ui:verify` / `scripts/flows/bootstrap-wizard.mjs` › "the Library opens the
+  bootstrap wizard and offers Q2PRO only", plus unit
+  `src/main/modules/downloads/engine-options.test.ts` › "only supported and pinned engines are offered"
+- AC2 → e2e `scripts/flows/bootstrap-wizard.mjs` › "a Program Files target warns, offers the write-dir
+  remedy and can be acknowledged", plus unit
+  `src/main/modules/downloads/bootstrap/target.test.ts` › "a path under Program Files is flagged"
+- AC3 → e2e `scripts/flows/bootstrap-wizard.mjs` › "a non-empty target lists its contents and can be
+  continued", plus unit `…/bootstrap/target.test.ts` › "a non-empty folder reports its entries"
+- AC4 → e2e `scripts/flows/bootstrap-wizard.mjs` › "the confirm step names the packages, the total
+  size and the target", plus unit `…/bootstrap/job.test.ts` › "the summary sums the package sizes"
+- AC5 → unit `src/main/modules/downloads/bootstrap/job.test.ts` › "the job fetches, verifies,
+  extracts and assembles baseq2" and `…/bootstrap/assemble.test.ts` › "the allowlisted files land in
+  baseq2"; end to end through the real surface in `scripts/flows/bootstrap-wizard.mjs` › "the job
+  completes against the fixture server"
+- AC6 → e2e `scripts/flows/bootstrap-wizard.mjs` › "Play is enabled while the job still copies", plus
+  unit `…/bootstrap/job.test.ts` › "the status always comes from inspectInstallation and
+  playableAtRatio is recorded at the first non-invalid verdict"
+- AC7 → e2e `scripts/flows/bootstrap-wizard.mjs` › "the finished installation is marked Demo on tile,
+  card and action bar", plus unit `src/renderer/src/lib/demo-data.test.ts` › "demo data is derived
+  from the pak0NotRetail check"
+- AC8 → unit `src/main/modules/downloads/bootstrap/assemble.test.ts` › "the ctf payload of the 3.20
+  package is not copied", plus the on-disk assertion in `scripts/flows/bootstrap-wizard.mjs` › "the
+  target holds baseq2 only"
+
+No manual residue: every criterion is covered by an automated test. The one risk carried into the
+build is D8's loopback fixture server — if 070 already ships a harness manifest override, D8 reuses
+it instead of adding a second one.
 
 ## Done
