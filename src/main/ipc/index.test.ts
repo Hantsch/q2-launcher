@@ -26,6 +26,7 @@ vi.mock('electron', () => ({
   BrowserWindow: { fromWebContents: () => null },
   shell: { openExternal: vi.fn(), openPath: vi.fn(), showItemInFolder: vi.fn() },
   dialog: { showOpenDialog: vi.fn() },
+  clipboard: { writeText: vi.fn() },
 }))
 
 const fakeEvent = {} as unknown as IpcMainInvokeEvent
@@ -73,7 +74,7 @@ describe('registerAllIpc', () => {
     for (const channel of INVOKE_CHANNELS) {
       expect(registered.has(channel)).toBe(true)
     }
-    expect(registered.size).toBe(35)
+    expect(registered.size).toBe(36)
   })
 
   it('rejects an invalid payload on a plain (throwing) handle() channel synchronously', async () => {

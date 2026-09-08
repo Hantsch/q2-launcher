@@ -1974,8 +1974,36 @@
       "installation": "Installation: {{name}}",
       "dismiss": "Dismiss this failure",
       "restore": "Restore this failure",
+      "copyReport": "Copy failure report",
+      "copyReportSuccess": "Failure report copied to clipboard",
+      "copyReportError": "The failure report could not be copied to the clipboard.",
+      "revealLog": "Reveal log file",
       "dismissed": {
         "summary": "Dismissed ({{count}})"
+      },
+      "report": {
+        "versionsHeading": "Versions",
+        "appVersion": "App version",
+        "electronVersion": "Electron version",
+        "chromeVersion": "Chrome version",
+        "nodeVersion": "Node version",
+        "platform": "Platform",
+        "osVersion": "OS version",
+        "errorHeading": "Error",
+        "packagesHeading": "Packages",
+        "columnPackage": "Package",
+        "columnUrl": "URL",
+        "columnSize": "Size",
+        "columnVerified": "Verified",
+        "columnExtracted": "Extracted",
+        "yes": "Yes",
+        "no": "No",
+        "verdictHeading": "Verdict",
+        "targetPath": "Target path",
+        "verdictLabel": "Status",
+        "missingChecksHeading": "Failing checks",
+        "noMissingChecks": "None",
+        "logHeading": "Log tail"
       }
     }
   },

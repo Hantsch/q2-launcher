@@ -1,5 +1,6 @@
 import type { EngineKind } from '@shared/types'
 import type { ManifestPackage } from '@shared/modules/downloads'
+import type { DiagnosticsCollector } from '../diagnostics'
 import { extractArchive } from '../extractor'
 import { downloadPackage } from '../fetcher'
 import { ManifestUnavailableError, type ManifestService } from '../manifest-service'
@@ -45,6 +46,19 @@ export interface PackageFetcher {
 export interface Extractor {
   extract: ExtractFn
 }
+
+/**
+ * Story 075 D3: how the bootstrap job reaches the diagnostics collector (`../diagnostics.ts`).
+ *
+ * A *factory*, not a collector: `createDiagnosticsCollector` is keyed by the job id, and that id
+ * does not exist until `startBootstrap` has created the `Job` - long after `bootstrapDepsFor()`
+ * (`../index.ts`) built the deps. So the wiring hands in the means of making one and the job makes
+ * it the moment it has an id to key it by.
+ *
+ * Optional on `BootstrapDeps`: a job without one records nothing and behaves exactly as it did
+ * before this story. The collector observes the job; it never influences what the job does.
+ */
+export type BootstrapDiagnosticsSource = (jobId: string, kind: string) => DiagnosticsCollector
 
 /** Structurally satisfied by `Logger` (`src/main/lib/logger.ts`). */
 export interface BootstrapLog {

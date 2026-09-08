@@ -12,7 +12,7 @@ import {
   type ManifestSnapshot,
   type PackageSource,
 } from '@shared/modules/downloads'
-import { fail, ok, type Job, type Outcome } from '@shared/types'
+import { fail, isJobActive, ok, type Job, type Outcome } from '@shared/types'
 import type { Logger } from '../../lib/logger'
 import { userDataDir } from '../../lib/paths'
 import type { AppContext } from '../../context'
@@ -26,6 +26,12 @@ import {
 import { manifestSourceFrom, realExtractor, realPackageFetcher } from './bootstrap/ports'
 import { computeTargetVerdict } from './bootstrap/target'
 import { clear, enforceBudget, NOTHING_IN_USE, status } from './cache'
+import {
+  createDiagnosticsCollector,
+  diagnosticsFor,
+  dropDiagnostics,
+  UNKNOWN_DOWNLOAD_FAILURE_KEY,
+} from './diagnostics'
 import { appendFailure, dismissFailure, restoreFailure } from './failure-log'
 import { PRODUCTION_DOWNLOAD_SOURCE, resolveDownloadSource } from './harness'
 import { ManifestService, ManifestUnavailableError } from './manifest-service'
@@ -296,8 +302,12 @@ const subscriptions = new Set<() => void>()
  *
  * Not a member of `DOWNLOADS_ERROR_KEYS`, on purpose: that set enumerates the reasons the download
  * pipeline *produces*, and this is the absence of one.
+ *
+ * Defined in `diagnostics.ts` (so `diagnosticsFor()` can use the same key without importing this
+ * module and creating a cycle) and re-exported here, since callers/tests already reach it as
+ * `./index`'s own export.
  */
-export const UNKNOWN_DOWNLOAD_FAILURE_KEY = 'downloads.error.unknown'
+export { UNKNOWN_DOWNLOAD_FAILURE_KEY }
 
 /**
  * Story 073 D2 (AC2): appends one failure-log entry per `downloads` job that reaches `failed`
@@ -316,6 +326,11 @@ export const UNKNOWN_DOWNLOAD_FAILURE_KEY = 'downloads.error.unknown'
  *
  * The set forgets ids that have left the job list, so a long session cannot grow it without bound;
  * job ids are UUIDs, so a forgotten id can never come back and be logged twice.
+ *
+ * Story 075 D2: also drops the job's `diagnostics.ts` registry entry (if any) on *any* terminal
+ * status, not just `failed` - a succeeded or cancelled job leaves nothing behind either, so the
+ * registry cannot grow unbounded across a session. This runs after `failureFor()` has had its
+ * chance to read the entry for a job failing in this same tick, never before.
  */
 function observeFailedJobs(app: AppContext, log: Logger): () => void {
   const recorded = new Set<string>()
@@ -323,17 +338,20 @@ function observeFailedJobs(app: AppContext, log: Logger): () => void {
   return app.jobs.onChange((jobs) => {
     for (const job of jobs) {
       if (job.moduleId !== 'downloads') continue
-      if (job.status !== 'failed') continue
-      if (recorded.has(job.id)) continue
-      recorded.add(job.id)
 
-      try {
-        app.state.setDownloadFailures(
-          appendFailure(app.state.getDownloadFailures(), failureFor(job)),
-        )
-      } catch (error) {
-        log.error(`failed to record the failure of job ${job.id}`, error)
+      if (job.status === 'failed' && !recorded.has(job.id)) {
+        recorded.add(job.id)
+
+        try {
+          app.state.setDownloadFailures(
+            appendFailure(app.state.getDownloadFailures(), failureFor(job)),
+          )
+        } catch (error) {
+          log.error(`failed to record the failure of job ${job.id}`, error)
+        }
       }
+
+      if (!isJobActive(job)) dropDiagnostics(job.id)
     }
 
     const present = new Set(jobs.map((job) => job.id))
@@ -349,8 +367,14 @@ function observeFailedJobs(app: AppContext, log: Logger): () => void {
  * `JobsService` by the time the entry is read (`DownloadFailure`'s own doc comment). `error` is
  * copied field by field rather than by reference, so the persisted entry cannot be changed by
  * whoever still holds the job.
+ *
+ * Story 075 D2: also attaches whatever `diagnostics.ts`'s registry holds for this job id -
+ * `undefined` for any failure not produced by an instrumented job (the pipeline stays
+ * uninstrumented this sprint), which simply omits the `diagnostics` field rather than sending an
+ * empty one.
  */
 function failureFor(job: Job): Omit<DownloadFailure, 'id' | 'createdAt' | 'dismissedAt'> {
+  const diagnostics = diagnosticsFor(job)
   return {
     jobId: job.id,
     labelKey: job.labelKey,
@@ -359,6 +383,7 @@ function failureFor(job: Job): Omit<DownloadFailure, 'id' | 'createdAt' | 'dismi
     error: job.error
       ? { key: job.error.key, ...(job.error.params ? { params: { ...job.error.params } } : {}) }
       : { key: UNKNOWN_DOWNLOAD_FAILURE_KEY },
+    ...(diagnostics ? { diagnostics } : {}),
   }
 }
 
@@ -420,6 +445,11 @@ function bootstrapDepsFor(
         isPackaged: electronApp.isPackaged,
         resourcesPath: process.resourcesPath,
       }),
+    // Story 075 D3: a factory, not a collector - the registry is keyed by the job id, which
+    // `startBootstrap` only has once it has created the `Job` (`ports.ts`'s
+    // `BootstrapDiagnosticsSource`). `observeFailedJobs` above drops the entry again on any
+    // terminal status, so an instrumented job leaves nothing behind either way.
+    diagnostics: (jobId, kind) => createDiagnosticsCollector(jobId, kind),
     log,
   }
 }

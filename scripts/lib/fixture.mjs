@@ -26,6 +26,10 @@ import {
 import { join } from 'node:path'
 import { assertInside, REPO_ROOT, UI_VERIFY_ROOT } from './paths.mjs'
 import { variantUserDataDir } from './harness.mjs'
+// Story 075 D7's two seeded `downloadFailures` entries. They live in their own module (which
+// imports only the redaction mirror) so a unit test can assert the seeded record is exactly what
+// the real `redactHome` produces, without dragging playwright in through this file.
+import { populatedDownloadFailures } from './download-failures.mjs'
 
 // --- literals mirrored from src/shared -------------------------------------
 
@@ -514,6 +518,8 @@ function populatedStateDocument() {
     // Story 072 D6: non-default downloads settings (mirrors src/shared/modules/downloads.ts's
     // `downloads` state.json key, see `DOWNLOADS_SETTINGS_SEED` above).
     downloads: { ...DOWNLOADS_SETTINGS_SEED },
+    // Story 075 D7: two static failure-log entries, one with diagnostics and one without (AC8).
+    downloadFailures: populatedDownloadFailures(),
   }
 }
 

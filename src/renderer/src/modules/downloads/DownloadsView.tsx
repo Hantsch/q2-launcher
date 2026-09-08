@@ -34,6 +34,9 @@ export function DownloadsView() {
   const { t } = useTranslation()
   const jobs = useLauncher((state) => state.jobs)
   const cancelJob = useLauncher((state) => state.cancelJob)
+  // D6 (AC5): `appInfo` is fetched once at store bootstrap - reused here rather than a second
+  // fetch, mirroring `SettingsView.tsx`'s reveal-log-path pattern (`null` until it resolves).
+  const appInfo = useLauncher((state) => state.appInfo)
   const [cacheStatus, setCacheStatus] = useState<{ totalBytes: number; itemCount: number } | null>(
     null,
   )
@@ -190,6 +193,7 @@ export function DownloadsView() {
                       dismissed={false}
                       onDismiss={handleDismissFailure}
                       onRestore={handleRestoreFailure}
+                      appInfo={appInfo}
                     />
                   </li>
                 ))}
@@ -208,6 +212,7 @@ export function DownloadsView() {
                         dismissed
                         onDismiss={handleDismissFailure}
                         onRestore={handleRestoreFailure}
+                        appInfo={appInfo}
                       />
                     </li>
                   ))}

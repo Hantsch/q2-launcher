@@ -940,6 +940,57 @@ export function parseDownloadsSettings(raw: unknown): DownloadsSettings {
  * `configProfileObjectSchema` uses for `categories`/`actions` - instead of degrading the whole
  * `downloadFailures` array to `[]` and losing every other entry with it.
  */
+/**
+ * Story 075 D1: one persisted `DownloadDiagnostics` record. Deliberately forgiving field-by-field
+ * (each optional field `.catch(undefined)`, same convention as the object it lives on) rather than
+ * one big `.catch(undefined)` around the whole shape - a single malformed package or log line
+ * should not have to cost the whole diagnostics record, only `downloadFailureObjectSchema`'s outer
+ * `.optional().catch(undefined)` (below) needs to catch a `diagnostics` value that is not even an
+ * object.
+ */
+const downloadDiagnosticsPackageSchema = z.object({
+  id: z.string().min(1),
+  url: z.string().min(1),
+  sizeBytes: z.number().finite(),
+  verified: z.boolean(),
+  extracted: z.boolean(),
+})
+
+const downloadDiagnosticsTargetSchema = z.object({
+  targetPath: z.string().min(1),
+  verdict: z.enum(['ok', 'warning', 'invalid', 'missing', 'unknown']),
+  missingChecks: z.array(
+    z.object({
+      // Mirrors `ValidationCheckId` (`@shared/types/installation`) - literal, not imported, since
+      // `z.enum` needs its own literal tuple; keep this list in sync with that type.
+      id: z.enum([
+        'root-exists',
+        'base-game-dir',
+        'base-paks',
+        'executable',
+        'engine-identified',
+        'write-access',
+      ]),
+      messageKey: z.string().min(1),
+    }),
+  ),
+})
+
+const downloadDiagnosticsSchema = z
+  .object({
+    jobId: z.string().min(1),
+    kind: z.string().min(1),
+    startedAt: z.string().min(1),
+    finishedAt: z.string().min(1),
+    errorKey: z.string().min(1),
+    packages: z.array(downloadDiagnosticsPackageSchema).catch([]),
+    target: downloadDiagnosticsTargetSchema.optional().catch(undefined),
+    logTail: z.array(z.string()).catch([]),
+    truncated: z.boolean().optional().catch(undefined),
+  })
+  .optional()
+  .catch(undefined)
+
 const downloadFailureObjectSchema = z.object({
   id: z.string().min(1),
   jobId: z.string().min(1),
@@ -952,6 +1003,7 @@ const downloadFailureObjectSchema = z.object({
   }),
   createdAt: z.number().finite(),
   dismissedAt: z.number().finite().optional().catch(undefined),
+  diagnostics: downloadDiagnosticsSchema,
 })
 
 /**

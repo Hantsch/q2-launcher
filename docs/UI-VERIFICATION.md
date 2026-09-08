@@ -753,7 +753,19 @@ button ("Simulate a stalled job") and asserts the resulting job row's bytes/spee
 then drives the `failure` button ("Simulate a failed job") and asserts the resulting failure-log
 entry's translated reason persists across a `DownloadsView` remount, dismisses into the collapsed
 "Dismissed" disclosure, and restores back into the visible list (AC2) — the only job source is
-`dev:simulateJob`, so the flow never touches the network (AC5), and (story 074 D8)
+`dev:simulateJob`, so the flow never touches the network (AC5). Story 075 D7 adds a further
+section after that dismiss/restore walk, exercised against the two static `downloadFailures`
+entries `scripts/lib/fixture.mjs`'s `populatedDownloadFailures()` seeds directly into `state.json`
+(no job round trip, reachable fully offline, AC8): both the with-diagnostics and
+without-diagnostics entries render; only the diagnostics entry offers a copy action, the other
+renders none at all (not even a disabled stub, AC6); the reveal-log action is present and enabled
+on both, since D6 gates it only on `AppInfo` having loaded, not on `diagnostics` (AC5); clicking
+copy and reading the OS clipboard back via `app.evaluate(({ clipboard }) => clipboard.readText())`
+(the same mechanism `docs/requirements/075-a-failure-tells-me-enough-to-report-it.md`'s Decisions
+describe) proves the report contains the Markdown package table, the error key and the AC2 verdict
+block (AC3); and that the same text contains the redaction placeholder `<home>` but never the
+machine's real `os.homedir()` value (AC4). `shot()`s cover both the with-diagnostics and
+without-diagnostics states plus the post-copy toast. And (story 074 D8)
 **`bootstrap-wizard`** — the one flow that runs a real download pipeline end to end; it has its own
 section below.
 

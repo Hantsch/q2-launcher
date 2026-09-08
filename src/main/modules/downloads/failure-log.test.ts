@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { DownloadFailure } from '@shared/modules/downloads'
+import type { DownloadDiagnostics, DownloadFailure } from '@shared/modules/downloads'
 import {
   appendFailure,
+  capDiagnostics,
+  DIAGNOSTICS_SIZE_CAP_BYTES,
   dismissFailure,
   FAILURE_LOG_CAP,
   FAILURE_LOG_RETENTION_MS,
@@ -23,6 +25,27 @@ function newEntry(overrides: Partial<NewDownloadFailure> = {}): NewDownloadFailu
     jobId: 'job-1',
     labelKey: 'downloads.job.engine',
     error: { key: 'downloads.error.network' },
+    ...overrides,
+  }
+}
+
+function newDiagnostics(overrides: Partial<DownloadDiagnostics> = {}): DownloadDiagnostics {
+  return {
+    jobId: 'job-1',
+    kind: 'bootstrap',
+    startedAt: '2026-01-08T00:00:00.000Z',
+    finishedAt: '2026-01-08T00:01:00.000Z',
+    errorKey: 'downloads.error.installationNotPlayable',
+    packages: [
+      { id: 'q2pro-win64', url: 'https://example.test/q2pro.zip', sizeBytes: 1234, verified: true, extracted: true },
+      { id: 'demo', url: 'https://example.test/demo.zip', sizeBytes: 5678, verified: true, extracted: false },
+    ],
+    target: {
+      targetPath: 'C:\\Users\\%HOME%\\Games\\Quake2',
+      verdict: 'invalid',
+      missingChecks: [{ id: 'base-paks', messageKey: 'installation.check.basePaks' }],
+    },
+    logTail: ['starting bootstrap', 'downloading q2pro', 'downloading demo', 'assembling target'],
     ...overrides,
   }
 }
@@ -69,6 +92,138 @@ describe('appendFailure', () => {
     expect(log[0]?.jobId).toBe(`job-${FAILURE_LOG_CAP + 9}`)
     expect(log.some((entry) => entry.jobId === 'job-0')).toBe(false)
     expect(log.some((entry) => entry.jobId === 'job-9')).toBe(false)
+  })
+
+  // Story 075 D1 (AC1/AC6).
+  it('a diagnostics record round-trips through the log', () => {
+    const diagnostics = newDiagnostics()
+    const log = appendFailure([], newEntry({ diagnostics }), T0)
+
+    expect(log[0]?.diagnostics).toEqual(diagnostics)
+  })
+
+  it('an entry with no diagnostics still round-trips with no diagnostics field', () => {
+    const log = appendFailure([], newEntry(), T0)
+
+    expect(log[0]?.diagnostics).toBeUndefined()
+  })
+
+  it('caps the 50-entry list unchanged when every entry also carries diagnostics', () => {
+    let log: DownloadFailure[] = []
+    for (let i = 0; i < FAILURE_LOG_CAP + 10; i++) {
+      log = appendFailure(
+        log,
+        newEntry({ jobId: `job-${i}`, diagnostics: newDiagnostics({ jobId: `job-${i}` }) }),
+        T0 + i,
+      )
+    }
+
+    expect(log).toHaveLength(FAILURE_LOG_CAP)
+    expect(log[0]?.diagnostics?.jobId).toBe(`job-${FAILURE_LOG_CAP + 9}`)
+  })
+
+  it('an oversized diagnostics record is trimmed to the cap and marked truncated when appended', () => {
+    const oversized = newDiagnostics({ logTail: Array.from({ length: 5000 }, (_, i) => `line ${i}`) })
+    const log = appendFailure([], newEntry({ diagnostics: oversized }), T0)
+
+    const stored = log[0]?.diagnostics
+    expect(stored).toBeDefined()
+    expect(JSON.stringify(stored).length).toBeLessThanOrEqual(DIAGNOSTICS_SIZE_CAP_BYTES)
+    expect(stored?.truncated).toBe(true)
+  })
+})
+
+describe('capDiagnostics', () => {
+  it('returns a within-budget record unchanged, with no truncated flag', () => {
+    const diagnostics = newDiagnostics()
+
+    expect(capDiagnostics(diagnostics)).toEqual(diagnostics)
+  })
+
+  it('trims logTail oldest-first before touching packages or target', () => {
+    // "oldest" is padded far larger than "middle"/"newest" combined, so a budget just above what
+    // dropping it alone would need cannot be satisfied by coincidence at any other trim point.
+    const diagnostics = newDiagnostics({
+      logTail: [`oldest-${'x'.repeat(500)}`, 'middle', 'newest'],
+    })
+    const sizeWithoutOldest = JSON.stringify({
+      ...diagnostics,
+      logTail: ['middle', 'newest'],
+      truncated: true,
+    }).length
+    const budget = sizeWithoutOldest + 50
+
+    const result = capDiagnostics(diagnostics, budget)
+
+    expect(result?.logTail).toEqual(['middle', 'newest'])
+    expect(result?.packages).toEqual(diagnostics.packages)
+    expect(result?.target).toEqual(diagnostics.target)
+    expect(result?.truncated).toBe(true)
+  })
+
+  it('keeps the last-processed packages when packages have to be trimmed', () => {
+    // Packages are recorded in processing order, and a bootstrap run most often fails on the one
+    // it processed last - that is the package AC2 exists to identify, so it must be the last to
+    // go, not the first.
+    const pad = 'x'.repeat(400)
+    const diagnostics = newDiagnostics({ logTail: [] })
+    diagnostics.packages = ['first', 'second', 'third', 'last'].map((id) => ({
+      id,
+      url: `https://example.invalid/${id}-${pad}.zip`,
+      sizeBytes: 1,
+      verified: true,
+      extracted: true,
+    }))
+
+    const budget = JSON.stringify({
+      ...diagnostics,
+      truncated: true,
+      packages: diagnostics.packages.slice(2),
+    }).length
+
+    const result = capDiagnostics(diagnostics, budget)
+
+    expect(result?.packages.map((pkg) => pkg.id)).toEqual(['third', 'last'])
+    expect(result?.truncated).toBe(true)
+  })
+
+  it('drops packages after logTail is exhausted, then target, then the whole record', () => {
+    // Each piece is padded far larger than the others combined, so a budget "just above" what
+    // dropping everything up to (and including) one piece would need cannot accidentally be
+    // satisfied by a different trim point - including the ~18-byte overhead of the `truncated`
+    // flag itself, which every trimmed result carries.
+    const bigLine = (label: string): string => `${label}-${'x'.repeat(2000)}`
+    const diagnostics = newDiagnostics({
+      logTail: [bigLine('log')],
+      target: {
+        targetPath: bigLine('target'),
+        verdict: 'invalid',
+        missingChecks: [{ id: 'base-paks', messageKey: 'installation.check.basePaks' }],
+      },
+    })
+    diagnostics.packages = [
+      { id: 'p1', url: bigLine('p1'), sizeBytes: 1, verified: true, extracted: true },
+    ]
+
+    const withNoLogTail = { ...diagnostics, truncated: true, logTail: [] }
+    const withNoPackages = { ...withNoLogTail, packages: [] }
+    const withNoTarget = (({ target: _target, ...rest }) => rest)(withNoPackages)
+
+    // Fits once logTail and packages are both gone, but not with just logTail gone (the huge
+    // package URL alone still overshoots) - packages must go too.
+    const packageTrimResult = capDiagnostics(diagnostics, JSON.stringify(withNoPackages).length + 50)
+    expect(packageTrimResult?.logTail).toEqual([])
+    expect(packageTrimResult?.packages).toEqual([])
+    expect(packageTrimResult?.target).toEqual(diagnostics.target)
+    expect(packageTrimResult?.truncated).toBe(true)
+
+    // Fits once packages are also gone, but not with them present - target must go.
+    const targetDroppedResult = capDiagnostics(diagnostics, JSON.stringify(withNoTarget).length + 50)
+    expect(targetDroppedResult?.target).toBeUndefined()
+    expect(targetDroppedResult?.truncated).toBe(true)
+
+    // Too small even with nothing left to trim - the whole record is dropped.
+    expect(capDiagnostics(diagnostics, JSON.stringify(withNoTarget).length - 1)).toBeUndefined()
   })
 })
 

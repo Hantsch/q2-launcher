@@ -60,6 +60,8 @@ export interface IpcInvokeMap {
   'app:getInfo': { req: void; res: AppInfo }
   'app:openExternal': { req: string; res: Outcome<null> }
   'app:revealPath': { req: string; res: Outcome<null> }
+  /** Writes text to the OS clipboard. Story 075: the diagnostics report's copy action. */
+  'app:copyText': { req: string; res: Outcome<null> }
 
   // ---- window chrome --------------------------------------------------------
   'window:minimize': { req: void; res: void }
@@ -157,6 +159,7 @@ export const INVOKE_CHANNELS = [
   'app:getInfo',
   'app:openExternal',
   'app:revealPath',
+  'app:copyText',
   'window:minimize',
   'window:toggleMaximize',
   'window:close',

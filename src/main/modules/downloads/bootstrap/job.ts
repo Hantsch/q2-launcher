@@ -32,7 +32,13 @@ import { isSafeDownloadFileName } from '../paths'
 import { getExtractDir } from '../pipeline'
 import { assembleInstallation } from './assemble'
 import { asExtractionErrorKey, LOCAL_FAILURE, NOT_PLAYABLE, PACKAGE_UNAVAILABLE } from './errors'
-import type { BootstrapLog, Extractor, ManifestSource, PackageFetcher } from './ports'
+import type {
+  BootstrapDiagnosticsSource,
+  BootstrapLog,
+  Extractor,
+  ManifestSource,
+  PackageFetcher,
+} from './ports'
 import { computeTargetVerdict } from './target'
 
 /**
@@ -91,6 +97,16 @@ import { computeTargetVerdict } from './target'
  * blocker, so the user may well have pointed the wizard at a folder that already held something of
  * theirs. `rmdir` (not `rm -r`) on the directories we may have created succeeds only while they are
  * empty, which is precisely the "we made it, so we may remove it" test.
+ *
+ * ## What a failure leaves behind instead (story 075 D3)
+ *
+ * Nothing above changes, but the job now *tells* the optional diagnostics collector
+ * (`../diagnostics.ts`, entering through `BootstrapDeps.diagnostics`) what it already knows as it
+ * goes: per package the URL that actually served it, its size and whether it verified and
+ * extracted; and, once the last revalidation has a verdict, the target path with that verdict and
+ * its non-passing checks. Every one of those calls is synchronous bookkeeping placed *before* the
+ * `failed()`/`cleanUp()` it describes, so what gets deleted and when is exactly what it was - the
+ * collector observes this file, it never steers it. A job with no collector records nothing.
  *
  * Verified archives stay in the download cache on purpose (`fetcher.ts` promoted them there):
  * AC6's "no partial files" is about partial ones, and the cache is what makes a retry cheap. The
@@ -219,6 +235,11 @@ export interface BootstrapDeps {
   resolveExtractor: () => { path: string; exists: boolean }
   /** Handed to the fetcher; the real client unless overridden. */
   fetchImpl?: FetchImpl
+  /**
+   * Story 075 D3: makes this job's diagnostics collector once the job id exists (`ports.ts`).
+   * Absent means "record nothing" - every failure then behaves exactly as it did before 075.
+   */
+  diagnostics?: BootstrapDiagnosticsSource
   log?: BootstrapLog
 }
 
@@ -476,6 +497,19 @@ export async function startBootstrap(
   })
   jobId = job.id
 
+  /**
+   * Story 075 D3: this job's diagnostics collector - created here because the registry is keyed by
+   * the job id, which exists only now, and the job's log teed into it: every line written from
+   * this point on still reaches `deps.log` exactly as before *and* lands (redacted) in the
+   * diagnostics ring (Decisions (Refine)).
+   *
+   * Everything above this point ran before the job existed, so there is no record to capture it
+   * into and those lines keep using `log` directly. `jobLog` is `undefined` for exactly the same
+   * inputs `log` is, so no call site's "log if there is a logger" shape changes.
+   */
+  const diagnostics = deps.diagnostics?.(jobId, BOOTSTRAP_JOB_KIND)
+  const jobLog = diagnostics && log ? diagnostics.tee(log) : log
+
   const extractRoot = getBootstrapExtractRoot(deps.userDataPath, jobId)
   const totalBytes = packages.reduce((total, entry) => total + entry.pkg.sizeBytes, 0)
   /** Guards the ratio math against a manifest that (impossibly, per its schema) declares 0 bytes. */
@@ -514,30 +548,32 @@ export async function startBootstrap(
    * that fails must not turn a cancelled job into a failed one, or a failed one into a hang.
    */
   const cleanUp = async (): Promise<void> => {
-    await removeAssembled(targetRoot, copied, !targetPreexisted, log)
+    await removeAssembled(targetRoot, copied, !targetPreexisted, jobLog)
     const removed = await deps.installations.remove({
       id: installation.id,
       deleteFromDisk: false,
     })
     if (!removed.ok) {
-      log?.warn(
+      jobLog?.warn(
         `the half-built installation ${installation.id} could not be dropped: ${removed.error.key}`,
       )
     }
-    await removeDir(extractRoot, log)
+    await removeDir(extractRoot, jobLog)
   }
 
   /** The job is already `cancelled` in `JobsService` (`cancel()` finishes it); the leftovers are ours. */
   const cancelledOutcome = async (): Promise<BootstrapOutcome> => {
     await cleanUp()
-    log?.info(`bootstrap of ${installation.name} cancelled (job ${jobId})`)
+    jobLog?.info(`bootstrap of ${installation.name} cancelled (job ${jobId})`)
     return { status: 'cancelled' }
   }
 
   const failed = async (key: DownloadsErrorKey, reason: string): Promise<BootstrapOutcome> => {
     // The reason is prose and stays in the log: `Job.error` carries an i18n key, and CLAUDE.md's
-    // "main sends i18n keys, never prose" rules out shipping it to the renderer.
-    log?.warn(`bootstrap of ${installation.name} failed with ${key}: ${reason}`)
+    // "main sends i18n keys, never prose" rules out shipping it to the renderer. Story 075: the
+    // same line is teed into the diagnostics ring, which is developer-facing by design and where
+    // the reason is exactly what a bug report needs.
+    jobLog?.warn(`bootstrap of ${installation.name} failed with ${key}: ${reason}`)
     // Cleaned up *before* the status flips, so no observer can ever see a `failed` job next to a
     // still-registered half-built installation.
     await cleanUp()
@@ -561,6 +597,23 @@ export async function startBootstrap(
       const filesRemaining = packages.length - index
       const extractDir = getBootstrapExtractDir(deps.userDataPath, jobId, entry.pkg.id)
 
+      /**
+       * Story 075 D3 (AC1): what this package contributed. Called at each of this iteration's
+       * exits - the fetch failure, the `mkdir` failure, the extraction failure and the success -
+       * rather than once at the top or the bottom of the loop, because those exits are the whole
+       * point: the 2026-09-08 run got all the way past this loop, and the report still has to name
+       * the package that brought nothing. Pure bookkeeping over values already in hand; it is
+       * never awaited and never sits between a failure and its `cleanUp()`.
+       */
+      const recordPackage = (
+        url: string,
+        sizeBytes: number,
+        verified: boolean,
+        extracted: boolean,
+      ): void => {
+        diagnostics?.recordPackage({ id: entry.pkg.id, url, sizeBytes, verified, extracted })
+      }
+
       const fetched = await deps.fetcher.fetch(entry.source, {
         userDataPath: deps.userDataPath,
         signal: controller.signal,
@@ -576,13 +629,22 @@ export async function startBootstrap(
             filesRemaining,
           }),
         ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
-        ...(log ? { log } : {}),
+        ...(jobLog ? { log: jobLog } : {}),
       })
 
       if (!fetched.ok) {
         // A cancel is not a failure needing a reason, and the fixed key set has no member for
         // "the user changed their mind" - so it never surfaces `fetched.key`.
         if (fetched.cancelled || cancelled) return cancelledOutcome()
+        // The URL last attempted - the mirror, when the fallback got that far - and not the
+        // manifest's primary: "where it actually came from" is the useful line in a bug report.
+        // The declared size, since nothing verified arrived.
+        recordPackage(
+          fetched.attempts[fetched.attempts.length - 1]?.url ?? entry.pkg.url,
+          entry.pkg.sizeBytes,
+          false,
+          false,
+        )
         return failed(fetched.key, `${entry.pkg.id}: ${fetched.reason}`)
       }
 
@@ -592,6 +654,7 @@ export async function startBootstrap(
       try {
         await mkdir(extractDir, { recursive: true })
       } catch (error) {
+        recordPackage(fetched.url, fetched.sizeBytes, true, false)
         return failed(LOCAL_FAILURE, `mkdir ${extractDir} failed: ${String(error)}`)
       }
 
@@ -624,8 +687,14 @@ export async function startBootstrap(
       // must not turn a cancelled job into a succeeded one.
       if (cancelled) return cancelledOutcome()
       if (!extracted.ok) {
+        recordPackage(fetched.url, fetched.sizeBytes, true, false)
         return failed(asExtractionErrorKey(extracted.error.key), `extracting ${entry.pkg.id} failed`)
       }
+
+      // Verified by the fetcher and extracted by 7za. Whether it went on to *contribute* anything
+      // is the target entry's verdict to tell, further down - a package can extract perfectly and
+      // still leave the installation unplayable, which is the failure this story exists for.
+      recordPackage(fetched.url, fetched.sizeBytes, true, true)
 
       doneBytes += packageBytes
       sourceDirs.push(extractDir)
@@ -691,6 +760,22 @@ export async function startBootstrap(
 
     if (cancelled) return cancelledOutcome()
 
+    /**
+     * Story 075 D3 (AC2): the inspector's last word on the target, recorded *before* the branch
+     * that acts on it - so the not-playable failure and the success record the same thing and no
+     * later edit to that branch can quietly stop recording it. `severity !== 'ok'` rather than
+     * only `'error'`: a warning ("no write access", "missing mission packs") is exactly the kind
+     * of detail the person reading the report needs, and the record is size-capped anyway
+     * (`capDiagnostics`, `failure-log.ts`). The check's `messageKey` is an i18n key, never prose.
+     */
+    diagnostics?.recordTarget({
+      targetPath: targetRoot,
+      verdict: afterAll.value.status,
+      missingChecks: afterAll.value.checks
+        .filter((check) => check.severity !== 'ok')
+        .map((check) => ({ id: check.id, messageKey: check.messageKey })),
+    })
+
     if (afterAll.value.status === 'invalid' || afterAll.value.status === 'missing') {
       // Everything downloaded, verified and copied, and the inspector still says this is not a
       // usable installation. Succeeding here would hand the user a library entry that cannot
@@ -700,9 +785,9 @@ export async function startBootstrap(
 
     report({ ratio: 1, bytesDone: totalBytes, bytesTotal: totalBytes, filesRemaining: 0 })
     // The extracted trees have served their purpose; the verified archives stay in the cache.
-    await removeDir(extractRoot, log)
+    await removeDir(extractRoot, jobLog)
     deps.jobs.finish(jobId, { status: 'succeeded' })
-    log?.info(`bootstrapped ${installation.name} into ${targetRoot} (job ${jobId})`)
+    jobLog?.info(`bootstrapped ${installation.name} into ${targetRoot} (job ${jobId})`)
     return {
       status: 'succeeded',
       installationId: installation.id,

@@ -1,9 +1,10 @@
-import { app as electronApp, shell } from 'electron'
+import { app as electronApp, clipboard, shell } from 'electron'
+import { release } from 'node:os'
 import { fail, ok, type AppInfo, type Platform } from '@shared/types'
 import { isDirectory } from '../lib/fs-utils'
 import { logFilePath } from '../lib/logger'
 import { userDataDir } from '../lib/paths'
-import { appGetInfoSchema, appRevealPathSchema, urlSchema } from '@shared/ipc-schemas'
+import { appCopyTextSchema, appGetInfoSchema, appRevealPathSchema, urlSchema } from '@shared/ipc-schemas'
 import type { AppContext } from '../context'
 import { handle, handleOutcome } from './index'
 
@@ -15,11 +16,20 @@ export function registerAppIpc(app: AppContext): void {
       chromeVersion: process.versions.chrome,
       nodeVersion: process.versions.node,
       platform: process.platform as Platform,
+      osVersion: release(),
       userDataPath: userDataDir(),
       logPath: logFilePath(),
       isDev: app.isDev,
       isPackaged: electronApp.isPackaged,
     }
+  })
+
+  // Story 075: `appCopyTextSchema` caps length and rejects non-strings before the
+  // clipboard is ever touched - `handleOutcome` already turns that rejection into
+  // a failed `Outcome` instead of throwing.
+  handleOutcome('app:copyText', appCopyTextSchema, (text) => {
+    clipboard.writeText(text)
+    return ok(null)
   })
 
   // `urlSchema` allows only http(s), so a renderer cannot open `file:` or a

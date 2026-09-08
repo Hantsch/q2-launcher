@@ -1,4 +1,4 @@
-import type { EngineKind } from '../types'
+import type { EngineKind, InstallationStatus, ValidationCheckId } from '../types'
 
 /**
  * The downloads module's contract.
@@ -261,6 +261,74 @@ export interface DownloadFailure {
   createdAt: number
   /** Set once the user dismisses the entry; cleared again by a restore. */
   dismissedAt?: number
+  /**
+   * Story 075 D1: structured, machine-readable diagnostics captured in main while the job ran -
+   * ids, URLs, byte counts, verdicts, raw log lines, never prose (Requirement: "the i18n key stays
+   * the only prose main produces"). Optional by construction (Decisions (Refine): "AC1 says a
+   * failure entry *can* carry diagnostics") - only bootstrap jobs populate it this sprint (D2/D3);
+   * every other failure, and every entry persisted before this story, simply has none.
+   */
+  diagnostics?: DownloadDiagnostics
+}
+
+/**
+ * Story 075 D1 (AC1/AC2): one job's diagnostic snapshot, attached to its `DownloadFailure` when
+ * one exists. Mirrors `Job` field-for-field where it overlaps (`jobId` ~ `Job.id`, `kind` ~
+ * `Job.kind`, `startedAt`/`finishedAt` as ISO strings like `Job.startedAt`/`Job.finishedAt`,
+ * `errorKey` ~ `Job.error.key`) rather than reusing `Job` itself - `Job` is broadcast on every
+ * `jobs:changed` tick to every job surface in the app (Decisions (Refine)), so this lives only in
+ * the failure log, captured once at the end.
+ */
+export interface DownloadDiagnostics {
+  /** The `Job.id` that produced this snapshot - same value as the owning `DownloadFailure.jobId`. */
+  jobId: string
+  /** Module-defined discriminator, mirroring `Job.kind` (e.g. `bootstrap`). */
+  kind: string
+  /** ISO timestamp, mirroring `Job.startedAt`. */
+  startedAt: string
+  /** ISO timestamp, mirroring `Job.finishedAt`. */
+  finishedAt: string
+  /** The job's own failure reason - one of `DOWNLOADS_ERROR_KEYS`, mirroring `Job.error.key`. */
+  errorKey: string
+  /** Every package the job touched, in the order it processed them. */
+  packages: DownloadDiagnosticsPackage[]
+  /** Present only for a job that reached the install-target stage (AC2) - a bootstrap that failed
+   * earlier (e.g. `downloads.error.packageUnavailable`) has no target yet. */
+  target?: DownloadDiagnosticsTarget
+  /**
+   * The job's own log lines (Decisions (Refine): "the collector *tees* it"), oldest-first, capped
+   * to a bounded ring - developer-facing content by explicit design (Requirement: "the same
+   * category as a stack trace"), never rendered in the UI, only inside a copied report.
+   */
+  logTail: string[]
+  /** Set when `capDiagnostics` (`failure-log.ts`) had to trim this record to fit the per-entry size
+   * cap. Absent when the record was persisted whole. */
+  truncated?: boolean
+}
+
+/** Story 075 D1 (AC1): one package a diagnosed job touched. */
+export interface DownloadDiagnosticsPackage {
+  /** The `ManifestPackage.id`. */
+  id: string
+  /** The URL the package was actually fetched from - `url` or, when it fired, a `mirrors` entry. */
+  url: string
+  sizeBytes: number
+  /** Whether the package's checksum verification succeeded. */
+  verified: boolean
+  /** Whether the package's archive extracted successfully. */
+  extracted: boolean
+}
+
+/** Story 075 D1 (AC2): the install target a diagnosed job reached, and why `inspectInstallation`
+ * judged it the way it did. */
+export interface DownloadDiagnosticsTarget {
+  /** Redacted (`redactHome`, `diagnostics.ts`) absolute target path - never a real account name. */
+  targetPath: string
+  /** `Installation.status` the target was left with when the job gave up. */
+  verdict: InstallationStatus
+  /** The failing `ValidationCheck`s that made `verdict` what it is - id and i18n `messageKey`,
+   * never prose. */
+  missingChecks: { id: ValidationCheckId; messageKey: string }[]
 }
 
 /**

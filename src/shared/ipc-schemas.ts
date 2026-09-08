@@ -25,6 +25,11 @@ export const urlSchema: z.ZodType<IpcInvokeMap['app:openExternal']['req']> = z
 export const appRevealPathSchema: z.ZodType<IpcInvokeMap['app:revealPath']['req']> =
   absolutePathSchema
 
+/** Story 075: a length-capped string - a diagnostics report is Markdown text, not a path. */
+export const appCopyTextSchema: z.ZodType<IpcInvokeMap['app:copyText']['req']> = z
+  .string()
+  .max(20_000)
+
 // ---- window chrome ------------------------------------------------------------
 
 export const windowMinimizeSchema: z.ZodType<IpcInvokeMap['window:minimize']['req']> = z.void()

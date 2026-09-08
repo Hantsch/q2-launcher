@@ -2,8 +2,9 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { ArchiveCacheStatus, DownloadFailure } from '@shared/modules/downloads'
+import type { ArchiveCacheStatus, DownloadDiagnostics, DownloadFailure } from '@shared/modules/downloads'
 import type { Job } from '@shared/types'
+import type { AppInfo } from '@shared/types/common'
 import { initI18n } from '../../i18n'
 import { useLauncher } from '../../store/useLauncher'
 import { DownloadsView } from './DownloadsView'
@@ -34,6 +35,29 @@ function makeFailure(overrides: Partial<DownloadFailure> = {}): DownloadFailure 
     createdAt: Date.now(),
     ...overrides,
   }
+}
+
+const stubAppInfo: AppInfo = {
+  appVersion: '1.2.3',
+  electronVersion: '30.0.0',
+  chromeVersion: '124.0.0',
+  nodeVersion: '20.10.0',
+  platform: 'win32',
+  userDataPath: 'C:\\ProgramData\\Q2 Launcher',
+  logPath: 'C:\\ProgramData\\Q2 Launcher\\logs\\main.log',
+  isDev: false,
+  isPackaged: true,
+  osVersion: '10.0.26200',
+}
+
+const stubDiagnostics: DownloadDiagnostics = {
+  jobId: 'job-1',
+  kind: 'bootstrap',
+  startedAt: new Date().toISOString(),
+  finishedAt: new Date().toISOString(),
+  errorKey: 'downloads.error.notPlayable',
+  packages: [],
+  logTail: [],
 }
 
 let currentFailures: DownloadFailure[] = []
@@ -82,7 +106,7 @@ afterEach(() => {
   cleanup()
   vi.clearAllMocks()
   currentFailures = []
-  useLauncher.setState({ jobs: [] })
+  useLauncher.setState({ jobs: [], appInfo: null })
 })
 
 describe('DownloadsView failure log', () => {
@@ -159,5 +183,38 @@ describe('DownloadsView failure log', () => {
     useLauncher.setState({ jobs: [makeJob({ status: 'failed' })] })
 
     await waitFor(() => expect(getDownloadFailures.mock.calls.length).toBeGreaterThanOrEqual(2))
+  })
+
+  it('passes the store\'s appInfo down so a diagnostics entry offers the reveal-log action', async () => {
+    useLauncher.setState({ appInfo: stubAppInfo })
+    currentFailures = [makeFailure({ diagnostics: stubDiagnostics })]
+
+    render(createElement(DownloadsView))
+
+    await screen.findByTestId('downloads-failure-failure-1')
+    const reveal = screen.getByTestId('downloads-failure-reveal-failure-1') as HTMLButtonElement
+    expect(reveal.disabled).toBe(false)
+    expect(screen.getByTestId('downloads-failure-copy-failure-1')).toBeTruthy()
+  })
+
+  it('an entry without diagnostics renders with no copy action', async () => {
+    useLauncher.setState({ appInfo: stubAppInfo })
+    currentFailures = [makeFailure()]
+
+    render(createElement(DownloadsView))
+
+    await screen.findByTestId('downloads-failure-failure-1')
+    expect(screen.queryByTestId('downloads-failure-copy-failure-1')).toBeNull()
+  })
+
+  it('the reveal-log action is disabled until appInfo has loaded', async () => {
+    useLauncher.setState({ appInfo: null })
+    currentFailures = [makeFailure()]
+
+    render(createElement(DownloadsView))
+
+    await screen.findByTestId('downloads-failure-failure-1')
+    const reveal = screen.getByTestId('downloads-failure-reveal-failure-1') as HTMLButtonElement
+    expect(reveal.disabled).toBe(true)
   })
 })

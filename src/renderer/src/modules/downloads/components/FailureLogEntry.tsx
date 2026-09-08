@@ -1,16 +1,24 @@
 import { useTranslation } from 'react-i18next'
-import { RotateCcw, X } from 'lucide-react'
+import { Copy, FolderOpen, RotateCcw, X } from 'lucide-react'
 import { DOWNLOADS_ERROR_KEYS, type DownloadFailure } from '@shared/modules/downloads'
-import { useInstallationById } from '../../../store/useLauncher'
+import type { AppInfo } from '@shared/types/common'
+import { useInstallationById, useLauncher } from '../../../store/useLauncher'
 import { formatRelativeTime } from '../../../lib/format'
+import { invoke } from '../../../lib/bridge'
 import { IconButton } from '../../../components/ui/Button'
 import { Badge, Panel } from '../../../components/ui/primitives'
+import { buildFailureReport } from '../report'
 
 /**
  * Story 073 D4 (AC2): one entry in the Downloads tab's failure log - either an always-visible
  * undismissed entry (with a Dismiss action) or one shown inside the collapsed "dismissed"
  * disclosure (with a Restore action instead). Mirrors `JobRow`'s layout and primitive
  * conventions (`Panel`, `Badge`, `IconButton`) so the two lists read as one system.
+ *
+ * Story 075 D6 adds the failure's two diagnostic actions: copy (only rendered when the failure
+ * carries `diagnostics` - AC6's pre-story entries offer no copy action at all, not a disabled
+ * stub) and reveal-log (always rendered, disabled until `appInfo` has loaded, mirroring
+ * `SettingsView.tsx`'s existing reveal-log-path pattern exactly - AC5).
  */
 export interface FailureLogEntryProps {
   failure: DownloadFailure
@@ -18,15 +26,52 @@ export interface FailureLogEntryProps {
   dismissed: boolean
   onDismiss: (id: string) => void
   onRestore: (id: string) => void
+  /** `null` until the store's bootstrap fetch resolves - gates the reveal-log action (AC5). */
+  appInfo: AppInfo | null
 }
 
 const KNOWN_ERROR_KEYS = new Set<string>(DOWNLOADS_ERROR_KEYS)
 
-export function FailureLogEntry({ failure, dismissed, onDismiss, onRestore }: FailureLogEntryProps) {
+export function FailureLogEntry({
+  failure,
+  dismissed,
+  onDismiss,
+  onRestore,
+  appInfo,
+}: FailureLogEntryProps) {
   const { t } = useTranslation()
   const installation = useInstallationById(failure.installationId ?? null)
+  const pushToast = useLauncher((state) => state.pushToast)
   const errorKey = KNOWN_ERROR_KEYS.has(failure.error.key) ? failure.error.key : 'downloads.error.unknown'
   const timestamp = formatRelativeTime(new Date(failure.createdAt).toISOString())
+
+  function handleCopyReport() {
+    if (!appInfo) return
+    const report = buildFailureReport({ failure, appInfo, t })
+    void invoke('app:copyText', report).then((result) => {
+      if (result.ok) {
+        pushToast({
+          level: 'success',
+          messageKey: 'downloads.failures.copyReportSuccess',
+          timeoutMs: 4000,
+        })
+        return
+      }
+      // A rejected `app:copyText` (an over-length report, say) must not look like a silent
+      // success - the user would paste stale clipboard content into an issue. Same
+      // error-toast pattern the config module uses for a failed IPC call (`CareTab.tsx`),
+      // sticky (`timeoutMs: 0`) because there is nothing else on screen that says so.
+      pushToast({
+        level: 'error',
+        messageKey: 'downloads.failures.copyReportError',
+        timeoutMs: 0,
+      })
+    })
+  }
+
+  function handleRevealLog() {
+    if (appInfo) void invoke('app:revealPath', appInfo.logPath)
+  }
 
   return (
     <Panel className="space-y-2 p-3" data-testid={`downloads-failure-${failure.id}`}>
@@ -47,25 +92,47 @@ export function FailureLogEntry({ failure, dismissed, onDismiss, onRestore }: Fa
           </div>
         </div>
 
-        {dismissed ? (
+        <div className="flex shrink-0 items-center gap-1.5">
+          {failure.diagnostics && (
+            <IconButton
+              label={t('downloads.failures.copyReport')}
+              size="sm"
+              onClick={handleCopyReport}
+              disabled={!appInfo}
+              data-testid={`downloads-failure-copy-${failure.id}`}
+            >
+              <Copy className="size-3.5" />
+            </IconButton>
+          )}
           <IconButton
-            label={t('downloads.failures.restore')}
+            label={t('downloads.failures.revealLog')}
             size="sm"
-            onClick={() => onRestore(failure.id)}
-            data-testid={`downloads-failure-restore-${failure.id}`}
+            onClick={handleRevealLog}
+            disabled={!appInfo}
+            data-testid={`downloads-failure-reveal-${failure.id}`}
           >
-            <RotateCcw className="size-3.5" />
+            <FolderOpen className="size-3.5" />
           </IconButton>
-        ) : (
-          <IconButton
-            label={t('downloads.failures.dismiss')}
-            size="sm"
-            onClick={() => onDismiss(failure.id)}
-            data-testid={`downloads-failure-dismiss-${failure.id}`}
-          >
-            <X className="size-3.5" />
-          </IconButton>
-        )}
+          {dismissed ? (
+            <IconButton
+              label={t('downloads.failures.restore')}
+              size="sm"
+              onClick={() => onRestore(failure.id)}
+              data-testid={`downloads-failure-restore-${failure.id}`}
+            >
+              <RotateCcw className="size-3.5" />
+            </IconButton>
+          ) : (
+            <IconButton
+              label={t('downloads.failures.dismiss')}
+              size="sm"
+              onClick={() => onDismiss(failure.id)}
+              data-testid={`downloads-failure-dismiss-${failure.id}`}
+            >
+              <X className="size-3.5" />
+            </IconButton>
+          )}
+        </div>
       </div>
     </Panel>
   )

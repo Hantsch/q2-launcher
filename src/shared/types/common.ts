@@ -8,6 +8,8 @@ export interface AppInfo {
   chromeVersion: string
   nodeVersion: string
   platform: Platform
+  /** `os.release()` - the OS kernel/build version, for bug reports. */
+  osVersion: string
   /** `app.getPath('userData')` - where the launcher stores its own state. */
   userDataPath: string
   /** Where `electron-log` writes. Surfaced so users can attach logs to bug reports. */

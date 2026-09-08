@@ -13,6 +13,7 @@ import { fail, type Outcome } from '@shared/types'
 import type { Logger } from '../../lib/logger'
 import { JobsService } from '../../services/jobs'
 import type { ModuleHandler, ModuleSetup } from '../types'
+import { createDiagnosticsCollector, diagnosticsRegistrySize } from './diagnostics'
 import { downloadsModule, UNKNOWN_DOWNLOAD_FAILURE_KEY } from './index'
 import { getDownloadsCacheDir } from './paths'
 
@@ -492,6 +493,67 @@ describe('downloadsModule failure log', () => {
     expect(restored).toHaveLength(1)
     expect(restored[0]?.dismissedAt).toBeUndefined()
     expect(state.getDownloadFailures()[0]?.dismissedAt).toBeUndefined()
+  })
+
+  /**
+   * Story 075 D2: `failureFor()` attaches whatever `diagnostics.ts`'s registry holds for the job,
+   * and any terminal status (success or failure) drops that job's entry so the registry cannot
+   * grow unbounded across a session.
+   */
+  it('a failed job with a registry entry produces a failure carrying its diagnostics', async () => {
+    const { jobs, state } = await setUpFailureLog()
+    const id = downloadJob(jobs)
+    const collector = createDiagnosticsCollector(id, 'bootstrap', 'C:\\Users\\bob')
+    collector.recordPackage({
+      id: 'q2pro-1.0.0',
+      url: 'https://example.com/q2pro.zip',
+      sizeBytes: 4096,
+      verified: true,
+      extracted: true,
+    })
+
+    jobs.finish(id, { status: 'failed', error: { key: 'downloads.error.installationNotPlayable' } })
+
+    const failures = state.getDownloadFailures()
+    expect(failures).toHaveLength(1)
+    expect(failures[0]?.diagnostics).toMatchObject({
+      jobId: id,
+      kind: 'bootstrap',
+      errorKey: 'downloads.error.installationNotPlayable',
+      packages: [
+        {
+          id: 'q2pro-1.0.0',
+          url: 'https://example.com/q2pro.zip',
+          sizeBytes: 4096,
+          verified: true,
+          extracted: true,
+        },
+      ],
+    })
+    // The entry is gone from the registry once the failure has been recorded from it.
+    expect(diagnosticsRegistrySize()).toBe(0)
+  })
+
+  it('a failed job with no registry entry produces a failure with no diagnostics field', async () => {
+    const { jobs, state } = await setUpFailureLog()
+    const id = downloadJob(jobs)
+
+    jobs.finish(id, { status: 'failed', error: { key: 'downloads.error.network' } })
+
+    const failures = state.getDownloadFailures()
+    expect(failures).toHaveLength(1)
+    expect(failures[0]?.diagnostics).toBeUndefined()
+  })
+
+  it('a succeeded job leaves the registry empty', async () => {
+    const { jobs } = await setUpFailureLog()
+    const id = downloadJob(jobs)
+    createDiagnosticsCollector(id, 'bootstrap', 'C:\\Users\\bob')
+    expect(diagnosticsRegistrySize()).toBe(1)
+
+    jobs.finish(id, { status: 'succeeded' })
+
+    expect(diagnosticsRegistrySize()).toBe(0)
   })
 
   it('dismiss refuses a payload that is not an id', async () => {

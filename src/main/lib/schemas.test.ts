@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { configProfileSchema, parseConfigProfiles, parseDownloadsSettings } from './schemas'
+import {
+  configProfileSchema,
+  parseConfigProfiles,
+  parseDownloadFailures,
+  parseDownloadsSettings,
+} from './schemas'
 import { DEFAULT_DOWNLOADS_SETTINGS } from '@shared/modules/downloads'
+import type { DownloadDiagnostics } from '@shared/modules/downloads'
 import { setProfileActionsInputSchema } from '../modules/config/schemas'
 import { legacyAliasNameFor } from '@shared/config/alias-render'
 import { bindValueFor } from '@shared/config/action-mirror'
@@ -923,5 +929,63 @@ describe('parseDownloadsSettings (story 071 D1)', () => {
     expect(
       parseDownloadsSettings({ concurrentJobs: 2, downloadWhilePlayingAllowed: 'yes' }),
     ).toEqual({ ...DEFAULT_DOWNLOADS_SETTINGS, concurrentJobs: 2 })
+  })
+})
+
+// Story 075 D1 (AC6).
+describe('parseDownloadFailures - diagnostics (story 075 D1)', () => {
+  const baseRow = {
+    id: 'f1',
+    jobId: 'job-1',
+    labelKey: 'downloads.job.engine',
+    error: { key: 'downloads.error.network' },
+    createdAt: 1000,
+  }
+
+  const diagnostics: DownloadDiagnostics = {
+    jobId: 'job-1',
+    kind: 'bootstrap',
+    startedAt: '2026-01-08T00:00:00.000Z',
+    finishedAt: '2026-01-08T00:01:00.000Z',
+    errorKey: 'downloads.error.installationNotPlayable',
+    packages: [
+      { id: 'demo', url: 'https://example.test/demo.zip', sizeBytes: 42, verified: true, extracted: false },
+    ],
+    target: {
+      targetPath: 'C:\\%HOME%\\Games\\Quake2',
+      verdict: 'invalid',
+      missingChecks: [{ id: 'base-paks', messageKey: 'installation.check.basePaks' }],
+    },
+    logTail: ['line 1', 'line 2'],
+  }
+
+  it('an entry without diagnostics parses unchanged (pre-story row)', () => {
+    const [parsed] = parseDownloadFailures([baseRow])
+
+    expect(parsed).toEqual(baseRow)
+    expect(parsed?.diagnostics).toBeUndefined()
+  })
+
+  it('round-trips a well-formed diagnostics record', () => {
+    const [parsed] = parseDownloadFailures([{ ...baseRow, diagnostics }])
+
+    expect(parsed?.diagnostics).toEqual(diagnostics)
+  })
+
+  it('a garbage diagnostics value drops only that field, not the row', () => {
+    const [parsed] = parseDownloadFailures([{ ...baseRow, diagnostics: 'not an object' }])
+
+    expect(parsed).toBeDefined()
+    expect(parsed?.id).toBe('f1')
+    expect(parsed?.diagnostics).toBeUndefined()
+  })
+
+  it('a diagnostics record missing a required field drops only that field, not the row', () => {
+    const { jobId: _jobId, ...malformedDiagnostics } = diagnostics
+    const [parsed] = parseDownloadFailures([{ ...baseRow, diagnostics: malformedDiagnostics }])
+
+    expect(parsed).toBeDefined()
+    expect(parsed?.id).toBe('f1')
+    expect(parsed?.diagnostics).toBeUndefined()
   })
 })
