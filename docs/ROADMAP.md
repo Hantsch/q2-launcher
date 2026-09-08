@@ -5,11 +5,11 @@
 *As of 2026-09-08.* The Config module is fully done (S01–S15). Phase 4 (Install)'s first slice,
 Sprint S16, is done: a bootstrap wizard turns nothing into a playable Q2PRO demo installation,
 end to end — curated manifest, verified downloads, a Downloads settings section and tab, and the
-wizard itself, all proven by automated tests (see [S16 review](../sprints/S16/review.md)). One
-manual step remains (publishing the manifest/mirrored asset to the public content repo, see
-`testplan.md`) and does not block using the wizard once that's done. Next: cut the milestone's
-next sprint (r1q2 support, store-copy/retail-import, cross-restart resume) with `/roadmap plan`.
-Nothing else is waiting on the user right now.
+wizard itself, all proven by automated tests (see [S16 review](../sprints/S16/review.md)). A real
+(non-fixture) run the same day exposed three gaps, filed as stories 076–078 and cut into
+[S17](../sprints/S17/sprint.md) (planned): the allowlist not matching real archives, a failed
+install vanishing from the library, and the failure card pointing at a log instead of naming the
+cause. Next: run `/sprint S17`. Nothing else is waiting on the user right now.
 
 ## Phase overview
 
@@ -28,7 +28,7 @@ Nothing else is waiting on the user right now.
 
 | # | Milestone | Status | Sprint(s) | Note |
 | --- | --- | --- | --- | --- |
-| 1 | Install — bootstrap, update and repair ([concepts/install-module.md](concepts/install-module.md)) | in progress | [S16 review](../sprints/S16/review.md) | S16 shipped the first slice: Q2PRO-only, free-download-only bootstrap to a playable demo installation; the rest of the concept (r1q2, retail import, update/rollback, repair, removal) follows in later sprints of this milestone. |
+| 1 | Install — bootstrap, update and repair ([concepts/install-module.md](concepts/install-module.md)) | in progress | [S16 review](../sprints/S16/review.md), [S17](../sprints/S17/sprint.md) (planned) | S16 shipped the first slice: Q2PRO-only, free-download-only bootstrap to a playable demo installation. S17 fixes real-run gaps (076–078); r1q2, retail import, update/rollback, repair, removal still follow in later sprints. |
 
 ## Open / unprioritised
 
@@ -44,10 +44,6 @@ Nothing else is waiting on the user right now.
 - `scripts/fetch-7za.mjs` (071) has never run end-to-end in this environment (no network access
   to 7-zip.org) — the wiring is correct but unverified against a real download; three tests stay
   `it.skipIf`-gated until someone with network access runs it once. [S16 review](../sprints/S16/review.md)
-- Bootstrap's (074) `assemble.ts` allowlist paths are proven against a fixture archive layout,
-  not the real, unmodified Q2PRO/id-Software installer archives — verify the game-module DLL
-  filename first if the real layout ever differs (it fails silently; a wrong pak path fails
-  loud). [S16 review](../sprints/S16/review.md)
 - `setPlayedMods`/`setSwitchBind` (022) still bypass the sync engine — a stale switch-bind chain
   can `exec` an unmigrated filename until the next real sync touches that profile.
 - 9 non-blocking findings from story 010's review (case-folding inconsistencies, restore-primitive
