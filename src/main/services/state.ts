@@ -1,5 +1,6 @@
 import { STATE_SCHEMA_VERSION } from '@shared/constants'
 import type { ConfigProfile } from '@shared/modules/config'
+import { DEFAULT_DOWNLOADS_SETTINGS, type DownloadsSettings } from '@shared/modules/downloads'
 import { DEFAULT_SETTINGS, type Installation, type LauncherSettings } from '@shared/types'
 import { JsonStore } from '../lib/json-store'
 import {
@@ -9,6 +10,7 @@ import {
   parseConfigProfiles,
   parseConfigSwitchBinds,
   parseConfigWriteFailures,
+  parseDownloadsSettings,
   parseInstallations,
   parseSettings,
 } from '../lib/schemas'
@@ -65,6 +67,13 @@ export interface LauncherStateDocument {
    * to `null` rather than to "already done".
    */
   configFileSourceMigratedAt: string | null
+  /**
+   * Story 071 D1: the `downloads` module's own settings (`concurrentJobs`, [[072]]'s UI section
+   * lives over this same shape). A new top-level key, not a `STATE_SCHEMA_VERSION` bump - same
+   * "new key, no schema bump" precedent as `configPlayedMods`. Files written before this key
+   * existed simply lack it and load as `DEFAULT_DOWNLOADS_SETTINGS`.
+   */
+  downloads: DownloadsSettings
 }
 
 function defaults(): LauncherStateDocument {
@@ -78,6 +87,7 @@ function defaults(): LauncherStateDocument {
     configSwitchBinds: {},
     configWriteFailures: {},
     configFileSourceMigratedAt: null,
+    downloads: { ...DEFAULT_DOWNLOADS_SETTINGS },
   }
 }
 
@@ -108,6 +118,7 @@ export class StateStore {
           configFileSourceMigratedAt: parseConfigFileSourceMigratedAt(
             doc['configFileSourceMigratedAt'],
           ),
+          downloads: parseDownloadsSettings(doc['downloads']),
         }
       },
     })
@@ -152,6 +163,10 @@ export class StateStore {
 
   configFileSourceMigratedAt(): string | null {
     return this.store.get().configFileSourceMigratedAt
+  }
+
+  getDownloadsSettings(): DownloadsSettings {
+    return this.store.get().downloads
   }
 
   /**
@@ -204,6 +219,10 @@ export class StateStore {
   ): Record<string, { messageKey: string; at: string }> {
     return this.store.update((current) => ({ ...current, configWriteFailures }))
       .configWriteFailures
+  }
+
+  setDownloadsSettings(downloads: DownloadsSettings): DownloadsSettings {
+    return this.store.update((current) => ({ ...current, downloads })).downloads
   }
 
   /** Waits for pending writes; called on quit. */

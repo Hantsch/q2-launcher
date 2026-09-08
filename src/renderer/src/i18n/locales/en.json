@@ -1902,8 +1902,17 @@
   },
 
   "downloads": {
+    "job": {
+      "download": "Downloading {{name}}"
+    },
     "error": {
-      "manifestUnavailable": "Could not reach the download server, and nothing is cached yet. Check your connection and try again."
+      "manifestUnavailable": "Could not reach the download server, and nothing is cached yet. Check your connection and try again.",
+      "allMirrorsFailed": "Every download source failed. Check your connection and try again.",
+      "verificationFailed": "The downloaded file did not match what was expected and was discarded.",
+      "extractorMissing": "The extraction tool is missing from this install. Reinstalling the launcher should fix this.",
+      "extractionFailed": "The downloaded file could not be extracted.",
+      "diskWrite": "The file could not be written to disk. Check your available space and try again.",
+      "network": "A network error interrupted the download."
     }
   },
 

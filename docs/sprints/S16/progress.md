@@ -10,3 +10,13 @@
 - 2026-09-08 08:59 · 070 · D3 ManifestService fetch/merge/cache/age/offline · done
 - 2026-09-08 08:59 · 070 · D4 downloads module main half + manifest.get handler · started
 - 2026-09-08 09:02 · 070 · D4 downloads module main half + manifest.get handler · done
+- 2026-09-08 09:14 · 071 · D1 Contract, settings and persisted module state · started
+- 2026-09-08 09:17 · 071 · D1 Contract, settings and persisted module state · done
+- 2026-09-08 09:18 · 071 · D2 Verified download with mirror fallback · started
+- 2026-09-08 09:18 · 071 · D3 Vendored 7-Zip extractor · started
+- 2026-09-08 09:30 · 071 · D2 Verified download with mirror fallback · done
+- 2026-09-08 09:30 · 071 · D3 Vendored 7-Zip extractor · done
+- 2026-09-08 09:30 · 071 · D4 Job pipeline and concurrency queue · started
+- 2026-09-08 09:44 · 071 · D4 Job pipeline and concurrency queue · done
+- 2026-09-08 09:44 · 071 · D5 Layering and CSP guard · started
+- 2026-09-08 09:46 · 071 · D5 Layering and CSP guard · done

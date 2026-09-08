@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { configProfileSchema, parseConfigProfiles } from './schemas'
+import { configProfileSchema, parseConfigProfiles, parseDownloadsSettings } from './schemas'
+import { DEFAULT_DOWNLOADS_SETTINGS } from '@shared/modules/downloads'
 import { setProfileActionsInputSchema } from '../modules/config/schemas'
 import { legacyAliasNameFor } from '@shared/config/alias-render'
 import { bindValueFor } from '@shared/config/action-mirror'
@@ -860,5 +861,38 @@ describe('configProfileSchema - baseline (story 049)', () => {
     })
     expect(result.baseline).toBeUndefined()
     expect(result.cvars).toEqual({ sensitivity: '4.5' })
+  })
+})
+
+/**
+ * Story 071 D1: the persisted `downloads` top-level `state.json` key. Mirrors
+ * `parseConfigProfiles`'s "forgiving, never throws" contract - a corrupt value falls back to
+ * `DEFAULT_DOWNLOADS_SETTINGS` instead of throwing.
+ */
+describe('parseDownloadsSettings (story 071 D1)', () => {
+  it('loads defaults when the key is absent', () => {
+    expect(parseDownloadsSettings(undefined)).toEqual(DEFAULT_DOWNLOADS_SETTINGS)
+  })
+
+  it('round-trips a valid, in-range concurrentJobs', () => {
+    expect(parseDownloadsSettings({ concurrentJobs: 4 })).toEqual({ concurrentJobs: 4 })
+  })
+
+  it('falls back to the default instead of throwing when concurrentJobs is not a number', () => {
+    expect(() => parseDownloadsSettings({ concurrentJobs: 'nope' })).not.toThrow()
+    expect(parseDownloadsSettings({ concurrentJobs: 'nope' })).toEqual(
+      DEFAULT_DOWNLOADS_SETTINGS,
+    )
+  })
+
+  it('falls back to the default instead of throwing when concurrentJobs is out of range', () => {
+    expect(parseDownloadsSettings({ concurrentJobs: 99 })).toEqual(DEFAULT_DOWNLOADS_SETTINGS)
+    expect(parseDownloadsSettings({ concurrentJobs: 0 })).toEqual(DEFAULT_DOWNLOADS_SETTINGS)
+  })
+
+  it('falls back to the default instead of throwing when the whole downloads value is corrupt', () => {
+    expect(() => parseDownloadsSettings('not an object')).not.toThrow()
+    expect(parseDownloadsSettings('not an object')).toEqual(DEFAULT_DOWNLOADS_SETTINGS)
+    expect(parseDownloadsSettings(null)).toEqual(DEFAULT_DOWNLOADS_SETTINGS)
   })
 })

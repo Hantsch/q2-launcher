@@ -19,6 +19,15 @@ extraResources:
     to: icon.png
   - from: build/icon.ico
     to: icon.ico
+  # Vendored by scripts/fetch-7za.mjs (story 071 D3), which the package:dir and
+  # package:win scripts run before electron-builder so a clean clone cannot ship
+  # without the binary; resolved at runtime by
+  # src/main/modules/downloads/7za-path.ts via process.resourcesPath.
+  - from: resources/bin
+    to: bin
+    filter:
+      - '7za.exe'
+      - 'License.txt'
 
 asar: true
 electronLanguages:

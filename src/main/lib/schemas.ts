@@ -18,6 +18,12 @@ import type {
   ConfigCvarSection,
   ConfigProfile,
 } from '@shared/modules/config'
+import {
+  DEFAULT_DOWNLOADS_SETTINGS,
+  MAX_CONCURRENT_DOWNLOAD_JOBS,
+  MIN_CONCURRENT_DOWNLOAD_JOBS,
+  type DownloadsSettings,
+} from '@shared/modules/downloads'
 import { isLatin1Text } from '@shared/config/q2-charset'
 import { engineKindSchema, settingsObjectSchema, sourceSchema } from '@shared/schemas'
 import type { Installation, LauncherSettings, WindowState } from '@shared/types'
@@ -887,6 +893,28 @@ export function parseConfigProfile(raw: unknown): ConfigProfile | null {
 export function parseConfigProfiles(raw: unknown): ConfigProfile[] {
   const rows = z.array(z.unknown()).catch([]).parse(raw)
   return rows.map(parseConfigProfile).filter((row): row is ConfigProfile => row !== null)
+}
+
+/**
+ * Story 071 D1: the persisted `downloads` top-level `state.json` key. Mirrors
+ * `parseConfigProfiles`'s "forgiving, never throws" shape: a malformed or out-of-range
+ * `concurrentJobs` (not an integer, or outside 1-6) falls back to the default rather than
+ * rejecting the whole file, and a `downloads` value that isn't even an object falls back to
+ * `DEFAULT_DOWNLOADS_SETTINGS` wholesale.
+ */
+export const downloadsSettingsSchema = z
+  .object({
+    concurrentJobs: z
+      .number()
+      .int()
+      .min(MIN_CONCURRENT_DOWNLOAD_JOBS)
+      .max(MAX_CONCURRENT_DOWNLOAD_JOBS)
+      .catch(DEFAULT_DOWNLOADS_SETTINGS.concurrentJobs),
+  })
+  .catch(() => ({ ...DEFAULT_DOWNLOADS_SETTINGS }))
+
+export function parseDownloadsSettings(raw: unknown): DownloadsSettings {
+  return downloadsSettingsSchema.parse(raw)
 }
 
 // IPC-payload schemas moved to `src/shared/ipc-schemas.ts` (story 036, D1) -

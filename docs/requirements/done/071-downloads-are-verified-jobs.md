@@ -1,7 +1,7 @@
 ---
 id: 071
 title: A download is a verified job, never a trusted file
-status: ready
+status: done
 created: 2026-09-08
 ---
 
@@ -17,21 +17,21 @@ against a manifest fixture and a local test server.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Downloading a package produces a `Job` through the existing `JobsService`; no
+- [x] **AC1** — Downloading a package produces a `Job` through the existing `JobsService`; no
       parallel progress mechanism is introduced.
-- [ ] **AC2** — At most as many jobs run at once as the concurrency limit allows ([[072]] adds
+- [x] **AC2** — At most as many jobs run at once as the concurrency limit allows ([[072]] adds
       the setting; this story reads it); further jobs queue.
-- [ ] **AC3** — Every downloaded file is checked against the manifest's declared size and SHA256
+- [x] **AC3** — Every downloaded file is checked against the manifest's declared size and SHA256
       before it is used for anything.
-- [ ] **AC4** — On a hash or size mismatch, the file is deleted, the next mirror in the
+- [x] **AC4** — On a hash or size mismatch, the file is deleted, the next mirror in the
       manifest's list is tried, and if every mirror fails, the job fails with a readable, i18n'd
       reason. There is no override.
-- [ ] **AC5** — Extraction runs only on a verified file, via the bundled 7-Zip binary invoked
+- [x] **AC5** — Extraction runs only on a verified file, via the bundled 7-Zip binary invoked
       with a fixed absolute path and a fixed argument shape assembled from validated values —
       never a renderer-supplied argument.
-- [ ] **AC6** — Cancelling a job removes any partial download and any partially extracted
+- [x] **AC6** — Cancelling a job removes any partial download and any partially extracted
       output.
-- [ ] **AC7** — All network access, hashing, and extraction happen in main; the CSP
+- [x] **AC7** — All network access, hashing, and extraction happen in main; the CSP
       (`connect-src 'self'`) is unchanged.
 
 ## Open Questions
@@ -176,7 +176,105 @@ Order matters: 2 and 3 are independent of each other, 4 needs both, 5 needs 4.
   download and the extraction output" (D4). **e2e gap:** the real-surface cancel needs the wizard
   trigger from [[074]] and is proven there; see Open Questions.
 - AC7 → unit `src/main/lib/renderer-source.test.ts` › the existing production-CSP assertion
-  (regression guard, must stay green) plus `src/main/modules/downloads/layering.test.ts` › "the
-  downloads pipeline is unreachable from the renderer and does no work outside main" (D5)
+  (regression guard, must stay green) plus `src/main/modules/downloads/layering.test.ts`'s
+  `describe('downloads pipeline layering (story 071 AC7)')` › "is not imported by any file under
+  src/renderer/src, by relative path or the @main alias", "leaves no child_process/net.fetch/7za/
+  spawn( token in src/renderer/src or src/preload", "confines child_process/net.fetch/7za/spawn(
+  usage in src/main to the downloads module and the pre-existing allowlist", and "leaves the
+  production CSP unchanged (connect-src 'self')" (D5; split into four `it`s instead of one, same
+  criterion)
 
 ## Done
+
+**Summary.** Built the `downloads` module's verified-download pipeline bottom-up per the Plan:
+D1 contract/settings/persisted state, D2 verified fetch with mirror fallback (`net.fetch` behind an
+injectable impl, hash-while-writing, headers/stall timeout, transport-retry-vs-mirror-advance),
+D3 the vendored 7za extractor (fixed argv, `shell: false`, dev/prod path resolution), D4 the job
+pipeline + concurrency queue wired to the shell's existing `JobsService` with real cancel cleanup of
+both the HTTP stream and the 7za child process, D5 a layering/CSP regression guard. Coexists with
+story 070's manifest types in the same `src/shared/modules/downloads.ts` / `src/main/modules/downloads/`
+without importing from `manifest-service.ts`, per this story's own `PackageSource` decision. No
+renderer half, no IPC channel — by design (Decisions (Sprint): "the first channel arrives with the
+wizard, [[074]]").
+
+A clean-agent review (`story-review-hard`) found the implementation correct by inspection but AC5
+under-tested (no assertion on the actual `spawn()` argv/shell flag) and one confirmed defect: the
+dev-mode 7za path resolver counted `..` segments assuming an unbundled directory depth that does not
+match the real bundled main process (`out/main/index.js`), which would have made every dev/prod
+extraction fail with `extractorMissing`. One fix cycle resolved all findings: the path resolver now
+walks up from `__dirname` to the nearest `package.json` instead of counting fixed levels; the AC5
+test now asserts the real `spawn()` call's command/argv/`shell: false`; a tautological
+progress-parsing test now drives real stdout through the real `extractArchive()` wiring instead of
+re-implementing the parser in the test; `fetch:7za` is now chained before the packaging scripts so a
+release build cannot ship without the binary; and an out-of-scope i18n key belonging to [[072]] was
+removed. A re-review confirmed all five fixes genuinely resolve the findings and nothing new broke.
+
+**Commit message:** `071: downloads are verified jobs — fetch, extract, queue`
+
+**Verification:**
+- build: `npm run build` — clean.
+- typecheck: `npm run typecheck` — clean (node + web).
+- test: `npm test` — 127 files, 2848 passed, 3 skipped (the 3 skips are `it.skipIf` real-`7za.exe`
+  tests, expected since the binary is not vendored in this sandbox — no network access to
+  7-zip.org here; `scripts/fetch-7za.mjs` is written and wired but was never executed end-to-end).
+- e2e: `npm run ui:verify` — 64/64 screens, 0 axe violations (this story adds no renderer surface, so
+  this is a pure no-regression check, which is correct per the Plan).
+- review: `story-review-hard` → FAIL (2 confirmed findings on the first pass) → one fix cycle → PASS
+  on re-review (of 1 max-3 allowed cycles).
+
+**AC → test mapping, as verified:**
+- AC1 (one `Job` through `JobsService`) → `pipeline.test.ts` › "a download runs as one job created
+  through JobsService" — passed.
+- AC2 (concurrency limit + queueing) → `queue.test.ts` › "at most the configured number of jobs run,
+  the rest stay queued" — passed.
+- AC3 (size+SHA256 check before use) → `fetcher.test.ts` › "a file is handed on only after size and
+  SHA256 match the package" — passed.
+- AC4 (mismatch → delete → next mirror → no-override failure) → `fetcher.test.ts` › "a hash mismatch
+  deletes the file and falls through to the next mirror" and › "when every mirror fails the job
+  fails with downloads.error.allMirrorsFailed" — passed; confirmed no override path exists anywhere
+  in the module (review finding).
+- AC5 (extraction only on verified input, fixed argv, no renderer-shaped args) →
+  `extractor.test.ts` › "extraction refuses an unverified file" and › "7za is spawned with the
+  vendored absolute path and a fixed argument shape" — passed (the latter rewritten during the fix
+  cycle to actually assert the spawn call).
+- AC6 (cancel removes partial download + partial extraction output) → `pipeline.test.ts` ›
+  "cancelling removes the partial download and the extraction output" — passed, real HTTP + real
+  temp filesystem + real signal-based cancel. **Manual/carried residue:** the real-surface trigger
+  (a Cancel button a user can click) is [[074]]'s wizard, not this story's — pre-declared in Open
+  Questions, not a gap introduced here.
+- AC7 (main-only, CSP unchanged) → `renderer-source.test.ts` (existing, untouched, still green) plus
+  `layering.test.ts`'s four `it`s (see Acceptance Tests section above, renamed from the original
+  single-name mapping to match what was actually written) — passed.
+
+**Decisions made during implementation (not pre-answered by the story):**
+- `7za-path.ts`'s dev-mode repo-root resolution walks up from `__dirname` to the nearest ancestor
+  containing `package.json`, rather than counting fixed directory levels — the codebase has no
+  existing runtime "find repo root" helper that transfers (`scripts/lib/paths.mjs`'s `REPO_ROOT` is
+  script-location-derived and never bundled, so it doesn't apply here).
+- The AC5 spawn-argv test and the progress-parsing test use `vi.mock('node:child_process', ...)`
+  with `importOriginal`, mirroring this repo's existing house pattern for mocking child_process in
+  tests (already used elsewhere, e.g. around `config/index.test.ts`).
+- `fetch:7za` is chained into `package:dir`/`package:win` before the build step (not run
+  automatically on `npm install` or `npm run build`, so plain dev/test work never needs network
+  access) — a failed fetch aborts packaging rather than silently shipping without the binary.
+- Job-cancel-while-`queued` (never admitted) is handled by removing the job from the queue's pending
+  list so its work function is never called at all, rather than starting and immediately cancelling
+  it.
+- `downloads.job.download` is the one i18n label key this story adds beyond D1's error keys (a job
+  needs a `labelKey`); `downloads.settings.concurrentJobs` (added then removed) is left to [[072]],
+  which owns the settings UI for this same shape.
+
+**Open points carried forward (not blockers):**
+- `scripts/fetch-7za.mjs` has never run end-to-end in this environment (no network access to
+  7-zip.org) — the packaging wiring is correct but unverified against a real download; the two
+  real-archive tests remain `skipIf`-gated until a developer with network access runs it once.
+- The review separately flagged (not fixed, judged out of scope for this fix cycle): no per-file
+  mutual exclusion if two jobs target the same `fileName` concurrently (plausible, not
+  demonstrated, degrades to a safe-but-spurious double failure rather than corrupting a verified
+  file — a future story's concern if it ever becomes reachable, since nothing in this story or
+  [[074]]'s current plan issues two jobs for the same file); `extractArchive`'s stdout pipe is only
+  drained when `onProgress` is supplied (latent, not live — the one production caller,
+  `pipeline.ts`, always supplies it); the vendored 7za download itself has no pinned-hash
+  verification in `fetch-7za.mjs` (the executable trusts whatever bytes 7-zip.org serves for the
+  pinned version) — left as-is given the sandbox's inability to test a fetch-time integrity check
+  end-to-end, and flagged here for a follow-up story rather than guessed at blind.
