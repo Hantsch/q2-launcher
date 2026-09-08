@@ -12,14 +12,10 @@ downloads are currently running and how many, via a small numeric badge on the i
 pattern used for unread/active counts elsewhere (e.g. app taskbar badges), so a user does not
 have to open the Downloads screen just to check.
 
-This story is explicitly **future work**: the `downloads` module (renamed from `install` in
-[[031]]) that would actually produce download jobs is still `status: planned` (see
-[src/shared/types/module.ts](../../src/shared/types/module.ts)) and does not exist yet. There is
-today no source of truth for "how many downloads are running" outside of a single installation's
-repair/update `Job` (see [ActionBar.tsx](../../src/renderer/src/components/shell/ActionBar.tsx)).
-File this now so the requirement is captured, but do not schedule it before the downloads module
-itself is built — refine should re-check the data source once that module lands instead of
-inventing a placeholder count.
+This story was filed as **future work** while the `downloads` module (renamed from `install` in
+[[031]]) was still `status: planned` and produced no jobs. [[071]] (this sprint) makes it the
+first real producer of `Job` objects through `JobsService`; this story now has a real source of
+truth to bind to instead of a placeholder.
 
 ## Acceptance Criteria
 
@@ -35,8 +31,8 @@ inventing a placeholder count.
 
 ## Open Questions
 
-- Blocked on the `downloads` module's job/queue model existing — the exact data shape to bind
-  the count to should be settled during that module's own refine, not guessed here.
+- The exact data shape to bind the count to (all `downloads`-module jobs, or a filtered subset)
+  should be settled once [[071]]'s job producer exists, during this story's own refine.
 
 ## Plan
 
