@@ -41,7 +41,11 @@ const TARGET_LICENSE = join(BIN_DIR, 'License.txt')
 // Pinned 7-Zip version (Decisions (Sprint): "7za.exe ... for the current pinned version"). Bump
 // deliberately, not automatically - a vendored executable is exactly the kind of dependency that
 // should not silently float.
-const SEVEN_ZIP_VERSION = '2409'
+// Story 074 D8 bumped this from '2409' to '2603': 7-zip.org serves only a handful of
+// `7z<version>-extra.7z` archives at a time and had stopped serving 2409 (a plain 404), so the
+// pin was unfetchable and D8's end-to-end flow - which needs a real `7za.exe` to extract real
+// fixture archives - could not be satisfied at all. Still a deliberate pin, not a floating one.
+const SEVEN_ZIP_VERSION = '2603'
 const EXTRA_ARCHIVE_URL = `https://www.7-zip.org/a/7z${SEVEN_ZIP_VERSION}-extra.7z`
 
 const TMP_DIR = join(BIN_DIR, '.fetch-7za-tmp')

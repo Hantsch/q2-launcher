@@ -2,7 +2,11 @@ import type { EngineKind } from '@shared/types'
 import type { ManifestPackage } from '@shared/modules/downloads'
 import type { Logger } from '../../lib/logger'
 import { engineKindSchema } from '@shared/schemas'
-import { manifestEnvelopeSchema, manifestPackageSchema } from './schemas'
+import {
+  harnessLoopbackManifestPackageSchema,
+  manifestEnvelopeSchema,
+  manifestPackageSchema,
+} from './schemas'
 
 /**
  * The pure, main-process manifest parser (story 070 D1). Takes the already
@@ -29,7 +33,28 @@ export type ManifestParseResult =
 
 const SUPPORTED_SCHEMA_VERSION = 1
 
-export function parseManifestFile(raw: unknown, log: Logger): ManifestParseResult {
+export interface ParseManifestFileOptions {
+  /**
+   * Story 074 D8. Defaults to `true`: every package/mirror URL must be https, the production rule
+   * this file has always applied. `false` selects the separately named
+   * `harnessLoopbackManifestPackageSchema` instead, which additionally accepts a plain-http
+   * `127.0.0.1` URL - the *only* producer of `false` is `resolveDownloadSource()`
+   * (`harness.ts`), under its `Q2L_UI_HARNESS === '1' && isDev` double gate, and it is threaded in
+   * as a plain value so nothing in this file has to read `process.env`.
+   */
+  httpsOnly?: boolean
+}
+
+export function parseManifestFile(
+  raw: unknown,
+  log: Logger,
+  options: ParseManifestFileOptions = {},
+): ManifestParseResult {
+  // Which of the two schemas this call uses is decided once, here, from a value the caller was
+  // handed - not per row and not from the environment.
+  const packageSchema =
+    options.httpsOnly === false ? harnessLoopbackManifestPackageSchema : manifestPackageSchema
+
   const envelope = manifestEnvelopeSchema.safeParse(raw)
   if (!envelope.success) {
     log.warn('manifest refused: malformed envelope (missing/invalid schemaVersion or packages)')
@@ -45,7 +70,7 @@ export function parseManifestFile(raw: unknown, log: Logger): ManifestParseResul
 
   const packages: ManifestPackage[] = []
   for (const [index, row] of envelope.data.packages.entries()) {
-    const result = manifestPackageSchema.safeParse(row)
+    const result = packageSchema.safeParse(row)
     if (!result.success) {
       const id = idOf(row)
       log.warn(`manifest package at index ${index}${id ? ` (id: ${id})` : ''} dropped: ${result.error.message}`)

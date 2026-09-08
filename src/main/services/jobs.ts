@@ -101,6 +101,27 @@ export class JobsService {
     this.emit()
   }
 
+  /**
+   * Story 074 D4: records the ratio at which this job's installation became playable, once the
+   * job already exists.
+   *
+   * `CreateJobInput.playableAtRatio` can only state that up front, at creation - which is fine
+   * for a job that knows its own threshold in advance, and wrong for the bootstrap job, whose
+   * threshold is "the moment `inspectInstallation` stops calling the target `invalid`". That is a
+   * fact about the disk that nobody can predict before the files are there, so it has to be
+   * settable mid-job (AC6).
+   *
+   * Deliberately not part of `progress()`: `progress()` sets `status: 'running'`, and this marker
+   * is a property of the job's *plan*, not a progress report - a paused, finished or cancelled job
+   * must not be resurrected by recording one. Nothing else about the job changes here.
+   */
+  markPlayable(id: string, ratio: number): void {
+    const job = this.jobs.get(id)
+    if (!job) return
+    this.jobs.set(id, { ...job, playableAtRatio: ratio })
+    this.emit()
+  }
+
   finish(
     id: string,
     outcome: { status: 'succeeded' | 'failed' | 'cancelled'; error?: Job['error'] },

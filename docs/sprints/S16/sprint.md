@@ -45,7 +45,7 @@ then wires all of it into one guided flow.
 - [x] 071 — A download is a verified job, never a trusted file
 - [x] 072 — Settings learn to host a module's own section, starting with Downloads
 - [x] 073 — The Downloads tab shows what is running, what failed, and what is cached
-- [ ] 074 — The Library turns nothing into a playable Q2PRO demo installation
+- [x] 074 — The Library turns nothing into a playable Q2PRO demo installation
 - [ ] 032 — Downloads icon shows a running-count badge
 
 ## Notes

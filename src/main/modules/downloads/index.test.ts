@@ -161,6 +161,18 @@ describe('downloadsModule', () => {
     expect(DOWNLOADS_HANDLERS.manifestGet).toBe('manifest.get')
   })
 
+  // Story 074 D4: the wizard's three channels, under the exact names the contract declares.
+  it('registers the bootstrap channels under their exact names', async () => {
+    const handlers = await setUpModule()
+
+    expect(handlers.has(DOWNLOADS_HANDLERS.bootstrapTargetVerdict)).toBe(true)
+    expect(handlers.has(DOWNLOADS_HANDLERS.bootstrapSummary)).toBe(true)
+    expect(handlers.has(DOWNLOADS_HANDLERS.bootstrapStart)).toBe(true)
+    expect(DOWNLOADS_HANDLERS.bootstrapTargetVerdict).toBe('bootstrap.targetVerdict')
+    expect(DOWNLOADS_HANDLERS.bootstrapSummary).toBe('bootstrap.summary')
+    expect(DOWNLOADS_HANDLERS.bootstrapStart).toBe('bootstrap.start')
+  })
+
   it('returns ok with a ManifestSnapshot on a successful fetch', async () => {
     serveGoodManifests(fetchMock)
     const handlers = await setUpModule()

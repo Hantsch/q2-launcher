@@ -9,6 +9,7 @@ import type {
   Job,
   LaunchState,
   LauncherSettings,
+  ModuleId,
   ModuleManifest,
   Outcome,
   ToastMessage,
@@ -63,6 +64,13 @@ export type DialogState =
   | { kind: 'cleanup'; installationId: string }
   /** Story 067 D6: the icon picker, scoped to one installation the same way `rename`/`cleanup` are. */
   | { kind: 'installationIcon'; installationId: string }
+  /**
+   * Story 074 D5: the generic escape hatch that lets a module own a modal without the shell
+   * importing anything module-specific. `view` is a free string the owning module defines for
+   * itself (e.g. `'bootstrap-wizard'`) - the shell never interprets it, only ferries it through to
+   * that module's own `Dialogs` component (see `RendererModule.Dialogs` in `modules/index.ts`).
+   */
+  | { kind: 'module'; moduleId: ModuleId; view: string }
 
 interface LauncherStore {
   // --- mirrored main-process state ----------------------------------------

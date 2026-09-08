@@ -2,6 +2,7 @@ import type { ComponentType } from 'react'
 import type { ModuleId } from '@shared/types'
 import { LibraryView } from '../views/LibraryView'
 import { ConfigView } from './config/ConfigView'
+import { Dialogs as DownloadsBootstrapDialogs } from './downloads/bootstrap/Dialogs'
 import { DownloadsSettingsSection } from './downloads/DownloadsSettingsSection'
 import { DownloadsView } from './downloads/DownloadsView'
 
@@ -27,6 +28,13 @@ export interface RendererModule {
     order: number
     Section: ComponentType
   }
+  /**
+   * Story 074 D5: lets a module own a modal without the shell importing that module's component.
+   * The shell mounts this when `store.dialog` is `{ kind: 'module', moduleId, view }` for this
+   * module's id, passing `view` straight through - the module interprets its own `view` strings to
+   * tell its modals apart (a module with only one modal can ignore the value).
+   */
+  Dialogs?: ComponentType<{ view: string }>
 }
 
 export const RENDERER_MODULES: readonly RendererModule[] = [
@@ -41,6 +49,8 @@ export const RENDERER_MODULES: readonly RendererModule[] = [
       order: 10,
       Section: DownloadsSettingsSection,
     },
+    // Story 074 D6: the bootstrap wizard, opened from the library's "Download & install" button.
+    Dialogs: DownloadsBootstrapDialogs,
   },
   { id: 'config', View: ConfigView },
   // { id: 'mods',    View: ModsView },

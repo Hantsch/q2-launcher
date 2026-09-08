@@ -7,6 +7,11 @@ Format: `- NNN — <title> · <sprint or —> · <one-sentence result>`.
 The full texts live next to this file. This index is the fast overview — do not turn it into a
 second roadmap.
 
+- 074 — The Library turns nothing into a playable Q2PRO demo installation · S16 · a four-step
+  wizard downloads Q2PRO and the free demo data through a verified, loopback-fixture-provable job
+  pipeline, assembles a `baseq2`-only installation via an allowlist (never `ctf`/`xatrix`/`rogue`),
+  and marks it "Demo" everywhere its engine-computed status is shown.
+
 - 001 — Config module scaffold and central profile store · S01 · module wired in with a persisted
   `configProfiles` store and a master/detail create/rename/delete view.
 - 002 — Profile-installation assignment and default profile · S01 · many-to-many assignment with a

@@ -1,11 +1,15 @@
 import {
   DOWNLOADS_HANDLERS,
   type ArchiveCacheStatus,
+  type BootstrapEngineOption,
+  type BootstrapSummary,
+  type BootstrapTargetVerdict,
   type ClearArchiveCacheResult,
   type DownloadFailure,
   type DownloadsSettings,
+  type StartBootstrapInput,
 } from '@shared/modules/downloads'
-import type { Outcome } from '@shared/types'
+import type { EngineKind, Outcome } from '@shared/types'
 import { callModule } from '../moduleClient'
 
 /** Typed client for the downloads module's settings/cache handlers (story 072 D5). One function
@@ -41,4 +45,62 @@ export function dismissDownloadFailure(id: string): Promise<Outcome<DownloadFail
 /** Un-dismisses a failure-log entry, moving it back out of the dismissed history (D1/D2). */
 export function restoreDownloadFailure(id: string): Promise<Outcome<DownloadFailure[]>> {
   return callModule<DownloadFailure[]>('downloads', DOWNLOADS_HANDLERS.restoreFailure, { id })
+}
+
+/**
+ * Story 074 D1: lists the engines the bootstrap wizard can offer this sprint - only Q2PRO today
+ * (`BOOTSTRAP_SUPPORTED_ENGINES`, `@shared/modules/downloads`). An empty array is a legitimate
+ * answer (nothing pinned yet), not a failure - see the handler's own doc comment in
+ * `main/modules/downloads/index.ts`.
+ */
+export function getBootstrapEngineOptions(): Promise<Outcome<BootstrapEngineOption[]>> {
+  return callModule<BootstrapEngineOption[]>('downloads', DOWNLOADS_HANDLERS.bootstrapEngineOptions)
+}
+
+/**
+ * Story 074 D4 (AC3): the verdict for a candidate target folder. The wizard renders this verdict -
+ * it never judges a path itself, and it never re-derives `blocked` from the other fields.
+ */
+export function getBootstrapTargetVerdict(
+  targetPath: string,
+): Promise<Outcome<BootstrapTargetVerdict>> {
+  return callModule<BootstrapTargetVerdict>('downloads', DOWNLOADS_HANDLERS.bootstrapTargetVerdict, {
+    targetPath,
+  })
+}
+
+/**
+ * Story 074 D4 (AC4): the packages a bootstrap would download and their summed size.
+ *
+ * The main handler answers an `Outcome` as the transport-level `Outcome`'s own value, so a raw
+ * `callModule` here would yield `Outcome<Outcome<BootstrapSummary>>`; this flattens that one level,
+ * the same way `assignConfigProfile` (`modules/config/client.ts`) does.
+ */
+export async function getBootstrapSummary(input: {
+  engine: EngineKind
+  targetPath: string
+  includeVideoAndPlayers: boolean
+}): Promise<Outcome<BootstrapSummary>> {
+  const result = await callModule<Outcome<BootstrapSummary>>(
+    'downloads',
+    DOWNLOADS_HANDLERS.bootstrapSummary,
+    input,
+  )
+  return result.ok ? result.value : result
+}
+
+/**
+ * Story 074 D4 (AC5): starts the bootstrap job and answers its `Job.id` plus the id of the
+ * installation it registered. Returns as soon as the job exists - progress arrives through
+ * `jobs:changed`, never through this promise. Flattened for the same reason as above.
+ */
+export async function startBootstrapInstall(
+  input: StartBootstrapInput,
+): Promise<Outcome<{ jobId: string; installationId: string }>> {
+  const result = await callModule<Outcome<{ jobId: string; installationId: string }>>(
+    'downloads',
+    DOWNLOADS_HANDLERS.bootstrapStart,
+    input,
+  )
+  return result.ok ? result.value : result
 }

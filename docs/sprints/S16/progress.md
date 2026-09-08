@@ -44,3 +44,22 @@
 - 2026-09-08 11:20 · 073 · D5 A real trigger for a running and a failed job · done
 - 2026-09-08 11:20 · 073 · D6 UI verification · started
 - 2026-09-08 11:26 · 073 · D6 UI verification · done
+- 2026-09-08 11:40 · 074 · D1 Bootstrap contract + module registration · started
+- 2026-09-08 11:44 · 074 · D1 Bootstrap contract + module registration · done
+- 2026-09-08 11:44 · 074 · D2 Target-folder verdict in main · started
+- 2026-09-08 11:44 · 074 · D3 Assemble baseq2 from extracted trees · started
+- 2026-09-08 11:48 · 074 · D2 Target-folder verdict in main · done
+- 2026-09-08 11:48 · 074 · D3 Assemble baseq2 from extracted trees · done
+- 2026-09-08 11:49 · 074 · D4 The bootstrap job · started
+- 2026-09-08 12:06 · 074 · D4 The bootstrap job · done
+- 2026-09-08 12:06 · 074 · D5 Module-dialog seam + Library entry point · started
+- 2026-09-08 12:09 · 074 · D5 Module-dialog seam + Library entry point · done
+- 2026-09-08 12:09 · 074 · D6 The wizard's four steps · started
+- 2026-09-08 12:14 · 074 · D6 The wizard's four steps · done
+- 2026-09-08 12:14 · 074 · D7 The Demo marker · started
+- 2026-09-08 12:18 · 074 · D7 The Demo marker · done
+- 2026-09-08 12:19 · 074 · D8 Offline end-to-end proof · started
+- 2026-09-08 12:52 · 074 · D8 Offline end-to-end proof · done
+- 2026-09-08 13:12 · 074 · story verification (build/test/typecheck/ui:verify/ui:flow) · done
+- 2026-09-08 13:12 · 074 · review cycle 1 (FAIL, 6 findings) → fix → review cycle 2 (PASS) · done
+- 2026-09-08 13:12 · 074 · story done · done

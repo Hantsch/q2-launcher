@@ -139,6 +139,7 @@
     "addExisting": "Add existing installation\u2026",
     "autoDetect": "Search this PC\u2026",
     "createNew": "Create new installation\u2026",
+    "downloadAndInstall": "Download & install\u2026",
     "manage": "Manage library",
     "empty": "No installations yet",
     "quickPlay": "Play",
@@ -147,6 +148,7 @@
   },
 
   "installation": {
+    "demoBadge": "Demo",
     "engineExecutable": "Engine executable",
     "path": "Location",
     "version": "Version",
@@ -377,6 +379,7 @@
     "addExisting": "Add existing",
     "autoDetect": "Search PC",
     "create": "Create new",
+    "downloadAndInstall": "Download & install",
     "revalidateAll": "Check all",
     "stats": {
       "total": "Installations",
@@ -1937,6 +1940,7 @@
   "downloads": {
     "job": {
       "download": "Downloading {{name}}",
+      "bootstrap": "Setting up {{name}}",
       "cancel": "Cancel this download"
     },
     "cache": {
@@ -1958,6 +1962,9 @@
       "extractionFailed": "The downloaded file could not be extracted.",
       "diskWrite": "The file could not be written to disk. Check your available space and try again.",
       "network": "A network error interrupted the download.",
+      "packageUnavailable": "The download list does not offer everything this setup needs right now. Try again later.",
+      "installationNotPlayable": "The files were downloaded, but the result was not a usable Quake II installation.",
+      "bootstrapTargetBlocked": "That folder cannot be used for a new installation.",
       "unknown": "The download failed for an unknown reason."
     },
     "failures": {
@@ -1968,6 +1975,70 @@
       "dismissed": {
         "summary": "Dismissed ({{count}})"
       }
+    }
+  },
+
+  "bootstrapWizard": {
+    "title": "Download & install",
+    "back": "Back",
+    "next": "Next",
+    "step": {
+      "engine": "Choose the engine to install.",
+      "target": "Choose the folder to install into.",
+      "confirm": "Confirm what will be downloaded.",
+      "running": "Setting up your installation."
+    },
+    "engine": {
+      "loading": "Checking available downloads…",
+      "body": "This release only offers Q2PRO.",
+      "version": "Version {{version}}",
+      "empty": {
+        "title": "Nothing available to install",
+        "body": "The download list does not offer an engine right now. Check your connection and try again later."
+      }
+    },
+    "target": {
+      "label": "Installation folder",
+      "placeholder": "Choose a folder…",
+      "pickTitle": "Choose the installation folder",
+      "pickButton": "Use this folder",
+      "checking": "Checking folder…",
+      "blocked": {
+        "alreadyInstalled": "This folder already contains a Quake II installation. Add it as an existing installation instead.",
+        "unsafePath": "This folder cannot be used for a new installation."
+      },
+      "programFiles": {
+        "body": "This folder is under Program Files. Windows restricts write access there, which can prevent later updates or config changes without elevation.",
+        "remedyButton": "Choose a different folder…",
+        "remedyNote": "The picked folder is saved as this installation's write location once you start the install – it does not change the target folder above. If you continue with this folder instead, the same write-access fix stays available afterwards from the installation's own checks.",
+        "acknowledge": "I understand, continue anyway"
+      },
+      "nonEmpty": {
+        "body": "This folder is not empty. It already contains:",
+        "acknowledge": "Continue anyway"
+      },
+      "notWritable": {
+        "body": "This folder is not writable. The installation may not be able to save configuration or downloaded updates there.",
+        "acknowledge": "I understand, continue anyway"
+      }
+    },
+    "confirm": {
+      "loading": "Preparing the download summary…",
+      "packagesTitle": "What will be downloaded",
+      "totalSizeLabel": "Total size",
+      "targetLabel": "Target folder",
+      "includeExtras": "Include videos and player models",
+      "includeExtrasHint": "Adds the cinematics and extra player skins from the point release. Off by default – most players only want multiplayer.",
+      "start": "Start download",
+      "role": {
+        "engine": "Engine",
+        "demo": "Demo data",
+        "point-release": "Point release"
+      }
+    },
+    "running": {
+      "gone": "This job is no longer active.",
+      "dismiss": "Run in background"
     }
   },
 

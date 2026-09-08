@@ -22,15 +22,27 @@ export class ContentRepoHttpError extends Error {
   }
 }
 
-/** Joins `CONTENT_REPO_RAW_BASE` with `path`, avoiding a double or missing slash. */
-export function contentRepoUrl(path: string): string {
+/**
+ * Joins `baseUrl` (`CONTENT_REPO_RAW_BASE` unless told otherwise) with `path`, avoiding a double
+ * or missing slash.
+ *
+ * `baseUrl` is a parameter as of story 074 D8, so the UI-verification harness can point manifest
+ * traffic at its own `127.0.0.1` fixture server. It is **not** read from the environment here:
+ * the only producer of a non-default value is `resolveDownloadSource()`
+ * (`src/main/modules/downloads/harness.ts`), which is gated on `Q2L_UI_HARNESS === '1' && isDev`
+ * and resolved once at module registration. This file has no opinion about that gate and no way to
+ * open it - it just joins two strings.
+ */
+export function contentRepoUrl(path: string, baseUrl: string = CONTENT_REPO_RAW_BASE): string {
   const cleanPath = path.startsWith('/') ? path.slice(1) : path
-  return `${CONTENT_REPO_RAW_BASE}/${cleanPath}`
+  return `${baseUrl}/${cleanPath}`
 }
 
 export interface FetchContentJsonOptions {
   /** Abort timeout in milliseconds. Defaults to 10s. */
   timeoutMs?: number
+  /** Base URL to fetch from; defaults to `CONTENT_REPO_RAW_BASE`. See `contentRepoUrl()`. */
+  baseUrl?: string
 }
 
 /**
@@ -44,7 +56,7 @@ export async function fetchContentJson<T = unknown>(
   path: string,
   opts?: FetchContentJsonOptions,
 ): Promise<T> {
-  const url = contentRepoUrl(path)
+  const url = contentRepoUrl(path, opts?.baseUrl)
   const response = await fetch(url, {
     signal: AbortSignal.timeout(opts?.timeoutMs ?? 10_000),
   })

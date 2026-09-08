@@ -1,7 +1,11 @@
 import { app as electronApp } from 'electron'
 import {
+  BOOTSTRAP_SUPPORTED_ENGINES,
   DOWNLOADS_HANDLERS,
   type ArchiveCacheStatus,
+  type BootstrapEngineOption,
+  type BootstrapSummary,
+  type BootstrapTargetVerdict,
   type ClearArchiveCacheResult,
   type DownloadFailure,
   type DownloadsSettings,
@@ -14,8 +18,16 @@ import { userDataDir } from '../../lib/paths'
 import type { AppContext } from '../../context'
 import type { MainModule } from '../types'
 import { resolveExtractorPath } from './7za-path'
+import {
+  buildBootstrapSummary,
+  startBootstrap,
+  type BootstrapDeps,
+} from './bootstrap/job'
+import { manifestSourceFrom, realExtractor, realPackageFetcher } from './bootstrap/ports'
+import { computeTargetVerdict } from './bootstrap/target'
 import { clear, enforceBudget, NOTHING_IN_USE, status } from './cache'
 import { appendFailure, dismissFailure, restoreFailure } from './failure-log'
+import { PRODUCTION_DOWNLOAD_SOURCE, resolveDownloadSource } from './harness'
 import { ManifestService, ManifestUnavailableError } from './manifest-service'
 import {
   createDownloadPipeline,
@@ -24,11 +36,15 @@ import {
   type StartedDownload,
 } from './pipeline'
 import {
+  bootstrapEngineOptionsInputSchema,
+  bootstrapSummaryInputSchema,
+  bootstrapTargetVerdictInputSchema,
   dismissFailureInputSchema,
   downloadsNoInputSchema,
   manifestGetInputSchema,
   patchDownloadsSettingsInputSchema,
   restoreFailureInputSchema,
+  startBootstrapInputSchema,
 } from './schemas'
 
 /** `DownloadsSettings.archiveCacheBudgetGB` is denominated in GB; `cache.ts` wants bytes. One
@@ -62,7 +78,14 @@ export const downloadsModule: MainModule = {
   id: 'downloads',
 
   setup({ handle, app, log }) {
-    const manifestService = new ManifestService({ log })
+    // Story 074 D8: resolved exactly once, here, and then only ever passed around as a value -
+    // see `harness.ts`. In a packaged build (and in any `npm run dev` without `Q2L_UI_HARNESS=1`)
+    // this is `PRODUCTION_DOWNLOAD_SOURCE`, and no later change of environment can alter it.
+    const source = resolveDownloadSource({ isDev: app.isDev })
+    if (source !== PRODUCTION_DOWNLOAD_SOURCE) {
+      log.warn(`UI harness: download source overridden to ${source.baseUrl} (dev build only)`)
+    }
+    const manifestService = new ManifestService({ log, source })
 
     // Story 071 D4: builds the queue (and with it the pipeline) at startup, so the module owns
     // exactly one queue per `AppContext` no matter who calls `startDownload()` first. Nothing on
@@ -87,6 +110,73 @@ export const downloadsModule: MainModule = {
           }
           throw error
         }
+      },
+    )
+
+    /**
+     * Story 074 D1 (AC1): lists the engines the bootstrap wizard can offer - only the ones both
+     * pinned by the manifest and named in `BOOTSTRAP_SUPPORTED_ENGINES`. No failure mode of its
+     * own (like `getSettings` below): a manifest that cannot be fetched, or that pins nothing for
+     * any bootstrap-supported engine, is legitimately "no options yet", not an error the caller
+     * needs to unwrap - the wizard step (a later deliverable) is expected to handle an empty list.
+     */
+    handle(
+      DOWNLOADS_HANDLERS.bootstrapEngineOptions,
+      bootstrapEngineOptionsInputSchema,
+      async (): Promise<BootstrapEngineOption[]> => {
+        try {
+          await manifestService.getManifest()
+        } catch (error) {
+          if (error instanceof ManifestUnavailableError) return []
+          throw error
+        }
+
+        const options: BootstrapEngineOption[] = []
+        for (const engine of BOOTSTRAP_SUPPORTED_ENGINES) {
+          const pkg = manifestService.pinnedEnginePackage(engine)
+          if (pkg === undefined) continue
+          options.push({ engine, packageId: pkg.id, version: pkg.version, sizeBytes: pkg.sizeBytes })
+        }
+        return options
+      },
+    )
+
+    /**
+     * Story 074 D4 (AC3): the verdict for one candidate target folder. A thin wrapper around D2's
+     * `computeTargetVerdict` - no failure mode of its own (like `getSettings` below), because
+     * "this folder is blocked" is a verdict the wizard renders, not an error it unwraps.
+     */
+    handle(
+      DOWNLOADS_HANDLERS.bootstrapTargetVerdict,
+      bootstrapTargetVerdictInputSchema,
+      ({ targetPath }): Promise<BootstrapTargetVerdict> => computeTargetVerdict(targetPath),
+    )
+
+    /**
+     * Story 074 D4 (AC4): what the confirm step states before anything is downloaded. Fails when
+     * the manifest cannot resolve all three packages - the wizard has nothing truthful to show in
+     * that case, so this is a real failure rather than an empty summary.
+     */
+    handle(
+      DOWNLOADS_HANDLERS.bootstrapSummary,
+      bootstrapSummaryInputSchema,
+      (input): Promise<Outcome<BootstrapSummary>> =>
+        buildBootstrapSummary({ manifest: manifestSourceFrom(manifestService, log) }, input),
+    )
+
+    /**
+     * Story 074 D4 (AC5/AC6): starts the bootstrap job and answers its id. Deliberately does not
+     * await the job - `startBootstrap` returns as soon as the installation is registered and the
+     * job exists, exactly like `startDownload` above, so the wizard can switch to the progress
+     * step instead of blocking on a several-hundred-megabyte download.
+     */
+    handle(
+      DOWNLOADS_HANDLERS.bootstrapStart,
+      startBootstrapInputSchema,
+      async (input): Promise<Outcome<{ jobId: string; installationId: string }>> => {
+        const started = await startBootstrap(bootstrapDepsFor(app, manifestService, log), input)
+        if (!started.ok) return started
+        return ok({ jobId: started.value.jobId, installationId: started.value.installationId })
       },
     )
 
@@ -301,6 +391,37 @@ function createPipelineFor(app: AppContext, log?: PipelineLog): DownloadPipeline
 
   pipelines.set(app, pipeline)
   return pipeline
+}
+
+/**
+ * Story 074 D4: the production wiring for the bootstrap job (`bootstrap/job.ts`). Built per call
+ * rather than per context: unlike the download pipeline, a bootstrap job owns no queue and no
+ * cross-call state, so there is nothing to keep alive between two of them.
+ *
+ * The extractor is resolved per extraction with the real `electron.app` (like `createPipelineFor`
+ * above), and `app.installations` is the shell's real `InstallationsService` - the job's narrow
+ * `BootstrapInstallationsHost` is satisfied structurally, so nothing in this module can reach past
+ * `create`/`validate`/`remove` into the library.
+ */
+function bootstrapDepsFor(
+  app: AppContext,
+  manifestService: ManifestService,
+  log: Logger,
+): BootstrapDeps {
+  return {
+    jobs: app.jobs,
+    installations: app.installations,
+    manifest: manifestSourceFrom(manifestService, log),
+    fetcher: realPackageFetcher,
+    extractor: realExtractor,
+    userDataPath: userDataDir(),
+    resolveExtractor: () =>
+      resolveExtractorPath({
+        isPackaged: electronApp.isPackaged,
+        resourcesPath: process.resourcesPath,
+      }),
+    log,
+  }
 }
 
 /**

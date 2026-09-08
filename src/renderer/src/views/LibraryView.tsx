@@ -22,6 +22,7 @@ import { isPlayable, statusTone } from '../lib/status'
 import { useLauncher } from '../store/useLauncher'
 import { getLibraryStats } from '../modules/library/client'
 import { Button, IconButton } from '../components/ui/Button'
+import { DemoBadge } from '../components/ui/DemoBadge'
 import { EngineBadge } from '../components/ui/EngineBadge'
 import { Badge, EmptyState, Panel, SectionLabel, StatusDot } from '../components/ui/primitives'
 import { ChecksList } from '../components/installations/ChecksList'
@@ -93,6 +94,20 @@ export function LibraryView() {
             >
               {t('library.create')}
             </Button>
+            {/* Story 074 D5: the module-dialog seam's entry point - opens the downloads module's
+                own bootstrap-wizard modal via the generic 'module' dialog kind. The wizard itself
+                (D6) does not exist yet, so this is a no-op click until then. */}
+            <Button
+              variant="neutral"
+              size="sm"
+              icon={<HardDriveDownload className="size-3.5" />}
+              data-testid="library-download-install"
+              onClick={() =>
+                openDialog({ kind: 'module', moduleId: 'downloads', view: 'bootstrap-wizard' })
+              }
+            >
+              {t('library.downloadAndInstall')}
+            </Button>
             {installations.length > 0 && (
               <Button
                 variant="ghost"
@@ -161,6 +176,15 @@ export function LibraryView() {
                     onClick={() => openDialog({ kind: 'create' })}
                   >
                     {t('rail.createNew')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    icon={<HardDriveDownload className="size-4" />}
+                    onClick={() =>
+                      openDialog({ kind: 'module', moduleId: 'downloads', view: 'bootstrap-wizard' })
+                    }
+                  >
+                    {t('rail.downloadAndInstall')}
                   </Button>
                 </>
               }
@@ -246,6 +270,7 @@ function InstallationRow({ installation }: { installation: Installation }) {
               {installation.name}
             </h2>
             <EngineBadge engineKind={installation.engineKind} />
+            <DemoBadge installation={installation} />
             {active && <Badge tone="flame">{t('rail.activeMarker')}</Badge>}
             {installation.favorite && (
               <Star className="size-3 text-flame-500" fill="currentColor" />

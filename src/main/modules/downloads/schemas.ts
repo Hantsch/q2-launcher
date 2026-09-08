@@ -1,7 +1,8 @@
 import { z } from 'zod'
-import { engineKindSchema } from '@shared/schemas'
+import { absolutePathSchema, engineKindSchema } from '@shared/schemas'
 import {
   ARCHIVE_CACHE_BUDGET_CHOICES_GB,
+  BOOTSTRAP_SUPPORTED_ENGINES,
   MAX_CONCURRENT_DOWNLOAD_JOBS,
   MIN_CONCURRENT_DOWNLOAD_JOBS,
   type ArchiveCacheBudgetGB,
@@ -38,6 +39,28 @@ export const httpsUrlSchema = z
   .url()
   .refine((value) => /^https:\/\//i.test(value), 'only https URLs are allowed')
 
+/**
+ * Story 074 D8, harness only: the same shape as `httpsUrlSchema` above, plus a plain-http
+ * **loopback** URL (`http://127.0.0.1[:port]/...`). Its only consumer is
+ * `harnessLoopbackManifestPackageSchema` below, which is only ever built by
+ * `parseManifestFile({ httpsOnly: false })`, which only ever happens under the double gate in
+ * `harness.ts` (`Q2L_UI_HARNESS === '1' && isDev`) - unreachable in a packaged build, where `isDev`
+ * is always `false`.
+ *
+ * It is a *second, separately named* schema rather than a widened `httpsUrlSchema`, on purpose: a
+ * single regex quietly accepting `http://127.0.0.1` would apply to production too, and "which URLs
+ * can this build accept" would then be a question about a regex instead of a question about one
+ * gated branch. `127.0.0.1` literally, not `localhost` and not any other loopback spelling - the
+ * harness's fixture server binds that exact address.
+ */
+export const harnessLoopbackUrlSchema = z
+  .string()
+  .url()
+  .refine(
+    (value) => /^https:\/\//i.test(value) || /^http:\/\/127\.0\.0\.1(:\d{1,5})?\//i.test(value),
+    'only https URLs (or, in the UI harness, a http://127.0.0.1 loopback URL) are allowed',
+  )
+
 const manifestPackageContentEntrySchema: z.ZodType<ManifestPackageContentEntry> = z.object({
   from: z.string().min(1),
   to: z.enum(['root', 'baseq2']),
@@ -48,29 +71,51 @@ const manifestPackageContentEntrySchema: z.ZodType<ManifestPackageContentEntry> 
  * sha256 or mirrors is not a valid package" lives here: each is required and
  * strictly typed, so a row missing (or malforming) any one of them fails this
  * schema and is dropped by `parseManifestFile`, not defaulted.
+ *
+ * Story 074 D8 made the URL rule a parameter so the two schemas below differ in exactly that one
+ * field and in nothing else - a hand-copied second field list is how the harness variant would
+ * quietly stop enforcing something the production one still does.
  */
-const manifestPackageBaseSchema = z.object({
-  id: z.string().min(1),
-  version: z.string().min(1),
-  sizeBytes: z.number().int().positive(),
-  sha256: sha256Schema,
-  url: httpsUrlSchema,
-  mirrors: z.array(httpsUrlSchema),
-  contents: z.array(manifestPackageContentEntrySchema).min(1),
-})
+function manifestPackageBaseSchemaWith(urlSchema: z.ZodType<string>) {
+  return z.object({
+    id: z.string().min(1),
+    version: z.string().min(1),
+    sizeBytes: z.number().int().positive(),
+    sha256: sha256Schema,
+    url: urlSchema,
+    mirrors: z.array(urlSchema),
+    contents: z.array(manifestPackageContentEntrySchema).min(1),
+  })
+}
+
+function manifestPackageSchemaWith(urlSchema: z.ZodType<string>): z.ZodType<ManifestPackage> {
+  const base = manifestPackageBaseSchemaWith(urlSchema)
+  return z.discriminatedUnion('kind', [
+    base.extend({ kind: z.literal('engine'), engine: engineKindSchema }),
+    base.extend({ kind: z.literal('gamedata'), role: z.enum(['demo', 'point-release']) }),
+  ])
+}
 
 /**
  * One package row, typed against `ManifestPackage` (`@shared/modules/downloads`)
  * so this schema and the wire type cannot drift apart - same convention as
  * `configCvarSectionSchema` in `main/modules/config/schemas.ts`.
+ *
+ * **This is the production schema and it is https-only.** Story 074 D8 did not touch that rule;
+ * see `harnessLoopbackManifestPackageSchema` below for the harness-only variant and `harness.ts`
+ * for the gate that is the only thing able to select it.
  */
-export const manifestPackageSchema: z.ZodType<ManifestPackage> = z.discriminatedUnion('kind', [
-  manifestPackageBaseSchema.extend({ kind: z.literal('engine'), engine: engineKindSchema }),
-  manifestPackageBaseSchema.extend({
-    kind: z.literal('gamedata'),
-    role: z.enum(['demo', 'point-release']),
-  }),
-])
+export const manifestPackageSchema: z.ZodType<ManifestPackage> =
+  manifestPackageSchemaWith(httpsUrlSchema)
+
+/**
+ * Story 074 D8, harness only - identical to `manifestPackageSchema` except that a package/mirror
+ * URL may also be a plain-http `127.0.0.1` loopback URL (see `harnessLoopbackUrlSchema`). Selected
+ * exclusively by `parseManifestFile`'s `httpsOnly: false` option, which only
+ * `resolveDownloadSource()` (`harness.ts`) can produce, and only under its double gate.
+ */
+export const harnessLoopbackManifestPackageSchema: z.ZodType<ManifestPackage> =
+  manifestPackageSchemaWith(harnessLoopbackUrlSchema)
 
 /**
  * The envelope shape one manifest file (`engines/manifest.json` OR
@@ -137,6 +182,68 @@ export const restoreFailureInputSchema = dismissFailureInputSchema
  * (`fail('ipc.error.invalidPayload')`) before any handler runs, rather than silently degraded to a
  * default the way a hand-edited `state.json` would be.
  */
+/**
+ * Story 074 D1: `bootstrapEngineOptions` takes no input - same `z.void()` convention as
+ * `downloadsNoInputSchema` above; kept as its own named export so this handler's schema reads
+ * self-documenting at the call site rather than reusing an unrelated-sounding name.
+ */
+export const bootstrapEngineOptionsInputSchema = downloadsNoInputSchema
+
+/**
+ * Story 074 D2: the eventual `bootstrap.targetVerdict` handler's payload - one absolute path, the
+ * folder the wizard's target-folder step is considering. `.strict()` for the same "a bad payload is
+ * a caller bug" reason as `dismissFailureInputSchema` above; `absolutePathSchema` (`@shared/schemas`)
+ * already rejects an empty string and a NUL byte before this ever reaches `computeTargetVerdict`
+ * (`bootstrap/target.ts`), which then does its own, deeper path-safety validation (device paths,
+ * reserved names, containment) as part of the verdict itself rather than at the schema layer.
+ */
+export const bootstrapTargetVerdictInputSchema = z.object({ targetPath: absolutePathSchema }).strict()
+
+/**
+ * Story 074 D4: the engine a bootstrap may be asked for. Narrower than `engineKindSchema` on
+ * purpose - `BOOTSTRAP_SUPPORTED_ENGINES` is the wizard's own list ("offered by this sprint's
+ * wizard", not "supported by the launcher in general", see its doc comment), and rejecting an
+ * unsupported engine at the schema is better than resolving no package for it three steps later.
+ */
+const bootstrapEngineSchema = engineKindSchema.refine(
+  (value) => BOOTSTRAP_SUPPORTED_ENGINES.includes(value),
+  'the bootstrap wizard does not support this engine',
+)
+
+/**
+ * Story 074 D4: `bootstrap.summary`'s payload - the same three facts `bootstrap.start` takes minus
+ * the name, since a summary states what would be downloaded and how large it is (AC4), which no
+ * name can change. `.strict()` for the same "a bad payload is a caller bug" reason as
+ * `dismissFailureInputSchema` above.
+ */
+export const bootstrapSummaryInputSchema = z
+  .object({
+    engine: bootstrapEngineSchema,
+    targetPath: absolutePathSchema,
+    includeVideoAndPlayers: z.boolean(),
+  })
+  .strict()
+
+/**
+ * Story 074 D4: `bootstrap.start`'s payload. `targetPath` passes `absolutePathSchema` here and is
+ * then re-judged in main by `computeTargetVerdict` (`bootstrap/target.ts`), which is where the real
+ * path-safety decision lives - a schema cannot know whether a folder already holds a game.
+ *
+ * `name` is optional and only shape-checked: an installation name is user data, and main falls back
+ * to `DEFAULT_BOOTSTRAP_INSTALLATION_NAME` for an absent or blank one rather than rejecting it.
+ */
+export const startBootstrapInputSchema = z
+  .object({
+    engine: bootstrapEngineSchema,
+    targetPath: absolutePathSchema,
+    name: z.string().min(1).max(120).optional(),
+    includeVideoAndPlayers: z.boolean(),
+    // Story 074 AC2's remedy: the write-dir path the user picked from the target step's
+    // Program-Files warning, if any - same `absolutePathSchema` convention as `targetPath` above.
+    writeDirPath: absolutePathSchema.optional(),
+  })
+  .strict()
+
 export const patchDownloadsSettingsInputSchema = z
   .object({
     concurrentJobs: z

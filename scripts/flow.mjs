@@ -34,7 +34,7 @@ async function loadFlow(name) {
   if (typeof mod.default !== 'function') {
     throw new HarnessError(`scripts/flows/${name}.mjs must have a default export function`)
   }
-  return mod.default
+  return mod
 }
 
 /**
@@ -53,7 +53,7 @@ async function loadFlow(name) {
  * that every other flow's own doc comment already asks for.
  */
 async function runFlow(name, variant) {
-  const flowFn = await loadFlow(name)
+  const flow = await loadFlow(name)
 
   let currentStep = null
   const step = (label) => {
@@ -63,22 +63,43 @@ async function runFlow(name, variant) {
 
   mkdirSync(FLOWS_SCREENSHOTS_DIR, { recursive: true })
 
-  await withApp({ variant, viewport: VIEWPORT_DEFAULT }, async ({ page, app, log }) => {
-    const shot = async (label) => {
-      const filePath = join(FLOWS_SCREENSHOTS_DIR, `${name}-${label}.png`)
-      await page.screenshot({ path: filePath })
-      console.log(`  shot: ${filePath}`)
-    }
+  // Story 074 D8: two optional exports a flow may add next to its default one, for the case the
+  // `bootstrap-wizard` flow introduced — work that has to happen BEFORE the app is launched and
+  // work that has to happen after it is gone, neither of which the flow function itself can do
+  // (it only runs while the app is up).
+  //
+  //   export async function setup({ variant }) -> { env?: { …} }
+  //     Runs before `withApp()`. Whatever `env` it returns is merged into the child environment
+  //     (see `childEnv()` in `scripts/lib/harness.mjs`) — the only way to hand the app a value the
+  //     flow computed moments earlier, e.g. the port a fixture server just bound. Anything else
+  //     the flow needs afterwards it keeps in its own module scope; nothing is threaded back.
+  //   export async function teardown()
+  //     Runs after the app is closed, pass or fail, so a fixture server cannot outlive the run.
+  const setupResult = typeof flow.setup === 'function' ? ((await flow.setup({ variant })) ?? {}) : {}
 
-    try {
-      await flowFn({ page, app, shot, log, step, variant })
-    } catch (error) {
-      const stepInfo = currentStep ? ` at step '${currentStep}'` : ''
-      throw new HarnessError(`flow '${name}' failed${stepInfo}: ${error.message}`, {
-        cause: error,
-      })
-    }
-  })
+  try {
+    await withApp(
+      { variant, viewport: VIEWPORT_DEFAULT, env: setupResult.env },
+      async ({ page, app, log }) => {
+        const shot = async (label) => {
+          const filePath = join(FLOWS_SCREENSHOTS_DIR, `${name}-${label}.png`)
+          await page.screenshot({ path: filePath })
+          console.log(`  shot: ${filePath}`)
+        }
+
+        try {
+          await flow.default({ page, app, shot, log, step, variant })
+        } catch (error) {
+          const stepInfo = currentStep ? ` at step '${currentStep}'` : ''
+          throw new HarnessError(`flow '${name}' failed${stepInfo}: ${error.message}`, {
+            cause: error,
+          })
+        }
+      },
+    )
+  } finally {
+    if (typeof flow.teardown === 'function') await flow.teardown()
+  }
 }
 
 async function main() {

@@ -97,6 +97,48 @@ describe('JobsService broadcast (unchanged by story 073 D2)', () => {
   })
 })
 
+/**
+ * Story 074 D4: `playableAtRatio` became settable after creation, because the bootstrap job's
+ * threshold is decided by `inspectInstallation` reading the real target folder mid-job - it cannot
+ * be known at `create()` time. The assertions below are about exactly that: the value is visible
+ * in `list()` and in the next emission, and recording it changes nothing else about the job.
+ */
+describe('JobsService.markPlayable', () => {
+  it('sets playableAtRatio after creation and emits the new value', () => {
+    const { jobs, broadcast } = service()
+    const id = create(jobs)
+    expect(jobs.list()[0]?.playableAtRatio).toBeUndefined()
+
+    jobs.markPlayable(id, 0.9)
+
+    expect(jobs.list()[0]?.playableAtRatio).toBe(0.9)
+    expect(broadcast).toHaveBeenCalledTimes(2)
+    expect(broadcast.mock.calls[1]?.[0]?.[0]).toMatchObject({ id, playableAtRatio: 0.9 })
+  })
+
+  it('leaves the job otherwise untouched - it is not a progress report', () => {
+    const { jobs } = service()
+    const id = create(jobs)
+    jobs.progress(id, { ratio: 0.5, bytesDone: 50, bytesTotal: 100 })
+    jobs.finish(id, { status: 'succeeded' })
+    const before = jobs.list()[0]!
+
+    jobs.markPlayable(id, 0.9)
+
+    // A finished job stays finished: recording the marker must not resurrect it to `running`.
+    expect(jobs.list()[0]).toEqual({ ...before, playableAtRatio: 0.9 })
+  })
+
+  it('an unknown job id changes nothing and broadcasts nothing', () => {
+    const { jobs, broadcast } = service()
+
+    jobs.markPlayable('nope', 0.9)
+
+    expect(jobs.list()).toEqual([])
+    expect(broadcast).not.toHaveBeenCalled()
+  })
+})
+
 describe('JobsService.onChange', () => {
   it('notifies every listener with the same list the broadcast got', () => {
     const { jobs, broadcast } = service()

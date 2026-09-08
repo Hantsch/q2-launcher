@@ -12,6 +12,7 @@ import {
 import { isPlayable, statusTone } from '../../lib/status'
 import { useActiveInstallation, useActiveJob, useLauncher } from '../../store/useLauncher'
 import { IconButton, PlayButton } from '../ui/Button'
+import { DemoBadge } from '../ui/DemoBadge'
 import { EngineBadge } from '../ui/EngineBadge'
 import { InstallationTile } from '../installations/InstallationTile'
 import { ProgressBar } from '../ui/ProgressBar'
@@ -80,8 +81,9 @@ export function ActionBar() {
               {installation?.name ?? t('actionbar.noInstallation')}
             </div>
             {installation && (
-              <span className="shrink-0">
+              <span className="flex shrink-0 items-center gap-1.5">
                 <EngineBadge engineKind={installation.engineKind} />
+                <DemoBadge installation={installation} />
               </span>
             )}
           </div>
@@ -123,7 +125,14 @@ export function ActionBar() {
 
       {/* --- the button --- */}
       <div className="flex shrink-0 flex-col items-end gap-1.5">
+        {/* `data-testid` + `data-action` added by story 074 D8: AC6 ("Play lights up the moment
+            the verdict stops being invalid/missing, even while the job is still running") can only
+            be proven by sampling this exact button's enabled-ness against a live job, and the
+            footer's buttons are otherwise addressable only by translated label - which changes
+            per `action.kind`, i.e. precisely with the state under test. */}
         <PlayButton
+          data-testid="actionbar-play"
+          data-action={action.kind}
           tone={action.tone}
           disabled={action.disabled}
           onClick={onPrimary}

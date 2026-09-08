@@ -6,6 +6,7 @@ import { fetchContentJson } from '../../lib/content-repo'
 import { JsonStore } from '../../lib/json-store'
 import type { Logger } from '../../lib/logger'
 import { userDataDir } from '../../lib/paths'
+import { PRODUCTION_DOWNLOAD_SOURCE, type DownloadSource } from './harness'
 import { parseManifestFile } from './manifest-parse'
 
 /**
@@ -111,7 +112,13 @@ function emptyCache(): ManifestCacheDocument {
  * for becomes "nothing cached", which makes a failed fetch an error rather than
  * a snapshot built from junk.
  */
-function parseCacheDocument(raw: unknown, log: Logger): ManifestCacheDocument {
+function parseCacheDocument(
+  raw: unknown,
+  log: Logger,
+  /** Story 074 D8: the same URL rule the network path used, so a manifest this very process
+   * fetched and persisted is not discarded on the next read for a rule it never had to satisfy. */
+  httpsOnly: boolean,
+): ManifestCacheDocument {
   const envelope = cacheEnvelopeSchema.safeParse(raw)
   if (!envelope.success) {
     log.warn('manifest cache discarded: malformed cache envelope')
@@ -135,6 +142,7 @@ function parseCacheDocument(raw: unknown, log: Logger): ManifestCacheDocument {
       pinned: envelope.data.pinned,
     },
     log,
+    { httpsOnly },
   )
   if (!parsed.ok) {
     log.warn(`manifest cache discarded: ${parsed.reason}`)
@@ -151,6 +159,13 @@ function parseCacheDocument(raw: unknown, log: Logger): ManifestCacheDocument {
 
 export interface ManifestServiceOptions {
   log: Logger
+  /**
+   * Story 074 D8: where manifests are fetched from and how strictly package URLs are validated,
+   * resolved **once** by `resolveDownloadSource()` (`harness.ts`) at module registration
+   * (`index.ts`). Defaults to `PRODUCTION_DOWNLOAD_SOURCE`, so every existing caller and every
+   * test keeps the production behaviour without passing anything.
+   */
+  source?: DownloadSource
 }
 
 export interface GetManifestOptions {
@@ -162,6 +177,8 @@ type FetchAttempt = { ok: true; content: SnapshotContent } | { ok: false; reason
 
 export class ManifestService {
   private readonly log: Logger
+  /** Resolved once by the caller; never re-read from the environment. See `harness.ts`. */
+  private readonly source: DownloadSource
   private readonly store: JsonStore<ManifestCacheDocument>
   private cacheLoaded = false
   /** Set only by a live fetch in this process - see the in-memory freshness note above. */
@@ -171,13 +188,15 @@ export class ManifestService {
 
   constructor(options: ManifestServiceOptions) {
     this.log = options.log
+    // Assigned before the store below, whose `parse` closure reads it.
+    this.source = options.source ?? PRODUCTION_DOWNLOAD_SOURCE
     // Nothing is fetched and nothing is read here: the store is loaded lazily on
     // the first `getManifest()`, so constructing this service is free (AC: zero
     // fetches at construction, no manifest traffic at boot).
     this.store = new JsonStore<ManifestCacheDocument>({
       filePath: manifestCacheFilePath(),
       defaults: emptyCache,
-      parse: (raw) => parseCacheDocument(raw, this.log),
+      parse: (raw) => parseCacheDocument(raw, this.log, this.source.httpsOnly),
     })
   }
 
@@ -293,7 +312,9 @@ export class ManifestService {
    */
   private async fetchAndMerge(): Promise<FetchAttempt> {
     const paths = [ENGINES_MANIFEST_PATH, GAMEDATA_MANIFEST_PATH]
-    const results = await Promise.allSettled(paths.map((path) => fetchContentJson(path)))
+    const results = await Promise.allSettled(
+      paths.map((path) => fetchContentJson(path, { baseUrl: this.source.baseUrl })),
+    )
 
     const packages: ManifestPackage[] = []
     const pins: Partial<Record<EngineKind, string>>[] = []
@@ -304,7 +325,9 @@ export class ManifestService {
         this.log.warn(`fetching ${path} failed: ${String(result.reason)}`)
         return { ok: false, reason: `fetching ${path} failed` }
       }
-      const parsed = parseManifestFile(result.value, this.log)
+      const parsed = parseManifestFile(result.value, this.log, {
+        httpsOnly: this.source.httpsOnly,
+      })
       if (!parsed.ok) {
         return { ok: false, reason: `${path} was refused (${parsed.reason})` }
       }

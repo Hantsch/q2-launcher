@@ -1,6 +1,7 @@
 import { BrowserWindow, dialog, type IpcMainInvokeEvent } from 'electron'
 import { fail, ok } from '@shared/types'
 import { canonicalizePath } from '../lib/fs-utils'
+import { uiHarnessPickedFolders } from '../lib/ui-harness'
 import {
   addExistingInputSchema,
   createInstallationInputSchema,
@@ -68,7 +69,39 @@ export function registerInstallationsIpc(app: AppContext): void {
     return app.installations.importMany(rootPaths)
   })
 
+  /**
+   * Story 074 D8 adds a **harness stub** to this channel, mirroring
+   * `DialogService.pickConfigFiles()` (`src/main/services/dialog.ts`) exactly: when
+   * `Q2L_UI_HARNESS === '1'` AND `app.isDev` are BOTH true (`isUiHarnessEnabled`,
+   * `src/main/lib/ui-harness.ts`), no dialog opens at all and `Q2L_UI_PICK_FOLDER` supplies the
+   * folder instead. It is unreachable in a packaged build, where `isDev` is always `false`
+   * regardless of any environment variable a hostile or malformed launch could set.
+   *
+   * It exists because Playwright cannot drive a native OS dialog (`docs/UI-VERIFICATION.md`,
+   * "Known blind spots") and the bootstrap wizard's target step has no typeable field
+   * (`PathPicker`'s input is `readOnly`), so `scripts/flows/bootstrap-wizard.mjs` could not reach
+   * AC2-AC8 at all otherwise. The stubbed path gets no special trust: it comes back through the
+   * same return value the real dialog uses, and every consumer re-judges it in main
+   * (`computeTargetVerdict`, `canonicalizePath`) exactly as before.
+   *
+   * `Q2L_UI_PICK_FOLDER` is a list and successive calls walk it, because one flow legitimately
+   * picks more than one folder (that flow needs a `Program Files` path for AC2's warning and its
+   * real fixture target for AC3's). The counter lives here, per registration, rather than in
+   * `ui-harness.ts` - that file stays a pure predicate, and a module-level counter would be shared
+   * by two `AppContext`s in the same process the way `downloadsModule`'s own subscription set
+   * would have been. The last entry repeats forever, so an extra pick (the wizard's write-dir
+   * remedy button, say) cannot exhaust the list and read as a surprise cancel.
+   */
+  let harnessFolderPicks = 0
   handle('installations:pickFolder', pickPathInputSchema, async (options, event) => {
+    const stubbed = uiHarnessPickedFolders({ isDev: app.isDev })
+    if (stubbed !== undefined) {
+      if (stubbed.length === 0) return null
+      const picked = stubbed[Math.min(harnessFolderPicks, stubbed.length - 1)]
+      harnessFolderPicks += 1
+      return picked
+    }
+
     const result = await showOpenDialog(event, {
       title: options.title,
       properties: ['openDirectory', 'createDirectory'],

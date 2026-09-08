@@ -8,6 +8,7 @@ import { isPlayable, statusTone } from '../../lib/status'
 import { useLauncher } from '../../store/useLauncher'
 import { Badge, SectionLabel, StatusDot } from '../ui/primitives'
 import { Button, IconButton } from '../ui/Button'
+import { DemoBadge } from '../ui/DemoBadge'
 import { EngineBadge } from '../ui/EngineBadge'
 import { HoverCard } from '../ui/HoverCard'
 import { InstallationTile } from '../installations/InstallationTile'
@@ -264,6 +265,7 @@ function RailCard({ installation }: { installation: Installation }) {
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           <EngineBadge engineKind={installation.engineKind} />
+          <DemoBadge installation={installation} />
           {installation.detectedVersion && (
             <Badge tone="neutral">{installation.detectedVersion}</Badge>
           )}

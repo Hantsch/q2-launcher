@@ -652,7 +652,23 @@ To write your own: create `scripts/flows/<name>.mjs` with a default export
 `async function({ page, app, shot, log, step })`, call `step(...)` before each
 meaningful action, drive `page` the same way the example does, and call
 `shot(...)` wherever you want evidence saved. Run it with
-`npm run ui:flow -- <name>`. The flow launches at the default 1280x800
+`npm run ui:flow -- <name>`.
+
+A flow may also export two optional lifecycle functions, added by story 074 D8
+for work the flow function itself cannot do (it only runs while the app is
+already up):
+
+- `export async function setup({ variant })` — runs **before** the app is
+  launched. Whatever it returns as `{ env: { … } }` is merged into the child
+  environment last (`childEnv()` in `scripts/lib/harness.mjs`), which is the
+  only way to hand the app a value the flow computed moments earlier — a
+  fixture server's freshly bound port, say. Note that `childEnv()` deletes every
+  case-insensitive spelling of each key first: Git Bash exports `PROGRAMFILES`,
+  not `ProgramFiles`, and without that an override silently loses to the
+  inherited entry. Anything else the flow needs afterwards it keeps in its own
+  module scope; nothing is threaded back into the flow function.
+- `export async function teardown()` — runs after the app is closed, pass or
+  fail, so a fixture server cannot outlive the run. The flow launches at the default 1280x800
 viewport (`scripts/flow.mjs`) — flows aren't part of the registry and don't
 take `viewports` of their own — against the `populated` fixture unless a
 second CLI argument names another variant: `npm run ui:flow -- <name>
@@ -737,7 +753,69 @@ button ("Simulate a stalled job") and asserts the resulting job row's bytes/spee
 then drives the `failure` button ("Simulate a failed job") and asserts the resulting failure-log
 entry's translated reason persists across a `DownloadsView` remount, dismisses into the collapsed
 "Dismissed" disclosure, and restores back into the visible list (AC2) — the only job source is
-`dev:simulateJob`, so the flow never touches the network (AC5).
+`dev:simulateJob`, so the flow never touches the network (AC5), and (story 074 D8)
+**`bootstrap-wizard`** — the one flow that runs a real download pipeline end to end; it has its own
+section below.
+
+## The offline bootstrap-wizard flow (`bootstrap-wizard`)
+
+`npm run ui:flow -- bootstrap-wizard` is story 074's acceptance run, and the only flow in which the
+app does real network I/O, real archive extraction and real installation assembly. Its `setup()`
+starts a `node:http` fixture server on `127.0.0.1` (OS-assigned port) serving both manifest files
+(`engines/manifest.json`, `gamedata/manifest.json`) plus three real, `7za.exe`-written `.zip`
+archives whose declared `sha256`/`sizeBytes` are computed from the bytes actually on disk — so
+nothing about verification is faked. It then walks Library → "Download & install" → engine → target
+→ confirm → run, lets the real job download, verify, extract and assemble all three packages, and
+finally asserts **on disk** that the target holds a `baseq2` directory and no `ctf`/`xatrix`/`rogue`
+anywhere under it (AC8). Everything it writes lives under `.ui-verify/fixture/bootstrap/`.
+
+Four things about it are worth knowing before changing it:
+
+- **It is the one flow that reseeds.** Every other flow opens the `populated` fixture as it finds
+  it; this one registers a real installation into that state document, and
+  `InstallationsService.create()` refuses a second one at the same path, so a second run would fail
+  at "start" rather than prove anything. `setup()` therefore calls `writePopulatedFixture()` and
+  recreates the target folder.
+- **Two harness-only overrides, both behind the same double gate** (`Q2L_UI_HARNESS === '1' &&
+  isDev`, `src/main/lib/ui-harness.ts` — unreachable in a packaged build, where `isDev` is always
+  `false`; proven by the four gate cases in `src/main/modules/downloads/harness.test.ts`, which
+  mirror `dialog.test.ts`'s):
+  `Q2L_UI_CONTENT_REPO_BASE` names the manifest/package base URL (`resolveDownloadSource()`,
+  `src/main/modules/downloads/harness.ts`) and is *refused* unless it is a `127.0.0.1` origin, so it
+  can never redirect a run somewhere public; the production package schema stays https-only and the
+  harness path selects a separately named `harnessLoopbackManifestPackageSchema` rather than
+  widening it. `Q2L_UI_PICK_FOLDER` is what `installations:pickFolder` answers instead of opening a
+  native OS dialog (`src/main/ipc/installations.ts`) — a `path.delimiter`-joined list walked one
+  entry per call with the last entry repeating, because this flow picks twice. It is needed at all
+  because the wizard's target step has no typeable field (`PathPicker`'s input is `readOnly`).
+- **AC2's Program Files verdict is exercised by naming a real Program Files path, not by faking the
+  variable.** Story 074's refine expected the latter ("point the child process's `ProgramFiles` at a
+  fixture dir"); on Windows that is impossible — `ProgramFiles`, `ProgramFiles(x86)` and
+  `NUMBER_OF_PROCESSORS` are regenerated by the loader for every new process, so a value placed in a
+  child's environment block is discarded (measured, not assumed; `bootstrap/target.test.ts` can
+  still inject a fake root, because it calls `computeTargetVerdict(path, { env })` in-process). The
+  flow therefore points step 2 at a never-created path under the machine's real `%ProgramFiles%`,
+  asserts and acknowledges the warning, and then re-picks the real fixture target — so nothing is
+  ever installed anywhere near Program Files, and the only write attempted there is the same
+  throwaway probe marker a real user picking that folder would trigger.
+- **AC6 is proven with an in-page sampler, not a single check.** "Play lights up the moment the
+  verdict stops being `invalid`/`missing`, even while the job is still copying" is a *window*: an
+  injected `setInterval` records `bootstrap-running-step`'s `data-status` next to `actionbar-play`'s
+  `disabled`/`data-action` every 5 ms for the whole run, and the flow asserts at least one sample had
+  a `running` job and an enabled Play button. A one-shot `page.evaluate()` could only ever prove the
+  state it happened to catch. The window is everything between `markPlayable` and `finish` — the
+  final revalidation, the `rm -r` of three extract trees, and the two `jobs:changed` round trips with
+  their renders — and it measured ~80 ms with the fixture's 900-file `ctf/` payload (~60 ms at 300),
+  so the 5 ms interval leaves roughly an order of magnitude of margin.
+
+Because the wizard's own steps live in this flow, `scripts/lib/screens.mjs` deliberately has **no**
+registry entry for them (see the comment there): mounting `BootstrapWizard` fetches the curated
+manifest, so a registry screen would make every `ui:verify` run reach out to
+raw.githubusercontent.com and break the harness's "never touches the network" guarantee. The flow
+takes its own `shot()`s of all four steps instead.
+
+The flow needs `resources/bin/7za.exe` (`npm run fetch:7za`) and refuses to run without it rather
+than quietly skipping the extraction — the whole point is that the *real* extractor runs.
 
 ## Baselines and CI
 
@@ -772,4 +850,8 @@ any of them produces no screenshot and no axe finding:
   `scripts/flows/import-from-files.mjs` cover everything from the resolved
   paths onward (list, reorder, remove, preview, create); only "the OS dialog
   itself appears and is multi-select" stays manual residue, same as every
-  other picker below it in this list.
+  other picker below it in this list. Story 074 D8 gives the **folder**
+  picker (`installations:pickFolder`, `src/main/ipc/installations.ts`) the
+  same treatment for the same reason, reading `Q2L_UI_PICK_FOLDER` behind the
+  same double gate — so the bootstrap wizard's target step is reachable, and
+  only "the OS folder dialog itself appears" stays manual residue there too.

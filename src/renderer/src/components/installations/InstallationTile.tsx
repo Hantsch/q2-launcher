@@ -1,5 +1,6 @@
 import type { Installation } from '@shared/types'
 import { cn } from '../../lib/cn'
+import { isDemoData } from '../../lib/demo-data'
 import { tileCode } from '../../lib/format'
 import { useInstallationIcon } from './useInstallationIcon'
 
@@ -43,9 +44,16 @@ export function InstallationTile({
   textClassName?: string
 }) {
   const iconUrl = useInstallationIcon(installation)
+  const demo = installation !== null && isDemoData(installation.checks)
 
   return (
-    <div className={cn('grid place-items-center rounded-md border', SIZE_CLASSES[size], className)}>
+    <div
+      className={cn(
+        'relative grid place-items-center rounded-md border',
+        SIZE_CLASSES[size],
+        className,
+      )}
+    >
       {iconUrl ? (
         // Decorative: the accessible name for this tile lives on the wrapping
         // button/title exactly where it did before an icon existed (story 067
@@ -54,6 +62,12 @@ export function InstallationTile({
       ) : (
         <span className={cn('font-display font-semibold', TEXT_SIZE_CLASSES[size], textClassName)}>
           {installation ? tileCode(installation.engineKind, installation.name) : '--'}
+        </span>
+      )}
+      {/* CSS-only microtag (story 074 D7) - text, not colour-only, per /design-tokens. */}
+      {demo && (
+        <span className="tile-demo-tag" data-testid="installation-tile-demo-tag" aria-hidden="true">
+          DEMO
         </span>
       )}
     </div>

@@ -197,7 +197,7 @@ export async function drainCspViolations(page, log) {
  * environment names are case-insensitive, but `Object.keys` returns whatever
  * casing the parent happened to set, and `delete` is case-sensitive.
  */
-export function childEnv() {
+export function childEnv(extraEnv = {}) {
   const env = { ...process.env }
   delete env.ELECTRON_RUN_AS_NODE
   delete env.ELECTRON_RENDERER_URL
@@ -222,6 +222,27 @@ export function childEnv() {
   // idempotent byte-copy (same source bytes every call), safe to run on every single launch.
   writeImportFilesFixture()
   env.Q2L_UI_PICK_FILES = importFilesFixturePaths().join(delimiter)
+  // Story 074 D8: per-launch additions a caller computed only moments before the launch - the
+  // bootstrap-wizard flow's fixture server port (`Q2L_UI_CONTENT_REPO_BASE`), its stubbed folder
+  // pick (`Q2L_UI_PICK_FOLDER`) and its fake `ProgramFiles` root. Applied LAST, on purpose: this
+  // is the only way to override `ProgramFiles`, which the parent shell always has set, and the
+  // flow's whole AC2 case is a target the app believes lives under Program Files without the run
+  // ever writing anywhere near the real one. Undefined values delete the key, so a caller can also
+  // *unset* an inherited variable.
+  for (const [key, value] of Object.entries(extraEnv)) {
+    // Every case-insensitive variant of the key goes first, the same way `ELECTRON_RUN_AS_NODE` is
+    // deleted above and for the same reason: Windows environment names are case-insensitive, but a
+    // plain object copy of `process.env` keeps whatever casing the parent shell used (Git Bash
+    // hands over `PROGRAMFILES`, not `ProgramFiles`) and `delete` is case-sensitive. Leaving the
+    // old spelling in place produces an env object with two entries for one variable, and the
+    // child then reads the *inherited* one - which is exactly how the `ProgramFiles` override
+    // silently did nothing the first time this was tried.
+    const upper = key.toUpperCase()
+    for (const existing of Object.keys(env)) {
+      if (existing.toUpperCase() === upper) delete env[existing]
+    }
+    if (value !== undefined) env[key] = value
+  }
   return env
 }
 
@@ -230,7 +251,7 @@ export function childEnv() {
  * `{ app, page, log, userDataDir }`. Callers use `withApp()`; this is separate
  * only so the failure paths can close what they opened.
  */
-async function launchApp({ userDataDir }) {
+async function launchApp({ userDataDir, env: extraEnv }) {
   ensureBuild()
 
   // Guard before anything is created: a run must never be able to point Electron
@@ -246,7 +267,7 @@ async function launchApp({ userDataDir }) {
     app = await _electron.launch({
       args: [join(REPO_ROOT, MAIN_ENTRY), `--user-data-dir=${resolvedUserDataDir}`],
       cwd: REPO_ROOT,
-      env: childEnv(),
+      env: childEnv(extraEnv),
       timeout: LAUNCH_TIMEOUT_MS,
     })
   } catch (error) {
@@ -375,13 +396,15 @@ function enrichLaunchFailure(error, log) {
  * `variant` names the fixture whose userData the app is launched with
  * (`.ui-verify/fixture/<variant>/userdata`), `viewport` is `{ width, height }`
  * applied through `win.setSize` — a BrowserWindow ignores
- * `page.setViewportSize()`.
+ * `page.setViewportSize()`. `env` (story 074 D8) is merged into `childEnv()`
+ * last, for values only known immediately before the launch — see `childEnv()`.
  */
-export async function withApp({ variant, viewport } = {}, fn) {
+export async function withApp({ variant, viewport, env } = {}, fn) {
   if (!variant) throw new HarnessError('withApp() needs a fixture variant')
 
   const { app, page, log, state, child, userDataDir } = await launchApp({
     userDataDir: variantUserDataDir(variant),
+    env,
   })
 
   try {

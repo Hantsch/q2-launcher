@@ -35,6 +35,30 @@ export const DOWNLOADS_HANDLERS = {
   dismissFailure: 'downloads.dismissFailure',
   /** Story 073 D1: un-dismisses a failure entry, moving it back out of the history (D2). */
   restoreFailure: 'downloads.restoreFailure',
+  /**
+   * Story 074 D1: lists the engines the bootstrap wizard can offer this sprint - only the ones
+   * both pinned by the manifest and named in `BOOTSTRAP_SUPPORTED_ENGINES` below (D1 implements
+   * the handler; D2+ build the rest of the wizard on top of it).
+   */
+  bootstrapEngineOptions: 'bootstrap.engineOptions',
+  /**
+   * Story 074 D4: the `BootstrapTargetVerdict` for one candidate target folder - a thin wrapper
+   * around `computeTargetVerdict` (`main/modules/downloads/bootstrap/target.ts`, D2). No failure
+   * mode of its own (same convention as `getSettings`): every answer is a verdict, including
+   * "blocked".
+   */
+  bootstrapTargetVerdict: 'bootstrap.targetVerdict',
+  /**
+   * Story 074 D4 (AC4): the packages a bootstrap would download and their summed size, for the
+   * wizard's confirm step. Fails when the manifest cannot resolve all three required packages.
+   */
+  bootstrapSummary: 'bootstrap.summary',
+  /**
+   * Story 074 D4: starts the bootstrap job and answers its `Job.id` immediately - the job itself
+   * runs in the background and reports through `JobsService` (`jobs:changed`), never through this
+   * call's return value.
+   */
+  bootstrapStart: 'bootstrap.start',
 } as const
 
 /**
@@ -187,6 +211,22 @@ export const DOWNLOADS_ERROR_KEYS = [
   'downloads.error.extractionFailed',
   'downloads.error.diskWrite',
   'downloads.error.network',
+  /**
+   * Story 074 D4: one of the three packages a bootstrap needs (the pinned engine build, the demo
+   * game data, the point release) could not be resolved from the manifest - it is not listed, or
+   * the manifest itself was unavailable. Its own key rather than
+   * `downloads.error.manifestUnavailable` (which is not a member of this set and describes the
+   * *fetch* failing) because a reachable manifest that simply does not list a `role: 'demo'`
+   * package is a different problem with a different remedy.
+   */
+  'downloads.error.packageUnavailable',
+  /**
+   * Story 074 D4 (AC6): everything downloaded, verified and assembled, yet `inspectInstallation`
+   * still reports the target as `invalid`/`missing`. The job fails rather than succeeding into a
+   * registered installation nobody can play - and, like every other failure here, its cleanup
+   * leaves neither the partial files nor the library entry behind.
+   */
+  'downloads.error.installationNotPlayable',
 ] as const
 
 export type DownloadsErrorKey = (typeof DOWNLOADS_ERROR_KEYS)[number]
@@ -221,4 +261,152 @@ export interface DownloadFailure {
   createdAt: number
   /** Set once the user dismisses the entry; cleared again by a restore. */
   dismissedAt?: number
+}
+
+/**
+ * Story 074 D1: the engine kinds the bootstrap wizard is willing to offer this sprint, whatever
+ * the manifest pins. Currently just Q2PRO (Decisions (Sprint)) - kept as its own list, rather than
+ * folding this into `isEngineSupported()` (`@shared/types/engine`), because "supported by the
+ * launcher in general" and "offered by this sprint's wizard" are different questions that happen
+ * to agree today; a future engine can become launcher-supported well before the wizard is taught
+ * to bootstrap it.
+ */
+export const BOOTSTRAP_SUPPORTED_ENGINES: readonly EngineKind[] = ['q2pro']
+
+/**
+ * Story 074 D1: one engine choice the wizard's first step can offer - resolved from a manifest pin
+ * that survived the `BOOTSTRAP_SUPPORTED_ENGINES` filter (`bootstrapEngineOptions`'s handler,
+ * `src/main/modules/downloads/index.ts`). Deliberately its own shape, not `ManifestPackage` reused
+ * as-is - the wizard step only ever needs to identify and label a choice, never the mirrors/
+ * contents a `ManifestPackage` also carries.
+ */
+export interface BootstrapEngineOption {
+  engine: EngineKind
+  /** The pinned `ManifestPackage.id` this option would install. */
+  packageId: string
+  /** The pinned package's version, for display. */
+  version: string
+  /** The pinned package's download size, for display. */
+  sizeBytes: number
+}
+
+/**
+ * Story 074 D2: the verdict `computeTargetVerdict` (`src/main/modules/downloads/bootstrap/target.ts`)
+ * produces for a folder the wizard's target-folder step is considering - "the wizard renders
+ * verdicts, it never judges paths itself" (Decisions (Sprint)). Every field is a plain fact about
+ * the folder; whether a given combination is merely a warning ("continue anyway") or blocks the
+ * wizard entirely is `blocked`'s job, not something the renderer re-derives from the other fields.
+ */
+export interface BootstrapTargetVerdict {
+  /** Canonicalised, absolute path the wizard would install into. */
+  targetPath: string
+  /**
+   * True when the canonicalised target sits under `%ProgramFiles%` or `%ProgramFiles(x86)%`
+   * (case-insensitive prefix match, since Windows paths are). Writing there needs elevation, but
+   * the remedy - the existing `set-write-dir` mechanism `inspectInstallation` already uses - is a
+   * later deliverable's UI concern, not this flag's: it only reports the fact.
+   */
+  programFiles: boolean
+  /**
+   * True when a cheap writability probe against the target (or, if the target does not exist yet,
+   * its nearest existing ancestor) failed. Not blocking by itself: a `programFiles` target is
+   * *expected* to fail this and is handled by that flag's remedy flow, not by generic blocking, so
+   * a folder can be `notWritable: true` and `blocked: false` at the same time.
+   */
+  notWritable: boolean
+  /**
+   * A directory listing of the target folder, capped at `MAX_TARGET_VERDICT_ENTRIES` entries -
+   * names only, not full metadata, since this is purely informational content for the AC3 "this
+   * folder isn't empty" warning. Empty when the target does not exist yet or holds nothing.
+   */
+  entries: string[]
+  /**
+   * True when `inspectInstallation` already recognises the target as a working Quake II
+   * installation. Unlike a merely non-empty folder (which is only a warning), this blocks the
+   * wizard outright - the wizard's copy is "add it as an existing installation instead", not
+   * "continue anyway".
+   */
+  alreadyInstalled: boolean
+  /**
+   * True when the wizard can never proceed against this target, whatever the user says -
+   * `alreadyInstalled`, or the path itself failed a path-safety check (see `blockedReason`). Any
+   * other warning (`programFiles`, `notWritable`, a non-empty `entries`) leaves this `false`:
+   * "continue anyway" is the wizard's call, not this function's.
+   */
+  blocked: boolean
+  /**
+   * Why `blocked` is `true`; absent whenever it is `false`.
+   *
+   * - `'alreadyInstalled'` - `alreadyInstalled` above is `true`.
+   * - `'unsafePath'` - the target is not a path this launcher will ever write to: not absolute
+   *   once canonicalised, a Windows device path (`\\.\...`) or a reserved device name (`CON`,
+   *   `NUL`, `PRN`, `COM1`-`COM9`, `LPT1`-`LPT9`), or inside the launcher's own installation
+   *   directory.
+   */
+  blockedReason?: 'alreadyInstalled' | 'unsafePath'
+}
+
+/**
+ * Story 074 D4: the name a bootstrapped installation gets when the wizard does not carry one
+ * (Decisions (Sprint)). Not an i18n key: an installation name is user data the user can rename,
+ * not a translated label - the same reason `suggestName()` (`main/services/inspector.ts`) hands
+ * back a bare folder name. Exported from the contract so the wizard's name field can prefill with
+ * exactly what main would default to.
+ */
+export const DEFAULT_BOOTSTRAP_INSTALLATION_NAME = 'Q2PRO Demo'
+
+/**
+ * Story 074 D1 placeholder, finalized by D4: what `bootstrap.start` takes. `engine` is validated
+ * against `BOOTSTRAP_SUPPORTED_ENGINES` by the handler's schema, so this sprint it is always
+ * `'q2pro'`.
+ */
+export interface StartBootstrapInput {
+  engine: EngineKind
+  /** Absolute folder to install into. Re-verified in main by `computeTargetVerdict` - a renderer
+   * that skipped or ignored the target step cannot get past the handler. */
+  targetPath: string
+  /** Installation name; main falls back to `DEFAULT_BOOTSTRAP_INSTALLATION_NAME` when absent. */
+  name?: string
+  /** AC7's optional extras: `video/*` and `players/*` out of the point-release archive. */
+  includeVideoAndPlayers: boolean
+  /**
+   * Story 074 AC2's remedy, threaded end to end: when the target step's Program-Files warning
+   * offered "pick a write dir" and the user picked one, this is that path. Persisted on the
+   * freshly-created installation via the same `Installation.writeDirPath` field
+   * `ChecksList.tsx`'s existing `set-write-dir` remedy writes - not a second write-access concept.
+   * Absent when the user never picked a remedy path (or the warning never applied).
+   */
+  writeDirPath?: string
+}
+
+/** One package a bootstrap would download, as the confirm step lists it. */
+export interface BootstrapSummaryPackage {
+  /** The `ManifestPackage.id`. */
+  id: string
+  version: string
+  sizeBytes: number
+  /** What this package contributes: the engine build, the free demo data, or the point release. */
+  role: 'engine' | 'demo' | 'point-release'
+}
+
+/**
+ * Story 074 D1 placeholder, finalized by D4: what the wizard's confirm step renders before
+ * anything is downloaded (AC4) - the three packages and their summed size.
+ *
+ * D1 guessed a post-run summary (`installationId`); the shape the story actually needs is this
+ * pre-run one, because AC4's "the confirm step states what will be downloaded and how large it is"
+ * is the only place a summary is read. What comes out of a *finished* bootstrap is the
+ * `Installation` itself plus its job - neither needs a second wire type.
+ */
+export interface BootstrapSummary {
+  /** The target path as the wizard sent it to `bootstrapSummary` - not independently
+   * re-canonicalised here (that already happened once, in the target step's own
+   * `computeTargetVerdict` call); AC4 only needs the same path echoed back for display. */
+  targetPath: string
+  engine: EngineKind
+  /** Engine build, demo data, point release - in download order. */
+  packages: BootstrapSummaryPackage[]
+  /** Sum of every entry's `sizeBytes`; the number AC4's confirm step states. */
+  totalSizeBytes: number
+  includeVideoAndPlayers: boolean
 }

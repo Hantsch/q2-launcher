@@ -586,6 +586,20 @@ export const SCREENS = [
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },
+  // Story 074 D8 deliberately adds NO registry entry for the bootstrap wizard, and this is a
+  // decision rather than an omission. Opening the wizard mounts `BootstrapWizard`, whose first
+  // effect calls `bootstrap.engineOptions`, which fetches the curated manifest - so a registry
+  // screen for any of its four steps would make every `npm run ui:verify` run reach out to
+  // raw.githubusercontent.com, breaking the harness's own "never touches the network" guarantee
+  // (see "Isolation from your real app state" in docs/UI-VERIFICATION.md) and rendering an
+  // engine step whose content depends on whoever ran it having a working connection.
+  //
+  // The wizard's screens live in `scripts/flows/bootstrap-wizard.mjs` instead, which starts a
+  // `127.0.0.1` fixture server before launching the app and takes its own `shot()`s of all four
+  // steps - the same "a live thing a static state.json cannot seed belongs in a flow" split story
+  // 073 D6 made for the Downloads tab's running/failed jobs, one step further: here it is the
+  // *manifest source*, not just the job, that only a flow can provide.
+  //
   // `config-write-preview` (story 037 D3) is RETIRED here: it drove the Raw tab's per-installation
   // expand toggle (`config-raw-expand`) into `RawConfigPanel`, but story 057 D3 compacted RawFileTab
   // down to one path/status line, one file-options toolbar row and the profile's own canonical file

@@ -1,4 +1,5 @@
 import { useLauncher } from '../../store/useLauncher'
+import { rendererModule } from '../../modules'
 import { AddExistingDialog } from './AddExistingDialog'
 import { CleanupConfigCopiesDialog } from './CleanupConfigCopiesDialog'
 import { CreateInstallationDialog } from './CreateInstallationDialog'
@@ -31,6 +32,13 @@ export function Dialogs() {
       return <CleanupConfigCopiesDialog installationId={dialog.installationId} />
     case 'installationIcon':
       return <SetInstallationIconDialog installationId={dialog.installationId} />
+    case 'module': {
+      // Story 074 D5: the generic seam - the shell never imports a module's own dialog
+      // component, it only resolves the module and mounts whatever `Dialogs` it registers.
+      const mod = rendererModule(dialog.moduleId)
+      const ModuleDialogs = mod?.Dialogs
+      return ModuleDialogs ? <ModuleDialogs view={dialog.view} /> : null
+    }
     case 'none':
       return null
   }
