@@ -2,8 +2,10 @@ import { useTranslation } from 'react-i18next'
 import { Home, Minus, Settings, Square, X } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { invoke } from '../../lib/bridge'
-import { ROUTE_HOME, ROUTE_SETTINGS, useLauncher } from '../../store/useLauncher'
+import type { ModuleId } from '@shared/types'
+import { ROUTE_HOME, ROUTE_SETTINGS, useActiveJobCount, useLauncher } from '../../store/useLauncher'
 import { moduleIcon } from './moduleIcons'
+import { NavJobBadge } from './NavJobBadge'
 
 /**
  * Custom window chrome plus the primary navigation.
@@ -74,20 +76,16 @@ export function TitleBar() {
 
       {/* Utility (secondary nav) + Settings + window controls */}
       <div className="flex items-center gap-1 pr-1 pl-2">
-        {utilityModules.map((module) => {
-          const Icon = moduleIcon(module.icon)
-          return (
-            <UtilityButton
-              key={module.id}
-              testId={`nav-${module.id}`}
-              label={t(module.titleKey)}
-              active={route === module.route}
-              onClick={() => setRoute(module.route)}
-            >
-              <Icon className="size-5" />
-            </UtilityButton>
-          )
-        })}
+        {utilityModules.map((module) => (
+          <UtilityModuleButton
+            key={module.id}
+            moduleId={module.id}
+            titleKey={module.titleKey}
+            icon={module.icon}
+            active={route === module.route}
+            onClick={() => setRoute(module.route)}
+          />
+        ))}
 
         <UtilityButton
           testId="nav-settings"
@@ -161,17 +159,57 @@ function NavItem({
   )
 }
 
+/**
+ * A utility-nav button for a module (e.g. Downloads): resolves its own active
+ * job count and swaps in the count-aware, pluralised label when jobs are
+ * active - story 032 D3. Kept generic over `moduleId`, never hardcoded to a
+ * specific module, so any current or future secondary module gets the badge
+ * for free.
+ */
+function UtilityModuleButton({
+  moduleId,
+  titleKey,
+  icon,
+  active,
+  onClick,
+}: {
+  moduleId: ModuleId
+  titleKey: string
+  icon: string
+  active: boolean
+  onClick: () => void
+}) {
+  const { t } = useTranslation()
+  const Icon = moduleIcon(icon)
+  const activeJobCount = useActiveJobCount(moduleId)
+  const label = activeJobCount > 0 ? t('nav.activeJobs', { count: activeJobCount }) : t(titleKey)
+
+  return (
+    <UtilityButton
+      testId={`nav-${moduleId}`}
+      label={label}
+      active={active}
+      onClick={onClick}
+      badge={activeJobCount}
+    >
+      <Icon className="size-5" />
+    </UtilityButton>
+  )
+}
+
 function UtilityButton({
   testId,
   label,
   active,
   onClick,
+  badge,
   children,
 }: {
   testId?: string
   label: string
   active: boolean
   onClick: () => void
+  badge?: number
   children: React.ReactNode
 }) {
   return (
@@ -182,11 +220,12 @@ function UtilityButton({
       title={label}
       onClick={onClick}
       className={cn(
-        'no-drag grid size-11 place-items-center rounded-sm transition-colors duration-[--dur-fast]',
+        'no-drag relative grid size-11 place-items-center rounded-sm transition-colors duration-[--dur-fast]',
         active ? 'bg-hover text-flame-300' : 'text-ink-muted hover:bg-hover hover:text-ink',
       )}
     >
       {children}
+      {!!badge && <NavJobBadge count={badge} testId={testId ? `${testId}-badge` : undefined} />}
     </button>
   )
 }

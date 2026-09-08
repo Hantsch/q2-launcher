@@ -15,7 +15,13 @@ import type {
   ToastMessage,
   UpdateInstallationInput,
 } from '@shared/types'
-import { DEFAULT_SETTINGS, IDLE_LAUNCH_STATE, isJobActive, MODULE_MANIFESTS } from '@shared/types'
+import {
+  countActiveJobs,
+  DEFAULT_SETTINGS,
+  IDLE_LAUNCH_STATE,
+  isJobActive,
+  MODULE_MANIFESTS,
+} from '@shared/types'
 import { changeLocale } from '../i18n'
 import { invoke, onEvent } from '../lib/bridge'
 import { newId } from '../lib/id'
@@ -411,4 +417,9 @@ export function useActiveJob(installationId?: string | null): Job | null {
       null
     )
   })
+}
+
+/** Number of active (queued/running/paused) jobs owned by the given module - story 032 D3. */
+export function useActiveJobCount(moduleId: ModuleId): number {
+  return useLauncher((state) => countActiveJobs(state.jobs, moduleId))
 }

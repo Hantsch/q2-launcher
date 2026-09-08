@@ -63,3 +63,11 @@
 - 2026-09-08 13:12 · 074 · story verification (build/test/typecheck/ui:verify/ui:flow) · done
 - 2026-09-08 13:12 · 074 · review cycle 1 (FAIL, 6 findings) → fix → review cycle 2 (PASS) · done
 - 2026-09-08 13:12 · 074 · story done · done
+- 2026-09-08 13:15 · 032 · D1 shared active-job count · started
+- 2026-09-08 13:16 · 032 · D1 shared active-job count · done
+- 2026-09-08 13:16 · 032 · D2 badge component · started
+- 2026-09-08 13:17 · 032 · D2 badge component · done
+- 2026-09-08 13:17 · 032 · D3 wire to real job state · started
+- 2026-09-08 13:19 · 032 · D3 wire to real job state · done
+- 2026-09-08 13:19 · 032 · D4 machine-verified e2e flow · started
+- 2026-09-08 13:25 · 032 · D4 machine-verified e2e flow · done

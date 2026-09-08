@@ -47,3 +47,8 @@ export interface Job {
 export function isJobActive(job: Job): boolean {
   return job.status === 'queued' || job.status === 'running' || job.status === 'paused'
 }
+
+/** Number of active jobs (queued/running/paused) owned by the given module. */
+export function countActiveJobs(jobs: Job[], moduleId: ModuleId): number {
+  return jobs.filter((job) => job.moduleId === moduleId && isJobActive(job)).length
+}

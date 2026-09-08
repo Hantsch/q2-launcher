@@ -1,7 +1,7 @@
 ---
 id: 032
 title: Downloads icon shows a running-count badge
-status: ready
+status: done
 created: 2026-08-21
 ---
 
@@ -19,14 +19,14 @@ truth to bind to instead of a placeholder.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The Downloads icon shows a small badge with the current number of *active*
+- [x] **AC1** — The Downloads icon shows a small badge with the current number of *active*
       downloads whenever that number is greater than zero. "Active" is `isJobActive` —
       `queued`, `running` or `paused` (see Decisions: D-paused).
-- [ ] **AC2** — The badge disappears when no downloads are active.
-- [ ] **AC3** — The count is driven by real job state from the downloads module, not a
+- [x] **AC2** — The badge disappears when no downloads are active.
+- [x] **AC3** — The count is driven by real job state from the downloads module, not a
       placeholder or a count of unrelated jobs (jobs of other modules never count; jobs the
       downloads module itself produces — including repair — do, see Decisions: D-scope).
-- [ ] **AC4** — Badge styling matches existing status/badge conventions (see `Badge` in
+- [x] **AC4** — Badge styling matches existing status/badge conventions (see `Badge` in
       [primitives.tsx](../../src/renderer/src/components/ui/primitives.tsx)) rather than
       introducing a new one-off style.
 
@@ -104,23 +104,23 @@ no `webPreferences`/CSP/IPC surface change.
 
 ## Deliverables
 
-- **D1 — shared active-job count.** `countActiveJobs(jobs, moduleId)` in
+- [x] **D1 — shared active-job count.** `countActiveJobs(jobs, moduleId)` in
   `src/shared/types/jobs.ts`, plus its test in `src/shared/types/jobs.test.ts` (new; mirror
   `src/shared/types/engine.test.ts`). Accepted when the test proves: other modules' jobs are
   excluded, `queued`/`running`/`paused` count, `succeeded`/`failed`/`cancelled` do not.
   *(AC3)*
-- **D2 — the badge itself.** New `src/renderer/src/components/shell/NavJobBadge.tsx` +
+- [x] **D2 — the badge itself.** New `src/renderer/src/components/shell/NavJobBadge.tsx` +
   `NavJobBadge.test.tsx` (jsdom docblock, `@testing-library/react`; mirror
   `src/renderer/src/components/installations/InstallationTile.test.tsx`), plus the two
   `nav.activeJobs_*` keys in `src/renderer/src/i18n/locales/en.json`. Accepted when the test
   proves: nothing rendered at 0, `3` at 3, `99+` at 120, and the rendered node is the shared
   `Badge` (no bespoke pill markup/colour). *(AC2, AC4)*
-- **D3 — wire it to real job state.** `useActiveJobCount` in
+- [x] **D3 — wire it to real job state.** `useActiveJobCount` in
   `src/renderer/src/store/useLauncher.ts` and the badge + count-aware `aria-label` in
   `src/renderer/src/components/shell/TitleBar.tsx` (`UtilityButton` gains `relative` and
   `badge`). Accepted when the Downloads button carries `nav-downloads-badge` whenever
   `downloads` jobs are active, driven only by the store's `jobs`. *(AC1, AC3)*
-- **D4 — machine-verified through the real app.** New `scripts/flows/downloads-badge-count.mjs`
+- [x] **D4 — machine-verified through the real app.** New `scripts/flows/downloads-badge-count.mjs`
   (mirror `scripts/flows/import-from-files.mjs`) and a `downloads-badge` screen entry in
   `scripts/lib/screens.mjs`. Accepted when `npm run ui:flow downloads-badge-count` exits 0 and
   `npm run ui:verify` is green (screenshot + axe on the badged titlebar). *(AC1, AC2)*
@@ -154,3 +154,52 @@ no `webPreferences`/CSP/IPC surface change.
 No manual residue: every criterion is observable through the real surface or a pure unit.
 
 ## Done
+
+Implemented the running-count badge for the Downloads titlebar button entirely in the
+renderer: a pure `countActiveJobs(jobs, moduleId)` predicate in shared types, a presentational
+`NavJobBadge` built on the existing `Badge` primitive, a `useActiveJobCount` store selector, and
+generic wiring into `TitleBar.tsx`'s utility-module loop (no `'downloads'` hardcoding) with a
+count-aware, pluralised `aria-label`. No IPC channel, no main-process change.
+
+**Commit message:** `032: downloads icon shows a running-count badge`
+
+**Verification:**
+- `npm run build` — green.
+- `npm run typecheck` — green (node + web).
+- `npm test` — 3029/3030 passed; 1 pre-existing flaky timeout in
+  `src/main/modules/config/core/import-reader.test.ts` › "refuses further exec once 512 files
+  have been opened" — unrelated to this story's files. Re-ran in isolation
+  (`npx vitest run src/main/modules/config/core/import-reader.test.ts -t "refuses further exec
+  once"` → 1 passed), confirming a timing flake on this machine, not a regression from this
+  change.
+- `npm run ui:flow downloads-badge-count` — exit 0, both flow steps passed.
+- `npm run ui:verify` — green: 68/68 screenshots, 0 axe violations, includes the new
+  `downloads-badge` screen entry (badged titlebar) at both viewport sizes.
+- Code review (clean agent, default tier per Model Hints) — overall verdict **PASS**, no
+  blocking findings. One non-blocking observation: the exact `count === 99` boundary isn't
+  separately unit-tested (only 3 and 120 are), though the `count > 99 ? '99+' : String(count)`
+  implementation is correct by inspection — accepted as-is, not worth a fix cycle.
+
+**AC → test mapping, as verified:**
+- AC1 → e2e `scripts/flows/downloads-badge-count.mjs` › "two active downloads badge the
+  Downloads button with 2" (passed), backed by unit `NavJobBadge.test.tsx` › "renders the
+  count" (passed).
+- AC2 → e2e `scripts/flows/downloads-badge-count.mjs` › "cancelling every job removes the
+  badge" (passed), plus unit `NavJobBadge.test.tsx` › "renders nothing at zero" (passed).
+- AC3 → unit `src/shared/types/jobs.test.ts` › "counts only the given module's active jobs"
+  (passed — other-module jobs excluded, finished jobs excluded, paused included).
+- AC4 → unit `NavJobBadge.test.tsx` › "uses the shared Badge primitive" (passed), plus the
+  axe/screenshot pass on `downloads-badge` in `npm run ui:verify` (clean).
+
+No manual residue. No open points or blockers.
+
+**Decisions (implementation-level, not already in the story's Decisions section):**
+- `UtilityButton` was split into a small `UtilityModuleButton` wrapper in `TitleBar.tsx` so
+  `useActiveJobCount(module.id)` — a hook — is called once per module item rather than inside
+  a loop; reviewed and accepted as required plumbing for D-generic, not scope creep.
+- The badge's test id is derived generically as `` `nav-${moduleId}-badge` ``, which produces
+  `nav-downloads-badge` for the Downloads module without a literal `'downloads'` check
+  anywhere in the wiring code.
+- The e2e flow (D4) seeds jobs via `dev:simulateJob` with `{ scenario: 'stall' }` (holds a job
+  at partial progress indefinitely) and cancels via `jobs:cancel` with the job id looked up
+  through `jobs:list`.

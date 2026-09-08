@@ -54,7 +54,9 @@
   "nav": {
     "home": "Home",
     "settings": "Settings",
-    "settingsTitle": "Launcher settings"
+    "settingsTitle": "Launcher settings",
+    "activeJobs_one": "{{count}} active job",
+    "activeJobs_other": "{{count}} active jobs"
   },
 
   "module": {

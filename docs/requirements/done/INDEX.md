@@ -12,6 +12,11 @@ second roadmap.
   pipeline, assembles a `baseq2`-only installation via an allowlist (never `ctf`/`xatrix`/`rogue`),
   and marks it "Demo" everywhere its engine-computed status is shown.
 
+- 032 — Downloads icon shows a running-count badge · S16 · the titlebar's Downloads button now
+  carries a `Badge`-based running-count badge, driven generically per utility module from the
+  renderer's own job store (`countActiveJobs` over `moduleId`+`isJobActive`), with a
+  pluralised count-aware `aria-label` and a machine-verified e2e flow.
+
 - 001 — Config module scaffold and central profile store · S01 · module wired in with a persisted
   `configProfiles` store and a master/detail create/rename/delete view.
 - 002 — Profile-installation assignment and default profile · S01 · many-to-many assignment with a

@@ -46,7 +46,7 @@ then wires all of it into one guided flow.
 - [x] 072 — Settings learn to host a module's own section, starting with Downloads
 - [x] 073 — The Downloads tab shows what is running, what failed, and what is cached
 - [x] 074 — The Library turns nothing into a playable Q2PRO demo installation
-- [ ] 032 — Downloads icon shows a running-count badge
+- [x] 032 — Downloads icon shows a running-count badge
 
 ## Notes
 

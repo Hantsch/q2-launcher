@@ -586,6 +586,31 @@ export const SCREENS = [
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },
+  {
+    id: 'downloads-badge',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 032 D4: the titlebar's Downloads button badged with an active-job count
+    // (`nav-downloads-badge`, TitleBar.tsx/NavJobBadge.tsx). Like the `downloads` screen above, a
+    // live job cannot be seeded through the static `state.json` fixture, so this seeds two through
+    // the dev-only `dev:simulateJob` channel (`scenario: 'stall'`, held at ~40% forever — never
+    // finishes on its own, so the badge cannot drop mid-session) the same way
+    // `scripts/flows/downloads-badge-count.mjs` does. Waits for the badge itself rather than just
+    // the two `dev:simulateJob` calls settling, ruling out a screenshot racing the store's own
+    // `useActiveJobCount` re-render.
+    navigate: async (page) => {
+      const simulate = () =>
+        page.evaluate(() => window.q2.invoke('dev:simulateJob', { scenario: 'stall' }))
+      const first = await simulate()
+      if (!first?.ok) throw new Error(`downloads-badge: dev:simulateJob failed: ${JSON.stringify(first)}`)
+      const second = await simulate()
+      if (!second?.ok) throw new Error(`downloads-badge: dev:simulateJob failed: ${JSON.stringify(second)}`)
+
+      await page
+        .getByTestId('nav-downloads-badge')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
   // Story 074 D8 deliberately adds NO registry entry for the bootstrap wizard, and this is a
   // decision rather than an omission. Opening the wizard mounts `BootstrapWizard`, whose first
   // effect calls `bootstrap.engineOptions`, which fetches the curated manifest - so a registry
