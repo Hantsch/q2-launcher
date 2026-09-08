@@ -1,6 +1,6 @@
 ---
 sprint: S16
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/S16
 milestone: Install — bootstrap, update and repair
 ---
