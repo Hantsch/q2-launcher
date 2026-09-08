@@ -526,6 +526,25 @@ export const SCREENS = [
     },
   },
   {
+    id: 'settings-downloads-clear-cache-confirm',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 072 D6: the downloads module's contributed Settings section (D1/D5) - clicking its
+    // "Clear cache" button (`downloads-settings-clear-cache`, DownloadsSettingsSection.tsx) opens a
+    // `Modal` confirm naming the current size/count before anything is deleted (AC4). Waits on the
+    // confirm body testid (`downloads-settings-clear-cache-confirm`) rather than a bare
+    // `getByRole('dialog')`, since the button is disabled until `cacheStatus` resolves
+    // (`!cacheStatus || cacheStatus.itemCount === 0`) - the fixture's two dummy archives
+    // (scripts/lib/fixture.mjs) are what make it clickable at all.
+    navigate: async (page) => {
+      await click(page, 'nav-settings')
+      await click(page, 'downloads-settings-clear-cache')
+      await page
+        .getByTestId('downloads-settings-clear-cache-confirm')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
     id: 'mods',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,

@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ExternalLink, FlaskConical, FolderOpen } from 'lucide-react'
 import { APP_REPO_URL } from '@shared/constants'
@@ -8,16 +9,46 @@ import { SUPPORTED_LOCALES } from '../i18n'
 import { Button } from '../components/ui/Button'
 import { Select, Switch } from '../components/ui/controls'
 import { Divider, KeyValue, Panel, SectionLabel } from '../components/ui/primitives'
+import { RENDERER_MODULES, type RendererModule } from '../modules'
 
 const LOCALE_NAMES: Record<string, string> = {
   en: 'English',
 }
 
-export function SettingsView() {
+/**
+ * Module-contributed sections, sorted by `order` then module id so a tie is
+ * deterministic instead of depending on registration order in `modules/index.ts`.
+ */
+function settingsSections(
+  modules: readonly RendererModule[],
+): Array<{ id: string; titleKey: string; order: number; Section: ComponentType }> {
+  return modules
+    .filter((module) => module.settingsSection !== undefined)
+    .map((module) => ({
+      id: module.id,
+      titleKey: module.settingsSection!.titleKey,
+      order: module.settingsSection!.order,
+      Section: module.settingsSection!.Section,
+    }))
+    .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))
+}
+
+export interface SettingsViewProps {
+  /**
+   * Defaults to the real registry. Overridable so tests can prove the
+   * module-contributed-section mechanism with a stub module instead of
+   * depending on a real one being registered.
+   */
+  modules?: readonly RendererModule[]
+}
+
+export function SettingsView(props: SettingsViewProps = {}) {
+  const { modules = RENDERER_MODULES } = props
   const { t } = useTranslation()
   const settings = useLauncher((state) => state.settings)
   const patchSettings = useLauncher((state) => state.patchSettings)
   const appInfo = useLauncher((state) => state.appInfo)
+  const contributedSections = settingsSections(modules)
 
   return (
     <div className="h-full overflow-y-auto scrollbar-gutter-stable">
@@ -96,6 +127,13 @@ export function SettingsView() {
             onChange={(scanOnFirstRun) => void patchSettings({ scanOnFirstRun })}
           />
         </Panel>
+
+        {contributedSections.map(({ id, titleKey, Section }) => (
+          <Panel key={id} className="space-y-2.5 p-4" data-testid={`settings-section-${id}`}>
+            <SectionLabel>{t(titleKey)}</SectionLabel>
+            <Section />
+          </Panel>
+        ))}
 
         <Panel className="space-y-2.5 p-4">
           <SectionLabel>{t('settings.section.about')}</SectionLabel>

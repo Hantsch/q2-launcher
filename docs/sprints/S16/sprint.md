@@ -42,8 +42,8 @@ then wires all of it into one guided flow.
 ## Stories (in build order)
 
 - [x] 070 — The launcher reads a curated manifest instead of hardcoded download URLs
-- [ ] 071 — A download is a verified job, never a trusted file
-- [ ] 072 — Settings learn to host a module's own section, starting with Downloads
+- [x] 071 — A download is a verified job, never a trusted file
+- [x] 072 — Settings learn to host a module's own section, starting with Downloads
 - [ ] 073 — The Downloads tab shows what is running, what failed, and what is cached
 - [ ] 074 — The Library turns nothing into a playable Q2PRO demo installation
 - [ ] 032 — Downloads icon shows a running-count badge

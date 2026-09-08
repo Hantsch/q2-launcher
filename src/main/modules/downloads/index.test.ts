@@ -1,12 +1,18 @@
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, open, readdir, rm, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DOWNLOADS_HANDLERS, type ManifestSnapshot } from '@shared/modules/downloads'
+import {
+  DEFAULT_DOWNLOADS_SETTINGS,
+  DOWNLOADS_HANDLERS,
+  type DownloadsSettings,
+  type ManifestSnapshot,
+} from '@shared/modules/downloads'
 import { fail, type Outcome } from '@shared/types'
 import type { Logger } from '../../lib/logger'
 import type { ModuleHandler, ModuleSetup } from '../types'
 import { downloadsModule } from './index'
+import { getDownloadsCacheDir } from './paths'
 
 /**
  * Story 070 D4: the downloads module's main half. Covers the acceptance line verbatim - the
@@ -91,15 +97,37 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
 })
 
-async function setUpModule(): Promise<Map<string, ModuleHandler>> {
+async function setUpModule(app: ModuleSetup['app'] = {} as ModuleSetup['app']): Promise<
+  Map<string, ModuleHandler>
+> {
   const handlers = new Map<string, ModuleHandler>()
   await downloadsModule.setup({
     handle: collectHandlers(handlers),
     emit: vi.fn(),
-    app: {} as ModuleSetup['app'],
+    app,
     log: fakeLogger(),
   })
   return handlers
+}
+
+/**
+ * A minimal stand-in for `AppContext['state']`, holding only the two methods this module's D4
+ * handlers call. Kept in-memory rather than backed by a real `StateStore` (json-store + disk):
+ * persistence itself is D2/`state.test.ts`'s job, this suite only needs to prove the handlers read
+ * and write through whatever `app.state` gives them.
+ */
+function fakeDownloadsState(initial: DownloadsSettings): {
+  getDownloadsSettings: () => DownloadsSettings
+  setDownloadsSettings: (next: DownloadsSettings) => DownloadsSettings
+} {
+  let current = initial
+  return {
+    getDownloadsSettings: () => current,
+    setDownloadsSettings: (next) => {
+      current = next
+      return current
+    },
+  }
 }
 
 describe('downloadsModule', () => {
@@ -139,5 +167,149 @@ describe('downloadsModule', () => {
       // dotted-key shape every other i18n error key in this codebase uses.
       expect(outcome.error.key).not.toMatch(/\s/)
     }
+  })
+})
+
+/**
+ * Story 072 D4 (AC2, AC3, AC4, AC5).
+ *
+ * `getSettings`/`patchSettings`/`cacheStatus`/`clearCache` cover a persisted-settings slot
+ * (`fakeDownloadsState`, an in-memory stand-in for `AppContext['state']` - persistence itself is
+ * D2's job, already covered by `state.test.ts`) plus real archive-cache files under the mocked
+ * `userDataBox.current` (the same `electron.app.getPath` stub `manifestGet`'s own suite above
+ * uses), so eviction is proven against an actual directory listing, not just a return value - the
+ * same "trust the disk, not the report" discipline `cache.test.ts` (D3) already applies.
+ */
+describe('downloadsModule settings + cache handlers', () => {
+  it('getSettings answers the persisted values', async () => {
+    const nonDefault: DownloadsSettings = {
+      concurrentJobs: 4,
+      archiveCacheBudgetGB: 10,
+      downloadWhilePlayingAllowed: false,
+    }
+    const handlers = await setUpModule({
+      state: fakeDownloadsState(nonDefault),
+    } as unknown as ModuleSetup['app'])
+
+    const result = await handlers.get(DOWNLOADS_HANDLERS.getSettings)!(undefined)
+
+    expect(result).toEqual(nonDefault)
+  })
+
+  it('patchSettings refuses a value outside the allowed range', async () => {
+    const state = fakeDownloadsState({ ...DEFAULT_DOWNLOADS_SETTINGS })
+    const handlers = await setUpModule({ state } as unknown as ModuleSetup['app'])
+    const patchSettings = handlers.get(DOWNLOADS_HANDLERS.patchSettings)!
+
+    const tooLow = (await patchSettings({ concurrentJobs: 0 })) as Outcome<DownloadsSettings>
+    const tooHigh = (await patchSettings({ concurrentJobs: 7 })) as Outcome<DownloadsSettings>
+    const unlistedBudget = (await patchSettings({
+      archiveCacheBudgetGB: 3,
+    })) as Outcome<DownloadsSettings>
+
+    expect(tooLow.ok).toBe(false)
+    expect(tooHigh.ok).toBe(false)
+    expect(unlistedBudget.ok).toBe(false)
+    if (!tooLow.ok) expect(tooLow.error.key).toBe('ipc.error.invalidPayload')
+
+    // None of the three rejected patches touched the persisted value.
+    expect(state.getDownloadsSettings()).toEqual(DEFAULT_DOWNLOADS_SETTINGS)
+  })
+
+  it('a valid patch merges onto (and persists over) the previous settings', async () => {
+    const state = fakeDownloadsState({ ...DEFAULT_DOWNLOADS_SETTINGS })
+    const handlers = await setUpModule({ state } as unknown as ModuleSetup['app'])
+    const patchSettings = handlers.get(DOWNLOADS_HANDLERS.patchSettings)!
+
+    const result = (await patchSettings({
+      downloadWhilePlayingAllowed: false,
+    })) as DownloadsSettings
+
+    expect(result).toEqual({ ...DEFAULT_DOWNLOADS_SETTINGS, downloadWhilePlayingAllowed: false })
+    expect(state.getDownloadsSettings()).toEqual(result)
+  })
+
+  /** Grows `path` to `sizeBytes` without writing real content - a truncate-grow is a metadata
+   * operation, not a byte-by-byte write, which is what keeps a real-budget-scale (GB) fixture like
+   * this one fast. */
+  async function sparseArchive(path: string, sizeBytes: number, mtimeMs: number): Promise<void> {
+    const handle = await open(path, 'w')
+    try {
+      await handle.truncate(sizeBytes)
+    } finally {
+      await handle.close()
+    }
+    const when = new Date(mtimeMs)
+    await utimes(path, when, when)
+  }
+
+  const MB = 1024 * 1024
+
+  it('lowering the budget evicts down to it', async () => {
+    const cacheDir = getDownloadsCacheDir(userDataBox.current)
+    await mkdir(cacheDir, { recursive: true })
+    const t0 = Date.UTC(2026, 0, 1)
+    // Two 700 MB archives: together (1400 MB) exceed a 1 GB budget, but either one alone fits.
+    await sparseArchive(join(cacheDir, 'old.zip'), 700 * MB, t0)
+    await sparseArchive(join(cacheDir, 'new.zip'), 700 * MB, t0 + 3_600_000)
+
+    const state = fakeDownloadsState({ ...DEFAULT_DOWNLOADS_SETTINGS, archiveCacheBudgetGB: 10 })
+    const handlers = await setUpModule({ state } as unknown as ModuleSetup['app'])
+    const patchSettings = handlers.get(DOWNLOADS_HANDLERS.patchSettings)!
+
+    const result = (await patchSettings({ archiveCacheBudgetGB: 1 })) as DownloadsSettings
+
+    expect(result.archiveCacheBudgetGB).toBe(1)
+    // The oldest archive was evicted; the newer one, which alone fits the new budget, stays.
+    expect((await readdir(cacheDir)).sort()).toEqual(['new.zip'])
+  })
+
+  it('raising the budget never evicts anything', async () => {
+    const cacheDir = getDownloadsCacheDir(userDataBox.current)
+    await mkdir(cacheDir, { recursive: true })
+    await writeFile(join(cacheDir, 'small.zip'), Buffer.alloc(100))
+
+    const state = fakeDownloadsState({ ...DEFAULT_DOWNLOADS_SETTINGS, archiveCacheBudgetGB: 1 })
+    const handlers = await setUpModule({ state } as unknown as ModuleSetup['app'])
+    const patchSettings = handlers.get(DOWNLOADS_HANDLERS.patchSettings)!
+
+    await patchSettings({ archiveCacheBudgetGB: 20 })
+
+    expect(await readdir(cacheDir)).toEqual(['small.zip'])
+  })
+
+  it('cacheStatus reports the seeded cache size and item count', async () => {
+    const cacheDir = getDownloadsCacheDir(userDataBox.current)
+    await mkdir(cacheDir, { recursive: true })
+    await writeFile(join(cacheDir, 'engine.zip'), Buffer.alloc(1234))
+    await writeFile(join(cacheDir, 'demo.zip'), Buffer.alloc(4321))
+
+    const handlers = await setUpModule({
+      state: fakeDownloadsState({ ...DEFAULT_DOWNLOADS_SETTINGS }),
+    } as unknown as ModuleSetup['app'])
+
+    const result = await handlers.get(DOWNLOADS_HANDLERS.cacheStatus)!(undefined)
+
+    expect(result).toEqual({ totalBytes: 1234 + 4321, itemCount: 2 })
+  })
+
+  it('clearCache reports what it removed', async () => {
+    const cacheDir = getDownloadsCacheDir(userDataBox.current)
+    await mkdir(cacheDir, { recursive: true })
+    await writeFile(join(cacheDir, 'engine.zip'), Buffer.alloc(1000))
+    await writeFile(join(cacheDir, 'demo.zip'), Buffer.alloc(500))
+
+    const handlers = await setUpModule({
+      state: fakeDownloadsState({ ...DEFAULT_DOWNLOADS_SETTINGS }),
+    } as unknown as ModuleSetup['app'])
+
+    const result = (await handlers.get(DOWNLOADS_HANDLERS.clearCache)!(undefined)) as {
+      removedBytes: number
+      removedCount: number
+    }
+
+    expect(result).toEqual({ removedBytes: 1500, removedCount: 2 })
+    // What was reported removed is what actually disappeared from disk.
+    expect(await readdir(cacheDir)).toEqual([])
   })
 })

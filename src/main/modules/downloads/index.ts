@@ -1,6 +1,9 @@
 import { app as electronApp } from 'electron'
 import {
   DOWNLOADS_HANDLERS,
+  type ArchiveCacheStatus,
+  type ClearArchiveCacheResult,
+  type DownloadsSettings,
   type ManifestSnapshot,
   type PackageSource,
 } from '@shared/modules/downloads'
@@ -9,6 +12,7 @@ import { userDataDir } from '../../lib/paths'
 import type { AppContext } from '../../context'
 import type { MainModule } from '../types'
 import { resolveExtractorPath } from './7za-path'
+import { clear, enforceBudget, NOTHING_IN_USE, status } from './cache'
 import { ManifestService, ManifestUnavailableError } from './manifest-service'
 import {
   createDownloadPipeline,
@@ -16,7 +20,15 @@ import {
   type PipelineLog,
   type StartedDownload,
 } from './pipeline'
-import { manifestGetInputSchema } from './schemas'
+import {
+  downloadsNoInputSchema,
+  manifestGetInputSchema,
+  patchDownloadsSettingsInputSchema,
+} from './schemas'
+
+/** `DownloadsSettings.archiveCacheBudgetGB` is denominated in GB; `cache.ts` wants bytes. One
+ * place to do that conversion, so it cannot happen differently in two call sites. */
+const BYTES_PER_GB = 1024 * 1024 * 1024
 
 /**
  * The downloads module - story 070 D4.
@@ -67,6 +79,71 @@ export const downloadsModule: MainModule = {
           throw error
         }
       },
+    )
+
+    // Story 072 D4: reads the persisted settings verbatim - no failure mode of its own, so (like
+    // `library`'s `stats` and `config`'s `list`) it returns the plain value rather than an
+    // `Outcome`; `manifestGet` above only wraps because it has a real failure to report.
+    handle(DOWNLOADS_HANDLERS.getSettings, downloadsNoInputSchema, (): DownloadsSettings =>
+      app.state.getDownloadsSettings(),
+    )
+
+    /**
+     * Story 072 D4: validates and persists a partial `DownloadsSettings` patch (AC2). An
+     * out-of-range `concurrentJobs` or an `archiveCacheBudgetGB` outside
+     * `ARCHIVE_CACHE_BUDGET_CHOICES_GB` never reaches this handler at all -
+     * `patchDownloadsSettingsInputSchema` already rejects it at the registry, which answers
+     * `fail('ipc.error.invalidPayload')` before this function is entered (`MainModuleRegistry.
+     * invoke()`), so there is nothing left for this handler itself to validate.
+     *
+     * Budget enforcement (AC5, Decisions (Sprint): "runs when the budget is lowered and after a
+     * clear") only fires when the patch actually *lowers* `archiveCacheBudgetGB` below the
+     * previously persisted value - raising it or leaving the other two fields alone never evicts
+     * anything. Best-effort: a failed eviction is logged, not surfaced as a failed patch - the
+     * settings themselves were already persisted successfully, and the next lower/clear retries it.
+     */
+    handle(
+      DOWNLOADS_HANDLERS.patchSettings,
+      patchDownloadsSettingsInputSchema,
+      async (patch): Promise<DownloadsSettings> => {
+        const previous = app.state.getDownloadsSettings()
+        const merged: DownloadsSettings = { ...previous, ...patch }
+        app.state.setDownloadsSettings(merged)
+
+        if (
+          patch.archiveCacheBudgetGB !== undefined &&
+          patch.archiveCacheBudgetGB < previous.archiveCacheBudgetGB
+        ) {
+          try {
+            await enforceBudget({
+              userDataPath: userDataDir(),
+              budgetBytes: patch.archiveCacheBudgetGB * BYTES_PER_GB,
+              isInUse: NOTHING_IN_USE,
+              log,
+            })
+          } catch (error) {
+            log.error('failed to enforce the lowered archive cache budget', error)
+          }
+        }
+
+        return merged
+      },
+    )
+
+    // Story 072 D4 (AC3): the archive cache's current size/count - a thin pass-through to D3's
+    // `cache.status`, which already owns the "what counts as evictable" rule.
+    handle(DOWNLOADS_HANDLERS.cacheStatus, downloadsNoInputSchema, (): Promise<ArchiveCacheStatus> =>
+      status({ userDataPath: userDataDir(), log }),
+    )
+
+    // Story 072 D4 (AC4): deletes every evictable cache entry and reports exactly what went -
+    // D3's `cache.clear` already guarantees the report matches the deletion, so this does not
+    // reshape or recompute its result.
+    handle(
+      DOWNLOADS_HANDLERS.clearCache,
+      downloadsNoInputSchema,
+      (): Promise<ClearArchiveCacheResult> =>
+        clear({ userDataPath: userDataDir(), isInUse: NOTHING_IN_USE, log }),
     )
 
     log.debug('downloads module ready')

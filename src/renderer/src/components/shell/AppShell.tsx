@@ -51,7 +51,7 @@ export function AppShell() {
  * no gain. If deep links (`quake2launcher://...`) arrive later, this is the one
  * place that has to change.
  */
-function resolveView(route: string, modules: ModuleManifest[]): ReactElement {
+export function resolveView(route: string, modules: ModuleManifest[]): ReactElement {
   if (route === ROUTE_SETTINGS) return <SettingsView />
   if (route === ROUTE_HOME) return <HomeView />
 
@@ -59,10 +59,8 @@ function resolveView(route: string, modules: ModuleManifest[]): ReactElement {
   if (!manifest) return <HomeView />
 
   const registered = rendererModule(manifest.id)
-  if (registered) {
-    const { View } = registered
-    return <View />
-  }
+  const View = registered?.View
+  if (View) return <View />
 
   return <PlannedModuleView module={manifest} />
 }

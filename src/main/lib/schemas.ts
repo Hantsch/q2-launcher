@@ -19,9 +19,11 @@ import type {
   ConfigProfile,
 } from '@shared/modules/config'
 import {
+  ARCHIVE_CACHE_BUDGET_CHOICES_GB,
   DEFAULT_DOWNLOADS_SETTINGS,
   MAX_CONCURRENT_DOWNLOAD_JOBS,
   MIN_CONCURRENT_DOWNLOAD_JOBS,
+  type ArchiveCacheBudgetGB,
   type DownloadsSettings,
 } from '@shared/modules/downloads'
 import { isLatin1Text } from '@shared/config/q2-charset'
@@ -901,6 +903,10 @@ export function parseConfigProfiles(raw: unknown): ConfigProfile[] {
  * `concurrentJobs` (not an integer, or outside 1-6) falls back to the default rather than
  * rejecting the whole file, and a `downloads` value that isn't even an object falls back to
  * `DEFAULT_DOWNLOADS_SETTINGS` wholesale.
+ *
+ * Story 072 D2 extends this with `archiveCacheBudgetGB` (must be one of
+ * `ARCHIVE_CACHE_BUDGET_CHOICES_GB`) and `downloadWhilePlayingAllowed` (a plain boolean), each with
+ * its own `.catch()` default so a corrupt field costs only that field.
  */
 export const downloadsSettingsSchema = z
   .object({
@@ -910,6 +916,15 @@ export const downloadsSettingsSchema = z
       .min(MIN_CONCURRENT_DOWNLOAD_JOBS)
       .max(MAX_CONCURRENT_DOWNLOAD_JOBS)
       .catch(DEFAULT_DOWNLOADS_SETTINGS.concurrentJobs),
+    archiveCacheBudgetGB: z
+      .number()
+      .refine((value): value is ArchiveCacheBudgetGB =>
+        ARCHIVE_CACHE_BUDGET_CHOICES_GB.includes(value as ArchiveCacheBudgetGB),
+      )
+      .catch(DEFAULT_DOWNLOADS_SETTINGS.archiveCacheBudgetGB),
+    downloadWhilePlayingAllowed: z
+      .boolean()
+      .catch(DEFAULT_DOWNLOADS_SETTINGS.downloadWhilePlayingAllowed),
   })
   .catch(() => ({ ...DEFAULT_DOWNLOADS_SETTINGS }))
 

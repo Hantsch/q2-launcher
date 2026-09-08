@@ -875,7 +875,13 @@ describe('parseDownloadsSettings (story 071 D1)', () => {
   })
 
   it('round-trips a valid, in-range concurrentJobs', () => {
-    expect(parseDownloadsSettings({ concurrentJobs: 4 })).toEqual({ concurrentJobs: 4 })
+    // Story 072 D2: the two sibling fields are absent from the input, so they fall back to their
+    // own defaults independently of concurrentJobs - same "one bad/missing field costs only that
+    // field" shape as the rest of this schema.
+    expect(parseDownloadsSettings({ concurrentJobs: 4 })).toEqual({
+      ...DEFAULT_DOWNLOADS_SETTINGS,
+      concurrentJobs: 4,
+    })
   })
 
   it('falls back to the default instead of throwing when concurrentJobs is not a number', () => {
@@ -894,5 +900,28 @@ describe('parseDownloadsSettings (story 071 D1)', () => {
     expect(() => parseDownloadsSettings('not an object')).not.toThrow()
     expect(parseDownloadsSettings('not an object')).toEqual(DEFAULT_DOWNLOADS_SETTINGS)
     expect(parseDownloadsSettings(null)).toEqual(DEFAULT_DOWNLOADS_SETTINGS)
+  })
+
+  // Story 072 D2
+  it('round-trips a valid archiveCacheBudgetGB and downloadWhilePlayingAllowed', () => {
+    expect(
+      parseDownloadsSettings({
+        concurrentJobs: 2,
+        archiveCacheBudgetGB: 10,
+        downloadWhilePlayingAllowed: false,
+      }),
+    ).toEqual({ concurrentJobs: 2, archiveCacheBudgetGB: 10, downloadWhilePlayingAllowed: false })
+  })
+
+  it('falls back to the default when archiveCacheBudgetGB is not one of the allowed choices', () => {
+    expect(
+      parseDownloadsSettings({ concurrentJobs: 2, archiveCacheBudgetGB: 999 }),
+    ).toEqual({ ...DEFAULT_DOWNLOADS_SETTINGS, concurrentJobs: 2 })
+  })
+
+  it('falls back to the default when downloadWhilePlayingAllowed is not a boolean', () => {
+    expect(
+      parseDownloadsSettings({ concurrentJobs: 2, downloadWhilePlayingAllowed: 'yes' }),
+    ).toEqual({ ...DEFAULT_DOWNLOADS_SETTINGS, concurrentJobs: 2 })
   })
 })

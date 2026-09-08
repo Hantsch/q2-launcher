@@ -20,3 +20,15 @@
 - 2026-09-08 09:44 · 071 · D4 Job pipeline and concurrency queue · done
 - 2026-09-08 09:44 · 071 · D5 Layering and CSP guard · started
 - 2026-09-08 09:46 · 071 · D5 Layering and CSP guard · done
+- 2026-09-08 10:05 · 072 · D1 Settings hosts module-contributed sections · started
+- 2026-09-08 10:05 · 072 · D2 Downloads contract + persisted settings slot · started
+- 2026-09-08 10:12 · 072 · D1 Settings hosts module-contributed sections · done
+- 2026-09-08 10:12 · 072 · D2 Downloads contract + persisted settings slot · done
+- 2026-09-08 10:12 · 072 · D3 Archive cache: size, clear, budget eviction · started
+- 2026-09-08 10:18 · 072 · D3 Archive cache: size, clear, budget eviction · done
+- 2026-09-08 10:18 · 072 · D4 Downloads main module handlers · started
+- 2026-09-08 10:25 · 072 · D4 Downloads main module handlers · done
+- 2026-09-08 10:25 · 072 · D5 Downloads settings section UI · started
+- 2026-09-08 10:30 · 072 · D5 Downloads settings section UI · done
+- 2026-09-08 10:30 · 072 · D6 Acceptance surface: fixture, screen, flow · started
+- 2026-09-08 10:35 · 072 · D6 Acceptance surface: fixture, screen, flow · done

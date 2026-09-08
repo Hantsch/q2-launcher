@@ -21,6 +21,14 @@ import type { EngineKind } from '../types'
  */
 export const DOWNLOADS_HANDLERS = {
   manifestGet: 'manifest.get',
+  /** Story 072 D2: reads the persisted `DownloadsSettings` (D4 implements the handler). */
+  getSettings: 'downloads.getSettings',
+  /** Story 072 D2: validates and persists a partial `DownloadsSettings` patch (D4). */
+  patchSettings: 'downloads.patchSettings',
+  /** Story 072 D2: reads the current archive cache's `ArchiveCacheStatus` (D3/D4). */
+  cacheStatus: 'downloads.cacheStatus',
+  /** Story 072 D2: deletes evictable cache entries and reports a `ClearArchiveCacheResult` (D3/D4). */
+  clearCache: 'downloads.clearCache',
 } as const
 
 /**
@@ -97,10 +105,24 @@ export const MIN_CONCURRENT_DOWNLOAD_JOBS = 1
 export const MAX_CONCURRENT_DOWNLOAD_JOBS = 6
 
 /**
+ * Story 072 D2: the only archive-cache budgets `DownloadsSettings.archiveCacheBudgetGB` may hold
+ * (Decisions (Sprint): "Both numeric settings are `Select`s ... budget 1/2/5/10/20 GB") - a
+ * closed set shared by main's validation and the renderer's `Select`, so an out-of-set value is
+ * unrepresentable in the UI rather than merely rejected after the fact.
+ */
+export const ARCHIVE_CACHE_BUDGET_CHOICES_GB = [1, 2, 5, 10, 20] as const
+
+export type ArchiveCacheBudgetGB = (typeof ARCHIVE_CACHE_BUDGET_CHOICES_GB)[number]
+
+/**
  * Story 071 D1: the `downloads` module's own settings, persisted under `state.json`'s
  * `downloads` top-level key (`main/services/state.ts`). [[072]] only contributes the UI section
  * over this same shape - "reads the limit" needs a source that exists, which is what this story
  * provides.
+ *
+ * Story 072 D2 adds `archiveCacheBudgetGB` and `downloadWhilePlayingAllowed` alongside the
+ * existing `concurrentJobs` - all three live in this one top-level `downloads` key, never merged
+ * into `LauncherSettings` (Decisions (Sprint): "an own top-level ... key in `state.json`").
  */
 export interface DownloadsSettings {
   /**
@@ -109,10 +131,42 @@ export interface DownloadsSettings {
    * to matter without hammering a mirror or the disk.
    */
   concurrentJobs: number
+  /**
+   * How large the archive cache (`<userData>/cache/downloads/`, D3) is allowed to grow before
+   * budget enforcement evicts the oldest entries (AC5). One of
+   * `ARCHIVE_CACHE_BUDGET_CHOICES_GB`, default 5.
+   */
+  archiveCacheBudgetGB: ArchiveCacheBudgetGB
+  /** Whether a download job may start/continue while a game session is active. Default `true`. */
+  downloadWhilePlayingAllowed: boolean
 }
 
 export const DEFAULT_DOWNLOADS_SETTINGS: DownloadsSettings = {
   concurrentJobs: 2,
+  archiveCacheBudgetGB: 5,
+  downloadWhilePlayingAllowed: true,
+}
+
+/**
+ * Story 072 D2: the archive cache's current size, as `cacheStatus` (D4) reports it and the
+ * settings section (D5) renders it (AC3). Producer TBD by D3/D4 - this is only the wire shape.
+ */
+export interface ArchiveCacheStatus {
+  /** Total size, in bytes, of every evictable archive currently on disk. */
+  totalBytes: number
+  /** Count of evictable archives currently on disk. */
+  itemCount: number
+}
+
+/**
+ * Story 072 D2: what a `clearCache` call (D4) actually removed, so the confirm dialog's stated
+ * size/count (AC4) and the real deletion can never disagree (Decisions (Sprint)).
+ */
+export interface ClearArchiveCacheResult {
+  /** Bytes freed by the clear. */
+  removedBytes: number
+  /** Number of archives removed by the clear. */
+  removedCount: number
 }
 
 /**

@@ -10,7 +10,7 @@
 // `Date.now()`/`crypto.randomUUID()`. That is what makes `npm run ui:seed`
 // idempotent — re-running it regenerates byte-identical files rather than
 // merge-patching whatever is already on disk.
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { REPO_ROOT, UI_VERIFY_ROOT } from './paths.mjs'
 import { variantUserDataDir } from './harness.mjs'
@@ -439,6 +439,57 @@ function populatedConfigProfiles() {
   return [plain, withLayers, withUnrecognized]
 }
 
+// --- downloads.ts DownloadsSettings shape + archive-cache fixture ----------
+// Mirrors src/shared/modules/downloads.ts's `DownloadsSettings`/
+// `DEFAULT_DOWNLOADS_SETTINGS` (2 / 5 GB / true) and
+// src/main/modules/downloads/paths.ts's `userData/cache/downloads/<fileName>` layout
+// (verified files, no `.part` suffix).
+//
+// Story 072 D6: deliberately non-default on every field, so the
+// `settings-downloads-section` flow's boot-side assertion (AC6) can tell "the fixture's
+// seeded values" apart from "whatever DEFAULT_DOWNLOADS_SETTINGS would have rendered anyway".
+/** Mirrors src/shared/modules/downloads.ts's `DownloadsSettings`. Exported so the flow asserts
+ * against the exact seeded literals rather than a copy that could drift. */
+export const DOWNLOADS_SETTINGS_SEED = {
+  concurrentJobs: 4,
+  archiveCacheBudgetGB: 10,
+  downloadWhilePlayingAllowed: false,
+}
+
+/**
+ * Two plain (non-`.part`) dummy archives under `userdata/cache/downloads/`, distinct sizes and
+ * distinct mtimes - enough for `cacheStatus`'s sum/count (AC3) to be unambiguous without
+ * exercising eviction ordering (D3/D4's unit tests already cover that exhaustively). Exported so
+ * `scripts/flows/settings-downloads-section.mjs` asserts against the exact same literals.
+ */
+export const DOWNLOADS_CACHE_ARCHIVE_ONE = {
+  fileName: 'fixture-archive-one.pk3',
+  sizeBytes: 3 * 1024 * 1024,
+  mtime: '2026-01-01T00:00:00.000Z',
+}
+export const DOWNLOADS_CACHE_ARCHIVE_TWO = {
+  fileName: 'fixture-archive-two.pk3',
+  sizeBytes: 1 * 1024 * 1024,
+  mtime: '2026-01-02T00:00:00.000Z',
+}
+/** Total evictable bytes/count the two archives above sum to - what `cacheStatus` should report. */
+export const DOWNLOADS_CACHE_TOTAL_BYTES =
+  DOWNLOADS_CACHE_ARCHIVE_ONE.sizeBytes + DOWNLOADS_CACHE_ARCHIVE_TWO.sizeBytes
+export const DOWNLOADS_CACHE_ITEM_COUNT = 2
+
+/** Writes the two dummy archives above into `<userDataDir>/cache/downloads/`, each with its own
+ * distinct mtime (`fs.utimesSync` - the only way to backdate a file Node itself just wrote). */
+function writeDownloadsCacheArchives(userDataDir) {
+  const cacheDir = join(userDataDir, 'cache', 'downloads')
+  mkdirSync(cacheDir, { recursive: true })
+  for (const archive of [DOWNLOADS_CACHE_ARCHIVE_ONE, DOWNLOADS_CACHE_ARCHIVE_TWO]) {
+    const path = join(cacheDir, archive.fileName)
+    writeFileSync(path, Buffer.alloc(archive.sizeBytes, 0))
+    const mtime = new Date(archive.mtime)
+    utimesSync(path, mtime, mtime)
+  }
+}
+
 function populatedStateDocument() {
   return {
     schemaVersion: STATE_SCHEMA_VERSION,
@@ -448,6 +499,9 @@ function populatedStateDocument() {
     configPlayedMods: {},
     configPendingWrites: {},
     configSwitchBinds: {},
+    // Story 072 D6: non-default downloads settings (mirrors src/shared/modules/downloads.ts's
+    // `downloads` state.json key, see `DOWNLOADS_SETTINGS_SEED` above).
+    downloads: { ...DOWNLOADS_SETTINGS_SEED },
   }
 }
 
@@ -955,6 +1009,7 @@ export function writePopulatedFixture() {
 
   writeJson(join(userDataDir, STATE_FILE), populatedStateDocument())
   writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+  writeDownloadsCacheArchives(userDataDir)
 
   const installIds = [INSTALL_ONE_ID, INSTALL_TWO_ID, INSTALL_UNKNOWN_ENGINE_ID]
   for (const id of installIds) {

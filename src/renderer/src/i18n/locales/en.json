@@ -64,7 +64,30 @@
     },
     "downloads": {
       "title": "Downloads",
-      "description": "Get the game files you need and keep them up to date."
+      "description": "Get the game files you need and keep them up to date.",
+      "settings": {
+        "title": "Downloads",
+        "concurrency": {
+          "label": "Concurrent downloads"
+        },
+        "cacheBudget": {
+          "label": "Archive cache budget",
+          "option": "{{gb}} GB"
+        },
+        "whilePlaying": {
+          "label": "Allow downloads while playing"
+        },
+        "cacheSize": {
+          "value": "Cache: {{size}} ({{count}} archives)"
+        },
+        "clearCache": {
+          "button": "Clear cache",
+          "confirmTitle": "Clear archive cache?",
+          "confirmBody": "This deletes {{size}} across {{count}} archives from the cache. This cannot be undone.",
+          "confirm": "Clear cache",
+          "result": "Removed {{count}} archives ({{size}})."
+        }
+      }
     },
     "config": {
       "title": "Config",

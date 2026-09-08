@@ -1,6 +1,13 @@
 import { z } from 'zod'
 import { engineKindSchema } from '@shared/schemas'
-import type { ManifestPackage, ManifestPackageContentEntry } from '@shared/modules/downloads'
+import {
+  ARCHIVE_CACHE_BUDGET_CHOICES_GB,
+  MAX_CONCURRENT_DOWNLOAD_JOBS,
+  MIN_CONCURRENT_DOWNLOAD_JOBS,
+  type ArchiveCacheBudgetGB,
+  type ManifestPackage,
+  type ManifestPackageContentEntry,
+} from '@shared/modules/downloads'
 
 /**
  * Runtime validation for the downloads module's manifest files
@@ -94,3 +101,40 @@ export const manifestEnvelopeSchema = z.object({
 export const manifestGetInputSchema = z.object({
   refresh: z.boolean().optional(),
 })
+
+/**
+ * Story 072 D4: `getSettings`/`cacheStatus`/`clearCache` take no meaningful input - same `z.void()`
+ * convention as `listInputSchema`/`writeStateInputSchema` in `main/modules/config/schemas.ts`.
+ */
+export const downloadsNoInputSchema = z.void()
+
+/**
+ * Story 072 D4: `patchSettings`'s payload - a partial `DownloadsSettings`. Each present field is
+ * validated against the exact same bounds `main/lib/schemas.ts`'s `downloadsSettingsSchema` uses to
+ * parse the persisted value (`MIN_CONCURRENT_DOWNLOAD_JOBS`-`MAX_CONCURRENT_DOWNLOAD_JOBS`,
+ * `ARCHIVE_CACHE_BUDGET_CHOICES_GB`) - reusing those same constants, not a hand-copied range, is
+ * what keeps the two from ever drifting apart.
+ *
+ * Unlike that persisted schema, this one is strict rather than forgiving: this file's convention
+ * (see `manifestGetInputSchema`'s own doc comment) is "a bad payload is a caller bug, not a state to
+ * repair", so an out-of-range value here is rejected outright by `MainModuleRegistry.invoke()`
+ * (`fail('ipc.error.invalidPayload')`) before any handler runs, rather than silently degraded to a
+ * default the way a hand-edited `state.json` would be.
+ */
+export const patchDownloadsSettingsInputSchema = z
+  .object({
+    concurrentJobs: z
+      .number()
+      .int()
+      .min(MIN_CONCURRENT_DOWNLOAD_JOBS)
+      .max(MAX_CONCURRENT_DOWNLOAD_JOBS)
+      .optional(),
+    archiveCacheBudgetGB: z
+      .number()
+      .refine((value): value is ArchiveCacheBudgetGB =>
+        ARCHIVE_CACHE_BUDGET_CHOICES_GB.includes(value as ArchiveCacheBudgetGB),
+      )
+      .optional(),
+    downloadWhilePlayingAllowed: z.boolean().optional(),
+  })
+  .strict()
