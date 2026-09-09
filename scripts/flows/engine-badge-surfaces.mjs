@@ -45,8 +45,12 @@ const UNKNOWN_ENGINE_LABEL = 'Unknown engine (unsupported)'
 /** The two short-named, `r1q2` fixture installs, so AC1 is asserted for ordinary rows too. */
 const SHORT_NAMED_INSTALLS = ['Fixture Favorite Install', 'Fixture WriteDir Install']
 
-/** `populatedInstallations()` (scripts/lib/fixture.mjs) - a per-installation list must show all. */
-const EXPECTED_INSTALL_COUNT = 3
+/** `populatedInstallations()` (scripts/lib/fixture.mjs) - a per-installation list must show all.
+ * Story 077 D5 added a fourth, additive installation (`Fixture Failed Install`, `q2pro` engine) -
+ * bumped from 3 to 4 here for the same reason every other consumer of that array has to: a per-
+ * installation list is defined as "one row per installation", not "one row per named fixture this
+ * flow already knew about". */
+const EXPECTED_INSTALL_COUNT = 4
 
 function boxOf(box, name) {
   if (!box || box.width <= 0 || box.height <= 0) {

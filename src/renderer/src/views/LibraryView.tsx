@@ -23,6 +23,7 @@ import { useLauncher } from '../store/useLauncher'
 import { getLibraryStats } from '../modules/library/client'
 import { Button, IconButton } from '../components/ui/Button'
 import { DemoBadge } from '../components/ui/DemoBadge'
+import { FailureBadge } from '../components/ui/FailureBadge'
 import { EngineBadge } from '../components/ui/EngineBadge'
 import { Badge, EmptyState, Panel, SectionLabel, StatusDot } from '../components/ui/primitives'
 import { ChecksList } from '../components/installations/ChecksList'
@@ -271,6 +272,7 @@ function InstallationRow({ installation }: { installation: Installation }) {
             </h2>
             <EngineBadge engineKind={installation.engineKind} />
             <DemoBadge installation={installation} />
+            <FailureBadge installation={installation} />
             {active && <Badge tone="flame">{t('rail.activeMarker')}</Badge>}
             {installation.favorite && (
               <Star className="size-3 text-flame-500" fill="currentColor" />
@@ -405,8 +407,20 @@ function InstallationRow({ installation }: { installation: Installation }) {
         </div>
       </div>
 
-      {showChecks && (
+      {installation.lastFailure && (
         <div className="border-t border-line pt-3">
+          <p className="text-xs text-danger" data-testid="installation-failure-reason">
+            {/* The params the failure recorded, the same way `ChecksList` resolves a check's
+                message: a templated key (`downloads.error.packageIncomplete` reads `{{packageId}}`)
+                would otherwise render its raw placeholder to the user, and i18next ignores an empty
+                params object for every key that needs none. */}
+            {t(installation.lastFailure.errorKey, installation.lastFailure.params ?? {})}
+          </p>
+        </div>
+      )}
+
+      {showChecks && (
+        <div className={cn('pt-3', !installation.lastFailure && 'border-t border-line')}>
           <ChecksList installation={installation} />
         </div>
       )}

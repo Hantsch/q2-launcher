@@ -18,6 +18,7 @@ import {
   type EngineKind,
   type Installation,
   type InstallationIcon,
+  type InstallationLastFailure,
   type InstallationStatus,
   type Job,
   type JobProgress,
@@ -75,7 +76,10 @@ import { computeTargetVerdict } from './target'
  *    Missing any one of them fails *before* anything is created, on disk or in the library.
  * 3. **Register the installation** (`InstallationsService.create()`), whose status comes from
  *    `inspectInstallation` reading the freshly created, still empty skeleton - so the library shows
- *    a real entry with a real verdict from the very first moment (Decisions (Sprint)).
+ *    a real entry with a real verdict from the very first moment (Decisions (Sprint)). Story 077 D3:
+ *    unless a *failed* installation of ours is already registered at that exact canonical path, in
+ *    which case this run adopts it instead of creating a second one (AC7) - see the predicate at
+ *    that call site, which is the whole safety of the change.
  * 4. **Only now create the `Job`.** Before this point there is nothing to cancel and no job to
  *    cancel it with, which is why steps 1-3 answer a plain failed `Outcome` instead.
  * 5. Per package, in order: download (verified by the fetcher) then extract, each into its own
@@ -95,7 +99,7 @@ import { computeTargetVerdict } from './target'
  *    file: `create()` and `validate()` are the only two writers of it, and both derive it from
  *    `inspectInstallation`.
  *
- * ## Cancel and failure leave nothing behind
+ * ## Cancel and failure leave nothing behind - except, since story 077, the library entry
  *
  * Both paths run the same cleanup, in this order: **the copied files first, the library entry
  * second.** A crash between the two then leaves at worst an orphaned folder (which the user can
@@ -107,6 +111,33 @@ import { computeTargetVerdict } from './target'
  * blocker, so the user may well have pointed the wizard at a folder that already held something of
  * theirs. `rmdir` (not `rm -r`) on the directories we may have created succeeds only while they are
  * empty, which is precisely the "we made it, so we may remove it" test.
+ *
+ * Story 077 D2 makes the two callers differ for the first time, through one `CleanUpMode`:
+ *
+ *  - **Cancel** is `{ unregister: !wasAdopted, removeRoot: !targetPreexisted }` (finding fix after
+ *    D3 landed). The user said "never mind" about *this run*, so a freshly-created installation and
+ *    the folder this job made go away exactly as in 074 - but a retry that adopted a pre-existing
+ *    failed installation must not delete a registration that predates this job, or cancelling a
+ *    retry would recreate the empty-library problem this story exists to fix. That same adopted
+ *    case puts the `lastFailure` D3 cleared on adoption back (second finding fix), so a cancelled
+ *    retry returns the installation to exactly the state it had before the user clicked retry.
+ *  - **Failure** passes `{ unregister: false, removeRoot: false }`. The user's name, folder and
+ *    engine were real decisions and a failed download is no reason to throw them away (077 AC1), so
+ *    the registration survives and the target root stays on disk - which is what makes the surviving
+ *    installation honestly `invalid` (an empty folder that exists) rather than `missing`. The
+ *    assembled files and the extract cache still go: the retry re-downloads from scratch rather than
+ *    building on a half-built folder (Decisions (Sprint), Q1).
+ *
+ * The invariant the old un-registration protected ("no observer sees a `failed` job next to a
+ * still-registered half-built installation") is preserved in the only form still available once the
+ * registration survives, by `failed()`'s fixed order: delete the files, record the failure, let
+ * `InstallationsService.validate()` re-derive the status from the now-empty folder, and only then
+ * flip the job to `failed`. By the time anything can look, the installation is registered *and*
+ * says it is not playable. (Review considered reversing "record the failure" and "validate" to
+ * close the still-narrower window between those two writes, but that order is required elsewhere:
+ * `applyInspection`'s engine-preservation guard only preserves a known engine kind for an
+ * installation that already carries a `lastFailure`, which for a *first* failure is only true once
+ * this write has landed - see the comment at the call site.)
  *
  * ## What a failure leaves behind instead (story 075 D3)
  *
@@ -221,6 +252,14 @@ export interface BootstrapJobsHost {
  */
 export interface BootstrapInstallationsHost {
   create(input: CreateInstallationInput): Promise<Outcome<Installation>>
+  /**
+   * Story 077 D3 (AC7): the retry-adoption lookup. Deliberately the *same* comparison
+   * `create()`'s duplicate check uses (canonicalize, then compare `pathKey`s), so "would `create()`
+   * refuse this path as a duplicate?" and "did this lookup find something?" can never disagree -
+   * which is what makes the adoption predicate below a narrowing of that guard rather than a second
+   * opinion about what "the same folder" means.
+   */
+  findByRootPath(rootPath: string): Promise<Installation | undefined>
   validate(id: string): Promise<Outcome<Installation>>
   remove(input: RemoveInstallationInput): Promise<Outcome<null>>
   /**
@@ -235,6 +274,13 @@ export interface BootstrapInstallationsHost {
    * Synchronous, mirroring `InstallationsService.setIcon`'s own signature.
    */
   setIcon(id: string, icon: InstallationIcon | null): Outcome<Installation>
+  /**
+   * Story 077 D1/D2: records this job's failure on the installation that survives it (AC3).
+   * Synchronous, mirroring `InstallationsService.setLastFailure`'s own signature - and the only
+   * writer of that field in this file, which is what keeps the record and the `Job.error` the same
+   * key.
+   */
+  setLastFailure(id: string, failure: InstallationLastFailure | null): Outcome<Installation>
 }
 
 export interface BootstrapDeps {
@@ -318,12 +364,14 @@ async function resolvePackages(
 ): Promise<Outcome<BootstrapPackage[]>> {
   const resolved: BootstrapPackage[] = []
 
-  const entries: Array<{ role: BootstrapSummaryPackage['role']; pkg: ManifestPackage | undefined }> =
-    [
-      { role: 'engine', pkg: await manifest.resolveEnginePackage(engine) },
-      { role: 'demo', pkg: await manifest.resolveGameDataPackage('demo') },
-      { role: 'point-release', pkg: await manifest.resolveGameDataPackage('point-release') },
-    ]
+  const entries: Array<{
+    role: BootstrapSummaryPackage['role']
+    pkg: ManifestPackage | undefined
+  }> = [
+    { role: 'engine', pkg: await manifest.resolveEnginePackage(engine) },
+    { role: 'demo', pkg: await manifest.resolveGameDataPackage('demo') },
+    { role: 'point-release', pkg: await manifest.resolveGameDataPackage('point-release') },
+  ]
 
   for (const entry of entries) {
     if (entry.pkg === undefined) return fail(PACKAGE_UNAVAILABLE, { role: entry.role })
@@ -416,6 +464,20 @@ async function removeAssembled(
 }
 
 /**
+ * Story 077 D2: how much of this job to undo. The copied files and the extract cache always go;
+ * these two are what a cancel and a failure now disagree about (see the module comment).
+ */
+interface CleanUpMode {
+  /**
+   * Remove the library entry this job registered. Cancel: only when this job created the
+   * installation rather than adopting a pre-existing one (finding fix). Failure: no (AC1).
+   */
+  unregister: boolean
+  /** `rmdir` the target root itself, once emptied. Only ever true when this job created it. */
+  removeRoot: boolean
+}
+
+/**
  * Starts a bootstrap install. Answers a failed `Outcome` for everything that goes wrong *before*
  * the job exists (a blocked target, an unresolvable package, an installation that could not be
  * registered) and `ok({ jobId, installationId, settled })` once the job is running - the job itself
@@ -450,19 +512,99 @@ export async function startBootstrap(
   // see the module comment's cleanup note.
   const targetPreexisted = existsSync(verdict.targetPath)
 
-  // 3. The library entry, with a status `inspectInstallation` produced for the empty skeleton.
-  const created = await deps.installations.create({
-    rootPath: verdict.targetPath,
-    name: input.name?.trim() || DEFAULT_BOOTSTRAP_INSTALLATION_NAME,
-    engineKind: input.engine,
-  })
-  if (!created.ok) {
-    // Carries the installations service's own key (`duplicate`, `alreadyContainsGame`,
-    // `createFailed`) - already an i18n key, and more specific than any downloads key would be.
-    log?.warn(`bootstrap could not register ${verdict.targetPath}: ${created.error.key}`)
-    return created
+  const name = input.name?.trim() || DEFAULT_BOOTSTRAP_INSTALLATION_NAME
+
+  /**
+   * Story 077 D3 (AC7). The predicate that decides "this is my own leftover, safe to reuse", and
+   * the only thing standing between a retry and `create()`'s duplicate guard - which exists to stop
+   * this wizard from writing into an installation the user already owns. It is exactly two
+   * conditions, both required, and neither is widened:
+   *
+   *  1. **the same canonical path**, decided by `findByRootPath` - literally the comparison
+   *     `create()` would refuse the path with a moment later, so nothing can be adopted that
+   *     `create()` would not have called a duplicate; and
+   *  2. **`lastFailure` is set** - a field only this file's `failed()` ever writes (D2), and one the
+   *     service clears again the moment any inspection finds the installation playable (D1's
+   *     clear-on-playable rule). So a hit here is an installation *this launcher* marked as its own
+   *     failed bootstrap and that was not playable as of its last verdict.
+   *
+   * Everything else - a working installation, one added by hand, one still downloading, one whose
+   * failure has since been cleared - falls through to `create()` and keeps today's
+   * `installations.error.duplicate` refusal. That asymmetry is the safety: the failure mode of too
+   * *narrow* a match is a duplicate error the user can read, the failure mode of too wide a match is
+   * silently overwriting someone's working game folder.
+   */
+  const registered = await deps.installations.findByRootPath(verdict.targetPath)
+  const adoptable = registered && registered.lastFailure ? registered : undefined
+
+  // 3. The library entry, with a status `inspectInstallation` produced for the empty skeleton -
+  // unless this is a retry, in which case the entry the previous run left behind *is* the entry.
+  //
+  // Story 077 finding fix: whether *this* job brought the registration into being, threaded into
+  // `cancelledOutcome()`'s `unregister` below so a cancelled retry cannot delete an installation
+  // that already existed - the `removeRoot: !targetPreexisted` pattern this mirrors.
+  let wasAdopted = false
+  /**
+   * Finding fix (F2): the `lastFailure` the adopted installation carried *before* this retry
+   * cleared it. Only a cancel ever reads it - see `cancelledOutcome()`. `undefined` for a run that
+   * created its installation, which is exactly the state such a run must be restored to.
+   */
+  let previousFailure: InstallationLastFailure | undefined
+  let installation: Installation
+  if (adoptable) {
+    wasAdopted = true
+    // The wizard's name is the only field adoption changes going in (Decisions (Refine): "Adoption
+    // updates the name from the wizard, not the engine" - `UpdateInstallationInput` has no
+    // `engineKind` path and the wizard offers Q2PRO only). The id, engine kind, icon and sortOrder
+    // are what the user's library already shows, so the rail's position and any assignments survive.
+    // Both writes are best-effort in the same sense the write-dir remedy below is: a rename or a
+    // clear that fails is not a reason to refuse a retry the user is entitled to.
+    let adopted = adoptable
+    const renamed = await deps.installations.update({ id: adopted.id, name })
+    if (renamed.ok) adopted = renamed.value
+    else log?.warn(`bootstrap could not rename the adopted ${adopted.id}: ${renamed.error.key}`)
+
+    // AC4: the previous failure goes as soon as the retry *starts*, not only if it succeeds - the
+    // installation is being worked on again, so a red mark on it is already stale. A failure of this
+    // run writes a fresh record through `failed()` below, on this same id. Kept in hand first
+    // (finding fix F2): a *cancelled* retry has to put it back, or the installation is left
+    // registered with no failure record - a state the adoption predicate above refuses, which would
+    // dead-end every later retry on this folder at `installations.error.duplicate`.
+    previousFailure = adoptable.lastFailure
+    const cleared = deps.installations.setLastFailure(adopted.id, null)
+    if (cleared.ok) adopted = cleared.value
+    else {
+      log?.warn(`bootstrap could not clear the failure on ${adopted.id}: ${cleared.error.key}`)
+    }
+
+    installation = adopted
+    log?.info(`bootstrap adopted the failed installation ${adopted.id} at ${adopted.rootPath}`)
+  } else {
+    const created = await deps.installations.create({
+      rootPath: verdict.targetPath,
+      name,
+      engineKind: input.engine,
+    })
+    if (!created.ok) {
+      // Carries the installations service's own key (`duplicate`, `alreadyContainsGame`,
+      // `createFailed`) - already an i18n key, and more specific than any downloads key would be.
+      log?.warn(`bootstrap could not register ${verdict.targetPath}: ${created.error.key}`)
+      return created
+    }
+    installation = created.value
+
+    // Decisions (Sprint): "default (existing) icon assigned automatically". Only for an
+    // installation this job registered - an adopted one keeps whatever icon its owner already has.
+    const iconResult = deps.installations.setIcon(installation.id, {
+      kind: 'shipped',
+      id: DEFAULT_BOOTSTRAP_ICON_ID,
+    })
+    if (!iconResult.ok) {
+      log?.warn(
+        `bootstrap could not set the default icon on ${installation.id}: ${iconResult.error.key}`,
+      )
+    }
   }
-  const installation = created.value
   // The service canonicalised the path again on the way in; its copy is the authoritative one.
   const targetRoot = installation.rootPath
 
@@ -477,15 +619,6 @@ export async function startBootstrap(
     if (!updated.ok) {
       log?.warn(`bootstrap could not set writeDirPath on ${installation.id}: ${updated.error.key}`)
     }
-  }
-
-  // Decisions (Sprint): "default (existing) icon assigned automatically".
-  const iconResult = deps.installations.setIcon(installation.id, {
-    kind: 'shipped',
-    id: DEFAULT_BOOTSTRAP_ICON_ID,
-  })
-  if (!iconResult.ok) {
-    log?.warn(`bootstrap could not set the default icon on ${installation.id}: ${iconResult.error.key}`)
   }
 
   // 4. From here on there is something to cancel, so from here on there is a job.
@@ -560,24 +693,69 @@ export async function startBootstrap(
   /**
    * Files first, registration second - see the module comment. Best-effort throughout: cleanup
    * that fails must not turn a cancelled job into a failed one, or a failed one into a hang.
+   *
+   * Story 077 D2: the two callers no longer want the same thing, so both halves that are *not*
+   * "undo this job's own file writes" are passed in rather than assumed. The extracted trees go
+   * either way - they are this job's scratch space and are of no use to anyone afterwards.
    */
-  const cleanUp = async (): Promise<void> => {
-    await removeAssembled(targetRoot, copied, !targetPreexisted, jobLog)
-    const removed = await deps.installations.remove({
-      id: installation.id,
-      deleteFromDisk: false,
-    })
-    if (!removed.ok) {
-      jobLog?.warn(
-        `the half-built installation ${installation.id} could not be dropped: ${removed.error.key}`,
-      )
+  const cleanUp = async (mode: CleanUpMode): Promise<void> => {
+    await removeAssembled(targetRoot, copied, mode.removeRoot, jobLog)
+    if (mode.unregister) {
+      const removed = await deps.installations.remove({
+        id: installation.id,
+        deleteFromDisk: false,
+      })
+      if (!removed.ok) {
+        jobLog?.warn(
+          `the half-built installation ${installation.id} could not be dropped: ${removed.error.key}`,
+        )
+      }
     }
     await removeDir(extractRoot, jobLog)
   }
 
-  /** The job is already `cancelled` in `JobsService` (`cancel()` finishes it); the leftovers are ours. */
+  /**
+   * The job is already `cancelled` in `JobsService` (`cancel()` finishes it); the leftovers are
+   * ours. Story 077 D2 (AC2): unchanged from 074 for a freshly-created installation - the user's
+   * explicit "never mind" takes the library entry with it, and takes the target root too when this
+   * job is the reason it exists.
+   *
+   * Finding fix: `unregister` now mirrors `removeRoot`'s own "did this job bring it into being?"
+   * test rather than firing unconditionally. A cancelled retry that *adopted* a pre-existing failed
+   * installation (D3) must not delete a registration that predates this job - that would put the
+   * user back at the empty-library problem story 077 exists to fix.
+   *
+   * Second finding fix (F2): the adopted case also *restores* the `lastFailure` D3 cleared when the
+   * retry started. A cancel is the user's own "never mind" about this run, so the installation goes
+   * back to exactly the state it was in before they clicked retry - same badge, same sentence -
+   * rather than being left registered with no failure on record. That in-between state is the one
+   * the adoption predicate above refuses, so leaving it would dead-end every later retry on this
+   * folder at `installations.error.duplicate`: the empty-library problem again, one door along. No
+   * *new* failure is ever written here - a cancel is not a recorded failure - and a run that created
+   * its own installation has no `previousFailure` and is unregistered outright anyway.
+   *
+   * `validate()` runs after the restore (so a - here impossible - playable verdict would retire the
+   * record it just put back, per D1's clear-on-playable rule) and only for the adopted case: the
+   * non-adopted branch unregisters the installation outright, so there is nothing left to revalidate.
+   */
   const cancelledOutcome = async (): Promise<BootstrapOutcome> => {
-    await cleanUp()
+    await cleanUp({ unregister: !wasAdopted, removeRoot: !targetPreexisted })
+    if (wasAdopted) {
+      if (previousFailure) {
+        const restored = deps.installations.setLastFailure(installation.id, previousFailure)
+        if (!restored.ok) {
+          jobLog?.warn(
+            `the previous failure of ${installation.id} could not be restored after cancel: ${restored.error.key}`,
+          )
+        }
+      }
+      const revalidated = await deps.installations.validate(installation.id)
+      if (!revalidated.ok) {
+        jobLog?.warn(
+          `the adopted installation ${installation.id} could not be revalidated after cancel: ${revalidated.error.key}`,
+        )
+      }
+    }
     jobLog?.info(`bootstrap of ${installation.name} cancelled (job ${jobId})`)
     return { status: 'cancelled' }
   }
@@ -598,9 +776,55 @@ export async function startBootstrap(
     // same line is teed into the diagnostics ring, which is developer-facing by design and where
     // the reason is exactly what a bug report needs.
     jobLog?.warn(`bootstrap of ${installation.name} failed with ${key}: ${reason}`)
-    // Cleaned up *before* the status flips, so no observer can ever see a `failed` job next to a
-    // still-registered half-built installation.
-    await cleanUp()
+    // Story 077 D2. The four steps below are one atom, and their order is the acceptance criterion:
+    //
+    // 1. The files this job wrote go - but not the registration and not the target root (AC1, and
+    //    Decisions (Sprint) Q1: an honest empty folder beats a half-built one).
+    // 2. The failure is recorded on the surviving installation (AC3) with the *same* key the
+    //    `Job.error` below carries, so the library and the Downloads tab can never disagree. This
+    //    has to precede step 3, not follow it (review fix): `applyInspection`'s engine-preservation
+    //    guard is scoped to "does this installation already carry a `lastFailure`" so it cannot
+    //    touch an ordinary, never-failed installation (AC8) - for a first failure that is only true
+    //    once this write lands, and step 3 is what reads it.
+    // 3. `validate()` re-derives `status`/`checks` from the folder as it now is - nothing in this
+    //    file ever writes a status. It cannot see a playable folder here (its files were just
+    //    deleted), but if it somehow did, D1's clear-on-playable rule would drop the record it just
+    //    wrote, which is the right answer rather than a stale red mark (AC4).
+    // 4. Only then does the job flip to `failed`. That is what still guarantees "no observer sees a
+    //    `failed` job next to a half-built installation" now that the installation survives. A
+    //    renderer subscribed between steps 2 and 3 can observe the failure record next to a
+    //    not-yet-revalidated status for one commit; accepted as a narrower window than the one this
+    //    ordering closes, and still bounded by step 4 - the *job* never reports `failed` early.
+    await cleanUp({ unregister: false, removeRoot: false })
+    // Finding fix: the *same* `params` object this exit hands `jobs.finish` below, not a second
+    // one computed here - `downloads.error.packageIncomplete`'s sentence reads `{{packageId}}`, and
+    // the library card and the Downloads tab render that same sentence. Attached only when present,
+    // so a plain failure's record stays exactly `{ errorKey, at, jobId }`.
+    //
+    // Deliberately *before* `validate()` below, even though that briefly lets a renderer observe
+    // the record next to a not-yet-revalidated status: `applyInspection`'s engine-preservation guard
+    // (review fix, installations.ts) is scoped to "does this installation already carry a
+    // `lastFailure`" so it never touches an installation that isn't a bootstrap failure (AC8) - and
+    // for a *first* failure that is only true once this write has landed. Recording first is what
+    // lets the very `validate()` call below preserve the wizard's engine choice instead of resetting
+    // it to `unknown` when the emptied folder inspects with no detectable engine.
+    const recorded = deps.installations.setLastFailure(installation.id, {
+      errorKey: key,
+      at: Date.now(),
+      jobId,
+      ...(params ? { params } : {}),
+    })
+    if (!recorded.ok) {
+      jobLog?.warn(`the failure of ${installation.id} could not be recorded: ${recorded.error.key}`)
+    }
+    // Best-effort like every other step of this cleanup: a revalidation that fails leaves the
+    // stored status stale, which is a worse status - not a reason to leave the job running.
+    const revalidated = await deps.installations.validate(installation.id)
+    if (!revalidated.ok) {
+      jobLog?.warn(
+        `the failed installation ${installation.id} could not be revalidated: ${revalidated.error.key}`,
+      )
+    }
     deps.jobs.finish(jobId, { status: 'failed', error: { key, ...(params ? { params } : {}) } })
     return { status: 'failed', key }
   }
@@ -712,7 +936,10 @@ export async function startBootstrap(
       if (cancelled) return cancelledOutcome()
       if (!extracted.ok) {
         recordPackage(fetched.url, fetched.sizeBytes, true, false)
-        return failed(asExtractionErrorKey(extracted.error.key), `extracting ${entry.pkg.id} failed`)
+        return failed(
+          asExtractionErrorKey(extracted.error.key),
+          `extracting ${entry.pkg.id} failed`,
+        )
       }
 
       // Verified by the fetcher and extracted by 7za. Whether it went on to *contribute* anything

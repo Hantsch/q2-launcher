@@ -98,6 +98,26 @@ const installationSchema = z.object({
     ])
     .optional()
     .catch(undefined),
+  // Story 077 D1: the last bootstrap failure, same additive/forgiving convention as `icon` right
+  // above - a record predating this story simply lacks the key, and a hand-mangled value degrades
+  // to "no failure on record" (the default, playable-looking state) rather than dropping the whole
+  // installation row.
+  lastFailure: z
+    .object({
+      errorKey: z.string().min(1),
+      at: z.number().finite(),
+      jobId: z.string().min(1),
+      // Story 077 finding fix: the interpolation values a templated `errorKey` needs. Forgiving one
+      // level deeper than the field it sits in - a mangled `params` degrades to "no params" (the
+      // sentence then renders with its placeholders unresolved, which is what an installation
+      // written before this field already does) rather than taking the whole `lastFailure` with it.
+      params: z
+        .record(z.string(), z.union([z.string(), z.number().finite()]))
+        .optional()
+        .catch(undefined),
+    })
+    .optional()
+    .catch(undefined),
   sortOrder: z.number().finite().catch(0),
   createdAt: z.string().catch(nowIso),
   updatedAt: z.string().catch(nowIso),

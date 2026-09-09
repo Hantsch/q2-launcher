@@ -767,7 +767,12 @@ block (AC3); and that the same text contains the redaction placeholder `<home>` 
 machine's real `os.homedir()` value (AC4). `shot()`s cover both the with-diagnostics and
 without-diagnostics states plus the post-copy toast. And (story 074 D8)
 **`bootstrap-wizard`** — the one flow that runs a real download pipeline end to end; it has its own
-section below.
+section below. Two more flows build on it without duplicating its plumbing: (story 076 D6)
+**`bootstrap-incomplete-package`** — a package that downloads, verifies and extracts cleanly but
+contributes none of its required files, asserting that both the running step and the Downloads
+tab's failure card name the same package (AC5); and (story 077 D5) **`bootstrap-failure-retry`** —
+a failing bootstrap that leaves its installation in the Library, and the retry that adopts it; it
+also has its own section below.
 
 ## The offline bootstrap-wizard flow (`bootstrap-wizard`)
 
@@ -828,6 +833,48 @@ takes its own `shot()`s of all four steps instead.
 
 The flow needs `resources/bin/7za.exe` (`npm run fetch:7za`) and refuses to run without it rather
 than quietly skipping the extraction — the whole point is that the *real* extractor runs.
+
+## The offline bootstrap-failure-retry flow (`bootstrap-failure-retry`)
+
+`npm run ui:flow -- bootstrap-failure-retry` is story 077's own offline e2e proof — "a bootstrap
+job that fails leaves its installation registered in the Library, and a retry on the same folder
+adopts it instead of erroring `installations.error.duplicate`". It mirrors `bootstrap-wizard.mjs`'s
+`setup()`/`teardown()` shape and general structure exactly (same real manifest fetch, real
+downloads, real `7za.exe` extraction, same two harness-only overrides — see that flow's own section
+above for what those are and why they are safe), and walks the wizard **twice** in one app session:
+
+- **Run 1** picks a genuinely fresh target folder (not the pre-seeded, deliberately-non-empty one
+  `bootstrap-wizard.mjs` uses) and lets the job fail — the fixture server is started with a new
+  `startBootstrapFixtureServer({ failFirstAttemptFor })` option (`scripts/lib/fixture.mjs`) that
+  404s one named package's PRIMARY *and* MIRROR url on their first request only, then serves that
+  same package normally ever after. This has to be a property of the *server*, not of the flow:
+  `Q2L_UI_CONTENT_REPO_BASE` is fixed for the whole app session, so one flow covering both the
+  failing first run and the succeeding retry has no other way to make the second attempt succeed
+  where the first did not. The flow fails the engine package specifically — the first one
+  downloaded — so run 1 fails before a single byte of any package is assembled into the target,
+  which is what makes "the target folder is empty afterwards" (AC1) unambiguous.
+- After run 1 fails, the flow asserts the Library still shows the installation under the name the
+  wizard gave it, with `FailureBadge`'s "Failed" text, the tile's `.tile-failed-tag` "FAILED"
+  microtag, the translated failure sentence (`installation-failure-reason`, reading exactly what
+  `downloads.error.allMirrorsFailed` says) and a disabled Play control (AC1/AC5/AC6) — and that the
+  target folder is empty on disk (AC1), read directly via `node:fs`, not scraped off the UI.
+- **Run 2** re-opens the wizard and picks the *same* folder again — the harness's `Q2L_UI_PICK_FOLDER`
+  stub queues only one entry, and its last entry repeats forever, so the second Browse click hands
+  back the same path with no second queued value needed. The fixture server now serves the
+  previously-404'd package normally, so this run downloads, verifies, extracts and assembles for
+  real, adopting the failed installation (its own id, not a second registration) rather than
+  refusing with `installations.error.duplicate` (AC7). Once it succeeds, the flow asserts the badge,
+  the microtag and the failure sentence are all gone and Play is enabled again (AC4).
+
+This is a *different* fixture entry point than the restart half of AC1: `scripts/lib/fixture.mjs`'s
+`populatedInstallations()` also seeds a fourth, standing installation (`Fixture Failed Install`,
+`INSTALL_FAILED_ID`) that already carries a `lastFailure` in `state.json` before the app ever boots.
+That row is what `npm run ui:verify --screens=library` reads — proving "after an app restart the
+failure is still there" without this flow (or any flow) having to observe the failure live — while
+`bootstrap-failure-retry` proves the live create → fail → retry → succeed cycle against a wholly
+separate, freshly-created installation. The library screen's own axe pass also stays clean with all
+four installations visible, which is AC8's proof that the three pre-existing fixture rows render
+exactly as they did before this story, right next to the new failed one.
 
 ## Baselines and CI
 

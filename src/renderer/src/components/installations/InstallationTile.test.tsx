@@ -166,4 +166,32 @@ describe('InstallationTile', () => {
       expect(fetchIconDataUrl).not.toHaveBeenCalled()
     })
   })
+
+  describe('story 077 D4 - failed microtag', () => {
+    it('the failed microtag renders only with a lastFailure (AC5)', () => {
+      const { rerender } = render(
+        <InstallationTile
+          installation={makeInstallation({
+            status: 'invalid',
+            lastFailure: { errorKey: 'downloads.error.network', at: 1, jobId: 'job-1' },
+          })}
+          size="card"
+        />,
+      )
+      expect(screen.getByTestId('installation-tile-failed-tag')).toBeTruthy()
+
+      // Same broken status, no `lastFailure` - an ordinary broken folder must not
+      // pick up the tag.
+      rerender(<InstallationTile installation={makeInstallation({ status: 'invalid' })} size="card" />)
+      expect(screen.queryByTestId('installation-tile-failed-tag')).toBeNull()
+    })
+
+    it('an installation without the field renders exactly as before (AC8)', () => {
+      render(<InstallationTile installation={makeInstallation()} size="rail" />)
+
+      expect(screen.queryByTestId('installation-tile-failed-tag')).toBeNull()
+      expect(screen.queryByTestId('installation-tile-demo-tag')).toBeNull()
+      expect(screen.getByText('R1')).toBeTruthy()
+    })
+  })
 })

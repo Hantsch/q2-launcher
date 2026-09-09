@@ -98,6 +98,9 @@ function makeInstallation({
   gameDirs,
   engineKind,
   icon,
+  status,
+  checks,
+  lastFailure,
 }) {
   return {
     id,
@@ -112,8 +115,12 @@ function makeInstallation({
     activeGameDir: '',
     detectedVersion: undefined,
     source: 'manual',
-    status: 'ok',
-    checks: [],
+    // Story 077 D5: `status`/`checks` became parameters (defaulting to the `ok`/`[]` every caller
+    // relied on before) purely so `INSTALL_FAILED_ID` below can seed an honest `invalid` verdict -
+    // the real app's own startup `validateAll()` re-derives both from the folder on disk anyway
+    // (`main/index.ts`), so this only matters for a reader of the raw fixture `state.json` itself.
+    status: status ?? 'ok',
+    checks: checks ?? [],
     gameDirs: gameDirs ?? ['baseq2'],
     favorite,
     sortOrder,
@@ -128,6 +135,10 @@ function makeInstallation({
     // `populatedInstallations()` below wires up; every other caller (including
     // `controlsSeedStateDocument()`'s install) passes nothing and stays iconless.
     ...(icon ? { icon } : {}),
+    // Story 077 D5: mirrors `icon`'s spread-only-when-present convention - `InstallationLastFailure`
+    // (`src/shared/types/installation.ts`), `{ errorKey, at, jobId }`. Only `INSTALL_FAILED_ID` below
+    // carries one; every other installation stays exactly as it rendered before this story (AC8).
+    ...(lastFailure ? { lastFailure } : {}),
   }
 }
 
@@ -189,6 +200,25 @@ export const INSTALL_UNKNOWN_ENGINE_NAME =
  * "restore") fixture config, distinct from `baseq2`'s foreign-config fixture above. */
 const RESTORE_GAME_DIR = 'q2l-restore-fixture'
 
+/**
+ * Story 077 D5: a fourth installation carrying a `lastFailure` - a bootstrap job that failed and,
+ * per that story's own decision, left its registration behind instead of deleting it. Its own doc
+ * comment on `populatedInstallations()`'s fourth entry below explains the additive rule this
+ * follows; see that entry for what it proves and why its own doc comment (not this one) is where
+ * the reasoning belongs.
+ */
+const INSTALL_FAILED_ID = 'fixture-install-failed'
+
+/**
+ * The i18n key `INSTALL_FAILED_ID` carries as its `lastFailure.errorKey` - a real, existing key
+ * from `src/renderer/src/i18n/locales/en.json` ("Every download source failed. Check your
+ * connection and try again."), not an invented one. Exported so both the seeded fixture row and
+ * `scripts/flows/bootstrap-failure-retry.mjs` (whose own 404-both-URLs fixture-server option
+ * produces this exact key via `fetcher.ts`'s `allMirrorsFailed` exit) can assert against the same
+ * literal rather than two copies that could drift apart.
+ */
+export const INSTALL_FAILED_ERROR_KEY = 'downloads.error.allMirrorsFailed'
+
 function populatedInstallations() {
   return [
     makeInstallation({
@@ -229,6 +259,41 @@ function populatedInstallations() {
       engineKind: 'unknown',
       favorite: false,
       sortOrder: 2,
+    }),
+    // Story 077 D5 - see `INSTALL_FAILED_ID`/`INSTALL_FAILED_ERROR_KEY` above. ADDITIVE, following
+    // the same convention `INSTALL_UNKNOWN_ENGINE_ID` documents just above: `sortOrder: 3` puts it
+    // last, after every installation already in this array, and it is assigned to no config
+    // profile, so nothing that iterates a profile's assignments gains a row either. Nothing about
+    // the three installations above changes.
+    //
+    // This is what proves AC1's "after an app restart" e2e half (`npm run ui:verify
+    // --screens=library`): a `state.json` written with a `lastFailure` already on it, the app
+    // boots from THAT file (never clicking through a wizard), and the library still shows the
+    // badge, the translated reason and a disabled Play button - and AC8, since the three
+    // installations above render exactly as they did before this story alongside it. The real
+    // failing *run* (create -> fail -> retry -> succeed) is proven separately, by
+    // `scripts/flows/bootstrap-failure-retry.mjs` against a FRESH installation that flow creates
+    // itself - this row is deliberately not reused for that, since AC1's restart proof needs a
+    // failure that was never observed live by this session, only read back from disk.
+    makeInstallation({
+      id: INSTALL_FAILED_ID,
+      name: 'Fixture Failed Install',
+      rootPath: join(gameRoot(), INSTALL_FAILED_ID),
+      engineKind: 'q2pro',
+      favorite: false,
+      sortOrder: 3,
+      // `writePopulatedFixture()` below gives this installation's root folder no `baseq2` at all -
+      // the same shape `bootstrap/job.ts`'s failure cleanup leaves behind (D2's `removeAssembled`
+      // `rmdir`s an emptied `baseq2` away once the target root itself stays) - so `status: 'invalid'`
+      // here matches what the real app's own startup `validateAll()` will re-derive from that folder
+      // a moment later, rather than disagreeing with it for one render.
+      status: 'invalid',
+      gameDirs: [],
+      lastFailure: {
+        errorKey: INSTALL_FAILED_ERROR_KEY,
+        at: Date.parse(FIXED_TIMESTAMP),
+        jobId: 'fixture-bootstrap-job-failed',
+      },
     }),
   ]
 }
@@ -1042,9 +1107,17 @@ export function writePopulatedFixture() {
     }
   }
 
+  // Story 077 D5: `INSTALL_FAILED_ID`'s root, deliberately WITHOUT a `baseq2` subfolder - unlike
+  // every id in the loop above. A folder that exists but holds nothing is exactly what
+  // `bootstrap/job.ts`'s failure cleanup leaves behind (see that installation's own doc comment in
+  // `populatedInstallations()`), and it is what makes the real app's own startup `validateAll()`
+  // re-derive `status: 'invalid'` here rather than disagreeing with the value already seeded above.
+  rmDirBestEffort(join(gameRoot(), INSTALL_FAILED_ID))
+  mkdirSync(join(gameRoot(), INSTALL_FAILED_ID), { recursive: true })
+
   return {
     userDataDir,
-    installations: installIds.length,
+    installations: installIds.length + 1,
     configProfiles: populatedConfigProfiles().length,
   }
 }
@@ -1410,6 +1483,35 @@ export function writeBootstrapTargetDir() {
   return target
 }
 
+/**
+ * Story 077 D5: the target `scripts/flows/bootstrap-failure-retry.mjs`'s OWN wizard-created
+ * installation uses - a sibling of `bootstrapTargetDir()` above, not that same folder. That one is
+ * deliberately pre-seeded non-empty (AC3's warning, story 074); this one has to be genuinely FRESH -
+ * the story's own "Decided during refine" note is explicit that the failing-then-succeeding run
+ * happens against an installation the flow creates itself, distinct from the pre-seeded fixture row
+ * `populatedInstallations()` adds for AC1's restart proof.
+ */
+export function bootstrapFailureRetryTargetDir() {
+  return join(bootstrapFixtureRoot(), 'target', 'Failure Retry Demo')
+}
+
+/**
+ * Deletes any leftover from a previous run and returns the (non-existent) path - what makes the
+ * flow re-runnable without a manual reseed: a previous run's second (succeeding) wizard pass would
+ * otherwise leave a fully assembled installation sitting where the next run needs a fresh folder.
+ * Unlike `writeBootstrapTargetDir()`, this never recreates the directory or seeds a loose file in
+ * it - the wizard's own `create()` step is what brings it into being, on the flow's first run.
+ */
+export function resetBootstrapFailureRetryTargetDir() {
+  const target = assertInside(
+    UI_VERIFY_ROOT,
+    bootstrapFailureRetryTargetDir(),
+    'bootstrap failure-retry target',
+  )
+  rmDirBestEffort(target)
+  return target
+}
+
 /** How many body chunks each archive response is split into, and the pause between them. */
 const BOOTSTRAP_SERVE_CHUNKS = 10
 const BOOTSTRAP_SERVE_CHUNK_DELAY_MS = 45
@@ -1435,9 +1537,39 @@ const BOOTSTRAP_SERVE_CHUNK_DELAY_MS = 45
  *
  * `demoContributesNothing` (story 076 D6) forwards straight into `buildBootstrapPackages()` - see
  * its own doc comment. Defaulted off, so every existing caller keeps working unchanged.
+ *
+ * `failFirstAttemptFor` (story 077 D5): a package id (`buildBootstrapPackages()`'s own `id`, e.g.
+ * `'q2pro-fixture-client'`) whose PRIMARY url and MIRROR url each 404 on their own first request,
+ * then serve that same package normally on every request after. This has to be a property of the
+ * *server*, not of the flow driving it: `Q2L_UI_CONTENT_REPO_BASE` is fixed for the whole app
+ * session (`src/main/lib/ui-harness.ts` reads it once), so a single flow that wants to prove both
+ * the failing first run (AC1/AC5) and the adopting, succeeding retry (AC4/AC7) in one app session
+ * has no other way to make the second attempt succeed where the first did not (Decisions (Refine)).
+ * Undefined/omitted changes nothing about how every existing caller behaves.
  */
-export async function startBootstrapFixtureServer({ demoContributesNothing = false } = {}) {
+export async function startBootstrapFixtureServer({
+  demoContributesNothing = false,
+  failFirstAttemptFor,
+} = {}) {
   const packages = buildBootstrapPackages({ demoContributesNothing })
+
+  const failFirstPackage = failFirstAttemptFor
+    ? packages.find((pkg) => pkg.id === failFirstAttemptFor)
+    : undefined
+  if (failFirstAttemptFor && !failFirstPackage) {
+    throw new Error(
+      `startBootstrapFixtureServer: failFirstAttemptFor ${JSON.stringify(failFirstAttemptFor)} ` +
+        `matches no package id (have: ${packages.map((pkg) => pkg.id).join(', ')})`,
+    )
+  }
+  /** The primary and mirror request paths that must 404 exactly once. Empty when the option is
+   * unused, so nothing about a server started without it changes. */
+  const failFirstPaths = failFirstPackage
+    ? new Set([`/packages/${failFirstPackage.fileName}`, `/mirror/${failFirstPackage.fileName}`])
+    : new Set()
+  /** Which of `failFirstPaths` has already 404'd once - so the SECOND request to it (the retry) is
+   * served normally. */
+  const failedOnce = new Set()
 
   /** Everything this server is willing to serve, by request path. */
   const routes = new Map()
@@ -1447,6 +1579,12 @@ export async function startBootstrapFixtureServer({ demoContributesNothing = fal
   const server = createServer((request, response) => {
     const path = (request.url ?? '/').split('?')[0]
     requested.push(path)
+    if (failFirstPaths.has(path) && !failedOnce.has(path)) {
+      failedOnce.add(path)
+      response.writeHead(404, { 'content-type': 'text/plain' })
+      response.end('not found (failFirstAttemptFor - first attempt only)')
+      return
+    }
     const route = routes.get(path)
     if (!route) {
       response.writeHead(404, { 'content-type': 'text/plain' })

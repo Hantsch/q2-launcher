@@ -19,7 +19,7 @@ pointing at a log file.
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
 - [x] 076 — The bootstrap assembles the real archives, not the fixtures
-- [ ] 077 — A failed install stays in my library and shows its last error
+- [x] 077 — A failed install stays in my library and shows its last error
 - [ ] 078 — The failure says the cause, not "go read the log"
 
 ## Notes

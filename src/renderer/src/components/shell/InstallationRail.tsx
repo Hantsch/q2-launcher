@@ -9,6 +9,7 @@ import { useLauncher } from '../../store/useLauncher'
 import { Badge, SectionLabel, StatusDot } from '../ui/primitives'
 import { Button, IconButton } from '../ui/Button'
 import { DemoBadge } from '../ui/DemoBadge'
+import { FailureBadge } from '../ui/FailureBadge'
 import { EngineBadge } from '../ui/EngineBadge'
 import { HoverCard } from '../ui/HoverCard'
 import { InstallationTile } from '../installations/InstallationTile'
@@ -266,6 +267,7 @@ function RailCard({ installation }: { installation: Installation }) {
         <div className="flex flex-wrap items-center gap-1.5">
           <EngineBadge engineKind={installation.engineKind} />
           <DemoBadge installation={installation} />
+          <FailureBadge installation={installation} />
           {installation.detectedVersion && (
             <Badge tone="neutral">{installation.detectedVersion}</Badge>
           )}

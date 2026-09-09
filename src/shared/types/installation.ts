@@ -74,6 +74,32 @@ export interface ValidationResult {
  */
 export type InstallationIcon = { kind: 'shipped'; id: string } | { kind: 'custom' }
 
+/**
+ * The last time this installation's setup/bootstrap failed (story 077). Kept deliberately
+ * module-agnostic - `jobId` is a plain string, not a reference into the downloads module's job
+ * types - so this file stays importable from both TS projects without pulling in a module that
+ * has node/electron dependencies of its own. Cleared the moment a later verdict is playable (see
+ * `InstallationsService`'s inspection-applying helper).
+ */
+export interface InstallationLastFailure {
+  /** i18n key, resolved in the renderer. Never prose. */
+  errorKey: string
+  /** Epoch ms. */
+  at: number
+  /** The bootstrap job that failed. */
+  jobId: string
+  /**
+   * Story 077 finding fix: the interpolation values `errorKey`'s sentence needs, when it is a
+   * templated one - `downloads.error.packageIncomplete` reads `{{packageId}}`, and a card that
+   * renders the key without them shows the raw `{{packageId}}` placeholder to the user. Data, never
+   * prose (a manifest package id), exactly like `ValidationCheck.params` and the `Job.error.params`
+   * the same failure exit already carries into the Downloads tab - so the two surfaces interpolate
+   * the same sentence from the same values. Optional: most keys need none, and an installation
+   * written before this field simply has none.
+   */
+  params?: Record<string, string | number>
+}
+
 export interface Installation {
   /** Stable id, generated once. Never derived from the path. */
   id: string
@@ -102,6 +128,8 @@ export interface Installation {
   favorite: boolean
   /** Icon shown in the rail/header; absent means the default fallback icon. */
   icon?: InstallationIcon
+  /** The most recent bootstrap failure, if the installation has one and no later verdict was playable. */
+  lastFailure?: InstallationLastFailure
   /** Position in the installation rail. Lower comes first. */
   sortOrder: number
   createdAt: string

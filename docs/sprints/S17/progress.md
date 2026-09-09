@@ -14,3 +14,25 @@
 - 2026-09-09 08:12 · 076 · review-fix F1 PRUNABLE_TARGET_DIRS stale players path · done
 - 2026-09-09 08:25 · 076 · review-fix F1/F3 archive-layouts.test.ts GLOB_DIRS + reverse-mirror coverage gaps · started
 - 2026-09-09 08:25 · 076 · review-fix F1/F3 archive-layouts.test.ts GLOB_DIRS + reverse-mirror coverage gaps · done
+- 2026-09-09 08:33 · 077 · D1 the persisted failure record and when it disappears · started
+- 2026-09-09 08:38 · 077 · D1 the persisted failure record and when it disappears · done
+- 2026-09-09 08:38 · 077 · D2 a failed bootstrap keeps its installation; a cancelled one still does not · started
+- 2026-09-09 08:46 · 077 · D2 a failed bootstrap keeps its installation; a cancelled one still does not · done
+- 2026-09-09 08:46 · 077 · fix applyInspection preserves known engineKind when re-inspection is unknown (AC1 gap found during D2) · started
+- 2026-09-09 08:47 · 077 · fix applyInspection preserves known engineKind when re-inspection is unknown (AC1 gap found during D2) · done
+- 2026-09-09 08:47 · 077 · D3 retrying adopts the failed installation · started
+- 2026-09-09 08:53 · 077 · D3 retrying adopts the failed installation · done
+- 2026-09-09 08:53 · 077 · fix cancelling an adopted retry must not delete the pre-existing installation (gap found during D3) · started
+- 2026-09-09 08:53 · 077 · D4 the library card and the rail tile say a download failed · started
+- 2026-09-09 08:55 · 077 · fix cancelling an adopted retry must not delete the pre-existing installation (gap found during D3) · done
+- 2026-09-09 08:57 · 077 · D4 the library card and the rail tile say a download failed · done
+- 2026-09-09 08:57 · 077 · D5 offline proof: a real failing run, and the retry that adopts it · started
+- 2026-09-09 09:15 · 077 · D5 offline proof: a real failing run, and the retry that adopts it · done
+- 2026-09-09 09:24 · 077 · review-fix F1 raw {{packageId}} placeholder / F2 cancel-of-adopted retry dead-ends / F4 engine-preservation guard narrowness · started
+- 2026-09-09 14:04 · 077 · review-fix F1 raw {{packageId}} placeholder / F2 cancel-of-adopted retry dead-ends / F4 engine-preservation guard narrowness · done
+- 2026-09-09 14:04 · 077 · fresh story-review-hard pass over full diff · started
+- 2026-09-09 14:04 · 077 · fresh story-review-hard pass over full diff · done
+- 2026-09-09 14:04 · 077 · review-fix N1 engine-preservation guard scoped to lastFailure (AC8) / N2 story text for adopted-retry cancel (AC2) / N4+nit test coverage · started
+- 2026-09-09 14:06 · 077 · review-fix N1 engine-preservation guard scoped to lastFailure (AC8) / N2 story text for adopted-retry cancel (AC2) / N4+nit test coverage · done
+- 2026-09-09 14:06 · 077 · verification (build/test/typecheck/ui:verify/ui:flow bootstrap-failure-retry) · done
+- 2026-09-09 14:07 · 077 · done section filled, status done, moved to done/ + INDEX.md · done

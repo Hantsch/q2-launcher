@@ -253,6 +253,25 @@
   letter-spacing: 0.06em;
 }
 
+/* --- failed microtag ---------------------------------------------------
+   A CSS-only corner label for installations carrying a `lastFailure`
+   (story 077 D4) - same mechanism as `.tile-demo-tag`, opposite corner
+   (top-left) so the two never collide on a tile that somehow carries both. */
+.tile-failed-tag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 0 3px;
+  border-bottom-right-radius: var(--radius-xs);
+  background: var(--color-danger);
+  color: var(--color-base);
+  font-family: var(--font-display);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+}
+
 /* --- typography helpers -------------------------------------------------- */
 /* Stencilled equipment label: the small uppercase text on every panel. */
 .stencil {

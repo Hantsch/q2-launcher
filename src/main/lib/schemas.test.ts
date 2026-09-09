@@ -4,6 +4,7 @@ import {
   parseConfigProfiles,
   parseDownloadFailures,
   parseDownloadsSettings,
+  parseInstallation,
 } from './schemas'
 import { DEFAULT_DOWNLOADS_SETTINGS } from '@shared/modules/downloads'
 import type { DownloadDiagnostics } from '@shared/modules/downloads'
@@ -987,5 +988,84 @@ describe('parseDownloadFailures - diagnostics (story 075 D1)', () => {
     expect(parsed).toBeDefined()
     expect(parsed?.id).toBe('f1')
     expect(parsed?.diagnostics).toBeUndefined()
+  })
+})
+
+/**
+ * Story 077 D1: `installationSchema`'s `lastFailure` field - additive and forgiving in exactly the
+ * shape `icon` already gets right above it in `./schemas.ts`.
+ */
+describe('installationSchema - lastFailure (story 077 D1)', () => {
+  const baseRow = {
+    id: 'install-1',
+    rootPath: 'C:\\Games\\Quake2',
+    name: 'Quake II',
+    engineKind: 'r1q2',
+    launchArgs: [],
+    activeGameDir: '',
+    source: 'manual',
+    status: 'invalid',
+    checks: [],
+    gameDirs: [],
+    favorite: false,
+    sortOrder: 0,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    totalPlaytimeSeconds: 0,
+  }
+
+  const lastFailure = { errorKey: 'downloads.error.network', at: 1234567890, jobId: 'job-1' }
+
+  it('AC1 (partial): an installation with a lastFailure round-trips through state.json', () => {
+    const raw = { ...baseRow, lastFailure }
+    // "Through state.json" for this schema is parse -> serialize -> parse again, since
+    // `parseInstallation` is exactly what reads a row back out of the file.
+    const parsedOnce = parseInstallation(raw)
+    const parsedTwice = parseInstallation(JSON.parse(JSON.stringify(parsedOnce)))
+
+    expect(parsedOnce?.lastFailure).toEqual(lastFailure)
+    expect(parsedTwice).toEqual(parsedOnce)
+  })
+
+  it('AC8: an installation written before this story parses unchanged', () => {
+    // No `lastFailure` key at all - the pre-077 shape.
+    const parsed = parseInstallation(baseRow)
+
+    expect(parsed).not.toBeNull()
+    expect(parsed?.lastFailure).toBeUndefined()
+    expect(parsed?.id).toBe('install-1')
+    expect(parsed?.rootPath).toBe('C:\\Games\\Quake2')
+  })
+
+  it('AC8: a garbage lastFailure drops the field, not the row', () => {
+    const parsed = parseInstallation({ ...baseRow, lastFailure: 'not an object' })
+
+    expect(parsed).not.toBeNull()
+    expect(parsed?.id).toBe('install-1')
+    expect(parsed?.lastFailure).toBeUndefined()
+  })
+
+  it('a lastFailure missing a required member drops the field, not the row', () => {
+    const { jobId: _jobId, ...malformed } = lastFailure
+    const parsed = parseInstallation({ ...baseRow, lastFailure: malformed })
+
+    expect(parsed).not.toBeNull()
+    expect(parsed?.id).toBe('install-1')
+    expect(parsed?.lastFailure).toBeUndefined()
+  })
+
+  it('a templated lastFailure carries its params through unchanged', () => {
+    const withParams = { ...lastFailure, params: { packageId: 'q2-314-demo-x86.exe' } }
+    const parsed = parseInstallation({ ...baseRow, lastFailure: withParams })
+
+    expect(parsed?.lastFailure).toEqual(withParams)
+  })
+
+  it('a garbage params drops only params, not the rest of lastFailure (one level more forgiving)', () => {
+    const parsed = parseInstallation({ ...baseRow, lastFailure: { ...lastFailure, params: 'nope' } })
+
+    expect(parsed).not.toBeNull()
+    expect(parsed?.lastFailure).toEqual(lastFailure)
+    expect(parsed?.lastFailure?.params).toBeUndefined()
   })
 })

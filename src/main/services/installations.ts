@@ -9,6 +9,7 @@ import {
   type CreateInstallationInput,
   type Installation,
   type InstallationIcon,
+  type InstallationLastFailure,
   type LauncherSettings,
   type Outcome,
   type RemoveInstallationInput,
@@ -79,6 +80,17 @@ export class InstallationsService {
   /** Used by the detection scan to mark candidates the user already has. */
   isRegistered(key: string): boolean {
     return this.state.installations().some((installation) => pathKey(installation.rootPath) === key)
+  }
+
+  /**
+   * Finds the installation registered at `rootPath`, using the exact same comparison
+   * `addExisting()`/`create()` use to detect a duplicate: canonicalize, then compare
+   * `pathKey`s (case-insensitive where `pathKey` already is). Returns `undefined` when nothing
+   * matches - a plain lookup, not an error.
+   */
+  async findByRootPath(rootPath: string): Promise<Installation | undefined> {
+    const key = pathKey(await canonicalizePath(rootPath))
+    return this.state.installations().find((installation) => pathKey(installation.rootPath) === key)
   }
 
   // -------------------------------------------------------------------------
@@ -279,6 +291,27 @@ export class InstallationsService {
     return ok(next)
   }
 
+  /**
+   * Story 077 D1: records (or clears) the installation's last bootstrap failure - same shape as
+   * `setIcon()` right above, its own field, its own `commit()` write.
+   *
+   * `null` removes the field entirely, the same "absent means none" convention `setIcon` uses for
+   * `icon`. The field is also cleared automatically the next time `applyInspection()` sees a
+   * playable verdict (see that method below) - this method is for the bootstrap job to set it (and
+   * for tests/future callers to clear it explicitly), not the only place it can be cleared.
+   */
+  setLastFailure(id: string, failure: InstallationLastFailure | null): Outcome<Installation> {
+    const current = this.find(id)
+    if (!current) return fail('installations.error.notFound')
+
+    const next: Installation = { ...current, updatedAt: new Date().toISOString() }
+    if (failure === null) delete next.lastFailure
+    else next.lastFailure = failure
+
+    this.commit(this.state.installations().map((i) => (i.id === next.id ? next : i)))
+    return ok(next)
+  }
+
   reorder(orderedIds: string[]): Installation[] {
     const byId = new Map(this.state.installations().map((i) => [i.id, i]))
     const ordered: Installation[] = []
@@ -388,8 +421,32 @@ export class InstallationsService {
       updatedAt: new Date().toISOString(),
     }
 
+    // Story 077 D1: a playable verdict retires any stale failure record - same "playable" predicate
+    // `bootstrap/job.ts`'s `markPlayableIfReady` uses. An `invalid`/`missing` verdict leaves
+    // `lastFailure` exactly as it was; this is the only place other than `setLastFailure(id, null)`
+    // that clears it.
+    if (result.status !== 'invalid' && result.status !== 'missing') {
+      delete next.lastFailure
+    }
+
     // A user-chosen engine kind is never overwritten by detection.
-    if (installation.engineKind !== 'custom') next.engineKind = result.engineKind
+    // Story 077 (review fix, AC1/AC8): an empty/unrecognizable folder inspects as `unknown` - for a
+    // *failed* installation (the folder this story's cleanup just emptied - Decisions (Sprint), Q1)
+    // that must not clobber the wizard's engine choice, or a restart would show "Unknown engine"
+    // next to a name and path it otherwise preserved exactly. Deliberately scoped to
+    // `installation.lastFailure`, the one field only a bootstrap failure ever sets: an *ordinary*
+    // installation (no `lastFailure` - AC8's "an installation without the new field") keeps today's
+    // unconditional overwrite, engineKind included, so this story changes nothing about how an
+    // untouched installation's engine badge behaves when its folder empties out for any other
+    // reason. A too-broad version of this guard (no `lastFailure` scoping) was caught in review:
+    // it silently changed the engine badge on installations that carry no `lastFailure` at all.
+    const preserveKnownEngine =
+      result.engineKind === 'unknown' &&
+      installation.engineKind !== 'unknown' &&
+      installation.lastFailure !== undefined
+    if (installation.engineKind !== 'custom' && !preserveKnownEngine) {
+      next.engineKind = result.engineKind
+    }
 
     // Adopt a working executable if the stored one is gone.
     if (!installation.executablePath && result.executables[0]) {
