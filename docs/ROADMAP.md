@@ -2,14 +2,15 @@
 
 ## Where we stand
 
-*As of 2026-09-08.* The Config module is fully done (S01–S15). Phase 4 (Install)'s first slice,
+*As of 2026-09-09.* The Config module is fully done (S01–S15). Phase 4 (Install)'s first slice,
 Sprint S16, is done: a bootstrap wizard turns nothing into a playable Q2PRO demo installation,
-end to end — curated manifest, verified downloads, a Downloads settings section and tab, and the
-wizard itself, all proven by automated tests (see [S16 review](../sprints/S16/review.md)). A real
-(non-fixture) run the same day exposed three gaps, filed as stories 076–078 and cut into
-[S17](../sprints/S17/sprint.md) (planned): the allowlist not matching real archives, a failed
-install vanishing from the library, and the failure card pointing at a log instead of naming the
-cause. Next: run `/sprint S17`. Nothing else is waiting on the user right now.
+end to end. Sprint S17 closed the three gaps a real (non-fixture) run exposed the same day: the
+allowlist now matches the real archives instead of the fixtures, a failed install stays in the
+library with its cause recorded instead of vanishing, and that cause is legible on screen in both
+the Downloads tab and the wizard itself instead of pointing at a log file (see
+[S17 review](../sprints/S17/review.md)). Next: r1q2 support, retail import, update/rollback,
+repair and removal still follow for Phase 4 — cut with `/roadmap plan` when prioritized. Nothing
+is waiting on the user right now.
 
 ## Phase overview
 
@@ -28,7 +29,7 @@ cause. Next: run `/sprint S17`. Nothing else is waiting on the user right now.
 
 | # | Milestone | Status | Sprint(s) | Note |
 | --- | --- | --- | --- | --- |
-| 1 | Install — bootstrap, update and repair ([concepts/install-module.md](concepts/install-module.md)) | in progress | [S16 review](../sprints/S16/review.md), [S17](../sprints/S17/sprint.md) (planned) | S16 shipped the first slice: Q2PRO-only, free-download-only bootstrap to a playable demo installation. S17 fixes real-run gaps (076–078); r1q2, retail import, update/rollback, repair, removal still follow in later sprints. |
+| 1 | Install — bootstrap, update and repair ([concepts/install-module.md](concepts/install-module.md)) | in progress | [S16 review](../sprints/S16/review.md), [S17 review](../sprints/S17/review.md) | S16 shipped the first slice: Q2PRO-only, free-download-only bootstrap to a playable demo installation. S17 fixed the real-run gaps it exposed (076–078); r1q2, retail import, update/rollback, repair, removal still follow in later sprints. |
 
 ## Open / unprioritised
 
@@ -41,6 +42,10 @@ cause. Next: run `/sprint S17`. Nothing else is waiting on the user right now.
 
 ## Follow-ups worth doing
 
+- A `missingChecks` entry whose translation interpolates a variable (e.g. `validation.rootMissing`'s
+  `{{path}}`) renders that placeholder unfilled wherever a failure's target verdict is now shown
+  on screen — `DownloadDiagnosticsTarget.missingChecks` has stored only `{id, messageKey}` since
+  075's redaction boundary, with no `params`. [S17 review](../sprints/S17/review.md)
 - `scripts/fetch-7za.mjs` (071) has never run end-to-end in this environment (no network access
   to 7-zip.org) — the wiring is correct but unverified against a real download; three tests stay
   `it.skipIf`-gated until someone with network access runs it once. [S16 review](../sprints/S16/review.md)
@@ -72,3 +77,4 @@ cause. Next: run `/sprint S17`. Nothing else is waiting on the user right now.
 | Config, round three — live-acceptance findings | S14 | 2026-09-07 |
 | Identity, icons and the first profile | S15 | 2026-09-07 |
 | Install, first slice — bootstrap to a playable Q2PRO demo | S16 | 2026-09-08 |
+| Install — real-run gaps: allowlist, failed-install persistence, failure cause | S17 | 2026-09-09 |

@@ -1,6 +1,6 @@
 ---
 sprint: S17
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/S17
 milestone: Install — bootstrap, update and repair (docs/concepts/install-module.md)
 ---
