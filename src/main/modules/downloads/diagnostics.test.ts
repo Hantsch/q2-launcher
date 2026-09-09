@@ -7,6 +7,7 @@ import {
   diagnosticsFor,
   diagnosticsRegistrySize,
   dropDiagnostics,
+  EXTRACTION_LISTING_CAP,
   HOME_PLACEHOLDER,
   redactHome,
   UNKNOWN_DOWNLOAD_FAILURE_KEY,
@@ -194,6 +195,69 @@ describe('createDiagnosticsCollector / diagnosticsFor / dropDiagnostics', () => 
         extracted: false,
       },
     ])
+  })
+
+  it('assembly entries and extraction listings are redacted at capture', () => {
+    // Story 078 D3 (AC9). Both new records hold relative paths and file names today, so this is
+    // defensive - but an archive that ships an absolute path as a name, or a source dir that ends
+    // up in an entry, must not carry an account name into a public issue report.
+    const jobId = randomUUID()
+    const collector = createDiagnosticsCollector(jobId, 'bootstrap', 'C:\\Users\\bob')
+    const overCap = Array.from({ length: EXTRACTION_LISTING_CAP + 5 }, (_, index) =>
+      `entry-${String(index).padStart(2, '0')}`,
+    )
+
+    collector.recordPackage({
+      id: 'q2-demo-3.14',
+      url: 'https://example.com/demo.exe',
+      sizeBytes: 200,
+      verified: true,
+      extracted: true,
+      contents: ['Install', 'C:\\Users\\bob\\stray.txt'],
+    })
+    collector.recordPackage({
+      id: 'q2-point-3.20',
+      url: 'https://example.com/point.exe',
+      sizeBytes: 400,
+      verified: true,
+      extracted: true,
+      contents: overCap,
+    })
+    collector.recordAssembly([
+      {
+        from: 'C:\\Users\\bob\\extract\\demo\\Install\\Data\\baseq2\\pak0.pak',
+        to: 'baseq2/pak0.pak',
+        found: true,
+        sourcePackageId: 'q2-demo-3.14',
+      },
+      { from: 'baseq2/q2pro.menu', to: 'baseq2/q2pro.menu', found: false },
+    ])
+
+    const diagnostics = diagnosticsFor(terminalJob({ id: jobId }))
+    expect(diagnostics?.assembly).toEqual([
+      {
+        from: `${HOME_PLACEHOLDER}\\extract\\demo\\Install\\Data\\baseq2\\pak0.pak`,
+        to: 'baseq2/pak0.pak',
+        found: true,
+        sourcePackageId: 'q2-demo-3.14',
+      },
+      { from: 'baseq2/q2pro.menu', to: 'baseq2/q2pro.menu', found: false },
+    ])
+    expect(JSON.stringify(diagnostics)).not.toContain('bob')
+
+    const demo = diagnostics?.packages.find((pkg) => pkg.id === 'q2-demo-3.14')
+    expect(demo?.contents).toEqual(['Install', `${HOME_PLACEHOLDER}\\stray.txt`])
+    expect(demo?.contentsTruncated).toBeUndefined()
+    // Derived from the assembly entries, on both rows: the demo served one, the point release
+    // served none - and the collector is the only writer of that flag.
+    expect(demo?.contributed).toBe(true)
+    const point = diagnostics?.packages.find((pkg) => pkg.id === 'q2-point-3.20')
+    expect(point?.contributed).toBe(false)
+    // The cap is the collector's own guarantee, not only the caller's: an over-long listing is
+    // trimmed here and says so.
+    expect(point?.contents).toHaveLength(EXTRACTION_LISTING_CAP)
+    expect(point?.contents?.[0]).toBe('entry-00')
+    expect(point?.contentsTruncated).toBe(true)
   })
 
   it('recordTarget stores the target with a redacted path, and a later call replaces it', () => {

@@ -32,7 +32,7 @@ export type AssembleFileRole = 'engine' | 'demo' | 'point-release'
 
 /** One file to copy, resolved relative to a source extraction dir and to the target installation root. */
 export interface AssembleFileEntry {
-  /** Relative paths inside one of the extracted source trees (`sourceDirs`), tried in order - first that exists wins. */
+  /** Relative paths inside one of the extracted source trees (`sources`), tried in order - first that exists wins. */
   from: string[]
   /** Relative path inside the target installation root, e.g. `baseq2/pak0.pak`. */
   to: string
@@ -134,34 +134,66 @@ export function buildAssemblePlan(input: BuildAssemblePlanInput): AssembleFileEn
   return buildFixedEntries()
 }
 
+/** One downloaded package's extraction dir, attributed back to the manifest package that produced it. */
+export interface AssembleSource {
+  /** The `ManifestPackage.id` this extraction belongs to. */
+  packageId: string
+  /** Absolute path to the package's extraction dir. */
+  dir: string
+}
+
 export interface AssembleInstallationInput {
-  /** One directory per downloaded package's extraction, tried in order for each allowlist entry. */
-  sourceDirs: string[]
+  /** One entry per downloaded package's extraction, tried in order for each allowlist entry. */
+  sources: AssembleSource[]
   /** Absolute path to the installation root being assembled. */
   targetRoot: string
   includeVideoAndPlayers: boolean
 }
 
+/**
+ * Story 078 D2 (AC7): what assembly looked for, and whether it found it - one per allowlist entry
+ * (plan order) plus one per expanded glob dir. Mirrors `DownloadDiagnosticsAssemblyEntry`
+ * (`shared/modules/downloads.ts`), which is filled from this shape one layer up.
+ */
+export interface AssembleEntryResult {
+  /** The relative candidate path (or glob dir) that was found; when none was, every candidate that
+   * was tried, joined by ` | ` (story 078 review finding M3) - so a report reader can tell "the
+   * archive's real layout doesn't match any candidate" from "the allowlist only ever tries one
+   * path", which a single candidate would silently collapse into the same row. */
+  from: string
+  /** Target-relative path this entry copies to. */
+  to: string
+  /** Whether a source provided this entry. */
+  found: boolean
+  /** The `packageId` of the source that served this entry, when `found` is true. */
+  sourcePackageId?: string
+}
+
 export interface AssembleInstallationResult {
   /** Target-relative paths that were actually copied. */
   copiedFiles: string[]
-  /** Required entries whose source was not found in any `sourceDirs`. Optional entries never appear here. */
+  /** Required entries whose source was not found in any `sources`. Optional entries never appear here. */
   missingRequired: { role: AssembleFileRole; from: string[] }[]
+  /** One record per allowlist entry (plan order) plus one per expanded glob dir - see `AssembleEntryResult`. */
+  entries: AssembleEntryResult[]
 }
 
 /**
- * Finds the first candidate (in order) that exists in any source dir (in order), or null if none
- * does. Candidate order takes priority over source-dir order, matching "an ordered candidate list,
- * first that exists wins" - a later candidate in an earlier source dir does not pre-empt an
- * earlier candidate found in a later source dir.
+ * Finds the first candidate (in order) that exists in any source (in order), or null if none does.
+ * Candidate order takes priority over source order, matching "an ordered candidate list, first
+ * that exists wins" - a later candidate in an earlier source does not pre-empt an earlier candidate
+ * found in a later source.
  */
-async function findSource(sourceDirs: string[], candidates: string[]): Promise<string | null> {
+async function findSource(
+  sources: AssembleSource[],
+  candidates: string[],
+): Promise<{ absolutePath: string; relativePath: string; packageId: string } | null> {
   for (const relativePath of candidates) {
-    for (const sourceDir of sourceDirs) {
-      const candidate = join(sourceDir, relativePath)
+    for (const source of sources) {
+      const absolutePath = join(source.dir, relativePath)
       try {
-        await stat(candidate)
-        return candidate
+        await stat(absolutePath)
+        return { absolutePath, relativePath, packageId: source.packageId }
       } catch {
         continue
       }
@@ -172,15 +204,15 @@ async function findSource(sourceDirs: string[], candidates: string[]): Promise<s
 
 /** Lists the immediate children of the first existing candidate dir, by name. */
 async function expandGlobDir(
-  sourceDirs: string[],
+  sources: AssembleSource[],
   candidates: string[],
-): Promise<{ absoluteDir: string; names: string[] } | null> {
+): Promise<{ absoluteDir: string; relativePath: string; names: string[]; packageId: string } | null> {
   for (const dirRelativePath of candidates) {
-    for (const sourceDir of sourceDirs) {
-      const absoluteDir = join(sourceDir, dirRelativePath)
+    for (const source of sources) {
+      const absoluteDir = join(source.dir, dirRelativePath)
       try {
         const names = await readdir(absoluteDir)
-        return { absoluteDir, names }
+        return { absoluteDir, relativePath: dirRelativePath, names, packageId: source.packageId }
       } catch {
         continue
       }
@@ -190,7 +222,7 @@ async function expandGlobDir(
 }
 
 /**
- * Copies exactly the allowlisted files (`buildAssemblePlan`) out of `sourceDirs` into
+ * Copies exactly the allowlisted files (`buildAssemblePlan`) out of `sources` into
  * `targetRoot`. Never copies a whole directory tree - `video/*`/`players/*` are expanded to their
  * immediate children and copied one by one. A missing allowlisted file is skipped, not thrown: a
  * job-level caller decides what "the download didn't produce a required file" means.
@@ -198,30 +230,49 @@ async function expandGlobDir(
 export async function assembleInstallation(
   input: AssembleInstallationInput,
 ): Promise<AssembleInstallationResult> {
-  const { sourceDirs, targetRoot, includeVideoAndPlayers } = input
+  const { sources, targetRoot, includeVideoAndPlayers } = input
   const copiedFiles: string[] = []
   const missingRequired: { role: AssembleFileRole; from: string[] }[] = []
+  const entries: AssembleEntryResult[] = []
 
   const plan = buildAssemblePlan({ includeVideoAndPlayers })
   for (const entry of plan) {
-    const source = await findSource(sourceDirs, entry.from)
+    const source = await findSource(sources, entry.from)
     if (!source) {
+      entries.push({ from: entry.from.join(' | '), to: entry.to, found: false })
       if (entry.required) {
         missingRequired.push({ role: entry.role, from: entry.from })
       }
       continue
     }
 
+    entries.push({
+      from: source.relativePath,
+      to: entry.to,
+      found: true,
+      sourcePackageId: source.packageId,
+    })
+
     const dest = join(targetRoot, entry.to)
     await mkdir(dirname(dest), { recursive: true })
-    await cp(source, dest)
+    await cp(source.absolutePath, dest)
     copiedFiles.push(entry.to)
   }
 
   if (includeVideoAndPlayers) {
     for (const globDir of GLOB_DIRS) {
-      const expanded = await expandGlobDir(sourceDirs, globDir.from)
-      if (!expanded) continue
+      const expanded = await expandGlobDir(sources, globDir.from)
+      if (!expanded) {
+        entries.push({ from: globDir.from.join(' | '), to: globDir.to, found: false })
+        continue
+      }
+
+      entries.push({
+        from: expanded.relativePath,
+        to: globDir.to,
+        found: true,
+        sourcePackageId: expanded.packageId,
+      })
 
       for (const name of expanded.names) {
         const source = join(expanded.absoluteDir, name)
@@ -234,5 +285,5 @@ export async function assembleInstallation(
     }
   }
 
-  return { copiedFiles, missingRequired }
+  return { copiedFiles, missingRequired, entries }
 }

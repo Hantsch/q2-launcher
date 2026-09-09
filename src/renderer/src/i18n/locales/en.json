@@ -1983,6 +1983,17 @@
       "dismissed": {
         "summary": "Dismissed ({{count}})"
       },
+      "detail": {
+        "summary": "What went wrong",
+        "step": {
+          "fetched": "{{id}}: downloaded, but verification failed",
+          "verified": "{{id}}: downloaded and verified, but extraction failed",
+          "extractedNoAssembly": "{{id}}: downloaded, verified and extracted",
+          "extracted": "{{id}}: downloaded, verified and extracted, but did not contribute to the installation",
+          "contributed": "{{id}}: downloaded, verified, extracted and contributed to the installation"
+        },
+        "verdictHeading": "Installation check"
+      },
       "report": {
         "versionsHeading": "Versions",
         "appVersion": "App version",
@@ -2005,6 +2016,13 @@
         "verdictLabel": "Status",
         "missingChecksHeading": "Failing checks",
         "noMissingChecks": "None",
+        "assemblyHeading": "Assembly",
+        "columnFrom": "Looked for",
+        "columnTo": "Target path",
+        "columnFound": "Found",
+        "columnSourcePackage": "Source package",
+        "extractionHeading": "Extraction contents",
+        "extractionTruncated": "(truncated - more entries were not listed)",
         "logHeading": "Log tail"
       }
     }

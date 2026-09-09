@@ -974,6 +974,18 @@ const downloadDiagnosticsPackageSchema = z.object({
   sizeBytes: z.number().finite(),
   verified: z.boolean(),
   extracted: z.boolean(),
+  // Story 078 D1 (AC8): forgiving field-by-field like every other field on this row.
+  contents: z.array(z.string()).optional().catch(undefined),
+  contentsTruncated: z.boolean().optional().catch(undefined),
+  contributed: z.boolean().optional().catch(undefined),
+})
+
+// Story 078 D1 (AC7): mirrors `downloadDiagnosticsPackageSchema`'s forgiving-field convention.
+const downloadDiagnosticsAssemblyEntrySchema = z.object({
+  from: z.string().min(1),
+  to: z.string().min(1),
+  found: z.boolean(),
+  sourcePackageId: z.string().min(1).optional().catch(undefined),
 })
 
 const downloadDiagnosticsTargetSchema = z.object({
@@ -1005,6 +1017,9 @@ const downloadDiagnosticsSchema = z
     errorKey: z.string().min(1),
     packages: z.array(downloadDiagnosticsPackageSchema).catch([]),
     target: downloadDiagnosticsTargetSchema.optional().catch(undefined),
+    // Story 078 D1 (AC7): same optional-field convention as `target` - a malformed `assembly`
+    // value costs only this field, never the whole diagnostics record.
+    assembly: z.array(downloadDiagnosticsAssemblyEntrySchema).optional().catch(undefined),
     logTail: z.array(z.string()).catch([]),
     truncated: z.boolean().optional().catch(undefined),
   })

@@ -57,6 +57,11 @@ export interface Extractor {
  *
  * Optional on `BootstrapDeps`: a job without one records nothing and behaves exactly as it did
  * before this story. The collector observes the job; it never influences what the job does.
+ *
+ * Story 078 D3: the surface this port hands the job widened with `recordAssembly` (AC7) and with
+ * `recordPackage`'s `contents`/`contentsTruncated`/`contributed` (AC8/AC1) - both on
+ * `DiagnosticsCollector` itself, which this alias is, so there is no second description of that
+ * surface here to keep in step with it.
  */
 export type BootstrapDiagnosticsSource = (jobId: string, kind: string) => DiagnosticsCollector
 

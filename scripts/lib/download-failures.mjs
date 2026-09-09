@@ -52,6 +52,21 @@ const FIXTURE_RAW_LOG_TAIL = [
  * 2026-09-08 real-world failure the story's Requirement describes), and a target plus log tail
  * whose home-directory paths are run through redaction here, at seed time - the same place
  * production redacts them (at capture, in main), never hand-written as `<home>`.
+ *
+ * Story 078 D8 adds the two report-only records (`assembly`, per-package `contents`/
+ * `contentsTruncated`) plus `contributed` on every package, mirroring the exact 2026-09-08 shape
+ * `assembleInstallation`/`job.ts` would have produced: every allowlist entry `found: false`
+ * (nothing served the target) and every package `contributed: false` to match - "every package
+ * downloaded, nothing reached the installation" (AC1), not a hand-picked inconsistent mix.
+ * `q2pro-engine` and `point-release` (the two that extracted) get a `contents` listing;
+ * `point-release`'s is marked `contentsTruncated` and nests a `q2-3.20-x86-full-ctf/` wrapper
+ * directory - the exact self-extracting-installer shape [[076]]/AC8 exist to make visible.
+ * `demo-gamedata` never extracted, so it carries no `contents` at all (not an empty one - the
+ * same "absent, not empty" rule `diagnostics.ts`'s `recordPackage` follows). `assembly`'s `from`/
+ * `to` values are relative paths (`baseq2/pak0.pak`, `players`, ...), same as
+ * `assembleInstallation`'s real output - never home-directory-anchored, so nothing here needs
+ * redaction (Decisions (Sprint): "they hold relative paths and file names today, so this is
+ * defensive").
  */
 export function downloadFailureWithDiagnostics() {
   const targetPath = redactHome(FIXTURE_RAW_TARGET_PATH, FIXTURE_HOME_DIR)
@@ -76,6 +91,8 @@ export function downloadFailureWithDiagnostics() {
           sizeBytes: 5_242_880,
           verified: true,
           extracted: true,
+          contents: ['q2pro64.exe', 'baseq2', 'q2pro.menu'],
+          contributed: false,
         },
         {
           id: 'demo-gamedata',
@@ -85,6 +102,8 @@ export function downloadFailureWithDiagnostics() {
           sizeBytes: 62_914_560,
           verified: true,
           extracted: false,
+          // No `contents` - extraction never got that far (AC8's "absent, not empty").
+          contributed: false,
         },
         {
           id: 'point-release',
@@ -92,6 +111,11 @@ export function downloadFailureWithDiagnostics() {
           sizeBytes: 15_728_640,
           verified: true,
           extracted: true,
+          // Nests its payload under a wrapper directory - the real-world shape AC8 exists to
+          // surface - and is capped short of the archive's actual top-level entry count.
+          contents: ['q2-3.20-x86-full-ctf', 'setup.exe'],
+          contentsTruncated: true,
+          contributed: false,
         },
       ],
       target: {
@@ -99,6 +123,16 @@ export function downloadFailureWithDiagnostics() {
         verdict: 'invalid',
         missingChecks: [{ id: 'base-paks', messageKey: 'validation.pak0Missing' }],
       },
+      // Story 078 D8 (AC7): what assembly looked for and found for each allowlist entry - every
+      // entry `found: false`, consistent with every package above being `contributed: false`.
+      assembly: [
+        { from: 'baseq2/pak0.pak', to: 'baseq2/pak0.pak', found: false },
+        { from: 'baseq2/pak1.pak', to: 'baseq2/pak1.pak', found: false },
+        { from: 'baseq2/pak2.pak', to: 'baseq2/pak2.pak', found: false },
+        { from: 'q2pro64.exe', to: 'q2pro64.exe', found: false },
+        { from: 'baseq2/gamex86_64.dll', to: 'baseq2/gamex86_64.dll', found: false },
+        { from: 'baseq2/players', to: 'baseq2/players', found: false },
+      ],
       logTail: FIXTURE_RAW_LOG_TAIL.map((line) => redactHome(line, FIXTURE_HOME_DIR)),
     },
   }

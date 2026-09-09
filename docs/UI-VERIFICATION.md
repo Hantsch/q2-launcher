@@ -758,21 +758,47 @@ section after that dismiss/restore walk, exercised against the two static `downl
 entries `scripts/lib/fixture.mjs`'s `populatedDownloadFailures()` seeds directly into `state.json`
 (no job round trip, reachable fully offline, AC8): both the with-diagnostics and
 without-diagnostics entries render; only the diagnostics entry offers a copy action, the other
-renders none at all (not even a disabled stub, AC6); the reveal-log action is present and enabled
-on both, since D6 gates it only on `AppInfo` having loaded, not on `diagnostics` (AC5); clicking
-copy and reading the OS clipboard back via `app.evaluate(({ clipboard }) => clipboard.readText())`
-(the same mechanism `docs/requirements/075-a-failure-tells-me-enough-to-report-it.md`'s Decisions
-describe) proves the report contains the Markdown package table, the error key and the AC2 verdict
-block (AC3); and that the same text contains the redaction placeholder `<home>` but never the
-machine's real `os.homedir()` value (AC4). `shot()`s cover both the with-diagnostics and
-without-diagnostics states plus the post-copy toast. And (story 074 D8)
+renders none at all (not even a disabled stub, AC6); clicking copy and reading the OS clipboard
+back via `app.evaluate(({ clipboard }) => clipboard.readText())` (the same mechanism
+`docs/requirements/075-a-failure-tells-me-enough-to-report-it.md`'s Decisions describe) proves the
+report contains the Markdown package table, the error key and the AC2 verdict block (AC3); and
+that the same text contains the redaction placeholder `<home>` but never the machine's real
+`os.homedir()` value (AC4). `shot()`s cover both the with-diagnostics and without-diagnostics
+states plus the post-copy toast.
+
+Story 078 D8 extends `scripts/lib/download-failures.mjs`'s diagnostics entry with `assembly` (one
+entry per allowlist path, every one `found: false`) and per-package `contents`/`contentsTruncated`/
+`contributed` (mirroring the real 2026-09-08 failure: every package downloaded and verified,
+`demo-gamedata` never even extracted, and none of the three contributed a file to the target), and
+adds a further section to the flow after the copy-report/redaction checks above, exercising
+`FailureCauseDetail` (078 D5/D6): reveal-log, which D6 moved out of the always-visible header
+cluster into that detail's closed-by-default footer, is asserted hidden on the diagnostics entry
+and entirely absent (not just disabled) on the no-diagnostics entry (AC5/AC6); the detail is
+asserted closed on load, and the diagnostics entry's card height is measured before and after
+expanding it to prove the closed state was not already carrying the opened body's height (AC3);
+expanding the detail (its `<summary>`, no testid) is asserted to name every package and the step it
+reached — `q2pro-engine`/`point-release` read as "extracted, but did not contribute" and
+`demo-gamedata` as "extraction failed" — plus the target verdict and its failing check's translated
+`messageKey` (AC1/AC2), while confirming the card text itself never leaks the assembly table or
+extraction-listing headings, which stay report-only ((User) Q1); reveal-log is asserted to become
+visible and enabled only once expanded (AC5); `shot('failure-cause-expanded')` captures that state;
+and the clipboard text already read by the earlier copy-report step (no second copy) is asserted to
+now also contain the assembly table (`## Assembly`, a `baseq2/pak0.pak` row) and the extraction
+listing (`## Extraction contents`, per-package `###` blocks, `point-release`'s wrapper-directory
+entry and truncation marker, and no block at all for `demo-gamedata`, which never extracted), with
+none of the fixture's account name, home directory or the flow's own real `os.homedir()` appearing
+in either section (AC7/AC8/AC9). Finally, the without-diagnostics entry is asserted to render no
+`<details>` disclosure at all (AC6). And (story 074 D8)
 **`bootstrap-wizard`** — the one flow that runs a real download pipeline end to end; it has its own
 section below. Two more flows build on it without duplicating its plumbing: (story 076 D6)
 **`bootstrap-incomplete-package`** — a package that downloads, verifies and extracts cleanly but
 contributes none of its required files, asserting that both the running step and the Downloads
-tab's failure card name the same package (AC5); and (story 077 D5) **`bootstrap-failure-retry`** —
-a failing bootstrap that leaves its installation in the Library, and the retry that adopts it; it
-also has its own section below.
+tab's failure card name the same package (AC5); (story 077 D5) **`bootstrap-failure-retry`** —
+a failing bootstrap that leaves its installation in the Library, and the retry that adopts it; and
+(story 078 D9) **`bootstrap-failure`** — the wizard's own failed running step showing the same
+cause detail the Downloads tab mounts (AC4), driven by a REAL, deliberately broken package set
+rather than `dev:simulateJob` or hand-authored diagnostics. All three also have their own sections
+below.
 
 ## The offline bootstrap-wizard flow (`bootstrap-wizard`)
 
@@ -875,6 +901,60 @@ failure is still there" without this flow (or any flow) having to observe the fa
 separate, freshly-created installation. The library screen's own axe pass also stays clean with all
 four installations visible, which is AC8's proof that the three pre-existing fixture rows render
 exactly as they did before this story, right next to the new failed one.
+
+## The offline bootstrap-failure flow (`bootstrap-failure`)
+
+`npm run ui:flow -- bootstrap-failure` is story 078 D9's own offline e2e proof for AC4: "the
+bootstrap wizard's own failed running step shows the same cause summary as the Downloads tab, so
+the user learns the reason without changing tabs." It mirrors `bootstrap-wizard.mjs`'s
+`setup()`/`teardown()` shape closely (same real manifest fetch, real downloads, real `7za.exe`
+extraction, same two harness-only overrides) but is its own file, kept deliberately separate so
+`bootstrap-wizard.mjs`'s passing happy path is never touched by it (per the story's own "Decided
+during refine" note).
+
+**The broken fixture.** `scripts/lib/fixture.mjs`'s `buildBootstrapPackages({ wrapperNestedLayout:
+true })` moves every package's payload one wrapper level deeper than any candidate
+`assemble.ts`'s allowlist (`buildFixedEntries()`, story 076 D1) accepts — the demo and
+point-release archives nest under `Install/Data/` (the story's own fixture bullet, matching
+[[076]]'s real-world self-extracting-installer shape), and this deliverable additionally nests the
+engine archive the same way (see the reasoning below) and pushes the demo one level deeper still
+(`Install/Data/Setup/`, since a bare `Install/Data/baseq2/pak0.pak` is already one of
+`assemble.ts`'s accepted candidates and would leave that package healthy). `startBootstrapFixtureServer({
+wrapperNestedLayout: true })` threads the same flag through. The result is a real download, a real
+extraction and a real allowlist search that finds nothing — never a simulated failure.
+
+**What this flow actually proves, and the one thing it cannot.** The story's acceptance text asks
+for a real `downloads.error.installationNotPlayable` failure. What a wrapper-nested archive
+genuinely produces on this codebase instead is `downloads.error.packageIncomplete` — not a
+shortcut this flow took, but the only reachable outcome: `bootstrap/job.ts` (story 076 D3) fails
+the job the moment even one required allowlist entry is not found, strictly *before* the
+revalidation that could ever produce `installationNotPlayable`. Reaching `installationNotPlayable`
+for real requires every required entry to be found (so the job never trips that earlier check) and
+the assembled folder to *still* fail `inspectInstallation` afterwards — which this codebase's
+checks cannot do once every required file is genuinely present, since each is satisfied by mere
+presence at its target path. `job.test.ts`'s own `breakTargetBeforeValidate()` helper reaches
+`installationNotPlayable` only by mocking `installations.validate()` to delete the assembled paks a
+moment before the verdict is read — a test-only race no flow driving the real, unmodified app can
+reproduce. Consequently this flow's cause detail never shows a target verdict or failing checks
+(`diagnostics.target` is only ever recorded downstream of a *successful* core assemble pass, a line
+this run's `packageIncomplete` exit never reaches) — the flow asserts that gap explicitly (no
+"Installation check" text anywhere in the expanded detail) rather than silently skipping the check.
+What it proves instead, in full, is AC1's half: a real run where every package downloaded, verified
+and extracted, and the cause detail names every one of them as having reached exactly that step and
+no further — the 2026-09-08 report's own "every package downloaded, nothing reached the
+installation" reading, the same `downloads.failures.detail.step.extracted` i18n string story 078
+D8's section already exercises against hand-authored data, here produced by a genuine job. See the
+flow file's own header comment for the full reasoning.
+
+**Why the engine package is also broken.** The story's fixture bullet only names the demo and
+point-release archives. Left alone, the engine package keeps contributing normally, which would
+leave it the one package the cause detail still credits as "contributed" — short of AC4's "every
+package". Nesting the engine archive under the same wrapper is a deliberate widening of the
+story's literal fixture bullet, made so this flow can honour "every package" as closely as the
+codebase allows.
+
+The flow needs `resources/bin/7za.exe` (`npm run fetch:7za`) and refuses to run without it, same as
+`bootstrap-wizard.mjs`.
 
 ## Baselines and CI
 

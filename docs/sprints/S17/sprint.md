@@ -20,7 +20,7 @@ pointing at a log file.
 
 - [x] 076 — The bootstrap assembles the real archives, not the fixtures
 - [x] 077 — A failed install stays in my library and shows its last error
-- [ ] 078 — The failure says the cause, not "go read the log"
+- [x] 078 — The failure says the cause, not "go read the log"
 
 ## Notes
 

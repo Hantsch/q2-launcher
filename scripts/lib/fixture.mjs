@@ -1374,23 +1374,35 @@ function buildFixturePackage({ fileName, stagingName, entries, build }) {
  * `SAFE_PATH_SEGMENT` (an id becomes an extract-directory name) and the file names satisfy
  * `paths.ts`'s `isSafeDownloadFileName` (a name becomes a cache file name) - both are refused
  * rather than sanitised, so a fixture that ignored either would fail before a byte moved.
+ *
+ * `wrapperNestedLayout` (story 078 D9): every package's payload moves one wrapper level deeper
+ * than any candidate `assemble.ts`'s allowlist (`buildFixedEntries()`) accepts - real enough that
+ * the extractor and the allowlist search genuinely run over it, not a simulated failure. See
+ * `scripts/flows/bootstrap-failure.mjs`'s own header comment for exactly what this variant proves
+ * and the one thing it deliberately cannot prove (a real `installationNotPlayable` failure).
  */
-function buildBootstrapPackages({ demoContributesNothing = false } = {}) {
+function buildBootstrapPackages({ demoContributesNothing = false, wrapperNestedLayout = false } = {}) {
   const engine = buildFixturePackage({
     fileName: 'q2pro-fixture-client.zip',
     stagingName: 'engine',
-    entries: ['q2pro64.exe', 'baseq2'],
+    entries: wrapperNestedLayout ? ['Install'] : ['q2pro64.exe', 'baseq2'],
     build: (staging) => {
+      // `wrapperNestedLayout`: everything the healthy build writes at the archive root or under a
+      // plain `baseq2/` instead lands under `Install/Data/` - `assemble.ts`'s engine candidates
+      // (`['q2pro.exe', 'q2pro64.exe']` at the root, `baseq2/gamex86_64.dll`) have no `Install/
+      // Data/` fallback at all, so this package genuinely stops contributing anything, the same as
+      // the demo/point-release packages below.
+      const root = wrapperNestedLayout ? join(staging, 'Install', 'Data') : staging
       // At the archive root, matching both the pinned Q2PRO release zip's own layout - which
       // calls its binary `q2pro64.exe`, not `q2pro.exe` - and `assemble.ts`'s
       // `{ from: ['q2pro.exe', 'q2pro64.exe'] }` allowlist entry (story 076 D1).
-      writeFileIn(staging, 'q2pro64.exe', filler(96 * 1024, 0x4d))
+      writeFileIn(root, 'q2pro64.exe', filler(96 * 1024, 0x4d))
       // Not allowlisted, on purpose: the real engine build does ship a `baseq2/` of its own (game
       // DLLs), and AC8's guarantee has to hold for that too.
-      writeFileIn(join(staging, 'baseq2'), 'gamex86_64.dll', filler(32 * 1024, 0x44))
+      writeFileIn(join(root, 'baseq2'), 'gamex86_64.dll', filler(32 * 1024, 0x44))
       // Ships alongside the binary and DLL in the same package (story 076 D1's allowlist, marked
       // optional). A few hundred bytes is enough - only its presence is ever checked.
-      writeFileIn(join(staging, 'baseq2'), 'q2pro.menu', filler(512, 0x4e))
+      writeFileIn(join(root, 'baseq2'), 'q2pro.menu', filler(512, 0x4e))
     },
   })
 
@@ -1404,31 +1416,44 @@ function buildBootstrapPackages({ demoContributesNothing = false } = {}) {
       // fixture used to guess. No `video/` anywhere in this package: the real archive has none
       // (AC4 - an absent `video/` is a normal outcome, never an error).
       //
-      // `demoContributesNothing` (story 076 D6) skips writing `pak0.pak` - the required allowlist
-      // entry - so the package downloads and extracts fine but contributes none of its required
-      // files, the exact case `job.ts`'s `downloads.error.packageIncomplete` exists for. The
-      // players file below is left in place so `entries: ['Install']` still names real staged
-      // content and the archive still zips cleanly.
+      // `wrapperNestedLayout` (story 078 D9) nests one level deeper still, under `Install/Data/
+      // Setup/` - `assemble.ts`'s demo candidate list already accepts plain `Install/Data/baseq2/
+      // pak0.pak` as a fallback (story 076 D1), so matching that exact shape would leave this
+      // package healthy rather than broken. `demoContributesNothing` (story 076 D6) is a
+      // different, narrower brokenness (the required file withheld outright, not moved) and stays
+      // independent of this option - both default off, so neither changes the other's behaviour.
+      const baseq2 = wrapperNestedLayout
+        ? join(staging, 'Install', 'Data', 'Setup', 'baseq2')
+        : join(staging, 'Install', 'Data', 'baseq2')
       if (!demoContributesNothing) {
-        writeFileIn(
-          join(staging, 'Install', 'Data', 'baseq2'),
-          'pak0.pak',
-          filler(FIXTURE_PAK0_BYTES, 0x50),
-        )
+        writeFileIn(baseq2, 'pak0.pak', filler(FIXTURE_PAK0_BYTES, 0x50))
       }
-      writeFileIn(
-        join(staging, 'Install', 'Data', 'baseq2', 'players', 'male'),
-        'tris.md2',
-        filler(4 * 1024, 0x54),
-      )
+      writeFileIn(join(baseq2, 'players', 'male'), 'tris.md2', filler(4 * 1024, 0x54))
     },
   })
 
   const pointRelease = buildFixturePackage({
     fileName: 'q2-point-release-fixture.zip',
     stagingName: 'point-release',
-    entries: ['baseq2', 'ctf', 'xatrix', 'rogue'],
+    // The `ctf`/`xatrix`/`rogue` discard payload (AC8's negative assertion, and the file count
+    // that gives `bootstrap-wizard.mjs`'s AC6 sampler something to catch) is dropped entirely for
+    // `wrapperNestedLayout`: this variant's flow never asserts either of those, and the discard
+    // payload's only other job - slowing the run down enough for a mid-job sample - is not needed
+    // for a run this flow expects to fail, not catch mid-flight.
+    entries: wrapperNestedLayout ? ['Install'] : ['baseq2', 'ctf', 'xatrix', 'rogue'],
     build: (staging) => {
+      if (wrapperNestedLayout) {
+        // Nested under `Install/Data/`, same wrapper as the demo package above. Unlike demo's
+        // `baseq2/pak0.pak`, `assemble.ts` has no `Install/Data/` fallback candidate at all for
+        // `baseq2/pak1.pak`/`baseq2/pak2.pak` (story 076 D1's Requirement table only measured the
+        // demo installer nesting its payload, not the point-release one) - so this single wrapper
+        // level is already enough to break it, no extra nesting needed.
+        const baseq2 = join(staging, 'Install', 'Data', 'baseq2')
+        writeFileIn(baseq2, 'pak1.pak', filler(FIXTURE_PAK1_BYTES, 0x51))
+        writeFileIn(baseq2, 'pak2.pak', filler(FIXTURE_PAK2_BYTES, 0x52))
+        writeFileIn(join(baseq2, 'players', 'male'), 'tris.md2', filler(4 * 1024, 0x54))
+        return
+      }
       writeFileIn(join(staging, 'baseq2'), 'pak1.pak', filler(FIXTURE_PAK1_BYTES, 0x51))
       writeFileIn(join(staging, 'baseq2'), 'pak2.pak', filler(FIXTURE_PAK2_BYTES, 0x52))
       // The real 3.20 full/CTF package ships `baseq2/players/` directly under its own `baseq2/`
@@ -1546,12 +1571,16 @@ const BOOTSTRAP_SERVE_CHUNK_DELAY_MS = 45
  * the failing first run (AC1/AC5) and the adopting, succeeding retry (AC4/AC7) in one app session
  * has no other way to make the second attempt succeed where the first did not (Decisions (Refine)).
  * Undefined/omitted changes nothing about how every existing caller behaves.
+ *
+ * `wrapperNestedLayout` (story 078 D9) forwards straight into `buildBootstrapPackages()` too - see
+ * its own doc comment and `scripts/flows/bootstrap-failure.mjs`. Defaulted off, like the two above.
  */
 export async function startBootstrapFixtureServer({
   demoContributesNothing = false,
   failFirstAttemptFor,
+  wrapperNestedLayout = false,
 } = {}) {
-  const packages = buildBootstrapPackages({ demoContributesNothing })
+  const packages = buildBootstrapPackages({ demoContributesNothing, wrapperNestedLayout })
 
   const failFirstPackage = failFirstAttemptFor
     ? packages.find((pkg) => pkg.id === failFirstAttemptFor)

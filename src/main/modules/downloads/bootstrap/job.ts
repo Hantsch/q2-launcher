@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdir, rm, rmdir } from 'node:fs/promises'
+import { mkdir, readdir, rm, rmdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { BASE_GAME_DIR } from '@shared/constants'
 import {
@@ -27,11 +27,17 @@ import {
   type UpdateInstallationInput,
 } from '@shared/types'
 import type { CreateJobInput } from '../../../services/jobs'
+import { EXTRACTION_LISTING_CAP } from '../diagnostics'
 import { markVerified, type ExtractorHandle } from '../extractor'
 import type { FetchImpl } from '../fetcher'
 import { isSafeDownloadFileName } from '../paths'
 import { getExtractDir } from '../pipeline'
-import { assembleInstallation, type AssembleInstallationResult } from './assemble'
+import {
+  assembleInstallation,
+  type AssembleEntryResult,
+  type AssembleInstallationResult,
+  type AssembleSource,
+} from './assemble'
 import {
   asExtractionErrorKey,
   LOCAL_FAILURE,
@@ -148,6 +154,14 @@ import { computeTargetVerdict } from './target'
  * its non-passing checks. Every one of those calls is synchronous bookkeeping placed *before* the
  * `failed()`/`cleanUp()` it describes, so what gets deleted and when is exactly what it was - the
  * collector observes this file, it never steers it. A job with no collector records nothing.
+ *
+ * Story 078 D3 adds the two records that were missing on 2026-09-08, when every package verified
+ * and extracted and the target was still not playable: **what assembly looked for and what served
+ * it** (`recordAssembly`, after each assemble pass) and **what each extraction actually produced**
+ * (a bounded, top-level `readdir` on the success path of the package loop). Both follow the same
+ * rule as everything above: bookkeeping placed after the step it describes and before any
+ * `failed()`/`cleanUp()`, so the collector still only observes this file. The `readdir` is
+ * best-effort and can only ever record less, never fail the job.
  *
  * Verified archives stay in the download cache on purpose (`fetcher.ts` promoted them there):
  * AC6's "no partial files" is about partial ones, and the cache is what makes a retry cheap. The
@@ -352,7 +366,7 @@ export function toPackageSource(pkg: ManifestPackage): PackageSource | undefined
 }
 
 /**
- * The three packages a bootstrap installs, in download (and `sourceDirs`) order: the engine build
+ * The three packages a bootstrap installs, in download (and `sources`) order: the engine build
  * first, then the demo data, then the point release. That order is also the order
  * `assembleInstallation` searches for each allowlisted file, so it decides who wins for a file two
  * archives both contain - the engine build for its own payload, the demo for `baseq2/pak0.pak`, and
@@ -427,6 +441,33 @@ export async function buildBootstrapSummary(
 function clamp01(value: number): number {
   if (!Number.isFinite(value)) return 0
   return Math.min(1, Math.max(0, value))
+}
+
+/**
+ * Story 078 D3 (AC8): what one package's extraction actually produced, at its top level only -
+ * names, sorted, capped at `EXTRACTION_LISTING_CAP`. Enough to see that a self-extracting installer
+ * nested its payload under an `Install/` wrapper (the 2026-09-08 failure), and it never descends, so
+ * it cannot become a file tree in `state.json`.
+ *
+ * Best-effort in the same sense `removeDir` is: a listing that cannot be produced is *no listing*
+ * (`undefined`), never a new way for this job to fail. The extraction it describes has already
+ * succeeded at this point, and a bug report missing one line is not a reason to delete a target the
+ * user just downloaded 190 MB into.
+ */
+async function listExtraction(
+  dir: string,
+  log?: BootstrapLog,
+): Promise<{ contents: string[]; contentsTruncated: boolean } | undefined> {
+  try {
+    const names = (await readdir(dir)).sort()
+    return {
+      contents: names.slice(0, EXTRACTION_LISTING_CAP),
+      contentsTruncated: names.length > EXTRACTION_LISTING_CAP,
+    }
+  } catch (error) {
+    log?.warn(`the extraction at ${dir} could not be listed: ${String(error)}`)
+    return undefined
+  }
 }
 
 /** Best-effort: a directory that cannot be removed must not also fail (or un-fail) the job. */
@@ -835,8 +876,36 @@ export async function startBootstrap(
     // 5. Sequentially, one package at a time: simpler to reason about than three concurrent
     // downloads sharing one cancel, one progress bar and one disk, and the wall-clock difference
     // is bounded by the mirror's bandwidth either way.
-    const sourceDirs: string[] = []
+    //
+    // Story 078 D2/D3: each extraction is carried with the id of the package that produced it, so
+    // the assembly record can say *which archive* served a file rather than only that some source
+    // did. The order is unchanged (engine, demo, point release) and it is still the order
+    // `assembleInstallation` searches in, so who wins a file two archives both contain is exactly
+    // what it was.
+    const sources: AssembleSource[] = []
     let doneBytes = 0
+
+    /**
+     * Story 078 D3 (AC7): both assemble passes' entries, concatenated in call order, so the copied
+     * report reads as one table. Handed over after each pass rather than once at the end because a
+     * run can *fail between them* - `missingRequired` below is the 2026-09-08 failure's own exit,
+     * and it is precisely the run whose assembly record has to survive. `recordAssembly` replaces
+     * rather than appends (see its doc comment), so the collector ends up with one record either
+     * way, and it re-derives each package's `contributed` from it (AC1).
+     *
+     * Pure bookkeeping over values already in hand: it is never awaited and never sits between a
+     * failure and its `cleanUp()`.
+     *
+     * The auxiliary pass re-plans the fixed allowlist as well as the two glob dirs (that is what
+     * `buildAssemblePlan` returns), so a run with the extras on records those entries twice - once
+     * per pass, in the order they were tried. Deduplicating would hide which pass saw what, and the
+     * cleanup set (`copied`, a `Set`) already handles the repetition where it matters.
+     */
+    const assembled: AssembleEntryResult[] = []
+    const recordAssembly = (entries: AssembleEntryResult[]): void => {
+      assembled.push(...entries)
+      diagnostics?.recordAssembly(assembled)
+    }
 
     for (const [index, entry] of packages.entries()) {
       if (cancelled) return cancelledOutcome()
@@ -852,14 +921,32 @@ export async function startBootstrap(
        * point: the 2026-09-08 run got all the way past this loop, and the report still has to name
        * the package that brought nothing. Pure bookkeeping over values already in hand; it is
        * never awaited and never sits between a failure and its `cleanUp()`.
+       *
+       * Story 078 D3 (AC8): `listing` is what the extraction produced, and is passed only by the
+       * one exit that has an extraction to describe - every other exit leaves `contents` absent
+       * rather than empty, which is the difference between "it produced nothing" and "it never got
+       * that far".
        */
       const recordPackage = (
         url: string,
         sizeBytes: number,
         verified: boolean,
         extracted: boolean,
+        listing?: { contents: string[]; contentsTruncated: boolean },
       ): void => {
-        diagnostics?.recordPackage({ id: entry.pkg.id, url, sizeBytes, verified, extracted })
+        diagnostics?.recordPackage({
+          id: entry.pkg.id,
+          url,
+          sizeBytes,
+          verified,
+          extracted,
+          ...(listing
+            ? {
+                contents: listing.contents,
+                ...(listing.contentsTruncated ? { contentsTruncated: true } : {}),
+              }
+            : {}),
+        })
       }
 
       const fetched = await deps.fetcher.fetch(entry.source, {
@@ -942,13 +1029,20 @@ export async function startBootstrap(
         )
       }
 
+      // Story 078 D3 (AC8): the only `await` this story adds to the loop, and deliberately on the
+      // success path only - the failed-extraction exits above have already returned. It cannot
+      // change the job's fate (`listExtraction` never throws) and it cannot move a `cleanUp()`: the
+      // next thing that reads `cancelled` is the loop's own top-of-iteration check, exactly as it
+      // was for a cancel arriving during the extraction itself.
+      const listing = await listExtraction(extractDir, jobLog)
+
       // Verified by the fetcher and extracted by 7za. Whether it went on to *contribute* anything
-      // is the target entry's verdict to tell, further down - a package can extract perfectly and
-      // still leave the installation unplayable, which is the failure this story exists for.
-      recordPackage(fetched.url, fetched.sizeBytes, true, true)
+      // is `recordAssembly`'s to say, further down - a package can extract perfectly and still
+      // leave the installation unplayable, which is the failure this story exists for.
+      recordPackage(fetched.url, fetched.sizeBytes, true, true, listing)
 
       doneBytes += packageBytes
-      sourceDirs.push(extractDir)
+      sources.push({ packageId: entry.pkg.id, dir: extractDir })
       report({
         ratio: packagesProgress(doneBytes, 0, 0),
         bytesDone: doneBytes,
@@ -965,11 +1059,12 @@ export async function startBootstrap(
     let core: AssembleInstallationResult
     try {
       core = await assembleInstallation({
-        sourceDirs,
+        sources,
         targetRoot,
         includeVideoAndPlayers: false,
       })
       for (const file of core.copiedFiles) copied.add(file)
+      recordAssembly(core.entries)
     } catch (error) {
       return failed(LOCAL_FAILURE, `assembling ${targetRoot} failed: ${String(error)}`)
     }
@@ -1018,11 +1113,12 @@ export async function startBootstrap(
       if (cancelled) return cancelledOutcome()
       try {
         const auxiliary = await assembleInstallation({
-          sourceDirs,
+          sources,
           targetRoot,
           includeVideoAndPlayers: true,
         })
         for (const file of auxiliary.copiedFiles) copied.add(file)
+        recordAssembly(auxiliary.entries)
       } catch (error) {
         return failed(
           LOCAL_FAILURE,

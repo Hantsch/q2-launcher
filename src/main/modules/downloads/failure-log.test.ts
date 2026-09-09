@@ -225,6 +225,74 @@ describe('capDiagnostics', () => {
     // Too small even with nothing left to trim - the whole record is dropped.
     expect(capDiagnostics(diagnostics, JSON.stringify(withNoTarget).length - 1)).toBeUndefined()
   })
+
+  // Story 078 D1 (AC9).
+  it('an oversized record trims contents and assembly in the documented order', () => {
+    const bigLine = (label: string): string => `${label}-${'x'.repeat(2000)}`
+    const diagnostics = newDiagnostics({ logTail: [] })
+    diagnostics.packages = [
+      { id: 'first', url: 'https://example.invalid/first.zip', sizeBytes: 1, verified: true, extracted: true, contents: [bigLine('first-contents')] },
+      { id: 'second', url: 'https://example.invalid/second.zip', sizeBytes: 1, verified: true, extracted: true, contents: [bigLine('second-contents')] },
+    ]
+    diagnostics.assembly = [
+      { from: bigLine('oldest-from'), to: 'base/pak0.pak', found: true, sourcePackageId: 'first' },
+      { from: bigLine('newest-from'), to: 'base/pak1.pak', found: false },
+    ]
+
+    const withNoContents = {
+      ...diagnostics,
+      truncated: true,
+      packages: diagnostics.packages.map((pkg) => {
+        const { contents: _contents, contentsTruncated: _contentsTruncated, ...rest } = pkg
+        return rest
+      }),
+    }
+    const withNoAssembly = { ...withNoContents, assembly: [] }
+    const withNoAssemblyField = (({ assembly: _assembly, ...rest }) => rest)(withNoContents)
+
+    // Fits once every package's `contents` is gone, but not with them present - `contents` must
+    // go before `assembly` or `packages`.
+    const contentsTrimResult = capDiagnostics(diagnostics, JSON.stringify(withNoContents).length + 50)
+    expect(contentsTrimResult?.packages.every((pkg) => pkg.contents === undefined)).toBe(true)
+    expect(contentsTrimResult?.assembly).toEqual(diagnostics.assembly)
+    expect(contentsTrimResult?.packages.map((pkg) => pkg.id)).toEqual(['first', 'second'])
+    expect(contentsTrimResult?.truncated).toBe(true)
+
+    // Fits once `assembly` entries are also gone (oldest-first), but not with `contents` alone
+    // gone.
+    const assemblyTrimResult = capDiagnostics(diagnostics, JSON.stringify(withNoAssembly).length + 50)
+    expect(assemblyTrimResult?.assembly).toEqual([])
+    expect(assemblyTrimResult?.packages.every((pkg) => pkg.contents === undefined)).toBe(true)
+    expect(assemblyTrimResult?.truncated).toBe(true)
+
+    // Fits once the empty `assembly` field itself is dropped, but the gap over
+    // `withNoAssembly` (still carrying `"assembly":[]`) is small, so the margin here is
+    // deliberately tight rather than the usual +50.
+    const assemblyFieldDroppedResult = capDiagnostics(
+      diagnostics,
+      JSON.stringify(withNoAssemblyField).length + 5,
+    )
+    expect(assemblyFieldDroppedResult?.assembly).toBeUndefined()
+    expect(assemblyFieldDroppedResult?.truncated).toBe(true)
+  })
+
+  // Story 078 D1 (AC9).
+  it('a record that still does not fit is dropped', () => {
+    const diagnostics = newDiagnostics({
+      logTail: [],
+      target: {
+        targetPath: 'C:\\Users\\%HOME%\\Games\\Quake2',
+        verdict: 'invalid',
+        missingChecks: [{ id: 'base-paks', messageKey: 'installation.check.basePaks' }],
+      },
+    })
+    diagnostics.packages = [
+      { id: 'p1', url: 'https://example.invalid/p1.zip', sizeBytes: 1, verified: true, extracted: true, contents: ['a', 'b'] },
+    ]
+    diagnostics.assembly = [{ from: 'base/pak0.pak', to: 'base/pak0.pak', found: true, sourcePackageId: 'p1' }]
+
+    expect(capDiagnostics(diagnostics, 10)).toBeUndefined()
+  })
 })
 
 describe('dismissFailure', () => {

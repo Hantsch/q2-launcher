@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type {
   BootstrapEngineOption,
   BootstrapSummary,
   BootstrapTargetVerdict,
+  DownloadFailure,
 } from '@shared/modules/downloads'
 import { invoke } from '../../../lib/bridge'
 import { useLauncher } from '../../../store/useLauncher'
@@ -13,6 +14,7 @@ import {
   getBootstrapEngineOptions,
   getBootstrapSummary,
   getBootstrapTargetVerdict,
+  getDownloadFailures,
   startBootstrapInstall,
 } from '../client'
 import { EngineStep } from './EngineStep'
@@ -64,6 +66,29 @@ export function BootstrapWizard() {
   const [startError, setStartError] = useState<string | null>(null)
   const [jobId, setJobId] = useState<string | null>(null)
   const job = useLauncher((state) => state.jobs.find((candidate) => candidate.id === jobId))
+
+  // Story 078 D7 (AC4): once the job turns `failed`, fetch the failure log the same way the
+  // Downloads tab does (`getDownloadFailures()`) and match on `jobId` - no new IPC channel, no
+  // widening of the `jobs:changed` payload (Decisions (Sprint)). `fetchedForJobId` guards against
+  // refetching on every subsequent `jobs:changed` tick while the job stays `failed` - `job`'s
+  // object identity changes on every tick even when nothing relevant changed, so the guard keys
+  // on the job id itself rather than on effect deps alone.
+  const [failure, setFailure] = useState<DownloadFailure | undefined>(undefined)
+  const fetchedForJobId = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!job || job.status !== 'failed') return
+    if (fetchedForJobId.current === job.id) return
+    fetchedForJobId.current = job.id
+    let cancelled = false
+    void getDownloadFailures().then((result) => {
+      if (cancelled) return
+      setFailure(result.ok ? result.value.find((candidate) => candidate.jobId === job.id) : undefined)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [job])
 
   useEffect(() => {
     let cancelled = false
@@ -260,7 +285,7 @@ export function BootstrapWizard() {
         </div>
       )}
 
-      {step === 'running' && <RunningStep job={job} />}
+      {step === 'running' && <RunningStep job={job} failure={failure} />}
     </Modal>
   )
 }

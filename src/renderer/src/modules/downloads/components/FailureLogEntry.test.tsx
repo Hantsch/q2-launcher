@@ -10,9 +10,13 @@ import { FailureLogEntry } from './FailureLogEntry'
 
 /**
  * Story 075 D6. Covers the failure card's two diagnostic actions: copy (only rendered when
- * `diagnostics` is present - AC6's pre-story-entry compatibility path) and reveal-log (always
- * rendered, gated on `appInfo` having loaded - AC5, mirroring `SettingsView.tsx`'s existing
- * reveal-log-path pattern). AC7: no diagnostics string is ever rendered as card text.
+ * `diagnostics` is present - AC6's pre-story-entry compatibility path) and reveal-log (gated on
+ * `appInfo` having loaded - AC5, mirroring `SettingsView.tsx`'s existing reveal-log-path
+ * pattern). AC7: no diagnostics string is ever rendered as card text.
+ *
+ * Story 078 D6 demotes reveal-log into the expanded `FailureCauseDetail` footer (AC5) - it is no
+ * longer part of the closed card's header cluster, and an entry with no diagnostics has no detail
+ * affordance at all (AC6), so it has no way to reveal the log any more.
  */
 
 const invokeMock = vi.fn(async (..._args: [string, ...unknown[]]) => ({ ok: true }))
@@ -99,30 +103,56 @@ function renderEntry(failure: DownloadFailure, info: AppInfo | null = appInfo) {
 }
 
 describe('FailureLogEntry diagnostic actions', () => {
-  it('an entry with diagnostics shows both the copy and reveal actions', () => {
+  it('an entry with diagnostics shows the copy action and the closed cause detail', () => {
     renderEntry(makeFailure({ diagnostics }))
 
     expect(screen.getByTestId('downloads-failure-copy-failure-1')).toBeTruthy()
-    expect(screen.getByTestId('downloads-failure-reveal-failure-1')).toBeTruthy()
+    const details = document.querySelector('details')
+    expect(details).toBeTruthy()
+    expect(details!.hasAttribute('open')).toBe(false)
   })
 
-  it('an entry without diagnostics shows no copy action and no disabled stub', () => {
-    renderEntry(makeFailure())
-
-    expect(screen.queryByTestId('downloads-failure-copy-failure-1')).toBeNull()
-    expect(screen.getByTestId('downloads-failure-reveal-failure-1')).toBeTruthy()
-  })
-
-  it('the reveal action invokes app:revealPath with the launcher\'s log path', () => {
+  it('the closed card offers copy, not reveal-log', () => {
+    // AC5: reveal-log is demoted out of the always-visible header cluster into the detail's
+    // footer. Structurally, that means copy sits outside the `<details>` element while
+    // reveal-log sits inside it - a closed card's header offers only copy (+ dismiss/restore).
     renderEntry(makeFailure({ diagnostics }))
 
-    fireEvent.click(screen.getByTestId('downloads-failure-reveal-failure-1'))
+    const copy = screen.getByTestId('downloads-failure-copy-failure-1')
+    expect(copy.closest('details')).toBeNull()
+
+    const reveal = screen.getByTestId('downloads-failure-reveal-failure-1')
+    expect(reveal.closest('details')).toBeTruthy()
+  })
+
+  it('reveal-log lives in the expanded detail and still invokes app:revealPath with the log path', () => {
+    renderEntry(makeFailure({ diagnostics }))
+
+    const detailsEl = document.querySelector('details') as HTMLDetailsElement
+    detailsEl.open = true
+
+    const reveal = screen.getByTestId('downloads-failure-reveal-failure-1')
+    fireEvent.click(reveal)
 
     expect(invokeMock).toHaveBeenCalledWith('app:revealPath', appInfo.logPath)
   })
 
+  it('an entry without diagnostics has no detail affordance', () => {
+    // AC6: `FailureCauseDetail` renders `null` without diagnostics, and reveal-log now lives
+    // only inside that detail's footer - so an entry without diagnostics has no `<details>` and
+    // no way to reveal the log at all, same as it renders no copy action.
+    renderEntry(makeFailure())
+
+    expect(document.querySelector('details')).toBeNull()
+    expect(screen.queryByTestId('downloads-failure-copy-failure-1')).toBeNull()
+    expect(screen.queryByTestId('downloads-failure-reveal-failure-1')).toBeNull()
+  })
+
   it('the reveal action is disabled until AppInfo has loaded', () => {
     renderEntry(makeFailure({ diagnostics }), null)
+
+    const detailsEl = document.querySelector('details') as HTMLDetailsElement
+    detailsEl.open = true
 
     const reveal = screen.getByTestId('downloads-failure-reveal-failure-1') as HTMLButtonElement
     expect(reveal.disabled).toBe(true)

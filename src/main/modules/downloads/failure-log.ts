@@ -30,13 +30,15 @@ function serializedSize(diagnostics: DownloadDiagnostics): number {
 
 /**
  * Trims an oversized `DownloadDiagnostics` record down to `maxBytes`, in the documented order
- * (Decisions/Plan): `logTail` first, oldest-first (the newest lines are the most relevant to a
- * failure that just happened), then `packages` - also oldest-first, since packages are recorded in
- * processing order and a bootstrap run most often fails on the package it processed last, which is
- * exactly the one AC2 exists to identify - then `target`, then - if it still does not fit -
- * the whole record is dropped (`undefined`). A record already within `maxBytes` is returned
- * unchanged, with no `truncated` flag added. Whenever something is actually trimmed (but the
- * record itself survives), `truncated: true` is set so the UI can say "this report is partial".
+ * (Decisions/Plan, extended by Story 078 D1): `logTail` first, oldest-first (the newest lines are
+ * the most relevant to a failure that just happened); then each package's `contents` listing,
+ * oldest package first; then `assembly`, oldest-first; then `packages` - also oldest-first, since
+ * packages are recorded in processing order and a bootstrap run most often fails on the package it
+ * processed last, which is exactly the one AC2 exists to identify - then `target`, then - if it
+ * still does not fit - the whole record is dropped (`undefined`). A record already within
+ * `maxBytes` is returned unchanged, with no `truncated` flag added. Whenever something is actually
+ * trimmed (but the record itself survives), `truncated: true` is set so the UI can say "this
+ * report is partial".
  */
 export function capDiagnostics(
   diagnostics: DownloadDiagnostics,
@@ -52,6 +54,35 @@ export function capDiagnostics(
 
   while (current.logTail.length > 0 && serializedSize(current) > maxBytes) {
     current = { ...current, logTail: current.logTail.slice(1) }
+  }
+
+  // Story 078 D1 (AC9): drop each package's `contents` listing, oldest package first, before
+  // touching `assembly` or `packages` themselves.
+  while (
+    serializedSize(current) > maxBytes &&
+    current.packages.some((pkg) => pkg.contents !== undefined)
+  ) {
+    const index = current.packages.findIndex((pkg) => pkg.contents !== undefined)
+    if (index === -1) break
+    const packages = [...current.packages]
+    const target = packages[index]
+    if (target === undefined) break
+    const { contents: _contents, contentsTruncated: _contentsTruncated, ...rest } = target
+    packages[index] = rest
+    current = { ...current, packages }
+  }
+
+  while (
+    current.assembly !== undefined &&
+    current.assembly.length > 0 &&
+    serializedSize(current) > maxBytes
+  ) {
+    current = { ...current, assembly: current.assembly.slice(1) }
+  }
+
+  if (current.assembly !== undefined && current.assembly.length === 0 && serializedSize(current) > maxBytes) {
+    const { assembly: _assembly, ...rest } = current
+    current = rest
   }
 
   while (current.packages.length > 0 && serializedSize(current) > maxBytes) {

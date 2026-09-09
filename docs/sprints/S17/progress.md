@@ -36,3 +36,30 @@
 - 2026-09-09 14:06 · 077 · review-fix N1 engine-preservation guard scoped to lastFailure (AC8) / N2 story text for adopted-retry cancel (AC2) / N4+nit test coverage · done
 - 2026-09-09 14:06 · 077 · verification (build/test/typecheck/ui:verify/ui:flow bootstrap-failure-retry) · done
 - 2026-09-09 14:07 · 077 · done section filled, status done, moved to done/ + INDEX.md · done
+- 2026-09-09 14:08 · 078 · D1 the two new records, their persisted form, and their cap · started
+- 2026-09-09 14:11 · 078 · D1 the two new records, their persisted form, and their cap · done
+- 2026-09-09 14:11 · 078 · D2 assemble.ts says what it looked for and what served it · started
+- 2026-09-09 14:13 · 078 · D2 assemble.ts says what it looked for and what served it · done
+- 2026-09-09 14:13 · 078 · D3 the bootstrap job records assembly and extraction contents · started
+- 2026-09-09 14:20 · 078 · D3 the bootstrap job records assembly and extraction contents · done
+- 2026-09-09 14:20 · 078 · D4 the copied report gains both records · started
+- 2026-09-09 14:23 · 078 · D4 the copied report gains both records · done
+- 2026-09-09 14:23 · 078 · D5 the shared, collapsed cause detail · started
+- 2026-09-09 14:27 · 078 · D5 the shared, collapsed cause detail · done
+- 2026-09-09 14:27 · 078 · D6 the Downloads card mounts it and demotes reveal-log · started
+- 2026-09-09 14:30 · 078 · D6 the Downloads card mounts it and demotes reveal-log · done
+- 2026-09-09 14:30 · 078 · D7 the wizard's failed running step shows the same detail · started
+- 2026-09-09 14:35 · 078 · D7 the wizard's failed running step shows the same detail · done
+- 2026-09-09 14:35 · 078 · D8 fixture record and the Downloads-tab flow · started
+- 2026-09-09 14:41 · 078 · D8 fixture record and the Downloads-tab flow · done
+- 2026-09-09 14:41 · 078 · D9 a real failed bootstrap run, end to end · started
+- 2026-09-09 15:07 · 078 · D9 a real failed bootstrap run, end to end · done
+- 2026-09-09 15:07 · 078 · full verification (build/test/typecheck/ui:verify/ui:flow) · started
+- 2026-09-09 15:09 · 078 · full verification (build/test/typecheck/ui:verify/ui:flow) · done
+- 2026-09-09 15:09 · 078 · story-review-hard over full diff · started
+- 2026-09-09 19:11 · 078 · story-review-hard over full diff (resumed, fresh pass) · started
+- 2026-09-09 19:21 · 078 · story-review-hard over full diff (resumed, fresh pass) · done (PASS, 4 medium + 9 low findings)
+- 2026-09-09 19:25 · 078 · review-fix M2 contributed-undefined-vs-false ambiguity / M3 assemble.ts lost candidates · started
+- 2026-09-09 19:26 · 078 · review-fix M2 contributed-undefined-vs-false ambiguity / M3 assemble.ts lost candidates · done
+- 2026-09-09 19:26 · 078 · verification after review-fix (test/typecheck/build/ui:verify/ui:flow downloads-tab+bootstrap-failure) · done
+- 2026-09-09 19:28 · 078 · done section filled, status done, moved to done/ + INDEX.md · done

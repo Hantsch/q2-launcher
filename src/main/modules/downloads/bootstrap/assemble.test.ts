@@ -122,7 +122,7 @@ describe('assembleInstallation', () => {
     await seedVideoAndPlayers()
 
     const result = await assembleInstallation({
-      sourceDirs: [sourceRoot],
+      sources: [{ packageId: 'core', dir: sourceRoot }],
       targetRoot,
       includeVideoAndPlayers: false,
     })
@@ -163,7 +163,7 @@ describe('assembleInstallation', () => {
     await seedVideoAndPlayers()
 
     const result = await assembleInstallation({
-      sourceDirs: [sourceRoot],
+      sources: [{ packageId: 'core', dir: sourceRoot }],
       targetRoot,
       includeVideoAndPlayers: true,
     })
@@ -208,7 +208,10 @@ describe('assembleInstallation', () => {
       await writeFixtureFile('q2pro.exe')
 
       const result = await assembleInstallation({
-        sourceDirs: [sourceRoot, otherSourceRoot],
+        sources: [
+          { packageId: 'core', dir: sourceRoot },
+          { packageId: 'other', dir: otherSourceRoot },
+        ],
         targetRoot,
         includeVideoAndPlayers: false,
       })
@@ -229,7 +232,7 @@ describe('assembleInstallation', () => {
     await writeFixtureFile('q2pro.exe')
 
     const result = await assembleInstallation({
-      sourceDirs: [sourceRoot],
+      sources: [{ packageId: 'core', dir: sourceRoot }],
       targetRoot,
       includeVideoAndPlayers: false,
     })
@@ -256,7 +259,7 @@ describe('assembleInstallation', () => {
     await writeFixtureFile(join('rogue', 'pak0.pak'))
 
     const result = await assembleInstallation({
-      sourceDirs: [sourceRoot],
+      sources: [{ packageId: 'core', dir: sourceRoot }],
       targetRoot,
       includeVideoAndPlayers: true,
     })
@@ -287,7 +290,7 @@ describe('assembleInstallation', () => {
     await writeFixtureFile('q2pro64.exe')
 
     const result = await assembleInstallation({
-      sourceDirs: [sourceRoot],
+      sources: [{ packageId: 'core', dir: sourceRoot }],
       targetRoot,
       includeVideoAndPlayers: false,
     })
@@ -305,7 +308,7 @@ describe('assembleInstallation', () => {
     await writeFixtureFile(join('baseq2', 'pak2.pak'))
 
     const result = await assembleInstallation({
-      sourceDirs: [sourceRoot],
+      sources: [{ packageId: 'core', dir: sourceRoot }],
       targetRoot,
       includeVideoAndPlayers: false,
     })
@@ -334,7 +337,7 @@ describe('assembleInstallation', () => {
     // Deliberately no video/ anywhere in the source tree.
 
     const result = await assembleInstallation({
-      sourceDirs: [sourceRoot],
+      sources: [{ packageId: 'core', dir: sourceRoot }],
       targetRoot,
       includeVideoAndPlayers: true,
     })
@@ -344,5 +347,63 @@ describe('assembleInstallation', () => {
     // Normal success - no video/ anywhere is not an error, and there's nothing to assert failed:
     // the promise above already resolved without throwing.
     expect(await namesUnder(join(targetRoot, 'baseq2', 'video'))).toEqual([])
+  })
+
+  it('every allowlist entry is reported as found or not found, with the source that served it', async () => {
+    await seedExtractionTree()
+    await seedVideoAndPlayers()
+
+    const result = await assembleInstallation({
+      sources: [{ packageId: 'core', dir: sourceRoot }],
+      targetRoot,
+      includeVideoAndPlayers: true,
+    })
+
+    // One record per allowlist entry (plan order), plus one per glob dir - never one per file
+    // inside a glob dir, even though seedVideoAndPlayers() writes multiple files into each.
+    expect(result.entries).toEqual([
+      { from: 'baseq2/pak0.pak', to: 'baseq2/pak0.pak', found: true, sourcePackageId: 'core' },
+      { from: 'baseq2/pak1.pak', to: 'baseq2/pak1.pak', found: true, sourcePackageId: 'core' },
+      { from: 'baseq2/pak2.pak', to: 'baseq2/pak2.pak', found: true, sourcePackageId: 'core' },
+      { from: 'q2pro.exe', to: Q2PRO_ENGINE_TARGET, found: true, sourcePackageId: 'core' },
+      {
+        from: 'baseq2/gamex86_64.dll',
+        to: 'baseq2/gamex86_64.dll',
+        found: true,
+        sourcePackageId: 'core',
+      },
+      {
+        from: 'baseq2/q2pro.menu',
+        to: 'baseq2/q2pro.menu',
+        found: true,
+        sourcePackageId: 'core',
+      },
+      { from: 'baseq2/players', to: 'baseq2/players', found: true, sourcePackageId: 'core' },
+      { from: 'baseq2/video', to: 'baseq2/video', found: true, sourcePackageId: 'core' },
+    ])
+  })
+
+  it('a run that finds nothing reports every entry as missing', async () => {
+    // sourceRoot exists but is empty - no fixture files were written into it.
+    const result = await assembleInstallation({
+      sources: [{ packageId: 'core', dir: sourceRoot }],
+      targetRoot,
+      includeVideoAndPlayers: true,
+    })
+
+    expect(result.entries).toEqual([
+      // Story 078 review finding M3: a not-found entry with more than one candidate records every
+      // candidate that was tried (joined by ` | `), not just the first - so this table can tell
+      // "the archive's real layout doesn't match any candidate" from "only one path was ever tried".
+      { from: 'baseq2/pak0.pak | Install/Data/baseq2/pak0.pak', to: 'baseq2/pak0.pak', found: false },
+      { from: 'baseq2/pak1.pak', to: 'baseq2/pak1.pak', found: false },
+      { from: 'baseq2/pak2.pak', to: 'baseq2/pak2.pak', found: false },
+      { from: 'q2pro.exe | q2pro64.exe', to: Q2PRO_ENGINE_TARGET, found: false },
+      { from: 'baseq2/gamex86_64.dll', to: 'baseq2/gamex86_64.dll', found: false },
+      { from: 'baseq2/q2pro.menu', to: 'baseq2/q2pro.menu', found: false },
+      { from: 'baseq2/players', to: 'baseq2/players', found: false },
+      { from: 'baseq2/video', to: 'baseq2/video', found: false },
+    ])
+    expect(result.copiedFiles).toEqual([])
   })
 })

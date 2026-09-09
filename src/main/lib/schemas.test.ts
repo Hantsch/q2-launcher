@@ -989,6 +989,57 @@ describe('parseDownloadFailures - diagnostics (story 075 D1)', () => {
     expect(parsed?.id).toBe('f1')
     expect(parsed?.diagnostics).toBeUndefined()
   })
+
+  // Story 078 D1 (AC6): a 075-era record has no `assembly` and no per-package `contents` /
+  // `contentsTruncated` / `contributed` fields - it must still parse to the same shape.
+  it('a 075-era diagnostics record parses unchanged', () => {
+    const [parsed] = parseDownloadFailures([{ ...baseRow, diagnostics }])
+
+    expect(parsed?.diagnostics).toEqual(diagnostics)
+    expect(parsed?.diagnostics?.assembly).toBeUndefined()
+    expect(parsed?.diagnostics?.packages[0]?.contents).toBeUndefined()
+    expect(parsed?.diagnostics?.packages[0]?.contentsTruncated).toBeUndefined()
+    expect(parsed?.diagnostics?.packages[0]?.contributed).toBeUndefined()
+  })
+
+  // Story 078 D1 (AC6/AC9): a garbage `assembly` or per-package `contents` value drops only that
+  // field, via `.catch(undefined)`, not the whole record.
+  it('a garbage assembly value drops only that field, not the record', () => {
+    const [parsed] = parseDownloadFailures([
+      { ...baseRow, diagnostics: { ...diagnostics, assembly: 'not an array' } },
+    ])
+
+    expect(parsed?.diagnostics).toBeDefined()
+    expect(parsed?.diagnostics?.jobId).toBe('job-1')
+    expect(parsed?.diagnostics?.assembly).toBeUndefined()
+  })
+
+  it('a garbage per-package contents value drops only that field, not the record', () => {
+    const [parsed] = parseDownloadFailures([
+      {
+        ...baseRow,
+        diagnostics: {
+          ...diagnostics,
+          packages: [{ ...diagnostics.packages[0], contents: 'not an array' }],
+        },
+      },
+    ])
+
+    expect(parsed?.diagnostics).toBeDefined()
+    expect(parsed?.diagnostics?.packages).toHaveLength(1)
+    expect(parsed?.diagnostics?.packages[0]?.contents).toBeUndefined()
+  })
+
+  it('round-trips a record carrying assembly and per-package contents', () => {
+    const withNewRecords: DownloadDiagnostics = {
+      ...diagnostics,
+      packages: [{ ...diagnostics.packages[0]!, contents: ['pak0.pak', 'players'], contentsTruncated: false, contributed: true }],
+      assembly: [{ from: 'base/pak0.pak', to: 'base/pak0.pak', found: true, sourcePackageId: 'demo' }],
+    }
+    const [parsed] = parseDownloadFailures([{ ...baseRow, diagnostics: withNewRecords }])
+
+    expect(parsed?.diagnostics).toEqual(withNewRecords)
+  })
 })
 
 /**

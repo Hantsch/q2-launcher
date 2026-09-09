@@ -307,6 +307,12 @@ export interface DownloadDiagnostics {
    * earlier (e.g. `downloads.error.packageUnavailable`) has no target yet. */
   target?: DownloadDiagnosticsTarget
   /**
+   * Story 078 D1/D2/D3 (AC7): one record per allowlist entry `assembleInstallation` planned, in
+   * plan order, plus one per expanded glob dir - what it looked for, whether it was found, and
+   * which package's extraction served it. Absent for a job that failed before assembly ran.
+   */
+  assembly?: DownloadDiagnosticsAssemblyEntry[]
+  /**
    * The job's own log lines (Decisions (Refine): "the collector *tees* it"), oldest-first, capped
    * to a bounded ring - developer-facing content by explicit design (Requirement: "the same
    * category as a stack trace"), never rendered in the UI, only inside a copied report.
@@ -328,6 +334,37 @@ export interface DownloadDiagnosticsPackage {
   verified: boolean
   /** Whether the package's archive extracted successfully. */
   extracted: boolean
+  /**
+   * Story 078 D1/D3 (AC8): a bounded, sorted, top-level listing of the package's extraction dir -
+   * names only, capped (`EXTRACTION_LISTING_CAP`, `diagnostics.ts`), never a recursive file tree.
+   * Absent when the package's extraction failed rather than simply empty.
+   */
+  contents?: string[]
+  /** Set when `contents` was capped - there were more top-level entries than the cap allowed. */
+  contentsTruncated?: boolean
+  /**
+   * Story 078 D1/D3 (AC1): whether this package's extraction served at least one file that
+   * assembly actually copied into the install target - derived from `assembly` in main, so the
+   * renderer can show the per-package step reached without reading `assembly` itself.
+   */
+  contributed?: boolean
+}
+
+/**
+ * Story 078 D1/D2 (AC7): one entry `assembleInstallation` planned - either one of its allowlist
+ * entries (plan order) or one expanded glob dir (`video`/`players`) - and what it found for it.
+ */
+export interface DownloadDiagnosticsAssemblyEntry {
+  /** The relative path (or glob dir) that was found; when nothing was, every candidate path that
+   * was tried, joined by ` | ` (story 078 review finding M3 - a single candidate would otherwise
+   * hide that the allowlist tried more than one layout). Redacted like every other path here. */
+  from: string
+  /** The path within the install target it would have been copied to. */
+  to: string
+  /** Whether a source provided this entry. */
+  found: boolean
+  /** The `ManifestPackage.id` whose extraction served this entry, when `found` is true. */
+  sourcePackageId?: string
 }
 
 /** Story 075 D1 (AC2): the install target a diagnosed job reached, and why `inspectInstallation`

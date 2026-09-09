@@ -213,19 +213,30 @@ export default async function downloadsTab({ page, app, shot, step }) {
     )
   }
 
-  step('assert the reveal-log action is present and enabled on both entries (AC5)')
-  // FailureLogEntry.tsx renders reveal on every entry regardless of `diagnostics`, only disabled
-  // until `appInfo` has loaded - by this point in the flow the app has been up and interacted with
-  // for several steps, so `appInfo` is long since resolved.
+  step(
+    'assert reveal-log is reachable only inside the diagnostics entry\'s cause detail, not the ' +
+      'header cluster, and not at all on the no-diagnostics entry (078 D6/D8, AC5/AC6)',
+  )
+  // 078 D6 moved reveal-log out of the always-visible header cluster into `FailureCauseDetail`'s
+  // closed-by-default footer - so before that detail is ever expanded, the diagnostics entry's
+  // reveal button exists (inside the closed native `<details>`) but is not visible, and the
+  // no-diagnostics entry renders `FailureCauseDetail` as `null` (AC6), so it has no reveal button
+  // at all, not even a disabled stub.
   const diagnosticsReveal = page.getByTestId(`downloads-failure-reveal-${DOWNLOAD_FAILURE_WITH_DIAGNOSTICS_ID}`)
-  const plainReveal = page.getByTestId(`downloads-failure-reveal-${DOWNLOAD_FAILURE_WITHOUT_DIAGNOSTICS_ID}`)
-  await diagnosticsReveal.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await plainReveal.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  if (await diagnosticsReveal.isDisabled()) {
-    throw new Error('expected the diagnostics entry\'s reveal-log action to be enabled (AC5)')
+  const plainRevealCount = await page
+    .getByTestId(`downloads-failure-reveal-${DOWNLOAD_FAILURE_WITHOUT_DIAGNOSTICS_ID}`)
+    .count()
+  if (plainRevealCount !== 0) {
+    throw new Error(
+      `expected the non-diagnostics entry to render no reveal-log action at all (AC6), found ` +
+        `${plainRevealCount} element(s) matching its reveal testid`,
+    )
   }
-  if (await plainReveal.isDisabled()) {
-    throw new Error('expected the non-diagnostics entry\'s reveal-log action to be enabled (AC5)')
+  if (await diagnosticsReveal.isVisible()) {
+    throw new Error(
+      'expected the diagnostics entry\'s reveal-log action to be hidden until its cause detail is ' +
+        'expanded (AC5 - it is no longer offered as the first explanation)',
+    )
   }
 
   step('copy the diagnostics report and read it back off the clipboard (AC3)')
@@ -289,6 +300,135 @@ export default async function downloadsTab({ page, app, shot, step }) {
   }
 
   await shot('failure-report-copied')
+
+  // --- Story 078 D8: the shared cause detail (`FailureCauseDetail`) on the diagnostics entry ------
+  step('assert the cause detail is closed on load, before it is ever expanded (AC3)')
+  const causeDetail = diagnosticsEntry.locator('details')
+  await causeDetail.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  const isOpenBeforeExpand = await causeDetail.evaluate((el) => el.open)
+  if (isOpenBeforeExpand) {
+    throw new Error('expected the cause detail to render closed by default (AC3)')
+  }
+  // The card's own height with the detail closed - captured now so opening it below can prove the
+  // closed body was not already inflating the layout (AC3: "the failure list does not grow taller
+  // for entries nobody opens"). If the closed state already included the body's height, opening
+  // would show no further growth.
+  const closedCardHeight = (await diagnosticsEntry.boundingBox())?.height ?? 0
+
+  step('expand the cause detail and assert the per-package step summary renders (AC1)')
+  await causeDetail.locator('summary').click({ timeout: TIMEOUT_MS })
+  const detailBody = causeDetail.locator('[data-selectable]').first()
+  await detailBody.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  const detailText = await causeDetail.innerText()
+  for (const packageId of ['q2pro-engine', 'demo-gamedata', 'point-release']) {
+    if (!detailText.includes(packageId)) {
+      throw new Error(`expected the expanded cause detail to name package "${packageId}" (AC1), got: ${JSON.stringify(detailText)}`)
+    }
+  }
+  if (
+    (detailText.match(/did not contribute to the installation/g) ?? []).length !== 2 ||
+    !detailText.includes('extraction failed')
+  ) {
+    throw new Error(
+      `expected q2pro-engine and point-release to read as "extracted, but did not contribute" and ` +
+        `demo-gamedata to read as "extraction failed" (AC1), got: ${JSON.stringify(detailText)}`,
+    )
+  }
+
+  step('assert the target verdict and its failing check render through their messageKey (AC2)')
+  if (!detailText.includes('Installation check')) {
+    throw new Error(`expected the verdict heading in the expanded detail (AC2), got: ${JSON.stringify(detailText)}`)
+  }
+  if (!detailText.includes('pak0.pak is missing')) {
+    throw new Error(
+      `expected the failing check's translated message (validation.pak0Missing) in the expanded ` +
+        `detail (AC2), got: ${JSON.stringify(detailText)}`,
+    )
+  }
+  // The card-facing detail deliberately never renders the assembly table or extraction listings
+  // ((User) Q1 - report-only) - so the expanded card text itself must not leak either heading.
+  if (detailText.includes('Assembly') || detailText.includes('Extraction contents')) {
+    throw new Error(
+      `expected the user-facing cause detail to omit the assembly table and extraction listing ` +
+        `((User) Q1, report-only), got: ${JSON.stringify(detailText)}`,
+    )
+  }
+
+  step(
+    'assert opening the detail grows the card, proving its closed height did not already include ' +
+      'the body (AC3)',
+  )
+  const openCardHeight = (await diagnosticsEntry.boundingBox())?.height ?? 0
+  if (!(openCardHeight > closedCardHeight + 20)) {
+    throw new Error(
+      `expected expanding the cause detail to noticeably grow the card (closed=${closedCardHeight}px, ` +
+        `open=${openCardHeight}px) - if it did not grow, the closed state was already carrying the ` +
+        `body's height (AC3)`,
+    )
+  }
+
+  step('assert reveal-log becomes reachable once the detail is expanded (AC5)')
+  await diagnosticsReveal.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  if (await diagnosticsReveal.isDisabled()) {
+    throw new Error('expected the diagnostics entry\'s reveal-log action to be enabled once expanded (AC5)')
+  }
+
+  await shot('failure-cause-expanded')
+
+  step(
+    'assert the already-copied report also carries the assembly table and the extraction ' +
+      'listing, with no real account name in either (AC7/AC8/AC9)',
+  )
+  // Reuses `clipboardText` read earlier by the copy-report step above - `buildFailureReport`
+  // builds the whole report (including these two sections) in one call, so nothing needs to be
+  // copied again.
+  if (!clipboardText.includes('## Assembly')) {
+    throw new Error('expected the copied report to contain the assembly table heading (AC7)')
+  }
+  if (!/\|.*Looked for.*\|/.test(clipboardText) || !clipboardText.includes('baseq2/pak0.pak')) {
+    throw new Error('expected the copied report to contain an assembly table row naming baseq2/pak0.pak (AC7)')
+  }
+  if (!clipboardText.includes('## Extraction contents')) {
+    throw new Error('expected the copied report to contain the extraction-listing heading (AC8)')
+  }
+  if (!clipboardText.includes('### q2pro-engine') || !clipboardText.includes('### point-release')) {
+    throw new Error('expected the copied report to list each extracted package\'s own contents block (AC8)')
+  }
+  if (!clipboardText.includes('q2-3.20-x86-full-ctf')) {
+    throw new Error(
+      'expected the copied report to show point-release\'s wrapper-directory entry in its ' +
+        'extraction listing (AC8)',
+    )
+  }
+  if (!clipboardText.includes('(truncated - more entries were not listed)')) {
+    throw new Error('expected point-release\'s truncated extraction listing to carry the truncation marker (AC8)')
+  }
+  if (clipboardText.includes('### demo-gamedata')) {
+    throw new Error(
+      'expected demo-gamedata (which never extracted) to have no extraction-listing block at all (AC8)',
+    )
+  }
+  for (const [label, leak] of [
+    ['the fixture account name', FIXTURE_ACCOUNT_NAME],
+    ['the fixture home directory', FIXTURE_HOME_DIR],
+    ['the real home directory of the machine running this flow', homedir()],
+  ]) {
+    if (clipboardText.includes(leak)) {
+      throw new Error(
+        `expected the assembly/extraction sections to carry no real account name, but ${label} ` +
+          `(${leak}) appeared verbatim in the report (AC9)`,
+      )
+    }
+  }
+
+  step('assert the without-diagnostics entry has no cause detail / disclosure at all (AC6)')
+  const plainDetailCount = await plainEntry.locator('details').count()
+  if (plainDetailCount !== 0) {
+    throw new Error(
+      `expected the non-diagnostics entry to render no <details> disclosure at all (AC6), found ` +
+        `${plainDetailCount} element(s)`,
+    )
+  }
 
   console.log(
     'downloads tab: real view renders (not the planned placeholder), cache size is shown, a ' +

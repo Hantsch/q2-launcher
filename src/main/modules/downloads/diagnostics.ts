@@ -1,6 +1,7 @@
 import { homedir } from 'node:os'
 import type {
   DownloadDiagnostics,
+  DownloadDiagnosticsAssemblyEntry,
   DownloadDiagnosticsPackage,
   DownloadDiagnosticsTarget,
 } from '@shared/modules/downloads'
@@ -25,6 +26,15 @@ export const HOME_PLACEHOLDER = '<home>'
 /** Bounds `tee()`'s in-memory ring - "the tail of the job's own log lines" (AC3), not the whole
  * log. Oldest lines fall off the front as new ones arrive. */
 export const DIAGNOSTICS_LOG_TAIL_LINES = 200
+
+/**
+ * Story 078 D3 (AC8): the most top-level names one package's `contents` listing may carry. The
+ * listing exists to make a wrapper directory (`Install/`) visible, not to reproduce a file tree in
+ * `state.json` - so the bound lives here, next to the ring's, and is applied again in
+ * `recordPackage` even though the caller already applies it: a listing that arrives longer than
+ * this is capped rather than stored, and says so through `contentsTruncated`.
+ */
+export const EXTRACTION_LISTING_CAP = 20
 
 /** The reason attached when a job reaches `failed` with no `error` of its own - mirrors
  * `index.ts`'s `UNKNOWN_DOWNLOAD_FAILURE_KEY` (re-exported from there); not a member of
@@ -89,6 +99,8 @@ interface DiagnosticsEntry {
   kind: string
   packages: DownloadDiagnosticsPackage[]
   target?: DownloadDiagnosticsTarget
+  /** Story 078 D3 (AC7): absent until the job's first assemble pass has run - see `recordAssembly`. */
+  assembly?: DownloadDiagnosticsAssemblyEntry[]
   logTail: string[]
 }
 
@@ -100,12 +112,28 @@ interface DiagnosticsEntry {
 const registry = new Map<string, DiagnosticsEntry>()
 
 export interface DiagnosticsCollector {
-  /** Records one package the job touched, in the order it processed them. `pkg.url` is redacted
-   * before it is stored. */
+  /** Records one package the job touched, in the order it processed them. `pkg.url` and every
+   * `pkg.contents` name are redacted before they are stored, and `contents` is capped at
+   * `EXTRACTION_LISTING_CAP` (story 078 D3, AC8/AC9). */
   recordPackage(pkg: DownloadDiagnosticsPackage): void
   /** Records the install target the job reached (AC2). `target.targetPath` is redacted before it
    * is stored. Calling this again replaces the previous target. */
   recordTarget(target: DownloadDiagnosticsTarget): void
+  /**
+   * Story 078 D3 (AC7/AC1): records what assembly looked for and what served it - every entry of
+   * every assemble pass this job ran, in call order. Each entry's paths are redacted before they
+   * are stored.
+   *
+   * Calling this again **replaces** the previous record, like `recordTarget`: the job runs up to two
+   * assemble passes and hands over the accumulated list after each, so a run that fails between them
+   * still carries the first pass's entries and a run that completes both carries one concatenated
+   * table.
+   *
+   * It is also the only writer of `DownloadDiagnosticsPackage.contributed`, re-derived here on every
+   * call from the entries themselves ("a package contributed when some entry it served was found") -
+   * so the per-package flag and the assembly table can never disagree.
+   */
+  recordAssembly(entries: DownloadDiagnosticsAssemblyEntry[]): void
   /** Wraps `log` so every line it writes still goes to `log` exactly as before, and is also
    * pushed (redacted) into this job's bounded log-tail ring. */
   tee<T extends BootstrapLog>(log: T): T
@@ -135,10 +163,49 @@ export function createDiagnosticsCollector(
 
   return {
     recordPackage(pkg) {
-      entry.packages.push({ ...pkg, url: redactHome(pkg.url, homeDir) })
+      const listed = pkg.contents
+      entry.packages.push({
+        ...pkg,
+        url: redactHome(pkg.url, homeDir),
+        // A package whose extraction failed has no listing at all (AC8) - `undefined` stays
+        // `undefined` rather than becoming an empty array, which would read as "it produced
+        // nothing" instead of "it never got that far".
+        ...(listed
+          ? {
+              contents: listed
+                .slice(0, EXTRACTION_LISTING_CAP)
+                .map((name) => redactHome(name, homeDir)),
+              ...(pkg.contentsTruncated === true || listed.length > EXTRACTION_LISTING_CAP
+                ? { contentsTruncated: true }
+                : {}),
+            }
+          : {}),
+      })
     },
     recordTarget(target) {
       entry.target = { ...target, targetPath: redactHome(target.targetPath, homeDir) }
+    },
+    recordAssembly(entries) {
+      entry.assembly = entries.map((assembled) => ({
+        from: redactHome(assembled.from, homeDir),
+        to: redactHome(assembled.to, homeDir),
+        found: assembled.found,
+        ...(assembled.sourcePackageId !== undefined
+          ? { sourcePackageId: redactHome(assembled.sourcePackageId, homeDir) }
+          : {}),
+      }))
+      // Derived from the *unredacted* ids, since `DownloadDiagnosticsPackage.id` is stored
+      // unredacted too - matching a redacted id against a raw one would silently answer "nothing
+      // contributed" for a package id that happened to look path-like.
+      const contributors = new Set(
+        entries
+          .filter((assembled) => assembled.found && assembled.sourcePackageId !== undefined)
+          .map((assembled) => assembled.sourcePackageId as string),
+      )
+      entry.packages = entry.packages.map((pkg) => ({
+        ...pkg,
+        contributed: contributors.has(pkg.id),
+      }))
     },
     tee(log) {
       return {
@@ -182,6 +249,8 @@ export function diagnosticsFor(job: Job): DownloadDiagnostics | undefined {
     errorKey: job.error?.key ?? UNKNOWN_DOWNLOAD_FAILURE_KEY,
     packages: entry.packages,
     ...(entry.target ? { target: entry.target } : {}),
+    // Absent, not empty, for a job that failed before its first assemble pass (story 078 D3).
+    ...(entry.assembly ? { assembly: entry.assembly } : {}),
     logTail: entry.logTail,
   }
 }

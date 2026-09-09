@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import i18next from 'i18next'
 import type {
   DownloadDiagnostics,
+  DownloadDiagnosticsAssemblyEntry,
   DownloadDiagnosticsPackage,
   DownloadDiagnosticsTarget,
   DownloadFailure,
@@ -75,6 +76,38 @@ const diagnostics: DownloadDiagnostics = {
   target,
   logTail: ['[10:04:59] extracting demo-data', '[10:05:00] no usable game data produced'],
 }
+
+/**
+ * Story 078 D4: assembly entries and per-package `contents`, shaped like they would be after
+ * capture in main - relative paths only, already redacted (`redactHome`, story 078 D1/D3) - not
+ * raw account paths. AC9's home-directory check below still exercises `appInfo`'s deliberately
+ * unredacted stub (see ACCOUNT_NAME above) alongside these, since that is the report's real risk
+ * surface, not this data.
+ */
+const assembly: DownloadDiagnosticsAssemblyEntry[] = [
+  { from: 'baseq2\\pak0.pak', to: 'baseq2\\pak0.pak', found: true, sourcePackageId: 'demo-data' },
+  { from: 'players\\male\\tris.md2', to: 'players\\male\\tris.md2', found: false },
+]
+
+const packagesWithContents: DownloadDiagnosticsPackage[] = [
+  {
+    id: 'q2pro-1.0',
+    url: 'https://example.test/q2pro.zip',
+    sizeBytes: 4_500_000,
+    verified: true,
+    extracted: true,
+    contents: ['q2pro.exe', 'q2proded.exe'],
+  },
+  {
+    id: 'demo-data',
+    url: 'https://mirror.test/demo.zip',
+    sizeBytes: 12_000_000,
+    verified: true,
+    extracted: true,
+    contents: ['Install', 'readme.txt'],
+    contentsTruncated: true,
+  },
+]
 
 function makeFailure(overrides: Partial<DownloadFailure> = {}): DownloadFailure {
   return {
@@ -160,6 +193,60 @@ describe('buildFailureReport', () => {
     // The stub's `logPath`/`userDataPath` are un-redacted, home-directory-shaped paths (see
     // ACCOUNT_NAME above), so this fails the moment the report prints either of them - the builder
     // must either never reference those fields, or only ever a redacted form of them.
+    expect(report).not.toContain(ACCOUNT_NAME)
+    expect(report).not.toContain(appInfo.logPath)
+    expect(report).not.toContain(appInfo.userDataPath)
+    expect(report).not.toMatch(/[A-Za-z]:\\Users\\[^\\]+/)
+    expect(report).not.toMatch(/\/home\/[^/]+/)
+  })
+
+  it('the report carries the assembly table', async () => {
+    const { t } = await makeT()
+    const failure = makeFailure({ diagnostics: { ...diagnostics, assembly } })
+    const report = buildFailureReport({ failure, appInfo, t })
+
+    expect(report).toContain('baseq2\\pak0.pak')
+    expect(report).toContain('players\\male\\tris.md2')
+    expect(report).toContain('demo-data')
+    expect(report).toContain(t('downloads.failures.report.assemblyHeading'))
+    expect(report).toContain(t('downloads.failures.report.yes'))
+    expect(report).toContain(t('downloads.failures.report.no'))
+  })
+
+  it("the report carries each package's extraction listing", async () => {
+    const { t } = await makeT()
+    const failure = makeFailure({
+      diagnostics: { ...diagnostics, packages: packagesWithContents },
+    })
+    const report = buildFailureReport({ failure, appInfo, t })
+
+    expect(report).toContain(t('downloads.failures.report.extractionHeading'))
+    expect(report).toContain('q2pro.exe')
+    expect(report).toContain('q2proded.exe')
+    expect(report).toContain('Install')
+    expect(report).toContain('readme.txt')
+    expect(report).toContain(t('downloads.failures.report.extractionTruncated'))
+  })
+
+  it('a record without assembly/contents still yields a valid report with those sections absent', async () => {
+    const { t } = await makeT()
+    const report = buildFailureReport({ failure: makeFailure(), appInfo, t })
+
+    expect(report).not.toContain(t('downloads.failures.report.assemblyHeading'))
+    expect(report).not.toContain(t('downloads.failures.report.extractionHeading'))
+    expect(report.length).toBeGreaterThan(0)
+  })
+
+  it('no home-directory segment in the new sections', async () => {
+    const { t } = await makeT()
+    const failure = makeFailure({
+      diagnostics: { ...diagnostics, assembly, packages: packagesWithContents },
+    })
+    const report = buildFailureReport({ failure, appInfo, t })
+
+    // `assembly`/`contents` here already look redacted (relative paths, no account name) - the
+    // real risk surface is `appInfo`'s deliberately unredacted `C:\Users\<name>\...` stub
+    // (ACCOUNT_NAME above), which must still not leak now that these new sections are populated.
     expect(report).not.toContain(ACCOUNT_NAME)
     expect(report).not.toContain(appInfo.logPath)
     expect(report).not.toContain(appInfo.userDataPath)

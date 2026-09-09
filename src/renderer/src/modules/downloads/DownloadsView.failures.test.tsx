@@ -185,19 +185,25 @@ describe('DownloadsView failure log', () => {
     await waitFor(() => expect(getDownloadFailures.mock.calls.length).toBeGreaterThanOrEqual(2))
   })
 
-  it('passes the store\'s appInfo down so a diagnostics entry offers the reveal-log action', async () => {
+  it('passes the store\'s appInfo down so a diagnostics entry offers the reveal-log action in its expanded detail', async () => {
+    // Story 078 D6: reveal-log moved out of the always-visible header cluster into the
+    // `FailureCauseDetail` footer, reachable only after expanding.
     useLauncher.setState({ appInfo: stubAppInfo })
     currentFailures = [makeFailure({ diagnostics: stubDiagnostics })]
 
     render(createElement(DownloadsView))
 
     await screen.findByTestId('downloads-failure-failure-1')
+    const details = document.querySelector('details') as HTMLDetailsElement
+    expect(details).toBeTruthy()
+    details.open = true
+
     const reveal = screen.getByTestId('downloads-failure-reveal-failure-1') as HTMLButtonElement
     expect(reveal.disabled).toBe(false)
     expect(screen.getByTestId('downloads-failure-copy-failure-1')).toBeTruthy()
   })
 
-  it('an entry without diagnostics renders with no copy action', async () => {
+  it('an entry without diagnostics renders with no copy action and no detail affordance', async () => {
     useLauncher.setState({ appInfo: stubAppInfo })
     currentFailures = [makeFailure()]
 
@@ -205,15 +211,20 @@ describe('DownloadsView failure log', () => {
 
     await screen.findByTestId('downloads-failure-failure-1')
     expect(screen.queryByTestId('downloads-failure-copy-failure-1')).toBeNull()
+    expect(document.querySelector('details')).toBeNull()
+    expect(screen.queryByTestId('downloads-failure-reveal-failure-1')).toBeNull()
   })
 
   it('the reveal-log action is disabled until appInfo has loaded', async () => {
     useLauncher.setState({ appInfo: null })
-    currentFailures = [makeFailure()]
+    currentFailures = [makeFailure({ diagnostics: stubDiagnostics })]
 
     render(createElement(DownloadsView))
 
     await screen.findByTestId('downloads-failure-failure-1')
+    const details = document.querySelector('details') as HTMLDetailsElement
+    details.open = true
+
     const reveal = screen.getByTestId('downloads-failure-reveal-failure-1') as HTMLButtonElement
     expect(reveal.disabled).toBe(true)
   })
