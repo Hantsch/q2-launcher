@@ -18,6 +18,17 @@ import { DOWNLOADS_ERROR_KEYS, type DownloadsErrorKey } from '@shared/modules/do
 export const PACKAGE_UNAVAILABLE: DownloadsErrorKey = 'downloads.error.packageUnavailable'
 
 /**
+ * Story 076 D3 (AC5): a package that *was* resolved, downloaded, verified and extracted, and whose
+ * extraction contained none of the candidate paths one of its required allowlist entries accepts
+ * (`assemble.ts`'s `missingRequired`). Where `PACKAGE_UNAVAILABLE` fires *before* a single byte is
+ * fetched - the manifest does not list the package at all - this one fires *after* the core
+ * assemble pass, when the archive arrived intact and simply did not hold what the allowlist looked
+ * for. Carries `params: { packageId }`, so the failure names the archive rather than only the
+ * end-of-run verdict.
+ */
+export const PACKAGE_INCOMPLETE: DownloadsErrorKey = 'downloads.error.packageIncomplete'
+
+/**
  * Everything downloaded, verified and assembled, and `inspectInstallation` still calls the target
  * `invalid`/`missing` (AC6). The one failure that is decided by the disk rather than by an
  * operation returning an error.

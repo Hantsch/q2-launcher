@@ -30,8 +30,14 @@ import { markVerified, type ExtractorHandle } from '../extractor'
 import type { FetchImpl } from '../fetcher'
 import { isSafeDownloadFileName } from '../paths'
 import { getExtractDir } from '../pipeline'
-import { assembleInstallation } from './assemble'
-import { asExtractionErrorKey, LOCAL_FAILURE, NOT_PLAYABLE, PACKAGE_UNAVAILABLE } from './errors'
+import { assembleInstallation, type AssembleInstallationResult } from './assemble'
+import {
+  asExtractionErrorKey,
+  LOCAL_FAILURE,
+  NOT_PLAYABLE,
+  PACKAGE_INCOMPLETE,
+  PACKAGE_UNAVAILABLE,
+} from './errors'
 import type {
   BootstrapDiagnosticsSource,
   BootstrapLog,
@@ -76,6 +82,10 @@ import { computeTargetVerdict } from './target'
  *    `<cache>/extract/<jobId>/<packageId>` directory - one per package, since a single job now
  *    holds three archives.
  * 6. **Assemble core** - `assembleInstallation({ includeVideoAndPlayers: false })`, D3's allowlist.
+ *    Story 076 D3: if that pass reports a *required* entry no source dir could satisfy, the job
+ *    fails here with `downloads.error.packageIncomplete` naming the package - before the first
+ *    revalidation, so the report says which archive came up empty instead of only that the result
+ *    is unplayable.
  * 7. **Revalidate** through `InstallationsService.validate()`, and record `playableAtRatio` the
  *    first time that verdict is neither `invalid` nor `missing` (AC6). The *trigger* is the real
  *    inspector verdict; only the ratio value itself is this file's (see `PLAYABLE_AT_RATIO`).
@@ -162,7 +172,11 @@ const ASSEMBLE_AUX_RATIO = 0.97
 const SAFE_PATH_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/
 
 /** Directories the job may have created inside the target, deepest first - see the cleanup note. */
-const PRUNABLE_TARGET_DIRS = [join(BASE_GAME_DIR, 'video'), 'players', BASE_GAME_DIR]
+const PRUNABLE_TARGET_DIRS = [
+  join(BASE_GAME_DIR, 'video'),
+  join(BASE_GAME_DIR, 'players'),
+  BASE_GAME_DIR,
+]
 
 /**
  * Story 074 finding fix (Decisions (Sprint): "default (existing) icon assigned automatically").
@@ -568,7 +582,17 @@ export async function startBootstrap(
     return { status: 'cancelled' }
   }
 
-  const failed = async (key: DownloadsErrorKey, reason: string): Promise<BootstrapOutcome> => {
+  /**
+   * `params` (story 076 D3) is the *data* half of a failure - a manifest package id, not prose -
+   * and is the only thing besides the key that crosses to the renderer, where `en.json`'s sentence
+   * interpolates it. Optional and last, so every existing call site keeps its two-argument shape,
+   * and attached only when present so a plain failure's `Job.error` stays exactly `{ key }`.
+   */
+  const failed = async (
+    key: DownloadsErrorKey,
+    reason: string,
+    params?: Record<string, string | number>,
+  ): Promise<BootstrapOutcome> => {
     // The reason is prose and stays in the log: `Job.error` carries an i18n key, and CLAUDE.md's
     // "main sends i18n keys, never prose" rules out shipping it to the renderer. Story 075: the
     // same line is teed into the diagnostics ring, which is developer-facing by design and where
@@ -577,7 +601,7 @@ export async function startBootstrap(
     // Cleaned up *before* the status flips, so no observer can ever see a `failed` job next to a
     // still-registered half-built installation.
     await cleanUp()
-    deps.jobs.finish(jobId, { status: 'failed', error: { key } })
+    deps.jobs.finish(jobId, { status: 'failed', error: { key, ...(params ? { params } : {}) } })
     return { status: 'failed', key }
   }
 
@@ -708,9 +732,12 @@ export async function startBootstrap(
 
     if (cancelled) return cancelledOutcome()
 
-    // 6. Assemble core - the engine payload and the baseq2 paks, allowlisted by D3.
+    // 6. Assemble core - the engine payload and the baseq2 paks, allowlisted by 074 D3 and
+    // corrected against the real archives by 076 D1. Declared outside the `try` only so its
+    // `missingRequired` can be read below; a *thrown* assemble is still the local failure it was.
+    let core: AssembleInstallationResult
     try {
-      const core = await assembleInstallation({
+      core = await assembleInstallation({
         sourceDirs,
         targetRoot,
         includeVideoAndPlayers: false,
@@ -722,6 +749,34 @@ export async function startBootstrap(
 
     if (cancelled) return cancelledOutcome()
     report({ ratio: ASSEMBLE_CORE_RATIO, bytesDone: totalBytes, bytesTotal: totalBytes })
+
+    /**
+     * Story 076 D3 (AC5). A package can download, verify and extract perfectly and still contain
+     * none of the paths one of its *required* allowlist entries accepts - the 2026-09-08 failure,
+     * where the run got all the way to step 9 and reported only "not playable", naming no archive.
+     * Checked here, straight after the pass that knows it and before the first revalidation, so the
+     * job fails on the specific thing that went wrong rather than on the verdict it causes.
+     *
+     * No cancel check of its own: there is no `await` between the one above and this branch, so
+     * `cancelled` cannot have changed, and `failed()` runs the same `cleanUp()` every other failure
+     * exit here runs - this adds a reason, not a second way out.
+     */
+    const [firstMissing] = core.missingRequired
+    if (firstMissing) {
+      // `packages` is the role -> `ManifestPackage.id` mapping this file already holds (Decisions
+      // (Sprint): the allowlist entry carries a role, `job.ts` resolves it). Every role in
+      // `missingRequired` came from an allowlist entry, so it is always one of the three resolved
+      // packages; the role itself is the fallback rather than shipping `undefined` as a param.
+      const packageId =
+        packages.find((entry) => entry.role === firstMissing.role)?.pkg.id ?? firstMissing.role
+      // Every missing entry, with the candidate paths that were looked for: `failed()` warns this
+      // through the teed log, so it is what story 075's `DownloadDiagnostics.logTail` carries into
+      // a bug report - and "which paths were expected" is the half that makes it actionable.
+      const reason = core.missingRequired
+        .map((missing) => `role ${missing.role} contributed none of ${missing.from.join(' or ')}`)
+        .join('; ')
+      return failed(PACKAGE_INCOMPLETE, `assembling ${targetRoot}: ${reason}`, { packageId })
+    }
 
     // 7. Revalidate. `validate()` re-runs `inspectInstallation` and stores its verdict - this file
     // never inspects the folder itself and never writes a status.

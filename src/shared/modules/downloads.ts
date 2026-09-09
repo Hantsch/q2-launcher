@@ -227,6 +227,17 @@ export const DOWNLOADS_ERROR_KEYS = [
    * leaves neither the partial files nor the library entry behind.
    */
   'downloads.error.installationNotPlayable',
+  /**
+   * Story 076 D3 (AC5): one of the bootstrap's packages was resolved, downloaded, verified and
+   * extracted without a hitch, and still contributed none of the allowlisted files the installation
+   * needs to be playable - the 2026-09-08 failure, where the demo archive's real layout put
+   * `pak0.pak` somewhere the allowlist did not look. Distinct from
+   * `downloads.error.packageUnavailable` (the manifest never offered the package at all) and from
+   * `downloads.error.installationNotPlayable` (the end-of-run verdict, which names no package).
+   * Carries `params: { packageId }` - a manifest package id, data rather than prose, so the
+   * sentence itself stays in `en.json`.
+   */
+  'downloads.error.packageIncomplete',
 ] as const
 
 export type DownloadsErrorKey = (typeof DOWNLOADS_ERROR_KEYS)[number]

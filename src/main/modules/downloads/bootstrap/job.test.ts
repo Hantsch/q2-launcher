@@ -78,16 +78,25 @@ const POINT_RELEASE_PACKAGE: ManifestPackage = {
   contents: [{ from: 'baseq2/pak2.pak', to: 'baseq2' }],
 }
 
-/** What each package's archive "contains", written into its extract dir by the fake extractor. */
+/**
+ * What each package's archive "contains", written into its extract dir by the fake extractor.
+ *
+ * Story 076: every entry `assemble.ts` marks `required` is present here, because a fixture that is
+ * missing one now fails the whole run with `downloads.error.packageIncomplete` (D3) rather than
+ * quietly copying less - which is the point of D3, and the reason this constant carries the
+ * engine's `baseq2/gamex86_64.dll` and the point release's `baseq2/pak1.pak`. The extras sit under
+ * `baseq2/video` and `baseq2/players`, the source layout D1 measured on the real archives (AC4).
+ */
 const FIXTURE_CONTENTS: Record<string, string[]> = {
-  [ENGINE_PACKAGE.id]: ['q2pro.exe'],
+  [ENGINE_PACKAGE.id]: ['q2pro.exe', 'baseq2/gamex86_64.dll'],
   [DEMO_PACKAGE.id]: ['baseq2/pak0.pak'],
   // `ctf/pak0.pak` is what the real 3.20 archive also ships and what AC8 forbids in the target -
   // included here so this suite would notice the wired-up job dragging it in.
   [POINT_RELEASE_PACKAGE.id]: [
+    'baseq2/pak1.pak',
     'baseq2/pak2.pak',
-    'video/ntro.cin',
-    'players/male/tris.md2',
+    'baseq2/video/ntro.cin',
+    'baseq2/players/male/tris.md2',
     'ctf/pak0.pak',
   ],
 }
@@ -305,6 +314,55 @@ function recordFor(box: Harness, jobId: string): ReturnType<typeof diagnosticsFo
   return job ? diagnosticsFor(job) : undefined
 }
 
+/**
+ * Makes the *inspector's* verdict the thing that fails a run, now that story 076 D3 fails a run
+ * whose sources were missing a required file long before the verdict is taken. Every package here
+ * still contributes everything the allowlist requires; the assembled paks are then removed from the
+ * target immediately before each revalidation, so `inspectInstallation` genuinely reads a folder
+ * that is not a usable installation (`base-paks`) and the job's fate is decided by that verdict
+ * alone - which is what these tests are about.
+ */
+function breakTargetBeforeValidate(box: Harness): void {
+  const validate = box.installations.validate.bind(box.installations)
+  vi.spyOn(box.installations, 'validate').mockImplementation(async (id) => {
+    // The paks only: the engine binary stays, so the verdict is `invalid` for a missing game, not
+    // for a missing executable.
+    for (const pak of ['pak0.pak', 'pak1.pak', 'pak2.pak']) {
+      await rm(join(targetPath, 'baseq2', pak), { force: true })
+    }
+    return validate(id)
+  })
+}
+
+/**
+ * Like `breakTargetBeforeValidate`, but only breaks the *second* revalidation (step 9, after the
+ * optional extras pass) rather than every call - so the first revalidation (step 7) sees a real,
+ * playable folder and the job goes on to run the auxiliary assemble pass before the late failure.
+ * This is what the F1 regression needs: `baseq2/players/...` must actually have been copied before
+ * cleanup runs, or `removeAssembled()`'s bug in pruning that directory is never exercised.
+ */
+function breakTargetOnSecondValidate(box: Harness): { auxCopiedBeforeSecondValidate: boolean } {
+  const observed = { auxCopiedBeforeSecondValidate: false }
+  const validate = box.installations.validate.bind(box.installations)
+  let calls = 0
+  vi.spyOn(box.installations, 'validate').mockImplementation(async (id) => {
+    calls += 1
+    if (calls >= 2) {
+      // Confirmed here, synchronously, before this call's own cleanup can remove it: the
+      // auxiliary pass's `baseq2/players/...` file is already on disk by the time the job's final
+      // revalidation runs.
+      observed.auxCopiedBeforeSecondValidate = existsSync(
+        join(targetPath, 'baseq2', 'players', 'male', 'tris.md2'),
+      )
+      for (const pak of ['pak0.pak', 'pak1.pak', 'pak2.pak']) {
+        await rm(join(targetPath, 'baseq2', pak), { force: true })
+      }
+    }
+    return validate(id)
+  })
+  return observed
+}
+
 async function exists(path: string): Promise<boolean> {
   try {
     await stat(path)
@@ -381,7 +439,9 @@ describe('startBootstrap', () => {
     expect(atMark.core).toBe(true)
     expect(atMark.extras).toBe(false)
     expect(await exists(join(targetPath, 'baseq2', 'video', 'ntro.cin'))).toBe(true)
-    expect(await exists(join(targetPath, 'players', 'male', 'tris.md2'))).toBe(true)
+    // Story 076 D1 (AC4): sourced from `baseq2/players/`, landing at `baseq2/players/` - not at a
+    // bare `players/` in the target root, which is where 074's guessed layout put it.
+    expect(await exists(join(targetPath, 'baseq2', 'players', 'male', 'tris.md2'))).toBe(true)
   })
 
   it('takes the installation status from inspectInstallation and records playableAtRatio once', async () => {
@@ -412,10 +472,11 @@ describe('startBootstrap', () => {
   })
 
   it('fails and cleans up when the assembled folder is still not a usable installation', async () => {
-    // An extraction that produces nothing: everything "downloads" and "extracts", the allowlist
-    // finds no file to copy, and the inspector's verdict on the empty skeleton is the only thing
-    // that can notice - which is exactly what must decide the job's fate here.
-    const box = harness({ contents: {} })
+    // Every package contributes every required file, so story 076 D3's missing-required check has
+    // nothing to say - and the folder is still not usable when the inspector looks at it. The
+    // verdict is the only thing that can notice, which is exactly what must decide the job's fate.
+    const box = harness()
+    breakTargetBeforeValidate(box)
     const markPlayable = vi.spyOn(box.jobs, 'markPlayable')
 
     const started = await startBootstrap(box.deps, {
@@ -435,6 +496,79 @@ describe('startBootstrap', () => {
     expect(box.jobs.list()[0]?.status).toBe('failed')
     expect(box.jobs.list()[0]?.error).toEqual({ key: 'downloads.error.installationNotPlayable' })
     // A failed job leaves neither the half-built folder nor the library entry.
+    expect(await exists(targetPath)).toBe(false)
+    expect(box.installations.list()).toEqual([])
+  })
+
+  it('cleans up baseq2/players fully when the run fails after the extras pass (F1 regression)', async () => {
+    // Story 076 review finding F1: `PRUNABLE_TARGET_DIRS` still named the pre-076 root-level
+    // `players` (074 D8's guessed layout), not `baseq2/players` where 076 D1's allowlist actually
+    // lands it. `removeAssembled()`'s per-file loop deletes the copied leaf files/dirs, but the now-
+    // empty `baseq2/players` directory itself only gets pruned by `PRUNABLE_TARGET_DIRS` - a stale
+    // entry there means that directory (and, transitively, `baseq2` and the target root, since
+    // `rmdir` refuses a non-empty directory) survives a failed cleanup instead of the target
+    // disappearing like every other failure path.
+    const box = harness()
+    const observed = breakTargetOnSecondValidate(box)
+
+    const started = await startBootstrap(box.deps, {
+      engine: 'q2pro',
+      targetPath,
+      includeVideoAndPlayers: true,
+    })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    const outcome = await started.value.settled
+
+    expect(outcome).toEqual({
+      status: 'failed',
+      key: 'downloads.error.installationNotPlayable',
+    })
+    // The regression only exists once `baseq2/players/...` was actually copied by the extras pass
+    // before the late failure - otherwise this test would pass even with the stale path.
+    expect(observed.auxCopiedBeforeSecondValidate).toBe(true)
+    // The whole target, `baseq2/players` included, must be gone - not just the files, leaving an
+    // empty directory tree behind.
+    expect(await exists(targetPath)).toBe(false)
+  })
+
+  it('a package that contributes no required file fails the job naming that package', async () => {
+    // The 2026-09-08 failure in miniature (AC5): the demo archive downloads, verifies and extracts
+    // without a hitch, and holds neither of the two paths the allowlist accepts for
+    // `baseq2/pak0.pak`. The other two packages are complete, so the demo is unambiguously the one
+    // that came up empty.
+    const box = harness({ contents: { ...FIXTURE_CONTENTS, [DEMO_PACKAGE.id]: [] } })
+    const markPlayable = vi.spyOn(box.jobs, 'markPlayable')
+
+    const started = await startBootstrap(box.deps, {
+      engine: 'q2pro',
+      targetPath,
+      includeVideoAndPlayers: false,
+    })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    const outcome = await started.value.settled
+
+    expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.packageIncomplete' })
+    // The package id, not the role, and as `params` rather than prose - so `en.json`'s sentence
+    // can name the archive.
+    expect(box.jobs.list()[0]?.error).toEqual({
+      key: 'downloads.error.packageIncomplete',
+      params: { packageId: DEMO_PACKAGE.id },
+    })
+    // It failed before the verdict, so the run never got as far as calling anything playable.
+    expect(markPlayable).not.toHaveBeenCalled()
+
+    // The reason names every candidate path that was looked for, and story 075's diagnostics ring
+    // carries that same line into a copied failure report.
+    const failureLine = box.logLines.find((line) => line.includes('packageIncomplete'))
+    expect(failureLine).toContain('baseq2/pak0.pak')
+    expect(failureLine).toContain('Install/Data/baseq2/pak0.pak')
+    const record = recordFor(box, started.value.jobId)
+    expect(record?.errorKey).toBe('downloads.error.packageIncomplete')
+    expect(record?.logTail.some((line) => line.includes('Install/Data/baseq2/pak0.pak'))).toBe(true)
+
+    // Cleanup is what every other failure path does: no half-built folder, no library entry.
     expect(await exists(targetPath)).toBe(false)
     expect(box.installations.list()).toEqual([])
   })
@@ -651,8 +785,10 @@ describe('startBootstrap diagnostics', () => {
   }
 
   it('a failed run records every package it touched with its serving URL, size, verify and extract result', async () => {
-    // The 2026-09-08 run in miniature: all three packages download and extract, and the assembled
-    // folder is still not a usable installation. The demo came off a mirror.
+    // The 2026-09-08 run in miniature: all three packages download and extract, and not one of
+    // them contributes a required file. The demo came off a mirror. Since story 076 D3 that run
+    // fails naming a package rather than only reporting the end-of-run verdict - what is asserted
+    // here is unchanged either way: every package it touched is in the record.
     const box = harness({
       contents: {},
       servingUrl: (source) =>
@@ -661,10 +797,10 @@ describe('startBootstrap diagnostics', () => {
 
     const { jobId, outcome, record } = await run(box)
 
-    expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.installationNotPlayable' })
+    expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.packageIncomplete' })
     expect(record?.jobId).toBe(jobId)
     expect(record?.kind).toBe(BOOTSTRAP_JOB_KIND)
-    expect(record?.errorKey).toBe('downloads.error.installationNotPlayable')
+    expect(record?.errorKey).toBe('downloads.error.packageIncomplete')
     // Every package, in processing order, with the URL that actually served it - the mirror for
     // the demo, not the manifest's primary.
     expect(record?.packages).toEqual([
@@ -687,7 +823,10 @@ describe('startBootstrap diagnostics', () => {
   })
 
   it('a not-playable verdict records the target path, the verdict and the failing checks', async () => {
-    const box = harness({ contents: {} })
+    // A complete package set, so the run reaches the verdict at all (story 076 D3 fails an
+    // incomplete one earlier, before there is a target to record).
+    const box = harness()
+    breakTargetBeforeValidate(box)
 
     const { record } = await run(box)
 
@@ -702,29 +841,22 @@ describe('startBootstrap diagnostics', () => {
 
   it('a package that extracted nothing is identifiable in the diagnostics', async () => {
     // The demo archive "extracts" perfectly and still contributes no `baseq2/pak0.pak` (story
-    // 076's real bug). Nothing about the demo row itself looks wrong - pairing it with the
-    // target's `base-paks`/`pak0Missing` check is what names the package that brought nothing.
-    const box = harness({
-      contents: {
-        [ENGINE_PACKAGE.id]: ['q2pro.exe'],
-        [DEMO_PACKAGE.id]: [],
-        [POINT_RELEASE_PACKAGE.id]: ['video/ntro.cin'],
-      },
-    })
+    // 076's real bug). Nothing about the demo's own row looks wrong - verified, extracted, off the
+    // expected URL - so what names the package that brought nothing is the recorded error key and
+    // the log tail's candidate paths, which is exactly what D3 added.
+    const box = harness({ contents: { ...FIXTURE_CONTENTS, [DEMO_PACKAGE.id]: [] } })
 
     const { outcome, record } = await run(box)
 
-    expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.installationNotPlayable' })
+    expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.packageIncomplete' })
     expect(record?.packages.map((pkg) => pkg.id)).toEqual([
       ENGINE_PACKAGE.id,
       DEMO_PACKAGE.id,
       POINT_RELEASE_PACKAGE.id,
     ])
     expect(record?.packages.every((pkg) => pkg.verified && pkg.extracted)).toBe(true)
-    expect(record?.target?.missingChecks).toContainEqual({
-      id: 'base-paks',
-      messageKey: 'validation.pak0Missing',
-    })
+    expect(record?.errorKey).toBe('downloads.error.packageIncomplete')
+    expect(record?.logTail.some((line) => line.includes('Install/Data/baseq2/pak0.pak'))).toBe(true)
   })
 
   it('a run that fails while downloading still records the packages it got to', async () => {
@@ -780,7 +912,8 @@ describe('startBootstrap diagnostics', () => {
 
   it("captures the job's own log lines and redacts paths at capture time", async () => {
     // `homeDir` set to the suite's temp root, so every path the job logs or records sits inside it.
-    const box = harness({ contents: {}, homeDir: dir })
+    const box = harness({ homeDir: dir })
+    breakTargetBeforeValidate(box)
 
     const { record } = await run(box)
 
@@ -816,7 +949,7 @@ describe('startBootstrap diagnostics', () => {
 
     expect(instrumented.outcome).toEqual({
       status: 'failed',
-      key: 'downloads.error.installationNotPlayable',
+      key: 'downloads.error.packageIncomplete',
     })
     expect(await exists(targetPath)).toBe(false)
     expect(withCollector.installations.list()).toEqual([])

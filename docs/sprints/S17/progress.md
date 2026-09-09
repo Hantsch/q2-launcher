@@ -1,0 +1,16 @@
+- 2026-09-08 17:21 · 076 · D1 the allowlist matches the real archives · started
+- 2026-09-08 17:25 · 076 · D1 the allowlist matches the real archives · done
+- 2026-09-08 17:25 · 076 · D2 assemble says what is missing · started
+- 2026-09-08 17:26 · 076 · D2 assemble says what is missing · done
+- 2026-09-08 17:27 · 076 · D3 the job fails naming the package · started
+- 2026-09-08 17:35 · 076 · D3 the job fails naming the package · done
+- 2026-09-08 17:37 · 076 · D4 the fixtures mirror the real archives · started
+- 2026-09-08 17:51 · 076 · D4 the fixtures mirror the real archives · done
+- 2026-09-08 17:53 · 076 · D5 the checked-in listing keeps fixture and reality in step · started
+- 2026-09-08 17:57 · 076 · D5 the checked-in listing keeps fixture and reality in step · done
+- 2026-09-08 17:58 · 076 · D6 the named failure on the real surface · started
+- 2026-09-08 18:01 · 076 · D6 the named failure on the real surface · done
+- 2026-09-08 18:12 · 076 · review-fix F1 PRUNABLE_TARGET_DIRS stale players path · started
+- 2026-09-09 08:12 · 076 · review-fix F1 PRUNABLE_TARGET_DIRS stale players path · done
+- 2026-09-09 08:25 · 076 · review-fix F1/F3 archive-layouts.test.ts GLOB_DIRS + reverse-mirror coverage gaps · started
+- 2026-09-09 08:25 · 076 · review-fix F1/F3 archive-layouts.test.ts GLOB_DIRS + reverse-mirror coverage gaps · done

@@ -1134,11 +1134,14 @@ export function writeImportFilesFixture() {
 // and must do so with no outbound network access whatsoever. That needs three things, and all
 // three are built here:
 //
-//   1. three real, 7-Zip-extractable archives, laid out exactly the way `bootstrap/assemble.ts`'s
-//      allowlist expects (`baseq2/pak0.pak`, `baseq2/pak2.pak`, `q2pro.exe`), plus `ctf/`,
-//      `xatrix/` and `rogue/` payloads inside the point-release archive so AC8's "no ctf/xatrix/
-//      rogue directory is created" is a claim about real, discarded input rather than about an
-//      input that never had any;
+//   1. three real, 7-Zip-extractable archives, laid out the way the REAL archives are - not the
+//      way `bootstrap/assemble.ts`'s allowlist was once guessed to expect (story 076 measured and
+//      fixed that gap): `q2pro64.exe` + `baseq2/{gamex86_64.dll,q2pro.menu}` for the engine,
+//      `Install/Data/baseq2/{pak0.pak,players/...}` for the demo, and
+//      `baseq2/{pak1.pak,pak2.pak,players/...}` for the point release - plus `ctf/`, `xatrix/`
+//      and `rogue/` payloads inside the point-release archive so AC8's "no ctf/xatrix/rogue
+//      directory is created" is a claim about real, discarded input rather than about an input
+//      that never had any. `BOOTSTRAP_FIXTURE_LAYOUT` below is this layout as data;
 //   2. a `127.0.0.1` server serving both manifest files and those archives - with the real
 //      sha256/size of the archives on disk, so nothing about the verification step is faked; and
 //   3. a target folder that is deliberately BOTH under a fake `Program Files` root (AC2) and
@@ -1230,6 +1233,9 @@ const FIXTURE_PAK0_BYTES = 8 * 1024 * 1024
 /** Mirrors `RETAIL_PAK_SIZES['pak2.pak']` (45,055). Nothing depends on it; free realism. */
 const FIXTURE_PAK2_BYTES = 45_055
 
+/** `pak1.pak`'s fixture size - distinct from `FIXTURE_PAK2_BYTES` so the two files are never confused on disk. */
+const FIXTURE_PAK1_BYTES = 38_912
+
 /**
  * How many files the discarded `ctf/` payload holds. Two jobs: it makes AC8's negative assertion
  * meaningful (a real payload the allowlist walks past), and it gives the job's tail - the final
@@ -1296,27 +1302,52 @@ function buildFixturePackage({ fileName, stagingName, entries, build }) {
  * `paths.ts`'s `isSafeDownloadFileName` (a name becomes a cache file name) - both are refused
  * rather than sanitised, so a fixture that ignored either would fail before a byte moved.
  */
-function buildBootstrapPackages() {
+function buildBootstrapPackages({ demoContributesNothing = false } = {}) {
   const engine = buildFixturePackage({
     fileName: 'q2pro-fixture-client.zip',
     stagingName: 'engine',
-    entries: ['q2pro.exe', 'baseq2'],
+    entries: ['q2pro64.exe', 'baseq2'],
     build: (staging) => {
-      // At the archive root, matching both the pinned Q2PRO release zip's own layout and
-      // `assemble.ts`'s `{ from: 'q2pro.exe' }` allowlist entry.
-      writeFileIn(staging, 'q2pro.exe', filler(96 * 1024, 0x4d))
+      // At the archive root, matching both the pinned Q2PRO release zip's own layout - which
+      // calls its binary `q2pro64.exe`, not `q2pro.exe` - and `assemble.ts`'s
+      // `{ from: ['q2pro.exe', 'q2pro64.exe'] }` allowlist entry (story 076 D1).
+      writeFileIn(staging, 'q2pro64.exe', filler(96 * 1024, 0x4d))
       // Not allowlisted, on purpose: the real engine build does ship a `baseq2/` of its own (game
       // DLLs), and AC8's guarantee has to hold for that too.
       writeFileIn(join(staging, 'baseq2'), 'gamex86_64.dll', filler(32 * 1024, 0x44))
+      // Ships alongside the binary and DLL in the same package (story 076 D1's allowlist, marked
+      // optional). A few hundred bytes is enough - only its presence is ever checked.
+      writeFileIn(join(staging, 'baseq2'), 'q2pro.menu', filler(512, 0x4e))
     },
   })
 
   const demo = buildFixturePackage({
     fileName: 'q2-demo-fixture.zip',
     stagingName: 'demo',
-    entries: ['baseq2'],
+    entries: ['Install'],
     build: (staging) => {
-      writeFileIn(join(staging, 'baseq2'), 'pak0.pak', filler(FIXTURE_PAK0_BYTES, 0x50))
+      // Nested under `Install/Data/` - the real id Software InstallShield demo installer's actual
+      // layout (measured 2026-09-08, story 076's Requirement table), not the flat `baseq2/` the
+      // fixture used to guess. No `video/` anywhere in this package: the real archive has none
+      // (AC4 - an absent `video/` is a normal outcome, never an error).
+      //
+      // `demoContributesNothing` (story 076 D6) skips writing `pak0.pak` - the required allowlist
+      // entry - so the package downloads and extracts fine but contributes none of its required
+      // files, the exact case `job.ts`'s `downloads.error.packageIncomplete` exists for. The
+      // players file below is left in place so `entries: ['Install']` still names real staged
+      // content and the archive still zips cleanly.
+      if (!demoContributesNothing) {
+        writeFileIn(
+          join(staging, 'Install', 'Data', 'baseq2'),
+          'pak0.pak',
+          filler(FIXTURE_PAK0_BYTES, 0x50),
+        )
+      }
+      writeFileIn(
+        join(staging, 'Install', 'Data', 'baseq2', 'players', 'male'),
+        'tris.md2',
+        filler(4 * 1024, 0x54),
+      )
     },
   })
 
@@ -1325,7 +1356,11 @@ function buildBootstrapPackages() {
     stagingName: 'point-release',
     entries: ['baseq2', 'ctf', 'xatrix', 'rogue'],
     build: (staging) => {
+      writeFileIn(join(staging, 'baseq2'), 'pak1.pak', filler(FIXTURE_PAK1_BYTES, 0x51))
       writeFileIn(join(staging, 'baseq2'), 'pak2.pak', filler(FIXTURE_PAK2_BYTES, 0x52))
+      // The real 3.20 full/CTF package ships `baseq2/players/` directly under its own `baseq2/`
+      // - not nested under `Install/Data/` like the demo above.
+      writeFileIn(join(staging, 'baseq2', 'players', 'male'), 'tris.md2', filler(4 * 1024, 0x54))
       for (let index = 0; index < FIXTURE_CTF_FILE_COUNT; index += 1) {
         writeFileIn(join(staging, 'ctf'), `ctf-payload-${index}.dat`, filler(4 * 1024, 0x43))
       }
@@ -1344,6 +1379,19 @@ function buildBootstrapPackages() {
       ...pointRelease,
     },
   ]
+}
+
+/**
+ * Every source-relative path `buildBootstrapPackages()` actually writes, by role - literal, not
+ * computed, so a later deliverable (076 D5) can cross-check it against a real-archive listing and
+ * against `assemble.ts`'s allowlist candidates without re-deriving it. Deliberately excludes the
+ * `ctf`/`xatrix`/`rogue` discard payloads: this documents what the ALLOWLIST is expected to find,
+ * not everything the archive contains.
+ */
+export const BOOTSTRAP_FIXTURE_LAYOUT = {
+  engine: ['q2pro64.exe', 'baseq2/gamex86_64.dll', 'baseq2/q2pro.menu'],
+  demo: ['Install/Data/baseq2/pak0.pak', 'Install/Data/baseq2/players/male/tris.md2'],
+  'point-release': ['baseq2/pak1.pak', 'baseq2/pak2.pak', 'baseq2/players/male/tris.md2'],
 }
 
 /**
@@ -1384,9 +1432,12 @@ const BOOTSTRAP_SERVE_CHUNK_DELAY_MS = 45
  *
  * Only the paths registered below exist; everything else answers 404, so a request the app should
  * never make shows up as a failure rather than as silence.
+ *
+ * `demoContributesNothing` (story 076 D6) forwards straight into `buildBootstrapPackages()` - see
+ * its own doc comment. Defaulted off, so every existing caller keeps working unchanged.
  */
-export async function startBootstrapFixtureServer() {
-  const packages = buildBootstrapPackages()
+export async function startBootstrapFixtureServer({ demoContributesNothing = false } = {}) {
+  const packages = buildBootstrapPackages({ demoContributesNothing })
 
   /** Everything this server is willing to serve, by request path. */
   const routes = new Map()

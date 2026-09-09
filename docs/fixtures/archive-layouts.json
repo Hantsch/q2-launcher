@@ -1,0 +1,23 @@
+{
+  "measuredOn": "2026-09-08",
+  "packages": [
+    {
+      "role": "engine",
+      "id": "q2pro-nightly-win64",
+      "sha256": "47e18f72f116512f97b42f4ba47c285ba5b60fe6839e380be23bab5eb8288f4b",
+      "paths": ["q2pro64.exe", "baseq2/gamex86_64.dll"]
+    },
+    {
+      "role": "demo",
+      "id": "q2-314-demo-x86",
+      "sha256": "7ace5a43983f10d6bdc9d9b6e17a1032ba6223118d389bd170df89b945a04a1e",
+      "paths": ["Install/Data/baseq2/pak0.pak", "Install/Data/baseq2/players"]
+    },
+    {
+      "role": "point-release",
+      "id": "q2-320-x86-full-ctf",
+      "sha256": "f82197c8c8089202a4b3a85d8833b0c2e827a709d205c760369407c212488baa",
+      "paths": ["baseq2/pak1.pak", "baseq2/pak2.pak", "baseq2/players"]
+    }
+  ]
+}

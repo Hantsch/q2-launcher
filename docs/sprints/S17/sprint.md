@@ -1,7 +1,7 @@
 ---
 sprint: S17
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S17
 milestone: Install — bootstrap, update and repair (docs/concepts/install-module.md)
 ---
 
@@ -18,7 +18,7 @@ pointing at a log file.
 
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
-- [ ] 076 — The bootstrap assembles the real archives, not the fixtures
+- [x] 076 — The bootstrap assembles the real archives, not the fixtures
 - [ ] 077 — A failed install stays in my library and shows its last error
 - [ ] 078 — The failure says the cause, not "go read the log"
 

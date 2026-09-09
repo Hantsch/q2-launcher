@@ -1966,6 +1966,7 @@
       "network": "A network error interrupted the download.",
       "packageUnavailable": "The download list does not offer everything this setup needs right now. Try again later.",
       "installationNotPlayable": "The files were downloaded, but the result was not a usable Quake II installation.",
+      "packageIncomplete": "The download \"{{packageId}}\" arrived intact but did not contain the game files this setup needs.",
       "bootstrapTargetBlocked": "That folder cannot be used for a new installation.",
       "unknown": "The download failed for an unknown reason."
     },

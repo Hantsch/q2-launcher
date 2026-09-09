@@ -70,6 +70,7 @@
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 import {
+  BOOTSTRAP_FIXTURE_LAYOUT,
   BOOTSTRAP_TARGET_LOOSE_FILE,
   bootstrapProgramFilesProbePath,
   bootstrapTargetDir,
@@ -324,6 +325,20 @@ export default async function bootstrapWizard({ page, shot, step }) {
   console.log(`confirm step: total ${totalSizeText} for ${server.totalSizeBytes} real bytes`)
   await shot('confirm-step')
 
+  step('turn on "include videos and player models" (AC4 e2e half - exercises GLOB_DIRS\' baseq2/players candidate)')
+  // `Checkbox` (`components/ui/controls.tsx`) hides its real `<input type="checkbox">` with
+  // `sr-only` and paints a visible `<span>` checkmark box next to it, so the click has to land on
+  // the wrapping `<label>` - same pattern as the Program-Files-acknowledge checkbox above. This
+  // checkbox has no `data-testid`, so it is located by its text. `getByLabel` DOES resolve the
+  // wrapping label's implicit association - but to the `<input>` itself, not the label - and
+  // clicking that input directly times out: the visible checkmark `<span>` sits on top of it and
+  // intercepts the pointer event (empirically confirmed here). `getByText(...).locator('..')`
+  // walks back up to the wrapping `<label>`, which is what actually receives clicks.
+  await page
+    .getByText('Include videos and player models')
+    .locator('..')
+    .click({ timeout: TIMEOUT_MS })
+
   // --- AC5/AC6: the job runs, and Play lights up before it is finished ---------------------------
   step('start the job')
   await page.getByTestId('bootstrap-confirm-start').click({ timeout: TIMEOUT_MS })
@@ -428,10 +443,28 @@ export default async function bootstrapWizard({ page, shot, step }) {
       throw new Error(`expected ${expected} in the target root, found ${JSON.stringify(tree.files)}`)
     }
   }
-  for (const pak of ['pak0.pak', 'pak2.pak']) {
+  for (const pak of ['pak0.pak', 'pak1.pak', 'pak2.pak']) {
     if (!existsSync(join(targetPath, 'baseq2', pak))) {
       throw new Error(`expected baseq2/${pak} to have been assembled into the target (AC5)`)
     }
+  }
+
+  step('assert players/ landed and video/ stayed absent (AC4)')
+  // The extras toggle was turned on above, so `GLOB_DIRS`' `baseq2/players` candidate
+  // (`assemble.ts`) should have expanded for real. `BOOTSTRAP_FIXTURE_LAYOUT`'s point-release
+  // entry is the source of truth for the players filename rather than a second hardcoded copy.
+  const playersRelative = BOOTSTRAP_FIXTURE_LAYOUT['point-release'].find((path) =>
+    path.startsWith('baseq2/players/'),
+  )
+  if (!playersRelative) {
+    throw new Error('BOOTSTRAP_FIXTURE_LAYOUT["point-release"] has no baseq2/players/ entry')
+  }
+  const playersPath = join(targetPath, ...playersRelative.split('/'))
+  if (!existsSync(playersPath)) {
+    throw new Error(`expected ${playersRelative} to have been assembled into the target (AC4)`)
+  }
+  if (existsSync(join(targetPath, 'baseq2', 'video'))) {
+    throw new Error('expected baseq2/video to be absent - no real archive ships one (AC4)')
   }
   console.log(`target tree: dirs=${JSON.stringify(tree.dirs)} files=${JSON.stringify(tree.files)}`)
 
