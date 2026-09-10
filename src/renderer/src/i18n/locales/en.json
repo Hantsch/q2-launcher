@@ -265,7 +265,30 @@
 
   "home": {
     "title": "Home",
-    "lead": "This is where your Quake II news and activity will live."
+    "lead": "This is where your Quake II news and activity will live.",
+    "error": {
+      "urlNotAllowed": "That link could not be opened."
+    },
+    "hero": {
+      "label": "Community news",
+      "dots": "Choose a news slide",
+      "goToSlide": "Show news slide {{position}}",
+      "previous": "Previous news slide",
+      "next": "Next news slide",
+      "pause": "Pause the news rotation",
+      "resume": "Resume the news rotation",
+      "counter": "{{position}} / {{total}}",
+      "welcome": {
+        "title": "Welcome to Q2 Launcher",
+        "step1": "Add or detect your Quake II installation",
+        "step2": "Set up your controls and settings",
+        "step3": "Hit Play"
+      },
+      "stale": {
+        "asOf": "As of {{time}}",
+        "refresh": "Refresh news"
+      }
+    }
   },
 
   "actionbar": {

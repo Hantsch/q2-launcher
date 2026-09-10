@@ -42,3 +42,18 @@
 - 2026-09-10 20:55 � 085 � D4 write the checkout � done
 - 2026-09-10 20:55 � 085 � D5 machine-verify the checkout � started
 - 2026-09-10 20:56 � 085 � D5 machine-verify the checkout � done
+- 2026-09-10 21:04 · 083 · D1 carousel pure state machine · started
+- 2026-09-10 21:05 · 083 · D1 carousel pure state machine · done
+- 2026-09-10 21:05 · 083 · D2 templates and button row · started
+- 2026-09-10 21:10 · 083 · D2 templates and button row · done
+- 2026-09-10 21:10 · 083 · D3 hero shell (320px, accessible) · started
+- 2026-09-10 21:20 · 083 · D3 hero shell (320px, accessible) · done
+- 2026-09-10 21:20 · 083 · D4 welcome and stale states · started
+- 2026-09-10 21:31 · 083 · D4 welcome and stale states · done
+- 2026-09-10 21:31 · 083 · D5 openSlideUrl main handler · started
+- 2026-09-10 21:49 · 083 · D5 openSlideUrl main handler · done
+- 2026-09-10 21:49 · 083 · D6 screens and e2e flow · done
+- 2026-09-10 22:14 · 083 · review cycle 1 (story-review-hard) · done: FAIL, 6 findings
+- 2026-09-10 22:14 · 083 · fix cycle 1 · done
+- 2026-09-10 22:14 · 083 · review cycle 2 (story-review-hard) · done: PASS
+- 2026-09-10 22:14 · 083 · story done, moved to done/

@@ -59,6 +59,63 @@ const DEFAULT_SETTINGS = {
 /** Fixed instant used for every fixture timestamp — never `Date.now()` (idempotency). */
 const FIXED_TIMESTAMP = '2026-01-01T00:00:00.000Z'
 
+/** An older instant than `FIXED_TIMESTAMP`, used only by the `news-stale` variant below so its
+ * "as of <date>" chip (`NewsHero.tsx`) reads as visibly aged rather than merely different. */
+const NEWS_STALE_TIMESTAMP = '2025-01-01T00:00:00.000Z'
+
+// --- story 083 D6: the home hero's news feed cache -------------------------
+//
+// Mirrors src/main/modules/home/news/feed-cache.ts's `NEWS_CACHE_VERSION`/`NEWS_FEED_CACHE_FILE`
+// and the shape `NewsFeedCache`/`NewsFeedCacheData` persist - `{ cacheVersion, slides, etags,
+// retrievedAt, lastRefreshFailed? }` under `userData/news-feed.json`. Written directly as JSON,
+// the same way every other fixture writer below bypasses the real app's own write path (`JsonStore`)
+// in favour of a plain `writeJson()` call - the point of a fixture is a known-good file already on
+// disk before the app ever starts, not a round trip through the code under test.
+//
+// The home module's app-start fetch is unconditionally skipped under the UI-verification harness
+// (`src/main/modules/home/index.ts`, gated via `isUiHarnessEnabled()`), so this file is the ONLY
+// source of truth for the three `home-hero*` screens - no fetch, loopback or otherwise, ever runs
+// during `ui:verify`/`ui:flow`. `lastRefreshFailed` is a story 083 D6 addition to the persisted
+// schema (`feed-cache.ts`) purely so the `news-stale` variant's aged cache can carry it verbatim,
+// since a *real* refresh only ever sets that flag in memory, never in the file it did not manage to
+// refresh.
+const NEWS_CACHE_VERSION = 1
+const NEWS_FEED_CACHE_FILE = 'news-feed.json'
+
+/** Two real `text`-template slides - simple enough to need no image URL, but genuinely two so the
+ * carousel this fixture feeds (`home-hero`, `scripts/flows/home-hero-carousel.mjs`) has something
+ * to rotate through, dot between and reorder via prev/next. Mirrors `NewsSlide`
+ * (`src/shared/modules/home.ts`). */
+const NEWS_FIXTURE_SLIDES = [
+  {
+    id: 'fixture-news-slide-one',
+    template: 'text',
+    order: 1,
+    title: 'Fixture News Slide One',
+    body: 'Seeded news body for the ui-verify home hero fixture - the first of two slides.',
+    buttons: [],
+  },
+  {
+    id: 'fixture-news-slide-two',
+    template: 'text',
+    order: 2,
+    title: 'Fixture News Slide Two',
+    body: 'A second seeded slide, so the carousel has more than one to rotate through.',
+    buttons: [],
+  },
+]
+
+/** Writes `userData/news-feed.json` in the exact shape `NewsFeedCache`/`ensureLoaded()` read back. */
+function writeNewsFeedCache(userDataDir, { slides, retrievedAt, lastRefreshFailed = false, etags = {} }) {
+  writeJson(join(userDataDir, NEWS_FEED_CACHE_FILE), {
+    cacheVersion: NEWS_CACHE_VERSION,
+    slides,
+    etags,
+    retrievedAt,
+    lastRefreshFailed,
+  })
+}
+
 /** Root all fixture game directories live under: `.ui-verify/fixture/game/<install>/`. */
 function gameRoot() {
   return join(UI_VERIFY_ROOT, 'fixture', 'game')
@@ -1115,6 +1172,12 @@ export function writePopulatedFixture() {
   writeJson(join(userDataDir, STATE_FILE), populatedStateDocument())
   writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
   writeDownloadsCacheArchives(userDataDir)
+  // Story 083 D6: a fresh, successful feed cache - the `home-hero` screen's filled state.
+  writeNewsFeedCache(userDataDir, {
+    slides: NEWS_FIXTURE_SLIDES,
+    retrievedAt: FIXED_TIMESTAMP,
+    lastRefreshFailed: false,
+  })
 
   const installIds = [INSTALL_ONE_ID, INSTALL_TWO_ID, INSTALL_UNKNOWN_ENGINE_ID]
   for (const id of installIds) {
@@ -1144,7 +1207,12 @@ export function writePopulatedFixture() {
   }
 }
 
-/** Deletes and rewrites the `empty` variant's userdata (defaults only). */
+/** Deletes and rewrites the `empty` variant's userdata (defaults only).
+ *
+ * Deliberately writes no `news-feed.json` at all - "no cache file exists" is exactly the
+ * `home-hero-welcome` screen's precondition (story 083 D6): `feedState()` reads an empty `slides`
+ * array as `'welcome'` regardless of `lastRefreshFailed`, and `NewsFeedCache.read()` already answers
+ * `undefined` for a missing file, so this variant needs no news-specific writer of its own. */
 export function writeEmptyFixture() {
   const userDataDir = variantUserDataDir('empty')
   rmDirBestEffort(userDataDir)
@@ -1152,6 +1220,30 @@ export function writeEmptyFixture() {
 
   writeJson(join(userDataDir, STATE_FILE), emptyStateDocument())
   writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  return { userDataDir, installations: 0, configProfiles: 0 }
+}
+
+/**
+ * Story 083 D6: the `home-hero-stale` screen's fixture - an aged, already-failed feed cache and
+ * nothing else (no installations/profiles are needed to show the hero). Reuses `emptyStateDocument()`
+ * for `state.json` since this variant's only job is the hero; `NEWS_STALE_TIMESTAMP` is a full year
+ * behind `FIXED_TIMESTAMP` so the "as of <date>" chip reads as visibly old, and
+ * `lastRefreshFailed: true` is what routes `feedState()` to `'stale'` instead of `'filled'` - see
+ * `writeNewsFeedCache()`'s own doc comment for why this is the one place that field is ever written.
+ */
+export function writeNewsStaleFixture() {
+  const userDataDir = variantUserDataDir('news-stale')
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  writeJson(join(userDataDir, STATE_FILE), emptyStateDocument())
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+  writeNewsFeedCache(userDataDir, {
+    slides: NEWS_FIXTURE_SLIDES,
+    retrievedAt: NEWS_STALE_TIMESTAMP,
+    lastRefreshFailed: true,
+  })
 
   return { userDataDir, installations: 0, configProfiles: 0 }
 }
@@ -1164,10 +1256,11 @@ export function writeFixture(variant) {
   if (variant === 'populated') return writePopulatedFixture()
   if (variant === 'empty') return writeEmptyFixture()
   if (variant === 'controls-seed') return writeControlsSeedFixture()
+  if (variant === 'news-stale') return writeNewsStaleFixture()
   throw new Error(`unknown fixture variant: ${variant}`)
 }
 
-export const FIXTURE_VARIANTS = ['populated', 'empty', 'controls-seed']
+export const FIXTURE_VARIANTS = ['populated', 'empty', 'controls-seed', 'news-stale']
 
 // --- story 066 D8: the import-from-files flow's staged real-config corpus ---------------------
 //

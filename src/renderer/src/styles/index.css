@@ -12,6 +12,7 @@
 @import './surfaces.css' layer(components);
 @import './controls-grid.css' layer(components);
 @import './config-syntax.css' layer(components);
+@import './home-hero.css' layer(components);
 
 /*
   Sources are listed explicitly rather than relying on auto-detection, because

@@ -1,7 +1,7 @@
 ---
 id: 083
 title: The hero is the news carousel
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-10
 ---
 
@@ -21,26 +21,26 @@ See [concepts/home-screen.md](../concepts/home-screen.md) §7 and §11 (variant 
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The hero is 320px high, spans the width between the installation rail and the
+- [x] **AC1** — The hero is 320px high, spans the width between the installation rail and the
       window edge, and cannot be moved, resized, hidden or placed by the user.
-- [ ] **AC2** — `split`, `banner` and `text` are rendered by launcher-side renderers; a slide's
+- [x] **AC2** — `split`, `banner` and `text` are rendered by launcher-side renderers; a slide's
       frontmatter fills their fields and can contribute no CSS, HTML, colour or layout value.
-- [ ] **AC3** — The carousel auto-advances and offers dots, previous, next and an explicit pause
+- [x] **AC3** — The carousel auto-advances and offers dots, previous, next and an explicit pause
       control.
-- [ ] **AC4** — Auto-rotation pauses while the pointer is over the hero or focus is inside it, and
+- [x] **AC4** — Auto-rotation pauses while the pointer is over the hero or focus is inside it, and
       stays paused after the pause control is used until it is pressed again.
-- [ ] **AC5** — With reduced motion, auto-rotation does not run and slide changes do not animate;
+- [x] **AC5** — With reduced motion, auto-rotation does not run and slide changes do not animate;
       dots, previous and next still work.
-- [ ] **AC6** — With no cached feed at all, the hero shows a built-in welcome slide that uses no
+- [x] **AC6** — With no cached feed at all, the hero shows a built-in welcome slide that uses no
       bitmap image and names the first steps; a real feed displaces it.
-- [ ] **AC7** — A feed shown after a failed refresh carries an "as of <date>" note and a refresh
+- [x] **AC7** — A feed shown after a failed refresh carries an "as of <date>" note and a refresh
       affordance, and no dialog or toast.
-- [ ] **AC8** — A slide shows at most three buttons, and pressing one opens the URL through main
+- [x] **AC8** — A slide shows at most three buttons, and pressing one opens the URL through main
       with `shell.openExternal`; the renderer cannot open a URL itself.
-- [ ] **AC9** — The carousel is a labelled region, slide changes are announced in a polite live
+- [x] **AC9** — The carousel is a labelled region, slide changes are announced in a polite live
       region, the slide position is readable as text and not only as a coloured dot, and every
       control is keyboard reachable with a visible focus ring.
-- [ ] **AC10** — The hero's filled, welcome and stale states are entries in the `ui:verify` screen
+- [x] **AC10** — The hero's filled, welcome and stale states are entries in the `ui:verify` screen
       registry, fed from the fixture without network access, and a full run stays at zero axe
       violations.
 
@@ -231,4 +231,80 @@ No manual residue.
 
 ## Done
 
-_Filled by `/build 083`._
+The home screen's news hero is built end to end: a pure carousel reducer (D1), three launcher-side
+slide templates plus a capped button row that never navigates itself (D2), an accessible 320px
+`NewsHero` shell with a real timer cooperating with hover/focus/pause/reduced-motion (D3), welcome
+and stale feed states wired to the real feed client with the `HomeView` fetch/subscribe/refresh
+plumbing (D4, including a corrective follow-up that finished wiring `HomeView` to `client.ts` — the
+original D4 pass left it stubbed), a `home`-module `openSlideUrl` handler that re-checks 082's host
+allowlist before `shell.openExternal` (D5), and fixture/screen/e2e coverage machine-verifying the
+geometry and every interaction (D6).
+
+A clean-agent review (hard tier) found 6 confirmed/plausible issues in the first pass: `client.ts`'s
+`openSlideUrl()` double-wrapped the main handler's own `Outcome`, silently hiding every refusal; the
+AC8 renderer test asserted nothing about the actual IPC call; the stale-chip refresh button was
+~24px against the story's own 44px decision; slide images had no scheme guard; the harness-gate test
+didn't test the gate in either direction; and the "as of" chip showed relative time instead of a
+date. A single fix cycle resolved all six, verified by build/test/typecheck/e2e re-run and a second
+clean review that returned PASS.
+
+### Decisions
+
+- The D4 deliverable's own scope stopped short of wiring `HomeView.tsx` to the real feed client
+  (`getNews`/`onNewsChanged`/`refreshNews`) — its own comment misattributed that wiring to "D5",
+  which in this story is only the `openSlideUrl` handler. Closed with a corrective follow-up in the
+  same build pass rather than treating it as a new story, since it's plumbing internal to D4's own
+  acceptance line ("a real feed displaces it").
+- `openSlideUrl`'s renderer client unwraps the registry's outer `Outcome` around the handler's own
+  `Outcome<null>` (mirroring `modules/config/client.ts`'s existing pattern) — without this, a
+  refused URL could never be distinguished from a successful open at the renderer.
+- The stale chip's visible text is the retrieval date (`Intl.DateTimeFormat`, `dateStyle: 'medium'`),
+  with the relative-time phrasing kept as a `title` tooltip — AC7 says "date", the prototype's
+  fuzzier phrasing is demoted to a hover aid rather than dropped.
+- A feed slide's `image` field is only rendered as an `<img>` when it parses as an absolute
+  `http:`/`https:` URL; anything else (including `data:`/`javascript:`) falls through to the same
+  `text` fallback used for a genuinely missing image — a defensive narrowing of AC2's "no CSS/HTML/
+  colour/layout value from feed data" onto the one field this story renders unsanitized ahead of
+  084's real image support.
+- No new i18n keys were needed beyond `home.hero.*`/`home.error.urlNotAllowed`, no new top-level IPC
+  channel was added (`openSlideUrl` lives on the existing `home` module surface), and no new
+  CLAUDE.md deviation was recorded — the refresh control was brought up to the existing 44px floor
+  rather than justified as an exception.
+
+### Verification
+
+- `npm run build` — green.
+- `npm test` — 3447 tests, 2 failures both confirmed pre-existing/unrelated flakes (`config/core/
+  import-reader.test.ts`'s 512-file fan-out timeout, `downloads/bootstrap/job.test.ts`'s AC1 case),
+  both pass in isolation under low contention; neither touches a file this story changed.
+- `npm run typecheck` — clean (`tsconfig.node.json` and `tsconfig.web.json`).
+- `npm run ui:verify` — 74 screens written, 0 unreachable, 0 axe violations at any severity;
+  includes the three new registry entries `home-hero`, `home-hero-welcome`, `home-hero-stale`, all
+  fed from the fixture with the app-start fetch suppressed under `Q2L_UI_HARNESS`.
+- `npm run ui:flow -- home-hero-carousel` — passes: 320px/rail-to-edge geometry at two viewports,
+  real 8s auto-advance, hover-pause, dots/prev/next changing the slide, pause-latch surviving a
+  pointer leave, no auto-advance under `data-motion=reduced` while next/dots still work, and Tab
+  reaching all 5 controls each with a visible focus ring.
+- Clean-agent review (hard tier, `story-review-hard`): first pass FAIL (6 findings, listed above);
+  fix cycle applied; second pass **PASS**, all 6 confirmed fixed, no regressions, no scope creep.
+
+AC → test mapping as verified:
+- AC1 → e2e `scripts/flows/home-hero-carousel.mjs` (geometry at 1280x800 and 940x620) + `ui:verify`
+  screen `home-hero` — passed.
+- AC2 → unit `src/renderer/src/modules/home/slides.test.tsx` — passed (14/14, incl. the IPC-call
+  assertion added in the fix cycle).
+- AC3 → e2e `home-hero-carousel.mjs` (dots/prev/next/pause + auto-advance) — passed.
+- AC4 → unit `src/renderer/src/modules/home/carousel.test.ts` + e2e `home-hero-carousel.mjs`
+  (hover-pause, latch survives leave) — passed.
+- AC5 → unit `carousel.test.ts` + e2e `home-hero-carousel.mjs` (reduced motion) — passed.
+- AC6 → e2e `ui:verify` screen `home-hero-welcome` + unit
+  `src/renderer/src/modules/home/feedState.test.ts` — passed.
+- AC7 → e2e `ui:verify` screen `home-hero-stale` + unit `feedState.test.ts` — passed.
+- AC8 → unit `src/main/modules/home/open-slide-url.test.ts` + unit `slides.test.tsx` — passed.
+- AC9 → e2e `home-hero-carousel.mjs` (region label, live region, `n / m` counter, keyboard +
+  focus-visible) + `ui:verify`'s zero-axe gate — passed.
+- AC10 → `ui:verify` (three screens, no network, zero axe) — passed.
+
+No manual residue. No open blockers.
+
+Commit message: `083: the hero is the news carousel`

@@ -39,10 +39,15 @@ import { NewsFeedCache, type NewsFeedCacheData } from './feed-cache'
 /** Structurally satisfied by `Logger` (`src/main/lib/logger.ts`); kept minimal for the tests. */
 export type NewsServiceLog = NewsFetchLog
 
-/** In-memory state kept between calls - what the cache holds, plus the one field it does not
- * persist (see the module comment). */
+/** In-memory state kept between calls - what the cache holds, plus the two fields it does not
+ * persist (see the module comment). Neither `schemaAhead` nor `lastRefreshFailed` survives a
+ * restart: both describe the *last refresh attempt in this process*, not a property of the cached
+ * slides themselves. */
 interface NewsServiceState extends NewsFeedCacheData {
   schemaAhead: boolean
+  /** Story 083 D4: true once a refresh attempt has failed against an existing feed, until the next
+   * successful refresh clears it. See `deliver()`/`refreshNews()`'s `'failed'` branch below. */
+  lastRefreshFailed: boolean
 }
 
 /** "Never successfully retrieved" sentinel for the cold-start-with-nothing-cached case, so
@@ -87,11 +92,14 @@ function deliverSlides(slides: NewsSlide[], deliveredAt: Date): NewsSlide[] {
 }
 
 function deliver(state: NewsServiceState | undefined, deliveredAt: Date): NewsFeed {
-  if (!state) return { slides: [], retrievedAt: NEVER_RETRIEVED, schemaAhead: false }
+  if (!state) {
+    return { slides: [], retrievedAt: NEVER_RETRIEVED, schemaAhead: false, lastRefreshFailed: false }
+  }
   return {
     slides: deliverSlides(state.slides, deliveredAt),
     retrievedAt: state.retrievedAt,
     schemaAhead: state.schemaAhead,
+    lastRefreshFailed: state.lastRefreshFailed,
   }
 }
 
@@ -143,8 +151,14 @@ export function createNewsService(options: NewsServiceOptions): NewsService {
     const cached = await cache().read()
     if (cached !== undefined) {
       // Cold start from disk only: no way to know the retrieval's schemaAhead flag (see the module
-      // comment) - defaults to `false` until a refresh in this process learns the real value.
-      state = { ...cached, schemaAhead: false }
+      // comment) - it defaults to `false` until a refresh in this process learns the real value. A
+      // cache file a running app writes on its own only ever holds a feed from a *successful*
+      // retrieval (`NewsFeedCache.write()` is never called after a failure), so `false` is also the
+      // accurate answer there, not just a safe guess. `lastRefreshFailed` is different: story 083 D6
+      // lets a cache file carry it explicitly (defaulting to `false` when absent, `feed-cache.ts`) so
+      // a harness-seeded, already-aged-and-failed fixture can be told apart from a normal cache with
+      // no in-process refresh required to prove it.
+      state = { ...cached, schemaAhead: false, lastRefreshFailed: cached.lastRefreshFailed ?? false }
     }
     return state
   }
@@ -184,7 +198,11 @@ export function createNewsService(options: NewsServiceOptions): NewsService {
       // AC7/AC8: keep serving the last-known-good feed with its ORIGINAL retrievedAt - a failed
       // refresh must not look fresher, or staler, than it actually is. Never throws.
       options.log.warn(`news: refresh failed (${result.reason}); serving the cached feed`)
-      return deliver(before, now())
+      // Story 083 D4: mark the in-memory state so the renderer can show a "stale" chip instead of
+      // silently pretending this refresh succeeded. Only meaningful when there is an existing feed
+      // to call stale in the first place - `deliver(undefined, ...)` already answers `false`.
+      if (before !== undefined) state = { ...before, lastRefreshFailed: true }
+      return deliver(state, now())
     }
 
     if (result.kind === 'unchanged') {
@@ -196,6 +214,7 @@ export function createNewsService(options: NewsServiceOptions): NewsService {
         etags: result.etags,
         retrievedAt,
         schemaAhead: before?.schemaAhead ?? false,
+        lastRefreshFailed: false,
       }
       state = next
       await cache().write({ slides: next.slides, etags: next.etags, retrievedAt: next.retrievedAt })
@@ -219,6 +238,7 @@ export function createNewsService(options: NewsServiceOptions): NewsService {
       etags: result.etags,
       retrievedAt,
       schemaAhead: built.schemaAhead,
+      lastRefreshFailed: false,
     }
 
     const deliveredAt = now()

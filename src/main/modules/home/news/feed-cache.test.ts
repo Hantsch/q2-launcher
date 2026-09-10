@@ -76,7 +76,11 @@ describe('NewsFeedCache', () => {
     await new NewsFeedCache().write(data())
 
     // Read back by a second instance, so nothing is served out of the writer's own memory.
-    expect(await new NewsFeedCache().read()).toEqual(data())
+    // Story 083 D6: `read()` now always answers an explicit `lastRefreshFailed` (defaulting to
+    // `false` when the written data didn't carry one - see that field's own doc comment on
+    // `NewsFeedCacheData`), so the write-then-read round trip gains that one key `data()` itself
+    // does not set.
+    expect(await new NewsFeedCache().read()).toEqual({ ...data(), lastRefreshFailed: false })
 
     // The ETag map really is on disk next to the slides - that is what makes the next start's
     // conditional GET possible at all.

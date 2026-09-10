@@ -71,6 +71,16 @@ export interface NewsFeedCacheData {
   etags: Record<string, string>
   /** ISO timestamp of the retrieval these slides came from. */
   retrievedAt: string
+  /**
+   * Story 083 D6: optional, defaults to `false` when absent. A normal `write()` (see below) never
+   * sets this - a real failed refresh only ever flips the in-memory flag (`news-service.ts`'s
+   * `refreshNews()`), never rewrites the file - so every cache a running app produces on its own
+   * stays without this field. It exists purely so `scripts/lib/fixture.mjs`'s `news-stale` variant
+   * can seed an already-aged, already-failed feed for the `home-hero-stale` screen without the
+   * harness ever attempting a real (even loopback) fetch: `news-service.ts`'s `ensureLoaded()` reads
+   * it back instead of hardcoding `false` on a cold, disk-only load.
+   */
+  lastRefreshFailed?: boolean
 }
 
 /** The persisted document: the data plus the envelope version. `null` is "no cache". */
@@ -102,6 +112,8 @@ const cacheDocumentSchema = z.object({
   }),
   slides: z.array(cachedSlideSchema),
   etags: z.record(z.string(), z.string()),
+  // Story 083 D6 - see `NewsFeedCacheData.lastRefreshFailed`'s own doc comment.
+  lastRefreshFailed: z.boolean().optional(),
 })
 
 /**
@@ -129,6 +141,7 @@ function parseCacheDocument(raw: unknown, log?: NewsCacheLog): NewsCacheDocument
     retrievedAt: parsed.data.retrievedAt,
     slides,
     etags: parsed.data.etags,
+    lastRefreshFailed: parsed.data.lastRefreshFailed ?? false,
   }
 }
 

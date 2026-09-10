@@ -1,0 +1,267 @@
+/* ==========================================================================
+   Home news hero — slide templates
+   --------------------------------------------------------------------------
+   Style layer for the three fixed slide renderers the news carousel picks
+   between (story 083 D2: `SlideSplit`, `SlideBanner`, `SlideText`). Mirrors
+   `controls-grid.css`'s structure: every value here reads a token, nothing
+   is hardcoded, and the prefix (`home-hero-`) scopes the classes to this
+   module the same way `ctrl-` scopes the Controls tab's.
+
+   Contributors fill frontmatter fields only (concept `docs/concepts/home-screen.md`
+   §9's "no CSS, no HTML, no colours, no layout values in the feed") — these
+   classes are the launcher's own, fixed for every slide regardless of its
+   content, and are never read from or written by feed data.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   The carousel shell (story 083 D3)
+   --------------------------------------------------------------------------
+   The hero's height (320px) and its closing rule are Tailwind utilities on the
+   component (`h-80 shrink-0 border-b`); what lives here is everything the
+   utilities cannot express - the stage/controls stacking, the 44px control hit
+   areas and the slide-change animation.
+
+   Nothing here re-implements reduced motion: the enter animation reads
+   `--dur-base`, which `:root[data-motion='reduced']` in `styles/index.css`
+   already zeroes, *and* `NewsHero` withholds `.home-hero-frame-enter`
+   entirely under reduced motion. The timer is stopped in JavaScript, because
+   no stylesheet can stop one.
+   -------------------------------------------------------------------------- */
+
+.home-hero {
+  /* One number for the control bar's height, inherited by the stage that has
+     to keep clear of it - the two cannot drift apart. */
+  --home-hero-controls-h: 44px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Sits above the control bar rather than under it, so a slide's own buttons
+   can never end up beneath the dots. */
+.home-hero-stage {
+  position: absolute;
+  inset: 0 0 var(--home-hero-controls-h) 0;
+}
+
+.home-hero-frame {
+  height: 100%;
+}
+
+.home-hero-frame-enter {
+  animation: home-hero-frame-in var(--dur-base) var(--ease-out-quart) both;
+}
+
+@keyframes home-hero-frame-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.home-hero-controls {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  height: var(--home-hero-controls-h);
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.home-hero-dots {
+  display: flex;
+  align-items: center;
+}
+
+/* Every hero control - dot, prev, next, pause - is one 44px square. A 320px
+   hero has the room, so no touch-target deviation is needed here (unlike the
+   dense Controls/Settings grids); the visual mark inside stays small. */
+.home-hero-ctl {
+  display: inline-flex;
+  height: 44px;
+  width: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-dim);
+  transition: color var(--dur-fast) var(--ease-out-quart);
+}
+
+.home-hero-ctl:hover {
+  color: var(--color-ink);
+}
+
+.home-hero-dot-mark {
+  height: 6px;
+  width: 6px;
+  border-radius: 9999px;
+  background: var(--color-line-strong);
+  transition:
+    background-color var(--dur-fast) var(--ease-out-quart),
+    box-shadow var(--dur-fast) var(--ease-out-quart);
+}
+
+.home-hero-ctl:hover .home-hero-dot-mark {
+  background: var(--color-ink-muted);
+}
+
+/* The current slide is marked by more than colour: the dot grows a ring. */
+.home-hero-ctl[aria-current='true'] .home-hero-dot-mark {
+  background: var(--color-flame-500);
+  box-shadow: 0 0 0 3px var(--color-flame-900);
+}
+
+.home-hero-counter {
+  padding: 0 6px;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink-dim);
+}
+
+.home-hero-slide {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  padding: 16px;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+/* `split`: image pane beside a title/body/buttons pane. */
+.home-hero-slide-split {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+/* `banner`: image strip above a title/body/buttons pane. */
+.home-hero-slide-banner {
+  flex-direction: column;
+}
+
+/* `text`: no image slot at all — also the fallback layout for `split`/`banner`
+   data missing its image, or an unrecognised template value. */
+.home-hero-slide-text {
+  flex-direction: column;
+  justify-content: center;
+}
+
+.home-hero-media {
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-line);
+  background: var(--color-raised);
+}
+
+.home-hero-slide-split .home-hero-media {
+  width: 45%;
+}
+
+.home-hero-slide-banner .home-hero-media {
+  height: 45%;
+}
+
+.home-hero-media img {
+  display: block;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.home-hero-content {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+.home-hero-title {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+
+.home-hero-body {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--color-ink-dim);
+  /* Plain text only (no markdown, concept §6.2) — clamped so a long body never
+     pushes the buttons row out of the fixed 320px hero (concept §7). */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+}
+
+.home-hero-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Story 083 D4: the welcome slide's first-steps list. Plain markers, not the feed's own
+   `home-hero-body` clamp - onboarding text is short and fixed, never feed-supplied. */
+.home-hero-welcome-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 1.25em;
+  list-style: decimal;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--color-ink-dim);
+}
+
+/* The stale chip + refresh button (story 083 D4, AC7): a corner overlay, never a toast or dialog -
+   it sits inside the hero's own stage, above whichever slide/welcome content is showing. */
+.home-hero-stale {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.home-hero-stale-chip {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-line);
+  background: var(--color-panel);
+  padding: 3px 8px;
+  font-size: 0.6875rem;
+  color: var(--color-ink-dim);
+}
+
+/* Story 083 D4/AC7 Decisions: refresh is a hero control like the others (dots/prev/next/pause) -
+   44px-minimum pointer hit area, small visual mark (the chip) inside it. */
+.home-hero-stale-refresh {
+  display: inline-flex;
+  height: 44px;
+  min-width: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-raised);
+  padding: 3px 8px;
+  font-size: 0.6875rem;
+  color: var(--color-ink);
+  transition: background-color var(--dur-fast) var(--ease-out-quart);
+}
+
+.home-hero-stale-refresh:hover {
+  background: var(--color-hover);
+}

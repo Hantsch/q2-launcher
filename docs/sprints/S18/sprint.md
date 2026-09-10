@@ -23,7 +23,7 @@ what is going on.
 - [x] 081 — The home screen belongs to a home module
 - [x] 082 — The launcher fetches the community news feed
 - [x] 085 — The content repository carries the news contract
-- [ ] 083 — The hero is the news carousel
+- [x] 083 — The hero is the news carousel
 - [ ] 084 — Slide images come from the launcher's own cache
 - [ ] 086 — The dashboard is a grid I arrange myself
 - [ ] 087 — Two tiles worth having — playtime and config profiles

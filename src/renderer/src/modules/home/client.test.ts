@@ -24,7 +24,12 @@ const onMock = vi.fn((_channel: string, listener: Listener) => {
 
 const { getNews, refreshNews, onNewsChanged } = await import('./client')
 
-const FEED: NewsFeed = { slides: [], retrievedAt: '2026-01-01T00:00:00.000Z', schemaAhead: false }
+const FEED: NewsFeed = {
+  slides: [],
+  retrievedAt: '2026-01-01T00:00:00.000Z',
+  schemaAhead: false,
+  lastRefreshFailed: false,
+}
 
 function emit(event: ModuleEvent): void {
   onListener?.(event)

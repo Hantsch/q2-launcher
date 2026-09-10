@@ -22,6 +22,12 @@ export const HOME_HANDLERS = {
   /** Story 082 D6: re-fetches the feed; on failure resolves to the last cached `NewsFeed` instead
    * of rejecting (Decisions (Sprint): a failed fetch is silent, never a dialog or a toast). */
   newsRefresh: 'news.refresh',
+  /** Story 083 D5: opens a slide button's `url` through `shell.openExternal`, but only after
+   * checking it is `http(s)` and its host is on `NEWS_BUTTON_HOST_ALLOWLIST` - a feed URL is
+   * foreign content, so it gets its own handler rather than reusing `app:openExternal` (which only
+   * checks the scheme). Resolves to a refusal `Outcome` rather than throwing when either check
+   * fails. */
+  openSlideUrl: 'slide.openUrl',
 } as const
 
 /**
@@ -40,13 +46,22 @@ export const HOME_EVENTS = {
 export const newsNoInputSchema = z.void()
 
 /**
- * Every `home` news handler paired with its payload schema - proves AC9's "every new channel
- * exists in the shared contract with a zod payload schema before its handler" for this module's
- * own handlers, and is what `home.test.ts` iterates to check no handler is missing one.
+ * `openSlideUrl`'s payload (story 083 D5): a plain string. The schema only settles the shape - a
+ * renderer-supplied string is a `string`, bounded in length - the scheme and host allowlist checks
+ * happen in the handler itself (`main/modules/home/open-slide-url.ts`), same division of labour as
+ * `app:revealPath`'s path allowlist.
+ */
+export const openSlideUrlInputSchema = z.string().min(1).max(2000)
+
+/**
+ * Every `home` handler paired with its payload schema - proves AC9's "every new channel exists in
+ * the shared contract with a zod payload schema before its handler" for this module's own
+ * handlers, and is what `home.test.ts` iterates to check no handler is missing one.
  */
 export const NEWS_HANDLER_SCHEMAS: Record<(typeof HOME_HANDLERS)[keyof typeof HOME_HANDLERS], z.ZodTypeAny> = {
   [HOME_HANDLERS.newsGet]: newsNoInputSchema,
   [HOME_HANDLERS.newsRefresh]: newsNoInputSchema,
+  [HOME_HANDLERS.openSlideUrl]: openSlideUrlInputSchema,
 }
 
 /**
@@ -117,6 +132,11 @@ export interface NewsFeed {
   /** True when a fetched feed's own `schemaVersion` is newer than `NEWS_SCHEMA_VERSION` - this
    * launcher understood only part of what it received. */
   schemaAhead: boolean
+  /** True when the most recent `news.refresh` attempt failed (network error, timeout, bad
+   * response) and this feed is therefore the last-known-good one rather than a fresh retrieval
+   * (story 083 D4). Never true for a feed that has never been fetched at all - `feedState.ts`
+   * checks `slides` for that case first. Reset to `false` by the next successful refresh. */
+  lastRefreshFailed: boolean
 }
 
 /**

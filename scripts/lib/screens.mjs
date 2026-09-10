@@ -182,6 +182,53 @@ export const SCREENS = [
     },
   },
   {
+    id: 'home-hero',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 083 D6: the hero's filled state - `populated`'s fixture now seeds a fresh, successful
+    // feed cache (scripts/lib/fixture.mjs's `writePopulatedFixture()`), and the home module's
+    // app-start fetch is unconditionally skipped under the harness (`src/main/modules/home/index.ts`),
+    // so this screen is fed purely by that seeded cache. Waits for `home-hero-frame`
+    // (NewsHero.tsx) rather than just the nav click, since the feed is fetched once on mount and a
+    // screenshot could otherwise race the very first render before `getNews()` resolves.
+    navigate: async (page) => {
+      await click(page, 'nav-home')
+      await page
+        .getByTestId('home-hero-frame')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'home-hero-welcome',
+    variant: 'empty',
+    viewports: BOTH_VIEWPORTS,
+    // Story 083 D6: the hero's welcome state - the `empty` variant seeds no `news-feed.json` at all
+    // (scripts/lib/fixture.mjs's `writeEmptyFixture()`), and with the app-start fetch skipped under
+    // the harness there is nothing to ever populate one, so `feedState()` reads `slides: []` and the
+    // built-in welcome slide (`NewsHero.tsx`) renders.
+    navigate: async (page) => {
+      await click(page, 'nav-home')
+      await page
+        .getByTestId('home-hero-welcome')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'home-hero-stale',
+    variant: 'news-stale',
+    viewports: BOTH_VIEWPORTS,
+    // Story 083 D6: the hero's stale state - the `news-stale` variant seeds an aged feed cache with
+    // `lastRefreshFailed: true` (scripts/lib/fixture.mjs's `writeNewsStaleFixture()`), so
+    // `feedState()` reads `'stale'` and the hero renders its "as of <date>" chip and refresh button
+    // alongside the (still real) carousel.
+    navigate: async (page) => {
+      await click(page, 'nav-home')
+      await page
+        .getByTestId('home-hero-stale')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
     id: 'library',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,

@@ -8,20 +8,35 @@ import {
   isAllowedButtonHost,
   newsBannerContentSchema,
   newsButtonSchema,
+  openSlideUrlInputSchema,
   newsSplitContentSchema,
   newsTextContentSchema,
 } from './home'
 
 describe('home module contract (story 082 D1)', () => {
-  it('every news handler has an exported payload schema', () => {
+  it('every handler has an exported payload schema', () => {
     for (const name of Object.values(HOME_HANDLERS)) {
       expect(NEWS_HANDLER_SCHEMAS[name]).toBeDefined()
-      expect(NEWS_HANDLER_SCHEMAS[name].safeParse(undefined).success).toBe(true)
     }
   })
 
-  it('names news.get / news.refresh / news.changed exactly', () => {
-    expect(HOME_HANDLERS).toEqual({ newsGet: 'news.get', newsRefresh: 'news.refresh' })
+  it('the no-input news handlers accept undefined', () => {
+    expect(NEWS_HANDLER_SCHEMAS[HOME_HANDLERS.newsGet].safeParse(undefined).success).toBe(true)
+    expect(NEWS_HANDLER_SCHEMAS[HOME_HANDLERS.newsRefresh].safeParse(undefined).success).toBe(true)
+  })
+
+  it('openSlideUrl requires a non-empty string, not undefined (story 083 D5)', () => {
+    expect(openSlideUrlInputSchema.safeParse(undefined).success).toBe(false)
+    expect(openSlideUrlInputSchema.safeParse('').success).toBe(false)
+    expect(openSlideUrlInputSchema.safeParse('https://github.com/x').success).toBe(true)
+  })
+
+  it('names news.get / news.refresh / news.changed / slide.openUrl exactly', () => {
+    expect(HOME_HANDLERS).toEqual({
+      newsGet: 'news.get',
+      newsRefresh: 'news.refresh',
+      openSlideUrl: 'slide.openUrl',
+    })
     expect(HOME_EVENTS).toEqual({ newsChanged: 'news.changed' })
   })
 
