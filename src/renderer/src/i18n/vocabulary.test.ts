@@ -41,9 +41,9 @@ describe('en.json vocabulary', () => {
 
   it('the executable labels name the engine executable', () => {
     expect(stringAt('installation.engineExecutable')).toBe('Engine executable')
-    expect(stringAt('hero.stat.engine')).toBe('Engine')
+    expect(stringAt('library.column.engine')).toBe('Engine')
     expect(stringAt('installation.engine')).toBeUndefined()
-    expect(stringAt('hero.stat.client')).toBeUndefined()
+    expect(stringAt('library.column.client')).toBeUndefined()
   })
 
   it('exposes a label for an unsupported engine', () => {

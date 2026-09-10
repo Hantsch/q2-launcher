@@ -60,6 +60,10 @@
   },
 
   "module": {
+    "home": {
+      "title": "Home",
+      "description": "Where the launcher tells you what's going on."
+    },
     "library": {
       "title": "Library",
       "description": "Every Quake II installation the launcher knows about."
@@ -259,19 +263,9 @@
     }
   },
 
-  "hero": {
-    "eyebrow": "Active installation",
-    "title": "Ready when you are.",
-    "body": "Pick an installation on the left and hit play. Configuration, downloads, mods and asset packs land in the modules above as they get built.",
-    "noInstallTitle": "No installation selected",
-    "noInstallBody": "Add one to get started.",
-    "slide": "Show item {{index}}",
-    "stat": {
-      "lastPlayed": "Last played",
-      "playtime": "Play time",
-      "gameDirs": "Game dirs",
-      "engine": "Engine"
-    }
+  "home": {
+    "title": "Home",
+    "lead": "This is where your Quake II news and activity will live."
   },
 
   "actionbar": {

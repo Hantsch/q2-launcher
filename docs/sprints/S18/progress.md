@@ -8,3 +8,11 @@
 - [18:49] 080 D4 done: r1q2 e2e flow + fallback proof + pipeline/manifest tests green
 - [18:55] 080 review cycle 1 started: fix hardcoded license path + AC5 job tests + runtime copy
 - [19:01] 080 review cycle 1 done: license path fix + AC5 job tests + runtime copy link
+- 2026-09-10 19:06 · 081 · D1 home is a registered module in shared + main · started
+- 2026-09-10 19:07 · 081 · D1 home is a registered module in shared + main · done
+- 2026-09-10 19:08 · 081 · D2 home route rendered by module, shell forgets it · started
+- 2026-09-10 19:14 · 081 · D2 home route rendered by module, shell forgets it · done
+- 2026-09-10 19:14 · 081 · D3 no residue: dead i18n keys and shell-ownership guard · started
+- 2026-09-10 19:20 · 081 · D3 no residue: dead i18n keys and shell-ownership guard · done
+- 2026-09-10 19:20 · 081 · D4 the move is verified on the real surface · started
+- 2026-09-10 19:22 · 081 · D4 the move is verified on the real surface · done

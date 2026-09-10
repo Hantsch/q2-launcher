@@ -9,7 +9,11 @@
     // English strings, so it needs this one renderer data file - listed explicitly rather than
     // widening the include to all of `src/renderer` (which stays out of the node project on
     // purpose; see docs/ARCHITECTURE.md).
-    "src/renderer/src/i18n/locales/en.json"
+    "src/renderer/src/i18n/locales/en.json",
+    // Story 081 D3: this guard test lives under components/shell/ (what it scans) but needs
+    // `node:fs`/`node:path`/`node:url`, so it typechecks here instead - see tsconfig.web.json's
+    // matching exclude.
+    "src/renderer/src/components/shell/shell-home-ownership.test.ts"
   ],
   "compilerOptions": {
     "composite": true,

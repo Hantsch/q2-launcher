@@ -20,7 +20,7 @@ what is going on.
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
 - [x] 080 — Install R1Q2 from the community package
-- [ ] 081 — The home screen belongs to a home module
+- [x] 081 — The home screen belongs to a home module
 - [ ] 082 — The launcher fetches the community news feed
 - [ ] 085 — The content repository carries the news contract
 - [ ] 083 — The hero is the news carousel

@@ -11,7 +11,30 @@ import { initI18n } from '../../i18n'
  * exactly as it does for a module that isn't registered at all. `../../modules`
  * is mocked so the test can register a module with no `View`, independent of
  * whatever the real registry looks like.
+ *
+ * Story 081 D2 (AC2): home stopped being a shell screen. The mocked registry is
+ * what makes that testable - the home view rendered below exists only inside this
+ * file, so it can only reach the screen through `rendererModule()`. A shell that
+ * imported a home component again would render something else.
  */
+
+/** Only reachable through the mocked registry - the shell cannot import this. */
+function HomeModuleStub() {
+  return <div>home module view</div>
+}
+
+const homeManifest: ModuleManifest = {
+  id: 'home',
+  titleKey: 'module.home.title',
+  descriptionKey: 'module.home.description',
+  icon: 'Home',
+  route: '/home',
+  nav: null,
+  status: 'available',
+  capabilities: [],
+  ipcNamespace: 'module:home',
+  requiresInstallation: false,
+}
 
 const stubManifest: ModuleManifest = {
   id: 'downloads',
@@ -27,9 +50,11 @@ const stubManifest: ModuleManifest = {
 }
 
 vi.mock('../../modules', () => ({
-  rendererModule: vi.fn((id: string) =>
-    id === 'downloads' ? { id: 'downloads', settingsSection: undefined } : undefined,
-  ),
+  rendererModule: vi.fn((id: string) => {
+    if (id === 'home') return { id: 'home', View: HomeModuleStub }
+    if (id === 'downloads') return { id: 'downloads', settingsSection: undefined }
+    return undefined
+  }),
 }))
 
 // `AppShell` imports `SettingsView`, which reaches the preload bridge directly;
@@ -57,5 +82,33 @@ describe('resolveView', () => {
     // it never crashes when settingsSection-only registration has no View.
     expect(screen.getByText('Downloads')).toBeTruthy()
     expect(screen.getByText('Planned')).toBeTruthy()
+  })
+
+  it('the shell resolves the home route through the module registry', async () => {
+    const { resolveView } = await import('./AppShell')
+    const modules = [homeManifest, stubManifest]
+
+    // The home route itself: no special case left in the shell, just the generic
+    // route -> manifest -> registered view lookup.
+    const { unmount } = render(resolveView('/home', modules))
+    expect(screen.getByText('home module view')).toBeTruthy()
+    unmount()
+
+    // ...and the same lookup catches an unknown route, e.g. a persisted `lastRoute`
+    // naming a module that has since been renamed away.
+    render(resolveView('/install', modules))
+    expect(screen.getByText('home module view')).toBeTruthy()
+  })
+
+  it('renders the planned-module placeholder for home when no view is registered', async () => {
+    const { resolveView } = await import('./AppShell')
+
+    // Registry mock answers `undefined` for 'mods', so an unknown route whose home
+    // fallback has no renderer half still lands on a real screen, not a blank pane.
+    render(
+      resolveView('/nowhere', [{ ...homeManifest, id: 'mods', titleKey: 'module.mods.title' }]),
+    )
+
+    expect(screen.getByText('Mods')).toBeTruthy()
   })
 })

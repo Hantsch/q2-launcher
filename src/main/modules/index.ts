@@ -1,6 +1,7 @@
 import type { AppContext } from '../context'
 import { configModule } from './config'
 import { downloadsModule } from './downloads'
+import { homeModule } from './home'
 import { libraryModule } from './library'
 import type { MainModule } from './types'
 
@@ -14,7 +15,7 @@ import type { MainModule } from './types'
  * single line - see `src/main/modules/library/index.ts` for the reference shape and
  * docs/ARCHITECTURE.md for the full checklist.
  */
-const MODULES: readonly MainModule[] = [libraryModule, configModule, downloadsModule]
+const MODULES: readonly MainModule[] = [homeModule, libraryModule, configModule, downloadsModule]
 
 export async function registerModules(app: AppContext): Promise<void> {
   for (const module of MODULES) {

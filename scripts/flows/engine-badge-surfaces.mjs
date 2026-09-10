@@ -18,7 +18,6 @@
 //                         component every one of these six surfaces renders (AC2)
 //   installation-tile     InstallationRail.tsx's `RailTile`, `aria-label` is the install's name
 //   [role="tooltip"]      HoverCard.tsx's portalled card - the rail's hover surface
-//   .hero-fallback        HeroPanel.tsx's `<section>` (class from styles/, not a test hook)
 //   footer (contentinfo)  ActionBar.tsx's root element
 //   nav-home/-library/-config, config-profile-row   TitleBar.tsx / ConfigView.tsx
 //   "N of M assigned"     AssignmentsMenu.tsx's trigger, which portals `ProfileAssignmentsPanel`
@@ -158,8 +157,8 @@ export default async function engineBadgeSurfaces({ page, app, shot, step }) {
   step('open home')
   await page.getByTestId('nav-home').click({ timeout: TIMEOUT_MS })
 
-  step('assert the hero panel badges the active installation engine')
-  await assertBadgeVisible(page.locator('section.hero-fallback'), 'hero panel')
+  // The hero panel this flow used to check here was deleted by story 081 (AC3) - home no longer
+  // has anything that badges the active installation.
 
   step('assert the action bar badges the active installation engine')
   await assertBadgeVisible(page.getByRole('contentinfo'), 'action bar')

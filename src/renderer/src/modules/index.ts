@@ -5,6 +5,7 @@ import { ConfigView } from './config/ConfigView'
 import { Dialogs as DownloadsBootstrapDialogs } from './downloads/bootstrap/Dialogs'
 import { DownloadsSettingsSection } from './downloads/DownloadsSettingsSection'
 import { DownloadsView } from './downloads/DownloadsView'
+import { HomeView } from './home/HomeView'
 
 /**
  * The renderer half of a module: the view that owns its route.
@@ -38,6 +39,9 @@ export interface RendererModule {
 }
 
 export const RENDERER_MODULES: readonly RendererModule[] = [
+  // Story 081 D2: the home route is a module route like any other - the shell no longer
+  // knows what is on it, and resolves it (and the unknown-route fallback) through here.
+  { id: 'home', View: HomeView },
   { id: 'library', View: LibraryView },
   {
     id: 'downloads',

@@ -1,7 +1,7 @@
 ---
 id: 081
 title: The home screen belongs to a home module
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-10
 ---
 
@@ -23,20 +23,20 @@ recorded rule decision, not an incidental refactor.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A `home` module is registered like every other module (manifest entry, main half,
+- [x] **AC1** — A `home` module is registered like every other module (manifest entry, main half,
       renderer half) and renders the home route.
-- [ ] **AC2** — `AppShell` contains neither `HomeView` nor `HeroPanel`; no shell file imports a
+- [x] **AC2** — `AppShell` contains neither `HomeView` nor `HeroPanel`; no shell file imports a
       home-screen component.
-- [ ] **AC3** — The hero showing the active installation, including its four inert carousel dots,
+- [x] **AC3** — The hero showing the active installation, including its four inert carousel dots,
       no longer appears anywhere in the app.
-- [ ] **AC4** — The home screen shows no card, tile or placeholder for a planned module
+- [x] **AC4** — The home screen shows no card, tile or placeholder for a planned module
       (Gamebrowser, Friendlist, Downloads, Mods, Assets).
-- [ ] **AC5** — Navigating to home, away from home and back renders the module's screen with no
+- [x] **AC5** — Navigating to home, away from home and back renders the module's screen with no
       console error and no visual regression in the surrounding shell (rail, titlebar, action bar
       keep their geometry).
-- [ ] **AC6** — Every string the new screen shows is an i18n key in
+- [x] **AC6** — Every string the new screen shows is an i18n key in
       `src/renderer/src/i18n/locales/en.json`; no prose is hardcoded in a component.
-- [ ] **AC7** — The home screen is an entry in the `ui:verify` screen registry and a full run stays
+- [x] **AC7** — The home screen is an entry in the `ui:verify` screen registry and a full run stays
       at zero axe violations.
 
 ## Decisions (Sprint)
@@ -115,7 +115,7 @@ Order matters only between 1–3; step 3 does not typecheck before 1 and 2 exist
 
 ## Deliverables
 
-- **D1 — `home` is a registered module in shared + main.**
+- [x] **D1 — `home` is a registered module in shared + main.**
   Files: `src/shared/types/module.ts`, `src/main/modules/home/index.ts` (mirror
   `src/main/modules/library/index.ts`), `src/main/modules/index.ts`, plus its test
   `src/main/modules/home/index.test.ts` (mirror `src/main/modules/registry.test.ts`'s style).
@@ -123,7 +123,7 @@ Order matters only between 1–3; step 3 does not typecheck before 1 and 2 exist
   `status: 'available'`, `capabilities: []`; a registry built from `MODULES` reports `home` as
   `available` (i.e. it is not downgraded to `planned`); no IPC channel is added.
 
-- **D2 — the home route is rendered by the module, and the shell forgets it.**
+- [x] **D2 — the home route is rendered by the module, and the shell forgets it.**
   Files: `src/renderer/src/modules/home/HomeView.tsx` (new), `src/renderer/src/modules/index.ts`,
   `src/renderer/src/components/shell/AppShell.tsx`, delete
   `src/renderer/src/views/HomeView.tsx` and
@@ -136,7 +136,7 @@ Order matters only between 1–3; step 3 does not typecheck before 1 and 2 exist
   falls back to it; `AppShell.tsx` imports no home component; the rendered screen shows no module
   card, no planned-module title and no hero, and every visible string comes from `t()`.
 
-- **D3 — no residue: dead i18n keys and a guard against the shell taking it back.**
+- [x] **D3 — no residue: dead i18n keys and a guard against the shell taking it back.**
   Files: `src/renderer/src/i18n/locales/en.json`, new
   `src/renderer/src/components/shell/shell-home-ownership.test.ts`.
   Acceptance: no `hero.*` key remains and no key removed here is referenced anywhere in `src`
@@ -144,7 +144,7 @@ Order matters only between 1–3; step 3 does not typecheck before 1 and 2 exist
   fails if any file under `src/renderer/src/components/shell/` or `src/renderer/src/views/`
   mentions `HeroPanel` or a home view, and if `HeroPanel.tsx` reappears.
 
-- **D4 — the move is verified on the real surface.**
+- [x] **D4 — the move is verified on the real surface.**
   Files: `scripts/flows/home-route-roundtrip.mjs` (new; mirror
   `scripts/flows/config-header-geometry.mjs` for the geometry-measuring pattern),
   `scripts/lib/screens.mjs` (only if the `home` entry needs an adjustment).
@@ -186,4 +186,58 @@ Order matters only between 1–3; step 3 does not typecheck before 1 and 2 exist
 
 ## Done
 
-_Filled by `/build 081`._
+The home route is now owned by a real `home` module (manifest + empty-`setup()` main half +
+`HomeView` renderer half), and `AppShell.tsx` no longer knows what is on it — `resolveView` resolves
+every route, including home and the unknown-route fallback, through the same
+manifest → `rendererModule(id).View` lookup. The old hero (with its four inert carousel dots) and
+the old card-grid `HomeView` are deleted, not carried along; the new `HomeView` renders a single
+i18n'd title + lead placeholder for stories 083/086 to build on.
+
+**Commit message:**
+```
+081: the home screen belongs to a home module
+```
+
+**Decisions (additions during implementation):**
+- Two pre-existing Playwright e2e flows (`scripts/flows/engine-not-client.mjs`,
+  `scripts/flows/engine-badge-surfaces.mjs`) asserted against the hero panel's
+  `section.hero-fallback` DOM to prove the hero badges the active installation's engine (story 068).
+  Deleting the hero (AC3) made those assertions dead code pointing at a selector that no longer
+  exists. Not in the original plan; fixed as collateral during D3 rather than left broken, by
+  removing the hero-specific assertion blocks (and their header-comment selector docs) while
+  keeping every other surface those flows check (action bar, library, rail). Reviewed and both
+  flows still pass and still prove the AC they were written for on the surfaces that remain.
+- The same deletion also orphaned the `.hero-fallback` CSS block (`styles/surfaces.css`) and left
+  `vocabulary.test.ts` referencing a doomed `hero.*` key — both cleaned up (CSS block removed after
+  the review found it; the vocabulary test's key swapped for a surviving equivalent, same claim).
+
+**Verification:**
+- `npm run typecheck` — clean.
+- `npm run build` — clean.
+- `npm test` — 3294 passed, 1 pre-existing unrelated failure (`import-reader.test.ts`'s
+  512-file-exec-guard test times out under full-suite load; passes in isolation, file untouched by
+  this story — not a regression).
+- `npm run ui:flow -- home-route-roundtrip` — passes: home renders, survives navigating away
+  (config) and back, zero console errors, titlebar/rail/action-bar bounding boxes identical
+  before/after.
+- `npm run ui:verify` — 68/68 screens, 0 axe violations, including the `home` screen at both
+  viewports.
+- Clean-agent review: **PASS**. One finding (dead `.hero-fallback` CSS left behind after
+  `HeroPanel.tsx`'s deletion) — fixed in one review-fix cycle, re-verified with `npm run build` +
+  `npm run typecheck`.
+
+**AC → test mapping, as verified:**
+- AC1 → `src/main/modules/home/index.test.ts` › "the home module is registered and stays available"
+  + `src/renderer/src/modules/home/HomeView.test.tsx` › "the home module provides the view for the
+  home route" — both pass, against the real registry/manifest.
+- AC2 → `src/renderer/src/components/shell/AppShell.test.tsx` › "the shell resolves the home route
+  through the module registry" + `shell-home-ownership.test.ts` › "no shell file imports a
+  home-screen component" — both pass.
+- AC3 → `shell-home-ownership.test.ts` › "the hero panel and its carousel dots are gone" — pass;
+  confirmed by screenshot (no hero, no dots).
+- AC4 → `HomeView.test.tsx` › "the home screen shows no planned module" — pass.
+- AC5 → `scripts/flows/home-route-roundtrip.mjs` — pass (real run).
+- AC6 → `HomeView.test.tsx` › "every string on the home screen is an i18n key" — pass.
+- AC7 → `npm run ui:verify`'s `home` screen entry — pass, 0 axe violations.
+
+No manual residue; no blockers.

@@ -13,7 +13,7 @@
  *   4. register a renderer view in `src/renderer/src/modules/index.ts`
  *   5. add its i18n keys
  */
-export type ModuleId = 'library' | 'config' | 'downloads' | 'mods' | 'assets'
+export type ModuleId = 'home' | 'library' | 'config' | 'downloads' | 'mods' | 'assets'
 
 /**
  * What a module needs from the host. Declared up front so the shell can tell
@@ -65,6 +65,18 @@ export interface ModuleManifest {
 }
 
 export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
+  {
+    id: 'home',
+    titleKey: 'module.home.title',
+    descriptionKey: 'module.home.description',
+    icon: 'Home',
+    route: '/home',
+    nav: null,
+    status: 'available',
+    capabilities: [],
+    ipcNamespace: 'module:home',
+    requiresInstallation: false,
+  },
   {
     id: 'library',
     titleKey: 'module.library.title',

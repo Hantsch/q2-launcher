@@ -23,7 +23,6 @@
 //   engine-badge               EngineBadge.tsx via `Badge`'s `testId` prop (primitives.tsx)
 //   installation-tile          InstallationRail.tsx's `RailTile`, `aria-label` is the install name
 //   [role="tooltip"]           HoverCard.tsx's portalled card - the rail's engine surface
-//   section.hero-fallback      HeroPanel.tsx's `<section>` (class from styles/, not a test hook)
 //
 // Two text-reading rules this file sticks to, both for the same reason - the design system
 // uppercases through CSS, so `innerText` reports what the glyphs look like and not what the app
@@ -105,40 +104,33 @@ function railTile(page, name) {
   return page.locator(`[data-testid="installation-tile"][aria-label="${name}"]`)
 }
 
-/**
- * Makes `name` the active installation by clicking its rail tile (`setActiveInstallation`, a real
- * IPC round trip) and waits for the tile to report itself active. The pointer is parked off the
- * rail first: a hover card left open from a previous step is portalled over the tiles and would
- * swallow the click.
- */
-async function activate(page, name) {
-  await page.mouse.move(0, 0)
-  await page.locator('[role="tooltip"]').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
-  await railTile(page, name).click({ timeout: TIMEOUT_MS })
-  await page
-    .locator(`[data-testid="installation-tile"][aria-label="${name}"][aria-current="true"]`)
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-}
-
 /** The name row of one installation's library card - the badge is the heading's own sibling. */
 function libraryCardNameRow(page, name) {
   return page.locator('h2').filter({ hasText: name }).first().locator('xpath=..')
 }
 
 /**
- * A string this flow knows is on both screens it scrapes, asserted before the real check so an
- * empty or failed `innerText` read cannot pass AC1 vacuously. `R1Q2` is the supported install's
- * badge, which the hero shows on home and the library card shows on the library.
+ * A string this flow knows is on the library screen, asserted before the real check so an empty
+ * or failed `innerText` read cannot pass AC1 vacuously. `R1Q2` is the supported install's badge,
+ * which the library card shows.
  */
 const SCRAPE_SENTINEL = /r1q2/i
 
+/**
+ * Story 081 deleted the hero, so home no longer shows any installation text - its only content is
+ * the module's placeholder title/lead (`home.title`/`home.lead`, en.json), which always mentions
+ * "Quake II". Each surface therefore gets its own vacuity sentinel instead of sharing one that
+ * assumed an engine badge was present everywhere.
+ */
+const HOME_SCRAPE_SENTINEL = /quake\s*ii/i
+
 /** AC1: everything the user can actually read on the current screen, paths stripped. */
-async function assertNoClientWord(page, surface) {
+async function assertNoClientWord(page, surface, sentinel = SCRAPE_SENTINEL) {
   const rendered = await page.evaluate(() => document.body.innerText)
   const authored = rendered.replace(ABSOLUTE_PATH_RUN, ' ')
-  if (!SCRAPE_SENTINEL.test(authored)) {
+  if (!sentinel.test(authored)) {
     throw new Error(
-      `${surface}: the visible-text read returned nothing recognizable (no ${SCRAPE_SENTINEL} in ` +
+      `${surface}: the visible-text read returned nothing recognizable (no ${sentinel} in ` +
         `${authored.length} chars) - the "no client" assertion below would be vacuous`,
     )
   }
@@ -158,7 +150,6 @@ async function assertNoClientWord(page, surface) {
 export default async function engineNotClient({ page, shot, step }) {
   step('open home')
   await page.getByTestId('nav-home').click({ timeout: TIMEOUT_MS })
-  await page.locator('section.hero-fallback').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await shot('home')
 
   // --- AC2: the create dialog, opened from the library, never submitted -------------------------
@@ -267,37 +258,14 @@ export default async function engineNotClient({ page, shot, step }) {
     SUPPORTED_ENGINE_LABEL,
   )
 
-  // --- AC4: the hero panel -----------------------------------------------------------------------
-  // The hero badges the *active* installation, so each half of AC4 needs that install active first.
-  // Clicking the tile is the user's own way to do that (`setActiveInstallation`); the fixture's
-  // active install is restored at the end of the flow.
-  const hero = page.locator('section.hero-fallback')
-
-  step('make the unsupported-engine install active and open home')
-  await activate(page, INSTALL_UNKNOWN_ENGINE_NAME)
-  await page.getByTestId('nav-home').click({ timeout: TIMEOUT_MS })
-  await hero.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-
-  step('assert the hero panel marks the unsupported engine')
-  await assertBadgeReads(
-    hero,
-    'hero panel (unknown-engine install active)',
-    UNSUPPORTED_UNKNOWN_LABEL,
-  )
-  await shot('hero-unsupported')
-
-  step("restore the fixture's active install and assert the hero carries no marker")
-  await activate(page, SUPPORTED_INSTALL_NAME)
-  await assertBadgeReads(
-    hero,
-    `hero panel ("${SUPPORTED_INSTALL_NAME}" active)`,
-    SUPPORTED_ENGINE_LABEL,
-  )
-  await shot('hero-supported')
+  // The hero panel this section used to assert against was deleted by story 081 (AC3) - the home
+  // route no longer has anything that badges the active installation, so there is nothing left
+  // here to check.
 
   // --- AC1 on the real surface -------------------------------------------------------------------
-  step('assert no visible text on home says client')
-  await assertNoClientWord(page, 'home')
+  step('open home again and assert no visible text on it says client')
+  await page.getByTestId('nav-home').click({ timeout: TIMEOUT_MS })
+  await assertNoClientWord(page, 'home', HOME_SCRAPE_SENTINEL)
 
   step('assert no visible text on the library says client')
   await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
