@@ -25,7 +25,7 @@ export type InstallationStatus =
   /** Not checked yet (freshly loaded from disk). */
   | 'unknown'
 
-export type CheckSeverity = 'ok' | 'warn' | 'error'
+export type CheckSeverity = 'ok' | 'info' | 'warn' | 'error'
 
 export type ValidationCheckId =
   | 'root-exists'

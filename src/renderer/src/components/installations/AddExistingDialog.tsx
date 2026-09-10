@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CircleCheck, CircleX, TriangleAlert } from 'lucide-react'
+import { CircleCheck, CircleX, Info, TriangleAlert } from 'lucide-react'
 import { engineLabel, type ValidationResult } from '@shared/types'
 import { cn } from '../../lib/cn'
 import { invoke } from '../../lib/bridge'
@@ -140,6 +140,8 @@ export function AddExistingDialog() {
                     <li key={check.id} className="flex items-start gap-2">
                       {check.severity === 'error' ? (
                         <CircleX className="mt-0.5 size-3.5 shrink-0 text-danger" />
+                      ) : check.severity === 'info' ? (
+                        <Info className="mt-0.5 size-3.5 shrink-0 text-info" />
                       ) : (
                         <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-warning" />
                       )}

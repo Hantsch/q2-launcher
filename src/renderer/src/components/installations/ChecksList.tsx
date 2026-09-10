@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { CircleCheck, CircleX, TriangleAlert } from 'lucide-react'
+import { CircleCheck, CircleX, Info, TriangleAlert } from 'lucide-react'
 import type { Installation, ValidationCheck, ValidationFix } from '@shared/types'
 import { cn } from '../../lib/cn'
 import { useLauncher } from '../../store/useLauncher'
@@ -8,6 +8,7 @@ import { Button } from '../ui/Button'
 
 const SEVERITY = {
   ok: { icon: CircleCheck, className: 'text-success' },
+  info: { icon: Info, className: 'text-info' },
   warn: { icon: TriangleAlert, className: 'text-warning' },
   error: { icon: CircleX, className: 'text-danger' },
 } as const

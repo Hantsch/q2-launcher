@@ -228,7 +228,7 @@ function InstallationRow({ installation }: { installation: Installation }) {
   const tone = statusTone(installation.status)
   const active = installation.id === activeId
   const lastPlayed = formatRelativeTime(installation.lastPlayedAt)
-  const showChecks = installation.status !== 'ok' && installation.checks.length > 0
+  const showChecks = installation.checks.length > 0
 
   return (
     <Panel

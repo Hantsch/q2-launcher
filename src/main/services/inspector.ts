@@ -193,7 +193,7 @@ export async function inspectInstallation(
       // hash of 180 MB is far too slow for a check that runs on every startup.
       const size = await fileSize(join(baseDirPath, pak0Name))
       if (size !== null && size !== RETAIL_PAK_SIZES['pak0.pak']) {
-        checks.push(check('base-paks', 'warn', 'validation.pak0NotRetail'))
+        checks.push(check('base-paks', 'info', 'validation.pak0NotRetail'))
       } else if (!hasRetailPaks) {
         checks.push(check('base-paks', 'warn', 'validation.retailPaksMissing'))
       }
