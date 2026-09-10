@@ -27,6 +27,8 @@
     "icon": "node scripts/generate-icon.mjs",
     "fetch:7za": "node scripts/fetch-7za.mjs",
     "icons:installations": "node scripts/generate-installation-icons.mjs",
+    "news:images": "node scripts/generate-news-images.mjs",
+    "check:content-repo": "node scripts/check-content-repo.mjs",
     "ui:seed": "node scripts/seed.mjs",
     "ui:shot": "node scripts/verify.mjs --skip-axe",
     "ui:a11y": "node scripts/verify.mjs --skip-shot",

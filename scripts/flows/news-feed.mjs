@@ -7,12 +7,14 @@
 //
 // Two phases, two full, independent app launches:
 //
-//   Phase 1 - the fixture server serves `docs/fixtures/news/*` normally. The app's own
-//   fire-and-forget startup fetch (`src/main/modules/home/index.ts`) lands in the loopback case of
+//   Phase 1 - the fixture server serves `content/q2_community_content/news/*` normally (the one
+//   checked-in copy of the news fixture content, also read by the D2 unit test
+//   `src/main/modules/home/news/news-fixture-contract.test.ts`). The app's own fire-and-forget
+//   startup fetch (`src/main/modules/home/index.ts`) lands in the loopback case of
 //   `resolveNewsSource()` (D4) because `setup()` below points `HARNESS_CONTENT_REPO_BASE_ENV` at
 //   this server before the app is launched. Once `news.get` reports the fixture's three slides,
-//   this flow asserts their `order` (1, 2, 3) does NOT match either the fixture's file names
-//   (`a-banner.md`/`b-split.md`/`c-text.md`) or the order `index.json` lists them in - the ordering
+//   this flow asserts their `order` (10, 20, 30) does NOT match the fixture's file names
+//   alphabetically (`2026-09-10-how-news-reaches-the-launcher.md` would sort first) - the ordering
 //   comes only from each document's own `order:` frontmatter field (AC4). It also reads
 //   `userData/news-feed.json` straight off disk and asserts the same slides plus a `retrievedAt`
 //   landed there.
@@ -57,26 +59,28 @@ const HARNESS_CONTENT_REPO_BASE_ENV = 'Q2L_UI_CONTENT_REPO_BASE'
 /** Mirrors `NEWS_FEED_CACHE_FILE` (`src/main/modules/home/news/feed-cache.ts`). */
 const NEWS_FEED_CACHE_FILE = 'news-feed.json'
 
-const FIXTURE_DIR = join(REPO_ROOT, 'docs', 'fixtures', 'news')
+const FIXTURE_DIR = join(REPO_ROOT, 'content', 'q2_community_content', 'news')
 
 /**
  * The fixture's own three slides, in the order `news.get` must deliver them (ascending `order:`
- * frontmatter, per `docs/fixtures/news/*.md`) - deliberately NOT alphabetical-by-filename
- * (`a-banner.md`, `b-split.md`, `c-text.md`) and NOT `index.json`'s own entry order
- * (`point-release-2026-1`, `community-server-survey`, `welcome-news-feed`), so a flow that passed
- * by accidentally matching either of those would be caught by a reader diffing this list against
- * the fixture files, not by the assertion itself.
+ * frontmatter, per `content/q2_community_content/news/*.md`) - deliberately NOT
+ * alphabetical-by-filename (`2026-09-10-how-news-reaches-the-launcher.md` would sort before the
+ * other two, but its `order: 30` puts it last), so a flow that passed by accidentally matching
+ * filename order would be caught by a reader diffing this list against the fixture files, not by
+ * the assertion itself. This fixture's `index.json` entry order happens to already agree with the
+ * frontmatter `order` values below, but that is incidental - the sort is asserted to come from
+ * `order:`, never from list position.
  */
 const EXPECTED_SLIDES_IN_ORDER = [
-  { id: 'point-release-2026-1', template: 'split', order: 1 },
-  { id: 'welcome-news-feed', template: 'text', order: 2 },
-  { id: 'community-server-survey', template: 'banner', order: 3 },
+  { id: 'r1q2-in-the-bootstrap-wizard', template: 'split', order: 10 },
+  { id: 'the-community-content-repository', template: 'banner', order: 20 },
+  { id: 'how-news-reaches-the-launcher', template: 'text', order: 30 },
 ]
 
 /**
- * A minimal static-file server for `docs/fixtures/news/*`, on `127.0.0.1:0`. Not built on top of
- * `scripts/lib/fixture.mjs`'s `startBootstrapFixtureServer()` - that helper's routes, manifest
- * envelopes and archive streaming are specific to the bootstrap wizard's download packages and
+ * A minimal static-file server for `content/q2_community_content/news/*`, on `127.0.0.1:0`. Not
+ * built on top of `scripts/lib/fixture.mjs`'s `startBootstrapFixtureServer()` - that helper's
+ * routes, manifest envelopes and archive streaming are specific to the bootstrap wizard's download packages and
  * have nothing this flow could reuse; this is the same `node:http`-on-a-loopback-port shape as
  * that helper, sized for what news actually fetches: `news/index.json` and `news/<file>` (the
  * exact paths `feed-fetcher.ts`'s `contentRepoUrl()` builds).

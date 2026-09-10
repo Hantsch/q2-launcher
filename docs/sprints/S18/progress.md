@@ -32,3 +32,13 @@
 - 2026-09-10 20:08 Â· 082 Â· D7 the renderer can listen Â· done
 - 2026-09-10 20:08 Â· 082 Â· D8 proven offline, on the real app Â· started
 - 2026-09-10 20:20 Â· 082 Â· D8 proven offline, on the real app Â· done
+- 2026-09-10 20:45 085 D1 started: author the feed content
+- 2026-09-10 20:47 · 085 · D1 author the feed content · done
+- 2026-09-10 20:47 · 085 · D2 zero-warning fixture test · started
+- 2026-09-10 20:49 · 085 · D2 zero-warning fixture test · done
+- 2026-09-10 20:49 · 085 · D3 ui:verify reads fixture copy · started
+- 2026-09-10 20:53 · 085 · D3 ui:verify reads fixture copy · done
+- 2026-09-10 20:53 · 085 · D4 write the checkout · started
+- 2026-09-10 20:55 · 085 · D4 write the checkout · done
+- 2026-09-10 20:55 · 085 · D5 machine-verify the checkout · started
+- 2026-09-10 20:56 · 085 · D5 machine-verify the checkout · done

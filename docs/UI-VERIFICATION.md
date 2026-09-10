@@ -1016,7 +1016,7 @@ proves the pipeline through the exact IPC call the renderer's own typed client
 moduleId: 'home', type: 'news.get' })`, plus the on-disk cache file `news-service.ts` writes to
 (`userData/news-feed.json`).
 
-`setup()` starts a small `node:http` server on `127.0.0.1` serving `docs/fixtures/news/*` at the
+`setup()` starts a small `node:http` server on `127.0.0.1` serving `content/q2_community_content/news/*` at the
 exact paths `feed-fetcher.ts`'s `contentRepoUrl()` builds (`/news/index.json`, `/news/<file>`), and
 returns its base URL as `Q2L_UI_CONTENT_REPO_BASE` (`HARNESS_CONTENT_REPO_BASE_ENV`,
 `src/main/lib/ui-harness.ts`) — the same double-gated backdoor `bootstrap-wizard.mjs` uses for

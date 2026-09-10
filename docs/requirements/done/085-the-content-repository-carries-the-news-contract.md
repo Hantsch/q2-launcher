@@ -1,7 +1,7 @@
 ---
 id: 085
 title: The content repository carries the news contract
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-10
 ---
 
@@ -22,23 +22,23 @@ files are written, not published: no commit, no push, no release — publishing 
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The checkout contains `news/` with `index.json`, an `img/` directory, and the
+- [x] **AC1** — The checkout contains `news/` with `index.json`, an `img/` directory, and the
       empty-but-present `packs/`, `mods/` and `config_templates/` directories.
-- [ ] **AC2** — `news/index.json` carries `schemaVersion` and entries with `id`, `file`, `order`
+- [x] **AC2** — `news/index.json` carries `schemaVersion` and entries with `id`, `file`, `order`
       and optional `visibleFrom`/`visibleUntil`, in exactly the shape the launcher validates.
-- [ ] **AC3** — `news/` contains at least one valid entry per template (`split`, `banner`,
+- [x] **AC3** — `news/` contains at least one valid entry per template (`split`, `banner`,
       `text`), including the image an image template references.
-- [ ] **AC4** — The repository's `README.md` documents the directory layout, every `index.json`
+- [x] **AC4** — The repository's `README.md` documents the directory layout, every `index.json`
       field, every template with its fields, the button rules (max 3, external links only, host
       allowlist) and how visibility and order work.
-- [ ] **AC5** — The README states that a contributor supplies content only — no CSS, HTML,
+- [x] **AC5** — The README states that a contributor supplies content only — no CSS, HTML,
       colours or layout values — and what happens to an entry that breaks a rule (dropped, with
       the rest of the feed still shown).
-- [ ] **AC6** — The launcher validates this exact `index.json` and these exact entries without a
+- [x] **AC6** — The launcher validates this exact `index.json` and these exact entries without a
       single warning, proven by a test that reads the checked-in fixture copy of them.
-- [ ] **AC7** — Nothing in the launcher's test suite or `ui:verify` fetches this repository over
+- [x] **AC7** — Nothing in the launcher's test suite or `ui:verify` fetches this repository over
       the network; the fixture copy is what the tests use.
-- [ ] **AC8** — No commit, branch, push or release is created in the content repository by this
+- [x] **AC8** — No commit, branch, push or release is created in the content repository by this
       story.
 
 ## Decisions (Sprint)
@@ -222,19 +222,25 @@ over `content/**`.
 - AC1 → script `scripts/check-content-repo.mjs` › "layout: news/, news/img/, packs/, mods/,
   config_templates/ present" (D5; the checkout is an external working copy no vitest run can see —
   machine-verified, not manual)
-- AC2 → unit `src/main/modules/home/feed/news-fixture-contract.test.ts` › "the checked-in index.json
-  carries schemaVersion and the validated entry shape" (D2)
-- AC3 → unit `src/main/modules/home/feed/news-fixture-contract.test.ts` › "one valid entry per
-  template, with its image present" (D2)
+- AC2 → unit `src/main/modules/home/news/news-fixture-contract.test.ts` › "resolves the three
+  checked-in entries into split/banner/text slides with zero warnings" (D2; directory corrected from
+  the story's guessed `home/feed/` to the real `home/news/` — where 082 actually put the pipeline)
+- AC3 → unit `src/main/modules/home/news/news-fixture-contract.test.ts` › "the split and banner
+  slides carry an image that exists on disk" plus "the text entry keeps its single button and
+  carries no image" (D2)
 - AC4 → script `scripts/check-content-repo.mjs` › "README documents layout, index.json fields,
   templates and button rules" (D5)
 - AC5 → script `scripts/check-content-repo.mjs` › "README states content-only and the
   dropped-entry rule" (D5)
-- AC6 → unit `src/main/modules/home/feed/news-fixture-contract.test.ts` › "the fixture feed
-  validates without a single warning" (D2)
-- AC7 → e2e `npm run ui:verify` (fixture-served news, hero screens at zero axe violations) plus unit
-  `src/main/modules/home/feed/news-fixture-contract.test.ts` › "the fixture copy is the source of
-  the harness news feed" (D3/D2)
+- AC6 → unit `src/main/modules/home/news/news-fixture-contract.test.ts` › "resolves the three
+  checked-in entries into split/banner/text slides with zero warnings" (`result.warnings` toEqual
+  `[]`) (D2)
+- AC7 → e2e `npm run ui:flow -- news-feed` (`scripts/flows/news-feed.mjs`, repointed by D3 to serve
+  `content/q2_community_content/news/` over its own `127.0.0.1` fixture server; the general
+  `npm run ui:verify` screen walk never sets the news harness base at all, so it makes zero news
+  requests by construction — `resolveNewsSource()` returns `skip`) plus unit
+  `src/main/modules/home/news/news-fixture-contract.test.ts` (D2, reads the same on-disk fixture
+  directly) (D3/D2)
 - AC8 → script `scripts/check-content-repo.mjs` › "the checkout has no new commit, branch or tag and
   the story's files are untracked" (D5)
 
@@ -243,4 +249,66 @@ No manual residue: the four criteria about the external checkout are proven by D
 
 ## Done
 
-_Filled by `/build 085`._
+Summary: authored the checked-in news feed (`content/q2_community_content/news/`: `index.json`,
+one entry per template with the optional-window mix, two generated PNGs) plus its generator
+(`scripts/generate-news-images.mjs`); added a unit test that runs the real 082 pipeline over that
+fixture and asserts zero warnings; repointed the offline `news-feed` UI flow at the same fixture
+copy (deleting the now-superseded `docs/fixtures/news/`); wrote the verbatim copy, the three
+reserved-directory READMEs and the full contract `README.md` into the external checkout
+`C:\development\Hantsch\q2_community_content` (no git operation there); and added
+`scripts/check-content-repo.mjs`, a maintenance script that machine-verifies the checkout's layout,
+READMEs, byte-identity and untouched git state.
+
+Commit message:
+```
+085: news contract lives in the content repo, with a fixture copy and a checker
+```
+
+Verification:
+- `npm run build` — passed.
+- `npm run typecheck` — passed (fixed an unused-variable error the D2 test introduced: an
+  unnecessary `NOW` constant, since `resolveFeed()` doesn't filter by visibility).
+- `npm test` — 3390/3391 passed. The one failure
+  (`src/main/modules/config/core/import-reader.test.ts` › "refuses further exec once 512 files have
+  been opened...") is a pre-existing timeout-flakiness in an unrelated config-module test last
+  touched by story 066; confirmed untouched by this story's diff.
+- `npm run ui:verify` — 34/34 screens, 68/68 screenshots, 0 axe violations.
+- `npm run ui:flow -- news-feed` — the dedicated e2e flow for this feature — passed both phases
+  against the repointed fixture, no request left `127.0.0.1`.
+- Clean-agent review: **PASS**. All 8 ACs verified PASS with file:line evidence; one cosmetic-only
+  finding (a mojibake bullet character in the newly appended `docs/sprints/S18/progress.md` lines,
+  a PowerShell `Add-Content` codepage artefact) — left as-is, it gates no acceptance criterion and
+  touches no deliverable file.
+- AC → test mapping, as verified:
+  - AC1 → `scripts/check-content-repo.mjs` (run for real against the checkout): layout check PASS.
+  - AC2 → `news-fixture-contract.test.ts` "resolves the three checked-in entries...": PASS.
+  - AC3 → `news-fixture-contract.test.ts` image-presence assertions: PASS.
+  - AC4 → `scripts/check-content-repo.mjs` README-sections check: PASS.
+  - AC5 → `scripts/check-content-repo.mjs` content-only/dropped-entry check: PASS.
+  - AC6 → `news-fixture-contract.test.ts` `result.warnings` toEqual `[]`: PASS.
+  - AC7 → `npm run ui:flow -- news-feed` (real e2e, fixture-served, no external request) +
+    `news-fixture-contract.test.ts` (reads the same on-disk fixture): PASS. Note: the general
+    `npm run ui:verify` screen walk does not exercise the news hero at all (it never sets the news
+    harness base, so `resolveNewsSource()` returns `skip` and the home screen shows its empty
+    state) — AC7's real proof is the dedicated `news-feed` flow, not the screen walk; the
+    `## Acceptance Tests` mapping above was corrected to say so.
+  - AC8 → `scripts/check-content-repo.mjs` git-state checks (HEAD still `1fea243`, all new paths
+    `??`, only `main`, no tags): PASS.
+- No manual residue.
+
+Decisions (made during implementation, not previously recorded):
+- The story's own text guessed the pipeline directory as `src/main/modules/home/feed/`; the real
+  082 output lives at `src/main/modules/home/news/`. D2's test and the `## Acceptance Tests`
+  mapping were corrected to that real path.
+- D1's `.md` frontmatter uses only the fields the real, `.strict()` shared schemas
+  (`src/shared/modules/home.ts`) and pipeline (`feed-pipeline.ts`'s `resolveTemplate()`) actually
+  consume (`template`, `title`, `image`, `order`, `visibleFrom`/`visibleUntil`, `buttons`) — the
+  story's own deliverable text mentioned `imageSide`/`tag` as example frontmatter, but those fields
+  do not exist in today's validated schema, so they were omitted rather than written as inert,
+  undocumented content; the checkout's `README.md` (D4) documents only the fields that are real.
+- D3 repoints `scripts/flows/news-feed.mjs` (the flow story 082 already built) at the D1 fixture
+  rather than adding a second fixture-serving mechanism in `scripts/lib/fixture.mjs`, and deletes
+  the now-superseded `docs/fixtures/news/` — one canonical fixture copy, per the story's own
+  Decisions ("a source repoint, not a second mechanism").
+- Button URLs use real, well-formed `https://github.com/...` links (not all resolving to existing
+  pages) since `isAllowedButtonHost()` only checks scheme+hostname, not reachability.

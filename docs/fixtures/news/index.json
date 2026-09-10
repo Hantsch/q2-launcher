@@ -1,8 +1,0 @@
-{
-  "schemaVersion": 1,
-  "entries": [
-    { "id": "point-release-2026-1", "file": "b-split.md" },
-    { "id": "community-server-survey", "file": "a-banner.md" },
-    { "id": "welcome-news-feed", "file": "c-text.md" }
-  ]
-}
