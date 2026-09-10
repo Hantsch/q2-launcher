@@ -49,6 +49,9 @@ const slide: NewsSlide = {
   title: 'Q2PRO 1.2 is out',
   body: 'Body text of the slide.',
   image: 'img/q2pro.png',
+  // Story 084 D4: a resolved slide's servable image URL - round-tripped here too, so a schema
+  // edit that drops this field (undoing image resolution on every restart) fails this test.
+  imageUrl: 'q2launcher://app/news-image/abc123.png',
   buttons: [{ label: 'Changelog', url: 'https://github.com/skullernet/q2pro/releases' }],
   visibleFrom: '2026-09-01T00:00:00.000Z',
   visibleUntil: '2026-09-30T00:00:00.000Z',

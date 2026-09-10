@@ -229,6 +229,62 @@ export const SCREENS = [
     },
   },
   {
+    id: 'home-hero-slide-image',
+    variant: 'news-images',
+    viewports: BOTH_VIEWPORTS,
+    // Story 084 D6: the hero's "image present" state - the dedicated `news-images` variant
+    // (scripts/lib/fixture.mjs's `writeNewsImagesFixture()`) seeds a fresh feed cache whose first
+    // slide (`newsImagePresentSlide()`, order 1, the carousel's default landing slide - no dot
+    // click needed) carries a real `imageUrl` pointing at a file the fixture actually wrote under
+    // `userData/cache/news-images/`, so the `split` template's `<img>` resolves to real bytes
+    // served by the `q2launcher://news-image/...` route rather than a broken-image icon. Waits on
+    // the slide's own title text (not just `home-hero-frame`, which the plain `home-hero` screen
+    // above already covers) so this screen provably shows the image slide, not merely "some slide".
+    navigate: async (page) => {
+      await click(page, 'nav-home')
+      await page
+        .getByRole('heading', { name: 'Bootstrap Wizard Arrives', level: 2 })
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      // See `home-hero-slide-image-failed`'s own comment below for why this also waits out the
+      // frame's entrance animation rather than trusting the heading's mere visibility.
+      await page.waitForFunction(() => {
+        const frame = document.querySelector('.home-hero-frame')
+        return frame !== null && getComputedStyle(frame).opacity === '1'
+      })
+    },
+  },
+  {
+    id: 'home-hero-slide-image-failed',
+    variant: 'news-images',
+    viewports: BOTH_VIEWPORTS,
+    // Story 084 D6: the hero's "image failed/absent" state - same `news-images` variant, second
+    // slide (`newsImageFailedSlide()`, order 2). Its cached feed data references an `image` that was
+    // never written to `userData/cache/news-images/` (see that function's own doc comment for why
+    // `image`, not `imageUrl`, is what's set) - a cache miss baked into the fixture at seed time, not
+    // a live fetch attempt, so this never touches the network. Clicks the second dot (`Show news
+    // slide 2`, same convention `home-hero-carousel.mjs` uses) to move off the default first slide,
+    // then waits on this slide's own title text - proving the `split` template rendered its
+    // full-width no-image fallback (D5) rather than a broken-image icon.
+    navigate: async (page) => {
+      await click(page, 'nav-home')
+      await page
+        .getByRole('button', { name: 'Show news slide 2' })
+        .click({ timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByRole('heading', { name: 'Point Release Notes', level: 2 })
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      // The dot click re-keys `.home-hero-frame` (NewsHero.tsx), which plays a 200ms
+      // `home-hero-frame-in` opacity/translate entrance animation (`home-hero.css`) - the heading
+      // above is already attached and laid out the instant the frame mounts, so waiting on it alone
+      // can catch the screenshot mid-fade. Waiting for the frame's own computed opacity to settle at
+      // `1` rules that race out, same idiom as this file's other `page.waitForFunction()` waits.
+      await page.waitForFunction(() => {
+        const frame = document.querySelector('.home-hero-frame')
+        return frame !== null && getComputedStyle(frame).opacity === '1'
+      })
+    },
+  },
+  {
     id: 'library',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,

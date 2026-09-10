@@ -1,5 +1,7 @@
 import type { NewsFeed, NewsSlide } from '@shared/modules/home'
+import { userDataDir } from '../../../lib/paths'
 import type { UiHarnessGateInput } from '../../../lib/ui-harness'
+import { resolveFeedImages } from '../images/resolve-feed-images'
 import { resolveNewsSource } from './harness'
 import { filterAndSortSlides, resolveFeed } from './feed-pipeline'
 import {
@@ -74,6 +76,11 @@ export interface NewsServiceOptions {
   now?: () => Date
   timeoutMs?: number
   retries?: number
+  /** Story 084 D4: `userData` root passed to `resolveFeedImages()`. Defaults to `userDataDir()`
+   * (Electron's `app.getPath('userData')`), resolved lazily on first actual use for the same reason
+   * `cache()` below is deferred - `createNewsService()` runs before Electron is necessarily ready,
+   * and this file's own tests construct the service with no Electron runtime at all. */
+  userDataPath?: string
 }
 
 export interface NewsService {
@@ -137,6 +144,13 @@ export function createNewsService(options: NewsServiceOptions): NewsService {
     if (options.cache !== undefined) return options.cache
     cacheInstance ??= new NewsFeedCache({ log: options.log })
     return cacheInstance
+  }
+
+  let userDataPathValue: string | undefined
+  function resolveUserDataPath(): string {
+    if (options.userDataPath !== undefined) return options.userDataPath
+    userDataPathValue ??= userDataDir()
+    return userDataPathValue
   }
 
   let state: NewsServiceState | undefined
@@ -232,9 +246,22 @@ export function createNewsService(options: NewsServiceOptions): NewsService {
       options.log.warn(`news: ${warning.reason}${location ? ` (${location})` : ''}`)
     }
 
+    // Story 084 D4: image resolution runs exactly here, and nowhere else - this is the one branch
+    // that means "this cycle actually reached the network" (see `resolve-feed-images.ts`'s module
+    // comment), which is why `networkReached` below is `true` unconditionally rather than derived
+    // from anything. An `'unchanged'`/`'failed'`/`'skipped'` cycle never calls this at all and simply
+    // keeps reusing whatever `imageUrl`s already sit on `before.slides` from the last cycle that did.
+    const { slides: imagedSlides } = await resolveFeedImages({
+      slides: built.slides,
+      userDataPath: resolveUserDataPath(),
+      base: source.kind === 'loopback' ? source.base : undefined,
+      networkReached: true,
+      log: options.log,
+    })
+
     const retrievedAt = now().toISOString()
     const next: NewsServiceState = {
-      slides: built.slides,
+      slides: imagedSlides,
       etags: result.etags,
       retrievedAt,
       schemaAhead: built.schemaAhead,

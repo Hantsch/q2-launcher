@@ -14,6 +14,7 @@ import {
   resolveRendererSource,
   type RendererSource,
 } from './lib/renderer-source'
+import { getNewsImagesCacheDir } from './modules/home/images/paths'
 import { createMainWindow, type MainWindow } from './window'
 
 const APP_USER_MODEL_ID = 'io.github.hantsch.q2launcher'
@@ -168,6 +169,14 @@ function serveRendererFromScheme(): void {
       root: join(__dirname, '../renderer'),
       csp: PRODUCTION_CSP,
       readFile: (path) => readFile(path),
+      // Story 084 D3: cached slide images are served from their own root under `userData`, on the
+      // same origin as the document (a second host would be a second origin and `img-src 'self'`
+      // would need widening). The directory need not exist yet - it is created when the first
+      // image is fetched, and until then every request here is simply a 404.
+      newsImages: {
+        root: getNewsImagesCacheDir(app.getPath('userData')),
+        readFile: (path) => readFile(path),
+      },
     }),
   )
 

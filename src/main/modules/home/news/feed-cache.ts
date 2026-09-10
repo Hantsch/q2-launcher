@@ -8,6 +8,7 @@ import {
 } from '@shared/modules/home'
 import { JsonStore } from '../../../lib/json-store'
 import { userDataDir } from '../../../lib/paths'
+import { NEWS_IMAGE_PATH_PREFIX, RENDERER_ORIGIN } from '../../../lib/renderer-source'
 import { MAX_BUTTONS_PER_SLIDE } from './feed-pipeline'
 
 /**
@@ -100,6 +101,17 @@ const cachedSlideSchema = z.object({
   title: z.string().min(1),
   body: z.string().min(1),
   image: z.string().min(1).optional(),
+  // Story 084 D4: the resolved `q2launcher://` URL a cached slide carries once image resolution
+  // has run. Listed explicitly, or `z.object()`'s default field-stripping would silently drop it
+  // on every read back, undoing image resolution on every restart. Constrained to exactly the
+  // shape `resolve-feed-images.ts` ever writes - defence in depth at the read boundary, since
+  // this is the one field a hand-edited or otherwise-tampered cache file could use to make the
+  // renderer request an arbitrary origin if it were accepted unchecked.
+  imageUrl: z
+    .string()
+    .startsWith(`${RENDERER_ORIGIN}${NEWS_IMAGE_PATH_PREFIX}`)
+    .min(1)
+    .optional(),
   buttons: z.array(newsButtonSchema),
   visibleFrom: z.string().optional(),
   visibleUntil: z.string().optional(),

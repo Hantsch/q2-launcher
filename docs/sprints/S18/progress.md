@@ -57,3 +57,19 @@
 - 2026-09-10 22:14 · 083 · fix cycle 1 · done
 - 2026-09-10 22:14 · 083 · review cycle 2 (story-review-hard) · done: PASS
 - 2026-09-10 22:14 · 083 · story done, moved to done/
+-  084 D1 started: image cache layout + pure eviction
+- 2026-09-10 22:15 · 084 · D1 image cache layout + pure eviction · started
+- 2026-09-10 22:18 · 084 · D1 image cache layout + pure eviction · done
+- 2026-09-10 22:18 · 084 · D2 download + validation of one image · started
+- 2026-09-10 22:23 · 084 · D2 download + validation of one image · done
+- 2026-09-10 22:23 · 084 · D3 the q2launcher:// news-image route · started
+- 2026-09-10 22:30 · 084 · D3 the q2launcher:// news-image route · done
+- 2026-09-10 22:31 · 084 · D4 resolve feed images and enforce keep-set · started
+- 2026-09-10 22:41 · 084 · D4 resolve feed images and enforce keep-set · done
+- 2026-09-10 22:41 · 084 · D5 templates survive a missing image · started
+- 2026-09-10 22:45 · 084 · D5 templates survive a missing image · done
+- 2026-09-10 22:45 · 084 · D6 fixture and two verify screens · started
+- 2026-09-10 22:52 · 084 · D6 fixture and two verify screens · done
+- 2026-09-10 22:52 · 084 · D7 the deviation row · started
+- 2026-09-10 22:54 · 084 · D7 the deviation row · done
+- 2026-09-10 23:11 · 084 · story done (review-fix cycle 1/3, all AC PASS)

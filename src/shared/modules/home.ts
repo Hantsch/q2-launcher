@@ -93,8 +93,17 @@ export const newsButtonSchema = z
 
 /**
  * One slide of the feed, as `news.get`/`news.refresh` deliver it to the renderer - already
- * validated, template-resolved and button-capped (D3). `image` is carried through as the declared
- * relative path only; downloading and serving it is story 084's scope (Decisions (Sprint)).
+ * validated, template-resolved and button-capped (082 D3).
+ *
+ * `image` is the frontmatter's declared relative path (e.g. `img/a.png`) as `resolveFeed()`
+ * (`feed-pipeline.ts`) leaves it - main-internal raw material, never yet resolved to anything
+ * servable. `imageUrl` is story 084 D4's resolved counterpart: a `q2launcher://` URL built from the
+ * cached file's content-addressed name, or absent when there is nothing cached to show. Only
+ * `resolve-feed-images.ts` ever turns the former into the latter, and it never carries `image`
+ * forward onto the slide it returns - so a slide that has actually been through image resolution
+ * (which is every slide `news-service.ts` caches and delivers from the moment 084 lands) carries
+ * `imageUrl` only, never `image`, which is what makes AC1's "no renderer request to a remote origin"
+ * true by construction rather than by convention (Decisions (Sprint)).
  */
 export interface NewsSlide {
   id: string
@@ -104,7 +113,12 @@ export interface NewsSlide {
   order: number
   title: string
   body: string
+  /** Raw, pre-resolution frontmatter path. See the interface doc comment - resolved slides never
+   * carry this. */
   image?: string
+  /** Resolved, servable image (story 084 D4) - a `q2launcher://` URL, or absent when the slide has
+   * no image, the image failed to resolve, or resolution has not run yet. */
+  imageUrl?: string
   /** Capped at 3 by the pipeline (D3, AC6); the type itself only bounds it loosely since real
    * enforcement happens against content arriving from the network, not against this delivered
    * shape. */

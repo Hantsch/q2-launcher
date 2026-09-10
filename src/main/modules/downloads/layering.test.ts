@@ -45,6 +45,10 @@ const DOWNLOADS_MODULE = resolve(REPO_ROOT, 'src/main/modules/downloads')
  *    network call via that API. Its real network calls go through the global `fetch`, which this
  *    guard does not - and is not meant to - flag: the `home` module's own `network` capability
  *    (`src/shared/types/module.ts`) is what authorizes them.
+ *  - `modules/home/images/fetch-image.ts` (story 084 D2) only *mentions* `net.fetch` in its own
+ *    doc comments, contrasting the global `fetch` it actually uses (same wrapper/budget as
+ *    `feed-fetcher.ts`) with `net.fetch` (deliberately not used, same reasoning as above) - not an
+ *    actual network call via that API.
  */
 const ALLOWED_MAIN_SPAWN_NETWORK_FILES = new Set(
   [
@@ -52,6 +56,7 @@ const ALLOWED_MAIN_SPAWN_NETWORK_FILES = new Set(
     'src/main/lib/win-registry.ts',
     'src/main/lib/renderer-source.ts',
     'src/main/modules/home/news/feed-fetcher.ts',
+    'src/main/modules/home/images/fetch-image.ts',
   ].map((p) => resolve(REPO_ROOT, p)),
 )
 

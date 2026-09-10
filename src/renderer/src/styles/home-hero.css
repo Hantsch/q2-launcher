@@ -183,6 +183,19 @@
   gap: 8px;
 }
 
+/* Story 084 D5: `split`/`banner` without a resolved `imageUrl` drop their media column/strip
+   entirely rather than leaving it empty or showing a broken `<img>` - this is what the text
+   column takes on instead, so it fills the width (or, for `banner`, the height) the image would
+   otherwise have used. The hero's own height never depends on this (`home-hero-frame` is 100% of
+   a fixed-height ancestor), so nothing here needs to touch it. */
+.home-hero-content-full {
+  width: 100%;
+}
+
+.home-hero-slide-banner .home-hero-content-full {
+  height: 100%;
+}
+
 .home-hero-title {
   font-family: var(--font-display);
   font-size: 1.125rem;

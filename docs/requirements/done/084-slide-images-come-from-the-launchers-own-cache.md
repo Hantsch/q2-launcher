@@ -1,7 +1,7 @@
 ---
 id: 084
 title: Slide images come from the launcher's own cache
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-10
 ---
 
@@ -22,18 +22,18 @@ bent quietly. See [concepts/home-screen.md](../concepts/home-screen.md) §9 and 
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A slide image is downloaded by main, stored in userData and rendered from a
+- [x] **AC1** — A slide image is downloaded by main, stored in userData and rendered from a
       `q2launcher://` URL; no renderer request goes to a remote origin.
-- [ ] **AC2** — The production CSP is byte-for-byte unchanged by this story.
-- [ ] **AC3** — A slide whose image is missing, fails to download or is not an image renders
+- [x] **AC2** — The production CSP is byte-for-byte unchanged by this story.
+- [x] **AC3** — A slide whose image is missing, fails to download or is not an image renders
       without it, and the surrounding template stays intact rather than collapsing.
-- [ ] **AC4** — A cached image is shown offline, without a network attempt while offline.
-- [ ] **AC5** — The image cache stays inside a stated budget: when it is exceeded, the least
+- [x] **AC4** — A cached image is shown offline, without a network attempt while offline.
+- [x] **AC5** — The image cache stays inside a stated budget: when it is exceeded, the least
       recently used images are removed, and an image belonging to a currently visible slide is
       never removed.
-- [ ] **AC6** — `CLAUDE.md` carries a deviation row for feed images against the "no image assets
+- [x] **AC6** — `CLAUDE.md` carries a deviation row for feed images against the "no image assets
       in the UI" rule, naming this story and the reason.
-- [ ] **AC7** — `ui:verify` covers a slide with an image and a slide whose image failed, both from
+- [x] **AC7** — `ui:verify` covers a slide with an image and a slide whose image failed, both from
       the fixture and without network access, at zero axe violations.
 
 ## Decisions (Sprint)
@@ -116,43 +116,43 @@ templates that carry an image). Nothing here changes the CSP; the whole story is
 
 ## Deliverables
 
-- **D1 — image cache layout + pure eviction.** `src/main/modules/home/images/paths.ts`,
+- [x] **D1 — image cache layout + pure eviction.** `src/main/modules/home/images/paths.ts`,
   `image-cache.ts`, plus its test `image-cache.test.ts`. Mirror:
   `src/main/modules/downloads/paths.ts` and `cache.ts` (`planEviction`/`enforceBudget` shape).
   *Accepted when:* `planImageEviction` never returns a keep-set member, evicts unreferenced entries
   oldest-mtime-first, respects the 24-item cap, and returns `[]` for a non-finite cap;
   `enforceKeepSet()` refuses any name `isSafeNewsImageFileName()` rejects and any path that is not a
   direct child of the cache dir.
-- **D2 — download + validation of one image.** `src/main/modules/home/images/fetch-image.ts` +
+- [x] **D2 — download + validation of one image.** `src/main/modules/home/images/fetch-image.ts` +
   `fetch-image.test.ts`. Mirror: `src/main/modules/downloads/fetcher.ts` (injectable fetch,
   `.part`-then-promote) and `verify.ts` (size gate).
   *Accepted when:* >5 MB, a non-image content type, an undecodable body and >4000 px each yield
   `rejected` and write no promoted file; `404`/`410` yields `gone` and deletes an existing copy;
   timeout/`5xx`/offline yields `unavailable` and leaves the copy alone; a good PNG lands under its
   content-addressed name.
-- **D3 — the `q2launcher://` news-image route.** `src/main/lib/renderer-source.ts`,
+- [x] **D3 — the `q2launcher://` news-image route.** `src/main/lib/renderer-source.ts`,
   `src/main/index.ts`, `src/main/lib/renderer-source.test.ts`.
   *Accepted when:* `q2launcher://app/news-image/<name>.png` serves the cached bytes with
   `Content-Type: image/png`; a traversal, a nested path, an unsafe name and a missing file all 404;
   every response (200 and 404) carries the CSP; `PRODUCTION_CSP` is asserted byte-for-byte against
   its literal current value.
-- **D4 — resolve a feed's images and enforce the keep-set.**
+- [x] **D4 — resolve a feed's images and enforce the keep-set.**
   `src/main/modules/home/images/resolve-feed-images.ts` + test, `src/shared/modules/home.ts`,
   the home module's feed path (`src/main/modules/home/index.ts` / 082's feed service).
   *Accepted when:* a resolved slide carries only a `q2launcher://` `imageUrl` and no remote URL;
   a cache hit calls `fetchImpl` zero times; a refresh evicts every cached image the new feed does
   not reference; a rejected/gone/unavailable image leaves the slide image-less.
-- **D5 — templates survive a missing image.** `split` and `banner` from 083 (under
+- [x] **D5 — templates survive a missing image.** `split` and `banner` from 083 (under
   `src/renderer/src/modules/home/`) + their component test.
   *Accepted when:* with no `imageUrl` both templates render title, tag, body and buttons at full
   width, the hero keeps its height, and no broken-image element or empty reserved box remains.
-- **D6 — fixture and two verify screens.** `scripts/lib/fixture.mjs`, `scripts/lib/screens.mjs`.
+- [x] **D6 — fixture and two verify screens.** `scripts/lib/fixture.mjs`, `scripts/lib/screens.mjs`.
   Mirror: the downloads-cache seeding at `scripts/lib/fixture.mjs:545-589` and
   `scripts/lib/download-failures.mjs`.
   *Accepted when:* `npm run ui:verify` reaches `home-hero-slide-image` and
   `home-hero-slide-image-failed` from the populated fixture with no network access and zero
   serious/critical axe violations.
-- **D7 — the deviation row.** `CLAUDE.md` (Deviations table) + a doc test asserting it.
+- [x] **D7 — the deviation row.** `CLAUDE.md` (Deviations table) + a doc test asserting it.
   *Accepted when:* the row names the "no image assets in the UI" rule, story 084 and the
   foreign-content reason, and the test fails if the row is removed.
 
@@ -189,6 +189,94 @@ templates that carry an image). Nothing here changes the CSP; the whole story is
 
 No manual residue.
 
+## Decisions (Build / review-fix cycle)
+
+- **resolveSlideTemplate no longer falls back to `text` for a known template (`split`/`banner`)
+  just because an image is absent.** 083's original rule ("a known template with a missing image
+  is rendered by `text`") is superseded by this story's AC3, which literally lists "image is
+  missing" as one of the three cases the template must survive without collapsing. D4 (which
+  strips the pre-resolution `image` field from every resolved slide) made the old check dead in
+  production regardless: a resolved slide never carries `image`, so the old `slide.image ? … :
+  'text'` check always chose `text`, and D5's full-width fallback rendering was unreachable outside
+  a hand-built fixture. Fixed in `resolveSlideTemplate.ts` (now: unknown `template` → `text`; known
+  `template` → itself, always) and its test in `slides.test.tsx`. Caught by the clean-agent review,
+  not by any of D1–D7's own tests — a real cross-deliverable integration gap between D4 and D5/083.
+- **A declared `image` path is now validated before it is turned into a fetch URL**
+  (`isSafeDeclaredImagePath()` in `resolve-feed-images.ts`): boring `/`-separated path segments, no
+  `..`, no leading `/`, no scheme. `feed-fetcher.ts`'s own `isSafeNewsDocumentName()` couldn't be
+  reused as-is (it forbids `/` outright, and an image legitimately lives under `img/`). An unsafe
+  path is treated as "no image" and logged, mirroring the document-name precedent. No AC required
+  this, but the module's own doc comments already hold `.md` document names to this discipline and
+  the image path is the same class of foreign content.
+- **The persisted `imageUrl` cache field is now shape-constrained** (`feed-cache.ts`'s
+  `cachedSlideSchema`, `z.string().startsWith(...)`) to exactly the `q2launcher://app/news-image/`
+  prefix `resolve-feed-images.ts` ever writes, closing the gap where a hand-edited or corrupted
+  cache file could otherwise put an arbitrary string into a field the renderer trusts and puts
+  straight into `<img src>`. A round-trip test for `imageUrl` was added to
+  `feed-cache.test.ts` (previously the field had zero test coverage — deleting the schema line
+  would not have failed anything).
+- **`src/main/modules/downloads/layering.test.ts`** needed a one-line allowlist addition for
+  `fetch-image.ts` (mentions `net.fetch` only in a doc comment, same as the pre-existing
+  `feed-fetcher.ts` entry) — a regression the D2/D3 agents' own directory-scoped test runs did not
+  catch because neither ran the full suite.
+- **Known, accepted gap (not fixed, does not block any AC):** the "(User) drop a cached image when
+  its upstream source disappears" decision is implemented (`fetch-image.ts`'s `gone` branch deletes
+  the cached file on 404/410) but is only reachable from a cache *miss*'s first fetch —
+  `resolve-feed-images.ts` never re-requests an image that already exists on disk, so an upstream
+  withdrawal is never actually observed once an image is cached. A real fix needs conditional-GET
+  revalidation on every refresh (the Plan's step 2 mentions "conditional GET" but D2 did not
+  implement it), which is a larger change than any deliverable's "Accepted when" describes and is
+  not covered by any of AC1–AC7's tests. Left as a follow-up rather than expanded scope mid-review.
+- **Known, accepted layering note:** `src/main/lib/renderer-source.ts` (a `lib/` file) now imports
+  `isSafeNewsImageFileName` from `src/main/modules/home/images/paths.ts` (a module), the first
+  `lib/*` file to import a main-side feature module. Deliberate (one owner for "what may a cached
+  image be called," per D3's own reasoning) and has no import cycle, but it inverts the shell/module
+  direction CLAUDE.md otherwise holds to; noted for whoever next touches the protocol handler.
+- Orphaned `.part` files from a crash mid-download are excluded from `planImageEviction` by design
+  (same as the pre-existing `downloads` cache) and are therefore not subject to the item cap; noted,
+  not fixed — same accepted shape as the precedent this story mirrors.
+
 ## Done
 
-_Filled by `/build 084`._
+**Summary:** Main-side image cache (`src/main/modules/home/images/`: `paths.ts`, `image-cache.ts`,
+`fetch-image.ts`, `resolve-feed-images.ts`) downloads, validates (size/dimension/decodability),
+content-addresses and evicts (24-item cap, current-feed keep-set) slide images, served over a new
+`/news-image/` branch of the existing `q2launcher://app` protocol handler
+(`src/main/lib/renderer-source.ts`) with the production CSP byte-for-byte unchanged. `split`/
+`banner` templates (`SlideSplit.tsx`/`SlideBanner.tsx`) render the image when present and fall back
+to a full-width text layout when absent, keeping the hero's height. `CLAUDE.md` records the
+deviation for this story. Fixture + two `ui:verify` screens (`home-hero-slide-image`,
+`home-hero-slide-image-failed`) prove both cases offline at zero axe violations.
+
+**Commit message:** `084: slide images come from the launcher's own cache`
+
+**Verification:**
+- `npm run typecheck` — clean (node + web).
+- `npm test` — 183 files / 3493 tests passed.
+- `npm run build` — clean.
+- `npm run ui:verify` — full run, 39/39 screens (78 shot variants), 0 axe violations of any
+  severity; `home-hero-slide-image` and `home-hero-slide-image-failed` both reached and rendered
+  correctly, from the fixture, with no network access.
+- Clean-agent review (`story-review-hard`): first pass **FAIL** (findings below), fixed directly by
+  the orchestrator (not a re-delegated D), then verification re-run green as above. One review-fix
+  cycle used of the 3 allowed.
+
+**AC → test mapping, as verified:**
+- AC1 → `resolve-feed-images.test.ts` › "a resolved slide carries a q2launcher URL and no remote
+  origin" (PASS) + e2e `home-hero-slide-image` (reached, image rendered, offline) — PASS.
+- AC2 → `renderer-source.test.ts` › "the production CSP is unchanged by the news-image route"
+  (literal string equality; header asserted on 200 and 404) — PASS.
+- AC3 → `fetch-image.test.ts` › oversized/undecodable/non-image rejection (PASS) + `slides.test.tsx`
+  › split/banner full-width without an image (PASS, and now actually reachable in production after
+  the `resolveSlideTemplate` fix — see Decisions) + e2e `home-hero-slide-image-failed` — PASS.
+- AC4 → `resolve-feed-images.test.ts` › "a cached image makes no network attempt" (`fetchImpl`
+  asserted uncalled) — PASS; both e2e screens run with no network access.
+- AC5 → `image-cache.test.ts` › "eviction respects the item cap and never removes a current feed's
+  image" (keep-set member seeded as the *oldest* entry, so it can't pass by accident) — PASS.
+- AC6 → `deviation-doc.test.ts` › "CLAUDE.md records the feed-image deviation for story 084"
+  (verified to fail when the row is removed) — PASS.
+- AC7 → e2e screens `home-hero-slide-image` / `home-hero-slide-image-failed`, 0 serious/critical
+  (in fact 0 of any severity) axe violations, seeded entirely from the fixture — PASS.
+
+No manual residue. No open points beyond the two "known, accepted" items recorded above (neither
+blocks an acceptance criterion).

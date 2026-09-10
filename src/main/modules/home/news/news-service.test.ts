@@ -21,6 +21,11 @@ function fakeLog(): NewsServiceLog {
   return { info: vi.fn(), warn: vi.fn() }
 }
 
+/** Story 084 D4: `resolveFeedImages()` needs a `userDataPath`; none of this file's fixtures ever
+ * declare a slide `image`, so nothing here actually reads or writes under it - a path that never
+ * resolves to a real directory is deliberate, not a fixture oversight. */
+const TEST_USER_DATA_PATH = '/q2-launcher-test-user-data-does-not-exist'
+
 /** A minimal `NewsFeedCache` stand-in: an in-memory box, same `read()`/`write()` shape. */
 function fakeCache() {
   let data: NewsFeedCacheData | undefined
@@ -71,6 +76,7 @@ describe('news-service source', () => {
       const fetchDocuments = vi.fn(async (): Promise<FetchNewsResult> => changedResult())
       const service = createNewsService({
         isDev: false,
+        userDataPath: TEST_USER_DATA_PATH,
         log: fakeLog(),
         onChanged: vi.fn(),
         cache: fakeCache(),
@@ -106,6 +112,7 @@ describe('news-service: cold start', () => {
     const cache = fakeCache()
     const service = createNewsService({
       isDev: false,
+      userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged: vi.fn(),
       cache,
@@ -131,6 +138,7 @@ describe('news-service: AC7 a failed refresh delivers the cached feed with its r
 
     const service = createNewsService({
       isDev: false,
+      userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged,
       cache,
@@ -165,6 +173,7 @@ describe('news-service: AC9 change detection', () => {
 
     const service = createNewsService({
       isDev: false,
+      userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged,
       cache,
@@ -191,6 +200,7 @@ describe('news-service: AC9 change detection', () => {
 
     const service = createNewsService({
       isDev: false,
+      userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged,
       cache,
@@ -239,6 +249,7 @@ describe('news-service: delivery-time visibility re-filter', () => {
 
     const service = createNewsService({
       isDev: false,
+      userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged: vi.fn(),
       cache,
@@ -273,6 +284,7 @@ describe('news-service: a not-yet-visible cached slide surfaces once now catches
 
     const service = createNewsService({
       isDev: false,
+      userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged: vi.fn(),
       cache,
@@ -290,6 +302,7 @@ describe('news-service: a not-yet-visible cached slide surfaces once now catches
     // cleanest way to prove this without any in-process state helping it along).
     const laterService = createNewsService({
       isDev: false,
+      userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged: vi.fn(),
       cache,
@@ -326,6 +339,7 @@ describe('news-service: getNews() delivery-time sort', () => {
 
     const service = createNewsService({
       isDev: false,
+      userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged: vi.fn(),
       cache,

@@ -64,11 +64,11 @@ describe('SlideText', () => {
 })
 
 describe('SlideSplit', () => {
-  it('renders title, body, image and buttons when an image is present', () => {
+  it('renders title, body, image and buttons when imageUrl is present', () => {
     const onOpenUrl = vi.fn()
     const slide = baseSlide({
       template: 'split',
-      image: 'https://example.com/img/q2pro.png',
+      imageUrl: 'q2launcher://app/news-image/abc123.png',
       buttons: [{ label: 'Download', url: 'https://github.com/skullernet/q2pro/releases/latest' }],
     })
 
@@ -77,56 +77,75 @@ describe('SlideSplit', () => {
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(slide.title)
     expect(screen.getByText(slide.body)).toBeTruthy()
     const img = container.querySelector('img') as HTMLImageElement
-    expect(img.getAttribute('src')).toBe(slide.image)
+    expect(img.getAttribute('src')).toBe(slide.imageUrl)
     expect(screen.getByRole('button', { name: 'Download' })).toBeTruthy()
+    // The text column keeps its normal (non-full-width) class when an image is present.
+    const content = container.querySelector('.home-hero-content') as HTMLElement
+    expect(content.className.split(/\s+/)).not.toContain('home-hero-content-full')
+    // The hero frame's own height comes from `NewsHero`'s fixed-height ancestor, never from this
+    // template - so nothing here toggles when an image is present.
+    expect(container.querySelector('.home-hero-slide-split')).toBeTruthy()
   })
 
-  it('falls back to the text layout when the slide has no image', () => {
+  it('renders title, body and buttons at full width - no broken image or empty box - when imageUrl is absent', () => {
     const onOpenUrl = vi.fn()
     const slide = baseSlide({ template: 'split' })
 
     const { container } = render(<SlideSplit slide={slide} onOpenUrl={onOpenUrl} />)
 
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(slide.title)
+    expect(screen.getByText(slide.body)).toBeTruthy()
+    // No <img> at all - not even one with an empty/undefined src.
     expect(container.querySelector('img')).toBeNull()
+    // No reserved media box left behind either.
+    expect(container.querySelector('.home-hero-media')).toBeNull()
+    // The text column takes the full width instead.
+    const content = container.querySelector('.home-hero-content') as HTMLElement
+    expect(content.className.split(/\s+/)).toContain('home-hero-content-full')
+    // The frame/slide wrapper itself is unchanged - same classes as the with-image case, so the
+    // hero's height is never conditional on image presence.
+    expect(container.querySelector('.home-hero-slide-split')).toBeTruthy()
   })
 })
 
 describe('SlideBanner', () => {
-  it('renders title, body, image and buttons when an image is present', () => {
+  it('renders title, body, image and buttons when imageUrl is present', () => {
     const onOpenUrl = vi.fn()
     const slide = baseSlide({
       template: 'banner',
-      image: 'https://example.com/img/q2pro.png',
+      imageUrl: 'q2launcher://app/news-image/abc123.png',
       buttons: [{ label: 'Changelog', url: 'https://github.com/skullernet/q2pro/releases' }],
     })
 
     const { container } = render(<SlideBanner slide={slide} onOpenUrl={onOpenUrl} />)
 
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(slide.title)
-    expect(container.querySelector('img')).toBeTruthy()
+    const img = container.querySelector('img') as HTMLImageElement
+    expect(img.getAttribute('src')).toBe(slide.imageUrl)
     expect(screen.getByRole('button', { name: 'Changelog' })).toBeTruthy()
+    const content = container.querySelector('.home-hero-content') as HTMLElement
+    expect(content.className.split(/\s+/)).not.toContain('home-hero-content-full')
   })
 
-  it('falls back to the text layout when the slide has no image', () => {
+  it('renders title, body and buttons at full width - no broken image or empty box - when imageUrl is absent', () => {
     const onOpenUrl = vi.fn()
     const slide = baseSlide({ template: 'banner' })
 
     const { container } = render(<SlideBanner slide={slide} onOpenUrl={onOpenUrl} />)
 
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(slide.title)
     expect(container.querySelector('img')).toBeNull()
+    expect(container.querySelector('.home-hero-media')).toBeNull()
+    const content = container.querySelector('.home-hero-content') as HTMLElement
+    expect(content.className.split(/\s+/)).toContain('home-hero-content-full')
+    expect(container.querySelector('.home-hero-slide-banner')).toBeTruthy()
   })
 })
 
 describe('resolveSlideTemplate', () => {
-  it('resolves a known template with an image to itself', () => {
-    expect(resolveSlideTemplate({ template: 'split', image: 'img/x.png' })).toBe('split')
-    expect(resolveSlideTemplate({ template: 'banner', image: 'img/x.png' })).toBe('banner')
-  })
-
-  it('falls back to text when a known template has no image', () => {
-    expect(resolveSlideTemplate({ template: 'split' })).toBe('text')
-    expect(resolveSlideTemplate({ template: 'banner' })).toBe('text')
+  it('resolves a known template to itself regardless of image presence (story 084 AC3: the template stays intact, SlideSplit/SlideBanner render the full-width fallback when there is no image)', () => {
+    expect(resolveSlideTemplate({ template: 'split' })).toBe('split')
+    expect(resolveSlideTemplate({ template: 'banner' })).toBe('banner')
   })
 
   it('falls back to text for an unrecognised template value', () => {

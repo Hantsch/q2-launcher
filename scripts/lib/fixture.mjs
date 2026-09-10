@@ -116,6 +116,125 @@ function writeNewsFeedCache(userDataDir, { slides, retrievedAt, lastRefreshFaile
   })
 }
 
+// --- story 084 D6: the hero's cached-image slides ("image present" / "image failed") ----------
+//
+// Mirrors src/main/lib/content-repo.ts's `CONTENT_REPO_RAW_BASE`, src/main/modules/home/news/
+// feed-fetcher.ts's `NEWS_DIRECTORY` ('news') and src/main/modules/home/images/paths.ts's
+// `newsImageFileName()` (sha256-hex-of-source-url + extension) - the same three facts
+// `resolve-feed-images.ts`'s `imageSourceUrl()`/`imageUrlFor()` combine in production. This file
+// cannot `import` that TS module at runtime (see the top-of-file note), so the hashing is
+// replicated here byte-for-byte instead of hand-typing a name, which is what keeps the fixture's
+// file name provably the one `newsImageFileName(sourceUrl, 'png')` would have produced for the
+// same URL.
+const CONTENT_REPO_RAW_BASE = 'https://raw.githubusercontent.com/Hantsch/q2_community_content/main'
+const NEWS_DIRECTORY = 'news'
+
+/** Mirrors `newsImageFileName()` (`src/main/modules/home/images/paths.ts`): sha256 hex of the
+ * source URL, plus extension. */
+function newsImageFileName(sourceUrl, ext) {
+  const digest = createHash('sha256').update(sourceUrl).digest('hex')
+  return `${digest}.${ext}`
+}
+
+/** The declared frontmatter path resolved against `NEWS_DIRECTORY`/`CONTENT_REPO_RAW_BASE`, the
+ * same join `resolve-feed-images.ts`'s `imageSourceUrl()` performs. */
+function newsImageSourceUrl(relativeImagePath) {
+  return `${CONTENT_REPO_RAW_BASE}/${NEWS_DIRECTORY}/${relativeImagePath}`
+}
+
+/** The real fixture image `story 085` already stages under `content/q2_community_content/news/
+ * img/` - reused here rather than inventing new bytes, so the "image present" screen shows a real
+ * picture. */
+const NEWS_IMAGE_SOURCE_FILE = join(REPO_ROOT, 'content', 'q2_community_content', 'news', 'img', 'split-bootstrap.png')
+const NEWS_IMAGE_RELATIVE_PATH = 'img/split-bootstrap.png'
+const NEWS_IMAGE_EXT = 'png'
+
+/** `id`/`title`/`body` for the two `news-images`-variant slides - exported so `screens.mjs` can
+ * wait on their exact title text rather than guessing. */
+export const NEWS_IMAGE_PRESENT_SLIDE_ID = 'fixture-news-slide-image-present'
+export const NEWS_IMAGE_FAILED_SLIDE_ID = 'fixture-news-slide-image-failed'
+
+/**
+ * `home-hero-slide-image`'s slide (AC6/D6): a `split`-template slide whose `imageUrl` is a real
+ * `q2launcher://` URL for a file this fixture actually writes to
+ * `userData/cache/news-images/<name>.png` below - the exact cache-hit shape `resolve-feed-images.ts`
+ * produces (D4), just built by hand since the fixture never runs that pipeline. Per `NewsSlide`'s
+ * own doc comment ("resolved slides never carry `image` forward"), only `imageUrl` is set here.
+ */
+function newsImagePresentSlide() {
+  const fileName = newsImageFileName(newsImageSourceUrl(NEWS_IMAGE_RELATIVE_PATH), NEWS_IMAGE_EXT)
+  return {
+    id: NEWS_IMAGE_PRESENT_SLIDE_ID,
+    template: 'split',
+    order: 1,
+    title: 'Bootstrap Wizard Arrives',
+    body: "A real cached slide image, served from the launcher's own userData cache - never a remote origin.",
+    imageUrl: `q2launcher://app/news-image/${fileName}`,
+    buttons: [],
+  }
+}
+
+/**
+ * `home-hero-slide-image-failed`'s slide (AC6/D6): same `split` template, but a cache miss baked
+ * in at seed time rather than a live fetch attempt - nothing under this name is ever written to
+ * `cache/news-images/` by this fixture. `image` is set here purely as authoring metadata (mirrors
+ * what a real un-resolved/rejected entry would still declare in its frontmatter); it plays no part
+ * in template selection - `resolveSlideTemplate()`
+ * (`src/renderer/src/modules/home/components/resolveSlideTemplate.ts`) keeps a `split`/`banner`
+ * slide on its own template unconditionally (084 AC3: the template stays intact without an image),
+ * so this slide proves the `split` template's own full-width no-image fallback (D5) purely via the
+ * absence of `imageUrl`, not via any branching on `image`.
+ */
+function newsImageFailedSlide() {
+  return {
+    id: NEWS_IMAGE_FAILED_SLIDE_ID,
+    template: 'split',
+    order: 2,
+    title: 'Point Release Notes',
+    body: 'This slide references an image that never made it into the cache - the template still renders full width, no broken-image icon.',
+    image: 'img/point-release-missing.png',
+    buttons: [],
+  }
+}
+
+/** Writes the real fixture PNG into `userData/cache/news-images/<name>.png` - a genuine cache hit,
+ * not a stub - so the `q2launcher://news-image/...` route actually serves bytes back (AC5's
+ * "image present" half). Mirrors the downloads-cache seeding style at `writeDownloadsCacheArchives()`
+ * below: create the cache directory, then write real file bytes into it. */
+function writeNewsImageCacheFile(userDataDir) {
+  const cacheDir = join(userDataDir, 'cache', 'news-images')
+  mkdirSync(cacheDir, { recursive: true })
+  const fileName = newsImageFileName(newsImageSourceUrl(NEWS_IMAGE_RELATIVE_PATH), NEWS_IMAGE_EXT)
+  const bytes = readFileSync(NEWS_IMAGE_SOURCE_FILE)
+  writeFileSync(join(cacheDir, fileName), bytes)
+}
+
+/**
+ * Deletes and rewrites the `news-images` variant's userdata: no installations/profiles (this
+ * fixture's only job is the hero's two image slides), a fresh feed cache carrying
+ * `newsImagePresentSlide()`/`newsImageFailedSlide()`, and the one real cached PNG the "present"
+ * slide's `imageUrl` resolves to. A dedicated variant, not an extension of `populated`'s own
+ * two-slide feed (`NEWS_FIXTURE_SLIDES`): `scripts/flows/home-hero-carousel.mjs` documents and
+ * relies on `populated` seeding "exactly two slides to dot/prev/next through", so growing that
+ * feed here would silently invalidate that flow's own assumption instead of adding a screen.
+ */
+export function writeNewsImagesFixture() {
+  const userDataDir = variantUserDataDir('news-images')
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  writeJson(join(userDataDir, STATE_FILE), emptyStateDocument())
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+  writeNewsFeedCache(userDataDir, {
+    slides: [newsImagePresentSlide(), newsImageFailedSlide()],
+    retrievedAt: FIXED_TIMESTAMP,
+    lastRefreshFailed: false,
+  })
+  writeNewsImageCacheFile(userDataDir)
+
+  return { userDataDir, installations: 0, configProfiles: 0 }
+}
+
 /** Root all fixture game directories live under: `.ui-verify/fixture/game/<install>/`. */
 function gameRoot() {
   return join(UI_VERIFY_ROOT, 'fixture', 'game')
@@ -1257,10 +1376,11 @@ export function writeFixture(variant) {
   if (variant === 'empty') return writeEmptyFixture()
   if (variant === 'controls-seed') return writeControlsSeedFixture()
   if (variant === 'news-stale') return writeNewsStaleFixture()
+  if (variant === 'news-images') return writeNewsImagesFixture()
   throw new Error(`unknown fixture variant: ${variant}`)
 }
 
-export const FIXTURE_VARIANTS = ['populated', 'empty', 'controls-seed', 'news-stale']
+export const FIXTURE_VARIANTS = ['populated', 'empty', 'controls-seed', 'news-stale', 'news-images']
 
 // --- story 066 D8: the import-from-files flow's staged real-config corpus ---------------------
 //

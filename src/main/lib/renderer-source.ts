@@ -1,3 +1,5 @@
+import { isSafeNewsImageFileName } from '../modules/home/images/paths'
+
 /**
  * Story 035: the whole decidable part of "how does the renderer document get to the window,
  * and what CSP travels with it" — kept free of `electron` so it can be unit-tested without
@@ -70,6 +72,12 @@ const MIME_TYPES: Record<string, string> = {
   '.avif': 'image/avif',
   '.ico': 'image/vnd.microsoft.icon',
   '.json': 'application/json',
+  // Story 084 D3: the remaining extensions the news-image cache is ever allowed to hold
+  // (`SAFE_NEWS_IMAGE_EXTENSIONS` in `modules/home/images/paths.ts`; `.png` is already above).
+  // Cached slide images are served through the same content-type inference as the bundle.
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
 }
 
 const DEFAULT_MIME_TYPE = 'application/octet-stream'
@@ -113,6 +121,22 @@ function resolveWithinRoot(root: string, requestPath: string): string | null {
   return `${normalizedRoot}/${stack.join('/')}`
 }
 
+/**
+ * Story 084 D3: the path prefix cached slide images are served under - `q2launcher://app` +
+ * this + a bare file name. Deliberately a second *path* on the existing host, not a second host:
+ * another host would be another origin, and `img-src 'self'` would then need widening, which
+ * story 084 AC2 (the production CSP is byte-for-byte unchanged) forbids.
+ */
+export const NEWS_IMAGE_PATH_PREFIX = '/news-image/'
+
+/** The news-image cache as far as serving it is concerned (story 084 D3). */
+export interface NewsImageSource {
+  /** Absolute path to the cache directory (`getNewsImagesCacheDir()`, `userData/cache/news-images`). */
+  root: string
+  /** Injectable file reader, same seam as the renderer root's. */
+  readFile: (path: string) => Promise<Buffer>
+}
+
 export interface CreateRendererProtocolHandlerInput {
   /** Absolute path to the built renderer directory (`out/renderer` in production). */
   root: string
@@ -120,6 +144,13 @@ export interface CreateRendererProtocolHandlerInput {
   csp: string
   /** Injectable file reader so tests can supply an in-memory implementation. */
   readFile: (path: string) => Promise<Buffer>
+  /**
+   * Second, separate root for cached feed images (story 084 D3). Optional: a handler built
+   * without it answers every `/news-image/` request with a 404 - the feature is then absent, not
+   * broken. Foreign bytes get their own root on purpose; putting them under the renderer root
+   * would mean downloaded content living inside `out/renderer`.
+   */
+  newsImages?: NewsImageSource
 }
 
 /**
@@ -130,12 +161,48 @@ export interface CreateRendererProtocolHandlerInput {
 export function createRendererProtocolHandler(
   input: CreateRendererProtocolHandlerInput,
 ): (request: Request) => Promise<Response> {
-  const { root, csp, readFile } = input
+  const { root, csp, readFile, newsImages } = input
 
   // Every response this handler returns must carry the CSP - including 404s, so a missing or
   // corrupt file inside the packaged asar still produces a policy-protected document instead of
   // a policy-less fail-open one. Built per handler instance since it closes over `csp`.
   const notFound = (): Response => new Response(null, { status: 404, headers: { 'Content-Security-Policy': csp } })
+
+  /**
+   * Story 084 D3: serves one cached slide image, given the decoded path *after* the
+   * `/news-image/` prefix. This branch never falls through to the renderer root - every failure
+   * returns a 404 here - and it accepts nothing but a bare file name: `isSafeNewsImageFileName`
+   * (the one owner of what the cache may ever contain, `modules/home/images/paths.ts`) matches
+   * 64 lowercase hex characters plus an allowed extension and therefore rejects a `/` or `\`
+   * separator, a `..` token, a nested path and an unexpected extension in a single check - a name
+   * validated as a name, not a path sanitised after the fact.
+   */
+  const serveNewsImage = async (fileName: string): Promise<Response> => {
+    if (!newsImages) return notFound()
+    if (!isSafeNewsImageFileName(fileName)) return notFound()
+
+    // Defence in depth at the statement that actually reads, mirroring the "re-check the rule
+    // where it matters" discipline of `modules/home/images/image-cache.ts`'s delete path: a name
+    // that got this far cannot contain a separator, so this can only ever be a direct child of
+    // the cache root - and if that ever stops being true, the containment check says no.
+    const resolvedPath = resolveWithinRoot(newsImages.root, fileName)
+    if (resolvedPath === null) return notFound()
+
+    let contents: Buffer
+    try {
+      contents = await newsImages.readFile(resolvedPath)
+    } catch {
+      return notFound()
+    }
+
+    return new Response(contents, {
+      status: 200,
+      headers: {
+        'Content-Type': mimeTypeFor(resolvedPath),
+        'Content-Security-Policy': csp,
+      },
+    })
+  }
 
   return async function handleRendererRequest(request: Request): Promise<Response> {
     let url: URL
@@ -157,6 +224,16 @@ export function createRendererProtocolHandler(
       decodedPath = decodeURIComponent(url.pathname)
     } catch {
       return notFound()
+    }
+
+    // Story 084 D3: the news-image route is decided here, on the *decoded* path and before the
+    // renderer root is consulted at all - so a cached image can never be looked up inside
+    // `out/renderer`, and a `/news-image/...` request can never reach `resolveWithinRoot(root,
+    // ...)` to be resolved against the renderer root. Deciding it on the decoded path (rather
+    // than on `url.pathname`) means an escape attempt smuggled in as `%2f` lands in the branch
+    // that rejects it by name, instead of missing the prefix and falling through.
+    if (decodedPath.startsWith(NEWS_IMAGE_PATH_PREFIX)) {
+      return serveNewsImage(decodedPath.slice(NEWS_IMAGE_PATH_PREFIX.length))
     }
 
     const requestPath = decodedPath === '' || decodedPath === '/' ? '/index.html' : decodedPath
