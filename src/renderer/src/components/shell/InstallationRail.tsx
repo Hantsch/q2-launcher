@@ -260,6 +260,20 @@ function RailCard({ installation }: { installation: Installation }) {
 
   return (
     <div className="space-y-2.5">
+      <Button
+        variant={playable ? 'primary' : 'neutral'}
+        size="sm"
+        fullWidth
+        disabled={!playable}
+        icon={<Play className="size-3.5" />}
+        onClick={() => {
+          void setActive(installation.id)
+          void play(installation.id)
+        }}
+      >
+        {t('rail.quickPlay')}
+      </Button>
+
       <div className="space-y-1">
         <div className="truncate font-display text-sm tracking-wide text-ink uppercase">
           {installation.name}
@@ -288,20 +302,6 @@ function RailCard({ installation }: { installation: Installation }) {
           {t('installation.mods', { count: installation.gameDirs.length })}
         </p>
       )}
-
-      <Button
-        variant={playable ? 'primary' : 'neutral'}
-        size="sm"
-        fullWidth
-        disabled={!playable}
-        icon={<Play className="size-3.5" />}
-        onClick={() => {
-          void setActive(installation.id)
-          void play(installation.id)
-        }}
-      >
-        {t('rail.quickPlay')}
-      </Button>
     </div>
   )
 }
