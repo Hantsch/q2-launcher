@@ -43,6 +43,12 @@ const engineOptions: BootstrapEngineOption[] = [
   { engine: 'q2pro', packageId: 'engine-q2pro', version: '1.0.0', sizeBytes: 1_000_000 },
 ]
 
+/** Story 080 D2: both bootstrap-supported engines pinned, for the engine-selection tests below. */
+const twoEngineOptions: BootstrapEngineOption[] = [
+  { engine: 'q2pro', packageId: 'engine-q2pro', version: '1.0.0', sizeBytes: 1_000_000 },
+  { engine: 'r1q2', packageId: 'engine-r1q2', version: 'b8012-msvs2022', sizeBytes: 751_580 },
+]
+
 const verdict: BootstrapTargetVerdict = {
   targetPath: 'D:\\Games\\Quake II',
   blocked: false,
@@ -65,14 +71,18 @@ const getDownloadFailures = vi.fn(async (): Promise<{ ok: true; value: DownloadF
   value: [],
 }))
 
+const getBootstrapEngineOptions = vi.fn(async () => ({ ok: true, value: engineOptions }))
+const startBootstrapInstall = vi.fn(async () => ({
+  ok: true,
+  value: { jobId: 'job-1', installationId: 'inst-1' },
+}))
+
 vi.mock('../client', () => ({
-  getBootstrapEngineOptions: vi.fn(async () => ({ ok: true, value: engineOptions })),
+  getBootstrapEngineOptions: (...args: unknown[]) =>
+    getBootstrapEngineOptions(...(args as [])),
   getBootstrapTargetVerdict: vi.fn(async () => ({ ok: true, value: verdict })),
   getBootstrapSummary: vi.fn(async () => ({ ok: true, value: summary })),
-  startBootstrapInstall: vi.fn(async () => ({
-    ok: true,
-    value: { jobId: 'job-1', installationId: 'inst-1' },
-  })),
+  startBootstrapInstall: (...args: unknown[]) => startBootstrapInstall(...(args as [])),
   getDownloadFailures: (...args: unknown[]) => getDownloadFailures(...(args as [])),
 }))
 
@@ -252,5 +262,75 @@ describe('BootstrapWizard failure fetch (story 078 D7, AC4)', () => {
       ).toBeTruthy(),
     )
     expect(document.querySelector('details')).toBeNull()
+  })
+})
+
+/**
+ * Story 080 D2: `EngineStep` now renders every pinned option as its own selectable row, and
+ * `BootstrapWizard` defaults the choice to the first option (so the existing single-Q2PRO UX
+ * still needs zero extra clicks) while a user's explicit pick on a later render is never
+ * overwritten by that default effect.
+ */
+describe('BootstrapWizard engine selection (story 080 D2, AC1)', () => {
+  it('defaults to the single pinned option and can proceed with zero clicks', async () => {
+    getBootstrapEngineOptions.mockResolvedValueOnce({ ok: true, value: engineOptions })
+
+    render(createElement(BootstrapWizard))
+
+    await screen.findByTestId('bootstrap-engine-q2pro')
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+  })
+
+  it('clicking the second row changes the selection before the job is started', async () => {
+    getBootstrapEngineOptions.mockResolvedValueOnce({ ok: true, value: twoEngineOptions })
+
+    render(createElement(BootstrapWizard))
+
+    await screen.findByTestId('bootstrap-engine-q2pro')
+    await screen.findByTestId('bootstrap-engine-r1q2')
+    // Defaulted to the first option - proceeding is already possible with zero clicks.
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+
+    fireEvent.click(screen.getByTestId('bootstrap-engine-r1q2'))
+    expect(screen.getByTestId('bootstrap-engine-r1q2').getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByTestId('bootstrap-engine-q2pro').getAttribute('aria-pressed')).toBe('false')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByTestId('bootstrap-target-path-input')
+    fireEvent.click(screen.getByRole('button', { name: 'Browse…' }))
+    await waitFor(() =>
+      expect(
+        (screen.getByTestId('bootstrap-target-path-input').querySelector('input') as HTMLInputElement)
+          .value,
+      ).toBe('D:\\Games\\Quake II'),
+    )
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    await screen.findByTestId('bootstrap-confirm-total-size')
+    await waitFor(() =>
+      expect((screen.getByTestId('bootstrap-confirm-start') as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+    fireEvent.click(screen.getByTestId('bootstrap-confirm-start'))
+
+    await waitFor(() =>
+      expect(startBootstrapInstall).toHaveBeenCalledWith(
+        expect.objectContaining({ engine: 'r1q2' }),
+      ),
+    )
   })
 })

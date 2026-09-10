@@ -1,0 +1,10 @@
+- [18:02] 080 D1 started: verified release inputs (manifest sync, no publish)
+- [18:05] 080 D1 done: manifest+fixtures synced, tests green
+- [18:05] 080 D2 started: engine-aware selection and assembly
+- [18:16] 080 D2 done: engine-aware selection and assembly, tests+typecheck green
+- [18:16] 080 D3 started: playable first launch and identity
+- [18:30] 080 D3 done: r1q2 runtime/config/notices/icon wired, tests+typecheck green
+- [18:30] 080 D4 started: end-to-end acceptance
+- [18:49] 080 D4 done: r1q2 e2e flow + fallback proof + pipeline/manifest tests green
+- [18:55] 080 review cycle 1 started: fix hardcoded license path + AC5 job tests + runtime copy
+- [19:01] 080 review cycle 1 done: license path fix + AC5 job tests + runtime copy link

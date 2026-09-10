@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { ENGINE_DEFINITIONS } from '@shared/types'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { assembleInstallation, buildAssemblePlan } from './assemble'
+import { assembleInstallation, buildAssemblePlan, type AssembleSource } from './assemble'
 
 /**
  * Story 074 D3. AC8 is a hard negative requirement: the 3.20 point-release package's extraction
@@ -72,10 +72,25 @@ async function namesUnder(dir: string): Promise<string[]> {
   }
 }
 
+/**
+ * Story 080 D2: `findSource` now restricts its search to sources whose `role` matches the plan
+ * entry's own role. Most of this suite's fixtures put every role's files in the same physical
+ * directory (they predate the per-role split), so this hands back one `AssembleSource` per role,
+ * all pointing at the same `dir` - preserving "everything in this one tree is findable" while
+ * still exercising the new role filter honestly (a q2pro-only test never needs the 'r1q2' role).
+ */
+function allRoleSources(dir: string, packageId = 'core'): AssembleSource[] {
+  return [
+    { packageId, dir, role: 'engine' },
+    { packageId, dir, role: 'demo' },
+    { packageId, dir, role: 'point-release' },
+  ]
+}
+
 describe('buildAssemblePlan (pure)', () => {
   it('the fixed allowlist entries do not depend on the toggle', () => {
-    const off = buildAssemblePlan({ includeVideoAndPlayers: false })
-    const on = buildAssemblePlan({ includeVideoAndPlayers: true })
+    const off = buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers: false })
+    const on = buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers: true })
 
     expect(off).toEqual(on)
     expect(off.map((e) => e.to).sort()).toEqual(
@@ -92,7 +107,7 @@ describe('buildAssemblePlan (pure)', () => {
 
   it('never plans a ctf/xatrix/rogue candidate, whatever the toggle', () => {
     for (const includeVideoAndPlayers of [false, true]) {
-      const plan = buildAssemblePlan({ includeVideoAndPlayers })
+      const plan = buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers })
       for (const entry of plan) {
         for (const candidate of entry.from) {
           expect(candidate.startsWith('ctf')).toBe(false)
@@ -104,7 +119,7 @@ describe('buildAssemblePlan (pure)', () => {
   })
 
   it('tags every entry with its role and required-ness per the story mapping', () => {
-    const plan = buildAssemblePlan({ includeVideoAndPlayers: false })
+    const plan = buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers: false })
     const byTo = new Map(plan.map((entry) => [entry.to, entry]))
 
     expect(byTo.get('baseq2/pak0.pak')).toMatchObject({ role: 'demo', required: true })
@@ -122,8 +137,9 @@ describe('assembleInstallation', () => {
     await seedVideoAndPlayers()
 
     const result = await assembleInstallation({
-      sources: [{ packageId: 'core', dir: sourceRoot }],
+      sources: allRoleSources(sourceRoot),
       targetRoot,
+      engine: 'q2pro',
       includeVideoAndPlayers: false,
     })
 
@@ -163,8 +179,9 @@ describe('assembleInstallation', () => {
     await seedVideoAndPlayers()
 
     const result = await assembleInstallation({
-      sources: [{ packageId: 'core', dir: sourceRoot }],
+      sources: allRoleSources(sourceRoot),
       targetRoot,
+      engine: 'q2pro',
       includeVideoAndPlayers: true,
     })
 
@@ -209,10 +226,12 @@ describe('assembleInstallation', () => {
 
       const result = await assembleInstallation({
         sources: [
-          { packageId: 'core', dir: sourceRoot },
-          { packageId: 'other', dir: otherSourceRoot },
+          { packageId: 'core', dir: sourceRoot, role: 'point-release' },
+          { packageId: 'core', dir: sourceRoot, role: 'engine' },
+          { packageId: 'other', dir: otherSourceRoot, role: 'demo' },
         ],
         targetRoot,
+        engine: 'q2pro',
         includeVideoAndPlayers: false,
       })
 
@@ -232,8 +251,9 @@ describe('assembleInstallation', () => {
     await writeFixtureFile('q2pro.exe')
 
     const result = await assembleInstallation({
-      sources: [{ packageId: 'core', dir: sourceRoot }],
+      sources: allRoleSources(sourceRoot),
       targetRoot,
+      engine: 'q2pro',
       includeVideoAndPlayers: false,
     })
 
@@ -259,8 +279,9 @@ describe('assembleInstallation', () => {
     await writeFixtureFile(join('rogue', 'pak0.pak'))
 
     const result = await assembleInstallation({
-      sources: [{ packageId: 'core', dir: sourceRoot }],
+      sources: allRoleSources(sourceRoot),
       targetRoot,
+      engine: 'q2pro',
       includeVideoAndPlayers: true,
     })
 
@@ -290,8 +311,9 @@ describe('assembleInstallation', () => {
     await writeFixtureFile('q2pro64.exe')
 
     const result = await assembleInstallation({
-      sources: [{ packageId: 'core', dir: sourceRoot }],
+      sources: allRoleSources(sourceRoot),
       targetRoot,
+      engine: 'q2pro',
       includeVideoAndPlayers: false,
     })
 
@@ -308,12 +330,13 @@ describe('assembleInstallation', () => {
     await writeFixtureFile(join('baseq2', 'pak2.pak'))
 
     const result = await assembleInstallation({
-      sources: [{ packageId: 'core', dir: sourceRoot }],
+      sources: allRoleSources(sourceRoot),
       targetRoot,
+      engine: 'q2pro',
       includeVideoAndPlayers: false,
     })
 
-    const plan = buildAssemblePlan({ includeVideoAndPlayers: false })
+    const plan = buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers: false })
     const pak0Entry = plan.find((entry) => entry.to === 'baseq2/pak0.pak')
     if (!pak0Entry) throw new Error('expected the plan to contain a baseq2/pak0.pak entry')
 
@@ -337,8 +360,9 @@ describe('assembleInstallation', () => {
     // Deliberately no video/ anywhere in the source tree.
 
     const result = await assembleInstallation({
-      sources: [{ packageId: 'core', dir: sourceRoot }],
+      sources: allRoleSources(sourceRoot),
       targetRoot,
+      engine: 'q2pro',
       includeVideoAndPlayers: true,
     })
 
@@ -354,8 +378,9 @@ describe('assembleInstallation', () => {
     await seedVideoAndPlayers()
 
     const result = await assembleInstallation({
-      sources: [{ packageId: 'core', dir: sourceRoot }],
+      sources: allRoleSources(sourceRoot),
       targetRoot,
+      engine: 'q2pro',
       includeVideoAndPlayers: true,
     })
 
@@ -386,8 +411,9 @@ describe('assembleInstallation', () => {
   it('a run that finds nothing reports every entry as missing', async () => {
     // sourceRoot exists but is empty - no fixture files were written into it.
     const result = await assembleInstallation({
-      sources: [{ packageId: 'core', dir: sourceRoot }],
+      sources: allRoleSources(sourceRoot),
       targetRoot,
+      engine: 'q2pro',
       includeVideoAndPlayers: true,
     })
 
@@ -405,5 +431,83 @@ describe('assembleInstallation', () => {
       { from: 'baseq2/video', to: 'baseq2/video', found: false },
     ])
     expect(result.copiedFiles).toEqual([])
+  })
+})
+
+/**
+ * Story 080 D2 (AC1/AC3/AC5/AC7): R1Q2 is a second, engine-specific block, and `findSource` now
+ * refuses to satisfy an `engine`-role entry from a non-`engine` source - even one that happens to
+ * contain a file at the very same relative path.
+ */
+describe('buildAssemblePlan (r1q2)', () => {
+  const R1Q2_ENGINE_TARGET =
+    ENGINE_DEFINITIONS.find((engine) => engine.kind === 'r1q2')?.executables[0] ?? 'r1q2.exe'
+
+  it('produces exactly the three required r1q2 entries and none of the q2pro ones', () => {
+    const plan = buildAssemblePlan({ engine: 'r1q2', includeVideoAndPlayers: false })
+    const engineEntries = plan.filter((entry) => entry.role === 'engine')
+
+    expect(engineEntries).toEqual([
+      { from: ['r1q2.exe'], to: R1Q2_ENGINE_TARGET, role: 'engine', required: true },
+      { from: ['ref_r1gl.dll'], to: 'ref_r1gl.dll', role: 'engine', required: true },
+      { from: ['baseq2/gamex86.dll'], to: 'baseq2/gamex86.dll', role: 'engine', required: true },
+    ])
+    // The game-data entries (demo, point-release) are still there - engine-independent.
+    expect(plan.map((entry) => entry.to).sort()).toEqual(
+      [
+        'baseq2/pak0.pak',
+        'baseq2/pak1.pak',
+        'baseq2/pak2.pak',
+        'r1q2.exe',
+        'ref_r1gl.dll',
+        'baseq2/gamex86.dll',
+      ].sort(),
+    )
+    // Never any q2pro-only path.
+    for (const entry of plan) {
+      for (const candidate of entry.from) {
+        expect(candidate).not.toBe('q2pro.exe')
+        expect(candidate).not.toBe('q2pro64.exe')
+      }
+      expect(entry.to).not.toBe('baseq2/gamex86_64.dll')
+      expect(entry.to).not.toBe('baseq2/q2pro.menu')
+    }
+  })
+
+  it("AC5: a same-path file in the point-release source cannot satisfy the engine's required DLL", async () => {
+    // The point-release source really does contain a file at `baseq2/gamex86.dll` - engine-role's
+    // exact required path - but it comes from the wrong package. No `role: 'engine'` source exists
+    // at all, so the entry must be reported missing rather than silently satisfied by the
+    // point-release extraction.
+    await writeFixtureFile('r1q2.exe')
+    await writeFixtureFile('ref_r1gl.dll')
+
+    const otherSourceRoot = await mkdtemp(join(tmpdir(), 'q2-launcher-assemble-pr-'))
+    try {
+      await mkdir(join(otherSourceRoot, 'baseq2'), { recursive: true })
+      await writeFile(join(otherSourceRoot, 'baseq2', 'gamex86.dll'), 'wrong-package')
+      await writeFile(join(otherSourceRoot, 'baseq2', 'pak1.pak'), 'data')
+      await writeFile(join(otherSourceRoot, 'baseq2', 'pak2.pak'), 'data')
+
+      const result = await assembleInstallation({
+        sources: [
+          { packageId: 'engine-partial', dir: sourceRoot, role: 'engine' },
+          { packageId: 'point-release', dir: otherSourceRoot, role: 'point-release' },
+        ],
+        targetRoot,
+        engine: 'r1q2',
+        includeVideoAndPlayers: false,
+      })
+
+      expect(result.missingRequired).toContainEqual({
+        role: 'engine',
+        from: ['baseq2/gamex86.dll'],
+      })
+      expect(result.copiedFiles).not.toContain('baseq2/gamex86.dll')
+      // Confirms the point-release file really was there and really was refused, not merely absent.
+      expect(await namesUnder(join(targetRoot, 'baseq2'))).not.toContain('gamex86.dll')
+    } finally {
+      await rm(otherSourceRoot, { recursive: true, force: true })
+    }
   })
 })

@@ -36,6 +36,14 @@ export const PACKAGE_INCOMPLETE: DownloadsErrorKey = 'downloads.error.packageInc
 export const NOT_PLAYABLE: DownloadsErrorKey = 'downloads.error.installationNotPlayable'
 
 /**
+ * Story 080 D3 (AC5): the pinned engine build needs the x86 Visual C++ runtime
+ * (`VCRUNTIME140.dll`) and the bootstrap found neither the `SysWOW64` nor the `System32` copy of
+ * it on this machine. Distinct from `NOT_PLAYABLE`: this fires *before* the first revalidation, on
+ * a specific, actionable cause the inspector's generic verdict cannot name.
+ */
+export const MISSING_RUNTIME: DownloadsErrorKey = 'downloads.error.missingRuntime'
+
+/**
  * The catch-all for a local operation that failed for an unforeseen reason - a refused path, a
  * copy that threw, an `mkdir` that could not run. Same choice `pipeline.ts` makes for its own
  * unexpected-error path, and the key `fetcher.ts` already uses for a refused local path: of the

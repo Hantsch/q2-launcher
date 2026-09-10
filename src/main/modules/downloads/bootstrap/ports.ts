@@ -5,6 +5,7 @@ import { extractArchive } from '../extractor'
 import { downloadPackage } from '../fetcher'
 import { ManifestUnavailableError, type ManifestService } from '../manifest-service'
 import type { DownloadFn, ExtractFn } from '../pipeline'
+import { installR1q2Notices, probeX86Runtime, realFileExists, seedR1glConfig } from './r1q2-setup'
 
 /**
  * Story 074 D4: the three seams the bootstrap job reaches the outside world through - the
@@ -129,3 +130,29 @@ export const realPackageFetcher: PackageFetcher = { fetch: downloadPackage }
 
 /** The production `Extractor`. */
 export const realExtractor: Extractor = { extract: extractArchive }
+
+/**
+ * Story 080 D3: the seam `job.ts` calls R1Q2's own setup/runtime checks through
+ * (`r1q2-setup.ts`) - a port for the same reason every other one here is: a fake lets the job's
+ * tests exercise the x86-runtime gate and the config-seed/notice calls without touching the real
+ * machine or a real external checkout.
+ */
+export interface R1q2SetupPort {
+  /** Whether the x86 VC++ runtime `vcruntime140.dll` is present on this machine (AC5). */
+  probeX86Runtime(): Promise<boolean>
+  /** Forces `vid_ref "r1gl"` on a fresh install; a no-op if `baseq2/autoexec.cfg` already exists. */
+  seedR1glConfig(targetRoot: string): Promise<void>
+  /** Copies the R1Q2 mirror's GPLv3 license text into the target (AC8). Best-effort. */
+  installR1q2Notices(
+    targetRoot: string,
+    licenseSourceOverride?: string,
+    log?: BootstrapLog,
+  ): Promise<void>
+}
+
+/** The production `R1q2SetupPort`, over `r1q2-setup.ts`'s real implementations. */
+export const realR1q2Setup: R1q2SetupPort = {
+  probeX86Runtime: () => probeX86Runtime({ fileExists: realFileExists }),
+  seedR1glConfig,
+  installR1q2Notices,
+}

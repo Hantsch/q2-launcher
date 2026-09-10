@@ -1,7 +1,7 @@
 ---
 sprint: S18
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/18
 milestone: Phase 3 M1 (news hero) + M2 (dashboard); Phase 4 M1 (install — r1q2)
 ---
 
@@ -19,7 +19,7 @@ what is going on.
 
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
-- [ ] 080 — Install R1Q2 from the community package
+- [x] 080 — Install R1Q2 from the community package
 - [ ] 081 — The home screen belongs to a home module
 - [ ] 082 — The launcher fetches the community news feed
 - [ ] 085 — The content repository carries the news contract

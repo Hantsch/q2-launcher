@@ -23,7 +23,13 @@ import {
   startBootstrap,
   type BootstrapDeps,
 } from './bootstrap/job'
-import { manifestSourceFrom, realExtractor, realPackageFetcher } from './bootstrap/ports'
+import {
+  manifestSourceFrom,
+  realExtractor,
+  realPackageFetcher,
+  realR1q2Setup,
+} from './bootstrap/ports'
+import { resolveR1q2LicensePath } from './bootstrap/r1q2-setup'
 import { computeTargetVerdict } from './bootstrap/target'
 import { clear, enforceBudget, NOTHING_IN_USE, status } from './cache'
 import {
@@ -439,9 +445,18 @@ function bootstrapDepsFor(
     manifest: manifestSourceFrom(manifestService, log),
     fetcher: realPackageFetcher,
     extractor: realExtractor,
+    r1q2Setup: realR1q2Setup,
     userDataPath: userDataDir(),
     resolveExtractor: () =>
       resolveExtractorPath({
+        isPackaged: electronApp.isPackaged,
+        resourcesPath: process.resourcesPath,
+      }),
+    // Story 080 finding fix: resolved per call with the real `electron.app`, same as
+    // `resolveExtractor` above and for the same reason (`isPackaged`/`resourcesPath` only exist
+    // once `electron` is available).
+    resolveR1q2LicensePath: () =>
+      resolveR1q2LicensePath({
         isPackaged: electronApp.isPackaged,
         resourcesPath: process.resourcesPath,
       }),

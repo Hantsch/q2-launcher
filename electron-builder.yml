@@ -28,6 +28,13 @@ extraResources:
     filter:
       - '7za.exe'
       - 'License.txt'
+  # Checked-in GPLv3 boilerplate for R1Q2 (story 080 D3), copied into a fresh install by
+  # src/main/modules/downloads/bootstrap/r1q2-setup.ts via resolveR1q2LicensePath() in
+  # 7za-path.ts's own resourcesPath convention.
+  - from: resources/licenses/r1q2
+    to: licenses/r1q2
+    filter:
+      - 'GPL-3.0.txt'
 
 asar: true
 electronLanguages:

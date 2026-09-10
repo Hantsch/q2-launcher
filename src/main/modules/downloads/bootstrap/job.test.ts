@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -19,7 +19,15 @@ import {
   startBootstrap,
   type BootstrapDeps,
 } from './job'
-import type { BootstrapLog, Extractor, GameDataRole, ManifestSource, PackageFetcher } from './ports'
+import type {
+  BootstrapLog,
+  Extractor,
+  GameDataRole,
+  ManifestSource,
+  PackageFetcher,
+  R1q2SetupPort,
+} from './ports'
+import { installR1q2Notices, seedR1glConfig } from './r1q2-setup'
 
 /**
  * Story 074 D4. The job's correctness is a *sequencing* property, so this suite drives the real
@@ -60,6 +68,19 @@ const DEMO_PACKAGE: ManifestPackage = {
   contents: [{ from: 'baseq2/pak0.pak', to: 'baseq2' }],
 }
 
+/** Story 080 D2: the pinned R1Q2 engine package, standing in for `r1q2-b8012-msvs2022-win32`. */
+const R1Q2_ENGINE_PACKAGE: ManifestPackage = {
+  kind: 'engine',
+  engine: 'r1q2',
+  id: 'r1q2-b8012-msvs2022-win32',
+  version: 'b8012-msvs2022',
+  sizeBytes: 751580,
+  sha256: 'd'.repeat(64),
+  url: 'https://example.com/dl/R1Q2-b8012-msvs2022.7z',
+  mirrors: [],
+  contents: [{ from: 'r1q2.exe', to: 'root' }],
+}
+
 const POINT_RELEASE_PACKAGE: ManifestPackage = {
   kind: 'gamedata',
   role: 'point-release',
@@ -83,6 +104,9 @@ const POINT_RELEASE_PACKAGE: ManifestPackage = {
  */
 const FIXTURE_CONTENTS: Record<string, string[]> = {
   [ENGINE_PACKAGE.id]: ['q2pro.exe', 'baseq2/gamex86_64.dll'],
+  // Story 080 D2: the R1Q2 package's own three required files, plus `dedicated.exe` (AC3's
+  // exclusion) - this suite would notice the wired-up job dragging that in.
+  [R1Q2_ENGINE_PACKAGE.id]: ['r1q2.exe', 'ref_r1gl.dll', 'baseq2/gamex86.dll', 'dedicated.exe'],
   [DEMO_PACKAGE.id]: ['baseq2/pak0.pak'],
   // `ctf/pak0.pak` is what the real 3.20 archive also ships and what AC8 forbids in the target -
   // included here so this suite would notice the wired-up job dragging it in.
@@ -189,6 +213,15 @@ function harness(
      * assertions can be exact; the redaction case overrides it with one that does match.
      */
     homeDir?: string
+    /**
+     * Story 080 D3: whether `deps.r1q2Setup.probeX86Runtime()` reports the x86 VC++ runtime
+     * present. Defaults to `true` so every test written before this port existed keeps passing
+     * unmodified; only the runtime-gate tests override it. `seedR1glConfig`/`installR1q2Notices`
+     * are always the real implementations (real file I/O against this suite's own temp dirs, the
+     * same convention `assemble.test.ts` uses) - only the runtime probe is faked, since that is
+     * the one seam this suite cannot exercise for real.
+     */
+    r1q2RuntimePresent?: boolean
   } = {},
 ): Harness {
   const snapshots: Job[][] = []
@@ -281,6 +314,17 @@ function harness(
   }
   const homeDir = options.homeDir ?? join(dir, 'no-such-home')
 
+  // `installR1q2Notices` is the real implementation throughout - the nonexistent license path
+  // below (matching production's `resolveR1q2LicensePath`, now threaded via `BootstrapDeps`
+  // rather than defaulted inside `installR1q2Notices` itself) keeps it a real, best-effort no-op
+  // for every test that does not care about it: it logs a warning and never throws
+  // (`r1q2-setup.test.ts` covers that path directly).
+  const r1q2Setup: R1q2SetupPort = {
+    probeX86Runtime: () => Promise.resolve(options.r1q2RuntimePresent ?? true),
+    seedR1glConfig,
+    installR1q2Notices,
+  }
+
   return {
     jobs,
     installations,
@@ -293,8 +337,10 @@ function harness(
       manifest: options.manifest ?? fakeManifest(),
       fetcher,
       extractor,
+      r1q2Setup,
       userDataPath,
       resolveExtractor: () => ({ path: join(dir, '7za.exe'), exists: true }),
+      resolveR1q2LicensePath: () => join(dir, 'no-such-license.txt'),
       diagnostics: (jobId, kind) => createDiagnosticsCollector(jobId, kind, homeDir),
       log,
     },
@@ -763,6 +809,236 @@ describe('startBootstrap', () => {
     expect(box.installations.list()).toEqual([])
     // Untouched.
     expect((await readdir(targetPath)).sort()).toEqual(['baseq2', 'q2pro.exe'])
+  })
+
+  /**
+   * Story 080 D2 (AC1/AC3/AC5/AC7): starting a bootstrap with `engine: 'r1q2'` resolves R1Q2's own
+   * pinned package (not Q2PRO's), and assembles only R1Q2's three required files - never
+   * `dedicated.exe` (present in the fixture archive, AC3's exclusion) and never a Q2PRO-only path.
+   */
+  it('assembles only the r1q2 required files when the wizard picks R1Q2', async () => {
+    const box = harness({
+      manifest: fakeManifest([R1Q2_ENGINE_PACKAGE, DEMO_PACKAGE, POINT_RELEASE_PACKAGE]),
+    })
+
+    const started = await startBootstrap(box.deps, {
+      engine: 'r1q2',
+      targetPath,
+      includeVideoAndPlayers: false,
+    })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    const outcome = await started.value.settled
+
+    expect(outcome.status).toBe('succeeded')
+    expect(box.fetched).toEqual([
+      'R1Q2-b8012-msvs2022.7z',
+      'q2-314-demo-x86.exe',
+      'q2-3.20-x86-full-ctf.exe',
+    ])
+    expect(await exists(join(targetPath, 'r1q2.exe'))).toBe(true)
+    expect(await exists(join(targetPath, 'ref_r1gl.dll'))).toBe(true)
+    expect(await exists(join(targetPath, 'baseq2', 'gamex86.dll'))).toBe(true)
+    expect(await exists(join(targetPath, 'baseq2', 'pak0.pak'))).toBe(true)
+    expect(await exists(join(targetPath, 'baseq2', 'pak2.pak'))).toBe(true)
+    // AC3's exclusions: never dedicated.exe (shipped in the same fixture archive) and never a
+    // Q2PRO-only path.
+    expect(await exists(join(targetPath, 'dedicated.exe'))).toBe(false)
+    expect(await exists(join(targetPath, 'q2pro.exe'))).toBe(false)
+    expect(await exists(join(targetPath, 'baseq2', 'gamex86_64.dll'))).toBe(false)
+
+    const installation = box.installations.find(started.value.installationId)
+    expect(installation?.engineKind).toBe('r1q2')
+  })
+
+  /**
+   * Story 080 D3 (AC5): a machine without the x86 VC++ runtime gets an actionable failure instead
+   * of a playable verdict, even though every required file assembled without a hitch - the runtime
+   * gate fires strictly after `missingRequired` and before the first revalidation.
+   */
+  it('fails with downloads.error.missingRuntime when the x86 runtime is absent', async () => {
+    const box = harness({
+      manifest: fakeManifest([R1Q2_ENGINE_PACKAGE, DEMO_PACKAGE, POINT_RELEASE_PACKAGE]),
+      r1q2RuntimePresent: false,
+    })
+
+    const started = await startBootstrap(box.deps, {
+      engine: 'r1q2',
+      targetPath,
+      includeVideoAndPlayers: false,
+    })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    const outcome = await started.value.settled
+
+    expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.missingRuntime' })
+    // The gate fires after assembly, not instead of it: the files themselves are untouched by the
+    // check (`failed()`'s own cleanup removes them afterwards, same as every other failure).
+    expect(box.fetched).toEqual([
+      'R1Q2-b8012-msvs2022.7z',
+      'q2-314-demo-x86.exe',
+      'q2-3.20-x86-full-ctf.exe',
+    ])
+  })
+
+  /**
+   * Story 080 D3 (AC4). `seedR1glConfig` forces `vid_ref "r1gl"` into a fresh install so R1Q2 finds
+   * its renderer on the very first launch. Its own "never overwrite an existing file" guarantee is
+   * proven directly in `r1q2-setup.test.ts`; what this job-level test proves is the surrounding
+   * wiring - the seeded file is tracked by this job's own cleanup (`copied`) exactly like every
+   * other assembled file, so a failed run leaves `baseq2` genuinely empty again (never a stray file
+   * that would make `computeTargetVerdict` call the folder `alreadyInstalled` and permanently block
+   * the very retry story 077 D3 built adoption for) - and the adopted retry then seeds the file
+   * again from scratch, correctly, rather than leaving it absent or wrongly reusing the failed run's
+   * copy.
+   */
+  it('seeds baseq2/autoexec.cfg with the r1gl line, and an adopted retry can still seed it after a failure', async () => {
+    const box = harness({
+      manifest: fakeManifest([R1Q2_ENGINE_PACKAGE, DEMO_PACKAGE, POINT_RELEASE_PACKAGE]),
+    })
+    const cfgPath = join(targetPath, 'baseq2', 'autoexec.cfg')
+
+    // First pass: the config is seeded, then the run fails at the inspector verdict (same fixture
+    // as story 077 D3's own adoption tests). The failure's cleanup removes the seeded file along
+    // with everything else this job assembled, leaving `baseq2` empty again.
+    breakTargetBeforeValidate(box)
+    const first = await startBootstrap(box.deps, {
+      engine: 'r1q2',
+      targetPath,
+      name: 'My R1Q2',
+      includeVideoAndPlayers: false,
+    })
+    if (!first.ok) throw new Error(`the first run refused to start: ${first.error.key}`)
+    expect((await first.value.settled).status).toBe('failed')
+    vi.restoreAllMocks()
+
+    const retried = await startBootstrap(box.deps, {
+      engine: 'r1q2',
+      targetPath,
+      name: 'My R1Q2 (retry)',
+      includeVideoAndPlayers: false,
+    })
+    if (!retried.ok) throw new Error(`retry refused: ${JSON.stringify(retried.error)}`)
+    expect((await retried.value.settled).status).toBe('succeeded')
+    // The same installation adopted, not a duplicate refusal - the whole point of tracking the
+    // seeded file in `copied`.
+    expect(retried.value.installationId).toBe(first.value.installationId)
+    expect(await readFile(cfgPath, 'utf8')).toBe('set vid_ref "r1gl"\n')
+  })
+
+  /**
+   * Story 080 D3/D2 (AC6/AC7): the icon a bootstrap sets is engine-aware - R1Q2 gets its own
+   * shipped icon, and an unaffected Q2PRO bootstrap keeps the existing default.
+   */
+  it('sets the r1q2-logo icon for R1Q2 and keeps q2pro-logo for Q2PRO', async () => {
+    const r1q2Box = harness({
+      manifest: fakeManifest([R1Q2_ENGINE_PACKAGE, DEMO_PACKAGE, POINT_RELEASE_PACKAGE]),
+    })
+    const r1q2Started = await startBootstrap(r1q2Box.deps, {
+      engine: 'r1q2',
+      targetPath,
+      includeVideoAndPlayers: false,
+    })
+    expect(r1q2Started.ok).toBe(true)
+    if (!r1q2Started.ok) return
+    expect((await r1q2Started.value.settled).status).toBe('succeeded')
+    expect(r1q2Box.installations.find(r1q2Started.value.installationId)?.icon).toEqual({
+      kind: 'shipped',
+      id: 'r1q2-logo',
+    })
+
+    const q2proTargetPath = join(targetPath, '..', 'target-q2pro')
+    const q2proBox = harness()
+    const q2proStarted = await startBootstrap(q2proBox.deps, {
+      engine: 'q2pro',
+      targetPath: q2proTargetPath,
+      includeVideoAndPlayers: false,
+    })
+    expect(q2proStarted.ok).toBe(true)
+    if (!q2proStarted.ok) return
+    expect((await q2proStarted.value.settled).status).toBe('succeeded')
+    expect(q2proBox.installations.find(q2proStarted.value.installationId)?.icon).toEqual({
+      kind: 'shipped',
+      id: 'q2pro-logo',
+    })
+  })
+
+  /**
+   * Story 080 Acceptance Tests, AC5: "missing R1GL fails before playable" - a job-level proof, not
+   * just `assemble.ts`'s unit-level one. The R1Q2 engine fixture's fake extraction is missing
+   * `ref_r1gl.dll` entirely (present in `FIXTURE_CONTENTS` for every other test), so the run must
+   * fail with `downloads.error.packageIncomplete` rather than ever reaching a playable verdict -
+   * mirroring the Q2PRO-equivalent "a package that contributes no required file fails the job
+   * naming that package" test above.
+   */
+  it('missing R1GL fails before playable', async () => {
+    const box = harness({
+      manifest: fakeManifest([R1Q2_ENGINE_PACKAGE, DEMO_PACKAGE, POINT_RELEASE_PACKAGE]),
+      contents: {
+        ...FIXTURE_CONTENTS,
+        [R1Q2_ENGINE_PACKAGE.id]: ['r1q2.exe', 'baseq2/gamex86.dll', 'dedicated.exe'],
+      },
+    })
+    const markPlayable = vi.spyOn(box.jobs, 'markPlayable')
+
+    const started = await startBootstrap(box.deps, {
+      engine: 'r1q2',
+      targetPath,
+      includeVideoAndPlayers: false,
+    })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    const outcome = await started.value.settled
+
+    expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.packageIncomplete' })
+    expect(box.jobs.list()[0]?.error).toEqual({
+      key: 'downloads.error.packageIncomplete',
+      params: { packageId: R1Q2_ENGINE_PACKAGE.id },
+    })
+    expect(markPlayable).not.toHaveBeenCalled()
+    expect(await readdir(targetPath)).toEqual([])
+    expect(box.installations.list()[0]?.lastFailure?.errorKey).toBe(
+      'downloads.error.packageIncomplete',
+    )
+  })
+
+  /**
+   * Story 080 Acceptance Tests, AC5: "point-release DLL cannot replace missing R1Q2 game module" -
+   * the cross-role hardening `assemble.ts` enforces, proven here at the job level. The point
+   * release's fake extraction happens to contain a file at `baseq2/gamex86.dll` (the same
+   * relative path R1Q2's own required engine DLL uses), while the R1Q2 engine's own extraction
+   * genuinely lacks it. The job must still fail - a later-searched, wrong-role source is never
+   * allowed to satisfy an earlier role's required entry.
+   */
+  it('point-release DLL cannot replace missing R1Q2 game module', async () => {
+    const box = harness({
+      manifest: fakeManifest([R1Q2_ENGINE_PACKAGE, DEMO_PACKAGE, POINT_RELEASE_PACKAGE]),
+      contents: {
+        ...FIXTURE_CONTENTS,
+        [R1Q2_ENGINE_PACKAGE.id]: ['r1q2.exe', 'ref_r1gl.dll', 'dedicated.exe'],
+        [POINT_RELEASE_PACKAGE.id]: [...FIXTURE_CONTENTS[POINT_RELEASE_PACKAGE.id]!, 'baseq2/gamex86.dll'],
+      },
+    })
+    const markPlayable = vi.spyOn(box.jobs, 'markPlayable')
+
+    const started = await startBootstrap(box.deps, {
+      engine: 'r1q2',
+      targetPath,
+      includeVideoAndPlayers: false,
+    })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    const outcome = await started.value.settled
+
+    expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.packageIncomplete' })
+    expect(box.jobs.list()[0]?.error).toEqual({
+      key: 'downloads.error.packageIncomplete',
+      params: { packageId: R1Q2_ENGINE_PACKAGE.id },
+    })
+    expect(markPlayable).not.toHaveBeenCalled()
+    // Never installed via the wrong-role source: the target ends up empty, not holding the point
+    // release's gamex86.dll under the guise of R1Q2's own required file.
+    expect(await readdir(targetPath)).toEqual([])
   })
 })
 

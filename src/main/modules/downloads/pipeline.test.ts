@@ -483,4 +483,70 @@ describe('the downloads pipeline', () => {
     expect(jobs.list()[0].error).toEqual({ key: 'downloads.error.extractorMissing' })
     expect(await pathExists(getExtractDir(dir, started.jobId))).toBe(false)
   })
+
+  /**
+   * Story 080 D4 (AC2). Shaped like R1Q2's real pin (docs/requirements/080-*.md: a primary +
+   * one mirror, same declared sha256) but with fixture URLs/bytes - the point is the pipeline's
+   * own fallback behaviour, not the real remote hosts. Real HTTP over `127.0.0.1` and the real
+   * `downloadPackage` (`download: undefined`), same seam the cancel test above uses, so the
+   * fallback travels the actual fetcher rather than a fake that already assumes the outcome.
+   */
+  it('R1Q2 primary failure uses original mirror with the same digest', async () => {
+    const good = randomBytes(16 * 1024)
+    // Never routed, so the server answers 404 - a real transport failure on the primary.
+    const primaryUrl = `${origin}/r1q2-primary-missing.7z`
+    const mirrorUrl = route('/r1q2-mirror.7z', serves(good))
+
+    const { jobs } = recorder()
+    const pipeline = pipelineWith(jobs, {
+      download: undefined,
+      fetchImpl: (target, init) => fetch(target, init),
+    })
+
+    const source = pkg({
+      fileName: 'r1q2-b8012-msvs2022.7z',
+      url: primaryUrl,
+      mirrors: [mirrorUrl],
+      sizeBytes: good.byteLength,
+      sha256: sha256(good),
+    })
+    const started = pipeline.start(source)
+    const outcome = await started.settled
+
+    expect(outcome.status).toBe('succeeded')
+    expect(jobs.list()[0].status).toBe('succeeded')
+    expect(await readFile(finalPath('r1q2-b8012-msvs2022.7z'))).toEqual(good)
+  })
+
+  /**
+   * Story 080 D4 (AC2). Bytes that do not match the declared sha256 must never be installed,
+   * whichever URL served them - the existing verification-failure key, never a false success.
+   */
+  it('rejects corrupted R1Q2 bytes', async () => {
+    const declared = randomBytes(16 * 1024)
+    // Same length as `declared`, different content: only the sha256 can catch this.
+    const corrupted = randomBytes(16 * 1024)
+    const url = route('/r1q2-corrupted.7z', serves(corrupted))
+
+    const { jobs } = recorder()
+    const pipeline = pipelineWith(jobs, {
+      download: undefined,
+      fetchImpl: (target, init) => fetch(target, init),
+    })
+
+    const source = pkg({
+      fileName: 'r1q2-b8012-msvs2022.7z',
+      url,
+      mirrors: [],
+      sizeBytes: declared.byteLength,
+      sha256: sha256(declared),
+    })
+    const started = pipeline.start(source)
+    const outcome = await started.settled
+
+    expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.allMirrorsFailed' })
+    expect(jobs.list()[0].status).toBe('failed')
+    expect(jobs.list()[0].error).toEqual({ key: 'downloads.error.allMirrorsFailed' })
+    expect(await pathExists(finalPath('r1q2-b8012-msvs2022.7z'))).toBe(false)
+  })
 })

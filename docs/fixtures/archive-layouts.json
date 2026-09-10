@@ -3,6 +3,12 @@
   "packages": [
     {
       "role": "engine",
+      "id": "r1q2-b8012-msvs2022-win32",
+      "sha256": "a41c46f4732c05755091658fc3c27d3ff03e3f2048bbd6cec56882e5e346a7aa",
+      "paths": ["r1q2.exe", "ref_r1gl.dll", "baseq2/gamex86.dll"]
+    },
+    {
+      "role": "engine",
       "id": "q2pro-nightly-win64",
       "sha256": "47e18f72f116512f97b42f4ba47c285ba5b60fe6839e380be23bab5eb8288f4b",
       "paths": ["q2pro64.exe", "baseq2/gamex86_64.dll"]

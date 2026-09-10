@@ -87,7 +87,7 @@ describe('archive-layouts.json matches the shipped manifests, the allowlist and 
     const layouts = readArchiveLayouts()
     const layoutsByRole = new Map(layouts.packages.map((pkg) => [pkg.role, pkg]))
 
-    const plan = buildAssemblePlan({ includeVideoAndPlayers: false })
+    const plan = buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers: false })
     // Only `required` entries are checked here: `baseq2/q2pro.menu` is `required: false` and is
     // deliberately excluded from the recorded listing (it was never independently measured - see
     // the story's Decisions). Filtering to `required === true` already excludes it; this comment
@@ -103,6 +103,21 @@ describe('archive-layouts.json matches the shipped manifests, the allowlist and 
         resolves,
         `none of [${entry.from.join(', ')}] (role "${entry.role}") appear in the recorded listing's paths [${recorded?.paths.join(', ')}]`,
       ).toBe(true)
+    }
+
+    // Story 080 D2 made `buildAssemblePlan` engine-aware, but `layoutsByRole` above is still keyed
+    // by `role` and resolves to whichever "engine"-role package appears last in the JSON array -
+    // it cannot single out R1Q2 from Q2PRO. This checks the same underlying fact - that R1Q2's
+    // three required client files are present, verbatim, in the recorded listing - by looking
+    // that entry up by `id` instead.
+    const layoutsById = new Map(layouts.packages.map((pkg) => [pkg.id, pkg]))
+    const r1q2Layout = layoutsById.get('r1q2-b8012-msvs2022-win32')
+    expect(r1q2Layout, 'no recorded listing for id "r1q2-b8012-msvs2022-win32"').toBeDefined()
+    for (const requiredPath of ['r1q2.exe', 'ref_r1gl.dll', 'baseq2/gamex86.dll']) {
+      expect(
+        r1q2Layout?.paths,
+        `"${requiredPath}" missing from the r1q2-b8012-msvs2022-win32 recorded listing`,
+      ).toContain(requiredPath)
     }
   })
 
@@ -197,7 +212,7 @@ describe('archive-layouts.json matches the shipped manifests, the allowlist and 
     // is not "measured", so it counts as accounted-for here too - resolved from `assemble.ts`'s
     // own `required` flag rather than a second, hand-typed literal.
     const optionalTargetsByRole = new Map<string, Set<string>>()
-    for (const entry of buildAssemblePlan({ includeVideoAndPlayers: false })) {
+    for (const entry of buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers: false })) {
       if (entry.required) continue
       const set = optionalTargetsByRole.get(entry.role) ?? new Set<string>()
       set.add(entry.to)

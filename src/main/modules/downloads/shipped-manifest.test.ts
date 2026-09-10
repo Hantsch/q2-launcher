@@ -50,6 +50,19 @@ describe('shipped manifest files parse through parseManifestFile', () => {
     expect(result.pinned.q2pro).toBe('q2pro-nightly-win64')
   })
 
+  it('carries the R1Q2 package, with pinned.r1q2 resolving to its id', () => {
+    const log = fakeLogger()
+    const result = parseManifestFile(readManifest(ENGINES_MANIFEST_PATH), log)
+    if (!result.ok) throw new Error('expected ok result')
+
+    const r1q2 = result.packages.find((p) => p.id === 'r1q2-b8012-msvs2022-win32')
+    expect(r1q2).toBeDefined()
+    expect(r1q2?.kind).toBe('engine')
+    expect(r1q2?.sha256).toMatch(SHA256_SHAPE)
+    expect(r1q2?.sizeBytes).toBe(751580)
+    expect(result.pinned.r1q2).toBe('r1q2-b8012-msvs2022-win32')
+  })
+
   it('carries the demo and point-release packages with their exact byte sizes and 64-hex sha256', () => {
     const log = fakeLogger()
     const result = parseManifestFile(readManifest(GAMEDATA_MANIFEST_PATH), log)
@@ -71,7 +84,21 @@ describe('shipped manifest files parse through parseManifestFile', () => {
     expect(ctf?.sha256).toMatch(SHA256_SHAPE)
   })
 
-  it('has all three package ids present with no rows dropped', () => {
+  it('pins both R1Q2 download locations', () => {
+    const log = fakeLogger()
+    const result = parseManifestFile(readManifest(ENGINES_MANIFEST_PATH), log)
+    if (!result.ok) throw new Error('expected ok result')
+
+    const r1q2 = result.packages.find((p) => p.id === 'r1q2-b8012-msvs2022-win32')
+    if (!r1q2) throw new Error('expected the r1q2 package to be present')
+
+    // Story 080 D1's own primary/fallback URLs (docs/requirements/080-*.md): the community
+    // package plus the original upstream mirror, two distinct locations, never the same URL twice.
+    expect(r1q2.mirrors.length).toBeGreaterThan(0)
+    expect(r1q2.url).not.toBe(r1q2.mirrors[0])
+  })
+
+  it('has all four package ids present with no rows dropped', () => {
     const log = fakeLogger()
     const engines = parseManifestFile(readManifest(ENGINES_MANIFEST_PATH), log)
     const gamedata = parseManifestFile(readManifest(GAMEDATA_MANIFEST_PATH), log)
@@ -79,7 +106,12 @@ describe('shipped manifest files parse through parseManifestFile', () => {
 
     const ids = [...engines.packages, ...gamedata.packages].map((p) => p.id)
     expect(ids).toEqual(
-      expect.arrayContaining(['q2pro-nightly-win64', 'q2-314-demo-x86', 'q2-320-x86-full-ctf']),
+      expect.arrayContaining([
+        'q2pro-nightly-win64',
+        'r1q2-b8012-msvs2022-win32',
+        'q2-314-demo-x86',
+        'q2-320-x86-full-ctf',
+      ]),
     )
     expect(log.warn).not.toHaveBeenCalled()
   })

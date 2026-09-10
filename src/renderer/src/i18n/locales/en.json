@@ -1969,6 +1969,7 @@
       "packageUnavailable": "The download list does not offer everything this setup needs right now. Try again later.",
       "installationNotPlayable": "The files were downloaded, but the result was not a usable Quake II installation.",
       "packageIncomplete": "The download \"{{packageId}}\" arrived intact but did not contain the game files this setup needs.",
+      "missingRuntime": "This engine needs the Microsoft Visual C++ Redistributable (x86) installed, and it was not found on this PC. Get it from https://aka.ms/vs/17/release/vc_redist.x86.exe, then try again.",
       "bootstrapTargetBlocked": "That folder cannot be used for a new installation.",
       "unknown": "The download failed for an unknown reason."
     },
@@ -2046,6 +2047,11 @@
       "empty": {
         "title": "Nothing available to install",
         "body": "The download list does not offer an engine right now. Check your connection and try again later."
+      },
+      "r1q2Notice": {
+        "source": "R1Q2 is built from this exact upstream source:",
+        "license": "Licensed under GPL version 3 (including its section 6(d) external-source option). The license text is installed alongside the game files.",
+        "runtime": "Requires the 32-bit Microsoft Visual C++ Redistributable (x86), which this installer does not bundle. Get it from Microsoft:"
       }
     },
     "target": {

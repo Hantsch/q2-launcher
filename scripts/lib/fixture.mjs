@@ -1296,6 +1296,24 @@ export function bootstrapTargetDir() {
  */
 export const BOOTSTRAP_TARGET_LOOSE_FILE = 'user-notes.txt'
 
+/**
+ * Story 080 D4: the folder `scripts/flows/bootstrap-r1q2.mjs` installs into - a sibling of
+ * `bootstrapTargetDir()`, not that same folder (the two flows must not race over one directory).
+ * Program-Files/non-empty target warnings are already proven by the Q2PRO flow (AC2/AC3 there), so
+ * this one stays fresh and empty rather than re-proving them.
+ */
+export function bootstrapR1q2TargetDir() {
+  return join(bootstrapFixtureRoot(), 'target', 'R1Q2 Fixture')
+}
+
+/** Fresh, empty target folder for the R1Q2 flow - deletes any leftover from a previous run. */
+export function writeBootstrapR1q2TargetDir() {
+  const target = assertInside(UI_VERIFY_ROOT, bootstrapR1q2TargetDir(), 'bootstrap r1q2 target')
+  rmDirBestEffort(target)
+  mkdirSync(target, { recursive: true })
+  return target
+}
+
 /** Where the built archives are served from. */
 function bootstrapPackagesDir() {
   return join(bootstrapFixtureRoot(), 'packages')
@@ -1403,7 +1421,60 @@ function buildFixturePackage({ fileName, stagingName, entries, build }) {
  * `scripts/flows/bootstrap-failure.mjs`'s own header comment for exactly what this variant proves
  * and the one thing it deliberately cannot prove (a real `installationNotPlayable` failure).
  */
-function buildBootstrapPackages({ demoContributesNothing = false, wrapperNestedLayout = false } = {}) {
+/** Story 080 D4: the r1q2 fixture engine package's id/version - a distinct id from the q2pro one
+ * (`'q2pro-fixture-client'`), so a manifest/server can tell the two engine packages apart. Exported
+ * so `scripts/flows/bootstrap-r1q2.mjs` can pass it straight to `failPrimaryOnlyFor` rather than
+ * duplicating the literal. */
+export const R1Q2_FIXTURE_ENGINE_ID = 'r1q2-fixture-client'
+const R1Q2_FIXTURE_ENGINE_VERSION = 'r1q2-fixture-1'
+
+/**
+ * Every source-relative path `buildR1q2EnginePackage()` writes that the real allowlist
+ * (`buildR1q2EngineEntries()`, `bootstrap/assemble.ts`) is expected to find - mirrors
+ * `BOOTSTRAP_FIXTURE_LAYOUT`'s style, but only the engine role: demo/point-release are unchanged
+ * and engine-independent, so they stay documented once, above.
+ */
+export const BOOTSTRAP_R1Q2_ENGINE_FIXTURE_LAYOUT = ['r1q2.exe', 'ref_r1gl.dll', 'baseq2/gamex86.dll']
+
+/** The one file the r1q2 fixture archive carries that the allowlist must never assemble (AC3). */
+export const BOOTSTRAP_R1Q2_DEDICATED_EXE_NAME = 'dedicated.exe'
+
+/**
+ * Story 080 D4: a second, R1Q2-shaped fixture engine package - real enough that the app's real
+ * extractor and the real `buildR1q2EngineEntries()` allowlist both run over it, not a simulated
+ * stand-in. Ships `dedicated.exe` at the archive root alongside the three required files, exactly
+ * like the real pinned package (`docs/requirements/080-*.md`'s measured archive table) - so the
+ * flow that consumes this package can assert the allowlist excluded a file that was genuinely
+ * there, not one that never existed.
+ */
+function buildR1q2EnginePackage() {
+  const archiveInfo = buildFixturePackage({
+    fileName: 'r1q2-fixture-client.zip',
+    stagingName: 'r1q2-engine',
+    entries: ['r1q2.exe', 'ref_r1gl.dll', 'baseq2', 'dedicated.exe'],
+    build: (staging) => {
+      writeFileIn(staging, 'r1q2.exe', filler(64 * 1024, 0x52))
+      writeFileIn(staging, 'ref_r1gl.dll', filler(32 * 1024, 0x67))
+      writeFileIn(join(staging, 'baseq2'), 'gamex86.dll', filler(16 * 1024, 0x67))
+      // Excluded by the allowlist on purpose (AC3) - a distinct fill byte from every other file
+      // here, so a stray byte-for-byte comparison could never mistake it for one of the required
+      // three.
+      writeFileIn(staging, 'dedicated.exe', filler(24 * 1024, 0x64))
+    },
+  })
+  return {
+    role: 'engine',
+    id: R1Q2_FIXTURE_ENGINE_ID,
+    version: R1Q2_FIXTURE_ENGINE_VERSION,
+    ...archiveInfo,
+  }
+}
+
+function buildBootstrapPackages({
+  demoContributesNothing = false,
+  wrapperNestedLayout = false,
+  includeR1q2 = false,
+} = {}) {
   const engine = buildFixturePackage({
     fileName: 'q2pro-fixture-client.zip',
     stagingName: 'engine',
@@ -1489,7 +1560,7 @@ function buildBootstrapPackages({ demoContributesNothing = false, wrapperNestedL
     },
   })
 
-  return [
+  const result = [
     { role: 'engine', id: 'q2pro-fixture-client', version: 'fixture-1', ...engine },
     { role: 'demo', id: 'q2-demo-fixture', version: '3.14-fixture', ...demo },
     {
@@ -1499,6 +1570,10 @@ function buildBootstrapPackages({ demoContributesNothing = false, wrapperNestedL
       ...pointRelease,
     },
   ]
+  // Story 080 D4: additive, defaulted off - every existing caller keeps getting exactly the three
+  // entries above, in the same order, with the same fields.
+  if (includeR1q2) result.push(buildR1q2EnginePackage())
+  return result
 }
 
 /**
@@ -1596,13 +1671,28 @@ const BOOTSTRAP_SERVE_CHUNK_DELAY_MS = 45
  *
  * `wrapperNestedLayout` (story 078 D9) forwards straight into `buildBootstrapPackages()` too - see
  * its own doc comment and `scripts/flows/bootstrap-failure.mjs`. Defaulted off, like the two above.
+ *
+ * `includeR1q2` (story 080 D4) forwards into `buildBootstrapPackages()` and, when true, also makes
+ * `/engines/manifest.json` list a second `kind:'engine', engine:'r1q2'` package and pin it
+ * (`pinned.r1q2`) alongside q2pro's. Defaulted off - a server started without it emits byte-identical
+ * output to every caller that predates this option.
+ *
+ * `failPrimaryOnlyFor` (story 080 D4, AC2): a package id, or an array of ids, whose PRIMARY url
+ * (`/packages/<file>`) 404s on EVERY request, forever, while its MIRROR url (`/mirror/<file>`) serves
+ * normally from the very first request. Unlike `failFirstAttemptFor` above (which models a whole
+ * failed job that a retry then adopts), this models a single download attempt whose community/primary
+ * transport is down but whose original/mirror URL works - the literal AC2 wording. Independent of
+ * `failFirstAttemptFor`: both can be given for *different* package ids without either silently
+ * disabling the other; combining them for the SAME id is not a supported/needed combination.
  */
 export async function startBootstrapFixtureServer({
   demoContributesNothing = false,
   failFirstAttemptFor,
   wrapperNestedLayout = false,
+  includeR1q2 = false,
+  failPrimaryOnlyFor,
 } = {}) {
-  const packages = buildBootstrapPackages({ demoContributesNothing, wrapperNestedLayout })
+  const packages = buildBootstrapPackages({ demoContributesNothing, wrapperNestedLayout, includeR1q2 })
 
   const failFirstPackage = failFirstAttemptFor
     ? packages.find((pkg) => pkg.id === failFirstAttemptFor)
@@ -1622,6 +1712,28 @@ export async function startBootstrapFixtureServer({
    * served normally. */
   const failedOnce = new Set()
 
+  const failPrimaryIds = new Set(
+    failPrimaryOnlyFor === undefined
+      ? []
+      : Array.isArray(failPrimaryOnlyFor)
+        ? failPrimaryOnlyFor
+        : [failPrimaryOnlyFor],
+  )
+  for (const id of failPrimaryIds) {
+    if (!packages.some((pkg) => pkg.id === id)) {
+      throw new Error(
+        `startBootstrapFixtureServer: failPrimaryOnlyFor ${JSON.stringify(id)} matches no package ` +
+          `id (have: ${packages.map((pkg) => pkg.id).join(', ')})`,
+      )
+    }
+  }
+  /** PRIMARY-only request paths that 404 on every request, forever - never the mirror path. */
+  const failPrimaryPaths = new Set(
+    packages
+      .filter((pkg) => failPrimaryIds.has(pkg.id))
+      .map((pkg) => `/packages/${pkg.fileName}`),
+  )
+
   /** Everything this server is willing to serve, by request path. */
   const routes = new Map()
   /** Every path that was requested, in order - the flow prints it as its own offline evidence. */
@@ -1630,6 +1742,11 @@ export async function startBootstrapFixtureServer({
   const server = createServer((request, response) => {
     const path = (request.url ?? '/').split('?')[0]
     requested.push(path)
+    if (failPrimaryPaths.has(path)) {
+      response.writeHead(404, { 'content-type': 'text/plain' })
+      response.end('not found (failPrimaryOnlyFor - primary permanently down)')
+      return
+    }
     if (failFirstPaths.has(path) && !failedOnce.has(path)) {
       failedOnce.add(path)
       response.writeHead(404, { 'content-type': 'text/plain' })
@@ -1689,19 +1806,34 @@ export async function startBootstrapFixtureServer({
     contents: [{ from: '.', to: extra.kind === 'engine' ? 'root' : 'baseq2' }],
   })
 
+  // `q2pro-fixture-client` is always first in `packages` (see `buildBootstrapPackages()`), so this
+  // finds it even when the r1q2 entry below is also present with the same `role`.
   const engine = packages.find((pkg) => pkg.role === 'engine')
   const demo = packages.find((pkg) => pkg.role === 'demo')
   const pointRelease = packages.find((pkg) => pkg.role === 'point-release')
+  const r1q2Engine = includeR1q2 ? packages.find((pkg) => pkg.id === R1Q2_FIXTURE_ENGINE_ID) : undefined
 
   // Mirrors `ENGINES_MANIFEST_PATH`/`GAMEDATA_MANIFEST_PATH` (`manifest-service.ts`) and the
   // envelope shape of the real shipped files (`content/q2_community_content/*/manifest.json`).
+  // `includeR1q2` false (the default): byte-identical to the envelope every existing caller reads.
   routes.set(
     '/engines/manifest.json',
-    jsonRoute({
-      schemaVersion: 1,
-      packages: [manifestPackage(engine, { kind: 'engine', engine: 'q2pro' })],
-      pinned: { q2pro: engine.id },
-    }),
+    jsonRoute(
+      r1q2Engine
+        ? {
+            schemaVersion: 1,
+            packages: [
+              manifestPackage(engine, { kind: 'engine', engine: 'q2pro' }),
+              manifestPackage(r1q2Engine, { kind: 'engine', engine: 'r1q2' }),
+            ],
+            pinned: { q2pro: engine.id, r1q2: r1q2Engine.id },
+          }
+        : {
+            schemaVersion: 1,
+            packages: [manifestPackage(engine, { kind: 'engine', engine: 'q2pro' })],
+            pinned: { q2pro: engine.id },
+          },
+    ),
   )
   routes.set(
     '/gamedata/manifest.json',

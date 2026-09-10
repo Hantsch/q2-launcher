@@ -238,6 +238,14 @@ export const DOWNLOADS_ERROR_KEYS = [
    * sentence itself stays in `en.json`.
    */
   'downloads.error.packageIncomplete',
+  /**
+   * Story 080 D3 (AC5): the pinned engine build's binaries import the x86 Visual C++ runtime
+   * (`VCRUNTIME140.dll`), which the bootstrap never bundles or installs itself - only R1Q2 needs
+   * this check this sprint, since its archive carries no runtime of its own. Fires after the core
+   * assemble pass (the files are on disk and would otherwise look playable) and before the first
+   * revalidation, so a missing runtime is an actionable failure rather than a silent "not playable".
+   */
+  'downloads.error.missingRuntime',
 ] as const
 
 export type DownloadsErrorKey = (typeof DOWNLOADS_ERROR_KEYS)[number]
@@ -380,14 +388,14 @@ export interface DownloadDiagnosticsTarget {
 }
 
 /**
- * Story 074 D1: the engine kinds the bootstrap wizard is willing to offer this sprint, whatever
- * the manifest pins. Currently just Q2PRO (Decisions (Sprint)) - kept as its own list, rather than
- * folding this into `isEngineSupported()` (`@shared/types/engine`), because "supported by the
- * launcher in general" and "offered by this sprint's wizard" are different questions that happen
- * to agree today; a future engine can become launcher-supported well before the wizard is taught
- * to bootstrap it.
+ * Story 074 D1, extended by 080 D2: the engine kinds the bootstrap wizard is willing to offer,
+ * whatever the manifest pins. Q2PRO and R1Q2 (Decisions (Sprint)) - kept as its own list, rather
+ * than folding this into `isEngineSupported()` (`@shared/types/engine`), because "supported by the
+ * launcher in general" and "offered by the wizard" are different questions that happen to agree
+ * today; a future engine can become launcher-supported well before the wizard is taught to
+ * bootstrap it.
  */
-export const BOOTSTRAP_SUPPORTED_ENGINES: readonly EngineKind[] = ['q2pro']
+export const BOOTSTRAP_SUPPORTED_ENGINES: readonly EngineKind[] = ['q2pro', 'r1q2']
 
 /**
  * Story 074 D1: one engine choice the wizard's first step can offer - resolved from a manifest pin
@@ -473,8 +481,8 @@ export const DEFAULT_BOOTSTRAP_INSTALLATION_NAME = 'Q2PRO Demo'
 
 /**
  * Story 074 D1 placeholder, finalized by D4: what `bootstrap.start` takes. `engine` is validated
- * against `BOOTSTRAP_SUPPORTED_ENGINES` by the handler's schema, so this sprint it is always
- * `'q2pro'`.
+ * against `BOOTSTRAP_SUPPORTED_ENGINES` by the handler's schema, so it is always one of the
+ * currently bootstrap-supported engines (Q2PRO, R1Q2 - story 080 D2).
  */
 export interface StartBootstrapInput {
   engine: EngineKind

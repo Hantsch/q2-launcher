@@ -1,7 +1,7 @@
 ---
 id: 085
 title: The content repository carries the news contract
-status: draft # draft -> ready -> in-progress -> done
+status: ready # draft -> ready -> in-progress -> done
 created: 2026-09-10
 ---
 
@@ -41,29 +41,205 @@ files are written, not published: no commit, no push, no release — publishing 
 - [ ] **AC8** — No commit, branch, push or release is created in the content repository by this
       story.
 
+## Decisions (Sprint)
+
+- **(User)** Reserved directories (`packs/`, `mods/`, `config_templates/`) each get a placeholder
+  README stating "reserved, not read yet".
+- **(User)** `config_templates/`'s future `index.json` shape is left open for a future story — not
+  sketched now, consistent with this sprint's deliberate omission of reading that directory.
+- The `news/` tree is **authored in this repo** at `content/q2_community_content/news/` and copied
+  verbatim into the checkout — that path is the launcher's existing mirror of the same repository
+  (`content/q2_community_content/{engines,gamedata}/manifest.json`), so AC6/AC7's "fixture copy"
+  needs no new convention and byte-identity with the checkout is enforceable.
+- The checkout's `README.md` documents the **whole** top-level layout, including the `engines/` and
+  `gamedata/` directories that already exist there — a README that described only `news/` plus three
+  reserved directories would state a layout the repository does not have.
+- `engines/` and `gamedata/` get one line each (what they are, which manifest, that the launcher's
+  download module reads them); only the news contract is documented in full, because that is the
+  contract this story is asked to carry.
+- Reserved directories are represented by their placeholder README **file** rather than an empty
+  directory because git cannot track an empty directory — without the file the reserved layout
+  would not survive a clone, and AC1 would only hold locally.
+- Three entries, one per template, all three visible today: `split` (order 10), `banner`
+  (order 20), `text` (order 30) — the minimum that proves every template and, at the same time, the
+  hero's carousel with more than one slide.
+- Optional fields are exercised without hiding anything: one entry carries `visibleFrom` in the
+  past only, one carries `visibleFrom` plus a far-future `visibleUntil`, one carries neither — so
+  AC2's optional fields appear in real content while all three entries stay visible.
+- One entry carries exactly **3** buttons (the boundary the rule names) and the others fewer, so the
+  max-3 rule is demonstrated by content instead of only described in the README.
+- Every button URL is chosen so it **passes 082's host-allowlist predicate**, and D2's test asserts
+  that against the exported constant rather than a copied host string — AC6 requires zero warnings,
+  so a URL outside the allowlist is a failing fixture, and 082's allowlist is not touched to
+  accommodate the content.
+- Slide images are **generated** by `scripts/generate-news-images.mjs` with the already-vendored
+  `sharp` (the `generate-icon.mjs` / `generate-installation-icons.mjs` convention), sized well
+  inside 084's ~5MB / 4000px limits — reproducible bytes, no third-party asset and no licensing
+  question in a public repository.
+- The two images are distinct (one wide for `banner`, one squarer for `split`) because a single
+  shared bitmap would not show that the two templates have different image geometry.
+- `ui:verify`'s news stub is served from the checked-in fixture copy over the **existing**
+  `127.0.0.1` fixture server (`scripts/lib/fixture.mjs`, `Q2L_UI_CONTENT_REPO_BASE`,
+  `src/main/modules/downloads/harness.ts`) — the offline seam already exists for manifests, so AC7
+  needs a source repoint, not a second mechanism.
+- AC1/AC4/AC5/AC8 assert the state of an **external working copy** that no vitest run can see, so
+  they are machine-verified by `scripts/check-content-repo.mjs` instead of by a unit test or a
+  manual click list — the "machine-verified by `scripts/…`" idiom CLAUDE.md already uses for the
+  config-header geometry.
+- That script **skips with exit 0 when the checkout is absent**, so it can never become a CI gate
+  for a directory that only exists on the maintainer's machine.
+- AC8 is checked positively, not by trust: the script asserts the checkout's `HEAD` still points at
+  `1fea243`, that the files this story writes are untracked (`??`), and that no branch besides
+  `main` and no new tag exists.
+- `content/**` is excluded from any prettier run this story makes (format only the `.mjs`/`.ts`
+  files it authors) — reformatting the authored feed would break byte-identity with the checkout,
+  and the repo is not prettier-clean anyway.
+- No `schemaVersion` other than `1` is written, and no field outside 082's validated set is
+  invented — the README documents what today's launcher understands, per concept §6.3.
+
 ## Open Questions
 
-- Do the reserved directories get a placeholder README each stating "reserved, not read yet", or
-  do they stay empty?
-- `config_templates/` is the likeliest next content type and may want the same `index.json`
+- ~~Do the reserved directories get a placeholder README each stating "reserved, not read yet", or
+  do they stay empty?~~ answered → Decisions (Sprint)
+- ~~`config_templates/` is the likeliest next content type and may want the same `index.json`
   shape. Is that shape sketched in the README now, or deliberately left open? (Concept open
-  point 13.)
+  point 13.)~~ answered → Decisions (Sprint)
+
+None open. Noted for the sprint review, not blocking: the checkout already contains `engines/` and
+`gamedata/` (added by story 080's manifest work), which
+[concepts/home-screen.md](../concepts/home-screen.md) §6 still describes as "today it contains only
+a LICENSE" — the concept's repo-layout listing is stale and its `news/`-only sketch should be
+updated once this story's README exists.
 
 ## Plan
 
-_Filled by `/refine 085`._
+Two artefacts, one source of truth. The feed is authored **in this repo** under
+`content/q2_community_content/news/` (the existing mirror of that same repository), the launcher's
+test and `ui:verify` read exactly those files, and the checkout gets a verbatim copy plus the README
+and the reserved-directory placeholders. A maintenance script proves the checkout matches and that
+nothing was committed.
+
+Order (D2 needs 082's pipeline, which is built before this story; D3 needs 082's harness seam):
+
+1. **D1 — author the feed** in `content/q2_community_content/news/`: `index.json`
+   (`schemaVersion: 1`, three entries, `order` 10/20/30, the optional-window mix from Decisions),
+   three `.md` entries (`split` / `banner` / `text`), and `img/` with the two generated PNGs.
+   New script `scripts/generate-news-images.mjs` (mirrors `scripts/generate-installation-icons.mjs`)
+   produces the bitmaps with `sharp`.
+2. **D2 — the zero-warning test**: a colocated vitest suite next to 082's feed pipeline that reads
+   the fixture copy from disk, runs it through the real validate/filter/sort path with a fake logger
+   and asserts three slides, the `order` sequence, the three templates, the referenced image, and
+   `log.warn`/`log.error` never called. Mirrors
+   `src/main/modules/downloads/bootstrap/archive-layouts.test.ts` for the `REPO_ROOT` join and the
+   `fakeLogger()` idiom, and `shipped-manifest.test.ts` for the not-called assertion.
+3. **D3 — offline `ui:verify`**: the news stub the harness serves is sourced from
+   `content/q2_community_content/news/` on the existing `127.0.0.1` fixture server
+   (`scripts/lib/fixture.mjs`), so no run reaches `raw.githubusercontent`.
+4. **D4 — write the checkout**: copy `news/` verbatim into
+   `C:\development\Hantsch\q2_community_content`, add `packs/`, `mods/`, `config_templates/` with
+   their "reserved, not read yet" READMEs, and write the root `README.md` (full top-level layout,
+   `index.json` fields, per-template field sets, button rules, visibility + order, and the
+   content-only / dropped-entry rules of AC5). **No `git add`, commit, branch, push or release.**
+5. **D5 — `scripts/check-content-repo.mjs`**: asserts the checkout's layout, the reserved READMEs,
+   the root README's required sections, byte-identity of `news/` with the fixture copy, and the
+   untouched git state; exits 0 with a skip note when the checkout is absent.
+
+Guardrails: nothing here touches `src/shared/ipc.ts`, the renderer, or 082's allowlist — this story
+adds content, one test, one harness source repoint and one maintenance script. Do not run prettier
+over `content/**`.
 
 ## Deliverables
 
-_Filled by `/refine 085`._
+- **D1 — The feed exists as checked-in content.**
+  Files: `content/q2_community_content/news/index.json`,
+  `content/q2_community_content/news/2026-09-10-r1q2-in-the-bootstrap-wizard.md` (`split`,
+  `imageSide: left`, `tag: RELEASE`, 2 buttons, `order: 10`, `visibleFrom` only),
+  `content/q2_community_content/news/2026-09-10-the-community-content-repository.md` (`banner`,
+  3 buttons, `order: 20`, `visibleFrom` + far-future `visibleUntil`),
+  `content/q2_community_content/news/2026-09-10-how-news-reaches-the-launcher.md` (`text`, 1 button,
+  `order: 30`, no window), `content/q2_community_content/news/img/*.png`,
+  `scripts/generate-news-images.mjs`.
+  Mirror: `scripts/generate-installation-icons.mjs` (sharp + repo-root resolution),
+  `content/q2_community_content/engines/manifest.json` (mirror-directory precedent).
+  Acceptance: `index.json` parses, carries `schemaVersion: 1` and the three entries with `id`,
+  `file`, `order` and the optional-window mix; each `.md`'s frontmatter names its template and fills
+  only that template's fields plus a body; every referenced image file exists and is < 5MB / ≤4000px.
+
+- **D2 — The launcher validates this feed without a warning.**
+  Files: one new test beside 082's pipeline (expected `src/main/modules/home/feed/` — use the
+  directory 082 actually created), e.g. `news-fixture-contract.test.ts`. No production file changes.
+  Mirror: `src/main/modules/downloads/bootstrap/archive-layouts.test.ts` (reads repo files,
+  `fakeLogger()`), `src/main/modules/downloads/shipped-manifest.test.ts:84`
+  (`expect(log.warn).not.toHaveBeenCalled()`).
+  Acceptance: the suite reads the D1 files from disk, runs 082's real validate → filter → sort path,
+  and asserts exactly three slides in `order` 10/20/30, templates `split`/`banner`/`text`, the
+  3-button entry keeping all three, every button URL accepted by 082's exported allowlist, and no
+  `warn`/`error` on the injected logger.
+
+- **D3 — `ui:verify` reads the fixture copy, not the network.**
+  Files: `scripts/lib/fixture.mjs` (news seed block sourced from
+  `content/q2_community_content/news/`), plus at most one adjacent screens/flow touch-up if 082 left
+  a placeholder.
+  Mirror: the existing bootstrap manifest seeding in the same file (`127.0.0.1` fixture server,
+  `Q2L_UI_CONTENT_REPO_BASE`).
+  Acceptance: `npm run ui:verify` completes with the hero showing the D1 slides, and no run in
+  `npm test` or `npm run ui:verify` issues a request to `raw.githubusercontent.com`.
+
+- **D4 — The checkout carries the contract.**
+  Files (outside this repo, in `C:\development\Hantsch\q2_community_content`): `news/**` (verbatim
+  copy of D1), `packs/README.md`, `mods/README.md`, `config_templates/README.md`, `README.md`.
+  Acceptance: the four top-level directories exist; each reserved README states "reserved, not read
+  yet"; the root README documents the top-level layout (including `engines/` and `gamedata/`), every
+  `index.json` field, every template with its exact field set, the button rules (max 3, external
+  links only, host allowlist), how `visibleFrom`/`visibleUntil` and `order` work, that a contributor
+  supplies content only (no CSS, HTML, colours, layout values), and that a rule-breaking entry is
+  dropped while the rest of the feed still shows. English throughout (the checkout's `AGENTS.md`).
+  No git operation of any kind in the checkout.
+
+- **D5 — The checkout is machine-verified.**
+  Files: `scripts/check-content-repo.mjs`, plus its `package.json` script entry
+  (`"check:content-repo"`).
+  Mirror: `scripts/manifest-hashes.mjs` (repo-maintenance `.mjs`, repo-root resolution, plain
+  console output + non-zero exit).
+  Acceptance: run against the checkout it exits 0 and prints each check; it fails loudly on a
+  missing directory, a missing reserved README, a missing required README section, a `news/` file
+  that differs byte-for-byte from the fixture copy, a `HEAD` other than `1fea243`, a tracked (not
+  `??`) story file, or an extra branch/tag. With the checkout absent it prints a skip line and exits 0.
 
 ## Model Hints
 
-_Filled by `/refine 085`._
+- D1 → default
+- D2 → default
+- D3 → default
+- D4 → default
+- D5 → default
+- Review: → default — the story adds content, one read-only test, one harness source repoint and one
+  maintenance script; it changes no production code path, no IPC and no renderer surface, so there
+  is no regression risk worth the expensive tier.
 
 ## Acceptance Tests
 
-_Filled by `/refine 085`._
+- AC1 → script `scripts/check-content-repo.mjs` › "layout: news/, news/img/, packs/, mods/,
+  config_templates/ present" (D5; the checkout is an external working copy no vitest run can see —
+  machine-verified, not manual)
+- AC2 → unit `src/main/modules/home/feed/news-fixture-contract.test.ts` › "the checked-in index.json
+  carries schemaVersion and the validated entry shape" (D2)
+- AC3 → unit `src/main/modules/home/feed/news-fixture-contract.test.ts` › "one valid entry per
+  template, with its image present" (D2)
+- AC4 → script `scripts/check-content-repo.mjs` › "README documents layout, index.json fields,
+  templates and button rules" (D5)
+- AC5 → script `scripts/check-content-repo.mjs` › "README states content-only and the
+  dropped-entry rule" (D5)
+- AC6 → unit `src/main/modules/home/feed/news-fixture-contract.test.ts` › "the fixture feed
+  validates without a single warning" (D2)
+- AC7 → e2e `npm run ui:verify` (fixture-served news, hero screens at zero axe violations) plus unit
+  `src/main/modules/home/feed/news-fixture-contract.test.ts` › "the fixture copy is the source of
+  the harness news feed" (D3/D2)
+- AC8 → script `scripts/check-content-repo.mjs` › "the checkout has no new commit, branch or tag and
+  the story's files are untracked" (D5)
+
+No manual residue: the four criteria about the external checkout are proven by D5's script, which
+`/build` runs and whose output goes into `## Done`.
 
 ## Done
 

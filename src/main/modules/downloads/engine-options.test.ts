@@ -10,13 +10,15 @@ import { fail } from '@shared/types'
 import { downloadsModule } from './index'
 
 /**
- * Story 074 D1 (AC1): `bootstrapEngineOptions` must offer only engines that are BOTH pinned by the
- * manifest AND named in `BOOTSTRAP_SUPPORTED_ENGINES` (currently just Q2PRO). A tautological test
- * would just re-assert that constant; instead this fixture pins TWO engines in the manifest -
- * Q2PRO (in the list) and R1Q2 (a real, launcher-supported engine per `@shared/types/engine`, but
- * NOT in `BOOTSTRAP_SUPPORTED_ENGINES`) - and proves the handler drops the second one even though
- * it is a perfectly valid, pinned, supported-by-the-launcher engine. That is the one behaviour
- * that could silently regress if the filter were ever loosened to "pinned" alone.
+ * Story 074 D1 (AC1), extended by 080 D2: `bootstrapEngineOptions` must offer only engines that
+ * are BOTH pinned by the manifest AND named in `BOOTSTRAP_SUPPORTED_ENGINES` (now Q2PRO and R1Q2).
+ * A tautological test would just re-assert that constant; instead this fixture pins TWO engines in
+ * the manifest - Q2PRO (in the list) and YQUAKE2 (a real engine `@shared/types/engine` knows how
+ * to classify, but NOT in `BOOTSTRAP_SUPPORTED_ENGINES`) - and proves the handler drops the second
+ * one even though it is a perfectly valid, pinned engine the launcher recognises. That is the one
+ * behaviour that could silently regress if the filter were ever loosened to "pinned" alone. A
+ * second test below proves the complementary AC1 behaviour: R1Q2 itself is now offered once
+ * pinned, carrying its own identity/version/size.
  *
  * Mocking follows `index.test.ts`'s own convention exactly: `electron.app.getPath('userData')` is
  * stubbed to a per-test temp folder, `fetch` is a stubbed global routed by URL, and `handle()` is
@@ -52,8 +54,14 @@ function enginePackage(engine: string, id: string): unknown {
   }
 }
 
-/** Pins Q2PRO (bootstrap-supported) and R1Q2 (launcher-supported, but not bootstrap-supported). */
+/** Pins Q2PRO (bootstrap-supported) and YQUAKE2 (launcher-supported, but not bootstrap-supported). */
 const enginesManifest = {
+  schemaVersion: 1,
+  packages: [enginePackage('q2pro', 'q2pro-1.0.0'), enginePackage('yquake2', 'yquake2-1.0.0')],
+  pinned: { q2pro: 'q2pro-1.0.0', yquake2: 'yquake2-1.0.0' },
+}
+/** Pins both bootstrap-supported engines, for the "R1Q2 is offered" test below. */
+const bothEnginesManifest = {
   schemaVersion: 1,
   packages: [enginePackage('q2pro', 'q2pro-1.0.0'), enginePackage('r1q2', 'r1q2-1.0.0')],
   pinned: { q2pro: 'q2pro-1.0.0', r1q2: 'r1q2-1.0.0' },
@@ -64,6 +72,14 @@ function serveGoodManifests(fetchMock: ReturnType<typeof vi.fn>): void {
   fetchMock.mockImplementation((url: unknown) =>
     Promise.resolve(
       jsonResponse(String(url).includes('engines/') ? enginesManifest : gamedataManifest),
+    ),
+  )
+}
+
+function serveBothEnginesManifest(fetchMock: ReturnType<typeof vi.fn>): void {
+  fetchMock.mockImplementation((url: unknown) =>
+    Promise.resolve(
+      jsonResponse(String(url).includes('engines/') ? bothEnginesManifest : gamedataManifest),
     ),
   )
 }
@@ -118,7 +134,7 @@ describe('downloadsModule bootstrapEngineOptions', () => {
     expect(DOWNLOADS_HANDLERS.bootstrapEngineOptions).toBe('bootstrap.engineOptions')
   })
 
-  it('offers only Q2PRO, even though R1Q2 is also pinned and launcher-supported', async () => {
+  it('offers only Q2PRO, even though YQUAKE2 is also pinned and launcher-supported', async () => {
     serveGoodManifests(fetchMock)
     const handlers = await setUpModule()
     const handler = handlers.get(DOWNLOADS_HANDLERS.bootstrapEngineOptions)!
@@ -132,7 +148,29 @@ describe('downloadsModule bootstrapEngineOptions', () => {
       version: '1.0.0',
       sizeBytes: 4096,
     })
-    expect(options.some((option) => option.engine === 'r1q2')).toBe(false)
+    expect(options.some((option) => option.engine === 'yquake2')).toBe(false)
+  })
+
+  it('offers R1Q2 too once it is pinned, with its own identity, version and size', async () => {
+    serveBothEnginesManifest(fetchMock)
+    const handlers = await setUpModule()
+    const handler = handlers.get(DOWNLOADS_HANDLERS.bootstrapEngineOptions)!
+
+    const options = (await handler(undefined)) as BootstrapEngineOption[]
+
+    expect(options).toHaveLength(2)
+    expect(options).toContainEqual({
+      engine: 'q2pro',
+      packageId: 'q2pro-1.0.0',
+      version: '1.0.0',
+      sizeBytes: 4096,
+    })
+    expect(options).toContainEqual({
+      engine: 'r1q2',
+      packageId: 'r1q2-1.0.0',
+      version: '1.0.0',
+      sizeBytes: 4096,
+    })
   })
 
   it('answers an empty list, not a failure, when the manifest is unavailable', async () => {

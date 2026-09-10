@@ -1,11 +1,18 @@
 import { cp, mkdir, readdir, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { ENGINE_DEFINITIONS } from '@shared/types'
+import { ENGINE_DEFINITIONS, type EngineKind } from '@shared/types'
 
 /**
- * Story 074 D3, revised by 076 D1. Assembles a clean `baseq2` installation out of the bootstrap
- * wizard's separate archive extractions (Q2PRO engine build, `q2-314-demo-x86.exe`,
- * `q2-3.20-x86-full-ctf.exe`).
+ * Story 074 D3, revised by 076 D1 and 080 D2. Assembles a clean `baseq2` installation out of the
+ * bootstrap wizard's separate archive extractions (an engine build - Q2PRO or R1Q2 -,
+ * `q2-314-demo-x86.exe`, `q2-3.20-x86-full-ctf.exe`).
+ *
+ * Story 080 D2 (AC1/AC3/AC5/AC7): the fixed allowlist is now split into an engine-independent
+ * block (demo + point-release game data) and an engine-specific block chosen by
+ * `buildAssemblePlan`'s `engine` input. `findSource` also now restricts its search, per entry, to
+ * `sources` whose `role` matches that entry's own role - so an `engine`-role entry (the client
+ * binary, the renderer, the game module DLL) can only ever be satisfied by the engine package's
+ * own extraction, never by a demo/point-release archive that happens to carry a same-named file.
  *
  * AC8 is a hard negative requirement: the 3.20 package also contains a `ctf/` payload that must
  * never end up in the target installation, alongside `xatrix/`/`rogue/` from other real-world Q2
@@ -43,11 +50,13 @@ export interface AssembleFileEntry {
 }
 
 export interface BuildAssemblePlanInput {
+  /** Which engine this run is assembling - selects the engine-specific block below. */
+  engine: EngineKind
   /** Whether the wizard's video/players toggle is on - see the module doc comment above. */
   includeVideoAndPlayers: boolean
 }
 
-/** The q2pro engine definition - the only engine the bootstrap wizard assembles today. */
+/** The q2pro engine definition. */
 function getQ2proDefinition() {
   const definition = ENGINE_DEFINITIONS.find((engine) => engine.kind === 'q2pro')
   if (!definition) {
@@ -56,22 +65,25 @@ function getQ2proDefinition() {
   return definition
 }
 
-/**
- * The fixed, non-glob part of the allowlist.
- *
- * Every `from` candidate here is a path relative to an extracted archive's own root. Confirmed
- * against the real pinned packages (story 076): the demo's `pak0.pak` sits under
- * `Install/Data/baseq2/pak0.pak` (the older `baseq2/pak0.pak` guess is kept as a fallback
- * candidate, tried first, in case a future re-pin goes back to a plain layout); the engine zip's
- * binary is `q2pro64.exe` at the archive root, not `q2pro.exe`; the point-release package also
- * ships `baseq2/pak1.pak` (previously missing from the allowlist entirely) alongside the already-
- * correct `baseq2/pak2.pak`; and the engine zip ships `baseq2/q2pro.menu` alongside the binary and
- * `baseq2/gamex86_64.dll`.
- */
-function buildFixedEntries(): AssembleFileEntry[] {
-  const q2pro = getQ2proDefinition()
-  const engineTarget = q2pro.executables[0]
+/** The r1q2 engine definition (story 080 D2). */
+function getR1q2Definition() {
+  const definition = ENGINE_DEFINITIONS.find((engine) => engine.kind === 'r1q2')
+  if (!definition) {
+    throw new Error('ENGINE_DEFINITIONS has no r1q2 entry - bootstrap assembly cannot resolve a target binary name')
+  }
+  return definition
+}
 
+/**
+ * The demo + point-release entries: real Quake II game data, needed regardless of which engine
+ * the user picked. Every `from` candidate here is a path relative to an extracted archive's own
+ * root. Confirmed against the real pinned packages (story 076): the demo's `pak0.pak` sits under
+ * `Install/Data/baseq2/pak0.pak` (the older `baseq2/pak0.pak` guess is kept as a fallback
+ * candidate, tried first, in case a future re-pin goes back to a plain layout); the point-release
+ * package also ships `baseq2/pak1.pak` (previously missing from the allowlist entirely) alongside
+ * the already-correct `baseq2/pak2.pak`.
+ */
+function buildGameDataEntries(): AssembleFileEntry[] {
   return [
     // Demo package (`q2-314-demo-x86.exe`).
     {
@@ -84,10 +96,19 @@ function buildFixedEntries(): AssembleFileEntry[] {
     // Point-release package (`q2-3.20-x86-full-ctf.exe`).
     { from: ['baseq2/pak1.pak'], to: 'baseq2/pak1.pak', role: 'point-release', required: true },
     { from: ['baseq2/pak2.pak'], to: 'baseq2/pak2.pak', role: 'point-release', required: true },
+  ]
+}
 
-    // Engine package (`q2pro-client_win64_x64.zip`). `to` is derived from `ENGINE_DEFINITIONS`
-    // rather than hardcoded, so "the name the target expects" is read from the one table
-    // `inspectInstallation` already uses.
+/**
+ * The Q2PRO-specific entries. `to` is derived from `ENGINE_DEFINITIONS` rather than hardcoded, so
+ * "the name the target expects" is read from the one table `inspectInstallation` already uses.
+ */
+function buildQ2proEngineEntries(): AssembleFileEntry[] {
+  const q2pro = getQ2proDefinition()
+  const engineTarget = q2pro.executables[0]
+
+  return [
+    // Engine package (`q2pro-client_win64_x64.zip`).
     { from: ['q2pro.exe', 'q2pro64.exe'], to: engineTarget, role: 'engine', required: true },
     // The engine build's own game module DLL - without it the engine binary above has nothing to
     // load a map with, so a "playable" installation missing this entry could not actually run a
@@ -97,6 +118,24 @@ function buildFixedEntries(): AssembleFileEntry[] {
     // Ships alongside the engine binary and DLL in the same package. Not required - its absence
     // doesn't make the installation unplayable, just missing a menu asset.
     { from: ['baseq2/q2pro.menu'], to: 'baseq2/q2pro.menu', role: 'engine', required: false },
+  ]
+}
+
+/**
+ * The R1Q2-specific entries (story 080 D2, AC3). The three files measured against the real,
+ * pinned `r1q2-b8012-msvs2022-win32` package: the client binary, its OpenGL renderer (the archive
+ * carries only `ref_r1gl.dll`, at the installation root - not `baseq2`), and its own game module
+ * DLL. `dedicated.exe` is deliberately never on this list (AC3's exclusion). No optional menu
+ * entry - none is known to ship with this package.
+ */
+function buildR1q2EngineEntries(): AssembleFileEntry[] {
+  const r1q2 = getR1q2Definition()
+  const engineTarget = r1q2.executables[0]
+
+  return [
+    { from: ['r1q2.exe'], to: engineTarget, role: 'engine', required: true },
+    { from: ['ref_r1gl.dll'], to: 'ref_r1gl.dll', role: 'engine', required: true },
+    { from: ['baseq2/gamex86.dll'], to: 'baseq2/gamex86.dll', role: 'engine', required: true },
   ]
 }
 
@@ -125,13 +164,29 @@ export const GLOB_DIRS: GlobDirEntry[] = [
  * Pure: the explicit list of files this run intends to copy. Does not touch disk - `video/*`/
  * `players/*` are only named here as directories to expand later, in `assembleInstallation`,
  * against whichever source dir actually has them.
+ *
+ * Dispatches on `input.engine` for the engine-specific block; the game-data entries (demo,
+ * point-release) are the same regardless of engine. `buildAssemblePlan` is only ever called with
+ * an engine from `BOOTSTRAP_SUPPORTED_ENGINES` (the wizard/job gate it upstream), so an unknown
+ * engine here throws rather than silently falling back to Q2PRO's plan.
  */
 export function buildAssemblePlan(input: BuildAssemblePlanInput): AssembleFileEntry[] {
   // `video/*`/`players/*` are not literal entries here - a glob is not a relative path. When the
   // toggle is on, `assembleInstallation` expands GLOB_DIRS at copy time against whichever source
   // dir actually has them, rather than this pure function guessing file names in advance.
   void input.includeVideoAndPlayers
-  return buildFixedEntries()
+
+  const gameData = buildGameDataEntries()
+  switch (input.engine) {
+    case 'q2pro':
+      return [...gameData, ...buildQ2proEngineEntries()]
+    case 'r1q2':
+      return [...gameData, ...buildR1q2EngineEntries()]
+    default:
+      throw new Error(
+        `buildAssemblePlan cannot assemble an installation for unsupported engine ${JSON.stringify(input.engine)}`,
+      )
+  }
 }
 
 /** One downloaded package's extraction dir, attributed back to the manifest package that produced it. */
@@ -140,6 +195,13 @@ export interface AssembleSource {
   packageId: string
   /** Absolute path to the package's extraction dir. */
   dir: string
+  /**
+   * Story 080 D2 (AC5): which manifest-package role this extraction dir came from - `findSource`
+   * restricts a plan entry's search to sources whose `role` matches the entry's own, so an
+   * `engine`-role entry can never be satisfied by a `demo`/`point-release` source (or vice versa),
+   * even when both happen to contain a file at the same relative path.
+   */
+  role: AssembleFileRole
 }
 
 export interface AssembleInstallationInput {
@@ -147,6 +209,8 @@ export interface AssembleInstallationInput {
   sources: AssembleSource[]
   /** Absolute path to the installation root being assembled. */
   targetRoot: string
+  /** Which engine this run is assembling - selects the engine-specific allowlist entries. */
+  engine: EngineKind
   includeVideoAndPlayers: boolean
 }
 
@@ -179,17 +243,24 @@ export interface AssembleInstallationResult {
 }
 
 /**
- * Finds the first candidate (in order) that exists in any source (in order), or null if none does.
- * Candidate order takes priority over source order, matching "an ordered candidate list, first
- * that exists wins" - a later candidate in an earlier source does not pre-empt an earlier candidate
- * found in a later source.
+ * Finds the first candidate (in order) that exists in any source of the matching `role` (in
+ * order), or null if none does. Candidate order takes priority over source order, matching "an
+ * ordered candidate list, first that exists wins" - a later candidate in an earlier source does
+ * not pre-empt an earlier candidate found in a later source.
+ *
+ * Story 080 D2 (AC5): `sources` is filtered to `role` before searching - a `demo`/`point-release`
+ * extraction can never satisfy an `engine`-role entry (or vice versa), even when it happens to
+ * contain a file at the same relative path. Not applied to `expandGlobDir` below - `GLOB_DIRS`
+ * search every source dir regardless of role, by design (see its own doc comment).
  */
 async function findSource(
   sources: AssembleSource[],
   candidates: string[],
+  role: AssembleFileRole,
 ): Promise<{ absolutePath: string; relativePath: string; packageId: string } | null> {
+  const roleSources = sources.filter((source) => source.role === role)
   for (const relativePath of candidates) {
-    for (const source of sources) {
+    for (const source of roleSources) {
       const absolutePath = join(source.dir, relativePath)
       try {
         await stat(absolutePath)
@@ -230,14 +301,14 @@ async function expandGlobDir(
 export async function assembleInstallation(
   input: AssembleInstallationInput,
 ): Promise<AssembleInstallationResult> {
-  const { sources, targetRoot, includeVideoAndPlayers } = input
+  const { sources, targetRoot, engine, includeVideoAndPlayers } = input
   const copiedFiles: string[] = []
   const missingRequired: { role: AssembleFileRole; from: string[] }[] = []
   const entries: AssembleEntryResult[] = []
 
-  const plan = buildAssemblePlan({ includeVideoAndPlayers })
+  const plan = buildAssemblePlan({ engine, includeVideoAndPlayers })
   for (const entry of plan) {
-    const source = await findSource(sources, entry.from)
+    const source = await findSource(sources, entry.from, entry.role)
     if (!source) {
       entries.push({ from: entry.from.join(' | '), to: entry.to, found: false })
       if (entry.required) {

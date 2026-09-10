@@ -14,9 +14,24 @@
       ],
       "contents": [{ "from": ".", "to": "root" }],
       "provenance": "Mirrored from upstream Q2PRO nightly (github.com/q2pro/q2pro, tag 'nightly', asset q2pro-client_win64_x64.zip) into Hantsch/q2_community_content so this pin stays immutable even if upstream overwrites the nightly asset. Verified live 2026-09-08, published upstream 2025-12-11. 32-bit client not offered."
+    },
+    {
+      "kind": "engine",
+      "engine": "r1q2",
+      "id": "r1q2-b8012-msvs2022-win32",
+      "version": "b8012-msvs2022",
+      "sizeBytes": 751580,
+      "sha256": "a41c46f4732c05755091658fc3c27d3ff03e3f2048bbd6cec56882e5e346a7aa",
+      "url": "https://github.com/Hantsch/q2_community_content/releases/download/r1q2-b8012-msvs2022/R1Q2-b8012-msvs2022.7z",
+      "mirrors": [
+        "https://github.com/vic7or777/R1Q2-MSVC/releases/download/b8012_fix/R1Q2-b8012-msvs2022.7z"
+      ],
+      "contents": [{ "from": ".", "to": "root" }],
+      "provenance": "Mirrored, byte-for-byte unchanged, from upstream vic7or777/R1Q2-MSVC (tag 'b8012_fix', asset R1Q2-b8012-msvs2022.7z) into Hantsch/q2_community_content so this pin stays immutable even if upstream overwrites the release asset. Verified via local preparation on 2026-09-10; the community mirror release itself has not yet been published live, so the primary URL above is reserved and only the mirror URL currently resolves."
     }
   ],
   "pinned": {
-    "q2pro": "q2pro-nightly-win64"
+    "q2pro": "q2pro-nightly-win64",
+    "r1q2": "r1q2-b8012-msvs2022-win32"
   }
 }

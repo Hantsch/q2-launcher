@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { EngineKind } from '@shared/types'
 import type {
   BootstrapEngineOption,
   BootstrapSummary,
@@ -27,9 +28,10 @@ type Step = 'engine' | 'target' | 'confirm' | 'running'
 const STEP_ORDER: Step[] = ['engine', 'target', 'confirm', 'running']
 
 /**
- * Story 074 D6: the bootstrap wizard - engine (fixed to Q2PRO) -> target folder (with the D2
- * verdict's warnings) -> confirm (packages + size + target, AC4) -> run (hands off to the D4 job,
- * AC5). Mirrors `CreateInstallationDialog.tsx` for dialog shape.
+ * Story 074 D6, extended by 080 D2: the bootstrap wizard - engine choice (Q2PRO, R1Q2 once both
+ * are pinned) -> target folder (with the D2 verdict's warnings) -> confirm (packages + size +
+ * target, AC4) -> run (hands off to the D4 job, AC5). Mirrors `CreateInstallationDialog.tsx` for
+ * dialog shape.
  *
  * Wizard state lives here, in `useState`, and is never persisted - closing the dialog before
  * `running` throws all of it away, same as `CreateInstallationDialog`.
@@ -48,6 +50,10 @@ export function BootstrapWizard() {
   const [step, setStep] = useState<Step>('engine')
 
   const [engineOptions, setEngineOptions] = useState<BootstrapEngineOption[] | null>(null)
+  const [engine, setEngine] = useState<EngineKind | null>(null)
+  // Whether the user has made an explicit choice - once true, the default-selection effect below
+  // must never overwrite it, even if `engineOptions` itself changes identity on a later render.
+  const userPickedEngine = useRef(false)
 
   const [targetPath, setTargetPath] = useState('')
   const [verdict, setVerdict] = useState<BootstrapTargetVerdict | null>(null)
@@ -94,12 +100,24 @@ export function BootstrapWizard() {
     let cancelled = false
     void getBootstrapEngineOptions().then((result) => {
       if (cancelled) return
-      setEngineOptions(result.ok ? result.value : [])
+      const options = result.ok ? result.value : []
+      setEngineOptions(options)
+      // Defaults the selection to the first option so a single-choice wizard (today's Q2PRO-only
+      // reality, and any future single-option case) still needs zero extra clicks - but never
+      // overwrites a choice the user already made, even on a later options fetch.
+      if (!userPickedEngine.current && options.length > 0) {
+        setEngine(options[0].engine)
+      }
     })
     return () => {
       cancelled = true
     }
   }, [])
+
+  function selectEngine(next: EngineKind): void {
+    userPickedEngine.current = true
+    setEngine(next)
+  }
 
   // Reset the acknowledges whenever the target folder itself changes - an acknowledge for one
   // folder must never silently carry over to a different one.
@@ -126,8 +144,6 @@ export function BootstrapWizard() {
       cancelled = true
     }
   }, [targetPath])
-
-  const engine = engineOptions && engineOptions.length > 0 ? engineOptions[0].engine : null
 
   useEffect(() => {
     if (step !== 'confirm' || !engine) return
@@ -254,7 +270,9 @@ export function BootstrapWizard() {
         )
       }
     >
-      {step === 'engine' && <EngineStep options={engineOptions} />}
+      {step === 'engine' && (
+        <EngineStep options={engineOptions} selected={engine} onSelect={selectEngine} />
+      )}
 
       {step === 'target' && (
         <TargetStep

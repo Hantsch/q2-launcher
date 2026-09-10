@@ -41,6 +41,7 @@ import {
 import {
   asExtractionErrorKey,
   LOCAL_FAILURE,
+  MISSING_RUNTIME,
   NOT_PLAYABLE,
   PACKAGE_INCOMPLETE,
   PACKAGE_UNAVAILABLE,
@@ -51,6 +52,7 @@ import type {
   Extractor,
   ManifestSource,
   PackageFetcher,
+  R1q2SetupPort,
 } from './ports'
 import { computeTargetVerdict } from './target'
 
@@ -226,11 +228,22 @@ const PRUNABLE_TARGET_DIRS = [
 /**
  * Story 074 finding fix (Decisions (Sprint): "default (existing) icon assigned automatically").
  * One of the shipped icon ids under `src/renderer/src/assets/installations/`
- * (`installation-icons.ts`'s `SHIPPED_ICONS`) - the Q2PRO logo, since that is the engine this
- * bootstrap installs. Not a new asset (CLAUDE.md's "no image assets" rule): this only references
- * an icon that already ships.
+ * (`installation-icons.ts`'s `SHIPPED_ICONS`) - the Q2PRO logo, the fallback for every
+ * bootstrap-supported engine that has no icon of its own. Story 080 D3: R1Q2 gets its own shipped
+ * icon instead (`iconIdForEngine` below). Not a new asset (CLAUDE.md's "no image assets" rule):
+ * this only references icons that already ship.
  */
 const DEFAULT_BOOTSTRAP_ICON_ID = 'q2pro-logo'
+
+/**
+ * Story 080 D3 (AC6): which shipped icon a freshly-registered bootstrap installation gets, keyed
+ * by the engine the wizard installed - `r1q2-logo` for R1Q2 (already shipped under
+ * `src/renderer/src/assets/installations/`, discovered by `installation-icons.ts`'s glob),
+ * `DEFAULT_BOOTSTRAP_ICON_ID` for everything else.
+ */
+function iconIdForEngine(engine: EngineKind): string {
+  return engine === 'r1q2' ? 'r1q2-logo' : DEFAULT_BOOTSTRAP_ICON_ID
+}
 
 /** What became of one bootstrap. A one-shot value, never a second status source next to the job. */
 export type BootstrapOutcome =
@@ -309,6 +322,20 @@ export interface BootstrapDeps {
   resolveExtractor: () => { path: string; exists: boolean }
   /** Handed to the fetcher; the real client unless overridden. */
   fetchImpl?: FetchImpl
+  /**
+   * Story 080 D3: R1Q2's own setup/runtime checks (`r1q2-setup.ts`) - the x86 VC++ runtime probe
+   * (AC5), the `vid_ref "r1gl"` config seed (AC4) and the license-notice install (AC8). Reached
+   * only through this port, never imported directly, so the job can be tested with fakes.
+   */
+  r1q2Setup: R1q2SetupPort
+  /**
+   * Story 080 finding fix: `resolveR1q2LicensePath(...)` (`r1q2-setup.ts`), called right before
+   * `r1q2Setup.installR1q2Notices` - the same "resolved per call with the real `electron.app`, only
+   * from `index.ts`'s wiring" shape as `resolveExtractor` above, and for the same reason: whether
+   * the app is packaged and its `resourcesPath` can only be read once `electron` is available, so
+   * this cannot be a precomputed value either.
+   */
+  resolveR1q2LicensePath: () => string
   /**
    * Story 075 D3: makes this job's diagnostics collector once the job id exists (`ports.ts`).
    * Absent means "record nothing" - every failure then behaves exactly as it did before 075.
@@ -638,7 +665,7 @@ export async function startBootstrap(
     // installation this job registered - an adopted one keeps whatever icon its owner already has.
     const iconResult = deps.installations.setIcon(installation.id, {
       kind: 'shipped',
-      id: DEFAULT_BOOTSTRAP_ICON_ID,
+      id: iconIdForEngine(input.engine),
     })
     if (!iconResult.ok) {
       log?.warn(
@@ -1042,7 +1069,7 @@ export async function startBootstrap(
       recordPackage(fetched.url, fetched.sizeBytes, true, true, listing)
 
       doneBytes += packageBytes
-      sources.push({ packageId: entry.pkg.id, dir: extractDir })
+      sources.push({ packageId: entry.pkg.id, dir: extractDir, role: entry.role })
       report({
         ratio: packagesProgress(doneBytes, 0, 0),
         bytesDone: doneBytes,
@@ -1061,6 +1088,7 @@ export async function startBootstrap(
       core = await assembleInstallation({
         sources,
         targetRoot,
+        engine: input.engine,
         includeVideoAndPlayers: false,
       })
       for (const file of core.copiedFiles) copied.add(file)
@@ -1100,6 +1128,49 @@ export async function startBootstrap(
       return failed(PACKAGE_INCOMPLETE, `assembling ${targetRoot}: ${reason}`, { packageId })
     }
 
+    /**
+     * Story 080 D3 (AC5). R1Q2's pinned build imports the x86 VC++ runtime and the archive carries
+     * none of it - a fresh machine without that redistributable installed can have every file on
+     * disk and still be unable to run `r1q2.exe`. Checked here, after the files exist and before
+     * the first revalidation (which cannot see this at all - the files are present, so
+     * `inspectInstallation` would happily call the folder playable), same pattern as the
+     * `missingRequired` check just above: the specific, actionable cause rather than a generic
+     * not-playable verdict.
+     */
+    if (input.engine === 'r1q2') {
+      const runtimePresent = await deps.r1q2Setup.probeX86Runtime()
+      if (cancelled) return cancelledOutcome()
+      if (!runtimePresent) {
+        return failed(MISSING_RUNTIME, `${targetRoot}: the x86 VC++ runtime was not found`)
+      }
+
+      /**
+       * AC4/AC8, right after the runtime check passes: force `vid_ref "r1gl"` on a fresh install
+       * (the pinned package ships `ref_r1gl.dll`, not `ref_gl.dll`, so R1Q2's own `gl` default
+       * would leave a first launch without a renderer) and install the GPLv3 license text
+       * alongside the game files. Both best-effort, like every other piece of bookkeeping in this
+       * file (`removeDir`/`listExtraction`): a failure here is not a reason to fail a bootstrap
+       * whose game files are already correctly assembled.
+       *
+       * Tracked in `copied` like every assembled file: a failed run's cleanup (`removeAssembled`)
+       * has to be able to empty `baseq2` again, or a stray `autoexec.cfg`/license file left behind
+       * would make `computeTargetVerdict` call the folder `alreadyInstalled` on every later retry -
+       * the same folder story 077's adoption flow depends on being fully emptied by a failure.
+       */
+      try {
+        await deps.r1q2Setup.seedR1glConfig(targetRoot)
+        copied.add(join(BASE_GAME_DIR, 'autoexec.cfg'))
+      } catch (error) {
+        jobLog?.warn(`could not seed ${targetRoot}'s r1gl config: ${String(error)}`)
+      }
+      try {
+        await deps.r1q2Setup.installR1q2Notices(targetRoot, deps.resolveR1q2LicensePath(), jobLog)
+        copied.add('LICENSE-r1q2-GPL-3.0.txt')
+      } catch (error) {
+        jobLog?.warn(`could not install R1Q2's license notices into ${targetRoot}: ${String(error)}`)
+      }
+    }
+
     // 7. Revalidate. `validate()` re-runs `inspectInstallation` and stores its verdict - this file
     // never inspects the folder itself and never writes a status.
     const afterCore = await deps.installations.validate(installation.id)
@@ -1115,6 +1186,7 @@ export async function startBootstrap(
         const auxiliary = await assembleInstallation({
           sources,
           targetRoot,
+          engine: input.engine,
           includeVideoAndPlayers: true,
         })
         for (const file of auxiliary.copiedFiles) copied.add(file)
