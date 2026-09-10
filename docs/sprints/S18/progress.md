@@ -16,3 +16,19 @@
 - 2026-09-10 19:20 · 081 · D3 no residue: dead i18n keys and shell-ownership guard · done
 - 2026-09-10 19:20 · 081 · D4 the move is verified on the real surface · started
 - 2026-09-10 19:22 · 081 · D4 the move is verified on the real surface · done
+- 2026-09-10 19:30 · 082 · D1 the contract, before any handler · started
+- 2026-09-10 19:32 · 082 · D1 the contract, before any handler · done
+- 2026-09-10 19:32 · 082 · D2 frontmatter, read defensively · started
+- 2026-09-10 19:34 · 082 · D2 frontmatter, read defensively · done
+- 2026-09-10 19:34 · 082 · D3 the pure feed pipeline · started
+- 2026-09-10 19:40 · 082 · D3 the pure feed pipeline · done
+- 2026-09-10 19:41 · 082 · D4 one place may name a loopback origin · started
+- 2026-09-10 19:43 · 082 · D4 one place may name a loopback origin · done
+- 2026-09-10 19:43 · 082 · D5 fetch and cache · started
+- 2026-09-10 19:53 · 082 · D5 fetch and cache · done
+- 2026-09-10 19:53 · 082 · D6 the module answers · started
+- 2026-09-10 20:05 · 082 · D6 the module answers · done
+- 2026-09-10 20:05 · 082 · D7 the renderer can listen · started
+- 2026-09-10 20:08 · 082 · D7 the renderer can listen · done
+- 2026-09-10 20:08 · 082 · D8 proven offline, on the real app · started
+- 2026-09-10 20:20 · 082 · D8 proven offline, on the real app · done

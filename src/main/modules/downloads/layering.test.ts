@@ -39,11 +39,20 @@ const DOWNLOADS_MODULE = resolve(REPO_ROOT, 'src/main/modules/downloads')
  *    registry, since every native alternative needs a prebuild.
  *  - `lib/renderer-source.ts` only *mentions* `net.fetch` in a doc comment (contrasting its own
  *    protocol handler with delegating to `net.fetch(file://...)`) - not an actual network call.
+ *  - `modules/home/news/feed-fetcher.ts` (story 082 D5) only *mentions* `net.fetch` in its own
+ *    module doc comment, contrasting the global `fetch` it actually uses with `net.fetch` (which it
+ *    deliberately does not use, same reasoning as `renderer-source.ts` above) - not an actual
+ *    network call via that API. Its real network calls go through the global `fetch`, which this
+ *    guard does not - and is not meant to - flag: the `home` module's own `network` capability
+ *    (`src/shared/types/module.ts`) is what authorizes them.
  */
 const ALLOWED_MAIN_SPAWN_NETWORK_FILES = new Set(
-  ['src/main/services/launch.ts', 'src/main/lib/win-registry.ts', 'src/main/lib/renderer-source.ts'].map(
-    (p) => resolve(REPO_ROOT, p),
-  ),
+  [
+    'src/main/services/launch.ts',
+    'src/main/lib/win-registry.ts',
+    'src/main/lib/renderer-source.ts',
+    'src/main/modules/home/news/feed-fetcher.ts',
+  ].map((p) => resolve(REPO_ROOT, p)),
 )
 
 const SOURCE_EXTENSIONS = ['.ts', '.tsx']

@@ -1,5 +1,18 @@
 import { CONTENT_REPO_RAW_BASE } from '../../lib/content-repo'
-import { isUiHarnessEnabled, type UiHarnessGateInput } from '../../lib/ui-harness'
+import {
+  HARNESS_CONTENT_REPO_BASE_ENV,
+  isUiHarnessEnabled,
+  parseHarnessBaseUrl,
+  type UiHarnessGateInput,
+} from '../../lib/ui-harness'
+
+/**
+ * Re-exported so nothing that already imports the env var name from this module (e.g.
+ * `harness.test.ts`) has to change: story 082 D4 moved the constant itself to
+ * `src/main/lib/ui-harness.ts` (shared with `home/news/harness.ts`), this file's own public API is
+ * unchanged.
+ */
+export { HARNESS_CONTENT_REPO_BASE_ENV }
 
 /**
  * Story 074 D8: the ONE place that can point this module's manifest/package traffic somewhere
@@ -60,33 +73,6 @@ export interface DownloadSource {
 export const PRODUCTION_DOWNLOAD_SOURCE: DownloadSource = {
   baseUrl: CONTENT_REPO_RAW_BASE,
   httpsOnly: true,
-}
-
-/**
- * The environment variable the harness names its fixture server's origin in, e.g.
- * `http://127.0.0.1:53129`. Only read when the double gate is open.
- */
-export const HARNESS_CONTENT_REPO_BASE_ENV = 'Q2L_UI_CONTENT_REPO_BASE'
-
-/**
- * Accepts only an `http://127.0.0.1[:port][/path]` (or https loopback) base, normalised without a
- * trailing slash. Anything else - a public host, a `file:` URL, junk - answers `undefined`, which
- * falls the caller back to the production source.
- */
-function parseHarnessBaseUrl(raw: string | undefined): string | undefined {
-  if (raw === undefined || raw.length === 0) return undefined
-
-  let url: URL
-  try {
-    url = new URL(raw)
-  } catch {
-    return undefined
-  }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined
-  if (url.hostname !== '127.0.0.1') return undefined
-
-  const base = `${url.origin}${url.pathname}`
-  return base.endsWith('/') ? base.slice(0, -1) : base
 }
 
 /**

@@ -188,7 +188,7 @@ export const jobsListSchema: z.ZodType<IpcInvokeMap['jobs:list']['req']> = z.voi
 export const modulesListSchema: z.ZodType<IpcInvokeMap['modules:list']['req']> = z.void()
 
 export const moduleInvokeSchema: z.ZodType<IpcInvokeMap['module:invoke']['req']> = z.object({
-  moduleId: z.enum(['library', 'config', 'downloads', 'mods', 'assets']),
+  moduleId: z.enum(['home', 'library', 'config', 'downloads', 'mods', 'assets']),
   type: z.string().min(1).max(80),
   payload: z.unknown().optional(),
 })

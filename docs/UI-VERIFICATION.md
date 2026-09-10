@@ -1006,6 +1006,56 @@ codebase allows.
 The flow needs `resources/bin/7za.exe` (`npm run fetch:7za`) and refuses to run without it, same as
 `bootstrap-wizard.mjs`.
 
+## The offline news feed flow (`news-feed`)
+
+`npm run ui:flow -- news-feed` is story 082 D8's own offline acceptance proof for the community
+news pipeline (`docs/requirements/082-the-launcher-fetches-the-community-news-feed.md`). Story 083
+(the renderer surface) does not exist yet, so this flow cannot assert on rendered slides — it
+proves the pipeline through the exact IPC call the renderer's own typed client
+(`src/renderer/src/modules/home/client.ts`) will make: `window.q2.invoke('module:invoke', {
+moduleId: 'home', type: 'news.get' })`, plus the on-disk cache file `news-service.ts` writes to
+(`userData/news-feed.json`).
+
+`setup()` starts a small `node:http` server on `127.0.0.1` serving `docs/fixtures/news/*` at the
+exact paths `feed-fetcher.ts`'s `contentRepoUrl()` builds (`/news/index.json`, `/news/<file>`), and
+returns its base URL as `Q2L_UI_CONTENT_REPO_BASE` (`HARNESS_CONTENT_REPO_BASE_ENV`,
+`src/main/lib/ui-harness.ts`) — the same double-gated backdoor `bootstrap-wizard.mjs` uses for
+downloads, reused here by `resolveNewsSource()` (D4). The fixture itself is three documents, one
+per template (`split`/`banner`/`text`), whose `order:` frontmatter (1, 2, 3) is deliberately
+scrambled against both their file names (`a-banner.md`, `b-split.md`, `c-text.md`) and
+`index.json`'s own entry order, so a flow that passed by accidentally matching either of those
+would be caught by inspection rather than by the assertion itself (AC4).
+
+Two phases, two independent `_electron.launch()` calls:
+
+- **Phase 1** — the server serves the fixture normally. The app's own fire-and-forget startup
+  fetch (`src/main/modules/home/index.ts`, AC1) lands in the loopback case, and once `news.get`
+  reports the fixture's three slides the flow asserts their `order` matches neither the file names
+  nor the index order (AC4), and that `userData/news-feed.json` now holds the same slides plus a
+  `retrievedAt` (AC7's cache half).
+- **Phase 2** — the SAME server (never restarted) is flipped to answer HTTP 500 for every request,
+  and a genuinely independent second process launches fresh — with no in-memory `news-service.ts`
+  state left over from phase 1, so `ensureLoaded()` has to prove the cache read for real. It cannot
+  reuse phase 1's own userData directory: `main/index.ts`'s single-instance lock refuses a second
+  launch against a directory another running instance still holds, and `flow.mjs`'s own
+  `withApp()` — which owns phase 1's `app`/`page` — only closes that instance once the whole flow
+  function returns, so there is no supported way to close it early from inside the flow without the
+  harness reporting an unexpected crash (`assertStillRunning()`, `scripts/lib/harness.mjs`). Phase 2
+  therefore gets its own fresh userData directory, seeded with nothing but a byte-identical copy of
+  phase 1's own `news-feed.json` — the same file a real second boot on the same machine would read.
+  `refreshNews()` sees the index request fail (after its one retry) and returns the cached feed
+  with its ORIGINAL `retrievedAt` untouched; the flow asserts the slides and `retrievedAt` are
+  byte-for-byte what phase 1 saw, and that neither a toast (`[role="status"]` under `Toasts.tsx`)
+  nor a dialog (`getByRole('dialog')`) appears anywhere in the DOM (AC8).
+
+The only network access in the whole run is to this file's own `127.0.0.1` fixture server — its
+`requested` log (evidence, same convention as `bootstrap-wizard.mjs`) is printed for both phases,
+and the flow asserts every entry in it starts with `/news/`.
+
+Run it standalone with `npm run ui:flow -- news-feed`; it is not part of `ui:verify`'s screen
+registry (`scripts/lib/screens.mjs` is unchanged by this story — the rendered surface is story
+083's scope) and never touches production `raw.githubusercontent.com`.
+
 ## Baselines and CI
 
 Screenshots are **never diffed** against a committed reference, and this is

@@ -1,11 +1,44 @@
 import { describe, expect, it } from 'vitest'
+import { MODULE_MANIFESTS } from './types/module'
 import {
   iconDataUrlInputSchema,
   installationIconSchema,
+  moduleInvokeSchema,
   pickIconFileInputSchema,
   setInstallationIconInputSchema,
   shippedIconIdSchema,
 } from './ipc-schemas'
+
+/**
+ * `moduleInvokeSchema`'s `moduleId` is a hand-written zod enum with no structural link to
+ * `ModuleId`/`MODULE_MANIFESTS` (`src/shared/types/module.ts`) - a reviewer found it had silently
+ * omitted `'home'`, which made the whole module unreachable through real IPC while the rest of the
+ * test suite stayed green (nothing else exercises the enum against the manifest list). This test is
+ * the coupling guard: a future module added to `MODULE_MANIFESTS` without a matching update here
+ * fails immediately instead of silently breaking IPC.
+ */
+describe('moduleInvokeSchema', () => {
+  it('accepts exactly the module ids known to MODULE_MANIFESTS, no more, no fewer', () => {
+    const manifestIds = MODULE_MANIFESTS.map((manifest) => manifest.id).sort()
+
+    for (const id of manifestIds) {
+      const result = moduleInvokeSchema.safeParse({ moduleId: id, type: 'anything' })
+      expect(result.success).toBe(true)
+    }
+
+    // `moduleInvokeSchema` is exported as the widened `z.ZodType`, so its object/enum shape is only
+    // reachable at runtime - `as any` here is a test-only introspection, not a production cast.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const enumSchema = (moduleInvokeSchema as any).shape.moduleId
+    expect([...enumSchema.options].sort()).toEqual(manifestIds)
+
+    // Also reject a module id that is not in the manifest at all, so this test cannot pass by the
+    // enum being trivially permissive.
+    expect(moduleInvokeSchema.safeParse({ moduleId: 'not-a-real-module', type: 'x' }).success).toBe(
+      false,
+    )
+  })
+})
 
 /**
  * Story 067 D3: the shipped-icon id is a bounded slug, never a path. This is a

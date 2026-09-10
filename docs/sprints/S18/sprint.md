@@ -21,7 +21,7 @@ what is going on.
 
 - [x] 080 — Install R1Q2 from the community package
 - [x] 081 — The home screen belongs to a home module
-- [ ] 082 — The launcher fetches the community news feed
+- [x] 082 — The launcher fetches the community news feed
 - [ ] 085 — The content repository carries the news contract
 - [ ] 083 — The hero is the news carousel
 - [ ] 084 — Slide images come from the launcher's own cache

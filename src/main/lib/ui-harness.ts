@@ -80,3 +80,36 @@ export function uiHarnessPickedFolders(input: UiHarnessGateInput): string[] | un
   if (raw === undefined || raw.length === 0) return []
   return raw.split(delimiter).filter((path) => path.length > 0)
 }
+
+/**
+ * The environment variable the harness names its fixture server's origin in, e.g.
+ * `http://127.0.0.1:53129`. Only read when the double gate is open.
+ *
+ * Story 082 D4: moved here from `src/main/modules/downloads/harness.ts` (story 074 D8's original
+ * home) so `src/main/modules/home/news/harness.ts` can reuse the same variable and parser without a
+ * module-to-module import - both downloads and news fetch from the same community-content repo, so
+ * one variable names where "somewhere other than production" is for both.
+ */
+export const HARNESS_CONTENT_REPO_BASE_ENV = 'Q2L_UI_CONTENT_REPO_BASE'
+
+/**
+ * Accepts only an `http://127.0.0.1[:port][/path]` (or https loopback) base, normalised without a
+ * trailing slash. Anything else - a public host, a `file:` URL, junk - answers `undefined`; what a
+ * caller does with `undefined` is its own decision (downloads falls back to production, news skips
+ * the fetch entirely - see `news/harness.ts`).
+ */
+export function parseHarnessBaseUrl(raw: string | undefined): string | undefined {
+  if (raw === undefined || raw.length === 0) return undefined
+
+  let url: URL
+  try {
+    url = new URL(raw)
+  } catch {
+    return undefined
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined
+  if (url.hostname !== '127.0.0.1') return undefined
+
+  const base = `${url.origin}${url.pathname}`
+  return base.endsWith('/') ? base.slice(0, -1) : base
+}
