@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { TriangleAlert } from 'lucide-react'
+import { Plus, TriangleAlert } from 'lucide-react'
 import type { BindCollision } from '@shared/config/bind-collision'
 import type { ModifierTrigger } from '@shared/config/modifier-layers'
 import { Button } from '../../../components/ui/Button'
@@ -193,6 +193,7 @@ export function BindSlot({
   boundKey,
   boundModifier,
   isPrimary = false,
+  compactAdd = false,
   isConflicted = false,
   onAssign,
   onAssignModifier,
@@ -219,6 +220,8 @@ export function BindSlot({
    * behave identically, and the legacy panels simply do not pass it.
    */
   isPrimary?: boolean
+  /** Compact add affordance in rows that already contain two bindings. */
+  compactAdd?: boolean
   /**
    * Story 020 D5: does this slot's key collide with another owner somewhere in the profile
    * (AC 8)? Marked with the danger border *and* a warning glyph - never colour alone (story 020
@@ -486,6 +489,7 @@ export function BindSlot({
   const showConflict = isConflicted && Boolean(boundKey) && !capturing
 
   const slotClasses = ['ctrl-slot']
+  if (compactAdd && !boundKey && !capturing) slotClasses.push('ctrl-slot-add')
   if (capturing) {
     slotClasses.push('is-capturing')
   } else if (boundKey) {
@@ -512,12 +516,17 @@ export function BindSlot({
       <button
         type="button"
         className={slotClasses.join(' ')}
-        aria-label={t(
-          showConflict
-            ? 'config.controls.editor.slotLabelConflict'
-            : 'config.controls.editor.slotLabel',
-          { slot: label, value: valueText },
-        )}
+        title={compactAdd && !boundKey ? t('config.controls.grid.keyAdd') : undefined}
+        aria-label={
+          compactAdd && !boundKey && !capturing
+            ? t('config.controls.grid.keyAdd')
+            : t(
+                showConflict
+                  ? 'config.controls.editor.slotLabelConflict'
+                  : 'config.controls.editor.slotLabel',
+                { slot: label, value: valueText },
+              )
+        }
         onClick={startCapture}
       >
         {capturing ? (
@@ -531,6 +540,8 @@ export function BindSlot({
             <span className="numeric">{boundKey}</span>
             {showConflict && <TriangleAlert className="size-3" aria-hidden="true" />}
           </>
+        ) : compactAdd ? (
+          <Plus aria-hidden className="size-3.5" />
         ) : (
           <span className="ctrl-slot-empty">{t('config.controls.editor.empty')}</span>
         )}

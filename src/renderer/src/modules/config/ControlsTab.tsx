@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ListChecks, Pencil, Plus, SlidersHorizontal, Trash2, TriangleAlert, X } from 'lucide-react'
+import {
+  ChevronDown,
+  ListChecks,
+  Pencil,
+  Plus,
+  SlidersHorizontal,
+  Trash2,
+  TriangleAlert,
+  X,
+} from 'lucide-react'
 import { horizontalListSortingStrategy, SortableContext } from '@dnd-kit/sortable'
 import { actionKeySlots, withKeySlot } from '@shared/config/action-slots'
 import { isDropCatalogRow, nameForCatalogRow } from '@shared/config/catalog-rows'
@@ -1048,7 +1057,12 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
       ? t('config.controls.dualBind.primaryKey')
       : t('config.controls.dualBind.keyN', { n: slotIndex + 1 })
 
-  const renderCatalogSlot = (row: CatalogRow, action: ConfigAction, slotIndex: number) => {
+  const renderCatalogSlot = (
+    row: CatalogRow,
+    action: ConfigAction,
+    slotIndex: number,
+    compactAdd = false,
+  ) => {
     const state = deriveRowState(action, row)
     const slot = state.keys[slotIndex]
     const boundKey = slot?.key
@@ -1062,6 +1076,7 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
     return (
       <BindSlot
         label={keySlotLabel(slotIndex)}
+        compactAdd={compactAdd}
         boundKey={boundKey}
         boundModifier={boundModifier}
         // AC 6: a bound Primary cell is the strongest element in its row. AC 8: a slot whose key
@@ -1297,7 +1312,7 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
    * paths keyed by `action.id`. Story 052 D8: the only thing left that a catalogue row does
    * differently is `withCatalogBody` (an entry with no commands of its own gets the catalogue's).
    */
-  const renderPlainSlot = (action: ConfigAction, slotIndex: number) => {
+  const renderPlainSlot = (action: ConfigAction, slotIndex: number, compactAdd = false) => {
     // Review fix (finding 1): read off the same filtered/compacted view `renderKeyCell`/
     // `renderExtraKeyRows` already build for a plain row (`plainKeySlots`, defined below) - not the
     // raw, uncompacted `action.keys[slotIndex]` `keySlotAt` gives. `applySlot` (the write side)
@@ -1317,6 +1332,7 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
     return (
       <BindSlot
         label={keySlotLabel(slotIndex)}
+        compactAdd={compactAdd}
         boundKey={boundKey}
         boundModifier={boundModifier}
         isPrimary={slotIndex === 0}
@@ -1367,76 +1383,42 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
    * its own to read this off. */
   const plainKeySlots = (action: ConfigAction) => actionKeySlots(action).filter((slot) => slot.key)
 
-  /**
-   * Story 056 D3: the Key column's content for a row that can be bound - a catalogue row (`row`
-   * set) or a plain `bind`/`message` entry (`row` undefined; an alias never reaches this, see
-   * `renderPlainActionRow`). Always the slot-0 `BindSlot`, then:
-   *
-   * - no extra key: the `+` add-key affordance sits right next to it (next free index, i.e.
-   *   `keys.length`).
-   * - exactly one extra: the fold rule says it always renders with no chevron - `renderExtraKeyRows`
-   *   below puts it in a sub-row, so nothing more appears here.
-   * - two or more extras: a "+n" toggle button switches `expandedKeyRows`; the `+` also stays here
-   *   while the group is collapsed (the "+ placement" decision - a collapsed group still needs an
-   *   add path) and moves into `renderExtraKeyRows`'s output once expanded.
-   *
-   * One implementation for both row kinds (rather than two near-identical copies) via `renderSlot`,
-   * which is the only thing that differs between them.
-   */
+  /** Two bindings stay inline; larger sets disclose additional keys on demand. */
   const renderKeyCell = (row: CatalogRow | undefined, action: ConfigAction, label: string) => {
     const keys = row ? deriveRowState(action, row).keys : plainKeySlots(action)
-    const renderSlot = (slotIndex: number) =>
-      row ? renderCatalogSlot(row, action, slotIndex) : renderPlainSlot(action, slotIndex)
-    const extraCount = Math.max(keys.length - 1, 0)
-    const expanded = expandedKeyRows.has(action.id)
-    // The group is "open" - its extras rendered as sub-rows rather than folded - whenever there is
-    // exactly one extra (always visible, no chevron) or two-plus and the user expanded it.
-    const isOpen = extraCount === 1 || (extraCount >= 2 && expanded)
+    const renderSlot = (slotIndex: number, compactAdd = false) =>
+      row
+        ? renderCatalogSlot(row, action, slotIndex, compactAdd)
+        : renderPlainSlot(action, slotIndex, compactAdd)
+    const hasMany = keys.length >= 3
+    const expanded = hasMany && expandedKeyRows.has(action.id)
+    const toggleLabel = t(
+      expanded ? 'config.controls.grid.keyMoreHide' : 'config.controls.grid.keyMoreShow',
+      { count: keys.length - 1, name: label },
+    )
     return (
       <>
         {renderSlot(0)}
-        {extraCount >= 2 && (
+        {keys.length === 2 && renderSlot(1)}
+        {hasMany && (
           <button
             type="button"
             className="ctrl-keymore"
             aria-expanded={expanded}
-            aria-label={t(
-              expanded ? 'config.controls.grid.keyMoreHide' : 'config.controls.grid.keyMoreShow',
-              { count: extraCount, name: label },
-            )}
+            aria-label={toggleLabel}
+            title={toggleLabel}
             onClick={() => toggleExpandedKeyRow(action.id)}
           >
-            {`+${extraCount}`}
+            <span>{'+' + (keys.length - 1)}</span>
+            <ChevronDown aria-hidden className="ctrl-keymore-chevron size-3" />
           </button>
         )}
-        {/* Story 056 "+ placement" decision: the add-key affordance sits here only while the
-            group is not open (no extras yet, or a collapsed 2+ group) - once open it is the last
-            sub-row `renderExtraKeyRows` renders instead, never both places at once. Reusing the
-            row's own `BindSlot` for the next free index (rather than a plain `+` button) is
-            deliberate: `BindSlot` owns its capture lifecycle internally and exposes no way to
-            start it from outside, so the only affordance that can actually begin a capture *is* a
-            real `BindSlot` instance - its own "Empty" idle state doubles as the "+" trigger. Left
-            at its natural full-slot size rather than squeezed into the 26px `.ctrl-keymore`
-            footprint: shrinking an unmodified `BindSlot` (out of scope to edit) would clip its
-            label unreadably, so it renders exactly like every other slot instance. */}
-        {/* Review fix (finding 2): with zero keys, the primary `BindSlot` rendered above (also
-            slot 0, since there is nothing to shift it past) already *is* the add-key affordance -
-            clicking it starts capture at index 0. Rendering this add-key slot too would duplicate
-            it verbatim (same index, same "Empty" idle state, same write target), which is exactly
-            the two-column look this story exists to remove. Once the row has >=1 key, slot
-            `keys.length` is a genuinely different index and this is the only place to add one. */}
-        {!isOpen && keys.length >= 1 && renderSlot(keys.length)}
+        {!expanded && keys.length >= 1 && renderSlot(keys.length, keys.length >= 2)}
       </>
     )
   }
 
-  /**
-   * Story 056 D3: a row's further keys (slots 1..n) as full-width sub-rows below it, one
-   * `.ctrl-keysub-row` per extra key plus - only while the group is "open" (`renderKeyCell`'s own
-   * rule, computed identically here) - one more carrying the `+` add-key affordance. `undefined`
-   * when there is nothing to show below the row at all: no extra keys, and the `+` is not
-   * homeless (`renderKeyCell` is still showing it).
-   */
+  /** Additional bindings and the add slot appear only when a larger set is expanded. */
   const renderExtraKeyRows = (
     row: CatalogRow | undefined,
     action: ConfigAction,
@@ -1447,7 +1429,7 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
       row ? renderCatalogSlot(row, action, slotIndex) : renderPlainSlot(action, slotIndex)
     const extraCount = Math.max(keys.length - 1, 0)
     const expanded = expandedKeyRows.has(action.id)
-    const isOpen = extraCount === 1 || (extraCount >= 2 && expanded)
+    const isOpen = extraCount >= 2 && expanded
     if (!isOpen) return undefined
 
     // Clearing a sub-row's key: the exact same write every slot's own `onClear` already performs

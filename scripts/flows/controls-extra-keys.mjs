@@ -60,15 +60,16 @@ export default async function controlsExtraKeys({ page, shot, step }) {
   // branch) — `.last()` targets the add slot regardless of which one is first in DOM order.
   await row.locator('.ctrl-keycell .ctrl-slot').last().click({ timeout: CLICK_TIMEOUT_MS })
   await page.keyboard.press('y')
-  // Now 2 keys total (1 extra): the fold rule always shows a single extra unfolded, so a lone
-  // sub-row appears carrying the new key plus the (now-moved-here) add-key slot.
-  await subRows().first().waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+  // Two bindings remain on the main row; the compact plus starts the third capture.
+  await row
+    .locator('.ctrl-keycell .ctrl-slot.is-bound')
+    .nth(1)
+    .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+  if (await subRows().count()) throw new Error('two bindings must remain inline')
   await shot('second-key-added')
 
   step('add a third key (u)')
-  // The add-key slot is now the last sub-row's own `.ctrl-slot` (`renderExtraKeyRows`'s trailing
-  // "key-add" row) since the group is open with exactly one extra.
-  await subRows().last().locator('.ctrl-slot').click({ timeout: CLICK_TIMEOUT_MS })
+  await row.locator('.ctrl-slot-add').click({ timeout: CLICK_TIMEOUT_MS })
   await page.keyboard.press('u')
   // Now 3 keys total (2 extras): the fold rule collapses two-plus extras by default, so the sub-
   // rows disappear and a "+2" chevron appears on the main row instead.

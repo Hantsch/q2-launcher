@@ -1487,6 +1487,7 @@
         "footerBound": "{{count}} bound",
         "conflictCount_one": "{{count}} conflict",
         "conflictCount_other": "{{count}} conflicts",
+        "keyAdd": "Add binding",
         "keyMoreShow": "Show {{count}} more keys for “{{name}}”",
         "keyMoreHide": "Hide {{count}} more keys for “{{name}}”"
       },
