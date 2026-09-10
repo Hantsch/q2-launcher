@@ -6,21 +6,22 @@
  * `own`/`installations` shape.
  *
  * `ProfileFileSyncStatus` and `CareSyncRow['state']` are almost the same
- * vocabulary - `'inSync' | 'outOfSync' | 'missing' | 'pending'` are identical
- * spellings on both sides and pass through unchanged. The one exception is
- * `'error'`, which this adapter renames to `'failed'` so the UI's retry
- * affordance has a name that describes what a user can do about it, rather
- * than the write pipeline's internal vocabulary. `'pending'` (an
- * installation that was running when the last write ran, so the write was
- * deferred) is deliberately its own state here too - it must never collapse
- * into `'failed'` or `'outOfSync'`, both of which would misdescribe a write
- * that has not been attempted yet as one that failed or is simply stale.
+ * vocabulary - `'inSync' | 'outOfSync' | 'missing'` are identical spellings on
+ * both sides and pass through unchanged. The one exception is `'error'`,
+ * which this adapter renames to `'failed'` so the UI's retry affordance has a
+ * name that describes what a user can do about it, rather than the write
+ * pipeline's internal vocabulary.
+ *
+ * Story 079: there is no `'pending'` state any more. A running installation's
+ * copy used to have its write deferred and reported as `'pending'`; it is now
+ * written exactly like a stopped one, so a write that actually fails is still
+ * reported as `'failed'` (with Retry) and there is nothing left in between.
  */
 
 import type { ProfileFileSync, ProfileFileSyncStatus, ProfileSyncState } from '@shared/modules/config'
 
 /** One row's sync state - `ProfileFileSyncStatus` with `'error'` renamed to `'failed'`. */
-export type CareSyncState = 'inSync' | 'outOfSync' | 'missing' | 'failed' | 'pending'
+export type CareSyncState = 'inSync' | 'outOfSync' | 'missing' | 'failed'
 
 export interface CareSyncRow {
   /** `'canonical'` for the profile's own file, an installation id for its copy. */

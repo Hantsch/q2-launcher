@@ -10,16 +10,20 @@ import { didFocusResume } from './file-source-refresh'
  * profile's file on every focus event would make focus latency scale with the profile count). Both
  * are no-ops while `profileId` is null (the list screen, nothing selected).
  *
- * - **Config tab open**: `ConfigView`'s own mount - a plain `useEffect(fn, [])`. Deliberately not
- *   tied to `activeTab`/`screen` state, so switching between Settings/Controls/Raw File inside one
- *   profile's detail never re-triggers this (the story is explicit that it must not).
+ * - **Config tab open**: a profile becoming the selected one - depends on `params.profileId` itself
+ *   (story 079 D6 review fix: this used to be a plain `useEffect(fn, [])`, which only ever fired once
+ *   for whatever profile happened to be selected at that exact instant - always `null`, since the
+ *   view always lands on the profile list first. That meant "leave to Library and re-enter Config"
+ *   re-read nothing at all; depending on `profileId` is what makes opening/switching to a profile
+ *   re-fire it, while switching `activeTab`/`screen` - neither of which this dependency array knows
+ *   anything about - still never does, exactly as the story requires).
  * - **Window focus**: `chrome.focused` (`useWindowFocused`, already pushed by main through the
  *   existing `window:state` event) transitioning false -> true, per `didFocusResume`
  *   (`file-source-refresh.ts`) - never a DOM `focus` listener, which the story explicitly rules out.
  *
- * `profileId`/`onResult`/`isSuspended` are read through refs kept current every render, so the
+ * `onResult`/`isSuspended`/`onAfterRefresh` are read through refs kept current every render, so the
  * focus-triggered effect always acts on whichever profile is selected *at the moment focus resumes*,
- * not whatever was selected when this hook first mounted.
+ * not whatever was selected when this hook last rendered.
  *
  * The pure decision logic behind it lives in `file-source-refresh.ts`, which IS tested on its own;
  * same split as `ProfileSaveActions.tsx` (untested, calls `client.ts`) and `lib/save-bar.ts` (tested,
@@ -45,15 +49,27 @@ export function useFileSourceRefresh(params: {
    */
   isSuspended: () => boolean
   onResult: (result: RefreshedProfileResult) => void
+  /**
+   * Story 079 D6 (AC5): called once per trigger firing, right after `runRefresh` - regardless of
+   * whether the refresh itself actually ran (`isSuspended` still suppresses `runRefresh`, never
+   * this). `ConfigView` wires its `useDriftState` hook's `refetch` here so a changed, missing or
+   * stale installation copy is checked on the exact same two triggers this hook already re-reads the
+   * canonical file on, not only while the Care tab happens to be open. Unlike `runRefresh`, never
+   * suppressed by `isSuspended`: `getProfileSyncState` is read-only, so checking sync state cannot
+   * destroy an open raw draft the way adopting a file's bytes can.
+   */
+  onAfterRefresh?: (profileId: string) => void
 }): void {
-  const profileIdRef = useRef(params.profileId)
   const onResultRef = useRef(params.onResult)
   const isSuspendedRef = useRef(params.isSuspended)
+  const onAfterRefreshRef = useRef(params.onAfterRefresh)
+  const profileIdRef = useRef(params.profileId)
   useEffect(() => {
-    profileIdRef.current = params.profileId
     onResultRef.current = params.onResult
     isSuspendedRef.current = params.isSuspended
-  }, [params.profileId, params.onResult, params.isSuspended])
+    onAfterRefreshRef.current = params.onAfterRefresh
+    profileIdRef.current = params.profileId
+  }, [params.profileId, params.onResult, params.isSuspended, params.onAfterRefresh])
 
   const runRefresh = (profileId: string): void => {
     if (isSuspendedRef.current()) return
@@ -63,11 +79,15 @@ export function useFileSourceRefresh(params: {
     })
   }
 
-  // Trigger 1: this view's own mount ("config tab open"). Empty deps on purpose - see doc comment.
+  // Trigger 1: the selected profile changing - see the doc comment above for why this depends on
+  // `params.profileId` directly rather than mounting once.
   useEffect(() => {
-    const profileId = profileIdRef.current
-    if (profileId) runRefresh(profileId)
-  }, [])
+    if (params.profileId) {
+      runRefresh(params.profileId)
+      onAfterRefreshRef.current?.(params.profileId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.profileId])
 
   // Trigger 2: window focus regained.
   const focused = useWindowFocused()
@@ -77,6 +97,9 @@ export function useFileSourceRefresh(params: {
     prevFocusedRef.current = focused
     if (!didFocusResume(prev, focused)) return
     const profileId = profileIdRef.current
-    if (profileId) runRefresh(profileId)
+    if (profileId) {
+      runRefresh(profileId)
+      onAfterRefreshRef.current?.(profileId)
+    }
   }, [focused])
 }

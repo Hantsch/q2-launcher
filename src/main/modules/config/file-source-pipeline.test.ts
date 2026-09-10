@@ -5,9 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   CONFIG_HANDLERS,
   type ConfigProfile,
+  type ProfileSyncState,
   type RefreshFromFilesResult,
   type SaveProfileResult,
 } from '@shared/modules/config'
+import { actionKeySlots } from '@shared/config/action-slots'
 import { resolveProfileFileNames } from '@shared/config/profile-files'
 import { neutralizeProse } from '@shared/config/profile-metadata'
 import { readOwnershipStamp } from '@shared/config/file-ownership'
@@ -17,9 +19,11 @@ import {
   holdLayerProfile,
   latin1CategoryNameProfile,
   layeredTwoSlotEntryProfile,
+  twoCategoriesWithSubcategoriesProfile,
 } from '@shared/config/fixtures/profiles'
 import { fail, type Installation, type LaunchState, type Outcome } from '@shared/types'
 import type { AppContext } from '../../context'
+import { pathExists } from '../../lib/fs-utils'
 import { scopedLogger } from '../../lib/logger'
 import { StateStore } from '../../services/state'
 import type { ModuleHandler, ModuleSetup } from '../types'
@@ -206,6 +210,18 @@ async function refresh(
   return result.value
 }
 
+/** The read-only `syncState` report (story 022 D7) - what the Care badge and "Sync now" read. */
+async function syncState(
+  handlers: Map<string, ModuleHandler>,
+  profileId = 'p1',
+): Promise<ProfileSyncState> {
+  const result = (await handlers.get(CONFIG_HANDLERS.syncState)!({
+    profileId,
+  })) as Outcome<ProfileSyncState>
+  if (!result.ok) throw new Error(`syncState failed: ${result.error.key}`)
+  return result.value
+}
+
 /**
  * What must never shrink across any cycle in this file - the story's own hard requirement ("no
  * profile loses a bind, an alias name, a category or a layer"). Names, not ids: every id a
@@ -351,8 +367,15 @@ describe('external edit while the UI carries unsaved edits', () => {
     expect(adopted.dirty).toBe(false)
     expect(adopted.fileHash).toBe(hashCanonicalFileContent(diskText))
     expect(adopted.fileState).toBe('unchanged')
-    // The file itself was not rewritten by adopting it.
-    expect(await readFile(canonicalPath(fileName), 'latin1')).toBe(diskText)
+    // The file's CONTENT was not rewritten by adopting it - not one byte, hand formatting and all.
+    // Its NAME does follow the display name that came out of that same edit (story 079 review,
+    // finding 1: a clean profile's canonical file is moved to the name it now resolves to, without
+    // its bytes being touched), which is also what keeps it findable for `syncState`, and what the
+    // installation copies were already renamed to by the cascade.
+    const adoptedFileName = fileNameOf(state)
+    expect(adoptedFileName).not.toBe(fileName)
+    expect(await readFile(canonicalPath(adoptedFileName), 'latin1')).toBe(diskText)
+    expect(await pathExists(canonicalPath(fileName))).toBe(false)
     expectNothingLost(before, inventory(adopted), 'adopt')
     expect(await refresh(handlers, { profileId: 'p1' })).toEqual([
       { profileId: 'p1', outcome: 'unchanged', fileState: 'unchanged' },
@@ -454,7 +477,6 @@ describe('conflicting simultaneous changes', () => {
     expect(final.dirty).toBe(false)
     expect(final.fileHash).toBe(hashCanonicalFileContent(onDisk))
     expect(state.configWriteFailures()).toEqual({})
-    expect(state.configPendingWrites()).toEqual({})
     expect(await refresh(handlers, { profileId: 'p1' })).toEqual([
       { profileId: 'p1', outcome: 'unchanged', fileState: 'unchanged' },
     ])
@@ -493,7 +515,6 @@ describe('conflicting simultaneous changes', () => {
       expectNothingLost(before[profileId], inventory(profile), `${profileId} after the cascade`)
     }
     expect(state.configWriteFailures()).toEqual({})
-    expect(state.configPendingWrites()).toEqual({})
     // Neither profile may be reported as changed-on-disk or missing after a cascade that wrote both.
     expect(await refresh(handlers)).toEqual([
       { profileId: 'p1', outcome: 'unchanged', fileState: 'unchanged' },
@@ -869,7 +890,114 @@ describe('write -> external edit -> re-read -> render over every 042 fixture', (
         `${fixture.name} after a second cycle`,
       )
     })
+
+    /**
+     * Story 079 D1 (AC4): the loop above proves the fixed point only *after* a save, which rewrites
+     * the file from the adopted record and so would paper over an adopt that re-minted every
+     * `cat=`/`layer=`/`sub=`/`cvs=`/`cvsub=` id. This case takes the save away: the external edit
+     * is itself a launcher-shaped render (the `unbindall` toggle flipped, which the reader recovers
+     * through `detectWriteUnbindall`), and straight after the adopt `syncState` has to judge the
+     * canonical file `inSync` against a fresh render of the adopted profile - byte for byte, ids
+     * included. Before D1 every fixture with a custom category, a sub-category, a cvar section or
+     * a layer read `outOfSync` here, on nothing but freshly minted ids.
+     */
+    it(`refresh -> syncState reads inSync without a save in between for "${fixture.name}"`, async () => {
+      const { handlers, state } = await boot()
+      state.setConfigProfiles([{ ...fixture, id: 'p1', assignments: [] }])
+      await state.settle()
+
+      const saved = await save(handlers)
+      if (!saved.ok || saved.value.status !== 'saved') {
+        throw new Error(`expected a save for ${fixture.name}`)
+      }
+      const before = inventory(only(state))
+      const fileName = fileNameOf(state)
+
+      const external = renderProfileFile({
+        ...saved.value.profile,
+        writeUnbindall: saved.value.profile.writeUnbindall === false,
+      })
+      expect(external).not.toBe(await readFile(canonicalPath(fileName), 'latin1'))
+      await writeFile(canonicalPath(fileName), external, 'latin1')
+
+      const results = await refresh(handlers, { profileId: 'p1' })
+      expect(results[0]!.outcome).toBe('adopted')
+      const adopted = only(state)
+      expectNothingLost(before, inventory(adopted), `${fixture.name} after adopting a re-render`)
+
+      // The whole point: no save happened, and the adopted record renders to the file's own bytes.
+      expect(renderProfileFile(adopted)).toBe(external)
+      expect((await syncState(handlers)).own.status).toBe('inSync')
+    })
   }
+
+  /**
+   * Story 079 D1 (AC4), the other half of "adopted when well-formed and unique": a grouping id the
+   * file states twice, or not at all, is minted rather than adopted - and the record it belongs to
+   * survives either way. Driven through the same real handlers as the loop above, over a hand-edit
+   * of the launcher's own render: the second category's `Chat` sub-category is re-tagged with the
+   * first category's `sub-ammo` id on every banner that carries it, and the modifier layer's own
+   * `layer=` value is blanked.
+   */
+  it('a duplicated or empty grouping tag is minted, not adopted, and the record still comes back', async () => {
+    const fixture = twoCategoriesWithSubcategoriesProfile
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([{ ...fixture, id: 'p1', assignments: [] }])
+    await state.settle()
+    await save(handlers)
+    const fileName = fileNameOf(state)
+    const before = inventory(only(state))
+
+    const written = await readFile(canonicalPath(fileName), 'latin1')
+    expect(written).toMatch(/\[q2l sub=sub-say\]/)
+    expect(written).toMatch(/\[q2l layer=[^\s\]]+ mode=hold trigger=ALT\]/)
+    const mangled = written
+      .replace(/\[q2l sub=sub-say\]/g, '[q2l sub=sub-ammo]')
+      .replace(/\[q2l layer=[^\s\]]+ (mode=hold trigger=ALT\])/g, '[q2l layer= $1')
+    expect(mangled).not.toBe(written)
+    await writeFile(canonicalPath(fileName), mangled, 'latin1')
+
+    const results = await refresh(handlers, { profileId: 'p1' })
+    expect(results[0]!.outcome).toBe('adopted')
+    const adopted = only(state)
+    expectNothingLost(before, inventory(adopted), 'duplicate and empty tags after adopting')
+
+    // Both categories keep both sub-categories - the duplicate is two records, not one merged.
+    const byName = new Map(adopted.categories!.map((category) => [category.name, category]))
+    expect(byName.get('Drops')!.subcategories!.map((sub) => sub.name)).toEqual(['Ammunition'])
+    expect(byName.get('My stuff')!.subcategories!.map((sub) => sub.name)).toEqual(['Chat', 'Later'])
+    // Exactly one of them adopted `sub-ammo`; the other was minted. `sub-empty` was unique and is
+    // adopted as stated. Every id in the profile is distinct.
+    const subIds = adopted.categories!.flatMap((category) =>
+      (category.subcategories ?? []).map((sub) => sub.id),
+    )
+    expect(subIds.filter((id) => id === 'sub-ammo')).toHaveLength(1)
+    expect(subIds).toContain('sub-empty')
+    expect(new Set(subIds).size).toBe(subIds.length)
+    // The entry under the re-tagged banner is still filed under *its* category's sub-category.
+    const chat = byName.get('My stuff')!.subcategories!.find((sub) => sub.name === 'Chat')!
+    const taunt = adopted.actions!.find((action) => action.name === 'Taunt')!
+    expect(taunt.categoryId).toBe(byName.get('My stuff')!.id)
+    expect(taunt.subcategoryId).toBe(chat.id)
+
+    // The layer with the blanked tag is still a layer, with a minted (non-empty) id, its trigger
+    // and its override - and the modifier slot it carries is still on the entry.
+    expect(adopted.layers).toHaveLength(1)
+    const layer = adopted.layers![0]!
+    expect(layer.id).not.toBe('')
+    expect(layer.mode).toBe('hold')
+    expect(layer.triggerKey).toBe('ALT')
+    const drop = adopted.actions!.find((action) => action.catalogId === 'drop-rockets')!
+    expect(actionKeySlots(drop).map((slot) => `${slot.modifier}+${slot.key}`)).toEqual(['ALT+r'])
+
+    // And the next render writes the minted ids into the tags it fixed, and nothing else moves:
+    // saving the adopted record and re-reading it is a fixed point.
+    const resaved = await save(handlers)
+    if (!resaved.ok || resaved.value.status !== 'saved') throw new Error('expected a re-save')
+    expect(await refresh(handlers, { profileId: 'p1' })).toEqual([
+      { profileId: 'p1', outcome: 'unchanged', fileState: 'unchanged' },
+    ])
+  })
 
   /**
    * The limitation story 043 D10 named here - "an entry with no key at all whose command is exactly

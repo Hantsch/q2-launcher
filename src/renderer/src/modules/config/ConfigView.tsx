@@ -35,6 +35,7 @@ import { ProfileChangesProvider } from './lib/profile-changes'
 import { RawDraftProvider, useRawDraft } from './lib/raw-draft'
 import { isProfileDirty, resolveSaveOutcome } from './lib/save-bar'
 import { analyzeTidyUp } from './lib/tidy-up-findings'
+import { useDriftState } from './lib/use-drift-state'
 import { validateProfileForEngines } from './lib/validation-scope'
 import { useFileSourceRefresh } from './lib/useFileSourceRefresh'
 import { useProfileDraft } from './lib/useProfileDraft'
@@ -213,6 +214,16 @@ export function ConfigView() {
 
   const installations = useLauncher((state) => state.installations)
 
+  /**
+   * Story 079 D6 (AC5): the profile's file-sync/drift rows, owned here rather than by `CareTab` so
+   * they are fetched on the canonical re-read triggers below (and on a save) whether or not Care is
+   * ever opened. `driftState.status` is handed to `CareTab`; `driftState.refetch` is wired below as
+   * `useFileSourceRefresh`'s `onAfterRefresh` for the mount/profile-open and focus triggers, and
+   * `CareTab` also gets it directly to re-check after a Files action. Declared here, ahead of
+   * `useFileSourceRefresh` itself, because D7 also needs `driftState.status` for the tab badge below.
+   */
+  const driftState = useDriftState(selectedId, selected?.updatedAt)
+
   // Computed once here rather than separately in the tab badge and in
   // `ValidationPanel` - both used to run `validateProfileForEngines` on the
   // same draft independently (review finding).
@@ -234,9 +245,17 @@ export function ConfigView() {
   // `validation` already is, so the badge and `CareTab`'s own copy (needed
   // for its summary) never depend on one another.
   const tidyUpFindings = useMemo(() => (selected ? analyzeTidyUp(selected) : []), [selected])
+  // Story 079 D7 (AC6): the badge also counts non-`inSync` Files rows, so a drifted/missing/failed
+  // copy shows up the same way an unresolved finding does - `driftState.status` is only `'loaded'`
+  // once the fetch resolves, so there is nothing to add while it is still loading or has errored.
+  const driftRows = driftState.status.kind === 'loaded' ? driftState.status.rows : []
+  // Story 079 review (finding 4): `selected.dirty`, not `draftOrSelected`'s - same profile
+  // `tidyUpFindings` above reads, and what tells `dedupedFindingCounts` a canonical `outOfSync` row
+  // is merely unsaved edits (excluded from the count) rather than a genuine external edit (still
+  // counted); see `care-summary.ts`'s doc comment.
   const validationCounts = useMemo(
-    () => dedupedFindingCounts(validation, tidyUpFindings),
-    [validation, tidyUpFindings],
+    () => dedupedFindingCounts(validation, tidyUpFindings, driftRows, selected?.dirty),
+    [validation, tidyUpFindings, driftRows, selected?.dirty],
   )
 
   const openProfile = (id: string): void => {
@@ -420,6 +439,7 @@ export function ConfigView() {
     profileId: selectedId,
     isSuspended: () => rawDraftActiveRef.current,
     onResult: handleFileSourceResult,
+    onAfterRefresh: driftState.refetch,
   })
 
   /**
@@ -952,6 +972,8 @@ export function ConfigView() {
                           validation={validation}
                           onProfileUpdated={handleProfileUpdated}
                           installations={installations}
+                          syncStatus={driftState.status}
+                          onRefetchSyncState={driftState.refetch}
                           onNavigateToAlias={(aliasName, actionId) =>
                             goToTab('aliases', { alias: aliasName, aliasActionId: actionId })
                           }

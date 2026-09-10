@@ -138,6 +138,8 @@ describe('StateStore downloadFailures (story 073 D1)', () => {
         installations: [],
         configProfiles: [],
         configPlayedMods: {},
+        // Retired by story 079 D4 and deliberately still written here: the read side stays
+        // forgiving, so a `state.json` from before that story loads with the key simply ignored.
         configPendingWrites: {},
         configSwitchBinds: {},
         configWriteFailures: {},

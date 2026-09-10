@@ -65,9 +65,15 @@
  * commented themselves, so `render.ts` gives every entry line at least the bare `[q2l]` marker and
  * a code line with no tag at all is not an entry line here.
  *
- * An id is never adopted: every id in the result comes from `newId` (AC4's rule, applied to
- * entries, categories and layers alike - importing a colleague's file must not collide with a local
- * profile).
+ * The *profile* id is never adopted (story 042 AC4 - importing a colleague's file must not collide
+ * with a local profile), and neither is an entry's: every entry id comes from `newId`. The
+ * *grouping* ids - `layer=`, `cat=`, `sub=`, `cvs=`, `cvsub=` - are adopted from the file when
+ * well-formed (non-empty) and not already taken by another record of the same registry in this
+ * restore, and minted otherwise (story 079 D1, AC4). They are only ever looked up within one
+ * profile, so a colleague's value collides with nothing locally, and adopting them is what makes
+ * `render(restore(text)) === text` hold byte-for-byte: a re-minted id would rewrite every tag on the
+ * next structured save and read as drift against every copy of the file. `adoptableId` is the one
+ * rule; the four registries only differ in which tag field they read.
  *
  * What comes from where:
  *
@@ -678,6 +684,25 @@ function taggedCvarSectionId(fields: Record<string, string>): string | null {
 function taggedCvarSubsectionId(fields: Record<string, string>): string | null {
   const id = (fields.cvsub ?? '').trim()
   return id.length > 0 ? id : null
+}
+
+/**
+ * The id a grouping record gets (story 079 D1, AC4): the id the file states, when it is non-empty and
+ * no record of the same registry has taken it in this restore, else a freshly minted one. Either way
+ * the result is recorded in `taken`, so a later banner stating an id this restore already handed
+ * out - a hand-duplicated `[q2l sub=…]` tag, say - is minted rather than merged into a record it does
+ * not belong to. Mirrors `categoryRegistry#mintTemplate`, which has always kept a template id
+ * verbatim for the same reason: an id the file states is the id the next render must write back.
+ */
+function adoptableId(
+  stated: string | null | undefined,
+  taken: Set<string>,
+  newId: () => string,
+): string {
+  const candidate = (stated ?? '').trim()
+  const id = candidate.length > 0 && !taken.has(candidate) ? candidate : newId()
+  taken.add(id)
+  return id
 }
 
 /**
@@ -1742,13 +1767,20 @@ function categoryRegistry(
   created: () => ConfigActionCategory[]
 } {
   const created = new Map<string, ConfigActionCategory>()
-  /** `<category key>` -> `<the `sub` id the file states>` -> the locally minted record. */
+  /** `<category key>` -> `<the `sub` id the file states>` -> the record it resolves to. */
   const subcategories = new Map<string, Map<string, ConfigActionSubcategory>>()
+  /** Every category and sub-category id this registry has handed out - see `adoptableId`. */
+  const taken = new Set<string>()
 
-  const mint = (key: string, name: string): string => {
+  /**
+   * Story 079 D1: a `cat=` id the file states is adopted rather than re-minted (`adoptableId`), so
+   * the next render writes the same tag back. An untagged banner states nothing and mints, exactly
+   * as before.
+   */
+  const mint = (key: string, name: string, stated?: string): string => {
     const existing = created.get(key)
     if (existing) return existing.id
-    const category: ConfigActionCategory = { id: newId(), name }
+    const category: ConfigActionCategory = { id: adoptableId(stated, taken, newId), name }
     created.set(key, category)
     return category.id
   }
@@ -1771,6 +1803,7 @@ function categoryRegistry(
       name: title,
       ...(title === template.label ? { nameKey: template.labelKey } : {}),
     }
+    taken.add(template.id)
     created.set(key, category)
     return category.id
   }
@@ -1806,11 +1839,12 @@ function categoryRegistry(
     if (key === null) return newId()
     const tagged = section.fields.cat
     if (tagged !== undefined && tagged.length > 0) {
-      // A colleague's category id means nothing locally, so an id this build does not recognise
-      // mints a local category named from the header's own title (the story's own rule). A
-      // template id keeps its id but is minted just the same - see this registry's doc comment.
+      // A template id keeps its id and gets its `nameKey` back - see this registry's doc comment.
+      // Any other `cat=` id is adopted too (story 079 D1, `adoptableId`), named from the header's
+      // own title, so a colleague's category comes back as a real local category under the id
+      // their file states and the next render writes that same tag back.
       const template = TEMPLATE_ACTION_CATEGORIES.find((category) => category.id === tagged)
-      return template ? mintTemplate(key, template, section.title) : mint(key, section.title)
+      return template ? mintTemplate(key, template, section.title) : mint(key, section.title, tagged)
     }
     return mint(key, section.title)
   }
@@ -1831,9 +1865,11 @@ function categoryRegistry(
    * with it. A category with neither is still minted by nothing at all, so a cvar group's banner
    * stays what it always was.
    *
-   * The local id is minted, never adopted, exactly like a category's (AC4 - a colleague's id means
-   * nothing here). The `sub` id the file states is only ever a *lookup key*, scoped to its parent's
-   * key, which is also what keeps two categories that happen to state the same `sub` id apart.
+   * The `sub` id the file states is the *lookup key*, scoped to its parent's key, and (story 079 D1)
+   * also the record's own id when it is well-formed and not yet taken in this restore
+   * (`adoptableId`) - so two categories that happen to state the same `sub` id stay two
+   * sub-categories, the second one minted. A heuristic sub-category's synthetic
+   * `HEURISTIC_SUBCATEGORY_PREFIX` key is not something the file states and is never adopted.
    */
   const registerSubcategory = (section: Section): void => {
     const stated = taggedSubcategoryId(section.fields)
@@ -1850,7 +1886,11 @@ function categoryRegistry(
     const known = subcategories.get(key) ?? new Map<string, ConfigActionSubcategory>()
     subcategories.set(key, known)
     if (known.has(stated)) return
-    const record: ConfigActionSubcategory = { id: newId(), name: section.title }
+    const adoptable = stated.startsWith(HEURISTIC_SUBCATEGORY_PREFIX) ? null : stated
+    const record: ConfigActionSubcategory = {
+      id: adoptableId(adoptable, taken, newId),
+      name: section.title,
+    }
     known.set(stated, record)
     // Attached in first-seen document order, which is the order `withSubcategoryBuckets` wrote them
     // in: it walks `category.subcategories` for every one of the category's three sections, so all
@@ -1934,9 +1974,9 @@ function cvarSectionKeyFor(section: Section | null): string | null {
 /**
  * Hands out cvar sections and sub-sections and files `set` lines into them - the Settings-tab
  * counterpart of `categoryRegistry`, and deliberately built to the same shape: eager registration
- * from a `cvs=`/`cvsub=` tag, lazy minting from an untagged banner's own title, ids minted and never
- * adopted (AC4 - a colleague's id means nothing here), and the file's own banner order as the order
- * the sections come back in.
+ * from a `cvs=`/`cvsub=` tag, lazy minting from an untagged banner's own title, a stated id adopted
+ * when well-formed and not yet taken (story 079 D1, `adoptableId`) and minted otherwise, and the
+ * file's own banner order as the order the sections come back in.
  *
  * Eager is the important half, and for the same reason it is one namespace over: a section (or
  * sub-section) the user has just created holds no cvars, its banner is its only trace in the file -
@@ -1949,11 +1989,12 @@ function cvarSectionKeyFor(section: Section | null): string | null {
  * renders every section in exactly one pass over `profile.cvarSections`, so document order already
  * *is* the profile's order (the story's own Decisions) and `created()` simply reads it back.
  *
- * The `cvs`/`cvsub` ids the file states are only ever lookup *keys*, with one exception mirroring
- * `categoryRegistry`'s `mintTemplate`: an id naming one of the four seeded template sections
- * (`STANDARD_TEMPLATE.cvarSections` - `player`/`network`/`graphics`/`sound`) keeps that id and gets
- * its `nameKey` back, but only while the banner still carries the template's frozen English name.
- * A renamed one is plain prose from here on, exactly like a user-created section.
+ * The `cvs`/`cvsub` ids the file states are the lookup *keys* and, since story 079 D1, the records'
+ * own ids too. The template case mirrors `categoryRegistry`'s `mintTemplate` in what it adds on
+ * top: an id naming one of the four seeded template sections (`STANDARD_TEMPLATE.cvarSections` -
+ * `player`/`network`/`graphics`/`sound`) also gets its `nameKey` back, but only while the banner
+ * still carries the template's frozen English name. A renamed one is plain prose from here on,
+ * exactly like a user-created section.
  */
 function cvarSectionRegistry(
   newId: () => string,
@@ -1971,6 +2012,8 @@ function cvarSectionRegistry(
    * the file wins, which is the story's rule and the writer's rule in one. */
   const placedCatalogIds = new Set<string>()
   const placedNames = new Set<string>()
+  /** Every section and sub-section id this registry has handed out - see `adoptableId`. */
+  const taken = new Set<string>()
 
   /**
    * The cvar section a line under `section` belongs to, minting it if this is the first thing to ask
@@ -1989,6 +2032,10 @@ function cvarSectionRegistry(
     const stated = taggedCvarSectionId(section.fields)
     const template =
       stated === null ? undefined : STANDARD_TEMPLATE.cvarSections.find((seed) => seed.id === stated)
+    // A template id is kept verbatim exactly as `categoryRegistry#mintTemplate` keeps one; any other
+    // stated id is adopted through `adoptableId` (story 079 D1), and an untagged `'plain'` banner
+    // (`stated === null`) mints from its title as before.
+    if (template) taken.add(template.id)
     const record: ConfigCvarSection = template
       ? {
           id: template.id,
@@ -1998,7 +2045,7 @@ function cvarSectionRegistry(
             : {}),
           cvars: [],
         }
-      : { id: newId(), name: section.title, cvars: [] }
+      : { id: adoptableId(stated, taken, newId), name: section.title, cvars: [] }
     created.set(key, record)
     return record
   }
@@ -2031,7 +2078,15 @@ function cvarSectionRegistry(
     subsections.set(key, known)
     const existing = known.get(stated)
     if (existing) return existing
-    const record: ConfigCvarSubsection = { id: newId(), name: section.title, cvars: [] }
+    // Story 079 D1: a real `cvsub=` id is adopted (`adoptableId`). A `'subcategory'`-kind banner's
+    // `sub` value is the bind side's identity, not a cvar sub-section id the file states, so that
+    // shape keeps minting - adopting it would hand one id to two records of different kinds.
+    const adoptable = section.kind === 'cvarsubsection' ? stated : null
+    const record: ConfigCvarSubsection = {
+      id: adoptableId(adoptable, taken, newId),
+      name: section.title,
+      cvars: [],
+    }
     known.set(stated, record)
     // First-seen document order, which is the order `buildCvarSectionBlock` wrote them in. The
     // field is only created once there is something to put in it, so a section with no sub-sections
@@ -3074,11 +3129,18 @@ function applyHalfName(lines: LayerSectionLines, mode: AltLayerMode): string | n
   )
 }
 
+/**
+ * One layer from its `[q2l layer=…]` section. `takenLayerIds` is the ids every layer built before
+ * this one in the same restore got, so the tag's own id is adopted when it is well-formed and still
+ * free and minted otherwise (story 079 D1, `adoptableId`) - a hand-duplicated layer tag yields two
+ * layers, not one id twice.
+ */
 function buildLayer(
   section: Section,
   sections: readonly Section[],
   input: RestoreProfilePartsInput,
   warnings: RestoreWarning[],
+  takenLayerIds: Set<string>,
 ): AltLayer {
   const lines = linesInSection(section, sections, input.aliases, input.binds)
   const titleMatch = LAYER_TITLE.exec(section.title)
@@ -3113,7 +3175,7 @@ function buildLayer(
   const applyName = applyHalfName(lines, mode)
 
   return {
-    id: input.newId(),
+    id: adoptableId(section.fields.layer, takenLayerIds, input.newId),
     name: titleMatch?.[1]?.trim() ?? section.title,
     mode,
     triggerKey: boundTrigger ?? taggedTrigger,
@@ -3961,9 +4023,11 @@ function applyForeignSubcategoryHeuristic(
  * reconciled against its config lines - or, for a file that carries no metadata at all, from story
  * 041's inference by delegating to `buildImportedActions`.
  *
- * The profile `id` is never adopted (AC4): the file's own is *reported* as `sourceProfileId` so the
- * import dialog can name the profile being restored, and every id in the result - entry, category
- * and layer alike - comes from `newId`.
+ * The profile `id` is never adopted (story 042 AC4): the file's own is *reported* as
+ * `sourceProfileId` so the import dialog can name the profile being restored. Entry ids are always
+ * minted from `newId`; the grouping ids (layer, category, sub-category, cvar section and
+ * sub-section) are adopted from the file's tags when well-formed and unique within it, and minted
+ * otherwise (story 079 D1, AC4 - see this file's doc comment and `adoptableId`).
  */
 export function restoreProfileParts(input: RestoreProfilePartsInput): RestoreProfilePartsResult {
   const scan = scanComments(input.comments)
@@ -4093,8 +4157,9 @@ export function restoreProfileParts(input: RestoreProfilePartsInput): RestorePro
     delegatedCategories.push(...delegated.categories)
   }
 
+  const takenLayerIds = new Set<string>()
   const layers = layerSections.map((section) =>
-    buildLayer(section, scan.sections, input, warnings),
+    buildLayer(section, scan.sections, input, warnings, takenLayerIds),
   )
 
   restoreModifierSlots(actions, layers)

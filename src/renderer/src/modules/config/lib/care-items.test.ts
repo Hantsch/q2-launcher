@@ -224,24 +224,70 @@ describe('buildCareItems - files group', () => {
     expect(item!.actions.map((action) => action.kind)).toEqual(['retry', 'open', 'reveal'])
   })
 
-  it('a missing row offers reveal but not open - there is no file to open', () => {
+  it('a missing row offers Sync now and reveal but not open - there is no file to open', () => {
     const [item] = itemsInGroup(
       build({ syncRows: [syncRow({ target: 'inst-1', path: 'C:/a/p.cfg', state: 'missing' })] }),
       'files',
     )
 
     expect(item!.level).toBe('warning')
-    expect(item!.actions.map((action) => action.kind)).toEqual(['reveal'])
+    expect(item!.actions.map((action) => action.kind)).toEqual(['syncNow', 'reveal'])
   })
 
-  it('a pending row is its own state, never folded into failed or out of sync', () => {
-    const [item] = itemsInGroup(
-      build({ syncRows: [syncRow({ target: 'inst-1', path: 'C:/a/p.cfg', state: 'pending' })] }),
+  /**
+   * Story 079 D9 (AC7, AC8): an installation row that has drifted (`outOfSync` or `missing`) offers
+   * one-click Sync now, `failed` keeps Retry only, and the canonical row never gets Sync now - it
+   * has no "canonical copy of the canonical file" to sync itself from. The title also distinguishes
+   * "the copy was edited" (`outOfSync`) from "the launcher's write did not land" (`failed`), and
+   * Sync now's hint names the exact file it will overwrite.
+   */
+  it('outOfSync and failed rows carry different titles; Sync now names its target', () => {
+    const [outOfSyncItem] = itemsInGroup(
+      build({ syncRows: [syncRow({ target: 'inst-1', path: 'C:/a/p.cfg', state: 'outOfSync' })] }),
       'files',
     )
+    expect(outOfSyncItem!.titleKey).toBe('config.care.sync.state.outOfSync')
+    expect(outOfSyncItem!.actions.map((action) => action.kind)).toEqual(['syncNow', 'open', 'reveal'])
+    expect(outOfSyncItem!.actions[0]).toMatchObject({
+      kind: 'syncNow',
+      labelKey: 'config.care.sync.syncNow',
+    })
+    // The hint names the target path - the same `path` already on the item's own params.
+    expect(outOfSyncItem!.fixKey).toBe('config.care.sync.syncNowHint')
+    expect(outOfSyncItem!.params['path']).toBe('C:/a/p.cfg')
 
-    expect(item!.titleKey).toBe('config.care.sync.state.pending')
-    expect(item!.consequenceKey).toBe('config.care.item.files.consequence.pending')
+    const [missingItem] = itemsInGroup(
+      build({ syncRows: [syncRow({ target: 'inst-1', path: 'C:/a/p.cfg', state: 'missing' })] }),
+      'files',
+    )
+    expect(missingItem!.actions.map((action) => action.kind)).toEqual(['syncNow', 'reveal'])
+    expect(missingItem!.fixKey).toBe('config.care.sync.syncNowHint')
+
+    const [failedItem] = itemsInGroup(
+      build({ syncRows: [syncRow({ target: 'inst-1', path: 'C:/a/p.cfg', state: 'failed' })] }),
+      'files',
+    )
+    expect(failedItem!.titleKey).toBe('config.care.sync.state.failed')
+    // Retry only - a failed write is re-run, not synced from a canonical file it never reached.
+    expect(failedItem!.actions.map((action) => action.kind)).toEqual(['retry', 'open', 'reveal'])
+    expect(failedItem!.fixKey).toBeUndefined()
+
+    expect(outOfSyncItem!.titleKey).not.toBe(failedItem!.titleKey)
+  })
+
+  it('the canonical row never gets Sync now, even while outOfSync/missing', () => {
+    const [outOfSyncCanonical] = itemsInGroup(
+      build({ syncRows: [syncRow({ state: 'outOfSync' })], profileDirty: false }),
+      'files',
+    )
+    expect(outOfSyncCanonical!.actions.map((action) => action.kind)).not.toContain('syncNow')
+
+    const [missingCanonical] = itemsInGroup(
+      build({ syncRows: [syncRow({ state: 'missing' })] }),
+      'files',
+    )
+    expect(missingCanonical!.actions.map((action) => action.kind)).not.toContain('syncNow')
+    expect(missingCanonical!.fixKey).toBeUndefined()
   })
 
   it('the canonical row changed outside the launcher offers Reload and Compare', () => {

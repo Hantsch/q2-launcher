@@ -799,18 +799,19 @@ export const configPlayedModsSchema = z
   )
   .catch(() => ({}))
 
-/** installationId -> id of the profile whose last write attempt found it running. */
-export const configPendingWritesSchema = z.record(z.string(), z.string()).catch(() => ({}))
-
-/** installationId -> engine key name bound to story 007's in-session profile-switch chain. */
+/**
+ * installationId -> engine key name bound to story 007's in-session profile-switch chain.
+ *
+ * Story 079 D4 (review note): the sibling `configPendingWritesSchema` that used to live here
+ * (installationId -> id of the profile whose last write attempt found it running) is retired - a
+ * running game defers nothing now, so nothing is ever pending. Not migrated: an old `state.json`
+ * still carrying that key simply has it ignored (`StateStore`'s `parse` no longer reads it), the
+ * same forgiving "unknown key" handling every unrecognised top-level property already gets.
+ */
 export const configSwitchBindsSchema = z.record(z.string(), z.string()).catch(() => ({}))
 
 export function parseConfigPlayedMods(raw: unknown): Record<string, string[]> {
   return configPlayedModsSchema.parse(raw)
-}
-
-export function parseConfigPendingWrites(raw: unknown): Record<string, string> {
-  return configPendingWritesSchema.parse(raw)
 }
 
 export function parseConfigSwitchBinds(raw: unknown): Record<string, string> {
@@ -822,8 +823,8 @@ export function parseConfigSwitchBinds(raw: unknown): Record<string, string> {
  * (story 022, D5 - persisted only; nothing yet constructs or interprets the composite key). Files
  * written before this key existed simply lack it and load as `{}`.
  *
- * Unlike `configPendingWritesSchema`/`configSwitchBindsSchema` above, where a single malformed
- * value has no sensible per-entry fallback and simply wipes the whole map via the outer `.catch()`,
+ * Unlike `configSwitchBindsSchema` above, where a single malformed value has no sensible per-entry
+ * fallback and simply wipes the whole map via the outer `.catch()`,
  * a malformed failure entry is dropped on its own via a preprocess filter instead - the "row-level
  * drop" precedent `parseForgivingRows` uses for `categories`/`actions`, applied to a record instead
  * of an array. `configPlayedModsSchema`'s per-entry `.catch(() => [])` is not the right model here:

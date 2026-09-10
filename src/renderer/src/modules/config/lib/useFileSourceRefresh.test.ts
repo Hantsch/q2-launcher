@@ -76,19 +76,28 @@ function Probe() {
 function Refresher({
   profileId,
   activeRef,
+  onAfterRefresh,
 }: {
   profileId: string | null
   activeRef: MutableRefObject<boolean>
+  onAfterRefresh?: (profileId: string) => void
 }) {
   useFileSourceRefresh({
     profileId,
     isSuspended: () => activeRef.current,
     onResult: () => {},
+    ...(onAfterRefresh ? { onAfterRefresh } : {}),
   })
   return createElement(Probe)
 }
 
-function Wiring({ profileId }: { profileId: string | null }) {
+function Wiring({
+  profileId,
+  onAfterRefresh,
+}: {
+  profileId: string | null
+  onAfterRefresh?: (profileId: string) => void
+}) {
   const activeRef = useRef(false)
   return createElement(RawDraftProvider, {
     profile: PROFILE,
@@ -96,18 +105,21 @@ function Wiring({ profileId }: { profileId: string | null }) {
     onActiveChange: (active: boolean) => {
       activeRef.current = active
     },
-    children: createElement(Refresher, { profileId, activeRef }),
+    children: createElement(Refresher, { profileId, activeRef, onAfterRefresh }),
   })
 }
 
-function mount(profileId: string | null = PROFILE.id) {
-  const view = render(createElement(Wiring, { profileId }))
+function mount(
+  profileId: string | null = PROFILE.id,
+  onAfterRefresh?: (profileId: string) => void,
+) {
+  const view = render(createElement(Wiring, { profileId, onAfterRefresh }))
   /** One window-focus resume: `didFocusResume` only fires on a false -> true transition. */
   const resumeFocus = async (): Promise<void> => {
     for (const next of [false, true]) {
       focused = next
       await act(async () => {
-        view.rerender(createElement(Wiring, { profileId }))
+        view.rerender(createElement(Wiring, { profileId, onAfterRefresh }))
       })
     }
   }
@@ -135,6 +147,30 @@ describe('useFileSourceRefresh', () => {
 
     expect(refresh).toHaveBeenCalledTimes(1)
     expect(refresh).toHaveBeenCalledWith({ profileId: 'p1' })
+  })
+
+  it('a mount/profile-open re-read is followed by a sync-state fetch (AC5)', () => {
+    // Story 079 D6: `onAfterRefresh` fires right alongside trigger 1 (the selected profile becoming
+    // 'p1') - the fix for the D3 finding that this trigger used to run only once, ever, for whatever
+    // profile was selected at the hook's very first mount (always `null`).
+    const onAfterRefresh = vi.fn()
+    mount('p1', onAfterRefresh)
+
+    expect(onAfterRefresh).toHaveBeenCalledTimes(1)
+    expect(onAfterRefresh).toHaveBeenCalledWith('p1')
+  })
+
+  it('a focus re-read is followed by a sync-state fetch (AC5)', async () => {
+    // AC5: drift must be checked on the same trigger this hook already re-reads the canonical file
+    // on, so a changed/missing/stale installation copy is caught without the Care tab being open.
+    const onAfterRefresh = vi.fn()
+    const view = mount('p1', onAfterRefresh)
+    onAfterRefresh.mockClear()
+
+    await view.resumeFocus()
+
+    expect(onAfterRefresh).toHaveBeenCalledTimes(1)
+    expect(onAfterRefresh).toHaveBeenCalledWith('p1')
   })
 
   it('does not re-read while the Raw file tab holds an unsaved draft', async () => {

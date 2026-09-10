@@ -1304,8 +1304,7 @@
           "consequence": {
             "outOfSync": "This copy no longer matches the profile, so what loads from it is not what the profile says.",
             "missing": "The profile's file is not there, so nothing of this profile loads from it.",
-            "failed": "The last write to this file failed, so it still holds whatever was there before.",
-            "pending": "The installation was running when the last write ran, so this copy is still waiting for it."
+            "failed": "The last write to this file failed, so it still holds whatever was there before."
           }
         },
         "tidy": {
@@ -1327,12 +1326,13 @@
       "sync": {
         "own": "This profile's file",
         "retry": "Retry",
+        "syncNow": "Sync now",
+        "syncNowHint": "Sync now overwrites {{path}} with the profile's canonical file.",
         "state": {
           "inSync": "In sync",
-          "outOfSync": "{{name}}: Out of sync",
+          "outOfSync": "{{name}}: Changed in the game folder",
           "missing": "{{name}}: Missing",
-          "failed": "{{name}}: Failed",
-          "pending": "{{name}}: Pending"
+          "failed": "{{name}}: The launcher's write did not land"
         },
         "canonical": {
           "unsavedChanges": "{{name}}: Unsaved changes",

@@ -10,7 +10,6 @@ import { JsonStore } from '../lib/json-store'
 import { pruneFailures } from '../modules/downloads/failure-log'
 import {
   parseConfigFileSourceMigratedAt,
-  parseConfigPendingWrites,
   parseConfigPlayedMods,
   parseConfigProfiles,
   parseConfigSwitchBinds,
@@ -42,17 +41,17 @@ export interface LauncherStateDocument {
    */
   configPlayedMods: Record<string, string[]>
   /**
-   * installationId -> id of the profile whose last write attempt found it
-   * running. An installation absent from this map has nothing pending. Same
-   * reasoning as `configPlayedMods` above.
-   */
-  configPendingWrites: Record<string, string>
-  /**
    * installationId -> engine key name bound to story 007's in-session
    * profile-switch chain. Central per-installation data the config module
    * owns, next to but not part of `Installation` - same reasoning as
    * `configPlayedMods` above. Files written before this key existed simply
    * lack it and load as `{}`.
+   *
+   * Story 079 D4 (review note, not a field of this interface): retired the sibling
+   * `configPendingWrites` key (installationId -> id of the profile whose last write attempt found
+   * it running) - a running game defers nothing now, so nothing is ever pending. Not migrated away:
+   * a `state.json` still carrying the old key from before this story simply has it ignored on parse
+   * (nothing in `StateStore`'s `parse` reads it any more).
    */
   configSwitchBinds: Record<string, string>
   /**
@@ -98,7 +97,6 @@ function defaults(): LauncherStateDocument {
     installations: [],
     configProfiles: [],
     configPlayedMods: {},
-    configPendingWrites: {},
     configSwitchBinds: {},
     configWriteFailures: {},
     configFileSourceMigratedAt: null,
@@ -128,7 +126,6 @@ export class StateStore {
           installations: parseInstallations(doc['installations']),
           configProfiles: parseConfigProfiles(doc['configProfiles']),
           configPlayedMods: parseConfigPlayedMods(doc['configPlayedMods']),
-          configPendingWrites: parseConfigPendingWrites(doc['configPendingWrites']),
           configSwitchBinds: parseConfigSwitchBinds(doc['configSwitchBinds']),
           configWriteFailures: parseConfigWriteFailures(doc['configWriteFailures']),
           configFileSourceMigratedAt: parseConfigFileSourceMigratedAt(
@@ -164,10 +161,6 @@ export class StateStore {
 
   configPlayedMods(): Record<string, string[]> {
     return this.store.get().configPlayedMods
-  }
-
-  configPendingWrites(): Record<string, string> {
-    return this.store.get().configPendingWrites
   }
 
   configSwitchBinds(): Record<string, string> {
@@ -229,11 +222,6 @@ export class StateStore {
 
   setConfigPlayedMods(configPlayedMods: Record<string, string[]>): Record<string, string[]> {
     return this.store.update((current) => ({ ...current, configPlayedMods })).configPlayedMods
-  }
-
-  setConfigPendingWrites(configPendingWrites: Record<string, string>): Record<string, string> {
-    return this.store.update((current) => ({ ...current, configPendingWrites }))
-      .configPendingWrites
   }
 
   setConfigSwitchBinds(configSwitchBinds: Record<string, string>): Record<string, string> {

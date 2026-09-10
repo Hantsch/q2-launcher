@@ -309,8 +309,15 @@ export const setProfileActionsInputSchema = z.object({
   actions: z.array(configActionSchema).max(500),
 })
 
+/**
+ * Story 079 D8: `write`'s payload gains an optional `installationId` - shape-only here (a non-empty
+ * string), same as every other `installationId` field in this file (`assignProfileInputSchema`
+ * etc.): whether it actually names a known installation is data (`app.installations`), not shape,
+ * so that check lives in the handler, same division of labour those schemas already use.
+ */
 export const writeProfileInputSchema = z.object({
   profileId: z.string().min(1),
+  installationId: z.string().min(1).optional(),
 })
 
 /**

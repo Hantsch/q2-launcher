@@ -41,7 +41,7 @@ import { userDataDir } from '../../lib/paths'
 import type { MainModule } from '../types'
 import { readCanonicalOwnership, removeCanonicalProfileFile } from './canonical'
 import { corruptContentDiagnostic, hashCanonicalFileContent, readFileState } from './file-source'
-import { syncProfile } from './sync'
+import { installationCopySource, syncProfile } from './sync'
 import { removeRedundantCopies, restoreRemovedCopies, scanRedundantCopies } from './cleanup'
 import { commitImportFiles, pickImportFiles, previewImportFiles } from './import'
 import { PickedFilesRegistry } from './picked-files'
@@ -99,145 +99,6 @@ import {
   writeTargetFile,
 } from './writer'
 
-export interface WriteProfileDeps {
-  profile: ConfigProfile
-  /** The full profile list, used to resolve each target installation's default. */
-  allProfiles: ConfigProfile[]
-  installations: { find: (id: string) => Installation | undefined }
-  launchState: LaunchState
-  playedModsFor: (installationId: string) => string[]
-  /**
-   * Story 007: the key (if any) bound to that installation's in-session
-   * profile-switch chain. Optional - and defaulting to "no bind" when absent
-   * - so every pre-story-007 test/call site that builds `WriteProfileDeps`
-   * without it keeps compiling untouched.
-   */
-  switchBindFor?: (installationId: string) => string | undefined
-  /** Current pending-write map (installationId -> profileId) to update from. */
-  pendingWrites: Record<string, string>
-  log: Logger
-}
-
-export interface WriteProfileOutcome {
-  results: WriteTargetResult[]
-  /** The pending-write map after this run - callers persist it. */
-  pendingWrites: Record<string, string>
-}
-
-/**
- * Writes `profile`'s files to every installation it is assigned to, skipping
- * (and marking `pending`) any installation that is currently running.
- *
- * Pure I/O orchestration, no state store: takes and returns plain data so it
- * is testable without booting `configModule.setup()`. Assignments pointing at
- * an installation that no longer exists are silently skipped - reconciling
- * those away is `withLiveAssignments`'s job elsewhere in this module, not an
- * error here.
- */
-export async function writeProfileToAssignedInstallations(
-  deps: WriteProfileDeps,
-): Promise<WriteProfileOutcome> {
-  const { profile, allProfiles, installations, launchState, playedModsFor, log } = deps
-  const switchBindFor = deps.switchBindFor ?? (() => undefined)
-  const results: WriteTargetResult[] = []
-  const pendingWrites = { ...deps.pendingWrites }
-  // Resolved once per call - `allProfiles` does not change across the loop below.
-  const fileNames = resolveProfileFileNames(allProfiles)
-
-  for (const assignment of profile.assignments) {
-    const installation = installations.find(assignment.installationId)
-    if (!installation) continue
-
-    if (isInstallationRunning(launchState, installation.id)) {
-      results.push({ installationId: installation.id, status: 'pending' })
-      pendingWrites[installation.id] = profile.id
-      continue
-    }
-
-    let defaultProfile = defaultProfileFor(allProfiles, installation.id)
-    if (!defaultProfile) {
-      // Should not happen once an installation has any assignment (the
-      // assignment invariant in `assignments.ts` guarantees a default), but a
-      // violated invariant must degrade to "write the profile being saved",
-      // not to a crash.
-      log.warn(
-        `no default profile found for installation ${installation.id}; ` +
-          `falling back to the profile being written (${profile.id})`,
-      )
-      defaultProfile = profile
-    }
-
-    try {
-      // The loader always execs the installation's *default* profile's own
-      // file (Decision 3), which is not necessarily `profile` - the one being
-      // saved here can be a non-default profile also assigned to this
-      // installation. If that default's own file was never written yet (e.g.
-      // it was assigned but never itself saved), the loader would point at a
-      // file that does not exist and the engine silently execs nothing. So
-      // when the two differ, the default's own file is written first (or
-      // confirmed unchanged) to guarantee the loader's exec target exists,
-      // before writing the profile actually being saved.
-      const targets = defaultProfile.id === profile.id ? [profile] : [defaultProfile, profile]
-
-      // Story 007: the switch-bind chain is a function of the installation
-      // (its bound key and its ordered assigned profiles), not of which
-      // target is being written, so it is computed once per installation and
-      // reused for every target's loader render below.
-      const switchBindKey = switchBindFor(installation.id)
-      const assignedProfiles = assignedProfilesFor(allProfiles, installation.id).map((p) => ({
-        ...p,
-        // Every assigned profile comes from `allProfiles`, which `fileNames`
-        // was resolved from above, so this lookup cannot miss.
-        fileName: fileNames.get(p.id)!,
-      }))
-      const loaderFileContent = renderLoaderFile(
-        defaultProfile,
-        // `defaultProfile` is drawn from `allProfiles` (or falls back to
-        // `profile`, itself the one being saved and therefore also a member
-        // of `allProfiles`), so this lookup cannot miss.
-        fileNames.get(defaultProfile.id)!,
-        switchBindKey
-          ? { key: switchBindKey, profiles: assignedProfiles, defaultProfileId: defaultProfile.id }
-          : undefined,
-      )
-
-      let anyChanged = false
-      for (const target of targets) {
-        const result = await writeInstallationFiles({
-          installation,
-          // `target` is always `profile` or `defaultProfile`, both drawn from
-          // `allProfiles`, so this lookup cannot miss.
-          profileFileName: fileNames.get(target.id)!,
-          profileFileContent: renderProfileFile(target),
-          loaderFileContent,
-          playedMods: playedModsFor(installation.id),
-        })
-        anyChanged = anyChanged || result.changed
-      }
-
-      results.push({
-        installationId: installation.id,
-        status: anyChanged ? 'written' : 'unchanged',
-      })
-      delete pendingWrites[installation.id]
-    } catch (error) {
-      log.error(
-        `failed to write config profile ${profile.id} for installation ${installation.id}`,
-        error,
-      )
-      results.push({
-        installationId: installation.id,
-        status: 'error',
-        messageKey: 'config.error.writeFailed',
-      })
-      // Leave the pending map untouched: a real error must never be reported
-      // as merely "pending, will retry on its own".
-    }
-  }
-
-  return { results, pendingWrites }
-}
-
 /**
  * The exact files a `write` of `profile` would put on `installation`'s disk,
  * without writing them - what `preview` answers and what `write` itself
@@ -260,9 +121,9 @@ export function previewProfileFiles(
   }))
 
   const files: Omit<PreviewFile, 'onDisk'>[] = []
-  // Mirrors the `defaultProfile.id !== profile.id` branch in
-  // `writeProfileToAssignedInstallations` above, so a preview never shows
-  // fewer files than an actual write would put on disk.
+  // Mirrors the `defaultProfile.id !== profile.id` branch `sync.ts`'s write
+  // loop follows for every assigned profile, so a preview never shows fewer
+  // files than an actual sync would put on disk.
   if (defaultProfile.id !== profile.id) {
     files.push({
       // `defaultProfile` is drawn from `allProfiles` (or falls back to
@@ -325,13 +186,18 @@ export async function collectRawFiles(
     onDisk: canonicalContent !== null,
   }
 
-  // Story 043 D4: same rule the sync engine and `syncState` follow - an installation copy is
-  // generated output of the canonical file, so a profile carrying unsaved edits has its copies
-  // judged against that file's bytes (which is what is actually written there), not against the
-  // unsaved render. Falls back to the render when there are no canonical bytes to compare with, and
-  // is byte-identical to the pre-043 behaviour for every profile that is not dirty.
-  const expectedContent =
-    profile.dirty === true ? (canonicalContent ?? renderProfileFile(profile)) : renderProfileFile(profile)
+  // Story 043 D4 / 079 D2: the same rule the sync engine writes by and `syncState` judges by - an
+  // installation copy is generated output of the canonical file's BYTES (`installationCopySource`),
+  // never of the render. `null` (the file moved underneath the launcher, or a dirty profile without
+  // one) matches nothing, since nothing may be published from it.
+  const expectedContent = installationCopySource(
+    profile,
+    {
+      content: canonicalContent,
+      hash: canonicalContent === null ? null : hashCanonicalFileContent(canonicalContent),
+    },
+    profile.dirty !== true,
+  )
   const installationTargets: RawInstallationTarget[] = []
   for (const assignment of profile.assignments) {
     const installation = installations.find(assignment.installationId)
@@ -345,7 +211,7 @@ export async function collectRawFiles(
       installationId: installation.id,
       path,
       onDisk: content !== null,
-      matches: content === expectedContent,
+      matches: content !== null && content === expectedContent,
       playedMods: playedModsFor(installation.id),
     })
   }
@@ -393,12 +259,31 @@ export function validatePlayedMods(gameDirs: string[], playedMods: string[]): st
  * retry sweep, which runs before the renderer exists and therefore before any focus re-read can
  * have happened) used to render straight over such a file. That is precisely the hand-edit
  * clobbering AC5 forbids, so the decision is made from what the file actually says: the write is
- * allowed when there is no file, when its bytes hash to the profile's own cached `fileHash` (we read
- * or wrote exactly these bytes), when they already equal what we would write anyway, or when the
- * user explicitly asked for this profile to be overwritten (`overwriteProfileId` - `save`'s
- * `force`, i.e. the conflict dialog's "overwrite with my version"). Otherwise the file is left
- * alone, no `writeFailures` entry is recorded (nothing failed), and the canonical row reports
- * `outOfSync`, which is what invites the user to Reload/Compare (story D9).
+ * allowed when there is no file, when the file already holds exactly what we would write anyway
+ * (`renderProfileFile(candidate)` - a genuine no-op), or when the user explicitly asked for this
+ * profile to be overwritten (`overwriteProfileId` - `save`'s `force`, i.e. the conflict dialog's
+ * "overwrite with my version"). Otherwise the file is left alone, no `writeFailures` entry is
+ * recorded (nothing failed), and the canonical row reports `outOfSync`, which is what invites the
+ * user to Reload/Compare (story D9).
+ *
+ * Story 079: the bytes hashing to the profile's own cached `fileHash` alone is deliberately NOT
+ * enough to allow the write, even though it proves the launcher itself read or wrote exactly these
+ * bytes (so nothing external happened). A raw save (057) keeps hand-typed, possibly non-render-
+ * fixed-point bytes as that very confirmed baseline on purpose - `fileHash` matching the disk is
+ * exactly what a hand-formatted canonical file looks like right after being saved. Allowing the
+ * write there would silently replace the user's typed formatting with `renderProfileFile(candidate)`
+ * on the very next retry trigger (`write`'s "Sync now", `assign`, `setDefault`, ...), which is the
+ * reformat 057 promises never happens - and, as a side effect, would turn every OTHER installation's
+ * already-correct copy into fresh drift. Nothing is lost by refusing: `sync.ts`'s
+ * `installationCopySource` already publishes those same hash-matched bytes to every installation
+ * regardless of whether the canonical file itself gets rewritten.
+ *
+ * What that refusal must NOT also block is the file's *name* (story 079 review, finding 1), which
+ * is why `canonicalMoveAllowed` is a second, wider predicate: hash-matched bytes may not be
+ * re-rendered, but the file they sit in is still ours to move to the name the profile resolves to
+ * now. Conflating the two stranded a clean, hand-formatted profile on a file name another profile's
+ * rename had made it give up - and `writeCanonicalProfileFile` refuses to overwrite a live
+ * profile's canonical file, so that other profile's save failed on every retry instead.
  *
  * A profile with no `fileHash` at all keeps the pre-043 behaviour deliberately: there is no baseline
  * to compare against, and by the time a profile has one - which AC8's migration seeds for every
@@ -416,7 +301,12 @@ async function syncAndPersist(
   profiles: ProfilesStore,
   profile: ConfigProfile,
   allProfiles: ConfigProfile[],
-  options: { overwriteProfileId?: string } = {},
+  options: {
+    overwriteProfileId?: string
+    refuseCanonicalWriteFor?: string
+    /** Story 079 D8: restricts this run to one installation - see `sync.ts#SyncProfileDeps`. */
+    targetInstallationId?: string
+  } = {},
 ): Promise<ProfileSyncState | null> {
   try {
     const outcome = await syncProfile({
@@ -427,14 +317,26 @@ async function syncAndPersist(
       playedModsFor: (installationId) => app.state.configPlayedMods()[installationId] ?? [],
       switchBindFor: (installationId) => app.state.configSwitchBinds()[installationId],
       canonicalBaseDir: userDataDir(),
-      pendingWrites: app.state.configPendingWrites(),
       writeFailures: app.state.configWriteFailures(),
+      targetInstallationId: options.targetInstallationId,
       canonicalWriteAllowed: (candidate, onDisk) => {
+        // Story 079 D3: the cascade after a raw save (`saveRawText`) or an adopted external edit
+        // (`refreshFromFiles`) must never re-render the canonical file it just adopted - the typed/
+        // adopted bytes are not necessarily a render fixed point (hand formatting, a foreign tool's
+        // output), and the ordinary rule below would allow the write anyway (the just-adopted
+        // `fileHash` matches the disk by construction). This check runs first, and only for the one
+        // profile the caller names, so a sibling assigned to the same installation still follows the
+        // ordinary rule below (a dirty sibling still refuses; a clean one still writes).
+        if (candidate.id === options.refuseCanonicalWriteFor) return false
         if (candidate.dirty === true) return false
         if (candidate.id === options.overwriteProfileId) return true
         if (onDisk.content === null) return true
         if (typeof candidate.fileHash !== 'string') return true
-        if (onDisk.hash === candidate.fileHash) return true
+        // Deliberately NOT `onDisk.hash === candidate.fileHash` alone (see the file doc comment
+        // above `syncAndPersist`): that only proves these are bytes the launcher itself produced,
+        // not that they are `renderProfileFile`'s output - a raw save keeps hand-typed, non-fixed-
+        // point bytes as exactly that confirmed baseline, and writing here would silently reformat
+        // them on the next retry trigger.
         if (onDisk.content === renderProfileFile(candidate)) return true
         log.warn(
           `leaving canonical file for profile ${candidate.id} alone: it holds bytes the launcher ` +
@@ -442,9 +344,29 @@ async function syncAndPersist(
         )
         return false
       },
+      canonicalMoveAllowed: (candidate, onDisk) => {
+        // Story 079 (review finding 1): the file's LOCATION, asked only where the rule above said
+        // "not ours to re-render". Moving preserves every byte, so the reformat risk that makes
+        // the write rule refuse hash-matched bytes simply does not exist here - while refusing the
+        // move does real damage: a clean, hand-formatted profile displaced by another profile's
+        // rename would sit on the name that profile now claims, and `writeCanonicalProfileFile`
+        // refuses (throws) rather than destroy a live profile's file, so that save could never
+        // succeed on any retry.
+        //
+        // A `dirty` profile is still excluded: story 043 has a rename only mark the profile dirty
+        // and leave the canonical file under its old name until the user actually saves, and
+        // `sync.ts` reads that profile's bytes from the old name accordingly.
+        if (candidate.dirty === true) return false
+        // Nothing on disk to move.
+        if (onDisk.content === null) return false
+        if (typeof candidate.fileHash !== 'string') return true
+        // Bytes the launcher itself read or wrote (the raw-save/adopt baseline), or bytes that
+        // already are our render. An external edit nobody has read is neither, and stays put -
+        // moving it would be just as surprising as overwriting it.
+        return onDisk.hash === candidate.fileHash || onDisk.content === renderProfileFile(candidate)
+      },
       log,
     })
-    app.state.setConfigPendingWrites(outcome.pendingWrites)
     app.state.setConfigWriteFailures(outcome.writeFailures)
     const now = Date.now()
     for (const [profileId, fileHash] of Object.entries(outcome.canonicalHashes)) {
@@ -477,6 +399,45 @@ async function syncAndPersist(
 }
 
 /**
+ * Story 079 review (finding 1): the read-before-write guard a CONTENT-mutating handler must pass
+ * before it is allowed to pass `overwriteProfileId` to `syncAndPersist` for the profile it just
+ * mutated - i.e. before it is allowed to license `canonicalWriteAllowed` to re-render the canonical
+ * file. `save` (above) inlines this same check because its own conflict/unreadable result shapes
+ * come out of it directly; this is the same rule extracted for callers, like `tidyUpApply`, that
+ * mutate profile content without a `dirty` flag and without a conflict shape to report through.
+ *
+ * Answers a single question against `profile` AS IT STOOD BEFORE the mutation: is the canonical
+ * file still what was last read from it (`unchanged`), or is there nothing there yet to conflict
+ * with (`missing`)? Either means the write is ours to make. `changedOnDisk` (a hand-edit that
+ * landed since), `unparseable`/`readError` (a file we cannot trust the shape of), or a canonical
+ * directory that could not even be surveyed all mean it is NOT ours to make - the caller must not
+ * pass `overwriteProfileId` in that case. What the caller does about a refusal is its own choice
+ * (`save` returns a `conflict`/`unreadable` result and touches nothing; `tidyUpApply` has no such
+ * shape, so it commits the tidy-up to `state.json` regardless - nothing the user just did is lost -
+ * and leaves the canonical file alone, which is exactly what `canonicalWriteAllowed`'s own "holds
+ * bytes the launcher has not read" refusal already logs).
+ */
+async function authoriseContentWrite(
+  log: Logger,
+  profiles: ProfilesStore,
+  profile: ConfigProfile,
+): Promise<boolean> {
+  const baseDir = userDataDir()
+  const resolvedName = resolveProfileFileNames(profiles.list()).get(profile.id)
+  if (!resolvedName) return false
+  let ownedName: string | undefined
+  try {
+    ownedName = (await readCanonicalOwnership(baseDir)).get(profile.id)
+  } catch (error) {
+    log.error(`failed to survey the canonical directory before writing ${profile.id}`, error)
+    return false
+  }
+  const fileName = ownedName ?? resolvedName
+  const read = await readFileState(baseDir, fileName, profile.fileHash)
+  return read.state === 'unchanged' || read.state === 'missing'
+}
+
+/**
  * Read-only status of one on-disk file vs. what it should currently contain -
  * never writes. A persisted `configWriteFailures` entry for this exact key
  * always wins and is reported as `'error'` (the last attempted WRITE failed,
@@ -484,11 +445,13 @@ async function syncAndPersist(
  * some unrelated reason); otherwise the live file is read and compared.
  *
  * Latin1 to match `writer.ts`/`sync.ts`'s own encoding, so the comparison is a
- * true byte-for-byte one.
+ * true byte-for-byte one. `expectedContent: null` means there is nothing this file could be in
+ * sync with (story 079 D2, see `sync.ts#installationCopySource`), so a readable file is
+ * `outOfSync` whatever it holds - same reading as `sync.ts`'s own `liveFileStatus`.
  */
 async function readSyncFileStatus(
   path: string,
-  expectedContent: string,
+  expectedContent: string | null,
   failure: { messageKey: string; at: string } | undefined,
 ): Promise<{ status: ProfileFileSyncStatus; messageKey?: string }> {
   if (failure) return { status: 'error', messageKey: failure.messageKey }
@@ -537,16 +500,15 @@ function droppedAliasNames(
 
 /**
  * Story 010, decision 12: `apply`/`restore` refuse a currently-running
- * installation, the same way `write` above skips-and-marks-pending - except a
- * cleanup delete/restore has no retry queue to fall into, so this is a hard
- * refusal rather than a `pending` status. `scan` is deliberately NOT gated by
- * this (it is read-only and always safe) and so has no equivalent wrapper -
- * `configModule.setup()`'s `cleanupScan` handler calls `scanRedundantCopies`
- * directly.
+ * installation - unlike a profile write (story 079 D4: a running game defers
+ * nothing), a cleanup delete/restore actually removes files out from under
+ * the running engine, so this stays a hard refusal rather than a deferred
+ * write. `scan` is deliberately NOT gated by this (it is read-only and always
+ * safe) and so has no equivalent wrapper - `configModule.setup()`'s
+ * `cleanupScan` handler calls `scanRedundantCopies` directly.
  *
- * Pulled out of the handler closure - like `writeProfileToAssignedInstallations`
- * above - so the running-guard itself is testable without booting
- * `configModule.setup()`.
+ * Pulled out of the handler closure so the running-guard itself is testable
+ * without booting `configModule.setup()`.
  */
 export async function applyCleanupIfNotRunning(
   installation: Installation,
@@ -703,13 +665,6 @@ export const configModule: MainModule = {
         )
         if (Object.keys(keptFailures).length !== Object.keys(failures).length) {
           app.state.setConfigWriteFailures(keptFailures)
-        }
-        const pending = app.state.configPendingWrites()
-        const keptPending = Object.fromEntries(
-          Object.entries(pending).filter(([, profileId]) => profileId !== input.id),
-        )
-        if (Object.keys(keptPending).length !== Object.keys(pending).length) {
-          app.state.setConfigPendingWrites(keptPending)
         }
       } catch (error) {
         log.error(`failed to drop stale sync bookkeeping for removed profile ${input.id}`, error)
@@ -898,30 +853,40 @@ export const configModule: MainModule = {
       const profile = profiles.find(input.profileId)
       if (!profile) return fail('config.error.profileNotFound')
 
+      // Story 079 D8: `installationId` is optional and, when present, never trusted as a bare
+      // string - same "validate against the installations the launcher actually knows about"
+      // rule `assign`/`unassign`/`setDefault` already apply to their own `installationId`.
+      if (input.installationId && !app.installations.find(input.installationId)) {
+        return fail('config.error.installationNotFound')
+      }
+
       // Story 022: `write` is one of the three retry triggers (decision 13), so
-      // it goes through the same sync engine every mutation does now - not the
-      // pre-022 `writeProfileToAssignedInstallations` (which never touches the
-      // canonical file or `configWriteFailures`, and so could never actually
-      // clear a persisted failure a user just retried away). That old function
-      // stays exported/tested above; nothing in this module calls it anymore.
+      // it goes through the same sync engine every mutation does now.
       //
       // Story 043 D4: still a retry trigger, and still not a *save*. A retry re-attempts the
       // installation copies from what the canonical file says; if the profile carries unsaved edits,
       // `syncAndPersist`'s per-profile rule leaves that file alone and the copies are written from
       // its on-disk bytes, so retrying can never publish an edit the user has not saved.
-      const state = await syncAndPersist(app, log, profiles, profile, profiles.list())
+      //
+      // Story 079 D8: `installationId`, when given, is "Sync now" (AC7) - the run is restricted to
+      // that one installation (`targetInstallationId`, `sync.ts`), so its copy (and loader) is
+      // rewritten from the canonical file and every other assigned installation is left untouched.
+      const state = await syncAndPersist(app, log, profiles, profile, profiles.list(), {
+        targetInstallationId: input.installationId,
+      })
       if (!state) return fail('config.error.writeFailed')
 
       const results: WriteTargetResult[] = state.installations.map((entry) => ({
         installationId: entry.installationId,
-        // `inSync` is the only "this installation is now correctly set up"
-        // status a fresh sync attempt can report, so it maps to `written` for
-        // this legacy shape's consumers; `outOfSync`/`missing` right after an
-        // attempted write means something did not take effect and is reported
-        // as an error rather than silently claiming success. `syncState`
-        // (story 022 D5/D7) is the accurate, live source of truth going
-        // forward - this mapping only keeps `write`'s existing contract alive.
-        status: entry.status === 'inSync' ? 'written' : entry.status === 'pending' ? 'pending' : 'error',
+        // `inSync` is the only "this installation is now correctly set up" status a fresh sync
+        // attempt can report, so it maps to `written` for this legacy shape's consumers;
+        // `outOfSync`/`missing` right after an attempted write means something did not take effect
+        // and is reported as an error rather than silently claiming success. Story 079 D4: `pending`
+        // can no longer be among `entry.status` - a running installation is written exactly like a
+        // stopped one - so this mapping no longer has a branch for it. `syncState` (story 022 D5/D7)
+        // is the accurate, live source of truth going forward - this mapping only keeps `write`'s
+        // existing contract alive.
+        status: entry.status === 'inSync' ? 'written' : 'error',
         ...(entry.messageKey ? { messageKey: entry.messageKey } : {}),
       }))
       return ok(results)
@@ -1029,20 +994,21 @@ export const configModule: MainModule = {
         const list = withLiveAssignments(profiles.setDirty(profile.id, false))
         // `setDirty` throws on an unknown id and cannot remove the profile, so this cannot miss.
         const target = list.find((p) => p.id === profile.id)!
-        // Story 043 D10: `force` is the conflict dialog's "overwrite with my version", so this one
-        // profile's file may be written over even though its bytes are not ones we ever read - the
-        // user was shown them and chose this. Without the opt-in, `syncAndPersist`'s own
-        // never-overwrite-an-unread-hand-edit rule would (correctly) refuse the very write the user
-        // just asked for. Not passed on the ordinary path: there the re-read above already
-        // established that the file is exactly what we last saw.
-        const state = await syncAndPersist(
-          app,
-          log,
-          profiles,
-          target,
-          list,
-          input.force === true ? { overwriteProfileId: profile.id } : {},
-        )
+        // `overwriteProfileId` is passed unconditionally here, not only on `force`: on EITHER path
+        // this call has already established the write is authorized - `force` is the conflict
+        // dialog's explicit "overwrite with my version" after being shown both whole files, and the
+        // ordinary path already re-read the file above and confirmed it is `unchanged`/`missing`
+        // (nothing external happened since we last read or wrote it). Story 079: it must be
+        // unconditional, not merely the by-product of `syncAndPersist`'s general "the on-disk hash
+        // matches the cached `fileHash`" rule, because that rule is deliberately no longer enough on
+        // its own (see the file doc comment above `syncAndPersist`) - a raw save's hand-typed,
+        // non-render-fixed-point bytes also satisfy it, and `save` is the one caller that must still
+        // be able to publish genuinely new content (`renderProfileFile(target)`, reflecting the edits
+        // just cleared from `dirty`) over such a file, while every other, non-save trigger
+        // (`write`/`assign`/`setDefault`/a rename cascade/the startup retry sweep) must not.
+        const state = await syncAndPersist(app, log, profiles, target, list, {
+          overwriteProfileId: profile.id,
+        })
         if (!state || state.own.status !== 'inSync') {
           // The file on disk is not what this profile says, so the edits are still unsaved. Says so,
           // rather than reporting a save that did not happen - `configWriteFailures` already carries
@@ -1103,12 +1069,16 @@ export const configModule: MainModule = {
      *    for an external edit, given the same fields from the same read, because a raw save IS an
      *    external edit as far as the profile is concerned; it just happens to have come from our own
      *    editor.
-     *
-     * Deliberately NOT run here: the installation cascade (`syncAndPersist`). It would ask
-     * `writeSourceFor` for this profile's bytes, get `renderProfileFile(profile)` - the profile is
-     * clean and its hash matches the disk after the adopt above - and write that straight over the
-     * text the user just typed. Publishing to installations stays `save`/`write`'s job, exactly as it
-     * is after `refreshFromFiles` adopts a hand-edit.
+     * 7. Story 079 D3: the installation cascade (`syncAndPersist`), same as every other content
+     *    mutation - every assigned, not-running installation's copy is brought in line with the file
+     *    that now sits on disk, same as after a structured save. `refuseCanonicalWriteFor` is passed
+     *    so the cascade never re-renders the canonical file it just wrote: the profile is clean and
+     *    its hash matches the disk after the adopt above, so the ordinary rule would allow the write,
+     *    and `renderProfileFile(profile)` is not necessarily the same bytes as the text the user just
+     *    typed (hand formatting is not a render fixed point). The installation copies are then
+     *    written from those same on-disk bytes (`installationCopySource` in `sync.ts`), so they land
+     *    byte-identical to what was typed - and a dirty sibling assigned to the same installation is
+     *    untouched by the ordinary per-profile rule, exactly as it is after a structured save.
      */
     handle(
       CONFIG_HANDLERS.saveRawText,
@@ -1248,6 +1218,12 @@ export const configModule: MainModule = {
         // `adoptFromFile` throws on an unknown id and cannot remove the profile, so this cannot miss.
         const adopted = list.find((p) => p.id === profile.id)!
 
+        // Story 079 D3: cascade the typed bytes to every assigned, not-running installation - see
+        // point 7 of the doc comment above for why the canonical write is refused for this profile.
+        await syncAndPersist(app, log, profiles, adopted, list, {
+          refuseCanonicalWriteFor: adopted.id,
+        })
+
         return ok({
           status: 'saved',
           fileName,
@@ -1374,6 +1350,18 @@ export const configModule: MainModule = {
             // `adoptFromFile` throws on an unknown id and cannot remove the profile, so this
             // cannot miss.
             const adopted = list.find((p) => p.id === profile.id)!
+
+            // Story 079 D3: cascade the adopted file to every assigned, not-running installation -
+            // same reasoning as `saveRawText`'s own cascade above (point 7 of its doc comment): the
+            // canonical write is refused for this profile so the run never re-renders the file it
+            // just adopted (the on-disk bytes are not necessarily a render fixed point), and the
+            // installation copies are then written from those same on-disk bytes. Covers both this
+            // silent re-read's ordinary adopt and the "take the file" conflict resolution above -
+            // both reach this same block.
+            await syncAndPersist(app, log, profiles, adopted, list, {
+              refuseCanonicalWriteFor: adopted.id,
+            })
+
             // Story-050 review (finding 4, second round): an `alias` name the file defined twice
             // cost the adopt one entry's commands before `readFileState` ever got to reconstruct the
             // profile - reported so the UI can say so, and logged so a support copy of the log says
@@ -1457,9 +1445,11 @@ export const configModule: MainModule = {
       },
     )
 
-    handle(CONFIG_HANDLERS.writeState, writeStateInputSchema, (): WriteState =>
-      app.state.configPendingWrites(),
-    )
+    // Story 079 D4: a running game defers nothing, so no installation is ever pending a write any
+    // more - this channel's shared contract (`WriteState`, a later deliverable's concern) is kept
+    // alive by always answering "nothing pending" rather than by persisting a map that can never
+    // gain an entry.
+    handle(CONFIG_HANDLERS.writeState, writeStateInputSchema, (): WriteState => ({}))
 
     /**
      * Story 022 D7: read-only report of where every copy of this profile stands.
@@ -1486,22 +1476,33 @@ export const configModule: MainModule = {
       const ownPath = join(userDataDir(), fileName)
       const own = await readSyncFileStatus(ownPath, expectedContent, failures[`${profile.id}|own`])
 
-      // Story 043 D4: an installation copy is generated output of the CANONICAL FILE (AC6), so for a
-      // profile carrying unsaved edits it is judged against that file's bytes - exactly what
-      // `sync.ts` writes there for such a profile. Comparing it against the unsaved render instead
-      // would report every installation of a dirty profile as `outOfSync` with a Retry that could
-      // never clear it (the retry rewrites the canonical bytes, which is what is already there),
-      // and it would disagree with the status the sync run itself just reported for the same file.
-      // The canonical row is the one that shows the unsaved edits, and still does: `own` above is
-      // deliberately still compared against the render.
+      // Story 043 D4 / 079 D2: an installation copy is generated output of the CANONICAL FILE (043
+      // AC6), so it is judged against that file's BYTES - exactly what `sync.ts` writes there, for
+      // a clean profile and a dirty one alike (`installationCopySource` is the shared rule).
+      // Comparing it against the render instead would disagree with the status the sync run itself
+      // just reported for the same file, and - for a dirty profile - would report every
+      // installation as `outOfSync` with a Retry that could never clear it. The canonical row is
+      // the one that shows unsaved edits and external edits, and still does: `own` above is
+      // deliberately still compared against the render (story 043's "no sixth state").
       //
-      // `readExisting` swallows only ENOENT, and the fall-back to the render then covers the two
-      // cases where no canonical bytes exist to judge against: no file yet, and a
-      // renamed-but-unsaved profile whose file still sits under its previous name.
-      const expectedCopyContent =
-        (profile.dirty === true ? await readExisting(ownPath) : null) ?? expectedContent
+      // `null` (the file moved underneath the launcher - bytes nobody has read, which are not
+      // published either - or a dirty profile without a file, including a renamed-but-unsaved one
+      // whose file still sits under its previous name) makes every readable copy `outOfSync`.
+      // Unreadable-but-present (not ENOENT) is "no authoritative content", the same reading
+      // `sync.ts` gives it; merely looking at the sync state must not throw over it.
+      const canonicalContent = await readExisting(ownPath).catch(() => null)
+      const expectedCopyContent = installationCopySource(
+        profile,
+        {
+          content: canonicalContent,
+          hash: canonicalContent === null ? null : hashCanonicalFileContent(canonicalContent),
+        },
+        profile.dirty !== true,
+      )
 
-      const launchState = app.launch.getState()
+      // Story 079 D4: a running installation is judged exactly like a stopped one - the Care row
+      // reads `inSync` right after a save whether or not the game is running, since the write
+      // itself is no longer deferred for it either (see `sync.ts`'s write loop).
       const installations: ProfileInstallationSync[] = []
       for (const assignment of profile.assignments) {
         const installation = app.installations.find(assignment.installationId)
@@ -1509,16 +1510,6 @@ export const configModule: MainModule = {
         // reconciled away elsewhere, not reported as a sync problem here.
         if (!installation) continue
         const path = join(installation.rootPath, BASE_GAME_DIR, fileName)
-        if (isInstallationRunning(launchState, installation.id)) {
-          installations.push({
-            installationId: installation.id,
-            path,
-            fileName,
-            status: 'pending',
-            messageKey: 'config.error.installationRunning',
-          })
-          continue
-        }
         const result = await readSyncFileStatus(
           path,
           expectedCopyContent,
@@ -1680,14 +1671,11 @@ export const configModule: MainModule = {
         // this never touches `assignments`/`isDefault` on any profile - the
         // installation's default is only ever changed by `setDefault` above.
         //
-        // Judgment call: unlike `writeProfileToAssignedInstallations`, this does
-        // NOT consult `isInstallationRunning`/skip-and-mark-pending. There is no
-        // pending-writes-shaped map keyed for "a switch-bind change, not a
-        // profile save" and decision 12 does not ask for one; the write below is
-        // still safe while the game is running (loader files are not open for
-        // exclusive access), it just means the running instance keeps whatever
-        // chain it already loaded until its next launch - the same story-004
-        // precedent AC3 relies on for the default profile itself.
+        // Judgment call: this does not consult `isInstallationRunning` either (consistent with
+        // story 079 D4's "a running game defers nothing" everywhere else now) - the write below is
+        // safe while the game is running (loader files are not open for exclusive access), it just
+        // means the running instance keeps whatever chain it already loaded until its next launch -
+        // the same story-004 precedent AC3 relies on for the default profile itself.
         const allProfiles = profiles.list()
         const defaultProfile = defaultProfileFor(allProfiles, installation.id)
         if (defaultProfile) {
@@ -1850,11 +1838,28 @@ export const configModule: MainModule = {
         })
       }
 
+      // Story 079 review (finding 1): `replaceProfile` below mutates profile CONTENT but, unlike
+      // every other content setter in this module, does not go through `markUnsaved`/set `dirty` -
+      // tidy-up commits its result immediately (this handler's own doc comment: one commit, one
+      // sync run). `canonicalWriteAllowed`'s general rule (`syncAndPersist` above) therefore never
+      // licenses the canonical rewrite on its own (a clean profile with a real `fileHash` fails its
+      // "already equals the render" check, since the render is now the TIDIED content) - it needs
+      // `overwriteProfileId`, exactly like `save`, and exactly as deliberately gated: checked here,
+      // against the profile as it stood before the tidy-up, before that profile is committed.
+      const authorised = await authoriseContentWrite(log, profiles, current)
+
       const list = withLiveAssignments(
         profiles.replaceProfile({ ...outcome.profile, updatedAt: new Date().toISOString() }),
       )
       const updated = list.find((p) => p.id === current.id)!
-      await syncAndPersist(app, log, profiles, updated, list)
+      // `authorised === false` means the canonical file moved underneath us since it was last read
+      // (or could not be surveyed) - the tidy-up still commits to `state.json` above (nothing the
+      // user just did is silently lost), but the canonical file itself is left alone rather than
+      // overwritten with content adopted from a hand-edit nobody has read; `canonicalWriteAllowed`
+      // logs that refusal, and the canonical row reports `outOfSync` (Reload/Compare, story D9).
+      await syncAndPersist(app, log, profiles, updated, list, {
+        overwriteProfileId: authorised ? updated.id : undefined,
+      })
       return ok({ profile: updated, applied: outcome.applied, rejected: outcome.rejected })
       },
     )
@@ -1902,21 +1907,20 @@ export const configModule: MainModule = {
       log.error('config file-source startup (story 043 D3) failed; continuing on cached state', error)
     }
 
-    // Story 022 D7: one retry sweep at start, after every handler is
-    // registered, for whatever the last session left behind - a failed write
-    // (`configWriteFailures`) or a write deferred because the installation was
-    // running (`configPendingWrites`). One sweep only: `syncAndPersist` records
-    // a fresh failure if it fails again, and the next mutation or the `write`
-    // channel are the other two retry triggers.
+    // Story 022 D7: one retry sweep at start, after every handler is registered, for whatever the
+    // last session left behind - a failed write (`configWriteFailures`). One sweep only:
+    // `syncAndPersist` records a fresh failure if it fails again, and the next mutation or the
+    // `write` channel are the other two retry triggers.
+    //
+    // Story 079 D4: no longer also sweeps a persisted "pending" map - a running game defers nothing,
+    // so nothing is ever left pending across a restart to retry.
     const failures = app.state.configWriteFailures()
-    const pending = app.state.configPendingWrites()
     const retryIds = new Set<string>()
     for (const key of Object.keys(failures)) {
       // Keys are `<profileId>|own` or `<profileId>|<installationId>`.
       const profileId = key.split('|')[0]
       if (profileId) retryIds.add(profileId)
     }
-    for (const profileId of Object.values(pending)) retryIds.add(profileId)
 
     if (retryIds.size > 0) {
       const allProfiles = profiles.list()

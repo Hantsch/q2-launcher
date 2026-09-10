@@ -55,20 +55,18 @@ import { detectSectionHeaderStyle, detectWriteUnbindall, recoverProfileName } fr
  * text->parts step can be driven without an installation - see the report), and
  * `restoreProfileParts` (D4).
  *
- * Two normalisations are applied to BOTH renders before comparing, both explained and justified in
- * this D's report rather than snuck in silently:
+ * One normalisation is applied to BOTH renders before comparing, explained here rather than snuck
+ * in silently:
  *
- * - `canonicalizeMintedIds` - the ownership sentinel's profile id and every `cat=`/`layer=` tag
- *   value are opaque, freshly-minted identifiers by construction (a fresh `newId()` per restored
- *   category/layer): their literal value carries no more meaning than `profile.id` does, only
- *   the *grouping* they express matters, which first-appearance canonicalisation preserves.
- *   Story 050 removed this normaliser's fourth and original subject, `e=`, together with the field
- *   itself - see the function's own comment for why the remaining three are not optional.
- * - `stripBannerDashPadding` - a `dashes`-style section banner's trailing fill is padded out to a
- *   fixed on-screen width, so a `cat=`/`layer=` value of a different LENGTH than the original
- *   (inevitable once the id itself is freshly minted) changes the dash count even though nothing
- *   about the content changed. Purely cosmetic and one-directional (only removes a variable-length
- *   trailing decoration), so it cannot hide a real content regression.
+ * - `canonicalizeProfileId` - the *profile* id (the header block's `[q2l v=… id=…]` stamp and the
+ *   legacy sentinel line) is the one id `restoreProfileParts` never adopts (story 042 AC4:
+ *   importing a colleague's file must not collide with a local profile), so a case that restores a
+ *   file into a *fresh* record (`restoreFromText` below) legitimately re-renders with a different
+ *   one. Nothing else is normalised any more: story 079 D1 made the restore adopt every grouping id
+ *   the file states (`cat=`/`layer=`/`sub=`/`cvs=`/`cvsub=`), so the fixed point is asserted
+ *   byte-for-byte - a re-minted id, and the banner dash padding that follows its length, is a
+ *   regression this suite now sees. Story 042 D9's `canonicalizeMintedIds` and its
+ *   `stripBannerDashPadding` companion are gone with that.
  *
  * A third, adversarial-pass finding - a layer's own trigger `bind <key> <alias>` line reappearing,
  * redundantly, in an "Other binds" section on reimport - was found and closed by this pass rather
@@ -105,108 +103,45 @@ async function reimport(text: string) {
 }
 
 /**
- * Replaces every opaque, freshly-minted identifier with a canonical, first-appearance-indexed
- * token: the ownership sentinel's profile id, and every `cat=`/`layer=` tag value.
+ * Replaces the profile id - the one identifier the restore never adopts (see the file doc comment)
+ * - with a canonical, first-appearance-indexed token, in both of its spellings:
  *
- * Story 050 D8: this used to canonicalise `e=` as well, and the story's plan calls for the whole
- * function to go away with that field ("there are no refs left to canonicalise"). Only the `e`
- * half could actually go. The other three subjects are *not* refs and never were: a restored
- * custom category gets a locally minted id (`profile-restore.ts#categoryRegistry` - a colleague's
- * category id means nothing here), a restored layer likewise, and the sentinel names the profile
- * the file was written for. All three are freshly minted by construction on every read-back, so
- * comparing them literally would fail for every fixture with a custom category or a layer no
- * matter how correct the writer is - it would test `randomUUID`, not the fixed point. Measured
- * rather than assumed: with this call removed from `normalize`, 20 of the corpus' 31 fixtures fail
- * on nothing but a `cat=`/`layer=` value (every modifier-slot fixture included, since a modifier
- * slot always mints a layer), each one with an otherwise byte-identical file.
- */
-function canonicalizeMintedIds(text: string): string {
-  const maps: Record<string, Map<string, string>> = {
-    sentinel: new Map(),
-    cat: new Map(),
-    layer: new Map(),
-    // Story 053 D3: a restored sub-category gets a locally minted id for the same reason a restored
-    // category does (`profile-restore.ts#categoryRegistry` - no id is ever adopted, AC4), so `sub=`
-    // is freshly minted on every read-back too and belongs in exactly the same normalisation. Only
-    // the grouping it expresses is meaningful, and first-appearance canonicalisation preserves that:
-    // two lines that shared a `sub` value still share one afterwards, and two that did not still do
-    // not - a sub-category dropped, invented or swapped between banners still fails the comparison.
-    sub: new Map(),
-    // Story 059 D3: a restored cvar section/sub-section gets a locally minted id for exactly the
-    // reason a restored category does (`profile-restore.ts#cvarSectionRegistry` - no id is ever
-    // adopted), so `cvs=`/`cvsub=` are freshly minted on every read-back too and belong in the same
-    // normalisation, on the same terms: only the grouping is meaningful, and a section dropped,
-    // invented, split or merged still fails the comparison. The four seeded template section ids
-    // (`player`/`network`/`graphics`/`sound`) are *not* minted and canonicalise to a stable token of
-    // their own either way, so pinning them is not lost.
-    cvs: new Map(),
-    cvsub: new Map(),
-  }
-  const tokenFor = (kind: string, value: string): string => {
-    const map = maps[kind]!
-    if (!map.has(value)) map.set(value, `${kind.toUpperCase()}${map.size}`)
-    return map.get(value)!
-  }
-
-  // Story 043 D1 replaced the sentinel's trailing clause ("- generated, do not edit" became
-  // "- hand-edited changes are read back"), which left this pattern matching nothing at all; it is
-  // anchored on the clause's leading `-` only now, the same wording-tolerant rule `ownedProfileId`
-  // itself follows. Found by 043 D10's adversarial pass - harmless while it lasted (both sides of
-  // the comparison carry the same profile id), but a normaliser that silently stops normalising is
-  // exactly the kind of thing that hides the next real regression.
-  let out = text.replace(/(\/\/ q2-launcher profile )(\S+)( -)/, (_m, pre, id, post) =>
-    `${pre}${tokenFor('sentinel', id)}${post}`,
-  )
-  // Story 051 D6: the profile id moved out of that sentinel line and into the header block's own
-  // `[q2l v=<n> id=<uuid>]` stamp, so the *same* subject now needs normalising in its new spelling -
-  // and through the same map, so a legacy-shape file and the banner-shape file it re-renders into
-  // canonicalise one id to one token rather than to two. Without this, every case that restores a
-  // file into a *fresh* profile record (`restoreFromText` below, which mints an id exactly as a
-  // rebuild-from-file does) compares two headers differing in nothing but a `randomUUID` - which is
-  // what "the header holds still" would then be measuring.
-  //
-  // Anchored on the whole `[q2l v=… id=` prefix rather than on `id=` alone, deliberately: `id=` is
-  // also perfectly ordinary prose (`bodyProseWithIdProfile` puts it in a category name, an entry
-  // name and an unbound line on purpose), and a normaliser that rewrote user text would be able to
-  // hide a real regression in exactly the place this story made prose dangerous.
-  out = out.replace(/(\[q2l v=\d+ id=)([^\s\]]+)/g, (_m, prefix: string, id: string) =>
-    `${prefix}${tokenFor('sentinel', id)}`,
-  )
-  out = out.replace(/\b(cat|layer|sub|cvsub|cvs)=([^\s\]]+)/g, (_m, key: string, value: string) =>
-    `${key}=${tokenFor(key, value)}`,
-  )
-  return out
-}
-
-/**
- * A `dashes`-style section banner's trailing fill is variable-width by construction (padded out to
- * a fixed on-screen column count) - see the file doc comment. Trimming it is one-directional and
- * touches nothing else on the line.
+ * Story 043 D1 replaced the sentinel's trailing clause ("- generated, do not edit" became
+ * "- hand-edited changes are read back"), which left this pattern matching nothing at all; it is
+ * anchored on the clause's leading `-` only now, the same wording-tolerant rule `ownedProfileId`
+ * itself follows. Found by 043 D10's adversarial pass - harmless while it lasted (both sides of
+ * the comparison carry the same profile id), but a normaliser that silently stops normalising is
+ * exactly the kind of thing that hides the next real regression.
  *
- * Story-042-review finding 6 (fix-cycle-5 continuation): the original pattern's lazy `.*?` plus
- * optional ` *` before the dash run finds the *first* place a trailing all-dash run could start,
- * not the *real* boundary `banner()` actually draws - a fixture title containing its own literal
- * `--` (one of D9's own required edge cases) could have that real content eaten as if it were
- * padding, which is exactly backwards for a normaliser whose only job is to make a genuine
- * regression still visible. `banner()`'s dashes branch (`cfg-layout.ts`) only ever inserts fill
- * after exactly one literal space, never zero, so a greedy `.*` (finds the *longest* possible
- * content, i.e. the *last* valid split point) plus a mandatory single space is the actual inverse
- * of what it writes - the same anchor `profile-restore.ts#bannerTitle`'s `DASHES_SUFFIX` now uses
- * to read a title back for real, restated here so the test's own safety net matches the production
- * rule instead of a looser approximation of it.
+ * Story 051 D6: the profile id moved out of that sentinel line and into the header block's own
+ * `[q2l v=<n> id=<uuid>]` stamp, so the *same* subject needs normalising in its new spelling - and
+ * through the same map, so a legacy-shape file and the banner-shape file it re-renders into
+ * canonicalise one id to one token rather than to two. Without this, every case that restores a
+ * file into a *fresh* profile record (`restoreFromText` below, which mints an id exactly as a
+ * rebuild-from-file does) compares two headers differing in nothing but a `randomUUID` - which is
+ * what "the header holds still" would then be measuring.
+ *
+ * Anchored on the whole `[q2l v=… id=` prefix rather than on `id=` alone, deliberately: `id=` is
+ * also perfectly ordinary prose (`bodyProseWithIdProfile` puts it in a category name, an entry
+ * name and an unbound line on purpose), and a normaliser that rewrote user text would be able to
+ * hide a real regression in exactly the place this story made prose dangerous.
  */
-function stripBannerDashPadding(text: string): string {
-  // `-+`, not `-{2,}`: `DASHES_SUFFIX` is ` -+$`, and a fill of *exactly one* dash is a shape
-  // `banner()` really does draw (story 050 D8 found it on the two new fixtures whose only
-  // variable-length tag value is a layer id - one render's fill was ` -`, the other's empty, and
-  // nothing else on the line differed). Requiring two dashes made this normaliser stop being the
-  // inverse of what the writer writes for that one length, which is exactly the "a normaliser that
-  // silently stops normalising" trap `canonicalizeMintedIds`' own comment above records.
-  return text.replace(/^(\/\/ --- .*) -+$/gm, '$1')
+function canonicalizeProfileId(text: string): string {
+  const ids = new Map<string, string>()
+  const tokenFor = (value: string): string => {
+    if (!ids.has(value)) ids.set(value, `SENTINEL${ids.size}`)
+    return ids.get(value)!
+  }
+  const out = text.replace(/(\/\/ q2-launcher profile )(\S+)( -)/, (_m, pre, id, post) =>
+    `${pre}${tokenFor(id)}${post}`,
+  )
+  return out.replace(/(\[q2l v=\d+ id=)([^\s\]]+)/g, (_m, prefix: string, id: string) =>
+    `${prefix}${tokenFor(id)}`,
+  )
 }
 
 function normalize(text: string): string {
-  return stripBannerDashPadding(canonicalizeMintedIds(text))
+  return canonicalizeProfileId(text)
 }
 
 /**
@@ -1182,9 +1117,9 @@ describe('story 053 D3: sub-categories come back off the file', () => {
         ['Next weapon', 'Weapons', 'Cycling'],
       ],
     })
-    // Ids are minted locally, never adopted from the file's `sub=` values (AC4), same rule as a
-    // restored category's.
-    expect(profile2.categories![0]!.subcategories!.map((sub) => sub.id)).not.toEqual([
+    // Story 079 D1 (AC4): the file's own `sub=` values are adopted - well-formed and unique within
+    // the file - same rule as a restored category's, so the next render writes the same tags back.
+    expect(profile2.categories![0]!.subcategories!.map((sub) => sub.id)).toEqual([
       'sub-use',
       'sub-cycle',
     ])
@@ -2100,11 +2035,11 @@ const NO_CATEGORY = '(no category the profile has)'
  * One entry reduced to everything the round trip has to carry: its display name, the *name* of the
  * category it sits in, its catalogue link and its commands.
  *
- * By category name rather than id on purpose: a restored custom category is minted locally
- * (`profile-restore.ts#categoryRegistry` - a colleague's id means nothing here), exactly like the
- * `cat=` values `canonicalizeMintedIds` above normalises, so comparing ids literally would fail for
- * every fixture with a custom category however correct the reader is. The *drawer* is what must
- * survive, and its name is what says which drawer it is.
+ * By category name rather than id on purpose: several cases below restore into a *fresh* record or
+ * a hand-mangled file, where a category is minted locally (`profile-restore.ts#categoryRegistry`,
+ * story 079 D1 - an id the file no longer states, or states twice, is minted), so comparing ids
+ * literally would test the id factory. The *drawer* is what must survive, and its name is what says
+ * which drawer it is.
  */
 function entryShapes(profile: ConfigProfile): {
   name: string
@@ -3067,8 +3002,8 @@ describe('story 059 D3: cvar sections survive the round trip', () => {
     }
   }
 
-  /** A section list as `{ name, cvars, subsections }`, with every minted id dropped - the ids are
-   * freshly minted by construction (see `canonicalizeMintedIds`), the placements are the subject. */
+  /** A section list as `{ name, cvars, subsections }`, ids dropped - a section an adversarial
+   * fixture leaves untagged is minted per read (story 079 D1), the placements are the subject. */
   function shapeOf(sections: ConfigProfile['cvarSections']): unknown {
     return (sections ?? []).map((section) => ({
       name: section.name,
@@ -3198,8 +3133,8 @@ function bannerAt(line: string): { title: string; tag: string | null } | null {
  * cvar under a different banner, which is exactly the silent regression a section reader can cause.
  *
  * Sections are identified by *title plus whether the banner carried a tag at all*, never by the tag
- * value - a restored section's id is freshly minted by construction (`canonicalizeMintedIds`), so a
- * literal comparison would test `randomUUID`. The tagged/untagged distinction is kept because it is
+ * value - an untagged section's id is freshly minted per read (story 079 D1), so a literal
+ * comparison would test `randomUUID`. The tagged/untagged distinction is kept because it is
  * the entire difference between a user's own section named `Other` and the writer's reserved
  * leftovers bucket of the same name (`literalOtherCvarSectionProfile`).
  */
@@ -3293,8 +3228,8 @@ describe('story 059 D4: the cvar-section fixed point over hostile profiles', () 
  * up this file exist at all).
  */
 describe('story 059 D4: what the hostile cvar-section fixtures come back as', () => {
-  /** A section list as `{ name, cvars, subsections }`, ids dropped - they are minted per read
-   * (`canonicalizeMintedIds`), the placements are the subject. */
+  /** A section list as `{ name, cvars, subsections }`, ids dropped - an untagged section's id is
+   * minted per read (story 079 D1), the placements are the subject. */
   function shapeOf(sections: ConfigProfile['cvarSections']): unknown {
     return (sections ?? []).map((section) => ({
       name: section.name,

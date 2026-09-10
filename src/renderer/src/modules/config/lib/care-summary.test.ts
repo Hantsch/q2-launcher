@@ -140,6 +140,60 @@ describe('dedupedFindingCounts', () => {
   it('is zero for an empty validation and an empty tidy-up list', () => {
     expect(dedupedFindingCounts(validation([]), [])).toEqual({ errors: 0, warnings: 0 })
   })
+
+  // Story 079 D7 (AC6): non-`inSync` Files rows count toward the badge too, de-duplicated with
+  // findings - see the file doc comment for the `files:${target}` dedup key.
+  it('drifted Files rows count toward the Care badge, de-duplicated with findings', () => {
+    const emptyValidation = validation([])
+
+    // An outOfSync row and a missing row each add one warning.
+    expect(
+      dedupedFindingCounts(emptyValidation, [], [
+        syncRow({ target: 'inst-1', state: 'outOfSync' }),
+        syncRow({ target: 'inst-2', state: 'missing' }),
+      ]),
+    ).toEqual({ errors: 0, warnings: 2 })
+
+    // inSync adds nothing.
+    expect(
+      dedupedFindingCounts(emptyValidation, [], [syncRow({ target: 'inst-1', state: 'inSync' })]),
+    ).toEqual({ errors: 0, warnings: 0 })
+
+    // A failed row counts too, as an error - it is "not in sync" same as the other two.
+    expect(
+      dedupedFindingCounts(emptyValidation, [], [syncRow({ target: 'inst-1', state: 'failed' })]),
+    ).toEqual({ errors: 1, warnings: 0 })
+
+    // The canonical row (own file) that is not in sync counts as a Files row - but only when the
+    // reason is a genuine external edit (`canonicalOutOfSyncReason`, `care-sync.ts`), not merely
+    // the profile having unsaved edits (story 079 review finding 4: unsaved edits are not drift).
+    const outOfSyncCanonical = syncRow({ target: 'canonical', state: 'outOfSync' })
+    expect(dedupedFindingCounts(emptyValidation, [], [outOfSyncCanonical], false)).toEqual({
+      errors: 0,
+      warnings: 1,
+    })
+    expect(dedupedFindingCounts(emptyValidation, [], [outOfSyncCanonical], true)).toEqual({
+      errors: 0,
+      warnings: 0,
+    })
+
+    // Validation + tidy-up + drift are summed, not double-counted - three unrelated sources land as
+    // three counted problems.
+    const reportFinding = finding({ id: 'r1q2:cvars:outOfRange:0', level: 'error' })
+    const shadowedBind = tidyUpFinding({
+      kind: 'shadowedBind',
+      level: 'warning',
+      sourceFindingId: 'bindConflict:base:w',
+      ops: [],
+    })
+    expect(
+      dedupedFindingCounts(
+        validation([{ engine: 'r1q2', findings: [reportFinding], summary: { errors: 1, warnings: 0, infos: 0 } }]),
+        [shadowedBind],
+        [syncRow({ target: 'inst-1', state: 'outOfSync' })],
+      ),
+    ).toEqual({ errors: 1, warnings: 2 })
+  })
 })
 
 describe('careSummary', () => {
@@ -244,9 +298,12 @@ describe('careSummary', () => {
     expect(result.lines[1]!.params).toEqual({ count: 1 })
   })
 
-  it('a pending sync row (a running installation deferring the write) is not clean either', () => {
+  // Story 079: a running installation's write is no longer deferred into its own 'pending' state
+  // (it is written exactly like a stopped one) - a failed write is the only non-clean state left
+  // besides outOfSync/missing, and it is still not clean either.
+  it('a failed sync row is not clean either', () => {
     const result = summaryFor({
-      sync: loadedSync([syncRow({ target: 'inst-1', path: 'C:/a/p.cfg', state: 'pending' })]),
+      sync: loadedSync([syncRow({ target: 'inst-1', path: 'C:/a/p.cfg', state: 'failed' })]),
     })
 
     expect(result.files).toEqual({ kind: 'items', count: 1 })

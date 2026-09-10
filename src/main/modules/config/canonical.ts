@@ -144,14 +144,15 @@ export async function readCanonicalOwnership(baseDir: string): Promise<Map<strin
 }
 
 /**
- * Writes `profile`'s canonical file at `<baseDir>/<fileName>`.
+ * Moves `profile`'s own canonical file to `<baseDir>/<fileName>`, leaving its
+ * CONTENT exactly as it is - the location half of `writeCanonicalProfileFile`
+ * below, usable on its own.
  *
- * Reconciles first: if this profile's own canonical file already exists
- * under a different name (a rename), it is moved to `fileName` before the
- * write, so a profile rename moves the file in place instead of leaving an
- * orphan behind and creating a fresh duplicate under the new name. The
- * actual write - diff-skip, backup-once, atomic write - is `writer.ts`'s own
- * `writeTargetFile`, reused rather than reimplemented.
+ * If this profile's own canonical file already exists under a different name
+ * (a rename), it is moved to `fileName`, so a profile rename moves the file in
+ * place instead of leaving an orphan behind and creating a fresh duplicate
+ * under the new name. A no-op when the profile has no canonical file yet, or
+ * it already sits at `fileName`. Returns the resolved target path either way.
  *
  * The rename target might already be occupied - by a foreign, hand-written
  * file (two different profile names can resolve to a target another user
@@ -176,6 +177,57 @@ export async function readCanonicalOwnership(baseDir: string): Promise<Map<strin
  * a file. Left optional so a caller that cannot say which profiles are live
  * keeps the previous behaviour - a marker-carrying destination whose owner is
  * gone is still stale output, and is still replaced.
+ *
+ * Separate from the write (story 079 review, finding 1) because the two
+ * questions have different answers: "may this run replace what the file says"
+ * is a content decision that a hand-formatted, launcher-known file has to be
+ * able to refuse (story 057: a raw save is never re-rendered), while "may this
+ * run move the file to the name the profile now resolves to" loses nothing and
+ * must still happen - otherwise a displaced profile never vacates the name
+ * another profile is trying to claim, and that other profile's write throws
+ * above forever.
+ */
+export async function moveCanonicalProfileFile(
+  baseDir: string,
+  profile: ConfigProfile,
+  fileName: string,
+  liveProfileIds?: ReadonlySet<string>,
+): Promise<string> {
+  const targetPath = join(baseDir, fileName)
+
+  const existingOwnPath = await findOwnCanonicalFile(baseDir, profile.id)
+  if (existingOwnPath === targetPath) return targetPath
+
+  // Not (yet) known to be this profile's own file, so whatever sits at the
+  // destination is inspected before anything is renamed or written over it.
+  const destination = await readExistingIfAny(targetPath)
+  if (destination !== null) {
+    const owner = ownedProfileIdFromContent(destination)
+    if (owner !== null && owner !== profile.id && liveProfileIds?.has(owner) === true) {
+      throw new Error(
+        `refusing to write canonical file ${fileName} for profile ${profile.id}: ` +
+          `it is live profile ${owner}'s canonical file`,
+      )
+    }
+    // Only a rename needs a backup decision here; a plain write's own
+    // backup-once lives in `writeTargetFile` below.
+    if (existingOwnPath !== null && !isLauncherOwnedFile(destination)) {
+      await backupOnce(targetPath)
+    }
+  }
+  if (existingOwnPath !== null) await rename(existingOwnPath, targetPath)
+
+  return targetPath
+}
+
+/**
+ * Writes `profile`'s canonical file at `<baseDir>/<fileName>`.
+ *
+ * Reconciles first, via `moveCanonicalProfileFile` above (see it for the
+ * rename/backup/refusal rules), so a profile rename moves the file in place
+ * before it is written. The actual write - diff-skip, backup-once, atomic
+ * write - is `writer.ts`'s own `writeTargetFile`, reused rather than
+ * reimplemented.
  */
 export async function writeCanonicalProfileFile(
   baseDir: string,
@@ -183,31 +235,7 @@ export async function writeCanonicalProfileFile(
   fileName: string,
   liveProfileIds?: ReadonlySet<string>,
 ): Promise<WriteCanonicalProfileFileResult> {
-  const targetPath = join(baseDir, fileName)
-
-  const existingOwnPath = await findOwnCanonicalFile(baseDir, profile.id)
-
-  // Not (yet) known to be this profile's own file, so whatever sits at the
-  // destination is inspected before anything is renamed or written over it.
-  if (existingOwnPath !== targetPath) {
-    const destination = await readExistingIfAny(targetPath)
-    if (destination !== null) {
-      const owner = ownedProfileIdFromContent(destination)
-      if (owner !== null && owner !== profile.id && liveProfileIds?.has(owner) === true) {
-        throw new Error(
-          `refusing to write canonical file ${fileName} for profile ${profile.id}: ` +
-            `it is live profile ${owner}'s canonical file`,
-        )
-      }
-      // Only a rename needs a backup decision here; a plain write's own
-      // backup-once lives in `writeTargetFile` below.
-      if (existingOwnPath !== null && !isLauncherOwnedFile(destination)) {
-        await backupOnce(targetPath)
-      }
-    }
-    if (existingOwnPath !== null) await rename(existingOwnPath, targetPath)
-  }
-
+  const targetPath = await moveCanonicalProfileFile(baseDir, profile, fileName, liveProfileIds)
   const outcome = await writeTargetFile(targetPath, renderProfileFile(profile))
   return { path: targetPath, outcome }
 }

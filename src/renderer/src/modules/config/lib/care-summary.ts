@@ -29,6 +29,24 @@
  *    as-is: those are genuinely engine-specific in content, or already
  *    engine-agnostic in shape, so normalizing them could wrongly collide two
  *    different findings.
+ *
+ *    Story 079 D7 (AC6) adds a third source into the same count: every Files
+ *    row (`care-sync.ts`'s `CareSyncRow`) that is not `inSync` - drifted,
+ *    missing or a failed write are each "something to do" exactly like an
+ *    unresolved finding, so the badge counts them alongside validation and
+ *    tidy-up rather than only inside the Care tab's own Files list. Keyed as
+ *    `files:${row.target}` so it de-duplicates per row (one row per
+ *    canonical/installation target) and can never collide with a finding id.
+ *
+ *    Story 079 review (finding 4): the canonical row reads `outOfSync` for two different reasons
+ *    (`care-sync.ts`'s `canonicalOutOfSyncReason`) - the file was changed outside the launcher
+ *    (`externalEdit`, genuine drift), or the profile simply has edits the user has not saved yet
+ *    (`unsavedChanges`, true of every dirty profile the moment it is typed into). Only the first is
+ *    drift; the second is normal, transient, mid-edit state that `fileItems` (`care-items.ts`)
+ *    already gives no action for - the badge must agree, or it lights up on every keystroke. So a
+ *    canonical row whose reason is `unsavedChanges` is excluded from this count; every other
+ *    non-`inSync` row (installation `outOfSync`/`missing`/`failed`, canonical `externalEdit`/
+ *    `missing`/`failed`) still counts exactly as before.
  * 2. `careSummary` — the Care-level "all clear vs. something to do" rollup
  *    (story 025 AC 7, rewritten by story 058 D1 around `care-items.ts`). Each
  *    group answers `clean`, `{ items: n }`, or `notChecked`, and the whole tab
@@ -60,9 +78,18 @@
 import type { Finding } from '@shared/config/validation'
 import { engineLabel } from '@shared/types/engine'
 import type { CareItem, CareItemGroup } from './care-items'
-import type { CareSyncRow } from './care-sync'
+import { canonicalOutOfSyncReason, type CareSyncRow } from './care-sync'
 import type { TidyUpFinding } from './tidy-up-findings'
 import type { ProfileValidation } from './validation-scope'
+
+/** Mirrors `care-items.ts`'s own (unexported) `fileLevel`: `'failed'` is the only sync state that
+ * describes a write that actually went wrong, so it is the only one that counts as an error here -
+ * every other non-`inSync` state (`outOfSync`/`missing`) is a warning, same tone as the Files item
+ * it produces. Kept as its own tiny copy rather than importing `care-items.ts`, which already imports
+ * `dedupKey` from this module - importing back would make the two files circular. */
+function fileFindingLevel(row: CareSyncRow): 'error' | 'warning' {
+  return row.state === 'failed' ? 'error' : 'warning'
+}
 
 /** Error/warning counts, deduplicated by finding id — see the file doc comment. */
 export interface DedupedFindingCounts {
@@ -97,17 +124,31 @@ export function dedupKey(id: string): string {
 
 /**
  * The tab badge's own counts (`ConfigView.tsx`): every distinct finding id
- * across the validation report and the tidy-up list, counted once each.
- * Mirrors `validation-scope.ts`'s `totalCounts` in shape - `{ errors,
- * warnings }` - but sourced from two lists instead of one, with the
- * cross-list id collision resolved rather than summed.
+ * across the validation report and the tidy-up list, counted once each, plus
+ * (story 079 D7, AC6) every Files row that is not `inSync` - a drifted,
+ * missing or failed-write copy is exactly as much "something to do" as an
+ * unresolved finding, so the badge counts it the same way.
  *
  * `info`-level validation findings are excluded, same as `totalCounts` and
  * the badge's own existing tone logic - neither has ever counted infos.
+ *
+ * The Files rows share the same `levelById` map as the findings, keyed as
+ * `files:${row.target}` - one entry per row, which is already the dedup unit
+ * `toCareSyncRows` produces (one row per canonical/installation target, never
+ * more than one for the same file). That key can never collide with a finding
+ * id (`dedupKey` only ever strips a leading `<engine>:` segment from an
+ * `<engine>:actions:...`-shaped id), so validation/tidy-up findings and Files
+ * drift are summed into one total rather than double-counted against each
+ * other - there is nothing for them to collide on in the first place.
  */
 export function dedupedFindingCounts(
   validation: ProfileValidation,
   tidyUpFindings: TidyUpFinding[],
+  driftRows: CareSyncRow[] = [],
+  /** `profile.dirty` - only used to tell the canonical row's two `outOfSync` causes apart (see the
+   * file doc comment); undefined behaves like `false` (`canonicalOutOfSyncReason`'s own default),
+   * so an omitted profile never suppresses a genuine `externalEdit` row. */
+  profileDirty?: boolean,
 ): DedupedFindingCounts {
   const levelById = new Map<string, 'error' | 'warning'>()
 
@@ -122,6 +163,11 @@ export function dedupedFindingCounts(
     for (const finding of engine.findings) record(finding.id, finding.level)
   }
   for (const finding of tidyUpFindings) record(finding.sourceFindingId, finding.level)
+  for (const row of driftRows) {
+    if (row.state === 'inSync') continue
+    if (canonicalOutOfSyncReason(row, profileDirty) === 'unsavedChanges') continue
+    record(`files:${row.target}`, fileFindingLevel(row))
+  }
 
   let errors = 0
   let warnings = 0

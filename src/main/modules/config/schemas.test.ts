@@ -10,6 +10,7 @@ import {
   setProfileCvarsInputSchema,
   setSwitchBindInputSchema,
   syncStateInputSchema,
+  writeProfileInputSchema,
 } from './schemas'
 
 /**
@@ -470,6 +471,30 @@ describe('syncStateInputSchema', () => {
 
   it('rejects an empty profileId', () => {
     expect(syncStateInputSchema.safeParse({ profileId: '' }).success).toBe(false)
+  })
+})
+
+/**
+ * Story 079 D8: `write`'s payload gains an optional `installationId`, so "Sync now" can target one
+ * installation. Shape-only here - whether a given id names a known installation is checked in the
+ * handler (`index.ts`'s `write`, mirroring `assign`/`unassign`/`setDefault`), not by this schema, so
+ * that check has its own coverage in `index.test.ts` rather than here.
+ */
+describe('writeProfileInputSchema (story 079 D8)', () => {
+  it('accepts a profileId with no installationId, unchanged from before this story', () => {
+    expect(writeProfileInputSchema.safeParse({ profileId: 'p1' }).success).toBe(true)
+  })
+
+  it('accepts a well-formed installationId alongside profileId', () => {
+    const result = writeProfileInputSchema.safeParse({ profileId: 'p1', installationId: 'i1' })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.installationId).toBe('i1')
+  })
+
+  it('rejects an empty installationId', () => {
+    expect(
+      writeProfileInputSchema.safeParse({ profileId: 'p1', installationId: '' }).success,
+    ).toBe(false)
   })
 })
 

@@ -85,7 +85,6 @@ function deps(overrides: Partial<SyncProfileDeps> = {}): SyncProfileDeps {
     launchState: idleLaunchState(),
     playedModsFor: () => [],
     canonicalBaseDir: userDataDir,
-    pendingWrites: {},
     writeFailures: {},
     log: noopLog,
     ...overrides,
@@ -143,11 +142,11 @@ describe('syncProfile', () => {
     expect(await read(rootDir, 'baseq2', 'autoexec.cfg')).toContain('exec One.cfg')
   })
 
-  it('marks a running installation pending without writing anything', async () => {
+  it('writes a running installation exactly like a stopped one', async () => {
     const p = profile({ name: 'One', assignments: [{ installationId: 'i1', isDefault: true }] })
     const inst = installation()
 
-    const result = await syncProfile(
+    const running = await syncProfile(
       deps({
         profile: p,
         allProfiles: [p],
@@ -156,17 +155,18 @@ describe('syncProfile', () => {
       }),
     )
 
-    expect(result.pendingWrites).toEqual({ i1: 'p1' })
-    expect(result.state.installations).toEqual([
+    // Story 079 D4: the engine only reads a config at `exec` time and holds no handle on it
+    // afterwards, so a running installation is written immediately - no `pending`, no deferral.
+    expect(running.state.installations).toEqual([
       {
         installationId: 'i1',
         path: join(rootDir, 'baseq2', 'One.cfg'),
         fileName: 'One.cfg',
-        status: 'pending',
-        messageKey: 'config.error.installationRunning',
+        status: 'inSync',
       },
     ])
-    await expect(read(rootDir, 'baseq2', 'One.cfg')).rejects.toThrow()
+    expect(await read(rootDir, 'baseq2', 'One.cfg')).toBe(renderProfileFile(p))
+    expect(await read(rootDir, 'baseq2', 'autoexec.cfg')).toContain('exec One.cfg')
   })
 
   it('reports error + records a write failure when an installation target cannot be written, then recovers', async () => {
@@ -493,6 +493,319 @@ describe('syncProfile', () => {
       expect(result.canonicalHashes).toEqual({
         p1: hashCanonicalFileContent(renderProfileFile(p)),
       })
+    })
+  })
+
+  describe('installation copies mirror the canonical file’s bytes (story 079 D2)', () => {
+    /**
+     * `index.ts`'s own `canonicalWriteAllowed` rule (`syncAndPersist`), mirrored here so these
+     * tests exercise the predicate production actually passes in. `overwriteProfileId` is the
+     * caller-side licence that `save` (and `tidyUpApply`, after its own read-before-write check)
+     * passes for the ONE profile it just mutated - without it a content write is only allowed over
+     * an absent file, a profile with no baseline, or bytes that already are our own render.
+     *
+     * Note what is deliberately NOT here: `onDisk.hash === candidate.fileHash`. Bytes the launcher
+     * itself wrote are not necessarily `renderProfileFile`'s output - a raw save (story 057) keeps
+     * hand-typed formatting as exactly that confirmed baseline - so allowing the write on the hash
+     * alone would reformat them on the next non-save trigger.
+     */
+    const indexRule = (
+      overwriteProfileId?: string,
+    ): NonNullable<SyncProfileDeps['canonicalWriteAllowed']> => {
+      return (candidate, onDisk) => {
+        if (candidate.dirty === true) return false
+        if (candidate.id === overwriteProfileId) return true
+        if (onDisk.content === null) return true
+        if (typeof candidate.fileHash !== 'string') return true
+        return onDisk.content === renderProfileFile(candidate)
+      }
+    }
+
+    /**
+     * `index.ts`'s `canonicalMoveAllowed` - the LOCATION half the hash DOES satisfy (story 079
+     * review, finding 1): a move preserves every byte, so a file whose bytes the launcher has read
+     * is still ours to put under the name the profile resolves to now.
+     */
+    const indexMoveRule: NonNullable<SyncProfileDeps['canonicalMoveAllowed']> = (
+      candidate,
+      onDisk,
+    ) => {
+      if (candidate.dirty === true) return false
+      if (onDisk.content === null) return false
+      if (typeof candidate.fileHash !== 'string') return true
+      return onDisk.hash === candidate.fileHash || onDisk.content === renderProfileFile(candidate)
+    }
+
+    it('writes a CLEAN profile’s copy from its hand-formatted canonical file, not from the render', async () => {
+      const p = profile({ name: 'One', assignments: [{ installationId: 'i1', isDefault: true }] })
+      const inst = installation()
+      const find = (id: string): Installation | undefined => (id === inst.id ? inst : undefined)
+      await syncProfile(deps({ profile: p, allProfiles: [p], installations: { find } }))
+      // A raw save (story 057) or an adopted external edit: the file holds bytes the launcher has
+      // read - its hash is the profile's baseline - but that are not a render fixed point.
+      const handFormatted = `${await read(userDataDir, 'One.cfg')}\tset q2l_hand "1"   \n`
+      await writeFile(join(userDataDir, 'One.cfg'), handFormatted, 'latin1')
+      const clean = { ...p, fileHash: hashCanonicalFileContent(handFormatted) }
+      expect(renderProfileFile(clean)).not.toBe(handFormatted)
+
+      // The cascade after such an adopt leaves the canonical file alone (it IS the truth) and only
+      // publishes it.
+      const result = await syncProfile(
+        deps({
+          profile: clean,
+          allProfiles: [clean],
+          installations: { find },
+          canonicalWriteAllowed: () => false,
+        }),
+      )
+
+      expect(await read(userDataDir, 'One.cfg')).toBe(handFormatted)
+      expect(await read(rootDir, 'baseq2', 'One.cfg')).toBe(handFormatted)
+      expect(result.state.installations[0]!.status).toBe('inSync')
+      expect(result.writeFailures).toEqual({})
+    })
+
+    it('publishes the render when there is no canonical file yet - it is what the run writes first', async () => {
+      // A stale baseline with no file behind it (the file was deleted outside the launcher, say):
+      // absent means "nothing there to lose", so the run writes the canonical file and the copy
+      // from the same render.
+      const p = profile({
+        name: 'One',
+        assignments: [{ installationId: 'i1', isDefault: true }],
+        fileHash: 'stale-baseline',
+      })
+      const inst = installation()
+      const find = (id: string): Installation | undefined => (id === inst.id ? inst : undefined)
+
+      const result = await syncProfile(
+        deps({
+          profile: p,
+          allProfiles: [p],
+          installations: { find },
+          canonicalWriteAllowed: indexRule(),
+          canonicalMoveAllowed: indexMoveRule,
+        }),
+      )
+
+      expect(await read(userDataDir, 'One.cfg')).toBe(renderProfileFile(p))
+      expect(await read(rootDir, 'baseq2', 'One.cfg')).toBe(renderProfileFile(p))
+      expect(result.state.own.status).toBe('inSync')
+      expect(result.state.installations[0]!.status).toBe('inSync')
+    })
+
+    it('publishes nothing and reads outOfSync when the canonical file moved underneath the launcher', async () => {
+      const p = profile({ name: 'One', assignments: [{ installationId: 'i1', isDefault: true }] })
+      const inst = installation()
+      const find = (id: string): Installation | undefined => (id === inst.id ? inst : undefined)
+      await syncProfile(deps({ profile: p, allProfiles: [p], installations: { find } }))
+      const written = await read(userDataDir, 'One.cfg')
+      const clean = { ...p, fileHash: hashCanonicalFileContent(written) }
+      // An external edit nobody has read yet: hash ≠ `fileHash`, and not what we would render.
+      const external = `${written}set external_edit "1"\n`
+      await writeFile(join(userDataDir, 'One.cfg'), external, 'latin1')
+
+      const result = await syncProfile(
+        deps({
+          profile: clean,
+          allProfiles: [clean],
+          installations: { find },
+          canonicalWriteAllowed: indexRule(),
+          canonicalMoveAllowed: indexMoveRule,
+        }),
+      )
+
+      // Neither overwritten (story 043 D10) nor published (079 D2): the copy keeps the bytes of the
+      // last run, which happen to equal the render - and it still reads `outOfSync`, because there
+      // is nothing it is in sync WITH until the user reloads or saves.
+      expect(await read(userDataDir, 'One.cfg')).toBe(external)
+      expect(await read(rootDir, 'baseq2', 'One.cfg')).toBe(written)
+      expect(await read(rootDir, 'baseq2', 'One.cfg')).toBe(renderProfileFile(clean))
+      expect(result.state.own.status).toBe('outOfSync')
+      expect(result.state.installations[0]!.status).toBe('outOfSync')
+      // Nothing failed and nothing was confirmed.
+      expect(result.writeFailures).toEqual({})
+      expect(result.canonicalHashes).toEqual({})
+    })
+
+    it('a save still reaches the installation in one pass: the copy carries the bytes just written', async () => {
+      const p = profile({ name: 'One', assignments: [{ installationId: 'i1', isDefault: true }] })
+      const inst = installation()
+      const find = (id: string): Installation | undefined => (id === inst.id ? inst : undefined)
+      await syncProfile(deps({ profile: p, allProfiles: [p], installations: { find } }))
+      const before = await read(userDataDir, 'One.cfg')
+      // The save's run: the profile's baseline is the OLD file's hash (the caller reseeds it from
+      // `canonicalHashes` afterwards), the canonical write goes first, and the copy must say what
+      // the file says NOW - not the bytes the write decision was made from.
+      const saved = { ...p, cvars: { sensitivity: '42' }, fileHash: hashCanonicalFileContent(before) }
+
+      const result = await syncProfile(
+        deps({
+          profile: saved,
+          allProfiles: [saved],
+          installations: { find },
+          // What `save` actually passes (`index.ts`: `overwriteProfileId: profile.id`, and
+          // unconditionally so): the general rule alone would REFUSE this write, since the file's
+          // hash still matches the stale baseline and its bytes are not the new render. `save` is
+          // the one caller licensed to publish genuinely new content over such a file, and that
+          // licence - not the baseline hash - is what makes a save reach the installation.
+          canonicalWriteAllowed: indexRule(saved.id),
+          canonicalMoveAllowed: indexMoveRule,
+        }),
+      )
+
+      expect(await read(userDataDir, 'One.cfg')).toBe(renderProfileFile(saved))
+      expect(await read(rootDir, 'baseq2', 'One.cfg')).toBe(renderProfileFile(saved))
+      expect(result.state.own.status).toBe('inSync')
+      expect(result.state.installations[0]!.status).toBe('inSync')
+      expect(result.canonicalHashes['p1']).toBe(hashCanonicalFileContent(renderProfileFile(saved)))
+    })
+
+    it('without that licence the same run publishes nothing new: only a save may re-render a hand-formatted file', async () => {
+      // The mirror image of the test above, and the reason `indexRule` no longer allows the write
+      // on `onDisk.hash === fileHash` alone: every non-save trigger (`assign`, `setDefault`, the
+      // startup retry sweep, "Sync now") runs the SAME predicate without `overwriteProfileId`, and
+      // must leave a raw save's hand-typed formatting exactly as the user typed it (story 057).
+      const p = profile({ name: 'One', assignments: [{ installationId: 'i1', isDefault: true }] })
+      const inst = installation()
+      const find = (id: string): Installation | undefined => (id === inst.id ? inst : undefined)
+      await syncProfile(deps({ profile: p, allProfiles: [p], installations: { find } }))
+      const handFormatted = `${await read(userDataDir, 'One.cfg')}\tset q2l_hand "1"   \n`
+      await writeFile(join(userDataDir, 'One.cfg'), handFormatted, 'latin1')
+      const clean = { ...p, fileHash: hashCanonicalFileContent(handFormatted) }
+      expect(renderProfileFile(clean)).not.toBe(handFormatted)
+
+      await syncProfile(
+        deps({
+          profile: clean,
+          allProfiles: [clean],
+          installations: { find },
+          canonicalWriteAllowed: indexRule(),
+          canonicalMoveAllowed: indexMoveRule,
+        }),
+      )
+
+      expect(await read(userDataDir, 'One.cfg')).toBe(handFormatted)
+      expect(await read(rootDir, 'baseq2', 'One.cfg')).toBe(handFormatted)
+    })
+
+    it('still MOVES such a file out of a name another profile’s rename claimed, so that save can land', async () => {
+      // Story 079 review (finding 1). Refusing to re-render a hand-formatted file must not also
+      // refuse to move it: `writeCanonicalProfileFile` throws rather than destroy a live profile's
+      // canonical file, so a displaced profile that never vacates its old name makes the renamed
+      // profile's save fail on this and every future retry.
+      const p1 = profile({ id: 'p1', name: 'One' })
+      const p2 = profile({ id: 'p2', name: 'Two' })
+      await syncProfile(deps({ profile: p1, allProfiles: [p1, p2] }))
+      await syncProfile(deps({ profile: p2, allProfiles: [p1, p2] }))
+      // p2 was raw-saved with hand formatting: clean, baseline = those exact bytes, not a render
+      // fixed point.
+      const handFormatted = `${await read(userDataDir, 'Two.cfg')}\tset q2l_hand "1"   \n`
+      await writeFile(join(userDataDir, 'Two.cfg'), handFormatted, 'latin1')
+      const cleanP2 = { ...p2, fileHash: hashCanonicalFileContent(handFormatted) }
+      // p1 is renamed to "Two" and saved. Both profiles share `createdAt`, so `p1` wins the tie on
+      // id and claims `Two.cfg`; p2 is displaced to `Two-2.cfg`.
+      const renamed = { ...p1, name: 'Two', fileHash: hashCanonicalFileContent(await read(userDataDir, 'One.cfg')) }
+
+      const result = await syncProfile(
+        deps({
+          profile: renamed,
+          allProfiles: [renamed, cleanP2],
+          canonicalWriteAllowed: indexRule(renamed.id),
+          canonicalMoveAllowed: indexMoveRule,
+        }),
+      )
+
+      // p2's file moved, byte-for-byte - it was never re-rendered on the way...
+      expect(await read(userDataDir, 'Two-2.cfg')).toBe(handFormatted)
+      // ...which is what let p1's own save actually land under the name it now claims.
+      expect(await read(userDataDir, 'Two.cfg')).toBe(renderProfileFile(renamed))
+      expect(await pathExists(join(userDataDir, 'One.cfg'))).toBe(false)
+      expect(result.state.own.status).toBe('inSync')
+      expect(result.writeFailures).toEqual({})
+    })
+  })
+
+  /**
+   * Story 007's loader chain, re-covered here after story 079 D4 deleted the legacy
+   * `writeProfileToAssignedInstallations` (and, with it, these three tests) - `switchBindFor` is
+   * still live, and `sync.ts`'s per-installation write is the path that consumes it now.
+   */
+  describe('switchBindFor and the loader chain (story 007)', () => {
+    it('a 2-profile installation with a switchBindFor key produces a loader containing the chain', async () => {
+      const duel = profile({
+        id: 'p-duel',
+        name: 'Duel',
+        assignments: [{ installationId: 'i1', isDefault: true }],
+      })
+      const ctf = profile({
+        id: 'p-ctf',
+        name: 'CTF',
+        assignments: [{ installationId: 'i1', isDefault: false }],
+      })
+      const inst = installation()
+
+      await syncProfile(
+        deps({
+          profile: duel,
+          allProfiles: [duel, ctf],
+          installations: { find: (id) => (id === inst.id ? inst : undefined) },
+          switchBindFor: () => 'F9',
+        }),
+      )
+
+      const loader = await read(rootDir, 'baseq2', 'autoexec.cfg')
+      expect(loader).toContain('q2l_switch')
+      expect(loader).toContain('exec Duel.cfg')
+      expect(loader).toContain('exec CTF.cfg')
+      expect(loader).toContain('bind F9 q2l_switch')
+    })
+
+    it('with switchBindFor returning undefined, the loader is byte-identical to a run with no switchBindFor at all', async () => {
+      const p = profile({ name: 'One', assignments: [{ installationId: 'i1', isDefault: true }] })
+      const inst = installation()
+      const find = (id: string): Installation | undefined => (id === inst.id ? inst : undefined)
+
+      await syncProfile(deps({ profile: p, allProfiles: [p], installations: { find } }))
+      const withoutSwitchBindFor = await read(rootDir, 'baseq2', 'autoexec.cfg')
+
+      await syncProfile(
+        deps({
+          profile: p,
+          allProfiles: [p],
+          installations: { find },
+          switchBindFor: () => undefined,
+        }),
+      )
+      const withUndefinedSwitchBindFor = await read(rootDir, 'baseq2', 'autoexec.cfg')
+
+      expect(withUndefinedSwitchBindFor).toBe(withoutSwitchBindFor)
+      expect(withoutSwitchBindFor).not.toContain('q2l_switch')
+    })
+
+    it("never changes any assignment's isDefault, switch bind or not", async () => {
+      const duel = profile({
+        id: 'p-duel',
+        name: 'Duel',
+        assignments: [{ installationId: 'i1', isDefault: true }],
+      })
+      const ctf = profile({
+        id: 'p-ctf',
+        name: 'CTF',
+        assignments: [{ installationId: 'i1', isDefault: false }],
+      })
+      const inst = installation()
+      const before = JSON.parse(JSON.stringify([duel, ctf].map((p) => p.assignments)))
+
+      await syncProfile(
+        deps({
+          profile: duel,
+          allProfiles: [duel, ctf],
+          installations: { find: (id) => (id === inst.id ? inst : undefined) },
+          switchBindFor: () => 'F9',
+        }),
+      )
+
+      expect([duel, ctf].map((p) => p.assignments)).toEqual(before)
     })
   })
 })

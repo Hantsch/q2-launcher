@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { ProfileFileSyncStatus, ProfileSyncState } from '@shared/modules/config'
-import { canonicalOutOfSyncReason, toCareSyncRows, type CareSyncRow } from './care-sync'
+import {
+  canonicalOutOfSyncReason,
+  toCareSyncRows,
+  type CareSyncRow,
+  type CareSyncState,
+} from './care-sync'
 
 function own(status: ProfileFileSyncStatus, messageKey?: string) {
   return {
@@ -52,20 +57,6 @@ describe('toCareSyncRows', () => {
     expect(toCareSyncRows(sync)[0].state).toBe('missing')
   })
 
-  it('keeps a "pending" row pending - it must not collapse into "failed" or "outOfSync"', () => {
-    const sync: ProfileSyncState = {
-      own: own('inSync'),
-      installations: [installation('i1', 'pending', 'config.care.sync.messages.running')],
-    }
-
-    const rows = toCareSyncRows(sync)
-
-    expect(rows[1].state).toBe('pending')
-    expect(rows[1].state).not.toBe('failed')
-    expect(rows[1].state).not.toBe('outOfSync')
-    expect(rows[1].messageKey).toBe('config.care.sync.messages.running')
-  })
-
   it('renames "error" to "failed" and carries the messageKey through unchanged', () => {
     const sync: ProfileSyncState = {
       own: own('inSync'),
@@ -83,23 +74,58 @@ describe('toCareSyncRows', () => {
     expect(toCareSyncRows(sync)[0].messageKey).toBeUndefined()
   })
 
-  // Story 043 D9 acceptance: "the five states of 022 decision 5 still each mean what their copy
-  // says" - pinned here as one assertion per state, on top of the individual pass-through tests
-  // above, so a future change to this function cannot quietly blur two of the five together.
-  it('keeps each of the five states meaning exactly what it did before story 043', () => {
+  // Story 043 D9 acceptance, narrowed by story 079 (D5): "the states of 022 decision 5 still each
+  // mean what their copy says" - pinned here as one assertion per state, on top of the individual
+  // pass-through tests above, so a future change to this function cannot quietly blur two states
+  // together. Story 079 dropped 'pending' from the set entirely - see the exhaustive check below.
+  it('keeps each of the four remaining states meaning exactly what it did before story 079', () => {
     const sync: ProfileSyncState = {
       own: own('inSync'),
       installations: [
         installation('i1', 'outOfSync'),
         installation('i2', 'missing'),
-        installation('i3', 'pending'),
-        installation('i4', 'error'),
+        installation('i3', 'error'),
       ],
     }
 
     const states = toCareSyncRows(sync).map((row) => row.state)
 
-    expect(states).toEqual(['inSync', 'outOfSync', 'missing', 'pending', 'failed'])
+    expect(states).toEqual(['inSync', 'outOfSync', 'missing', 'failed'])
+  })
+
+  /**
+   * Story 079 AC3 (renderer half): no pending state exists any more. A running installation's
+   * write used to be deferred and reported as 'pending'; it is now written exactly like a stopped
+   * one, so a write that actually fails is still reported as 'failed' (with Retry) and nothing
+   * else sits in between.
+   *
+   * Exhaustive rather than a single spot-check: `Record<ProfileFileSyncStatus, true>` forces this
+   * test to name every member of the source union (main's write pipeline) - if either union ever
+   * regrows a 'pending' member, this file fails to typecheck rather than silently passing. The
+   * second `Record<CareSyncState, true>` does the same for the row model itself, so 'pending'
+   * cannot re-enter through the mapping layer even if the source union stayed clean.
+   */
+  it('no pending state exists', () => {
+    const everySourceStatus: Record<ProfileFileSyncStatus, true> = {
+      inSync: true,
+      outOfSync: true,
+      missing: true,
+      error: true,
+    }
+    const everyRowState: Record<CareSyncState, true> = {
+      inSync: true,
+      outOfSync: true,
+      missing: true,
+      failed: true,
+    }
+
+    expect(Object.keys(everySourceStatus)).not.toContain('pending')
+    expect(Object.keys(everyRowState)).not.toContain('pending')
+
+    for (const status of Object.keys(everySourceStatus) as ProfileFileSyncStatus[]) {
+      const sync: ProfileSyncState = { own: own(status), installations: [] }
+      expect(toCareSyncRows(sync)[0].state).not.toBe('pending')
+    }
   })
 })
 
@@ -132,7 +158,6 @@ describe('canonicalOutOfSyncReason', () => {
     expect(canonicalOutOfSyncReason(canonicalRow('inSync'), true)).toBeUndefined()
     expect(canonicalOutOfSyncReason(canonicalRow('missing'), true)).toBeUndefined()
     expect(canonicalOutOfSyncReason(canonicalRow('failed'), true)).toBeUndefined()
-    expect(canonicalOutOfSyncReason(canonicalRow('pending'), true)).toBeUndefined()
   })
 
   // Regression (story 043 D9 acceptance): an edited installation copy is still a plain

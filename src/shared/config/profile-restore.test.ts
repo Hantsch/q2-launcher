@@ -187,9 +187,10 @@ describe('restoreProfileParts - what a launcher-written file gives back', () => 
 
     expect(result.categories).toHaveLength(1)
     expect(result.categories[0]!.name).toBe('Imported')
-    // Their id means nothing locally, so a local one is minted - the entry follows it.
-    expect(result.categories[0]!.id).not.toBe('their-cat-id')
-    expect(result.actions[0]!.categoryId).toBe(result.categories[0]!.id)
+    // Story 079 D1 (AC4): the file's own `cat=` id is adopted - it is looked up within this profile
+    // only, and adopting it is what keeps the next render's tag identical - and the entry follows it.
+    expect(result.categories[0]!.id).toBe('their-cat-id')
+    expect(result.actions[0]!.categoryId).toBe('their-cat-id')
   })
 
   it('pairs two bind lines running one command into one entry with two keys, in file order', () => {
@@ -302,7 +303,7 @@ describe('restoreProfileParts - what a launcher-written file gives back', () => 
     ])
   })
 
-  it('mints one local category per unknown `cat` id, named from the header title', () => {
+  it('adopts one category per unknown `cat` id, named from the header title', () => {
     const file = doc()
     file.version()
     file.header('Aliases: Fun stuff', formatMetaTag({ cat: 'e7c1-remote-id' }))
@@ -312,11 +313,10 @@ describe('restoreProfileParts - what a launcher-written file gives back', () => 
 
     const result = file.restore()
 
-    // One category, not two: the alias section and the bind section carry the same id.
-    expect(result.categories).toEqual([{ id: 'id2', name: 'Fun stuff' }])
-    expect(result.actions[0]!.categoryId).toBe('id2')
-    // A fresh local id, never the file's own.
-    expect(result.categories[0]!.id).not.toBe('e7c1-remote-id')
+    // One category, not two: the alias section and the bind section carry the same id - and it is
+    // the file's own id (story 079 D1, AC4), not a freshly minted one.
+    expect(result.categories).toEqual([{ id: 'e7c1-remote-id', name: 'Fun stuff' }])
+    expect(result.actions[0]!.categoryId).toBe('e7c1-remote-id')
     expect(result.actions[0]!.kind).toBe('message')
     expect(result.actions[0]!.commands).toEqual([{ kind: 'message', channel: 'say', text: 'gg' }])
   })
@@ -539,7 +539,9 @@ describe('restoreProfileParts - layers', () => {
 
     expect(result.layers).toHaveLength(1)
     expect(result.layers[0]).toEqual({
-      id: 'id1',
+      // The tag's own id, adopted (story 079 D1, AC4) - a layer is only ever looked up within its
+      // own profile, and re-minting it would rewrite the tag on the next render.
+      id: 'remote-layer-1',
       name: 'Drop menu',
       mode: 'hold',
       triggerKey: 'ALT',
@@ -1828,7 +1830,7 @@ describe('restoreProfileParts - hand-edited and unknown metadata', () => {
     // A category a colleague's earlier import already fused into one name (story 042-era behaviour,
     // or a hand-typed name) is just a category whose name happens to contain " / " - read back
     // verbatim, never guessed apart into a category + sub-category.
-    expect(result.categories).toEqual([{ id: 'id2', name: 'Old Name / Sub' }])
+    expect(result.categories).toEqual([{ id: 'their-cat-id', name: 'Old Name / Sub' }])
   })
 
   // Story 053 D4: the motivating shape - a `dm.cfg`-style file with no `[q2l …]` tag anywhere at all

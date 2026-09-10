@@ -73,6 +73,7 @@ export type CareActionKind =
   | 'compare'
   | 'open'
   | 'reveal'
+  | 'syncNow'
 
 export interface CareItemAction {
   /** Unique within the whole list — the row keys its pending state by it. */
@@ -134,7 +135,10 @@ export interface CareItem {
    * a row with no action button (nothing here is fixable from a list, see the doc comment below)
    * still owes the user the fix hint when the validator emitted one; `ValidationPanel`'s (deleted)
    * `FindingRow` rendered this as a second line. Config health sets it from the finding; Tidy-up
-   * sets it for the one caveat a duplicate-name row needs (every side unbound - see `tidyItems`). */
+   * sets it for the one caveat a duplicate-name row needs (every side unbound - see `tidyItems`).
+   * Story 079 D9 (AC8): Files sets it too, for a row carrying a `syncNow` action - the hint names
+   * the exact file Sync now is about to overwrite (`params.path`), which is what "Sync now says
+   * which file it will overwrite" means as the user reads the row. */
   fixKey?: string
   /** `Finding.source` (`@shared/config/validation.ts`), same precedent - a literal engine citation,
    * never translated. Only Config health ever sets it. */
@@ -227,6 +231,13 @@ function fileLevel(row: CareSyncRow): CareItemLevel {
  * The canonical row's `unsavedChanges` case deliberately gets no action: the
  * copy is stale because the user has edits in flight, and both Reload and a
  * retry would destroy or pre-empt them. Its consequence sentence says to save.
+ *
+ * Story 079 D9 (AC7): a drifted installation row - `outOfSync` (the copy was hand-edited/changed in
+ * the game folder) or `missing` (deleted from under the launcher) - additionally gets `syncNow`,
+ * which rewrites just that installation's copy from the profile's canonical file
+ * (`WriteProfileInput.installationId`, D8). Never offered on `failed` (that row's problem is a write
+ * that did not land, not a stale copy - Retry re-runs the same write instead) or on the canonical row
+ * (there is no "canonical copy of the canonical file" to sync it from).
  */
 function fileItems(rows: CareSyncRow[], profileDirty: boolean | undefined): CareItem[] {
   const items: CareItem[] = []
@@ -237,6 +248,7 @@ function fileItems(rows: CareSyncRow[], profileDirty: boolean | undefined): Care
     const isCanonical = row.target === 'canonical'
     const id = `files:${row.target}`
     const actions: CareItemAction[] = []
+    const offersSyncNow = !isCanonical && (row.state === 'outOfSync' || row.state === 'missing')
 
     if (row.state === 'failed') {
       actions.push({ key: `${id}:retry`, kind: 'retry', labelKey: 'config.care.sync.retry' })
@@ -248,6 +260,9 @@ function fileItems(rows: CareSyncRow[], profileDirty: boolean | undefined): Care
       )
     }
     if (!isCanonical) {
+      if (offersSyncNow) {
+        actions.push({ key: `${id}:syncNow`, kind: 'syncNow', labelKey: 'config.care.sync.syncNow' })
+      }
       // A missing file cannot be opened, only located - so `missing` rows keep
       // Reveal (which opens the containing folder) and drop Open.
       if (row.state !== 'missing') {
@@ -272,6 +287,9 @@ function fileItems(rows: CareSyncRow[], profileDirty: boolean | undefined): Care
         ...(row.messageKey ? { messageKey: row.messageKey } : {}),
       },
       actions,
+      // AC8: names the exact file Sync now is about to overwrite - `params.path` above is already
+      // this row's real target path, so no separate param is needed.
+      ...(offersSyncNow ? { fixKey: 'config.care.sync.syncNowHint' } : {}),
     })
   }
   return items

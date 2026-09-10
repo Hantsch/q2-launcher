@@ -56,6 +56,8 @@ export function CareTab({
   validation,
   onProfileUpdated,
   installations,
+  syncStatus,
+  onRefetchSyncState,
   onNavigateToAlias,
   onNavigateToAction,
 }: {
@@ -66,6 +68,12 @@ export function CareTab({
    * belongs to. The redundant-copies cleanup that used to pick an installation here is now an
    * action on the installation row in Library. */
   installations: Installation[]
+  /** Story 079 D6: the drift rows, fetched by `ConfigView`'s `useDriftState` on the canonical
+   * re-read triggers (mount/profile-open, window focus) plus a save - not by this tab itself, so a
+   * changed/missing/stale installation copy is caught even while Care is never opened (AC5). Passed
+   * straight through to `useCareSync`, unchanged in behaviour otherwise. */
+  syncStatus: CareSyncStatus
+  onRefetchSyncState: () => void
   /** Story 044 D6: the Tidy-up group's "show in Aliases" action, threaded straight through - this
    * component owns no navigation logic of its own, same as every other prop it only stacks. Story
    * 060 D1 adds the optional owning-entry id: only a duplicate-name finding's per-entry detail rows
@@ -79,7 +87,12 @@ export function CareTab({
 }) {
   const tidyUpFindings = useMemo(() => analyzeTidyUp(profile), [profile])
 
-  const sync = useCareSync({ profile, onProfileUpdated })
+  const sync = useCareSync({
+    profile,
+    onProfileUpdated,
+    status: syncStatus,
+    refetchSyncState: onRefetchSyncState,
+  })
 
   const items = useMemo(
     () =>

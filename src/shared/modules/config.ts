@@ -767,18 +767,32 @@ export interface SetProfileActionsInput {
   actions: ConfigAction[]
 }
 
-/** Per-installation outcome of a `write` call. */
-export type WriteTargetStatus = 'written' | 'unchanged' | 'pending' | 'error'
+/** Per-installation outcome of a `write` call. Story 079: a running installation's copy is
+ * written exactly like a stopped one, so there is no longer a deferred 'pending' outcome - a
+ * write that actually fails is still reported as 'error'. */
+export type WriteTargetStatus = 'written' | 'unchanged' | 'error'
 
 export interface WriteTargetResult {
   installationId: string
   status: WriteTargetStatus
-  /** Set when status is 'error' or to explain 'pending'. i18n key. */
+  /** Set when status is 'error'. i18n key. */
   messageKey?: string
 }
 
 export interface WriteProfileInput {
   profileId: string
+  /**
+   * Story 079 D8: restricts this write to one installation's copy - every other installation this
+   * profile is assigned to is left untouched. Optional and additive: a caller that omits it (every
+   * call site before this deliverable) keeps the old whole-profile behaviour, writing every assigned
+   * installation. Validated against known installation ids in main
+   * (`config.error.installationNotFound`), the same way `assign`/`unassign`/`setDefault` already do -
+   * never trusted as a bare string. This is "Sync now" (AC7): the targeted installation's copy (and
+   * its loader) is rewritten from the profile's canonical file - never from a `dirty` profile's
+   * unsaved edits (AC9), the same "installation copies only ever come from the canonical file" rule
+   * every other sync already follows (`sync.ts#installationCopySource`).
+   */
+  installationId?: string
 }
 
 /**
@@ -1103,8 +1117,10 @@ export type DiscardProfileResult = DiscardProfileDiscarded | DiscardProfileNoBas
  */
 export type WriteState = Record<string, string>
 
-/** Per-file sync status the write pipeline can report (story 022, D5 - data contract only). */
-export type ProfileFileSyncStatus = 'inSync' | 'outOfSync' | 'missing' | 'pending' | 'error'
+/** Per-file sync status the write pipeline can report (story 022, D5 - data contract only).
+ * Story 079: 'pending' (a write deferred because the installation was running) is gone - a
+ * running installation's copy is written exactly like a stopped one. */
+export type ProfileFileSyncStatus = 'inSync' | 'outOfSync' | 'missing' | 'error'
 
 /** One file's sync status: the canonical copy, or one installation's copy. */
 export interface ProfileFileSync {
@@ -1113,7 +1129,7 @@ export interface ProfileFileSync {
   /** File name only (matches `resolveProfileFileNames`' output for this profile). */
   fileName: string
   status: ProfileFileSyncStatus
-  /** Set when status is 'error', or to explain 'pending'. i18n key, never prose. */
+  /** Set when status is 'error'. i18n key, never prose. */
   messageKey?: string
 }
 

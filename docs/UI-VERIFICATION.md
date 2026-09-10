@@ -800,6 +800,56 @@ cause detail the Downloads tab mounts (AC4), driven by a REAL, deliberately brok
 rather than `dev:simulateJob` or hand-authored diagnostics. All three also have their own sections
 below.
 
+Story 079 D3 adds two flows proving every content mutation now cascades to every one of Plain
+Profile's assigned installations, not just its own canonical file — the fixture gave Plain Profile a
+second assignment (`INSTALL_TWO_ID`, `scripts/lib/fixture.mjs`) so "every assigned installation" has
+two real targets to check, not one. (story 079 D3) **`raw-save-cascades`** (AC1) — types a
+deliberately hand-formatted line (a leading tab, trailing spaces — never a `renderProfileFile`
+fixed point) into the Raw file tab's editor, saves it the same way `raw-inline-edit` does, then
+reads both `INSTALL_ONE_ID`'s and `INSTALL_TWO_ID`'s own `baseq2/Plain-Profile.cfg` copies off disk
+and asserts each is byte-identical to the canonical file — proving the cascade copies the typed
+bytes verbatim rather than re-rendering them. (story 079 D3) **`external-edit-cascades`** (AC2) —
+hand-edits the canonical file on disk directly (an outside tool's append), then drives two of the
+story's three named adopt paths in one run - the silent focus/tab re-read (part 1) and the conflict
+dialog's "take the file" (part 2). Care's own **Reload** button is deliberately not used: see the
+flow's own file doc comment (story 079 review finding 2) for why "leave to Library and back"
+followed by a Reload click races the silent re-read below and is not a reliable way to drive this.
+`ConfigView`'s own re-read effect (`useFileSourceRefresh.ts`) fires on two triggers: the selected
+profile changing (opening a profile from the list, or re-selecting one while `ConfigView` stays
+mounted — depends on `params.profileId` itself, story 079 D6) and window focus regained
+(`chrome.focused` transitioning false → true). Part 1 of this flow uses the first of those: leaving
+to Library and re-selecting Plain Profile re-fires the re-read for a still-*clean* profile, which
+silently adopts the on-disk edit and cascades it to both installations with no dialog or button at
+all — the flow polls both installation copies on disk until they equal the adopted bytes (rather
+than asserting on the first read, since the adopt is a real async IPC round trip). Part 2 covers the conflict dialog's "take
+the file" resolution, which a clean profile can never reach (it needs unsaved edits *and* a changed
+file at once): it dirties Plain Profile through the Raw tab's real `unbindall` checkbox, hand-edits
+the canonical file a second time, and clicks the real Save button — `save`'s own `changedOnDisk`
+guard is a direct, synchronous response to that click, so `ConfigConflictDialog` opens deterministically
+with no background fetch to race, unlike Reload's own visibility window (see the flow's own file doc
+comment, story 079 review finding 2, for why a "leave to Library and back" trigger followed by a
+Reload click is not a reliable way to drive this deliverable's silent-adopt case — the two races
+against each other, and the click ends up a no-op against a file the silent trigger already
+adopted). Clicking "take the file" is then asserted the same way: both installation copies polled to
+the newly adopted bytes, and the canonical file confirmed not re-rendered by either cascade.
+
+Story 079 D9 adds one more, proving the opposite direction of drift from D3's two flows above — an
+installation's own copy is hand-edited, not the canonical file — plus the badge/detection half (AC5,
+AC6) neither of those two needed: (story 079 D9) **`care-drift-sync-now`** (AC5, AC6, AC7, AC8) —
+opens Care and clicks away any pre-existing `Sync now` row first (a fresh fixture seeds no
+installation copy at all until something writes one, so `INSTALL_TWO_ID`'s Files row starts
+`missing` — establishing this flow's known-synced baseline this way also exercises Sync now's
+`missing` branch for free), reads the Care tab's badge count from that baseline, leaves to Library,
+hand-edits `INSTALL_TWO_ID`'s own `baseq2/Plain-Profile.cfg` copy directly via `node:fs` (an outside
+tool's append, never touching the canonical file or the profile in memory), then re-selects Plain
+Profile and asserts the badge count rose by exactly one **before ever opening Care** (AC5, AC6).
+Opening Care, it asserts the row reads "Fixture WriteDir Install: Changed in the game folder" (the
+renamed `config.care.sync.state.outOfSync`, AC8) and that its hint names the exact on-disk path Sync
+now is about to overwrite. Clicking **Sync now** is asserted to clear the row (AC7), and the
+installation's copy is read back off disk and asserted byte-identical to the canonical file
+afterward — and distinct from the hand-edited bytes, so a no-op button could not pass this by
+accident.
+
 ## The offline bootstrap-wizard flow (`bootstrap-wizard`)
 
 `npm run ui:flow -- bootstrap-wizard` is story 074's acceptance run, and the only flow in which the

@@ -11,9 +11,13 @@ import { renderLoaderFile, renderProfileFile } from '@shared/config/render'
 import type { SwitchBindProfile } from '@shared/config/switch-bind'
 import type { Installation, LaunchState } from '@shared/types'
 import type { Logger } from '../../lib/logger'
-import { readCanonicalOwnership, writeCanonicalProfileFile } from './canonical'
+import {
+  moveCanonicalProfileFile,
+  readCanonicalOwnership,
+  writeCanonicalProfileFile,
+} from './canonical'
 import { hashCanonicalFileContent } from './file-source'
-import { assignedProfilesFor, defaultProfileFor, isInstallationRunning } from './write-plan'
+import { assignedProfilesFor, defaultProfileFor } from './write-plan'
 import { BASE_GAME_DIR, reconcileOwnedProfileFiles, writeInstallationFiles } from './writer'
 
 /**
@@ -22,9 +26,10 @@ import { BASE_GAME_DIR, reconcileOwnedProfileFiles, writeInstallationFiles } fro
  * `index.ts`'s `writeProfileToAssignedInstallations` for the one profile being
  * synced (wiring it in as the module's own write path is a later
  * deliverable): unlike that function, this one writes EVERY profile assigned
- * to a not-running installation, not just the one being saved plus the
- * installation's default, so a `missing`/`outOfSync` report means a real
- * problem rather than "assigned but never itself saved".
+ * to an installation - running or not (story 079 D4: a running game defers
+ * nothing) - not just the one being saved plus the installation's default, so
+ * a `missing`/`outOfSync` report means a real problem rather than "assigned
+ * but never itself saved".
  *
  * `syncProfile` (bottom of this file) is the entry point: it orchestrates the
  * per-profile pass `syncOneProfile` over the mutated profile AND over every
@@ -46,8 +51,6 @@ export interface SyncProfileDeps {
   switchBindFor?: (installationId: string) => string | undefined
   /** Base directory for the canonical file, e.g. `app.getPath('userData')` — a plain string so tests need no electron. */
   canonicalBaseDir: string
-  /** Current pending-write map (installationId -> profileId), read and returned updated. */
-  pendingWrites: Record<string, string>
   /** Current write-failure map (`<profileId>|own` or `<profileId>|<installationId>` -> {messageKey, at}), read and returned updated. */
   writeFailures: Record<string, { messageKey: string; at: string }>
   /**
@@ -66,17 +69,49 @@ export interface SyncProfileDeps {
    * overwrites a hand-edit it has not read" - for the paths that are not a save: an `assign`, a
    * `setDefault`, a rename cascade, the startup retry sweep.
    *
-   * Answering `false` has two consequences, both in `syncOneProfile` below, and the second is the
-   * point of the first: that profile's canonical file is left exactly as it is, AND its
-   * per-installation copies are written from the canonical file's own on-disk bytes instead of from
-   * `renderProfileFile(profile)` - so unsaved edits cannot reach an installation through a sync
+   * Answering `false` leaves that profile's canonical file exactly as it is - and since story 079
+   * D2 every installation copy is written from the canonical file's own on-disk bytes anyway
+   * (`installationCopySource`), unsaved edits cannot reach an installation through a sync
    * triggered by something else (an `assign`, a retry sweep), which is story AC6's "installation
-   * copies only ever come from the canonical file".
+   * copies only ever come from the canonical file". The one place the answer still shapes the
+   * copies is a profile WITHOUT a canonical file: `true` publishes the render (which this run
+   * writes as the file first), `false` publishes nothing.
    *
    * Optional, defaulting to "always ours": every caller that does not opt in keeps the pre-043
    * unconditional write, so no existing call site changes behaviour by accident.
    */
   canonicalWriteAllowed?: (profile: ConfigProfile, onDisk: CanonicalFileFacts) => boolean
+  /**
+   * Story 079 (review finding 1): the LOCATION half of the question above, asked only when
+   * `canonicalWriteAllowed` said no - "this file's bytes are not ours to replace, but is the file
+   * itself ours to move to the name the profile now resolves to?".
+   *
+   * The two have to be separable. `canonicalWriteAllowed` deliberately refuses a clean profile
+   * whose canonical file is not a render fixed point (a raw save's hand formatting, an adopted
+   * external edit - story 057 promises those are never re-rendered), and `writeCanonicalProfileFile`
+   * renames *and* rewrites in one step. Without this second question such a profile could never
+   * vacate a file name a rename made another profile claim, and that other profile's own write
+   * would throw ("it is live profile X's canonical file") on every attempt, forever - a save that
+   * can never succeed. A move preserves every byte, so nothing `canonicalWriteAllowed` protects is
+   * at risk (a *dirty* profile is still excluded by the caller: story 043 keeps its file where it
+   * is until the user saves).
+   *
+   * Optional, defaulting to `canonicalWriteAllowed`'s own answer - i.e. `false` on this branch - so
+   * no existing call site changes behaviour by accident.
+   */
+  canonicalMoveAllowed?: (profile: ConfigProfile, onDisk: CanonicalFileFacts) => boolean
+  /**
+   * Story 079 D8: restricts the per-installation loop below to this one installation id - every
+   * other installation any profile in this pass is assigned to is left completely untouched (no
+   * reconcile, no write, no entry in the returned `state.installations`). The canonical file itself
+   * is unaffected by this option: whether THAT gets (re)written is still `canonicalWriteAllowed`'s
+   * call alone, so a targeted "Sync now" on a `dirty` profile still leaves the canonical file as
+   * unsaved-edits-not-yet-written and republishes the target installation's copy from the canonical
+   * file's own on-disk bytes (`installationCopySource` below) - never the unsaved edits (AC9).
+   * Optional; omitted (every call site before this deliverable) syncs every assigned installation, as
+   * before.
+   */
+  targetInstallationId?: string
   log: Logger
 }
 
@@ -94,7 +129,6 @@ export interface CanonicalFileFacts {
 
 export interface SyncProfileOutcome {
   state: ProfileSyncState
-  pendingWrites: Record<string, string>
   writeFailures: Record<string, { messageKey: string; at: string }>
   /**
    * Story 043 D2/D4: `profileId -> sha-256 of the canonical file's bytes`, for every profile this
@@ -112,27 +146,76 @@ export interface SyncProfileOutcome {
 }
 
 /**
+ * The file at `path` as it is on disk right now. Only `ENOENT` counts as "missing" (mirrors
+ * `writer.ts`'s own `readExisting` idiom); every other read error (a directory sitting where the
+ * file should be, a permission problem, ...) is `'error'`, never silently `'missing'`.
+ */
+async function readLiveFile(
+  path: string,
+): Promise<{ content: string; failure: null } | { content: null; failure: 'missing' | 'error' }> {
+  try {
+    return { content: await readFile(path, FILE_ENCODING), failure: null }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { content: null, failure: 'missing' }
+    return { content: null, failure: 'error' }
+  }
+}
+
+/**
  * Live status of the file at `path` compared against `expectedContent`.
  * "Trust the disk, not the write outcome" (deliberate — a later deliverable
  * depends on it): this is always computed by actually reading the file,
  * regardless of whether a preceding write attempt threw or succeeded.
  *
- * Only `ENOENT` counts as "missing" (mirrors `writer.ts`'s own `readExisting`
- * idiom); every other read error (a directory sitting where the file should
- * be, a permission problem, ...) maps to `'error'`, never silently to
- * `'missing'`.
+ * `expectedContent: null` means "there is no authoritative content this file could be in sync
+ * with" (story 079 D2: the canonical file has moved underneath the launcher, or a dirty profile
+ * has no canonical file at all), so a readable file is `outOfSync` whatever it holds - while a
+ * missing or unreadable one still reports that, the more specific fact.
  */
 async function liveFileStatus(
   path: string,
-  expectedContent: string,
+  expectedContent: string | null,
 ): Promise<'inSync' | 'outOfSync' | 'missing' | 'error'> {
-  try {
-    const content = await readFile(path, FILE_ENCODING)
-    return content === expectedContent ? 'inSync' : 'outOfSync'
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return 'missing'
-    return 'error'
-  }
+  const live = await readLiveFile(path)
+  if (live.failure) return live.failure
+  return live.content === expectedContent ? 'inSync' : 'outOfSync'
+}
+
+/**
+ * Story 079 D2: the bytes an installation copy of `profile` is written from AND judged against -
+ * the one rule the writer (`syncOneProfile` below) and both read-only judges (`index.ts`'s
+ * `syncState` handler and `collectRawFiles`) share, so a copy the run just wrote is never reported
+ * differently from how it was written. Installation copies mirror the canonical FILE's bytes, never
+ * the render:
+ *
+ *  - the file's bytes whenever they are bytes the launcher has read or written: their hash equals
+ *    the profile's cached `fileHash`, the file was just written by this very run (it then says
+ *    exactly `renderProfileFile(profile)`), or the profile carries no baseline yet (pre-043
+ *    behaviour, and by the time a profile has one the hash rule applies). This is what makes a raw
+ *    save's typed text (story 057: never re-rendered) and an adopted external edit reach every
+ *    installation byte-identical, and it is story 043 AC6 ("copies only ever come from the
+ *    canonical file") for a dirty profile;
+ *  - the render when there is no canonical file and this run may create it (`canonicalWritable` -
+ *    the run then writes exactly the render there first, and the copies say the same);
+ *  - `null` otherwise: the file has moved underneath the launcher (hash ≠ `fileHash`, and not what
+ *    we would write either) - story 043 D10's "never overwrite bytes nobody has read" extended to
+ *    publishing them - or a dirty profile whose file is gone. Nothing is written from `null`, and a
+ *    copy judged against it reads `outOfSync` (`liveFileStatus` above).
+ *
+ * `canonicalWritable` is the caller's answer to "may this run (re)create the canonical file when it
+ * is absent" - `syncOneProfile`'s own write decision, `profile.dirty !== true` for the judges
+ * (which is what `index.ts`'s `canonicalWriteAllowed` answers for an absent file).
+ */
+export function installationCopySource(
+  profile: ConfigProfile,
+  onDisk: CanonicalFileFacts,
+  canonicalWritable: boolean,
+): string | null {
+  if (onDisk.content === null) return canonicalWritable ? renderProfileFile(profile) : null
+  if (typeof profile.fileHash !== 'string') return onDisk.content
+  if (onDisk.hash === profile.fileHash) return onDisk.content
+  if (onDisk.content === renderProfileFile(profile)) return onDisk.content
+  return null
 }
 
 /**
@@ -148,7 +231,6 @@ async function syncOneProfile(
   ownership: ReadonlyMap<string, string>,
 ): Promise<SyncProfileOutcome> {
   const { profile, allProfiles, log } = deps
-  const pendingWrites = { ...deps.pendingWrites }
   const writeFailures = { ...deps.writeFailures }
   const canonicalHashes: Record<string, string> = {}
 
@@ -168,23 +250,24 @@ async function syncOneProfile(
    * the same file each time would be pure cost.
    */
   const diskCache = new Map<string, string | null>()
+  const readCanonicalFile = async (
+    onDiskName: string,
+    candidateId: string,
+  ): Promise<string | null> => {
+    const live = await readLiveFile(join(deps.canonicalBaseDir, onDiskName))
+    if (live.failure === 'error') {
+      log.warn(
+        `canonical file ${onDiskName} for profile ${candidateId} could not be read; this pass ` +
+          `treats it as having no authoritative content`,
+      )
+    }
+    return live.content
+  }
   const canonicalBytesOf = async (candidate: ConfigProfile): Promise<string | null> => {
     const cached = diskCache.get(candidate.id)
     if (cached !== undefined) return cached
     const onDiskName = ownership.get(candidate.id) ?? fileNames.get(candidate.id)!
-    let content: string | null
-    try {
-      content = await readFile(join(deps.canonicalBaseDir, onDiskName), FILE_ENCODING)
-    } catch (error) {
-      content = null
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        log.warn(
-          `canonical file ${onDiskName} for profile ${candidate.id} could not be read; this pass ` +
-            `treats it as having no authoritative content`,
-          error,
-        )
-      }
-    }
+    const content = await readCanonicalFile(onDiskName, candidate.id)
     diskCache.set(candidate.id, content)
     return content
   }
@@ -209,17 +292,37 @@ async function syncOneProfile(
   }
 
   /**
-   * Story 043 D4: the bytes ANY profile's copies may be written from on this pass.
-   *
-   * `renderProfileFile(p)` when `p`'s canonical file is ours to write (the pre-043 behaviour, and
-   * exactly what the canonical write below puts on disk), otherwise the canonical file's own
-   * current bytes - `null` when there are none to read. Resolved per profile because the
-   * installation loop below writes EVERY profile assigned to an installation, not just `profile`:
-   * a dirty sibling's unsaved edits must not reach an installation either, and neither must a
-   * render that would overwrite a hand-edit nobody has read.
+   * Story 079 (review finding 1): "may this run move the file, without touching its bytes?" - see
+   * `SyncProfileDeps.canonicalMoveAllowed`. Asked from the same already-read facts as `mayWrite`
+   * above, and only on the branch where `mayWrite` said no.
    */
-  const writeSourceFor = async (candidate: ConfigProfile): Promise<string | null> =>
-    (await mayWrite(candidate)) ? renderProfileFile(candidate) : canonicalBytesOf(candidate)
+  const mayMove = async (candidate: ConfigProfile): Promise<boolean> => {
+    if (!deps.canonicalMoveAllowed) return mayWrite(candidate)
+    const content = await canonicalBytesOf(candidate)
+    return deps.canonicalMoveAllowed(candidate, {
+      content,
+      hash: content === null ? null : hashCanonicalFileContent(content),
+    })
+  }
+
+  /**
+   * Story 079 D2: the bytes ANY profile's copies are written from - and judged against - on this
+   * pass: `installationCopySource` (top of this file) over the canonical file as it stands NOW,
+   * i.e. after the canonical write below for `profile` itself (see the cache refresh there) and
+   * as read for every sibling. `null` means "nothing to publish": a file that moved underneath the
+   * launcher, or a dirty profile without one. Resolved per profile because the installation loop
+   * below writes EVERY profile assigned to an installation, not just `profile`: a dirty sibling's
+   * unsaved edits must not reach an installation either, and neither must a render that would
+   * overwrite a hand-edit nobody has read.
+   */
+  const writeSourceFor = async (candidate: ConfigProfile): Promise<string | null> => {
+    const content = await canonicalBytesOf(candidate)
+    return installationCopySource(
+      candidate,
+      { content, hash: content === null ? null : hashCanonicalFileContent(content) },
+      await mayWrite(candidate),
+    )
+  }
 
   // --- Canonical file -------------------------------------------------------
   const ownFailureKey = `${profile.id}|own`
@@ -236,13 +339,37 @@ async function syncOneProfile(
         at: new Date().toISOString(),
       }
     }
+    // Story 079 D2: the installation copies below mirror the canonical file as it is NOW - the
+    // bytes this write just put under `ownFileName`, or whatever a failed write left there - not
+    // the bytes the write decision above was made from. Read back rather than assumed from the
+    // write outcome ("trust the disk"), and from the resolved name, since the write moves a
+    // renamed profile's file there.
+    diskCache.set(profile.id, await readCanonicalFile(ownFileName, profile.id))
   } else {
-    // Nothing was attempted, so an existing failure entry is neither cleared (it is still true)
-    // nor added (this is not a failure - it is the file not being ours to write yet).
+    // The file's CONTENT is not ours to replace - but its LOCATION may still be ours to fix
+    // (story 079 review finding 1, see `canonicalMoveAllowed`). A move preserves every byte, and
+    // skipping it is what would strand a profile displaced by another profile's rename on the
+    // name that other profile is claiming - making that profile's own write throw for good.
+    if (await mayMove(profile)) {
+      try {
+        await moveCanonicalProfileFile(deps.canonicalBaseDir, profile, ownFileName, liveProfileIds)
+        // Whatever failed last time, the file is now where it belongs and holds bytes the launcher
+        // has read - there is no outstanding failure left to report for it.
+        delete writeFailures[ownFailureKey]
+      } catch (error) {
+        log.error(`failed to move canonical profile file for ${profile.id}`, error)
+        writeFailures[ownFailureKey] = {
+          messageKey: 'config.error.writeFailed',
+          at: new Date().toISOString(),
+        }
+      }
+    }
+    // No content was written, so this is not a failure - it is the file not being ours to write
+    // yet.
     log.debug(
-      `canonical file ${ownFileName} for profile ${profile.id} left untouched: it either carries ` +
-        `unsaved edits (only an explicit save writes those) or holds bytes the launcher has not ` +
-        `read yet (only an explicit save, or a resolved conflict, may overwrite those)`,
+      `canonical file ${ownFileName} for profile ${profile.id} left unwritten: it either carries ` +
+        `unsaved edits (only an explicit save writes those) or holds bytes the launcher may not ` +
+        `re-render (a raw save's own formatting, or an external edit nobody has read)`,
     )
   }
 
@@ -273,33 +400,24 @@ async function syncOneProfile(
     // An assignment pointing at an installation that no longer exists is not
     // this function's problem (mirrors the existing precedent in `index.ts`).
     if (!installation) continue
+    // Story 079 D8: a targeted "Sync now" run touches only the one named installation - every
+    // other assignment is skipped outright, before any reconcile or write I/O for it.
+    if (deps.targetInstallationId && installation.id !== deps.targetInstallationId) continue
 
     const failureKey = `${profile.id}|${installation.id}`
     const expectedPath = join(installation.rootPath, BASE_GAME_DIR, ownFileName)
 
-    if (isInstallationRunning(deps.launchState, installation.id)) {
-      pendingWrites[installation.id] = profile.id
-      // Pending is a distinct, non-error state: any existing write failure for
-      // this key is left untouched, neither cleared nor overwritten.
-      installationsOut.push({
-        installationId: installation.id,
-        path: expectedPath,
-        fileName: ownFileName,
-        status: 'pending',
-        messageKey: 'config.error.installationRunning',
-      })
-      continue
-    }
+    // Story 079 D4: a running game defers nothing - every assigned profile's copy and the loader
+    // are written for this installation whether or not it is currently running. The engine only
+    // reads a config at `exec` time and holds no handle on it afterwards, so a copy written mid-
+    // session is exactly what lets the player `exec` the new profile without restarting; `pending`
+    // is no longer a state this pass can report (a write that actually fails is still `error`, with
+    // Retry - see `writeFailures` below).
 
     // `assignedProfilesFor` returns `{id, name}[]` in the installation's own
     // cycle order; resolved to full profiles and file names below.
     const assignedProfiles = assignedProfilesFor(allProfiles, installation.id)
     const expected = new Map(assignedProfiles.map((p) => [p.id, fileNames.get(p.id)!]))
-
-    // We've now confirmed this installation is not running, so whatever was
-    // previously deferred here is at least being attempted again - regardless
-    // of whether the reconcile/write below actually succeed.
-    delete pendingWrites[installation.id]
 
     // Before any write, so a renamed or migrated file lands under its new
     // name first and the write below diff-skips it. Wrapped (review finding):
@@ -368,23 +486,25 @@ async function syncOneProfile(
       // lookup cannot miss.
       const fullProfile = allProfiles.find((p) => p.id === assigned.id)!
       const assignedFailureKey = `${assigned.id}|${installation.id}`
-      // Story 043 D4: the canonical file is the only source for an installation copy (AC6). For a
-      // profile whose canonical file is ours to write this is `renderProfileFile` as before; for
-      // one carrying unsaved edits it is that file's own bytes.
+      // Story 043 D4 / 079 D2: the canonical file is the only source for an installation copy
+      // (043 AC6) - its bytes, see `installationCopySource`.
       const profileFileContent = await writeSourceFor(fullProfile)
       if (profileFileContent === null) {
-        // No authoritative content exists (a canonical file that carries unsaved edits and is
-        // missing or unreadable - e.g. deleted outside the launcher, which the story calls an error
-        // state awaiting the user's decision, not something sync silently resurrects). Writing
-        // `renderProfileFile(fullProfile)` here is exactly the leak this deliverable exists to
-        // prevent, so this profile contributes no write at all on this pass: its installation copy
-        // is left as it is and the status below reports the mismatch honestly. No `writeFailures`
-        // entry either - nothing failed, there was nothing to write. Consequence worth naming: the
-        // loader is written by every OTHER assigned profile's iteration, so an installation whose
-        // only assigned profile lands here gets no write at all until the user saves.
+        // No authoritative content exists: the canonical file has moved underneath the launcher
+        // (bytes nobody has read - story 043 D10 forbids overwriting them, and 079 D2 forbids
+        // publishing them), or it carries unsaved edits and is missing or unreadable (e.g. deleted
+        // outside the launcher, which story 043 calls an error state awaiting the user's decision,
+        // not something sync silently resurrects). Writing `renderProfileFile(fullProfile)` here
+        // is exactly the leak this rule exists to prevent, so this profile contributes no write at
+        // all on this pass: its installation copy is left as it is and the status below reports
+        // the mismatch honestly. No `writeFailures` entry either - nothing failed, there was
+        // nothing to write. Consequence worth naming: the loader is written by every OTHER
+        // assigned profile's iteration, so an installation whose only assigned profile lands here
+        // gets no write at all until the user saves or reloads.
         log.warn(
           `skipping installation ${installation.id}'s copy of profile ${assigned.id}: its ` +
-            `canonical file is not this pass's to write and could not be read`,
+            `canonical file holds no bytes this pass may publish (moved underneath the launcher, ` +
+            `or unsaved edits with no file to read)`,
         )
         continue
       }
@@ -409,14 +529,13 @@ async function syncOneProfile(
       }
     }
 
-    // Compared against the content the canonical file authorises for `profile` (story 043 AC6:
-    // installation copies are generated output of that file), not against the in-memory profile -
-    // so an installation holding exactly what the canonical file says is `inSync`, and a
-    // hand-edited installation copy is still `outOfSync` "exactly as today". Falls back to the
-    // render when there is no readable canonical file at all, which reports the missing/mismatched
-    // copy rather than claiming it is fine.
-    const expectedCopy = (await writeSourceFor(profile)) ?? ownRendered
-    const status = await liveFileStatus(expectedPath, expectedCopy)
+    // Judged against the very bytes the loop above wrote (or refused to write) this copy from -
+    // story 043 AC6 / 079 D2: installation copies are generated output of the canonical file, not
+    // of the in-memory profile - so an installation holding exactly what the canonical file says
+    // is `inSync`, a hand-edited installation copy is still `outOfSync` "exactly as today", and a
+    // copy nothing could be published for (`null`) reads `outOfSync` too rather than being
+    // measured against a render nobody wrote.
+    const status = await liveFileStatus(expectedPath, await writeSourceFor(profile))
     installationsOut.push({
       installationId: installation.id,
       path: expectedPath,
@@ -430,7 +549,6 @@ async function syncOneProfile(
 
   return {
     state: { own, installations: installationsOut },
-    pendingWrites,
     writeFailures,
     canonicalHashes,
   }
@@ -507,16 +625,15 @@ function pickNextToSync(
  * twice or missing.
  *
  * The signature and outcome are deliberately unchanged: `state` is still the
- * state of `profile` only, and the returned `pendingWrites`/`writeFailures`
- * are still the full maps to persist - now carrying the cascaded profiles'
- * entries as well, under their own keys.
+ * state of `profile` only, and the returned `writeFailures` is still the full
+ * map to persist - now carrying the cascaded profiles' entries as well, under
+ * their own keys.
  */
 export async function syncProfile(deps: SyncProfileDeps): Promise<SyncProfileOutcome> {
   const { profile, allProfiles } = deps
   const fileNames = resolveProfileFileNames(allProfiles)
   const liveProfileIds = new Set(allProfiles.map((p) => p.id))
 
-  let pendingWrites = deps.pendingWrites
   let writeFailures = deps.writeFailures
   let canonicalHashes: Record<string, string> = {}
 
@@ -532,12 +649,11 @@ export async function syncProfile(deps: SyncProfileDeps): Promise<SyncProfileOut
   while (queue.length > 0) {
     const next = queue.splice(pickNextToSync(queue, profile.id, ownership, fileNames), 1)[0]!
     const outcome = await syncOneProfile(
-      { ...deps, profile: next, pendingWrites, writeFailures },
+      { ...deps, profile: next, writeFailures },
       fileNames,
       liveProfileIds,
       ownership,
     )
-    pendingWrites = outcome.pendingWrites
     writeFailures = outcome.writeFailures
     // Later passes win for the same id, which is the fresher confirmation of the two.
     canonicalHashes = { ...canonicalHashes, ...outcome.canonicalHashes }
@@ -549,5 +665,5 @@ export async function syncProfile(deps: SyncProfileDeps): Promise<SyncProfileOut
 
   // `profile` is pushed into `queue` above and the loop only ends once the
   // queue is empty, so its own pass has run and set this.
-  return { state: mutatedState!, pendingWrites, writeFailures, canonicalHashes }
+  return { state: mutatedState!, writeFailures, canonicalHashes }
 }

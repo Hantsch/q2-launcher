@@ -64,6 +64,17 @@ function gameRoot() {
   return join(UI_VERIFY_ROOT, 'fixture', 'game')
 }
 
+/**
+ * Story 079 D3: the real on-disk path of installation `id`'s copy of a launcher-owned config file -
+ * `<gameRoot>/<id>/baseq2/<fileName>`, the same `BASE_GAME_DIR` join `writer.ts`'s
+ * `writeInstallationFiles` uses. Exported so a flow that writes/reads an installation's copy of a
+ * config profile (`raw-save-cascades.mjs`, `external-edit-cascades.mjs`) builds the identical path
+ * this module's own fixture writer would, instead of a second `join()` call that could drift from it.
+ */
+export function installationConfigFilePath(id, fileName) {
+  return join(gameRoot(), id, 'baseq2', fileName)
+}
+
 // --- state.ts LauncherStateDocument ("defaults()") shape -------------------
 // Mirrors src/main/services/state.ts:16-48 (`LauncherStateDocument`) and its
 // `defaults()` (state.ts:50-60).
@@ -142,8 +153,12 @@ function makeInstallation({
   }
 }
 
-const INSTALL_ONE_ID = 'fixture-install-favorite'
-const INSTALL_TWO_ID = 'fixture-install-writedir'
+// Story 079 D3: exported (were module-private before) so
+// `scripts/flows/raw-save-cascades.mjs`/`scripts/flows/external-edit-cascades.mjs` can build the
+// real on-disk `<gameRoot>/<id>/baseq2/<file>` path for each of Plain Profile's two assigned
+// installations, rather than duplicating these literals.
+export const INSTALL_ONE_ID = 'fixture-install-favorite'
+export const INSTALL_TWO_ID = 'fixture-install-writedir'
 
 /**
  * Story 067 D5: the shipped icon id `INSTALL_ONE_ID` is seeded with - one of the six basenames
@@ -356,7 +371,14 @@ function populatedConfigProfiles() {
       // is always its alias name, never a bare command (`bindValueFor`).
       q: 'q2l_a_weapon_combo_fixt',
     },
-    assignments: [{ installationId: INSTALL_ONE_ID, isDefault: true }],
+    // Story 079 D3: also assigned to `INSTALL_TWO_ID` (not its default there - `withLayers` below
+    // keeps that role), so `scripts/flows/raw-save-cascades.mjs` and
+    // `scripts/flows/external-edit-cascades.mjs` have a second real installation to prove "every
+    // assigned installation" against, not just the one every other Plain Profile flow already reads.
+    assignments: [
+      { installationId: INSTALL_ONE_ID, isDefault: true },
+      { installationId: INSTALL_TWO_ID, isDefault: false },
+    ],
     // Actions 1-3 exercise the writer's three alias-line outcomes
     // (`actionsWithAliasLine`, `src/shared/config/alias-references.ts`);
     // actions 4-5 (story 047 D2) give the message editor something to show.

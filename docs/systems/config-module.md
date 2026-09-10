@@ -89,7 +89,7 @@ surface of the launcher, styled and behaving like the rest of it.
 | Data ownership | Profiles are centrally managed, independent of any installation; not `Installation.moduleData`. |
 | Assignment | Many-to-many: a profile can be assigned to several installations; an installation can have several assigned profiles. |
 | Default profile | Each installation with assigned profiles designates one as default, used at launch. |
-| Apply trigger | Saving a profile immediately re-writes it to every assigned installation that is not currently running; running installations are skipped and marked pending. |
+| Apply trigger | Saving a profile immediately re-writes it to every assigned installation, running or not — the engine only reads a config at `exec` time and holds no handle on it afterwards, so a copy written mid-session is what lets the player `exec` the new profile from the console without restarting. **Reversed by story 079** (was: running installations skipped and marked pending). |
 | Gamedir scope | Profile content is written to `baseq2` (search-path makes it reachable from mods); `autoexec.cfg` is additionally copied into every mod folder of the installation the user has marked as "played" — because `FS_ExecAutoexec` never consults the search path. |
 | Cleanup | Stays in scope, per installation, independent of the central-profile model. |
 | Import | Stays in scope — importing an existing `config.cfg`/`autoexec.cfg` from disk into a new profile, resolving `exec` references. |
@@ -110,10 +110,11 @@ Installation (existing, src/shared/types/installation.ts)
   ── assignedProfiles: { profileId, isDefault }[]
   ── playedMods: string[]  (gamedir names getting the autoexec.cfg copy)
 
-Write flow (per assigned, non-running installation):
+Write flow (per assigned installation, running or not — story 079):
   Profile save
     → resolve target Installation
-    → write profile content to <install>/baseq2/<profile file(s)>
+    → write profile content to <install>/baseq2/<profile file(s)>, copied from the
+      canonical file's own bytes (never a fresh render of possibly-stale state)
     → write/refresh the exec chain so the designated default loads at launch
     → copy autoexec.cfg into <install>/<mod>/ for every mod in playedMods
     → back up any pre-existing file before first overwrite (diff, not blind rewrite)
@@ -245,9 +246,17 @@ central, assigned to installations) and the UI (launcher design system) change.
   writes only ever target `<installation.path>/baseq2` and `<installation.path>/<mod>` for
   mods already known to the installation, never an arbitrary renderer-supplied path
   (`src/main/lib/schemas.ts`).
-- **Game-lifecycle**: applying a profile to a running installation must be skipped and queued,
-  per the `game-lifecycle` dependency already called out for the `mods` module in
-  [ROADMAP.md](../ROADMAP.md#mods--game-directories) — this module needs the same guard.
+- **Game-lifecycle**: a running installation no longer defers the write (story 079, reversing
+  story 004 decision 3 above) — an installation copy is written whenever its canonical file
+  changes, running or not, since the engine only reads a config at `exec` time and holds no
+  handle on it afterwards. `pending` is gone entirely: removed from the sync outcome, from
+  persisted state (`configPendingWrites`), and from the shared `WriteTargetStatus`/
+  `ProfileFileSyncStatus` unions and the renderer. What the module still reports honestly is a
+  write that *failed* (locked file, permissions) as a `failed` row with Retry, and the startup
+  sweep still retries persisted failures. `cleanup.ts`'s `applyCleanupIfNotRunning` — which
+  deletes files out from under a running engine — is a different operation and is untouched by
+  this reversal; the `game-lifecycle` dependency called out for the `mods` module in
+  [ROADMAP.md](../ROADMAP.md#mods--game-directories) no longer applies to config writes.
 - **Design system**: rebuilt on the existing primitives — `Panel`, `SectionLabel`, `Badge`,
   `Button`/`IconButton`, `controls.tsx` (`Field`, `Input`, `Select`, `Switch`, `Checkbox`),
   `Modal`, `ProgressBar` (`src/renderer/src/components/ui/`) — with the `flame` accent, Oswald
@@ -265,8 +274,8 @@ central, assigned to installations) and the UI (launcher design system) change.
   profile, or by importing an existing `config.cfg`/`autoexec.cfg` from an installation.
 - CFG-2 A profile can be assigned to any number of installations; an installation can have any
   number of assigned profiles, with exactly one marked default.
-- CFG-3 Saving a profile writes it to every assigned installation that is not currently
-  running; running installations are skipped and shown as pending.
+- CFG-3 Saving a profile writes it to every assigned installation, running or not (**reversed
+  by story 079**; was: running installations skipped and shown as pending).
 - CFG-4 Writing a profile always backs up a pre-existing file before first overwrite and diffs
   rather than blindly rewriting.
 - CFG-5 `autoexec.cfg` is copied into every mod folder the user has marked "played" for that
