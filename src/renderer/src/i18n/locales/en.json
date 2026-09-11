@@ -264,14 +264,11 @@
   },
 
   "home": {
-    "title": "Home",
-    "lead": "This is where your Quake II news and activity will live.",
     "dashboard": {
-      "header": {
-        "title": "Dashboard",
-        "arrangeOn": "Done arranging",
-        "arrangeOff": "Arrange dashboard",
-        "arrangeDisabledHint": "Widen the window to arrange the dashboard"
+      "arrange": {
+        "on": "Done arranging",
+        "off": "Arrange dashboard",
+        "disabledHint": "Widen the window to arrange the dashboard"
       },
       "catalog": {
         "empty": "Every dashboard module is already placed."

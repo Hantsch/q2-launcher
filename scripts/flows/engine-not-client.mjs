@@ -117,10 +117,11 @@ function libraryCardNameRow(page, name) {
 const SCRAPE_SENTINEL = /r1q2/i
 
 /**
- * Story 081 deleted the hero, so home no longer shows any installation text - its only content is
- * the module's placeholder title/lead (`home.title`/`home.lead`, en.json), which always mentions
- * "Quake II". Each surface therefore gets its own vacuity sentinel instead of sharing one that
- * assumed an engine badge was present everywhere.
+ * Story 081 deleted the old hero, so home shows no installation text - and the placeholder
+ * title/lead that replaced it has since been dropped too (User feedback). What still always
+ * mentions "Quake II" on this screen is the news hero's built-in welcome slide (`home.hero.welcome`
+ * step 1, en.json), which is what the fixture's empty feed renders. Each surface therefore gets its
+ * own vacuity sentinel instead of sharing one that assumed an engine badge was present everywhere.
  */
 const HOME_SCRAPE_SENTINEL = /quake\s*ii/i
 

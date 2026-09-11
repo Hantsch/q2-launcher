@@ -120,9 +120,11 @@ describe('the home screen', () => {
     expect(container.querySelector('.hero-fallback')).toBeNull()
     expect(container.querySelector('[aria-label^="Show item"]')).toBeNull()
 
-    // What is left is the placeholder block, so the screen is not blank either.
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(en.home.title)
-    expect(screen.getByText(en.home.lead)).toBeTruthy()
+    // What is left is the hero's built-in welcome slide, so the screen is not blank either. (The
+    // placeholder `Panel` that used to carry `home.title`/`home.lead` is gone - it only cost
+    // vertical space above the dashboard.)
+    expect(screen.getByTestId('home-hero-welcome')).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(en.home.hero.welcome.title)
   })
 
   it('every string on the home screen is an i18n key', () => {
@@ -143,8 +145,8 @@ describe('the home screen', () => {
     }
 
     // Guards the regex above against passing on an empty render.
-    expect(texts).toContain('home.title')
-    expect(texts).toContain('home.lead')
+    expect(texts).toContain('home.hero.welcome.title')
+    expect(texts).toContain('home.hero.welcome.step1')
   })
 })
 

@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import type { NewsFeed } from '@shared/modules/home'
-import { Panel } from '../../components/ui/primitives'
 import { getNews, onNewsChanged, refreshNews } from './client'
 import { Dashboard } from './dashboard/Dashboard'
 import { NewsHero } from './NewsHero'
@@ -9,11 +7,11 @@ import { NewsHero } from './NewsHero'
 /**
  * The home module's screen.
  *
- * Two regions, in this order and nothing between them: the news hero (story
- * 083), full-bleed and exactly 320px tall at the very top, and the dashboard
- * region below it. The hero has no horizontal padding of its own and is not
- * inside the scroller - it is `shrink-0` and closed by a bottom rule - so all
- * padding lives on the dashboard region, never on both.
+ * One scroller for the whole screen: the news hero (story 083, full-bleed and exactly 320px tall)
+ * and the dashboard region below it both live *inside* it, so a tall dashboard scrolls the hero
+ * away instead of squeezing itself under a pinned header (User feedback: "die ganze page soll
+ * scrollable sein wenn overflow ist"). The hero still brings no horizontal padding of its own -
+ * all padding lives on the dashboard region, never on both.
  *
  * This is the feed's data-fetching boundary (D4 fixup): `getNews()` is fetched
  * once on mount, `onNewsChanged` keeps it live for the component's lifetime, and
@@ -26,15 +24,11 @@ import { NewsHero } from './NewsHero'
  * `slides` stays empty (and the hero shows its built-in welcome slide) until a
  * feed has actually loaded.
  *
- * Story 086 D3: `<Dashboard />` mounts below the placeholder `Panel`, as a full-width sibling
- * inside the scroller but outside the `max-w-2xl` wrapper - that width constraint suits a
- * paragraph, not a 12-column grid that needs most of the available width for the narrow-threshold
- * behaviour to be meaningfully testable. The placeholder `Panel`/`h1`/lead text stays exactly as
- * it was: `HomeView.test.tsx` and `scripts/flows/engine-not-client.mjs` both depend on that text
- * surviving on this screen.
+ * `<Dashboard />` is the only content below the hero. The placeholder `Panel` that used to sit
+ * between them (`home.title`/`home.lead`) is gone: once the dashboard carries real tiles, a card
+ * announcing that news "will live" here only cost vertical space.
  */
 export function HomeView() {
-  const { t } = useTranslation()
   const [feed, setFeed] = useState<NewsFeed | undefined>(undefined)
 
   useEffect(() => {
@@ -58,28 +52,18 @@ export function HomeView() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    /* tabIndex so a keyboard-only user can reach and scroll this container once the dashboard
+       makes it overflow - axe's scrollable-region-focusable rule, same reasoning/precedent as
+       ConfigCodeView.tsx's own `tabIndex={0}` scroll panels. */
+    <div className="h-full overflow-y-auto scrollbar-gutter-stable" tabIndex={0}>
       <NewsHero
         slides={feed?.slides ?? []}
         retrievedAt={feed?.retrievedAt}
         lastRefreshFailed={feed?.lastRefreshFailed}
         onRefresh={handleRefresh}
       />
-      {/* tabIndex so a keyboard-only user can reach and scroll this container once the dashboard
-          (story 086 D3) makes it tall enough to actually overflow - axe's scrollable-region-focusable
-          rule, same reasoning/precedent as ConfigCodeView.tsx's own `tabIndex={0}` scroll panels. */}
-      <div className="flex-1 overflow-y-auto p-4 scrollbar-gutter-stable" tabIndex={0}>
-        <div className="mx-auto max-w-2xl space-y-4 py-8">
-          <Panel className="space-y-2 p-4">
-            <h1 className="font-display text-xl tracking-[0.06em] text-ink uppercase">
-              {t('home.title')}
-            </h1>
-            <p className="text-sm leading-relaxed text-ink-dim">{t('home.lead')}</p>
-          </Panel>
-        </div>
-        <div className="mt-4">
-          <Dashboard />
-        </div>
+      <div className="p-4">
+        <Dashboard />
       </div>
     </div>
   )

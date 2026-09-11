@@ -28,7 +28,7 @@ import {
 import { getHomeLayout, resetHomeLayout, setHomeLayout } from '../client'
 import { useElementWidth } from './useElementWidth'
 import { DashboardGrid } from './DashboardGrid'
-import { HomeHeader } from './HomeHeader'
+import { ArrangeToggle } from './ArrangeToggle'
 import { ArrangeBar } from './ArrangeBar'
 import { firstFreeSpot, move, place, resize, type LayoutOperationResult } from './layout'
 import { DASHBOARD_MODULES } from './dashboard-modules'
@@ -78,15 +78,19 @@ interface ActiveDrag {
  * is still an IPC call, and this dashboard should never crash the Home screen over a data fetch
  * that did not come back - it stays empty instead.
  *
- * Story 086 D4: this component also owns arrange mode. `HomeHeader`'s toggle has to be disabled
- * while the dashboard is single-column, but "narrow" is only known here (via `useElementWidth`'s
- * own ref) - rather than lifting that measurement up into `HomeView.tsx` (which would have to also
- * own arrange-mode state, catalog logic, etc., turning it into a god component), `Dashboard.tsx`
- * renders `HomeHeader` and (conditionally) `ArrangeBar` INSIDE its own width-measured container,
+ * Story 086 D4: this component also owns arrange mode. `ArrangeToggle` has to be disabled while the
+ * dashboard is single-column, but "narrow" is only known here (via `useElementWidth`'s own ref) -
+ * rather than lifting that measurement up into `HomeView.tsx` (which would have to also own
+ * arrange-mode state, catalog logic, etc., turning it into a god component), `Dashboard.tsx`
+ * renders `ArrangeToggle` and (conditionally) `ArrangeBar` INSIDE its own width-measured container,
  * above `DashboardGrid`. Both are gated behind `layout` being loaded, same as the grid always was -
  * there is nothing useful to arrange before the layout has resolved, and this keeps
  * `HomeView.test.tsx`'s "the home screen shows no planned module" assertion (zero buttons on an
  * unresolved fetch) true unchanged.
+ *
+ * The container carries `group/dashboard` for one reason: `ArrangeToggle` is invisible at rest and
+ * reveals itself on hover anywhere over the dashboard (User feedback - the old "DASHBOARD" header
+ * row and its labelled button were pure space cost).
  *
  * Every handler below sends/receives the *whole* `HomeLayout` through `setHomeLayout` - never a
  * per-tile patch - so move, resize (D5/D6), place and remove all go through one persistence path.
@@ -483,6 +487,10 @@ export function Dashboard() {
     // took the clicks). Reserving the space rather than adding it on entry is what keeps AC4's
     // "entering arrange mode moves no tile" true: the gap is already there before the bar arrives.
     <div className="relative pt-14">
+      {/* The arrange toggle lives in this same reserved slot (see `ArrangeToggle.tsx`): outside
+          arrange mode it sits alone in the empty band, inside it the bar's left inset makes room
+          for it - so it never moves and costs no height of its own. */}
+      <ArrangeToggle arrangeMode={arrangeMode} onToggle={handleToggleArrange} disabled={isNarrow} />
       {isArranging && (
         <ArrangeBar
           layout={layout}
@@ -505,14 +513,9 @@ export function Dashboard() {
   )
 
   return (
-    <div ref={ref} data-testid="home-dashboard" className="relative w-full">
+    <div ref={ref} data-testid="home-dashboard" className="group/dashboard relative w-full">
       {layout && (
         <>
-          <HomeHeader
-            arrangeMode={arrangeMode}
-            onToggle={handleToggleArrange}
-            disabled={isNarrow}
-          />
           {isArranging ? (
             <DndContext
               sensors={sensors}
@@ -643,7 +646,14 @@ function ghostStyle(drag: ActiveDrag | null, columnPitch: number): CSSProperties
     height: drag.candidate.h * ROW_PITCH_PX - GRID_GAP_PX,
   }
   if (drag.originLeftPx === undefined || drag.originTopPx === undefined) return size
-  return { ...size, left: drag.originLeftPx, top: drag.originTopPx }
+  // A resize anchors the tile's top-left and only changes its size, so the ghost must NOT travel
+  // with the pointer - dnd-kit's own translate is cancelled here (`style` is merged last over its
+  // computed transform, see `PositionedOverlay`). Left in place, the ghost drifts twice as fast as
+  // the grip: the box moves by the raw pointer delta AND grows by that same delta rounded to cells,
+  // which is what sent a shrink sailing out of the dashboard. A move keeps the translate - there,
+  // travelling with the pointer IS the gesture.
+  const anchored: CSSProperties = { ...size, left: drag.originLeftPx, top: drag.originTopPx }
+  return drag.kind === 'resize' ? { ...anchored, transform: 'none' } : anchored
 }
 
 /** Narrows a dragged element's `data` payload. Anything unrecognised - including a module id this

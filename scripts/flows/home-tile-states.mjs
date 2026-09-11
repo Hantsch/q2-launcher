@@ -10,7 +10,7 @@
 //
 // ## Why every fault below keeps `home`'s `layout.get` alive
 //
-// `Dashboard.tsx` gates its ENTIRE render tree - `HomeHeader`, the arrange toggle, `DashboardGrid`
+// `Dashboard.tsx` gates its ENTIRE render tree - `ArrangeToggle`, `ArrangeBar`, `DashboardGrid`
 // and therefore every tile, including the two frames this flow asserts on - behind its own
 // `getHomeLayout()` call (`moduleId: 'home', type: 'layout.get'`) having resolved; while `layout` is
 // unresolved the dashboard is just the empty `home-dashboard` container with nothing inside it (see
@@ -52,7 +52,7 @@
 //   dashboard-tile-frame-error        DashboardTileFrame.tsx
 //   dashboard-tile-frame-filled       DashboardTileFrame.tsx (via `TileFrameBoundary`, the non-error render path)
 //   dashboard-tile-frame-retry        DashboardTileFrame.tsx (the retry button inside the error state)
-//   dashboard-arrange-toggle          HomeHeader.tsx
+//   dashboard-arrange-toggle          ArrangeToggle.tsx
 //   dashboard-catalog                 ArrangeBar.tsx
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'

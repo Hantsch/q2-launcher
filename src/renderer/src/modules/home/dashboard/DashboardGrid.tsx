@@ -36,7 +36,7 @@ import { DashboardTile, type TileKeyboardHandlers } from './DashboardTile'
  *
  * Story 086 D5: `gridRef` is attached to whichever root actually renders. `Dashboard.tsx` reads its
  * `getBoundingClientRect()` to turn a pointer position into a grid cell for a drag out of the
- * catalog - its own outer container also spans `HomeHeader`, so measuring that instead would offset
+ * catalog - its own outer container also spans the arrange-bar slot, so measuring that would offset
  * every dropped tile by the header's height.
  *
  * Story 086 D6: `TileKeyboardHandlers` (`onKeyboardChange`/`onKeyboardCancel`/`onAnnounce`) is

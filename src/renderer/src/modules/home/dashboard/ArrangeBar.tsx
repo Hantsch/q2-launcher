@@ -37,8 +37,11 @@ export function ArrangeBar({
     (id) => !layout.tiles.some((tile) => tile.moduleId === id),
   )
 
+  // `pl-11` overrides `p-3`'s left edge: the arrange toggle (`ArrangeToggle.tsx`) is docked at
+  // `left-3` of the same slot in BOTH modes, so the bar's content has to start clear of it -
+  // 12px inset + a 28px button + 4px breathing room.
   return (
-    <Panel raised className="dashboard-arrange-bar flex flex-wrap items-center gap-3 p-3">
+    <Panel raised className="dashboard-arrange-bar flex flex-wrap items-center gap-3 p-3 pl-11">
       <div data-testid="dashboard-catalog" className="flex flex-1 flex-wrap items-center gap-2">
         {unplacedIds.length === 0 ? (
           <p className="text-xs text-ink-muted">{t('home.dashboard.catalog.empty')}</p>

@@ -358,7 +358,7 @@ export const SCREENS = [
     // Story 086 D4: arrange mode's own chrome (AC14) - the catalog bar and status line docked over
     // the grid (ArrangeBar.tsx). Single-element `viewports`, same reasoning as `home-dashboard`/
     // `home-dashboard-narrow` above: arrange mode is unavailable/disabled while the dashboard is
-    // single-column (HomeHeader.tsx's `disabled` prop), so a narrow shot of it would show nothing
+    // single-column (ArrangeToggle.tsx's `disabled` prop), so a narrow shot of it would show nothing
     // new - the narrow state already has its own screen.
     //
     // The `populated` fixture seeds both known modules already placed

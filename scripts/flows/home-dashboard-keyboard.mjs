@@ -11,7 +11,7 @@
 // Runs against the `populated` fixture (the flow runner's default variant, `scripts/flow.mjs`).
 //
 // Selectors, not guesses - read DashboardTile.tsx/ArrangeBar.tsx before changing any of these:
-//   dashboard-arrange-toggle          HomeHeader.tsx - enters/leaves arrange mode
+//   dashboard-arrange-toggle          ArrangeToggle.tsx - enters/leaves arrange mode
 //   dashboard-tile-grip-<moduleId>    DashboardTile.tsx - the move grip: the lift's own control,
 //                                     carrying `data-lifted` while a lift is in flight
 //   dashboard-status-line             ArrangeBar.tsx - the visible status line, which IS the

@@ -1,6 +1,7 @@
 // Story 081 D4 acceptance flow: "the move is verified on the real surface". D1-D3 pulled `home` out
 // of the shell (no shell component imports anything from the home module anymore) and reduced
-// `HomeView.tsx` to a title+lead placeholder (`home.title`/`home.lead`, en.json). This flow is the
+// `HomeView.tsx` to a title+lead placeholder; that placeholder has since been dropped and the
+// screen is now the news hero plus the dashboard (User feedback). This flow is the
 // e2e proof that the route still works after that move: `nav-home` (TitleBar.tsx's own hardcoded
 // button, untouched by this story) still reaches a real, rendering `HomeView`, a full round trip
 // away and back re-renders it with no console errors, and none of the three fixed shell zones
@@ -12,7 +13,9 @@
 //   config-create-profile    ConfigView.tsx ("New profile" button, present on the list screen
 //                             regardless of fixture variant — used only as "the config screen's own
 //                             content has mounted", not as anything this flow clicks)
-//   home.title / home.lead   src/renderer/src/i18n/locales/en.json — HomeView.tsx's own two strings
+//   home-hero-live           NewsHero.tsx's live region — present in every hero state, so it is
+//                             "the hero mounted" regardless of feed
+//   home-dashboard           Dashboard.tsx's own container
 //
 // The three shell zones carry no bespoke testid (TitleBar.tsx/InstallationRail.tsx/ActionBar.tsx are
 // a plain `<header>`/`<aside>`/`<footer>`, per this story's own read of the shell) — their implicit
@@ -61,15 +64,13 @@ function assertZonesIdentical(before, after) {
 }
 
 async function waitForHome(page) {
-  // `getByText('Home')` alone would match two things at once - the titlebar's own `nav-home` button
-  // (`nav.home` is also translated "Home") and `HomeView`'s `<h1>` - so this waits on the heading
-  // role specifically, the one element `home.title` actually renders as (`HomeView.tsx`'s `<h1>`).
-  await page
-    .getByRole('heading', { name: 'Home', level: 1 })
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await page
-    .getByText("This is where your Quake II news and activity will live.", { exact: true })
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  // The placeholder card this used to wait on (`home.title`'s `<h1>` plus `home.lead`) is gone -
+  // it only cost vertical space above the dashboard. What is unambiguously "home is mounted" now
+  // is the news hero itself plus the dashboard container below it, both by test id, so neither
+  // wait can be satisfied by the titlebar's own `nav-home` button (`nav.home` is also translated
+  // "Home", which is why a bare `getByText('Home')` was never usable here).
+  await page.getByTestId('home-hero-live').waitFor({ state: 'attached', timeout: TIMEOUT_MS })
+  await page.getByTestId('home-dashboard').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 }
 
 export default async function homeRouteRoundtrip({ page, app: _app, shot, step, log }) {
