@@ -161,6 +161,7 @@ export function ConfigView() {
   const [rewriting, setRewriting] = useState(false)
 
   const pushToast = useLauncher((state) => state.pushToast)
+  const consumeRouteFocus = useLauncher((state) => state.consumeRouteFocus)
 
   useEffect(() => {
     let cancelled = false
@@ -181,6 +182,42 @@ export function ConfigView() {
       setScreen('list')
     }
   }, [profiles, selectedId])
+
+  /**
+   * Story 087 D5: the dashboard's config-profiles tile navigates here with the clicked profile's
+   * id as the shell's one-shot `routeFocus` (`setRoute('/config', id)`), and this is where that
+   * hint becomes a selection - through the same `openProfile` a row click on the list screen uses,
+   * not a second selection path.
+   *
+   * Deliberately ONE effect that re-runs on `profiles`, rather than a plain mount effect: the hint
+   * is there before `listConfigProfiles` has answered, so seeding `selectedId` on mount alone would
+   * be undone on the very next tick by the reset effect right above (an id that is in no profile
+   * yet). So the hint is consumed once - on mount, while `profiles` is still empty - parked in a
+   * ref, and applied only on the commit where a non-empty `profiles` actually contains it. At that
+   * point the reset effect agrees with the selection by construction, and it runs *before* this one
+   * in every commit anyway (declaration order), so the two can never fight.
+   *
+   * One-shot on both halves, which is what "navigating away and back does not re-apply a stale
+   * focus" needs: `consumeRouteFocus` clears the store's hint on the first read, so a second mount
+   * of this view (the route switch unmounts it - `resolveView` renders a different component) gets
+   * nothing and lands on the list; and the ref is cleared as soon as any non-empty list has
+   * arrived, matched or not, so a hint naming a since-deleted profile is dropped instead of waiting
+   * for some later list to match it. The ref is also what makes this safe under StrictMode's
+   * double-invoked mount effect: the second `consumeRouteFocus()` returns nothing and must not
+   * overwrite what the first call parked.
+   */
+  const pendingFocusIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    // `unknown` from the shell, which knows nothing about profile ids - so validate the shape here.
+    const focus = consumeRouteFocus()
+    if (typeof focus === 'string' && focus.length > 0) pendingFocusIdRef.current = focus
+
+    const pending = pendingFocusIdRef.current
+    if (!pending || profiles.length === 0) return
+    pendingFocusIdRef.current = null
+    if (profiles.some((profile) => profile.id === pending)) openProfile(pending)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profiles, consumeRouteFocus])
 
   useEffect(() => {
     setActiveLayerId(null)

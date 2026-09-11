@@ -91,6 +91,18 @@ interface LauncherStore {
 
   // --- renderer-only UI state ---------------------------------------------
   route: string
+  /**
+   * Story 087 D5: a one-shot "open this thing" hint handed along with a route switch, for a
+   * destination view to pick up on mount (the dashboard's config-profiles tile opening one
+   * profile's editor). Deliberately opaque at the shell level - the shell must not learn what a
+   * config profile id is, so `focus` is `unknown` and only the view that reads it interprets it.
+   *
+   * Stored together with the `route` it was set for, so a focus meant for `/config` can never be
+   * handed to whichever view happens to mount next, and renderer-only: unlike `route` (mirrored
+   * into `settings.lastRoute`), this is never persisted - a restart replaying a stale
+   * "open this profile" would be wrong.
+   */
+  routeFocus: { route: string; focus: unknown } | null
   dialog: DialogState
   toasts: ToastMessage[]
   /**
@@ -107,7 +119,17 @@ interface LauncherStore {
   bootstrap: () => Promise<void>
 
   // --- navigation / UI -----------------------------------------------------
-  setRoute: (route: string) => void
+  /**
+   * `focus` is optional and every existing caller passes none - which also *clears* any focus a
+   * previous navigation left behind, so a hint can never outlive the one navigation it was for.
+   */
+  setRoute: (route: string, focus?: unknown) => void
+  /**
+   * Reads the pending `routeFocus` and clears it in the same call, so a second read (a remount of
+   * the destination view, a second consumer) gets nothing. Returns `undefined` unless the pending
+   * focus belongs to the *current* route.
+   */
+  consumeRouteFocus: () => unknown
   openDialog: (dialog: DialogState) => void
   closeDialog: () => void
   pushToast: (toast: Omit<ToastMessage, 'id'>) => void
@@ -158,6 +180,7 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
   chrome: { maximized: false, fullScreen: false, focused: true },
 
   route: ROUTE_HOME,
+  routeFocus: null,
   dialog: { kind: 'none' },
   toasts: [],
   iconDataUrls: {},
@@ -213,10 +236,20 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
     }
   },
 
-  setRoute: (route) => {
-    set({ route })
-    // Remembered across restarts, so the launcher reopens where you left it.
+  setRoute: (route, focus) => {
+    // `routeFocus` is always written, not only when a `focus` is given: a navigation without one
+    // has to drop a previous, never-consumed hint rather than let it fire on some later mount.
+    set({ route, routeFocus: focus === undefined ? null : { route, focus } })
+    // Remembered across restarts, so the launcher reopens where you left it. Only the route -
+    // `routeFocus` stays in memory on purpose (see its own doc comment).
     void invoke('settings:patch', { lastRoute: route })
+  },
+
+  consumeRouteFocus: () => {
+    const { route, routeFocus } = get()
+    if (!routeFocus || routeFocus.route !== route) return undefined
+    set({ routeFocus: null })
+    return routeFocus.focus
   },
 
   openDialog: (dialog) => set({ dialog }),

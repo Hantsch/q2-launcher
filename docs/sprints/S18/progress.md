@@ -87,3 +87,33 @@
 - 2026-09-11 08:58 · 086 · D5 pointer move and resize (deliverable-hard) · done
 - 2026-09-11 08:58 · 086 · D6 keyboard parity and announcements (deliverable-hard) · started
 - 2026-09-11 09:17 · 086 · D6 keyboard parity and announcements (deliverable-hard) · done
+- 2026-09-11 09:47 · 087 · D1 LibraryStats knows the last session · started
+- 2026-09-11 09:50 · 087 · D1 LibraryStats knows the last session · done
+- 2026-09-11 09:51 · 087 · D2 the tile frame with four states · started
+- 2026-09-11 09:58 · 087 · D2 the tile frame with four states · done
+- 2026-09-11 09:58 · 087 · D3 Playtime & statistics tile · started
+- 2026-09-11 10:04 · 087 · D3 Playtime and statistics tile · done
+- 2026-09-11 10:05 · 087 · D4 Config profiles tile · started
+- 2026-09-11 10:10 · 087 · D4 Config profiles tile · done
+- 2026-09-11 10:11 · 087 · D5 Opening a profile lands in its editor (deliverable-hard) · started
+- 2026-09-11 10:19 · 087 · D5 Opening a profile lands in its editor (deliverable-hard) · done
+- 2026-09-11 10:19 · 087 · D6 exactly two modules at the prototype geometry · started
+- 2026-09-11 10:33 · 087 · D6 exactly two modules at the prototype geometry · done
+- 2026-09-11 10:33 · 087 · D6b fix: duplicate tile title after body wiring · started
+- 2026-09-11 10:34 · 087 · D6b fix: duplicate tile title after body wiring · done
+- 2026-09-11 10:34 · 087 · D7 verification: screens + fault-injection flow · started
+- 2026-09-11 10:48 · 087 · D7 verification: screens + fault-injection flow · done
+- 2026-09-11 10:50 · 087 · D7b fix: missing e2e proof for AC2 profile-row navigation · started
+- 2026-09-11 11:02 · 087 · D7b fix: missing e2e proof for AC2 profile-row navigation · done
+- 2026-09-11 11:02 · 087 · review cycle 1 (story-review-hard) · done: FAIL, 9 findings
+- 2026-09-11 11:02 · 087 · fix cycle 1 · started
+- 2026-09-11 11:08 · 087 · fix cycle 1 · done
+- 2026-09-11 11:10 · 087 · review cycle 2 (story-review-hard) · started
+- 2026-09-11 11:19 · 087 · review cycle 2 (story-review-hard) · done: FAIL, 5 findings
+- 2026-09-11 11:19 · 087 · fix cycle 2 · started
+- 2026-09-11 11:27 · 087 · fix cycle 2 · done (found new axe regression, fix cycle 3 needed)
+- 2026-09-11 11:27 · 087 · fix cycle 3: scrollable-region-focusable axe violation · started
+- 2026-09-11 11:31 · 087 · fix cycle 3: scrollable-region-focusable axe violation · done
+- 2026-09-11 11:31 · 087 · review cycle 3 (story-review-hard) · started
+- 2026-09-11 11:39 · 087 · review cycle 3 (story-review-hard) · done: PASS
+- 2026-09-11 11:41 · 087 · story done, moved to done/

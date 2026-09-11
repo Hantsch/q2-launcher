@@ -306,6 +306,18 @@ export const SCREENS = [
       await page
         .getByText('Config Profiles', { exact: true })
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      // Review fix (second cycle): `DashboardTileFrame.tsx` renders that heading text in ALL FOUR
+      // states (loading/error/empty/filled), so the waits above alone would still resolve with
+      // both tiles stuck in a non-filled state. This screen's whole point is AC8's "filled"
+      // proof, so also wait for each tile's actual filled-state test-id.
+      await page
+        .getByTestId('dashboard-tile-playtime')
+        .getByTestId('dashboard-tile-frame-filled')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByTestId('dashboard-tile-configProfiles')
+        .getByTestId('dashboard-tile-frame-filled')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },
   {
@@ -327,6 +339,16 @@ export const SCREENS = [
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
       await page
         .getByText('Config Profiles', { exact: true })
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      // Review fix (second cycle): same gap as `home-dashboard` above - this screen makes the
+      // identical "filled" claim at a narrower viewport, so it needs the identical proof.
+      await page
+        .getByTestId('dashboard-tile-playtime')
+        .getByTestId('dashboard-tile-frame-filled')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByTestId('dashboard-tile-configProfiles')
+        .getByTestId('dashboard-tile-frame-filled')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },
@@ -354,6 +376,29 @@ export const SCREENS = [
       await click(page, 'dashboard-arrange-toggle')
       await page
         .getByTestId('dashboard-catalog')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'home-dashboard-empty',
+    variant: 'empty',
+    // Story 087 D7 (AC8's "empty" proof): the `empty` fixture variant seeds zero installations and
+    // zero config profiles (`emptyStateDocument()`, scripts/lib/fixture.mjs) but carries no explicit
+    // `homeLayout` of its own — `getLayout` falls back to the shared `DEFAULT_HOME_LAYOUT`, which
+    // still places both known tiles, so both `DashboardTileFrame`s land in their own `empty` state
+    // (DashboardTileFrame.tsx) rather than the tiles being absent from the grid entirely. Single-
+    // element `viewports`, same reasoning as `home-dashboard`/`home-dashboard-narrow` above: this
+    // screen exists to prove the empty state, not to duplicate a second viewport for it.
+    viewports: [VIEWPORT_DEFAULT],
+    navigate: async (page) => {
+      await click(page, 'nav-home')
+      await page
+        .getByTestId('dashboard-tile-playtime')
+        .getByTestId('dashboard-tile-frame-empty')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByTestId('dashboard-tile-configProfiles')
+        .getByTestId('dashboard-tile-frame-empty')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },

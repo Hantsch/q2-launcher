@@ -288,6 +288,10 @@ function makeInstallation({
   status,
   checks,
   lastFailure,
+  // Story 087 D1: both default to the all-unplayed behavior every existing caller relies on, so
+  // only a caller that passes them explicitly seeds a "filled" playtime/last-session state.
+  lastPlayedAt,
+  totalPlaytimeSeconds,
 }) {
   return {
     id,
@@ -314,8 +318,8 @@ function makeInstallation({
     createdAt: FIXED_TIMESTAMP,
     updatedAt: FIXED_TIMESTAMP,
     lastValidatedAt: undefined,
-    lastPlayedAt: undefined,
-    totalPlaytimeSeconds: 0,
+    lastPlayedAt: lastPlayedAt ?? undefined,
+    totalPlaytimeSeconds: totalPlaytimeSeconds ?? 0,
     moduleData: undefined,
     // Story 067 D5: mirrors src/shared/types/installation.ts's `InstallationIcon` -
     // `{ kind: 'shipped', id }` or `{ kind: 'custom' }`. Only set for the two installations
@@ -421,6 +425,12 @@ function populatedInstallations() {
       // Story 067 D5: a shipped icon, resolved by `useInstallationIcon` synchronously (no IPC) -
       // see `INSTALL_ONE_ICON_ID` for why `gate` specifically.
       icon: { kind: 'shipped', id: INSTALL_ONE_ICON_ID },
+      // Story 087 D1: the one installation seeded with real playtime, so the library stats' new
+      // `lastSession` and the existing playtime tile both show a "filled" state rather than every
+      // fixture install reading as never-played. `FIXED_TIMESTAMP` (also `createdAt`/`updatedAt`
+      // above) keeps this reproducible across `ui:verify` runs - never `Date.now()`.
+      lastPlayedAt: FIXED_TIMESTAMP,
+      totalPlaytimeSeconds: 13500, // 3h 45m
     }),
     makeInstallation({
       id: INSTALL_TWO_ID,

@@ -26,6 +26,20 @@ export const libraryModule: MainModule = {
         byEngine[installation.engineKind] = (byEngine[installation.engineKind] ?? 0) + 1
       }
 
+      // Newest `lastPlayedAt` wins; installations that never played (the field is absent) never
+      // beat it, so an all-unplayed set leaves `lastSession` undefined rather than an empty object.
+      let lastSession: LibraryStats['lastSession']
+      for (const installation of installations) {
+        if (!installation.lastPlayedAt) continue
+        if (!lastSession || installation.lastPlayedAt > lastSession.at) {
+          lastSession = {
+            installationId: installation.id,
+            name: installation.name,
+            at: installation.lastPlayedAt,
+          }
+        }
+      }
+
       return {
         total: installations.length,
         ok: count(installations, (i) => i.status === 'ok'),
@@ -37,6 +51,7 @@ export const libraryModule: MainModule = {
         favorites: count(installations, (i) => i.favorite),
         totalPlaytimeSeconds: installations.reduce((sum, i) => sum + i.totalPlaytimeSeconds, 0),
         byEngine,
+        lastSession,
       }
     })
 

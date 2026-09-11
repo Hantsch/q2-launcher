@@ -299,6 +299,11 @@
         "resize": "Resize {{title}}",
         "remove": "Return {{title}} to catalog"
       },
+      "tileFrame": {
+        "loading": "Loading…",
+        "error": "This tile could not load its data.",
+        "renderError": "This tile could not be displayed."
+      },
       "arrangeBar": {
         "reset": "Reset to default"
       },
@@ -307,10 +312,52 @@
       },
       "tiles": {
         "playtime": {
-          "title": "Playtime"
+          "title": "Playtime",
+          "status": {
+            "total": "Total",
+            "ok": "OK",
+            "needsAttention": "Needs attention",
+            "missing": "Missing"
+          },
+          "engines": {
+            "label": "By engine"
+          },
+          "favorites": {
+            "label": "Favourites"
+          },
+          "totalPlaytime": {
+            "label": "Total playtime"
+          },
+          "lastSession": {
+            "label": "Last session",
+            "value": "{{name}} — {{when}}",
+            "none": "Nothing played yet"
+          },
+          "empty": {
+            "title": "No installations yet",
+            "body": "Add or find your Quake II installation to see your library's stats here.",
+            "action": "Add existing"
+          }
         },
         "configProfiles": {
-          "title": "Config Profiles"
+          "title": "Config Profiles",
+          "own": {
+            "label": "File"
+          },
+          "installations": {
+            "label": "Installations"
+          },
+          "state": {
+            "inSync": "In sync",
+            "outOfSync": "Out of sync",
+            "missing": "Missing",
+            "failed": "Failed"
+          },
+          "empty": {
+            "title": "No config profiles yet",
+            "body": "Create a config profile to manage cvars, binds and files across your installations.",
+            "action": "Open config"
+          }
         }
       }
     },
