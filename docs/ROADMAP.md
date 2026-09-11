@@ -2,15 +2,15 @@
 
 ## Where we stand
 
-*As of 2026-09-11.* Config (Phase 2) and the shell are done; Phase 3 (home screen) is done —
-**[S18](../sprints/S18/review.md) shipped both its milestones**: a live community news hero
-(081–085) over a user-arranged dashboard with its first two real tiles (086–087). The same sprint
-also carried Phase 4's install module forward with R1Q2 as a second installable engine (story
-080), alongside Q2PRO's existing bootstrap. Story 079 (a save reaches every installation, and Care
-sees drift) finished on `dev` outside a sprint, before S18 branched. Next step: the user decides
-whether/when to merge `sprint/18` into `dev`; after that, `/roadmap plan` for the next sprint —
-Phase 4's remaining install work (retail import, update/rollback, repair, removal) is the open
-milestone. Nothing else is waiting on the user.
+*As of 2026-09-11.* Config (Phase 2) and Phase 3 (home screen) are done — **[S18](../sprints/S18/review.md)
+shipped both its milestones**: a live community news hero (081–085) over a user-arranged dashboard
+with its first two real tiles (086–087). The same sprint also carried Phase 4's install module
+forward with R1Q2 as a second installable engine (story 080), alongside Q2PRO's existing bootstrap.
+Story 079 (a save reaches every installation, and Care sees drift) finished on `dev` outside a
+sprint, before S18 branched. **[S19](../sprints/S19/sprint.md) is planned**: retail import from a
+detected store installation or an existing folder (088–089), plus the demo-to-retail upgrade action
+(090) — the wizard's remaining two data sources and the loop story 074 left open. Next step: the user
+decides whether/when to merge `sprint/18` into `dev`, then starts `/sprint 19`.
 
 ## Phase overview
 
@@ -25,14 +25,11 @@ milestone. Nothing else is waiting on the user.
 
 ## Current phase
 
-**Phase 3 — Home screen (news hero + dashboard)**, cut into two milestones — plus Phase 4's
-install milestone, which the same sprint carries on with R1Q2.
+**Phase 4 — Install (download/update/repair)**, one milestone, in progress since S16.
 
 | # | Milestone | Status | Sprint(s) | Note |
 | --- | --- | --- | --- | --- |
-| 3.1 | Home screen — news hero ([concepts/home-screen.md](concepts/home-screen.md)) | done 2026-09-11 | [S18 review](../sprints/S18/review.md) | Stories 081–085: the `home` module took the screen over, the community feed is fetched, cached and rendered by the 320px hero, images come from main's own cache, and the content repo carries the contract. |
-| 3.2 | Home screen — dashboard ([concepts/home-screen.md](concepts/home-screen.md)) | done 2026-09-11 | [S18 review](../sprints/S18/review.md) | Stories 086–087: the 12 × 40px arrange-mode grid with keyboard parity and persistence, plus the two v1 tiles (playtime, config profiles). |
-| 4.1 | Install — bootstrap, update and repair ([concepts/install-module.md](concepts/install-module.md)) | in progress | [S16 review](../sprints/done/S16/review.md), [S17 review](../sprints/done/S17/review.md), [S18 review](../sprints/S18/review.md) | Q2PRO and R1Q2 bootstraps ship (story 080); retail import, update/rollback, repair and removal from disk still follow. |
+| 4.1 | Install — bootstrap, update and repair ([concepts/install-module.md](concepts/install-module.md)) | in progress | [S16 review](../sprints/done/S16/review.md), [S17 review](../sprints/done/S17/review.md), [S18 review](../sprints/S18/review.md), [S19](../sprints/S19/sprint.md) planned | Q2PRO and R1Q2 bootstraps ship (story 080); S19 cuts retail import + demo upgrade (088–090); update/rollback, repair and removal from disk still follow. |
 
 ## Open / unprioritised
 
@@ -86,3 +83,5 @@ install milestone, which the same sprint carries on with R1Q2.
 | Identity, icons and the first profile | S15 | 2026-09-07 |
 | Install, first slice — bootstrap to a playable Q2PRO demo | S16 | 2026-09-08 |
 | Install — real-run gaps: allowlist, failed-install persistence, failure cause | S17 | 2026-09-09 |
+| Home screen — news hero | S18 | 2026-09-11 |
+| Home screen — dashboard | S18 | 2026-09-11 |
