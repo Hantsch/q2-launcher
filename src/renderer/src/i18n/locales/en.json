@@ -266,6 +266,54 @@
   "home": {
     "title": "Home",
     "lead": "This is where your Quake II news and activity will live.",
+    "dashboard": {
+      "header": {
+        "title": "Dashboard",
+        "arrangeOn": "Done arranging",
+        "arrangeOff": "Arrange dashboard",
+        "arrangeDisabledHint": "Widen the window to arrange the dashboard"
+      },
+      "catalog": {
+        "empty": "Every dashboard module is already placed."
+      },
+      "status": {
+        "entered": "Arrange mode on. Drag a tile or press Enter on a catalog entry to place it.",
+        "exited": "Arrange mode off.",
+        "placed": "{{title}} placed on the dashboard.",
+        "noRoom": "There is no room for {{title}} on the grid.",
+        "placeFailed": "{{title}} could not be placed.",
+        "removed": "{{title}} returned to the catalog.",
+        "reset": "Dashboard reset to its default layout.",
+        "lifted": "{{title}} lifted. Move or resize it, then drop it - Escape puts it back.",
+        "dropped": "{{title}} placement confirmed.",
+        "moved": "{{title}} moved to column {{column}}, row {{row}}.",
+        "resized": "{{title}} resized to {{w}} by {{h}} cells.",
+        "invalidDrop": "{{title}} cannot go there - {{reason}}.",
+        "invalidMove": "Can't move {{title}} - {{reason}}.",
+        "unchanged": "{{title}} stays where it was.",
+        "cancelled": "Cancelled - {{title}} is back where it was.",
+        "saveFailed": "{{title}} could not be saved."
+      },
+      "tile": {
+        "grip": "Move {{title}}",
+        "resize": "Resize {{title}}",
+        "remove": "Return {{title}} to catalog"
+      },
+      "arrangeBar": {
+        "reset": "Reset to default"
+      },
+      "dnd": {
+        "instructions": "Press and hold, then drag a tile's move or resize grip to arrange the dashboard."
+      },
+      "tiles": {
+        "playtime": {
+          "title": "Playtime"
+        },
+        "configProfiles": {
+          "title": "Config Profiles"
+        }
+      }
+    },
     "error": {
       "urlNotAllowed": "That link could not be opened."
     },
@@ -389,6 +437,11 @@
     "gameDir": {
       "label": "Launch with",
       "base": "Base game (baseq2)"
+    },
+    "resetLayout": {
+      "title": "Reset dashboard to default?",
+      "body": "This puts both dashboard modules back at their default size and position. Anything you have arranged is replaced.",
+      "confirm": "Reset to default"
     }
   },
 

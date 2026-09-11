@@ -783,6 +783,18 @@ function populatedStateDocument() {
     downloads: { ...DOWNLOADS_SETTINGS_SEED },
     // Story 075 D7: two static failure-log entries, one with diagnostics and one without (AC8).
     downloadFailures: populatedDownloadFailures(),
+    // Story 086 D3: a gapped, non-default dashboard arrangement (mirrors
+    // src/shared/modules/home.ts's `TilePlacement`/`HomeLayout` shape exactly - this file is plain
+    // JS with no type import). Deliberately different from `DEFAULT_HOME_LAYOUT`'s `{0,0,6,5}`/
+    // `{6,0,6,5}` pair: both tiles stay within the 12-column grid, neither overlaps the other, both
+    // clear the 2x2 minimum, and there is visible empty space around and between them - proof that
+    // `home-dashboard`'s screenshot renders the *stored* cells, gap intact, not a compacted layout.
+    homeLayout: {
+      tiles: [
+        { moduleId: 'playtime', x: 1, y: 0, w: 4, h: 4 },
+        { moduleId: 'configProfiles', x: 7, y: 2, w: 4, h: 5 },
+      ],
+    },
   }
 }
 

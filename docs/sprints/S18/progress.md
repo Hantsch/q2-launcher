@@ -73,3 +73,17 @@
 - 2026-09-10 22:52 · 084 · D7 the deviation row · started
 - 2026-09-10 22:54 · 084 · D7 the deviation row · done
 - 2026-09-10 23:11 · 084 · story done (review-fix cycle 1/3, all AC PASS)
+- 2026-09-10 23:13 · 086 · D1 homeLayout persists, unknown ids do not · started
+- 2026-09-10 23:17 · 086 · D1 homeLayout persists, unknown ids do not · done
+- 2026-09-10 23:17 · 086 · D2 the layout engine · started
+- 2026-09-11 07:33 · 086 · D2 the layout engine · started
+- 2026-09-11 07:37 · 086 · D2 the layout engine · done
+- 2026-09-11 07:37 · 086 · D3 the dashboard renders, and shrinks · started
+- 2026-09-11 07:42 · 086 · D3 the dashboard renders, and shrinks · started
+- 2026-09-11 08:01 · 086 · D3 the dashboard renders, and shrinks · done
+- 2026-09-11 08:01 · 086 · D4 arrange mode, catalog, reset · started
+- 2026-09-11 08:19 · 086 · D4 arrange mode, catalog, reset · done
+- 2026-09-11 08:19 · 086 · D5 pointer move and resize (deliverable-hard) · started
+- 2026-09-11 08:58 · 086 · D5 pointer move and resize (deliverable-hard) · done
+- 2026-09-11 08:58 · 086 · D6 keyboard parity and announcements (deliverable-hard) · started
+- 2026-09-11 09:17 · 086 · D6 keyboard parity and announcements (deliverable-hard) · done

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DEFAULT_DOWNLOADS_SETTINGS, type DownloadFailure } from '@shared/modules/downloads'
+import { DEFAULT_HOME_LAYOUT, type HomeLayout } from '@shared/modules/home'
 import { StateStore } from './state'
 
 describe('StateStore downloads settings (story 072 D2)', () => {
@@ -80,6 +81,72 @@ describe('StateStore downloads settings (story 072 D2)', () => {
     )
     expect(settings.concurrentJobs).toBe(3)
     expect(settings.archiveCacheBudgetGB).toBe(20)
+  })
+})
+
+describe('StateStore homeLayout (story 086 D1)', () => {
+  let filePath: string
+  let state: StateStore
+
+  beforeEach(async () => {
+    filePath = join(tmpdir(), `q2-launcher-state-home-layout-${randomUUID()}.json`)
+    state = new StateStore(filePath)
+    await state.load()
+  })
+
+  afterEach(async () => {
+    await rm(filePath, { force: true })
+    await rm(`${filePath}.tmp`, { force: true })
+    await rm(`${filePath}.bak`, { force: true })
+  })
+
+  it('starts with the default layout', () => {
+    expect(state.homeLayout()).toEqual(DEFAULT_HOME_LAYOUT)
+  })
+
+  it('homeLayout round-trips through state.json and touches no other setting', async () => {
+    const settingsBefore = state.settings()
+    const installationsBefore = state.installations()
+    const configProfilesBefore = state.configProfiles()
+
+    const custom: HomeLayout = {
+      tiles: [{ moduleId: 'playtime', x: 0, y: 0, w: 4, h: 4 }],
+    }
+    const written = state.setHomeLayout(custom)
+    await state.settle()
+
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+
+    expect(reloaded.homeLayout()).toEqual(written)
+    expect(reloaded.homeLayout()).toEqual(custom)
+    // Other state keys are untouched by this write.
+    expect(reloaded.settings()).toEqual(settingsBefore)
+    expect(reloaded.installations()).toEqual(installationsBefore)
+    expect(reloaded.configProfiles()).toEqual(configProfilesBefore)
+  })
+
+  it('a record for an unknown module id read from disk is gone after reload', async () => {
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        schemaVersion: 1,
+        homeLayout: {
+          tiles: [
+            { moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 },
+            { moduleId: 'nope', x: 6, y: 0, w: 6, h: 5 },
+          ],
+        },
+      }),
+      'utf-8',
+    )
+
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+
+    expect(reloaded.homeLayout().tiles).toEqual([
+      { moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 },
+    ])
   })
 })
 

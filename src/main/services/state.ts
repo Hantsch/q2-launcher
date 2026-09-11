@@ -6,6 +6,7 @@ import {
   type DownloadsSettings,
 } from '@shared/modules/downloads'
 import { DEFAULT_SETTINGS, type Installation, type LauncherSettings } from '@shared/types'
+import { DEFAULT_HOME_LAYOUT, type HomeLayout } from '@shared/modules/home'
 import { JsonStore } from '../lib/json-store'
 import { pruneFailures } from '../modules/downloads/failure-log'
 import {
@@ -16,6 +17,7 @@ import {
   parseConfigWriteFailures,
   parseDownloadFailures,
   parseDownloadsSettings,
+  parseHomeLayout,
   parseInstallations,
   parseSettings,
 } from '../lib/schemas'
@@ -88,6 +90,13 @@ export interface LauncherStateDocument {
    * job, not this store's - `getDownloadFailures()` below just applies it on read.
    */
   downloadFailures: DownloadFailure[]
+  /**
+   * Story 086 D1: the dashboard's tile arrangement (`home` module). A new top-level key, same
+   * "no `STATE_SCHEMA_VERSION` bump, no migration" precedent as `configProfiles` above: it is
+   * purely additive, and a file written before this story simply lacks it and loads as
+   * `DEFAULT_HOME_LAYOUT`.
+   */
+  homeLayout: HomeLayout
 }
 
 function defaults(): LauncherStateDocument {
@@ -102,6 +111,12 @@ function defaults(): LauncherStateDocument {
     configFileSourceMigratedAt: null,
     downloads: { ...DEFAULT_DOWNLOADS_SETTINGS },
     downloadFailures: [],
+    // Story 086 D1 review fix: a shallow spread of `DEFAULT_HOME_LAYOUT` would leave `tiles`
+    // pointing at the same array (and the same tile objects) as the shared, module-level
+    // `DEFAULT_HOME_LAYOUT` constant. Nothing mutates a `HomeLayout.tiles` array in place today,
+    // but cloning here means nothing ever could corrupt the shipped default for the rest of the
+    // process's lifetime.
+    homeLayout: { tiles: DEFAULT_HOME_LAYOUT.tiles.map((tile) => ({ ...tile })) },
   }
 }
 
@@ -133,6 +148,7 @@ export class StateStore {
           ),
           downloads: parseDownloadsSettings(doc['downloads']),
           downloadFailures: parseDownloadFailures(doc['downloadFailures']),
+          homeLayout: parseHomeLayout(doc['homeLayout']),
         }
       },
     })
@@ -250,6 +266,15 @@ export class StateStore {
       ...current,
       downloadFailures: pruneFailures(downloadFailures, Date.now()),
     })).downloadFailures
+  }
+
+  /** Story 086 D1: the dashboard's persisted tile arrangement. */
+  homeLayout(): HomeLayout {
+    return this.store.get().homeLayout
+  }
+
+  setHomeLayout(homeLayout: HomeLayout): HomeLayout {
+    return this.store.update((current) => ({ ...current, homeLayout })).homeLayout
   }
 
   /** Waits for pending writes; called on quit. */

@@ -1,4 +1,4 @@
-import { HOME_EVENTS, HOME_HANDLERS, type NewsFeed } from '@shared/modules/home'
+import { HOME_EVENTS, HOME_HANDLERS, type HomeLayout, type NewsFeed } from '@shared/modules/home'
 import type { Outcome } from '@shared/types'
 import { callModule, onModuleEvent } from '../moduleClient'
 
@@ -43,4 +43,17 @@ export async function openSlideUrl(url: string): Promise<Outcome<null>> {
  */
 export function onNewsChanged(listener: (feed: NewsFeed) => void): () => void {
   return onModuleEvent<NewsFeed>('home', HOME_EVENTS.newsChanged, listener)
+}
+
+/** Story 086 D1: the persisted dashboard tile arrangement. */
+export function getHomeLayout(): Promise<Outcome<HomeLayout>> {
+  return callModule<HomeLayout>('home', HOME_HANDLERS.getLayout)
+}
+
+export function setHomeLayout(layout: HomeLayout): Promise<Outcome<HomeLayout>> {
+  return callModule<HomeLayout>('home', HOME_HANDLERS.setLayout, layout)
+}
+
+export function resetHomeLayout(): Promise<Outcome<HomeLayout>> {
+  return callModule<HomeLayout>('home', HOME_HANDLERS.resetLayout)
 }

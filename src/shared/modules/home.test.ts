@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   HOME_EVENTS,
   HOME_HANDLERS,
+  HOME_HANDLER_SCHEMAS,
   NEWS_BUTTON_HOST_ALLOWLIST,
-  NEWS_HANDLER_SCHEMAS,
   NEWS_SCHEMA_VERSION,
   isAllowedButtonHost,
   newsBannerContentSchema,
@@ -16,13 +16,13 @@ import {
 describe('home module contract (story 082 D1)', () => {
   it('every handler has an exported payload schema', () => {
     for (const name of Object.values(HOME_HANDLERS)) {
-      expect(NEWS_HANDLER_SCHEMAS[name]).toBeDefined()
+      expect(HOME_HANDLER_SCHEMAS[name]).toBeDefined()
     }
   })
 
   it('the no-input news handlers accept undefined', () => {
-    expect(NEWS_HANDLER_SCHEMAS[HOME_HANDLERS.newsGet].safeParse(undefined).success).toBe(true)
-    expect(NEWS_HANDLER_SCHEMAS[HOME_HANDLERS.newsRefresh].safeParse(undefined).success).toBe(true)
+    expect(HOME_HANDLER_SCHEMAS[HOME_HANDLERS.newsGet].safeParse(undefined).success).toBe(true)
+    expect(HOME_HANDLER_SCHEMAS[HOME_HANDLERS.newsRefresh].safeParse(undefined).success).toBe(true)
   })
 
   it('openSlideUrl requires a non-empty string, not undefined (story 083 D5)', () => {
@@ -36,6 +36,9 @@ describe('home module contract (story 082 D1)', () => {
       newsGet: 'news.get',
       newsRefresh: 'news.refresh',
       openSlideUrl: 'slide.openUrl',
+      getLayout: 'layout.get',
+      setLayout: 'layout.set',
+      resetLayout: 'layout.reset',
     })
     expect(HOME_EVENTS).toEqual({ newsChanged: 'news.changed' })
   })

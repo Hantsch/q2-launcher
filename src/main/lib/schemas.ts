@@ -27,6 +27,12 @@ import {
   type DownloadFailure,
   type DownloadsSettings,
 } from '@shared/modules/downloads'
+import {
+  DASHBOARD_MODULE_IDS,
+  DEFAULT_HOME_LAYOUT,
+  type HomeLayout,
+  type TilePlacement,
+} from '@shared/modules/home'
 import { isLatin1Text } from '@shared/config/q2-charset'
 import { engineKindSchema, settingsObjectSchema, sourceSchema } from '@shared/schemas'
 import type { Installation, LauncherSettings, WindowState } from '@shared/types'
@@ -1050,6 +1056,67 @@ const downloadFailureObjectSchema = z.object({
  */
 export function parseDownloadFailures(raw: unknown): DownloadFailure[] {
   return parseForgivingRows(downloadFailureObjectSchema, raw)
+}
+
+/**
+ * Story 086 D1: one persisted tile placement. `moduleId` is checked against `DASHBOARD_MODULE_IDS`
+ * here - a row naming a module this build doesn't know (e.g. saved by a newer launcher, or a typo
+ * from hand-editing `state.json`) fails this schema and is dropped by `parseHomeLayout`, exactly
+ * like `parseConfigProfile`/`configProfileSchema` drop a malformed profile row. The four
+ * coordinates are checked as non-negative integers - cells are always whole, non-negative numbers
+ * (see `TilePlacement`'s own doc comment and every real producer of one: `layout.ts`'s
+ * `place`/`move`/`resize`, `DEFAULT_HOME_LAYOUT`) - which is the actual invariant this schema can
+ * check without importing grid geometry into a shape check. It deliberately does not bound a
+ * coordinate against `GRID_COLUMNS`: an over-wide-but-otherwise-well-formed tile is something a
+ * user could produce transiently mid-resize, and the layout engine (`layout.ts`) is what enforces
+ * that bound on any change, not this schema, and nothing here re-clamps a value that already made
+ * it into `state.json`.
+ */
+const tilePlacementSchema: z.ZodType<TilePlacement> = z.object({
+  moduleId: z.enum(DASHBOARD_MODULE_IDS),
+  x: z.number().int().nonnegative(),
+  y: z.number().int().nonnegative(),
+  w: z.number().int().nonnegative(),
+  h: z.number().int().nonnegative(),
+})
+
+/** Parses one tile placement, returning null (and dropping just that row) on failure. */
+function parseTilePlacement(raw: unknown): TilePlacement | null {
+  const result = tilePlacementSchema.safeParse(raw)
+  return result.success ? result.data : null
+}
+
+/**
+ * The persisted `homeLayout` top-level `state.json` key (story 086 D1). Mirrors
+ * `parseConfigProfiles`'s row-level-drop convention: a tile naming an unknown `moduleId`, or one
+ * that is otherwise malformed, is dropped on its own rather than costing the whole layout. A
+ * second row naming a `moduleId` that already appeared earlier in the array is dropped too (first
+ * occurrence wins) - the renderer keys tiles by `moduleId` in a `.map()`, so a duplicate would
+ * produce duplicate React keys; `layout.ts`'s own `place()` already refuses to create one from the
+ * app itself, so this only guards against a hand-edited or foreign file.
+ *
+ * Deliberately does **not** merge the parsed result with `DEFAULT_HOME_LAYOUT` - a layout that
+ * legitimately has only one tile (the user removed the other one) must stay a one-tile layout
+ * after a reload, not get padded back to two. Only a value that fails to parse as "an object with
+ * a `tiles` array" at all falls back to `DEFAULT_HOME_LAYOUT` wholesale - a missing/garbled key
+ * reads the same as "never customised", which is exactly what a fresh install has.
+ */
+export function parseHomeLayout(raw: unknown): HomeLayout {
+  const envelope = z
+    .object({ tiles: z.array(z.unknown()) })
+    .safeParse(raw)
+  if (!envelope.success) return { ...DEFAULT_HOME_LAYOUT }
+
+  const seenModuleIds = new Set<TilePlacement['moduleId']>()
+  const tiles = envelope.data.tiles
+    .map(parseTilePlacement)
+    .filter((tile): tile is TilePlacement => tile !== null)
+    .filter((tile) => {
+      if (seenModuleIds.has(tile.moduleId)) return false
+      seenModuleIds.add(tile.moduleId)
+      return true
+    })
+  return { tiles }
 }
 
 // IPC-payload schemas moved to `src/shared/ipc-schemas.ts` (story 036, D1) -

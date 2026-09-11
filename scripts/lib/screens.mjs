@@ -285,6 +285,79 @@ export const SCREENS = [
     },
   },
   {
+    id: 'home-dashboard',
+    variant: 'populated',
+    // Story 086 D3: the seeded, gapped `homeLayout` (scripts/lib/fixture.mjs's
+    // `populatedStateDocument()`) rendered at its stored cells - a single, specific width's whole
+    // point (AC1/AC14), so this uses one-element `viewports`, not `BOTH_VIEWPORTS`; the narrow state
+    // is `home-dashboard-narrow` below.
+    viewports: [VIEWPORT_DEFAULT],
+    navigate: async (page) => {
+      await click(page, 'nav-home')
+      await page
+        .getByTestId('home-dashboard')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      // The dashboard's own `getHomeLayout()` fetch resolves after mount - waiting for both seeded
+      // tiles' titles (Dashboard.tsx/DashboardTile.tsx, `home.dashboard.tiles.*.title`) rules out a
+      // screenshot racing that fetch, the same reason `home-hero` waits for `home-hero-frame`.
+      await page
+        .getByText('Playtime', { exact: true })
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByText('Config Profiles', { exact: true })
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'home-dashboard-narrow',
+    variant: 'populated',
+    // Story 086 D3: same seeded layout, but at `VIEWPORT_MIN` the dashboard container's own
+    // measured width falls below `NARROW_THRESHOLD_PX` (900) - Decisions (Sprint): the threshold is
+    // measured on the container, not the window, specifically so this state falls out of the two
+    // existing viewports rather than needing a third. Single-element `viewports` for the same
+    // reason as `home-dashboard` above.
+    viewports: [VIEWPORT_MIN],
+    navigate: async (page) => {
+      await click(page, 'nav-home')
+      await page
+        .getByTestId('home-dashboard')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByText('Playtime', { exact: true })
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByText('Config Profiles', { exact: true })
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'home-dashboard-arrange',
+    variant: 'populated',
+    // Story 086 D4: arrange mode's own chrome (AC14) - the catalog bar and status line docked over
+    // the grid (ArrangeBar.tsx). Single-element `viewports`, same reasoning as `home-dashboard`/
+    // `home-dashboard-narrow` above: arrange mode is unavailable/disabled while the dashboard is
+    // single-column (HomeHeader.tsx's `disabled` prop), so a narrow shot of it would show nothing
+    // new - the narrow state already has its own screen.
+    //
+    // The `populated` fixture seeds both known modules already placed
+    // (`scripts/lib/fixture.mjs`'s `populatedStateDocument()`), so the catalog is legitimately
+    // empty here - that still demonstrates "the catalog lists exactly the unplaced modules" for the
+    // empty case, and this deliberately does not touch the fixture to force a non-empty catalog
+    // just for this screenshot (`scripts/flows/home-dashboard-arrange.mjs` exercises the non-empty
+    // catalog live, by removing a tile first).
+    viewports: [VIEWPORT_DEFAULT],
+    navigate: async (page) => {
+      await click(page, 'nav-home')
+      await page
+        .getByTestId('home-dashboard')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await click(page, 'dashboard-arrange-toggle')
+      await page
+        .getByTestId('dashboard-catalog')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
     id: 'library',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,

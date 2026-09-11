@@ -25,7 +25,7 @@ what is going on.
 - [x] 085 — The content repository carries the news contract
 - [x] 083 — The hero is the news carousel
 - [x] 084 — Slide images come from the launcher's own cache
-- [ ] 086 — The dashboard is a grid I arrange myself
+- [x] 086 — The dashboard is a grid I arrange myself
 - [ ] 087 — Two tiles worth having — playtime and config profiles
 
 ## Notes

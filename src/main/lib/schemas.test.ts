@@ -4,10 +4,12 @@ import {
   parseConfigProfiles,
   parseDownloadFailures,
   parseDownloadsSettings,
+  parseHomeLayout,
   parseInstallation,
 } from './schemas'
 import { DEFAULT_DOWNLOADS_SETTINGS } from '@shared/modules/downloads'
 import type { DownloadDiagnostics } from '@shared/modules/downloads'
+import { DEFAULT_HOME_LAYOUT } from '@shared/modules/home'
 import { setProfileActionsInputSchema } from '../modules/config/schemas'
 import { legacyAliasNameFor } from '@shared/config/alias-render'
 import { bindValueFor } from '@shared/config/action-mirror'
@@ -930,6 +932,81 @@ describe('parseDownloadsSettings (story 071 D1)', () => {
     expect(
       parseDownloadsSettings({ concurrentJobs: 2, downloadWhilePlayingAllowed: 'yes' }),
     ).toEqual({ ...DEFAULT_DOWNLOADS_SETTINGS, concurrentJobs: 2 })
+  })
+})
+
+// Story 086 D1 (AC10/AC11).
+describe('parseHomeLayout (story 086 D1)', () => {
+  it('a record for an unknown module id is dropped', () => {
+    const layout = parseHomeLayout({
+      tiles: [
+        { moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 },
+        { moduleId: 'nope', x: 6, y: 0, w: 6, h: 5 },
+      ],
+    })
+    expect(layout.tiles).toEqual([{ moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 }])
+  })
+
+  it('a module missing from the layout is not inserted', () => {
+    const layout = parseHomeLayout({
+      tiles: [{ moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 }],
+    })
+    expect(layout.tiles).toEqual([{ moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 }])
+    expect(layout.tiles).toHaveLength(1)
+  })
+
+  it('garbage input falls back to the default layout', () => {
+    expect(parseHomeLayout(undefined)).toEqual(DEFAULT_HOME_LAYOUT)
+    expect(parseHomeLayout(null)).toEqual(DEFAULT_HOME_LAYOUT)
+    expect(parseHomeLayout('not an object')).toEqual(DEFAULT_HOME_LAYOUT)
+    expect(parseHomeLayout({ tiles: 'not an array' })).toEqual(DEFAULT_HOME_LAYOUT)
+  })
+
+  it('drops a tile row missing a required coordinate', () => {
+    const layout = parseHomeLayout({
+      tiles: [
+        { moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 },
+        { moduleId: 'configProfiles', x: 6, y: 0, w: 6 }, // missing h
+      ],
+    })
+    expect(layout.tiles).toEqual([{ moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 }])
+  })
+
+  // Review fix (code review of story 086): a non-integer coordinate is as malformed as a missing
+  // one, and is dropped the same way.
+  it('drops a tile row with a non-integer coordinate', () => {
+    const layout = parseHomeLayout({
+      tiles: [
+        { moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 },
+        { moduleId: 'configProfiles', x: 2.5, y: 0, w: 6, h: 5 },
+      ],
+    })
+    expect(layout.tiles).toEqual([{ moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 }])
+  })
+
+  // Review fix (code review of story 086): a negative coordinate is as malformed as a missing one,
+  // and is dropped the same way.
+  it('drops a tile row with a negative coordinate', () => {
+    const layout = parseHomeLayout({
+      tiles: [
+        { moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 },
+        { moduleId: 'configProfiles', x: 6, y: -1, w: 6, h: 5 },
+      ],
+    })
+    expect(layout.tiles).toEqual([{ moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 }])
+  })
+
+  // Review fix (code review of story 086): two rows naming the same moduleId would otherwise
+  // produce duplicate React keys in DashboardGrid/DashboardTile's `.map()`. Only the first
+  // occurrence is kept.
+  it('drops a later row that repeats a moduleId already seen, keeping the first', () => {
+    const layout = parseHomeLayout({
+      tiles: [
+        { moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 },
+        { moduleId: 'playtime', x: 6, y: 0, w: 6, h: 5 },
+      ],
+    })
+    expect(layout.tiles).toEqual([{ moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 }])
   })
 })
 
