@@ -1,6 +1,8 @@
 import { cp, mkdir, readdir, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import { RETAIL_PAK_SIZES } from '@shared/constants'
 import { ENGINE_DEFINITIONS, type EngineKind } from '@shared/types'
+import { resolveRelaxed } from '../../../lib/fs-utils'
 
 /**
  * Story 074 D3, revised by 076 D1 and 080 D2. Assembles a clean `baseq2` installation out of the
@@ -32,10 +34,20 @@ import { ENGINE_DEFINITIONS, type EngineKind } from '@shared/types'
  * - Every entry now carries `role` (which manifest package it belongs to) and `required` (whether a
  *   missing copy means the installation isn't playable). Both are unused by this file - D2/D3 will
  *   read them to report `missingRequired` - but D1 populates them correctly on every entry.
+ *
+ * Story 088 D3: a second game-data source, `dataSource: 'store-copy'`, reuses this same allowlist
+ * mechanism (AC7) rather than a second copier. Its game-data block is `baseq2/pak0.pak`+`pak1.pak`
+ * (role `'retail'`, required) plus `baseq2/pak2.pak` (role `'retail'`, optional) - never the
+ * demo/point-release entries. `pak2.pak` also carries `expectedSizeBytes`: a found-but-wrong-size
+ * file is treated exactly like a missing one (skipped, not copied) - the copier's existing "missing
+ * optional entries are silently skipped" behaviour, generalised to "wrong-size" as well as
+ * "absent", so a 3.20 pak2 that doesn't match `RETAIL_PAK_SIZES` never lands in the target.
  */
 
-/** Which manifest package (see `content/q2_community_content/gamedata/manifest.json`) an entry's source comes from. */
-export type AssembleFileRole = 'engine' | 'demo' | 'point-release'
+/** Which manifest package (see `content/q2_community_content/gamedata/manifest.json`) an entry's
+ * source comes from - or, for `'retail'`, the detected store installation being copied from
+ * (story 088 D3). */
+export type AssembleFileRole = 'engine' | 'demo' | 'point-release' | 'retail'
 
 /** One file to copy, resolved relative to a source extraction dir and to the target installation root. */
 export interface AssembleFileEntry {
@@ -47,13 +59,31 @@ export interface AssembleFileEntry {
   role: AssembleFileRole
   /** Whether a missing copy of this entry means the assembled installation is not playable. */
   required: boolean
+  /**
+   * Story 088 D3: when set, a found source file whose actual size doesn't match this exact byte
+   * count is treated as not found (skipped, never copied) - used for the optional `pak2.pak` retail
+   * entry, whose "present but wrong version" case must not silently copy unverified data.
+   */
+  expectedSizeBytes?: number
 }
 
 export interface BuildAssemblePlanInput {
-  /** Which engine this run is assembling - selects the engine-specific block below. */
-  engine: EngineKind
+  /**
+   * Which engine this run is assembling - selects the engine-specific block below. Optional
+   * (story 088 D3): `copyRetailGameData` calls `buildAssemblePlan`/`assembleInstallation` for game
+   * data only, with no engine package to copy, so an omitted `engine` yields a plan with no
+   * engine-role entries at all rather than defaulting to one engine's binaries.
+   */
+  engine?: EngineKind
   /** Whether the wizard's video/players toggle is on - see the module doc comment above. */
   includeVideoAndPlayers: boolean
+  /**
+   * Story 088 D3: which game-data block this plan copies - the demo + point-release archives
+   * (`'free-download'`, [[074]]'s original and only source) or a detected retail installation's
+   * own `baseq2` (`'store-copy'`, [[088]]). Defaults to `'free-download'` so every caller that
+   * predates this story keeps compiling and behaving unchanged.
+   */
+  dataSource?: 'free-download' | 'store-copy'
 }
 
 /** The q2pro engine definition. */
@@ -96,6 +126,28 @@ function buildGameDataEntries(): AssembleFileEntry[] {
     // Point-release package (`q2-3.20-x86-full-ctf.exe`).
     { from: ['baseq2/pak1.pak'], to: 'baseq2/pak1.pak', role: 'point-release', required: true },
     { from: ['baseq2/pak2.pak'], to: 'baseq2/pak2.pak', role: 'point-release', required: true },
+  ]
+}
+
+/**
+ * Story 088 D3: the `'store-copy'` game-data block - a detected retail installation's own
+ * `baseq2/pak0.pak`/`pak1.pak` (required) plus `baseq2/pak2.pak` (optional, and only when its size
+ * matches `RETAIL_PAK_SIZES['pak2.pak']` - see `expectedSizeBytes` and `assembleInstallation`'s
+ * copy loop). No demo or point-release entry ever appears here - AC7's "baseq2 only, no ctf/xatrix/
+ * rogue" is already guaranteed by this being a fixed allowlist of exactly three files, same as the
+ * free-download block above.
+ */
+function buildRetailGameDataEntries(): AssembleFileEntry[] {
+  return [
+    { from: ['baseq2/pak0.pak'], to: 'baseq2/pak0.pak', role: 'retail', required: true },
+    { from: ['baseq2/pak1.pak'], to: 'baseq2/pak1.pak', role: 'retail', required: true },
+    {
+      from: ['baseq2/pak2.pak'],
+      to: 'baseq2/pak2.pak',
+      role: 'retail',
+      required: false,
+      expectedSizeBytes: RETAIL_PAK_SIZES['pak2.pak'],
+    },
   ]
 }
 
@@ -166,9 +218,12 @@ export const GLOB_DIRS: GlobDirEntry[] = [
  * against whichever source dir actually has them.
  *
  * Dispatches on `input.engine` for the engine-specific block; the game-data entries (demo,
- * point-release) are the same regardless of engine. `buildAssemblePlan` is only ever called with
- * an engine from `BOOTSTRAP_SUPPORTED_ENGINES` (the wizard/job gate it upstream), so an unknown
- * engine here throws rather than silently falling back to Q2PRO's plan.
+ * point-release, or - story 088 D3 - retail) are the same regardless of engine, and selected by
+ * `input.dataSource` rather than by engine. `buildAssemblePlan` is only ever called with an engine
+ * from `BOOTSTRAP_SUPPORTED_ENGINES` (the wizard/job gate it upstream), so an unknown engine here
+ * throws rather than silently falling back to Q2PRO's plan. `engine` may be omitted entirely
+ * (story 088 D3's `copyRetailGameData`, which copies game data only) - the plan then carries no
+ * engine-role entries at all.
  */
 export function buildAssemblePlan(input: BuildAssemblePlanInput): AssembleFileEntry[] {
   // `video/*`/`players/*` are not literal entries here - a glob is not a relative path. When the
@@ -176,7 +231,13 @@ export function buildAssemblePlan(input: BuildAssemblePlanInput): AssembleFileEn
   // dir actually has them, rather than this pure function guessing file names in advance.
   void input.includeVideoAndPlayers
 
-  const gameData = buildGameDataEntries()
+  const gameData =
+    input.dataSource === 'store-copy' ? buildRetailGameDataEntries() : buildGameDataEntries()
+
+  if (input.engine === undefined) {
+    return gameData
+  }
+
   switch (input.engine) {
     case 'q2pro':
       return [...gameData, ...buildQ2proEngineEntries()]
@@ -209,9 +270,14 @@ export interface AssembleInstallationInput {
   sources: AssembleSource[]
   /** Absolute path to the installation root being assembled. */
   targetRoot: string
-  /** Which engine this run is assembling - selects the engine-specific allowlist entries. */
-  engine: EngineKind
+  /**
+   * Which engine this run is assembling - selects the engine-specific allowlist entries. Optional
+   * (story 088 D3): `copyRetailGameData` assembles game data only, with no engine entries.
+   */
+  engine?: EngineKind
   includeVideoAndPlayers: boolean
+  /** Story 088 D3: forwarded to `buildAssemblePlan` - see its own doc comment. */
+  dataSource?: 'free-download' | 'store-copy'
 }
 
 /**
@@ -261,7 +327,17 @@ async function findSource(
   const roleSources = sources.filter((source) => source.role === role)
   for (const relativePath of candidates) {
     for (const source of roleSources) {
-      const absolutePath = join(source.dir, relativePath)
+      // Story 088 fix cycle (review F2): a `'retail'` source is a detected store installation, not
+      // one of this launcher's own extractions - `inspectRetailSource` (`retail-source.ts`) already
+      // resolves its `baseq2`/`pakN.pak` children case-insensitively, so the copier has to resolve
+      // the exact same way. Resolving this candidate case-sensitively (`join` + `stat`) could pass
+      // inspection and `verifyCopySource`'s re-check against a source spelled e.g.
+      // `Baseq2/PAK0.PAK`, then fail here on a case-sensitive filesystem, after the installation is
+      // already registered. Every other role's sources are this launcher's own extractions, whose
+      // layout is already known exactly, so they keep the cheap case-sensitive `join`.
+      const absolutePath =
+        role === 'retail' ? await resolveRelaxed(source.dir, relativePath) : join(source.dir, relativePath)
+      if (absolutePath === null) continue
       try {
         await stat(absolutePath)
         return { absolutePath, relativePath, packageId: source.packageId }
@@ -301,12 +377,12 @@ async function expandGlobDir(
 export async function assembleInstallation(
   input: AssembleInstallationInput,
 ): Promise<AssembleInstallationResult> {
-  const { sources, targetRoot, engine, includeVideoAndPlayers } = input
+  const { sources, targetRoot, engine, includeVideoAndPlayers, dataSource } = input
   const copiedFiles: string[] = []
   const missingRequired: { role: AssembleFileRole; from: string[] }[] = []
   const entries: AssembleEntryResult[] = []
 
-  const plan = buildAssemblePlan({ engine, includeVideoAndPlayers })
+  const plan = buildAssemblePlan({ engine, includeVideoAndPlayers, dataSource })
   for (const entry of plan) {
     const source = await findSource(sources, entry.from, entry.role)
     if (!source) {
@@ -315,6 +391,20 @@ export async function assembleInstallation(
         missingRequired.push({ role: entry.role, from: entry.from })
       }
       continue
+    }
+
+    // Story 088 D3: a found-but-wrong-size file (only `pak2.pak` sets `expectedSizeBytes` today)
+    // is treated exactly like a missing one - skipped, never copied. `pak2.pak` is never
+    // `required`, so this never adds to `missingRequired`.
+    if (entry.expectedSizeBytes !== undefined) {
+      const sourceStat = await stat(source.absolutePath)
+      if (sourceStat.size !== entry.expectedSizeBytes) {
+        entries.push({ from: entry.from.join(' | '), to: entry.to, found: false })
+        if (entry.required) {
+          missingRequired.push({ role: entry.role, from: entry.from })
+        }
+        continue
+      }
     }
 
     entries.push({

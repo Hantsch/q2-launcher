@@ -224,7 +224,12 @@ export function childEnv(extraEnv = {}) {
   env.Q2L_UI_PICK_FILES = importFilesFixturePaths().join(delimiter)
   // Story 074 D8: per-launch additions a caller computed only moments before the launch - the
   // bootstrap-wizard flow's fixture server port (`Q2L_UI_CONTENT_REPO_BASE`), its stubbed folder
-  // pick (`Q2L_UI_PICK_FOLDER`) and its fake `ProgramFiles` root. Applied LAST, on purpose: this
+  // pick (`Q2L_UI_PICK_FOLDER`) and its fake `ProgramFiles` root. Story 088 D6 adds a third of the
+  // same kind, `Q2L_UI_HARNESS_STORE_SOURCES` (the fixture Steam/GOG installations
+  // `scripts/flows/bootstrap-retail-import.mjs` writes moments earlier, JSON-encoded - resolved by
+  // `resolveDetectedRetailSourcesOverride()` under the same double gate). None of them is set here:
+  // each comes from its own flow's `setup()` return value, so a launch that is not that flow never
+  // carries it at all. Applied LAST, on purpose: this
   // is the only way to override `ProgramFiles`, which the parent shell always has set, and the
   // flow's whole AC2 case is a target the app believes lives under Program Files without the run
   // ever writing anywhere near the real one. Undefined values delete the key, so a caller can also

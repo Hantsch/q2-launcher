@@ -6,6 +6,7 @@ import type {
   BootstrapEngineOption,
   BootstrapSummary,
   BootstrapTargetVerdict,
+  DetectedRetailSource,
   DownloadFailure,
 } from '@shared/modules/downloads'
 import type { Job } from '@shared/types'
@@ -64,6 +65,8 @@ const summary: BootstrapSummary = {
   totalSizeBytes: 3_000_000,
   packages: [{ id: 'demo-data', role: 'demo', version: '1.0', sizeBytes: 3_000_000 }],
   includeVideoAndPlayers: false,
+  // Story 088 D4: every summary now states its data source; [[074]]'s wizard means this one.
+  dataSource: 'free-download',
 }
 
 const getDownloadFailures = vi.fn(async (): Promise<{ ok: true; value: DownloadFailure[] }> => ({
@@ -76,14 +79,21 @@ const startBootstrapInstall = vi.fn(async () => ({
   ok: true,
   value: { jobId: 'job-1', installationId: 'inst-1' },
 }))
+const getBootstrapSummary = vi.fn(async () => ({ ok: true, value: summary }))
+// Story 088 D5: no detected sources by default - the existing (pre-088) flows never see the
+// copy choice at all, matching AC1's "absent when none is found".
+const getDetectedRetailSources = vi.fn(
+  async (): Promise<{ ok: true; value: DetectedRetailSource[] }> => ({ ok: true, value: [] }),
+)
 
 vi.mock('../client', () => ({
   getBootstrapEngineOptions: (...args: unknown[]) =>
     getBootstrapEngineOptions(...(args as [])),
   getBootstrapTargetVerdict: vi.fn(async () => ({ ok: true, value: verdict })),
-  getBootstrapSummary: vi.fn(async () => ({ ok: true, value: summary })),
+  getBootstrapSummary: (...args: unknown[]) => getBootstrapSummary(...(args as [])),
   startBootstrapInstall: (...args: unknown[]) => startBootstrapInstall(...(args as [])),
   getDownloadFailures: (...args: unknown[]) => getDownloadFailures(...(args as [])),
+  getDetectedRetailSources: (...args: unknown[]) => getDetectedRetailSources(...(args as [])),
 }))
 
 function makeJob(overrides: Partial<Job> = {}): Job {
@@ -131,6 +141,9 @@ async function runToRunningStep(): Promise<void> {
   render(createElement(BootstrapWizard))
 
   await screen.findByTestId('bootstrap-engine-q2pro')
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+  await screen.findByTestId('bootstrap-gamedata-choice-free-download')
   fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
   await screen.findByTestId('bootstrap-target-path-input')
@@ -304,6 +317,9 @@ describe('BootstrapWizard engine selection (story 080 D2, AC1)', () => {
     expect(screen.getByTestId('bootstrap-engine-q2pro').getAttribute('aria-pressed')).toBe('false')
 
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByTestId('bootstrap-gamedata-choice-free-download')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
     await screen.findByTestId('bootstrap-target-path-input')
     fireEvent.click(screen.getByRole('button', { name: 'Browse…' }))
     await waitFor(() =>
@@ -330,6 +346,182 @@ describe('BootstrapWizard engine selection (story 080 D2, AC1)', () => {
     await waitFor(() =>
       expect(startBootstrapInstall).toHaveBeenCalledWith(
         expect.objectContaining({ engine: 'r1q2' }),
+      ),
+    )
+  })
+})
+
+/**
+ * Story 088 D5: the wizard's new game-data step - AC1 (copy option absent when nothing was
+ * detected), AC2 (multi-source picker showing store + path), AC3 (an unverified entry stays
+ * listed but not selectable, with its reason), the toggle-availability rule (disabled with a
+ * reason when the chosen source has neither `baseq2/video` nor `baseq2/players`), and AC5 (the
+ * confirm step naming the copy source, the engine-only download and the target).
+ */
+describe('BootstrapWizard game-data step (story 088 D5)', () => {
+  const verifiedSource: DetectedRetailSource = {
+    source: 'steam',
+    rootPath: 'C:\\Steam\\Quake II',
+    inspection: {
+      rootPath: 'C:\\Steam\\Quake II',
+      pak0: { exists: true, sizeBytes: 16_575_982, matchesRetailSize: true },
+      pak1: { exists: true, sizeBytes: 29_257_930, matchesRetailSize: true },
+      pak2: { exists: false, sizeBytes: null, matchesRetailSize: false },
+      verified: true,
+      hasVideo: false,
+      hasPlayers: false,
+    },
+  }
+
+  const unverifiedSource: DetectedRetailSource = {
+    source: 'gog',
+    rootPath: 'D:\\GOG\\Quake II',
+    inspection: {
+      rootPath: 'D:\\GOG\\Quake II',
+      pak0: { exists: true, sizeBytes: 999, matchesRetailSize: false },
+      pak1: { exists: true, sizeBytes: 29_257_930, matchesRetailSize: true },
+      pak2: { exists: false, sizeBytes: null, matchesRetailSize: false },
+      verified: false,
+      unverifiedReason: 'bootstrap.retailSource.pak0SizeMismatch',
+      hasVideo: false,
+      hasPlayers: false,
+    },
+  }
+
+  it('offers only the free-download choice when no source was detected (AC1)', async () => {
+    render(createElement(BootstrapWizard))
+
+    await screen.findByTestId('bootstrap-engine-q2pro')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    await screen.findByTestId('bootstrap-gamedata-choice-free-download')
+    expect(screen.queryByTestId('bootstrap-gamedata-choice-store-copy')).toBeNull()
+  })
+
+  it('Next stays disabled on the game-data step until detected sources resolve, even for the free-download default (review F4)', async () => {
+    // Before the fix, `canProceed.gameData` was `true` for the default `'free-download'` choice
+    // regardless of `detectedSources` - a fast user could click Next before
+    // `getDetectedRetailSources()` ever resolved, skipping straight past a copy option they may
+    // never have seen. Held open here with a deferred promise so the loading window is observable.
+    let resolveSources: (value: { ok: true; value: DetectedRetailSource[] }) => void = () => {}
+    getDetectedRetailSources.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSources = resolve
+      }),
+    )
+
+    render(createElement(BootstrapWizard))
+
+    await screen.findByTestId('bootstrap-engine-q2pro')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    // Still on the game-data step (its loading message, per `GameDataStep`'s own
+    // `sources === null` branch) - and Next is disabled for exactly that window.
+    await screen.findByText('Checking for installations you already own…')
+    expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true)
+
+    act(() => resolveSources({ ok: true, value: [] }))
+
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+  })
+
+  it('renders a picker with store + path for each detected source, and keeps an unverified one listed but unselectable, showing its reason (AC2/AC3)', async () => {
+    getDetectedRetailSources.mockResolvedValueOnce({
+      ok: true,
+      value: [verifiedSource, unverifiedSource],
+    })
+
+    render(createElement(BootstrapWizard))
+
+    await screen.findByTestId('bootstrap-engine-q2pro')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    await screen.findByTestId('bootstrap-gamedata-choice-store-copy')
+    fireEvent.click(screen.getByTestId('bootstrap-gamedata-choice-store-copy'))
+
+    const verifiedRow = await screen.findByTestId('bootstrap-gamedata-source-0')
+    expect(verifiedRow.textContent).toContain('Steam')
+    expect(verifiedRow.textContent).toContain('C:\\Steam\\Quake II')
+    expect((verifiedRow as HTMLButtonElement).disabled).toBe(false)
+    // Defaults to the first verified source - Next is already enabled with zero extra clicks.
+    expect(verifiedRow.getAttribute('aria-pressed')).toBe('true')
+
+    const unverifiedRow = screen.getByTestId('bootstrap-gamedata-source-1')
+    expect(unverifiedRow.textContent).toContain('GOG')
+    expect(unverifiedRow.textContent).toContain('D:\\GOG\\Quake II')
+    expect((unverifiedRow as HTMLButtonElement).disabled).toBe(true)
+
+    // Story 088 fix cycle (review F3): the actual mismatched size is interpolated in, so the first
+    // affected user report already carries the number a later story needs.
+    expect(screen.getByTestId('bootstrap-gamedata-source-1-unverified').textContent).toBe(
+      'pak0.pak in this installation does not match the known retail size (found 999 B), so it could not be verified as retail.',
+    )
+
+    // Clicking the disabled row must not change the selection.
+    fireEvent.click(unverifiedRow)
+    expect(screen.getByTestId('bootstrap-gamedata-source-0').getAttribute('aria-pressed')).toBe('true')
+
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+  })
+
+  it('disables the video/players toggle with a reason when the chosen source has neither directory, and the confirm step names the copy source, the engine-only download and the target (toggle rule, AC5)', async () => {
+    getDetectedRetailSources.mockResolvedValueOnce({ ok: true, value: [verifiedSource] })
+    getBootstrapSummary.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        targetPath: 'D:\\Games\\Quake II',
+        engine: 'q2pro',
+        totalSizeBytes: 1_000_000,
+        packages: [{ id: 'engine-q2pro', role: 'engine', version: '1.0.0', sizeBytes: 1_000_000 }],
+        includeVideoAndPlayers: false,
+        dataSource: 'store-copy',
+        copySource: { path: 'C:\\Steam\\Quake II', store: 'steam' },
+      } satisfies BootstrapSummary,
+    })
+
+    render(createElement(BootstrapWizard))
+
+    await screen.findByTestId('bootstrap-engine-q2pro')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    await screen.findByTestId('bootstrap-gamedata-choice-store-copy')
+    fireEvent.click(screen.getByTestId('bootstrap-gamedata-choice-store-copy'))
+    await screen.findByTestId('bootstrap-gamedata-source-0')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    await screen.findByTestId('bootstrap-target-path-input')
+    fireEvent.click(screen.getByRole('button', { name: 'Browse…' }))
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    await screen.findByTestId('bootstrap-confirm-total-size')
+
+    expect(screen.getByTestId('bootstrap-confirm-include-extras-disabled').textContent).toBe(
+      'This installation has no videos or player models to copy.',
+    )
+    const copySource = screen.getByTestId('bootstrap-confirm-copy-source')
+    expect(copySource.textContent).toContain('Steam')
+    expect(copySource.textContent).toContain('C:\\Steam\\Quake II')
+    expect(screen.getByTestId('bootstrap-confirm-total-size').textContent).toBeTruthy()
+    expect(screen.getByTestId('bootstrap-confirm-target-path').textContent).toBe(
+      'D:\\Games\\Quake II',
+    )
+
+    await waitFor(() =>
+      expect(getBootstrapSummary).toHaveBeenCalledWith(
+        expect.objectContaining({ dataSource: 'store-copy', copySourcePath: 'C:\\Steam\\Quake II' }),
       ),
     )
   })

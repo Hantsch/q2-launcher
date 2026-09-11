@@ -7,6 +7,7 @@ import {
   type BootstrapSummary,
   type BootstrapTargetVerdict,
   type ClearArchiveCacheResult,
+  type DetectedRetailSource,
   type DownloadFailure,
   type DownloadsSettings,
   type ManifestSnapshot,
@@ -30,6 +31,7 @@ import {
   realR1q2Setup,
 } from './bootstrap/ports'
 import { resolveR1q2LicensePath } from './bootstrap/r1q2-setup'
+import { listDetectedRetailSources } from './bootstrap/retail-source'
 import { computeTargetVerdict } from './bootstrap/target'
 import { clear, enforceBudget, NOTHING_IN_USE, status } from './cache'
 import {
@@ -39,7 +41,11 @@ import {
   UNKNOWN_DOWNLOAD_FAILURE_KEY,
 } from './diagnostics'
 import { appendFailure, dismissFailure, restoreFailure } from './failure-log'
-import { PRODUCTION_DOWNLOAD_SOURCE, resolveDownloadSource } from './harness'
+import {
+  PRODUCTION_DOWNLOAD_SOURCE,
+  resolveDetectedRetailSourcesOverride,
+  resolveDownloadSource,
+} from './harness'
 import { ManifestService, ManifestUnavailableError } from './manifest-service'
 import {
   createDownloadPipeline,
@@ -49,6 +55,7 @@ import {
 } from './pipeline'
 import {
   bootstrapEngineOptionsInputSchema,
+  bootstrapRetailSourcesInputSchema,
   bootstrapSummaryInputSchema,
   bootstrapTargetVerdictInputSchema,
   dismissFailureInputSchema,
@@ -173,7 +180,34 @@ export const downloadsModule: MainModule = {
       DOWNLOADS_HANDLERS.bootstrapSummary,
       bootstrapSummaryInputSchema,
       (input): Promise<Outcome<BootstrapSummary>> =>
-        buildBootstrapSummary({ manifest: manifestSourceFrom(manifestService, log) }, input),
+        buildBootstrapSummary(
+          {
+            manifest: manifestSourceFrom(manifestService, log),
+            // Story 088 D4 (AC5): the same lister the job re-verifies against, so the store name
+            // the confirm step shows and the source the run accepts come from one list.
+            retailSources: () => detectedRetailSourcesFor(app),
+          },
+          input,
+        ),
+    )
+
+    /**
+     * Story 088 D2 (AC1/AC2): the detected Steam/GOG/Epic sources the game-data step can offer to
+     * copy from - a fast-pass-only `app.detection.scan({})` filtered to store sources and already
+     * inspected (`listDetectedRetailSources`). No failure mode of its own (like
+     * `bootstrapEngineOptions` above): an empty array is "nothing detected", which the wizard
+     * renders by not offering the option at all (AC1).
+     *
+     * Story 088 D2's harness override (`resolveDetectedRetailSourcesOverride`) lets a UI-
+     * verification flow substitute fixture sources for the real scan, under the same double gate as
+     * `resolveDownloadSource` above - resolved fresh on every call, unlike that source (which is
+     * resolved once at `setup()`), because a flow needs to change its fixture between wizard runs
+     * within the same launch.
+     */
+    handle(
+      DOWNLOADS_HANDLERS.bootstrapRetailSources,
+      bootstrapRetailSourcesInputSchema,
+      (): Promise<DetectedRetailSource[]> => detectedRetailSourcesFor(app),
     )
 
     /**
@@ -434,6 +468,23 @@ function createPipelineFor(app: AppContext, log?: PipelineLog): DownloadPipeline
  * `BootstrapInstallationsHost` is satisfied structurally, so nothing in this module can reach past
  * `create`/`validate`/`remove` into the library.
  */
+/**
+ * Story 088 D2/D4: the detected Steam/GOG/Epic retail sources, as *main* sees them right now -
+ * the `bootstrap.retailSources` handler's answer and the list `startBootstrap` re-verifies a
+ * `store-copy` run's `copySourcePath` against are deliberately the same function call, so the wizard
+ * cannot be offered a source the job would then refuse (or vice versa).
+ *
+ * The harness override is resolved fresh on every call, unlike the download source (resolved once at
+ * `setup()`), because a UI-verification flow needs to change its fixture between wizard runs within
+ * one launch - under the same double gate (`Q2L_UI_HARNESS === '1' && isDev`), so a packaged build
+ * always reaches the real `listDetectedRetailSources`.
+ */
+function detectedRetailSourcesFor(app: AppContext): Promise<DetectedRetailSource[]> {
+  const override = resolveDetectedRetailSourcesOverride({ isDev: app.isDev })
+  if (override !== undefined) return Promise.resolve(override)
+  return listDetectedRetailSources({ detection: app.detection })
+}
+
 function bootstrapDepsFor(
   app: AppContext,
   manifestService: ManifestService,
@@ -443,6 +494,8 @@ function bootstrapDepsFor(
     jobs: app.jobs,
     installations: app.installations,
     manifest: manifestSourceFrom(manifestService, log),
+    // Story 088 D4: main's own list, re-derived per run - never anything the renderer sent.
+    retailSources: () => detectedRetailSourcesFor(app),
     fetcher: realPackageFetcher,
     extractor: realExtractor,
     r1q2Setup: realR1q2Setup,

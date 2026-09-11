@@ -4,14 +4,18 @@ import { join } from 'node:path'
 import { BASE_GAME_DIR } from '@shared/constants'
 import {
   DEFAULT_BOOTSTRAP_INSTALLATION_NAME,
+  type BootstrapDataSource,
   type BootstrapSummary,
+  type BootstrapSummaryCopySource,
   type BootstrapSummaryPackage,
+  type DetectedRetailSource,
   type DownloadsErrorKey,
   type ManifestPackage,
   type PackageSource,
   type StartBootstrapInput,
 } from '@shared/modules/downloads'
 import {
+  engineLabel,
   fail,
   ok,
   type CreateInstallationInput,
@@ -26,6 +30,7 @@ import {
   type RemoveInstallationInput,
   type UpdateInstallationInput,
 } from '@shared/types'
+import { canonicalizePath, pathKey } from '../../../lib/fs-utils'
 import type { CreateJobInput } from '../../../services/jobs'
 import { EXTRACTION_LISTING_CAP } from '../diagnostics'
 import { markVerified, type ExtractorHandle } from '../extractor'
@@ -45,6 +50,8 @@ import {
   NOT_PLAYABLE,
   PACKAGE_INCOMPLETE,
   PACKAGE_UNAVAILABLE,
+  RETAIL_COPY_INCOMPLETE,
+  RETAIL_SOURCE_UNVERIFIED,
 } from './errors'
 import type {
   BootstrapDiagnosticsSource,
@@ -80,8 +87,17 @@ import { computeTargetVerdict } from './target'
  *    `computeTargetVerdict` even though the wizard's target step already showed a verdict - "paths
  *    from the renderer are never trusted" (CLAUDE.md). A `blocked` verdict stops everything before
  *    a single byte or directory exists. The canonical path from the verdict is what gets used.
- * 2. **Resolve all three packages** (pinned engine build, `role: 'demo'`, `role: 'point-release'`).
- *    Missing any one of them fails *before* anything is created, on disk or in the library.
+ * 1b. **Re-verify the copy source** (story 088 D4, `store-copy` runs only). The wizard's *other*
+ *    renderer-supplied path, re-judged the same way and for the same reason: main re-lists the
+ *    detected retail sources itself (`deps.retailSources`, which re-inspects each one) and refuses
+ *    the run with `downloads.error.retailSourceUnverified` unless the chosen path is among them and
+ *    still verifies as retail. Placed here, before step 2, so a refusal registers nothing, creates
+ *    no folder and leaves no half-built installation - and what is copied from afterwards is the
+ *    `rootPath` off main's own list entry, never the string the renderer sent.
+ * 2. **Resolve the packages**: the pinned engine build, plus - for a `free-download` run only -
+ *    `role: 'demo'` and `role: 'point-release'`. Missing any one of them fails *before* anything is
+ *    created, on disk or in the library. A `store-copy` run downloads the engine and nothing else
+ *    (088 AC4): its game data is copied from the verified source instead.
  * 3. **Register the installation** (`InstallationsService.create()`), whose status comes from
  *    `inspectInstallation` reading the freshly created, still empty skeleton - so the library shows
  *    a real entry with a real verdict from the very first moment (Decisions (Sprint)). Story 077 D3:
@@ -94,6 +110,14 @@ import { computeTargetVerdict } from './target'
  *    `<cache>/extract/<jobId>/<packageId>` directory - one per package, since a single job now
  *    holds three archives.
  * 6. **Assemble core** - `assembleInstallation({ includeVideoAndPlayers: false })`, D3's allowlist.
+ *    Story 088 D4: a `store-copy` run adds the verified retail root to `sources` as a plain
+ *    `AssembleSource` with `role: 'retail'` (Decisions (Sprint): "the retail install root is just
+ *    another assemble source") and passes `dataSource: 'store-copy'`, so this one pass copies the
+ *    engine payload out of the downloaded archive *and* pak0/pak1(+pak2) out of that root - in the
+ *    very place the free-download path copies them out of the demo/point-release extractions, and
+ *    therefore still strictly before step 7's first playability revalidation. `copyRetailGameData`
+ *    (`retail-source.ts`) is that same call with the engine half omitted; the job needs both halves
+ *    in one pass, or `missingRequired` and the assembly diagnostics would each see half a plan.
  *    Story 076 D3: if that pass reports a *required* entry no source dir could satisfy, the job
  *    fails here with `downloads.error.packageIncomplete` naming the package - before the first
  *    revalidation, so the report says which archive came up empty instead of only that the result
@@ -218,6 +242,14 @@ const ASSEMBLE_AUX_RATIO = 0.97
  */
 const SAFE_PATH_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/
 
+/**
+ * Story 088 D4: the `AssembleSource.packageId` a `store-copy` run's retail root enters assembly
+ * under. Not a `ManifestPackage.id` - nothing was downloaded for it - but the field is what the
+ * assembly diagnostics attribute a copied file to, so it gets the same pseudo-id
+ * `copyRetailGameData` (`retail-source.ts`) already uses for the identical source.
+ */
+const RETAIL_SOURCE_PACKAGE_ID = 'retail-source'
+
 /** Directories the job may have created inside the target, deepest first - see the cleanup note. */
 const PRUNABLE_TARGET_DIRS = [
   join(BASE_GAME_DIR, 'video'),
@@ -314,6 +346,18 @@ export interface BootstrapDeps {
   jobs: BootstrapJobsHost
   installations: BootstrapInstallationsHost
   manifest: ManifestSource
+  /**
+   * Story 088 D4: main's own, freshly computed list of detected retail sources -
+   * `listDetectedRetailSources` (`retail-source.ts`) in production, through the same resolution the
+   * `bootstrap.retailSources` handler uses (`../index.ts`), so the wizard and the job can never be
+   * looking at two different lists.
+   *
+   * Required, not optional: a `store-copy` run may only ever copy from a source main itself listed
+   * *at that moment* (it re-inspects each one), so "the job has no way to check" must be a compile
+   * error at the wiring rather than a run that quietly trusts the renderer. Called exactly once per
+   * `store-copy` run, before anything is registered; a `free-download` run never calls it at all.
+   */
+  retailSources: () => Promise<DetectedRetailSource[]>
   fetcher: PackageFetcher
   extractor: Extractor
   /** `app.getPath('userData')`; the download cache and the extract directories are built from it. */
@@ -393,26 +437,35 @@ export function toPackageSource(pkg: ManifestPackage): PackageSource | undefined
 }
 
 /**
- * The three packages a bootstrap installs, in download (and `sources`) order: the engine build
- * first, then the demo data, then the point release. That order is also the order
- * `assembleInstallation` searches for each allowlisted file, so it decides who wins for a file two
- * archives both contain - the engine build for its own payload, the demo for `baseq2/pak0.pak`, and
- * the point release only for what neither of the first two brought.
+ * The packages a bootstrap downloads, in download (and `sources`) order: the engine build first,
+ * then - for a `free-download` run - the demo data and the point release. That order is also the
+ * order `assembleInstallation` searches for each allowlisted file, so it decides who wins for a file
+ * two archives both contain - the engine build for its own payload, the demo for `baseq2/pak0.pak`,
+ * and the point release only for what neither of the first two brought.
+ *
+ * Story 088 D4 (AC4): a `store-copy` run resolves the **engine package only**. Its `baseq2` comes
+ * out of a retail installation the user already owns, so resolving (let alone downloading) the demo
+ * or the point release would be both pointless and a way for an unrelated manifest gap to fail a run
+ * that needs nothing from it.
  */
 async function resolvePackages(
   manifest: ManifestSource,
   engine: EngineKind,
+  dataSource: BootstrapDataSource,
 ): Promise<Outcome<BootstrapPackage[]>> {
   const resolved: BootstrapPackage[] = []
 
   const entries: Array<{
     role: BootstrapSummaryPackage['role']
     pkg: ManifestPackage | undefined
-  }> = [
-    { role: 'engine', pkg: await manifest.resolveEnginePackage(engine) },
-    { role: 'demo', pkg: await manifest.resolveGameDataPackage('demo') },
-    { role: 'point-release', pkg: await manifest.resolveGameDataPackage('point-release') },
-  ]
+  }> = [{ role: 'engine', pkg: await manifest.resolveEnginePackage(engine) }]
+
+  if (dataSource === 'free-download') {
+    entries.push(
+      { role: 'demo', pkg: await manifest.resolveGameDataPackage('demo') },
+      { role: 'point-release', pkg: await manifest.resolveGameDataPackage('point-release') },
+    )
+  }
 
   for (const entry of entries) {
     if (entry.pkg === undefined) return fail(PACKAGE_UNAVAILABLE, { role: entry.role })
@@ -429,24 +482,108 @@ async function resolvePackages(
   return ok(resolved)
 }
 
+/**
+ * Story 088 D4: the one comparison "is this the folder main detected?" is ever decided by -
+ * `canonicalizePath` + `pathKey` (`lib/fs-utils.ts`), the same pair `InstallationsService`'s
+ * duplicate guard and `findByRootPath` use. So junction/symlink spellings, a trailing separator and
+ * (on Windows/macOS) case cannot make a detected source look like a different folder, and cannot
+ * make an undetected one look like a detected one either.
+ */
+async function findDetectedSource(
+  detected: DetectedRetailSource[],
+  copySourcePath: string,
+): Promise<DetectedRetailSource | undefined> {
+  const wanted = pathKey(await canonicalizePath(copySourcePath))
+  for (const entry of detected) {
+    if (pathKey(await canonicalizePath(entry.rootPath)) === wanted) return entry
+  }
+  return undefined
+}
+
+/**
+ * Story 088 D4: re-resolves the renderer's chosen copy source against main's own, freshly listed
+ * detected sources (Decisions (Sprint): "main re-lists the detected sources and re-inspects the path
+ * before copying; a path that is not among them - or no longer verifies - fails with a
+ * `downloads.error.*` key").
+ *
+ * Two conditions, both required and neither widened: the path is one main just listed, **and** that
+ * entry's fresh `inspection.verified` is true. The list is produced by `listDetectedRetailSources`,
+ * which re-runs `inspectRetailSource` per candidate, so "verified" here is a fact about the disk as
+ * of this call and not a value the wizard carried over from its own earlier call.
+ *
+ * Answers the source main listed - callers copy from *that* `rootPath`, not from `copySourcePath`.
+ */
+async function verifyCopySource(
+  deps: { retailSources: () => Promise<DetectedRetailSource[]> },
+  copySourcePath: string | undefined,
+): Promise<Outcome<DetectedRetailSource>> {
+  // A `store-copy` run with no source at all: refused by `startBootstrapInputSchema` before it can
+  // ever reach a handler, so this is the in-process caller's equivalent - never a silent fallback
+  // to the free download, which would install demo data under a retail run's name.
+  if (copySourcePath === undefined || copySourcePath.length === 0) {
+    return fail(RETAIL_SOURCE_UNVERIFIED, { reason: 'pathMissing' })
+  }
+
+  const detected = await deps.retailSources()
+  const match = await findDetectedSource(detected, copySourcePath)
+  if (!match) return fail(RETAIL_SOURCE_UNVERIFIED, { reason: 'notDetected' })
+  if (!match.inspection.verified) {
+    return fail(RETAIL_SOURCE_UNVERIFIED, {
+      reason: match.inspection.unverifiedReason ?? 'unverified',
+    })
+  }
+  return ok(match)
+}
+
 export interface BuildBootstrapSummaryInput {
   engine: EngineKind
   /** Echoed into the summary; the confirm step shows the path the target step already resolved. */
   targetPath: string
   includeVideoAndPlayers: boolean
+  /** Story 088 D4: see `StartBootstrapInput.dataSource` - same default, same meaning. */
+  dataSource?: BootstrapDataSource
+  /** Story 088 D4: see `StartBootstrapInput.copySourcePath`. */
+  copySourcePath?: string
 }
 
 /**
- * Story 074 AC4: what the wizard's confirm step states before anything is downloaded - the three
+ * Story 074 AC4: what the wizard's confirm step states before anything is downloaded - the
  * packages and their summed size. Resolves through the same `ManifestSource` port and the same
  * `resolvePackages` the job itself uses, so the confirm step can never name a different set of
  * packages (or a different total) than the job goes on to fetch.
+ *
+ * Story 088 D4 (AC5): for a `store-copy` run that is the engine package *alone* - the same thing
+ * `resolvePackages` tells the job - plus the copy source it would read from. The store name is
+ * looked up in main's own detected-source list rather than taken from the wizard; a path that list
+ * no longer holds simply yields no store here, since refusing the run is `startBootstrap`'s job and
+ * a summary that failed would leave the confirm step with nothing to explain.
  */
 export async function buildBootstrapSummary(
-  deps: { manifest: ManifestSource },
+  deps: {
+    manifest: ManifestSource
+    /** Story 088 D4: as on `BootstrapDeps`, but optional - a caller that only ever summarises
+     * free-download runs has no list to consult and needs none. */
+    retailSources?: () => Promise<DetectedRetailSource[]>
+  },
   input: BuildBootstrapSummaryInput,
 ): Promise<Outcome<BootstrapSummary>> {
-  const resolved = await resolvePackages(deps.manifest, input.engine)
+  const dataSource: BootstrapDataSource = input.dataSource ?? 'free-download'
+
+  let copySource: BootstrapSummaryCopySource | undefined
+  if (dataSource === 'store-copy') {
+    if (input.copySourcePath === undefined || input.copySourcePath.length === 0) {
+      return fail(RETAIL_SOURCE_UNVERIFIED, { reason: 'pathMissing' })
+    }
+    const detected = deps.retailSources ? await deps.retailSources() : []
+    const match = await findDetectedSource(detected, input.copySourcePath)
+    copySource = {
+      // Main's own spelling of the folder when it knows it - the path the job would copy from.
+      path: match?.rootPath ?? input.copySourcePath,
+      ...(match ? { store: match.source } : {}),
+    }
+  }
+
+  const resolved = await resolvePackages(deps.manifest, input.engine, dataSource)
   if (!resolved.ok) return resolved
 
   const packages: BootstrapSummaryPackage[] = resolved.value.map(({ role, pkg }) => ({
@@ -462,6 +599,8 @@ export async function buildBootstrapSummary(
     packages,
     totalSizeBytes: packages.reduce((total, pkg) => total + pkg.sizeBytes, 0),
     includeVideoAndPlayers: input.includeVideoAndPlayers,
+    dataSource,
+    ...(copySource ? { copySource } : {}),
   })
 }
 
@@ -556,6 +695,7 @@ export async function startBootstrap(
   input: StartBootstrapInput,
 ): Promise<Outcome<StartedBootstrap>> {
   const log = deps.log
+  const dataSource: BootstrapDataSource = input.dataSource ?? 'free-download'
 
   // 1. The renderer's path, re-judged in main. `computeTargetVerdict` is the same function the
   // wizard's target step rendered, so main and the UI cannot disagree about this folder.
@@ -565,8 +705,23 @@ export async function startBootstrap(
     return fail(TARGET_BLOCKED_KEY, { reason: verdict.blockedReason ?? 'unsafePath' })
   }
 
+  // 1b. Story 088 D4: the wizard's other renderer-supplied path, re-judged the same way - and
+  // first, before a package is resolved, an installation is registered or a directory is created,
+  // so a refusal leaves the library and the disk exactly as they were. Everything downstream uses
+  // `copySource.rootPath` (main's own list entry), never `input.copySourcePath`.
+  let copySource: DetectedRetailSource | undefined
+  if (dataSource === 'store-copy') {
+    const verified = await verifyCopySource(deps, input.copySourcePath)
+    if (!verified.ok) {
+      const reason = JSON.stringify(verified.error.params)
+      log?.warn(`bootstrap refused the copy source ${input.copySourcePath ?? '(none)'}: ${reason}`)
+      return verified
+    }
+    copySource = verified.value
+  }
+
   // 2. Nothing exists yet, so a missing package costs nothing to fail on.
-  const resolved = await resolvePackages(deps.manifest, input.engine)
+  const resolved = await resolvePackages(deps.manifest, input.engine, dataSource)
   if (!resolved.ok) {
     log?.warn(`bootstrap could not resolve its packages: ${JSON.stringify(resolved.error.params)}`)
     return resolved
@@ -580,7 +735,16 @@ export async function startBootstrap(
   // see the module comment's cleanup note.
   const targetPreexisted = existsSync(verdict.targetPath)
 
-  const name = input.name?.trim() || DEFAULT_BOOTSTRAP_INSTALLATION_NAME
+  /**
+   * Story 088 D4 (Decisions (Sprint)): a `store-copy` run installs *retail* data, so
+   * `DEFAULT_BOOTSTRAP_INSTALLATION_NAME` ("Q2PRO Demo") would be a lie outliving the badge AC6
+   * says the result must not carry. Its default is the engine's own product label (`engineLabel`,
+   * `@shared/types/engine` - the same table the rest of the UI names engines from), never a second
+   * hardcoded string. A name the user typed still wins, exactly as before.
+   */
+  const defaultName =
+    dataSource === 'store-copy' ? engineLabel(input.engine) : DEFAULT_BOOTSTRAP_INSTALLATION_NAME
+  const name = input.name?.trim() || defaultName
 
   /**
    * Story 077 D3 (AC7). The predicate that decides "this is my own leftover, safe to reuse", and
@@ -1080,6 +1244,23 @@ export async function startBootstrap(
 
     if (cancelled) return cancelledOutcome()
 
+    /**
+     * Story 088 D4 (AC4): the verified retail root joins `sources` as one more `AssembleSource`,
+     * with the `'retail'` role D3's allowlist block is keyed by - so the core pass below copies
+     * pak0/pak1(+pak2) out of it in exactly the place a free-download run copies them out of the
+     * demo/point-release extractions, and therefore strictly before the first revalidation. It is
+     * *main's* path (`copySource.rootPath`, off the list main itself just produced), never the
+     * renderer's string, and it is added after the download loop so nothing about the engine
+     * package's own fetch/extract order changes.
+     */
+    if (copySource) {
+      sources.push({
+        packageId: RETAIL_SOURCE_PACKAGE_ID,
+        dir: copySource.rootPath,
+        role: 'retail',
+      })
+    }
+
     // 6. Assemble core - the engine payload and the baseq2 paks, allowlisted by 074 D3 and
     // corrected against the real archives by 076 D1. Declared outside the `try` only so its
     // `missingRequired` can be read below; a *thrown* assemble is still the local failure it was.
@@ -1090,6 +1271,7 @@ export async function startBootstrap(
         targetRoot,
         engine: input.engine,
         includeVideoAndPlayers: false,
+        dataSource,
       })
       for (const file of core.copiedFiles) copied.add(file)
       recordAssembly(core.entries)
@@ -1113,18 +1295,30 @@ export async function startBootstrap(
      */
     const [firstMissing] = core.missingRequired
     if (firstMissing) {
-      // `packages` is the role -> `ManifestPackage.id` mapping this file already holds (Decisions
-      // (Sprint): the allowlist entry carries a role, `job.ts` resolves it). Every role in
-      // `missingRequired` came from an allowlist entry, so it is always one of the three resolved
-      // packages; the role itself is the fallback rather than shipping `undefined` as a param.
-      const packageId =
-        packages.find((entry) => entry.role === firstMissing.role)?.pkg.id ?? firstMissing.role
       // Every missing entry, with the candidate paths that were looked for: `failed()` warns this
       // through the teed log, so it is what story 075's `DownloadDiagnostics.logTail` carries into
       // a bug report - and "which paths were expected" is the half that makes it actionable.
       const reason = core.missingRequired
         .map((missing) => `role ${missing.role} contributed none of ${missing.from.join(' or ')}`)
         .join('; ')
+
+      // Story 088 fix cycle (review F1): a `store-copy` run has no manifest package behind its
+      // `'retail'` role - `packages` only ever resolves `engine` (plus `demo`/`point-release` for a
+      // `free-download` run, see `resolvePackages`) - so a `'retail'` miss here means the detected
+      // source verified at the D4 pre-check and then came up empty during the actual copy (moved or
+      // deleted in between). That gets its own key and no `packageId` param, rather than
+      // `PACKAGE_INCOMPLETE` falling back to the literal string `'retail'` and claiming a download
+      // happened when nothing was fetched.
+      if (firstMissing.role === 'retail') {
+        return failed(RETAIL_COPY_INCOMPLETE, `copying retail source into ${targetRoot}: ${reason}`)
+      }
+
+      // `packages` is the role -> `ManifestPackage.id` mapping this file already holds (Decisions
+      // (Sprint): the allowlist entry carries a role, `job.ts` resolves it). Every non-`'retail'`
+      // role in `missingRequired` came from an allowlist entry, so it is always one of the resolved
+      // packages; the role itself is the fallback rather than shipping `undefined` as a param.
+      const packageId =
+        packages.find((entry) => entry.role === firstMissing.role)?.pkg.id ?? firstMissing.role
       return failed(PACKAGE_INCOMPLETE, `assembling ${targetRoot}: ${reason}`, { packageId })
     }
 
@@ -1188,6 +1382,7 @@ export async function startBootstrap(
           targetRoot,
           engine: input.engine,
           includeVideoAndPlayers: true,
+          dataSource,
         })
         for (const file of auxiliary.copiedFiles) copied.add(file)
         recordAssembly(auxiliary.entries)

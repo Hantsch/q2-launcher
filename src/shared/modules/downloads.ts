@@ -59,6 +59,14 @@ export const DOWNLOADS_HANDLERS = {
    * call's return value.
    */
   bootstrapStart: 'bootstrap.start',
+  /**
+   * Story 088 D2: the detected Steam/GOG/Epic Quake II sources the wizard's game-data step can
+   * offer to copy from (AC1/AC2) - a thin wrapper around `listDetectedRetailSources`
+   * (`main/modules/downloads/bootstrap/retail-source.ts`). No failure mode of its own (same
+   * convention as `bootstrapEngineOptions`): an empty array is a legitimate "nothing detected",
+   * which the wizard is expected to handle by not offering the option at all.
+   */
+  bootstrapRetailSources: 'bootstrap.retailSources',
 } as const
 
 /**
@@ -246,6 +254,14 @@ export const DOWNLOADS_ERROR_KEYS = [
    * revalidation, so a missing runtime is an actionable failure rather than a silent "not playable".
    */
   'downloads.error.missingRuntime',
+  /**
+   * Story 088 fix cycle (review F1): the `store-copy` counterpart to `downloads.error.packageIncomplete` -
+   * a detected retail installation verified at the D4 pre-check and, by the time the actual copy
+   * ran, contributed none of the required `baseq2` paks (e.g. the source was moved or deleted in
+   * between). Distinct key because nothing was downloaded for a `store-copy` run - the sentence
+   * describes a copy, not a download, and carries no package id to name.
+   */
+  'downloads.error.retailCopyIncomplete',
 ] as const
 
 export type DownloadsErrorKey = (typeof DOWNLOADS_ERROR_KEYS)[number]
@@ -471,6 +487,87 @@ export interface BootstrapTargetVerdict {
 }
 
 /**
+ * Story 088 D1: the fixed, closed set of reasons `inspectRetailSource`
+ * (`src/main/modules/downloads/bootstrap/retail-source.ts`) reports when a candidate source folder
+ * does not verify as a known retail Quake II install (AC3: "tells the user this installation's data
+ * could not be verified as retail"). Never prose, same convention as `DOWNLOADS_ERROR_KEYS` above -
+ * the actual byte size behind a `*SizeMismatch` reason is not folded into the key/params here; it is
+ * already sitting on the matching `RetailPakInfo.sizeBytes` in the same `RetailSourceInspection`, so
+ * a later UI can render "expected X, got Y" from `RETAIL_PAK_SIZES` plus that field without this key
+ * needing to carry a duplicate.
+ */
+export const RETAIL_SOURCE_UNVERIFIED_REASON_KEYS = [
+  /** No `baseq2` directory at all under the candidate root - `rerelease/baseq2` never counts (the
+   * remaster is a whole second game, not this check's concern; see `NON_GAME_DIRS`). */
+  'bootstrap.retailSource.baseDirMissing',
+  'bootstrap.retailSource.pak0Missing',
+  'bootstrap.retailSource.pak1Missing',
+  /** `pak0.pak` exists but its size does not exactly match `RETAIL_PAK_SIZES['pak0.pak']`. */
+  'bootstrap.retailSource.pak0SizeMismatch',
+  /** `pak1.pak` exists but its size does not exactly match `RETAIL_PAK_SIZES['pak1.pak']`. */
+  'bootstrap.retailSource.pak1SizeMismatch',
+] as const
+
+export type RetailSourceUnverifiedReasonKey = (typeof RETAIL_SOURCE_UNVERIFIED_REASON_KEYS)[number]
+
+/**
+ * Story 088 D2: one store installation `listDetectedRetailSources`
+ * (`main/modules/downloads/bootstrap/retail-source.ts`) found and already inspected - what the
+ * wizard's `bootstrap.retailSources` handler answers, and exactly what the wizard's source picker
+ * needs to render one row (AC2: "each is identified by its store and its path") and, via
+ * `inspection`, whether it can be chosen at all (AC3). Deliberately just these three fields - no
+ * extra convenience data the renderer could grow to depend on instead of reading `inspection`.
+ */
+export interface DetectedRetailSource {
+  /** Narrower than `InstallationSource`: only the three stores this data source ever offers
+   * (Decisions (Sprint): "offered only if it is a store source"). */
+  source: 'steam' | 'gog' | 'epic'
+  /** The candidate root as the detector found it - the same path `inspection` was computed from. */
+  rootPath: string
+  inspection: RetailSourceInspection
+}
+
+/**
+ * Story 088 D1: one pak file's presence/size fact, as `inspectRetailSource` reports it for each of
+ * `pak0.pak`/`pak1.pak`/`pak2.pak`. `matchesRetailSize` is always `false` when `exists` is `false` -
+ * there is no size to compare.
+ */
+export interface RetailPakInfo {
+  exists: boolean
+  /** The pak's actual size in bytes, or `null` when it does not exist. */
+  sizeBytes: number | null
+  /** True only when `exists` and `sizeBytes` exactly matches `RETAIL_PAK_SIZES` for this file name. */
+  matchesRetailSize: boolean
+}
+
+/**
+ * Story 088 D1: what `inspectRetailSource` reports about one candidate source folder's `baseq2` -
+ * the retail-detection half of the bootstrap wizard's "install from a source I already own" path
+ * (AC3). `rerelease/` is never probed, deliberately (the story's Decisions): a folder that only has
+ * `rerelease/baseq2` and no top-level `baseq2` reports as unverified, not silently discovered.
+ *
+ * `verified` gates on `pak0.pak`/`pak1.pak` only - both must exist and match `RETAIL_PAK_SIZES`
+ * exactly. `pak2.pak` (the mission-pack-adjacent bonus pak in a retail install) is reported the same
+ * way for completeness, but its presence or size never affects `verified`.
+ */
+export interface RetailSourceInspection {
+  /** The candidate root passed in - the folder `<rootPath>/baseq2` was resolved against, not
+   * `<rootPath>/baseq2` itself. */
+  rootPath: string
+  pak0: RetailPakInfo
+  pak1: RetailPakInfo
+  pak2: RetailPakInfo
+  /** True only when `pak0`/`pak1` both `exist` and `matchesRetailSize`. */
+  verified: boolean
+  /** Set only when `verified` is `false`; one of `RETAIL_SOURCE_UNVERIFIED_REASON_KEYS`. */
+  unverifiedReason?: RetailSourceUnverifiedReasonKey
+  /** Whether `baseq2/video` exists as a directory. */
+  hasVideo: boolean
+  /** Whether `baseq2/players` exists as a directory. */
+  hasPlayers: boolean
+}
+
+/**
  * Story 074 D4: the name a bootstrapped installation gets when the wizard does not carry one
  * (Decisions (Sprint)). Not an i18n key: an installation name is user data the user can rename,
  * not a translated label - the same reason `suggestName()` (`main/services/inspector.ts`) hands
@@ -478,6 +575,16 @@ export interface BootstrapTargetVerdict {
  * exactly what main would default to.
  */
 export const DEFAULT_BOOTSTRAP_INSTALLATION_NAME = 'Q2PRO Demo'
+
+/**
+ * Story 088 D4: where a bootstrap run's *game data* comes from - [[074]]'s free demo + point-release
+ * download, or a copy of a retail installation the user already owns (a detected Steam/GOG/Epic
+ * source, [[088]]; a hand-picked folder, [[089]]). The engine build is downloaded either way, so
+ * this never selects "download or not" - only which archive, or which folder, `baseq2`'s paks come
+ * out of. Same two members as `assemble.ts`'s own `dataSource` (`buildAssemblePlan`), which is what
+ * this value is ultimately forwarded to.
+ */
+export type BootstrapDataSource = 'free-download' | 'store-copy'
 
 /**
  * Story 074 D1 placeholder, finalized by D4: what `bootstrap.start` takes. `engine` is validated
@@ -501,6 +608,25 @@ export interface StartBootstrapInput {
    * Absent when the user never picked a remedy path (or the warning never applied).
    */
   writeDirPath?: string
+  /**
+   * Story 088 D4: which game-data source this run uses. Optional and defaulting to
+   * `'free-download'` - the only source that existed before [[088]] - so every caller written
+   * against [[074]]'s wizard keeps meaning exactly what it meant, the same choice
+   * `BuildAssemblePlanInput.dataSource` (`bootstrap/assemble.ts`, D3) makes one layer down.
+   */
+  dataSource?: BootstrapDataSource
+  /**
+   * Story 088 D4: the root of the retail installation to copy `baseq2`'s paks from. Required when
+   * `dataSource` is `'store-copy'` and refused otherwise - `startBootstrapInputSchema`
+   * (`main/modules/downloads/schemas.ts`) enforces both, so neither combination reaches main.
+   *
+   * **Never trusted** (CLAUDE.md, and Decisions (Sprint): "the picker list is a UI convenience, not
+   * an authorisation"): before anything is registered or copied, `startBootstrap` re-lists the
+   * detected sources in main and re-inspects them, and refuses this run with
+   * `downloads.error.retailSourceUnverified` unless this path is among them *and* still verifies as
+   * retail. What is then copied from is main's own `DetectedRetailSource.rootPath`, not this string.
+   */
+  copySourcePath?: string
 }
 
 /** One package a bootstrap would download, as the confirm step lists it. */
@@ -528,9 +654,31 @@ export interface BootstrapSummary {
    * `computeTargetVerdict` call); AC4 only needs the same path echoed back for display. */
   targetPath: string
   engine: EngineKind
-  /** Engine build, demo data, point release - in download order. */
+  /** Engine build, demo data, point release - in download order. For a `'store-copy'` summary
+   * (story 088 D4) the engine build alone: nothing else is downloaded. */
   packages: BootstrapSummaryPackage[]
   /** Sum of every entry's `sizeBytes`; the number AC4's confirm step states. */
   totalSizeBytes: number
   includeVideoAndPlayers: boolean
+  /**
+   * Story 088 D4 (AC5): which game-data source the summarised run would use. Always present -
+   * `'free-download'` for a summary that names no other source, which is every summary written
+   * before [[088]].
+   */
+  dataSource: BootstrapDataSource
+  /** Story 088 D4 (AC5): what a `'store-copy'` run would copy from. Absent for `'free-download'`. */
+  copySource?: BootstrapSummaryCopySource
+}
+
+/**
+ * Story 088 D4 (AC5): the copy source the confirm step names, next to the engine-only download and
+ * the target. Produced in main from its *own* freshly listed detected sources, never echoed back
+ * from the wizard - so the path shown is the path the job would read from.
+ */
+export interface BootstrapSummaryCopySource {
+  /** The retail installation root the paks would be copied out of. */
+  path: string
+  /** Which store it was detected in; absent when main's fresh list no longer holds this path (in
+   * which case `bootstrap.start` will refuse the run outright - the summary only reports). */
+  store?: DetectedRetailSource['source']
 }

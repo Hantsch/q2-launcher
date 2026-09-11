@@ -9,7 +9,9 @@ import {
 } from '../../lib/ui-harness'
 import {
   HARNESS_CONTENT_REPO_BASE_ENV,
+  HARNESS_STORE_SOURCES_ENV,
   PRODUCTION_DOWNLOAD_SOURCE,
+  resolveDetectedRetailSourcesOverride,
   resolveDownloadSource,
 } from './harness'
 import { parseManifestFile } from './manifest-parse'
@@ -184,6 +186,91 @@ describe('the production package schema is never widened by the harness variant'
     expect(production.ok && production.pinned).toEqual({})
     expect(harness.ok && harness.packages).toHaveLength(1)
     expect(harness.ok && harness.pinned).toEqual({ q2pro: 'q2pro-fixture' })
+  })
+})
+
+/**
+ * Story 088 D2: mirrors the four gate cases above one for one, for the new
+ * `Q2L_UI_HARNESS_STORE_SOURCES` override (`resolveDetectedRetailSourcesOverride`) - the same
+ * security-relevant backdoor discipline, since this one substitutes fixture Steam/GOG/Epic sources
+ * for a real detection scan.
+ */
+describe('the detected-retail-sources override is unreachable with either gate off', () => {
+  const FIXTURE_SOURCES = [
+    {
+      source: 'steam',
+      rootPath: 'C:\\fixtures\\steam-quake2',
+      inspection: {
+        rootPath: 'C:\\fixtures\\steam-quake2',
+        pak0: { exists: true, sizeBytes: 1, matchesRetailSize: true },
+        pak1: { exists: true, sizeBytes: 1, matchesRetailSize: true },
+        pak2: { exists: false, sizeBytes: null, matchesRetailSize: false },
+        verified: true,
+        hasVideo: false,
+        hasPlayers: false,
+      },
+    },
+  ]
+  const FIXTURE_ENV = { [HARNESS_STORE_SOURCES_ENV]: JSON.stringify(FIXTURE_SOURCES) }
+
+  it('both flags off: undefined, so the caller runs the real detection scan', () => {
+    expect(
+      resolveDetectedRetailSourcesOverride({ isDev: false, env: FIXTURE_ENV }),
+    ).toBeUndefined()
+  })
+
+  it('only Q2L_UI_HARNESS=1 (isDev false): still the real detection scan', () => {
+    expect(
+      resolveDetectedRetailSourcesOverride({ isDev: false, env: { ...FIXTURE_ENV, ...HARNESS_ENV } }),
+    ).toBeUndefined()
+  })
+
+  it('only isDev=true (Q2L_UI_HARNESS unset): still the real detection scan', () => {
+    expect(
+      resolveDetectedRetailSourcesOverride({ isDev: true, env: FIXTURE_ENV }),
+    ).toBeUndefined()
+  })
+
+  it('only isDev=true and Q2L_UI_HARNESS set to something other than "1": still the real scan', () => {
+    expect(
+      resolveDetectedRetailSourcesOverride({
+        isDev: true,
+        env: { ...FIXTURE_ENV, [UI_HARNESS_ENV]: 'true' },
+      }),
+    ).toBeUndefined()
+  })
+
+  it('both flags on: the fixture sources come back verbatim, and no real scan is involved', () => {
+    expect(
+      resolveDetectedRetailSourcesOverride({
+        isDev: true,
+        env: { ...FIXTURE_ENV, [UI_HARNESS_ENV]: '1' },
+      }),
+    ).toEqual(FIXTURE_SOURCES)
+  })
+
+  it('both flags on but the variable is unset: still undefined, not an empty list', () => {
+    expect(
+      resolveDetectedRetailSourcesOverride({ isDev: true, env: { [UI_HARNESS_ENV]: '1' } }),
+    ).toBeUndefined()
+  })
+
+  it('both flags on but the variable holds malformed JSON: falls back to undefined', () => {
+    expect(
+      resolveDetectedRetailSourcesOverride({
+        isDev: true,
+        env: { [UI_HARNESS_ENV]: '1', [HARNESS_STORE_SOURCES_ENV]: 'not-json' },
+      }),
+    ).toBeUndefined()
+  })
+
+  it('both flags on but the variable holds a JSON object, not an array: falls back to undefined', () => {
+    expect(
+      resolveDetectedRetailSourcesOverride({
+        isDev: true,
+        env: { [UI_HARNESS_ENV]: '1', [HARNESS_STORE_SOURCES_ENV]: '{"not":"an array"}' },
+      }),
+    ).toBeUndefined()
   })
 })
 

@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { EngineKind } from '@shared/types'
 import type {
+  BootstrapDataSource,
   BootstrapEngineOption,
   BootstrapSummary,
   BootstrapTargetVerdict,
+  DetectedRetailSource,
   DownloadFailure,
 } from '@shared/modules/downloads'
 import { invoke } from '../../../lib/bridge'
@@ -15,23 +17,30 @@ import {
   getBootstrapEngineOptions,
   getBootstrapSummary,
   getBootstrapTargetVerdict,
+  getDetectedRetailSources,
   getDownloadFailures,
   startBootstrapInstall,
 } from '../client'
 import { EngineStep } from './EngineStep'
+import { GameDataStep } from './GameDataStep'
 import { TargetStep } from './TargetStep'
 import { ConfirmStep } from './ConfirmStep'
 import { RunningStep } from './RunningStep'
 
-type Step = 'engine' | 'target' | 'confirm' | 'running'
+type Step = 'engine' | 'gameData' | 'target' | 'confirm' | 'running'
 
-const STEP_ORDER: Step[] = ['engine', 'target', 'confirm', 'running']
+const STEP_ORDER: Step[] = ['engine', 'gameData', 'target', 'confirm', 'running']
 
 /**
- * Story 074 D6, extended by 080 D2: the bootstrap wizard - engine choice (Q2PRO, R1Q2 once both
- * are pinned) -> target folder (with the D2 verdict's warnings) -> confirm (packages + size +
- * target, AC4) -> run (hands off to the D4 job, AC5). Mirrors `CreateInstallationDialog.tsx` for
- * dialog shape.
+ * Story 074 D6, extended by 080 D2 and 088 D5: the bootstrap wizard - engine choice (Q2PRO, R1Q2
+ * once both are pinned) -> game data (free download, or a copy of a detected Steam/GOG/Epic
+ * installation, [[088]]) -> target folder (with the D2 verdict's warnings) -> confirm (packages +
+ * size + target, AC4) -> run (hands off to the D4 job, AC5). Mirrors `CreateInstallationDialog.tsx`
+ * for dialog shape.
+ *
+ * `dataSource`/`copySourcePath` hold the game-data step's choice; `detectedSources` is fetched
+ * once on mount, same convention as `engineOptions` below - an empty array means the game-data
+ * step never offers the copy choice at all (AC1).
  *
  * Wizard state lives here, in `useState`, and is never persisted - closing the dialog before
  * `running` throws all of it away, same as `CreateInstallationDialog`.
@@ -54,6 +63,10 @@ export function BootstrapWizard() {
   // Whether the user has made an explicit choice - once true, the default-selection effect below
   // must never overwrite it, even if `engineOptions` itself changes identity on a later render.
   const userPickedEngine = useRef(false)
+
+  const [detectedSources, setDetectedSources] = useState<DetectedRetailSource[] | null>(null)
+  const [dataSource, setDataSource] = useState<BootstrapDataSource>('free-download')
+  const [copySourcePath, setCopySourcePath] = useState<string | null>(null)
 
   const [targetPath, setTargetPath] = useState('')
   const [verdict, setVerdict] = useState<BootstrapTargetVerdict | null>(null)
@@ -119,6 +132,55 @@ export function BootstrapWizard() {
     setEngine(next)
   }
 
+  // Story 088 D5: the detected-source list, fetched once on mount - an empty array is what makes
+  // AC1's copy choice absent rather than disabled (`GameDataStep` reads `sources.length`, never a
+  // loading placeholder, to decide that).
+  useEffect(() => {
+    let cancelled = false
+    void getDetectedRetailSources().then((result) => {
+      if (cancelled) return
+      setDetectedSources(result.ok ? result.value : [])
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  function selectDataSource(next: BootstrapDataSource): void {
+    setDataSource(next)
+    if (next === 'free-download') {
+      setCopySourcePath(null)
+      return
+    }
+    // Defaults to the first verified detected source, same "zero extra clicks" convention as
+    // `selectEngine`'s default-selection effect - but never overwrites a path the user already
+    // picked from the source list.
+    if (copySourcePath === null) {
+      const firstVerified = (detectedSources ?? []).find((candidate) => candidate.inspection.verified)
+      if (firstVerified) setCopySourcePath(firstVerified.rootPath)
+    }
+  }
+
+  const selectedCopySource =
+    dataSource === 'store-copy'
+      ? (detectedSources ?? []).find((candidate) => candidate.rootPath === copySourcePath)
+      : undefined
+
+  // Story 088 D5 (toggle availability rule): the chosen detected source is inspected up front -
+  // when it has neither `baseq2/video` nor `baseq2/players`, the confirm step's toggle is disabled
+  // with this reason rather than left enabled to fail the copy afterwards.
+  const includeExtrasDisabledReason =
+    selectedCopySource && !selectedCopySource.inspection.hasVideo && !selectedCopySource.inspection.hasPlayers
+      ? t('bootstrapWizard.confirm.includeExtrasDisabledReason')
+      : undefined
+
+  // A source that stops qualifying for the toggle (freshly chosen, or the wizard's own state
+  // change) must never leave a stale `true` behind - same reset convention as the target step's
+  // acknowledges.
+  useEffect(() => {
+    if (includeExtrasDisabledReason) setIncludeVideoAndPlayers(false)
+  }, [includeExtrasDisabledReason])
+
   // Reset the acknowledges whenever the target folder itself changes - an acknowledge for one
   // folder must never silently carry over to a different one.
   useEffect(() => {
@@ -150,7 +212,13 @@ export function BootstrapWizard() {
     setSummaryLoading(true)
     setSummaryError(null)
     let cancelled = false
-    void getBootstrapSummary({ engine, targetPath, includeVideoAndPlayers }).then((result) => {
+    void getBootstrapSummary({
+      engine,
+      targetPath,
+      includeVideoAndPlayers,
+      dataSource,
+      ...(dataSource === 'store-copy' && copySourcePath ? { copySourcePath } : {}),
+    }).then((result) => {
       if (cancelled) return
       setSummaryLoading(false)
       if (result.ok) {
@@ -164,7 +232,7 @@ export function BootstrapWizard() {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, engine, targetPath, includeVideoAndPlayers])
+  }, [step, engine, targetPath, includeVideoAndPlayers, dataSource, copySourcePath])
 
   async function pickTargetFolder(): Promise<void> {
     const picked = await invoke('installations:pickFolder', {
@@ -193,6 +261,15 @@ export function BootstrapWizard() {
 
   const canProceed: Record<Step, boolean> = {
     engine: !!engine,
+    // Story 088 fix cycle (review F4): `detectedSources` must have resolved (empty array or
+    // populated - `null` only while `getDetectedRetailSources()` is still in flight) before a fast
+    // user can leave this step. Without this, the default `'free-download'` choice would let
+    // someone click past before ever finding out a copy option exists - `GameDataStep` already
+    // renders a loading message for `sources === null` (see its own `if (sources === null)`
+    // branch), so this keeps Next disabled for exactly the same window that message is shown.
+    gameData:
+      detectedSources !== null &&
+      (dataSource === 'free-download' || !!selectedCopySource?.inspection.verified),
     target: !!verdict && !verdict.blocked && targetWarningsAcknowledged,
     confirm: !!summary && !starting,
     running: false,
@@ -217,6 +294,8 @@ export function BootstrapWizard() {
       targetPath,
       includeVideoAndPlayers,
       ...(writeDirPath ? { writeDirPath } : {}),
+      dataSource,
+      ...(dataSource === 'store-copy' && copySourcePath ? { copySourcePath } : {}),
     })
     setStarting(false)
     if (result.ok) {
@@ -274,6 +353,16 @@ export function BootstrapWizard() {
         <EngineStep options={engineOptions} selected={engine} onSelect={selectEngine} />
       )}
 
+      {step === 'gameData' && (
+        <GameDataStep
+          sources={detectedSources}
+          dataSource={dataSource}
+          onDataSourceChange={selectDataSource}
+          copySourcePath={copySourcePath}
+          onCopySourcePathChange={setCopySourcePath}
+        />
+      )}
+
       {step === 'target' && (
         <TargetStep
           targetPath={targetPath}
@@ -297,6 +386,7 @@ export function BootstrapWizard() {
             loading={summaryLoading}
             includeVideoAndPlayers={includeVideoAndPlayers}
             onIncludeVideoAndPlayersChange={setIncludeVideoAndPlayers}
+            includeExtrasDisabledReason={includeExtrasDisabledReason}
           />
           {summaryError && <p className="text-xs text-danger">{summaryError}</p>}
           {startError && <p className="text-xs text-danger">{startError}</p>}

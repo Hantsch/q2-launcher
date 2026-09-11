@@ -3,7 +3,14 @@ import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ManifestPackage, PackageSource } from '@shared/modules/downloads'
+import { RETAIL_PAK_SIZES } from '@shared/constants'
+import {
+  DEFAULT_BOOTSTRAP_INSTALLATION_NAME,
+  type DetectedRetailSource,
+  type ManifestPackage,
+  type PackageSource,
+  type RetailSourceInspection,
+} from '@shared/modules/downloads'
 import { fail, type Installation, type Job, type LauncherSettings } from '@shared/types'
 import { InstallationsService } from '../../../services/installations'
 import { inspectInstallation } from '../../../services/inspector'
@@ -183,6 +190,11 @@ interface Harness {
   fetched: string[]
   /** Story 075 D3: every line the job's `BootstrapLog` was handed, in order. */
   logLines: string[]
+  /** Story 088 D4: the game-data roles the manifest was asked to resolve, in order. Empty for a
+   * `store-copy` run, which downloads the engine build and nothing else (AC4). */
+  gameDataRequests: GameDataRole[]
+  /** Story 088 D4: how often the job re-listed main's own detected retail sources. */
+  retailSourceCalls: { count: number }
 }
 
 /**
@@ -222,6 +234,12 @@ function harness(
      * the one seam this suite cannot exercise for real.
      */
     r1q2RuntimePresent?: boolean
+    /**
+     * Story 088 D4: what `deps.retailSources()` - main's *own* freshly listed detected retail
+     * sources - answers this run. Defaults to none detected, so a `store-copy` run that does not
+     * set this is refused, which is exactly what the negative tests are about.
+     */
+    retailSources?: DetectedRetailSource[]
   } = {},
 ): Harness {
   const snapshots: Job[][] = []
@@ -303,6 +321,25 @@ function harness(
     },
   }
 
+  /**
+   * Story 088 D4: the manifest the deps get is the test's own, wrapped so every *game-data*
+   * resolution is recorded. "A store-copy run resolves the engine package only" is a statement
+   * about what the job asks the manifest for, not only about what it ends up downloading - a run
+   * that resolved the demo and then never fetched it would still be wrong.
+   */
+  const gameDataRequests: GameDataRole[] = []
+  const baseManifest = options.manifest ?? fakeManifest()
+  const manifest: ManifestSource = {
+    resolveEnginePackage: (engine) => baseManifest.resolveEnginePackage(engine),
+    resolveGameDataPackage: (role) => {
+      gameDataRequests.push(role)
+      return baseManifest.resolveGameDataPackage(role)
+    },
+  }
+
+  /** Story 088 D4: main's own detected-source list, and how often the job asked for it. */
+  const retailSourceCalls = { count: 0 }
+
   const logLines: string[] = []
   const log: BootstrapLog = {
     info: (message) => {
@@ -331,10 +368,16 @@ function harness(
     snapshots,
     fetched,
     logLines,
+    gameDataRequests,
+    retailSourceCalls,
     deps: {
       jobs,
       installations,
-      manifest: options.manifest ?? fakeManifest(),
+      manifest,
+      retailSources: () => {
+        retailSourceCalls.count += 1
+        return Promise.resolve(options.retailSources ?? [])
+      },
       fetcher,
       extractor,
       r1q2Setup,
@@ -413,6 +456,68 @@ async function exists(path: string): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+/**
+ * Story 088 D4: a fixture "store installation" to copy from - `baseq2/pak0.pak`+`pak1.pak`, plus the
+ * `ctf/` payload a real Steam/GOG install also carries and AC7 forbids in the target. The paks hold
+ * a few bytes rather than their real retail sizes: what makes a source copyable in this suite is the
+ * *verdict* `deps.retailSources()` hands the job (fabricated below), and measuring real sizes is
+ * `retail-source.test.ts`'s subject, not this one's.
+ */
+async function makeStoreInstallation(name: string, extras = false): Promise<string> {
+  const root = join(dir, name)
+  await mkdir(join(root, 'baseq2'), { recursive: true })
+  await writeFile(join(root, 'baseq2', 'pak0.pak'), `${name} pak0`)
+  await writeFile(join(root, 'baseq2', 'pak1.pak'), `${name} pak1`)
+  await mkdir(join(root, 'ctf'), { recursive: true })
+  await writeFile(join(root, 'ctf', 'pak0.pak'), 'ctf')
+  if (extras) {
+    await mkdir(join(root, 'baseq2', 'video'), { recursive: true })
+    await writeFile(join(root, 'baseq2', 'video', 'ntro.cin'), 'ntro')
+    await mkdir(join(root, 'baseq2', 'players', 'male'), { recursive: true })
+    await writeFile(join(root, 'baseq2', 'players', 'male', 'tris.md2'), 'tris')
+  }
+  return root
+}
+
+/** One entry of main's own detected-source list, verified unless `overrides` say otherwise. */
+function detectedSource(
+  rootPath: string,
+  overrides: Partial<RetailSourceInspection> = {},
+  store: DetectedRetailSource['source'] = 'steam',
+): DetectedRetailSource {
+  const retailPak = (name: 'pak0.pak' | 'pak1.pak') => ({
+    exists: true,
+    sizeBytes: RETAIL_PAK_SIZES[name],
+    matchesRetailSize: true,
+  })
+  return {
+    source: store,
+    rootPath,
+    inspection: {
+      rootPath,
+      pak0: retailPak('pak0.pak'),
+      pak1: retailPak('pak1.pak'),
+      pak2: { exists: false, sizeBytes: null, matchesRetailSize: false },
+      verified: true,
+      hasVideo: false,
+      hasPlayers: false,
+      ...overrides,
+    },
+  }
+}
+
+/** Records, per `validate()` call, whether the copied/assembled `baseq2/pak0.pak` was already on
+ * disk - the phase-order question both data sources are asserted on below. */
+function observeValidateOrder(box: Harness): boolean[] {
+  const pakAtValidate: boolean[] = []
+  const validate = box.installations.validate.bind(box.installations)
+  vi.spyOn(box.installations, 'validate').mockImplementation(async (id) => {
+    pakAtValidate.push(existsSync(join(targetPath, 'baseq2', 'pak0.pak')))
+    return validate(id)
+  })
+  return pakAtValidate
 }
 
 describe('startBootstrap', () => {
@@ -1883,6 +1988,239 @@ describe('startBootstrap diagnostics', () => {
   })
 })
 
+/**
+ * Story 088 D4. The second data source rewires a job that mutates a registered installation
+ * mid-run, so what is asserted here is the *order and the gate*, not just the end state: the copy
+ * lands before the first playability revalidation, the renderer's source path is re-resolved against
+ * main's own fresh list before anything is registered, and the free-download path comes out of it
+ * byte-for-byte unchanged (the last test).
+ */
+describe('startBootstrap from a detected retail source (story 088 D4)', () => {
+  const startCopy = (
+    box: Harness,
+    copySourcePath: string,
+    overrides: { name?: string; includeVideoAndPlayers?: boolean } = {},
+  ) =>
+    startBootstrap(box.deps, {
+      engine: 'q2pro',
+      targetPath,
+      includeVideoAndPlayers: overrides.includeVideoAndPlayers ?? false,
+      dataSource: 'store-copy',
+      copySourcePath,
+      ...(overrides.name ? { name: overrides.name } : {}),
+    })
+
+  it('a store-copy run resolves the engine package only', async () => {
+    const sourceRoot = await makeStoreInstallation('store-steam')
+    const box = harness({ retailSources: [detectedSource(sourceRoot)] })
+
+    const started = await startCopy(box, sourceRoot)
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    expect((await started.value.settled).status).toBe('succeeded')
+
+    // AC4: the engine build is downloaded and verified exactly as [[074]] does - and it is the only
+    // thing downloaded. The demo and the point release are not even resolved.
+    expect(box.fetched).toEqual(['q2pro-1.0.0.zip'])
+    expect(box.gameDataRequests).toEqual([])
+    // The paks are real copies of the source's bytes, and the engine came from the archive.
+    expect(await readFile(join(targetPath, 'baseq2', 'pak0.pak'), 'utf8')).toBe(
+      await readFile(join(sourceRoot, 'baseq2', 'pak0.pak'), 'utf8'),
+    )
+    expect(await readFile(join(targetPath, 'baseq2', 'pak1.pak'), 'utf8')).toBe(
+      await readFile(join(sourceRoot, 'baseq2', 'pak1.pak'), 'utf8'),
+    )
+    expect(await exists(join(targetPath, 'q2pro.exe'))).toBe(true)
+    expect(await exists(join(targetPath, 'baseq2', 'gamex86_64.dll'))).toBe(true)
+    // AC7: the source's `ctf/` is not on the allowlist, so it cannot arrive.
+    expect(await readdir(targetPath)).not.toContain('ctf')
+    // Main re-listed its own sources for this run, exactly once.
+    expect(box.retailSourceCalls.count).toBe(1)
+  })
+
+  it('the copy happens before the first playability revalidation', async () => {
+    // The deliverable's named risk: a copy that landed *after* the first `validate()` would leave
+    // the installation registered as unplayable at the moment the marker is decided - and the run
+    // would then fail on a verdict about a folder the job had not finished filling.
+    const sourceRoot = await makeStoreInstallation('store-steam')
+    const box = harness({ retailSources: [detectedSource(sourceRoot)] })
+    const pakAtValidate = observeValidateOrder(box)
+
+    const started = await startCopy(box, sourceRoot)
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    expect((await started.value.settled).status).toBe('succeeded')
+
+    expect(pakAtValidate.length).toBeGreaterThan(0)
+    expect(pakAtValidate[0]).toBe(true)
+    expect(box.jobs.list()[0]?.playableAtRatio).toBe(PLAYABLE_AT_RATIO)
+  })
+
+  it('the status always comes from inspectInstallation and the default name is not the demo name', async () => {
+    const sourceRoot = await makeStoreInstallation('store-steam')
+    const box = harness({ retailSources: [detectedSource(sourceRoot)] })
+
+    // No `name`, so the default applies - AC6/Decisions (Sprint): the engine's own label, since
+    // this installation's base data is retail and "Q2PRO Demo" would outlive the missing badge.
+    const started = await startCopy(box, sourceRoot)
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    const outcome = await started.value.settled
+    expect(outcome.status).toBe('succeeded')
+
+    const installation = box.installations.find(started.value.installationId)
+    expect(installation?.name).toBe('Q2PRO')
+    expect(installation?.name).not.toBe(DEFAULT_BOOTSTRAP_INSTALLATION_NAME)
+    // Re-derived here, independently, from the folder the run produced - so no status in this run
+    // can have been hand-set or derived from "this was a retail copy" anywhere in the job.
+    const inspected = await inspectInstallation(targetPath)
+    expect(installation?.status).toBe(inspected.status)
+    expect(installation?.status).not.toBe('invalid')
+    if (outcome.status === 'succeeded') {
+      expect(outcome.installationStatus).toBe(inspected.status)
+    }
+  })
+
+  it('the extras come from the retail source when the toggle is on', async () => {
+    const sourceRoot = await makeStoreInstallation('store-steam', true)
+    const box = harness({
+      retailSources: [detectedSource(sourceRoot, { hasVideo: true, hasPlayers: true })],
+    })
+
+    const started = await startCopy(box, sourceRoot, { includeVideoAndPlayers: true })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    expect((await started.value.settled).status).toBe('succeeded')
+
+    expect(await exists(join(targetPath, 'baseq2', 'video', 'ntro.cin'))).toBe(true)
+    expect(await exists(join(targetPath, 'baseq2', 'players', 'male', 'tris.md2'))).toBe(true)
+    expect(await readdir(targetPath)).not.toContain('ctf')
+  })
+
+  it('a copySourcePath that is not among the freshly listed detected sources registers nothing', async () => {
+    // The wizard may well have offered this very folder a minute ago; what decides is main's own
+    // list *now* (Decisions (Sprint): "the picker list is a UI convenience, not an authorisation").
+    const sourceRoot = await makeStoreInstallation('store-steam')
+    const detectedElsewhere = await makeStoreInstallation('store-elsewhere')
+    const box = harness({ retailSources: [detectedSource(detectedElsewhere)] })
+
+    const started = await startCopy(box, sourceRoot)
+
+    expect(started.ok).toBe(false)
+    if (started.ok) return
+    expect(started.error.key).toBe('downloads.error.retailSourceUnverified')
+    expect(started.error.params).toEqual({ reason: 'notDetected' })
+    // Nothing was created, on disk or in the library, and nothing was downloaded.
+    expect(box.installations.list()).toEqual([])
+    expect(box.jobs.list()).toEqual([])
+    expect(box.fetched).toEqual([])
+    expect(await exists(targetPath)).toBe(false)
+    // The source itself was not touched either.
+    expect((await readdir(join(sourceRoot, 'baseq2'))).sort()).toEqual(['pak0.pak', 'pak1.pak'])
+  })
+
+  it('a store-copy run whose source comes up empty at copy time fails with its own key, never packageIncomplete naming "retail" (review F1)', async () => {
+    // Verified at the D4 pre-check (the fabricated `retailSources` answer below), but the folder
+    // itself has no `baseq2` at all by the time the actual copy runs - the store installation was
+    // moved or deleted in between. `PACKAGE_INCOMPLETE` would fall back to the literal string
+    // `'retail'` as its `packageId` (there is no manifest package behind a `store-copy` run's
+    // `'retail'` role - see `resolvePackages`), producing a nonsensical "the download \"retail\"
+    // arrived intact" message for a run that downloaded nothing.
+    const sourceRoot = join(dir, 'store-vanished')
+    await mkdir(sourceRoot, { recursive: true })
+    const box = harness({ retailSources: [detectedSource(sourceRoot)] })
+
+    const started = await startCopy(box, sourceRoot)
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    const outcome = await started.value.settled
+
+    expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.retailCopyIncomplete' })
+    // Never `packageIncomplete` falling back to the literal role name as its `packageId`.
+    const jobError = box.jobs.list().find((job) => job.id === started.value.jobId)?.error
+    expect(jobError).toEqual({ key: 'downloads.error.retailCopyIncomplete' })
+    expect(box.installations.find(started.value.installationId)?.lastFailure?.errorKey).toBe(
+      'downloads.error.retailCopyIncomplete',
+    )
+  })
+
+  it('a detected source that no longer verifies registers nothing', async () => {
+    // Listed, but its fresh inspection says the paks are not retail - the same refusal, carrying
+    // the inspector's own reason key rather than a second opinion about why.
+    const sourceRoot = await makeStoreInstallation('store-steam')
+    const box = harness({
+      retailSources: [
+        detectedSource(sourceRoot, {
+          verified: false,
+          unverifiedReason: 'bootstrap.retailSource.pak0SizeMismatch',
+        }),
+      ],
+    })
+
+    const started = await startCopy(box, sourceRoot)
+
+    expect(started.ok).toBe(false)
+    if (started.ok) return
+    expect(started.error.key).toBe('downloads.error.retailSourceUnverified')
+    expect(started.error.params).toEqual({ reason: 'bootstrap.retailSource.pak0SizeMismatch' })
+    expect(box.installations.list()).toEqual([])
+    expect(box.jobs.list()).toEqual([])
+    expect(box.fetched).toEqual([])
+    expect(await exists(targetPath)).toBe(false)
+  })
+
+  it('a store-copy run with no source path at all is refused, never silently downloaded', async () => {
+    // The schema refuses this payload over IPC; this is the in-process caller's equivalent, and the
+    // one failure mode that would otherwise be invisible - a run falling back to the free download
+    // would succeed, with demo data, under a retail run's name.
+    const box = harness({ retailSources: [] })
+
+    const started = await startBootstrap(box.deps, {
+      engine: 'q2pro',
+      targetPath,
+      includeVideoAndPlayers: false,
+      dataSource: 'store-copy',
+    })
+
+    expect(started.ok).toBe(false)
+    if (started.ok) return
+    expect(started.error.key).toBe('downloads.error.retailSourceUnverified')
+    expect(started.error.params).toEqual({ reason: 'pathMissing' })
+    expect(box.installations.list()).toEqual([])
+    expect(box.fetched).toEqual([])
+  })
+
+  it('regression: the free-download path is untouched by this deliverable', async () => {
+    // Same harness, a detected source available and deliberately ignored: a run that does not ask
+    // for `store-copy` resolves and downloads all three packages, never consults the retail list,
+    // assembles before the first revalidation and keeps [[074]]'s default name.
+    const ignored = detectedSource(await makeStoreInstallation('store-steam'))
+    const box = harness({ retailSources: [ignored] })
+    const pakAtValidate = observeValidateOrder(box)
+
+    const started = await startBootstrap(box.deps, {
+      engine: 'q2pro',
+      targetPath,
+      includeVideoAndPlayers: false,
+    })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    expect((await started.value.settled).status).toBe('succeeded')
+
+    expect(box.fetched).toEqual([
+      'q2pro-1.0.0.zip',
+      'q2-314-demo-x86.exe',
+      'q2-3.20-x86-full-ctf.exe',
+    ])
+    expect(box.gameDataRequests).toEqual(['demo', 'point-release'])
+    expect(box.retailSourceCalls.count).toBe(0)
+    expect(pakAtValidate[0]).toBe(true)
+    expect(box.installations.find(started.value.installationId)?.name).toBe(
+      DEFAULT_BOOTSTRAP_INSTALLATION_NAME,
+    )
+  })
+})
+
 describe('buildBootstrapSummary', () => {
   it('sums the package sizes', async () => {
     const summary = await buildBootstrapSummary(
@@ -1900,6 +2238,59 @@ describe('buildBootstrapSummary', () => {
     expect(summary.value.totalSizeBytes).toBe(7000)
     expect(summary.value.targetPath).toBe(targetPath)
     expect(summary.value.includeVideoAndPlayers).toBe(true)
+    // Story 088 D4: unchanged for the source that predates it, and saying so explicitly.
+    expect(summary.value.dataSource).toBe('free-download')
+    expect(summary.value.copySource).toBeUndefined()
+  })
+
+  it('the summary names the copy source and sums the engine package only', async () => {
+    const sourceRoot = await makeStoreInstallation('store-gog')
+    const summary = await buildBootstrapSummary(
+      {
+        manifest: fakeManifest(),
+        retailSources: () => Promise.resolve([detectedSource(sourceRoot, {}, 'gog')]),
+      },
+      {
+        engine: 'q2pro',
+        targetPath,
+        includeVideoAndPlayers: false,
+        dataSource: 'store-copy',
+        copySourcePath: sourceRoot,
+      },
+    )
+
+    expect(summary.ok).toBe(true)
+    if (!summary.ok) return
+    // AC5: what is still downloaded (the engine only) and how large it is...
+    expect(summary.value.packages).toEqual([
+      { id: 'q2pro-1.0.0', version: '1.0.0', sizeBytes: 1000, role: 'engine' },
+    ])
+    expect(summary.value.totalSizeBytes).toBe(1000)
+    // ...the copy source, by store and path, taken from main's own list, not from the caller...
+    expect(summary.value.dataSource).toBe('store-copy')
+    expect(summary.value.copySource).toEqual({ path: sourceRoot, store: 'gog' })
+    // ...and the target.
+    expect(summary.value.targetPath).toBe(targetPath)
+  })
+
+  it('a copy source main no longer lists is still named, without a store', async () => {
+    // The summary reports; refusing the run is `startBootstrap`'s job (and it does - see the D4
+    // suite above). A confirm step with no line at all about the source would be the worse answer.
+    const sourceRoot = await makeStoreInstallation('store-gone')
+    const summary = await buildBootstrapSummary(
+      { manifest: fakeManifest(), retailSources: () => Promise.resolve([]) },
+      {
+        engine: 'q2pro',
+        targetPath,
+        includeVideoAndPlayers: false,
+        dataSource: 'store-copy',
+        copySourcePath: sourceRoot,
+      },
+    )
+
+    expect(summary.ok).toBe(true)
+    if (!summary.ok) return
+    expect(summary.value.copySource).toEqual({ path: sourceRoot })
   })
 
   it('fails when the manifest cannot produce all three packages', async () => {

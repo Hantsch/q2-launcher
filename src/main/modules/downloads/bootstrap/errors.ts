@@ -29,6 +29,18 @@ export const PACKAGE_UNAVAILABLE: DownloadsErrorKey = 'downloads.error.packageUn
 export const PACKAGE_INCOMPLETE: DownloadsErrorKey = 'downloads.error.packageIncomplete'
 
 /**
+ * Story 088 fix cycle (review F1): the `store-copy` counterpart to `PACKAGE_INCOMPLETE` above - a
+ * detected retail installation verified at the D4 pre-check, and by the time the actual copy ran
+ * (e.g. the source was moved or deleted in between) contributed none of the required `baseq2`
+ * paks. Nothing was *downloaded* for a `store-copy` run, so reusing `PACKAGE_INCOMPLETE` would
+ * either lie about a download that never happened or fall back to the literal string `'retail'` as
+ * its `packageId` (`missingRequired`'s `role`, not a real manifest package - there is none to
+ * resolve for a copy run). Carries no `params`: unlike `PACKAGE_INCOMPLETE`, there is no package id
+ * to name, only "the copy" itself.
+ */
+export const RETAIL_COPY_INCOMPLETE: DownloadsErrorKey = 'downloads.error.retailCopyIncomplete'
+
+/**
  * Everything downloaded, verified and assembled, and `inspectInstallation` still calls the target
  * `invalid`/`missing` (AC6). The one failure that is decided by the disk rather than by an
  * operation returning an error.
@@ -42,6 +54,21 @@ export const NOT_PLAYABLE: DownloadsErrorKey = 'downloads.error.installationNotP
  * a specific, actionable cause the inspector's generic verdict cannot name.
  */
 export const MISSING_RUNTIME: DownloadsErrorKey = 'downloads.error.missingRuntime'
+
+/**
+ * Story 088 D4: the wizard asked for `dataSource: 'store-copy'` and the `copySourcePath` it named
+ * is not among the detected retail sources main itself just re-listed, or that source no longer
+ * inspects as retail (`inspection.verified === false`) - "the picker list is a UI convenience, not
+ * an authorisation" (Decisions (Sprint)), so the run is refused rather than copying an unverified
+ * tree.
+ *
+ * Deliberately **not** a member of `DOWNLOADS_ERROR_KEYS`, for exactly the reason `TARGET_BLOCKED_KEY`
+ * (`job.ts`) is not one either: it is answered by `bootstrap.start` before any installation is
+ * registered and before any `Job` exists, so it can never reach a `Job.error` or the failure log.
+ * Carries `params: { reason }` - `'pathMissing'`/`'notDetected'`, or the source's own
+ * `RetailSourceUnverifiedReasonKey` - as data for the log and a later UI, never as prose.
+ */
+export const RETAIL_SOURCE_UNVERIFIED = 'downloads.error.retailSourceUnverified'
 
 /**
  * The catch-all for a local operation that failed for an unforeseen reason - a refused path, a

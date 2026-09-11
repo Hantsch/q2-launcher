@@ -190,6 +190,12 @@ export const restoreFailureInputSchema = dismissFailureInputSchema
 export const bootstrapEngineOptionsInputSchema = downloadsNoInputSchema
 
 /**
+ * Story 088 D2: `bootstrap.retailSources` takes no input - same `z.void()` convention as
+ * `bootstrapEngineOptionsInputSchema` above.
+ */
+export const bootstrapRetailSourcesInputSchema = downloadsNoInputSchema
+
+/**
  * Story 074 D2: the eventual `bootstrap.targetVerdict` handler's payload - one absolute path, the
  * folder the wizard's target-folder step is considering. `.strict()` for the same "a bad payload is
  * a caller bug" reason as `dismissFailureInputSchema` above; `absolutePathSchema` (`@shared/schemas`)
@@ -211,18 +217,66 @@ const bootstrapEngineSchema = engineKindSchema.refine(
 )
 
 /**
- * Story 074 D4: `bootstrap.summary`'s payload - the same three facts `bootstrap.start` takes minus
- * the name, since a summary states what would be downloaded and how large it is (AC4), which no
- * name can change. `.strict()` for the same "a bad payload is a caller bug" reason as
+ * Story 088 D4: which game-data source a bootstrap run uses (`BootstrapDataSource`,
+ * `@shared/modules/downloads`). Optional at both call sites below, defaulted in main rather than
+ * here, so a payload written against [[074]]'s wizard keeps meaning `'free-download'` - the schema
+ * only decides which values are *representable*.
+ */
+const bootstrapDataSourceSchema = z.enum(['free-download', 'store-copy'])
+
+/**
+ * Story 088 D4: `copySourcePath` is meaningful for exactly one `dataSource`, so both halves of that
+ * are enforced here rather than left to the handler - a `'store-copy'` payload without a source
+ * path, and any other payload carrying one, are equally caller bugs and this file's convention is to
+ * reject a caller bug outright (see `manifestGetInputSchema`'s own doc comment). Shared by the two
+ * schemas below so "when is a copy source required" cannot come to differ between the confirm step's
+ * summary and the run it summarises.
+ *
+ * It validates only the *combination*: whether the path names a source main actually detected, and
+ * whether that source still verifies as retail, is re-decided in main against its own fresh list
+ * (`startBootstrap`, `downloads.error.retailSourceUnverified`) - a schema can know neither.
+ */
+function refineCopySource(
+  value: { dataSource?: 'free-download' | 'store-copy'; copySourcePath?: string },
+  ctx: z.RefinementCtx,
+): void {
+  const storeCopy = value.dataSource === 'store-copy'
+  if (storeCopy && value.copySourcePath === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "a 'store-copy' run must name the retail source it copies from",
+      path: ['copySourcePath'],
+    })
+  }
+  if (!storeCopy && value.copySourcePath !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "'copySourcePath' is only meaningful for a 'store-copy' run",
+      path: ['copySourcePath'],
+    })
+  }
+}
+
+/**
+ * Story 074 D4: `bootstrap.summary`'s payload - the same facts `bootstrap.start` takes minus the
+ * name, since a summary states what would be downloaded and how large it is (AC4), which no name can
+ * change. `.strict()` for the same "a bad payload is a caller bug" reason as
  * `dismissFailureInputSchema` above.
+ *
+ * Story 088 D4 (AC5): plus the data source and, for a `'store-copy'` one, the path it would copy
+ * from - so the confirm step's summary is computed from exactly the payload the run will be started
+ * with, not from a subset of it.
  */
 export const bootstrapSummaryInputSchema = z
   .object({
     engine: bootstrapEngineSchema,
     targetPath: absolutePathSchema,
     includeVideoAndPlayers: z.boolean(),
+    dataSource: bootstrapDataSourceSchema.optional(),
+    copySourcePath: absolutePathSchema.optional(),
   })
   .strict()
+  .superRefine(refineCopySource)
 
 /**
  * Story 074 D4: `bootstrap.start`'s payload. `targetPath` passes `absolutePathSchema` here and is
@@ -230,7 +284,13 @@ export const bootstrapSummaryInputSchema = z
  * path-safety decision lives - a schema cannot know whether a folder already holds a game.
  *
  * `name` is optional and only shape-checked: an installation name is user data, and main falls back
- * to `DEFAULT_BOOTSTRAP_INSTALLATION_NAME` for an absent or blank one rather than rejecting it.
+ * to `DEFAULT_BOOTSTRAP_INSTALLATION_NAME` (or, for a `'store-copy'` run, the engine's label - story
+ * 088 D4) for an absent or blank one rather than rejecting it.
+ *
+ * Story 088 D4: `copySourcePath` passes `absolutePathSchema` here and is then re-resolved in main
+ * against its own freshly listed detected sources - the same "the schema checks the shape, main
+ * makes the decision" split `targetPath` already has, and the reason a path that merely *looks*
+ * fine still cannot get a run past `startBootstrap`.
  */
 export const startBootstrapInputSchema = z
   .object({
@@ -241,8 +301,11 @@ export const startBootstrapInputSchema = z
     // Story 074 AC2's remedy: the write-dir path the user picked from the target step's
     // Program-Files warning, if any - same `absolutePathSchema` convention as `targetPath` above.
     writeDirPath: absolutePathSchema.optional(),
+    dataSource: bootstrapDataSourceSchema.optional(),
+    copySourcePath: absolutePathSchema.optional(),
   })
   .strict()
+  .superRefine(refineCopySource)
 
 export const patchDownloadsSettingsInputSchema = z
   .object({

@@ -87,12 +87,18 @@ describe('archive-layouts.json matches the shipped manifests, the allowlist and 
     const layouts = readArchiveLayouts()
     const layoutsByRole = new Map(layouts.packages.map((pkg) => [pkg.role, pkg]))
 
+    // Defaults to the `'free-download'` data source (no `dataSource` passed), so this plan never
+    // contains a `'retail'`-role entry (story 088 D3) - `layoutsByRole`'s keys predate that role
+    // and only cover the manifest-sourced packages this test is about.
     const plan = buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers: false })
     // Only `required` entries are checked here: `baseq2/q2pro.menu` is `required: false` and is
     // deliberately excluded from the recorded listing (it was never independently measured - see
     // the story's Decisions). Filtering to `required === true` already excludes it; this comment
     // just makes that exclusion legible as deliberate, not an oversight.
-    const requiredEntries = plan.filter((entry) => entry.required)
+    const requiredEntries = plan.filter(
+      (entry): entry is typeof entry & { role: 'engine' | 'demo' | 'point-release' } =>
+        entry.required && entry.role !== 'retail',
+    )
     expect(requiredEntries.length).toBeGreaterThan(0)
 
     for (const entry of requiredEntries) {

@@ -1,6 +1,6 @@
 ---
 sprint: S19
-status: planned # planned | in-progress | done
+status: in-progress # planned | in-progress | done
 branch: sprint/19
 milestone: Phase 4 M1 (install — retail import & demo state)
 ---
@@ -18,7 +18,7 @@ demo installation gets an explicit way out of the demo state instead of being st
 
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
-- [ ] 088 — Retail import from a detected store installation
+- [x] 088 — Retail import from a detected store installation
 - [ ] 089 — The wizard gains an existing-folder data source
 - [ ] 090 — A demo installation upgrades to retail
 

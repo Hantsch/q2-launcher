@@ -797,7 +797,9 @@ tab's failure card name the same package (AC5); (story 077 D5) **`bootstrap-fail
 a failing bootstrap that leaves its installation in the Library, and the retry that adopts it; and
 (story 078 D9) **`bootstrap-failure`** — the wizard's own failed running step showing the same
 cause detail the Downloads tab mounts (AC4), driven by a REAL, deliberately broken package set
-rather than `dev:simulateJob` or hand-authored diagnostics. All three also have their own sections
+rather than `dev:simulateJob` or hand-authored diagnostics; and (story 088 D6)
+**`bootstrap-retail-import`** — the wizard's *second* data source, copying the game data out of a
+detected Steam/GOG installation instead of downloading it. All four also have their own sections
 below.
 
 Story 079 D3 adds two flows proving every content mutation now cascades to every one of Plain
@@ -1005,6 +1007,58 @@ codebase allows.
 
 The flow needs `resources/bin/7za.exe` (`npm run fetch:7za`) and refuses to run without it, same as
 `bootstrap-wizard.mjs`.
+
+## The offline retail-import flow (`bootstrap-retail-import`)
+
+`npm run ui:flow -- bootstrap-retail-import` is story 088 D6's acceptance run — the bootstrap
+wizard's second data source, "copy from a detected installation", walked end to end: engine → game
+data (copy) → target → confirm → a real job. It mirrors `bootstrap-wizard.mjs`'s `setup()`/
+`teardown()` shape, its `TIMEOUT_MS`/`JOB_TIMEOUT_MS` budgets and its loopback fixture server, and
+installs into its own target (`bootstrapRetailTargetDir()`, `.../target/Retail Import`) so the four
+bootstrap flows never race over one directory. Three things about it are worth knowing:
+
+- **A third harness-only override, under the same double gate.** Alongside
+  `Q2L_UI_CONTENT_REPO_BASE` and `Q2L_UI_PICK_FOLDER` (see the `bootstrap-wizard` section above),
+  this flow sets `Q2L_UI_HARNESS_STORE_SOURCES` — a JSON-encoded `DetectedRetailSource[]` that
+  `resolveDetectedRetailSourcesOverride()` (`src/main/modules/downloads/harness.ts`) answers with
+  instead of running a real detection scan, only when `Q2L_UI_HARNESS === '1' && isDev` (proven
+  unreachable otherwise by the four gate cases in `harness.test.ts`). It is what makes the flow
+  possible at all — no test can plant a real Steam library — and it is also what keeps the harness's
+  standing promise never to trigger `detection:scan`, which would shell out to `reg.exe` and walk
+  the developer's own Steam/GOG directories.
+- **The fixture store installations are real files at the real retail sizes.**
+  `writeBootstrapStoreSources()` (`scripts/lib/fixture.mjs`) writes two of them under
+  `.ui-verify/fixture/bootstrap/store-sources/`: a GOG one whose `pak0.pak` is the 8 MiB demo size
+  (its only defect, so its verdict is exactly `pak0SizeMismatch`) and a Steam one whose
+  pak0/pak1/pak2 match `RETAIL_PAK_SIZES` to the byte. Every pak is created empty and `truncate`d to
+  its exact length — verification is size-based, so a 184 MB fixture costs metadata, not I/O — and
+  the injected `inspection` for each entry is computed from those files rather than hand-authored,
+  because main re-verifies the chosen source before copying. Both also carry `ctf/`, `xatrix/`,
+  `rogue/`, a `pak3.pak` and a loose `quake2.exe`, so AC7 is a claim about real, rejected input.
+- **Both halves of AC1 in one launch.** A flow gets one app launch and a running process's
+  environment block cannot be changed from outside, so the "no detected installation → no copy
+  choice" half is driven by setting `process.env.Q2L_UI_HARNESS_STORE_SOURCES` to `'[]'` *inside*
+  the main process via `app.evaluate()`, asserting the choice is absent (not disabled), and then
+  restoring the fixture list before the real run. `detectedRetailSourcesFor()`
+  (`src/main/modules/downloads/index.ts`) resolves the override fresh on every call precisely for
+  this. `'[]'` means "zero sources", never an unset variable: unset would fall through to the real
+  `listDetectedRetailSources()` and its real scan.
+
+What the run asserts: the copy choice absent with an empty list and present with a non-empty one
+(AC1); both entries listed with their store and their path (AC2); the wrong-size one listed,
+`disabled` and naming its reason (AC3); the confirm step naming the copy source, the engine-only
+download with its size and the target, plus the video/players toggle disabled with its reason, since
+neither fixture source has those directories (AC5, and the story's binding user decision); that the
+fixture server was asked for the engine archive and for *neither* game-data archive — evidence, not
+inference, that the game data came from the copy (AC4); that the finished installation is named
+`Q2PRO` (not `Q2PRO Demo`) and carries no Demo badge on its library card or in the action bar (AC6);
+and on disk that the target holds `baseq2` only, with no `ctf`/`xatrix`/`rogue`, no `pak3.pak` and
+no `quake2.exe` anywhere under it (AC7), and that pak0/pak1/pak2 are byte-identical to their sources
+by streamed sha256 and are real files, not symlinks (AC4).
+
+Like `bootstrap-wizard.mjs`, it reseeds the `populated` fixture and recreates its target folder in
+`setup()`, which is what makes it re-runnable, and it needs `resources/bin/7za.exe`
+(`npm run fetch:7za`) for the one real engine extraction.
 
 ## The offline news feed flow (`news-feed`)
 

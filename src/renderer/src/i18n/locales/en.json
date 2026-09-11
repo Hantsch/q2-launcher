@@ -2083,8 +2083,10 @@
       "packageUnavailable": "The download list does not offer everything this setup needs right now. Try again later.",
       "installationNotPlayable": "The files were downloaded, but the result was not a usable Quake II installation.",
       "packageIncomplete": "The download \"{{packageId}}\" arrived intact but did not contain the game files this setup needs.",
+      "retailCopyIncomplete": "The retail installation was copied, but the copy did not contain the game files this setup needs. Make sure the source installation is still there and try again.",
       "missingRuntime": "This engine needs the Microsoft Visual C++ Redistributable (x86) installed, and it was not found on this PC. Get it from https://aka.ms/vs/17/release/vc_redist.x86.exe, then try again.",
       "bootstrapTargetBlocked": "That folder cannot be used for a new installation.",
+      "retailSourceUnverified": "That Quake II installation could not be verified as a retail copy right now. Pick it again from the detected installations, or download the free data instead.",
       "unknown": "The download failed for an unknown reason."
     },
     "failures": {
@@ -2144,12 +2146,23 @@
     }
   },
 
+  "bootstrap": {
+    "retailSource": {
+      "baseDirMissing": "This folder has no baseq2 directory, so it could not be verified as a retail Quake II installation.",
+      "pak0Missing": "pak0.pak is missing from this installation, so it could not be verified as retail.",
+      "pak1Missing": "pak1.pak is missing from this installation, so it could not be verified as retail.",
+      "pak0SizeMismatch": "pak0.pak in this installation does not match the known retail size (found {{actualSize}}), so it could not be verified as retail.",
+      "pak1SizeMismatch": "pak1.pak in this installation does not match the known retail size (found {{actualSize}}), so it could not be verified as retail."
+    }
+  },
+
   "bootstrapWizard": {
     "title": "Download & install",
     "back": "Back",
     "next": "Next",
     "step": {
       "engine": "Choose the engine to install.",
+      "gameData": "Choose where the game data comes from.",
       "target": "Choose the folder to install into.",
       "confirm": "Confirm what will be downloaded.",
       "running": "Setting up your installation."
@@ -2166,6 +2179,23 @@
         "source": "R1Q2 is built from this exact upstream source:",
         "license": "Licensed under GPL version 3 (including its section 6(d) external-source option). The license text is installed alongside the game files.",
         "runtime": "Requires the 32-bit Microsoft Visual C++ Redistributable (x86), which this installer does not bundle. Get it from Microsoft:"
+      }
+    },
+    "gameData": {
+      "loading": "Checking for installations you already own…",
+      "body": "Install with fresh downloads, or copy the game data from a Quake II installation you already own.",
+      "freeDownload": {
+        "title": "Download the game data",
+        "body": "Fetches the free demo data (and, if you enable it below, the point-release extras)."
+      },
+      "storeCopy": {
+        "title": "Copy from an installation you own",
+        "body": "Copies pak0.pak and pak1.pak from a detected Steam, GOG or Epic installation. Only the engine is still downloaded."
+      },
+      "store": {
+        "steam": "Steam",
+        "gog": "GOG",
+        "epic": "Epic Games"
       }
     },
     "target": {
@@ -2200,6 +2230,8 @@
       "targetLabel": "Target folder",
       "includeExtras": "Include videos and player models",
       "includeExtrasHint": "Adds the cinematics and extra player skins from the point release. Off by default – most players only want multiplayer.",
+      "includeExtrasDisabledReason": "This installation has no videos or player models to copy.",
+      "copySourceLabel": "Copying game data from",
       "start": "Start download",
       "role": {
         "engine": "Engine",

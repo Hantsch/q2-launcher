@@ -1,10 +1,12 @@
 import {
   DOWNLOADS_HANDLERS,
   type ArchiveCacheStatus,
+  type BootstrapDataSource,
   type BootstrapEngineOption,
   type BootstrapSummary,
   type BootstrapTargetVerdict,
   type ClearArchiveCacheResult,
+  type DetectedRetailSource,
   type DownloadFailure,
   type DownloadsSettings,
   type StartBootstrapInput,
@@ -58,6 +60,15 @@ export function getBootstrapEngineOptions(): Promise<Outcome<BootstrapEngineOpti
 }
 
 /**
+ * Story 088 D2 (AC1/AC2): the detected Steam/GOG/Epic Quake II sources the wizard's game-data step
+ * can offer to copy from - an empty array is a legitimate "nothing detected", not a failure (see the
+ * handler's own doc comment in `main/modules/downloads/index.ts`).
+ */
+export function getDetectedRetailSources(): Promise<Outcome<DetectedRetailSource[]>> {
+  return callModule<DetectedRetailSource[]>('downloads', DOWNLOADS_HANDLERS.bootstrapRetailSources)
+}
+
+/**
  * Story 074 D4 (AC3): the verdict for a candidate target folder. The wizard renders this verdict -
  * it never judges a path itself, and it never re-derives `blocked` from the other fields.
  */
@@ -75,11 +86,17 @@ export function getBootstrapTargetVerdict(
  * The main handler answers an `Outcome` as the transport-level `Outcome`'s own value, so a raw
  * `callModule` here would yield `Outcome<Outcome<BootstrapSummary>>`; this flattens that one level,
  * the same way `assignConfigProfile` (`modules/config/client.ts`) does.
+ *
+ * Story 088 D5: `dataSource`/`copySourcePath` are optional and mean exactly what
+ * `StartBootstrapInput`'s own fields mean - so the confirm step's summary is always computed from
+ * the same payload the run would start with.
  */
 export async function getBootstrapSummary(input: {
   engine: EngineKind
   targetPath: string
   includeVideoAndPlayers: boolean
+  dataSource?: BootstrapDataSource
+  copySourcePath?: string
 }): Promise<Outcome<BootstrapSummary>> {
   const result = await callModule<Outcome<BootstrapSummary>>(
     'downloads',

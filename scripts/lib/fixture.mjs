@@ -20,6 +20,7 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  truncateSync,
   utimesSync,
   writeFileSync,
 } from 'node:fs'
@@ -2111,4 +2112,169 @@ export function readTargetTree(targetPath) {
     else files.push(name)
   }
   return { dirs: dirs.sort(), files: files.sort() }
+}
+
+// --- story 088 D6: the fixture "store installations" the retail-import flow copies from ----------
+//
+// `scripts/flows/bootstrap-retail-import.mjs` needs two detected Steam/GOG installations that
+// genuinely exist on disk: the job re-verifies the chosen source's paks before copying and then
+// copies the real bytes through `assemble.ts`'s allowlist, so nothing here can be a stub. What CAN
+// be avoided is writing 184 MB of content - the launcher's retail check is a SIZE comparison
+// (`RETAIL_PAK_SIZES`, `src/shared/constants.ts`), so every pak below is created empty and then
+// `truncateSync`d to its exact retail length (story 088's own "Decided during refine" note:
+// "Fixture paks are created with `truncate` at the exact retail sizes, not by writing bytes ... a
+// 184 MB fixture costs metadata, not I/O"). The copy the job performs afterwards is of course real.
+//
+// Two installations, deliberately different verdicts, because one wizard run has to show both
+// halves of the picker at once (AC2 "identified by its store and its path", AC3 "listed but not
+// selectable, with the reason"):
+//
+//   gog   - `baseq2/pak0.pak` at the 8 MiB demo size instead of the retail one, `pak1.pak` correct.
+//           The ONLY defect is pak0's size, so its verdict is exactly `pak0SizeMismatch` and not
+//           some incidental "pak1 is missing" instead.
+//   steam - pak0/pak1/pak2 all at their exact `RETAIL_PAK_SIZES` length: verified, and the one the
+//           flow installs from.
+//
+// Both also carry payload the allowlist must DISCARD - `ctf/`, `xatrix/`, `rogue/`, a `pak3.pak`
+// and a loose `quake2.exe` - so AC7 ("no ctf/xatrix/rogue directory is created even if the source
+// installation has one") is a claim about real, rejected input rather than about input that never
+// existed. Neither has `baseq2/video` or `baseq2/players`, which is also what makes the confirm
+// step's video/players toggle render disabled with its reason (story 088's binding user decision).
+
+/**
+ * Mirrors src/shared/constants.ts:54 (`RETAIL_PAK_SIZES`) - classic Quake II 3.20, the sizes
+ * `inspectRetailSource` compares against. Exported so the flow can assert the copied files' sizes
+ * against the same numbers rather than re-deriving them from the fixture it just wrote.
+ */
+export const RETAIL_PAK_SIZES = {
+  'pak0.pak': 183_997_730,
+  'pak1.pak': 12_992_754,
+  'pak2.pak': 45_055,
+}
+
+/** The unverified fixture's deliberately wrong `pak0.pak` length: the 8 MiB demo pak0 size, the
+ * single most plausible "this is not retail" case a user could actually have. */
+const UNVERIFIED_PAK0_BYTES = 8 * 1024 * 1024
+
+/** `baseq2/pak3.pak` - present in both sources, in the allowlist of neither. */
+const RETAIL_SOURCE_STRAY_PAK = 'pak3.pak'
+/** A loose file in the source root that must not be copied either. */
+const RETAIL_SOURCE_STRAY_FILE = 'quake2.exe'
+/** Mission-pack directories AC7 forbids in the target; both fixture sources ship all three. */
+const RETAIL_SOURCE_DISCARDED_DIRS = ['ctf', 'xatrix', 'rogue']
+
+/** Where the two fixture store installations live - siblings under the bootstrap fixture root. */
+function retailSourceRoot(store) {
+  return join(bootstrapFixtureRoot(), 'store-sources', store)
+}
+
+/** The folder `scripts/flows/bootstrap-retail-import.mjs` installs into - its own sibling of
+ * `bootstrapTargetDir()`/`bootstrapR1q2TargetDir()`, so the three bootstrap flows never race over
+ * one directory. Fresh and empty: target warnings are already proven by `bootstrap-wizard.mjs`. */
+export function bootstrapRetailTargetDir() {
+  return join(bootstrapFixtureRoot(), 'target', 'Retail Import')
+}
+
+/** Fresh, empty target folder for the retail-import flow - deletes any leftover from a previous run. */
+export function writeBootstrapRetailTargetDir() {
+  const target = assertInside(UI_VERIFY_ROOT, bootstrapRetailTargetDir(), 'bootstrap retail target')
+  rmDirBestEffort(target)
+  mkdirSync(target, { recursive: true })
+  return target
+}
+
+/** An empty file stretched to `sizeBytes` - metadata only, no content written (see above). */
+function writeSizedFile(path, sizeBytes) {
+  writeFileSync(path, '')
+  truncateSync(path, sizeBytes)
+}
+
+/**
+ * Mirrors `inspectRetailSource` (`src/main/modules/downloads/bootstrap/retail-source.ts`) closely
+ * enough to describe THESE fixtures: every field is read off the files just written, so the
+ * `DetectedRetailSource[]` handed to the app through `Q2L_UI_HARNESS_STORE_SOURCES` states facts
+ * about real bytes on disk rather than a hand-authored verdict. That matters beyond tidiness: the
+ * job re-checks `inspection.verified` before copying (`verifyCopySource`, `bootstrap/job.ts`), so a
+ * fixture whose injected verdict disagreed with its own files would either fail the run or - worse -
+ * make a passing run prove nothing.
+ */
+function inspectFixtureRetailSource(rootPath) {
+  const baseq2 = join(rootPath, 'baseq2')
+  const inspectPak = (name) => {
+    const path = join(baseq2, name)
+    if (!existsSync(path)) return { exists: false, sizeBytes: null, matchesRetailSize: false }
+    const sizeBytes = statSync(path).size
+    return { exists: true, sizeBytes, matchesRetailSize: sizeBytes === RETAIL_PAK_SIZES[name] }
+  }
+
+  const pak0 = inspectPak('pak0.pak')
+  const pak1 = inspectPak('pak1.pak')
+  const pak2 = inspectPak('pak2.pak')
+
+  let unverifiedReason
+  if (!existsSync(baseq2)) unverifiedReason = 'bootstrap.retailSource.baseDirMissing'
+  else if (!pak0.exists) unverifiedReason = 'bootstrap.retailSource.pak0Missing'
+  else if (!pak0.matchesRetailSize) unverifiedReason = 'bootstrap.retailSource.pak0SizeMismatch'
+  else if (!pak1.exists) unverifiedReason = 'bootstrap.retailSource.pak1Missing'
+  else if (!pak1.matchesRetailSize) unverifiedReason = 'bootstrap.retailSource.pak1SizeMismatch'
+
+  return {
+    rootPath,
+    pak0,
+    pak1,
+    pak2,
+    verified: unverifiedReason === undefined,
+    ...(unverifiedReason ? { unverifiedReason } : {}),
+    hasVideo: existsSync(join(baseq2, 'video')),
+    hasPlayers: existsSync(join(baseq2, 'players')),
+  }
+}
+
+/** One fixture store installation on disk: `baseq2` with the requested pak sizes, plus the payload
+ * the allowlist has to discard. */
+function writeRetailSourceTree(store, { pak0Bytes, pak1Bytes, pak2Bytes }) {
+  const root = assertInside(UI_VERIFY_ROOT, retailSourceRoot(store), `retail source ${store}`)
+  rmDirBestEffort(root)
+
+  const baseq2 = join(root, 'baseq2')
+  mkdirSync(baseq2, { recursive: true })
+  writeSizedFile(join(baseq2, 'pak0.pak'), pak0Bytes)
+  writeSizedFile(join(baseq2, 'pak1.pak'), pak1Bytes)
+  if (pak2Bytes !== undefined) writeSizedFile(join(baseq2, 'pak2.pak'), pak2Bytes)
+  writeSizedFile(join(baseq2, RETAIL_SOURCE_STRAY_PAK), 4096)
+  writeFileSync(join(root, RETAIL_SOURCE_STRAY_FILE), 'not the launcher’s engine\n', 'utf8')
+  for (const dir of RETAIL_SOURCE_DISCARDED_DIRS) {
+    mkdirSync(join(root, dir), { recursive: true })
+    writeSizedFile(join(root, dir, 'pak0.pak'), 2048)
+  }
+
+  return root
+}
+
+/**
+ * Writes both fixture store installations and returns them as the `DetectedRetailSource[]` the
+ * `Q2L_UI_HARNESS_STORE_SOURCES` override expects (`resolveDetectedRetailSourcesOverride`,
+ * `src/main/modules/downloads/harness.ts`) - `{ source, rootPath, inspection }` per entry, the exact
+ * shape `listDetectedRetailSources` would have produced had a real Steam/GOG library been there.
+ *
+ * The GOG (unverified) entry comes FIRST on purpose: it puts the not-selectable row at the top of
+ * the picker, where a list that silently dropped it would be most obvious, and it makes the
+ * wizard's "default to the first verified source" convenience (`selectDataSource`,
+ * `BootstrapWizard.tsx`) genuinely skip a row rather than trivially land on row 0.
+ */
+export function writeBootstrapStoreSources() {
+  const gogRoot = writeRetailSourceTree('gog', {
+    pak0Bytes: UNVERIFIED_PAK0_BYTES,
+    pak1Bytes: RETAIL_PAK_SIZES['pak1.pak'],
+  })
+  const steamRoot = writeRetailSourceTree('steam', {
+    pak0Bytes: RETAIL_PAK_SIZES['pak0.pak'],
+    pak1Bytes: RETAIL_PAK_SIZES['pak1.pak'],
+    pak2Bytes: RETAIL_PAK_SIZES['pak2.pak'],
+  })
+
+  return [
+    { source: 'gog', rootPath: gogRoot, inspection: inspectFixtureRetailSource(gogRoot) },
+    { source: 'steam', rootPath: steamRoot, inspection: inspectFixtureRetailSource(steamRoot) },
+  ]
 }

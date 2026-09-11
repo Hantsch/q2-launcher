@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { RETAIL_PAK_SIZES } from '@shared/constants'
 import { ENGINE_DEFINITIONS } from '@shared/types'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { assembleInstallation, buildAssemblePlan, type AssembleSource } from './assemble'
@@ -509,5 +510,213 @@ describe('buildAssemblePlan (r1q2)', () => {
     } finally {
       await rm(otherSourceRoot, { recursive: true, force: true })
     }
+  })
+})
+
+/**
+ * Story 088 D3 (AC4/AC7): the `'store-copy'` data source's game-data block. Named per the story's
+ * "Acceptance Tests" table: "a store-copy plan copies baseq2 only, never ctf, xatrix or rogue".
+ * `writeFixtureFileOfSize` (unlike `writeFixtureFile` above) writes an exact byte count, since the
+ * pak2.pak gate is size-based, not content-based.
+ */
+async function writeFixtureFileOfSize(relativePath: string, size: number): Promise<void> {
+  const path = join(sourceRoot, relativePath)
+  await mkdir(join(path, '..'), { recursive: true })
+  await writeFile(path, Buffer.alloc(size))
+}
+
+/** A fixture "store installation" tree: the retail block plus everything AC7 forbids. */
+async function seedRetailSourceTree(pak2SizeBytes = RETAIL_PAK_SIZES['pak2.pak']): Promise<void> {
+  await writeFixtureFileOfSize(join('baseq2', 'pak0.pak'), RETAIL_PAK_SIZES['pak0.pak'])
+  await writeFixtureFileOfSize(join('baseq2', 'pak1.pak'), RETAIL_PAK_SIZES['pak1.pak'])
+  await writeFixtureFileOfSize(join('baseq2', 'pak2.pak'), pak2SizeBytes)
+  await writeFixtureFile(join('baseq2', 'pak3.pak'))
+  await writeFixtureFile('loose-file.txt')
+
+  // Never on the allowlist - AC7's negative proof, same shape as the demo/point-release suite above.
+  await writeFixtureFile(join('ctf', 'pak0.pak'))
+  await writeFixtureFile(join('xatrix', 'pak0.pak'))
+  await writeFixtureFile(join('rogue', 'pak0.pak'))
+}
+
+function retailSource(dir: string, packageId = 'retail-source'): AssembleSource[] {
+  return [{ packageId, dir, role: 'retail' }]
+}
+
+describe('buildAssemblePlan (store-copy)', () => {
+  it('contains only the three retail entries, no demo or point-release entry', () => {
+    const plan = buildAssemblePlan({ includeVideoAndPlayers: false, dataSource: 'store-copy' })
+
+    expect(plan.map((entry) => entry.to).sort()).toEqual(
+      ['baseq2/pak0.pak', 'baseq2/pak1.pak', 'baseq2/pak2.pak'].sort(),
+    )
+    for (const entry of plan) {
+      expect(entry.role).toBe('retail')
+    }
+    const byTo = new Map(plan.map((entry) => [entry.to, entry]))
+    expect(byTo.get('baseq2/pak0.pak')).toMatchObject({ required: true })
+    expect(byTo.get('baseq2/pak1.pak')).toMatchObject({ required: true })
+    expect(byTo.get('baseq2/pak2.pak')).toMatchObject({
+      required: false,
+      expectedSizeBytes: RETAIL_PAK_SIZES['pak2.pak'],
+    })
+  })
+
+  it('omits engine-role entries entirely when no engine is given', () => {
+    const plan = buildAssemblePlan({ includeVideoAndPlayers: false, dataSource: 'store-copy' })
+    expect(plan.some((entry) => entry.role === 'engine')).toBe(false)
+  })
+
+  it('the pre-existing free-download plan is unchanged by this story', () => {
+    const withDefault = buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers: false })
+    const withExplicitDataSource = buildAssemblePlan({
+      engine: 'q2pro',
+      includeVideoAndPlayers: false,
+      dataSource: 'free-download',
+    })
+
+    expect(withDefault).toEqual(withExplicitDataSource)
+    expect(withDefault.map((e) => e.to).sort()).toEqual(
+      [
+        'baseq2/gamex86_64.dll',
+        'baseq2/pak0.pak',
+        'baseq2/pak1.pak',
+        'baseq2/pak2.pak',
+        'baseq2/q2pro.menu',
+        Q2PRO_ENGINE_TARGET,
+      ].sort(),
+    )
+    expect(withDefault.every((entry) => entry.role !== 'retail')).toBe(true)
+  })
+})
+
+describe('assembleInstallation (store-copy)', () => {
+  it('a store-copy plan copies baseq2 only, never ctf, xatrix or rogue', async () => {
+    await seedRetailSourceTree()
+
+    const result = await assembleInstallation({
+      sources: retailSource(sourceRoot),
+      targetRoot,
+      includeVideoAndPlayers: false,
+      dataSource: 'store-copy',
+    })
+
+    expect(result.copiedFiles.sort()).toEqual(
+      ['baseq2/pak0.pak', 'baseq2/pak1.pak', 'baseq2/pak2.pak'].sort(),
+    )
+    expect(await namesUnder(join(targetRoot, 'baseq2'))).toEqual(
+      ['pak0.pak', 'pak1.pak', 'pak2.pak'].sort(),
+    )
+    expect(await namesUnder(targetRoot)).toEqual(['baseq2'])
+
+    // Negative: nothing else ever lands at the target, including pak3/loose files that were
+    // never on the allowlist to begin with.
+    const topLevel = await namesUnder(targetRoot)
+    expect(topLevel).not.toContain('ctf')
+    expect(topLevel).not.toContain('xatrix')
+    expect(topLevel).not.toContain('rogue')
+    expect(topLevel).not.toContain('loose-file.txt')
+    expect(await namesUnder(join(targetRoot, 'baseq2'))).not.toContain('pak3.pak')
+  })
+
+  it('a wrong-size pak2.pak is skipped while pak0/pak1 still copy', async () => {
+    await seedRetailSourceTree(RETAIL_PAK_SIZES['pak2.pak'] - 1)
+
+    const result = await assembleInstallation({
+      sources: retailSource(sourceRoot),
+      targetRoot,
+      includeVideoAndPlayers: false,
+      dataSource: 'store-copy',
+    })
+
+    expect(result.copiedFiles.sort()).toEqual(['baseq2/pak0.pak', 'baseq2/pak1.pak'].sort())
+    expect(await namesUnder(join(targetRoot, 'baseq2'))).toEqual(['pak0.pak', 'pak1.pak'].sort())
+    expect(result.missingRequired).toEqual([])
+
+    const pak2Entry = result.entries.find((entry) => entry.to === 'baseq2/pak2.pak')
+    expect(pak2Entry?.found).toBe(false)
+  })
+
+  it('a missing pak2.pak is a normal, non-required outcome', async () => {
+    await writeFixtureFileOfSize(join('baseq2', 'pak0.pak'), RETAIL_PAK_SIZES['pak0.pak'])
+    await writeFixtureFileOfSize(join('baseq2', 'pak1.pak'), RETAIL_PAK_SIZES['pak1.pak'])
+
+    const result = await assembleInstallation({
+      sources: retailSource(sourceRoot),
+      targetRoot,
+      includeVideoAndPlayers: false,
+      dataSource: 'store-copy',
+    })
+
+    expect(result.copiedFiles.sort()).toEqual(['baseq2/pak0.pak', 'baseq2/pak1.pak'].sort())
+    expect(result.missingRequired).toEqual([])
+  })
+
+  it('the video/players toggle: off leaves them out, on brings them in', async () => {
+    await seedRetailSourceTree()
+    await writeFixtureFile(join('baseq2', 'video', 'idlog.cin'))
+    await writeFixtureFile(join('baseq2', 'players', 'male', 'skin.pcx'), 'skin')
+
+    const off = await assembleInstallation({
+      sources: retailSource(sourceRoot),
+      targetRoot,
+      includeVideoAndPlayers: false,
+      dataSource: 'store-copy',
+    })
+    expect(off.copiedFiles).not.toContain(join('baseq2', 'video', 'idlog.cin'))
+    expect(await namesUnder(join(targetRoot, 'baseq2', 'video'))).toEqual([])
+    expect(await namesUnder(join(targetRoot, 'baseq2', 'players'))).toEqual([])
+
+    const otherTargetRoot = await mkdtemp(join(tmpdir(), 'q2-launcher-assemble-dst2-'))
+    try {
+      const on = await assembleInstallation({
+        sources: retailSource(sourceRoot),
+        targetRoot: otherTargetRoot,
+        includeVideoAndPlayers: true,
+        dataSource: 'store-copy',
+      })
+      expect(on.copiedFiles).toContain(join('baseq2', 'video', 'idlog.cin'))
+      expect(await namesUnder(join(otherTargetRoot, 'baseq2', 'video'))).toEqual(['idlog.cin'])
+      expect(await namesUnder(join(otherTargetRoot, 'baseq2', 'players'))).toEqual(['male'])
+    } finally {
+      await rm(otherTargetRoot, { recursive: true, force: true })
+    }
+  })
+
+  it('a required entry missing from a store-copy source is reported, role retail', async () => {
+    await writeFixtureFileOfSize(join('baseq2', 'pak1.pak'), RETAIL_PAK_SIZES['pak1.pak'])
+    // pak0.pak deliberately absent.
+
+    const result = await assembleInstallation({
+      sources: retailSource(sourceRoot),
+      targetRoot,
+      includeVideoAndPlayers: false,
+      dataSource: 'store-copy',
+    })
+
+    expect(result.missingRequired).toEqual([{ role: 'retail', from: ['baseq2/pak0.pak'] }])
+  })
+
+  it('resolves a retail source case-insensitively, matching inspectRetailSource (review F2)', async () => {
+    // Traditional Quake II folders are spelled `Baseq2/PAK0.PAK` - `inspectRetailSource`
+    // (`retail-source.ts`) already resolves that case-insensitively, so a source that verified
+    // during inspection and `verifyCopySource`'s re-check must copy the exact same way. Before the
+    // fix, `findSource` resolved `role: 'retail'` candidates with a case-sensitive `join` + `stat`,
+    // which would find nothing on a case-sensitive filesystem (Linux/macOS runners) even though the
+    // path was already confirmed to exist under a different case.
+    await mkdir(join(sourceRoot, 'Baseq2'), { recursive: true })
+    await writeFile(join(sourceRoot, 'Baseq2', 'PAK0.PAK'), 'pak0')
+    await writeFile(join(sourceRoot, 'Baseq2', 'PAK1.PAK'), 'pak1')
+
+    const result = await assembleInstallation({
+      sources: retailSource(sourceRoot),
+      targetRoot,
+      includeVideoAndPlayers: false,
+      dataSource: 'store-copy',
+    })
+
+    expect(result.missingRequired).toEqual([])
+    expect(result.copiedFiles.sort()).toEqual(['baseq2/pak0.pak', 'baseq2/pak1.pak'].sort())
+    expect(await namesUnder(join(targetRoot, 'baseq2'))).toEqual(['pak0.pak', 'pak1.pak'].sort())
   })
 })
