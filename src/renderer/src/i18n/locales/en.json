@@ -196,6 +196,7 @@
       "rename": "Rename\u2026",
       "cleanup": "Clean up redundant config copies\u2026",
       "setIcon": "Set icon\u2026",
+      "importRetail": "Import retail data\u2026",
       "remove": "Remove\u2026",
       "favorite": "Add to favourites",
       "unfavorite": "Remove from favourites",
@@ -2059,6 +2060,7 @@
     "job": {
       "download": "Downloading {{name}}",
       "bootstrap": "Setting up {{name}}",
+      "retailUpgrade": "Importing retail data into {{name}}",
       "cancel": "Cancel this download"
     },
     "cache": {
@@ -2088,6 +2090,7 @@
       "bootstrapTargetBlocked": "That folder cannot be used for a new installation.",
       "retailSourceUnverified": "That Quake II installation could not be verified as a retail copy right now. Pick it again from the detected installations, or download the free data instead.",
       "gameDataSourceUnusable": "That folder could not be used for game data right now. Pick it again, or download the free data instead.",
+      "installationRunning": "“{{name}}” is running right now. Quit the game first, then import the retail data.",
       "unknown": "The download failed for an unknown reason."
     },
     "failures": {
@@ -2261,6 +2264,14 @@
       "gone": "This job is no longer active.",
       "dismiss": "Run in background"
     }
+  },
+
+  "retailUpgrade": {
+    "title": "Import retail game data",
+    "description": "Copy pak0.pak and pak1.pak from a Quake II installation you already own. This turns the demo installation into a full installation.",
+    "loading": "Checking for installations you already own…",
+    "noSources": "No store installation was detected. Install Quake II from Steam, GOG or Epic, then try again.",
+    "confirm": "Import"
   },
 
   "modules": {

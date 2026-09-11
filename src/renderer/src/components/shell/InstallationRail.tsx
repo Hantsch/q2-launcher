@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FolderOpen, FolderPlus, LayoutGrid, Play, Plus, Search } from 'lucide-react'
+import { FolderOpen, FolderPlus, Import, LayoutGrid, Play, Plus, Search } from 'lucide-react'
 import type { Installation } from '@shared/types'
 import { cn } from '../../lib/cn'
+import { isDemoData } from '../../lib/demo-data'
 import { shortenPath } from '../../lib/format'
 import { isPlayable, statusTone } from '../../lib/status'
 import { useLauncher } from '../../store/useLauncher'
@@ -255,24 +256,52 @@ function RailCard({ installation }: { installation: Installation }) {
   const { t } = useTranslation()
   const play = useLauncher((state) => state.play)
   const setActive = useLauncher((state) => state.setActiveInstallation)
+  const openDialog = useLauncher((state) => state.openDialog)
+  const running = useLauncher(
+    (state) =>
+      state.launch.installationId === installation.id &&
+      (state.launch.phase === 'running' || state.launch.phase === 'starting'),
+  )
   const tone = statusTone(installation.status)
   const playable = isPlayable(installation.status)
 
   return (
     <div className="space-y-2.5">
-      <Button
-        variant={playable ? 'primary' : 'neutral'}
-        size="sm"
-        fullWidth
-        disabled={!playable}
-        icon={<Play className="size-3.5" />}
-        onClick={() => {
-          void setActive(installation.id)
-          void play(installation.id)
-        }}
-      >
-        {t('rail.quickPlay')}
-      </Button>
+      <div className="flex items-center gap-1.5">
+        <Button
+          variant={playable ? 'primary' : 'neutral'}
+          size="sm"
+          fullWidth
+          disabled={!playable}
+          icon={<Play className="size-3.5" />}
+          onClick={() => {
+            void setActive(installation.id)
+            void play(installation.id)
+          }}
+        >
+          {t('rail.quickPlay')}
+        </Button>
+
+        {/* Story 090 D4: the tile itself (074) only has room for the CSS microtag, so the
+            demo-to-retail trigger lives here on the hover card, its own surface. */}
+        {isDemoData(installation.checks) && (
+          <IconButton
+            label={t('installation.action.importRetail')}
+            size="sm"
+            disabled={running}
+            onClick={() =>
+              openDialog({
+                kind: 'module',
+                moduleId: 'downloads',
+                view: 'retail-upgrade',
+                installationId: installation.id,
+              })
+            }
+          >
+            <Import className="size-3.5" />
+          </IconButton>
+        )}
+      </div>
 
       <div className="space-y-1">
         <div className="truncate font-display text-sm tracking-wide text-ink uppercase">

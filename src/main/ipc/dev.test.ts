@@ -1,6 +1,9 @@
 import type { IpcMainInvokeEvent } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { LaunchState } from '@shared/types'
 import { JobsService } from '../services/jobs'
+import { LaunchService } from '../services/launch'
+import type { InstallationsService } from '../services/installations'
 import type { AppContext } from '../context'
 
 /**
@@ -38,6 +41,28 @@ async function setup(): Promise<{ jobs: JobsService; fn: (event: unknown, payloa
   const app = { jobs } as unknown as AppContext
   registerDevIpc(app)
   return { jobs, fn: registered.get('dev:simulateJob')! }
+}
+
+/**
+ * Story 090 D5: `dev:simulateLaunch` drives `LaunchService` the same way a real
+ * launch/exit would (`LaunchService.simulate`), so these tests use a real
+ * `LaunchService` - `installations` is never touched by `simulate()`, so a
+ * stub stands in for it.
+ */
+async function setupLaunch(): Promise<{
+  launch: LaunchService
+  states: LaunchState[]
+  fn: (event: unknown, payload: unknown) => unknown
+}> {
+  const { registerDevIpc } = await import('./dev')
+  const states: LaunchState[] = []
+  const launch = new LaunchService({
+    installations: {} as InstallationsService,
+    onStateChange: (state) => states.push(state),
+  })
+  const app = { launch } as unknown as AppContext
+  registerDevIpc(app)
+  return { launch, states, fn: registered.get('dev:simulateLaunch')! }
 }
 
 beforeEach(() => {
@@ -104,5 +129,40 @@ describe('dev:simulateJob', () => {
     expect(job.status).toBe('failed')
     expect(job.error?.key).toBe('downloads.error.network')
     expect(job.finishedAt).toBeDefined()
+  })
+})
+
+describe('dev:simulateLaunch', () => {
+  it('rejects an unknown phase string synchronously (schema boundary, not just TS types)', async () => {
+    const { fn } = await setupLaunch()
+    expect(() => fn(fakeEvent, { installationId: 'inst-1', phase: 'bogus' })).toThrow()
+  })
+
+  it('rejects a missing installationId', async () => {
+    const { fn } = await setupLaunch()
+    expect(() => fn(fakeEvent, { phase: 'running' })).toThrow()
+  })
+
+  it('phase "running" puts the given installation into running and broadcasts launch:state', async () => {
+    const { launch, states, fn } = await setupLaunch()
+
+    await fn(fakeEvent, { installationId: 'inst-1', phase: 'running' })
+
+    expect(launch.getState()).toEqual(
+      expect.objectContaining({ phase: 'running', installationId: 'inst-1' }),
+    )
+    expect(states).toHaveLength(1)
+    expect(states[0]).toEqual(launch.getState())
+  })
+
+  it('phase "idle" clears launch state back to idle and broadcasts launch:state', async () => {
+    const { launch, states, fn } = await setupLaunch()
+
+    await fn(fakeEvent, { installationId: 'inst-1', phase: 'running' })
+    await fn(fakeEvent, { installationId: 'inst-1', phase: 'idle' })
+
+    expect(launch.getState()).toEqual({ phase: 'idle', installationId: null })
+    expect(states).toHaveLength(2)
+    expect(states[1]).toEqual({ phase: 'idle', installationId: null })
   })
 })

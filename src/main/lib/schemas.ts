@@ -70,7 +70,12 @@ const checkSchema = z.object({
     'engine-identified',
     'write-access',
   ]),
-  severity: z.enum(['ok', 'warn', 'error']),
+  // Mirrors `CheckSeverity` (`@shared/types/installation`: `'ok' | 'info' | 'warn' | 'error'`) -
+  // `'info'` was missing here, which silently discarded a persisted `ValidationCheck` array (the
+  // whole array, via `.catch([])` below) on the very first load of any installation whose only
+  // check was info-severity (e.g. `validation.pak0NotRetail`, the demo-data marker `inspector.ts`
+  // has produced since story 074 D7).
+  severity: z.enum(['ok', 'info', 'warn', 'error']),
   messageKey: z.string(),
   params: paramsSchema.optional(),
   fix: z

@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next'
-import { Play, Wrench, X } from 'lucide-react'
+import { Import, Play, Wrench, X } from 'lucide-react'
 import type { Installation, Job, LaunchState } from '@shared/types'
 import { cn } from '../../lib/cn'
+import { isDemoData } from '../../lib/demo-data'
 import {
   formatBytes,
   formatDuration,
@@ -38,9 +39,16 @@ export function ActionBar() {
   const cancelJob = useLauncher((state) => state.cancelJob)
   const updateInstallation = useLauncher((state) => state.updateInstallation)
   const setRoute = useLauncher((state) => state.setRoute)
+  const openDialog = useLauncher((state) => state.openDialog)
   const runFix = useFixAction()
 
   const action = resolvePrimaryAction(installation, job, launch)
+  // Story 090 D4: same running gate as `resolvePrimaryAction`'s `running` check below, reused
+  // here rather than exposed from that function so the trigger's condition is visibly identical.
+  const isRunning =
+    !!installation &&
+    launch.installationId === installation.id &&
+    (launch.phase === 'running' || launch.phase === 'starting')
 
   const onPrimary = (): void => {
     if (!installation) return
@@ -125,27 +133,49 @@ export function ActionBar() {
 
       {/* --- the button --- */}
       <div className="flex shrink-0 flex-col items-end gap-1.5">
-        {/* `data-testid` + `data-action` added by story 074 D8: AC6 ("Play lights up the moment
-            the verdict stops being invalid/missing, even while the job is still running") can only
-            be proven by sampling this exact button's enabled-ness against a live job, and the
-            footer's buttons are otherwise addressable only by translated label - which changes
-            per `action.kind`, i.e. precisely with the state under test. */}
-        <PlayButton
-          data-testid="actionbar-play"
-          data-action={action.kind}
-          tone={action.tone}
-          disabled={action.disabled}
-          onClick={onPrimary}
-          icon={
-            action.kind === 'repair' ? (
-              <Wrench className="size-4" />
-            ) : (
-              <Play className="size-4" fill="currentColor" />
-            )
-          }
-        >
-          {t(action.labelKey)}
-        </PlayButton>
+        <div className="flex items-center gap-2">
+          {/* Story 090 D4: only offered on a demo installation, disabled while it is running -
+              same refusal-not-deferred-write gate as `isRunning` above. */}
+          {installation && isDemoData(installation.checks) && (
+            <IconButton
+              label={t('installation.action.importRetail')}
+              size="sm"
+              disabled={isRunning}
+              onClick={() =>
+                openDialog({
+                  kind: 'module',
+                  moduleId: 'downloads',
+                  view: 'retail-upgrade',
+                  installationId: installation.id,
+                })
+              }
+            >
+              <Import className="size-3.5" />
+            </IconButton>
+          )}
+
+          {/* `data-testid` + `data-action` added by story 074 D8: AC6 ("Play lights up the moment
+              the verdict stops being invalid/missing, even while the job is still running") can
+              only be proven by sampling this exact button's enabled-ness against a live job, and
+              the footer's buttons are otherwise addressable only by translated label - which
+              changes per `action.kind`, i.e. precisely with the state under test. */}
+          <PlayButton
+            data-testid="actionbar-play"
+            data-action={action.kind}
+            tone={action.tone}
+            disabled={action.disabled}
+            onClick={onPrimary}
+            icon={
+              action.kind === 'repair' ? (
+                <Wrench className="size-4" />
+              ) : (
+                <Play className="size-4" fill="currentColor" />
+              )
+            }
+          >
+            {t(action.labelKey)}
+          </PlayButton>
+        </div>
         {appVersion && (
           <span className="stencil text-[9px] tracking-[0.2em]">
             {t('actionbar.buildLabel', { version: appVersion })}

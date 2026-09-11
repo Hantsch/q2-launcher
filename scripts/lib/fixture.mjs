@@ -415,6 +415,27 @@ const INSTALL_FAILED_ID = 'fixture-install-failed'
  */
 export const INSTALL_FAILED_ERROR_KEY = 'downloads.error.allMirrorsFailed'
 
+/**
+ * Story 090 D6: a fifth installation - `scripts/flows/retail-upgrade.mjs`'s own demo installation,
+ * real files on disk (never a hand-set status/checks): a demo-sized `pak0.pak` so
+ * `inspectInstallation` derives `validation.pak0NotRetail` for real (`isDemoData`,
+ * `src/renderer/src/lib/demo-data.ts`), an `r1q2.exe` marker so `classifyEngine`/`rankExecutables`
+ * find both a known engine and a real executable (keeping every OTHER check clean, so this
+ * installation's status is a plain `ok` before the upgrade rather than `invalid` for unrelated
+ * reasons), and a marker file elsewhere in `baseq2` the upgrade must never touch (AC4). Additive,
+ * the same convention `INSTALL_UNKNOWN_ENGINE_ID`/`INSTALL_FAILED_ID` document above: `sortOrder: 4`
+ * puts it last, and it is assigned to no config profile.
+ */
+export const INSTALL_DEMO_UPGRADE_ID = 'fixture-install-demo-upgrade'
+export const INSTALL_DEMO_UPGRADE_NAME = 'Fixture Demo Upgrade Install'
+
+/** A file inside `baseq2`, deliberately not one of `UPGRADE_PAK_NAMES` (`pak0.pak`/`pak1.pak`,
+ * `src/main/modules/downloads/retail/upgrade-job.ts`) - the retail-upgrade flow's on-disk proof
+ * that the job touches only the two paks it is allowed to (AC4). */
+export const RETAIL_UPGRADE_MARKER_FILE = 'q2l-fixture-marker.cfg'
+const RETAIL_UPGRADE_MARKER_CONTENT =
+  '// q2launcher fixture marker - must survive the retail upgrade untouched\n'
+
 function populatedInstallations() {
   return [
     makeInstallation({
@@ -496,6 +517,27 @@ function populatedInstallations() {
         at: Date.parse(FIXED_TIMESTAMP),
         jobId: 'fixture-bootstrap-job-failed',
       },
+    }),
+    // Story 090 D6 - see INSTALL_DEMO_UPGRADE_ID above. `checks` is seeded here to mirror exactly
+    // what a live `inspectInstallation()` produces for the real, on-disk demo-sized `pak0.pak`
+    // `writePopulatedFixture()` writes below (`validation.pak0NotRetail`, info severity -
+    // `src/main/services/inspector.ts`) - NOT left to the real app's own startup `validateAll()` to
+    // derive, unlike `INSTALL_FAILED_ID` above. That startup revalidation is asynchronous
+    // (`did-finish-load`), and this flow's very first assertion (AC1's trigger visibility) cannot
+    // race it: `isDemoData()` reads `installation.checks` straight from whatever `state.json` seeded,
+    // and a flow that only clicked through the UI fast enough would otherwise see `checks: []` and
+    // no trigger at all, depending on timing this repo's harness does not guarantee. Seeding the
+    // pre-derived value here is the same trick `status: 'invalid'` uses for `INSTALL_FAILED_ID`
+    // above, just applied to `checks` too because this story's very first assertion needs it, not
+    // only its status dot.
+    makeInstallation({
+      id: INSTALL_DEMO_UPGRADE_ID,
+      name: INSTALL_DEMO_UPGRADE_NAME,
+      rootPath: join(gameRoot(), INSTALL_DEMO_UPGRADE_ID),
+      engineKind: 'r1q2',
+      checks: [{ id: 'base-paks', severity: 'info', messageKey: 'validation.pak0NotRetail' }],
+      favorite: false,
+      sortOrder: 4,
     }),
   ]
 }
@@ -1342,9 +1384,25 @@ export function writePopulatedFixture() {
   rmDirBestEffort(join(gameRoot(), INSTALL_FAILED_ID))
   mkdirSync(join(gameRoot(), INSTALL_FAILED_ID), { recursive: true })
 
+  // Story 090 D6: `INSTALL_DEMO_UPGRADE_ID`'s real files - see that constant's own doc comment for
+  // why each one is there. `writeSizedFile`/`UNVERIFIED_PAK0_BYTES` are declared further down this
+  // file (story 088's own retail-fixture section) but are plain module-level bindings, already
+  // initialised by the time any exported function here actually runs.
+  {
+    const demoRoot = join(gameRoot(), INSTALL_DEMO_UPGRADE_ID)
+    const demoBaseq2 = join(demoRoot, 'baseq2')
+    rmDirBestEffort(demoRoot)
+    mkdirSync(demoBaseq2, { recursive: true })
+    // An empty file is enough: `classifyEngine`/`rankExecutables` (src/main/services/inspector.ts)
+    // only look at the file name, never its contents.
+    writeFileSync(join(demoRoot, 'r1q2.exe'), '')
+    writeSizedFile(join(demoBaseq2, 'pak0.pak'), UNVERIFIED_PAK0_BYTES)
+    writeFileSync(join(demoBaseq2, RETAIL_UPGRADE_MARKER_FILE), RETAIL_UPGRADE_MARKER_CONTENT, 'utf8')
+  }
+
   return {
     userDataDir,
-    installations: installIds.length + 1,
+    installations: installIds.length + 2, // + INSTALL_FAILED_ID + INSTALL_DEMO_UPGRADE_ID
     configProfiles: populatedConfigProfiles().length,
   }
 }

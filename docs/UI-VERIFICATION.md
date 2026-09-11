@@ -1110,6 +1110,77 @@ Run it standalone with `npm run ui:flow -- news-feed`; it is not part of `ui:ver
 registry (`scripts/lib/screens.mjs` is unchanged by this story — the rendered surface is story
 083's scope) and never touches production `raw.githubusercontent.com`.
 
+## The offline retail-upgrade flow (`retail-upgrade`)
+
+`npm run ui:flow -- retail-upgrade` is story 090 D6's own offline acceptance proof — "a demo
+installation can be upgraded to retail by copying `pak0.pak`/`pak1.pak` out of a detected store
+installation", walked end to end against an already-registered demo installation rather than
+through the bootstrap wizard. It mirrors `bootstrap-retail-import.mjs`'s fixture-source shape and
+its `Q2L_UI_HARNESS_STORE_SOURCES` override (see that flow's own section above for the fuller
+writeup of both), but needs no fixture HTTP server and no `7za.exe` extraction at all: the job under
+test (`src/main/modules/downloads/retail/upgrade-job.ts`) only copies local files, it never
+downloads or extracts anything.
+
+**The fixture demo installation.** `scripts/lib/fixture.mjs`'s `populatedInstallations()` gains a
+fifth, additive installation (`INSTALL_DEMO_UPGRADE_ID`, "Fixture Demo Upgrade Install") — the same
+convention `INSTALL_UNKNOWN_ENGINE_ID`/`INSTALL_FAILED_ID` already document (last `sortOrder`,
+assigned to no config profile). `writePopulatedFixture()` gives it real files: a demo-sized
+`baseq2/pak0.pak` (`truncateSync`, never real bytes — the retail check is a size comparison), an
+`r1q2.exe` marker so `classifyEngine`/`rankExecutables` find both a known engine and a real
+executable, and `RETAIL_UPGRADE_MARKER_FILE` — a file elsewhere in `baseq2` this flow proves the
+upgrade job never touches (AC4). Its `checks` array is seeded directly with
+`validation.pak0NotRetail` (info severity) rather than left for the app's own startup
+`validateAll()` to derive — AC1's very first assertion (the trigger's visibility, gated on
+`isDemoData()`) cannot race that asynchronous revalidation. Seeding an info-severity check also
+uncovered a real, pre-existing bug this deliverable fixes alongside its fixture:
+`src/main/lib/schemas.ts`'s persisted-state `checkSchema.severity` enum was missing `'info'`
+(`CheckSeverity` itself is `'ok' | 'info' | 'warn' | 'error'`), so `.catch([])` silently discarded
+the whole `checks` array on load for any installation whose only check was info-severity — exactly
+`validation.pak0NotRetail`.
+
+**Selectors.** None of D4's three trigger buttons (rail hover card, library card, action bar) carry
+a dedicated `data-testid` — each is a plain `IconButton` identified only by its translated
+`aria-label` (`installation.action.importRetail`, "Import retail data…") — so this flow selects all
+three by that accessible name, scoped per surface (`<aside>` for the rail, `footer` for the action
+bar, the library row's own `div.items-start` wrapper for the library card) the same way
+`installation-icon-tile.mjs`/`engine-badge-surfaces.mjs` already scope same-named buttons that
+appear on more than one surface at once. Everything inside `RetailUpgradeDialog` itself is D3's own
+real `data-testid`s (`retail-upgrade-dialog`, `-no-sources`, `-source-list`,
+`-source-item`/`-source-item-unverified`, `-confirm`/`-dismiss`/`-error`), and the running job reuses
+`RunningStep`'s own `bootstrap-running-step` (`data-status`) verbatim.
+
+**A CSP-related `page.waitForFunction()` hang, and the workaround.** Early drafts of this flow used
+`page.waitForFunction()` to wait on compound conditions (footer text containing the active
+installation's name, a Demo badge disappearing). It was observed to hang for the FULL timeout in
+this app even when the predicate was already true the instant the call was made — measured directly
+by reading the same condition with a plain `page.evaluate()` immediately beforehand. The production
+CSP (`script-src 'self'`, no `'unsafe-eval'`) is the suspected cause, since Playwright's polling
+strategy for `waitForFunction` recompiles the predicate for repeated in-page calls. The fix is to
+never poll a predicate from inside the page at all: `importRetailButtonWithDisabled()` builds a
+plain CSS attribute selector (`button[aria-label="..."][disabled]` / `:not([disabled])`) and waits
+on it with the native, locator-based `.waitFor()` instead, and the two footer-text checks use
+`page.locator('footer').filter({ hasText })` / a `[data-testid="demo-badge"]` locator's own
+`.waitFor()` in the same spirit — every wait in this flow is either a native Playwright
+locator wait or a plain Node-side poll of the filesystem (AC4's on-disk check), never a hand-rolled
+`page.evaluate()` retry loop.
+
+**AC3's "zero sources" case**, mirroring `bootstrap-retail-import.mjs`'s own AC1 absent-half
+mechanism exactly: `process.env.Q2L_UI_HARNESS_STORE_SOURCES` is set to `'[]'` inside the running
+main process via `app.evaluate()`, the dialog is opened and asserted to show
+`retail-upgrade-no-sources` with no picker rendered at all, then the fixture list is restored before
+the real run continues in the same launch.
+
+What the run asserts, in order: the trigger renders on all three surfaces for the demo installation
+(AC1); `dev:simulateLaunch('running')` disables it on all three, and `'idle'` re-enables it, while
+the installation is still demo data (AC7 — this has to run before the real upgrade, since a
+successful upgrade removes the trigger from the DOM entirely per AC5); the empty-sources state
+(AC3); both fixture sources listed by store and path, the wrong-size (GOG) one disabled with a
+reason naming `pak0.pak` and the retail size (AC2/AC6); the real job succeeds after copying from the
+verified (Steam) source; the Demo badge and the trigger vanish from all three surfaces afterwards
+(AC5); and on disk, `baseq2` holds exactly `pak0.pak`/`pak1.pak`/the marker file — sized to
+`RETAIL_PAK_SIZES`, no `pak2.pak`, and the marker file's bytes byte-identical to what they were
+before the job ran (AC4).
+
 ## Baselines and CI
 
 Screenshots are **never diffed** against a committed reference, and this is

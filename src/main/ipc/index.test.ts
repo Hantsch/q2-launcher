@@ -56,6 +56,10 @@ beforeEach(() => {
 })
 
 describe('registerAllIpc', () => {
+  it('lists dev:simulateLaunch (story 090 D5) as dev-only', () => {
+    expect(DEV_ONLY_CHANNELS).toContain('dev:simulateLaunch')
+  })
+
   it('registers every non-dev-only channel and does not throw when isDev is false', async () => {
     const { registerAllIpc } = await import('./index')
     expect(() => registerAllIpc(fakeApp(false))).not.toThrow()
@@ -65,6 +69,7 @@ describe('registerAllIpc', () => {
       expect(registered.has(channel)).toBe(true)
     }
     expect(registered.has('dev:simulateJob')).toBe(false)
+    expect(registered.has('dev:simulateLaunch')).toBe(false)
   })
 
   it('registers every channel, including dev-only ones, when isDev is true, with no throw', async () => {
@@ -74,7 +79,7 @@ describe('registerAllIpc', () => {
     for (const channel of INVOKE_CHANNELS) {
       expect(registered.has(channel)).toBe(true)
     }
-    expect(registered.size).toBe(36)
+    expect(registered.size).toBe(37)
   })
 
   it('rejects an invalid payload on a plain (throwing) handle() channel synchronously', async () => {

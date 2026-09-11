@@ -31,7 +31,7 @@ import {
   type RemoveInstallationInput,
   type UpdateInstallationInput,
 } from '@shared/types'
-import { canonicalizePath, pathKey } from '../../../lib/fs-utils'
+import { canonicalizePath } from '../../../lib/fs-utils'
 import type { CreateJobInput } from '../../../services/jobs'
 import { EXTRACTION_LISTING_CAP } from '../diagnostics'
 import { markVerified, type ExtractorHandle } from '../extractor'
@@ -56,6 +56,7 @@ import {
   RETAIL_SOURCE_UNVERIFIED,
 } from './errors'
 import { inspectGameDataSource, isPathContainedBy } from './game-data-source'
+import { findDetectedRetailSource } from './retail-source'
 import type {
   BootstrapDiagnosticsSource,
   BootstrapLog,
@@ -516,24 +517,6 @@ async function resolvePackages(
 }
 
 /**
- * Story 088 D4: the one comparison "is this the folder main detected?" is ever decided by -
- * `canonicalizePath` + `pathKey` (`lib/fs-utils.ts`), the same pair `InstallationsService`'s
- * duplicate guard and `findByRootPath` use. So junction/symlink spellings, a trailing separator and
- * (on Windows/macOS) case cannot make a detected source look like a different folder, and cannot
- * make an undetected one look like a detected one either.
- */
-async function findDetectedSource(
-  detected: DetectedRetailSource[],
-  copySourcePath: string,
-): Promise<DetectedRetailSource | undefined> {
-  const wanted = pathKey(await canonicalizePath(copySourcePath))
-  for (const entry of detected) {
-    if (pathKey(await canonicalizePath(entry.rootPath)) === wanted) return entry
-  }
-  return undefined
-}
-
-/**
  * Story 088 D4: re-resolves the renderer's chosen copy source against main's own, freshly listed
  * detected sources (Decisions (Sprint): "main re-lists the detected sources and re-inspects the path
  * before copying; a path that is not among them - or no longer verifies - fails with a
@@ -558,7 +541,7 @@ async function verifyCopySource(
   }
 
   const detected = await deps.retailSources()
-  const match = await findDetectedSource(detected, copySourcePath)
+  const match = await findDetectedRetailSource(detected, copySourcePath)
   if (!match) return fail(RETAIL_SOURCE_UNVERIFIED, { reason: 'notDetected' })
   if (!match.inspection.verified) {
     return fail(RETAIL_SOURCE_UNVERIFIED, {
@@ -582,7 +565,7 @@ async function verifyCopySource(
  *  2. **no overlap with the target** - "copying a folder into itself is the one way this feature
  *     could destroy the user's data" (Decisions (Sprint)). Both directions, since `isPathContainedBy`
  *     is symmetric, and on canonicalised paths so a junction or a trailing separator cannot spell
- *     its way past the test - the same `canonicalizePath` pairing `findDetectedSource` above uses.
+ *     its way past the test - the same `canonicalizePath` pairing `findDetectedRetailSource` (`retail-source.ts`) uses.
  *  3. **a usable verdict** - `kind: 'unusable'` (no `baseq2/pak0.pak`, or a path
  *     `isUnsafeAbsolutePath` refuses, which `inspectGameDataSource` checks first) ends the run.
  *     `'demo'` is *not* a refusal: a demo folder installs as a demo installation, marker and all
@@ -659,7 +642,7 @@ export async function buildBootstrapSummary(
       return fail(RETAIL_SOURCE_UNVERIFIED, { reason: 'pathMissing' })
     }
     const detected = deps.retailSources ? await deps.retailSources() : []
-    const match = await findDetectedSource(detected, input.copySourcePath)
+    const match = await findDetectedRetailSource(detected, input.copySourcePath)
     copySource = {
       // Main's own spelling of the folder when it knows it - the path the job would copy from.
       path: match?.rootPath ?? input.copySourcePath,

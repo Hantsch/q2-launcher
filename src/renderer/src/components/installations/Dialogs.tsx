@@ -37,7 +37,9 @@ export function Dialogs() {
       // component, it only resolves the module and mounts whatever `Dialogs` it registers.
       const mod = rendererModule(dialog.moduleId)
       const ModuleDialogs = mod?.Dialogs
-      return ModuleDialogs ? <ModuleDialogs view={dialog.view} /> : null
+      return ModuleDialogs ? (
+        <ModuleDialogs view={dialog.view} installationId={dialog.installationId} />
+      ) : null
     }
     case 'none':
       return null

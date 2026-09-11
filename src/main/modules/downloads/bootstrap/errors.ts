@@ -80,6 +80,28 @@ export const MISSING_RUNTIME: DownloadsErrorKey = 'downloads.error.missingRuntim
 export const RETAIL_SOURCE_UNVERIFIED = 'downloads.error.retailSourceUnverified'
 
 /**
+ * Story 090 D2 (AC7): the retail-upgrade job was asked to overwrite the game data of an
+ * installation whose own Quake II process is currently `starting`/`running`
+ * (`LaunchService.getState()`), and refuses to start rather than pulling ~197 MB of pak files out
+ * from under a running game. A refusal, not a deferred write (Decisions (Refine)): INST-J7's
+ * wait-then-continue machinery does not exist yet.
+ *
+ * Deliberately **not** a member of `DOWNLOADS_ERROR_KEYS`, for exactly the reason
+ * `RETAIL_SOURCE_UNVERIFIED` below is not one either: it is answered by `startRetailUpgrade` before
+ * any `Job` exists, so it can never reach a `Job.error` or the failure log.
+ */
+export const INSTALLATION_RUNNING = 'downloads.error.installationRunning'
+
+/**
+ * Story 090 D2: `retail.upgradeStart` named an `installationId` the library does not (or no longer)
+ * hold - a stale renderer, or an installation removed between opening the dialog and confirming it.
+ * Not a member of `DOWNLOADS_ERROR_KEYS` for the same reason as `INSTALLATION_RUNNING` above: it is
+ * decided before the job exists. Reuses the library's own vocabulary rather than inventing a
+ * `downloads.*` spelling of it, since it is the same fact `InstallationsService` reports.
+ */
+export const INSTALLATION_NOT_FOUND = 'installations.error.notFound'
+
+/**
  * The catch-all for a local operation that failed for an unforeseen reason - a refused path, a
  * copy that threw, an `mkdir` that could not run. Same choice `pipeline.ts` makes for its own
  * unexpected-error path, and the key `fetcher.ts` already uses for a refused local path: of the

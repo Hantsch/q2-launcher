@@ -11,6 +11,8 @@ import {
   type DownloadsSettings,
   type GameDataSourceVerdict,
   type StartBootstrapInput,
+  type StartRetailUpgradeInput,
+  type StartRetailUpgradeResult,
 } from '@shared/modules/downloads'
 import type { EngineKind, Outcome } from '@shared/types'
 import { callModule } from '../moduleClient'
@@ -132,6 +134,23 @@ export async function startBootstrapInstall(
   const result = await callModule<Outcome<{ jobId: string; installationId: string }>>(
     'downloads',
     DOWNLOADS_HANDLERS.bootstrapStart,
+    input,
+  )
+  return result.ok ? result.value : result
+}
+
+/**
+ * Story 090 D1/D2: starts the retail-upgrade job for one demo installation (INST-D4). Main's
+ * `retail.upgradeStart` handler (`src/main/modules/downloads/index.ts`) is a thin wrapper around
+ * D2's real `startRetailUpgrade` (`src/main/modules/downloads/retail/upgrade-job.ts`).
+ * Flattened for the same reason as `startBootstrapInstall` above.
+ */
+export async function startRetailUpgrade(
+  input: StartRetailUpgradeInput,
+): Promise<Outcome<StartRetailUpgradeResult>> {
+  const result = await callModule<Outcome<StartRetailUpgradeResult>>(
+    'downloads',
+    DOWNLOADS_HANDLERS.retailUpgradeStart,
     input,
   )
   return result.ok ? result.value : result

@@ -6,6 +6,7 @@ import {
   FolderPlus,
   HardDriveDownload,
   ImagePlus,
+  Import,
   Pencil,
   Play,
   RefreshCw,
@@ -17,6 +18,7 @@ import type { LibraryStats } from '@shared/modules/library'
 import type { Installation } from '@shared/types'
 import { cn } from '../lib/cn'
 import { invoke } from '../lib/bridge'
+import { isDemoData } from '../lib/demo-data'
 import { formatDuration, formatRelativeTime } from '../lib/format'
 import { isPlayable, statusTone } from '../lib/status'
 import { useLauncher } from '../store/useLauncher'
@@ -224,6 +226,11 @@ function InstallationRow({ installation }: { installation: Installation }) {
   const openDialog = useLauncher((state) => state.openDialog)
   const confirmBeforeRemoving = useLauncher((state) => state.settings.confirmBeforeRemoving)
   const removeInstallation = useLauncher((state) => state.removeInstallation)
+  const running = useLauncher(
+    (state) =>
+      state.launch.installationId === installation.id &&
+      (state.launch.phase === 'running' || state.launch.phase === 'starting'),
+  )
 
   const tone = statusTone(installation.status)
   const active = installation.id === activeId
@@ -385,6 +392,26 @@ function InstallationRow({ installation }: { installation: Installation }) {
           >
             <CopyX className="size-3.5" />
           </IconButton>
+
+          {/* Story 090 D4: only offered on a demo installation - the empty-store-sources case is
+              explained inside the dialog itself, not by hiding the trigger. */}
+          {isDemoData(installation.checks) && (
+            <IconButton
+              label={t('installation.action.importRetail')}
+              size="sm"
+              disabled={running}
+              onClick={() =>
+                openDialog({
+                  kind: 'module',
+                  moduleId: 'downloads',
+                  view: 'retail-upgrade',
+                  installationId: installation.id,
+                })
+              }
+            >
+              <Import className="size-3.5" />
+            </IconButton>
+          )}
 
           {/* Destructive action kept visually apart from the routine ones. */}
           <div className="mx-1 h-5 w-px bg-line" />

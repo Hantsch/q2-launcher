@@ -142,6 +142,25 @@ export class LaunchService {
     return ok(this.current)
   }
 
+  /**
+   * Story 090 D5: drives `launch:state` for `dev:simulateLaunch`, since fixture
+   * engine binaries used in e2e tests are filler bytes and cannot actually be
+   * spawned. Goes through the same `current`/`onStateChange` path `start()`
+   * uses, so it is indistinguishable from a real launch/exit to any consumer -
+   * there is no second, parallel notion of launch state.
+   */
+  simulate(phase: 'running' | 'idle', installationId: string): void {
+    if (phase === 'idle') {
+      this.setState(IDLE_LAUNCH_STATE)
+      return
+    }
+    this.setState({
+      phase: 'running',
+      installationId,
+      startedAt: new Date().toISOString(),
+    })
+  }
+
   private setState(next: LaunchState): void {
     this.current = next
     this.onStateChange(next)

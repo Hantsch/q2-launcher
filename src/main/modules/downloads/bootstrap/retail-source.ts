@@ -6,7 +6,14 @@ import type {
 } from '@shared/modules/downloads'
 import { RETAIL_PAK_SIZES } from '@shared/constants'
 import type { DetectionResult, ScanOptions } from '@shared/types'
-import { findChild, fileSize, isDirectory, resolveRelaxed } from '../../../lib/fs-utils'
+import {
+  canonicalizePath,
+  findChild,
+  fileSize,
+  isDirectory,
+  pathKey,
+  resolveRelaxed,
+} from '../../../lib/fs-utils'
 import { assembleInstallation, type AssembleInstallationResult, type AssembleSource } from './assemble'
 
 /**
@@ -120,6 +127,30 @@ export async function listDetectedRetailSources(deps: {
       inspection: await inspectRetailSource(candidate.rootPath),
     })),
   )
+}
+
+/**
+ * Story 088 D4: the one comparison "is this the folder main detected?" is ever decided by -
+ * `canonicalizePath` + `pathKey` (`lib/fs-utils.ts`), the same pair `InstallationsService`'s
+ * duplicate guard and `findByRootPath` use. So junction/symlink spellings, a trailing separator and
+ * (on Windows/macOS) case cannot make a detected source look like a different folder, and cannot
+ * make an undetected one look like a detected one either.
+ *
+ * Story 090 D2: lifted out of `bootstrap/job.ts` (where 088 D4 wrote it as a private helper) into
+ * this file, because the retail-upgrade job (`retail/upgrade-job.ts`) has to admit a source by
+ * *exactly* the same rule the bootstrap job does. A second copy of this predicate is the one way
+ * the two could come to disagree about which folder the renderer just named, so there is one - here,
+ * next to the lister whose entries it matches against, and imported by both jobs.
+ */
+export async function findDetectedRetailSource(
+  detected: DetectedRetailSource[],
+  copySourcePath: string,
+): Promise<DetectedRetailSource | undefined> {
+  const wanted = pathKey(await canonicalizePath(copySourcePath))
+  for (const entry of detected) {
+    if (pathKey(await canonicalizePath(entry.rootPath)) === wanted) return entry
+  }
+  return undefined
 }
 
 /**

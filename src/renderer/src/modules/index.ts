@@ -34,8 +34,11 @@ export interface RendererModule {
    * The shell mounts this when `store.dialog` is `{ kind: 'module', moduleId, view }` for this
    * module's id, passing `view` straight through - the module interprets its own `view` strings to
    * tell its modals apart (a module with only one modal can ignore the value).
+   *
+   * Story 090 D3: `installationId` is ferried through the same way, whenever `store.dialog` carries
+   * one - `undefined` for a module dialog that opened without one (e.g. `'bootstrap-wizard'`).
    */
-  Dialogs?: ComponentType<{ view: string }>
+  Dialogs?: ComponentType<{ view: string; installationId?: string }>
 }
 
 export const RENDERER_MODULES: readonly RendererModule[] = [

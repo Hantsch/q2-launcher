@@ -20,7 +20,7 @@ demo installation gets an explicit way out of the demo state instead of being st
 
 - [x] 088 — Retail import from a detected store installation
 - [x] 089 — The wizard gains an existing-folder data source
-- [ ] 090 — A demo installation upgrades to retail
+- [x] 090 — A demo installation upgrades to retail
 
 ## Notes
 

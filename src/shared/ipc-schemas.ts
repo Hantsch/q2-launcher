@@ -199,3 +199,10 @@ export const moduleInvokeSchema: z.ZodType<IpcInvokeMap['module:invoke']['req']>
 export const devSimulateJobSchema: z.ZodType<IpcInvokeMap['dev:simulateJob']['req']> = z.object({
   scenario: z.enum(['success', 'stall', 'failure']),
 })
+
+/** Story 090 D5: `dev:simulateLaunch`'s payload - a real installation id and a target phase. */
+export const devSimulateLaunchSchema: z.ZodType<IpcInvokeMap['dev:simulateLaunch']['req']> =
+  z.object({
+    installationId: z.string().min(1),
+    phase: z.enum(['running', 'idle']),
+  })

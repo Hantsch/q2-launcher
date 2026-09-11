@@ -320,6 +320,22 @@ export const startBootstrapInputSchema = z
   .strict()
   .superRefine(refineCopySource)
 
+/**
+ * Story 090 D1: `retail.upgradeStart`'s payload - the demo installation to upgrade and which
+ * detected store source ([[088]]'s `DetectedRetailSource.rootPath`) to copy `pak0.pak`/`pak1.pak`
+ * from. `.strict()` for the same "a bad payload is a caller bug" reason as
+ * `dismissFailureInputSchema` above. Like `copySourcePath` elsewhere in this file, `sourceRootPath`
+ * is never trusted as-is: D2's handler re-lists and re-verifies it against main's own fresh
+ * `listDetectedRetailSources()` before copying anything (CLAUDE.md's "paths from the renderer are
+ * never trusted").
+ */
+export const startRetailUpgradeInputSchema = z
+  .object({
+    installationId: z.string().min(1),
+    sourceRootPath: absolutePathSchema,
+  })
+  .strict()
+
 export const patchDownloadsSettingsInputSchema = z
   .object({
     concurrentJobs: z

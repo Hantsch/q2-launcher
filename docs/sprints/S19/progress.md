@@ -23,3 +23,16 @@
 - 2026-09-11 20:55 · 089 · D4 wizard has a data-source step · done
 - 2026-09-11 20:55 · 089 · D5 demo and rejection read as reasons · started
 - 2026-09-11 21:03 · 089 · D5 demo and rejection read as reasons · done
+- 2026-09-11 21:19 · 090 · D1 Contract, schemas and handlers · started
+- 2026-09-11 21:24 · 090 · D1 Contract, schemas and handlers · done
+- 2026-09-11 21:24 · 090 · D2 The upgrade job · started
+- 2026-09-11 21:37 · 090 · D2 The upgrade job · done
+- 2026-09-11 21:37 · 090 · D3 The retail-upgrade dialog · started
+- 2026-09-11 21:37 · 090 · D4 The three triggers · started
+- 2026-09-11 21:45 · 090 · D3 The retail-upgrade dialog · done
+- 2026-09-11 21:45 · 090 · D4 The three triggers · done
+- 2026-09-11 21:45 · 090 · D5 Dev-only launch-state simulation · started
+- 2026-09-11 21:48 · 090 · D5 Dev-only launch-state simulation · done
+- 2026-09-11 21:48 · 090 · D6 Offline end-to-end proof · started
+- 2026-09-11 22:29 · 090 · D6 Offline end-to-end proof · done
+- 2026-09-11 22:41 · 090 · story · done

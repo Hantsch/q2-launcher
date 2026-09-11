@@ -1,5 +1,5 @@
 import { ok } from '@shared/types'
-import { devSimulateJobSchema } from '@shared/ipc-schemas'
+import { devSimulateJobSchema, devSimulateLaunchSchema } from '@shared/ipc-schemas'
 import type { AppContext } from '../context'
 import { handle } from './index'
 
@@ -75,6 +75,14 @@ export function registerDevIpc(app: AppContext): void {
       }
     }, 200)
 
+    return ok(null)
+  })
+
+  // Story 090 D5: lets the e2e flow put one installation into `running`/`idle`
+  // through a real IPC surface - see `devSimulateLaunchSchema` and
+  // `LaunchService.simulate` for why this exists instead of a real launch.
+  handle('dev:simulateLaunch', devSimulateLaunchSchema, ({ installationId, phase }) => {
+    app.launch.simulate(phase, installationId)
     return ok(null)
   })
 }

@@ -74,6 +74,16 @@ export const DOWNLOADS_HANDLERS = {
    * handler yet (D3); D1 only reserves the channel name.
    */
   bootstrapGameDataSource: 'bootstrap.gameDataSource',
+  /**
+   * Story 090 D1: starts the retail-upgrade job for one demo installation - imports
+   * `pak0.pak`/`pak1.pak` from a verified store source into an already-registered installation,
+   * turning it into a normal, non-demo one (INST-D4), reusing [[088]]'s verify/copy routines rather
+   * than a second implementation. Deliberately no new store-source lister alongside this: the
+   * picker this channel's caller uses is [[088]]'s existing `bootstrapRetailSources` above. D1 only
+   * reserves this channel and its contract shape; D2 implements the real job
+   * (`main/modules/downloads/retail/upgrade-job.ts`) behind this handler's current stub.
+   */
+  retailUpgradeStart: 'retail.upgradeStart',
 } as const
 
 /**
@@ -683,6 +693,31 @@ export interface StartBootstrapInput {
    * retail. What is then copied from is main's own `DetectedRetailSource.rootPath`, not this string.
    */
   copySourcePath?: string
+}
+
+/**
+ * Story 090 D1: `retail.upgradeStart`'s payload - the demo installation to upgrade and which
+ * detected store source ([[088]]'s `DetectedRetailSource.rootPath`) to copy `pak0.pak`/`pak1.pak`
+ * from (INST-D4). Mirrors `StartBootstrapInput.copySourcePath`'s "the picker list is a UI
+ * convenience, not an authorisation" discipline (CLAUDE.md): D2's handler re-lists and re-verifies
+ * `sourceRootPath` against main's own fresh `listDetectedRetailSources()` before copying anything,
+ * never trusting this string alone.
+ */
+export interface StartRetailUpgradeInput {
+  installationId: string
+  sourceRootPath: string
+}
+
+/**
+ * Story 090 D1: what `retail.upgradeStart` answers on success - the `Job.id` the upgrade runs as
+ * (Decisions (Refine): "a `JobsService` job ... visible in the Downloads tab like every other
+ * download job"). Progress and the eventual outcome arrive through `jobs:changed`, never through
+ * this call's return value, same convention as `bootstrapStart`'s `{ jobId, installationId }`
+ * (`installationId` is omitted here - unlike a bootstrap run, this call never registers a new
+ * installation, it only acts on one that already exists).
+ */
+export interface StartRetailUpgradeResult {
+  jobId: string
 }
 
 /** One package a bootstrap would download, as the confirm step lists it. */

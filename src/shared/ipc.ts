@@ -129,6 +129,19 @@ export interface IpcInvokeMap {
    * - `failure`: finishes `failed` immediately with a real, i18n'd `error.key`.
    */
   'dev:simulateJob': { req: { scenario: 'success' | 'stall' | 'failure' }; res: Outcome<null> }
+  /**
+   * Story 090 D5: drives one installation into `running`/`idle` through a real
+   * IPC surface, and broadcasts `launch:state` exactly as a real launch/exit
+   * would. Fixture engine binaries used in e2e tests are filler bytes and
+   * cannot actually be launched, so this is the only honest way for an offline
+   * e2e flow to exercise AC7 (the upgrade action's disabled-while-running
+   * state). Same affordance class as `dev:simulateJob`, behind the same
+   * dev-only allowlist - not a new production surface.
+   */
+  'dev:simulateLaunch': {
+    req: { installationId: string; phase: 'running' | 'idle' }
+    res: Outcome<null>
+  }
 }
 
 export type InvokeChannel = keyof IpcInvokeMap
@@ -192,6 +205,7 @@ export const INVOKE_CHANNELS = [
   'modules:list',
   'module:invoke',
   'dev:simulateJob',
+  'dev:simulateLaunch',
 ] as const satisfies readonly InvokeChannel[]
 
 export const EVENT_CHANNELS = [
@@ -216,7 +230,10 @@ export const ALL_INVOKE_CHANNELS_LISTED: MissingInvoke extends never ? true : Mi
 export const ALL_EVENT_CHANNELS_LISTED: MissingEvent extends never ? true : MissingEvent = true
 
 /** Channels only registered in development builds. */
-export const DEV_ONLY_CHANNELS: readonly InvokeChannel[] = ['dev:simulateJob']
+export const DEV_ONLY_CHANNELS: readonly InvokeChannel[] = [
+  'dev:simulateJob',
+  'dev:simulateLaunch',
+]
 
 /** The shape `preload` puts on `window.q2`. */
 export interface LauncherBridge {

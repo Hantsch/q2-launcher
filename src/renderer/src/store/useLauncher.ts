@@ -75,8 +75,15 @@ export type DialogState =
    * importing anything module-specific. `view` is a free string the owning module defines for
    * itself (e.g. `'bootstrap-wizard'`) - the shell never interprets it, only ferries it through to
    * that module's own `Dialogs` component (see `RendererModule.Dialogs` in `modules/index.ts`).
+   *
+   * Story 090 D3: `installationId` is an optional companion field, same "the shell never
+   * interprets it" rule as `view` - it exists only because the retail-upgrade dialog
+   * (`'retail-upgrade'` view) is scoped to one installation the same way the shell's own
+   * `remove`/`rename`/`cleanup`/`installationIcon` kinds already are, and a module dialog has no
+   * other channel to receive that id through. Absent for a module dialog that needs no scope
+   * (e.g. `'bootstrap-wizard'`).
    */
-  | { kind: 'module'; moduleId: ModuleId; view: string }
+  | { kind: 'module'; moduleId: ModuleId; view: string; installationId?: string }
 
 interface LauncherStore {
   // --- mirrored main-process state ----------------------------------------

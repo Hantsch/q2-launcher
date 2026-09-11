@@ -13,6 +13,7 @@ import {
   type GameDataSourceVerdict,
   type ManifestSnapshot,
   type PackageSource,
+  type StartRetailUpgradeResult,
 } from '@shared/modules/downloads'
 import { fail, isJobActive, ok, type Job, type Outcome } from '@shared/types'
 import type { Logger } from '../../lib/logger'
@@ -33,7 +34,6 @@ import {
   realR1q2Setup,
 } from './bootstrap/ports'
 import { resolveR1q2LicensePath } from './bootstrap/r1q2-setup'
-import { listDetectedRetailSources } from './bootstrap/retail-source'
 import { computeTargetVerdict } from './bootstrap/target'
 import { clear, enforceBudget, NOTHING_IN_USE, status } from './cache'
 import {
@@ -43,11 +43,7 @@ import {
   UNKNOWN_DOWNLOAD_FAILURE_KEY,
 } from './diagnostics'
 import { appendFailure, dismissFailure, restoreFailure } from './failure-log'
-import {
-  PRODUCTION_DOWNLOAD_SOURCE,
-  resolveDetectedRetailSourcesOverride,
-  resolveDownloadSource,
-} from './harness'
+import { PRODUCTION_DOWNLOAD_SOURCE, resolveDownloadSource } from './harness'
 import { ManifestService, ManifestUnavailableError } from './manifest-service'
 import {
   createDownloadPipeline,
@@ -55,6 +51,8 @@ import {
   type PipelineLog,
   type StartedDownload,
 } from './pipeline'
+import { detectedRetailSourcesFor } from './retail/sources'
+import { startRetailUpgrade, type RetailUpgradeDeps } from './retail/upgrade-job'
 import {
   bootstrapEngineOptionsInputSchema,
   bootstrapGameDataSourceInputSchema,
@@ -67,6 +65,7 @@ import {
   patchDownloadsSettingsInputSchema,
   restoreFailureInputSchema,
   startBootstrapInputSchema,
+  startRetailUpgradeInputSchema,
 } from './schemas'
 
 /** `DownloadsSettings.archiveCacheBudgetGB` is denominated in GB; `cache.ts` wants bytes. One
@@ -239,6 +238,29 @@ export const downloadsModule: MainModule = {
         const started = await startBootstrap(bootstrapDepsFor(app, manifestService, log), input)
         if (!started.ok) return started
         return ok({ jobId: started.value.jobId, installationId: started.value.installationId })
+      },
+    )
+
+    /**
+     * Story 090 D1/D2 (INST-D4): upgrades one already-registered demo installation with
+     * `pak0.pak`/`pak1.pak` copied out of a store installation main itself detected. A thin wrapper
+     * around D2's `startRetailUpgrade` (`retail/upgrade-job.ts`), which owns the whole order -
+     * resolve the installation, refuse while its game is running (AC7), re-verify the renderer's
+     * source against main's own fresh list (AC6), copy through [[088]]'s routine, then
+     * `InstallationsService.validate()` (AC5).
+     *
+     * Like `bootstrapStart` above, this deliberately does not await the job: it answers as soon as
+     * the job exists, so the dialog can switch to the progress state instead of blocking on ~197 MB
+     * of copying. `settled` stays in main - the job itself is the renderer's progress and outcome
+     * surface, over `jobs:changed`.
+     */
+    handle(
+      DOWNLOADS_HANDLERS.retailUpgradeStart,
+      startRetailUpgradeInputSchema,
+      async (input): Promise<Outcome<StartRetailUpgradeResult>> => {
+        const started = await startRetailUpgrade(retailUpgradeDepsFor(app, log), input)
+        if (!started.ok) return started
+        return ok({ jobId: started.value.jobId })
       },
     )
 
@@ -484,23 +506,6 @@ function createPipelineFor(app: AppContext, log?: PipelineLog): DownloadPipeline
  * `BootstrapInstallationsHost` is satisfied structurally, so nothing in this module can reach past
  * `create`/`validate`/`remove` into the library.
  */
-/**
- * Story 088 D2/D4: the detected Steam/GOG/Epic retail sources, as *main* sees them right now -
- * the `bootstrap.retailSources` handler's answer and the list `startBootstrap` re-verifies a
- * `store-copy` run's `copySourcePath` against are deliberately the same function call, so the wizard
- * cannot be offered a source the job would then refuse (or vice versa).
- *
- * The harness override is resolved fresh on every call, unlike the download source (resolved once at
- * `setup()`), because a UI-verification flow needs to change its fixture between wizard runs within
- * one launch - under the same double gate (`Q2L_UI_HARNESS === '1' && isDev`), so a packaged build
- * always reaches the real `listDetectedRetailSources`.
- */
-function detectedRetailSourcesFor(app: AppContext): Promise<DetectedRetailSource[]> {
-  const override = resolveDetectedRetailSourcesOverride({ isDev: app.isDev })
-  if (override !== undefined) return Promise.resolve(override)
-  return listDetectedRetailSources({ detection: app.detection })
-}
-
 function bootstrapDepsFor(
   app: AppContext,
   manifestService: ManifestService,
@@ -534,6 +539,29 @@ function bootstrapDepsFor(
     // `BootstrapDiagnosticsSource`). `observeFailedJobs` above drops the entry again on any
     // terminal status, so an instrumented job leaves nothing behind either way.
     diagnostics: (jobId, kind) => createDiagnosticsCollector(jobId, kind),
+    log,
+  }
+}
+
+/**
+ * Story 090 D2: the production wiring for the retail-upgrade job (`retail/upgrade-job.ts`). Built
+ * per call, like `bootstrapDepsFor` above and for the same reason - the job owns no queue and no
+ * cross-call state.
+ *
+ * `app.installations` and `app.launch` are the shell's real services; the job's narrow
+ * `RetailUpgradeInstallationsHost`/`RetailUpgradeLaunchHost` are satisfied structurally, so nothing
+ * in this module can reach past `find`/`validate` into the library or past `getState()` into the
+ * launcher. `copyGameData` is deliberately not passed: its default *is* [[088]]'s
+ * `copyRetailGameData`, so there is no wiring in which the copy could come from somewhere else.
+ */
+function retailUpgradeDepsFor(app: AppContext, log: Logger): RetailUpgradeDeps {
+  return {
+    jobs: app.jobs,
+    installations: app.installations,
+    launch: app.launch,
+    // Main's own list, re-derived per run - never anything the renderer sent, and the same
+    // resolution the wizard's picker and the bootstrap job use.
+    retailSources: () => detectedRetailSourcesFor(app),
     log,
   }
 }

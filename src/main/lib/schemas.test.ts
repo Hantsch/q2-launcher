@@ -1197,3 +1197,38 @@ describe('installationSchema - lastFailure (story 077 D1)', () => {
     expect(parsed?.lastFailure?.params).toBeUndefined()
   })
 })
+
+/**
+ * Regression for a one-line fix to `checkSchema`'s `severity` enum: it was missing `'info'` (the
+ * real `CheckSeverity` union, `@shared/types/installation`, is
+ * `'ok' | 'info' | 'warn' | 'error'`), which meant an installation whose only `checks` entry was
+ * info-severity - exactly `validation.pak0NotRetail`, the demo-data marker
+ * `src/main/modules/installations/inspector.ts` emits - had its entire `checks` array silently
+ * wiped to `[]` by `checks: z.array(checkSchema).catch([])` on load.
+ */
+describe('installationSchema - checks severity: info (regression)', () => {
+  const baseRow = {
+    id: 'install-1',
+    rootPath: 'C:\\Games\\Quake2',
+    name: 'Quake II',
+    engineKind: 'r1q2',
+    launchArgs: [],
+    activeGameDir: '',
+    source: 'manual',
+    status: 'ok',
+    gameDirs: [],
+    favorite: false,
+    sortOrder: 0,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    totalPlaytimeSeconds: 0,
+  }
+
+  it('keeps an info-severity check rather than dropping the whole checks array', () => {
+    const infoCheck = { id: 'base-paks', severity: 'info', messageKey: 'validation.pak0NotRetail' }
+    const parsed = parseInstallation({ ...baseRow, checks: [infoCheck] })
+
+    expect(parsed).not.toBeNull()
+    expect(parsed?.checks).toEqual([infoCheck])
+  })
+})
