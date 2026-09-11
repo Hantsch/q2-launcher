@@ -1,6 +1,6 @@
 ---
 sprint: S19
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/19
 milestone: Phase 4 M1 (install — retail import & demo state)
 ---

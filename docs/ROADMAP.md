@@ -7,10 +7,13 @@ shipped both its milestones**: a live community news hero (081–085) over a use
 with its first two real tiles (086–087). The same sprint also carried Phase 4's install module
 forward with R1Q2 as a second installable engine (story 080), alongside Q2PRO's existing bootstrap.
 Story 079 (a save reaches every installation, and Care sees drift) finished on `dev` outside a
-sprint, before S18 branched. **[S19](../sprints/S19/sprint.md) is planned**: retail import from a
+sprint, before S18 branched. **[S19](../sprints/S19/review.md) is done**: retail import from a
 detected store installation or an existing folder (088–089), plus the demo-to-retail upgrade action
-(090) — the wizard's remaining two data sources and the loop story 074 left open. Next step: the user
-decides whether/when to merge `sprint/18` into `dev`, then starts `/sprint 19`.
+(090) — the wizard's remaining two data sources and the loop story 074 left open, all on real,
+non-demo installations proven end to end. Next step: update/rollback, repair and removal from disk
+are still open in Phase 4 M1 (deliberately deferred, not blocked); the user decides whether/when to
+merge `sprint/18` and `sprint/19` into `dev`, then whether to cut the next sprint from that remaining
+scope.
 
 ## Phase overview
 
@@ -29,7 +32,7 @@ decides whether/when to merge `sprint/18` into `dev`, then starts `/sprint 19`.
 
 | # | Milestone | Status | Sprint(s) | Note |
 | --- | --- | --- | --- | --- |
-| 4.1 | Install — bootstrap, update and repair ([concepts/install-module.md](concepts/install-module.md)) | in progress | [S16 review](../sprints/done/S16/review.md), [S17 review](../sprints/done/S17/review.md), [S18 review](../sprints/S18/review.md), [S19](../sprints/S19/sprint.md) planned | Q2PRO and R1Q2 bootstraps ship (story 080); S19 cuts retail import + demo upgrade (088–090); update/rollback, repair and removal from disk still follow. |
+| 4.1 | Install — bootstrap, update and repair ([concepts/install-module.md](concepts/install-module.md)) | in progress | [S16 review](../sprints/done/S16/review.md), [S17 review](../sprints/done/S17/review.md), [S18 review](../sprints/S18/review.md), [S19 review](../sprints/S19/review.md) | Q2PRO and R1Q2 bootstraps ship (story 080); S19 shipped retail import + demo upgrade (088–090); update/rollback, repair and removal from disk still follow. |
 
 ## Open / unprioritised
 
@@ -41,6 +44,12 @@ decides whether/when to merge `sprint/18` into `dev`, then starts `/sprint 19`.
 
 ## Follow-ups worth doing
 
+- `bootstrap/job.ts`'s toggle-on extras pass re-copies the whole assemble plan a second time when
+  `includeVideoAndPlayers` is set (pre-existing since story 074, confirmed still present by 088 and
+  090) — worth a fix once that toggle sees more use. [S19 review](../sprints/S19/review.md)
+- No guard stops a game from being launched while a retail-upgrade job (090) is copying into its own
+  installation folder — needs INST-J7's wait-then-continue machinery, which doesn't exist yet.
+  [S19 review](../sprints/S19/review.md)
 - `docs/concepts/home-screen.md` §6 still says the content repository holds "only a LICENSE" —
   story 080 added `engines/` and `gamedata/`. A small doc correction, next time that concept is
   touched. [S18 review](../sprints/S18/review.md)
