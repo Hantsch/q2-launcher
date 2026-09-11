@@ -79,23 +79,31 @@ describe('home module', () => {
   })
 
   /**
-   * Story 083 D6's actual claim - the app-start `refreshNews()` call is gated behind
-   * `isUiHarnessEnabled()` - was previously unverified in either direction: the test above always
-   * runs with the harness env stubbed on, so it can never tell a correctly-gated skip from a start
-   * fetch that simply never happens. These two tests replace `news/news-service` with a bare double
-   * (`createNewsService` returning `refreshNews`/`getNews` spies, same shape `homeModule.setup` calls
-   * against) so the startup call itself - not its downstream fetch/cache behaviour, already covered
-   * by `news-service.test.ts` - can be asserted directly, in both directions, without a real
-   * `fetch`/`shell.openExternal` ever running.
+   * The app-start `refreshNews()` call itself is unconditional - it is `resolveNewsSource()`
+   * (called *inside* `refreshNews()`) that decides whether that turns into a real network request
+   * or a no-op, based on the harness gate and whether a loopback base is configured
+   * (`news/harness.ts`). An earlier version of `index.ts` gated the call itself behind
+   * `isUiHarnessEnabled()`, which broke any harness-gated launch that *did* name a loopback base
+   * (`scripts/flows/news-feed.mjs`) by never calling `refreshNews()` at all - a regression found by
+   * running that flow against the full sprint branch. This test replaces `news/news-service` with a
+   * bare double (`createNewsService` returning `refreshNews`/`getNews` spies, same shape
+   * `homeModule.setup` calls against) so the startup call itself - not its downstream fetch/cache
+   * behaviour, already covered by `news-service.test.ts` - can be asserted directly, with the
+   * harness gate both on and off, without a real `fetch`/`shell.openExternal` ever running.
    */
-  describe('the app-start refresh gate', () => {
+  describe('the app-start refresh call', () => {
     afterEach(() => {
       vi.doUnmock('./news/news-service')
       vi.resetModules()
     })
 
-    it('does not run the start refresh when the harness is enabled', async () => {
-      vi.stubEnv(UI_HARNESS_ENV, '1')
+    it.each([
+      ['harness enabled', '1'],
+      ['harness disabled', undefined],
+    ])('runs the start refresh exactly once (%s)', async (_label, harnessValue) => {
+      if (harnessValue !== undefined) {
+        vi.stubEnv(UI_HARNESS_ENV, harnessValue)
+      }
       vi.resetModules()
       const refreshNews = vi.fn(async () => undefined)
       const getNews = vi.fn(async () => undefined)
@@ -103,24 +111,9 @@ describe('home module', () => {
         createNewsService: () => ({ getNews, refreshNews }),
       }))
 
-      const { homeModule: gatedHomeModule } = await import('./index')
+      const { homeModule: testedHomeModule } = await import('./index')
       const registry = new MainModuleRegistry()
-      await registry.register(gatedHomeModule, fakeAppContext())
-
-      expect(refreshNews).not.toHaveBeenCalled()
-    })
-
-    it('runs the start refresh once when the harness is disabled', async () => {
-      vi.resetModules()
-      const refreshNews = vi.fn(async () => undefined)
-      const getNews = vi.fn(async () => undefined)
-      vi.doMock('./news/news-service', () => ({
-        createNewsService: () => ({ getNews, refreshNews }),
-      }))
-
-      const { homeModule: ungatedHomeModule } = await import('./index')
-      const registry = new MainModuleRegistry()
-      await registry.register(ungatedHomeModule, fakeAppContext())
+      await registry.register(testedHomeModule, fakeAppContext())
 
       expect(refreshNews).toHaveBeenCalledTimes(1)
     })

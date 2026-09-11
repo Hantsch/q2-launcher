@@ -8,7 +8,6 @@ import {
   setLayoutInputSchema,
 } from '@shared/modules/home'
 import { parseHomeLayout } from '../../lib/schemas'
-import { isUiHarnessEnabled } from '../../lib/ui-harness'
 import type { MainModule } from '../types'
 import { createNewsService } from './news/news-service'
 import { openSlideUrl } from './open-slide-url'
@@ -51,24 +50,22 @@ export const homeModule: MainModule = {
       app.state.setHomeLayout({ tiles: DEFAULT_HOME_LAYOUT.tiles.map((tile) => ({ ...tile })) }),
     )
 
-    // Story 083 D6: under the UI-verification harness, the three hero screens (`home-hero` /
-    // `home-hero-welcome` / `home-hero-stale`) must be fed purely by the fixture's seeded cache,
-    // never by a live fetch attempt of any kind - `resolveNewsSource()` (`news/harness.ts`) already
-    // answers `'skip'` for this call whenever no loopback base is configured (true for every
-    // registry-driven `ui:verify`/`ui:flow` launch), but skipping the call itself, gated exactly
-    // like `DialogService`'s stub (`isUiHarnessEnabled`, `src/main/lib/ui-harness.ts`), is what makes
-    // that a guarantee rather than a side effect of `resolveNewsSource()`'s own fallback - and avoids
-    // the on-disk cache read racing the renderer's own first `getNews()` for no benefit under a run
-    // that can never usefully change the result.
-    if (!isUiHarnessEnabled({ isDev: app.isDev })) {
-      // AC1: exactly one fetch happens on its own, right here at registration - fire-and-forget, so a
-      // slow or unreachable content repo never delays the app finishing startup. `refreshNews()` is
-      // designed to never reject (a failed/skipped fetch resolves with the cached feed instead), but
-      // this `catch` is belt-and-suspenders against a bug turning that into an unhandled rejection.
-      void newsService.refreshNews().catch((error: unknown) => {
-        log.error('news: startup refresh failed unexpectedly', error)
-      })
-    }
+    // AC1: exactly one fetch happens on its own, right here at registration - fire-and-forget, so a
+    // slow or unreachable content repo never delays the app finishing startup. Story 082 D4's
+    // `resolveNewsSource()` (`news/harness.ts`) already decides whether that fetch is a no-op: under
+    // the UI-verification harness with no loopback base configured (every registry-driven
+    // `ui:verify` screen, and any `ui:flow` script that does not set one), it answers `'skip'` and
+    // `refreshNews()` makes no network call at all - which is what keeps the three hero screens
+    // (`home-hero`/`home-hero-welcome`/`home-hero-stale`) fed purely from the fixture's seeded cache.
+    // A harness-gated launch that *does* name a loopback base (e.g. `scripts/flows/news-feed.mjs`)
+    // must still fetch for real, so this call is never itself gated on `isUiHarnessEnabled` - doing
+    // so would skip the fetch unconditionally under the harness, loopback base or not, and silently
+    // starve any flow that relies on it. `refreshNews()` is designed to never reject (a failed/skipped
+    // fetch resolves with the cached feed instead), but this `catch` is belt-and-suspenders against a
+    // bug turning that into an unhandled rejection.
+    void newsService.refreshNews().catch((error: unknown) => {
+      log.error('news: startup refresh failed unexpectedly', error)
+    })
 
     log.debug('home module ready')
   },
