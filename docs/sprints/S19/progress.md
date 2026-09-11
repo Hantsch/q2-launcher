@@ -13,3 +13,13 @@
 - 2026-09-11 19:49 · 088 · D6 Offline end-to-end proof · started
 - 2026-09-11 20:01 · 088 · D6 Offline end-to-end proof · done
 - 2026-09-11 20:20 · 088 · story done, moved to done/ · done
+- 2026-09-11 20:24 · 089 · D1 contract carries a data source · started
+- 2026-09-11 20:29 · 089 · D1 contract carries a data source · done
+- 2026-09-11 20:29 · 089 · D2 shared routine decides usable retail data · started
+- 2026-09-11 20:33 · 089 · D2 shared routine decides usable retail data · done
+- 2026-09-11 20:33 · 089 · D3 job installs from a folder · started
+- 2026-09-11 20:45 · 089 · D3 job installs from a folder · done
+- 2026-09-11 20:45 · 089 · D4 wizard has a data-source step · started
+- 2026-09-11 20:55 · 089 · D4 wizard has a data-source step · done
+- 2026-09-11 20:55 · 089 · D5 demo and rejection read as reasons · started
+- 2026-09-11 21:03 · 089 · D5 demo and rejection read as reasons · done

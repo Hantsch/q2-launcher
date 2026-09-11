@@ -10,6 +10,7 @@ import {
   type BootstrapSummaryPackage,
   type DetectedRetailSource,
   type DownloadsErrorKey,
+  type GameDataSourceVerdict,
   type ManifestPackage,
   type PackageSource,
   type StartBootstrapInput,
@@ -45,6 +46,7 @@ import {
 } from './assemble'
 import {
   asExtractionErrorKey,
+  GAME_DATA_SOURCE_UNUSABLE,
   LOCAL_FAILURE,
   MISSING_RUNTIME,
   NOT_PLAYABLE,
@@ -53,6 +55,7 @@ import {
   RETAIL_COPY_INCOMPLETE,
   RETAIL_SOURCE_UNVERIFIED,
 } from './errors'
+import { inspectGameDataSource, isPathContainedBy } from './game-data-source'
 import type {
   BootstrapDiagnosticsSource,
   BootstrapLog,
@@ -94,6 +97,15 @@ import { computeTargetVerdict } from './target'
  *    still verifies as retail. Placed here, before step 2, so a refusal registers nothing, creates
  *    no folder and leaves no half-built installation - and what is copied from afterwards is the
  *    `rootPath` off main's own list entry, never the string the renderer sent.
+ * 1c. **Re-verify the picked folder** (story 089 D3, `existing-folder` runs only). The same step for
+ *    the third data source, in the same place and for the same reason - but with no detected list to
+ *    resolve against, because the whole point of this source is that the launcher never found it on
+ *    its own. What stands in for that list is `inspectGameDataSource` (`game-data-source.ts`)
+ *    re-reading the folder here and now, plus a containment test against the target: "copying a
+ *    folder into itself" is the one way this source could destroy the user's data (Decisions
+ *    (Sprint)). Either refusal ends the whole `startBootstrap` call with
+ *    `downloads.error.gameDataSourceUnusable` (AC5), before a package is resolved, an installation
+ *    is registered or a directory is created.
  * 2. **Resolve the packages**: the pinned engine build, plus - for a `free-download` run only -
  *    `role: 'demo'` and `role: 'point-release'`. Missing any one of them fails *before* anything is
  *    created, on disk or in the library. A `store-copy` run downloads the engine and nothing else
@@ -250,6 +262,13 @@ const SAFE_PATH_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/
  */
 const RETAIL_SOURCE_PACKAGE_ID = 'retail-source'
 
+/**
+ * Story 089 D3: the same pseudo-id for the *other* copy source - the folder the user hand-picked.
+ * Distinct from `RETAIL_SOURCE_PACKAGE_ID` so the assembly diagnostics attribute a copied pak to the
+ * source it actually came from; a run only ever has one of the two.
+ */
+const FOLDER_SOURCE_PACKAGE_ID = 'existing-folder-source'
+
 /** Directories the job may have created inside the target, deepest first - see the cleanup note. */
 const PRUNABLE_TARGET_DIRS = [
   join(BASE_GAME_DIR, 'video'),
@@ -358,6 +377,20 @@ export interface BootstrapDeps {
    * `store-copy` run, before anything is registered; a `free-download` run never calls it at all.
    */
   retailSources: () => Promise<DetectedRetailSource[]>
+  /**
+   * Story 089 D3: how an `existing-folder` run's picked folder is re-judged before anything is
+   * registered - `inspectGameDataSource` (`game-data-source.ts`) unless a test substitutes a
+   * verdict.
+   *
+   * Optional, where `retailSources` above is deliberately required, and the difference is the whole
+   * point: an omitted `retailSources` would leave the job with *no* way to check a `store-copy`
+   * run's path, so it has to be a compile error at the wiring. An omitted one here leaves the job
+   * with the real check - the default below *is* the production implementation, a pure function of
+   * the path with nothing to wire - so there is no configuration in which this source goes
+   * unverified. Production therefore does not pass it at all, rather than restating the same
+   * function in `../index.ts`.
+   */
+  inspectGameDataSource?: (rootPath: string) => Promise<GameDataSourceVerdict>
   fetcher: PackageFetcher
   extractor: Extractor
   /** `app.getPath('userData')`; the download cache and the extract directories are built from it. */
@@ -535,6 +568,52 @@ async function verifyCopySource(
   return ok(match)
 }
 
+/**
+ * Story 089 D3: `verifyCopySource`'s counterpart for the third data source - the same refusal shape
+ * (a failed `Outcome`, answered before anything is created), the same "the renderer's path is
+ * re-judged in main" rule, and the same "what is used afterwards is what main itself just
+ * inspected" discipline: callers copy from the returned verdict's `rootPath` and its `paks` list,
+ * never from a second look at the folder.
+ *
+ * Three conditions, in this order and none of them widened:
+ *
+ *  1. **a path at all** - the in-process caller's equivalent of what `startBootstrapInputSchema`
+ *     already refuses, and never a silent fallback to the free download.
+ *  2. **no overlap with the target** - "copying a folder into itself is the one way this feature
+ *     could destroy the user's data" (Decisions (Sprint)). Both directions, since `isPathContainedBy`
+ *     is symmetric, and on canonicalised paths so a junction or a trailing separator cannot spell
+ *     its way past the test - the same `canonicalizePath` pairing `findDetectedSource` above uses.
+ *  3. **a usable verdict** - `kind: 'unusable'` (no `baseq2/pak0.pak`, or a path
+ *     `isUnsafeAbsolutePath` refuses, which `inspectGameDataSource` checks first) ends the run.
+ *     `'demo'` is *not* a refusal: a demo folder installs as a demo installation, marker and all
+ *     (AC4).
+ *
+ * The failure carries `params: { reason }` as data for the log - the verdict's own i18n key where
+ * there is one, never prose, and never a second opinion about why the folder is unusable.
+ */
+async function verifyGameDataSource(
+  deps: { inspectGameDataSource?: (rootPath: string) => Promise<GameDataSourceVerdict> },
+  copySourcePath: string | undefined,
+  targetPath: string,
+): Promise<Outcome<GameDataSourceVerdict>> {
+  if (copySourcePath === undefined || copySourcePath.length === 0) {
+    return fail(GAME_DATA_SOURCE_UNUSABLE, { reason: 'pathMissing' })
+  }
+
+  const source = await canonicalizePath(copySourcePath)
+  const target = await canonicalizePath(targetPath)
+  if (isPathContainedBy(source, target)) {
+    return fail(GAME_DATA_SOURCE_UNUSABLE, { reason: 'targetOverlap' })
+  }
+
+  const inspect = deps.inspectGameDataSource ?? inspectGameDataSource
+  const verdict = await inspect(copySourcePath)
+  if (verdict.kind === 'unusable') {
+    return fail(GAME_DATA_SOURCE_UNUSABLE, { reason: verdict.reason ?? 'unusable' })
+  }
+  return ok(verdict)
+}
+
 export interface BuildBootstrapSummaryInput {
   engine: EngineKind
   /** Echoed into the summary; the confirm step shows the path the target step already resolved. */
@@ -568,6 +647,11 @@ export async function buildBootstrapSummary(
   input: BuildBootstrapSummaryInput,
 ): Promise<Outcome<BootstrapSummary>> {
   const dataSource: BootstrapDataSource = input.dataSource ?? 'free-download'
+  // Story 089 review F2: the summary echoes the same clamp `startBootstrap` applies, so a
+  // scripted caller cannot make the confirm-step summary claim extras will be copied for a
+  // source that forces them off.
+  const includeVideoAndPlayers =
+    dataSource === 'existing-folder' ? false : input.includeVideoAndPlayers
 
   let copySource: BootstrapSummaryCopySource | undefined
   if (dataSource === 'store-copy') {
@@ -581,6 +665,19 @@ export async function buildBootstrapSummary(
       path: match?.rootPath ?? input.copySourcePath,
       ...(match ? { store: match.source } : {}),
     }
+  } else if (dataSource === 'existing-folder') {
+    /**
+     * Story 089 D3 (AC6): the folder the user picked, named as the data source. No detected-source
+     * lookup, because a hand-picked folder is by definition not on that list - so `store` stays
+     * absent, which is exactly what it means ("main did not detect this; the user pointed at it").
+     * Like the `store-copy` branch, the summary only *reports*: whether this folder holds anything
+     * usable is `startBootstrap`'s refusal to make, and a confirm step with no line at all about the
+     * source would be the worse answer.
+     */
+    if (input.copySourcePath === undefined || input.copySourcePath.length === 0) {
+      return fail(GAME_DATA_SOURCE_UNUSABLE, { reason: 'pathMissing' })
+    }
+    copySource = { path: input.copySourcePath }
   }
 
   const resolved = await resolvePackages(deps.manifest, input.engine, dataSource)
@@ -598,7 +695,7 @@ export async function buildBootstrapSummary(
     engine: input.engine,
     packages,
     totalSizeBytes: packages.reduce((total, pkg) => total + pkg.sizeBytes, 0),
-    includeVideoAndPlayers: input.includeVideoAndPlayers,
+    includeVideoAndPlayers,
     dataSource,
     ...(copySource ? { copySource } : {}),
   })
@@ -696,7 +793,12 @@ export async function startBootstrap(
 ): Promise<Outcome<StartedBootstrap>> {
   const log = deps.log
   const dataSource: BootstrapDataSource = input.dataSource ?? 'free-download'
-
+  // Story 089 review F2: the renderer hides the video/players toggle for this data source and
+  // forces it off, but main must not trust that - a scripted `startBootstrap` call could still
+  // send `includeVideoAndPlayers: true` alongside `dataSource: 'existing-folder'`. Clamped once,
+  // here, so every later read of it (the step-8 extras assemble below) sees the forced value.
+  const includeVideoAndPlayers =
+    dataSource === 'existing-folder' ? false : input.includeVideoAndPlayers
   // 1. The renderer's path, re-judged in main. `computeTargetVerdict` is the same function the
   // wizard's target step rendered, so main and the UI cannot disagree about this folder.
   const verdict = await computeTargetVerdict(input.targetPath)
@@ -720,6 +822,22 @@ export async function startBootstrap(
     copySource = verified.value
   }
 
+  // 1c. Story 089 D3: the third data source's own path, re-judged in exactly the same place and
+  // with exactly the same consequence - a refusal here registers nothing, creates no folder and
+  // downloads nothing (AC5). The verdict is *kept*, not re-derived later: what the assemble phase
+  // copies is the pak list main just read off this folder, so the run cannot end up copying a set
+  // of files the refusal check never saw.
+  let folderSource: GameDataSourceVerdict | undefined
+  if (dataSource === 'existing-folder') {
+    const verified = await verifyGameDataSource(deps, input.copySourcePath, verdict.targetPath)
+    if (!verified.ok) {
+      const reason = JSON.stringify(verified.error.params)
+      log?.warn(`bootstrap refused the game data folder ${input.copySourcePath ?? '(none)'}: ${reason}`)
+      return verified
+    }
+    folderSource = verified.value
+  }
+
   // 2. Nothing exists yet, so a missing package costs nothing to fail on.
   const resolved = await resolvePackages(deps.manifest, input.engine, dataSource)
   if (!resolved.ok) {
@@ -741,9 +859,15 @@ export async function startBootstrap(
    * says the result must not carry. Its default is the engine's own product label (`engineLabel`,
    * `@shared/types/engine` - the same table the rest of the UI names engines from), never a second
    * hardcoded string. A name the user typed still wins, exactly as before.
+   *
+   * Story 089 D3: the condition is "not the free download" rather than "is a store copy", because
+   * neither copy source has a demo identity to draw a name from - an `existing-folder` run may well
+   * be copying a retail folder, and even a demo-verdict one was named by the user pointing at their
+   * own folder, not by this launcher fetching the free demo. The Demo marker, where it applies, is
+   * still derived from the paks by the inspector (Decisions (Sprint)), never from this name.
    */
   const defaultName =
-    dataSource === 'store-copy' ? engineLabel(input.engine) : DEFAULT_BOOTSTRAP_INSTALLATION_NAME
+    dataSource === 'free-download' ? DEFAULT_BOOTSTRAP_INSTALLATION_NAME : engineLabel(input.engine)
   const name = input.name?.trim() || defaultName
 
   /**
@@ -1261,6 +1385,28 @@ export async function startBootstrap(
       })
     }
 
+    /**
+     * Story 089 D3 (AC3/AC4/AC7): the picked folder joins `sources` the same way, with the
+     * `'folder'` role, and its *plan* is the pak list the pre-`create()` inspection found there
+     * (`folderPakNames` below) - so a demo folder is planned with the one pak it has and a retail
+     * folder with two or three, without this file re-deciding what "retail" means. Everything else
+     * is shared with the `store-copy` path above: one assemble pass copies the engine payload and
+     * the paks together, strictly before the first revalidation, and every copied file lands in
+     * `copied` for the cleanup exactly as a downloaded one does.
+     *
+     * `folderSource.rootPath` is the very string `inspectGameDataSource` just approved - not a
+     * second reading of `input.copySourcePath` - so the folder that was judged and the folder that
+     * is copied from cannot come apart.
+     */
+    if (folderSource) {
+      sources.push({
+        packageId: FOLDER_SOURCE_PACKAGE_ID,
+        dir: folderSource.rootPath,
+        role: 'folder',
+      })
+    }
+    const folderPakNames = folderSource?.paks.map((pak) => pak.name)
+
     // 6. Assemble core - the engine payload and the baseq2 paks, allowlisted by 074 D3 and
     // corrected against the real archives by 076 D1. Declared outside the `try` only so its
     // `missingRequired` can be read below; a *thrown* assemble is still the local failure it was.
@@ -1272,6 +1418,7 @@ export async function startBootstrap(
         engine: input.engine,
         includeVideoAndPlayers: false,
         dataSource,
+        ...(folderPakNames ? { folderPakNames } : {}),
       })
       for (const file of core.copiedFiles) copied.add(file)
       recordAssembly(core.entries)
@@ -1311,6 +1458,20 @@ export async function startBootstrap(
       // happened when nothing was fetched.
       if (firstMissing.role === 'retail') {
         return failed(RETAIL_COPY_INCOMPLETE, `copying retail source into ${targetRoot}: ${reason}`)
+      }
+
+      // Story 089 D3: the same argument for the other copy source. A `'folder'` miss means the
+      // folder `inspectGameDataSource` read a moment ago no longer holds a pak it reported (edited
+      // or emptied out from under the wizard), which is what `GAME_DATA_SOURCE_UNUSABLE` names -
+      // and nothing was downloaded for this role either, so the generic branch below would fall
+      // back to the literal string `'folder'` as a `packageId` and claim a download that never
+      // happened. There is no new pre-job refusal here: AC5's refusal is step 1c's, and this is the
+      // narrow window after it.
+      if (firstMissing.role === 'folder') {
+        return failed(
+          GAME_DATA_SOURCE_UNUSABLE,
+          `copying the chosen folder into ${targetRoot}: ${reason}`,
+        )
       }
 
       // `packages` is the role -> `ManifestPackage.id` mapping this file already holds (Decisions
@@ -1374,7 +1535,7 @@ export async function startBootstrap(
     markPlayableIfReady(afterCore.value.status)
 
     // 8. The optional extras, only now - after the installation is already playable.
-    if (input.includeVideoAndPlayers) {
+    if (includeVideoAndPlayers) {
       if (cancelled) return cancelledOutcome()
       try {
         const auxiliary = await assembleInstallation({
@@ -1383,6 +1544,7 @@ export async function startBootstrap(
           engine: input.engine,
           includeVideoAndPlayers: true,
           dataSource,
+          ...(folderPakNames ? { folderPakNames } : {}),
         })
         for (const file of auxiliary.copiedFiles) copied.add(file)
         recordAssembly(auxiliary.entries)

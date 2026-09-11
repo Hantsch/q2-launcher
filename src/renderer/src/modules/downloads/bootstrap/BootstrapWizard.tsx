@@ -8,6 +8,7 @@ import type {
   BootstrapTargetVerdict,
   DetectedRetailSource,
   DownloadFailure,
+  GameDataSourceVerdict,
 } from '@shared/modules/downloads'
 import { invoke } from '../../../lib/bridge'
 import { useLauncher } from '../../../store/useLauncher'
@@ -19,6 +20,7 @@ import {
   getBootstrapTargetVerdict,
   getDetectedRetailSources,
   getDownloadFailures,
+  getGameDataSourceVerdict,
   startBootstrapInstall,
 } from '../client'
 import { EngineStep } from './EngineStep'
@@ -32,15 +34,19 @@ type Step = 'engine' | 'gameData' | 'target' | 'confirm' | 'running'
 const STEP_ORDER: Step[] = ['engine', 'gameData', 'target', 'confirm', 'running']
 
 /**
- * Story 074 D6, extended by 080 D2 and 088 D5: the bootstrap wizard - engine choice (Q2PRO, R1Q2
- * once both are pinned) -> game data (free download, or a copy of a detected Steam/GOG/Epic
- * installation, [[088]]) -> target folder (with the D2 verdict's warnings) -> confirm (packages +
- * size + target, AC4) -> run (hands off to the D4 job, AC5). Mirrors `CreateInstallationDialog.tsx`
- * for dialog shape.
+ * Story 074 D6, extended by 080 D2, 088 D5 and 089 D4: the bootstrap wizard - engine choice
+ * (Q2PRO, R1Q2 once both are pinned) -> game data (free download, a copy of a detected
+ * Steam/GOG/Epic installation [[088]], or a hand-picked folder [[089]]) -> target folder (with the
+ * D2 verdict's warnings) -> confirm (packages + size + target, AC4) -> run (hands off to the D4
+ * job, AC5). Mirrors `CreateInstallationDialog.tsx` for dialog shape.
  *
  * `dataSource`/`copySourcePath` hold the game-data step's choice; `detectedSources` is fetched
  * once on mount, same convention as `engineOptions` below - an empty array means the game-data
- * step never offers the copy choice at all (AC1).
+ * step never offers the copy choice at all (AC1). `gameDataFolderPath`/`gameDataFolderVerdict`
+ * are the `'existing-folder'` choice's own state ([[089]] D4) - resolved on demand, whenever the
+ * user browses, rather than fetched once like `detectedSources`. `copySourcePath` is reused
+ * verbatim for that choice's own picked path when a run starts or a summary is fetched
+ * (`StartBootstrapInput.copySourcePath`'s own doc comment) - it is never a second field.
  *
  * Wizard state lives here, in `useState`, and is never persisted - closing the dialog before
  * `running` throws all of it away, same as `CreateInstallationDialog`.
@@ -67,6 +73,16 @@ export function BootstrapWizard() {
   const [detectedSources, setDetectedSources] = useState<DetectedRetailSource[] | null>(null)
   const [dataSource, setDataSource] = useState<BootstrapDataSource>('free-download')
   const [copySourcePath, setCopySourcePath] = useState<string | null>(null)
+
+  // Story 089 D4: the `'existing-folder'` choice's own path + resolved verdict - mirrors the
+  // `copySourcePath`/`detectedSources` pair above, but keyed on one hand-picked folder rather than
+  // a list. `folderVerdict` is reset to `null` whenever the folder itself changes, same convention
+  // as the target step's verdict reset on `targetPath` change below.
+  const [gameDataFolderPath, setGameDataFolderPath] = useState<string | null>(null)
+  const [gameDataFolderVerdict, setGameDataFolderVerdict] = useState<GameDataSourceVerdict | null>(
+    null,
+  )
+  const [checkingGameDataFolder, setCheckingGameDataFolder] = useState(false)
 
   const [targetPath, setTargetPath] = useState('')
   const [verdict, setVerdict] = useState<BootstrapTargetVerdict | null>(null)
@@ -152,6 +168,11 @@ export function BootstrapWizard() {
       setCopySourcePath(null)
       return
     }
+    // Story 089 D4: `'existing-folder'` has no detected list to default from - it stays exactly
+    // whatever the user last browsed to (`gameDataFolderPath`/`gameDataFolderVerdict`, untouched
+    // here), same "never overwrite what the user already picked" rule as the `store-copy` default
+    // below just applies to a different piece of state.
+    if (next === 'existing-folder') return
     // Defaults to the first verified detected source, same "zero extra clicks" convention as
     // `selectEngine`'s default-selection effect - but never overwrites a path the user already
     // picked from the source list.
@@ -174,12 +195,18 @@ export function BootstrapWizard() {
       ? t('bootstrapWizard.confirm.includeExtrasDisabledReason')
       : undefined
 
+  // Story 089 D5 (Decisions: "no video/players toggle for this source in this story"): an
+  // existing-folder run hides the toggle outright, rather than disabling it with a reason the way
+  // `store-copy` does - 089's criteria never mention it, and the toggle's payload comes from the
+  // point-release archive this source does not download.
+  const hideIncludeExtras = dataSource === 'existing-folder'
+
   // A source that stops qualifying for the toggle (freshly chosen, or the wizard's own state
   // change) must never leave a stale `true` behind - same reset convention as the target step's
   // acknowledges.
   useEffect(() => {
-    if (includeExtrasDisabledReason) setIncludeVideoAndPlayers(false)
-  }, [includeExtrasDisabledReason])
+    if (includeExtrasDisabledReason || hideIncludeExtras) setIncludeVideoAndPlayers(false)
+  }, [includeExtrasDisabledReason, hideIncludeExtras])
 
   // Reset the acknowledges whenever the target folder itself changes - an acknowledge for one
   // folder must never silently carry over to a different one.
@@ -212,12 +239,18 @@ export function BootstrapWizard() {
     setSummaryLoading(true)
     setSummaryError(null)
     let cancelled = false
+    // Story 089 D4: `'existing-folder'` reuses `copySourcePath` verbatim (`StartBootstrapInput`'s
+    // own doc comment) - the field already means "path to copy game data from", so this sends
+    // `gameDataFolderPath` through it rather than adding a second field.
     void getBootstrapSummary({
       engine,
       targetPath,
       includeVideoAndPlayers,
       dataSource,
       ...(dataSource === 'store-copy' && copySourcePath ? { copySourcePath } : {}),
+      ...(dataSource === 'existing-folder' && gameDataFolderPath
+        ? { copySourcePath: gameDataFolderPath }
+        : {}),
     }).then((result) => {
       if (cancelled) return
       setSummaryLoading(false)
@@ -232,7 +265,7 @@ export function BootstrapWizard() {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, engine, targetPath, includeVideoAndPlayers, dataSource, copySourcePath])
+  }, [step, engine, targetPath, includeVideoAndPlayers, dataSource, copySourcePath, gameDataFolderPath])
 
   async function pickTargetFolder(): Promise<void> {
     const picked = await invoke('installations:pickFolder', {
@@ -240,6 +273,24 @@ export function BootstrapWizard() {
       buttonLabel: t('bootstrapWizard.target.pickButton'),
     })
     if (picked) setTargetPath(picked)
+  }
+
+  // Story 089 D4: browsing for the `'existing-folder'` game-data source - same `installations:
+  // pickFolder` call shape as `pickTargetFolder`/`pickWriteDirRemedy` above, then a
+  // `getGameDataSourceVerdict` round trip for AC2's "the wizard reports what it found there before
+  // the user can proceed". A cancelled picker (no path) leaves the previous folder/verdict alone.
+  async function pickGameDataSourceFolder(): Promise<void> {
+    const picked = await invoke('installations:pickFolder', {
+      title: t('bootstrapWizard.gameData.existingFolder.pickTitle'),
+      buttonLabel: t('bootstrapWizard.gameData.existingFolder.pickButton'),
+    })
+    if (!picked) return
+    setGameDataFolderPath(picked)
+    setGameDataFolderVerdict(null)
+    setCheckingGameDataFolder(true)
+    const result = await getGameDataSourceVerdict(picked)
+    setCheckingGameDataFolder(false)
+    setGameDataFolderVerdict(result.ok ? result.value : null)
   }
 
   async function pickWriteDirRemedy(): Promise<void> {
@@ -267,9 +318,17 @@ export function BootstrapWizard() {
     // someone click past before ever finding out a copy option exists - `GameDataStep` already
     // renders a loading message for `sources === null` (see its own `if (sources === null)`
     // branch), so this keeps Next disabled for exactly the same window that message is shown.
+    // Story 089 D4: `'existing-folder'` gates on a resolved, non-`'unusable'` verdict for the
+    // picked folder - `'retail'` and `'demo'` both proceed (AC4), `'unusable'` never does (AC5),
+    // and a folder that has not resolved yet (`null`, still checking, or never browsed) blocks
+    // Next the same way `detectedSources === null` blocks it above.
     gameData:
       detectedSources !== null &&
-      (dataSource === 'free-download' || !!selectedCopySource?.inspection.verified),
+      (dataSource === 'free-download' ||
+        (dataSource === 'store-copy' && !!selectedCopySource?.inspection.verified) ||
+        (dataSource === 'existing-folder' &&
+          !!gameDataFolderVerdict &&
+          gameDataFolderVerdict.kind !== 'unusable')),
     target: !!verdict && !verdict.blocked && targetWarningsAcknowledged,
     confirm: !!summary && !starting,
     running: false,
@@ -296,6 +355,9 @@ export function BootstrapWizard() {
       ...(writeDirPath ? { writeDirPath } : {}),
       dataSource,
       ...(dataSource === 'store-copy' && copySourcePath ? { copySourcePath } : {}),
+      ...(dataSource === 'existing-folder' && gameDataFolderPath
+        ? { copySourcePath: gameDataFolderPath }
+        : {}),
     })
     setStarting(false)
     if (result.ok) {
@@ -360,6 +422,10 @@ export function BootstrapWizard() {
           onDataSourceChange={selectDataSource}
           copySourcePath={copySourcePath}
           onCopySourcePathChange={setCopySourcePath}
+          folderPath={gameDataFolderPath}
+          onBrowseFolder={() => void pickGameDataSourceFolder()}
+          folderVerdict={gameDataFolderVerdict}
+          checkingFolder={checkingGameDataFolder}
         />
       )}
 
@@ -387,6 +453,7 @@ export function BootstrapWizard() {
             includeVideoAndPlayers={includeVideoAndPlayers}
             onIncludeVideoAndPlayersChange={setIncludeVideoAndPlayers}
             includeExtrasDisabledReason={includeExtrasDisabledReason}
+            hideIncludeExtras={hideIncludeExtras}
           />
           {summaryError && <p className="text-xs text-danger">{summaryError}</p>}
           {startError && <p className="text-xs text-danger">{startError}</p>}

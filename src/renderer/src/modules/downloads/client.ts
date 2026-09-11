@@ -9,6 +9,7 @@ import {
   type DetectedRetailSource,
   type DownloadFailure,
   type DownloadsSettings,
+  type GameDataSourceVerdict,
   type StartBootstrapInput,
 } from '@shared/modules/downloads'
 import type { EngineKind, Outcome } from '@shared/types'
@@ -77,6 +78,20 @@ export function getBootstrapTargetVerdict(
 ): Promise<Outcome<BootstrapTargetVerdict>> {
   return callModule<BootstrapTargetVerdict>('downloads', DOWNLOADS_HANDLERS.bootstrapTargetVerdict, {
     targetPath,
+  })
+}
+
+/**
+ * Story 089 D1: the verdict for a hand-picked game-data folder - not wired to a handler yet (D3
+ * implements it); D1 only prepares the client the wizard's later deliverable will call. Same
+ * no-failure-mode convention as `getBootstrapTargetVerdict` above: every answer is a verdict,
+ * including `kind: 'unusable'`.
+ */
+export function getGameDataSourceVerdict(
+  rootPath: string,
+): Promise<Outcome<GameDataSourceVerdict>> {
+  return callModule<GameDataSourceVerdict>('downloads', DOWNLOADS_HANDLERS.bootstrapGameDataSource, {
+    rootPath,
   })
 }
 

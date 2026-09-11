@@ -1,7 +1,12 @@
 import { useTranslation } from 'react-i18next'
-import { Check } from 'lucide-react'
-import type { BootstrapDataSource, DetectedRetailSource } from '@shared/modules/downloads'
+import { Check, TriangleAlert } from 'lucide-react'
+import type {
+  BootstrapDataSource,
+  DetectedRetailSource,
+  GameDataSourceVerdict,
+} from '@shared/modules/downloads'
 import { formatBytes } from '../../../lib/format'
+import { PathPicker } from '../../../components/ui/controls'
 
 /**
  * Story 088 fix cycle (review F3): the AC3 mitigation for the unresolved 2023 re-release pak-size
@@ -22,8 +27,16 @@ const SIZE_MISMATCH_REASON_TO_PAK = {
  * installation (AC1/AC2). Mirrors `EngineStep`'s button-choice shape for the two data-source
  * choices, and adds a second-level picker for the detected sources themselves.
  *
+ * Story 089 D4 adds a third choice, `'existing-folder'` (AC1): a hand-picked folder, always
+ * offered regardless of whether any store source was detected. Picking it reveals a browse button
+ * and, once a folder is chosen, the `GameDataSourceVerdict` for it (AC2) - `kind: 'retail'` names
+ * the paks found, `kind: 'demo'` still lets the user proceed (AC4), and `kind: 'unusable'` shows
+ * `reason` and blocks Next (AC5); `BootstrapWizard`'s `canProceed.gameData` is what actually
+ * enforces that gate, this component only renders the verdict it is handed.
+ *
  * AC1's "absent, not disabled" rule: the `store-copy` choice row is only rendered at all when
- * `sources` is non-empty - there is no disabled placeholder for the empty case.
+ * `sources` is non-empty - there is no disabled placeholder for the empty case. The existing-folder
+ * row has no such condition; it is always rendered.
  *
  * AC3's "listed but not selectable": every detected entry renders, including an unverified one,
  * but only a `verified` entry's row is clickable; an unverified one shows
@@ -31,9 +44,12 @@ const SIZE_MISMATCH_REASON_TO_PAK = {
  *
  * `data-testid`s (D6's e2e depends on these): `bootstrap-gamedata-choice-free-download`,
  * `bootstrap-gamedata-choice-store-copy` (present only when `sources.length > 0`),
- * `bootstrap-gamedata-source-<index>` (one row per detected entry, store + path in its text
- * content), `bootstrap-gamedata-source-<index>-unverified` (the AC3 reason line, present only for
- * an unverified entry).
+ * `bootstrap-gamedata-choice-existing-folder`, `bootstrap-gamedata-source-<index>` (one row per
+ * detected entry, store + path in its text content), `bootstrap-gamedata-source-<index>-unverified`
+ * (the AC3 reason line, present only for an unverified entry), `bootstrap-gamedata-folder-browse`,
+ * `bootstrap-gamedata-folder-path`, `bootstrap-gamedata-folder-checking`,
+ * `bootstrap-gamedata-folder-verdict-retail`/`-demo`/`-unusable` (exactly one, once a verdict has
+ * resolved).
  */
 export function GameDataStep({
   sources,
@@ -41,12 +57,23 @@ export function GameDataStep({
   onDataSourceChange,
   copySourcePath,
   onCopySourcePathChange,
+  folderPath,
+  onBrowseFolder,
+  folderVerdict,
+  checkingFolder,
 }: {
   sources: DetectedRetailSource[] | null
   dataSource: BootstrapDataSource
   onDataSourceChange: (next: BootstrapDataSource) => void
   copySourcePath: string | null
   onCopySourcePathChange: (next: string | null) => void
+  /** Story 089 D4: the hand-picked folder path for the `'existing-folder'` choice, or `null`
+   * before the user has browsed for one. */
+  folderPath: string | null
+  onBrowseFolder: () => void
+  /** The last-resolved verdict for `folderPath`, or `null` while none has resolved yet. */
+  folderVerdict: GameDataSourceVerdict | null
+  checkingFolder: boolean
 }) {
   const { t } = useTranslation()
 
@@ -77,6 +104,15 @@ export function GameDataStep({
             onClick={() => onDataSourceChange('store-copy')}
           />
         )}
+        {/* Story 089 D4 (AC1): always offered, unlike `store-copy` above - it never depends on
+            whether anything was detected. */}
+        <ChoiceRow
+          testId="bootstrap-gamedata-choice-existing-folder"
+          selected={dataSource === 'existing-folder'}
+          title={t('bootstrapWizard.gameData.existingFolder.title')}
+          body={t('bootstrapWizard.gameData.existingFolder.body')}
+          onClick={() => onDataSourceChange('existing-folder')}
+        />
       </div>
 
       {dataSource === 'store-copy' && hasDetected && (
@@ -132,7 +168,74 @@ export function GameDataStep({
           })}
         </div>
       )}
+
+      {dataSource === 'existing-folder' && (
+        <div className="space-y-2" data-testid="bootstrap-gamedata-folder">
+          <div data-testid="bootstrap-gamedata-folder-path">
+            <PathPicker
+              value={folderPath ?? ''}
+              placeholder={t('bootstrapWizard.gameData.existingFolder.placeholder')}
+              onBrowse={onBrowseFolder}
+              browseLabel={t('common.browse')}
+            />
+          </div>
+
+          {checkingFolder && (
+            <p className="text-xs text-ink-muted" data-testid="bootstrap-gamedata-folder-checking">
+              {t('bootstrapWizard.gameData.existingFolder.checking')}
+            </p>
+          )}
+
+          {!checkingFolder && folderVerdict && (
+            <FolderVerdict verdict={folderVerdict} />
+          )}
+        </div>
+      )}
     </div>
+  )
+}
+
+/** Story 089 D4 (AC2/AC4/AC5): renders the resolved `GameDataSourceVerdict` for the hand-picked
+ * folder - a positive line naming the paks found for `retail`, a demo-is-fine notice for `demo`
+ * (AC4: not a rejection), and the translated `reason` for `unusable` (AC5), which is also what
+ * `BootstrapWizard`'s `canProceed.gameData` keys off to keep Next disabled. */
+function FolderVerdict({ verdict }: { verdict: GameDataSourceVerdict }) {
+  const { t } = useTranslation()
+
+  if (verdict.kind === 'unusable') {
+    return (
+      <p
+        className="flex items-start gap-2 text-xs leading-relaxed text-danger"
+        data-testid="bootstrap-gamedata-folder-verdict-unusable"
+      >
+        <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
+        <span>{t(verdict.reason ?? 'bootstrapWizard.gameData.existingFolder.unusableFallback')}</span>
+      </p>
+    )
+  }
+
+  const pakNames = verdict.paks
+    .filter((pak) => pak.retail)
+    .map((pak) => pak.name)
+    .join(', ')
+
+  if (verdict.kind === 'retail') {
+    return (
+      <p className="flex items-start gap-2 text-xs leading-relaxed text-ink" data-testid="bootstrap-gamedata-folder-verdict-retail">
+        <Check className="mt-0.5 size-3.5 shrink-0 text-success" strokeWidth={3} />
+        <span>{t('bootstrapWizard.gameData.existingFolder.retailVerdict', { paks: pakNames })}</span>
+      </p>
+    )
+  }
+
+  return (
+    <p
+      className="flex items-start gap-2 text-xs leading-relaxed text-ink-dim"
+      data-testid="bootstrap-gamedata-folder-verdict-demo"
+    >
+      <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
+      <span>{t('bootstrapWizard.gameData.existingFolder.demoVerdict')}</span>
+    </p>
   )
 }
 

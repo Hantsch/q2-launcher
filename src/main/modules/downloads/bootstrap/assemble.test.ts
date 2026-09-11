@@ -1,10 +1,32 @@
-import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { lstat, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { RETAIL_PAK_SIZES } from '@shared/constants'
 import { ENGINE_DEFINITIONS } from '@shared/types'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { assembleInstallation, buildAssemblePlan, type AssembleSource } from './assemble'
+
+/**
+ * Story 089 review F3: whether this sandbox can create file symlinks at all. Windows refuses
+ * `symlink()` with `EPERM` unless the process is elevated or Developer Mode is on (confirmed in
+ * this very dev environment), so the F3 regression test below is gated on this rather than
+ * failing everywhere the fix itself was written - mirrors `extractor.test.ts`'s `realBinary.exists`
+ * gate for a capability the sandbox may not have.
+ */
+const canSymlink = (() => {
+  const dir = mkdtempSync(join(tmpdir(), 'q2-launcher-symlink-probe-'))
+  try {
+    const real = join(dir, 'real.txt')
+    writeFileSync(real, 'probe')
+    symlinkSync(real, join(dir, 'link.txt'), 'file')
+    return true
+  } catch {
+    return false
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})()
 
 /**
  * Story 074 D3. AC8 is a hard negative requirement: the 3.20 point-release package's extraction
@@ -215,6 +237,41 @@ describe('assembleInstallation', () => {
     expect(await namesUnder(join(targetRoot, 'xatrix'))).toEqual([])
     expect(await namesUnder(join(targetRoot, 'rogue'))).toEqual([])
   })
+
+  it.skipIf(!canSymlink)(
+    'review F3: a symlinked source file is copied as a real, independent file - never left as a symlink',
+    async () => {
+      await seedExtractionTree()
+      // `pak0.pak` itself is a symlink into a second tree outside `sourceRoot`, standing in for the
+      // "picked folder holds a symlink" case AC3's "copied (never linked)" wording rules out -
+      // reachable now that story 089 lets the whole source folder be renderer/user-picked.
+      const realDir = await mkdtemp(join(tmpdir(), 'q2-launcher-assemble-real-'))
+      const realPak = join(realDir, 'pak0.pak')
+      await writeFile(realPak, 'the real pak0 bytes')
+      await rm(join(sourceRoot, 'baseq2', 'pak0.pak'), { force: true })
+      await symlink(realPak, join(sourceRoot, 'baseq2', 'pak0.pak'), 'file')
+
+      try {
+        await assembleInstallation({
+          sources: allRoleSources(sourceRoot),
+          targetRoot,
+          engine: 'q2pro',
+          includeVideoAndPlayers: false,
+        })
+
+        const targetPak = join(targetRoot, 'baseq2', 'pak0.pak')
+        expect((await lstat(targetPak)).isSymbolicLink()).toBe(false)
+        expect(await readFile(targetPak, 'utf8')).toBe('the real pak0 bytes')
+
+        // Independent of the source afterwards: replacing the real file's content must not be
+        // visible through the copy - a symlink left in place would still show it.
+        await writeFile(realPak, 'the real pak0 bytes, replaced')
+        expect(await readFile(targetPak, 'utf8')).toBe('the real pak0 bytes')
+      } finally {
+        await rm(realDir, { recursive: true, force: true })
+      }
+    },
+  )
 
   it('resolves each entry against multiple source dirs, first match wins', async () => {
     const otherSourceRoot = await mkdtemp(join(tmpdir(), 'q2-launcher-assemble-src2-'))

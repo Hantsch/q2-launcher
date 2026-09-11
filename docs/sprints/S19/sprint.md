@@ -19,7 +19,7 @@ demo installation gets an explicit way out of the demo state instead of being st
 <!-- Order = the order the build phase works through. Dependent stories go last. -->
 
 - [x] 088 — Retail import from a detected store installation
-- [ ] 089 — The wizard gains an existing-folder data source
+- [x] 089 — The wizard gains an existing-folder data source
 - [ ] 090 — A demo installation upgrades to retail
 
 ## Notes

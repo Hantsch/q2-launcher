@@ -169,9 +169,12 @@ describe('downloadsModule', () => {
     expect(handlers.has(DOWNLOADS_HANDLERS.bootstrapTargetVerdict)).toBe(true)
     expect(handlers.has(DOWNLOADS_HANDLERS.bootstrapSummary)).toBe(true)
     expect(handlers.has(DOWNLOADS_HANDLERS.bootstrapStart)).toBe(true)
+    // Story 089 D3: the channel D1 reserved now has a handler behind it.
+    expect(handlers.has(DOWNLOADS_HANDLERS.bootstrapGameDataSource)).toBe(true)
     expect(DOWNLOADS_HANDLERS.bootstrapTargetVerdict).toBe('bootstrap.targetVerdict')
     expect(DOWNLOADS_HANDLERS.bootstrapSummary).toBe('bootstrap.summary')
     expect(DOWNLOADS_HANDLERS.bootstrapStart).toBe('bootstrap.start')
+    expect(DOWNLOADS_HANDLERS.bootstrapGameDataSource).toBe('bootstrap.gameDataSource')
   })
 
   it('returns ok with a ManifestSnapshot on a successful fetch', async () => {

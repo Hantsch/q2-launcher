@@ -67,6 +67,13 @@ export const DOWNLOADS_HANDLERS = {
    * which the wizard is expected to handle by not offering the option at all.
    */
   bootstrapRetailSources: 'bootstrap.retailSources',
+  /**
+   * Story 089 D1: the `GameDataSourceVerdict` for a hand-picked folder the wizard's game-data step
+   * offers alongside the detected retail sources ([[088]]) - a thin wrapper around a folder
+   * inspection that reads its paks and reports whether they are retail-complete. Not wired to a
+   * handler yet (D3); D1 only reserves the channel name.
+   */
+  bootstrapGameDataSource: 'bootstrap.gameDataSource',
 } as const
 
 /**
@@ -262,6 +269,14 @@ export const DOWNLOADS_ERROR_KEYS = [
    * describes a copy, not a download, and carries no package id to name.
    */
   'downloads.error.retailCopyIncomplete',
+  /**
+   * Story 089 D1: the `'existing-folder'` counterpart to `downloads.error.retailCopyIncomplete` -
+   * a hand-picked folder's `GameDataSourceVerdict` came back `kind: 'unusable'` (no retail paks, or
+   * a demo-only set) by the time the copy actually ran. Distinct key because, like a `store-copy`
+   * run, nothing was downloaded here either - the sentence describes a folder that turned out not
+   * to hold the game, not a download.
+   */
+  'downloads.error.gameDataSourceUnusable',
 ] as const
 
 export type DownloadsErrorKey = (typeof DOWNLOADS_ERROR_KEYS)[number]
@@ -583,8 +598,49 @@ export const DEFAULT_BOOTSTRAP_INSTALLATION_NAME = 'Q2PRO Demo'
  * this never selects "download or not" - only which archive, or which folder, `baseq2`'s paks come
  * out of. Same two members as `assemble.ts`'s own `dataSource` (`buildAssemblePlan`), which is what
  * this value is ultimately forwarded to.
+ *
+ * Story 089 D1 adds the third member, `'existing-folder'`: a hand-picked folder the user points at
+ * directly, rather than a store install the launcher detected on its own. It reuses `copySourcePath`
+ * verbatim (`StartBootstrapInput`/`refineCopySource`) - the field already means "path to copy
+ * game data from", and a second path field would only fork that meaning in two.
  */
-export type BootstrapDataSource = 'free-download' | 'store-copy'
+export type BootstrapDataSource = 'free-download' | 'store-copy' | 'existing-folder'
+
+/**
+ * Story 089 D1: what inspecting a hand-picked folder for game data reports - the folder's own paks
+ * and whether they add up to a playable retail set. `kind: 'demo'` and `'unusable'` are both
+ * non-retail outcomes the wizard refuses to bootstrap from, but are kept distinct so a later
+ * deliverable's copy can tell "this is the free demo, which you can already get without picking a
+ * folder" from "this folder has nothing recognisable in it" - `reason` carries an i18n key for the
+ * latter case's detail (e.g. no paks found at all vs. paks present but none retail-sized).
+ */
+export interface GameDataSourceVerdict {
+  /** The folder that was inspected, as sent by the caller - not re-canonicalised for display. */
+  rootPath: string
+  kind: 'retail' | 'demo' | 'unusable'
+  /** Set for `kind: 'unusable'` (and optionally `'demo'`): an i18n key naming why, never prose. */
+  reason?: string
+  /** Every pak file found directly under the folder (or its `baseq2`), win or lose. */
+  paks: { name: string; sizeBytes: number; retail: boolean }[]
+}
+
+/**
+ * Story 089 D2: the fixed, closed set of reasons `inspectGameDataSource`
+ * (`src/main/modules/downloads/bootstrap/game-data-source.ts`) reports for `kind: 'unusable'` -
+ * same convention as `RETAIL_SOURCE_UNVERIFIED_REASON_KEYS` above, never prose.
+ */
+export const GAME_DATA_SOURCE_UNUSABLE_REASON_KEYS = [
+  /** The folder itself does not exist (or is not a directory). */
+  'bootstrap.gameDataSource.rootMissing',
+  /** No `baseq2` directory under the candidate root. */
+  'bootstrap.gameDataSource.baseDirMissing',
+  /** `baseq2` exists but has no `pak0.pak` at all. */
+  'bootstrap.gameDataSource.pak0Missing',
+  /** The path itself fails `isUnsafeAbsolutePath` (device path, non-absolute, reserved name). */
+  'bootstrap.gameDataSource.unsafePath',
+] as const
+
+export type GameDataSourceUnusableReasonKey = (typeof GAME_DATA_SOURCE_UNUSABLE_REASON_KEYS)[number]
 
 /**
  * Story 074 D1 placeholder, finalized by D4: what `bootstrap.start` takes. `engine` is validated

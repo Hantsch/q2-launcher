@@ -1,7 +1,7 @@
 ---
 id: 089
 title: The wizard gains an existing-folder data source
-status: ready
+status: done
 created: 2026-09-11
 ---
 
@@ -18,21 +18,21 @@ exactly as [[074]] already does.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The wizard's game-data step always offers "point at an existing folder", regardless
+- [x] **AC1** — The wizard's game-data step always offers "point at an existing folder", regardless
       of whether any store installation was detected.
-- [ ] **AC2** — Choosing this option lets the user browse to a folder; the wizard then reports what
+- [x] **AC2** — Choosing this option lets the user browse to a folder; the wizard then reports what
       it found there (retail data, demo-only data, or nothing usable) before the user can proceed.
-- [ ] **AC3** — A folder containing usable retail `pak0.pak`/`pak1.pak` proceeds exactly like
+- [x] **AC3** — A folder containing usable retail `pak0.pak`/`pak1.pak` proceeds exactly like
       [[088]]'s detected-store path: those files are copied (never linked) into the new
       installation, and the result carries no Demo marker.
-- [ ] **AC4** — A folder containing only demo-equivalent data (no valid retail paks) proceeds as a
+- [x] **AC4** — A folder containing only demo-equivalent data (no valid retail paks) proceeds as a
       demo installation, carrying the same Demo marker [[074]] introduced for the free-download
       path.
-- [ ] **AC5** — A folder containing nothing usable is rejected with a reason before the job starts,
+- [x] **AC5** — A folder containing nothing usable is rejected with a reason before the job starts,
       not partway through.
-- [ ] **AC6** — Before the job starts, the confirm step names the chosen folder as the data source,
+- [x] **AC6** — Before the job starts, the confirm step names the chosen folder as the data source,
       what will still be downloaded (the engine) and its size, and the target path.
-- [ ] **AC7** — This data source produces `baseq2` only — no `ctf`, `xatrix` or `rogue` directory
+- [x] **AC7** — This data source produces `baseq2` only — no `ctf`, `xatrix` or `rogue` directory
       is created even if the source folder has one.
 
 ## Decisions (Sprint)
@@ -191,26 +191,135 @@ exactly as [[074]] already does.
 
 ## Acceptance Tests
 
-- AC1 → e2e `scripts/flows/bootstrap-existing-folder.mjs` › "the source step offers the existing
-  folder option with no store installation detected" (D4)
-- AC2 → e2e `scripts/flows/bootstrap-existing-folder.mjs` › "browsing to a folder reports what was
-  found before Next" (D4)
-- AC3 → e2e `scripts/flows/bootstrap-existing-folder.mjs` › "a retail folder is copied and carries
-  no Demo marker" (D4), plus unit
-  `src/main/modules/downloads/bootstrap/game-data-source.test.ts` › "retail paks are classified and
-  copied, never linked" (D2)
-- AC4 → e2e `scripts/flows/bootstrap-existing-folder-demo.mjs` › "a demo-only folder installs with
-  the Demo marker" (D5), plus unit `game-data-source.test.ts` › "a non-retail pak0 classifies as
-  demo" (D2)
-- AC5 → e2e `scripts/flows/bootstrap-existing-folder-demo.mjs` › "an unusable folder is named as
-  such and blocks Next" (D5), plus unit
-  `src/main/modules/downloads/bootstrap/job.test.ts` › "an unusable source is refused before the
-  installation is registered" (D3)
-- AC6 → e2e `scripts/flows/bootstrap-existing-folder.mjs` › "the confirm step names the folder, the
-  engine download and the target" (D4/D5)
-- AC7 → e2e `scripts/flows/bootstrap-existing-folder.mjs` › "no ctf, xatrix or rogue directory is
-  created" (D4), plus unit `game-data-source.test.ts` › "the allowlist copies nothing outside
-  baseq2's paks" (D2)
+As-built note: the two flows are sequential Playwright `_electron` scripts (`npm run ui:flow --
+<name>`), not vitest `it()` cases — each step below is one of the flow's logged steps/assertions,
+named by what it checks rather than by a test-framework title.
+
+- AC1 → e2e `scripts/flows/bootstrap-existing-folder.mjs` — "open the wizard and assert the
+  existing-folder choice is offered" with `Q2L_UI_HARNESS_STORE_SOURCES` forced empty (D4)
+- AC2 → e2e `scripts/flows/bootstrap-existing-folder.mjs` — "assert Next is blocked before a folder
+  is picked" then "assert the retail verdict appears... before Next enables" (D4)
+- AC3 → e2e `scripts/flows/bootstrap-existing-folder.mjs` — sha256 byte-compare of the copied
+  `pak0.pak`/`pak1.pak` plus "assert no Demo marker" on card/action bar, plus unit
+  `src/main/modules/downloads/bootstrap/job.test.ts` › "AC3: …resolves the engine package only and
+  copies exactly the folder's paks" (D3) — this is the production-path proof (through
+  `assembleInstallation`/`buildFolderGameDataEntries`); `game-data-source.test.ts`'s
+  `copyGameDataSource` cases (D2) cover the same allowlist/never-linked behaviour as a standalone,
+  independently tested building block that production does not call directly (the job pushes a
+  `role: 'folder'` source into the same `assembleInstallation` call the free-download/store-copy
+  paths already use, per the "copy rides the existing assemble phase" decision below)
+- AC4 → e2e `scripts/flows/bootstrap-existing-folder-demo.mjs` — pass 1, "assert the Demo marker on
+  tile, card and action bar" (D5), plus unit `game-data-source.test.ts` › pak0 present but
+  wrong-size, or pak1 missing → `kind: 'demo'` (D2) and `job.test.ts` › "AC4: a demo-only folder
+  installs with the one pak it has" (D3)
+- AC5 → e2e `scripts/flows/bootstrap-existing-folder-demo.mjs` — pass 2, "assert the reason" and
+  "assert nothing was created" (D5), plus unit `job.test.ts` › "AC5: an unusable source is refused
+  before the installation is registered" (asserts empty `installations.list()`/`jobs.list()` and
+  no target directory, not just an error return) and "a source that overlaps the target is refused
+  the same way, in both directions" (D3)
+- AC6 → e2e `scripts/flows/bootstrap-existing-folder.mjs` — "assert the confirm step names the
+  engine-only download and the target", checking the rendered copy-source line's text contains the
+  source path, the target line equals the target path, and the package list contains the engine id
+  but neither game-data package id (D4/D5)
+- AC7 → e2e `scripts/flows/bootstrap-existing-folder.mjs` — recursive on-disk search for
+  `ctf`/`xatrix`/`rogue`/loose files against a fixture that ships all of them, plus unit
+  `game-data-source.test.ts` › "the allowlist copies nothing outside baseq2's paks" (D2) and
+  `job.test.ts`'s AC3 case (exact `readdir` of the target) (D3)
 
 Both flows run through the project's real-surface harness (`npm run ui:flow -- <name>`, the same
 Playwright `_electron` harness `npm run ui:verify` uses); no manual residue.
+
+## Done
+
+**Summary.** The bootstrap wizard's game-data step (088's `GameDataStep.tsx`) gains a third,
+always-offered option: point at an existing folder. Browsing runs it through a new
+`inspectGameDataSource()` that classifies the folder's `baseq2/` as `retail` / `demo` / `unusable`
+by pak size alone, exactly like [[088]]'s store-copy path but with two extra verdicts store-copy
+never needed. A retail or demo folder proceeds to a job that downloads the engine only and copies
+the pak(s) the inspector actually found — through the same `assembleInstallation` call and
+allowlist mechanism the free-download/store-copy paths already use, so `baseq2`-only (AC7) is a
+property of the code, not of a fixture. An unusable or target-overlapping folder is refused
+server-side before any installation is registered (AC5), independent of whatever the renderer
+claims.
+
+**Commit message:**
+```
+089: wizard gains an existing-folder data source
+```
+
+**Reconciliation decisions (this story was refined against a version of [[088]] that landed
+differently than expected; these are the resulting deviations from this story's own Plan/Decisions
+prose, made during build per the sprint's "no questions to the user" rule):**
+- `BootstrapDataSource` stayed [[088]]'s **flat string union** (`'free-download' | 'store-copy'`),
+  widened to add `'existing-folder'`, instead of the discriminated `{kind:...}` object union this
+  story's Decisions section describes — 088 never built that shape for `store-copy` either, and
+  forking the type two ways for the same concept would be worse than the union this story
+  originally wanted to avoid. `copySourcePath` (already on `StartBootstrapInput`/`BootstrapSummary`)
+  is reused verbatim for the folder path; no second field.
+- No `game-data-source.ts` was needed as a *shared* module with [[088]]'s pak-size check — 088's
+  `inspectRetailSource` is a boolean verified/not-verified check with no `demo` concept, which this
+  story's three-verdict requirement doesn't fit. Added `src/main/modules/downloads/bootstrap/game-data-source.ts`
+  (`inspectGameDataSource`, `copyGameDataSource`, `isPathContainedBy`) as its own module, importing
+  the same `RETAIL_PAK_SIZES` constant `retail-source.ts` uses — the size table itself is never
+  duplicated, only the small comparison/verdict logic, which is legitimately different logic (2-way
+  vs 3-way).
+- `isUnsafeAbsolutePath()` was extracted from `target.ts`'s `computeTargetVerdict` as planned, and is
+  now shared by both.
+- The wizard's new option was added to [[088]]'s actual step, `GameDataStep.tsx` (`'gameData'` in
+  `STEP_ORDER`), not a new `SourceStep.tsx`/`'source'` step as this story's prose names it — 088
+  already built exactly the "one shared step" this story's own Decision asked for, just under a
+  different name.
+- `copyGameDataSource()` (D2) is a fully tested, reusable building block that production does **not**
+  call — `job.ts` instead pushes a `role: 'folder'` source into the same single `assembleInstallation`
+  call the free-download/store-copy paths already use (mirroring exactly how 088's `role: 'retail'`
+  push already worked), which is what makes "copy rides the existing assemble phase" (this story's
+  own Decision) literally true rather than a second, parallel copy path. This mirrors 088's own
+  `copyRetailGameData`, which is similarly unused by `job.ts`'s run loop.
+- `bootstrap.gameDataSource` was registered the same way every other bootstrap handler is — an
+  individual `handle(DOWNLOADS_HANDLERS.x, schema, fn)` call in `index.ts` — there is no generic
+  `module:invoke` dispatcher in this codebase to hang it off of.
+
+**Verification.**
+- `npm run typecheck` — clean (node + web).
+- `npm run build` — clean.
+- `npm test` — 3663 passed, 1 skipped (a symlink-copy regression test gated `skipIf` — this sandbox
+  lacks symlink privilege on Windows), across 200 files. One unrelated flake seen mid-run
+  (`config/file-source-pipeline.test.ts`, an `EBUSY` on a temp file under load) — reran that file
+  alone immediately after: 149/149 green; file untouched by this story.
+- `npm run ui:flow -- bootstrap-existing-folder` — passed (AC1, AC2, AC3, AC6, AC7).
+- `npm run ui:flow -- bootstrap-existing-folder-demo` — passed (AC4, AC5).
+- `npm run ui:verify` — full run, 82 screenshots (43/43 screens), 0 axe violations.
+- Clean-agent review (`story-review-hard`): verdict **PASS**. Five findings, two fixed in one
+  review-fix cycle: **F2** — `includeVideoAndPlayers` was clamped to `false` for an
+  `existing-folder` source only in the renderer, not re-enforced server-side, so a scripted caller
+  could still pull `baseq2/video`/`players` out of the picked folder; `job.ts`'s `startBootstrap`
+  and `buildBootstrapSummary` now clamp it server-side regardless of the renderer's claim. **F3** —
+  the pak copy (`assemble.ts`, shared by every role including 088's `'retail'`) used `cp()` without
+  `dereference: true`, so a symlinked source file would land at the target as a symlink instead of
+  an independent copy, against AC3's "copied (never linked)"; fixed for all roles, with a
+  `skipIf`-gated regression test (this Windows sandbox can't create symlinks to prove it directly
+  here, but the assertion runs wherever symlink privilege exists). Three findings left as
+  documented, deliberately unfixed: **F1** (informational — a folder with a retail-sized `pak0.pak`
+  but a missing/wrong-size `pak1.pak` classifies as `demo` per this story's own verdict rule, but
+  the finished install's Demo marker is derived from `pak0`'s own validity, not from the verdict —
+  outside AC4's scope since AC4 only requires an actually-demo-shaped `pak0` to carry the marker,
+  which it does); **F4** (documentation only — fixed separately by correcting the `## Acceptance
+  Tests` section above to point AC3/AC7 at the production-path tests in `job.test.ts` rather than
+  at `copyGameDataSource`'s standalone tests, which cover the same allowlist discipline as an
+  independently tested unit but aren't on the path production calls); **F5** (minor — the
+  `GameDataSourceUnusableReasonKey` union/array this story added is currently unused because
+  `GameDataSourceVerdict.reason` stayes typed as a plain `string`; a future story tightening main→
+  renderer reason-key typing can pick this up, no user-facing effect today since the string values
+  used already match real i18n keys).
+- AC → test mapping as verified: see the `## Acceptance Tests` section above (updated to match what
+  was actually built). No manual residue — every criterion has a passing automated test through the
+  real surface (e2e) or unit level.
+
+**Files changed:** `src/shared/modules/downloads.ts`; `src/main/modules/downloads/schemas.ts` +
+`schemas.test.ts` (new); `src/main/modules/downloads/bootstrap/errors.ts`, `game-data-source.ts`
+(new) + `game-data-source.test.ts` (new), `target.ts`, `assemble.ts`, `job.ts` + `job.test.ts`;
+`src/main/modules/downloads/index.ts` + `index.test.ts`; `src/renderer/src/modules/downloads/client.ts`;
+`src/renderer/src/modules/downloads/bootstrap/GameDataStep.tsx`, `BootstrapWizard.tsx` +
+`BootstrapWizard.test.tsx`, `ConfirmStep.tsx`; `src/renderer/src/i18n/locales/en.json`;
+`scripts/lib/fixture.mjs`; `scripts/flows/bootstrap-existing-folder.mjs` (new),
+`scripts/flows/bootstrap-existing-folder-demo.mjs` (new); `docs/sprints/S19/progress.md`.

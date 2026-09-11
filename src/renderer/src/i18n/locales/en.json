@@ -2087,6 +2087,7 @@
       "missingRuntime": "This engine needs the Microsoft Visual C++ Redistributable (x86) installed, and it was not found on this PC. Get it from https://aka.ms/vs/17/release/vc_redist.x86.exe, then try again.",
       "bootstrapTargetBlocked": "That folder cannot be used for a new installation.",
       "retailSourceUnverified": "That Quake II installation could not be verified as a retail copy right now. Pick it again from the detected installations, or download the free data instead.",
+      "gameDataSourceUnusable": "That folder could not be used for game data right now. Pick it again, or download the free data instead.",
       "unknown": "The download failed for an unknown reason."
     },
     "failures": {
@@ -2153,6 +2154,12 @@
       "pak1Missing": "pak1.pak is missing from this installation, so it could not be verified as retail.",
       "pak0SizeMismatch": "pak0.pak in this installation does not match the known retail size (found {{actualSize}}), so it could not be verified as retail.",
       "pak1SizeMismatch": "pak1.pak in this installation does not match the known retail size (found {{actualSize}}), so it could not be verified as retail."
+    },
+    "gameDataSource": {
+      "rootMissing": "This folder does not exist.",
+      "baseDirMissing": "This folder has no baseq2 directory, so no game data could be found in it.",
+      "pak0Missing": "This folder's baseq2 directory has no pak0.pak, so no game data could be found in it.",
+      "unsafePath": "This folder cannot be used as a game data source."
     }
   },
 
@@ -2196,6 +2203,17 @@
         "steam": "Steam",
         "gog": "GOG",
         "epic": "Epic Games"
+      },
+      "existingFolder": {
+        "title": "Point at a folder I already have",
+        "body": "Copies the game data out of any folder you choose. Only the engine is still downloaded.",
+        "placeholder": "Choose a folder…",
+        "pickTitle": "Choose the folder to copy game data from",
+        "pickButton": "Use this folder",
+        "checking": "Checking folder…",
+        "retailVerdict": "Found retail game data ({{paks}}). This can be copied.",
+        "demoVerdict": "This folder only has demo-equivalent game data. You can still continue - the installation will be a demo installation.",
+        "unusableFallback": "This folder does not have usable Quake II game data."
       }
     },
     "target": {

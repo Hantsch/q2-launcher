@@ -8,6 +8,7 @@ import type {
   BootstrapTargetVerdict,
   DetectedRetailSource,
   DownloadFailure,
+  GameDataSourceVerdict,
 } from '@shared/modules/downloads'
 import type { Job } from '@shared/types'
 import { initI18n } from '../../../i18n'
@@ -86,6 +87,23 @@ const getDetectedRetailSources = vi.fn(
   async (): Promise<{ ok: true; value: DetectedRetailSource[] }> => ({ ok: true, value: [] }),
 )
 
+// Story 089 D4: defaults to a `'retail'` verdict, so a test that only cares about reaching the
+// existing-folder choice does not also have to stub this - see the dedicated describe block below
+// for cases that override it.
+const getGameDataSourceVerdict = vi.fn(
+  async (): Promise<{ ok: true; value: GameDataSourceVerdict }> => ({
+    ok: true,
+    value: {
+      rootPath: 'E:\\Owned\\Quake II',
+      kind: 'retail',
+      paks: [
+        { name: 'pak0.pak', sizeBytes: 16_575_982, retail: true },
+        { name: 'pak1.pak', sizeBytes: 29_257_930, retail: true },
+      ],
+    },
+  }),
+)
+
 vi.mock('../client', () => ({
   getBootstrapEngineOptions: (...args: unknown[]) =>
     getBootstrapEngineOptions(...(args as [])),
@@ -94,6 +112,7 @@ vi.mock('../client', () => ({
   startBootstrapInstall: (...args: unknown[]) => startBootstrapInstall(...(args as [])),
   getDownloadFailures: (...args: unknown[]) => getDownloadFailures(...(args as [])),
   getDetectedRetailSources: (...args: unknown[]) => getDetectedRetailSources(...(args as [])),
+  getGameDataSourceVerdict: (...args: unknown[]) => getGameDataSourceVerdict(...(args as [])),
 }))
 
 function makeJob(overrides: Partial<Job> = {}): Job {
@@ -522,6 +541,173 @@ describe('BootstrapWizard game-data step (story 088 D5)', () => {
     await waitFor(() =>
       expect(getBootstrapSummary).toHaveBeenCalledWith(
         expect.objectContaining({ dataSource: 'store-copy', copySourcePath: 'C:\\Steam\\Quake II' }),
+      ),
+    )
+  })
+})
+
+/**
+ * Story 089 D4: the wizard's third game-data choice - AC1 (always offered, even with zero
+ * detected sources), AC2 (the verdict gates Next before the user can proceed), AC4 (a `'demo'`
+ * verdict still lets the user continue) and AC5 (an `'unusable'` verdict blocks Next and shows the
+ * reason).
+ */
+describe('BootstrapWizard existing-folder game-data source (story 089 D4)', () => {
+  it('offers the existing-folder choice even when no store source was detected (AC1)', async () => {
+    render(createElement(BootstrapWizard))
+
+    await screen.findByTestId('bootstrap-engine-q2pro')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    await screen.findByTestId('bootstrap-gamedata-choice-free-download')
+    expect(screen.queryByTestId('bootstrap-gamedata-choice-store-copy')).toBeNull()
+    expect(screen.getByTestId('bootstrap-gamedata-choice-existing-folder')).toBeTruthy()
+  })
+
+  it('blocks Next until a folder is browsed and its verdict resolves, then proceeds for a retail verdict (AC2)', async () => {
+    render(createElement(BootstrapWizard))
+
+    await screen.findByTestId('bootstrap-engine-q2pro')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    await screen.findByTestId('bootstrap-gamedata-choice-existing-folder')
+    fireEvent.click(screen.getByTestId('bootstrap-gamedata-choice-existing-folder'))
+    expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Browse…' }))
+
+    await screen.findByTestId('bootstrap-gamedata-folder-verdict-retail')
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByTestId('bootstrap-target-path-input')
+
+    await waitFor(() =>
+      expect(getGameDataSourceVerdict).toHaveBeenCalledWith('D:\\Games\\Quake II'),
+    )
+  })
+
+  it('still allows Next for a demo verdict (AC4)', async () => {
+    getGameDataSourceVerdict.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        rootPath: 'D:\\Games\\Quake II',
+        kind: 'demo',
+        paks: [{ name: 'pak0.pak', sizeBytes: 1234, retail: false }],
+      },
+    })
+
+    render(createElement(BootstrapWizard))
+
+    await screen.findByTestId('bootstrap-engine-q2pro')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    await screen.findByTestId('bootstrap-gamedata-choice-existing-folder')
+    fireEvent.click(screen.getByTestId('bootstrap-gamedata-choice-existing-folder'))
+    fireEvent.click(screen.getByRole('button', { name: 'Browse…' }))
+
+    await screen.findByTestId('bootstrap-gamedata-folder-verdict-demo')
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+  })
+
+  it('keeps Next disabled and shows the reason for an unusable verdict (AC5)', async () => {
+    getGameDataSourceVerdict.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        rootPath: 'D:\\Games\\Quake II',
+        kind: 'unusable',
+        reason: 'bootstrap.gameDataSource.pak0Missing',
+        paks: [],
+      },
+    })
+
+    render(createElement(BootstrapWizard))
+
+    await screen.findByTestId('bootstrap-engine-q2pro')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    await screen.findByTestId('bootstrap-gamedata-choice-existing-folder')
+    fireEvent.click(screen.getByTestId('bootstrap-gamedata-choice-existing-folder'))
+    fireEvent.click(screen.getByRole('button', { name: 'Browse…' }))
+
+    const reason = await screen.findByTestId('bootstrap-gamedata-folder-verdict-unusable')
+    expect(reason.textContent).toContain(
+      "This folder's baseq2 directory has no pak0.pak, so no game data could be found in it.",
+    )
+    expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('sends dataSource/copySourcePath for the picked folder when the run starts', async () => {
+    getBootstrapSummary.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        targetPath: 'D:\\Games\\Quake II',
+        engine: 'q2pro',
+        totalSizeBytes: 1_000_000,
+        packages: [{ id: 'engine-q2pro', role: 'engine', version: '1.0.0', sizeBytes: 1_000_000 }],
+        includeVideoAndPlayers: false,
+        dataSource: 'existing-folder',
+        copySource: { path: 'D:\\Games\\Quake II' },
+      } satisfies BootstrapSummary,
+    })
+
+    render(createElement(BootstrapWizard))
+
+    await screen.findByTestId('bootstrap-engine-q2pro')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    await screen.findByTestId('bootstrap-gamedata-choice-existing-folder')
+    fireEvent.click(screen.getByTestId('bootstrap-gamedata-choice-existing-folder'))
+    fireEvent.click(screen.getByRole('button', { name: 'Browse…' }))
+    await screen.findByTestId('bootstrap-gamedata-folder-verdict-retail')
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    await screen.findByTestId('bootstrap-target-path-input')
+    fireEvent.click(screen.getByRole('button', { name: 'Browse…' }))
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    await screen.findByTestId('bootstrap-confirm-total-size')
+    await waitFor(() =>
+      expect((screen.getByTestId('bootstrap-confirm-start') as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+
+    // Story 089 D5 (AC6): the confirm step names the chosen folder, the same way it already does
+    // for a `'store-copy'` summary - and (Decisions: "no video/players toggle for this source")
+    // the toggle is hidden outright, not merely disabled with a reason.
+    const copySource = screen.getByTestId('bootstrap-confirm-copy-source')
+    expect(copySource.textContent).toContain('D:\\Games\\Quake II')
+    expect(screen.queryByLabelText('Include videos and player models')).toBeNull()
+    expect(screen.queryByTestId('bootstrap-confirm-include-extras-disabled')).toBeNull()
+
+    fireEvent.click(screen.getByTestId('bootstrap-confirm-start'))
+
+    await waitFor(() =>
+      expect(startBootstrapInstall).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dataSource: 'existing-folder',
+          copySourcePath: 'D:\\Games\\Quake II',
+          includeVideoAndPlayers: false,
+        }),
       ),
     )
   })

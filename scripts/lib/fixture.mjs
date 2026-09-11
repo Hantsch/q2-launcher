@@ -2183,6 +2183,25 @@ export function writeBootstrapRetailTargetDir() {
   return target
 }
 
+/** Story 089 D6: the folder `scripts/flows/bootstrap-existing-folder.mjs` installs into - its own
+ * sibling of `bootstrapTargetDir()`/`bootstrapRetailTargetDir()`, so the bootstrap flows never race
+ * over one directory. Fresh and empty: target warnings are already proven by `bootstrap-wizard.mjs`. */
+export function bootstrapExistingFolderTargetDir() {
+  return join(bootstrapFixtureRoot(), 'target', 'Existing Folder Import')
+}
+
+/** Fresh, empty target folder for the existing-folder flow - deletes any leftover from a previous run. */
+export function writeBootstrapExistingFolderTargetDir() {
+  const target = assertInside(
+    UI_VERIFY_ROOT,
+    bootstrapExistingFolderTargetDir(),
+    'bootstrap existing-folder target',
+  )
+  rmDirBestEffort(target)
+  mkdirSync(target, { recursive: true })
+  return target
+}
+
 /** An empty file stretched to `sizeBytes` - metadata only, no content written (see above). */
 function writeSizedFile(path, sizeBytes) {
   writeFileSync(path, '')
@@ -2277,4 +2296,68 @@ export function writeBootstrapStoreSources() {
     { source: 'gog', rootPath: gogRoot, inspection: inspectFixtureRetailSource(gogRoot) },
     { source: 'steam', rootPath: steamRoot, inspection: inspectFixtureRetailSource(steamRoot) },
   ]
+}
+
+// --- story 089 D6: the hand-picked "existing folder" game-data source ---------------------------
+//
+// `scripts/flows/bootstrap-existing-folder.mjs` needs a plain folder on disk - deliberately NOT one
+// of `writeBootstrapStoreSources()`'s "detected store" fixtures, since the whole point of this data
+// source is that the launcher never found it on its own. Same truncate-to-exact-size trick as
+// `writeRetailSourceTree` above (no real 184 MB written), and the same discarded payload
+// (`ctf`/`xatrix`/`rogue`, a stray `pak3.pak`, a loose file) so AC7's "no forbidden directory is
+// created even though the source has one" has something real to prove against.
+
+/** Where the fixture "existing folder" source lives - a sibling of `retailSourceRoot()`'s "store
+ * sources" dir, but its own top-level name: this folder was never detected, so it must not read as
+ * one of the detected-store fixtures even by its path. */
+function existingFolderSourceRoot() {
+  return join(bootstrapFixtureRoot(), 'existing-folder-source')
+}
+
+export function bootstrapExistingFolderSourceDir() {
+  return existingFolderSourceRoot()
+}
+
+/**
+ * Writes a plain folder with `baseq2/pak0.pak` (+`pak1.pak` for a retail folder), sized exactly for
+ * the case requested - `retail: true` for a `kind: 'retail'` verdict (both paks at their exact
+ * `RETAIL_PAK_SIZES` length), `retail: false` for a `kind: 'demo'` verdict (only a demo-sized pak0,
+ * no pak1 at all - `inspectGameDataSource` reports `kind: 'demo'` whenever pak0 exists but the pair
+ * does not verify as retail). Also writes the same discarded payload
+ * `writeRetailSourceTree` writes for the detected-store fixtures - `ctf`/`xatrix`/`rogue`,
+ * `pak3.pak`, a loose `quake2.exe` - so AC7 has real bytes to prove were never copied.
+ */
+export function writeBootstrapExistingFolderSource({ retail }) {
+  const root = assertInside(UI_VERIFY_ROOT, existingFolderSourceRoot(), 'existing-folder source')
+  rmDirBestEffort(root)
+
+  const baseq2 = join(root, 'baseq2')
+  mkdirSync(baseq2, { recursive: true })
+  writeSizedFile(
+    join(baseq2, 'pak0.pak'),
+    retail ? RETAIL_PAK_SIZES['pak0.pak'] : UNVERIFIED_PAK0_BYTES,
+  )
+  if (retail) writeSizedFile(join(baseq2, 'pak1.pak'), RETAIL_PAK_SIZES['pak1.pak'])
+  writeSizedFile(join(baseq2, RETAIL_SOURCE_STRAY_PAK), 4096)
+  writeFileSync(join(root, RETAIL_SOURCE_STRAY_FILE), 'not the launcher’s engine\n', 'utf8')
+  for (const dir of RETAIL_SOURCE_DISCARDED_DIRS) {
+    mkdirSync(join(root, dir), { recursive: true })
+    writeSizedFile(join(root, dir, 'pak0.pak'), 2048)
+  }
+
+  return root
+}
+
+/**
+ * Story 089 D5: the AC5 counterpart to `writeBootstrapExistingFolderSource({ retail: false })` -
+ * a folder that exists but has no `baseq2/pak0.pak` at all, so `inspectGameDataSource` reports
+ * `kind: 'unusable'` with `bootstrap.gameDataSource.baseDirMissing` (no `baseq2` directory
+ * whatsoever - the simplest, least ambiguous way to be pak0-less). Same root as the retail/demo
+ * fixture (`existingFolderSourceRoot()`) so the flow needs no second `Q2L_UI_PICK_FOLDER` path.
+ */
+export function writeBootstrapExistingFolderUnusableSource() {
+  const root = assertInside(UI_VERIFY_ROOT, existingFolderSourceRoot(), 'existing-folder source')
+  rmDirBestEffort(root)
+  mkdirSync(root, { recursive: true })
+  return root
 }

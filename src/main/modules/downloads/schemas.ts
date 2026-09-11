@@ -206,6 +206,15 @@ export const bootstrapRetailSourcesInputSchema = downloadsNoInputSchema
 export const bootstrapTargetVerdictInputSchema = z.object({ targetPath: absolutePathSchema }).strict()
 
 /**
+ * Story 089 D1: the eventual `bootstrap.gameDataSource` handler's payload (D3 wires the handler) -
+ * one absolute path, the folder the wizard's game-data step is asking about. Same
+ * `bootstrapTargetVerdictInputSchema` convention: `.strict()` because a bad payload is a caller bug,
+ * `absolutePathSchema` rejects an empty string/NUL byte before anything looks at the filesystem, and
+ * the deeper "does this folder actually hold retail data" judgement is left to the verdict itself.
+ */
+export const bootstrapGameDataSourceInputSchema = z.object({ rootPath: absolutePathSchema }).strict()
+
+/**
  * Story 074 D4: the engine a bootstrap may be asked for. Narrower than `engineKindSchema` on
  * purpose - `BOOTSTRAP_SUPPORTED_ENGINES` is the wizard's own list ("offered by this sprint's
  * wizard", not "supported by the launcher in general", see its doc comment), and rejecting an
@@ -222,7 +231,7 @@ const bootstrapEngineSchema = engineKindSchema.refine(
  * here, so a payload written against [[074]]'s wizard keeps meaning `'free-download'` - the schema
  * only decides which values are *representable*.
  */
-const bootstrapDataSourceSchema = z.enum(['free-download', 'store-copy'])
+const bootstrapDataSourceSchema = z.enum(['free-download', 'store-copy', 'existing-folder'])
 
 /**
  * Story 088 D4: `copySourcePath` is meaningful for exactly one `dataSource`, so both halves of that
@@ -235,23 +244,27 @@ const bootstrapDataSourceSchema = z.enum(['free-download', 'store-copy'])
  * It validates only the *combination*: whether the path names a source main actually detected, and
  * whether that source still verifies as retail, is re-decided in main against its own fresh list
  * (`startBootstrap`, `downloads.error.retailSourceUnverified`) - a schema can know neither.
+ *
+ * Story 089 D1: `'existing-folder'` needs exactly the same `copySourcePath` a `'store-copy'` run
+ * does - a hand-picked folder is copied from the same way a detected retail install is - so it
+ * joins `storeCopy` below rather than getting a second required-path branch.
  */
 function refineCopySource(
-  value: { dataSource?: 'free-download' | 'store-copy'; copySourcePath?: string },
+  value: { dataSource?: 'free-download' | 'store-copy' | 'existing-folder'; copySourcePath?: string },
   ctx: z.RefinementCtx,
 ): void {
-  const storeCopy = value.dataSource === 'store-copy'
+  const storeCopy = value.dataSource === 'store-copy' || value.dataSource === 'existing-folder'
   if (storeCopy && value.copySourcePath === undefined) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "a 'store-copy' run must name the retail source it copies from",
+      message: "a 'store-copy' or 'existing-folder' run must name the source it copies from",
       path: ['copySourcePath'],
     })
   }
   if (!storeCopy && value.copySourcePath !== undefined) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "'copySourcePath' is only meaningful for a 'store-copy' run",
+      message: "'copySourcePath' is only meaningful for a 'store-copy' or 'existing-folder' run",
       path: ['copySourcePath'],
     })
   }

@@ -10,6 +10,7 @@ import {
   type DetectedRetailSource,
   type DownloadFailure,
   type DownloadsSettings,
+  type GameDataSourceVerdict,
   type ManifestSnapshot,
   type PackageSource,
 } from '@shared/modules/downloads'
@@ -24,6 +25,7 @@ import {
   startBootstrap,
   type BootstrapDeps,
 } from './bootstrap/job'
+import { inspectGameDataSource } from './bootstrap/game-data-source'
 import {
   manifestSourceFrom,
   realExtractor,
@@ -55,6 +57,7 @@ import {
 } from './pipeline'
 import {
   bootstrapEngineOptionsInputSchema,
+  bootstrapGameDataSourceInputSchema,
   bootstrapRetailSourcesInputSchema,
   bootstrapSummaryInputSchema,
   bootstrapTargetVerdictInputSchema,
@@ -208,6 +211,19 @@ export const downloadsModule: MainModule = {
       DOWNLOADS_HANDLERS.bootstrapRetailSources,
       bootstrapRetailSourcesInputSchema,
       (): Promise<DetectedRetailSource[]> => detectedRetailSourcesFor(app),
+    )
+
+    /**
+     * Story 089 D3 (AC2): what the wizard's game-data step found in the folder the user browsed to.
+     * A thin wrapper around `inspectGameDataSource`, with no failure mode of its own - like
+     * `bootstrapTargetVerdict` above, "this folder holds nothing usable" is a verdict the wizard
+     * renders, not an error it unwraps. The path is re-judged again, independently, when the run
+     * starts (`startBootstrap`, step 1c): this answer is a report, never an authorisation.
+     */
+    handle(
+      DOWNLOADS_HANDLERS.bootstrapGameDataSource,
+      bootstrapGameDataSourceInputSchema,
+      ({ rootPath }): Promise<GameDataSourceVerdict> => inspectGameDataSource(rootPath),
     )
 
     /**

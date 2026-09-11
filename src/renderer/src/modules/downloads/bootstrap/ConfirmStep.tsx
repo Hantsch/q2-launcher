@@ -14,12 +14,21 @@ import { KeyValue, Panel, SectionLabel } from '../../../components/ui/primitives
  * the engine build alone (`buildBootstrapSummary`, main). The free-download rendering is
  * unchanged.
  *
+ * Story 089 D5 (AC6): widens that same line to a `'existing-folder'` summary too -
+ * `summary.copySource` is populated the same way for that data source (`buildBootstrapSummary`),
+ * just without a `store`, so the store-name span is skipped rather than rendering "undefined".
+ *
  * Story 088 D5 (toggle availability rule): `includeExtrasDisabledReason`, when set, disables the
  * video/players checkbox and shows the reason instead of the usual hint - the wizard computes this
  * from the chosen detected source's `hasVideo`/`hasPlayers`, this component only renders it.
  *
+ * Story 089 D5 (Decisions: "no video/players toggle for this source"): `hideIncludeExtras`, when
+ * true, omits the checkbox row entirely rather than rendering it disabled - an existing-folder run
+ * never offers the toggle at all, unlike a `'store-copy'` run where it stays visible but may be
+ * disabled per source.
+ *
  * `data-testid`s: `bootstrap-confirm-total-size`, `bootstrap-confirm-target-path`,
- * `bootstrap-confirm-copy-source` (present only for a `'store-copy'` summary),
+ * `bootstrap-confirm-copy-source` (present for a `'store-copy'` or `'existing-folder'` summary),
  * `bootstrap-confirm-include-extras-disabled` (present only when disabled).
  */
 export function ConfirmStep({
@@ -28,12 +37,14 @@ export function ConfirmStep({
   includeVideoAndPlayers,
   onIncludeVideoAndPlayersChange,
   includeExtrasDisabledReason,
+  hideIncludeExtras,
 }: {
   summary: BootstrapSummary | null
   loading: boolean
   includeVideoAndPlayers: boolean
   onIncludeVideoAndPlayersChange: (next: boolean) => void
   includeExtrasDisabledReason?: string
+  hideIncludeExtras?: boolean
 }) {
   const { t } = useTranslation()
 
@@ -43,18 +54,19 @@ export function ConfirmStep({
 
   return (
     <div className="space-y-4">
-      {summary.dataSource === 'store-copy' && summary.copySource && (
-        <Panel className="space-y-1.5 p-3" data-testid="bootstrap-confirm-copy-source">
-          <KeyValue label={t('bootstrapWizard.confirm.copySourceLabel')}>
-            <span title={summary.copySource.path}>
-              {summary.copySource.store
-                ? t('bootstrapWizard.gameData.store.' + summary.copySource.store)
-                : null}{' '}
-              {summary.copySource.path}
-            </span>
-          </KeyValue>
-        </Panel>
-      )}
+      {(summary.dataSource === 'store-copy' || summary.dataSource === 'existing-folder') &&
+        summary.copySource && (
+          <Panel className="space-y-1.5 p-3" data-testid="bootstrap-confirm-copy-source">
+            <KeyValue label={t('bootstrapWizard.confirm.copySourceLabel')}>
+              <span title={summary.copySource.path}>
+                {summary.copySource.store
+                  ? t('bootstrapWizard.gameData.store.' + summary.copySource.store) + ' '
+                  : null}
+                {summary.copySource.path}
+              </span>
+            </KeyValue>
+          </Panel>
+        )}
 
       <div className="space-y-2">
         <SectionLabel>{t('bootstrapWizard.confirm.packagesTitle')}</SectionLabel>
@@ -81,20 +93,27 @@ export function ConfirmStep({
         </KeyValue>
       </Panel>
 
-      <Checkbox
-        checked={includeVideoAndPlayers}
-        onChange={onIncludeVideoAndPlayersChange}
-        disabled={!!includeExtrasDisabledReason}
-        label={t('bootstrapWizard.confirm.includeExtras')}
-      />
-      {includeExtrasDisabledReason ? (
-        <p className="text-xs text-ink-muted" data-testid="bootstrap-confirm-include-extras-disabled">
-          {includeExtrasDisabledReason}
-        </p>
-      ) : (
-        <p className="text-xs leading-relaxed text-ink-muted">
-          {t('bootstrapWizard.confirm.includeExtrasHint')}
-        </p>
+      {!hideIncludeExtras && (
+        <>
+          <Checkbox
+            checked={includeVideoAndPlayers}
+            onChange={onIncludeVideoAndPlayersChange}
+            disabled={!!includeExtrasDisabledReason}
+            label={t('bootstrapWizard.confirm.includeExtras')}
+          />
+          {includeExtrasDisabledReason ? (
+            <p
+              className="text-xs text-ink-muted"
+              data-testid="bootstrap-confirm-include-extras-disabled"
+            >
+              {includeExtrasDisabledReason}
+            </p>
+          ) : (
+            <p className="text-xs leading-relaxed text-ink-muted">
+              {t('bootstrapWizard.confirm.includeExtrasHint')}
+            </p>
+          )}
+        </>
       )}
     </div>
   )

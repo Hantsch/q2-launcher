@@ -125,6 +125,23 @@ async function probeWritable(dir: string): Promise<boolean> {
   return true
 }
 
+/**
+ * Story 089 D2: the path-shape half of `computeTargetVerdict`'s `unsafePath` check, pulled out so
+ * `game-data-source.ts`'s `inspectGameDataSource` can reject the same class of unsafe paths (device
+ * paths, non-absolute paths, reserved Windows device names) without pulling in the target-specific
+ * `protectedDirs`/writability/`alreadyInstalled` checks below, which need a *target* path and make
+ * no sense for a read-only source folder.
+ */
+export async function isUnsafeAbsolutePath(path: string): Promise<boolean> {
+  const canonical = await canonicalizePath(path)
+  return (
+    !isAbsolute(path) ||
+    !isAbsolute(canonical) ||
+    DEVICE_PATH_RE.test(path) ||
+    isReservedDeviceName(canonical)
+  )
+}
+
 export async function computeTargetVerdict(
   targetPath: string,
   options: ComputeTargetVerdictOptions = {},
@@ -133,16 +150,10 @@ export async function computeTargetVerdict(
   const protectedDirs =
     options.protectedDirs ?? (process.resourcesPath ? [process.resourcesPath] : [])
 
-  const rawIsAbsolute = isAbsolute(targetPath)
-  const isDevicePath = DEVICE_PATH_RE.test(targetPath)
-
   const canonicalTarget = await canonicalizePath(targetPath)
 
   const unsafePath =
-    !rawIsAbsolute ||
-    !isAbsolute(canonicalTarget) ||
-    isDevicePath ||
-    isReservedDeviceName(canonicalTarget) ||
+    (await isUnsafeAbsolutePath(targetPath)) ||
     protectedDirs.some((dir) => isInsideDir(canonicalTarget, dir))
 
   const programFiles = isUnderProgramFiles(canonicalTarget, env)

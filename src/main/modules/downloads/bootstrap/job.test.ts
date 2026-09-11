@@ -7,6 +7,7 @@ import { RETAIL_PAK_SIZES } from '@shared/constants'
 import {
   DEFAULT_BOOTSTRAP_INSTALLATION_NAME,
   type DetectedRetailSource,
+  type GameDataSourceVerdict,
   type ManifestPackage,
   type PackageSource,
   type RetailSourceInspection,
@@ -240,6 +241,15 @@ function harness(
      * set this is refused, which is exactly what the negative tests are about.
      */
     retailSources?: DetectedRetailSource[]
+    /**
+     * Story 089 D3: substitutes the verdict `deps.inspectGameDataSource` answers for the picked
+     * folder. Left unset, the job uses its production default - the *real* `inspectGameDataSource`
+     * against the real fixture folder - which is what the refusal tests below want. It is only
+     * overridden where a test needs a `retail` verdict, for the same reason `detectedSource()`
+     * above fabricates one: a retail-sized `pak0.pak` is 184 MB, and whether a folder's paks
+     * measure up is `game-data-source.test.ts`'s subject, not this suite's.
+     */
+    gameDataSource?: (rootPath: string) => GameDataSourceVerdict
   } = {},
 ): Harness {
   const snapshots: Job[][] = []
@@ -378,6 +388,14 @@ function harness(
         retailSourceCalls.count += 1
         return Promise.resolve(options.retailSources ?? [])
       },
+      // Absent unless a test fabricates a verdict - so every other run goes through the same
+      // default production takes (`inspectGameDataSource` itself).
+      ...(options.gameDataSource
+        ? {
+            inspectGameDataSource: (rootPath: string) =>
+              Promise.resolve(options.gameDataSource!(rootPath)),
+          }
+        : {}),
       fetcher,
       extractor,
       r1q2Setup,
@@ -2221,6 +2239,289 @@ describe('startBootstrap from a detected retail source (story 088 D4)', () => {
   })
 })
 
+describe('startBootstrap from an existing folder (story 089 D3)', () => {
+  /**
+   * A folder the user hand-picked: a `baseq2` holding the named paks, plus everything AC7 forbids
+   * from reaching the target - the `ctf`/`xatrix` payloads a real 3.20-patched folder carries, and
+   * a loose file inside `baseq2` itself (the case a "copy baseq2, minus a denylist" implementation
+   * would get wrong and an allowlist cannot).
+   */
+  async function makeFolderSource(
+    name: string,
+    paks: string[] = ['pak0.pak', 'pak1.pak'],
+  ): Promise<string> {
+    const root = join(dir, name)
+    await mkdir(join(root, 'baseq2'), { recursive: true })
+    for (const pak of paks) {
+      await writeFile(join(root, 'baseq2', pak), `${name} ${pak}`)
+    }
+    await writeFile(join(root, 'baseq2', 'config.cfg'), 'a loose file of the user’s own')
+    for (const modDir of ['ctf', 'xatrix', 'rogue']) {
+      await mkdir(join(root, modDir), { recursive: true })
+      await writeFile(join(root, modDir, 'pak0.pak'), modDir)
+    }
+    return root
+  }
+
+  /** A fabricated `retail` verdict over a fixture whose paks hold a few bytes - see the harness
+   * option's own comment for why the sizes are not the real ones. */
+  const retailVerdict =
+    (names: string[] = ['pak0.pak', 'pak1.pak']) =>
+    (rootPath: string): GameDataSourceVerdict => ({
+      rootPath,
+      kind: 'retail',
+      paks: names.map((name) => ({ name, sizeBytes: RETAIL_PAK_SIZES[name] ?? 0, retail: true })),
+    })
+
+  const startFolder = (
+    box: Harness,
+    copySourcePath: string,
+    overrides: { name?: string; targetPath?: string; includeVideoAndPlayers?: boolean } = {},
+  ) =>
+    startBootstrap(box.deps, {
+      engine: 'q2pro',
+      targetPath: overrides.targetPath ?? targetPath,
+      includeVideoAndPlayers: overrides.includeVideoAndPlayers ?? false,
+      dataSource: 'existing-folder',
+      copySourcePath,
+      ...(overrides.name ? { name: overrides.name } : {}),
+    })
+
+  it('AC5: an unusable source is refused before the installation is registered', async () => {
+    // The real `inspectGameDataSource` against a real folder - no fabricated verdict here, because
+    // the refusal is the thing under test and a faked verdict would be testing the fake.
+    const empty = join(dir, 'nothing-here')
+    await mkdir(empty, { recursive: true })
+    const box = harness()
+
+    const started = await startFolder(box, empty)
+
+    expect(started.ok).toBe(false)
+    if (started.ok) return
+    expect(started.error.key).toBe('downloads.error.gameDataSourceUnusable')
+    expect(started.error.params).toEqual({ reason: 'bootstrap.gameDataSource.baseDirMissing' })
+    // Nothing was created, on disk or in the library, and nothing was downloaded - AC5's "before
+    // the job starts, not partway through".
+    expect(box.installations.list()).toEqual([])
+    expect(box.jobs.list()).toEqual([])
+    expect(box.fetched).toEqual([])
+    expect(await exists(targetPath)).toBe(false)
+  })
+
+  it('AC5: a baseq2 without pak0 is refused with its own reason', async () => {
+    const noPak0 = await makeFolderSource('folder-no-pak0', ['pak3.pak'])
+    const box = harness()
+
+    const started = await startFolder(box, noPak0)
+
+    expect(started.ok).toBe(false)
+    if (started.ok) return
+    expect(started.error.key).toBe('downloads.error.gameDataSourceUnusable')
+    expect(started.error.params).toEqual({ reason: 'bootstrap.gameDataSource.pak0Missing' })
+    expect(box.installations.list()).toEqual([])
+    expect(box.fetched).toEqual([])
+  })
+
+  it('a source that overlaps the target is refused the same way, in both directions', async () => {
+    // "Copying a folder into itself is the one way this feature could destroy the user's data"
+    // (Decisions (Sprint)). All three shapes are the same refusal, and each is checked *before*
+    // the folder is even inspected - a source that is also the target would otherwise be inspected,
+    // accepted and then assembled on top of itself.
+    const nested = join(targetPath, 'game-data')
+    for (const source of [targetPath, nested, dir]) {
+      const box = harness()
+
+      const started = await startFolder(box, source)
+
+      expect(started.ok).toBe(false)
+      if (started.ok) return
+      expect(started.error.key).toBe('downloads.error.gameDataSourceUnusable')
+      expect(started.error.params).toEqual({ reason: 'targetOverlap' })
+      expect(box.installations.list()).toEqual([])
+      expect(box.jobs.list()).toEqual([])
+      expect(box.fetched).toEqual([])
+      expect(await exists(targetPath)).toBe(false)
+    }
+  })
+
+  it('AC3: an existing-folder run resolves the engine package only and copies exactly the folder’s paks', async () => {
+    const sourceRoot = await makeFolderSource('picked-retail', ['pak0.pak', 'pak1.pak', 'pak2.pak'])
+    const box = harness({
+      gameDataSource: retailVerdict(['pak0.pak', 'pak1.pak', 'pak2.pak']),
+      // Deliberately available and deliberately irrelevant: this source is not a detected store
+      // install, so the job must never consult that list for it.
+      retailSources: [detectedSource(await makeStoreInstallation('store-steam'))],
+    })
+    const pakAtValidate = observeValidateOrder(box)
+
+    const started = await startFolder(box, sourceRoot)
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    expect((await started.value.settled).status).toBe('succeeded')
+
+    // The engine build is downloaded and verified exactly as [[074]] does - and it is the only
+    // thing downloaded; the demo and the point release are not even resolved.
+    expect(box.fetched).toEqual(['q2pro-1.0.0.zip'])
+    expect(box.gameDataRequests).toEqual([])
+    expect(box.retailSourceCalls.count).toBe(0)
+    // Real copies of the folder's own bytes, never links...
+    for (const pak of ['pak0.pak', 'pak1.pak', 'pak2.pak']) {
+      expect(await readFile(join(targetPath, 'baseq2', pak), 'utf8')).toBe(
+        await readFile(join(sourceRoot, 'baseq2', pak), 'utf8'),
+      )
+    }
+    // ...and AC7: exactly the allowlist, so neither the source's mod dirs nor the loose file in its
+    // own `baseq2` can arrive.
+    expect((await readdir(targetPath)).sort()).toEqual(['baseq2', 'q2pro.exe'])
+    expect((await readdir(join(targetPath, 'baseq2'))).sort()).toEqual([
+      'gamex86_64.dll',
+      'pak0.pak',
+      'pak1.pak',
+      'pak2.pak',
+    ])
+    // The copy happens in the assemble phase, so it is on disk before the first playability
+    // revalidation - the same phase-order property the other copy source is held to.
+    expect(pakAtValidate[0]).toBe(true)
+    expect(box.jobs.list()[0]?.playableAtRatio).toBe(PLAYABLE_AT_RATIO)
+    // Not "Q2PRO Demo": neither copy source has a demo identity to draw a default name from.
+    const installation = box.installations.find(started.value.installationId)
+    expect(installation?.name).toBe('Q2PRO')
+    // Re-derived independently from the folder the run produced, so no status here can have been
+    // hand-set or inferred from "this was a folder copy".
+    expect(installation?.status).toBe((await inspectInstallation(targetPath)).status)
+  })
+
+  it('review F2: includeVideoAndPlayers is forced false server-side for an existing-folder run, even when a scripted caller sends true', async () => {
+    // Decisions: "no video/players toggle for this source in this story... the toggle is hidden
+    // and includeVideoAndPlayers is forced false when the source is a folder." The renderer already
+    // enforces that (BootstrapWizard.tsx), but main must not trust a caller that skips the renderer
+    // and sends `includeVideoAndPlayers: true` directly - so the source folder here carries a
+    // `baseq2/video` and `baseq2/players` (a real 3.20-patched folder would), and the assertion is
+    // that neither ever reaches the target regardless of the input flag.
+    const sourceRoot = await makeFolderSource('picked-with-extras', ['pak0.pak', 'pak1.pak'])
+    await mkdir(join(sourceRoot, 'baseq2', 'video'), { recursive: true })
+    await writeFile(join(sourceRoot, 'baseq2', 'video', 'ntro.cin'), 'ntro')
+    await mkdir(join(sourceRoot, 'baseq2', 'players', 'male'), { recursive: true })
+    await writeFile(join(sourceRoot, 'baseq2', 'players', 'male', 'tris.md2'), 'tris')
+    const box = harness()
+
+    const started = await startFolder(box, sourceRoot, { includeVideoAndPlayers: true })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    expect((await started.value.settled).status).toBe('succeeded')
+
+    expect(await exists(join(targetPath, 'baseq2', 'video'))).toBe(false)
+    expect(await exists(join(targetPath, 'baseq2', 'players'))).toBe(false)
+    expect((await readdir(join(targetPath, 'baseq2'))).sort()).toEqual([
+      'gamex86_64.dll',
+      'pak0.pak',
+      'pak1.pak',
+    ])
+  })
+
+  it('AC4: a demo-only folder installs with the one pak it has', async () => {
+    // The real inspector again: a few-byte `pak0.pak` and no `pak1.pak` is exactly what makes this
+    // verdict `demo`, and the plan must then require that one pak alone - a fixed retail list would
+    // fail this run at `missingRequired` for a file the wizard already said was not there.
+    const sourceRoot = await makeFolderSource('picked-demo', ['pak0.pak'])
+    const box = harness()
+
+    const started = await startFolder(box, sourceRoot)
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    expect((await started.value.settled).status).toBe('succeeded')
+
+    expect(await readFile(join(targetPath, 'baseq2', 'pak0.pak'), 'utf8')).toBe(
+      await readFile(join(sourceRoot, 'baseq2', 'pak0.pak'), 'utf8'),
+    )
+    expect((await readdir(join(targetPath, 'baseq2'))).sort()).toEqual([
+      'gamex86_64.dll',
+      'pak0.pak',
+    ])
+    expect(box.fetched).toEqual(['q2pro-1.0.0.zip'])
+  })
+
+  it("a failed existing-folder run's cleanup removes the copied paks and leaves the source alone", async () => {
+    // The failure exit this suite can reach with the copied paks still *on disk* (the verdict-based
+    // one deletes them itself to provoke the verdict): the first revalidation answers a failed
+    // `Outcome`, so cleanup runs against a target that really does hold everything this job copied.
+    const sourceRoot = await makeFolderSource('picked-doomed', ['pak0.pak', 'pak1.pak'])
+    const box = harness({ gameDataSource: retailVerdict() })
+    vi.spyOn(box.installations, 'validate').mockImplementationOnce(async () =>
+      fail('installations.error.notFound'),
+    )
+
+    const started = await startFolder(box, sourceRoot)
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    const outcome = await started.value.settled
+    expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.diskWrite' })
+
+    // The copied paks are in `copied` like any downloaded file, so the generic cleanup takes them
+    // and then prunes the `baseq2` it made - the root the user picked survives, empty (077 AC1).
+    expect(await exists(targetPath)).toBe(true)
+    expect(await readdir(targetPath)).toEqual([])
+    // And the user's own folder is untouched: the cleanup deletes copies, never originals.
+    expect((await readdir(join(sourceRoot, 'baseq2'))).sort()).toEqual([
+      'config.cfg',
+      'pak0.pak',
+      'pak1.pak',
+    ])
+    expect(box.installations.list().map((entry) => entry.id)).toEqual([started.value.installationId])
+    expect(box.installations.find(started.value.installationId)?.lastFailure?.errorKey).toBe(
+      'downloads.error.diskWrite',
+    )
+  })
+
+  it('a folder that loses a pak between the check and the copy fails with its own key, never packageIncomplete naming "folder"', async () => {
+    // Inspected as retail at step 1c (the fabricated verdict below), and by the time the copy runs
+    // the folder only has `pak0.pak` - it was edited or emptied out from under the wizard. Nothing
+    // was downloaded for the `'folder'` role, so `PACKAGE_INCOMPLETE` would fall back to the literal
+    // string `'folder'` as its `packageId` and claim a download that never happened.
+    const sourceRoot = await makeFolderSource('picked-vanishing', ['pak0.pak'])
+    const box = harness({ gameDataSource: retailVerdict(['pak0.pak', 'pak1.pak']) })
+
+    const started = await startFolder(box, sourceRoot)
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+
+    expect(await started.value.settled).toEqual({
+      status: 'failed',
+      key: 'downloads.error.gameDataSourceUnusable',
+    })
+    const jobError = box.jobs.list().find((job) => job.id === started.value.jobId)?.error
+    expect(jobError).toEqual({ key: 'downloads.error.gameDataSourceUnusable' })
+  })
+
+  it('regression: the free-download path is untouched by this deliverable', async () => {
+    // Same harness, a fabricated folder verdict available and deliberately ignored: a run that does
+    // not ask for `existing-folder` still resolves and downloads all three packages, assembles
+    // before the first revalidation and keeps [[074]]'s default name.
+    const box = harness({ gameDataSource: retailVerdict() })
+    const pakAtValidate = observeValidateOrder(box)
+
+    const started = await startBootstrap(box.deps, {
+      engine: 'q2pro',
+      targetPath,
+      includeVideoAndPlayers: false,
+    })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    expect((await started.value.settled).status).toBe('succeeded')
+
+    expect(box.fetched).toEqual([
+      'q2pro-1.0.0.zip',
+      'q2-314-demo-x86.exe',
+      'q2-3.20-x86-full-ctf.exe',
+    ])
+    expect(box.gameDataRequests).toEqual(['demo', 'point-release'])
+    expect(pakAtValidate[0]).toBe(true)
+    expect(box.installations.find(started.value.installationId)?.name).toBe(
+      DEFAULT_BOOTSTRAP_INSTALLATION_NAME,
+    )
+  })
+})
+
 describe('buildBootstrapSummary', () => {
   it('sums the package sizes', async () => {
     const summary = await buildBootstrapSummary(
@@ -2291,6 +2592,51 @@ describe('buildBootstrapSummary', () => {
     expect(summary.ok).toBe(true)
     if (!summary.ok) return
     expect(summary.value.copySource).toEqual({ path: sourceRoot })
+  })
+
+  it('AC6: the summary names the picked folder, with no store, and sums the engine package only', async () => {
+    const sourceRoot = join(dir, 'picked-folder')
+    const summary = await buildBootstrapSummary(
+      // No `retailSources` at all: a hand-picked folder is by definition not on that list, so
+      // summarising this source must not depend on having one.
+      { manifest: fakeManifest() },
+      {
+        engine: 'q2pro',
+        targetPath,
+        includeVideoAndPlayers: false,
+        dataSource: 'existing-folder',
+        copySourcePath: sourceRoot,
+      },
+    )
+
+    expect(summary.ok).toBe(true)
+    if (!summary.ok) return
+    expect(summary.value.packages).toEqual([
+      { id: 'q2pro-1.0.0', version: '1.0.0', sizeBytes: 1000, role: 'engine' },
+    ])
+    expect(summary.value.totalSizeBytes).toBe(1000)
+    expect(summary.value.dataSource).toBe('existing-folder')
+    // The folder itself, and no `store` - "main did not detect this, the user pointed at it".
+    expect(summary.value.copySource).toEqual({ path: sourceRoot })
+    expect(summary.value.targetPath).toBe(targetPath)
+  })
+
+  it('review F2: the summary reports includeVideoAndPlayers as false for an existing-folder source even when asked for true', async () => {
+    const sourceRoot = join(dir, 'picked-folder-extras')
+    const summary = await buildBootstrapSummary(
+      { manifest: fakeManifest() },
+      {
+        engine: 'q2pro',
+        targetPath,
+        includeVideoAndPlayers: true,
+        dataSource: 'existing-folder',
+        copySourcePath: sourceRoot,
+      },
+    )
+
+    expect(summary.ok).toBe(true)
+    if (!summary.ok) return
+    expect(summary.value.includeVideoAndPlayers).toBe(false)
   })
 
   it('fails when the manifest cannot produce all three packages', async () => {

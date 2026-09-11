@@ -41,6 +41,15 @@ export const PACKAGE_INCOMPLETE: DownloadsErrorKey = 'downloads.error.packageInc
 export const RETAIL_COPY_INCOMPLETE: DownloadsErrorKey = 'downloads.error.retailCopyIncomplete'
 
 /**
+ * Story 089 D1: the `'existing-folder'` counterpart to `RETAIL_COPY_INCOMPLETE` above - a
+ * hand-picked folder's `GameDataSourceVerdict` (`@shared/modules/downloads`) came back
+ * `kind: 'unusable'` by the time the copy actually ran (e.g. it was edited or emptied out from
+ * under the wizard). Own key for the same reason `RETAIL_COPY_INCOMPLETE` has one instead of reusing
+ * `PACKAGE_INCOMPLETE`: nothing was downloaded, and there is no package id to name, only the folder.
+ */
+export const GAME_DATA_SOURCE_UNUSABLE: DownloadsErrorKey = 'downloads.error.gameDataSourceUnusable'
+
+/**
  * Everything downloaded, verified and assembled, and `inspectInstallation` still calls the target
  * `invalid`/`missing` (AC6). The one failure that is decided by the disk rather than by an
  * operation returning an error.
