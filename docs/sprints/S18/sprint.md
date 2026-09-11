@@ -1,6 +1,6 @@
 ---
 sprint: S18
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/18
 milestone: Phase 3 M1 (news hero) + M2 (dashboard); Phase 4 M1 (install — r1q2)
 ---

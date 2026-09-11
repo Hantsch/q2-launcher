@@ -2,12 +2,15 @@
 
 ## Where we stand
 
-*As of 2026-09-10.* Config (Phase 2) and the shell are done; Phase 4's install module reached a
-real, failure-honest bootstrap for Q2PRO (S16, [S17 review](../sprints/done/S17/review.md)).
-Two things are in flight: story 079 (a save reaches every installation, and Care sees drift) is
-finishing on `dev` outside a sprint, and **[S18](../sprints/S18/sprint.md) is cut and planned** —
-R1Q2 as a second installable engine plus the whole home-screen milestone (news hero over a
-user-arranged dashboard). Next step: `/sprint S18`. Nothing is waiting on the user.
+*As of 2026-09-11.* Config (Phase 2) and the shell are done; Phase 3 (home screen) is done —
+**[S18](../sprints/S18/review.md) shipped both its milestones**: a live community news hero
+(081–085) over a user-arranged dashboard with its first two real tiles (086–087). The same sprint
+also carried Phase 4's install module forward with R1Q2 as a second installable engine (story
+080), alongside Q2PRO's existing bootstrap. Story 079 (a save reaches every installation, and Care
+sees drift) finished on `dev` outside a sprint, before S18 branched. Next step: the user decides
+whether/when to merge `sprint/18` into `dev`; after that, `/roadmap plan` for the next sprint —
+Phase 4's remaining install work (retail import, update/rollback, repair, removal) is the open
+milestone. Nothing else is waiting on the user.
 
 ## Phase overview
 
@@ -15,7 +18,7 @@ user-arranged dashboard). Next step: `/sprint S18`. Nothing is waiting on the us
 | --- | --- | --- |
 | 1 — Shell | 1/1 | done |
 | 2 — Config module (r1q2 settings & cvars, full lifecycle) | 5/5 | done |
-| 3 — Home screen (news hero + dashboard) | 0/2 | planned (S18) |
+| 3 — Home screen (news hero + dashboard) | 2/2 | done |
 | 4 — Install (download/update/repair) | 0/1 | in progress |
 | 5 — Mods (game directories) | 0/1 | not started |
 | 6 — Assets (texture/model/sound packs) | 0/1 | not started |
@@ -27,9 +30,9 @@ install milestone, which the same sprint carries on with R1Q2.
 
 | # | Milestone | Status | Sprint(s) | Note |
 | --- | --- | --- | --- | --- |
-| 3.1 | Home screen — news hero ([concepts/home-screen.md](concepts/home-screen.md)) | planned | [S18](../sprints/S18/sprint.md) | Stories 081–085: the `home` module takes the screen over, the community feed is fetched and cached, the 320px hero renders it, images come from main's cache, and the content repo carries the contract. |
-| 3.2 | Home screen — dashboard ([concepts/home-screen.md](concepts/home-screen.md)) | planned | [S18](../sprints/S18/sprint.md) | Stories 086–087: the 12 × 40px arrange-mode grid with keyboard parity and persistence, plus the two v1 tiles (playtime, config profiles). |
-| 4.1 | Install — bootstrap, update and repair ([concepts/install-module.md](concepts/install-module.md)) | in progress | [S16 review](../sprints/done/S16/review.md), [S17 review](../sprints/done/S17/review.md), [S18](../sprints/S18/sprint.md) | Q2PRO bootstrap ships; S18 adds R1Q2 (story 080). Retail import, update/rollback, repair and removal from disk still follow. |
+| 3.1 | Home screen — news hero ([concepts/home-screen.md](concepts/home-screen.md)) | done 2026-09-11 | [S18 review](../sprints/S18/review.md) | Stories 081–085: the `home` module took the screen over, the community feed is fetched, cached and rendered by the 320px hero, images come from main's own cache, and the content repo carries the contract. |
+| 3.2 | Home screen — dashboard ([concepts/home-screen.md](concepts/home-screen.md)) | done 2026-09-11 | [S18 review](../sprints/S18/review.md) | Stories 086–087: the 12 × 40px arrange-mode grid with keyboard parity and persistence, plus the two v1 tiles (playtime, config profiles). |
+| 4.1 | Install — bootstrap, update and repair ([concepts/install-module.md](concepts/install-module.md)) | in progress | [S16 review](../sprints/done/S16/review.md), [S17 review](../sprints/done/S17/review.md), [S18 review](../sprints/S18/review.md) | Q2PRO and R1Q2 bootstraps ship (story 080); retail import, update/rollback, repair and removal from disk still follow. |
 
 ## Open / unprioritised
 
@@ -41,6 +44,13 @@ install milestone, which the same sprint carries on with R1Q2.
 
 ## Follow-ups worth doing
 
+- `docs/concepts/home-screen.md` §6 still says the content repository holds "only a LICENSE" —
+  story 080 added `engines/` and `gamedata/`. A small doc correction, next time that concept is
+  touched. [S18 review](../sprints/S18/review.md)
+- Running every sprint's `ui:flow` scripts together at the end of a sprint (not just each story's
+  own) is what caught a real regression in S18 (083 silently broke 082's own acceptance flow) that
+  no single story's own verification would have seen — worth making a standing last step before
+  `/sprint` writes its review. [S18 review](../sprints/S18/review.md)
 - A `missingChecks` entry whose translation interpolates a variable (e.g. `validation.rootMissing`'s
   `{{path}}`) renders that placeholder unfilled wherever a failure's target verdict is now shown
   on screen — `DownloadDiagnosticsTarget.missingChecks` has stored only `{id, messageKey}` since
