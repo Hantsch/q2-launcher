@@ -1,7 +1,7 @@
 ---
 id: 092
 title: An engine updates and rolls back
-status: ready
+status: done
 created: 2026-09-12
 ---
 
@@ -17,25 +17,25 @@ already-playable installation, so it rides [[091]]'s guard rather than inventing
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — An installation whose recorded engine version differs from the manifest's
+- [x] **AC1** — An installation whose recorded engine version differs from the manifest's
       pinned version for that engine shows an available update, without downloading or
       changing anything on its own.
-- [ ] **AC2** — Applying the update downloads and verifies the package (per INST-V1–V3), then
+- [x] **AC2** — Applying the update downloads and verifies the package (per INST-V1–V3), then
       replaces the engine files, moving the previous ones into a backup kept inside the
       installation.
-- [ ] **AC3** — Rollback restores the most recent backup in one step, without re-downloading
+- [x] **AC3** — Rollback restores the most recent backup in one step, without re-downloading
       anything.
-- [ ] **AC4** — An installation can opt into "bleeding edge": while enabled, the update check
+- [x] **AC4** — An installation can opt into "bleeding edge": while enabled, the update check
       compares against the newest upstream build instead of the manifest's pinned version, for
       that installation only.
-- [ ] **AC5** — Turning bleeding edge off returns that installation's update check to the pinned
+- [x] **AC5** — Turning bleeding edge off returns that installation's update check to the pinned
       manifest version.
-- [ ] **AC6** — Applying an update or a rollback to an installation whose game is currently
+- [x] **AC6** — Applying an update or a rollback to an installation whose game is currently
       running waits per [[091]]'s guard rather than overwriting files underneath it.
-- [ ] **AC7** — After an update or a rollback completes, the installation's recorded engine
+- [x] **AC7** — After an update or a rollback completes, the installation's recorded engine
       version reflects what is actually on disk (`detectedVersion`, defined in the model but
       never written today).
-- [ ] **AC8** — A failed update (download or verification failure) leaves the installation on
+- [x] **AC8** — A failed update (download or verification failure) leaves the installation on
       its previous, working engine files — never a half-replaced state.
 
 ## Open Questions
@@ -226,24 +226,31 @@ Order: 1 → 2 → (3, 4) → 5 → 6 → 7 → 8. Steps 3–6 are main-only and
 
 ## Acceptance Tests
 
-- AC1 → D3 + D7; unit `src/main/modules/downloads/engine/update-status.test.ts` ›
+- AC1 → D3 + D5(fix) + D7; unit `src/main/modules/downloads/engine/update-status.test.ts` ›
   "a recorded version different from the pin reports an available update" and "an unknown recorded
-  version reports an available update without a current version", plus e2e
-  `scripts/flows/engine-update.mjs` › "an out-of-date installation shows the update affordance and
-  nothing has been downloaded or changed".
+  version reports an available update without a current version", plus
+  `src/main/modules/downloads/index.test.ts` › "resolves the pinned target on a cold manifest
+  service, without any earlier manifest call" (the review-fix regression test for the manifest
+  warm-up bug), plus e2e `scripts/flows/engine-update.mjs` › "an out-of-date installation shows
+  the update affordance and nothing has been downloaded or changed".
 - AC2 → D5; unit `src/main/modules/downloads/engine/update-job.test.ts` › "a successful update
-  replaces the engine files and keeps the previous ones in the backup", plus e2e
+  replaces the engine files and keeps the previous ones in the backup" and "an archive without the
+  optional menu file leaves the installation copy in place", plus e2e
   `scripts/flows/engine-update.mjs` › "applying the update writes the new engine bytes and leaves
   the old ones in the backup directory".
 - AC3 → D6; unit `src/main/modules/downloads/engine/rollback-job.test.ts` › "rollback restores the
   backup without fetching anything", plus e2e `scripts/flows/engine-update.mjs` › "rollback
   restores the previous engine bytes in one step".
-- AC4 → D4; unit `src/main/modules/downloads/engine/bleeding-edge.test.ts` › "with bleeding edge
-  on, the check compares against the probed upstream version", plus e2e
-  `scripts/flows/engine-update.mjs` › "the bleeding-edge toggle changes the target version for
-  this installation only".
-- AC5 → D4; unit `src/main/modules/downloads/engine/bleeding-edge.test.ts` › "turning bleeding
-  edge off compares against the pinned version again", plus e2e
+- AC4 → D4 + D5(fix); unit `src/main/modules/downloads/engine/bleeding-edge.test.ts` › "with
+  bleeding edge on, the check compares against the probed upstream version" (pure comparator) plus
+  `src/main/modules/downloads/index.test.ts` › "takes the target from the probe with bleeding edge
+  on, and from the manifest pin with it off" (the actual per-installation flag switch, added in
+  review-fix — the story's originally named unit test only covered the pure comparator, not the
+  switch), plus e2e `scripts/flows/engine-update.mjs` › "the bleeding-edge toggle changes the
+  target version for this installation only".
+- AC5 → D4 + D5(fix); unit `src/main/modules/downloads/engine/bleeding-edge.test.ts` › "turning
+  bleeding edge off compares against the pinned version again", plus the same
+  `index.test.ts` switch test above (covers both directions), plus e2e
   `scripts/flows/engine-update.mjs` › "turning the toggle off restores the pinned target".
 - AC6 → D5 + D6; unit `src/main/modules/downloads/engine/update-job.test.ts` › "the write phase
   waits while the target installation's game is running and continues once it exits" and
@@ -256,7 +263,81 @@ Order: 1 → 2 → (3, 4) → 5 → 6 → 7 → 8. Steps 3–6 are main-only and
   recorded version afterwards is the restored one", plus e2e `scripts/flows/engine-update.mjs` ›
   "the rail badge shows the new version after the update and the old one after the rollback".
 - AC8 → D5; unit `src/main/modules/downloads/engine/update-job.test.ts` › "a verification failure
-  leaves every engine file untouched and creates no backup" and › "a failure during the copy
-  restores the backup, leaving a complete previous engine".
+  leaves every engine file untouched and creates no backup", "a failure during the copy restores
+  the backup, leaving a complete previous engine", "a restore that cannot put a file back keeps the
+  backup rather than deleting the only copy left" and "a failure right after the previous backup
+  slot is emptied leaves no stale backup pointer" (the last two are review-fix regression tests for
+  the two backup-integrity findings below).
 
 ## Done
+
+### Summary
+
+Implemented the full engine update/rollback lifecycle for an existing, already-playable
+installation: an IPC contract (`engine.updateStatus`/`updateStart`/`rollbackStart`/
+`setBleedingEdge`), a per-installation recorded engine version in `moduleData.downloads`
+(mirrored into `detectedVersion`), a pure update-status comparator, a Q2PRO-only bleeding-edge
+probe against Q2PRO's `version.txt`, an update job and a rollback job both riding [[091]]'s
+`InstallationWriteGuard`, an ActionBar button + dialog, and an offline e2e flow
+(`scripts/flows/engine-update.mjs`) proving all of AC1–AC5/AC7 against a loopback fixture server.
+A first review pass (story-review-hard) found two critical defects — a cold-session manifest
+read that made AC1 always report "no update" in a fresh app session, and a backup-integrity gap
+where a partial restore or a mistimed pointer update could lose engine files or misdescribe the
+backup slot — both fixed and re-reviewed to PASS.
+
+### Commit message
+
+092: an engine updates and rolls back
+
+### Decisions
+
+- **Backup set is what the new archive actually staged, not the full `buildAssemblePlan({engine})`
+  allowlist.** An optional engine entry (`baseq2/q2pro.menu`, `required: false`) that the new
+  archive doesn't ship would otherwise be moved into the backup and never restored, silently
+  deleting it from the installation. A missing *required* entry still fails the completeness
+  check before any file is touched, so this only narrows what gets backed up/replaced, never what
+  blocks the update. Documented in `update-job.ts` and unit-tested (archive missing the optional
+  menu file leaves the existing copy in place).
+- **`EngineBackupInfo` carries no file list** (version, package id, timestamp only) despite the
+  Decisions (Sprint) text mentioning one; `rollback-job.ts` restores by walking the actual contents
+  of `.q2launcher-engine-backup/` on disk instead. Accepted as a safe substitute — the slot is
+  written only by the update job, one generation at a time, and is excluded from `GameDirSelect`
+  via `NON_GAME_DIRS` — reviewed and kept as-is.
+- **Backup pointer is cleared in the same step that empties the old backup slot**, before the new
+  backup is written — closing a window found in review where the recorded pointer could describe a
+  backup slot that no longer matched what was physically on disk. The remaining window (record says
+  "no backup" while a slot may or may not exist) is the safe direction: a rollback attempted there
+  answers `engineNoBackup` rather than restoring the wrong thing.
+- **A restore that can't move every file back keeps the backup rather than deleting it.** The
+  original write-order left a "best-effort restore, then delete the backup regardless" gap that
+  review flagged as capable of losing engine files past what AC8 permits; fixed so the backup
+  directory is only removed once every file was actually moved back, otherwise the job fails and
+  the (possibly partial) backup is preserved for a future retry.
+- **The bleeding-edge probe reaches the fixture server without its own `DownloadSource` override.**
+  It derives `version.txt`'s URL from the manifest's own pinned Q2PRO package `url`; under the UI
+  harness that URL is already rewritten to the loopback fixture origin (`harness.ts`), so the probe
+  transitively reaches the fixture. Confirmed correct (not a false-pass) by the e2e flow, which logs
+  the fixture server's own request log including `/packages/version.txt`.
+- **D8's e2e flow seeds a registered installation directly** (a sixth fixture installation with
+  `moduleData.downloads` already pointing at an older recorded version, and real filler-byte engine
+  files on disk) rather than running the bootstrap wizard first, per the story's own decision.
+
+### Verification
+
+- `npm run typecheck` — green (node + web).
+- `npm test` — 210 files, 3779+ passed, 1 pre-existing skip, 0 failed (post-fix count; grew from
+  3774 as review-fix tests were added).
+- `npm run build` — green.
+- `npm run ui:verify` — 82 screenshots, 0 axe violations.
+- `npm run ui:flow -- engine-update` — passes on a cold session (no manual manifest warm-up), all
+  logged assertions hold: no package download before Update is clicked (AC1), new bytes written and
+  old ones backed up (AC2), rollback restores the old bytes in one step (AC3), bleeding-edge toggle
+  changes/reverts the target for that installation only (AC4/AC5), the dialog's displayed version
+  updates after each step (AC7).
+- Clean-agent review (`story-review-hard`): first pass FAIL (manifest cold-read breaking AC1;
+  restore-then-delete and pointer/slot ordering gaps risking AC7/AC8's backup integrity); both
+  fixed plus regression tests added; second pass PASS on all six review dimensions (per-AC
+  verdicts, test-strength, ordering proof, non-tautological new tests, no regressions, in-scope).
+- AC → test mapping verified as listed in `## Acceptance Tests` above; no manual residue.
+- AC6's "waiting state on the real surface" stays [[091]]'s own e2e per the story's original
+  Decision — 092 only proves both jobs go through the guard, not the waiting UI itself.

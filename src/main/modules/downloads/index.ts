@@ -10,12 +10,19 @@ import {
   type DetectedRetailSource,
   type DownloadFailure,
   type DownloadsSettings,
+  type EngineUpdateChannel,
+  type EngineUpdateStatus,
   type GameDataSourceVerdict,
   type ManifestSnapshot,
   type PackageSource,
+  type StartEngineUpdateResult,
   type StartRetailUpgradeResult,
 } from '@shared/modules/downloads'
+// `StartEngineUpdateResult` is reused for `engineRollbackStart` too - D1's own doc comment on it
+// already states "what `engineUpdateStart`/`engineRollbackStart` answer on success", so there is no
+// separate `StartEngineRollbackResult` to import.
 import { fail, isJobActive, ok, type Job, type Outcome } from '@shared/types'
+import type { EngineKind } from '@shared/types/engine'
 import type { Logger } from '../../lib/logger'
 import { userDataDir } from '../../lib/paths'
 import type { AppContext } from '../../context'
@@ -42,6 +49,15 @@ import {
   dropDiagnostics,
   UNKNOWN_DOWNLOAD_FAILURE_KEY,
 } from './diagnostics'
+import {
+  BleedingEdgeProbeFailedError,
+  BleedingEdgeUnsupportedError,
+  probeBleedingEdge,
+} from './engine/bleeding-edge'
+import { computeEngineUpdateStatus } from './engine/update-status'
+import { startEngineUpdate, type EngineUpdateDeps } from './engine/update-job'
+import { startEngineRollback, type EngineRollbackDeps } from './engine/rollback-job'
+import { readEngineState, type InstallationEngineState } from './engine/installation-state'
 import { appendFailure, dismissFailure, restoreFailure } from './failure-log'
 import { PRODUCTION_DOWNLOAD_SOURCE, resolveDownloadSource } from './harness'
 import { ManifestService, ManifestUnavailableError } from './manifest-service'
@@ -61,10 +77,14 @@ import {
   bootstrapTargetVerdictInputSchema,
   dismissFailureInputSchema,
   downloadsNoInputSchema,
+  engineUpdateStatusInputSchema,
   manifestGetInputSchema,
   patchDownloadsSettingsInputSchema,
   restoreFailureInputSchema,
+  setBleedingEdgeInputSchema,
   startBootstrapInputSchema,
+  startEngineRollbackInputSchema,
+  startEngineUpdateInputSchema,
   startRetailUpgradeInputSchema,
 } from './schemas'
 
@@ -262,6 +282,109 @@ export const downloadsModule: MainModule = {
         const started = await startRetailUpgrade(retailUpgradeDepsFor(app, log), input)
         if (!started.ok) return started
         return ok({ jobId: started.value.jobId })
+      },
+    )
+
+    /**
+     * Story 092 D3 (AC1), D4 (AC4/AC5): one installation's `EngineUpdateStatus` - a thin wrapper
+     * around `computeEngineUpdateStatus`, which owns the comparison itself. No failure mode of its
+     * own (like `bootstrapTargetVerdict` above): an installation id the library no longer has
+     * answers `undefined`, which the renderer is expected to treat like any other vanished
+     * installation (the same way `find()`'s other read-only callers do), not an error to unwrap.
+     *
+     * `target` is resolved here, not inside `computeEngineUpdateStatus` - `resolveEngineUpdateTarget`
+     * below picks the manifest's pinned build for `channel: 'pinned'`, or a fresh bleeding-edge probe
+     * for `channel: 'bleeding-edge'`, based on this installation's own recorded
+     * `InstallationEngineState.bleedingEdge` flag ([[092]] D4's seam, exactly as D3 designed it:
+     * `computeEngineUpdateStatus` itself never changes).
+     */
+    handle(
+      DOWNLOADS_HANDLERS.engineUpdateStatus,
+      engineUpdateStatusInputSchema,
+      async ({ installationId }): Promise<EngineUpdateStatus | undefined> => {
+        const installation = app.installations.find(installationId)
+        if (!installation) return undefined
+
+        const recorded = readEngineState(installation.moduleData)
+        const target = await resolveEngineUpdateTarget(
+          installation.engineKind,
+          recorded,
+          manifestService,
+          log,
+        )
+
+        return computeEngineUpdateStatus(installationId, installation.engineKind, recorded, target)
+      },
+    )
+
+    /**
+     * Story 092 D5 (AC2/AC6/AC7/AC8): starts the engine-update job. A thin wrapper around
+     * `startEngineUpdate` (`engine/update-job.ts`), which owns the whole order - resolve the
+     * installation and the target build, download/verify/extract outside the installation, then
+     * back up and replace the engine files behind [[091]]'s write guard, and finally
+     * `InstallationsService.validate()`.
+     *
+     * Like `bootstrapStart`/`retailUpgradeStart` above, this deliberately does not await the job:
+     * it answers as soon as the job exists, so the dialog can switch to the progress state.
+     * `settled` stays in main - the job is the renderer's progress and outcome surface.
+     */
+    handle(
+      DOWNLOADS_HANDLERS.engineUpdateStart,
+      startEngineUpdateInputSchema,
+      async (input): Promise<Outcome<StartEngineUpdateResult>> => {
+        const started = await startEngineUpdate(engineUpdateDepsFor(app, manifestService, log), input)
+        if (!started.ok) return started
+        return ok({ jobId: started.value.jobId })
+      },
+    )
+
+    /**
+     * Story 092 D6 (AC3/AC6/AC7): starts the engine-rollback job. A thin wrapper around
+     * `startEngineRollback` (`engine/rollback-job.ts`), which owns the whole order - resolve the
+     * installation and its recorded backup (refusing with `downloads.error.engineNoBackup` and no
+     * job at all when there is none), then restore the backed-up files behind [[091]]'s write guard
+     * and finally `InstallationsService.validate()`.
+     *
+     * Like `engineUpdateStart` above, this deliberately does not await the job: it answers as soon
+     * as the job exists (or as soon as the pre-flight check has refused it), so the dialog can
+     * switch to the progress state.
+     */
+    handle(
+      DOWNLOADS_HANDLERS.engineRollbackStart,
+      startEngineRollbackInputSchema,
+      async (input): Promise<Outcome<StartEngineUpdateResult>> => {
+        const started = await startEngineRollback(engineRollbackDepsFor(app, log), input)
+        if (!started.ok) return started
+        return ok({ jobId: started.value.jobId })
+      },
+    )
+
+    /**
+     * Story 092 D4 (AC4/AC5): flips one installation's bleeding-edge opt-in. Refuses with
+     * `downloads.error.bleedingEdgeUnsupported` when turning the channel *on* for an engine kind
+     * that does not offer it (every engine but Q2PRO this sprint) - turning it *off* is always
+     * allowed, whatever the engine kind, since it can only ever undo a flag that was itself refused
+     * for anything but Q2PRO.
+     *
+     * Does not probe here: the probe (and its own failure mode,
+     * `downloads.error.bleedingEdgeProbeFailed`) belongs to the *read* path
+     * (`resolveEngineUpdateTarget`, used by `engineUpdateStatus` above) - flipping the flag only
+     * ever persists a fact, never a network call's success.
+     */
+    handle(
+      DOWNLOADS_HANDLERS.engineSetBleedingEdge,
+      setBleedingEdgeInputSchema,
+      ({ installationId, enabled }): Outcome<void> => {
+        const installation = app.installations.find(installationId)
+        if (!installation) return fail('installations.error.notFound')
+
+        if (enabled && installation.engineKind !== 'q2pro') {
+          return fail('downloads.error.bleedingEdgeUnsupported')
+        }
+
+        const updated = app.installations.setEngineState(installationId, { bleedingEdge: enabled })
+        if (!updated.ok) return updated
+        return ok(undefined)
       },
     )
 
@@ -467,6 +590,58 @@ function failureFor(job: Job): Omit<DownloadFailure, 'id' | 'createdAt' | 'dismi
 }
 
 /**
+ * Story 092 D4: resolves `engineUpdateStatus`'s `target` - the manifest's pinned build for
+ * `channel: 'pinned'` (D3's original, unconditional behaviour), or a fresh `probeBleedingEdge()`
+ * result for `channel: 'bleeding-edge'`, chosen by this installation's own recorded
+ * `InstallationEngineState.bleedingEdge` flag rather than by anything the caller passes in -
+ * "turning bleeding edge off makes the next check compare against the pin again" (Decisions
+ * (Sprint)) falls out of reading the flag fresh on every call, not out of any special-cased reset.
+ *
+ * A failed or unsupported probe degrades to `{ channel: 'bleeding-edge', version: undefined }`
+ * rather than throwing or falling back to the pin - same "no failure mode of its own" convention as
+ * `bootstrapTargetVerdict`/`engineUpdateStatus` itself (`computeEngineUpdateStatus` already treats
+ * an `undefined` target version as "nothing to update to", so this degrades to an honest "no update
+ * available" rather than a thrown error reaching the renderer for a read-only status check.
+ *
+ * **The manifest is fetched here, first, on every call** - the same `await getManifest()` +
+ * `pinnedEnginePackage()` pair `bootstrapEngineOptions` above uses, and for the same reason:
+ * `pinnedEnginePackage()` only answers from the snapshot a `getManifest()` call served, so without
+ * this warm-up a fresh session would report `target: undefined` / `updateAvailable: false` for a
+ * genuinely out-of-date installation whenever nothing else had happened to fetch the manifest first
+ * (AC1). `ManifestUnavailableError` (no fetch, no cached copy) is not a failure of this read: it
+ * leaves the pin unresolved, which is the honest "nothing to update to" both channels degrade to.
+ */
+async function resolveEngineUpdateTarget(
+  engine: EngineKind,
+  recorded: InstallationEngineState,
+  manifestService: ManifestService,
+  log: Logger,
+): Promise<{ channel: EngineUpdateChannel; version: string | undefined }> {
+  try {
+    await manifestService.getManifest()
+  } catch (error) {
+    if (!(error instanceof ManifestUnavailableError)) throw error
+    log.warn(`no manifest to resolve an engine update target for "${engine}": ${error.message}`)
+  }
+
+  if (!recorded.bleedingEdge) {
+    const pinned = manifestService.pinnedEnginePackage(engine)
+    return { channel: 'pinned', version: pinned?.version }
+  }
+
+  try {
+    const probe = await probeBleedingEdge(engine, manifestService.pinnedEnginePackage(engine))
+    return { channel: 'bleeding-edge', version: probe.version }
+  } catch (error) {
+    if (error instanceof BleedingEdgeUnsupportedError || error instanceof BleedingEdgeProbeFailedError) {
+      log.warn(`bleeding-edge probe unavailable for engine "${engine}": ${error.message}`)
+      return { channel: 'bleeding-edge', version: undefined }
+    }
+    throw error
+  }
+}
+
+/**
  * One pipeline per `AppContext`, rather than one per process: a module-level singleton would be
  * shared by two contexts in the same process (which is exactly what a test does), and the
  * download cache and job registry it owns belong to a context, not to a process. Weakly keyed so
@@ -570,6 +745,60 @@ function retailUpgradeDepsFor(app: AppContext, log: Logger): RetailUpgradeDeps {
     // Main's own list, re-derived per run - never anything the renderer sent, and the same
     // resolution the wizard's picker and the bootstrap job use.
     retailSources: () => detectedRetailSourcesFor(app),
+    log,
+  }
+}
+
+/**
+ * Story 092 D5: the production wiring for the engine-update job (`engine/update-job.ts`). Built per
+ * call, like `bootstrapDepsFor`/`retailUpgradeDepsFor` above and for the same reason - the job owns
+ * no queue and no cross-call state.
+ *
+ * `app.installations` and `app.writeGuard` are the shell's real services; the job's narrow
+ * `EngineUpdateInstallationsHost`/`EngineUpdateWriteGuardHost` are satisfied structurally, so
+ * nothing here can reach past `find`/`validate`/`setEngineState` into the library (no `update`, so
+ * the status stays the inspector's to decide) or past `runWrite` into the guard's lock bookkeeping.
+ *
+ * `download` and `probeBleedingEdge` are deliberately not passed: their defaults *are* the
+ * production implementations, so there is no wiring in which the archive could come from somewhere
+ * else or skip its verification.
+ */
+function engineUpdateDepsFor(
+  app: AppContext,
+  manifestService: ManifestService,
+  log: Logger,
+): EngineUpdateDeps {
+  return {
+    jobs: app.jobs,
+    installations: app.installations,
+    writeGuard: app.writeGuard,
+    manifest: manifestSourceFrom(manifestService, log),
+    extractor: realExtractor,
+    userDataPath: userDataDir(),
+    resolveExtractor: () =>
+      resolveExtractorPath({
+        isPackaged: electronApp.isPackaged,
+        resourcesPath: process.resourcesPath,
+      }),
+    log,
+  }
+}
+
+/**
+ * Story 092 D6: the production wiring for the engine-rollback job (`engine/rollback-job.ts`). Built
+ * per call, like `engineUpdateDepsFor` above and for the same reason - the job owns no queue and no
+ * cross-call state.
+ *
+ * `app.installations` and `app.writeGuard` are the shell's real services; the job's narrow
+ * `EngineRollbackInstallationsHost`/`EngineRollbackWriteGuardHost` are satisfied structurally, the
+ * same containment `engineUpdateDepsFor` relies on. No `manifest`/`extractor`/`resolveExtractor`
+ * here - the rollback moves only files that are already on disk, so it needs none of them.
+ */
+function engineRollbackDepsFor(app: AppContext, log: Logger): EngineRollbackDeps {
+  return {
+    jobs: app.jobs,
+    installations: app.installations,
+    writeGuard: app.writeGuard,
     log,
   }
 }

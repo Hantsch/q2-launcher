@@ -9,8 +9,12 @@ import {
   type DetectedRetailSource,
   type DownloadFailure,
   type DownloadsSettings,
+  type EngineUpdateStatus,
   type GameDataSourceVerdict,
+  type SetBleedingEdgeInput,
   type StartBootstrapInput,
+  type StartEngineUpdateInput,
+  type StartEngineUpdateResult,
   type StartRetailUpgradeInput,
   type StartRetailUpgradeResult,
 } from '@shared/modules/downloads'
@@ -151,6 +155,67 @@ export async function startRetailUpgrade(
   const result = await callModule<Outcome<StartRetailUpgradeResult>>(
     'downloads',
     DOWNLOADS_HANDLERS.retailUpgradeStart,
+    input,
+  )
+  return result.ok ? result.value : result
+}
+
+/**
+ * Story 092 D7: one installation's `EngineUpdateStatus` (AC1/AC4/AC5) - a thin wrapper around
+ * main's `engine.updateStatus` handler (`src/main/modules/downloads/index.ts`), which has no
+ * failure mode of its own and answers `undefined` for an installation it no longer knows about
+ * (same "every answer is a verdict" convention as `getBootstrapTargetVerdict`). Not flattened:
+ * unlike `startRetailUpgrade`, the handler's own return value is not itself an `Outcome`.
+ */
+export function getEngineUpdateStatus(
+  installationId: string,
+): Promise<Outcome<EngineUpdateStatus | undefined>> {
+  return callModule<EngineUpdateStatus | undefined>(
+    'downloads',
+    DOWNLOADS_HANDLERS.engineUpdateStatus,
+    { installationId },
+  )
+}
+
+/**
+ * Story 092 D7: starts the engine-update job for one installation (AC2/AC6/AC7/AC8). Mirrors
+ * `startRetailUpgrade`'s flattening - `engine.updateStart`'s handler answers its own `Outcome`.
+ */
+export async function startEngineUpdate(
+  input: StartEngineUpdateInput,
+): Promise<Outcome<StartEngineUpdateResult>> {
+  const result = await callModule<Outcome<StartEngineUpdateResult>>(
+    'downloads',
+    DOWNLOADS_HANDLERS.engineUpdateStart,
+    input,
+  )
+  return result.ok ? result.value : result
+}
+
+/**
+ * Story 092 D7: starts the engine-rollback job for one installation (AC3/AC6/AC7). Same shape and
+ * flattening as `startEngineUpdate` above - `engine.rollbackStart` answers a `StartEngineUpdateResult`
+ * too (`@shared/modules/downloads`'s own doc comment on that type).
+ */
+export async function startEngineRollback(
+  input: StartEngineUpdateInput,
+): Promise<Outcome<StartEngineUpdateResult>> {
+  const result = await callModule<Outcome<StartEngineUpdateResult>>(
+    'downloads',
+    DOWNLOADS_HANDLERS.engineRollbackStart,
+    input,
+  )
+  return result.ok ? result.value : result
+}
+
+/**
+ * Story 092 D7: flips one installation's engine-update channel (AC4/AC5). `engine.setBleedingEdge`
+ * answers `Outcome<void>` itself, so this flattens the same way the job-starting methods above do.
+ */
+export async function setEngineBleedingEdge(input: SetBleedingEdgeInput): Promise<Outcome<void>> {
+  const result = await callModule<Outcome<void>>(
+    'downloads',
+    DOWNLOADS_HANDLERS.engineSetBleedingEdge,
     input,
   )
   return result.ok ? result.value : result

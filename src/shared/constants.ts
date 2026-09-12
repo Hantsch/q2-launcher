@@ -41,6 +41,10 @@ export const NON_GAME_DIRS = new Set([
   // The Steam build of Quake II ships the classic game in the install root and
   // the 2023 remaster in `rerelease/`. It is a whole second game, not a mod.
   'rerelease',
+  // Story 092 D2: the single engine-update backup slot
+  // (`<root>/.q2launcher-engine-backup/`) - never a selectable game directory in `GameDirSelect`,
+  // by rule rather than by luck of its contents.
+  '.q2launcher-engine-backup',
 ])
 
 /**

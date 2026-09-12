@@ -336,6 +336,30 @@ export const startRetailUpgradeInputSchema = z
   })
   .strict()
 
+/**
+ * Story 092 D1: `engineUpdateStatus`/`engineUpdateStart`/`engineRollbackStart`'s shared shape - one
+ * installation id and nothing else. `.strict()` for the same "a bad payload is a caller bug"
+ * reason as `dismissFailureInputSchema` above.
+ */
+export const engineInstallationInputSchema = z.object({ installationId: z.string().min(1) }).strict()
+
+export const engineUpdateStatusInputSchema = engineInstallationInputSchema
+
+export const startEngineUpdateInputSchema = engineInstallationInputSchema
+
+export const startEngineRollbackInputSchema = engineInstallationInputSchema
+
+/**
+ * Story 092 D1: `engineSetBleedingEdge`'s payload - the installation to flip and the channel to
+ * flip it to. `.strict()` for the same reason as the schemas above.
+ */
+export const setBleedingEdgeInputSchema = z
+  .object({
+    installationId: z.string().min(1),
+    enabled: z.boolean(),
+  })
+  .strict()
+
 export const patchDownloadsSettingsInputSchema = z
   .object({
     concurrentJobs: z

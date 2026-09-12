@@ -121,6 +121,54 @@ describe('setLastFailure', () => {
   })
 })
 
+describe('setEngineState (story 092 D2)', () => {
+  it('round-trips a written engine state and mirrors version onto detectedVersion', () => {
+    state.setInstallations([installation()])
+
+    const result = installations.setEngineState(INSTALLATION_ID, {
+      version: '2.34',
+      packageId: 'q2pro-win64',
+    })
+
+    expect(result.ok).toBe(true)
+    const found = installations.find(INSTALLATION_ID)
+    expect(found?.moduleData?.downloads).toEqual({ version: '2.34', packageId: 'q2pro-win64' })
+    expect(found?.detectedVersion).toBe('2.34')
+  })
+
+  it('shallow-merges a second patch over the first', () => {
+    state.setInstallations([installation()])
+    installations.setEngineState(INSTALLATION_ID, { version: '2.34', packageId: 'q2pro-win64' })
+
+    const result = installations.setEngineState(INSTALLATION_ID, { bleedingEdge: true })
+
+    expect(result.ok).toBe(true)
+    expect(installations.find(INSTALLATION_ID)?.moduleData?.downloads).toEqual({
+      version: '2.34',
+      packageId: 'q2pro-win64',
+      bleedingEdge: true,
+    })
+    expect(installations.find(INSTALLATION_ID)?.detectedVersion).toBe('2.34')
+  })
+
+  it('parses a garbage moduleData back to "unknown" rather than throwing, and does not set detectedVersion', () => {
+    state.setInstallations([
+      installation({ moduleData: { downloads: { version: 42, backup: 'nope' } } }),
+    ])
+
+    expect(() => installations.setEngineState(INSTALLATION_ID, { bleedingEdge: true })).not.toThrow()
+
+    const found = installations.find(INSTALLATION_ID)
+    expect(found?.moduleData?.downloads).toEqual({ bleedingEdge: true })
+    expect(found?.detectedVersion).toBeUndefined()
+  })
+
+  it('reports an unknown installation instead of writing anything', () => {
+    const result = installations.setEngineState('nope', { version: '2.34' })
+    expect(result).toEqual({ ok: false, error: { key: 'installations.error.notFound' } })
+  })
+})
+
 describe('AC4: a playable verdict clears the last failure, an invalid one keeps it', () => {
   it('clears lastFailure once validate() sees a playable verdict', async () => {
     const rootPath = join(dir, 'playable')

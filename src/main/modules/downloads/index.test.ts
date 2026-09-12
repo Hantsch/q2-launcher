@@ -68,6 +68,37 @@ function serveGoodManifests(fetchMock: ReturnType<typeof vi.fn>): void {
   )
 }
 
+/**
+ * Story 092: the same engines manifest, but with the pin `engineUpdateStatus` resolves its target
+ * from - plus the two responses `probeBleedingEdge` needs (the `version.txt` next to the pinned
+ * asset, and the asset's own `HEAD`), so one helper serves both channels of the switch below.
+ */
+function servePinnedManifests(fetchMock: ReturnType<typeof vi.fn>): void {
+  fetchMock.mockImplementation((url: unknown, init?: { method?: string }) => {
+    const href = String(url)
+    if (href.endsWith('version.txt')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve('2026-09-12-nightly\n'),
+      } as unknown as Response)
+    }
+    if (init?.method === 'HEAD') {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: { get: (name: string) => (name.toLowerCase() === 'content-length' ? '4096' : null) },
+      } as unknown as Response)
+    }
+    if (href.includes('engines/')) {
+      return Promise.resolve(
+        jsonResponse({ schemaVersion: 1, packages: [enginePackage], pinned: { q2pro: 'q2pro-1.0.0' } }),
+      )
+    }
+    return Promise.resolve(jsonResponse(gamedataManifest))
+  })
+}
+
 /** The network is gone: every request rejects, as `fetch` does when offline. */
 function serveOffline(fetchMock: ReturnType<typeof vi.fn>): void {
   fetchMock.mockImplementation(() => Promise.reject(new Error('getaddrinfo ENOTFOUND')))
@@ -572,5 +603,82 @@ describe('downloadsModule failure log', () => {
     expect(extra.ok).toBe(false)
     if (!empty.ok) expect(empty.error.key).toBe('ipc.error.invalidPayload')
     expect(state.getDownloadFailures()).toEqual([])
+  })
+})
+
+/**
+ * Story 092 D3 (AC1) / D4 (AC4/AC5): the `engine.updateStatus` handler itself - the two things
+ * neither `update-status.test.ts` (the pure comparator) nor `bleeding-edge.test.ts` (the pure probe)
+ * can show, because both are handed their inputs already resolved:
+ *
+ *  - **the manifest has to be fetched before the pin is read.** `pinnedEnginePackage()` answers only
+ *    from the snapshot a `getManifest()` call served, so a handler that skips that warm-up reports
+ *    "no update available" on a fresh session however out of date the installation is. The test
+ *    below therefore calls this handler *first*, on a module nothing else has touched.
+ *  - **which source the target comes from is the installation's own `bleedingEdge` flag**, read
+ *    fresh per call - the switch in `resolveEngineUpdateTarget`, exercised here through the real
+ *    handler with the real `ManifestService` and the real probe over a stubbed `fetch`.
+ */
+describe('downloadsModule engine.updateStatus', () => {
+  /** The one installation these tests ask about; `engineState` is what its `moduleData` records. */
+  function fakeInstallations(engineState: Record<string, unknown>): {
+    find: (id: string) => unknown
+    installationId: string
+  } {
+    const installationId = 'inst-engine'
+    return {
+      installationId,
+      find: (id: string) =>
+        id === installationId
+          ? { id: installationId, engineKind: 'q2pro', moduleData: { downloads: engineState } }
+          : undefined,
+    }
+  }
+
+  it('resolves the pinned target on a cold manifest service, without any earlier manifest call', async () => {
+    servePinnedManifests(fetchMock)
+    const installations = fakeInstallations({ version: '0.9' })
+    const handlers = await setUpModule({ installations } as unknown as ModuleSetup['app'])
+
+    // Nothing has fetched the manifest yet - this is the first call of the session.
+    const status = await handlers.get(DOWNLOADS_HANDLERS.engineUpdateStatus)!({
+      installationId: installations.installationId,
+    })
+
+    expect(status).toMatchObject({
+      installationId: installations.installationId,
+      engine: 'q2pro',
+      current: '0.9',
+      target: '1.0.0',
+      channel: 'pinned',
+      updateAvailable: true,
+    })
+  })
+
+  it('takes the target from the probe with bleeding edge on, and from the manifest pin with it off', async () => {
+    servePinnedManifests(fetchMock)
+    const state: Record<string, unknown> = { version: '0.9', bleedingEdge: true }
+    const installations = fakeInstallations(state)
+    const handlers = await setUpModule({ installations } as unknown as ModuleSetup['app'])
+    const updateStatus = handlers.get(DOWNLOADS_HANDLERS.engineUpdateStatus)!
+
+    const onBleedingEdge = await updateStatus({ installationId: installations.installationId })
+
+    expect(onBleedingEdge).toMatchObject({
+      channel: 'bleeding-edge',
+      target: '2026-09-12-nightly',
+      updateAvailable: true,
+    })
+
+    // The very same installation, with the flag turned off again: the next check compares against
+    // the pin, with no reset of anything else (Decisions (Sprint)).
+    state.bleedingEdge = false
+    const onPinned = await updateStatus({ installationId: installations.installationId })
+
+    expect(onPinned).toMatchObject({
+      channel: 'pinned',
+      target: '1.0.0',
+      updateAvailable: true,
+    })
   })
 })

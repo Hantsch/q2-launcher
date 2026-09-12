@@ -1,5 +1,6 @@
 import { BootstrapWizard } from './BootstrapWizard'
 import { RetailUpgradeDialog } from '../retail/RetailUpgradeDialog'
+import { EngineUpdateDialog } from '../engine/EngineUpdateDialog'
 
 /**
  * The downloads module's own dialog registry (story 074 D6), mounted by the shell's
@@ -11,11 +12,17 @@ import { RetailUpgradeDialog } from '../retail/RetailUpgradeDialog'
  * (`DialogState`'s `module` kind, `store/useLauncher.ts`). A dialog opened for that view without
  * an id would be a caller bug (D4's trigger buttons are the only intended caller), so this renders
  * nothing rather than guessing - same defensive shape as the `view` mismatch below.
+ *
+ * Story 092 D7 adds `'engine-update'`, the engine update/rollback/bleeding-edge dialog - same
+ * single-installation shape and the same "no id, no render" guard as `'retail-upgrade'` above.
  */
 export function Dialogs({ view, installationId }: { view: string; installationId?: string }) {
   if (view === 'bootstrap-wizard') return <BootstrapWizard />
   if (view === 'retail-upgrade') {
     return installationId ? <RetailUpgradeDialog installationId={installationId} /> : null
+  }
+  if (view === 'engine-update') {
+    return installationId ? <EngineUpdateDialog installationId={installationId} /> : null
   }
   return null
 }

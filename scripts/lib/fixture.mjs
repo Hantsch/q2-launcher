@@ -252,6 +252,18 @@ export function installationConfigFilePath(id, fileName) {
   return join(gameRoot(), id, 'baseq2', fileName)
 }
 
+/**
+ * Story 092 D8: the real on-disk path of installation `id`'s copy of a file at `relativePath`
+ * relative to its ROOT - not necessarily under `baseq2` (`installationConfigFilePath()` above is
+ * `baseq2`-only). `engine-update.mjs` needs this for `q2pro64.exe`, which sits at the installation
+ * root, alongside the `baseq2/...` engine files `installationConfigFilePath()` already reaches.
+ * `relativePath` is always `/`-separated (mirrors `ENGINE_FIXTURE_FILES`' own keys), split here so
+ * the join is correct on every platform.
+ */
+export function installationRootFilePath(id, relativePath) {
+  return join(gameRoot(), id, ...relativePath.split('/'))
+}
+
 // --- state.ts LauncherStateDocument ("defaults()") shape -------------------
 // Mirrors src/main/services/state.ts:16-48 (`LauncherStateDocument`) and its
 // `defaults()` (state.ts:50-60).
@@ -293,6 +305,13 @@ function makeInstallation({
   // only a caller that passes them explicitly seeds a "filled" playtime/last-session state.
   lastPlayedAt,
   totalPlaytimeSeconds,
+  // Story 092 D8: mirrors `icon`/`lastFailure`'s spread-only-when-present convention -
+  // `Installation.moduleData` (`src/shared/types/installation.ts`). Only
+  // `INSTALL_ENGINE_UPDATE_ID` below passes one (its recorded, out-of-date engine version, the
+  // shape `readEngineState`/`writeEngineState` - `src/main/modules/downloads/engine/
+  // installation-state.ts` - read/write under `moduleData['downloads']`); every other caller stays
+  // `undefined`, exactly as before this story.
+  moduleData,
 }) {
   return {
     id,
@@ -321,7 +340,7 @@ function makeInstallation({
     lastValidatedAt: undefined,
     lastPlayedAt: lastPlayedAt ?? undefined,
     totalPlaytimeSeconds: totalPlaytimeSeconds ?? 0,
-    moduleData: undefined,
+    ...(moduleData ? { moduleData } : { moduleData: undefined }),
     // Story 067 D5: mirrors src/shared/types/installation.ts's `InstallationIcon` -
     // `{ kind: 'shipped', id }` or `{ kind: 'custom' }`. Only set for the two installations
     // `populatedInstallations()` below wires up; every other caller (including
@@ -436,6 +455,65 @@ export const RETAIL_UPGRADE_MARKER_FILE = 'q2l-fixture-marker.cfg'
 const RETAIL_UPGRADE_MARKER_CONTENT =
   '// q2launcher fixture marker - must survive the retail upgrade untouched\n'
 
+/**
+ * Story 092 D8: a sixth installation - `scripts/flows/engine-update.mjs`'s own already-registered,
+ * already-playable Q2PRO installation, seeded directly with a recorded engine version older than
+ * the fixture manifest's own pin (`buildBootstrapPackages()`'s engine package, `version: 'fixture-1'`
+ * - see `startBootstrapFixtureServer()` below) so `engine.updateStatus` reports `updateAvailable:
+ * true` from the very first render, no bootstrap wizard run needed (Decisions (Sprint): "seeds an
+ * out-of-date installation into the fixture ... instead of bootstrapping one first"). Additive, the
+ * same convention `INSTALL_DEMO_UPGRADE_ID` documents just above: `sortOrder: 5` puts it last, and
+ * it is assigned to no config profile.
+ *
+ * `moduleData` records the OLD version directly (`ENGINE_UPDATE_OLD_VERSION`) - the exact shape
+ * `readEngineState()` (`src/main/modules/downloads/engine/installation-state.ts`) reads back under
+ * `moduleData['downloads']`. Retail-sized `pak0.pak`/`pak1.pak`/`pak2.pak` (truncated, never real
+ * bytes - the same trick `writeRetailSourceTree()` uses below) keep `inspectInstallation` reporting a
+ * plain `ok` status with no demo-data check, so this installation reads as an ordinary, already-
+ * working install rather than a demo one.
+ */
+export const INSTALL_ENGINE_UPDATE_ID = 'fixture-install-engine-update'
+export const INSTALL_ENGINE_UPDATE_NAME = 'Fixture Engine Update Install'
+
+/** The recorded "current" engine version this installation starts on - older than the fixture
+ * manifest's own pin (`'fixture-1'`), so an update is available without any network comparison. */
+export const ENGINE_UPDATE_OLD_VERSION = 'fixture-engine-old'
+
+/**
+ * Every `role: 'engine'` file `buildBootstrapPackages()`'s Q2PRO package carries, by its own
+ * ARCHIVE-relative path (mirrors `BOOTSTRAP_FIXTURE_LAYOUT.engine` above - what the allowlist's
+ * `from` candidates find in the extracted staging tree) - `sizeBytes`/`fillByte` are the exact bytes
+ * the REAL fixture archive extracts onto these paths, so `engine-update.mjs` can assert the on-disk
+ * result of a real update against the same literals the archive itself is built from, rather than a
+ * second guess that could drift. Exported so `buildBootstrapPackages()` below and the flow's own
+ * assertions share one definition.
+ */
+export const ENGINE_FIXTURE_FILES = {
+  'q2pro64.exe': { sizeBytes: 96 * 1024, fillByte: 0x4d },
+  'baseq2/gamex86_64.dll': { sizeBytes: 32 * 1024, fillByte: 0x44 },
+  'baseq2/q2pro.menu': { sizeBytes: 512, fillByte: 0x4e },
+}
+
+/**
+ * Where each `ENGINE_FIXTURE_FILES` archive path actually lands ONCE INSTALLED - `assemble.ts`'s
+ * `buildQ2proEngineEntries()` renames the executable candidate it found (`q2pro.exe`/`q2pro64.exe`)
+ * to `ENGINE_DEFINITIONS`'s own canonical name for Q2PRO (`q2pro.executables[0]`, `'q2pro.exe'`) -
+ * the other two files keep their archive spelling. `update-job.ts`'s `engineAllowlistFor()` walks
+ * that SAME allowlist, so this is also the spelling the update job looks for on an existing
+ * installation and the spelling its backup slot files land under - a fixture installation whose
+ * on-disk executable were still called `q2pro64.exe` would never be found or backed up at all.
+ */
+export const ENGINE_INSTALLED_RELATIVE = {
+  'q2pro64.exe': 'q2pro.exe',
+  'baseq2/gamex86_64.dll': 'baseq2/gamex86_64.dll',
+  'baseq2/q2pro.menu': 'baseq2/q2pro.menu',
+}
+
+/** The fill byte this installation's engine files start on - distinct from every fill byte in
+ * `ENGINE_FIXTURE_FILES` above, so a byte-for-byte read of any of the three files unambiguously
+ * tells "still the old build" apart from "the update/rollback already touched this file". */
+export const ENGINE_UPDATE_OLD_FILL_BYTE = 0x30
+
 function populatedInstallations() {
   return [
     makeInstallation({
@@ -538,6 +616,16 @@ function populatedInstallations() {
       checks: [{ id: 'base-paks', severity: 'info', messageKey: 'validation.pak0NotRetail' }],
       favorite: false,
       sortOrder: 4,
+    }),
+    // Story 092 D8 - see INSTALL_ENGINE_UPDATE_ID above.
+    makeInstallation({
+      id: INSTALL_ENGINE_UPDATE_ID,
+      name: INSTALL_ENGINE_UPDATE_NAME,
+      rootPath: join(gameRoot(), INSTALL_ENGINE_UPDATE_ID),
+      engineKind: 'q2pro',
+      favorite: false,
+      sortOrder: 5,
+      moduleData: { downloads: { version: ENGINE_UPDATE_OLD_VERSION } },
     }),
   ]
 }
@@ -1400,9 +1488,36 @@ export function writePopulatedFixture() {
     writeFileSync(join(demoBaseq2, RETAIL_UPGRADE_MARKER_FILE), RETAIL_UPGRADE_MARKER_CONTENT, 'utf8')
   }
 
+  // Story 092 D8: `INSTALL_ENGINE_UPDATE_ID`'s real files - an already-playable Q2PRO installation
+  // whose three engine files start on `ENGINE_UPDATE_OLD_FILL_BYTE`, distinct from every fill byte
+  // the REAL fixture archive extracts onto those same paths - so `engine-update.mjs` can tell "still
+  // the old build" apart from "the update/rollback job touched this file" with a plain byte
+  // comparison. Written under `ENGINE_INSTALLED_RELATIVE`'s spelling (the executable as `q2pro.exe`,
+  // not the archive's own `q2pro64.exe` - see that constant's own doc comment for why the rename
+  // matters: `update-job.ts`'s allowlist would never find or back up a `q2pro64.exe` on disk).
+  // Retail-sized paks (`writeSizedFile`, `RETAIL_PAK_SIZES`, both declared further down this file -
+  // see the comment on the demo-upgrade block above for why forward references to them are safe)
+  // keep this installation reading as a plain, working `ok` install with no demo-data check, unlike
+  // `INSTALL_DEMO_UPGRADE_ID` above.
+  {
+    const engineRoot = join(gameRoot(), INSTALL_ENGINE_UPDATE_ID)
+    const engineBaseq2 = join(engineRoot, 'baseq2')
+    rmDirBestEffort(engineRoot)
+    mkdirSync(engineBaseq2, { recursive: true })
+    for (const [archiveRelative, { sizeBytes }] of Object.entries(ENGINE_FIXTURE_FILES)) {
+      const segments = ENGINE_INSTALLED_RELATIVE[archiveRelative].split('/')
+      const fileName = segments.pop()
+      writeFileIn(join(engineRoot, ...segments), fileName, filler(sizeBytes, ENGINE_UPDATE_OLD_FILL_BYTE))
+    }
+    writeSizedFile(join(engineBaseq2, 'pak0.pak'), RETAIL_PAK_SIZES['pak0.pak'])
+    writeSizedFile(join(engineBaseq2, 'pak1.pak'), RETAIL_PAK_SIZES['pak1.pak'])
+    writeSizedFile(join(engineBaseq2, 'pak2.pak'), RETAIL_PAK_SIZES['pak2.pak'])
+  }
+
   return {
     userDataDir,
-    installations: installIds.length + 2, // + INSTALL_FAILED_ID + INSTALL_DEMO_UPGRADE_ID
+    // + INSTALL_FAILED_ID + INSTALL_DEMO_UPGRADE_ID + INSTALL_ENGINE_UPDATE_ID
+    installations: installIds.length + 3,
     configProfiles: populatedConfigProfiles().length,
   }
 }
@@ -1764,6 +1879,15 @@ function buildR1q2EnginePackage() {
   }
 }
 
+/**
+ * Story 092 D8: the Q2PRO fixture engine package's id/version - already a magic literal ("fixture-1")
+ * below before this story, now named and exported so `engine-update.mjs` can assert the update job
+ * landed on the manifest's own pin (`engine-update-target`) without a second, driftable copy of the
+ * string.
+ */
+export const BOOTSTRAP_ENGINE_FIXTURE_ID = 'q2pro-fixture-client'
+export const BOOTSTRAP_ENGINE_FIXTURE_VERSION = 'fixture-1'
+
 function buildBootstrapPackages({
   demoContributesNothing = false,
   wrapperNestedLayout = false,
@@ -1783,13 +1907,35 @@ function buildBootstrapPackages({
       // At the archive root, matching both the pinned Q2PRO release zip's own layout - which
       // calls its binary `q2pro64.exe`, not `q2pro.exe` - and `assemble.ts`'s
       // `{ from: ['q2pro.exe', 'q2pro64.exe'] }` allowlist entry (story 076 D1).
-      writeFileIn(root, 'q2pro64.exe', filler(96 * 1024, 0x4d))
+      // Story 092 D8: sizes/fill bytes come from `ENGINE_FIXTURE_FILES` (declared above,
+      // module-level, already initialised by the time this build function actually runs - see that
+      // constant's own doc comment) rather than repeating the literals here, so `engine-update.mjs`'s
+      // on-disk byte assertions can never drift from what this archive actually contains.
+      writeFileIn(
+        root,
+        'q2pro64.exe',
+        filler(ENGINE_FIXTURE_FILES['q2pro64.exe'].sizeBytes, ENGINE_FIXTURE_FILES['q2pro64.exe'].fillByte),
+      )
       // Not allowlisted, on purpose: the real engine build does ship a `baseq2/` of its own (game
       // DLLs), and AC8's guarantee has to hold for that too.
-      writeFileIn(join(root, 'baseq2'), 'gamex86_64.dll', filler(32 * 1024, 0x44))
+      writeFileIn(
+        join(root, 'baseq2'),
+        'gamex86_64.dll',
+        filler(
+          ENGINE_FIXTURE_FILES['baseq2/gamex86_64.dll'].sizeBytes,
+          ENGINE_FIXTURE_FILES['baseq2/gamex86_64.dll'].fillByte,
+        ),
+      )
       // Ships alongside the binary and DLL in the same package (story 076 D1's allowlist, marked
       // optional). A few hundred bytes is enough - only its presence is ever checked.
-      writeFileIn(join(root, 'baseq2'), 'q2pro.menu', filler(512, 0x4e))
+      writeFileIn(
+        join(root, 'baseq2'),
+        'q2pro.menu',
+        filler(
+          ENGINE_FIXTURE_FILES['baseq2/q2pro.menu'].sizeBytes,
+          ENGINE_FIXTURE_FILES['baseq2/q2pro.menu'].fillByte,
+        ),
+      )
     },
   })
 
@@ -1855,7 +2001,7 @@ function buildBootstrapPackages({
   })
 
   const result = [
-    { role: 'engine', id: 'q2pro-fixture-client', version: 'fixture-1', ...engine },
+    { role: 'engine', id: BOOTSTRAP_ENGINE_FIXTURE_ID, version: BOOTSTRAP_ENGINE_FIXTURE_VERSION, ...engine },
     { role: 'demo', id: 'q2-demo-fixture', version: '3.14-fixture', ...demo },
     {
       role: 'point-release',
@@ -1978,6 +2124,15 @@ const BOOTSTRAP_SERVE_CHUNK_DELAY_MS = 45
  * transport is down but whose original/mirror URL works - the literal AC2 wording. Independent of
  * `failFirstAttemptFor`: both can be given for *different* package ids without either silently
  * disabling the other; combining them for the SAME id is not a supported/needed combination.
+ *
+ * `bleedingEdgeVersion` (story 092 D8): when given, registers `/packages/version.txt` - a plain-text
+ * body of this string - alongside the Q2PRO engine package's own `/packages/<fileName>` route.
+ * `probeBleedingEdge()` (`src/main/modules/downloads/engine/bleeding-edge.ts`) derives its
+ * `version.txt` request by swapping the pinned package's asset URL's own final path segment, which
+ * for this server is always `/packages/<engine fileName>` - so the sibling path is always
+ * `/packages/version.txt`, regardless of the engine package's own file name. Defaulted off (`undefined`
+ * registers no route at all), so every caller that predates this option keeps getting exactly the
+ * same 404-everything-else behaviour it always has.
  */
 export async function startBootstrapFixtureServer({
   demoContributesNothing = false,
@@ -1985,6 +2140,7 @@ export async function startBootstrapFixtureServer({
   wrapperNestedLayout = false,
   includeR1q2 = false,
   failPrimaryOnlyFor,
+  bleedingEdgeVersion,
 } = {}) {
   const packages = buildBootstrapPackages({ demoContributesNothing, wrapperNestedLayout, includeR1q2 })
 
@@ -2142,6 +2298,13 @@ export async function startBootstrapFixtureServer({
   for (const pkg of packages) {
     routes.set(`/packages/${pkg.fileName}`, archiveRoute(pkg.path))
     routes.set(`/mirror/${pkg.fileName}`, archiveRoute(pkg.path))
+  }
+  if (bleedingEdgeVersion !== undefined) {
+    routes.set('/packages/version.txt', (response) => {
+      const bytes = Buffer.from(`${bleedingEdgeVersion}\n`, 'utf8')
+      response.writeHead(200, { 'content-type': 'text/plain', 'content-length': bytes.byteLength })
+      response.end(bytes)
+    })
   }
 
   return {

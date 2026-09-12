@@ -37,6 +37,7 @@ import { isWriteCancelled } from '../../../services/write-guard'
 import { EXTRACTION_LISTING_CAP } from '../diagnostics'
 import { markVerified, type ExtractorHandle } from '../extractor'
 import type { FetchImpl } from '../fetcher'
+import type { InstallationEngineState } from '../engine/installation-state'
 import { isSafeDownloadFileName } from '../paths'
 import { getExtractDir } from '../pipeline'
 import {
@@ -361,6 +362,13 @@ export interface BootstrapInstallationsHost {
    * key.
    */
   setLastFailure(id: string, failure: InstallationLastFailure | null): Outcome<Installation>
+  /**
+   * Story 092 D2 (Decisions (Sprint)): "the bootstrap job records the engine version it just
+   * installed" - so a freshly bootstrapped installation never starts in the "no recorded engine
+   * version" unknown state 092's own update check (D3) would otherwise treat as "differs".
+   * Synchronous, mirroring `InstallationsService.setEngineState`'s own signature.
+   */
+  setEngineState(id: string, patch: Partial<InstallationEngineState>): Outcome<Installation>
 }
 
 /**
@@ -1610,6 +1618,26 @@ export async function startBootstrap(
       // usable installation. Succeeding here would hand the user a library entry that cannot
       // launch; failing runs the same cleanup every other failure does.
       return failed(NOT_PLAYABLE, `${targetRoot} is still ${afterAll.value.status} after assembly`)
+    }
+
+    /**
+     * Story 092 D2: records the engine build this run just installed - version and manifest
+     * package id only; `bleedingEdge`/`backup` stay unset (there is no per-installation opt-in or
+     * backup yet at bootstrap time). Best-effort like every other piece of bookkeeping in this file
+     * (`setIcon` above): a write that fails here leaves the installation exactly as playable as it
+     * already is, just without a recorded version until the next update job's own write succeeds.
+     */
+    const enginePackage = packages.find((entry) => entry.role === 'engine')
+    if (enginePackage) {
+      const recorded = deps.installations.setEngineState(installation.id, {
+        version: enginePackage.pkg.version,
+        packageId: enginePackage.pkg.id,
+      })
+      if (!recorded.ok) {
+        jobLog?.warn(
+          `bootstrap could not record the engine version on ${installation.id}: ${recorded.error.key}`,
+        )
+      }
     }
 
     report({ ratio: 1, bytesDone: totalBytes, bytesTotal: totalBytes, filesRemaining: 0 })

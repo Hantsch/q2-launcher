@@ -1223,6 +1223,76 @@ installation's pak0.pak and the third depends on neither:
    regardless (091 Decisions: "the authoritative refusal is never derived from renderer-visible
    data"). It cancels the dev-only job afterwards so the write lock does not outlive the run.
 
+## The offline engine-update flow (`engine-update`)
+
+`npm run ui:flow -- engine-update` is story 092 D8's own offline acceptance proof for the engine
+update/rollback/bleeding-edge feature - "an engine updates and rolls back" - walked end to end
+against an already-registered, already-playable Q2PRO installation rather than through the bootstrap
+wizard (Decisions (Sprint): "seeds an out-of-date installation into the fixture and runs the real job
+against the loopback fixture server ... instead of bootstrapping one first - same offline discipline,
+a fraction of the runtime"). Unlike `retail-upgrade.mjs`, the jobs under test here really do download
+and extract: `startEngineUpdate`/`startEngineRollback` (`src/main/modules/downloads/engine/
+update-job.ts`/`rollback-job.ts`) run a real verified download of the fixture's own Q2PRO archive and
+a real `7za.exe` extraction, so this flow needs `resources/bin/7za.exe` (`npm run fetch:7za`) exactly
+like `bootstrap-wizard.mjs` does.
+
+**The fixture installation.** `scripts/lib/fixture.mjs`'s `populatedInstallations()` gains a sixth,
+additive installation (`INSTALL_ENGINE_UPDATE_ID`, "Fixture Engine Update Install") - the same
+convention `INSTALL_DEMO_UPGRADE_ID` (090 D6) documents: last `sortOrder`, assigned to no config
+profile. Its `moduleData` records a recorded engine version (`ENGINE_UPDATE_OLD_VERSION`,
+`'fixture-engine-old'`) already older than the fixture manifest's own Q2PRO pin
+(`BOOTSTRAP_ENGINE_FIXTURE_VERSION`, `'fixture-1'`), so `engine.updateStatus` reports
+`updateAvailable: true` from the installation's very first render - no wizard run needed to get there.
+Its three engine files (`ENGINE_FIXTURE_FILES`'s own archive-relative keys - `q2pro64.exe`,
+`baseq2/gamex86_64.dll`, `baseq2/q2pro.menu`) are real, on-disk files filled with
+`ENGINE_UPDATE_OLD_FILL_BYTE` (`0x30`) - a byte distinct from every fill byte the REAL fixture Q2PRO
+archive extracts onto those same paths (`0x4d`/`0x44`/`0x4e`) - so a plain byte comparison after each
+job tells "still the old build" apart from "the job touched this file". Retail-sized (truncated,
+never real bytes) `pak0.pak`/`pak1.pak`/`pak2.pak` keep this installation reading as a plain, working
+`ok` install with no demo-data marker, unlike `INSTALL_DEMO_UPGRADE_ID`.
+
+**The archive-to-install rename, and the bug it would have hidden.** `assemble.ts`'s
+`buildQ2proEngineEntries()` renames whichever executable candidate it finds in the extracted archive
+(`q2pro.exe`/`q2pro64.exe`) to `ENGINE_DEFINITIONS`'s own canonical Q2PRO name
+(`q2pro.executables[0]`, `'q2pro.exe'`) - the fixture archive itself only ever contains `q2pro64.exe`.
+`update-job.ts`'s `engineAllowlistFor()` walks that identical allowlist to decide what "the engine
+files" are on an EXISTING installation, so the fixture's pre-existing executable has to be written
+under the INSTALLED name (`ENGINE_INSTALLED_RELATIVE['q2pro64.exe']` = `'q2pro.exe'`), not the
+archive's own `q2pro64.exe` - an installation that still had a `q2pro64.exe` on disk would never be
+found or backed up by the real job at all, and the update would silently create a stray new
+`q2pro.exe` next to it instead of replacing anything. `ENGINE_INSTALLED_RELATIVE` in `fixture.mjs`
+names this mapping explicitly so a future engine addition cannot reintroduce the same silent miss.
+
+**Warming the manifest cache.** `ManifestService.pinnedEnginePackage()` only ever answers from an
+in-memory snapshot that a live `getManifest()` call populates - nothing at app startup calls it, so a
+fresh session's `engine.updateStatus` would otherwise report `target: undefined` /
+`updateAvailable: false` regardless of what the fixture recorded, no matter how out-of-date the
+installation's own recorded version is. The bootstrap wizard's `EngineStep` warms that cache by
+calling `downloads.bootstrap.engineOptions` on mount; this flow makes the identical real IPC call
+directly (`warmManifestCache()`) - a real fetch of `/engines/manifest.json` against the fixture server
+- before touching the engine-update dialog at all, without opening the wizard UI or registering a
+second installation.
+
+**The bleeding-edge route.** `probeBleedingEdge()` (`src/main/modules/downloads/engine/
+bleeding-edge.ts`) derives its `version.txt` request by swapping the pinned package's own asset URL's
+final path segment - for this fixture server that is always `/packages/version.txt`, regardless of
+the engine package's file name - and its `HEAD` half lands on that SAME package URL the pinned build
+already serves, never a second, separately-named asset. `startBootstrapFixtureServer()` gained one
+new, defaulted-off option, `bleedingEdgeVersion`, which registers that `/packages/version.txt` route
+serving the given string; every caller that predates this option (every other bootstrap-flavoured
+flow) is unaffected.
+
+What the run asserts, in order: the action bar's update-available indicator renders and the fixture
+server's own request log shows no request for the package archive before Update is ever clicked, and
+the on-disk engine files are still the old fixture bytes (AC1); the dialog's current/target read the
+old recorded version and the manifest's pin; clicking Update runs the real job to completion, after
+which the engine files hold the new fixture bytes and the backup slot holds the old ones byte-for-byte
+(AC2); clicking Rollback runs the real job to completion, after which the engine files are back to the
+old fixture bytes and the backup slot is gone (AC3); toggling bleeding edge on changes the dialog's
+target to the probed nightly version from `version.txt`, and toggling it off reverts the target to the
+manifest's pin (AC4/AC5); and the dialog's own "current version" reading changes from the old version
+to the new one after Update and back to the old one after Rollback (AC7).
+
 ## Baselines and CI
 
 Screenshots are **never diffed** against a committed reference, and this is

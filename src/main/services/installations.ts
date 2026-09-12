@@ -18,6 +18,11 @@ import {
 } from '@shared/types'
 import { canonicalizePath, isDirectory, pathKey } from '../lib/fs-utils'
 import { scopedLogger } from '../lib/logger'
+import {
+  readEngineState,
+  writeEngineState,
+  type InstallationEngineState,
+} from '../modules/downloads/engine/installation-state'
 import { inspectInstallation, suggestName } from './inspector'
 import type { StateStore } from './state'
 
@@ -307,6 +312,34 @@ export class InstallationsService {
     const next: Installation = { ...current, updatedAt: new Date().toISOString() }
     if (failure === null) delete next.lastFailure
     else next.lastFailure = failure
+
+    this.commit(this.state.installations().map((i) => (i.id === next.id ? next : i)))
+    return ok(next)
+  }
+
+  /**
+   * Story 092 D2: records (or extends) the installation's recorded engine state - same shape as
+   * `setIcon()`/`setLastFailure()` above, its own field (`moduleData['downloads']`), its own
+   * `commit()` write. `readEngineState`/`writeEngineState` (`modules/downloads/engine/
+   * installation-state.ts`) do the defensive parsing/merging; this method only wires that into the
+   * installation record.
+   *
+   * `detectedVersion` (a field already defined on `Installation`, but never written before this
+   * story) is mirrored from the patched state's `version` in the same write, per the Decisions
+   * (Sprint): "mirrored into `Installation.detectedVersion` for display". Written only when the
+   * merged state actually has a `version`, and removed otherwise (e.g. a patch that never set one,
+   * on an installation that never had one either) - never left stale.
+   */
+  setEngineState(id: string, patch: Partial<InstallationEngineState>): Outcome<Installation> {
+    const current = this.find(id)
+    if (!current) return fail('installations.error.notFound')
+
+    const moduleData = writeEngineState(current.moduleData, patch)
+    const merged = readEngineState(moduleData)
+
+    const next: Installation = { ...current, moduleData, updatedAt: new Date().toISOString() }
+    if (merged.version) next.detectedVersion = merged.version
+    else delete next.detectedVersion
 
     this.commit(this.state.installations().map((i) => (i.id === next.id ? next : i)))
     return ok(next)

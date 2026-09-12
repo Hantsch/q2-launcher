@@ -20,6 +20,7 @@ import { ProgressBar } from '../ui/ProgressBar'
 import { Select } from '../ui/controls'
 import { StatusDot } from '../ui/primitives'
 import { useFixAction } from '../installations/ChecksList'
+import { EngineUpdateAction } from '../../modules/downloads/engine/EngineUpdateAction'
 
 /**
  * The bottom action bar: who is selected, what is happening, and the one button
@@ -148,6 +149,12 @@ export function ActionBar() {
               <Import className="size-3.5" />
             </IconButton>
           )}
+
+          {/* Story 092 D7: the engine-update trigger, mirroring the retail-upgrade button above -
+              same utility cluster, same per-installation rendering. Unlike that button it has no
+              installation-side gate: it always renders for the current installation and decides
+              its own "update available" indicator from main's own `EngineUpdateStatus`. */}
+          {installation && <EngineUpdateAction installation={installation} />}
 
           {/* `data-testid` + `data-action` added by story 074 D8: AC6 ("Play lights up the moment
               the verdict stops being invalid/missing, even while the job is still running") can

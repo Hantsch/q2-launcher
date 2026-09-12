@@ -84,6 +84,31 @@ export const DOWNLOADS_HANDLERS = {
    * (`main/modules/downloads/retail/upgrade-job.ts`) behind this handler's current stub.
    */
   retailUpgradeStart: 'retail.upgradeStart',
+  /**
+   * Story 092 D1: reports one installation's `EngineUpdateStatus` - whether its pinned engine
+   * build is current, and whether a backup exists to roll back to. D1 only reserves this channel
+   * and its contract shape; a later deliverable implements the handler (`engineUpdateStatus`'s
+   * current stub answers nothing).
+   */
+  engineUpdateStatus: 'engine.updateStatus',
+  /**
+   * Story 092 D1: starts the engine-update job for one installation - downloads the currently
+   * pinned build for its engine, backs up the running one, and swaps it in. Mirrors
+   * `retailUpgradeStart`'s "reserve the channel, D2 implements the job" convention.
+   */
+  engineUpdateStart: 'engine.updateStart',
+  /**
+   * Story 092 D1: starts the engine-rollback job for one installation - restores the single
+   * backed-up build over the current one. Fails outright (`downloads.error.engineNoBackup`) when
+   * `EngineUpdateStatus.backup` is absent.
+   */
+  engineRollbackStart: 'engine.rollbackStart',
+  /**
+   * Story 092 D1: flips one installation's update channel between `'pinned'` and
+   * `'bleeding-edge'` (`EngineUpdateChannel`). D1 only reserves the channel and its contract
+   * shape; a later deliverable implements the probe/switch behind it.
+   */
+  engineSetBleedingEdge: 'engine.setBleedingEdge',
 } as const
 
 /**
@@ -287,6 +312,47 @@ export const DOWNLOADS_ERROR_KEYS = [
    * to hold the game, not a download.
    */
   'downloads.error.gameDataSourceUnusable',
+  /**
+   * Story 092 D1: an engine-update run (`engineUpdateStart`) was asked for on an installation
+   * whose engine has no update available - the manifest's pinned build for that engine is not
+   * newer than `EngineUpdateStatus.current` (or the installation is on `'bleeding-edge'`, where
+   * "update" has no fixed target to compare against). Distinct from `downloads.error.
+   * packageUnavailable`: the manifest resolved fine, there is simply nothing to install.
+   */
+  'downloads.error.engineUpdateUnavailable',
+  /**
+   * Story 092 D1: an engine-rollback run (`engineRollbackStart`) was asked for on an installation
+   * with no backed-up build - `EngineUpdateStatus.backup` was absent. Same "reject rather than
+   * repair" convention as the rest of this set: the handler never fabricates a backup that was
+   * never taken.
+   */
+  'downloads.error.engineNoBackup',
+  /**
+   * Story 092 D1: an engine-update or -rollback run downloaded/located the replacement build but
+   * failed to swap it into place over the running one (e.g. a locked file, a denied write). The
+   * job's cleanup leaves the previously running build untouched - the same "never leave the
+   * installation half-changed" discipline as `downloads.error.installationNotPlayable`.
+   */
+  'downloads.error.engineReplaceFailed',
+  /**
+   * Story 092 D1: `engineSetBleedingEdge({ enabled: true })` was asked for on an engine kind the
+   * bleeding-edge channel does not support this sprint.
+   */
+  'downloads.error.bleedingEdgeUnsupported',
+  /**
+   * Story 092 D1: switching to the bleeding-edge channel needs to probe the upstream build source
+   * (to resolve what "latest" currently means) and that probe failed - a network/transport
+   * failure distinct from `downloads.error.network` because it names the bleeding-edge probe
+   * specifically, not a download in progress.
+   */
+  'downloads.error.bleedingEdgeProbeFailed',
+  /**
+   * Story 092 D1: the bleeding-edge probe resolved a build, but the size it reported does not
+   * match what was actually downloaded - the same "verify, don't trust" stance as
+   * `downloads.error.verificationFailed`, kept as its own key because it is specific to the
+   * bleeding-edge probe/fetch path rather than the general archive-verification pipeline.
+   */
+  'downloads.error.bleedingEdgeSizeMismatch',
 ] as const
 
 export type DownloadsErrorKey = (typeof DOWNLOADS_ERROR_KEYS)[number]
@@ -772,4 +838,79 @@ export interface BootstrapSummaryCopySource {
   /** Which store it was detected in; absent when main's fresh list no longer holds this path (in
    * which case `bootstrap.start` will refuse the run outright - the summary only reports). */
   store?: DetectedRetailSource['source']
+}
+
+/**
+ * Story 092 D1: which build feed an installation's engine tracks. `'pinned'` follows the
+ * manifest's per-engine pinned build (`ManifestSnapshot.pinned`) - the same version every other
+ * installation on the same engine would update to. `'bleeding-edge'` tracks the latest build from
+ * the upstream source directly, ahead of whatever the manifest currently pins.
+ */
+export type EngineUpdateChannel = 'pinned' | 'bleeding-edge'
+
+/**
+ * Story 092 D1: the one backup slot an installation's engine keeps - enough for
+ * `engineRollbackStart` to restore it and for the UI to state what it would roll back to.
+ * Singular by design (Decisions): a second update before a rollback overwrites this slot, it does
+ * not stack a history.
+ */
+export interface EngineBackupInfo {
+  /** The engine version the backup holds - what `engineRollbackStart` would restore. */
+  version: string
+  /** The manifest package id the backup was taken from, when known. */
+  packageId?: string
+  /** Epoch milliseconds the backup was taken at. */
+  createdAt: number
+}
+
+/**
+ * Story 092 D1: `engineUpdateStatus`'s answer for one installation - what `EngineKind` build it
+ * is currently on, what the manifest would update it to, and whether an update/rollback is
+ * actually available.
+ *
+ * An installation with no recorded engine version has `current: undefined` and still reports
+ * `updateAvailable: true` (Decisions) - "no version on record" is treated as "not up to date",
+ * never as "nothing to compare, so nothing to do".
+ */
+export interface EngineUpdateStatus {
+  installationId: string
+  engine: EngineKind
+  /** The engine version this installation currently runs, when known. */
+  current?: string
+  /** The version an update would install - the manifest's pinned build for `channel: 'pinned'`,
+   * or the latest bleeding-edge build for `channel: 'bleeding-edge'`. */
+  target?: string
+  /** Whether `engineUpdateStart` has something to do - see this type's own doc comment for the
+   * no-recorded-version case. */
+  updateAvailable: boolean
+  channel: EngineUpdateChannel
+  /** The installation's current backup slot, when one has been taken; absent otherwise. */
+  backup?: EngineBackupInfo
+}
+
+/**
+ * Story 092 D1: `engineUpdateStart`'s payload - the installation whose engine to update. Mirrors
+ * `StartRetailUpgradeInput`'s single-id shape.
+ */
+export interface StartEngineUpdateInput {
+  installationId: string
+}
+
+/**
+ * Story 092 D1: what `engineUpdateStart`/`engineRollbackStart` answer on success - the `Job.id`
+ * the run is visible under in the Downloads tab. Mirrors `StartRetailUpgradeResult`'s
+ * "progress/outcome arrive through `jobs:changed`, never through this call's return value"
+ * convention.
+ */
+export interface StartEngineUpdateResult {
+  jobId: string
+}
+
+/**
+ * Story 092 D1: `engineSetBleedingEdge`'s payload - the installation to flip and the channel to
+ * flip it to.
+ */
+export interface SetBleedingEdgeInput {
+  installationId: string
+  enabled: boolean
 }

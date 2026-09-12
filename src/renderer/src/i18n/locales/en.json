@@ -2068,6 +2068,8 @@
       "download": "Downloading {{name}}",
       "bootstrap": "Setting up {{name}}",
       "retailUpgrade": "Importing retail data into {{name}}",
+      "engineUpdate": "Updating the engine of {{name}}",
+      "engineRollback": "Rolling back the engine of {{name}}",
       "cancel": "Cancel this download"
     },
     "cache": {
@@ -2097,6 +2099,12 @@
       "bootstrapTargetBlocked": "That folder cannot be used for a new installation.",
       "retailSourceUnverified": "That Quake II installation could not be verified as a retail copy right now. Pick it again from the detected installations, or download the free data instead.",
       "gameDataSourceUnusable": "That folder could not be used for game data right now. Pick it again, or download the free data instead.",
+      "engineUpdateUnavailable": "This engine has no update available right now.",
+      "engineNoBackup": "There is no previous engine build to roll back to.",
+      "engineReplaceFailed": "The engine files could not be replaced. Make sure nothing is using them and try again.",
+      "bleedingEdgeUnsupported": "Bleeding edge is not available for this engine.",
+      "bleedingEdgeProbeFailed": "Could not check the latest bleeding-edge build. Check your connection and try again.",
+      "bleedingEdgeSizeMismatch": "The bleeding-edge build downloaded did not match what was expected and was discarded.",
       "unknown": "The download failed for an unknown reason."
     },
     "failures": {
@@ -2278,6 +2286,26 @@
     "loading": "Checking for installations you already own…",
     "noSources": "No store installation was detected. Install Quake II from Steam, GOG or Epic, then try again.",
     "confirm": "Import"
+  },
+
+  "engineUpdate": {
+    "action": {
+      "label": "Engine update",
+      "labelAvailable": "Engine update available"
+    },
+    "title": "Engine update",
+    "description": "Update this installation's engine to the version the launcher currently pins, or roll back to the previous one.",
+    "loading": "Checking for an engine update…",
+    "notFound": "This installation could not be found.",
+    "current": "Current version",
+    "target": "Available version",
+    "unknownVersion": "Unknown",
+    "update": "Update",
+    "rollback": "Rollback",
+    "bleedingEdge": {
+      "label": "Bleeding edge",
+      "hint": "Track the newest upstream Q2PRO build instead of the launcher's pinned version."
+    }
   },
 
   "modules": {
