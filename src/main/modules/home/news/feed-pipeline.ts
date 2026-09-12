@@ -45,6 +45,7 @@ import {
   isAllowedButtonHost,
   newsBannerContentSchema,
   newsButtonSchema,
+  newsCoverContentSchema,
   newsSplitContentSchema,
   newsTextContentSchema,
   type NewsButton,
@@ -129,23 +130,29 @@ const TEMPLATE_CONTENT_SCHEMAS: Record<NewsTemplate, z.ZodType<NewsTemplateConte
   split: newsSplitContentSchema,
   banner: newsBannerContentSchema,
   text: newsTextContentSchema,
+  cover: newsCoverContentSchema,
 }
 
 function isNewsTemplate(value: unknown): value is NewsTemplate {
-  return value === 'split' || value === 'banner' || value === 'text'
+  return value === 'split' || value === 'banner' || value === 'text' || value === 'cover'
 }
+
+/** Templates that render nothing sensible without an image, so a missing image falls back to
+ * `text` rather than being delivered as-is (AC5). `banner` is "optionally backed by an image" per
+ * the contract and stays a banner without one, so it is deliberately not in this set. */
+const TEMPLATES_REQUIRING_IMAGE: ReadonlySet<NewsTemplate> = new Set(['split', 'cover'])
 
 /**
  * Whether a resolved template can be delivered with the fields it has.
  *
  * The content schemas keep `image` optional (see `newsSplitContentSchema`'s doc
  * comment) because a missing image is a fallback trigger, not a schema error. That
- * rule is spelled out here instead: `split` is a two-pane layout and has nothing to
- * put in the second pane without an image, so it falls back to `text`. `banner` is
- * "optionally backed by an image" per the contract and stays a banner without one.
+ * rule is spelled out here instead: `split` and `cover` have nothing to render without an image, so
+ * they fall back to `text`. `banner` is "optionally backed by an image" per the contract and stays
+ * a banner without one.
  */
 function templateIsSatisfied(template: NewsTemplate, image: string | undefined): boolean {
-  return template !== 'split' || image !== undefined
+  return !TEMPLATES_REQUIRING_IMAGE.has(template) || image !== undefined
 }
 
 function parseOrder(value: string | undefined): number | undefined {

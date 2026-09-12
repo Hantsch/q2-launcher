@@ -6,6 +6,7 @@ import { cn } from '../../lib/cn'
 import { formatRelativeTime } from '../../lib/format'
 import { carouselReducer, createCarouselState, isRunning } from './carousel'
 import { SlideBanner } from './components/SlideBanner'
+import { SlideCover } from './components/SlideCover'
 import { resolveSlideTemplate } from './components/resolveSlideTemplate'
 import { SlideSplit } from './components/SlideSplit'
 import { SlideText } from './components/SlideText'
@@ -62,6 +63,7 @@ function formatAsOfDate(iso: string | undefined): string | null {
 const TEMPLATES = {
   split: SlideSplit,
   banner: SlideBanner,
+  cover: SlideCover,
   text: SlideText,
 } as const
 

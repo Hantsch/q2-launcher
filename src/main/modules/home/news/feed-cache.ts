@@ -87,7 +87,12 @@ export interface NewsFeedCacheData {
 /** The persisted document: the data plus the envelope version. `null` is "no cache". */
 type NewsCacheDocument = (NewsFeedCacheData & { cacheVersion: number }) | null
 
-const NEWS_TEMPLATES = ['split', 'banner', 'text'] as const satisfies readonly NewsTemplate[]
+export const NEWS_TEMPLATES = [
+  'split',
+  'banner',
+  'text',
+  'cover',
+] as const satisfies readonly NewsTemplate[]
 
 /**
  * The slide shape as it may come back off disk. Not `.strict()`: an extra field from a newer

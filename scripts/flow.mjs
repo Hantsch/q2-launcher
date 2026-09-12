@@ -52,8 +52,13 @@ async function loadFlow(name) {
  * `runVariantSession()`) - a stale non-`populated` fixture needs the same `npm run ui:seed` first
  * that every other flow's own doc comment already asks for.
  */
-async function runFlow(name, variant) {
+async function runFlow(name, requestedVariant) {
   const flow = await loadFlow(name)
+  // Story 095 D3: a flow that can only run against one fixture variant may name it itself
+  // (`export const variant = 'news-cover'`), so `npm run ui:flow -- <name>` is enough and nobody
+  // has to remember a second argument for it. An explicit CLI argument still wins, and a flow
+  // that exports nothing keeps the original `populated` default - `import-from-files` included.
+  const variant = requestedVariant || flow.variant || 'populated'
 
   let currentStep = null
   const step = (label) => {
@@ -100,11 +105,13 @@ async function runFlow(name, variant) {
   } finally {
     if (typeof flow.teardown === 'function') await flow.teardown()
   }
+
+  return variant
 }
 
 async function main() {
   const name = process.argv[2]
-  const variant = process.argv[3] || 'populated'
+  const requestedVariant = process.argv[3]
   if (!name) {
     console.error('usage: node scripts/flow.mjs <name> [variant]')
     process.exitCode = 1
@@ -112,7 +119,7 @@ async function main() {
   }
 
   try {
-    await runFlow(name, variant)
+    const variant = await runFlow(name, requestedVariant)
     console.log(`flow '${name}' OK (variant: ${variant})`)
     process.exitCode = 0
   } catch (error) {

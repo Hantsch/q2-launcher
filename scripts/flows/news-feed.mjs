@@ -75,6 +75,7 @@ const EXPECTED_SLIDES_IN_ORDER = [
   { id: 'r1q2-in-the-bootstrap-wizard', template: 'split', order: 10 },
   { id: 'the-community-content-repository', template: 'banner', order: 20 },
   { id: 'how-news-reaches-the-launcher', template: 'text', order: 30 },
+  { id: 'welcome-to-the-community', template: 'cover', order: 40 },
 ]
 
 /**

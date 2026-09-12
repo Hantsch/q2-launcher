@@ -25,6 +25,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { deflateSync } from 'node:zlib'
 import { assertInside, REPO_ROOT, UI_VERIFY_ROOT } from './paths.mjs'
 import { variantUserDataDir } from './harness.mjs'
 // Story 075 D7's two seeded `downloadFailures` entries. They live in their own module (which
@@ -232,6 +233,187 @@ export function writeNewsImagesFixture() {
     lastRefreshFailed: false,
   })
   writeNewsImageCacheFile(userDataDir)
+
+  return { userDataDir, installations: 0, configProfiles: 0 }
+}
+
+// --- story 095 D3: the `cover` template's contrast probe ---------------------------------------
+//
+// AC2 is "the launcher's own scrim carries the contrast, not the contributed image". A probe that
+// used one of the existing fixture PNGs (both dark: `split-bootstrap.png` is #2e2840) would pass
+// whether or not the scrim does anything at all, so this variant seeds an image that is
+// deliberately hostile instead: every pixel of it is at least `COVER_PROBE_MIN_CHANNEL`/255 bright,
+// so ANY contrast measured behind the text can only have come from the scrim.
+//
+// The bytes are generated here rather than checked in, for two reasons: a 2560x640 near-white PNG
+// is dead weight in git for a file only the harness ever reads, and generating it keeps the
+// fixture's own "no `Date.now()`, byte-identical on every reseed" promise (`deflateSync` over the
+// same raw bytes is deterministic). `sharp` - which `scripts/generate-news-images.mjs` uses for the
+// checked-in content images - is async, and `scripts/seed.mjs` calls `writeFixture()` synchronously,
+// so the encoder below is a minimal synchronous PNG writer instead (8-bit truecolour, one IDAT, no
+// interlacing - the whole of what this one image needs).
+
+/** The `cover` template's recommended source size (story 095 Decisions: 2560x640, 4:1). Exported so
+ * the flow can assert the `<img>`'s natural size is really this, rather than trusting it. */
+export const COVER_PROBE_IMAGE_WIDTH = 2560
+export const COVER_PROBE_IMAGE_HEIGHT = 640
+/** No pixel in the generated image is darker than this in any channel (0-255). The flow prints it
+ * and re-proves it against the *rendered* pixels, where the image shows through past the scrim. */
+export const COVER_PROBE_MIN_CHANNEL = 236
+
+/** Faint marker bands (still near-white) every this many pixels, so a human looking at the flow's
+ * screenshots can see which part of the source was cropped away. Never dark enough to carry
+ * contrast: `COVER_PROBE_MIN_CHANNEL` is the band's own value. */
+const COVER_PROBE_BAND_PERIOD_PX = 320
+const COVER_PROBE_BAND_WIDTH_PX = 6
+
+const CRC32_TABLE = (() => {
+  const table = new Uint32Array(256)
+  for (let n = 0; n < 256; n += 1) {
+    let c = n
+    for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+    table[n] = c >>> 0
+  }
+  return table
+})()
+
+function crc32(buffer) {
+  let c = 0xffffffff
+  for (let i = 0; i < buffer.length; i += 1) c = (CRC32_TABLE[(c ^ buffer[i]) & 0xff] ^ (c >>> 8)) >>> 0
+  return (c ^ 0xffffffff) >>> 0
+}
+
+/** One PNG chunk: length, type, data, CRC over type+data. */
+function pngChunk(type, data) {
+  const length = Buffer.alloc(4)
+  length.writeUInt32BE(data.length, 0)
+  const typeAndData = Buffer.concat([Buffer.from(type, 'ascii'), data])
+  const crc = Buffer.alloc(4)
+  crc.writeUInt32BE(crc32(typeAndData), 0)
+  return Buffer.concat([length, typeAndData, crc])
+}
+
+/** `rowFor(y)` returns that row's `width * 3` RGB bytes; filter byte 0 ("none") on every scanline. */
+function encodeRgbPng(width, height, rowFor) {
+  const header = Buffer.alloc(13)
+  header.writeUInt32BE(width, 0)
+  header.writeUInt32BE(height, 4)
+  header[8] = 8 // bit depth
+  header[9] = 2 // colour type: truecolour RGB
+  header[10] = 0 // deflate
+  header[11] = 0 // adaptive filtering
+  header[12] = 0 // no interlace
+
+  const stride = width * 3 + 1
+  const raw = Buffer.alloc(stride * height)
+  for (let y = 0; y < height; y += 1) {
+    raw[y * stride] = 0
+    rowFor(y).copy(raw, y * stride + 1)
+  }
+
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk('IHDR', header),
+    pngChunk('IDAT', deflateSync(raw)),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ])
+}
+
+/**
+ * The probe image itself: a near-white field brightening left-to-right from `COVER_PROBE_MIN_CHANNEL
+ * + 10` to pure white, crossed by faint `COVER_PROBE_MIN_CHANNEL` marker bands both ways. The
+ * left-to-right brightening is deliberate - the right-hand region is the part `cover` keeps visible
+ * at every width, so the hardest pixels sit exactly where the scrim is thinnest.
+ */
+function coverProbeImageBytes() {
+  const width = COVER_PROBE_IMAGE_WIDTH
+  const height = COVER_PROBE_IMAGE_HEIGHT
+  const base = COVER_PROBE_MIN_CHANNEL + 10
+  const peak = 255
+
+  const plainRow = Buffer.alloc(width * 3)
+  for (let x = 0; x < width; x += 1) {
+    const inBand = x % COVER_PROBE_BAND_PERIOD_PX < COVER_PROBE_BAND_WIDTH_PX
+    const value = inBand ? COVER_PROBE_MIN_CHANNEL : base + Math.round(((peak - base) * x) / (width - 1))
+    plainRow[x * 3] = value
+    plainRow[x * 3 + 1] = value
+    plainRow[x * 3 + 2] = value
+  }
+  const bandRow = Buffer.alloc(width * 3, COVER_PROBE_MIN_CHANNEL)
+
+  return encodeRgbPng(width, height, (y) =>
+    y % COVER_PROBE_BAND_PERIOD_PX < COVER_PROBE_BAND_WIDTH_PX ? bandRow : plainRow,
+  )
+}
+
+/** Authoring path of the probe image, used only to derive the cache file name the way
+ * `resolve-feed-images.ts` would - nothing ever fetches it. */
+const COVER_PROBE_RELATIVE_PATH = 'img/cover-contrast-probe.png'
+
+export const NEWS_COVER_SLIDE_ID = 'fixture-news-slide-cover'
+/** The flow waits on this exact title rather than on "some slide rendered". */
+export const NEWS_COVER_SLIDE_TITLE = 'Welcome To The Community'
+
+/**
+ * Exactly ONE slide, on purpose: with `count === 1` `NewsHero` renders no dots/prev/next and starts
+ * no interval, so every measurement this variant exists for is taken on a hero that cannot rotate
+ * out from under the screenshot. The hero's stage still reserves the control bar's 44px
+ * (`.home-hero-stage`'s unconditional `inset: 0 0 var(--home-hero-controls-h) 0`), so the slide box
+ * this fixture produces is the same one a multi-slide feed produces.
+ *
+ * Body and button labels are real prose of a realistic length: the body has to wrap across the full
+ * width of the content pane, because AC2's probe reads the lightest pixel inside the *box* the text
+ * may occupy, not only where glyphs happen to land today.
+ */
+function newsCoverSlide() {
+  const fileName = newsImageFileName(newsImageSourceUrl(COVER_PROBE_RELATIVE_PATH), NEWS_IMAGE_EXT)
+  return {
+    id: NEWS_COVER_SLIDE_ID,
+    template: 'cover',
+    order: 1,
+    title: NEWS_COVER_SLIDE_TITLE,
+    body:
+      'A cover slide puts its artwork behind the text instead of beside it, anchored to the right ' +
+      'edge so the subject survives every window width. This body is deliberately long enough to ' +
+      'wrap across the whole content pane, so the contrast probe measures the full box the text is ' +
+      'allowed to occupy rather than only the pixels a shorter line happens to cover.',
+    imageUrl: `q2launcher://app/news-image/${fileName}`,
+    buttons: [
+      { label: 'Read the announcement', url: 'https://github.com/Hantsch/q2_community_content' },
+      { label: 'Browse the repository', url: 'https://github.com/Hantsch/q2-launcher' },
+    ],
+  }
+}
+
+/** Same genuine-cache-hit shape as `writeNewsImageCacheFile()`, but with generated bytes. */
+function writeCoverProbeImageCacheFile(userDataDir) {
+  const cacheDir = join(userDataDir, 'cache', 'news-images')
+  mkdirSync(cacheDir, { recursive: true })
+  const fileName = newsImageFileName(newsImageSourceUrl(COVER_PROBE_RELATIVE_PATH), NEWS_IMAGE_EXT)
+  writeFileSync(join(cacheDir, fileName), coverProbeImageBytes())
+}
+
+/**
+ * Deletes and rewrites the `news-cover` variant's userdata: no installations/profiles, a fresh feed
+ * cache carrying the single `cover` slide above, and the generated near-white probe PNG its
+ * `imageUrl` resolves to. Its own variant rather than a slide added to `news-images`, for the same
+ * reason `news-images` is not an extension of `populated`: `scripts/flows/home-hero-carousel.mjs`
+ * and the `home-hero-slide-image*` screens both document and rely on their variant's exact slide
+ * count.
+ */
+export function writeNewsCoverFixture() {
+  const userDataDir = variantUserDataDir('news-cover')
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  writeJson(join(userDataDir, STATE_FILE), emptyStateDocument())
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+  writeNewsFeedCache(userDataDir, {
+    slides: [newsCoverSlide()],
+    retrievedAt: FIXED_TIMESTAMP,
+    lastRefreshFailed: false,
+  })
+  writeCoverProbeImageCacheFile(userDataDir)
 
   return { userDataDir, installations: 0, configProfiles: 0 }
 }
@@ -1894,10 +2076,21 @@ export function writeFixture(variant) {
   if (variant === 'controls-seed') return writeControlsSeedFixture()
   if (variant === 'news-stale') return writeNewsStaleFixture()
   if (variant === 'news-images') return writeNewsImagesFixture()
+  if (variant === 'news-cover') return writeNewsCoverFixture()
   throw new Error(`unknown fixture variant: ${variant}`)
 }
 
-export const FIXTURE_VARIANTS = ['populated', 'empty', 'controls-seed', 'news-stale', 'news-images']
+export const FIXTURE_VARIANTS = [
+  'populated',
+  'empty',
+  'controls-seed',
+  'news-stale',
+  'news-images',
+  // Story 095 D3: no screen in `screens.mjs` uses this one - it exists for
+  // `scripts/flows/news-cover-template.mjs` alone, which is why it still has to be listed here
+  // (`ui:verify` only reseeds the variants its screens name; `ui:seed` is what writes this one).
+  'news-cover',
+]
 
 // --- story 066 D8: the import-from-files flow's staged real-config corpus ---------------------
 //

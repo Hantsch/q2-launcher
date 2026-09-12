@@ -169,8 +169,8 @@ export const HOME_HANDLER_SCHEMAS: Record<(typeof HOME_HANDLERS)[keyof typeof HO
  */
 export const NEWS_SCHEMA_VERSION = 1
 
-/** The three slide layouts a news entry's frontmatter can select (AC5). */
-export type NewsTemplate = 'split' | 'banner' | 'text'
+/** The slide layouts a news entry's frontmatter can select (AC5). */
+export type NewsTemplate = 'split' | 'banner' | 'text' | 'cover'
 
 /**
  * One call to action on a slide. `url` is checked for well-formedness here; whether its host is
@@ -266,6 +266,18 @@ const newsContentBaseShape = {
  * not something this schema rejects outright.
  */
 export const newsSplitContentSchema = z
+  .object({
+    ...newsContentBaseShape,
+    image: z.string().min(1).optional(),
+  })
+  .strict()
+
+/**
+ * `cover` template: an image-led, full-bleed slide. `image` is expected but optional here for the
+ * same reason as `split` above - a missing image is what makes D3 fall back an entry to `text`
+ * (AC5), not something this schema rejects outright.
+ */
+export const newsCoverContentSchema = z
   .object({
     ...newsContentBaseShape,
     image: z.string().min(1).optional(),

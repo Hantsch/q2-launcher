@@ -171,6 +171,8 @@ describe('buildFeed', () => {
         { id: 'split-no-image', file: 'split-no-image.md' },
         { id: 'banner-ok', file: 'banner-ok.md' },
         { id: 'text-ok', file: 'text-ok.md' },
+        { id: 'cover-ok', file: 'cover-ok.md' },
+        { id: 'cover-no-image', file: 'cover-no-image.md' },
         { id: 'unknown-template', file: 'unknown-template.md' },
         { id: 'unknown-and-empty', file: 'unknown-and-empty.md' },
       ]),
@@ -199,6 +201,21 @@ describe('buildFeed', () => {
           ['id: text-ok', 'template: text', 'order: 4', 'title: A text slide'],
           'Just prose.',
         ),
+        'cover-ok.md': md(
+          [
+            'id: cover-ok',
+            'template: cover',
+            'order: 4.1',
+            'title: A cover slide',
+            'image: img/cover.png',
+          ],
+          'Image-led body.',
+        ),
+        // Declared `cover`, but a cover has nothing to lead with without an image -> text.
+        'cover-no-image.md': md(
+          ['id: cover-no-image', 'template: cover', 'order: 4.2', 'title: No image here either'],
+          'Body only.',
+        ),
         // Unknown template, but title + body exist -> delivered as text (AC5).
         'unknown-template.md': md(
           ['id: unknown-template', 'template: carousel', 'order: 5', 'title: Still readable'],
@@ -215,11 +232,17 @@ describe('buildFeed', () => {
       ['split-no-image', 'text'],
       ['banner-ok', 'banner'],
       ['text-ok', 'text'],
+      ['cover-ok', 'cover'],
+      ['cover-no-image', 'text'],
       ['unknown-template', 'text'],
     ])
     expect(result.slides[0].image).toBe('img/a.png')
     // The text fallback carries no image through, even though the source declared none.
     expect(result.slides[1].image).toBeUndefined()
+    expect(result.slides.find((slide) => slide.id === 'cover-ok')?.image).toBe('img/cover.png')
+    expect(
+      result.slides.find((slide) => slide.id === 'cover-no-image')?.image,
+    ).toBeUndefined()
 
     const warned = result.warnings.filter((warning) => warning.id === 'unknown-template')
     expect(warned).toHaveLength(1)
@@ -229,6 +252,44 @@ describe('buildFeed', () => {
     const dropped = result.warnings.filter((warning) => warning.id === 'unknown-and-empty')
     expect(dropped).toHaveLength(1)
     expect(dropped[0].reason).toContain('dropped')
+  })
+
+  it('AC4: a template value outside NEWS_TEMPLATES falls back to text, warns once, and leaves its neighbours untouched', () => {
+    const result = buildFeed({
+      index: index([
+        { id: 'before', file: 'before.md' },
+        { id: 'future-template', file: 'future-template.md' },
+        { id: 'after', file: 'after.md' },
+      ]),
+      documents: {
+        'before.md': md(
+          ['id: before', 'template: text', 'order: 1', 'title: Before'],
+          'Untouched neighbour.',
+        ),
+        // A template value that does not exist yet - not one of NEWS_TEMPLATES at all.
+        'future-template.md': md(
+          ['id: future-template', 'template: parallax', 'order: 2', 'title: From the future'],
+          'Still readable.',
+        ),
+        'after.md': md(
+          ['id: after', 'template: text', 'order: 3', 'title: After'],
+          'Untouched neighbour.',
+        ),
+      },
+      now: NOW,
+    })
+
+    expect(result.slides.map((slide) => [slide.id, slide.template])).toEqual([
+      ['before', 'text'],
+      ['future-template', 'text'],
+      ['after', 'text'],
+    ])
+
+    const warned = result.warnings.filter((warning) => warning.id === 'future-template')
+    expect(warned).toHaveLength(1)
+    expect(warned[0].reason).toContain('parallax')
+    expect(result.warnings.filter((warning) => warning.id === 'before')).toHaveLength(0)
+    expect(result.warnings.filter((warning) => warning.id === 'after')).toHaveLength(0)
   })
 
   it('a fourth button and an off-allowlist URL are dropped with a warning', () => {

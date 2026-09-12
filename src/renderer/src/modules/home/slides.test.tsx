@@ -3,6 +3,7 @@ import { HOME_HANDLERS, type NewsSlide } from '@shared/modules/home'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SlideBanner } from './components/SlideBanner'
+import { SlideCover } from './components/SlideCover'
 import { resolveSlideTemplate } from './components/resolveSlideTemplate'
 import { SlideSplit } from './components/SlideSplit'
 import { SlideText } from './components/SlideText'
@@ -142,10 +143,47 @@ describe('SlideBanner', () => {
   })
 })
 
+describe('SlideCover', () => {
+  it('renders title, body, buttons and the full-bleed image when imageUrl is present', () => {
+    const onOpenUrl = vi.fn()
+    const slide = baseSlide({
+      template: 'cover',
+      imageUrl: 'q2launcher://app/news-image/abc123.png',
+      buttons: [{ label: 'Download', url: 'https://github.com/skullernet/q2pro/releases/latest' }],
+    })
+
+    const { container } = render(<SlideCover slide={slide} onOpenUrl={onOpenUrl} />)
+
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(slide.title)
+    expect(screen.getByText(slide.body)).toBeTruthy()
+    const img = container.querySelector('img') as HTMLImageElement
+    expect(img.getAttribute('src')).toBe(slide.imageUrl)
+    expect(img.className.split(/\s+/)).toContain('home-hero-cover-image')
+    expect(container.querySelector('.home-hero-cover-scrim')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Download' })).toBeTruthy()
+    expect(container.querySelector('.home-hero-slide-cover')).toBeTruthy()
+  })
+
+  it('renders content-only - no image or scrim - when imageUrl is absent', () => {
+    const onOpenUrl = vi.fn()
+    const slide = baseSlide({ template: 'cover' })
+
+    const { container } = render(<SlideCover slide={slide} onOpenUrl={onOpenUrl} />)
+
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(slide.title)
+    expect(container.querySelector('img')).toBeNull()
+    expect(container.querySelector('.home-hero-cover-scrim')).toBeNull()
+  })
+})
+
 describe('resolveSlideTemplate', () => {
   it('resolves a known template to itself regardless of image presence (story 084 AC3: the template stays intact, SlideSplit/SlideBanner render the full-width fallback when there is no image)', () => {
     expect(resolveSlideTemplate({ template: 'split' })).toBe('split')
     expect(resolveSlideTemplate({ template: 'banner' })).toBe('banner')
+  })
+
+  it('resolves `cover` to itself (story 095 D2)', () => {
+    expect(resolveSlideTemplate({ template: 'cover' })).toBe('cover')
   })
 
   it('falls back to text for an unrecognised template value', () => {

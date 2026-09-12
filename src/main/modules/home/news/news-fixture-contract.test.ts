@@ -1,7 +1,8 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { isAllowedButtonHost } from '@shared/modules/home'
-import { describe, expect, it } from 'vitest'
+import sharp from 'sharp'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { resolveFeed } from './feed-pipeline'
 
 /**
@@ -42,8 +43,40 @@ function readDocuments(): Record<string, string> {
 // job against a caller-supplied `now`) - so no `now` is needed here. The fixture's own visibility
 // bounds (2026-08-01 from; 2099-12-31 until on the banner entry only; the text entry unbounded) are
 // exercised for real by AC7's e2e flow (`scripts/flows/news-feed.mjs`, D3), which does apply `now`.
+// D8: the fixture contract must never reach the network - resolveFeed() reads only the
+// index/documents handed to it, but this stubs the global `fetch` to throw on every test in this
+// file so a regression that accidentally wires in a fetch call fails loudly instead of silently
+// passing against the real network (or hanging in CI with none).
+let fetchCalls = 0
+let originalFetch: typeof globalThis.fetch
+
+beforeEach(() => {
+  fetchCalls = 0
+  originalFetch = globalThis.fetch
+  globalThis.fetch = (() => {
+    fetchCalls += 1
+    throw new Error('the fixture contract must not touch the network')
+  }) as typeof globalThis.fetch
+})
+
+afterEach(() => {
+  globalThis.fetch = originalFetch
+})
+
 describe('news fixture contract (real content/q2_community_content/news/)', () => {
-  it('resolves the three checked-in entries into split/banner/text slides with zero warnings', () => {
+  it('the stubbed fetch actually throws, and no test in this file ever calls it', () => {
+    expect(() => globalThis.fetch('https://example.invalid')).toThrow(
+      'the fixture contract must not touch the network',
+    )
+    expect(fetchCalls).toBe(1)
+
+    resolveFeed({ index: readIndex(), documents: readDocuments() })
+
+    // The explicit call above is the only one: resolveFeed() itself made none.
+    expect(fetchCalls).toBe(1)
+  })
+
+  it('resolves the four checked-in entries into split/banner/text/cover slides with zero warnings', () => {
     const index = readIndex()
     const documents = readDocuments()
 
@@ -58,9 +91,35 @@ describe('news fixture contract (real content/q2_community_content/news/)', () =
       'r1q2-in-the-bootstrap-wizard',
       'the-community-content-repository',
       'how-news-reaches-the-launcher',
+      'welcome-to-the-community',
     ])
-    expect(slides.map((slide) => slide.order)).toEqual([10, 20, 30])
-    expect(slides.map((slide) => slide.template)).toEqual(['split', 'banner', 'text'])
+    expect(slides.map((slide) => slide.order)).toEqual([10, 20, 30, 40])
+    expect(slides.map((slide) => slide.template)).toEqual(['split', 'banner', 'text', 'cover'])
+  })
+
+  it('the welcome entry resolves as cover with its image at the documented 2560x640 size', async () => {
+    const result = resolveFeed({ index: readIndex(), documents: readDocuments() })
+    const cover = result.slides.find((slide) => slide.id === 'welcome-to-the-community')
+    if (!cover) throw new Error('expected the welcome entry to survive resolveFeed()')
+
+    expect(cover.template).toBe('cover')
+    expect(cover.image).toBeDefined()
+    const imagePath = join(NEWS_DIR, cover.image as string)
+    expect(existsSync(imagePath)).toBe(true)
+
+    const metadata = await sharp(imagePath).metadata()
+    expect(metadata.width).toBe(2560)
+    expect(metadata.height).toBe(640)
+  })
+
+  it('never resolves anything under _templates/, in the index or in any slide', () => {
+    const index = readIndex() as { entries: Array<{ file: string }> }
+    for (const entry of index.entries) expect(entry.file).not.toMatch(/_templates/)
+
+    const result = resolveFeed({ index, documents: readDocuments() })
+    for (const slide of result.slides) {
+      if (slide.image) expect(slide.image).not.toMatch(/_templates/)
+    }
   })
 
   it('keeps all 3 buttons on the entry sitting exactly at the cap', () => {
