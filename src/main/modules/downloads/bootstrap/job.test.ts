@@ -12,11 +12,19 @@ import {
   type PackageSource,
   type RetailSourceInspection,
 } from '@shared/modules/downloads'
-import { fail, type Installation, type Job, type LauncherSettings } from '@shared/types'
+import {
+  fail,
+  IDLE_LAUNCH_STATE,
+  type Installation,
+  type Job,
+  type LaunchState,
+  type LauncherSettings,
+} from '@shared/types'
 import { InstallationsService } from '../../../services/installations'
 import { inspectInstallation } from '../../../services/inspector'
 import { JobsService } from '../../../services/jobs'
 import type { StateStore } from '../../../services/state'
+import { InstallationWriteGuard, type LaunchHost } from '../../../services/write-guard'
 import type { ExtractArchiveInput, ExtractorHandle } from '../extractor'
 import type { DownloadPackageOptions, DownloadPackageResult } from '../fetcher'
 import { createDiagnosticsCollector, diagnosticsFor, EXTRACTION_LISTING_CAP } from '../diagnostics'
@@ -155,6 +163,42 @@ function fakeState(): StateStore {
   } as unknown as StateStore
 }
 
+/**
+ * Story 091 D6: the `LaunchHost` surface the real `InstallationWriteGuard` reads, with a setter the
+ * test drives - "the game starts" and "the game exits" are `set(...)` calls that notify the guard's
+ * observer exactly as `LaunchService.onStateChange` would. Mirrors `upgrade-job.test.ts`'s own
+ * `fakeLaunch` (and `services/write-guard.test.ts`'s).
+ */
+function fakeLaunch(): { host: LaunchHost; set: (next: LaunchState) => void } {
+  let state: LaunchState = IDLE_LAUNCH_STATE
+  const listeners = new Set<(next: LaunchState) => void>()
+  return {
+    host: {
+      getState: () => state,
+      onStateChange: (listener) => {
+        listeners.add(listener)
+        return () => {
+          listeners.delete(listener)
+        }
+      },
+    },
+    set: (next) => {
+      state = next
+      for (const listener of [...listeners]) listener(next)
+    },
+  }
+}
+
+/** Mirrors `upgrade-job.test.ts`'s helper - a job that waits has no promise to await. */
+async function waitFor(condition: () => boolean, what: string): Promise<void> {
+  const deadline = Date.now() + 5000
+  while (Date.now() < deadline) {
+    if (condition()) return
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  throw new Error(`timed out waiting for ${what}`)
+}
+
 interface Deferred {
   promise: Promise<void>
   resolve: () => void
@@ -187,6 +231,9 @@ interface Harness {
   deps: BootstrapDeps
   jobs: JobsService
   installations: InstallationsService
+  /** Story 091 D6: the launch state the write guard reads; `set()` is "the game
+   * started"/"the game exited". */
+  launch: ReturnType<typeof fakeLaunch>
   snapshots: Job[][]
   fetched: string[]
   /** Story 075 D3: every line the job's `BootstrapLog` was handed, in order. */
@@ -259,6 +306,11 @@ function harness(
     onChange: () => {},
     onSettingsChange: () => {},
   })
+  // Story 091 D6: the real `InstallationWriteGuard` over a fake launch host, idle by default - so
+  // every test written before this story keeps running its assemble passes immediately, exactly as
+  // it did without a guard. Only the new AC4 test below moves the launch state to `running`.
+  const launch = fakeLaunch()
+  const writeGuard = new InstallationWriteGuard({ launch: launch.host, jobs })
   const fetched: string[] = []
   const contents = options.contents ?? FIXTURE_CONTENTS
 
@@ -375,6 +427,7 @@ function harness(
   return {
     jobs,
     installations,
+    launch,
     snapshots,
     fetched,
     logLines,
@@ -383,6 +436,7 @@ function harness(
     deps: {
       jobs,
       installations,
+      writeGuard,
       manifest,
       retailSources: () => {
         retailSourceCalls.count += 1
@@ -1162,6 +1216,68 @@ describe('startBootstrap', () => {
     // Never installed via the wrong-role source: the target ends up empty, not holding the point
     // release's gamex86.dll under the guise of R1Q2's own required file.
     expect(await readdir(targetPath)).toEqual([])
+  })
+
+  /**
+   * Story 091 D6/AC4: the one job with a download phase is the natural place to prove that "no job
+   * writes into a running installation's folder" does not also mean "no job may touch the download
+   * cache while that installation's game runs". `onFetch` marks the installation as running the
+   * moment the job exists (before the first byte is fetched), so the whole download+extract loop
+   * (step 5) runs with the guard blocked throughout - only the core assemble pass (step 6) should
+   * ever notice.
+   */
+  it('download and extract run while the target installation is running; only the assemble pass waits', async () => {
+    let markedRunning = false
+    const box = harness({
+      onFetch: async () => {
+        if (markedRunning) return
+        markedRunning = true
+        const job = box.jobs.list()[0]
+        box.launch.set({ phase: 'running', installationId: job!.installationId!, pid: 4242 })
+      },
+    })
+
+    const started = await startBootstrap(box.deps, {
+      engine: 'q2pro',
+      targetPath,
+      includeVideoAndPlayers: false,
+    })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+
+    const job = (): Job => box.jobs.list().find((entry) => entry.id === started.value.jobId)!
+    await waitFor(() => job().status === 'waiting', 'the assemble pass to wait for the game to exit')
+
+    // AC4: every package downloaded and extracted to completion despite the guard reporting the
+    // installation busy the entire time.
+    expect(box.fetched).toEqual([
+      'q2pro-1.0.0.zip',
+      'q2-314-demo-x86.exe',
+      'q2-3.20-x86-full-ctf.exe',
+    ])
+    expect(
+      await exists(join(userDataPath, 'cache', 'downloads', 'extract', started.value.jobId)),
+    ).toBe(true)
+    // Only the write into the installation's own folder deferred - nothing has been assembled yet.
+    expect(await exists(join(targetPath, 'q2pro.exe'))).toBe(false)
+    expect(await exists(join(targetPath, 'baseq2', 'pak0.pak'))).toBe(false)
+    expect(job().waitingReason).toEqual({ key: 'jobs.waiting.gameRunning' })
+    expect(job().writeLock).not.toBe(true)
+
+    // AC3: the game exits and the deferred assemble pass runs on its own.
+    box.launch.set(IDLE_LAUNCH_STATE)
+    const outcome = await started.value.settled
+
+    expect(outcome.status).toBe('succeeded')
+    expect(job()).toMatchObject({ status: 'succeeded', writeLock: false })
+    // Assembly ran exactly once: the allowlisted files landed, and nothing was re-fetched.
+    expect(await exists(join(targetPath, 'q2pro.exe'))).toBe(true)
+    expect(await exists(join(targetPath, 'baseq2', 'pak0.pak'))).toBe(true)
+    expect(box.fetched).toEqual([
+      'q2pro-1.0.0.zip',
+      'q2-314-demo-x86.exe',
+      'q2-3.20-x86-full-ctf.exe',
+    ])
   })
 })
 

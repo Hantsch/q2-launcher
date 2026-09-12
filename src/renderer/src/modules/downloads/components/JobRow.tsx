@@ -26,6 +26,7 @@ export function JobRow({ job, fading = false, onCancel }: JobRowProps) {
   const { t } = useTranslation()
   const { ratio, bytesDone, bytesTotal, bytesPerSecond, etaSeconds } = job.progress
   const running = job.status === 'running'
+  const waiting = job.status === 'waiting'
 
   return (
     <Panel
@@ -55,6 +56,15 @@ export function JobRow({ job, fading = false, onCancel }: JobRowProps) {
           </IconButton>
         )}
       </div>
+
+      {/* Story 091 D3 (AC2): the reason travels as an i18n key on the job (mirrors
+          `RunningStep.tsx`'s `job.error` rendering) so the row names *why* the job is waiting
+          rather than leaving the generic `jobs.status.waiting` badge as the only signal. */}
+      {waiting && job.waitingReason && (
+        <p className="text-xs text-warning" data-testid={`downloads-job-waiting-${job.id}`}>
+          {t(job.waitingReason.key, job.waitingReason.params ?? {})}
+        </p>
+      )}
 
       {running && (
         <>
@@ -90,6 +100,7 @@ function statusTone(status: Job['status']): 'neutral' | 'flame' | 'success' | 'w
     case 'failed':
       return 'danger'
     case 'paused':
+    case 'waiting':
       return 'warning'
     default:
       return 'neutral'

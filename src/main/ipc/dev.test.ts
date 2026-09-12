@@ -1,8 +1,10 @@
 import type { IpcMainInvokeEvent } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { DEV_ONLY_CHANNELS } from '@shared/ipc'
 import type { LaunchState } from '@shared/types'
 import { JobsService } from '../services/jobs'
 import { LaunchService } from '../services/launch'
+import { InstallationWriteGuard } from '../services/write-guard'
 import type { InstallationsService } from '../services/installations'
 import type { AppContext } from '../context'
 
@@ -63,6 +65,30 @@ async function setupLaunch(): Promise<{
   const app = { launch } as unknown as AppContext
   registerDevIpc(app)
   return { launch, states, fn: registered.get('dev:simulateLaunch')! }
+}
+
+/**
+ * Story 091 D7: `dev:simulateJob`'s `'writing'` scenario has to go through the
+ * *real* `InstallationWriteGuard`, so this setup wires a real `JobsService`, a
+ * real `LaunchService` (a fake install stub, same as `setupLaunch` above - the
+ * guard never touches `installations`) and a real guard, rather than a fake.
+ */
+async function setupWriting(): Promise<{
+  jobs: JobsService
+  launch: LaunchService
+  guard: InstallationWriteGuard
+  fn: (event: unknown, payload: unknown) => unknown
+}> {
+  const { registerDevIpc } = await import('./dev')
+  const jobs = new JobsService(() => {})
+  const launch = new LaunchService({
+    installations: {} as InstallationsService,
+    onStateChange: () => {},
+  })
+  const guard = new InstallationWriteGuard({ launch, jobs })
+  const app = { jobs, writeGuard: guard } as unknown as AppContext
+  registerDevIpc(app)
+  return { jobs, launch, guard, fn: registered.get('dev:simulateJob')! }
 }
 
 beforeEach(() => {
@@ -164,5 +190,75 @@ describe('dev:simulateLaunch', () => {
     expect(launch.getState()).toEqual({ phase: 'idle', installationId: null })
     expect(states).toHaveLength(2)
     expect(states[1]).toEqual({ phase: 'idle', installationId: null })
+  })
+})
+
+/**
+ * Story 091 D7: `dev:simulateJob` gained a `'writing'` scenario + `installationId`.
+ * Unlike `success`/`stall`/`failure`, this scenario must go through the *real*
+ * `InstallationWriteGuard` - a fixture copy finishes too fast to click against, so
+ * AC5's Play-button refusal needs a deterministic, real write phase to hold open.
+ */
+describe('dev:simulateJob "writing" scenario', () => {
+  it('stays behind the dev-only allowlist, same as every other dev channel', () => {
+    expect(DEV_ONLY_CHANNELS).toContain('dev:simulateJob')
+  })
+
+  it('rejects a "writing" scenario with no installationId (schema boundary)', async () => {
+    const { fn } = await setupWriting()
+    expect(() => fn(fakeEvent, { scenario: 'writing' })).toThrow()
+  })
+
+  it('acquires the real write lock immediately when nothing is running, and reports writeLock', async () => {
+    const { jobs, guard, fn } = await setupWriting()
+
+    await fn(fakeEvent, { scenario: 'writing', installationId: 'inst-1' })
+
+    expect(guard.isWriting('inst-1')).toBe(true)
+    const job = jobs.list()[0]
+    expect(job.installationId).toBe('inst-1')
+    expect(job.writeLock).toBe(true)
+    expect(job.status).toBe('running')
+  })
+
+  it('defers the write and marks the job waiting while that installation is running', async () => {
+    const { jobs, launch, guard, fn } = await setupWriting()
+    launch.simulate('running', 'inst-1')
+
+    await fn(fakeEvent, { scenario: 'writing', installationId: 'inst-1' })
+
+    const job = jobs.list()[0]
+    expect(job.status).toBe('waiting')
+    expect(job.waitingReason?.key).toBe('jobs.waiting.gameRunning')
+    expect(guard.isWriting('inst-1')).toBe(false)
+
+    // The process exits - the deferred write resumes on its own, no user action.
+    launch.simulate('idle', 'inst-1')
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(guard.isWriting('inst-1')).toBe(true)
+    expect(jobs.list()[0]).toMatchObject({ status: 'running', writeLock: true })
+  })
+
+  it('holds the lock until cancelled, then releases it - cancel reaches the normal terminal state', async () => {
+    const { jobs, guard, fn } = await setupWriting()
+
+    await fn(fakeEvent, { scenario: 'writing', installationId: 'inst-1' })
+    const job = jobs.list()[0]
+    expect(guard.isWriting('inst-1')).toBe(true)
+
+    const cancelled = jobs.cancel(job.id)
+
+    expect(cancelled.ok).toBe(true)
+    expect(jobs.list()[0].status).toBe('cancelled')
+
+    // The lock release happens in `runWrite`'s `finally`, one microtask after the
+    // job's `onCancel` resolves the never-resolving hold - flush the microtask
+    // queue before asserting the guard let go of it.
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(guard.isWriting('inst-1')).toBe(false)
   })
 })

@@ -226,11 +226,6 @@ function InstallationRow({ installation }: { installation: Installation }) {
   const openDialog = useLauncher((state) => state.openDialog)
   const confirmBeforeRemoving = useLauncher((state) => state.settings.confirmBeforeRemoving)
   const removeInstallation = useLauncher((state) => state.removeInstallation)
-  const running = useLauncher(
-    (state) =>
-      state.launch.installationId === installation.id &&
-      (state.launch.phase === 'running' || state.launch.phase === 'starting'),
-  )
 
   const tone = statusTone(installation.status)
   const active = installation.id === activeId
@@ -394,12 +389,14 @@ function InstallationRow({ installation }: { installation: Installation }) {
           </IconButton>
 
           {/* Story 090 D4: only offered on a demo installation - the empty-store-sources case is
-              explained inside the dialog itself, not by hiding the trigger. */}
+              explained inside the dialog itself, not by hiding the trigger.
+              Story 091 D5: no longer disabled while the installation is running - the job now
+              waits instead of refusing (091 Decisions: "[[090]]'s refusal is replaced by a
+              wait, including on the renderer"). */}
           {isDemoData(installation.checks) && (
             <IconButton
               label={t('installation.action.importRetail')}
               size="sm"
-              disabled={running}
               onClick={() =>
                 openDialog({
                   kind: 'module',

@@ -104,6 +104,25 @@ describe('DownloadsView', () => {
     expect(row.textContent).not.toContain('KB/s')
   })
 
+  it('a waiting job renders its reason, not a generic queued status', async () => {
+    useLauncher.setState({
+      jobs: [
+        makeJob({
+          id: 'job-waiting',
+          status: 'waiting',
+          progress: { ratio: null },
+          waitingReason: { key: 'jobs.waiting.gameRunning' },
+        }),
+      ],
+    })
+
+    render(createElement(DownloadsView))
+
+    const row = await screen.findByTestId('downloads-job-job-waiting')
+    expect(row.textContent).toContain('Waiting for the game to close')
+    expect(row.textContent).not.toContain('Queued')
+  })
+
   it('a cancellable job offers cancel, wired to the store action', async () => {
     useLauncher.setState({ jobs: [makeJob({ cancellable: true })], cancelJob: cancelJobMock })
 

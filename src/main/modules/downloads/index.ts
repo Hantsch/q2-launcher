@@ -245,8 +245,9 @@ export const downloadsModule: MainModule = {
      * Story 090 D1/D2 (INST-D4): upgrades one already-registered demo installation with
      * `pak0.pak`/`pak1.pak` copied out of a store installation main itself detected. A thin wrapper
      * around D2's `startRetailUpgrade` (`retail/upgrade-job.ts`), which owns the whole order -
-     * resolve the installation, refuse while its game is running (AC7), re-verify the renderer's
-     * source against main's own fresh list (AC6), copy through [[088]]'s routine, then
+     * resolve the installation, re-verify the renderer's source against main's own fresh list
+     * (AC6), copy through [[088]]'s routine behind [[091]]'s write guard (which defers the copy
+     * while that installation's game runs, where [[090]] refused it outright), then
      * `InstallationsService.validate()` (AC5).
      *
      * Like `bootstrapStart` above, this deliberately does not await the job: it answers as soon as
@@ -514,6 +515,8 @@ function bootstrapDepsFor(
   return {
     jobs: app.jobs,
     installations: app.installations,
+    // Story 091 D6: the shell's real write guard, wrapped around the job's two assemble passes.
+    writeGuard: app.writeGuard,
     manifest: manifestSourceFrom(manifestService, log),
     // Story 088 D4: main's own list, re-derived per run - never anything the renderer sent.
     retailSources: () => detectedRetailSourcesFor(app),
@@ -548,17 +551,22 @@ function bootstrapDepsFor(
  * per call, like `bootstrapDepsFor` above and for the same reason - the job owns no queue and no
  * cross-call state.
  *
- * `app.installations` and `app.launch` are the shell's real services; the job's narrow
- * `RetailUpgradeInstallationsHost`/`RetailUpgradeLaunchHost` are satisfied structurally, so nothing
- * in this module can reach past `find`/`validate` into the library or past `getState()` into the
- * launcher. `copyGameData` is deliberately not passed: its default *is* [[088]]'s
- * `copyRetailGameData`, so there is no wiring in which the copy could come from somewhere else.
+ * `app.installations` and `app.writeGuard` are the shell's real services; the job's narrow
+ * `RetailUpgradeInstallationsHost`/`RetailUpgradeWriteGuardHost` are satisfied structurally, so
+ * nothing in this module can reach past `find`/`validate` into the library or past `runWrite` into
+ * the guard's lock bookkeeping. `copyGameData` is deliberately not passed: its default *is*
+ * [[088]]'s `copyRetailGameData`, so there is no wiring in which the copy could come from somewhere
+ * else.
+ *
+ * Story 091 D4: `app.launch` is gone from here. The job no longer reads the launch state at all -
+ * "is this installation's game running" is the write guard's question now, asked once, inside the
+ * one `runWrite` that wraps the copy.
  */
 function retailUpgradeDepsFor(app: AppContext, log: Logger): RetailUpgradeDeps {
   return {
     jobs: app.jobs,
     installations: app.installations,
-    launch: app.launch,
+    writeGuard: app.writeGuard,
     // Main's own list, re-derived per run - never anything the renderer sent, and the same
     // resolution the wizard's picker and the bootstrap job use.
     retailSources: () => detectedRetailSourcesFor(app),

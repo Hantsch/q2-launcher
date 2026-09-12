@@ -40,7 +40,17 @@ export function RunningStep({
         <span className="font-display text-sm tracking-[0.04em] text-ink uppercase">
           {t(job.labelKey, job.labelParams ?? {})}
         </span>
-        <Badge tone={job.status === 'failed' ? 'danger' : job.status === 'succeeded' ? 'success' : 'flame'}>
+        <Badge
+          tone={
+            job.status === 'failed'
+              ? 'danger'
+              : job.status === 'succeeded'
+                ? 'success'
+                : job.status === 'waiting'
+                  ? 'warning'
+                  : 'flame'
+          }
+        >
           {t(`jobs.status.${job.status}`)}
         </Badge>
       </div>
@@ -57,6 +67,13 @@ export function RunningStep({
 
       {job.error && (
         <p className="text-xs text-danger">{t(job.error.key, job.error.params ?? {})}</p>
+      )}
+
+      {/* Story 091 D3 (AC2): same `t(key, params ?? {})` rendering as `job.error` above, so the
+          bootstrap running step names why the assemble pass paused instead of leaving the
+          `jobs.status.waiting` badge as the only signal. */}
+      {job.status === 'waiting' && job.waitingReason && (
+        <p className="text-xs text-warning">{t(job.waitingReason.key, job.waitingReason.params ?? {})}</p>
       )}
 
       <FailureCauseDetail diagnostics={failure?.diagnostics} />

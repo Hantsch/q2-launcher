@@ -18,9 +18,11 @@
 //   AC5 - after the upgrade, the Demo marker (both `demo-badge` and the trigger itself, which is
 //         gated on the same `isDemoData()`) is gone from all three surfaces.
 //   AC6 - the wrong-size (GOG) source is listed, disabled, and states its reason.
-//   AC7 - while the installation is `running` (`dev:simulateLaunch`), the trigger is disabled on
-//         every surface - proven while the installation is STILL demo data, since a successful
-//         upgrade removes the trigger from the DOM entirely (AC5).
+//   AC7 - while the installation is `running` (`dev:simulateLaunch`), the trigger stays enabled on
+//         every surface, and starting it creates a job that waits (names the running game as its
+//         reason) and writes nothing until the game exits - story [[091]]'s "wait, don't refuse"
+//         replaces this story's own original "disabled while running" behaviour; see [[091]]
+//         Decisions ("[[090]]'s refusal is replaced by a wait, including on the renderer").
 //
 // ## How this run is offline
 //
@@ -257,19 +259,53 @@ export default async function retailUpgrade({ page, app, shot, step }) {
   await importRetailButton(railCard).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await shot('rail-hover-card-trigger')
 
-  // --- AC7: disabled while the installation is running, while it is still demo data ----------------
-  step('AC7: dev:simulateLaunch(running) disables the action on every surface')
+  // --- 091 AC5/AC1: the action stays enabled while running, and the job it starts waits instead of
+  //     writing - [[090]]'s "refuse while running" is replaced by [[091]]'s "wait", including here
+  //     on the renderer (091 Decisions: "[[090]]'s refusal is replaced by a wait, including on the
+  //     renderer"). This supersedes 090's own AC7, which asserted the trigger was disabled.
+  step('091: dev:simulateLaunch(running) leaves the action enabled on every surface')
   await simulateLaunch(page, INSTALL_DEMO_UPGRADE_ID, 'running')
-  await importRetailButtonWithDisabled(card, true).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await importRetailButtonWithDisabled(actionBar, true).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await importRetailButtonWithDisabled(card, false).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await importRetailButtonWithDisabled(actionBar, false).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const railCardRunning = await openRailCard(page, INSTALL_DEMO_UPGRADE_NAME)
-  await importRetailButtonWithDisabled(railCardRunning, true).waitFor({
+  await importRetailButtonWithDisabled(railCardRunning, false).waitFor({
     state: 'visible',
     timeout: TIMEOUT_MS,
   })
-  await shot('trigger-disabled-while-running')
+  await shot('trigger-enabled-while-running')
 
-  step('restore idle so the rest of the run can actually open the dialog')
+  step('091: starting the upgrade while running creates a job that waits, and writes nothing yet')
+  await importRetailButton(card).click({ timeout: TIMEOUT_MS })
+  const runningVerifiedRow = page.locator('[data-testid="retail-upgrade-source-item"][data-index="1"]')
+  await runningVerifiedRow.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await runningVerifiedRow.click({ timeout: TIMEOUT_MS })
+  await page.getByTestId('retail-upgrade-confirm').click({ timeout: TIMEOUT_MS })
+  const waitingStep = page.locator('[data-testid="bootstrap-running-step"][data-status="waiting"]')
+  await waitingStep.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  const waitingText = await waitingStep.innerText()
+  if (!/waiting for the game to close/i.test(waitingText)) {
+    throw new Error(
+      `expected the waiting job to name the running game as its reason (091 AC2), got: ${JSON.stringify(waitingText)}`,
+    )
+  }
+  if (statSync(pak0Path).size !== pak0SizeBefore) {
+    throw new Error('the waiting job wrote to pak0.pak before the game exited (091 AC1)')
+  }
+  await shot('retail-upgrade-waiting-while-running')
+
+  step('091: cancel the waiting job so the run below starts from a clean, un-upgraded fixture')
+  await page.getByTestId('retail-upgrade-dismiss').click({ timeout: TIMEOUT_MS })
+  await page.getByRole('dialog').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+  await page.locator('footer').getByRole('button', { name: 'Cancel' }).click({ timeout: TIMEOUT_MS })
+  await page
+    .locator('footer')
+    .getByText(/waiting for the game to close/i)
+    .waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+  if (statSync(pak0Path).size !== pak0SizeBefore) {
+    throw new Error('cancelling the waiting job changed pak0.pak (091 AC6)')
+  }
+
+  step('restore idle so the rest of the run exercises the ordinary, not-running upgrade')
   await simulateLaunch(page, INSTALL_DEMO_UPGRADE_ID, 'idle')
   await importRetailButtonWithDisabled(card, false).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
@@ -402,7 +438,8 @@ export default async function retailUpgrade({ page, app, shot, step }) {
 
   console.log(
     'retail upgrade: the trigger appeared on rail hover card, library card and action bar for the ' +
-      'demo installation and was disabled while it was reported running, the empty-sources state ' +
+      'demo installation and stayed enabled while it was reported running (starting a job that ' +
+      'waits instead), the empty-sources state ' +
       'showed instead of an empty picker, both fixture sources were listed by store and path with ' +
       'the wrong-size one rejected and its reason shown, the real job copied pak0.pak/pak1.pak into ' +
       'the installation leaving the marker file and pak2.pak untouched, and the Demo marker ' +

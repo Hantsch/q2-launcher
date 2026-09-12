@@ -257,11 +257,6 @@ function RailCard({ installation }: { installation: Installation }) {
   const play = useLauncher((state) => state.play)
   const setActive = useLauncher((state) => state.setActiveInstallation)
   const openDialog = useLauncher((state) => state.openDialog)
-  const running = useLauncher(
-    (state) =>
-      state.launch.installationId === installation.id &&
-      (state.launch.phase === 'running' || state.launch.phase === 'starting'),
-  )
   const tone = statusTone(installation.status)
   const playable = isPlayable(installation.status)
 
@@ -283,12 +278,14 @@ function RailCard({ installation }: { installation: Installation }) {
         </Button>
 
         {/* Story 090 D4: the tile itself (074) only has room for the CSS microtag, so the
-            demo-to-retail trigger lives here on the hover card, its own surface. */}
+            demo-to-retail trigger lives here on the hover card, its own surface.
+            Story 091 D5: no longer disabled while it is running - the job now waits instead of
+            refusing (091 Decisions: "[[090]]'s refusal is replaced by a wait, including on the
+            renderer"). */}
         {isDemoData(installation.checks) && (
           <IconButton
             label={t('installation.action.importRetail')}
             size="sm"
-            disabled={running}
             onClick={() =>
               openDialog({
                 kind: 'module',

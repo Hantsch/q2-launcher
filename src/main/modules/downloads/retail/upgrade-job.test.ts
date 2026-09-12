@@ -15,6 +15,7 @@ import { InstallationsService } from '../../../services/installations'
 import { inspectInstallation } from '../../../services/inspector'
 import { JobsService } from '../../../services/jobs'
 import type { StateStore } from '../../../services/state'
+import { InstallationWriteGuard, type LaunchHost } from '../../../services/write-guard'
 import type { AssembleInstallationResult } from '../bootstrap/assemble'
 import {
   RETAIL_UPGRADE_JOB_KIND,
@@ -29,6 +30,12 @@ import {
  * stand-in) and the real `inspectInstallation`, and fakes exactly the three things the deliverable
  * names: the launch service, the retail-source inspection and [[088]]'s copy routine. The split
  * mirrors `bootstrap/job.test.ts`'s and is deliberate -
+ *
+ * Story 091 D4 adds a fourth real thing: the write guard. `InstallationWriteGuard` is the *real*
+ * one here, driven by a fake `LaunchHost` (a real `LaunchService` would need a child process), for
+ * the same reason the installations service is real - what this deliverable has to get right is how
+ * the job behaves around `runWrite`'s waiting, resuming and aborting, and a stubbed guard that
+ * simply called its callback would keep the suite green with the cancel wiring missing entirely.
  *
  *  - **real installations + real inspector**, because AC5 is "the status is re-derived from the
  *    inspector, never hand-set". A faked installations service would let the job hand-set a status
@@ -163,9 +170,48 @@ function fakeCopy(
   }
 }
 
+/**
+ * Story 091 D4: the `LaunchHost` surface the real `InstallationWriteGuard` reads, with a setter the
+ * test drives - "the game starts" and "the game exits" are `set(...)` calls that notify the guard's
+ * observer exactly as `LaunchService.onStateChange` would.
+ *
+ * Mirrors `services/write-guard.test.ts`'s own `fakeLaunch`.
+ */
+function fakeLaunch(): { host: LaunchHost; set: (next: LaunchState) => void } {
+  let state: LaunchState = IDLE_LAUNCH_STATE
+  const listeners = new Set<(next: LaunchState) => void>()
+  return {
+    host: {
+      getState: () => state,
+      onStateChange: (listener) => {
+        listeners.add(listener)
+        return () => {
+          listeners.delete(listener)
+        }
+      },
+    },
+    set: (next) => {
+      state = next
+      for (const listener of [...listeners]) listener(next)
+    },
+  }
+}
+
+/** Mirrors `pipeline.test.ts`'s helper - a job that waits has no promise to await. */
+async function waitFor(condition: () => boolean, what: string): Promise<void> {
+  const deadline = Date.now() + 5000
+  while (Date.now() < deadline) {
+    if (condition()) return
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  throw new Error(`timed out waiting for ${what}`)
+}
+
 interface Harness {
   deps: RetailUpgradeDeps
   jobs: JobsService
+  /** The launch state the write guard reads; `set()` is "the game started"/"the game exited". */
+  launch: ReturnType<typeof fakeLaunch>
   installations: InstallationsService
   installation: Installation
   copyCalls: CopyCall[]
@@ -177,7 +223,6 @@ interface Harness {
 
 async function harness(
   options: {
-    launchState?: LaunchState
     sources?: DetectedRetailSource[]
     copy?: RetailGameDataCopy
     copyCalls?: CopyCall[]
@@ -210,11 +255,13 @@ async function harness(
   const sourceListCalls = { count: 0 }
   const sources = options.sources ?? [detectedSource(sourceRoot)]
 
+  const launch = fakeLaunch()
+
   return {
     deps: {
       jobs,
       installations,
-      launch: { getState: () => options.launchState ?? IDLE_LAUNCH_STATE },
+      writeGuard: new InstallationWriteGuard({ launch: launch.host, jobs }),
       retailSources: () => {
         sourceListCalls.count += 1
         return Promise.resolve(sources)
@@ -222,6 +269,7 @@ async function harness(
       copyGameData: options.copy ?? fakeCopy(copyCalls),
     },
     jobs,
+    launch,
     installations: service,
     installation: added.value,
     copyCalls,
@@ -261,15 +309,24 @@ function changedPaths(before: Map<string, string>, after: Map<string, string>): 
 }
 
 describe('the retail upgrade job', () => {
-  it('refuses to start while that installation is running', async () => {
-    const test = await harness({
-      launchState: { phase: 'running', installationId: 'will be replaced', pid: 4242 },
+  /**
+   * Story 091 AC5's retrofit, and the one test that replaces [[090]]'s "refuses to start while that
+   * installation is running". That refusal is gone on purpose (091's Decisions (Sprint)): one job
+   * kind rejecting the user's action while every other job waits is the inconsistency 091 removes,
+   * and 090's AC7 - "rather than overwriting files out from under a running game" - is satisfied
+   * strictly better by a job that copies as soon as the game is closed.
+   *
+   * The three things that made the old refusal safe are still asserted here, just later: no copy is
+   * started, no byte of the installation changes, and the user can see why.
+   */
+  it('the upgrade job waits instead of refusing, and holds the write lock while copying', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
     })
-    // The fixture's id is only known once it is registered, so the running state is re-pointed at
-    // it here rather than guessed above.
-    test.deps.launch = {
-      getState: () => ({ phase: 'running', installationId: test.installation.id, pid: 4242 }),
-    }
+    const copyCalls: CopyCall[] = []
+    const test = await harness({ copyCalls, copy: fakeCopy(copyCalls, { before: () => gate }) })
+    test.launch.set({ phase: 'running', installationId: test.installation.id, pid: 4242 })
 
     const before = await snapshotTree(installRoot)
     const started = await startRetailUpgrade(test.deps, {
@@ -277,41 +334,67 @@ describe('the retail upgrade job', () => {
       sourceRootPath: sourceRoot,
     })
 
-    expect(started).toEqual({
-      ok: false,
-      error: {
-        key: 'downloads.error.installationRunning',
-        params: { name: test.installation.name },
-      },
-    })
-    // A refusal, not a deferred write: no job to watch, nothing copied, nothing on disk touched.
-    expect(test.jobs.list()).toEqual([])
+    // There *is* a job now, where [[090]] answered a failed `Outcome` and created nothing.
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    const job = (): Job => test.jobs.list().find((entry) => entry.id === started.value.jobId)!
+    await waitFor(() => job().status === 'waiting', 'the job to enter the waiting state')
+
+    // AC1/AC2: it names the reason, and nothing has been written or even copied.
+    expect(job().waitingReason).toEqual({ key: 'jobs.waiting.gameRunning' })
+    expect(job().writeLock).not.toBe(true)
     expect(test.copyCalls).toEqual([])
     expect(test.validateCalls).toEqual([])
     expect(changedPaths(before, await snapshotTree(installRoot))).toEqual([])
+
+    // AC3: the game exits and the job resumes by itself - no user action anywhere in this test.
+    test.launch.set({ phase: 'exited', installationId: test.installation.id, exitCode: 0 })
+    await waitFor(() => test.copyCalls.length === 1, 'the copy to start once the game has exited')
+
+    // AC5: while it copies it holds the write lock, which is what disables Play on the renderer.
+    expect(job()).toMatchObject({ status: 'running', writeLock: true })
+    expect(job().waitingReason).toBeUndefined()
+
+    release()
+    await expect(started.value.settled).resolves.toMatchObject({ status: 'succeeded' })
+
+    // And it promoted exactly what it promotes without the guard - the retrofit changed when the
+    // copy happens, not what it does.
+    expect(changedPaths(before, await snapshotTree(installRoot))).toEqual([
+      'baseq2/pak0.pak',
+      'baseq2/pak1.pak',
+    ])
+    expect(job()).toMatchObject({ status: 'succeeded', writeLock: false })
   })
 
-  it('refuses before it even looks at the source while that installation is starting', async () => {
+  it('a game that is merely starting defers the write just as a running one does', async () => {
     const test = await harness()
-    test.deps.launch = {
-      getState: () => ({ phase: 'starting', installationId: test.installation.id }),
-    }
+    test.launch.set({ phase: 'starting', installationId: test.installation.id })
 
     const started = await startRetailUpgrade(test.deps, {
       installationId: test.installation.id,
       sourceRootPath: sourceRoot,
     })
 
-    expect(started.ok).toBe(false)
-    // AC7's guard runs *before* the source is re-listed - which is what makes it a refusal to
-    // start rather than a check somewhere inside the run.
-    expect(test.sourceListCalls.count).toBe(0)
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    await waitFor(
+      () => test.jobs.list()[0]?.status === 'waiting',
+      'the job to wait on the starting game',
+    )
+    expect(test.copyCalls).toEqual([])
+
+    // The source *was* re-listed on the way here: verification is a read, and reads are never
+    // gated (AC4) - only the write into the installation's own folder waits.
+    expect(test.sourceListCalls.count).toBe(1)
+
+    test.launch.set(IDLE_LAUNCH_STATE)
+    await expect(started.value.settled).resolves.toMatchObject({ status: 'succeeded' })
   })
 
   it('runs while a different installation is running', async () => {
-    const test = await harness({
-      launchState: { phase: 'running', installationId: 'some-other-installation' },
-    })
+    const test = await harness()
+    test.launch.set({ phase: 'running', installationId: 'some-other-installation' })
 
     const started = await startRetailUpgrade(test.deps, {
       installationId: test.installation.id,
@@ -529,6 +612,51 @@ describe('the retail upgrade job', () => {
     // folder that never changed.
     expect(changedPaths(before, await snapshotTree(installRoot))).toEqual([])
     expect(test.validateCalls).toEqual([])
+    expect(test.jobs.list()[0].status).toBe('cancelled')
+  })
+
+  /**
+   * Story 091 AC6, written as a deliberate structural sibling of the mid-copy cancel above: the
+   * same `jobs.cancel()`, the same `settled` outcome, the same three assertions about the disk and
+   * the job. That is the point - waiting is not a special case for cancel, so the test for it may
+   * not need a special case either.
+   *
+   * The two extra assertions at the end are the failure mode this deliverable exists to rule out: a
+   * cancel that only reached the checkpoints and not the guard's wait would leave the job parked in
+   * `runWrite` forever, and the *next* launch-state change would then start copying 197 MB into an
+   * installation whose job the user cancelled minutes ago.
+   */
+  it('cancelling while waiting runs the same cleanup as cancelling mid-copy', async () => {
+    const copyCalls: CopyCall[] = []
+    const test = await harness({ copyCalls })
+    test.launch.set({ phase: 'running', installationId: test.installation.id, pid: 4242 })
+    const before = await snapshotTree(installRoot)
+
+    const started = await startRetailUpgrade(test.deps, {
+      installationId: test.installation.id,
+      sourceRootPath: sourceRoot,
+    })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    await waitFor(() => test.jobs.list()[0]?.status === 'waiting', 'the job to enter waiting')
+
+    expect(test.jobs.cancel(started.value.jobId).ok).toBe(true)
+    await expect(started.value.settled).resolves.toEqual({ status: 'cancelled' })
+
+    expect(changedPaths(before, await snapshotTree(installRoot))).toEqual([])
+    expect(test.validateCalls).toEqual([])
+    expect(test.jobs.list()[0].status).toBe('cancelled')
+
+    // The staging directory is the one thing `changedPaths` cannot see (it compares files, and an
+    // abandoned staging root can be empty), so it is checked directly - this is exactly what the
+    // shared `finally` is for, and it ran even though the write never started.
+    const baseEntries = await readdir(join(installRoot, BASE_GAME_DIR))
+    expect(baseEntries.filter((name) => name.startsWith('.q2launcher-upgrade'))).toEqual([])
+
+    // And the cancelled job is really gone from the guard: the game exiting resumes nothing.
+    test.launch.set(IDLE_LAUNCH_STATE)
+    await new Promise((resolve) => setTimeout(resolve, 25))
+    expect(test.copyCalls).toEqual([])
     expect(test.jobs.list()[0].status).toBe('cancelled')
   })
 

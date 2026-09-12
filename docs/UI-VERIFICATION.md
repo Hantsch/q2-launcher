@@ -800,7 +800,10 @@ cause detail the Downloads tab mounts (AC4), driven by a REAL, deliberately brok
 rather than `dev:simulateJob` or hand-authored diagnostics; and (story 088 D6)
 **`bootstrap-retail-import`** — the wizard's *second* data source, copying the game data out of a
 detected Steam/GOG installation instead of downloading it. All four also have their own sections
-below.
+below. (Story 091 D8) **`job-waits-for-running-game`** — `InstallationWriteGuard`'s own end-to-end
+proof: a write into a running installation waits instead of writing, names why on both the
+Downloads tab and the action bar, resumes on its own once the game exits, cancels clean, and a job
+holding the write lock disables Play and makes `launch:start` refuse — its own section below.
 
 Story 079 D3 adds two flows proving every content mutation now cascades to every one of Plain
 Profile's assigned installations, not just its own canonical file — the fixture gave Plain Profile a
@@ -1180,6 +1183,45 @@ verified (Steam) source; the Demo badge and the trigger vanish from all three su
 (AC5); and on disk, `baseq2` holds exactly `pak0.pak`/`pak1.pak`/the marker file — sized to
 `RETAIL_PAK_SIZES`, no `pak2.pak`, and the marker file's bytes byte-identical to what they were
 before the job ran (AC4).
+
+## The offline write-guard flow (`job-waits-for-running-game`)
+
+`npm run ui:flow -- job-waits-for-running-game` is story 091 D8's own offline acceptance proof for
+`InstallationWriteGuard` — "a job that would write into a running installation's folder waits
+instead, names why, resumes on its own once the game exits, cancels clean, and a job holding the
+write lock disables Play and makes `launch:start` refuse." It reuses `retail-upgrade.mjs`'s fixture
+demo installation (`INSTALL_DEMO_UPGRADE_ID`) and its `Q2L_UI_HARNESS_STORE_SOURCES` setup verbatim
+— see that flow's own section above for the fuller writeup of the fixture and the override — but
+this flow's own assertions are the guard's, not the upgrade job's: 090's flow already proves the
+upgrade job waits instead of refusing (091 Decisions), while this one proves the waiting reason on
+both surfaces, the resume-on-exit, the cancel cleanup and the independent write-lock/launch-refusal
+path (AC1, AC2, AC3, AC5, AC6).
+
+Three passes, in one app session, and in this order because the first two share one demo
+installation's pak0.pak and the third depends on neither:
+
+1. **AC1/AC2/AC6** — `dev:simulateLaunch('running')`, then start the retail upgrade from the
+   library card. The job enters `waiting`; the flow asserts pak0.pak is untouched, then asserts the
+   waiting reason (`jobs.waiting.gameRunning`, "Waiting for the game to close") renders on both the
+   action bar's `JobReadout` and — after dismissing the dialog and opening the Downloads tab — the
+   real job row's own `downloads-job-waiting-<id>` testid. It then cancels the job from that row's
+   own `downloads-job-cancel-<id>` button and asserts pak0.pak/pak1.pak are unchanged, the directory
+   listing is byte-for-byte what it was before, and no `.q2launcher-upgrade-<jobId>` staging
+   directory survives — this pass has to run before the successful pass below, since a successful
+   upgrade permanently consumes the pristine demo-sized pak0.pak this pass depends on.
+2. **AC3** — starts the upgrade again while still running, confirms it enters `waiting` a second
+   time, then flips `dev:simulateLaunch` to `'idle'` with **no further UI interaction**. The job
+   resumes and finishes on its own; the flow waits for `bootstrap-running-step[data-status=
+   "succeeded"]` and asserts pak0.pak/pak1.pak are now retail-sized, the marker file and file
+   listing are otherwise as `retail-upgrade.mjs`'s own AC4 check expects.
+3. **AC5** — independent of the upgrade job: D7's `dev:simulateJob({ scenario: 'writing',
+   installationId })` takes the real write lock on the same (now already-upgraded) installation.
+   The flow asserts `actionbar-play` is `disabled`, then calls `window.q2.invoke('launch:start', {
+   installationId })` directly and asserts the response refuses with `launch.error.
+   installationBusy` — asserted against the real IPC outcome rather than through a click, since a
+   disabled `<button>` never dispatches one; the main process is the authoritative refusal surface
+   regardless (091 Decisions: "the authoritative refusal is never derived from renderer-visible
+   data"). It cancels the dev-only job afterwards so the write lock does not outlive the run.
 
 ## Baselines and CI
 

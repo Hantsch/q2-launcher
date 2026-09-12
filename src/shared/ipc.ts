@@ -127,8 +127,19 @@ export interface IpcInvokeMap {
    * - `stall`: progresses to ~40% then holds there, running, forever - the
    *   Downloads tab's "a job in progress" fixture.
    * - `failure`: finishes `failed` immediately with a real, i18n'd `error.key`.
+   * - `writing` (story 091 D7): creates a job that acquires the **real**
+   *   `InstallationWriteGuard` lock for `installationId` and holds it until the
+   *   job is cancelled - the only honest way for an offline e2e flow to exercise
+   *   AC5's launch refusal (`launch.error.installationBusy`) without a real,
+   *   slow write. Same affordance class as `dev:simulateLaunch`, behind the same
+   *   dev-only allowlist.
    */
-  'dev:simulateJob': { req: { scenario: 'success' | 'stall' | 'failure' }; res: Outcome<null> }
+  'dev:simulateJob': {
+    req:
+      | { scenario: 'success' | 'stall' | 'failure' }
+      | { scenario: 'writing'; installationId: string }
+    res: Outcome<null>
+  }
   /**
    * Story 090 D5: drives one installation into `running`/`idle` through a real
    * IPC surface, and broadcasts `launch:state` exactly as a real launch/exit

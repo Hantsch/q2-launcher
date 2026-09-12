@@ -195,10 +195,17 @@ export const moduleInvokeSchema: z.ZodType<IpcInvokeMap['module:invoke']['req']>
 
 // ---- development only (registered only when `is.dev`) --------------------------------
 
-/** Story 073 D5: an unknown scenario string must be rejected here, not coerced. */
-export const devSimulateJobSchema: z.ZodType<IpcInvokeMap['dev:simulateJob']['req']> = z.object({
-  scenario: z.enum(['success', 'stall', 'failure']),
-})
+/**
+ * Story 073 D5: an unknown scenario string must be rejected here, not coerced.
+ * Story 091 D7: the `'writing'` scenario needs a real installation id to take the
+ * write lock on - a discriminated union so the other three scenarios keep taking
+ * no `installationId` at all, matching every existing caller.
+ */
+export const devSimulateJobSchema: z.ZodType<IpcInvokeMap['dev:simulateJob']['req']> =
+  z.discriminatedUnion('scenario', [
+    z.object({ scenario: z.enum(['success', 'stall', 'failure']) }),
+    z.object({ scenario: z.literal('writing'), installationId: z.string().min(1) }),
+  ])
 
 /** Story 090 D5: `dev:simulateLaunch`'s payload - a real installation id and a target phase. */
 export const devSimulateLaunchSchema: z.ZodType<IpcInvokeMap['dev:simulateLaunch']['req']> =

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { Job } from '@shared/types'
+import { countActiveJobs, isJobActive, type Job } from '@shared/types'
 import { JobsService } from './jobs'
 
 /**
@@ -133,6 +133,65 @@ describe('JobsService.markPlayable', () => {
     const { jobs, broadcast } = service()
 
     jobs.markPlayable('nope', 0.9)
+
+    expect(jobs.list()).toEqual([])
+    expect(broadcast).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * Story 091 D1: the write guard needs a `'waiting'` status that (a) names why the job is
+ * deferred and (b) still counts as active, plus the inverse transition back to `'running'`
+ * once the guard hands the job the write lock. The assertions below are exactly those two
+ * contracts - `isJobActive`/`countActiveJobs` are exercised on the real `Job` shape rather than
+ * a hand-rolled one, so a regression here would also be caught by the guard's own tests.
+ */
+describe('JobsService.setWaiting / setWriteLock', () => {
+  it('a waiting job names its reason and still counts as active', () => {
+    const { jobs, broadcast } = service()
+    const id = create(jobs)
+
+    jobs.setWaiting(id, { key: 'jobs.waiting.gameRunning' })
+
+    const job = jobs.list()[0]!
+    expect(job.status).toBe('waiting')
+    expect(job.waitingReason).toEqual({ key: 'jobs.waiting.gameRunning' })
+    expect(broadcast).toHaveBeenCalledTimes(2)
+    expect(isJobActive(job)).toBe(true)
+    expect(countActiveJobs(jobs.list(), 'downloads')).toBe(1)
+  })
+
+  it('setWriteLock(id, true) clears the reason and restores status to running', () => {
+    const { jobs } = service()
+    const id = create(jobs)
+    jobs.setWaiting(id, { key: 'jobs.waiting.gameRunning' })
+
+    jobs.setWriteLock(id, true)
+
+    const job = jobs.list()[0]!
+    expect(job.status).toBe('running')
+    expect(job.waitingReason).toBeUndefined()
+    expect(job.writeLock).toBe(true)
+  })
+
+  it('setWriteLock(id, false) only clears the lock flag, leaving status untouched', () => {
+    const { jobs } = service()
+    const id = create(jobs)
+    jobs.setWriteLock(id, true)
+    jobs.finish(id, { status: 'succeeded' })
+
+    jobs.setWriteLock(id, false)
+
+    const job = jobs.list()[0]!
+    expect(job.writeLock).toBe(false)
+    expect(job.status).toBe('succeeded')
+  })
+
+  it('an unknown job id changes nothing and broadcasts nothing', () => {
+    const { jobs, broadcast } = service()
+
+    jobs.setWaiting('nope', { key: 'jobs.waiting.gameRunning' })
+    jobs.setWriteLock('nope', true)
 
     expect(jobs.list()).toEqual([])
     expect(broadcast).not.toHaveBeenCalled()

@@ -190,6 +190,7 @@
       "update": "Update",
       "repair": "Repair",
       "running": "Running",
+      "writeLocked": "Writing\u2026",
       "locate": "Locate folder\u2026",
       "revalidate": "Check again",
       "reveal": "Open folder",
@@ -2035,6 +2036,7 @@
       "noExecutable": "No executable is set for \u201c{{name}}\u201d.",
       "executableMissing": "The executable is missing: {{path}}",
       "alreadyRunning": "Quake II is already running.",
+      "installationBusy": "A job is writing files for this installation. It can be started once that job has finished.",
       "spawnFailed": "The game could not be started: {{path}}",
       "processError": "The game process reported an error: {{message}}"
     }
@@ -2042,10 +2044,12 @@
 
   "jobs": {
     "simulatedDownload": "Simulated download (development)",
+    "simulatedWrite": "Simulated installation write (development)",
     "status": {
       "queued": "Queued",
       "running": "Running",
       "paused": "Paused",
+      "waiting": "Waiting",
       "succeeded": "Done",
       "failed": "Failed",
       "cancelled": "Cancelled"
@@ -2053,6 +2057,9 @@
     "error": {
       "notFound": "That job has already finished.",
       "notCancellable": "This job cannot be cancelled."
+    },
+    "waiting": {
+      "gameRunning": "Waiting for the game to close"
     }
   },
 
@@ -2090,7 +2097,6 @@
       "bootstrapTargetBlocked": "That folder cannot be used for a new installation.",
       "retailSourceUnverified": "That Quake II installation could not be verified as a retail copy right now. Pick it again from the detected installations, or download the free data instead.",
       "gameDataSourceUnusable": "That folder could not be used for game data right now. Pick it again, or download the free data instead.",
-      "installationRunning": "“{{name}}” is running right now. Quit the game first, then import the retail data.",
       "unknown": "The download failed for an unknown reason."
     },
     "failures": {

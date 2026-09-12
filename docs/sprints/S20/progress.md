@@ -1,0 +1,16 @@
+- 2026-09-12 09:41 · 091 · D1 job model learns to wait · started
+- 2026-09-12 09:44 · 091 · D1 job model learns to wait · done
+- 2026-09-12 09:44 · 091 · D2 InstallationWriteGuard + launch refusal · started
+- 2026-09-12 09:53 · 091 · D2 InstallationWriteGuard + launch refusal · done
+- 2026-09-12 09:53 · 091 · D3 waiting state is visible · started
+- 2026-09-12 09:57 · 091 · D3 waiting state is visible · done
+- 2026-09-12 09:57 · 091 · D4 retail-upgrade job waits · started
+- 2026-09-12 10:08 · 091 · D4 retail-upgrade job waits · done
+- 2026-09-12 10:08 · 091 · D5 triggers stop being disabled · started
+- 2026-09-12 10:12 · 091 · D5 triggers stop being disabled · done
+- 2026-09-12 10:12 · 091 · D6 bootstrap assemble passes ride the guard · started
+- 2026-09-12 10:16 · 091 · D6 bootstrap assemble passes ride the guard · done
+- 2026-09-12 10:16 · 091 · D7 dev-only writing job · started
+- 2026-09-12 10:20 · 091 · D7 dev-only writing job · done
+- 2026-09-12 10:20 · 091 · D8 offline end-to-end proof · started
+- 2026-09-12 10:27 · 091 · D8 offline end-to-end proof · done

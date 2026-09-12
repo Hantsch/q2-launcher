@@ -11,6 +11,7 @@ import { InstallationsService } from './services/installations'
 import { JobsService } from './services/jobs'
 import { LaunchService } from './services/launch'
 import { StateStore } from './services/state'
+import { InstallationWriteGuard } from './services/write-guard'
 
 const log = scopedLogger('context')
 
@@ -31,6 +32,8 @@ export interface AppContext {
   detection: DetectionService
   launch: LaunchService
   jobs: JobsService
+  /** Story 091: every job's write phase into an installation folder goes through this. */
+  writeGuard: InstallationWriteGuard
   modules: MainModuleRegistry
   broadcast: Broadcaster
   /** Story 066 D4: the config-file picker modules reach through `ModuleSetup.app`, never `dialog` directly. */
@@ -68,12 +71,21 @@ export async function createAppContext(options: {
     isRegistered: (key) => installations.isRegistered(key),
   })
 
+  // Story 091 D2: the guard is built *from* `launch` and asked *by* it, so the two
+  // cannot both be constructor arguments. `launch` gets a getter over this
+  // binding - the same late-binding shape `getMainWindow` uses above - which is
+  // resolved long before any launch can happen.
+  let writeGuard: InstallationWriteGuard | null = null
+
   const launch = new LaunchService({
     installations,
     onStateChange: (launchState) => broadcast.emit('launch:state', launchState),
+    getWriteGuard: () => writeGuard,
   })
 
   const jobs = new JobsService((list) => broadcast.emit('jobs:changed', list))
+
+  writeGuard = new InstallationWriteGuard({ launch, jobs })
 
   const dialog = new DialogService({
     getMainWindow: options.getMainWindow,
@@ -88,6 +100,7 @@ export async function createAppContext(options: {
     detection,
     launch,
     jobs,
+    writeGuard,
     modules: new MainModuleRegistry(),
     broadcast,
     dialog,

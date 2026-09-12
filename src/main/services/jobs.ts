@@ -122,6 +122,42 @@ export class JobsService {
     this.emit()
   }
 
+  /**
+   * Story 091 D1: puts a job into `'waiting'` and records why, for the write
+   * guard to use while a job's write phase is deferred behind a running game.
+   *
+   * Mirrors `markPlayable()`'s shape: a targeted read-modify-write on one job,
+   * followed by the one `emit()` every mutator ends with.
+   */
+  setWaiting(id: string, reason: NonNullable<Job['waitingReason']>): void {
+    const job = this.jobs.get(id)
+    if (!job) return
+    this.jobs.set(id, { ...job, status: 'waiting', waitingReason: reason })
+    this.emit()
+  }
+
+  /**
+   * Story 091 D1: records whether this job currently holds the installation
+   * write lock.
+   *
+   * `holding: true` is the transition out of `'waiting'` - the guard just
+   * handed the job the lock, so its reason no longer applies and it resumes as
+   * `'running'`. `holding: false` is just the lock release; the job's own
+   * terminal status (succeeded/failed/cancelled) is set separately by
+   * `finish()`, so status is left untouched here.
+   */
+  setWriteLock(id: string, holding: boolean): void {
+    const job = this.jobs.get(id)
+    if (!job) return
+    if (holding) {
+      const { waitingReason: _waitingReason, ...rest } = job
+      this.jobs.set(id, { ...rest, writeLock: true, status: 'running' })
+    } else {
+      this.jobs.set(id, { ...job, writeLock: false })
+    }
+    this.emit()
+  }
+
   finish(
     id: string,
     outcome: { status: 'succeeded' | 'failed' | 'cancelled'; error?: Job['error'] },

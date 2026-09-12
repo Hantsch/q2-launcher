@@ -43,12 +43,6 @@ export function ActionBar() {
   const runFix = useFixAction()
 
   const action = resolvePrimaryAction(installation, job, launch)
-  // Story 090 D4: same running gate as `resolvePrimaryAction`'s `running` check below, reused
-  // here rather than exposed from that function so the trigger's condition is visibly identical.
-  const isRunning =
-    !!installation &&
-    launch.installationId === installation.id &&
-    (launch.phase === 'running' || launch.phase === 'starting')
 
   const onPrimary = (): void => {
     if (!installation) return
@@ -134,13 +128,14 @@ export function ActionBar() {
       {/* --- the button --- */}
       <div className="flex shrink-0 flex-col items-end gap-1.5">
         <div className="flex items-center gap-2">
-          {/* Story 090 D4: only offered on a demo installation, disabled while it is running -
-              same refusal-not-deferred-write gate as `isRunning` above. */}
+          {/* Story 090 D4: only offered on a demo installation.
+              Story 091 D5: no longer disabled while it is running - the job now waits instead of
+              refusing (091 Decisions: "[[090]]'s refusal is replaced by a wait, including on the
+              renderer"). */}
           {installation && isDemoData(installation.checks) && (
             <IconButton
               label={t('installation.action.importRetail')}
               size="sm"
-              disabled={isRunning}
               onClick={() =>
                 openDialog({
                   kind: 'module',
@@ -217,24 +212,36 @@ function GameDirSelect({
 function JobReadout({ job, onCancel }: { job: Job; onCancel: () => void }) {
   const { t } = useTranslation()
   const { ratio, bytesDone, bytesTotal, bytesPerSecond, filesRemaining, etaSeconds } = job.progress
+  const waiting = job.status === 'waiting'
 
   return (
     <>
       <div className="flex items-baseline justify-between gap-3">
         <div className="numeric flex items-baseline gap-3 text-[11px] tracking-wide text-ink-dim uppercase">
-          {ratio !== null && <span className="text-flame-300">{formatPercent(ratio)}</span>}
-          <span>
-            {t('actionbar.downloading', {
-              done: bytesTotal
-                ? `${formatBytes(bytesDone)} / ${formatBytes(bytesTotal)}`
-                : formatBytes(bytesDone),
-            })}
-          </span>
-          {bytesPerSecond !== undefined && <span>{formatSpeed(bytesPerSecond)}</span>}
-          {filesRemaining !== undefined && (
-            <span className="hidden xl:inline">
-              {t('actionbar.filesRemaining', { count: filesRemaining })}
+          {/* Story 091 D3 (AC2): a waiting job names its reason (mirrors `RunningStep.tsx`'s
+              `job.error` rendering) instead of reusing the download readout, which would read as
+              a generic "queued" state. */}
+          {waiting && job.waitingReason ? (
+            <span className="text-warning normal-case">
+              {t(job.waitingReason.key, job.waitingReason.params ?? {})}
             </span>
+          ) : (
+            <>
+              {ratio !== null && <span className="text-flame-300">{formatPercent(ratio)}</span>}
+              <span>
+                {t('actionbar.downloading', {
+                  done: bytesTotal
+                    ? `${formatBytes(bytesDone)} / ${formatBytes(bytesTotal)}`
+                    : formatBytes(bytesDone),
+                })}
+              </span>
+              {bytesPerSecond !== undefined && <span>{formatSpeed(bytesPerSecond)}</span>}
+              {filesRemaining !== undefined && (
+                <span className="hidden xl:inline">
+                  {t('actionbar.filesRemaining', { count: filesRemaining })}
+                </span>
+              )}
+            </>
           )}
         </div>
 
@@ -350,6 +357,17 @@ function resolvePrimaryAction(
     return {
       kind: 'busy',
       labelKey: 'installation.action.running',
+      tone: 'neutral',
+      disabled: true,
+    }
+  }
+
+  if (job?.writeLock) {
+    // Story 091 D3 (AC5): while a job holds the write lock on this installation, its files are
+    // being written to directly - even past a PLAYABLE mark, launching now would race the write.
+    return {
+      kind: 'busy',
+      labelKey: 'installation.action.writeLocked',
       tone: 'neutral',
       disabled: true,
     }

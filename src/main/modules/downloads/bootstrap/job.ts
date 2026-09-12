@@ -33,6 +33,7 @@ import {
 } from '@shared/types'
 import { canonicalizePath } from '../../../lib/fs-utils'
 import type { CreateJobInput } from '../../../services/jobs'
+import { isWriteCancelled } from '../../../services/write-guard'
 import { EXTRACTION_LISTING_CAP } from '../diagnostics'
 import { markVerified, type ExtractorHandle } from '../extractor'
 import type { FetchImpl } from '../fetcher'
@@ -362,9 +363,33 @@ export interface BootstrapInstallationsHost {
   setLastFailure(id: string, failure: InstallationLastFailure | null): Outcome<Installation>
 }
 
+/**
+ * Story 091 D6: the `InstallationWriteGuard` surface this job uses - `runWrite` only, mirroring
+ * `RetailUpgradeWriteGuardHost` (`retail/upgrade-job.ts`). `InstallationWriteGuard` satisfies it
+ * structurally, so this job cannot reach past the one seam into `isBlockedFor`/`isWriting` and
+ * decide for itself whether to wait: that decision, the `'waiting'` status and the write lock all
+ * belong to the guard.
+ */
+export interface BootstrapWriteGuardHost {
+  runWrite(
+    installationId: string,
+    jobId: string,
+    signal: AbortSignal,
+    fn: () => Promise<void>,
+  ): Promise<void>
+}
+
 export interface BootstrapDeps {
   jobs: BootstrapJobsHost
   installations: BootstrapInstallationsHost
+  /**
+   * Story 091 D6: the shell's `InstallationWriteGuard`, wrapped around the two `assembleInstallation`
+   * passes (steps 6 and 8) and only those - step 5's download/extract loop stays outside it (AC4).
+   * Required, like `retailSources` below and for the same reason: a wiring that forgot it would copy
+   * game files over a live game's own folder, so its absence has to be a compile error rather than an
+   * ungated run.
+   */
+  writeGuard: BootstrapWriteGuardHost
   manifest: ManifestSource
   /**
    * Story 088 D4: main's own, freshly computed list of detected retail sources -
@@ -1393,21 +1418,31 @@ export async function startBootstrap(
     // 6. Assemble core - the engine payload and the baseq2 paks, allowlisted by 074 D3 and
     // corrected against the real archives by 076 D1. Declared outside the `try` only so its
     // `missingRequired` can be read below; a *thrown* assemble is still the local failure it was.
-    let core: AssembleInstallationResult
+    // Story 091 D6: the write into the installation's own folder, gated on the guard - deferred for
+    // as long as this installation's own game is running (AC4). `core` escapes the closure the same
+    // way `retail/upgrade-job.ts`'s `writePhase` array does: `runWrite` answers `void`, and
+    // TypeScript's flow analysis does not follow an assignment made inside the callback.
+    let core: AssembleInstallationResult | undefined
     try {
-      core = await assembleInstallation({
-        sources,
-        targetRoot,
-        engine: input.engine,
-        includeVideoAndPlayers: false,
-        dataSource,
-        ...(folderPakNames ? { folderPakNames } : {}),
+      await deps.writeGuard.runWrite(installation.id, jobId, controller.signal, async () => {
+        core = await assembleInstallation({
+          sources,
+          targetRoot,
+          engine: input.engine,
+          includeVideoAndPlayers: false,
+          dataSource,
+          ...(folderPakNames ? { folderPakNames } : {}),
+        })
+        for (const file of core.copiedFiles) copied.add(file)
+        recordAssembly(core.entries)
       })
-      for (const file of core.copiedFiles) copied.add(file)
-      recordAssembly(core.entries)
     } catch (error) {
+      // AC6: a cancel that arrives while the write is still deferred rejects `runWrite` the same
+      // way a cancel mid-assemble would - the same exit as every other cancel checkpoint here.
+      if (isWriteCancelled(error) || cancelled) return cancelledOutcome()
       return failed(LOCAL_FAILURE, `assembling ${targetRoot} failed: ${String(error)}`)
     }
+    if (!core) return failed(LOCAL_FAILURE, `assembling ${targetRoot} produced no result`)
 
     if (cancelled) return cancelledOutcome()
     report({ ratio: ASSEMBLE_CORE_RATIO, bytesDone: totalBytes, bytesTotal: totalBytes })
@@ -1520,18 +1555,22 @@ export async function startBootstrap(
     // 8. The optional extras, only now - after the installation is already playable.
     if (includeVideoAndPlayers) {
       if (cancelled) return cancelledOutcome()
+      // Story 091 D6: the second write, gated the same way as step 6's.
       try {
-        const auxiliary = await assembleInstallation({
-          sources,
-          targetRoot,
-          engine: input.engine,
-          includeVideoAndPlayers: true,
-          dataSource,
-          ...(folderPakNames ? { folderPakNames } : {}),
+        await deps.writeGuard.runWrite(installation.id, jobId, controller.signal, async () => {
+          const auxiliary = await assembleInstallation({
+            sources,
+            targetRoot,
+            engine: input.engine,
+            includeVideoAndPlayers: true,
+            dataSource,
+            ...(folderPakNames ? { folderPakNames } : {}),
+          })
+          for (const file of auxiliary.copiedFiles) copied.add(file)
+          recordAssembly(auxiliary.entries)
         })
-        for (const file of auxiliary.copiedFiles) copied.add(file)
-        recordAssembly(auxiliary.entries)
       } catch (error) {
+        if (isWriteCancelled(error) || cancelled) return cancelledOutcome()
         return failed(
           LOCAL_FAILURE,
           `assembling the extras into ${targetRoot} failed: ${String(error)}`,

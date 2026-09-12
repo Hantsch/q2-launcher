@@ -14,7 +14,9 @@ import { FailureLogEntry } from './components/FailureLogEntry'
  * (Decisions (Sprint): "a `succeeded` job stays visible ~2 s with a token-based fade"). */
 const SUCCESS_FADE_MS = 2000
 
-const LIVE_STATUSES = new Set<Job['status']>(['queued', 'running', 'paused'])
+// Story 091 D3: `waiting` is an active status (deferred behind the write guard, resumes on its
+// own) - it belongs in the live list alongside `queued`/`running`/`paused`, not the failure log.
+const LIVE_STATUSES = new Set<Job['status']>(['queued', 'running', 'paused', 'waiting'])
 
 /**
  * Story 073 D3: the Downloads tab - the real view that replaces `PlannedModuleView` for the
