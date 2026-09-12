@@ -2,12 +2,15 @@
 
 ## Where we stand
 
-*As of 2026-09-12.* Config (Phase 2) and Phase 3 (home screen) are done. **[S19 review](../sprints/done/S19/review.md)
-is done**: retail import from a detected store installation or an existing folder (088–089), plus
-the demo-to-retail upgrade action (090) — all on real, non-demo installations proven end to end.
-**[S20](../sprints/S20/sprint.md) is planned**: it closes out Phase 4 M1 — a job-writes-wait-for-a-
-running-game guard (091, also retrofitted onto 090's gap), engine update/rollback (092), repair
-(093) and removal from disk (094). Next step: the user starts `/sprint S20`.
+*As of 2026-09-12.* Config (Phase 2) and Phase 3 (home screen) are done. **[S20 review](../sprints/S20/review.md)
+is done, closing Phase 4 M1** — the last install-module milestone: a job-writes-wait-for-a-running-
+game guard (091, retrofitted onto 090's gap too), engine update/rollback (092), repair (093) and
+removal from disk (094), all proven on the real surface with no manual residue. Phases 1–4 are now
+all done. Next up: pick the next milestone — Phase 5 (mods) or Phase 6 (assets) — with
+`/roadmap plan`. One item needs the user's call first: a build agent in S20 created an unrelated,
+fully-refined story (`docs/requirements/095-a-news-entry-starts-from-a-template.md`) outside its
+assigned scope — see [S20 review](../sprints/S20/review.md)'s Findings for what to do with it.
+Merging `sprint/S20` into `dev` is also the user's decision.
 
 ## Phase overview
 
@@ -16,17 +19,17 @@ running-game guard (091, also retrofitted onto 090's gap), engine update/rollbac
 | 1 — Shell | 1/1 | done |
 | 2 — Config module (r1q2 settings & cvars, full lifecycle) | 5/5 | done |
 | 3 — Home screen (news hero + dashboard) | 2/2 | done |
-| 4 — Install (download/update/repair) | 0/1 | in progress, S20 planned |
+| 4 — Install (download/update/repair) | 1/1 | done |
 | 5 — Mods (game directories) | 0/1 | not started |
 | 6 — Assets (texture/model/sound packs) | 0/1 | not started |
 
 ## Current phase
 
-**Phase 4 — Install (download/update/repair)**, one milestone, in progress since S16.
+**Phase 4 — Install (download/update/repair)**, one milestone, done S16–S20.
 
 | # | Milestone | Status | Sprint(s) | Note |
 | --- | --- | --- | --- | --- |
-| 4.1 | Install — bootstrap, update and repair ([concepts/install-module.md](concepts/install-module.md)) | planned | [S16 review](../sprints/done/S16/review.md), [S17 review](../sprints/done/S17/review.md), [S18 review](../sprints/done/S18/review.md), [S19 review](../sprints/done/S19/review.md), [S20](../sprints/S20/sprint.md) | Q2PRO and R1Q2 bootstraps ship (story 080); S19 shipped retail import + demo upgrade (088–090); S20 closes update/rollback, repair and removal from disk (091–094). |
+| 4.1 | Install — bootstrap, update and repair ([systems/install-module.md](systems/install-module.md)) | done 2026-09-12 | [S16 review](../sprints/done/S16/review.md), [S17 review](../sprints/done/S17/review.md), [S18 review](../sprints/done/S18/review.md), [S19 review](../sprints/done/S19/review.md), [S20 review](../sprints/S20/review.md) | S20 closed the milestone: write-guard, engine update/rollback, repair and removal from disk (091–094). |
 
 ## Open / unprioritised
 
@@ -38,6 +41,13 @@ running-game guard (091, also retrofitted onto 090's gap), engine update/rollbac
 
 ## Follow-ups worth doing
 
+- A mid-copy `PACKAGE_INCOMPLETE` failure can leave an installation's status stale until the next
+  revalidation — a pattern shared by `retail/upgrade-job.ts` (090) and `repair/job.ts` (093); worth
+  a fix once a job triggers it in practice. [S20 review](../sprints/S20/review.md)
+- 093's `reinstall-engine` repair gates on the manifest being able to supply the installation's
+  recorded engine, slightly stricter than the plan's offer gate — latent today since the shipped
+  manifest only pins the two engines both paths already require; worth re-checking once a third
+  engine is added. [S20 review](../sprints/S20/review.md)
 - `bootstrap/job.ts`'s toggle-on extras pass re-copies the whole assemble plan a second time when
   `includeVideoAndPlayers` is set (pre-existing since story 074, confirmed still present by 088 and
   090) — worth a fix once that toggle sees more use. [S19 review](../sprints/done/S19/review.md)
@@ -87,3 +97,5 @@ running-game guard (091, also retrofitted onto 090's gap), engine update/rollbac
 | Install — real-run gaps: allowlist, failed-install persistence, failure cause | S17 | 2026-09-09 |
 | Home screen — news hero | S18 | 2026-09-11 |
 | Home screen — dashboard | S18 | 2026-09-11 |
+| Install — retail import, demo upgrade | S19 | 2026-09-11 |
+| Install — write-guard, engine update/rollback, repair, removal from disk | S20 | 2026-09-12 |

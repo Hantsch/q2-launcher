@@ -1,6 +1,6 @@
 ---
 sprint: S20
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/S20
 milestone: 4.1 — Install, bootstrap, update and repair
 ---

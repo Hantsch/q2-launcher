@@ -1,13 +1,19 @@
 # Install — Bootstrap, Update and Repair — Concept
 
-Status: **Draft** (vision + requirements, no stories yet). This document fixes what the `downloads`
-module becomes: a wizard that turns nothing into a playable Quake II installation, an engine
-manager that installs, updates and rolls back r1q2 and Q2PRO, and the repair path that finally
-redeems the `install-game-files` fix reserved in the installation model. It also fixes the
-**curated manifest** in the public `Hantsch/q2_community_content` repository that supplies every
-download URL, size and hash — because the research behind this concept found that r1q2's official
-distribution no longer exists and Q2PRO's has moved. Everything here comes from the requirements
-interview of 2026-09-08 plus URL-level research done the same day; nothing was inferred.
+Status: **Implemented.** v1 shipped across [S16](../sprints/done/S16/review.md) (bootstrap to a
+playable Q2PRO demo), [S17](../sprints/done/S17/review.md) (real-run gaps), [S19](../sprints/done/S19/review.md)
+(retail import + demo-to-retail upgrade, stories 088–090) and [S20](../sprints/S20/review.md)
+(the write-guard, engine update/rollback, repair and removal from disk, stories 091–094), closing
+Phase 4 milestone 1. This document now describes the system as built, not a plan; the `downloads`
+module is a wizard that turns nothing into a playable Quake II installation, an engine manager that
+installs, updates and rolls back r1q2 and Q2PRO, and the repair path that redeems the
+`install-game-files` fix reserved in the installation model. It also fixes the **curated manifest**
+in the public `Hantsch/q2_community_content` repository that supplies every download URL, size and
+hash — because the research behind this concept found that r1q2's official distribution no longer
+exists and Q2PRO's has moved. Everything here comes from the requirements interview of 2026-09-08
+plus URL-level research done the same day; nothing was inferred. Follow-on work beyond this
+original v1 scope (the open points in §15, e.g. anticheat, a wider engine roster) is tracked as its
+own story, not an edit to this document.
 
 This document follows the architecture rules in [CLAUDE.md](../../CLAUDE.md): a feature is a module
 (here: the already-declared `downloads` module), the IPC contract is written first, every
