@@ -2,18 +2,12 @@
 
 ## Where we stand
 
-*As of 2026-09-11.* Config (Phase 2) and Phase 3 (home screen) are done — **[S18](../sprints/S18/review.md)
-shipped both its milestones**: a live community news hero (081–085) over a user-arranged dashboard
-with its first two real tiles (086–087). The same sprint also carried Phase 4's install module
-forward with R1Q2 as a second installable engine (story 080), alongside Q2PRO's existing bootstrap.
-Story 079 (a save reaches every installation, and Care sees drift) finished on `dev` outside a
-sprint, before S18 branched. **[S19](../sprints/S19/review.md) is done**: retail import from a
-detected store installation or an existing folder (088–089), plus the demo-to-retail upgrade action
-(090) — the wizard's remaining two data sources and the loop story 074 left open, all on real,
-non-demo installations proven end to end. Next step: update/rollback, repair and removal from disk
-are still open in Phase 4 M1 (deliberately deferred, not blocked); the user decides whether/when to
-merge `sprint/18` and `sprint/19` into `dev`, then whether to cut the next sprint from that remaining
-scope.
+*As of 2026-09-12.* Config (Phase 2) and Phase 3 (home screen) are done. **[S19 review](../sprints/done/S19/review.md)
+is done**: retail import from a detected store installation or an existing folder (088–089), plus
+the demo-to-retail upgrade action (090) — all on real, non-demo installations proven end to end.
+**[S20](../sprints/S20/sprint.md) is planned**: it closes out Phase 4 M1 — a job-writes-wait-for-a-
+running-game guard (091, also retrofitted onto 090's gap), engine update/rollback (092), repair
+(093) and removal from disk (094). Next step: the user starts `/sprint S20`.
 
 ## Phase overview
 
@@ -22,7 +16,7 @@ scope.
 | 1 — Shell | 1/1 | done |
 | 2 — Config module (r1q2 settings & cvars, full lifecycle) | 5/5 | done |
 | 3 — Home screen (news hero + dashboard) | 2/2 | done |
-| 4 — Install (download/update/repair) | 0/1 | in progress |
+| 4 — Install (download/update/repair) | 0/1 | in progress, S20 planned |
 | 5 — Mods (game directories) | 0/1 | not started |
 | 6 — Assets (texture/model/sound packs) | 0/1 | not started |
 
@@ -32,7 +26,7 @@ scope.
 
 | # | Milestone | Status | Sprint(s) | Note |
 | --- | --- | --- | --- | --- |
-| 4.1 | Install — bootstrap, update and repair ([concepts/install-module.md](concepts/install-module.md)) | in progress | [S16 review](../sprints/done/S16/review.md), [S17 review](../sprints/done/S17/review.md), [S18 review](../sprints/S18/review.md), [S19 review](../sprints/S19/review.md) | Q2PRO and R1Q2 bootstraps ship (story 080); S19 shipped retail import + demo upgrade (088–090); update/rollback, repair and removal from disk still follow. |
+| 4.1 | Install — bootstrap, update and repair ([concepts/install-module.md](concepts/install-module.md)) | planned | [S16 review](../sprints/done/S16/review.md), [S17 review](../sprints/done/S17/review.md), [S18 review](../sprints/done/S18/review.md), [S19 review](../sprints/done/S19/review.md), [S20](../sprints/S20/sprint.md) | Q2PRO and R1Q2 bootstraps ship (story 080); S19 shipped retail import + demo upgrade (088–090); S20 closes update/rollback, repair and removal from disk (091–094). |
 
 ## Open / unprioritised
 
@@ -46,17 +40,14 @@ scope.
 
 - `bootstrap/job.ts`'s toggle-on extras pass re-copies the whole assemble plan a second time when
   `includeVideoAndPlayers` is set (pre-existing since story 074, confirmed still present by 088 and
-  090) — worth a fix once that toggle sees more use. [S19 review](../sprints/S19/review.md)
-- No guard stops a game from being launched while a retail-upgrade job (090) is copying into its own
-  installation folder — needs INST-J7's wait-then-continue machinery, which doesn't exist yet.
-  [S19 review](../sprints/S19/review.md)
+  090) — worth a fix once that toggle sees more use. [S19 review](../sprints/done/S19/review.md)
 - `docs/concepts/home-screen.md` §6 still says the content repository holds "only a LICENSE" —
   story 080 added `engines/` and `gamedata/`. A small doc correction, next time that concept is
-  touched. [S18 review](../sprints/S18/review.md)
+  touched. [S18 review](../sprints/done/S18/review.md)
 - Running every sprint's `ui:flow` scripts together at the end of a sprint (not just each story's
   own) is what caught a real regression in S18 (083 silently broke 082's own acceptance flow) that
   no single story's own verification would have seen — worth making a standing last step before
-  `/sprint` writes its review. [S18 review](../sprints/S18/review.md)
+  `/sprint` writes its review. [S18 review](../sprints/done/S18/review.md)
 - A `missingChecks` entry whose translation interpolates a variable (e.g. `validation.rootMissing`'s
   `{{path}}`) renders that placeholder unfilled wherever a failure's target verdict is now shown
   on screen — `DownloadDiagnosticsTarget.missingChecks` has stored only `{id, messageKey}` since
@@ -70,7 +61,9 @@ scope.
   scope, locally-redeclared types) — see `docs/sprints/done/S02/review.md`.
 - Executable/marker names for engines other than r1q2/Q2PRO are unverified (now cosmetic-only
   since story 068 made "supported" a data flag).
-- `detectedVersion` is never populated (Windows version resource or console-banner parse).
+- `detectedVersion` stays unpopulated for any installation outside the update/rollback path
+  itself (S20/092 only records what that path just wrote) — probing a Windows version resource
+  or console banner for the general case is still open.
 - No `-safe` launch mode exists in r1q2 — one has to be a launcher-composed `+set` bundle.
 - Auto-update via `electron-updater`, plus a code-signing decision (unsigned builds trigger
   SmartScreen).
