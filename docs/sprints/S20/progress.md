@@ -44,3 +44,11 @@
 - 2026-09-12 12:35 · 093 · D6 triggers open repair dialog · done
 - 2026-09-12 12:35 · 093 · D7 offline e2e proof · started
 - 2026-09-12 13:14 · 093 · D7 offline e2e proof · done
+- 2026-09-12 13:47 · 094 · D1 Safe folder deletion (main) · started
+- 2026-09-12 13:54 · 094 · D1 Safe folder deletion (main) · done
+- 2026-09-12 13:54 · 094 · D2 Removal policy in the service · started
+- 2026-09-12 13:59 · 094 · D2 Removal policy in the service · done
+- 2026-09-12 13:59 · 094 · D3 Chooser dialog and its trigger · started
+- 2026-09-12 14:04 · 094 · D3 Chooser dialog and its trigger · done
+- 2026-09-12 14:04 · 094 · D4 Offline end-to-end proof · started
+- 2026-09-12 14:12 · 094 · D4 Offline end-to-end proof · done

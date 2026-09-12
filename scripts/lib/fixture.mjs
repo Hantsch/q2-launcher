@@ -24,7 +24,7 @@ import {
   utimesSync,
   writeFileSync,
 } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { assertInside, REPO_ROOT, UI_VERIFY_ROOT } from './paths.mjs'
 import { variantUserDataDir } from './harness.mjs'
 // Story 075 D7's two seeded `downloadFailures` entries. They live in their own module (which
@@ -264,6 +264,16 @@ export function installationRootFilePath(id, relativePath) {
   return join(gameRoot(), id, ...relativePath.split('/'))
 }
 
+/**
+ * Story 094 D4: the real on-disk root of installation `id` - the same join every
+ * `populatedInstallations()` entry already builds inline for its own `rootPath`, exported here so
+ * `scripts/flows/installation-remove-from-disk.mjs` can assert against the exact path the dialog
+ * must show (AC2) without a second, hand-typed `join()` that could drift from the fixture's own.
+ */
+export function installationRootPath(id) {
+  return join(gameRoot(), id)
+}
+
 // --- state.ts LauncherStateDocument ("defaults()") shape -------------------
 // Mirrors src/main/services/state.ts:16-48 (`LauncherStateDocument`) and its
 // `defaults()` (state.ts:50-60).
@@ -317,6 +327,10 @@ function makeInstallation({
   // installation-state.ts` - read/write under `moduleData['downloads']`); every other caller stays
   // `undefined`, exactly as before this story.
   moduleData,
+  // Story 094 D4: an optional `InstallationSource` override, defaulting to the `'manual'` every
+  // existing caller relied on before this story - only `INSTALL_REMOVE_STORE_ID` below passes
+  // `'steam'`, so `isStoreManaged()` has a real store-managed fixture to gate on.
+  source,
 }) {
   return {
     id,
@@ -330,7 +344,7 @@ function makeInstallation({
     launchArgs: [],
     activeGameDir: '',
     detectedVersion: undefined,
-    source: 'manual',
+    source: source ?? 'manual',
     // Story 077 D5: `status`/`checks` became parameters (defaulting to the `ok`/`[]` every caller
     // relied on before) purely so `INSTALL_FAILED_ID` below can seed an honest `invalid` verdict -
     // the real app's own startup `validateAll()` re-derives both from the folder on disk anyway
@@ -578,6 +592,37 @@ export function repairNonWritableDir() {
   return join(programFiles, 'Q2 Launcher UI Verify Fixture Repair', 'writedir')
 }
 
+// --- story 094 D4: two additive installations for `installation-remove-from-disk.mjs` -----------
+//
+// `INSTALL_REMOVE_STORE_ID` is a plain, playable `source: 'steam'` installation - store-managed
+// (`isStoreManaged`), so its remove dialog only ever offers entry-only removal plus the store note
+// (AC4). `INSTALL_REMOVE_DISK_ID` is a plain, playable `source: 'manual'` installation - the one the
+// flow actually deletes from disk (AC1-AC3, AC5/AC6), reused for the running-game refusal check
+// (`dev:simulateLaunch`) before the flow restores `idle` and proceeds with the real deletion, per
+// this deliverable's own plan (simpler than a third fixture). Both mirror the simplest existing
+// entry (`INSTALL_ONE_ID`'s shape, minus the icon/playtime specifics) and are additive: last
+// `sortOrder`s, assigned to no config profile, the same convention every fixture since 090 documents.
+
+export const INSTALL_REMOVE_STORE_ID = 'fixture-install-remove-store'
+export const INSTALL_REMOVE_STORE_NAME = 'Fixture Remove Store Install'
+
+export const INSTALL_REMOVE_DISK_ID = 'fixture-install-remove-disk'
+export const INSTALL_REMOVE_DISK_NAME = 'Fixture Remove Disk Install'
+
+/**
+ * A sentinel file in a directory that sits NEXT TO (not inside) `INSTALL_REMOVE_DISK_ID`'s own
+ * `rootPath` - `writePopulatedFixture()` writes it below, and
+ * `scripts/flows/installation-remove-from-disk.mjs` reads it back after deleting that
+ * installation's folder to prove AC3's "nothing outside that folder is touched": a plain sibling
+ * directory, not a subfolder, so a mis-scoped `fs.rm` that walked one level too far would still be
+ * caught.
+ */
+export function installRemoveDiskSiblingSentinelPath() {
+  return join(gameRoot(), `${INSTALL_REMOVE_DISK_ID}-sibling`, 'sentinel.txt')
+}
+export const INSTALL_REMOVE_DISK_SIBLING_SENTINEL_CONTENT =
+  '// q2launcher fixture sentinel - must survive installation-remove-from-disk untouched\n'
+
 function populatedInstallations() {
   return [
     makeInstallation({
@@ -814,6 +859,22 @@ function populatedInstallations() {
       ],
       favorite: false,
       sortOrder: 10,
+    }),
+    // Story 094 D4 - see the block comment above `INSTALL_REMOVE_STORE_ID` for why these two exist.
+    makeInstallation({
+      id: INSTALL_REMOVE_STORE_ID,
+      name: INSTALL_REMOVE_STORE_NAME,
+      rootPath: join(gameRoot(), INSTALL_REMOVE_STORE_ID),
+      source: 'steam',
+      favorite: false,
+      sortOrder: 11,
+    }),
+    makeInstallation({
+      id: INSTALL_REMOVE_DISK_ID,
+      name: INSTALL_REMOVE_DISK_NAME,
+      rootPath: join(gameRoot(), INSTALL_REMOVE_DISK_ID),
+      favorite: false,
+      sortOrder: 12,
     }),
   ]
 }
@@ -1639,7 +1700,13 @@ export function writePopulatedFixture() {
     lastRefreshFailed: false,
   })
 
-  const installIds = [INSTALL_ONE_ID, INSTALL_TWO_ID, INSTALL_UNKNOWN_ENGINE_ID]
+  const installIds = [
+    INSTALL_ONE_ID,
+    INSTALL_TWO_ID,
+    INSTALL_UNKNOWN_ENGINE_ID,
+    INSTALL_REMOVE_STORE_ID,
+    INSTALL_REMOVE_DISK_ID,
+  ]
   for (const id of installIds) {
     const baseq2Dir = join(gameRoot(), id, 'baseq2')
     rmDirBestEffort(join(gameRoot(), id))
@@ -1650,6 +1717,17 @@ export function writePopulatedFixture() {
       // Story 067 D5: this is also the installation seeded with `icon: { kind: 'custom' }`.
       writeCustomIconFile(userDataDir, id)
     }
+  }
+
+  // Story 094 D4: a sentinel file in a directory NEXT TO `INSTALL_REMOVE_DISK_ID`'s own root
+  // (created just above, in the loop) - not inside it. `installation-remove-from-disk.mjs` deletes
+  // that installation's root and then reads this file back untouched to prove AC3's "nothing
+  // outside that folder is touched".
+  {
+    const sentinelPath = installRemoveDiskSiblingSentinelPath()
+    rmDirBestEffort(dirname(sentinelPath))
+    mkdirSync(dirname(sentinelPath), { recursive: true })
+    writeFileSync(sentinelPath, INSTALL_REMOVE_DISK_SIBLING_SENTINEL_CONTENT, 'utf8')
   }
 
   // Story 077 D5: `INSTALL_FAILED_ID`'s root, deliberately WITHOUT a `baseq2` subfolder - unlike

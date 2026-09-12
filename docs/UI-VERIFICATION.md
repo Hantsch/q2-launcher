@@ -1371,6 +1371,63 @@ triggers, landing on the "no store installation detected" state (AC4); the non-w
 installation offers `set-write-dir` (AC5); and the unrepairable installation's dialog shows its one
 finding and no offer at all (AC6).
 
+## The offline installation-remove-from-disk flow (`installation-remove-from-disk`)
+
+`npm run ui:flow -- installation-remove-from-disk` is story 094 D4's own offline acceptance proof —
+"removing an installation offers a choice between entry-only removal and removal from disk, the disk
+path is shown before anything happens, and a store-managed installation never gets that choice at
+all." Unlike `retail-upgrade.mjs`/`repair.mjs`, this flow needs no fixture HTTP server and no
+`Q2L_UI_HARNESS_STORE_SOURCES` juggling: `deleteInstallationFolder` (D1) is a plain, local `fs.rm`,
+so the whole flow — like the rest of this story — never touches the network.
+
+**AC coverage.** AC1 — a non-store installation's remove dialog offers both
+`remove-dialog-entry-only-option` and `remove-dialog-disk-option`. AC2 — choosing removal from disk
+shows `remove-dialog-disk-confirm-step` naming the exact `rootPath`, with the folder still on disk at
+that point (nothing has happened yet). AC3 — confirming deletes the installation's own folder and
+everything inside it, and nothing outside it: a sibling sentinel file written next to (never inside)
+the installation's root survives, byte-for-byte. AC4 — the steam-managed installation's dialog shows
+`remove-dialog-store-note` and has **zero** `remove-dialog-disk-option` nodes in the DOM (not merely
+hidden — `page.getByTestId(...).count()` is asserted, not `.isHidden()`); its own entry-only removal
+is exercised end to end too, which doubles as this story's own regression proof that the pre-094
+removal path (`deleteFromDisk` absent) still works. AC5 — with the game simulated as running
+(`dev:simulateLaunch`), `remove-dialog-disk-option` is `disabled` and carries a non-empty `title`
+attribute (the disabled reason) — the UI-side half of AC5; the server-side refusal is already covered
+by `installations.test.ts`. AC6 — after removal from disk, the installation is gone from both the
+library and the rail. Neither dashboard tile (`ConfigProfilesTile`/`PlaytimeTile`,
+`src/renderer/src/modules/home/dashboard/`) names a specific installation — both are
+aggregate/summary tiles — so there is no dashboard surface this flow can additionally check;
+library+rail is this story's whole per-installation surface.
+
+**The two fixture installations, and why AC5 reuses one instead of a third.**
+`scripts/lib/fixture.mjs`'s `populatedInstallations()` gains two additive installations (last
+`sortOrder`s, assigned to no config profile, the convention every fixture since 090 documents):
+`INSTALL_REMOVE_STORE_ID` (`source: 'steam'`, AC4's store-managed case) and `INSTALL_REMOVE_DISK_ID`
+(`source: 'manual'`, the one this flow actually deletes) — both plain, playable fixtures with no
+special `checks`/`status` seeding, since this story's dialog only ever reads
+`installation.source`/`rootPath`/the live launch state, never the validation checks. `makeInstallation`
+gained an optional `source` parameter for this (defaulting to `'manual'`, the value every existing
+caller relied on implicitly before).
+
+AC5 needs an installation that is both non-store and simulated running. Rather than add a third
+fixture install, the flow reorders its own steps: it simulates `INSTALL_REMOVE_DISK_ID` as running
+FIRST, opens the dialog and asserts the disk option's disabled state and reason, closes the dialog,
+restores `idle`, and only then proceeds with the real AC1–AC3 walk-through that ends in that same
+installation's folder actually being deleted.
+
+`writePopulatedFixture()` also writes a sentinel file at `installRemoveDiskSiblingSentinelPath()` — a
+directory named `<INSTALL_REMOVE_DISK_ID>-sibling`, next to (never inside)
+`INSTALL_REMOVE_DISK_ID`'s own root — so AC3's "nothing outside that folder is touched" has a
+concrete file to prove survives, both in existence and in content.
+
+**Selectors.** Everything inside the dialog is D3's own real `data-testid`s
+(`src/renderer/src/components/installations/RemoveInstallationDialog.tsx`):
+`remove-dialog-entry-only-option`/`remove-dialog-disk-option` (the two-outcome chooser),
+`remove-dialog-disk-confirm-step`/`remove-dialog-disk-path` (the disk confirm step, AC2),
+`remove-dialog-delete-folder-confirm` (the footer's danger button, only present once the disk step
+shows), and `remove-dialog-store-note` (AC4). The trigger itself
+(`installation-remove-${installation.id}`, `LibraryView.tsx`) always opens the dialog for these two
+fixtures, since the default `confirmBeforeRemoving: true` setting is untouched by this flow.
+
 ## Baselines and CI
 
 Screenshots are **never diffed** against a committed reference, and this is

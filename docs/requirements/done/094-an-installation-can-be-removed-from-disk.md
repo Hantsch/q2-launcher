@@ -1,7 +1,7 @@
 ---
 id: 094
 title: An installation can be removed from disk
-status: ready
+status: done
 created: 2026-09-12
 ---
 
@@ -17,21 +17,21 @@ folder; those keep entry-only removal with a note that the store uninstalls the 
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Removing an installation whose `source` is not a store offers a choice between
+- [x] **AC1** — Removing an installation whose `source` is not a store offers a choice between
       entry-only removal and removal from disk.
-- [ ] **AC2** — Choosing removal from disk shows a confirmation naming the exact path that will
+- [x] **AC2** — Choosing removal from disk shows a confirmation naming the exact path that will
       be deleted before anything happens.
-- [ ] **AC3** — Confirming deletes the installation's own folder and everything inside it, and
+- [x] **AC3** — Confirming deletes the installation's own folder and everything inside it, and
       nothing outside that folder.
-- [ ] **AC4** — An installation whose `source` is Steam, GOG or Epic offers entry-only removal
+- [x] **AC4** — An installation whose `source` is Steam, GOG or Epic offers entry-only removal
       only, with a note that the store uninstalls the game — there is no removal-from-disk
       option to select.
-- [ ] **AC5** — Removal from disk on an installation whose game is currently running waits per
+- [x] **AC5** — Removal from disk on an installation whose game is currently running waits per
       [[091]]'s guard, or is refused with that reason, rather than deleting files out from under
       a running process.
-- [ ] **AC6** — After removal from disk, the installation no longer appears anywhere in the
+- [x] **AC6** — After removal from disk, the installation no longer appears anywhere in the
       library, rail or dashboard — the same end state entry-only removal already produces.
-- [ ] **AC7** — A removal that fails partway (e.g. a locked file) leaves the library entry in
+- [x] **AC7** — A removal that fails partway (e.g. a locked file) leaves the library entry in
       place with a readable reason, rather than silently succeeding or losing track of the
       installation.
 
@@ -117,7 +117,7 @@ Order: D1 → D2 → D3 → D4. D3 may start once D1 exists.
 
 ## Deliverables
 
-- [ ] **D1 — Safe folder deletion (main).** `src/main/services/installation-removal.ts` +
+- [x] **D1 — Safe folder deletion (main).** `src/main/services/installation-removal.ts` +
   `installation-removal.test.ts`, `src/shared/types/installation.ts` (`isStoreManaged`),
   error keys in `src/renderer/src/i18n/locales/en.json`. Mirror `src/main/lib/fs-utils.ts` for the
   path helpers (`canonicalizePath`, `pathKey`, `isDirectory`) and `installations.ts`'s
@@ -127,7 +127,7 @@ Order: D1 → D2 → D3 → D4. D3 may start once D1 exists.
   with its own error key and before touching anything; a symlink inside the folder is unlinked, its
   target outside survives; a failing unlink (injected) surfaces as a failure, not a silent success.
   Proves AC3 and AC7's main half.
-- [ ] **D2 — Removal policy in the service.** `src/main/services/installations.ts` (`remove`,
+- [x] **D2 — Removal policy in the service.** `src/main/services/installations.ts` (`remove`,
   `InstallationsDeps.isRunning`), `src/main/context.ts`, `src/shared/types/installation.ts`
   (comment on `deleteFromDisk`), `src/main/services/installations.test.ts`,
   `src/renderer/src/i18n/locales/en.json` (drop `deleteFromDiskUnsupported`). Mirror the existing
@@ -138,7 +138,7 @@ Order: D1 → D2 → D3 → D4. D3 may start once D1 exists.
   `activeInstallationId` and runs `onRemoved`; when the deleter fails the entry, the active id and
   the icon are all still there; `deleteFromDisk` absent/false behaves exactly as today.
   Proves AC4 (main), AC5 (main), AC6 (main) and AC7's entry-kept half.
-- [ ] **D3 — The chooser dialog and its trigger.**
+- [x] **D3 — The chooser dialog and its trigger.**
   `src/renderer/src/components/installations/RemoveInstallationDialog.tsx` (+
   `RemoveInstallationDialog.test.tsx`, jsdom), `src/renderer/src/views/LibraryView.tsx`,
   `src/renderer/src/store/useLauncher.ts` (pass `deleteFromDisk`),
@@ -149,7 +149,7 @@ Order: D1 → D2 → D3 → D4. D3 may start once D1 exists.
   store-managed installation shows only entry-only removal plus the "the store uninstalls the game"
   note and has no disk option in the DOM; the disk option is disabled while that installation's
   game runs; `data-testid`s for the flow. Proves AC1, AC2, AC4 (UI), AC5 (UI).
-- [ ] **D4 — Offline end-to-end proof.** `scripts/lib/fixture.mjs` (one `source: 'steam'`
+- [x] **D4 — Offline end-to-end proof.** `scripts/lib/fixture.mjs` (one `source: 'steam'`
   installation, and a sentinel file in a sibling folder next to the removable install's root),
   `scripts/flows/installation-remove-from-disk.mjs`, `docs/UI-VERIFICATION.md`. Mirror
   `scripts/flows/retail-upgrade.mjs` (on-disk assertions + `dev:simulateLaunch` seeding).
@@ -173,33 +173,97 @@ Order: D1 → D2 → D3 → D4. D3 may start once D1 exists.
 ## Acceptance Tests
 
 - AC1 → e2e `npm run ui:flow -- installation-remove-from-disk`
-  (`scripts/flows/installation-remove-from-disk.mjs`) › "a non-store installation offers both
-  entry-only removal and removal from disk", plus unit
-  `src/renderer/src/components/installations/RemoveInstallationDialog.test.tsx` › "a removable
-  installation's dialog offers both outcomes"
-- AC2 → e2e `scripts/flows/installation-remove-from-disk.mjs` › "choosing removal from disk shows
-  the exact path before anything is deleted", plus unit `RemoveInstallationDialog.test.tsx` ›
-  "the disk confirm step names the installation's rootPath and invokes nothing before it"
-- AC3 → unit `src/main/services/installation-removal.test.ts` › "the installation folder and its
-  contents are gone and nothing outside it is touched" and › "a root that is a drive root, the
-  userData dir, the home dir or an ancestor of another installation is refused", plus the on-disk
-  assertion in `scripts/flows/installation-remove-from-disk.mjs` › "the sibling sentinel file
-  survives the removal"
-- AC4 → unit `src/main/services/installations.test.ts` › "removal from disk is refused for a
-  steam/gog/epic/bethesda installation and deletes nothing", plus e2e
-  `scripts/flows/installation-remove-from-disk.mjs` › "a steam installation offers entry-only
-  removal with the store note and no disk option"
-- AC5 → unit `src/main/services/installations.test.ts` › "removal from disk of a running
+  (`scripts/flows/installation-remove-from-disk.mjs`) › "AC1: reopen the remove dialog and assert
+  both outcomes are offered", plus unit
+  `src/renderer/src/components/installations/RemoveInstallationDialog.test.tsx` › "AC1: a removable
+  installation offers both outcomes"
+- AC2 → e2e `scripts/flows/installation-remove-from-disk.mjs` › "AC2: choose removal from disk and
+  assert the confirm step names the exact path", plus unit `RemoveInstallationDialog.test.tsx` ›
+  "AC2: the disk confirm step names the rootPath and invokes nothing before its own confirm"
+- AC3 → unit `src/main/services/installation-removal.test.ts` › "AC3: the installation folder and
+  its contents are gone and nothing outside it is touched" and › "AC3: a root that is a drive root,
+  the userData dir, the home dir or an ancestor of another installation is refused", plus the
+  on-disk assertion in `scripts/flows/installation-remove-from-disk.mjs` › "AC3: the installation
+  folder is gone, and the sibling sentinel survives untouched"
+- AC4 → unit `src/main/services/installations.test.ts` › "AC4: removal from disk is refused for a
+  %s installation and deletes nothing" (parametrized over steam/gog/epic/bethesda), plus e2e
+  `scripts/flows/installation-remove-from-disk.mjs` › "AC4: the store note is shown, and there is
+  no disk option in the DOM at all" (and its entry-only removal regression check right after)
+- AC5 → unit `src/main/services/installations.test.ts` › "AC5: removal from disk of a running
   installation is refused with the running-game reason and deletes nothing", plus e2e
-  `scripts/flows/installation-remove-from-disk.mjs` › "with the game simulated as running the disk
-  option refuses with that reason"
-- AC6 → e2e `scripts/flows/installation-remove-from-disk.mjs` › "after removal from disk the
-  installation is gone from library, rail and dashboard", plus unit
-  `src/main/services/installations.test.ts` › "a successful disk removal drops the entry, moves the
-  active installation and tears down the icon"
-- AC7 → unit `src/main/services/installations.test.ts` › "a failed folder deletion keeps the entry,
-  the active id and the icon, and returns a readable error key", plus unit
-  `src/main/services/installation-removal.test.ts` › "a locked/failing unlink surfaces as a failure
-  instead of a silent success"
+  `scripts/flows/installation-remove-from-disk.mjs` › "AC5: the disk option is disabled, with a
+  non-empty reason, while the game runs", plus unit `RemoveInstallationDialog.test.tsx` › "AC5: the
+  disk option is disabled while this installation is running"
+- AC6 → e2e `scripts/flows/installation-remove-from-disk.mjs` › "AC6: the installation is gone from
+  the library" and › "AC6: the installation is gone from the rail" (the dashboard's own tiles -
+  `ConfigProfilesTile`/`PlaytimeTile` - are aggregate and name no specific installation, so there is
+  nothing dashboard-side for this criterion to check; the flow's own header comment records this),
+  plus unit `src/main/services/installations.test.ts` › "AC6: a successful disk removal drops the
+  entry, moves the active installation and tears down the icon"
+- AC7 → unit `src/main/services/installations.test.ts` › "AC7: a failed folder deletion keeps the
+  entry, the active id and the icon, and returns a readable error key", plus unit
+  `src/main/services/installation-removal.test.ts` › "AC3: a failing delete surfaces as a failure
+  instead of a silent success" (named AC3 in that file - it proves the same "no silent success"
+  half of both AC3 and AC7, D1 predates the per-AC test-naming convention D2 onward uses)
 
 ## Done
+
+Removal from disk is implemented end to end: a chooser dialog offers entry-only vs. delete-from-disk
+for any non-store installation, confirms the exact path before deleting, and a new main-side safety
+fence (`deleteInstallationFolder`) refuses drive roots, the launcher's own userData dir, the user's
+home dir, and any overlap with another registered installation before ever calling `fs.rm`.
+Store-managed installations (steam/gog/epic/bethesda, one shared `isStoreManaged` predicate) and
+installations whose own game is running (reusing story 091's `InstallationWriteGuard.isBlockedFor`,
+refusal rather than a wait - a destructive one-shot action is not queued) get no disk option at all.
+Files are deleted before the library entry is dropped, so a refusal or a failed delete leaves the
+entry, the active-installation id and the stored icon untouched.
+
+Commit message: `094: an installation can be removed from disk`
+
+### Verification
+
+- `npm run typecheck` — clean (both `tsconfig.node.json`/`tsconfig.web.json`).
+- `npm test` — 216 test files, 3845 passed, 1 pre-existing skip. (One run mid-story hit an unrelated
+  flaky timeout in `src/main/modules/config/core/import-reader.test.ts`, a pre-existing perf test
+  untouched by this story; it passed in isolation and on the final full-suite run.)
+- `npm run build` — clean.
+- `npm run ui:flow -- installation-remove-from-disk` — green, run twice (once after D4, once again
+  after the review-fix cycle touched `RemoveInstallationDialog.tsx`/`useLauncher.ts`/`installations.ts`).
+- Code review (`story-review-hard`, per Model Hints): verdict **PASS** with 1 must-fix + 3 minor
+  findings, all four fixed and re-verified (see Decisions below).
+- AC → test mapping, as verified (see `## Acceptance Tests` above for exact names): AC1-AC7 each
+  have a passing unit and/or e2e test; no `manual residue`.
+
+### Decisions
+
+- **Review finding fixed - wrong success toast on disk deletion.** The pre-094 toast
+  (`installations.toast.removed`) reassures "the files are still on disk", which became false for a
+  successful `deleteFromDisk: true` removal. Added `installations.toast.removedFromDisk` and had
+  `useLauncher.removeInstallation` pick between the two by whether `deleteFromDisk` was requested.
+- **Review finding fixed - fail-open safety-fence default.** `InstallationsService`'s `userDataDir`/
+  `homeDir` deps defaulted to `''` when unset, which `canonicalizePath` resolves to `process.cwd()` -
+  a caller that forgot to wire them would get a silently-wrong guard instead of a loud failure. Now
+  `remove()` refuses with a new `installations.error.deleteFromDiskMisconfigured` key before calling
+  the deleter when either is empty, keeping every other existing test fixture free of having to
+  supply values it never uses.
+- **Review finding fixed - tautological AC6 test.** `installations.test.ts`'s harness gave every
+  fixture installation the same hardcoded `rootPath`, so the "successful disk removal" test's
+  `otherInstallationRoots` assertion compared the deleted installation's root against itself - a
+  combination the real safety fence would refuse as a self-overlap. The harness now derives a
+  distinct `rootPath` per id, and the assertion checks the exact forwarded object (`rootPath`,
+  `otherInstallationRoots`, `userDataDir`, `homeDir`) instead of `expect.any(String)`.
+- **Review finding fixed - mid-dialog running-game race.** `RemoveInstallationDialog` disabled the
+  "remove from disk" *option* while the game runs, but not the confirm step's submit button if the
+  game started running after the disk step was already open. Main already refused this server-side
+  (no data-loss risk), but the UI could still let a doomed submit through. The footer's confirm
+  button is now also disabled in that combination.
+- **AC6's "dashboard" half has no dedicated assertion.** The dashboard's two tiles
+  (`ConfigProfilesTile`, `PlaytimeTile`) are aggregate and name no specific installation, so there is
+  nothing dashboard-side that could still show a removed installation - the e2e flow's header
+  comment records this instead of asserting a no-op. Library and rail are asserted directly.
+- **D1's own tests predate the per-AC naming convention D2 onward uses**: `installation-removal.test.ts`
+  labels its "no silent success on a failing delete" test `AC3:` rather than `AC7:`, even though it
+  also proves half of AC7. Left as-is (renaming would only be cosmetic) and cross-referenced in
+  `## Acceptance Tests` above.
+- No `manual residue`: every acceptance criterion has a real, passing automated test at unit and/or
+  e2e level.

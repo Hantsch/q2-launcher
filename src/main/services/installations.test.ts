@@ -1,10 +1,20 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { Installation } from '@shared/types'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { fail, ok, type Installation, type InstallationSource } from '@shared/types'
 import { InstallationsService } from './installations'
+import { deleteInstallationFolder } from './installation-removal'
 import { StateStore } from './state'
+
+/**
+ * Story 094 D2: `deleteInstallationFolder` is mocked at the module boundary, the same as
+ * `installation-removal.test.ts` mocks `node:fs/promises` for its own layer down - `remove()`'s
+ * disk-removal policy (who gets refused, files-before-entry ordering) is this file's concern, not
+ * the real filesystem semantics `installation-removal.test.ts` already covers.
+ */
+vi.mock('./installation-removal', () => ({ deleteInstallationFolder: vi.fn() }))
+const deleteInstallationFolderMock = vi.mocked(deleteInstallationFolder)
 
 /**
  * Story 077 D1: the persisted-failure-record foundation - `setLastFailure`, `findByRootPath` and
@@ -14,21 +24,37 @@ import { StateStore } from './state'
 
 let dir: string
 let userData: string
+let home: string
 let state: StateStore
 let installations: InstallationsService
+let removedIds: string[]
+/** Set by a test to stand in for `InstallationWriteGuard.isBlockedFor` (story 094 D2). */
+let runningOverride: ((id: string) => boolean) | undefined
 
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), 'q2-launcher-installations-'))
   userData = join(dir, 'userData')
+  home = join(dir, 'home')
   await mkdir(userData, { recursive: true })
+  await mkdir(home, { recursive: true })
 
   state = new StateStore(join(userData, 'state.json'))
   await state.load()
+
+  removedIds = []
+  runningOverride = undefined
+  deleteInstallationFolderMock.mockReset()
 
   installations = new InstallationsService({
     state,
     onChange: () => {},
     onSettingsChange: () => {},
+    onRemoved: async (id) => {
+      removedIds.push(id)
+    },
+    isRunning: (id) => runningOverride?.(id) ?? false,
+    userDataDir: userData,
+    homeDir: home,
   })
 })
 
@@ -42,10 +68,15 @@ afterEach(async () => {
 const INSTALLATION_ID = 'fixture-install'
 
 function installation(overrides: Partial<Installation> = {}): Installation {
+  // Review fix: `rootPath` derives from `id` (rather than a single fixed path every fixture
+  // shares) so two installations built by this helper never collide on `rootPath` - the removal
+  // safety fence (`otherInstallationRoots`) treats a shared root as a self-overlap, and a test
+  // that wants to prove roots are forwarded correctly needs fixtures that are actually distinct.
+  const id = overrides.id ?? INSTALLATION_ID
   return {
-    id: INSTALLATION_ID,
+    id,
     name: 'Fixture',
-    rootPath: join(dir, 'game'),
+    rootPath: join(dir, 'game', id),
     engineKind: 'r1q2',
     launchArgs: [],
     activeGameDir: '',
@@ -320,5 +351,119 @@ describe('recordedEngineKind (story 093 finding fix, AC1)', () => {
     const result = installations.setRecordedEngineKind('nope', 'r1q2')
 
     expect(result).toEqual({ ok: false, error: { key: 'installations.error.notFound' } })
+  })
+})
+
+describe('remove({ deleteFromDisk: true }) (story 094 D2)', () => {
+  const STORE_SOURCES: InstallationSource[] = ['steam', 'gog', 'epic', 'bethesda']
+
+  it.each(STORE_SOURCES)(
+    'AC4: removal from disk is refused for a %s installation and deletes nothing',
+    async (source) => {
+      state.setInstallations([installation({ source })])
+
+      const result = await installations.remove({ id: INSTALLATION_ID, deleteFromDisk: true })
+
+      expect(result).toEqual({
+        ok: false,
+        error: { key: 'installations.error.deleteFromDiskStoreManaged' },
+      })
+      expect(installations.list().map((i) => i.id)).toEqual([INSTALLATION_ID])
+      expect(deleteInstallationFolderMock).not.toHaveBeenCalled()
+    },
+  )
+
+  it('AC5: removal from disk of a running installation is refused with the running-game reason and deletes nothing', async () => {
+    state.setInstallations([installation()])
+    runningOverride = (id) => id === INSTALLATION_ID
+
+    const result = await installations.remove({ id: INSTALLATION_ID, deleteFromDisk: true })
+
+    expect(result).toEqual({
+      ok: false,
+      error: { key: 'installations.error.deleteFromDiskRunning' },
+    })
+    expect(installations.list().map((i) => i.id)).toEqual([INSTALLATION_ID])
+    expect(deleteInstallationFolderMock).not.toHaveBeenCalled()
+  })
+
+  it('AC6: a successful disk removal drops the entry, moves the active installation and tears down the icon', async () => {
+    const target = installation()
+    const other = installation({ id: 'other', sortOrder: 1 })
+    // The harness's distinct-per-id rootPath (review fix) is what makes this assertion meaningful:
+    // if it were not distinct, the real safety fence would refuse this as a self-overlap.
+    expect(other.rootPath).not.toBe(target.rootPath)
+    state.setInstallations([target, other])
+    state.patchSettings({ activeInstallationId: INSTALLATION_ID })
+    deleteInstallationFolderMock.mockResolvedValue(ok(null))
+
+    const result = await installations.remove({ id: INSTALLATION_ID, deleteFromDisk: true })
+
+    expect(result).toEqual({ ok: true, value: null })
+    expect(installations.list().map((i) => i.id)).toEqual(['other'])
+    expect(state.settings().activeInstallationId).toBe('other')
+    expect(removedIds).toEqual([INSTALLATION_ID])
+    // Exact match, not `objectContaining`/`expect.any(String)`: proves the RIGHT installation's
+    // root was forwarded (not just "a string"), the other installation's real distinct root was
+    // listed, and `userDataDir`/`homeDir` were forwarded unchanged - the same two values whose
+    // missing-default fail-open the review flagged separately.
+    expect(deleteInstallationFolderMock).toHaveBeenCalledWith({
+      rootPath: target.rootPath,
+      userDataDir: userData,
+      homeDir: home,
+      otherInstallationRoots: [other.rootPath],
+    })
+  })
+
+  it('review fix: refuses removal from disk when userDataDir/homeDir were never supplied, without touching the disk deleter', async () => {
+    const misconfigured = new InstallationsService({
+      state,
+      onChange: () => {},
+      onSettingsChange: () => {},
+      // Deliberately omitting userDataDir/homeDir - the fail-open default this guards against.
+    })
+    state.setInstallations([installation()])
+
+    const result = await misconfigured.remove({ id: INSTALLATION_ID, deleteFromDisk: true })
+
+    expect(result).toEqual({
+      ok: false,
+      error: { key: 'installations.error.deleteFromDiskMisconfigured' },
+    })
+    expect(misconfigured.list().map((i) => i.id)).toEqual([INSTALLATION_ID])
+    expect(deleteInstallationFolderMock).not.toHaveBeenCalled()
+  })
+
+  it('AC7: a failed folder deletion keeps the entry, the active id and the icon, and returns a readable error key', async () => {
+    state.setInstallations([installation()])
+    state.patchSettings({ activeInstallationId: INSTALLATION_ID })
+    deleteInstallationFolderMock.mockResolvedValue(fail('installations.error.deleteFromDiskFailed'))
+
+    const result = await installations.remove({ id: INSTALLATION_ID, deleteFromDisk: true })
+
+    expect(result).toEqual({
+      ok: false,
+      error: { key: 'installations.error.deleteFromDiskFailed' },
+    })
+    expect(installations.list().map((i) => i.id)).toEqual([INSTALLATION_ID])
+    expect(state.settings().activeInstallationId).toBe(INSTALLATION_ID)
+    expect(removedIds).toEqual([])
+  })
+
+  it('deleteFromDisk absent/false behaves exactly as today: entry-only removal, disk deleter never called', async () => {
+    state.setInstallations([installation()])
+
+    const result = await installations.remove({ id: INSTALLATION_ID })
+
+    expect(result).toEqual({ ok: true, value: null })
+    expect(installations.list()).toEqual([])
+    expect(deleteInstallationFolderMock).not.toHaveBeenCalled()
+  })
+
+  it('reports an unknown installation before touching the disk-removal policy', async () => {
+    const result = await installations.remove({ id: 'nope', deleteFromDisk: true })
+
+    expect(result).toEqual({ ok: false, error: { key: 'installations.error.notFound' } })
+    expect(deleteInstallationFolderMock).not.toHaveBeenCalled()
   })
 })

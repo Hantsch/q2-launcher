@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import type { LibraryStats } from '@shared/modules/library'
 import type { Installation } from '@shared/types'
+import { isStoreManaged } from '@shared/types'
 import { cn } from '../lib/cn'
 import { invoke } from '../lib/bridge'
 import { isDemoData } from '../lib/demo-data'
@@ -419,10 +420,14 @@ function InstallationRow({ installation }: { installation: Installation }) {
             variant="danger"
             data-testid={`installation-remove-${installation.id}`}
             onClick={() => {
-              if (confirmBeforeRemoving) {
-                openDialog({ kind: 'remove', installationId: installation.id })
-              } else {
+              // Story 094 D3: a removable installation always opens the chooser now - there are
+              // two different, one-irreversible outcomes, so `confirmBeforeRemoving` can no longer
+              // silently pick one. A store-managed installation still has only one possible
+              // outcome (entry-only), so it keeps honouring the setting exactly like before 094.
+              if (isStoreManaged(installation.source) && !confirmBeforeRemoving) {
                 void removeInstallation(installation.id)
+              } else {
+                openDialog({ kind: 'remove', installationId: installation.id })
               }
             }}
           >

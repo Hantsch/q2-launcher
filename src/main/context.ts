@@ -1,5 +1,6 @@
+import { homedir } from 'node:os'
 import type { BrowserWindow } from 'electron'
-import { stateFilePath } from './lib/paths'
+import { stateFilePath, userDataDir } from './lib/paths'
 import { scopedLogger } from './lib/logger'
 import { MainModuleRegistry } from './modules/registry'
 import { registerModules } from './modules'
@@ -55,6 +56,13 @@ export async function createAppContext(options: {
   const state = new StateStore(stateFilePath())
   await state.load()
 
+  // Story 094 D2: `InstallationsService` is constructed before `LaunchService`/`writeGuard` exist
+  // (that construction needs `installations` already built - see `writeGuard`'s own comment below),
+  // so `isRunning` cannot be a plain closure over the guard yet. Same late-binding shape as
+  // `writeGuard`/`getWriteGuard` just below: a mutable binding assigned once the guard exists, read
+  // through a wrapper closure handed to `InstallationsService` now.
+  let installationIsRunning: ((id: string) => boolean) | null = null
+
   const installations = new InstallationsService({
     state,
     onChange: (list) => broadcast.emit('installations:changed', list),
@@ -62,6 +70,9 @@ export async function createAppContext(options: {
     // Story 067: a removed installation takes its stored icon file with it, or `userData` keeps
     // one orphan PNG per removal forever.
     onRemoved: (id) => deleteStoredIcon(id),
+    isRunning: (id) => installationIsRunning?.(id) ?? false,
+    userDataDir: userDataDir(),
+    homeDir: homedir(),
   })
 
   const icons = new InstallationIconsService(installations)
@@ -86,6 +97,9 @@ export async function createAppContext(options: {
   const jobs = new JobsService((list) => broadcast.emit('jobs:changed', list))
 
   writeGuard = new InstallationWriteGuard({ launch, jobs })
+  // Resolved now that the guard exists, reusing its own already-tested `isBlockedFor` predicate
+  // (091) rather than duplicating its `phase === 'starting' || phase === 'running'` check here.
+  installationIsRunning = (id) => writeGuard!.isBlockedFor(id)
 
   const dialog = new DialogService({
     getMainWindow: options.getMainWindow,

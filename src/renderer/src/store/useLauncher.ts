@@ -161,7 +161,12 @@ interface LauncherStore {
   ) => Promise<Outcome<Installation>>
   /** Story 067 D6: opens the native file-picker dialog in main, validates/stores the chosen image. */
   pickInstallationIconFile: (installationId: string) => Promise<Outcome<Installation>>
-  removeInstallation: (id: string) => Promise<void>
+  /**
+   * Story 094 D3: `deleteFromDisk` is passed through unset unless explicitly true, matching
+   * `RemoveInstallationInput`'s optional field - the entry-only path (the default, and the only
+   * option for a store-managed installation) stays byte-for-byte the pre-094 request.
+   */
+  removeInstallation: (id: string, deleteFromDisk?: boolean) => Promise<void>
   validateInstallation: (id: string) => Promise<void>
   validateAll: () => Promise<void>
   reorderInstallations: (orderedIds: string[]) => Promise<void>
@@ -337,13 +342,18 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
     return result
   },
 
-  removeInstallation: async (id) => {
+  removeInstallation: async (id, deleteFromDisk) => {
     const installation = get().installations.find((entry) => entry.id === id)
-    const result = await invoke('installations:remove', { id })
+    const result = await invoke('installations:remove', {
+      id,
+      ...(deleteFromDisk ? { deleteFromDisk } : {}),
+    })
     if (result.ok) {
       get().pushToast({
         level: 'info',
-        messageKey: 'installations.toast.removed',
+        messageKey: deleteFromDisk
+          ? 'installations.toast.removedFromDisk'
+          : 'installations.toast.removed',
         params: { name: installation?.name ?? '' },
         timeoutMs: 6000,
       })

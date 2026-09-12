@@ -12,6 +12,17 @@ export type InstallationSource =
   | 'created'
   | 'unknown'
 
+const STORE_MANAGED_SOURCES = new Set<InstallationSource>(['steam', 'gog', 'epic', 'bethesda'])
+
+/**
+ * True when a store (Steam, GOG, Epic, Bethesda) owns the files of this installation. Deleting
+ * such a folder behind the store's back leaves the store convinced the game is still installed,
+ * so the launcher does not offer to.
+ */
+export function isStoreManaged(source: InstallationSource): boolean {
+  return STORE_MANAGED_SOURCES.has(source)
+}
+
 /** Overall health of an installation, derived from its validation checks. */
 export type InstallationStatus =
   /** Every check passed. Ready to play. */
@@ -191,8 +202,13 @@ export interface UpdateInstallationInput {
 export interface RemoveInstallationInput {
   id: string
   /**
-   * Reserved for the install module. Step 1 always removes from the launcher only;
-   * main rejects `true` so nothing can delete a user's game folder yet.
+   * Story 094 D2: when true, `InstallationsService.remove()` deletes the installation's folder
+   * from disk (via `deleteInstallationFolder`) before dropping the library entry, instead of only
+   * dropping the entry. Refused - entry and files both left untouched - for a store-managed
+   * installation (`isStoreManaged(source)`, `installations.error.deleteFromDiskStoreManaged`) and
+   * while the installation's own game process is running
+   * (`installations.error.deleteFromDiskRunning`); a failed/partial delete also leaves the entry
+   * exactly as it was, since files are removed before the entry is (see `remove()`'s doc comment).
    */
   deleteFromDisk?: boolean
 }

@@ -19,7 +19,7 @@ Phase 4 install module.
 - [x] 091 — Writes wait for a running game
 - [x] 092 — An engine updates and rolls back
 - [x] 093 — Repair fixes exactly what it can
-- [ ] 094 — An installation can be removed from disk
+- [x] 094 — An installation can be removed from disk
 
 ## Notes
 

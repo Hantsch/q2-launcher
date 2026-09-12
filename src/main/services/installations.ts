@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { BASE_GAME_DIR } from '@shared/constants'
 import {
   fail,
+  isStoreManaged,
   ok,
   type AddExistingInstallationInput,
   type CreateInstallationInput,
@@ -24,6 +25,7 @@ import {
   writeEngineState,
   type InstallationEngineState,
 } from '../modules/downloads/engine/installation-state'
+import { deleteInstallationFolder } from './installation-removal'
 import { inspectInstallation, suggestName } from './inspector'
 import type { StateStore } from './state'
 
@@ -52,6 +54,30 @@ export interface InstallationsDeps {
    * forget the teardown.
    */
   onRemoved?: (id: string) => Promise<void>
+  /**
+   * Story 094 D2: true while `installationId`'s own game process is starting or running - the
+   * refusal `remove({ deleteFromDisk: true })` uses instead of story 091's `runWrite` wait, since a
+   * destructive one-shot delete is refused outright rather than deferred (see the story's Decisions
+   * section). Optional and a callback, not a direct `InstallationWriteGuard` dependency, for the
+   * same reason `onRemoved` is a callback above: this service is deliberately launch-agnostic and
+   * constructed before `LaunchService`/the write guard exist, and stays testable without booting
+   * Electron or a `LaunchService`.
+   */
+  isRunning?: (id: string) => boolean
+  /**
+   * The launcher's own data directory (`app.getPath('userData')`) and the user's home directory
+   * (`os.homedir()`), forwarded to `deleteInstallationFolder` unchanged. Plain strings rather than
+   * callbacks, unlike `isRunning` above: neither changes during a run, so there is nothing to
+   * late-bind. Injected rather than read from `../lib/paths`/`node:os` directly, so this service
+   * never imports `electron` and stays testable against a plain temp directory - the same rule
+   * `installation-removal.ts` follows for the same two values.
+   *
+   * Optional so every existing fixture that never exercises `deleteFromDisk` (this service's other
+   * tests, the download/repair job tests) does not have to pass values it will never use; `remove()`
+   * only ever reads them on the `deleteFromDisk` path, and `context.ts` always supplies real ones.
+   */
+  userDataDir?: string
+  homeDir?: string
 }
 
 /**
@@ -67,12 +93,18 @@ export class InstallationsService {
   private readonly onChange: (installations: Installation[]) => void
   private readonly onSettingsChange: (settings: LauncherSettings) => void
   private readonly onRemoved: ((id: string) => Promise<void>) | undefined
+  private readonly isRunning: ((id: string) => boolean) | undefined
+  private readonly userDataDir: string
+  private readonly homeDir: string
 
   constructor(deps: InstallationsDeps) {
     this.state = deps.state
     this.onChange = deps.onChange
     this.onSettingsChange = deps.onSettingsChange
     this.onRemoved = deps.onRemoved
+    this.isRunning = deps.isRunning
+    this.userDataDir = deps.userDataDir ?? ''
+    this.homeDir = deps.homeDir ?? ''
   }
 
   list(): Installation[] {
@@ -392,14 +424,46 @@ export class InstallationsService {
     return this.list()
   }
 
+  /**
+   * Story 094 D2: `deleteFromDisk` deletes the installation's folder before dropping its library
+   * entry - files first, entry second - so a refused or failed delete leaves the entry, the active
+   * installation and the icon exactly as they were, rather than an entry with no files behind it.
+   * The `false`/absent path is untouched: entry-only removal, exactly as before this story.
+   */
   async remove(input: RemoveInstallationInput): Promise<Outcome<null>> {
-    if (input.deleteFromDisk) {
-      // Deliberate: nothing in step 1 may delete a user's game files.
-      return fail('installations.error.deleteFromDiskUnsupported')
-    }
-
     const current = this.find(input.id)
     if (!current) return fail('installations.error.notFound')
+
+    if (input.deleteFromDisk) {
+      // A store owns these files; the store, not the launcher, is how you uninstall them.
+      if (isStoreManaged(current.source)) {
+        return fail('installations.error.deleteFromDiskStoreManaged')
+      }
+      // Refused rather than deferred (unlike story 091's `runWrite`): a destructive one-shot
+      // delete is not something to queue up behind the game exiting.
+      if (this.isRunning?.(input.id)) {
+        return fail('installations.error.deleteFromDiskRunning')
+      }
+      // Review fix: `userDataDir`/`homeDir` are the safety fence's own anchors (AC3) - a caller
+      // that forgot to wire them would otherwise fall back to `''`, which `canonicalizePath`
+      // resolves to `process.cwd()` and silently turns the fence into a wrong-but-plausible guard
+      // instead of a loud failure. Checked here, not in the constructor, so every other test
+      // fixture that never exercises `deleteFromDisk` still does not have to supply them.
+      if (!this.userDataDir || !this.homeDir) {
+        return fail('installations.error.deleteFromDiskMisconfigured')
+      }
+
+      const deleted = await deleteInstallationFolder({
+        rootPath: current.rootPath,
+        userDataDir: this.userDataDir,
+        homeDir: this.homeDir,
+        otherInstallationRoots: this.state
+          .installations()
+          .filter((i) => i.id !== input.id)
+          .map((i) => i.rootPath),
+      })
+      if (!deleted.ok) return deleted
+    }
 
     const remaining = this.state.installations().filter((i) => i.id !== input.id)
     this.commit(remaining)
@@ -412,10 +476,13 @@ export class InstallationsService {
     }
 
     // Launcher-owned data keyed by this id goes with it (story 067: the stored icon file).
-    // The game folder itself is untouched - that is the `deleteFromDisk` rejection above.
     await this.onRemoved?.(input.id)
 
-    log.info(`removed installation ${current.name} (kept files on disk)`)
+    log.info(
+      input.deleteFromDisk
+        ? `removed installation ${current.name} and deleted its files`
+        : `removed installation ${current.name} (kept files on disk)`,
+    )
     return ok(null)
   }
 
