@@ -30,3 +30,17 @@
 - 2026-09-12 11:16 · 092 · D7 renderer surface · done
 - 2026-09-12 11:16 · 092 · D8 offline e2e · started
 - 2026-09-12 11:36 · 092 · D8 offline e2e · done
+- 2026-09-12 12:04 · 093 · D1 inspector separates paks cases · started
+- 2026-09-12 12:07 · 093 · D1 inspector separates paks cases · done
+- 2026-09-12 12:07 · 093 · D2 repair plan+contract · started
+- 2026-09-12 12:07 · 093 · D3 allowlist restrictTo · started
+- 2026-09-12 12:13 · 093 · D2 repair plan+contract · done
+- 2026-09-12 12:13 · 093 · D3 allowlist restrictTo · done
+- 2026-09-12 12:13 · 093 · D4 repair job · started
+- 2026-09-12 12:29 · 093 · D4 repair job · done
+- 2026-09-12 12:29 · 093 · D5 repair dialog · started
+- 2026-09-12 12:33 · 093 · D5 repair dialog · done
+- 2026-09-12 12:33 · 093 · D6 triggers open repair dialog · started
+- 2026-09-12 12:35 · 093 · D6 triggers open repair dialog · done
+- 2026-09-12 12:35 · 093 · D7 offline e2e proof · started
+- 2026-09-12 13:14 · 093 · D7 offline e2e proof · done

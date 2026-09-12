@@ -244,6 +244,7 @@
     "pak0MissingButPaksPresent": "pak0.pak is missing, but other pak files are present. This may be a repacked or remastered install.",
     "pak0NotRetail": "pak0.pak is not the size of the retail file. This is probably the shareware demo or a repacked copy – some maps and assets will be missing.",
     "retailPaksMissing": "pak1.pak and pak2.pak are missing \u2013 this looks like the shareware demo rather than the full game.",
+    "pointReleaseMissing": "The 3.20 point release pak (pak2.pak) is missing.",
     "noExecutable": "No engine executable found in this folder.",
     "executableMissing": "The selected executable is gone: {{path}}",
     "notWritable": "{{path}} is not writable. Configs and save games cannot be stored there.",
@@ -2070,6 +2071,7 @@
       "retailUpgrade": "Importing retail data into {{name}}",
       "engineUpdate": "Updating the engine of {{name}}",
       "engineRollback": "Rolling back the engine of {{name}}",
+      "repair": "Repairing {{name}}",
       "cancel": "Cancel this download"
     },
     "cache": {
@@ -2105,6 +2107,7 @@
       "bleedingEdgeUnsupported": "Bleeding edge is not available for this engine.",
       "bleedingEdgeProbeFailed": "Could not check the latest bleeding-edge build. Check your connection and try again.",
       "bleedingEdgeSizeMismatch": "The bleeding-edge build downloaded did not match what was expected and was discarded.",
+      "repairNotApplicable": "That repair cannot be carried out as a download.",
       "unknown": "The download failed for an unknown reason."
     },
     "failures": {
@@ -2305,6 +2308,20 @@
     "bleedingEdge": {
       "label": "Bleeding edge",
       "hint": "Track the newest upstream Q2PRO build instead of the launcher's pinned version."
+    }
+  },
+
+  "repair": {
+    "title": "Repair installation",
+    "description": "Fix what a fresh check of this installation finds wrong, one offer at a time.",
+    "loading": "Checking this installation…",
+    "notFound": "This installation could not be found.",
+    "nothingToRepair": "Nothing here can be repaired automatically.",
+    "offer": {
+      "reinstall-engine": "Reinstall engine",
+      "install-point-release": "Install point release",
+      "retail-copy": "Import retail data…",
+      "set-write-dir": "Choose write folder…"
     }
   },
 

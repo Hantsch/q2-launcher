@@ -114,6 +114,19 @@ export interface Installation {
    */
   writeDirPath?: string
   engineKind: EngineKind
+  /**
+   * The engine this installation is actually known to be, set once when positively known
+   * (bootstrap's user-chosen engine, an import/detection scan that identified one, or a completed
+   * `reinstall-engine` repair) and never touched by revalidation. Deliberately separate from
+   * `engineKind`, which a fresh inspection *does* overwrite on every `validate()`/`validateAll()`
+   * call (see `InstallationsService.applyInspection`'s `preserveKnownEngine`) - `r1q2`/`q2pro` are
+   * identified solely by their own executable, so once that executable goes missing `engineKind`
+   * flips to `'unknown'` even though the installation is still, say, an r1q2 one underneath.
+   * `repair/plan.ts`'s `reinstall-engine` offer reads this (falling back to `engineKind`) so it
+   * keeps appearing across a restart. Absent on installations that predate this field or were never
+   * bootstrapped/imported through a path that sets it.
+   */
+  recordedEngineKind?: EngineKind
   /** Absolute path of the client executable to launch. */
   executablePath?: string
   /** Extra command line arguments, appended after the generated ones. */

@@ -7,6 +7,7 @@ import {
   ok,
   type AddExistingInstallationInput,
   type CreateInstallationInput,
+  type EngineKind,
   type Installation,
   type InstallationIcon,
   type InstallationLastFailure,
@@ -144,6 +145,10 @@ export class InstallationsService {
         ? { executablePath: input.executablePath ?? result.executables[0] }
         : {}),
       ...(result.detectedVersion ? { detectedVersion: result.detectedVersion } : {}),
+      // AC1 fix: a fresh inspection of a folder the user already has is a positive identification -
+      // record it once, so a later missing executable (which drops `engineKind` to `'unknown'`, see
+      // `Installation.recordedEngineKind`'s doc comment) does not also erase this memory.
+      ...(result.engineKind !== 'unknown' ? { recordedEngineKind: result.engineKind } : {}),
     }
 
     this.commit([...this.state.installations(), installation])
@@ -216,6 +221,9 @@ export class InstallationsService {
       updatedAt: now,
       lastValidatedAt: result.checkedAt,
       totalPlaytimeSeconds: 0,
+      // AC1 fix: `input.engineKind` is the caller's own choice (the bootstrap wizard's engine pick),
+      // authoritative the moment the installation is created - see `Installation.recordedEngineKind`.
+      ...(input.engineKind !== 'unknown' ? { recordedEngineKind: input.engineKind } : {}),
     }
 
     this.commit([...this.state.installations(), installation])
@@ -341,6 +349,21 @@ export class InstallationsService {
     if (merged.version) next.detectedVersion = merged.version
     else delete next.detectedVersion
 
+    this.commit(this.state.installations().map((i) => (i.id === next.id ? next : i)))
+    return ok(next)
+  }
+
+  /**
+   * Story 093 finding fix (AC1): records the engine a completed `reinstall-engine` repair just put
+   * back - same shape as `setIcon()`/`setLastFailure()` above, its own field, its own `commit()`
+   * write. Keeps `Installation.recordedEngineKind` accurate for a *future* repair, the same reason
+   * it is set at creation time in `create()`/`addExisting()` above.
+   */
+  setRecordedEngineKind(id: string, engine: EngineKind): Outcome<Installation> {
+    const current = this.find(id)
+    if (!current) return fail('installations.error.notFound')
+
+    const next: Installation = { ...current, recordedEngineKind: engine, updatedAt: new Date().toISOString() }
     this.commit(this.state.installations().map((i) => (i.id === next.id ? next : i)))
     return ok(next)
   }

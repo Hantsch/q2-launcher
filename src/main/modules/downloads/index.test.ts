@@ -1,4 +1,5 @@
-import { mkdir, mkdtemp, open, readdir, rm, utimes, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, open, readdir, rm, truncate, utimes, writeFile } from 'node:fs/promises'
+import { BASE_GAME_DIR, RETAIL_PAK_SIZES } from '@shared/constants'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -8,6 +9,7 @@ import {
   type DownloadFailure,
   type DownloadsSettings,
   type ManifestSnapshot,
+  type RepairPlan,
 } from '@shared/modules/downloads'
 import { fail, type Outcome } from '@shared/types'
 import type { Logger } from '../../lib/logger'
@@ -680,5 +682,70 @@ describe('downloadsModule engine.updateStatus', () => {
       target: '1.0.0',
       updateAvailable: true,
     })
+  })
+})
+
+/**
+ * Story 093 finding fix (AC7): the real `repair.plan` handler, not just `resolveRepairPlan`
+ * (`plan.test.ts` already covers that pure/fake-I/O half in full). The one thing only the actual
+ * handler registration can prove is that it never reads `Installation.checks` - the stored snapshot
+ * the library card renders from - and always re-runs the production `inspectInstallation` against
+ * the real filesystem instead. The installation record here carries a stale `checks: []` ("nothing
+ * wrong"), while the folder itself is missing its executable; if the handler ever took a shortcut
+ * through the stored field, the plan would come back clean.
+ */
+describe('downloadsModule repair.plan', () => {
+  let installRoot: string
+
+  beforeEach(async () => {
+    installRoot = join(dir, 'install')
+    await mkdir(join(installRoot, BASE_GAME_DIR), { recursive: true })
+    const pak0 = join(installRoot, BASE_GAME_DIR, 'pak0.pak')
+    await writeFile(pak0, '')
+    await truncate(pak0, RETAIL_PAK_SIZES['pak0.pak'])
+    await writeFile(join(installRoot, BASE_GAME_DIR, 'pak1.pak'), Buffer.alloc(4096))
+    await writeFile(join(installRoot, BASE_GAME_DIR, 'pak2.pak'), Buffer.alloc(4096))
+    // No `q2pro.exe` anywhere in `installRoot` - the real, on-disk problem a fresh inspection must
+    // report, however clean the stored `checks` below claim things are.
+  })
+
+  it("never trusts the installation's stored checks - it re-inspects the real filesystem", async () => {
+    // `pinnedEnginePackage` (what `canSupplyEngine` reads) only resolves off a *pinned* build -
+    // `serveGoodManifests`'s manifest pins nothing, which would make the `reinstall-engine` offer
+    // fail for a reason unrelated to this test (AC7 is about the findings, not the offer gate).
+    servePinnedManifests(fetchMock)
+    const installationId = 'inst-repair'
+    const installations = {
+      find: (id: string) =>
+        id === installationId
+          ? {
+              id: installationId,
+              rootPath: installRoot,
+              engineKind: 'q2pro' as const,
+              // The stale, would-be "stored" verdict: an installation the library still renders as
+              // perfectly healthy. A handler that read this instead of inspecting would answer with
+              // no findings and no offers at all.
+              checks: [],
+            }
+          : undefined,
+    }
+    const handlers = await setUpModule({ installations } as unknown as ModuleSetup['app'])
+    const repairPlan = handlers.get(DOWNLOADS_HANDLERS.repairPlan)!
+
+    const plan = (await repairPlan({ installationId })) as RepairPlan
+
+    // The real disk disagrees with the stale `checks: []` - a missing executable is exactly what a
+    // fresh `inspectInstallation` run over `installRoot` finds.
+    expect(plan.findings.length).toBeGreaterThan(0)
+    expect(plan.findings.some((finding) => finding.messageKey.startsWith('validation.'))).toBe(true)
+    expect(plan.offers).toEqual([{ kind: 'reinstall-engine', messageKey: expect.any(String) }])
+  })
+
+  it('answers undefined for an installation id the library no longer holds', async () => {
+    const installations = { find: () => undefined }
+    const handlers = await setUpModule({ installations } as unknown as ModuleSetup['app'])
+    const repairPlan = handlers.get(DOWNLOADS_HANDLERS.repairPlan)!
+
+    expect(await repairPlan({ installationId: 'gone' })).toBeUndefined()
   })
 })

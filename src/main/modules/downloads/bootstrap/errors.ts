@@ -94,6 +94,19 @@ export const RETAIL_SOURCE_UNVERIFIED = 'downloads.error.retailSourceUnverified'
 export const INSTALLATION_NOT_FOUND = 'installations.error.notFound'
 
 /**
+ * Story 093 D4: `repair.start` was called with an `offers` list holding none of the repairs the
+ * repair job actually performs (`REPAIRS_BY_JOB`, `repair/job.ts`) - `retail-copy` and
+ * `set-write-dir` are routed by the dialog to [[090]]'s retail-upgrade flow and to the installation
+ * card's own remedy, neither of which is a download job.
+ *
+ * Not a member of `DOWNLOADS_ERROR_KEYS`, for the same reason `RETAIL_SOURCE_UNVERIFIED` and
+ * `INSTALLATION_NOT_FOUND` above are not: it is decided before the job exists, so it can never reach
+ * a `Job.error` or the failure log. It describes a caller that asked this job for something it is
+ * not, which is a renderer bug rather than a state the user can act on.
+ */
+export const REPAIR_NOT_APPLICABLE = 'downloads.error.repairNotApplicable'
+
+/**
  * The catch-all for a local operation that failed for an unforeseen reason - a refused path, a
  * copy that threw, an `mkdir` that could not run. Same choice `pipeline.ts` makes for its own
  * unexpected-error path, and the key `fetcher.ts` already uses for a refused local path: of the

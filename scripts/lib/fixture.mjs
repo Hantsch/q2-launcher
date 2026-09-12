@@ -301,6 +301,11 @@ function makeInstallation({
   status,
   checks,
   lastFailure,
+  // Story 093 D7: an optional recorded `executablePath` - `undefined` for every caller that
+  // predates this story (the hard-coded default below), so only the repair fixtures that need
+  // `inspectInstallation` to compare a STALE recorded path against what it finds on disk
+  // (`validation.executableMissing`) pass one.
+  executablePath,
   // Story 087 D1: both default to the all-unplayed behavior every existing caller relies on, so
   // only a caller that passes them explicitly seeds a "filled" playtime/last-session state.
   lastPlayedAt,
@@ -321,7 +326,7 @@ function makeInstallation({
     // Story 065 D5: `engineKind` became a parameter (defaulting to the `r1q2` every caller
     // relied on before) purely so `INSTALL_UNKNOWN_ENGINE_ID` below can be a non-r1q2 install.
     engineKind: engineKind ?? 'r1q2',
-    executablePath: undefined,
+    executablePath,
     launchArgs: [],
     activeGameDir: '',
     detectedVersion: undefined,
@@ -514,6 +519,65 @@ export const ENGINE_INSTALLED_RELATIVE = {
  * tells "still the old build" apart from "the update/rollback already touched this file". */
 export const ENGINE_UPDATE_OLD_FILL_BYTE = 0x30
 
+// --- story 093 D7: five additive repair-flow installations (the sixth, demo-pak0/AC3, reuses
+// `INSTALL_DEMO_UPGRADE_ID` above verbatim rather than duplicating it) ---------------------------
+//
+// `scripts/flows/repair.mjs` needs each fixture's finding to be reachable through a REAL trigger
+// (the action bar's primary button, gated on `isPlayable(installation.status)`, or the checks
+// list's own `fix: 'install-game-files'` button) - not just present in `installation.checks`. Two
+// real constraints from `src/main/services/inspector.ts`/`src/renderer/src/lib/status.ts` shaped
+// every one of these:
+//
+//   1. `isPlayable()` treats `warning` (and `ok`) as playable, so the action bar only ever shows
+//      Repair for a `status: 'invalid'` (an `error`-severity check) or `'missing'` installation. A
+//      warn/info-only finding (`executableMissing`, `pointReleaseMissing`, `pak0NotRetail`,
+//      `retailPaksMissing`, `notWritable`) is real and repairable, but reaches the dialog only
+//      through the checks list - never the action bar.
+//   2. `classifyEngine()` only recognises r1q2/q2pro by one of THEIR OWN executable file names
+//      being present at the root - so once every such file is gone, a fresh inspection reports
+//      `engineKind: 'unknown'` and raises `validation.noExecutable` (error). `buildRepairPlan`'s
+//      `reinstall-engine` gate (`src/main/modules/downloads/repair/plan.ts`) asks the manifest about
+//      the installation's *recorded* `engineKind`, not that fresh one, so `noExecutable` and "the
+//      manifest can supply this installation's engine" CAN co-occur in the real app (see
+//      `plan.test.ts`'s "gates reinstall-engine on the recorded engine kind..."). This flow doesn't
+//      build that exact fixture, though: AC1 here is built as `validation.executableMissing` (a
+//      STALE recorded `executablePath` next to a DIFFERENT, still-present engine file -
+//      `r1q2ded.exe`, which is both an r1q2 marker and, being the only `.exe` on disk, the fallback
+//      executable, so the fresh and recorded engine kind stay equal) - paired with an empty `baseq2`
+//      (`pak0Missing`, error) purely so the installation's overall status is `invalid` and the action
+//      bar's Repair button exists to click at all. Both offers (`reinstall-engine` and `retail-copy`)
+//      end up on the same plan; the flow only ever drives the one each AC is about.
+
+export const INSTALL_REPAIR_ENGINE_ID = 'fixture-install-repair-engine'
+export const INSTALL_REPAIR_ENGINE_NAME = 'Fixture Repair Engine Install'
+
+export const INSTALL_REPAIR_POINT_RELEASE_ID = 'fixture-install-repair-point-release'
+export const INSTALL_REPAIR_POINT_RELEASE_NAME = 'Fixture Repair Point Release Install'
+
+export const INSTALL_REPAIR_RETAIL_ID = 'fixture-install-repair-retail'
+export const INSTALL_REPAIR_RETAIL_NAME = 'Fixture Repair Retail Install'
+
+export const INSTALL_REPAIR_WRITEDIR_ID = 'fixture-install-repair-writedir'
+export const INSTALL_REPAIR_WRITEDIR_NAME = 'Fixture Repair WriteDir Install'
+
+export const INSTALL_REPAIR_UNREPAIRABLE_ID = 'fixture-install-repair-unrepairable'
+export const INSTALL_REPAIR_UNREPAIRABLE_NAME = 'Fixture Repair Unrepairable Install'
+
+/**
+ * A real, never-created path under the machine's genuine `%ProgramFiles%` - the same "a real
+ * unelevated Program Files path is not writable by this test's own user account" fact
+ * `bootstrapProgramFilesProbePath()` documents and `bootstrap-wizard.mjs` relies on, applied here
+ * as an installation's *recorded* `writeDirPath` rather than a wizard target. Deliberately never
+ * created (unlike a real write-dir): `isWritableDir()` (`src/main/lib/fs-utils.ts`) is a plain
+ * `fs.access(target, W_OK)` that fails closed on a non-existent path exactly as it does on a
+ * genuinely locked-down one, so this is deterministic on every machine this flow runs on -
+ * elevated or not - rather than depending on this specific process's own Program Files ACLs.
+ */
+export function repairNonWritableDir() {
+  const programFiles = process.env.ProgramFiles ?? 'C:\\Program Files'
+  return join(programFiles, 'Q2 Launcher UI Verify Fixture Repair', 'writedir')
+}
+
 function populatedInstallations() {
   return [
     makeInstallation({
@@ -613,7 +677,19 @@ function populatedInstallations() {
       name: INSTALL_DEMO_UPGRADE_NAME,
       rootPath: join(gameRoot(), INSTALL_DEMO_UPGRADE_ID),
       engineKind: 'r1q2',
-      checks: [{ id: 'base-paks', severity: 'info', messageKey: 'validation.pak0NotRetail' }],
+      // Story 093 D1 (already done): the real inspector now puts `fix: 'install-game-files'` on
+      // this message key too - mirrored here so this hand-seeded array matches what a live
+      // `inspectInstallation()` produces, which is what `scripts/flows/repair.mjs` (093 D7) needs
+      // for its own demo-pak0 (AC3) case: the checks list's fix button only appears when `fix` is
+      // present.
+      checks: [
+        {
+          id: 'base-paks',
+          severity: 'info',
+          messageKey: 'validation.pak0NotRetail',
+          fix: 'install-game-files',
+        },
+      ],
       favorite: false,
       sortOrder: 4,
     }),
@@ -626,6 +702,118 @@ function populatedInstallations() {
       favorite: false,
       sortOrder: 5,
       moduleData: { downloads: { version: ENGINE_UPDATE_OLD_VERSION } },
+    }),
+    // Story 093 D7 - see the block comment above `INSTALL_REPAIR_ENGINE_ID` for why this finding
+    // is `executableMissing` (a stale recorded `executablePath`), not `noExecutable`.
+    //
+    // `status`/`checks` are seeded directly, byte-for-byte what a live `inspectInstallation()`
+    // produces for the real files `writePopulatedFixture()` writes below (measured, not guessed -
+    // the same `installations:validate` call this flow itself could make) - not left for the app's
+    // own startup `validateAll()` to derive: that revalidation is asynchronous
+    // (`did-finish-load`), and was measured to still be unfinished 8s into a fresh launch with
+    // eleven installations to re-check, which every one of `scripts/flows/repair.mjs`'s assertions
+    // would otherwise race. The same trick `INSTALL_FAILED_ID`/`INSTALL_DEMO_UPGRADE_ID` already use.
+    makeInstallation({
+      id: INSTALL_REPAIR_ENGINE_ID,
+      name: INSTALL_REPAIR_ENGINE_NAME,
+      rootPath: join(gameRoot(), INSTALL_REPAIR_ENGINE_ID),
+      engineKind: 'r1q2',
+      executablePath: join(gameRoot(), INSTALL_REPAIR_ENGINE_ID, 'r1q2.exe'),
+      status: 'invalid',
+      checks: [
+        { id: 'base-paks', severity: 'error', messageKey: 'validation.pak0Missing', fix: 'install-game-files' },
+        {
+          id: 'executable',
+          severity: 'warn',
+          messageKey: 'validation.executableMissing',
+          params: { path: join(gameRoot(), INSTALL_REPAIR_ENGINE_ID, 'r1q2.exe') },
+          fix: 'select-executable',
+        },
+      ],
+      favorite: false,
+      sortOrder: 6,
+    }),
+    // `validation.pointReleaseMissing` (warn) - reachable only via the checks list's own
+    // `install-game-files` fix button, per this block's constraint 1 above.
+    makeInstallation({
+      id: INSTALL_REPAIR_POINT_RELEASE_ID,
+      name: INSTALL_REPAIR_POINT_RELEASE_NAME,
+      rootPath: join(gameRoot(), INSTALL_REPAIR_POINT_RELEASE_ID),
+      engineKind: 'r1q2',
+      status: 'warning',
+      checks: [
+        {
+          id: 'base-paks',
+          severity: 'warn',
+          messageKey: 'validation.pointReleaseMissing',
+          fix: 'install-game-files',
+        },
+      ],
+      favorite: false,
+      sortOrder: 7,
+    }),
+    // `validation.pak0Missing` (error, empty `baseq2`) - `status: 'invalid'`, reachable via both
+    // the action bar and the checks list.
+    makeInstallation({
+      id: INSTALL_REPAIR_RETAIL_ID,
+      name: INSTALL_REPAIR_RETAIL_NAME,
+      rootPath: join(gameRoot(), INSTALL_REPAIR_RETAIL_ID),
+      engineKind: 'r1q2',
+      status: 'invalid',
+      checks: [
+        { id: 'base-paks', severity: 'error', messageKey: 'validation.pak0Missing', fix: 'install-game-files' },
+      ],
+      favorite: false,
+      sortOrder: 8,
+    }),
+    // `validation.pak0Missing` (error, same as above, so the action bar reaches it) PLUS
+    // `validation.notWritable` (warn, `writeDirPath` pointed at a real, never-created Program
+    // Files path - see `repairNonWritableDir()`) - the plan carries both `retail-copy` and
+    // `set-write-dir` offers; this flow only asserts the latter is present (AC5).
+    makeInstallation({
+      id: INSTALL_REPAIR_WRITEDIR_ID,
+      name: INSTALL_REPAIR_WRITEDIR_NAME,
+      rootPath: join(gameRoot(), INSTALL_REPAIR_WRITEDIR_ID),
+      writeDirPath: repairNonWritableDir(),
+      engineKind: 'r1q2',
+      status: 'invalid',
+      checks: [
+        { id: 'base-paks', severity: 'error', messageKey: 'validation.pak0Missing', fix: 'install-game-files' },
+        {
+          id: 'write-access',
+          severity: 'warn',
+          messageKey: 'validation.notWritable',
+          params: { path: repairNonWritableDir() },
+          fix: 'set-write-dir',
+        },
+      ],
+      favorite: false,
+      sortOrder: 9,
+    }),
+    // `validation.noExecutable` (error) with an otherwise fully-valid, fully-retail `baseq2` and no
+    // engine marker anywhere - `engineKind` inspects fresh as `'unknown'` (which also raises its own
+    // `validation.engineUnknown`, warn). The *recorded* `engineKind` below is `'unknown'` too, not a
+    // once-known one: `InstallationsService`'s ordinary revalidation (`installations.ts`'s
+    // `preserveKnownEngine` guard, scoped to `lastFailure`) overwrites the record with exactly this
+    // fresh verdict the moment every engine marker disappears from an otherwise-healthy install, so
+    // this is what the record genuinely becomes, not a fixture shortcut. `canSupplyEngine('unknown')`
+    // is false (no manifest package is ever keyed by `'unknown'`), so `buildRepairPlan` offers
+    // nothing for either finding (AC6). Recorded and fresh are both `'unknown'` here, so this
+    // fixture passes under either gate - it is `plan.test.ts`'s
+    // "gates reinstall-engine on the recorded engine kind..." that actually guards against a
+    // regression back to the fresh-kind gate, not this fixture.
+    makeInstallation({
+      id: INSTALL_REPAIR_UNREPAIRABLE_ID,
+      name: INSTALL_REPAIR_UNREPAIRABLE_NAME,
+      rootPath: join(gameRoot(), INSTALL_REPAIR_UNREPAIRABLE_ID),
+      engineKind: 'unknown',
+      status: 'invalid',
+      checks: [
+        { id: 'engine-identified', severity: 'warn', messageKey: 'validation.engineUnknown', fix: 'select-executable' },
+        { id: 'executable', severity: 'error', messageKey: 'validation.noExecutable', fix: 'select-executable' },
+      ],
+      favorite: false,
+      sortOrder: 10,
     }),
   ]
 }
@@ -1514,10 +1702,65 @@ export function writePopulatedFixture() {
     writeSizedFile(join(engineBaseq2, 'pak2.pak'), RETAIL_PAK_SIZES['pak2.pak'])
   }
 
+  // Story 093 D7: the five additive repair-flow installations - see the block comment above
+  // `INSTALL_REPAIR_ENGINE_ID` for what each finding is and why. `writeSizedFile`/`RETAIL_PAK_SIZES`
+  // are declared further down this file, forward-referenced exactly as the demo/engine-update
+  // blocks above already do (module-level bindings, initialised before any exported function runs).
+  {
+    // AC1: `r1q2ded.exe` is the only executable on disk (an r1q2 marker AND, being the sole `.exe`,
+    // the fallback executable `inspectInstallation` picks) - the recorded `executablePath` above
+    // names a `r1q2.exe` that does not exist, so the two disagree (`validation.executableMissing`).
+    // `baseq2` exists but holds no pak file at all (`validation.pak0Missing`, error - what makes the
+    // action bar's Repair button exist to click).
+    const root = join(gameRoot(), INSTALL_REPAIR_ENGINE_ID)
+    rmDirBestEffort(root)
+    mkdirSync(join(root, 'baseq2'), { recursive: true })
+    writeFileSync(join(root, 'r1q2ded.exe'), '')
+  }
+  {
+    // AC2: a real executable (no engine finding), retail-sized pak0/pak1, no pak2.pak at all ->
+    // `validation.pointReleaseMissing` (warn).
+    const root = join(gameRoot(), INSTALL_REPAIR_POINT_RELEASE_ID)
+    const baseq2 = join(root, 'baseq2')
+    rmDirBestEffort(root)
+    mkdirSync(baseq2, { recursive: true })
+    writeFileSync(join(root, 'r1q2.exe'), '')
+    writeSizedFile(join(baseq2, 'pak0.pak'), RETAIL_PAK_SIZES['pak0.pak'])
+    writeSizedFile(join(baseq2, 'pak1.pak'), RETAIL_PAK_SIZES['pak1.pak'])
+  }
+  {
+    // AC4: a real executable, `baseq2` present but entirely empty -> `validation.pak0Missing`
+    // (error), offering `retail-copy`.
+    const root = join(gameRoot(), INSTALL_REPAIR_RETAIL_ID)
+    rmDirBestEffort(root)
+    mkdirSync(join(root, 'baseq2'), { recursive: true })
+    writeFileSync(join(root, 'r1q2.exe'), '')
+  }
+  {
+    // AC5: same shape as the retail-pak-less installation above (so the action bar reaches it too),
+    // plus a `writeDirPath` (set on the installation record itself, above) that is never created.
+    const root = join(gameRoot(), INSTALL_REPAIR_WRITEDIR_ID)
+    rmDirBestEffort(root)
+    mkdirSync(join(root, 'baseq2'), { recursive: true })
+    writeFileSync(join(root, 'r1q2.exe'), '')
+  }
+  {
+    // AC6: no executable anywhere, but a fully valid, fully retail `baseq2` - the only finding is
+    // `validation.noExecutable`, and it offers nothing (see the block comment above).
+    const root = join(gameRoot(), INSTALL_REPAIR_UNREPAIRABLE_ID)
+    const baseq2 = join(root, 'baseq2')
+    rmDirBestEffort(root)
+    mkdirSync(baseq2, { recursive: true })
+    writeSizedFile(join(baseq2, 'pak0.pak'), RETAIL_PAK_SIZES['pak0.pak'])
+    writeSizedFile(join(baseq2, 'pak1.pak'), RETAIL_PAK_SIZES['pak1.pak'])
+    writeSizedFile(join(baseq2, 'pak2.pak'), RETAIL_PAK_SIZES['pak2.pak'])
+  }
+
   return {
     userDataDir,
-    // + INSTALL_FAILED_ID + INSTALL_DEMO_UPGRADE_ID + INSTALL_ENGINE_UPDATE_ID
-    installations: installIds.length + 3,
+    // + INSTALL_FAILED_ID + INSTALL_DEMO_UPGRADE_ID + INSTALL_ENGINE_UPDATE_ID + the five 093 D7
+    // repair installations
+    installations: installIds.length + 3 + 5,
     configProfiles: populatedConfigProfiles().length,
   }
 }

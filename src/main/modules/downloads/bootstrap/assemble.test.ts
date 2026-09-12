@@ -777,3 +777,93 @@ describe('assembleInstallation (store-copy)', () => {
     expect(await namesUnder(join(targetRoot, 'baseq2'))).toEqual(['pak0.pak', 'pak1.pak'].sort())
   })
 })
+
+/**
+ * Story 093 D3: `restrictTo` narrows which already-allowlisted plan entries a call actually
+ * copies - it never adds a new role or target to the allowlist itself, only excludes entries
+ * from a given call. Omitting it entirely must keep every test above passing unchanged.
+ */
+describe('assembleInstallation (restrictTo)', () => {
+  it('restrictTo.roles copies only entries of that role', async () => {
+    await seedExtractionTree()
+
+    const result = await assembleInstallation({
+      sources: allRoleSources(sourceRoot),
+      targetRoot,
+      engine: 'q2pro',
+      includeVideoAndPlayers: false,
+      restrictTo: { roles: ['engine'] },
+    })
+
+    // Only the engine-role entries: the client binary, the game module DLL, the menu asset.
+    expect(result.copiedFiles.sort()).toEqual(
+      ['baseq2/gamex86_64.dll', 'baseq2/q2pro.menu', Q2PRO_ENGINE_TARGET].sort(),
+    )
+    expect(await namesUnder(join(targetRoot, 'baseq2'))).toEqual(
+      ['gamex86_64.dll', 'q2pro.menu'].sort(),
+    )
+    // No demo/point-release pak landed under this restricted call.
+    expect(await namesUnder(join(targetRoot, 'baseq2'))).not.toContain('pak0.pak')
+    expect(await namesUnder(join(targetRoot, 'baseq2'))).not.toContain('pak1.pak')
+    expect(await namesUnder(join(targetRoot, 'baseq2'))).not.toContain('pak2.pak')
+  })
+
+  it('restrictTo.targets copies exactly the named target and nothing else', async () => {
+    await seedExtractionTree()
+
+    const result = await assembleInstallation({
+      sources: allRoleSources(sourceRoot),
+      targetRoot,
+      engine: 'q2pro',
+      includeVideoAndPlayers: false,
+      restrictTo: { targets: ['baseq2/pak2.pak'] },
+    })
+
+    expect(result.copiedFiles).toEqual(['baseq2/pak2.pak'])
+    expect(await namesUnder(join(targetRoot, 'baseq2'))).toEqual(['pak2.pak'])
+  })
+
+  it('missingRequired under restrictTo is computed over the filtered plan only', async () => {
+    // pak0.pak (role 'demo', required) is missing from the source entirely, but this call
+    // restricts to the 'engine' role - pak0.pak is outside that scope and must not block the
+    // call or appear in missingRequired, even though it is a required entry in the full plan.
+    await writeFixtureFile('q2pro.exe')
+    await writeFixtureFile(join('baseq2', 'gamex86_64.dll'))
+    // pak0.pak, pak1.pak, pak2.pak deliberately absent.
+
+    const result = await assembleInstallation({
+      sources: allRoleSources(sourceRoot),
+      targetRoot,
+      engine: 'q2pro',
+      includeVideoAndPlayers: false,
+      restrictTo: { roles: ['engine'] },
+    })
+
+    expect(result.missingRequired).toEqual([])
+    expect(result.copiedFiles.sort()).toEqual(
+      ['baseq2/gamex86_64.dll', Q2PRO_ENGINE_TARGET].sort(),
+    )
+  })
+
+  it('omitting restrictTo copies the full plan, unchanged from pre-093 behaviour', async () => {
+    await seedExtractionTree()
+
+    const result = await assembleInstallation({
+      sources: allRoleSources(sourceRoot),
+      targetRoot,
+      engine: 'q2pro',
+      includeVideoAndPlayers: false,
+    })
+
+    expect(result.copiedFiles.sort()).toEqual(
+      [
+        'baseq2/gamex86_64.dll',
+        'baseq2/pak0.pak',
+        'baseq2/pak1.pak',
+        'baseq2/pak2.pak',
+        'baseq2/q2pro.menu',
+        Q2PRO_ENGINE_TARGET,
+      ].sort(),
+    )
+  })
+})

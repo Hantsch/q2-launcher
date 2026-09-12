@@ -1,7 +1,7 @@
 ---
 id: 093
 title: Repair fixes exactly what it can
-status: ready
+status: done
 created: 2026-09-12
 ---
 
@@ -17,24 +17,24 @@ Downloads tab; this story makes it do something.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — An installation with a missing or unusable engine executable offers to
+- [x] **AC1** — An installation with a missing or unusable engine executable offers to
       re-install the pinned engine package as its repair action.
-- [ ] **AC2** — An installation missing `pak2.pak` offers to download and extract the 3.20
+- [x] **AC2** — An installation missing `pak2.pak` offers to download and extract the 3.20
       point release as its repair action.
-- [ ] **AC3** — An installation whose `pak0.pak` is demo data where retail was expected offers
+- [x] **AC3** — An installation whose `pak0.pak` is demo data where retail was expected offers
       the retail-copy action ([[088]]'s flow) as its repair.
-- [ ] **AC4** — An installation missing retail `pak0`/`pak1` altogether offers the same
+- [x] **AC4** — An installation missing retail `pak0`/`pak1` altogether offers the same
       retail-copy action; when no store installation is detected, it says so plainly instead of
       offering a picker with nothing in it.
-- [ ] **AC5** — An installation not writable at its current location (e.g. under `Program
+- [x] **AC5** — An installation not writable at its current location (e.g. under `Program
       Files`) offers the existing `set-write-dir` fix as its repair, unchanged.
-- [ ] **AC6** — When `inspectInstallation` reports nothing repairable, the UI says so instead of
+- [x] **AC6** — When `inspectInstallation` reports nothing repairable, the UI says so instead of
       showing an action that would do nothing.
-- [ ] **AC7** — Every repair action is driven by re-reading `inspectInstallation`'s current
+- [x] **AC7** — Every repair action is driven by re-reading `inspectInstallation`'s current
       findings at the moment it runs, not a snapshot taken earlier.
-- [ ] **AC8** — Running a repair on an installation whose game is currently running waits per
+- [x] **AC8** — Running a repair on an installation whose game is currently running waits per
       [[091]]'s guard rather than writing underneath it.
-- [ ] **AC9** — After a repair completes, the installation's status is re-derived from
+- [x] **AC9** — After a repair completes, the installation's status is re-derived from
       `inspectInstallation`, never hand-set to "healthy".
 
 ## Decisions (Sprint)
@@ -132,7 +132,7 @@ Order: D1 → D2 → D3 → D4 → D5 → D6 → D7. D3 may run in parallel with
 
 ## Deliverables
 
-- [ ] **D1 — The inspector separates the two paks cases and marks them fixable.**
+- [x] **D1 — The inspector separates the two paks cases and marks them fixable.**
   `src/main/services/inspector.ts` (+ `inspector.test.ts`),
   `src/renderer/src/i18n/locales/en.json`. Mirror the existing `check(...)` calls at
   `inspector.ts:183-199`. *Acceptance:* a baseq2 with a retail-size `pak0.pak` + `pak1.pak` and no
@@ -140,7 +140,7 @@ Order: D1 → D2 → D3 → D4 → D5 → D6 → D7. D3 may run in parallel with
   folder without `pak1.pak` still yields `validation.retailPaksMissing` (now with the fix);
   `validation.pak0NotRetail` keeps severity `info` and gains the fix; installation *status* is
   unchanged in every case. Tests in `inspector.test.ts`.
-- [ ] **D2 — Repair plan, contract and the `repair.plan` handler.**
+- [x] **D2 — Repair plan, contract and the `repair.plan` handler.**
   `src/main/modules/downloads/repair/plan.ts` (+ `plan.test.ts`),
   `src/shared/modules/downloads.ts`, `src/main/modules/downloads/schemas.ts`,
   `src/main/modules/downloads/index.ts`, `src/renderer/src/modules/downloads/client.ts`.
@@ -151,12 +151,12 @@ Order: D1 → D2 → D3 → D4 → D5 → D6 → D7. D3 may run in parallel with
   `engineUnknown` alone → no offer; nothing repairable → an empty offer list carrying the findings.
   The handler re-runs `inspectInstallation` on every call (never reads stored checks) and carries a
   zod schema. Proves AC1–AC6's "which offer" half and AC7's plan half. Tests: `plan.test.ts`.
-- [ ] **D3 — The allowlist can be narrowed.** `src/main/modules/downloads/bootstrap/assemble.ts`
+- [x] **D3 — The allowlist can be narrowed.** `src/main/modules/downloads/bootstrap/assemble.ts`
   (+ `assemble.test.ts`). *Acceptance:* `restrictTo: { roles: ['engine'] }` copies engine entries
   only; `restrictTo: { targets: ['baseq2/pak2.pak'] }` copies exactly that one file;
   `missingRequired` is computed over the filtered plan, not the full one; omitting `restrictTo`
   leaves every existing caller's result byte-identical (existing tests unchanged).
-- [ ] **D4 — The repair job.** `src/main/modules/downloads/repair/job.ts` (+ `job.test.ts`),
+- [x] **D4 — The repair job.** `src/main/modules/downloads/repair/job.ts` (+ `job.test.ts`),
   `src/main/modules/downloads/bootstrap/errors.ts`, `schemas.ts`/`index.ts` (`repair.start`).
   Mirror `src/main/modules/downloads/retail/upgrade-job.ts` (job creation, cancel, error mapping,
   host seams `…JobsHost`/`InstallationsHost`/`LaunchHost`, final `installations.validate`), and use
@@ -169,7 +169,7 @@ Order: D1 → D2 → D3 → D4 → D5 → D6 → D7. D3 may run in parallel with
   package fails with `downloads.error.packageUnavailable` before writing; the write phase waits per
   [[091]] while that installation's game runs and resumes when it exits; the job ends by calling
   `installations.validate()` and never sets a status. Proves AC1, AC2, AC7, AC8, AC9.
-- [ ] **D5 — The repair dialog.** `src/renderer/src/modules/downloads/repair/RepairDialog.tsx`
+- [x] **D5 — The repair dialog.** `src/renderer/src/modules/downloads/repair/RepairDialog.tsx`
   (+ `RepairDialog.test.tsx`), `src/renderer/src/modules/downloads/bootstrap/Dialogs.tsx` (`view`
   switch), `src/renderer/src/modules/downloads/client.ts`,
   `src/renderer/src/i18n/locales/en.json`. Mirror `retail/RetailUpgradeDialog.tsx` (dialog shape,
@@ -178,13 +178,13 @@ Order: D1 → D2 → D3 → D4 → D5 → D6 → D7. D3 may run in parallel with
   `set-write-dir` calls `useFixAction(installation, 'set-write-dir')`; an empty plan renders the
   findings plus the "nothing can be repaired automatically" message and no action button;
   `data-testid`s for the flow. Proves AC3/AC4's entry, AC5, AC6.
-- [ ] **D6 — The two triggers stop navigating and start repairing.**
+- [x] **D6 — The two triggers stop navigating and start repairing.**
   `src/renderer/src/components/shell/ActionBar.tsx` (`case 'repair'`, ~line 62),
   `src/renderer/src/components/installations/ChecksList.tsx` (`install-game-files` branch, ~line
   120). Mirror `ActionBar.tsx:145`'s `openDialog({ kind: 'module', … })` call. *Acceptance:* both
   open the repair dialog for that installation; no shell file imports a downloads component;
   `setRoute('/downloads')` is gone from both places.
-- [ ] **D7 — Offline end-to-end proof.** `scripts/flows/repair.mjs` (new), `scripts/lib/fixture.mjs`
+- [x] **D7 — Offline end-to-end proof.** `scripts/flows/repair.mjs` (new), `scripts/lib/fixture.mjs`
   (installations that are: engine-executable-less, pak2-less, demo-pak0, retail-pak-less, in a
   non-writable location, and one with a finding nothing can repair),
   `docs/UI-VERIFICATION.md`. Mirror `scripts/flows/retail-upgrade.mjs` (dev-channel seeding,
@@ -212,7 +212,11 @@ Order: D1 → D2 → D3 → D4 → D5 → D6 → D7. D3 may run in parallel with
 - AC1 → e2e `npm run ui:flow -- repair` (`scripts/flows/repair.mjs`) › "an installation with no
   engine executable offers to re-install the pinned engine, and the binary is on disk afterwards",
   plus unit `src/main/modules/downloads/repair/plan.test.ts` › "a missing executable with a
-  manifest-supplied engine yields the reinstall-engine offer"
+  manifest-supplied engine yields the reinstall-engine offer" and (review fix) › "recorded engine
+  known, live engineKind now unknown → reinstall-engine is still offered"; `job.test.ts` › the same
+  scenario for execution, plus a successful repair updating `recordedEngineKind`;
+  `installations.test.ts` › `recordedEngineKind` survives an executable deletion + revalidation
+  that flips the live `engineKind` to `unknown` (the bug a clean review caught and this closes)
 - AC2 → e2e `scripts/flows/repair.mjs` › "an installation missing pak2.pak offers the 3.20 point
   release and only baseq2/pak2.pak appears on disk", plus unit
   `src/main/modules/downloads/repair/job.test.ts` › "the pak2 repair writes exactly baseq2/pak2.pak"
@@ -233,15 +237,23 @@ Order: D1 → D2 → D3 → D4 → D5 → D6 → D7. D3 may run in parallel with
   findings and no action button"
 - AC7 → unit `src/main/modules/downloads/repair/job.test.ts` › "the job re-inspects at start and
   ignores the plan it was started with" (a finding that disappeared between plan and start is not
-  acted on; one that appeared is), plus `plan.test.ts` › "the repair.plan handler re-runs
-  inspectInstallation and never reads the stored checks"
+  acted on; one that appeared is), plus (moved from `plan.test.ts` to the actually-registered
+  handler per a review finding) `src/main/modules/downloads/index.test.ts` ›
+  `describe('downloadsModule repair.plan', ...)` — proves the real `repair.plan` IPC handler,
+  wired to the production `inspectInstallation`, re-runs it fresh and never reads a stale stored
+  `checks` value
 - AC8 → unit `…/repair/job.test.ts` › "the write phase waits while that installation's game runs
   and resumes when it exits" (through [[091]]'s guard, not a local refusal), plus e2e
   `scripts/flows/repair.mjs` › "with the game simulated as running the repair reports waiting, then
   completes once it exits" (real surface via `dev:simulateLaunch`)
 - AC9 → unit `…/repair/job.test.ts` › "the status after a repair comes from
-  InstallationsService.validate(), never hand-set", plus the e2e's post-repair assertion that the
-  action bar no longer shows Repair
+  InstallationsService.validate(), never hand-set". The e2e's originally-planned "the action bar no
+  longer shows Repair" check turned out unreachable through this job alone: `isPlayable()` treats a
+  `warning`-severity status as still playable (pre-existing, unrelated to this story), and every
+  fixture this job can fully resolve on its own still carries at least one other, unrelated
+  `warning` finding afterwards. `scripts/flows/repair.mjs` instead proves AC9's substantive claim at
+  the e2e level — a partially-repaired installation still honestly shows Repair rather than being
+  hand-set to healthy — documented in the flow's header comment and in `docs/UI-VERIFICATION.md`.
 
 No manual residue: every criterion has an automated test. Two risks carried into the build:
 [[091]]'s guard API is not final at refine time (D4's first act is to read what 091 landed and use
@@ -249,3 +261,83 @@ it — not to write a refusal of its own), and D1's inspector change touches a f
 status derives from, so its acceptance explicitly includes "installation status is unchanged".
 
 ## Done
+
+**Summary.** Repair is now a real feature: the action bar's `Repair` state and the checks list's
+`install-game-files` fix both open a downloads-module dialog that reads a fresh `RepairPlan` off
+`inspectInstallation` and offers exactly what the manifest can supply — `reinstall-engine`,
+`install-point-release` (the 3.20 point release for a missing `pak2.pak`), `retail-copy` (handed
+off verbatim to [[090]]'s existing `'retail-upgrade'` view), and `set-write-dir` (via the existing
+`useFixAction`) — or says plainly that nothing is repairable. The inspector now tells "only
+`pak2.pak` missing" apart from "retail paks missing" and marks the three affected checks fixable.
+The repair job re-inspects at both `repair.plan` and `repair.start`, writes only the
+allowlist-narrowed file set for its offer (`assembleInstallation`'s new `restrictTo`), waits on
+[[091]]'s write guard while the game is running, and ends by calling
+`InstallationsService.validate()` — never hand-setting status. An independent clean review caught
+a real bug before this shipped (see Decisions below) that has since been fixed and re-verified.
+
+**Commit message:**
+```
+093: repair fixes exactly what it can
+```
+
+**Verification:**
+- `npm run build` — clean.
+- `npm run typecheck` — clean (node + web).
+- `npm test` — 214 files, 3822 passed, 1 skipped (pre-existing, unrelated), 0 failed.
+- `npm run ui:verify` — full run, 43/43 screens, 0 axe violations (critical/serious/moderate/minor).
+- `npm run ui:flow -- repair` — green end to end, no outbound network; walks Repair from both the
+  action bar and the checks list across six fixtures (engine-executable-less, pak2-less,
+  demo-pak0, retail-pak-less, non-writable-location, unrepairable), runs the real engine and pak2
+  repairs against the loopback fixture server with on-disk assertions, exercises AC3/AC4's
+  retail-copy hand-off (including the "no store installation detected" state) and the AC8
+  waiting/resume path via `dev:simulateLaunch`.
+- Clean-agent review (default tier initially — the `story-review-hard` line in `## Model Hints`
+  was honoured): first pass returned **FAIL on AC1** (see Decisions), PASS on AC2–AC9, plus a
+  test-gap finding on AC7's handler-level coverage and a cosmetic doc-comment finding. A fix was
+  applied and independently re-verified (fresh agent, not the implementer): all three findings
+  **CONFIRMED FIXED**. Findings left deliberately unfixed (informational/inherited, not blocking):
+  the job's engine-allowlist precondition is slightly stricter than the plan's offer gate (latent
+  today — the shipped manifest only pins the two engines both paths already require); a mid-copy
+  `PACKAGE_INCOMPLETE` failure can leave the status stale until the next revalidation (inherited
+  from `retail/upgrade-job.ts`'s identical pattern); the fresh verdict is read once at job start
+  and not re-read again after the write guard's wait (a deliberate, documented residual per the
+  Decisions section below).
+
+**AC → test mapping, as verified** (see the corrected `## Acceptance Tests` above for exact names):
+AC1 `plan.test.ts`/`job.test.ts`/`installations.test.ts` + e2e — pass, including the post-review-fix
+"recorded engine known, live engineKind now unknown" scenario; AC2 `job.test.ts`/`plan.test.ts` +
+e2e — pass; AC3 `plan.test.ts` + e2e — pass; AC4 `plan.test.ts` + e2e — pass; AC5
+`RepairDialog.test.tsx` + e2e — pass; AC6 `RepairDialog.test.tsx` + e2e — pass; AC7 `job.test.ts` +
+`index.test.ts`'s `repair.plan` handler test (moved here from a helper-only test per the review) +
+e2e — pass; AC8 `job.test.ts` + e2e (`dev:simulateLaunch`) — pass; AC9 `job.test.ts` — pass; the
+e2e half of AC9 was re-scoped to its substantive claim rather than the literal "action bar no
+longer shows Repair" wording, per the corrected mapping above and the reason given there. No
+manual residue.
+
+**Decisions (Build).**
+- **A clean review caught a real AC1 bug: `engineKind` is not stable memory.** `plan.ts`'s
+  `reinstall-engine` gate originally read `installation.engineKind` for "can the manifest supply
+  the recorded engine" — but `installations.ts`'s revalidation overwrites `engineKind` to
+  `'unknown'` on the very next `validate()` (which runs on every app startup) once the executable
+  that is r1q2/q2pro's only detection marker is gone, for any *ordinary* installation (the
+  `lastFailure`-scoped exception from an earlier story deliberately doesn't cover this case). That
+  silently made AC1 unreachable after a restart — exactly its canonical scenario. Fixed by adding
+  `Installation.recordedEngineKind?: EngineKind`, a one-way memory set at bootstrap creation, at
+  "add existing installation" time, and after a successful `reinstall-engine` repair — never
+  touched by revalidation, never overwriting the `lastFailure` guard's existing logic. Both
+  `plan.ts` (the offer) and `job.ts` (the execution) now read `recordedEngineKind ?? engineKind`
+  consistently. Residual, deliberately accepted: installations that existed before this story
+  shipped have no `recordedEngineKind` yet, so they degrade to the *pre-fix* behavior (the offer
+  gates false once their engine kind is unknown) rather than the bug being reintroduced — a sane
+  degrade, not a regression, and it self-heals the next time that installation is bootstrapped,
+  re-added, or successfully repaired.
+- **AC9's e2e wording needed correcting, not its substance.** The story's `## Acceptance Tests`
+  originally planned an e2e check that "the action bar no longer shows Repair" after a repair.
+  That's unreachable through this job alone because `isPlayable()` (pre-existing, unrelated to
+  this story) treats a `warning`-severity status as still playable, and every fixture this job can
+  fully resolve on its own still carries at least one other unrelated warning afterwards. The e2e
+  instead proves AC9's real claim — status is never hand-set to healthy, a partially-repaired
+  installation honestly keeps showing Repair — which is what AC9 actually requires; the mapping
+  text was corrected to match.
+- All other Decisions from refine (see `## Decisions (Sprint)` above) held unchanged through the
+  build; no other plan gaps surfaced.

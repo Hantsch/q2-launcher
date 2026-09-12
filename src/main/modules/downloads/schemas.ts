@@ -5,6 +5,7 @@ import {
   BOOTSTRAP_SUPPORTED_ENGINES,
   MAX_CONCURRENT_DOWNLOAD_JOBS,
   MIN_CONCURRENT_DOWNLOAD_JOBS,
+  REPAIR_OFFER_KINDS,
   type ArchiveCacheBudgetGB,
   type ManifestPackage,
   type ManifestPackageContentEntry,
@@ -346,6 +347,30 @@ export const engineInstallationInputSchema = z.object({ installationId: z.string
 export const engineUpdateStatusInputSchema = engineInstallationInputSchema
 
 export const startEngineUpdateInputSchema = engineInstallationInputSchema
+
+/**
+ * Story 093 D2: `repair.plan`'s payload - one installation id, nothing else. Same single-field
+ * shape as `engineInstallationInputSchema` above, kept as its own export since this module's
+ * checklist is unrelated to the engine-update surface.
+ */
+export const repairPlanInputSchema = z.object({ installationId: z.string().min(1) }).strict()
+
+/**
+ * Story 093 D4: `repair.start`'s payload - the installation and the offer kinds the user
+ * authorised. The enum is `REPAIR_OFFER_KINDS` (`@shared/modules/downloads`) itself, never a
+ * hand-copied list, so a kind added to the contract cannot silently fail validation here.
+ *
+ * `.min(1)`: a repair of nothing is a caller bug, and this file's convention is to reject a bad
+ * payload rather than let a handler discover it. Which of the accepted kinds the *job* actually
+ * performs is a different question, answered in `repair/job.ts` (`REPAIRS_BY_JOB`) - the schema
+ * validates the contract's shape, not one job's scope.
+ */
+export const startRepairInputSchema = z
+  .object({
+    installationId: z.string().min(1),
+    offers: z.array(z.enum(REPAIR_OFFER_KINDS)).min(1),
+  })
+  .strict()
 
 export const startEngineRollbackInputSchema = engineInstallationInputSchema
 

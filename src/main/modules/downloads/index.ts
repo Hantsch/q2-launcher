@@ -15,7 +15,9 @@ import {
   type GameDataSourceVerdict,
   type ManifestSnapshot,
   type PackageSource,
+  type RepairPlan,
   type StartEngineUpdateResult,
+  type StartRepairResult,
   type StartRetailUpgradeResult,
 } from '@shared/modules/downloads'
 // `StartEngineUpdateResult` is reused for `engineRollbackStart` too - D1's own doc comment on it
@@ -67,8 +69,11 @@ import {
   type PipelineLog,
   type StartedDownload,
 } from './pipeline'
+import { startRepair, type RepairDeps } from './repair/job'
+import { resolveRepairPlan, type RepairPlanDeps } from './repair/plan'
 import { detectedRetailSourcesFor } from './retail/sources'
 import { startRetailUpgrade, type RetailUpgradeDeps } from './retail/upgrade-job'
+import { inspectInstallation } from '../../services/inspector'
 import {
   bootstrapEngineOptionsInputSchema,
   bootstrapGameDataSourceInputSchema,
@@ -80,11 +85,13 @@ import {
   engineUpdateStatusInputSchema,
   manifestGetInputSchema,
   patchDownloadsSettingsInputSchema,
+  repairPlanInputSchema,
   restoreFailureInputSchema,
   setBleedingEdgeInputSchema,
   startBootstrapInputSchema,
   startEngineRollbackInputSchema,
   startEngineUpdateInputSchema,
+  startRepairInputSchema,
   startRetailUpgradeInputSchema,
 } from './schemas'
 
@@ -385,6 +392,56 @@ export const downloadsModule: MainModule = {
         const updated = app.installations.setEngineState(installationId, { bleedingEdge: enabled })
         if (!updated.ok) return updated
         return ok(undefined)
+      },
+    )
+
+    /**
+     * Story 093 D2 (AC7): one installation's `RepairPlan`, built from a *fresh* `inspectInstallation`
+     * run every single time - never `Installation.checks`, the stored snapshot the library card
+     * itself renders from. A thin wrapper around `resolveRepairPlan` (`repair/plan.ts`), which owns
+     * the fresh-inspect-then-map order; `buildRepairPlan` underneath it is pure. No failure mode of
+     * its own (same convention as `engineUpdateStatus` above): an installation id the library no
+     * longer has answers `undefined`.
+     */
+    handle(
+      DOWNLOADS_HANDLERS.repairPlan,
+      repairPlanInputSchema,
+      async ({ installationId }): Promise<RepairPlan | undefined> => {
+        const installation = app.installations.find(installationId)
+        if (!installation) return undefined
+
+        return resolveRepairPlan(repairPlanDepsFor(manifestService, log), {
+          id: installation.id,
+          rootPath: installation.rootPath,
+          engineKind: installation.engineKind,
+          ...(installation.recordedEngineKind
+            ? { recordedEngineKind: installation.recordedEngineKind }
+            : {}),
+          ...(installation.executablePath ? { executablePath: installation.executablePath } : {}),
+          ...(installation.writeDirPath ? { writeDirPath: installation.writeDirPath } : {}),
+        })
+      },
+    )
+
+    /**
+     * Story 093 D4 (AC1/AC2/AC7/AC8/AC9): starts the repair job. A thin wrapper around `startRepair`
+     * (`repair/job.ts`), which owns the whole order - re-inspect the installation itself (the plan
+     * the dialog rendered is never trusted as evidence), resolve every package before a byte is
+     * fetched, download/extract outside the installation, copy exactly the allowlisted files in
+     * behind [[091]]'s write guard, and finally `InstallationsService.validate()`.
+     *
+     * Like `bootstrapStart`/`retailUpgradeStart`/`engineUpdateStart` above, this deliberately does
+     * not await the job: it answers as soon as the job exists, so the dialog can switch to the
+     * progress state. `settled` stays in main - the job is the renderer's progress and outcome
+     * surface, over `jobs:changed`.
+     */
+    handle(
+      DOWNLOADS_HANDLERS.repairStart,
+      startRepairInputSchema,
+      async (input): Promise<Outcome<StartRepairResult>> => {
+        const started = await startRepair(repairDepsFor(app, manifestService, log), input)
+        if (!started.ok) return started
+        return ok({ jobId: started.value.jobId })
       },
     )
 
@@ -717,6 +774,47 @@ function bootstrapDepsFor(
     // `BootstrapDiagnosticsSource`). `observeFailedJobs` above drops the entry again on any
     // terminal status, so an instrumented job leaves nothing behind either way.
     diagnostics: (jobId, kind) => createDiagnosticsCollector(jobId, kind),
+    log,
+  }
+}
+
+/**
+ * Story 093 D2: the production wiring for `resolveRepairPlan` (`repair/plan.ts`). Built per call,
+ * like the other `*DepsFor` factories in this file - `inspectInstallation` is a free function with
+ * no state of its own, and `manifestSourceFrom` already resolves lazily against whatever
+ * `manifestService.getManifest()` last served.
+ */
+function repairPlanDepsFor(manifestService: ManifestService, log: Logger): RepairPlanDeps {
+  const manifest = manifestSourceFrom(manifestService, log)
+  return {
+    inspect: inspectInstallation,
+    canSupplyEngine: async (engine) => (await manifest.resolveEnginePackage(engine)) !== undefined,
+  }
+}
+
+/**
+ * Story 093 D4: the production wiring for the repair job (`repair/job.ts`). Built per call, like
+ * every other `*DepsFor` factory here and for the same reason - the job owns no queue and no
+ * cross-call state.
+ *
+ * `inspect` is deliberately not passed: its default *is* `inspectInstallation`, the same function
+ * `repairPlanDepsFor` above hands the plan, so there is no wiring in which the job could act on a
+ * verdict from somewhere other than a fresh look at the disk.
+ */
+function repairDepsFor(app: AppContext, manifestService: ManifestService, log: Logger): RepairDeps {
+  return {
+    jobs: app.jobs,
+    installations: app.installations,
+    writeGuard: app.writeGuard,
+    manifest: manifestSourceFrom(manifestService, log),
+    fetcher: realPackageFetcher,
+    extractor: realExtractor,
+    userDataPath: userDataDir(),
+    resolveExtractor: () =>
+      resolveExtractorPath({
+        isPackaged: electronApp.isPackaged,
+        resourcesPath: process.resourcesPath,
+      }),
     log,
   }
 }

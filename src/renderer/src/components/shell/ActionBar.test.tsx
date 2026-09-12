@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { Installation, Job } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
@@ -105,5 +105,27 @@ describe('ActionBar', () => {
     expect(playButton.hasAttribute('disabled')).toBe(true)
     expect(playButton.getAttribute('data-action')).toBe('busy')
     expect(playButton.textContent).toContain('Writing')
+  })
+
+  it('story 093 D6: clicking Repair opens the downloads module repair dialog for the installation, not a route change', async () => {
+    useLauncher.setState({
+      installations: [makeInstallation({ status: 'invalid' })],
+      settings: { ...DEFAULT_SETTINGS, activeInstallationId: 'inst-1' },
+      jobs: [],
+    })
+
+    render(createElement(ActionBar))
+
+    const playButton = await screen.findByTestId('actionbar-play')
+    expect(playButton.getAttribute('data-action')).toBe('repair')
+
+    fireEvent.click(playButton)
+
+    expect(useLauncher.getState().dialog).toEqual({
+      kind: 'module',
+      moduleId: 'downloads',
+      view: 'repair',
+      installationId: 'inst-1',
+    })
   })
 })

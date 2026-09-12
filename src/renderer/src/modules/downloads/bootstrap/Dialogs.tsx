@@ -1,6 +1,7 @@
 import { BootstrapWizard } from './BootstrapWizard'
 import { RetailUpgradeDialog } from '../retail/RetailUpgradeDialog'
 import { EngineUpdateDialog } from '../engine/EngineUpdateDialog'
+import { RepairDialog } from '../repair/RepairDialog'
 
 /**
  * The downloads module's own dialog registry (story 074 D6), mounted by the shell's
@@ -15,6 +16,10 @@ import { EngineUpdateDialog } from '../engine/EngineUpdateDialog'
  *
  * Story 092 D7 adds `'engine-update'`, the engine update/rollback/bleeding-edge dialog - same
  * single-installation shape and the same "no id, no render" guard as `'retail-upgrade'` above.
+ *
+ * Story 093 D5 adds `'repair'`, the repair dialog - same single-installation shape and guard. Its
+ * `'retail-copy'` offer switches back to `'retail-upgrade'` above via `openDialog`, which this
+ * registry already renders, so no extra wiring is needed here for that handover.
  */
 export function Dialogs({ view, installationId }: { view: string; installationId?: string }) {
   if (view === 'bootstrap-wizard') return <BootstrapWizard />
@@ -23,6 +28,9 @@ export function Dialogs({ view, installationId }: { view: string; installationId
   }
   if (view === 'engine-update') {
     return installationId ? <EngineUpdateDialog installationId={installationId} /> : null
+  }
+  if (view === 'repair') {
+    return installationId ? <RepairDialog installationId={installationId} /> : null
   }
   return null
 }

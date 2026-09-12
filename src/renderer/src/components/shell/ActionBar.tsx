@@ -39,7 +39,6 @@ export function ActionBar() {
   const play = useLauncher((state) => state.play)
   const cancelJob = useLauncher((state) => state.cancelJob)
   const updateInstallation = useLauncher((state) => state.updateInstallation)
-  const setRoute = useLauncher((state) => state.setRoute)
   const openDialog = useLauncher((state) => state.openDialog)
   const runFix = useFixAction()
 
@@ -55,7 +54,12 @@ export function ActionBar() {
         void runFix(installation, 'locate-root')
         return
       case 'repair':
-        setRoute('/downloads')
+        openDialog({
+          kind: 'module',
+          moduleId: 'downloads',
+          view: 'repair',
+          installationId: installation.id,
+        })
         return
       case 'busy':
         return

@@ -1,4 +1,4 @@
-import type { EngineKind, InstallationStatus, ValidationCheckId } from '../types'
+import type { EngineKind, InstallationStatus, ValidationCheck, ValidationCheckId } from '../types'
 
 /**
  * The downloads module's contract.
@@ -109,6 +109,21 @@ export const DOWNLOADS_HANDLERS = {
    * shape; a later deliverable implements the probe/switch behind it.
    */
   engineSetBleedingEdge: 'engine.setBleedingEdge',
+  /**
+   * Story 093 D2: one installation's `RepairPlan` - what a "repair" dialog (D3) would offer given
+   * a fresh inspection of that installation right now. Always recomputed (AC7): the handler never
+   * reads `Installation.checks`, the stored snapshot the library card itself renders from.
+   */
+  repairPlan: 'repair.plan',
+  /**
+   * Story 093 D4: starts the repair job for one installation - re-inspects it, then downloads and
+   * puts back exactly what the *fresh* verdict still justifies out of the `offers` the caller
+   * authorised. Mirrors `retailUpgradeStart`'s "answers a `Job.id`, progress arrives through
+   * `jobs:changed`" convention. Only `'reinstall-engine'` and `'install-point-release'` are carried
+   * out here; `'retail-copy'` and `'set-write-dir'` are the dialog's to route to the existing
+   * retail-upgrade flow and the installation card's own remedy.
+   */
+  repairStart: 'repair.start',
 } as const
 
 /**
@@ -913,4 +928,73 @@ export interface StartEngineUpdateResult {
 export interface SetBleedingEdgeInput {
   installationId: string
   enabled: boolean
+}
+
+/**
+ * Story 093 D2: one concrete fix `repair.plan` can offer for a finding `inspectInstallation`
+ * raised. Deliberately narrower than `ValidationFix` (`@shared/types`) - `'locate-root'`,
+ * `'select-executable'` and `'revalidate'` stay out of the repair dialog's scope: the first two are
+ * already one click away on the installation card itself, and `'select-executable'` in particular
+ * must never auto-pick a binary for the user (see `buildRepairPlan`'s handling of
+ * `validation.engineUnknown`, `main/modules/downloads/repair/plan.ts`).
+ */
+export const REPAIR_OFFER_KINDS = [
+  'reinstall-engine',
+  'install-point-release',
+  'retail-copy',
+  'set-write-dir',
+] as const
+
+/**
+ * Story 093 D4 widened this from a hand-written union to one derived from `REPAIR_OFFER_KINDS`
+ * above - the same "one closed list, the type comes off it" convention `DOWNLOADS_ERROR_KEYS` and
+ * `RETAIL_SOURCE_UNVERIFIED_REASON_KEYS` already follow, so `repair.start`'s payload schema
+ * (`main/modules/downloads/schemas.ts`) validates against the contract's own list rather than a
+ * second copy of it. The type itself is unchanged.
+ */
+export type RepairOfferKind = (typeof REPAIR_OFFER_KINDS)[number]
+
+/**
+ * One row a `RepairPlan` carries: which fix, and the finding it addresses - the same `messageKey`
+ * (and, when present, `params`) the originating `ValidationCheck` carries, so the repair dialog (D3)
+ * renders the exact sentence already used everywhere else a finding is shown, rather than a second
+ * copy of it.
+ */
+export interface RepairOffer {
+  kind: RepairOfferKind
+  messageKey: string
+  params?: Record<string, string | number>
+}
+
+/**
+ * Story 093 D2: `repair.plan`'s answer for one installation - a fresh set of `findings`
+ * (`ValidationCheck[]`, straight off `inspectInstallation`, never a stored snapshot - AC7) and
+ * whatever `offers` `buildRepairPlan` derived from them. An empty `offers` array alongside a
+ * non-empty `findings` array is a legitimate answer (AC6: "nothing here is repairable by this
+ * dialog" still shows what is wrong), not a failure.
+ */
+export interface RepairPlan {
+  installationId: string
+  offers: RepairOffer[]
+  findings: ValidationCheck[]
+}
+
+/**
+ * Story 093 D2: the payload a later deliverable's `repair.startXxx` job handler(s) take - the
+ * installation to repair and which offer kind(s) from its current `RepairPlan` to act on. Mirrors
+ * `StartRetailUpgradeInput`'s single-installation shape; `offers` is a list (not a single kind)
+ * because a plan can carry more than one applicable offer at once.
+ */
+export interface StartRepairInput {
+  installationId: string
+  offers: RepairOfferKind[]
+}
+
+/**
+ * Story 093 D4: what `repair.start` answers on success - the `Job.id` the repair is visible under in
+ * the Downloads tab. Mirrors `StartRetailUpgradeResult`/`StartEngineUpdateResult`: progress and the
+ * eventual outcome arrive through `jobs:changed`, never through this call's return value.
+ */
+export interface StartRepairResult {
+  jobId: string
 }

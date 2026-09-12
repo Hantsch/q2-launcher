@@ -540,7 +540,9 @@ describe('the retail upgrade job', () => {
     // Re-inspected independently here: what the library now holds has to be what the inspector
     // says about the folder as it now is - not a status this job chose. The distinction is
     // visible rather than theoretical: the fixture has no `pak2.pak`, so the honest verdict is
-    // `warning`/`retailPaksMissing`, which no hand-set "the upgrade worked" status would produce.
+    // `warning`/`pointReleaseMissing` (story 093 D1: pak0/pak1 are retail, only the point-release
+    // pak is absent, a narrower gap than the base retail paks being missing), which no hand-set
+    // "the upgrade worked" status would produce.
     const fresh = await inspectInstallation(installRoot)
     const stored = test.installations.find(test.installation.id)
     expect(stored?.status).toBe(fresh.status)
@@ -549,7 +551,7 @@ describe('the retail upgrade job', () => {
     )
     expect(stored?.status).toBe('warning')
     expect(stored?.checks.map((check) => check.messageKey)).toContain(
-      'validation.retailPaksMissing',
+      'validation.pointReleaseMissing',
     )
     // AC5's own wording: the demo check is gone because the files changed, not because anything
     // cleared a flag.

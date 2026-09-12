@@ -351,6 +351,17 @@ export interface AssembleInstallationInput {
   dataSource?: 'free-download' | 'store-copy' | 'existing-folder'
   /** Story 089 D3: forwarded to `buildAssemblePlan` - see its own doc comment. */
   folderPakNames?: string[]
+  /**
+   * Story 093 D3: narrows which of `buildAssemblePlan`'s already-allowlisted entries this call
+   * actually copies, without changing the allowlist itself. `roles`/`targets` each filter
+   * independently when present (an entry must pass every filter given, not just one of them), and
+   * `missingRequired` is computed over the filtered set - a required entry excluded by `restrictTo`
+   * must never appear there and must never block a narrowed call. Omitted entirely (every caller
+   * before this story), the plan is copied in full, byte-identical to pre-093 behaviour. Applies
+   * only to `buildAssemblePlan`'s entries, not to `GLOB_DIRS` - the video/players toggle is
+   * unaffected by this filter.
+   */
+  restrictTo?: { roles?: AssembleFileRole[]; targets?: string[] }
 }
 
 /**
@@ -457,12 +468,21 @@ async function expandGlobDir(
 export async function assembleInstallation(
   input: AssembleInstallationInput,
 ): Promise<AssembleInstallationResult> {
-  const { sources, targetRoot, engine, includeVideoAndPlayers, dataSource, folderPakNames } = input
+  const { sources, targetRoot, engine, includeVideoAndPlayers, dataSource, folderPakNames, restrictTo } =
+    input
   const copiedFiles: string[] = []
   const missingRequired: { role: AssembleFileRole; from: string[] }[] = []
   const entries: AssembleEntryResult[] = []
 
-  const plan = buildAssemblePlan({ engine, includeVideoAndPlayers, dataSource, folderPakNames })
+  const fullPlan = buildAssemblePlan({ engine, includeVideoAndPlayers, dataSource, folderPakNames })
+  const plan =
+    restrictTo === undefined
+      ? fullPlan
+      : fullPlan.filter((entry) => {
+          if (restrictTo.roles !== undefined && !restrictTo.roles.includes(entry.role)) return false
+          if (restrictTo.targets !== undefined && !restrictTo.targets.includes(entry.to)) return false
+          return true
+        })
   for (const entry of plan) {
     const source = await findSource(sources, entry.from, entry.role)
     if (!source) {

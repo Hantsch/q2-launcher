@@ -1293,6 +1293,84 @@ target to the probed nightly version from `version.txt`, and toggling it off rev
 manifest's pin (AC4/AC5); and the dialog's own "current version" reading changes from the old version
 to the new one after Update and back to the old one after Rollback (AC7).
 
+## The offline repair flow (`repair`)
+
+`npm run ui:flow -- repair` is story 093 D7's own offline acceptance proof for repair - "repair reads
+`inspectInstallation`'s own findings and offers exactly what it can supply" - walked end to end
+against six already-registered fixture installations, one per distinct offer/empty outcome, with the
+two repairs the job actually performs (`reinstall-engine`, `install-point-release`) run for real
+against the loopback fixture server exactly like `engine-update.mjs`.
+
+**Which trigger reaches which fixture.** `isPlayable()` (`src/renderer/src/lib/status.ts`) treats
+`'warning'` (and `'ok'`) as playable, so the action bar's Repair button
+(`resolvePrimaryAction()`, `ActionBar.tsx`) only ever appears for a `status: 'invalid'`/`'missing'`
+installation - i.e. an `error`-severity finding. A `warn`/`info`-only finding
+(`validation.executableMissing`, `.pointReleaseMissing`, `.pak0NotRetail`, `.retailPaksMissing`,
+`.notWritable`) is real and repairable, but only ever reachable through the checks list's own
+`fix: 'install-game-files'` button (`ChecksList.tsx`'s `useFixAction`) - the action bar shows Play
+for every one of them. Separately, `inspector.ts`'s `classifyEngine()` only recognises r1q2/q2pro by
+one of THEIR OWN executable file names being present at the root - so once every such file is gone, a
+fresh inspection reports `engineKind: 'unknown'` and raises `validation.noExecutable` (error).
+`buildRepairPlan`'s `reinstall-engine` gate (`repair/plan.ts`) asks the manifest about the
+installation's *recorded* `engineKind`, not that fresh one, so `validation.noExecutable` and "the
+manifest can supply this installation's engine" CAN co-occur in the real app (see `plan.test.ts`'s
+"gates reinstall-engine on the recorded engine kind..."). This flow doesn't build that exact fixture,
+though: AC1's "missing engine executable" fixture is built as `validation.executableMissing` (a stale
+recorded `executablePath` next to a still-present, different engine file, `r1q2ded.exe`, which keeps
+the fresh and recorded engine kind equal) paired with an empty `baseq2` (`validation.pak0Missing`,
+error - purely so the action bar's Repair button exists to click at all).
+
+**The six fixture installations.** `scripts/lib/fixture.mjs`'s `populatedInstallations()` gains five
+additive installations (last `sortOrder`s, assigned to no config profile - the convention every
+fixture since 090 documents): `INSTALL_REPAIR_ENGINE_ID` (AC1: `executableMissing` + `pak0Missing`),
+`INSTALL_REPAIR_POINT_RELEASE_ID` (AC2: `pointReleaseMissing`, warn),
+`INSTALL_REPAIR_RETAIL_ID` (AC4: `pak0Missing`, error), `INSTALL_REPAIR_WRITEDIR_ID` (AC5:
+`pak0Missing` + `notWritable`, the latter from a `writeDirPath` pointed at a real, never-created path
+under the machine's own `%ProgramFiles%` - `repairNonWritableDir()`, deterministic regardless of this
+process's own elevation since `isWritableDir()`'s plain `fs.access(..., W_OK)` fails closed on a
+non-existent path exactly as it does on a genuinely locked-down one), and
+`INSTALL_REPAIR_UNREPAIRABLE_ID` (AC6: `noExecutable` alone, with a fully valid retail `baseq2` and
+no engine marker anywhere, so `engineKind` inspects fresh as `'unknown'` - and its *recorded*
+`engineKind` is `'unknown'` too, exactly what an ordinary installation's record decays to once every
+marker is gone, so the manifest is asked about `'unknown'` and answers no). AC3's demo-pak0 case
+reuses `INSTALL_DEMO_UPGRADE_ID` verbatim (090 D6)
+rather than a near-duplicate seventh installation; its seeded `checks` array gained
+`fix: 'install-game-files'` to match what a live `inspectInstallation()` now produces after D1.
+
+**How this run is offline.** `Q2L_UI_CONTENT_REPO_BASE` points at
+`startBootstrapFixtureServer({ includeR1q2: true })`, which serves both the Q2PRO and R1Q2 fixture
+engine packages (090/092 only ever needed one). `Q2L_UI_HARNESS_STORE_SOURCES` is set to `'[]'` for
+the whole session: this flow never runs 088's retail-copy job to completion, only proves that
+clicking the `retail-copy` offer switches the module dialog to 090's own `retail-upgrade` view - the
+"no store installation detected" state it lands on is the same empty state 090 already built and
+tested, so nothing here needs a real detected source.
+
+**AC9's own e2e wording, and what this flow actually proves.** Every fixture in this flow pairs its
+`reinstall-engine`/`install-point-release` trigger with an unrelated `error`-severity finding this job
+never touches (`pak0Missing`/`baseDirMissing`/`retailPaksMissing`/`pak0NotRetail` all route to 088's
+retail-copy flow instead) - so, in this run, running one of this job's own repairs never flips the
+action bar from Repair to Play. A marker-less installation whose *recorded* engine the manifest can
+supply (see the gate above) could in principle do that via `reinstall-engine` alone, but no fixture
+here constructs that shape. This flow instead asserts the always-true half of AC9 that every one of
+its fixtures CAN prove: after the AC1 engine repair succeeds, `validation.pak0Missing` is still
+unresolved and the action bar honestly keeps showing Repair rather than being hand-set to healthy.
+AC9's own unit test (`repair/job.test.ts`) already covers "the status comes from
+`InstallationsService.validate()`, never hand-set" directly; this is the same fact observed through
+the real UI.
+
+What the run asserts, in order: the engine-executable-less installation offers `reinstall-engine`
+from both the action bar and the checks list, and the real repair leaves the fixture's r1q2 engine
+files on disk while `pak0.pak` stays absent and the action bar still shows Repair afterwards (AC1,
+AC7, AC9's provable half); the pak2-less installation is reachable only through the checks list
+(Play stays the action bar's primary action) and offers `install-point-release`, which - simulated as
+running via `dev:simulateLaunch` - reports `waiting` and writes nothing until the game is simulated
+as exited, after which only `baseq2/pak2.pak` appears and `pak0.pak`/`pak1.pak` are byte-for-byte
+unchanged (AC2, AC8); the demo installation offers `retail-copy`, which switches the dialog to 090's
+own picker (AC3); the retail-pak-less installation offers the same `retail-copy` repair from both
+triggers, landing on the "no store installation detected" state (AC4); the non-writable-location
+installation offers `set-write-dir` (AC5); and the unrepairable installation's dialog shows its one
+finding and no offer at all (AC6).
+
 ## Baselines and CI
 
 Screenshots are **never diffed** against a committed reference, and this is

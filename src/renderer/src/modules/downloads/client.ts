@@ -11,10 +11,13 @@ import {
   type DownloadsSettings,
   type EngineUpdateStatus,
   type GameDataSourceVerdict,
+  type RepairPlan,
   type SetBleedingEdgeInput,
   type StartBootstrapInput,
   type StartEngineUpdateInput,
   type StartEngineUpdateResult,
+  type StartRepairInput,
+  type StartRepairResult,
   type StartRetailUpgradeInput,
   type StartRetailUpgradeResult,
 } from '@shared/modules/downloads'
@@ -216,6 +219,31 @@ export async function setEngineBleedingEdge(input: SetBleedingEdgeInput): Promis
   const result = await callModule<Outcome<void>>(
     'downloads',
     DOWNLOADS_HANDLERS.engineSetBleedingEdge,
+    input,
+  )
+  return result.ok ? result.value : result
+}
+
+/**
+ * Story 093 D2 (AC6/AC7): one installation's `RepairPlan`, built from a fresh inspection on every
+ * call - main's `repair.plan` handler never reads a stored/cached checks snapshot. Not flattened:
+ * like `getEngineUpdateStatus`, `repair.plan` answers its own value directly, not an `Outcome`, and
+ * `undefined` (installation not found) is a legitimate answer rather than a failure.
+ */
+export function getRepairPlan(installationId: string): Promise<Outcome<RepairPlan | undefined>> {
+  return callModule<RepairPlan | undefined>('downloads', DOWNLOADS_HANDLERS.repairPlan, {
+    installationId,
+  })
+}
+
+/**
+ * Story 093 D4/D5: starts the repair job for the offers the repair dialog's user authorised.
+ * Mirrors `startEngineUpdate`'s flattening - `repair.start`'s handler answers its own `Outcome`.
+ */
+export async function startRepair(input: StartRepairInput): Promise<Outcome<StartRepairResult>> {
+  const result = await callModule<Outcome<StartRepairResult>>(
+    'downloads',
+    DOWNLOADS_HANDLERS.repairStart,
     input,
   )
   return result.ok ? result.value : result

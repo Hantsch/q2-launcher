@@ -270,3 +270,55 @@ describe('findByRootPath', () => {
     expect(await installations.findByRootPath(unrelated)).toBeUndefined()
   })
 })
+
+describe('recordedEngineKind (story 093 finding fix, AC1)', () => {
+  it('addExisting() records the freshly-inspected engine at creation time', async () => {
+    const rootPath = join(dir, 'existing')
+    await writePlayableRoot(rootPath)
+
+    const result = await installations.addExisting({ rootPath })
+
+    expect(result.ok).toBe(true)
+    expect(result.ok === true && result.value.engineKind).toBe('q2pro')
+    expect(result.ok === true && result.value.recordedEngineKind).toBe('q2pro')
+  })
+
+  it('create() records the caller-chosen engine at creation time', async () => {
+    const rootPath = join(dir, 'created')
+
+    const result = await installations.create({ rootPath, name: 'New install', engineKind: 'r1q2' })
+
+    expect(result.ok).toBe(true)
+    expect(result.ok === true && result.value.recordedEngineKind).toBe('r1q2')
+  })
+
+  it('survives validate() clobbering the live engineKind to unknown once the engine files disappear', async () => {
+    const rootPath = join(dir, 'goes-unknown')
+    await writePlayableRoot(rootPath)
+    const added = await installations.addExisting({ rootPath })
+    if (!added.ok) throw new Error(`fixture installation was rejected: ${added.error.key}`)
+    expect(added.value.recordedEngineKind).toBe('q2pro')
+
+    await rm(join(rootPath, 'q2pro.exe'))
+    const result = await installations.validate(added.value.id)
+
+    expect(result.ok).toBe(true)
+    expect(result.ok === true && result.value.engineKind).toBe('unknown')
+    expect(result.ok === true && result.value.recordedEngineKind).toBe('q2pro')
+  })
+
+  it('setRecordedEngineKind() writes the field directly, for a repair job to refresh it', () => {
+    state.setInstallations([installation({ engineKind: 'r1q2' })])
+
+    const result = installations.setRecordedEngineKind(INSTALLATION_ID, 'r1q2')
+
+    expect(result.ok).toBe(true)
+    expect(installations.find(INSTALLATION_ID)?.recordedEngineKind).toBe('r1q2')
+  })
+
+  it('setRecordedEngineKind() reports an unknown installation instead of writing anything', () => {
+    const result = installations.setRecordedEngineKind('nope', 'r1q2')
+
+    expect(result).toEqual({ ok: false, error: { key: 'installations.error.notFound' } })
+  })
+})

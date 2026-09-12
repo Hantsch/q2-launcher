@@ -82,7 +82,7 @@ export function useFixAction(): (installation: Installation, fix: ValidationFix)
   const { t } = useTranslation()
   const updateInstallation = useLauncher((state) => state.updateInstallation)
   const validateInstallation = useLauncher((state) => state.validateInstallation)
-  const setRoute = useLauncher((state) => state.setRoute)
+  const openDialog = useLauncher((state) => state.openDialog)
 
   return async (installation: Installation, fix: ValidationFix) => {
     switch (fix) {
@@ -118,9 +118,12 @@ export function useFixAction(): (installation: Installation, fix: ValidationFix)
       }
 
       case 'install-game-files':
-        // Owned by the downloads module. Its page states plainly that it is not
-        // built yet, which beats a button that silently does nothing.
-        setRoute('/downloads')
+        openDialog({
+          kind: 'module',
+          moduleId: 'downloads',
+          view: 'repair',
+          installationId: installation.id,
+        })
         return
     }
   }
