@@ -93,6 +93,17 @@ const MULTILINE_BULLET = `# Changelog
 - an older bug
 `
 
+describe('parseChangelog', () => {
+  test('regression: a CRLF changelog parses exactly like its LF twin, so a Windows checkout still releases', () => {
+    const crlf = POPULATED.replace(/\n/g, '\r\n')
+
+    expect(parseChangelog(crlf)).toEqual(parseChangelog(POPULATED))
+    // The failure this guards against was not a parse error but a silent refusal: every section
+    // read as preamble, so the release aborted claiming Unreleased was empty.
+    expect(validateUnreleased(crlf)).toBeNull()
+  })
+})
+
 describe('readUnreleased', () => {
   test('collects categories and bullets in order across categories', () => {
     const result = readUnreleased(POPULATED)

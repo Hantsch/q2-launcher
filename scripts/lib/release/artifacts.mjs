@@ -11,13 +11,15 @@ import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 /**
- * Mirrors `electron-builder.yml`'s `productName` field directly. Hardcoded (not read from
- * electron-builder.yml) because this file must stay pure/dependency-free; a future rename of
- * `productName` in electron-builder.yml is caught by drift (this file's expectations stop
- * matching real build output) rather than silently, which `wiring.test.mjs` also guards from
- * the other direction by asserting against the real electron-builder.yml.
+ * Mirrors the literal prefix of `electron-builder.yml`'s `win.artifactName` - deliberately the
+ * hyphenated `Q2-Launcher`, not the spaced `productName`, because a space in an artifact name
+ * breaks electron-updater (see that field's comment). Hardcoded (not read from
+ * electron-builder.yml) because this file must stay pure/dependency-free; a future rename there
+ * is caught by drift (this file's expectations stop matching real build output) rather than
+ * silently, which `wiring.test.mjs` also guards from the other direction by asserting against
+ * the real electron-builder.yml.
  */
-const PRODUCT_NAME = 'Q2 Launcher'
+const PRODUCT_NAME = 'Q2-Launcher'
 
 /**
  * Mirrors `electron-builder.yml`'s `win.target[].arch` (both `nsis` and `zip` are built for
@@ -26,30 +28,35 @@ const PRODUCT_NAME = 'Q2 Launcher'
 const ARCH = 'x64'
 
 /**
- * The five files a Windows release must publish, in a stable, fixed order (installer, zip,
- * installer blockmap, zip blockmap, latest.yml) - this order is a contract other code (tests,
- * D4's caller) can rely on, not an implementation detail.
+ * The four files a Windows release must publish, in a stable, fixed order (installer, zip,
+ * installer blockmap, latest.yml) - this order is a contract other code (tests, D4's caller) can
+ * rely on, not an implementation detail.
+ *
+ * There is no zip blockmap: electron-builder emits `.blockmap` sidecars for the targets its
+ * differential downloader can use, which on Windows is `nsis` only (a macOS `zip` gets one, a
+ * Windows `zip` does not). Expecting a fifth file made every real build refuse - the zip is
+ * published as a plain archive for people who don't want the installer, nothing more.
  *
  * Filenames follow `electron-builder.yml`'s `win.artifactName` pattern exactly:
- * `${productName}-${version}-win-${arch}.${ext}`.
+ * `Q2-Launcher-${version}-win-${arch}.${ext}`.
  *
  * @param {string} version - e.g. `'1.0.0-beta.1'`.
- * @returns {string[]} the five expected filenames, in stable order.
+ * @returns {string[]} the four expected filenames, in stable order.
  */
 export function expectedAssets(version) {
   const base = `${PRODUCT_NAME}-${version}-win-${ARCH}`
-  return [`${base}.exe`, `${base}.zip`, `${base}.exe.blockmap`, `${base}.zip.blockmap`, 'latest.yml']
+  return [`${base}.exe`, `${base}.zip`, `${base}.exe.blockmap`, 'latest.yml']
 }
 
 /**
- * Reads `dir` and confirms all five `expectedAssets(version)` files are present.
+ * Reads `dir` and confirms all four `expectedAssets(version)` files are present.
  *
  * `dir` is taken as given (e.g. `release/<version>/`) - the caller decides the directory; this
  * function does not hardcode a `release/` prefix.
  *
  * @param {string} dir - directory to read, e.g. `release/1.0.0-beta.1`.
  * @param {string} version
- * @returns {string[]} the five expected files' full paths (joined with `dir`), in the same
+ * @returns {string[]} the four expected files' full paths (joined with `dir`), in the same
  *   stable order as `expectedAssets`.
  * @throws {Error} naming exactly which expected filename(s) are missing, if any are - "the run
  *   refuses when one is missing" (a caller, e.g. D4, catches/propagates this).

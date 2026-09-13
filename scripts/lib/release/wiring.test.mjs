@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import yaml from 'js-yaml'
 import { describe, expect, test } from 'vitest'
+import { expectedAssets } from './artifacts.mjs'
 import { parseChangelog, readUnreleased } from './changelog.mjs'
 import { planRelease } from './plan.mjs'
 
@@ -54,6 +55,23 @@ describe('release pipeline wiring', () => {
     expect(config.publish.provider).toBe('github')
     expect(config.publish.owner).toBe('Hantsch')
     expect(config.publish.repo).toBe('q2-launcher')
+  })
+
+  test("the built artifact names match artifacts.mjs's expectations and carry no space", () => {
+    const config = yaml.load(readFileSync(ELECTRON_BUILDER_PATH, 'utf8'))
+
+    // The drift guard `artifacts.mjs` claims to have: it hardcodes the `Q2-Launcher` prefix, so
+    // renaming the pattern here without renaming it there must fail a test rather than only
+    // surface as a release that refuses after a full build.
+    const resolved = config.win.artifactName
+      .replace('${version}', '1.0.0-beta.1')
+      .replace('${arch}', 'x64')
+      .replace('${ext}', 'exe')
+    expect(resolved).toBe(expectedAssets('1.0.0-beta.1')[0])
+    // A space here is what silently breaks electron-updater - latest.yml's `url` gets the
+    // sanitised name, the uploaded asset keeps the raw one. See that field's own comment.
+    expect(config.win.artifactName).not.toContain(' ')
+    expect(config.win.artifactName).not.toContain('${productName}')
   })
 
   describe("D5: .github/workflows/release.yml", () => {

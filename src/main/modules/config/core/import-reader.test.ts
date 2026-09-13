@@ -253,6 +253,13 @@ describe('readImportableConfig', () => {
       expect(result.filesRead.length).toBeGreaterThan(1)
       expect(budgetWarnings.length + result.filesRead.length - 1).toBe(fanCount)
     },
+    // The only test here that touches the real filesystem ~1000 times: it
+    // writes `fanCount` fixtures, then reads the whole budget back. On its own
+    // that takes well under a second, but it exceeded vitest's 5s default when
+    // the full suite runs its workers in parallel on Windows - a CI flake, not
+    // a slow assertion. The budget itself is what is under test, so the
+    // fixture count cannot be lowered instead.
+    20_000,
   )
 
   it('folds bind, unbind and unbindall in stream order', async () => {

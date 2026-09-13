@@ -58,7 +58,12 @@ win:
     - target: zip
       arch:
         - x64
-  artifactName: ${productName}-${version}-win-${arch}.${ext}
+  # Deliberately NOT `${productName}` - that carries a space, and a space is what breaks the
+  # update path. electron-builder writes the *sanitised* name (spaces -> `-`) into `latest.yml`'s
+  # `url`, while `gh release create` uploads the file under its real name and GitHub turns spaces
+  # into `.`; electron-updater then resolves a URL that no asset answers to. Naming the artifact
+  # with the hyphen up front makes disk, `latest.yml` and the GitHub asset the same string.
+  artifactName: Q2-Launcher-${version}-win-${arch}.${ext}
 
 nsis:
   oneClick: false

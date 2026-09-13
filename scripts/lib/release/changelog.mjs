@@ -56,7 +56,13 @@ export const UNRELEASED_PLACEHOLDER =
  *   preserved verbatim so `promote` can rebuild the file without losing it.
  */
 export function parseChangelog(text) {
-  const lines = text.split('\n')
+  // CRLF-tolerant on purpose: this repo's worktree is checked out with `core.autocrlf=true` (and
+  // so is a GitHub windows-latest runner's), so the changelog this parser is handed really does
+  // arrive with `\r\n`. Splitting on `\n` alone leaves a trailing `\r` on every line, which the
+  // `$`-anchored heading regexes below cannot match (`.` does not match `\r`) — every section
+  // would be silently misread as preamble, `validateUnreleased` would report an empty Unreleased
+  // and the release would refuse to run. Every downstream emit stays `\n`.
+  const lines = text.split(/\r?\n/)
   /** @type {{ heading: string, start: number, end: number }[]} */
   const headingRanges = []
   let preambleEnd = lines.length

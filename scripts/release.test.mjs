@@ -17,10 +17,9 @@ import { ghReleaseArgv, parseArgs, runRelease } from './release.mjs'
 const TODAY = '2026-03-01'
 const NOTES_FILE = '/tmp/q2-release-fake/RELEASE_NOTES.md'
 const ASSETS = [
-  '/repo/release/1.0.0-beta.2/Q2 Launcher-1.0.0-beta.2-win-x64.exe',
-  '/repo/release/1.0.0-beta.2/Q2 Launcher-1.0.0-beta.2-win-x64.zip',
-  '/repo/release/1.0.0-beta.2/Q2 Launcher-1.0.0-beta.2-win-x64.exe.blockmap',
-  '/repo/release/1.0.0-beta.2/Q2 Launcher-1.0.0-beta.2-win-x64.zip.blockmap',
+  '/repo/release/1.0.0-beta.2/Q2-Launcher-1.0.0-beta.2-win-x64.exe',
+  '/repo/release/1.0.0-beta.2/Q2-Launcher-1.0.0-beta.2-win-x64.zip',
+  '/repo/release/1.0.0-beta.2/Q2-Launcher-1.0.0-beta.2-win-x64.exe.blockmap',
   '/repo/release/1.0.0-beta.2/latest.yml',
 ]
 
