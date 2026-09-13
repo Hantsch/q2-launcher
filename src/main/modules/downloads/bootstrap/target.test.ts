@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -14,7 +14,12 @@ import { computeTargetVerdict, MAX_TARGET_VERDICT_ENTRIES } from './target'
 let dir: string
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'q2-launcher-target-verdict-'))
+  // `realpath` on purpose: `computeTargetVerdict` canonicalizes the path it is handed, and on a CI
+  // Windows runner `tmpdir()` comes back as an 8.3 short path (`C:\Users\RUNNER~1\...`) that
+  // canonicalizing expands. Without this, the fixture paths this test compares against (expected
+  // `targetPath`, the fake `ProgramFiles` roots, `protectedDirs`) would be the short form while the
+  // verdict carries the long one, and the prefix checks would never match.
+  dir = await realpath(await mkdtemp(join(tmpdir(), 'q2-launcher-target-verdict-')))
 })
 
 afterEach(async () => {
