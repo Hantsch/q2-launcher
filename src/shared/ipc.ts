@@ -15,6 +15,7 @@ import type {
   ModuleInvokeRequest,
   ModuleManifest,
   Outcome,
+  ReleaseNotes,
   RemoveInstallationInput,
   ScanOptions,
   ToastMessage,
@@ -64,6 +65,14 @@ export interface IpcInvokeMap {
   'app:revealPath': { req: string; res: Outcome<null> }
   /** Writes text to the OS clipboard. Story 075: the diagnostics report's copy action. */
   'app:copyText': { req: string; res: Outcome<null> }
+  /**
+   * Story 099 R5: the *installed* version's release notes, resolved from the `CHANGELOG.md` that
+   * was bundled into the main process at build time - so AC1 works offline. Its own channel rather
+   * than a field on `AppInfo`, which is the bootstrap payload every session pays for while these
+   * are fetched only when About mounts. `null` when the running version has no changelog section
+   * (AC5's empty state), which is an answer, not an error.
+   */
+  'app:getReleaseNotes': { req: void; res: ReleaseNotes }
 
   // ---- window chrome --------------------------------------------------------
   'window:minimize': { req: void; res: void }
@@ -216,6 +225,7 @@ export const INVOKE_CHANNELS = [
   'app:openExternal',
   'app:revealPath',
   'app:copyText',
+  'app:getReleaseNotes',
   'window:minimize',
   'window:toggleMaximize',
   'window:close',

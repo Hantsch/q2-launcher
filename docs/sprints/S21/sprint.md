@@ -19,7 +19,7 @@ from the titlebar or from About, seeing what they get for it.
 - [x] 096 — A release ships from a changelog
 - [x] 097 — The launcher notices a new version
 - [x] 098 — I update when I choose to
-- [ ] 099 — About tells me what changed
+- [x] 099 — About tells me what changed
 
 ## Notes
 

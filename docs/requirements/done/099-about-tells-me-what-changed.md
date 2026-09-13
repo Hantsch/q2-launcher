@@ -1,7 +1,7 @@
 ---
 id: 099
 title: About tells me what changed
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-13
 ---
 
@@ -21,16 +21,16 @@ is already the single source ([[096]] AC1).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — About shows what changed in the currently running version, not only its number.
-- [ ] **AC2** — When [[097]] has an update available, About shows that version's notes too, marked
+- [x] **AC1** — About shows what changed in the currently running version, not only its number.
+- [x] **AC2** — When [[097]] has an update available, About shows that version's notes too, marked
       as not yet installed, next to the same update action [[098]] offers in the titlebar.
-- [ ] **AC3** — About links out to the project and to the full changelog, opened in the system
+- [x] **AC3** — About links out to the project and to the full changelog, opened in the system
       browser through the existing external-link path, never in an app window.
-- [ ] **AC4** — About says when the launcher last checked for updates and lets the user check now,
+- [x] **AC4** — About says when the launcher last checked for updates and lets the user check now,
       showing the outcome including a failure reason ([[097]] AC7).
-- [ ] **AC5** — Notes that are unavailable (never fetched, offline, an older version that predates
+- [x] **AC5** — Notes that are unavailable (never fetched, offline, an older version that predates
       published releases) render as a readable empty state, never as a blank panel or a crash.
-- [ ] **AC6** — The notes render as readable text — headings and list items from the changelog
+- [x] **AC6** — The notes render as readable text — headings and list items from the changelog
       section — not as raw markdown source, and cannot inject markup into the renderer.
 
 ## Open Questions
@@ -120,7 +120,7 @@ D6 → D7.
 
 ## Deliverables
 
-### D1 — The shared release-notes parser
+### D1 — The shared release-notes parser [x]
 
 `parseReleaseNotes(markdown: string): ReleaseNoteSection[]` and
 `extractVersionSection(changelog: string, version: string): { version, date, body } | null`, pure
@@ -138,7 +138,7 @@ and dependency-free (R1, R2, R12).
   never structure**; input past the caps truncates instead of throwing.
 - Accepted when: `npm test` + `npm run typecheck` green and the file imports nothing.
 
-### D2 — The bundled changelog and `app:getReleaseNotes`
+### D2 — The bundled changelog and `app:getReleaseNotes` [x]
 
 - Files: `src/shared/ipc.ts`, `src/shared/ipc-schemas.ts`, `src/shared/types/common.ts` (the
   `ReleaseNotes` response type, next to `AppInfo`), `src/main/lib/release-notes.ts` (new, the
@@ -154,7 +154,7 @@ and dependency-free (R1, R2, R12).
 - Accepted when: `npm test`, `npm run typecheck`, **`npm run build`** green (the `?raw` import has
   to survive the real main bundle, not just vitest).
 
-### D3 — About renders this version's notes and links out
+### D3 — About renders this version's notes and links out [x]
 
 `AboutPanel` extracted from `SettingsView.tsx`, fetching `app:getReleaseNotes` on mount, rendering
 the sections under the version row, the `EmptyState` sentence when there are none, and the two
@@ -176,7 +176,7 @@ external links (project, full changelog).
 - Accepted when: `npm test` + `npm run typecheck` green; `SettingsView.test.tsx` still passes
   unchanged (the section order Library → modules → About is that test's subject).
 
-### D4 — The pending update's notes, marked not installed
+### D4 — The pending update's notes, marked not installed [x]
 
 Reads [[097]]'s update state from the renderer store, parses its notes with D1's parser, and renders
 them above this version's block with a "not yet installed" `Badge` and [[098]]'s update action next
@@ -194,7 +194,7 @@ to them.
   neither block; the action button is the same component/IPC the titlebar uses.
 - Accepted when: `npm test` + `npm run typecheck` green.
 
-### D5 — Last checked, and check now
+### D5 — Last checked, and check now [x]
 
 - Files: `src/renderer/src/components/about/UpdateCheckRow.tsx` (new),
   `src/renderer/src/components/about/UpdateCheckRow.test.tsx` (new),
@@ -210,7 +210,7 @@ to them.
   own line; the button calls 097's manual-check channel exactly once per click.
 - Accepted when: `npm test` + `npm run typecheck` green.
 
-### D6 — Harness-gated external-link recorder
+### D6 — Harness-gated external-link recorder [x]
 
 Under `isUiHarnessEnabled()` only, `app:openExternal` appends the URL to
 `<userData>/ui-harness-external.json` and returns `ok` instead of calling `shell.openExternal`.
@@ -223,7 +223,7 @@ Under `isUiHarnessEnabled()` only, `app:openExternal` appends the URL to
   still reaches `shell.openExternal` (the existing `urlSchema` rejection is untouched).
 - Accepted when: `npm test` green and the gate is provably closed unless both conditions hold.
 
-### D7 — The acceptance flow and the `ui:verify` screen
+### D7 — The acceptance flow and the `ui:verify` screen [x]
 
 - Files: `scripts/flows/about-release-notes.mjs` (new), `scripts/lib/fixture.mjs` (variants
   `about-update` / `about-update-no-notes` / `about-check-failed`, seeding 097's persisted update
@@ -301,3 +301,94 @@ manual step.
 | AC6 | D1 + D3 + D7 | `src/shared/release-notes.test.ts` + e2e `about-release-notes.mjs` |
 
 ## Done
+
+### Summary
+
+About's version row became a real panel: `AboutPanel.tsx` (extracted out of `SettingsView.tsx`)
+shows the running version's own release notes (bundled from `CHANGELOG.md` at build time via a new
+`app:getReleaseNotes` channel), a pending update's notes marked "not yet installed" next to the
+same `UpdateAction` the titlebar uses, an update-check row (last checked / check now / outcome),
+and links to the repository and full changelog through the existing `app:openExternal` path. A new
+pure parser (`src/shared/release-notes.ts`) turns the Keep-a-Changelog subset into plain-string
+data, so a foreign release body can never inject markup — it can only ever render as text.
+
+### Commit message
+
+```
+099: About tells me what changed
+```
+
+### Verification
+
+- `npm run build` — green.
+- `npm run typecheck` — green (node + web).
+- `npm test` — 4073 passed, 1 skipped; the one remaining failure
+  (`src/main/modules/home/news/news-fixture-contract.test.ts`) is pre-existing on this branch
+  (confirmed via `git stash`, predates this story — a fixture-ordering mismatch introduced by
+  `2edfec5 news fix`) and unrelated to this story.
+- `npm run ui:flow -- about-release-notes` — exits 0.
+- `npm run ui:verify` — 45/45 screens, 86 shots, 0 axe violations (includes the new
+  `settings-about-update-available` screen).
+- Code review (`story-review-hard`, one cycle): verdict **FAIL** on first pass, two confirmed
+  findings, both fixed and re-verified (see Decisions below); no further findings on re-check.
+- **AC → test mapping, as verified:**
+  - AC1 → e2e `about-release-notes.mjs` ("About shows the running version's changelog section, or
+    the documented empty state") + unit `src/main/lib/release-notes.test.ts` (running-version
+    selection out of a multi-version changelog) — both pass, using the *real* unbracketed
+    `## <version> — <date>` heading format after the review-cycle fix (see Decisions).
+  - AC2 → e2e `about-release-notes.mjs` + unit
+    `src/renderer/src/components/about/AboutPanel.update.test.tsx` — pass.
+  - AC3 → e2e `about-release-notes.mjs` (both links' URLs recorded in order via D6's harness gate,
+    `app.windows().length` unchanged) — pass.
+  - AC4 → e2e `about-release-notes.mjs` + unit
+    `src/renderer/src/components/about/UpdateCheckRow.test.tsx` — pass. The failure-reason case is
+    proven live via a small, justified addition to 098's existing dev-only `dev:simulateAppUpdate`
+    scenario (`checkFailed`) — see Decisions.
+  - AC5 → e2e `about-release-notes.mjs` + unit `AboutPanel.test.tsx` + unit
+    `src/main/lib/release-notes.test.ts` — pass.
+  - AC6 → unit `src/shared/release-notes.test.ts` (raw HTML/`<script>` survive only as literal
+    text) + e2e `about-release-notes.mjs` (seeded injection probe renders as text, produces no
+    `img` element) — pass.
+- **Named gap (carried from the plan, not new):** the *real network* outcome of a manual check
+  cannot run inside `ui:flow`/`ui:verify`, because a real `update:check` is a no-op whenever
+  `supported` (`app.isPackaged`) is `false` — always true under this harness (097 AC5). The flow
+  proves the real surface (button, last-checked text, a genuine dev-build no-op on click) and the
+  failure-reason *rendering* via the seeded `checkFailed` scenario; the real network behaviour of a
+  check remains 097's own acceptance. No manual residue — nothing here becomes a human click list.
+
+### Decisions
+
+- **Review-cycle fix 1 (AC1 correctness bug):** `src/shared/release-notes.ts`'s
+  `extractVersionSection()` originally matched a fabricated bracketed heading format
+  (`## [1.2.0] - date`, per the story's own D1 text) that the repo's real release pipeline
+  (`scripts/lib/release/changelog.mjs`'s `promote()`/`notesFor()`, story 096) never produces — the
+  real format is unbracketed, `## 1.2.0 — date` (em-dash) or `## 1.2.0 - date` (hyphen, `notesFor`
+  accepts either). Because `CHANGELOG.md` currently has no version section at all (only
+  `## Unreleased`), every test and the e2e flow only ever exercised the empty-state branch, masking
+  the mismatch end to end. Fixed the two heading regexes, their doc comments, both test files'
+  fixtures (`src/shared/release-notes.test.ts`, `src/main/lib/release-notes.test.ts`) and the
+  flow's own section-detection regex to match the real format — verified against `promote()`/
+  `notesFor()` directly, not against the story text. Re-ran `test`/`typecheck`/`build`/`ui:flow`
+  green afterward.
+- **Review-cycle fix 2 (deleted tests):** D6 replaced `src/main/lib/ui-harness.test.ts` wholesale
+  instead of extending it, deleting the 12 pre-existing tests for `HARNESS_CONTENT_REPO_BASE_ENV`/
+  `parseHarnessBaseUrl()` (story 082, unrelated to this story but still in production use by the
+  downloads/news harness overrides). Restored both original `describe` blocks alongside the new
+  `recordHarnessExternalUrl` tests — file now covers all three exports, 15 tests total.
+- **D7 substitution — no new fixture variants:** the plan's D7 text asked for three new
+  `fixture.mjs` variants seeding persisted update-check state. Investigation showed this cannot
+  work at all for the "failed check" case (`UpdateCheckStoreData`'s persisted shape can only ever
+  restore `status` to `available`/`upToDate`/`idle`, never `error`) and is unnecessary for the
+  others — the repo's own established convention (`scripts/flows/app-update.mjs`,
+  `scripts/lib/screens.mjs`'s `update-popover-available`/`downloads-badge` entries) already drives
+  every update-lifecycle state live through the dev-only `dev:simulateAppUpdate` channel against
+  the plain `populated` fixture. Used that instead; `scripts/lib/fixture.mjs` is untouched.
+- **D7 addition — `checkFailed` simulate scenario:** no existing mechanism (real check, or a
+  persisted-store restore) can ever produce a "check failed" (`status: 'error'`) state under the
+  UI-verification harness. Added one small, dev-only-gated scenario to the existing
+  `dev:simulateAppUpdate` channel (`src/shared/types/update.ts`, `src/shared/ipc-schemas.ts`,
+  `src/main/services/update/service.ts`'s `simulate()`), mirroring the real check-failure branch of
+  `runAttempt()` exactly. Confirmed by the reviewer as correctly contract-first, minimally scoped,
+  and unreachable in a packaged build (same double gate as every other `dev:*` channel).
+- **`APP_CHANGELOG_URL`** (D3, left open by the story) set to
+  `https://github.com/Hantsch/q2-launcher/blob/main/CHANGELOG.md`, mirroring `APP_REPO_URL`'s shape.

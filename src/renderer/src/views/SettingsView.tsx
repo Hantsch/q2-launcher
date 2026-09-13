@@ -1,14 +1,14 @@
 import type { ComponentType } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ExternalLink, FlaskConical, FolderOpen } from 'lucide-react'
-import { APP_REPO_URL } from '@shared/constants'
+import { FlaskConical } from 'lucide-react'
 import type { LocaleSetting, MotionSetting } from '@shared/types'
 import { invoke } from '../lib/bridge'
 import { useLauncher } from '../store/useLauncher'
 import { SUPPORTED_LOCALES } from '../i18n'
+import { AboutPanel } from '../components/about/AboutPanel'
 import { Button } from '../components/ui/Button'
 import { Select, Switch } from '../components/ui/controls'
-import { Divider, KeyValue, Panel, SectionLabel } from '../components/ui/primitives'
+import { Divider, Panel, SectionLabel } from '../components/ui/primitives'
 import { RENDERER_MODULES, type RendererModule } from '../modules'
 
 const LOCALE_NAMES: Record<string, string> = {
@@ -137,80 +137,7 @@ export function SettingsView(props: SettingsViewProps = {}) {
 
         <Panel className="space-y-2.5 p-4" data-testid="settings-about">
           <SectionLabel>{t('settings.section.about')}</SectionLabel>
-
-          <KeyValue label={t('settings.version')} mono>
-            {appInfo?.appVersion ?? '-'}
-          </KeyValue>
-          <KeyValue label={t('settings.electron')} mono>
-            {appInfo?.electronVersion ?? '-'}
-          </KeyValue>
-          <KeyValue label={t('settings.chrome')} mono>
-            {appInfo?.chromeVersion ?? '-'}
-          </KeyValue>
-          <KeyValue label={t('settings.node')} mono>
-            {appInfo?.nodeVersion ?? '-'}
-          </KeyValue>
-
-          <Divider className="my-1" />
-
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <SectionLabel>{t('settings.userData')}</SectionLabel>
-              <p
-                className="numeric truncate text-[11px] text-ink-muted"
-                title={appInfo?.userDataPath}
-                data-selectable
-              >
-                {appInfo?.userDataPath ?? '-'}
-              </p>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<FolderOpen className="size-3.5" />}
-              disabled={!appInfo}
-              onClick={() => {
-                if (appInfo) void invoke('app:revealPath', appInfo.userDataPath)
-              }}
-            >
-              {t('settings.openFolder')}
-            </Button>
-          </div>
-
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <SectionLabel>{t('settings.logs')}</SectionLabel>
-              <p
-                className="numeric truncate text-[11px] text-ink-muted"
-                title={appInfo?.logPath}
-                data-selectable
-              >
-                {appInfo?.logPath ?? '-'}
-              </p>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<FolderOpen className="size-3.5" />}
-              disabled={!appInfo}
-              onClick={() => {
-                if (appInfo) void invoke('app:revealPath', appInfo.logPath)
-              }}
-            >
-              {t('settings.openFolder')}
-            </Button>
-          </div>
-
-          <Divider className="my-1" />
-
-          <Button
-            variant="link"
-            size="sm"
-            icon={<ExternalLink className="size-3.5" />}
-            onClick={() => void invoke('app:openExternal', APP_REPO_URL)}
-          >
-            {t('settings.repository')}
-          </Button>
+          <AboutPanel />
         </Panel>
 
         {appInfo?.isDev && (

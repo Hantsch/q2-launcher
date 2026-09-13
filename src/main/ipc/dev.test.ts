@@ -388,6 +388,19 @@ describe('dev:simulateAppUpdate', () => {
     expect(state.update).toBeNull()
   })
 
+  it('scenario "checkFailed" sets status "error" with the given reason, leaving a known update untouched', async () => {
+    const { update, fn } = await setupUpdate()
+
+    await fn(fakeEvent, { scenario: 'available', version: '9.9.9-dev' })
+    await fn(fakeEvent, { scenario: 'checkFailed', reason: 'network' })
+
+    const state = await update.getState()
+    expect(state.status).toBe('error')
+    expect(state.error).toEqual({ key: 'update.error.network' })
+    // A failed check never erases what is already known (AC3).
+    expect(state.update?.version).toBe('9.9.9-dev')
+  })
+
   it('does not touch the real restart guard - installAndRestart still runs for real once "downloaded"', async () => {
     const { update, fn } = await setupUpdate()
 

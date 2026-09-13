@@ -64,6 +64,14 @@ export interface UpdateState {
  *  - `error` - the download ended without a staged release, for each of AC7's reasons.
  *  - `upToDate` - the installed version now matches (AC8): the same facts a real "up to date"
  *    check produces, so the control disappears exactly as it would after a real restart.
+ *  - `checkFailed` - story 099 D7's addition: a failed *check* (`status: 'error'`), as opposed to
+ *    the `error` scenario above, which is a failed *download*. Needed because there is otherwise no
+ *    way to prove AC4's "an outcome including a failure reason" through the real UI in
+ *    `ui:flow`/`ui:verify`: a real `update:check` call is a guaranteed no-op under this harness (097
+ *    AC5's `supported = app.isPackaged`, always `false` when Playwright launches the built-but-
+ *    unpackaged app), and the persisted store can never restore to `status: 'error'` either -
+ *    `restoredStatus()` (`src/main/services/update/service.ts`) only ever derives `available`,
+ *    `upToDate` or `idle` from what it persists. `reason` mirrors {@link UpdateCheckFailureReason}.
  */
 export type UpdateSimulateScenario =
   | { scenario: 'available'; version: string; notes?: string }
@@ -71,3 +79,4 @@ export type UpdateSimulateScenario =
   | { scenario: 'downloaded' }
   | { scenario: 'error'; reason: 'offline' | 'checksum' | 'cancelled' }
   | { scenario: 'upToDate' }
+  | { scenario: 'checkFailed'; reason: 'network' | 'http' | 'notConfigured' | 'timeout' | 'unknown' }

@@ -62,3 +62,6 @@ export const RETAIL_PAK_SIZES: Record<string, number> = {
 }
 
 export const APP_REPO_URL = 'https://github.com/Hantsch/q2-launcher'
+
+/** Story 099 D3: the full changelog, linked from Settings > About next to the repository link. */
+export const APP_CHANGELOG_URL = 'https://github.com/Hantsch/q2-launcher/blob/main/CHANGELOG.md'

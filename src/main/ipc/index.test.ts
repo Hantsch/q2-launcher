@@ -84,8 +84,9 @@ describe('registerAllIpc', () => {
     for (const channel of INVOKE_CHANNELS) {
       expect(registered.has(channel)).toBe(true)
     }
-    // 39 + story 098's four staged update actions + D4's dev:simulateAppUpdate.
-    expect(registered.size).toBe(44)
+    // 39 + story 098's four staged update actions + D4's dev:simulateAppUpdate
+    // + story 099's app:getReleaseNotes.
+    expect(registered.size).toBe(45)
   })
 
   it('rejects an invalid payload on a plain (throwing) handle() channel synchronously', async () => {

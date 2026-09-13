@@ -56,3 +56,7 @@ version section when a release actually ships.
   downloads and only restarts once you confirm a second time. It won't do that over a running
   game or an in-flight download, and dismissing it just makes it quiet for the rest of the
   session — it doesn't go away.
+- **About** — Settings' About tab now tells you what you actually got: this version's own
+  release notes, an available update's notes marked "not yet installed" next to the same
+  download action the titlebar offers, when the launcher last checked for updates, and a
+  check-now button — plus links out to the project and the full changelog.

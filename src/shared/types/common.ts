@@ -1,3 +1,5 @@
+import type { ReleaseNoteSection } from '../release-notes'
+
 /** Platforms the launcher can run on. Avoids depending on Node's `NodeJS.Platform`. */
 export type Platform = 'win32' | 'darwin' | 'linux'
 
@@ -17,6 +19,20 @@ export interface AppInfo {
   isDev: boolean
   isPackaged: boolean
 }
+
+/**
+ * One version's release notes, already parsed into data (story 099 R2: never an HTML string).
+ *
+ * `null` - not a separate error shape - is the honest answer whenever the version in question has
+ * no section in the changelog it was resolved from: a development build, a build from before
+ * releases were published, or a version bump whose changelog entry isn't written yet. AC5 renders
+ * that as an empty state, so it is a normal outcome rather than a failure.
+ */
+export type ReleaseNotes = {
+  version: string
+  date: string
+  sections: ReleaseNoteSection[]
+} | null
 
 /**
  * A message the main process wants the UI to render.

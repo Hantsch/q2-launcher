@@ -34,3 +34,18 @@
 - 2026-09-13 14:19 · 098 · D5 The offline end-to-end proof · started
 - 2026-09-13 14:31 · 098 · D5 The offline end-to-end proof · done
 - 2026-09-13 14:55 · 098 · story done (1 review cycle: PASS with 6 findings, 3 fixed, 1 fix reverted after breaking e2e, 3 left as documented limitations) · done
+- 2026-09-13 14:56 · 099 · D1 The shared release-notes parser · started
+- 2026-09-13 14:59 · 099 · D1 The shared release-notes parser · done
+- 2026-09-13 14:59 · 099 · D2 The bundled changelog and app:getReleaseNotes [deliverable-hard] · started
+- 2026-09-13 15:05 · 099 · D2 The bundled changelog and app:getReleaseNotes [deliverable-hard] · done
+- 2026-09-13 15:05 · 099 · D3 About renders this version's notes and links out · started
+- 2026-09-13 15:11 · 099 · D3 About renders this version's notes and links out · done
+- 2026-09-13 15:12 · 099 · D4 The pending update's notes, marked not installed · started
+- 2026-09-13 15:16 · 099 · D4 The pending update's notes, marked not installed · done
+- 2026-09-13 15:16 · 099 · D5 Last checked, and check now · started
+- 2026-09-13 15:20 · 099 · D5 Last checked, and check now · done
+- 2026-09-13 15:20 · 099 · D6 Harness-gated external-link recorder · started
+- 2026-09-13 15:24 · 099 · D6 Harness-gated external-link recorder · done
+- 2026-09-13 15:30 · 099 · D7 The acceptance flow and the ui:verify screen · started
+- 2026-09-13 15:37 · 099 · D7 The acceptance flow and the ui:verify screen · done
+- 2026-09-13 15:51 · 099 · story done (1 review cycle: FAIL with 2 findings, both fixed and re-verified) · done

@@ -30,6 +30,10 @@ export const appCopyTextSchema: z.ZodType<IpcInvokeMap['app:copyText']['req']> =
   .string()
   .max(20_000)
 
+/** Story 099: no payload - the version is the running app's own, never the renderer's to choose. */
+export const appGetReleaseNotesSchema: z.ZodType<IpcInvokeMap['app:getReleaseNotes']['req']> =
+  z.void()
+
 // ---- window chrome ------------------------------------------------------------
 
 export const windowMinimizeSchema: z.ZodType<IpcInvokeMap['window:minimize']['req']> = z.void()
@@ -248,4 +252,8 @@ export const devSimulateAppUpdateSchema: z.ZodType<IpcInvokeMap['dev:simulateApp
       reason: z.enum(['offline', 'checksum', 'cancelled']),
     }),
     z.object({ scenario: z.literal('upToDate') }),
+    z.object({
+      scenario: z.literal('checkFailed'),
+      reason: z.enum(['network', 'http', 'notConfigured', 'timeout', 'unknown']),
+    }),
   ])

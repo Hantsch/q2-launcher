@@ -201,6 +201,13 @@ interface LauncherStore {
   cancelJob: (jobId: string) => Promise<void>
 
   // --- app update (story 098) ----------------------------------------------
+  /**
+   * Story 099 D5: runs a check now (097's `update:check` channel). Mirrors `bootstrap`'s
+   * `update:getState` handling exactly - the response is a bare `UpdateState`, not an `Outcome`, so
+   * there is nothing to toast on failure here; a failed check lands as `status: 'error'` (with
+   * `error` set) inside the returned state itself.
+   */
+  checkForUpdates: () => Promise<void>
   /** Starts the staged download (AC3). Refuses with `appUpdate.error.notAvailable` when nothing
    * is known to download - toasted like any other refusal, since there is no dedicated inline
    * surface for it (unlike `installAndRestart`'s guard, which the popover shows itself). */
@@ -455,6 +462,11 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
   cancelJob: async (jobId) => {
     const result = await invoke('jobs:cancel', jobId)
     if (!result.ok) toastError(get, result)
+  },
+
+  checkForUpdates: async () => {
+    const result = await invoke('update:check')
+    set({ update: result })
   },
 
   startDownload: async () => {

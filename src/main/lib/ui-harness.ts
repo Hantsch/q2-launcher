@@ -23,7 +23,9 @@
  * without mutating the real one, and so an audit can see there is no cached decision.
  */
 
-import { delimiter } from 'node:path'
+import { readFile, writeFile } from 'node:fs/promises'
+import { delimiter, join } from 'node:path'
+import { userDataDir } from './paths'
 
 /** The one variable that marks a UI-verification launch (`scripts/lib/harness.mjs`'s `childEnv()`). */
 export const UI_HARNESS_ENV = 'Q2L_UI_HARNESS'
@@ -112,4 +114,50 @@ export function parseHarnessBaseUrl(raw: string | undefined): string | undefined
 
   const base = `${url.origin}${url.pathname}`
   return base.endsWith('/') ? base.slice(0, -1) : base
+}
+
+/**
+ * Story 099 D6: where a harness-launched run's `app:openExternal` calls land instead of a real
+ * `shell.openExternal` - so the upcoming e2e flow (D7) can prove the About panel's external links
+ * "left through the external path and opened no app window" without a browser actually launching on
+ * the test machine. Same double gate as everything else in this file (`isUiHarnessEnabled()`); the
+ * caller (`src/main/ipc/app.ts`) decides whether to record or to call `shell.openExternal`, this
+ * file only owns the file itself.
+ *
+ * This is a test fixture, not production data: no `JsonStore` corruption-recovery machinery, no
+ * schema, no atomic rename - a plain read-modify-write with a `try`/`catch` that treats anything
+ * unreadable or malformed as "no urls recorded yet" is enough.
+ */
+export const HARNESS_EXTERNAL_URLS_FILE = 'ui-harness-external.json'
+
+/** `userData/ui-harness-external.json`. */
+export function harnessExternalUrlsFilePath(): string {
+  return join(userDataDir(), HARNESS_EXTERNAL_URLS_FILE)
+}
+
+export interface RecordHarnessExternalUrlOptions {
+  /** Defaults to `harnessExternalUrlsFilePath()`; a parameter so a test writes to a temp path. */
+  filePath?: string
+}
+
+/** Appends `url` to the recorded list, creating the file (starting from `[]`) if it does not exist. */
+export async function recordHarnessExternalUrl(
+  url: string,
+  options: RecordHarnessExternalUrlOptions = {},
+): Promise<void> {
+  const filePath = options.filePath ?? harnessExternalUrlsFilePath()
+  const urls = await readHarnessExternalUrls(filePath)
+  urls.push(url)
+  await writeFile(filePath, JSON.stringify(urls), 'utf8')
+}
+
+/** Anything missing, unreadable or not a JSON array reads back as "nothing recorded yet". */
+async function readHarnessExternalUrls(filePath: string): Promise<string[]> {
+  try {
+    const raw = await readFile(filePath, 'utf8')
+    const parsed: unknown = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as string[]) : []
+  } catch {
+    return []
+  }
 }

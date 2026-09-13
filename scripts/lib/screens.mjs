@@ -1117,6 +1117,43 @@ export const SCREENS = [
     },
   },
   {
+    id: 'settings-about-update-available',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 099 D7: the About panel's own pending-update block (D4) - a known release's notes
+    // marked "not yet installed", paired with the shared `UpdateAction`. Driven through the same
+    // dev-only `dev:simulateAppUpdate` channel `update-popover-available` below already uses, since
+    // a real check/download needs network access this harness never has.
+    //
+    // Placed directly BEFORE `update-popover-available`, for the identical reason that entry's own
+    // comment gives: the update service's state lives in the main process for the whole batched
+    // `ui:verify` session (`session.mjs`'s `resetToBaseState()` only routes home between visits, it
+    // never resets in-memory service state), so once a screen stages an update every later visit in
+    // the same session would show it too. Staying immediately before the true last entry means
+    // nothing after this one needs a clean, no-update state.
+    navigate: async (page) => {
+      const outcome = await page.evaluate(() =>
+        window.q2.invoke('dev:simulateAppUpdate', {
+          scenario: 'available',
+          version: '9.9.9-about',
+          notes: '### Added\n- Fixture release notes for the About screen.\n',
+        }),
+      )
+      if (!outcome?.ok) {
+        throw new Error(
+          `settings-about-update-available: dev:simulateAppUpdate failed: ${JSON.stringify(outcome)}`,
+        )
+      }
+      await click(page, 'nav-settings')
+      const updateAvailable = page.getByTestId('about-update-available')
+      await updateAvailable.waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      // The About panel is a long scrolling section and this block sits partway down it - without
+      // this, the screenshot could still show the panel scrolled to its top. Mirrors
+      // `config-controls-extra-keys-folded`'s own use of `scrollIntoViewIfNeeded()` above.
+      await updateAvailable.scrollIntoViewIfNeeded()
+    },
+  },
+  {
     id: 'update-popover-available',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,

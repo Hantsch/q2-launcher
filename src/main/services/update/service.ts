@@ -762,6 +762,20 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
           supported,
         })
         return
+
+      case 'checkFailed':
+        // Story 099 D7: a failed *check*, mirroring `runAttempt()`'s own real failure branch above
+        // - a failed check never erases what is already known (AC3) and never touches
+        // `lastSuccessAt` (AC4), it only moves `lastCheckedAt` and reports the reason.
+        emit({
+          status: 'error',
+          update: facts.update,
+          error: { key: updateErrorKey(scenario.reason) },
+          lastCheckedAt: completedAt,
+          lastSuccessAt: facts.lastSuccessAt,
+          supported,
+        })
+        return
     }
   }
 

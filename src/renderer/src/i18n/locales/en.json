@@ -2041,6 +2041,16 @@
     "logs": "Log file",
     "openFolder": "Open",
     "repository": "Project page",
+    "changelog": "Full changelog",
+    "about": {
+      "notesEmpty": "This version has no release notes.",
+      "notInstalled": "Not yet installed",
+      "lastChecked": "Last checked {{time}}",
+      "neverChecked": "Never checked for updates",
+      "checkNow": "Check now",
+      "checkUpToDate": "You're up to date.",
+      "checkAvailable": "Version {{version}} found."
+    },
     "devTools": "Development",
     "simulateJob": "Simulate a download job",
     "simulateJobStall": "Simulate a stalled job",

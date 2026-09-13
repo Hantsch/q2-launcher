@@ -1,10 +1,18 @@
 import { app as electronApp, clipboard, shell } from 'electron'
 import { release } from 'node:os'
-import { fail, ok, type AppInfo, type Platform } from '@shared/types'
+import { fail, ok, type AppInfo, type Platform, type ReleaseNotes } from '@shared/types'
 import { isDirectory } from '../lib/fs-utils'
 import { logFilePath } from '../lib/logger'
 import { userDataDir } from '../lib/paths'
-import { appCopyTextSchema, appGetInfoSchema, appRevealPathSchema, urlSchema } from '@shared/ipc-schemas'
+import { installedReleaseNotes } from '../lib/release-notes'
+import { isUiHarnessEnabled, recordHarnessExternalUrl } from '../lib/ui-harness'
+import {
+  appCopyTextSchema,
+  appGetInfoSchema,
+  appGetReleaseNotesSchema,
+  appRevealPathSchema,
+  urlSchema,
+} from '@shared/ipc-schemas'
 import type { AppContext } from '../context'
 import { handle, handleOutcome } from './index'
 
@@ -24,6 +32,13 @@ export function registerAppIpc(app: AppContext): void {
     }
   })
 
+  // Story 099 AC1: the running version's notes, out of the changelog bundled at build time. No
+  // filesystem access and nothing to fail over, so a plain `handle` (not `handleOutcome`) - the
+  // "no notes for this version" case is `null`, which is part of the response type.
+  handle('app:getReleaseNotes', appGetReleaseNotesSchema, (): ReleaseNotes => {
+    return installedReleaseNotes()
+  })
+
   // Story 075: `appCopyTextSchema` caps length and rejects non-strings before the
   // clipboard is ever touched - `handleOutcome` already turns that rejection into
   // a failed `Outcome` instead of throwing.
@@ -34,10 +49,18 @@ export function registerAppIpc(app: AppContext): void {
 
   // `urlSchema` allows only http(s), so a renderer cannot open `file:` or a
   // custom protocol handler through this channel.
+  //
+  // Story 099 D6: under the double gate (`isUiHarnessEnabled()`), record the url instead of
+  // actually opening it - a packaged build (`app.isDev` false) always takes the real
+  // `shell.openExternal` branch, whatever a hostile environment variable says.
   handleOutcome(
     'app:openExternal',
     urlSchema,
     async (url) => {
+      if (isUiHarnessEnabled({ isDev: app.isDev })) {
+        await recordHarnessExternalUrl(url)
+        return ok(null)
+      }
       await shell.openExternal(url)
       return ok(null)
     },
