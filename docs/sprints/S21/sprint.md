@@ -1,6 +1,6 @@
 ---
 sprint: S21
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/21
 milestone: 7.1 — Release & updates (beta rollout)
 ---

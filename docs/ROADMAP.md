@@ -2,13 +2,11 @@
 
 ## Where we stand
 
-*As of 2026-09-13.* Phases 1–4 are done: [S20 review](../sprints/S20/review.md) closed Phase 4 M1
-(the install module — write-guard, engine update/rollback, repair, removal from disk) and is merged
-into `dev`, together with the out-of-scope story 095 the S20 review flagged, which was accepted and
-built. The launcher is usable enough to hand to real players, so the next milestone is not a feature
-milestone: **Phase 7 — Release & updates** is cut as [S21](../sprints/S21/sprint.md) so a beta can
-actually be rolled out and kept current. Phase 5 (mods) and Phase 6 (assets) stay unprioritised
-behind it.
+*As of 2026-09-13.* Phases 1–4 and 7 are done: [S21](../sprints/S21/review.md) closed Phase 7 M1 —
+a changelog-driven release pipeline, a daily update check, a titlebar/About update flow the user
+controls, and About showing real release notes. Merge into `dev` is the user's decision. The
+launcher can now be handed to real beta users and kept current. Phase 5 (mods) and Phase 6
+(assets) remain unprioritised; there is no cut sprint yet.
 
 ## Phase overview
 
@@ -20,15 +18,15 @@ behind it.
 | 4 — Install (download/update/repair) | 1/1 | done |
 | 5 — Mods (game directories) | 0/1 | not started |
 | 6 — Assets (texture/model/sound packs) | 0/1 | not started |
-| 7 — Release & updates (beta rollout) | 0/1 | in progress |
+| 7 — Release & updates (beta rollout) | 1/1 | done |
 
 ## Current phase
 
-**Phase 7 — Release & updates (beta rollout)**, one milestone, planned as S21.
+No phase is currently in progress. Phase 5 (mods) and Phase 6 (assets) are next, unprioritised.
 
 | # | Milestone | Status | Sprint(s) | Note |
 | --- | --- | --- | --- | --- |
-| 7.1 | Release & updates — changelog-driven GitHub releases, daily update check, user-chosen update | planned | [S21](../sprints/S21/sprint.md) | Stories 096–099. 096 publishes, 097 notices, 098 lets the user act, 099 says what changed — a strict dependency chain. |
+| 7.1 | Release & updates — changelog-driven GitHub releases, daily update check, user-chosen update | done 2026-09-13 | [S21](../sprints/S21/review.md) | Stories 096–099, all done. Two manual-residue items (a real GitHub publish, a real packaged-install restart) — see the review's Acceptance section. |
 
 ## Open / unprioritised
 
@@ -74,8 +72,9 @@ behind it.
   itself (S20/092 only records what that path just wrote) — probing a Windows version resource
   or console banner for the general case is still open.
 - No `-safe` launch mode exists in r1q2 — one has to be a launcher-composed `+set` bundle.
-- Auto-update via `electron-updater`, plus a code-signing decision (unsigned builds trigger
-  SmartScreen).
+- 098's real `checker.ts` has a narrow cancel-timing window (a cancel racing the moment a download
+  finishes) flagged by its review and left as a documented, non-blocking limitation — worth closing
+  once anyone hits it in practice. [S21 review](../sprints/S21/review.md)
 - ESLint is absent (`typescript-eslint@8` caps TS `<6.1.0`; project is on TS7) — revisit when it
   supports TS7. Vite is pinned to 7.x (`electron-vite@5` constraint) — revisit at `electron-vite@6`.
 - Per-installation launch profiles (cvar overrides, safe mode, connect-to-server).
@@ -98,3 +97,4 @@ behind it.
 | Home screen — dashboard | S18 | 2026-09-11 |
 | Install — retail import, demo upgrade | S19 | 2026-09-11 |
 | Install — write-guard, engine update/rollback, repair, removal from disk | S20 | 2026-09-12 |
+| Release & updates — changelog-driven releases, daily update check, user-chosen update | S21 | 2026-09-13 |
