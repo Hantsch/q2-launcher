@@ -2,15 +2,13 @@
 
 ## Where we stand
 
-*As of 2026-09-12.* Config (Phase 2) and Phase 3 (home screen) are done. **[S20 review](../sprints/S20/review.md)
-is done, closing Phase 4 M1** — the last install-module milestone: a job-writes-wait-for-a-running-
-game guard (091, retrofitted onto 090's gap too), engine update/rollback (092), repair (093) and
-removal from disk (094), all proven on the real surface with no manual residue. Phases 1–4 are now
-all done. Next up: pick the next milestone — Phase 5 (mods) or Phase 6 (assets) — with
-`/roadmap plan`. One item needs the user's call first: a build agent in S20 created an unrelated,
-fully-refined story (`docs/requirements/095-a-news-entry-starts-from-a-template.md`) outside its
-assigned scope — see [S20 review](../sprints/S20/review.md)'s Findings for what to do with it.
-Merging `sprint/S20` into `dev` is also the user's decision.
+*As of 2026-09-13.* Phases 1–4 are done: [S20 review](../sprints/S20/review.md) closed Phase 4 M1
+(the install module — write-guard, engine update/rollback, repair, removal from disk) and is merged
+into `dev`, together with the out-of-scope story 095 the S20 review flagged, which was accepted and
+built. The launcher is usable enough to hand to real players, so the next milestone is not a feature
+milestone: **Phase 7 — Release & updates** is cut as [S21](../sprints/S21/sprint.md) so a beta can
+actually be rolled out and kept current. Phase 5 (mods) and Phase 6 (assets) stay unprioritised
+behind it.
 
 ## Phase overview
 
@@ -22,14 +20,15 @@ Merging `sprint/S20` into `dev` is also the user's decision.
 | 4 — Install (download/update/repair) | 1/1 | done |
 | 5 — Mods (game directories) | 0/1 | not started |
 | 6 — Assets (texture/model/sound packs) | 0/1 | not started |
+| 7 — Release & updates (beta rollout) | 0/1 | in progress |
 
 ## Current phase
 
-**Phase 4 — Install (download/update/repair)**, one milestone, done S16–S20.
+**Phase 7 — Release & updates (beta rollout)**, one milestone, planned as S21.
 
 | # | Milestone | Status | Sprint(s) | Note |
 | --- | --- | --- | --- | --- |
-| 4.1 | Install — bootstrap, update and repair ([systems/install-module.md](systems/install-module.md)) | done 2026-09-12 | [S16 review](../sprints/done/S16/review.md), [S17 review](../sprints/done/S17/review.md), [S18 review](../sprints/done/S18/review.md), [S19 review](../sprints/done/S19/review.md), [S20 review](../sprints/S20/review.md) | S20 closed the milestone: write-guard, engine update/rollback, repair and removal from disk (091–094). |
+| 7.1 | Release & updates — changelog-driven GitHub releases, daily update check, user-chosen update | planned | [S21](../sprints/S21/sprint.md) | Stories 096–099. 096 publishes, 097 notices, 098 lets the user act, 099 says what changed — a strict dependency chain. |
 
 ## Open / unprioritised
 
