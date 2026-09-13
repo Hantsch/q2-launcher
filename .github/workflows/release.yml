@@ -51,6 +51,15 @@ jobs:
 
       - run: npm ci
 
+      # electron@43 has no postinstall: the binary is downloaded lazily, the first time something
+      # requires `electron`. Under `vitest run` that "something" is five test files at once (they
+      # import `src/main/lib/logger`, which loads `electron-log/main`, which requires `electron`),
+      # so five concurrent install.js processes race for the same download and one of them loses
+      # with "Electron failed to install correctly". Downloading once, serially, up front removes
+      # the race - and the Release step needs the binary anyway.
+      - name: Install Electron binary
+        run: node node_modules/electron/install.js
+
       - name: Test
         run: npm test
 
