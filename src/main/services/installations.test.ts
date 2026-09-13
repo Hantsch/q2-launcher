@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -32,7 +32,11 @@ let removedIds: string[]
 let runningOverride: ((id: string) => boolean) | undefined
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'q2-launcher-installations-'))
+  // `realpath` on purpose: the services under test canonicalize the paths they are handed, while
+  // these fixtures inject `rootPath` into the state directly, uncanonicalized. On a CI Windows
+  // runner `tmpdir()` is an 8.3 short path (`C:\Users\RUNNER~1\...`) that canonicalizing expands,
+  // so a fixture path would never compare equal to the canonicalized one.
+  dir = await realpath(await mkdtemp(join(tmpdir(), 'q2-launcher-installations-')))
   userData = join(dir, 'userData')
   home = join(dir, 'home')
   await mkdir(userData, { recursive: true })
