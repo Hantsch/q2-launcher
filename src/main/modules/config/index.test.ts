@@ -1,0 +1,3031 @@
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  CONFIG_HANDLERS,
+  type ConfigProfile,
+  type DiscardProfileResult,
+  type PreviewProfileResult,
+  type ProfileSyncState,
+  type RawFilesResult,
+  type RefreshFromFilesResult,
+  type SaveProfileResult,
+  type SaveRawTextResult,
+  STANDARD_TEMPLATE,
+  type TidyUpApplyResult,
+  type WriteTargetResult,
+} from '@shared/modules/config'
+import { fail, type Installation, type LaunchState, type Outcome } from '@shared/types'
+import { pathExists } from '../../lib/fs-utils'
+import { scopedLogger } from '../../lib/logger'
+import type { AppContext } from '../../context'
+import { StateStore } from '../../services/state'
+import type { ModuleHandler, ModuleSetup } from '../types'
+import { scanRedundantCopies } from './cleanup'
+import { hashCanonicalFileContent, readFileState } from './file-source'
+import { renderProfileFile, sentinelLine } from './render'
+import { MAX_RAW_CONFIG_TEXT_LENGTH } from './schemas'
+import {
+  applyCleanupIfNotRunning,
+  configModule,
+  previewProfileFiles,
+  restoreCleanupIfNotRunning,
+  validatePlayedMods,
+} from './index'
+import { syncProfile } from './sync'
+
+/**
+ * Story 043 D5: `readFileState` is wrapped (delegating to the real implementation by default) so
+ * `refreshFromFiles`' `unparseable`/`readError` branches - both documented in `file-source.ts` as
+ * defensive boundaries a real file cannot realistically trigger (the parser degrades to a warning
+ * rather than throwing) - can still be exercised with `mockResolvedValueOnce`, without weakening
+ * any of the other, disk-backed tests in this file that exercise the real read path.
+ */
+vi.mock('./file-source', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./file-source')>()
+  return { ...actual, readFileState: vi.fn(actual.readFileState) }
+})
+
+/**
+ * Story 004 D3 originally covered here via the now-deleted `writeProfileToAssignedInstallations`
+ * (story 079 D4 reversed its "skip a running installation and mark it pending" behaviour - see
+ * `sync.test.ts` for the current "writes a running installation exactly like a stopped one"
+ * coverage, and this file's "story 043 D4: explicit save" describe for the same guarantee through
+ * `save`). What is left here - `previewProfileFiles` and `validatePlayedMods` - is tested directly
+ * rather than through `configModule.setup()`: pure/IO-orchestration pieces pulled out of the
+ * handlers specifically to be testable without booting the whole `ModuleSetup`/`AppContext`
+ * machinery.
+ */
+
+const log = scopedLogger('config-index-test')
+
+/**
+ * The fake `handle` every harness in this file uses.
+ *
+ * Story 036 D5: `ModuleSetup.handle` takes the payload schema and
+ * `MainModuleRegistry.invoke()` validates against it before entering the
+ * handler. A harness that took the schema and dropped it would leave every test
+ * in this file green while validation was off in the tests and on in production,
+ * so this collector mirrors the registry instead: `safeParse`, and a rejected
+ * payload answers `fail('ipc.error.invalidPayload')` without the handler ever
+ * being called. Tests reach the collected handlers directly, so this is the only
+ * place that validation can come from here.
+ */
+function collectHandlers(handlers: Map<string, ModuleHandler>): ModuleSetup['handle'] {
+  return (type, schema, handler) => {
+    handlers.set(type, (payload) => {
+      const parsed = schema.safeParse(payload)
+      if (!parsed.success) return fail('ipc.error.invalidPayload')
+      return handler(parsed.data)
+    })
+  }
+}
+
+/**
+ * Story 022 D7: the mutating handlers now resolve the canonical profile
+ * directory through `lib/paths`' `userDataDir()`, i.e. `app.getPath('userData')`.
+ * Under plain vitest `import('electron')` resolves to a path *string*, so `app`
+ * would be `undefined` and any handler touching it would throw - hence a real
+ * mock, pointed at a per-test temp folder through a hoisted box.
+ */
+const userDataBox = vi.hoisted(() => ({ current: '' }))
+
+/**
+ * Story 023 D2: the `openFile` handler is the module's one privileged path, so
+ * `shell` is mocked rather than left out of the `electron` mock - a test must be
+ * able to assert that nothing was handed to the OS on a rejected call, which
+ * needs a spy, not an absent property that would throw either way.
+ */
+const shellMock = vi.hoisted(() => ({
+  openPath: vi.fn(async (_path: string): Promise<string> => ''),
+  showItemInFolder: vi.fn((_path: string): void => {}),
+}))
+vi.mock('electron', () => ({ app: { getPath: () => userDataBox.current }, shell: shellMock }))
+
+let dir: string
+
+beforeEach(async () => {
+  dir = await mkdtemp(join(tmpdir(), 'q2-launcher-config-index-'))
+  userDataBox.current = join(dir, 'userData')
+  shellMock.openPath.mockClear()
+  shellMock.showItemInFolder.mockClear()
+})
+
+afterEach(async () => {
+  // maxRetries/retryDelay work around a Windows ENOTEMPTY race where the OS
+  // hasn't released a just-closed file handle by the time rmdir runs.
+  await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+})
+
+function installation(overrides: Partial<Installation> = {}): Installation {
+  return {
+    id: 'i1',
+    name: 'Test',
+    rootPath: dir,
+    engineKind: 'r1q2',
+    launchArgs: [],
+    activeGameDir: '',
+    source: 'manual',
+    status: 'ok',
+    checks: [],
+    gameDirs: ['baseq2'],
+    favorite: false,
+    sortOrder: 0,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    totalPlaytimeSeconds: 0,
+    ...overrides,
+  }
+}
+
+/**
+ * Story 059 D2: the writer's cvar sections now come from `profile.cvarSections`, not from
+ * `CvarDef.group` directly - without one, every catalogue cvar in this file's fixtures would fall
+ * into the single reserved `Defaults` bucket, whose name-column alignment spans *every* catalogue
+ * cvar (not just one group's) and would pad `set sensitivity`/`set crosshair` differently from what
+ * this file's `toContain` assertions below pin. Seeding `cvarSections` with
+ * `STANDARD_TEMPLATE.cvarSections` (the same four groups the pre-059 writer grouped by) keeps the
+ * alignment - and therefore every literal assertion here - unchanged.
+ */
+function profile(overrides: Partial<ConfigProfile> = {}): ConfigProfile {
+  return {
+    id: 'p1',
+    name: 'Profile',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    cvars: { sensitivity: '3' },
+    binds: {},
+    assignments: [{ installationId: 'i1', isDefault: true }],
+    cvarSections: STANDARD_TEMPLATE.cvarSections.map((section) => ({ ...section })),
+    ...overrides,
+  }
+}
+
+function idleState(): LaunchState {
+  return { phase: 'idle', installationId: null }
+}
+
+function runningState(installationId: string): LaunchState {
+  return { phase: 'running', installationId }
+}
+
+describe('previewProfileFiles', () => {
+  it('matches exactly what a write under the same conditions produces', async () => {
+    const inst = installation()
+    const p = profile()
+
+    const preview = previewProfileFiles(p, [p], inst)
+
+    const result = await syncProfile({
+      profile: p,
+      allProfiles: [p],
+      installations: { find: () => inst },
+      launchState: idleState(),
+      playedModsFor: () => [],
+      canonicalBaseDir: userDataBox.current,
+      writeFailures: {},
+      log,
+    })
+    expect(result.state.installations).toEqual([
+      { installationId: 'i1', path: join(dir, 'baseq2', 'Profile.cfg'), fileName: 'Profile.cfg', status: 'inSync' },
+    ])
+
+    expect(preview).toHaveLength(2)
+    for (const file of preview) {
+      const onDisk = await readFile(file.path, 'latin1')
+      expect(onDisk).toBe(file.content)
+    }
+  })
+
+  it('renders the loader for whichever profile is the installation default, not the profile being previewed', () => {
+    // Named distinctly from `p` below so the two never collide under
+    // `resolveProfileFileNames` - this test is about which profile's file the
+    // loader execs, not about collision handling.
+    const other = profile({
+      id: 'p-default',
+      name: 'Default',
+      cvars: {},
+      assignments: [{ installationId: 'i1', isDefault: true }],
+    })
+    const p = profile({ id: 'p1', assignments: [{ installationId: 'i1', isDefault: false }] })
+    const inst = installation()
+
+    const [, , loader] = previewProfileFiles(p, [p, other], inst)
+
+    expect(loader!.content).toContain('p-default')
+    expect(loader!.content).not.toContain('exec Profile.cfg')
+  })
+
+  it("also includes the default profile's own file when previewing a different, non-default profile (F1)", () => {
+    // Named distinctly from `p` below so the two never collide under
+    // `resolveProfileFileNames`.
+    const defaultProfile = profile({
+      id: 'p-default',
+      name: 'Default',
+      // Not the catalogue default, for the same reason as the F1 write test above.
+      cvars: { crosshair: '3' },
+      assignments: [{ installationId: 'i1', isDefault: true }],
+    })
+    const p = profile({ id: 'p1', assignments: [{ installationId: 'i1', isDefault: false }] })
+    const inst = installation()
+
+    const files = previewProfileFiles(p, [defaultProfile, p], inst)
+
+    expect(files.map((f) => f.path.split(/[/\\]/).pop())).toEqual([
+      'Default.cfg',
+      'Profile.cfg',
+      'autoexec.cfg',
+    ])
+    expect(files[0]!.content).toContain('set crosshair   "3"')
+  })
+
+  it('story 007: includes the switch-bind chain in the loader preview when a key and 2 assigned profiles are given', () => {
+    const duel = profile({
+      id: 'p-duel',
+      name: 'Duel',
+      assignments: [{ installationId: 'i1', isDefault: true }],
+    })
+    const ctf = profile({
+      id: 'p-ctf',
+      name: 'CTF',
+      assignments: [{ installationId: 'i1', isDefault: false }],
+    })
+    const inst = installation()
+
+    const files = previewProfileFiles(duel, [duel, ctf], inst, 'F9')
+    const loader = files.find((f) => f.path.endsWith('autoexec.cfg'))
+
+    expect(loader!.content).toContain('q2l_switch')
+    expect(loader!.content).toContain('bind F9 q2l_switch')
+  })
+
+  it("story 007: omits the chain when no switchBindKey is given (today's default)", () => {
+    const p = profile()
+    const inst = installation()
+
+    const files = previewProfileFiles(p, [p], inst)
+    const loader = files.find((f) => f.path.endsWith('autoexec.cfg'))
+
+    expect(loader!.content).not.toContain('q2l_switch')
+  })
+})
+
+/**
+ * D1 (story 012): unlike `previewProfileFiles` above, whether a rendered file
+ * already exists on disk is fs-dependent and so is only ever known by the
+ * `preview` IPC handler itself, not by the pure function. Goes through
+ * `configModule.setup()` with a minimal duck-typed `app` (only the pieces the
+ * handler and its setup actually touch: `installations.find`/`.list` and a
+ * real, temp-file-backed `StateStore`, per the same precedent `profiles.test.ts`
+ * uses) rather than a real `AppContext`, since nothing else in this file boots
+ * the full Electron machinery either.
+ */
+describe('CONFIG_HANDLERS.preview handler', () => {
+  async function previewHandlerFor(inst: Installation): Promise<ModuleHandler> {
+    const state = new StateStore(join(dir, 'state.json'))
+    await state.load()
+    const handlers = new Map<string, ModuleHandler>()
+    await configModule.setup({
+      handle: collectHandlers(handlers),
+      emit: () => {},
+      app: {
+        installations: {
+          find: (id: string) => (id === inst.id ? inst : undefined),
+          list: () => [inst],
+        },
+        state,
+      } as unknown as AppContext,
+      log,
+    })
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    return handlers.get(CONFIG_HANDLERS.preview)!
+  }
+
+  it('reports onDisk: false before the rendered file exists on disk, and true once it is created', async () => {
+    const inst = installation()
+    const preview = await previewHandlerFor(inst)
+
+    const before = (await preview({
+      profileId: 'p1',
+      installationId: inst.id,
+    })) as Outcome<PreviewProfileResult>
+    if (!before.ok) throw new Error('expected preview to succeed')
+    expect(before.value.files.length).toBeGreaterThan(0)
+    expect(before.value.files.every((file) => file.onDisk === false)).toBe(true)
+
+    const target = before.value.files.find((file) => file.path.endsWith('Profile.cfg'))!
+    await mkdir(join(target.path, '..'), { recursive: true })
+    await writeFile(target.path, 'irrelevant', 'latin1')
+
+    const after = (await preview({
+      profileId: 'p1',
+      installationId: inst.id,
+    })) as Outcome<PreviewProfileResult>
+    if (!after.ok) throw new Error('expected preview to succeed')
+    const created = after.value.files.find((file) => file.path === target.path)!
+    expect(created.onDisk).toBe(true)
+    const others = after.value.files.filter((file) => file.path !== target.path)
+    expect(others.every((file) => file.onDisk === false)).toBe(true)
+  })
+})
+
+/**
+ * Story 019 D3: order is array position, and the Decisions require the IPC
+ * contract itself (not just `ProfilesStore` directly) to preserve it -
+ * `setActions`'s strict schema parse must not reorder, dedupe or otherwise
+ * reshuffle the array before it reaches `ProfilesStore.setActions`, and
+ * `list` must hand the same order back.
+ */
+describe('CONFIG_HANDLERS.setActions / list round trip (story 019 D3)', () => {
+  it('returns the actions array from list in the exact order sent through setActions', async () => {
+    const state = new StateStore(join(dir, 'state.json'))
+    await state.load()
+    const handlers = new Map<string, ModuleHandler>()
+    await configModule.setup({
+      handle: collectHandlers(handlers),
+      emit: () => {},
+      app: {
+        installations: { find: () => undefined, list: () => [] },
+        // Story 022 D7: `setActions` now triggers a sync run, which reads the
+        // launch state to decide whether a target is running - so this fixture
+        // needs a `launch` even though this test is only about ordering.
+        launch: { getState: () => idleState() },
+        state,
+      } as unknown as AppContext,
+      log,
+    })
+    state.setConfigProfiles([profile()])
+    await state.settle()
+
+    const category = { id: 'movement', name: 'Movement' }
+    const other = { id: 'weapons', name: 'Weapons' }
+    const orderedActions = [
+      {
+        id: 'a3',
+        categoryId: other.id,
+        name: 'Third',
+        kind: 'bind' as const,
+        commands: [{ kind: 'raw' as const, text: '+forward' }],
+      },
+      {
+        id: 'a1',
+        categoryId: category.id,
+        name: 'First',
+        kind: 'bind' as const,
+        commands: [{ kind: 'raw' as const, text: '+back' }],
+      },
+      {
+        id: 'a2',
+        categoryId: category.id,
+        name: '+test',
+        kind: 'alias' as const,
+        commands: [{ kind: 'raw' as const, text: 'echo test' }],
+      },
+    ]
+
+    const setActions = handlers.get(CONFIG_HANDLERS.setActions)!
+    const setResult = (await setActions({
+      profileId: 'p1',
+      categories: [category, other],
+      actions: orderedActions,
+    })) as ConfigProfile[]
+    const setProfile = setResult.find((p) => p.id === 'p1')!
+    expect(setProfile.actions!.map((a) => a.id)).toEqual(['a3', 'a1', 'a2'])
+
+    const list = handlers.get(CONFIG_HANDLERS.list)!
+    const listResult = (await list(undefined)) as ConfigProfile[]
+    const listedProfile = listResult.find((p) => p.id === 'p1')!
+    expect(listedProfile.actions!.map((a) => a.id)).toEqual(['a3', 'a1', 'a2'])
+    expect(listedProfile.actions).toEqual(setProfile.actions)
+  })
+})
+
+/**
+ * Story 022 D7's acceptance line: every mutating handler awaits the sync run
+ * before returning (so the file is already on disk by the time the caller sees
+ * the list), `setup()` retries persisted failures/pending writes once at start,
+ * and `syncState` reports without ever writing.
+ *
+ * Boots `configModule.setup()` with the same duck-typed `app` + real
+ * temp-file-backed `StateStore` pattern as the `preview` handler block above,
+ * plus a `launch` (the sync run reads it) and the `electron` mock at the top of
+ * this file for `userDataDir()`.
+ */
+describe('story 022 D7: on-disk sync wired into the config handlers', () => {
+  async function boot(
+    options: {
+      installations?: Installation[]
+      launchState?: LaunchState
+      /** Runs before `setup()` - for the retry-sweep tests, which need state seeded first. */
+      seed?: (state: StateStore) => void
+    } = {},
+  ): Promise<{ handlers: Map<string, ModuleHandler>; state: StateStore }> {
+    const insts = options.installations ?? []
+    const state = new StateStore(join(dir, 'state.json'))
+    await state.load()
+    options.seed?.(state)
+    const handlers = new Map<string, ModuleHandler>()
+    await configModule.setup({
+      handle: collectHandlers(handlers),
+      emit: () => {},
+      app: {
+        installations: {
+          find: (id: string) => insts.find((i) => i.id === id),
+          list: () => insts,
+        },
+        launch: { getState: () => options.launchState ?? idleState() },
+        state,
+      } as unknown as AppContext,
+      log,
+    })
+    return { handlers, state }
+  }
+
+  it('create returns the unchanged profile list and the canonical file is already on disk', async () => {
+    const { handlers } = await boot({ installations: [installation()] })
+
+    const list = (await handlers.get(CONFIG_HANDLERS.create)!({
+      name: 'Fresh',
+      from: 'empty',
+    })) as ConfigProfile[]
+
+    // Contract unchanged: still a plain `ConfigProfile[]`.
+    expect(list).toHaveLength(1)
+    const created = list[0]!
+    expect(created.name).toBe('Fresh')
+    // No extra await needed here - the handler awaited the sync itself.
+    expect(await readFile(join(userDataBox.current, 'Fresh.cfg'), 'latin1')).toBe(
+      renderProfileFile(created),
+    )
+  })
+
+  it('creating a profile with no installation at all still produces the canonical file', async () => {
+    const { handlers } = await boot()
+
+    const list = (await handlers.get(CONFIG_HANDLERS.create)!({
+      name: 'Solo',
+      from: 'empty',
+    })) as ConfigProfile[]
+
+    expect(list[0]!.assignments).toEqual([])
+    expect(await readFile(join(userDataBox.current, 'Solo.cfg'), 'latin1')).toBe(
+      renderProfileFile(list[0]!),
+    )
+  })
+
+  it('setCvars persists the edit and marks the profile dirty, and writes no file at all (story 043 D4)', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot({ installations: [inst] })
+    state.setConfigProfiles([profile()])
+    await state.settle()
+
+    const list = (await handlers.get(CONFIG_HANDLERS.setCvars)!({
+      profileId: 'p1',
+      cvars: { sensitivity: '7' },
+    })) as ConfigProfile[]
+
+    // Story 022 decision 8, deliberately inverted by story 043 D4: the edit is in `state.json`
+    // immediately (a crash must not lose it) and marked as not-yet-in-the-file, but nothing on disk
+    // was touched - only `save` writes profile content now.
+    expect(list.map((p) => p.id)).toEqual(['p1'])
+    const updated = list.find((p) => p.id === 'p1')!
+    expect(updated.cvars['sensitivity']).toBe('7')
+    expect(updated.dirty).toBe(true)
+    expect(state.configProfiles()[0]!.cvars['sensitivity']).toBe('7')
+    expect(state.configProfiles()[0]!.dirty).toBe(true)
+    expect(await pathExists(join(userDataBox.current, 'Profile.cfg'))).toBe(false)
+    expect(await pathExists(join(dir, 'baseq2', 'Profile.cfg'))).toBe(false)
+  })
+
+  it('every content mutation marks the profile dirty and leaves an existing canonical file byte-identical (story 043 D4)', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot({ installations: [inst] })
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    // One save first, so there ARE files the mutations below could have clobbered.
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const canonical = join(userDataBox.current, 'Profile.cfg')
+    const installationCopy = join(dir, 'baseq2', 'Profile.cfg')
+    const saved = await readFile(canonical, 'latin1')
+    const savedCopy = await readFile(installationCopy, 'latin1')
+
+    const mutations: [string, unknown][] = [
+      [CONFIG_HANDLERS.setCvars, { profileId: 'p1', cvars: { sensitivity: '11' } }],
+      [CONFIG_HANDLERS.setBinds, { profileId: 'p1', binds: { x: '+attack' } }],
+      [CONFIG_HANDLERS.setLayers, { profileId: 'p1', layers: [] }],
+      [CONFIG_HANDLERS.setActions, { profileId: 'p1', categories: [], actions: [] }],
+      [CONFIG_HANDLERS.setWriteUnbindall, { profileId: 'p1', writeUnbindall: false }],
+      [CONFIG_HANDLERS.setWriteCatalogDefaults, { profileId: 'p1', writeCatalogDefaults: false }],
+      [CONFIG_HANDLERS.setSectionHeaderStyle, { profileId: 'p1', sectionHeaderStyle: 'brackets' }],
+      // `rename` last, and named `id` rather than `profileId`: it is the one whose file name would
+      // move on disk, so it is also the one whose skipped write is most visible below.
+      [CONFIG_HANDLERS.rename, { id: 'p1', name: 'Renamed' }],
+    ]
+    for (const [type, payload] of mutations) {
+      // Each mutation is checked on its own: one handler still calling the sync engine would show
+      // up here as a changed file, and nowhere else.
+      const list = (await handlers.get(type)!(payload)) as ConfigProfile[]
+      expect(list.find((p) => p.id === 'p1')!.dirty, `${type} marks the profile dirty`).toBe(true)
+      expect(await readFile(canonical, 'latin1'), `${type} wrote no canonical file`).toBe(saved)
+      expect(await readFile(installationCopy, 'latin1'), `${type} wrote no copy`).toBe(savedCopy)
+      // Not even under the name a renamed profile now resolves to.
+      expect(await pathExists(join(userDataBox.current, 'Renamed.cfg'))).toBe(false)
+      expect(await pathExists(join(dir, 'baseq2', 'Renamed.cfg'))).toBe(false)
+    }
+  })
+
+  it('discard restores the baseline and leaves both files byte-identical (story 049 D3)', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot({ installations: [inst] })
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    // The save is what seeds the baseline, and what puts the files there that a discard could clobber.
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const canonical = join(userDataBox.current, 'Profile.cfg')
+    const installationCopy = join(dir, 'baseq2', 'Profile.cfg')
+    const saved = await readFile(canonical, 'latin1')
+    const savedCopy = await readFile(installationCopy, 'latin1')
+
+    // Unsaved edits of three kinds, including the rename that a save would move the file for.
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '99' } })
+    await handlers.get(CONFIG_HANDLERS.setBinds)!({ profileId: 'p1', binds: { x: '+attack' } })
+    await handlers.get(CONFIG_HANDLERS.rename)!({ id: 'p1', name: 'Renamed' })
+
+    const result = (await handlers.get(CONFIG_HANDLERS.discard)!({
+      profileId: 'p1',
+    })) as DiscardProfileResult
+    expect(result.status).toBe('discarded')
+    if (result.status !== 'discarded') throw new Error('unreachable')
+
+    // The returned profile is back at what the file on disk says...
+    const restored = result.profiles.find((p) => p.id === 'p1')!
+    expect(restored.cvars['sensitivity']).toBe('3')
+    expect(restored.binds).toEqual({})
+    expect(restored.name).toBe('Profile')
+    expect(restored.dirty).toBe(false)
+    expect(state.configProfiles()[0]!.name).toBe('Profile')
+
+    // ...and getting there wrote nothing: same bytes in both places, and no file under the name the
+    // profile briefly had. Rendering the restored profile reproduces the file it never touched.
+    expect(await readFile(canonical, 'latin1')).toBe(saved)
+    expect(await readFile(installationCopy, 'latin1')).toBe(savedCopy)
+    expect(renderProfileFile(restored)).toBe(saved)
+    expect(await pathExists(join(userDataBox.current, 'Renamed.cfg'))).toBe(false)
+    expect(await pathExists(join(dir, 'baseq2', 'Renamed.cfg'))).toBe(false)
+  })
+
+  /**
+   * Story 054 D11: order is array position (story 019/052/053/059), and every reorder already
+   * persists through the same `setActions`/`setCvars` handlers a rename or an edit does - so a pure
+   * reorder (nothing about any row/section changed, only its array position) has to mark the profile
+   * dirty exactly like the "every content mutation" case above, and Discard has to put the array back
+   * the way it was, not just the fields a value-level diff would notice.
+   *
+   * The reordered arrays below are handed to `setActions`/`setCvars` directly rather than through
+   * `entry-order.ts`/`cvar-sections.ts`'s `moveCategory`/`moveSubcategory`/`moveSectionToIndex`/
+   * `moveSubsectionToIndex` helpers those stories added: this is a main-process test
+   * (`tsconfig.node.json`), and those pure helpers live under `src/renderer` (`tsconfig.web.json`) -
+   * out of reach here by the same module-boundary rule `docs/ARCHITECTURE.md` draws elsewhere. The
+   * arrays constructed by hand are exactly what those helpers would produce (same ids, same content,
+   * only the position swapped), and the helpers themselves are unit-tested against every one of these
+   * moves in `entry-order.test.ts`/`cvar-sections.test.ts`.
+   */
+  it('story 054 D11: a pure reorder of categories/sub-categories/actions/cvar sections marks the profile dirty, and Discard restores the previous order', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot({ installations: [inst] })
+
+    const categoryA = {
+      id: 'cat-a',
+      name: 'Alpha',
+      subcategories: [
+        { id: 'sub-1', name: 'One' },
+        { id: 'sub-2', name: 'Two' },
+      ],
+    }
+    const categoryB = { id: 'cat-b', name: 'Bravo' }
+    const actionA1 = {
+      id: 'a1',
+      categoryId: 'cat-a',
+      name: 'First',
+      kind: 'bind' as const,
+      commands: [{ kind: 'raw' as const, text: '+forward' }],
+    }
+    const actionA2 = {
+      id: 'a2',
+      categoryId: 'cat-a',
+      name: 'Second',
+      kind: 'bind' as const,
+      commands: [{ kind: 'raw' as const, text: '+back' }],
+    }
+    const cvarSectionOne = {
+      id: 'cvs-1',
+      name: 'Player',
+      cvars: [],
+      subsections: [
+        { id: 'cvsub-1', name: 'Movement', cvars: [] },
+        { id: 'cvsub-2', name: 'Look', cvars: [] },
+      ],
+    }
+    const cvarSectionTwo = { id: 'cvs-2', name: 'Network', cvars: [] }
+
+    state.setConfigProfiles([
+      profile({
+        categories: [categoryA, categoryB],
+        actions: [actionA1, actionA2],
+        cvarSections: [cvarSectionOne, cvarSectionTwo],
+      }),
+    ])
+    await state.settle()
+    // The saved baseline Discard has to come back to.
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+
+    // The reorder: category B moves before A, A's two sub-categories swap, the two actions swap -
+    // no name, no id, no content anywhere changed, only array position (D2's `moveCategory`/
+    // `moveSubcategory`/`moveEntryToPosition`).
+    const reorderedCategoryA = {
+      ...categoryA,
+      subcategories: [categoryA.subcategories[1]!, categoryA.subcategories[0]!],
+    }
+    const actionsResult = (await handlers.get(CONFIG_HANDLERS.setActions)!({
+      profileId: 'p1',
+      categories: [categoryB, reorderedCategoryA],
+      actions: [actionA2, actionA1],
+    })) as ConfigProfile[]
+    const afterActionsReorder = actionsResult.find((p) => p.id === 'p1')!
+    expect(afterActionsReorder.categories!.map((c) => c.id)).toEqual(['cat-b', 'cat-a'])
+    expect(
+      afterActionsReorder.categories!.find((c) => c.id === 'cat-a')!.subcategories!.map((s) => s.id),
+    ).toEqual(['sub-2', 'sub-1'])
+    expect(afterActionsReorder.actions!.map((a) => a.id)).toEqual(['a2', 'a1'])
+    // AC1: the reorder alone already shows up as an unsaved change.
+    expect(afterActionsReorder.dirty).toBe(true)
+
+    // The cvar-section half of the same reorder: the two sections swap, and the one section's two
+    // sub-sections swap too (D9's `moveSectionToIndex`/`moveSubsectionToIndex`).
+    const reorderedCvarSectionOne = {
+      ...cvarSectionOne,
+      subsections: [cvarSectionOne.subsections[1]!, cvarSectionOne.subsections[0]!],
+    }
+    const cvarsResult = (await handlers.get(CONFIG_HANDLERS.setCvars)!({
+      profileId: 'p1',
+      cvars: profile().cvars,
+      cvarSections: [cvarSectionTwo, reorderedCvarSectionOne],
+    })) as ConfigProfile[]
+    const afterCvarsReorder = cvarsResult.find((p) => p.id === 'p1')!
+    expect(afterCvarsReorder.cvarSections!.map((s) => s.id)).toEqual(['cvs-2', 'cvs-1'])
+    expect(
+      afterCvarsReorder.cvarSections!.find((s) => s.id === 'cvs-1')!.subsections!.map((s) => s.id),
+    ).toEqual(['cvsub-2', 'cvsub-1'])
+    expect(afterCvarsReorder.dirty).toBe(true)
+
+    // AC2: Discard puts every one of those arrays back to the saved order - categories, the
+    // sub-categories inside them, the actions array and the cvar sections/sub-sections alike.
+    const discardResult = (await handlers.get(CONFIG_HANDLERS.discard)!({
+      profileId: 'p1',
+    })) as DiscardProfileResult
+    expect(discardResult.status).toBe('discarded')
+    if (discardResult.status !== 'discarded') throw new Error('unreachable')
+    const restored = discardResult.profiles.find((p) => p.id === 'p1')!
+    expect(restored.dirty).toBe(false)
+    expect(restored.categories!.map((c) => c.id)).toEqual(['cat-a', 'cat-b'])
+    expect(
+      restored.categories!.find((c) => c.id === 'cat-a')!.subcategories!.map((s) => s.id),
+    ).toEqual(['sub-1', 'sub-2'])
+    expect(restored.actions!.map((a) => a.id)).toEqual(['a1', 'a2'])
+    expect(restored.cvarSections!.map((s) => s.id)).toEqual(['cvs-1', 'cvs-2'])
+    expect(
+      restored.cvarSections!.find((s) => s.id === 'cvs-1')!.subsections!.map((s) => s.id),
+    ).toEqual(['cvsub-1', 'cvsub-2'])
+  })
+
+  it('setSectionHeaderStyle (story 042 D7) persists the new style, marks the profile dirty and writes nothing until a save', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot({ installations: [inst] })
+    state.setConfigProfiles([profile()])
+    await state.settle()
+
+    const list = (await handlers.get(CONFIG_HANDLERS.setSectionHeaderStyle)!({
+      profileId: 'p1',
+      sectionHeaderStyle: 'brackets',
+    })) as ConfigProfile[]
+
+    expect(list.map((p) => p.id)).toEqual(['p1'])
+    const updated = list.find((p) => p.id === 'p1')!
+    expect(updated.sectionHeaderStyle).toBe('brackets')
+    // Story 043 D4: this setter is write-affecting (it changes what `renderProfileFile` emits), so
+    // it is a content mutation and takes the same explicit-save route as `setCvars` - no file yet.
+    expect(updated.dirty).toBe(true)
+    expect(await pathExists(join(userDataBox.current, 'Profile.cfg'))).toBe(false)
+    expect(await pathExists(join(dir, 'baseq2', 'Profile.cfg'))).toBe(false)
+
+    // ...and the save that follows writes the NEW rendering to both places.
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const expected = renderProfileFile(updated)
+    expect(await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')).toBe(expected)
+    expect(await readFile(join(dir, 'baseq2', 'Profile.cfg'), 'latin1')).toBe(expected)
+  })
+
+  it('setWriteCatalogDefaults (story 059 D9) toggles whether an imported profile\'s rendered file carries a Defaults section, and survives reload', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot({ installations: [inst] })
+    // Story 059 decision: `cvarSections: []` is what an imported/empty-seeded profile looks like -
+    // no real section places `sensitivity`, so it is the catalogue cvar `Defaults` either does or
+    // does not pick up depending on the toggle.
+    state.setConfigProfiles([profile({ cvarSections: [] })])
+    await state.settle()
+
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const onText = await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')
+    expect(onText).toContain('Defaults')
+
+    const toggledOff = (await handlers.get(CONFIG_HANDLERS.setWriteCatalogDefaults)!({
+      profileId: 'p1',
+      writeCatalogDefaults: false,
+    })) as ConfigProfile[]
+    const updated = toggledOff.find((p) => p.id === 'p1')!
+    expect(updated.writeCatalogDefaults).toBe(false)
+    expect(updated.dirty).toBe(true)
+
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const offText = await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')
+    expect(offText).not.toContain('Defaults')
+
+    // Toggling back on restores the section - the flag round-trips through state, not just render.
+    const toggledOn = (await handlers.get(CONFIG_HANDLERS.setWriteCatalogDefaults)!({
+      profileId: 'p1',
+      writeCatalogDefaults: true,
+    })) as ConfigProfile[]
+    expect(toggledOn.find((p) => p.id === 'p1')!.writeCatalogDefaults).toBe(true)
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    expect(await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')).toContain('Defaults')
+  })
+
+  it('setWriteCatalogDefaults (story 059 D9) is a no-op for a template profile\'s rendered file either way', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot({ installations: [inst] })
+    // The default `profile()` fixture carries `STANDARD_TEMPLATE.cvarSections`, which places every
+    // catalogue cvar in a real section - nothing is ever unplaced, so `Defaults` never has anything
+    // to hold regardless of the toggle (D1/D2's design).
+    state.setConfigProfiles([profile()])
+    await state.settle()
+
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const onText = await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')
+    expect(onText).not.toContain('Defaults')
+
+    await handlers.get(CONFIG_HANDLERS.setWriteCatalogDefaults)!({
+      profileId: 'p1',
+      writeCatalogDefaults: false,
+    })
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const offText = await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')
+    expect(offText).toBe(onText)
+  })
+
+  it('syncState reports inSync for both copies right after a save synced them', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot({ installations: [inst] })
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '7' } })
+    // Story 043 D4: the mutation alone no longer syncs anything - the save does.
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+
+    const result = (await handlers.get(CONFIG_HANDLERS.syncState)!({
+      profileId: 'p1',
+    })) as Outcome<ProfileSyncState>
+
+    if (!result.ok) throw new Error('expected syncState to succeed')
+    expect(result.value.own.status).toBe('inSync')
+    expect(result.value.own.fileName).toBe('Profile.cfg')
+    expect(result.value.installations).toEqual([
+      {
+        installationId: 'i1',
+        path: join(dir, 'baseq2', 'Profile.cfg'),
+        fileName: 'Profile.cfg',
+        status: 'inSync',
+      },
+    ])
+  })
+
+  it('setup() retries a persisted write failure once and clears it on success', async () => {
+    const seeded = profile({ assignments: [] })
+    const { state } = await boot({
+      seed: (s) => {
+        s.setConfigProfiles([seeded])
+        s.setConfigWriteFailures({
+          'p1|own': { messageKey: 'config.error.writeFailed', at: '2026-01-01T00:00:00.000Z' },
+        })
+      },
+    })
+
+    expect(await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')).toBe(
+      renderProfileFile(seeded),
+    )
+    expect(state.configWriteFailures()).toEqual({})
+  })
+
+  it('setup() skips stale bookkeeping for a profile that no longer exists, without throwing', async () => {
+    const { state } = await boot({
+      seed: (s) => {
+        s.setConfigProfiles([])
+        s.setConfigWriteFailures({
+          'ghost|own': { messageKey: 'config.error.writeFailed', at: '2026-01-01T00:00:00.000Z' },
+        })
+      },
+    })
+
+    // Resolved without throwing (getting here is the assertion) and the
+    // dangling entries are simply left alone - cleaning them up is not D7's job.
+    expect(state.configWriteFailures()['ghost|own']).toBeDefined()
+    expect(await pathExists(userDataBox.current)).toBe(false)
+  })
+
+  it('syncState fails with profileNotFound for an unknown id', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+
+    const result = await handlers.get(CONFIG_HANDLERS.syncState)!({ profileId: 'nope' })
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.profileNotFound' } })
+  })
+
+  it('syncState is read-only: reports missing and creates nothing', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    const canonical = join(userDataBox.current, 'Profile.cfg')
+    expect(await pathExists(canonical)).toBe(false)
+
+    const result = (await handlers.get(CONFIG_HANDLERS.syncState)!({
+      profileId: 'p1',
+    })) as Outcome<ProfileSyncState>
+
+    if (!result.ok) throw new Error('expected syncState to succeed')
+    expect(result.value.own.status).toBe('missing')
+    expect(result.value.installations).toEqual([])
+    // The regression this guards: someone rebuilding `syncState` on
+    // `syncProfile`, which writes.
+    expect(await pathExists(canonical)).toBe(false)
+  })
+
+  it('write retries through the new sync engine and clears a persisted failure on success', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot({
+      installations: [inst],
+      seed: (s) => {
+        s.setConfigProfiles([profile()])
+        // Simulates a previous mutation's sync run having failed to write this
+        // installation's copy (e.g. a locked directory that has since been
+        // fixed) - before story 022 D7's write-handler fix, `write` never
+        // touched `configWriteFailures` at all, so this entry would have
+        // survived a successful retry forever and `syncState` would have kept
+        // reporting `error` regardless of what was actually on disk.
+        s.setConfigWriteFailures({
+          'p1|i1': { messageKey: 'config.error.writeFailed', at: '2026-01-01T00:00:00.000Z' },
+        })
+      },
+    })
+
+    const result = (await handlers.get(CONFIG_HANDLERS.write)!({
+      profileId: 'p1',
+    })) as Outcome<WriteTargetResult[]>
+
+    if (!result.ok) throw new Error('expected write to succeed')
+    expect(result.value).toEqual([{ installationId: 'i1', status: 'written' }])
+    expect(state.configWriteFailures()).toEqual({})
+
+    const synced = (await handlers.get(CONFIG_HANDLERS.syncState)!({
+      profileId: 'p1',
+    })) as Outcome<ProfileSyncState>
+    if (!synced.ok) throw new Error('expected syncState to succeed')
+    expect(synced.value.installations).toEqual([
+      { installationId: 'i1', path: join(dir, 'baseq2', 'Profile.cfg'), fileName: 'Profile.cfg', status: 'inSync' },
+    ])
+  })
+})
+
+/**
+ * Story 043 D4: the deliberate inversion of story 022 decision 8 - content mutations stop writing
+ * and only `save` does, after re-reading the file it is about to overwrite.
+ *
+ * The two failure modes this block exists to catch are the ones the story names: a hand-edit
+ * clobbered by a write the launcher made without reading the file first, and unsaved edits leaking
+ * onto disk (into an installation, which the engine actually loads) through some *other* handler's
+ * sync run. Everything is asserted on the real temp-dir bytes, never on the handler's return value
+ * alone - a report of a write that did not happen, or of a skip that actually wrote, would look
+ * identical from the outside.
+ */
+describe('story 043 D4: explicit save', () => {
+  async function boot(
+    installations: Installation[] = [],
+    seed?: (state: StateStore) => void,
+    launchState: LaunchState = idleState(),
+  ): Promise<{ handlers: Map<string, ModuleHandler>; state: StateStore }> {
+    const state = new StateStore(join(dir, 'state.json'))
+    await state.load()
+    seed?.(state)
+    const handlers = new Map<string, ModuleHandler>()
+    await configModule.setup({
+      handle: collectHandlers(handlers),
+      emit: () => {},
+      app: {
+        installations: {
+          find: (id: string) => installations.find((i) => i.id === id),
+          list: () => installations,
+        },
+        launch: { getState: () => launchState },
+        state,
+      } as unknown as AppContext,
+      log,
+    })
+    return { handlers, state }
+  }
+
+  const canonicalPath = (fileName: string): string => join(userDataBox.current, fileName)
+  const copyPath = (fileName: string): string => join(dir, 'baseq2', fileName)
+
+  async function save(
+    handlers: Map<string, ModuleHandler>,
+    profileId = 'p1',
+  ): Promise<Outcome<SaveProfileResult>> {
+    return (await handlers.get(CONFIG_HANDLERS.save)!({ profileId })) as Outcome<SaveProfileResult>
+  }
+
+  function only(state: StateStore, profileId = 'p1'): ConfigProfile {
+    return state.configProfiles().find((p) => p.id === profileId)!
+  }
+
+  it('writes the canonical file and the installation copy, clears dirty and seeds the hash baseline', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '7' } })
+
+    const result = await save(handlers)
+
+    if (!result.ok) throw new Error('expected save to succeed')
+    if (result.value.status !== 'saved') throw new Error(`expected saved, got ${result.value.status}`)
+    const expected = renderProfileFile(result.value.profile)
+    expect(await readFile(canonicalPath('Profile.cfg'), 'latin1')).toBe(expected)
+    // The installation cascade is unchanged by this deliverable - it still runs, from the same
+    // canonical content (story AC6).
+    expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(expected)
+    expect(result.value.sync.own.status).toBe('inSync')
+
+    const saved = only(state)
+    expect(saved.dirty).toBe(false)
+    // Seeded from exactly the bytes on disk, which is what keeps this write from being read back as
+    // an external edit by the very next save.
+    expect(saved.fileHash).toBe(hashCanonicalFileContent(expected))
+    expect(saved.fileSeenAt).toBeTypeOf('number')
+
+    // Proof of that property: an immediate second save sees `unchanged`, not a conflict.
+    const again = await save(handlers)
+    if (!again.ok) throw new Error('expected the second save to succeed')
+    expect(again.value.status).toBe('saved')
+  })
+
+  it('a save while the game runs writes the copy and reads inSync, nothing is persisted as pending', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst], undefined, runningState(inst.id))
+    state.setConfigProfiles([profile()])
+    await state.settle()
+
+    const result = await save(handlers)
+
+    if (!result.ok) throw new Error('expected save to succeed')
+    if (result.value.status !== 'saved') throw new Error(`expected saved, got ${result.value.status}`)
+    const expected = renderProfileFile(result.value.profile)
+    // Story 079 D4: a running game defers nothing - the canonical file and the installation copy
+    // are written exactly as they would be if the installation were idle.
+    expect(await readFile(canonicalPath('Profile.cfg'), 'latin1')).toBe(expected)
+    expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(expected)
+    expect(result.value.sync.own.status).toBe('inSync')
+    expect(result.value.sync.installations).toEqual([
+      { installationId: 'i1', path: copyPath('Profile.cfg'), fileName: 'Profile.cfg', status: 'inSync' },
+    ])
+
+    // Nothing is left behind to retry, and `writeState` (the pending-write report) is empty.
+    const writeState = await handlers.get(CONFIG_HANDLERS.writeState)!(undefined)
+    expect(writeState).toEqual({})
+  })
+
+  it('refuses to write and reports a whole-file conflict when the file changed underneath', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await save(handlers)
+    const seededHash = only(state).fileHash
+
+    // A hand-edit in Notepad: the launcher's own file, one line appended.
+    const handEdited = `${await readFile(canonicalPath('Profile.cfg'), 'latin1')}// hand-edited\n`
+    await writeFile(canonicalPath('Profile.cfg'), handEdited, 'latin1')
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '9' } })
+
+    const result = await save(handlers)
+
+    if (!result.ok) throw new Error('expected save to answer, not fail')
+    if (result.value.status !== 'conflict') {
+      throw new Error(`expected conflict, got ${result.value.status}`)
+    }
+    expect(result.value.fileName).toBe('Profile.cfg')
+    expect(result.value.diskContent).toBe(handEdited)
+    expect(result.value.ourContent).toBe(renderProfileFile(only(state)))
+    expect(result.value.ourContent).not.toBe(handEdited)
+    // The whole point: nothing was written, and the edits are still recorded as unsaved.
+    expect(await readFile(canonicalPath('Profile.cfg'), 'latin1')).toBe(handEdited)
+    expect(only(state).dirty).toBe(true)
+    expect(only(state).fileHash).toBe(seededHash)
+  })
+
+  it('story 043 D8: force: true bypasses the conflict, writes our version and clears dirty', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await save(handlers)
+
+    // A hand-edit in Notepad, plus an unsaved UI edit - the exact conflict shape `save` (without
+    // `force`) still refuses, and the shape `ConfigConflictDialog` is built from.
+    const handEdited = `${await readFile(canonicalPath('Profile.cfg'), 'latin1')}// hand-edited\n`
+    await writeFile(canonicalPath('Profile.cfg'), handEdited, 'latin1')
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '9' } })
+
+    const ordinary = await save(handlers)
+    if (!ordinary.ok || ordinary.value.status !== 'conflict') {
+      throw new Error('expected the ordinary save to still refuse')
+    }
+
+    const forced = (await handlers.get(CONFIG_HANDLERS.save)!({
+      profileId: 'p1',
+      force: true,
+    })) as Outcome<SaveProfileResult>
+
+    if (!forced.ok) throw new Error('expected the forced save to succeed')
+    if (forced.value.status !== 'saved') {
+      throw new Error(`expected saved, got ${forced.value.status}`)
+    }
+    const expected = renderProfileFile(forced.value.profile)
+    expect(expected).not.toBe(handEdited)
+    expect(await readFile(canonicalPath('Profile.cfg'), 'latin1')).toBe(expected)
+    expect(only(state).dirty).toBe(false)
+    expect(only(state).fileHash).toBe(hashCanonicalFileContent(expected))
+  })
+
+  it('looks the file up by its ownership sentinel, so a rename cannot make a hand-edit invisible', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    await save(handlers)
+
+    // A rename no longer moves the file, so the profile's file still sits under its OLD name -
+    // exactly where a naive "read the name this profile now resolves to" check would find nothing
+    // and conclude it was free to write.
+    await handlers.get(CONFIG_HANDLERS.rename)!({ id: 'p1', name: 'Renamed' })
+    const handEdited = `${await readFile(canonicalPath('Profile.cfg'), 'latin1')}// hand-edited\n`
+    await writeFile(canonicalPath('Profile.cfg'), handEdited, 'latin1')
+
+    const result = await save(handlers)
+
+    if (!result.ok) throw new Error('expected save to answer, not fail')
+    if (result.value.status !== 'conflict') {
+      throw new Error(`expected conflict, got ${result.value.status}`)
+    }
+    expect(result.value.fileName).toBe('Profile.cfg')
+    expect(await readFile(canonicalPath('Profile.cfg'), 'latin1')).toBe(handEdited)
+    expect(await pathExists(canonicalPath('Renamed.cfg'))).toBe(false)
+  })
+
+  it('saving a renamed profile with nothing changed on disk moves the file to its new name', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    await save(handlers)
+    await handlers.get(CONFIG_HANDLERS.rename)!({ id: 'p1', name: 'Renamed' })
+
+    const result = await save(handlers)
+
+    if (!result.ok) throw new Error('expected save to succeed')
+    if (result.value.status !== 'saved') throw new Error(`expected saved, got ${result.value.status}`)
+    expect(await readFile(canonicalPath('Renamed.cfg'), 'latin1')).toBe(
+      renderProfileFile(result.value.profile),
+    )
+    expect(await pathExists(canonicalPath('Profile.cfg'))).toBe(false)
+    expect(only(state).dirty).toBe(false)
+  })
+
+  it('reports a file it cannot read at all instead of writing over it', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    // A directory where the canonical file should be: unreadable, and specifically NOT ENOENT - so
+    // it must not be treated as "nothing there, free to create".
+    await mkdir(canonicalPath('Profile.cfg'), { recursive: true })
+
+    const result = await save(handlers)
+
+    if (!result.ok) throw new Error('expected save to answer, not fail')
+    expect(result.value.status).toBe('unreadable')
+    if (result.value.status !== 'unreadable') return
+    expect(result.value.reason).toBe('readError')
+  })
+
+  it('assign of a DIRTY profile writes the installation from the canonical FILE, never from the unsaved edits', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    await save(handlers)
+    const savedFile = await readFile(canonicalPath('Profile.cfg'), 'latin1')
+
+    // Unsaved edit, then an operation that is NOT a save but does sync (assignment relationships
+    // are not profile content, so it still syncs immediately - story decision).
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '99' } })
+    const unsavedRender = renderProfileFile(only(state))
+    expect(unsavedRender).not.toBe(savedFile)
+
+    const assigned = (await handlers.get(CONFIG_HANDLERS.assign)!({
+      profileId: 'p1',
+      installationId: 'i1',
+    })) as Outcome<ConfigProfile[]>
+    if (!assigned.ok) throw new Error('expected assign to succeed')
+
+    // The canonical file is untouched...
+    expect(await readFile(canonicalPath('Profile.cfg'), 'latin1')).toBe(savedFile)
+    // ...and the installation - the copy the engine actually loads - got the FILE's content, not
+    // the unsaved edit. This is the specific leak D4 exists to close.
+    expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(savedFile)
+    expect(await readFile(copyPath('Profile.cfg'), 'latin1')).not.toBe(unsavedRender)
+    expect(only(state).dirty).toBe(true)
+    // The loader still went out, so the installation is usable.
+    expect(await pathExists(copyPath('autoexec.cfg'))).toBe(true)
+  })
+
+  it('the retry trigger `write` publishes the canonical file too, not a dirty profile\'s unsaved edits', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await save(handlers)
+    const savedFile = await readFile(canonicalPath('Profile.cfg'), 'latin1')
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '99' } })
+    // Delete the installation copy so the retry has something real to do.
+    await rm(copyPath('Profile.cfg'))
+
+    const result = (await handlers.get(CONFIG_HANDLERS.write)!({
+      profileId: 'p1',
+    })) as Outcome<WriteTargetResult[]>
+
+    if (!result.ok) throw new Error('expected write to succeed')
+    expect(await readFile(canonicalPath('Profile.cfg'), 'latin1')).toBe(savedFile)
+    expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(savedFile)
+    expect(only(state).dirty).toBe(true)
+  })
+
+  /**
+   * Story 079 D8, AC7: `write`'s new optional `installationId` is "Sync now" - a one-click rewrite
+   * of ONE installation's copy from the canonical file. `writer.ts#writeTargetFile`'s backup-once
+   * contract (~:147-160) applies exactly as it would for any other write: a copy holding content the
+   * launcher did not itself generate is the user's own file and is preserved once, forever, before
+   * being overwritten - this test asserts that contract is actually reached through the targeted
+   * path, not skipped as "already handled".
+   */
+  it('write with installationId backs up a foreign copy once, then overwrites', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await save(handlers)
+    const canonical = await readFile(canonicalPath('Profile.cfg'), 'latin1')
+
+    // A foreign, hand-written copy at the installation - not launcher output.
+    const foreign = 'set sensitivity "42"\n'
+    await writeFile(copyPath('Profile.cfg'), foreign, 'latin1')
+
+    const result = (await handlers.get(CONFIG_HANDLERS.write)!({
+      profileId: 'p1',
+      installationId: 'i1',
+    })) as Outcome<WriteTargetResult[]>
+
+    if (!result.ok) throw new Error('expected write to succeed')
+    expect(result.value).toEqual([{ installationId: 'i1', status: 'written' }])
+    // Backed up once before being overwritten.
+    expect(await readFile(`${copyPath('Profile.cfg')}.q2l-backup`, 'latin1')).toBe(foreign)
+    // Overwritten with the canonical file's own bytes.
+    expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(canonical)
+    expect(state.configWriteFailures()).toEqual({})
+
+    // "Once, forever": a later foreign edit does not clobber the first backup.
+    const secondForeign = 'set sensitivity "99"\n'
+    await writeFile(copyPath('Profile.cfg'), secondForeign, 'latin1')
+    await handlers.get(CONFIG_HANDLERS.write)!({ profileId: 'p1', installationId: 'i1' })
+    expect(await readFile(`${copyPath('Profile.cfg')}.q2l-backup`, 'latin1')).toBe(foreign)
+  })
+
+  /**
+   * Story 079 D8, AC9: a targeted "Sync now" must never publish a `dirty` profile's unsaved edits -
+   * it writes the canonical file's own bytes, exactly like the untargeted retry path already does
+   * (the test right above this describe block), just restricted to one installation.
+   */
+  it("write with installationId on a dirty profile writes the canonical file's bytes, never the unsaved edits", async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await save(handlers)
+    const savedFile = await readFile(canonicalPath('Profile.cfg'), 'latin1')
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '99' } })
+    const unsavedRender = renderProfileFile(only(state))
+    expect(unsavedRender).not.toBe(savedFile)
+    // Delete the installation copy so the targeted write has something real to do.
+    await rm(copyPath('Profile.cfg'))
+
+    const result = (await handlers.get(CONFIG_HANDLERS.write)!({
+      profileId: 'p1',
+      installationId: 'i1',
+    })) as Outcome<WriteTargetResult[]>
+
+    if (!result.ok) throw new Error('expected write to succeed')
+    expect(result.value).toEqual([{ installationId: 'i1', status: 'written' }])
+    expect(await readFile(canonicalPath('Profile.cfg'), 'latin1')).toBe(savedFile)
+    expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(savedFile)
+    expect(await readFile(copyPath('Profile.cfg'), 'latin1')).not.toBe(unsavedRender)
+    // Still dirty: this was a sync, not a save.
+    expect(only(state).dirty).toBe(true)
+  })
+
+  it('write rejects an unknown installationId and writes nothing', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await save(handlers)
+    const before = await readFile(copyPath('Profile.cfg'), 'latin1')
+
+    const result = await handlers.get(CONFIG_HANDLERS.write)!({
+      profileId: 'p1',
+      installationId: 'nope',
+    })
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.installationNotFound' } })
+    expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(before)
+    expect(only(state).dirty).toBe(false)
+  })
+
+  it('write with installationId touches only the named installation, not the profile\'s other assignments', async () => {
+    const i1 = installation({ id: 'i1', rootPath: join(dir, 'i1') })
+    const i2 = installation({ id: 'i2', rootPath: join(dir, 'i2') })
+    await mkdir(join(i1.rootPath, 'baseq2'), { recursive: true })
+    await mkdir(join(i2.rootPath, 'baseq2'), { recursive: true })
+    const { handlers, state } = await boot([i1, i2])
+    state.setConfigProfiles([
+      profile({
+        assignments: [
+          { installationId: 'i1', isDefault: true },
+          { installationId: 'i2', isDefault: true },
+        ],
+      }),
+    ])
+    await state.settle()
+    await save(handlers)
+    const canonical = await readFile(canonicalPath('Profile.cfg'), 'latin1')
+    expect(await readFile(join(i1.rootPath, 'baseq2', 'Profile.cfg'), 'latin1')).toBe(canonical)
+    expect(await readFile(join(i2.rootPath, 'baseq2', 'Profile.cfg'), 'latin1')).toBe(canonical)
+
+    // Both copies go stale...
+    await writeFile(join(i1.rootPath, 'baseq2', 'Profile.cfg'), 'stale i1\n', 'latin1')
+    await writeFile(join(i2.rootPath, 'baseq2', 'Profile.cfg'), 'stale i2\n', 'latin1')
+
+    // ...but a targeted write only fixes i1.
+    const result = (await handlers.get(CONFIG_HANDLERS.write)!({
+      profileId: 'p1',
+      installationId: 'i1',
+    })) as Outcome<WriteTargetResult[]>
+
+    if (!result.ok) throw new Error('expected write to succeed')
+    expect(result.value).toEqual([{ installationId: 'i1', status: 'written' }])
+    expect(await readFile(join(i1.rootPath, 'baseq2', 'Profile.cfg'), 'latin1')).toBe(canonical)
+    expect(await readFile(join(i2.rootPath, 'baseq2', 'Profile.cfg'), 'latin1')).toBe('stale i2\n')
+  })
+
+  /**
+   * Story 079 D8/D9 regression (found while diagnosing the `care-drift-sync-now` e2e flow failing
+   * after `raw-save-cascades`): a raw save's cascade protects the canonical file from being
+   * re-rendered for that ONE `syncAndPersist` call (`refuseCanonicalWriteFor: adopted.id`,
+   * `saveRawText`), but that protection does not outlive the call. The very next sync trigger - here
+   * "Sync now", `write` with `installationId` - runs its own `syncAndPersist` with none of those
+   * options, and the general `canonicalWriteAllowed` rule ("the on-disk hash already equals the
+   * cached `fileHash`, so this write is safe") wrongly treats a hand-typed, non-render-fixed-point
+   * canonical file as safe to overwrite with `renderProfileFile(profile)` - silently corrupting the
+   * user's typed formatting and, as a side effect, turning every OTHER installation's already-correct
+   * copy into new drift. Story 079's Decisions are explicit that a raw save "keeps 057's semantics"
+   * (never re-rendered) - this asserts that holds across a subsequent Sync now too, and that the
+   * targeted installation ends up byte-identical to the (unchanged) canonical file, reading `inSync`.
+   */
+  it('write with installationId after a non-fixed-point raw save never re-renders the canonical file, and syncs the installation from its exact bytes', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await save(handlers)
+
+    // A raw save (story 057) whose typed text is legal but deliberately NOT a render fixed point.
+    const onDisk = await readFile(canonicalPath('Profile.cfg'), 'latin1')
+    const typed = `${onDisk}\tset q2l_hand "1"   \n`
+    const rawResult = (await handlers.get(CONFIG_HANDLERS.saveRawText)!({
+      profileId: 'p1',
+      text: typed,
+    })) as Outcome<SaveRawTextResult>
+    if (!rawResult.ok || rawResult.value.status !== 'saved') {
+      throw new Error('expected the raw save to succeed')
+    }
+    expect(only(state).dirty).toBe(false)
+    expect(renderProfileFile(only(state))).not.toBe(typed)
+    // The raw save's own cascade (D3) already published the typed bytes to the installation.
+    expect(await readFile(canonicalPath('Profile.cfg'), 'latin1')).toBe(typed)
+    expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(typed)
+
+    // An outside tool hand-edits the installation's own copy, as `care-drift-sync-now.mjs` does.
+    await writeFile(copyPath('Profile.cfg'), 'set sensitivity "42"\n', 'latin1')
+
+    const result = (await handlers.get(CONFIG_HANDLERS.write)!({
+      profileId: 'p1',
+      installationId: 'i1',
+    })) as Outcome<WriteTargetResult[]>
+
+    if (!result.ok) throw new Error('expected write to succeed')
+    expect(result.value).toEqual([{ installationId: 'i1', status: 'written' }])
+    // The canonical file's typed bytes must not be re-rendered by a targeted Sync now.
+    expect(await readFile(canonicalPath('Profile.cfg'), 'latin1')).toBe(typed)
+    // The installation copy is republished from those same typed bytes.
+    expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(typed)
+
+    const syncResult = (await handlers.get(CONFIG_HANDLERS.syncState)!({
+      profileId: 'p1',
+    })) as Outcome<ProfileSyncState>
+    if (!syncResult.ok) throw new Error('expected syncState to succeed')
+    expect(syncResult.value.installations[0]!.status).toBe('inSync')
+  })
+
+  it('is per profile: syncing a clean profile does not publish a DIRTY sibling assigned to the same installation', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([
+      profile({ id: 'p1', name: 'One' }),
+      profile({ id: 'p2', name: 'Two', assignments: [{ installationId: 'i1', isDefault: false }] }),
+    ])
+    await state.settle()
+    await save(handlers, 'p1')
+    await save(handlers, 'p2')
+    const siblingFile = await readFile(canonicalPath('Two.cfg'), 'latin1')
+
+    // The sibling has unsaved edits; the OTHER profile is the one being synced.
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p2', cvars: { sensitivity: '99' } })
+    const siblingUnsaved = renderProfileFile(state.configProfiles().find((p) => p.id === 'p2')!)
+    await handlers.get(CONFIG_HANDLERS.setDefault)!({ profileId: 'p1', installationId: 'i1' })
+
+    // `syncOneProfile` writes EVERY profile assigned to the installation, so the sibling's copy was
+    // rewritten by this run - from its canonical file, not from its unsaved state.
+    expect(await readFile(canonicalPath('Two.cfg'), 'latin1')).toBe(siblingFile)
+    expect(await readFile(copyPath('Two.cfg'), 'latin1')).toBe(siblingFile)
+    expect(await readFile(copyPath('Two.cfg'), 'latin1')).not.toBe(siblingUnsaved)
+    expect(state.configProfiles().find((p) => p.id === 'p2')!.dirty).toBe(true)
+  })
+
+  it('assign still syncs a NON-dirty profile immediately, exactly as before', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    await save(handlers)
+
+    const assigned = (await handlers.get(CONFIG_HANDLERS.assign)!({
+      profileId: 'p1',
+      installationId: 'i1',
+    })) as Outcome<ConfigProfile[]>
+
+    if (!assigned.ok) throw new Error('expected assign to succeed')
+    const expected = renderProfileFile(only(state))
+    expect(await readFile(canonicalPath('Profile.cfg'), 'latin1')).toBe(expected)
+    expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(expected)
+    expect(only(state).dirty).toBe(false)
+  })
+
+  it('syncState and rawFiles judge a dirty profile\'s installation copy against the FILE, so a retry can still clear it', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await save(handlers)
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '99' } })
+
+    // The unsaved edits live on the canonical row (the file does not say what the profile says)...
+    const dirtyState = (await handlers.get(CONFIG_HANDLERS.syncState)!({
+      profileId: 'p1',
+    })) as Outcome<ProfileSyncState>
+    if (!dirtyState.ok) throw new Error('expected syncState to succeed')
+    expect(dirtyState.value.own.status).toBe('outOfSync')
+    // ...while the installation copy holds exactly what the canonical file authorises, and says so -
+    // the same answer the sync run that wrote it gave, and a state a Retry can actually reach.
+    expect(dirtyState.value.installations[0]!.status).toBe('inSync')
+
+    const raw = (await handlers.get(CONFIG_HANDLERS.rawFiles)!({
+      profileId: 'p1',
+    })) as Outcome<RawFilesResult>
+    if (!raw.ok) throw new Error('expected rawFiles to succeed')
+    expect(raw.value.installations[0]!.matches).toBe(true)
+
+    // A hand-edited installation copy is still reported out of sync, exactly as before.
+    await writeFile(copyPath('Profile.cfg'), 'hand-edited\n', 'latin1')
+    const edited = (await handlers.get(CONFIG_HANDLERS.syncState)!({
+      profileId: 'p1',
+    })) as Outcome<ProfileSyncState>
+    if (!edited.ok) throw new Error('expected syncState to succeed')
+    expect(edited.value.installations[0]!.status).toBe('outOfSync')
+
+    // ...and the retry trigger fixes it without publishing the unsaved edits.
+    await handlers.get(CONFIG_HANDLERS.write)!({ profileId: 'p1' })
+    const retried = (await handlers.get(CONFIG_HANDLERS.syncState)!({
+      profileId: 'p1',
+    })) as Outcome<ProfileSyncState>
+    if (!retried.ok) throw new Error('expected syncState to succeed')
+    expect(retried.value.installations[0]!.status).toBe('inSync')
+    expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(
+      await readFile(canonicalPath('Profile.cfg'), 'latin1'),
+    )
+  })
+
+  it('syncState and rawFiles judge a CLEAN profile’s installation copy against the canonical file’s bytes, never its render (story 079 D2)', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await save(handlers)
+    // A raw save (story 057): the canonical file now holds exactly the typed text - clean profile,
+    // hash baseline = these bytes - and that text is deliberately not a render fixed point.
+    const typed = `${await readFile(canonicalPath('Profile.cfg'), 'latin1')}\tset q2l_hand "1"   \n`
+    const raw = (await handlers.get(CONFIG_HANDLERS.saveRawText)!({
+      profileId: 'p1',
+      text: typed,
+    })) as Outcome<SaveRawTextResult>
+    if (!raw.ok || raw.value.status !== 'saved') throw new Error('expected the raw save to land')
+    expect(only(state).dirty).toBe(false)
+    expect(renderProfileFile(only(state))).not.toBe(typed)
+
+    // A copy holding the typed bytes is in sync...
+    await writeFile(copyPath('Profile.cfg'), typed, 'latin1')
+    const mirrored = (await handlers.get(CONFIG_HANDLERS.syncState)!({
+      profileId: 'p1',
+    })) as Outcome<ProfileSyncState>
+    if (!mirrored.ok) throw new Error('expected syncState to succeed')
+    expect(mirrored.value.installations[0]!.status).toBe('inSync')
+    const rawFiles = (await handlers.get(CONFIG_HANDLERS.rawFiles)!({
+      profileId: 'p1',
+    })) as Outcome<RawFilesResult>
+    if (!rawFiles.ok) throw new Error('expected rawFiles to succeed')
+    expect(rawFiles.value.installations[0]!.matches).toBe(true)
+
+    // ...and one holding the render - bytes nobody wrote to the canonical file - is not.
+    await writeFile(copyPath('Profile.cfg'), renderProfileFile(only(state)), 'latin1')
+    const rendered = (await handlers.get(CONFIG_HANDLERS.syncState)!({
+      profileId: 'p1',
+    })) as Outcome<ProfileSyncState>
+    if (!rendered.ok) throw new Error('expected syncState to succeed')
+    expect(rendered.value.installations[0]!.status).toBe('outOfSync')
+  })
+
+  it('a canonical file that moved underneath the launcher is neither published nor judged from (story 079 D2)', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await save(handlers)
+    const savedFile = await readFile(canonicalPath('Profile.cfg'), 'latin1')
+    expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(savedFile)
+    // An external edit the launcher has not read: hash ≠ `fileHash`, not our render either.
+    const external = `${savedFile}set external_edit "1"\n`
+    await writeFile(canonicalPath('Profile.cfg'), external, 'latin1')
+
+    // Judged: the copy still equals the render, and still reads `outOfSync` - there is nothing it
+    // is in sync with until the file is reloaded or overwritten by an explicit save.
+    const judged = (await handlers.get(CONFIG_HANDLERS.syncState)!({
+      profileId: 'p1',
+    })) as Outcome<ProfileSyncState>
+    if (!judged.ok) throw new Error('expected syncState to succeed')
+    expect(judged.value.own.status).toBe('outOfSync')
+    expect(judged.value.installations[0]!.status).toBe('outOfSync')
+    const rawFiles = (await handlers.get(CONFIG_HANDLERS.rawFiles)!({
+      profileId: 'p1',
+    })) as Outcome<RawFilesResult>
+    if (!rawFiles.ok) throw new Error('expected rawFiles to succeed')
+    expect(rawFiles.value.installations[0]!.matches).toBe(false)
+
+    // Published: a non-save sync trigger writes neither the canonical file (043 D10) nor the copy
+    // (079 D2) - the unread bytes stay where they are, and so does the copy.
+    const written = (await handlers.get(CONFIG_HANDLERS.write)!({
+      profileId: 'p1',
+    })) as Outcome<WriteTargetResult[]>
+    if (!written.ok) throw new Error('expected write to answer')
+    expect(await readFile(canonicalPath('Profile.cfg'), 'latin1')).toBe(external)
+    expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(savedFile)
+    expect(only(state).dirty).toBe(false)
+    expect(state.configWriteFailures()).toEqual({})
+  })
+
+  it('save fails with profileNotFound for an unknown id and writes nothing', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+
+    const result = await save(handlers, 'nope')
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.profileNotFound' } })
+    expect(await pathExists(canonicalPath('Profile.cfg'))).toBe(false)
+  })
+})
+
+/**
+ * Story 023 D1: `rawFiles`' read-only report of the profile's own canonical
+ * file plus one entry per assigned installation. Same boot pattern as the
+ * story 022 D7 block above (own local helper, since that one is private to
+ * its own `describe`) - a duck-typed `app` with a real, temp-file-backed
+ * `StateStore`, so mutations actually land on disk and `rawFiles` has
+ * something real to read back.
+ */
+describe('CONFIG_HANDLERS.rawFiles handler (story 023 D1)', () => {
+  async function boot(
+    installations: Installation[] = [],
+  ): Promise<{ handlers: Map<string, ModuleHandler>; state: StateStore }> {
+    const state = new StateStore(join(dir, 'state.json'))
+    await state.load()
+    const handlers = new Map<string, ModuleHandler>()
+    await configModule.setup({
+      handle: collectHandlers(handlers),
+      emit: () => {},
+      app: {
+        installations: {
+          find: (id: string) => installations.find((i) => i.id === id),
+          list: () => installations,
+        },
+        launch: { getState: () => idleState() },
+        state,
+      } as unknown as AppContext,
+      log,
+    })
+    return { handlers, state }
+  }
+
+  it('reports canonical onDisk: false for a freshly created, unassigned profile, then true after an explicit save', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+
+    const before = (await handlers.get(CONFIG_HANDLERS.rawFiles)!({
+      profileId: 'p1',
+    })) as Outcome<RawFilesResult>
+    if (!before.ok) throw new Error('expected rawFiles to succeed')
+    expect(before.value.canonical.onDisk).toBe(false)
+    expect(before.value.canonical.content).toBe('')
+    expect(before.value.installations).toEqual([])
+
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({
+      profileId: 'p1',
+      cvars: { sensitivity: '9' },
+    })
+    // Story 043 D4: only a save puts the file on disk now.
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+
+    const after = (await handlers.get(CONFIG_HANDLERS.rawFiles)!({
+      profileId: 'p1',
+    })) as Outcome<RawFilesResult>
+    if (!after.ok) throw new Error('expected rawFiles to succeed')
+    expect(after.value.canonical.onDisk).toBe(true)
+    const updated = (await handlers.get(CONFIG_HANDLERS.list)!(undefined)) as ConfigProfile[]
+    expect(after.value.canonical.content).toBe(renderProfileFile(updated.find((p) => p.id === 'p1')!))
+  })
+
+  it('reports matches: true right after a save, and false once the on-disk copy is edited independently', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '9' } })
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+
+    const inSync = (await handlers.get(CONFIG_HANDLERS.rawFiles)!({
+      profileId: 'p1',
+    })) as Outcome<RawFilesResult>
+    if (!inSync.ok) throw new Error('expected rawFiles to succeed')
+    expect(inSync.value.installations).toEqual([
+      {
+        installationId: inst.id,
+        path: join(dir, 'baseq2', 'Profile.cfg'),
+        onDisk: true,
+        matches: true,
+        playedMods: [],
+      },
+    ])
+
+    await writeFile(join(dir, 'baseq2', 'Profile.cfg'), 'hand-edited\n', 'latin1')
+
+    const outOfSync = (await handlers.get(CONFIG_HANDLERS.rawFiles)!({
+      profileId: 'p1',
+    })) as Outcome<RawFilesResult>
+    if (!outOfSync.ok) throw new Error('expected rawFiles to succeed')
+    expect(outOfSync.value.installations[0]!.onDisk).toBe(true)
+    expect(outOfSync.value.installations[0]!.matches).toBe(false)
+  })
+
+  it('reports one entry per assignment', async () => {
+    const inst1 = installation({ id: 'i1' })
+    const inst2 = installation({ id: 'i2', rootPath: join(dir, 'inst2') })
+    await mkdir(join(inst2.rootPath, 'baseq2'), { recursive: true })
+    const { handlers, state } = await boot([inst1, inst2])
+    state.setConfigProfiles([
+      profile({
+        assignments: [
+          { installationId: 'i1', isDefault: true },
+          { installationId: 'i2', isDefault: true },
+        ],
+      }),
+    ])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '9' } })
+
+    const result = (await handlers.get(CONFIG_HANDLERS.rawFiles)!({
+      profileId: 'p1',
+    })) as Outcome<RawFilesResult>
+
+    if (!result.ok) throw new Error('expected rawFiles to succeed')
+    expect(result.value.installations.map((i) => i.installationId).sort()).toEqual(['i1', 'i2'])
+  })
+
+  it('echoes playedMods from app.state.configPlayedMods() for each installation entry', async () => {
+    const inst = installation({ gameDirs: ['baseq2', 'ctf'] })
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile()])
+    state.setConfigPlayedMods({ i1: ['ctf'] })
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '9' } })
+
+    const result = (await handlers.get(CONFIG_HANDLERS.rawFiles)!({
+      profileId: 'p1',
+    })) as Outcome<RawFilesResult>
+
+    if (!result.ok) throw new Error('expected rawFiles to succeed')
+    expect(result.value.installations).toEqual([
+      expect.objectContaining({ installationId: 'i1', playedMods: ['ctf'] }),
+    ])
+  })
+
+  it('fails with config.error.profileNotFound for an unknown profile id', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([])
+    await state.settle()
+
+    const result = await handlers.get(CONFIG_HANDLERS.rawFiles)!({ profileId: 'nope' })
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.profileNotFound' } })
+  })
+})
+
+/**
+ * Story 023 D2: `openFile`, the module's one privileged path. Every assertion
+ * below is about the same thing - that `shell` is only ever reached for a file
+ * main itself resolved from ids AND verified to be this profile's own `.cfg`
+ * (AC 8). Same boot pattern as the `rawFiles` block above: a duck-typed `app`
+ * over a real, temp-file-backed `StateStore`, so a mutation really does put the
+ * file on disk and the checks have something real to look at.
+ */
+describe('CONFIG_HANDLERS.openFile handler (story 023 D2)', () => {
+  async function boot(
+    installations: Installation[] = [],
+  ): Promise<{ handlers: Map<string, ModuleHandler>; state: StateStore }> {
+    const state = new StateStore(join(dir, 'state.json'))
+    await state.load()
+    const handlers = new Map<string, ModuleHandler>()
+    await configModule.setup({
+      handle: collectHandlers(handlers),
+      emit: () => {},
+      app: {
+        installations: {
+          find: (id: string) => installations.find((i) => i.id === id),
+          list: () => installations,
+        },
+        launch: { getState: () => idleState() },
+        state,
+      } as unknown as AppContext,
+      log,
+    })
+    return { handlers, state }
+  }
+
+  /**
+   * Boots, seeds one profile and saves it, so its files are really on disk. Story 043 D4: it is the
+   * save that writes now, not the `setCvars` that used to stand in for one here.
+   */
+  async function bootSynced(
+    installations: Installation[] = [],
+    seeded: ConfigProfile = profile({ assignments: [] }),
+  ): Promise<Map<string, ModuleHandler>> {
+    const { handlers, state } = await boot(installations)
+    state.setConfigProfiles([seeded])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: seeded.id, cvars: { sensitivity: '9' } })
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: seeded.id })
+    return handlers
+  }
+
+  it('opens the profile\'s own canonical file with the path main resolved itself', async () => {
+    const handlers = await bootSynced()
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'p1',
+      installationId: null,
+      mode: 'open',
+    })
+
+    expect(result).toEqual({ ok: true, value: null })
+    expect(shellMock.openPath).toHaveBeenCalledTimes(1)
+    expect(shellMock.openPath).toHaveBeenCalledWith(join(userDataBox.current, 'Profile.cfg'))
+    expect(shellMock.showItemInFolder).not.toHaveBeenCalled()
+  })
+
+  it("reveals an assigned installation's copy, and reveal never opens", async () => {
+    const inst = installation()
+    const handlers = await bootSynced([inst], profile())
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'p1',
+      installationId: 'i1',
+      mode: 'reveal',
+    })
+
+    expect(result).toEqual({ ok: true, value: null })
+    expect(shellMock.showItemInFolder).toHaveBeenCalledTimes(1)
+    expect(shellMock.showItemInFolder).toHaveBeenCalledWith(join(dir, 'baseq2', 'Profile.cfg'))
+    expect(shellMock.openPath).not.toHaveBeenCalled()
+  })
+
+  it('surfaces a non-empty shell.openPath error as config.error.openFailed', async () => {
+    const handlers = await bootSynced()
+    shellMock.openPath.mockResolvedValueOnce('no application is associated with .cfg')
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'p1',
+      installationId: null,
+      mode: 'open',
+    })
+
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        key: 'config.error.openFailed',
+        params: { message: 'no application is associated with .cfg' },
+      },
+    })
+  })
+
+  it('refuses an unknown profile id without touching shell', async () => {
+    const handlers = await bootSynced()
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'nope',
+      installationId: null,
+      mode: 'open',
+    })
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.profileNotFound' } })
+    expect(shellMock.openPath).not.toHaveBeenCalled()
+    expect(shellMock.showItemInFolder).not.toHaveBeenCalled()
+  })
+
+  it('refuses an unknown installation id without touching shell', async () => {
+    const handlers = await bootSynced([installation()], profile())
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'p1',
+      installationId: 'ghost',
+      mode: 'open',
+    })
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.installationNotFound' } })
+    expect(shellMock.openPath).not.toHaveBeenCalled()
+    expect(shellMock.showItemInFolder).not.toHaveBeenCalled()
+  })
+
+  it('refuses an installation that exists but is not assigned to this profile', async () => {
+    // i2 is a real, registered installation with a real synced file of its own -
+    // it is simply not one of p1's targets, which is what must be refused here.
+    const inst2 = installation({ id: 'i2', rootPath: join(dir, 'inst2') })
+    await mkdir(join(inst2.rootPath, 'baseq2'), { recursive: true })
+    const handlers = await bootSynced([installation(), inst2], profile())
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'p1',
+      installationId: 'i2',
+      mode: 'reveal',
+    })
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.installationNotFound' } })
+    expect(shellMock.showItemInFolder).not.toHaveBeenCalled()
+  })
+
+  it('refuses a file that is not on disk without touching shell', async () => {
+    // No sync ran, so the canonical file was never written - AC 5's "the file is
+    // not on disk" half, surfaced as the reason the UI disables the action with.
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    expect(await pathExists(join(userDataBox.current, 'Profile.cfg'))).toBe(false)
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'p1',
+      installationId: null,
+      mode: 'open',
+    })
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.fileNotFound' } })
+    expect(shellMock.openPath).not.toHaveBeenCalled()
+    expect(shellMock.showItemInFolder).not.toHaveBeenCalled()
+  })
+
+  it('opens a canonical file still in the legacy sentinel shape too (story 051 D3)', async () => {
+    // A file synced by a pre-051 launcher build never gets rewritten just by
+    // being read - the open-in-editor guard must still recognise it as p1's
+    // own file via the legacy sentinel, not only the new banner shape.
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    await mkdir(userDataBox.current, { recursive: true })
+    await writeFile(
+      join(userDataBox.current, 'Profile.cfg'),
+      `${sentinelLine('p1')}\nset sensitivity "3"\n`,
+      'latin1',
+    )
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'p1',
+      installationId: null,
+      mode: 'open',
+    })
+
+    expect(result).toEqual({ ok: true, value: null })
+    expect(shellMock.openPath).toHaveBeenCalledWith(join(userDataBox.current, 'Profile.cfg'))
+  })
+
+  it("refuses a foreign file sitting at the resolved path - not this profile's own file", async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    // Exists, is a `.cfg`, sits exactly where this profile's canonical file
+    // would - and is somebody else's. The sentinel is what tells them apart.
+    await mkdir(userDataBox.current, { recursive: true })
+    await writeFile(
+      join(userDataBox.current, 'Profile.cfg'),
+      'seta sensitivity "1"\n// hand-written\n',
+      'latin1',
+    )
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'p1',
+      installationId: null,
+      mode: 'open',
+    })
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.fileNotFound' } })
+    expect(shellMock.openPath).not.toHaveBeenCalled()
+    expect(shellMock.showItemInFolder).not.toHaveBeenCalled()
+  })
+
+  it('refuses a malformed payload (a path where an id belongs) without touching shell', async () => {
+    const handlers = await bootSynced()
+
+    const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
+      profileId: 'p1',
+      installationId: 'C:\\Windows\\System32\\calc.exe',
+      mode: 'launch',
+    })
+
+    expect(result).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
+    expect(shellMock.openPath).not.toHaveBeenCalled()
+    expect(shellMock.showItemInFolder).not.toHaveBeenCalled()
+  })
+})
+
+describe('validatePlayedMods', () => {
+  it('keeps only names present in gameDirs', () => {
+    expect(validatePlayedMods(['baseq2', 'ctf'], ['ctf', 'not-a-real-mod'])).toEqual(['ctf'])
+  })
+
+  it('rejects everything when gameDirs is empty', () => {
+    expect(validatePlayedMods([], ['ctf'])).toEqual([])
+  })
+})
+
+/**
+ * Story 010 D3's own acceptance line: "a test drives scan -> apply -> restore
+ * against a temp installation and a faked running launch state makes apply
+ * fail without touching disk." `scanRedundantCopies`/`removeRedundantCopies`/
+ * `restoreRemovedCopies` themselves are already covered against a real temp
+ * tree in `cleanup.test.ts` (D1/D2) - what is uniquely D3's to prove is the
+ * running-guard `applyCleanupIfNotRunning`/`restoreCleanupIfNotRunning` add on
+ * top, and that `scan` has no such guard at all (decision 12).
+ */
+describe('applyCleanupIfNotRunning / restoreCleanupIfNotRunning', () => {
+  const HAND_WRITTEN = 'bind mouse2 "+attack"\nset name "player"\n'
+
+  async function seed(relativePath: string, content: string): Promise<void> {
+    const target = join(dir, relativePath)
+    await mkdir(join(target, '..'), { recursive: true })
+    await writeFile(target, content, 'latin1')
+  }
+
+  async function seedRedundantHud(): Promise<Installation> {
+    await seed('baseq2/hud.cfg', HAND_WRITTEN)
+    await seed('ctf/hud.cfg', HAND_WRITTEN)
+    return installation({ gameDirs: ['baseq2', 'ctf'] })
+  }
+
+  it('drives scan -> apply -> restore end to end while idle', async () => {
+    const inst = await seedRedundantHud()
+
+    const findings = await scanRedundantCopies(inst)
+    expect(findings).toEqual([
+      { gameDir: 'ctf', fileName: 'hud.cfg', identical: true, size: HAND_WRITTEN.length },
+    ])
+
+    const applyResult = await applyCleanupIfNotRunning(inst, findings, idleState())
+    expect(applyResult).toEqual({
+      ok: true,
+      value: { removed: [{ gameDir: 'ctf', fileName: 'hud.cfg' }], rejected: [] },
+    })
+    expect(await pathExists(join(dir, 'ctf', 'hud.cfg'))).toBe(false)
+    expect(await readFile(join(dir, 'ctf', 'hud.cfg.q2l-backup'), 'latin1')).toBe(HAND_WRITTEN)
+
+    const restoreResult = await restoreCleanupIfNotRunning(
+      inst,
+      applyResult.ok ? applyResult.value.removed : [],
+      idleState(),
+    )
+    expect(restoreResult).toEqual({
+      ok: true,
+      value: { restored: [{ gameDir: 'ctf', fileName: 'hud.cfg' }], rejected: [] },
+    })
+    expect(await readFile(join(dir, 'ctf', 'hud.cfg'), 'latin1')).toBe(HAND_WRITTEN)
+  })
+
+  it('refuses apply on a running installation and touches no files', async () => {
+    const inst = await seedRedundantHud()
+    const findings = await scanRedundantCopies(inst)
+
+    const result = await applyCleanupIfNotRunning(inst, findings, runningState(inst.id))
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.installationRunning' } })
+    expect(await readFile(join(dir, 'ctf', 'hud.cfg'), 'latin1')).toBe(HAND_WRITTEN)
+    expect(await pathExists(join(dir, 'ctf', 'hud.cfg.q2l-backup'))).toBe(false)
+  })
+
+  it('refuses restore on a running installation and touches no files', async () => {
+    const inst = await seedRedundantHud()
+    const findings = await scanRedundantCopies(inst)
+    const applyResult = await applyCleanupIfNotRunning(inst, findings, idleState())
+    const removed = applyResult.ok ? applyResult.value.removed : []
+
+    const result = await restoreCleanupIfNotRunning(inst, removed, runningState(inst.id))
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.installationRunning' } })
+    // Still deleted from the earlier (idle) apply, not restored by this call.
+    expect(await pathExists(join(dir, 'ctf', 'hud.cfg'))).toBe(false)
+  })
+
+  it('scan is never gated by a running installation (decision 12)', async () => {
+    const inst = await seedRedundantHud()
+
+    // scanRedundantCopies takes no launchState at all - there is nothing to
+    // gate. This test's own existence is the assertion: a running-guard
+    // added to scan by mistake would need a `launchState` parameter that
+    // does not exist on this function's signature, which would fail to
+    // compile, not just fail at runtime.
+    const findings = await scanRedundantCopies(inst)
+
+    expect(findings).toEqual([
+      { gameDir: 'ctf', fileName: 'hud.cfg', identical: true, size: HAND_WRITTEN.length },
+    ])
+  })
+})
+
+/**
+ * Story 025 D3: `tidyUp.apply` - the module's one non-setter mutating handler.
+ * Its acceptance is about the *once* guarantees, which only exist at this level
+ * and not in the pure applier (`@shared/config/tidy-up`, covered by its own
+ * unit tests): one `updatedAt` bump, one commit and one sync run for a whole
+ * batch, and none of the three when nothing applied.
+ *
+ * Same duck-typed `app` + real temp-file-backed `StateStore` boot as the blocks
+ * above, plus a `launch` (the sync run reads it).
+ */
+describe('CONFIG_HANDLERS.tidyUpApply handler (story 025 D3)', () => {
+  async function bootTidyUp(
+    seeded: ConfigProfile,
+    insts: Installation[] = [],
+  ): Promise<{
+    handler: ModuleHandler
+    handlers: Map<string, ModuleHandler>
+    state: StateStore
+    commits: () => number
+  }> {
+    const state = new StateStore(join(dir, 'state.json'))
+    await state.load()
+    const handlers = new Map<string, ModuleHandler>()
+    await configModule.setup({
+      handle: collectHandlers(handlers),
+      emit: () => {},
+      app: {
+        installations: {
+          find: (id: string) => insts.find((i) => i.id === id),
+          list: () => insts,
+        },
+        launch: { getState: () => idleState() },
+        state,
+      } as unknown as AppContext,
+      log,
+    })
+    state.setConfigProfiles([seeded])
+    await state.settle()
+    // Spied only *after* seeding, so the count is the handler's own commits.
+    const spy = vi.spyOn(state, 'setConfigProfiles')
+    return {
+      handler: handlers.get(CONFIG_HANDLERS.tidyUpApply)!,
+      handlers,
+      state,
+      commits: () => spy.mock.calls.length,
+    }
+  }
+
+  const tidyUpCanonicalPath = (fileName: string): string => join(userDataBox.current, fileName)
+  const tidyUpCopyPath = (fileName: string): string => join(dir, 'baseq2', fileName)
+
+  const preservedLine = { file: 'config.cfg', line: 7, text: 'alias +test "echo hi"' }
+
+  function messyProfile(): ConfigProfile {
+    return profile({
+      cvars: {},
+      // Two spellings of one key - the duplicate-bind shape an import produces.
+      // Deliberately non-catalogue commands, so `commit`'s own `adoptRawBinds`
+      // pass has nothing to adopt and cannot muddy what this test asserts.
+      binds: { MOUSE1: 'echo one', mouse1: 'echo two' },
+      layers: [{ id: 'l1', name: 'Empty', mode: 'hold', triggerKey: 'ALT', overrides: { '1': '  ' } }],
+      unrecognized: [preservedLine],
+    })
+  }
+
+  it('applies a batch, bumps updatedAt exactly once, commits once and syncs once', async () => {
+    const inst = installation()
+    const seeded = messyProfile()
+    const { handler, state, commits } = await bootTidyUp(seeded, [inst])
+
+    const result = (await handler({
+      profileId: 'p1',
+      ops: [
+        {
+          kind: 'removeShadowedBind',
+          scope: 'base',
+          key: 'MOUSE1',
+          claim: { source: 'baseBind', command: 'echo one' },
+        },
+        { kind: 'removeEmptyLayer', layerId: 'l1' },
+        {
+          kind: 'reclassifyPreservedLine',
+          ...preservedLine,
+          target: { field: 'cvars', name: 'sensitivity', value: '5' },
+        },
+      ],
+    })) as Outcome<TidyUpApplyResult>
+
+    if (!result.ok) throw new Error('expected tidyUp.apply to succeed')
+    expect(result.value.applied).toHaveLength(3)
+    expect(result.value.rejected).toEqual([])
+
+    const updated = result.value.profile
+    expect(updated.binds).toEqual({ mouse1: 'echo two' })
+    expect(updated.layers).toEqual([])
+    expect(updated.cvars).toEqual({ sensitivity: '5' })
+    expect(updated.unrecognized).toEqual([])
+
+    // One bump for the whole batch, and the value the handler returned is the
+    // value that got persisted - not one of three intermediate ones.
+    expect(updated.updatedAt).not.toBe(seeded.updatedAt)
+    expect(state.configProfiles()[0]!.updatedAt).toBe(updated.updatedAt)
+    // Two commits, not one, since story 043 D4: the batch itself is still exactly ONE content
+    // commit (the `updatedAt` assertions right above are what that means), and the second is the
+    // sync run seeding the profile's `fileHash` baseline from the bytes it just confirmed on disk -
+    // bookkeeping about the file, which bumps no timestamp and changes no profile content.
+    expect(commits()).toBe(2)
+
+    // ...and the one sync run wrote the fully-tidied file to both places.
+    const expected = renderProfileFile(updated)
+    expect(await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')).toBe(expected)
+    expect(await readFile(join(dir, 'baseq2', 'Profile.cfg'), 'latin1')).toBe(expected)
+  })
+
+  /**
+   * Story 079 review (finding 1): the regression the story's own review caught. Unlike the test
+   * above, this one seeds a REAL canonical file (and installation copy) through an actual `save`
+   * first - the shape every real profile is in by the time a user opens Tidy-up (clean, canonical
+   * file present, `fileHash` set). Before the fix, `tidyUpApply`'s `syncAndPersist` call carried no
+   * `overwriteProfileId`, so `canonicalWriteAllowed`'s general rule refused the write (the tidied
+   * render no longer equals the file `save` last wrote), the canonical file kept the shadowed bind,
+   * and the installation copy was republished from those same stale bytes - the tidied state lived
+   * only in `state.json`, with no Save button to flush it.
+   */
+  it('rewrites a seeded canonical file and its installation copies (finding 1 regression)', async () => {
+    const inst = installation()
+    const seeded = messyProfile()
+    const { handler, handlers, state } = await bootTidyUp(seeded, [inst])
+
+    const saved = (await handlers.get(CONFIG_HANDLERS.save)!({
+      profileId: 'p1',
+    })) as Outcome<SaveProfileResult>
+    if (!saved.ok) throw new Error('expected the seeding save to succeed')
+    const seededCanonical = await readFile(tidyUpCanonicalPath('Profile.cfg'), 'latin1')
+    expect(seededCanonical).toContain('MOUSE1')
+    expect(await readFile(tidyUpCopyPath('Profile.cfg'), 'latin1')).toBe(seededCanonical)
+
+    const result = (await handler({
+      profileId: 'p1',
+      ops: [
+        {
+          kind: 'removeShadowedBind',
+          scope: 'base',
+          key: 'MOUSE1',
+          claim: { source: 'baseBind', command: 'echo one' },
+        },
+      ],
+    })) as Outcome<TidyUpApplyResult>
+
+    if (!result.ok) throw new Error('expected tidyUp.apply to succeed')
+    const updated = result.value.profile
+    expect(updated.binds).toEqual({ mouse1: 'echo two' })
+
+    const expected = renderProfileFile(updated)
+    const canonicalAfter = await readFile(tidyUpCanonicalPath('Profile.cfg'), 'latin1')
+    expect(canonicalAfter).toBe(expected)
+    expect(canonicalAfter).not.toContain('MOUSE1')
+    expect(await readFile(tidyUpCopyPath('Profile.cfg'), 'latin1')).toBe(canonicalAfter)
+    expect(state.configProfiles()[0]!.fileHash).toBe(hashCanonicalFileContent(expected))
+
+    const synced = (await handlers.get(CONFIG_HANDLERS.syncState)!({
+      profileId: 'p1',
+    })) as Outcome<ProfileSyncState>
+    if (!synced.ok) throw new Error('expected syncState to succeed')
+    expect(synced.value.own.status).toBe('inSync')
+    expect(synced.value.installations[0]!.status).toBe('inSync')
+  })
+
+  /**
+   * Story 079 review (finding 1), the other half: a canonical file that moved underneath the
+   * launcher between the seeding save and the tidy-up (a hand-edit `refreshFromFiles` has not yet
+   * re-read) must not be silently overwritten by the tidy-up's render, just as `save` itself would
+   * refuse it - `TidyUpApplyResult` has no conflict shape to report that through, so the decision
+   * here is: the tidy-up still commits to `state.json` (nothing the user just did is lost) and the
+   * installation copy is left alone too (`sync.ts`'s D2 rule: a moved-underneath canonical file is
+   * not a source to publish from either), but the canonical file itself keeps the hand-edited bytes.
+   */
+  it('leaves a canonical file that moved underneath untouched, but still commits the tidy-up', async () => {
+    const inst = installation()
+    const seeded = messyProfile()
+    const { handler, handlers, state } = await bootTidyUp(seeded, [inst])
+
+    const saved = (await handlers.get(CONFIG_HANDLERS.save)!({
+      profileId: 'p1',
+    })) as Outcome<SaveProfileResult>
+    if (!saved.ok) throw new Error('expected the seeding save to succeed')
+
+    // An outside edit the launcher has not read - the ownership banner is kept intact (only
+    // appended after), so the file is still recognised as this profile's own.
+    const handEdited = `${await readFile(tidyUpCanonicalPath('Profile.cfg'), 'latin1')}set q2l_hand "1"\n`
+    await writeFile(tidyUpCanonicalPath('Profile.cfg'), handEdited, 'latin1')
+    const copyBefore = await readFile(tidyUpCopyPath('Profile.cfg'), 'latin1')
+
+    const result = (await handler({
+      profileId: 'p1',
+      ops: [
+        {
+          kind: 'removeShadowedBind',
+          scope: 'base',
+          key: 'MOUSE1',
+          claim: { source: 'baseBind', command: 'echo one' },
+        },
+      ],
+    })) as Outcome<TidyUpApplyResult>
+
+    if (!result.ok) throw new Error('expected tidyUp.apply to succeed')
+    // The mutation is still committed - the tidy-up itself is never lost.
+    expect(result.value.profile.binds).toEqual({ mouse1: 'echo two' })
+    expect(state.configProfiles()[0]!.binds).toEqual({ mouse1: 'echo two' })
+
+    // But the canonical file, having moved underneath, keeps the hand-edited bytes verbatim.
+    expect(await readFile(tidyUpCanonicalPath('Profile.cfg'), 'latin1')).toBe(handEdited)
+    // And the installation copy, whose only valid source is a canonical file the launcher has
+    // confirmed by reading, is left exactly as it was rather than republished from stale bytes.
+    expect(await readFile(tidyUpCopyPath('Profile.cfg'), 'latin1')).toBe(copyBefore)
+
+    const synced = (await handlers.get(CONFIG_HANDLERS.syncState)!({
+      profileId: 'p1',
+    })) as Outcome<ProfileSyncState>
+    if (!synced.ok) throw new Error('expected syncState to succeed')
+    expect(synced.value.own.status).toBe('outOfSync')
+  })
+
+  it('rejects a stale op without bumping updatedAt, committing or syncing', async () => {
+    const inst = installation()
+    const seeded = messyProfile()
+    const { handler, state, commits } = await bootTidyUp(seeded, [inst])
+
+    const stale = { kind: 'removeEmptyLayer' as const, layerId: 'never-existed' }
+    const result = (await handler({ profileId: 'p1', ops: [stale] })) as Outcome<TidyUpApplyResult>
+
+    if (!result.ok) throw new Error('expected tidyUp.apply to succeed')
+    expect(result.value.applied).toEqual([])
+    expect(result.value.rejected).toEqual([stale])
+    expect(result.value.profile.updatedAt).toBe(seeded.updatedAt)
+    expect(result.value.profile.layers).toHaveLength(1)
+    expect(state.configProfiles()[0]!.updatedAt).toBe(seeded.updatedAt)
+    expect(commits()).toBe(0)
+    // Nothing changed, so nothing was written - not even the canonical copy.
+    expect(await pathExists(join(userDataBox.current, 'Profile.cfg'))).toBe(false)
+  })
+
+  it('fails a malformed payload without touching the profile', async () => {
+    const seeded = messyProfile()
+    const { handler, commits } = await bootTidyUp(seeded)
+
+    const badOp = (await handler({
+      profileId: 'p1',
+      ops: [{ kind: 'removeEmptyLayer' }],
+    })) as Outcome<TidyUpApplyResult>
+    const unknownKind = (await handler({
+      profileId: 'p1',
+      ops: [{ kind: 'reformatEverything' }],
+    })) as Outcome<TidyUpApplyResult>
+    const noProfile = (await handler({ ops: [] })) as Outcome<TidyUpApplyResult>
+
+    for (const result of [badOp, unknownKind, noProfile]) {
+      expect(result).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
+    }
+    expect(commits()).toBe(0)
+  })
+
+  it('fails an unknown profile id', async () => {
+    const { handler } = await bootTidyUp(messyProfile())
+
+    const result = (await handler({ profileId: 'nope', ops: [] })) as Outcome<TidyUpApplyResult>
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.profileNotFound' } })
+  })
+})
+
+/**
+ * Story 043 D5: `refreshFromFiles` - the re-read side of the story's "re-read on window focus, tab
+ * open, and before write" decision. Same duck-typed `app` + real temp-file-backed `StateStore` boot
+ * as the sections above.
+ */
+describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
+  async function boot(
+    installations: Installation[] = [],
+  ): Promise<{ handlers: Map<string, ModuleHandler>; state: StateStore }> {
+    const state = new StateStore(join(dir, 'state.json'))
+    await state.load()
+    const handlers = new Map<string, ModuleHandler>()
+    await configModule.setup({
+      handle: collectHandlers(handlers),
+      emit: () => {},
+      app: {
+        installations: {
+          find: (id: string) => installations.find((i) => i.id === id),
+          list: () => installations,
+        },
+        launch: { getState: () => idleState() },
+        state,
+      } as unknown as AppContext,
+      log,
+    })
+    return { handlers, state }
+  }
+
+  async function refresh(
+    handlers: Map<string, ModuleHandler>,
+    profileId?: string,
+  ): Promise<Outcome<RefreshFromFilesResult>> {
+    return (await handlers.get(CONFIG_HANDLERS.refreshFromFiles)!(
+      profileId === undefined ? {} : { profileId },
+    )) as Outcome<RefreshFromFilesResult>
+  }
+
+  it('reports unchanged and leaves state.json untouched when the file matches the cached hash', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const before = state.configProfiles()[0]!
+
+    const result = await refresh(handlers, 'p1')
+
+    if (!result.ok) throw new Error('expected refreshFromFiles to succeed')
+    expect(result.value).toEqual([{ profileId: 'p1', outcome: 'unchanged', fileState: 'unchanged' }])
+    // Nothing in state.json changed - not even a re-stamped `fileSeenAt`.
+    expect(state.configProfiles()[0]).toEqual(before)
+  })
+
+  it('adopts a hand-edit (cvar value and header display name) when the profile carries no unsaved edits', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const path = join(userDataBox.current, 'Profile.cfg')
+    const onDisk = await readFile(path, 'latin1')
+
+    // Hand-edit: bump the cvar value and change the header's display-name comment - the exact
+    // scenario the acceptance line names ("changes a cvar value or display-name comment").
+    const edited = onDisk
+      .replace(/sensitivity(\s*)"3"/, 'sensitivity$1"5"')
+      .replace('Profile', 'Hand-Edited')
+    expect(edited).not.toBe(onDisk)
+    await writeFile(path, edited, 'latin1')
+    const newHash = hashCanonicalFileContent(edited)
+
+    const result = await refresh(handlers, 'p1')
+
+    if (!result.ok) throw new Error('expected refreshFromFiles to succeed')
+    expect(result.value).toHaveLength(1)
+    const entry = result.value[0]!
+    if (entry.outcome !== 'adopted') throw new Error(`expected adopted, got ${entry.outcome}`)
+    expect(entry.profile.id).toBe('p1')
+    expect(entry.profile.assignments).toEqual([])
+    expect(entry.profile.cvars['sensitivity']).toBe('5')
+    expect(entry.profile.name).toBe('Hand-Edited')
+    expect(entry.profile.fileHash).toBe(newHash)
+
+    // The store itself was updated, not just the response.
+    const stored = state.configProfiles()[0]!
+    expect(stored.id).toBe('p1')
+    expect(stored.assignments).toEqual([])
+    expect(stored.cvars['sensitivity']).toBe('5')
+    expect(stored.name).toBe('Hand-Edited')
+    expect(stored.fileHash).toBe(newHash)
+    expect(stored.dirty).toBe(false)
+    expect(stored.fileState).toBe('unchanged')
+  })
+
+  it('reports a conflict and adopts nothing when the file changed on disk while the profile carries unsaved edits', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    // An unsaved UI edit - marks the profile dirty without writing the file.
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '7' } })
+    const before = state.configProfiles()[0]!
+    expect(before.dirty).toBe(true)
+
+    const path = join(userDataBox.current, 'Profile.cfg')
+    const onDisk = await readFile(path, 'latin1')
+    const edited = onDisk.replace(/sensitivity(\s*)"3"/, 'sensitivity$1"9"')
+    expect(edited).not.toBe(onDisk)
+    await writeFile(path, edited, 'latin1')
+
+    const result = await refresh(handlers, 'p1')
+
+    if (!result.ok) throw new Error('expected refreshFromFiles to succeed')
+    expect(result.value).toHaveLength(1)
+    const entry = result.value[0]!
+    if (entry.outcome !== 'conflict') throw new Error(`expected conflict, got ${entry.outcome}`)
+    expect(entry.conflict.status).toBe('conflict')
+    expect(entry.conflict.fileName).toBe('Profile.cfg')
+    expect(entry.conflict.diskContent).toBe(edited)
+    expect(entry.conflict.ourContent).toBe(renderProfileFile(before))
+
+    // Nothing about the cached profile was touched - byte-identical to before the call.
+    expect(state.configProfiles()[0]).toEqual(before)
+  })
+
+  it('story 043 D8: discardLocalEdits: true adopts the disk version even though the profile is dirty', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    // An unsaved UI edit - marks the profile dirty without writing the file.
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '7' } })
+
+    const path = join(userDataBox.current, 'Profile.cfg')
+    const onDisk = await readFile(path, 'latin1')
+    const edited = onDisk.replace(/sensitivity(\s*)"3"/, 'sensitivity$1"9"')
+    expect(edited).not.toBe(onDisk)
+    await writeFile(path, edited, 'latin1')
+    const newHash = hashCanonicalFileContent(edited)
+
+    const result = (await handlers.get(CONFIG_HANDLERS.refreshFromFiles)!({
+      profileId: 'p1',
+      discardLocalEdits: true,
+    })) as Outcome<RefreshFromFilesResult>
+
+    if (!result.ok) throw new Error('expected refreshFromFiles to succeed')
+    expect(result.value).toHaveLength(1)
+    const entry = result.value[0]!
+    if (entry.outcome !== 'adopted') throw new Error(`expected adopted, got ${entry.outcome}`)
+    // The disk version won, not the discarded unsaved edit (sensitivity 7).
+    expect(entry.profile.cvars['sensitivity']).toBe('9')
+    expect(entry.profile.fileHash).toBe(newHash)
+
+    // The store itself reflects the discard: no longer dirty, disk content adopted.
+    const stored = state.configProfiles()[0]!
+    expect(stored.dirty).toBe(false)
+    expect(stored.cvars['sensitivity']).toBe('9')
+    expect(stored.fileHash).toBe(newHash)
+  })
+
+  it('sets fileState: missing and never deletes the record when the file is gone', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const before = state.configProfiles()[0]!
+    await rm(join(userDataBox.current, 'Profile.cfg'))
+
+    const result = await refresh(handlers, 'p1')
+
+    if (!result.ok) throw new Error('expected refreshFromFiles to succeed')
+    expect(result.value).toEqual([{ profileId: 'p1', outcome: 'missing', fileState: 'missing' }])
+
+    const stored = state.configProfiles()[0]!
+    expect(stored.id).toBe('p1')
+    expect(stored.fileState).toBe('missing')
+    // Untouched: neither dirty nor the hash baseline are disturbed by a missing file.
+    expect(stored.dirty).toBe(before.dirty)
+    expect(stored.fileHash).toBe(before.fileHash)
+    expect(stored.cvars).toEqual(before.cvars)
+  })
+
+  it('reports the unparseable diagnostic and leaves the cached profile fully usable', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const before = state.configProfiles()[0]!
+
+    vi.mocked(readFileState).mockResolvedValueOnce({
+      state: 'unparseable',
+      file: 'Profile.cfg',
+      line: 42,
+      message: 'contrived parse failure for this test',
+    })
+
+    const result = await refresh(handlers, 'p1')
+
+    if (!result.ok) throw new Error('expected refreshFromFiles to succeed')
+    expect(result.value).toEqual([
+      {
+        profileId: 'p1',
+        outcome: 'unparseable',
+        fileState: 'unparseable',
+        file: 'Profile.cfg',
+        line: 42,
+        message: 'contrived parse failure for this test',
+      },
+    ])
+
+    // The last good cache stays exactly as usable as it was: same content, still listed, still
+    // renderable - only the display hint changed.
+    const stored = state.configProfiles()[0]!
+    expect(stored.cvars).toEqual(before.cvars)
+    expect(stored.dirty).toBe(before.dirty)
+    expect(stored.fileHash).toBe(before.fileHash)
+    expect(stored.fileState).toBe('unparseable')
+    expect(() => renderProfileFile(stored)).not.toThrow()
+    const list = (await handlers.get(CONFIG_HANDLERS.list)!(undefined)) as ConfigProfile[]
+    expect(list.map((p) => p.id)).toEqual(['p1'])
+  })
+
+  it('reports readError conservatively, touching nothing about the cached profile but the hint', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const before = state.configProfiles()[0]!
+
+    vi.mocked(readFileState).mockResolvedValueOnce({
+      state: 'readError',
+      error: new Error('EACCES (contrived for this test)'),
+    })
+
+    const result = await refresh(handlers, 'p1')
+
+    if (!result.ok) throw new Error('expected refreshFromFiles to succeed')
+    expect(result.value).toEqual([
+      {
+        profileId: 'p1',
+        outcome: 'readError',
+        fileState: 'readError',
+        message: 'EACCES (contrived for this test)',
+      },
+    ])
+    const stored = state.configProfiles()[0]!
+    expect(stored.cvars).toEqual(before.cvars)
+    expect(stored.dirty).toBe(before.dirty)
+    expect(stored.fileHash).toBe(before.fileHash)
+    expect(stored.fileState).toBe('readError')
+  })
+
+  it('checks only the given profile when profileId is passed, and every profile when it is omitted', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([
+      profile({ id: 'p1', name: 'One', assignments: [] }),
+      profile({ id: 'p2', name: 'Two', cvars: { sensitivity: '4' }, assignments: [] }),
+    ])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p2' })
+
+    const scoped = await refresh(handlers, 'p1')
+    if (!scoped.ok) throw new Error('expected refreshFromFiles to succeed')
+    expect(scoped.value.map((r) => r.profileId)).toEqual(['p1'])
+
+    const all = await refresh(handlers)
+    if (!all.ok) throw new Error('expected refreshFromFiles to succeed')
+    expect(all.value.map((r) => r.profileId).sort()).toEqual(['p1', 'p2'])
+    expect(all.value.every((r) => r.outcome === 'unchanged')).toBe(true)
+  })
+
+  it('fails with config.error.profileNotFound for an unknown profile id', async () => {
+    const { handlers } = await boot()
+
+    const result = await refresh(handlers, 'nope')
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.profileNotFound' } })
+  })
+
+  /**
+   * Story 079 D3 (AC2): adopting an external edit is a content mutation like any other, so it now
+   * cascades to every assigned installation - the copy lands byte-identical to the adopted file
+   * (the hand-edit itself), never a re-render of it.
+   */
+  it('refreshFromFiles cascades the adopted file', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const path = join(userDataBox.current, 'Profile.cfg')
+    const onDisk = await readFile(path, 'latin1')
+    const edited = onDisk.replace(/sensitivity(\s*)"3"/, 'sensitivity$1"5"')
+    expect(edited).not.toBe(onDisk)
+    await writeFile(path, edited, 'latin1')
+
+    const result = await refresh(handlers, 'p1')
+
+    if (!result.ok) throw new Error('expected refreshFromFiles to succeed')
+    const entry = result.value[0]!
+    if (entry.outcome !== 'adopted') throw new Error(`expected adopted, got ${entry.outcome}`)
+
+    expect(await readFile(join(dir, 'baseq2', 'Profile.cfg'), 'latin1')).toBe(edited)
+    // The canonical file itself was not re-written by the cascade - it still says exactly the
+    // hand-edited bytes that were adopted.
+    expect(await readFile(path, 'latin1')).toBe(edited)
+  })
+
+  /**
+   * Story 079 D3 (AC2): the "take the file" conflict resolution (`discardLocalEdits: true`) adopts
+   * the disk version exactly like the silent re-read above, and cascades it the same way.
+   */
+  it('taking the file in a conflict cascades it', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    // An unsaved UI edit - marks the profile dirty without writing the file.
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '7' } })
+
+    const path = join(userDataBox.current, 'Profile.cfg')
+    const onDisk = await readFile(path, 'latin1')
+    const edited = onDisk.replace(/sensitivity(\s*)"3"/, 'sensitivity$1"9"')
+    expect(edited).not.toBe(onDisk)
+    await writeFile(path, edited, 'latin1')
+
+    const result = (await handlers.get(CONFIG_HANDLERS.refreshFromFiles)!({
+      profileId: 'p1',
+      discardLocalEdits: true,
+    })) as Outcome<RefreshFromFilesResult>
+
+    if (!result.ok) throw new Error('expected refreshFromFiles to succeed')
+    const entry = result.value[0]!
+    if (entry.outcome !== 'adopted') throw new Error(`expected adopted, got ${entry.outcome}`)
+
+    expect(await readFile(join(dir, 'baseq2', 'Profile.cfg'), 'latin1')).toBe(edited)
+    expect(await readFile(path, 'latin1')).toBe(edited)
+  })
+})
+
+/**
+ * Story 057 D4: `saveRawText` - the Raw file tab's editor writing the user's own text onto the
+ * canonical file.
+ *
+ * Every test here starts from a real `save`, so the text being edited is the file the launcher
+ * itself wrote (which is the only state the editor is offered in) and the ownership header under
+ * test is the real one, never a hand-built fixture that could drift from what `render.ts` emits.
+ */
+describe('CONFIG_HANDLERS.saveRawText handler (story 057 D4)', () => {
+  async function boot(
+    installations: Installation[] = [],
+  ): Promise<{ handlers: Map<string, ModuleHandler>; state: StateStore }> {
+    const state = new StateStore(join(dir, 'state.json'))
+    await state.load()
+    const handlers = new Map<string, ModuleHandler>()
+    await configModule.setup({
+      handle: collectHandlers(handlers),
+      emit: () => {},
+      app: {
+        installations: {
+          find: (id: string) => installations.find((i) => i.id === id),
+          list: () => installations,
+        },
+        launch: { getState: () => idleState() },
+        state,
+      } as unknown as AppContext,
+      log,
+    })
+    return { handlers, state }
+  }
+
+  const canonicalPath = (fileName = 'Profile.cfg'): string => join(userDataBox.current, fileName)
+
+  async function saveRaw(
+    handlers: Map<string, ModuleHandler>,
+    text: string,
+    options: { profileId?: string; force?: boolean } = {},
+  ): Promise<Outcome<SaveRawTextResult>> {
+    return (await handlers.get(CONFIG_HANDLERS.saveRawText)!({
+      profileId: options.profileId ?? 'p1',
+      text,
+      ...(options.force === undefined ? {} : { force: options.force }),
+    })) as Outcome<SaveRawTextResult>
+  }
+
+  /** A saved profile plus the exact bytes its canonical file holds - the editor's starting point. */
+  async function seeded(
+    handlers: Map<string, ModuleHandler>,
+    state: StateStore,
+  ): Promise<string> {
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    return readFile(canonicalPath(), 'latin1')
+  }
+
+  function only(state: StateStore, profileId = 'p1'): ConfigProfile {
+    return state.configProfiles().find((p) => p.id === profileId)!
+  }
+
+  it('writes exactly the given bytes, latin-1, with no reformatting of any kind', async () => {
+    const { handlers, state } = await boot()
+    const onDisk = await seeded(handlers, state)
+
+    // Deliberately awkward but entirely legal latin-1 text: high bytes (é, ÿ, °), a tab, a CRLF
+    // line, trailing whitespace, a blank line and NO trailing newline at the end. A writer that
+    // re-rendered, trimmed or re-encoded anything would change at least one of these bytes.
+    const raw =
+      `${onDisk}` +
+      '// café ÿ ° sensitivity notes\r\n' +
+      '\tset q2l_raw_test "1"   \n' +
+      '\n' +
+      'set no_trailing_newline "2"'
+
+    const result = await saveRaw(handlers, raw)
+
+    if (!result.ok) throw new Error(`expected a raw save, got ${JSON.stringify(result.error)}`)
+    if (result.value.status !== 'saved') {
+      throw new Error(`expected saved, got ${result.value.status}`)
+    }
+    // Byte-for-byte off the disk, not through a latin1 decode that could hide a re-encoding.
+    expect(await readFile(canonicalPath())).toEqual(Buffer.from(raw, 'latin1'))
+    expect(result.value.fileName).toBe('Profile.cfg')
+    expect(result.value.path).toBe(canonicalPath())
+
+    // The read-back landed in the profile, and the file-state record was reseeded from the bytes
+    // actually written.
+    const saved = only(state)
+    expect(saved.cvars.q2l_raw_test).toBe('1')
+    expect(saved.dirty).toBe(false)
+    expect(saved.fileHash).toBe(hashCanonicalFileContent(raw))
+    expect(saved.fileState).toBe('unchanged')
+    expect(result.value.profile.fileHash).toBe(hashCanonicalFileContent(raw))
+  })
+
+  it('reports the lines it could not read back, and never the file\'s own comment lines', async () => {
+    const { handlers, state } = await boot()
+    const onDisk = await seeded(handlers, state)
+
+    // A clean launcher-written file first: its banners and header prose are comments the writer
+    // regenerates, so an honest "preserved" report is empty for it.
+    const clean = await saveRaw(handlers, onDisk)
+    if (!clean.ok || clean.value.status !== 'saved') throw new Error('expected the first save')
+    expect(clean.value.preservedLines).toEqual([])
+    expect(clean.value.droppedAliases).toEqual([])
+
+    const raw = `${onDisk}wave hi\n// just a note\n`
+    const result = await saveRaw(handlers, raw)
+
+    if (!result.ok || result.value.status !== 'saved') throw new Error('expected a raw save')
+    // `onDisk` ends in a newline, so its `split` produces one trailing empty element - which is
+    // exactly the 1-based line number the appended `wave hi` lands on.
+    expect(result.value.preservedLines).toEqual([
+      { file: 'Profile.cfg', line: onDisk.split('\n').length, text: 'wave hi' },
+    ])
+    // ...and the line is still in the file, which is the source of truth.
+    expect(await readFile(canonicalPath(), 'latin1')).toBe(raw)
+  })
+
+  it('reports an alias the text defines twice, whose earlier body the read-back lost', async () => {
+    const { handlers, state } = await boot()
+    const onDisk = await seeded(handlers, state)
+
+    const raw = `${onDisk}alias q2l_dup "say one"\nalias q2l_dup "say two"\n`
+    const result = await saveRaw(handlers, raw)
+
+    if (!result.ok || result.value.status !== 'saved') throw new Error('expected a raw save')
+    expect(result.value.droppedAliases).toEqual(['q2l_dup'])
+    // The write itself is untouched by the warning - the file still says both lines.
+    expect(await readFile(canonicalPath(), 'latin1')).toBe(raw)
+  })
+
+  it('refuses and reports a whole-file conflict when the file changed underneath', async () => {
+    const { handlers, state } = await boot()
+    const onDisk = await seeded(handlers, state)
+    const seededHash = only(state).fileHash
+
+    const handEdited = `${onDisk}// hand-edited elsewhere\n`
+    await writeFile(canonicalPath(), handEdited, 'latin1')
+    const raw = `${onDisk}set typed_in_the_editor "1"\n`
+
+    const result = await saveRaw(handlers, raw)
+
+    if (!result.ok) throw new Error('expected saveRawText to answer, not fail')
+    if (result.value.status !== 'conflict') {
+      throw new Error(`expected conflict, got ${result.value.status}`)
+    }
+    expect(result.value.fileName).toBe('Profile.cfg')
+    expect(result.value.diskContent).toBe(handEdited)
+    // `ourContent` is what THIS save would have written: the typed text, not a render.
+    expect(result.value.ourContent).toBe(raw)
+    // Nothing written, nothing adopted, the baseline untouched.
+    expect(await readFile(canonicalPath(), 'latin1')).toBe(handEdited)
+    expect(only(state).fileHash).toBe(seededHash)
+    expect(only(state).cvars.typed_in_the_editor).toBeUndefined()
+  })
+
+  it('force: true overwrites the conflicting file with the typed text', async () => {
+    const { handlers, state } = await boot()
+    const onDisk = await seeded(handlers, state)
+
+    await writeFile(canonicalPath(), `${onDisk}// hand-edited elsewhere\n`, 'latin1')
+    const raw = `${onDisk}set typed_in_the_editor "1"\n`
+
+    const refused = await saveRaw(handlers, raw)
+    if (!refused.ok || refused.value.status !== 'conflict') {
+      throw new Error('expected the ordinary raw save to still refuse')
+    }
+
+    const forced = await saveRaw(handlers, raw, { force: true })
+
+    if (!forced.ok) throw new Error('expected the forced raw save to answer')
+    if (forced.value.status !== 'saved') {
+      throw new Error(`expected saved, got ${forced.value.status}`)
+    }
+    expect(await readFile(canonicalPath(), 'latin1')).toBe(raw)
+    expect(only(state).cvars.typed_in_the_editor).toBe('1')
+    expect(only(state).fileHash).toBe(hashCanonicalFileContent(raw))
+  })
+
+  it('rejects text that no longer carries the profile\'s ownership tag, and writes nothing', async () => {
+    const { handlers, state } = await boot()
+    const onDisk = await seeded(handlers, state)
+    const before = only(state)
+
+    // The header block deleted - what "select all, paste someone else's config" produces.
+    const disowned = 'set sensitivity "5"\nbind w "+forward"\n'
+    expect(disowned.includes(sentinelLine('p1'))).toBe(false)
+
+    const result = await saveRaw(handlers, disowned)
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.rawTextNotOwned' } })
+    expect(await readFile(canonicalPath(), 'latin1')).toBe(onDisk)
+    expect(only(state)).toEqual(before)
+  })
+
+  it('rejects text carrying the OTHER profile\'s ownership tag', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([
+      profile({ id: 'p1', name: 'Profile', assignments: [] }),
+      profile({ id: 'p2', name: 'Second', assignments: [] }),
+    ])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p2' })
+    const ownFile = await readFile(canonicalPath(), 'latin1')
+    const otherFile = await readFile(canonicalPath('Second.cfg'), 'latin1')
+
+    // Launcher-owned text, but for the wrong profile: pasting p2's file into p1's editor would
+    // leave two files claiming the same id and one profile with no file of its own.
+    const result = await saveRaw(handlers, otherFile)
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.rawTextNotOwned' } })
+    expect(await readFile(canonicalPath(), 'latin1')).toBe(ownFile)
+    expect(await readFile(canonicalPath('Second.cfg'), 'latin1')).toBe(otherFile)
+  })
+
+  it('rejects text with a character outside latin-1, and writes nothing', async () => {
+    const { handlers, state } = await boot()
+    const onDisk = await seeded(handlers, state)
+
+    // A checkmark and a CJK character - both perfectly typeable, neither representable in a byte.
+    const result = await saveRaw(handlers, `${onDisk}// ✓ 你好\n`)
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.rawTextNotLatin1' } })
+    expect(await readFile(canonicalPath(), 'latin1')).toBe(onDisk)
+  })
+
+  it('rejects text with a control byte no config file can hold, and writes nothing', async () => {
+    const { handlers, state } = await boot()
+    const onDisk = await seeded(handlers, state)
+
+    // A NUL pasted out of a binary file: latin-1 by code point, but exactly what `readFileState`
+    // calls `unparseable` - writing it would leave the profile's own file unreadable.
+    const result = await saveRaw(handlers, `${onDisk}set nul "\u0000"\n`)
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.rawTextNotLatin1' } })
+    expect(await readFile(canonicalPath(), 'latin1')).toBe(onDisk)
+  })
+
+  it('leaves no phantom external edit behind: the next guard run sees an unchanged file', async () => {
+    const { handlers, state } = await boot()
+    const onDisk = await seeded(handlers, state)
+    const raw = `${onDisk}set guard_check "1"\r\n`
+
+    const first = await saveRaw(handlers, raw)
+    if (!first.ok || first.value.status !== 'saved') throw new Error('expected the raw save')
+
+    // 1. The guard every other operation uses, run directly against the stored baseline.
+    const guard = await readFileState(userDataBox.current, 'Profile.cfg', only(state).fileHash)
+    expect(guard.state).toBe('unchanged')
+
+    // 2. The refresh handler (window focus / tab open) - the one that would say "changed outside
+    //    the launcher" to the user.
+    const refreshed = (await handlers.get(CONFIG_HANDLERS.refreshFromFiles)!({
+      profileId: 'p1',
+    })) as Outcome<RefreshFromFilesResult>
+    if (!refreshed.ok) throw new Error('expected refreshFromFiles to succeed')
+    expect(refreshed.value).toEqual([
+      { profileId: 'p1', outcome: 'unchanged', fileState: 'unchanged' },
+    ])
+
+    // 3. A second raw save of the same text: no conflict, and still byte-identical afterwards.
+    const second = await saveRaw(handlers, raw)
+    if (!second.ok) throw new Error('expected the second raw save to answer')
+    expect(second.value.status).toBe('saved')
+    expect(await readFile(canonicalPath())).toEqual(Buffer.from(raw, 'latin1'))
+  })
+
+  it('writes the file the ownership stamp actually sits in, without renaming it', async () => {
+    const { handlers, state } = await boot()
+    const onDisk = await seeded(handlers, state)
+    // A rename only marks the profile dirty (story 043 D4), so the file still sits under its old
+    // name - the editor is editing `Profile.cfg`, and that is where the text has to land.
+    await handlers.get(CONFIG_HANDLERS.rename)!({ id: 'p1', name: 'Renamed' })
+    const raw = `${onDisk}set after_rename "1"\n`
+
+    const result = await saveRaw(handlers, raw)
+
+    if (!result.ok || result.value.status !== 'saved') throw new Error('expected the raw save')
+    expect(result.value.fileName).toBe('Profile.cfg')
+    expect(await readFile(canonicalPath(), 'latin1')).toBe(raw)
+    expect(await pathExists(canonicalPath('Renamed.cfg'))).toBe(false)
+    // The adopt takes the name from the file, so the unsaved rename does not survive - the file is
+    // the source of truth, and it still says "Profile".
+    expect(only(state).name).toBe('Profile')
+    expect(only(state).dirty).toBe(false)
+  })
+
+  it('reports a file it cannot read at all instead of writing over it', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const onDisk = await readFile(canonicalPath(), 'latin1')
+
+    vi.mocked(readFileState).mockResolvedValueOnce({
+      state: 'readError',
+      error: new Error('EACCES (contrived for this test)'),
+    })
+
+    const result = await saveRaw(handlers, `${onDisk}set unread "1"\n`)
+
+    if (!result.ok) throw new Error('expected saveRawText to answer, not fail')
+    if (result.value.status !== 'unreadable') {
+      throw new Error(`expected unreadable, got ${result.value.status}`)
+    }
+    expect(result.value.reason).toBe('readError')
+    expect(await readFile(canonicalPath(), 'latin1')).toBe(onDisk)
+  })
+
+  it('fails with config.error.profileNotFound for an unknown profile id', async () => {
+    const { handlers } = await boot()
+
+    const result = await saveRaw(handlers, 'anything', { profileId: 'nope' })
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.profileNotFound' } })
+  })
+
+  it('rejects a payload the schema refuses (text over the length cap) before the handler runs', async () => {
+    const { handlers, state } = await boot()
+    const onDisk = await seeded(handlers, state)
+
+    const result = await saveRaw(handlers, 'x'.repeat(MAX_RAW_CONFIG_TEXT_LENGTH + 1))
+
+    expect(result).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
+    expect(await readFile(canonicalPath(), 'latin1')).toBe(onDisk)
+  })
+
+  /**
+   * Story 079 D3 (AC1): a raw save is a content mutation like any other, so it now cascades to
+   * every assigned installation the same way `save` (story 043 D4) does - and the copy is
+   * byte-identical to what the user typed, never a re-render of it (the whole point of D3's
+   * `refuseCanonicalWriteFor`: hand-formatted or otherwise non-render-fixed-point text must reach
+   * the installation exactly as typed, not through `renderProfileFile`).
+   */
+  it('saveRawText cascades the typed bytes to every assigned installation', async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    const onDisk = await readFile(canonicalPath(), 'latin1')
+
+    // Deliberately not a render fixed point (hand-formatted spacing), so a cascade that re-rendered
+    // instead of copying the typed bytes would be caught by this assertion.
+    const raw = `${onDisk}\tset q2l_typed_raw   "1"   \n`
+    const result = await saveRaw(handlers, raw)
+
+    if (!result.ok || result.value.status !== 'saved') {
+      throw new Error(`expected a raw save, got ${JSON.stringify(result)}`)
+    }
+    // The canonical file still says exactly what was typed - the cascade must not have re-rendered
+    // it (that is D3's whole reason for `refuseCanonicalWriteFor`).
+    expect(await readFile(canonicalPath(), 'latin1')).toBe(raw)
+    const copy = await readFile(join(dir, 'baseq2', 'Profile.cfg'), 'latin1')
+    expect(copy).toBe(raw)
+    expect(only(state).fileHash).toBe(hashCanonicalFileContent(raw))
+  })
+
+  /**
+   * Story 079 D3 (AC9, partial): the per-profile `canonicalWriteAllowed` rule still applies to
+   * every OTHER profile a raw-save cascade touches - a dirty sibling assigned to the same
+   * installation contributes its own on-disk file, never its unsaved edits, exactly as it does
+   * after a structured save (see the `canonicalWriteAllowed` describe in `sync.test.ts`).
+   */
+  it("saveRawText's cascade leaves a dirty sibling on the same installation untouched", async () => {
+    const inst = installation()
+    const { handlers, state } = await boot([inst])
+    state.setConfigProfiles([
+      profile({ id: 'p1', name: 'Profile', assignments: [{ installationId: inst.id, isDefault: true }] }),
+      profile({ id: 'p2', name: 'Second', assignments: [{ installationId: inst.id, isDefault: false }] }),
+    ])
+    await state.settle()
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
+    await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p2' })
+    const siblingCopyBefore = await readFile(join(dir, 'baseq2', 'Second.cfg'), 'latin1')
+    const siblingCanonicalBefore = await readFile(canonicalPath('Second.cfg'), 'latin1')
+    // An unsaved UI edit on the sibling - marks it dirty without writing its file.
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p2', cvars: { sensitivity: '42' } })
+
+    const onDisk = await readFile(canonicalPath(), 'latin1')
+    const raw = `${onDisk}set q2l_typed_raw "1"\n`
+    const result = await saveRaw(handlers, raw)
+    if (!result.ok || result.value.status !== 'saved') {
+      throw new Error(`expected a raw save, got ${JSON.stringify(result)}`)
+    }
+
+    // The saved profile's own copy cascades...
+    expect(await readFile(join(dir, 'baseq2', 'Profile.cfg'), 'latin1')).toBe(raw)
+    // ...while the dirty sibling's copy and canonical file are untouched by this cascade: no trace
+    // of its unsaved "42" anywhere on disk.
+    expect(await readFile(join(dir, 'baseq2', 'Second.cfg'), 'latin1')).toBe(siblingCopyBefore)
+    expect(await readFile(canonicalPath('Second.cfg'), 'latin1')).toBe(siblingCanonicalBefore)
+    expect(siblingCopyBefore).not.toContain('42')
+  })
+})

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { CircleCheck, CircleX, TriangleAlert } from 'lucide-react'
+import { CircleCheck, CircleX, Info, TriangleAlert } from 'lucide-react'
 import type { Installation, ValidationCheck, ValidationFix } from '@shared/types'
 import { cn } from '../../lib/cn'
 import { useLauncher } from '../../store/useLauncher'
@@ -8,6 +8,7 @@ import { Button } from '../ui/Button'
 
 const SEVERITY = {
   ok: { icon: CircleCheck, className: 'text-success' },
+  info: { icon: Info, className: 'text-info' },
   warn: { icon: TriangleAlert, className: 'text-warning' },
   error: { icon: CircleX, className: 'text-danger' },
 } as const
@@ -81,7 +82,7 @@ export function useFixAction(): (installation: Installation, fix: ValidationFix)
   const { t } = useTranslation()
   const updateInstallation = useLauncher((state) => state.updateInstallation)
   const validateInstallation = useLauncher((state) => state.validateInstallation)
-  const setRoute = useLauncher((state) => state.setRoute)
+  const openDialog = useLauncher((state) => state.openDialog)
 
   return async (installation: Installation, fix: ValidationFix) => {
     switch (fix) {
@@ -117,9 +118,12 @@ export function useFixAction(): (installation: Installation, fix: ValidationFix)
       }
 
       case 'install-game-files':
-        // Owned by the install module. Its page states plainly that it is not
-        // built yet, which beats a button that silently does nothing.
-        setRoute('/install')
+        openDialog({
+          kind: 'module',
+          moduleId: 'downloads',
+          view: 'repair',
+          installationId: installation.id,
+        })
         return
     }
   }

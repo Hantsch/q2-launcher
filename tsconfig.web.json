@@ -6,6 +6,13 @@
     "src/shared/**/*.ts",
     "src/preload/index.d.ts"
   ],
+  // Story 081 D3: `shell-home-ownership.test.ts` walks the filesystem with `node:fs`/`node:path`/
+  // `node:url` to guard against a shell/views file re-importing a home component - a Node-only
+  // capability the renderer project has no `types: ["node"]` for by design (docs/ARCHITECTURE.md).
+  // It typechecks under `tsconfig.node.json` instead (mirrors that project's own explicit
+  // cross-reference to `i18n/locales/en.json`), so it is excluded here rather than pulling `node`
+  // types into every renderer file.
+  "exclude": ["src/renderer/src/components/shell/shell-home-ownership.test.ts"],
   "compilerOptions": {
     "composite": true,
     "declaration": true,

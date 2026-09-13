@@ -1,0 +1,38 @@
+# Sprint S19 progress
+
+- 2026-09-11 19:14 · 088 · D1 Retail source inspection · started
+- 2026-09-11 19:17 · 088 · D1 Retail source inspection · done
+- 2026-09-11 19:17 · 088 · D2 Detected store sources over module seam · started
+- 2026-09-11 19:23 · 088 · D2 Detected store sources over module seam · done
+- 2026-09-11 19:23 · 088 · D3 Copy retail game data through allowlist · started
+- 2026-09-11 19:28 · 088 · D3 Copy retail game data through allowlist · done
+- 2026-09-11 19:28 · 088 · D4 Job summary and start input for copy source · started
+- 2026-09-11 19:42 · 088 · D4 Job summary and start input for copy source · done
+- 2026-09-11 19:42 · 088 · D5 Wizard game-data step · started
+- 2026-09-11 19:49 · 088 · D5 Wizard game-data step · done
+- 2026-09-11 19:49 · 088 · D6 Offline end-to-end proof · started
+- 2026-09-11 20:01 · 088 · D6 Offline end-to-end proof · done
+- 2026-09-11 20:20 · 088 · story done, moved to done/ · done
+- 2026-09-11 20:24 · 089 · D1 contract carries a data source · started
+- 2026-09-11 20:29 · 089 · D1 contract carries a data source · done
+- 2026-09-11 20:29 · 089 · D2 shared routine decides usable retail data · started
+- 2026-09-11 20:33 · 089 · D2 shared routine decides usable retail data · done
+- 2026-09-11 20:33 · 089 · D3 job installs from a folder · started
+- 2026-09-11 20:45 · 089 · D3 job installs from a folder · done
+- 2026-09-11 20:45 · 089 · D4 wizard has a data-source step · started
+- 2026-09-11 20:55 · 089 · D4 wizard has a data-source step · done
+- 2026-09-11 20:55 · 089 · D5 demo and rejection read as reasons · started
+- 2026-09-11 21:03 · 089 · D5 demo and rejection read as reasons · done
+- 2026-09-11 21:19 · 090 · D1 Contract, schemas and handlers · started
+- 2026-09-11 21:24 · 090 · D1 Contract, schemas and handlers · done
+- 2026-09-11 21:24 · 090 · D2 The upgrade job · started
+- 2026-09-11 21:37 · 090 · D2 The upgrade job · done
+- 2026-09-11 21:37 · 090 · D3 The retail-upgrade dialog · started
+- 2026-09-11 21:37 · 090 · D4 The three triggers · started
+- 2026-09-11 21:45 · 090 · D3 The retail-upgrade dialog · done
+- 2026-09-11 21:45 · 090 · D4 The three triggers · done
+- 2026-09-11 21:45 · 090 · D5 Dev-only launch-state simulation · started
+- 2026-09-11 21:48 · 090 · D5 Dev-only launch-state simulation · done
+- 2026-09-11 21:48 · 090 · D6 Offline end-to-end proof · started
+- 2026-09-11 22:29 · 090 · D6 Offline end-to-end proof · done
+- 2026-09-11 22:41 · 090 · story · done

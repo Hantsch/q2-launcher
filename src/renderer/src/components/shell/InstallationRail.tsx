@@ -1,14 +1,19 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FolderOpen, FolderPlus, LayoutGrid, Play, Plus, Search } from 'lucide-react'
-import { engineLabel, type Installation } from '@shared/types'
+import { FolderOpen, FolderPlus, Import, LayoutGrid, Play, Plus, Search } from 'lucide-react'
+import type { Installation } from '@shared/types'
 import { cn } from '../../lib/cn'
-import { shortenPath, tileCode } from '../../lib/format'
+import { isDemoData } from '../../lib/demo-data'
+import { shortenPath } from '../../lib/format'
 import { isPlayable, statusTone } from '../../lib/status'
 import { useLauncher } from '../../store/useLauncher'
 import { Badge, SectionLabel, StatusDot } from '../ui/primitives'
 import { Button, IconButton } from '../ui/Button'
+import { DemoBadge } from '../ui/DemoBadge'
+import { FailureBadge } from '../ui/FailureBadge'
+import { EngineBadge } from '../ui/EngineBadge'
 import { HoverCard } from '../ui/HoverCard'
+import { InstallationTile } from '../installations/InstallationTile'
 import { Menu, type MenuItem } from '../ui/Menu'
 
 /**
@@ -181,6 +186,7 @@ function RailTile({
   return (
     <button
       type="button"
+      data-testid="installation-tile"
       draggable
       onClick={onSelect}
       onDragStart={onDragStart}
@@ -205,28 +211,31 @@ function RailTile({
       }}
       aria-current={active ? 'true' : undefined}
       aria-label={installation.name}
-      className={cn(
-        'group relative grid aspect-square w-full place-items-center rounded-md border',
-        'transition-[border-color,box-shadow,background-color] duration-[--dur-base] ease-[--ease-out-quart]',
-        active
-          ? 'border-flame-500 bg-flame-900/25 shadow-[var(--shadow-flame)]'
-          : 'border-line bg-raised hover:border-line-strong hover:bg-hover',
-        dropTarget && 'border-strogg-500',
-      )}
+      // Story 067 review finding F2: a bare `<button>` defaults to `display: inline-block`, which
+      // (unlike this rail's old `grid` button) leaves it sized by its inline-formatting-context
+      // line box rather than its content - a few extra px below the tile that shifted every tile
+      // beneath it down the rail. `block` restores the pre-D2 block-level sizing without
+      // reintroducing `place-items-center` (the child `InstallationTile` centers its own content
+      // now, the button itself no longer needs to).
+      className="group relative block w-full"
     >
       {/* Active marker, bleeding into the rail edge like a plugged-in cartridge. */}
       {active && (
         <span className="absolute top-1/2 -left-[9px] h-7 w-[3px] -translate-y-1/2 rounded-r-sm bg-flame-500 shadow-[0_0_10px_rgb(255_138_31/0.8)]" />
       )}
 
-      <span
+      <InstallationTile
+        installation={installation}
+        size="rail"
         className={cn(
-          'font-display text-lg font-semibold tracking-tight',
-          active ? 'text-flame-200' : 'text-ink-dim group-hover:text-ink',
+          'transition-[border-color,box-shadow,background-color] duration-[--dur-base] ease-[--ease-out-quart]',
+          active
+            ? 'border-flame-500 bg-flame-900/25 shadow-[var(--shadow-flame)]'
+            : 'border-line bg-raised hover:border-line-strong hover:bg-hover',
+          dropTarget && 'border-strogg-500',
         )}
-      >
-        {tileCode(installation.engineKind, installation.name)}
-      </span>
+        textClassName={active ? 'text-flame-200' : 'text-ink-dim group-hover:text-ink'}
+      />
 
       <span className="absolute top-1.5 right-1.5">
         <StatusDot className={running ? 'bg-strogg-500' : tone.dot} pulse={running} />
@@ -247,19 +256,58 @@ function RailCard({ installation }: { installation: Installation }) {
   const { t } = useTranslation()
   const play = useLauncher((state) => state.play)
   const setActive = useLauncher((state) => state.setActiveInstallation)
+  const openDialog = useLauncher((state) => state.openDialog)
   const tone = statusTone(installation.status)
   const playable = isPlayable(installation.status)
 
   return (
     <div className="space-y-2.5">
+      <div className="flex items-center gap-1.5">
+        <Button
+          variant={playable ? 'primary' : 'neutral'}
+          size="sm"
+          fullWidth
+          disabled={!playable}
+          icon={<Play className="size-3.5" />}
+          onClick={() => {
+            void setActive(installation.id)
+            void play(installation.id)
+          }}
+        >
+          {t('rail.quickPlay')}
+        </Button>
+
+        {/* Story 090 D4: the tile itself (074) only has room for the CSS microtag, so the
+            demo-to-retail trigger lives here on the hover card, its own surface.
+            Story 091 D5: no longer disabled while it is running - the job now waits instead of
+            refusing (091 Decisions: "[[090]]'s refusal is replaced by a wait, including on the
+            renderer"). */}
+        {isDemoData(installation.checks) && (
+          <IconButton
+            label={t('installation.action.importRetail')}
+            size="sm"
+            onClick={() =>
+              openDialog({
+                kind: 'module',
+                moduleId: 'downloads',
+                view: 'retail-upgrade',
+                installationId: installation.id,
+              })
+            }
+          >
+            <Import className="size-3.5" />
+          </IconButton>
+        )}
+      </div>
+
       <div className="space-y-1">
         <div className="truncate font-display text-sm tracking-wide text-ink uppercase">
           {installation.name}
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge tone={installation.engineKind === 'r1q2' ? 'flame' : 'neutral'}>
-            {engineLabel(installation.engineKind)}
-          </Badge>
+          <EngineBadge engineKind={installation.engineKind} />
+          <DemoBadge installation={installation} />
+          <FailureBadge installation={installation} />
           {installation.detectedVersion && (
             <Badge tone="neutral">{installation.detectedVersion}</Badge>
           )}
@@ -280,20 +328,6 @@ function RailCard({ installation }: { installation: Installation }) {
           {t('installation.mods', { count: installation.gameDirs.length })}
         </p>
       )}
-
-      <Button
-        variant={playable ? 'primary' : 'neutral'}
-        size="sm"
-        fullWidth
-        disabled={!playable}
-        icon={<Play className="size-3.5" />}
-        onClick={() => {
-          void setActive(installation.id)
-          void play(installation.id)
-        }}
-      >
-        {t('rail.quickPlay')}
-      </Button>
     </div>
   )
 }

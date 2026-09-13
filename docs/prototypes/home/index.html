@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Home screen — design prototypes</title>
+<link rel="stylesheet" href="../bindings/_proto.css" />
+<link rel="stylesheet" href="_home.css" />
+<style>
+  .stage { max-width: 1020px; }
+  h1 { font-size: 26px; margin-bottom: 6px; }
+  .grid-cards { display: grid; gap: 12px; }
+  a.card {
+    display: grid; grid-template-columns: 46px 1fr auto; gap: 16px; align-items: center;
+    padding: 16px 18px; text-decoration: none; color: inherit;
+  }
+  a.card:hover { border-color: var(--flame-700); }
+  a.card .k { font-family: var(--font-display); font-size: 30px; color: var(--flame-500); text-align: center; }
+  a.card h2 { font-size: 16px; margin-bottom: 4px; }
+  a.card p { margin: 0; font-size: 12.5px; color: var(--ink-dim); }
+  a.card .go { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+  ul.diag { margin: 0 0 22px; padding-left: 18px; color: var(--ink-dim); font-size: 12.5px; }
+  ul.diag li { margin-bottom: 4px; }
+  ul.diag b { color: var(--ink); font-weight: 600; }
+  .mono { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <strong>HOME SCREEN</strong>
+  <span>3 static design prototypes — no app code touched</span>
+  <span class="spacer"></span>
+  <span class="mono">concept: docs/concepts/home-screen.md</span>
+</div>
+
+<div class="stage">
+  <h1>Home screen — composition test</h1>
+  <p class="lead">
+    The concept fixes the mechanics of the new home screen — a fixed news carousel fed from
+    <span class="cvar">q2_community_content</span>, and below it a free 12-column dashboard the user
+    arranges themselves. It deliberately leaves <b>one</b> question open, because it is the one that
+    is decided by looking at it rather than by arguing: <b>how much of the screen does the news zone
+    get?</b> These three variants differ in that dimension and in nothing else.
+  </p>
+
+  <ul class="diag">
+    <li><b>Today's home screen is a placeholder.</b> <span class="cvar">HeroPanel</span> shows the
+      active installation with four carousel dots wired to nothing, and the grid below it is really
+      the roadmap: one card per module, planned ones badged "planned".</li>
+    <li><b>The hero and the news want the same space.</b> The concept resolves it — the news hero
+      replaces <span class="cvar">HeroPanel</span> entirely, and the active installation stays where
+      it already is, in the action bar and the installation rail.</li>
+    <li><b>v1 has exactly two dashboard modules</b> (playtime &amp; statistics, config profiles), so
+      every variant shows the same two tiles at the same 6×5 cells. The free space around them is
+      not a mock-up shortcut — that is what v1 looks like.</li>
+    <li><b>Every variant is drawn at real chrome sizes:</b> titlebar 68&nbsp;px, rail 76&nbsp;px,
+      action bar 96&nbsp;px, window 1280×820, grid 12 columns × 40&nbsp;px rows.</li>
+  </ul>
+
+  <div class="grid-cards">
+    <a class="card panel edge-flame" href="a-large-hero.html">
+      <span class="k">A</span>
+      <span>
+        <h2>Large hero</h2>
+        <p>320&nbsp;px news stage, dashboard below it — the Blizzard proportion. News read fully;
+          the dashboard is a strip with room for exactly one row of tiles.</p>
+      </span>
+      <span class="go">open →</span>
+    </a>
+
+    <a class="card panel" href="b-compact-hero.html">
+      <span class="k">B</span>
+      <span>
+        <h2>Compact hero</h2>
+        <p>176&nbsp;px news strip over a wide dashboard — two rows of tiles fit. The user's own
+          layout dominates; the <span class="cvar">banner</span> template gets uncomfortably thin.</p>
+      </span>
+      <span class="go">open →</span>
+    </a>
+
+    <a class="card panel" href="c-full-stage.html">
+      <span class="k">C</span>
+      <span>
+        <h2>Full stage</h2>
+        <p>The hero owns the whole main area, the dashboard starts below the fold. Strongest news
+          presence, biggest canvas after scrolling — and a customisable screen nobody sees.</p>
+      </span>
+      <span class="go">open →</span>
+    </a>
+  </div>
+
+  <table class="crit">
+    <tr><th>Criterion</th><th>A · Large hero</th><th>B · Compact hero</th><th>C · Full stage</th></tr>
+    <tr><td>hero height</td><td>320 px (49%)</td><td>176 px (27%)</td><td>656 px (100%)</td></tr>
+    <tr><td>dashboard rows without scrolling</td><td>~6</td><td><b>~9</b></td><td>0 (13 after scrolling)</td></tr>
+    <tr><td>tile rows that fit</td><td>1</td><td><b>2</b></td><td>0 before scrolling</td></tr>
+    <tr><td>split template</td><td><b>good</b> — image reads, 30 px headline</td><td>cramped — thin image band, 2 lines of text</td><td><b>best</b> — image plus three lines</td></tr>
+    <tr><td>banner template</td><td>works</td><td>barely — image band under 90 px</td><td><b>best</b></td></tr>
+    <tr><td>text template</td><td>good</td><td>good</td><td>a lot of empty space</td></tr>
+    <tr><td>welcome / offline state</td><td>fits</td><td>tight but fits</td><td>fits, looks intentional</td></tr>
+    <tr><td>"this is my screen" feeling</td><td>medium</td><td><b>strongest</b></td><td>weakest — it is off-screen</td></tr>
+    <tr><td>"this launcher is alive" feeling</td><td><b>strong</b></td><td>medium</td><td><b>strongest</b></td></tr>
+    <tr><td>main area scrolls</td><td>no</td><td>no</td><td>yes — new for this shell</td></tr>
+    <tr><td>arrange mode discoverable</td><td>yes</td><td>yes</td><td>no — needs scrolling first</td></tr>
+    <tr><td>looks right with only 2 v1 modules</td><td><b>yes</b> — strip is nearly filled</td><td>no — visible empty canvas</td><td>n/a — hidden until scrolled</td></tr>
+    <tr><td>build effort</td><td colspan="3">identical — the variants differ only in one height value and, for C, a scrollable main area</td></tr>
+  </table>
+
+  <p class="lead" style="margin-top:22px">
+    All three keep the concept's contracts unchanged: <span class="cvar">index.json</span> decides
+    which entry is visible, when and in which order; the <span class="cvar">.md</span> carries the
+    template, the content and up to three external-link buttons; images are fetched and cached by
+    main and served over <span class="cvar">q2launcher://</span>; the grid stays 12 columns ×
+    40&nbsp;px rows with an explicit arrange mode. Only the proportion changes.
+  </p>
+
+  <p class="lead">
+    Every variant is interactive without JavaScript: the <b>slide</b> pills and the carousel's dots
+    and arrows switch between the three templates, <b>offline · no feed</b> shows the built-in
+    welcome slide with its stale note, and <b>arrange mode</b> turns on the cell grid, the drag
+    grips, the resize handles, the catalog bar and the live-region announcement.
+  </p>
+</div>
+
+</body>
+</html>

@@ -20,4 +20,6 @@ export interface LibraryStats {
   favorites: number
   totalPlaytimeSeconds: number
   byEngine: Partial<Record<EngineKind, number>>
+  /** The installation with the newest `lastPlayedAt`, if any installation has ever been played. */
+  lastSession?: { installationId: string; name: string; at: string }
 }

@@ -193,9 +193,24 @@ export async function inspectInstallation(
       // hash of 180 MB is far too slow for a check that runs on every startup.
       const size = await fileSize(join(baseDirPath, pak0Name))
       if (size !== null && size !== RETAIL_PAK_SIZES['pak0.pak']) {
-        checks.push(check('base-paks', 'warn', 'validation.pak0NotRetail'))
+        checks.push(
+          check('base-paks', 'info', 'validation.pak0NotRetail', { fix: 'install-game-files' }),
+        )
+      } else if (!baseListing.byLowerName.has('pak1.pak')) {
+        checks.push(
+          check('base-paks', 'warn', 'validation.retailPaksMissing', {
+            fix: 'install-game-files',
+          }),
+        )
       } else if (!hasRetailPaks) {
-        checks.push(check('base-paks', 'warn', 'validation.retailPaksMissing'))
+        // pak0/pak1 are present and retail-sized, only pak2.pak (the 3.20
+        // point release) is missing - a narrower, more fixable case than the
+        // base retail paks being absent altogether.
+        checks.push(
+          check('base-paks', 'warn', 'validation.pointReleaseMissing', {
+            fix: 'install-game-files',
+          }),
+        )
       }
     }
   }

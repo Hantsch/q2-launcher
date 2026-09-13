@@ -1,0 +1,75 @@
+- 2026-08-22 07:55 · sprint S06 · phase 1 refine · done, starting build
+- 2026-08-22 07:56 · 031 · D1 Rename module in shared+main · started
+- 2026-08-22 07:57 · 031 · D1 Rename module in shared+main · done
+- 2026-08-22 07:57 · 031 · D2 Rename module in renderer+heal route · started
+- 2026-08-22 07:59 · 031 · D2 Rename module in renderer+heal route · done
+- 2026-08-22 07:59 · 031 · D3 Move entry into titlebar right cluster · started
+- 2026-08-22 08:01 · 031 · D3 Move entry into titlebar right cluster · done
+- 2026-08-22 08:01 · 031 · D4 Cover new surface in ui:verify · started
+- 2026-08-22 08:02 · 031 · D4 Cover new surface in ui:verify · done
+- 2026-08-22 08:15 · 031 · review + fixes + Done section · done
+- 2026-08-22 08:12 · 030 · D1 Taller bar, one source of truth · started
+- 2026-08-22 08:13 · 030 · D1 Taller bar, one source of truth · done
+- 2026-08-22 08:13 · 030 · D2 Wordmark at 2x · started
+- 2026-08-22 08:14 · 030 · D2 Wordmark at 2x · done
+- 2026-08-22 08:14 · 030 · D3 Nav, Settings/Downloads and window controls scale with the bar · started
+- 2026-08-22 08:16 · 030 · D3 Nav, Settings/Downloads and window controls scale with the bar · done
+- 2026-08-22 08:16 · 030 · D4 Refreshed verification run · started
+- 2026-08-22 08:17 · 030 · D4 Refreshed verification run · done
+- 2026-08-22 08:20 · 033 · D1 Plain-language copy + manifest copy keys · started
+- 2026-08-22 08:23 · 033 · D1 Plain-language copy + manifest copy keys · done
+- 2026-08-22 08:23 · 033 · D2 PlannedModuleView shows the outlook · started
+- 2026-08-22 08:27 · 033 · D2 PlannedModuleView shows the outlook · done
+- 2026-08-22 08:27 · 033 · D3 Planned screens enter ui:verify registry · started
+- 2026-08-22 08:33 · 033 · D3 Planned screens enter ui:verify registry · done
+- 2026-08-22 08:40 · 033 · review + fixes + Done section · done
+- 2026-08-22 08:29 · 029 · D1 channel-aware drop message in pure lib · started
+- 2026-08-22 08:31 · 029 · D1 channel-aware drop message in pure lib · done
+- 2026-08-22 08:31 · 029 · D2 MessageEditor draft + hide key capture · started
+- 2026-08-22 08:33 · 029 · D2 MessageEditor draft + hide key capture · done
+- 2026-08-22 08:33 · 029 · D3 ControlsRow sub-row slot + styling · started
+- 2026-08-22 08:35 · 029 · D3 ControlsRow sub-row slot + styling · done
+- 2026-08-22 08:35 · 029 · D4 With-message checkbox + inline row wired · started
+- 2026-08-22 08:43 · 029 · D4 With-message checkbox + inline row wired · done
+- 2026-08-22 08:53 · 029 · review + live smoke + Done section · done
+- 2026-08-22 08:54 · 035 · D1 Pure renderer-source module + unit tests · started
+- 2026-08-22 08:57 · 035 · D1 Pure renderer-source module + unit tests · done
+- 2026-08-22 08:57 · 035 · D2 Serve production renderer from q2launcher:// · started
+- 2026-08-22 09:05 · 035 · D2 Serve production renderer from q2launcher:// · done
+- 2026-08-22 09:05 · 035 · D3 Harness proves it every run · started
+- 2026-08-22 09:08 · 035 · D3 Harness proves it every run · done
+- 2026-08-22 09:08 · 035 · D4 Evidence + deferred follow-up · started
+- 2026-08-22 09:15 · 035 · D4 Evidence + deferred follow-up · done
+- 2026-08-22 09:31 · 035 · review + fixes (Windows traversal bypass, 404 CSP header) + Done section · done
+- 2026-08-22 09:32 · 036 · D1 Shared schema layer · started
+- 2026-08-22 09:36 · 036 · D1 Shared schema layer · done
+- 2026-08-22 09:36 · 036 · D2 handle()/handleOutcome() seam · started
+- 2026-08-22 09:40 · 036 · D2 handle()/handleOutcome() seam · done
+- 2026-08-22 09:40 · 036 · D3 installations+detection, D4 launch+jobs+modules+dev · started
+- 2026-08-22 09:42 · 036 · D3 installations+detection, D4 launch+jobs+modules+dev · done
+- 2026-08-22 09:42 · 036 · D5 module seam requires schema · started
+- 2026-08-22 09:48 · 036 · D5 module seam requires schema · done
+- 2026-08-22 09:48 · 036 · D6 config handlers part 1 · started
+- 2026-08-22 09:51 · 036 · D6 config handlers part 1 · done
+- 2026-08-22 09:51 · 036 · D7 config handlers part 2 · started
+- 2026-08-22 09:54 · 036 · D7 config handlers part 2 · done
+- 2026-08-22 09:54 · 036 · D8 IPC contract test · started
+- 2026-08-22 09:57 · 036 · D8 IPC contract test · done
+- 2026-08-22 09:57 · 036 · D9 live pass + architecture doc · started
+- 2026-08-22 09:59 · 036 · D9 live pass + architecture doc · done
+- 2026-08-22 10:12 · 037 · D1 Testids on the path to both surfaces · started
+- 2026-08-22 10:13 · 037 · D1 Testids on the path to both surfaces · done
+- 2026-08-22 10:13 · 037 · D2 Fixture gains an importable config · started
+- 2026-08-22 10:15 · 037 · D2 Fixture gains an importable config · done
+- 2026-08-22 10:15 · 037 · D3 Both surfaces enter the screen registry · started
+- 2026-08-22 10:19 · 037 · D3 Both surfaces enter the screen registry · done
+- 2026-08-22 10:19 · 037 · D4 page-has-heading-one disabled, visibly · started
+- 2026-08-22 10:20 · 037 · D4 page-has-heading-one disabled, visibly · done
+- 2026-08-22 10:20 · 037 · D5 Full production-mode run, recorded as inventory · started
+- 2026-08-22 10:22 · 037 · D5 Full production-mode run, recorded as inventory · done (4 critical, 0 serious, 16 moderate, exit 2)
+- 2026-08-22 10:22 · 037 · D6 Fix everything the inventory reports · started
+- 2026-08-22 10:28 · 037 · D6 Fix everything the inventory reports · done (0 critical/serious/moderate/minor, exit 0)
+- 2026-08-22 10:28 · 037 · D7 docs/UI-VERIFICATION.md tells the truth · started
+- 2026-08-22 10:31 · 037 · D7 docs/UI-VERIFICATION.md tells the truth · done
+- 2026-08-22 10:31 · 037 · D8 Close story 027 · blocked (needs live human focus-steal observation; cannot be performed by an agent)
+- 2026-08-22 10:37 · 037 · review + Done section filled · done (status stays in-progress: AC5/story 027 needs human live-smoke pass)

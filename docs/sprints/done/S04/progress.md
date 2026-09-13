@@ -1,0 +1,43 @@
+- 2026-08-20 14:10 · 026 · D1 Harness core + tooling · done
+- 2026-08-20 14:12 · 026 · D3 Selector hooks in renderer · done
+- 2026-08-20 14:20 · 026 · D2 Fixture seed · done
+- 2026-08-20 14:35 · 026 · D4 Screen registry + screenshots · done
+- 2026-08-20 14:45 · 026 · D5 Accessibility report · done
+- 2026-08-20 14:55 · 026 · D6 The one command · done
+- 2026-08-20 15:05 · 026 · D7 Flow API + worked example · done
+- 2026-08-20 15:15 · 026 · D8 Docs · done
+- 2026-08-20 15:25 · 017 · D1 Edit mode removed, keycap opens dialog · done
+- 2026-08-20 15:35 · 017 · D2 Affordance and trigger labels · done
+- 2026-08-20 15:45 · 017 · Story closed — done, moved to done/ · done
+- 2026-08-20 16:00 · 018 · D1 Pure test-mode resolver + reducer · done
+- 2026-08-20 16:10 · 018 · D2 TestModeReadout component · done
+- 2026-08-20 16:25 · 018 · D3 Test mode drives displayed layer · done
+- 2026-08-20 16:35 · 018 · D4 Pressed keys light up · done
+- 2026-08-20 16:45 · 018 · D5 Physical mouse buttons · done
+- 2026-08-20 16:55 · 018 · D6 Readout moved into legend row · done
+- 2026-08-20 17:05 · 019 · D1 kind moves onto entry, entryKind leaves category · done
+- 2026-08-20 17:20 · 019 · D2 alias entries render as own alias, never bound · done
+- 2026-08-20 17:35 · 019 · D3 order is array position, provably · done
+- 2026-08-20 17:50 · 019 · D4 kind per entry, no type per category (UI) · done
+- 2026-08-20 18:05 · 019 · D5 kind-aware entry editor · done
+- 2026-08-20 18:15 · 019 · D6 binding can call alias by name, with suggestions · done
+- 2026-08-20 18:25 · 019 · D7 reorder entries by hand · done
+- 2026-08-20 18:40 · 019 · D8 broken alias wiring is reported · done
+- 2026-08-20 19:10 · 019 · closed — review + 2 fix cycles + live smoke, moved to done · done
+- 2026-08-20 19:20 · 020 · D1 rename Advanced to Controls · done
+- 2026-08-20 19:35 · 020 · D2 grid style layer in tokens · done
+- 2026-08-20 19:55 · 020 · D3 grid shell: cap, sticky headers, groups, footer · done
+- 2026-08-20 20:20 · 020 · D4 the row: catalogue-driven rows, 40px shell, hover reset · done
+- 2026-08-20 21:10 · 020 · D5 slot is a cell (hard tier) · done
+- 2026-08-20 21:45 · 020 · D6 options column + plain-action slot fix · done
+- 2026-08-20 22:15 · 020 · D7 profile-wide conflict count · done
+- 2026-08-20 22:40 · 020 · D8 filter by name/command · done
+- 2026-08-20 23:05 · 020 · D9 scrollable category rail · done
+- 2026-08-20 23:35 · 020 · D10 restore defaults, whole-profile · done
+- 2026-08-20 23:50 · 020 · D11 docs + token audit · done
+- 2026-08-21 09:15 · 021 · D1 row model + advanced flag audit · done
+- 2026-08-21 09:45 · 021 · D2 dense row grid/controls/value/reset · done
+- 2026-08-21 10:30 · 021 · D3 inline engine caveats + absent row (hard) · done
+- 2026-08-21 11:00 · 021 · D4 tab shell rewrite (header/groups/advanced/legend) · done
+- 2026-08-21 11:20 · 021 · D5 token/a11y pass, CLAUDE.md deviation, live smoke · done
+- 2026-08-21 11:45 · 021 · story-review-hard PASS after fix cycle, done · done

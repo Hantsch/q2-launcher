@@ -54,17 +54,46 @@
   "nav": {
     "home": "Home",
     "settings": "Settings",
-    "settingsTitle": "Launcher settings"
+    "settingsTitle": "Launcher settings",
+    "activeJobs_one": "{{count}} active job",
+    "activeJobs_other": "{{count}} active jobs"
   },
 
   "module": {
+    "home": {
+      "title": "Home",
+      "description": "Where the launcher tells you what's going on."
+    },
     "library": {
       "title": "Library",
       "description": "Every Quake II installation the launcher knows about."
     },
-    "install": {
-      "title": "Install",
-      "description": "Download, update and repair Quake II game files."
+    "downloads": {
+      "title": "Downloads",
+      "description": "Get the game files you need and keep them up to date.",
+      "settings": {
+        "title": "Downloads",
+        "concurrency": {
+          "label": "Concurrent downloads"
+        },
+        "cacheBudget": {
+          "label": "Archive cache budget",
+          "option": "{{gb}} GB"
+        },
+        "whilePlaying": {
+          "label": "Allow downloads while playing"
+        },
+        "cacheSize": {
+          "value": "Cache: {{size}} ({{count}} archives)"
+        },
+        "clearCache": {
+          "button": "Clear cache",
+          "confirmTitle": "Clear archive cache?",
+          "confirmBody": "This deletes {{size}} across {{count}} archives from the cache. This cannot be undone.",
+          "confirm": "Clear cache",
+          "result": "Removed {{count}} archives ({{size}})."
+        }
+      }
     },
     "config": {
       "title": "Config",
@@ -72,23 +101,40 @@
     },
     "mods": {
       "title": "Mods",
-      "description": "Install and switch between game mods."
+      "description": "Add mods and switch between them whenever you like."
     },
     "assets": {
       "title": "Assets",
-      "description": "Texture, model and sound packs."
+      "description": "Add new looks and sounds with texture, model and sound packs."
     },
     "planned": {
       "badge": "Planned",
-      "title": "{{module}} is not built yet",
-      "body": "This module has its place in the launcher reserved. Nothing here works yet \u2013 the shell, the installation list and the launch path are what ship first.",
-      "capabilities": "What this module will need",
-      "capability": {
-        "mutates-installation": "Write files inside an installation",
-        "long-running-jobs": "Long-running jobs with progress and cancel",
-        "network": "Network downloads",
-        "cvar-schema": "Contribute a cvar schema to the config UI",
-        "game-lifecycle": "Know when the game starts and stops"
+      "title": "{{module}} is coming in a later release",
+      "body": "This part of the launcher is on the way, but it is not here yet. For now, the rest of the launcher \u2013 your installation list and the launch path \u2013 is what you can use.",
+      "outlook": "What's coming",
+      "downloads": {
+        "intro": "Downloads will be the easiest way to get Quake II running and keep it that way, without hunting for files yourself.",
+        "highlight": {
+          "1": "Get the base game files with a couple of clicks",
+          "2": "Update to the latest version when one is available",
+          "3": "Repair an installation if files go missing or get corrupted"
+        }
+      },
+      "mods": {
+        "intro": "Mods will let you bring in extra content and switch between different play styles whenever you feel like it.",
+        "highlight": {
+          "1": "Browse and add mods to an installation",
+          "2": "Switch between installed mods without reinstalling anything",
+          "3": "Remove a mod cleanly when you no longer want it"
+        }
+      },
+      "assets": {
+        "intro": "Assets will let you change how the game looks and sounds with packs made by the community.",
+        "highlight": {
+          "1": "Add texture packs for a sharper or different look",
+          "2": "Add model packs to change how characters and objects appear",
+          "3": "Add sound packs to change music and effects"
+        }
       }
     }
   },
@@ -99,6 +145,7 @@
     "addExisting": "Add existing installation\u2026",
     "autoDetect": "Search this PC\u2026",
     "createNew": "Create new installation\u2026",
+    "downloadAndInstall": "Download & install\u2026",
     "manage": "Manage library",
     "empty": "No installations yet",
     "quickPlay": "Play",
@@ -107,7 +154,9 @@
   },
 
   "installation": {
-    "engine": "Client",
+    "demoBadge": "Demo",
+    "failedBadge": "Failed",
+    "engineExecutable": "Engine executable",
     "path": "Location",
     "version": "Version",
     "source": "Source",
@@ -141,10 +190,14 @@
       "update": "Update",
       "repair": "Repair",
       "running": "Running",
+      "writeLocked": "Writing\u2026",
       "locate": "Locate folder\u2026",
       "revalidate": "Check again",
       "reveal": "Open folder",
       "rename": "Rename\u2026",
+      "cleanup": "Clean up redundant config copies\u2026",
+      "setIcon": "Set icon\u2026",
+      "importRetail": "Import retail data\u2026",
       "remove": "Remove\u2026",
       "favorite": "Add to favourites",
       "unfavorite": "Remove from favourites",
@@ -158,18 +211,32 @@
     "error": {
       "duplicate": "That folder is already in your library as \u201c{{name}}\u201d.",
       "rootMissing": "The folder {{path}} does not exist.",
-      "notQuake2": "{{path}} does not look like a Quake II installation. It needs a baseq2 folder or a known Quake II client.",
+      "notQuake2": "{{path}} does not look like a Quake II installation. It needs a baseq2 folder or a known Quake II engine.",
       "notFound": "That installation is no longer in your library.",
       "createFailed": "The folder {{path}} could not be created. Check that you have permission to write there.",
       "alreadyContainsGame": "{{path}} already contains a Quake II installation. Use \u201cAdd existing installation\u201d instead.",
-      "deleteFromDiskUnsupported": "Deleting game files is not implemented yet. The installation was left untouched.",
-      "nothingImported": "Nothing was imported."
+      "deleteFromDiskStoreManaged": "Nothing was deleted: this installation's files are managed by its store. Uninstall it from there instead.",
+      "deleteFromDiskRunning": "Nothing was deleted: the game is running. Close it first, then try again.",
+      "deleteFromDiskMissing": "Nothing was deleted: the folder {{path}} does not exist.",
+      "deleteFromDiskRoot": "Nothing was deleted: {{path}} is a drive root, or too close to one, to be an installation folder.",
+      "deleteFromDiskUserData": "Nothing was deleted: {{path}} is the launcher’s own data folder, or holds it.",
+      "deleteFromDiskHome": "Nothing was deleted: {{path}} is your home folder, or holds it.",
+      "deleteFromDiskOverlapsInstallation": "Nothing was deleted: {{path}} also holds another installation ({{other}}).",
+      "deleteFromDiskFailed": "The folder {{path}} could not be fully deleted. Some files may still be there — check that the game is closed and that you have permission to delete them.",
+      "deleteFromDiskMisconfigured": "Removal from disk is not available right now.",
+      "nothingImported": "Nothing was imported.",
+      "iconPickCancelled": "No image was chosen. The icon was left as it was.",
+      "iconUnsupportedFormat": "Only PNG and JPEG images can be used as an icon.",
+      "iconTooLarge": "That image is too large. Choose a file smaller than {{limit}} MB.",
+      "iconUnreadable": "That file could not be read as an image. It may be damaged, or not really an image.",
+      "iconStoreFailed": "The icon could not be saved. Check that the launcher can write to its own data folder."
     },
     "toast": {
       "needsAttention_one": "{{count}} installation needs attention.",
       "needsAttention_other": "{{count}} installations need attention.",
       "added": "Added \u201c{{name}}\u201d.",
       "removed": "Removed \u201c{{name}}\u201d from the launcher. The files are still on disk.",
+      "removedFromDisk": "Removed \u201c{{name}}\u201d from the launcher and deleted its files from disk.",
       "imported_one": "Imported {{count}} installation.",
       "imported_other": "Imported {{count}} installations.",
       "validated": "Checked \u201c{{name}}\u201d.",
@@ -186,10 +253,11 @@
     "pak0MissingButPaksPresent": "pak0.pak is missing, but other pak files are present. This may be a repacked or remastered install.",
     "pak0NotRetail": "pak0.pak is not the size of the retail file. This is probably the shareware demo or a repacked copy – some maps and assets will be missing.",
     "retailPaksMissing": "pak1.pak and pak2.pak are missing \u2013 this looks like the shareware demo rather than the full game.",
-    "noExecutable": "No client executable found in this folder.",
+    "pointReleaseMissing": "The 3.20 point release pak (pak2.pak) is missing.",
+    "noExecutable": "No engine executable found in this folder.",
     "executableMissing": "The selected executable is gone: {{path}}",
     "notWritable": "{{path}} is not writable. Configs and save games cannot be stored there.",
-    "engineUnknown": "The Quake II client could not be identified.",
+    "engineUnknown": "The Quake II engine could not be identified.",
     "fix": {
       "locate-root": "Locate folder\u2026",
       "select-executable": "Choose executable\u2026",
@@ -200,24 +268,130 @@
   },
 
   "engine": {
+    "unsupportedLabel": "{{engine}} (unsupported)",
     "note": {
       "r1q2": "r1q2 has no separate user folder – it writes config.cfg, saves and screenshots straight into the installation. The folder has to be writable, so avoid Program Files.",
       "remaster": "The 2023 remaster is a different engine with its own game API, config location and network protocol. The launcher can start it, but it cannot join r1q2 servers and the config module will target r1q2 first."
     }
   },
 
-  "hero": {
-    "eyebrow": "Active installation",
-    "title": "Ready when you are.",
-    "body": "Pick an installation on the left and hit play. Configuration, downloads, mods and asset packs land in the modules above as they get built.",
-    "noInstallTitle": "No installation selected",
-    "noInstallBody": "Add one to get started.",
-    "slide": "Show item {{index}}",
-    "stat": {
-      "lastPlayed": "Last played",
-      "playtime": "Play time",
-      "gameDirs": "Game dirs",
-      "client": "Client"
+  "home": {
+    "dashboard": {
+      "arrange": {
+        "on": "Done arranging",
+        "off": "Arrange dashboard",
+        "disabledHint": "Widen the window to arrange the dashboard"
+      },
+      "catalog": {
+        "empty": "Every dashboard module is already placed."
+      },
+      "status": {
+        "entered": "Arrange mode on. Drag a tile or press Enter on a catalog entry to place it.",
+        "exited": "Arrange mode off.",
+        "placed": "{{title}} placed on the dashboard.",
+        "noRoom": "There is no room for {{title}} on the grid.",
+        "placeFailed": "{{title}} could not be placed.",
+        "removed": "{{title}} returned to the catalog.",
+        "reset": "Dashboard reset to its default layout.",
+        "lifted": "{{title}} lifted. Move or resize it, then drop it - Escape puts it back.",
+        "dropped": "{{title}} placement confirmed.",
+        "moved": "{{title}} moved to column {{column}}, row {{row}}.",
+        "resized": "{{title}} resized to {{w}} by {{h}} cells.",
+        "invalidDrop": "{{title}} cannot go there - {{reason}}.",
+        "invalidMove": "Can't move {{title}} - {{reason}}.",
+        "unchanged": "{{title}} stays where it was.",
+        "cancelled": "Cancelled - {{title}} is back where it was.",
+        "saveFailed": "{{title}} could not be saved."
+      },
+      "tile": {
+        "grip": "Move {{title}}",
+        "resize": "Resize {{title}}",
+        "remove": "Return {{title}} to catalog"
+      },
+      "tileFrame": {
+        "loading": "Loading…",
+        "error": "This tile could not load its data.",
+        "renderError": "This tile could not be displayed."
+      },
+      "arrangeBar": {
+        "reset": "Reset to default"
+      },
+      "dnd": {
+        "instructions": "Press and hold, then drag a tile's move or resize grip to arrange the dashboard."
+      },
+      "tiles": {
+        "playtime": {
+          "title": "Playtime",
+          "status": {
+            "total": "Total",
+            "ok": "OK",
+            "needsAttention": "Needs attention",
+            "missing": "Missing"
+          },
+          "engines": {
+            "label": "By engine"
+          },
+          "favorites": {
+            "label": "Favourites"
+          },
+          "totalPlaytime": {
+            "label": "Total playtime"
+          },
+          "lastSession": {
+            "label": "Last session",
+            "value": "{{name}} — {{when}}",
+            "none": "Nothing played yet"
+          },
+          "empty": {
+            "title": "No installations yet",
+            "body": "Add or find your Quake II installation to see your library's stats here.",
+            "action": "Add existing"
+          }
+        },
+        "configProfiles": {
+          "title": "Config Profiles",
+          "own": {
+            "label": "File"
+          },
+          "installations": {
+            "label": "Installations"
+          },
+          "state": {
+            "inSync": "In sync",
+            "outOfSync": "Out of sync",
+            "missing": "Missing",
+            "failed": "Failed"
+          },
+          "empty": {
+            "title": "No config profiles yet",
+            "body": "Create a config profile to manage cvars, binds and files across your installations.",
+            "action": "Open config"
+          }
+        }
+      }
+    },
+    "error": {
+      "urlNotAllowed": "That link could not be opened."
+    },
+    "hero": {
+      "label": "Community news",
+      "dots": "Choose a news slide",
+      "goToSlide": "Show news slide {{position}}",
+      "previous": "Previous news slide",
+      "next": "Next news slide",
+      "pause": "Pause the news rotation",
+      "resume": "Resume the news rotation",
+      "counter": "{{position}} / {{total}}",
+      "welcome": {
+        "title": "Welcome to Q2 Launcher",
+        "step1": "Add or detect your Quake II installation",
+        "step2": "Set up your controls and settings",
+        "step3": "Hit Play"
+      },
+      "stale": {
+        "asOf": "As of {{time}}",
+        "refresh": "Refresh news"
+      }
     }
   },
 
@@ -253,8 +427,8 @@
       "inspecting": "Checking folder\u2026",
       "detected": "Detected",
       "nameLabel": "Name in the launcher",
-      "executableLabel": "Client executable",
-      "executableHint": "Several clients were found. Pick the one you want to launch.",
+      "executableLabel": "Engine executable",
+      "executableHint": "Several engine executables were found. Pick the one you want to launch.",
       "gameDirsLabel": "Game directories",
       "submit": "Add installation"
     },
@@ -285,29 +459,52 @@
     },
     "create": {
       "title": "Create new installation",
-      "body": "Creates an empty installation folder and registers it. Downloading the game files is the install module's job \u2013 that part is not built yet.",
+      "body": "Creates an empty installation folder and registers it. Downloading the game files is the downloads module's job \u2013 that part is not built yet.",
       "nameLabel": "Name",
       "namePlaceholder": "Quake II \u2013 r1q2",
       "locationLabel": "Folder",
       "pickTitle": "Choose where to create the installation",
       "pickButton": "Create here",
-      "engineLabel": "Client",
-      "notice": "After creating it, the installation will show \u201cgame files missing\u201d until the install module can download them. You can also copy pak0.pak in by hand.",
+      "engineLabel": "Engine",
+      "notice": "After creating it, the installation will show \u201cgame files missing\u201d until the downloads module can download them. You can also copy pak0.pak in by hand.",
       "submit": "Create installation"
     },
     "remove": {
       "title": "Remove \u201c{{name}}\u201d?",
       "body": "This removes the installation from the launcher only. Nothing on your disk is touched.",
       "pathNote": "The folder {{path}} stays exactly as it is.",
-      "confirm": "Remove from launcher"
+      "confirm": "Remove from launcher",
+      "optionEntryOnly": "Remove entry only",
+      "optionDeleteFromDisk": "Remove from disk",
+      "diskDisabledWhileRunning": "Can\u2019t delete files while this installation is running.",
+      "diskConfirmTitle": "This deletes files from disk",
+      "diskConfirmBody": "The installation\u2019s folder and everything in it is deleted permanently. This cannot be undone.",
+      "diskConfirmButton": "Delete folder",
+      "storeManagedNote": "This installation is managed by its store. Uninstalling it there also removes its files \u2013 the launcher can only remove this entry."
     },
     "rename": {
       "title": "Rename installation",
       "label": "Name"
     },
+    "cleanup": {
+      "title": "Redundant config copies",
+      "description": "Looks through {{name}} for mod-folder config files that duplicate a baseq2 file of the same name. Nothing is removed until you confirm, and a removal can be undone here afterwards."
+    },
+    "installationIcon": {
+      "title": "Set icon for “{{name}}”",
+      "shippedLabel": "Choose an icon",
+      "shippedIconLabel": "“{{id}}” icon",
+      "chooseFile": "Choose image file…",
+      "clear": "Clear icon"
+    },
     "gameDir": {
       "label": "Launch with",
       "base": "Base game (baseq2)"
+    },
+    "resetLayout": {
+      "title": "Reset dashboard to default?",
+      "body": "This puts both dashboard modules back at their default size and position. Anything you have arranged is replaced.",
+      "confirm": "Reset to default"
     }
   },
 
@@ -318,6 +515,7 @@
     "addExisting": "Add existing",
     "autoDetect": "Search PC",
     "create": "Create new",
+    "downloadAndInstall": "Download & install",
     "revalidateAll": "Check all",
     "stats": {
       "total": "Installations",
@@ -328,10 +526,1491 @@
     },
     "column": {
       "name": "Installation",
-      "engine": "Client",
+      "engine": "Engine",
       "status": "Status",
       "path": "Location"
     }
+  },
+
+  "config": {
+    "title": "Config",
+    "subtitle_one": "{{count}} profile",
+    "subtitle_other": "{{count}} profiles",
+    "newProfile": "New profile",
+    "empty": {
+      "title": "No config profiles yet",
+      "body": "Config profiles hold a set of cvars and key binds you can reuse across installations.",
+      "hint": "Use \u201cNew profile\u201d to create one, empty or from the standard template."
+    },
+    "list": {
+      "label": "Profiles"
+    },
+    "nav": {
+      "back": "Back to profiles"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "settings": "Settings",
+      "controls": "Controls",
+      "aliases": "Aliases",
+      "raw": "Raw file",
+      "care": "Care",
+      "unsaved": "Unsaved"
+    },
+    "overview": {
+      "label": "Keyboard overview",
+      "subtitle": "{{bound}} of {{total}} keys bound",
+      "editHint": "Click a key to edit its bind",
+      "legend": {
+        "free": "Free",
+        "bound": "Bound",
+        "altLayer": "Bound in an alt layer",
+        "trigger": "Layer trigger",
+        "pressed": "Pressed"
+      },
+      "testMode": {
+        "start": "Start test mode",
+        "stop": "Stop test mode",
+        "noBind": "Not bound",
+        "placeholder": "Press a key or click a mouse button…",
+        "inactive": "Start test mode to see what a key does",
+        "sourceBase": "base",
+        "sourceLayer": "layer {{name}}",
+        "triggerActivates": "Activates layer {{name}} ({{mode}})",
+        "triggerAlias": "Runs: {{command}}",
+        "mode": {
+          "hold": "hold",
+          "toggle": "toggle"
+        }
+      },
+      "trigger": {
+        "layerLabel": "{{layer}}",
+        "title": "Layer trigger: {{layer}}"
+      }
+    },
+    "keyBindDialog": {
+      "title": "Bind {{key}}",
+      "currentLabel": "Currently bound to: {{command}}",
+      "pickListLabel": "Pick a command",
+      "filterPlaceholder": "Filter commands…",
+      "rawCommandLabel": "Command",
+      "clear": "Clear",
+      "assign": "Assign",
+      "doubleKeyNote": "Both physical keys share this one bind.",
+      "layerContext": "Editing layer: {{name}}",
+      "baseBindLabel": "Base bind: {{command}}",
+      "trigger": {
+        "label": "Layer trigger",
+        "currentLabel": "Currently triggers: {{name}}",
+        "none": "This key does not trigger a layer.",
+        "pickLabel": "Layer to trigger",
+        "moveNote": "This key currently triggers {{name}}; assigning moves that trigger here and leaves {{name}} without one.",
+        "assign": "Assign trigger",
+        "clear": "Clear trigger"
+      }
+    },
+    "detail": {
+      "created": "Created",
+      "updated": "Updated",
+      "rename": "Rename\u2026",
+      "delete": "Delete\u2026"
+    },
+    "save": {
+      "unsaved": "Unsaved changes",
+      "unsavedHint": "Kept safely for now, but the file on disk hasn\u2019t been updated yet.",
+      "saved": "Saved",
+      "upToDate": "Everything on this profile is written to the file on disk.",
+      "action": "Save",
+      "saving": "Saving\u2026",
+      "unreadableUnparseable": "The file on disk could not be parsed ({{message}}) \u2014 fix the file, then try saving again. Your edits are still safe.",
+      "unreadableReadError": "The file on disk could not be read ({{message}}) \u2014 try saving again. Your edits are still safe.",
+      "toggle_one": "{{count}} unsaved change",
+      "toggle_other": "{{count}} unsaved changes",
+      "discard": "Discard\u2026",
+      "discarding": "Discarding\u2026",
+      "rawEdited": "File text edited \u2014 Save writes exactly this text to the file on disk.",
+      "discardRaw": "Discard",
+      "discardNoBaseline": "There is no saved state to return to yet \u2014 this profile has never been saved.",
+      "changes": {
+        "section": {
+          "cvars": "Cvars",
+          "binds": "Binds",
+          "actions": "Actions",
+          "layers": "Layers",
+          "settings": "Settings",
+          "unrecognized": "Preserved lines"
+        },
+        "unset": "unset",
+        "unbound": "unbound",
+        "before": "Before",
+        "after": "After",
+        "kind": {
+          "added": "Added",
+          "removed": "Removed",
+          "changed": "Changed"
+        },
+        "field": {
+          "name": "Name",
+          "kind": "Kind",
+          "mode": "Mode",
+          "triggerKey": "Trigger key",
+          "keys": "Keys",
+          "commands": "Commands",
+          "parts": "Parts",
+          "overrides": "Overrides",
+          "aliasName": "Alias name",
+          "keepEmptyAlias": "Keep empty alias",
+          "catalogId": "Catalog entry",
+          "categoryId": "Category",
+          "subcategoryId": "Subcategory"
+        },
+        "settingsLabel": {
+          "name": "Profile name",
+          "writeUnbindall": "Write unbindall",
+          "sectionHeaderStyle": "Section header style"
+        }
+      }
+    },
+    "conflictDialog": {
+      "title": "The file changed on disk",
+      "description": "This profile has unsaved edits, and its file changed underneath them. Choose which version to keep.",
+      "onDisk": "On disk",
+      "yourEdits": "Your unsaved changes",
+      "takeFile": "Take the file",
+      "takingFile": "Taking the file\u2026",
+      "overwrite": "Overwrite with my version",
+      "overwriting": "Overwriting\u2026",
+      "takeFileFailed": "The file changed again before it could be taken \u2014 nothing was adopted. Try again.",
+      "overwriteFailed": "The file could not be overwritten. Try again."
+    },
+    "fileSource": {
+      "reloaded": "This profile's file changed on disk and was reloaded.",
+      "aliasDropped_one": "The file defines the alias {{names}} more than once, so only its last definition survived the reload \u2014 the entry that shared the name lost its commands. Give the two entries different alias names and save to fix the file.",
+      "aliasDropped_other": "The file defines these aliases more than once: {{names}}. Only the last definition of each survived the reload \u2014 the entries that shared those names lost their commands. Give them different alias names and save to fix the file.",
+      "conflict": "The file changed on disk while this profile has unsaved edits \u2014 press Save to open the conflict dialog and resolve it. Nothing was overwritten.",
+      "diagnostic": {
+        "titleWithLine": "This file could not be parsed ({{file}}, line {{line}})",
+        "title": "This file could not be read",
+        "hint": "The profile keeps working off its last saved state until the file is fixed."
+      },
+      "missingBanner": {
+        "title": "This profile's file is missing",
+        "body": "It was deleted or moved outside the launcher. The profile keeps working off its last saved state.",
+        "rewrite": "Rewrite from cache",
+        "remove": "Remove profile\u2026"
+      }
+    },
+    "createDialog": {
+      "title": "Create config profile",
+      "nameLabel": "Name",
+      "namePlaceholder": "My profile",
+      "sourceLabel": "Start from",
+      "sourceEmpty": "Empty profile",
+      "sourceTemplateRight": "Standard template (right-handed)",
+      "sourceTemplateLeft": "Standard template (left-handed)",
+      "sourceImport": "Import from files",
+      "templateHandednessNote": "Both layouts are the same for now — distinct content arrives in a later update.",
+      "submit": "Create profile",
+      "continue": "Continue"
+    },
+    "renameDialog": {
+      "title": "Rename profile",
+      "label": "Name"
+    },
+    "deleteDialog": {
+      "title": "Delete \u201c{{name}}\u201d?",
+      "body": "This deletes the profile from the launcher. It is not tied to any installation's files on disk, but it cannot be undone \u2013 once deleted, its cvars and binds are gone.",
+      "confirm": "Delete profile"
+    },
+    "discardDialog": {
+      "title": "Discard unsaved changes?",
+      "body": "This returns the profile to its last saved state. It does not touch the file on disk.",
+      "confirm": "Discard changes"
+    },
+    "assignment": {
+      "label": "Assigned installations",
+      "summary": "{{count}} of {{total}} assigned",
+      "noInstallations": "No installations registered yet.",
+      "default": "Default",
+      "setDefault": "Set default",
+      "byInstallation": "By installation",
+      "noneAssigned": "No profiles assigned."
+    },
+    "switchBind": {
+      "label": "Switch key",
+      "notSet": "Not set",
+      "suggestF9": "Use F9",
+      "capture": "Set key…",
+      "capturing": "Press a key…",
+      "clear": "Clear"
+    },
+    "error": {
+      "installationNotFound": "That installation is no longer in your library.",
+      "profileNotFound": "That config profile no longer exists.",
+      "notAssigned": "This profile is not assigned to that installation.",
+      "writeFailed": "Could not write this profile's files to disk.",
+      "installationRunning": "This installation is currently running. Close the game first.",
+      "fileNotFound": "That file could not be found on disk.",
+      "openFailed": "Could not open that file: {{message}}",
+      "invalidLayerAlias": "One of the aliases you chose to import as a layer is not one this import found.",
+      "pickedFileNotFound": "One of the files you picked is no longer available to this import. Choose the files again.",
+      "rawTextNotOwned": "This text no longer carries the profile header the launcher identifies this file by. Keep the header at the top of the file, or edit the file outside the launcher instead.",
+      "rawTextNotLatin1": "This text contains characters a Quake II config file cannot hold. Only plain latin-1 text works."
+    },
+    "cvar": {
+      "name": {
+        "label": "Player name",
+        "description": "Your name in game. Shows up on the scoreboard and in chat."
+      },
+      "skin": {
+        "label": "Player model",
+        "description": "Model and skin. Format: model/skin.",
+        "choice": {
+          "male_grunt": "Male — Grunt",
+          "male_cipher": "Male — Cipher",
+          "male_claymore": "Male — Claymore",
+          "male_flak": "Male — Flak",
+          "male_howitzer": "Male — Howitzer",
+          "male_nightops": "Male — Nightops",
+          "male_pointman": "Male — Pointman",
+          "male_psycho": "Male — Psycho",
+          "male_rampage": "Male — Rampage",
+          "male_recon": "Male — Recon",
+          "male_scout": "Male — Scout",
+          "male_sniper": "Male — Sniper",
+          "male_viper": "Male — Viper",
+          "female_athena": "Female — Athena",
+          "female_brianna": "Female — Brianna",
+          "female_cobalt": "Female — Cobalt",
+          "female_ensign": "Female — Ensign",
+          "female_jezebel": "Female — Jezebel",
+          "female_jungle": "Female — Jungle",
+          "female_lotus": "Female — Lotus",
+          "female_stiletto": "Female — Stiletto",
+          "female_venus": "Female — Venus",
+          "cyborg_oni911": "Cyborg — Oni911",
+          "cyborg_ps9000": "Cyborg — PS9000",
+          "cyborg_tyr574": "Cyborg — Tyr574"
+        }
+      },
+      "fov": {
+        "label": "Field of view (FOV)",
+        "description": "Viewing angle in degrees. 90 is the engine default; most players use 100–120 for a wider view. Very high values distort heavily."
+      },
+      "sensitivity": {
+        "label": "Mouse sensitivity",
+        "description": "How far the view turns per unit of mouse movement."
+      },
+      "m_pitch": {
+        "label": "Vertical mouse direction",
+        "description": "A negative value inverts the Y axis.",
+        "choice": {
+          "0_022": "Normal",
+          "_0_022": "Inverted"
+        }
+      },
+      "freelook": {
+        "label": "Mouselook",
+        "description": "Permanent look-around with the mouse. Should always be on.",
+        "byEngine": {
+          "vanilla": {
+            "note": "Vanilla ships this off, which is why an unconfigured 3.20 engine feels broken to anyone used to a modern build."
+          }
+        }
+      },
+      "cl_run": {
+        "label": "Always run",
+        "description": "Without this you move at walking speed by default."
+      },
+      "hand": {
+        "label": "Weapon hand",
+        "description": "Which side the weapon is drawn on.",
+        "warning": "The value 2 (centred / hidden) is implemented by the game DLL, not by the engine, so it depends on the mod being played rather than on the engine.",
+        "choice": {
+          "0": "Right",
+          "1": "Left",
+          "2": "Centred / hidden"
+        }
+      },
+      "crosshair": {
+        "label": "Crosshair",
+        "description": "Which crosshair is drawn.",
+        "choice": {
+          "0": "None",
+          "1": "Variant 1",
+          "2": "Variant 2",
+          "3": "Variant 3"
+        }
+      },
+      "ch_scale": {
+        "label": "Crosshair size",
+        "description": "Scales the crosshair image.",
+        "byEngine": {
+          "q2pro": {
+            "note": "Part of the Q2PRO crosshair family (ch_scale, ch_alpha, ch_red/green/blue). None of it exists on R1Q2 or vanilla."
+          }
+        }
+      },
+      "msg": {
+        "label": "Message filter",
+        "description": "How many server and kill messages are shown.",
+        "choice": {
+          "0": "Everything",
+          "1": "No item pickups",
+          "2": "Important only",
+          "3": "Minimal"
+        }
+      },
+      "rate": {
+        "label": "Network rate",
+        "description": "Bytes per second the server may send. 25000 is a good value on any modern connection."
+      },
+      "cl_maxfps": {
+        "label": "Max FPS (packets / physics)",
+        "description": "Caps the local tick (packets and physics). In Quake 2 this rate affects jump height, which is why 125 is the classic compromise. On engines with asynchronous rendering it governs the packet rate only — the render rate is r_maxfps.",
+        "byEngine": {
+          "vanilla": {
+            "note": "Vanilla has no asynchronous mode: this one value caps everything, and nothing clamps it."
+          },
+          "r1q2": {
+            "note": "With cl_async on, R1Q2 prints a warning above 100 and points you at r_maxfps instead; a high packet rate also risks a flood kick from the server.",
+            "valueNote": {
+              "0": "R1Q2 does not read 0 as \"unlimited\". The change callback clamps anything below 5 up to 5, leaving you at 5 packets per second — the server will drop or kick you for not sending enough updates."
+            }
+          },
+          "q2pro": {
+            "note": "Q2PRO clamps this to 10–125. The classic cl_maxfps 125 is therefore the ceiling, and anything above it is silently reduced — raise r_maxfps if you want more rendered frames.",
+            "valueNote": {
+              "0": "On Q2PRO 0 means \"as fast as allowed\", which for the physics rate is MAX_PHYS_HZ, i.e. 125."
+            }
+          }
+        }
+      },
+      "cl_async": {
+        "label": "Asynchronous rendering",
+        "description": "Decouples the rendering rate from the packet rate. With this off, one value drives both and r_maxfps has no independent effect.",
+        "choice": {
+          "0": "Off — one rate for everything",
+          "1": "On — separate render rate",
+          "2": "On, synced to video (vsync-driven)"
+        },
+        "byEngine": {
+          "r1q2": {
+            "note": "While cl_async is 0, R1Q2 mirrors cl_maxfps and r_maxfps onto each other, so whichever of the two a config sets last wins for both."
+          },
+          "q2pro": {
+            "note": "Q2PRO also accepts 2, which drives the refresh from the video sync instead of from r_maxfps."
+          }
+        }
+      },
+      "vid_fullscreen": {
+        "label": "Fullscreen",
+        "description": "Fullscreen instead of a window."
+      },
+      "vid_gamma": {
+        "label": "Gamma",
+        "description": "Lower values brighten the picture.",
+        "byEngine": {
+          "q2pro": {
+            "note": "Without a hardware gamma ramp Q2PRO applies gamma to the textures themselves and flags the cvar CVAR_FILES, so a change only takes effect after vid_restart."
+          }
+        }
+      },
+      "gl_modulate": {
+        "label": "Brightness (lightmaps)",
+        "description": "Scales level lighting up. The usual way to make dark corners visible.",
+        "byEngine": {
+          "r1q2": {
+            "note": "R1Q2 already ships this at 2 and archives it, so a competitive config usually does not need to set it at all."
+          },
+          "q2pro": {
+            "note": "Q2PRO multiplies this by gl_modulate_world for world lightmaps and by gl_modulate_entities for models, so the effective brightness is a product of two cvars. On the gloom mod it also cheat-protects the extra ones."
+          }
+        }
+      },
+      "gl_picmip": {
+        "label": "Texture detail",
+        "description": "Higher values make textures muddier but let enemies stand out more clearly.",
+        "byEngine": {
+          "q2pro": {
+            "note": "Flagged CVAR_FILES on Q2PRO: textures are reloaded on change, so it needs a vid_restart to apply."
+          }
+        }
+      },
+      "gl_texturemode": {
+        "label": "Texture filter",
+        "description": "Texture smoothing. NEAREST gives the hard retro look.",
+        "choice": {
+          "gl_nearest": "Nearest (pixelated)",
+          "gl_linear": "Linear",
+          "gl_nearest_mipmap_nearest": "Nearest + nearest mipmap",
+          "gl_linear_mipmap_nearest": "Bilinear",
+          "gl_nearest_mipmap_linear": "Nearest + linear mipmap",
+          "gl_linear_mipmap_linear": "Trilinear",
+          "mag_nearest": "Sharp magnification (Q2PRO only)"
+        },
+        "byEngine": {
+          "q2pro": {
+            "note": "Q2PRO adds MAG_NEAREST — trilinear minification with nearest magnification, i.e. crisp up close without aliasing at distance. Vanilla and R1Q2 reject the name and keep their previous filter."
+          }
+        }
+      },
+      "cl_gun": {
+        "label": "Show weapon model",
+        "description": "Your own weapon in view. Off gives a clearer picture."
+      },
+      "cl_blend": {
+        "label": "Screen effects",
+        "description": "Coloured flashes on hits and powerups. Off is calmer."
+      },
+      "gl_polyblend": {
+        "label": "Colour overlay",
+        "description": "Extra colour wash underwater and when taking damage."
+      },
+      "gl_shadows": {
+        "label": "Shadows",
+        "description": "Simple shadows under players."
+      },
+      "gl_dynamic": {
+        "label": "Dynamic lighting",
+        "description": "Light thrown by shots and explosions.",
+        "byEngine": {
+          "q2pro": {
+            "note": "Q2PRO treats only the exact value 1 as \"full dynamic lighting\"; other non-zero values light entities but skip lightmap updates."
+          }
+        }
+      },
+      "gl_swapinterval": {
+        "label": "VSync",
+        "description": "Prevents tearing but adds input latency."
+      },
+      "cl_noskins": {
+        "label": "Uniform skins",
+        "description": "Gives every player the same model, which makes them easier to read."
+      },
+      "r_maxfps": {
+        "label": "Render FPS cap",
+        "description": "Caps the rendering rate separately from the packet rate. Only has an independent effect while cl_async is on.",
+        "byEngine": {
+          "r1q2": {
+            "note": "R1Q2 already defaults to 1000, so leaving this alone is the uncapped case.",
+            "valueNote": {
+              "0": "R1Q2 does not read 0 as \"unlimited\". The change callback clamps anything below 5 up to 5, so the renderer is pinned at 5 FPS and the game stutters badly. The gate itself divides by the value, which is why the clamp has to exist at all."
+            }
+          },
+          "q2pro": {
+            "valueNote": {
+              "0": "On Q2PRO 0 means unlimited: the frame-time helper falls back to MAX_REF_HZ, giving a 1000 FPS cap. This is also the Q2PRO default."
+            }
+          }
+        }
+      },
+      "con_alpha": {
+        "label": "Console transparency",
+        "description": "How see-through the console is while connected to a server.",
+        "byEngine": {
+          "q2pro": {
+            "note": "Only applies while connected and with the menu closed; scr_alpha scales the whole HUD separately."
+          }
+        }
+      },
+      "s_volume": {
+        "label": "Volume",
+        "description": "Overall volume."
+      },
+      "s_khz": {
+        "label": "Sound quality",
+        "description": "Output sample rate.",
+        "choice": {
+          "11": "11 kHz",
+          "22": "22 kHz",
+          "44": "44 kHz"
+        }
+      },
+      "notOnEngine": "not on {{engine}}",
+      "currentValue": "Current value",
+      "engineDefault": "Engine default",
+      "recommendedDefault": "Recommended default",
+      "range": "Range",
+      "equalsDefault": "= default",
+      "unsavedLabel": "Unsaved change",
+      "plain": {
+        "noFacts": "Not in the catalogue"
+      },
+      "flag": {
+        "note": "Note",
+        "caution": "Caution",
+        "problem": "Problem",
+        "outOfRangeBadge": "Out of range",
+        "enginesBadge": "Engines differ",
+        "clamped": "{{engine}} clamps {{name}} to {{range}} and silently uses {{bound}} instead.",
+        "outOfRange": "{{name}} {{value}} is outside what {{engine}} accepts — {{engine}} expects {{range}}.",
+        "otherAbsent": "{{engine}}, also assigned, does not have {{name}} at all.",
+        "otherDefault": "{{engine}}, also assigned, defaults to {{value}}.",
+        "otherRange": "{{engine}}, also assigned, expects {{range}}.",
+        "otherNoRange": "{{engine}}, also assigned, has no clamp range on record for {{name}}.",
+        "otherNote": "On {{engine}}, also assigned: {{message}}",
+        "otherPlainValue": "{{engine}}, also assigned, documents nothing special about {{value}}."
+      }
+    },
+    "actionCatalog": {
+      "forward": { "label": "Forward" },
+      "back": { "label": "Back" },
+      "moveleft": { "label": "Strafe left" },
+      "moveright": { "label": "Strafe right" },
+      "moveup": { "label": "Jump" },
+      "movedown": { "label": "Crouch" },
+      "attack": { "label": "Attack" },
+      "speed": {
+        "label": "Walk (slow)",
+        "description": "Switches to walking speed — quieter, but slower."
+      },
+      "strafe": {
+        "label": "Strafe modifier",
+        "description": "Turns left/right turning into sideways movement."
+      },
+      "left": { "label": "Turn left" },
+      "right": { "label": "Turn right" },
+      "klook": {
+        "label": "Keyboard look",
+        "description": "Forward/back becomes look up/down."
+      },
+      "mlook": { "label": "Mouse look" },
+      "centerview": { "label": "Centre view" },
+      "blaster": { "label": "Blaster" },
+      "shotgun": { "label": "Shotgun" },
+      "sshotgun": { "label": "Super Shotgun" },
+      "machinegun": { "label": "Machinegun" },
+      "chaingun": { "label": "Chaingun" },
+      "grenades": { "label": "Hand grenades" },
+      "glauncher": { "label": "Grenade Launcher" },
+      "rlauncher": { "label": "Rocket Launcher" },
+      "hyperblaster": { "label": "Hyperblaster" },
+      "railgun": { "label": "Railgun" },
+      "bfg": { "label": "BFG10K" },
+      "use_blaster": { "description": "Switches to the Blaster." },
+      "use_shotgun": { "description": "Switches to the Shotgun." },
+      "use_sshotgun": { "description": "Switches to the Super Shotgun." },
+      "use_machinegun": { "description": "Switches to the Machinegun." },
+      "use_chaingun": { "description": "Switches to the Chaingun." },
+      "use_grenades": { "description": "Switches to the Hand grenades." },
+      "use_glauncher": { "description": "Switches to the Grenade Launcher." },
+      "use_rlauncher": { "description": "Switches to the Rocket Launcher." },
+      "use_hyperblaster": { "description": "Switches to the Hyperblaster." },
+      "use_railgun": { "description": "Switches to the Railgun." },
+      "use_bfg": { "description": "Switches to the BFG10K." },
+      "weapnext": { "label": "Next weapon" },
+      "weapprev": { "label": "Previous weapon" },
+      "weaplast": { "label": "Last weapon" },
+      "shells": { "label": "Shells" },
+      "bullets": { "label": "Bullets" },
+      "rockets": { "label": "Rockets" },
+      "cells": { "label": "Cells" },
+      "slugs": { "label": "Slugs" },
+      "hgrenades": { "label": "Hand grenades" },
+      "powershield": { "label": "Power Shield" },
+      "powerscreen": { "label": "Power Screen" },
+      "quad": { "label": "Quad Damage" },
+      "invuln": { "label": "Invulnerability" },
+      "silencer": { "label": "Silencer" },
+      "rebreather": { "label": "Rebreather" },
+      "envsuit": { "label": "Environment Suit" },
+      "adrenaline": { "label": "Adrenaline" },
+      "bandolier": { "label": "Bandolier" },
+      "ammopack": { "label": "Ammo Pack" },
+      "tech": { "label": "Tech (CTF Rune)" }
+    },
+    "engineScope": {
+      "label": "Engine facts shown for",
+      "hint": "Defaults, clamp ranges and value warnings below are the ones this engine enforces.",
+      "unassigned": "This profile is not assigned to any installation, so there is no engine whose defaults, clamp ranges and warnings could be shown. Assign it to an installation above and its engine appears here.",
+      "unresolved": "This profile's assignments point at installations that are no longer registered, so no engine could be determined.",
+      "noFacts": "No engine facts for {{engines}}. The launcher only carries source-cited defaults, clamps and warnings for R1Q2, Q2PRO and the original Quake II — the values below are shown without engine facts rather than with another engine's numbers.",
+      "omitted": "Also assigned to {{engines}}, which the launcher has no engine facts for."
+    },
+    "validation": {
+      "structure": {
+        "aliasTooLong": "The alias name “{{name}}” is {{length}} characters long. Quake II copies an alias name into a fixed buffer (MAX_ALIAS_NAME) and rejects anything longer with “Alias name is too long”, so this alias is never created at all. Use at most {{max}} characters.",
+        "aliasSpace": "The alias name “{{name}}” contains a space (line {{line}} of {{file}}). The engine reads the name up to the first space and treats the rest as an argument, so this alias can never be called by the name it was given. Use underscores instead of spaces.",
+        "aliasDuplicate": "The alias “{{name}}” is defined a second time on line {{line}} of {{file}}. The later definition silently replaces the earlier one, so whatever used the first version now quietly does something else. Rename one of the two.",
+        "aliasCycle": "The aliases {{chain}} call each other in a loop. Quake II counts nested alias expansions and stops after {{max}} of them, so the loop eats the whole budget and everything queued behind it is dropped. Break the loop.",
+        "aliasDepth": "Running “{{name}}” expands {{depth}} aliases one inside the other. Quake II only expands {{max}} levels deep in a single pass and discards the rest, so the end of this chain never runs. Flatten it into fewer steps.",
+        "lineTooLong": "Line {{line}} of {{file}} is {{bytes}} bytes long. Quake II reads a config line into a {{limit}}-byte buffer, so this line is thrown away (or cut in half) before it can run. Split it into several shorter lines.",
+        "quoteBroken": "The value on line {{line}} of {{file}} contains a quotation mark of its own ({{quotes}} in one value instead of the opening and closing pair). Quake II has no escape character inside a quoted value – the first quotation mark after the opening one ends it – so the remainder of the line is read as stray commands. Remove the quotation marks from the value.",
+        "sizeOverDiscarded": "{{file}} is {{bytes}} bytes, more than the {{limit}} bytes this engine's command buffer holds. It refuses a config that does not fit rather than applying part of it, so not one line of this file takes effect. Move settings you do not need out of the profile.",
+        "sizeOverTruncated": "{{file}} is {{bytes}} bytes, more than the {{limit}} bytes this engine's command buffer holds. It cuts the file off at the limit and only mentions it on the console, so everything past that point silently never runs.",
+        "sizeOverCompressedDiscarded": "{{file}} still measures {{bytes}} bytes after this engine strips comments and collapses whitespace ({{rawBytes}} bytes on disk), more than the {{limit}} bytes its command buffer holds. It rejects the file as a whole, so nothing in it takes effect.",
+        "sizeOverCompressedTruncated": "{{file}} still measures {{bytes}} bytes after this engine strips comments and collapses whitespace ({{rawBytes}} bytes on disk), more than the {{limit}} bytes its command buffer holds. It cuts the file off at that point, so the rest silently never runs.",
+        "sizeWarn": "{{file}} uses {{bytes}} of the {{limit}} bytes this engine's command buffer holds ({{percent}}%). There is little room left – a few more settings and the end of the file stops being read.",
+        "sizeWarnCompressed": "{{file}} uses {{bytes}} of the {{limit}} bytes this engine's command buffer holds ({{percent}}%), measured after comments are stripped and whitespace collapsed ({{rawBytes}} bytes on disk). There is little room left – a few more settings and the file stops fitting."
+      },
+      "cvar": {
+        "absent": "{{engine}} does not know {{name}}. The line is still written into the config file, but the engine skips it silently – nothing else happens.",
+        "absentFix": "Remove the line, or leave it if this config is deliberately shared with another engine that does use {{name}}.",
+        "noteErrorFix": "Use an explicit value inside the normal range instead of {{value}}.",
+        "outOfRange": "{{name}} {{value}} is outside what {{engine}} accepts. {{engine}} expects {{name}} between {{min}} and {{max}}.",
+        "outOfRangeClamped": "{{name}} {{value}} is outside what {{engine}} accepts. {{engine}} clamps {{name}} to {{min}}-{{max}} and silently uses {{bound}} instead.",
+        "outOfRangeFix": "Set a value between {{min}} and {{max}}.",
+        "choiceRejected": "{{engine}} does not accept {{name}} {{value}}. Only {{accepted}} understands this value – {{engine}} rejects the name and keeps whatever was set before."
+      },
+      "actions": {
+        "undefinedAlias": "“{{action}}” calls “{{alias}}”, but no alias with that name exists in this profile any more. The bind still gets written, but pressing the key runs nothing.",
+        "aliasUnreferenced": "The alias “{{name}}” is not called by anything in this profile. It is still written to the config file, but nothing ever runs it.",
+        "aliasDuplicate": "{{count}} entries resolve to the same alias name “{{name}}” ({{entries}}). Quake II only keeps the last definition it reads – whichever binding calls this name reaches only that one, never the others.",
+        "aliasShadowsCommand": "“{{entry}}” resolves to the alias name “{{name}}”, which is already a built-in command or cvar. Quake II would define an alias that calls itself, so pressing the key runs nothing new. Give it its own alias name.",
+        "aliasSelfReference": "“{{entry}}” runs “{{command}}”, which is its own alias name “{{name}}”. The line is written exactly as you wrote it, but that command calls the entry back into itself – so either a built-in command of the same name wins and the entry never runs, or Quake II loops until it gives up. Remove that command, give the entry its own alias name, or leave it if you meant it.",
+        "toggleCrossWired": "“{{dispatch}}”, “{{first}}” and “{{second}}” look like a toggle, but the two states are cross-wired: a working one has “{{first}}” hand control to “{{second}}” and “{{second}}” hand it back to “{{first}}”, and these do not – so the switch never loops between its two states. Recreate it as a toggle entry, or fix the “alias {{dispatch}} …” line at the end of each state so that each one points at the other.",
+        "pressWithoutRelease": "“{{entry}}” is a press command (“{{name}}”) with no matching release alias. Quake II keeps running it until something else stops it, since there is nothing bound to run on key-up. Add a matching release alias, or recreate this as a press/release entry so the pair can never drift apart.",
+        "releaseWithoutPress": "“{{entry}}” is a release command (“{{name}}”) with no matching press alias. Nothing in this profile ever triggers it. Add a matching press alias, or recreate this as a press/release entry so the pair can never drift apart."
+      },
+      "empty": {
+        "title": "Nothing to validate against",
+        "unassigned": "This profile is not assigned to any installation, so there is no engine to check it against. Assign it to an installation and its findings appear here.",
+        "unresolved": "This profile's assignments point at installations that are no longer registered, so no engine could be determined.",
+        "noFacts": "This profile is only assigned to {{engines}}, which the launcher has no source-cited limits or cvar facts for. Assign it to an R1Q2, Q2PRO or original Quake II installation to validate it."
+      },
+      "engineEmpty": "No findings for this engine.",
+      "count": {
+        "errors_one": "{{count}} error",
+        "errors_other": "{{count}} errors",
+        "warnings_one": "{{count}} warning",
+        "warnings_other": "{{count}} warnings"
+      },
+      "allGood": "No findings",
+      "subject": {
+        "cvar": "cvar {{id}}",
+        "bind": "key {{id}}",
+        "alias": "alias {{id}}",
+        "file": "{{id}}",
+        "profile": "profile",
+        "action": "{{id}}"
+      }
+    },
+    "settings": {
+      "title": "Settings",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "groups": {
+        "player": "Player",
+        "network": "Network",
+        "graphics": "Graphics",
+        "sound": "Sound"
+      },
+      "reserved": {
+        "defaults": "Defaults",
+        "defaultsHint": "Catalogue cvars no section of this profile holds. They are written to the file at their default value.",
+        "other": "Other",
+        "otherHint": "Cvars in this profile that no section holds and the catalogue does not know."
+      },
+      "header": {
+        "count": "{{total}} cvars · {{edited}} unsaved",
+        "shown": "{{count}} shown",
+        "filterPlaceholder": "Filter cvars…",
+        "unsavedOnly": "Unsaved only",
+        "writeCatalogDefaults": "Write unset catalogue defaults",
+        "writeCatalogDefaultsHint": "Keeps every catalogue cvar this profile does not place in a section written to the file under Defaults."
+      },
+      "advanced": {
+        "show": "{{count}} more…",
+        "showAdvanced": "Show advanced",
+        "hide": "Hide advanced"
+      },
+      "legend": {
+        "unsaved": "Unsaved change",
+        "default": "“= default” means the value matches the default shown"
+      },
+      "section": {
+        "create": "New section",
+        "moveUp": "Move section up",
+        "moveDown": "Move section down",
+        "rename": "Rename section",
+        "delete": "Delete section",
+        "addCvar": "Add cvar",
+        "moveCvar": "Move “{{name}}”…",
+        "removeCvar": "Remove “{{name}}”",
+        "gripDisabledReason": "Clear the filter, turn off Unsaved only, and expand Advanced to reorder by dragging",
+        "createDialog": {
+          "title": "Create section",
+          "nameLabel": "Name",
+          "submit": "Create section"
+        },
+        "renameDialog": {
+          "title": "Rename section",
+          "label": "Name"
+        },
+        "subsection": {
+          "create": "New sub-section",
+          "moveUp": "Move sub-section up",
+          "moveDown": "Move sub-section down",
+          "rename": "Rename sub-section",
+          "delete": "Delete sub-section",
+          "createDialog": {
+            "title": "Create sub-section",
+            "nameLabel": "Name",
+            "submit": "Create sub-section"
+          },
+          "renameDialog": {
+            "title": "Rename sub-section",
+            "label": "Name"
+          }
+        },
+        "addCvarDialog": {
+          "title": "Add cvar to “{{section}}”",
+          "nameLabel": "Cvar name",
+          "namePlaceholder": "e.g. cl_maxfps",
+          "valueLabel": "Value",
+          "submit": "Add cvar",
+          "suggestionsLabel": "Catalogue suggestions",
+          "existingNameWarning": "“{{name}}” already has a value - enter one here to overwrite it, or its stored value will be blanked."
+        },
+        "moveCvarDialog": {
+          "title": "Move “{{name}}”",
+          "targetLabel": "Move to",
+          "submit": "Move",
+          "empty": "This profile has no sections to move a cvar into yet."
+        }
+      }
+    },
+    "raw": {
+      "own": "This profile's file",
+      "onDisk": "On disk",
+      "notOnDisk": "Not on disk",
+      "notWritten": "Not written to this installation yet",
+      "openEditor": "Open in editor",
+      "reveal": "Reveal in folder",
+      "writeUnbindall": "Start the file with `unbindall`",
+      "writeUnbindallHint": "Clears every engine default bind before this profile's own binds are applied.",
+      "sectionHeaderStyle": "Section header style",
+      "sectionHeaderStyleHint": "How this profile's rendered file decorates its section banners (e.g. `Weapons`).",
+      "sectionHeaderStyleDashes": "Dashes (`--- Weapons ---`)",
+      "sectionHeaderStyleBrackets": "Brackets (`----- [ Weapons ] -----`)",
+      "sectionHeaderStylePlain": "Plain (`Weapons`)",
+      "previewEmpty": "Nothing would be written.",
+      "editLockedByChanges": "Save or discard this profile's unsaved changes to edit the file text here.",
+      "tabsLockedByDraft": "The file text has unsaved edits — save or discard them on the Raw file tab to change these settings.",
+      "unsavedNotice_one": "{{count}} unsaved change is not in this file yet.",
+      "unsavedNotice_other": "{{count}} unsaved changes are not in this file yet.",
+      "result": {
+        "preserved_one": "{{count}} line in this file isn't modeled by the launcher and was kept as-is.",
+        "preserved_other": "{{count}} lines in this file aren't modeled by the launcher and were kept as-is.",
+        "aliasDropped_one": "The alias {{names}} was defined more than once in this file; only its last definition was kept, so the entry that shared the name lost its commands.",
+        "aliasDropped_other": "These aliases were defined more than once in this file: {{names}}. Only the last definition of each was kept, so the entries that shared those names lost their commands."
+      }
+    },
+    "codeView": {
+      "editorLabel": "Raw config file editor",
+      "search": {
+        "label": "Search config text",
+        "placeholder": "Find in file…",
+        "previous": "Previous match",
+        "next": "Next match",
+        "count": "{{current}} of {{total}}",
+        "noMatches": "No matches"
+      }
+    },
+    "cleanup": {
+      "scan": "Scan",
+      "scanning": "Scanning…",
+      "empty": {
+        "title": "Nothing to clean up",
+        "body": "No redundant mod-folder config copies were found."
+      },
+      "differs": "Differs from baseq2",
+      "removeSelected": "Remove selected",
+      "confirmDialog": {
+        "title": "Remove redundant copies",
+        "body_one": "This will back up and remove {{count}} file. It can be undone from here afterward.",
+        "body_other": "This will back up and remove {{count}} files. It can be undone from here afterward.",
+        "confirm": "Remove"
+      },
+      "result": {
+        "removed_one": "{{count}} file removed.",
+        "removed_other": "{{count}} files removed.",
+        "rejected_one": "{{count}} could not be removed.",
+        "rejected_other": "{{count}} could not be removed.",
+        "undo": "Undo removal",
+        "undone": "Restored."
+      }
+    },
+    "import": {
+      "warning": {
+        "metadata-version-newer": "This file was written by a newer version of the launcher than this one supports ({{file}}:{{line}}).",
+        "metadata-version-invalid": "This file's launcher version marker could not be read ({{file}}:{{line}}).",
+        "metadata-version-missing": "This file was written by this launcher, but its version marker is missing ({{file}}:{{line}}).",
+        "tag-malformed": "A launcher metadata tag in this file could not be read ({{file}}:{{line}}).",
+        "tag-missing": "An alias added by hand has no launcher metadata tag; it was imported from its plain definition ({{file}}:{{line}}).",
+        "tag-unknown-keys": "A launcher metadata tag has fields this version does not recognize: {{subject}} ({{file}}:{{line}}).",
+        "tag-modifier-unknown": "A launcher metadata tag names a modifier this version does not recognize ({{file}}:{{line}}).",
+        "entry-section-unknown": "An entry's category could not be recovered ({{file}}:{{line}}).",
+        "entry-alias-duplicate": "The alias {{subject}} is defined more than once; this definition was replaced by a later one, so its commands were dropped ({{file}}:{{line}}).",
+        "layer-mode-contradicted": "A layer's recorded mode disagreed with its own key binds ({{file}}:{{line}}).",
+        "layer-trigger-contradicted": "A layer's recorded trigger key disagreed with its own key binds ({{file}}:{{line}})."
+      }
+    },
+    "importDialog": {
+      "title": "Import from files",
+      "filesLabel": "Files",
+      "chooseFiles": "Choose files…",
+      "noFilesPicked": {
+        "title": "No files chosen",
+        "body": "Choose one or more of your own config files to import — config.cfg, autoexec.cfg, or any file they exec."
+      },
+      "files": {
+        "moveUp": "Move file up",
+        "moveDown": "Move file down",
+        "remove": "Remove file"
+      },
+      "cvarCount": "Cvars",
+      "bindCount": "Key binds",
+      "aliasCount": "Aliases",
+      "messageCount": "Messages",
+      "duplicateBindCount_one": "{{count}} key bound more than once",
+      "duplicateBindCount_other": "{{count}} keys bound more than once",
+      "duplicateAliasCount_one": "{{count}} alias defined more than once",
+      "duplicateAliasCount_other": "{{count}} aliases defined more than once",
+      "preservedCount_one": "{{count}} preserved line",
+      "preservedCount_other": "{{count}} preserved lines",
+      "restore": {
+        "title": "Restoring a launcher profile",
+        "bodyNamed": "This file was written by this launcher for \"{{name}}\". Importing it creates a new profile here — \"{{name}}\" itself is left untouched.",
+        "bodyUnnamed": "This file was written by this launcher, but the profile it came from ({{id}}) is no longer registered here. Importing it creates a new profile."
+      },
+      "metadataWarningCount_one": "{{count}} note about this file's launcher metadata",
+      "metadataWarningCount_other": "{{count}} notes about this file's launcher metadata",
+      "review": {
+        "count_one": "{{count}} alias needs a decision",
+        "count_other": "{{count}} aliases need a decision",
+        "hint": "This alias's body contains a bind command. Choose whether to import it as a plain alias or attempt it as a toggle layer.",
+        "plainAlias": "Import as plain alias",
+        "attemptAsLayer": "Attempt as layer"
+      },
+      "nameLabel": "Name",
+      "namePlaceholder": "My profile",
+      "namePrefill": "{{name}} (imported)",
+      "submit": "Create profile"
+    },
+    "preservedLines": {
+      "label": "Preserved lines",
+      "empty": {
+        "title": "No preserved lines",
+        "body": "Everything in this profile's source was understood."
+      }
+    },
+    "care": {
+      "group": {
+        "health": "Config health",
+        "files": "Files",
+        "tidy": "Tidy-up"
+      },
+      "level": {
+        "error": "Error",
+        "warning": "Warning"
+      },
+      "action": {
+        "pending": "Working…",
+        "showDetails": "Show details",
+        "hideDetails": "Hide details"
+      },
+      "allClear": {
+        "health_one": "Validated against {{engines}}.",
+        "health_other": "Validated against all {{count}} assigned engines ({{engines}}).",
+        "files_one": "{{count}} file in sync.",
+        "files_other": "{{count}} files in sync.",
+        "tidy": "Nothing to tidy up."
+      },
+      "files": {
+        "loading": "Checking whether your files are in sync…",
+        "error": "Could not check whether your files are in sync. Try again shortly."
+      },
+      "item": {
+        "health": {
+          "title": {
+            "cvar": "Cvar “{{subject}}” ({{engine}})",
+            "bind": "Key “{{subject}}” ({{engine}})",
+            "alias": "Alias “{{subject}}” ({{engine}})",
+            "file": "File {{subject}} ({{engine}})",
+            "profile": "This profile ({{engine}})",
+            "action": "Entry “{{subject}}” ({{engine}})"
+          }
+        },
+        "files": {
+          "consequence": {
+            "outOfSync": "This copy no longer matches the profile, so what loads from it is not what the profile says.",
+            "missing": "The profile's file is not there, so nothing of this profile loads from it.",
+            "failed": "The last write to this file failed, so it still holds whatever was there before."
+          }
+        },
+        "tidy": {
+          "title": {
+            "shadowedBind": "“{{key}}” is claimed more than once",
+            "emptyLayer": "Layer “{{name}}” is empty",
+            "unreferencedAlias": "Alias “{{name}}” is never called",
+            "undefinedAlias": "“{{action}}” calls a missing alias “{{alias}}”",
+            "duplicateAlias": "{{count}} entries write the same alias name “{{name}}”",
+            "preservedLine": "Preserved line {{file}}:{{line}}"
+          }
+        }
+      },
+      "summary": {
+        "overall": {
+          "allClear": "All clear — nothing to do on this profile."
+        }
+      },
+      "sync": {
+        "own": "This profile's file",
+        "retry": "Retry",
+        "syncNow": "Sync now",
+        "syncNowHint": "Sync now overwrites {{path}} with the profile's canonical file.",
+        "state": {
+          "inSync": "In sync",
+          "outOfSync": "{{name}}: Changed in the game folder",
+          "missing": "{{name}}: Missing",
+          "failed": "{{name}}: The launcher's write did not land"
+        },
+        "canonical": {
+          "unsavedChanges": "{{name}}: Unsaved changes",
+          "unsavedChangesHint": "Save from the tabs above to write these changes to the file.",
+          "externalEdit": "{{name}}: Changed outside the launcher",
+          "externalEditHint": "The file on disk no longer matches what this profile last saved. Reload adopts the file's version; Compare shows both before you decide.",
+          "reload": "Reload",
+          "compare": "Compare"
+        }
+      },
+      "tidyUp": {
+        "shadowedBind": "“{{key}}” is claimed {{count}} times ({{owners}}). Only “{{winner}}” actually reaches the key – the others are written to the config file and do nothing.",
+        "shadowedBindUnresolved": "“{{key}}” is claimed {{count}} times ({{owners}}), and which of them the engine ends up using cannot be determined from this profile. Sort the duplicates out by hand rather than removing one at random.",
+        "emptyLayer": "The layer “{{name}}” has no key with a command on it, so it generates nothing at all – not even a way back out of it.",
+        "unreferencedAlias": "The alias “{{name}}” is not called by anything in this profile. Removing it changes nothing that runs.",
+        "undefinedAlias": "“{{action}}” calls “{{alias}}”, but no alias with that name exists here. Removing the binding and writing the missing alias are both valid fixes, so this one is yours to make.",
+        "duplicateAlias": "{{count}} entries resolve to the alias name “{{name}}”. Quake II keeps only the last definition it reads, so only one of them can ever be reached by that name – open the details below to see which entries these are and to decide which one keeps the name.",
+        "duplicateAliasUnbound": "None of them is bound to a key, so no “alias {{name}}” line is written to the file yet – the collision only decides something once one of them gets a key or is called by name.",
+        "duplicate": {
+          "entryBound": "“{{entry}}” – {{section}}, bound to {{keys}}",
+          "entryUnbound": "“{{entry}}” – {{section}}, not bound to a key"
+        },
+        "preservedLine": "{{file}} line {{line}} could not be classified when it was imported and is kept verbatim: {{text}}",
+        "preservedLineCvar": "{{file}} line {{line}} reads as the cvar “{{name}}” set to “{{value}}”: {{text}}",
+        "preservedLineBind": "{{file}} line {{line}} reads as “{{key}}” bound to “{{command}}”: {{text}}",
+        "kindLabel": {
+          "shadowedBind": "Shadowed binds",
+          "emptyLayer": "Empty layers",
+          "unreferencedAlias": "Unreferenced aliases",
+          "undefinedAlias": "Undefined alias references",
+          "duplicateAlias": "Duplicate aliases",
+          "preservedLine": "Preserved lines"
+        },
+        "action": {
+          "apply": "Apply",
+          "drop": "Drop",
+          "reclassify": "Re-classify",
+          "showInAliases": "Show in Aliases",
+          "showInControls": "Show in Controls",
+          "rename": "Rename…",
+          "deleteEntry": "Delete entry"
+        },
+        "applying": "Applying…",
+        "slotLabel": "slot {{index}}",
+        "preview": {
+          "before": "Before:",
+          "after": "After:",
+          "removed": "(removed)"
+        },
+        "result": {
+          "rejected": "This no longer applies – the profile changed since this was scanned. Re-check the report above."
+        },
+        "batch": {
+          "button": "Fix all safe findings ({{count}})",
+          "title": "Fix all safe findings",
+          "warning": "This applies all {{count}} operations below to the profile in one step – there is no per-item undo once you continue.",
+          "operationsLabel": "Operations this will run:",
+          "confirm": "Apply all",
+          "result": {
+            "applied": "{{count}} operation(s) applied.",
+            "rejected": "{{count}} operation(s) no longer applied – the profile changed since this was scanned."
+          }
+        }
+      }
+    },
+    "layersPanel": {
+      "unsavedLabel": "Unsaved change",
+      "label": "Alt layers",
+      "hint": "A layer's keys are bound independently of the base layer while the trigger key is held (hold) or on (toggle).",
+      "create": "New layer",
+      "empty": {
+        "compact": "No alt layers yet — create one to bind keys independently while a trigger key is held or toggled on."
+      },
+      "mode": {
+        "hold": "Hold",
+        "toggle": "Toggle"
+      },
+      "modeLabel": "Mode",
+      "trigger": "Trigger: {{key}}",
+      "noTrigger": "No trigger",
+      "selector": {
+        "label": "Editing on the board:",
+        "base": "Base"
+      },
+      "rename": "Rename…",
+      "delete": "Delete…",
+      "deleteConfirm": "Delete this layer?",
+      "deleteConfirmAction": "Confirm delete",
+      "preview": {
+        "show": "Show generated aliases",
+        "hide": "Hide generated aliases",
+        "empty": "This layer has no generated aliases yet.",
+        "trigger": "Trigger bind: {{line}}",
+        "notReachable": "Not reachable from the keyboard yet — assign a trigger key from the keyboard overview."
+      },
+      "createDialog": {
+        "title": "Create alt layer",
+        "nameLabel": "Name",
+        "namePlaceholder": "Drops",
+        "modeLabel": "Mode",
+        "submit": "Create layer"
+      },
+      "renameDialog": {
+        "title": "Rename layer",
+        "label": "Name"
+      }
+    },
+    "controls": {
+      "unsavedLabel": "Unsaved change",
+      "categories": {
+        "movement": "Movement",
+        "weapons": "Weapons",
+        "drops": "Weapon dropping"
+      },
+      "label": "Categories",
+      "create": "New category",
+      "rename": "Rename…",
+      "delete": "Delete…",
+      "deleteConfirm": "Delete this category? Its actions are removed too.",
+      "deleteConfirmAction": "Confirm delete",
+      "categoryMoveUp": "Move category up",
+      "categoryMoveDown": "Move category down",
+      "categoryMenuFor": "Actions for “{{name}}”",
+      "categoriesEmpty": {
+        "title": "No categories yet",
+        "body": "This profile has no categories of its own. Add the standard template to start from Movement, Weapons and Weapon dropping, or create a blank one.",
+        "addTemplate": "Add the standard template"
+      },
+      "entryKind": {
+        "bind": "Bind",
+        "message": "Message",
+        "alias": "Alias",
+        "toggle": "Toggle",
+        "press-release": "Press/release"
+      },
+      "grid": {
+        "ariaLabel": "Controls — {{category}}",
+        "colGrip": "Reorder",
+        "colAction": "Action",
+        "colReset": "Reset",
+        "colKey": "Key",
+        "colOptions": "Options",
+        "gripFilterActive": "Clear the filter to reorder by dragging",
+        "legendCancel": "cancel",
+        "legendClear": "clear",
+        "legendKey": "key",
+        "legendLayer": "layer",
+        "groupCount_one": "{{count}} row",
+        "groupCount_other": "{{count}} rows",
+        "footerRows_one": "{{count}} row",
+        "footerRows_other": "{{count}} rows",
+        "footerBound": "{{count}} bound",
+        "conflictCount_one": "{{count}} conflict",
+        "conflictCount_other": "{{count}} conflicts",
+        "keyAdd": "Add binding",
+        "keyMoreShow": "Show {{count}} more keys for “{{name}}”",
+        "keyMoreHide": "Hide {{count}} more keys for “{{name}}”"
+      },
+      "createDialog": {
+        "title": "Create category",
+        "nameLabel": "Name",
+        "entryKindLabel": "Entry kind",
+        "submit": "Create category",
+        "suggestions": {
+          "label": "From the standard template"
+        }
+      },
+      "renameDialog": {
+        "title": "Rename category",
+        "label": "Name"
+      },
+      "subcategory": {
+        "create": "New sub-category",
+        "moveUp": "Move sub-category up",
+        "moveDown": "Move sub-category down",
+        "rename": "Rename sub-category",
+        "delete": "Delete sub-category",
+        "createDialog": {
+          "title": "Create sub-category",
+          "nameLabel": "Name",
+          "submit": "Create sub-category"
+        },
+        "renameDialog": {
+          "title": "Rename sub-category",
+          "label": "Name"
+        }
+      },
+      "deleteCategoryDialog": {
+        "title": "Delete “{{name}}”?",
+        "confirm": "Delete category",
+        "choiceMove": "Move its entries to another category",
+        "choiceDelete": "Delete its entries with it",
+        "targetLabel": "Move entries to",
+        "bodyMove_one": "{{count}} entry will move to “{{target}}”.",
+        "bodyMove_other": "{{count}} entries will move to “{{target}}”.",
+        "bodyDelete_one": "{{count}} entry will be deleted with this category.",
+        "bodyDelete_other": "{{count}} entries will be deleted with this category."
+      },
+      "moveEntryDialog": {
+        "title": "Move “{{name}}”",
+        "targetLabel": "Move to",
+        "submit": "Move",
+        "empty": "This profile has no categories to move an entry into yet."
+      },
+      "filter": {
+        "placeholder": "Filter actions…",
+        "noMatches": {
+          "title": "No matching actions",
+          "body": "No action name or command in this category matches your filter. Clear it to see everything again."
+        }
+      },
+      "actions": {
+        "label": "Actions — {{category}}",
+        "add": "Add action",
+        "edit": "Edit commands…",
+        "rename": "Rename…",
+        "remove": "Remove…",
+        "moveUp": "Move entry up",
+        "moveDown": "Move entry down",
+        "moveTo": "Move to…",
+        "moveMenuFor": "Ordering options for “{{name}}”",
+        "makeBindable": "Make bindable",
+        "reset": "Reset “{{name}}” binds",
+        "clearKey": "Clear key {{n}} of “{{name}}”",
+        "empty": {
+          "title": "No actions yet",
+          "body": "Add an action to this category to give it a bind, message or alias."
+        },
+        "createDialog": {
+          "title": "Create action",
+          "nameLabel": "Name",
+          "submit": "Create action",
+          "suggestions": {
+            "label": "Pick from the catalogue",
+            "filterPlaceholder": "Filter actions…",
+            "ammoBadge": "ammo"
+          }
+        },
+        "renameDialog": {
+          "title": "Rename action",
+          "label": "Name",
+          "aliasName": {
+            "label": "Alias name",
+            "hint": "How this entry's alias is called in the config file. Leave empty to use the name derived from “{{placeholder}}” above — that name follows the display name automatically.",
+            "error": {
+              "empty": "An alias name cannot be blank. Leave the field empty instead to use the derived name.",
+              "illegalCharacters": "“{{name}}” can only use lowercase letters, numbers and underscores, with an optional leading + or -.",
+              "tooLong": "“{{name}}” is {{length}} characters long; an alias name can be at most {{max}}.",
+              "reserved": "“{{name}}” is already a built-in command or cvar. Defining an alias with that name would call itself and do nothing.",
+              "duplicate": "“{{name}}” is already used by another entry's alias. Alias names must be unique within a profile.",
+              "signedBaseName": "“{{name}}” cannot start with + or -. Press/release entries add the sign automatically — type “{{base}}” instead."
+            }
+          },
+          "refusal": {
+            "message": "This entry's alias is referenced by {{names}}. Renaming the display name would leave that reference dangling, so it is refused. Use the Alias name field above to rename the alias itself instead.",
+            "handTypedBind": "a hand-typed bind on “{{key}}”",
+            "handTypedOverride": "a hand-typed override on “{{key}}” in the “{{layer}}” layer"
+          }
+        }
+      },
+      "editor": {
+        "title": "Edit “{{name}}”",
+        "commandsLabel": "Commands",
+        "commandsEmpty": "No commands yet — add one below.",
+        "byteLength": "{{bytes}} bytes",
+        "willSplit": "Splits into {{count}} parts",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "removeCommand": "Remove command",
+        "rawCommandLabel": "Add a raw command",
+        "rawCommandPlaceholder": "e.g. drop rocket launcher",
+        "addCommand": "Add",
+        "pickListLabel": "Pick from the catalogue",
+        "filterPlaceholder": "Filter commands…",
+        "keyLabel": "Key",
+        "keyNotSet": "Not bound",
+        "captureKey": "Press a key…",
+        "capturing": "Press a key…",
+        "clearKey": "Clear",
+        "empty": "Empty",
+        "notBindable": "Not bindable",
+        "slotLabel": "{{slot}}: {{value}}",
+        "slotLabelConflict": "{{slot}}: {{value}} — conflict",
+        "subcategory": {
+          "label": "Sub-category",
+          "none": "No sub-category"
+        },
+        "payloadType": {
+          "label": "Payload",
+          "command": "Command",
+          "message": "Message"
+        },
+        "payloadMessage": {
+          "textPlaceholder": "e.g. Need backup!"
+        },
+        "toggle": {
+          "state1Label": "State 1",
+          "state2Label": "State 2",
+          "labelFieldLabel": "Label",
+          "state1LabelPlaceholder": "e.g. In",
+          "state2LabelPlaceholder": "e.g. Out"
+        },
+        "pressRelease": {
+          "pressLabel": "Press",
+          "releaseLabel": "Release"
+        },
+        "wait": {
+          "frameCountLabel": "Frames",
+          "addButton": "Add wait",
+          "rowLabel": "Wait × {{frames}}"
+        }
+      },
+      "dualBind": {
+        "primaryKey": "Primary key",
+        "keyN": "Key {{n}}",
+        "otherActions": "Other actions",
+        "modifierHint": {
+          "multipleModifiers": "Hold only one modifier at a time (Alt, Ctrl or Shift).",
+          "modifierOnly": "Hold a modifier, then press the key to bind — not another modifier."
+        }
+      },
+      "dropBind": {
+        "ammo": {
+          "label": "Drop ammo too",
+          "tooltip": "Also drop this item's ammo when it's dropped",
+          "tooltipDisabled": "This item has no ammo of its own to drop"
+        },
+        "message": {
+          "label": "Announce to team",
+          "tooltip": "Say the drop to your team when it happens"
+        },
+        "messagePlaceholder": "No message set yet",
+        "editMessage": "Edit message",
+        "editMessageFor": "Edit message for {{name}}"
+      },
+      "options": {
+        "layer": "layer {{layer}}",
+        "alsoUsedBy": "also: {{owner}}",
+        "none": "—"
+      },
+      "collision": {
+        "baseBind": "{{key}} is already bound to “{{owner}}”. Replace that bind?",
+        "action": "{{key}} is already used by “{{owner}}”. Take the key from it?",
+        "replace": "Replace",
+        "layerOverride": "{{key}} also has an override in the alt layer “{{owner}}” — assigned anyway.",
+        "modifierLayer": "{{key}} in the “{{layer}}” layer is already used by “{{owner}}”. Replace it?"
+      },
+      "messageEditor": {
+        "title": "Edit message “{{name}}”",
+        "channelLabel": "Channel",
+        "channel": {
+          "say": "Everyone (say)",
+          "sayTeam": "Team (say_team)"
+        },
+        "textLabel": "Message text",
+        "previewLabel": "Preview",
+        "previewEmpty": "Type a message above to see the preview.",
+        "singleDollarWarning": "{{found}} expands an empty cvar and prints nothing — did you mean {{suggestion}}?",
+        "macroBar": {
+          "clientLabel": "Insert a location variable",
+          "modLabel": "Insert a server macro",
+          "modCaveat": "Only substituted by mods that support it — sent as literal text on a plain server."
+        },
+        "suggestionsLabel": "Suggested messages",
+        "symbolPicker": {
+          "label": "Symbols",
+          "applyAltCharset": "Alternate charset"
+        },
+        "colorCvarChip": "Colour cvar “{{name}}”"
+      }
+    },
+    "aliases": {
+      "label": "Aliases",
+      "count_one": "{{count}} alias",
+      "count_other": "{{count}} aliases",
+      "create": "New alias",
+      "createDialog": {
+        "title": "Create alias",
+        "nameLabel": "Name",
+        "submit": "Create alias"
+      },
+      "actions": {
+        "editFor": "Edit commands for “{{name}}”",
+        "renameFor": "Rename “{{name}}”",
+        "deleteFor": "Delete “{{name}}”",
+        "showOwnerFor": "Go to “{{name}}”"
+      },
+      "deleteDialog": {
+        "title": "Delete “{{name}}”?",
+        "body": "This alias is referenced by {{names}}. Deleting it would leave that reference dangling.",
+        "confirm": "Delete alias"
+      },
+      "showAll": {
+        "label": "Show generated and layer aliases",
+        "hint": "Also lists the aliases every bind/message entry and alt layer generates on its own — read-only here, edited at their owning entry or layer."
+      },
+      "filter": {
+        "placeholder": "Filter by name…",
+        "unreferencedOnly": {
+          "label": "Unreferenced only",
+          "hint": "Show only aliases nothing currently calls."
+        },
+        "noMatches": {
+          "title": "No matching aliases",
+          "body": "No alias matches the current filter. Try a different name or turn off “Unreferenced only”."
+        }
+      },
+      "sort": {
+        "ascending": "Sorted A–Z. Click to sort Z–A.",
+        "descending": "Sorted Z–A. Click to sort A–Z."
+      },
+      "origin": {
+        "user": "User",
+        "generated": "Generated",
+        "layer": "Layer"
+      },
+      "ownerLabel": "Owner: {{owner}}",
+      "body": {
+        "empty": "(empty)",
+        "expandFor": "Show full body of “{{name}}”",
+        "collapseFor": "Show less of “{{name}}”"
+      },
+      "referrers": {
+        "label": "Referenced by",
+        "empty": "Nothing references this alias",
+        "action": "entry “{{name}}”",
+        "bind": "key {{key}}",
+        "override": "key {{key}} in layer “{{layer}}”"
+      },
+      "duplicate": {
+        "badge": "Duplicate",
+        "detail": "Duplicate name — also used by: {{owners}}"
+      },
+      "length": {
+        "value": "{{bytes}} / {{max}} bytes",
+        "splits_one": "splits into {{count}} part",
+        "splits_other": "splits into {{count}} parts",
+        "overBudget": "over the line limit",
+        "notApplicable": "—"
+      },
+      "empty": {
+        "title": "No aliases to show",
+        "body": "This profile has no user-defined aliases yet. Turn on “Show generated and layer aliases” to see the ones entries and alt layers generate on their own."
+      }
+    },
+    "chatMacros": {
+      "locHere": {
+        "label": "My location",
+        "description": "The location name of where you are standing.",
+        "requires": "Needs a .loc file for the map under baseq2/locs/<map>.loc"
+      },
+      "locThere": {
+        "label": "Location under the crosshair",
+        "description": "The location name of the spot you are aiming at.",
+        "requires": "Needs a .loc file for the map under baseq2/locs/<map>.loc"
+      },
+      "l": {
+        "label": "Location (server-side)",
+        "description": "Location, substituted by the mod. Only on servers running one that supports it."
+      },
+      "h": {
+        "label": "Health",
+        "description": "Your current health."
+      },
+      "a": {
+        "label": "Armor",
+        "description": "Your current armor value."
+      },
+      "w": {
+        "label": "Current weapon",
+        "description": "The weapon you are currently holding."
+      },
+      "t": {
+        "label": "Tech / Rune",
+        "description": "The tech rune you are carrying (CTF)."
+      },
+      "suggestions": {
+        "ok": { "label": "Acknowledge" },
+        "neg": { "label": "Negative" },
+        "help": { "label": "Need help" },
+        "enemy": { "label": "Enemy spotted" },
+        "clear": { "label": "Area clear" },
+        "dead": { "label": "I am dead" },
+        "need_weapon": { "label": "Need weapon" },
+        "need_ammo": { "label": "Need ammo" },
+        "weapon_avail": { "label": "Weapon available" },
+        "armor_avail": { "label": "Armor available" },
+        "take_mh": { "label": "Take megahealth" },
+        "attack": { "label": "Attack" },
+        "fallback": { "label": "Fall back" },
+        "push": { "label": "Push" },
+        "camp_quad": { "label": "Camping quad" },
+        "quad_30": { "label": "Quad in 30" },
+        "quad_60": { "label": "Quad in 60" },
+        "quad_now": { "label": "Quad now" },
+        "ps_30": { "label": "Power Shield in 30" },
+        "ps_60": { "label": "Power Shield in 60" },
+        "mh_30": { "label": "Megahealth in 30" },
+        "inv_30": { "label": "Invulnerability in 30" }
+      },
+      "respawn": {
+        "quad": { "label": "Quad Damage" },
+        "invul": { "label": "Invulnerability" },
+        "megahealth": { "label": "Megahealth" },
+        "powershield": { "label": "Power Shield" },
+        "redarmor": { "label": "Red Armor" },
+        "yellowarmor": { "label": "Yellow Armor" },
+        "adrenaline": { "label": "Adrenaline" },
+        "weapon": { "label": "Weapon" },
+        "ammo": { "label": "Ammo" }
+      }
+    },
+    "q2Charset": {
+      "glyph": {
+        "0x0b": { "label": "Bullet / dot" },
+        "0x10": { "label": "Bracket left [" },
+        "0x11": { "label": "Bracket right ]" },
+        "0x12": { "label": "Digit frame 0" },
+        "0x1d": { "label": "Bar left" },
+        "0x1e": { "label": "Bar middle" },
+        "0x1f": { "label": "Bar right" },
+        "0x80": { "label": "Block (green)" },
+        "0x83": { "label": "Separator (green)" },
+        "0x84": { "label": "Marker white" },
+        "0x85": { "label": "Marker black" },
+        "0x86": { "label": "Marker red" },
+        "0x87": { "label": "Marker yellow" },
+        "0x88": { "label": "Marker green" },
+        "0x89": { "label": "Marker blue" },
+        "0x8b": { "label": "Marker pink" },
+        "0x8d": { "label": "Arrow left" },
+        "0x8e": { "label": "Arrow up" },
+        "0x8f": { "label": "Arrow right" },
+        "0x90": { "label": "Arrow down" }
+      }
+    }
+  },
+
+  "layer": {
+    "empty": "This layer has no key bindings yet.",
+    "noTrigger": "This layer has key bindings but no trigger key yet, so it cannot be reached from the keyboard.",
+    "selfbind": "This layer remaps its own trigger key ({{key}}) — you would have no way to switch it off.",
+    "plusbind": "{{key}} normally holds {{command}}; remapping it here can leave that movement stuck if the layer activates while the key is held.",
+    "triggerConflict": "{{key}} already has a base bind ({{command}}); the layer's trigger binding will take priority.",
+    "quote": "Generated alias text contained an unsupported character."
   },
 
   "settings": {
@@ -362,8 +2041,25 @@
     "logs": "Log file",
     "openFolder": "Open",
     "repository": "Project page",
+    "changelog": "Full changelog",
+    "about": {
+      "notesEmpty": "This version has no release notes.",
+      "notInstalled": "Not yet installed",
+      "lastChecked": "Last checked {{time}}",
+      "neverChecked": "Never checked for updates",
+      "checkNow": "Check now",
+      "checkUpToDate": "You're up to date.",
+      "checkAvailable": "Version {{version}} found."
+    },
     "devTools": "Development",
-    "simulateJob": "Simulate a download job"
+    "simulateJob": "Simulate a download job",
+    "simulateJobStall": "Simulate a stalled job",
+    "simulateJobFailure": "Simulate a failed job",
+    "simulateUpdateAvailable": "Simulate an update becoming available",
+    "simulateUpdateProgress": "Simulate download progress",
+    "simulateUpdateDownloaded": "Simulate a finished download",
+    "simulateUpdateError": "Simulate a failed download",
+    "simulateUpdateUpToDate": "Simulate the installed version matching"
   },
 
   "launch": {
@@ -372,6 +2068,7 @@
       "noExecutable": "No executable is set for \u201c{{name}}\u201d.",
       "executableMissing": "The executable is missing: {{path}}",
       "alreadyRunning": "Quake II is already running.",
+      "installationBusy": "A job is writing files for this installation. It can be started once that job has finished.",
       "spawnFailed": "The game could not be started: {{path}}",
       "processError": "The game process reported an error: {{message}}"
     }
@@ -379,9 +2076,323 @@
 
   "jobs": {
     "simulatedDownload": "Simulated download (development)",
+    "simulatedWrite": "Simulated installation write (development)",
+    "status": {
+      "queued": "Queued",
+      "running": "Running",
+      "paused": "Paused",
+      "waiting": "Waiting",
+      "succeeded": "Done",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
     "error": {
       "notFound": "That job has already finished.",
       "notCancellable": "This job cannot be cancelled."
+    },
+    "waiting": {
+      "gameRunning": "Waiting for the game to close"
+    }
+  },
+
+  "downloads": {
+    "job": {
+      "download": "Downloading {{name}}",
+      "bootstrap": "Setting up {{name}}",
+      "retailUpgrade": "Importing retail data into {{name}}",
+      "engineUpdate": "Updating the engine of {{name}}",
+      "engineRollback": "Rolling back the engine of {{name}}",
+      "repair": "Repairing {{name}}",
+      "cancel": "Cancel this download"
+    },
+    "cache": {
+      "title": "Archive cache",
+      "size": "Size"
+    },
+    "jobs": {
+      "title": "Active downloads",
+      "empty": {
+        "title": "Nothing downloading",
+        "body": "Jobs you start will show their progress here."
+      }
+    },
+    "error": {
+      "manifestUnavailable": "Could not reach the download server, and nothing is cached yet. Check your connection and try again.",
+      "allMirrorsFailed": "Every download source failed. Check your connection and try again.",
+      "verificationFailed": "The downloaded file did not match what was expected and was discarded.",
+      "extractorMissing": "The extraction tool is missing from this install. Reinstalling the launcher should fix this.",
+      "extractionFailed": "The downloaded file could not be extracted.",
+      "diskWrite": "The file could not be written to disk. Check your available space and try again.",
+      "network": "A network error interrupted the download.",
+      "packageUnavailable": "The download list does not offer everything this setup needs right now. Try again later.",
+      "installationNotPlayable": "The files were downloaded, but the result was not a usable Quake II installation.",
+      "packageIncomplete": "The download \"{{packageId}}\" arrived intact but did not contain the game files this setup needs.",
+      "retailCopyIncomplete": "The retail installation was copied, but the copy did not contain the game files this setup needs. Make sure the source installation is still there and try again.",
+      "missingRuntime": "This engine needs the Microsoft Visual C++ Redistributable (x86) installed, and it was not found on this PC. Get it from https://aka.ms/vs/17/release/vc_redist.x86.exe, then try again.",
+      "bootstrapTargetBlocked": "That folder cannot be used for a new installation.",
+      "retailSourceUnverified": "That Quake II installation could not be verified as a retail copy right now. Pick it again from the detected installations, or download the free data instead.",
+      "gameDataSourceUnusable": "That folder could not be used for game data right now. Pick it again, or download the free data instead.",
+      "engineUpdateUnavailable": "This engine has no update available right now.",
+      "engineNoBackup": "There is no previous engine build to roll back to.",
+      "engineReplaceFailed": "The engine files could not be replaced. Make sure nothing is using them and try again.",
+      "bleedingEdgeUnsupported": "Bleeding edge is not available for this engine.",
+      "bleedingEdgeProbeFailed": "Could not check the latest bleeding-edge build. Check your connection and try again.",
+      "bleedingEdgeSizeMismatch": "The bleeding-edge build downloaded did not match what was expected and was discarded.",
+      "repairNotApplicable": "That repair cannot be carried out as a download.",
+      "unknown": "The download failed for an unknown reason."
+    },
+    "failures": {
+      "title": "Failed downloads",
+      "installation": "Installation: {{name}}",
+      "dismiss": "Dismiss this failure",
+      "restore": "Restore this failure",
+      "copyReport": "Copy failure report",
+      "copyReportSuccess": "Failure report copied to clipboard",
+      "copyReportError": "The failure report could not be copied to the clipboard.",
+      "revealLog": "Reveal log file",
+      "dismissed": {
+        "summary": "Dismissed ({{count}})"
+      },
+      "detail": {
+        "summary": "What went wrong",
+        "step": {
+          "fetched": "{{id}}: downloaded, but verification failed",
+          "verified": "{{id}}: downloaded and verified, but extraction failed",
+          "extractedNoAssembly": "{{id}}: downloaded, verified and extracted",
+          "extracted": "{{id}}: downloaded, verified and extracted, but did not contribute to the installation",
+          "contributed": "{{id}}: downloaded, verified, extracted and contributed to the installation"
+        },
+        "verdictHeading": "Installation check"
+      },
+      "report": {
+        "versionsHeading": "Versions",
+        "appVersion": "App version",
+        "electronVersion": "Electron version",
+        "chromeVersion": "Chrome version",
+        "nodeVersion": "Node version",
+        "platform": "Platform",
+        "osVersion": "OS version",
+        "errorHeading": "Error",
+        "packagesHeading": "Packages",
+        "columnPackage": "Package",
+        "columnUrl": "URL",
+        "columnSize": "Size",
+        "columnVerified": "Verified",
+        "columnExtracted": "Extracted",
+        "yes": "Yes",
+        "no": "No",
+        "verdictHeading": "Verdict",
+        "targetPath": "Target path",
+        "verdictLabel": "Status",
+        "missingChecksHeading": "Failing checks",
+        "noMissingChecks": "None",
+        "assemblyHeading": "Assembly",
+        "columnFrom": "Looked for",
+        "columnTo": "Target path",
+        "columnFound": "Found",
+        "columnSourcePackage": "Source package",
+        "extractionHeading": "Extraction contents",
+        "extractionTruncated": "(truncated - more entries were not listed)",
+        "logHeading": "Log tail"
+      }
+    }
+  },
+
+  "bootstrap": {
+    "retailSource": {
+      "baseDirMissing": "This folder has no baseq2 directory, so it could not be verified as a retail Quake II installation.",
+      "pak0Missing": "pak0.pak is missing from this installation, so it could not be verified as retail.",
+      "pak1Missing": "pak1.pak is missing from this installation, so it could not be verified as retail.",
+      "pak0SizeMismatch": "pak0.pak in this installation does not match the known retail size (found {{actualSize}}), so it could not be verified as retail.",
+      "pak1SizeMismatch": "pak1.pak in this installation does not match the known retail size (found {{actualSize}}), so it could not be verified as retail."
+    },
+    "gameDataSource": {
+      "rootMissing": "This folder does not exist.",
+      "baseDirMissing": "This folder has no baseq2 directory, so no game data could be found in it.",
+      "pak0Missing": "This folder's baseq2 directory has no pak0.pak, so no game data could be found in it.",
+      "unsafePath": "This folder cannot be used as a game data source."
+    }
+  },
+
+  "bootstrapWizard": {
+    "title": "Download & install",
+    "back": "Back",
+    "next": "Next",
+    "step": {
+      "engine": "Choose the engine to install.",
+      "gameData": "Choose where the game data comes from.",
+      "target": "Choose the folder to install into.",
+      "confirm": "Confirm what will be downloaded.",
+      "running": "Setting up your installation."
+    },
+    "engine": {
+      "loading": "Checking available downloads…",
+      "body": "This release only offers Q2PRO.",
+      "version": "Version {{version}}",
+      "empty": {
+        "title": "Nothing available to install",
+        "body": "The download list does not offer an engine right now. Check your connection and try again later."
+      },
+      "r1q2Notice": {
+        "source": "R1Q2 is built from this exact upstream source:",
+        "license": "Licensed under GPL version 3 (including its section 6(d) external-source option). The license text is installed alongside the game files.",
+        "runtime": "Requires the 32-bit Microsoft Visual C++ Redistributable (x86), which this installer does not bundle. Get it from Microsoft:"
+      }
+    },
+    "gameData": {
+      "loading": "Checking for installations you already own…",
+      "body": "Install with fresh downloads, or copy the game data from a Quake II installation you already own.",
+      "freeDownload": {
+        "title": "Download the game data",
+        "body": "Fetches the free demo data (and, if you enable it below, the point-release extras)."
+      },
+      "storeCopy": {
+        "title": "Copy from an installation you own",
+        "body": "Copies pak0.pak and pak1.pak from a detected Steam, GOG or Epic installation. Only the engine is still downloaded."
+      },
+      "store": {
+        "steam": "Steam",
+        "gog": "GOG",
+        "epic": "Epic Games"
+      },
+      "existingFolder": {
+        "title": "Point at a folder I already have",
+        "body": "Copies the game data out of any folder you choose. Only the engine is still downloaded.",
+        "placeholder": "Choose a folder…",
+        "pickTitle": "Choose the folder to copy game data from",
+        "pickButton": "Use this folder",
+        "checking": "Checking folder…",
+        "retailVerdict": "Found retail game data ({{paks}}). This can be copied.",
+        "demoVerdict": "This folder only has demo-equivalent game data. You can still continue - the installation will be a demo installation.",
+        "unusableFallback": "This folder does not have usable Quake II game data."
+      }
+    },
+    "target": {
+      "label": "Installation folder",
+      "placeholder": "Choose a folder…",
+      "pickTitle": "Choose the installation folder",
+      "pickButton": "Use this folder",
+      "checking": "Checking folder…",
+      "blocked": {
+        "alreadyInstalled": "This folder already contains a Quake II installation. Add it as an existing installation instead.",
+        "unsafePath": "This folder cannot be used for a new installation."
+      },
+      "programFiles": {
+        "body": "This folder is under Program Files. Windows restricts write access there, which can prevent later updates or config changes without elevation.",
+        "remedyButton": "Choose a different folder…",
+        "remedyNote": "The picked folder is saved as this installation's write location once you start the install – it does not change the target folder above. If you continue with this folder instead, the same write-access fix stays available afterwards from the installation's own checks.",
+        "acknowledge": "I understand, continue anyway"
+      },
+      "nonEmpty": {
+        "body": "This folder is not empty. It already contains:",
+        "acknowledge": "Continue anyway"
+      },
+      "notWritable": {
+        "body": "This folder is not writable. The installation may not be able to save configuration or downloaded updates there.",
+        "acknowledge": "I understand, continue anyway"
+      }
+    },
+    "confirm": {
+      "loading": "Preparing the download summary…",
+      "packagesTitle": "What will be downloaded",
+      "totalSizeLabel": "Total size",
+      "targetLabel": "Target folder",
+      "includeExtras": "Include videos and player models",
+      "includeExtrasHint": "Adds the cinematics and extra player skins from the point release. Off by default – most players only want multiplayer.",
+      "includeExtrasDisabledReason": "This installation has no videos or player models to copy.",
+      "copySourceLabel": "Copying game data from",
+      "start": "Start download",
+      "role": {
+        "engine": "Engine",
+        "demo": "Demo data",
+        "point-release": "Point release"
+      }
+    },
+    "running": {
+      "gone": "This job is no longer active.",
+      "dismiss": "Run in background"
+    }
+  },
+
+  "retailUpgrade": {
+    "title": "Import retail game data",
+    "description": "Copy pak0.pak and pak1.pak from a Quake II installation you already own. This turns the demo installation into a full installation.",
+    "loading": "Checking for installations you already own…",
+    "noSources": "No store installation was detected. Install Quake II from Steam, GOG or Epic, then try again.",
+    "confirm": "Import"
+  },
+
+  "engineUpdate": {
+    "action": {
+      "label": "Engine update",
+      "labelAvailable": "Engine update available"
+    },
+    "title": "Engine update",
+    "description": "Update this installation's engine to the version the launcher currently pins, or roll back to the previous one.",
+    "loading": "Checking for an engine update…",
+    "notFound": "This installation could not be found.",
+    "current": "Current version",
+    "target": "Available version",
+    "unknownVersion": "Unknown",
+    "update": "Update",
+    "rollback": "Rollback",
+    "bleedingEdge": {
+      "label": "Bleeding edge",
+      "hint": "Track the newest upstream Q2PRO build instead of the launcher's pinned version."
+    }
+  },
+
+  "repair": {
+    "title": "Repair installation",
+    "description": "Fix what a fresh check of this installation finds wrong, one offer at a time.",
+    "loading": "Checking this installation…",
+    "notFound": "This installation could not be found.",
+    "nothingToRepair": "Nothing here can be repaired automatically.",
+    "offer": {
+      "reinstall-engine": "Reinstall engine",
+      "install-point-release": "Install point release",
+      "retail-copy": "Import retail data…",
+      "set-write-dir": "Choose write folder…"
+    }
+  },
+
+  "update": {
+    "error": {
+      "network": "Could not reach the update server. Check your internet connection.",
+      "http": "The update server returned an error. Try again later.",
+      "notConfigured": "This build is not configured to check for updates.",
+      "timeout": "The update check took too long and was cancelled.",
+      "unknown": "The update check failed for an unknown reason."
+    }
+  },
+
+  "appUpdate": {
+    "action": {
+      "label": "Update",
+      "labelAvailable": "Update available",
+      "download": "Download",
+      "cancel": "Cancel",
+      "restart": "Restart and install",
+      "dismiss": "Dismiss"
+    },
+    "popover": {
+      "label": "Launcher update"
+    },
+    "version": "Version {{version}}",
+    "whatChanged": "What changed",
+    "progress": {
+      "label": "Downloading update"
+    },
+    "error": {
+      "offline": "Could not download the update. Check your internet connection.",
+      "checksum": "The downloaded update failed verification and was discarded.",
+      "cancelled": "The download was cancelled.",
+      "downloadFailed": "The update could not be downloaded. Try again later.",
+      "notAvailable": "There is no update to download right now.",
+      "notReady": "The update has not finished downloading yet.",
+      "gameRunning": "Quake II is still running. Close it before installing the update.",
+      "jobActive": "A download is still in progress. Wait for it to finish before installing the update.",
+      "installFailed": "The update could not be installed. Nothing was changed."
     }
   },
 
@@ -395,6 +2406,23 @@
   "ipc": {
     "error": {
       "invalidPayload": "The launcher sent an invalid request. This is a bug."
+    }
+  },
+
+  "dnd": {
+    "dragHandle": {
+      "label": "Drag to reorder"
+    },
+    "instructions": {
+      "draggable": "To pick up a draggable item, press the space bar. While dragging, use the arrow keys to move the item. Press space again to drop the item in its new position, or press escape to cancel."
+    },
+    "announcements": {
+      "pickedUp": "Picked up item {{id}}. It is at position {{position}} of {{total}}.",
+      "movedOver": "Item {{id}} was moved into position {{position}} of {{total}}.",
+      "movedOverTarget": "Item {{id}} is over {{target}}.",
+      "dropped": "Item {{id}} was dropped at position {{position}} of {{total}}.",
+      "droppedOnTarget": "Item {{id}} was dropped on {{target}}.",
+      "cancelled": "Dragging was cancelled. Item {{id}} was returned to position {{position}} of {{total}}."
     }
   },
 

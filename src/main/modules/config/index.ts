@@ -1,0 +1,1941 @@
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { shell } from 'electron'
+import {
+  CONFIG_HANDLERS,
+  type CleanupApplyResult,
+  type CleanupEntry,
+  type CleanupRestoreResult,
+  type CleanupScanResult,
+  type ConfigProfile,
+  type DiscardProfileResult,
+  type ImportPreviewResult,
+  type PickedConfigFile,
+  type PreviewFile,
+  type PreviewProfileResult,
+  type ProfileFileSyncStatus,
+  type ProfileInstallationSync,
+  type ProfileSyncState,
+  type RawFilesResult,
+  type RawInstallationTarget,
+  type RawProfileFile,
+  type RefreshedProfileResult,
+  type RefreshFromFilesResult,
+  type SaveProfileResult,
+  type SaveRawTextResult,
+  type TidyUpApplyResult,
+  type WriteState,
+  type WriteTargetResult,
+} from '@shared/modules/config'
+import type { Installation, LaunchState } from '@shared/types'
+import { reconcileAssignments } from './assignments'
+import { isLatin1Text } from '@shared/config/q2-charset'
+import type { RestoreWarning } from '@shared/config/profile-restore'
+import { applyTidyUpOps } from '@shared/config/tidy-up'
+import { resolveProfileFileNames } from '@shared/config/profile-files'
+import { fail, ok, type Outcome } from '@shared/types'
+import type { AppContext } from '../../context'
+import { isFile } from '../../lib/fs-utils'
+import type { Logger } from '../../lib/logger'
+import { userDataDir } from '../../lib/paths'
+import type { MainModule } from '../types'
+import { readCanonicalOwnership, removeCanonicalProfileFile } from './canonical'
+import { corruptContentDiagnostic, hashCanonicalFileContent, readFileState } from './file-source'
+import { installationCopySource, syncProfile } from './sync'
+import { removeRedundantCopies, restoreRemovedCopies, scanRedundantCopies } from './cleanup'
+import { commitImportFiles, pickImportFiles, previewImportFiles } from './import'
+import { PickedFilesRegistry } from './picked-files'
+import { ProfilesStore } from './profiles'
+import {
+  detectSectionHeaderStyle,
+  detectWriteUnbindall,
+  recoverProfileName,
+  runFileSourceStartup,
+} from './rebuild'
+import { renderLoaderFile, renderProfileFile } from './render'
+import {
+  assignProfileInputSchema,
+  cleanupApplyInputSchema,
+  cleanupRestoreInputSchema,
+  cleanupScanInputSchema,
+  createConfigProfileInputSchema,
+  discardProfileInputSchema,
+  importFilesCommitInputSchema,
+  importFilesPreviewInputSchema,
+  importPickFilesInputSchema,
+  listInputSchema,
+  openFileInputSchema,
+  previewProfileInputSchema,
+  rawFilesInputSchema,
+  refreshFromFilesInputSchema,
+  removeConfigProfileInputSchema,
+  renameConfigProfileInputSchema,
+  saveProfileInputSchema,
+  saveRawTextInputSchema,
+  setDefaultProfileInputSchema,
+  setPlayedModsInputSchema,
+  setProfileActionsInputSchema,
+  setProfileBindsInputSchema,
+  setProfileCvarsInputSchema,
+  setProfileLayersInputSchema,
+  setSectionHeaderStyleInputSchema,
+  setSwitchBindInputSchema,
+  setWriteCatalogDefaultsInputSchema,
+  setWriteUnbindallInputSchema,
+  switchBindsInputSchema,
+  syncStateInputSchema,
+  tidyUpApplyInputSchema,
+  unassignProfileInputSchema,
+  writeProfileInputSchema,
+  writeStateInputSchema,
+} from './schemas'
+import { assignedProfilesFor, defaultProfileFor, isInstallationRunning } from './write-plan'
+import {
+  BASE_GAME_DIR,
+  LOADER_FILE_NAME,
+  ownedProfileIdFromContent,
+  readExisting,
+  writeInstallationFiles,
+  writeTargetFile,
+} from './writer'
+
+/**
+ * The exact files a `write` of `profile` would put on `installation`'s disk,
+ * without writing them - what `preview` answers and what `write` itself
+ * produces internally. Kept as one function so the two can never drift apart.
+ */
+export function previewProfileFiles(
+  profile: ConfigProfile,
+  allProfiles: ConfigProfile[],
+  installation: Pick<Installation, 'id' | 'rootPath'>,
+  switchBindKey?: string,
+): Omit<PreviewFile, 'onDisk'>[] {
+  const defaultProfile = defaultProfileFor(allProfiles, installation.id) ?? profile
+  const baseDir = join(installation.rootPath, BASE_GAME_DIR)
+  const fileNames = resolveProfileFileNames(allProfiles)
+  const assignedProfiles = assignedProfilesFor(allProfiles, installation.id).map((p) => ({
+    ...p,
+    // Every assigned profile comes from `allProfiles`, which `fileNames`
+    // was resolved from above, so this lookup cannot miss.
+    fileName: fileNames.get(p.id)!,
+  }))
+
+  const files: Omit<PreviewFile, 'onDisk'>[] = []
+  // Mirrors the `defaultProfile.id !== profile.id` branch `sync.ts`'s write
+  // loop follows for every assigned profile, so a preview never shows fewer
+  // files than an actual sync would put on disk.
+  if (defaultProfile.id !== profile.id) {
+    files.push({
+      // `defaultProfile` is drawn from `allProfiles` (or falls back to
+      // `profile`, itself always a member of `allProfiles`), so this lookup
+      // cannot miss.
+      path: join(baseDir, fileNames.get(defaultProfile.id)!),
+      content: renderProfileFile(defaultProfile),
+    })
+  }
+  files.push(
+    {
+      // `profile` is always a member of `allProfiles`, so this lookup cannot miss.
+      path: join(baseDir, fileNames.get(profile.id)!),
+      content: renderProfileFile(profile),
+    },
+    {
+      path: join(baseDir, LOADER_FILE_NAME),
+      content: renderLoaderFile(
+        defaultProfile,
+        fileNames.get(defaultProfile.id)!,
+        switchBindKey
+          ? { key: switchBindKey, profiles: assignedProfiles, defaultProfileId: defaultProfile.id }
+          : undefined,
+      ),
+    },
+  )
+  return files
+}
+
+/**
+ * Story 023 D1: read-only report of the profile's own canonical file plus one
+ * entry per live assignment - what the `rawFiles` handler answers.
+ *
+ * Deliberately takes plain data (a live-installation lookup, a base dir, a
+ * played-mods getter) rather than `AppContext`, same reasoning as
+ * `previewProfileFiles` above: testable without booting `configModule.setup()`.
+ * Never writes - `readExisting` (`writer.ts`) is the same ENOENT-only-swallowed
+ * read the write pipeline itself uses, so a missing file is reported as
+ * `onDisk: false` rather than thrown, and `matches` reuses the write pipeline's
+ * own byte-for-byte comparison instead of a second one that could drift from it.
+ */
+export async function collectRawFiles(
+  profile: ConfigProfile,
+  allProfiles: ConfigProfile[],
+  installations: { find: (id: string) => Installation | undefined },
+  userDataBaseDir: string,
+  playedModsFor: (installationId: string) => string[],
+): Promise<RawFilesResult> {
+  const fileNames = resolveProfileFileNames(allProfiles)
+  // `profile` is always a member of `allProfiles`, so this lookup cannot miss.
+  const fileName = fileNames.get(profile.id)!
+
+  const canonicalPath = join(userDataBaseDir, fileName)
+  const canonicalContent = await readExisting(canonicalPath)
+  const canonical: RawProfileFile = {
+    path: canonicalPath,
+    // A freshly created, unassigned profile has no canonical file yet - that
+    // must still be a successful result (story 023 AC 3), not a thrown error.
+    content: canonicalContent ?? '',
+    onDisk: canonicalContent !== null,
+  }
+
+  // Story 043 D4 / 079 D2: the same rule the sync engine writes by and `syncState` judges by - an
+  // installation copy is generated output of the canonical file's BYTES (`installationCopySource`),
+  // never of the render. `null` (the file moved underneath the launcher, or a dirty profile without
+  // one) matches nothing, since nothing may be published from it.
+  const expectedContent = installationCopySource(
+    profile,
+    {
+      content: canonicalContent,
+      hash: canonicalContent === null ? null : hashCanonicalFileContent(canonicalContent),
+    },
+    profile.dirty !== true,
+  )
+  const installationTargets: RawInstallationTarget[] = []
+  for (const assignment of profile.assignments) {
+    const installation = installations.find(assignment.installationId)
+    // An assignment pointing at an installation that no longer exists is
+    // reconciled away elsewhere, not reported here - same as `syncState`.
+    if (!installation) continue
+
+    const path = join(installation.rootPath, BASE_GAME_DIR, fileName)
+    const content = await readExisting(path)
+    installationTargets.push({
+      installationId: installation.id,
+      path,
+      onDisk: content !== null,
+      matches: content !== null && content === expectedContent,
+      playedMods: playedModsFor(installation.id),
+    })
+  }
+
+  return { canonical, installations: installationTargets }
+}
+
+/**
+ * Keeps only entries that are actually one of the installation's own game
+ * directories. The path-trust boundary for played-mod names lives in
+ * `writer.ts` too (it re-checks at write time); this is what keeps
+ * `state.json` itself from persisting a name that was never real.
+ */
+export function validatePlayedMods(gameDirs: string[], playedMods: string[]): string[] {
+  return playedMods.filter((mod) => gameDirs.includes(mod))
+}
+
+/**
+ * Story 022 D7: the one place every write-triggering handler funnels through to get `profile`'s
+ * files onto disk - its canonical `<userData>` copy plus every installation it is assigned to - and
+ * to persist the resulting pending-write/write-failure bookkeeping.
+ *
+ * Deliberately returns `void` and never throws: a sync problem is reported
+ * through `configWriteFailures` (which `syncState` below and the `write`
+ * channel surface), never by turning a successful CRUD operation into a failed
+ * IPC response. `syncProfile` already catches its own write failures
+ * internally, so the try/catch here is a defensive backstop for the
+ * genuinely-unexpected - not the normal error path.
+ *
+ * Story 043 D4 adds the one rule that inverts story 022 decision 8, and it is applied here rather
+ * than at each call site so no call site can forget it: **a profile carrying unsaved edits
+ * (`dirty`) is never written to disk by anything but `save`**. It holds for every profile a run
+ * touches, not just the one that triggered it - the mutated profile, a sibling displaced by a
+ * rename, another profile assigned to the same installation - which is why it is handed to
+ * `syncProfile` as a per-profile predicate. `assign`/`unassign`/`setDefault`/`write` still call this
+ * function and still sync immediately (they change assignment relationships, not profile *content*),
+ * and this predicate is what keeps them from carrying a dirty profile's unsaved edits onto disk
+ * through that side door.
+ *
+ * Story 043 D10 adds the second half of that rule, for the case `dirty` alone cannot cover: **a
+ * canonical file whose current bytes the launcher has never read is not ours to overwrite either**,
+ * however clean the profile is. `dirty` only says "the cache is ahead of the file"; it says nothing
+ * about the file having moved underneath us, and every write path that is not a save
+ * (`assign`/`unassign`/`setDefault`, a rename cascade, `write`'s retry, and above all the startup
+ * retry sweep, which runs before the renderer exists and therefore before any focus re-read can
+ * have happened) used to render straight over such a file. That is precisely the hand-edit
+ * clobbering AC5 forbids, so the decision is made from what the file actually says: the write is
+ * allowed when there is no file, when the file already holds exactly what we would write anyway
+ * (`renderProfileFile(candidate)` - a genuine no-op), or when the user explicitly asked for this
+ * profile to be overwritten (`overwriteProfileId` - `save`'s `force`, i.e. the conflict dialog's
+ * "overwrite with my version"). Otherwise the file is left alone, no `writeFailures` entry is
+ * recorded (nothing failed), and the canonical row reports `outOfSync`, which is what invites the
+ * user to Reload/Compare (story D9).
+ *
+ * Story 079: the bytes hashing to the profile's own cached `fileHash` alone is deliberately NOT
+ * enough to allow the write, even though it proves the launcher itself read or wrote exactly these
+ * bytes (so nothing external happened). A raw save (057) keeps hand-typed, possibly non-render-
+ * fixed-point bytes as that very confirmed baseline on purpose - `fileHash` matching the disk is
+ * exactly what a hand-formatted canonical file looks like right after being saved. Allowing the
+ * write there would silently replace the user's typed formatting with `renderProfileFile(candidate)`
+ * on the very next retry trigger (`write`'s "Sync now", `assign`, `setDefault`, ...), which is the
+ * reformat 057 promises never happens - and, as a side effect, would turn every OTHER installation's
+ * already-correct copy into fresh drift. Nothing is lost by refusing: `sync.ts`'s
+ * `installationCopySource` already publishes those same hash-matched bytes to every installation
+ * regardless of whether the canonical file itself gets rewritten.
+ *
+ * What that refusal must NOT also block is the file's *name* (story 079 review, finding 1), which
+ * is why `canonicalMoveAllowed` is a second, wider predicate: hash-matched bytes may not be
+ * re-rendered, but the file they sit in is still ours to move to the name the profile resolves to
+ * now. Conflating the two stranded a clean, hand-formatted profile on a file name another profile's
+ * rename had made it give up - and `writeCanonicalProfileFile` refuses to overwrite a live
+ * profile's canonical file, so that other profile's save failed on every retry instead.
+ *
+ * A profile with no `fileHash` at all keeps the pre-043 behaviour deliberately: there is no baseline
+ * to compare against, and by the time a profile has one - which AC8's migration seeds for every
+ * pre-existing profile on the first start, and `create`/`save`/`adopt`/rebuild seed for every other
+ * - this rule applies to it.
+ *
+ * The mirror image of all of it is the `canonicalHashes` loop below: whenever a run confirmed a
+ * profile's canonical file byte-for-byte, that hash becomes the profile's `fileHash` baseline, so
+ * the launcher's own write is never later mistaken for an external edit (story D2's contract, here
+ * for every profile a cascade confirmed, not only the triggering one).
+ */
+async function syncAndPersist(
+  app: AppContext,
+  log: Logger,
+  profiles: ProfilesStore,
+  profile: ConfigProfile,
+  allProfiles: ConfigProfile[],
+  options: {
+    overwriteProfileId?: string
+    refuseCanonicalWriteFor?: string
+    /** Story 079 D8: restricts this run to one installation - see `sync.ts#SyncProfileDeps`. */
+    targetInstallationId?: string
+  } = {},
+): Promise<ProfileSyncState | null> {
+  try {
+    const outcome = await syncProfile({
+      profile,
+      allProfiles,
+      installations: app.installations,
+      launchState: app.launch.getState(),
+      playedModsFor: (installationId) => app.state.configPlayedMods()[installationId] ?? [],
+      switchBindFor: (installationId) => app.state.configSwitchBinds()[installationId],
+      canonicalBaseDir: userDataDir(),
+      writeFailures: app.state.configWriteFailures(),
+      targetInstallationId: options.targetInstallationId,
+      canonicalWriteAllowed: (candidate, onDisk) => {
+        // Story 079 D3: the cascade after a raw save (`saveRawText`) or an adopted external edit
+        // (`refreshFromFiles`) must never re-render the canonical file it just adopted - the typed/
+        // adopted bytes are not necessarily a render fixed point (hand formatting, a foreign tool's
+        // output), and the ordinary rule below would allow the write anyway (the just-adopted
+        // `fileHash` matches the disk by construction). This check runs first, and only for the one
+        // profile the caller names, so a sibling assigned to the same installation still follows the
+        // ordinary rule below (a dirty sibling still refuses; a clean one still writes).
+        if (candidate.id === options.refuseCanonicalWriteFor) return false
+        if (candidate.dirty === true) return false
+        if (candidate.id === options.overwriteProfileId) return true
+        if (onDisk.content === null) return true
+        if (typeof candidate.fileHash !== 'string') return true
+        // Deliberately NOT `onDisk.hash === candidate.fileHash` alone (see the file doc comment
+        // above `syncAndPersist`): that only proves these are bytes the launcher itself produced,
+        // not that they are `renderProfileFile`'s output - a raw save keeps hand-typed, non-fixed-
+        // point bytes as exactly that confirmed baseline, and writing here would silently reformat
+        // them on the next retry trigger.
+        if (onDisk.content === renderProfileFile(candidate)) return true
+        log.warn(
+          `leaving canonical file for profile ${candidate.id} alone: it holds bytes the launcher ` +
+            `has not read (an external edit), and only an explicit save may overwrite those`,
+        )
+        return false
+      },
+      canonicalMoveAllowed: (candidate, onDisk) => {
+        // Story 079 (review finding 1): the file's LOCATION, asked only where the rule above said
+        // "not ours to re-render". Moving preserves every byte, so the reformat risk that makes
+        // the write rule refuse hash-matched bytes simply does not exist here - while refusing the
+        // move does real damage: a clean, hand-formatted profile displaced by another profile's
+        // rename would sit on the name that profile now claims, and `writeCanonicalProfileFile`
+        // refuses (throws) rather than destroy a live profile's file, so that save could never
+        // succeed on any retry.
+        //
+        // A `dirty` profile is still excluded: story 043 has a rename only mark the profile dirty
+        // and leave the canonical file under its old name until the user actually saves, and
+        // `sync.ts` reads that profile's bytes from the old name accordingly.
+        if (candidate.dirty === true) return false
+        // Nothing on disk to move.
+        if (onDisk.content === null) return false
+        if (typeof candidate.fileHash !== 'string') return true
+        // Bytes the launcher itself read or wrote (the raw-save/adopt baseline), or bytes that
+        // already are our render. An external edit nobody has read is neither, and stays put -
+        // moving it would be just as surprising as overwriting it.
+        return onDisk.hash === candidate.fileHash || onDisk.content === renderProfileFile(candidate)
+      },
+      log,
+    })
+    app.state.setConfigWriteFailures(outcome.writeFailures)
+    const now = Date.now()
+    for (const [profileId, fileHash] of Object.entries(outcome.canonicalHashes)) {
+      // A profile that vanished mid-run (removed by another handler while this one awaited) is
+      // simply skipped - seeding a cache entry for it has nothing to be a cache of. So is one whose
+      // baseline already IS this hash: re-confirming the same bytes (which every retry sweep and
+      // every assign of an unchanged profile does) has nothing new to record, and committing the
+      // whole profile list for it would be pure churn.
+      const cached = profiles.find(profileId)
+      if (
+        cached &&
+        (cached.fileHash !== fileHash ||
+          cached.fileState !== 'unchanged' ||
+          // Story 049 D1: `markFileSeen` also seeds the last-saved baseline, so a record that has
+          // none yet - every profile persisted before this story - has something new to record even
+          // when its hash is already right, and gets its baseline on the first sync that confirms
+          // its file instead of waiting for the next content change. Safe for a `dirty` profile
+          // too: an id only appears in `canonicalHashes` when the file was read back byte-identical
+          // to this profile's own render (`sync.ts`), so the snapshot describes the file either way.
+          cached.baseline === undefined)
+      ) {
+        profiles.markFileSeen(profileId, fileHash, now)
+      }
+    }
+    return outcome.state
+  } catch (error) {
+    log.error(`unexpected error syncing config profile ${profile.id}`, error)
+    return null
+  }
+}
+
+/**
+ * Story 079 review (finding 1): the read-before-write guard a CONTENT-mutating handler must pass
+ * before it is allowed to pass `overwriteProfileId` to `syncAndPersist` for the profile it just
+ * mutated - i.e. before it is allowed to license `canonicalWriteAllowed` to re-render the canonical
+ * file. `save` (above) inlines this same check because its own conflict/unreadable result shapes
+ * come out of it directly; this is the same rule extracted for callers, like `tidyUpApply`, that
+ * mutate profile content without a `dirty` flag and without a conflict shape to report through.
+ *
+ * Answers a single question against `profile` AS IT STOOD BEFORE the mutation: is the canonical
+ * file still what was last read from it (`unchanged`), or is there nothing there yet to conflict
+ * with (`missing`)? Either means the write is ours to make. `changedOnDisk` (a hand-edit that
+ * landed since), `unparseable`/`readError` (a file we cannot trust the shape of), or a canonical
+ * directory that could not even be surveyed all mean it is NOT ours to make - the caller must not
+ * pass `overwriteProfileId` in that case. What the caller does about a refusal is its own choice
+ * (`save` returns a `conflict`/`unreadable` result and touches nothing; `tidyUpApply` has no such
+ * shape, so it commits the tidy-up to `state.json` regardless - nothing the user just did is lost -
+ * and leaves the canonical file alone, which is exactly what `canonicalWriteAllowed`'s own "holds
+ * bytes the launcher has not read" refusal already logs).
+ */
+async function authoriseContentWrite(
+  log: Logger,
+  profiles: ProfilesStore,
+  profile: ConfigProfile,
+): Promise<boolean> {
+  const baseDir = userDataDir()
+  const resolvedName = resolveProfileFileNames(profiles.list()).get(profile.id)
+  if (!resolvedName) return false
+  let ownedName: string | undefined
+  try {
+    ownedName = (await readCanonicalOwnership(baseDir)).get(profile.id)
+  } catch (error) {
+    log.error(`failed to survey the canonical directory before writing ${profile.id}`, error)
+    return false
+  }
+  const fileName = ownedName ?? resolvedName
+  const read = await readFileState(baseDir, fileName, profile.fileHash)
+  return read.state === 'unchanged' || read.state === 'missing'
+}
+
+/**
+ * Read-only status of one on-disk file vs. what it should currently contain -
+ * never writes. A persisted `configWriteFailures` entry for this exact key
+ * always wins and is reported as `'error'` (the last attempted WRITE failed,
+ * which matters even if the file on disk happens to look fine or absent for
+ * some unrelated reason); otherwise the live file is read and compared.
+ *
+ * Latin1 to match `writer.ts`/`sync.ts`'s own encoding, so the comparison is a
+ * true byte-for-byte one. `expectedContent: null` means there is nothing this file could be in
+ * sync with (story 079 D2, see `sync.ts#installationCopySource`), so a readable file is
+ * `outOfSync` whatever it holds - same reading as `sync.ts`'s own `liveFileStatus`.
+ */
+async function readSyncFileStatus(
+  path: string,
+  expectedContent: string | null,
+  failure: { messageKey: string; at: string } | undefined,
+): Promise<{ status: ProfileFileSyncStatus; messageKey?: string }> {
+  if (failure) return { status: 'error', messageKey: failure.messageKey }
+  try {
+    const content = await readFile(path, 'latin1')
+    return content === expectedContent ? { status: 'inSync' } : { status: 'outOfSync' }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { status: 'missing' }
+    return { status: 'error', messageKey: 'config.error.writeFailed' }
+  }
+}
+
+/**
+ * The alias names a file read lost, deduplicated, plus one log line per lost definition.
+ *
+ * Story-050 review (finding 4, second round): an `alias` name a file defines twice costs the read
+ * one entry's commands before the profile is ever reconstructed (`file-source.ts#foldConfig`), and
+ * the result looks exactly like a file that only ever had one such entry - so the only place the
+ * loss is still visible is the warning list, and every path that adopts a file has to report it.
+ * Extracted verbatim from `refreshFromFiles`' own fold when story 057 D4 added the second such path
+ * (`saveRawText`): two copies of this would be two chances for one of them to stop reporting.
+ * `context` is the caller's own prefix for the log line, the one thing the two differ in.
+ */
+function droppedAliasNames(
+  warnings: readonly RestoreWarning[],
+  profileId: string,
+  context: string,
+  log: Logger,
+): string[] {
+  for (const warning of warnings) {
+    if (warning.reason !== 'entry-alias-duplicate') continue
+    log.warn(
+      `${context}: alias "${warning.subject}" is defined more than once in ${warning.file}; ` +
+        `the definition at line ${warning.line} was discarded (profile ${profileId})`,
+    )
+  }
+  return [
+    ...new Set(
+      warnings
+        .filter((warning) => warning.reason === 'entry-alias-duplicate')
+        .map((warning) => warning.subject)
+        .filter((subject): subject is string => subject !== undefined),
+    ),
+  ]
+}
+
+/**
+ * Story 010, decision 12: `apply`/`restore` refuse a currently-running
+ * installation - unlike a profile write (story 079 D4: a running game defers
+ * nothing), a cleanup delete/restore actually removes files out from under
+ * the running engine, so this stays a hard refusal rather than a deferred
+ * write. `scan` is deliberately NOT gated by this (it is read-only and always
+ * safe) and so has no equivalent wrapper - `configModule.setup()`'s
+ * `cleanupScan` handler calls `scanRedundantCopies` directly.
+ *
+ * Pulled out of the handler closure so the running-guard itself is testable
+ * without booting `configModule.setup()`.
+ */
+export async function applyCleanupIfNotRunning(
+  installation: Installation,
+  entries: CleanupEntry[],
+  launchState: LaunchState,
+): Promise<Outcome<CleanupApplyResult>> {
+  if (isInstallationRunning(launchState, installation.id)) {
+    return fail('config.error.installationRunning')
+  }
+  return ok(await removeRedundantCopies(installation, entries))
+}
+
+/** Restore's half of the same running-guard - see `applyCleanupIfNotRunning` above. */
+export async function restoreCleanupIfNotRunning(
+  installation: Installation,
+  entries: CleanupEntry[],
+  launchState: LaunchState,
+): Promise<Outcome<CleanupRestoreResult>> {
+  if (isInstallationRunning(launchState, installation.id)) {
+    return fail('config.error.installationRunning')
+  }
+  return ok(await restoreRemovedCopies(installation, entries))
+}
+
+/**
+ * Story 066 D5: which folder the config-file picker opens in - the selected installation's
+ * `baseq2`, or the last registered installation's when nothing is selected, so the common "just
+ * read my baseq2" case costs two clicks (story decision "file import replaces the installation/
+ * gamedir import").
+ *
+ * Returns `{}` - no `defaultPath` at all, letting the OS pick its own default - when the launcher
+ * has no installation registered: the flow must not need one (AC9). This is a *starting folder*
+ * for the dialog and never a path that gets read; only what the user actually selects reaches the
+ * picked-files registry, so a stale or vanished folder here can at worst make the dialog open
+ * somewhere unhelpful.
+ */
+function importPickerStartFolder(app: AppContext): { defaultPath?: string } {
+  const list = app.installations.list()
+  if (list.length === 0) return {}
+
+  const activeId = app.state.settings().activeInstallationId
+  const selected =
+    (activeId ? list.find((installation) => installation.id === activeId) : undefined) ??
+    list[list.length - 1]
+
+  return selected ? { defaultPath: join(selected.rootPath, BASE_GAME_DIR) } : {}
+}
+
+/**
+ * The config module - CRUD over centrally-owned config profiles, plus their
+ * assignment links to installations.
+ *
+ * Mirrors `library`'s shape (see `../library/index.ts`): a `MainModule` whose
+ * `setup` registers handlers on the shell's `module:invoke` channel and does
+ * nothing else. Profile logic itself lives in `ProfilesStore`; this file only
+ * wires payload validation to it and shapes the return values.
+ *
+ * No `emit` here - the renderer reloads from each mutation's returned list,
+ * there is no broadcast event for this module in step 1.
+ */
+export const configModule: MainModule = {
+  id: 'config',
+
+  async setup({ handle, app, log }) {
+    const profiles = new ProfilesStore(app.state)
+
+    // One-off sweep: drop assignments to installations that vanished while the
+    // launcher was closed, so a stale reference never reaches the renderer.
+    profiles.reconcile(app.installations.list().map((installation) => installation.id))
+
+    // Every handler below re-filters against the *live* installation set on
+    // read, so an installation removed mid-session (no restart, no reconcile
+    // sweep in between) never shows up in what the renderer sees - without
+    // writing that removal to disk here, since this module deliberately does
+    // not hook into `InstallationsService.remove()`.
+    const withLiveAssignments = (list: ConfigProfile[]): ConfigProfile[] =>
+      reconcileAssignments(
+        list,
+        app.installations.list().map((installation) => installation.id),
+      )
+
+    /**
+     * Story 043 D4: the tail every *content* mutation now ends in, in place of `syncAndPersist`.
+     *
+     * This is the inversion of story 022 decision 8 ("every mutation writes immediately"), decided
+     * with the user in story 043: the file is the source of truth, so the launcher may not keep
+     * stamping it on every keystroke. The mutation itself is already persisted in `state.json` by
+     * the setter that ran just before this (a crash must not lose an edit); all that is left is to
+     * record that the canonical `.cfg` does not carry it yet. No file is touched here, and
+     * `CONFIG_HANDLERS.save` is the only thing that writes profile content from now on.
+     */
+    const markUnsaved = (profileId: string): ConfigProfile[] =>
+      withLiveAssignments(profiles.setDirty(profileId, true))
+
+    handle(CONFIG_HANDLERS.list, listInputSchema, (): ConfigProfile[] =>
+      withLiveAssignments(profiles.list()),
+    )
+
+    handle(
+      CONFIG_HANDLERS.create,
+      createConfigProfileInputSchema,
+      async (input): Promise<ConfigProfile[]> => {
+        const list = withLiveAssignments(profiles.create(input))
+        // The new profile is the LAST element: `ProfilesStore.create` appends it
+        // to the end of the array it hands `commit()`, and every transform in
+        // between - `commit()`'s `.map`, `reconcileAssignments`' `.map` - is
+        // order-preserving and never adds or drops an entry.
+        const created = list[list.length - 1]!
+        // Still writes immediately, and deliberately so (story 043 D4): a brand-new profile has no
+        // canonical file yet, and the file is what the profile *is* now - `state.json` being only a
+        // cache, a profile whose file was never written would be lost by the very rebuild pass that
+        // makes the cache disposable. It is not dirty at this point, so the write goes through.
+        await syncAndPersist(app, log, profiles, created, list)
+        return list
+      },
+    )
+
+    /**
+     * Story 043 D4: a rename changes what the file is *called* as well as what it says, so it is
+     * still a content mutation as far as the file goes - and it stops touching disk like the rest.
+     * Until the user saves, the canonical file keeps its old name (its sentinel still identifies the
+     * profile, which is how `save` and the sync engine find it again); the rename of the file, and
+     * the cascade for any sibling this displaces, happen inside that save.
+     */
+    handle(CONFIG_HANDLERS.rename, renameConfigProfileInputSchema, (input): ConfigProfile[] => {
+      // A rename cannot remove the profile, so it is always in the new list.
+      profiles.rename(input)
+      return markUnsaved(input.id)
+    })
+
+    handle(CONFIG_HANDLERS.remove, removeConfigProfileInputSchema, async (
+      input,
+    ): Promise<ConfigProfile[]> => {
+      const list = withLiveAssignments(profiles.remove(input))
+
+      // Nothing left to sync for the removed profile, so instead of a sync run:
+      // delete its canonical file and drop its now-stale bookkeeping. All of it
+      // best-effort - a failure here must never turn a completed removal into a
+      // failed IPC response.
+      //
+      // Documented simplification: per-installation copies of the removed
+      // profile are NOT deleted here. They are cleaned up by
+      // `reconcileOwnedProfileFiles` inside `syncProfile` the next time that
+      // installation is synced for any other reason.
+      try {
+        await removeCanonicalProfileFile(userDataDir(), input.id)
+      } catch (error) {
+        log.error(`failed to remove canonical profile file for ${input.id}`, error)
+      }
+      try {
+        const failures = app.state.configWriteFailures()
+        const keptFailures = Object.fromEntries(
+          Object.entries(failures).filter(([key]) => !key.startsWith(`${input.id}|`)),
+        )
+        if (Object.keys(keptFailures).length !== Object.keys(failures).length) {
+          app.state.setConfigWriteFailures(keptFailures)
+        }
+      } catch (error) {
+        log.error(`failed to drop stale sync bookkeeping for removed profile ${input.id}`, error)
+      }
+
+      return list
+    })
+
+    handle(CONFIG_HANDLERS.setCvars, setProfileCvarsInputSchema, (input): ConfigProfile[] => {
+      profiles.setCvars(input)
+      return markUnsaved(input.profileId)
+    })
+
+    handle(CONFIG_HANDLERS.setBinds, setProfileBindsInputSchema, (input): ConfigProfile[] => {
+      profiles.setBinds(input)
+      return markUnsaved(input.profileId)
+    })
+
+    handle(CONFIG_HANDLERS.setLayers, setProfileLayersInputSchema, (input): ConfigProfile[] => {
+      profiles.setLayers(input)
+      return markUnsaved(input.profileId)
+    })
+
+    handle(CONFIG_HANDLERS.setActions, setProfileActionsInputSchema, (input): ConfigProfile[] => {
+      profiles.setActions(input)
+      return markUnsaved(input.profileId)
+    })
+
+    // Story 040 D4: a dedicated setter for one boolean, not routed through the whole-field
+    // replace setters above - same "genuinely new handler" shape as `setPlayedMods`/
+    // `setSwitchBind` further down, but this one is write-affecting (it changes what
+    // `renderProfileFile` emits), so it is a content mutation exactly like
+    // `setCvars`/`setBinds`/`setLayers`/`setActions` and takes the same `markUnsaved` tail (story
+    // 043 D4) rather than the plain state write those two use.
+    handle(
+      CONFIG_HANDLERS.setWriteUnbindall,
+      setWriteUnbindallInputSchema,
+      (input): ConfigProfile[] => {
+        profiles.setWriteUnbindall(input)
+        return markUnsaved(input.profileId)
+      },
+    )
+
+    // Story 059 D9: mirrors `setWriteUnbindall` right above exactly - a dedicated setter for one
+    // boolean, write-affecting (it changes whether `buildCvarSections` writes unplaced catalogue
+    // cvars into the reserved `Defaults` section, D1/D2), so it takes the same `markUnsaved` tail.
+    handle(
+      CONFIG_HANDLERS.setWriteCatalogDefaults,
+      setWriteCatalogDefaultsInputSchema,
+      (input): ConfigProfile[] => {
+        profiles.setWriteCatalogDefaults(input)
+        return markUnsaved(input.profileId)
+      },
+    )
+
+    // Story 042 D7: mirrors `setWriteUnbindall` right above exactly - a dedicated setter for one
+    // field, write-affecting (it changes which decoration `renderProfileFile` draws around every
+    // section banner), so it takes the same `markUnsaved` tail. Story 043 D4's acceptance list does
+    // not name this handler, but its being write-affecting is the whole reason it went through
+    // `syncAndPersist` before; leaving it as the one content setter that still stamps the file
+    // immediately would be an inconsistency the plan clearly did not intend.
+    handle(
+      CONFIG_HANDLERS.setSectionHeaderStyle,
+      setSectionHeaderStyleInputSchema,
+      (input): ConfigProfile[] => {
+        profiles.setSectionHeaderStyle(input)
+        return markUnsaved(input.profileId)
+      },
+    )
+
+    /**
+     * Story 049 D3: discard - restores a profile's pending edits to its last-saved/loaded baseline,
+     * without touching any file. Deliberately does NOT go through `markUnsaved`/`syncAndPersist`:
+     * discard writes nothing to disk (the story's explicit requirement - "It never writes to the
+     * file"), so it needs neither the dirty-marking tail every content setter above ends in (the
+     * profile comes back out of `discard` already clean) nor a sync run.
+     *
+     * `profiles.discard` throws only for an unknown profile id, same as every other setter; the
+     * "no baseline to discard from" case is a typed result, not an error, and is reported as such
+     * rather than mapped onto `fail(...)`.
+     */
+    handle(
+      CONFIG_HANDLERS.discard,
+      discardProfileInputSchema,
+      (input): DiscardProfileResult => {
+        const outcome = profiles.discard(input.profileId)
+        if (outcome.outcome === 'noBaseline') return { status: 'noBaseline' }
+        return { status: 'discarded', profiles: withLiveAssignments(outcome.profiles) }
+      },
+    )
+
+    handle(CONFIG_HANDLERS.assign, assignProfileInputSchema, async (
+      input,
+    ): Promise<Outcome<ConfigProfile[]>> => {
+      if (!app.installations.find(input.installationId)) {
+        return fail('config.error.installationNotFound')
+      }
+      let list: ConfigProfile[]
+      try {
+        list = withLiveAssignments(profiles.assign(input))
+      } catch {
+        // Nothing was mutated, so there is nothing to sync.
+        return fail('config.error.profileNotFound')
+      }
+      await syncAndPersist(
+        app,
+        log,
+        profiles,
+        list.find((p) => p.id === input.profileId)!,
+        list,
+      )
+      return ok(list)
+    })
+
+    handle(CONFIG_HANDLERS.unassign, unassignProfileInputSchema, async (
+      input,
+    ): Promise<Outcome<ConfigProfile[]>> => {
+      if (!app.installations.find(input.installationId)) {
+        return fail('config.error.installationNotFound')
+      }
+      let list: ConfigProfile[]
+      try {
+        list = withLiveAssignments(profiles.unassign(input))
+      } catch {
+        return fail('config.error.profileNotFound')
+      }
+      // Covers the profile's own canonical file plus its remaining assignments.
+      await syncAndPersist(
+        app,
+        log,
+        profiles,
+        list.find((p) => p.id === input.profileId)!,
+        list,
+      )
+
+      // The unassigned-from installation's own orphaned copy is only removed by
+      // `reconcileOwnedProfileFiles`, which runs while syncing a profile that is
+      // still assigned there - so sync its current default too.
+      //
+      // Documented simplification: when nothing is assigned to that
+      // installation any more there is no such profile, and the orphaned file
+      // is left for a future sync of that installation.
+      const stillDefault = defaultProfileFor(list, input.installationId)
+      if (stillDefault && stillDefault.id !== input.profileId) {
+        await syncAndPersist(app, log, profiles, stillDefault, list)
+      }
+      return ok(list)
+    })
+
+    handle(CONFIG_HANDLERS.setDefault, setDefaultProfileInputSchema, async (
+      input,
+    ): Promise<Outcome<ConfigProfile[]>> => {
+      if (!app.installations.find(input.installationId)) {
+        return fail('config.error.installationNotFound')
+      }
+      let list: ConfigProfile[]
+      try {
+        list = withLiveAssignments(profiles.setDefault(input))
+      } catch (error) {
+        // The thrown message is the only way to tell "unknown profile" apart
+        // from "profile exists but isn't assigned to that installation" -
+        // `assignments.ts` throws a plain `Error` in both cases (see
+        // `requireProfile` vs the not-assigned check in `setDefault`).
+        const notAssigned =
+          error instanceof Error && error.message.includes('is not assigned to installation')
+        return fail(notAssigned ? 'config.error.notAssigned' : 'config.error.profileNotFound')
+      }
+      // The profile that just became default is still assigned to this
+      // installation, so syncing it rewrites every profile assigned there
+      // (including the previous default) plus the loader - which is all a
+      // default change can affect.
+      await syncAndPersist(
+        app,
+        log,
+        profiles,
+        list.find((p) => p.id === input.profileId)!,
+        list,
+      )
+      return ok(list)
+    })
+
+    handle(
+      CONFIG_HANDLERS.write,
+      writeProfileInputSchema,
+      async (input): Promise<Outcome<WriteTargetResult[]>> => {
+      const profile = profiles.find(input.profileId)
+      if (!profile) return fail('config.error.profileNotFound')
+
+      // Story 079 D8: `installationId` is optional and, when present, never trusted as a bare
+      // string - same "validate against the installations the launcher actually knows about"
+      // rule `assign`/`unassign`/`setDefault` already apply to their own `installationId`.
+      if (input.installationId && !app.installations.find(input.installationId)) {
+        return fail('config.error.installationNotFound')
+      }
+
+      // Story 022: `write` is one of the three retry triggers (decision 13), so
+      // it goes through the same sync engine every mutation does now.
+      //
+      // Story 043 D4: still a retry trigger, and still not a *save*. A retry re-attempts the
+      // installation copies from what the canonical file says; if the profile carries unsaved edits,
+      // `syncAndPersist`'s per-profile rule leaves that file alone and the copies are written from
+      // its on-disk bytes, so retrying can never publish an edit the user has not saved.
+      //
+      // Story 079 D8: `installationId`, when given, is "Sync now" (AC7) - the run is restricted to
+      // that one installation (`targetInstallationId`, `sync.ts`), so its copy (and loader) is
+      // rewritten from the canonical file and every other assigned installation is left untouched.
+      const state = await syncAndPersist(app, log, profiles, profile, profiles.list(), {
+        targetInstallationId: input.installationId,
+      })
+      if (!state) return fail('config.error.writeFailed')
+
+      const results: WriteTargetResult[] = state.installations.map((entry) => ({
+        installationId: entry.installationId,
+        // `inSync` is the only "this installation is now correctly set up" status a fresh sync
+        // attempt can report, so it maps to `written` for this legacy shape's consumers;
+        // `outOfSync`/`missing` right after an attempted write means something did not take effect
+        // and is reported as an error rather than silently claiming success. Story 079 D4: `pending`
+        // can no longer be among `entry.status` - a running installation is written exactly like a
+        // stopped one - so this mapping no longer has a branch for it. `syncState` (story 022 D5/D7)
+        // is the accurate, live source of truth going forward - this mapping only keeps `write`'s
+        // existing contract alive.
+        status: entry.status === 'inSync' ? 'written' : 'error',
+        ...(entry.messageKey ? { messageKey: entry.messageKey } : {}),
+      }))
+      return ok(results)
+      },
+    )
+
+    /**
+     * Story 043 D4: the explicit save - the only thing in this module that writes profile
+     * *content* to disk now, and the deliberate inversion of story 022 decision 8.
+     *
+     * Read before write, in this order, because the order IS the guarantee (AC5: "the launcher
+     * never overwrites a hand-edit it has not read"):
+     *
+     * 1. Find the file that actually carries this profile's ownership sentinel
+     *    (`readCanonicalOwnership`), not merely the name the profile *resolves* to. A rename now
+     *    only marks the profile dirty, so a renamed-but-unsaved profile's file still sits under its
+     *    old name - checking the resolved name would find nothing there, call that "missing" and
+     *    write straight over a hand-edit of the old file. This lookup is what closes that hole.
+     * 2. Classify it against the cached `fileHash` (`readFileState`, story D2). `unchanged` and
+     *    `missing` are both "ours to write": nothing changed underneath us, or there is nothing
+     *    there to conflict with (including the story's "rewrite it from cache" case for a file
+     *    deleted outside the launcher - pressing Save *is* that instruction).
+     * 3. `changedOnDisk` refuses and answers a conflict carrying both whole files, the decided
+     *    whole-file granularity; the profile stays dirty and `state.json` is left exactly as it is,
+     *    so nothing about the user's unsaved edits is lost by refusing.
+     * 4. `unparseable`/`readError` also refuse: a file we cannot read is as much "a hand-edit we
+     *    have not read" as a changed one. Reported, never written over.
+     *
+     * Only then is `dirty` cleared, and only so the ordinary sync run below is allowed to write the
+     * canonical file at all (`syncAndPersist`'s per-profile rule) - the installation cascade itself
+     * is completely unchanged, which is what keeps AC6 true: the copies come from the same
+     * canonical content this save just put on disk. The write is then *verified* by reading it back
+     * (`own.status`, the sync engine's own "trust the disk") before the profile is called saved; on
+     * anything less the profile goes straight back to dirty rather than being remembered as saved
+     * when it is not.
+     *
+     * Story 043 D8: `input.force` is the "overwrite with my version" resolution of
+     * `ConfigConflictDialog` - it skips steps 2-4 above entirely (no re-read, no conflict, no
+     * unreadable refusal) and goes straight to the write, since the user has already been shown
+     * whatever is on disk and explicitly chosen to replace it regardless of what it now says.
+     */
+    handle(
+      CONFIG_HANDLERS.save,
+      saveProfileInputSchema,
+      async (input): Promise<Outcome<SaveProfileResult>> => {
+        const profile = profiles.find(input.profileId)
+        if (!profile) return fail('config.error.profileNotFound')
+
+        const baseDir = userDataDir()
+        // `profile` came out of the list, so this lookup cannot miss.
+        const resolvedName = resolveProfileFileNames(profiles.list()).get(profile.id)!
+
+        let ownedName: string | undefined
+        try {
+          ownedName = (await readCanonicalOwnership(baseDir)).get(profile.id)
+        } catch (error) {
+          // The canonical directory itself could not be listed (a permissions problem, something
+          // in the way of the directory). Nothing is written on a disk we cannot survey.
+          log.error(`failed to survey the canonical directory before saving ${profile.id}`, error)
+          return ok({
+            status: 'unreadable',
+            fileName: resolvedName,
+            path: join(baseDir, resolvedName),
+            reason: 'readError',
+            message: error instanceof Error ? error.message : String(error),
+          })
+        }
+        const fileName = ownedName ?? resolvedName
+        const path = join(baseDir, fileName)
+
+        if (input.force !== true) {
+          const read = await readFileState(baseDir, fileName, profile.fileHash)
+          if (read.state === 'changedOnDisk') {
+            return ok({
+              status: 'conflict',
+              fileName,
+              path,
+              diskContent: read.content,
+              ourContent: renderProfileFile(profile),
+            })
+          }
+          if (read.state === 'unparseable') {
+            return ok({
+              status: 'unreadable',
+              fileName,
+              path,
+              reason: 'unparseable',
+              line: read.line,
+              message: read.message,
+            })
+          }
+          if (read.state === 'readError') {
+            return ok({
+              status: 'unreadable',
+              fileName,
+              path,
+              reason: 'readError',
+              message:
+                read.error instanceof Error ? read.error.message : String(read.error),
+            })
+          }
+        }
+
+        // `unchanged` or `missing`, or `force === true`: the file is ours to write.
+        const list = withLiveAssignments(profiles.setDirty(profile.id, false))
+        // `setDirty` throws on an unknown id and cannot remove the profile, so this cannot miss.
+        const target = list.find((p) => p.id === profile.id)!
+        // `overwriteProfileId` is passed unconditionally here, not only on `force`: on EITHER path
+        // this call has already established the write is authorized - `force` is the conflict
+        // dialog's explicit "overwrite with my version" after being shown both whole files, and the
+        // ordinary path already re-read the file above and confirmed it is `unchanged`/`missing`
+        // (nothing external happened since we last read or wrote it). Story 079: it must be
+        // unconditional, not merely the by-product of `syncAndPersist`'s general "the on-disk hash
+        // matches the cached `fileHash`" rule, because that rule is deliberately no longer enough on
+        // its own (see the file doc comment above `syncAndPersist`) - a raw save's hand-typed,
+        // non-render-fixed-point bytes also satisfy it, and `save` is the one caller that must still
+        // be able to publish genuinely new content (`renderProfileFile(target)`, reflecting the edits
+        // just cleared from `dirty`) over such a file, while every other, non-save trigger
+        // (`write`/`assign`/`setDefault`/a rename cascade/the startup retry sweep) must not.
+        const state = await syncAndPersist(app, log, profiles, target, list, {
+          overwriteProfileId: profile.id,
+        })
+        if (!state || state.own.status !== 'inSync') {
+          // The file on disk is not what this profile says, so the edits are still unsaved. Says so,
+          // rather than reporting a save that did not happen - `configWriteFailures` already carries
+          // the why, and the next save (or any retry trigger) will try again.
+          profiles.setDirty(profile.id, true)
+          return fail('config.error.writeFailed')
+        }
+        // Re-read the record: `syncAndPersist` seeded `fileHash`/`fileSeenAt` from the bytes it just
+        // confirmed on disk, and the caller wants the profile as it now stands - through
+        // `withLiveAssignments`, the same view of it every other handler returns.
+        const saved = withLiveAssignments(profiles.list()).find((p) => p.id === profile.id) ?? target
+        return ok({ status: 'saved', profile: saved, sync: state })
+      },
+    )
+
+    /**
+     * Story 057 D4: the Raw file tab's inline editor saving the text the user typed, byte for byte.
+     *
+     * `save` above writes what the cached profile *renders to*; this writes what the user *typed*,
+     * and then brings the profile in line with the file by reading it back. The direction is the
+     * whole guarantee (AC: "the file on disk is exactly what I typed"), so nothing in this handler
+     * ever renders the profile over these bytes - not before the write, not after the adopt, and not
+     * through the installation cascade (see the note on that below).
+     *
+     * Same order as `save`, and for the same reasons - read before write, because the order IS the
+     * guarantee:
+     *
+     * 1. Two pre-flights on the text itself, before anything is read or written, both of them things
+     *    a user can genuinely produce in an editor rather than caller bugs (hence i18n keys and not
+     *    a schema throw):
+     *    - the ownership tag must still be there and still name THIS profile. It is what every guard
+     *      in this module keys on (`save`'s own file lookup, `refreshFromFiles`, `openFile`,
+     *      `removeCanonicalProfileFile`), so writing text that has lost it would orphan the file from
+     *      its profile - the launcher would go looking for a canonical file and find none, while the
+     *      user's config sits right there under its own name.
+     *    - the text has to be storable as a Quake II config: latin-1 only (the file encoding - a
+     *      higher code point cannot survive the round trip) and free of the control bytes
+     *      `readFileState` classifies a file as `unparseable` for. Checked with the read side's own
+     *      `corruptContentDiagnostic`, so the write side can never accept bytes the read side then
+     *      refuses.
+     * 2. The file that actually carries this profile's ownership stamp (`readCanonicalOwnership`),
+     *    never merely the name the profile resolves to - identical to `save`'s step 1, and load
+     *    bearing for the same reason (a renamed-but-unsaved profile's file still sits under its old
+     *    name). Note the difference from `save`: this handler writes to wherever that file IS and
+     *    never renames it. A raw save is an edit of a file's *content*; moving it would break the
+     *    conflict baseline the very same call just established.
+     * 3. The same `readFileState` conflict guard, answering `save`'s own `conflict`/`unreadable`
+     *    shapes, with the same `force` bypass. The one nuance: `ourContent` is the typed text, since
+     *    that is what this save would have written.
+     * 4. The write, through `writer.ts#writeTargetFile` - the same diff-skip/backup-once/atomic write
+     *    every other file in this module goes through, handed the text verbatim.
+     * 5. The file-state record is refreshed from a re-read of the file, checked against the hash of
+     *    the bytes we just wrote. That is what keeps the next conflict guard from reporting a phantom
+     *    external edit, and it doubles as `save`'s "verify the write by reading it back" step: a
+     *    read-back that is not `unchanged` means the bytes on disk are not ours, so nothing is
+     *    adopted and the call fails honestly.
+     * 6. The adopt, through `ProfilesStore.adoptFromFile` - the exact path `refreshFromFiles` uses
+     *    for an external edit, given the same fields from the same read, because a raw save IS an
+     *    external edit as far as the profile is concerned; it just happens to have come from our own
+     *    editor.
+     * 7. Story 079 D3: the installation cascade (`syncAndPersist`), same as every other content
+     *    mutation - every assigned, not-running installation's copy is brought in line with the file
+     *    that now sits on disk, same as after a structured save. `refuseCanonicalWriteFor` is passed
+     *    so the cascade never re-renders the canonical file it just wrote: the profile is clean and
+     *    its hash matches the disk after the adopt above, so the ordinary rule would allow the write,
+     *    and `renderProfileFile(profile)` is not necessarily the same bytes as the text the user just
+     *    typed (hand formatting is not a render fixed point). The installation copies are then
+     *    written from those same on-disk bytes (`installationCopySource` in `sync.ts`), so they land
+     *    byte-identical to what was typed - and a dirty sibling assigned to the same installation is
+     *    untouched by the ordinary per-profile rule, exactly as it is after a structured save.
+     */
+    handle(
+      CONFIG_HANDLERS.saveRawText,
+      saveRawTextInputSchema,
+      async (input): Promise<Outcome<SaveRawTextResult>> => {
+        const profile = profiles.find(input.profileId)
+        if (!profile) return fail('config.error.profileNotFound')
+
+        if (ownedProfileIdFromContent(input.text) !== profile.id) {
+          log.warn(
+            `refusing a raw save for profile ${profile.id}: the text no longer carries this ` +
+              `profile's ownership stamp`,
+          )
+          return fail('config.error.rawTextNotOwned')
+        }
+        // `corruptContentDiagnostic`'s file/line/message describe a file being read; here only its
+        // yes/no answer is used (the text is not a file yet, and the rejection is one message about
+        // the whole payload), hence the empty file name.
+        if (!isLatin1Text(input.text) || corruptContentDiagnostic('', input.text) !== null) {
+          log.warn(
+            `refusing a raw save for profile ${profile.id}: the text holds characters a config ` +
+              `file cannot carry`,
+          )
+          return fail('config.error.rawTextNotLatin1')
+        }
+
+        const baseDir = userDataDir()
+        // `profile` came out of the list, so this lookup cannot miss.
+        const resolvedName = resolveProfileFileNames(profiles.list()).get(profile.id)!
+
+        let ownedName: string | undefined
+        try {
+          ownedName = (await readCanonicalOwnership(baseDir)).get(profile.id)
+        } catch (error) {
+          // Same refusal `save` makes: nothing is written on a disk we cannot survey.
+          log.error(`failed to survey the canonical directory before a raw save of ${profile.id}`, error)
+          return ok({
+            status: 'unreadable',
+            fileName: resolvedName,
+            path: join(baseDir, resolvedName),
+            reason: 'readError',
+            message: error instanceof Error ? error.message : String(error),
+          })
+        }
+        const fileName = ownedName ?? resolvedName
+        const path = join(baseDir, fileName)
+
+        if (input.force !== true) {
+          const read = await readFileState(baseDir, fileName, profile.fileHash)
+          if (read.state === 'changedOnDisk') {
+            return ok({
+              status: 'conflict',
+              fileName,
+              path,
+              diskContent: read.content,
+              // What this save would have written - which, unlike `save`'s, is the typed text
+              // itself. The dialog's "Overwrite" re-sends exactly this with `force: true`.
+              ourContent: input.text,
+            })
+          }
+          if (read.state === 'unparseable') {
+            return ok({
+              status: 'unreadable',
+              fileName,
+              path,
+              reason: 'unparseable',
+              line: read.line,
+              message: read.message,
+            })
+          }
+          if (read.state === 'readError') {
+            return ok({
+              status: 'unreadable',
+              fileName,
+              path,
+              reason: 'readError',
+              message: read.error instanceof Error ? read.error.message : String(read.error),
+            })
+          }
+        }
+
+        // `unchanged` or `missing`, or `force === true`: the file is ours to write.
+        try {
+          await writeTargetFile(path, input.text)
+        } catch (error) {
+          log.error(`failed to write the raw config text for profile ${profile.id}`, error)
+          return fail('config.error.writeFailed')
+        }
+
+        // The hash of the bytes we just handed the writer. `hashCanonicalFileContent` encodes latin1
+        // exactly as `writeFileAtomic` does, so this IS the file's hash - and passing it as the
+        // cached hash below turns the read-back into a verification: anything but `unchanged` means
+        // what is on disk is not what we wrote.
+        const written = hashCanonicalFileContent(input.text)
+        const readBack = await readFileState(baseDir, fileName, written)
+        if (readBack.state !== 'unchanged') {
+          log.error(
+            `raw save for profile ${profile.id} did not land: reading ${fileName} back gave ` +
+              `"${readBack.state}" instead of the bytes just written`,
+          )
+          return fail('config.error.writeFailed')
+        }
+
+        // The file is the source of truth and now says exactly what the user typed, so any structured
+        // edit that was still unsaved has been superseded by it. The renderer keeps the two apart
+        // (story 057's mutual exclusion: no raw draft while the profile is dirty), so this is the
+        // belt to that braces - and it is explicit rather than left to `adoptFromFile`, which
+        // deliberately never touches `dirty` (same step `refreshFromFiles`' `discardLocalEdits`
+        // branch makes for the same reason).
+        if (profile.dirty === true) {
+          log.warn(
+            `raw save for profile ${profile.id} replaced unsaved structured edits: the file the ` +
+              `user typed is the profile now`,
+          )
+        }
+        profiles.setDirty(profile.id, false)
+
+        const list = withLiveAssignments(
+          profiles.adoptFromFile(
+            profile.id,
+            {
+              name: recoverProfileName(readBack.content) ?? profile.name,
+              cvars: readBack.profile.cvars,
+              binds: readBack.profile.binds,
+              actions: readBack.profile.actions,
+              categories: readBack.profile.categories,
+              cvarSections: readBack.profile.cvarSections,
+              layers: readBack.profile.layers,
+              writeUnbindall: detectWriteUnbindall(readBack.content),
+              sectionHeaderStyle:
+                detectSectionHeaderStyle(readBack.content) ?? profile.sectionHeaderStyle,
+            },
+            readBack.hash,
+            Date.now(),
+          ),
+        )
+        // `adoptFromFile` throws on an unknown id and cannot remove the profile, so this cannot miss.
+        const adopted = list.find((p) => p.id === profile.id)!
+
+        // Story 079 D3: cascade the typed bytes to every assigned, not-running installation - see
+        // point 7 of the doc comment above for why the canonical write is refused for this profile.
+        await syncAndPersist(app, log, profiles, adopted, list, {
+          refuseCanonicalWriteFor: adopted.id,
+        })
+
+        return ok({
+          status: 'saved',
+          fileName,
+          path,
+          profile: adopted,
+          droppedAliases: droppedAliasNames(readBack.profile.warnings, profile.id, 'raw save', log),
+          preservedLines: readBack.profile.preserved,
+        })
+      },
+    )
+
+    /**
+     * Story 043 D5: the re-read side of the story's "re-read on window focus, tab open, and before
+     * write" decision. `input.profileId` scopes the check to that one profile (the story's own
+     * "Decided during refine": window focus/tab open re-read only the selected profile, so focus
+     * latency does not scale with the profile count); omitted, every profile is checked (a later
+     * deliverable's startup call site).
+     *
+     * Never writes profile *content* other than the display-hint bookkeeping documented on
+     * `ProfilesStore.setFileState`/`adoptFromFile` below, and never deletes a profile record - a
+     * missing or unparseable file leaves the cache exactly as usable as it was a moment ago.
+     */
+    handle(
+      CONFIG_HANDLERS.refreshFromFiles,
+      refreshFromFilesInputSchema,
+      async (input): Promise<Outcome<RefreshFromFilesResult>> => {
+        const allProfiles = profiles.list()
+        if (input.profileId !== undefined && !allProfiles.some((p) => p.id === input.profileId)) {
+          return fail('config.error.profileNotFound')
+        }
+        const targets = input.profileId
+          ? allProfiles.filter((p) => p.id === input.profileId)
+          : allProfiles
+        const fileNames = resolveProfileFileNames(allProfiles)
+        const baseDir = userDataDir()
+
+        // Story 043 D10: the file each profile's ownership sentinel actually sits in - the same
+        // lookup `save` above does, and for the same reason. A rename only marks the profile dirty
+        // (D4), so a renamed-but-unsaved profile's canonical file is still under its PREVIOUS name;
+        // classifying the resolved name instead reported that profile as `missing`, which is how the
+        // UI ends up offering "Remove profile" for a file that was never gone. A directory that
+        // cannot be surveyed degrades to the resolved names rather than failing the whole refresh -
+        // each per-profile read below still classifies its own file honestly.
+        let ownership: ReadonlyMap<string, string>
+        try {
+          ownership = await readCanonicalOwnership(baseDir)
+        } catch (error) {
+          log.error('failed to survey the canonical directory before a file refresh', error)
+          ownership = new Map()
+        }
+
+        const results: RefreshedProfileResult[] = []
+        for (const profile of targets) {
+          // `profile` came out of `allProfiles`, so the fallback lookup cannot miss.
+          const fileName = ownership.get(profile.id) ?? fileNames.get(profile.id)!
+          const read = await readFileState(baseDir, fileName, profile.fileHash)
+
+          if (read.state === 'unchanged') {
+            // Nothing to do: the cached hash already matches the disk bytes, and the cached
+            // `fileState` is already `'unchanged'` from whatever previous read/write/adopt got it
+            // there. Calling `markFileSeen` again would be harmless but pointless churn.
+            results.push({ profileId: profile.id, outcome: 'unchanged', fileState: 'unchanged' })
+            continue
+          }
+
+          if (read.state === 'changedOnDisk') {
+            // Story 043 D8: `discardLocalEdits` is the "take the file" resolution of
+            // `ConfigConflictDialog` - the user has already been shown both whole-file versions
+            // and chosen to throw their own edits away, so a dirty profile no longer refuses here.
+            const discardingLocalEdits = profile.dirty === true && input.discardLocalEdits === true
+            if (profile.dirty === true && !discardingLocalEdits) {
+              // A genuine conflict: unsaved UI edits AND a disk change. Adopt nothing, touch
+              // nothing about the cached profile - same whole-file shape `save` (D4) returns for
+              // its own `changedOnDisk` refusal.
+              results.push({
+                profileId: profile.id,
+                outcome: 'conflict',
+                fileState: 'changedOnDisk',
+                conflict: {
+                  status: 'conflict',
+                  fileName,
+                  path: join(baseDir, fileName),
+                  diskContent: read.content,
+                  ourContent: renderProfileFile(profile),
+                },
+              })
+              continue
+            }
+
+            if (discardingLocalEdits) {
+              // `adoptFromFile` below deliberately leaves `dirty` alone (its own doc comment: "the
+              // caller only reaches this method when the profile was not dirty in the first
+              // place") - true for the ordinary adopt path, not for this one, so `dirty` is cleared
+              // explicitly here before the overlay.
+              profiles.setDirty(profile.id, false)
+            }
+
+            // No unsaved edits (or edits just explicitly discarded): adopt the disk version into
+            // the cache. The file-carried fields
+            // (name, cvars/binds/actions/categories/layers, writeUnbindall, sectionHeaderStyle) are
+            // recovered the same way `rebuild.ts`'s startup rebuild recovers them for a brand-new
+            // record; unlike that path, a missing/undetected style falls back to the profile's
+            // *current* value rather than being omitted, since there is an existing value here to
+            // preserve rather than a fresh record's implicit default.
+            const list = withLiveAssignments(
+              profiles.adoptFromFile(
+                profile.id,
+                {
+                  name: recoverProfileName(read.content) ?? profile.name,
+                  cvars: read.profile.cvars,
+                  binds: read.profile.binds,
+                  actions: read.profile.actions,
+                  categories: read.profile.categories,
+                  cvarSections: read.profile.cvarSections,
+                  layers: read.profile.layers,
+                  writeUnbindall: detectWriteUnbindall(read.content),
+                  sectionHeaderStyle:
+                    detectSectionHeaderStyle(read.content) ?? profile.sectionHeaderStyle,
+                },
+                read.hash,
+                Date.now(),
+              ),
+            )
+            // `adoptFromFile` throws on an unknown id and cannot remove the profile, so this
+            // cannot miss.
+            const adopted = list.find((p) => p.id === profile.id)!
+
+            // Story 079 D3: cascade the adopted file to every assigned, not-running installation -
+            // same reasoning as `saveRawText`'s own cascade above (point 7 of its doc comment): the
+            // canonical write is refused for this profile so the run never re-renders the file it
+            // just adopted (the on-disk bytes are not necessarily a render fixed point), and the
+            // installation copies are then written from those same on-disk bytes. Covers both this
+            // silent re-read's ordinary adopt and the "take the file" conflict resolution above -
+            // both reach this same block.
+            await syncAndPersist(app, log, profiles, adopted, list, {
+              refuseCanonicalWriteFor: adopted.id,
+            })
+
+            // Story-050 review (finding 4, second round): an `alias` name the file defined twice
+            // cost the adopt one entry's commands before `readFileState` ever got to reconstruct the
+            // profile - reported so the UI can say so, and logged so a support copy of the log says
+            // it too. Deduplicated by name: the field names *which* alias collided, and one name
+            // repeated three times is still one thing to tell the user about. Story 057 D4 moved the
+            // fold itself into `droppedAliasNames` above, unchanged, so the raw-save adopt reports
+            // the same loss the same way.
+            const droppedAliases = droppedAliasNames(
+              read.profile.warnings,
+              profile.id,
+              'refresh',
+              log,
+            )
+            results.push({
+              profileId: profile.id,
+              outcome: 'adopted',
+              fileState: 'changedOnDisk',
+              profile: adopted,
+              droppedAliases,
+            })
+            continue
+          }
+
+          if (read.state === 'unparseable') {
+            // The last good cache stays exactly as it is - only the display hint changes.
+            profiles.setFileState(profile.id, 'unparseable')
+            results.push({
+              profileId: profile.id,
+              outcome: 'unparseable',
+              fileState: 'unparseable',
+              file: read.file,
+              line: read.line,
+              message: read.message,
+            })
+            continue
+          }
+
+          if (read.state === 'missing') {
+            // Never deletes the record - the story's own decision keeps it in the list, marked
+            // "file missing", awaiting the user's "rewrite from cache" or "remove profile".
+            profiles.setFileState(profile.id, 'missing')
+            results.push({ profileId: profile.id, outcome: 'missing', fileState: 'missing' })
+            continue
+          }
+
+          // `readError`: treated exactly as conservatively as `unparseable` - reported, nothing
+          // else about the cached profile touched.
+          profiles.setFileState(profile.id, 'readError')
+          results.push({
+            profileId: profile.id,
+            outcome: 'readError',
+            fileState: 'readError',
+            message: read.error instanceof Error ? read.error.message : String(read.error),
+          })
+        }
+
+        return ok(results)
+      },
+    )
+
+    handle(
+      CONFIG_HANDLERS.preview,
+      previewProfileInputSchema,
+      async (input): Promise<Outcome<PreviewProfileResult>> => {
+      const profile = profiles.find(input.profileId)
+      if (!profile) return fail('config.error.profileNotFound')
+      const installation = app.installations.find(input.installationId)
+      if (!installation) return fail('config.error.installationNotFound')
+
+      const files = previewProfileFiles(
+        profile,
+        profiles.list(),
+        installation,
+        app.state.configSwitchBinds()[installation.id],
+      )
+      return ok({
+        files: await Promise.all(
+          files.map(async (file) => ({ ...file, onDisk: await isFile(file.path) })),
+        ),
+      })
+      },
+    )
+
+    // Story 079 D4: a running game defers nothing, so no installation is ever pending a write any
+    // more - this channel's shared contract (`WriteState`, a later deliverable's concern) is kept
+    // alive by always answering "nothing pending" rather than by persisting a map that can never
+    // gain an entry.
+    handle(CONFIG_HANDLERS.writeState, writeStateInputSchema, (): WriteState => ({}))
+
+    /**
+     * Story 022 D7: read-only report of where every copy of this profile stands.
+     *
+     * Deliberately NOT built on `syncProfile`, which writes: the story names
+     * exactly three retry triggers (a profile mutation, `setup()` at start, and
+     * the `write` channel) and this is not one of them. Merely looking at a
+     * profile's sync state must never touch disk.
+     */
+    handle(
+      CONFIG_HANDLERS.syncState,
+      syncStateInputSchema,
+      async (input): Promise<Outcome<ProfileSyncState>> => {
+      const profile = profiles.find(input.profileId)
+      if (!profile) return fail('config.error.profileNotFound')
+
+      const allProfiles = profiles.list()
+      const fileNames = resolveProfileFileNames(allProfiles)
+      // `profile` came out of `allProfiles`, so this lookup cannot miss.
+      const fileName = fileNames.get(profile.id)!
+      const failures = app.state.configWriteFailures()
+      const expectedContent = renderProfileFile(profile)
+
+      const ownPath = join(userDataDir(), fileName)
+      const own = await readSyncFileStatus(ownPath, expectedContent, failures[`${profile.id}|own`])
+
+      // Story 043 D4 / 079 D2: an installation copy is generated output of the CANONICAL FILE (043
+      // AC6), so it is judged against that file's BYTES - exactly what `sync.ts` writes there, for
+      // a clean profile and a dirty one alike (`installationCopySource` is the shared rule).
+      // Comparing it against the render instead would disagree with the status the sync run itself
+      // just reported for the same file, and - for a dirty profile - would report every
+      // installation as `outOfSync` with a Retry that could never clear it. The canonical row is
+      // the one that shows unsaved edits and external edits, and still does: `own` above is
+      // deliberately still compared against the render (story 043's "no sixth state").
+      //
+      // `null` (the file moved underneath the launcher - bytes nobody has read, which are not
+      // published either - or a dirty profile without a file, including a renamed-but-unsaved one
+      // whose file still sits under its previous name) makes every readable copy `outOfSync`.
+      // Unreadable-but-present (not ENOENT) is "no authoritative content", the same reading
+      // `sync.ts` gives it; merely looking at the sync state must not throw over it.
+      const canonicalContent = await readExisting(ownPath).catch(() => null)
+      const expectedCopyContent = installationCopySource(
+        profile,
+        {
+          content: canonicalContent,
+          hash: canonicalContent === null ? null : hashCanonicalFileContent(canonicalContent),
+        },
+        profile.dirty !== true,
+      )
+
+      // Story 079 D4: a running installation is judged exactly like a stopped one - the Care row
+      // reads `inSync` right after a save whether or not the game is running, since the write
+      // itself is no longer deferred for it either (see `sync.ts`'s write loop).
+      const installations: ProfileInstallationSync[] = []
+      for (const assignment of profile.assignments) {
+        const installation = app.installations.find(assignment.installationId)
+        // An assignment pointing at an installation that no longer exists is
+        // reconciled away elsewhere, not reported as a sync problem here.
+        if (!installation) continue
+        const path = join(installation.rootPath, BASE_GAME_DIR, fileName)
+        const result = await readSyncFileStatus(
+          path,
+          expectedCopyContent,
+          failures[`${profile.id}|${installation.id}`],
+        )
+        installations.push({ installationId: installation.id, path, fileName, ...result })
+      }
+
+      return ok({ own: { path: ownPath, fileName, ...own }, installations })
+      },
+    )
+
+    /**
+     * Story 023 D1: read-only report of the profile's own canonical file plus
+     * one entry per assigned installation, for the Raw File tab. Same
+     * never-writes contract as `syncState` above - `collectRawFiles` only
+     * reads.
+     */
+    handle(
+      CONFIG_HANDLERS.rawFiles,
+      rawFilesInputSchema,
+      async (input): Promise<Outcome<RawFilesResult>> => {
+      const profile = profiles.find(input.profileId)
+      if (!profile) return fail('config.error.profileNotFound')
+
+      const result = await collectRawFiles(
+        profile,
+        profiles.list(),
+        app.installations,
+        userDataDir(),
+        (installationId) => app.state.configPlayedMods()[installationId] ?? [],
+      )
+      return ok(result)
+      },
+    )
+
+    /**
+     * Story 023 D2: hand one of this profile's files to the OS - the default
+     * application for `.cfg` (`mode: 'open'`) or the file manager with the file
+     * selected (`mode: 'reveal'`). Mirrors `app:revealPath`
+     * (`src/main/ipc/app.ts`), minus its directory branch: the target here is
+     * always a file.
+     *
+     * This is the module's one privileged path, so the order below is the whole
+     * point of it (AC 8):
+     *
+     * 1. The payload carries ids only - no path field exists to be trusted. The
+     *    path is resolved here, from main's own profile list and installation
+     *    registry, exactly the way `collectRawFiles`/`syncState` resolve it, so
+     *    the renderer cannot aim this at a file of its choosing even if it
+     *    wanted to.
+     * 2. A non-null `installationId` must be an installation that exists AND is
+     *    one this profile is actually assigned to - an id that merely exists is
+     *    refused, since a copy of this profile's file is only ever expected
+     *    where it is assigned.
+     * 3. The file must exist and its first line must be this profile's exact
+     *    sentinel. A file that exists at the resolved path but is NOT this
+     *    profile's own (a hand-written file, or another profile's canonical file
+     *    at a not-yet-reconciled name - the case `canonical.ts` reconciles at
+     *    write time) is reported as `fileNotFound`, never opened or revealed:
+     *    the same exact-sentinel rule `canonical.ts` uses before it renames or
+     *    deletes anything, applied here before handing a path to the OS.
+     *
+     * Only then is `shell` touched at all.
+     */
+    handle(
+      CONFIG_HANDLERS.openFile,
+      openFileInputSchema,
+      async (input): Promise<Outcome<null>> => {
+      const { profileId, installationId, mode } = input
+
+      const allProfiles = profiles.list()
+      const profile = allProfiles.find((p) => p.id === profileId)
+      if (!profile) return fail('config.error.profileNotFound')
+      // `profile` came out of `allProfiles`, so this lookup cannot miss.
+      const fileName = resolveProfileFileNames(allProfiles).get(profile.id)!
+
+      let path: string
+      if (installationId === null) {
+        path = join(userDataDir(), fileName)
+      } else {
+        const installation = app.installations.find(installationId)
+        const isAssigned = profile.assignments.some((a) => a.installationId === installationId)
+        // Both misses collapse into one key on purpose: from the caller's side
+        // "no such installation" and "that installation is not a target of this
+        // profile" are the same answer - not a valid target for this profile.
+        if (!installation || !isAssigned) return fail('config.error.installationNotFound')
+        path = join(installation.rootPath, BASE_GAME_DIR, fileName)
+      }
+
+      // Defence in depth, not a live check: `resolveProfileFileNames` only ever
+      // produces `<base>.cfg`. It is here so that a future change to the name
+      // resolver can never quietly turn this handler into one that hands the OS
+      // something other than a config file.
+      if (!path.toLowerCase().endsWith('.cfg')) return fail('config.error.fileNotFound')
+
+      // `readExisting` is the write pipeline's own ENOENT-only-swallowed read,
+      // so "missing" means the same thing here as it does to `rawFiles`. A read
+      // that fails for any OTHER reason propagates and the registry turns it
+      // into a failed outcome - which is the right direction: no `shell` call
+      // happens on a file we could not verify.
+      const content = await readExisting(path)
+      if (content === null) return fail('config.error.fileNotFound')
+      if (ownedProfileIdFromContent(content) !== profile.id) {
+        return fail('config.error.fileNotFound')
+      }
+
+      if (mode === 'open') {
+        const error = await shell.openPath(path)
+        return error ? fail('config.error.openFailed', { message: error }) : ok(null)
+      }
+      // No error signal to surface - `showItemInFolder` returns void, same as
+      // `app:revealPath`'s own reveal branch.
+      shell.showItemInFolder(path)
+      return ok(null)
+      },
+    )
+
+    handle(
+      CONFIG_HANDLERS.setPlayedMods,
+      setPlayedModsInputSchema,
+      (input): Outcome<string[]> => {
+      const installation = app.installations.find(input.installationId)
+      if (!installation) return fail('config.error.installationNotFound')
+
+      const validated = validatePlayedMods(installation.gameDirs, input.playedMods)
+      app.state.setConfigPlayedMods({
+        ...app.state.configPlayedMods(),
+        [installation.id]: validated,
+      })
+      return ok(validated)
+      },
+    )
+
+    // Story 007: which key (if any) cycles an installation's assigned
+    // profiles in-session. Per-installation, not part of a profile (decision
+    // 1) - see `SetSwitchBindInput`'s doc comment.
+    handle(
+      CONFIG_HANDLERS.switchBinds,
+      switchBindsInputSchema,
+      (): Record<string, string> => app.state.configSwitchBinds(),
+    )
+
+    handle(
+      CONFIG_HANDLERS.setSwitchBind,
+      setSwitchBindInputSchema,
+      async (input): Promise<Outcome<Record<string, string>>> => {
+        const installation = app.installations.find(input.installationId)
+        if (!installation) return fail('config.error.installationNotFound')
+
+        const current = app.state.configSwitchBinds()
+        const next = { ...current }
+        if (input.key === null) delete next[installation.id]
+        else next[installation.id] = input.key
+        app.state.setConfigSwitchBinds(next)
+
+        // Decision 12/13: write immediately for this one installation only,
+        // through the unchanged story-004 pipeline (`writeInstallationFiles`);
+        // this never touches `assignments`/`isDefault` on any profile - the
+        // installation's default is only ever changed by `setDefault` above.
+        //
+        // Judgment call: this does not consult `isInstallationRunning` either (consistent with
+        // story 079 D4's "a running game defers nothing" everywhere else now) - the write below is
+        // safe while the game is running (loader files are not open for exclusive access), it just
+        // means the running instance keeps whatever chain it already loaded until its next launch -
+        // the same story-004 precedent AC3 relies on for the default profile itself.
+        const allProfiles = profiles.list()
+        const defaultProfile = defaultProfileFor(allProfiles, installation.id)
+        if (defaultProfile) {
+          const fileNames = resolveProfileFileNames(allProfiles)
+          const assignedProfiles = assignedProfilesFor(allProfiles, installation.id).map((p) => ({
+            ...p,
+            // Every assigned profile comes from `allProfiles`, which
+            // `fileNames` was resolved from above, so this lookup cannot miss.
+            fileName: fileNames.get(p.id)!,
+          }))
+          const switchBindKey = next[installation.id]
+          try {
+            await writeInstallationFiles({
+              installation,
+              // `defaultProfile` is drawn from `allProfiles` above, so this
+              // lookup cannot miss.
+              profileFileName: fileNames.get(defaultProfile.id)!,
+              profileFileContent: renderProfileFile(defaultProfile),
+              loaderFileContent: renderLoaderFile(
+                defaultProfile,
+                fileNames.get(defaultProfile.id)!,
+                switchBindKey
+                  ? {
+                      key: switchBindKey,
+                      profiles: assignedProfiles,
+                      defaultProfileId: defaultProfile.id,
+                    }
+                  : undefined,
+              ),
+              playedMods: app.state.configPlayedMods()[installation.id] ?? [],
+            })
+          } catch (error) {
+            log.error(`failed to write switch bind for installation ${installation.id}`, error)
+            return fail('config.error.writeFailed')
+          }
+        }
+        return ok(next)
+      },
+    )
+
+    // Story 005 / 066 D5: read-only import of hand-written config FILES into a new profile.
+    // `import.ts` holds the fs-touching logic so it stays testable without booting this module;
+    // these handlers only validate the payload shape, supply the picker's starting folder and
+    // (for commit) reconcile live assignments the same way every other profile-list-returning
+    // handler does.
+    //
+    // `pickedFiles` is the session's id -> absolute path map (`picked-files.ts`). Created here, per
+    // `setup()` call, rather than as module-level state: one app run, one registry, never persisted
+    // (story 066: "no source paths are persisted"). It is the only thing the three handlers share,
+    // and the only thing that can turn a renderer-supplied id into a path.
+    const pickedFiles = new PickedFilesRegistry()
+
+    handle(
+      CONFIG_HANDLERS.importPickFiles,
+      importPickFilesInputSchema,
+      (): Promise<Outcome<PickedConfigFile[]>> =>
+        pickImportFiles(app.dialog, pickedFiles, log, importPickerStartFolder(app)),
+    )
+
+    handle(
+      CONFIG_HANDLERS.importPreviewFiles,
+      importFilesPreviewInputSchema,
+      (input): Promise<Outcome<ImportPreviewResult>> => previewImportFiles(pickedFiles, log, input),
+    )
+
+    handle(
+      CONFIG_HANDLERS.importCommitFiles,
+      importFilesCommitInputSchema,
+      async (input): Promise<Outcome<ConfigProfile[]>> => {
+      const result = await commitImportFiles(pickedFiles, log, input, (seed) =>
+        profiles.createFromImport(seed),
+      )
+      // Nothing was created, so there is nothing to sync.
+      if (!result.ok) return result
+
+      const list = withLiveAssignments(result.value)
+      // Same append-only reasoning as `create` above: `createFromImport`
+      // appends the new profile last and every transform in between is an
+      // order-preserving `.map`. It has no assignments yet, so this sync only
+      // writes its canonical file.
+      await syncAndPersist(app, log, profiles, list[list.length - 1]!, list)
+      return ok(list)
+      },
+    )
+
+    // Story 010: find and remove mod-folder `.cfg` copies that duplicate a
+    // same-named `baseq2` file. `cleanup.ts` holds the fs-touching logic
+    // (D1/D2, already tested against a real temp tree there); these handlers
+    // only validate the payload, resolve the real installation and - for
+    // `apply`/`restore` only, never for the read-only `scan` (decision 12) -
+    // refuse a currently-running installation the same way `write` does.
+    handle(
+      CONFIG_HANDLERS.cleanupScan,
+      cleanupScanInputSchema,
+      async (input): Promise<Outcome<CleanupScanResult>> => {
+      const installation = app.installations.find(input.installationId)
+      if (!installation) return fail('config.error.installationNotFound')
+
+      const findings = await scanRedundantCopies(installation)
+      return ok({ findings })
+      },
+    )
+
+    handle(
+      CONFIG_HANDLERS.cleanupApply,
+      cleanupApplyInputSchema,
+      async (input): Promise<Outcome<CleanupApplyResult>> => {
+      const installation = app.installations.find(input.installationId)
+      if (!installation) return fail('config.error.installationNotFound')
+
+      return applyCleanupIfNotRunning(installation, input.entries, app.launch.getState())
+      },
+    )
+
+    handle(
+      CONFIG_HANDLERS.cleanupRestore,
+      cleanupRestoreInputSchema,
+      async (input): Promise<Outcome<CleanupRestoreResult>> => {
+        const installation = app.installations.find(input.installationId)
+        if (!installation) return fail('config.error.installationNotFound')
+
+        return restoreCleanupIfNotRunning(installation, input.entries, app.launch.getState())
+      },
+    )
+
+    /**
+     * Story 025 D3: one atomic tidy-up batch. The only mutating config handler
+     * that is not a whole-field setter, for the reason decision 10 gives - a
+     * re-classify writes `unrecognized` plus one of `cvars`/`binds`/`actions` in
+     * the same result, and two setter calls would bump `updatedAt` twice and
+     * write two half-tidied files to every assigned installation.
+     *
+     * The shape it enforces:
+     *
+     * - `applyTidyUpOps` (pure, `@shared/config/tidy-up`) re-checks every op
+     *   against the *current* profile and returns stale ones in `rejected`
+     *   rather than throwing (decision 11) - so this handler has no per-op error
+     *   path at all, only a payload-shape one.
+     * - Exactly one `updatedAt`, one `replaceProfile` commit and one
+     *   `syncAndPersist` run for the whole batch, however many ops applied.
+     * - Nothing applied means nothing changed: no timestamp bump, no commit, no
+     *   sync run, and the profile is returned as it stands (with live
+     *   assignments, same as every other handler's view of it) alongside the
+     *   rejects, so the caller can re-scan.
+     */
+    handle(
+      CONFIG_HANDLERS.tidyUpApply,
+      tidyUpApplyInputSchema,
+      async (input): Promise<Outcome<TidyUpApplyResult>> => {
+      const current = profiles.find(input.profileId)
+      if (!current) return fail('config.error.profileNotFound')
+
+      const outcome = applyTidyUpOps(current, input.ops)
+      if (outcome.applied.length === 0) {
+        const list = withLiveAssignments(profiles.list())
+        return ok({
+          profile: list.find((p) => p.id === current.id) ?? current,
+          applied: [],
+          rejected: outcome.rejected,
+        })
+      }
+
+      // Story 079 review (finding 1): `replaceProfile` below mutates profile CONTENT but, unlike
+      // every other content setter in this module, does not go through `markUnsaved`/set `dirty` -
+      // tidy-up commits its result immediately (this handler's own doc comment: one commit, one
+      // sync run). `canonicalWriteAllowed`'s general rule (`syncAndPersist` above) therefore never
+      // licenses the canonical rewrite on its own (a clean profile with a real `fileHash` fails its
+      // "already equals the render" check, since the render is now the TIDIED content) - it needs
+      // `overwriteProfileId`, exactly like `save`, and exactly as deliberately gated: checked here,
+      // against the profile as it stood before the tidy-up, before that profile is committed.
+      const authorised = await authoriseContentWrite(log, profiles, current)
+
+      const list = withLiveAssignments(
+        profiles.replaceProfile({ ...outcome.profile, updatedAt: new Date().toISOString() }),
+      )
+      const updated = list.find((p) => p.id === current.id)!
+      // `authorised === false` means the canonical file moved underneath us since it was last read
+      // (or could not be surveyed) - the tidy-up still commits to `state.json` above (nothing the
+      // user just did is silently lost), but the canonical file itself is left alone rather than
+      // overwritten with content adopted from a hand-edit nobody has read; `canonicalWriteAllowed`
+      // logs that refusal, and the canonical row reports `outOfSync` (Reload/Compare, story D9).
+      await syncAndPersist(app, log, profiles, updated, list, {
+        overwriteProfileId: authorised ? updated.id : undefined,
+      })
+      return ok({ profile: updated, applied: outcome.applied, rejected: outcome.rejected })
+      },
+    )
+
+    /**
+     * Story 043 D3: `state.json` is a cache, so before the first retry sweep reads the profile
+     * list, two things happen exactly once each per start:
+     *
+     * 1. AC8's one-time format migration (gated by `configFileSourceMigratedAt`, so a second
+     *    start is a no-op) brings every pre-existing profile's canonical file up to the current
+     *    040/042 format and seeds its `fileHash`.
+     * 2. Every launcher-owned `.cfg` in the canonical directory whose sentinel id `state.json`
+     *    has no record for gets that record rebuilt from the file, keeping the sentinel's id.
+     *
+     * Placed here, after handler registration and before the retry sweep, for the same reason the
+     * sweep itself is at the end: `setup()` is awaited before the renderer can invoke anything, so
+     * a rebuilt profile is already in the list by the time the first `list` call arrives, while
+     * registration itself is not delayed by disk I/O.
+     *
+     * The whole call is guarded: a failure of the directory scan (a permissions problem on the
+     * canonical dir, say) must leave the module running on its cached state, not take the config
+     * module - and with it the app's config tab - down at start. Per-profile and per-file failures
+     * are already handled inside, and the migration guard stays unset on any of them so the next
+     * start retries.
+     */
+    try {
+      const report = await runFileSourceStartup({
+        baseDir: userDataDir(),
+        listProfiles: () => profiles.list(),
+        replaceProfile: (profile) => void profiles.replaceProfile(profile),
+        addProfile: (profile) => void profiles.addRebuilt(profile),
+        migratedAt: () => app.state.configFileSourceMigratedAt(),
+        setMigratedAt: (at) => void app.state.setConfigFileSourceMigratedAt(at),
+        log,
+      })
+      if (report.migration !== 'skipped' || report.rebuiltProfileIds.length > 0) {
+        log.info(
+          `config file source: migration ${report.migration} ` +
+            `(${report.migratedProfileIds.length} file(s), ${report.failedProfileIds.length} failed), ` +
+            `${report.rebuiltProfileIds.length} profile(s) rebuilt from disk, ` +
+            `${report.ignoredFileNames.length} owned file(s) ignored`,
+        )
+      }
+    } catch (error) {
+      log.error('config file-source startup (story 043 D3) failed; continuing on cached state', error)
+    }
+
+    // Story 022 D7: one retry sweep at start, after every handler is registered, for whatever the
+    // last session left behind - a failed write (`configWriteFailures`). One sweep only:
+    // `syncAndPersist` records a fresh failure if it fails again, and the next mutation or the
+    // `write` channel are the other two retry triggers.
+    //
+    // Story 079 D4: no longer also sweeps a persisted "pending" map - a running game defers nothing,
+    // so nothing is ever left pending across a restart to retry.
+    const failures = app.state.configWriteFailures()
+    const retryIds = new Set<string>()
+    for (const key of Object.keys(failures)) {
+      // Keys are `<profileId>|own` or `<profileId>|<installationId>`.
+      const profileId = key.split('|')[0]
+      if (profileId) retryIds.add(profileId)
+    }
+
+    if (retryIds.size > 0) {
+      const allProfiles = profiles.list()
+      for (const profileId of retryIds) {
+        const profile = allProfiles.find((p) => p.id === profileId)
+        // A profile id referenced by stale bookkeeping that no longer exists is
+        // simply skipped - cleaning that dangling entry up is not this
+        // deliverable's job.
+        // Sequentially awaited, never `Promise.all`: overlapping fs writes to
+        // the same installation must not race, the same reasoning the write
+        // loops in `sync.ts` use.
+        if (profile) await syncAndPersist(app, log, profiles, profile, allProfiles)
+      }
+    }
+
+    log.debug('config module ready')
+  },
+}

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CircleCheck, CircleX, TriangleAlert } from 'lucide-react'
+import { CircleCheck, CircleX, Info, TriangleAlert } from 'lucide-react'
 import { engineLabel, type ValidationResult } from '@shared/types'
 import { cn } from '../../lib/cn'
 import { invoke } from '../../lib/bridge'
@@ -8,6 +8,7 @@ import { useLauncher } from '../../store/useLauncher'
 import { Button } from '../ui/Button'
 import { Field, Input, PathPicker, Select } from '../ui/controls'
 import { Badge, Spinner } from '../ui/primitives'
+import { EngineBadge } from '../ui/EngineBadge'
 import { Modal } from '../ui/Modal'
 
 /**
@@ -120,9 +121,7 @@ export function AddExistingDialog() {
             <div className="space-y-2 rounded-md border border-line bg-void/40 p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="stencil">{t('dialog.addExisting.detected')}</span>
-                <Badge tone={inspection.engineKind === 'r1q2' ? 'flame' : 'neutral'}>
-                  {engineLabel(inspection.engineKind)}
-                </Badge>
+                <EngineBadge engineKind={inspection.engineKind} />
                 {inspection.gameDirs.map((dir) => (
                   <Badge key={dir} tone="strogg">
                     {dir}
@@ -141,6 +140,8 @@ export function AddExistingDialog() {
                     <li key={check.id} className="flex items-start gap-2">
                       {check.severity === 'error' ? (
                         <CircleX className="mt-0.5 size-3.5 shrink-0 text-danger" />
+                      ) : check.severity === 'info' ? (
+                        <Info className="mt-0.5 size-3.5 shrink-0 text-info" />
                       ) : (
                         <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-warning" />
                       )}

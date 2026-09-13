@@ -1,22 +1,26 @@
 import { useTranslation } from 'react-i18next'
-import { Play, Wrench, X } from 'lucide-react'
-import { engineLabel, type Installation, type Job, type LaunchState } from '@shared/types'
+import { Import, Play, Wrench, X } from 'lucide-react'
+import type { Installation, Job, LaunchState } from '@shared/types'
 import { cn } from '../../lib/cn'
+import { isDemoData } from '../../lib/demo-data'
 import {
   formatBytes,
   formatDuration,
   formatPercent,
   formatSpeed,
   shortenPath,
-  tileCode,
 } from '../../lib/format'
 import { isPlayable, statusTone } from '../../lib/status'
 import { useActiveInstallation, useActiveJob, useLauncher } from '../../store/useLauncher'
 import { IconButton, PlayButton } from '../ui/Button'
+import { DemoBadge } from '../ui/DemoBadge'
+import { EngineBadge } from '../ui/EngineBadge'
+import { InstallationTile } from '../installations/InstallationTile'
 import { ProgressBar } from '../ui/ProgressBar'
 import { Select } from '../ui/controls'
 import { StatusDot } from '../ui/primitives'
 import { useFixAction } from '../installations/ChecksList'
+import { EngineUpdateAction } from '../../modules/downloads/engine/EngineUpdateAction'
 
 /**
  * The bottom action bar: who is selected, what is happening, and the one button
@@ -35,7 +39,7 @@ export function ActionBar() {
   const play = useLauncher((state) => state.play)
   const cancelJob = useLauncher((state) => state.cancelJob)
   const updateInstallation = useLauncher((state) => state.updateInstallation)
-  const setRoute = useLauncher((state) => state.setRoute)
+  const openDialog = useLauncher((state) => state.openDialog)
   const runFix = useFixAction()
 
   const action = resolvePrimaryAction(installation, job, launch)
@@ -50,7 +54,12 @@ export function ActionBar() {
         void runFix(installation, 'locate-root')
         return
       case 'repair':
-        setRoute('/install')
+        openDialog({
+          kind: 'module',
+          moduleId: 'downloads',
+          view: 'repair',
+          installationId: installation.id,
+        })
         return
       case 'busy':
         return
@@ -64,20 +73,26 @@ export function ActionBar() {
     >
       {/* --- who --- */}
       <div className="flex min-w-0 flex-1 items-center gap-3.5">
-        <div
+        <InstallationTile
+          installation={installation}
+          size="actionBar"
           className={cn(
-            'grid size-12 shrink-0 place-items-center rounded-md border',
+            'shrink-0',
             installation ? 'border-flame-700 bg-flame-900/25' : 'border-line bg-raised',
           )}
-        >
-          <span className="font-display text-base font-semibold text-flame-300">
-            {installation ? tileCode(installation.engineKind, installation.name) : '--'}
-          </span>
-        </div>
+        />
 
         <div className="min-w-0 space-y-1">
-          <div className="truncate font-display text-sm tracking-[0.08em] text-ink uppercase">
-            {installation?.name ?? t('actionbar.noInstallation')}
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="truncate font-display text-sm tracking-[0.08em] text-ink uppercase">
+              {installation?.name ?? t('actionbar.noInstallation')}
+            </div>
+            {installation && (
+              <span className="flex shrink-0 items-center gap-1.5">
+                <EngineBadge engineKind={installation.engineKind} />
+                <DemoBadge installation={installation} />
+              </span>
+            )}
           </div>
 
           {installation ? (
@@ -87,8 +102,6 @@ export function ActionBar() {
                 <span className={statusTone(installation.status).text}>
                   {t(statusTone(installation.status).labelKey)}
                 </span>
-                <span className="text-ink-faint">/</span>
-                <span>{engineLabel(installation.engineKind)}</span>
                 <span className="text-ink-faint">/</span>
                 <span className="numeric truncate" title={installation.rootPath}>
                   {shortenPath(installation.rootPath, 34)}
@@ -119,20 +132,56 @@ export function ActionBar() {
 
       {/* --- the button --- */}
       <div className="flex shrink-0 flex-col items-end gap-1.5">
-        <PlayButton
-          tone={action.tone}
-          disabled={action.disabled}
-          onClick={onPrimary}
-          icon={
-            action.kind === 'repair' ? (
-              <Wrench className="size-4" />
-            ) : (
-              <Play className="size-4" fill="currentColor" />
-            )
-          }
-        >
-          {t(action.labelKey)}
-        </PlayButton>
+        <div className="flex items-center gap-2">
+          {/* Story 090 D4: only offered on a demo installation.
+              Story 091 D5: no longer disabled while it is running - the job now waits instead of
+              refusing (091 Decisions: "[[090]]'s refusal is replaced by a wait, including on the
+              renderer"). */}
+          {installation && isDemoData(installation.checks) && (
+            <IconButton
+              label={t('installation.action.importRetail')}
+              size="sm"
+              onClick={() =>
+                openDialog({
+                  kind: 'module',
+                  moduleId: 'downloads',
+                  view: 'retail-upgrade',
+                  installationId: installation.id,
+                })
+              }
+            >
+              <Import className="size-3.5" />
+            </IconButton>
+          )}
+
+          {/* Story 092 D7: the engine-update trigger, mirroring the retail-upgrade button above -
+              same utility cluster, same per-installation rendering. Unlike that button it has no
+              installation-side gate: it always renders for the current installation and decides
+              its own "update available" indicator from main's own `EngineUpdateStatus`. */}
+          {installation && <EngineUpdateAction installation={installation} />}
+
+          {/* `data-testid` + `data-action` added by story 074 D8: AC6 ("Play lights up the moment
+              the verdict stops being invalid/missing, even while the job is still running") can
+              only be proven by sampling this exact button's enabled-ness against a live job, and
+              the footer's buttons are otherwise addressable only by translated label - which
+              changes per `action.kind`, i.e. precisely with the state under test. */}
+          <PlayButton
+            data-testid="actionbar-play"
+            data-action={action.kind}
+            tone={action.tone}
+            disabled={action.disabled}
+            onClick={onPrimary}
+            icon={
+              action.kind === 'repair' ? (
+                <Wrench className="size-4" />
+              ) : (
+                <Play className="size-4" fill="currentColor" />
+              )
+            }
+          >
+            {t(action.labelKey)}
+          </PlayButton>
+        </div>
         {appVersion && (
           <span className="stencil text-[9px] tracking-[0.2em]">
             {t('actionbar.buildLabel', { version: appVersion })}
@@ -174,24 +223,36 @@ function GameDirSelect({
 function JobReadout({ job, onCancel }: { job: Job; onCancel: () => void }) {
   const { t } = useTranslation()
   const { ratio, bytesDone, bytesTotal, bytesPerSecond, filesRemaining, etaSeconds } = job.progress
+  const waiting = job.status === 'waiting'
 
   return (
     <>
       <div className="flex items-baseline justify-between gap-3">
         <div className="numeric flex items-baseline gap-3 text-[11px] tracking-wide text-ink-dim uppercase">
-          {ratio !== null && <span className="text-flame-300">{formatPercent(ratio)}</span>}
-          <span>
-            {t('actionbar.downloading', {
-              done: bytesTotal
-                ? `${formatBytes(bytesDone)} / ${formatBytes(bytesTotal)}`
-                : formatBytes(bytesDone),
-            })}
-          </span>
-          {bytesPerSecond !== undefined && <span>{formatSpeed(bytesPerSecond)}</span>}
-          {filesRemaining !== undefined && (
-            <span className="hidden xl:inline">
-              {t('actionbar.filesRemaining', { count: filesRemaining })}
+          {/* Story 091 D3 (AC2): a waiting job names its reason (mirrors `RunningStep.tsx`'s
+              `job.error` rendering) instead of reusing the download readout, which would read as
+              a generic "queued" state. */}
+          {waiting && job.waitingReason ? (
+            <span className="text-warning normal-case">
+              {t(job.waitingReason.key, job.waitingReason.params ?? {})}
             </span>
+          ) : (
+            <>
+              {ratio !== null && <span className="text-flame-300">{formatPercent(ratio)}</span>}
+              <span>
+                {t('actionbar.downloading', {
+                  done: bytesTotal
+                    ? `${formatBytes(bytesDone)} / ${formatBytes(bytesTotal)}`
+                    : formatBytes(bytesDone),
+                })}
+              </span>
+              {bytesPerSecond !== undefined && <span>{formatSpeed(bytesPerSecond)}</span>}
+              {filesRemaining !== undefined && (
+                <span className="hidden xl:inline">
+                  {t('actionbar.filesRemaining', { count: filesRemaining })}
+                </span>
+              )}
+            </>
           )}
         </div>
 
@@ -264,7 +325,7 @@ function LaunchReadout({
   // unlabelled path floating in the middle of the bar.
   return (
     <div className="min-w-0 space-y-0.5">
-      <div className="stencil text-[9px]">{t('installation.engine')}</div>
+      <div className="stencil text-[9px]">{t('installation.engineExecutable')}</div>
       <p
         className="numeric truncate text-[11px] text-ink-muted"
         title={installation.executablePath ?? ''}
@@ -307,6 +368,17 @@ function resolvePrimaryAction(
     return {
       kind: 'busy',
       labelKey: 'installation.action.running',
+      tone: 'neutral',
+      disabled: true,
+    }
+  }
+
+  if (job?.writeLock) {
+    // Story 091 D3 (AC5): while a job holds the write lock on this installation, its files are
+    // being written to directly - even past a PLAYABLE mark, launching now would race the write.
+    return {
+      kind: 'busy',
+      labelKey: 'installation.action.writeLocked',
       tone: 'neutral',
       disabled: true,
     }

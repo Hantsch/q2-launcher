@@ -1,0 +1,259 @@
+import { z } from 'zod'
+import type { IpcInvokeMap } from './ipc'
+import type { InstallationIcon } from './types'
+import { absolutePathSchema, engineKindSchema, settingsObjectSchema, sourceSchema } from './schemas'
+
+/**
+ * Runtime validation for every IPC payload from the renderer. Strict: a bad
+ * payload here is a bug, not a state to repair (contrast with the forgiving
+ * persisted-state schemas in `src/main/lib/schemas.ts`).
+ *
+ * One exported schema per `IpcInvokeMap` channel, in the same section order as
+ * that map. Not yet wired into any `handle()` call - that is a later
+ * deliverable of story 036; for now these are exported-but-unused by design.
+ */
+
+// ---- app --------------------------------------------------------------------
+
+export const appGetInfoSchema: z.ZodType<IpcInvokeMap['app:getInfo']['req']> = z.void()
+
+export const urlSchema: z.ZodType<IpcInvokeMap['app:openExternal']['req']> = z
+  .string()
+  .url()
+  .refine((value) => /^https?:\/\//i.test(value), 'only http(s) URLs may be opened')
+
+export const appRevealPathSchema: z.ZodType<IpcInvokeMap['app:revealPath']['req']> =
+  absolutePathSchema
+
+/** Story 075: a length-capped string - a diagnostics report is Markdown text, not a path. */
+export const appCopyTextSchema: z.ZodType<IpcInvokeMap['app:copyText']['req']> = z
+  .string()
+  .max(20_000)
+
+/** Story 099: no payload - the version is the running app's own, never the renderer's to choose. */
+export const appGetReleaseNotesSchema: z.ZodType<IpcInvokeMap['app:getReleaseNotes']['req']> =
+  z.void()
+
+// ---- window chrome ------------------------------------------------------------
+
+export const windowMinimizeSchema: z.ZodType<IpcInvokeMap['window:minimize']['req']> = z.void()
+export const windowToggleMaximizeSchema: z.ZodType<IpcInvokeMap['window:toggleMaximize']['req']> =
+  z.void()
+export const windowCloseSchema: z.ZodType<IpcInvokeMap['window:close']['req']> = z.void()
+export const windowGetStateSchema: z.ZodType<IpcInvokeMap['window:getState']['req']> = z.void()
+
+// ---- settings -----------------------------------------------------------------
+
+export const settingsGetSchema: z.ZodType<IpcInvokeMap['settings:get']['req']> = z.void()
+export const settingsPatchSchema: z.ZodType<IpcInvokeMap['settings:patch']['req']> =
+  settingsObjectSchema.partial()
+
+// ---- installations --------------------------------------------------------------
+
+export const installationsListSchema: z.ZodType<IpcInvokeMap['installations:list']['req']> =
+  z.void()
+
+export const addExistingInputSchema: z.ZodType<IpcInvokeMap['installations:addExisting']['req']> =
+  z.object({
+    rootPath: absolutePathSchema,
+    name: z.string().min(1).max(120).optional(),
+    executablePath: absolutePathSchema.optional(),
+    source: sourceSchema.optional(),
+  })
+
+export const createInstallationInputSchema: z.ZodType<
+  IpcInvokeMap['installations:create']['req']
+> = z.object({
+  rootPath: absolutePathSchema,
+  name: z.string().min(1).max(120),
+  engineKind: engineKindSchema,
+})
+
+export const updateInstallationInputSchema: z.ZodType<
+  IpcInvokeMap['installations:update']['req']
+> = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(120).optional(),
+  rootPath: absolutePathSchema.optional(),
+  executablePath: absolutePathSchema.optional(),
+  writeDirPath: absolutePathSchema.nullable().optional(),
+  launchArgs: z.array(z.string().max(500)).max(64).optional(),
+  activeGameDir: z
+    .string()
+    .max(64)
+    // A game dir is a single folder name, never a path - this blocks traversal.
+    .refine((value) => value === '' || /^[A-Za-z0-9_.-]+$/.test(value), 'invalid game directory')
+    .optional(),
+  favorite: z.boolean().optional(),
+})
+
+export const removeInstallationInputSchema: z.ZodType<
+  IpcInvokeMap['installations:remove']['req']
+> = z.object({
+  id: z.string().min(1),
+  deleteFromDisk: z.boolean().optional(),
+})
+
+/** Full ordering, by id, as shown in the rail (`installations:reorder`). */
+export const idListSchema: z.ZodType<IpcInvokeMap['installations:reorder']['req']> = z
+  .array(z.string().min(1))
+  .max(500)
+
+export const nullableIdSchema: z.ZodType<IpcInvokeMap['installations:setActive']['req']> = z
+  .string()
+  .min(1)
+  .nullable()
+
+export const idSchema: z.ZodType<IpcInvokeMap['installations:validate']['req']> = z
+  .string()
+  .min(1)
+
+/** Validate a folder the user is *considering*, without registering anything. */
+export const installationsInspectPathSchema: z.ZodType<
+  IpcInvokeMap['installations:inspectPath']['req']
+> = absolutePathSchema
+
+export const pickPathInputSchema: z.ZodType<IpcInvokeMap['installations:pickFolder']['req']> =
+  z.object({
+    title: z.string().max(200),
+    buttonLabel: z.string().max(80).optional(),
+    defaultPath: z.string().optional(),
+  })
+
+/** These are import paths, hence built on `absolutePathSchema`. */
+export const pathListSchema: z.ZodType<IpcInvokeMap['installations:import']['req']> = z
+  .array(absolutePathSchema)
+  .max(200)
+
+/**
+ * A shipped icon's id (story 067) is a basename in
+ * `src/renderer/src/assets/installations`, never a path: a bounded, lowercase
+ * slug only, so a value shaped like `../../etc/passwd` or an absolute path is
+ * rejected here rather than reaching any filesystem lookup.
+ */
+export const shippedIconIdSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z0-9-]+$/, 'must be a lowercase slug, not a path')
+
+export const installationIconSchema: z.ZodType<InstallationIcon> = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('shipped'), id: shippedIconIdSchema }),
+  z.object({ kind: z.literal('custom') }),
+])
+
+export const setInstallationIconInputSchema: z.ZodType<
+  IpcInvokeMap['installations:setIcon']['req']
+> = z.object({
+  installationId: z.string().min(1),
+  icon: installationIconSchema.nullable(),
+})
+
+export const pickIconFileInputSchema: z.ZodType<
+  IpcInvokeMap['installations:pickIconFile']['req']
+> = z.object({
+  installationId: z.string().min(1),
+})
+
+export const iconDataUrlInputSchema: z.ZodType<IpcInvokeMap['installations:iconDataUrl']['req']> =
+  z.string().min(1)
+
+// ---- detection ------------------------------------------------------------------
+
+export const scanOptionsSchema: z.ZodType<IpcInvokeMap['detection:scan']['req']> = z.object({
+  scanId: z.string().min(1).max(64).optional(),
+  deepScan: z.boolean().optional(),
+  drives: z.array(z.string().min(1)).max(32).optional(),
+})
+
+export const detectionListDrivesSchema: z.ZodType<IpcInvokeMap['detection:listDrives']['req']> =
+  z.void()
+
+// ---- launching --------------------------------------------------------------------
+
+export const launchInputSchema: z.ZodType<IpcInvokeMap['launch:plan']['req']> = z.object({
+  installationId: z.string().min(1),
+  gameDir: z.string().max(64).optional(),
+  connect: z.string().max(200).optional(),
+  extraArgs: z.array(z.string().max(500)).max(64).optional(),
+})
+
+export const launchGetStateSchema: z.ZodType<IpcInvokeMap['launch:getState']['req']> = z.void()
+
+// ---- update check (shell service, not a module) -------------------------------------
+
+export const updateGetStateSchema: z.ZodType<IpcInvokeMap['update:getState']['req']> = z.void()
+export const updateCheckSchema: z.ZodType<IpcInvokeMap['update:check']['req']> = z.void()
+
+// Story 098: the four staged actions. All payload-free - *which* update is acted on is main's own
+// state, never something the renderer names, so there is nothing here for a renderer to forge.
+export const updateDownloadSchema: z.ZodType<IpcInvokeMap['update:download']['req']> = z.void()
+export const updateCancelDownloadSchema: z.ZodType<
+  IpcInvokeMap['update:cancelDownload']['req']
+> = z.void()
+export const updateInstallAndRestartSchema: z.ZodType<
+  IpcInvokeMap['update:installAndRestart']['req']
+> = z.void()
+export const updateDismissSchema: z.ZodType<IpcInvokeMap['update:dismiss']['req']> = z.void()
+
+// ---- jobs (owned by modules; no module produces them yet) --------------------------
+
+export const jobsListSchema: z.ZodType<IpcInvokeMap['jobs:list']['req']> = z.void()
+
+// `jobs:cancel` shares `idSchema` (above, under installations) - both channels take a
+// bare string id, same convention as `detection:cancel`.
+
+// ---- modules ------------------------------------------------------------------------
+
+export const modulesListSchema: z.ZodType<IpcInvokeMap['modules:list']['req']> = z.void()
+
+export const moduleInvokeSchema: z.ZodType<IpcInvokeMap['module:invoke']['req']> = z.object({
+  moduleId: z.enum(['home', 'library', 'config', 'downloads', 'mods', 'assets']),
+  type: z.string().min(1).max(80),
+  payload: z.unknown().optional(),
+})
+
+// ---- development only (registered only when `is.dev`) --------------------------------
+
+/**
+ * Story 073 D5: an unknown scenario string must be rejected here, not coerced.
+ * Story 091 D7: the `'writing'` scenario needs a real installation id to take the
+ * write lock on - a discriminated union so the other three scenarios keep taking
+ * no `installationId` at all, matching every existing caller.
+ */
+export const devSimulateJobSchema: z.ZodType<IpcInvokeMap['dev:simulateJob']['req']> =
+  z.discriminatedUnion('scenario', [
+    z.object({ scenario: z.enum(['success', 'stall', 'failure']) }),
+    z.object({ scenario: z.literal('writing'), installationId: z.string().min(1) }),
+  ])
+
+/** Story 090 D5: `dev:simulateLaunch`'s payload - a real installation id and a target phase. */
+export const devSimulateLaunchSchema: z.ZodType<IpcInvokeMap['dev:simulateLaunch']['req']> =
+  z.object({
+    installationId: z.string().min(1),
+    phase: z.enum(['running', 'idle']),
+  })
+
+/**
+ * Story 098 D4: `dev:simulateAppUpdate`'s payload - one variant per scenario
+ * `UpdateService.simulate()` understands, same discriminated-union shape as `devSimulateJobSchema`.
+ */
+export const devSimulateAppUpdateSchema: z.ZodType<IpcInvokeMap['dev:simulateAppUpdate']['req']> =
+  z.discriminatedUnion('scenario', [
+    z.object({
+      scenario: z.literal('available'),
+      version: z.string().min(1).max(64),
+      notes: z.string().max(20_000).optional(),
+    }),
+    z.object({ scenario: z.literal('progress'), ratio: z.number().min(0).max(1) }),
+    z.object({ scenario: z.literal('downloaded') }),
+    z.object({
+      scenario: z.literal('error'),
+      reason: z.enum(['offline', 'checksum', 'cancelled']),
+    }),
+    z.object({ scenario: z.literal('upToDate') }),
+    z.object({
+      scenario: z.literal('checkFailed'),
+      reason: z.enum(['network', 'http', 'notConfigured', 'timeout', 'unknown']),
+    }),
+  ])

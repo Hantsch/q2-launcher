@@ -1,0 +1,99 @@
+- 2026-09-06 09:31 · 051 · story started
+- 2026-09-06 09:31 · 051 · D1 tag grammar + ownership module · started
+- 2026-09-06 09:35 · 051 · D1 tag grammar + ownership module · done
+- 2026-09-06 09:35 · 051 · D2 writer emits banner · started
+- 2026-09-06 09:41 · 051 · D2 writer emits banner · done
+- 2026-09-06 09:41 · 051 · D3 main-side ownership readers · started
+- 2026-09-06 09:48 · 051 · D3 main-side ownership readers · done
+- 2026-09-06 09:48 · 051 · D4 rebuild recovers name and id · started
+- 2026-09-06 09:53 · 051 · D5 restore reader (deliverable-hard) · started
+- 2026-09-06 09:59 · 051 · D4 rebuild recovers name and id · done
+- 2026-09-06 09:59 · 051 · D5 restore reader (deliverable-hard) · done
+- 2026-09-06 09:59 · 051 · D6 round trip and adversarial re-render (deliverable-hard) · started
+- 2026-09-06 10:13 · 051 · D6 round trip and adversarial re-render (deliverable-hard) · done
+- 2026-09-06 10:13 · 051 · fix: blank-name trailing-whitespace bug + stale sentinel assertions · started
+- 2026-09-06 10:16 · 051 · fix: blank-name trailing-whitespace bug + stale sentinel assertions · done
+- 2026-09-06 10:16 · 051 · D7 docs, highlighting check, fixture note · started
+- 2026-09-06 10:19 · 051 · D7 docs, highlighting check, fixture note · done
+- 2026-09-06 10:19 · 051 · story-level verification · started
+- 2026-09-06 10:20 · 051 · story-level verification · done (build/test/typecheck green; 6 pre-existing jsdom env errors unrelated to diff)
+- 2026-09-06 10:20 · 051 · code review (story-review-hard) · started
+- 2026-09-06 10:31 · 051 · code review (story-review-hard) · done (PASS, low-severity findings)
+- 2026-09-06 10:31 · 051 · fix: stale ownership doc comments + dead ownedProfileId · started
+- 2026-09-06 10:34 · 051 · fix: stale ownership doc comments + dead ownedProfileId · done
+- 2026-09-06 10:34 · 051 · live smoke (ui:verify) · started
+- 2026-09-06 10:36 · 051 · live smoke (ui:verify) · done (config-write-preview screen confirms new 4-line banner header + syntax highlighting; axe clean)
+- 2026-09-06 10:37 · 051 · story done, moved to docs/requirements/done/
+- 2026-09-06 10:38 · 059 · story started
+- 2026-09-06 10:38 · 059 · D1 model, schemas and template seed · started
+- 2026-09-06 10:43 · 059 · D1 model, schemas and template seed · done
+- 2026-09-06 10:43 · 059 · D2 writer emits cvar sections · started
+- 2026-09-06 10:55 · 059 · D2 writer emits cvar sections · done
+- 2026-09-06 10:55 · 059 · D3 reader files cvar sections back (deliverable-hard) · started
+- 2026-09-06 11:10 · 059 · D3 reader files cvar sections back (deliverable-hard) · done
+- 2026-09-06 11:10 · 059 · D4 adversarial round-trip pass (deliverable-hard) · started
+- 2026-09-06 11:25 · 059 · D4 adversarial round-trip pass (deliverable-hard) · done
+- 2026-09-06 11:25 · 059 · D5 import files cvars under section · started
+- 2026-09-06 11:41 · 059 · D5 import files cvars under section · done (flag: dm.cfg attribution uses last-value-wins, review must check literal AC of 25 cvars in one section)
+- 2026-09-06 11:41 · 059 · D6 existing profiles migrate once · started
+- 2026-09-06 11:45 · 059 · D6 existing profiles migrate once · done
+- 2026-09-06 11:45 · 059 · D7 Settings renders the profile sections (deliverable-hard) · started
+- 2026-09-06 12:00 · 059 · D7 Settings renders profile sections (deliverable-hard) · done
+- 2026-09-06 12:00 · 059 · D8 sections and cvars are editable · started
+- 2026-09-06 12:11 · 059 · D8 sections and cvars are editable · done (fixed setCvars persistence gap from D1)
+- 2026-09-06 12:11 · 059 · D9 write-unset-catalogue-defaults toggle · started
+- 2026-09-06 12:16 · 059 · D9 write-unset-catalogue-defaults toggle · done
+- 2026-09-06 12:16 · 059 · D10 harness coverage · started
+- 2026-09-06 12:20 · 059 · D10 harness coverage · done
+- 2026-09-06 12:20 · 059 · story-level verification · started
+- 2026-09-06 12:20 · 059 · story-level verification · done (build/test/typecheck green; 2369/2369 tests; 6 pre-existing jsdom env errors unrelated to diff)
+- 2026-09-06 12:20 · 059 · code review (story-review-hard) · started
+- 2026-09-06 12:33 · 059 · code review (story-review-hard) · done (FAIL - blocking findings: 64-cap bug, AC6 first-vs-last-placement, D5 subsection heuristic gap, Defaults move affordance)
+- 2026-09-06 12:33 · 059 · fix cycle 1: cap bug, import attribution, subsection heuristic, defaults move, addcvar blank-value, rebuild detector · started
+- 2026-09-06 12:45 · 059 · fix cycle 1: cap bug, import attribution, subsection heuristic, defaults move, addcvar blank-value, rebuild detector · done (fixes 1-6 completed, fix 7 skipped)
+- 2026-09-06 12:45 · 059 · story-level re-verification · started
+- 2026-09-06 12:45 · 059 · story-level re-verification · done (build/test/typecheck green; 2372/2372)
+- 2026-09-06 12:45 · 059 · code review round 2 (story-review-hard) · started
+- 2026-09-06 12:56 · 059 · code review round 2 (story-review-hard) · done (PASS - 7 low/should-fix findings, none blocking)
+- 2026-09-06 12:56 · 059 · fix cycle 2: migration seeds full ALL_CVARS, test assertion strength, design-tokens deviation entry · started
+- 2026-09-06 13:00 · 059 · fix cycle 2 · done
+- 2026-09-06 13:00 · 059 · final story-level verification · started
+- 2026-09-06 13:00 · 059 · final story-level verification · done (build/test/typecheck green; 2374/2374)
+- 2026-09-06 13:00 · 059 · live smoke (ui:verify) · started
+- 2026-09-06 13:01 · 059 · live smoke (ui:verify + ui:flow) · done (0 axe violations, 64/64 screens; flow OK)
+- 2026-09-06 13:02 · 059 · story done, moved to docs/requirements/done/
+- 2026-09-06 13:03 · 057 · D1 editable code view + full-height variant · started
+- 2026-09-06 13:14 · 057 · D1 editable code view + full-height variant · done (typecheck+tests green 2385/2385)
+- 2026-09-06 13:14 · 057 · D2 raw tab fills the viewport · started
+- 2026-09-06 13:14 · 057 · D3 compact chrome, per-installation copies gone · started
+- 2026-09-06 13:18 · 057 · D2 raw tab fills the viewport · done (typecheck+tests green 2385/2385)
+- 2026-09-06 13:18 · 057 · D3 compact chrome, per-installation copies gone · done (typecheck+tests green 2385/2385)
+- 2026-09-06 13:19 · 057 · D4 config saveRawText main handler (hard) · started
+- 2026-09-06 13:33 · 057 · D4 config saveRawText main handler (hard) · done (typecheck+tests green 2399/2399)
+- 2026-09-06 13:33 · 057 · D5 raw draft is an unsaved change (hard) · started
+- 2026-09-06 13:53 · 057 · D5 raw draft is an unsaved change (hard) · done (typecheck+tests green 2410/2410; pre-existing jsdom env gap noted)
+- 2026-09-06 13:53 · 057 · D6 read-back result is shown · started
+- 2026-09-06 13:56 · 057 · D6 read-back result is shown · done (typecheck+tests green 2410/2410)
+- 2026-09-06 13:56 · 057 · D7 verification (ui:verify screens + ui:flow) · started
+- 2026-09-06 14:11 · 057 · D7 verification (ui:verify screens + ui:flow) · done (ui:flow passes; ui:verify exit 2 - found 14 axe critical: D3 select missing accessible name, real regression, needs fix)
+- 2026-09-06 14:11 · 057 · fix: restore accessible name on section-header-style select (D3 regression) · started
+- 2026-09-06 14:15 · 057 · fix: restore accessible name on section-header-style select (D3 regression) · done (select-name fixed; new textarea label-missing regression found on config-raw/config-raw-editing)
+- 2026-09-06 14:15 · 057 · fix: add accessible name to cfg-code-textarea (D1 regression) · started
+- 2026-09-06 14:17 · 057 · fix: add accessible name to cfg-code-textarea (D1 regression) · done (ui:verify exit 0, 0 axe findings)
+- 2026-09-06 14:17 · 057 · story-level verification · started
+- 2026-09-06 14:18 · 057 · story-level verification · done (build/test/typecheck green; 2410/2410 tests; 7 pre-existing jsdom env errors unrelated to diff)
+- 2026-09-06 14:18 · 057 · code review (story-review-hard) · started
+- 2026-09-06 14:27 · 057 · code review (story-review-hard) · done (FAIL - blocking: AC1 line count, AC7 mutual-exclusion bypass; plus hooks violation, jsdom-blocked D5 tests, missing focus outline)
+- 2026-09-06 14:27 · 057 · fix cycle 1: AC1 line budget, AC7 mutual-exclusion bypass, hooks violation, focus outline, jsdom env · started
+- 2026-09-06 14:54 · 057 · fix cycle 1: AC1 line budget, AC7 mutual-exclusion bypass, hooks violation, focus outline, jsdom env · done (all 3 fixes verified individually)
+- 2026-09-06 14:54 · 057 · story-level re-verification · started
+- 2026-09-06 14:56 · 057 · story-level re-verification · done (build/test/typecheck green 92/92 files, 2454/2454 tests, 0 env errors; ui:verify exit clean 0 axe findings; ui:flow raw-inline-edit OK after reseed)
+- 2026-09-06 14:56 · 057 · code review round 2 (story-review-hard) · started
+- 2026-09-06 15:04 · 057 · code review round 2 (story-review-hard) · done (FAIL - new blocking finding: focus-resume file refresh bypasses raw-draft conflict guard; round-1 findings AC1/AC7 confirmed genuinely fixed)
+- 2026-09-06 15:04 · 057 · fix cycle 2: focus-resume conflict-guard bypass, config-raw axe wait gap · started
+- 2026-09-06 15:12 · 057 · fix cycle 2: focus-resume conflict-guard bypass, config-raw axe wait gap · done (bypass fixed via renderer-side gate; axe wait gap left as documented non-blocking limitation)
+- 2026-09-06 15:12 · 057 · final story-level verification · started
+- 2026-09-06 15:13 · 057 · final story-level verification · done (build/test/typecheck green 93/93 files, 2458/2458 tests; ui:verify 0 axe findings; ui:flow OK)
+- 2026-09-06 15:13 · 057 · code review round 3 (story-review-hard) · started
+- 2026-09-06 15:20 · 057 · code review round 3 (story-review-hard) · done (PASS - focus-resume fix confirmed correct, no ref leak, no regressions; non-blocking items carried to Done)
+- 2026-09-06 15:21 · 057 · story done, moved to docs/requirements/done/

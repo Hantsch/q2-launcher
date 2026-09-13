@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Bindings view — design prototypes</title>
+<link rel="stylesheet" href="_proto.css" />
+<style>
+  .stage { max-width: 980px; }
+  h1 { font-size: 26px; margin-bottom: 6px; }
+  .lead { color: var(--ink-dim); font-size: 13.5px; max-width: 70ch; margin: 0 0 26px; }
+  .grid { display: grid; gap: 12px; }
+  a.card {
+    display: grid; grid-template-columns: 46px 1fr auto; gap: 16px; align-items: center;
+    padding: 16px 18px; text-decoration: none; color: inherit;
+  }
+  a.card:hover { border-color: var(--flame-700); }
+  a.card .k { font-family: var(--font-display); font-size: 30px; color: var(--flame-500); text-align: center; }
+  a.card h2 { font-size: 16px; margin-bottom: 4px; }
+  a.card p { margin: 0; font-size: 12.5px; color: var(--ink-dim); }
+  a.card .go { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+  table { width: 100%; border-collapse: collapse; margin-top: 28px; font-size: 12.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: var(--font-display); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-muted); }
+  td:first-child { color: var(--ink-muted); font-family: var(--font-mono); font-size: 11px; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <strong>BINDINGS VIEW</strong> <span>3 static design prototypes — no app code touched</span>
+</div>
+
+<div class="stage">
+  <h1>Bindings view — design test</h1>
+  <p class="lead">
+    Problem with the current Advanced tab: rows are as wide as the window, every bind is a small
+    text link far to the right, unbound is the invisible default state, and there is no column
+    structure — so 31 actions read as an empty page. Three ways out, same tokens, same data.
+  </p>
+
+  <div class="grid">
+    <a class="card panel edge-flame" href="a-column-grid.html">
+      <span class="k">A</span>
+      <span>
+        <h2>Column grid</h2>
+        <p>Overwatch parity: capped width, fixed Primary/Secondary/Options columns, filled cells with an EMPTY state, group rules, zebra rows, hover reset.</p>
+      </span>
+      <span class="go">open →</span>
+    </a>
+
+    <a class="card panel" href="b-keycap-cards.html">
+      <span class="k">B</span>
+      <span>
+        <h2>Keycap cards</h2>
+        <p>Uses the width instead of fighting it: action tiles in an auto-fill grid, real keycaps, hatched unbound tiles, categories in a left rail, summary strip on top.</p>
+      </span>
+      <span class="go">open →</span>
+    </a>
+
+    <a class="card panel" href="c-keyboard-first.html">
+      <span class="k">C</span>
+      <span>
+        <h2>Keyboard first</h2>
+        <p>Split view: action index left, live keyboard + mouse map right. Shows free keys, foreign binds, layer triggers and collisions at a glance; bind by clicking a key.</p>
+      </span>
+      <span class="go">open →</span>
+    </a>
+  </div>
+
+  <table>
+    <tr><th>Criterion</th><th>A · Column grid</th><th>B · Keycap cards</th><th>C · Keyboard first</th></tr>
+    <tr><td>familiar</td><td>highest — reads like every shooter</td><td>medium</td><td>medium (Q3/CS config tools)</td></tr>
+    <tr><td>fills the window</td><td>no — deliberately capped</td><td>yes, 3–4 tiles per row</td><td>yes, two full columns</td></tr>
+    <tr><td>scan 31 actions</td><td>good</td><td>very good</td><td>good (list stays compact)</td></tr>
+    <tr><td>"which key is free?"</td><td>no answer</td><td>no answer</td><td>the whole point</td></tr>
+    <tr><td>collisions</td><td>row badge</td><td>tile border + hint</td><td>visible on the map</td></tr>
+    <tr><td>modifier layers (016)</td><td>column + badge</td><td>ALT chip on the tile</td><td>layer tabs + trigger keys</td></tr>
+    <tr><td>build effort</td><td>small — restyle the existing rows</td><td>medium — new tile component</td><td>large — keyboard geometry + key↔bind mapping</td></tr>
+  </table>
+</div>
+
+</body>
+</html>

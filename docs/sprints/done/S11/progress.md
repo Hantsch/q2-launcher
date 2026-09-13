@@ -1,0 +1,77 @@
+- 2026-09-05 16:27 · 052 · D1 Template seeds categories and rows · started
+- 2026-09-05 16:33 · 052 · D1 Template seeds categories and rows · done
+- 2026-09-05 16:33 · 052 · D2 The unbound line is written · started
+- 2026-09-05 16:44 · 052 · D2 The unbound line is written · done
+- 2026-09-05 16:44 · 052 · D3 The unbound line is read back · started
+- 2026-09-05 16:59 · 052 · D3 The unbound line is read back · done
+- 2026-09-05 16:59 · 052 · D4 No category is special in the core · started
+- 2026-09-05 17:15 · 052 · D4 No category is special in the core · done
+- 2026-09-05 17:15 · 052 · D5 Adversarial round-trip pass · started
+- 2026-09-05 17:30 · 052 · D5 Adversarial round-trip pass · found-defect (D4 category ordering, fix dispatched before continuing)
+- 2026-09-05 17:39 · 052 · D5 Adversarial round-trip pass · done (D4 category-order defect fixed)
+- 2026-09-05 17:39 · 052 · D6 Existing profiles migrate once · started
+- 2026-09-05 17:41 · 052 · D6 Existing profiles migrate once · done
+- 2026-09-05 17:41 · 052 · D7 The rail is the profile's · started
+- 2026-09-05 17:46 · 052 · D7 The rail is the profile's · done
+- 2026-09-05 17:46 · 052 · D8 Rows are the profile's entries · started
+- 2026-09-05 18:11 · 052 · D8 Rows are the profile's entries · done
+- 2026-09-05 18:11 · 052 · D9 Suggestions and the delete choice · started
+- 2026-09-05 18:21 · 052 · D9 Suggestions and the delete choice · done
+- 2026-09-05 18:21 · 052 · D10 Harness coverage · started
+- 2026-09-05 18:38 · 052 · D10 Harness coverage · done
+- 2026-09-05 18:57 · 052 · Review cycle 1 (FAIL, F1-F10) · started fixes
+- 2026-09-05 19:26 · 052 · Review cycle 1 fixes (F1-F5,F7-F10) · done, F6 disclosed residual
+- 2026-09-05 19:26 · 052 · Story verification (build/typecheck/test/ui:verify/ui:flow) · done, status done
+- 2026-09-05 19:28 · 053 · D1 Model and schemas · started
+- 2026-09-05 19:32 · 053 · D1 Model and schemas · done
+- 2026-09-05 19:32 · 053 · D2 The file writes sub-categories · started
+- 2026-09-05 19:39 · 053 · D2 The file writes sub-categories · done
+- 2026-09-05 19:39 · 053 · D3 The file reads sub-categories back · started
+- 2026-09-05 19:53 · 053 · D3 The file reads sub-categories back · done
+- 2026-09-05 19:53 · 053 · D4 Foreign two-level import · started
+- 2026-09-05 20:10 · 053 · D4 Foreign two-level import · done
+- 2026-09-05 20:10 · 053 · D5 Controls groups by sub-category · started
+- 2026-09-05 20:15 · 053 · D5 Controls groups by sub-category · done
+- 2026-09-05 20:15 · 053 · D6 Sub-category CRUD in the grid · started
+- 2026-09-05 20:22 · 053 · D6 Sub-category CRUD in the grid · done
+- 2026-09-05 20:22 · 053 · D7 Move an entry in and out · started
+- 2026-09-05 20:26 · 053 · D7 Move an entry in and out · done
+- 2026-09-05 20:26 · 053 · D8 Live verification · started
+- 2026-09-05 20:35 · 053 · D8 Live verification · done
+- 2026-09-05 20:49 · 053 · Review cycle 1 (FAIL, Finding 1 blocks AC6/D4) · started fixes
+- 2026-09-05 20:58 · 053 · Review cycle 1 fix (Finding 1) · done
+- 2026-09-05 21:00 · 056 · D1 The write layer counts slots, and a clear compacts · started
+- 2026-09-05 21:09 · 056 · D1 The write layer counts slots, and a clear compacts · done
+- 2026-09-05 21:09 · 056 · D2 One Key column in the grid shell · started
+- 2026-09-05 21:13 · 056 · D2 One Key column in the grid shell · done
+- 2026-09-05 21:14 · 056 · D3 Primary key, extra-key sub-rows, fold and add · started
+- 2026-09-05 21:21 · 056 · D3 Primary key, extra-key sub-rows, fold and add · done
+- 2026-09-05 21:21 · 056 · D4 Promotion, counts and the Options cell go N-ary · started
+- 2026-09-05 21:23 · 056 · D4 Promotion, counts and the Options cell go N-ary · done
+- 2026-09-05 21:24 · 056 · D5 Wording, fixture, screenshots and the flow · started
+- 2026-09-05 21:31 · 056 · D5 Wording, fixture, screenshots and the flow · done
+- 2026-09-05 21:31 · 056 · Review cycle 1 · started
+- 2026-09-05 21:40 · 056 · Review cycle 1 (FAIL, findings 1-6) · started fixes
+- 2026-09-05 21:42 · 056 · Review cycle 1 fixes (F1, F2) · done, F3/F5 skipped (documented), F4/F6 accepted as-is
+- 2026-09-05 21:42 · 056 · Review cycle 2 · started
+- 2026-09-05 21:48 · 056 · Review cycle 2 (FAIL, new F1 collision-index regression) · started fixes
+- 2026-09-05 21:52 · 056 · Review cycle 2 fix (F1 collision-index regression) · done, CSS sub-row width also fixed
+- 2026-09-05 21:52 · 056 · Verification (build/typecheck/test/ui:verify/ui:flow) · started
+- 2026-09-05 21:53 · 056 · Verification (build/typecheck/test/ui:verify/ui:flow) · done, all green
+- 2026-09-05 21:53 · 056 · Review cycle 3 (final confirmation) · started
+- 2026-09-05 22:02 · 056 · Review cycle 3 (PASS) · done, status done, moved to done/
+- 2026-09-05 22:03 · 055 · D1 drop-entries.ts: recognition + transforms · started
+- 2026-09-05 22:10 · 055 · D1 drop-entries.ts: recognition + transforms · done
+- 2026-09-05 22:10 · 055 · D2 launcher drops render as drop_<slug>, round-trip pinned · started
+- 2026-09-05 22:18 · 055 · D2 launcher drops render as drop_<slug>, round-trip pinned · done
+- 2026-09-05 22:19 · 055 · D3 DropToggles component + Controls Options cell · started
+- 2026-09-05 22:28 · 055 · D3 DropToggles component + Controls Options cell · done
+- 2026-09-05 22:28 · 055 · D4 Aliases tab surface · started
+- 2026-09-05 22:32 · 055 · D4 Aliases tab surface · done
+- 2026-09-05 22:32 · 055 · D5 live smoke + screens · started
+- 2026-09-05 22:45 · 055 · D5 live smoke + screens · done
+- 2026-09-05 22:54 · 055 · Review cycle 1 (FAIL, F1-F9) · started fixes
+- 2026-09-05 23:06 · 055 · Review cycle 1 fixes (F1-F9) · done
+- 2026-09-05 23:16 · 055 · Review cycle 2 (PASS, 7 new findings) · started fixes
+- 2026-09-05 23:21 · 055 · Review cycle 2 fixes (A-D) · done
+- 2026-09-05 23:21 · 055 · Story verification (build/typecheck/test/ui:verify) · done, status done

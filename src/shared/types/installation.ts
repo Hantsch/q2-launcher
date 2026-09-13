@@ -12,6 +12,17 @@ export type InstallationSource =
   | 'created'
   | 'unknown'
 
+const STORE_MANAGED_SOURCES = new Set<InstallationSource>(['steam', 'gog', 'epic', 'bethesda'])
+
+/**
+ * True when a store (Steam, GOG, Epic, Bethesda) owns the files of this installation. Deleting
+ * such a folder behind the store's back leaves the store convinced the game is still installed,
+ * so the launcher does not offer to.
+ */
+export function isStoreManaged(source: InstallationSource): boolean {
+  return STORE_MANAGED_SOURCES.has(source)
+}
+
 /** Overall health of an installation, derived from its validation checks. */
 export type InstallationStatus =
   /** Every check passed. Ready to play. */
@@ -25,7 +36,7 @@ export type InstallationStatus =
   /** Not checked yet (freshly loaded from disk). */
   | 'unknown'
 
-export type CheckSeverity = 'ok' | 'warn' | 'error'
+export type CheckSeverity = 'ok' | 'info' | 'warn' | 'error'
 
 export type ValidationCheckId =
   | 'root-exists'
@@ -65,6 +76,41 @@ export interface ValidationResult {
   checkedAt: string
 }
 
+/**
+ * An icon set on an installation (story 067). A shipped icon references a
+ * basename in `src/renderer/src/assets/installations` by id; a custom icon
+ * carries no path - the file lives at `userData/installation-icons/<id>.png`,
+ * derived from the installation id, so no renderer-supplied path is ever
+ * trusted or persisted.
+ */
+export type InstallationIcon = { kind: 'shipped'; id: string } | { kind: 'custom' }
+
+/**
+ * The last time this installation's setup/bootstrap failed (story 077). Kept deliberately
+ * module-agnostic - `jobId` is a plain string, not a reference into the downloads module's job
+ * types - so this file stays importable from both TS projects without pulling in a module that
+ * has node/electron dependencies of its own. Cleared the moment a later verdict is playable (see
+ * `InstallationsService`'s inspection-applying helper).
+ */
+export interface InstallationLastFailure {
+  /** i18n key, resolved in the renderer. Never prose. */
+  errorKey: string
+  /** Epoch ms. */
+  at: number
+  /** The bootstrap job that failed. */
+  jobId: string
+  /**
+   * Story 077 finding fix: the interpolation values `errorKey`'s sentence needs, when it is a
+   * templated one - `downloads.error.packageIncomplete` reads `{{packageId}}`, and a card that
+   * renders the key without them shows the raw `{{packageId}}` placeholder to the user. Data, never
+   * prose (a manifest package id), exactly like `ValidationCheck.params` and the `Job.error.params`
+   * the same failure exit already carries into the Downloads tab - so the two surfaces interpolate
+   * the same sentence from the same values. Optional: most keys need none, and an installation
+   * written before this field simply has none.
+   */
+  params?: Record<string, string | number>
+}
+
 export interface Installation {
   /** Stable id, generated once. Never derived from the path. */
   id: string
@@ -79,6 +125,19 @@ export interface Installation {
    */
   writeDirPath?: string
   engineKind: EngineKind
+  /**
+   * The engine this installation is actually known to be, set once when positively known
+   * (bootstrap's user-chosen engine, an import/detection scan that identified one, or a completed
+   * `reinstall-engine` repair) and never touched by revalidation. Deliberately separate from
+   * `engineKind`, which a fresh inspection *does* overwrite on every `validate()`/`validateAll()`
+   * call (see `InstallationsService.applyInspection`'s `preserveKnownEngine`) - `r1q2`/`q2pro` are
+   * identified solely by their own executable, so once that executable goes missing `engineKind`
+   * flips to `'unknown'` even though the installation is still, say, an r1q2 one underneath.
+   * `repair/plan.ts`'s `reinstall-engine` offer reads this (falling back to `engineKind`) so it
+   * keeps appearing across a restart. Absent on installations that predate this field or were never
+   * bootstrapped/imported through a path that sets it.
+   */
+  recordedEngineKind?: EngineKind
   /** Absolute path of the client executable to launch. */
   executablePath?: string
   /** Extra command line arguments, appended after the generated ones. */
@@ -91,6 +150,10 @@ export interface Installation {
   checks: ValidationCheck[]
   gameDirs: string[]
   favorite: boolean
+  /** Icon shown in the rail/header; absent means the default fallback icon. */
+  icon?: InstallationIcon
+  /** The most recent bootstrap failure, if the installation has one and no later verdict was playable. */
+  lastFailure?: InstallationLastFailure
   /** Position in the installation rail. Lower comes first. */
   sortOrder: number
   createdAt: string
@@ -139,8 +202,13 @@ export interface UpdateInstallationInput {
 export interface RemoveInstallationInput {
   id: string
   /**
-   * Reserved for the install module. Step 1 always removes from the launcher only;
-   * main rejects `true` so nothing can delete a user's game folder yet.
+   * Story 094 D2: when true, `InstallationsService.remove()` deletes the installation's folder
+   * from disk (via `deleteInstallationFolder`) before dropping the library entry, instead of only
+   * dropping the entry. Refused - entry and files both left untouched - for a store-managed
+   * installation (`isStoreManaged(source)`, `installations.error.deleteFromDiskStoreManaged`) and
+   * while the installation's own game process is running
+   * (`installations.error.deleteFromDiskRunning`); a failed/partial delete also leaves the entry
+   * exactly as it was, since files are removed before the entry is (see `remove()`'s doc comment).
    */
   deleteFromDisk?: boolean
 }

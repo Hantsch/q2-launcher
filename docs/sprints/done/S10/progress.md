@@ -1,0 +1,50 @@
+- 2026-09-03 15:24 · 050 · D1 Tag registry shrink · started
+- 2026-09-03 15:24 · 050 · D1 Tag registry shrink · done
+- 2026-09-03 15:27 · 050 · D2 Arbitrary key slots in the model · started
+- 2026-09-03 15:33 · 050 · D2 Arbitrary key slots in the model · done
+- 2026-09-03 15:34 · 050 · D3 Shared slot consumers array batch · started
+- 2026-09-03 15:34 · 050 · D4 Shared slot consumers primary/secondary batch · started
+- 2026-09-03 15:44 · 050 · D3 Shared slot consumers array batch · done
+- 2026-09-03 15:44 · 050 · D4 Shared slot consumers primary/secondary batch · done
+- 2026-09-03 15:44 · 050 · D5 Renderer on the accessor · started
+- 2026-09-03 16:02 · 050 · D5 Renderer on the accessor · done
+- 2026-09-03 16:02 · 050 · D6 Writer emits the reduced tag · started
+- 2026-09-03 16:20 · 050 · D6 Writer emits the reduced tag · done
+- 2026-09-03 16:20 · 050 · D7 Reader recovers identity and slots · started
+- 2026-09-03 16:47 · 050 · D7 Reader recovers identity and slots · done
+- 2026-09-03 16:47 · 050 · D8 Round-trip re-verification · started
+- 2026-09-03 17:20 · 050 · D8 Round-trip re-verification · done
+- 2026-09-03 17:20 · 050 · fixup: entry-identity collision bug + remaining typecheck fallout · started
+- 2026-09-03 17:52 · 050 · fixup: entry-identity collision bug + remaining typecheck fallout · done
+- 2026-09-03 17:20 · 050 · D9 Format documentation · started
+- 2026-09-03 17:33 · 050 · D9 Format documentation · done
+- 2026-09-03 20:57 · 050 · review-fix cycle 1 (8 findings) · done
+- 2026-09-03 20:57 · 050 · review-fix cycle 2 (1 finding) · done
+- 2026-09-03 20:57 · 050 · review-fix cycle 3 (2 findings) · done
+- 2026-09-03 20:57 · 050 · story complete · done
+- 2026-09-03 20:58 · 045 · D1 model + schemas · started
+- 2026-09-03 21:03 · 045 · D1 model + schemas · done
+- 2026-09-03 21:03 · 045 · D2 wait command kind · started
+- 2026-09-03 21:06 · 045 · D2 wait command kind · done
+- 2026-09-03 21:06 · 045 · D3 render toggle/press-release (hard) · started
+- 2026-09-03 21:19 · 045 · D3 render toggle/press-release (hard) · done
+- 2026-09-03 21:19 · 045 · D4 tag emission (lbl) · started
+- 2026-09-03 21:26 · 045 · D4 tag emission (lbl) · done
+- 2026-09-03 21:26 · 045 · D5 entry-idioms recogniser (hard) · started
+- 2026-09-03 21:40 · 045 · D5 entry-idioms recogniser (hard) · done
+- 2026-09-03 21:40 · 045 · D6 import wiring · started
+- 2026-09-03 21:45 · 045 · D6 import wiring · done
+- 2026-09-03 21:45 · 045 · D7 restore wiring + round-trip (hard) · started
+- 2026-09-03 22:06 · 045 · D7 restore wiring + round-trip (hard) · done
+- 2026-09-03 22:06 · 045 · D8 Care checks · started
+- 2026-09-03 22:17 · 045 · D8 Care checks · done
+- 2026-09-03 22:17 · 045 · fixup: D1 wait fallout typecheck errors · done
+- 2026-09-03 22:17 · 045 · D9 UI create/edit · started
+- 2026-09-03 22:24 · 045 · D9 UI create/edit · done
+- 2026-09-03 22:24 · 045 · D10 UI show as one thing · started
+- 2026-09-03 22:32 · 045 · D10 UI show as one thing · done
+- 2026-09-04 10:30 · 045 · review-fix cycle 1 (4 findings) · done
+- 2026-09-04 10:30 · 045 · review-fix cycle 2 (4 findings) · done
+- 2026-09-04 10:30 · 045 · review-fix cycle 3 (0 remaining, 1 documented) · done
+- 2026-09-04 10:30 · 045 · story complete · done
+- 2026-09-04 10:45 · sprint · review + testplan + roadmap · done

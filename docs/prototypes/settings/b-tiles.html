@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>B · Setting tiles — settings prototype</title>
+<link rel="stylesheet" href="../bindings/_proto.css" />
+<link rel="stylesheet" href="_settings.css" />
+<style>
+  /* Uses the window width instead of fighting it: 3-4 tiles per row. */
+  .sect { margin-bottom: 26px; }
+  .sect > .grp { position: static; background: transparent; border-top: 0; margin-bottom: 10px; padding: 0; }
+
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 10px;
+  }
+
+  .tile {
+    position: relative;
+    padding: 11px 12px 10px;
+    display: flex; flex-direction: column; gap: 8px;
+    min-height: 108px;
+  }
+  .tile.is-changed::before {
+    content: ''; position: absolute; inset-inline: 0; top: 0; height: 2px;
+    background: linear-gradient(90deg, var(--flame-500), var(--flame-700));
+  }
+  .tile.is-off { opacity: 0.45; }
+  .tile:hover { border-color: var(--line-strong); }
+
+  .tile .top { display: flex; align-items: flex-start; gap: 8px; }
+  .tile .name { flex: 1; min-width: 0; }
+  .tile .name b { display: block; font-size: 13px; font-weight: 500; color: var(--ink); }
+  .tile .name .cvar { display: block; margin-top: 1px; }
+  .tile .desc { font-size: 11.5px; color: var(--ink-muted); line-height: 1.4; margin: 0; }
+  .tile .ctlwrap { margin-top: auto; }
+  .tile .foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding-top: 7px; border-top: 1px solid rgb(41 44 51 / 0.6);
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint);
+  }
+  .tile .foot .now { color: var(--ink-dim); }
+  .tile.is-changed .foot .now { color: var(--flame-300); }
+
+  /* a toggle tile is half a tile: no control row needed */
+  .tile.compact { min-height: 0; align-self: start; }
+  .tile.compact .row1 { display: flex; align-items: center; gap: 10px; }
+  .tile.compact .row1 .name { flex: 1; }
+
+  .slider { display: flex; align-items: center; gap: 9px; }
+  .slider .rng { flex: 1; min-width: 0; }
+  .slider .ctl { width: 58px; text-align: right; }
+
+  .summary {
+    display: flex; align-items: center; gap: 22px;
+    padding: 12px 16px; margin-bottom: 18px;
+  }
+  .summary .m { display: flex; flex-direction: column; gap: 2px; }
+  .summary .m b { font-family: var(--font-display); font-size: 20px; color: var(--flame-500); }
+  .summary .m.q b { color: var(--ink); }
+  .summary .m span { font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-muted); font-family: var(--font-display); }
+  .summary .sep { width: 1px; align-self: stretch; background: var(--line); }
+  .summary .spacer { flex: 1; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <strong>B · SETTING TILES</strong>
+  <span>settings view — static design prototype</span>
+  <span class="spacer"></span>
+  <a href="index.html">← all three</a>
+  <a href="a-dense-rows.html">‹ A</a>
+  <a href="c-rail-inspector.html">C ›</a>
+</div>
+
+<div class="stage">
+
+  <div class="head">
+    <div>
+      <h1>Hantsch – Test</h1>
+      <div class="sub">settings</div>
+    </div>
+    <div class="toolbar">
+      <div class="search"><span>&#8981;</span><span>filter settings…</span></div>
+      <select class="ctl" style="width:auto"><option>Engine: r1q2</option><option>Engine: q2pro</option></select>
+      <button class="btn">reset all</button>
+    </div>
+  </div>
+
+  <div class="panel summary">
+    <div class="m"><b>6</b><span>changed</span></div>
+    <div class="sep"></div>
+    <div class="m q"><b>30</b><span>settings</span></div>
+    <div class="sep"></div>
+    <div class="m"><b>1</b><span>out of range</span></div>
+    <div class="sep"></div>
+    <div class="m q"><b>2</b><span>engine notes</span></div>
+    <div class="spacer"></div>
+    <span class="badge is-ok">r1q2 facts in scope</span>
+    <span class="badge">q2pro also assigned</span>
+  </div>
+
+  <div class="sect">
+    <div class="grp"><span>Player</span><span class="rule"></span><span class="count">11 · 4 changed</span></div>
+    <div class="tiles">
+
+      <div class="tile panel is-changed">
+        <div class="top">
+          <div class="name"><b>Player name</b><span class="cvar">name</span></div>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">Shows up on the scoreboard and in chat.</p>
+        <div class="ctlwrap"><input class="ctl" value="Hantsch" /></div>
+        <div class="foot"><span class="now">Hantsch</span><span>default player</span></div>
+      </div>
+
+      <div class="tile panel">
+        <div class="top">
+          <div class="name"><b>Player model</b><span class="cvar">skin</span></div>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">Model and skin. Format: model/skin.</p>
+        <div class="ctlwrap"><select class="ctl"><option>Male — Grunt</option></select></div>
+        <div class="foot"><span class="now">male/grunt</span><span>= default</span></div>
+      </div>
+
+      <div class="tile panel is-changed">
+        <div class="top">
+          <div class="name"><b>Field of view</b><span class="cvar">fov</span></div>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">90 is the engine default; 100–120 is the common choice.</p>
+        <div class="ctlwrap slider">
+          <input class="rng" type="range" min="60" max="140" value="110" />
+          <input class="ctl mono" value="110" />
+        </div>
+        <div class="foot"><span class="now">110</span><span>default 100 · 60–140</span></div>
+      </div>
+
+      <div class="tile panel is-changed">
+        <div class="top">
+          <div class="name"><b>Mouse sensitivity</b><span class="cvar">sensitivity</span></div>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">How far the view turns per unit of mouse movement.</p>
+        <div class="ctlwrap slider">
+          <input class="rng" type="range" min="0.5" max="30" step="0.5" value="3" />
+          <input class="ctl mono" value="3" />
+        </div>
+        <div class="foot"><span class="now">3</span><span>default 4 · 0.5–30</span></div>
+      </div>
+
+      <div class="tile panel">
+        <div class="top">
+          <div class="name"><b>Vertical mouse direction</b><span class="cvar">m_pitch</span></div>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">A negative value inverts the Y axis.</p>
+        <div class="ctlwrap"><select class="ctl"><option>Normal</option><option>Inverted</option></select></div>
+        <div class="foot"><span class="now">0.022</span><span>= default</span></div>
+      </div>
+
+      <div class="tile panel">
+        <div class="top">
+          <div class="name"><b>Weapon hand</b><span class="cvar">hand</span></div>
+          <span class="badge is-warn">mod</span>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">Value 2 is implemented by the game DLL, not the client — it depends on the mod.</p>
+        <div class="ctlwrap"><select class="ctl"><option>Centred / hidden</option></select></div>
+        <div class="foot"><span class="now">2</span><span>= default</span></div>
+      </div>
+
+      <div class="tile panel is-changed">
+        <div class="top">
+          <div class="name"><b>Crosshair</b><span class="cvar">crosshair</span></div>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">Which crosshair is drawn.</p>
+        <div class="ctlwrap"><select class="ctl"><option>None</option><option>Cross</option></select></div>
+        <div class="foot"><span class="now">0</span><span>default 1</span></div>
+      </div>
+
+      <div class="tile panel">
+        <div class="top">
+          <div class="name"><b>Crosshair size</b><span class="cvar">ch_scale</span></div>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">Scales the crosshair image.</p>
+        <div class="ctlwrap slider">
+          <input class="rng" type="range" min="0.5" max="4" step="0.1" value="1" />
+          <input class="ctl mono" value="1" />
+        </div>
+        <div class="foot"><span class="now">1</span><span>= default</span></div>
+      </div>
+
+      <div class="tile panel">
+        <div class="top">
+          <div class="name"><b>Message filter</b><span class="cvar">msg</span></div>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">How many server and kill messages are shown.</p>
+        <div class="ctlwrap"><select class="ctl"><option>Everything</option></select></div>
+        <div class="foot"><span class="now">0</span><span>= default</span></div>
+      </div>
+
+      <div class="tile panel compact">
+        <div class="row1">
+          <div class="name"><b>Mouselook</b><span class="cvar">freelook</span></div>
+          <span class="sw is-on"></span>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">Permanent look-around with the mouse. Should always be on.</p>
+      </div>
+
+      <div class="tile panel compact is-changed">
+        <div class="row1">
+          <div class="name"><b>Always run</b><span class="cvar">cl_run</span></div>
+          <span class="sw"></span>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">Off means you walk by default. <span style="color:var(--flame-300)">default: on</span></p>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="sect">
+    <div class="grp"><span>Network</span><span class="rule"></span><span class="count">4 · 1 changed</span></div>
+    <div class="tiles">
+
+      <div class="tile panel">
+        <div class="top">
+          <div class="name"><b>Network rate</b><span class="cvar">rate</span></div>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">Bytes per second the server may send. 25000 is fine on any modern connection.</p>
+        <div class="ctlwrap"><input class="ctl mono" value="25000" /></div>
+        <div class="foot"><span class="now">25000</span><span>= default</span></div>
+      </div>
+
+      <div class="tile panel is-changed" style="border-color: rgb(255 90 82 / 0.45)">
+        <div class="top">
+          <div class="name"><b>Max FPS (packets / physics)</b><span class="cvar">cl_maxfps</span></div>
+          <span class="badge is-danger">&gt; 125</span>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">r1q2 clamps this to 125. q2pro, also assigned, allows up to 1000.</p>
+        <div class="ctlwrap"><input class="ctl mono" value="300" /></div>
+        <div class="foot"><span class="now">300</span><span>default 125 · 10–125</span></div>
+      </div>
+
+      <div class="tile panel">
+        <div class="top">
+          <div class="name"><b>Asynchronous rendering</b><span class="cvar">cl_async</span></div>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">Decouples the render rate from the packet rate.</p>
+        <div class="ctlwrap"><select class="ctl"><option>On — separate render rate</option></select></div>
+        <div class="foot"><span class="now">1</span><span>= default</span></div>
+      </div>
+
+      <div class="tile panel is-off">
+        <div class="top">
+          <div class="name"><b>Render FPS cap</b><span class="cvar">r_maxfps</span></div>
+          <span class="badge">not on r1q2</span>
+        </div>
+        <p class="desc">Caps the rendering rate separately from the packet rate.</p>
+        <div class="ctlwrap"><input class="ctl mono" value="—" disabled /></div>
+        <div class="foot"><span>unavailable</span><span>q2pro only</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="sect">
+    <div class="grp"><span>Graphics</span><span class="rule"></span><span class="count">13 · 1 changed</span></div>
+    <div class="tiles">
+
+      <div class="tile panel is-changed">
+        <div class="top">
+          <div class="name"><b>Gamma</b><span class="cvar">vid_gamma</span></div>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">Lower values brighten the picture.</p>
+        <div class="ctlwrap slider">
+          <input class="rng" type="range" min="0.3" max="1.5" step="0.05" value="0.65" />
+          <input class="ctl mono" value="0.65" />
+        </div>
+        <div class="foot"><span class="now">0.65</span><span>default 0.8 · 0.3–1.5</span></div>
+      </div>
+
+      <div class="tile panel">
+        <div class="top">
+          <div class="name"><b>Brightness (lightmaps)</b><span class="cvar">gl_modulate</span></div>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">Scales level lighting up — makes dark corners visible.</p>
+        <div class="ctlwrap slider">
+          <input class="rng" type="range" min="1" max="10" step="0.1" value="2" />
+          <input class="ctl mono" value="2" />
+        </div>
+        <div class="foot"><span class="now">2</span><span>= default</span></div>
+      </div>
+
+      <div class="tile panel">
+        <div class="top">
+          <div class="name"><b>Texture filter</b><span class="cvar">gl_texturemode</span></div>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">NEAREST gives the hard retro look.</p>
+        <div class="ctlwrap"><select class="ctl"><option>Linear, mipmapped</option></select></div>
+        <div class="foot"><span class="now" style="font-size:10px">GL_LINEAR_MIPMAP_LINEAR</span><span>= default</span></div>
+      </div>
+
+      <div class="tile panel">
+        <div class="top">
+          <div class="name"><b>Texture detail</b><span class="cvar">gl_picmip</span></div>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">Higher values make textures muddier but enemies stand out.</p>
+        <div class="ctlwrap slider">
+          <input class="rng" type="range" min="0" max="10" value="0" />
+          <input class="ctl mono" value="0" />
+        </div>
+        <div class="foot"><span class="now">0</span><span>= default</span></div>
+      </div>
+
+      <div class="tile panel compact">
+        <div class="row1">
+          <div class="name"><b>Fullscreen</b><span class="cvar">vid_fullscreen</span></div>
+          <span class="sw is-on"></span>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+      </div>
+
+      <div class="tile panel compact">
+        <div class="row1">
+          <div class="name"><b>Shadows</b><span class="cvar">gl_shadows</span></div>
+          <span class="sw"></span>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+      </div>
+
+      <div class="tile panel compact">
+        <div class="row1">
+          <div class="name"><b>VSync</b><span class="cvar">gl_swapinterval</span></div>
+          <span class="sw"></span>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+      </div>
+
+      <div class="tile panel compact">
+        <div class="row1">
+          <div class="name"><b>Dynamic lighting</b><span class="cvar">gl_dynamic</span></div>
+          <span class="sw is-on"></span>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+      </div>
+
+      <div class="tile panel compact">
+        <div class="row1">
+          <div class="name"><b>Show weapon model</b><span class="cvar">cl_gun</span></div>
+          <span class="sw is-on"></span>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+      </div>
+
+      <div class="tile panel compact">
+        <div class="row1">
+          <div class="name"><b>Screen effects</b><span class="cvar">cl_blend</span></div>
+          <span class="sw is-on"></span>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+      </div>
+
+      <div class="tile panel compact">
+        <div class="row1">
+          <div class="name"><b>Uniform skins</b><span class="cvar">cl_noskins</span></div>
+          <span class="sw"></span>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+      </div>
+
+      <div class="tile panel compact">
+        <div class="row1">
+          <div class="name"><b>Colour overlay</b><span class="cvar">gl_polyblend</span></div>
+          <span class="sw is-on"></span>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="sect">
+    <div class="grp"><span>Sound</span><span class="rule"></span><span class="count">2</span></div>
+    <div class="tiles">
+      <div class="tile panel">
+        <div class="top">
+          <div class="name"><b>Volume</b><span class="cvar">s_volume</span></div>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">Overall volume.</p>
+        <div class="ctlwrap slider">
+          <input class="rng" type="range" min="0" max="1" step="0.05" value="0.7" />
+          <input class="ctl mono" value="0.7" />
+        </div>
+        <div class="foot"><span class="now">0.7</span><span>= default</span></div>
+      </div>
+      <div class="tile panel">
+        <div class="top">
+          <div class="name"><b>Sound quality</b><span class="cvar">s_khz</span></div>
+          <button class="iconbtn" title="reset">&#8635;</button>
+        </div>
+        <p class="desc">Output sample rate.</p>
+        <div class="ctlwrap"><select class="ctl"><option>44 kHz</option></select></div>
+        <div class="foot"><span class="now">44</span><span>= default</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

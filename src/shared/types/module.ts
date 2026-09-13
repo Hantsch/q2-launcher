@@ -13,7 +13,7 @@
  *   4. register a renderer view in `src/renderer/src/modules/index.ts`
  *   5. add its i18n keys
  */
-export type ModuleId = 'library' | 'config' | 'install' | 'mods' | 'assets'
+export type ModuleId = 'home' | 'library' | 'config' | 'downloads' | 'mods' | 'assets'
 
 /**
  * What a module needs from the host. Declared up front so the shell can tell
@@ -43,6 +43,10 @@ export interface ModuleManifest {
   /** i18n keys - modules never carry prose. */
   titleKey: string
   descriptionKey: string
+  /** i18n key for the plain-language intro paragraph on the planned-module screen. */
+  plannedIntroKey?: string
+  /** i18n keys for the plain-language "what you'll be able to do" bullets on the planned-module screen. */
+  plannedHighlightKeys?: readonly string[]
   /** `lucide-react` icon name; the renderer maps it to a component. */
   icon: string
   /** Route the module owns, e.g. `/config`. */
@@ -62,6 +66,19 @@ export interface ModuleManifest {
 
 export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
   {
+    id: 'home',
+    titleKey: 'module.home.title',
+    descriptionKey: 'module.home.description',
+    icon: 'Home',
+    route: '/home',
+    nav: null,
+    status: 'available',
+    // Story 082 D6: the community news feed fetches over the network at startup and on demand.
+    capabilities: ['network'],
+    ipcNamespace: 'module:home',
+    requiresInstallation: false,
+  },
+  {
     id: 'library',
     titleKey: 'module.library.title',
     descriptionKey: 'module.library.description',
@@ -74,15 +91,21 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     requiresInstallation: false,
   },
   {
-    id: 'install',
-    titleKey: 'module.install.title',
-    descriptionKey: 'module.install.description',
+    id: 'downloads',
+    titleKey: 'module.downloads.title',
+    descriptionKey: 'module.downloads.description',
+    plannedIntroKey: 'module.planned.downloads.intro',
+    plannedHighlightKeys: [
+      'module.planned.downloads.highlight.1',
+      'module.planned.downloads.highlight.2',
+      'module.planned.downloads.highlight.3',
+    ],
     icon: 'Download',
-    route: '/install',
-    nav: { section: 'primary', order: 20 },
-    status: 'planned',
+    route: '/downloads',
+    nav: { section: 'secondary', order: 10 },
+    status: 'available',
     capabilities: ['mutates-installation', 'long-running-jobs', 'network'],
-    ipcNamespace: 'module:install',
+    ipcNamespace: 'module:downloads',
     requiresInstallation: false,
   },
   {
@@ -92,15 +115,21 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     icon: 'SlidersHorizontal',
     route: '/config',
     nav: { section: 'primary', order: 30 },
-    status: 'planned',
+    status: 'available',
     capabilities: ['mutates-installation', 'cvar-schema'],
     ipcNamespace: 'module:config',
-    requiresInstallation: true,
+    requiresInstallation: false,
   },
   {
     id: 'mods',
     titleKey: 'module.mods.title',
     descriptionKey: 'module.mods.description',
+    plannedIntroKey: 'module.planned.mods.intro',
+    plannedHighlightKeys: [
+      'module.planned.mods.highlight.1',
+      'module.planned.mods.highlight.2',
+      'module.planned.mods.highlight.3',
+    ],
     icon: 'Boxes',
     route: '/mods',
     nav: { section: 'primary', order: 40 },
@@ -113,6 +142,12 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     id: 'assets',
     titleKey: 'module.assets.title',
     descriptionKey: 'module.assets.description',
+    plannedIntroKey: 'module.planned.assets.intro',
+    plannedHighlightKeys: [
+      'module.planned.assets.highlight.1',
+      'module.planned.assets.highlight.2',
+      'module.planned.assets.highlight.3',
+    ],
     icon: 'Images',
     route: '/assets',
     nav: { section: 'primary', order: 50 },

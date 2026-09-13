@@ -1,26 +1,57 @@
+import type { ComponentType } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ExternalLink, FlaskConical, FolderOpen } from 'lucide-react'
-import { APP_REPO_URL } from '@shared/constants'
+import { FlaskConical } from 'lucide-react'
 import type { LocaleSetting, MotionSetting } from '@shared/types'
 import { invoke } from '../lib/bridge'
 import { useLauncher } from '../store/useLauncher'
 import { SUPPORTED_LOCALES } from '../i18n'
+import { AboutPanel } from '../components/about/AboutPanel'
 import { Button } from '../components/ui/Button'
 import { Select, Switch } from '../components/ui/controls'
-import { Divider, KeyValue, Panel, SectionLabel } from '../components/ui/primitives'
+import { Divider, Panel, SectionLabel } from '../components/ui/primitives'
+import { RENDERER_MODULES, type RendererModule } from '../modules'
 
 const LOCALE_NAMES: Record<string, string> = {
   en: 'English',
 }
 
-export function SettingsView() {
+/**
+ * Module-contributed sections, sorted by `order` then module id so a tie is
+ * deterministic instead of depending on registration order in `modules/index.ts`.
+ */
+function settingsSections(
+  modules: readonly RendererModule[],
+): Array<{ id: string; titleKey: string; order: number; Section: ComponentType }> {
+  return modules
+    .filter((module) => module.settingsSection !== undefined)
+    .map((module) => ({
+      id: module.id,
+      titleKey: module.settingsSection!.titleKey,
+      order: module.settingsSection!.order,
+      Section: module.settingsSection!.Section,
+    }))
+    .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))
+}
+
+export interface SettingsViewProps {
+  /**
+   * Defaults to the real registry. Overridable so tests can prove the
+   * module-contributed-section mechanism with a stub module instead of
+   * depending on a real one being registered.
+   */
+  modules?: readonly RendererModule[]
+}
+
+export function SettingsView(props: SettingsViewProps = {}) {
+  const { modules = RENDERER_MODULES } = props
   const { t } = useTranslation()
   const settings = useLauncher((state) => state.settings)
   const patchSettings = useLauncher((state) => state.patchSettings)
   const appInfo = useLauncher((state) => state.appInfo)
+  const contributedSections = settingsSections(modules)
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto scrollbar-gutter-stable">
       <div className="mx-auto max-w-2xl space-y-4 p-6">
         <h1 className="font-display text-2xl tracking-[0.06em] text-ink uppercase">
           {t('settings.title')}
@@ -97,82 +128,16 @@ export function SettingsView() {
           />
         </Panel>
 
-        <Panel className="space-y-2.5 p-4">
+        {contributedSections.map(({ id, titleKey, Section }) => (
+          <Panel key={id} className="space-y-2.5 p-4" data-testid={`settings-section-${id}`}>
+            <SectionLabel>{t(titleKey)}</SectionLabel>
+            <Section />
+          </Panel>
+        ))}
+
+        <Panel className="space-y-2.5 p-4" data-testid="settings-about">
           <SectionLabel>{t('settings.section.about')}</SectionLabel>
-
-          <KeyValue label={t('settings.version')} mono>
-            {appInfo?.appVersion ?? '-'}
-          </KeyValue>
-          <KeyValue label={t('settings.electron')} mono>
-            {appInfo?.electronVersion ?? '-'}
-          </KeyValue>
-          <KeyValue label={t('settings.chrome')} mono>
-            {appInfo?.chromeVersion ?? '-'}
-          </KeyValue>
-          <KeyValue label={t('settings.node')} mono>
-            {appInfo?.nodeVersion ?? '-'}
-          </KeyValue>
-
-          <Divider className="my-1" />
-
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <SectionLabel>{t('settings.userData')}</SectionLabel>
-              <p
-                className="numeric truncate text-[11px] text-ink-muted"
-                title={appInfo?.userDataPath}
-                data-selectable
-              >
-                {appInfo?.userDataPath ?? '-'}
-              </p>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<FolderOpen className="size-3.5" />}
-              disabled={!appInfo}
-              onClick={() => {
-                if (appInfo) void invoke('app:revealPath', appInfo.userDataPath)
-              }}
-            >
-              {t('settings.openFolder')}
-            </Button>
-          </div>
-
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <SectionLabel>{t('settings.logs')}</SectionLabel>
-              <p
-                className="numeric truncate text-[11px] text-ink-muted"
-                title={appInfo?.logPath}
-                data-selectable
-              >
-                {appInfo?.logPath ?? '-'}
-              </p>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<FolderOpen className="size-3.5" />}
-              disabled={!appInfo}
-              onClick={() => {
-                if (appInfo) void invoke('app:revealPath', appInfo.logPath)
-              }}
-            >
-              {t('settings.openFolder')}
-            </Button>
-          </div>
-
-          <Divider className="my-1" />
-
-          <Button
-            variant="link"
-            size="sm"
-            icon={<ExternalLink className="size-3.5" />}
-            onClick={() => void invoke('app:openExternal', APP_REPO_URL)}
-          >
-            {t('settings.repository')}
-          </Button>
+          <AboutPanel />
         </Panel>
 
         {appInfo?.isDev && (
@@ -180,16 +145,91 @@ export function SettingsView() {
             <SectionLabel>{t('settings.devTools')}</SectionLabel>
             <p className="text-xs leading-relaxed text-ink-muted">
               Development builds only. Emits a fake download job so the action bar&rsquo;s progress
-              readout can be worked on before the install module exists.
+              readout and the Downloads tab can be worked on before the downloads module exists.
             </p>
-            <Button
-              variant="neutral"
-              size="sm"
-              icon={<FlaskConical className="size-3.5" />}
-              onClick={() => void invoke('dev:simulateJob')}
-            >
-              {t('settings.simulateJob')}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="neutral"
+                size="sm"
+                icon={<FlaskConical className="size-3.5" />}
+                onClick={() => void invoke('dev:simulateJob', { scenario: 'success' })}
+              >
+                {t('settings.simulateJob')}
+              </Button>
+              <Button
+                variant="neutral"
+                size="sm"
+                icon={<FlaskConical className="size-3.5" />}
+                onClick={() => void invoke('dev:simulateJob', { scenario: 'stall' })}
+              >
+                {t('settings.simulateJobStall')}
+              </Button>
+              <Button
+                variant="neutral"
+                size="sm"
+                icon={<FlaskConical className="size-3.5" />}
+                onClick={() => void invoke('dev:simulateJob', { scenario: 'failure' })}
+              >
+                {t('settings.simulateJobFailure')}
+              </Button>
+            </div>
+
+            <p className="text-xs leading-relaxed text-ink-muted">
+              Story 098 D4. Drives the update control through every phase without a real check or
+              download.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="neutral"
+                size="sm"
+                icon={<FlaskConical className="size-3.5" />}
+                onClick={() =>
+                  void invoke('dev:simulateAppUpdate', {
+                    scenario: 'available',
+                    version: '9.9.9-dev',
+                    notes: 'Simulated release notes for dev testing.',
+                  })
+                }
+              >
+                {t('settings.simulateUpdateAvailable')}
+              </Button>
+              <Button
+                variant="neutral"
+                size="sm"
+                icon={<FlaskConical className="size-3.5" />}
+                onClick={() =>
+                  void invoke('dev:simulateAppUpdate', { scenario: 'progress', ratio: 0.5 })
+                }
+              >
+                {t('settings.simulateUpdateProgress')}
+              </Button>
+              <Button
+                variant="neutral"
+                size="sm"
+                icon={<FlaskConical className="size-3.5" />}
+                onClick={() => void invoke('dev:simulateAppUpdate', { scenario: 'downloaded' })}
+              >
+                {t('settings.simulateUpdateDownloaded')}
+              </Button>
+              <Button
+                variant="neutral"
+                size="sm"
+                icon={<FlaskConical className="size-3.5" />}
+                onClick={() =>
+                  void invoke('dev:simulateAppUpdate', { scenario: 'error', reason: 'offline' })
+                }
+              >
+                {t('settings.simulateUpdateError')}
+              </Button>
+              <Button
+                variant="neutral"
+                size="sm"
+                icon={<FlaskConical className="size-3.5" />}
+                onClick={() => void invoke('dev:simulateAppUpdate', { scenario: 'upToDate' })}
+              >
+                {t('settings.simulateUpdateUpToDate')}
+              </Button>
+            </div>
           </Panel>
         )}
       </div>

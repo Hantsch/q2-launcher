@@ -1,0 +1,54 @@
+- 2026-09-12 09:41 · 091 · D1 job model learns to wait · started
+- 2026-09-12 09:44 · 091 · D1 job model learns to wait · done
+- 2026-09-12 09:44 · 091 · D2 InstallationWriteGuard + launch refusal · started
+- 2026-09-12 09:53 · 091 · D2 InstallationWriteGuard + launch refusal · done
+- 2026-09-12 09:53 · 091 · D3 waiting state is visible · started
+- 2026-09-12 09:57 · 091 · D3 waiting state is visible · done
+- 2026-09-12 09:57 · 091 · D4 retail-upgrade job waits · started
+- 2026-09-12 10:08 · 091 · D4 retail-upgrade job waits · done
+- 2026-09-12 10:08 · 091 · D5 triggers stop being disabled · started
+- 2026-09-12 10:12 · 091 · D5 triggers stop being disabled · done
+- 2026-09-12 10:12 · 091 · D6 bootstrap assemble passes ride the guard · started
+- 2026-09-12 10:16 · 091 · D6 bootstrap assemble passes ride the guard · done
+- 2026-09-12 10:16 · 091 · D7 dev-only writing job · started
+- 2026-09-12 10:20 · 091 · D7 dev-only writing job · done
+- 2026-09-12 10:20 · 091 · D8 offline end-to-end proof · started
+- 2026-09-12 10:27 · 091 · D8 offline end-to-end proof · done
+- 2026-09-12 10:38 · 092 · D1 contract · started
+- 2026-09-12 10:40 · 092 · D1 contract · done
+- 2026-09-12 10:40 · 092 · D2 recorded engine version · started
+- 2026-09-12 10:43 · 092 · D2 recorded engine version · done
+- 2026-09-12 10:43 · 092 · D3 update check · started
+- 2026-09-12 10:45 · 092 · D3 update check · done
+- 2026-09-12 10:45 · 092 · D4 bleeding edge · started
+- 2026-09-12 10:50 · 092 · D4 bleeding edge · done
+- 2026-09-12 10:50 · 092 · D5 update job · started
+- 2026-09-12 11:05 · 092 · D5 update job · done
+- 2026-09-12 11:05 · 092 · D6 rollback job · started
+- 2026-09-12 11:10 · 092 · D6 rollback job · done
+- 2026-09-12 11:10 · 092 · D7 renderer surface · started
+- 2026-09-12 11:16 · 092 · D7 renderer surface · done
+- 2026-09-12 11:16 · 092 · D8 offline e2e · started
+- 2026-09-12 11:36 · 092 · D8 offline e2e · done
+- 2026-09-12 12:04 · 093 · D1 inspector separates paks cases · started
+- 2026-09-12 12:07 · 093 · D1 inspector separates paks cases · done
+- 2026-09-12 12:07 · 093 · D2 repair plan+contract · started
+- 2026-09-12 12:07 · 093 · D3 allowlist restrictTo · started
+- 2026-09-12 12:13 · 093 · D2 repair plan+contract · done
+- 2026-09-12 12:13 · 093 · D3 allowlist restrictTo · done
+- 2026-09-12 12:13 · 093 · D4 repair job · started
+- 2026-09-12 12:29 · 093 · D4 repair job · done
+- 2026-09-12 12:29 · 093 · D5 repair dialog · started
+- 2026-09-12 12:33 · 093 · D5 repair dialog · done
+- 2026-09-12 12:33 · 093 · D6 triggers open repair dialog · started
+- 2026-09-12 12:35 · 093 · D6 triggers open repair dialog · done
+- 2026-09-12 12:35 · 093 · D7 offline e2e proof · started
+- 2026-09-12 13:14 · 093 · D7 offline e2e proof · done
+- 2026-09-12 13:47 · 094 · D1 Safe folder deletion (main) · started
+- 2026-09-12 13:54 · 094 · D1 Safe folder deletion (main) · done
+- 2026-09-12 13:54 · 094 · D2 Removal policy in the service · started
+- 2026-09-12 13:59 · 094 · D2 Removal policy in the service · done
+- 2026-09-12 13:59 · 094 · D3 Chooser dialog and its trigger · started
+- 2026-09-12 14:04 · 094 · D3 Chooser dialog and its trigger · done
+- 2026-09-12 14:04 · 094 · D4 Offline end-to-end proof · started
+- 2026-09-12 14:12 · 094 · D4 Offline end-to-end proof · done

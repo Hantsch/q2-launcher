@@ -1,0 +1,622 @@
+import { describe, expect, it } from 'vitest'
+import { configWriteFailuresSchema, parseConfigWriteFailures } from '../../lib/schemas'
+import {
+  actionTextSchema,
+  configActionSchema,
+  importFilesCommitInputSchema,
+  importFilesPreviewInputSchema,
+  MAX_IMPORT_FILE_IDS,
+  setProfileActionsInputSchema,
+  setProfileCvarsInputSchema,
+  setSwitchBindInputSchema,
+  syncStateInputSchema,
+  writeProfileInputSchema,
+} from './schemas'
+
+/**
+ * Story 007's IPC payload schema for `setSwitchBind`. `configModule`'s handler
+ * is a thin `safeParse` wrapper around this (see `index.ts`), so these cases
+ * are what backs the "malformed payload returns
+ * `fail('ipc.error.invalidPayload')`" acceptance line.
+ */
+describe('setSwitchBindInputSchema', () => {
+  it('accepts a named key, normalizing case', () => {
+    const upper = setSwitchBindInputSchema.parse({ installationId: 'i1', key: 'F9' })
+    expect(upper).toEqual({ installationId: 'i1', key: 'F9' })
+
+    const lower = setSwitchBindInputSchema.parse({ installationId: 'i1', key: 'f9' })
+    expect(lower).toEqual({ installationId: 'i1', key: 'F9' })
+  })
+
+  it('accepts a single printable character', () => {
+    const result = setSwitchBindInputSchema.parse({ installationId: 'i1', key: 'g' })
+    expect(result).toEqual({ installationId: 'i1', key: 'g' })
+  })
+
+  it('accepts key: null as the "clear" case', () => {
+    const result = setSwitchBindInputSchema.parse({ installationId: 'i1', key: null })
+    expect(result).toEqual({ installationId: 'i1', key: null })
+  })
+
+  it('rejects a missing installationId', () => {
+    expect(setSwitchBindInputSchema.safeParse({ key: 'F9' }).success).toBe(false)
+  })
+
+  it('rejects a key that is neither a known named key nor a single character', () => {
+    expect(
+      setSwitchBindInputSchema.safeParse({ installationId: 'i1', key: 'notakey' }).success,
+    ).toBe(false)
+  })
+
+  it('rejects an empty key string', () => {
+    expect(setSwitchBindInputSchema.safeParse({ installationId: 'i1', key: '' }).success).toBe(
+      false,
+    )
+  })
+
+  /**
+   * Review finding, story 007: these four single characters are printable
+   * ASCII, so a naive "is it one printable char" check would have accepted
+   * them, but `switch-bind.ts`'s `sanitizeKeyName` strips every one of them
+   * (`;` ends a step's command list, `$` triggers macro expansion, `"` cannot
+   * be escaped, a bare space is not a key token) - accepting one here would
+   * have let the schema call a key "valid" while the generator silently
+   * reduced it to an empty key and rendered no chain at all.
+   */
+  it.each([';', '$', '"', ' '])('rejects the unusable single character %j', (key) => {
+    expect(setSwitchBindInputSchema.safeParse({ installationId: 'i1', key }).success).toBe(false)
+  })
+
+  it('rejects a missing key field entirely', () => {
+    expect(setSwitchBindInputSchema.safeParse({ installationId: 'i1' }).success).toBe(false)
+  })
+})
+
+/**
+ * Story 008's IPC payload schema for `setActions`. Strict, same convention as
+ * `setSwitchBindInputSchema` above: a bad payload here is a caller bug and
+ * `.parse()` is meant to throw.
+ */
+describe('actionTextSchema', () => {
+  it('rejects text containing an em dash (outside latin-1)', () => {
+    expect(actionTextSchema.safeParse('hello — world').success).toBe(false)
+  })
+
+  it('rejects text containing a literal double quote', () => {
+    expect(actionTextSchema.safeParse('say "hi"').success).toBe(false)
+  })
+
+  it('accepts text built entirely from latin-1 high-bit code points', () => {
+    const text = String.fromCharCode(0xe9) + String.fromCharCode(0xa0) + 'x'
+    expect(actionTextSchema.safeParse(text).success).toBe(true)
+  })
+})
+
+describe('setProfileActionsInputSchema', () => {
+  const validPayload = {
+    profileId: 'p1',
+    categories: [{ id: 'c1', name: 'My Category' }],
+    actions: [
+      {
+        id: 'a1',
+        categoryId: 'c1',
+        name: 'Jump forward',
+        kind: 'bind' as const,
+        commands: [{ kind: 'raw' as const, text: '+forward' }],
+        key: 'W',
+      },
+    ],
+  }
+
+  it('accepts a well-formed categories/actions payload', () => {
+    expect(setProfileActionsInputSchema.safeParse(validPayload).success).toBe(true)
+  })
+
+  it('rejects a payload where a raw command text contains an em dash', () => {
+    const payload = {
+      ...validPayload,
+      actions: [
+        {
+          ...validPayload.actions[0],
+          commands: [{ kind: 'raw', text: 'echo —' }],
+        },
+      ],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(false)
+  })
+
+  it('rejects a payload where a message command text contains a literal quote', () => {
+    const payload = {
+      ...validPayload,
+      actions: [
+        {
+          ...validPayload.actions[0],
+          commands: [{ kind: 'message', channel: 'say', text: 'say "hi"' }],
+        },
+      ],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(false)
+  })
+
+  it('accepts text entirely within U+00A0-U+00FF', () => {
+    const text = Array.from({ length: 5 }, (_, i) => String.fromCharCode(0xa0 + i)).join('')
+    const payload = {
+      ...validPayload,
+      actions: [
+        {
+          ...validPayload.actions[0],
+          commands: [{ kind: 'raw', text }],
+        },
+      ],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(true)
+  })
+
+  it('rejects a missing profileId', () => {
+    const { profileId: _profileId, ...rest } = validPayload
+    expect(setProfileActionsInputSchema.safeParse(rest).success).toBe(false)
+  })
+
+  /**
+   * Story 019: `kind` is required here and nowhere defaulted. A renderer payload is never trusted,
+   * and guessing a missing kind would silently retype the entry - the forgiving derive belongs to
+   * the persisted schema (`main/lib/schemas.test.ts`), whose input is an old file, not a caller.
+   */
+  it('rejects an action row with no kind at all', () => {
+    const { kind: _kind, ...action } = validPayload.actions[0]!
+    expect(
+      setProfileActionsInputSchema.safeParse({ ...validPayload, actions: [action] }).success,
+    ).toBe(false)
+  })
+
+  it('rejects an action row whose kind is not one of the three', () => {
+    const payload = {
+      ...validPayload,
+      actions: [{ ...validPayload.actions[0], kind: 'binding' }],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(false)
+  })
+
+  it.each(['bind', 'message', 'alias'])('accepts kind: %s', (kind) => {
+    const payload = {
+      ...validPayload,
+      actions: [{ ...validPayload.actions[0], kind }],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(true)
+  })
+
+  it('accepts a category row carrying only id and name (story 019: no entryKind)', () => {
+    const payload = { ...validPayload, categories: [{ id: 'c1', name: 'My Category' }] }
+    const parsed = setProfileActionsInputSchema.parse(payload)
+    expect(parsed.categories[0]).toEqual({ id: 'c1', name: 'My Category' })
+  })
+
+  /**
+   * Story 053 D1: a category's `subcategories` and an action's `subcategoryId` are both optional
+   * and accepted verbatim - no cross-reference check at the schema level (an id the category
+   * doesn't carry is an ungrouped entry, a later deliverable's rendering concern).
+   */
+  it('accepts a category with subcategories and an action referencing one by id', () => {
+    const payload = {
+      ...validPayload,
+      categories: [{ id: 'c1', name: 'My Category', subcategories: [{ id: 'sub1', name: 'Sub' }] }],
+      actions: [{ ...validPayload.actions[0], subcategoryId: 'sub1' }],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(true)
+  })
+
+  it('accepts an action whose subcategoryId matches no subcategory (ungrouped, not an error)', () => {
+    const payload = {
+      ...validPayload,
+      actions: [{ ...validPayload.actions[0], subcategoryId: 'nonexistent' }],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(true)
+  })
+})
+
+/**
+ * Story 059 D1: `setProfileCvarsInputSchema`'s optional `cvarSections` - the Settings-tab
+ * counterpart of `setProfileActionsInputSchema`'s `categories`/`actions`. Structural validation
+ * only: cvar names inside a section are never cross-validated against the catalogue, same rule
+ * `subcategoryId` gets above.
+ */
+describe('setProfileCvarsInputSchema - cvarSections (story 059)', () => {
+  const validPayload = {
+    profileId: 'p1',
+    cvars: { sensitivity: '3' },
+  }
+
+  it('accepts a payload with no cvarSections at all', () => {
+    expect(setProfileCvarsInputSchema.safeParse(validPayload).success).toBe(true)
+  })
+
+  it('accepts a well-formed cvarSections payload with subsections', () => {
+    const payload = {
+      ...validPayload,
+      cvarSections: [
+        {
+          id: 'player',
+          name: 'Player',
+          nameKey: 'config.settings.groups.player',
+          cvars: ['sensitivity', 'name'],
+          subsections: [{ id: 'sub1', name: 'Aim', cvars: ['sensitivity'] }],
+        },
+      ],
+    }
+    expect(setProfileCvarsInputSchema.safeParse(payload).success).toBe(true)
+  })
+
+  // Story 059 D1: "an unknown cvar name in a section list does not fail validation" - this schema
+  // guards shape only, never cross-references `ALL_CVARS`.
+  it('accepts a section listing a cvar name the catalogue does not recognize', () => {
+    const payload = {
+      ...validPayload,
+      cvarSections: [{ id: 's1', name: 'Custom', cvars: ['not_a_real_cvar'] }],
+    }
+    expect(setProfileCvarsInputSchema.safeParse(payload).success).toBe(true)
+  })
+
+  it('rejects a section name over 120 characters', () => {
+    const payload = {
+      ...validPayload,
+      cvarSections: [{ id: 's1', name: 'x'.repeat(121), cvars: [] }],
+    }
+    expect(setProfileCvarsInputSchema.safeParse(payload).success).toBe(false)
+  })
+
+  it('rejects more than 64 sections', () => {
+    const payload = {
+      ...validPayload,
+      cvarSections: Array.from({ length: 65 }, (_, i) => ({ id: `s${i}`, name: `S${i}`, cvars: [] })),
+    }
+    expect(setProfileCvarsInputSchema.safeParse(payload).success).toBe(false)
+  })
+
+  /**
+   * Story 059 review Fix 1 (BLOCKING): the 64-cap belongs to how many sections/sub-sections a
+   * profile can have (D1's own spec), never to how many cvar NAMES one section's `cvars` list can
+   * hold. A migrated or imported profile can easily land more than 64 legitimate cvar names in one
+   * section (an "Other" bucket, or - the concrete failure this pins - `docs/fixtures/dm.cfg`'s own
+   * `Grafik Settings` section, which holds 68) - and rejecting that payload outright used to brick
+   * every structural edit `SettingsTab.tsx#persistSections` makes, since it always resends the whole
+   * `cvarSections` list.
+   */
+  it('accepts a section whose cvars list holds far more than 64 names', () => {
+    const payload = {
+      ...validPayload,
+      cvarSections: [
+        {
+          id: 's1',
+          name: 'Grafik Settings',
+          cvars: Array.from({ length: 68 }, (_, i) => `cvar_${i}`),
+        },
+      ],
+    }
+    expect(setProfileCvarsInputSchema.safeParse(payload).success).toBe(true)
+  })
+
+  it('rejects more than 64 subsections within one section', () => {
+    const payload = {
+      ...validPayload,
+      cvarSections: [
+        {
+          id: 's1',
+          name: 'Custom',
+          cvars: [],
+          subsections: Array.from({ length: 65 }, (_, i) => ({ id: `sub${i}`, name: `Sub${i}`, cvars: [] })),
+        },
+      ],
+    }
+    expect(setProfileCvarsInputSchema.safeParse(payload).success).toBe(false)
+  })
+})
+
+/**
+ * Story 045 D1: `'toggle'`/`'press-release'` are two-part kinds - `commands` stays `[]`, both
+ * halves live in `parts`, exactly two of them. `wait` is a new `ConfigCommand` kind, bounded by
+ * `MAX_WAIT_FRAMES`.
+ */
+describe('setProfileActionsInputSchema - toggle/press-release parts, wait command (story 045)', () => {
+  const validPayload = {
+    profileId: 'p1',
+    categories: [{ id: 'c1', name: 'My Category' }],
+    actions: [
+      {
+        id: 'a1',
+        categoryId: 'c1',
+        name: 'Zoom',
+        kind: 'toggle' as const,
+        commands: [],
+        parts: [
+          { commands: [{ kind: 'raw' as const, text: 'zoom 1' }] },
+          { commands: [{ kind: 'raw' as const, text: 'zoom 0' }] },
+        ],
+      },
+    ],
+  }
+
+  it('accepts a well-formed two-part toggle action', () => {
+    expect(setProfileActionsInputSchema.safeParse(validPayload).success).toBe(true)
+  })
+
+  it('accepts a well-formed two-part press-release action', () => {
+    const payload = {
+      ...validPayload,
+      actions: [{ ...validPayload.actions[0], kind: 'press-release' as const }],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(true)
+  })
+
+  it('accepts a wait command within range', () => {
+    const payload = {
+      ...validPayload,
+      actions: [
+        {
+          ...validPayload.actions[0],
+          parts: [
+            { commands: [{ kind: 'wait' as const, frames: 50 }] },
+            validPayload.actions[0]!.parts[1],
+          ],
+        },
+      ],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(true)
+  })
+
+  it.each([0, 51])('rejects a wait command with frames out of range (%d)', (frames) => {
+    const payload = {
+      ...validPayload,
+      actions: [
+        {
+          ...validPayload.actions[0],
+          parts: [
+            { commands: [{ kind: 'wait' as const, frames }] },
+            validPayload.actions[0]!.parts[1],
+          ],
+        },
+      ],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(false)
+  })
+
+  it('rejects a toggle action with parts missing', () => {
+    const { parts: _parts, ...action } = validPayload.actions[0]!
+    expect(
+      setProfileActionsInputSchema.safeParse({ ...validPayload, actions: [action] }).success,
+    ).toBe(false)
+  })
+
+  it.each([1, 3])('rejects a toggle action with %d parts', (count) => {
+    const payload = {
+      ...validPayload,
+      actions: [
+        {
+          ...validPayload.actions[0],
+          parts: Array.from({ length: count }, () => ({
+            commands: [{ kind: 'raw' as const, text: 'zoom 1' }],
+          })),
+        },
+      ],
+    }
+    expect(setProfileActionsInputSchema.safeParse(payload).success).toBe(false)
+  })
+})
+
+/**
+ * Story 050: `keys` replaces the old fixed `key`/`secondaryKey`/`keyModifier`/
+ * `secondaryKeyModifier` fields, with arbitrary length rather than the previous two-slot cap.
+ * `normalizeActionKeys` also still accepts the legacy shape here, not just in the persisted
+ * schema (`main/lib/schemas.test.ts`), so a caller that has not yet moved to `keys` still gets a
+ * valid payload rather than a thrown error.
+ */
+describe('configActionSchema - keys (story 050)', () => {
+  const base = {
+    id: 'a1',
+    categoryId: 'c1',
+    name: 'Jump forward',
+    kind: 'bind' as const,
+    commands: [],
+  }
+
+  it('accepts an action with five key slots', () => {
+    const result = configActionSchema.parse({
+      ...base,
+      keys: [
+        { key: 'W' },
+        { key: 'X', modifier: 'ALT' },
+        { key: 'Y' },
+        { key: 'Z', modifier: 'CTRL' },
+        { key: 'Q', modifier: 'SHIFT' },
+      ],
+    })
+
+    expect(result.keys).toHaveLength(5)
+    expect(result.keys?.[4]).toEqual({ key: 'Q', modifier: 'SHIFT' })
+  })
+
+  it('normalises the legacy key/keyModifier/secondaryKey/secondaryKeyModifier shape into keys', () => {
+    const result = configActionSchema.parse({
+      ...base,
+      key: 'W',
+      keyModifier: 'ALT',
+      secondaryKey: 'X',
+    })
+
+    expect(result.keys).toEqual([{ key: 'W', modifier: 'ALT' }, { key: 'X' }])
+    expect(result).not.toHaveProperty('key')
+    expect(result).not.toHaveProperty('secondaryKey')
+    expect(result).not.toHaveProperty('keyModifier')
+    expect(result).not.toHaveProperty('secondaryKeyModifier')
+  })
+
+  it('leaves an action with no key fields at all with no keys property', () => {
+    const result = configActionSchema.parse(base)
+    expect(result.keys).toBeUndefined()
+  })
+})
+
+/**
+ * Story 022 (D5): `syncState`'s IPC input schema, shape-identical to `write`'s
+ * (`writeProfileInputSchema`) - same alias convention this file already uses
+ * for `unassignProfileInputSchema`/`setDefaultProfileInputSchema`.
+ */
+describe('syncStateInputSchema', () => {
+  it('accepts a well-formed profileId', () => {
+    expect(syncStateInputSchema.safeParse({ profileId: 'p1' }).success).toBe(true)
+  })
+
+  it('rejects a missing profileId', () => {
+    expect(syncStateInputSchema.safeParse({}).success).toBe(false)
+  })
+
+  it('rejects an empty profileId', () => {
+    expect(syncStateInputSchema.safeParse({ profileId: '' }).success).toBe(false)
+  })
+})
+
+/**
+ * Story 079 D8: `write`'s payload gains an optional `installationId`, so "Sync now" can target one
+ * installation. Shape-only here - whether a given id names a known installation is checked in the
+ * handler (`index.ts`'s `write`, mirroring `assign`/`unassign`/`setDefault`), not by this schema, so
+ * that check has its own coverage in `index.test.ts` rather than here.
+ */
+describe('writeProfileInputSchema (story 079 D8)', () => {
+  it('accepts a profileId with no installationId, unchanged from before this story', () => {
+    expect(writeProfileInputSchema.safeParse({ profileId: 'p1' }).success).toBe(true)
+  })
+
+  it('accepts a well-formed installationId alongside profileId', () => {
+    const result = writeProfileInputSchema.safeParse({ profileId: 'p1', installationId: 'i1' })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.installationId).toBe('i1')
+  })
+
+  it('rejects an empty installationId', () => {
+    expect(
+      writeProfileInputSchema.safeParse({ profileId: 'p1', installationId: '' }).success,
+    ).toBe(false)
+  })
+})
+
+/**
+ * Story 022 (D5): the persisted map of write failures survived across a restart -
+ * `<profileId>|<installationId|'own'>` -> the last failed/deferred write attempt. No engine logic
+ * yet, just the round-trip and the forgiving-on-bad-data behavior described in
+ * `main/lib/schemas.ts`'s doc comment on `configWriteFailuresSchema`.
+ */
+describe('configWriteFailuresSchema / parseConfigWriteFailures', () => {
+  it('round-trips a well-formed map unchanged', () => {
+    const value = {
+      'p1|own': { messageKey: 'config.sync.error.locked', at: '2026-08-21T00:00:00.000Z' },
+      'p1|i1': { messageKey: 'config.sync.error.permission', at: '2026-08-20T12:00:00.000Z' },
+    }
+    expect(parseConfigWriteFailures(value)).toEqual(value)
+  })
+
+  it('parses undefined/missing input to {}', () => {
+    expect(parseConfigWriteFailures(undefined)).toEqual({})
+  })
+
+  it('parses a totally malformed value (a string) to {}', () => {
+    expect(parseConfigWriteFailures('not a map')).toEqual({})
+  })
+
+  it('parses a totally malformed value (an array) to {}', () => {
+    expect(parseConfigWriteFailures(['p1|own'])).toEqual({})
+  })
+
+  /**
+   * Decision: a single malformed entry is dropped on its own rather than wiping the whole map -
+   * there is no sensible fallback value for one corrupt failure entry (unlike, say,
+   * `configPlayedModsSchema`'s per-entry `.catch(() => [])`), so it is filtered out before the
+   * record schema ever sees it instead of being defaulted to a placeholder.
+   */
+  it('drops a single malformed entry, keeping the rest of an otherwise-valid map', () => {
+    const value = {
+      'p1|own': { messageKey: 'config.sync.error.locked', at: '2026-08-21T00:00:00.000Z' },
+      'p1|i1': { messageKey: 42, at: '2026-08-20T12:00:00.000Z' },
+      'p1|i2': 'not an object',
+    }
+    expect(parseConfigWriteFailures(value)).toEqual({
+      'p1|own': { messageKey: 'config.sync.error.locked', at: '2026-08-21T00:00:00.000Z' },
+    })
+  })
+
+  it('exposes the same behavior via configWriteFailuresSchema directly', () => {
+    expect(configWriteFailuresSchema.parse(null)).toEqual({})
+  })
+})
+
+/**
+ * Story 066 D3's own acceptance test: the `fileIds` shape shared by `import.previewFiles`'s and
+ * `import.commitFiles`' payloads (`ImportFilesPreviewInput`/`ImportFilesCommitInput`,
+ * `@shared/modules/config`) - the ordered list of `PickedConfigFile` ids to fold left-to-right.
+ * Whether an id actually names a file the session's picker registry knows about is not a shape
+ * question (see `importFilesPreviewInputSchema`'s own doc comment in `schemas.ts`) - only structural
+ * validity is this schema's job, and that is what these cases pin.
+ */
+describe('importFilesPreviewInputSchema (fileIds)', () => {
+  it('accepts a normal small array of id strings', () => {
+    const result = importFilesPreviewInputSchema.parse({ fileIds: ['a1', 'a2', 'a3'] })
+    expect(result).toEqual({ fileIds: ['a1', 'a2', 'a3'] })
+  })
+
+  it('rejects an empty array', () => {
+    expect(importFilesPreviewInputSchema.safeParse({ fileIds: [] }).success).toBe(false)
+  })
+
+  it('rejects an array over the cap', () => {
+    const tooMany = Array.from({ length: MAX_IMPORT_FILE_IDS + 1 }, (_, i) => `id${i}`)
+    expect(importFilesPreviewInputSchema.safeParse({ fileIds: tooMany }).success).toBe(false)
+  })
+
+  it('accepts an array exactly at the cap', () => {
+    const atCap = Array.from({ length: MAX_IMPORT_FILE_IDS }, (_, i) => `id${i}`)
+    expect(importFilesPreviewInputSchema.safeParse({ fileIds: atCap }).success).toBe(true)
+  })
+
+  it('rejects a value that is not an array of strings', () => {
+    expect(importFilesPreviewInputSchema.safeParse({ fileIds: [1, 2, 3] }).success).toBe(false)
+    expect(
+      importFilesPreviewInputSchema.safeParse({ fileIds: [{ id: 'a1' }] }).success,
+    ).toBe(false)
+    expect(importFilesPreviewInputSchema.safeParse({ fileIds: 'a1' }).success).toBe(false)
+  })
+
+  it('rejects a missing fileIds field entirely', () => {
+    expect(importFilesPreviewInputSchema.safeParse({}).success).toBe(false)
+  })
+})
+
+/**
+ * `import.commitFiles`'s payload adds `name` (required) and `layerAliases` (optional) to the same
+ * `fileIds` shape - this only pins that the shared `fileIds` rules still hold here too, since the
+ * two schemas intentionally do not share more than that field's definition.
+ */
+describe('importFilesCommitInputSchema (fileIds)', () => {
+  const base = { name: 'Imported' }
+
+  it('accepts a normal small array of id strings alongside name', () => {
+    expect(
+      importFilesCommitInputSchema.safeParse({ ...base, fileIds: ['a1', 'a2'] }).success,
+    ).toBe(true)
+  })
+
+  it('rejects an empty fileIds array', () => {
+    expect(importFilesCommitInputSchema.safeParse({ ...base, fileIds: [] }).success).toBe(false)
+  })
+
+  it('rejects a fileIds array over the cap', () => {
+    const tooMany = Array.from({ length: MAX_IMPORT_FILE_IDS + 1 }, (_, i) => `id${i}`)
+    expect(
+      importFilesCommitInputSchema.safeParse({ ...base, fileIds: tooMany }).success,
+    ).toBe(false)
+  })
+
+  it('rejects a fileIds value that is not an array of strings', () => {
+    expect(importFilesCommitInputSchema.safeParse({ ...base, fileIds: [1, 2] }).success).toBe(
+      false,
+    )
+    expect(importFilesCommitInputSchema.safeParse({ ...base, fileIds: 'a1' }).success).toBe(false)
+  })
+})

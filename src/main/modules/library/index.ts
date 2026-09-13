@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { LIBRARY_HANDLERS, type LibraryStats } from '@shared/modules/library'
 import type { EngineKind, Installation } from '@shared/types'
 import type { MainModule } from '../types'
@@ -8,19 +9,35 @@ import type { MainModule } from '../types'
  *
  * It is intentionally tiny: everything an installation needs already lives on
  * the shell's `installations:*` channels, so all this module adds is a derived
- * view. Copy this file's shape when starting the config, install, mods or assets
+ * view. Copy this file's shape when starting the config, downloads, mods or assets
  * modules; the contract it answers against lives in `src/shared/modules/library.ts`.
  */
 export const libraryModule: MainModule = {
   id: 'library',
 
   setup({ handle, app, log }) {
-    handle(LIBRARY_HANDLERS.stats, (): LibraryStats => {
+    // `stats` derives everything from the shell's own state, so it takes no
+    // payload - `z.void()` is what says that, rather than leaving it unsaid.
+    handle(LIBRARY_HANDLERS.stats, z.void(), (): LibraryStats => {
       const installations = app.installations.list()
 
       const byEngine: Partial<Record<EngineKind, number>> = {}
       for (const installation of installations) {
         byEngine[installation.engineKind] = (byEngine[installation.engineKind] ?? 0) + 1
+      }
+
+      // Newest `lastPlayedAt` wins; installations that never played (the field is absent) never
+      // beat it, so an all-unplayed set leaves `lastSession` undefined rather than an empty object.
+      let lastSession: LibraryStats['lastSession']
+      for (const installation of installations) {
+        if (!installation.lastPlayedAt) continue
+        if (!lastSession || installation.lastPlayedAt > lastSession.at) {
+          lastSession = {
+            installationId: installation.id,
+            name: installation.name,
+            at: installation.lastPlayedAt,
+          }
+        }
       }
 
       return {
@@ -34,6 +51,7 @@ export const libraryModule: MainModule = {
         favorites: count(installations, (i) => i.favorite),
         totalPlaytimeSeconds: installations.reduce((sum, i) => sum + i.totalPlaytimeSeconds, 0),
         byEngine,
+        lastSession,
       }
     })
 

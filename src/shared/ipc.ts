@@ -5,6 +5,7 @@ import type {
   DetectionProgress,
   DetectionResult,
   Installation,
+  InstallationIcon,
   Job,
   LaunchInput,
   LaunchPlan,
@@ -14,10 +15,13 @@ import type {
   ModuleInvokeRequest,
   ModuleManifest,
   Outcome,
+  ReleaseNotes,
   RemoveInstallationInput,
   ScanOptions,
   ToastMessage,
   UpdateInstallationInput,
+  UpdateSimulateScenario,
+  UpdateState,
   ValidationResult,
 } from './types'
 
@@ -59,6 +63,16 @@ export interface IpcInvokeMap {
   'app:getInfo': { req: void; res: AppInfo }
   'app:openExternal': { req: string; res: Outcome<null> }
   'app:revealPath': { req: string; res: Outcome<null> }
+  /** Writes text to the OS clipboard. Story 075: the diagnostics report's copy action. */
+  'app:copyText': { req: string; res: Outcome<null> }
+  /**
+   * Story 099 R5: the *installed* version's release notes, resolved from the `CHANGELOG.md` that
+   * was bundled into the main process at build time - so AC1 works offline. Its own channel rather
+   * than a field on `AppInfo`, which is the bootstrap payload every session pays for while these
+   * are fetched only when About mounts. `null` when the running version has no changelog section
+   * (AC5's empty state), which is an answer, not an error.
+   */
+  'app:getReleaseNotes': { req: void; res: ReleaseNotes }
 
   // ---- window chrome --------------------------------------------------------
   'window:minimize': { req: void; res: void }
@@ -85,6 +99,15 @@ export interface IpcInvokeMap {
   'installations:pickFolder': { req: PickPathInput; res: string | null }
   'installations:pickExecutable': { req: PickPathInput; res: string | null }
   'installations:import': { req: string[]; res: Outcome<Installation[]> }
+  /** Sets or clears (`icon: null`) an installation's icon. Story 067. */
+  'installations:setIcon': {
+    req: { installationId: string; icon: InstallationIcon | null }
+    res: Outcome<Installation>
+  }
+  /** Opens a native file picker and adopts the chosen image as a custom icon. */
+  'installations:pickIconFile': { req: { installationId: string }; res: Outcome<Installation> }
+  /** Reads the custom icon file (if any) back as a `data:` URL for rendering. */
+  'installations:iconDataUrl': { req: string; res: string | null }
 
   // ---- detection ------------------------------------------------------------
   'detection:scan': { req: ScanOptions; res: DetectionResult }
@@ -96,6 +119,26 @@ export interface IpcInvokeMap {
   'launch:start': { req: LaunchInput; res: Outcome<LaunchState> }
   'launch:getState': { req: void; res: LaunchState }
 
+  // ---- update check (shell service, not a module) -----------------------------
+  'update:getState': { req: void; res: UpdateState }
+  'update:check': { req: void; res: UpdateState }
+  /**
+   * Story 098: the staged update actions. Every one of them is a deliberate user act - nothing
+   * below happens on its own.
+   *
+   * `update:download` returns as soon as the download has *started* (resolving with the
+   * `downloading` state), not when it finishes: the launcher stays fully usable while it runs and
+   * progress arrives over `update:state` (AC3).
+   *
+   * `update:installAndRestart` is the only call in the app that quits the launcher and overwrites
+   * its own installation. It refuses - `appUpdate.error.notReady` / `.gameRunning` / `.jobActive` -
+   * before doing any of that, and kills neither the game nor the job it refuses for (AC6).
+   */
+  'update:download': { req: void; res: Outcome<UpdateState> }
+  'update:cancelDownload': { req: void; res: Outcome<UpdateState> }
+  'update:installAndRestart': { req: void; res: Outcome<null> }
+  'update:dismiss': { req: void; res: Outcome<UpdateState> }
+
   // ---- jobs (owned by modules; no module produces them yet) ------------------
   'jobs:list': { req: void; res: Job[] }
   'jobs:cancel': { req: string; res: Outcome<null> }
@@ -106,8 +149,50 @@ export interface IpcInvokeMap {
   'module:invoke': { req: ModuleInvokeRequest; res: Outcome<unknown> }
 
   // ---- development only (registered only when `is.dev`) ----------------------
-  /** Emits a fake download job so the action bar's progress UI can be worked on. */
-  'dev:simulateJob': { req: void; res: Outcome<null> }
+  /**
+   * Emits a fake download job so the action bar's progress UI and the Downloads
+   * tab (story 073) can be worked on without a real download. Story 073 D5:
+   * `scenario` picks what the fake job does -
+   * - `success` (default before D5, still the fade-and-drop case D3 relies on):
+   *   progresses to completion and finishes `succeeded`.
+   * - `stall`: progresses to ~40% then holds there, running, forever - the
+   *   Downloads tab's "a job in progress" fixture.
+   * - `failure`: finishes `failed` immediately with a real, i18n'd `error.key`.
+   * - `writing` (story 091 D7): creates a job that acquires the **real**
+   *   `InstallationWriteGuard` lock for `installationId` and holds it until the
+   *   job is cancelled - the only honest way for an offline e2e flow to exercise
+   *   AC5's launch refusal (`launch.error.installationBusy`) without a real,
+   *   slow write. Same affordance class as `dev:simulateLaunch`, behind the same
+   *   dev-only allowlist.
+   */
+  'dev:simulateJob': {
+    req:
+      | { scenario: 'success' | 'stall' | 'failure' }
+      | { scenario: 'writing'; installationId: string }
+    res: Outcome<null>
+  }
+  /**
+   * Story 090 D5: drives one installation into `running`/`idle` through a real
+   * IPC surface, and broadcasts `launch:state` exactly as a real launch/exit
+   * would. Fixture engine binaries used in e2e tests are filler bytes and
+   * cannot actually be launched, so this is the only honest way for an offline
+   * e2e flow to exercise AC7 (the upgrade action's disabled-while-running
+   * state). Same affordance class as `dev:simulateJob`, behind the same
+   * dev-only allowlist - not a new production surface.
+   */
+  'dev:simulateLaunch': {
+    req: { installationId: string; phase: 'running' | 'idle' }
+    res: Outcome<null>
+  }
+  /**
+   * Story 098 D4: offline simulation of the whole update flow, for `scripts/flows/app-update.mjs`
+   * and this dev panel's own button. Drives `app.update.simulate()` directly - see that method's
+   * doc comment (`src/main/services/update/service.ts`) for why no real check or download is
+   * involved, and why AC6's restart guard is *not* one of these scenarios: `update:installAndRestart`
+   * is already real and unfaked, exercised directly once `'downloaded'` has staged a release. Same
+   * affordance class as `dev:simulateJob`/`dev:simulateLaunch`, behind the same dev-only allowlist.
+   */
+  'dev:simulateAppUpdate': { req: UpdateSimulateScenario; res: Outcome<null> }
 }
 
 export type InvokeChannel = keyof IpcInvokeMap
@@ -120,6 +205,7 @@ export interface IpcEventMap {
   'installations:changed': Installation[]
   'detection:progress': DetectionProgress
   'launch:state': LaunchState
+  'update:state': UpdateState
   'jobs:changed': Job[]
   'window:state': WindowChromeState
   'app:toast': ToastMessage
@@ -138,6 +224,8 @@ export const INVOKE_CHANNELS = [
   'app:getInfo',
   'app:openExternal',
   'app:revealPath',
+  'app:copyText',
+  'app:getReleaseNotes',
   'window:minimize',
   'window:toggleMaximize',
   'window:close',
@@ -156,17 +244,28 @@ export const INVOKE_CHANNELS = [
   'installations:pickFolder',
   'installations:pickExecutable',
   'installations:import',
+  'installations:setIcon',
+  'installations:pickIconFile',
+  'installations:iconDataUrl',
   'detection:scan',
   'detection:cancel',
   'detection:listDrives',
   'launch:plan',
   'launch:start',
   'launch:getState',
+  'update:getState',
+  'update:check',
+  'update:download',
+  'update:cancelDownload',
+  'update:installAndRestart',
+  'update:dismiss',
   'jobs:list',
   'jobs:cancel',
   'modules:list',
   'module:invoke',
   'dev:simulateJob',
+  'dev:simulateLaunch',
+  'dev:simulateAppUpdate',
 ] as const satisfies readonly InvokeChannel[]
 
 export const EVENT_CHANNELS = [
@@ -174,6 +273,7 @@ export const EVENT_CHANNELS = [
   'installations:changed',
   'detection:progress',
   'launch:state',
+  'update:state',
   'jobs:changed',
   'window:state',
   'app:toast',
@@ -191,7 +291,11 @@ export const ALL_INVOKE_CHANNELS_LISTED: MissingInvoke extends never ? true : Mi
 export const ALL_EVENT_CHANNELS_LISTED: MissingEvent extends never ? true : MissingEvent = true
 
 /** Channels only registered in development builds. */
-export const DEV_ONLY_CHANNELS: readonly InvokeChannel[] = ['dev:simulateJob']
+export const DEV_ONLY_CHANNELS: readonly InvokeChannel[] = [
+  'dev:simulateJob',
+  'dev:simulateLaunch',
+  'dev:simulateAppUpdate',
+]
 
 /** The shape `preload` puts on `window.q2`. */
 export interface LauncherBridge {

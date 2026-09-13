@@ -1,0 +1,73 @@
+# S16 — Progress
+
+- 2026-09-08 08:44 · 070 · D1 Contract, zod schemas, manifest parser · started
+- 2026-09-08 08:48 · 070 · D1 Contract, zod schemas, manifest parser · done
+- 2026-09-08 08:48 · 070 · D2 Content-repo transport helper · started
+- 2026-09-08 08:48 · 070 · D5 Real manifest content + hash tool · started
+- 2026-09-08 08:52 · 070 · D2 Content-repo transport helper · done
+- 2026-09-08 08:52 · 070 · D5 Real manifest content + hash tool · done
+- 2026-09-08 08:52 · 070 · D3 ManifestService fetch/merge/cache/age/offline · started
+- 2026-09-08 08:59 · 070 · D3 ManifestService fetch/merge/cache/age/offline · done
+- 2026-09-08 08:59 · 070 · D4 downloads module main half + manifest.get handler · started
+- 2026-09-08 09:02 · 070 · D4 downloads module main half + manifest.get handler · done
+- 2026-09-08 09:14 · 071 · D1 Contract, settings and persisted module state · started
+- 2026-09-08 09:17 · 071 · D1 Contract, settings and persisted module state · done
+- 2026-09-08 09:18 · 071 · D2 Verified download with mirror fallback · started
+- 2026-09-08 09:18 · 071 · D3 Vendored 7-Zip extractor · started
+- 2026-09-08 09:30 · 071 · D2 Verified download with mirror fallback · done
+- 2026-09-08 09:30 · 071 · D3 Vendored 7-Zip extractor · done
+- 2026-09-08 09:30 · 071 · D4 Job pipeline and concurrency queue · started
+- 2026-09-08 09:44 · 071 · D4 Job pipeline and concurrency queue · done
+- 2026-09-08 09:44 · 071 · D5 Layering and CSP guard · started
+- 2026-09-08 09:46 · 071 · D5 Layering and CSP guard · done
+- 2026-09-08 10:05 · 072 · D1 Settings hosts module-contributed sections · started
+- 2026-09-08 10:05 · 072 · D2 Downloads contract + persisted settings slot · started
+- 2026-09-08 10:12 · 072 · D1 Settings hosts module-contributed sections · done
+- 2026-09-08 10:12 · 072 · D2 Downloads contract + persisted settings slot · done
+- 2026-09-08 10:12 · 072 · D3 Archive cache: size, clear, budget eviction · started
+- 2026-09-08 10:18 · 072 · D3 Archive cache: size, clear, budget eviction · done
+- 2026-09-08 10:18 · 072 · D4 Downloads main module handlers · started
+- 2026-09-08 10:25 · 072 · D4 Downloads main module handlers · done
+- 2026-09-08 10:25 · 072 · D5 Downloads settings section UI · started
+- 2026-09-08 10:30 · 072 · D5 Downloads settings section UI · done
+- 2026-09-08 10:30 · 072 · D6 Acceptance surface: fixture, screen, flow · started
+- 2026-09-08 10:35 · 072 · D6 Acceptance surface: fixture, screen, flow · done
+- 2026-09-08 10:55 · 073 · D1 Contract, persisted slice, pure failure-log rules · started
+- 2026-09-08 11:00 · 073 · D1 Contract, persisted slice, pure failure-log rules · done
+- 2026-09-08 11:00 · 073 · D2 Main module: job observation, handlers, cache size · started
+- 2026-09-08 11:07 · 073 · D2 Main module: job observation, handlers, cache size · done
+- 2026-09-08 11:07 · 073 · D3 The view: live job list, cache figure, registration · started
+- 2026-09-08 11:13 · 073 · D3 The view: live job list, cache figure, registration · done
+- 2026-09-08 11:13 · 073 · D4 The failure log section · started
+- 2026-09-08 11:17 · 073 · D4 The failure log section · done
+- 2026-09-08 11:17 · 073 · D5 A real trigger for a running and a failed job · started
+- 2026-09-08 11:20 · 073 · D5 A real trigger for a running and a failed job · done
+- 2026-09-08 11:20 · 073 · D6 UI verification · started
+- 2026-09-08 11:26 · 073 · D6 UI verification · done
+- 2026-09-08 11:40 · 074 · D1 Bootstrap contract + module registration · started
+- 2026-09-08 11:44 · 074 · D1 Bootstrap contract + module registration · done
+- 2026-09-08 11:44 · 074 · D2 Target-folder verdict in main · started
+- 2026-09-08 11:44 · 074 · D3 Assemble baseq2 from extracted trees · started
+- 2026-09-08 11:48 · 074 · D2 Target-folder verdict in main · done
+- 2026-09-08 11:48 · 074 · D3 Assemble baseq2 from extracted trees · done
+- 2026-09-08 11:49 · 074 · D4 The bootstrap job · started
+- 2026-09-08 12:06 · 074 · D4 The bootstrap job · done
+- 2026-09-08 12:06 · 074 · D5 Module-dialog seam + Library entry point · started
+- 2026-09-08 12:09 · 074 · D5 Module-dialog seam + Library entry point · done
+- 2026-09-08 12:09 · 074 · D6 The wizard's four steps · started
+- 2026-09-08 12:14 · 074 · D6 The wizard's four steps · done
+- 2026-09-08 12:14 · 074 · D7 The Demo marker · started
+- 2026-09-08 12:18 · 074 · D7 The Demo marker · done
+- 2026-09-08 12:19 · 074 · D8 Offline end-to-end proof · started
+- 2026-09-08 12:52 · 074 · D8 Offline end-to-end proof · done
+- 2026-09-08 13:12 · 074 · story verification (build/test/typecheck/ui:verify/ui:flow) · done
+- 2026-09-08 13:12 · 074 · review cycle 1 (FAIL, 6 findings) → fix → review cycle 2 (PASS) · done
+- 2026-09-08 13:12 · 074 · story done · done
+- 2026-09-08 13:15 · 032 · D1 shared active-job count · started
+- 2026-09-08 13:16 · 032 · D1 shared active-job count · done
+- 2026-09-08 13:16 · 032 · D2 badge component · started
+- 2026-09-08 13:17 · 032 · D2 badge component · done
+- 2026-09-08 13:17 · 032 · D3 wire to real job state · started
+- 2026-09-08 13:19 · 032 · D3 wire to real job state · done
+- 2026-09-08 13:19 · 032 · D4 machine-verified e2e flow · started
+- 2026-09-08 13:25 · 032 · D4 machine-verified e2e flow · done

@@ -1,0 +1,51 @@
+- 2026-09-13 12:21 · 096 · D1 release core (changelog/version/plan) · started
+- 2026-09-13 12:28 · 096 · D1 release core (changelog/version/plan) · done
+- 2026-09-13 12:28 · 096 · D2 CHANGELOG.md + README + CONTRIBUTING · started
+- 2026-09-13 12:31 · 096 · D2 CHANGELOG.md + README + CONTRIBUTING · done
+- 2026-09-13 12:31 · 096 · D3 packaging publish + artifacts.mjs · started
+- 2026-09-13 12:33 · 096 · D3 packaging publish + artifacts.mjs · done
+- 2026-09-13 12:33 · 096 · D4 release runner (release.mjs) · started
+- 2026-09-13 12:38 · 096 · D4 release runner (release.mjs) [deliverable-hard] · done
+- 2026-09-13 12:38 · 096 · D5 GitHub Actions release workflow · started
+- 2026-09-13 12:41 · 096 · D5 GitHub Actions release workflow · done
+- 2026-09-13 12:41 · 096 · D6 ai-scrum.md changelog-path flip · started
+- 2026-09-13 12:42 · 096 · D6 ai-scrum.md changelog-path flip · done
+- 2026-09-13 13:04 · 096 · story done (2 review cycles, both passed after fixes) · done
+- 2026-09-13 13:05 · 097 · D1 The contract · started
+- 2026-09-13 13:06 · 097 · D1 The contract · done
+- 2026-09-13 13:06 · 097 · D2 The persisted record · started
+- 2026-09-13 13:08 · 097 · D2 The persisted record · done
+- 2026-09-13 13:08 · 097 · D3 The service · started
+- 2026-09-13 13:16 · 097 · D3 The service · done
+- 2026-09-13 13:16 · 097 · D4 The electron-updater adapter · started
+- 2026-09-13 13:22 · 097 · D4 The electron-updater adapter · done
+- 2026-09-13 13:22 · 097 · D5 Wiring into the app · started
+- 2026-09-13 13:25 · 097 · D5 Wiring into the app · done
+- 2026-09-13 13:25 · 097 · D6 The renderer read path · started
+- 2026-09-13 13:30 · 097 · D6 The renderer read path · done
+- 2026-09-13 13:41 · 098 · D1 Staged update actions and the restart guard (main + contract) [deliverable-hard] · started
+- 2026-09-13 13:58 · 098 · D1 Staged update actions and the restart guard (main + contract) [deliverable-hard] · done
+- 2026-09-13 13:58 · 098 · D2 Popover primitive + reusable UtilityButton (renderer plumbing) · started
+- 2026-09-13 14:00 · 098 · D2 Popover primitive + reusable UtilityButton (renderer plumbing) · done
+- 2026-09-13 14:00 · 098 · D3 Titlebar update control and its popover · started
+- 2026-09-13 14:08 · 098 · D3 Titlebar update control and its popover · done
+- 2026-09-13 14:08 · 098 · D4 Offline simulation of the whole flow (dev-only) · started
+- 2026-09-13 14:19 · 098 · D4 Offline simulation of the whole flow (dev-only) · done
+- 2026-09-13 14:19 · 098 · D5 The offline end-to-end proof · started
+- 2026-09-13 14:31 · 098 · D5 The offline end-to-end proof · done
+- 2026-09-13 14:55 · 098 · story done (1 review cycle: PASS with 6 findings, 3 fixed, 1 fix reverted after breaking e2e, 3 left as documented limitations) · done
+- 2026-09-13 14:56 · 099 · D1 The shared release-notes parser · started
+- 2026-09-13 14:59 · 099 · D1 The shared release-notes parser · done
+- 2026-09-13 14:59 · 099 · D2 The bundled changelog and app:getReleaseNotes [deliverable-hard] · started
+- 2026-09-13 15:05 · 099 · D2 The bundled changelog and app:getReleaseNotes [deliverable-hard] · done
+- 2026-09-13 15:05 · 099 · D3 About renders this version's notes and links out · started
+- 2026-09-13 15:11 · 099 · D3 About renders this version's notes and links out · done
+- 2026-09-13 15:12 · 099 · D4 The pending update's notes, marked not installed · started
+- 2026-09-13 15:16 · 099 · D4 The pending update's notes, marked not installed · done
+- 2026-09-13 15:16 · 099 · D5 Last checked, and check now · started
+- 2026-09-13 15:20 · 099 · D5 Last checked, and check now · done
+- 2026-09-13 15:20 · 099 · D6 Harness-gated external-link recorder · started
+- 2026-09-13 15:24 · 099 · D6 Harness-gated external-link recorder · done
+- 2026-09-13 15:30 · 099 · D7 The acceptance flow and the ui:verify screen · started
+- 2026-09-13 15:37 · 099 · D7 The acceptance flow and the ui:verify screen · done
+- 2026-09-13 15:51 · 099 · story done (1 review cycle: FAIL with 2 findings, both fixed and re-verified) · done

@@ -1,0 +1,119 @@
+- [18:02] 080 D1 started: verified release inputs (manifest sync, no publish)
+- [18:05] 080 D1 done: manifest+fixtures synced, tests green
+- [18:05] 080 D2 started: engine-aware selection and assembly
+- [18:16] 080 D2 done: engine-aware selection and assembly, tests+typecheck green
+- [18:16] 080 D3 started: playable first launch and identity
+- [18:30] 080 D3 done: r1q2 runtime/config/notices/icon wired, tests+typecheck green
+- [18:30] 080 D4 started: end-to-end acceptance
+- [18:49] 080 D4 done: r1q2 e2e flow + fallback proof + pipeline/manifest tests green
+- [18:55] 080 review cycle 1 started: fix hardcoded license path + AC5 job tests + runtime copy
+- [19:01] 080 review cycle 1 done: license path fix + AC5 job tests + runtime copy link
+- 2026-09-10 19:06 · 081 · D1 home is a registered module in shared + main · started
+- 2026-09-10 19:07 · 081 · D1 home is a registered module in shared + main · done
+- 2026-09-10 19:08 · 081 · D2 home route rendered by module, shell forgets it · started
+- 2026-09-10 19:14 · 081 · D2 home route rendered by module, shell forgets it · done
+- 2026-09-10 19:14 · 081 · D3 no residue: dead i18n keys and shell-ownership guard · started
+- 2026-09-10 19:20 · 081 · D3 no residue: dead i18n keys and shell-ownership guard · done
+- 2026-09-10 19:20 · 081 · D4 the move is verified on the real surface · started
+- 2026-09-10 19:22 · 081 · D4 the move is verified on the real surface · done
+- 2026-09-10 19:30 · 082 · D1 the contract, before any handler · started
+- 2026-09-10 19:32 · 082 · D1 the contract, before any handler · done
+- 2026-09-10 19:32 · 082 · D2 frontmatter, read defensively · started
+- 2026-09-10 19:34 · 082 · D2 frontmatter, read defensively · done
+- 2026-09-10 19:34 · 082 · D3 the pure feed pipeline · started
+- 2026-09-10 19:40 · 082 · D3 the pure feed pipeline · done
+- 2026-09-10 19:41 · 082 · D4 one place may name a loopback origin · started
+- 2026-09-10 19:43 · 082 · D4 one place may name a loopback origin · done
+- 2026-09-10 19:43 · 082 · D5 fetch and cache · started
+- 2026-09-10 19:53 · 082 · D5 fetch and cache · done
+- 2026-09-10 19:53 · 082 · D6 the module answers · started
+- 2026-09-10 20:05 · 082 · D6 the module answers · done
+- 2026-09-10 20:05 · 082 · D7 the renderer can listen · started
+- 2026-09-10 20:08 · 082 · D7 the renderer can listen · done
+- 2026-09-10 20:08 · 082 · D8 proven offline, on the real app · started
+- 2026-09-10 20:20 · 082 · D8 proven offline, on the real app · done
+- 2026-09-10 20:45 085 D1 started: author the feed content
+- 2026-09-10 20:47 � 085 � D1 author the feed content � done
+- 2026-09-10 20:47 � 085 � D2 zero-warning fixture test � started
+- 2026-09-10 20:49 � 085 � D2 zero-warning fixture test � done
+- 2026-09-10 20:49 � 085 � D3 ui:verify reads fixture copy � started
+- 2026-09-10 20:53 � 085 � D3 ui:verify reads fixture copy � done
+- 2026-09-10 20:53 � 085 � D4 write the checkout � started
+- 2026-09-10 20:55 � 085 � D4 write the checkout � done
+- 2026-09-10 20:55 � 085 � D5 machine-verify the checkout � started
+- 2026-09-10 20:56 � 085 � D5 machine-verify the checkout � done
+- 2026-09-10 21:04 · 083 · D1 carousel pure state machine · started
+- 2026-09-10 21:05 · 083 · D1 carousel pure state machine · done
+- 2026-09-10 21:05 · 083 · D2 templates and button row · started
+- 2026-09-10 21:10 · 083 · D2 templates and button row · done
+- 2026-09-10 21:10 · 083 · D3 hero shell (320px, accessible) · started
+- 2026-09-10 21:20 · 083 · D3 hero shell (320px, accessible) · done
+- 2026-09-10 21:20 · 083 · D4 welcome and stale states · started
+- 2026-09-10 21:31 · 083 · D4 welcome and stale states · done
+- 2026-09-10 21:31 · 083 · D5 openSlideUrl main handler · started
+- 2026-09-10 21:49 · 083 · D5 openSlideUrl main handler · done
+- 2026-09-10 21:49 · 083 · D6 screens and e2e flow · done
+- 2026-09-10 22:14 · 083 · review cycle 1 (story-review-hard) · done: FAIL, 6 findings
+- 2026-09-10 22:14 · 083 · fix cycle 1 · done
+- 2026-09-10 22:14 · 083 · review cycle 2 (story-review-hard) · done: PASS
+- 2026-09-10 22:14 · 083 · story done, moved to done/
+-  084 D1 started: image cache layout + pure eviction
+- 2026-09-10 22:15 · 084 · D1 image cache layout + pure eviction · started
+- 2026-09-10 22:18 · 084 · D1 image cache layout + pure eviction · done
+- 2026-09-10 22:18 · 084 · D2 download + validation of one image · started
+- 2026-09-10 22:23 · 084 · D2 download + validation of one image · done
+- 2026-09-10 22:23 · 084 · D3 the q2launcher:// news-image route · started
+- 2026-09-10 22:30 · 084 · D3 the q2launcher:// news-image route · done
+- 2026-09-10 22:31 · 084 · D4 resolve feed images and enforce keep-set · started
+- 2026-09-10 22:41 · 084 · D4 resolve feed images and enforce keep-set · done
+- 2026-09-10 22:41 · 084 · D5 templates survive a missing image · started
+- 2026-09-10 22:45 · 084 · D5 templates survive a missing image · done
+- 2026-09-10 22:45 · 084 · D6 fixture and two verify screens · started
+- 2026-09-10 22:52 · 084 · D6 fixture and two verify screens · done
+- 2026-09-10 22:52 · 084 · D7 the deviation row · started
+- 2026-09-10 22:54 · 084 · D7 the deviation row · done
+- 2026-09-10 23:11 · 084 · story done (review-fix cycle 1/3, all AC PASS)
+- 2026-09-10 23:13 · 086 · D1 homeLayout persists, unknown ids do not · started
+- 2026-09-10 23:17 · 086 · D1 homeLayout persists, unknown ids do not · done
+- 2026-09-10 23:17 · 086 · D2 the layout engine · started
+- 2026-09-11 07:33 · 086 · D2 the layout engine · started
+- 2026-09-11 07:37 · 086 · D2 the layout engine · done
+- 2026-09-11 07:37 · 086 · D3 the dashboard renders, and shrinks · started
+- 2026-09-11 07:42 · 086 · D3 the dashboard renders, and shrinks · started
+- 2026-09-11 08:01 · 086 · D3 the dashboard renders, and shrinks · done
+- 2026-09-11 08:01 · 086 · D4 arrange mode, catalog, reset · started
+- 2026-09-11 08:19 · 086 · D4 arrange mode, catalog, reset · done
+- 2026-09-11 08:19 · 086 · D5 pointer move and resize (deliverable-hard) · started
+- 2026-09-11 08:58 · 086 · D5 pointer move and resize (deliverable-hard) · done
+- 2026-09-11 08:58 · 086 · D6 keyboard parity and announcements (deliverable-hard) · started
+- 2026-09-11 09:17 · 086 · D6 keyboard parity and announcements (deliverable-hard) · done
+- 2026-09-11 09:47 · 087 · D1 LibraryStats knows the last session · started
+- 2026-09-11 09:50 · 087 · D1 LibraryStats knows the last session · done
+- 2026-09-11 09:51 · 087 · D2 the tile frame with four states · started
+- 2026-09-11 09:58 · 087 · D2 the tile frame with four states · done
+- 2026-09-11 09:58 · 087 · D3 Playtime & statistics tile · started
+- 2026-09-11 10:04 · 087 · D3 Playtime and statistics tile · done
+- 2026-09-11 10:05 · 087 · D4 Config profiles tile · started
+- 2026-09-11 10:10 · 087 · D4 Config profiles tile · done
+- 2026-09-11 10:11 · 087 · D5 Opening a profile lands in its editor (deliverable-hard) · started
+- 2026-09-11 10:19 · 087 · D5 Opening a profile lands in its editor (deliverable-hard) · done
+- 2026-09-11 10:19 · 087 · D6 exactly two modules at the prototype geometry · started
+- 2026-09-11 10:33 · 087 · D6 exactly two modules at the prototype geometry · done
+- 2026-09-11 10:33 · 087 · D6b fix: duplicate tile title after body wiring · started
+- 2026-09-11 10:34 · 087 · D6b fix: duplicate tile title after body wiring · done
+- 2026-09-11 10:34 · 087 · D7 verification: screens + fault-injection flow · started
+- 2026-09-11 10:48 · 087 · D7 verification: screens + fault-injection flow · done
+- 2026-09-11 10:50 · 087 · D7b fix: missing e2e proof for AC2 profile-row navigation · started
+- 2026-09-11 11:02 · 087 · D7b fix: missing e2e proof for AC2 profile-row navigation · done
+- 2026-09-11 11:02 · 087 · review cycle 1 (story-review-hard) · done: FAIL, 9 findings
+- 2026-09-11 11:02 · 087 · fix cycle 1 · started
+- 2026-09-11 11:08 · 087 · fix cycle 1 · done
+- 2026-09-11 11:10 · 087 · review cycle 2 (story-review-hard) · started
+- 2026-09-11 11:19 · 087 · review cycle 2 (story-review-hard) · done: FAIL, 5 findings
+- 2026-09-11 11:19 · 087 · fix cycle 2 · started
+- 2026-09-11 11:27 · 087 · fix cycle 2 · done (found new axe regression, fix cycle 3 needed)
+- 2026-09-11 11:27 · 087 · fix cycle 3: scrollable-region-focusable axe violation · started
+- 2026-09-11 11:31 · 087 · fix cycle 3: scrollable-region-focusable axe violation · done
+- 2026-09-11 11:31 · 087 · review cycle 3 (story-review-hard) · started
+- 2026-09-11 11:39 · 087 · review cycle 3 (story-review-hard) · done: PASS
+- 2026-09-11 11:41 · 087 · story done, moved to done/

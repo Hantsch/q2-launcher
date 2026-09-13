@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  CopyX,
   FolderOpen,
   FolderPlus,
   HardDriveDownload,
+  ImagePlus,
+  Import,
   Pencil,
   Play,
   RefreshCw,
@@ -12,16 +15,22 @@ import {
   Trash2,
 } from 'lucide-react'
 import type { LibraryStats } from '@shared/modules/library'
-import { engineLabel, type Installation } from '@shared/types'
+import type { Installation } from '@shared/types'
+import { isStoreManaged } from '@shared/types'
 import { cn } from '../lib/cn'
 import { invoke } from '../lib/bridge'
-import { formatDuration, formatRelativeTime, tileCode } from '../lib/format'
+import { isDemoData } from '../lib/demo-data'
+import { formatDuration, formatRelativeTime } from '../lib/format'
 import { isPlayable, statusTone } from '../lib/status'
 import { useLauncher } from '../store/useLauncher'
 import { getLibraryStats } from '../modules/library/client'
 import { Button, IconButton } from '../components/ui/Button'
+import { DemoBadge } from '../components/ui/DemoBadge'
+import { FailureBadge } from '../components/ui/FailureBadge'
+import { EngineBadge } from '../components/ui/EngineBadge'
 import { Badge, EmptyState, Panel, SectionLabel, StatusDot } from '../components/ui/primitives'
 import { ChecksList } from '../components/installations/ChecksList'
+import { InstallationTile } from '../components/installations/InstallationTile'
 
 /**
  * The library module's view: every installation with its health and the actions
@@ -50,7 +59,7 @@ export function LibraryView() {
   }, [installations])
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto scrollbar-gutter-stable">
       <div className="mx-auto max-w-5xl space-y-4 p-6">
         <header className="flex flex-wrap items-end justify-between gap-3">
           <div className="space-y-1">
@@ -75,6 +84,7 @@ export function LibraryView() {
               variant="neutral"
               size="sm"
               icon={<Search className="size-3.5" />}
+              data-testid="library-auto-detect"
               onClick={() => openDialog({ kind: 'detect' })}
             >
               {t('library.autoDetect')}
@@ -83,9 +93,24 @@ export function LibraryView() {
               variant="neutral"
               size="sm"
               icon={<FolderPlus className="size-3.5" />}
+              data-testid="library-create"
               onClick={() => openDialog({ kind: 'create' })}
             >
               {t('library.create')}
+            </Button>
+            {/* Story 074 D5: the module-dialog seam's entry point - opens the downloads module's
+                own bootstrap-wizard modal via the generic 'module' dialog kind. The wizard itself
+                (D6) does not exist yet, so this is a no-op click until then. */}
+            <Button
+              variant="neutral"
+              size="sm"
+              icon={<HardDriveDownload className="size-3.5" />}
+              data-testid="library-download-install"
+              onClick={() =>
+                openDialog({ kind: 'module', moduleId: 'downloads', view: 'bootstrap-wizard' })
+              }
+            >
+              {t('library.downloadAndInstall')}
             </Button>
             {installations.length > 0 && (
               <Button
@@ -156,6 +181,15 @@ export function LibraryView() {
                   >
                     {t('rail.createNew')}
                   </Button>
+                  <Button
+                    variant="ghost"
+                    icon={<HardDriveDownload className="size-4" />}
+                    onClick={() =>
+                      openDialog({ kind: 'module', moduleId: 'downloads', view: 'bootstrap-wizard' })
+                    }
+                  >
+                    {t('rail.downloadAndInstall')}
+                  </Button>
                 </>
               }
             />
@@ -197,7 +231,7 @@ function InstallationRow({ installation }: { installation: Installation }) {
   const tone = statusTone(installation.status)
   const active = installation.id === activeId
   const lastPlayed = formatRelativeTime(installation.lastPlayedAt)
-  const showChecks = installation.status !== 'ok' && installation.checks.length > 0
+  const showChecks = installation.checks.length > 0
 
   return (
     <Panel
@@ -211,16 +245,27 @@ function InstallationRow({ installation }: { installation: Installation }) {
           type="button"
           onClick={() => void setActive(installation.id)}
           title={t('rail.activeMarker')}
-          className={cn(
-            'grid size-11 shrink-0 place-items-center rounded-md border transition-colors duration-[--dur-base]',
-            active
-              ? 'border-flame-500 bg-flame-900/30 text-flame-200'
-              : 'border-line bg-raised text-ink-dim hover:border-line-strong hover:text-ink',
-          )}
+          // Story 067 review finding F6: before an icon existed, this button's accessible name
+          // came from its content text (the code span, e.g. "R1") - AC8 requires that name to
+          // survive an icon being set, but an icon's content is `<img alt="">` (decorative,
+          // contributes nothing), which would otherwise collapse every installation's card tile to
+          // the same generic `title` fallback ("Active installation"), indistinguishable from one
+          // another to a screen reader. An explicit `aria-label` with the installation's own name -
+          // the same source the rail's tile button already uses - keeps the name both present and
+          // distinguishing, icon or not.
+          aria-label={installation.name}
+          className="shrink-0"
         >
-          <span className="font-display text-sm font-semibold">
-            {tileCode(installation.engineKind, installation.name)}
-          </span>
+          <InstallationTile
+            installation={installation}
+            size="card"
+            className={cn(
+              'transition-colors duration-[--dur-base]',
+              active
+                ? 'border-flame-500 bg-flame-900/30 text-flame-200'
+                : 'border-line bg-raised text-ink-dim hover:border-line-strong hover:text-ink',
+            )}
+          />
         </button>
 
         <div className="min-w-0 flex-1 space-y-1.5">
@@ -228,6 +273,9 @@ function InstallationRow({ installation }: { installation: Installation }) {
             <h2 className="truncate font-display text-sm tracking-[0.08em] text-ink uppercase">
               {installation.name}
             </h2>
+            <EngineBadge engineKind={installation.engineKind} />
+            <DemoBadge installation={installation} />
+            <FailureBadge installation={installation} />
             {active && <Badge tone="flame">{t('rail.activeMarker')}</Badge>}
             {installation.favorite && (
               <Star className="size-3 text-flame-500" fill="currentColor" />
@@ -239,8 +287,6 @@ function InstallationRow({ installation }: { installation: Installation }) {
               <StatusDot className={tone.dot} />
               {t(tone.labelKey)}
             </span>
-            <span className="text-ink-faint">/</span>
-            <span>{engineLabel(installation.engineKind)}</span>
             <span className="text-ink-faint">/</span>
             <span>{t(`installation.source.${installation.source}`)}</span>
             {installation.gameDirs.length > 0 && (
@@ -323,6 +369,48 @@ function InstallationRow({ installation }: { installation: Installation }) {
             <Pencil className="size-3.5" />
           </IconButton>
 
+          {/* Story 067 D6: the icon picker belongs to the installation, same scoping as rename. */}
+          <IconButton
+            label={t('installation.action.setIcon')}
+            size="sm"
+            onClick={() => openDialog({ kind: 'installationIcon', installationId: installation.id })}
+          >
+            <ImagePlus className="size-3.5" />
+          </IconButton>
+
+          {/* Story 058 D6: the redundant-config-copies cleanup belongs to the installation, not to
+              a config profile's Care tab - so it opens from the row that names its scope, the same
+              way rename does. The dialog itself removes nothing without a confirm. */}
+          <IconButton
+            label={t('installation.action.cleanup')}
+            size="sm"
+            onClick={() => openDialog({ kind: 'cleanup', installationId: installation.id })}
+          >
+            <CopyX className="size-3.5" />
+          </IconButton>
+
+          {/* Story 090 D4: only offered on a demo installation - the empty-store-sources case is
+              explained inside the dialog itself, not by hiding the trigger.
+              Story 091 D5: no longer disabled while the installation is running - the job now
+              waits instead of refusing (091 Decisions: "[[090]]'s refusal is replaced by a
+              wait, including on the renderer"). */}
+          {isDemoData(installation.checks) && (
+            <IconButton
+              label={t('installation.action.importRetail')}
+              size="sm"
+              onClick={() =>
+                openDialog({
+                  kind: 'module',
+                  moduleId: 'downloads',
+                  view: 'retail-upgrade',
+                  installationId: installation.id,
+                })
+              }
+            >
+              <Import className="size-3.5" />
+            </IconButton>
+          )}
+
           {/* Destructive action kept visually apart from the routine ones. */}
           <div className="mx-1 h-5 w-px bg-line" />
 
@@ -330,11 +418,16 @@ function InstallationRow({ installation }: { installation: Installation }) {
             label={t('installation.action.remove')}
             size="sm"
             variant="danger"
+            data-testid={`installation-remove-${installation.id}`}
             onClick={() => {
-              if (confirmBeforeRemoving) {
-                openDialog({ kind: 'remove', installationId: installation.id })
-              } else {
+              // Story 094 D3: a removable installation always opens the chooser now - there are
+              // two different, one-irreversible outcomes, so `confirmBeforeRemoving` can no longer
+              // silently pick one. A store-managed installation still has only one possible
+              // outcome (entry-only), so it keeps honouring the setting exactly like before 094.
+              if (isStoreManaged(installation.source) && !confirmBeforeRemoving) {
                 void removeInstallation(installation.id)
+              } else {
+                openDialog({ kind: 'remove', installationId: installation.id })
               }
             }}
           >
@@ -343,8 +436,20 @@ function InstallationRow({ installation }: { installation: Installation }) {
         </div>
       </div>
 
-      {showChecks && (
+      {installation.lastFailure && (
         <div className="border-t border-line pt-3">
+          <p className="text-xs text-danger" data-testid="installation-failure-reason">
+            {/* The params the failure recorded, the same way `ChecksList` resolves a check's
+                message: a templated key (`downloads.error.packageIncomplete` reads `{{packageId}}`)
+                would otherwise render its raw placeholder to the user, and i18next ignores an empty
+                params object for every key that needs none. */}
+            {t(installation.lastFailure.errorKey, installation.lastFailure.params ?? {})}
+          </p>
+        </div>
+      )}
+
+      {showChecks && (
+        <div className={cn('pt-3', !installation.lastFailure && 'border-t border-line')}>
           <ChecksList installation={installation} />
         </div>
       )}

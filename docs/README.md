@@ -11,28 +11,33 @@ source, so index tables cannot drift.
 ```
 docs/
   README.md                 this map (no status)
-  ROADMAP.md                THE status/planning source: phases, milestones, unprioritised
-  ARCHITECTURE.md           project-specific: architecture reference
+  ROADMAP.md                THE status/planning source, one screen: where we stand, phases,
+                            milestones, unprioritised, follow-ups
   requirements/             open stories; done/ = finished, done/INDEX.md = history
-  sprints/                  sprint planning/review/testplan; done/SNN/ = finished
+  sprints/                  sprint planning + review; done/SNN/ = finished
   concepts/                 concept docs for systems NOT (fully) implemented yet
   systems/                  concept docs for systems ALREADY implemented (reference)
 ```
 
 ## Where do I find …?
 
-- **Where we stand, what is next, what is unprioritised** → [ROADMAP.md](ROADMAP.md)
-  (milestone granularity; maintained at the end of `/sprint`, `/concept` and
-  in the `/roadmap` ritual).
+- **Where we stand, what was done last, what is next, what is unprioritised** →
+  [ROADMAP.md](ROADMAP.md) — the entry point when coming back to the project. One screen,
+  table rows, one sentence per item; it links to detail instead of repeating it. Maintained
+  at the end of `/sprint`, `/concept` and in the `/roadmap` ritual.
+- **Small things worth doing on the side** → [ROADMAP.md](ROADMAP.md), "Follow-ups worth
+  doing" — one-liners a sprint surfaced, no decision needed, removed once done.
+- **Gaps, findings, what a test could not prove** → the sprint's `review.md` under
+  [sprints/done/](sprints/done/). The roadmap never carries this text.
 - **What happened per story** → [requirements/done/INDEX.md](requirements/done/INDEX.md) (one
   line per story), full text next to it. Workflow:
   [requirements/README.md](requirements/README.md).
 - **How a finished system works** → [systems/](systems/) (reference docs).
 - **What is designed but not built (yet)** → [concepts/](concepts/) — concepts describe the
   what/why and are timeless; when/status is in the roadmap.
-- **How a sprint went** → [sprints/done/](sprints/done/) (review + test plan per sprint),
+- **How a sprint went** → [sprints/done/](sprints/done/) (review.md per sprint: what was built,
+  which test proved which acceptance criterion),
   workflow: [sprints/README.md](sprints/README.md).
-- **How the app is put together** → [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Maintenance
 
@@ -42,8 +47,10 @@ docs/
   its status line — checked in the `/sprint` review (phase 3) and
   `/roadmap check`.
 - Status tables do not belong in this index — only in the roadmap.
+- The roadmap is compacted, not archived: `/roadmap check` removes done follow-ups and
+  collapses finished phases to one row per milestone. Git and the sprint reviews are the
+  history.
 
 ## Project-specific
 
-<!-- Add project-owned folders (wiki/, adr/, design/, features/, …) here. Setup keeps this
-     section when it regenerates the file. -->
+- **How the app is put together** → [ARCHITECTURE.md](ARCHITECTURE.md).

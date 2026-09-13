@@ -12,12 +12,25 @@ import { isFile } from '../lib/fs-utils'
 import { scopedLogger } from '../lib/logger'
 import { buildLaunchArgs, previewCommand } from './launch-plan'
 import type { InstallationsService } from './installations'
+import type { WriteLockReader } from './write-guard'
 
 const log = scopedLogger('launch')
 
+/**
+ * Notified with the current launch state every time it changes. Both the shell's
+ * own broadcast callback and every `onStateChange` observer use this one shape.
+ */
+export type LaunchStateListener = (state: LaunchState) => void
+
 export interface LaunchDeps {
   installations: InstallationsService
-  onStateChange: (state: LaunchState) => void
+  onStateChange: LaunchStateListener
+  /**
+   * Story 091 D2: the installation write guard, as a getter for the same reason
+   * `AppContext.getMainWindow` is one - the guard is built *from* this service,
+   * so it does not exist yet when this service is constructed.
+   */
+  getWriteGuard?: () => WriteLockReader | null
 }
 
 /**
@@ -30,17 +43,44 @@ export interface LaunchDeps {
  */
 export class LaunchService {
   private readonly installations: InstallationsService
-  private readonly onStateChange: (state: LaunchState) => void
+  /**
+   * The shell's own consumer, handed in at construction: `context.ts` wires it to
+   * the `launch:state` broadcast the whole UI reads. Deliberately separate from
+   * `listeners` below - not optional, not removable, and called first.
+   */
+  private readonly broadcast: LaunchStateListener
+  /** Story 091 D2's additive observers - see `onStateChange()`. */
+  private readonly listeners = new Set<LaunchStateListener>()
+  private readonly getWriteGuard: (() => WriteLockReader | null) | undefined
   private current: LaunchState = IDLE_LAUNCH_STATE
   private startedAtMs = 0
 
   constructor(deps: LaunchDeps) {
     this.installations = deps.installations
-    this.onStateChange = deps.onStateChange
+    this.broadcast = deps.onStateChange
+    this.getWriteGuard = deps.getWriteGuard
   }
 
   getState(): LaunchState {
     return this.current
+  }
+
+  /**
+   * Story 091 D2: registers an additional observer of launch state, and returns
+   * its unsubscribe function. `InstallationWriteGuard` uses it to learn that a
+   * game has exited so a deferred write can resume on its own (AC3).
+   *
+   * Additive by construction, exactly as `JobsService.onChange` is: the
+   * constructor's `broadcast` is still called exactly once per change and
+   * *before* any listener, so nothing here can delay, suppress or double the
+   * `launch:state` traffic the action bar depends on; a listener that throws is
+   * logged and skipped.
+   */
+  onStateChange(listener: LaunchStateListener): () => void {
+    this.listeners.add(listener)
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   isRunning(): boolean {
@@ -75,6 +115,15 @@ export class LaunchService {
   async start(input: LaunchInput): Promise<Outcome<LaunchState>> {
     if (this.isRunning()) {
       return fail('launch.error.alreadyRunning')
+    }
+
+    // Story 091 AC5, the inverse direction of the write guard: a job copying into
+    // this installation's folder must not have the files pulled out from under it
+    // by the game starting. Asked of the guard itself, never derived from the
+    // renderer-visible `Job.writeLock`, so the authoritative answer is main's.
+    if (this.getWriteGuard?.()?.isWriting(input.installationId) === true) {
+      log.warn(`refused to launch ${input.installationId}: a job is writing into it`)
+      return fail('launch.error.installationBusy')
     }
 
     const planned = await this.plan(input)
@@ -142,8 +191,41 @@ export class LaunchService {
     return ok(this.current)
   }
 
+  /**
+   * Story 090 D5: drives `launch:state` for `dev:simulateLaunch`, since fixture
+   * engine binaries used in e2e tests are filler bytes and cannot actually be
+   * spawned. Goes through the same `current`/`onStateChange` path `start()`
+   * uses, so it is indistinguishable from a real launch/exit to any consumer -
+   * there is no second, parallel notion of launch state.
+   */
+  simulate(phase: 'running' | 'idle', installationId: string): void {
+    if (phase === 'idle') {
+      this.setState(IDLE_LAUNCH_STATE)
+      return
+    }
+    this.setState({
+      phase: 'running',
+      installationId,
+      startedAt: new Date().toISOString(),
+    })
+  }
+
+  /**
+   * One snapshot per change, delivered to the shell's broadcast first and to the
+   * `onStateChange` listeners afterwards - the same order, and for the same
+   * reason, as `JobsService.emit()`. The listener set is copied before iterating,
+   * so an observer that unsubscribes during delivery (the write guard does
+   * exactly that the moment it resumes) cannot change the set mid-iteration.
+   */
   private setState(next: LaunchState): void {
     this.current = next
-    this.onStateChange(next)
+    this.broadcast(next)
+    for (const listener of [...this.listeners]) {
+      try {
+        listener(next)
+      } catch (error) {
+        log.error('a launch onStateChange listener threw', error)
+      }
+    }
   }
 }

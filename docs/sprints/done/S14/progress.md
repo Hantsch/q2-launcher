@@ -1,0 +1,49 @@
+2026-09-07 12:32:33 S14 063 D1 started writer isUnboundEntry fix
+2026-09-07 12:36:44 S14 063 D1 done writer isUnboundEntry emits unbound+alias lines
+2026-09-07 12:36:45 S14 063 D2 started reader inferKind fix (hard)
+2026-09-07 12:50:02 S14 063 D2 done reader inferKind believes unbound-line signal (hard tier)
+2026-09-07 12:50:02 S14 063 D3 started adversarial round-trip pass
+2026-09-07 13:05:05 S14 063 D3 done adversarial fixtures + 2 gap fixes; surfaced unfixed merge defect for referenced-only entries
+2026-09-07 13:05:05 S14 063 D2b started fix merge-split defect for referenced-only alias+unbound entries (hard)
+2026-09-07 13:12:22 S14 063 D2b done fixed catalogue-mirror merge gap, full suite green
+2026-09-07 13:12:22 S14 063 D4 started Controls row menu repair action
+2026-09-07 13:16:37 S14 063 D4 done Controls row menu repair action + fixtures
+2026-09-07 13:16:37 S14 063 D5 started ui:flow acceptance test
+2026-09-07 13:34:48 S14 063 D5 done ui:flow cleaned of debug scaffolding, verified green
+2026-09-07 13:34:48 S14 063 review done story-review-hard PASS, 4 doc/story fixes applied, 2 low-severity items documented
+2026-09-07 13:34:48 S14 063 story done status=done, moved to docs/requirements/done/
+2026-09-07 13:36:04 S14 061 D1 started line-budget measuring flow
+2026-09-07 13:38:05 S14 061 D1 done config-header-geometry.mjs green lines=32 margin=35px
+2026-09-07 13:38:22 S14 061 D2 started raw tab funds header row
+2026-09-07 13:54:28 S14 061 D2 done raw tab toolbar merged, cfg-code--fill padding 6px, margin 35->61px, CLAUDE.md deviation row added
+2026-09-07 13:54:31 S14 061 D3 started one header row for every tab (hard)
+2026-09-07 14:05:04 S14 061 D3 done one header row for all tabs, flow 31 lines margin 18px, new lever detail-wrapper gap used, CLAUDE.md deviation row added (hard tier)
+2026-09-07 14:05:06 S14 061 D4 started header assertions extend flow
+2026-09-07 14:11:45 S14 061 D4 done geometry flow extended all 7 tabs asserted, full regression gate green (build/test/typecheck/ui:verify/raw-inline-edit)
+2026-09-07 14:17:44 S14 061 review done default-tier PASS, 2 test-rigor findings fixed (AC1 single-row bound, AC2 no-duplicate-identity assertion)
+2026-09-07 14:17:44 S14 061 story done status=done, moved to docs/requirements/done/
+2026-09-07 14:18:39 S14 062 D1 started category action menu component
+2026-09-07 14:24:06 S14 062 D1 done ControlsCategoryMenu.tsx wired, en.json key added, CLAUDE.md deviation row, tests+typecheck green
+2026-09-07 14:24:06 S14 062 D2 started chip one visual level (hard)
+2026-09-07 14:33:49 S14 062 D2 done chip one level, data-selected/category-id/category-name, drag/drop roles preserved, drag+dnd tests unmodified green (hard tier)
+2026-09-07 14:33:49 S14 062 D3 started ui:flow + screenshot hover step
+2026-09-07 14:39:56 S14 062 D3 done ui:flow controls-category-rename-reorder green via menu, screens.mjs hover step, ui:verify 0 axe violations
+2026-09-07 14:42:36 S14 062 review done default-tier PASS, 0 findings
+2026-09-07 14:44:29 S14 064 D1 started field-level details in change model
+2026-09-07 14:52:10 S14 064 D1 done field-level details, 46/46 tests, typecheck clean
+2026-09-07 14:52:14 S14 064 D2 started row reads as a diff
+2026-09-07 14:55:39 S14 064 D2 done row reads as a diff, 5/5 + 566/566 tests, typecheck clean
+2026-09-07 14:55:45 S14 064 D3 started acceptance flow through real surface
+2026-09-07 15:14:46 S14 064 D3 done acceptance flow, ui:seed/ui:flow/ui:verify all green, 0 axe violations
+2026-09-07 15:20:08 S14 065 D1 started EngineBadge component + Badge.testId
+2026-09-07 15:21:34 S14 065 D1 done EngineBadge.tsx + Badge.testId + tests green
+2026-09-07 15:21:43 S14 065 D2 started migrate rail/hero/AddExistingDialog/DetectDialog to EngineBadge
+2026-09-07 15:23:26 S14 065 D2 done rail/hero/AddExistingDialog/DetectDialog migrated, no dupe tone expression left
+2026-09-07 15:23:31 S14 065 D3 started config lists get badge (InstallationProfilesPanel, ProfileAssignmentsPanel)
+2026-09-07 15:23:31 S14 065 D4 started library card + action bar promote meta text to badge
+2026-09-07 15:26:51 S14 065 D3 done InstallationProfilesPanel/ProfileAssignmentsPanel badges, InstallationProfilesPanel.test.ts 4/4 green
+2026-09-07 15:26:51 S14 065 D4 done LibraryView/ActionBar meta text promoted to badge, typecheck+full test suite green
+2026-09-07 15:27:01 S14 065 D5 started fixture third installation + engine-badge-surfaces flow (hard)
+2026-09-07 15:43:37 S14 065 D5 done fixture 3rd install + engine-badge-surfaces flow green, ui:verify 0 axe violations, full flow suite re-verified (hard tier)
+2026-09-07 15:48:31 S14 065 review done default-tier PASS, 1 stale-comment finding fixed
+2026-09-07 15:48:31 S14 065 story done status=done, moved to docs/requirements/done/

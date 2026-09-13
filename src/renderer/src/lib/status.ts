@@ -59,6 +59,7 @@ export function statusTone(status: InstallationStatus): StatusTone {
 
 export const SEVERITY_TONES: Record<CheckSeverity, { text: string; icon: string }> = {
   ok: { text: 'text-success', icon: 'CircleCheck' },
+  info: { text: 'text-info', icon: 'Info' },
   warn: { text: 'text-warning', icon: 'TriangleAlert' },
   error: { text: 'text-danger', icon: 'CircleX' },
 }

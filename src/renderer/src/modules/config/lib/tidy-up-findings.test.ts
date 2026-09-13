@@ -1,0 +1,595 @@
+import { describe, expect, it } from 'vitest'
+import { aliasNameFor } from '@shared/config/alias-render'
+import type { AltLayer } from '@shared/config/alt-layers'
+import { ALL_CVARS } from '@shared/config/cvar-catalog'
+import { writeValueFor } from '@shared/config/cvar-defaults'
+import { applyTidyUpOps, type TidyUpOp } from '@shared/config/tidy-up'
+import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
+import { analyzeTidyUp, type TidyUpFinding } from './tidy-up-findings'
+
+/**
+ * Story 025 D4's acceptance. The load-bearing half is the winner
+ * determination: for every contested key, the claim that is *currently in
+ * effect in the rendered file* must survive and every other claim must get a
+ * `removeShadowedBind` op - getting it backwards deletes the working binding
+ * and keeps the dead one, which looks correct in the UI and is silently wrong
+ * in-game. So the conflict cases here pin the winner down from the stored
+ * `binds`/`overrides` (what `render.ts`/`generateLayerAliases` emit), including
+ * the two cases where "the last action in the array" and "the entry on the
+ * normalized spelling" are both the wrong answer.
+ */
+
+const FIXED_AT = '2026-01-01T00:00:00.000Z'
+
+function profile(overrides: Partial<ConfigProfile> = {}): ConfigProfile {
+  return {
+    id: 'p1',
+    name: 'Profile',
+    createdAt: FIXED_AT,
+    updatedAt: FIXED_AT,
+    cvars: {},
+    binds: {},
+    assignments: [],
+    ...overrides,
+  }
+}
+
+function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
+  return {
+    id: 'a1',
+    categoryId: 'movement',
+    name: 'Action',
+    kind: 'bind',
+    commands: [{ kind: 'raw', text: 'weapnext' }],
+    ...overrides,
+  }
+}
+
+function layer(overrides: Partial<AltLayer> = {}): AltLayer {
+  return { id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'ALT', overrides: {}, ...overrides }
+}
+
+function ofKind(findings: TidyUpFinding[], kind: TidyUpFinding['kind']): TidyUpFinding[] {
+  return findings.filter((finding) => finding.kind === kind)
+}
+
+/**
+ * Bug fix, 2026-09-07: the reported case was the launcher's own two hand-grenade drop entries
+ * (`dropWeapon:grenades` and `dropAmmo:hgrenades` both render the command `drop grenades`, so both
+ * derive the alias name `drop_grenades`). Care showed that as two rows with an identical title and
+ * an identical sentence, named neither entry, and called them "alias entries" while both are unbound
+ * catalogue entries the file writes as commented-out `//bind` lines - i.e. with no `alias` line
+ * anywhere in it. One row per collision, with one resolved detail per side, is what fixes all three.
+ */
+describe('analyzeTidyUp - duplicate alias names', () => {
+  // The template's own drops category, plus its second level - which the *migration* for an older
+  // profile does not assign (`main/services/migrations.ts` sets `categoryId` and `catalogId` only),
+  // so `d2` below deliberately carries no `subcategoryId`: that is the real shape the bug was
+  // reported on.
+  const dropCategory = {
+    id: 'drops',
+    name: 'Weapon dropping',
+    nameKey: 'config.controls.categories.drops',
+    subcategories: [
+      { id: 'drops-weapons', name: 'Weapons' },
+      { id: 'drops-ammo', name: 'Ammunition' },
+    ],
+  }
+
+  function dropEntries(): ConfigAction[] {
+    return [
+      action({
+        id: 'd1',
+        categoryId: 'drops',
+        name: 'drop grenades',
+        catalogId: 'dropWeapon:grenades',
+        subcategoryId: 'drops-weapons',
+        commands: [{ kind: 'raw', text: 'drop grenades' }],
+      }),
+      action({
+        id: 'd2',
+        categoryId: 'drops',
+        name: 'drop grenades',
+        catalogId: 'dropAmmo:hgrenades',
+        commands: [{ kind: 'raw', text: 'drop grenades' }],
+      }),
+    ]
+  }
+
+  it('reports one row per collision, with one detail per colliding entry', () => {
+    const rows = ofKind(
+      analyzeTidyUp(profile({ actions: dropEntries(), categories: [dropCategory] })),
+      'duplicateAlias',
+    )
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.params['name']).toBe('drop_grenades')
+    expect(rows[0]!.params['count']).toBe(2)
+    // The two sides are only distinguishable by their catalogue id: same name, same section, same
+    // body, and (on a profile migrated from before the drops subcategories existed) no subcategory
+    // either - which is exactly why the id is carried.
+    expect(rows[0]!.duplicates).toEqual([
+      {
+        actionId: 'd1',
+        entryName: 'drop grenades',
+        sectionName: 'Weapon dropping',
+        sectionKey: 'config.controls.categories.drops',
+        subsectionName: 'Weapons',
+        catalogId: 'dropWeapon:grenades',
+        keys: [],
+        referenced: false,
+      },
+      {
+        actionId: 'd2',
+        entryName: 'drop grenades',
+        sectionName: 'Weapon dropping',
+        sectionKey: 'config.controls.categories.drops',
+        catalogId: 'dropAmmo:hgrenades',
+        keys: [],
+        referenced: false,
+      },
+    ])
+  })
+
+  it("names the keys a colliding side is bound to, and whether anything calls it", () => {
+    const [weapon, ammo] = dropEntries()
+    const bound = { ...weapon!, keys: [{ key: 'q' }] }
+    const rows = ofKind(
+      analyzeTidyUp(
+        profile({
+          actions: [bound, ammo!],
+          categories: [dropCategory],
+          // A hand-typed bind calling the name - the one thing that makes a side "referenced", and
+          // therefore the side Care must not offer a one-click delete for.
+          binds: { q: 'drop_grenades' },
+        }),
+      ),
+      'duplicateAlias',
+    )
+
+    expect(rows[0]!.duplicates?.map((entry) => [entry.actionId, entry.keys, entry.referenced])).toEqual([
+      ['d1', ['q'], true],
+      ['d2', [], true],
+    ])
+  })
+})
+
+describe('analyzeTidyUp - shadowed binds', () => {
+  it('offers an op for the losing action only, never for the one the mirror left in effect', () => {
+    const first = action({ id: 'a1', name: 'Old forward', keys: [{ key: 'w' }] })
+    const second = action({ id: 'a2', name: 'Forward', keys: [{ key: 'w' }] })
+    // What `applyActionBindMirror` leaves behind: array order, later wins.
+    const result = analyzeTidyUp(
+      profile({ actions: [first, second], binds: { w: aliasNameFor(second) } }),
+    )
+
+    const [finding, ...rest] = ofKind(result, 'shadowedBind')
+    expect(rest).toEqual([])
+    expect(finding!.mode).toBe('auto')
+    expect(finding!.level).toBe('warning')
+    expect(finding!.sourceFindingId).toBe('bindConflict:base:w')
+    expect(finding!.params['winner']).toBe('Forward')
+    expect(finding!.ops).toEqual([
+      {
+        kind: 'removeShadowedBind',
+        scope: 'base',
+        key: 'w',
+        claim: { source: 'action', actionId: 'a1', slot: 0 },
+      },
+    ])
+    // Story 058 D5: the deep link names the losing claim (the one this row is actually about),
+    // never the winner that already works.
+    expect(finding!.actionId).toBe('a1')
+  })
+
+  /**
+   * The same two rows, but `binds` says the *first* one is what gets written.
+   * Array order would name `a1` as the winner; the rendered file says `a2`'s
+   * claim is the dead one. The file wins - that is the whole point of reading
+   * the winner back out of `binds` instead of re-deriving it from `actions`.
+   */
+  it('follows the rendered binds entry, not the actions array order', () => {
+    const first = action({ id: 'a1', name: 'Forward', keys: [{ key: 'w' }] })
+    const second = action({ id: 'a2', name: 'Stale forward', keys: [{ key: 'w' }] })
+    const result = analyzeTidyUp(
+      profile({ actions: [first, second], binds: { w: aliasNameFor(first) } }),
+    )
+
+    const [finding] = ofKind(result, 'shadowedBind')
+    expect(finding!.params['winner']).toBe('Forward')
+    expect(finding!.ops).toEqual([
+      {
+        kind: 'removeShadowedBind',
+        scope: 'base',
+        key: 'w',
+        claim: { source: 'action', actionId: 'a2', slot: 0 },
+      },
+    ])
+  })
+
+  /**
+   * The import shape: one key, two spellings, both written verbatim
+   * (`import-reader.ts` keeps key names as typed). `renderProfileFile` sorts
+   * raw keys, so `mouse1` is emitted after `MOUSE1` and `weapnext` is what the
+   * player actually gets - the *un*-normalized spelling wins here, which is
+   * why the winner is never read off `binds[normalizeBindKey(key)]`.
+   */
+  it('picks the last-sorted binds entry when one key carries two spellings', () => {
+    const result = analyzeTidyUp(profile({ binds: { MOUSE1: '+attack', mouse1: 'weapnext' } }))
+
+    const [finding] = ofKind(result, 'shadowedBind')
+    expect(finding!.params['winner']).toBe('weapnext')
+    expect(finding!.ops).toEqual([
+      {
+        kind: 'removeShadowedBind',
+        scope: 'base',
+        key: 'MOUSE1',
+        claim: { source: 'baseBind', command: '+attack' },
+      },
+    ])
+    // Neither claim is action-sourced, so there is no Controls row to name.
+    expect(finding!.actionId).toBeUndefined()
+  })
+
+  /**
+   * Two catalogue rows materialising the same continuous command both mirror as
+   * that command verbatim (`bindValueFor`, story 034), so the stored
+   * `+forward` names both claims at once. D3 strips mirror entries by value, so
+   * removing "the loser" would take the survivor's own entry with it and leave
+   * the key unbound - not inert, so nothing is offered.
+   */
+  it('reports without ops when the stored value names two action claims at once', () => {
+    const first = action({
+      id: 'a1',
+      name: 'Forward',
+      keys: [{ key: 'w' }],
+      catalogId: 'movement.forward',
+      commands: [{ kind: 'raw', text: '+forward' }],
+    })
+    const second = action({ ...first, id: 'a2', name: 'Forward again' })
+    const result = analyzeTidyUp(
+      profile({ actions: [first, second], binds: { w: '+forward' } }),
+    )
+
+    const [finding] = ofKind(result, 'shadowedBind')
+    expect(finding!.mode).toBe('report')
+    expect(finding!.ops).toEqual([])
+    expect(finding!.messageKey).toBe('config.care.tidyUp.shadowedBindUnresolved')
+    // No proven winner to prefer against, so the deep link still names the first action claim -
+    // "an" entry worth a look, even though which one is at fault could not be proven.
+    expect(finding!.actionId).toBe('a1')
+  })
+
+  it('reports without ops when nothing is stored for the contested key at all', () => {
+    const first = action({ id: 'a1', name: 'One', keys: [{ key: 'w' }] })
+    const second = action({ id: 'a2', name: 'Two', keys: [{ key: 'w' }] })
+    const result = analyzeTidyUp(profile({ actions: [first, second], binds: {} }))
+
+    const [finding] = ofKind(result, 'shadowedBind')
+    expect(finding!.mode).toBe('report')
+    expect(finding!.ops).toEqual([])
+  })
+
+  it('treats a base bind and a layer override on the same key as no conflict at all', () => {
+    const result = analyzeTidyUp(
+      profile({
+        binds: { r: 'weapnext' },
+        layers: [layer({ overrides: { r: 'drop rocket launcher' } })],
+      }),
+    )
+
+    expect(result).toEqual([])
+  })
+
+  it('names the losing modifier slot inside the layer that carries the conflict', () => {
+    const first = action({ id: 'a1', name: 'Old drop', keys: [{ key: 'r', modifier: 'ALT' }] })
+    const second = action({ id: 'a2', name: 'Drop', keys: [{ key: 'r', modifier: 'ALT' }] })
+    const result = analyzeTidyUp(
+      profile({
+        actions: [first, second],
+        layers: [layer({ overrides: { r: aliasNameFor(second) } })],
+      }),
+    )
+
+    const [finding] = ofKind(result, 'shadowedBind')
+    expect(finding!.mode).toBe('auto')
+    expect(finding!.sourceFindingId).toBe('bindConflict:l1:r')
+    expect(finding!.ops).toEqual([
+      {
+        kind: 'removeShadowedBind',
+        scope: { layerId: 'l1' },
+        key: 'r',
+        claim: { source: 'action', actionId: 'a1', slot: 0 },
+      },
+    ])
+  })
+
+  /**
+   * A hand-made override sitting on the key an action's modifier slot also
+   * claims: the override is the only thing in the layer's alias body, so the
+   * action's alias is not reachable in that layer at all and *its* claim is the
+   * dead one. Removing the override - the other way round - would delete the
+   * only working binding.
+   */
+  it('keeps a hand-made override that is what the layer actually renders', () => {
+    const claimant = action({ id: 'a1', name: 'Alt drop', keys: [{ key: '1', modifier: 'ALT' }] })
+    const result = analyzeTidyUp(
+      profile({ actions: [claimant], layers: [layer({ overrides: { '1': 'drop rl' } })] }),
+    )
+
+    const [finding] = ofKind(result, 'shadowedBind')
+    expect(finding!.params['winner']).toBe('drop rl')
+    expect(finding!.ops).toEqual([
+      {
+        kind: 'removeShadowedBind',
+        scope: { layerId: 'l1' },
+        key: '1',
+        claim: { source: 'action', actionId: 'a1', slot: 0 },
+      },
+    ])
+  })
+})
+
+describe('analyzeTidyUp - layers, aliases, preserved lines', () => {
+  it('offers removeEmptyLayer for a layer whose overrides are all blank', () => {
+    const result = analyzeTidyUp(
+      profile({ layers: [layer({ id: 'l9', name: 'Spare', overrides: { '1': '   ' } })] }),
+    )
+
+    const [finding, ...rest] = ofKind(result, 'emptyLayer')
+    expect(rest).toEqual([])
+    expect(finding!.mode).toBe('auto')
+    expect(finding!.params['name']).toBe('Spare')
+    expect(finding!.sourceFindingId).toBe('layerEmpty:l9')
+    expect(finding!.ops).toEqual([{ kind: 'removeEmptyLayer', layerId: 'l9' }])
+  })
+
+  it('offers removeUnreferencedAlias for an alias nothing calls', () => {
+    const alias = action({
+      id: 'x1',
+      name: 'Sprint',
+      kind: 'alias',
+      commands: [{ kind: 'raw', text: '+forward' }],
+    })
+    const result = analyzeTidyUp(profile({ actions: [alias] }))
+
+    const [finding, ...rest] = ofKind(result, 'unreferencedAlias')
+    expect(rest).toEqual([])
+    expect(finding!.mode).toBe('review')
+    expect(finding!.params['name']).toBe(aliasNameFor(alias))
+    expect(finding!.ops).toEqual([{ kind: 'removeUnreferencedAlias', actionId: 'x1' }])
+  })
+
+  it('offers no op for a bind calling an alias that does not exist', () => {
+    const caller = action({ id: 'b1', name: 'Broken', commands: [{ kind: 'raw', text: '+test' }] })
+    const result = analyzeTidyUp(profile({ actions: [caller] }))
+
+    const [finding, ...rest] = ofKind(result, 'undefinedAlias')
+    expect(rest).toEqual([])
+    expect(finding!.mode).toBe('report')
+    expect(finding!.level).toBe('warning')
+    expect(finding!.ops).toEqual([])
+  })
+
+  it('offers drop and promote for a console-form cvar line the catalog knows', () => {
+    const result = analyzeTidyUp(
+      profile({ unrecognized: [{ file: 'config.cfg', line: 12, text: 'cl_run 1' }] }),
+    )
+
+    const [finding] = ofKind(result, 'preservedLine')
+    expect(finding!.mode).toBe('review')
+    expect(finding!.messageKey).toBe('config.care.tidyUp.preservedLineCvar')
+    expect(finding!.sourceFindingId).toBe('preserved:config.cfg:12')
+    expect(finding!.ops).toEqual([
+      { kind: 'dropPreservedLine', file: 'config.cfg', line: 12, text: 'cl_run 1' },
+      {
+        kind: 'reclassifyPreservedLine',
+        file: 'config.cfg',
+        line: 12,
+        text: 'cl_run 1',
+        target: { field: 'cvars', name: 'cl_run', value: '1' },
+      },
+    ])
+  })
+
+  it('offers drop and promote for a bind line, on the key the profile stores', () => {
+    const result = analyzeTidyUp(
+      profile({ unrecognized: [{ file: 'config.cfg', line: 3, text: 'bind F5 "menu_options"' }] }),
+    )
+
+    const [finding] = ofKind(result, 'preservedLine')
+    expect(finding!.messageKey).toBe('config.care.tidyUp.preservedLineBind')
+    expect(finding!.ops[1]).toEqual({
+      kind: 'reclassifyPreservedLine',
+      file: 'config.cfg',
+      line: 3,
+      text: 'bind F5 "menu_options"',
+      target: { field: 'binds', key: 'F5', command: 'menu_options' },
+    })
+  })
+
+  it('offers only drop for a line it will not classify', () => {
+    const result = analyzeTidyUp(
+      profile({
+        unrecognized: [
+          { file: 'config.cfg', line: 1, text: '// my old config' },
+          { file: 'config.cfg', line: 2, text: 'alias +test "+attack; wait"' },
+          { file: 'config.cfg', line: 4, text: 'say hello' },
+        ],
+      }),
+    )
+
+    const findings = ofKind(result, 'preservedLine')
+    expect(findings).toHaveLength(3)
+    for (const finding of findings) {
+      expect(finding.mode).toBe('review')
+      expect(finding.messageKey).toBe('config.care.tidyUp.preservedLine')
+      expect(finding.ops.map((op) => op.kind)).toEqual(['dropPreservedLine'])
+    }
+  })
+
+  it('offers only drop when promoting would overwrite content the profile already has', () => {
+    const result = analyzeTidyUp(
+      profile({
+        cvars: { cl_run: '0' },
+        unrecognized: [{ file: 'config.cfg', line: 12, text: 'cl_run 1' }],
+      }),
+    )
+
+    const [finding] = ofKind(result, 'preservedLine')
+    expect(finding!.ops.map((op) => op.kind)).toEqual(['dropPreservedLine'])
+  })
+})
+
+describe('analyzeTidyUp - the auto set', () => {
+  /**
+   * Decision 11's whole basis for `'auto'` is that applying the op cannot
+   * change what the engine does, and only two kinds can ever prove that. This
+   * pins that down across a profile carrying one of everything, so a later
+   * source added to this analyzer cannot quietly become automatic.
+   */
+  it('contains exactly the shadowed-bind and empty-layer findings', () => {
+    const first = action({ id: 'a1', name: 'Old forward', keys: [{ key: 'w' }] })
+    const second = action({ id: 'a2', name: 'Forward', keys: [{ key: 'w' }] })
+    const alias = action({
+      id: 'x1',
+      name: 'Sprint',
+      kind: 'alias',
+      commands: [{ kind: 'raw', text: '+forward' }],
+    })
+    const caller = action({ id: 'b1', name: 'Broken', commands: [{ kind: 'raw', text: '+test' }] })
+
+    const result = analyzeTidyUp(
+      profile({
+        actions: [first, second, alias, caller],
+        binds: { w: aliasNameFor(second) },
+        layers: [layer({ id: 'l9', name: 'Spare', overrides: {} })],
+        unrecognized: [{ file: 'config.cfg', line: 12, text: 'cl_run 1' }],
+      }),
+    )
+
+    expect(result.filter((finding) => finding.mode === 'auto').map((finding) => finding.kind)).toEqual([
+      'shadowedBind',
+      'emptyLayer',
+    ])
+    // Every automatic row carries a fix; an `auto` row with no op would be a
+    // button that does nothing.
+    for (const finding of result) {
+      if (finding.mode === 'auto') expect(finding.ops.length).toBeGreaterThan(0)
+    }
+    // Ids are unique and deterministic - the UI keys rows on them.
+    expect(new Set(result.map((finding) => finding.id)).size).toBe(result.length)
+    expect(analyzeTidyUp(profile()).length).toBe(0)
+  })
+})
+
+describe('story 048 D4 - a default-filled profile offers no new tidy-up clutter', () => {
+  it('analyzeTidyUp never reads profile.cvars, so the ~30 always-written default lines are never findings', () => {
+    // What D2's writer puts in `cvars` for every catalogue entry when nothing overrides the default
+    // (`writeValueFor(def, undefined)` is `def.default`) - the exact shape a default-filled file
+    // round-trips as, before D3's `stripCatalogDefaults` even runs.
+    const allDefaultsWritten = Object.fromEntries(
+      ALL_CVARS.map((def) => [def.name, writeValueFor(def, undefined)]),
+    )
+
+    const bare = profile({
+      actions: [action()],
+      binds: { w: aliasNameFor(action()) },
+      layers: [layer()],
+      unrecognized: [{ file: 'config.cfg', line: 3, text: 'cl_run 1' }],
+    })
+    const withDefaults = profile({ ...bare, cvars: allDefaultsWritten })
+
+    // Same findings whether `cvars` is empty or stuffed with every catalogue default: the tidy-up
+    // analyzer has no cvar-clutter rule at all (its four sources are shadowed binds, empty layers,
+    // alias wiring and preserved lines), so a bigger, default-filled cvar block cannot become a
+    // fresh "clean this up" suggestion.
+    expect(analyzeTidyUp(withDefaults)).toEqual(analyzeTidyUp(bare))
+  })
+})
+
+/**
+ * Story-050 review, finding 2 (third round): the "Fix all safe findings" batch, end to end.
+ *
+ * Nothing here hand-writes a `TidyUpOp`. The ops are whatever `analyzeTidyUp` mints for the
+ * profile, filtered and flattened exactly the way the UI does it - `CareTidyUpSection.tsx` keeps
+ * `findings.filter((f) => f.mode === 'auto')` and `CareBatchFixDialog.tsx` sends
+ * `findings.flatMap((f) => f.ops)` as **one** `tidyUp.apply` call (story 025 decision 13) - and
+ * they are handed to the same `applyTidyUpOps` that call's main handler runs
+ * (`main/modules/config/index.ts`). That whole chain is the reason the bug existed and was
+ * invisible: each op is correct on its own, and only the batch broke.
+ */
+function fixAllOps(input: ConfigProfile): TidyUpOp[] {
+  return analyzeTidyUp(input)
+    .filter((finding) => finding.mode === 'auto')
+    .flatMap((finding) => finding.ops)
+}
+
+describe('story 050 - Fix all safe findings across two slots of one action', () => {
+  it('applies both removals instead of renumbering the second op out of existence', () => {
+    // One row losing two contested keys at once, which is the ordinary shape of a re-imported
+    // profile: `Winner` holds `q` and `w` in the rendered file, and `Loser` claims both of them
+    // plus a third key nothing contests. `Q`/`W` are `Loser`'s own stale mirrors (the
+    // un-normalized spellings an import leaves behind); `q`/`w` sort last, so the rendered file
+    // leaves `Winner` in effect for both and every one of `Loser`'s two claims is a proven loser.
+    const loser = action({
+      id: 'a1',
+      name: 'Loser',
+      keys: [{ key: 'q' }, { key: 'w' }, { key: 'f' }],
+    })
+    const winner = action({ id: 'a2', name: 'Winner', keys: [{ key: 'q' }, { key: 'w' }] })
+    const before = profile({
+      actions: [loser, winner],
+      binds: {
+        q: aliasNameFor(winner),
+        w: aliasNameFor(winner),
+        f: aliasNameFor(loser),
+        Q: aliasNameFor(loser),
+        W: aliasNameFor(loser),
+      },
+    })
+
+    const ops = fixAllOps(before)
+
+    // Two ops, both naming `Loser` - and crucially two *different* slot indices of the same
+    // action, which is the input that used to go wrong.
+    expect(ops).toEqual([
+      {
+        kind: 'removeShadowedBind',
+        scope: 'base',
+        key: 'q',
+        claim: { source: 'action', actionId: 'a1', slot: 0 },
+      },
+      {
+        kind: 'removeShadowedBind',
+        scope: 'base',
+        key: 'w',
+        claim: { source: 'action', actionId: 'a1', slot: 1 },
+      },
+    ])
+
+    const result = applyTidyUpOps(before, ops)
+
+    // Both applied. With the old index-shifting clear, the first op renumbered `w` from slot 1 to
+    // slot 0, so the second op's claim no longer existed and came back `rejected` - the user saw
+    // "some fixes no longer applied" and `w` stayed doubly claimed.
+    expect(result.applied).toEqual(ops)
+    expect(result.rejected).toEqual([])
+
+    // Both contested slots cleared in place, and the uncontested third key still sits at index 2 -
+    // the position-preserving property the rest of story 050's slot-clearing paths already have.
+    expect(result.profile.actions![0]!.keys).toEqual([{ key: '' }, { key: '' }, { key: 'f' }])
+    expect(result.profile.actions![1]!.keys).toEqual([{ key: 'q' }, { key: 'w' }])
+
+    // Both of the loser's stale mirrors are gone with their slots; the winner keeps both keys and
+    // the loser keeps its own uncontested one.
+    expect(result.profile.binds).toEqual({
+      q: aliasNameFor(winner),
+      w: aliasNameFor(winner),
+      f: aliasNameFor(loser),
+    })
+
+    // And the point of the fix: re-running the analyzer on the result finds nothing left to do.
+    expect(fixAllOps(result.profile)).toEqual([])
+  })
+})

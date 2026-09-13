@@ -17,6 +17,13 @@ export interface CreateJobInput {
 }
 
 /**
+ * Notified with the full, current job list every time anything about it changes.
+ * Both the shell's own broadcast callback and every `onChange` observer use this
+ * one shape, so an observer sees exactly what `jobs:changed` carries.
+ */
+export type JobsListener = (jobs: Job[]) => void
+
+/**
  * Registry for long-running module work.
  *
  * The shell owns this so that every module gets progress reporting, cancellation
@@ -27,10 +34,39 @@ export interface CreateJobInput {
 export class JobsService {
   private readonly jobs = new Map<string, Job>()
   private readonly cancellers = new Map<string, () => void>()
-  private readonly onChange: (jobs: Job[]) => void
+  /**
+   * The shell's own consumer, handed in at construction: `context.ts` wires it to
+   * the `jobs:changed` broadcast, which every job surface in the UI depends on.
+   * Deliberately separate from `listeners` below - it is not optional, not
+   * removable, and its call is the first thing `emit()` does.
+   */
+  private readonly broadcast: JobsListener
+  /** Story 073 D2's additive observers - see `onChange()`. */
+  private readonly listeners = new Set<JobsListener>()
 
-  constructor(onChange: (jobs: Job[]) => void) {
-    this.onChange = onChange
+  constructor(broadcast: JobsListener) {
+    this.broadcast = broadcast
+  }
+
+  /**
+   * Story 073 D2: registers an additional observer of job changes, and returns its
+   * unsubscribe function. The downloads module uses this to append a failure-log
+   * entry for every `downloads` job that reaches `failed`.
+   *
+   * Additive by construction, which is the whole point of it being a second list:
+   *
+   *  - the constructor's `broadcast` is untouched by any of this - it is still
+   *    called exactly once per change, with the same list, and *before* any
+   *    listener, so no observer can delay, suppress or double the `jobs:changed`
+   *    traffic the action bar and the Downloads tab read;
+   *  - a listener that throws is logged and skipped; the remaining listeners and
+   *    the already-delivered broadcast are unaffected.
+   */
+  onChange(listener: JobsListener): () => void {
+    this.listeners.add(listener)
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   list(): Job[] {
@@ -62,6 +98,63 @@ export class JobsService {
     const job = this.jobs.get(id)
     if (!job) return
     this.jobs.set(id, { ...job, status: 'running', progress })
+    this.emit()
+  }
+
+  /**
+   * Story 074 D4: records the ratio at which this job's installation became playable, once the
+   * job already exists.
+   *
+   * `CreateJobInput.playableAtRatio` can only state that up front, at creation - which is fine
+   * for a job that knows its own threshold in advance, and wrong for the bootstrap job, whose
+   * threshold is "the moment `inspectInstallation` stops calling the target `invalid`". That is a
+   * fact about the disk that nobody can predict before the files are there, so it has to be
+   * settable mid-job (AC6).
+   *
+   * Deliberately not part of `progress()`: `progress()` sets `status: 'running'`, and this marker
+   * is a property of the job's *plan*, not a progress report - a paused, finished or cancelled job
+   * must not be resurrected by recording one. Nothing else about the job changes here.
+   */
+  markPlayable(id: string, ratio: number): void {
+    const job = this.jobs.get(id)
+    if (!job) return
+    this.jobs.set(id, { ...job, playableAtRatio: ratio })
+    this.emit()
+  }
+
+  /**
+   * Story 091 D1: puts a job into `'waiting'` and records why, for the write
+   * guard to use while a job's write phase is deferred behind a running game.
+   *
+   * Mirrors `markPlayable()`'s shape: a targeted read-modify-write on one job,
+   * followed by the one `emit()` every mutator ends with.
+   */
+  setWaiting(id: string, reason: NonNullable<Job['waitingReason']>): void {
+    const job = this.jobs.get(id)
+    if (!job) return
+    this.jobs.set(id, { ...job, status: 'waiting', waitingReason: reason })
+    this.emit()
+  }
+
+  /**
+   * Story 091 D1: records whether this job currently holds the installation
+   * write lock.
+   *
+   * `holding: true` is the transition out of `'waiting'` - the guard just
+   * handed the job the lock, so its reason no longer applies and it resumes as
+   * `'running'`. `holding: false` is just the lock release; the job's own
+   * terminal status (succeeded/failed/cancelled) is set separately by
+   * `finish()`, so status is left untouched here.
+   */
+  setWriteLock(id: string, holding: boolean): void {
+    const job = this.jobs.get(id)
+    if (!job) return
+    if (holding) {
+      const { waitingReason: _waitingReason, ...rest } = job
+      this.jobs.set(id, { ...rest, writeLock: true, status: 'running' })
+    } else {
+      this.jobs.set(id, { ...job, writeLock: false })
+    }
     this.emit()
   }
 
@@ -106,7 +199,29 @@ export class JobsService {
     this.emit()
   }
 
+  /**
+   * One snapshot per change, delivered to the shell's broadcast first and to the
+   * `onChange` listeners afterwards.
+   *
+   * The order is a guarantee, not an accident: the Downloads tab refetches its
+   * failure log on `jobs:changed`, and the module that writes that log is one of
+   * these listeners. Because the listener loop runs synchronously and the
+   * broadcast only *queues* an IPC message, the log is already written by the time
+   * the renderer can ask for it - while the broadcast itself still cannot be held
+   * up by listener work.
+   *
+   * The listener set is copied before iterating, so a listener that unsubscribes
+   * (or subscribes) during delivery cannot change the set mid-iteration.
+   */
   private emit(): void {
-    this.onChange(this.list())
+    const snapshot = this.list()
+    this.broadcast(snapshot)
+    for (const listener of [...this.listeners]) {
+      try {
+        listener(snapshot)
+      } catch (error) {
+        log.error('a jobs onChange listener threw', error)
+      }
+    }
   }
 }

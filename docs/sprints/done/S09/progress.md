@@ -1,0 +1,67 @@
+- 2026-09-02 20:46 · 048 · D1 shared default rule · started
+- 2026-09-02 20:49 · 048 · D1 shared default rule · done
+- 2026-09-02 20:49 · 048 · D2 every catalogue cvar written · started
+- 2026-09-02 21:04 · 048 · D2 every catalogue cvar written · done
+- 2026-09-02 21:04 · 048 · D3 read-back no inflation · started
+- 2026-09-02 21:19 · 048 · D3 read-back no inflation · done
+- 2026-09-02 21:19 · 048 · D4 Care/Raw File honesty · started
+- 2026-09-02 21:33 · 048 · D4 Care/Raw File honesty · done
+- 2026-09-02 21:33 · 048 · D5 Settings tab loses reset affordances · started
+- 2026-09-02 21:44 · 048 · D5 Settings tab reset affordances removed · done
+- 2026-09-02 21:44 · 048 · D6 changed becomes edited-and-unsaved · started
+- 2026-09-02 21:58 · 048 · D6 changed becomes edited-and-unsaved · done
+- 2026-09-02 21:58 · 048 · D7 Controls tab loses restore defaults · started
+- 2026-09-02 22:07 · 048 · D7 Controls restore defaults removed · done
+- 2026-09-02 22:07 · 048 · D8 suggestedKeys dead data removal · started
+- 2026-09-02 22:16 · 048 · D8 suggestedKeys removed · done
+- 2026-09-02 22:16 · 048 · D9 verification pass · started
+- 2026-09-02 22:28 · 048 · D9 verification pass · done
+- 2026-09-02 22:28 · 048 · story review (hard) · started
+- 2026-09-02 22:44 · 048 · story review (hard) round 1 · done (FAIL, fix dispatched)
+- 2026-09-02 22:44 · 048 · fix cvar-defaults.ts regressions · started
+- 2026-09-02 22:52 · 048 · fix cvar-defaults.ts regressions · done
+- 2026-09-02 22:52 · 048 · story review (hard) round 2 · started
+- 2026-09-02 23:02 · 048 · story review (hard) round 2 · done (PASS)
+- 2026-09-02 23:05 · 048 · story done, moved to done/
+- 2026-09-02 21:57 · 049 · D1 Baseline field, captured wherever fileHash is · started
+- 2026-09-02 22:10 · 049 · D1 Baseline field, captured wherever fileHash is · done
+- 2026-09-02 22:10 · 049 · D2 Pure diffProfileAgainstBaseline · started
+- 2026-09-02 22:20 · 049 · D2 Pure diffProfileAgainstBaseline · done
+- 2026-09-02 22:20 · 049 · D3 discard handler end to end · started
+- 2026-09-02 22:24 · 049 · D3 discard handler end to end (no UI) · done
+- 2026-09-02 22:24 · 049 · D4 Change set in the renderer · started
+- 2026-09-02 22:30 · 049 · D4 Change set in the renderer · done
+- 2026-09-02 22:30 · 049 · D5 Expandable bar with before/after list · started
+- 2026-09-02 22:33 · 049 · D5 Expandable bar with before/after list · done
+- 2026-09-02 22:33 · 049 · D6 Discard button, confirm dialog, unavailable state · started
+- 2026-09-02 22:37 · 049 · D6 Discard button, confirm dialog, unavailable state · done
+- 2026-09-02 22:37 · 049 · D7 Settings indicator/filter/counters mean unsaved · started
+- 2026-09-02 22:44 · 049 · D7 Settings indicator/filter/counters mean unsaved · done
+- 2026-09-02 22:44 · 049 · D8 Controls, layers and Raw File markers · started
+- 2026-09-02 22:50 · 049 · D8 Controls, layers and Raw File markers · done
+- 2026-09-02 22:50 · 049 · D9 ui:verify covers new screens · started
+- 2026-09-02 23:31 · 049 · D9 ui:verify covers new screens · done
+- 2026-09-02 23:31 · 049 · review-fix cycle (discard name restore, screens.mjs flake, dead code) · done
+- 2026-09-02 23:31 · 049 · story left in-progress: ui:verify blocked by local env file lock, handed to user for live smoke · blocked
+- 2026-09-03 00:00 · 049 · orchestrator · unblocked P2 live-smoke: root-caused/fixed ui:verify EPERM (scripts/lib/fixture.mjs rmSync retry) + a screens.mjs strict-mode locator collision; ui:verify green, story marked done
+- 2026-09-03 00:01 · 044 · D1 Shared alias name-space index · started
+- 2026-09-03 00:14 · 044 · D1 Shared alias name-space index · done
+- 2026-09-03 00:14 · 044 · D2 Exported alias line budget · started
+- 2026-09-03 00:22 · 044 · D2 Exported alias line budget · done
+- 2026-09-03 00:22 · 044 · D3 Aliases tab shell + read-only table · started
+- 2026-09-03 00:40 · 044 · D3 Aliases tab shell + read-only table · done
+- 2026-09-03 00:40 · 044 · D4 Empty/duplicate states, sort and filter · started
+- 2026-09-03 00:56 · 044 · D4 Empty/duplicate states, sort and filter · done
+- 2026-09-03 00:56 · 044 · D5 Create/edit/rename/delete a user alias · started
+- 2026-09-03 01:20 · 044 · D5 Create/edit/rename/delete a user alias · done
+- 2026-09-03 01:20 · 044 · D6 Cross-tab deep links · started
+- 2026-09-03 01:45 · 044 · D6 Cross-tab deep links · done
+- 2026-09-03 01:45 · 044 · D7 UI verification · started
+- 2026-09-03 01:37 · 044 · D7 UI verification · done (54/54 shots, 0 axe violations, 27/27 screens — orchestrator fixed fixture.mjs rmDirBestEffort lock issue and confirmed green)
+- 2026-09-03 01:37 · 044 · story review (hard) · started
+- 2026-09-03 01:47 · 044 · story review (hard) round 1 · done (PASS, 5 findings, 3 dispatched for fix, 2 documented)
+- 2026-09-03 01:47 · 044 · review-fix cycle (layer owner link, single-line over-budget indicator, Care undefinedAlias deep-link feedback) · started
+- 2026-09-03 01:56 · 044 · review-fix cycle · done (layer owner link now routes to Overview LayersPanel, single-too-long-command over-budget indicator added, Care undefinedAlias deep link pre-seeds filter) · typecheck/build/test all green
+- 2026-09-03 01:56 · 044 · story done, moving to done/
+- 2026-09-03 02:02 · 044 · story done, moved to done/
+- 2026-09-03 01:55 · 044 · orchestrator · re-ran ui:verify after fixture.mjs best-effort-cleanup fix, confirmed clean, resumed build agent to finish review/Done · done

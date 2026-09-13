@@ -1,3 +1,4 @@
+import type { ZodType } from 'zod'
 import {
   MODULE_MANIFESTS,
   fail,
@@ -13,6 +14,20 @@ import type { MainModule, ModuleHandler } from './types'
 
 const log = scopedLogger('modules')
 
+/** Fallback rejection key, matching the shell's `handleOutcome` wrapper. */
+const INVALID_PAYLOAD_KEY = 'ipc.error.invalidPayload'
+
+/**
+ * A handler plus the schema it was registered with. The pair is stored together
+ * because the map has to forget the handler's payload type to hold handlers from
+ * different modules - `invoke()` re-establishes the link by parsing with this
+ * entry's own schema before calling this entry's handler.
+ */
+interface RegisteredHandler {
+  handler: ModuleHandler
+  schema: ZodType<unknown>
+}
+
 /**
  * Holds the registered main-process module halves and routes `module:invoke`
  * traffic to them.
@@ -22,7 +37,7 @@ const log = scopedLogger('modules')
  */
 export class MainModuleRegistry {
   private readonly modules = new Map<ModuleId, MainModule>()
-  private readonly handlers = new Map<string, ModuleHandler>()
+  private readonly handlers = new Map<string, RegisteredHandler>()
 
   manifests(): ModuleManifest[] {
     // Registration reality wins over the declared status: a module whose
@@ -54,13 +69,20 @@ export class MainModuleRegistry {
       await module.setup({
         app,
         log: moduleLog,
-        handle: (type, handler) => {
+        handle: (type, schema, handler) => {
           const key = handlerKey(module.id, type)
           if (this.handlers.has(key)) {
             moduleLog.error(`handler '${type}' registered twice`)
             return
           }
-          this.handlers.set(key, handler)
+          // The two casts drop the payload type `handle` inferred at the call
+          // site; it is only needed there, to check `schema` against `handler`.
+          // `invoke()` never mixes entries, so what it feeds the handler is
+          // always what this schema produced.
+          this.handlers.set(key, {
+            handler: handler as ModuleHandler,
+            schema: schema as ZodType<unknown>,
+          })
         },
         emit: (type, payload) => {
           app.broadcast.emit('module:event', { moduleId: module.id, type, payload })
@@ -76,16 +98,28 @@ export class MainModuleRegistry {
   }
 
   async invoke(request: ModuleInvokeRequest): Promise<Outcome<unknown>> {
-    const handler = this.handlers.get(handlerKey(request.moduleId, request.type))
-    if (!handler) {
+    const entry = this.handlers.get(handlerKey(request.moduleId, request.type))
+    if (!entry) {
       return fail('modules.error.notImplemented', {
         moduleId: request.moduleId,
         type: request.type,
       })
     }
 
+    // Validation happens here, once, before the handler is entered - a module
+    // handler cannot be reached with a payload its schema rejects. Like the
+    // shell's `handleOutcome`, a bad payload becomes a failed outcome the
+    // renderer can render rather than a rejected promise.
+    const parsed = entry.schema.safeParse(request.payload)
+    if (!parsed.success) {
+      log.error(
+        `module '${request.moduleId}' handler '${request.type}' rejected an invalid payload`,
+      )
+      return fail(INVALID_PAYLOAD_KEY)
+    }
+
     try {
-      return ok(await handler(request.payload))
+      return ok(await entry.handler(parsed.data))
     } catch (error) {
       log.error(`module '${request.moduleId}' handler '${request.type}' threw`, error)
       return fail('modules.error.handlerFailed', {

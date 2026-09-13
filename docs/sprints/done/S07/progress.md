@@ -1,0 +1,69 @@
+- 2026-08-22 11:56 · 038 · D1 one shared reference graph · started
+- 2026-08-22 12:01 · 038 · D1 one shared reference graph · done
+- 2026-08-22 12:01 · 038 · D2 writer stops emitting dead alias lines · started
+- 2026-08-22 12:10 · 038 · D2 follow-up: quoted-override reference-detection gap · started
+- 2026-08-22 12:13 · 038 · D2 (+ follow-up) writer stops emitting dead alias lines · done
+- 2026-08-22 12:13 · 038 · D3 fixture corpus + file-level invariant · started
+- 2026-08-22 12:22 · 038 · D3 fixture corpus + file-level invariant · done
+- 2026-08-22 12:22 · 038 · D4 fix visible in running app · started
+- 2026-08-22 12:32 · 038 · D4 fix visible in running app · done
+- 2026-08-22 12:43 · 038 · story verified (build/typecheck/test/ui:verify) + reviewed (PASS) + Done section filled · done
+- 2026-08-22 12:44 · 039 · D1 aliasName field and one name resolver · started
+- 2026-08-22 12:48 · 039 · D1 aliasName field and one name resolver · done
+- 2026-08-22 12:48 · 039 · D2 alias-name validation and reserved-name set · started
+- 2026-08-22 12:55 · 039 · D2 alias-name validation and reserved-name set · done
+- 2026-08-22 12:55 · 039 · D3 mirror strip passes stop using prefix as identity · started
+- 2026-08-22 13:02 · 039 · D3 mirror strip passes stop using prefix as identity · done
+- 2026-08-22 13:02 · 039 · D4 isMirroredValue becomes key-scoped · started
+- 2026-08-22 13:08 · 039 · D4 isMirroredValue becomes key-scoped · done
+- 2026-08-22 13:08 · 039 · D5 adoption and chain resolution without the prefix · started
+- 2026-08-22 13:15 · 039 · D5 adoption and chain resolution without the prefix · done
+- 2026-08-22 13:15 · 039 · D6 read-path migration of legacy names · started
+- 2026-08-22 13:24 · 039 · D6 read-path migration of legacy names · done
+- 2026-08-22 13:24 · 039 · D7 flip the derived name to the readable one · started
+- 2026-08-22 13:43 · 039 · D7 flip the derived name to the readable one · done
+- 2026-08-22 13:43 · 039 · D8 Care warns about collisions and shadowed commands · started
+- 2026-08-22 13:52 · 039 · D8 Care warns about collisions and shadowed commands · done
+- 2026-08-22 13:52 · 039 · D9 UI: own alias name and rename refusal · started
+- 2026-08-22 14:10 · 039 · D9 UI: own alias name and rename refusal · done
+- 2026-08-22 14:10 · 039 · story-level verification (build/test/typecheck) · started
+- 2026-08-22 13:50 · 039 · story-level verification (build/test/typecheck) · done
+- 2026-08-22 13:50 · 039 · clean-agent review (story-review-hard) · started
+- 2026-08-22 14:20 · 039 · clean-agent review (2 cycles) + 4 confirmed bugs fixed · done
+- 2026-08-22 14:35 · 039 · live-smoke (ui:verify + new ui:flow probe) + Done section filled, moved to done/ · done
+- 2026-08-22 15:24 · 040 · D1 Plain-English labels and section order in the shared layer · started
+- 2026-08-22 15:38 · 040 · D1 Plain-English labels and section order in the shared layer · done
+- 2026-08-22 15:38 · 040 · D2 Layout primitives, header block and cvar sections · started
+- 2026-08-22 15:52 · 040 · D2 Layout primitives, header block and cvar sections · done
+- 2026-08-22 15:52 · 040 · D3 Alias, layer and bind sections with trailing comments · started
+- 2026-08-22 16:14 · 040 · D3 fix: layer-trigger-wins ordering regression · started
+- 2026-08-22 16:19 · 040 · D3 fix: layer-trigger-wins ordering regression · done
+- 2026-08-22 16:19 · 040 · D4 writeUnbindall per-profile setting (data + handler) · started
+- 2026-08-22 16:28 · 040 · D4 writeUnbindall per-profile setting (data + handler) · done
+- 2026-08-22 16:28 · 040 · D5 Raw File tab checkbox · started
+- 2026-08-22 16:31 · 040 · D5 Raw File tab checkbox · done
+- 2026-08-22 16:31 · 040 · D6 Highlighting and the two views still hold up · started
+- 2026-08-22 17:33 · 040 · resumed after session cutoff; removed stray TEMP EXPLORE debug block from config-syntax.test.ts (npm test 1222/1222 green) · note
+- 2026-08-22 17:42 · 040 · D6 fix-up: axe scrollable-region-focusable violation on `.cfg-code` containers (ConfigCodeView.tsx), fixed with tabIndex={0}; ui:verify rerun 34/34, 0 violations · note
+- 2026-08-22 17:45 · 040 · D6 Highlighting and the two views still hold up · done
+- 2026-08-22 18:03 · 040 · clean-agent review (story-review-hard, 1 cycle, foreground) · done — PASS after 3 confirmed defects fixed: raw NUL byte in ownerIndexKey's separator (render.ts, made the file binary to grep and one edit away from silent key/value-collision corruption), case-insensitive-duplicate cvar-order determinism gap, unbounded banner line-length edge case
+- 2026-08-22 18:05 · 040 · story-level verification (build/typecheck/test 1228 green/ui:verify 0 violations) + Done section filled, moved to done/ · done
+- 2026-08-22 18:07 · 041 · D1 Shared command tokenizer + alias parsing · started
+- 2026-08-22 18:12 · 041 · D1 Shared command tokenizer + alias parsing · done
+- 2026-08-22 18:12 · 041 · D2 import-reader folds aliases across files and exec · started
+- 2026-08-22 18:17 · 041 · D2 import-reader folds aliases across files and exec · done
+- 2026-08-22 18:17 · 041 · D3 Alias to entry conversion (shared, pure) · started
+- 2026-08-22 18:28 · 041 · D3 Alias to entry conversion (shared, pure) · done
+- 2026-08-22 18:28 · 041 · D4 Reference graph counts raw binds and alias bodies · started
+- 2026-08-22 18:28 · 041 · D5 Press/release pairs read as pairs · started
+- 2026-08-22 18:37 · 041 · D4 Reference graph counts raw binds and alias bodies · done
+- 2026-08-22 18:37 · 041 · D5 Press/release pairs read as pairs · done
+- 2026-08-22 18:37 · 041 · D6 Contract + main: preview reports aliases, commit takes the answers · started
+- 2026-08-22 18:48 · 041 · D6 Contract + main: preview reports aliases, commit takes the answers · done
+- 2026-08-22 18:48 · 041 · D7 Import dialog: alias counts + review step · started
+- 2026-08-22 18:48 · 041 · D8 Message editor recognises colour cvars · started
+- 2026-08-22 18:57 · 041 · D7 Import dialog: alias counts + review step · done
+- 2026-08-22 19:03 · 041 · D8 Message editor recognises colour cvars · done
+- 2026-08-22 19:03 · 041 · D9 Fixture import test (dm.cfg + dmalias.cfg + gfx.cfg) · started
+- 2026-08-22 19:12 · 041 · D9 Fixture import test (dm.cfg + dmalias.cfg + gfx.cfg) · done
+- 2026-08-22 19:36 · 041 · story done (review-hard FAIL -> 3 fixes -> re-verified green, ui:verify 18/18 clean) · done

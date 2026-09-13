@@ -1,6 +1,5 @@
 import { join } from 'node:path'
 import { app as electronApp, BrowserWindow, screen, shell } from 'electron'
-import { is } from '@electron-toolkit/utils'
 import {
   WINDOW_DEFAULT_HEIGHT,
   WINDOW_DEFAULT_WIDTH,
@@ -12,6 +11,12 @@ import { chromeState } from './lib/chrome-state'
 import { JsonStore } from './lib/json-store'
 import { scopedLogger } from './lib/logger'
 import { windowStateFilePath } from './lib/paths'
+import {
+  RENDERER_INDEX_URL,
+  RENDERER_ORIGIN,
+  resolveRendererSource,
+  type RendererSource,
+} from './lib/renderer-source'
 import { parseWindowState } from './lib/schemas'
 import type { AppContext } from './context'
 
@@ -19,6 +24,28 @@ const log = scopedLogger('window')
 
 /** The launcher's chrome colour, so the first frame is not a white flash. */
 const BACKGROUND_COLOR = '#0b0b0d'
+
+/**
+ * Set to `1` by the UI-verification harness (`scripts/lib/harness.mjs`'s
+ * `childEnv()`) in the app's environment, never in a normal or packaged launch.
+ *
+ * Read once at module load — the environment cannot change under a running
+ * process, and a single lookup keeps the two places that branch on it from
+ * disagreeing. Matched strictly against `'1'` so a stray `Q2L_UI_HARNESS=0`
+ * cannot switch the launcher into a window that refuses focus.
+ */
+const IS_UI_HARNESS = process.env['Q2L_UI_HARNESS'] === '1'
+
+/**
+ * Which document this window loads, and what `will-navigate` therefore has to allow. Derived from
+ * the dev server being present rather than from `is.dev` — see the same derivation in `index.ts`,
+ * which decides the matching CSP from it. `resolveRendererSource` is pure, so both agree; read
+ * once at module load for the same reason as `IS_UI_HARNESS` above.
+ */
+const RENDERER_SOURCE: RendererSource = resolveRendererSource({
+  isDev: Boolean(process.env['ELECTRON_RENDERER_URL']),
+  devServerUrl: process.env['ELECTRON_RENDERER_URL'],
+})
 
 /**
  * Build resources are not packed into the application automatically.
@@ -90,6 +117,14 @@ export async function createMainWindow(app: AppContext): Promise<MainWindow> {
     minWidth: WINDOW_MIN_WIDTH,
     minHeight: WINDOW_MIN_HEIGHT,
     show: false,
+    // Under the verification harness the window must be painted but never
+    // activated, so it cannot steal the foreground from whoever started the run.
+    // `focusable: false` is the OS-level half of that (WS_EX_NOACTIVATE on
+    // Windows): the window is not activated on show and clicking it does not
+    // raise it. Spread conditionally rather than passed as `focusable: true`, so
+    // a normal launch hands Electron exactly the options it got before — Windows
+    // also derives `skipTaskbar: true` from `focusable: false`.
+    ...(IS_UI_HARNESS ? { focusable: false } : {}),
     backgroundColor: BACKGROUND_COLOR,
     icon: mainWindowIconPath(),
     // Fully custom chrome: the title bar is a React component, matching the
@@ -153,8 +188,14 @@ export async function createMainWindow(app: AppContext): Promise<MainWindow> {
   })
 
   window.webContents.on('will-navigate', (event, url) => {
-    const devServer = process.env['ELECTRON_RENDERER_URL']
-    const allowed = devServer ? url.startsWith(devServer) : url.startsWith('file://')
+    // Our own content is the dev server in dev mode and `q2launcher://app/` otherwise — the
+    // trailing slash keeps a look-alike host such as `q2launcher://appx/` out. This is also what
+    // keeps a self-navigation to the same document alive: the harness's `page.reload()` and the
+    // ErrorBoundary's `location.reload()`.
+    const allowed =
+      RENDERER_SOURCE.kind === 'dev-server'
+        ? url.startsWith(RENDERER_SOURCE.url)
+        : url.startsWith(`${RENDERER_ORIGIN}/`)
     if (!allowed) {
       event.preventDefault()
       log.warn(`blocked navigation to ${url}`)
@@ -164,13 +205,19 @@ export async function createMainWindow(app: AppContext): Promise<MainWindow> {
   window.once('ready-to-show', () => {
     if (saved.fullScreen) window.setFullScreen(true)
     else if (saved.maximized) window.maximize()
-    window.show()
+    // `show()` shows *and* focuses; `showInactive()` shows without asking for
+    // activation. The harness path needs the second one — `focusable: false`
+    // alone would leave Electron requesting a focus the window then refuses.
+    if (IS_UI_HARNESS) window.showInactive()
+    else window.show()
   })
 
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    await window.loadURL(process.env['ELECTRON_RENDERER_URL'])
+  // Production loads over `q2launcher://`, not `loadFile`: a `file://` document has no origin the
+  // header hook can reach, which is how the CSP came to be absent from every packaged build.
+  if (RENDERER_SOURCE.kind === 'dev-server') {
+    await window.loadURL(RENDERER_SOURCE.url)
   } else {
-    await window.loadFile(join(__dirname, '../renderer/index.html'))
+    await window.loadURL(RENDERER_INDEX_URL)
   }
 
   return {

@@ -1,0 +1,46 @@
+# Sprint S13 Progress
+- 2026-09-06 15:45 · 054 · D1 DnD primitive · started
+- 2026-09-06 15:56 · 054 · D1 DnD primitive · done
+- 2026-09-06 15:56 · 054 · D2 Controls order helpers · started
+- 2026-09-06 15:56 · 054 · D9 Settings order helpers · started
+- 2026-09-06 15:59 · 054 · D2 Controls order helpers · done
+- 2026-09-06 15:59 · 054 · D9 Settings order helpers · done
+- 2026-09-06 15:59 · 054 · D3 One element per row + grip column · started
+- 2026-09-06 16:05 · 054 · D3 One element per row + grip column · done
+- 2026-09-06 16:05 · 054 · D4 Rows drag within a category (hard) · started
+- 2026-09-06 16:30 · 054 · D4 Rows drag within a category (hard) · done
+- 2026-09-06 16:30 · 054 · D5 Cross-category drops (hard) · started
+- 2026-09-06 16:53 · 054 · D5 Cross-category drops (hard) · done
+- 2026-09-06 16:53 · 054 · D6 Sub-category headers reorder · started
+- 2026-09-06 17:05 · 054 · D6 Sub-category headers reorder · done
+- 2026-09-06 17:05 · 054 · D7 Category chips reorder · started
+- 2026-09-06 17:14 · 054 · D7 Category chips reorder · done
+- 2026-09-06 17:14 · 054 · D8 Row menu takes over move up/down · started
+- 2026-09-06 17:41 · 054 · D8 blocked: subagent accidentally reset ControlsTab.tsx to HEAD, losing D4-D7 wiring in that file; recovering via reconstruction
+- 2026-09-06 17:55 · 054 · D8 Row menu takes over move up/down · done (after recovery)
+- 2026-09-06 17:55 · 054 · D10 Settings drags · started
+- 2026-09-06 18:15 · 054 · D10 Settings drags · done
+- 2026-09-06 18:15 · 054 · D11 Order survives save/discard/render · started
+- 2026-09-06 18:29 · 054 · D11 Order survives save/discard/render · done
+- 2026-09-06 18:29 · 054 · D12 Seen and driven in the real app · started
+- 2026-09-06 18:42 · 054 · D12 Seen and driven in the real app · done
+- 2026-09-06 19:03 · 054 · story complete, moved to done
+- 2026-09-06 19:04 · 058 · D1 Care item model and honest summary · started
+- 2026-09-06 19:15 · 058 · D1 Care item model and honest summary · done
+- 2026-09-06 19:15 · 058 · D2 Care renders to-do list · started
+- 2026-09-06 19:21 · 058 · D2 Care renders to-do list · done
+- 2026-09-06 19:21 · 058 · D3 Files group only what needs attention · started
+- 2026-09-06 19:27 · 058 · D3 Files group only what needs attention · done
+- 2026-09-06 19:27 · 058 · D4 Tidy-up group, preserved lines once · started
+- 2026-09-06 19:33 · 058 · D4 Tidy-up group, preserved lines once · done
+- 2026-09-06 19:33 · 058 · D5 Show in Controls deep link · started
+- 2026-09-06 19:38 · 058 · D5 Show in Controls deep link · done
+- 2026-09-06 19:38 · 058 · D6 Redundant-copies cleanup moves to Library · started
+- 2026-09-06 19:44 · 058 · D6 Redundant-copies cleanup moves to Library · done
+- 2026-09-06 19:45 · 058 · D7 Verification two Care screens, Library dialog, one flow · started
+- 2026-09-06 20:13 · 058 · D7 Verification two Care screens, Library dialog, one flow · done
+- 2026-09-06 20:22 · 058 · review cycle 1 · started
+- 2026-09-06 20:29 · 058 · review cycle 1 fixes applied · done
+- 2026-09-06 20:36 · 058 · review cycle 2 · started
+- 2026-09-06 20:39 · 058 · review cycle 2 fixes applied · done
+- 2026-09-06 20:40 · 058 · story complete, moved to done

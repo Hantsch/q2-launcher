@@ -1,0 +1,50 @@
+- 2026-09-07 18:18 · 068 · D1 Support is data on EngineDefinition · started
+- 2026-09-07 18:20 · 068 · D1 Support is data on EngineDefinition · done
+- 2026-09-07 18:20 · 068 · D2 The vocabulary says engine · started
+- 2026-09-07 18:22 · 068 · D2 The vocabulary says engine · done
+- 2026-09-07 18:22 · 068 · D3 Only supported engines are selectable · started
+- 2026-09-07 18:22 · 068 · D4 An unsupported engine says so · started
+- 2026-09-07 18:24 · 068 · D3 Only supported engines are selectable · done
+- 2026-09-07 18:24 · 068 · D4 An unsupported engine says so · done
+- 2026-09-07 18:24 · 068 · D5 Acceptance flow + green harness · started
+- 2026-09-07 18:33 · 068 · D5 Acceptance flow + green harness · done
+- 2026-09-07 18:38 · 067 · D1 Shipped icon set in the bundle · started
+- 2026-09-07 18:38 · 067 · D2 One InstallationTile, three call sites · started
+- 2026-09-07 18:38 · 067 · D3 Contract: icon on the record and three channels · started
+- 2026-09-07 18:45 · 067 · D1 Shipped icon set in the bundle · done
+- 2026-09-07 18:45 · 067 · D2 One InstallationTile, three call sites · done
+- 2026-09-07 18:45 · 067 · D3 Contract: icon on the record and three channels · done
+- 2026-09-07 18:46 · 067 · D4 Main: icon store, validation, delivery · started
+- 2026-09-07 18:46 · 067 · D5 The tile shows the icon, on all three surfaces · started
+- 2026-09-07 18:58 · 067 · D4 Main: icon store, validation, delivery · done
+- 2026-09-07 18:58 · 067 · D5 The tile shows the icon, on all three surfaces · done
+- 2026-09-07 18:58 · 067 · D6 The picker dialog and its trigger · started
+- 2026-09-07 19:05 · 067 · D6 The picker dialog and its trigger · done
+- 2026-09-07 20:21 · 067 · verification + story-review-hard (2 passes, F1/F2 found+fixed) · done
+- 2026-09-07 20:24 · 069 · D1 the read-only find bar opens on demand · started
+- 2026-09-07 20:32 · 069 · D1 the read-only find bar opens on demand · done
+- 2026-09-07 20:32 · 069 · D2 the locked hint lives in the merged toolbar row · started
+- 2026-09-07 20:38 · 069 · D2 the locked hint lives in the merged toolbar row · done
+- 2026-09-07 20:38 · 069 · D3 the identity zone renders two lines · started
+- 2026-09-07 20:46 · 069 · D3 the identity zone renders two lines · done
+- 2026-09-07 20:58 · 069 · review-fix cycle 1 (D1 find-bar focus bugs) · started
+- 2026-09-07 21:13 · 069 · review-fix cycle 2 (Ctrl+F no-op when already open) · started
+- 2026-09-07 21:17 · 069 · review-fix cycle 2 (Ctrl+F no-op when already open) · done
+- 2026-09-07 21:26 · 069 · review-fix cycle 1 (D1 find-bar focus bugs) · done (belated log entry — actually completed before cycle 2 started at 21:13)
+- 2026-09-07 21:26 · 069 · story-review-hard (3 passes, F1-F3 found+fixed, final PASS) · done
+- 2026-09-07 21:30 · 066 · D1 readImportableFiles(paths) in the reader · started
+- 2026-09-07 21:39 · 066 · D1 readImportableFiles(paths) in the reader · done
+- 2026-09-07 21:39 · 066 · D2 fixture reference case · started
+- 2026-09-07 21:39 · 066 · D3 contract + schemas · started
+- 2026-09-07 21:39 · 066 · D4 DialogService + harness stub · started
+- 2026-09-07 21:47 · 066 · D2 fixture reference case · done
+- 2026-09-07 21:47 · 066 · D3 contract + schemas · done
+- 2026-09-07 21:47 · 066 · D4 DialogService + harness stub · done
+- 2026-09-07 21:48 · 066 · D5 picked-file registry + import handlers · started
+- 2026-09-07 22:03 · 066 · D5 picked-file registry + import handlers · done
+- 2026-09-07 22:03 · 066 · D6 CreateProfileDialog four start-from options · started
+- 2026-09-07 22:09 · 066 · D6 CreateProfileDialog four start-from options · done
+- 2026-09-07 22:09 · 066 · D7 ImportProfileDialog ordered file list · started
+- 2026-09-07 22:22 · 066 · D7 ImportProfileDialog ordered file list · done
+- 2026-09-07 22:22 · 066 · D8 e2e coverage of the flow · started
+- 2026-09-07 22:42 · 066 · D8 e2e coverage of the flow · done

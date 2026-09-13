@@ -1,0 +1,65 @@
+- 2026-09-08 17:21 · 076 · D1 the allowlist matches the real archives · started
+- 2026-09-08 17:25 · 076 · D1 the allowlist matches the real archives · done
+- 2026-09-08 17:25 · 076 · D2 assemble says what is missing · started
+- 2026-09-08 17:26 · 076 · D2 assemble says what is missing · done
+- 2026-09-08 17:27 · 076 · D3 the job fails naming the package · started
+- 2026-09-08 17:35 · 076 · D3 the job fails naming the package · done
+- 2026-09-08 17:37 · 076 · D4 the fixtures mirror the real archives · started
+- 2026-09-08 17:51 · 076 · D4 the fixtures mirror the real archives · done
+- 2026-09-08 17:53 · 076 · D5 the checked-in listing keeps fixture and reality in step · started
+- 2026-09-08 17:57 · 076 · D5 the checked-in listing keeps fixture and reality in step · done
+- 2026-09-08 17:58 · 076 · D6 the named failure on the real surface · started
+- 2026-09-08 18:01 · 076 · D6 the named failure on the real surface · done
+- 2026-09-08 18:12 · 076 · review-fix F1 PRUNABLE_TARGET_DIRS stale players path · started
+- 2026-09-09 08:12 · 076 · review-fix F1 PRUNABLE_TARGET_DIRS stale players path · done
+- 2026-09-09 08:25 · 076 · review-fix F1/F3 archive-layouts.test.ts GLOB_DIRS + reverse-mirror coverage gaps · started
+- 2026-09-09 08:25 · 076 · review-fix F1/F3 archive-layouts.test.ts GLOB_DIRS + reverse-mirror coverage gaps · done
+- 2026-09-09 08:33 · 077 · D1 the persisted failure record and when it disappears · started
+- 2026-09-09 08:38 · 077 · D1 the persisted failure record and when it disappears · done
+- 2026-09-09 08:38 · 077 · D2 a failed bootstrap keeps its installation; a cancelled one still does not · started
+- 2026-09-09 08:46 · 077 · D2 a failed bootstrap keeps its installation; a cancelled one still does not · done
+- 2026-09-09 08:46 · 077 · fix applyInspection preserves known engineKind when re-inspection is unknown (AC1 gap found during D2) · started
+- 2026-09-09 08:47 · 077 · fix applyInspection preserves known engineKind when re-inspection is unknown (AC1 gap found during D2) · done
+- 2026-09-09 08:47 · 077 · D3 retrying adopts the failed installation · started
+- 2026-09-09 08:53 · 077 · D3 retrying adopts the failed installation · done
+- 2026-09-09 08:53 · 077 · fix cancelling an adopted retry must not delete the pre-existing installation (gap found during D3) · started
+- 2026-09-09 08:53 · 077 · D4 the library card and the rail tile say a download failed · started
+- 2026-09-09 08:55 · 077 · fix cancelling an adopted retry must not delete the pre-existing installation (gap found during D3) · done
+- 2026-09-09 08:57 · 077 · D4 the library card and the rail tile say a download failed · done
+- 2026-09-09 08:57 · 077 · D5 offline proof: a real failing run, and the retry that adopts it · started
+- 2026-09-09 09:15 · 077 · D5 offline proof: a real failing run, and the retry that adopts it · done
+- 2026-09-09 09:24 · 077 · review-fix F1 raw {{packageId}} placeholder / F2 cancel-of-adopted retry dead-ends / F4 engine-preservation guard narrowness · started
+- 2026-09-09 14:04 · 077 · review-fix F1 raw {{packageId}} placeholder / F2 cancel-of-adopted retry dead-ends / F4 engine-preservation guard narrowness · done
+- 2026-09-09 14:04 · 077 · fresh story-review-hard pass over full diff · started
+- 2026-09-09 14:04 · 077 · fresh story-review-hard pass over full diff · done
+- 2026-09-09 14:04 · 077 · review-fix N1 engine-preservation guard scoped to lastFailure (AC8) / N2 story text for adopted-retry cancel (AC2) / N4+nit test coverage · started
+- 2026-09-09 14:06 · 077 · review-fix N1 engine-preservation guard scoped to lastFailure (AC8) / N2 story text for adopted-retry cancel (AC2) / N4+nit test coverage · done
+- 2026-09-09 14:06 · 077 · verification (build/test/typecheck/ui:verify/ui:flow bootstrap-failure-retry) · done
+- 2026-09-09 14:07 · 077 · done section filled, status done, moved to done/ + INDEX.md · done
+- 2026-09-09 14:08 · 078 · D1 the two new records, their persisted form, and their cap · started
+- 2026-09-09 14:11 · 078 · D1 the two new records, their persisted form, and their cap · done
+- 2026-09-09 14:11 · 078 · D2 assemble.ts says what it looked for and what served it · started
+- 2026-09-09 14:13 · 078 · D2 assemble.ts says what it looked for and what served it · done
+- 2026-09-09 14:13 · 078 · D3 the bootstrap job records assembly and extraction contents · started
+- 2026-09-09 14:20 · 078 · D3 the bootstrap job records assembly and extraction contents · done
+- 2026-09-09 14:20 · 078 · D4 the copied report gains both records · started
+- 2026-09-09 14:23 · 078 · D4 the copied report gains both records · done
+- 2026-09-09 14:23 · 078 · D5 the shared, collapsed cause detail · started
+- 2026-09-09 14:27 · 078 · D5 the shared, collapsed cause detail · done
+- 2026-09-09 14:27 · 078 · D6 the Downloads card mounts it and demotes reveal-log · started
+- 2026-09-09 14:30 · 078 · D6 the Downloads card mounts it and demotes reveal-log · done
+- 2026-09-09 14:30 · 078 · D7 the wizard's failed running step shows the same detail · started
+- 2026-09-09 14:35 · 078 · D7 the wizard's failed running step shows the same detail · done
+- 2026-09-09 14:35 · 078 · D8 fixture record and the Downloads-tab flow · started
+- 2026-09-09 14:41 · 078 · D8 fixture record and the Downloads-tab flow · done
+- 2026-09-09 14:41 · 078 · D9 a real failed bootstrap run, end to end · started
+- 2026-09-09 15:07 · 078 · D9 a real failed bootstrap run, end to end · done
+- 2026-09-09 15:07 · 078 · full verification (build/test/typecheck/ui:verify/ui:flow) · started
+- 2026-09-09 15:09 · 078 · full verification (build/test/typecheck/ui:verify/ui:flow) · done
+- 2026-09-09 15:09 · 078 · story-review-hard over full diff · started
+- 2026-09-09 19:11 · 078 · story-review-hard over full diff (resumed, fresh pass) · started
+- 2026-09-09 19:21 · 078 · story-review-hard over full diff (resumed, fresh pass) · done (PASS, 4 medium + 9 low findings)
+- 2026-09-09 19:25 · 078 · review-fix M2 contributed-undefined-vs-false ambiguity / M3 assemble.ts lost candidates · started
+- 2026-09-09 19:26 · 078 · review-fix M2 contributed-undefined-vs-false ambiguity / M3 assemble.ts lost candidates · done
+- 2026-09-09 19:26 · 078 · verification after review-fix (test/typecheck/build/ui:verify/ui:flow downloads-tab+bootstrap-failure) · done
+- 2026-09-09 19:28 · 078 · done section filled, status done, moved to done/ + INDEX.md · done

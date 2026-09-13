@@ -11,16 +11,13 @@ export const STATE_FILE = 'state.json'
 export const WINDOW_STATE_FILE = 'window-state.json'
 
 /** Bumped whenever the shape of `state.json` changes; see `src/main/services/migrations.ts`. */
-export const STATE_SCHEMA_VERSION = 1
+export const STATE_SCHEMA_VERSION = 3
 
 /** Window sizing. The shell layout below ~940x620 starts to break down. */
 export const WINDOW_DEFAULT_WIDTH = 1280
 export const WINDOW_DEFAULT_HEIGHT = 800
 export const WINDOW_MIN_WIDTH = 940
 export const WINDOW_MIN_HEIGHT = 620
-
-/** Height of the custom (frameless) title bar, in CSS pixels. Mirrored in CSS as `--titlebar-h`. */
-export const TITLEBAR_HEIGHT = 36
 
 /** The canonical Quake II base game directory. */
 export const BASE_GAME_DIR = 'baseq2'
@@ -44,6 +41,10 @@ export const NON_GAME_DIRS = new Set([
   // The Steam build of Quake II ships the classic game in the install root and
   // the 2023 remaster in `rerelease/`. It is a whole second game, not a mod.
   'rerelease',
+  // Story 092 D2: the single engine-update backup slot
+  // (`<root>/.q2launcher-engine-backup/`) - never a selectable game directory in `GameDirSelect`,
+  // by rule rather than by luck of its contents.
+  '.q2launcher-engine-backup',
 ])
 
 /**
@@ -61,3 +62,6 @@ export const RETAIL_PAK_SIZES: Record<string, number> = {
 }
 
 export const APP_REPO_URL = 'https://github.com/Hantsch/q2-launcher'
+
+/** Story 099 D3: the full changelog, linked from Settings > About next to the repository link. */
+export const APP_CHANGELOG_URL = 'https://github.com/Hantsch/q2-launcher/blob/main/CHANGELOG.md'

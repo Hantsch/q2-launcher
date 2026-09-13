@@ -1,5 +1,11 @@
 import { BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import type { WindowChromeState } from '@shared/ipc'
+import {
+  windowCloseSchema,
+  windowGetStateSchema,
+  windowMinimizeSchema,
+  windowToggleMaximizeSchema,
+} from '@shared/ipc-schemas'
 import { chromeState } from '../lib/chrome-state'
 import { handle } from './index'
 
@@ -11,22 +17,22 @@ import { handle } from './index'
  * window.
  */
 export function registerWindowIpc(): void {
-  handle('window:minimize', (_payload, event) => {
+  handle('window:minimize', windowMinimizeSchema, (_payload, event) => {
     windowFrom(event)?.minimize()
   })
 
-  handle('window:toggleMaximize', (_payload, event) => {
+  handle('window:toggleMaximize', windowToggleMaximizeSchema, (_payload, event) => {
     const window = windowFrom(event)
     if (!window) return
     if (window.isMaximized()) window.unmaximize()
     else window.maximize()
   })
 
-  handle('window:close', (_payload, event) => {
+  handle('window:close', windowCloseSchema, (_payload, event) => {
     windowFrom(event)?.close()
   })
 
-  handle('window:getState', (_payload, event): WindowChromeState => {
+  handle('window:getState', windowGetStateSchema, (_payload, event): WindowChromeState => {
     return chromeState(windowFrom(event))
   })
 }

@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>C · Keyboard first — bindings prototype</title>
+<link rel="stylesheet" href="_proto.css" />
+<style>
+  .stage { max-width: 1560px; }
+
+  .shell { display: grid; grid-template-columns: minmax(430px, 1fr) minmax(620px, 1.15fr); gap: 20px; align-items: start; }
+
+  /* --- left: action list ------------------------------------------------- */
+  .list { padding: 0 0 6px; max-height: calc(100vh - 150px); overflow: auto; }
+  .list header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; border-bottom: 1px solid var(--line-strong);
+    position: sticky; top: 0; background: #101216; z-index: 5;
+  }
+  .list header .spacer { flex: 1; }
+
+  .group { display: flex; align-items: center; gap: 10px; padding: 14px 14px 6px; }
+  .group .rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--line-strong), transparent); }
+
+  .arow {
+    display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px;
+    padding: 7px 14px; border-bottom: 1px solid rgb(41 44 51 / 0.5);
+    cursor: pointer;
+  }
+  .arow:hover { background: rgb(255 138 31 / 0.05); }
+  .arow[aria-selected='true'] {
+    background: rgb(255 138 31 / 0.1);
+    box-shadow: inset 2px 0 0 var(--flame-500);
+  }
+  .arow .name { font-size: 13.5px; }
+  .arow[aria-selected='true'] .name { color: var(--flame-200); }
+  .arow.is-empty .name { color: var(--ink-muted); }
+  .arow .caps { display: flex; gap: 4px; align-items: center; }
+  .arow .hint {
+    font-family: var(--font-display); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .arow .dot { width: 6px; height: 6px; border-radius: 50%; background: #23262c; }
+  .arow.is-bound .dot { background: var(--flame-500); box-shadow: 0 0 6px rgb(255 138 31 / 0.6); }
+  .arow.is-conflict .dot { background: var(--danger); box-shadow: 0 0 6px rgb(255 90 82 / 0.6); }
+
+  /* --- right: keyboard --------------------------------------------------- */
+  .board { position: sticky; top: 60px; padding: 16px 18px 18px; }
+  .board > header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .board > header .spacer { flex: 1; }
+
+  .kb { display: flex; flex-direction: column; gap: 5px; }
+  .kb .krow { display: flex; gap: 5px; }
+
+  .key {
+    position: relative;
+    flex: 1 1 0; min-width: 0;
+    height: 54px; padding: 5px 6px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    background: linear-gradient(180deg, #23272e 0%, #171a1e 100%);
+    border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 3px;
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.05) inset, 0 2px 4px rgb(0 0 0 / 0.5);
+    cursor: pointer; overflow: hidden;
+  }
+  .key:hover { border-color: var(--flame-700); }
+  .key .glyph { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--ink-dim); }
+  .key .act {
+    font-family: var(--font-display); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .key.is-bound {
+    background: linear-gradient(180deg, var(--flame-300) 0%, var(--flame-600) 100%);
+    border-color: var(--flame-700);
+  }
+  .key.is-bound .glyph, .key.is-bound .act { color: var(--flame-ink); }
+  .key.is-selected {
+    outline: 2px solid var(--flame-200); outline-offset: 1px;
+    background: linear-gradient(180deg, #fff0dc 0%, var(--flame-400, #ff9e3d) 100%);
+  }
+  .key.is-other {                             /* bound, but to another category */
+    background: linear-gradient(180deg, #3d4450 0%, #262b33 100%);
+    border-color: #4c5462;
+    box-shadow: inset 0 2px 0 rgb(106 183 255 / 0.45), 0 2px 4px rgb(0 0 0 / 0.5);
+  }
+  .key.is-other .glyph { color: var(--ink); }
+  .key.is-other .act { color: var(--ink-muted); }
+  .key.is-conflict { border-color: var(--danger); }
+  .key.is-conflict::after {
+    content: ''; position: absolute; inset: 0;
+    background: repeating-linear-gradient(135deg, rgb(255 90 82 / 0.25) 0 4px, transparent 4px 8px);
+    pointer-events: none;
+  }
+  .key.is-trigger { background: linear-gradient(180deg, #3a2a17 0%, #241a10 100%); border-color: var(--flame-900); }
+  .key.is-trigger .glyph { color: var(--flame-200); }
+
+  .k-w15 { flex-grow: 1.5; } .k-w18 { flex-grow: 1.8; } .k-w20 { flex-grow: 2; }
+  .k-w22 { flex-grow: 2.2; } .k-w25 { flex-grow: 2.5; } .k-w60 { flex-grow: 6; }
+
+  .kb .spacer-row { height: 8px; }
+
+  /* mouse + wheel block */
+  .periph { display: grid; grid-template-columns: 150px 1fr; gap: 14px; margin-top: 16px; align-items: start; }
+  .mouse {
+    position: relative; height: 132px;
+    border: 1px solid var(--line-strong); border-radius: 40px 40px 24px 24px;
+    background: linear-gradient(180deg, #1e2126, #14161a);
+    display: grid; grid-template-columns: 1fr 22px 1fr; grid-template-rows: 52px 1fr;
+    padding: 6px; gap: 4px;
+  }
+  .mouse .mb {
+    border: 1px solid var(--line-strong); border-radius: 22px 6px 6px 6px;
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-size: 9px; color: var(--ink-muted);
+    background: #1a1d22; cursor: pointer;
+  }
+  .mouse .mb.r { border-radius: 6px 22px 6px 6px; }
+  .mouse .mb.is-bound { background: linear-gradient(180deg, var(--flame-300), var(--flame-600)); color: var(--flame-ink); border-color: var(--flame-700); }
+  .mouse .wheel {
+    border: 1px solid var(--line-strong); border-radius: 8px; background: #101216;
+    display: grid; grid-template-rows: 1fr 1fr; gap: 2px; padding: 2px; cursor: pointer;
+  }
+  .mouse .wheel i { border-radius: 4px; background: #1a1d22; }
+  .mouse .wheel i.is-bound { background: linear-gradient(180deg, var(--flame-300), var(--flame-600)); }
+  .mouse .body { grid-column: 1 / -1; display: grid; place-items: center; font-family: var(--font-mono); font-size: 9px; color: var(--ink-faint); }
+
+  .legend { display: flex; flex-direction: column; gap: 7px; padding-top: 2px; }
+  .legend div { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-muted); }
+  .legend .sw { width: 16px; height: 12px; border-radius: 2px; border: 1px solid var(--line-strong); }
+  .sw.b { background: linear-gradient(180deg, var(--flame-300), var(--flame-600)); border-color: var(--flame-700); }
+  .sw.o { background: linear-gradient(180deg, #3d4450, #262b33); box-shadow: inset 0 2px 0 rgb(106 183 255 / 0.45); }
+  .sw.t { background: linear-gradient(180deg, #3a2a17, #241a10); border-color: var(--flame-900); }
+  .sw.c { background: repeating-linear-gradient(135deg, rgb(255 90 82 / 0.4) 0 3px, #1a1d22 3px 6px); border-color: var(--danger); }
+  .sw.f { background: #171a1e; }
+
+  .capture {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 16px; padding: 10px 12px;
+    border: 1px dashed var(--flame-700); background: rgb(255 138 31 / 0.07);
+    font-family: var(--font-mono); font-size: 11.5px; color: var(--flame-200);
+  }
+  .capture .spacer { flex: 1; }
+  kbd {
+    font-family: var(--font-mono); font-size: 10px; padding: 1px 5px;
+    background: var(--raised); border: 1px solid var(--line-strong); border-radius: 2px; color: var(--ink-dim);
+  }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <strong>PROTOTYPE C</strong> <span>Keyboard first — live board, list drives the map</span>
+  <span class="spacer"></span>
+  <a href="index.html">← all prototypes</a>
+  <a href="a-column-grid.html">A</a>
+  <a href="b-keycap-cards.html">B</a>
+</div>
+
+<div class="stage">
+  <p class="note">
+    <b>Idea:</b> the keyboard is the primary surface, the list is the index. Selecting an action
+    (here: <b>Super Shotgun</b>) arms a capture and the board shows what is free, what belongs to
+    this category, what belongs elsewhere and what collides. Binding by clicking a key works too.
+    This is the only one of the three that answers "what is still free?" at a glance.
+  </p>
+
+  <div class="shell">
+
+    <!-- ============ left: list ============ -->
+    <section class="panel list">
+      <header>
+        <div class="tabs">
+          <button class="tab" aria-selected="false">Movement</button>
+          <button class="tab" aria-selected="true">Weapons</button>
+          <button class="tab" aria-selected="false">Dropping</button>
+        </div>
+        <span class="spacer"></span>
+        <div class="search" style="min-width:120px">⌕ <span>Filter…</span></div>
+      </header>
+
+      <div class="group"><span class="eyebrow">Use weapon</span><span class="rule"></span><span class="badge">6 / 11</span></div>
+
+      <div class="arow is-bound">
+        <span class="name">Blaster</span>
+        <span class="caps"><span class="cap sm is-bound">1</span></span>
+        <span class="dot"></span>
+      </div>
+      <div class="arow is-bound">
+        <span class="name">Shotgun</span>
+        <span class="caps"><span class="cap sm is-bound">2</span><span class="cap sm">MOUSE4</span></span>
+        <span class="dot"></span>
+      </div>
+      <div class="arow is-bound" aria-selected="true">
+        <span class="name">Super Shotgun</span>
+        <span class="hint">Press a key…</span>
+        <span class="dot"></span>
+      </div>
+      <div class="arow is-bound is-conflict">
+        <span class="name">Machinegun</span>
+        <span class="caps"><span class="cap sm is-conflict">4</span></span>
+        <span class="dot"></span>
+      </div>
+      <div class="arow is-bound">
+        <span class="name">Chaingun</span>
+        <span class="caps"><span class="cap sm is-mod">ALT</span><span class="cap sm is-bound">R</span></span>
+        <span class="dot"></span>
+      </div>
+      <div class="arow is-empty">
+        <span class="name">Hand grenades</span><span class="hint">Not bound</span><span class="dot"></span>
+      </div>
+      <div class="arow is-empty">
+        <span class="name">Grenade Launcher</span><span class="hint">Not bound</span><span class="dot"></span>
+      </div>
+      <div class="arow is-bound">
+        <span class="name">Rocket Launcher</span>
+        <span class="caps"><span class="cap sm is-bound">MOUSE2</span><span class="cap sm">7</span></span>
+        <span class="dot"></span>
+      </div>
+      <div class="arow is-empty">
+        <span class="name">Hyperblaster</span><span class="hint">Not bound</span><span class="dot"></span>
+      </div>
+      <div class="arow is-bound">
+        <span class="name">Railgun</span>
+        <span class="caps"><span class="cap sm is-bound">MWHEELUP</span></span>
+        <span class="dot"></span>
+      </div>
+      <div class="arow is-empty">
+        <span class="name">BFG10K</span><span class="hint">Not bound</span><span class="dot"></span>
+      </div>
+
+      <div class="group"><span class="eyebrow">Cycling</span><span class="rule"></span><span class="badge">2 / 3</span></div>
+      <div class="arow is-bound">
+        <span class="name">Next weapon</span>
+        <span class="caps"><span class="cap sm is-bound">MWHEELDOWN</span></span><span class="dot"></span>
+      </div>
+      <div class="arow is-empty">
+        <span class="name">Previous weapon</span><span class="hint">Not bound</span><span class="dot"></span>
+      </div>
+      <div class="arow is-bound">
+        <span class="name">Last weapon</span>
+        <span class="caps"><span class="cap sm">Q</span></span><span class="dot"></span>
+      </div>
+    </section>
+
+    <!-- ============ right: keyboard ============ -->
+    <section class="panel edge-flame board">
+      <header>
+        <div>
+          <h1 style="font-size:18px">Keyboard map</h1>
+          <div class="eyebrow" style="margin-top:3px">Base layer · Hantsch — Test</div>
+        </div>
+        <span class="spacer"></span>
+        <span class="badge">Base</span>
+        <span class="badge is-warn">ALT layer</span>
+        <button class="btn is-ghost">⤢</button>
+      </header>
+
+      <div class="kb">
+        <div class="krow">
+          <button class="key"><span class="glyph">ESC</span><span class="act"></span></button>
+          <button class="key is-other"><span class="glyph">F1</span><span class="act">Screenshot</span></button>
+          <button class="key"><span class="glyph">F2</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">F3</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">F4</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">F5</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">F6</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">F7</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">F8</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">F9</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">F10</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">F11</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">F12</span><span class="act"></span></button>
+        </div>
+
+        <div class="spacer-row"></div>
+
+        <div class="krow">
+          <button class="key"><span class="glyph">^</span><span class="act"></span></button>
+          <button class="key is-bound"><span class="glyph">1</span><span class="act">Blaster</span></button>
+          <button class="key is-bound"><span class="glyph">2</span><span class="act">Shotgun</span></button>
+          <button class="key is-selected"><span class="glyph">3</span><span class="act">← assign here</span></button>
+          <button class="key is-bound is-conflict"><span class="glyph">4</span><span class="act">Machinegun ⚠</span></button>
+          <button class="key"><span class="glyph">5</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">6</span><span class="act"></span></button>
+          <button class="key is-bound"><span class="glyph">7</span><span class="act">Rocket L.</span></button>
+          <button class="key"><span class="glyph">8</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">9</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">0</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">-</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">=</span><span class="act"></span></button>
+          <button class="key k-w20"><span class="glyph">BACK</span><span class="act"></span></button>
+        </div>
+
+        <div class="krow">
+          <button class="key k-w15"><span class="glyph">TAB</span><span class="act">Score</span></button>
+          <button class="key is-bound"><span class="glyph">Q</span><span class="act">Last weapon</span></button>
+          <button class="key is-other"><span class="glyph">W</span><span class="act">Forward</span></button>
+          <button class="key"><span class="glyph">E</span><span class="act"></span></button>
+          <button class="key is-bound"><span class="glyph">R</span><span class="act">ALT · Chaingun</span></button>
+          <button class="key"><span class="glyph">T</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">Z</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">U</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">I</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">O</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">P</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">Ü</span><span class="act"></span></button>
+          <button class="key k-w15"><span class="glyph">ENTER</span><span class="act">Chat</span></button>
+        </div>
+
+        <div class="krow">
+          <button class="key k-w18"><span class="glyph">CAPS</span><span class="act"></span></button>
+          <button class="key is-other"><span class="glyph">A</span><span class="act">Strafe left</span></button>
+          <button class="key is-other"><span class="glyph">S</span><span class="act">Back</span></button>
+          <button class="key is-other"><span class="glyph">D</span><span class="act">Strafe right</span></button>
+          <button class="key"><span class="glyph">F</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">G</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">H</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">J</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">K</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">L</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">Ö</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">Ä</span><span class="act"></span></button>
+        </div>
+
+        <div class="krow">
+          <button class="key k-w22"><span class="glyph">SHIFT</span><span class="act">Walk (slow)</span></button>
+          <button class="key"><span class="glyph">Y</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">X</span><span class="act"></span></button>
+          <button class="key is-other"><span class="glyph">C</span><span class="act">Crouch</span></button>
+          <button class="key"><span class="glyph">V</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">B</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">N</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">M</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">,</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">.</span><span class="act"></span></button>
+          <button class="key"><span class="glyph">-</span><span class="act"></span></button>
+          <button class="key k-w22"><span class="glyph">SHIFT</span><span class="act"></span></button>
+        </div>
+
+        <div class="krow">
+          <button class="key k-w18"><span class="glyph">CTRL</span><span class="act">Attack</span></button>
+          <button class="key k-w15 is-trigger"><span class="glyph">ALT</span><span class="act">Layer trigger</span></button>
+          <button class="key k-w60 is-other"><span class="glyph">SPACE</span><span class="act">Jump ⚠</span></button>
+          <button class="key k-w15 is-trigger"><span class="glyph">ALT GR</span><span class="act">Layer trigger</span></button>
+          <button class="key k-w18"><span class="glyph">CTRL</span><span class="act"></span></button>
+        </div>
+      </div>
+
+      <div class="periph">
+        <div class="mouse" title="Mouse">
+          <div class="mb"><span>M1 · Attack</span></div>
+          <div class="wheel"><i class="is-bound" title="MWHEELUP · Railgun"></i><i class="is-bound" title="MWHEELDOWN · Next weapon"></i></div>
+          <div class="mb r is-bound"><span>M2 · Rocket</span></div>
+          <div class="body">MOUSE3–5 · free: 2</div>
+        </div>
+        <div class="legend">
+          <div><span class="sw b"></span> bound in this category</div>
+          <div><span class="sw o"></span> bound elsewhere (movement, chat…)</div>
+          <div><span class="sw t"></span> modifier-layer trigger</div>
+          <div><span class="sw c"></span> collision — two actions on one key</div>
+          <div><span class="sw f"></span> free — 61 keys</div>
+        </div>
+      </div>
+
+      <div class="capture">
+        <span>▣ Capturing for <b>Super Shotgun</b> (primary) — press any key or click one above.</span>
+        <span class="spacer"></span>
+        <span><kbd>ESC</kbd> cancel <kbd>DEL</kbd> clear</span>
+      </div>
+    </section>
+  </div>
+</div>
+
+</body>
+</html>

@@ -38,7 +38,9 @@ Everything derives from it:
 - **main** registers handlers through a typed `handle()` wrapper
   (`src/main/ipc/index.ts`). At boot, `assertContractFullyHandled()` throws if a
   declared channel has no handler — a missing handler is a startup crash in
-  development, not a rejected promise a user stumbles into months later.
+  development, not a rejected promise a user stumbles into months later. The
+  wrapper takes a zod schema as a required parameter, so a channel with no
+  schema, or the wrong schema, is a compile error, not just a runtime risk.
 - **preload** builds its allowlist from the same file. `INVOKE_CHANNELS` and
   `EVENT_CHANNELS` are runtime arrays, and compile-time assertions
   (`ALL_INVOKE_CHANNELS_LISTED`) fail the build if a channel is added to a map but
@@ -47,10 +49,35 @@ Everything derives from it:
 
 Push traffic (main → renderer) uses `IpcEventMap` and the `Broadcaster` service.
 
-Payloads that cross from the renderer are validated in main with zod
-(`src/main/lib/schemas.ts`). Channels returning `Outcome<T>` turn a bad payload
-into a failed outcome; channels returning a plain value throw, because a malformed
-payload there is a renderer bug rather than user input.
+Payloads that cross from the renderer are validated by two wrappers around
+`ipcMain.handle`, both in `src/main/ipc/index.ts`. `handle(channel, schema,
+handler)` parses the payload (throwing on failure) before calling the handler,
+so a malformed payload for a plain-value channel becomes a rejected promise —
+still a renderer bug, not user input. `handleOutcome(channel, schema, handler,
+invalidKey?)` is the same idea for channels whose response is `Outcome<T>`: it
+`safeParse`s the payload and resolves to `fail(invalidKey ?? 'ipc.error.invalidPayload')`
+on failure without ever calling the handler, so a bad payload never surfaces as
+an unhandled promise rejection in the UI. `invalidKey` lets a channel keep an
+existing, user-visible i18n key (e.g. `app:openExternal` ->
+`app.error.invalidUrl`) instead of the generic default. Both wrappers register
+through the same bookkeeping path, so `assertContractFullyHandled()` and the
+registered-channel count don't care which one a handler uses.
+
+Schemas live in `src/shared/schemas.ts` (primitives shared with the persisted-state
+schemas: `engineKindSchema`, `sourceSchema`, `absolutePathSchema`,
+`settingsObjectSchema`) and `src/shared/ipc-schemas.ts` (one schema per invoke
+channel, mirroring `IpcInvokeMap`'s section order) — not in `src/main/lib/schemas.ts`,
+which now holds only the forgiving, `.catch()`-based persisted-state schemas
+(state.json, installations, profiles, window state); those stay in main because
+they use `node:crypto`. `src/shared/ipc.ts` itself stays zod-free: it is reachable
+from the sandboxed preload bundle (`webPreferences.sandbox: true`), where an
+external npm module like zod cannot be `require()`d, so the schemas live in
+sibling files (`schemas.ts`, `ipc-schemas.ts`) instead.
+
+The module seam (`ModuleSetup.handle` in `src/main/modules/types.ts`) mirrors the
+same required-schema idea one level down, for `module:invoke`'s per-module-handler
+payloads. Schemas for those live in `src/main/modules/config/schemas.ts`, main-only,
+never exposed to the renderer.
 
 **Paths are never trusted.** `app:revealPath` only opens folders belonging to a
 registered installation or the launcher's own data directories. A mod directory is
@@ -121,9 +148,13 @@ broken. Install paths are never passed as arguments at all — the root goes in 
 the process working directory, which sidesteps the problem for the one value most
 likely to contain spaces.
 
+Verifying the rest of the UI without launching a game — screenshots and an
+accessibility report per screen, driven against the built app — is
+[docs/UI-VERIFICATION.md](UI-VERIFICATION.md).
+
 ## Adding a module
 
-Everything past the shell is a module: `config`, `install`, `mods`, `assets`. The
+Everything past the shell is a module: `config`, `downloads`, `mods`, `assets`. The
 shell never needs editing to add one.
 
 1. **Contract** — `src/shared/modules/<id>.ts`: the handler names and the data
@@ -159,7 +190,7 @@ Long-running module work uses `JobsService`. A module creates a `Job`, reports
 progress, and the action bar's download readout — bytes, speed, files remaining,
 the `PLAYABLE` threshold marker — updates for free. No module produces jobs yet;
 `dev:simulateJob` (development builds only) emits a fake one so the UI can be
-worked on before the install module exists.
+worked on before the downloads module exists.
 
 ## Renderer
 
@@ -197,6 +228,42 @@ class, and they anchor by top or bottom edge depending on which half of the wind
 the trigger is in — so there is no measure-then-reposition pass that can fail.
 Both measure via `lib/anchor-rect.ts`, which falls back to the first child when the
 wrapper is `display: contents` and therefore has no box.
+
+#### Dynamic styles under the production CSP
+
+The production policy is `style-src 'self'` (`PRODUCTION_CSP` in
+`src/main/lib/renderer-source.ts`) — no `'unsafe-inline'`. That does **not** mean
+styles cannot be computed at runtime; it means only one of the two ways of applying
+them is still open.
+
+Permitted, because both are CSSOM writes and `style-src` does not govern the CSSOM:
+
+- React's `style={{ ... }}` prop, which React applies via
+  `node.style.setProperty(...)`.
+- A CSS custom property set from script —
+  `element.style.setProperty('--foo', value)` — read back by a rule in
+  `src/renderer/src/styles/` as `var(--foo)`. This is the escape hatch when a value
+  has to reach a pseudo-element, a descendant, or a media/state variant that an
+  inline `style` prop cannot address.
+
+Blocked by this policy, and not to be introduced:
+
+- `setAttribute('style', ...)` (and `cssText`) — a *parsed* style attribute, which is
+  what `style-src-attr` covers, unlike the property-by-property CSSOM write above.
+- A literal `<style>` block, whether authored in markup or built with
+  `document.createElement('style')` — `style-src-elem`.
+- CSS injected through `dangerouslySetInnerHTML`, which lands as one of the two forms
+  above.
+
+The distinction is easy to lose, since the permitted and blocked forms differ by one
+method call and produce the same visual result in development, where `DEV_CSP` still
+carries `'unsafe-inline'` for Vite's HMR `<style>` injection. So it is enforced rather
+than trusted: `scripts/lib/harness.mjs` asserts the served header contains
+`style-src 'self';` (with the trailing semicolon, so a re-added `'unsafe-inline'`
+cannot satisfy the check as a prefix) and collects the page's
+`securitypolicyviolation` events into `RunLog.cspViolations`, so a violation fails a
+`ui:verify` run the same way a console error does. Note that `ui:flow` shares the
+collector but does not read it — a flow's pass/fail only reflects its own steps.
 
 ## Window chrome
 
