@@ -10,8 +10,12 @@ version section when a release actually ships.
 
 ## Unreleased
 
-### Added
+<!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
+
+## 0.2.0 — 2026-09-13
+
+### Added
 - **Your library** — find installations automatically (Steam, GOG, Epic, the classic
   paths, or an optional deep scan of your drives), add a folder yourself, or start a
   fresh one from scratch; rename, reorder, favourite, relocate and remove entries.
