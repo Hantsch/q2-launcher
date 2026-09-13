@@ -7,6 +7,8 @@ import {
   pickIconFileInputSchema,
   setInstallationIconInputSchema,
   shippedIconIdSchema,
+  updateCheckSchema,
+  updateGetStateSchema,
 } from './ipc-schemas'
 
 /**
@@ -145,5 +147,30 @@ describe('iconDataUrlInputSchema', () => {
 
   it('rejects an empty string', () => {
     expect(iconDataUrlInputSchema.safeParse('').success).toBe(false)
+  })
+})
+
+/**
+ * Story 097 D1: `update:getState` and `update:check` are declared, no-payload
+ * channels (mirrors `launch:getState`'s `z.void()` convention) - a non-void
+ * payload must be rejected, not silently accepted.
+ */
+describe('updateGetStateSchema', () => {
+  it('accepts undefined (void)', () => {
+    expect(updateGetStateSchema.safeParse(undefined).success).toBe(true)
+  })
+
+  it('rejects a non-void payload', () => {
+    expect(updateGetStateSchema.safeParse({ foo: 1 }).success).toBe(false)
+  })
+})
+
+describe('updateCheckSchema', () => {
+  it('accepts undefined (void)', () => {
+    expect(updateCheckSchema.safeParse(undefined).success).toBe(true)
+  })
+
+  it('rejects a non-void payload', () => {
+    expect(updateCheckSchema.safeParse({ foo: 1 }).success).toBe(false)
   })
 })

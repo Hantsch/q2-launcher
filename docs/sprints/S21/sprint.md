@@ -17,7 +17,7 @@ from the titlebar or from About, seeing what they get for it.
 ## Stories (in build order)
 
 - [x] 096 — A release ships from a changelog
-- [ ] 097 — The launcher notices a new version
+- [x] 097 — The launcher notices a new version
 - [ ] 098 — I update when I choose to
 - [ ] 099 — About tells me what changed
 

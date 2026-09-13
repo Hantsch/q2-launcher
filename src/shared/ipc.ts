@@ -19,6 +19,7 @@ import type {
   ScanOptions,
   ToastMessage,
   UpdateInstallationInput,
+  UpdateState,
   ValidationResult,
 } from './types'
 
@@ -108,6 +109,10 @@ export interface IpcInvokeMap {
   'launch:start': { req: LaunchInput; res: Outcome<LaunchState> }
   'launch:getState': { req: void; res: LaunchState }
 
+  // ---- update check (shell service, not a module) -----------------------------
+  'update:getState': { req: void; res: UpdateState }
+  'update:check': { req: void; res: UpdateState }
+
   // ---- jobs (owned by modules; no module produces them yet) ------------------
   'jobs:list': { req: void; res: Job[] }
   'jobs:cancel': { req: string; res: Outcome<null> }
@@ -165,6 +170,7 @@ export interface IpcEventMap {
   'installations:changed': Installation[]
   'detection:progress': DetectionProgress
   'launch:state': LaunchState
+  'update:state': UpdateState
   'jobs:changed': Job[]
   'window:state': WindowChromeState
   'app:toast': ToastMessage
@@ -211,6 +217,8 @@ export const INVOKE_CHANNELS = [
   'launch:plan',
   'launch:start',
   'launch:getState',
+  'update:getState',
+  'update:check',
   'jobs:list',
   'jobs:cancel',
   'modules:list',
@@ -224,6 +232,7 @@ export const EVENT_CHANNELS = [
   'installations:changed',
   'detection:progress',
   'launch:state',
+  'update:state',
   'jobs:changed',
   'window:state',
   'app:toast',

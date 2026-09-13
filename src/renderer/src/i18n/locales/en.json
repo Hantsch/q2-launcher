@@ -2341,6 +2341,16 @@
     }
   },
 
+  "update": {
+    "error": {
+      "network": "Could not reach the update server. Check your internet connection.",
+      "http": "The update server returned an error. Try again later.",
+      "notConfigured": "This build is not configured to check for updates.",
+      "timeout": "The update check took too long and was cancelled.",
+      "unknown": "The update check failed for an unknown reason."
+    }
+  },
+
   "modules": {
     "error": {
       "notImplemented": "The {{moduleId}} module has no handler for \u201c{{type}}\u201d yet.",

@@ -11,3 +11,15 @@
 - 2026-09-13 12:41 · 096 · D6 ai-scrum.md changelog-path flip · started
 - 2026-09-13 12:42 · 096 · D6 ai-scrum.md changelog-path flip · done
 - 2026-09-13 13:04 · 096 · story done (2 review cycles, both passed after fixes) · done
+- 2026-09-13 13:05 · 097 · D1 The contract · started
+- 2026-09-13 13:06 · 097 · D1 The contract · done
+- 2026-09-13 13:06 · 097 · D2 The persisted record · started
+- 2026-09-13 13:08 · 097 · D2 The persisted record · done
+- 2026-09-13 13:08 · 097 · D3 The service · started
+- 2026-09-13 13:16 · 097 · D3 The service · done
+- 2026-09-13 13:16 · 097 · D4 The electron-updater adapter · started
+- 2026-09-13 13:22 · 097 · D4 The electron-updater adapter · done
+- 2026-09-13 13:22 · 097 · D5 Wiring into the app · started
+- 2026-09-13 13:25 · 097 · D5 Wiring into the app · done
+- 2026-09-13 13:25 · 097 · D6 The renderer read path · started
+- 2026-09-13 13:30 · 097 · D6 The renderer read path · done

@@ -18,6 +18,7 @@ import { registerJobsIpc } from './jobs'
 import { registerLaunchIpc } from './launch'
 import { registerModulesIpc } from './modules'
 import { registerSettingsIpc } from './settings'
+import { registerUpdateIpc } from './update'
 import { registerWindowIpc } from './window'
 
 const log = scopedLogger('ipc')
@@ -117,6 +118,7 @@ export function registerAllIpc(app: AppContext): void {
   registerLaunchIpc(app)
   registerJobsIpc(app)
   registerModulesIpc(app)
+  registerUpdateIpc(app)
   if (app.isDev) registerDevIpc(app)
 
   assertContractFullyHandled(app.isDev)

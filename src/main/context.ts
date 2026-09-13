@@ -1,5 +1,6 @@
 import { homedir } from 'node:os'
 import type { BrowserWindow } from 'electron'
+import { app as electronApp } from 'electron'
 import { stateFilePath, userDataDir } from './lib/paths'
 import { scopedLogger } from './lib/logger'
 import { MainModuleRegistry } from './modules/registry'
@@ -12,6 +13,8 @@ import { InstallationsService } from './services/installations'
 import { JobsService } from './services/jobs'
 import { LaunchService } from './services/launch'
 import { StateStore } from './services/state'
+import { createUpdateChecker } from './services/update/checker'
+import { createUpdateService, type UpdateService } from './services/update/service'
 import { InstallationWriteGuard } from './services/write-guard'
 
 const log = scopedLogger('context')
@@ -39,6 +42,9 @@ export interface AppContext {
   broadcast: Broadcaster
   /** Story 066 D4: the config-file picker modules reach through `ModuleSetup.app`, never `dialog` directly. */
   dialog: DialogService
+  /** Story 097: the update-check service - a shell service, not a module (it has no per-installation
+   * data and nothing renderer-writable to validate), constructed here like `launch`/`jobs` above. */
+  update: UpdateService
 }
 
 export async function createAppContext(options: {
@@ -106,6 +112,13 @@ export async function createAppContext(options: {
     isDev: options.isDev,
   })
 
+  const update = createUpdateService({
+    isPackaged: electronApp.isPackaged,
+    check: createUpdateChecker({ log: scopedLogger('update') }),
+    onStateChange: (updateState) => broadcast.emit('update:state', updateState),
+    log: scopedLogger('update'),
+  })
+
   const context: AppContext = {
     isDev: options.isDev,
     state,
@@ -118,6 +131,7 @@ export async function createAppContext(options: {
     modules: new MainModuleRegistry(),
     broadcast,
     dialog,
+    update,
   }
 
   await registerModules(context)

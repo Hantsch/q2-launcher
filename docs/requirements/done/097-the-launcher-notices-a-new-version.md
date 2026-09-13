@@ -1,7 +1,7 @@
 ---
 id: 097
 title: The launcher notices a new version
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-13
 ---
 
@@ -25,22 +25,22 @@ and restarting belong to [[098]]; showing the notes in About belongs to [[099]].
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — On startup, the launcher checks for a newer published release at most once per
+- [x] **AC1** — On startup, the launcher checks for a newer published release at most once per
       24 hours; further starts within that window reuse the last result instead of checking again.
-- [ ] **AC2** — When the published release is newer than the running version, the launcher holds
+- [x] **AC2** — When the published release is newer than the running version, the launcher holds
       an "update available" state carrying that version and its release notes; when it is not, the
       state says up to date.
-- [ ] **AC3** — A failed check (offline, error response, malformed feed) leaves a state carrying
+- [x] **AC3** — A failed check (offline, error response, malformed feed) leaves a state carrying
       the reason, shows the user nothing by itself, and does not delay or block startup.
-- [ ] **AC4** — A failed check does not burn the daily window: the next start may check again
+- [x] **AC4** — A failed check does not burn the daily window: the next start may check again
       rather than waiting 24 hours on a result that never arrived.
-- [ ] **AC5** — No check runs in development or in an unpackaged build.
-- [ ] **AC6** — The renderer can read the current update state and be told when it changes,
+- [x] **AC5** — No check runs in development or in an unpackaged build.
+- [x] **AC6** — The renderer can read the current update state and be told when it changes,
       through the typed IPC contract — no direct network access and no version comparison in the
       renderer.
-- [ ] **AC7** — The user can trigger a check by hand at any time, independently of the daily
+- [x] **AC7** — The user can trigger a check by hand at any time, independently of the daily
       window, and sees its outcome (including a failure reason).
-- [ ] **AC8** — The check result survives a restart, so the launcher does not forget between
+- [x] **AC8** — The check result survives a restart, so the launcher does not forget between
       sessions what it already knows.
 
 ## Open Questions
@@ -148,40 +148,40 @@ A main-process update-check service behind the typed IPC contract. Nothing rende
 
 ## Deliverables
 
-- **D1 — The contract.** `src/shared/types/update.ts` (new), `src/shared/types/index.ts`,
+- [x] **D1 — The contract.** `src/shared/types/update.ts` (new), `src/shared/types/index.ts`,
   `src/shared/ipc.ts` (2 invoke channels + 1 event + both runtime arrays),
   `src/shared/ipc-schemas.ts` (two `z.void()` schemas, in map order). Mirror: the `launch:*`
   entries in all three files. Plus its test in `src/shared/ipc-schemas.test.ts` (the update
   channels are declared, listed and reject a non-void payload).
   _Acceptance:_ `npm run typecheck` passes; the compile-time `ALL_*_CHANNELS_LISTED` guards hold.
 
-- **D2 — The persisted record.** `src/main/services/update/store.ts` (new) + its test
+- [x] **D2 — The persisted record.** `src/main/services/update/store.ts` (new) + its test
   `store.test.ts`. Mirror: `src/main/modules/home/news/feed-cache.ts` (own `JsonStore`, own
   `cacheVersion`, damaged file degrades to "nothing known" instead of throwing).
   _Acceptance:_ a written record reads back identically; a corrupt/foreign-version file reads as
   "nothing known".
 
-- **D3 — The service.** `src/main/services/update/service.ts` (new) + its test `service.test.ts`.
+- [x] **D3 — The service.** `src/main/services/update/service.ts` (new) + its test `service.test.ts`.
   Mirror: `src/main/modules/home/news/news-service.ts` (injected `now`, injected checker, injected
   store, never throws). Owns: restore-on-load, the 24h window from `lastSuccessAt`, the unpackaged
   no-op, in-flight de-duplication, the timeout guard, error keys, `onStateChange`, and
   `scheduleStartupCheck()` returning `void` without awaiting the check.
   _Acceptance:_ the AC1–AC5/AC7/AC8 test names below all pass with no Electron and no network.
 
-- **D4 — The `electron-updater` adapter.** `src/main/services/update/checker.ts` (new) + its test
+- [x] **D4 — The `electron-updater` adapter.** `src/main/services/update/checker.ts` (new) + its test
   `checker.test.ts` (fakes the `autoUpdater` object), `package.json` (`electron-updater` in
   `dependencies`).
   _Acceptance:_ `autoDownload`/`autoInstallOnAppQuit` are off and `allowPrerelease` is on; an
   available release is normalised to `{version, notes, releasedAt}` with array notes joined and
   capped; offline / HTTP / missing-config / unknown errors map to distinct `update.error.*` keys.
 
-- **D5 — Wiring into the app.** `src/main/ipc/update.ts` (new, mirror `src/main/ipc/launch.ts`),
+- [x] **D5 — Wiring into the app.** `src/main/ipc/update.ts` (new, mirror `src/main/ipc/launch.ts`),
   `src/main/ipc/index.ts`, `src/main/context.ts`, `src/main/index.ts` (startup kick in the existing
   `did-finish-load` hook) + its test `src/main/ipc/update.test.ts`.
   _Acceptance:_ both channels are registered (`assertContractFullyHandled` passes at boot) and
   answer with the service's state; `update:check` resolves with the state and never rejects.
 
-- **D6 — The renderer read path.** `src/renderer/src/store/useLauncher.ts` (slice + bootstrap read
+- [x] **D6 — The renderer read path.** `src/renderer/src/store/useLauncher.ts` (slice + bootstrap read
   + `onEvent('update:state')`, mirror the `launch` slice),
   `src/renderer/src/i18n/locales/en.json` (`update.error.*`) + its test
   `src/renderer/src/store/useLauncher.update.test.ts` (mirror
@@ -231,3 +231,89 @@ A main-process update-check service behind the typed IPC contract. Nothing rende
   result before any check runs"
 
 ## Done
+
+**Summary.** Added a main-process update-check shell service around `electron-updater`
+(GitHub provider, `autoDownload: false`), behind a new typed IPC contract
+(`update:getState`, `update:check`, `update:state`). It restores its last known result from
+`userData/update-check.json` on cold start, checks at most once per 24h measured from the last
+*successful* check, never toasts, never blocks or delays startup, and no-ops entirely in an
+unpackaged build. The renderer store mirrors the pushed state; no version comparison or network
+access happens outside `checker.ts`. Nothing renders yet — [[098]] and [[099]] build the act and
+the display on top of this slice.
+
+**Commit message:**
+```
+097: the launcher notices a new version
+```
+
+**Verification:**
+- `npm run build` — pass.
+- `npm run typecheck` — pass (node + web).
+- `npm test` — 3982 passed, 1 skipped, 2 failed; both failures are pre-existing and unrelated to
+  this story's diff, confirmed by reproducing them against a `git stash` of this story's changes
+  and by re-running each in isolation:
+  - `src/main/modules/home/news/news-fixture-contract.test.ts` — a fixture slide-order mismatch,
+    fails identically with none of this story's changes applied.
+  - `src/main/modules/config/file-source-pipeline.test.ts` — passes 149/149 in isolation; fails
+    only under full-suite parallel load (a pre-existing Windows file-lock flake, not touching any
+    file this story changed).
+- `npm run ui:verify` (e2e) — not run, per the story's own decisions: this story has no renderer
+  surface (AC7's user-facing trigger is explicitly deferred to [[099]] AC4); its criteria are
+  proven at service/IPC level.
+- Clean-agent review (`story-review-hard`): verdict **PASS** on first pass, with one real
+  (non-blocking) finding and two informational ones. Fixed:
+  - `checker.ts`'s lazy `electron-updater` module resolution used to reject the whole checker
+    call and permanently cache that rejection if the dynamic import ever failed once in a
+    session; fixed so a resolution failure now returns a normal `{ ok: false, reason: 'unknown' }`
+    outcome and clears the memo so a later call retries the import. New test added in
+    `checker.test.ts` proving both the non-throwing behaviour and the retry.
+  - Two new test files were not prettier-clean; formatted only those two files (no repo-wide
+    formatting).
+  - Not fixed (accepted, documented): `useLauncher.update.test.ts` hand-copies the
+    `update.error.*` key list from `service.ts` instead of importing it — deliberate, because
+    main (`tsconfig.node.json`) and renderer (`tsconfig.web.json`) don't share a build graph
+    outside `src/shared`, and this key list lives in a main-process module.
+- **AC → test mapping, as verified by the review:**
+  - AC1 → `service.test.ts` › "a start inside 24 hours of the last successful check reuses the
+    last result instead of checking" — pass.
+  - AC2 → `service.test.ts` › "a newer published release becomes an available state..." and
+    `checker.test.ts` › "an available release is normalised to version, notes and releasedAt" —
+    pass.
+  - AC3 → `service.test.ts` › "a failed check keeps the reason, never throws, never toasts and
+    never retries" and › "scheduleStartupCheck returns before the check settles" — pass.
+  - AC4 → `service.test.ts` › "a failed check does not start the 24-hour window" — pass (verified
+    to actually simulate a failure then assert a *subsequent* start still checks, not just an
+    internal-field assertion).
+  - AC5 → `service.test.ts` › "an unpackaged build never checks and reports supported: false" —
+    pass.
+  - AC6 → `ipc-schemas.test.ts` (update channels declared with void schemas), `update.test.ts`
+    (`update:getState`/`update:check` answer with service state), `useLauncher.update.test.ts`
+    (`update:state` event replaces store state) — all pass.
+  - AC7 → `service.test.ts` (manual check runs regardless of window) and `update.test.ts`
+    (`update:check` triggers a check) — pass at service/IPC level. **Manual residue / documented
+    coverage gap:** the user-facing trigger has no `e2e` proof in this story by design — it is
+    [[099]] AC4 ("check now" in About), carried through `ui:verify` in this same sprint. Not a
+    manual step and not deferred beyond S21.
+  - AC8 → `store.test.ts` (written result reads back after a restart) and `service.test.ts` (cold
+    start restores last known result before any check runs) — pass.
+
+**Decisions made during implementation (beyond the story's own Decisions section):**
+- Checker-service seam: `type UpdateChecker = () => Promise<UpdateCheckOutcome>` with
+  `UpdateCheckOutcome` a discriminated union of `{ ok: true; available: true; update }`,
+  `{ ok: true; available: false }` and `{ ok: false; reason }`, `reason` one of
+  `'network' | 'http' | 'notConfigured' | 'timeout' | 'unknown'` — `'timeout'` is produced only by
+  the service's own 20s guard, never by the checker.
+  Chosen to keep D3 (hard tier) fully Electron-free and independently testable, and to give D4 an
+  unambiguous, minimal contract to implement against.
+- On restore from the persisted record, `status` is derived rather than stored (`update` present
+  → `available`; else `lastSuccessAt` present → `upToDate`; else `idle`) — the store only persists
+  `update`/`lastCheckedAt`/`lastSuccessAt`, keeping the JSON record smaller and the service the
+  single source of truth for what `status` means.
+- A `lastSuccessAt` that fails to parse or lies in the future is treated as "window open" (checks
+  again) rather than "window closed" — a corrupted or clock-skewed timestamp can never
+  permanently silence checks.
+- `electron-updater`'s lazy `autoUpdater` export is resolved via a dynamic `import()` inside
+  `checker.ts`, deferred until first real use, so no test or non-packaged code path ever loads the
+  real package or touches Electron's `app`.
+- No `CHANGELOG.md` entry, per the story's own Decisions — this story ships nothing a user can
+  see; the changelog entry lands with [[098]]/[[099]].

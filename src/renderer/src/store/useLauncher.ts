@@ -14,6 +14,7 @@ import type {
   Outcome,
   ToastMessage,
   UpdateInstallationInput,
+  UpdateState,
 } from '@shared/types'
 import {
   countActiveJobs,
@@ -57,6 +58,21 @@ function withoutIconDataUrl(
   return next
 }
 
+/**
+ * Nothing known, nothing attempted - the same shape `createUpdateService`'s `idleState(false)`
+ * reports before `bootstrap`'s `update:getState` call resolves (story 097 D3). `supported: false`
+ * is the honest default for an instant that has not yet heard from main, matching an unpackaged
+ * build's permanent state.
+ */
+const IDLE_UPDATE_STATE: UpdateState = {
+  status: 'idle',
+  update: null,
+  error: null,
+  lastCheckedAt: null,
+  lastSuccessAt: null,
+  supported: false,
+}
+
 /** Which modal the shell is showing. One at a time, by design. */
 export type DialogState =
   | { kind: 'none' }
@@ -95,6 +111,9 @@ interface LauncherStore {
   jobs: Job[]
   launch: LaunchState
   chrome: WindowChromeState
+  /** Story 097 D6: mirrors the update-check service's state, pushed by main - the renderer never
+   * decides whether/when to check, only reflects what `update:getState`/`update:state` report. */
+  update: UpdateState
 
   // --- renderer-only UI state ---------------------------------------------
   route: string
@@ -190,6 +209,7 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
   jobs: [],
   launch: IDLE_LAUNCH_STATE,
   chrome: { maximized: false, fullScreen: false, focused: true },
+  update: IDLE_UPDATE_STATE,
 
   route: ROUTE_HOME,
   routeFocus: null,
@@ -198,15 +218,17 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
   iconDataUrls: {},
 
   bootstrap: async () => {
-    const [appInfo, settings, installations, modules, jobs, launch, chrome] = await Promise.all([
-      invoke('app:getInfo'),
-      invoke('settings:get'),
-      invoke('installations:list'),
-      invoke('modules:list'),
-      invoke('jobs:list'),
-      invoke('launch:getState'),
-      invoke('window:getState'),
-    ])
+    const [appInfo, settings, installations, modules, jobs, launch, chrome, update] =
+      await Promise.all([
+        invoke('app:getInfo'),
+        invoke('settings:get'),
+        invoke('installations:list'),
+        invoke('modules:list'),
+        invoke('jobs:list'),
+        invoke('launch:getState'),
+        invoke('window:getState'),
+        invoke('update:getState'),
+      ])
 
     set({
       appInfo,
@@ -216,6 +238,7 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
       jobs,
       launch,
       chrome,
+      update,
       // A route only survives a restart if it still resolves to something -
       // either a shell route or a module's own route. Otherwise an upgrading
       // user whose settings remember a since-renamed/removed module route
@@ -235,6 +258,7 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
       onEvent('jobs:changed', (list) => set({ jobs: list }))
       onEvent('launch:state', (next) => set({ launch: next }))
       onEvent('window:state', (next) => set({ chrome: next }))
+      onEvent('update:state', (next) => set({ update: next }))
       onEvent('app:toast', (toast) => {
         set((state) => ({ toasts: [...state.toasts, toast] }))
       })

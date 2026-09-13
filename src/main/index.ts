@@ -84,6 +84,13 @@ async function bootstrap(): Promise<void> {
   // have been deleted, moved or unplugged while the launcher was closed.
   mainWindow.window.webContents.once('did-finish-load', () => {
     void revalidateOnStartup(context!)
+
+    // Story 097 D5: the update-check's startup kick reuses this same hook - fire-and-forget, after
+    // a short delay so it never competes with the window's own first paint, and never awaited
+    // (`scheduleStartupCheck()` itself returns synchronously; AC3's "does not block startup").
+    setTimeout(() => {
+      context?.update.scheduleStartupCheck()
+    }, 3_000)
   })
 
   app.on('activate', () => {

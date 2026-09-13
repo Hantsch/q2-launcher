@@ -176,6 +176,11 @@ export const launchInputSchema: z.ZodType<IpcInvokeMap['launch:plan']['req']> = 
 
 export const launchGetStateSchema: z.ZodType<IpcInvokeMap['launch:getState']['req']> = z.void()
 
+// ---- update check (shell service, not a module) -------------------------------------
+
+export const updateGetStateSchema: z.ZodType<IpcInvokeMap['update:getState']['req']> = z.void()
+export const updateCheckSchema: z.ZodType<IpcInvokeMap['update:check']['req']> = z.void()
+
 // ---- jobs (owned by modules; no module produces them yet) --------------------------
 
 export const jobsListSchema: z.ZodType<IpcInvokeMap['jobs:list']['req']> = z.void()

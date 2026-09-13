@@ -79,7 +79,7 @@ describe('registerAllIpc', () => {
     for (const channel of INVOKE_CHANNELS) {
       expect(registered.has(channel)).toBe(true)
     }
-    expect(registered.size).toBe(37)
+    expect(registered.size).toBe(39)
   })
 
   it('rejects an invalid payload on a plain (throwing) handle() channel synchronously', async () => {
