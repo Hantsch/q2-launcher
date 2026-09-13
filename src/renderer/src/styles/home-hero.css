@@ -214,6 +214,13 @@
   flex-grow: 0;
   width: 45%;
   max-width: 560px;
+  /* The 560px cap is what keeps the column readable, but on a wide window it also leaves it
+     stranded against the very left edge of a 2000px+ hero, with the whole middle empty. So the
+     column slides inward as the hero grows past the app's default width: nothing below ~1200px of
+     slide (i.e. the 1280px default window and every narrower one) moves at all, and the shift tops
+     out at 160px - far short of the 48% mark where the scrim above starts to fade, so the contrast
+     floor `scripts/flows/news-cover-template.mjs` measures is untouched. */
+  margin-left: clamp(0px, (100% - 1200px) * 0.1, 160px);
 }
 
 .home-hero-media {

@@ -38,12 +38,20 @@ export function TitleBar() {
     >
       {/* Wordmark. Text only: the app icon belongs to the OS (taskbar, shortcut),
           repeating it inside our own chrome only crowds the bar. */}
-      <div className="flex items-center pr-6 pl-5">
+      {/* Story 030's 26px/18px wordmark is what a wide window gets. It does not fit a narrow one:
+          at the 940px minimum width, wordmark + nav + right cluster measure 964px, and the
+          wordmark - the only flexible item in the row - absorbed the difference by breaking
+          "QUAKE II" over two lines and pushing the tagline out through the bottom of the bar. So
+          it never shrinks or wraps (`shrink-0`, `whitespace-nowrap`) and instead steps down one
+          size below `lg`, which is the width from which the full-size block provably fits. */}
+      <div className="flex shrink-0 items-center pr-5 pl-4 whitespace-nowrap lg:pr-6 lg:pl-5">
         <div className="leading-none">
-          <div className="font-display text-[26px] font-semibold tracking-[0.18em] text-ink uppercase">
+          <div className="font-display text-[20px] font-semibold tracking-[0.18em] text-ink uppercase lg:text-[26px]">
             {t('app.wordmark')}
           </div>
-          <div className="stencil mt-0.5 text-[18px] tracking-[0.3em]">{t('app.tagline')}</div>
+          <div className="stencil mt-0.5 text-[14px] tracking-[0.3em] lg:text-[18px]">
+            {t('app.tagline')}
+          </div>
         </div>
       </div>
 
