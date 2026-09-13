@@ -135,7 +135,7 @@ export function SettingsView(props: SettingsViewProps = {}) {
           </Panel>
         ))}
 
-        <Panel className="space-y-2.5 p-4">
+        <Panel className="space-y-2.5 p-4" data-testid="settings-about">
           <SectionLabel>{t('settings.section.about')}</SectionLabel>
 
           <KeyValue label={t('settings.version')} mono>
@@ -244,6 +244,63 @@ export function SettingsView(props: SettingsViewProps = {}) {
                 onClick={() => void invoke('dev:simulateJob', { scenario: 'failure' })}
               >
                 {t('settings.simulateJobFailure')}
+              </Button>
+            </div>
+
+            <p className="text-xs leading-relaxed text-ink-muted">
+              Story 098 D4. Drives the update control through every phase without a real check or
+              download.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="neutral"
+                size="sm"
+                icon={<FlaskConical className="size-3.5" />}
+                onClick={() =>
+                  void invoke('dev:simulateAppUpdate', {
+                    scenario: 'available',
+                    version: '9.9.9-dev',
+                    notes: 'Simulated release notes for dev testing.',
+                  })
+                }
+              >
+                {t('settings.simulateUpdateAvailable')}
+              </Button>
+              <Button
+                variant="neutral"
+                size="sm"
+                icon={<FlaskConical className="size-3.5" />}
+                onClick={() =>
+                  void invoke('dev:simulateAppUpdate', { scenario: 'progress', ratio: 0.5 })
+                }
+              >
+                {t('settings.simulateUpdateProgress')}
+              </Button>
+              <Button
+                variant="neutral"
+                size="sm"
+                icon={<FlaskConical className="size-3.5" />}
+                onClick={() => void invoke('dev:simulateAppUpdate', { scenario: 'downloaded' })}
+              >
+                {t('settings.simulateUpdateDownloaded')}
+              </Button>
+              <Button
+                variant="neutral"
+                size="sm"
+                icon={<FlaskConical className="size-3.5" />}
+                onClick={() =>
+                  void invoke('dev:simulateAppUpdate', { scenario: 'error', reason: 'offline' })
+                }
+              >
+                {t('settings.simulateUpdateError')}
+              </Button>
+              <Button
+                variant="neutral"
+                size="sm"
+                icon={<FlaskConical className="size-3.5" />}
+                onClick={() => void invoke('dev:simulateAppUpdate', { scenario: 'upToDate' })}
+              >
+                {t('settings.simulateUpdateUpToDate')}
               </Button>
             </div>
           </Panel>

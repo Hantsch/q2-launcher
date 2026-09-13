@@ -1,6 +1,13 @@
-import type { UpdateState } from '@shared/types/update'
+import type { UpdateDownloadProgress, UpdateState } from '@shared/types/update'
 import { scopedLogger, type Logger } from '../../lib/logger'
-import type { UpdateCheckFailureReason, UpdateCheckOutcome, UpdateChecker } from './service'
+import type {
+  UpdateBackend,
+  UpdateCheckFailureReason,
+  UpdateCheckOutcome,
+  UpdateChecker,
+  UpdateDownloadFailureReason,
+  UpdateDownloadOutcome,
+} from './service'
 
 /**
  * Story 097 D4: the only file in the repo that imports `electron-updater`. Mirrors
@@ -184,5 +191,188 @@ export function createUpdateChecker(options: CreateUpdateCheckerOptions = {}): U
       log.warn(`update: checkForUpdates() failed (${errorMessage(error) || String(error)})`)
       return { ok: false, reason: classifyCheckError(error) }
     }
+  }
+}
+
+// ---- story 098: the download/install half of the same adapter ----------------------------------
+
+/** The slice of `electron-updater`'s `ProgressInfo` this adapter reads (`percent` is 0..100). */
+export interface AutoUpdaterProgressInfo {
+  readonly bytesPerSecond?: number
+  readonly percent?: number
+  readonly transferred?: number
+  readonly total?: number
+}
+
+/** The rest of `electron-updater`'s `autoUpdater` that story 098 needs: downloading, the progress
+ * event, and the one call that replaces the installed launcher. Structural for the same reason
+ * {@link AutoUpdaterLike} is. */
+export interface AutoUpdaterDownloadLike extends AutoUpdaterLike {
+  downloadUpdate(cancellationToken?: unknown): Promise<unknown>
+  quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void
+  on(event: 'download-progress', listener: (info: AutoUpdaterProgressInfo) => void): unknown
+  off(event: 'download-progress', listener: (info: AutoUpdaterProgressInfo) => void): unknown
+}
+
+/**
+ * `builder-util-runtime`'s `CancellationToken` shape - the token `downloadUpdate()` takes, and the
+ * only way `electron-updater` offers to stop a download in flight. Loaded through a dynamic import
+ * like `autoUpdater` above, and from `builder-util-runtime` because `electron-updater` does not
+ * re-export it; it is `electron-updater`'s own hard dependency, so it is always installed beside
+ * it. A failure to load it costs cancellation, not the download.
+ */
+interface CancellationTokenLike {
+  cancel(): void
+}
+
+/**
+ * Classifies a failed download into one of story 098 AC7's reasons. `'cancelled'` is checked first:
+ * `electron-updater` reports a cancelled download as a rejection like any other, and telling the
+ * user their own cancel was a network failure would be actively misleading.
+ */
+export function classifyDownloadError(error: unknown): UpdateDownloadFailureReason {
+  const message = errorMessage(error)
+  const code = errorCode(error)
+
+  if (code === 'ERR_UPDATER_CANCELLED' || /cancell?ed/i.test(message)) return 'cancelled'
+  // `electron-updater` verifies the sha512 of what it downloaded and the publisher signature of the
+  // installer; both mean "the bytes are not the release", which is a distinct thing to tell a user.
+  if (/sha512|checksum|integrity|signature/i.test(message)) return 'checksum'
+  if (code !== undefined && NETWORK_ERROR_CODES.has(code)) return 'offline'
+
+  return 'unknown'
+}
+
+/** `ProgressInfo` -> the contract's own progress shape. A missing or zero total stays `null` rather
+ * than becoming a fake 0, so the UI can show an indeterminate bar instead of a wrong one. */
+function normalizeProgress(info: AutoUpdaterProgressInfo): UpdateDownloadProgress {
+  const total = typeof info.total === 'number' && info.total > 0 ? info.total : null
+  const percent = typeof info.percent === 'number' ? info.percent : null
+  return {
+    ratio: percent === null ? null : Math.min(1, Math.max(0, percent / 100)),
+    bytesDone: typeof info.transferred === 'number' ? info.transferred : 0,
+    bytesTotal: total,
+    bytesPerSecond: typeof info.bytesPerSecond === 'number' ? info.bytesPerSecond : null,
+  }
+}
+
+export interface CreateUpdateBackendOptions {
+  /** Injected in tests; defaults to the real `electron-updater` singleton, resolved lazily. */
+  autoUpdater?: AutoUpdaterDownloadLike
+  /** Injected in tests; defaults to `electron-updater`'s own `CancellationToken`. */
+  createCancellationToken?: () => CancellationTokenLike
+  log?: Logger
+}
+
+/**
+ * Builds the {@link UpdateBackend} the update service drives (story 098 D1).
+ *
+ * `autoInstallOnAppQuit` is an accessor rather than a plain field because the real updater is
+ * resolved lazily: the service sets the flag the moment it is constructed, which can be before the
+ * dynamic import has happened, so the value is remembered and applied to the real `autoUpdater` as
+ * soon as one exists. Getting this wrong is exactly the failure story 098 AC4 is about - a
+ * downloaded update installing itself on the next ordinary quit - so the flag is never merely
+ * stored here.
+ */
+export function createUpdateBackend(options: CreateUpdateBackendOptions = {}): UpdateBackend {
+  const log = options.log ?? scopedLogger('update')
+
+  let desiredAutoInstall = false
+  let resolved: AutoUpdaterDownloadLike | undefined = options.autoUpdater
+  let resolving: Promise<AutoUpdaterDownloadLike> | undefined
+  let cancellationToken: CancellationTokenLike | undefined
+
+  async function updater(): Promise<AutoUpdaterDownloadLike> {
+    if (options.autoUpdater !== undefined) return options.autoUpdater
+    resolving ??= (async () => {
+      const mod = await import('electron-updater')
+      const real = mod.autoUpdater as unknown as AutoUpdaterDownloadLike
+      configureAutoUpdater(real, log)
+      real.autoInstallOnAppQuit = desiredAutoInstall
+      resolved = real
+      return real
+    })().catch((error: unknown) => {
+      resolving = undefined
+      throw error
+    })
+    return resolving
+  }
+
+  async function newCancellationToken(): Promise<CancellationTokenLike | undefined> {
+    if (options.createCancellationToken !== undefined) return options.createCancellationToken()
+    try {
+      const mod = await import('builder-util-runtime')
+      return new mod.CancellationToken()
+    } catch (error) {
+      // Without a token a download simply cannot be cancelled; that is worth a log line, not a
+      // refusal to download at all.
+      log.warn(`update: no cancellation token available (${errorMessage(error) || String(error)})`)
+      return undefined
+    }
+  }
+
+  return {
+    get autoInstallOnAppQuit(): boolean {
+      return desiredAutoInstall
+    },
+    set autoInstallOnAppQuit(value: boolean) {
+      desiredAutoInstall = value
+      if (resolved !== undefined) resolved.autoInstallOnAppQuit = value
+    },
+
+    async download(
+      onProgress: (progress: UpdateDownloadProgress) => void,
+    ): Promise<UpdateDownloadOutcome> {
+      let target: AutoUpdaterDownloadLike
+      try {
+        target = await updater()
+      } catch (error) {
+        log.warn(
+          `update: the updater could not be loaded (${errorMessage(error) || String(error)})`,
+        )
+        return { ok: false, reason: 'unknown' }
+      }
+
+      const listener = (info: AutoUpdaterProgressInfo): void => {
+        onProgress(normalizeProgress(info))
+      }
+      target.on('download-progress', listener)
+      try {
+        // `downloadUpdate()` needs a check to have resolved *in this process*, which a state
+        // restored from the previous session's record has not - so the check is repeated here
+        // rather than assumed. `autoDownload` is off, so this only fetches the metadata.
+        const result = await target.checkForUpdates()
+        if (result === null || !result.isUpdateAvailable) {
+          log.warn('update: asked to download, but the server reports no newer release')
+          return { ok: false, reason: 'unknown' }
+        }
+
+        cancellationToken = await newCancellationToken()
+        await target.downloadUpdate(cancellationToken)
+        return { ok: true }
+      } catch (error) {
+        log.warn(`update: downloadUpdate() failed (${errorMessage(error) || String(error)})`)
+        return { ok: false, reason: classifyDownloadError(error) }
+      } finally {
+        cancellationToken = undefined
+        target.off('download-progress', listener)
+      }
+    },
+
+    cancelDownload(): void {
+      cancellationToken?.cancel()
+    },
+
+    quitAndInstall(): void {
+      // The only call in the app that replaces the installed launcher. Everything that decides
+      // *whether* it may happen lives in `service.ts`'s `installAndRestart()`.
+      //
+      // A backend that never resolved an updater cannot have downloaded anything either, so this
+      // throws rather than returning quietly - the service turns that into
+      // `appUpdate.error.installFailed` instead of telling the user a restart is under way that
+      // will never come.
+      if (resolved === undefined) throw new Error('the updater was never loaded')
+      resolved.quitAndInstall()
+    },
   }
 }

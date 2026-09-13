@@ -1116,4 +1116,38 @@ export const SCREENS = [
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },
+  {
+    id: 'update-popover-available',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 098 D5: the titlebar's update control (D3) with its popover open, phase `available` -
+    // AC1/AC2's subject. Driven entirely through the dev-only `dev:simulateAppUpdate` channel (D4),
+    // the same offline stand-in `scripts/flows/app-update.mjs` uses, since a real check/download
+    // needs network access this harness never has.
+    //
+    // Deliberately the LAST entry in this whole registry, not merely the last `populated` one: the
+    // update service's state lives in the main process for the entire batched session
+    // (`session.mjs`'s `resetToBaseState()` only routes home between visits, it never resets
+    // in-memory service state), so once this screen stages an update every later visit in the same
+    // session would show the titlebar control too. Being last means there is no later visit left to
+    // pollute.
+    navigate: async (page) => {
+      const outcome = await page.evaluate(() =>
+        window.q2.invoke('dev:simulateAppUpdate', {
+          scenario: 'available',
+          version: '9.9.9',
+          notes: 'UI verification fixture release notes.',
+        }),
+      )
+      if (!outcome?.ok) {
+        throw new Error(
+          `update-popover-available: dev:simulateAppUpdate failed: ${JSON.stringify(outcome)}`,
+        )
+      }
+      await click(page, 'nav-update')
+      await page
+        .getByTestId('update-popover')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
 ]

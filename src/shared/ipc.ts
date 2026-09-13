@@ -19,6 +19,7 @@ import type {
   ScanOptions,
   ToastMessage,
   UpdateInstallationInput,
+  UpdateSimulateScenario,
   UpdateState,
   ValidationResult,
 } from './types'
@@ -112,6 +113,22 @@ export interface IpcInvokeMap {
   // ---- update check (shell service, not a module) -----------------------------
   'update:getState': { req: void; res: UpdateState }
   'update:check': { req: void; res: UpdateState }
+  /**
+   * Story 098: the staged update actions. Every one of them is a deliberate user act - nothing
+   * below happens on its own.
+   *
+   * `update:download` returns as soon as the download has *started* (resolving with the
+   * `downloading` state), not when it finishes: the launcher stays fully usable while it runs and
+   * progress arrives over `update:state` (AC3).
+   *
+   * `update:installAndRestart` is the only call in the app that quits the launcher and overwrites
+   * its own installation. It refuses - `appUpdate.error.notReady` / `.gameRunning` / `.jobActive` -
+   * before doing any of that, and kills neither the game nor the job it refuses for (AC6).
+   */
+  'update:download': { req: void; res: Outcome<UpdateState> }
+  'update:cancelDownload': { req: void; res: Outcome<UpdateState> }
+  'update:installAndRestart': { req: void; res: Outcome<null> }
+  'update:dismiss': { req: void; res: Outcome<UpdateState> }
 
   // ---- jobs (owned by modules; no module produces them yet) ------------------
   'jobs:list': { req: void; res: Job[] }
@@ -158,6 +175,15 @@ export interface IpcInvokeMap {
     req: { installationId: string; phase: 'running' | 'idle' }
     res: Outcome<null>
   }
+  /**
+   * Story 098 D4: offline simulation of the whole update flow, for `scripts/flows/app-update.mjs`
+   * and this dev panel's own button. Drives `app.update.simulate()` directly - see that method's
+   * doc comment (`src/main/services/update/service.ts`) for why no real check or download is
+   * involved, and why AC6's restart guard is *not* one of these scenarios: `update:installAndRestart`
+   * is already real and unfaked, exercised directly once `'downloaded'` has staged a release. Same
+   * affordance class as `dev:simulateJob`/`dev:simulateLaunch`, behind the same dev-only allowlist.
+   */
+  'dev:simulateAppUpdate': { req: UpdateSimulateScenario; res: Outcome<null> }
 }
 
 export type InvokeChannel = keyof IpcInvokeMap
@@ -219,12 +245,17 @@ export const INVOKE_CHANNELS = [
   'launch:getState',
   'update:getState',
   'update:check',
+  'update:download',
+  'update:cancelDownload',
+  'update:installAndRestart',
+  'update:dismiss',
   'jobs:list',
   'jobs:cancel',
   'modules:list',
   'module:invoke',
   'dev:simulateJob',
   'dev:simulateLaunch',
+  'dev:simulateAppUpdate',
 ] as const satisfies readonly InvokeChannel[]
 
 export const EVENT_CHANNELS = [
@@ -253,6 +284,7 @@ export const ALL_EVENT_CHANNELS_LISTED: MissingEvent extends never ? true : Miss
 export const DEV_ONLY_CHANNELS: readonly InvokeChannel[] = [
   'dev:simulateJob',
   'dev:simulateLaunch',
+  'dev:simulateAppUpdate',
 ]
 
 /** The shape `preload` puts on `window.q2`. */

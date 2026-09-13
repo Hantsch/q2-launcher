@@ -5,7 +5,8 @@ import { invoke } from '../../lib/bridge'
 import type { ModuleId } from '@shared/types'
 import { ROUTE_HOME, ROUTE_SETTINGS, useActiveJobCount, useLauncher } from '../../store/useLauncher'
 import { moduleIcon } from './moduleIcons'
-import { NavJobBadge } from './NavJobBadge'
+import { UpdateButton } from './UpdateButton'
+import { UtilityButton } from './UtilityButton'
 
 /**
  * Custom window chrome plus the primary navigation.
@@ -84,6 +85,8 @@ export function TitleBar() {
 
       {/* Utility (secondary nav) + Settings + window controls */}
       <div className="flex items-center gap-1 pr-1 pl-2">
+        <UpdateButton />
+
         {utilityModules.map((module) => (
           <UtilityModuleButton
             key={module.id}
@@ -202,39 +205,6 @@ function UtilityModuleButton({
     >
       <Icon className="size-5" />
     </UtilityButton>
-  )
-}
-
-function UtilityButton({
-  testId,
-  label,
-  active,
-  onClick,
-  badge,
-  children,
-}: {
-  testId?: string
-  label: string
-  active: boolean
-  onClick: () => void
-  badge?: number
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      data-testid={testId}
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className={cn(
-        'no-drag relative grid size-11 place-items-center rounded-sm transition-colors duration-[--dur-fast]',
-        active ? 'bg-hover text-flame-300' : 'text-ink-muted hover:bg-hover hover:text-ink',
-      )}
-    >
-      {children}
-      {!!badge && <NavJobBadge count={badge} testId={testId ? `${testId}-badge` : undefined} />}
-    </button>
   )
 }
 

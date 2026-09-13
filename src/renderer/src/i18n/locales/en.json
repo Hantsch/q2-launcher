@@ -2044,7 +2044,12 @@
     "devTools": "Development",
     "simulateJob": "Simulate a download job",
     "simulateJobStall": "Simulate a stalled job",
-    "simulateJobFailure": "Simulate a failed job"
+    "simulateJobFailure": "Simulate a failed job",
+    "simulateUpdateAvailable": "Simulate an update becoming available",
+    "simulateUpdateProgress": "Simulate download progress",
+    "simulateUpdateDownloaded": "Simulate a finished download",
+    "simulateUpdateError": "Simulate a failed download",
+    "simulateUpdateUpToDate": "Simulate the installed version matching"
   },
 
   "launch": {
@@ -2348,6 +2353,36 @@
       "notConfigured": "This build is not configured to check for updates.",
       "timeout": "The update check took too long and was cancelled.",
       "unknown": "The update check failed for an unknown reason."
+    }
+  },
+
+  "appUpdate": {
+    "action": {
+      "label": "Update",
+      "labelAvailable": "Update available",
+      "download": "Download",
+      "cancel": "Cancel",
+      "restart": "Restart and install",
+      "dismiss": "Dismiss"
+    },
+    "popover": {
+      "label": "Launcher update"
+    },
+    "version": "Version {{version}}",
+    "whatChanged": "What changed",
+    "progress": {
+      "label": "Downloading update"
+    },
+    "error": {
+      "offline": "Could not download the update. Check your internet connection.",
+      "checksum": "The downloaded update failed verification and was discarded.",
+      "cancelled": "The download was cancelled.",
+      "downloadFailed": "The update could not be downloaded. Try again later.",
+      "notAvailable": "There is no update to download right now.",
+      "notReady": "The update has not finished downloading yet.",
+      "gameRunning": "Quake II is still running. Close it before installing the update.",
+      "jobActive": "A download is still in progress. Wait for it to finish before installing the update.",
+      "installFailed": "The update could not be installed. Nothing was changed."
     }
   },
 

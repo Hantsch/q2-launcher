@@ -13,7 +13,7 @@ import { InstallationsService } from './services/installations'
 import { JobsService } from './services/jobs'
 import { LaunchService } from './services/launch'
 import { StateStore } from './services/state'
-import { createUpdateChecker } from './services/update/checker'
+import { createUpdateBackend, createUpdateChecker } from './services/update/checker'
 import { createUpdateService, type UpdateService } from './services/update/service'
 import { InstallationWriteGuard } from './services/write-guard'
 
@@ -115,6 +115,12 @@ export async function createAppContext(options: {
   const update = createUpdateService({
     isPackaged: electronApp.isPackaged,
     check: createUpdateChecker({ log: scopedLogger('update') }),
+    backend: createUpdateBackend({ log: scopedLogger('update') }),
+    // Story 098 AC6: the restart guard reads the two things main already tracks and cancels
+    // neither. Both are passed as getters over the live services rather than snapshots, or the
+    // guard would answer a question from whenever the context was built.
+    isGameRunning: () => launch.isRunning(),
+    listJobs: () => jobs.list(),
     onStateChange: (updateState) => broadcast.emit('update:state', updateState),
     log: scopedLogger('update'),
   })

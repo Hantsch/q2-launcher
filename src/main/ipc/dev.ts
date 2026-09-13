@@ -1,5 +1,9 @@
 import { ok } from '@shared/types'
-import { devSimulateJobSchema, devSimulateLaunchSchema } from '@shared/ipc-schemas'
+import {
+  devSimulateAppUpdateSchema,
+  devSimulateJobSchema,
+  devSimulateLaunchSchema,
+} from '@shared/ipc-schemas'
 import { isWriteCancelled } from '../services/write-guard'
 import type { AppContext } from '../context'
 import { handle } from './index'
@@ -134,6 +138,16 @@ export function registerDevIpc(app: AppContext): void {
   // `LaunchService.simulate` for why this exists instead of a real launch.
   handle('dev:simulateLaunch', devSimulateLaunchSchema, ({ installationId, phase }) => {
     app.launch.simulate(phase, installationId)
+    return ok(null)
+  })
+
+  // Story 098 D4: offline simulation of the whole update flow - see `UpdateService.simulate()`'s
+  // doc comment for why no real check or download is involved. AC6's restart guard is deliberately
+  // not one of these scenarios: it is exercised through the real `update:installAndRestart` channel
+  // once `'downloaded'` has staged a release, same as `dev:simulateJob('writing')`'s "real guard,
+  // faked work" precedent.
+  handle('dev:simulateAppUpdate', devSimulateAppUpdateSchema, (scenario) => {
+    app.update.simulate(scenario)
     return ok(null)
   })
 }

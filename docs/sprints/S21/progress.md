@@ -23,3 +23,14 @@
 - 2026-09-13 13:25 · 097 · D5 Wiring into the app · done
 - 2026-09-13 13:25 · 097 · D6 The renderer read path · started
 - 2026-09-13 13:30 · 097 · D6 The renderer read path · done
+- 2026-09-13 13:41 · 098 · D1 Staged update actions and the restart guard (main + contract) [deliverable-hard] · started
+- 2026-09-13 13:58 · 098 · D1 Staged update actions and the restart guard (main + contract) [deliverable-hard] · done
+- 2026-09-13 13:58 · 098 · D2 Popover primitive + reusable UtilityButton (renderer plumbing) · started
+- 2026-09-13 14:00 · 098 · D2 Popover primitive + reusable UtilityButton (renderer plumbing) · done
+- 2026-09-13 14:00 · 098 · D3 Titlebar update control and its popover · started
+- 2026-09-13 14:08 · 098 · D3 Titlebar update control and its popover · done
+- 2026-09-13 14:08 · 098 · D4 Offline simulation of the whole flow (dev-only) · started
+- 2026-09-13 14:19 · 098 · D4 Offline simulation of the whole flow (dev-only) · done
+- 2026-09-13 14:19 · 098 · D5 The offline end-to-end proof · started
+- 2026-09-13 14:31 · 098 · D5 The offline end-to-end proof · done
+- 2026-09-13 14:55 · 098 · story done (1 review cycle: PASS with 6 findings, 3 fixed, 1 fix reverted after breaking e2e, 3 left as documented limitations) · done

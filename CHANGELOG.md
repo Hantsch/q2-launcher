@@ -51,3 +51,8 @@ version section when a release actually ships.
   config-profile tiles you place where you like.
 - **Install management** — a write-guard, engine update and rollback, repair, and
   removing an installation from disk entirely.
+- **Launcher updates** — a titlebar button appears only when a new version is out, names it,
+  links to what changed, and downloads on your say-so; the launcher stays fully usable while it
+  downloads and only restarts once you confirm a second time. It won't do that over a running
+  game or an in-flight download, and dismissing it just makes it quiet for the rest of the
+  session — it doesn't go away.

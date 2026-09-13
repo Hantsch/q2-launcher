@@ -181,6 +181,17 @@ export const launchGetStateSchema: z.ZodType<IpcInvokeMap['launch:getState']['re
 export const updateGetStateSchema: z.ZodType<IpcInvokeMap['update:getState']['req']> = z.void()
 export const updateCheckSchema: z.ZodType<IpcInvokeMap['update:check']['req']> = z.void()
 
+// Story 098: the four staged actions. All payload-free - *which* update is acted on is main's own
+// state, never something the renderer names, so there is nothing here for a renderer to forge.
+export const updateDownloadSchema: z.ZodType<IpcInvokeMap['update:download']['req']> = z.void()
+export const updateCancelDownloadSchema: z.ZodType<
+  IpcInvokeMap['update:cancelDownload']['req']
+> = z.void()
+export const updateInstallAndRestartSchema: z.ZodType<
+  IpcInvokeMap['update:installAndRestart']['req']
+> = z.void()
+export const updateDismissSchema: z.ZodType<IpcInvokeMap['update:dismiss']['req']> = z.void()
+
 // ---- jobs (owned by modules; no module produces them yet) --------------------------
 
 export const jobsListSchema: z.ZodType<IpcInvokeMap['jobs:list']['req']> = z.void()
@@ -218,3 +229,23 @@ export const devSimulateLaunchSchema: z.ZodType<IpcInvokeMap['dev:simulateLaunch
     installationId: z.string().min(1),
     phase: z.enum(['running', 'idle']),
   })
+
+/**
+ * Story 098 D4: `dev:simulateAppUpdate`'s payload - one variant per scenario
+ * `UpdateService.simulate()` understands, same discriminated-union shape as `devSimulateJobSchema`.
+ */
+export const devSimulateAppUpdateSchema: z.ZodType<IpcInvokeMap['dev:simulateAppUpdate']['req']> =
+  z.discriminatedUnion('scenario', [
+    z.object({
+      scenario: z.literal('available'),
+      version: z.string().min(1).max(64),
+      notes: z.string().max(20_000).optional(),
+    }),
+    z.object({ scenario: z.literal('progress'), ratio: z.number().min(0).max(1) }),
+    z.object({ scenario: z.literal('downloaded') }),
+    z.object({
+      scenario: z.literal('error'),
+      reason: z.enum(['offline', 'checksum', 'cancelled']),
+    }),
+    z.object({ scenario: z.literal('upToDate') }),
+  ])

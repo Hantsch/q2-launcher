@@ -31,8 +31,11 @@ const UPDATE_ERROR_KEYS = [
 
 const IDLE_UPDATE_STATE: UpdateState = {
   status: 'idle',
+  phase: 'idle',
   update: null,
   error: null,
+  progress: null,
+  dismissed: false,
   lastCheckedAt: null,
   lastSuccessAt: null,
   supported: false,
@@ -40,8 +43,11 @@ const IDLE_UPDATE_STATE: UpdateState = {
 
 const AVAILABLE_UPDATE_STATE: UpdateState = {
   status: 'available',
+  phase: 'available',
   update: { version: '1.2.3', notes: 'Notes', releasedAt: '2026-01-01T00:00:00.000Z' },
   error: null,
+  progress: null,
+  dismissed: false,
   lastCheckedAt: '2026-01-01T00:00:00.000Z',
   lastSuccessAt: '2026-01-01T00:00:00.000Z',
   supported: true,
@@ -65,8 +71,11 @@ const bridge = vi.hoisted(() => {
       'update:getState',
       {
         status: 'idle',
+        phase: 'idle',
         update: null,
         error: null,
+        progress: null,
+        dismissed: false,
         lastCheckedAt: null,
         lastSuccessAt: null,
         supported: false,
@@ -115,8 +124,11 @@ describe('useLauncher update slice', () => {
 
     const errorState: UpdateState = {
       status: 'error',
+      phase: 'error',
       update: null,
       error: { key: 'update.error.network' },
+      progress: null,
+      dismissed: false,
       lastCheckedAt: '2026-01-02T00:00:00.000Z',
       lastSuccessAt: null,
       supported: true,

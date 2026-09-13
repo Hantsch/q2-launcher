@@ -60,6 +60,10 @@ describe('registerAllIpc', () => {
     expect(DEV_ONLY_CHANNELS).toContain('dev:simulateLaunch')
   })
 
+  it('lists dev:simulateAppUpdate (story 098 D4) as dev-only', () => {
+    expect(DEV_ONLY_CHANNELS).toContain('dev:simulateAppUpdate')
+  })
+
   it('registers every non-dev-only channel and does not throw when isDev is false', async () => {
     const { registerAllIpc } = await import('./index')
     expect(() => registerAllIpc(fakeApp(false))).not.toThrow()
@@ -70,6 +74,7 @@ describe('registerAllIpc', () => {
     }
     expect(registered.has('dev:simulateJob')).toBe(false)
     expect(registered.has('dev:simulateLaunch')).toBe(false)
+    expect(registered.has('dev:simulateAppUpdate')).toBe(false)
   })
 
   it('registers every channel, including dev-only ones, when isDev is true, with no throw', async () => {
@@ -79,7 +84,8 @@ describe('registerAllIpc', () => {
     for (const channel of INVOKE_CHANNELS) {
       expect(registered.has(channel)).toBe(true)
     }
-    expect(registered.size).toBe(39)
+    // 39 + story 098's four staged update actions + D4's dev:simulateAppUpdate.
+    expect(registered.size).toBe(44)
   })
 
   it('rejects an invalid payload on a plain (throwing) handle() channel synchronously', async () => {

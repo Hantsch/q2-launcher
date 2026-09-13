@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
-import type { UpdateState } from '@shared/types'
+import type { Job, UpdateState } from '@shared/types'
 import type { UpdateCheckStoreData } from './store'
 import { UPDATE_CHECK_TIMEOUT_MS, createUpdateService, type UpdateCheckOutcome } from './service'
 
@@ -46,6 +46,25 @@ function fakeStore(initial: Partial<UpdateCheckStoreData> = {}) {
   }
 }
 
+/**
+ * Story 098's three new dependencies, none of which this (097) suite exercises: a backend that is
+ * never asked to do anything, and two guards that always answer "nothing is going on". They are
+ * required options rather than optional ones deliberately - a guard that defaults to "no game is
+ * running" is a guard that silently is not there - so every construction has to name them.
+ */
+function unusedActionDeps() {
+  return {
+    backend: {
+      autoInstallOnAppQuit: false,
+      download: vi.fn(async () => ({ ok: true as const })),
+      cancelDownload: vi.fn(),
+      quitAndInstall: vi.fn(),
+    },
+    isGameRunning: (): boolean => false,
+    listJobs: (): Job[] => [],
+  }
+}
+
 function build(parts: {
   check: () => Promise<UpdateCheckOutcome>
   store?: ReturnType<typeof fakeStore>
@@ -58,6 +77,7 @@ function build(parts: {
     states.push(state)
   })
   const service = createUpdateService({
+    ...unusedActionDeps(),
     isPackaged: parts.isPackaged ?? true,
     check: parts.check,
     store,
@@ -122,8 +142,11 @@ describe('update service: AC8 - the last known result survives a restart', () =>
     expect(check).not.toHaveBeenCalled()
     expect(state).toEqual({
       status: 'available',
+      phase: 'available',
       update: KNOWN_UPDATE,
       error: null,
+      progress: null,
+      dismissed: false,
       lastCheckedAt: ago(2 * HOUR),
       lastSuccessAt: ago(2 * HOUR),
       supported: true,
@@ -143,8 +166,11 @@ describe('update service: AC8 - the last known result survives a restart', () =>
 
     expect(await service.getState()).toEqual({
       status: 'idle',
+      phase: 'idle',
       update: null,
       error: null,
+      progress: null,
+      dismissed: false,
       lastCheckedAt: null,
       lastSuccessAt: null,
       supported: true,
@@ -179,8 +205,11 @@ describe('update service: AC1 - at most one check per 24 hours', () => {
     expect(store.save).not.toHaveBeenCalled()
     expect(await service.getState()).toEqual({
       status: 'available',
+      phase: 'available',
       update: KNOWN_UPDATE,
       error: null,
+      progress: null,
+      dismissed: false,
       lastCheckedAt: ago(HOUR),
       lastSuccessAt: ago(HOUR),
       supported: true,
@@ -219,8 +248,11 @@ describe('update service: AC2 - the checker decides newer, the service relays it
 
     expect(state).toEqual({
       status: 'available',
+      phase: 'available',
       update: KNOWN_UPDATE,
       error: null,
+      progress: null,
+      dismissed: false,
       lastCheckedAt: NOW_ISO,
       lastSuccessAt: NOW_ISO,
       supported: true,
@@ -338,6 +370,7 @@ describe('update service: AC3 - a failure is quiet, kept, and not retried', () =
   it('a listener that throws cannot break a check', async () => {
     const store = fakeStore()
     const service = createUpdateService({
+      ...unusedActionDeps(),
       isPackaged: true,
       check: vi.fn(available),
       store,
@@ -399,8 +432,11 @@ describe('update service: AC5 - an unpackaged build stays out of it', () => {
     expect(onStateChange).not.toHaveBeenCalled()
     expect(manual).toEqual({
       status: 'idle',
+      phase: 'idle',
       update: null,
       error: null,
+      progress: null,
+      dismissed: false,
       lastCheckedAt: null,
       lastSuccessAt: null,
       supported: false,

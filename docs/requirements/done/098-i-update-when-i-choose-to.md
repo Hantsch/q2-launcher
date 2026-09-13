@@ -1,7 +1,7 @@
 ---
 id: 098
 title: I update when I choose to
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-13
 ---
 
@@ -25,23 +25,24 @@ already have state the launcher tracks.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — When [[097]]'s state says an update is available, an update control appears in
+- [x] **AC1** — When [[097]]'s state says an update is available, an update control appears in
       the titlebar's utility row, immediately left of the Downloads button; when no update is
       available it is not there at all.
-- [ ] **AC2** — The control names the available version before the user commits to anything, and
+- [x] **AC2** — The control names the available version before the user commits to anything, and
       offers a way to see what changed ([[099]]'s notes) rather than only a version number.
-- [ ] **AC3** — Starting the update downloads the release with visible progress, and the launcher
+- [x] **AC3** — Starting the update downloads the release with visible progress, and the launcher
       stays fully usable while it downloads.
-- [ ] **AC4** — Nothing is installed and nothing restarts until the user confirms a second time,
+- [x] **AC4** — Nothing is installed and nothing restarts until the user confirms a second time,
       after the download has finished.
-- [ ] **AC5** — Dismissing the update leaves the launcher running unchanged and does not show the
+- [x] **AC5** — Dismissing the update leaves the launcher running unchanged and does not show the
       prompt again in the same session; the control remains reachable for the user to come back to.
-- [ ] **AC6** — Restart-and-install is refused, with a readable reason, while a game launched by
+- [x] **AC6** — Restart-and-install is refused, with a readable reason, while a game launched by
       this launcher is running or a download job is in flight — it does not kill either.
-- [ ] **AC7** — A failed download (offline, checksum/signature mismatch, cancelled) leaves the
+- [x] **AC7** — A failed download (offline, checksum/signature mismatch, cancelled) leaves the
       installed launcher untouched and says why, with the update still offerable afterwards.
-- [ ] **AC8** — After a successful restart the launcher runs the new version, and the update
-      control is gone.
+- [x] **AC8** — After a successful restart the launcher runs the new version, and the update
+      control is gone. (automated half; the real-restart half is manual residue, see Acceptance
+      Tests.)
 
 ## Open Questions
 
@@ -189,6 +190,10 @@ Order: D1 → D2 → D3 → D4 → D5 (D5 needs D4's simulation channel).
 
 ## Acceptance Tests
 
+Naming note: file names below are the real D1 layout (097's existing `src/shared/types/update.ts`
+/ `src/main/services/update/service.ts` + `checker.ts`), not the story text's guessed
+`app-update.ts` names — a deliberate, reported deviation, not a miss.
+
 - AC1 → e2e `scripts/flows/app-update.mjs` › "no control while up to date; the control appears
   left of Downloads once an update is available" (D5) — asserts DOM order against
   `nav-downloads`.
@@ -198,23 +203,25 @@ Order: D1 → D2 → D3 → D4 → D5 (D5 needs D4's simulation channel).
 - AC3 → e2e `scripts/flows/app-update.mjs` › "downloading shows progress and the launcher stays
   usable" (D5) — progress readout advances while the flow navigates Library/Config and back.
 - AC4 → e2e `scripts/flows/app-update.mjs` › "a finished download installs nothing until the
-  second confirmation" (D5, the fake backend records that `quitAndInstall` was not called), plus
-  unit `src/main/services/app-update.test.ts` › "installAndRestart refuses before the download is
-  downloaded" and › "a downloaded update does not install itself on quit" (D1).
+  second confirmation" (D5 — proven by the app staying alive/answering IPC, since the dev
+  simulation never touches a real backend at all), plus unit
+  `src/main/services/update/service.actions.test.ts` › "installAndRestart refuses before the
+  download is downloaded" and › "a downloaded update does not install itself on quit" (D1).
 - AC5 → e2e `scripts/flows/app-update.mjs` › "dismissing stops the prompt for this session and
   leaves the control reachable" (D5) — dismiss, reload the renderer, attention marker gone, button
   present, nothing installed.
 - AC6 → e2e `scripts/flows/app-update.mjs` › "restart-and-install is refused while a game runs or
   a job is in flight" (D5) — `dev:simulateLaunch('running')` and `dev:simulateJob('stall')`,
   asserting both the inline reason and the real IPC `error.key`, and that game and job survive;
-  plus unit `src/main/services/app-update.test.ts` › "the restart guard refuses and cancels
-  nothing" (D1).
+  plus unit `src/main/services/update/service.actions.test.ts` › "the restart guard refuses and
+  cancels nothing" (D1).
 - AC7 → e2e `scripts/flows/app-update.mjs` › "offline, checksum mismatch and cancelled each leave
   the launcher untouched and stay offerable" (D5), plus unit
-  `src/main/services/app-update.test.ts` › "a failed download falls back to available with its
-  reason" (D1).
+  `src/main/services/update/service.actions.test.ts` › "a failed download falls back to available
+  with its reason" (D1).
 - AC8 → e2e `scripts/flows/app-update.mjs` › "once the running version matches, the control is
-  gone" (D5) — the fake backend reports the installed version, the control disappears.
+  gone" (D5) — the `dev:simulateAppUpdate({scenario:'upToDate'})` scenario reports the installed
+  version, the control disappears.
   **manual residue:** that the restart genuinely relaunches into the new build cannot be
   automated here — it needs a packaged NSIS install plus a published GitHub release, and [[097]]
   AC5 disables the updater in exactly the unpackaged build `ui:verify` drives. Walked once by hand
@@ -223,3 +230,70 @@ Order: D1 → D2 → D3 → D4 → D5 (D5 needs D4's simulation channel).
   covers the new popover screen (screenshot + axe).
 
 ## Done
+
+**Summary.** Extended 097's update service with `startDownload`/`cancelDownload`/
+`installAndRestart`/`dismiss` and a `phase` state machine, guarded on `LaunchService.isRunning()`
+and the job list (D1); added a `Popover` primitive and extracted `UtilityButton` from `TitleBar`
+(D2); added the titlebar `UpdateButton`/`UpdatePopover` wired to the 097 store slice, i18n and a
+Settings → About anchor (D3); added a dev-only `dev:simulateAppUpdate` channel that drives the
+real service's `phase`/`stage` through every scenario without a fake backend (D4); and a new
+offline e2e flow `scripts/flows/app-update.mjs` plus one new `ui:verify` screen, proving AC1–AC7
+and AC8's automated half against the real, unpackaged app (D5).
+
+**Commit message:** `098: I update when I choose to`
+
+**Verification.**
+- `npm run typecheck` — clean (node + web).
+- `npm run build` — clean.
+- `npm test` (full suite) — 4029 passed, 2 pre-existing/unrelated failures confirmed both before
+  this story's changes and in isolation: `import-reader.test.ts`'s 512-file depth-guard test (a
+  5s-timeout flake under load — passes alone) and `news-fixture-contract.test.ts` (a stale
+  checked-in news fixture, untouched by this diff).
+- `npm run ui:flow app-update` — all steps green (AC1–AC8's automated half) against a fresh build.
+- `npm run ui:verify` — 84/84 screenshots, 0 axe violations, including the new
+  `update-popover-available` screen.
+- Clean-agent review (`story-review-hard`): verdict **PASS**, 6 non-blocking findings. Fixed 3:
+  (1) `en.json` coverage test for all nine `appUpdate.error.*` keys (was only indirectly covered
+  for 5 of 9), (2) `UpdatePopover`'s "what changed" link now scrolls `settings-about` into view
+  instead of only routing to Settings' top, (3) attempted an explicit `!supported` guard in
+  `installAndRestart` for defense-in-depth — reverted (see Decisions) after it broke AC6's real
+  e2e proof. Left 3 undone, all explicitly non-blocking per the reviewer: the e2e's AC3/AC4/AC7
+  steps drive `dev:simulateAppUpdate` directly rather than through an injected fake `UpdateBackend`
+  (D1's real guard logic is instead proven by `service.actions.test.ts`, and a real download is
+  physically impossible in the unpackaged build this harness runs against); AC4's e2e step infers
+  "nothing installed" from the app staying alive rather than recording a `quitAndInstall` call
+  (same reason); and a narrow cancel-during-metadata-check window in `checker.ts` where the
+  cancellation token isn't created yet (real-backend-only, unreachable from this e2e).
+
+**AC → test mapping (verified this pass):**
+- AC1 → e2e `scripts/flows/app-update.mjs` — passed.
+- AC2 → e2e `app-update.mjs` + unit `UpdatePopover.test.tsx` — passed.
+- AC3 → e2e `app-update.mjs` — passed.
+- AC4 → e2e `app-update.mjs` + unit `service.actions.test.ts` (2 tests) — passed.
+- AC5 → e2e `app-update.mjs` — passed.
+- AC6 → e2e `app-update.mjs` + unit `service.actions.test.ts` — passed.
+- AC7 → e2e `app-update.mjs` + unit `service.actions.test.ts` — passed.
+- AC8 → e2e `app-update.mjs` (automated half) — passed. Manual residue: a real restart relaunching
+  into the new build, needs a packaged NSIS install + published release; walk once against 096's
+  first release.
+
+**Decisions (made during implementation, not pre-specified in the plan):**
+- File names follow 097's real, already-committed layout (`src/shared/types/update.ts`,
+  `src/main/services/update/service.ts` + `checker.ts`) rather than the story text's guessed
+  `app-update.ts` names — both D1 and D4 follow this; noted inline in `## Acceptance Tests` above.
+- The update download and the dev-only backend seam are not a `JobsService` job, per the story's
+  own Decision, confirmed unaffected.
+- `installAndRestart` does **not** carry an explicit `!supported` early-refusal in addition to its
+  `stage !== 'downloaded'` check. One was added during the review-fix pass to hard-code the
+  belt-and-braces the review's finding 6 asked for, but `supported` is `false` for the entire
+  unpackaged/dev build the e2e harness runs against, and 098 D4's `simulate()` deliberately drives
+  `stage` to `'downloaded'` on such a build so AC6's game/job refusals can be proven for real
+  without a packaged install — the added guard fired unconditionally in that build and broke
+  AC6's own e2e proof. Reverted; the pre-existing indirect protection (a real `download()` already
+  refuses `!supported`, so `stage` cannot reach `'downloaded'` on the real path without
+  simulation, and `checker.ts`'s `quitAndInstall()` still throws on an unresolved updater) is kept
+  as the reviewed, PASS-level design, now documented in a code comment on `installAndRestart`.
+- `scripts/flows/app-update.mjs`'s AC6 popover-click assertions read the popover after the first
+  refusal without needing to reopen it for the *first* refusal; the *second* refusal (job-active)
+  closes/reopens the popover first, because `UpdatePopover`'s `refusalKey` is local, mount-scoped
+  state (a deliberate D3 choice) that only clears on remount.

@@ -66,8 +66,11 @@ function withoutIconDataUrl(
  */
 const IDLE_UPDATE_STATE: UpdateState = {
   status: 'idle',
+  phase: 'idle',
   update: null,
   error: null,
+  progress: null,
+  dismissed: false,
   lastCheckedAt: null,
   lastSuccessAt: null,
   supported: false,
@@ -196,6 +199,22 @@ interface LauncherStore {
   // --- playing -------------------------------------------------------------
   play: (installationId?: string) => Promise<void>
   cancelJob: (jobId: string) => Promise<void>
+
+  // --- app update (story 098) ----------------------------------------------
+  /** Starts the staged download (AC3). Refuses with `appUpdate.error.notAvailable` when nothing
+   * is known to download - toasted like any other refusal, since there is no dedicated inline
+   * surface for it (unlike `installAndRestart`'s guard, which the popover shows itself). */
+  startDownload: () => Promise<Outcome<UpdateState>>
+  /** Asks main to stop an in-flight download (Decisions: "cancel during download is offered"). */
+  cancelDownload: () => Promise<Outcome<UpdateState>>
+  /**
+   * The second, deliberate confirmation (AC4). Deliberately does not toast on failure - mirrors
+   * `setInstallationIcon`: the popover shows the refused `Outcome`'s key inline itself (AC6), so a
+   * second, top-level toast would be redundant.
+   */
+  installAndRestart: () => Promise<Outcome<null>>
+  /** AC5: drops the attention marker for this session; the control itself stays reachable. */
+  dismissUpdate: () => Promise<Outcome<UpdateState>>
 }
 
 let subscribed = false
@@ -436,6 +455,32 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
   cancelJob: async (jobId) => {
     const result = await invoke('jobs:cancel', jobId)
     if (!result.ok) toastError(get, result)
+  },
+
+  startDownload: async () => {
+    const result = await invoke('update:download')
+    if (result.ok) set({ update: result.value })
+    else toastError(get, result)
+    return result
+  },
+
+  cancelDownload: async () => {
+    const result = await invoke('update:cancelDownload')
+    if (result.ok) set({ update: result.value })
+    else toastError(get, result)
+    return result
+  },
+
+  installAndRestart: async () => {
+    // No `set()`/toast on success: a successful call quits the launcher, so there is no state left
+    // here to update. A refusal is reported back to the caller (`UpdatePopover` shows it inline).
+    return invoke('update:installAndRestart')
+  },
+
+  dismissUpdate: async () => {
+    const result = await invoke('update:dismiss')
+    if (result.ok) set({ update: result.value })
+    return result
   },
 }))
 

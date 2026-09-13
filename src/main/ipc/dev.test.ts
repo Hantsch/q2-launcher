@@ -1,11 +1,12 @@
 import type { IpcMainInvokeEvent } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEV_ONLY_CHANNELS } from '@shared/ipc'
-import type { LaunchState } from '@shared/types'
+import type { LaunchState, UpdateState } from '@shared/types'
 import { JobsService } from '../services/jobs'
 import { LaunchService } from '../services/launch'
 import { InstallationWriteGuard } from '../services/write-guard'
 import type { InstallationsService } from '../services/installations'
+import { createUpdateService, type UpdateService } from '../services/update/service'
 import type { AppContext } from '../context'
 
 /**
@@ -89,6 +90,41 @@ async function setupWriting(): Promise<{
   const app = { jobs, writeGuard: guard } as unknown as AppContext
   registerDevIpc(app)
   return { jobs, launch, guard, fn: registered.get('dev:simulateJob')! }
+}
+
+/**
+ * Story 098 D4: `dev:simulateAppUpdate` drives `UpdateService.simulate()` on a real service - a
+ * stub backend/checker stand in only because the constructor requires them; `simulate()` never
+ * calls either, which is the whole point of it (see that method's doc comment in `service.ts`).
+ */
+async function setupUpdate(): Promise<{
+  update: UpdateService
+  states: UpdateState[]
+  fn: (event: unknown, payload: unknown) => unknown
+}> {
+  const { registerDevIpc } = await import('./dev')
+  const states: UpdateState[] = []
+  const update = createUpdateService({
+    isPackaged: true,
+    check: vi.fn(async () => ({ ok: true as const, available: false as const })),
+    backend: {
+      autoInstallOnAppQuit: false,
+      download: vi.fn(async () => ({ ok: true as const })),
+      cancelDownload: vi.fn(),
+      quitAndInstall: vi.fn(),
+    },
+    isGameRunning: () => false,
+    listJobs: () => [],
+    store: {
+      load: vi.fn(async () => ({ update: null, lastCheckedAt: null, lastSuccessAt: null })),
+      save: vi.fn(async () => undefined),
+    },
+    onStateChange: (state) => states.push(state),
+    log: { warn: () => undefined },
+  })
+  const app = { update } as unknown as AppContext
+  registerDevIpc(app)
+  return { update, states, fn: registered.get('dev:simulateAppUpdate')! }
 }
 
 beforeEach(() => {
@@ -260,5 +296,106 @@ describe('dev:simulateJob "writing" scenario', () => {
     await Promise.resolve()
 
     expect(guard.isWriting('inst-1')).toBe(false)
+  })
+})
+
+/**
+ * Story 098 D4: each scenario reaches the real `UpdateService` - not just that the handler ran,
+ * but that `getState()` (and the `update:state` broadcast) reflects the scenario, the same
+ * "actually happened, not just called" bar `dev:simulateJob`/`dev:simulateLaunch` above meet.
+ */
+describe('dev:simulateAppUpdate', () => {
+  it('stays behind the dev-only allowlist, same as every other dev channel', () => {
+    expect(DEV_ONLY_CHANNELS).toContain('dev:simulateAppUpdate')
+  })
+
+  it('rejects an unknown scenario string synchronously (schema boundary, not just TS types)', async () => {
+    const { fn } = await setupUpdate()
+    expect(() => fn(fakeEvent, { scenario: 'bogus' })).toThrow()
+  })
+
+  it('rejects "available" with no version', async () => {
+    const { fn } = await setupUpdate()
+    expect(() => fn(fakeEvent, { scenario: 'available' })).toThrow()
+  })
+
+  it('scenario "available" stages a known release at phase "available"', async () => {
+    const { update, states, fn } = await setupUpdate()
+
+    await fn(fakeEvent, { scenario: 'available', version: '9.9.9-dev', notes: 'Fixed things.' })
+
+    const state = await update.getState()
+    expect(state.phase).toBe('available')
+    expect(state.update).toEqual({
+      version: '9.9.9-dev',
+      notes: 'Fixed things.',
+      releasedAt: null,
+    })
+    expect(states.at(-1)).toEqual(state)
+  })
+
+  it('scenario "progress" moves the phase to "downloading" and carries the given ratio', async () => {
+    const { update, fn } = await setupUpdate()
+
+    await fn(fakeEvent, { scenario: 'progress', ratio: 0.42 })
+
+    const state = await update.getState()
+    expect(state.phase).toBe('downloading')
+    expect(state.progress?.ratio).toBe(0.42)
+    expect(state.progress?.bytesDone).toBeGreaterThan(0)
+  })
+
+  it('scenario "downloaded" stages the release and clears progress', async () => {
+    const { update, fn } = await setupUpdate()
+
+    await fn(fakeEvent, { scenario: 'available', version: '9.9.9-dev' })
+    await fn(fakeEvent, { scenario: 'progress', ratio: 0.9 })
+    await fn(fakeEvent, { scenario: 'downloaded' })
+
+    const state = await update.getState()
+    expect(state.phase).toBe('downloaded')
+    expect(state.progress).toBeNull()
+  })
+
+  it.each([
+    ['offline', 'appUpdate.error.offline'],
+    ['checksum', 'appUpdate.error.checksum'],
+    ['cancelled', 'appUpdate.error.cancelled'],
+  ] as const)('scenario "error" with reason %s falls back to "available" with its key', async (reason, key) => {
+    const { update, fn } = await setupUpdate()
+
+    await fn(fakeEvent, { scenario: 'available', version: '9.9.9-dev' })
+    await fn(fakeEvent, { scenario: 'progress', ratio: 0.5 })
+    await fn(fakeEvent, { scenario: 'error', reason })
+
+    const state = await update.getState()
+    expect(state.phase).toBe('available')
+    expect(state.error).toEqual({ key })
+    expect(state.progress).toBeNull()
+    // AC7: the release itself is still known and offerable.
+    expect(state.update?.version).toBe('9.9.9-dev')
+  })
+
+  it('scenario "upToDate" clears the known release, so the control has nothing to show', async () => {
+    const { update, fn } = await setupUpdate()
+
+    await fn(fakeEvent, { scenario: 'available', version: '9.9.9-dev' })
+    await fn(fakeEvent, { scenario: 'upToDate' })
+
+    const state = await update.getState()
+    expect(state.phase).toBe('idle')
+    expect(state.status).toBe('upToDate')
+    expect(state.update).toBeNull()
+  })
+
+  it('does not touch the real restart guard - installAndRestart still runs for real once "downloaded"', async () => {
+    const { update, fn } = await setupUpdate()
+
+    await fn(fakeEvent, { scenario: 'available', version: '9.9.9-dev' })
+    await fn(fakeEvent, { scenario: 'downloaded' })
+
+    // `isGameRunning`/`listJobs` are the stubbed "nothing running" answers from `setupUpdate()` -
+    // the real, unfaked `installAndRestart()` should therefore proceed rather than refuse.
+    expect((await update.installAndRestart()).ok).toBe(true)
   })
 })
