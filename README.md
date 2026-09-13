@@ -106,8 +106,12 @@ Full picture and current state: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Install
 
-No release build is published yet. Until then, build it from source —
-see [CONTRIBUTING.md](CONTRIBUTING.md).
+Grab the NSIS installer from the
+[GitHub Releases page](https://github.com/Hantsch/q2-launcher/releases). Builds
+are unsigned, so Windows SmartScreen will warn — "Windows protected your PC" →
+"More info" → "Run anyway".
+
+Prefer to build it yourself? See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Licence
 

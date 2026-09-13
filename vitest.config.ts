@@ -16,6 +16,6 @@ export default defineConfig({
     // .tsx tests render React components and need a DOM (story 054 D1's first one); they opt in
     // per-file with a `// @vitest-environment jsdom` docblock so plain .ts tests stay on the
     // faster `node` environment.
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'scripts/**/*.test.mjs'],
   },
 })

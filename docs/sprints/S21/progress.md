@@ -1,0 +1,13 @@
+- 2026-09-13 12:21 · 096 · D1 release core (changelog/version/plan) · started
+- 2026-09-13 12:28 · 096 · D1 release core (changelog/version/plan) · done
+- 2026-09-13 12:28 · 096 · D2 CHANGELOG.md + README + CONTRIBUTING · started
+- 2026-09-13 12:31 · 096 · D2 CHANGELOG.md + README + CONTRIBUTING · done
+- 2026-09-13 12:31 · 096 · D3 packaging publish + artifacts.mjs · started
+- 2026-09-13 12:33 · 096 · D3 packaging publish + artifacts.mjs · done
+- 2026-09-13 12:33 · 096 · D4 release runner (release.mjs) · started
+- 2026-09-13 12:38 · 096 · D4 release runner (release.mjs) [deliverable-hard] · done
+- 2026-09-13 12:38 · 096 · D5 GitHub Actions release workflow · started
+- 2026-09-13 12:41 · 096 · D5 GitHub Actions release workflow · done
+- 2026-09-13 12:41 · 096 · D6 ai-scrum.md changelog-path flip · started
+- 2026-09-13 12:42 · 096 · D6 ai-scrum.md changelog-path flip · done
+- 2026-09-13 13:04 · 096 · story done (2 review cycles, both passed after fixes) · done

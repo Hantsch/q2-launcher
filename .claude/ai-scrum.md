@@ -47,7 +47,7 @@ systems-path: docs/systems
 story-id-format: NNN <!-- three digits + slug, e.g. 042-npc-haggling.md -->
 sprint-id-format: SNN <!-- e.g. S07 -->
 
-changelog-path: none
+changelog-path: CHANGELOG.md
 <!--
   Optional. Path to a USER-FACING changelog (e.g. version.md, CHANGELOG.md) — not the
   git history. When set, /build and /sprint require an entry for every user-facing
@@ -132,3 +132,5 @@ Keep this short — it is pasted into every subagent prompt.
 ## Notes
 
 <!-- Free text. Never overwritten by setup/update. Project quirks worth knowing. -->
+
+This repo's CHANGELOG.md uses Keep-a-Changelog category headings (`### Added`/`### Changed`/`### Fixed`/`### Removed`/`### Security`), not the `changelog-path` comment's suggested `# Features`/`# Fixes` shape.

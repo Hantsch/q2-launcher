@@ -2,6 +2,15 @@ appId: io.github.hantsch.q2launcher
 productName: Q2 Launcher
 copyright: Copyright (c) 2026 Hantsch
 
+# Story 096 D3: this block is what makes electron-builder write the update-metadata files
+# (latest.yml, app-update.yml) at build time - gated on `publish` being configured, not on the
+# `--publish` CLI flag. `package:win` still builds with `--publish never` (electron-builder's own
+# default), so nothing here uploads or creates a GitHub release on its own.
+publish:
+  provider: github
+  owner: Hantsch
+  repo: q2-launcher
+
 directories:
   buildResources: build
   output: release/${version}

@@ -1,7 +1,7 @@
 ---
 sprint: S21
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/21
 milestone: 7.1 — Release & updates (beta rollout)
 ---
 
@@ -16,7 +16,7 @@ from the titlebar or from About, seeing what they get for it.
 
 ## Stories (in build order)
 
-- [ ] 096 — A release ships from a changelog
+- [x] 096 — A release ships from a changelog
 - [ ] 097 — The launcher notices a new version
 - [ ] 098 — I update when I choose to
 - [ ] 099 — About tells me what changed

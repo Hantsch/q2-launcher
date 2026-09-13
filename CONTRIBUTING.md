@@ -125,3 +125,7 @@ checked without starting the app by hand:
 - **How a finished system works** → [docs/systems/](docs/systems/).
 - **Working conventions for agents, and the recorded deviations from the house
   rules** → [CLAUDE.md](CLAUDE.md).
+- **The changelog is written as you go** — whoever makes a user-facing change adds
+  its `CHANGELOG.md` entry under `## Unreleased` in the same change, while it's
+  still fresh. The release process only promotes what's already there; it doesn't
+  write notes for you.

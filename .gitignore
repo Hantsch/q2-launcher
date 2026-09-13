@@ -1,7 +1,10 @@
 node_modules/
 out/
 dist/
-release/
+# Anchored to repo root (electron-builder's `directories.output: release/${version}`) - an
+# unanchored `release/` also matched `scripts/lib/release/` (story 096's release pipeline
+# modules), silently untracking real source.
+/release/
 .vite/
 .ui-verify/
 

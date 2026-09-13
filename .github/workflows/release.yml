@@ -1,0 +1,79 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release exactly this version, no leading "v" (passed as --version; required for the first release, e.g. 1.0.0)'
+        required: false
+        type: string
+      bump:
+        description: 'Force this bump level instead of deriving it from CHANGELOG.md (passed as --bump)'
+        required: false
+        type: choice
+        options: ['', 'patch', 'minor', 'major']
+        default: ''
+      dry_run:
+        description: 'Build and print, but do not write, commit, tag, push or publish (passed as --dry-run)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release
+    runs-on: windows-latest
+    # A workflow_dispatch run has no head_commit at all, so the guard is written to only evaluate
+    # the [skip ci] check on a push - this stops the release commit itself (tagged
+    # "release: <version> [skip ci]" by scripts/release.mjs) from re-triggering a run when it lands
+    # on main via the push trigger (AC7), without relying on contains() coercing an undefined
+    # head_commit.message safely.
+    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI: 'true'
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          RELEASE_VERSION_INPUT: ${{ inputs.version }}
+          RELEASE_BUMP_INPUT: ${{ inputs.bump }}
+          RELEASE_DRY_RUN_INPUT: ${{ inputs.dry_run }}
+        run: |
+          ARGS=""
+          if [ -n "$RELEASE_VERSION_INPUT" ]; then ARGS="$ARGS --version $RELEASE_VERSION_INPUT"; fi
+          if [ -n "$RELEASE_BUMP_INPUT" ]; then ARGS="$ARGS --bump $RELEASE_BUMP_INPUT"; fi
+          if [ "$RELEASE_DRY_RUN_INPUT" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          node scripts/release.mjs $ARGS
