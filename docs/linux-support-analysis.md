@@ -1,7 +1,8 @@
 # Linux support — analysis
 
-**Status: background for stories [100](requirements/100-the-launcher-runs-on-linux.md) and
-[101](requirements/101-a-linux-release-ships-and-updates-itself.md), both `draft`.** This document
+**Status: background for stories [100](requirements/100-the-launcher-runs-on-linux.md) (`done`),
+[101](requirements/101-a-linux-release-ships-and-updates-itself.md) (`ready`) and
+[102](requirements/102-a-linux-q2pro-is-built-and-mirrored.md) (`draft`).** This document
 is deliberately parked at the `docs/` root rather than in `concepts/`, because a concept carries a
 line in [ROADMAP.md](ROADMAP.md) and that would mean the topic has been prioritised — it has not.
 Two draft stories exist; no sprint is cut and no roadmap row is written. If the topic is adopted,
@@ -145,8 +146,15 @@ blockers in §3 are two stories, not eight.
 
 | # | Story | Status | Covers | Blocked on |
 | --- | --- | --- | --- | --- |
-| [100](requirements/100-the-launcher-runs-on-linux.md) | the launcher runs on linux | draft | B2, B3, B4, B6, B7 | — |
-| [101](requirements/101-a-linux-release-ships-and-updates-itself.md) | a linux release ships and updates itself | draft | B1, B5 | Q1, Q4 |
+| [100](requirements/100-the-launcher-runs-on-linux.md) | the launcher runs on linux | done | B2, B3, B4, B6, B7 | — |
+| [101](requirements/101-a-linux-release-ships-and-updates-itself.md) | a linux release ships and updates itself | ready | B5 | — |
+| [102](requirements/102-a-linux-q2pro-is-built-and-mirrored.md) | a linux q2pro is built and mirrored | draft | B1 | its own Q1–Q4 |
+
+**Re-cut 2026-09-21.** 101 originally carried B1 as well. Its Q1 was resolved by splitting the
+engine-supply obligation into 102, so 101 is now the launcher's own release and update path and
+nothing else — it ships on its own, giving a Linux user a self-updating launcher that manages a
+Q2PRO they already have. 102 is unblocked by nothing and blocks nothing; it is the story that
+turns story 100's `none-for-platform` outcome back into a bootstrap wizard.
 
 The dividing line is evidential, not thematic: **100 is everything the existing test suite can
 prove on a CI runner; 101 is everything that needs a real Linux artifact, a real Linux engine
@@ -164,10 +172,12 @@ configuration.
 
 ## 6. Open questions
 
-The engine-supply, packaging-target, architecture-scope and who-tests-it questions now live in
-[story 101](requirements/101-a-linux-release-ships-and-updates-itself.md)'s `Open Questions`, where
-`/refine` will require them to be resolved before that story can go `ready`. They are not repeated
-here, so there is one place to answer them.
+Story 101's four questions were all answered on 2026-09-21 and are recorded, with their answers, in
+that story's `Open Questions`: engine supply split out to 102, AppImage only, x86_64 only, and AC6
+accepted by an automated `ubuntu-latest` job rather than a human. The engine-supply question itself
+did not go away — it reopened as [story 102](requirements/102-a-linux-q2pro-is-built-and-mirrored.md)'s
+own Q1–Q4 (acceptable provenance for a self-compiled binary, who rebuilds it, where it runs, and
+what "reproducible" means for a C build). One place to answer them, as before.
 
 One question belongs to neither story and stays here:
 
