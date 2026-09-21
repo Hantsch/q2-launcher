@@ -1,8 +1,9 @@
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { stubPlatform } from '../../../../test-support/platform'
 import {
   installR1q2Notices,
   probeX86Runtime,
@@ -66,6 +67,27 @@ describe('seedR1glConfig', () => {
 
     const content = await readFile(join(dir, 'baseq2', 'autoexec.cfg'), 'utf8')
     expect(content).toBe('bind x "+attack"\n')
+  })
+})
+
+describe('off Windows', () => {
+  /**
+   * Story 100 D6 (AC6): R1Q2 is Windows-only. D5 already keeps it from ever being pinned/offered
+   * off Windows, but `probeX86Runtime`/`seedR1glConfig` also guard themselves, so calling either
+   * directly on a non-Windows host is a hard no-op rather than a false "runtime present" or a
+   * stray `baseq2/autoexec.cfg` write.
+   */
+  it('the runtime probe and the vid_ref seeding do nothing off Windows', async () => {
+    const restore = stubPlatform('linux')
+    try {
+      const present = await probeX86Runtime({ fileExists: () => Promise.resolve(true) })
+      expect(present).toBe(false)
+
+      await seedR1glConfig(dir)
+      await expect(access(join(dir, 'baseq2', 'autoexec.cfg'))).rejects.toThrow()
+    } finally {
+      restore()
+    }
   })
 })
 

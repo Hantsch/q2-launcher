@@ -17,6 +17,14 @@ const GAMEDATA_MANIFEST_PATH = join(REPO_ROOT, 'content', 'q2_community_content'
 
 const SHA256_SHAPE = /^[a-f0-9]{64}$/
 
+/**
+ * Story 100 D5: the shipped engines manifest pins Windows builds and nothing else, so every
+ * assertion about a *resolved pin* says which platform it is resolving for instead of inheriting
+ * the suite's host - the same fixture then proves the Windows pins on a Linux CI runner too.
+ */
+const WIN32 = { platform: 'win32' } as const
+const LINUX = { platform: 'linux' } as const
+
 function fakeLogger(): Logger {
   return { warn: vi.fn() } as unknown as Logger
 }
@@ -40,7 +48,7 @@ describe('shipped manifest files parse through parseManifestFile', () => {
 
   it('carries the Q2PRO nightly package, with pinned.q2pro resolving to its id', () => {
     const log = fakeLogger()
-    const result = parseManifestFile(readManifest(ENGINES_MANIFEST_PATH), log)
+    const result = parseManifestFile(readManifest(ENGINES_MANIFEST_PATH), log, WIN32)
     if (!result.ok) throw new Error('expected ok result')
 
     const q2pro = result.packages.find((p) => p.id === 'q2pro-nightly-win64')
@@ -52,7 +60,7 @@ describe('shipped manifest files parse through parseManifestFile', () => {
 
   it('carries the R1Q2 package, with pinned.r1q2 resolving to its id', () => {
     const log = fakeLogger()
-    const result = parseManifestFile(readManifest(ENGINES_MANIFEST_PATH), log)
+    const result = parseManifestFile(readManifest(ENGINES_MANIFEST_PATH), log, WIN32)
     if (!result.ok) throw new Error('expected ok result')
 
     const r1q2 = result.packages.find((p) => p.id === 'r1q2-b8012-msvs2022-win32')
@@ -96,6 +104,35 @@ describe('shipped manifest files parse through parseManifestFile', () => {
     // package plus the original upstream mirror, two distinct locations, never the same URL twice.
     expect(r1q2.mirrors.length).toBeGreaterThan(0)
     expect(r1q2.url).not.toBe(r1q2.mirrors[0])
+  })
+
+  /**
+   * Story 100 D5 (that story's AC5) - the regression check the whole deliverable hangs off: after
+   * the manifest grew a platform dimension, the shipped file must still resolve exactly the two
+   * pins it resolved before, to exactly today's package ids, with nothing logged.
+   */
+  it('the shipped manifest still resolves on win32', () => {
+    const log = fakeLogger()
+    const result = parseManifestFile(readManifest(ENGINES_MANIFEST_PATH), log, WIN32)
+    if (!result.ok) throw new Error('expected ok result')
+
+    expect(result.pinned).toEqual({
+      q2pro: 'q2pro-nightly-win64',
+      r1q2: 'r1q2-b8012-msvs2022-win32',
+    })
+    expect(log.warn).not.toHaveBeenCalled()
+  })
+
+  it('the shipped manifest resolves to nothing on linux (no linux pin exists yet)', () => {
+    const log = fakeLogger()
+    const result = parseManifestFile(readManifest(ENGINES_MANIFEST_PATH), log, LINUX)
+    if (!result.ok) throw new Error('expected ok result')
+
+    // Nothing for this platform - and the packages themselves are still readable, so a Linux
+    // host sees "no engine to install" rather than a broken manifest.
+    expect(result.pinned).toEqual({})
+    expect(result.packages).toHaveLength(2)
+    expect(log.warn).not.toHaveBeenCalled()
   })
 
   it('has all four package ids present with no rows dropped', () => {

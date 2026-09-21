@@ -14,6 +14,8 @@ import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { createServer } from 'node:http'
 import {
+  chmodSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -2257,6 +2259,105 @@ export function vendoredExtractorExists() {
   return existsSync(vendoredSevenZaPath())
 }
 
+// --- story 100 D10: the Linux user-journey flow's own, unregistered install root ---------------
+//
+// `linux-user-journey.mjs` adds this folder through the real `AddExistingDialog` (the
+// `Q2L_UI_PICK_FOLDER` stub), so unlike every `INSTALL_*` constant above it is never written into
+// `state.json` by a fixture writer - the flow registers it itself, through the real UI, the same
+// way a user would. What has to exist on disk beforehand is a folder `inspectInstallation` ranks
+// as playable AND that the real `spawn()` call the Play button drives can actually execute.
+//
+// The stand-in client is named `q2pro`/`q2pro.exe` on purpose, not just "some executable": q2pro's
+// own `defaultArgs` is empty and its markers/executables list both the Windows and the
+// extension-less Linux name (`ENGINE_DEFINITIONS`, `src/shared/types/engine.ts`), and the action
+// bar's Play button passes no `gameDir`/`connect`/`extraArgs` (`play(installation.id)`,
+// `ActionBar.tsx`) - so the real launch this flow drives spawns the file below with ZERO
+// arguments, which is exactly what both stand-ins are built to tolerate:
+//
+//   off Windows: a real, tiny POSIX shell script (`#!/bin/sh`, sleeps briefly, exits 0),
+//     `chmodSync(..., 0o755)` - `looksExecutable` off Windows needs a real execute bit, not an
+//     extension (`fs-utils.ts`, story 100 D3). The brief sleep gives the launch state's `running`
+//     phase a real, non-zero-width window, though the flow does not actually depend on that
+//     window - see its own header for why listening to every `launch:state` broadcast makes this
+//     race-proof regardless of how fast the child exits.
+//   on Windows: a copy of the vendored `resources/bin/7za.exe` - a real, spawnable Win32 binary
+//     that exits almost immediately when given no arguments. Copied under the name `q2pro.exe`,
+//     not left as `7za.exe`, so `classifyEngine`/`rankExecutables` (`inspector.ts`) pick it up as
+//     the installation's ranked client executable instead of leaving it without one.
+//
+// When `resources/bin/7za.exe` was never vendored locally (`npm run fetch:7za` never ran) -
+// Windows only, since the shell-script stub off Windows needs no vendored binary at all - a
+// placeholder file is written instead: `looksExecutable`'s Windows rule is extension-only
+// (`fs-utils.ts`), so the installation still adds and classifies as q2pro and the config-edit half
+// of the journey is entirely unaffected. Only the flow's own Play/launch assertions are skipped in
+// that case - loudly, the same "state the reason, never pretend" gate every other flow's own
+// `vendoredExtractorExists()` check already uses (e.g. `bootstrap-existing-folder.mjs`'s
+// `setup()`), just scoped to one step of this flow instead of refusing the whole run.
+
+export const LINUX_JOURNEY_INSTALL_NAME = 'Fixture Linux Journey Install'
+
+const LINUX_JOURNEY_INSTALL_DIR = 'fixture-linux-journey-install'
+
+/** `q2pro.exe` on Windows, extension-less `q2pro` elsewhere - both real q2pro markers. */
+const LINUX_JOURNEY_EXECUTABLE_NAME = process.platform === 'win32' ? 'q2pro.exe' : 'q2pro'
+
+/** A tiny, real POSIX shell script: sleeps briefly, then exits cleanly. Only ever written off
+ * Windows - see the block comment above for why. */
+const LINUX_JOURNEY_SHELL_SCRIPT = '#!/bin/sh\nsleep 0.4\nexit 0\n'
+
+/** The real, absolute path to this repo's vendored Windows 7-Zip binary - the same file
+ * `vendoredExtractorExists()` above checks for, reused here as a real spawnable stand-in. */
+function vendoredWindowsExtractorPath() {
+  return join(REPO_ROOT, 'resources', 'bin', '7za.exe')
+}
+
+/** True once `npm run fetch:7za` has vendored the real Windows binary. Irrelevant off Windows,
+ * where the shell-script stub needs no vendored binary at all - callers only ever consult this
+ * on `process.platform === 'win32'`. */
+export function vendoredWindowsExtractorExists() {
+  return existsSync(vendoredWindowsExtractorPath())
+}
+
+/** The real, on-disk root the flow points the folder-pick stub at - never written into
+ * `state.json`; the flow registers it itself through the real Add Existing dialog. */
+export function linuxJourneyInstallRoot() {
+  return join(gameRoot(), LINUX_JOURNEY_INSTALL_DIR)
+}
+
+/** The real, on-disk path of the executable the journey's Play step spawns. */
+export function linuxJourneyExecutablePath() {
+  return join(linuxJourneyInstallRoot(), LINUX_JOURNEY_EXECUTABLE_NAME)
+}
+
+/**
+ * Builds a fresh install root: `baseq2/pak0.pak` (any bytes - just needs to exist so
+ * `inspectInstallation` never reports `pak0Missing`) plus the platform's stand-in client
+ * executable. Returns `{ root, executablePath, spawnable }` - `spawnable` is `false` only on
+ * Windows when `resources/bin/7za.exe` was never vendored, and the flow uses it to decide whether
+ * to run its own Play/launch assertions or skip them loudly.
+ */
+export function writeLinuxJourneyInstallRoot() {
+  const root = linuxJourneyInstallRoot()
+  rmDirBestEffort(root)
+  const baseq2Dir = join(root, 'baseq2')
+  mkdirSync(baseq2Dir, { recursive: true })
+  writeFileSync(join(baseq2Dir, 'pak0.pak'), 'not a real pak, just needs to exist')
+
+  const executablePath = linuxJourneyExecutablePath()
+  if (process.platform === 'win32') {
+    if (vendoredWindowsExtractorExists()) {
+      copyFileSync(vendoredWindowsExtractorPath(), executablePath)
+      return { root, executablePath, spawnable: true }
+    }
+    writeFileSync(executablePath, 'placeholder - resources/bin/7za.exe was not vendored locally')
+    return { root, executablePath, spawnable: false }
+  }
+
+  writeFileSync(executablePath, LINUX_JOURNEY_SHELL_SCRIPT)
+  chmodSync(executablePath, 0o755)
+  return { root, executablePath, spawnable: true }
+}
+
 /**
  * `pak0.pak`'s fixture size: 8 MiB - deliberately NOT `RETAIL_PAK_SIZES['pak0.pak']`
  * (183,997,730, `src/shared/constants.ts`). `inspectInstallation` tells the demo from the retail
@@ -2827,6 +2928,99 @@ export async function startBootstrapFixtureServer({
     requested,
     /** Sum of the three archives' real sizes - the figure the confirm step must state (AC4). */
     totalSizeBytes: packages.reduce((total, pkg) => total + pkg.sizeBytes, 0),
+    close: () =>
+      new Promise((resolve) => {
+        server.closeAllConnections?.()
+        server.close(() => resolve())
+      }),
+  }
+}
+
+/**
+ * Story 100 D8 (AC7): the "no engine for this platform" host process never actually runs on
+ * (`process.platform` is always `'win32'`, `'linux'` or `'darwin'` - see `manifest-parse.ts`'s
+ * `packagePlatforms()`) - a literal that can never equal the running host's own platform, on any
+ * machine this flow runs on (a dev box or either CI leg), so the fixture manifest below is honest
+ * everywhere rather than only off one specific host.
+ */
+const NO_ENGINE_FOR_PLATFORM_PLATFORM = 'q2l-fixture-unsupported-platform'
+
+/**
+ * Story 100 D8 (AC7): a second, much smaller fixture server than `startBootstrapFixtureServer()`
+ * above, for `scripts/flows/bootstrap-no-engine-for-platform.mjs` - the D7/D8 "manifest pins
+ * something, just not for this host" case (`bootstrapEngineOptions`'s `emptyReason:
+ * 'none-for-platform'`, `src/main/modules/downloads/index.ts`).
+ *
+ * `engines/manifest.json` pins Q2PRO, but only for `NO_ENGINE_FOR_PLATFORM_PLATFORM` above - a
+ * platform no real host ever reports as - so `hasAnyPin` is true (the manifest DOES configure a
+ * pin) while `pinnedEnginePackage()` resolves nothing for the running host, which is exactly what
+ * turns an empty `options` array into `'none-for-platform'` rather than `'none-pinned'`
+ * (`manifest-parse.ts`'s `resolvePinned`/`packageRunsOnPlatform`). `gamedata/manifest.json` carries
+ * no packages and no pins at all - `ManifestService.fetchAndMerge()` needs both files to parse, but
+ * nothing about this flow ever reaches a package download, so it only has to be a well-formed,
+ * empty envelope.
+ *
+ * Unlike `startBootstrapFixtureServer()`, no archive is staged and no `/packages/...` route is
+ * registered at all: the flow never gets past the engine step's empty state, so a request there
+ * would be this fixture's own bug, not something to serve.
+ */
+export async function startNoEngineForPlatformFixtureServer() {
+  const routes = new Map()
+  const requested = []
+
+  const server = createServer((request, response) => {
+    const path = (request.url ?? '/').split('?')[0]
+    requested.push(path)
+    const route = routes.get(path)
+    if (!route) {
+      response.writeHead(404, { 'content-type': 'text/plain' })
+      response.end('not found')
+      return
+    }
+    route(response)
+  })
+
+  await new Promise((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', resolve)
+  })
+
+  const { port } = server.address()
+  const baseUrl = `http://127.0.0.1:${port}`
+
+  const jsonRoute = (body) => (response) => {
+    const bytes = Buffer.from(JSON.stringify(body), 'utf8')
+    response.writeHead(200, { 'content-type': 'application/json', 'content-length': bytes.byteLength })
+    response.end(bytes)
+  }
+
+  const packageId = 'q2pro-fixture-unsupported-platform'
+  routes.set(
+    '/engines/manifest.json',
+    jsonRoute({
+      schemaVersion: 1,
+      packages: [
+        {
+          id: packageId,
+          version: 'fixture-unsupported-1',
+          sizeBytes: 1024,
+          sha256: createHash('sha256').update(packageId).digest('hex'),
+          url: `${baseUrl}/packages/${packageId}.zip`,
+          mirrors: [`${baseUrl}/mirror/${packageId}.zip`],
+          contents: [{ from: '.', to: 'root' }],
+          kind: 'engine',
+          engine: 'q2pro',
+          platforms: [NO_ENGINE_FOR_PLATFORM_PLATFORM],
+        },
+      ],
+      pinned: { q2pro: { [NO_ENGINE_FOR_PLATFORM_PLATFORM]: packageId } },
+    }),
+  )
+  routes.set('/gamedata/manifest.json', jsonRoute({ schemaVersion: 1, packages: [] }))
+
+  return {
+    baseUrl,
+    requested,
     close: () =>
       new Promise((resolve) => {
         server.closeAllConnections?.()

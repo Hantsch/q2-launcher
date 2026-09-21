@@ -4,6 +4,7 @@ import type { EngineKind } from '@shared/types'
 import type {
   BootstrapDataSource,
   BootstrapEngineOption,
+  BootstrapEngineOptionsEmptyReason,
   BootstrapSummary,
   BootstrapTargetVerdict,
   DetectedRetailSource,
@@ -61,10 +62,15 @@ const STEP_ORDER: Step[] = ['engine', 'gameData', 'target', 'confirm', 'running'
 export function BootstrapWizard() {
   const { t } = useTranslation()
   const closeDialog = useLauncher((state) => state.closeDialog)
+  const openDialog = useLauncher((state) => state.openDialog)
 
   const [step, setStep] = useState<Step>('engine')
 
   const [engineOptions, setEngineOptions] = useState<BootstrapEngineOption[] | null>(null)
+  // Story 100 D7/D8: why `engineOptions` came back empty - `null` whenever it is non-empty (or
+  // still loading). Rendered by `EngineStep`'s own empty state; never read for anything else.
+  const [engineOptionsEmptyReason, setEngineOptionsEmptyReason] =
+    useState<BootstrapEngineOptionsEmptyReason>(null)
   const [engine, setEngine] = useState<EngineKind | null>(null)
   // Whether the user has made an explicit choice - once true, the default-selection effect below
   // must never overwrite it, even if `engineOptions` itself changes identity on a later render.
@@ -129,8 +135,12 @@ export function BootstrapWizard() {
     let cancelled = false
     void getBootstrapEngineOptions().then((result) => {
       if (cancelled) return
-      const options = result.ok ? result.value : []
+      // Story 100 D7/D8: the handler answers `{ options, emptyReason }` - `emptyReason` is `null`
+      // for a failed call too (`Outcome` failure), same "no options, no reason to give" reading as
+      // an empty `options` array on its own always got before this field existed.
+      const options = result.ok ? result.value.options : []
       setEngineOptions(options)
+      setEngineOptionsEmptyReason(result.ok ? result.value.emptyReason : null)
       // Defaults the selection to the first option so a single-choice wizard (today's Q2PRO-only
       // reality, and any future single-option case) still needs zero extra clicks - but never
       // overwrites a choice the user already made, even on a later options fetch.
@@ -412,7 +422,18 @@ export function BootstrapWizard() {
       }
     >
       {step === 'engine' && (
-        <EngineStep options={engineOptions} selected={engine} onSelect={selectEngine} />
+        <EngineStep
+          options={engineOptions}
+          emptyReason={engineOptionsEmptyReason}
+          selected={engine}
+          onSelect={selectEngine}
+          // Story 100 D8 (AC7): the empty state's action - the same `openDialog({ kind:
+          // 'add-existing' })` call `DetectDialog.tsx`'s own "nothing found" empty state already
+          // uses, not a second "add existing" mechanism. `Dialogs.tsx` mounts exactly one dialog
+          // at a time off `store.dialog.kind`, so this alone swaps this wizard out for
+          // `AddExistingDialog` - no separate `closeDialog()` call needed, same as `DetectDialog`.
+          onAddExisting={() => openDialog({ kind: 'add-existing' })}
+        />
       )}
 
       {step === 'gameData' && (

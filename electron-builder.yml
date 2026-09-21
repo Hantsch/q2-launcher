@@ -28,15 +28,6 @@ extraResources:
     to: icon.png
   - from: build/icon.ico
     to: icon.ico
-  # Vendored by scripts/fetch-7za.mjs (story 071 D3), which the package:dir and
-  # package:win scripts run before electron-builder so a clean clone cannot ship
-  # without the binary; resolved at runtime by
-  # src/main/modules/downloads/7za-path.ts via process.resourcesPath.
-  - from: resources/bin
-    to: bin
-    filter:
-      - '7za.exe'
-      - 'License.txt'
   # Checked-in GPLv3 boilerplate for R1Q2 (story 080 D3), copied into a fresh install by
   # src/main/modules/downloads/bootstrap/r1q2-setup.ts via resolveR1q2LicensePath() in
   # 7za-path.ts's own resourcesPath convention.
@@ -50,6 +41,18 @@ electronLanguages:
   - en-US
 
 win:
+  # Vendored by scripts/fetch-7za.mjs (story 071 D3; Linux branch added by story 100 D9), which
+  # the package:dir and package:win scripts run before electron-builder so a clean clone cannot
+  # ship without the binary; resolved at runtime by src/main/modules/downloads/7za-path.ts via
+  # process.resourcesPath. Platform-scoped (rather than a blanket top-level entry) because each
+  # platform's build only ever has its own binary fetched into resources/bin - a shared filter
+  # would try to package a file that was never downloaded for that target.
+  extraResources:
+    - from: resources/bin
+      to: bin
+      filter:
+        - '7za.exe'
+        - 'License.txt'
   icon: icon.ico
   target:
     - target: nsis
@@ -76,6 +79,13 @@ nsis:
 # Untested so far - the launcher targets Windows first, but nothing in the
 # codebase is Windows-only by design.
 linux:
+  # See the win: extraResources comment above - same convention, `7zz` instead of `7za.exe`.
+  extraResources:
+    - from: resources/bin
+      to: bin
+      filter:
+        - '7zz'
+        - 'License.txt'
   target:
     - AppImage
   category: Game

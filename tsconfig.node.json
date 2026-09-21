@@ -3,6 +3,7 @@
     "src/main/**/*.ts",
     "src/preload/**/*.ts",
     "src/shared/**/*.ts",
+    "src/test-support/**/*.ts",
     "electron.vite.config.ts",
     "vitest.config.ts",
     // Story 040 D1: `comment-labels.test.ts` pins shared-layer ASCII literals against the real

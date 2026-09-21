@@ -50,6 +50,74 @@ function findCheck(checks: { id: string }[], id: string) {
   return checks.find((c) => c.id === id)
 }
 
+/**
+ * Story 100 D4: Q2PRO and yquake2 gained Linux markers/executables alongside the existing Windows
+ * ones (`.so` markers, extension-less binary names) in `src/shared/types/engine.ts`. These tests
+ * prove `classifyEngine` (exercised indirectly through `inspectInstallation`) matches the new
+ * Linux-shaped roots without disturbing the existing Windows-shaped ones, and that classification
+ * never branches on the host platform - a folder already on disk classifies the same everywhere.
+ */
+describe('inspectInstallation engine classification', () => {
+  // Deliberately not reusing the outer `beforeEach`/`rootPath`: that fixture always writes
+  // `q2pro.exe` at the root to keep the base-paks assertions noise-free, which would contaminate
+  // the classification these tests are pinning. Each test here gets its own bare root instead.
+  let classifyDir: string
+  let classifyRoot: string
+
+  beforeEach(async () => {
+    classifyDir = await mkdtemp(join(tmpdir(), 'q2-launcher-inspector-classify-'))
+    classifyRoot = join(classifyDir, 'game')
+    await mkdir(classifyRoot, { recursive: true })
+  })
+
+  afterEach(async () => {
+    await rm(classifyDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+  })
+
+  it('classifies a Linux q2pro root as q2pro', async () => {
+    await writeFile(join(classifyRoot, 'q2pro'), 'stand-in linux executable')
+
+    const result = await inspectInstallation(classifyRoot)
+
+    expect(result.engineKind).toBe('q2pro')
+  })
+
+  it('classifies a Linux yquake2 root as yquake2', async () => {
+    await writeFile(join(classifyRoot, 'ref_gl3.so'), 'stand-in renderer lib')
+
+    const result = await inspectInstallation(classifyRoot)
+
+    expect(result.engineKind).toBe('yquake2')
+  })
+
+  it('still classifies a Windows q2pro root as q2pro (regression)', async () => {
+    await writeFile(join(classifyRoot, 'q2pro.exe'), 'stand-in windows executable')
+
+    const result = await inspectInstallation(classifyRoot)
+
+    expect(result.engineKind).toBe('q2pro')
+  })
+
+  it('still classifies a Windows yquake2 root as yquake2 (regression)', async () => {
+    await writeFile(join(classifyRoot, 'ref_gl3.dll'), 'stand-in renderer lib')
+
+    const result = await inspectInstallation(classifyRoot)
+
+    expect(result.engineKind).toBe('yquake2')
+  })
+
+  it('an R1Q2 folder on disk still classifies on linux', async () => {
+    // R1Q2 has no Linux binary (story 100's engine decision), but classification only cares what
+    // is on disk, not what platform could have installed it - an existing R1Q2 folder must still
+    // be recognised and labelled normally regardless of host platform.
+    await writeFile(join(classifyRoot, 'r1q2.exe'), 'stand-in r1q2 executable')
+
+    const result = await inspectInstallation(classifyRoot)
+
+    expect(result.engineKind).toBe('r1q2')
+  })
+})
+
 describe('inspectInstallation base-paks', () => {
   it('reports validation.pointReleaseMissing when only pak2.pak is missing', async () => {
     await writeRetailPak0AndPak1()

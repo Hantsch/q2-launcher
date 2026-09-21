@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { stubPlatform } from '../../../test-support/platform'
 import type { Job } from '@shared/types'
 import {
   createDiagnosticsCollector,
@@ -30,6 +31,12 @@ import {
  */
 describe('redactHome', () => {
   const home = 'C:\\Users\\bob'
+  let restorePlatform: (() => void) | undefined
+
+  afterEach(() => {
+    restorePlatform?.()
+    restorePlatform = undefined
+  })
 
   it('replaces the home prefix with the placeholder', () => {
     expect(redactHome('C:\\Users\\bob\\AppData\\Roaming\\Q2 Launcher', home)).toBe(
@@ -42,10 +49,20 @@ describe('redactHome', () => {
   })
 
   it('is case-insensitive on win32 (drive letter / path casing differences)', () => {
-    // This repo is Windows-first (CLAUDE.md) and the suite runs on win32, so `process.platform`
-    // is already what this case needs to prove - no stubbing required.
-    expect(process.platform).toBe('win32')
+    // This repo is Windows-first (CLAUDE.md), but the suite must pass on any host (story 100
+    // D1), so the platform this case actually needs is stubbed rather than assumed from the
+    // machine running the tests.
+    restorePlatform = stubPlatform('win32')
     expect(redactHome('c:\\USERS\\BOB\\AppData', home)).toBe(`${HOME_PLACEHOLDER}\\AppData`)
+  })
+
+  it('is case-sensitive on a non-win32 host, matching only identical casing', () => {
+    // `redactHome` only relaxes casing on win32 (drive letters / case-insensitive filesystems);
+    // elsewhere a differently-cased path is a different path and must be left alone, while an
+    // identically-cased one still redacts.
+    restorePlatform = stubPlatform('linux')
+    expect(redactHome('c:\\USERS\\BOB\\AppData', home)).toBe('c:\\USERS\\BOB\\AppData')
+    expect(redactHome('C:\\Users\\bob\\AppData', home)).toBe(`${HOME_PLACEHOLDER}\\AppData`)
   })
 
   it('leaves a path outside the home directory byte-identical', () => {

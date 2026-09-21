@@ -179,8 +179,11 @@ describe('the production package schema is never widened by the harness variant'
   it('parseManifestFile drops a loopback row by default and keeps it only with httpsOnly: false', () => {
     const file = { schemaVersion: 1, packages: [loopbackPackageRow()], pinned: { q2pro: 'q2pro-fixture' } }
 
-    const production = parseManifestFile(file, silentLogger())
-    const harness = parseManifestFile(file, silentLogger(), { httpsOnly: false })
+    // Story 100 D5: the fixture uses the pre-platform manifest shape (bare-string pin, no
+    // `platforms`), which reads as Windows-only - so both calls say which platform they resolve
+    // for, keeping this test about the URL rule it is actually named after on any host.
+    const production = parseManifestFile(file, silentLogger(), { platform: 'win32' })
+    const harness = parseManifestFile(file, silentLogger(), { httpsOnly: false, platform: 'win32' })
 
     expect(production.ok && production.packages).toEqual([])
     expect(production.ok && production.pinned).toEqual({})

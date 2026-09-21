@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
 import { join, normalize } from 'node:path'
 import type { InstallationSource } from '@shared/types'
 import { isDirectory, listDir } from '../../lib/fs-utils'
@@ -23,7 +24,24 @@ function looksLikeQuake2Folder(name: string): boolean {
 // Steam
 // ---------------------------------------------------------------------------
 
-async function findSteamRoot(): Promise<string | null> {
+/**
+ * `home` is injectable (defaults to the real home directory) so tests can point it at a temp
+ * directory instead of stubbing `node:os`.
+ */
+export async function findSteamRoot(home: string = homedir()): Promise<string | null> {
+  if (process.platform !== 'win32') {
+    // Native Linux install, native Linux install (older layout), and Flatpak's sandboxed data dir.
+    const candidates = [
+      join(home, '.steam', 'steam'),
+      join(home, '.local', 'share', 'Steam'),
+      join(home, '.var', 'app', 'com.valvesoftware.Steam', '.local', 'share', 'Steam'),
+    ]
+    for (const candidate of candidates) {
+      if (await isDirectory(candidate)) return candidate
+    }
+    return null
+  }
+
   // HKCU is the per-user install and stores forward slashes; HKLM is the fallback.
   const candidates = [
     await regReadValue('HKCU\\Software\\Valve\\Steam', 'SteamPath'),

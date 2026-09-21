@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -98,16 +98,22 @@ function installation(overrides: Partial<Installation> = {}): Installation {
 }
 
 /**
+ * The stand-in client executable `writePlayableRoot` drops in the root: what `looksExecutable`
+ * requires differs per host, so the fixture does too (story 100 D3) - a `.exe` name on Windows,
+ * an extension-less file with an execute bit anywhere else.
+ */
+const PLAYABLE_EXECUTABLE = process.platform === 'win32' ? 'q2pro.exe' : 'q2pro'
+
+/**
  * A root folder `inspectInstallation` reports as playable (`'ok'`/`'warning'`, never
- * `'invalid'`/`'missing'`): a `baseq2` with a pak file, and a root-level `.exe` so `looksExecutable`
- * counts it as the client executable (this test suite runs against the Windows node binary even
- * under WSL, so `.exe` - not "no dot in the name" - is what `looksExecutable` actually requires
- * here).
+ * `'invalid'`/`'missing'`): a `baseq2` with a pak file, and a root-level executable so
+ * `looksExecutable` counts it as the client executable.
  */
 async function writePlayableRoot(rootPath: string): Promise<void> {
   await mkdir(join(rootPath, 'baseq2'), { recursive: true })
   await writeFile(join(rootPath, 'baseq2', 'pak0.pak'), 'not a real pak, just needs to exist')
-  await writeFile(join(rootPath, 'q2pro.exe'), 'stand-in executable')
+  await writeFile(join(rootPath, PLAYABLE_EXECUTABLE), 'stand-in executable')
+  if (process.platform !== 'win32') await chmod(join(rootPath, PLAYABLE_EXECUTABLE), 0o755)
 }
 
 /** A root folder `inspectInstallation` reports as `'invalid'`: it exists, but has no `baseq2`. */
@@ -334,7 +340,7 @@ describe('recordedEngineKind (story 093 finding fix, AC1)', () => {
     if (!added.ok) throw new Error(`fixture installation was rejected: ${added.error.key}`)
     expect(added.value.recordedEngineKind).toBe('q2pro')
 
-    await rm(join(rootPath, 'q2pro.exe'))
+    await rm(join(rootPath, PLAYABLE_EXECUTABLE))
     const result = await installations.validate(added.value.id)
 
     expect(result.ok).toBe(true)

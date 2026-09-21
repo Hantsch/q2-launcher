@@ -98,7 +98,8 @@ export const ENGINE_DEFINITIONS: readonly EngineDefinition[] = [
     supported: true,
     executables: ['q2pro.exe', 'q2pro'],
     dedicatedExecutables: ['q2proded.exe', 'q2proded'],
-    markers: ['q2pro.exe'],
+    // 'q2pro' (no extension) is the Linux binary name, alongside the Windows one.
+    markers: ['q2pro.exe', 'q2pro'],
     configFileCandidates: ['q2pro.cfg', 'config.cfg'],
     supportsFsGame: true,
     // Q2PRO does have a `homedir` cvar, unlike r1q2.
@@ -112,8 +113,18 @@ export const ENGINE_DEFINITIONS: readonly EngineDefinition[] = [
     supported: false,
     executables: ['yquake2.exe', 'quake2.exe', 'quake2'],
     dedicatedExecutables: ['q2ded.exe', 'q2ded'],
-    // yquake2 ships renderer libraries the original never had.
-    markers: ['ref_gl3.dll', 'ref_gles3.dll', 'ref_gl1.dll', 'baseq2/game.dll'],
+    // yquake2 ships renderer libraries the original never had - Linux builds ship the same
+    // libraries as `.so`, alongside the Windows `.dll` ones.
+    markers: [
+      'ref_gl3.dll',
+      'ref_gles3.dll',
+      'ref_gl1.dll',
+      'baseq2/game.dll',
+      'ref_gl3.so',
+      'ref_gles3.so',
+      'ref_gl1.so',
+      'baseq2/game.so',
+    ],
     configFileCandidates: ['yq2.cfg', 'config.cfg'],
     supportsFsGame: true,
     writeDirStrategy: 'user-dir',

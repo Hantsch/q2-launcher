@@ -39,6 +39,9 @@ export const DOWNLOADS_HANDLERS = {
    * Story 074 D1: lists the engines the bootstrap wizard can offer this sprint - only the ones
    * both pinned by the manifest and named in `BOOTSTRAP_SUPPORTED_ENGINES` below (D1 implements
    * the handler; D2+ build the rest of the wizard on top of it).
+   *
+   * Story 100 D7: answers a `BootstrapEngineOptionsResult` (options plus an `emptyReason`) rather
+   * than a bare array, so an empty answer can say *why*.
    */
   bootstrapEngineOptions: 'bootstrap.engineOptions',
   /**
@@ -534,6 +537,31 @@ export interface BootstrapEngineOption {
   version: string
   /** The pinned package's download size, for display. */
   sizeBytes: number
+}
+
+/**
+ * Story 100 D7: why `bootstrapEngineOptions` came back empty, so the wizard can tell "the manifest
+ * simply has nothing pinned yet" apart from "this host's platform has nothing to offer" (the
+ * Linux-with-a-Windows-only-manifest case D5/D6 made possible). `null` whenever `options` is
+ * non-empty - this is a reason for the *absence* of options, not a general status field.
+ *
+ * - `'none-for-platform'` - the manifest configures at least one pin (for some platform, for some
+ *   engine), but none of `BOOTSTRAP_SUPPORTED_ENGINES`' pins resolve for the host this process is
+ *   running on.
+ * - `'none-pinned'` - the manifest configures no pins at all, for any engine, on any platform (or
+ *   the manifest itself could not be fetched and nothing is cached).
+ */
+export type BootstrapEngineOptionsEmptyReason = 'none-for-platform' | 'none-pinned' | null
+
+/**
+ * Story 100 D7: `bootstrapEngineOptions`'s answer - the options themselves, unchanged from before
+ * this deliverable, plus `emptyReason` so an empty `options` array is no longer ambiguous between
+ * "nothing pinned" and "nothing pinned for this platform". `emptyReason` is always `null` when
+ * `options` is non-empty.
+ */
+export interface BootstrapEngineOptionsResult {
+  options: BootstrapEngineOption[]
+  emptyReason: BootstrapEngineOptionsEmptyReason
 }
 
 /**

@@ -126,7 +126,10 @@ function serveOffline(): void {
 }
 
 function service(): ManifestService {
-  return new ManifestService({ log })
+  // Story 100 D5: the fixtures above are the pre-platform manifest shape (no `platforms`, a
+  // bare-string pin), which reads as Windows-only - so this suite states the platform it resolves
+  // pins for instead of inheriting the host's, and proves the same behaviour on a Linux runner.
+  return new ManifestService({ log, platform: 'win32' })
 }
 
 /** One successful fetch+merge, which also seeds the persisted cache. */

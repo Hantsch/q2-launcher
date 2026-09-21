@@ -7,7 +7,8 @@ import { JsonStore } from '../../lib/json-store'
 import type { Logger } from '../../lib/logger'
 import { userDataDir } from '../../lib/paths'
 import { PRODUCTION_DOWNLOAD_SOURCE, type DownloadSource } from './harness'
-import { parseManifestFile } from './manifest-parse'
+import { packagePlatforms, packageRunsOnPlatform, parseManifestFile } from './manifest-parse'
+import type { PlatformTaggedManifestPackage } from './schemas'
 
 /**
  * Story 070 D3: the manifest pipeline's stateful half - fetch both manifest
@@ -73,20 +74,43 @@ export class ManifestUnavailableError extends Error {
   }
 }
 
-/** The packages/pins of one merged manifest, plus when they were fetched. */
+/**
+ * The packages/pins of one merged manifest, plus when they were fetched.
+ *
+ * Story 100 D5: `PlatformTaggedManifestPackage`, so the manifest's own `platforms` tag survives
+ * statically as far as `pinnedEnginePackage()`'s re-check. The shared `ManifestSnapshot` the
+ * renderer receives stays plain `ManifestPackage[]` - by then the pin is already resolved for
+ * this host, so the renderer has no platform decision left to make.
+ */
 interface SnapshotContent {
-  packages: ManifestPackage[]
+  packages: PlatformTaggedManifestPackage[]
   pinned: Partial<Record<EngineKind, string>>
   /** ISO timestamp of the successful fetch these packages came from. */
   fetchedAt: string
+  /**
+   * Story 100 D7: whether either merged file's raw `pinned` object configured at least one entry
+   * for any engine, on any platform - `parseManifestFile`'s own `hasAnyPin`, ORed across both
+   * files. Feeds `ManifestService.hasAnyPinnedEntries()`, which `bootstrapEngineOptions`
+   * (`main/modules/downloads/index.ts`) uses to tell "nothing pinned at all" apart from "nothing
+   * pinned for this host's platform" once `pinnedEnginePackage()` has come back empty either way.
+   */
+  hasAnyPin: boolean
 }
 
 /** The cache file's document. `fetchedAt: null` is "nothing has ever been cached". */
 interface ManifestCacheDocument {
   cacheVersion: number
   fetchedAt: string | null
-  packages: ManifestPackage[]
+  /** Story 100 D5: carries the `platforms` tag through persistence, same as `SnapshotContent`. */
+  packages: PlatformTaggedManifestPackage[]
   pinned: Partial<Record<EngineKind, string>>
+  /**
+   * Story 100 D7: re-derived on every load from the cached `pinned`/`packages` via
+   * `parseManifestFile` (`parseCacheDocument` below), not read back verbatim - `cacheEnvelopeSchema`
+   * never requires this field, so an older cache file written before this deliverable loads exactly
+   * like one written after it.
+   */
+  hasAnyPin: boolean
 }
 
 /**
@@ -104,7 +128,13 @@ const cacheEnvelopeSchema = z.object({
 })
 
 function emptyCache(): ManifestCacheDocument {
-  return { cacheVersion: MANIFEST_CACHE_VERSION, fetchedAt: null, packages: [], pinned: {} }
+  return {
+    cacheVersion: MANIFEST_CACHE_VERSION,
+    fetchedAt: null,
+    packages: [],
+    pinned: {},
+    hasAnyPin: false,
+  }
 }
 
 /**
@@ -118,6 +148,10 @@ function parseCacheDocument(
   /** Story 074 D8: the same URL rule the network path used, so a manifest this very process
    * fetched and persisted is not discarded on the next read for a rule it never had to satisfy. */
   httpsOnly: boolean,
+  /** Story 100 D5: likewise the same platform the network path resolves pins for - a cache file
+   * written by an older build carries no `platforms` on its packages, which reads as `win32` and
+   * so still resolves on Windows and resolves to nothing on Linux, exactly like a fresh fetch. */
+  platform: NodeJS.Platform,
 ): ManifestCacheDocument {
   const envelope = cacheEnvelopeSchema.safeParse(raw)
   if (!envelope.success) {
@@ -142,7 +176,7 @@ function parseCacheDocument(
       pinned: envelope.data.pinned,
     },
     log,
-    { httpsOnly },
+    { httpsOnly, platform },
   )
   if (!parsed.ok) {
     log.warn(`manifest cache discarded: ${parsed.reason}`)
@@ -154,6 +188,7 @@ function parseCacheDocument(
     fetchedAt: envelope.data.fetchedAt,
     packages: parsed.packages,
     pinned: parsed.pinned,
+    hasAnyPin: parsed.hasAnyPin,
   }
 }
 
@@ -166,6 +201,12 @@ export interface ManifestServiceOptions {
    * test keeps the production behaviour without passing anything.
    */
   source?: DownloadSource
+  /**
+   * Story 100 D5: the host platform pins are resolved for. Defaults to the running platform, so
+   * every existing caller keeps today's behaviour; injected as a plain value (same convention as
+   * `source` above) so a test can prove the Linux reading without stubbing anything global.
+   */
+  platform?: NodeJS.Platform
 }
 
 export interface GetManifestOptions {
@@ -179,6 +220,8 @@ export class ManifestService {
   private readonly log: Logger
   /** Resolved once by the caller; never re-read from the environment. See `harness.ts`. */
   private readonly source: DownloadSource
+  /** Story 100 D5: resolved once by the caller (or from the host); never re-read per call. */
+  private readonly platform: NodeJS.Platform
   private readonly store: JsonStore<ManifestCacheDocument>
   private cacheLoaded = false
   /** Set only by a live fetch in this process - see the in-memory freshness note above. */
@@ -190,13 +233,14 @@ export class ManifestService {
     this.log = options.log
     // Assigned before the store below, whose `parse` closure reads it.
     this.source = options.source ?? PRODUCTION_DOWNLOAD_SOURCE
+    this.platform = options.platform ?? process.platform
     // Nothing is fetched and nothing is read here: the store is loaded lazily on
     // the first `getManifest()`, so constructing this service is free (AC: zero
     // fetches at construction, no manifest traffic at boot).
     this.store = new JsonStore<ManifestCacheDocument>({
       filePath: manifestCacheFilePath(),
       defaults: emptyCache,
-      parse: (raw) => parseCacheDocument(raw, this.log, this.source.httpsOnly),
+      parse: (raw) => parseCacheDocument(raw, this.log, this.source.httpsOnly, this.platform),
     })
   }
 
@@ -230,7 +274,12 @@ export class ManifestService {
     if (cached.fetchedAt !== null) {
       this.log.warn(`serving the cached manifest: ${attempt.reason}`)
       return this.serve(
-        { packages: cached.packages, pinned: cached.pinned, fetchedAt: cached.fetchedAt },
+        {
+          packages: cached.packages,
+          pinned: cached.pinned,
+          fetchedAt: cached.fetchedAt,
+          hasAnyPin: cached.hasAnyPin,
+        },
         // Clamped: a clock that moved backwards must not report a negative age.
         { fromCache: true, ageMs: Math.max(0, Date.now() - Date.parse(cached.fetchedAt)) },
       )
@@ -247,6 +296,12 @@ export class ManifestService {
    * package for this exact `kind` (a manifest bug or an id collision must never
    * hand back a gamedata package or a different engine's build), or no
    * snapshot has been served yet.
+   *
+   * Story 100 D5: or when the resolved package does not run on this host's platform. The pins in
+   * the snapshot were already resolved for `this.platform` by `parseManifestFile`, so this is the
+   * same belt-and-braces re-check the `kind`/`engine` test above is - it is what keeps a snapshot
+   * that came from somewhere else (a cache file carried between machines, a future caller that
+   * builds `SnapshotContent` itself) from handing back a binary this host cannot execute.
    */
   pinnedEnginePackage(kind: EngineKind): ManifestPackage | undefined {
     const snapshot = this.current
@@ -255,6 +310,13 @@ export class ManifestService {
     if (id === undefined) return undefined
     const pkg = snapshot.packages.find((p) => p.id === id)
     if (pkg === undefined) return undefined
+    if (!packageRunsOnPlatform(pkg, this.platform)) {
+      this.log.warn(
+        `manifest pin for engine "${kind}" dropped: package "${id}" declares platforms ` +
+          `[${packagePlatforms(pkg).join(', ')}] and this host is "${this.platform}"`,
+      )
+      return undefined
+    }
     if (pkg.kind !== 'engine' || pkg.engine !== kind) {
       this.log.warn(
         `manifest pin for engine "${kind}" dropped: package id "${id}" is not an "${kind}" engine package`,
@@ -262,6 +324,20 @@ export class ManifestService {
       return undefined
     }
     return pkg
+  }
+
+  /**
+   * Story 100 D7: whether the snapshot `getManifest()` last served configured at least one pin,
+   * for any engine, on any platform - regardless of whether any of those pins resolve for this
+   * host. `false` when no snapshot has been served yet, same "nothing known yet" default as
+   * `pinnedEnginePackage()` returning `undefined` in that case.
+   *
+   * `bootstrapEngineOptions` (`main/modules/downloads/index.ts`) uses this to tell
+   * `'none-for-platform'` apart from `'none-pinned'` once its own `options` array has come back
+   * empty either way.
+   */
+  hasAnyPinnedEntries(): boolean {
+    return this.current?.hasAnyPin ?? false
   }
 
   private serve(
@@ -291,6 +367,7 @@ export class ManifestService {
       fetchedAt: content.fetchedAt,
       packages: content.packages,
       pinned: content.pinned,
+      hasAnyPin: content.hasAnyPin,
     })
     // `JsonStore` swallows write failures (it logs them); awaiting the flush only
     // makes "the fetch has been persisted" true by the time we answer.
@@ -316,8 +393,9 @@ export class ManifestService {
       paths.map((path) => fetchContentJson(path, { baseUrl: this.source.baseUrl })),
     )
 
-    const packages: ManifestPackage[] = []
+    const packages: PlatformTaggedManifestPackage[] = []
     const pins: Partial<Record<EngineKind, string>>[] = []
+    let hasAnyPin = false
 
     for (const [index, result] of results.entries()) {
       const path = paths[index]
@@ -327,12 +405,16 @@ export class ManifestService {
       }
       const parsed = parseManifestFile(result.value, this.log, {
         httpsOnly: this.source.httpsOnly,
+        platform: this.platform,
       })
       if (!parsed.ok) {
         return { ok: false, reason: `${path} was refused (${parsed.reason})` }
       }
       packages.push(...parsed.packages)
       pins.push(parsed.pinned)
+      // Story 100 D7: either file configuring at least one pin is enough - a manifest genuinely
+      // pinning nothing at all needs BOTH files to pin nothing.
+      hasAnyPin = hasAnyPin || parsed.hasAnyPin
     }
 
     return {
@@ -348,6 +430,7 @@ export class ManifestService {
         // `kind`/`engine` before handing a package back.
         pinned: pins.reduceRight((merged, pin) => ({ ...merged, ...pin }), {}),
         fetchedAt: new Date().toISOString(),
+        hasAnyPin,
       },
     }
   }

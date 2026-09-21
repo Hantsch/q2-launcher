@@ -23,6 +23,10 @@ import type { BootstrapLog } from './ports'
 export async function probeX86Runtime(deps: {
   fileExists: (path: string) => Promise<boolean>
 }): Promise<boolean> {
+  // Story 100 D6 (AC6): R1Q2 is Windows-only - D5 already keeps it from ever being pinned/offered
+  // off Windows, but this is a belt-and-braces guard so the probe is a hard no-op even if called
+  // directly. `vcruntime140.dll` is a Windows concept; there is nothing to probe for elsewhere.
+  if (process.platform !== 'win32') return false
   const systemRoot = process.env.SystemRoot ?? 'C:\\Windows'
   const candidates = [
     join(systemRoot, 'SysWOW64', 'vcruntime140.dll'),
@@ -53,6 +57,10 @@ export async function realFileExists(path: string): Promise<boolean> {
  * that case is a no-op, not an error.
  */
 export async function seedR1glConfig(targetRoot: string): Promise<void> {
+  // Story 100 D6 (AC6): same belt-and-braces guard as `probeX86Runtime` above - R1Q2 is
+  // Windows-only, so seeding its `vid_ref "r1gl"` off Windows would just be wrong, even though D5
+  // already prevents R1Q2 from ever being pinned/offered off Windows in the first place.
+  if (process.platform !== 'win32') return
   const path = join(targetRoot, 'baseq2', 'autoexec.cfg')
   try {
     await access(path)

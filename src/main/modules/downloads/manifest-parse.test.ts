@@ -5,6 +5,11 @@ import { parseManifestFile } from './manifest-parse'
 /**
  * Story 070 D1: `parseManifestFile`'s contract - envelope refuses, packages
  * drop, pin resolves only against survivors. Covers AC2, AC3, AC5.
+ *
+ * Story 100 D5: plus the platform dimension (that story's AC5). Every pin test passes an explicit
+ * `platform` rather than letting it default to the host's - the parser takes it as a parameter
+ * (`ParseManifestFileOptions.platform`), so proving the Linux reading needs no global stub and no
+ * test in this file depends on which OS the suite happens to run on.
  */
 
 function fakeLogger(): Logger {
@@ -114,6 +119,7 @@ describe('parseManifestFile - pin resolution (AC5)', () => {
         pinned: { q2pro: 'q2pro-2' },
       },
       log,
+      { platform: 'win32' },
     )
 
     expect(result.ok).toBe(true)
@@ -132,6 +138,7 @@ describe('parseManifestFile - pin resolution (AC5)', () => {
         pinned: { q2pro: 'q2pro-broken' },
       },
       log,
+      { platform: 'win32' },
     )
 
     expect(result.ok).toBe(true)
@@ -152,6 +159,7 @@ describe('parseManifestFile - pin resolution (AC5)', () => {
         pinned: { 'not-a-real-engine': 'q2pro-1' },
       },
       log,
+      { platform: 'win32' },
     )
 
     expect(result.ok).toBe(true)
@@ -161,5 +169,104 @@ describe('parseManifestFile - pin resolution (AC5)', () => {
     expect(result.pinned).toEqual({})
     expect(Object.keys(result.pinned)).toHaveLength(0)
     expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('not-a-real-engine'))
+  })
+})
+
+/**
+ * Story 100 D5 (that story's AC5). Two shapes have to coexist here, and the second one is the
+ * whole reason this deliverable is risky: the *live remote* manifest was published in the old,
+ * flat shape, so a launcher carrying this code that refuses it - or resolves nothing from it -
+ * kills the Windows download path in production, where no test runs.
+ */
+describe('parseManifestFile - per-platform pin resolution (story 100 AC5)', () => {
+  const windowsPackage = { ...goodEnginePackage, id: 'q2pro-win', platforms: ['win32'] }
+  const linuxPackage = { ...goodEnginePackage, id: 'q2pro-linux', platforms: ['linux'] }
+
+  const bothPlatformsManifest = {
+    schemaVersion: 1,
+    packages: [windowsPackage, linuxPackage],
+    pinned: { q2pro: { win32: 'q2pro-win', linux: 'q2pro-linux' } },
+  }
+
+  it('the pinned selection resolves per platform', () => {
+    const onWindows = parseManifestFile(bothPlatformsManifest, fakeLogger(), { platform: 'win32' })
+    const onLinux = parseManifestFile(bothPlatformsManifest, fakeLogger(), { platform: 'linux' })
+
+    if (!onWindows.ok || !onLinux.ok) throw new Error('expected ok results')
+    expect(onWindows.pinned.q2pro).toBe('q2pro-win')
+    expect(onLinux.pinned.q2pro).toBe('q2pro-linux')
+    // Both packages survive parsing on both hosts - the platform decides the *pin*, not which
+    // rows are readable, so nothing downstream loses sight of a package it already knows.
+    expect(onLinux.packages.map((p) => p.id)).toEqual(['q2pro-win', 'q2pro-linux'])
+  })
+
+  it('a manifest with only Windows packages resolves to nothing on linux', () => {
+    const log = fakeLogger()
+    const result = parseManifestFile(
+      { schemaVersion: 1, packages: [windowsPackage], pinned: { q2pro: { win32: 'q2pro-win' } } },
+      log,
+      { platform: 'linux' },
+    )
+
+    if (!result.ok) throw new Error('expected ok result')
+    // Nothing for this platform - never the Windows build as a fallback.
+    expect(result.pinned).toEqual({})
+    expect(result.pinned.q2pro).toBeUndefined()
+  })
+
+  it('still resolves a manifest in the OLD flat shape on win32 (no platforms field, bare-string pin)', () => {
+    const log = fakeLogger()
+    // Byte-for-byte the shape the live remote manifest had before this deliverable: no
+    // `platforms` key on any package, `pinned` values plain strings.
+    const oldShapeManifest = {
+      schemaVersion: 1,
+      packages: [goodEnginePackage, anotherGoodEnginePackage],
+      pinned: { q2pro: 'q2pro-2' },
+    }
+
+    const result = parseManifestFile(oldShapeManifest, log, { platform: 'win32' })
+
+    if (!result.ok) throw new Error('expected ok result')
+    expect(result.packages.map((p) => p.id)).toEqual(['q2pro-1', 'q2pro-2'])
+    expect(result.pinned.q2pro).toBe('q2pro-2')
+    expect(log.warn).not.toHaveBeenCalled()
+  })
+
+  it('reads the old flat shape as a Windows-only pin, so it resolves to nothing on linux', () => {
+    const result = parseManifestFile(
+      { schemaVersion: 1, packages: [goodEnginePackage], pinned: { q2pro: 'q2pro-1' } },
+      fakeLogger(),
+      { platform: 'linux' },
+    )
+
+    if (!result.ok) throw new Error('expected ok result')
+    expect(result.pinned).toEqual({})
+  })
+
+  it('drops a pin whose package does not declare this platform, without substituting another', () => {
+    const log = fakeLogger()
+    // A half-migrated manifest: the pin claims a linux build, the package it names is win32-only.
+    const result = parseManifestFile(
+      { schemaVersion: 1, packages: [windowsPackage], pinned: { q2pro: { linux: 'q2pro-win' } } },
+      log,
+      { platform: 'linux' },
+    )
+
+    if (!result.ok) throw new Error('expected ok result')
+    expect(result.pinned).toEqual({})
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('q2pro-win'))
+  })
+
+  it('defaults to the running platform when no platform is passed', () => {
+    // Not an assertion about which host this is: the fixture simply declares whatever platform
+    // the suite runs on, so this proves the *default wiring* on Windows and on Linux alike.
+    const hostPackage = { ...goodEnginePackage, id: 'q2pro-host', platforms: [process.platform] }
+    const result = parseManifestFile(
+      { schemaVersion: 1, packages: [hostPackage], pinned: { q2pro: { [process.platform]: 'q2pro-host' } } },
+      fakeLogger(),
+    )
+
+    if (!result.ok) throw new Error('expected ok result')
+    expect(result.pinned.q2pro).toBe('q2pro-host')
   })
 })

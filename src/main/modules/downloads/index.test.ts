@@ -48,6 +48,15 @@ function fakeLogger(): Logger {
   return { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger
 }
 
+/**
+ * Story 100 D5: the manifest resolves pins per platform, and the module builds its own
+ * `ManifestService` (so there is nothing to inject a platform into here). These fixtures are
+ * about the download module, not about platforms, so they declare whichever host is running the
+ * suite - hard-coding `win32` would pass here and fail on the Linux CI leg for a reason that has
+ * nothing to do with what these tests check.
+ */
+const HOST_PLATFORM = process.platform
+
 const enginePackage = {
   kind: 'engine',
   engine: 'q2pro',
@@ -58,6 +67,7 @@ const enginePackage = {
   url: 'https://example.com/q2pro-1.0.0.zip',
   mirrors: [],
   contents: [{ from: 'q2pro.exe', to: 'root' }],
+  platforms: [HOST_PLATFORM],
 }
 
 const enginesManifest = { schemaVersion: 1, packages: [enginePackage], pinned: {} }
@@ -94,7 +104,11 @@ function servePinnedManifests(fetchMock: ReturnType<typeof vi.fn>): void {
     }
     if (href.includes('engines/')) {
       return Promise.resolve(
-        jsonResponse({ schemaVersion: 1, packages: [enginePackage], pinned: { q2pro: 'q2pro-1.0.0' } }),
+        jsonResponse({
+          schemaVersion: 1,
+          packages: [enginePackage],
+          pinned: { q2pro: { [HOST_PLATFORM]: 'q2pro-1.0.0' } },
+        }),
       )
     }
     return Promise.resolve(jsonResponse(gamedataManifest))

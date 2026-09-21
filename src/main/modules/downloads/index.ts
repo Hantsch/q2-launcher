@@ -4,6 +4,7 @@ import {
   DOWNLOADS_HANDLERS,
   type ArchiveCacheStatus,
   type BootstrapEngineOption,
+  type BootstrapEngineOptionsResult,
   type BootstrapSummary,
   type BootstrapTargetVerdict,
   type ClearArchiveCacheResult,
@@ -167,15 +168,24 @@ export const downloadsModule: MainModule = {
      * own (like `getSettings` below): a manifest that cannot be fetched, or that pins nothing for
      * any bootstrap-supported engine, is legitimately "no options yet", not an error the caller
      * needs to unwrap - the wizard step (a later deliverable) is expected to handle an empty list.
+     *
+     * Story 100 D7: answers a `BootstrapEngineOptionsResult` rather than the bare `options` array -
+     * `emptyReason` tells an empty `options` apart between "the manifest pins nothing at all"
+     * (`'none-pinned'`, which also covers `ManifestUnavailableError`: nothing fetched and nothing
+     * cached is, from this handler's point of view, the same "nothing known" state) and "the
+     * manifest pins something, just not for this host's platform" (`'none-for-platform'`, the
+     * Linux-with-a-Windows-only-manifest case D5/D6 made possible).
      */
     handle(
       DOWNLOADS_HANDLERS.bootstrapEngineOptions,
       bootstrapEngineOptionsInputSchema,
-      async (): Promise<BootstrapEngineOption[]> => {
+      async (): Promise<BootstrapEngineOptionsResult> => {
         try {
           await manifestService.getManifest()
         } catch (error) {
-          if (error instanceof ManifestUnavailableError) return []
+          if (error instanceof ManifestUnavailableError) {
+            return { options: [], emptyReason: 'none-pinned' }
+          }
           throw error
         }
 
@@ -185,7 +195,12 @@ export const downloadsModule: MainModule = {
           if (pkg === undefined) continue
           options.push({ engine, packageId: pkg.id, version: pkg.version, sizeBytes: pkg.sizeBytes })
         }
-        return options
+
+        if (options.length > 0) return { options, emptyReason: null }
+        return {
+          options,
+          emptyReason: manifestService.hasAnyPinnedEntries() ? 'none-for-platform' : 'none-pinned',
+        }
       },
     )
 

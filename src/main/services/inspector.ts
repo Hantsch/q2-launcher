@@ -89,8 +89,16 @@ async function classifyEngine(
  * names, then anything else that looks runnable. Dedicated-server binaries are
  * pushed to the back so they are never auto-selected.
  */
-function rankExecutables(fileNames: string[], definition: EngineDefinition | undefined): string[] {
-  const executables = fileNames.filter(looksExecutable)
+async function rankExecutables(
+  rootPath: string,
+  fileNames: string[],
+  definition: EngineDefinition | undefined,
+): Promise<string[]> {
+  const executables: string[] = []
+  for (const name of fileNames) {
+    if (await looksExecutable(rootPath, name)) executables.push(name)
+  }
+
   const preferred = definition?.executables.map((e) => e.toLowerCase()) ?? []
   const dedicated = definition?.dedicatedExecutables.map((e) => e.toLowerCase()) ?? []
 
@@ -216,7 +224,7 @@ export async function inspectInstallation(
   }
 
   // --- executable ----------------------------------------------------------
-  const executables = rankExecutables(rootListing.files, definition)
+  const executables = await rankExecutables(rootPath, rootListing.files, definition)
   let executablePath: string | undefined
 
   if (options.executablePath && (await isFile(options.executablePath))) {

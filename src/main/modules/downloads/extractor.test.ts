@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { stubPlatform } from '../../../test-support/platform'
 import { findRepoRoot, resolveExtractorPath } from './7za-path'
 import { extractArchive, markVerified, parseBsp1ProgressLine } from './extractor'
 
@@ -221,7 +222,7 @@ describe('progress parsing', () => {
 describe('real-archive extraction (only when the vendored binary is present)', () => {
   const realBinary = resolveExtractorPath({ isPackaged: false })
 
-  it.skipIf(!realBinary.exists)('extracts a real archive with the vendored 7za.exe', async () => {
+  it.skipIf(!realBinary.exists)('extracts a real archive with the vendored 7-Zip binary', async () => {
     const archiveSourceDir = join(dir, 'source')
     const extractDir = join(dir, 'extract')
     await mkdir(archiveSourceDir, { recursive: true })
@@ -249,6 +250,10 @@ describe('real-archive extraction (only when the vendored binary is present)', (
 
     const extracted = await readFile(join(extractDir, 'hello.txt'), 'utf8')
     expect(extracted).toBe('hello from a real 7za extraction test\n')
+
+    // AC8: proves the `-bsp1` progress parse works against the real binary, not just the
+    // `FakeChild`-driven test above - a defined ratio must have been reported at least once.
+    expect(progressRatios.some((ratio) => ratio !== undefined)).toBe(true)
   })
 
   it.skipIf(!realBinary.exists)('kill() aborts a real extraction in progress', async () => {
@@ -280,14 +285,42 @@ describe('real-archive extraction (only when the vendored binary is present)', (
 
 describe('7za-path resolution', () => {
   it('reports a missing binary without throwing', () => {
-    const result = resolveExtractorPath({ isPackaged: false, repoRoot: dir })
-    expect(result.exists).toBe(false)
-    expect(result.path.endsWith('7za.exe')).toBe(true)
+    // Pinned to win32 for the same reason as the tests below: this is about the "missing binary
+    // reports rather than throws" contract, not the binary-name branch.
+    const restorePlatform = stubPlatform('win32')
+    try {
+      const result = resolveExtractorPath({ isPackaged: false, repoRoot: dir })
+      expect(result.exists).toBe(false)
+      expect(result.path.endsWith('7za.exe')).toBe(true)
+    } finally {
+      restorePlatform()
+    }
+  })
+
+  it('resolves 7zz off Windows', () => {
+    // Story 100 D9: `7za-path.ts` picks the binary name from the live `process.platform`, not a
+    // module-scoped constant, so this proves the Linux name is actually reachable rather than
+    // asserting a value nothing exercises.
+    const restorePlatform = stubPlatform('linux')
+    try {
+      const result = resolveExtractorPath({ isPackaged: false, repoRoot: dir })
+      expect(result.path.endsWith('7zz')).toBe(true)
+    } finally {
+      restorePlatform()
+    }
   })
 
   it('resolves under process.resourcesPath when packaged', () => {
-    const result = resolveExtractorPath({ isPackaged: true, resourcesPath: dir })
-    expect(result.path).toBe(join(dir, 'bin', '7za.exe'))
+    // Pinned to win32: this test is about the packaged-path join, not the binary-name branch
+    // (covered separately by "resolves 7zz off Windows"), so it stays independent of whatever
+    // platform the suite actually runs on.
+    const restorePlatform = stubPlatform('win32')
+    try {
+      const result = resolveExtractorPath({ isPackaged: true, resourcesPath: dir })
+      expect(result.path).toBe(join(dir, 'bin', '7za.exe'))
+    } finally {
+      restorePlatform()
+    }
   })
 
   /**
@@ -296,9 +329,22 @@ describe('7za-path resolution', () => {
    * single `<root>/out/main/index.js`. A `..`-counting resolution can only ever be right in one of
    * them, so the walk-up is proven against a constructed tree that mimics both - not against
    * whichever directory this test file happens to be loaded from.
+   *
+   * Pinned to win32 throughout (Story 100 D9): this describe block is about the walk-up
+   * algorithm, not the binary-name branch, so every fixture and assertion below uses the Windows
+   * name deliberately, regardless of the host platform actually running the suite.
    */
   describe('the dev-mode repo root is found by walking up to package.json', () => {
     let fakeRepo: string
+    let restorePlatform: () => void
+
+    beforeEach(() => {
+      restorePlatform = stubPlatform('win32')
+    })
+
+    afterEach(() => {
+      restorePlatform()
+    })
 
     beforeEach(async () => {
       fakeRepo = join(dir, 'fake-repo')
@@ -342,6 +388,7 @@ describe('7za-path resolution', () => {
 // in test output rather than silently skipping everything without a trace.
 if (!existsSync(resolveExtractorPath({ isPackaged: false }).path)) {
   describe('vendored binary status', () => {
-    it.skip('resources/bin/7za.exe is not vendored in this environment - real-archive tests skipped', () => {})
+    const missingPath = resolveExtractorPath({ isPackaged: false }).path
+    it.skip(`${missingPath} is not vendored in this environment - real-archive tests skipped`, () => {})
   })
 }
