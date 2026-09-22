@@ -10,6 +10,11 @@ version section when a release actually ships.
 
 ## Unreleased
 
+<!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
+
+
+## 0.3.0 — 2026-09-22
+
 ### Added
 - **Linux** — the launcher runs on Linux from source: it finds your Steam installations
   (native and Flatpak), recognises engines by their real binaries instead of a Windows file
@@ -22,7 +27,6 @@ version section when a release actually ships.
 
 
 ## 0.2.0 — 2026-09-13
-
 ### Added
 - **Your library** — find installations automatically (Steam, GOG, Epic, the classic
   paths, or an optional deep scan of your drives), add a folder yourself, or start a
