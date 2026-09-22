@@ -51,8 +51,11 @@ async function loadFlow(name) {
  * Flows still never reseed their fixture (unlike `ui:shot`/`ui:a11y`/`ui:verify`'s
  * `runVariantSession()`) - a stale non-`populated` fixture needs the same `npm run ui:seed` first
  * that every other flow's own doc comment already asks for.
+ *
+ * `executablePath` (story 101 D4), when given, drives a packaged binary instead of this repo's own
+ * dev build — see `withApp()`'s doc comment in `scripts/lib/harness.mjs`.
  */
-async function runFlow(name, requestedVariant) {
+async function runFlow(name, requestedVariant, executablePath) {
   const flow = await loadFlow(name)
   // Story 095 D3: a flow that can only run against one fixture variant may name it itself
   // (`export const variant = 'news-cover'`), so `npm run ui:flow -- <name>` is enough and nobody
@@ -84,7 +87,7 @@ async function runFlow(name, requestedVariant) {
 
   try {
     await withApp(
-      { variant, viewport: VIEWPORT_DEFAULT, env: setupResult.env },
+      { variant, viewport: VIEWPORT_DEFAULT, env: setupResult.env, executablePath },
       async ({ page, app, log }) => {
         const shot = async (label) => {
           const filePath = join(FLOWS_SCREENSHOTS_DIR, `${name}-${label}.png`)
@@ -109,17 +112,31 @@ async function runFlow(name, requestedVariant) {
   return variant
 }
 
+/**
+ * Splits `--app=<path>` (story 101 D4) out of the raw CLI args, wherever it appears, from the
+ * positional `<name> [variant]` — otherwise `--app=...` given after a flow name with no variant
+ * would be misread as the variant itself.
+ */
+function parseCliArgs(argv) {
+  let appPath = null
+  const positional = []
+  for (const arg of argv) {
+    if (arg.startsWith('--app=')) appPath = arg.slice('--app='.length)
+    else positional.push(arg)
+  }
+  return { appPath, name: positional[0], requestedVariant: positional[1] }
+}
+
 async function main() {
-  const name = process.argv[2]
-  const requestedVariant = process.argv[3]
+  const { appPath, name, requestedVariant } = parseCliArgs(process.argv.slice(2))
   if (!name) {
-    console.error('usage: node scripts/flow.mjs <name> [variant]')
+    console.error('usage: node scripts/flow.mjs <name> [variant] [--app=<path>]')
     process.exitCode = 1
     return
   }
 
   try {
-    const variant = await runFlow(name, requestedVariant)
+    const variant = await runFlow(name, requestedVariant, appPath ?? undefined)
     console.log(`flow '${name}' OK (variant: ${variant})`)
     process.exitCode = 0
   } catch (error) {

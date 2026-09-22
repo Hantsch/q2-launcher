@@ -478,8 +478,18 @@ function fillMissing({ visits, results, capture, error, skipKeys = new Set() }) 
  * show a booted-then-resized window instead. Its fixture is re-seeded first, so
  * the boot it records is a boot from the seed rather than from whatever the
  * batched session persisted.
+ *
+ * `executablePath` (story 101 D4), when given, is forwarded to every
+ * `withApp()` launch this session makes, so the whole session drives a
+ * packaged binary instead of this repo's own dev build.
  */
-export async function runVariantSession({ variant, screens, capture, seedFixture = true }) {
+export async function runVariantSession({
+  variant,
+  screens,
+  capture,
+  seedFixture = true,
+  executablePath,
+}) {
   if (!variant) throw new HarnessError('runVariantSession() needs a fixture variant')
   if (!capture?.shot && !capture?.axe) {
     throw new HarnessError('runVariantSession() needs at least one of capture.shot / capture.axe')
@@ -552,9 +562,9 @@ export async function runVariantSession({ variant, screens, capture, seedFixture
     }
   }
 
-  await drain(batched, { variant })
+  await drain(batched, { variant, executablePath })
   for (const visit of cold) {
-    await drain([visit], { variant, viewport: visit.viewport })
+    await drain([visit], { variant, viewport: visit.viewport, executablePath })
   }
 
   return { variant, launches, results, error }

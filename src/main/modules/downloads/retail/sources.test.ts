@@ -88,7 +88,11 @@ describe('detectedRetailSourcesFor', () => {
     }
   })
 
-  it('production (isDev false): a harness fixture env var is ignored - the real scan still runs', async () => {
+  it('packaged (isDev false) with Q2L_UI_HARNESS=1: the fixture override is used, not the real scan', async () => {
+    // Story 101 F3: the gate dropped its `isDev` requirement on purpose - the harness's CI job
+    // drives a real packaged AppImage, where `isDev` is always `false`, and needs this override
+    // reachable there. `isDev false` with the env var unset (the case above) still runs the real
+    // scan; this proves the env var alone is now sufficient.
     const steamRoot = join(dir, 'steam')
     const baseq2 = join(steamRoot, 'baseq2')
     await mkdir(baseq2, { recursive: true })
@@ -116,12 +120,43 @@ describe('detectedRetailSourcesFor', () => {
 
       const result = await detectedRetailSourcesFor(app)
 
-      expect(result.map((entry) => entry.source)).toEqual(['steam'])
+      expect(result.map((entry) => entry.source)).toEqual(['gog'])
     } finally {
       if (previousHarness === undefined) delete process.env[UI_HARNESS_ENV]
       else process.env[UI_HARNESS_ENV] = previousHarness
       if (previousFixture === undefined) delete process.env[HARNESS_STORE_SOURCES_ENV]
       else process.env[HARNESS_STORE_SOURCES_ENV] = previousFixture
+    }
+  })
+
+  it('packaged (isDev false) with Q2L_UI_HARNESS unset: the real scan still runs', async () => {
+    const steamRoot = join(dir, 'steam')
+    const baseq2 = join(steamRoot, 'baseq2')
+    await mkdir(baseq2, { recursive: true })
+    await writePakOfSize(baseq2, 'pak0.pak', RETAIL_PAK_SIZES['pak0.pak'])
+    await writePakOfSize(baseq2, 'pak1.pak', RETAIL_PAK_SIZES['pak1.pak'])
+
+    const previousHarness = process.env[UI_HARNESS_ENV]
+    delete process.env[UI_HARNESS_ENV]
+    try {
+      const app: AppContext = {
+        isDev: false,
+        detection: {
+          scan: async () => ({
+            scanId: 'scan-1',
+            cancelled: false,
+            durationMs: 1,
+            candidates: [candidate({ source: 'steam', rootPath: steamRoot })],
+          }),
+        },
+      } as unknown as AppContext
+
+      const result = await detectedRetailSourcesFor(app)
+
+      expect(result.map((entry) => entry.source)).toEqual(['steam'])
+    } finally {
+      if (previousHarness === undefined) delete process.env[UI_HARNESS_ENV]
+      else process.env[UI_HARNESS_ENV] = previousHarness
     }
   })
 })

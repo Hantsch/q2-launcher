@@ -13,7 +13,12 @@ export interface DialogServiceOptions {
    * window - see `createMainWindow` in `index.ts`. Read fresh on every call, never cached.
    */
   getMainWindow: () => BrowserWindow | null
-  /** Same `isDev` `AppContext` carries everywhere else - `is.dev` from `@electron-toolkit/utils`. */
+  /**
+   * Same `isDev` `AppContext` carries everywhere else - `is.dev` from `@electron-toolkit/utils`.
+   * Kept on this type so every existing call site (`context.ts`) stays unchanged, but no longer
+   * read by this service: story 101 F3 dropped `isDev` from the harness gate (see
+   * `src/main/lib/ui-harness.ts`'s module comment) - `Q2L_UI_HARNESS === '1'` alone decides now.
+   */
   isDev: boolean
 }
 
@@ -29,11 +34,9 @@ export interface DialogServiceOptions {
  */
 export class DialogService {
   private readonly getMainWindow: () => BrowserWindow | null
-  private readonly isDev: boolean
 
   constructor(options: DialogServiceOptions) {
     this.getMainWindow = options.getMainWindow
-    this.isDev = options.isDev
   }
 
   /**
@@ -42,11 +45,12 @@ export class DialogService {
    * `ipc/installations.ts`, which return `null` instead only because their contract already has a
    * "nothing picked" case; a module folding zero-or-more files wants `[]`, not a null to guard).
    *
-   * **Harness stub** - `Q2L_UI_HARNESS === '1'` AND `isDev` BOTH true, never either alone: no dialog
-   * opens at all, and `Q2L_UI_PICK_FILES` supplies the paths instead. This is the backdoor Playwright
-   * needs because it cannot drive a native OS dialog (`docs/UI-VERIFICATION.md:701-706`); it is
-   * unreachable in a packaged build, where `isDev` is always `false` regardless of any environment
-   * variable a hostile or malformed launch could set.
+   * **Harness stub** - `Q2L_UI_HARNESS === '1'`, and only that: no dialog opens at all, and
+   * `Q2L_UI_PICK_FILES` supplies the paths instead. This is the backdoor Playwright needs because it
+   * cannot drive a native OS dialog (`docs/UI-VERIFICATION.md:701-706`). `isDev` is deliberately not
+   * part of the gate (see `src/main/lib/ui-harness.ts`'s module comment) - story 101's CI jobs drive
+   * a packaged AppImage, where `isDev` is always `false`; the variable itself is what a real user's
+   * install can never have set for them, not `isDev`.
    *
    * `Q2L_UI_PICK_FILES` format: paths joined with `path.delimiter` (`;` on Windows, `:` elsewhere) -
    * the same separator Node uses for `PATH` itself, and safe here because a `.cfg` path is most
@@ -55,7 +59,7 @@ export class DialogService {
    * e2e harness must produce values in this exact format.
    */
   async pickConfigFiles({ defaultPath }: { defaultPath?: string }): Promise<string[]> {
-    if (this.isDev && process.env['Q2L_UI_HARNESS'] === '1') {
+    if (process.env['Q2L_UI_HARNESS'] === '1') {
       const picked = parseHarnessPickedFiles(process.env['Q2L_UI_PICK_FILES'])
       log.info(`harness stub: returning ${picked.length} fixture path(s) instead of a real dialog`)
       return Promise.all(picked.map((path) => canonicalizePath(path)))

@@ -16,6 +16,9 @@ version section when a release actually ships.
   extension, and extracts archives with a vendored Linux 7-Zip. If your platform has no
   installable engine yet, the bootstrap wizard says so plainly instead of showing you an empty
   shelf.
+- **Linux** — there is now a Linux download. Every release publishes an x86_64 AppImage
+  alongside the Windows installer, from the same run, and it updates itself just like the
+  Windows build does.
 
 
 ## 0.2.0 — 2026-09-13

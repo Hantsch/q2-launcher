@@ -3,12 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DialogService } from './dialog'
 
 /**
- * Story 066 D4: `DialogService` is the one place `dialog.showOpenDialog` is called for the config
- * import flow, and it carries a test-harness backdoor (`Q2L_UI_HARNESS=1`) that must be provably
- * unreachable unless `isDev` is *also* true - a hard requirement, since this runs in the same main
- * process a packaged build ships. `electron` is mocked as in `../services/installation-icons.test.ts`:
- * under plain vitest, `import('electron')` resolves to a path string, so `dialog` has to be supplied
- * here. No real OS dialog is ever spawned.
+ * Story 066 D4 (relaxed by story 101 F3): `DialogService` is the one place `dialog.showOpenDialog`
+ * is called for the config import flow, and it carries a test-harness backdoor (`Q2L_UI_HARNESS=1`)
+ * that must be provably unreachable unless that variable is set - `isDev` is deliberately not part
+ * of the gate any more, since story 101's CI jobs drive a real packaged AppImage where `isDev` is
+ * always `false`. `electron` is mocked as in `../services/installation-icons.test.ts`: under plain
+ * vitest, `import('electron')` resolves to a path string, so `dialog` has to be supplied here. No
+ * real OS dialog is ever spawned.
  */
 
 const dialogMock = vi.hoisted(() => ({ showOpenDialog: vi.fn() }))
@@ -71,7 +72,7 @@ describe('pickConfigFiles: the real dialog branch', () => {
   })
 })
 
-describe('the harness stub is unreachable with either gate off', () => {
+describe('the harness stub requires only Q2L_UI_HARNESS - isDev is not part of the gate', () => {
   it('both flags off: the real dialog runs, Q2L_UI_PICK_FILES is ignored', async () => {
     delete process.env['Q2L_UI_HARNESS']
     process.env['Q2L_UI_PICK_FILES'] = `C:\\fixtures\\dm.cfg${delimiter}C:\\fixtures\\gfx.cfg`
@@ -83,15 +84,14 @@ describe('the harness stub is unreachable with either gate off', () => {
     expect(result).toEqual([])
   })
 
-  it('only Q2L_UI_HARNESS=1 (isDev false): the real dialog still runs', async () => {
+  it('only Q2L_UI_HARNESS=1 (isDev false): no dialog opens, paths come from Q2L_UI_PICK_FILES', async () => {
     process.env['Q2L_UI_HARNESS'] = '1'
     process.env['Q2L_UI_PICK_FILES'] = `C:\\fixtures\\dm.cfg${delimiter}C:\\fixtures\\gfx.cfg`
-    dialogMock.showOpenDialog.mockResolvedValue({ canceled: true, filePaths: [] })
 
     const result = await service(false).pickConfigFiles({})
 
-    expect(dialogMock.showOpenDialog).toHaveBeenCalledTimes(1)
-    expect(result).toEqual([])
+    expect(dialogMock.showOpenDialog).not.toHaveBeenCalled()
+    expect(result).toHaveLength(2)
   })
 
   it('only isDev=true (Q2L_UI_HARNESS unset): the real dialog still runs', async () => {

@@ -65,6 +65,7 @@ describe('registerAllIpc', () => {
   })
 
   it('registers every non-dev-only channel and does not throw when isDev is false', async () => {
+    delete process.env['Q2L_UI_HARNESS']
     const { registerAllIpc } = await import('./index')
     expect(() => registerAllIpc(fakeApp(false))).not.toThrow()
 
@@ -78,6 +79,7 @@ describe('registerAllIpc', () => {
   })
 
   it('registers every channel, including dev-only ones, when isDev is true, with no throw', async () => {
+    delete process.env['Q2L_UI_HARNESS']
     const { registerAllIpc } = await import('./index')
     expect(() => registerAllIpc(fakeApp(true))).not.toThrow()
 
@@ -87,6 +89,34 @@ describe('registerAllIpc', () => {
     // 39 + story 098's four staged update actions + D4's dev:simulateAppUpdate
     // + story 099's app:getReleaseNotes.
     expect(registered.size).toBe(45)
+  })
+
+  // Story 101 F3: the UI-verification harness's CI job drives a real packaged AppImage, where
+  // `isDev` is always `false` - so dev-only channels must also register there when the harness
+  // explicitly opts in via `Q2L_UI_HARNESS === '1'`, and must NOT register merely because a
+  // packaged build happens to run without that variable set (a real user's install never sets it).
+  it('registers dev-only channels when isDev is false but Q2L_UI_HARNESS=1, with no throw', async () => {
+    process.env['Q2L_UI_HARNESS'] = '1'
+    try {
+      const { registerAllIpc } = await import('./index')
+      expect(() => registerAllIpc(fakeApp(false))).not.toThrow()
+
+      expect(registered.has('dev:simulateJob')).toBe(true)
+      expect(registered.has('dev:simulateLaunch')).toBe(true)
+      expect(registered.has('dev:simulateAppUpdate')).toBe(true)
+    } finally {
+      delete process.env['Q2L_UI_HARNESS']
+    }
+  })
+
+  it('does not register dev-only channels when isDev is false and Q2L_UI_HARNESS is unset', async () => {
+    delete process.env['Q2L_UI_HARNESS']
+    const { registerAllIpc } = await import('./index')
+    registerAllIpc(fakeApp(false))
+
+    expect(registered.has('dev:simulateJob')).toBe(false)
+    expect(registered.has('dev:simulateLaunch')).toBe(false)
+    expect(registered.has('dev:simulateAppUpdate')).toBe(false)
   })
 
   it('rejects an invalid payload on a plain (throwing) handle() channel synchronously', async () => {

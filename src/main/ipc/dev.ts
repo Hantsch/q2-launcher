@@ -12,8 +12,10 @@ import { scopedLogger } from '../lib/logger'
 const log = scopedLogger('dev-ipc')
 
 /**
- * Development-only channels. Never registered in a packaged build - see
- * `DEV_ONLY_CHANNELS` in `src/shared/ipc.ts`.
+ * Development-only channels - see `DEV_ONLY_CHANNELS` in `src/shared/ipc.ts`. Registered in dev
+ * builds unconditionally, and in a packaged build only when the UI-verification harness explicitly
+ * opts in via `Q2L_UI_HARNESS === '1'` (story 101 F3; see `registerAllIpc` in `./index.ts`) - never
+ * otherwise, since a real user's packaged install never sets that variable itself.
  */
 export function registerDevIpc(app: AppContext): void {
   handle('dev:simulateJob', devSimulateJobSchema, (payload) => {

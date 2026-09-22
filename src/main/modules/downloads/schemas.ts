@@ -44,9 +44,10 @@ export const httpsUrlSchema = z
  * Story 074 D8, harness only: the same shape as `httpsUrlSchema` above, plus a plain-http
  * **loopback** URL (`http://127.0.0.1[:port]/...`). Its only consumer is
  * `harnessLoopbackManifestPackageSchema` below, which is only ever built by
- * `parseManifestFile({ httpsOnly: false })`, which only ever happens under the double gate in
- * `harness.ts` (`Q2L_UI_HARNESS === '1' && isDev`) - unreachable in a packaged build, where `isDev`
- * is always `false`.
+ * `parseManifestFile({ httpsOnly: false })`, which only ever happens under the gate in
+ * `harness.ts` (`Q2L_UI_HARNESS === '1'`) - never set by a real shipped build, and not reachable
+ * from its UI, so it stays unreachable in practice even though `isDev` is no longer part of the
+ * check.
  *
  * It is a *second, separately named* schema rather than a widened `httpsUrlSchema`, on purpose: a
  * single regex quietly accepting `http://127.0.0.1` would apply to production too, and "which URLs

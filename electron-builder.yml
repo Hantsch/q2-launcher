@@ -90,6 +90,11 @@ linux:
     - AppImage
   category: Game
   maintainer: Hantsch
+  # Same reasoning as win.artifactName's comment above (no space, hyphen up front so disk,
+  # latest.yml and the GitHub asset all agree). One difference: for AppImage builds
+  # electron-builder resolves `${arch}` to `x86_64`, not `x64` - do not "fix" that to match the
+  # Windows value, it would just be wrong for this target.
+  artifactName: Q2-Launcher-${version}-linux-${arch}.${ext}
 
 mac:
   target:

@@ -30,10 +30,13 @@ export { HARNESS_CONTENT_REPO_BASE_ENV }
  *
  * ## Unreachable in production, by construction
  *
- * The decision is `isUiHarnessEnabled()` (`src/main/lib/ui-harness.ts`): `Q2L_UI_HARNESS === '1'`
- * AND `isDev`, both, never either alone. `isDev` is `false` in a packaged build whatever the
- * environment says, so the harness branch cannot be entered there at all. Same discipline as
- * `DialogService`'s stub (`src/main/services/dialog.ts`), including the four-case gate test.
+ * The decision is `isUiHarnessEnabled()` (`src/main/lib/ui-harness.ts`): `Q2L_UI_HARNESS === '1'`,
+ * and only that - `isDev` is deliberately not part of the gate (story 101's CI jobs need this
+ * reachable in a packaged AppImage, where `isDev` is always `false`). The variable is set only by
+ * whoever launches the harness process (`scripts/lib/harness.mjs`), never by the app itself or by
+ * electron-builder, so a real user's build still cannot reach this without deliberately exporting
+ * it before starting the binary. Same discipline as `DialogService`'s stub
+ * (`src/main/services/dialog.ts`), including the gate-table test.
  *
  * ## What is deliberately NOT done here
  *

@@ -74,22 +74,52 @@ describe('release pipeline wiring', () => {
     expect(config.win.artifactName).not.toContain('${productName}')
   })
 
+  test("electron-builder's linux.artifactName is the hyphenated, space-free name the asset check expects", () => {
+    const config = yaml.load(readFileSync(ELECTRON_BUILDER_PATH, 'utf8'))
+
+    // artifacts.mjs hardcodes 'Q2-Launcher' as PRODUCT_NAME (not exported - it stays
+    // fs/path-free on purpose) and its own comment says a future rename must be caught by drift
+    // rather than silently. Derive that same prefix from the Windows asset artifacts.mjs *does*
+    // expose (expectedAssets), rather than re-typing the literal 'Q2-Launcher-' here, so a rename
+    // of the shared prefix in either place fails this test.
+    const winAsset = expectedAssets('1.0.0-beta.1')[0]
+    const prefix = winAsset.slice(0, winAsset.indexOf('1.0.0-beta.1'))
+    expect(prefix).toBe('Q2-Launcher-')
+
+    expect(config.linux.artifactName).toContain(prefix)
+    expect(config.linux.artifactName.startsWith('${productName}')).toBe(false)
+    // A space here breaks electron-updater exactly as it would on Windows - see that field's
+    // comment and win.artifactName's above it.
+    expect(config.linux.artifactName).not.toContain(' ')
+    expect(config.linux.artifactName).not.toContain('${productName}')
+
+    // electron-builder resolves `${arch}` to `x86_64` (not `x64`) for AppImage builds - assert
+    // the actual resolved filename, not just the raw template string, so a regression to `x64`
+    // here (which would silently produce a wrong/missing asset name on a real Linux build) fails.
+    const resolved = config.linux.artifactName
+      .replace('${version}', '1.0.0-beta.1')
+      .replace('${arch}', 'x86_64')
+      .replace('${ext}', 'AppImage')
+    expect(resolved).toBe('Q2-Launcher-1.0.0-beta.1-linux-x86_64.AppImage')
+  })
+
   describe("D5: .github/workflows/release.yml", () => {
     /** @returns {any} the parsed workflow, re-read per test so no test can leak a mutation. */
     function readWorkflow() {
       return yaml.load(readFileSync(RELEASE_WORKFLOW_PATH, 'utf8'))
     }
 
-    test('grants contents: write and runs on windows-latest', () => {
+    test('grants contents: write and publishes from windows-latest', () => {
       const workflow = readWorkflow()
 
       expect(workflow.permissions.contents).toBe('write')
 
-      const jobs = Object.values(workflow.jobs)
-      expect(jobs.length).toBeGreaterThan(0)
-      for (const job of jobs) {
-        expect(job['runs-on']).toBe('windows-latest')
-      }
+      // Story 101 D3 split the single job into three, so "every job is windows-latest" is no
+      // longer the invariant - "the job that tags and publishes is" still is, and it is the one
+      // that matters: the Windows artifacts and the `latest.yml` every installed Windows client
+      // resolves its update through must keep being produced by a real Windows runner, never by
+      // Wine on Linux.
+      expect(workflow.jobs.release['runs-on']).toBe('windows-latest')
     })
 
     test('workflow_dispatch exposes exactly version, bump and dry_run as inputs', () => {
@@ -173,6 +203,99 @@ describe('release pipeline wiring', () => {
       const jobs = Object.values(workflow.jobs)
       const guarded = jobs.some((job) => String(job.if ?? '').includes('[skip ci]'))
       expect(guarded).toBe(true)
+    })
+
+    describe('D3 (story 101): three jobs, one release', () => {
+      test('plan, build-linux and release exist, and release waits for both others', () => {
+        const workflow = readWorkflow()
+
+        expect(Object.keys(workflow.jobs).sort()).toEqual(['build-linux', 'plan', 'release'])
+
+        // `needs` is what makes the split safe rather than merely parallel: the Windows job must
+        // not start tagging and publishing before the Linux artifacts it has to upload exist, and
+        // it must not derive its own version - it consumes the one `plan` decided.
+        const needs = workflow.jobs.release.needs
+        const needsList = Array.isArray(needs) ? needs : [needs]
+        expect(needsList.sort()).toEqual(['build-linux', 'plan'])
+        expect(workflow.jobs['build-linux'].needs).toBe('plan')
+      })
+
+      test('plan resolves the version once and every other job consumes that one value', () => {
+        const workflow = readWorkflow()
+        const plan = workflow.jobs.plan
+
+        // The plan job runs the read-only mode - no build, no tag - and exposes what it decided.
+        const planRun = (plan.steps ?? []).map((step) => step.run ?? '').join('\n')
+        expect(planRun).toContain('--print-plan')
+        expect(plan.outputs.version).toContain('steps.')
+
+        // Both downstream jobs read `needs.plan.outputs.version` rather than deriving a version
+        // of their own. A version derived twice is a release whose git tag and whose asset
+        // filenames disagree - the assets would be uploaded under a name no client resolves.
+        const downstream = JSON.stringify([workflow.jobs['build-linux'], workflow.jobs.release])
+        expect(downstream).toContain('needs.plan.outputs.version')
+        const releaseRun = (workflow.jobs.release.steps ?? []).map((s) => s.run ?? '').join('\n')
+        expect(releaseRun).toContain('--version')
+      })
+
+      test('build-linux packages the AppImage and uploads it for the release job to stage', () => {
+        const workflow = readWorkflow()
+        const steps = workflow.jobs['build-linux'].steps ?? []
+
+        expect(workflow.jobs['build-linux']['runs-on']).toBe('ubuntu-latest')
+        expect(workflow.jobs.plan['runs-on']).toBe('ubuntu-latest')
+
+        const runs = steps.map((step) => step.run ?? '').join('\n')
+        expect(runs).toContain('npm run package:linux')
+
+        const upload = steps.find((step) => String(step.uses ?? '').includes('upload-artifact'))
+        expect(upload).toBeDefined()
+        expect(upload.with.path).toContain('.AppImage')
+        expect(upload.with.path).toContain('latest-linux.yml')
+        // Never a bare `release/<version>/*`: a `latest.yml` travelling in this artifact would be
+        // staged over the freshly built Windows one, which is the single URL every installed
+        // Windows client resolves its update through.
+        expect(upload.with.path).not.toContain('latest.yml\n')
+        expect(String(upload.with.path).split('\n').filter(Boolean)).toHaveLength(2)
+
+        // The release job downloads that same artifact and points the runner's staging variable
+        // at where it landed, which is what gets the Linux files gated by the asset check.
+        const releaseSteps = workflow.jobs.release.steps ?? []
+        const download = releaseSteps.find((step) =>
+          String(step.uses ?? '').includes('download-artifact'),
+        )
+        expect(download).toBeDefined()
+        expect(download.with.name).toBe(upload.with.name)
+        const releaseEnvs = releaseSteps.map((step) => step.env).filter(Boolean)
+        const staging = releaseEnvs.find((env) => env.RELEASE_EXTRA_ASSETS_DIR)
+        expect(staging).toBeDefined()
+        expect(staging.RELEASE_EXTRA_ASSETS_DIR).toContain(download.with.path)
+      })
+
+      test('F2: build-linux promotes CHANGELOG.md before packaging, so the AppImage bundles real notes', () => {
+        const workflow = readWorkflow()
+        const steps = workflow.jobs['build-linux'].steps ?? []
+        const runs = steps.map((step) => step.run ?? '')
+
+        const promoteIndex = runs.findIndex((run) => run.includes('--promote-changelog'))
+        const packageIndex = runs.findIndex((run) => run.includes('npm run package:linux'))
+
+        // Without this, the packaged AppImage bundles a CHANGELOG.md still saying "## Unreleased"
+        // (this checkout never sees the promotion the `release` job commits later), so
+        // resolveReleaseNotes() (src/main/lib/release-notes.ts) finds no "## <version>" section
+        // matching app.getVersion() and About is permanently empty on every Linux release.
+        expect(promoteIndex).toBeGreaterThan(-1)
+        expect(packageIndex).toBeGreaterThan(-1)
+        expect(promoteIndex).toBeLessThan(packageIndex)
+
+        // It reuses release.mjs's own version, not a second derivation - and passes the SAME
+        // planned version build-linux already builds electron-builder's output directory/artifact
+        // names against.
+        const promoteStep = steps[promoteIndex]
+        expect(runs[promoteIndex]).toContain('node scripts/release.mjs')
+        expect(runs[promoteIndex]).toContain('--version')
+        expect(JSON.stringify(promoteStep.env ?? {})).toContain('needs.plan.outputs.version')
+      })
     })
   })
 

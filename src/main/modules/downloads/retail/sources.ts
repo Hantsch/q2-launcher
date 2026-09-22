@@ -13,7 +13,8 @@ import { resolveDetectedRetailSourcesOverride } from '../harness'
  *
  * The harness override is resolved fresh on every call (like the original), because a UI-
  * verification flow needs to change its fixture between runs within one launch - under the same
- * double gate (`Q2L_UI_HARNESS === '1' && isDev`), so a packaged build always reaches the real
+ * gate (`Q2L_UI_HARNESS === '1'`, `isDev` is not part of it - see `src/main/lib/ui-harness.ts`), so
+ * a real user's packaged build - which never sets that variable itself - always reaches the real
  * `listDetectedRetailSources`.
  */
 export function detectedRetailSourcesFor(app: AppContext): Promise<DetectedRetailSource[]> {

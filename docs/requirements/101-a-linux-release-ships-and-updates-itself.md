@@ -1,7 +1,7 @@
 ---
 id: 101
 title: a linux release ships and updates itself
-status: ready # draft -> ready -> in-progress -> done
+status: in-progress # draft -> ready -> in-progress -> done
 created: 2026-09-21
 ---
 
@@ -39,21 +39,24 @@ first multi-platform build.
 > to AC3–AC8 in this file, in `docs/linux-support-analysis.md` and in the deliverables keeps
 > pointing at the same criterion.
 
-- [ ] **AC3** — One release run produces both the Windows and the Linux artifacts. The asset check
+- [x] **AC3** — One release run produces both the Windows and the Linux artifacts. The asset check
       knows both sets, still refuses to publish when any expected file is missing, and names
       exactly which one.
-- [ ] **AC4** — The Linux artifact's file name follows the same hyphenated pattern the Windows one
+- [x] **AC4** — The Linux artifact's file name follows the same hyphenated pattern the Windows one
       does, so the name written into the update metadata, the name on disk and the name of the
       uploaded release asset are the same string.
-- [ ] **AC5** — `latest-linux.yml` is published alongside `latest.yml`; neither overwrites or
+- [x] **AC5** — `latest-linux.yml` is published alongside `latest.yml`; neither overwrites or
       invalidates the other, and a Windows client never resolves the Linux metadata or vice versa.
 - [ ] **AC6** — A packaged Linux build notices a new version on its daily check, and the user can
       choose to take it: it downloads, the launcher restarts, and it comes back up as the new
-      version.
+      version. *(mechanism implemented and reviewed; unticked until `linux-update.yml` runs green
+      on real CI — see Locality note and Done.)*
 - [ ] **AC7** — About shows the real release notes for the running version on Linux, as it does on
-      Windows.
+      Windows. *(mechanism implemented and reviewed; unticked until `linux-verify.yml` runs green
+      on real CI.)*
 - [ ] **AC8** — The UI verification harness runs against the packaged Linux build and produces the
-      screenshot set and the axe-core accessibility report it produces on Windows.
+      screenshot set and the axe-core accessibility report it produces on Windows. *(mechanism
+      implemented and reviewed; unticked until `linux-verify.yml` runs green on real CI.)*
 
 ## Open Questions
 
@@ -118,7 +121,7 @@ D1 and D4).
 
 ## Deliverables
 
-- [ ] **D1 — a Linux artifact has a name the update path can resolve.**
+- [x] **D1 — a Linux artifact has a name the update path can resolve.**
       `package.json` (add `package:linux`, mirroring the existing `package:win` line exactly, with
       `electron-builder --linux`), `electron-builder.yml` (add `linux.artifactName`, hyphenated,
       with a why-comment pointing at the `win.artifactName` comment above it and naming the
@@ -127,7 +130,7 @@ D1 and D4).
       *Acceptance:* `npm run package:linux` on a Linux machine or CI produces a file whose name
       carries no space and starts with `Q2-Launcher-`. Covers AC4.
 
-- [ ] **D2 — the asset check knows two platforms.**
+- [x] **D2 — the asset check knows two platforms.**
       `scripts/lib/release/artifacts.mjs` (give `expectedAssets`/`collectAssets` a platform
       dimension; keep the stable-order contract and the throw-naming-exactly-what-is-missing
       behaviour), `scripts/lib/release/artifacts.test.mjs` (extend — mirror the existing
@@ -139,7 +142,7 @@ D1 and D4).
       *Acceptance:* a directory missing only the AppImage throws naming only the AppImage.
       Covers AC3 (check half) and AC5.
 
-- [ ] **D3 — one run publishes both.**
+- [x] **D3 — one run publishes both.**
       `scripts/release.mjs` (a `--print-plan` mode that runs `planRelease` and prints JSON without
       writing or building, so the `plan` job can decide the version and a `ReleaseRefused` costs no
       build; plus a `stageExtraAssets` injected dep that copies `RELEASE_EXTRA_ASSETS_DIR` into
@@ -153,7 +156,7 @@ D1 and D4).
       platforms' files; deleting one Linux file makes it refuse and name that file.
       Covers AC3 (one-run half).
 
-- [ ] **D4 — the harness can launch a packaged app.**
+- [x] **D4 — the harness can launch a packaged app.**
       `scripts/lib/harness.mjs` (an `executablePath` route through `launchApp`/`withApp`: when
       given, pass it to `_electron.launch` and skip `ensureBuild()`; keep the `--user-data-dir`
       injection and its `assertInside()` guard unchanged — Electron honours that flag in a
@@ -162,7 +165,7 @@ D1 and D4).
       *Acceptance:* `npm run ui:flow about-release-notes -- --app=<path>` drives the packaged app;
       with no `--app` nothing about today's behaviour changes. Covers AC8's mechanism.
 
-- [ ] **D5 — the Linux build is screenshotted and audited.**
+- [x] **D5 — the Linux build is screenshotted and audited.**
       `.github/workflows/linux-verify.yml` (new): `ubuntu-latest`, `npm run package:linux`, then
       under `xvfb-run` both `npm run ui:verify -- --app=<AppImage>` and
       `npm run ui:flow about-release-notes -- --app=<AppImage>`; uploads the screenshot set,
@@ -171,7 +174,7 @@ D1 and D4).
       *Acceptance:* the job is green and its artifacts contain the same screen list Windows
       produces. Covers AC7 and AC8.
 
-- [ ] **D6 — a packaged AppImage really takes an update.**
+- [x] **D6 — a packaged AppImage really takes an update.**
       `scripts/linux-update-e2e.mjs` (new; builds the AppImage at the current version and at a
       bumped one, both with the generic-localhost publish override, serves the newer one's
       `latest-linux.yml` + artifact from a local HTTP server, launches the older one on a fresh
@@ -211,13 +214,30 @@ D1 and D4).
   expected, and neither platform's set contains the other's metadata file" (D2); the live half is
   AC6's job, where the AppImage resolves `latest-linux.yml` and never `latest.yml`
 - AC6 → e2e (Linux) `scripts/linux-update-e2e.mjs`, run by `.github/workflows/linux-update.yml` ›
-  "a packaged AppImage takes an update on its startup check and comes back as the new version" (D6)
+  "a packaged AppImage takes an update on its startup check and comes back as the new version" (D6).
+  Review (F1) found the script launched into a fresh, unseeded user-data dir, where
+  `DetectDialog`'s modal (opened by `scanOnFirstRun`) would block the update click it depends on;
+  fixed by seeding the harness's existing `empty` fixture variant (`writeFixture('empty')`,
+  `scanOnFirstRun: false`) immediately before launch, into the same user-data dir the launch uses.
 - AC7 → e2e `scripts/flows/about-release-notes.mjs` run against the packaged AppImage in
-  `.github/workflows/linux-verify.yml` (D5)
+  `.github/workflows/linux-verify.yml` (D5). Review (F2) found the `build-linux` job packaged the
+  AppImage from an un-promoted `CHANGELOG.md` (still `## Unreleased`), so About would show the
+  empty state forever on Linux; fixed with a new `scripts/release.mjs --promote-changelog
+  --version <v>` mode (reusing `planRelease`'s own changelog-promotion write) run in `build-linux`
+  before `npm run package:linux`, asserted in `scripts/lib/release/wiring.test.mjs` (order,
+  against the real workflow file).
 - AC8 → e2e `npm run ui:verify -- --app=<AppImage>` in `.github/workflows/linux-verify.yml`, whose
   screenshot set and `a11y.md` are uploaded as job artifacts (D5), plus unit
-  `scripts/lib/harness.test.mjs` › "an executablePath launch skips ensureBuild and still confines
-  user-data" (D4)
+  `scripts/lib/harness.test.mjs` › "ensureBuild is never called, and the launch is given a
+  --user-data-dir inside UI_VERIFY_ROOT" / "a userData path the app reports outside
+  UI_VERIFY_ROOT is rejected by the real assertInside guard" / "ensureBuild is called, and the
+  dev entry point is in the launch args" (D4). Review (F3) found the harness's dev-only IPC and
+  test stubs were gated on `Q2L_UI_HARNESS === '1' && isDev`, which a packaged AppImage
+  (`isDev` always false) could never satisfy, permanently blocking this criterion's flows; fixed
+  by dropping the `isDev` half everywhere (`Q2L_UI_HARNESS === '1'` alone is now sufficient,
+  confirmed unreachable from any real shipped build or its UI), with the affected gate tests
+  updated to match and no production-safety assertion weakened. User explicitly reviewed and
+  approved this specific change before it was made.
 
 **No manual residue.** Every criterion is automated.
 
@@ -231,4 +251,43 @@ test strategy would avoid.
 
 ## Done
 
-<!-- Filled by /build 101. -->
+Implemented D1–D6: Linux gets a hyphenated `artifactName` and `package:linux` (D1); the asset
+check and release script gained a platform dimension so one run produces, stages and gates both
+Windows and Linux artifacts (D2, D3, now a `plan`/`build-linux`/`release` three-job workflow); the
+UI-verification harness can launch a packaged app via `--app=<path>` (D4); a new
+`linux-verify.yml` screenshots and axe-audits the packaged AppImage (D5); a new
+`linux-update-e2e.mjs` + `linux-update.yml` prove a packaged AppImage really takes an update via
+a local generic-provider feed and a boot-time version log as the out-of-process oracle (D6).
+
+The first clean-agent review (story-review-hard) found three blocking gaps, all in the parts of
+D5/D6 whose live proof only runs on Linux CI: F1 (D6's e2e script launched into an unseeded,
+first-run state, where `DetectDialog`'s modal would have blocked the update-check click), F2
+(the `build-linux` CI job packaged from an un-promoted `CHANGELOG.md`, leaving About permanently
+empty on Linux), and F3 (the harness's `Q2L_UI_HARNESS === '1' && isDev` gate can never be
+satisfied by a packaged build, blocking every dev-only IPC channel D5/D6's flows depend on — this
+one was surfaced to the user for explicit sign-off before fixing, since it relaxes a main-process
+privilege gate). All three were fixed; three minor findings (a stale arch comment, an undeclared
+`js-yaml` devDependency, a weak confinement-guard test) were fixed alongside them. A second
+review pass confirmed all six resolved with no weakened tests, no scope creep, and no new
+regressions, and left six cosmetic/documentation items (a stale log-upload path, four stale
+"unreachable in a packaged build" doc/code comments, a lockfile-hygiene gap, a stray semicolon),
+which were also fixed and re-verified.
+
+Commit message: `101: a linux release ships and updates itself`
+
+Verification:
+- `npm run build` — green.
+- `npm run typecheck` — green (node + web).
+- `npm test` — 4133 passed, 2 failed; both failures are pre-existing and unrelated to this story
+  (`UpdateCheckRow.test.tsx`, `NewsHero.test.tsx` assert English relative-time strings and fail
+  only because this machine's OS locale is `de` — reproduces identically on `dev` with this
+  story's changes stashed).
+- AC3, AC4, AC5 → their named unit tests exist and pass locally, verified above.
+- AC6, AC7, AC8 → their named e2e scripts/workflows exist, parse, and are wired as specified;
+  per the story's own Locality note, their live proof requires `ubuntu-latest` and cannot run on
+  this Windows machine. **Blocker carried forward:** this story is not fully done until
+  `.github/workflows/linux-verify.yml` and `.github/workflows/linux-update.yml` have both run
+  green in CI at least once — status is left at `in-progress` for that reason, not because of
+  any local defect.
+- Review outcome: two-pass clean-agent review, second pass PASS, all findings from both passes
+  resolved and re-verified.

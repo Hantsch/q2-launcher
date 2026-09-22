@@ -252,12 +252,34 @@ export function childEnv(extraEnv = {}) {
 }
 
 /**
- * Launches the built app, waits for the first window and returns
+ * Collaborators `launchApp` calls out to, overridable so a test can assert on
+ * them without spawning real Electron (story 101 D4). Defaults to the real
+ * `_electron.launch` and this file's own `ensureBuild`.
+ * @typedef {Object} HarnessDeps
+ * @property {(options: object) => Promise<any>} launch
+ * @property {() => void} ensureBuild
+ */
+
+/** @returns {HarnessDeps} */
+function defaultDeps() {
+  return { launch: _electron.launch, ensureBuild }
+}
+
+/**
+ * Launches the app, waits for the first window and returns
  * `{ app, page, log, userDataDir }`. Callers use `withApp()`; this is separate
  * only so the failure paths can close what they opened.
+ *
+ * `executablePath` (story 101 D4) launches a packaged binary — e.g. a built
+ * Linux AppImage — instead of this repo's own dev build. There is no reason to
+ * demand `out/` exist to launch someone else's binary, so `ensureBuild()` is
+ * skipped entirely in that case. The `--user-data-dir` confinement below is
+ * unconditional either way: Electron honours that switch in a packaged app the
+ * same way it does in dev, and a packaged-app run must be contained exactly as
+ * strictly as a dev one.
  */
-async function launchApp({ userDataDir, env: extraEnv }) {
-  ensureBuild()
+async function launchApp({ userDataDir, env: extraEnv, executablePath, deps = defaultDeps() }) {
+  if (!executablePath) deps.ensureBuild()
 
   // Guard before anything is created: a run must never be able to point Electron
   // at %APPDATA% or at the repo itself.
@@ -267,10 +289,15 @@ async function launchApp({ userDataDir, env: extraEnv }) {
   const log = new RunLog()
   const state = { expectedExit: false }
 
+  const launchArgs = executablePath
+    ? [`--user-data-dir=${resolvedUserDataDir}`]
+    : [join(REPO_ROOT, MAIN_ENTRY), `--user-data-dir=${resolvedUserDataDir}`]
+
   let app
   try {
-    app = await _electron.launch({
-      args: [join(REPO_ROOT, MAIN_ENTRY), `--user-data-dir=${resolvedUserDataDir}`],
+    app = await deps.launch({
+      ...(executablePath ? { executablePath } : {}),
+      args: launchArgs,
       cwd: REPO_ROOT,
       env: childEnv(extraEnv),
       timeout: LAUNCH_TIMEOUT_MS,
@@ -403,13 +430,18 @@ function enrichLaunchFailure(error, log) {
  * applied through `win.setSize` — a BrowserWindow ignores
  * `page.setViewportSize()`. `env` (story 074 D8) is merged into `childEnv()`
  * last, for values only known immediately before the launch — see `childEnv()`.
+ * `executablePath` (story 101 D4) launches a packaged binary instead of this
+ * repo's own dev build — see `launchApp()`'s doc comment. `deps` overrides
+ * `launchApp()`'s collaborators; only a test passes it.
  */
-export async function withApp({ variant, viewport, env } = {}, fn) {
+export async function withApp({ variant, viewport, env, executablePath, deps } = {}, fn) {
   if (!variant) throw new HarnessError('withApp() needs a fixture variant')
 
   const { app, page, log, state, child, userDataDir } = await launchApp({
     userDataDir: variantUserDataDir(variant),
     env,
+    executablePath,
+    deps,
   })
 
   try {

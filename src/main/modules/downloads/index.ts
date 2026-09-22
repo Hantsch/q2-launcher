@@ -128,8 +128,9 @@ export const downloadsModule: MainModule = {
 
   setup({ handle, app, log }) {
     // Story 074 D8: resolved exactly once, here, and then only ever passed around as a value -
-    // see `harness.ts`. In a packaged build (and in any `npm run dev` without `Q2L_UI_HARNESS=1`)
-    // this is `PRODUCTION_DOWNLOAD_SOURCE`, and no later change of environment can alter it.
+    // see `harness.ts`. Without `Q2L_UI_HARNESS=1` (which a real shipped build never sets, and
+    // which is not reachable from its UI) this is `PRODUCTION_DOWNLOAD_SOURCE`, and no later
+    // change of environment can alter it.
     const source = resolveDownloadSource({ isDev: app.isDev })
     if (source !== PRODUCTION_DOWNLOAD_SOURCE) {
       log.warn(`UI harness: download source overridden to ${source.baseUrl} (dev build only)`)

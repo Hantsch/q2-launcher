@@ -151,9 +151,10 @@ describe('app:copyText', () => {
 })
 
 describe('app:openExternal', () => {
-  // Story 099 D6: the harness-gated recorder must not be reachable unless BOTH `isDev` and
-  // `Q2L_UI_HARNESS === '1'` hold - mirroring the four-case gate table used throughout
-  // `src/main/lib/ui-harness.test.ts` and `downloads/harness.test.ts`.
+  // Story 099 D6 (relaxed by story 101 F3): the harness-gated recorder requires only
+  // `Q2L_UI_HARNESS === '1'` - `isDev` is deliberately not part of the gate any more, since story
+  // 101's CI jobs drive a real packaged AppImage where `isDev` is always `false`. Mirrors the gate
+  // table used throughout `src/main/lib/ui-harness.test.ts` and `downloads/harness.test.ts`.
   it('both flags off: calls shell.openExternal, never the recorder', async () => {
     const { openExternal } = await setup({ isDev: false })
 
@@ -164,14 +165,15 @@ describe('app:openExternal', () => {
     expect(result).toEqual({ ok: true, value: null })
   })
 
-  it('only Q2L_UI_HARNESS=1 (isDev false): still calls shell.openExternal', async () => {
+  it('only Q2L_UI_HARNESS=1 (isDev false): records the url instead - the env var alone is the gate', async () => {
     process.env.Q2L_UI_HARNESS = '1'
     const { openExternal } = await setup({ isDev: false })
 
-    await openExternal(fakeEvent, 'https://example.test/')
+    const result = await openExternal(fakeEvent, 'https://example.test/')
 
-    expect(shellOpenExternal).toHaveBeenCalledWith('https://example.test/')
-    expect(recordHarnessExternalUrl).not.toHaveBeenCalled()
+    expect(recordHarnessExternalUrl).toHaveBeenCalledWith('https://example.test/')
+    expect(shellOpenExternal).not.toHaveBeenCalled()
+    expect(result).toEqual({ ok: true, value: null })
   })
 
   it('only isDev=true (Q2L_UI_HARNESS unset): still calls shell.openExternal', async () => {

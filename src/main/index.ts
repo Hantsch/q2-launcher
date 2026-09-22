@@ -62,6 +62,14 @@ if (!app.requestSingleInstanceLock()) {
 async function bootstrap(): Promise<void> {
   await app.whenReady()
 
+  // The one line every support log should have had anyway: which build is actually running. It is
+  // also story 101 D6's out-of-process oracle - after an AppImage self-update the launcher re-execs
+  // itself through `$APPIMAGE`, so the relaunched process is a *different* process that no test
+  // driver is still attached to; `scripts/linux-update-e2e.mjs` polls this line out of the log file
+  // on disk to prove the new version really came back up. Logged after `whenReady()` because
+  // `electron-log`'s file transport resolves its path from `app.getPath('logs')`.
+  logger.info(`Q2 Launcher ${app.getVersion()} starting on ${process.platform}`)
+
   // Makes Windows attribute notifications and the taskbar entry to us.
   electronApp.setAppUserModelId(APP_USER_MODEL_ID)
   applySecurityPolicies(currentRendererSource())

@@ -9,6 +9,7 @@ import {
 } from '@shared/ipc'
 import { fail, type Outcome } from '@shared/types'
 import { scopedLogger } from '../lib/logger'
+import { UI_HARNESS_ENV } from '../lib/ui-harness'
 import type { AppContext } from '../context'
 import { registerAppIpc } from './app'
 import { registerDetectionIpc } from './detection'
@@ -119,7 +120,14 @@ export function registerAllIpc(app: AppContext): void {
   registerJobsIpc(app)
   registerModulesIpc(app)
   registerUpdateIpc(app)
-  if (app.isDev) registerDevIpc(app)
+  // Dev builds keep getting these channels unconditionally, the way they always have. A packaged
+  // build additionally gets them when the UI-verification harness explicitly opted in
+  // (`Q2L_UI_HARNESS === '1'`, story 101 F3): the harness's CI job drives the real packaged
+  // AppImage, where `isDev` is always `false`, and these dev-only IPC channels are what its flows
+  // and screens need to reach. The variable is never set by the app itself or by electron-builder,
+  // so a real user's packaged install never registers this without deliberately exporting it
+  // before starting the binary.
+  if (app.isDev || process.env[UI_HARNESS_ENV] === '1') registerDevIpc(app)
 
   assertContractFullyHandled(app.isDev)
   log.info(`registered ${registeredChannels.size} IPC channels`)

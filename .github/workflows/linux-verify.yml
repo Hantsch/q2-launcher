@@ -1,0 +1,104 @@
+name: linux-verify
+
+# Story 101 D5 (docs/requirements/101-a-linux-release-ships-and-updates-itself.md): proves AC7/AC8
+# against a REAL packaged Linux AppImage rather than this repo's own dev build, reusing D4's
+# `--app=<path>` flag (scripts/verify.mjs / scripts/flow.mjs / scripts/lib/harness.mjs) instead of
+# adding a second harness. `ci.yml`'s `linux-journey` job already proves the dev build works on
+# Linux under `xvfb-run`; this job is the one that proves the PACKAGED build - the thing users
+# actually run - does too, with the same screenshot set and axe-core report Windows produces
+# (`docs/UI-VERIFICATION.md`), plus that the About screen shows real release notes on Linux (AC7,
+# `scripts/flows/about-release-notes.mjs`, unchanged from the dev-build flow it already is).
+#
+# Deliberately its own workflow, not folded into `release.yml`'s `build-linux` job: that job only
+# builds and uploads the AppImage for the real release pipeline (never runs it), and it must never
+# be slowed down or risked by a UI smoke test. This workflow builds its own throwaway AppImage at
+# whatever version happens to be in package.json - no `plan` job, no release artifact, nothing
+# uploaded anywhere but this run's own screenshots/report.
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: linux-verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify (ubuntu-latest, xvfb, packaged AppImage)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Same race every other workflow in this repo already guards against (release.yml's and
+      # ci.yml's own "Install Electron binary" step): Playwright's `_electron` driver resolves the
+      # local `electron` devDependency, whose binary is otherwise downloaded lazily on first use.
+      - name: Install Electron binary
+        run: node node_modules/electron/install.js
+
+      # `ubuntu-latest` ships neither a display nor (as of the 24.04 image) libfuse2, and an
+      # AppImage's own runtime needs both: `xvfb-run` for a display to launch into, `libfuse2` to
+      # actually mount and exec the AppImage itself (`scripts/lib/harness.mjs`'s `--app=<path>`
+      # hands the AppImage straight to Playwright's `_electron.launch({ executablePath })`, i.e.
+      # this runs the real packaged file, not an extracted one). Neither `release.yml`'s
+      # `build-linux` job nor `ci.yml`'s `linux-journey` job needed this: the former only builds
+      # the AppImage without ever running it, the latter runs this repo's own unpacked dev build.
+      - name: Install xvfb and libfuse2
+        run: sudo apt-get update && sudo apt-get install -y xvfb libfuse2
+
+      - name: Package the Linux AppImage
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run package:linux
+
+      # electron-builder writes `release/<version>/Q2-Launcher-<version>-linux-x86_64.AppImage`
+      # (electron-builder.yml's `directories.output`/`linux.artifactName`) - the version is
+      # whatever package.json already carries, since this workflow deliberately never bumps it the
+      # way release.yml's `plan` job does. Resolved by glob rather than hardcoding the version so
+      # this workflow does not have to be edited every time the version changes.
+      - name: Resolve the built AppImage path
+        id: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PATH="$(find release -maxdepth 2 -name '*.AppImage' -print -quit)"
+          if [ -z "$APP_PATH" ]; then echo "no .AppImage found under release/" >&2; exit 1; fi
+          echo "Resolved AppImage: $APP_PATH"
+          echo "path=$APP_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: UI verify (screenshots + axe-core) against the packaged AppImage
+        env:
+          ELECTRON_DISABLE_SANDBOX: '1'
+        run: xvfb-run --auto-servernum npm run ui:verify -- --app=${{ steps.app.outputs.path }}
+
+      # AC7: the About screen shows real release notes on Linux, proven against the same packaged
+      # AppImage (scripts/flows/about-release-notes.mjs, reused unchanged from the dev-build flow).
+      - name: About release notes flow (AC7) against the packaged AppImage
+        env:
+          ELECTRON_DISABLE_SANDBOX: '1'
+        run: xvfb-run --auto-servernum npm run ui:flow about-release-notes -- --app=${{ steps.app.outputs.path }}
+
+      # Same output paths docs/UI-VERIFICATION.md documents for every ui:verify/ui:flow run:
+      # `.ui-verify/screenshots/` (registry screens plus this run's `flows/about-release-notes-*`
+      # shots), `.ui-verify/a11y.json` and `.ui-verify/a11y.md`.
+      - name: Upload screenshots and accessibility report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-ui-verify
+          path: |
+            .ui-verify/screenshots/**
+            .ui-verify/a11y.json
+            .ui-verify/a11y.md
+          if-no-files-found: error
+          retention-days: 14

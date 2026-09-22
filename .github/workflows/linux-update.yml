@@ -1,0 +1,94 @@
+name: linux-update
+
+# Story 101 D6 (docs/requirements/101-a-linux-release-ships-and-updates-itself.md): proves AC6 -
+# "a packaged AppImage takes an update on its startup check and comes back as the new version" -
+# by building the AppImage twice (current version and a patch bump), serving the newer one as a
+# local generic update feed, and letting the older one find, download and install it on its own
+# startup check. `scripts/linux-update-e2e.mjs` carries the whole mechanism and all the assertions;
+# this workflow only supplies a Linux runner with a display and libfuse2.
+#
+# Its own workflow, and deliberately not on every push: unlike `linux-verify.yml` (D5, which runs
+# on every push/PR) this job packages TWO AppImages and then really self-updates one of them, which
+# is both slow and the only job in the repo that lets a process replace its own binary. It runs on
+# workflow_dispatch, and automatically only when something that could actually break the update
+# path changed.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'src/main/services/update/**'
+      - 'src/main/ipc/update.ts'
+      - 'src/main/index.ts'
+      - 'scripts/linux-update-e2e.mjs'
+      - 'scripts/lib/harness.mjs'
+      - 'scripts/lib/release/**'
+      - 'scripts/release.mjs'
+      - 'electron-builder.yml'
+      - '.github/workflows/linux-update.yml'
+  pull_request:
+    paths:
+      - 'src/main/services/update/**'
+      - 'src/main/ipc/update.ts'
+      - 'src/main/index.ts'
+      - 'scripts/linux-update-e2e.mjs'
+      - 'scripts/lib/harness.mjs'
+      - 'scripts/lib/release/**'
+      - 'scripts/release.mjs'
+      - 'electron-builder.yml'
+      - '.github/workflows/linux-update.yml'
+
+concurrency:
+  group: linux-update-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update:
+    name: AppImage self-update (ubuntu-latest, xvfb)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Same race every other workflow in this repo guards against: Playwright's `_electron` driver
+      # resolves the local `electron` devDependency, whose binary is otherwise downloaded lazily on
+      # first use.
+      - name: Install Electron binary
+        run: node node_modules/electron/install.js
+
+      # Mirrors `linux-verify.yml`: `ubuntu-latest` ships neither a display nor (as of the 24.04
+      # image) libfuse2, and an AppImage's own runtime needs both - `xvfb-run` for a display, and
+      # libfuse2 to mount and exec the AppImage itself. This job needs them twice over: the older
+      # AppImage is launched through `scripts/lib/harness.mjs`'s `--app=<path>` route, and the
+      # newer one is exec'd a second time by `electron-updater`'s own AppImage install path.
+      - name: Install xvfb and libfuse2
+        run: sudo apt-get update && sudo apt-get install -y xvfb libfuse2
+
+      # The script builds both AppImages itself (it has to: each needs its own version baked in,
+      # and both need the local feed's port in their `app-update.yml`), so there is no separate
+      # packaging step here.
+      - name: Build both AppImages and take the update
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          ELECTRON_DISABLE_SANDBOX: '1'
+        run: xvfb-run --auto-servernum node scripts/linux-update-e2e.mjs
+
+      # The relaunched launcher's own log is the evidence this run turns on, so it is worth keeping
+      # even (especially) when the job failed.
+      - name: Upload the launcher logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-update-logs
+          path: |
+            .ui-verify/linux-update/xdg-config/**/logs/*.log
+            .ui-verify/fixture/empty/userdata/logs/*.log
+          if-no-files-found: warn
+          retention-days: 14

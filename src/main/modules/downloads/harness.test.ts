@@ -19,29 +19,30 @@ import { harnessLoopbackManifestPackageSchema, manifestPackageSchema } from './s
 import type { Logger } from '../../lib/logger'
 
 /**
- * Story 074 D8: the harness-only download-source override is a security-relevant backdoor - it can
- * point the launcher's manifest and package traffic at a different server - so, exactly like
- * `DialogService`'s config-file picker stub, it must be provably unreachable unless BOTH
- * `Q2L_UI_HARNESS === '1'` and `isDev` are true. This file mirrors
- * `src/main/services/dialog.test.ts`'s four gate cases one for one:
+ * Story 074 D8 (relaxed by story 101 F3): the harness-only download-source override is a
+ * security-relevant backdoor - it can point the launcher's manifest and package traffic at a
+ * different server - so it must be provably unreachable unless `Q2L_UI_HARNESS === '1'` is set.
+ * `isDev` is deliberately NOT part of the gate any more (see `src/main/lib/ui-harness.ts`'s module
+ * comment): story 101's CI jobs drive a real packaged AppImage, where `isDev` is always `false`,
+ * and the harness needs this override reachable there. This file's gate cases:
  *
- *   1. both flags off              -> production path
- *   2. only `Q2L_UI_HARNESS=1`     -> production path
- *   3. only `isDev`                -> production path
- *   4. `isDev` + a non-'1' value   -> production path
- *   5. both on                     -> harness path
+ *   1. both flags off                    -> production path
+ *   2. only `Q2L_UI_HARNESS=1`, isDev false -> harness path (the env var alone is now the gate)
+ *   3. only `isDev`, env var unset        -> production path (isDev alone is never enough)
+ *   4. `isDev` + a non-'1' value          -> production path
+ *   5. both on                            -> harness path
  *
  * and then adds what is specific to *this* backdoor: the override is refused unless it names a
  * `127.0.0.1` loopback origin, and the production package schema is not widened by any of it.
  *
  * The environment is passed in as a value rather than mutated on `process.env`, which is what lets
- * all four combinations be asserted without any `beforeEach`/`afterEach` bookkeeping - and which is
+ * every combination be asserted without any `beforeEach`/`afterEach` bookkeeping - and which is
  * also the property that makes the gate auditable in the first place (nothing caches a decision).
  */
 
 const LOOPBACK_BASE = 'http://127.0.0.1:53129'
 
-/** A packaged build's environment: `isDev` false, whatever the variables say. */
+/** A harness-launched environment, regardless of `isDev`. */
 const HARNESS_ENV = {
   [UI_HARNESS_ENV]: '1',
   [HARNESS_CONTENT_REPO_BASE_ENV]: LOOPBACK_BASE,
@@ -67,7 +68,7 @@ function loopbackPackageRow(): unknown {
   }
 }
 
-describe('the download-source override is unreachable with either gate off', () => {
+describe('the download-source override requires Q2L_UI_HARNESS - isDev is not part of the gate', () => {
   it('both flags off: the production content repo is used, Q2L_UI_CONTENT_REPO_BASE is ignored', () => {
     const source = resolveDownloadSource({
       isDev: false,
@@ -79,12 +80,11 @@ describe('the download-source override is unreachable with either gate off', () 
     expect(source.httpsOnly).toBe(true)
   })
 
-  it('only Q2L_UI_HARNESS=1 (isDev false): the production content repo is still used', () => {
+  it('only Q2L_UI_HARNESS=1 (isDev false): the loopback base is used - the env var alone is the gate', () => {
     const source = resolveDownloadSource({ isDev: false, env: HARNESS_ENV })
 
-    expect(source).toBe(PRODUCTION_DOWNLOAD_SOURCE)
-    expect(source.baseUrl).toBe(CONTENT_REPO_RAW_BASE)
-    expect(source.httpsOnly).toBe(true)
+    expect(source.baseUrl).toBe(LOOPBACK_BASE)
+    expect(source.httpsOnly).toBe(false)
   })
 
   it('only isDev=true (Q2L_UI_HARNESS unset): the production content repo is still used', () => {
@@ -114,7 +114,7 @@ describe('the download-source override is unreachable with either gate off', () 
     expect(source.httpsOnly).toBe(false)
   })
 
-  it('both flags on but Q2L_UI_CONTENT_REPO_BASE unset: still the production source', () => {
+  it('Q2L_UI_HARNESS=1 but Q2L_UI_CONTENT_REPO_BASE unset: still the production source', () => {
     const source = resolveDownloadSource({ isDev: true, env: { [UI_HARNESS_ENV]: '1' } })
 
     expect(source).toBe(PRODUCTION_DOWNLOAD_SOURCE)
@@ -193,12 +193,12 @@ describe('the production package schema is never widened by the harness variant'
 })
 
 /**
- * Story 088 D2: mirrors the four gate cases above one for one, for the new
+ * Story 088 D2 (relaxed by story 101 F3): mirrors the gate cases above one for one, for the new
  * `Q2L_UI_HARNESS_STORE_SOURCES` override (`resolveDetectedRetailSourcesOverride`) - the same
  * security-relevant backdoor discipline, since this one substitutes fixture Steam/GOG/Epic sources
- * for a real detection scan.
+ * for a real detection scan. `Q2L_UI_HARNESS === '1'` alone is the gate; `isDev` is not part of it.
  */
-describe('the detected-retail-sources override is unreachable with either gate off', () => {
+describe('the detected-retail-sources override requires only Q2L_UI_HARNESS', () => {
   const FIXTURE_SOURCES = [
     {
       source: 'steam',
@@ -222,10 +222,13 @@ describe('the detected-retail-sources override is unreachable with either gate o
     ).toBeUndefined()
   })
 
-  it('only Q2L_UI_HARNESS=1 (isDev false): still the real detection scan', () => {
+  it('only Q2L_UI_HARNESS=1 (isDev false): the fixture sources come back - the env var alone is the gate', () => {
     expect(
-      resolveDetectedRetailSourcesOverride({ isDev: false, env: { ...FIXTURE_ENV, ...HARNESS_ENV } }),
-    ).toBeUndefined()
+      resolveDetectedRetailSourcesOverride({
+        isDev: false,
+        env: { ...FIXTURE_ENV, [UI_HARNESS_ENV]: '1' },
+      }),
+    ).toEqual(FIXTURE_SOURCES)
   })
 
   it('only isDev=true (Q2L_UI_HARNESS unset): still the real detection scan', () => {
@@ -277,7 +280,7 @@ describe('the detected-retail-sources override is unreachable with either gate o
   })
 })
 
-describe('the folder-picker stub is unreachable with either gate off', () => {
+describe('the folder-picker stub requires only Q2L_UI_HARNESS - isDev is not part of the gate', () => {
   it('both flags off: undefined, so the caller opens the real dialog', () => {
     expect(
       uiHarnessPickedFolders({
@@ -287,8 +290,11 @@ describe('the folder-picker stub is unreachable with either gate off', () => {
     ).toBeUndefined()
   })
 
-  it('only Q2L_UI_HARNESS=1 (isDev false): still the real dialog', () => {
-    expect(uiHarnessPickedFolders({ isDev: false, env: HARNESS_ENV })).toBeUndefined()
+  it('only Q2L_UI_HARNESS=1 (isDev false): the fixture paths come back, no dialog involved', () => {
+    expect(uiHarnessPickedFolders({ isDev: false, env: HARNESS_ENV })).toEqual([
+      'C:\\Program Files\\fixture-probe',
+      'C:\\fixtures\\bootstrap-target',
+    ])
   })
 
   it('only isDev=true (Q2L_UI_HARNESS unset): still the real dialog', () => {
@@ -323,9 +329,9 @@ describe('the folder-picker stub is unreachable with either gate off', () => {
     ).toEqual(['C:\\one'])
   })
 
-  it('agrees with isUiHarnessEnabled on all four combinations', () => {
+  it('agrees with isUiHarnessEnabled: the env var alone decides, isDev is irrelevant', () => {
     expect(isUiHarnessEnabled({ isDev: false, env: {} })).toBe(false)
-    expect(isUiHarnessEnabled({ isDev: false, env: { [UI_HARNESS_ENV]: '1' } })).toBe(false)
+    expect(isUiHarnessEnabled({ isDev: false, env: { [UI_HARNESS_ENV]: '1' } })).toBe(true)
     expect(isUiHarnessEnabled({ isDev: true, env: {} })).toBe(false)
     expect(isUiHarnessEnabled({ isDev: true, env: { [UI_HARNESS_ENV]: '1' } })).toBe(true)
   })

@@ -28,16 +28,127 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+# Story 101 D3 split what used to be one `windows-latest` job into three, because an AppImage
+# cannot be built on Windows and building the Windows half under Wine on Linux would replace the
+# one configuration that is proven to produce a working `latest.yml`:
+#
+#   plan (ubuntu)         decides the version ONCE, up front, and refuses early (an empty
+#                         `## Unreleased`, an existing tag) so a refusal costs no build at all.
+#   build-linux (ubuntu)  builds the AppImage AT THAT VERSION and uploads it as a workflow
+#                         artifact.
+#   release (windows)     unchanged from the old single job, plus: it downloads those artifacts,
+#                         builds Windows, and hands scripts/release.mjs the SAME version the other
+#                         two jobs used (`--version`, never a second derivation) - a version
+#                         derived twice is a release whose tag and whose asset filenames disagree.
 jobs:
-  release:
-    name: Release
-    runs-on: windows-latest
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
     # A workflow_dispatch run has no head_commit at all, so the guard is written to only evaluate
     # the [skip ci] check on a push - this stops the release commit itself (tagged
     # "release: <version> [skip ci]" by scripts/release.mjs) from re-triggering a run when it lands
     # on main via the push trigger (AC7), without relying on contains() coercing an undefined
-    # head_commit.message safely.
+    # head_commit.message safely. It lives on this job alone: the other two `needs:` it, and a
+    # skipped dependency skips them too.
     if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The plan refuses to recreate an existing tag, so it has to be able to see the tags.
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Resolve the version to release
+        id: plan
+        shell: bash
+        env:
+          RELEASE_VERSION_INPUT: ${{ inputs.version }}
+          RELEASE_BUMP_INPUT: ${{ inputs.bump }}
+        run: |
+          set -euo pipefail
+          ARGS=""
+          if [ -n "$RELEASE_VERSION_INPUT" ]; then ARGS="$ARGS --version $RELEASE_VERSION_INPUT"; fi
+          if [ -n "$RELEASE_BUMP_INPUT" ]; then ARGS="$ARGS --bump $RELEASE_BUMP_INPUT"; fi
+          # --print-plan writes exactly one JSON object to stdout and nothing else: no bump, no
+          # build, no tag. A ReleaseRefused exits non-zero here and the whole workflow stops
+          # before any runner has started an electron-builder run.
+          node scripts/release.mjs --print-plan $ARGS > release-plan.json
+          VERSION="$(node -p "JSON.parse(require('node:fs').readFileSync('release-plan.json','utf8')).version")"
+          if [ -z "$VERSION" ]; then echo "plan produced no version" >&2; exit 1; fi
+          echo "Planned version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    needs: plan
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # electron-builder reads package.json's "version" to pick its output directory
+      # (release/<version>) and to name every artifact, and this checkout is still on the
+      # pre-bump version. Setting it to the planned version here is what makes the AppImage's
+      # filename match the tag the `release` job will create - the bump itself is not committed
+      # (this workspace is thrown away), it only has to be true for the duration of the build.
+      - name: Build at the planned version
+        env:
+          PLANNED_VERSION: ${{ needs.plan.outputs.version }}
+        run: npm pkg set version="$PLANNED_VERSION"
+
+      # F2 fix: without this, the packaged AppImage bundles CHANGELOG.md still saying
+      # "## Unreleased" (this checkout never gets the promoted changelog the `release` job commits
+      # later), so src/main/lib/release-notes.ts's resolveReleaseNotes() finds no "## <version>"
+      # section matching app.getVersion() and About is permanently empty on Linux. This calls the
+      # exact same promote() code path scripts/release.mjs's real run uses for the Windows leg, at
+      # the same version, so both legs' bundled "## <version>" sections are byte-identical. It only
+      # writes CHANGELOG.md in this ephemeral checkout - nothing is committed or pushed here.
+      - name: Promote CHANGELOG.md for the bundled release notes
+        env:
+          PLANNED_VERSION: ${{ needs.plan.outputs.version }}
+        run: node scripts/release.mjs --promote-changelog --version "$PLANNED_VERSION"
+
+      - name: Package
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run package:linux
+
+      - name: Upload the Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-release-assets
+          # Exactly the two files artifacts.mjs expects for Linux, named individually rather than
+          # globbed as `release/<version>/*`: the `release` job stages whatever arrives into the
+          # same directory as the freshly built Windows assets, and a stray `latest.yml` in there
+          # would overwrite the one every installed Windows client resolves its update through.
+          # (scripts/release.mjs refuses such a collision too - this is the first of the two.)
+          path: |
+            release/${{ needs.plan.outputs.version }}/*.AppImage
+            release/${{ needs.plan.outputs.version }}/latest-linux.yml
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    name: Release
+    runs-on: windows-latest
+    needs: [plan, build-linux]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -66,6 +177,12 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Download the Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-release-assets
+          path: linux-assets
+
       - name: Configure git identity
         run: |
           git config user.name "github-actions[bot]"
@@ -77,12 +194,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CI: 'true'
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-          RELEASE_VERSION_INPUT: ${{ inputs.version }}
-          RELEASE_BUMP_INPUT: ${{ inputs.bump }}
+          # scripts/release.mjs copies this directory's files into release/<version>/ between the
+          # Windows build and the asset check, so the Linux half is gated by the same
+          # refuses-when-a-file-is-missing check as the Windows half.
+          RELEASE_EXTRA_ASSETS_DIR: ${{ github.workspace }}/linux-assets
+          # The version is NOT derived again here: it is the one the `plan` job resolved and the
+          # `build-linux` job built at. Deriving it twice would tag one version and upload assets
+          # named after another.
+          RELEASE_VERSION: ${{ needs.plan.outputs.version }}
           RELEASE_DRY_RUN_INPUT: ${{ inputs.dry_run }}
         run: |
-          ARGS=""
-          if [ -n "$RELEASE_VERSION_INPUT" ]; then ARGS="$ARGS --version $RELEASE_VERSION_INPUT"; fi
-          if [ -n "$RELEASE_BUMP_INPUT" ]; then ARGS="$ARGS --bump $RELEASE_BUMP_INPUT"; fi
+          ARGS="--version $RELEASE_VERSION"
           if [ "$RELEASE_DRY_RUN_INPUT" = "true" ]; then ARGS="$ARGS --dry-run"; fi
           node scripts/release.mjs $ARGS

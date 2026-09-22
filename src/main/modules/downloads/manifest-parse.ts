@@ -93,7 +93,7 @@ export interface ParseManifestFileOptions {
    * this file has always applied. `false` selects the separately named
    * `harnessLoopbackManifestPackageSchema` instead, which additionally accepts a plain-http
    * `127.0.0.1` URL - the *only* producer of `false` is `resolveDownloadSource()`
-   * (`harness.ts`), under its `Q2L_UI_HARNESS === '1' && isDev` double gate, and it is threaded in
+   * (`harness.ts`), under its `Q2L_UI_HARNESS === '1'` gate, and it is threaded in
    * as a plain value so nothing in this file has to read `process.env`.
    */
   httpsOnly?: boolean

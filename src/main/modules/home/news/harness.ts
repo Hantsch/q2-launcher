@@ -6,8 +6,8 @@ import {
 } from '../../../lib/ui-harness'
 
 /**
- * Story 082 D4: the news half of the same double-gated backdoor `downloads/harness.ts` already has
- * (story 074 D8). The gate itself (`isUiHarnessEnabled`) and the env var / loopback-base parser
+ * Story 082 D4: the news half of the same gated backdoor `downloads/harness.ts` already has (story
+ * 074 D8). The gate itself (`isUiHarnessEnabled`) and the env var / loopback-base parser
  * (`HARNESS_CONTENT_REPO_BASE_ENV`, `parseHarnessBaseUrl`) live in `src/main/lib/ui-harness.ts` so
  * this file reuses them without importing from the `downloads` module.
  *
