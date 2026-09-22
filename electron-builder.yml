@@ -4,8 +4,13 @@ copyright: Copyright (c) 2026 Hantsch
 
 # Story 096 D3: this block is what makes electron-builder write the update-metadata files
 # (latest.yml, app-update.yml) at build time - gated on `publish` being configured, not on the
-# `--publish` CLI flag. `package:win` still builds with `--publish never` (electron-builder's own
-# default), so nothing here uploads or creates a GitHub release on its own.
+# `--publish` CLI flag (app-builder-lib writes the update-info tasks regardless of `isPublish`).
+# Every `package:*` script therefore passes `--publish never` explicitly, so nothing here uploads
+# or creates a GitHub release on its own: without that flag electron-builder turns publishing on
+# *implicitly* whenever it detects CI, and then dies with "GitHub Personal Access Token is not
+# set" in any job that has no token (which is what broke release.yml's `build-linux` job).
+# release.yml's `release` job publishes through `gh release create` in scripts/release.mjs, never
+# through electron-builder.
 publish:
   provider: github
   owner: Hantsch

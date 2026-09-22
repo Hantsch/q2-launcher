@@ -67,17 +67,17 @@ jobs:
       - name: Install Electron's runtime libraries
         run: npx playwright install-deps chromium
 
-      # `--publish never` is not optional here, and not merely tidy: electron-builder triggers
-      # publishing *implicitly* when it detects CI, and this workflow has no token and nothing to
-      # publish - its AppImage is a throwaway (see this file's header). On GitHub's runner the
-      # detection happens to stay quiet; under act it does not, and the step dies with "GitHub
-      # Personal Access Token is not set" after a perfectly good build. electron-builder's own
-      # deprecation notice asks for the flag explicitly from v27 on, so this is where it is going
-      # anyway. `release.yml` is the one workflow that really does publish, and it is untouched.
+      # `package:linux` carries `--publish never` itself (see package.json and the note in
+      # electron-builder.yml): electron-builder turns publishing on *implicitly* when it detects
+      # CI, and a job without a token then dies with "GitHub Personal Access Token is not set"
+      # after a perfectly good build. That used to be flagged as an act-only quirk here and was
+      # worked around with a `-- --publish never` on this one step; it is not act-only - it took
+      # release.yml's `build-linux` job down on GitHub's own runner too, so the flag now lives in
+      # the script where no caller can forget it.
       - name: Package the Linux AppImage
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npm run package:linux -- --publish never
+        run: npm run package:linux
 
       # electron-builder writes `release/<version>/Q2-Launcher-<version>-linux-x86_64.AppImage`
       # (electron-builder.yml's `directories.output`/`linux.artifactName`) - the version is
