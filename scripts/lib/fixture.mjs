@@ -1803,9 +1803,47 @@ export function writeControlsSeedFixture() {
   writeJson(join(userDataDir, STATE_FILE), controlsSeedStateDocument())
   writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
 
-  const baseq2Dir = join(gameRoot(), INSTALL_CONTROLS_SEED_ID, 'baseq2')
-  rmDirBestEffort(join(gameRoot(), INSTALL_CONTROLS_SEED_ID))
+  const installRoot = join(gameRoot(), INSTALL_CONTROLS_SEED_ID)
+  const baseq2Dir = join(installRoot, 'baseq2')
+  rmDirBestEffort(installRoot)
   mkdirSync(baseq2Dir, { recursive: true })
+
+  // This root used to hold nothing but an empty `baseq2`, and got away with it because the app's
+  // own startup `validateAll()` (`main/index.ts`) never actually ran: it hung off a
+  // `did-finish-load` listener registered after the event had already fired, so every fixture kept
+  // whatever `makeInstallation()` seeded - here `status: 'ok'`, `engineKind: 'r1q2'`. Now that the
+  // listener is gone and `validateAll()` really runs, the verdict is re-derived from the files
+  // below, and an empty root inspects as `engineKind: 'unknown'` plus an error-level `pak0Missing`.
+  //
+  // `config-care-clear` is the screen that notices, and it fails rather than merely looking
+  // different: its Care "All clear" block needs `ProfileValidation.status === 'ok'`, which
+  // `engineScope()` (renderer/src/modules/config/lib/engine-scope.ts) only answers when an assigned
+  // installation runs an engine the cvar catalogue has facts for. `unknown` has none, so the tab
+  // renders `healthNotChecked` and the screen's own `waitFor` times out.
+  //
+  // So the folder now holds what this variant's `state.json` has always claimed. The engine marker
+  // is matched by NAME, on every platform (`classifyEngine`, src/main/services/inspector.ts), but
+  // `looksExecutable` (src/main/lib/fs-utils.ts) is extension-only on Windows and execute-bit-only
+  // off it - the same split `writeLinuxJourneyInstallRoot()` below already documents at length, so
+  // the name and the `chmodSync` follow its lead rather than inventing a second convention. Without
+  // it the root would classify as r1q2 yet carry no runnable client, i.e. an error-level
+  // `noExecutable` and `status: 'invalid'` on Linux only.
+  const executableName = process.platform === 'win32' ? 'r1q2.exe' : 'r1q2'
+  const executablePath = join(installRoot, executableName)
+  // Contents are never read - `classifyEngine`/`rankExecutables` look at the name and the mode.
+  writeFileSync(executablePath, '')
+  if (process.platform !== 'win32') chmodSync(executablePath, 0o755)
+
+  // The exact pak combination `inspectInstallation` turns into zero checks: `pak0.pak` at its real
+  // retail length (the size comparison is genuine - anything else raises `pak0NotRetail` and paints
+  // a Demo marker on an installation this screen wants to read as plain and healthy) with
+  // `pak1.pak`/`pak2.pak` beside it, which are only ever tested for existence. `writeSizedFile` is
+  // `truncateSync`, the same trick `INSTALL_ENGINE_UPDATE_ID`'s block above uses, so the 184 MB is
+  // a hole rather than bytes; it and `RETAIL_PAK_SIZES` are declared further down this file as plain
+  // module-level bindings, forward-referenced exactly as that block already does.
+  writeSizedFile(join(baseq2Dir, 'pak0.pak'), RETAIL_PAK_SIZES['pak0.pak'])
+  writeSizedFile(join(baseq2Dir, 'pak1.pak'), RETAIL_PAK_SIZES['pak1.pak'])
+  writeSizedFile(join(baseq2Dir, 'pak2.pak'), RETAIL_PAK_SIZES['pak2.pak'])
 
   return { userDataDir, installations: 1, configProfiles: 2 }
 }
