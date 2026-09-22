@@ -32,6 +32,7 @@ No phase is currently in progress. Phase 5 (mods) and Phase 6 (assets) are next,
 
 | Topic | State | Next step |
 | --- | --- | --- |
+| [Game browser — server list, detail, watchlist, observing](concepts/game-browser.md) | Concept drafted 2026-09-22, 16 open points | `/roadmap plan` when prioritized |
 | Mods — game directories | Not started; `+set game <dir>` already built; needs discovery, install, enable/disable, per-mod config and a `game-lifecycle` guard against mutating files while running | `/roadmap plan` when prioritized |
 | Assets — texture/model/sound packs | Not started; needs conflict detection between packs touching the same files, plus a per-pack change record (`Installation.moduleData` is the slot) | `/roadmap plan` when prioritized |
 | Two config decisions left open across the file-format rounds: the `alias cali "bind ..."` key-block-as-layer question (story 041), and bind grouping by keyboard region vs. category (story 040, decided category for now) | Never blocked anything; only relevant if a future story touches this area | Decide when a config story next needs it |

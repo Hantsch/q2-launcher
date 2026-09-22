@@ -2,7 +2,7 @@ import {
   DOWNLOADS_HANDLERS,
   type ArchiveCacheStatus,
   type BootstrapDataSource,
-  type BootstrapEngineOption,
+  type BootstrapEngineOptionsResult,
   type BootstrapSummary,
   type BootstrapTargetVerdict,
   type ClearArchiveCacheResult,
@@ -64,9 +64,15 @@ export function restoreDownloadFailure(id: string): Promise<Outcome<DownloadFail
  * (`BOOTSTRAP_SUPPORTED_ENGINES`, `@shared/modules/downloads`). An empty array is a legitimate
  * answer (nothing pinned yet), not a failure - see the handler's own doc comment in
  * `main/modules/downloads/index.ts`.
+ *
+ * Story 100 D7: answers a `BootstrapEngineOptionsResult` (options plus an `emptyReason`) rather
+ * than the bare options array - see that type's own doc comment.
  */
-export function getBootstrapEngineOptions(): Promise<Outcome<BootstrapEngineOption[]>> {
-  return callModule<BootstrapEngineOption[]>('downloads', DOWNLOADS_HANDLERS.bootstrapEngineOptions)
+export function getBootstrapEngineOptions(): Promise<Outcome<BootstrapEngineOptionsResult>> {
+  return callModule<BootstrapEngineOptionsResult>(
+    'downloads',
+    DOWNLOADS_HANDLERS.bootstrapEngineOptions,
+  )
 }
 
 /**

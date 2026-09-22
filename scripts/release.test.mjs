@@ -1,7 +1,11 @@
-import { describe, expect, test, vi } from 'vitest'
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, describe, expect, test, vi } from 'vitest'
+import { expectedAssets } from './lib/release/artifacts.mjs'
 import { UNRELEASED_PLACEHOLDER } from './lib/release/changelog.mjs'
 import { planRelease } from './lib/release/plan.mjs'
-import { ghReleaseArgv, parseArgs, runRelease } from './release.mjs'
+import { ghReleaseArgv, parseArgs, runRelease, stageExtraAssetsFrom } from './release.mjs'
 
 /**
  * Story 096 D4 - the runner's three "accepted when" criteria: a dry run prints version + notes and
@@ -16,11 +20,14 @@ import { ghReleaseArgv, parseArgs, runRelease } from './release.mjs'
 
 const TODAY = '2026-03-01'
 const NOTES_FILE = '/tmp/q2-release-fake/RELEASE_NOTES.md'
+const STAGED = ['Q2-Launcher-1.0.0-beta.2-linux-x86_64.AppImage', 'latest-linux.yml']
 const ASSETS = [
   '/repo/release/1.0.0-beta.2/Q2-Launcher-1.0.0-beta.2-win-x64.exe',
   '/repo/release/1.0.0-beta.2/Q2-Launcher-1.0.0-beta.2-win-x64.zip',
   '/repo/release/1.0.0-beta.2/Q2-Launcher-1.0.0-beta.2-win-x64.exe.blockmap',
   '/repo/release/1.0.0-beta.2/latest.yml',
+  `/repo/release/1.0.0-beta.2/${STAGED[0]}`,
+  `/repo/release/1.0.0-beta.2/${STAGED[1]}`,
 ]
 
 const PKG_TEXT = JSON.stringify({ name: 'q2-launcher', version: '1.0.0-beta.1' }, null, 2) + '\n'
@@ -84,6 +91,7 @@ function createDeps({ env = { CI: 'true' }, changelogText = POPULATED_CHANGELOG 
     writeFile: vi.fn(),
     listTags: vi.fn(() => [...TAGS]),
     runBuild: vi.fn(),
+    stageExtraAssets: vi.fn(() => [...STAGED]),
     collectAssets: vi.fn(() => [...ASSETS]),
     writeNotesFile: vi.fn(() => NOTES_FILE),
     run: vi.fn(),
@@ -124,7 +132,9 @@ describe('runRelease - a dry run prints version + notes and touches nothing', ()
     // against the BUMPED version, because that's what electron-builder itself reads from
     // package.json to pick its output directory and name its artifacts.
     expect(deps.runBuild).toHaveBeenCalledTimes(1)
-    expect(deps.collectAssets).toHaveBeenCalledWith('release/1.0.0-beta.2', '1.0.0-beta.2')
+    // Story 101 D3: one run publishes both platforms, so the one check covers both - `'all'`, not
+    // the pre-101 Windows-only default.
+    expect(deps.collectAssets).toHaveBeenCalledWith('release/1.0.0-beta.2', '1.0.0-beta.2', 'all')
     expect(result.assets).toEqual(ASSETS)
 
     // The bump (CHANGELOG.md, package.json, package-lock.json) is written BEFORE the build runs
@@ -169,7 +179,8 @@ describe('runRelease - a dry run prints version + notes and touches nothing', ()
 
     expect(result.version).toBe('1.2.3')
     expect(result.tag).toBe('v1.2.3')
-    expect(deps.collectAssets).toHaveBeenCalledWith('release/1.2.3', '1.2.3')
+    expect(deps.collectAssets).toHaveBeenCalledWith('release/1.2.3', '1.2.3', 'all')
+    expect(deps.stageExtraAssets).toHaveBeenCalledWith('release/1.2.3', '1.2.3')
 
     // Bumped, then reverted back to the original three files - same shape as the test above.
     const writeCalls = deps.writeFile.mock.calls
@@ -205,7 +216,8 @@ describe('runRelease - a dry run prints version + notes and touches nothing', ()
     expect(writeCalls[4][1]).toBe(PKG_TEXT)
     expect(writeCalls[5][1]).toBe(LOCK_TEXT)
 
-    // Nothing downstream of the asset check ever ran.
+    // Nothing downstream of the build ever ran - staging included.
+    expect(deps.stageExtraAssets).not.toHaveBeenCalled()
     expect(deps.collectAssets).not.toHaveBeenCalled()
     expect(deps.writeNotesFile).not.toHaveBeenCalled()
     expect(deps.run).not.toHaveBeenCalled()
@@ -240,6 +252,152 @@ describe('runRelease - a dry run prints version + notes and touches nothing', ()
   })
 })
 
+/**
+ * Story 101 D3 / AC3. The Windows artifacts are built by `runBuild` on the spot; the Linux ones
+ * are built by a separate CI job and only *arrive* as files, staged by `stageExtraAssets`. Where
+ * that staging sits in the sequence is the entire acceptance criterion: one step later and
+ * `collectAssets` - the thing that refuses a half-published release - would be looking at a
+ * directory the Linux files had not reached yet, so they would be uploaded ungated, which is the
+ * "second unchecked upload" AC3 exists to rule out.
+ */
+describe('runRelease - one run publishes both platforms', () => {
+  test('the run stages the pre-built Linux assets before the asset check, not after it', () => {
+    const deps = createDeps({ env: { CI: 'true' } })
+
+    const result = runRelease({ dryRun: false }, deps)
+    expect(result.code).toBe(0)
+
+    expect(deps.stageExtraAssets).toHaveBeenCalledTimes(1)
+    // Staged into the very directory the asset check then reads, at the bumped version.
+    expect(deps.stageExtraAssets).toHaveBeenCalledWith('release/1.0.0-beta.2', '1.0.0-beta.2')
+    expect(deps.collectAssets).toHaveBeenCalledWith('release/1.0.0-beta.2', '1.0.0-beta.2', 'all')
+
+    // The actual order, not merely "all three were called": build -> stage -> check.
+    const buildOrder = deps.runBuild.mock.invocationCallOrder[0]
+    const stageOrder = deps.stageExtraAssets.mock.invocationCallOrder[0]
+    const checkOrder = deps.collectAssets.mock.invocationCallOrder[0]
+    expect(buildOrder).toBeLessThan(stageOrder)
+    expect(stageOrder).toBeLessThan(checkOrder)
+    // ... and the publish still happens strictly after the check, as it always did.
+    expect(checkOrder).toBeLessThan(deps.run.mock.invocationCallOrder[0])
+
+    // The published asset list is the one the two-platform check returned, both platforms in it.
+    expect(result.assets).toEqual(ASSETS)
+    expect(result.assets.some((path) => path.endsWith('latest.yml'))).toBe(true)
+    expect(result.assets.some((path) => path.endsWith('latest-linux.yml'))).toBe(true)
+    expect(result.assets.some((path) => path.endsWith('.AppImage'))).toBe(true)
+  })
+
+  test('a staging failure refuses before the asset check and publishes nothing', () => {
+    const deps = createDeps({ env: { CI: 'true' } })
+    const stagingError = new Error('release: RELEASE_EXTRA_ASSETS_DIR points at nothing')
+    deps.stageExtraAssets.mockImplementation(() => {
+      throw stagingError
+    })
+
+    expect(() => runRelease({ dryRun: false }, deps)).toThrow(stagingError)
+
+    expect(deps.collectAssets).not.toHaveBeenCalled()
+    expect(deps.writeNotesFile).not.toHaveBeenCalled()
+    expect(deps.run).not.toHaveBeenCalled()
+  })
+})
+
+describe('runRelease - --print-plan decides the version without building anything', () => {
+  test('prints one JSON object and touches nothing - no build, no staging, no check', () => {
+    // No CI: the plan job aside, an operator has to be able to ask "what would this release?"
+    // from anywhere, precisely because it cannot change anything.
+    const deps = createDeps({ env: {} })
+
+    const result = runRelease({ dryRun: false, printPlan: true }, deps)
+
+    expect(result.code).toBe(0)
+    expect(result.status).toBe('plan')
+    expect(result.version).toBe('1.0.0-beta.2')
+
+    // Everything written to stdout is that one JSON object - CI parses it as-is.
+    expect(deps.log).toHaveBeenCalledTimes(1)
+    const printed = JSON.parse(deps.log.mock.calls[0][0])
+    expect(printed.version).toBe('1.0.0-beta.2')
+    expect(printed.tag).toBe('v1.0.0-beta.2')
+    expect(printed.notes).toContain('- a new thing')
+
+    expect(deps.runBuild).not.toHaveBeenCalled()
+    expect(deps.stageExtraAssets).not.toHaveBeenCalled()
+    expect(deps.collectAssets).not.toHaveBeenCalled()
+    assertNothingMutated(deps)
+  })
+
+  test('a refusal costs no build - the whole point of planning in a separate job', () => {
+    const deps = createDeps({ env: { CI: 'true' }, changelogText: EMPTY_CHANGELOG })
+
+    const result = runRelease({ dryRun: false, printPlan: true }, deps)
+
+    expect(result.code).not.toBe(0)
+    expect(result.status).toBe('refused')
+    expect(deps.log).not.toHaveBeenCalled()
+    expect(deps.runBuild).not.toHaveBeenCalled()
+    expect(deps.stageExtraAssets).not.toHaveBeenCalled()
+    assertNothingMutated(deps)
+  })
+})
+
+describe('runRelease - --promote-changelog writes only the promoted CHANGELOG.md', () => {
+  test('writes the same CHANGELOG.md content plan.writes carries, at the given version, and stops', () => {
+    // Outside CI on purpose: like --print-plan, this must work from the build-linux job's own
+    // checkout without CI=true being any part of the contract that lets it run.
+    const deps = createDeps({ env: {} })
+
+    const result = runRelease(
+      { dryRun: false, promoteChangelog: true, requestedVersion: '1.0.0-beta.2' },
+      deps,
+    )
+
+    expect(result.code).toBe(0)
+    expect(result.status).toBe('promoted-changelog')
+    expect(result.version).toBe('1.0.0-beta.2')
+
+    const plan = planRelease({
+      changelogText: POPULATED_CHANGELOG,
+      pkgText: PKG_TEXT,
+      lockText: LOCK_TEXT,
+      tags: TAGS,
+      requestedVersion: '1.0.0-beta.2',
+      dryRun: false,
+      isCi: false,
+      today: TODAY,
+    })
+    const changelogWrite = plan.writes.find((write) => write.path === 'CHANGELOG.md')
+
+    // Exactly one write, exactly CHANGELOG.md, byte-identical to what a real run's plan.writes
+    // would carry for the same version - never package.json/package-lock.json, and never a second,
+    // hand-rolled implementation of "promote the changelog".
+    expect(deps.writeFile).toHaveBeenCalledTimes(1)
+    expect(deps.writeFile).toHaveBeenCalledWith('CHANGELOG.md', changelogWrite.content)
+    expect(changelogWrite.content).toContain('## 1.0.0-beta.2 —')
+    expect(changelogWrite.content).toContain('- a new thing')
+
+    expect(deps.runBuild).not.toHaveBeenCalled()
+    expect(deps.stageExtraAssets).not.toHaveBeenCalled()
+    expect(deps.collectAssets).not.toHaveBeenCalled()
+    expect(deps.writeNotesFile).not.toHaveBeenCalled()
+    expect(deps.run).not.toHaveBeenCalled()
+  })
+
+  test('a plan refusal (empty Unreleased) still refuses, before any write', () => {
+    const deps = createDeps({ env: {}, changelogText: EMPTY_CHANGELOG })
+
+    const result = runRelease(
+      { dryRun: false, promoteChangelog: true, requestedVersion: '1.0.0-beta.2' },
+      deps,
+    )
+
+    expect(result.code).not.toBe(0)
+    expect(result.status).toBe('refused')
+    assertNothingMutated(deps)
+  })
+})
+
 describe('runRelease - a non-dry run outside CI refuses', () => {
   for (const [label, env] of [
     ['CI unset', {}],
@@ -260,6 +418,7 @@ describe('runRelease - a non-dry run outside CI refuses', () => {
       expect(deps.readFile).not.toHaveBeenCalled()
       expect(deps.listTags).not.toHaveBeenCalled()
       expect(deps.runBuild).not.toHaveBeenCalled()
+      expect(deps.stageExtraAssets).not.toHaveBeenCalled()
       expect(deps.collectAssets).not.toHaveBeenCalled()
       assertNothingMutated(deps)
     })
@@ -352,7 +511,7 @@ describe('runRelease - the git/gh command list matches what plan.mjs produced', 
     // The asset check targets the same release directory the build actually wrote into - the
     // bumped version, derived consistently, not the pre-bump version that was on disk when the run
     // started.
-    expect(deps.collectAssets).toHaveBeenCalledWith(`release/${plan.version}`, plan.version)
+    expect(deps.collectAssets).toHaveBeenCalledWith(`release/${plan.version}`, plan.version, 'all')
   })
 
   test('a gh argv whose notes placeholder is gone is a hard error, never a published release', () => {
@@ -372,17 +531,121 @@ describe('runRelease - the git/gh command list matches what plan.mjs produced', 
   })
 })
 
+describe('stageExtraAssetsFrom - the one new piece of real I/O', () => {
+  const VERSION = '1.0.0-beta.2'
+  /** @type {string[]} */
+  const scratch = []
+
+  /** @param {string} label @returns {string} */
+  function scratchDir(label) {
+    const dir = mkdtempSync(join(tmpdir(), `q2-stage-${label}-`))
+    scratch.push(dir)
+    return dir
+  }
+
+  afterEach(() => {
+    while (scratch.length > 0) rmSync(scratch.pop(), { recursive: true, force: true })
+  })
+
+  test('copies every file from the source directory into the release directory', () => {
+    const target = scratchDir('target')
+    const source = scratchDir('source')
+    const appImage = `Q2-Launcher-${VERSION}-linux-x86_64.AppImage`
+    writeFileSync(join(source, appImage), 'appimage-bytes')
+    writeFileSync(join(source, 'latest-linux.yml'), 'version: 1.0.0-beta.2\n')
+    // A directory in the source (what actions/download-artifact can leave behind) is skipped,
+    // not copied and not reported.
+    mkdirSync(join(source, 'nested'))
+
+    const staged = stageExtraAssetsFrom(target, VERSION, source)
+
+    expect(staged.sort()).toEqual([appImage, 'latest-linux.yml'])
+    expect(readdirSync(target).sort()).toEqual([appImage, 'latest-linux.yml'])
+  })
+
+  test('an unset source is a no-op: a plain local dry run stages nothing', () => {
+    const target = scratchDir('target')
+
+    expect(stageExtraAssetsFrom(target, VERSION, undefined)).toEqual([])
+    expect(stageExtraAssetsFrom(target, VERSION, '')).toEqual([])
+    expect(stageExtraAssetsFrom(target, VERSION, '   ')).toEqual([])
+    expect(readdirSync(target)).toEqual([])
+  })
+
+  test('a source directory that does not exist throws instead of staging nothing', () => {
+    const target = scratchDir('target')
+
+    // Set-but-wrong means a failed download step or a typo'd path, and the release must say so
+    // rather than quietly continue into a Windows-only asset set.
+    expect(() => stageExtraAssetsFrom(target, VERSION, join(target, 'no-such-dir'))).toThrow(
+      /RELEASE_EXTRA_ASSETS_DIR/,
+    )
+  })
+
+  test('refuses to stage a file over a Windows artifact - latest.yml above all', () => {
+    const target = scratchDir('target')
+    const source = scratchDir('source')
+    // The freshly built Windows metadata: its `url` is what every installed Windows client
+    // resolves its update through, so overwriting it would break auto-update for all of them.
+    writeFileSync(join(target, 'latest.yml'), 'the real windows metadata')
+    writeFileSync(join(source, 'latest.yml'), 'a linux job that uploaded the wrong file')
+
+    expect(() => stageExtraAssetsFrom(target, VERSION, source)).toThrow(/latest\.yml/)
+    // Untouched, byte for byte.
+    expect(readdirSync(target)).toEqual(['latest.yml'])
+
+    // Every Windows-expected name is protected, not just the metadata file.
+    for (const name of expectedAssets(VERSION, 'win')) {
+      const clashing = scratchDir('clash')
+      writeFileSync(join(clashing, name), 'x')
+      expect(() => stageExtraAssetsFrom(target, VERSION, clashing)).toThrow(/refusing to stage/)
+    }
+  })
+})
+
 describe('parseArgs', () => {
   test('defaults to a real run with a derived version', () => {
-    expect(parseArgs([])).toEqual({ dryRun: false, requestedVersion: undefined, bump: undefined })
+    expect(parseArgs([])).toEqual({
+      dryRun: false,
+      printPlan: false,
+      promoteChangelog: false,
+      requestedVersion: undefined,
+      bump: undefined,
+    })
   })
 
   test('reads --dry-run, --version and --bump', () => {
     expect(parseArgs(['--dry-run', '--version', '1.0.0-beta.1', '--bump', 'minor'])).toEqual({
       dryRun: true,
+      printPlan: false,
+      promoteChangelog: false,
       requestedVersion: '1.0.0-beta.1',
       bump: 'minor',
     })
+  })
+
+  test('reads --print-plan, which the CI plan job passes alongside the operator inputs', () => {
+    expect(parseArgs(['--print-plan', '--bump', 'patch'])).toEqual({
+      dryRun: false,
+      printPlan: true,
+      promoteChangelog: false,
+      requestedVersion: undefined,
+      bump: 'patch',
+    })
+  })
+
+  test('reads --promote-changelog alongside the required --version', () => {
+    expect(parseArgs(['--promote-changelog', '--version', '1.0.0-beta.2'])).toEqual({
+      dryRun: false,
+      printPlan: false,
+      promoteChangelog: true,
+      requestedVersion: '1.0.0-beta.2',
+      bump: undefined,
+    })
+  })
+
+  test('rejects --promote-changelog without --version - the build-linux job must not re-derive it', () => {
+    expect(() => parseArgs(['--promote-changelog'])).toThrow(/--promote-changelog requires --version/)
   })
 
   test('rejects a v-prefixed version, which would tag vv1.0.0', () => {

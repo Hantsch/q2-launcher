@@ -1,9 +1,10 @@
 import { useTranslation } from 'react-i18next'
-import { Check, ExternalLink } from 'lucide-react'
+import { Check, ExternalLink, FolderOpen } from 'lucide-react'
 import { engineLabel } from '@shared/types/engine'
 import type { EngineKind } from '@shared/types'
-import type { BootstrapEngineOption } from '@shared/modules/downloads'
+import type { BootstrapEngineOption, BootstrapEngineOptionsEmptyReason } from '@shared/modules/downloads'
 import { invoke } from '../../../lib/bridge'
+import { Button } from '../../../components/ui/Button'
 import { EmptyState, Panel } from '../../../components/ui/primitives'
 
 /** Story 080 D3 (AC8): the exact upstream source this launcher's R1Q2 build is pinned to. */
@@ -25,15 +26,28 @@ const VC_REDIST_X86_URL = 'https://aka.ms/vs/17/release/vc_redist.x86.exe'
  * a check mark only on the row matching `selected`. An empty `options` array (the manifest pinned
  * nothing this wizard can offer) is a dead end shown as an empty state, not a step the user can
  * push past.
+ *
+ * Story 100 D8 (AC7): the empty state is no longer one generic sentence - `emptyReason` (D7's
+ * `BootstrapEngineOptionsResult.emptyReason`) tells "the manifest pins nothing at all yet"
+ * (`'none-pinned'`, today's existing copy) apart from "the manifest pins something, just not for
+ * this host's platform" (`'none-for-platform'`, the Linux-with-a-Windows-only-manifest case D5/D6
+ * made possible), and either way offers a real way out: adding an installation the user already
+ * has, via the same `onAddExisting` callback `BootstrapWizard.tsx` wires to `openDialog({ kind:
+ * 'add-existing' })` - the exact mechanism `LibraryView.tsx`'s and `DetectDialog.tsx`'s own empty
+ * states already use, never a second "add existing" flow.
  */
 export function EngineStep({
   options,
+  emptyReason,
   selected,
   onSelect,
+  onAddExisting,
 }: {
   options: BootstrapEngineOption[] | null
+  emptyReason: BootstrapEngineOptionsEmptyReason
   selected: EngineKind | null
   onSelect: (engine: EngineKind) => void
+  onAddExisting: () => void
 }) {
   const { t } = useTranslation()
 
@@ -42,11 +56,26 @@ export function EngineStep({
   }
 
   if (options.length === 0) {
+    const isPlatformGap = emptyReason === 'none-for-platform'
     return (
-      <Panel>
+      <Panel data-testid="bootstrap-engine-empty">
         <EmptyState
-          title={t('bootstrapWizard.engine.empty.title')}
-          body={t('bootstrapWizard.engine.empty.body')}
+          title={t(
+            isPlatformGap ? 'bootstrapWizard.engine.empty.platformTitle' : 'bootstrapWizard.engine.empty.title',
+          )}
+          body={t(
+            isPlatformGap ? 'bootstrapWizard.engine.empty.platformBody' : 'bootstrapWizard.engine.empty.body',
+          )}
+          actions={
+            <Button
+              variant="primary"
+              icon={<FolderOpen className="size-4" />}
+              onClick={onAddExisting}
+              data-testid="bootstrap-engine-empty-action"
+            >
+              {t('bootstrapWizard.engine.empty.action')}
+            </Button>
+          }
         />
       </Panel>
     )

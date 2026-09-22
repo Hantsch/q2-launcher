@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { stubPlatform } from '../../../../test-support/platform'
 import { computeTargetVerdict, MAX_TARGET_VERDICT_ENTRIES } from './target'
 
 /**
@@ -71,16 +72,24 @@ describe('computeTargetVerdict', () => {
   })
 
   it('the ProgramFiles(x86) variant also matches, and case-insensitively', async () => {
-    const programFilesX86 = join(dir, 'Program Files (x86)')
-    const target = join(programFilesX86, 'Quake II')
-    await mkdir(target, { recursive: true })
+    // Case-insensitive matching (`pathKey`, fs-utils.ts) is itself a Windows/macOS filesystem
+    // property Linux does not share - `stubPlatform` proves the Windows behaviour this test
+    // names, rather than asserting something only ever true by accident of the host running it.
+    const restore = stubPlatform('win32')
+    try {
+      const programFilesX86 = join(dir, 'Program Files (x86)')
+      const target = join(programFilesX86, 'Quake II')
+      await mkdir(target, { recursive: true })
 
-    const verdict = await computeTargetVerdict(target.toUpperCase(), {
-      env: { 'ProgramFiles(x86)': programFilesX86 },
-      protectedDirs: [],
-    })
+      const verdict = await computeTargetVerdict(target.toUpperCase(), {
+        env: { 'ProgramFiles(x86)': programFilesX86 },
+        protectedDirs: [],
+      })
 
-    expect(verdict.programFiles).toBe(true)
+      expect(verdict.programFiles).toBe(true)
+    } finally {
+      restore()
+    }
   })
 
   it('a folder containing files reports them in entries, capped at MAX_TARGET_VERDICT_ENTRIES', async () => {

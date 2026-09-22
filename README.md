@@ -106,10 +106,14 @@ Full picture and current state: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Install
 
-Grab the NSIS installer from the
-[GitHub Releases page](https://github.com/Hantsch/q2-launcher/releases). Builds
-are unsigned, so Windows SmartScreen will warn — "Windows protected your PC" →
-"More info" → "Run anyway".
+Grab a build from the
+[GitHub Releases page](https://github.com/Hantsch/q2-launcher/releases):
+
+- **Windows** — the NSIS installer (`.exe`). Builds are unsigned, so Windows
+  SmartScreen will warn — "Windows protected your PC" → "More info" → "Run
+  anyway".
+- **Linux** — the AppImage (x86_64). Make it executable (`chmod +x`) and run it;
+  it updates itself the same way the Windows build does.
 
 Prefer to build it yourself? See [CONTRIBUTING.md](CONTRIBUTING.md).
 

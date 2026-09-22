@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type {
   BootstrapEngineOption,
+  BootstrapEngineOptionsEmptyReason,
   BootstrapSummary,
   BootstrapTargetVerdict,
   DetectedRetailSource,
@@ -75,7 +76,12 @@ const getDownloadFailures = vi.fn(async (): Promise<{ ok: true; value: DownloadF
   value: [],
 }))
 
-const getBootstrapEngineOptions = vi.fn(async () => ({ ok: true, value: engineOptions }))
+// Story 100 D7: `getBootstrapEngineOptions` now answers `{ options, emptyReason }` - these fixtures
+// keep `emptyReason: null` throughout, since none of these tests are about an empty answer.
+const getBootstrapEngineOptions = vi.fn(async () => ({
+  ok: true,
+  value: { options: engineOptions, emptyReason: null as BootstrapEngineOptionsEmptyReason },
+}))
 const startBootstrapInstall = vi.fn(async () => ({
   ok: true,
   value: { jobId: 'job-1', installationId: 'inst-1' },
@@ -305,7 +311,10 @@ describe('BootstrapWizard failure fetch (story 078 D7, AC4)', () => {
  */
 describe('BootstrapWizard engine selection (story 080 D2, AC1)', () => {
   it('defaults to the single pinned option and can proceed with zero clicks', async () => {
-    getBootstrapEngineOptions.mockResolvedValueOnce({ ok: true, value: engineOptions })
+    getBootstrapEngineOptions.mockResolvedValueOnce({
+      ok: true,
+      value: { options: engineOptions, emptyReason: null },
+    })
 
     render(createElement(BootstrapWizard))
 
@@ -318,7 +327,10 @@ describe('BootstrapWizard engine selection (story 080 D2, AC1)', () => {
   })
 
   it('clicking the second row changes the selection before the job is started', async () => {
-    getBootstrapEngineOptions.mockResolvedValueOnce({ ok: true, value: twoEngineOptions })
+    getBootstrapEngineOptions.mockResolvedValueOnce({
+      ok: true,
+      value: { options: twoEngineOptions, emptyReason: null },
+    })
 
     render(createElement(BootstrapWizard))
 
@@ -367,6 +379,58 @@ describe('BootstrapWizard engine selection (story 080 D2, AC1)', () => {
         expect.objectContaining({ engine: 'r1q2' }),
       ),
     )
+  })
+})
+
+/**
+ * Story 100 D8 (AC7): the engine step's empty state now names *why* it is empty and offers a real
+ * way out - `emptyReason` (D7's `BootstrapEngineOptionsResult.emptyReason`) picks between the
+ * platform-gap sentence and the pre-existing "nothing pinned" one, and its action opens the same
+ * `add-existing` dialog `DetectDialog.tsx`'s own empty state already routes to (`Dialogs.tsx` mounts
+ * exactly one dialog off `store.dialog.kind`, so asserting that field is enough - rendering the real
+ * `AddExistingDialog` is `AddExistingDialog`'s own test's job, not this one's).
+ */
+describe('BootstrapWizard engine step empty state (story 100 D7/D8, AC7)', () => {
+  it('names the platform gap and its action opens the add-existing dialog for "none-for-platform"', async () => {
+    getBootstrapEngineOptions.mockResolvedValueOnce({
+      ok: true,
+      value: { options: [], emptyReason: 'none-for-platform' },
+    })
+
+    render(createElement(BootstrapWizard))
+
+    await screen.findByTestId('bootstrap-engine-empty')
+    expect(screen.queryByTestId(/^bootstrap-engine-(?!empty)/)).toBeNull()
+    expect(screen.getByText('No engine for this platform yet')).toBeTruthy()
+    expect(
+      screen.getByText(
+        "There's no installable engine for this platform yet. If you already have Quake II installed, add it as an existing installation instead.",
+      ),
+    ).toBeTruthy()
+
+    expect(useLauncher.getState().dialog.kind).not.toBe('add-existing')
+    fireEvent.click(screen.getByTestId('bootstrap-engine-empty-action'))
+    expect(useLauncher.getState().dialog).toEqual({ kind: 'add-existing' })
+  })
+
+  it('keeps the pre-existing "nothing pinned" sentence for "none-pinned"', async () => {
+    getBootstrapEngineOptions.mockResolvedValueOnce({
+      ok: true,
+      value: { options: [], emptyReason: 'none-pinned' },
+    })
+
+    render(createElement(BootstrapWizard))
+
+    await screen.findByTestId('bootstrap-engine-empty')
+    expect(screen.getByText('Nothing available to install')).toBeTruthy()
+    expect(
+      screen.getByText(
+        'The download list does not offer an engine right now. Check your connection and try again later.',
+      ),
+    ).toBeTruthy()
+
+    fireEvent.click(screen.getByTestId('bootstrap-engine-empty-action'))
+    expect(useLauncher.getState().dialog).toEqual({ kind: 'add-existing' })
   })
 })
 

@@ -4,6 +4,7 @@ import {
   DOWNLOADS_HANDLERS,
   type ArchiveCacheStatus,
   type BootstrapEngineOption,
+  type BootstrapEngineOptionsResult,
   type BootstrapSummary,
   type BootstrapTargetVerdict,
   type ClearArchiveCacheResult,
@@ -127,8 +128,9 @@ export const downloadsModule: MainModule = {
 
   setup({ handle, app, log }) {
     // Story 074 D8: resolved exactly once, here, and then only ever passed around as a value -
-    // see `harness.ts`. In a packaged build (and in any `npm run dev` without `Q2L_UI_HARNESS=1`)
-    // this is `PRODUCTION_DOWNLOAD_SOURCE`, and no later change of environment can alter it.
+    // see `harness.ts`. Without `Q2L_UI_HARNESS=1` (which a real shipped build never sets, and
+    // which is not reachable from its UI) this is `PRODUCTION_DOWNLOAD_SOURCE`, and no later
+    // change of environment can alter it.
     const source = resolveDownloadSource({ isDev: app.isDev })
     if (source !== PRODUCTION_DOWNLOAD_SOURCE) {
       log.warn(`UI harness: download source overridden to ${source.baseUrl} (dev build only)`)
@@ -167,15 +169,24 @@ export const downloadsModule: MainModule = {
      * own (like `getSettings` below): a manifest that cannot be fetched, or that pins nothing for
      * any bootstrap-supported engine, is legitimately "no options yet", not an error the caller
      * needs to unwrap - the wizard step (a later deliverable) is expected to handle an empty list.
+     *
+     * Story 100 D7: answers a `BootstrapEngineOptionsResult` rather than the bare `options` array -
+     * `emptyReason` tells an empty `options` apart between "the manifest pins nothing at all"
+     * (`'none-pinned'`, which also covers `ManifestUnavailableError`: nothing fetched and nothing
+     * cached is, from this handler's point of view, the same "nothing known" state) and "the
+     * manifest pins something, just not for this host's platform" (`'none-for-platform'`, the
+     * Linux-with-a-Windows-only-manifest case D5/D6 made possible).
      */
     handle(
       DOWNLOADS_HANDLERS.bootstrapEngineOptions,
       bootstrapEngineOptionsInputSchema,
-      async (): Promise<BootstrapEngineOption[]> => {
+      async (): Promise<BootstrapEngineOptionsResult> => {
         try {
           await manifestService.getManifest()
         } catch (error) {
-          if (error instanceof ManifestUnavailableError) return []
+          if (error instanceof ManifestUnavailableError) {
+            return { options: [], emptyReason: 'none-pinned' }
+          }
           throw error
         }
 
@@ -185,7 +196,12 @@ export const downloadsModule: MainModule = {
           if (pkg === undefined) continue
           options.push({ engine, packageId: pkg.id, version: pkg.version, sizeBytes: pkg.sizeBytes })
         }
-        return options
+
+        if (options.length > 0) return { options, emptyReason: null }
+        return {
+          options,
+          emptyReason: manifestService.hasAnyPinnedEntries() ? 'none-for-platform' : 'none-pinned',
+        }
       },
     )
 

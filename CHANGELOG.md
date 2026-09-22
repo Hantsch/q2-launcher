@@ -10,7 +10,15 @@ version section when a release actually ships.
 
 ## Unreleased
 
-<!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
+### Added
+- **Linux** — the launcher runs on Linux from source: it finds your Steam installations
+  (native and Flatpak), recognises engines by their real binaries instead of a Windows file
+  extension, and extracts archives with a vendored Linux 7-Zip. If your platform has no
+  installable engine yet, the bootstrap wizard says so plainly instead of showing you an empty
+  shelf.
+- **Linux** — there is now a Linux download. Every release publishes an x86_64 AppImage
+  alongside the Windows installer, from the same run, and it updates itself just like the
+  Windows build does.
 
 
 ## 0.2.0 — 2026-09-13

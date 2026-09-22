@@ -31,6 +31,26 @@ describe('expectedAssets', () => {
       expect(name).not.toContain(' ')
     }
   })
+
+  test('returns the exact 2 expected Linux filenames for a version, in stable order', () => {
+    expect(expectedAssets(VERSION, 'linux')).toEqual([
+      'Q2-Launcher-1.0.0-beta.1-linux-x86_64.AppImage',
+      'latest-linux.yml',
+    ])
+  })
+
+  test('latest.yml and latest-linux.yml are both expected, and neither platform\'s set contains the other\'s metadata file', () => {
+    const win = expectedAssets(VERSION, 'win')
+    const linux = expectedAssets(VERSION, 'linux')
+
+    expect(win).toContain('latest.yml')
+    expect(linux).toContain('latest-linux.yml')
+    expect(win).not.toContain('latest-linux.yml')
+    expect(linux).not.toContain('latest.yml')
+
+    const all = expectedAssets(VERSION, 'all')
+    expect(all).toEqual([...win, ...linux])
+  })
 })
 
 describe('collectAssets', () => {
@@ -58,5 +78,43 @@ describe('collectAssets', () => {
     unlinkSync(join(dir, installerBlockmap))
 
     expect(() => collectAssets(dir, VERSION)).toThrow(installerBlockmap)
+  })
+
+  test('the Linux asset set is the AppImage and latest-linux.yml, and a missing one refuses', () => {
+    for (const name of expectedAssets(VERSION, 'linux')) {
+      writeFileSync(join(dir, name), '')
+    }
+
+    const collected = collectAssets(dir, VERSION, 'linux')
+    expect(collected).toEqual(
+      expectedAssets(VERSION, 'linux').map((name) => join(dir, name)),
+    )
+
+    const appImage = 'Q2-Launcher-1.0.0-beta.1-linux-x86_64.AppImage'
+    unlinkSync(join(dir, appImage))
+
+    expect(() => collectAssets(dir, VERSION, 'linux')).toThrow(appImage)
+  })
+
+  test('a two-platform check names only the missing Linux asset and refuses', () => {
+    for (const name of expectedAssets(VERSION, 'win')) {
+      writeFileSync(join(dir, name), '')
+    }
+    // Linux set present except the AppImage itself - latest-linux.yml is there.
+    writeFileSync(join(dir, 'latest-linux.yml'), '')
+
+    const appImage = 'Q2-Launcher-1.0.0-beta.1-linux-x86_64.AppImage'
+
+    expect(() => collectAssets(dir, VERSION, 'all')).toThrow(appImage)
+    try {
+      collectAssets(dir, VERSION, 'all')
+      throw new Error('expected collectAssets to throw')
+    } catch (error) {
+      // Names only the AppImage - no Windows file, no latest-linux.yml, is mentioned as missing.
+      for (const name of [...expectedAssets(VERSION, 'win'), 'latest-linux.yml']) {
+        expect(error.message).not.toContain(name)
+      }
+      expect(error.message).toContain(appImage)
+    }
   })
 })

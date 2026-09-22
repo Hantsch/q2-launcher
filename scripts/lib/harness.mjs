@@ -20,7 +20,7 @@
 //     caller can decide which of them fails a run.
 //
 // Run directly (`node scripts/lib/harness.mjs`) for a self-check.
-import { existsSync, mkdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { delimiter, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
@@ -48,6 +48,9 @@ const EXPECTED_RENDERER_ORIGIN = 'q2launcher://app'
 const REQUIRED_CSP_DIRECTIVES = ["script-src 'self'", "style-src 'self';"]
 
 const LAUNCH_TIMEOUT_MS = 60_000
+/** How long `withApp()`'s teardown waits for Playwright's own `close()` — see its `finally`. */
+const CLOSE_TIMEOUT_MS = 15_000
+const sleep = (ms) => new Promise((done) => setTimeout(done, ms))
 /** Enough of the main process's stderr to explain a launch that died early. */
 const STDERR_LINE_LIMIT = 40
 
@@ -57,16 +60,62 @@ export function variantUserDataDir(variant) {
 }
 
 /**
+ * Everything that enters the built bundle but does not live under `src/`. `CHANGELOG.md` is on
+ * this list for a concrete reason: `src/main/lib/release-notes.ts` pulls it in with a `?raw`
+ * import, so the About panel's release notes are baked in at build time — a changelog edited after
+ * the last build is invisible to every flow until someone rebuilds.
+ */
+const EXTRA_BUILD_INPUTS = ['CHANGELOG.md', 'package.json', 'electron.vite.config.ts']
+
+/** Newest mtime under `dir`, ignoring test files — they never enter the bundle, so an edited
+ * `*.test.ts` must not be able to declare a perfectly current build stale. */
+function newestSourceMtime(dir) {
+  let newest = 0
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      newest = Math.max(newest, newestSourceMtime(path))
+      continue
+    }
+    if (/\.(test|spec)\./.test(entry.name)) continue
+    newest = Math.max(newest, statSync(path).mtimeMs)
+  }
+  return newest
+}
+
+/**
  * A friendly message instead of a Playwright stack trace when nobody built the
  * app. Checks both entries because a stale `out/` with only main built still
  * starts and then shows a blank window.
+ *
+ * It also refuses a build that is merely OUT OF DATE. Existence alone used to be the whole check,
+ * which made every `ui:flow`/`ui:verify` run silently able to test a build predating the change it
+ * was meant to prove — a divergence CI cannot have, since every workflow builds from scratch. The
+ * comparison is by mtime against `src/` plus {@link EXTRA_BUILD_INPUTS}; rebuilding is ~2s, so
+ * erring towards "rebuild" costs nothing next to a green run that proved the wrong bytes.
  */
 export function ensureBuild() {
   const missing = [MAIN_ENTRY, RENDERER_ENTRY].filter(
     (entry) => !existsSync(join(REPO_ROOT, entry)),
   )
-  if (missing.length === 0) return
-  throw new HarnessError(`build missing (${missing.join(', ')}) — build first: npm run build`)
+  if (missing.length > 0) {
+    throw new HarnessError(`build missing (${missing.join(', ')}) — build first: npm run build`)
+  }
+
+  const builtAt = Math.min(
+    ...[MAIN_ENTRY, RENDERER_ENTRY].map((entry) => statSync(join(REPO_ROOT, entry)).mtimeMs),
+  )
+  const sourcesAt = Math.max(
+    newestSourceMtime(join(REPO_ROOT, 'src')),
+    ...EXTRA_BUILD_INPUTS.filter((name) => existsSync(join(REPO_ROOT, name))).map(
+      (name) => statSync(join(REPO_ROOT, name)).mtimeMs,
+    ),
+  )
+  if (sourcesAt > builtAt) {
+    throw new HarnessError(
+      `build is older than the sources (${new Date(builtAt).toISOString()} < ${new Date(sourcesAt).toISOString()}) — rebuild first: npm run build`,
+    )
+  }
 }
 
 /**
@@ -252,12 +301,40 @@ export function childEnv(extraEnv = {}) {
 }
 
 /**
- * Launches the built app, waits for the first window and returns
+ * Collaborators `launchApp` calls out to, overridable so a test can assert on
+ * them without spawning real Electron (story 101 D4). Defaults to the real
+ * `_electron.launch` and this file's own `ensureBuild`.
+ * @typedef {Object} HarnessDeps
+ * @property {(options: object) => Promise<any>} launch
+ * @property {() => void} ensureBuild
+ */
+
+/**
+ * `launch` is wrapped rather than handed over as `_electron.launch`: Playwright's `launch()` is a
+ * prototype method that reads `this._playwright.selectors` on its very first line, so a bare
+ * reference stored on this object is called with `this === deps` and every launch dies with
+ * "Cannot read properties of undefined (reading 'selectors')" before Electron is even spawned.
+ * @returns {HarnessDeps}
+ */
+function defaultDeps() {
+  return { launch: (options) => _electron.launch(options), ensureBuild }
+}
+
+/**
+ * Launches the app, waits for the first window and returns
  * `{ app, page, log, userDataDir }`. Callers use `withApp()`; this is separate
  * only so the failure paths can close what they opened.
+ *
+ * `executablePath` (story 101 D4) launches a packaged binary — e.g. a built
+ * Linux AppImage — instead of this repo's own dev build. There is no reason to
+ * demand `out/` exist to launch someone else's binary, so `ensureBuild()` is
+ * skipped entirely in that case. The `--user-data-dir` confinement below is
+ * unconditional either way: Electron honours that switch in a packaged app the
+ * same way it does in dev, and a packaged-app run must be contained exactly as
+ * strictly as a dev one.
  */
-async function launchApp({ userDataDir, env: extraEnv }) {
-  ensureBuild()
+async function launchApp({ userDataDir, env: extraEnv, executablePath, deps = defaultDeps() }) {
+  if (!executablePath) deps.ensureBuild()
 
   // Guard before anything is created: a run must never be able to point Electron
   // at %APPDATA% or at the repo itself.
@@ -267,10 +344,15 @@ async function launchApp({ userDataDir, env: extraEnv }) {
   const log = new RunLog()
   const state = { expectedExit: false }
 
+  const launchArgs = executablePath
+    ? [`--user-data-dir=${resolvedUserDataDir}`]
+    : [join(REPO_ROOT, MAIN_ENTRY), `--user-data-dir=${resolvedUserDataDir}`]
+
   let app
   try {
-    app = await _electron.launch({
-      args: [join(REPO_ROOT, MAIN_ENTRY), `--user-data-dir=${resolvedUserDataDir}`],
+    app = await deps.launch({
+      ...(executablePath ? { executablePath } : {}),
+      args: launchArgs,
       cwd: REPO_ROOT,
       env: childEnv(extraEnv),
       timeout: LAUNCH_TIMEOUT_MS,
@@ -403,13 +485,18 @@ function enrichLaunchFailure(error, log) {
  * applied through `win.setSize` — a BrowserWindow ignores
  * `page.setViewportSize()`. `env` (story 074 D8) is merged into `childEnv()`
  * last, for values only known immediately before the launch — see `childEnv()`.
+ * `executablePath` (story 101 D4) launches a packaged binary instead of this
+ * repo's own dev build — see `launchApp()`'s doc comment. `deps` overrides
+ * `launchApp()`'s collaborators; only a test passes it.
  */
-export async function withApp({ variant, viewport, env } = {}, fn) {
+export async function withApp({ variant, viewport, env, executablePath, deps } = {}, fn) {
   if (!variant) throw new HarnessError('withApp() needs a fixture variant')
 
   const { app, page, log, state, child, userDataDir } = await launchApp({
     userDataDir: variantUserDataDir(variant),
     env,
+    executablePath,
+    deps,
   })
 
   try {
@@ -433,7 +520,13 @@ export async function withApp({ variant, viewport, env } = {}, fn) {
     throw error
   } finally {
     state.expectedExit = true
-    await app.close().catch(() => {})
+    // Bounded, not simply awaited: `close()` waits for the process Playwright attached to, and
+    // story 101 D6's AppImage self-update replaces exactly that process - `AppImageUpdater`'s
+    // `doInstall()` re-execs the launcher through `$APPIMAGE`, so the driver waits forever for a
+    // pipe the *new*, detached process still holds open. `.catch()` cannot help with a promise
+    // that never settles. By the time this runs the result of the run is already decided, so a
+    // close that will not finish must not be able to hold the script - and its CI job - open.
+    await Promise.race([app.close().catch(() => {}), sleep(CLOSE_TIMEOUT_MS)])
   }
 }
 

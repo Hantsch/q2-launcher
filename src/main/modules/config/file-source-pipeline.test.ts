@@ -819,6 +819,13 @@ describe('rebuild from the file with the sentinel id', () => {
     first.state.setConfigProfiles([seededProfile(holdLayerProfile)])
     await first.state.settle()
     await save(first.handlers)
+    // The save writes the new file hash back onto the record, i.e. it schedules another debounced
+    // `JsonStore` write. Without settling it here, that write is still in flight while the lines
+    // below hand-edit the very same `state.json` - which is a genuine race, not a tidiness matter:
+    // on Windows it fails outright (`EBUSY` on the `writeFile`), and on Linux, where nothing locks
+    // the file, the store's own flush simply lands on top of the corruption this test depends on.
+    // Its sibling test above settles after every mutation for the same reason.
+    await first.state.settle()
     const fileName = fileNameOf(first.state)
     const before = inventory(only(first.state))
 

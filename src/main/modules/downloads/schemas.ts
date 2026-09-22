@@ -44,9 +44,10 @@ export const httpsUrlSchema = z
  * Story 074 D8, harness only: the same shape as `httpsUrlSchema` above, plus a plain-http
  * **loopback** URL (`http://127.0.0.1[:port]/...`). Its only consumer is
  * `harnessLoopbackManifestPackageSchema` below, which is only ever built by
- * `parseManifestFile({ httpsOnly: false })`, which only ever happens under the double gate in
- * `harness.ts` (`Q2L_UI_HARNESS === '1' && isDev`) - unreachable in a packaged build, where `isDev`
- * is always `false`.
+ * `parseManifestFile({ httpsOnly: false })`, which only ever happens under the gate in
+ * `harness.ts` (`Q2L_UI_HARNESS === '1'`) - never set by a real shipped build, and not reachable
+ * from its UI, so it stays unreachable in practice even though `isDev` is no longer part of the
+ * check.
  *
  * It is a *second, separately named* schema rather than a widened `httpsUrlSchema`, on purpose: a
  * single regex quietly accepting `http://127.0.0.1` would apply to production too, and "which URLs
@@ -86,10 +87,35 @@ function manifestPackageBaseSchemaWith(urlSchema: z.ZodType<string>) {
     url: urlSchema,
     mirrors: z.array(urlSchema),
     contents: z.array(manifestPackageContentEntrySchema).min(1),
+    /**
+     * Story 100 D5: the host platforms this package's payload can actually run on, spelled the
+     * way `process.platform` spells them (`'win32'`, `'linux'`, `'darwin'`).
+     *
+     * **Optional, and deliberately not defaulted here** - the "absent reads as `['win32']`" rule
+     * is a compatibility reading of an *external* document and lives in exactly one place,
+     * `packagePlatforms()` in `manifest-parse.ts`, rather than being half-applied by a schema
+     * default and half-checked by the resolver.
+     *
+     * `z.string()` rather than an enum of the platforms this build knows: the manifest is fetched
+     * from a content repo that may name a platform a *later* launcher supports, and refusing the
+     * row for an unrecognised platform name would take today's Windows download path down with
+     * it. An unknown name simply never matches the running platform.
+     */
+    platforms: z.array(z.string().min(1)).optional(),
   })
 }
 
-function manifestPackageSchemaWith(urlSchema: z.ZodType<string>): z.ZodType<ManifestPackage> {
+/**
+ * Story 100 D5: `ManifestPackage` plus the manifest-only `platforms` tag above. Kept as a
+ * main-local intersection rather than widening the shared wire type, because the renderer has no
+ * business resolving platforms - the pin it is handed (`ManifestSnapshot.pinned`) is already
+ * resolved for the running platform by `manifest-parse.ts`.
+ */
+export type PlatformTaggedManifestPackage = ManifestPackage & { platforms?: string[] }
+
+function manifestPackageSchemaWith(
+  urlSchema: z.ZodType<string>,
+): z.ZodType<PlatformTaggedManifestPackage> {
   const base = manifestPackageBaseSchemaWith(urlSchema)
   return z.discriminatedUnion('kind', [
     base.extend({ kind: z.literal('engine'), engine: engineKindSchema }),
@@ -106,7 +132,7 @@ function manifestPackageSchemaWith(urlSchema: z.ZodType<string>): z.ZodType<Mani
  * see `harnessLoopbackManifestPackageSchema` below for the harness-only variant and `harness.ts`
  * for the gate that is the only thing able to select it.
  */
-export const manifestPackageSchema: z.ZodType<ManifestPackage> =
+export const manifestPackageSchema: z.ZodType<PlatformTaggedManifestPackage> =
   manifestPackageSchemaWith(httpsUrlSchema)
 
 /**
@@ -115,8 +141,28 @@ export const manifestPackageSchema: z.ZodType<ManifestPackage> =
  * exclusively by `parseManifestFile`'s `httpsOnly: false` option, which only
  * `resolveDownloadSource()` (`harness.ts`) can produce, and only under its double gate.
  */
-export const harnessLoopbackManifestPackageSchema: z.ZodType<ManifestPackage> =
+export const harnessLoopbackManifestPackageSchema: z.ZodType<PlatformTaggedManifestPackage> =
   manifestPackageSchemaWith(harnessLoopbackUrlSchema)
+
+/**
+ * Story 100 D5: what one `pinned` entry may be. **Both shapes are valid, on purpose:**
+ *
+ *  - a bare string - the shape every manifest published before this field grew a platform
+ *    dimension uses, including the live remote one. It reads as `{ win32: id }`
+ *    (`manifest-parse.ts`), so a launcher carrying this code still resolves an old manifest's
+ *    pins on Windows exactly as it did before.
+ *  - a `{ <platform>: <packageId> }` record - the explicit shape, where a platform with no entry
+ *    simply has no pinned build.
+ *
+ * A value that is neither still fails the envelope, exactly as a non-string value did before this
+ * union existed - that strictness is unchanged, not newly introduced. The *reading* of the two
+ * accepted shapes is `manifest-parse.ts`'s business (it is the file that knows the running
+ * platform), the same split `schemaVersion` already has.
+ */
+const manifestPinnedEntrySchema = z.union([z.string(), z.record(z.string(), z.string())])
+
+/** The two `pinned` value shapes above, as `manifest-parse.ts`'s `resolvePinned` receives them. */
+export type ManifestPinnedEntry = z.infer<typeof manifestPinnedEntrySchema>
 
 /**
  * The envelope shape one manifest file (`engines/manifest.json` OR
@@ -135,7 +181,7 @@ export const harnessLoopbackManifestPackageSchema: z.ZodType<ManifestPackage> =
 export const manifestEnvelopeSchema = z.object({
   schemaVersion: z.number(),
   packages: z.array(z.unknown()),
-  pinned: z.record(z.string(), z.string()).optional(),
+  pinned: z.record(z.string(), manifestPinnedEntrySchema).optional(),
 })
 
 /**

@@ -1,26 +1,36 @@
 /**
- * Story 074 D8: the double gate every UI-verification backdoor in main goes through, and the one
- * such backdoor that does not belong to a module (`installations:pickFolder`'s folder stub).
+ * Story 074 D8: the gate every UI-verification backdoor in main goes through, and the one such
+ * backdoor that does not belong to a module (`installations:pickFolder`'s folder stub).
  *
  * ## The gate
  *
- * `Q2L_UI_HARNESS === '1'` AND `isDev` - both, never either alone. `isDev` is `is.dev` from
- * `@electron-toolkit/utils` (`AppContext.isDev`), which is `false` in a packaged build regardless
- * of any environment variable a hostile or malformed launch could set, so every branch guarded by
- * `isUiHarnessEnabled()` is unreachable in a packaged build *by construction* - not by convention.
+ * `Q2L_UI_HARNESS === '1'`, and only that - `isDev` is not part of the decision. A packaged
+ * AppImage is the only way story 101's D5/D6 CI jobs can drive the real update/self-relaunch path,
+ * and `isDev` (`is.dev` from `@electron-toolkit/utils`, `false` whenever `app.isPackaged`) is
+ * unconditionally `false` there, so gating on `isDev` as well made every one of these backdoors
+ * unreachable in exactly the build the harness has to run against. `Q2L_UI_HARNESS` is the real
+ * gate: it is set only by the process that launches the harness (`scripts/lib/harness.mjs`'s
+ * `childEnv()`), never by anything shipped in the app itself, never surfaced in the renderer, and
+ * never set by electron-builder or the packaged binary's own launcher - so a real user's packaged
+ * install still cannot reach any of this without deliberately exporting the variable before
+ * starting the binary.
+ *
+ * `UiHarnessGateInput.isDev` is kept on the type (dev builds still get `registerDevIpc` itself
+ * registered unconditionally, via `src/main/ipc/index.ts`'s own `isDev ||` check) but is no longer
+ * read by the functions below - see each one's comment.
  *
  * This is the same gate `DialogService.pickConfigFiles()` (`src/main/services/dialog.ts`, story 066
  * D4) already writes out inline. It lives in a named function here because story 074 D8 needs the
  * same gate in two more places - `installations:pickFolder` below and the downloads module's
  * download-source override (`src/main/modules/downloads/harness.ts`) - and three hand-copied
- * `isDev && process.env[...] === '1'` expressions are three places one of them can drift.
- * `DialogService`'s own copy is deliberately left as it is: it is covered by its own four-case
- * test (`dialog.test.ts`) and rewriting a shipped security gate to route through a new helper is a
+ * `process.env[...] === '1'` expressions are three places one of them can drift. `DialogService`'s
+ * own copy is deliberately left as it is: it is covered by its own four-case test
+ * (`dialog.test.ts`) and rewriting a shipped security gate to route through a new helper is a
  * change with no upside.
  *
  * Nothing here reads `process.env` at module scope: both functions take the environment as a
- * parameter (defaulting to `process.env`) so a test can exercise all four gate combinations
- * without mutating the real one, and so an audit can see there is no cached decision.
+ * parameter (defaulting to `process.env`) so a test can exercise every gate combination without
+ * mutating the real one, and so an audit can see there is no cached decision.
  */
 
 import { readFile, writeFile } from 'node:fs/promises'
@@ -45,15 +55,19 @@ export const UI_HARNESS_ENV = 'Q2L_UI_HARNESS'
 export const UI_HARNESS_PICK_FOLDER_ENV = 'Q2L_UI_PICK_FOLDER'
 
 export interface UiHarnessGateInput {
-  /** `AppContext.isDev` - `is.dev` from `@electron-toolkit/utils`; always `false` when packaged. */
+  /**
+   * `AppContext.isDev` - `is.dev` from `@electron-toolkit/utils`; always `false` when packaged.
+   * Kept on this type so every existing call site stays unchanged, but no longer read by
+   * `isUiHarnessEnabled()` itself - see the module comment for why the gate dropped it.
+   */
   isDev: boolean
   /** Defaults to `process.env`; a parameter so the gate is testable without touching the real one. */
   env?: NodeJS.ProcessEnv
 }
 
-/** The double gate, in one place. See the module comment. */
-export function isUiHarnessEnabled({ isDev, env = process.env }: UiHarnessGateInput): boolean {
-  return isDev && env[UI_HARNESS_ENV] === '1'
+/** The one gate, in one place. See the module comment. */
+export function isUiHarnessEnabled({ env = process.env }: UiHarnessGateInput): boolean {
+  return env[UI_HARNESS_ENV] === '1'
 }
 
 /**

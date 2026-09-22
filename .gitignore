@@ -23,9 +23,12 @@ desktop.ini
 *.iml
 .playwright-mcp/
 
-# Vendored by scripts/fetch-7za.mjs (story 071 D3) - a build artifact fetched on demand, not
-# committed. The directory itself (and License.txt, once extracted) may still exist and be
-# committed if useful; only the binary and transient download/extraction artifacts are ignored.
+# Vendored by scripts/fetch-7za.mjs (story 071 D3; Linux branch added by story 100 D9) - a build
+# artifact fetched on demand, not committed. The directory itself (and License.txt, once
+# extracted) may still exist and be committed if useful; only the binaries and transient
+# download/extraction artifacts are ignored.
 resources/bin/7za.exe
+resources/bin/7zz
 resources/bin/*.7z
+resources/bin/*.tar.xz
 resources/bin/.fetch-7za-tmp/

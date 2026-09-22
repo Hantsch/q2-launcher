@@ -50,9 +50,11 @@ export function registerAppIpc(app: AppContext): void {
   // `urlSchema` allows only http(s), so a renderer cannot open `file:` or a
   // custom protocol handler through this channel.
   //
-  // Story 099 D6: under the double gate (`isUiHarnessEnabled()`), record the url instead of
-  // actually opening it - a packaged build (`app.isDev` false) always takes the real
-  // `shell.openExternal` branch, whatever a hostile environment variable says.
+  // Story 099 D6: under the harness gate (`isUiHarnessEnabled()`, `Q2L_UI_HARNESS === '1'` alone -
+  // `isDev` is not part of it, see `src/main/lib/ui-harness.ts`), record the url instead of actually
+  // opening it. A real user's build always takes the real `shell.openExternal` branch: the
+  // variable is never set by the app itself or by electron-builder, only by whoever launches the
+  // harness process.
   handleOutcome(
     'app:openExternal',
     urlSchema,

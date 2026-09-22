@@ -337,6 +337,12 @@ async function attemptDownload(context: AttemptContext): Promise<AttemptResult> 
         }
 
         hash.update(value)
+        // Checked both before and after: `file`'s 'error' listener runs asynchronously, so a
+        // write error recorded during the previous iteration's `await` (the `reader.read()` above,
+        // or a `drain` wait) can land between iterations - calling `file.write()` again once that
+        // has already destroyed the stream throws `ERR_STREAM_DESTROYED` synchronously, a confusing
+        // error in place of the real, already-recorded cause.
+        if (writeErrors.length > 0) throw writeErrors[0]
         if (!file.write(value)) await once(file, 'drain')
         if (writeErrors.length > 0) throw writeErrors[0]
 
@@ -349,6 +355,16 @@ async function attemptDownload(context: AttemptContext): Promise<AttemptResult> 
     } catch (error) {
       clearTimeout(stallTimer)
       await reader.cancel().catch(() => undefined)
+      // Read the write error BEFORE the stream is discarded, because discarding it *produces* one:
+      // a `createWriteStream()` whose `open()` is still in flight has its chunks queued, and
+      // destroying it makes Node fail that queued write with `ERR_STREAM_DESTROYED` ("cannot call
+      // write after a stream was destroyed") the moment the descriptor arrives - emitted on the
+      // stream, i.e. straight into `writeErrors` through the listener above. Judging the disk by
+      // what the array holds *after* the discard therefore turns an ordinary transport failure - a
+      // mirror that dropped the connection a few KB in, before the file was even open - into a
+      // terminal `downloads.error.diskWrite` that stops the whole download instead of retrying and
+      // moving to the next mirror. Reproducible on Linux, where the drop reliably beats the open.
+      const writeError = writeErrors[0]
       await discardFile(file)
 
       if (abortKind === 'size-overrun') {
@@ -357,8 +373,8 @@ async function attemptDownload(context: AttemptContext): Promise<AttemptResult> 
           reason: `served more than the declared ${source.sizeBytes} bytes (got at least ${received})`,
         }
       }
-      if (writeErrors.length > 0) {
-        return { kind: 'disk', reason: `writing ${partPath} failed: ${String(writeErrors[0])}` }
+      if (writeError !== undefined) {
+        return { kind: 'disk', reason: `writing ${partPath} failed: ${String(writeError)}` }
       }
       return classify(error)
     }

@@ -158,10 +158,23 @@ export async function resolveRelaxed(root: string, relativePath: string): Promis
   return current
 }
 
-/** True when the platform considers `name` an executable file name. */
-export function looksExecutable(name: string): boolean {
+/**
+ * True when the platform considers `dir/name` an executable.
+ *
+ * On Windows that is still a name question - the `.exe` extension is what makes a file
+ * runnable - so nothing is read from disk. Everywhere else the name says nothing at all
+ * (`README` and `q2pro` are equally extension-less): the file has to be a regular file
+ * carrying an execute bit, which is why this is async - it stats (story 100 D3).
+ */
+export async function looksExecutable(dir: string, name: string): Promise<boolean> {
   if (process.platform === 'win32') return name.toLowerCase().endsWith('.exe')
-  return !name.includes('.')
+
+  try {
+    const stats = await stat(join(dir, name))
+    return stats.isFile() && (stats.mode & 0o111) !== 0
+  } catch {
+    return false
+  }
 }
 
 export function fileName(target: string): string {

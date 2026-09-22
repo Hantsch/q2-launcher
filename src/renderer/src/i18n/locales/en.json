@@ -2231,7 +2231,10 @@
       "version": "Version {{version}}",
       "empty": {
         "title": "Nothing available to install",
-        "body": "The download list does not offer an engine right now. Check your connection and try again later."
+        "body": "The download list does not offer an engine right now. Check your connection and try again later.",
+        "platformTitle": "No engine for this platform yet",
+        "platformBody": "There's no installable engine for this platform yet. If you already have Quake II installed, add it as an existing installation instead.",
+        "action": "Add existing installation…"
       },
       "r1q2Notice": {
         "source": "R1Q2 is built from this exact upstream source:",

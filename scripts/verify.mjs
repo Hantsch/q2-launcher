@@ -47,9 +47,13 @@ const IMPACT_ORDER = ['critical', 'serious', 'moderate', 'minor']
 
 // --- CLI -------------------------------------------------------------------
 
-/** `{ skipShot, skipAxe, screensFilter }`. Throws a plain `Error` on a bad flag — a usage mistake, not a `HarnessError`. */
+/**
+ * `{ skipShot, skipAxe, screensFilter, appPath }`. Throws a plain `Error` on a bad flag — a usage
+ * mistake, not a `HarnessError`. `--app=<path>` (story 101 D4) points the whole run at a packaged
+ * binary instead of this repo's own dev build; omitted, behaviour is unchanged from before D4.
+ */
 function parseArgs(argv) {
-  const flags = { skipShot: false, skipAxe: false, screensFilter: null }
+  const flags = { skipShot: false, skipAxe: false, screensFilter: null, appPath: null }
   for (const arg of argv) {
     if (arg === '--skip-shot') flags.skipShot = true
     else if (arg === '--skip-axe') flags.skipAxe = true
@@ -59,6 +63,8 @@ function parseArgs(argv) {
         .split(',')
         .map((id) => id.trim())
         .filter((id) => id.length > 0)
+    } else if (arg.startsWith('--app=')) {
+      flags.appPath = arg.slice('--app='.length)
     } else {
       throw new Error(`verify.mjs: unknown flag "${arg}"`)
     }
@@ -138,7 +144,7 @@ function ensureBuilt() {
  * original `screen x viewport` key order has to re-sort by the resolved
  * screen list's own position, not by the order the sessions happened to run.
  */
-async function runAllVariants({ screens, capture }) {
+async function runAllVariants({ screens, capture, executablePath }) {
   const variants = [...new Set(screens.map((screen) => screen.variant))]
 
   let launches = 0
@@ -148,7 +154,7 @@ async function runAllVariants({ screens, capture }) {
   // records that, so it is carried here and fails the run on its own.
   const sessionErrors = []
   for (const variant of variants) {
-    const session = await runVariantSession({ variant, screens, capture })
+    const session = await runVariantSession({ variant, screens, capture, executablePath })
     launches += session.launches
     if (session.error) sessionErrors.push({ variant, reason: session.error })
     for (const result of session.results) byKey.set(result.key, result)
@@ -403,14 +409,22 @@ export async function run(argv) {
   }
   const full = screens.length === SCREENS.length
 
-  try {
-    ensureBuilt()
-  } catch (error) {
-    console.error(error.message)
-    return 1
+  // `--app=<path>` (story 101 D4) drives a packaged binary — there is no dev
+  // build to require or fall back to building.
+  if (!flags.appPath) {
+    try {
+      ensureBuilt()
+    } catch (error) {
+      console.error(error.message)
+      return 1
+    }
   }
 
-  const { launches, results, sessionErrors } = await runAllVariants({ screens, capture })
+  const { launches, results, sessionErrors } = await runAllVariants({
+    screens,
+    capture,
+    executablePath: flags.appPath ?? undefined,
+  })
 
   if (capture.shot) {
     writeRunLog(results)

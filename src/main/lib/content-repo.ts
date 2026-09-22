@@ -29,7 +29,7 @@ export class ContentRepoHttpError extends Error {
  * `baseUrl` is a parameter as of story 074 D8, so the UI-verification harness can point manifest
  * traffic at its own `127.0.0.1` fixture server. It is **not** read from the environment here:
  * the only producer of a non-default value is `resolveDownloadSource()`
- * (`src/main/modules/downloads/harness.ts`), which is gated on `Q2L_UI_HARNESS === '1' && isDev`
+ * (`src/main/modules/downloads/harness.ts`), which is gated on `Q2L_UI_HARNESS === '1'` alone
  * and resolved once at module registration. This file has no opinion about that gate and no way to
  * open it - it just joins two strings.
  */

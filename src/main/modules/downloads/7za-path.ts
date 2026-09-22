@@ -2,9 +2,12 @@ import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 /**
- * Story 071 D3: resolves the absolute path to the vendored `7za.exe` binary.
+ * Story 071 D3: resolves the absolute path to the vendored 7-Zip binary.
+ * Story 100 D9: the binary name is platform-conditional - `7za.exe` on Windows, the official
+ * 7-Zip Linux console build `7zz` everywhere else - vendored by the matching branch in
+ * `scripts/fetch-7za.mjs`. Everything else about the resolution is unchanged.
  *
- * Dev: `resources/bin/7za.exe` relative to the repo root, found by walking
+ * Dev: `resources/bin/<binary>` relative to the repo root, found by walking
  * *upward* from this file's own directory to the nearest ancestor that contains
  * a `package.json` (this repo has exactly one, at the root). Counting `..`
  * segments cannot work here, because the number of levels differs per context:
@@ -13,7 +16,7 @@ import { dirname, join } from 'node:path'
  * bundled at all (`__dirname` is `<repo>/src/main/modules/downloads`). The
  * walk-up is correct for both, and for any future bundle layout. If no marker is
  * found within `MAX_WALK_UP_LEVELS`, it falls back to `process.cwd()`.
- * Packaged: `process.resourcesPath/bin/7za.exe`, matching this module's
+ * Packaged: `process.resourcesPath/bin/<binary>`, matching this module's
  * `electron-builder.yml` `extraResources` entry (`resources/bin` -> `bin`) - the
  * dev walk-up is never used there, since the app lives inside `app.asar`.
  *
@@ -40,7 +43,14 @@ export interface ExtractorPathResult {
   exists: boolean
 }
 
-const BINARY_NAME = '7za.exe'
+/**
+ * Story 100 D9: read live rather than cached at module scope, so a test can stub
+ * `process.platform` (via `src/test-support/platform.ts`'s `stubPlatform`) and see it reflected
+ * without needing to reload the module.
+ */
+function getBinaryName(): string {
+  return process.platform === 'win32' ? '7za.exe' : '7zz'
+}
 
 /** The marker file that identifies the repo root - this repo has exactly one, at the root. */
 const REPO_ROOT_MARKER = 'package.json'
@@ -68,9 +78,10 @@ export function findRepoRoot(startDir: string, maxLevels: number = MAX_WALK_UP_L
 const DEFAULT_REPO_ROOT = findRepoRoot(__dirname)
 
 export function resolveExtractorPath(input: ExtractorPathInput): ExtractorPathResult {
+  const binaryName = getBinaryName()
   const path = input.isPackaged
-    ? join(input.resourcesPath ?? '', 'bin', BINARY_NAME)
-    : join(input.repoRoot ?? DEFAULT_REPO_ROOT, 'resources', 'bin', BINARY_NAME)
+    ? join(input.resourcesPath ?? '', 'bin', binaryName)
+    : join(input.repoRoot ?? DEFAULT_REPO_ROOT, 'resources', 'bin', binaryName)
 
   return { path, exists: existsSync(path) }
 }

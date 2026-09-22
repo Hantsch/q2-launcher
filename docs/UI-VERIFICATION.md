@@ -420,7 +420,7 @@ of story 066 D8, replaced by one new entry, `config-import-files`:
   → source `import` (`config-create-source`) → submit (`config-create-submit`)
   → "Choose files…" (no testid, selected by its own translated accessible
   name), which triggers `DialogService`'s harness-only stub
-  (`Q2L_UI_HARNESS==='1' && isDev`, `src/main/services/dialog.ts`) instead of
+  (`Q2L_UI_HARNESS==='1'`, `src/main/services/dialog.ts`) instead of
   a real OS dialog, handing back the three real fixture files
   `scripts/lib/fixture.mjs` stages under `.ui-verify/fixture/import-files/`
   (`dm.cfg`, `dmalias.cfg`, `gfx.cfg` — the same three files
@@ -874,9 +874,9 @@ Four things about it are worth knowing before changing it:
   `InstallationsService.create()` refuses a second one at the same path, so a second run would fail
   at "start" rather than prove anything. `setup()` therefore calls `writePopulatedFixture()` and
   recreates the target folder.
-- **Two harness-only overrides, both behind the same double gate** (`Q2L_UI_HARNESS === '1' &&
-  isDev`, `src/main/lib/ui-harness.ts` — unreachable in a packaged build, where `isDev` is always
-  `false`; proven by the four gate cases in `src/main/modules/downloads/harness.test.ts`, which
+- **Two harness-only overrides, both behind the same gate** (`Q2L_UI_HARNESS === '1'`,
+  `src/main/lib/ui-harness.ts` — never set by a real shipped build, and not reachable from its UI;
+  proven by the four gate cases in `src/main/modules/downloads/harness.test.ts`, which
   mirror `dialog.test.ts`'s):
   `Q2L_UI_CONTENT_REPO_BASE` names the manifest/package base URL (`resolveDownloadSource()`,
   `src/main/modules/downloads/harness.ts`) and is *refused* unless it is a `127.0.0.1` origin, so it
@@ -1020,12 +1020,13 @@ data (copy) → target → confirm → a real job. It mirrors `bootstrap-wizard.
 installs into its own target (`bootstrapRetailTargetDir()`, `.../target/Retail Import`) so the four
 bootstrap flows never race over one directory. Three things about it are worth knowing:
 
-- **A third harness-only override, under the same double gate.** Alongside
+- **A third harness-only override, under the same gate.** Alongside
   `Q2L_UI_CONTENT_REPO_BASE` and `Q2L_UI_PICK_FOLDER` (see the `bootstrap-wizard` section above),
   this flow sets `Q2L_UI_HARNESS_STORE_SOURCES` — a JSON-encoded `DetectedRetailSource[]` that
   `resolveDetectedRetailSourcesOverride()` (`src/main/modules/downloads/harness.ts`) answers with
-  instead of running a real detection scan, only when `Q2L_UI_HARNESS === '1' && isDev` (proven
-  unreachable otherwise by the four gate cases in `harness.test.ts`). It is what makes the flow
+  instead of running a real detection scan, only when `Q2L_UI_HARNESS === '1'` (never set by a
+  real shipped build, and not reachable from its UI — proven unreachable otherwise by the four
+  gate cases in `harness.test.ts`). It is what makes the flow
   possible at all — no test can plant a real Steam library — and it is also what keeps the harness's
   standing promise never to trigger `detection:scan`, which would shell out to `reg.exe` and walk
   the developer's own Steam/GOG directories.
@@ -1456,7 +1457,7 @@ any of them produces no screenshot and no axe finding:
   harness by construction, not by omission. Story 066 D4/D8 gives the
   config-file picker specifically (`DialogService.pickConfigFiles()`,
   `src/main/services/dialog.ts`) a harness-only stub for exactly this reason
-  — `Q2L_UI_HARNESS==='1' && isDev` skips the real dialog and returns fixed
+  — `Q2L_UI_HARNESS==='1'` skips the real dialog and returns fixed
   paths from `Q2L_UI_PICK_FILES` instead, so `config-import-files` and
   `scripts/flows/import-from-files.mjs` cover everything from the resolved
   paths onward (list, reorder, remove, preview, create); only "the OS dialog
@@ -1464,5 +1465,5 @@ any of them produces no screenshot and no axe finding:
   other picker below it in this list. Story 074 D8 gives the **folder**
   picker (`installations:pickFolder`, `src/main/ipc/installations.ts`) the
   same treatment for the same reason, reading `Q2L_UI_PICK_FOLDER` behind the
-  same double gate — so the bootstrap wizard's target step is reachable, and
+  same gate — so the bootstrap wizard's target step is reachable, and
   only "the OS folder dialog itself appears" stays manual residue there too.

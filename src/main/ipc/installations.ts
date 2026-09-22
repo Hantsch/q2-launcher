@@ -72,10 +72,11 @@ export function registerInstallationsIpc(app: AppContext): void {
   /**
    * Story 074 D8 adds a **harness stub** to this channel, mirroring
    * `DialogService.pickConfigFiles()` (`src/main/services/dialog.ts`) exactly: when
-   * `Q2L_UI_HARNESS === '1'` AND `app.isDev` are BOTH true (`isUiHarnessEnabled`,
-   * `src/main/lib/ui-harness.ts`), no dialog opens at all and `Q2L_UI_PICK_FOLDER` supplies the
-   * folder instead. It is unreachable in a packaged build, where `isDev` is always `false`
-   * regardless of any environment variable a hostile or malformed launch could set.
+   * `Q2L_UI_HARNESS === '1'` (`isUiHarnessEnabled`, `src/main/lib/ui-harness.ts`) - and only that,
+   * `app.isDev` is deliberately not part of the gate, see that file's module comment - no dialog
+   * opens at all and `Q2L_UI_PICK_FOLDER` supplies the folder instead. A real user's packaged
+   * build still cannot reach this without deliberately exporting the variable before starting the
+   * binary; it is never set by the app itself or by electron-builder.
    *
    * It exists because Playwright cannot drive a native OS dialog (`docs/UI-VERIFICATION.md`,
    * "Known blind spots") and the bootstrap wizard's target step has no typeable field

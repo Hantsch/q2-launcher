@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, realpath, rm, stat, truncate, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readdir, realpath, rm, stat, truncate, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -123,6 +123,9 @@ async function writeSized(path: string, bytes: number): Promise<void> {
  */
 async function createEngineMissingInstallation(): Promise<void> {
   await writeFile(join(installRoot, 'r1q2ded.exe'), 'dedicated server')
+  // On non-Windows, `looksExecutable` (fs-utils.ts) checks the exec bit rather than a `.exe`
+  // extension - a real installed binary would carry it, so the fixture needs to too.
+  if (process.platform !== 'win32') await chmod(join(installRoot, 'r1q2ded.exe'), 0o755)
   await writeFile(join(installRoot, 'q2launcher-marker.txt'), 'do not touch me')
   await writeSized(join(installRoot, BASE_GAME_DIR, 'pak0.pak'), RETAIL_PAK0_BYTES)
   await writeSized(join(installRoot, BASE_GAME_DIR, 'pak1.pak'), 4096)
@@ -138,6 +141,7 @@ async function createEngineMissingInstallation(): Promise<void> {
  */
 async function createFullR1q2Installation(): Promise<void> {
   await writeFile(join(installRoot, 'r1q2.exe'), 'engine')
+  if (process.platform !== 'win32') await chmod(join(installRoot, 'r1q2.exe'), 0o755)
   await writeSized(join(installRoot, BASE_GAME_DIR, 'pak0.pak'), RETAIL_PAK0_BYTES)
   await writeSized(join(installRoot, BASE_GAME_DIR, 'pak1.pak'), 4096)
   await writeSized(join(installRoot, BASE_GAME_DIR, 'pak2.pak'), 4096)
@@ -151,6 +155,7 @@ async function createFullR1q2Installation(): Promise<void> {
  */
 async function createPointReleaseMissingInstallation(withPak2 = false): Promise<void> {
   await writeFile(join(installRoot, 'r1q2.exe'), 'engine')
+  if (process.platform !== 'win32') await chmod(join(installRoot, 'r1q2.exe'), 0o755)
   await writeFile(join(installRoot, 'q2launcher-marker.txt'), 'do not touch me')
   await writeSized(join(installRoot, BASE_GAME_DIR, 'pak0.pak'), RETAIL_PAK0_BYTES)
   await writeSized(join(installRoot, BASE_GAME_DIR, 'pak1.pak'), 4096)
@@ -236,6 +241,11 @@ function fakeExtractor(): Extractor {
           const target = join(extractDir, relativePath)
           await mkdir(dirname(target), { recursive: true })
           await writeFile(target, `${packageId}:${relativePath}`)
+          // A real archive preserves the exec bit on its client binary; on non-Windows,
+          // `looksExecutable` (fs-utils.ts) checks the mode bit rather than a `.exe` extension, so
+          // the real `inspectInstallation` this suite drives needs it set too (see
+          // `bootstrap/job.test.ts`'s identical fake extractor).
+          if (process.platform !== 'win32') await chmod(target, 0o755)
         }
         return ok(undefined)
       })(),

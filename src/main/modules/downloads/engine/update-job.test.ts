@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -139,6 +139,10 @@ async function writeTree(root: string, files: Record<string, string>): Promise<v
     const target = join(root, relativePath)
     await mkdir(dirname(target), { recursive: true })
     await writeFile(target, content)
+    // A real installed engine binary carries the exec bit; on non-Windows, `looksExecutable`
+    // (fs-utils.ts) checks it rather than a `.exe` extension, and the real `inspectInstallation`
+    // this suite drives needs at least the root client binary to look real.
+    if (process.platform !== 'win32') await chmod(target, 0o755)
   }
 }
 

@@ -18,12 +18,13 @@
 // ## Passes, in this order, in ONE app session
 //
 // 1. Open Settings.
-// 2. AC4 (part 1) - a fresh boot has never checked; a real "Check now" click is a documented
-//    no-op under this dev/unpackaged harness (097 AC5), proven safe rather than skipped.
-// 3. AC1 - this version's own release notes, or its empty state (branches on whether
-//    CHANGELOG.md actually has a `## [<version>]` section for the running `package.json` version -
-//    today it does not, so this naturally exercises the empty-state path, and keeps working the day
-//    a real release section exists).
+// 2. AC4 (part 1) - the update-check row, in whichever of its two legitimate shapes the running
+//    build has: a documented no-op under the dev/unpackaged harness (097 AC5), a real recorded
+//    check against a packaged one. Branches on the build, not on an assumption about it.
+// 3. AC1 - this version's own release notes, or its empty state (branches on whether CHANGELOG.md
+//    has a `## <version> — <date>` section for the version the RUNNING APP reports - the unpackaged
+//    harness reports Electron's own version and so exercises the empty-state path, a packaged build
+//    reports the real one and exercises the notes path).
 // 4. AC3 - the repository/changelog links go out through the recorded external path, in order,
 //    opening no app window.
 // 5. AC2 + AC6 - a pending update's notes render as plain text (bold markdown flattened, an
@@ -57,6 +58,12 @@ import { variantUserDataDir } from '../lib/harness.mjs'
 import { REPO_ROOT } from '../lib/paths.mjs'
 
 const TIMEOUT_MS = 8_000
+/**
+ * A *real* update check - the packaged branch of pass 2 below - is bounded by
+ * `UPDATE_CHECK_TIMEOUT_MS` (20s, `src/main/services/update/service.ts`), not by how fast the UI
+ * reacts, so the ordinary 8s above would fail a check that is merely slow rather than broken.
+ */
+const CHECK_TIMEOUT_MS = 30_000
 const POLL_INTERVAL_MS = 100
 
 /**
@@ -97,8 +104,8 @@ function readRecordedExternalUrls() {
   }
 }
 
-async function waitUntil(predicate, description) {
-  const deadline = Date.now() + TIMEOUT_MS
+async function waitUntil(predicate, description, timeoutMs = TIMEOUT_MS) {
+  const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     if (await predicate()) return
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
@@ -111,34 +118,75 @@ export default async function aboutReleaseNotes({ page, app, step, shot }) {
   await page.getByTestId('nav-settings').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('settings-about').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
-  step('AC4 part 1: a fresh boot has never checked, and Check now is a safe no-op under the harness')
-  // 097 AC5: `supported = app.isPackaged`, always false when Playwright launches the
-  // built-but-unpackaged app, so a real `update:check` cannot even reach 'checking' here - this
-  // step proves the button is real and harmless, not what a genuine network check would show
-  // (that half is 097's own acceptance, named as a gap in this story, not silently dropped).
-  const lastCheckedBefore = await page.getByTestId('about-update-last-checked').innerText()
-  if (!lastCheckedBefore.includes('Never checked for updates')) {
-    throw new Error(
-      `expected a fresh boot to show "Never checked for updates", got: ${JSON.stringify(lastCheckedBefore)}`,
-    )
-  }
+  step('AC4 part 1: the update-check row behaves the way the running build supports')
+  // 097 AC5: `supported = app.isPackaged` (`src/main/context.ts` hands `electronApp.isPackaged`
+  // straight to `createUpdateService`), so this row has two legitimate shapes and which one applies
+  // is a property of the BUILD, not of this flow:
+  //
+  //   unpackaged - a check cannot even reach 'checking', so "Check now" is a documented no-op.
+  //   packaged   - the service is supported: it fires its own startup check
+  //                (`scheduleStartupCheck()`) and the button runs a genuine network check.
+  //
+  // Asserting the no-op unconditionally made this flow fail by construction as soon as
+  // `.github/workflows/linux-verify.yml` (101 D5) started running it against a real AppImage via
+  // `--app=<path>`: both "Never checked for updates" and the unchanged last-checked time are false
+  // there. The build is read off the running app (`app:getInfo`, which already reports
+  // `isPackaged`) rather than derived from whether `--app=` happened to be passed.
+  const { isPackaged, appVersion } = await invoke(page, 'app:getInfo')
+  const lastChecked = page.getByTestId('about-update-last-checked')
   const checkNowButton = page.getByTestId('about-update-check-now')
-  await checkNowButton.click({ timeout: TIMEOUT_MS })
-  await waitUntil(() => checkNowButton.isEnabled(), 'Check now to re-enable after its no-op click')
-  const lastCheckedAfterNoop = await page.getByTestId('about-update-last-checked').innerText()
-  if (lastCheckedAfterNoop !== lastCheckedBefore) {
-    throw new Error(
-      `expected a real check under the dev/unpackaged harness to be a no-op, but last-checked changed from ${JSON.stringify(lastCheckedBefore)} to ${JSON.stringify(lastCheckedAfterNoop)}`,
+
+  if (!isPackaged) {
+    const lastCheckedBefore = await lastChecked.innerText()
+    if (!lastCheckedBefore.includes('Never checked for updates')) {
+      throw new Error(
+        `expected a fresh boot to show "Never checked for updates", got: ${JSON.stringify(lastCheckedBefore)}`,
+      )
+    }
+    await checkNowButton.click({ timeout: TIMEOUT_MS })
+    await waitUntil(() => checkNowButton.isEnabled(), 'Check now to re-enable after its no-op click')
+    const lastCheckedAfterNoop = await lastChecked.innerText()
+    if (lastCheckedAfterNoop !== lastCheckedBefore) {
+      throw new Error(
+        `expected a real check under the dev/unpackaged harness to be a no-op, but last-checked changed from ${JSON.stringify(lastCheckedBefore)} to ${JSON.stringify(lastCheckedAfterNoop)}`,
+      )
+    }
+    if ((await page.getByTestId('about-update-outcome').count()) !== 0) {
+      throw new Error('expected no outcome line after a no-op check under the harness')
+    }
+  } else {
+    // "Never checked" is not assertable here: the startup check is fire-and-forget, so it may
+    // already have completed by the time Settings opens. What a packaged build can be held to is
+    // that a check completes and is *recorded*. The outcome's content is deliberately not
+    // asserted - a CI runner may be rate-limited or offline, and `runAttempt()` writes
+    // `lastCheckedAt` on a failed check exactly as on a successful one.
+    await checkNowButton.click({ timeout: CHECK_TIMEOUT_MS })
+    await waitUntil(
+      () => checkNowButton.isEnabled(),
+      'Check now to re-enable after a real check',
+      CHECK_TIMEOUT_MS,
     )
-  }
-  if ((await page.getByTestId('about-update-outcome').count()) !== 0) {
-    throw new Error('expected no outcome line after a no-op check under the harness')
+    await waitUntil(
+      async () => !(await lastChecked.innerText()).includes('Never checked for updates'),
+      'last-checked to record a completed check',
+      CHECK_TIMEOUT_MS,
+    )
+    await page
+      .getByTestId('about-update-outcome')
+      .waitFor({ state: 'visible', timeout: CHECK_TIMEOUT_MS })
   }
 
   step('AC1: this version\'s own release notes, or its empty state if none exist yet')
-  const packageJson = JSON.parse(readFileSync(join(REPO_ROOT, 'package.json'), 'utf8'))
+  // `appVersion`, not package.json's `version`: `installedReleaseNotes()` looks the section up by
+  // `app.getVersion()`, and under the unpackaged harness that is NOT the repo's version. Electron
+  // is handed `out/main/index.js` as its app path (`launchApp()` in `scripts/lib/harness.mjs`),
+  // there is no package.json in `out/main/`, so `app.getVersion()` falls back to Electron's own
+  // version - which never has a changelog section, so this run always takes the empty-state branch.
+  // A packaged build reports the real version and takes the other one. Reading package.json here
+  // predicted the packaged answer for both, and started failing the moment CHANGELOG.md grew a
+  // section for the current version.
   const changelog = readFileSync(join(REPO_ROOT, 'CHANGELOG.md'), 'utf8')
-  const escapedVersion = packageJson.version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const escapedVersion = appVersion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   // Mirrors scripts/lib/release/changelog.mjs's real heading format (`## <version> — <date>`,
   // em-dash or hyphen, no brackets) - not the bracketed shape this once wrongly assumed.
   const versionHeadingPattern = new RegExp(`^##\\s+${escapedVersion}\\s+[—-]`, 'm')
