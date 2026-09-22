@@ -260,9 +260,15 @@ export function childEnv(extraEnv = {}) {
  * @property {() => void} ensureBuild
  */
 
-/** @returns {HarnessDeps} */
+/**
+ * `launch` is wrapped rather than handed over as `_electron.launch`: Playwright's `launch()` is a
+ * prototype method that reads `this._playwright.selectors` on its very first line, so a bare
+ * reference stored on this object is called with `this === deps` and every launch dies with
+ * "Cannot read properties of undefined (reading 'selectors')" before Electron is even spawned.
+ * @returns {HarnessDeps}
+ */
 function defaultDeps() {
-  return { launch: _electron.launch, ensureBuild }
+  return { launch: (options) => _electron.launch(options), ensureBuild }
 }
 
 /**

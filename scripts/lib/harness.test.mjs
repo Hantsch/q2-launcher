@@ -1,5 +1,6 @@
 import { rmSync } from 'node:fs'
 import { join } from 'node:path'
+import { _electron } from 'playwright'
 import { afterAll, describe, expect, test, vi } from 'vitest'
 import { variantUserDataDir, withApp } from './harness.mjs'
 import { REPO_ROOT } from './paths.mjs'
@@ -118,6 +119,44 @@ describe('an executablePath launch skips ensureBuild and still confines user-dat
     ).rejects.toThrow(/must be inside/)
 
     expect(launch).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('the default launch dependency every real run uses', () => {
+  test('Playwright’s launch is called on `_electron` itself, not on the deps object holding it', async () => {
+    // The `deps` seam above means every other test in this file injects its own `launch` - so the
+    // default the entire UI-verification harness actually runs with (`defaultDeps()` in
+    // `harness.mjs`) is the one code path no test exercised. Storing `_electron.launch` there as a
+    // bare reference calls Playwright's prototype method with `this === deps`, and its first line
+    // reads `this._playwright.selectors`: every flow, screenshot and a11y run dies with "Cannot
+    // read properties of undefined (reading 'selectors')" before Electron is even spawned.
+    //
+    // Proven by receiver, not by spawning: an own-property stub on `_electron` records whatever
+    // `this` the harness's default dependency ends up calling it with. A real launch cannot stand
+    // in here - Playwright reports a binary that fails to start by throwing inside its own async
+    // machinery, which would take the test process down with it.
+    const receivers = []
+    const outsideUserDataDir = join(REPO_ROOT, 'not-ui-verify-userdata')
+    const original = Object.getOwnPropertyDescriptor(_electron, 'launch')
+    _electron.launch = function stubLaunch() {
+      receivers.push(this)
+      return Promise.resolve(makeFakeApp({ reportedUserDataDir: outsideUserDataDir }))
+    }
+
+    try {
+      await expect(
+        withApp(
+          { variant: TEST_VARIANT, executablePath: '/fake/packaged/Q2-Launcher.AppImage' },
+          async () => {},
+        ),
+      ).rejects.toThrow(/must be inside/)
+    } finally {
+      if (original) Object.defineProperty(_electron, 'launch', original)
+      else delete _electron.launch
+    }
+
+    expect(receivers).toHaveLength(1)
+    expect(receivers[0]).toBe(_electron)
   })
 })
 
