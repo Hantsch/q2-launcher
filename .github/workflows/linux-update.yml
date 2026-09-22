@@ -71,6 +71,11 @@ jobs:
       - name: Install xvfb and libfuse2
         run: sudo apt-get update && sudo apt-get install -y xvfb libfuse2
 
+      # See the identical step in `linux-verify.yml` for why this is here on a runner that already
+      # has these: it is what lets `npm run ci:local:update` rehearse this workflow under act.
+      - name: Install Electron's runtime libraries
+        run: npx playwright install-deps chromium
+
       # The script builds both AppImages itself (it has to: each needs its own version baked in,
       # and both need the local feed's port in their `app-update.yml`), so there is no separate
       # packaging step here.

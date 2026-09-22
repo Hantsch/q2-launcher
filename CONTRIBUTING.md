@@ -31,6 +31,47 @@ run.
 | `npm run icon`        | regenerates `build/icon.{png,ico}` from `scripts/generate-icon.mjs` |
 | `npm run package:win` | typecheck, build, then an NSIS installer + zip in `release/`        |
 
+### Rehearsing CI locally
+
+The three workflows that run on Linux can each be run here through
+[act](https://github.com/nektos/act) (`.actrc` pins the runner image and the
+`ubuntu-latest` matrix leg):
+
+| script                  | workflow                              |
+| ----------------------- | ------------------------------------- |
+| `npm run ci:local`      | `ci.yml` — unit tests + user journey  |
+| `npm run ci:local:verify` | `linux-verify.yml` — packaged AppImage, screenshots, axe-core |
+| `npm run ci:local:update` | `linux-update.yml` — the AppImage self-update e2e |
+| `npm run ci:local:all`  | all three, in that order              |
+
+The two AppImage workflows pass `--container-options --privileged`: an AppImage
+mounts itself through FUSE, which a default container cannot do. `--device
+/dev/fuse --cap-add SYS_ADMIN` would be the narrower grant, but act mangles
+`--device` on the way to Docker (`device access at 16 field cannot be empty`),
+so `--privileged` is what actually works. It applies to the throwaway act
+container only — no workflow asks GitHub's runner for it.
+
+**How far each one actually gets, measured rather than assumed.**
+`ci:local` runs `ci.yml` green end to end. `ci:local:verify` gets through
+packaging the AppImage and then fails to *launch* it (`Process failed to
+launch!`) — `/dev/fuse` and the fuse filesystem are both present in the
+privileged container, so the cause is something else about act's environment
+and is still unidentified. Until it is, the packaged-AppImage workflows can be
+rehearsed in a plain container instead: unpack a clean `git archive` of HEAD
+into an image that has Electron's runtime libraries plus `xvfb` and `libfuse2`,
+and run the workflow's own commands. That route does complete, and is what
+found the four bugs behind the failing CI runs of 2026-09-22.
+
+Two things these runs still cannot tell you, both of which have produced a
+green local run over a red CI one before:
+
+- act copies your **working tree**, not the commit (`.actrc`'s
+  `--use-gitignore=false`), so untracked and ignored files are present here and
+  absent on GitHub.
+- your machine is faster, and its locale is probably not the runner's. Two
+  tests currently fail on a German Windows and pass on CI, because
+  `formatRelativeTime()` renders in the system locale.
+
 ESLint is deliberately absent: `typescript-eslint@8` caps TypeScript at
 `<6.1.0` and this project is on TypeScript 7, so the two cannot be installed
 together. `tsc -b` plus Prettier covers the gap.

@@ -56,10 +56,28 @@ jobs:
       - name: Install xvfb and libfuse2
         run: sudo apt-get update && sudo apt-get install -y xvfb libfuse2
 
+      # Electron's own shared-library dependencies (GTK, NSS, gbm, ALSA, …). `ubuntu-latest` ships
+      # every one of them preinstalled, so this is close to a no-op there - it is here so the
+      # workflow is self-contained and can also be run locally through `npm run ci:local:verify`
+      # (act), whose `catthehacker/ubuntu:act-latest` image has NONE of them: without this the local
+      # run fails for a reason that has nothing to do with the code, which is exactly the kind of
+      # false signal a local CI rehearsal exists to avoid. Playwright's own installer rather than a
+      # hand-written apt list because it knows the right package names per Ubuntu release (24.04
+      # renamed several of them in the t64 transition).
+      - name: Install Electron's runtime libraries
+        run: npx playwright install-deps chromium
+
+      # `--publish never` is not optional here, and not merely tidy: electron-builder triggers
+      # publishing *implicitly* when it detects CI, and this workflow has no token and nothing to
+      # publish - its AppImage is a throwaway (see this file's header). On GitHub's runner the
+      # detection happens to stay quiet; under act it does not, and the step dies with "GitHub
+      # Personal Access Token is not set" after a perfectly good build. electron-builder's own
+      # deprecation notice asks for the flag explicitly from v27 on, so this is where it is going
+      # anyway. `release.yml` is the one workflow that really does publish, and it is untouched.
       - name: Package the Linux AppImage
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npm run package:linux
+        run: npm run package:linux -- --publish never
 
       # electron-builder writes `release/<version>/Q2-Launcher-<version>-linux-x86_64.AppImage`
       # (electron-builder.yml's `directories.output`/`linux.artifactName`) - the version is

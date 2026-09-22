@@ -76,6 +76,43 @@ export function configureAutoUpdater(target: AutoUpdaterLike, log: Logger): void
   target.logger = log
 }
 
+/**
+ * The one way this file is allowed to get hold of the real `autoUpdater`, because reaching for
+ * `(await import('electron-updater')).autoUpdater` directly does not survive packaging.
+ *
+ * `electron-updater` does not export `autoUpdater` as a plain binding: it installs it with
+ * `Object.defineProperty(exports, 'autoUpdater', { get })`, a lazy getter that constructs the
+ * platform-specific updater (`AppImageUpdater`, `NsisUpdater`, …) on first access. Node's
+ * named-export detection for a CommonJS module is *static*, so it never sees that getter: in the
+ * packaged build the namespace object's `autoUpdater` is `undefined` and the value is only
+ * reachable through `default`. Dev never shows this - `supported` is `app.isPackaged`, so an
+ * unpackaged run never checks and never performs this import at all.
+ *
+ * Symptom before this existed: every update check on a packaged build died with "Cannot set
+ * properties of undefined (setting 'autoDownload')" in `configureAutoUpdater()`. Caught by
+ * `scripts/linux-update-e2e.mjs` (story 101 D6), not by any unit test - the shape being worked
+ * around here only exists in a real packaged bundle, which is also why the explicit `throw` below
+ * is worth its two lines: if a future `electron-updater` changes shape again, this says so instead
+ * of failing four frames later on a property assignment.
+ */
+async function importAutoUpdater(): Promise<AutoUpdaterLike> {
+  const mod = await import('electron-updater')
+  // The named export first, and `default` only if that came back undefined: the named export is a
+  // getter whose *access* is what constructs the platform updater, so consulting `default`
+  // speculatively would touch it an extra time (and swallow the very first construction error the
+  // retry logic in `createUpdateChecker` exists to recover from).
+  const resolved = (mod.autoUpdater ??
+    (mod as { default?: { autoUpdater?: unknown } }).default?.autoUpdater) as
+    | AutoUpdaterLike
+    | undefined
+  if (resolved === undefined) {
+    throw new Error(
+      'electron-updater exposed no `autoUpdater`, neither as a named export nor on `default`',
+    )
+  }
+  return resolved
+}
+
 /** Joins array-form release notes into one string; a plain string passes through unchanged.
  * `null`/`undefined` becomes `''` - "no notes" is not an error. */
 function joinNotes(notes: string | Array<AutoUpdaterReleaseNote> | null | undefined): string {
@@ -169,9 +206,9 @@ export function createUpdateChecker(options: CreateUpdateCheckerOptions = {}): U
   let realAutoUpdater: Promise<AutoUpdaterLike> | undefined
   async function resolveRealAutoUpdater(): Promise<AutoUpdaterLike> {
     realAutoUpdater ??= (async () => {
-      const mod = await import('electron-updater')
-      configureAutoUpdater(mod.autoUpdater, log)
-      return mod.autoUpdater
+      const real = await importAutoUpdater()
+      configureAutoUpdater(real, log)
+      return real
     })().catch((error: unknown) => {
       realAutoUpdater = undefined
       throw error
@@ -285,8 +322,7 @@ export function createUpdateBackend(options: CreateUpdateBackendOptions = {}): U
   async function updater(): Promise<AutoUpdaterDownloadLike> {
     if (options.autoUpdater !== undefined) return options.autoUpdater
     resolving ??= (async () => {
-      const mod = await import('electron-updater')
-      const real = mod.autoUpdater as unknown as AutoUpdaterDownloadLike
+      const real = (await importAutoUpdater()) as unknown as AutoUpdaterDownloadLike
       configureAutoUpdater(real, log)
       real.autoInstallOnAppQuit = desiredAutoInstall
       resolved = real

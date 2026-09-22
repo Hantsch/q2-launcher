@@ -82,6 +82,11 @@ jobs:
       - name: Install xvfb
         run: sudo apt-get update && sudo apt-get install -y xvfb
 
+      # See the identical step in `linux-verify.yml` for why this is here on a runner that already
+      # has these: it is what lets `npm run ci:local` rehearse this job under act.
+      - name: Install Electron's runtime libraries
+        run: npx playwright install-deps chromium
+
       - name: Build
         run: npm run build
 

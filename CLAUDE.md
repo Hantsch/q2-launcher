@@ -51,6 +51,11 @@ Two TS projects: `tsconfig.node.json` (main/preload/shared) and
   [docs/ARCHITECTURE.md#adding-a-module](docs/ARCHITECTURE.md#adding-a-module).
 - **No image assets in the UI** — all surfaces are CSS/inline SVG
   (`src/renderer/src/styles/`).
+- **Platform parity is explicit.** The app supports **Windows and Linux**, Windows first (~80% of
+  users). A feature that cannot work on the current platform is **never silently omitted there**:
+  the control stays visible, is disabled, and carries the reason as **visible text** ("Not available
+  on Linux: …") — not only a tooltip. The reason is an i18n key like every other label, and the
+  unavailability plus its reason are part of the feature's spec, not an implementation detail.
 
 <!-- tech-rules:managed:start 1.0.0 -->
 ## House rules

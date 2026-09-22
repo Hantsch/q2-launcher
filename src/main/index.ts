@@ -88,18 +88,27 @@ async function bootstrap(): Promise<void> {
   registerAllIpc(context)
   mainWindow = await createMainWindow(context)
 
+  // Both of these used to hang off `mainWindow.window.webContents.once('did-finish-load', …)` here,
+  // and therefore never ran at all: `createMainWindow()` ends by awaiting `window.loadURL(...)`
+  // (src/main/window.ts), and that promise settles with the renderer's own `did-finish-load`. By
+  // the time this line is reached the event has already fired, so a `once` listener registered now
+  // waits for something that is never coming again. The `await` above is itself the guarantee the
+  // listener was there for - "the UI can display the result" is true the moment it returns.
+  //
+  // Caught by `scripts/linux-update-e2e.mjs` (story 101 D6/AC6): its packaged AppImage sat at
+  // `{ status: 'idle', lastCheckedAt: null, supported: true }` for the full 180s, i.e. a build that
+  // supports updates had simply never checked for one.
+
   // Re-check every installation once the UI can display the result: a folder may
   // have been deleted, moved or unplugged while the launcher was closed.
-  mainWindow.window.webContents.once('did-finish-load', () => {
-    void revalidateOnStartup(context!)
+  void revalidateOnStartup(context)
 
-    // Story 097 D5: the update-check's startup kick reuses this same hook - fire-and-forget, after
-    // a short delay so it never competes with the window's own first paint, and never awaited
-    // (`scheduleStartupCheck()` itself returns synchronously; AC3's "does not block startup").
-    setTimeout(() => {
-      context?.update.scheduleStartupCheck()
-    }, 3_000)
-  })
+  // Story 097 D5: the update-check's startup kick - fire-and-forget, after a short delay so it
+  // never competes with the window's own first paint, and never awaited
+  // (`scheduleStartupCheck()` itself returns synchronously; AC3's "does not block startup").
+  setTimeout(() => {
+    context?.update.scheduleStartupCheck()
+  }, 3_000)
 
   app.on('activate', () => {
     // macOS: re-create the window after the last one was closed.
