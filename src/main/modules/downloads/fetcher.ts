@@ -337,6 +337,12 @@ async function attemptDownload(context: AttemptContext): Promise<AttemptResult> 
         }
 
         hash.update(value)
+        // Checked both before and after: `file`'s 'error' listener runs asynchronously, so a
+        // write error recorded during the previous iteration's `await` (the `reader.read()` above,
+        // or a `drain` wait) can land between iterations - calling `file.write()` again once that
+        // has already destroyed the stream throws `ERR_STREAM_DESTROYED` synchronously, a confusing
+        // error in place of the real, already-recorded cause.
+        if (writeErrors.length > 0) throw writeErrors[0]
         if (!file.write(value)) await once(file, 'drain')
         if (writeErrors.length > 0) throw writeErrors[0]
 

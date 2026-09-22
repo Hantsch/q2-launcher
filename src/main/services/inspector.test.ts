@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, truncate, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, rm, truncate, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -26,8 +26,11 @@ beforeEach(async () => {
   baseDir = join(rootPath, BASE_GAME_DIR)
   await mkdir(baseDir, { recursive: true })
   // A root-level executable so the `executable` check doesn't add noise to these `base-paks`
-  // assertions.
+  // assertions. On non-Windows, `looksExecutable` (fs-utils.ts) checks the exec bit rather than
+  // the `.exe` extension, so the fixture needs it set too (story 100 D3's established pattern,
+  // see `installations.test.ts`'s `writePlayableRoot`).
   await writeFile(join(rootPath, 'q2pro.exe'), 'stand-in executable')
+  if (process.platform !== 'win32') await chmod(join(rootPath, 'q2pro.exe'), 0o755)
 })
 
 afterEach(async () => {

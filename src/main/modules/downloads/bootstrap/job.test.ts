@@ -1,9 +1,10 @@
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RETAIL_PAK_SIZES } from '@shared/constants'
+import { stubPlatform } from '../../../../test-support/platform'
 import {
   DEFAULT_BOOTSTRAP_INSTALLATION_NAME,
   type DetectedRetailSource,
@@ -376,6 +377,12 @@ function harness(
           const absolute = join(input.extractDir, relative)
           await mkdir(join(absolute, '..'), { recursive: true })
           await writeFile(absolute, `contents of ${relative}`)
+          // A real archive preserves the exec bit on its client binary; this fixture tree stands
+          // in for that (see the suite comment above) and the real `inspectInstallation` this suite
+          // drives needs it too - on non-Windows, `looksExecutable` (fs-utils.ts) checks the mode
+          // bit rather than a `.exe` extension, so a plain `writeFile` alone leaves every package's
+          // binary looking non-executable and the installation reads back as 'invalid'.
+          if (process.platform !== 'win32') await chmod(absolute, 0o755)
         }
         return { ok: true as const, value: undefined }
       })()
@@ -1070,37 +1077,44 @@ describe('startBootstrap', () => {
    * copy.
    */
   it('seeds baseq2/autoexec.cfg with the r1gl line, and an adopted retry can still seed it after a failure', async () => {
-    const box = harness({
-      manifest: fakeManifest([R1Q2_ENGINE_PACKAGE, DEMO_PACKAGE, POINT_RELEASE_PACKAGE]),
-    })
-    const cfgPath = join(targetPath, 'baseq2', 'autoexec.cfg')
+    // `seedR1glConfig` (the real implementation throughout this suite) is a hard no-op off
+    // Windows (story 100 D6 AC6) - proving it actually seeds the file needs `stubPlatform`.
+    const restorePlatform = stubPlatform('win32')
+    try {
+      const box = harness({
+        manifest: fakeManifest([R1Q2_ENGINE_PACKAGE, DEMO_PACKAGE, POINT_RELEASE_PACKAGE]),
+      })
+      const cfgPath = join(targetPath, 'baseq2', 'autoexec.cfg')
 
-    // First pass: the config is seeded, then the run fails at the inspector verdict (same fixture
-    // as story 077 D3's own adoption tests). The failure's cleanup removes the seeded file along
-    // with everything else this job assembled, leaving `baseq2` empty again.
-    breakTargetBeforeValidate(box)
-    const first = await startBootstrap(box.deps, {
-      engine: 'r1q2',
-      targetPath,
-      name: 'My R1Q2',
-      includeVideoAndPlayers: false,
-    })
-    if (!first.ok) throw new Error(`the first run refused to start: ${first.error.key}`)
-    expect((await first.value.settled).status).toBe('failed')
-    vi.restoreAllMocks()
+      // First pass: the config is seeded, then the run fails at the inspector verdict (same
+      // fixture as story 077 D3's own adoption tests). The failure's cleanup removes the seeded
+      // file along with everything else this job assembled, leaving `baseq2` empty again.
+      breakTargetBeforeValidate(box)
+      const first = await startBootstrap(box.deps, {
+        engine: 'r1q2',
+        targetPath,
+        name: 'My R1Q2',
+        includeVideoAndPlayers: false,
+      })
+      if (!first.ok) throw new Error(`the first run refused to start: ${first.error.key}`)
+      expect((await first.value.settled).status).toBe('failed')
+      vi.restoreAllMocks()
 
-    const retried = await startBootstrap(box.deps, {
-      engine: 'r1q2',
-      targetPath,
-      name: 'My R1Q2 (retry)',
-      includeVideoAndPlayers: false,
-    })
-    if (!retried.ok) throw new Error(`retry refused: ${JSON.stringify(retried.error)}`)
-    expect((await retried.value.settled).status).toBe('succeeded')
-    // The same installation adopted, not a duplicate refusal - the whole point of tracking the
-    // seeded file in `copied`.
-    expect(retried.value.installationId).toBe(first.value.installationId)
-    expect(await readFile(cfgPath, 'utf8')).toBe('set vid_ref "r1gl"\n')
+      const retried = await startBootstrap(box.deps, {
+        engine: 'r1q2',
+        targetPath,
+        name: 'My R1Q2 (retry)',
+        includeVideoAndPlayers: false,
+      })
+      if (!retried.ok) throw new Error(`retry refused: ${JSON.stringify(retried.error)}`)
+      expect((await retried.value.settled).status).toBe('succeeded')
+      // The same installation adopted, not a duplicate refusal - the whole point of tracking the
+      // seeded file in `copied`.
+      expect(retried.value.installationId).toBe(first.value.installationId)
+      expect(await readFile(cfgPath, 'utf8')).toBe('set vid_ref "r1gl"\n')
+    } finally {
+      restorePlatform()
+    }
   })
 
   /**

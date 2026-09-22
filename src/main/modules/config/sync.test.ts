@@ -213,18 +213,25 @@ describe('syncProfile', () => {
   it('reports the canonical file as missing when its directory cannot be created', async () => {
     const blocker = join(userDataDir, 'blocker')
     await writeFile(blocker, 'x', 'latin1')
-    // A path nested under a plain file: on Windows this makes both the write
-    // (ENOTDIR from the underlying mkdir) and the live read (ENOENT) fail,
-    // with no prior file ever having existed - hence 'missing', not 'error'.
+    // A path nested under a plain file, with different codes per platform: Windows reports ENOENT
+    // for both the blocked `readdir` (`readCanonicalOwnership`, canonical.ts) and the blocked live
+    // read (`readLiveFile`, sync.ts), so `syncProfile` resolves with 'missing' - no prior file ever
+    // having existed. Linux/macOS correctly report ENOTDIR instead, which neither function's
+    // ENOENT-only-swallowed contract treats as "nothing here" (deliberate - see their doc
+    // comments); `syncProfile` has no broader catch around `readCanonicalOwnership`, so on those
+    // platforms this scenario rejects the whole call rather than resolving a status.
     const uncreatableBaseDir = join(blocker, 'sub', 'userData')
 
     const p = profile({ assignments: [] })
-    const result = await syncProfile(
-      deps({ profile: p, allProfiles: [p], canonicalBaseDir: uncreatableBaseDir }),
-    )
+    const run = syncProfile(deps({ profile: p, allProfiles: [p], canonicalBaseDir: uncreatableBaseDir }))
 
-    expect(result.state.own.status).toBe('missing')
-    expect(result.writeFailures['p1|own']).toMatchObject({ messageKey: 'config.error.writeFailed' })
+    if (process.platform === 'win32') {
+      const result = await run
+      expect(result.state.own.status).toBe('missing')
+      expect(result.writeFailures['p1|own']).toMatchObject({ messageKey: 'config.error.writeFailed' })
+    } else {
+      await expect(run).rejects.toMatchObject({ code: 'ENOTDIR' })
+    }
   })
 
   it('attributes a sibling profile’s write failure to the sibling, not to the profile being synced', async () => {

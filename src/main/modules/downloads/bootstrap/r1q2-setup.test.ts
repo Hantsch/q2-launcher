@@ -28,6 +28,17 @@ afterEach(async () => {
 })
 
 describe('probeX86Runtime', () => {
+  // Story 100 D6 (AC6): the probe is a hard no-op off Windows (r1q2-setup.ts's own
+  // belt-and-braces guard), so proving what it does *on* Windows needs `stubPlatform` - without
+  // it, these two would only pass by accident on a Windows host and fail everywhere else.
+  let restore: () => void
+  beforeEach(() => {
+    restore = stubPlatform('win32')
+  })
+  afterEach(() => {
+    restore()
+  })
+
   it('reports true when a candidate path exists', async () => {
     const present = await probeX86Runtime({ fileExists: () => Promise.resolve(true) })
     expect(present).toBe(true)
@@ -53,6 +64,17 @@ describe('probeX86Runtime', () => {
 })
 
 describe('seedR1glConfig', () => {
+  // Story 100 D6 (AC6): a hard no-op off Windows (see the module comment on `seedR1glConfig`),
+  // so proving it actually seeds the file needs `stubPlatform` - without it, these would only pass
+  // by accident on a Windows host (the 'off Windows' describe block below covers the no-op case).
+  let restore: () => void
+  beforeEach(() => {
+    restore = stubPlatform('win32')
+  })
+  afterEach(() => {
+    restore()
+  })
+
   it('writes baseq2/autoexec.cfg with the r1gl line when it does not exist', async () => {
     await seedR1glConfig(dir)
     const content = await readFile(join(dir, 'baseq2', 'autoexec.cfg'), 'utf8')

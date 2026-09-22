@@ -20,6 +20,14 @@ vi.mock('electron', () => ({
 
 const FAKE_WINDOW = { id: 'fake-window' } as unknown as Electron.BrowserWindow
 
+/**
+ * `Q2L_UI_PICK_FILES` fixture paths: platform-appropriate, since `parseHarnessPickedFiles` splits
+ * on `path.delimiter` (`;` on Windows, `:` elsewhere) - a hardcoded Windows drive letter like
+ * `C:\fixtures\dm.cfg` contains its own `:`, which a `:`-delimiter split would tear in two.
+ */
+const FIXTURE_DM_CFG = process.platform === 'win32' ? 'C:\\fixtures\\dm.cfg' : '/fixtures/dm.cfg'
+const FIXTURE_GFX_CFG = process.platform === 'win32' ? 'C:\\fixtures\\gfx.cfg' : '/fixtures/gfx.cfg'
+
 beforeEach(() => {
   dialogMock.showOpenDialog.mockReset()
   dialogMock.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [] })
@@ -75,7 +83,7 @@ describe('pickConfigFiles: the real dialog branch', () => {
 describe('the harness stub requires only Q2L_UI_HARNESS - isDev is not part of the gate', () => {
   it('both flags off: the real dialog runs, Q2L_UI_PICK_FILES is ignored', async () => {
     delete process.env['Q2L_UI_HARNESS']
-    process.env['Q2L_UI_PICK_FILES'] = `C:\\fixtures\\dm.cfg${delimiter}C:\\fixtures\\gfx.cfg`
+    process.env['Q2L_UI_PICK_FILES'] = `${FIXTURE_DM_CFG}${delimiter}${FIXTURE_GFX_CFG}`
     dialogMock.showOpenDialog.mockResolvedValue({ canceled: true, filePaths: [] })
 
     const result = await service(false).pickConfigFiles({})
@@ -86,7 +94,7 @@ describe('the harness stub requires only Q2L_UI_HARNESS - isDev is not part of t
 
   it('only Q2L_UI_HARNESS=1 (isDev false): no dialog opens, paths come from Q2L_UI_PICK_FILES', async () => {
     process.env['Q2L_UI_HARNESS'] = '1'
-    process.env['Q2L_UI_PICK_FILES'] = `C:\\fixtures\\dm.cfg${delimiter}C:\\fixtures\\gfx.cfg`
+    process.env['Q2L_UI_PICK_FILES'] = `${FIXTURE_DM_CFG}${delimiter}${FIXTURE_GFX_CFG}`
 
     const result = await service(false).pickConfigFiles({})
 
@@ -96,7 +104,7 @@ describe('the harness stub requires only Q2L_UI_HARNESS - isDev is not part of t
 
   it('only isDev=true (Q2L_UI_HARNESS unset): the real dialog still runs', async () => {
     delete process.env['Q2L_UI_HARNESS']
-    process.env['Q2L_UI_PICK_FILES'] = `C:\\fixtures\\dm.cfg${delimiter}C:\\fixtures\\gfx.cfg`
+    process.env['Q2L_UI_PICK_FILES'] = `${FIXTURE_DM_CFG}${delimiter}${FIXTURE_GFX_CFG}`
     dialogMock.showOpenDialog.mockResolvedValue({ canceled: true, filePaths: [] })
 
     const result = await service(true).pickConfigFiles({})
@@ -107,7 +115,7 @@ describe('the harness stub requires only Q2L_UI_HARNESS - isDev is not part of t
 
   it('only isDev=true and Q2L_UI_HARNESS set to something other than "1": the real dialog still runs', async () => {
     process.env['Q2L_UI_HARNESS'] = 'true'
-    process.env['Q2L_UI_PICK_FILES'] = `C:\\fixtures\\dm.cfg${delimiter}C:\\fixtures\\gfx.cfg`
+    process.env['Q2L_UI_PICK_FILES'] = `${FIXTURE_DM_CFG}${delimiter}${FIXTURE_GFX_CFG}`
     dialogMock.showOpenDialog.mockResolvedValue({ canceled: true, filePaths: [] })
 
     const result = await service(true).pickConfigFiles({})
@@ -118,7 +126,7 @@ describe('the harness stub requires only Q2L_UI_HARNESS - isDev is not part of t
 
   it('both flags on: no dialog opens, paths come from Q2L_UI_PICK_FILES instead', async () => {
     process.env['Q2L_UI_HARNESS'] = '1'
-    process.env['Q2L_UI_PICK_FILES'] = `C:\\fixtures\\dm.cfg${delimiter}C:\\fixtures\\gfx.cfg`
+    process.env['Q2L_UI_PICK_FILES'] = `${FIXTURE_DM_CFG}${delimiter}${FIXTURE_GFX_CFG}`
 
     const result = await service(true).pickConfigFiles({})
 

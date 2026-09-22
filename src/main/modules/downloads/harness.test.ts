@@ -42,11 +42,21 @@ import type { Logger } from '../../lib/logger'
 
 const LOOPBACK_BASE = 'http://127.0.0.1:53129'
 
+/**
+ * `Q2L_UI_PICK_FOLDER` fixture paths: platform-appropriate, since `uiHarnessPickedFolders` splits
+ * on `path.delimiter` (`;` on Windows, `:` elsewhere) - a hardcoded Windows drive letter like
+ * `C:\fixtures\...` contains its own `:`, which a `:`-delimiter split would tear in two.
+ */
+const FIXTURE_FOLDER_PROGRAM_FILES =
+  process.platform === 'win32' ? 'C:\\Program Files\\fixture-probe' : '/opt/fixture-probe'
+const FIXTURE_FOLDER_BOOTSTRAP_TARGET =
+  process.platform === 'win32' ? 'C:\\fixtures\\bootstrap-target' : '/fixtures/bootstrap-target'
+
 /** A harness-launched environment, regardless of `isDev`. */
 const HARNESS_ENV = {
   [UI_HARNESS_ENV]: '1',
   [HARNESS_CONTENT_REPO_BASE_ENV]: LOOPBACK_BASE,
-  [UI_HARNESS_PICK_FOLDER_ENV]: `C:\\Program Files\\fixture-probe${delimiter}C:\\fixtures\\bootstrap-target`,
+  [UI_HARNESS_PICK_FOLDER_ENV]: `${FIXTURE_FOLDER_PROGRAM_FILES}${delimiter}${FIXTURE_FOLDER_BOOTSTRAP_TARGET}`,
 } as NodeJS.ProcessEnv
 
 function silentLogger(): Logger {
@@ -292,8 +302,8 @@ describe('the folder-picker stub requires only Q2L_UI_HARNESS - isDev is not par
 
   it('only Q2L_UI_HARNESS=1 (isDev false): the fixture paths come back, no dialog involved', () => {
     expect(uiHarnessPickedFolders({ isDev: false, env: HARNESS_ENV })).toEqual([
-      'C:\\Program Files\\fixture-probe',
-      'C:\\fixtures\\bootstrap-target',
+      FIXTURE_FOLDER_PROGRAM_FILES,
+      FIXTURE_FOLDER_BOOTSTRAP_TARGET,
     ])
   })
 
@@ -311,8 +321,8 @@ describe('the folder-picker stub requires only Q2L_UI_HARNESS - isDev is not par
 
   it('both flags on: the fixture paths come back in order, and no dialog is involved', () => {
     expect(uiHarnessPickedFolders({ isDev: true, env: HARNESS_ENV })).toEqual([
-      'C:\\Program Files\\fixture-probe',
-      'C:\\fixtures\\bootstrap-target',
+      FIXTURE_FOLDER_PROGRAM_FILES,
+      FIXTURE_FOLDER_BOOTSTRAP_TARGET,
     ])
   })
 
@@ -321,12 +331,13 @@ describe('the folder-picker stub requires only Q2L_UI_HARNESS - isDev is not par
   })
 
   it('drops empty segments, so a trailing delimiter is not a phantom pick', () => {
+    const fixtureOne = process.platform === 'win32' ? 'C:\\one' : '/one'
     expect(
       uiHarnessPickedFolders({
         isDev: true,
-        env: { [UI_HARNESS_ENV]: '1', [UI_HARNESS_PICK_FOLDER_ENV]: `C:\\one${delimiter}` },
+        env: { [UI_HARNESS_ENV]: '1', [UI_HARNESS_PICK_FOLDER_ENV]: `${fixtureOne}${delimiter}` },
       }),
-    ).toEqual(['C:\\one'])
+    ).toEqual([fixtureOne])
   })
 
   it('agrees with isUiHarnessEnabled: the env var alone decides, isDev is irrelevant', () => {

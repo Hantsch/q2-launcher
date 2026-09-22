@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, realpath, rm, stat, truncate, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readdir, realpath, rm, stat, truncate, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -84,6 +84,9 @@ async function createDemoInstallation(baseDirName = BASE_GAME_DIR): Promise<void
   await mkdir(join(baseDir, 'players', 'male'), { recursive: true })
   await mkdir(join(installRoot, 'xatrix'), { recursive: true })
   await writeFile(join(installRoot, 'r1q2.exe'), 'engine')
+  // On non-Windows, `looksExecutable` (fs-utils.ts) checks the exec bit rather than a `.exe`
+  // extension - a real installed binary would carry it, so the fixture needs to too.
+  if (process.platform !== 'win32') await chmod(join(installRoot, 'r1q2.exe'), 0o755)
   await writeFile(join(installRoot, 'q2launcher-marker.txt'), 'do not touch me')
   await writeFile(join(baseDir, 'pak0.pak'), Buffer.alloc(DEMO_PAK0_BYTES))
   await writeFile(join(baseDir, 'config.cfg'), 'bind w +forward')
