@@ -37,6 +37,16 @@ const BACKGROUND_COLOR = '#0b0b0d'
 const IS_UI_HARNESS = process.env['Q2L_UI_HARNESS'] === '1'
 
 /**
+ * A harness window is placed left of every display, so a run neither steals focus nor paints over
+ * the desktop of whoever started it. Same size as always, so screenshots and geometry flows see
+ * exactly the layout they did on screen. `Q2L_UI_VISIBLE=1` puts it back on screen for debugging.
+ */
+const IS_UI_HARNESS_OFFSCREEN = IS_UI_HARNESS && process.env['Q2L_UI_VISIBLE'] !== '1'
+
+/** Gap between the offscreen window and the leftmost display, so no border pixel peeks in. */
+const OFFSCREEN_MARGIN = 100
+
+/**
  * Which document this window loads, and what `will-navigate` therefore has to allow. Derived from
  * the dev server being present rather than from `is.dev` — see the same derivation in `index.ts`,
  * which decides the matching CSP from it. `resolveRendererSource` is pure, so both agree; read
@@ -109,11 +119,22 @@ export async function createMainWindow(app: AppContext): Promise<MainWindow> {
   })
 
   const saved = withVisiblePosition(await store.load())
+  const position = IS_UI_HARNESS_OFFSCREEN
+    ? {
+        x:
+          Math.min(...screen.getAllDisplays().map((display) => display.bounds.x)) -
+          saved.width -
+          OFFSCREEN_MARGIN,
+        y: 0,
+      }
+    : saved.x !== undefined && saved.y !== undefined
+      ? { x: saved.x, y: saved.y }
+      : {}
 
   const window = new BrowserWindow({
     width: saved.width,
     height: saved.height,
-    ...(saved.x !== undefined && saved.y !== undefined ? { x: saved.x, y: saved.y } : {}),
+    ...position,
     minWidth: WINDOW_MIN_WIDTH,
     minHeight: WINDOW_MIN_HEIGHT,
     show: false,
@@ -141,6 +162,8 @@ export async function createMainWindow(app: AppContext): Promise<MainWindow> {
       nodeIntegration: false,
       webSecurity: true,
       spellcheck: false,
+      // An offscreen window still has to keep rendering at full rate for screenshots and timers.
+      ...(IS_UI_HARNESS_OFFSCREEN ? { backgroundThrottling: false } : {}),
     },
   })
 
@@ -203,8 +226,11 @@ export async function createMainWindow(app: AppContext): Promise<MainWindow> {
   })
 
   window.once('ready-to-show', () => {
-    if (saved.fullScreen) window.setFullScreen(true)
-    else if (saved.maximized) window.maximize()
+    // Skipped offscreen: maximize/fullscreen would pull the window back onto a display.
+    if (!IS_UI_HARNESS_OFFSCREEN) {
+      if (saved.fullScreen) window.setFullScreen(true)
+      else if (saved.maximized) window.maximize()
+    }
     // `show()` shows *and* focuses; `showInactive()` shows without asking for
     // activation. The harness path needs the second one — `focusable: false`
     // alone would leave Electron requesting a focus the window then refuses.

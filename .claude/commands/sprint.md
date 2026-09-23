@@ -1,11 +1,11 @@
 ---
-description: Runs a sprint (sprints/SNN/sprint.md) autonomously — branch, refine + build every story with its acceptance tests, one commit per story, then the review doc.
+description: Runs a sprint (sprints/SNN/sprint.md) autonomously — branch, refine + build every story with its acceptance tests, one commit per story, a full regression gate, then the review doc.
 argument-hint: <sprint-id>
 model: sonnet
 effort: medium
 ---
 
-<!-- ai-scrum:managed 4.0.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
+<!-- ai-scrum:managed 4.1.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
      setup diffs this file on update and asks before replacing it. Project facts go in .claude/ai-scrum.md. -->
 
 Run sprint **$1**.
@@ -126,6 +126,9 @@ Prompt (self-contained):
     return `BLOCKED: <reason>`. QA rules apply without exception — never weaken tests to go
     green.
   - Do not commit (the orchestrator does that).
+  - **Narrow gate only.** Verify with step 5 of `build.md` as written — `test-story` /
+    `e2e-story` where the profile sets them. Skip step 6b and the closing line of step 11:
+    the full regression gate is the sprint's, and runs once after the last story.
   - **Progress file:** `<sprints>/$1/progress.md` (spell out the resolved path; the file is
     created by the first append). Apply the "Progress trail" rule from `build.md`'s
     `## Delegation rules` for every deliverable: one shell command per `started`/`done`/
@@ -151,6 +154,61 @@ and only on the sprint branch (never push, never on a `protected-branches` entry
   not bleed into the next story's diff; mark the story in `sprint.md`. If a later story
   depends on the blocked one, skip it too (with a note) instead of building on a broken base.
 
+## Phase 2b — Regression gate (mandatory, after the last story, before the review)
+
+Every story passed its own narrow gate; this is where they run **together**. A story's gate
+proves its criteria and what its changes touch — it cannot see a later story breaking an
+earlier one's flow, or two stories that are each fine and wrong in combination. Running all
+suites once, on the finished branch, is what catches that. This phase is not optional and is
+not skipped because every story came back green: that is exactly the state in which such a
+regression hides.
+
+Resume: the result lives in `sprint.md` under `## Regression gate` and is committed with the
+review in phase 3. If that section already holds a result and no story or fix commit came
+after the commit it names, skip to phase 3.
+
+1. **Run the full gate** — ONE fresh `Agent` (`model: "sonnet"`, `run_in_background: false`),
+   so the suite output lands in its context and not in yours. It runs, each once, on the
+   sprint branch's `HEAD`: `build`, the full `test`, the full `e2e`, and `e2e-all` — each only
+   if set and not `none`, `e2e-all` skipped when it is the same command as `e2e`. It changes
+   no files and returns at most 15 lines: per command green/red, and for red the failing test
+   names with their files. Nothing to run at all (every entry `none`) → record that and go on.
+2. **Green** → record it (step 5) and go to phase 3.
+3. **Red → attribute it to a story.** Delegate to ONE fresh `Agent` (`model: "sonnet"`,
+   `run_in_background: false`) with the failing tests, the sprint's story commits
+   (`git log --oneline <branch-base>..HEAD`), the `build` command and the instruction to change
+   no source file:
+   - **Flaky first:** run only the failing tests once more on `HEAD`. Green now → not a
+     regression but a flaky test; it is named as a finding in the review, never silenced, and
+     not bisected.
+   - **Pre-existing:** run only the failing tests on the sprint's start
+     (`git merge-base <branch-base> HEAD`). Red there too → the sprint did not cause it; it is
+     reported as pre-existing, not bisected, not fixed here.
+   - **Otherwise bisect** over the sprint's commits: `git bisect start HEAD <merge-base>`, then
+     `git bisect run` with a script that runs `build` (when set) and only the failing tests —
+     never the whole suite per step. The first bad commit names the story by its ID prefix
+     (`042: …`, or `WIP 042: …` for a blocked one). Always finish with `git bisect reset`, and
+     confirm the branch is back on its `HEAD` with a clean tree.
+   - Returns at most 10 lines: per failing test the verdict (`flaky` / `pre-existing` /
+     `story <id>, commit <sha>`).
+   Without per-story commits (`auto-commit-per-story: false`) there is nothing to bisect: the
+   agent attributes by which story's changed files the failing test exercises, and says that
+   the attribution is a judgment, not a bisect result.
+4. **Fix it on the sprint branch, or report it as a blocker.** Per attributed story, ONE fresh
+   `Agent` (`model: "sonnet"`, `run_in_background: false`) gets the story file, the failing
+   tests, the bisected commit's diff and the build rules that still hold: fix the cause, never
+   the test — a test weakened until the gate goes green is the regression shipped. It re-runs
+   the failing tests, then the full gate once. Green → commit on the sprint branch as
+   `<id>: fix regression from sprint gate` (only with `auto-commit-per-story: true`, same rules
+   as phase 2), and append one line to that story's `## Done` naming the regression and the fix
+   commit. Two fix attempts without green → stop fixing: it is a **blocker for the merge**,
+   reported in the review with the failing tests and the attributed story. The story file is
+   not moved back out of `done/`; the blocker is the sprint's, not a reopened story.
+5. **Record** under `## Regression gate` in `sprint.md` (append the section if missing): the
+   commands that ran, green/red, the commit it ran on, and per failure its verdict and outcome
+   (fixed in `<sha>` / blocker / pre-existing / flaky). This is the resume marker, and the
+   source for the review.
+
 ## Phase 3 — Sprint review
 
 1. **`<sprints>/$1/review.md`** you write yourself from the collected results (in the
@@ -162,6 +220,11 @@ and only on the sprint branch (never push, never on a `protected-branches` entry
      (corrections, direction decisions).
    - **Blocked / open:** blocked stories with their reason and the question the user has to
      decide.
+   - **Regression gate:** from `## Regression gate` in `sprint.md` — the commands, the
+     result, and per failure the test, the story it was bisected to and what happened (fixed
+     in which commit, blocker, pre-existing, flaky). A regression that is still red is listed
+     under **Blocked / open** as well, and the review says plainly: do not merge before it is
+     resolved.
    - **Acceptance:** one section listing, per story, the criteria and the test that proved
      each one (from the Done sections) — and separately every `manual residue` with its
      reason. That list is the sprint's acceptance record. It is also the honest place to say
@@ -204,18 +267,22 @@ and only on the sprint branch (never push, never on a `protected-branches` entry
    version section. `/build` writes them per story; this is the sweep that catches the ones it
    missed. A missing entry is a finding in the review, not something you fix silently — add it,
    and say in the review that it was added late. When `changelog-path` is `none`, skip this.
-5. `sprint.md`: `status: done` as soon as every story is `done` or visibly marked blocked.
+5. `sprint.md`: `status: done` as soon as every story is `done` or visibly marked blocked,
+   and the regression gate (phase 2b) is recorded — green, or its red result named as a
+   blocker in the review.
    Nothing is held open for an acceptance round — a sprint is finished when its work is
    finished, and a story stays open only for a blocker that makes it genuinely
    uncompletable (normally caught in refinement, not here).
-6. Final commit: `$1: sprint review + roadmap` (add `+ testplan` only if a `testplan.md` was
+6. Final commit: `$1: sprint review + roadmap` — it carries the `## Regression gate` record
+   in `sprint.md` too (add `+ testplan` only if a `testplan.md` was
    actually written).
 
 ## Final report to the user
 
 Short and complete: branch name, stories done/blocked, path to `review.md` (and to
 `testplan.md`, if one was written — otherwise say plainly that nothing needs walking by hand),
-the acceptance record in one line (criteria proven by tests / manual residues / criteria
+the regression gate in one line (green, or which story broke what and whether it was fixed — a
+red gate first and loudly, because it decides the merge), the acceptance record in one line (criteria proven by tests / manual residues / criteria
 covered below the real surface), and that merging into `branch-base` is the user's decision.
 A `protected-branches` entry is never the target of a sprint branch merge you make.
 
@@ -226,6 +293,9 @@ A `protected-branches` entry is never the target of a sprint branch merge you ma
   Every criterion was mapped to a test in refine and proven by it in build; `review.md` records
   which test proved what. A sprint that ends with "please walk these 40 items" has failed at
   refine, not at review.
+- **Narrow per story, broad per sprint.** Each story runs only its own tests and flows; the full
+  suites run once, in phase 2b, on the finished branch. Never skip that phase to save time and
+  never widen a story's gate to compensate — the one is cheap because the other exists.
 - **The real surface (P1)**, if `ui-acceptance-required: true`: criteria about user actions are
   proven through the profile's `e2e` command. Where a story could only cover one a level below
   that — a missing harness, a missing trigger — it is named as a gap in `review.md` (and, if

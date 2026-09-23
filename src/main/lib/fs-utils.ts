@@ -1,6 +1,7 @@
 import { constants as FS } from 'node:fs'
-import { access, mkdir, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises'
+import { access, mkdir, open, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path'
+import type { BinaryKind } from '@shared/types'
 
 export async function pathExists(target: string): Promise<boolean> {
   try {
@@ -179,4 +180,34 @@ export async function looksExecutable(dir: string, name: string): Promise<boolea
 
 export function fileName(target: string): string {
   return basename(target)
+}
+
+/**
+ * Identifies a file by its first 4 bytes rather than its extension or execute
+ * bit: `MZ` (PE), `\x7fELF`, or `#!` (a shebang script). Reads only that much
+ * of the file and never throws - a missing, unreadable or too-short file is
+ * `'unknown'`, same as the rest of this module's read helpers.
+ */
+export async function readBinaryKind(path: string): Promise<BinaryKind> {
+  let handle
+  try {
+    handle = await open(path, 'r')
+  } catch {
+    return 'unknown'
+  }
+
+  try {
+    const header = Buffer.alloc(4)
+    const { bytesRead } = await handle.read(header, 0, 4, 0)
+    if (bytesRead >= 4 && header[0] === 0x7f && header[1] === 0x45 && header[2] === 0x4c && header[3] === 0x46) {
+      return 'elf'
+    }
+    if (bytesRead >= 2 && header[0] === 0x4d && header[1] === 0x5a) return 'pe'
+    if (bytesRead >= 2 && header[0] === 0x23 && header[1] === 0x21) return 'script'
+    return 'unknown'
+  } catch {
+    return 'unknown'
+  } finally {
+    await handle.close()
+  }
 }

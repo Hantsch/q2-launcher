@@ -42,6 +42,15 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 /**
+ * The UI-verification harness places its window offscreen (`src/main/window.ts`). Chromium's
+ * Windows occlusion tracking would then treat it as hidden and stop painting it, which stalls
+ * screenshots - so the harness turns it off. Must be set before `ready`, hence module load.
+ */
+if (process.env['Q2L_UI_HARNESS'] === '1' && process.env['Q2L_UI_VISIBLE'] !== '1') {
+  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
+}
+
+/**
  * Only one launcher at a time: a second instance would fight over `state.json`
  * and could start the same installation twice.
  */

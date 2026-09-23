@@ -11,6 +11,15 @@ version section when a release actually ships.
 ## Unreleased
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
+### Added
+- **Linux** — a Windows Quake II build (Steam, GOG, a folder carried over from another machine)
+  now plays on Linux too: the launcher offers wine or umu-run as a runner and launches through it
+  when you pick one.
+- **Steam** — a Steam-owned installation can hand off to Steam itself instead of the launcher's
+  own runners: pick the 2023 remaster (Enhanced), the original release, The Reckoning or Ground
+  Zero, and Steam takes it from there. The tradeoff: no playtime tracking, the launcher's own
+  launch arguments and active game directory don't apply, and the launcher won't hold back its
+  own writes into that folder while Steam runs the game.
 
 
 ## 0.3.0 — 2026-09-22
@@ -24,6 +33,11 @@ version section when a release actually ships.
 - **Linux** — there is now a Linux download. Every release publishes an x86_64 AppImage
   alongside the Windows installer, from the same run, and it updates itself just like the
   Windows build does.
+
+### Fixed
+- **Linux** — launching a Windows executable with no runner available used to report "exited
+  cleanly" after doing nothing at all. The launcher now recognises a Windows binary on sight,
+  warns about it plainly, and refuses to launch instead of pretending it worked.
 
 
 ## 0.2.0 — 2026-09-13

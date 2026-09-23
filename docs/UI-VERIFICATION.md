@@ -325,10 +325,16 @@ the main window is created:
 - The `ready-to-show` handler calls `window.showInactive()` instead of
   `window.show()`, painting the window without requesting foreground
   activation.
+- The window is placed left of every display (same size, saved maximize/fullscreen
+  skipped), with `backgroundThrottling: false` and Chromium's
+  `CalculateNativeWinOcclusion` disabled so it keeps painting there. `resize()` in
+  the harness keeps it offscreen instead of centring it. Set `Q2L_UI_VISIBLE=1` to
+  watch a run on screen again. `npm run ui:flow -- harness-offscreen` checks all of
+  this in a few seconds.
 
-The effect: a verification run's window is visible — so Playwright can drive
-it and take screenshots — but never steals focus from whatever the run was
-started from (a terminal, an editor, another window). Outside harness mode
+The effect: a verification run's window never appears on the desktop, yet
+Playwright can drive it and take screenshots, and it never steals focus from
+whatever the run was started from (a terminal, an editor, another window). Outside harness mode
 (`Q2L_UI_HARNESS` unset, which is every `npm run dev` and every packaged
 launch) both branches are no-ops and the window behaves exactly as it always
 has: shown and focused via `window.show()`.

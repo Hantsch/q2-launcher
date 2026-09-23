@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { stubPlatform } from '../../test-support/platform'
-import { listDir, looksExecutable } from './fs-utils'
+import { listDir, looksExecutable, readBinaryKind } from './fs-utils'
 
 /**
  * Story 100 D3, AC3. `looksExecutable` decides what `inspectInstallation` offers as the client
@@ -100,5 +100,26 @@ describe('looksExecutable', () => {
 
     expect(await looksExecutable(root, 'q2pro.exe')).toBe(true)
     expect(await executablesIn(root)).toEqual(['q2pro.exe'])
+  })
+})
+
+describe('readBinaryKind', () => {
+  it('reads a PE header as pe and an ELF header as elf', async () => {
+    const peFile = join(dir, 'app.exe')
+    await writeFile(peFile, Buffer.from([0x4d, 0x5a, 0x90, 0x00]))
+
+    const elfFile = join(dir, 'app')
+    await writeFile(elfFile, Buffer.from([0x7f, 0x45, 0x4c, 0x46]))
+
+    expect(await readBinaryKind(peFile)).toBe('pe')
+    expect(await readBinaryKind(elfFile)).toBe('elf')
+  })
+
+  it('reads a shebang as script and a missing file as unknown', async () => {
+    const scriptFile = join(dir, 'run.sh')
+    await writeFile(scriptFile, '#!/bin/sh\necho hi\n')
+
+    expect(await readBinaryKind(scriptFile)).toBe('script')
+    expect(await readBinaryKind(join(dir, 'does-not-exist'))).toBe('unknown')
   })
 })

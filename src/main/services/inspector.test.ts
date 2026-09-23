@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { BASE_GAME_DIR, RETAIL_PAK_SIZES } from '@shared/constants'
+import { stubPlatform } from '../../test-support/platform'
 import { inspectInstallation } from './inspector'
 
 /**
@@ -38,10 +39,14 @@ afterEach(async () => {
 })
 
 /** Writes a fixture pak of an exact byte length instantly, via a sparse file - see upgrade-job.test.ts. */
-async function writePakOfSize(name: string, size: number): Promise<void> {
-  const path = join(baseDir, name)
+async function writePakOfSizeIn(dirPath: string, name: string, size: number): Promise<void> {
+  const path = join(dirPath, name)
   await writeFile(path, '')
   await truncate(path, size)
+}
+
+async function writePakOfSize(name: string, size: number): Promise<void> {
+  await writePakOfSizeIn(baseDir, name, size)
 }
 
 async function writeRetailPak0AndPak1(): Promise<void> {
@@ -121,6 +126,150 @@ describe('inspectInstallation engine classification', () => {
   })
 })
 
+/**
+ * Story 103 D2 (AC1). `rankExecutables` is kind-aware off Windows: a folder holding both a Windows
+ * `quake2.exe` and a native `quake2` must offer the one the host can actually run first, where the
+ * name ranking alone picks the `.exe` (it is vanilla's first preferred name). On `win32` the
+ * function is byte-for-byte what it always was and no header is read at all (AC8) - which is what
+ * the second test here pins, on either host.
+ *
+ * The Linux half needs a genuinely `+x` file, and Windows' `stat` never reports execute bits (see
+ * `fs-utils.test.ts`'s `HOST_REPORTS_EXECUTE_BITS`, same reason and same skip), so it is skipped on
+ * a Windows host and proven by the `ubuntu-latest` CI leg (story 100 D1).
+ */
+const HOST_REPORTS_EXECUTE_BITS = process.platform !== 'win32'
+
+/** Just enough of a header for `readBinaryKind` to identify each file by its first bytes. */
+const PE_HEADER = Buffer.from([0x4d, 0x5a, 0x90, 0x00])
+const ELF_HEADER = Buffer.from([0x7f, 0x45, 0x4c, 0x46])
+
+describe('inspectInstallation executable ranking', () => {
+  // Own bare root, like the classification suite above: the outer fixture's `q2pro.exe` would be a
+  // third candidate and change the very ordering these tests exist to pin.
+  let mixedDir: string
+  let mixedRoot: string
+  let restorePlatform: (() => void) | undefined
+
+  beforeEach(async () => {
+    mixedDir = await mkdtemp(join(tmpdir(), 'q2-launcher-inspector-mixed-'))
+    mixedRoot = join(mixedDir, 'game')
+    await mkdir(join(mixedRoot, BASE_GAME_DIR), { recursive: true })
+    await writeFile(join(mixedRoot, 'quake2.exe'), PE_HEADER)
+    await writeFile(join(mixedRoot, 'quake2'), ELF_HEADER)
+    if (HOST_REPORTS_EXECUTE_BITS) {
+      await chmod(join(mixedRoot, 'quake2.exe'), 0o755)
+      await chmod(join(mixedRoot, 'quake2'), 0o755)
+    }
+  })
+
+  afterEach(async () => {
+    restorePlatform?.()
+    restorePlatform = undefined
+    await rm(mixedDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+  })
+
+  it.skipIf(!HOST_REPORTS_EXECUTE_BITS)(
+    'on linux a native binary outranks a windows one in the same folder',
+    async () => {
+      restorePlatform = stubPlatform('linux')
+
+      const result = await inspectInstallation(mixedRoot)
+
+      expect(result.executables).toEqual([
+        join(mixedRoot, 'quake2'),
+        join(mixedRoot, 'quake2.exe'),
+      ])
+      expect(result.executableKind).toBe('elf')
+    },
+  )
+
+  it('on win32 the same folder still offers quake2.exe, and reads no header', async () => {
+    restorePlatform = stubPlatform('win32')
+
+    const result = await inspectInstallation(mixedRoot)
+
+    expect(result.executables).toEqual([join(mixedRoot, 'quake2.exe')])
+    expect(result.executableKind).toBeUndefined()
+  })
+})
+
+/**
+ * Story 103 D3. Off Windows, a `.exe` the machine settled on because it was the only candidate is
+ * never silently "playable" - `executable-runnable` flags it, with the file name so the message can
+ * name the culprit, and `fix: 'choose-runner'`. On Windows the same folder inspects clean: the PE
+ * *is* the thing to run there, no runner question exists.
+ *
+ * The severity is `warn`, and the last test here is why: `error` would make `statusFrom` report
+ * `'invalid'`, which the renderer's `isPlayable` refuses, so Play would stay disabled forever - even
+ * after the user picks a working runner in the Runner section (D7). The refusal AC7 wants lives in
+ * `LaunchService.plan()` (`launch.error.noRunner`), not in the status.
+ */
+describe('inspectInstallation executable-runnable check', () => {
+  let peDir: string
+  let peRoot: string
+  let restorePlatform: (() => void) | undefined
+
+  beforeEach(async () => {
+    peDir = await mkdtemp(join(tmpdir(), 'q2-launcher-inspector-pe-'))
+    peRoot = join(peDir, 'game')
+    await mkdir(join(peRoot, BASE_GAME_DIR), { recursive: true })
+    await writeFile(join(peRoot, 'quake2.exe'), PE_HEADER)
+    if (HOST_REPORTS_EXECUTE_BITS) await chmod(join(peRoot, 'quake2.exe'), 0o755)
+  })
+
+  afterEach(async () => {
+    restorePlatform?.()
+    restorePlatform = undefined
+    await rm(peDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+  })
+
+  it.skipIf(!HOST_REPORTS_EXECUTE_BITS)(
+    'a windows executable raises executable-runnable with the file name',
+    async () => {
+      restorePlatform = stubPlatform('linux')
+
+      const result = await inspectInstallation(peRoot)
+
+      expect(findCheck(result.checks, 'executable-runnable')).toEqual(
+        expect.objectContaining({
+          severity: 'warn',
+          messageKey: 'validation.executableRunnable',
+          fix: 'choose-runner',
+          params: { executable: 'quake2.exe' },
+        }),
+      )
+    },
+  )
+
+  it.skipIf(!HOST_REPORTS_EXECUTE_BITS)(
+    'an installation whose only fault is executable-runnable stays playable',
+    async () => {
+      // Retail paks so `base-paks` stays silent and this check is genuinely the only one left -
+      // otherwise the status would be someone else's verdict and the assertion would prove nothing.
+      const peBase = join(peRoot, BASE_GAME_DIR)
+      await writePakOfSizeIn(peBase, 'pak0.pak', RETAIL_PAK_SIZES['pak0.pak'])
+      await writePakOfSizeIn(peBase, 'pak1.pak', RETAIL_PAK_SIZES['pak1.pak'])
+      await writePakOfSizeIn(peBase, 'pak2.pak', RETAIL_PAK_SIZES['pak2.pak'])
+      restorePlatform = stubPlatform('linux')
+
+      const result = await inspectInstallation(peRoot)
+
+      expect(result.checks.map((c) => c.id)).toEqual(['executable-runnable'])
+      // `warning`, never `invalid`: `isPlayable` (renderer `lib/status.ts`, pinned by its own test)
+      // accepts `warning`, so Play stays pressable and the user can pick a runner and launch.
+      expect(result.status).toBe('warning')
+    },
+  )
+
+  it('on win32 the same folder raises no executable-runnable check', async () => {
+    restorePlatform = stubPlatform('win32')
+
+    const result = await inspectInstallation(peRoot)
+
+    expect(findCheck(result.checks, 'executable-runnable')).toBeUndefined()
+  })
+})
+
 describe('inspectInstallation base-paks', () => {
   it('reports validation.pointReleaseMissing when only pak2.pak is missing', async () => {
     await writeRetailPak0AndPak1()
@@ -182,5 +331,36 @@ describe('inspectInstallation base-paks', () => {
 
     expect(findCheck(result.checks, 'base-paks')).toBeUndefined()
     expect(result.status).toBe('ok')
+  })
+})
+
+/**
+ * Story 104 D2: the inspector wires `readSteamAppId` (`./steam`, story 104 D1) into
+ * `ValidationResult.steamAppId`, mirroring the D1 fixture shape from `steam.test.ts`.
+ */
+describe('steam appid detection', () => {
+  let steamDir: string
+
+  afterEach(async () => {
+    await rm(steamDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+  })
+
+  it('a folder inside a steam library records its steam appid', async () => {
+    steamDir = await mkdtemp(join(tmpdir(), 'q2-launcher-inspector-steam-'))
+    const steamappsDir = join(steamDir, 'steamapps')
+    const commonDir = join(steamappsDir, 'common')
+    const installRoot = join(commonDir, 'Quake 2')
+    await mkdir(join(installRoot, BASE_GAME_DIR), { recursive: true })
+    await writeFile(join(installRoot, 'q2pro.exe'), 'stand-in executable')
+    if (process.platform !== 'win32') await chmod(join(installRoot, 'q2pro.exe'), 0o755)
+    await writeFile(
+      join(steamappsDir, 'appmanifest_2320.acf'),
+      '"AppState"\n{\n\t"appid"\t\t"2320"\n\t"installdir"\t\t"Quake 2"\n}\n',
+      'utf8',
+    )
+
+    const result = await inspectInstallation(installRoot)
+
+    expect(result.steamAppId).toBe('2320')
   })
 })

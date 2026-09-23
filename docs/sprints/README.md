@@ -22,7 +22,7 @@ One folder per sprint, documents deliberately split (no giant documents):
 sprints/
   _TEMPLATE/sprint.md     template
   SNN/                    running sprint
-    sprint.md             planning: goal, story list (build order), status
+    sprint.md             planning: goal, story list (build order), status, regression gate
     progress.md           live trail: one line per finished deliverable, while the sprint runs
     review.md             result: implemented stories, acceptance record, findings, blockers
     testplan.md           optional, and only the manual residue — often absent entirely
@@ -45,13 +45,18 @@ sprints/
      documented per story under `## Decisions (Sprint)`. New user questions coming out of
      refine go into a follow-up round (again via the orchestrator), then one more refine round.
    - **Build:** all stories sequentially through fresh agents, each deliverable including the
-     acceptance test named for it. Then verification (build/test/lint plus the `e2e` command
-     for criteria about user actions) and a clean-agent review that also judges whether those
+     acceptance test named for it. Then a **narrow** verification — build/lint/typecheck, the
+     tests the story's changes affect (`test-story`) and only the story's own e2e tests
+     (`e2e-story`) — and a clean-agent review that also judges whether those
      tests would actually fail on a broken implementation. After each story **one commit on the
      sprint branch** (never push, never on a protected branch). Blocked stories do not stop the
      sprint — they are marked and explained in the review doc.
+   - **Regression gate:** after the last story, the full `test`, the full `e2e` and `e2e-all`
+     run once on the finished branch — this is where stories that are each fine break each
+     other. A red result is bisected over the story commits to the story that caused it, fixed
+     there in a new commit on the sprint branch, or reported as a merge blocker.
    - **Review:** `review.md` (stories + short description, the acceptance record — which test
-     proved which criterion — findings & decisions, blockers) is written, `testplan.md` only if
+     proved which criterion — the regression gate result, findings & decisions, blockers) is written, `testplan.md` only if
      there is manual residue to walk, the roadmap gets its milestone row, its follow-up lines
      and a fresh "Where we stand" (nothing more), then committed, `status: done`.
 3. **You** read `review.md`, plan the next sprint on top of it (correction stories if needed)

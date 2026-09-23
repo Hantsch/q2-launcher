@@ -30,6 +30,7 @@ import { FailureBadge } from '../components/ui/FailureBadge'
 import { EngineBadge } from '../components/ui/EngineBadge'
 import { Badge, EmptyState, Panel, SectionLabel, StatusDot } from '../components/ui/primitives'
 import { ChecksList } from '../components/installations/ChecksList'
+import { RunnerSection } from '../components/installations/RunnerSection'
 import { InstallationTile } from '../components/installations/InstallationTile'
 
 /**
@@ -453,6 +454,9 @@ function InstallationRow({ installation }: { installation: Installation }) {
           <ChecksList installation={installation} />
         </div>
       )}
+
+      {/* Story 103 D7: not rendered at all on win32 - see the component's own doc comment. */}
+      <RunnerSection installation={installation} />
     </Panel>
   )
 }

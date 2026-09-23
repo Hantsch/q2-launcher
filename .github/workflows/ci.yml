@@ -99,3 +99,28 @@ jobs:
         env:
           ELECTRON_DISABLE_SANDBOX: '1'
         run: xvfb-run --auto-servernum npm run ui:flow -- linux-user-journey
+
+      # Story 103 D8: the runs-a-windows-build-via-a-runner story's own end-to-end proof
+      # (`scripts/flows/windows-build-on-linux.mjs`) - a PE-only install raises the visible
+      # executable-runnable check and a disabled `wine` Runner entry (AC2/AC6), Play refuses with
+      # no `launch:state` running phase while wine is absent (AC7), and once a stub `wine` is put on
+      # PATH and selected, Play reaches running -> exited for real (AC4/AC5). Same job as the Linux
+      # user journey above (same build, same xvfb display) rather than a separate one - both flows
+      # need nothing from each other, and standing up a second `npm run build` for one more flow
+      # would only add CI time.
+      - name: Windows build on Linux (AC2, AC4-AC7)
+        env:
+          ELECTRON_DISABLE_SANDBOX: '1'
+        run: xvfb-run --auto-servernum npm run ui:flow -- windows-build-on-linux
+
+      # Story 104 D6: the Steam-handoff story's own end-to-end proof (`scripts/flows/steam-handoff.mjs`)
+      # - Steam shows disabled with the not-found/not-owner/unknown-app reasons in turn, then enabled
+      # with its caveat for a folder Steam genuinely owns with a known appid; picking a client changes
+      # the previewed `steam://launch/<appid>/client/<n>` URL, and pressing Play for real hands off to
+      # a stub `steam` binary - the stub's recorded argv is asserted, `launch:state` reaches
+      # `handed-off`, and `running` is never observed. Same job as the two flows above (same build,
+      # same xvfb display) for the same reason: no flow here needs anything from another.
+      - name: Steam handoff (Linux branch)
+        env:
+          ELECTRON_DISABLE_SANDBOX: '1'
+        run: xvfb-run --auto-servernum npm run ui:flow -- steam-handoff

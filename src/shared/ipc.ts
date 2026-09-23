@@ -17,6 +17,7 @@ import type {
   Outcome,
   ReleaseNotes,
   RemoveInstallationInput,
+  RunnerKind,
   ScanOptions,
   ToastMessage,
   UpdateInstallationInput,
@@ -38,6 +39,24 @@ export interface DriveInfo {
   path: string
   /** Volume label if the OS reports one. */
   label?: string
+}
+
+/**
+ * Story 103 D6: one runner offered by `installations:listRunners`, derived from a
+ * `DetectedRunner` (`src/main/services/runners.ts`) for the renderer. `labelKey`/`reasonKey` are
+ * i18n keys, never prose - the main process never sends UI text across IPC (see CLAUDE.md's
+ * language rule). `reasonKey` is present only when `available` is false; the D7 runner section
+ * decides what an unavailable option looks like, this channel only supplies the reason.
+ */
+export interface RunnerOption {
+  kind: RunnerKind
+  /** Stable identifier, matching `DetectedRunner.id` - what a caller stores as `runner`. */
+  id: string
+  /** i18n key for the option's label. Never prose. */
+  labelKey: string
+  available: boolean
+  /** i18n key explaining why this runner is unavailable. Only set when `available` is false. */
+  reasonKey?: string
 }
 
 /**
@@ -94,6 +113,12 @@ export interface IpcInvokeMap {
   'installations:reorder': { req: string[]; res: Installation[] }
   'installations:setActive': { req: string | null; res: LauncherSettings }
   'installations:validate': { req: string; res: Outcome<Installation> }
+  /**
+   * Story 103 D6: the runners available for one installation - the host's own OS plus whatever
+   * compatibility layers `detectRunners()` found - so D7's runner section can offer them.  Setting
+   * the choice needs no channel of its own; it rides `installations:update`'s `runner` field.
+   */
+  'installations:listRunners': { req: string; res: Outcome<RunnerOption[]> }
   /** Validate a folder the user is *considering*, without registering anything. */
   'installations:inspectPath': { req: string; res: Outcome<ValidationResult> }
   'installations:pickFolder': { req: PickPathInput; res: string | null }
@@ -240,6 +265,7 @@ export const INVOKE_CHANNELS = [
   'installations:reorder',
   'installations:setActive',
   'installations:validate',
+  'installations:listRunners',
   'installations:inspectPath',
   'installations:pickFolder',
   'installations:pickExecutable',

@@ -90,6 +90,25 @@ const installationSchema = z.object({
   writeDirPath: z.string().optional(),
   engineKind: engineKindSchema.catch('unknown'),
   executablePath: z.string().optional(),
+  // Story 103 D2: additive and optional, same convention as `executablePath` right above and as
+  // `icon`/`lastFailure` below - a record predating this field (or written on Windows, where the
+  // header is never read) simply lacks the key, and a mangled value degrades to "kind not known"
+  // rather than dropping the whole installation. No migration step: `migrations.ts`'s own rule is
+  // that a new optional field needs none.
+  executableKind: z.enum(['pe', 'elf', 'script', 'unknown']).optional().catch(undefined),
+  // Story 103 D5: the user's runner choice, a `DetectedRunner.id` or `'native'`. Same additive,
+  // forgiving convention as `executableKind` right above - a record predating this field simply
+  // lacks the key, and a mangled value degrades to "never chosen" (the default cascade decides)
+  // rather than dropping the whole installation. Deliberately an open string, not an enum: Proton
+  // ids are derived from folder names at detection time, so no fixed list can be checked here.
+  runner: z.string().min(1).optional().catch(undefined),
+  // Story 104 D2: the Steam appid recovered from disk layout, same additive/forgiving convention
+  // as `executableKind` above - a record predating this field simply lacks the key, and a mangled
+  // value degrades to "appid not known" rather than dropping the whole installation.
+  steamAppId: z.string().optional().catch(undefined),
+  // Story 104 D2: the user's chosen `STEAM_APP_CLIENTS` entry index. Same convention as
+  // `steamAppId` right above - absent means "never chosen" (the table's own default decides).
+  steamClient: z.number().optional().catch(undefined),
   launchArgs: z.array(z.string()).catch([]),
   activeGameDir: z.string().catch(''),
   detectedVersion: z.string().optional(),

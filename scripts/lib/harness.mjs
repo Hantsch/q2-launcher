@@ -582,13 +582,19 @@ async function settleExit(child, log, state, timeoutMs = 1000) {
  */
 export async function resize(app, { width, height }) {
   await app.evaluate(
-    async ({ BrowserWindow }, size) => {
+    async ({ BrowserWindow, screen }, size) => {
       const [window] = BrowserWindow.getAllWindows()
       if (!window) throw new Error('no BrowserWindow to resize')
       // A restored-maximized window would ignore setSize.
       if (window.isMaximized()) window.unmaximize()
       window.setSize(size.width, size.height)
-      window.center()
+      // `center()` would pull the offscreen harness window (src/main/window.ts) back onto a
+      // display; keep it left of every display instead, re-derived from the new width.
+      if (process.env.Q2L_UI_VISIBLE === '1') window.center()
+      else {
+        const left = Math.min(...screen.getAllDisplays().map((display) => display.bounds.x))
+        window.setPosition(left - size.width - 100, 0)
+      }
     },
     { width, height },
   )

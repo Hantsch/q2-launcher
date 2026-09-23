@@ -85,6 +85,14 @@ export const updateInstallationInputSchema: z.ZodType<
     .refine((value) => value === '' || /^[A-Za-z0-9_.-]+$/.test(value), 'invalid game directory')
     .optional(),
   favorite: z.boolean().optional(),
+  // Story 103 D6: a `RunnerChoice` - `DetectedRunner.id` or `'native'` - a plain non-empty string,
+  // same as the persisted schema (`src/main/lib/schemas.ts`); resolving whether it is usable is
+  // `resolveRunner`'s job, never the schema's.
+  runner: z.string().min(1).optional(),
+  // Story 104 D2: the `STEAM_APP_CLIENTS` entry index the user picked, a plain positive integer -
+  // resolving whether the installation's `steamAppId` even has a client table is not this schema's
+  // job, same division of labour as `runner` right above.
+  steamClient: z.number().int().positive().optional(),
 })
 
 export const removeInstallationInputSchema: z.ZodType<
@@ -107,6 +115,11 @@ export const nullableIdSchema: z.ZodType<IpcInvokeMap['installations:setActive']
 export const idSchema: z.ZodType<IpcInvokeMap['installations:validate']['req']> = z
   .string()
   .min(1)
+
+/** Story 103 D6: `installations:listRunners` takes the same bare installation id as `validate`. */
+export const installationsListRunnersSchema: z.ZodType<
+  IpcInvokeMap['installations:listRunners']['req']
+> = z.string().min(1)
 
 /** Validate a folder the user is *considering*, without registering anything. */
 export const installationsInspectPathSchema: z.ZodType<

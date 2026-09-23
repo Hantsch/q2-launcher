@@ -14,7 +14,7 @@
   update those files (`/ai-scrum:setup`). Hashes of the managed copies: .claude/ai-scrum.lock
 -->
 
-ai-scrum-version: 4.0.0
+ai-scrum-version: 4.1.0
 project: Q2 Launcher
 
 ## Verify
@@ -35,6 +35,18 @@ e2e: npm run ui:verify
   for what the workflow then does instead.
 -->
 <!-- npm run ui:verify: builds if needed, seeds the fixture, screenshots every screen and runs an accessibility report against the real app; see docs/UI-VERIFICATION.md. -->
+
+test-story: npx vitest run --changed HEAD
+e2e-story: npm run ui:flow -- {test}
+e2e-all: npm run ui:flows
+<!--
+  Narrow gates /build runs per-story instead of the full `test`/`e2e` above.
+  `/sprint` still runs full `test`, full `e2e` and `e2e-all` once after the last story.
+  `e2e-story` runs one flow by name from scripts/flows/ (npm run ui:flow -- <name>).
+  `e2e-all` runs every flow in scripts/flows/, each against a freshly seeded fixture
+  (scripts/flows-all.mjs). `e2e` (ui:verify) does not cover it: it only screenshots and
+  audits screens, and running all flows together is what caught S18's regression.
+-->
 
 ## Conventions
 

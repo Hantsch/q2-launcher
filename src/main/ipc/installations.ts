@@ -1,5 +1,6 @@
 import { BrowserWindow, dialog, type IpcMainInvokeEvent } from 'electron'
-import { fail, ok } from '@shared/types'
+import { fail, ok, type DetectedRunner, type Installation } from '@shared/types'
+import type { RunnerOption } from '@shared/ipc'
 import { canonicalizePath } from '../lib/fs-utils'
 import { uiHarnessPickedFolders } from '../lib/ui-harness'
 import {
@@ -9,6 +10,7 @@ import {
   idListSchema,
   idSchema,
   installationsInspectPathSchema,
+  installationsListRunnersSchema,
   installationsListSchema,
   nullableIdSchema,
   pathListSchema,
@@ -19,6 +21,7 @@ import {
   updateInstallationInputSchema,
 } from '@shared/ipc-schemas'
 import { inspectInstallation } from '../services/inspector'
+import { detectRunners, steamUnavailableReason } from '../services/runners'
 import type { AppContext } from '../context'
 import { handle, handleOutcome } from './index'
 
@@ -54,6 +57,20 @@ export function registerInstallationsIpc(app: AppContext): void {
   })
 
   handleOutcome('installations:validate', idSchema, (id) => app.installations.validate(id))
+
+  /**
+   * Story 103 D6: the runner options offered for one installation - the not-found handling mirrors
+   * `installations:validate` above. `detectRunners()` inventories the host once per call; it does
+   * not need the installation itself. Story 104 D3: the Steam option is the one that does - whether
+   * it can be chosen depends on this installation's `steamAppId` (`toRunnerOption`).
+   */
+  handleOutcome('installations:listRunners', installationsListRunnersSchema, async (id) => {
+    const installation = app.installations.find(id)
+    if (!installation) return fail('installations.error.notFound')
+
+    const detected = await detectRunners()
+    return ok(detected.map((runner) => toRunnerOption(runner, installation)))
+  })
 
   handleOutcome(
     'installations:inspectPath',
@@ -148,6 +165,52 @@ export function registerInstallationsIpc(app: AppContext): void {
   handle('installations:iconDataUrl', iconDataUrlInputSchema, (installationId) => {
     return app.icons.dataUrl(installationId)
   })
+}
+
+/**
+ * Story 103 D6: `DetectedRunner` -> `RunnerOption`. `labelKey`/`reasonKey` follow the `runner.`
+ * i18n namespace (`src/renderer/src/i18n/locales/en.json`) - `runner.kind.<kind>` for every
+ * option's label, `runner.unavailable.<kind>` for the reason an unavailable one carries.
+ *
+ * `proton` is the one kind this mapping overrides regardless of what `detectRunners()` reported:
+ * per story 103's Q1 resolution, a detected Proton build is never driven directly (`runners.ts`'s
+ * `WRAPPING_KINDS` excludes `'proton'`, so `resolveRunner()` silently skips it even if chosen). A
+ * `RunnerOption` that showed it as `available: true` would let the user pick and persist a choice
+ * that then does nothing - offered but unusable, with no visible explanation. Marking it
+ * unavailable here keeps the UI and `resolveRunner()`'s actual behaviour in agreement.
+ *
+ * Story 104 D3: `steam` is judged per installation by `steamUnavailableReason` - the same function
+ * `resolveRunner()` consults - so an option offered as available is exactly one that would launch.
+ */
+function toRunnerOption(runner: DetectedRunner, installation: Installation): RunnerOption {
+  if (runner.kind === 'steam') {
+    const reasonKey = steamUnavailableReason(runner, installation)
+    return {
+      kind: runner.kind,
+      id: runner.id,
+      labelKey: `runner.kind.${runner.kind}`,
+      available: reasonKey === undefined,
+      ...(reasonKey === undefined ? {} : { reasonKey }),
+    }
+  }
+
+  if (runner.kind === 'proton') {
+    return {
+      kind: runner.kind,
+      id: runner.id,
+      labelKey: `runner.kind.${runner.kind}`,
+      available: false,
+      reasonKey: 'runner.unavailable.protonNotDriven',
+    }
+  }
+
+  return {
+    kind: runner.kind,
+    id: runner.id,
+    labelKey: `runner.kind.${runner.kind}`,
+    available: runner.available,
+    ...(runner.available ? {} : { reasonKey: `runner.unavailable.${runner.kind}` }),
+  }
 }
 
 /** Modal-to-the-window dialog, so it cannot be lost behind the launcher. */

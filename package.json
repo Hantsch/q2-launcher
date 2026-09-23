@@ -34,6 +34,7 @@
     "ui:a11y": "node scripts/verify.mjs --skip-shot",
     "ui:verify": "node scripts/ui-verify.mjs",
     "ui:flow": "node scripts/flow.mjs",
+    "ui:flows": "node scripts/flows-all.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "ci:local": "act workflow_dispatch -W .github/workflows/ci.yml",
