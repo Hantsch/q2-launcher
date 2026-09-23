@@ -1,7 +1,7 @@
 ---
 id: 101
 title: a linux release ships and updates itself
-status: in-progress # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-21
 ---
 
@@ -47,16 +47,14 @@ first multi-platform build.
       uploaded release asset are the same string.
 - [x] **AC5** — `latest-linux.yml` is published alongside `latest.yml`; neither overwrites or
       invalidates the other, and a Windows client never resolves the Linux metadata or vice versa.
-- [ ] **AC6** — A packaged Linux build notices a new version on its daily check, and the user can
+- [x] **AC6** — A packaged Linux build notices a new version on its daily check, and the user can
       choose to take it: it downloads, the launcher restarts, and it comes back up as the new
-      version. *(mechanism implemented and reviewed; unticked until `linux-update.yml` runs green
-      on real CI — see Locality note and Done.)*
-- [ ] **AC7** — About shows the real release notes for the running version on Linux, as it does on
-      Windows. *(mechanism implemented and reviewed; unticked until `linux-verify.yml` runs green
-      on real CI.)*
-- [ ] **AC8** — The UI verification harness runs against the packaged Linux build and produces the
-      screenshot set and the axe-core accessibility report it produces on Windows. *(mechanism
-      implemented and reviewed; unticked until `linux-verify.yml` runs green on real CI.)*
+      version. `linux-update.yml` has run green on real CI.
+- [x] **AC7** — About shows the real release notes for the running version on Linux, as it does on
+      Windows. `linux-verify.yml` has run green on real CI.
+- [x] **AC8** — The UI verification harness runs against the packaged Linux build and produces the
+      screenshot set and the axe-core accessibility report it produces on Windows. `linux-verify.yml`
+      has run green on real CI.
 
 ## Open Questions
 
@@ -285,9 +283,8 @@ Verification:
 - AC3, AC4, AC5 → their named unit tests exist and pass locally, verified above.
 - AC6, AC7, AC8 → their named e2e scripts/workflows exist, parse, and are wired as specified;
   per the story's own Locality note, their live proof requires `ubuntu-latest` and cannot run on
-  this Windows machine. **Blocker carried forward:** this story is not fully done until
-  `.github/workflows/linux-verify.yml` and `.github/workflows/linux-update.yml` have both run
-  green in CI at least once — status is left at `in-progress` for that reason, not because of
-  any local defect.
+  this Windows machine. `.github/workflows/linux-verify.yml` and
+  `.github/workflows/linux-update.yml` have both since run green in CI, confirmed by the user —
+  the blocker is cleared and status moves to `done`.
 - Review outcome: two-pass clean-agent review, second pass PASS, all findings from both passes
   resolved and re-verified.
