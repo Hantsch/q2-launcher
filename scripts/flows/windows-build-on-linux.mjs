@@ -361,7 +361,8 @@ async function runLinuxBranch({ page, app, step, shot }) {
   const wineDir = writeWineStub()
   const umuDir = writeUmuStub()
   await app.evaluate(
-    ({ wineDir, umuDir }) => {
+    // `app.evaluate()` hands the Electron module in first; the argument is the second parameter.
+    (_electron, { wineDir, umuDir }) => {
       const stubDirs = `${wineDir}:${umuDir}`
       process.env.PATH = process.env.PATH ? `${stubDirs}:${process.env.PATH}` : stubDirs
     },

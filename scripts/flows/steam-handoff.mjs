@@ -345,7 +345,8 @@ async function runLinuxBranch({ page, app, step, shot }) {
   step('write a stub steam binary and put it on PATH')
   const steamStub = writeSteamStub()
   await app.evaluate(
-    ({ dir }) => {
+    // `app.evaluate()` hands the Electron module in first; the argument is the second parameter.
+    (_electron, { dir }) => {
       process.env.PATH = process.env.PATH ? `${dir}:${process.env.PATH}` : dir
     },
     { dir: steamStub.dir },
