@@ -11,6 +11,10 @@ version section when a release actually ships.
 ## Unreleased
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
+
+
+## 0.4.0 — 2026-09-23
+
 ### Added
 - **Linux** — a Windows Quake II build (Steam, GOG, a folder carried over from another machine)
   now plays on Linux too: the launcher offers wine or umu-run as a runner and launches through it
@@ -23,7 +27,6 @@ version section when a release actually ships.
 
 
 ## 0.3.0 — 2026-09-22
-
 ### Added
 - **Linux** — the launcher runs on Linux from source: it finds your Steam installations
   (native and Flatpak), recognises engines by their real binaries instead of a Windows file
