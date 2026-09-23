@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppInfo, Installation } from '@shared/types'
 import { initI18n } from '../../i18n'
@@ -115,13 +115,31 @@ describe('RunnerSection', () => {
     expect(wineOption.getAttribute('title')).toBeNull()
   })
 
-  it('does not render on win32 - there is exactly one runner and nothing to choose (AC8)', () => {
+  it('renders on win32 with Native checked - Steam is a second real runner choice there too (story 104)', async () => {
     useLauncher.setState({
       appInfo: { ...linuxAppInfo, platform: 'win32' },
       installations: [makeInstallation()],
     })
-    const { container } = render(createElement(RunnerSection, { installation: makeInstallation() }))
-    expect(container.firstChild).toBeNull()
+    // No `runner` stored at all - a real, freshly-added installation never has one until a user
+    // actively picks a runner. `resolveRunner()` (`src/main/services/runners.ts`) defaults an
+    // unset choice to native; the renderer's checked state must mirror that default rather than
+    // rendering nothing as selected.
+    render(createElement(RunnerSection, { installation: makeInstallation() }))
+
+    const nativeOption = await screen.findByTestId('installation-runner-option-native')
+    expect(nativeOption.getAttribute('aria-checked')).toBe('true')
+  })
+
+  it('off win32, an installation with no stored runner checks nothing (native is not a universal default)', async () => {
+    // `resolveRunner()`'s unset-choice default is platform- and executableKind-dependent off
+    // win32 (wine/umu, not native) - the renderer must not default-check Native there, or it
+    // would show a runner the preview below it does not actually match.
+    render(createElement(RunnerSection, { installation: makeInstallation() }))
+
+    const nativeOption = await screen.findByTestId('installation-runner-option-native')
+    expect(nativeOption.getAttribute('aria-checked')).toBe('false')
+    const wineOption = screen.getByTestId('installation-runner-option-wine')
+    expect(wineOption.getAttribute('aria-checked')).toBe('false')
   })
 
   it('selecting an available runner calls installations:update with the new runner id', async () => {
@@ -232,5 +250,150 @@ describe('RunnerSection', () => {
     expect(preview.textContent).toBe(
       'quake2.exe is a Windows program and nothing on this machine can run it. Install wine or umu-run and pick it as the runner, or add this folder\'s game data to a native engine instead.',
     )
+  })
+
+  it('an unavailable steam option renders its reason as visible text', async () => {
+    invokeMock.mockImplementation((channel: string) => {
+      if (channel === 'installations:listRunners') {
+        return Promise.resolve({
+          ok: true,
+          value: [
+            ...RUNNERS,
+            {
+              kind: 'steam',
+              id: 'steam',
+              labelKey: 'runner.kind.steam',
+              available: false,
+              reasonKey: 'runner.unavailable.steamNotOwner',
+            },
+          ],
+        })
+      }
+      if (channel === 'launch:plan') {
+        return Promise.resolve({
+          ok: true,
+          value: {
+            executablePath: '/home/user/Games/Q2/r1q2',
+            args: [],
+            workingDirectory: '/home/user/Games/Q2',
+            preview: 'wine /home/user/Games/Q2/r1q2',
+          },
+        })
+      }
+      return Promise.resolve({ ok: true, value: null })
+    })
+
+    render(createElement(RunnerSection, { installation: makeInstallation() }))
+
+    const steamOption = await screen.findByTestId('installation-runner-option-steam')
+    expect((steamOption as HTMLButtonElement).disabled).toBe(true)
+
+    const reason = screen.getByTestId('installation-runner-reason-steam')
+    expect(reason.textContent).toBe(
+      'this folder is not a Steam install — Steam can only start games it owns',
+    )
+
+    // The caveat paragraph is shown whenever the Steam option is in the list at all, regardless of
+    // availability.
+    expect(screen.getByTestId('installation-runner-steam-caveat')).toBeTruthy()
+  })
+
+  it('choosing a client writes steamClient', async () => {
+    invokeMock.mockImplementation((channel: string) => {
+      if (channel === 'installations:listRunners') {
+        return Promise.resolve({
+          ok: true,
+          value: [
+            ...RUNNERS,
+            { kind: 'steam', id: 'steam', labelKey: 'runner.kind.steam', available: true },
+          ],
+        })
+      }
+      if (channel === 'launch:plan') {
+        return Promise.resolve({
+          ok: true,
+          value: {
+            executablePath: 'steam',
+            args: [],
+            workingDirectory: '/home/user/Games/Q2',
+            preview: 'steam steam://launch/2320/client/2',
+          },
+        })
+      }
+      return Promise.resolve({ ok: true, value: null })
+    })
+
+    render(
+      createElement(RunnerSection, {
+        installation: makeInstallation({ runner: 'steam', steamAppId: '2320' }),
+      }),
+    )
+
+    // Bug 3 (story 104 review): the client `Select` must have an accessible name - the adjacent
+    // label text is not enough unless it is actually associated with the control.
+    const clientSelect = await screen.findByRole('combobox', { name: /launch option/i })
+    expect(clientSelect).toBe(screen.getByTestId('installation-runner-steam-client'))
+
+    fireEvent.change(clientSelect, { target: { value: '1' } })
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith('installations:update', {
+        id: 'inst-1',
+        steamClient: 1,
+      })
+    })
+  })
+
+  it('updates the previewed launch string when steamClient changes, with no remount needed', async () => {
+    // Bug 1 (story 104 review): the preview effect must depend on `steamClient`, not just
+    // `id`/`runner` - otherwise picking a different Steam client leaves the previous client's URL
+    // on screen. Mirrors the "re-fetches ... runner choice changes" test above, but holds `id` and
+    // `runner` fixed and varies only `steamClient` via `rerender`, simulating the same store round
+    // trip (`updateInstallation` -> `installations:update` -> a fresh `installations:changed` list)
+    // without needing a real IPC push in this unit test.
+    let planCalls = 0
+    invokeMock.mockImplementation((channel: string) => {
+      if (channel === 'installations:listRunners') {
+        return Promise.resolve({
+          ok: true,
+          value: [...RUNNERS, { kind: 'steam', id: 'steam', labelKey: 'runner.kind.steam', available: true }],
+        })
+      }
+      if (channel === 'launch:plan') {
+        planCalls += 1
+        return Promise.resolve({
+          ok: true,
+          value: {
+            executablePath: 'steam',
+            args: [],
+            workingDirectory: '/home/user/Games/Q2',
+            preview:
+              planCalls === 1
+                ? 'steam steam://launch/2320/client/2'
+                : 'steam steam://launch/2320/client/4',
+          },
+        })
+      }
+      return Promise.resolve({ ok: true, value: null })
+    })
+
+    const { rerender } = render(
+      createElement(RunnerSection, {
+        installation: makeInstallation({ runner: 'steam', steamAppId: '2320', steamClient: 2 }),
+      }),
+    )
+
+    const firstPreview = await screen.findByTestId('installation-runner-preview')
+    expect(firstPreview.textContent).toContain('client/2')
+
+    rerender(
+      createElement(RunnerSection, {
+        installation: makeInstallation({ runner: 'steam', steamAppId: '2320', steamClient: 4 }),
+      }),
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('installation-runner-preview').textContent).toContain('client/4')
+    })
   })
 })

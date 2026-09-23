@@ -317,6 +317,12 @@ function LaunchReadout({
     if (launch.phase === 'exited') {
       return <p className="text-xs text-ink-muted">{t('actionbar.exited')}</p>
     }
+    // Story 104 D5: Steam owns the process once launch hands off to it - there is nothing left to
+    // observe, so this reads as "not tracked" rather than reusing the running/exited readouts,
+    // which would imply the launcher still knows what is happening.
+    if (launch.phase === 'handed-off') {
+      return <p className="text-xs text-ink-muted">{t('actionbar.handedOff')}</p>
+    }
   }
 
   if (!installation) return null

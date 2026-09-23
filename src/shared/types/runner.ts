@@ -3,8 +3,12 @@
  * the Windows-compatibility layers a Linux host may have installed - plain Wine, Steam's `umu-run`
  * launcher script, or a Proton build under a Steam library. D5 decides which of these applies to a
  * given executable; this file only names the possibilities.
+ *
+ * Story 104 D3 adds `steam`: not a wrapper around the executable but a handoff - the Steam client
+ * is asked to start the game itself (`steam://launch/...`), on Windows as well as Linux. It is
+ * never a default; only an installation whose stored choice is `'steam'` ever resolves to it.
  */
-export type RunnerKind = 'native' | 'wine' | 'umu' | 'proton'
+export type RunnerKind = 'native' | 'wine' | 'umu' | 'proton' | 'steam'
 
 /**
  * One runner `detectRunners()` (`src/main/services/runners.ts`) found - or looked for and did not
@@ -24,6 +28,9 @@ export type RunnerChoice = string
 
 /** The `RunnerChoice` meaning "no wrapper - run the executable itself", i.e. `NATIVE_RUNNER.id`. */
 export const NATIVE_RUNNER_CHOICE = 'native'
+
+/** Story 104 D3: the `RunnerChoice` meaning "hand the launch to Steam", i.e. the Steam runner's id. */
+export const STEAM_RUNNER_CHOICE = 'steam'
 
 export interface DetectedRunner {
   kind: RunnerKind

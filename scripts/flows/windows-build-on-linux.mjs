@@ -23,9 +23,10 @@
 //     through the real `window.q2.on('launch:state', ...)` listener (AC5), reusing
 //     `linux-user-journey.mjs`'s own listener pattern (L232-263).
 //   Windows (process.platform === 'win32', a dev machine):
-//     add the same (combined) fixture -> assert `quake2.exe` is the selected executable, no
-//     `RunnerSection` renders at all, and `launch:plan`'s preview is the plain, unwrapped
-//     executable - AC8.
+//     add the same (combined) fixture -> assert `quake2.exe` is the selected executable, the
+//     `RunnerSection` renders with its Native option available (story 104 D5 made the section render
+//     on every platform - Steam is a real runner choice on Windows too), and `launch:plan`'s preview
+//     is still the plain, unwrapped executable - AC8.
 //
 // ## Why "press Play" now means the real library-row button, not a bypass
 //
@@ -211,10 +212,27 @@ async function runWindowsBranch({ page, step, shot }) {
     )
   }
 
-  step('assert no Runner section renders at all on win32 (AC8)')
+  // Story 104 D5 review finding: this used to assert NO Runner section rendered at all on win32 -
+  // true under story 103, but D5 made `RunnerSection` render on every platform (Steam, D3, is a real
+  // runner choice on Windows too). The new, correct claim for AC8 is narrower: nothing about the
+  // *native* launch path changed - the section renders, its Native option is available (nothing off
+  // Windows can make Native itself unavailable), and (checked below, unchanged) the preview is still
+  // the plain unwrapped command.
+  step('assert the Runner section renders on win32, with Native available (AC8)')
   const runnerSectionCount = await row.getByTestId('installation-runner').count()
-  if (runnerSectionCount !== 0) {
-    throw new Error(`expected no Runner section on win32, found ${runnerSectionCount}`)
+  if (runnerSectionCount !== 1) {
+    throw new Error(`expected exactly one Runner section on win32, found ${runnerSectionCount}`)
+  }
+  const nativeOption = row.getByTestId('installation-runner-option-native')
+  await nativeOption.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  if (await nativeOption.isDisabled()) {
+    throw new Error('expected the native runner option to be available on win32')
+  }
+  // Story 104 review finding (Bug 2): a fresh installation has no stored `runner` at all - Native
+  // must render CHECKED for that real default case, not merely enabled/clickable. `RunnerSection`
+  // now defaults an unset `runner` to native the same way `resolveRunner()` does on the main side.
+  if ((await nativeOption.getAttribute('aria-checked')) !== 'true') {
+    throw new Error('expected the native runner option to render checked by default on win32')
   }
 
   step("assert launch:plan's preview is the plain, unwrapped executable - no runner involved (AC8)")
@@ -233,8 +251,8 @@ async function runWindowsBranch({ page, step, shot }) {
   }
   await shot('windows-branch-installation')
   console.log(
-    `AC8: on win32, "${registered.name}" selected ${registered.executablePath}, no Runner ` +
-      `section rendered, and the launch preview is unwrapped: ${planned.value.preview}`,
+    `AC8: on win32, "${registered.name}" selected ${registered.executablePath}, the Runner ` +
+      `section rendered with Native available, and the launch preview is unwrapped: ${planned.value.preview}`,
   )
 }
 

@@ -107,6 +107,21 @@ describe('ActionBar', () => {
     expect(playButton.textContent).toContain('Writing')
   })
 
+  it('handed-off reads as not tracked and keeps Play enabled', async () => {
+    useLauncher.setState({
+      installations: [makeInstallation()],
+      settings: { ...DEFAULT_SETTINGS, activeInstallationId: 'inst-1' },
+      jobs: [],
+      launch: { phase: 'handed-off', installationId: 'inst-1' },
+    })
+
+    render(createElement(ActionBar))
+
+    expect(await screen.findByText('Handed off to Steam — not tracked')).toBeTruthy()
+    const playButton = await screen.findByTestId('actionbar-play')
+    expect(playButton.hasAttribute('disabled')).toBe(false)
+  })
+
   it('story 093 D6: clicking Repair opens the downloads module repair dialog for the installation, not a route change', async () => {
     useLauncher.setState({
       installations: [makeInstallation({ status: 'invalid' })],

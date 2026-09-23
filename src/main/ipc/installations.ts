@@ -1,5 +1,5 @@
 import { BrowserWindow, dialog, type IpcMainInvokeEvent } from 'electron'
-import { fail, ok, type DetectedRunner } from '@shared/types'
+import { fail, ok, type DetectedRunner, type Installation } from '@shared/types'
 import type { RunnerOption } from '@shared/ipc'
 import { canonicalizePath } from '../lib/fs-utils'
 import { uiHarnessPickedFolders } from '../lib/ui-harness'
@@ -21,7 +21,7 @@ import {
   updateInstallationInputSchema,
 } from '@shared/ipc-schemas'
 import { inspectInstallation } from '../services/inspector'
-import { detectRunners } from '../services/runners'
+import { detectRunners, steamUnavailableReason } from '../services/runners'
 import type { AppContext } from '../context'
 import { handle, handleOutcome } from './index'
 
@@ -61,14 +61,15 @@ export function registerInstallationsIpc(app: AppContext): void {
   /**
    * Story 103 D6: the runner options offered for one installation - the not-found handling mirrors
    * `installations:validate` above. `detectRunners()` inventories the host once per call; it does
-   * not need the installation itself (only D7's own choice-of-cascade logic, `resolveRunner`, reads
-   * `installation.runner`/`executableKind` - see `src/main/services/runners.ts`).
+   * not need the installation itself. Story 104 D3: the Steam option is the one that does - whether
+   * it can be chosen depends on this installation's `steamAppId` (`toRunnerOption`).
    */
   handleOutcome('installations:listRunners', installationsListRunnersSchema, async (id) => {
-    if (!app.installations.find(id)) return fail('installations.error.notFound')
+    const installation = app.installations.find(id)
+    if (!installation) return fail('installations.error.notFound')
 
     const detected = await detectRunners()
-    return ok(detected.map(toRunnerOption))
+    return ok(detected.map((runner) => toRunnerOption(runner, installation)))
   })
 
   handleOutcome(
@@ -177,8 +178,22 @@ export function registerInstallationsIpc(app: AppContext): void {
  * `RunnerOption` that showed it as `available: true` would let the user pick and persist a choice
  * that then does nothing - offered but unusable, with no visible explanation. Marking it
  * unavailable here keeps the UI and `resolveRunner()`'s actual behaviour in agreement.
+ *
+ * Story 104 D3: `steam` is judged per installation by `steamUnavailableReason` - the same function
+ * `resolveRunner()` consults - so an option offered as available is exactly one that would launch.
  */
-function toRunnerOption(runner: DetectedRunner): RunnerOption {
+function toRunnerOption(runner: DetectedRunner, installation: Installation): RunnerOption {
+  if (runner.kind === 'steam') {
+    const reasonKey = steamUnavailableReason(runner, installation)
+    return {
+      kind: runner.kind,
+      id: runner.id,
+      labelKey: `runner.kind.${runner.kind}`,
+      available: reasonKey === undefined,
+      ...(reasonKey === undefined ? {} : { reasonKey }),
+    }
+  }
+
   if (runner.kind === 'proton') {
     return {
       kind: runner.kind,

@@ -93,6 +93,12 @@ export interface ValidationResult {
    * absent when no executable was found at all.
    */
   executableKind?: BinaryKind
+  /**
+   * Story 104 D2: the Steam appid this install root was found under, recovered purely from disk
+   * layout (`readSteamAppId`, `src/main/services/steam.ts`) - absent when the root does not sit
+   * directly inside a Steam library's `steamapps/common/`, or no manifest's installdir matches.
+   */
+  steamAppId?: string
   checkedAt: string
 }
 
@@ -175,6 +181,21 @@ export interface Installation {
    * is kept as-is and simply falls back to the cascade until that runner reappears.
    */
   runner?: RunnerChoice
+  /**
+   * Story 104 D2: the Steam appid this installation was found under, recorded by the last
+   * inspection that established one (see `ValidationResult.steamAppId`'s doc comment). Absent on
+   * an installation that predates this field, was never Steam-sourced, or sits outside a Steam
+   * library's `steamapps/common/`.
+   */
+  steamAppId?: string
+  /**
+   * Story 104 D2: which of `STEAM_APP_CLIENTS[steamAppId]`'s entries (`src/shared/types/steam.ts`)
+   * the user picked to launch through Steam, by `index`. Absent means "never chosen" - the table's
+   * own `defaultIndex` decides - which is what every installation predating this field has, and
+   * what a `steamAppId` with no client table (not in `STEAM_APP_CLIENTS`) also has, since there is
+   * nothing to choose from.
+   */
+  steamClient?: number
   /** Extra command line arguments, appended after the generated ones. */
   launchArgs: string[]
   /** `fs_game` / `game` value. Empty string means the base game. */
@@ -234,6 +255,8 @@ export interface UpdateInstallationInput {
   favorite?: boolean
   /** Story 103 D6: sets the runner choice (`RunnerChoice`) `installations:listRunners` offers. */
   runner?: RunnerChoice
+  /** Story 104 D2: sets `Installation.steamClient`, the chosen `STEAM_APP_CLIENTS` entry index. */
+  steamClient?: number
 }
 
 export interface RemoveInstallationInput {

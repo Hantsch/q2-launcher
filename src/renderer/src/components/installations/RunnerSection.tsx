@@ -1,10 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { RunnerOption } from '@shared/ipc'
-import type { Installation, LaunchPlan, Outcome } from '@shared/types'
+import {
+  NATIVE_RUNNER_CHOICE,
+  STEAM_APP_CLIENTS,
+  type Installation,
+  type LaunchPlan,
+  type Outcome,
+} from '@shared/types'
 import { cn } from '../../lib/cn'
 import { invoke } from '../../lib/bridge'
 import { useLauncher } from '../../store/useLauncher'
+import { Select } from '../ui/controls'
 import { SectionLabel } from '../ui/primitives'
 
 /**
@@ -15,25 +22,27 @@ import { SectionLabel } from '../ui/primitives'
  * never hidden - it stays in the list, `disabled`, with its reason rendered as visible text right
  * under its label (not a `title`-only tooltip, which a screen reader and a glance both miss).
  *
- * Not rendered on `win32` at all (AC8) - the host OS is the only possible runner there, so there is
- * nothing to choose. `installations:listRunners` would technically still answer (a single `native`
- * entry), but a picker with exactly one, permanently-selected, undisablable option is not a choice;
- * showing it would only invite a click that does nothing.
+ * Story 104 D5: now rendered on every platform, including `win32` - Steam (D3) is a real runner
+ * choice there too (`detectRunners()` returns `[native, steam]` on Windows), so a Windows host has
+ * an actual pick to make, not the single permanently-selected `native` option 103 shipped with.
  */
 export function RunnerSection({ installation }: { installation: Installation }) {
   const { t } = useTranslation()
   const platform = useLauncher((state) => state.appInfo?.platform)
   const updateInstallation = useLauncher((state) => state.updateInstallation)
+  const steamClientSelectId = useId()
 
   const [runnersResult, setRunnersResult] = useState<Outcome<RunnerOption[]> | null>(null)
   const [planResult, setPlanResult] = useState<Outcome<LaunchPlan> | null>(null)
 
-  // `installation.runner` is a dependency (not just `installation.id`) so the preview re-fetches
-  // whenever the effective runner choice changes: `updateInstallation` writes it via
-  // `installations:update`, the main process pushes a fresh `installations:changed` list, and the
-  // store hands this component a new `installation` object with the new `.runner` value (see
-  // LibraryView, which renders this component from `state.installations`). Without this, the
-  // preview would keep showing the command for whichever runner was selected at mount time.
+  // `installation.runner` and `installation.steamClient` are both dependencies (not just
+  // `installation.id`) so the preview re-fetches whenever the effective runner choice OR the
+  // chosen Steam client changes: `updateInstallation` writes either via `installations:update`,
+  // the main process pushes a fresh `installations:changed` list, and the store hands this
+  // component a new `installation` object with the new value (see LibraryView, which renders this
+  // component from `state.installations`). Without `steamClient` here, picking a different Steam
+  // client (D5's "refreshes the preview") would leave the previous client's URL on screen until
+  // something unrelated remounted the component.
   useEffect(() => {
     let cancelled = false
     setRunnersResult(null)
@@ -49,13 +58,25 @@ export function RunnerSection({ installation }: { installation: Installation }) 
     return () => {
       cancelled = true
     }
-  }, [installation.id, installation.runner])
+  }, [installation.id, installation.runner, installation.steamClient])
 
-  // Platform unknown (appInfo not loaded yet) or win32 (AC8, exactly one runner, nothing to
-  // choose): render nothing rather than guessing.
-  if (platform === undefined || platform === 'win32') return null
+  // Platform unknown (appInfo not loaded yet): render nothing rather than guessing.
+  if (platform === undefined) return null
 
   const runners = runnersResult?.ok ? runnersResult.value : []
+  // Mirrors `resolveRunner()`'s own default (`src/main/services/runners.ts`) ONLY on win32: a
+  // fresh Windows installation has no stored `runner` until a user actively picks one, and that
+  // "no choice yet" state resolves to native there. Off win32, `resolveRunner()`'s unset-choice
+  // default depends on `executableKind` (wine vs. umu vs. native) - defaulting to native here too
+  // would show the wrong option checked against the preview below it, so this stays unset exactly
+  // as it did before story 104 (no D5 requirement covers the off-win32 default).
+  const effectiveRunner =
+    installation.runner ?? (platform === 'win32' ? NATIVE_RUNNER_CHOICE : undefined)
+  const steamOption = runners.find((option) => option.kind === 'steam')
+  const steamSelected = steamOption !== undefined && effectiveRunner === steamOption.id
+  const steamClientTable = installation.steamAppId
+    ? STEAM_APP_CLIENTS[installation.steamAppId]
+    : undefined
 
   return (
     <div
@@ -80,12 +101,52 @@ export function RunnerSection({ installation }: { installation: Installation }) 
             <RunnerOptionRow
               key={`${option.kind}-${option.id}`}
               option={option}
-              selected={installation.runner === option.id}
+              selected={effectiveRunner === option.id}
               onSelect={() =>
                 void updateInstallation({ id: installation.id, runner: option.id })
               }
             />
           ))}
+        </div>
+      )}
+
+      {/* Story 104 D5: Steam is not a real runner in the way native/wine/umu are - it hands the
+          launch off to another process entirely, so it always carries this caveat, whether the
+          option itself is available or not (it is shown once Steam appears in the list at all,
+          the same way its disabled reason is shown regardless of availability). */}
+      {steamOption && (
+        <p
+          className="pl-2.5 text-[11px] leading-relaxed text-ink-muted"
+          data-testid="installation-runner-steam-caveat"
+        >
+          {t('runner.steam.caveat')}
+        </p>
+      )}
+
+      {steamOption && steamSelected && steamClientTable && (
+        <div className="flex items-center gap-2">
+          {/* Mirrors `EngineScopeSelect.tsx`'s label/control pairing: a sibling `<label>` with
+              `htmlFor` pointing at the `Select`'s own `id`, rather than an unassociated `<span>` -
+              the same fix story 037 D6 made for `Field`. */}
+          <label className="stencil text-[9px]" htmlFor={steamClientSelectId}>
+            {t('runner.steam.client.label')}
+          </label>
+          <Select
+            id={steamClientSelectId}
+            data-testid="installation-runner-steam-client"
+            className="h-7 w-56 text-xs"
+            value={String(installation.steamClient ?? steamClientTable.defaultIndex)}
+            onChange={(event) =>
+              void updateInstallation({
+                id: installation.id,
+                steamClient: Number(event.target.value),
+              })
+            }
+            options={steamClientTable.clients.map((client) => ({
+              value: String(client.index),
+              label: t(client.labelKey),
+            }))}
+          />
         </div>
       )}
 

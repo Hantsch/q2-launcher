@@ -286,14 +286,33 @@
       "native": "Native",
       "wine": "Wine",
       "umu": "umu-run",
-      "proton": "Proton"
+      "proton": "Proton",
+      "steam": "Steam"
     },
     "unavailable": {
       "native": "not available",
       "wine": "wine not found — install wine to run Windows builds",
       "umu": "umu-run not found — install umu-launcher to run Windows builds",
       "proton": "not found in any Steam library",
-      "protonNotDriven": "Proton builds are used through umu-run, not launched directly — pick umu-run instead"
+      "protonNotDriven": "Proton builds are used through umu-run, not launched directly — pick umu-run instead",
+      "steam": "Steam not found — install Steam to hand this game off to it",
+      "steamNotOwner": "this folder is not a Steam install — Steam can only start games it owns",
+      "steamUnknownApp": "this Steam game has no known launch options"
+    },
+    "steam": {
+      "caveat": "Steam runs its own copy of the game: the launcher's launch arguments and active game directory are not applied, there is no process to observe so no playtime is recorded, and the launcher cannot hold back its own writes (downloads, jobs) into this folder while the game runs.",
+      "client": {
+        "label": "Launch option"
+      }
+    }
+  },
+
+  "steam": {
+    "client": {
+      "enhanced": "2023 remaster (Enhanced)",
+      "original": "Original release",
+      "reckoning": "The Reckoning",
+      "groundZero": "Ground Zero"
     }
   },
 
@@ -426,6 +445,7 @@
     "eta": "{{time}} left",
     "running": "Quake II is running",
     "runningSince": "Started {{time}}",
+    "handedOff": "Handed off to Steam — not tracked",
     "exited": "Quake II exited",
     "noInstallation": "No installation selected",
     "cancelJob": "Cancel",

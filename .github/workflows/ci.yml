@@ -112,3 +112,15 @@ jobs:
         env:
           ELECTRON_DISABLE_SANDBOX: '1'
         run: xvfb-run --auto-servernum npm run ui:flow -- windows-build-on-linux
+
+      # Story 104 D6: the Steam-handoff story's own end-to-end proof (`scripts/flows/steam-handoff.mjs`)
+      # - Steam shows disabled with the not-found/not-owner/unknown-app reasons in turn, then enabled
+      # with its caveat for a folder Steam genuinely owns with a known appid; picking a client changes
+      # the previewed `steam://launch/<appid>/client/<n>` URL, and pressing Play for real hands off to
+      # a stub `steam` binary - the stub's recorded argv is asserted, `launch:state` reaches
+      # `handed-off`, and `running` is never observed. Same job as the two flows above (same build,
+      # same xvfb display) for the same reason: no flow here needs anything from another.
+      - name: Steam handoff (Linux branch)
+        env:
+          ELECTRON_DISABLE_SANDBOX: '1'
+        run: xvfb-run --auto-servernum npm run ui:flow -- steam-handoff

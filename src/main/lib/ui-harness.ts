@@ -98,6 +98,26 @@ export function uiHarnessPickedFolders(input: UiHarnessGateInput): string[] | un
 }
 
 /**
+ * Story 104 D3: the env var the harness names a stand-in Steam executable in, overriding the path
+ * `detectRunners()` (`src/main/services/runners.ts`) would otherwise resolve - `<steam root>/steam.exe`
+ * on Windows, `steam` on `PATH` elsewhere. It exists for the Windows branch of the `steam-handoff`
+ * flow, which cannot put a Steam install into the registry of the machine it runs on.
+ */
+export const UI_HARNESS_STEAM_EXECUTABLE_ENV = 'Q2L_UI_STEAM_EXECUTABLE'
+
+/**
+ * The Steam executable a harness-launched run uses instead of the detected one: `undefined` when
+ * the gate is closed or the variable is unset/empty, so the caller detects Steam for real. Like
+ * `uiHarnessPickedFolders`, the path is not validated here - the caller still checks it is a file.
+ */
+export function uiHarnessSteamExecutable(input: UiHarnessGateInput): string | undefined {
+  if (!isUiHarnessEnabled(input)) return undefined
+  const env = input.env ?? process.env
+  const raw = env[UI_HARNESS_STEAM_EXECUTABLE_ENV]
+  return raw === undefined || raw.length === 0 ? undefined : raw
+}
+
+/**
  * The environment variable the harness names its fixture server's origin in, e.g.
  * `http://127.0.0.1:53129`. Only read when the double gate is open.
  *

@@ -121,6 +121,23 @@ describe('InstallationWriteGuard.isBlockedFor', () => {
     launch.set({ phase: 'failed', installationId: INSTALLATION, error: { key: 'x' } })
     expect(guard.isBlockedFor(INSTALLATION)).toBe(false)
   })
+
+  it('a handed-off installation is not write-blocked', async () => {
+    // Story 104 D4: Steam, not the launcher, owns that game process - there is no exit the
+    // guard could ever wait for, so a write must go ahead at once.
+    const { launch, guard, jobId } = setUp({
+      phase: 'handed-off',
+      installationId: INSTALLATION,
+      startedAt: '2026-09-12T10:00:00.000Z',
+    })
+    const fn = vi.fn(async () => {})
+
+    expect(guard.isBlockedFor(INSTALLATION)).toBe(false)
+    await guard.runWrite(INSTALLATION, jobId, new AbortController().signal, fn)
+
+    expect(fn).toHaveBeenCalledTimes(1)
+    expect(launch.listenerCount()).toBe(0)
+  })
 })
 
 describe('InstallationWriteGuard.runWrite', () => {

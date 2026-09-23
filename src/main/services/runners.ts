@@ -1,6 +1,14 @@
 import { delimiter, join } from 'node:path'
-import { NATIVE_RUNNER_CHOICE, type DetectedRunner, type Installation, type RunnerKind } from '@shared/types'
-import { listDir, looksExecutable } from '../lib/fs-utils'
+import {
+  NATIVE_RUNNER_CHOICE,
+  STEAM_APP_CLIENTS,
+  STEAM_RUNNER_CHOICE,
+  type DetectedRunner,
+  type Installation,
+  type RunnerKind,
+} from '@shared/types'
+import { isFile, listDir, looksExecutable } from '../lib/fs-utils'
+import { uiHarnessSteamExecutable } from '../lib/ui-harness'
 import { findSteamRoot, steamLibraryRoots } from './detection/providers'
 import { scopedLogger } from '../lib/logger'
 
@@ -17,19 +25,50 @@ const NATIVE_RUNNER: DetectedRunner = { kind: 'native', id: 'native', path: '', 
  * here decides which runner an installation should use - D5 does that at resolve time - this is
  * just an inventory.
  *
- * On `win32` the native runner is the only possibility: Wine/umu-run/Proton have no meaning there,
- * so neither `PATH` nor the Steam libraries are touched on this branch at all.
+ * On `win32` Wine/umu-run/Proton have no meaning, so neither `PATH` nor the Steam libraries are
+ * touched on that branch. Story 104 D3 adds the one runner that does exist there too: Steam
+ * (`<steam root>/steam.exe`). Listing it changes nothing about how anything launches - only an
+ * installation whose stored choice is `'steam'` ever resolves to it (see `resolveRunner`), and
+ * `LaunchService.plan()` does not even call this function on Windows.
  */
 export async function detectRunners(): Promise<DetectedRunner[]> {
-  if (process.platform === 'win32') return [NATIVE_RUNNER]
+  if (process.platform === 'win32') return [NATIVE_RUNNER, await findSteam()]
 
-  const [wine, umu, proton] = await Promise.all([
+  const [wine, umu, steam, proton] = await Promise.all([
     findOnPath('wine', 'wine'),
     findOnPath('umu', 'umu-run'),
+    findSteam(),
     findProtonBuilds(),
   ])
 
-  return [NATIVE_RUNNER, wine, umu, ...proton]
+  return [NATIVE_RUNNER, wine, umu, steam, ...proton]
+}
+
+/** Why the Steam runner cannot be chosen for one installation - i18n keys, in the order they are judged. */
+export type SteamUnavailableReason =
+  | 'runner.unavailable.steam'
+  | 'runner.unavailable.steamNotOwner'
+  | 'runner.unavailable.steamUnknownApp'
+
+/**
+ * Story 104 D3: whether the Steam runner is usable for this installation, and if not, why - the one
+ * judgement both `installations:listRunners` (what the UI offers) and `resolveRunner` (what
+ * actually launches) read, so the two cannot disagree. First failing check wins:
+ *
+ *  1. no Steam executable was found on this machine;
+ *  2. the installation is not a Steam copy (no `steamAppId` - Steam does not own this folder);
+ *  3. the appid has no client table, so there is no `steam://launch/<appid>/client/<n>` to hand off.
+ */
+export function steamUnavailableReason(
+  steam: DetectedRunner | undefined,
+  installation: Pick<Installation, 'steamAppId'>,
+): SteamUnavailableReason | undefined {
+  if (!steam?.available) return 'runner.unavailable.steam'
+  if (!installation.steamAppId) return 'runner.unavailable.steamNotOwner'
+  if (!Object.prototype.hasOwnProperty.call(STEAM_APP_CLIENTS, installation.steamAppId)) {
+    return 'runner.unavailable.steamUnknownApp'
+  }
+  return undefined
 }
 
 /**
@@ -42,7 +81,10 @@ export async function detectRunners(): Promise<DetectedRunner[]> {
 const WRAPPING_KINDS: RunnerKind[] = ['wine', 'umu']
 
 /** The subset of an installation `resolveRunner` reads - kept narrow so callers (and tests) need no more. */
-export type RunnerRelevantInstallation = Pick<Installation, 'runner' | 'executableKind'>
+export type RunnerRelevantInstallation = Pick<
+  Installation,
+  'runner' | 'executableKind' | 'steamAppId'
+>
 
 /**
  * Story 103 D5: whether this installation's executable cannot be run by the OS itself and therefore
@@ -60,6 +102,12 @@ export function needsCompatRunner(installation: RunnerRelevantInstallation): boo
  * Story 103 D5, AC4: which runner this installation's executable should be launched through -
  * `undefined` when nothing on this machine can run it (which is what makes `LaunchService.plan()`
  * refuse, AC7).
+ *
+ * Story 104 D3 puts one guard in front of the cascade: a stored `'steam'` choice wins - on every
+ * platform, whatever the executable's kind - but only while `steamUnavailableReason` finds nothing
+ * wrong. Any other stored choice, no choice at all, or a `'steam'` choice Steam cannot serve right
+ * now falls straight through to the cascade below, unchanged from story 103. Steam is never a
+ * default: nothing but that explicit choice reaches it (`WRAPPING_KINDS` does not list it either).
  *
  * The cascade, in order:
  *
@@ -79,6 +127,11 @@ export function resolveRunner(
   installation: RunnerRelevantInstallation,
   detected: DetectedRunner[],
 ): DetectedRunner | undefined {
+  if (installation.runner === STEAM_RUNNER_CHOICE) {
+    const steam = detected.find((runner) => runner.kind === 'steam')
+    if (steam && steamUnavailableReason(steam, installation) === undefined) return steam
+  }
+
   if (!needsCompatRunner(installation)) {
     return detected.find((runner) => runner.kind === 'native') ?? NATIVE_RUNNER
   }
@@ -106,7 +159,7 @@ export function resolveRunner(
  * renders that; this just supplies the shape).
  */
 async function findOnPath(
-  kind: 'wine' | 'umu',
+  kind: 'wine' | 'umu' | 'steam',
   executableName: string,
 ): Promise<DetectedRunner> {
   const dirs = (process.env['PATH'] ?? '').split(delimiter).filter(Boolean)
@@ -116,6 +169,34 @@ async function findOnPath(
     }
   }
   return { kind, id: kind, path: '', available: false }
+}
+
+/**
+ * Story 104 D3: the Steam client's executable. Always returns an entry - `available: false` with an
+ * empty path when none was found - like `findOnPath` does for wine/umu-run.
+ *
+ *  - harness override (`Q2L_UI_STEAM_EXECUTABLE`, only behind `isUiHarnessEnabled`) on any
+ *    platform - still required to be a real file;
+ *  - off Windows: `steam` on `PATH`;
+ *  - on Windows: `steam.exe` in the Steam root the registry names (`findSteamRoot`) - no `PATH`
+ *    walk, no library scan.
+ */
+async function findSteam(): Promise<DetectedRunner> {
+  // `isDev` is part of the gate's input type but not read by it (see ui-harness.ts).
+  const override = uiHarnessSteamExecutable({ isDev: false })
+  if (override !== undefined) return steamRunner((await isFile(override)) ? override : undefined)
+
+  if (process.platform !== 'win32') return findOnPath('steam', 'steam')
+
+  const steamRoot = await findSteamRoot()
+  const executable = steamRoot ? join(steamRoot, 'steam.exe') : undefined
+  return steamRunner(executable && (await isFile(executable)) ? executable : undefined)
+}
+
+function steamRunner(path: string | undefined): DetectedRunner {
+  return path
+    ? { kind: 'steam', id: STEAM_RUNNER_CHOICE, path, available: true }
+    : { kind: 'steam', id: STEAM_RUNNER_CHOICE, path: '', available: false }
 }
 
 /**

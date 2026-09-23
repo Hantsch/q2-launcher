@@ -1,7 +1,7 @@
 ---
 id: 104
 title: steam launches the client i choose
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-23
 ---
 
@@ -48,24 +48,24 @@ pattern all come from there. This story adds one more runner kind to an existing
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A Steam-owned installation knows its Steam appid, read from the
+- [x] **AC1** — A Steam-owned installation knows its Steam appid, read from the
       `appmanifest_<appid>.acf` whose `installdir` matches the installation's folder. An
       installation whose appid cannot be established can never select the Steam runner (it is
       shown disabled with its reason, per AC4) — no id is ever guessed or hardcoded.
 
-- [ ] **AC2** — For a Steam-owned installation the user chooses **which client** Steam should
+- [x] **AC2** — For a Steam-owned installation the user chooses **which client** Steam should
       launch, from the app's own launch options (for 2320: Enhanced Quake II, Quake II Original,
       The Reckoning, Ground Zero; preselected: Quake II Original), and the launcher hands off with
       the corresponding `steam://launch/<appid>/client/<n>` URL. The client names come from the
       launcher's i18n catalogue; the appid/index pairing is data, not code.
 
-- [ ] **AC3** — The Steam handoff states what it gives up, as visible text at the point of choosing
+- [x] **AC3** — The Steam handoff states what it gives up, as visible text at the point of choosing
       it — not in a changelog: the launcher's own launch arguments and active game directory are not
       applied, there is no process to observe, so no playtime is recorded, and the launcher cannot
       hold back its own writes (downloads, jobs) into the folder while the game runs. `launch:state`
       never claims a `running` game it cannot see; the handoff has its own honest terminal state.
 
-- [ ] **AC4** — The Steam runner is selectable only for a folder whose appid AC1 established *and*
+- [x] **AC4** — The Steam runner is selectable only for a folder whose appid AC1 established *and*
       whose appid the shipped client table knows, on Windows and Linux alike. On a machine without
       Steam, for a folder Steam does not own, or for a Steam app the launcher has no client table
       for, it is shown disabled with its reason as visible text, exactly like 103's other
@@ -310,4 +310,86 @@ Steam.
 
 ## Done
 
-<!-- Filled by /build 104. -->
+**Summary.** A Steam-owned installation now knows its Steam appid (read from `appmanifest_*.acf`
+beside the folder, never guessed) and can be launched through Steam itself as a new `'steam'`
+runner alongside 103's native/wine/umu. The user picks which client (Enhanced / Original /
+Reckoning / Ground Zero) from a shipped data table; the launcher hands off with the matching
+`steam://launch/<appid>/client/<n>` URL, states what it gives up (own args, active game dir,
+playtime, write-guard) as visible caveat text, and reaches a new `handed-off` terminal phase that
+is never mistaken for `running`. The Runner section now renders on Windows too. Steam is never a
+default: an installation with no stored Steam choice resolves and launches exactly as before this
+story, on every platform.
+
+**Commit message:** `104: steam launches the client i choose`
+
+**Verification:**
+- `npm run build` — clean.
+- `npm run typecheck` — clean (node + web).
+- `npm test` — 4180 passed, 8 skipped, 2 failed. Both failures
+  (`UpdateCheckRow.test.tsx` and `NewsHero.test.tsx`, both asserting an English relative-time
+  string) are pre-existing and unrelated: `src/renderer/src/lib/format.ts:62` calls
+  `new Intl.RelativeTimeFormat(undefined, …)`, which resolves to this machine's OS/ICU default
+  locale (German) instead of a fixed `'en'`. No file this story touched is involved; not fixed
+  here as it is out of this story's scope.
+- `npm run ui:verify` — 86/86 screenshots written, 0 axe violations (critical/serious/moderate/
+  minor), full 45/45-screen run.
+- `npm run ui:flow -- steam-handoff` and `npm run ui:flow -- windows-build-on-linux` — both pass
+  on this Windows dev machine. Each flow's Windows branch runs for real (including, for
+  steam-handoff, the disabled/enabled/caveat/live-preview steps); each flow's Linux branch
+  (including steam-handoff's real Play click + stub-argv assertion) is CI-only, wired into the
+  ubuntu xvfb job in `.github/workflows/ci.yml`, and was reviewed statically rather than executed
+  here.
+- Clean-agent review (`story-review-hard`, 3 rounds): round 1 FAIL (6 confirmed findings — AC1
+  stale `steamAppId` surviving relocation, a missing digits-only guard on the scraped appid, a
+  broken hybrid launch when a stored `steamClient` index is unlisted, the launch preview not
+  refreshing on client change, "Native checked" not holding for a real unset-runner installation,
+  and a client picker with no accessible name/non-standard sizing) — all fixed. Round 2 FAIL on
+  one regression the round-1 fix introduced (the Native-default fix applied on every platform,
+  wrongly defaulting Linux installations to "Native checked" against their actual wine/umu
+  preview) — fixed by scoping the default to win32 only, with a new regression test. Round 3:
+  **PASS**.
+
+**AC → test mapping, as verified:**
+- AC1 → `src/main/services/steam.test.ts` › "reads the appid from the manifest whose installdir
+  matches the folder" / "a folder with no matching manifest has no appid" (+ digits-only and
+  `__proto__` cases added during review-fix); `src/main/services/inspector.test.ts` › "a folder
+  inside a steam library records its steam appid"; `src/main/services/installations.test.ts` ›
+  "relocating a Steam install to a non-Steam folder clears its stale steamAppId" (added during
+  review-fix, closes the round-1 finding); `scripts/flows/steam-handoff.mjs` both branches, "a
+  folder Steam does not own offers Steam disabled, with its reason" — all passed.
+- AC2 → `src/shared/types/steam.test.ts` › "2320 maps its four clients…"; `RunnerSection.test.tsx`
+  › "choosing a client writes steamClient" (now also asserts the picker's accessible name and the
+  live preview refresh); `scripts/flows/steam-handoff.mjs` Windows branch "choosing Steam previews
+  the handoff URL" (executed here) and Linux branch "choosing Steam and Ground Zero hands off
+  steam://launch/2320/client/4" (CI-only) — all passed.
+- AC3 → `src/main/services/launch.test.ts` › "a steam handoff spawns detached with only the URL,
+  reports handed-off and records no playtime" (+ "a stored steam choice with an unlisted client
+  index falls back to the normal launch, never wrapping steam as a runner", added during
+  review-fix); `src/main/services/write-guard.test.ts` › "a handed-off installation is not
+  write-blocked"; `ActionBar.test.tsx` › "handed-off reads as not tracked and keeps Play enabled";
+  `scripts/flows/steam-handoff.mjs` Linux branch "the handoff states what it gives up" / "a
+  handoff reaches handed-off and never running" (CI-only) — all passed.
+- AC4 → `src/main/services/runners.test.ts` › "steam is detected on PATH off windows and under the
+  steam root on win32" / "a stored steam choice wins only when available; win32 still defaults to
+  native"; `src/main/ipc/installations.test.ts` › "listRunners gives the steam option its reason
+  per installation"; `RunnerSection.test.tsx` › "an unavailable steam option renders its reason as
+  visible text" (+ "off win32, an installation with no stored runner checks nothing", added during
+  review-fix to close the round-2 regression); `scripts/flows/steam-handoff.mjs` both
+  disabled-reason steps — all passed.
+
+**Manual residue (declared in the story, unchanged):** Steam actually starting the chosen client
+from the launcher's handoff — no Steam client/account/licensed data in CI. The automated line
+stops at "`steam` was spawned with exactly this URL and reported `handed-off`". Awaiting the
+tester's one walk-through of the other three clients (Original was already verified by hand on
+2026-09-22).
+
+**Deferred, non-blocking (from review round 1, judged low severity, not fixed in this build):**
+- The Steam-library path-shape check (`common`/`steamapps` folder names) is case-sensitive even on
+  win32. Plausible edge case for a hand-renamed legacy library folder, not reproduced.
+- `steamLaunchUrl()`/`STEAM_APP_CLIENTS` lookups don't independently re-validate a non-digit appid
+  (main-process `steamUnavailableReason()` already guards this via `hasOwnProperty`; the persisted
+  schema and fix #1's revalidation-on-relocate/startup limit real exposure to a hand-edited state
+  file).
+- No dedicated `schemas.test.ts` case for the new `steamAppId`/`steamClient` fields' `.optional().
+  catch(undefined)` degrade behavior — the pattern itself is pre-existing and already exercised
+  elsewhere in this codebase for `executableKind`.

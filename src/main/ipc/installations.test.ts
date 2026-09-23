@@ -28,7 +28,10 @@ vi.mock('electron', () => ({
   dialog: { showOpenDialog: vi.fn() },
 }))
 
-vi.mock('../services/runners', () => ({
+// Only detection is mocked: `steamUnavailableReason` stays real, because the Steam option's
+// per-installation judgement (story 104 D3) is exactly what the handler is supposed to delegate.
+vi.mock('../services/runners', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../services/runners')>()),
   detectRunners: detectRunnersMock,
 }))
 
@@ -139,6 +142,48 @@ describe('installations:listRunners', () => {
           reasonKey: 'runner.unavailable.protonNotDriven',
         },
       ],
+    })
+  })
+
+  it('listRunners gives the steam option its reason per installation', async () => {
+    const NATIVE = { kind: 'native', id: 'native', path: '', available: true }
+    const STEAM_FOUND = { kind: 'steam', id: 'steam', path: 'C:\\Steam\\steam.exe', available: true }
+    const STEAM_MISSING = { kind: 'steam', id: 'steam', path: '', available: false }
+    const steamOption = (result: unknown): unknown =>
+      (result as { value: { kind: string }[] }).value.find((option) => option.kind === 'steam')
+
+    const owned = { ...fixtureInstallation('owned'), steamAppId: '2320' }
+    const unowned = fixtureInstallation('unowned')
+    const unknownApp = { ...fixtureInstallation('unknown'), steamAppId: '9999' }
+    const fn = await setup([owned, unowned, unknownApp])
+
+    // 1. No Steam executable at all - reported first, even for a folder Steam owns.
+    detectRunnersMock.mockResolvedValue([NATIVE, STEAM_MISSING])
+    expect(steamOption(await fn(fakeEvent, 'owned'))).toEqual({
+      kind: 'steam',
+      id: 'steam',
+      labelKey: 'runner.kind.steam',
+      available: false,
+      reasonKey: 'runner.unavailable.steam',
+    })
+
+    detectRunnersMock.mockResolvedValue([NATIVE, STEAM_FOUND])
+    // 2. Steam found, but this folder carries no appid.
+    expect(steamOption(await fn(fakeEvent, 'unowned'))).toMatchObject({
+      available: false,
+      reasonKey: 'runner.unavailable.steamNotOwner',
+    })
+    // 3. An appid with no client table.
+    expect(steamOption(await fn(fakeEvent, 'unknown'))).toMatchObject({
+      available: false,
+      reasonKey: 'runner.unavailable.steamUnknownApp',
+    })
+    // Fully available: enabled, and no reason at all.
+    expect(steamOption(await fn(fakeEvent, 'owned'))).toEqual({
+      kind: 'steam',
+      id: 'steam',
+      labelKey: 'runner.kind.steam',
+      available: true,
     })
   })
 

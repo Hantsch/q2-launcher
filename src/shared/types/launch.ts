@@ -1,5 +1,11 @@
-/** State of the game process the launcher started. */
-export type LaunchPhase = 'idle' | 'starting' | 'running' | 'exited' | 'failed'
+/**
+ * State of the game process the launcher started.
+ *
+ * Story 104 D4: `'handed-off'` means the launch was passed to another program (Steam) that
+ * starts the game itself - there is no game process of ours to follow, so no exit, no playtime,
+ * and it never counts as running.
+ */
+export type LaunchPhase = 'idle' | 'starting' | 'running' | 'handed-off' | 'exited' | 'failed'
 
 export interface LaunchState {
   phase: LaunchPhase
@@ -34,4 +40,9 @@ export interface LaunchPlan {
   workingDirectory: string
   /** Ready-to-read, shell-quoted preview of the command. Display only. */
   preview: string
+  /**
+   * Story 104 D4: the command hands the launch to Steam (`steam steam://launch/<appid>/client/<n>`)
+   * instead of running the game - `start()` spawns it detached and does not track it.
+   */
+  handoff?: true
 }

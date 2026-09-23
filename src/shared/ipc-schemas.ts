@@ -89,6 +89,10 @@ export const updateInstallationInputSchema: z.ZodType<
   // same as the persisted schema (`src/main/lib/schemas.ts`); resolving whether it is usable is
   // `resolveRunner`'s job, never the schema's.
   runner: z.string().min(1).optional(),
+  // Story 104 D2: the `STEAM_APP_CLIENTS` entry index the user picked, a plain positive integer -
+  // resolving whether the installation's `steamAppId` even has a client table is not this schema's
+  // job, same division of labour as `runner` right above.
+  steamClient: z.number().int().positive().optional(),
 })
 
 export const removeInstallationInputSchema: z.ZodType<

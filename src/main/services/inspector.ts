@@ -18,6 +18,7 @@ import {
   readBinaryKind,
   resolveRelaxed,
 } from '../lib/fs-utils'
+import { readSteamAppId } from './steam'
 
 /**
  * Decides whether a folder is a usable Quake II installation, what engine it
@@ -272,6 +273,7 @@ export async function inspectInstallation(
   }
 
   const executableKind = executablePath ? await chosenExecutableKind(executablePath) : undefined
+  const steamAppId = await readSteamAppId(rootPath)
 
   if (!executablePath) {
     checks.push(
@@ -335,6 +337,7 @@ export async function inspectInstallation(
     executables: executables.map((name) => join(rootPath, name)),
     engineKind,
     ...(executableKind ? { executableKind } : {}),
+    ...(steamAppId ? { steamAppId } : {}),
     checkedAt,
   }
 }

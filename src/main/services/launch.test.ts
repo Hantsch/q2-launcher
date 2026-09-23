@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { DetectedRunner, Installation, LaunchState } from '@shared/types'
+import { steamLaunchUrl, type DetectedRunner, type Installation, type LaunchState } from '@shared/types'
 import { stubPlatform } from '../../test-support/platform'
 import type { InstallationsService } from './installations'
 import { LaunchService } from './launch'
@@ -220,6 +220,113 @@ describe('LaunchService.plan with a runner', () => {
     })
     // No runner detection happens on Windows at all - not even the cheap, injected one.
     expect(detectRunners).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * Story 104 D4. A stored Steam choice turns the launch into a handoff: `steam <url>`, detached, and
+ * followed only as far as `'spawn'` - the game process belongs to Steam, so there is no exit to wait
+ * for and no playtime to record.
+ */
+describe('LaunchService steam handoff', () => {
+  const STEAM: DetectedRunner = {
+    kind: 'steam',
+    id: 'steam',
+    path: 'C:\\Program Files (x86)\\Steam\\steam.exe',
+    available: true,
+  }
+  const steamInstallation = {
+    ...installation,
+    runner: 'steam',
+    steamAppId: '2320',
+    steamClient: 3,
+  } as unknown as Installation
+
+  it('a steam handoff spawns detached with only the URL, reports handed-off and records no playtime', async () => {
+    // win32 with no `executableKind`: exactly where `needsCompatRunner` is false, so this also
+    // proves the stored choice is honoured ahead of that gate.
+    restorePlatform = stubPlatform('win32')
+    const installations = fakeInstallations(steamInstallation)
+    const broadcast = vi.fn<(state: LaunchState) => void>()
+    const launch = new LaunchService({
+      installations,
+      onStateChange: broadcast,
+      detectRunners: () => Promise.resolve([NATIVE, STEAM]),
+    })
+    const child = { once: vi.fn(), unref: vi.fn(), pid: 4242 }
+    spawnMock.mockImplementation(() => child as never)
+    const url = steamLaunchUrl('2320', 3)
+
+    const planned = await launch.plan({ installationId: INSTALLATION })
+    if (!planned.ok) throw new Error(`expected a plan, got ${planned.error.key}`)
+    expect(planned.value).toEqual({
+      executablePath: STEAM.path,
+      args: [url],
+      workingDirectory: steamInstallation.rootPath,
+      preview: expect.stringContaining(url as string),
+      handoff: true,
+    })
+    // None of the generated `+set` arguments leak into the preview.
+    expect(planned.value.preview).not.toContain('+set')
+
+    const started = await launch.start({ installationId: INSTALLATION })
+
+    expect(started.ok).toBe(true)
+    expect(spawnMock).toHaveBeenCalledTimes(1)
+    expect(spawnMock).toHaveBeenCalledWith(
+      STEAM.path,
+      [url],
+      expect.objectContaining({ detached: true, stdio: 'ignore' }),
+    )
+    expect(child.unref).toHaveBeenCalledTimes(1)
+    const events = child.once.mock.calls.map((call) => call[0] as string)
+    expect(events).not.toContain('exit')
+
+    const onSpawn = child.once.mock.calls.find((call) => call[0] === 'spawn')?.[1] as () => void
+    onSpawn()
+
+    expect(launch.getState().phase).toBe('handed-off')
+    expect(launch.getState()).not.toHaveProperty('pid')
+    expect(launch.isRunning()).toBe(false)
+    const phases = broadcast.mock.calls.map((call) => call[0].phase)
+    expect(phases).toEqual(['starting', 'handed-off'])
+    expect(phases).not.toContain('running')
+    expect(installations.recordPlaySession).not.toHaveBeenCalled()
+  })
+
+  it('a stored steam choice with an unlisted client index falls back to the normal launch, never wrapping steam as a runner', async () => {
+    // Linux + a Windows PE: the one case where the compat branch runs, and where `resolveRunner`
+    // would otherwise hand back Steam (available, known appid) to be wrapped around the exe.
+    restorePlatform = stubPlatform('linux')
+    const LINUX_STEAM: DetectedRunner = { kind: 'steam', id: 'steam', path: '/usr/bin/steam', available: true }
+    const brokenChoice = {
+      ...peInstallation,
+      runner: 'steam',
+      steamAppId: '2320',
+      steamClient: 99,
+    } as unknown as Installation
+    const { launch } = service({ installation: brokenChoice, runners: [NATIVE, WINE, LINUX_STEAM] })
+
+    const planned = await launch.plan({ installationId: INSTALLATION })
+    if (!planned.ok) throw new Error(`expected a plan, got ${planned.error.key}`)
+
+    // Exactly the plan an installation with no stored choice gets: wine around the exe.
+    const generated = buildLaunchArgs(brokenChoice).args
+    expect(planned.value).toEqual({
+      executablePath: WINE.path,
+      args: [brokenChoice.executablePath, ...generated],
+      workingDirectory: brokenChoice.rootPath,
+      preview: expect.stringContaining(WINE.path),
+    })
+    expect(planned.value).not.toHaveProperty('handoff')
+
+    spawnMock.mockImplementation(() => fakeChild() as never)
+    const started = await launch.start({ installationId: INSTALLATION })
+
+    expect(started.ok).toBe(true)
+    expect(spawnMock).toHaveBeenCalledTimes(1)
+    expect(spawnMock.mock.calls[0]?.[0]).toBe(WINE.path)
+    expect(spawnMock.mock.calls.map((call) => call[0])).not.toContain(LINUX_STEAM.path)
   })
 })
 

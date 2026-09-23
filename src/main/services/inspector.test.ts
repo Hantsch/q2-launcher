@@ -333,3 +333,34 @@ describe('inspectInstallation base-paks', () => {
     expect(result.status).toBe('ok')
   })
 })
+
+/**
+ * Story 104 D2: the inspector wires `readSteamAppId` (`./steam`, story 104 D1) into
+ * `ValidationResult.steamAppId`, mirroring the D1 fixture shape from `steam.test.ts`.
+ */
+describe('steam appid detection', () => {
+  let steamDir: string
+
+  afterEach(async () => {
+    await rm(steamDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+  })
+
+  it('a folder inside a steam library records its steam appid', async () => {
+    steamDir = await mkdtemp(join(tmpdir(), 'q2-launcher-inspector-steam-'))
+    const steamappsDir = join(steamDir, 'steamapps')
+    const commonDir = join(steamappsDir, 'common')
+    const installRoot = join(commonDir, 'Quake 2')
+    await mkdir(join(installRoot, BASE_GAME_DIR), { recursive: true })
+    await writeFile(join(installRoot, 'q2pro.exe'), 'stand-in executable')
+    if (process.platform !== 'win32') await chmod(join(installRoot, 'q2pro.exe'), 0o755)
+    await writeFile(
+      join(steamappsDir, 'appmanifest_2320.acf'),
+      '"AppState"\n{\n\t"appid"\t\t"2320"\n\t"installdir"\t\t"Quake 2"\n}\n',
+      'utf8',
+    )
+
+    const result = await inspectInstallation(installRoot)
+
+    expect(result.steamAppId).toBe('2320')
+  })
+})

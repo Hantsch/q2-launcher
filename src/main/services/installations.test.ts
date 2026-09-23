@@ -364,6 +364,45 @@ describe('recordedEngineKind (story 093 finding fix, AC1)', () => {
   })
 })
 
+describe('update', () => {
+  it('update persists steamClient', async () => {
+    state.setInstallations([installation()])
+
+    const result = await installations.update({ id: INSTALLATION_ID, steamClient: 4 })
+
+    expect(result.ok).toBe(true)
+    expect(result.ok === true && result.value.steamClient).toBe(4)
+    expect(installations.find(INSTALLATION_ID)?.steamClient).toBe(4)
+  })
+
+  it('relocating a Steam install to a non-Steam folder clears its stale steamAppId', async () => {
+    // Story 104 review fix (AC1): the appid is path-derived, so it must not outlive a move out of
+    // the Steam library - unlike `executableKind`, it is never kept from a previous inspection.
+    const steamappsDir = join(dir, 'library', 'steamapps')
+    const steamRoot = join(steamappsDir, 'common', 'Quake 2')
+    await writePlayableRoot(steamRoot)
+    await writeFile(
+      join(steamappsDir, 'appmanifest_2320.acf'),
+      '"AppState"\n{\n\t"appid"\t\t"2320"\n\t"installdir"\t\t"Quake 2"\n}\n',
+      'utf8',
+    )
+    state.setInstallations([installation({ rootPath: steamRoot, steamAppId: '2320' })])
+
+    // Sanity: a revalidation that stays inside the Steam library keeps the appid.
+    const kept = await installations.validate(INSTALLATION_ID)
+    expect(kept.ok === true && kept.value.steamAppId).toBe('2320')
+
+    const plainRoot = join(dir, 'plain', 'Quake 2')
+    await writePlayableRoot(plainRoot)
+
+    const result = await installations.update({ id: INSTALLATION_ID, rootPath: plainRoot })
+
+    expect(result.ok).toBe(true)
+    expect(result.ok === true && result.value.steamAppId).toBeUndefined()
+    expect(installations.find(INSTALLATION_ID)?.steamAppId).toBeUndefined()
+  })
+})
+
 describe('remove({ deleteFromDisk: true }) (story 094 D2)', () => {
   const STORE_SOURCES: InstallationSource[] = ['steam', 'gog', 'epic', 'bethesda']
 

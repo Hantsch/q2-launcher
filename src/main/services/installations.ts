@@ -180,6 +180,9 @@ export class InstallationsService {
       // Story 103 D2: absent on Windows, where no header is read - so the key only ever appears on
       // a record whose executable was actually identified by its first bytes.
       ...(result.executableKind ? { executableKind: result.executableKind } : {}),
+      // Story 104 D2: same additive convention - only present when the root was actually found
+      // inside a Steam library.
+      ...(result.steamAppId ? { steamAppId: result.steamAppId } : {}),
       // AC1 fix: a fresh inspection of a folder the user already has is a positive identification -
       // record it once, so a later missing executable (which drops `engineKind` to `'unknown'`, see
       // `Installation.recordedEngineKind`'s doc comment) does not also erase this memory.
@@ -285,6 +288,7 @@ export class InstallationsService {
     // Story 103 D6: the runner choice `resolveRunner` (src/main/services/runners.ts) reads. Does
     // not trigger revalidation below - it changes nothing `applyInspection` checks.
     if (input.runner !== undefined) next.runner = input.runner
+    if (input.steamClient !== undefined) next.steamClient = input.steamClient
 
     if (input.writeDirPath !== undefined) {
       if (input.writeDirPath === null) delete next.writeDirPath
@@ -587,6 +591,14 @@ export class InstallationsService {
     // the record exactly as it found it), so a kind read on another platform is kept rather than
     // erased by a Windows run over the same state file.
     if (result.executableKind) next.executableKind = result.executableKind
+
+    // Story 104 D2 (review fix, AC1): the Steam appid is *not* merged like `executableKind` above.
+    // It is derived purely from the root path, on every platform, so the new inspection's answer is
+    // the whole truth: an installation relocated out of a Steam library must lose its appid, or the
+    // Steam runner would stay selectable for a folder Steam does not own. The stored `steamClient`
+    // choice is left alone - it is simply inert without an appid.
+    if (result.steamAppId) next.steamAppId = result.steamAppId
+    else delete next.steamAppId
 
     // The selected game dir may have been deleted behind our back.
     if (next.activeGameDir && !result.gameDirs.includes(next.activeGameDir)) {

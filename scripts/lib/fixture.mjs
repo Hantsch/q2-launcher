@@ -3463,3 +3463,99 @@ export function writeUmuStub() {
   chmodSync(umu, 0o755)
   return dir
 }
+
+// --- story 104 D6: the steam-handoff e2e proof's own fixtures -----------------------------------
+//
+// `scripts/flows/steam-handoff.mjs` needs two things `windows-build-on-linux.mjs`'s own fixtures
+// don't provide: an install root Steam itself would recognise as one of its own
+// (`readSteamAppId()`, `src/main/services/steam.ts` - a folder living directly inside some Steam
+// library's `steamapps/common/`, with a sibling `appmanifest_<appid>.acf` naming it), and a stub
+// `steam` binary that behaves like a real handoff target rather than a wrapper.
+
+/**
+ * The exact `"key" "value"` shape `scrapeVdfPairs()` (`src/main/services/steam.ts`) reads, mirroring
+ * the literal fixture already proven correct by `steam.test.ts`'s own "reads the appid from the
+ * manifest whose installdir matches the folder" case - not hand-rolled a second time here.
+ */
+const STEAM_LIBRARY_INSTALL_DIR_NAME = 'Quake 2'
+
+function steamLibraryFixtureRoot(appid) {
+  return join(gameRoot(), `steam-handoff-${appid}`)
+}
+
+/** `<root>/steamapps/common/Quake 2` - what `readSteamAppId()` requires an install root to be:
+ * `dirname(installRoot)` named `common`, `dirname(dirname(installRoot))` named `steamapps`. */
+export function steamLibraryInstallRoot(appid) {
+  return join(steamLibraryFixtureRoot(appid), 'steamapps', 'common', STEAM_LIBRARY_INSTALL_DIR_NAME)
+}
+
+/**
+ * Builds a fresh Steam-owned install root for `appid`: retail-sized `baseq2/pak0.pak`/`pak1.pak`/
+ * `pak2.pak` (so nothing but the runner story shows up in `installation.checks`, same reasoning as
+ * `writeWindowsBuildFixture()`), a real MZ-header `quake2.exe` (execute bit set), and a sibling
+ * `steamapps/appmanifest_<appid>.acf` whose `"appid"`/`"installdir"` pair names this exact folder -
+ * the one thing that makes `readSteamAppId()` recognise it as Steam-owned at all. A distinct root
+ * per appid (rather than one shared `steamapps` with several manifests) keeps the two call sites
+ * `steam-handoff.mjs` needs (a known appid with a client table, and an unknown one without) fully
+ * independent - deleting/rewriting one never touches the other's manifest.
+ *
+ * Returns `{ root, exePath, manifestPath }` - `root` is what a flow hands to
+ * `Q2L_UI_PICK_FOLDER`/the Add Existing dialog.
+ */
+export function writeSteamLibraryFixture({ appid }) {
+  const installRoot = assertInside(
+    UI_VERIFY_ROOT,
+    steamLibraryInstallRoot(appid),
+    'steam library install root',
+  )
+  rmDirBestEffort(steamLibraryFixtureRoot(appid))
+  const baseq2Dir = join(installRoot, 'baseq2')
+  mkdirSync(baseq2Dir, { recursive: true })
+  writeSizedFile(join(baseq2Dir, 'pak0.pak'), RETAIL_PAK_SIZES['pak0.pak'])
+  writeSizedFile(join(baseq2Dir, 'pak1.pak'), RETAIL_PAK_SIZES['pak1.pak'])
+  writeSizedFile(join(baseq2Dir, 'pak2.pak'), RETAIL_PAK_SIZES['pak2.pak'])
+
+  const exePath = join(installRoot, 'quake2.exe')
+  writeFileSync(exePath, PE_HEADER_BYTES)
+  chmodSync(exePath, 0o755)
+
+  const steamappsDir = join(steamLibraryFixtureRoot(appid), 'steamapps')
+  const manifestPath = join(steamappsDir, `appmanifest_${appid}.acf`)
+  writeFileSync(
+    manifestPath,
+    `"AppState"\n{\n\t"appid"\t\t"${appid}"\n\t"installdir"\t\t"${STEAM_LIBRARY_INSTALL_DIR_NAME}"\n}\n`,
+    'utf8',
+  )
+
+  return { root: installRoot, exePath, manifestPath }
+}
+
+function steamStubBinDir() {
+  return join(UI_VERIFY_ROOT, 'fixture', 'steam-handoff-steam-bin')
+}
+
+/** `<dir>/steam-stub.log` - where the stub below records every invocation's argv. */
+export function steamStubLogPath() {
+  return join(steamStubBinDir(), 'steam-stub.log')
+}
+
+/**
+ * Unlike `writeWineStub()`/`writeUmuStub()`, a Steam handoff's only argument is a
+ * `steam://launch/<appid>/client/<n>` URL, never another executable to run - `exec "$@"` would try
+ * (and fail) to run that URL as a program. So this stub just records its own argv to a log file
+ * (`steamStubLogPath()`) and exits 0: still a real process spawn/exit (`LaunchService.handOff()`'s
+ * `'spawn'`/`'error'` listeners see a genuine child process, the same "the wrapper process itself is
+ * real" trick the wine/umu stubs use), just one whose recorded argv is what the flow asserts against
+ * instead of a nested exec. Never called on `win32` - the flow's own branch gate keeps this off
+ * Windows entirely (the Windows branch never presses Play).
+ */
+export function writeSteamStub() {
+  const dir = assertInside(UI_VERIFY_ROOT, steamStubBinDir(), 'steam stub bin dir')
+  rmDirBestEffort(dir)
+  mkdirSync(dir, { recursive: true })
+  const logPath = steamStubLogPath()
+  const steam = join(dir, 'steam')
+  writeFileSync(steam, `#!/bin/sh\necho "$@" >> "${logPath}"\nexit 0\n`)
+  chmodSync(steam, 0o755)
+  return { dir, logPath }
+}

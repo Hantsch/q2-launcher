@@ -18,20 +18,48 @@ vi.mock('node:os', async (importOriginal) => {
   return { ...actual, homedir: () => homeBox.current }
 })
 
+/**
+ * Story 104 D3. On (stubbed) win32 `findSteamRoot` reads the registry through `reg.exe` - the real
+ * machine's, on a Windows host - so the win32 cases pin its answer here. `undefined` (the default)
+ * keeps the real implementation, which the off-Windows Proton case relies on.
+ */
+const steamRootBox = vi.hoisted(() => ({ current: undefined as string | null | undefined }))
+vi.mock('./detection/providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./detection/providers')>()
+  return {
+    ...actual,
+    findSteamRoot: (home?: string) =>
+      steamRootBox.current !== undefined
+        ? Promise.resolve(steamRootBox.current)
+        : actual.findSteamRoot(home),
+  }
+})
+
+const HARNESS_ENV_VARS = ['Q2L_UI_HARNESS', 'Q2L_UI_STEAM_EXECUTABLE'] as const
+
 let dir: string
 let originalPath: string | undefined
+let originalHarnessEnv: Record<string, string | undefined>
 let restorePlatform: (() => void) | undefined
 
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), 'q2-launcher-runners-'))
   homeBox.current = join(dir, 'home')
   await mkdir(homeBox.current, { recursive: true })
+  steamRootBox.current = undefined
   originalPath = process.env['PATH']
+  originalHarnessEnv = Object.fromEntries(HARNESS_ENV_VARS.map((name) => [name, process.env[name]]))
+  for (const name of HARNESS_ENV_VARS) delete process.env[name]
 })
 
 afterEach(async () => {
   if (originalPath === undefined) delete process.env['PATH']
   else process.env['PATH'] = originalPath
+  for (const name of HARNESS_ENV_VARS) {
+    const value = originalHarnessEnv[name]
+    if (value === undefined) delete process.env[name]
+    else process.env[name] = value
+  }
   restorePlatform?.()
   restorePlatform = undefined
   await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
@@ -86,16 +114,155 @@ describe('resolveRunner', () => {
 })
 
 describe('detectRunners on win32', () => {
-  it('returns the native runner only, and touches neither PATH nor Steam libraries', async () => {
+  it('returns native and steam only, and touches neither PATH nor Steam libraries', async () => {
     restorePlatform = stubPlatform('win32')
+    steamRootBox.current = null
     // Deliberately hostile values: if the win32 branch read either of these, the assertion below
-    // would fail because a wine/proton entry would show up.
+    // would fail because a wine/proton entry - or a PATH-resolved steam - would show up.
     process.env['PATH'] = dir
     await writeExecutable(join(dir, 'wine'))
+    await writeExecutable(join(dir, 'steam'))
 
     const result = await detectRunners()
 
-    expect(result).toEqual([{ kind: 'native', id: 'native', path: '', available: true }])
+    // Story 104 D3: native stays first and unchanged; Steam is listed (here: not found).
+    expect(result).toEqual([
+      { kind: 'native', id: 'native', path: '', available: true },
+      { kind: 'steam', id: 'steam', path: '', available: false },
+    ])
+  })
+})
+
+describe('steam is detected on PATH off windows and under the steam root on win32', () => {
+  it('under the steam root on win32', async () => {
+    restorePlatform = stubPlatform('win32')
+    const steamRoot = join(dir, 'Steam')
+    await mkdir(steamRoot, { recursive: true })
+    await writeFile(join(steamRoot, 'steam.exe'), '')
+    steamRootBox.current = steamRoot
+
+    const result = await detectRunners()
+
+    expect(result).toEqual([
+      { kind: 'native', id: 'native', path: '', available: true },
+      { kind: 'steam', id: 'steam', path: join(steamRoot, 'steam.exe'), available: true },
+    ])
+
+    // A Steam root the registry names but with no steam.exe in it is "not found", not a guess.
+    await rm(join(steamRoot, 'steam.exe'))
+    expect(await detectRunners()).toContainEqual({
+      kind: 'steam',
+      id: 'steam',
+      path: '',
+      available: false,
+    })
+  })
+
+  it.skipIf(process.platform === 'win32')('on PATH off windows', async () => {
+    restorePlatform = stubPlatform('linux')
+    const binDir = join(dir, 'bin')
+    await mkdir(binDir, { recursive: true })
+    await writeExecutable(join(binDir, 'steam'))
+    process.env['PATH'] = binDir
+
+    expect(await detectRunners()).toContainEqual({
+      kind: 'steam',
+      id: 'steam',
+      path: join(binDir, 'steam'),
+      available: true,
+    })
+
+    process.env['PATH'] = join(dir, 'nowhere')
+    expect(await detectRunners()).toContainEqual({
+      kind: 'steam',
+      id: 'steam',
+      path: '',
+      available: false,
+    })
+  })
+
+  it('the harness seam overrides the steam executable only behind the gate', async () => {
+    restorePlatform = stubPlatform('win32')
+    steamRootBox.current = null
+    const stub = join(dir, 'steam-stub.exe')
+    await writeFile(stub, '')
+    process.env['Q2L_UI_STEAM_EXECUTABLE'] = stub
+
+    // Gate closed: the variable is ignored and nothing is found.
+    expect(await detectRunners()).toContainEqual({
+      kind: 'steam',
+      id: 'steam',
+      path: '',
+      available: false,
+    })
+
+    process.env['Q2L_UI_HARNESS'] = '1'
+    expect(await detectRunners()).toContainEqual({
+      kind: 'steam',
+      id: 'steam',
+      path: stub,
+      available: true,
+    })
+  })
+})
+
+describe('a stored steam choice wins only when available; win32 still defaults to native', () => {
+  const NATIVE: DetectedRunner = { kind: 'native', id: 'native', path: '', available: true }
+  const WINE: DetectedRunner = { kind: 'wine', id: 'wine', path: '/usr/bin/wine', available: true }
+  const UMU: DetectedRunner = { kind: 'umu', id: 'umu', path: '/usr/bin/umu-run', available: true }
+  const STEAM: DetectedRunner = { kind: 'steam', id: 'steam', path: '/usr/bin/steam', available: true }
+  const STEAM_MISSING: DetectedRunner = { kind: 'steam', id: 'steam', path: '', available: false }
+
+  it('on win32', async () => {
+    restorePlatform = stubPlatform('win32')
+    const steamRoot = join(dir, 'Steam')
+    await mkdir(steamRoot, { recursive: true })
+    await writeFile(join(steamRoot, 'steam.exe'), '')
+    steamRootBox.current = steamRoot
+
+    const detected = await detectRunners()
+    expect(detected.map((runner) => runner.kind)).toEqual(['native', 'steam'])
+    const steam = detected[1]
+
+    // No stored choice: native, even for a Steam-owned Windows build with Steam installed.
+    expect(resolveRunner({ executableKind: 'pe', steamAppId: '2320' }, detected)).toEqual(NATIVE)
+    expect(resolveRunner({ runner: 'native', steamAppId: '2320' }, detected)).toEqual(NATIVE)
+    // A stored 'steam' choice Steam can serve wins.
+    expect(resolveRunner({ runner: 'steam', executableKind: 'pe', steamAppId: '2320' }, detected)).toEqual(
+      steam,
+    )
+    // A stored 'steam' choice Steam cannot serve falls through to native - for each reason.
+    expect(resolveRunner({ runner: 'steam', executableKind: 'pe' }, detected)).toEqual(NATIVE)
+    expect(resolveRunner({ runner: 'steam', steamAppId: '9999' }, detected)).toEqual(NATIVE)
+    expect(
+      resolveRunner({ runner: 'steam', steamAppId: '2320' }, [NATIVE, STEAM_MISSING]),
+    ).toEqual(NATIVE)
+  })
+
+  it('off windows', () => {
+    restorePlatform = stubPlatform('linux')
+    const detected = [NATIVE, WINE, UMU, STEAM]
+
+    // Never a default: no choice keeps 103's cascade, Steam-owned or not.
+    expect(resolveRunner({ executableKind: 'pe', steamAppId: '2320' }, detected)).toEqual(WINE)
+    expect(resolveRunner({ executableKind: 'elf', steamAppId: '2320' }, detected)).toEqual(NATIVE)
+    // A usable stored 'steam' choice wins, whatever the executable's kind.
+    expect(resolveRunner({ runner: 'steam', executableKind: 'pe', steamAppId: '2320' }, detected)).toEqual(
+      STEAM,
+    )
+    expect(resolveRunner({ runner: 'steam', executableKind: 'elf', steamAppId: '2320' }, detected)).toEqual(
+      STEAM,
+    )
+    // An unusable one falls through to the cascade exactly as an uninstalled wrapper would.
+    expect(resolveRunner({ runner: 'steam', executableKind: 'pe' }, detected)).toEqual(WINE)
+    expect(resolveRunner({ runner: 'steam', executableKind: 'elf' }, detected)).toEqual(NATIVE)
+    expect(
+      resolveRunner({ runner: 'steam', executableKind: 'pe', steamAppId: '2320' }, [
+        NATIVE,
+        WINE,
+        STEAM_MISSING,
+      ]),
+    ).toEqual(WINE)
   })
 })
 
@@ -122,6 +289,8 @@ describe('detectRunners off Windows', () => {
           { kind: 'native', id: 'native', path: '', available: true },
           { kind: 'wine', id: 'wine', path: join(binDir, 'wine'), available: true },
           { kind: 'umu', id: 'umu', path: join(binDir, 'umu-run'), available: true },
+          // Story 104 D3: steam is looked for too; there is none on this PATH.
+          { kind: 'steam', id: 'steam', path: '', available: false },
           {
             kind: 'proton',
             id: 'proton-experimental',
@@ -131,7 +300,7 @@ describe('detectRunners off Windows', () => {
           },
         ]),
       )
-      expect(result).toHaveLength(4)
+      expect(result).toHaveLength(5)
     },
   )
 

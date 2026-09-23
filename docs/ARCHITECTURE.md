@@ -152,6 +152,18 @@ Verifying the rest of the UI without launching a game — screenshots and an
 accessibility report per screen, driven against the built app — is
 [docs/UI-VERIFICATION.md](UI-VERIFICATION.md).
 
+A Steam-owned installation can launch through Steam itself instead: `plan()` skips
+`buildLaunchArgs()` entirely and builds a `steam://launch/<appid>/client/<n>` URL from the
+installation's discovered appid and the user's chosen client, so none of the launcher's own
+`+set` arguments or active game directory reach the game. `start()` takes a separate branch for
+this — a detached, `unref()`d spawn with no exit listener — because a cold `steam` process
+*becomes* the Steam client and never exits; there is no child process left to observe, so no
+playtime is ever recorded for it. The phase this reaches is a dedicated terminal state,
+`handed-off`, never `running` — `isRunning()` treats it as not running. The write guard's
+blocking set covers only `starting`/`running`, so a handed-off installation stays writable; the
+launcher has no way to hold its own writes back from a game it can no longer see, and says so
+rather than pretending otherwise.
+
 ## Adding a module
 
 Everything past the shell is a module: `config`, `downloads`, `mods`, `assets`. The
