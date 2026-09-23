@@ -1,4 +1,5 @@
 import type { EngineKind } from './engine'
+import type { RunnerChoice } from './runner'
 
 /** How an installation got into the launcher. Also tells the UI where it came from. */
 export type InstallationSource =
@@ -43,6 +44,7 @@ export type ValidationCheckId =
   | 'base-game-dir'
   | 'base-paks'
   | 'executable'
+  | 'executable-runnable'
   | 'engine-identified'
   | 'write-access'
 
@@ -54,6 +56,8 @@ export type ValidationFix =
   | 'revalidate'
   /** Parked: handled by the install/update module. */
   | 'install-game-files'
+  /** Story 103 D3: the executable is a Windows PE off Windows - focuses the runner section (D7). */
+  | 'choose-runner'
 
 export interface ValidationCheck {
   id: ValidationCheckId
@@ -64,6 +68,15 @@ export interface ValidationCheck {
   fix?: ValidationFix
 }
 
+/**
+ * What a file's first bytes say it is: a Windows PE (`MZ`), a native ELF, a shebang script, or
+ * anything else (including a file that could not be read). Produced by `readBinaryKind`
+ * (`src/main/lib/fs-utils.ts`), which is where the bytes are actually looked at; the type lives
+ * here because both `ValidationResult` and `Installation` carry it and the shared layer must not
+ * depend on main.
+ */
+export type BinaryKind = 'pe' | 'elf' | 'script' | 'unknown'
+
 export interface ValidationResult {
   status: InstallationStatus
   checks: ValidationCheck[]
@@ -73,6 +86,13 @@ export interface ValidationResult {
   executables: string[]
   engineKind: EngineKind
   detectedVersion?: string
+  /**
+   * Story 103 D2: the header kind of the executable this verdict settled on (the caller's own
+   * `executablePath` when it still exists, otherwise the first of `executables`). Absent on
+   * Windows - the header is never read there, where `.exe` is the whole question (AC8) - and
+   * absent when no executable was found at all.
+   */
+  executableKind?: BinaryKind
   checkedAt: string
 }
 
@@ -140,6 +160,21 @@ export interface Installation {
   recordedEngineKind?: EngineKind
   /** Absolute path of the client executable to launch. */
   executablePath?: string
+  /**
+   * Story 103 D2: what `executablePath` turned out to be by its header, recorded by the last
+   * inspection that read one. Absent on Windows (no header is read there), on an installation that
+   * predates this field, and on one that has no executable yet - so "absent" never means "not
+   * native", only "not known".
+   */
+  executableKind?: BinaryKind
+  /**
+   * Story 103 D5: the runner the user picked for this installation - a `DetectedRunner.id`, or
+   * `'native'`. Absent means "never chosen", which is not the same as `'native'`: an absent value
+   * lets `resolveRunner` pick on its own (AC4's default cascade), and it is what every installation
+   * predating this field has. A stored id whose runner is not installed on this machine right now
+   * is kept as-is and simply falls back to the cascade until that runner reappears.
+   */
+  runner?: RunnerChoice
   /** Extra command line arguments, appended after the generated ones. */
   launchArgs: string[]
   /** `fs_game` / `game` value. Empty string means the base game. */
@@ -197,6 +232,8 @@ export interface UpdateInstallationInput {
   launchArgs?: string[]
   activeGameDir?: string
   favorite?: boolean
+  /** Story 103 D6: sets the runner choice (`RunnerChoice`) `installations:listRunners` offers. */
+  runner?: RunnerChoice
 }
 
 export interface RemoveInstallationInput {

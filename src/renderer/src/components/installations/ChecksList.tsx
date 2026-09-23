@@ -125,6 +125,17 @@ export function useFixAction(): (installation: Installation, fix: ValidationFix)
           installationId: installation.id,
         })
         return
+
+      case 'choose-runner': {
+        // The runner section itself is story 103 D7 - it just needs to expose this id so the fix
+        // action here has something to focus. The id is installation-scoped (RunnerSection renders
+        // once per row in the library list) so this always targets the row the fix button was
+        // pressed on, not whichever row happens to render first.
+        const target = document.getElementById(`installation-runner-${installation.id}`)
+        target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        target?.focus()
+        return
+      }
     }
   }
 }

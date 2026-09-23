@@ -76,6 +76,16 @@ So there are exactly two ways to give the Linux bootstrap wizard something to in
 
 This is the one open question that changes the size of everything downstream. See §6.
 
+**Updated 2026-09-23 — [story 103](requirements/103-a-windows-build-runs-on-linux-through-a-runner-i-choose.md)
+gives B1 a second answer.** Rather than only building and mirroring a native Linux Q2PRO forever
+(option 1 above), the launcher can now detect wine and umu-run on the machine, let the user pick
+one as a runner, and launch a Windows build (Steam's `quake2.exe`, a carried-over r1q2 install)
+through it — with a plain refusal, naming the reason, when nothing on the machine can run it. This
+does not retire option 1; it makes it optional rather than obligatory. Per Q4's resolution in story
+103, [story 102](requirements/102-a-linux-q2pro-is-built-and-mirrored.md) is not cut into a sprint
+until 103 has been confirmed working on a real Linux machine — this analysis and 103's own tests
+run in CI/sandboxes only, and neither has exercised an actual wine or umu-run launch yet.
+
 ### B2 — `7za.exe` is hardcoded
 
 `BINARY_NAME = '7za.exe'` in `src/main/modules/downloads/7za-path.ts`, the `extraResources` filter

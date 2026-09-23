@@ -1,8 +1,10 @@
 import { spawn, type ChildProcess } from 'node:child_process'
+import { basename } from 'node:path'
 import {
   IDLE_LAUNCH_STATE,
   fail,
   ok,
+  type DetectedRunner,
   type LaunchInput,
   type LaunchPlan,
   type LaunchState,
@@ -11,6 +13,7 @@ import {
 import { isFile } from '../lib/fs-utils'
 import { scopedLogger } from '../lib/logger'
 import { buildLaunchArgs, previewCommand } from './launch-plan'
+import { detectRunners, needsCompatRunner, resolveRunner } from './runners'
 import type { InstallationsService } from './installations'
 import type { WriteLockReader } from './write-guard'
 
@@ -31,6 +34,12 @@ export interface LaunchDeps {
    * so it does not exist yet when this service is constructed.
    */
   getWriteGuard?: () => WriteLockReader | null
+  /**
+   * Story 103 D5: how `plan()` learns which compatibility runners this machine has. Injectable
+   * only so a test can hand in a list instead of a real `PATH`/Steam scan; production wiring uses
+   * the default, and it is never called at all on the native path (see `plan()`).
+   */
+  detectRunners?: () => Promise<DetectedRunner[]>
 }
 
 /**
@@ -52,6 +61,7 @@ export class LaunchService {
   /** Story 091 D2's additive observers - see `onStateChange()`. */
   private readonly listeners = new Set<LaunchStateListener>()
   private readonly getWriteGuard: (() => WriteLockReader | null) | undefined
+  private readonly detectRunners: () => Promise<DetectedRunner[]>
   private current: LaunchState = IDLE_LAUNCH_STATE
   private startedAtMs = 0
 
@@ -59,6 +69,7 @@ export class LaunchService {
     this.installations = deps.installations
     this.broadcast = deps.onStateChange
     this.getWriteGuard = deps.getWriteGuard
+    this.detectRunners = deps.detectRunners ?? detectRunners
   }
 
   getState(): LaunchState {
@@ -87,7 +98,16 @@ export class LaunchService {
     return this.current.phase === 'starting' || this.current.phase === 'running'
   }
 
-  /** Builds the exact command line without running it. Also used by the UI preview. */
+  /**
+   * Builds the exact command line without running it. Also used by the UI preview.
+   *
+   * Story 103 D5: and it is the *only* place a compatibility runner is applied. Everything
+   * downstream - the preview string, `start()`'s `spawn`, and with it the `launch:state` sequence,
+   * the playtime recorded on exit and the write guard's view of a running game - reads the pair
+   * this function returns, so wrapping here means none of them needed a change (AC5), and a plan
+   * that cannot be run at all is refused here rather than spawned and reported as a clean exit
+   * four seconds later (AC7).
+   */
   async plan(input: LaunchInput): Promise<Outcome<LaunchPlan>> {
     const installation = this.installations.find(input.installationId)
     if (!installation) return fail('launch.error.notFound')
@@ -104,11 +124,32 @@ export class LaunchService {
       log.warn(`dropped unsafe launch value "${entry.value}" (${entry.reason})`)
     }
 
+    // Story 103 D5: on Windows - and for any executable the OS can run itself - `needsCompatRunner`
+    // is false, so no runner is detected, nothing is rewritten, and the four values below are the
+    // ones this function has always returned (AC8). Off Windows, a Windows PE is wrapped:
+    // `<runner> <exe> <the same generated args>`, still an argv array, never a shell string, and
+    // with no `env` of our own - Q2's machine-default wine prefix.
+    let executablePath = installation.executablePath
+    let commandArgs = args
+    if (needsCompatRunner(installation)) {
+      const runner = resolveRunner(installation, await this.detectRunners())
+      if (!runner) {
+        log.warn(`refused to plan ${installation.id}: no runner can run ${executablePath}`)
+        return fail('launch.error.noRunner', { executable: basename(executablePath) })
+      }
+      log.info(`wrapping ${basename(executablePath)} in runner ${runner.id}`)
+      commandArgs = [executablePath, ...args]
+      executablePath = runner.path
+    }
+
     return ok({
-      executablePath: installation.executablePath,
-      args,
+      executablePath,
+      args: commandArgs,
+      // The game's own folder, not the runner's: wine/umu-run pass their working directory through
+      // to the process they start, which is what `+set game` and every relative path in the engine
+      // depend on.
       workingDirectory: installation.rootPath,
-      preview: previewCommand(installation.executablePath, args),
+      preview: previewCommand(executablePath, commandArgs),
     })
   }
 

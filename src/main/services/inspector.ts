@@ -1,7 +1,8 @@
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { BASE_GAME_DIR, KNOWN_GAME_DIRS, NON_GAME_DIRS, RETAIL_PAK_SIZES } from '@shared/constants'
 import { ENGINE_DEFINITIONS, type EngineDefinition, type EngineKind } from '@shared/types'
 import type {
+  BinaryKind,
   CheckSeverity,
   InstallationStatus,
   ValidationCheck,
@@ -14,6 +15,7 @@ import {
   isWritableDir,
   listDir,
   looksExecutable,
+  readBinaryKind,
   resolveRelaxed,
 } from '../lib/fs-utils'
 
@@ -88,6 +90,15 @@ async function classifyEngine(
  * Client executables in the root, best first: the identified engine's preferred
  * names, then anything else that looks runnable. Dedicated-server binaries are
  * pushed to the back so they are never auto-selected.
+ *
+ * Story 103 D2: off Windows, a native binary (`elf`/`script`) outranks a Windows `pe` before any
+ * of that name ranking applies - a folder holding both `quake2` and `quake2.exe` on Linux must
+ * pick the one the machine can actually execute, and the name ranking alone picks the `.exe`. The
+ * name ranking then decides the order *within* each of the two groups, unchanged.
+ *
+ * On Windows this function is exactly what it has always been (AC8): the platform branch returns
+ * before any header is read, so no installation on the platform ~80% of users are on can get a
+ * different executable out of this than it did before the story.
  */
 async function rankExecutables(
   rootPath: string,
@@ -113,7 +124,34 @@ async function rankExecutables(
     return 500
   }
 
-  return executables.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+  const byName = (a: string, b: string): number => rank(a) - rank(b) || a.localeCompare(b)
+
+  if (process.platform === 'win32') return executables.sort(byName)
+
+  const kinds = new Map<string, BinaryKind>()
+  for (const name of executables) {
+    kinds.set(name, await readBinaryKind(join(rootPath, name)))
+  }
+  // Two groups only: what this machine can run natively, and everything else (a `pe`, or a file
+  // whose first bytes say nothing - which off Windows is still more likely to be runnable than a
+  // Windows binary, but not something to promote over a real ELF).
+  const nativeFirst = (name: string): number => {
+    const kind = kinds.get(name)
+    return kind === 'elf' || kind === 'script' ? 0 : 1
+  }
+
+  return executables.sort((a, b) => nativeFirst(a) - nativeFirst(b) || byName(a, b))
+}
+
+/**
+ * Story 103 D2: the header kind of the executable an inspection settled on, or `undefined` on
+ * Windows - where `.exe` is the whole question and AC8 forbids the read. Deliberately reads the
+ * chosen path rather than reusing `rankExecutables`' map: the chosen executable may be the
+ * caller's own `executablePath`, which does not have to be one of the root's ranked candidates.
+ */
+async function chosenExecutableKind(executablePath: string): Promise<BinaryKind | undefined> {
+  if (process.platform === 'win32') return undefined
+  return readBinaryKind(executablePath)
 }
 
 /** A sibling directory counts as a game dir if it holds pak files or game code. */
@@ -233,6 +271,8 @@ export async function inspectInstallation(
     executablePath = join(rootPath, executables[0])
   }
 
+  const executableKind = executablePath ? await chosenExecutableKind(executablePath) : undefined
+
   if (!executablePath) {
     checks.push(
       check('executable', 'error', 'validation.noExecutable', { fix: 'select-executable' }),
@@ -242,6 +282,26 @@ export async function inspectInstallation(
       check('executable', 'warn', 'validation.executableMissing', {
         params: { path: options.executablePath },
         fix: 'select-executable',
+      }),
+    )
+  }
+
+  // Story 103 D3: off Windows, a `.exe` the machine cannot run natively is never silently
+  // playable - it needs a runner (Proton/Wine or similar), which D7 lets the user pick.
+  //
+  // `warn`, not `error`, and that severity is load-bearing: `statusFrom` turns any `error` into
+  // status `'invalid'`, which `isPlayable` (renderer `lib/status.ts`) refuses, so an `error` here
+  // would grey out Play permanently - even after the user picks a working wine/umu runner in the
+  // Runner section (D7), making AC5's "a launch like any other" unreachable through the UI and
+  // AC7's "pressing Play refuses with that reason" unpressable. The refusal AC7 asks for belongs
+  // to `LaunchService.plan()` (`launch.error.noRunner`, D5), which fires before `spawn` and is
+  // toasted by the store's generic launch-error path; this check's job is only to *say* so up
+  // front, in visible text (AC2) - which `warn` does, while leaving the installation startable.
+  if (executablePath && process.platform !== 'win32' && executableKind === 'pe') {
+    checks.push(
+      check('executable-runnable', 'warn', 'validation.executableRunnable', {
+        params: { executable: basename(executablePath) },
+        fix: 'choose-runner',
       }),
     )
   }
@@ -274,6 +334,7 @@ export async function inspectInstallation(
     gameDirs,
     executables: executables.map((name) => join(rootPath, name)),
     engineKind,
+    ...(executableKind ? { executableKind } : {}),
     checkedAt,
   }
 }

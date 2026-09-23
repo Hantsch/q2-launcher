@@ -177,6 +177,9 @@ export class InstallationsService {
         ? { executablePath: input.executablePath ?? result.executables[0] }
         : {}),
       ...(result.detectedVersion ? { detectedVersion: result.detectedVersion } : {}),
+      // Story 103 D2: absent on Windows, where no header is read - so the key only ever appears on
+      // a record whose executable was actually identified by its first bytes.
+      ...(result.executableKind ? { executableKind: result.executableKind } : {}),
       // AC1 fix: a fresh inspection of a folder the user already has is a positive identification -
       // record it once, so a later missing executable (which drops `engineKind` to `'unknown'`, see
       // `Installation.recordedEngineKind`'s doc comment) does not also erase this memory.
@@ -279,6 +282,9 @@ export class InstallationsService {
     if (input.favorite !== undefined) next.favorite = input.favorite
     if (input.activeGameDir !== undefined) next.activeGameDir = input.activeGameDir
     if (input.executablePath !== undefined) next.executablePath = input.executablePath
+    // Story 103 D6: the runner choice `resolveRunner` (src/main/services/runners.ts) reads. Does
+    // not trigger revalidation below - it changes nothing `applyInspection` checks.
+    if (input.runner !== undefined) next.runner = input.runner
 
     if (input.writeDirPath !== undefined) {
       if (input.writeDirPath === null) delete next.writeDirPath
@@ -575,6 +581,12 @@ export class InstallationsService {
     if (!installation.executablePath && result.executables[0]) {
       next.executablePath = result.executables[0]
     }
+
+    // Story 103 D2: record what the chosen executable turned out to be. Written only when the
+    // inspection actually read a header (never on Windows - AC8: a revalidation there must leave
+    // the record exactly as it found it), so a kind read on another platform is kept rather than
+    // erased by a Windows run over the same state file.
+    if (result.executableKind) next.executableKind = result.executableKind
 
     // The selected game dir may have been deleted behind our back.
     if (next.activeGameDir && !result.gameDirs.includes(next.activeGameDir)) {

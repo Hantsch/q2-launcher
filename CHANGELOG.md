@@ -16,6 +16,9 @@ version section when a release actually ships.
 ## 0.3.0 — 2026-09-22
 
 ### Added
+- **Linux** — a Windows Quake II build (Steam, GOG, a folder carried over from another machine)
+  now plays on Linux too: the launcher offers wine or umu-run as a runner and launches through it
+  when you pick one.
 - **Linux** — the launcher runs on Linux from source: it finds your Steam installations
   (native and Flatpak), recognises engines by their real binaries instead of a Windows file
   extension, and extracts archives with a vendored Linux 7-Zip. If your platform has no
@@ -24,6 +27,11 @@ version section when a release actually ships.
 - **Linux** — there is now a Linux download. Every release publishes an x86_64 AppImage
   alongside the Windows installer, from the same run, and it updates itself just like the
   Windows build does.
+
+### Fixed
+- **Linux** — launching a Windows executable with no runner available used to report "exited
+  cleanly" after doing nothing at all. The launcher now recognises a Windows binary on sight,
+  warns about it plainly, and refuses to launch instead of pretending it worked.
 
 
 ## 0.2.0 — 2026-09-13

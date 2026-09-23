@@ -3328,3 +3328,138 @@ export function writeBootstrapExistingFolderUnusableSource() {
   mkdirSync(root, { recursive: true })
   return root
 }
+
+// --- story 103 D8: the windows-build-on-linux e2e proof's own install root ---------------------
+//
+// `windows-build-on-linux.mjs` needs an install root `inspectInstallation` ranks exactly the way a
+// real "someone copied their Windows Quake II folder onto a Linux machine" install would: a real
+// MZ-header `quake2.exe` (D1/D2's `readBinaryKind` has to classify it as `'pe'`, not merely exist),
+// retail-sized paks so nothing OTHER than the runner story shows up in `installation.checks`, and -
+// the story's own fixture requirement for this deliverable - a real ELF-header `quake2` alongside it,
+// execute bit and all.
+//
+// The two cannot both be active ranking candidates at once, though: D2's own `rankExecutables`
+// ranks a native ELF/script ahead of a PE unconditionally off Windows (see that function's own doc
+// comment - "a folder holding both `quake2` and `quake2.exe` on Linux must pick the one the machine
+// can actually execute"), so a root carrying both would have Linux pick the ELF file and never raise
+// AC2's `executable-runnable` check at all - the opposite of what half of this flow needs to prove.
+// `includeNativeElf` (default `true`, matching the deliverable's own fixture description literally -
+// "an install root ... containing a real MZ-header quake2.exe and (for the ranking half) a native
+// quake2") lets the flow's Windows branch use the combined root as-is (ranking is a non-event there:
+// `looksExecutable` is extension-only on win32, so the extension-less `quake2` is never even a
+// candidate - AC8), while the Linux branch's AC2/AC6/AC7 half explicitly asks for
+// `includeNativeElf: false` - a genuinely PE-only folder - so the chosen executable is unambiguously
+// `quake2.exe`.
+export const WINDOWS_BUILD_INSTALL_NAME = 'Fixture Windows Build Install'
+
+const WINDOWS_BUILD_INSTALL_DIR = 'fixture-windows-build-install'
+const WINDOWS_BUILD_EXE_NAME = 'quake2.exe'
+const WINDOWS_BUILD_ELF_NAME = 'quake2'
+
+/** `MZ`, then filler bytes - `readBinaryKind` only ever reads the first 4 bytes of a file. */
+const PE_HEADER_BYTES = Buffer.from([0x4d, 0x5a, 0x90, 0x00])
+/** `\x7fELF`, then filler bytes. */
+const ELF_HEADER_BYTES = Buffer.from([0x7f, 0x45, 0x4c, 0x46])
+
+export function windowsBuildInstallRoot() {
+  return join(gameRoot(), WINDOWS_BUILD_INSTALL_DIR)
+}
+
+/** The real, on-disk path of the fixture's Windows executable - always written. */
+export function windowsBuildExecutablePath() {
+  return join(windowsBuildInstallRoot(), WINDOWS_BUILD_EXE_NAME)
+}
+
+/** The real, on-disk path of the fixture's native (ELF) executable - only written when
+ * `includeNativeElf` is not explicitly `false`; see the block comment above. */
+export function windowsBuildNativeExecutablePath() {
+  return join(windowsBuildInstallRoot(), WINDOWS_BUILD_ELF_NAME)
+}
+
+/**
+ * Builds a fresh install root: retail-sized `baseq2/pak0.pak`/`pak1.pak`/`pak2.pak` (so nothing but
+ * the runner story shows up in `installation.checks`), a real MZ-header `quake2.exe` with the
+ * execute bit set (needed off Windows too - `looksExecutable` there is a plain exec-bit stat, not an
+ * extension check, so an unexecutable `quake2.exe` would never even be ranked as a candidate), and -
+ * unless `includeNativeElf` is `false` - a real ELF-header `quake2`, execute bit set, alongside it.
+ * Returns `{ root, exePath, elfPath }` - `elfPath` is `null` when `includeNativeElf` is `false`.
+ */
+export function writeWindowsBuildFixture({ includeNativeElf = true } = {}) {
+  const root = assertInside(UI_VERIFY_ROOT, windowsBuildInstallRoot(), 'windows-build install root')
+  rmDirBestEffort(root)
+  const baseq2Dir = join(root, 'baseq2')
+  mkdirSync(baseq2Dir, { recursive: true })
+  writeSizedFile(join(baseq2Dir, 'pak0.pak'), RETAIL_PAK_SIZES['pak0.pak'])
+  writeSizedFile(join(baseq2Dir, 'pak1.pak'), RETAIL_PAK_SIZES['pak1.pak'])
+  writeSizedFile(join(baseq2Dir, 'pak2.pak'), RETAIL_PAK_SIZES['pak2.pak'])
+
+  const exePath = windowsBuildExecutablePath()
+  writeFileSync(exePath, PE_HEADER_BYTES)
+  chmodSync(exePath, 0o755)
+
+  let elfPath = null
+  if (includeNativeElf) {
+    elfPath = windowsBuildNativeExecutablePath()
+    writeFileSync(elfPath, ELF_HEADER_BYTES)
+    chmodSync(elfPath, 0o755)
+  }
+
+  return { root, exePath, elfPath }
+}
+
+// --- story 103 D8: a real, on-PATH `wine` stub ---------------------------------------------------
+//
+// A tiny POSIX shell script that execs its first argument with the rest as its own arguments -
+// `resolveRunner()`/`LaunchService.plan()` only need something named `wine` on `PATH` with the
+// execute bit set (`findOnPath()`, `src/main/services/runners.ts`); what it actually does once
+// spawned is this flow's own business. Node's `child_process.spawn()` reports the wrapper script
+// itself as `'spawn'`/`'exit'` regardless of whether the `exec` inside it against the fixture's own
+// (content-wise inert) `quake2.exe` succeeds - the same "the wrapper process itself is real, so the
+// launch-state sequence is real" trick `writeLinuxJourneyInstallRoot()`'s own shell-script stub
+// relies on for an unwrapped launch.
+function wineStubBinDir() {
+  return join(UI_VERIFY_ROOT, 'fixture', 'windows-build-wine-bin')
+}
+
+const WINE_STUB_SCRIPT = '#!/bin/sh\nexec "$@"\n'
+
+/** Writes a fresh `<dir>/wine` stub and returns `dir` - the flow prepends this onto `PATH` (inside
+ * the running app's own main process, via Playwright's `app.evaluate()`) once it wants wine to be
+ * "found". Never called on `win32` - the flow's own branch gate keeps this off Windows entirely. */
+export function writeWineStub() {
+  const dir = assertInside(UI_VERIFY_ROOT, wineStubBinDir(), 'wine stub bin dir')
+  rmDirBestEffort(dir)
+  mkdirSync(dir, { recursive: true })
+  const wine = join(dir, 'wine')
+  writeFileSync(wine, WINE_STUB_SCRIPT)
+  chmodSync(wine, 0o755)
+  return dir
+}
+
+// --- story 103 review finding N1: a second, distinct stub runner (`umu-run`) -------------------
+//
+// A single stub (`wine`) could not distinguish "the user explicitly chose this runner" from "this
+// runner became available and `resolveRunner()`'s cascade default (`src/main/services/runners.ts`,
+// `WRAPPING_KINDS = ['wine', 'umu']`, wine ranked first) picked it automatically" - both produce the
+// exact same visible preview change. A second wrapping-kind stub, in its own directory so it can be
+// written/removed independently of the wine stub above, lets a flow put both on PATH at once: the
+// cascade still defaults to wine, so explicitly picking `umu-run` instead is the only way to reach
+// the umu-wrapped preview, and that can only happen through a genuine, persisted explicit choice.
+function umuStubBinDir() {
+  return join(UI_VERIFY_ROOT, 'fixture', 'windows-build-umu-bin')
+}
+
+const UMU_STUB_SCRIPT = '#!/bin/sh\nexec "$@"\n'
+
+/** Writes a fresh `<dir>/umu-run` stub and returns `dir` - same shape as `writeWineStub()`, for the
+ * second wrapping runner kind `findOnPath('umu', 'umu-run')` looks for (`src/main/services/
+ * runners.ts`). Never called on `win32`, same as `writeWineStub()`. */
+export function writeUmuStub() {
+  const dir = assertInside(UI_VERIFY_ROOT, umuStubBinDir(), 'umu-run stub bin dir')
+  rmDirBestEffort(dir)
+  mkdirSync(dir, { recursive: true })
+  const umu = join(dir, 'umu-run')
+  writeFileSync(umu, UMU_STUB_SCRIPT)
+  chmodSync(umu, 0o755)
+  return dir
+}

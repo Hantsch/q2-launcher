@@ -256,6 +256,7 @@
     "pointReleaseMissing": "The 3.20 point release pak (pak2.pak) is missing.",
     "noExecutable": "No engine executable found in this folder.",
     "executableMissing": "The selected executable is gone: {{path}}",
+    "executableRunnable": "{{executable}} is a Windows program and needs a runner to play on Linux.",
     "notWritable": "{{path}} is not writable. Configs and save games cannot be stored there.",
     "engineUnknown": "The Quake II engine could not be identified.",
     "fix": {
@@ -263,7 +264,8 @@
       "select-executable": "Choose executable\u2026",
       "set-write-dir": "Choose write folder\u2026",
       "revalidate": "Check again",
-      "install-game-files": "Get game files"
+      "install-game-files": "Get game files",
+      "choose-runner": "Choose a runner"
     }
   },
 
@@ -272,6 +274,26 @@
     "note": {
       "r1q2": "r1q2 has no separate user folder – it writes config.cfg, saves and screenshots straight into the installation. The folder has to be writable, so avoid Program Files.",
       "remaster": "The 2023 remaster is a different engine with its own game API, config location and network protocol. The launcher can start it, but it cannot join r1q2 servers and the config module will target r1q2 first."
+    }
+  },
+
+  "runner": {
+    "heading": "Runner",
+    "preview": {
+      "label": "Command"
+    },
+    "kind": {
+      "native": "Native",
+      "wine": "Wine",
+      "umu": "umu-run",
+      "proton": "Proton"
+    },
+    "unavailable": {
+      "native": "not available",
+      "wine": "wine not found — install wine to run Windows builds",
+      "umu": "umu-run not found — install umu-launcher to run Windows builds",
+      "proton": "not found in any Steam library",
+      "protonNotDriven": "Proton builds are used through umu-run, not launched directly — pick umu-run instead"
     }
   },
 
@@ -2067,6 +2089,7 @@
       "notFound": "That installation is no longer in your library.",
       "noExecutable": "No executable is set for \u201c{{name}}\u201d.",
       "executableMissing": "The executable is missing: {{path}}",
+      "noRunner": "{{executable}} is a Windows program and nothing on this machine can run it. Install wine or umu-run and pick it as the runner, or add this folder's game data to a native engine instead.",
       "alreadyRunning": "Quake II is already running.",
       "installationBusy": "A job is writing files for this installation. It can be started once that job has finished.",
       "spawnFailed": "The game could not be started: {{path}}",

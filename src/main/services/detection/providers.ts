@@ -59,7 +59,7 @@ export async function findSteamRoot(home: string = homedir()): Promise<string | 
  * pulling in a VDF parser we take every `"path" "<value>"` pair, which is stable
  * across the format revisions Steam has shipped.
  */
-async function steamLibraryRoots(steamRoot: string): Promise<string[]> {
+export async function steamLibraryRoots(steamRoot: string): Promise<string[]> {
   const roots = new Set<string>([steamRoot])
   for (const relative of ['steamapps/libraryfolders.vdf', 'config/libraryfolders.vdf']) {
     try {

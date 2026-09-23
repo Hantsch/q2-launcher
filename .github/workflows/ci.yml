@@ -99,3 +99,16 @@ jobs:
         env:
           ELECTRON_DISABLE_SANDBOX: '1'
         run: xvfb-run --auto-servernum npm run ui:flow -- linux-user-journey
+
+      # Story 103 D8: the runs-a-windows-build-via-a-runner story's own end-to-end proof
+      # (`scripts/flows/windows-build-on-linux.mjs`) - a PE-only install raises the visible
+      # executable-runnable check and a disabled `wine` Runner entry (AC2/AC6), Play refuses with
+      # no `launch:state` running phase while wine is absent (AC7), and once a stub `wine` is put on
+      # PATH and selected, Play reaches running -> exited for real (AC4/AC5). Same job as the Linux
+      # user journey above (same build, same xvfb display) rather than a separate one - both flows
+      # need nothing from each other, and standing up a second `npm run build` for one more flow
+      # would only add CI time.
+      - name: Windows build on Linux (AC2, AC4-AC7)
+        env:
+          ELECTRON_DISABLE_SANDBOX: '1'
+        run: xvfb-run --auto-servernum npm run ui:flow -- windows-build-on-linux

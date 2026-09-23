@@ -1,7 +1,7 @@
 ---
 id: 103
 title: a windows build runs on linux through a runner i choose
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-22
 ---
 
@@ -56,42 +56,42 @@ concept this story introduces. **103 is the local runners: native, wine, umu-run
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The launcher knows what kind of binary an executable is, by reading its header
+- [x] **AC1** — The launcher knows what kind of binary an executable is, by reading its header
       (`MZ` → Windows PE, `\x7fELF` → native ELF), never by file extension or execute bit alone.
       On Linux a folder holding both a native binary and a Windows one offers the native one first.
 
-- [ ] **AC2** — An installation on Linux whose selected executable is a Windows binary is never
+- [x] **AC2** — An installation on Linux whose selected executable is a Windows binary is never
       silently playable. The state is stated as **visible text** on the installation (not only a
       tooltip), in the platform-parity wording CLAUDE.md requires, and it is a validation check
       like every other — an i18n key with the executable's name as a param, never prose across IPC.
 
-- [ ] **AC3** — The launcher detects the ways of running a Windows binary that exist on this
+- [x] **AC3** — The launcher detects the ways of running a Windows binary that exist on this
       machine: `wine` on `PATH`, `umu-run` on `PATH`, and Proton builds inside the Steam libraries
       `findSteamRoot()`/`steamLibraryRoots()` already enumerate. Each found runner is recorded with
       what it is and where it is; nothing is assumed present.
 
-- [ ] **AC4** — An installation carries a runner choice the user sets, in a **Runner section of the
+- [x] **AC4** — An installation carries a runner choice the user sets, in a **Runner section of the
       installation detail** that also shows the resolved command. The default resolves on its own:
       native when a native executable exists, otherwise the best detected compat runner, otherwise
       nothing runnable. An unrunnable installation additionally raises a validation check whose fix
       points at that section.
 
-- [ ] **AC5** — Launching through a local runner (wine/umu) is a launch like any other: the same
+- [x] **AC5** — Launching through a local runner (wine/umu) is a launch like any other: the same
       generated `+set` arguments and user launch args, the same working directory, the same
       `launch:state` phases, playtime recorded on exit, and the installation write guard still sees
       a running game. Args keep going through `spawn`'s array form — never a shell string — exactly
       as `LaunchService`'s own doc comment requires.
 
-- [ ] **AC6** — A runner the machine does not have is shown, disabled, carrying its reason as
+- [x] **AC6** — A runner the machine does not have is shown, disabled, carrying its reason as
       visible text ("wine not found — install wine to run Windows builds"), never omitted from the
       list. i18n keys like every other label.
 
-- [ ] **AC7** — Pressing Play when nothing on this machine can run the selected executable refuses
+- [x] **AC7** — Pressing Play when nothing on this machine can run the selected executable refuses
       with that reason and spawns no process at all. The refusal names the concrete way out — use
       this folder's game data with a native engine (story 089's existing-folder source), or install
       a runner.
 
-- [ ] **AC8** — Windows behaviour is byte-for-byte unchanged: no runner wrapping, no header read in
+- [x] **AC8** — Windows behaviour is byte-for-byte unchanged: no runner wrapping, no header read in
       the ranking path, the same executable chosen for the same folder as before this story.
 
 ## Open Questions
@@ -338,10 +338,11 @@ through wine/umu and that the launcher refuses instead of pretending when they c
 - AC7 → e2e `scripts/flows/windows-build-on-linux.mjs` › Linux branch, step "play refuses and starts
   nothing" — asserts no `running` phase is ever broadcast (D8); backed by unit
   `src/main/services/launch.test.ts` › "start refuses with noRunner and never spawns"
-- AC8 → e2e `scripts/flows/windows-build-on-linux.mjs` › Windows branch, step "windows picks the exe
-  and shows no runner section" (D8); backed by unit `src/main/services/inspector.test.ts` › "win32
-  ranking is unchanged and reads no headers" and `src/main/services/launch.test.ts` › "win32 plan is
-  unwrapped"
+- AC8 → e2e `scripts/flows/windows-build-on-linux.mjs` › Windows branch — asserts `quake2.exe` stays
+  ranked/selected, no Runner section renders, and `launch:plan`'s preview is the plain unwrapped
+  executable (D8); backed by unit `src/main/services/inspector.test.ts` › "on win32 the same folder
+  still offers quake2.exe, and reads no header" (and its sibling "on win32 the same folder raises no
+  executable-runnable check") and `src/main/services/launch.test.ts` › "win32 plan is unwrapped"
 
 **manual residue:** a real `wine` (or `umu-run`) installation actually rendering Quake II from a
 genuine Windows build. The automated Linux branch proves the launcher builds the right command,
@@ -358,4 +359,90 @@ same arrangement story 100 D10 established, not a new gap.
 
 ## Done
 
-<!-- Filled by /build 103. -->
+**Summary.** A Windows Quake II build (Steam, GOG, a carried-over folder) is now detected by
+reading the executable's header (`readBinaryKind()`), never by extension or execute bit; off
+Windows a native binary in the same folder now outranks a `.exe`. A Windows binary with no native
+alternative raises a visible `executable-runnable` validation check. The launcher detects wine,
+umu-run and Proton builds (`detectRunners()`), lets the user pick one in a new Runner section of
+the installation detail (unavailable runners shown disabled with their reason, Proton shown
+disabled since this story never drives it directly — Q1), wraps the launch through wine/umu when
+chosen (`LaunchService.plan()`), and refuses cleanly with `launch.error.noRunner` — surfaced as an
+error toast — when nothing can run it, instead of the silent false "exited cleanly" the bug report
+described. Windows behaviour is untouched (four independent `win32` early-returns, each traced and
+unit-tested).
+
+**Review.** Two clean-agent review rounds. Round 1: **FAIL** — the `executable-runnable` check was
+raised at `error` severity, which forced installation status to `invalid` and permanently disabled
+the Play button, making AC5's wrapped launch and AC7's press-and-refuse both unreachable through
+the real UI (only a raw IPC call could exercise them). Fixed at the root: the check is now `warn`
+severity (non-blocking; visible text is unaffected), with the seam pinned on both sides
+(`inspector.test.ts`'s "stays playable" test, `status.test.ts`'s `isPlayable('warning')`). Six
+smaller findings fixed alongside it: the Runner section's previewed command now refreshes when the
+chosen runner changes; the section's container `id` is installation-scoped (was a single hardcoded
+id shared by every installation row, so the "choose a runner" fix action always focused the first
+one); a failed `launch:plan` preview is now rendered as visible text instead of silently dropped;
+detected Proton builds are now marked unavailable with a reason instead of offered as a selectable
+option that could never actually run anything; an i18n dash was made consistent. Round 2:
+**PASS**, with 3 more test-quality findings fixed (the e2e AC4 step was passing for the wrong
+reason — the cascade default, not the user's explicit click, had already changed the preview by
+the time the assertion ran; the AC5 success-path step still bypassed the real Play button via a
+raw invoke; one new RunnerSection test only asserted non-empty text rather than the resolved
+sentence) and 3 documented, not fixed (below).
+
+**Verification.**
+- `npm run build` — clean.
+- `npm run typecheck` — clean (node + web).
+- `npm test` — 4158 passed, 2 pre-existing failures unrelated to this story
+  (`UpdateCheckRow.test.tsx`, `NewsHero.test.tsx` — relative-time assertions that fail on this
+  machine's German host locale, confirmed by stashing this story's changes and reproducing the
+  same failures against the untouched tree).
+- `npm run ui:verify` — 86/86 screenshots clean, 0 axe violations.
+- `npm run ui:flow -- windows-build-on-linux` — Windows branch passes for real on this machine
+  (AC8: ranking, absent Runner section, unwrapped preview, all unchanged); the Linux branch
+  (AC2, AC4–AC7) is loudly skipped here by design and runs on the ubuntu xvfb CI job
+  (`.github/workflows/ci.yml`), verified by static read-through in both review rounds.
+
+**AC → test mapping, as verified:**
+- AC1 → `fs-utils.test.ts` › "reads a PE header as pe and an ELF header as elf" (passed) +
+  `inspector.test.ts` › "on linux a native binary outranks a windows one in the same folder"
+  (skipped on this Windows host — execute bits aren't real on NTFS — runs on ubuntu CI)
+- AC2 → e2e Linux branch, visible check text (ubuntu-CI-only) + `inspector.test.ts` › "a windows
+  executable raises executable-runnable with the file name" (skipped here, runs on ubuntu CI)
+- AC3 → `runners.test.ts` › "finds wine and umu-run on PATH and proton under the steam libraries"
+  (win32-native-only half passed here; PATH/Proton half runs on ubuntu CI)
+- AC4 → e2e Linux branch, explicit-choice-changes-preview (ubuntu-CI-only, rewritten in review
+  round 2 to use two available runners so the assertion can't pass on the cascade default alone)
+  + `runners.test.ts` › "the default runner is native when a native executable exists" (passed)
+- AC5 → e2e Linux branch, real Play click reaches running → exited (ubuntu-CI-only) +
+  `launch.test.ts` › "a wine plan keeps the generated args, the working directory and the array
+  spawn form" (passed)
+- AC6 → e2e Linux branch, disabled runner with reason (ubuntu-CI-only) +
+  `RunnerSection.test.tsx` › "an unavailable runner renders its reason as visible text" (passed)
+- AC7 → e2e Linux branch, real Play click refuses via toast, no `running` broadcast
+  (ubuntu-CI-only) + `launch.test.ts` › "start refuses with noRunner and never spawns" (passed)
+- AC8 → e2e Windows branch (passed here, for real) + `inspector.test.ts` › "on win32 the same
+  folder still offers quake2.exe, and reads no header" + "on win32 the same folder raises no
+  executable-runnable check" + `launch.test.ts` › "win32 plan is unwrapped" (all passed here)
+
+**manual residue** (accepted at refine, unchanged): a real wine/umu-run installation actually
+rendering Quake II from a genuine Windows build — CI has no licensed game data or real wine
+environment; the automated Linux branch proves the launcher builds the right command and hands it
+to a real `wine`/`umu-run` stub, reporting the real process lifecycle. Closed by one walk-through
+on the beta tester's machine.
+
+**Documented, not fixed** (round 2 findings, non-blocking — overall verdict PASS with these
+present):
+- `runner.unavailable.native` and the original `runner.unavailable.proton` i18n keys are now dead
+  (native is always reported available; Proton's reason uses the more specific
+  `runner.unavailable.protonNotDriven` added during the fix). Harmless, cheap follow-up cleanup.
+- Selecting "Native" for an installation whose only executable is a Windows PE persists
+  `runner: 'native'` and shows it checked, but `resolveRunner()` deliberately ignores an
+  unrunnable stored choice and silently falls back to the cascade (documented at the function) —
+  so the checked option and the shown preview can disagree. A future story should consider
+  marking "Native" unavailable for a PE-only installation rather than always offering it.
+- Every installation row on Linux calls `detectRunners()` (a PATH walk + Steam library scan) and
+  `launch:plan` on mount and on every runner change — no correctness issue, but N installations
+  cause N host scans; worth a shared/cached detection pass if the library view ever needs to
+  scale.
+
+**Commit message:** `103: a windows build runs on linux through a runner i choose`
