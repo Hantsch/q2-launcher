@@ -14,12 +14,15 @@ name: linux-verify
 # be slowed down or risked by a UI smoke test. This workflow builds its own throwaway AppImage at
 # whatever version happens to be in package.json - no `plan` job, no release artifact, nothing
 # uploaded anywhere but this run's own screenshots/report.
+#
+# Runs only on PRs into main, not on every push: main only ever changes through a PR (no direct
+# pushes), so a push-to-main run would just re-verify the exact tree the PR check already covered.
+# Anything else (checking a `dev` push, or re-running this without a PR) goes through
+# `workflow_dispatch` or the local `npm run ci:local:verify` (act) rehearsal.
 
 on:
-  push:
-    branches: [main, dev]
   pull_request:
-    branches: [main, dev]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:

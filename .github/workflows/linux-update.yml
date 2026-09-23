@@ -8,10 +8,10 @@ name: linux-update
 # this workflow only supplies a Linux runner with a display and libfuse2.
 #
 # Its own workflow, and deliberately not on every push: unlike `linux-verify.yml` (D5, which runs
-# on every push/PR) this job packages TWO AppImages and then really self-updates one of them, which
-# is both slow and the only job in the repo that lets a process replace its own binary. It runs on
-# workflow_dispatch, and automatically only when something that could actually break the update
-# path changed.
+# on every PR into main) this job packages TWO AppImages and then really self-updates one of them,
+# which is both slow and the only job in the repo that lets a process replace its own binary. It
+# runs on workflow_dispatch, and automatically only when something that could actually break the
+# update path changed.
 
 on:
   workflow_dispatch:
