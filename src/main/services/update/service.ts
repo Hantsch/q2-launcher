@@ -126,7 +126,11 @@ export type UpdateDownloadFailureReason = 'offline' | 'checksum' | 'cancelled' |
  * the same reason {@link UpdateCheckOutcome} is one. A backend that *does* throw is still safe: the
  * service treats it as `{ ok: false, reason: 'unknown' }`. */
 export type UpdateDownloadOutcome =
-  { ok: true } | { ok: false; reason: UpdateDownloadFailureReason }
+  | { ok: true }
+  | { ok: false; reason: UpdateDownloadFailureReason }
+  /** Not a failure: the server has nothing newer than what is running, so the known release is
+   * stale. The service answers it with "up to date", never with an error. */
+  | { ok: false; reason: 'upToDate' }
 
 const DOWNLOAD_ERROR_KEYS: Record<UpdateDownloadFailureReason, string> = {
   offline: 'appUpdate.error.offline',
@@ -262,6 +266,9 @@ export interface UpdateServiceOptions {
   /** `app.isPackaged`, injected as a plain boolean so no test needs Electron. `false` makes the
    * whole service a no-op reporting `supported: false` (AC5) - no checker call, no store read. */
   isPackaged: boolean
+  /** `app.getVersion()`: a restored record whose known release *is* this version is stale - the
+   * user installed it - and is dropped instead of offered again. */
+  currentVersion: string
   /** D4's adapter, injected. */
   check: UpdateChecker
   /**
@@ -418,12 +425,20 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
         log?.warn(`update: the check record could not be read (${describeError(error)})`)
         return
       }
+      // The record outlives the update it announced: after "Restart and install" the new build
+      // restores a record that still offers itself, and with the 24h window closed nothing would
+      // re-check. Dropping the release *and* the success stamp clears the offer and reopens the
+      // window, so the startup check replaces the record right away.
+      const restored: UpdateCheckStoreData =
+        data.update !== null && data.update.version === options.currentVersion
+          ? { ...data, update: null, lastSuccessAt: null }
+          : data
       emit({
-        status: restoredStatus(data),
-        update: data.update,
+        status: restoredStatus(restored),
+        update: restored.update,
         error: null,
-        lastCheckedAt: data.lastCheckedAt,
-        lastSuccessAt: data.lastSuccessAt,
+        lastCheckedAt: restored.lastCheckedAt,
+        lastSuccessAt: restored.lastSuccessAt,
         supported,
       })
     })()
@@ -595,6 +610,25 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
     if (generation !== downloadGeneration) return
 
     progress = null
+
+    if (!outcome.ok && outcome.reason === 'upToDate') {
+      // The known release turned out to be stale - typically the very build now running, carried
+      // over from the check the previous version made. That is a successful check saying "up to
+      // date", so it is recorded as one instead of offering a download that can never succeed.
+      stage = 'none'
+      const completedAt = now().toISOString()
+      const next: UpdateFacts = {
+        status: 'upToDate',
+        update: null,
+        error: null,
+        lastCheckedAt: completedAt,
+        lastSuccessAt: completedAt,
+        supported,
+      }
+      emit(next)
+      await persist(next)
+      return
+    }
 
     if (outcome.ok) {
       // It finished, so it finished - even if a cancel was requested just too late. Nothing is

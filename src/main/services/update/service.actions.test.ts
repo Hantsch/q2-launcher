@@ -106,6 +106,7 @@ function build(
   const states: UpdateState[] = []
   const service = createUpdateService({
     isPackaged: true,
+    currentVersion: '0.0.1',
     check: parts.check ?? available,
     backend: fake.backend,
     isGameRunning: parts.isGameRunning ?? ((): boolean => false),
@@ -358,6 +359,7 @@ describe('the download refuses when there is nothing to download', () => {
     const fake = fakeBackend()
     const service = createUpdateService({
       isPackaged: false,
+      currentVersion: '0.0.1',
       check: available,
       backend: fake.backend,
       isGameRunning: () => false,
@@ -384,12 +386,30 @@ describe('the download refuses when there is nothing to download', () => {
   })
 })
 
+describe('a known release the server no longer offers', () => {
+  it('ends the download as up to date, with no error and nothing offered', async () => {
+    const { service, finish, states } = build()
+    await service.checkNow()
+    await service.startDownload()
+
+    finish({ ok: false, reason: 'upToDate' })
+    await settle()
+
+    const last = states.at(-1)
+    expect(last?.status).toBe('upToDate')
+    expect(last?.phase).toBe('idle')
+    expect(last?.update).toBeNull()
+    expect(last?.error).toBeNull()
+  })
+})
+
 describe('AC5 - dismissal', () => {
   it('marks the state dismissed without touching the update, and is never persisted', async () => {
     const fake = fakeBackend()
     const save = vi.fn(async (_next: UpdateCheckStoreData): Promise<void> => undefined)
     const service = createUpdateService({
       isPackaged: true,
+      currentVersion: '0.0.1',
       check: available,
       backend: fake.backend,
       isGameRunning: () => false,

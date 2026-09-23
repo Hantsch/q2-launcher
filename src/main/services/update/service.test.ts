@@ -69,6 +69,7 @@ function build(parts: {
   check: () => Promise<UpdateCheckOutcome>
   store?: ReturnType<typeof fakeStore>
   isPackaged?: boolean
+  currentVersion?: string
   now?: () => Date
 }) {
   const store = parts.store ?? fakeStore()
@@ -79,6 +80,7 @@ function build(parts: {
   const service = createUpdateService({
     ...unusedActionDeps(),
     isPackaged: parts.isPackaged ?? true,
+    currentVersion: parts.currentVersion ?? '0.0.1',
     check: parts.check,
     store,
     onStateChange,
@@ -159,6 +161,27 @@ describe('update service: AC8 - the last known result survives a restart', () =>
     const { service } = build({ check: vi.fn(available), store })
 
     expect((await service.getState()).status).toBe('upToDate')
+  })
+
+  it('a restored release that is the running version is dropped and the window reopens', async () => {
+    // The record the previous build wrote before "Restart and install" still offers the release
+    // that is now running; offering it again would lead to a download that can only fail.
+    const store = fakeStore({
+      update: KNOWN_UPDATE,
+      lastCheckedAt: ago(2 * HOUR),
+      lastSuccessAt: ago(2 * HOUR),
+    })
+    const check = vi.fn(upToDate)
+    const { service } = build({ check, store, currentVersion: KNOWN_UPDATE.version })
+
+    const restored = await service.getState()
+    expect(restored.update).toBeNull()
+    expect(restored.phase).toBe('idle')
+
+    service.scheduleStartupCheck()
+    await vi.waitFor(() => {
+      expect(check).toHaveBeenCalledTimes(1)
+    })
   })
 
   it('an empty store reads as idle, with nothing known', async () => {
@@ -372,6 +395,7 @@ describe('update service: AC3 - a failure is quiet, kept, and not retried', () =
     const service = createUpdateService({
       ...unusedActionDeps(),
       isPackaged: true,
+      currentVersion: '0.0.1',
       check: vi.fn(available),
       store,
       onStateChange: () => {

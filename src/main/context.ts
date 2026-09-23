@@ -114,6 +114,7 @@ export async function createAppContext(options: {
 
   const update = createUpdateService({
     isPackaged: electronApp.isPackaged,
+    currentVersion: electronApp.getVersion(),
     check: createUpdateChecker({ log: scopedLogger('update') }),
     backend: createUpdateBackend({ log: scopedLogger('update') }),
     // Story 098 AC6: the restart guard reads the two things main already tracks and cancels
