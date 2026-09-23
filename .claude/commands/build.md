@@ -1,14 +1,16 @@
 ---
 description: Implements an approved story (status ready) deliverable by deliverable, verifies it, has it reviewed by a clean agent and fills the Done section.
-argument-hint: <id>
+argument-hint: <id> [--full]
 model: sonnet
 effort: medium
 ---
 
-<!-- ai-scrum:managed 4.0.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
+<!-- ai-scrum:managed 4.1.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
      setup diffs this file on update and asks before replacing it. Project facts go in .claude/ai-scrum.md. -->
 
-Implement the story with ID **$1**.
+Implement the story with ID **$1**. If **$2** is `--full`, the full regression gate runs
+once at the end as well (step 6b); otherwise the story is verified with the narrow gate only
+and the closing report says the full one is still pending.
 
 ## Project profile
 
@@ -146,16 +148,33 @@ finishes or quietly stops with nothing in the working tree to show for it.
 
 ## Closing
 
-5. **Verification:**
-   - Run the `build`, `test` (and `lint`/`typecheck`, if set) commands from the profile's
-     `## Verify` section. Entries set to `none` are skipped. Run `test` when tests exist or
-     were touched.
-   - **Run `e2e` too, if the profile sets it and this story mapped any criterion to it.**
+5. **Verification — the narrow gate.** This is the story-sized gate: it proves this story's
+   criteria and whatever its changes touch, not the whole product. The whole product is the
+   full gate's job — `/sprint` runs it once after the last story, standalone `/build` with
+   `--full` in step 6b. Entries set to `none` are skipped throughout.
+   - Run `build` (and `lint`/`typecheck`, if set) from the profile's `## Verify` section.
+   - **Unit/integration tests:** run `test-story` if the profile sets it — the tests affected
+     by this story's uncommitted changes. If it is missing or `none`, run the full `test`
+     instead, as before. Run either one when tests exist or were touched.
+   - **e2e — only this story's own criteria.** If the profile sets `e2e` and this story mapped
+     any criterion to it in `## Acceptance Tests`, run exactly those tests:
+     - `e2e-story` set: fill its placeholders from the story's e2e lines, verbatim —
+       `{files}` = every distinct file on those lines, space-separated, one run; `{file}` and
+       `{test}` = one run per line, with that line's file and test name. Nothing else is
+       invented: the lines carry the target, the profile carries the invocation.
+     - `e2e-story` missing or `none`: run the full `e2e`, as before.
      That run *is* the acceptance of those criteria — there is no manual round behind it, so a
-     skipped or red e2e suite is a blocker, not a note for the user. If the harness cannot run
+     skipped or red e2e test is a blocker, not a note for the user. If the harness cannot run
      here (no display, missing dependency), say exactly that and treat it as a blocker: leave
      `status: in-progress`, name what is missing, and let the sprint report it. Do **not**
      substitute a screenshot, a console call or your own reading of the code for it.
+   - **A narrowed run that missed a named test is not green.** A filter that matches nothing,
+     or a changed-files selection that left out a test the story names, passes vacuously. So
+     the walk below checks every named test *in the output*: a non-e2e test missing from the
+     `test-story` run → run the full `test` once; an e2e test missing from the `e2e-story`
+     run → the template or the line is wrong — fix the line in `## Acceptance Tests` to the
+     real file and test name if that is the cause, otherwise run the full `e2e` once, and name
+     the mismatch in the Done section either way.
    - **Run each command once.** A green result stays valid until something changes — do not
      re-run a suite "to be sure" while the tree is untouched. The deliverable agents already
      verified their own work; this pass is the story-level gate, not a repeat of theirs.
@@ -202,6 +221,19 @@ finishes or quietly stops with nothing in the working tree to show for it.
    - **Handle findings:** fix confirmed ones, then repeat the verification from step 5;
      document deliberately unfixed findings with a reason in the Done section. Max. 3
      review-fix cycles, then stop and ask the user. Only then continue.
+6b. **Full gate — only with `--full`, and only standalone.** Once the review cycles are
+    through, run the full `test`, the full `e2e` and `e2e-all` (each if set and not `none`,
+    `e2e-all` skipped when it is the same command as `e2e`), each once. It runs here and not
+    in step 5 so the review-fix cycles repeat only the narrow gate. A red result:
+    - **Caused by this story** — the failing test touches what the story changed, or the
+      failure is gone without the story's changes: fix it like a review finding, re-run the
+      failing tests, then the full gate once more. Still red → blocker, as in step 10.
+    - **Not caused by this story** — to check, `git stash push -u`, run only the failing
+      tests, `git stash pop` immediately. Red on the bare `HEAD` as well means the failure
+      predates the story: record it in the Done section as pre-existing, with the test names.
+      It does not block this story, and it is not fixed here.
+    Inside `/sprint` this step never runs, whatever the arguments — the sprint runs the full
+    gate itself after its last story.
 7. **`## Acceptance Tests`**: bring the section in line with what was actually written — the
    real test names and paths, if a deliverable ended up placing one differently. Do not write
    a manual click list here; a human step is only ever a `manual residue` line with its
@@ -210,9 +242,11 @@ finishes or quietly stops with nothing in the working tree to show for it.
    - Short summary (2–5 lines): what was done.
    - Commit message (1–2 lines, keywords are enough — no full sentence needed; story ID
      first, e.g. `042: finish team-based combat`).
-   - Verification: build/test/lint/e2e status + review outcome; **the AC → test mapping as
-     verified** (which criterion, which test, passed), every `manual residue` with its reason,
-     and open points or blockers.
+   - Verification: build/test/lint/e2e status + review outcome, and **which gate ran** —
+     the narrow one (with the `test-story` / `e2e-story` commands as actually run, or the
+     full suites they fell back to) and, with `--full`, the full one; **the AC → test mapping
+     as verified** (which criterion, which test, passed), every `manual residue` with its
+     reason, and open points or blockers.
 9. Check all `## Acceptance Criteria` and tick the ones that are met.
 9b. **If `changelog-path` is set in the profile:** every user-facing feature or fix in this
     story gets an entry there, under `# Features` or `# Fixes` of the **current** version
@@ -221,7 +255,8 @@ finishes or quietly stops with nothing in the working tree to show for it.
     internal changes get no entry, because they change nothing for the user. A story with no
     user-facing change adds nothing at all — an empty entry is worse than none. When
     `changelog-path` is `none`, skip this step entirely.
-10. Set `status: done` once verification (step 5) is green and the review (step 6) is through.
+10. Set `status: done` once verification (step 5) is green, the review (step 6) is through
+    and, with `--full`, the full gate (step 6b) is green or its failures are pre-existing.
     **That is the whole gate** — there is no user acceptance round to wait for, and a story is
     not held open so someone can look at it later. `in-progress` is only for a real blocker:
     red tests you cannot fix, a criterion whose test was never written, an e2e harness that
@@ -231,6 +266,14 @@ finishes or quietly stops with nothing in the working tree to show for it.
     `<requirements>/done/INDEX.md`
     (`- NNN — <title> · <sprint or —> · <one-sentence result>`) — move and index line are
     part of the story, not of the user's commit.
+11. **Standalone without `--full`: say once that the full gate is pending.** One line at the
+    end of your report, naming the commands from the profile — e.g. *"Narrow gate only. The
+    full regression gate (`npm test`, `npm run ui:verify`, `npm run ui:flows`) has not run —
+    run it before you commit or merge, or use `/build <id> --full`."* A narrow gate proves
+    this story; a regression elsewhere only shows when everything runs together. Skip the
+    line if no command narrowed anything (no `test-story`, no `e2e-story`): then the full
+    suites already ran in step 5 — except `e2e-all`, which the line then names on its own if
+    it is set. Inside `/sprint` the line is never printed.
 
 ## Rules
 

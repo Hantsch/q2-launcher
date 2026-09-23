@@ -5,7 +5,7 @@ model: opus
 effort: high
 ---
 
-<!-- ai-scrum:managed 4.0.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
+<!-- ai-scrum:managed 4.1.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
      setup diffs this file on update and asks before replacing it. Project facts go in .claude/ai-scrum.md. -->
 
 Refine the story with ID **$1**.
@@ -115,6 +115,10 @@ into memory. Everything has to be reviewable in the repository.
        carries it, otherwise map the criterion one level down *and* write the gap into this
        section and into `## Open Questions` for the sprint review. Never turn it into a manual
        step — that is exactly what this workflow is getting rid of.
+     - **An e2e line is also a run target.** `/build` runs only the story's own e2e tests,
+       by substituting the file and test name from these lines into the profile's
+       `e2e-story` template. So name them exactly as the harness selects them — the real
+       path relative to the repo root and the literal test (or flow) name — not a paraphrase.
      - **A missing trigger is a story gap, not a test problem.** If a user-facing action has no
        path through the real surface yet, plan that trigger as a deliverable.
      - **`manual residue`** (only if `manual-residue-allowed: true`) is for a criterion that
