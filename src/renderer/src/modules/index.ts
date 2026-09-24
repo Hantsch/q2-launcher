@@ -6,6 +6,7 @@ import { Dialogs as DownloadsBootstrapDialogs } from './downloads/bootstrap/Dial
 import { DownloadsSettingsSection } from './downloads/DownloadsSettingsSection'
 import { DownloadsView } from './downloads/DownloadsView'
 import { HomeView } from './home/HomeView'
+import { ServersSettingsSection } from './servers/ServersSettingsSection'
 
 /**
  * The renderer half of a module: the view that owns its route.
@@ -60,6 +61,17 @@ export const RENDERER_MODULES: readonly RendererModule[] = [
     Dialogs: DownloadsBootstrapDialogs,
   },
   { id: 'config', View: ConfigView },
+  {
+    // Story 106 D3: no `View` - the shell's `PlannedModuleView` fallback renders the route until
+    // this module earns a real one, same mechanism `mods`/`assets` rely on. Only a settings
+    // section is contributed so far.
+    id: 'servers',
+    settingsSection: {
+      titleKey: 'module.servers.settings.title',
+      order: 20,
+      Section: ServersSettingsSection,
+    },
+  },
   // { id: 'mods',    View: ModsView },
   // { id: 'assets',  View: AssetsView },
 ]

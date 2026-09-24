@@ -1,0 +1,8 @@
+- 2026-09-24 09:35 · 106 · D1 shared contract + manifest row · started
+- 2026-09-24 09:36 · 106 · D1 shared contract + manifest row · done
+- 2026-09-24 09:36 · 106 · D2 main half · started
+- 2026-09-24 09:37 · 106 · D2 main half · done
+- 2026-09-24 09:37 · 106 · D3 renderer half, nav entry, settings slot · started
+- 2026-09-24 09:40 · 106 · D3 renderer half, nav entry, settings slot · done
+- 2026-09-24 09:40 · 106 · D4 platform-parity guard · started
+- 2026-09-24 09:41 · 106 · D4 platform-parity guard · done

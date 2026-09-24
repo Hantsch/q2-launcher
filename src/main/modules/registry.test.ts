@@ -50,4 +50,36 @@ describe('MainModuleRegistry', () => {
     expect(handler).toHaveBeenCalledWith({ x: 'hello' })
     expect(result).toEqual({ ok: true, value: { answer: 42 } })
   })
+
+  it('a module\'s handlers are not reachable under another module\'s id', async () => {
+    const registry = new MainModuleRegistry()
+    const libraryHandler = vi.fn().mockResolvedValue({ from: 'library' })
+    const libraryMod: MainModule = {
+      id: 'library',
+      setup: ({ handle }) => {
+        handle('stats', z.object({}), libraryHandler)
+      },
+    }
+    const homeMod: MainModule = {
+      id: 'home',
+      setup: () => {
+        // deliberately registers nothing under 'stats' - proves the type
+        // alone does not make 'library'/'stats' reachable as 'home'/'stats'
+      },
+    }
+
+    await registry.register(libraryMod, fakeAppContext())
+    await registry.register(homeMod, fakeAppContext())
+
+    // Same handler `type` ('stats'), but requested under the *other*
+    // module's id - the registry keys handlers by `${moduleId}/${type}`, so
+    // this must miss even though 'library'/'stats' exists.
+    const result = await registry.invoke({ moduleId: 'home', type: 'stats', payload: {} })
+
+    expect(result).toEqual({
+      ok: false,
+      error: { key: 'modules.error.notImplemented', params: { moduleId: 'home', type: 'stats' } },
+    })
+    expect(libraryHandler).not.toHaveBeenCalled()
+  })
 })

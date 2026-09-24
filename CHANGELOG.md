@@ -12,6 +12,8 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 ### Added
+- A **Servers** nav entry now exists (planned status) with its own Settings section, ahead of
+  the module's server-browsing features landing.
 - **Linux** — a Windows Quake II build (Steam, GOG, a folder carried over from another machine)
   now plays on Linux too: the launcher offers wine or umu-run as a runner and launches through it
   when you pick one.

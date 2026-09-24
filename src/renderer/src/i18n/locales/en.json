@@ -107,6 +107,14 @@
       "title": "Assets",
       "description": "Add new looks and sounds with texture, model and sound packs."
     },
+    "servers": {
+      "title": "Servers",
+      "description": "Browse Quake II servers and see who's playing before you join.",
+      "settings": {
+        "title": "Servers",
+        "placeholder": "There is nothing to configure here yet."
+      }
+    },
     "planned": {
       "badge": "Planned",
       "title": "{{module}} is coming in a later release",
@@ -134,6 +142,14 @@
           "1": "Add texture packs for a sharper or different look",
           "2": "Add model packs to change how characters and objects appear",
           "3": "Add sound packs to change music and effects"
+        }
+      },
+      "servers": {
+        "intro": "Servers will let you find a game to join without leaving the launcher.",
+        "highlight": {
+          "1": "See who's online across known servers at a glance",
+          "2": "Check a server's players and map before joining",
+          "3": "Join a server straight from its entry, no address to type"
         }
       }
     }

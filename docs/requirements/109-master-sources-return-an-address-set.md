@@ -1,7 +1,7 @@
 ---
 id: 109
 title: master sources return an address set
-status: draft # draft -> ready -> in-progress -> done
+status: ready # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -49,28 +49,165 @@ become the de facto answer for the scan scheduler that depends on it later.
 
 ## Open Questions
 
-- [ ] **Q1 — UDP master reply stop condition.** The concept records this as unresolved (open point
+- [x] ~~**Q1 — UDP master reply stop condition.** The concept records this as unresolved (open point
       #2): a quiet period after the last received datagram, an expected-count check (if the server
       count is knowable up front), or a hard cap on datagrams/time, in some combination. This story's
       AC2 (assembling multiple datagrams into one set) needs a concrete stop rule to implement against
       — confirm which approach (or combination) before `/refine`, since it is the one piece of this
-      story's scope the concept explicitly did not decide.
+      story's scope the concept explicitly did not decide.~~ answered → Decisions (Sprint)
+
+## Decisions (Sprint)
+
+- **(User)** UDP master reply stop condition: a quiet period after the last received datagram
+  (no expected-count check, no separate hard cap).
+- **Layering: codecs shared, transports main.** The four pure codecs live in `src/shared/servers/`
+  (where [[108]]'s purity sweep already forbids `node:*`/`electron`/IPC imports) and the two
+  transport seams live in `src/main/modules/servers/`, because a seam that has to reach `node:dgram`
+  or `net.fetch` cannot exist in a layer that must stay importable from the renderer.
+- **The address set reuses [[107]]'s vocabulary.** Every address a codec produces is run through
+  `parseServerAddress`/`formatServerAddress`, and the deduplication key is the `normalized` string,
+  so a master-supplied address is validated by exactly the rule a hand-typed one is.
+- **A per-record/per-line rejection is not a source failure.** A single unparsable line, or a record
+  whose port is `0`, is dropped into a `skipped: { value, reason }[]` list while the source still
+  succeeds (GB-S3 reports the source, not the line); only a whole-body defect (wrong header, body
+  length not a multiple of 6, empty body) is `{ ok: false }`, because one bad row must not lose the
+  other 200 servers.
+- **The UDP header check is byte-level, not text.** The reply is matched against the literal bytes
+  `FF FF FF FF` + `servers ` and records are read from the byte right after it, rather than through
+  [[108]]'s `readConnectionlessReply`, because that helper decodes latin-1 and splits on whitespace —
+  and a packed record legitimately contains `0x20` and `0x0A` bytes.
+- **No tolerance for undocumented padding.** Nothing but whole 6-byte records may follow the header;
+  a remainder of 1–5 bytes is `truncated`. Guessing a newline separator would silently corrupt the
+  first record of every reply that does not carry one.
+- **`?raw=2` is bare packed records.** The binary HTTP shape reuses the same record reader as the UDP
+  payload with no OOB header, so AC1 and AC4 are proven against one implementation.
+- **Quiet period = 500 ms, plus a separate first-reply timeout of 2000 ms.** The quiet period is the
+  decided stop condition; the first-reply timeout is not a cap on the reply but the "this master
+  never answered at all" case (failure `no-reply`), which the stop condition by construction cannot
+  detect.
+- **The collector's clock is injected.** The UDP seam takes a `setTimeout`/`clearTimeout` pair so the
+  quiet-period rule is unit-tested deterministically, with a loopback `dgram` test as the second,
+  real-socket-but-not-real-master proof (GB-A5 forbids a real master, not `127.0.0.1` — the
+  `fetcher.test.ts` precedent does exactly this over HTTP).
+- **Failure reasons get i18n keys now, no UI.** `masterSourceFailureKey(reason)` plus
+  `servers.source.error.*` entries in `en.json`, mirroring [[107]]'s D3, so GB-S3's "a failing source
+  is reported" finds the vocabulary already there instead of inventing prose later.
+- **No IPC channel, no orchestration, no CHANGELOG entry.** Nothing in this story is reachable by a
+  user yet, so `src/shared/ipc.ts`, the preload allowlist and the renderer stay untouched.
 
 ## Plan
 
-<!-- Filled by `/refine 109`, once the Open Questions above are resolved. -->
+1. **D1 — the packed-record codec.** New `src/shared/servers/master-records.ts`:
+   `MASTER_REPLY_HEADER` (`FF FF FF FF` + `servers `), the `MasterSourceFailure` reason union
+   (`too-short`, `bad-header`, `truncated`, `empty-body`, `no-reply`, `transport-error`,
+   `http-status`), `readPackedRecords(bytes, offset)`, `unpackMasterReply(bytes)` and
+   `assembleMasterAddresses(payloads)` (union + dedupe by `normalized`, first-seen order).
+   Test `master-records.test.ts`.
+2. **D2 — the HTTP list codecs.** New `src/shared/servers/http-list.ts`: `parseHttpListText(text)`
+   (`?raw=1`) and `parseHttpListBinary(bytes)` (`?raw=2`, reusing D1's record reader), both returning
+   `{ ok: true, addresses, skipped }` or a failure reason. Test `http-list.test.ts`.
+3. **D3 — the UDP seam and the quiet-period collector.** New
+   `src/main/modules/servers/udp-master-source.ts`: the `MasterUdpImpl` seam (send one datagram,
+   stream replies, close), a `node:dgram` default, and `resolveUdpMasterSource(address, opts)`
+   implementing the decided stop rule on top of D1. Test `udp-master-source.test.ts` (stub seam +
+   fake timers, plus one loopback case).
+4. **D4 — the HTTP seam.** New `src/main/modules/servers/http-list-source.ts`: `FetchImpl` reused
+   from `downloads/fetcher.ts`, `resolveHttpListSource(url, { raw, fetchImpl })` selecting D2's text
+   or binary codec by shape. Test `http-list-source.test.ts` (loopback `node:http`, mirroring
+   `fetcher.test.ts`).
+5. **D5 — the message keys.** `masterSourceFailureKey()` beside the reason union plus
+   `servers.source.error.*` in `en.json`, with a test iterating the union.
+
+Affected files (all new except `en.json`): `src/shared/servers/master-records.ts`, `http-list.ts`,
+`src/main/modules/servers/udp-master-source.ts`, `http-list-source.ts`, their four `.test.ts`
+siblings, `src/renderer/src/i18n/locales/en.json`. No IPC channel, no preload change, no renderer
+component, no shell edit.
 
 ## Deliverables
 
-<!-- Filled by `/refine 109`. -->
+- **D1 — the UDP master payload codec and the multi-datagram assembler, with its tests.**
+  Files: `src/shared/servers/master-records.ts` (new), `src/shared/servers/master-records.test.ts`
+  (new). Mirror: [[108]]'s `src/shared/servers/protocol.ts` (byte-level shared module, ok/reason
+  discriminated union) and [[107]]'s `src/shared/servers/address.ts`.
+  Acceptance: a payload of header + three records unpacks to three addresses with the ports read
+  big-endian; `assembleMasterAddresses` over two payloads that share a record yields the union once,
+  in first-seen order; a payload shorter than the header, one with a wrong header, one with an empty
+  body and one cut mid-record return `too-short`, `bad-header`, `empty-body` and `truncated` and
+  never a partial address; a record with port `0` lands in `skipped`, not in `addresses`; the module
+  imports nothing from `node:*`, `electron` or the IPC layer.
+- **D2 — the `?raw=1` and `?raw=2` list codecs, with their tests.**
+  Files: `src/shared/servers/http-list.ts` (new), `src/shared/servers/http-list.test.ts` (new).
+  Mirror: D1's result shape; `src/shared/config/command-tokenizer.ts` for the table-driven test.
+  Acceptance: a text body of `a.b.c.d:port` lines (LF and CRLF, blank lines, a trailing newline, a
+  `#` comment line) parses to exactly the valid addresses; a line [[107]] rejects appears in
+  `skipped` with its reason while the rest still parse; a binary body of packed records parses to the
+  same address list as the equivalent UDP payload; an empty body is `empty-body` and a binary body
+  whose length is not a multiple of 6 is `truncated`.
+- **D3 — the UDP transport seam and the quiet-period stop rule.**
+  Files: `src/main/modules/servers/udp-master-source.ts` (new),
+  `src/main/modules/servers/udp-master-source.test.ts` (new). Mirror:
+  `src/main/modules/downloads/fetcher.ts` (`FetchImpl`-style seam with a lazily imported default) and
+  its `fetcher.test.ts` loopback setup.
+  Acceptance: driven by a stub seam and fake timers, three datagrams arriving 100 ms apart resolve to
+  one assembled address set 500 ms after the last one and not before; a datagram arriving after the
+  quiet period has elapsed does not change the returned result; no datagram at all fails with
+  `no-reply` after the first-reply timeout instead of hanging; a seam that throws yields
+  `transport-error`; an aborted signal closes the socket and resolves without throwing; one test
+  drives the real `node:dgram` default against a loopback responder on `127.0.0.1` and gets the same
+  address set. No test addresses a real master.
+- **D4 — the HTTP transport seam.**
+  Files: `src/main/modules/servers/http-list-source.ts` (new),
+  `src/main/modules/servers/http-list-source.test.ts` (new). Mirror:
+  `src/main/modules/downloads/fetcher.ts` / `fetcher.test.ts` (same `FetchImpl` type, imported, not
+  re-declared).
+  Acceptance: against a `node:http` server on `127.0.0.1`, a `?raw=1` body resolves to its addresses
+  and a `?raw=2` body to the same set; a non-2xx response yields `http-status` carrying the code and
+  no addresses; a body the codec rejects yields the codec's own reason; the resolver runs under plain
+  Vitest with a plain `fetch` injected, with no Electron runtime. No test requests q2servers.com.
+- **D5 — every source failure has a message key.**
+  Files: `src/shared/servers/master-records.ts` (extend: `masterSourceFailureKey`),
+  `src/renderer/src/i18n/locales/en.json`, `src/shared/servers/master-records.test.ts` (extend).
+  Mirror: [[107]]'s D3 and `src/shared/config/comment-labels.test.ts`.
+  Acceptance: every `MasterSourceFailure` code resolves to a `servers.source.error.*` key present in
+  `en.json`, proven by a test iterating the union; no existing key is renamed.
 
 ## Model Hints
 
-<!-- Filled by `/refine 109`. -->
+- D1 → default
+- D2 → default
+- D3 → **deliverable-hard** — a timer-driven collector over a live socket is the one place in this
+  sprint where a subtly wrong rule (quiet period restarted on the wrong event, timer not cleared on
+  abort, socket left open) yields a green test suite and either a hung scan or a silently short
+  server list in production.
+- D4 → default
+- D5 → default
+- Review: → default — four new files in two existing folders plus one additive `en.json` block, no
+  existing behaviour touched, no IPC channel and no UI, so there is nothing here for a review to
+  regress against.
 
 ## Acceptance Tests
 
-<!-- Filled by `/refine 109`. -->
+- AC1 → D1, unit `src/shared/servers/master-records.test.ts` › "unpacks a master reply into packed
+  IPv4 and big-endian port records"
+- AC2 → D1 + D3, unit `src/shared/servers/master-records.test.ts` › "assembles several datagrams into
+  one address set without duplicates", plus unit
+  `src/main/modules/servers/udp-master-source.test.ts` › "collection ends one quiet period after the
+  last datagram"
+- AC3 → D2, unit `src/shared/servers/http-list.test.ts` › "parses the raw=1 text list into addresses"
+- AC4 → D2, unit `src/shared/servers/http-list.test.ts` › "parses the raw=2 binary list into the same
+  addresses"
+- AC5 → D1 + D2, unit `src/shared/servers/master-records.test.ts` › "a malformed or truncated payload
+  is an explicit failure, never a partial address", plus unit
+  `src/shared/servers/http-list.test.ts` › "a rejected line is skipped with its reason and the list
+  still parses"
+- AC6 → D3 + D4, unit `src/main/modules/servers/udp-master-source.test.ts` › "the UDP transport is
+  driven entirely through its injectable seam", plus unit
+  `src/main/modules/servers/http-list-source.test.ts` › "the HTTP list is fetched through the
+  injected FetchImpl against a loopback server"
+
+No criterion in this story describes a user action — the story has no surface and no IPC channel of
+its own — so nothing maps to the `e2e` gate and there is no manual residue. The two loopback tests
+(D3, D4) bind only `127.0.0.1`; no test reaches a real master or q2servers.com (GB-A5).
 
 ## Done
 

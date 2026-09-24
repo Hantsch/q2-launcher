@@ -1,7 +1,7 @@
 ---
 sprint: S22
-status: planned # planned | in-progress | done
-branch:
+status: in-progress # planned | in-progress | done
+branch: sprint/S22
 milestone: 9.1 — Servers module foundation & protocol core
 ---
 
@@ -16,7 +16,7 @@ master-source codecs) is written as pure, unit-tested code with no live network 
 
 ## Stories (in build order)
 
-- [ ] 106 — a servers module exists with its own nav entry
+- [x] 106 — a servers module exists with its own nav entry
 - [ ] 107 — a server address is validated before it is trusted
 - [ ] 108 — the launcher speaks the two server queries
 - [ ] 109 — master sources return an address set
