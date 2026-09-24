@@ -608,6 +608,17 @@
         "host-label-invalid": "This host name contains an invalid part.",
         "ipv4-octet-out-of-range": "Each part of an IPv4 address must be between 0 and 255."
       }
+    },
+    "source": {
+      "error": {
+        "too-short": "This source's reply is too short to be a valid server list.",
+        "bad-header": "This source's reply doesn't start with the expected server list header.",
+        "truncated": "This source's reply was cut off partway through a server record.",
+        "empty-body": "This source's reply didn't contain any server data.",
+        "no-reply": "This source didn't reply in time.",
+        "transport-error": "Couldn't reach this source.",
+        "http-status": "This source returned an error instead of a server list."
+      }
     }
   },
 

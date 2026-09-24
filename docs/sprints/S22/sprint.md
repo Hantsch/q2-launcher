@@ -19,7 +19,7 @@ master-source codecs) is written as pure, unit-tested code with no live network 
 - [x] 106 — a servers module exists with its own nav entry
 - [x] 107 — a server address is validated before it is trusted
 - [x] 108 — the launcher speaks the two server queries
-- [ ] 109 — master sources return an address set
+- [x] 109 — master sources return an address set
 
 ## Notes
 

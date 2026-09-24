@@ -1,7 +1,7 @@
 ---
 id: 109
 title: master sources return an address set
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -30,19 +30,19 @@ become the de facto answer for the scan scheduler that depends on it later.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A function unpacks a UDP master reply payload (the `\xFF\xFF\xFF\xFFservers ` header
+- [x] **AC1** — A function unpacks a UDP master reply payload (the `\xFF\xFF\xFF\xFFservers ` header
       followed by packed 4-byte-IPv4 + 2-byte-big-endian-port records, per §6.5) into a list of
       addresses, and is pure (accepts a `Buffer`, returns data — no socket).
-- [ ] **AC2** — A function assembles multiple UDP reply datagrams belonging to the same query into
+- [x] **AC2** — A function assembles multiple UDP reply datagrams belonging to the same query into
       one combined address set, with no duplicate addresses in the result even if a record repeats
       across datagrams.
-- [ ] **AC3** — A function parses the HTTP list's `?raw=1` (text) shape into an address list.
-- [ ] **AC4** — A function parses the HTTP list's `?raw=2` (binary) shape into an address list.
-- [ ] **AC5** — A genuinely malformed or truncated UDP or HTTP payload (cut mid-record, wrong header,
+- [x] **AC3** — A function parses the HTTP list's `?raw=1` (text) shape into an address list.
+- [x] **AC4** — A function parses the HTTP list's `?raw=2` (binary) shape into an address list.
+- [x] **AC5** — A genuinely malformed or truncated UDP or HTTP payload (cut mid-record, wrong header,
       empty body) does not throw uncaught and does not produce a spurious address — it is surfaced as
       an explicit parse failure the caller can report as a failing source per GB-S3, without aborting
       anything else.
-- [ ] **AC6** — Both the UDP transport and the HTTP transport sit behind an injectable seam (mirroring
+- [x] **AC6** — Both the UDP transport and the HTTP transport sit behind an injectable seam (mirroring
       `FetchImpl` in `src/main/modules/downloads/fetcher.ts`), so a unit test drives each codec with a
       local stub — no test in this story opens a socket to or makes a request against a real master or
       real q2servers.com (GB-A5, GB-A6).
@@ -211,4 +211,83 @@ its own — so nothing maps to the `e2e` gate and there is no manual residue. Th
 
 ## Done
 
-<!-- Filled by `/build 109`. -->
+**Summary.** Delivered the two master-source codecs and their two transport seams, all pure/unit-
+tested, no IPC or UI surface. `src/shared/servers/master-records.ts` unpacks a UDP master reply
+(header check, packed 4-byte-IPv4 + 2-byte-big-endian-port records) and assembles multiple datagrams
+into one deduplicated address set; `src/shared/servers/http-list.ts` parses the `?raw=1` text and
+`?raw=2` binary list shapes, reusing D1's record reader for the binary case. `src/main/modules/
+servers/udp-master-source.ts` implements the decided quiet-period (500 ms) / first-reply-timeout
+(2000 ms) collector behind an injectable `MasterUdpImpl` + clock seam, with a `node:dgram` default
+implementation lazily imported. `src/main/modules/servers/http-list-source.ts` fetches a list URL
+through the `FetchImpl` seam reused from `downloads/fetcher.ts`. Every `MasterSourceFailure` reason
+now resolves to a `servers.source.error.*` i18n key (`masterSourceFailureKey`), additively extending
+`en.json`.
+
+**Commit message.**
+```
+109: master sources return an address set
+```
+
+**Verification — narrow gate (this was the sprint's last story; the full regression gate is run
+once by the orchestrator after all stories, per the sprint deviation for this run).**
+- `npm run build` — green.
+- `npm run typecheck` — green (`tsconfig.node.json` and `tsconfig.web.json` both clean).
+- `npx vitest run --changed HEAD` (test-story) — 68 files / 518 tests, all passed, including all
+  four new test files plus the extended `master-records.test.ts`.
+- `npm run ui:verify` / `ui:flow` — not run. The story's own `## Acceptance Tests` section confirms
+  no criterion maps to the `e2e` gate (no user-facing surface, no IPC channel this story), so e2e was
+  correctly skipped rather than substituted.
+- Code review (clean agent, default tier per Model Hints): **PASS**, no blocking findings. Two
+  non-blocking observations noted by the reviewer: (1) `udp-master-source.ts`'s `onError` path
+  reports the generic `transport-error` reason rather than a more specific stored payload-failure
+  reason in one compound-failure edge case (socket errors after an unusable-only reply) — not a
+  spec violation, left as-is; (2) `master-records.test.ts` references a `const` (`RECORD_LENGTH_FOR_TEST`)
+  declared later in the same file inside an `it()` body — works correctly (Vitest runs test bodies
+  after module evaluation) but is stylistically fragile; left as-is since it is not a live bug and
+  fixing it purely for style was judged not worth another review cycle. No review-fix cycle was
+  needed.
+
+**AC → test mapping, as verified:**
+- AC1 → `src/shared/servers/master-records.test.ts` › "unpacks a master reply into packed IPv4 and
+  big-endian port records" — passed.
+- AC2 → `master-records.test.ts` › "assembles several datagrams into one address set without
+  duplicates" + `src/main/modules/servers/udp-master-source.test.ts` › "collection ends one quiet
+  period after the last datagram" — both passed.
+- AC3 → `src/shared/servers/http-list.test.ts` › "parses the raw=1 text list into addresses" —
+  passed.
+- AC4 → `http-list.test.ts` › "parses the raw=2 binary list into the same addresses" — passed.
+- AC5 → `master-records.test.ts` › "a malformed or truncated payload is an explicit failure, never a
+  partial address" + `http-list.test.ts` › "a rejected line is skipped with its reason and the list
+  still parses" — both passed.
+- AC6 → `udp-master-source.test.ts` › "the UDP transport is driven entirely through its injectable
+  seam" (plus a loopback `node:dgram` test bound to `127.0.0.1`) + `src/main/modules/servers/
+  http-list-source.test.ts` › "the HTTP list is fetched through the injected FetchImpl against a
+  loopback server" — both passed. No test in this story addresses a real master or q2servers.com.
+- No `manual residue` — the story has no user-facing criterion.
+
+**Decisions made during build (beyond the story's own Decisions (Sprint)):**
+- D3's UDP seam shape: `MasterUdpImpl = (target, handlers) => Promise<MasterUdpSocket>` with
+  `MasterUdpSocket = { send(datagram), close() }` and `handlers = { onMessage(data), onError(error) }`
+  supplied at open time (no post-open registration window a datagram could be missed in), mirroring
+  `FetchImpl`'s minimalism; `node:dgram` is imported lazily inside the default implementation, exactly
+  like `electron` in `fetcher.ts`.
+- D3's outbound query datagram is `\xFF\xFF\xFF\xFFquery\0` (OOB prefix + latin-1 `"query"` +
+  trailing NUL), matching the concept's §6.5 wire description, rather than a bare `"query"` without
+  the terminator.
+- D3: a UDP datagram with a valid header but an unusable body (e.g. `truncated`) counts toward both
+  the quiet-period and first-reply clocks but contributes no addresses; if nothing usable arrived at
+  all, that payload's own failure reason is returned instead of a phantom `{ ok: true, addresses: [] }`.
+  Abort with nothing received resolves `{ ok: false, reason: 'no-reply' }` (the `MasterSourceFailure`
+  union has no dedicated `aborted` member); a pre-aborted signal never opens a socket.
+- D4: `fetchImpl` is a required parameter with no lazy Electron default (unlike D3's `node:dgram`
+  case), per the acceptance bullet that the HTTP resolver must run under plain Vitest with no
+  Electron runtime at all; `HttpListSourceResult`'s failure variant carries an extra optional
+  `status` field locally in `http-list-source.ts` rather than widening `MasterSourceFailure`, to avoid
+  touching D1's file from a D4 change.
+- D2: an empty `?raw=2` binary body is explicitly checked and reported as `empty-body` before
+  delegating to D1's record reader (which alone would treat a zero-length remainder as vacuously
+  valid, since 0 is a multiple of 6) — needed because raw=2 has no header for `unpackMasterReply` to
+  reject on beforehand.
+
+No pre-existing failures encountered; nothing in this story required touching `src/shared/ipc.ts`,
+the preload allowlist, or the renderer, matching the Decisions (Sprint) scope.
