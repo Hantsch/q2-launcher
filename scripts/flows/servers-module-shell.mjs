@@ -9,7 +9,9 @@
 //   nav-servers                TitleBar.tsx - primary nav entry, `nav-${module.id}`
 //   settings-section-servers   SettingsView.tsx - the shell's own Panel wrapper around the
 //                              contributed section, `settings-section-${id}`
-//   servers-settings-placeholder  ServersSettingsSection.tsx - the section's placeholder text
+//   servers-sources-list       ServersSettingsSection.tsx - story 111 D4's real master-source
+//                              list, which replaced story 106 D3's placeholder this flow used to
+//                              assert on (`servers-settings-placeholder`, removed in story 111)
 
 const TIMEOUT_MS = 8_000
 
@@ -31,7 +33,7 @@ export default async function serversModuleShell({ page, shot, step }) {
   await page.getByTestId('nav-settings').click({ timeout: TIMEOUT_MS })
   const section = page.getByTestId('settings-section-servers')
   await section.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await section.getByTestId('servers-settings-placeholder').waitFor({
+  await section.getByTestId('servers-sources-list').waitFor({
     state: 'visible',
     timeout: TIMEOUT_MS,
   })

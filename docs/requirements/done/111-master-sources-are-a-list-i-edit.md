@@ -276,3 +276,10 @@ option labels were hardcoded English literals instead of the already-defined
 
 Standalone build, narrow gate only. The full regression gate (`npm test`, `npm run ui:verify`,
 `npm run ui:flows`) has not run — run it before merge, or use `/build 111 --full`.
+
+**Post-hoc regression note (sprint/S23 regression gate):** `npm run ui:flow -- servers-module-shell`
+(story 106's own flow) started failing once this story landed: it still asserted on
+`servers-settings-placeholder`, the placeholder testid this story's D4 replaced with the real
+master-source list (`servers-sources-list`). Fixed by updating
+`scripts/flows/servers-module-shell.mjs` to wait for `servers-sources-list` instead; re-run
+confirms it passes.
