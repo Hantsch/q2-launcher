@@ -6,3 +6,9 @@
 - 2026-09-24 09:40 · 106 · D3 renderer half, nav entry, settings slot · done
 - 2026-09-24 09:40 · 106 · D4 platform-parity guard · started
 - 2026-09-24 09:41 · 106 · D4 platform-parity guard · done
+- 2026-09-24 09:47 · 107 · D1 pure address validator · started
+- 2026-09-24 09:51 · 107 · D1 pure address validator · done
+- 2026-09-24 09:51 · 107 · D2 zod address schema · started
+- 2026-09-24 09:52 · 107 · D2 zod address schema · done
+- 2026-09-24 09:52 · 107 · D3 i18n rejection keys · started
+- 2026-09-24 09:54 · 107 · D3 i18n rejection keys · done

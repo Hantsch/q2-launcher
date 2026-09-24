@@ -12,7 +12,15 @@
   // It typechecks under `tsconfig.node.json` instead (mirrors that project's own explicit
   // cross-reference to `i18n/locales/en.json`), so it is excluded here rather than pulling `node`
   // types into every renderer file.
-  "exclude": ["src/renderer/src/components/shell/shell-home-ownership.test.ts"],
+  // Story 107 D1: `address.test.ts`'s purity check reads `address.ts`'s own source with
+  // `node:fs`/`node:path`/`node:url` to assert it stays free of node/electron/IPC imports - the
+  // same node-only-capability shape as `shell-home-ownership.test.ts` above, so it is excluded
+  // here and typechecks under `tsconfig.node.json` instead (`src/shared/**/*.ts` already covers it
+  // there).
+  "exclude": [
+    "src/renderer/src/components/shell/shell-home-ownership.test.ts",
+    "src/shared/servers/address.test.ts"
+  ],
   "compilerOptions": {
     "composite": true,
     "declaration": true,

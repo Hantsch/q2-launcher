@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { parseServerAddress } from './servers/address'
 import { DEFAULT_SETTINGS } from './types'
 
 /**
@@ -39,6 +40,18 @@ export const absolutePathSchema = z
   .string()
   .min(1)
   .refine((value) => !value.includes('\0'), 'path must not contain NUL')
+
+/** Strict `host:port` validation via `parseServerAddress`; rejects with the reason code (not
+ * prose) as the issue message, and transforms a valid address into its normalized string. */
+export const serverAddressSchema = z.string().superRefine((value, ctx) => {
+  const result = parseServerAddress(value)
+  if (!result.ok) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: result.reason })
+  }
+}).transform((value) => {
+  const result = parseServerAddress(value)
+  return result.ok ? result.normalized : value
+})
 
 export const settingsObjectSchema = z.object({
   locale: z.enum(['system', 'en']).catch(DEFAULT_SETTINGS.locale),

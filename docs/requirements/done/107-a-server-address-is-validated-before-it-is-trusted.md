@@ -1,7 +1,7 @@
 ---
 id: 107
 title: a server address is validated before it is trusted
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -35,20 +35,20 @@ answer without discussion.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A pure function accepts a `host:port` or IPv4-literal `a.b.c.d:port` string and
+- [x] **AC1** — A pure function accepts a `host:port` or IPv4-literal `a.b.c.d:port` string and
       returns a typed success result with the parsed host and port when the input is well-formed.
-- [ ] **AC2** — The same function rejects, with a distinct reason per case, at minimum: extra
+- [x] **AC2** — The same function rejects, with a distinct reason per case, at minimum: extra
       whitespace-separated tokens after the address, shell/argument metacharacters (quotes,
       backslashes, semicolons, `+`-prefixed tokens), a missing port, a non-numeric port, and a port
       outside 1–65535.
-- [ ] **AC3** — A hostname component is validated against a defined, documented character set (no
+- [x] **AC3** — A hostname component is validated against a defined, documented character set (no
       spaces, no control characters, no bytes above 126 — consistent with `buildLaunchArgs`'s existing
       finding in `docs/ARCHITECTURE.md` that r1q2 treats any byte above 126 as a separator); anything
       outside it is rejected rather than silently truncated.
-- [ ] **AC4** — The validator is a standalone module with no `node:*`, `electron`, or IPC import —
+- [x] **AC4** — The validator is a standalone module with no `node:*`, `electron`, or IPC import —
       callable from a unit test with no process boundary crossed — and ships with unit tests covering
       every accept/reject case in AC1–AC3.
-- [ ] **AC5** — The validator's rejection result carries a reason distinguishable per failure class
+- [x] **AC5** — The validator's rejection result carries a reason distinguishable per failure class
       (not a single generic "invalid address" string), so a future caller (join warning, manual-entry
       form error, address-book dialog) can show a specific i18n-keyed message rather than one catch-all.
 
@@ -140,7 +140,7 @@ component code, no IPC channel, no shell edit.
 
 ## Deliverables
 
-- **D1 — the pure address validator, with its unit tests.**
+- [x] **D1 — the pure address validator, with its unit tests.**
   Files: `src/shared/servers/address.ts` (new), `src/shared/servers/address.test.ts` (new).
   Mirror: `src/shared/config/alias-names.ts` (pure shared validator with a documented character
   rule) and `src/shared/config/validation.ts` (i18n-key-not-prose result shape).
@@ -149,12 +149,12 @@ component code, no IPC channel, no shell edit.
   class in AC2/AC3; the test file carries at least one accept case per `kind`, one reject case per
   reason code, and an assertion that the module's source imports nothing from `node:*`, `electron`
   or the IPC layer.
-- **D2 — the zod primitive later `servers` handlers validate with.**
+- [x] **D2 — the zod primitive later `servers` handlers validate with.**
   Files: `src/shared/schemas.ts`, `src/shared/servers/address.test.ts` (extend).
   Mirror: `absolutePathSchema` in the same file.
   Acceptance: `serverAddressSchema` parses a valid address into its normalized string and fails a
   malformed one with the reason code as the issue message; no other schema in the file changes.
-- **D3 — every rejection has a message key.**
+- [x] **D3 — every rejection has a message key.**
   Files: `src/renderer/src/i18n/locales/en.json`, `src/shared/servers/address.test.ts` (extend).
   Mirror: `src/shared/config/comment-labels.test.ts` (a shared test that reads `en.json`).
   Acceptance: every `ServerAddressRejection` code resolves through `serverAddressRejectionKey()` to
@@ -186,4 +186,64 @@ its own — so nothing maps to the `e2e` gate and there is no manual residue.
 
 ## Done
 
-<!-- Filled by `/build 107`. -->
+**Summary.** Delivered the pure `parseServerAddress` validator (`src/shared/servers/address.ts`)
+with its 13-reason-code discriminated-union result, `formatServerAddress` and
+`serverAddressRejectionKey`; a `serverAddressSchema` zod primitive in `src/shared/schemas.ts` built
+on the same parser; and an i18n key per rejection reason under a new `servers.address.reject.*`
+section in `en.json`. No IPC channel, no UI, no `buildLaunchArgs` change, exactly as planned.
+
+**Commit message:**
+```
+107: validate a server address before it is trusted
+```
+
+**Verification — narrow gate.**
+- `npm run build` — green.
+- `npm run typecheck` — green after one incidental fix: `address.test.ts`'s purity check reads
+  `address.ts`'s own source via `node:fs`/`node:path`/`node:url`, which the renderer's
+  `tsconfig.web.json` (no `node` types) rejected. Excluded that one file from `tsconfig.web.json`
+  and left it covered by `tsconfig.node.json`'s existing `src/shared/**/*.ts` include — the same
+  pattern already used there for `shell-home-ownership.test.ts` (see that file's own comment).
+- `test-story` (`npx vitest run --changed HEAD`) — 1547/1548 passed, one flake:
+  `src/renderer/src/modules/servers/ServersSettingsSection.test.tsx` timed out (5000ms) only inside
+  the full parallel `--changed` run (also saw one-off `EBUSY`/timeout flakes in
+  `profiles.test.ts` and `AppShell.test.tsx` on the first pass, gone on a second run). Checked per
+  the workflow's stash rule: ran the same file in isolation with the story's changes present (green,
+  4.4s) and again on bare `HEAD` via `git stash push -u` (green, 4.75s). Confirmed pre-existing
+  machine/parallel-run contention, not caused by this story — none of its own logic touches that
+  test's import path.
+- Story's own tests in isolation: `npx vitest run src/shared/servers/address.test.ts
+  src/shared/config/comment-labels.test.ts` — 121/121 passed.
+- e2e-story: skipped, as planned — the story has no user-facing surface (see Decisions: "No e2e
+  flow"); confirmed still true, nothing in D1–D3 added a route, IPC channel or UI component.
+- Code review (clean agent, default tier): **PASS**, no findings. AC1–AC5 each verified against
+  their named test with file:line evidence; every named test judged non-tautological (exact-shape
+  `toEqual`/hand-traced assertions, not implementation restatement); no weakened tests, no scope
+  creep, `src/shared/ipc.ts` confirmed untouched, full parse order and character-set rules traced
+  against the Plan and found correct. One cosmetic-only nit noted (not a finding): the zod
+  `.transform()` re-invokes `parseServerAddress` on top of `superRefine`'s call — harmless (pure,
+  no IO) and not fixed.
+
+**AC → test mapping, as verified:**
+- AC1 → `address.test.ts` › "accepts a hostname and an IPv4 literal with a port" — passed.
+- AC2 → `address.test.ts` › "rejects each malformed address with its own reason" — passed.
+- AC3 → `address.test.ts` › "rejects a host outside the documented character set" — passed.
+- AC4 → `address.test.ts` › `describe('purity', ...)` "imports nothing from node, electron or the
+  IPC layer" — passed.
+- AC5 → `address.test.ts` › "every rejection reason has its own i18n key" (D1+D3) — passed.
+- No manual residue — the story declares none, and nothing found during build needed one.
+
+**Decisions made during build (beyond the story's own Decisions section):**
+- `tsconfig.web.json` gained a narrow, documented `exclude` for `src/shared/servers/address.test.ts`
+  so its node-only purity self-check can typecheck under `tsconfig.node.json` instead — mirrors the
+  existing `shell-home-ownership.test.ts` precedent in the same file.
+- The IPv6-vs-`too-many-colons` boundary (left as an implementation judgment call by the Plan): a
+  candidate with a bracket, a `::`, or ≥3 colons where every segment looks like a 1–4-digit hex
+  group is `ipv6-not-supported`; any other multi-colon string is `too-many-colons`. Documented in
+  `address.ts`'s file header.
+- `1.2.3` (a 3-label all-numeric host, not a 4-label IPv4 candidate) falls through to the hostname
+  branch and is rejected as `host-label-invalid` (all-digit labels are invalid hostname labels) —
+  documented in the same file header, matching the story's own reasoning for why an all-numeric
+  candidate is never mistaken for a hostname.
+
+No open points or blockers. `status` set to `done` below.
