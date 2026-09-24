@@ -11,7 +11,7 @@ import {
 import { DEFAULT_DOWNLOADS_SETTINGS } from '@shared/modules/downloads'
 import type { DownloadDiagnostics } from '@shared/modules/downloads'
 import { DEFAULT_HOME_LAYOUT } from '@shared/modules/home'
-import { DEFAULT_SERVERS_STATE } from '@shared/modules/servers'
+import { DEFAULT_MASTER_SOURCES, DEFAULT_SERVERS_STATE } from '@shared/modules/servers'
 import { setProfileActionsInputSchema } from '../modules/config/schemas'
 import { legacyAliasNameFor } from '@shared/config/alias-render'
 import { bindValueFor } from '@shared/config/action-mirror'
@@ -1015,15 +1015,15 @@ describe('parseHomeLayout (story 086 D1)', () => {
 // Story 110 D2.
 describe('parseServersState (story 110 D2)', () => {
   const validSource1 = { id: 's1', type: 'udp-master', address: '203.0.113.10:27900', enabled: true }
-  const validSource2 = { id: 's2', type: 'http-list', address: '203.0.113.11:80', enabled: false }
+  const validSource2 = { id: 's2', type: 'http-list', address: 'https://example.com/list?raw=1', enabled: false }
   const malformedSource = { id: 's3', type: 'udp-master', address: '203.0.113.12:27900' } // missing enabled
 
   const validFavourite1 = { address: '203.0.113.20:27910', addedAt: '2026-01-01T00:00:00.000Z' }
   const validFavourite2 = { address: '203.0.113.21:27910', addedAt: '2026-01-02T00:00:00.000Z' }
   const malformedFavourite = { address: '203.0.113.22:27910' } // missing addedAt
 
-  it('a foreign servers value falls back to the safe empty default', () => {
-    const cases: unknown[] = [undefined, 'not an object', 42, { totally: 'foreign' }]
+  it('a genuinely foreign (non-object) servers value falls back to the shipped default (three sources, everything else empty)', () => {
+    const cases: unknown[] = ['not an object', 42]
 
     for (const raw of cases) {
       expect(() => parseServersState(raw)).not.toThrow()
@@ -1034,9 +1034,48 @@ describe('parseServersState (story 110 D2)', () => {
       // shared `DEFAULT_SERVERS_STATE` constant.
       result.sources.push({ id: 'mutated', type: 'udp-master', address: '1.2.3.4:27910', enabled: true })
       result.scan.concurrency = 999
-      expect(DEFAULT_SERVERS_STATE.sources).toEqual([])
+      expect(DEFAULT_SERVERS_STATE.sources).toEqual(DEFAULT_MASTER_SOURCES)
       expect(DEFAULT_SERVERS_STATE.scan.concurrency).toBe(8)
     }
+  })
+
+  // Story 111 D2.
+  it('a state.json without the `servers` key at all yields the three shipped default sources', () => {
+    const result = parseServersState(undefined)
+    expect(result.sources).toEqual(DEFAULT_MASTER_SOURCES)
+    expect(result.favourites).toEqual([])
+  })
+
+  it('a `servers` value present but with no `sources` sub-field also yields the three defaults', () => {
+    const result = parseServersState({
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: DEFAULT_SERVERS_STATE.scan,
+    })
+    expect(result.sources).toEqual(DEFAULT_MASTER_SOURCES)
+  })
+
+  it('an explicitly stored empty `sources` array stays empty, not re-seeded to the defaults', () => {
+    const result = parseServersState({
+      sources: [],
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: DEFAULT_SERVERS_STATE.scan,
+    })
+    expect(result.sources).toEqual([])
+  })
+
+  it('one malformed source row alongside a valid one is dropped, the valid sibling survives', () => {
+    const result = parseServersState({
+      sources: [validSource1, malformedSource],
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: DEFAULT_SERVERS_STATE.scan,
+    })
+    expect(result.sources).toEqual([validSource1])
   })
 
   it('a malformed favourite and a malformed source are dropped, their siblings survive', () => {

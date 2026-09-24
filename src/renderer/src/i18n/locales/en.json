@@ -112,7 +112,34 @@
       "description": "Browse Quake II servers and see who's playing before you join.",
       "settings": {
         "title": "Servers",
-        "placeholder": "There is nothing to configure here yet."
+        "list": {
+          "label": "Master and list sources"
+        },
+        "type": {
+          "udp-master": "UDP master",
+          "http-list": "HTTP list"
+        },
+        "add": {
+          "type": {
+            "label": "Type"
+          },
+          "address": {
+            "label": "Address",
+            "placeholder": "host:port or https://…"
+          },
+          "submit": "Add source"
+        },
+        "toggle": {
+          "label": "Enabled"
+        },
+        "remove": {
+          "label": "Remove source"
+        },
+        "edit": {
+          "start": "Edit source",
+          "save": "Save",
+          "cancel": "Cancel"
+        }
       }
     },
     "planned": {
@@ -618,6 +645,30 @@
         "no-reply": "This source didn't reply in time.",
         "transport-error": "Couldn't reach this source.",
         "http-status": "This source returned an error instead of a server list."
+      }
+    },
+    "sources": {
+      "reject": {
+        "empty": "Enter an address for this source.",
+        "extra-tokens": "Enter a single address, without extra words or spaces.",
+        "forbidden-character": "This address contains a character that isn't allowed.",
+        "argument-token": "This address looks like it contains a console command, which isn't allowed.",
+        "missing-port": "Add a port, e.g. 27900.",
+        "port-not-numeric": "The port must be a number.",
+        "port-out-of-range": "The port must be between 1 and 65535.",
+        "too-many-colons": "This address has too many colons to be a valid host:port pair.",
+        "ipv6-not-supported": "IPv6 addresses are not supported yet — use a hostname or IPv4 address.",
+        "host-empty": "Enter a host name or IP address before the port.",
+        "host-too-long": "This host name is too long.",
+        "host-label-invalid": "This host name contains an invalid part.",
+        "ipv4-octet-out-of-range": "Each part of an IPv4 address must be between 0 and 255.",
+        "url-too-long": "This URL is too long.",
+        "invalid-url": "Enter a valid URL.",
+        "unsupported-protocol": "Only http:// and https:// addresses are supported.",
+        "credentials-not-allowed": "A URL with a username or password isn't allowed.",
+        "not-found": "This source no longer exists.",
+        "duplicate-address": "This address is already in the list.",
+        "invalid-reorder": "The list couldn't be reordered — try again."
       }
     }
   },

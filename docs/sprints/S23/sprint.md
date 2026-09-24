@@ -18,7 +18,7 @@ ever shown.
 ## Stories (in build order)
 
 - [x] 110 — the browser's data lives in its own state key
-- [ ] 111 — master sources are a list i edit
+- [x] 111 — master sources are a list i edit
 - [ ] 112 — favourites are always there
 - [ ] 113 — a server i add by hand, and where i've been
 

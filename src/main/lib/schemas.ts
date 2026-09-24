@@ -35,6 +35,7 @@ import {
 } from '@shared/modules/home'
 import { isLatin1Text } from '@shared/config/q2-charset'
 import {
+  DEFAULT_MASTER_SOURCES,
   DEFAULT_SERVERS_STATE,
   favouriteServerEntrySchema,
   manualServerEntrySchema,
@@ -48,6 +49,7 @@ import {
   type ServersState,
 } from '@shared/modules/servers'
 import { parseServerAddress } from '@shared/servers/address'
+import { validateMasterSourceAddress } from '@shared/servers/master-source-address'
 import { engineKindSchema, settingsObjectSchema, sourceSchema } from '@shared/schemas'
 import type { Installation, LauncherSettings, WindowState } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
@@ -1183,10 +1185,18 @@ function cloneDefaultServersState(): ServersState {
   return structuredClone(DEFAULT_SERVERS_STATE)
 }
 
+/**
+ * Story 111 D2: unlike the other three address-keyed collections below (which are always
+ * `host:port` candidates re-validated by `parseServerAddress`), a source row's address shape
+ * depends on its own `type` - a `udp-master` row is a `host:port` pair, an `http-list` row is an
+ * absolute URL - so this uses the type-aware `validateMasterSourceAddress` (story 111 D1) instead.
+ * A row whose type/address combination fails its own rulebook is dropped like any other malformed
+ * row (`parseServersState`'s row-level-drop convention).
+ */
 function parseServerSourceRow(raw: unknown): ServerSourceEntry | null {
   const result = serverSourceEntrySchema.safeParse(raw)
   if (!result.success) return null
-  const address = parseServerAddress(result.data.address)
+  const address = validateMasterSourceAddress(result.data.type, result.data.address)
   if (!address.ok) return null
   return { ...result.data, address: address.normalized }
 }
@@ -1239,19 +1249,41 @@ function parseServersScanSettings(raw: unknown): ServersScanSettings {
   return serversScanSettingsForgivingSchema.parse(raw)
 }
 
-/** The envelope shape loose enough that "missing/garbled collection key" degrades per-key, while
+/**
+ * The envelope shape loose enough that "missing/garbled collection key" degrades per-key, while
  * anything that isn't even an object (or is `null`) fails outright and falls back to
  * `cloneDefaultServersState()` wholesale - same two-tier shape as `parseHomeLayout`'s `tiles`
- * envelope check. */
+ * envelope check.
+ *
+ * Story 111 D2: `sources` is the one field with a real, non-empty default -
+ * `DEFAULT_MASTER_SOURCES`, the three shipped master/list sources - applied via a genuine zod
+ * `.default()`, not read-time re-seeding logic (the story's own decision: "Defaults are the
+ * `sources` field's zod default, not a re-seed on read"). `.catch([])` still sits underneath it for
+ * a *present-but-malformed* value (e.g. `sources` is a string) - same "field-level fallback" rule
+ * every other field here follows - while `.default()` only fires when the key is `undefined`
+ * (absent entirely, or present as `undefined`), which is the one case that means "never customised"
+ * rather than "customised to empty". A *present* `sources: []` is neither: it parses straight
+ * through as `[]` and is returned as-is, exactly as the story requires ("an explicitly stored `[]`
+ * stays empty").
+ */
 const serversStateEnvelopeSchema = z.object({
-  sources: z.array(z.unknown()).catch([]),
+  sources: z
+    .array(z.unknown())
+    .catch([])
+    .default(() => structuredClone(DEFAULT_MASTER_SOURCES)),
   favourites: z.array(z.unknown()).catch([]),
   manualServers: z.array(z.unknown()).catch([]),
   history: z.array(z.unknown()).catch([]),
 })
 
 export function parseServersState(raw: unknown): ServersState {
-  const envelope = serversStateEnvelopeSchema.safeParse(raw)
+  // Story 111 D2: a `raw` of exactly `undefined` is "the `servers` key is missing from
+  // `state.json` entirely" (`StateStore` calls this with `doc['servers']`, which is `undefined`
+  // for a file predating story 110) - a normal, expected shape, not foreign junk, so it is treated
+  // as `{}` before the envelope schema ever sees it. That lets `sources`' own `.default()` above
+  // decide the outcome instead of the whole-object `cloneDefaultServersState()` fallback below,
+  // which stays reserved for input that isn't even a plausible object (a string, a number, `null`).
+  const envelope = serversStateEnvelopeSchema.safeParse(raw === undefined ? {} : raw)
   if (!envelope.success) return cloneDefaultServersState()
 
   const sources = dedupeByKey(

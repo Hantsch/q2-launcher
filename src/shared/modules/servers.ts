@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { MasterSourceAddressRejection } from '../servers/master-source-address'
 
 /**
  * The servers module's contract.
@@ -15,6 +16,18 @@ import { z } from 'zod'
 export const SERVERS_HANDLERS = {
   /** Resolves to the current `ServersOverview` - cache-first, no network of its own. */
   overviewRead: 'overview.read',
+  /** Story 111 D1: master-source-list handlers. Handler logic (main) is D3, not this D - here they
+   * only need names, payload schemas and a result union. */
+  /** Resolves to the current master source list, in persisted order. */
+  sourcesList: 'sources.list',
+  /** Adds a new source; refuses on an invalid/duplicate address (`MasterSourcesResult`). */
+  sourcesAdd: 'sources.add',
+  /** Removes a source by id; refuses when the id is unknown. */
+  sourcesRemove: 'sources.remove',
+  /** Edits an existing source's address (re-validated) or toggles its `enabled` flag. */
+  sourcesUpdate: 'sources.update',
+  /** Applies a full permutation of source ids; refuses when the id set doesn't match exactly. */
+  sourcesReorder: 'sources.reorder',
 } as const
 
 /**
@@ -62,6 +75,47 @@ export const serverSourceEntrySchema = z.object({
   address: z.string(),
   enabled: z.boolean(),
 })
+
+/**
+ * Story 111 D1: the source list is a thing the user edits (adds, removes, reorders, toggles), not
+ * just a scanner input - so it gets its own vocabulary (`MasterSource`) even though the shape is
+ * currently identical to `ServerSourceEntry` above (story 110's persisted-state element). Rather
+ * than duplicate the fields, `MasterSource`/`masterSourceSchema` are aliases of
+ * `ServerSourceEntry`/`serverSourceEntrySchema`: one shape, two names for two call sites (the
+ * `sources` array in `ServersState` vs. the `sources.*` handler payloads/results below). If the two
+ * ever need to diverge, split them then.
+ */
+export type MasterSourceType = ServerSourceEntry['type']
+export type MasterSource = ServerSourceEntry
+export const masterSourceSchema = serverSourceEntrySchema
+
+/**
+ * The three master/list sources every fresh install ships with (story 111's concept). Fixed,
+ * documented ids - never random uuids - so a state file, a bug report or this file's own diff can
+ * name one of them stably across releases. `udp-master` addresses are pre-normalized `host:port`
+ * (default port 27900, per `validateMasterSourceAddress`); `http-list` is stored as the absolute
+ * URL string, query string included.
+ */
+export const DEFAULT_MASTER_SOURCES: MasterSource[] = [
+  {
+    id: 'default-q2servers-udp',
+    type: 'udp-master',
+    address: 'master.q2servers.com:27900',
+    enabled: true,
+  },
+  {
+    id: 'default-quakeservers-udp',
+    type: 'udp-master',
+    address: 'master.quakeservers.net:27900',
+    enabled: true,
+  },
+  {
+    id: 'default-q2servers-http',
+    type: 'http-list',
+    address: 'https://q2servers.com/?raw=1',
+    enabled: true,
+  },
+]
 
 /** A server the user has marked as a favourite. `addedAt` is an ISO timestamp string. */
 export interface FavouriteServerEntry {
@@ -136,12 +190,14 @@ export const serversStateSchema = z.object({
 })
 
 /**
- * The out-of-the-box state (story 110, D1) - every collection empty. Seeding the three real master
- * sources is story 111's job, not this default's: a safe empty default is what a fresh install (or
- * a state file missing this key) gets.
+ * The out-of-the-box state (story 110 D1, updated story 111 D2). `favourites`/`manualServers`/
+ * `history` stay empty - nothing to seed there - but `sources` now ships pre-populated with
+ * `DEFAULT_MASTER_SOURCES`, the three shipped master/list sources, so a fresh install (or a state
+ * file missing this key) has a working source list from the very first read, not an empty one the
+ * user has to build by hand.
  */
 export const DEFAULT_SERVERS_STATE: ServersState = {
-  sources: [],
+  sources: DEFAULT_MASTER_SOURCES,
   favourites: [],
   manualServers: [],
   history: [],
@@ -158,9 +214,75 @@ export const DEFAULT_SERVERS_STATE: ServersState = {
  * in the shared contract with a zod payload schema before its handler" for this module's own
  * handlers, and is what `servers.test.ts` iterates to check no handler is missing one.
  */
+/**
+ * Story 111 D1: payload schemas for the five `sources.*` handlers.
+ *
+ * `sourcesUpdate`'s payload is a union of two shapes: re-validating an edited address (`type` +
+ * `address`) and toggling `enabled` are different operations with different failure modes (a bad
+ * address is a `MasterSourceAddressRejection`; a toggle can't fail on the address at all) sharing
+ * one channel rather than two, since both only ever act on a single existing source by `id`. A
+ * handler-side check (D3) rejects a payload that supplies neither pair.
+ */
+export const masterSourceTypeSchema = z.enum(['udp-master', 'http-list'])
+
+export const sourcesListInputSchema = z.void()
+
+export const sourcesAddInputSchema = z.object({
+  type: masterSourceTypeSchema,
+  address: z.string(),
+})
+
+export const sourcesRemoveInputSchema = z.object({
+  id: z.string(),
+})
+
+export const sourcesUpdateAddressInputSchema = z.object({
+  id: z.string(),
+  type: masterSourceTypeSchema,
+  address: z.string(),
+})
+
+export const sourcesUpdateEnabledInputSchema = z.object({
+  id: z.string(),
+  enabled: z.boolean(),
+})
+
+/** Either re-validate an edited address or toggle `enabled` - never both in one call. */
+export const sourcesUpdateInputSchema = z.union([
+  sourcesUpdateAddressInputSchema,
+  sourcesUpdateEnabledInputSchema,
+])
+
+/** A full permutation of the current source ids - not a partial move (story 111's Decisions). */
+export const sourcesReorderInputSchema = z.object({
+  ids: z.array(z.string()),
+})
+
+/**
+ * What every `sources.*` mutation resolves to: the domain refusal is a returned result, not a
+ * thrown error (mirrors `MasterSourceFailure`-shaped results in `src/main/modules/servers/` and
+ * `AliasNameRejectReason` in `src/shared/config/alias-names.ts`). `sources.list` itself always
+ * succeeds (it's a read), so it resolves to `MasterSource[]` directly, not this union - see the
+ * handler's own payload schema/JSDoc, not this type.
+ */
+export type MasterSourcesRejectionReason =
+  | MasterSourceAddressRejection
+  | 'not-found'
+  | 'duplicate-address'
+  | 'invalid-reorder'
+
+export type MasterSourcesResult =
+  | { ok: true; sources: MasterSource[] }
+  | { ok: false; reason: MasterSourcesRejectionReason }
+
 export const SERVERS_HANDLER_SCHEMAS: Record<
   (typeof SERVERS_HANDLERS)[keyof typeof SERVERS_HANDLERS],
   z.ZodTypeAny
 > = {
   [SERVERS_HANDLERS.overviewRead]: serversNoInputSchema,
+  [SERVERS_HANDLERS.sourcesList]: sourcesListInputSchema,
+  [SERVERS_HANDLERS.sourcesAdd]: sourcesAddInputSchema,
+  [SERVERS_HANDLERS.sourcesRemove]: sourcesRemoveInputSchema,
+  [SERVERS_HANDLERS.sourcesUpdate]: sourcesUpdateInputSchema,
+  [SERVERS_HANDLERS.sourcesReorder]: sourcesReorderInputSchema,
 }

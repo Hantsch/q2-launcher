@@ -14,6 +14,10 @@ version section when a release actually ships.
 ### Added
 - A **Servers** nav entry now exists (planned status) with its own Settings section, ahead of
   the module's server-browsing features landing.
+- **Servers** — the master and list sources the scanner pulls candidates from are no longer
+  fixed: add your own, remove or reorder the shipped three, flip one off without losing its
+  address, and it all survives a restart. A bad address gets refused on the spot, not silently
+  swallowed.
 - **Linux** — a Windows Quake II build (Steam, GOG, a folder carried over from another machine)
   now plays on Linux too: the launcher offers wine or umu-run as a runner and launches through it
   when you pick one.

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import {
+  DEFAULT_MASTER_SOURCES,
   DEFAULT_SERVERS_STATE,
   SERVERS_HANDLERS,
   SERVERS_HANDLER_SCHEMAS,
+  masterSourceSchema,
   serversOverviewSchema,
   serversStateSchema,
 } from './servers'
@@ -15,8 +17,15 @@ describe('servers module contract (story 106 D1)', () => {
     }
   })
 
-  it('names overview.read exactly', () => {
-    expect(SERVERS_HANDLERS).toEqual({ overviewRead: 'overview.read' })
+  it('names every handler exactly, including story 111 D1\'s five sources.* handlers', () => {
+    expect(SERVERS_HANDLERS).toEqual({
+      overviewRead: 'overview.read',
+      sourcesList: 'sources.list',
+      sourcesAdd: 'sources.add',
+      sourcesRemove: 'sources.remove',
+      sourcesUpdate: 'sources.update',
+      sourcesReorder: 'sources.reorder',
+    })
   })
 
   it('the no-input overview handler accepts undefined', () => {
@@ -86,5 +95,89 @@ describe('servers persisted state (story 110 D1)', () => {
       z.ZodRawShape
     >
     expect(Object.keys(sourceShape.shape)).not.toContain('installationId')
+  })
+})
+
+describe('master sources (story 111 D1)', () => {
+  it('every sources.* handler has a payload schema registered', () => {
+    for (const name of [
+      SERVERS_HANDLERS.sourcesList,
+      SERVERS_HANDLERS.sourcesAdd,
+      SERVERS_HANDLERS.sourcesRemove,
+      SERVERS_HANDLERS.sourcesUpdate,
+      SERVERS_HANDLERS.sourcesReorder,
+    ]) {
+      expect(SERVERS_HANDLER_SCHEMAS[name]).toBeDefined()
+    }
+  })
+
+  it('DEFAULT_MASTER_SOURCES is exactly the concept\'s three defaults, correctly typed and enabled', () => {
+    expect(DEFAULT_MASTER_SOURCES).toEqual([
+      {
+        id: 'default-q2servers-udp',
+        type: 'udp-master',
+        address: 'master.q2servers.com:27900',
+        enabled: true,
+      },
+      {
+        id: 'default-quakeservers-udp',
+        type: 'udp-master',
+        address: 'master.quakeservers.net:27900',
+        enabled: true,
+      },
+      {
+        id: 'default-q2servers-http',
+        type: 'http-list',
+        address: 'https://q2servers.com/?raw=1',
+        enabled: true,
+      },
+    ])
+    for (const source of DEFAULT_MASTER_SOURCES) {
+      expect(masterSourceSchema.safeParse(source).success).toBe(true)
+    }
+    // Ids are fixed and unique, never randomly generated.
+    expect(new Set(DEFAULT_MASTER_SOURCES.map((source) => source.id)).size).toBe(
+      DEFAULT_MASTER_SOURCES.length,
+    )
+  })
+
+  it('sourcesAdd accepts { type, address } and rejects a missing address', () => {
+    expect(
+      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.sourcesAdd].safeParse({
+        type: 'udp-master',
+        address: 'master.q2servers.com:27900',
+      }).success,
+    ).toBe(true)
+    expect(
+      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.sourcesAdd].safeParse({ type: 'udp-master' }).success,
+    ).toBe(false)
+  })
+
+  it('sourcesRemove accepts { id }', () => {
+    expect(
+      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.sourcesRemove].safeParse({ id: 'default-q2servers-udp' })
+        .success,
+    ).toBe(true)
+    expect(SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.sourcesRemove].safeParse({}).success).toBe(false)
+  })
+
+  it('sourcesUpdate accepts either an address edit or an enabled toggle', () => {
+    const schema = SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.sourcesUpdate]
+    expect(
+      schema.safeParse({ id: 'default-q2servers-udp', type: 'udp-master', address: 'x:27900' }).success,
+    ).toBe(true)
+    expect(schema.safeParse({ id: 'default-q2servers-udp', enabled: false }).success).toBe(true)
+    expect(schema.safeParse({ id: 'default-q2servers-udp' }).success).toBe(false)
+  })
+
+  it('sourcesReorder accepts a list of ids', () => {
+    expect(
+      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.sourcesReorder].safeParse({
+        ids: DEFAULT_MASTER_SOURCES.map((source) => source.id),
+      }).success,
+    ).toBe(true)
+    expect(SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.sourcesReorder].safeParse({ ids: 'nope' }).success).toBe(
+      false,
+    )
   })
 })

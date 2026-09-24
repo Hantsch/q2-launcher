@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { STATE_SCHEMA_VERSION } from '@shared/constants'
 import { DEFAULT_DOWNLOADS_SETTINGS, type DownloadFailure } from '@shared/modules/downloads'
 import { DEFAULT_HOME_LAYOUT, type HomeLayout } from '@shared/modules/home'
-import { DEFAULT_SERVERS_STATE, type ServersState } from '@shared/modules/servers'
+import { DEFAULT_MASTER_SOURCES, DEFAULT_SERVERS_STATE, type ServersState } from '@shared/modules/servers'
 import { StateStore } from './state'
 
 describe('StateStore downloads settings (story 072 D2)', () => {
@@ -172,6 +172,16 @@ describe('StateStore servers state (story 110 D3)', () => {
     expect(state.serversState()).toEqual(DEFAULT_SERVERS_STATE)
   })
 
+  // Story 111 D2 (AC1): a genuinely fresh install - no state.json on disk yet, so `StateStore`
+  // builds its initial value from `defaults()` (`structuredClone(DEFAULT_SERVERS_STATE)`), never
+  // through `parseServersState` - must still see the three shipped master/list sources, not an
+  // empty list. This is the one path the schema-level `.default()` in `main/lib/schemas.ts` cannot
+  // reach by itself, since there is no `state.json` for it to parse.
+  it('a fresh install (no state.json on disk) ships the three default master sources', () => {
+    expect(state.serversState().sources).toHaveLength(3)
+    expect(state.serversState().sources).toEqual(DEFAULT_MASTER_SOURCES)
+  })
+
   it('the servers key is its own top-level state key and LauncherSettings is untouched', () => {
     const settingsBefore = state.settings()
 
@@ -212,7 +222,7 @@ describe('StateStore servers state (story 110 D3)', () => {
     expect(reloaded.homeLayout()).toEqual(homeLayoutBefore)
   })
 
-  it('a state.json written without the servers key loads as the safe empty default, with no schema bump', async () => {
+  it('a state.json written without the servers key loads with the shipped default (three sources, everything else empty), with no schema bump', async () => {
     await writeFile(
       filePath,
       JSON.stringify({

@@ -4,3 +4,13 @@
 - 2026-09-24 13:30 · 110 · D2 parseServersState defensive parse · done
 - 2026-09-24 13:30 · 110 · D3 key on StateStore · started
 - 2026-09-24 13:32 · 110 · D3 key on StateStore · done
+- 2026-09-24 13:36 · 111 · D1 shared source shape, defaults, address rules · started
+- 2026-09-24 13:40 · 111 · D1 shared source shape, defaults, address rules · done
+- 2026-09-24 13:40 · 111 · D2 defaults into 110s state key · started
+- 2026-09-24 13:46 · 111 · D2 defaults into 110s state key · done
+- 2026-09-24 13:46 · 111 · D3 main CRUD and handlers · started
+- 2026-09-24 13:53 · 111 · D3 main CRUD and handlers · done
+- 2026-09-24 13:53 · 111 · D4 settings section renderer · started
+- 2026-09-24 14:00 · 111 · D4 settings section renderer · done
+- 2026-09-24 14:00 · 111 · D5 e2e flow and changelog · started
+- 2026-09-24 14:13 · 111 · D5 e2e flow and changelog · done
