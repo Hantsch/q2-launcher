@@ -1,6 +1,6 @@
 ---
 sprint: S22
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/S22
 milestone: 9.1 — Servers module foundation & protocol core
 ---
@@ -40,3 +40,41 @@ story.
 
 No story in this sprint touches a real UDP master, a real game server, or q2servers.com — every
 codec is exercised against fixtures/stubs, per GB-A5.
+
+## Regression gate
+
+Ran on `sprint/S22` HEAD `39fb777` (109, the sprint's last story).
+
+| Command | Result |
+| --- | --- |
+| `npm run build` | green |
+| `npm test` (full) | green — 260 files, 4300 passed, 8 skipped, 0 failed |
+| `npm run ui:verify` (`e2e`) | green — 45/45 screens, 86 shots, 0 axe violations at any severity |
+| `npm run ui:flows` (`e2e-all`) | **red** — non-deterministic, see below |
+
+### `ui:flows` — verdict: pre-existing harness defect, not a sprint regression
+
+Three consecutive runs on the same HEAD gave 30/55, 3/55 and 18/55 passing, with a different
+failure set each time. Every failure printed the same cause: `another instance is already
+running, exiting` — the app's single-instance lock, hit before Playwright could attach.
+
+Attribution (no source file changed):
+
+- **Run individually, the flows pass.** `home-route-roundtrip`, `downloads-tab`,
+  `raw-inline-edit` and S22's own `servers-module-shell` all pass on their own; the
+  "another instance" signature does not appear once when flows run one at a time.
+  (`news-feed`, `bootstrap-wizard` and `engine-update` fail individually too, each for its own
+  unrelated pre-existing reason — an outbound-request assertion, an 8s button timeout, and a
+  fixture ENOENT respectively. None is the cascade symptom.)
+- **Root cause is in the harness, and it predates the sprint.** `scripts/lib/harness.mjs`,
+  `withApp()`'s `finally` block (~line 529), races `app.close()` against a 15s timeout with no
+  fallback `child.kill()`. A main process that does not quit in time survives, keeps the
+  single-instance lock on its fixture variant's userData dir, and every later flow reusing that
+  variant dies instantly. Introduced in `d0315ec`, an ancestor of `c559ebd` — S22's own
+  `git merge-base dev HEAD`. Four orphaned `electron.exe` processes from the repo's
+  `node_modules/electron/dist/` were found and killed mid-investigation, matching this exactly.
+- **Not bisected** — per the sprint rules, a failure that is red at the sprint's start commit for
+  reasons the sprint did not introduce is reported as pre-existing, not bisected and not fixed here.
+
+**Outcome:** pre-existing; no fix commit on this branch. It does not block the merge of S22, whose
+own flow passes. Closing it is a follow-up: a hard kill in `withApp()`'s teardown.
