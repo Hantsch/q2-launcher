@@ -1,5 +1,8 @@
 import {
   SERVERS_HANDLERS,
+  favouritesAddInputSchema,
+  favouritesListInputSchema,
+  favouritesRemoveInputSchema,
   serversNoInputSchema,
   sourcesAddInputSchema,
   sourcesListInputSchema,
@@ -11,6 +14,7 @@ import {
   type ServersOverview,
 } from '@shared/modules/servers'
 import type { MainModule } from '../types'
+import { addFavourite, listFavourites, removeFavourite } from './favourites'
 import { addSource, removeSource, reorderSources, updateSource } from './master-sources'
 
 /**
@@ -75,6 +79,28 @@ export const serversModule: MainModule = {
     handle(SERVERS_HANDLERS.sourcesReorder, sourcesReorderInputSchema, (payload) =>
       mutate((sources) => reorderSources(sources, payload)),
     )
+
+    /**
+     * Story 112 D3: the `favourites.*` handlers. Unlike `mutate()` above, `addFavourite`/
+     * `removeFavourite` never refuse (D-F/D-G in favourites.ts's doc comment) - there is no
+     * `MasterSourcesResult`-style ok/refusal union to thread through, so each handler just reads
+     * the current snapshot, runs the pure op, persists only the `favourites` slice (carrying
+     * `sources`/`manualServers`/`history`/`scan` over untouched, same discipline as `mutate()`),
+     * and returns what was actually persisted (D-E) - not the local candidate.
+     */
+    handle(SERVERS_HANDLERS.favouritesList, favouritesListInputSchema, () =>
+      listFavourites(app.state.serversState()),
+    )
+    handle(SERVERS_HANDLERS.favouritesAdd, favouritesAddInputSchema, (address) => {
+      const current = app.state.serversState()
+      const favourites = addFavourite(current, address)
+      return app.state.setServersState({ ...current, favourites }).favourites
+    })
+    handle(SERVERS_HANDLERS.favouritesRemove, favouritesRemoveInputSchema, (address) => {
+      const current = app.state.serversState()
+      const favourites = removeFavourite(current, address)
+      return app.state.setServersState({ ...current, favourites }).favourites
+    })
 
     log.debug('servers module ready')
   },

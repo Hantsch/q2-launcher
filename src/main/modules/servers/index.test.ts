@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { DEFAULT_MASTER_SOURCES, type ServersState } from '@shared/modules/servers'
+import { DEFAULT_MASTER_SOURCES, SERVERS_HANDLERS, type FavouriteServerEntry, type ServersState } from '@shared/modules/servers'
 import { getModuleManifest } from '@shared/types'
 import type { AppContext } from '../../context'
 import { StateStore } from '../../services/state'
@@ -18,10 +18,16 @@ import { serversModule } from './index'
  * Story 111 D3 adds the `sources.*` round trip below: a real `StateStore` over a temp file, driven
  * through the real registry (so the shared payload schemas run too), then *reloaded from disk* -
  * the only way to prove a mutation both persisted and survived `parseServersState`.
+ *
+ * Story 112 D3 adds the `favourites.*` handlers' round trip further below, mirroring
+ * `src/main/modules/home/index.test.ts`'s shape for AC1 (handlers exist and are reachable through
+ * the module's own `setup()`) and `src/main/services/state.test.ts`'s restart round-trip pattern
+ * for AC3 (favourite state survives an app restart, read back from the `servers` state key
+ * unchanged via a second, independent `StateStore` over the same file).
  */
 
-function fakeAppContext(): AppContext {
-  return {} as unknown as AppContext
+function fakeAppContext(state?: StateStore): AppContext {
+  return (state === undefined ? {} : { state }) as unknown as AppContext
 }
 
 describe('servers module', () => {
@@ -75,7 +81,7 @@ describe('servers module sources.* handlers (story 111 D3)', () => {
     state = new StateStore(filePath)
     await state.load()
     registry = new MainModuleRegistry()
-    await registry.register(serversModule, { state } as unknown as AppContext)
+    await registry.register(serversModule, fakeAppContext(state))
   })
 
   afterEach(async () => {
@@ -186,5 +192,101 @@ describe('servers module sources.* handlers (story 111 D3)', () => {
       ok: false,
       error: { key: 'ipc.error.invalidPayload' },
     })
+  })
+})
+
+describe('servers module favourites handlers (story 112 D3)', () => {
+  let filePath: string
+  let state: StateStore
+
+  beforeEach(async () => {
+    filePath = join(tmpdir(), `q2-launcher-state-servers-favourites-${randomUUID()}.json`)
+    state = new StateStore(filePath)
+    await state.load()
+  })
+
+  afterEach(async () => {
+    await state.settle()
+    await rm(filePath, { force: true })
+    await rm(`${filePath}.tmp`, { force: true })
+    await rm(`${filePath}.bak`, { force: true })
+  })
+
+  it('AC1: registers favourites.list/add/remove, reachable through setup() and behaving correctly', async () => {
+    const registry = new MainModuleRegistry()
+    await registry.register(serversModule, fakeAppContext(state))
+
+    const emptyList = await registry.invoke({
+      moduleId: 'servers',
+      type: SERVERS_HANDLERS.favouritesList,
+    })
+    expect(emptyList).toEqual({ ok: true, value: [] })
+
+    const afterAdd = await registry.invoke({
+      moduleId: 'servers',
+      type: SERVERS_HANDLERS.favouritesAdd,
+      payload: '1.2.3.4:27910',
+    })
+    expect(afterAdd.ok).toBe(true)
+    const added = (afterAdd as { ok: true; value: FavouriteServerEntry[] }).value
+    expect(added).toHaveLength(1)
+    expect(added[0]).toMatchObject({ address: '1.2.3.4:27910' })
+
+    const listAfterAdd = await registry.invoke({
+      moduleId: 'servers',
+      type: SERVERS_HANDLERS.favouritesList,
+    })
+    expect(listAfterAdd).toEqual({ ok: true, value: added })
+
+    const afterRemove = await registry.invoke({
+      moduleId: 'servers',
+      type: SERVERS_HANDLERS.favouritesRemove,
+      payload: '1.2.3.4:27910',
+    })
+    expect(afterRemove).toEqual({ ok: true, value: [] })
+
+    const listAfterRemove = await registry.invoke({
+      moduleId: 'servers',
+      type: SERVERS_HANDLERS.favouritesList,
+    })
+    expect(listAfterRemove).toEqual({ ok: true, value: [] })
+  })
+
+  it("AC1: a favourites write never clobbers the rest of the servers state's snapshot", async () => {
+    const registry = new MainModuleRegistry()
+    await registry.register(serversModule, fakeAppContext(state))
+
+    const sourcesBefore = state.serversState().sources
+
+    await registry.invoke({
+      moduleId: 'servers',
+      type: SERVERS_HANDLERS.favouritesAdd,
+      payload: '1.2.3.4:27910',
+    })
+
+    expect(state.serversState().sources).toEqual(sourcesBefore)
+    expect(state.serversState().manualServers).toEqual([])
+    expect(state.serversState().history).toEqual([])
+  })
+
+  it('AC3: favourites survive a restart of the state store', async () => {
+    const registry = new MainModuleRegistry()
+    await registry.register(serversModule, fakeAppContext(state))
+
+    const outcome = await registry.invoke({
+      moduleId: 'servers',
+      type: SERVERS_HANDLERS.favouritesAdd,
+      payload: '5.6.7.8:27911',
+    })
+    expect(outcome.ok).toBe(true)
+    await state.settle()
+
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+
+    expect(reloaded.serversState().favourites).toEqual(state.serversState().favourites)
+    expect(reloaded.serversState().favourites).toEqual([
+      { address: '5.6.7.8:27911', addedAt: expect.any(String) },
+    ])
   })
 })

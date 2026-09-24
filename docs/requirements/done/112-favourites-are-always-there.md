@@ -1,7 +1,7 @@
 ---
 id: 112
 title: favourites are always there
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -26,17 +26,17 @@ off an ephemeral per-scan result id, which would not survive the next scan.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A handler exists to mark a server address as a favourite, and a handler exists to
+- [x] **AC1** — A handler exists to mark a server address as a favourite, and a handler exists to
       unmark one; both are backed by a zod payload schema before their implementation (CLAUDE.md's
       IPC contract-first rule).
-- [ ] **AC2** — A marked favourite is present in a subsequent read of the favourites list; an
+- [x] **AC2** — A marked favourite is present in a subsequent read of the favourites list; an
       unmarked one is absent — both without restarting the app.
-- [ ] **AC3** — Favourite state persists across an app restart, read back from [[110]]'s state key
+- [x] **AC3** — Favourite state persists across an app restart, read back from [[110]]'s state key
       unchanged.
-- [ ] **AC4** — A favourite is keyed by server address (`ip:port`), not by any scan-result id —
+- [x] **AC4** — A favourite is keyed by server address (`ip:port`), not by any scan-result id —
       marking the same address favourite twice does not create a duplicate entry, and unmarking by
       address removes exactly that entry regardless of when or whether a scan ever produced it.
-- [ ] **AC5** — Marking an address that is not, and has never been, a live or scanned server is
+- [x] **AC5** — Marking an address that is not, and has never been, a live or scanned server is
       still accepted — a favourite can be created ahead of any scan finding it, consistent with
       GB-S5's "always queried, whether or not any source lists it".
 
@@ -102,7 +102,7 @@ Depends on [[110]] being built first (the state key, its getter/setter and its `
 
 ## Deliverables
 
-- **D1 — the favourites contract.** `src/shared/modules/servers.ts`: `ServerFavourite`
+- [x] **D1 — the favourites contract.** `src/shared/modules/servers.ts`: `ServerFavourite`
   (`{ address: string; addedAt: string }`), `serverFavouriteSchema`, handler ids
   `favouritesList: 'favourites.list'`, `favouritesAdd: 'favourites.add'`,
   `favouritesRemove: 'favourites.remove'`, their payload schemas (`serversNoInputSchema` for the
@@ -111,13 +111,13 @@ Depends on [[110]] being built first (the state key, its getter/setter and its `
   `HOME_HANDLER_SCHEMAS`). Plus its test in `src/shared/modules/servers.test.ts` — every handler id
   has a schema, and the add/remove schema rejects a malformed address and accepts `ip:port`.
   *Acceptance:* AC1 — the schemas exist in the shared contract before any handler does.
-- **D2 — favourites CRUD as pure functions.** New `src/main/modules/servers/favourites.ts`:
+- [x] **D2 — favourites CRUD as pure functions.** New `src/main/modules/servers/favourites.ts`:
   `listFavourites(state)`, `addFavourite(state, address)`, `removeFavourite(state, address)` over
   [[110]]'s collection, normalising via `parseServerAddress` (`src/shared/servers/address.ts`),
   idempotent in both directions (D-F), never touching the network (D-G). Plus its test in
   `src/main/modules/servers/favourites.test.ts`.
   *Acceptance:* AC2, AC4, AC5.
-- **D3 — handlers on the module + the restart proof.** `src/main/modules/servers/index.ts`:
+- [x] **D3 — handlers on the module + the restart proof.** `src/main/modules/servers/index.ts`:
   register the three handlers against `app.state`'s [[110]] getter/setter (mirror
   `src/main/modules/home/index.ts:41-50`). Plus its test in
   `src/main/modules/servers/index.test.ts` (mirror `src/main/modules/home/index.test.ts`) covering
@@ -155,4 +155,76 @@ carries the e2e flow that closes it.
 
 ## Done
 
-<!-- Filled by `/build 112`. -->
+**Summary.** The favourites CRUD/persistence layer is built as planned: D1 adds the
+`favourites.list`/`favourites.add`/`favourites.remove` handler ids and zod payload schemas to
+the shared contract, reusing story 110's `FavouriteServerEntry`/`favouriteServerEntrySchema`
+rather than inventing a parallel type; D2 adds pure `listFavourites`/`addFavourite`/
+`removeFavourite` functions normalising addresses through `parseServerAddress`, idempotent in
+both directions, no network; D3 wires the three handlers onto `app.state`'s
+`serversState()`/`setServersState()` getter/setter, mirroring `home`'s
+`getLayout`/`setLayout` shape, and proves the restart round-trip against a real `StateStore`
+over a temp file. No IPC channel, preload allowlist entry, renderer client or UI was added
+(story 118's scope).
+
+**Commit message:**
+```
+112: favourites CRUD and persistence
+```
+
+**Verification — narrow gate:**
+- `npm run build` — clean.
+- `npm run typecheck` — clean (node + web).
+- `test-story` (`npx vitest run --changed HEAD`) — 900/900 passed across 22 files.
+- No `e2e-story` run: the story defines no e2e line and no manual residue — every criterion is
+  IPC/persistence with no user-facing surface (`ui-acceptance-required` only applies to
+  criteria describing something the user does; the favourite-marking UI is story 118).
+
+**AC → test mapping, as verified:**
+- AC1 → `src/shared/modules/servers.test.ts` › "every servers handler has a zod schema" (+ new
+  `favourites (story 112 D1)` describe block) and
+  `src/main/modules/servers/index.test.ts` › "AC1: registers favourites.list/add/remove,
+  reachable through setup() and behaving correctly" — both passed.
+- AC2 → `src/main/modules/servers/favourites.test.ts` › "a marked address appears in the list
+  and an unmarked one is gone" — passed.
+- AC3 → `src/main/modules/servers/index.test.ts` › "AC3: favourites survive a restart of the
+  state store" (real `StateStore` over a temp file, reloaded via a second, independent
+  `StateStore` instance) — passed.
+- AC4 → `src/main/modules/servers/favourites.test.ts` › "the same address marked twice stays
+  one entry, and unmarking removes exactly it" (incl. two differently-spelled forms of the same
+  address collapsing to one entry) — passed.
+- AC5 → `src/main/modules/servers/favourites.test.ts` › "an address no scan has ever seen can
+  be marked" — passed.
+
+**Review:** clean-agent review (default tier, per Model Hints) returned PASS outright — all
+five ACs individually verified PASS with file:line evidence, all named tests judged to
+genuinely exercise their criterion (not tautologies), Decisions D-C through D-G confirmed
+against the actual code (not just green tests), no scope creep, no weakened/deleted tests, no
+CLAUDE.md guardrail violations. No findings, no fix cycle needed.
+
+**Decisions made during implementation (not already in the story's own Decisions section):**
+- D1 reused the already-landed `FavouriteServerEntry`/`favouriteServerEntrySchema` (story 110)
+  instead of inventing the D1 deliverable text's literal `ServerFavourite`/
+  `serverFavouriteSchema` names — the story's own D-A explicitly says the collection's shape is
+  110's, not 112's, and a second, differently-named type for the same shape would contradict
+  that. The three `favourites.*` handler ids and their payload schemas are new; the entry type
+  is not.
+- The `favourites.add`/`favourites.remove` payload is the bare address string
+  (`serverAddressSchema` used directly as the payload schema), not a wrapper object — the only
+  thing either mutation needs is the address, and this matches `serversNoInputSchema`'s
+  precedent of using the schema type itself as the payload contract rather than an
+  always-one-field object.
+- **Process note:** the D3 implementation agent's first pass rewrote
+  `src/main/modules/servers/index.test.ts` wholesale, silently deleting the pre-existing
+  `overview.read` and `sources.*` handler tests (story 106/111) instead of extending the file.
+  Caught before the code review (not by it) by inspecting `git diff --stat` after D3 returned;
+  the orchestrator manually restored the deleted tests and merged them with D3's new
+  `favourites.*` describe block in the same file, re-ran the full narrow gate, and only then
+  sent the merged diff to review. The reviewer's own pass (item (b), deleted/weakened tests)
+  confirmed the restoration was complete. No test was weakened to go green at any point.
+
+**Open points / blockers:** none. Named gap carried forward per the story's own text: the
+handlers are proven through `setup()` and a real `StateStore`, not through a rendered favourites
+list — story 118 carries the e2e flow that closes that gap once the UI exists.
+
+**Changelog:** no entry — nothing here is user-facing yet (no UI, no renderer client); the
+story's own text is explicit that review should not expect a finished favourite-marking UI.

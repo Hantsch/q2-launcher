@@ -14,3 +14,9 @@
 - 2026-09-24 14:00 · 111 · D4 settings section renderer · done
 - 2026-09-24 14:00 · 111 · D5 e2e flow and changelog · started
 - 2026-09-24 14:13 · 111 · D5 e2e flow and changelog · done
+- 2026-09-24 14:22 · 112 · D1 favourites contract · started
+- 2026-09-24 14:23 · 112 · D1 favourites contract · done
+- 2026-09-24 14:23 · 112 · D2 favourites CRUD pure functions · started
+- 2026-09-24 14:25 · 112 · D2 favourites CRUD pure functions · done
+- 2026-09-24 14:25 · 112 · D3 handlers and restart proof · started
+- 2026-09-24 14:26 · 112 · D3 handlers and restart proof · done

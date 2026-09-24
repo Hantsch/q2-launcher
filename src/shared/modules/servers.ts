@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { serverAddressSchema } from '../schemas'
 import type { MasterSourceAddressRejection } from '../servers/master-source-address'
 
 /**
@@ -28,6 +29,14 @@ export const SERVERS_HANDLERS = {
   sourcesUpdate: 'sources.update',
   /** Applies a full permutation of source ids; refuses when the id set doesn't match exactly. */
   sourcesReorder: 'sources.reorder',
+  /** Story 112 D1: favourites.* handler ids. Handler logic (main) is a later D - here they only
+   * need names and payload schemas. */
+  /** Resolves to the current favourites list, in persisted order. */
+  favouritesList: 'favourites.list',
+  /** Adds an address to the favourites list. */
+  favouritesAdd: 'favourites.add',
+  /** Removes an address from the favourites list. */
+  favouritesRemove: 'favourites.remove',
 } as const
 
 /**
@@ -275,6 +284,22 @@ export type MasterSourcesResult =
   | { ok: true; sources: MasterSource[] }
   | { ok: false; reason: MasterSourcesRejectionReason }
 
+/**
+ * Story 112 D1: payload schemas for the three `favourites.*` handlers. `favouritesList` takes no
+ * payload, same `z.void()` convention as `serversNoInputSchema` above (kept as its own alias so
+ * each handler's schema reads self-documenting at the call site). `favouritesAdd`/`favouritesRemove`
+ * take just the address - no wrapper object - validated with the shared `serverAddressSchema`
+ * (`src/shared/schemas.ts`), which normalizes a `host:port` via `parseServerAddress` and rejects a
+ * malformed one. The result shape (what these resolve to) is `FavouriteServerEntry`/
+ * `FavouriteServerEntry[]` above - handler logic and any result union are a later deliverable, not
+ * this one.
+ */
+export const favouritesListInputSchema = serversNoInputSchema
+
+export const favouritesAddInputSchema = serverAddressSchema
+
+export const favouritesRemoveInputSchema = serverAddressSchema
+
 export const SERVERS_HANDLER_SCHEMAS: Record<
   (typeof SERVERS_HANDLERS)[keyof typeof SERVERS_HANDLERS],
   z.ZodTypeAny
@@ -285,4 +310,7 @@ export const SERVERS_HANDLER_SCHEMAS: Record<
   [SERVERS_HANDLERS.sourcesRemove]: sourcesRemoveInputSchema,
   [SERVERS_HANDLERS.sourcesUpdate]: sourcesUpdateInputSchema,
   [SERVERS_HANDLERS.sourcesReorder]: sourcesReorderInputSchema,
+  [SERVERS_HANDLERS.favouritesList]: favouritesListInputSchema,
+  [SERVERS_HANDLERS.favouritesAdd]: favouritesAddInputSchema,
+  [SERVERS_HANDLERS.favouritesRemove]: favouritesRemoveInputSchema,
 }

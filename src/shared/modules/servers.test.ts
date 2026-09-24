@@ -17,7 +17,7 @@ describe('servers module contract (story 106 D1)', () => {
     }
   })
 
-  it('names every handler exactly, including story 111 D1\'s five sources.* handlers', () => {
+  it('names every handler exactly, including story 111 D1\'s five sources.* handlers and story 112 D1\'s three favourites.* handlers', () => {
     expect(SERVERS_HANDLERS).toEqual({
       overviewRead: 'overview.read',
       sourcesList: 'sources.list',
@@ -25,6 +25,9 @@ describe('servers module contract (story 106 D1)', () => {
       sourcesRemove: 'sources.remove',
       sourcesUpdate: 'sources.update',
       sourcesReorder: 'sources.reorder',
+      favouritesList: 'favourites.list',
+      favouritesAdd: 'favourites.add',
+      favouritesRemove: 'favourites.remove',
     })
   })
 
@@ -179,5 +182,41 @@ describe('master sources (story 111 D1)', () => {
     expect(SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.sourcesReorder].safeParse({ ids: 'nope' }).success).toBe(
       false,
     )
+  })
+})
+
+describe('favourites (story 112 D1)', () => {
+  it('every favourites.* handler has a payload schema registered', () => {
+    for (const name of [
+      SERVERS_HANDLERS.favouritesList,
+      SERVERS_HANDLERS.favouritesAdd,
+      SERVERS_HANDLERS.favouritesRemove,
+    ]) {
+      expect(SERVERS_HANDLER_SCHEMAS[name]).toBeDefined()
+    }
+  })
+
+  it('favouritesList accepts undefined (no payload)', () => {
+    expect(
+      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.favouritesList].safeParse(undefined).success,
+    ).toBe(true)
+  })
+
+  it('favouritesAdd/favouritesRemove accept a well-formed ip:port address', () => {
+    expect(
+      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.favouritesAdd].safeParse('1.2.3.4:27910').success,
+    ).toBe(true)
+    expect(
+      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.favouritesRemove].safeParse('1.2.3.4:27910').success,
+    ).toBe(true)
+  })
+
+  it('favouritesAdd/favouritesRemove reject a malformed address', () => {
+    expect(
+      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.favouritesAdd].safeParse('not-an-address').success,
+    ).toBe(false)
+    expect(
+      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.favouritesRemove].safeParse('not-an-address').success,
+    ).toBe(false)
   })
 })
