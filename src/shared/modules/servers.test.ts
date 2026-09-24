@@ -3,9 +3,12 @@ import { z } from 'zod'
 import {
   DEFAULT_MASTER_SOURCES,
   DEFAULT_SERVERS_STATE,
+  SERVER_HISTORY_CAP,
   SERVERS_HANDLERS,
   SERVERS_HANDLER_SCHEMAS,
+  manualServerEntrySchema,
   masterSourceSchema,
+  serverHistoryEntrySchema,
   serversOverviewSchema,
   serversStateSchema,
 } from './servers'
@@ -17,7 +20,7 @@ describe('servers module contract (story 106 D1)', () => {
     }
   })
 
-  it('names every handler exactly, including story 111 D1\'s five sources.* handlers and story 112 D1\'s three favourites.* handlers', () => {
+  it('names every handler exactly, including story 111 D1\'s five sources.* handlers, story 112 D1\'s three favourites.* handlers and story 113 D1\'s four manual.*/history.* handlers', () => {
     expect(SERVERS_HANDLERS).toEqual({
       overviewRead: 'overview.read',
       sourcesList: 'sources.list',
@@ -28,6 +31,10 @@ describe('servers module contract (story 106 D1)', () => {
       favouritesList: 'favourites.list',
       favouritesAdd: 'favourites.add',
       favouritesRemove: 'favourites.remove',
+      manualList: 'manual.list',
+      manualAdd: 'manual.add',
+      manualRemove: 'manual.remove',
+      historyRead: 'history.read',
     })
   })
 
@@ -79,8 +86,10 @@ describe('servers persisted state (story 110 D1)', () => {
       installationId: 'some-installation',
       sources: [{ id: 'a', type: 'udp-master', address: '1.2.3.4:27900', enabled: true, installationId: 'x' }],
       favourites: [{ address: '1.2.3.4:27910', addedAt: '2026-09-24T00:00:00.000Z', installationId: 'x' }],
-      manualServers: [{ address: '1.2.3.4:27911', addedAt: '2026-09-24T00:00:00.000Z', installationId: 'x' }],
-      history: [{ address: '1.2.3.4:27912', lastConnectedAt: '2026-09-24T00:00:00.000Z', installationId: 'x' }],
+      manualServers: [
+        { address: '1.2.3.4:27911', origin: 'manual', addedAt: '2026-09-24T00:00:00.000Z', installationId: 'x' },
+      ],
+      history: [{ address: '1.2.3.4:27912', connectedAt: '2026-09-24T00:00:00.000Z', installationId: 'x' }],
       scan: { ...DEFAULT_SERVERS_STATE.scan, installationId: 'x' },
     }
 
@@ -217,6 +226,90 @@ describe('favourites (story 112 D1)', () => {
     ).toBe(false)
     expect(
       SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.favouritesRemove].safeParse('not-an-address').success,
+    ).toBe(false)
+  })
+})
+
+describe('manual servers and history (story 113 D1)', () => {
+  it('every manual.*/history.* handler has a payload schema registered', () => {
+    for (const name of [
+      SERVERS_HANDLERS.manualList,
+      SERVERS_HANDLERS.manualAdd,
+      SERVERS_HANDLERS.manualRemove,
+      SERVERS_HANDLERS.historyRead,
+    ]) {
+      expect(SERVERS_HANDLER_SCHEMAS[name]).toBeDefined()
+    }
+  })
+
+  it('manualList/historyRead accept undefined (no payload)', () => {
+    expect(SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.manualList].safeParse(undefined).success).toBe(
+      true,
+    )
+    expect(SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.historyRead].safeParse(undefined).success).toBe(
+      true,
+    )
+  })
+
+  it('manualAdd/manualRemove accept { address } as raw, unvalidated input - including a malformed one, unlike favouritesAdd/favouritesRemove', () => {
+    expect(
+      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.manualAdd].safeParse({ address: '1.2.3.4:27910' })
+        .success,
+    ).toBe(true)
+    expect(
+      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.manualAdd].safeParse({ address: 'not-an-address' })
+        .success,
+    ).toBe(true)
+    expect(SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.manualAdd].safeParse({}).success).toBe(false)
+
+    expect(
+      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.manualRemove].safeParse({ address: '1.2.3.4:27910' })
+        .success,
+    ).toBe(true)
+    expect(
+      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.manualRemove].safeParse({ address: 'not-an-address' })
+        .success,
+    ).toBe(true)
+    expect(SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.manualRemove].safeParse({}).success).toBe(false)
+  })
+
+  it('SERVER_HISTORY_CAP is 200', () => {
+    expect(SERVER_HISTORY_CAP).toBe(200)
+  })
+
+  it('manualServerEntrySchema (the shared row manual.list/manual.add resolve to, per D-K) requires origin: \'manual\'', () => {
+    expect(
+      manualServerEntrySchema.safeParse({
+        address: '1.2.3.4:27911',
+        origin: 'manual',
+        addedAt: '2026-09-24T00:00:00.000Z',
+      }).success,
+    ).toBe(true)
+    expect(
+      manualServerEntrySchema.safeParse({ address: '1.2.3.4:27911', addedAt: '2026-09-24T00:00:00.000Z' })
+        .success,
+    ).toBe(false)
+    expect(
+      manualServerEntrySchema.safeParse({
+        address: '1.2.3.4:27911',
+        origin: 'scanned',
+        addedAt: '2026-09-24T00:00:00.000Z',
+      }).success,
+    ).toBe(false)
+  })
+
+  it('serverHistoryEntrySchema (the shared row history.read resolves to, per D-K) uses connectedAt', () => {
+    expect(
+      serverHistoryEntrySchema.safeParse({
+        address: '1.2.3.4:27912',
+        connectedAt: '2026-09-24T00:00:00.000Z',
+      }).success,
+    ).toBe(true)
+    expect(
+      serverHistoryEntrySchema.safeParse({
+        address: '1.2.3.4:27912',
+        lastConnectedAt: '2026-09-24T00:00:00.000Z',
+      }).success,
     ).toBe(false)
   })
 })

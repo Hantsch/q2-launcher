@@ -37,6 +37,19 @@ export const SERVERS_HANDLERS = {
   favouritesAdd: 'favourites.add',
   /** Removes an address from the favourites list. */
   favouritesRemove: 'favourites.remove',
+  /** Story 113 D1: manual.* and history.* handler ids. Handler logic (main) is a later D - here
+   * they only need names and payload schemas, same as story 112 D1's favourites.* entries above. */
+  /** Resolves to the current manually-added servers list. */
+  manualList: 'manual.list',
+  /** Adds a raw, unvalidated candidate address; refuses (never throws) on a malformed one via
+   * `ManualServerAddResult`. */
+  manualAdd: 'manual.add',
+  /** Removes a manually-added server by address; idempotent - an address that was never stored
+   * still succeeds as a no-op. */
+  manualRemove: 'manual.remove',
+  /** Resolves to the connection history, most-recent-first. Read-only over IPC - there is no
+   * `history.record` channel; only main itself ever appends to history (a later story). */
+  historyRead: 'history.read',
 } as const
 
 /**
@@ -137,27 +150,56 @@ export const favouriteServerEntrySchema = z.object({
   addedAt: z.string(),
 })
 
-/** A server the user added by hand rather than discovered through a source. */
+/**
+ * A server the user added by hand rather than discovered through a source. `origin` is always
+ * `'manual'` here - a fixed literal, not a real choice - so the row stays self-describing (story
+ * 113 D-A: "stored in a way that distinguishes it from a master-discovered one") if a later story
+ * ever merges manual/favourite/scanned rows into one list; it is not persisted for any other
+ * purpose than that tag.
+ */
 export interface ManualServerEntry {
   address: string
+  origin: 'manual'
   addedAt: string
 }
 
 export const manualServerEntrySchema = z.object({
   address: z.string(),
+  origin: z.literal('manual'),
   addedAt: z.string(),
 })
 
-/** One entry in the connection history - the servers the user has actually connected to. */
+/** One entry in the connection history - the servers the user has actually connected to.
+ * `connectedAt` is an ISO timestamp string (story 113 D-D's shape, verbatim field name). */
 export interface ServerHistoryEntry {
   address: string
-  lastConnectedAt: string
+  connectedAt: string
 }
 
 export const serverHistoryEntrySchema = z.object({
   address: z.string(),
-  lastConnectedAt: z.string(),
+  connectedAt: z.string(),
 })
+
+/**
+ * The cap on how many rows the connection history keeps (story 113). Enforced wherever history is
+ * appended (main, a later D) - the oldest entries fall off once this is exceeded, never the newest.
+ */
+export const SERVER_HISTORY_CAP = 200
+
+/**
+ * `manual.add`'s result (story 113 D1): a refusal is a returned result, never a thrown IPC error
+ * (CLAUDE.md: main sends i18n keys, never prose, across IPC). `reasonKey` is whatever
+ * `serverAddressRejectionKey()` (`src/shared/servers/address.ts`) produced for the
+ * `ServerAddressRejection` the handler's call to `parseServerAddress` returned - already a
+ * `servers.address.reject.<reason>` i18n key, not a raw reason code, so the renderer never needs to
+ * re-derive it. Per D-K, `manual.list`/`manual.add`/`history.read` resolve to the same
+ * `ManualServerEntry`/`ServerHistoryEntry` rows the module already persists (story 110) - there is
+ * no separate IPC-only shape.
+ */
+export type ManualServerAddResult =
+  | { ok: true; entry: ManualServerEntry }
+  | { ok: false; reasonKey: string }
 
 /**
  * The scanner's budget knobs (GB-N4). Provisional defaults - story 115 turns these into a real,
@@ -300,6 +342,29 @@ export const favouritesAddInputSchema = serverAddressSchema
 
 export const favouritesRemoveInputSchema = serverAddressSchema
 
+/**
+ * Story 113 D1: payload schemas for the four `manual.*`/`history.*` handlers. `manualList`/
+ * `historyRead` take no payload, same `z.void()` convention as `favouritesListInputSchema` above.
+ * `manualAdd`'s payload is deliberately *not* `serverAddressSchema` (unlike `favouritesAdd`): it is
+ * raw, unvalidated user input wrapped in `{ address }`, whose malformed case is a returned
+ * `ManualServerAddResult` refusal (D-checked by the handler, a later D), not a schema-parse failure
+ * at this boundary. `manualRemove` takes the same loose `{ address }` shape for the same reason as
+ * `removeFavourite` (`src/main/modules/servers/favourites.ts`) is unconditionally idempotent: even a
+ * currently-unparseable address must still be removable as a no-op, so this boundary cannot reject
+ * it either.
+ */
+export const manualListInputSchema = serversNoInputSchema
+
+export const manualAddInputSchema = z.object({
+  address: z.string(),
+})
+
+export const manualRemoveInputSchema = z.object({
+  address: z.string(),
+})
+
+export const historyReadInputSchema = serversNoInputSchema
+
 export const SERVERS_HANDLER_SCHEMAS: Record<
   (typeof SERVERS_HANDLERS)[keyof typeof SERVERS_HANDLERS],
   z.ZodTypeAny
@@ -313,4 +378,8 @@ export const SERVERS_HANDLER_SCHEMAS: Record<
   [SERVERS_HANDLERS.favouritesList]: favouritesListInputSchema,
   [SERVERS_HANDLERS.favouritesAdd]: favouritesAddInputSchema,
   [SERVERS_HANDLERS.favouritesRemove]: favouritesRemoveInputSchema,
+  [SERVERS_HANDLERS.manualList]: manualListInputSchema,
+  [SERVERS_HANDLERS.manualAdd]: manualAddInputSchema,
+  [SERVERS_HANDLERS.manualRemove]: manualRemoveInputSchema,
+  [SERVERS_HANDLERS.historyRead]: historyReadInputSchema,
 }

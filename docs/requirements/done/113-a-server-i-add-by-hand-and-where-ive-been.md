@@ -1,7 +1,7 @@
 ---
 id: 113
 title: a server i add by hand, and where i've been
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -34,17 +34,17 @@ here.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A manually entered `ip:port` is validated through the same address validator
+- [x] **AC1** — A manually entered `ip:port` is validated through the same address validator
       [[107]] built; a value that fails that validator is refused with a reason and never persisted.
-- [ ] **AC2** — A stored manual server carries a flag (or equivalent shape) marking it as
+- [x] **AC2** — A stored manual server carries a flag (or equivalent shape) marking it as
       hand-added, distinguishable from a master-discovered server entry — nothing about a manual
       server's stored shape is indistinguishable from a discovered one.
-- [ ] **AC3** — The history store is capped at 200 entries; adding a 201st entry evicts the oldest
+- [x] **AC3** — The history store is capped at 200 entries; adding a 201st entry evicts the oldest
       one first, and the store never exceeds the cap.
-- [ ] **AC4** — A read API returns history entries in most-recent-first order.
-- [ ] **AC5** — Manual servers and history both persist across an app restart, read back from
+- [x] **AC4** — A read API returns history entries in most-recent-first order.
+- [x] **AC5** — Manual servers and history both persist across an app restart, read back from
       [[110]]'s state key unchanged.
-- [ ] **AC6** — A manual server can be removed; removing it does not affect history or any other
+- [x] **AC6** — A manual server can be removed; removing it does not affect history or any other
       manual entry.
 
 ## Open Questions
@@ -160,4 +160,68 @@ trigger). No `manual residue`: every criterion here is automatable at the level 
 
 ## Done
 
-<!-- Filled by `/build 113`. -->
+Manual servers and connection history now have a real store, sharing story 110's `servers` state
+key: `manual.list`/`manual.add`/`manual.remove`/`history.read` IPC channels, pure reducers
+(`manual-servers.ts`, `history-log.ts`), and main-process wiring/persistence, all built strictly
+on top of the address validator [[107]] and the state-store pattern [[110]]/[[111]]/[[112]]
+established. No renderer surface ships with this story (D-J) — that's [[118]] (list) and [[125]]
+(join trigger).
+
+**Commit message:** `113: manual servers and connection history storage`
+
+**Changed files:**
+- `src/shared/modules/servers.ts`, `src/shared/modules/servers.test.ts` (D1 — contract)
+- `src/main/modules/servers/manual-servers.ts` + `.test.ts` (new, D2)
+- `src/main/modules/servers/history-log.ts` + `.test.ts` (new, D3)
+- `src/main/modules/servers/index.ts`, `src/main/modules/servers/index.test.ts` (D4 — handlers)
+- `src/main/lib/schemas.ts`, `src/main/lib/schemas.test.ts` (D4 — cap-on-parse, D-G)
+- `src/main/services/state.test.ts` (D4 — reload round-trip)
+
+**Decisions (made during build, not asked to the user):**
+- D1's first pass invented a parallel IPC-only shape (`ManualServer`/`ServerHistoryRecord` with
+  epoch-ms timestamps) instead of reusing story 110's already-scaffolded persisted types
+  (`ManualServerEntry`/`ServerHistoryEntry`, ISO-string timestamps) — a direct violation of D-K
+  ("the shape must not be invented twice"). Caught before D2/D3 started building on it and
+  corrected: `ManualServerEntry` gained `origin: 'manual'` (satisfying D-A's "self-describing
+  entry" at the storage level, not just an IPC wrapper), and `ServerHistoryEntry.lastConnectedAt`
+  was renamed to `connectedAt` to match D-D's explicit shape verbatim. The IPC channels now
+  resolve to these same persisted types directly — one shape, not two. `src/main/lib/schemas.ts`
+  and `state.test.ts`'s pre-existing fixtures were updated for the rename; no other behaviour
+  changed.
+- `manual.add`'s refusal path returns `ManualServerAddResult` (`{ ok: false, reasonKey }`) as a
+  value, never throws — verified against CLAUDE.md's "main sends i18n keys, never prose, across
+  IPC" and confirmed the `servers.address.reject.*` keys already exist in `en.json` (D-C, no new
+  locale work).
+- `addManualServer` normalizes via `parseServerAddress`'s result before deduping/storing (D-B) —
+  reviewed explicitly to confirm this is not a raw string compare.
+- `history-log.ts`'s `capServerHistory` is wired into `parseServersState` (D-G) so a hand-edited
+  or foreign `state.json` with more than 200 rows is truncated on load, not just on append.
+
+**Verification — narrow gate:**
+- `npm run build` — green.
+- `npm run typecheck` — green (node + web).
+- `test-story` (`npx vitest run --changed HEAD`) — 24 test files, 934 tests, all passed.
+- No `e2e-story` run: D-J declares no e2e flow for this story (no servers UI ships yet;
+  `ui-acceptance-required`'s gap-naming rule is satisfied by D-J/the Acceptance Tests section's
+  own "Gap" note) — every AC is proven at unit level instead.
+- AC → test mapping, verified in the run above and by the clean-agent review:
+  - AC1 → `src/main/modules/servers/manual-servers.test.ts` › "an address the validator rejects
+    is refused with its reason key and never stored" — passed.
+  - AC2 → same file › "a stored manual server is marked hand-added" — passed.
+  - AC3 → `src/main/modules/servers/history-log.test.ts` › "a 201st entry evicts the oldest and
+    the log never exceeds the cap" — passed.
+  - AC4 → same file › "history reads back most-recent-first" — passed.
+  - AC5 → `src/main/services/state.test.ts` › "manual servers and history survive a state store
+    reload" — passed.
+  - AC6 → `src/main/modules/servers/index.test.ts` › "removing one manual server leaves the other
+    manual entries and the history untouched" — passed.
+  - No `manual residue` — every criterion is automatable at the level it lives at.
+- Clean-agent review: **PASS**, no findings. Confirmed no pre-existing `sources.*`/`favourites.*`
+  tests in `index.test.ts`/`state.test.ts` were deleted or weakened (net additive diff, verified
+  via `git diff --stat`), no scope creep outside D1-D4, no leftover trace of the corrected D1
+  duplicate types.
+- No changelog entry: this story ships no user-facing surface (D-J) — nothing to describe from a
+  user's point of view yet.
+
+Narrow gate only. The full regression gate (`npm test`, `npm run ui:verify`, `npm run ui:flows`)
+has not run as part of this story — it runs once after the sprint's last story.

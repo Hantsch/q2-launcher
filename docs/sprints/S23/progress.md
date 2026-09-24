@@ -20,3 +20,12 @@
 - 2026-09-24 14:25 · 112 · D2 favourites CRUD pure functions · done
 - 2026-09-24 14:25 · 112 · D3 handlers and restart proof · started
 - 2026-09-24 14:26 · 112 · D3 handlers and restart proof · done
+- 2026-09-24 14:31 · 113 · D1 Contract · started
+- 2026-09-24 14:36 · 113 · D1 Contract · done
+- 2026-09-24 14:36 · 113 · D2 Manual-server store · started
+- 2026-09-24 14:36 · 113 · D3 History store · started
+- 2026-09-24 14:38 · 113 · D2 Manual-server store · done
+- 2026-09-24 14:38 · 113 · D3 History store · done
+- 2026-09-24 14:38 · 113 · D4 Wiring + persistence · started
+- 2026-09-24 14:43 · 113 · D4 Wiring + persistence · done
+- 2026-09-24 14:46 · 113 · story · done

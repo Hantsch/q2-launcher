@@ -11,7 +11,11 @@ import {
 import { DEFAULT_DOWNLOADS_SETTINGS } from '@shared/modules/downloads'
 import type { DownloadDiagnostics } from '@shared/modules/downloads'
 import { DEFAULT_HOME_LAYOUT } from '@shared/modules/home'
-import { DEFAULT_MASTER_SOURCES, DEFAULT_SERVERS_STATE } from '@shared/modules/servers'
+import {
+  DEFAULT_MASTER_SOURCES,
+  DEFAULT_SERVERS_STATE,
+  SERVER_HISTORY_CAP,
+} from '@shared/modules/servers'
 import { setProfileActionsInputSchema } from '../modules/config/schemas'
 import { legacyAliasNameFor } from '@shared/config/alias-render'
 import { bindValueFor } from '@shared/config/action-mirror'
@@ -1166,6 +1170,28 @@ describe('parseServersState (story 110 D2)', () => {
     })
 
     expect(result.favourites).toEqual([validFavourite1])
+  })
+
+  // Story 113 D-G: the cap is a store invariant, not just an append-path detail - a hand-edited or
+  // foreign `state.json` must not be able to reintroduce an unbounded history.
+  it('a history longer than the cap is truncated on parse, oldest (tail) rows dropped', () => {
+    const rows = Array.from({ length: SERVER_HISTORY_CAP + 50 }, (_, index) => ({
+      address: `203.0.113.${Math.floor(index / 250)}:${27910 + (index % 250)}`,
+      connectedAt: '2026-01-10T00:00:00.000Z',
+    }))
+
+    const result = parseServersState({
+      sources: [],
+      favourites: [],
+      manualServers: [],
+      history: rows,
+      scan: DEFAULT_SERVERS_STATE.scan,
+    })
+
+    expect(result.history).toHaveLength(SERVER_HISTORY_CAP)
+    // The head (newest) survived and the tail went, rather than an arbitrary slice.
+    expect(result.history[0]).toEqual(rows[0])
+    expect(result.history.at(-1)).toEqual(rows[SERVER_HISTORY_CAP - 1])
   })
 })
 

@@ -6,7 +6,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { STATE_SCHEMA_VERSION } from '@shared/constants'
 import { DEFAULT_DOWNLOADS_SETTINGS, type DownloadFailure } from '@shared/modules/downloads'
 import { DEFAULT_HOME_LAYOUT, type HomeLayout } from '@shared/modules/home'
-import { DEFAULT_MASTER_SOURCES, DEFAULT_SERVERS_STATE, type ServersState } from '@shared/modules/servers'
+import {
+  DEFAULT_MASTER_SOURCES,
+  DEFAULT_SERVERS_STATE,
+  type ManualServerEntry,
+  type ServerHistoryEntry,
+  type ServersState,
+} from '@shared/modules/servers'
 import { StateStore } from './state'
 
 describe('StateStore downloads settings (story 072 D2)', () => {
@@ -204,8 +210,10 @@ describe('StateStore servers state (story 110 D3)', () => {
     const custom: ServersState = {
       sources: [{ id: 'src-1', type: 'udp-master', address: 'master.example.com:27900', enabled: true }],
       favourites: [{ address: '1.2.3.4:27910', addedAt: '2026-01-01T00:00:00.000Z' }],
-      manualServers: [{ address: '5.6.7.8:27911', addedAt: '2026-01-02T00:00:00.000Z' }],
-      history: [{ address: '9.10.11.12:27912', lastConnectedAt: '2026-01-03T00:00:00.000Z' }],
+      manualServers: [
+        { address: '5.6.7.8:27911', origin: 'manual', addedAt: '2026-01-02T00:00:00.000Z' },
+      ],
+      history: [{ address: '9.10.11.12:27912', connectedAt: '2026-01-03T00:00:00.000Z' }],
       scan: { concurrency: 4, timeoutMs: 1500, retries: 2, minSpacingMs: 25 },
     }
     const written = state.setServersState(custom)
@@ -220,6 +228,32 @@ describe('StateStore servers state (story 110 D3)', () => {
     expect(reloaded.settings()).toEqual(settingsBefore)
     expect(reloaded.installations()).toEqual(installationsBefore)
     expect(reloaded.homeLayout()).toEqual(homeLayoutBefore)
+  })
+
+  // Story 113 AC5: manual servers and history are the two collections story 113 writes, and both
+  // live in story 110's `servers` state key - so the proof they survive a restart is a second,
+  // independent `StateStore` over the same file reading them back unchanged, rows and order intact.
+  it('manual servers and history survive a state store reload', async () => {
+    const manualServers: ManualServerEntry[] = [
+      { address: '1.2.3.4:27910', origin: 'manual', addedAt: '2026-01-02T00:00:00.000Z' },
+      { address: 'q2.example.com:27911', origin: 'manual', addedAt: '2026-01-04T00:00:00.000Z' },
+    ]
+    const history: ServerHistoryEntry[] = [
+      { address: '9.10.11.12:27912', connectedAt: '2026-01-05T00:00:00.000Z' },
+      { address: '1.2.3.4:27910', connectedAt: '2026-01-03T00:00:00.000Z' },
+    ]
+
+    state.setServersState({ ...state.serversState(), manualServers, history })
+    await state.settle()
+
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+
+    expect(reloaded.serversState().manualServers).toEqual(manualServers)
+    expect(reloaded.serversState().history).toEqual(history)
+    // The sibling collections in the same key came back untouched too.
+    expect(reloaded.serversState().sources).toEqual(DEFAULT_MASTER_SOURCES)
+    expect(reloaded.serversState().favourites).toEqual([])
   })
 
   it('a state.json written without the servers key loads with the shipped default (three sources, everything else empty), with no schema bump', async () => {

@@ -59,6 +59,12 @@ import {
   WINDOW_MIN_HEIGHT,
   WINDOW_MIN_WIDTH,
 } from '@shared/constants'
+// Story 113 D4: the history cap lives with the history's other rules
+// (`modules/servers/history-log.ts`), and the parse path reuses it rather than re-deriving a
+// `slice()` here - same direction of dependency as `services/state.ts` -> `pruneFailures`
+// (`modules/downloads/failure-log.ts`) and `lib/renderer-source.ts` -> `modules/home/images/paths`.
+// That file is pure and imports nothing from `lib/`, so this cannot cycle.
+import { capServerHistory } from '../modules/servers/history-log'
 
 /**
  * Runtime validation for everything that crosses a trust boundary: the state
@@ -1302,9 +1308,15 @@ export function parseServersState(raw: unknown): ServersState {
       .filter((row): row is ManualServerEntry => row !== null),
     (row) => row.address,
   )
-  const history = dedupeByKey(
-    envelope.data.history.map(parseServerHistoryRow).filter((row): row is ServerHistoryEntry => row !== null),
-    (row) => row.address,
+  // Story 113 D-G: the history cap is a store invariant, not an append-path detail - a hand-edited
+  // or foreign `state.json` carrying 500 rows must not reintroduce an unbounded list, so the same
+  // `capServerHistory` the append path uses truncates here too. It only cuts the tail (oldest
+  // first, the file's order kept), after the dedupe-by-address above, never instead of it.
+  const history = capServerHistory(
+    dedupeByKey(
+      envelope.data.history.map(parseServerHistoryRow).filter((row): row is ServerHistoryEntry => row !== null),
+      (row) => row.address,
+    ),
   )
   const scan = parseServersScanSettings((raw as { scan?: unknown } | null)?.scan)
 

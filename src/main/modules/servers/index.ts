@@ -3,18 +3,25 @@ import {
   favouritesAddInputSchema,
   favouritesListInputSchema,
   favouritesRemoveInputSchema,
+  historyReadInputSchema,
+  manualAddInputSchema,
+  manualListInputSchema,
+  manualRemoveInputSchema,
   serversNoInputSchema,
   sourcesAddInputSchema,
   sourcesListInputSchema,
   sourcesRemoveInputSchema,
   sourcesReorderInputSchema,
   sourcesUpdateInputSchema,
+  type ManualServerAddResult,
   type MasterSource,
   type MasterSourcesResult,
   type ServersOverview,
 } from '@shared/modules/servers'
 import type { MainModule } from '../types'
 import { addFavourite, listFavourites, removeFavourite } from './favourites'
+import { readServerHistory } from './history-log'
+import { addManualServer, removeManualServer } from './manual-servers'
 import { addSource, removeSource, reorderSources, updateSource } from './master-sources'
 
 /**
@@ -101,6 +108,45 @@ export const serversModule: MainModule = {
       const favourites = removeFavourite(current, address)
       return app.state.setServersState({ ...current, favourites }).favourites
     })
+
+    /**
+     * Story 113 D4: the `manual.*`/`history.*` handlers - same read/run/persist discipline as the
+     * `favourites.*` block above, not `mutate()`'s: `addManualServer` already carries its own
+     * ok/refusal union (`ManualServerAddResult`'s shape), so a refusal is returned as a value
+     * *before* anything is written, and `removeManualServer` cannot refuse at all (D-I: removing an
+     * address that was never stored is a successful no-op).
+     *
+     * Each write replaces exactly one collection and carries `sources`/`favourites` plus the other
+     * of `manualServers`/`history` over from the same snapshot, so a manual add or remove can never
+     * clip the history (AC6's cross-collection half) or any other part of story 110's state key.
+     *
+     * `history.read` is read-only on purpose (D-H): there is no `history.record` channel, because
+     * only main ever appends to the history.
+     */
+    handle(SERVERS_HANDLERS.manualList, manualListInputSchema, () =>
+      app.state.serversState().manualServers,
+    )
+    handle(
+      SERVERS_HANDLERS.manualAdd,
+      manualAddInputSchema,
+      (payload): ManualServerAddResult => {
+        const current = app.state.serversState()
+        const result = addManualServer(current.manualServers, payload)
+        if (!result.ok) return result
+        // `result.entry` is a member of `result.list`, which is what gets stored verbatim - so the
+        // entry handed back is the persisted one, not a separate local candidate.
+        app.state.setServersState({ ...current, manualServers: result.list })
+        return { ok: true, entry: result.entry }
+      },
+    )
+    handle(SERVERS_HANDLERS.manualRemove, manualRemoveInputSchema, (payload) => {
+      const current = app.state.serversState()
+      const manualServers = removeManualServer(current.manualServers, payload.address)
+      return app.state.setServersState({ ...current, manualServers }).manualServers
+    })
+    handle(SERVERS_HANDLERS.historyRead, historyReadInputSchema, () =>
+      readServerHistory(app.state.serversState().history),
+    )
 
     log.debug('servers module ready')
   },
