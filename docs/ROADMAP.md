@@ -3,11 +3,11 @@
 ## Where we stand
 
 *As of 2026-09-24.* Phases 1–4, 7 and 8 are done; story 102 (a self-built Linux Q2PRO) stays open
-as a standing, non-blocking item. Phase 9 (game browser) has started: milestone 9.1 is done — the
-servers module is registered with its own nav entry, and the address validator plus the
-info/status and master-source codecs are in place, all pure and unit-tested. Next is `/sprint S23`
-(9.2, discovery & persistence). Waiting on the user: merging `sprint/S22` into `dev`. Phase 5
-(mods) and Phase 6 (assets) remain unprioritised.
+as a standing, non-blocking item. Phase 9 (game browser) is progressing: milestone 9.2 is done —
+the `servers` module's own `state.json` key, master-source CRUD (with a real Settings UI), and the
+persistence layer for favourites, manual servers and connection history are all in place and
+restart-proof. Next is `/sprint S24` (9.3, scan engine). Waiting on the user: merging `sprint/S22`
+and `sprint/S23` into `dev`. Phase 5 (mods) and Phase 6 (assets) remain unprioritised.
 
 ## Phase overview
 
@@ -21,18 +21,18 @@ info/status and master-source codecs are in place, all pure and unit-tested. Nex
 | 6 — Assets (texture/model/sound packs) | 0/1 | not started |
 | 7 — Release & updates (beta rollout) | 1/1 | done |
 | 8 — Platform parity (Linux support, Steam Play/Proton runners) | 1/1 | done |
-| 9 — Game browser (server list, detail, watchlist, observing) | 1/7 | in progress |
+| 9 — Game browser (server list, detail, watchlist, observing) | 2/7 | in progress |
 
 ## Current phase
 
-Phase 9 (game browser) is cut into 7 sprints; 9.1 is done, 9.2 is next. Phase 5 (mods) and Phase 6
-(assets) are still unprioritised.
+Phase 9 (game browser) is cut into 7 sprints; 9.1–9.2 are done, 9.3 is next. Phase 5 (mods) and
+Phase 6 (assets) are still unprioritised.
 
 | # | Milestone | Status | Sprint(s) | Note |
 | --- | --- | --- | --- | --- |
 | 7.1 | Release & updates — changelog-driven GitHub releases, daily update check, user-chosen update | done 2026-09-13 | [S21](../sprints/S21/review.md) | Stories 096–099, all done. Two manual-residue items (a real GitHub publish, a real packaged-install restart) — see the review's Acceptance section. |
 | 9.1 | Servers module foundation & protocol core | done 2026-09-24 | [S22](../sprints/S22/review.md) | Stories 106–109, all done. |
-| 9.2 | Discovery & persistence | planned | S23 | Module `state.json` key, master-source settings, favourites, manual servers, history. Stories 110–113. |
+| 9.2 | Discovery & persistence | done 2026-09-24 | [S23](../sprints/S23/review.md) | Stories 110–113, all done. |
 | 9.3 | Scan engine | planned | S24 | Two-stage streaming scan, scan-budget settings measured against a real master list, no-scan-while-playing, scoped refreshes. Stories 114–117. |
 | 9.4 | Server list UI | planned | S25 | Rows, markers, default sort, filters/search, loading/empty/error states. Stories 118–121. |
 | 9.5 | Server detail view | planned | S26 | Header/players, rule table + `dmflags`, ping history + local mod/map availability. Stories 122–124. |
@@ -50,6 +50,12 @@ Phase 9 (game browser) is cut into 7 sprints; 9.1 is done, 9.2 is next. Phase 5 
 
 ## Follow-ups worth doing
 
+- 14 of 56 `ui:flows` flows fail deterministically and pre-date S23 (confirmed reproducing
+  identically at S23's merge-base, in isolation): `app-update`, `bootstrap-failure`,
+  `bootstrap-failure-retry`, `bootstrap-incomplete-package`, `bootstrap-r1q2`, `bootstrap-wizard`,
+  `config-header-geometry`, `controls-subcategory`, `custom-action-row`, `engine-badge-surfaces`,
+  `engine-not-client`, `harness-offscreen`, `home-hero-carousel`, `news-cover-template` — a real gap
+  in the e2e baseline worth a dedicated sweep. [S23 review](../sprints/S23/review.md)
 - `ui:flows` cannot finish a full 55-flow run: `withApp()`'s teardown in `scripts/lib/harness.mjs`
   (~line 529) races `app.close()` against a 15s timeout with no fallback `child.kill()`, so a hung
   main process keeps the single-instance lock and every later flow on that fixture variant dies.

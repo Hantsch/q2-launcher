@@ -1,6 +1,6 @@
 ---
 sprint: S23
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/S23
 milestone: 9.2 — Discovery & persistence
 ---
@@ -21,6 +21,38 @@ ever shown.
 - [x] 111 — master sources are a list i edit
 - [x] 112 — favourites are always there
 - [x] 113 — a server i add by hand, and where i've been
+
+## Regression gate
+
+Ran on `sprint/S23` `HEAD` (`bb3c805`, after both fix commits below) with a clean
+`.ui-verify/fixture` directory:
+
+- `npm run build` — green.
+- `npm test` — green (265 files, 4410 passed, 8 skipped).
+- `npm run ui:verify` — green (5 launches, 86/86 screenshots, 0 axe violations, full 45/45 screens).
+- `npm run ui:flows` — 42/56 green. 14 red, all attributed **pre-existing**: `app-update`,
+  `bootstrap-failure`, `bootstrap-failure-retry`, `bootstrap-incomplete-package`, `bootstrap-r1q2`,
+  `bootstrap-wizard`, `config-header-geometry`, `controls-subcategory`, `custom-action-row`,
+  `engine-badge-surfaces`, `engine-not-client`, `harness-offscreen`, `home-hero-carousel`,
+  `news-cover-template` — each reproduced with an identical, deterministic failure at the sprint's
+  merge-base with `dev` (`38181e7`), confirmed by running every one individually in a separate
+  worktree at that commit. None touch the `servers` module; none are new to this sprint.
+
+Two flows **did** regress from this sprint's own commits, both fixed on the branch:
+- `servers-module-shell` (story 106's own flow) — failed once story 111 replaced the placeholder
+  UI it asserted on (`servers-settings-placeholder`) with the real master-source list. Fixed in
+  `4002e7b` (`111: fix regression from sprint gate`) by pointing the flow at `servers-sources-list`.
+- `news-feed` — bisected to story 110's commit (`4f7135a`), but investigation found this was a
+  false-positive attribution: the real cause is `EngineUpdateAction.tsx` (story 092) firing an
+  undelayed startup fetch that can race a short-lived flow's fixture-server teardown, unmasked by
+  fixture-directory pollution left over from an earlier flow in the same `ui:flows` batch — not by
+  story 110's own diff (full trace in `docs/requirements/done/110-...md`'s Done section). Fixed
+  anyway in `bb3c805` (`110: fix regression from sprint gate`) by giving `EngineUpdateAction`'s
+  first automatic check the same 3s startup grace window `scheduleStartupCheck()` already uses.
+
+Verdict: **green** for everything this sprint touched. The 14 pre-existing `ui:flows` failures are
+not a merge blocker for S23's own stories, but they are a real gap in this project's e2e baseline —
+flagged in `review.md` and the roadmap's follow-ups.
 
 ## Notes
 
