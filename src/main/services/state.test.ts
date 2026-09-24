@@ -3,8 +3,10 @@ import { rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { STATE_SCHEMA_VERSION } from '@shared/constants'
 import { DEFAULT_DOWNLOADS_SETTINGS, type DownloadFailure } from '@shared/modules/downloads'
 import { DEFAULT_HOME_LAYOUT, type HomeLayout } from '@shared/modules/home'
+import { DEFAULT_SERVERS_STATE, type ServersState } from '@shared/modules/servers'
 import { StateStore } from './state'
 
 describe('StateStore downloads settings (story 072 D2)', () => {
@@ -144,6 +146,110 @@ describe('StateStore homeLayout (story 086 D1)', () => {
     const reloaded = new StateStore(filePath)
     await reloaded.load()
 
+    expect(reloaded.homeLayout().tiles).toEqual([
+      { moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 },
+    ])
+  })
+})
+
+describe('StateStore servers state (story 110 D3)', () => {
+  let filePath: string
+  let state: StateStore
+
+  beforeEach(async () => {
+    filePath = join(tmpdir(), `q2-launcher-state-servers-${randomUUID()}.json`)
+    state = new StateStore(filePath)
+    await state.load()
+  })
+
+  afterEach(async () => {
+    await rm(filePath, { force: true })
+    await rm(`${filePath}.tmp`, { force: true })
+    await rm(`${filePath}.bak`, { force: true })
+  })
+
+  it('starts with the default servers state', () => {
+    expect(state.serversState()).toEqual(DEFAULT_SERVERS_STATE)
+  })
+
+  it('the servers key is its own top-level state key and LauncherSettings is untouched', () => {
+    const settingsBefore = state.settings()
+
+    // servers is a distinct top-level key with its own shape...
+    expect(state.serversState()).toEqual(DEFAULT_SERVERS_STATE)
+    expect(Object.keys(state.serversState()).sort()).toEqual(
+      ['favourites', 'history', 'manualServers', 'scan', 'sources'].sort(),
+    )
+
+    // ...and adding it left LauncherSettings's own shape and values untouched.
+    expect(state.settings()).toEqual(settingsBefore)
+    expect('servers' in state.settings()).toBe(false)
+  })
+
+  it('servers state round-trips through state.json and touches no other setting', async () => {
+    const settingsBefore = state.settings()
+    const installationsBefore = state.installations()
+    const homeLayoutBefore = state.homeLayout()
+
+    const custom: ServersState = {
+      sources: [{ id: 'src-1', type: 'udp-master', address: 'master.example.com:27900', enabled: true }],
+      favourites: [{ address: '1.2.3.4:27910', addedAt: '2026-01-01T00:00:00.000Z' }],
+      manualServers: [{ address: '5.6.7.8:27911', addedAt: '2026-01-02T00:00:00.000Z' }],
+      history: [{ address: '9.10.11.12:27912', lastConnectedAt: '2026-01-03T00:00:00.000Z' }],
+      scan: { concurrency: 4, timeoutMs: 1500, retries: 2, minSpacingMs: 25 },
+    }
+    const written = state.setServersState(custom)
+    await state.settle()
+
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+
+    expect(reloaded.serversState()).toEqual(written)
+    expect(reloaded.serversState()).toEqual(custom)
+    // Other state keys are untouched by this write.
+    expect(reloaded.settings()).toEqual(settingsBefore)
+    expect(reloaded.installations()).toEqual(installationsBefore)
+    expect(reloaded.homeLayout()).toEqual(homeLayoutBefore)
+  })
+
+  it('a state.json written without the servers key loads as the safe empty default, with no schema bump', async () => {
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        schemaVersion: STATE_SCHEMA_VERSION,
+      }),
+      'utf-8',
+    )
+
+    const reloaded = new StateStore(filePath)
+    const doc = await reloaded.load()
+
+    expect(reloaded.serversState()).toEqual(DEFAULT_SERVERS_STATE)
+    // The file was already on the current schema version - no migration was needed or ran to
+    // backfill the missing `servers` key; it degraded through the parser alone, same as
+    // `homeLayout`'s missing-key case above.
+    expect(doc.schemaVersion).toBe(STATE_SCHEMA_VERSION)
+    expect(reloaded.recoveredFrom).toBeNull()
+  })
+
+  it('a corrupt servers value degrades without taking siblings down', async () => {
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        schemaVersion: 1,
+        servers: 'not-an-object',
+        homeLayout: {
+          tiles: [{ moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 }],
+        },
+      }),
+      'utf-8',
+    )
+
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+
+    expect(reloaded.serversState()).toEqual(DEFAULT_SERVERS_STATE)
+    // The sibling key survives untouched even though servers was corrupt.
     expect(reloaded.homeLayout().tiles).toEqual([
       { moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 },
     ])

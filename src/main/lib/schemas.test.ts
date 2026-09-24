@@ -6,10 +6,12 @@ import {
   parseDownloadsSettings,
   parseHomeLayout,
   parseInstallation,
+  parseServersState,
 } from './schemas'
 import { DEFAULT_DOWNLOADS_SETTINGS } from '@shared/modules/downloads'
 import type { DownloadDiagnostics } from '@shared/modules/downloads'
 import { DEFAULT_HOME_LAYOUT } from '@shared/modules/home'
+import { DEFAULT_SERVERS_STATE } from '@shared/modules/servers'
 import { setProfileActionsInputSchema } from '../modules/config/schemas'
 import { legacyAliasNameFor } from '@shared/config/alias-render'
 import { bindValueFor } from '@shared/config/action-mirror'
@@ -1007,6 +1009,124 @@ describe('parseHomeLayout (story 086 D1)', () => {
       ],
     })
     expect(layout.tiles).toEqual([{ moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 }])
+  })
+})
+
+// Story 110 D2.
+describe('parseServersState (story 110 D2)', () => {
+  const validSource1 = { id: 's1', type: 'udp-master', address: '203.0.113.10:27900', enabled: true }
+  const validSource2 = { id: 's2', type: 'http-list', address: '203.0.113.11:80', enabled: false }
+  const malformedSource = { id: 's3', type: 'udp-master', address: '203.0.113.12:27900' } // missing enabled
+
+  const validFavourite1 = { address: '203.0.113.20:27910', addedAt: '2026-01-01T00:00:00.000Z' }
+  const validFavourite2 = { address: '203.0.113.21:27910', addedAt: '2026-01-02T00:00:00.000Z' }
+  const malformedFavourite = { address: '203.0.113.22:27910' } // missing addedAt
+
+  it('a foreign servers value falls back to the safe empty default', () => {
+    const cases: unknown[] = [undefined, 'not an object', 42, { totally: 'foreign' }]
+
+    for (const raw of cases) {
+      expect(() => parseServersState(raw)).not.toThrow()
+      const result = parseServersState(raw)
+      expect(result).toEqual(DEFAULT_SERVERS_STATE)
+
+      // Prove it's a fresh clone, not a shared reference: mutating the result must not mutate the
+      // shared `DEFAULT_SERVERS_STATE` constant.
+      result.sources.push({ id: 'mutated', type: 'udp-master', address: '1.2.3.4:27910', enabled: true })
+      result.scan.concurrency = 999
+      expect(DEFAULT_SERVERS_STATE.sources).toEqual([])
+      expect(DEFAULT_SERVERS_STATE.scan.concurrency).toBe(8)
+    }
+  })
+
+  it('a malformed favourite and a malformed source are dropped, their siblings survive', () => {
+    expect(() =>
+      parseServersState({
+        sources: [validSource1, validSource2, malformedSource],
+        favourites: [validFavourite1, validFavourite2, malformedFavourite],
+        manualServers: [],
+        history: [],
+        scan: DEFAULT_SERVERS_STATE.scan,
+      }),
+    ).not.toThrow()
+
+    const result = parseServersState({
+      sources: [validSource1, validSource2, malformedSource],
+      favourites: [validFavourite1, validFavourite2, malformedFavourite],
+      manualServers: [],
+      history: [],
+      scan: DEFAULT_SERVERS_STATE.scan,
+    })
+
+    expect(result.sources).toHaveLength(2)
+    expect(result.sources.map((s) => s.id)).toEqual(['s1', 's2'])
+    expect(result.favourites).toHaveLength(2)
+    expect(result.favourites.map((f) => f.address)).toEqual([
+      '203.0.113.20:27910',
+      '203.0.113.21:27910',
+    ])
+  })
+
+  it('a row whose address fails parseServerAddress is dropped like any other malformed row', () => {
+    const result = parseServersState({
+      sources: [],
+      favourites: [
+        validFavourite1,
+        { address: 'not a valid address', addedAt: '2026-01-03T00:00:00.000Z' },
+      ],
+      manualServers: [],
+      history: [],
+      scan: DEFAULT_SERVERS_STATE.scan,
+    })
+
+    expect(result.favourites).toEqual([validFavourite1])
+  })
+
+  it('a garbage scan.concurrency falls back to its default while the other knobs are preserved', () => {
+    const result = parseServersState({
+      sources: [],
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: { concurrency: 'nope', timeoutMs: 5000, retries: 3, minSpacingMs: 200 },
+    })
+
+    expect(result.scan).toEqual({
+      concurrency: DEFAULT_SERVERS_STATE.scan.concurrency,
+      timeoutMs: 5000,
+      retries: 3,
+      minSpacingMs: 200,
+    })
+  })
+
+  it('duplicate sources sharing an id collapse to the first occurrence', () => {
+    const result = parseServersState({
+      sources: [
+        validSource1,
+        { id: 's1', type: 'http-list', address: '203.0.113.30:80', enabled: false },
+      ],
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: DEFAULT_SERVERS_STATE.scan,
+    })
+
+    expect(result.sources).toEqual([validSource1])
+  })
+
+  it('duplicate favourites sharing a normalized address collapse to the first occurrence', () => {
+    const result = parseServersState({
+      sources: [],
+      favourites: [
+        validFavourite1,
+        { address: '203.0.113.20:27910', addedAt: '2026-01-09T00:00:00.000Z' },
+      ],
+      manualServers: [],
+      history: [],
+      scan: DEFAULT_SERVERS_STATE.scan,
+    })
+
+    expect(result.favourites).toEqual([validFavourite1])
   })
 })
 

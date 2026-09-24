@@ -34,6 +34,20 @@ import {
   type TilePlacement,
 } from '@shared/modules/home'
 import { isLatin1Text } from '@shared/config/q2-charset'
+import {
+  DEFAULT_SERVERS_STATE,
+  favouriteServerEntrySchema,
+  manualServerEntrySchema,
+  serverHistoryEntrySchema,
+  serverSourceEntrySchema,
+  type FavouriteServerEntry,
+  type ManualServerEntry,
+  type ServerHistoryEntry,
+  type ServerSourceEntry,
+  type ServersScanSettings,
+  type ServersState,
+} from '@shared/modules/servers'
+import { parseServerAddress } from '@shared/servers/address'
 import { engineKindSchema, settingsObjectSchema, sourceSchema } from '@shared/schemas'
 import type { Installation, LauncherSettings, WindowState } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
@@ -1141,6 +1155,128 @@ export function parseHomeLayout(raw: unknown): HomeLayout {
       return true
     })
   return { tiles }
+}
+
+/**
+ * Story 110 D2: the persisted `servers` top-level `state.json` key. Defensive at two levels, same
+ * combination `parseHomeLayout`/`parseDownloadsSettings` use separately: an envelope check (a raw
+ * value that isn't even "an object with array-ish collection keys" falls back to a *fresh clone* of
+ * `DEFAULT_SERVERS_STATE` - never the shared constant itself, so a caller mutating the result can't
+ * corrupt the default for the next call) plus row-level dropping within each collection
+ * (`parseForgivingRows`'s convention: one malformed row costs only itself, siblings survive) plus
+ * field-level `.catch()` on `scan`'s four knobs (`downloadsSettingsSchema`'s convention: one bad
+ * knob falls back to its own default, not the whole `scan` object).
+ *
+ * Every address (`sources`/`favourites`/`manualServers`/`history`) is re-validated with
+ * `parseServerAddress` - the zod schemas here only check that `address` is *a string*, not that
+ * it's a safe one (see `src/shared/servers/address.ts`'s file doc comment for why an unvalidated
+ * address is a `+connect` argument-injection risk, not just a wrong-hostname one). A row whose
+ * address fails that check is dropped like any other malformed row, and a row that survives has its
+ * `address` field replaced by `parseServerAddress`'s own normalized `host:port` form rather than
+ * whatever casing/shape the raw value carried.
+ *
+ * Finally, `sources` is deduplicated by `id` and each of the three address-keyed collections is
+ * deduplicated by normalized address (first occurrence wins) - the same "avoid duplicate React
+ * keys from a hand-edited or foreign file" reasoning as `parseHomeLayout`'s `moduleId` dedupe pass.
+ */
+function cloneDefaultServersState(): ServersState {
+  return structuredClone(DEFAULT_SERVERS_STATE)
+}
+
+function parseServerSourceRow(raw: unknown): ServerSourceEntry | null {
+  const result = serverSourceEntrySchema.safeParse(raw)
+  if (!result.success) return null
+  const address = parseServerAddress(result.data.address)
+  if (!address.ok) return null
+  return { ...result.data, address: address.normalized }
+}
+
+function parseFavouriteServerRow(raw: unknown): FavouriteServerEntry | null {
+  const result = favouriteServerEntrySchema.safeParse(raw)
+  if (!result.success) return null
+  const address = parseServerAddress(result.data.address)
+  if (!address.ok) return null
+  return { ...result.data, address: address.normalized }
+}
+
+function parseManualServerRow(raw: unknown): ManualServerEntry | null {
+  const result = manualServerEntrySchema.safeParse(raw)
+  if (!result.success) return null
+  const address = parseServerAddress(result.data.address)
+  if (!address.ok) return null
+  return { ...result.data, address: address.normalized }
+}
+
+function parseServerHistoryRow(raw: unknown): ServerHistoryEntry | null {
+  const result = serverHistoryEntrySchema.safeParse(raw)
+  if (!result.success) return null
+  const address = parseServerAddress(result.data.address)
+  if (!address.ok) return null
+  return { ...result.data, address: address.normalized }
+}
+
+/** First occurrence wins - mirrors `parseHomeLayout`'s `moduleId` dedupe pass. */
+function dedupeByKey<T>(rows: T[], keyOf: (row: T) => string): T[] {
+  const seenKeys = new Set<string>()
+  return rows.filter((row) => {
+    const key = keyOf(row)
+    if (seenKeys.has(key)) return false
+    seenKeys.add(key)
+    return true
+  })
+}
+
+const serversScanSettingsForgivingSchema = z
+  .object({
+    concurrency: z.number().catch(DEFAULT_SERVERS_STATE.scan.concurrency),
+    timeoutMs: z.number().catch(DEFAULT_SERVERS_STATE.scan.timeoutMs),
+    retries: z.number().catch(DEFAULT_SERVERS_STATE.scan.retries),
+    minSpacingMs: z.number().catch(DEFAULT_SERVERS_STATE.scan.minSpacingMs),
+  })
+  .catch(() => ({ ...DEFAULT_SERVERS_STATE.scan }))
+
+function parseServersScanSettings(raw: unknown): ServersScanSettings {
+  return serversScanSettingsForgivingSchema.parse(raw)
+}
+
+/** The envelope shape loose enough that "missing/garbled collection key" degrades per-key, while
+ * anything that isn't even an object (or is `null`) fails outright and falls back to
+ * `cloneDefaultServersState()` wholesale - same two-tier shape as `parseHomeLayout`'s `tiles`
+ * envelope check. */
+const serversStateEnvelopeSchema = z.object({
+  sources: z.array(z.unknown()).catch([]),
+  favourites: z.array(z.unknown()).catch([]),
+  manualServers: z.array(z.unknown()).catch([]),
+  history: z.array(z.unknown()).catch([]),
+})
+
+export function parseServersState(raw: unknown): ServersState {
+  const envelope = serversStateEnvelopeSchema.safeParse(raw)
+  if (!envelope.success) return cloneDefaultServersState()
+
+  const sources = dedupeByKey(
+    envelope.data.sources.map(parseServerSourceRow).filter((row): row is ServerSourceEntry => row !== null),
+    (row) => row.id,
+  )
+  const favourites = dedupeByKey(
+    envelope.data.favourites
+      .map(parseFavouriteServerRow)
+      .filter((row): row is FavouriteServerEntry => row !== null),
+    (row) => row.address,
+  )
+  const manualServers = dedupeByKey(
+    envelope.data.manualServers
+      .map(parseManualServerRow)
+      .filter((row): row is ManualServerEntry => row !== null),
+    (row) => row.address,
+  )
+  const history = dedupeByKey(
+    envelope.data.history.map(parseServerHistoryRow).filter((row): row is ServerHistoryEntry => row !== null),
+    (row) => row.address,
+  )
+  const scan = parseServersScanSettings((raw as { scan?: unknown } | null)?.scan)
+
+  return { sources, favourites, manualServers, history, scan }
 }
 
 // IPC-payload schemas moved to `src/shared/ipc-schemas.ts` (story 036, D1) -

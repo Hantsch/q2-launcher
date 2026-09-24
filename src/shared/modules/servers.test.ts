@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { SERVERS_HANDLERS, SERVERS_HANDLER_SCHEMAS, serversOverviewSchema } from './servers'
+import { z } from 'zod'
+import {
+  DEFAULT_SERVERS_STATE,
+  SERVERS_HANDLERS,
+  SERVERS_HANDLER_SCHEMAS,
+  serversOverviewSchema,
+  serversStateSchema,
+} from './servers'
 
 describe('servers module contract (story 106 D1)', () => {
   it('every servers handler has a zod schema', () => {
@@ -42,5 +49,42 @@ describe('serversOverviewSchema', () => {
       serversOverviewSchema.safeParse({ scanning: 'no', knownServerCount: 0, lastScanAt: null })
         .success,
     ).toBe(false)
+  })
+})
+
+describe('servers persisted state (story 110 D1)', () => {
+  it('the persisted servers state has a zod schema in the module\'s shared contract', () => {
+    const parsed = serversStateSchema.parse(DEFAULT_SERVERS_STATE)
+    expect(parsed).toEqual(DEFAULT_SERVERS_STATE)
+    expect(Object.keys(serversStateSchema.shape).sort()).toEqual(
+      ['favourites', 'history', 'manualServers', 'scan', 'sources'].sort(),
+    )
+  })
+
+  it('no part of the persisted servers state accepts an installation id', () => {
+    const withInstallationId = {
+      ...DEFAULT_SERVERS_STATE,
+      installationId: 'some-installation',
+      sources: [{ id: 'a', type: 'udp-master', address: '1.2.3.4:27900', enabled: true, installationId: 'x' }],
+      favourites: [{ address: '1.2.3.4:27910', addedAt: '2026-09-24T00:00:00.000Z', installationId: 'x' }],
+      manualServers: [{ address: '1.2.3.4:27911', addedAt: '2026-09-24T00:00:00.000Z', installationId: 'x' }],
+      history: [{ address: '1.2.3.4:27912', lastConnectedAt: '2026-09-24T00:00:00.000Z', installationId: 'x' }],
+      scan: { ...DEFAULT_SERVERS_STATE.scan, installationId: 'x' },
+    }
+
+    const parsed = serversStateSchema.parse(withInstallationId)
+    expect(Object.keys(parsed)).not.toContain('installationId')
+    expect(Object.keys(parsed.sources[0])).not.toContain('installationId')
+    expect(Object.keys(parsed.favourites[0])).not.toContain('installationId')
+    expect(Object.keys(parsed.manualServers[0])).not.toContain('installationId')
+    expect(Object.keys(parsed.history[0])).not.toContain('installationId')
+    expect(Object.keys(parsed.scan)).not.toContain('installationId')
+
+    // The schema definition itself has no installationId key at any level.
+    expect(Object.keys(serversStateSchema.shape)).not.toContain('installationId')
+    const sourceShape = (serversStateSchema.shape.sources as z.ZodArray<z.ZodTypeAny>).element as z.ZodObject<
+      z.ZodRawShape
+    >
+    expect(Object.keys(sourceShape.shape)).not.toContain('installationId')
   })
 })

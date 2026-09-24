@@ -1,7 +1,7 @@
 ---
 sprint: S23
-status: planned # planned | in-progress | done
-branch:
+status: in-progress # planned | in-progress | done
+branch: sprint/S23
 milestone: 9.2 — Discovery & persistence
 ---
 
@@ -17,7 +17,7 @@ ever shown.
 
 ## Stories (in build order)
 
-- [ ] 110 — the browser's data lives in its own state key
+- [x] 110 — the browser's data lives in its own state key
 - [ ] 111 — master sources are a list i edit
 - [ ] 112 — favourites are always there
 - [ ] 113 — a server i add by hand, and where i've been
