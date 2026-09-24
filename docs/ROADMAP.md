@@ -2,11 +2,11 @@
 
 ## Where we stand
 
-*As of 2026-09-13.* Phases 1–4 and 7 are done: [S21](../sprints/S21/review.md) closed Phase 7 M1 —
-a changelog-driven release pipeline, a daily update check, a titlebar/About update flow the user
-controls, and About showing real release notes. Merge into `dev` is the user's decision. The
-launcher can now be handed to real beta users and kept current. Phase 5 (mods) and Phase 6
-(assets) remain unprioritised; there is no cut sprint yet.
+*As of 2026-09-24.* Phases 1–4 and 7 are done. Phase 8 (Linux support, Steam Play/Proton runner
+selection — stories 100, 101, 103–105) is also done, shipped ad hoc outside a formal sprint; story
+102 (a self-built Linux Q2PRO) stays open as a standing, non-blocking item. Phase 9 (game browser)
+is now prioritized and cut into 7 sprints, S22–S28 — next step is `/sprint S22`. Phase 5 (mods) and
+Phase 6 (assets) remain unprioritised.
 
 ## Phase overview
 
@@ -19,20 +19,30 @@ launcher can now be handed to real beta users and kept current. Phase 5 (mods) a
 | 5 — Mods (game directories) | 0/1 | not started |
 | 6 — Assets (texture/model/sound packs) | 0/1 | not started |
 | 7 — Release & updates (beta rollout) | 1/1 | done |
+| 8 — Platform parity (Linux support, Steam Play/Proton runners) | 1/1 | done |
+| 9 — Game browser (server list, detail, watchlist, observing) | 0/7 | planned |
 
 ## Current phase
 
-No phase is currently in progress. Phase 5 (mods) and Phase 6 (assets) are next, unprioritised.
+Phase 9 (game browser) is cut into 7 sprints, ready to start with S22. Phase 5 (mods) and Phase 6
+(assets) are still unprioritised.
 
 | # | Milestone | Status | Sprint(s) | Note |
 | --- | --- | --- | --- | --- |
 | 7.1 | Release & updates — changelog-driven GitHub releases, daily update check, user-chosen update | done 2026-09-13 | [S21](../sprints/S21/review.md) | Stories 096–099, all done. Two manual-residue items (a real GitHub publish, a real packaged-install restart) — see the review's Acceptance section. |
+| 9.1 | Servers module foundation & protocol core | planned | S22 | Module scaffold, address validator, info/status + master-reply codecs, CLAUDE.md platform-parity rule. Stories 106–109. |
+| 9.2 | Discovery & persistence | planned | S23 | Module `state.json` key, master-source settings, favourites, manual servers, history. Stories 110–113. |
+| 9.3 | Scan engine | planned | S24 | Two-stage streaming scan, scan-budget settings measured against a real master list, no-scan-while-playing, scoped refreshes. Stories 114–117. |
+| 9.4 | Server list UI | planned | S25 | Rows, markers, default sort, filters/search, loading/empty/error states. Stories 118–121. |
+| 9.5 | Server detail view | planned | S26 | Header/players, rule table + `dmflags`, ping history + local mod/map availability. Stories 122–124. |
+| 9.6 | Join, spectate, address book | planned | S27 | `+connect` join with mod-mismatch/password handling, spectate launch, address-book write dialog. Stories 125–127. |
+| 9.7 | Experimental-features gate & watchlist | planned | S28 | Signed unlock codes, installation id, gate enforcement, then the gated watchlist. Stories 128–132. |
 
 ## Open / unprioritised
 
 | Topic | State | Next step |
 | --- | --- | --- |
-| [Game browser — server list, detail, watchlist, observing](concepts/game-browser.md) | Concept drafted 2026-09-22, 16 open points | `/roadmap plan` when prioritized |
+| Story [102](requirements/102-a-linux-q2pro-is-built-and-mirrored.md) — a self-built Linux Q2PRO | Draft; standing obligation cut from 101, blocks nothing | Decide build/provenance approach (its Q1–Q4) when prioritized |
 | Mods — game directories | Not started; `+set game <dir>` already built; needs discovery, install, enable/disable, per-mod config and a `game-lifecycle` guard against mutating files while running | `/roadmap plan` when prioritized |
 | Assets — texture/model/sound packs | Not started; needs conflict detection between packs touching the same files, plus a per-pack change record (`Installation.moduleData` is the slot) | `/roadmap plan` when prioritized |
 | Two config decisions left open across the file-format rounds: the `alias cali "bind ..."` key-block-as-layer question (story 041), and bind grouping by keyboard region vs. category (story 040, decided category for now) | Never blocked anything; only relevant if a future story touches this area | Decide when a config story next needs it |
@@ -99,3 +109,4 @@ No phase is currently in progress. Phase 5 (mods) and Phase 6 (assets) are next,
 | Install — retail import, demo upgrade | S19 | 2026-09-11 |
 | Install — write-guard, engine update/rollback, repair, removal from disk | S20 | 2026-09-12 |
 | Release & updates — changelog-driven releases, daily update check, user-chosen update | S21 | 2026-09-13 |
+| Platform parity — Linux support, Steam Play/Proton runner selection | ad hoc (100, 101, 103–105) | 2026-09-24 |
