@@ -258,3 +258,25 @@ Narrow gate only. The full regression gate (`npm test`, `npm run ui:verify`, `np
 ui:flows`) has not run — run it before commit/merge, or use `/build 110 --full`. (This line is
 carried for completeness; per this session's instructions the full gate is the sprint's
 responsibility and runs once after the last story.)
+
+**Post-hoc regression note (sprint/S23 regression gate):** `npm run ui:flow -- news-feed` was
+reported failing deterministically on this branch and bisected to this story's commit
+(`4f7135a`). Investigation (stack-trace instrumentation on `ManifestService.getManifest()`)
+found the actual caller is `EngineUpdateAction.tsx`'s automatic, un-delayed
+`engineUpdateStatus` fetch on mount (story 092 D7) — nothing this story touches. That fetch
+reaches `engines/manifest.json`/`gamedata/manifest.json` on whatever host the UI harness's
+shared `Q2L_UI_CONTENT_REPO_BASE` env var points at, which `news-feed.mjs`'s own fixture server
+also uses; when the shared `populated` fixture `userData` directory already has an active
+installation (left behind by an earlier flow such as `engine-update.mjs`, which sorts before
+`news-feed` alphabetically in `npm run ui:flows`), the belated request lands after
+`news-feed`'s phase-2 fixture server has been reset, and is misread as an unexpected request.
+Reproduced identically on the merge-base commit (`38181e7`) given the same polluted fixture
+directory, and conversely this story's own commit passes cleanly with a clean fixture directory
+— so the bisect's attribution to `4f7135a` was a false positive from accumulated `.ui-verify`
+fixture state, not a real regression in this story's diff. Fixed anyway, in source, on the
+startup-scheduling side: `EngineUpdateAction.tsx` now holds its first automatic check back by a
+3s startup grace window (mirroring `scheduleStartupCheck()`'s own precedent in
+`src/main/index.ts`), so it can no longer race a short-lived flow's fixture teardown; later
+checks (installation switch, job completion) remain immediate. `npm run ui:flow -- news-feed`
+now passes both from a clean fixture directory and when the pollution scenario above is
+deliberately reproduced.
