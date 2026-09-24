@@ -1,7 +1,7 @@
 ---
 id: 108
 title: the launcher speaks the two server queries
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -29,25 +29,25 @@ reply.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A function builds the `info <protocol>` query datagram and a function builds the
+- [x] **AC1** — A function builds the `info <protocol>` query datagram and a function builds the
       `status` query datagram, both prefixed with the four `FF FF FF FF` connectionless bytes per
       §6.1, and both are pure (no socket, return a `Buffer`/`Uint8Array`).
-- [ ] **AC2** — A well-formed `info` reply (the short infostring shape in §6.1) parses into a typed
+- [x] **AC2** — A well-formed `info` reply (the short infostring shape in §6.1) parses into a typed
       result carrying hostname, map, current clients and maxclients.
-- [ ] **AC3** — A well-formed `status` reply (the `print` + serverinfo line + player lines shape in
+- [x] **AC3** — A well-formed `status` reply (the `print` + serverinfo line + player lines shape in
       §6.1) parses into a typed result carrying the full serverinfo key/value map and a player list,
       each player with score, ping and name only (§6.3).
-- [ ] **AC4** — The serverinfo infostring splitter treats every key as optional: a reply missing
+- [x] **AC4** — The serverinfo infostring splitter treats every key as optional: a reply missing
       `gamename`, `version`, or any other key from the §6.2 table produces a result with that field
       absent, not a thrown error and not a default value presented as if it were reported.
-- [ ] **AC5** — A player line is parsed into score/ping/name with no assumption about name content —
+- [x] **AC5** — A player line is parsed into score/ping/name with no assumption about name content —
       arbitrary bytes and high-bit "green" characters in a name survive the parse without throwing and
       without being interpreted as field separators.
-- [ ] **AC6** — A truncated or malformed reply (cut short mid-line, missing the trailing player
+- [x] **AC6** — A truncated or malformed reply (cut short mid-line, missing the trailing player
       section, or otherwise not matching the expected shape) is surfaced as a distinguishable
       "no data this round" outcome, never coerced into a zero-player or empty-fields result that looks
       like a legitimate reply (§6.4, GB-N6's "never shown as zero players" applied at the parser level).
-- [ ] **AC7** — Every codec in this story is a pure, unit-tested module with no `node:dgram` import
+- [x] **AC7** — Every codec in this story is a pure, unit-tested module with no `node:dgram` import
       and no socket creation in its tests (GB-A6); a test suite exercises AC2–AC6 against fixed byte
       fixtures, not a live server.
 
@@ -229,4 +229,68 @@ its own — so nothing maps to the `e2e` gate and there is no manual residue.
 
 ## Done
 
-<!-- Filled by `/build 108`. -->
+Implemented the two Quake II connectionless query builders and their reply parsers as four pure
+`src/shared/servers/` modules (protocol envelope, infostring splitter, `info`-reply parser,
+`status`-reply parser), each with a table-driven unit suite against hand-built byte fixtures — no
+socket, no `node:dgram`, no live server, per D1–D4 of the Plan.
+
+**Commit message:** `108: speak the info and status server queries`
+
+**Changed/created files:**
+- `src/shared/servers/protocol.ts`, `protocol.test.ts` (new)
+- `src/shared/servers/infostring.ts`, `infostring.test.ts` (new)
+- `src/shared/servers/info-reply.ts`, `info-reply.test.ts` (new)
+- `src/shared/servers/status-reply.ts`, `status-reply.test.ts` (new)
+- `src/shared/servers/reply-fixtures.ts` (new, created by D3, extended by D4)
+- `tsconfig.web.json` (excluded `protocol.test.ts`, mirroring the existing `address.test.ts`
+  entry — the purity-sweep test needs `node:fs`/`node:path`/`node:url` types, typechecked instead
+  under `tsconfig.node.json`)
+- `docs/requirements/108-the-launcher-speaks-the-two-server-queries.md` (this file — status,
+  AC checkboxes, Done)
+
+**Verification — narrow gate:**
+- `npm run build` → green.
+- `npm run typecheck` → green (both `tsconfig.node.json` and `tsconfig.web.json`).
+- `test-story` (`npx vitest run --changed HEAD`) → 4 files, 18 tests passed (the four new suites
+  this story added; `address.test.ts` from story 107 is unchanged and correctly excluded by the
+  changed-files filter). A full sweep of the folder (`npx vitest run src/shared/servers/`) also
+  passed: 5 files, 42 tests, confirming story 107's `address.test.ts` was not disturbed.
+- `e2e-story` — skipped. The story's own Plan/Decisions confirm no user-facing surface exists
+  (pure core module, no IPC, no UI); re-confirmed true at build time.
+- Clean-agent review (default tier, per `Review: → default`): verdict **PASS**, no findings.
+
+**AC → test mapping, as verified:**
+- AC1 → `protocol.test.ts` › "builds both query datagrams with the connectionless prefix" — passed.
+- AC2 → `info-reply.test.ts` › "parses a well-formed info reply into hostname, map, clients and
+  maxclients" — passed.
+- AC3 → `status-reply.test.ts` › "parses a status reply into serverinfo and a player list of
+  score, ping and name" — passed.
+- AC4 → `infostring.test.ts` › "every serverinfo key is optional and nothing is defaulted", plus
+  `info-reply.test.ts` › "a non-numeric maxclients leaves maxClients undefined while the raw
+  string survives" — both passed.
+- AC5 → `status-reply.test.ts` › "a player name survives arbitrary and high-bit bytes
+  byte-identically" — passed.
+- AC6 → `status-reply.test.ts` › "a truncated or malformed reply is a failure, never zero
+  players", plus `protocol.test.ts` › "a broken envelope is rejected with its own reason" —
+  both passed.
+- AC7 → `protocol.test.ts` › "no codec in the servers folder imports node, electron or the IPC
+  layer" (a live `readdirSync` sweep over the folder, so it stays correct as files were added by
+  D2–D4), together with the fixture-driven suites above, none of which creates a socket — passed.
+- No `manual residue`: every criterion is pure core behaviour with an automated test.
+
+**Decisions (Build):**
+- A late-discovered gap in D4's own delegation brief mapped "cut mid-serverinfo" to
+  `malformed-infostring`, but the story's Decisions section and D4's own acceptance text both call
+  for `truncated` there (a serverinfo line ending in a dangling key with no following newline is a
+  truncation signal, distinct from "nothing arrived at all"). Fixed directly in
+  `status-reply.ts` (added a `hasDanglingKey` check ahead of the malformed-infostring check) and in
+  `status-reply.test.ts` (split the one mixed test case into two: a genuine dangling-key fixture
+  now asserts `truncated`, and a fully-empty-first-line fixture asserts `malformed-infostring`).
+  Re-verified with the full `src/shared/servers/` suite (42/42 green) and the clean review, which
+  independently traced both branches against their fixtures and confirmed they land on genuinely
+  different code paths.
+- No other deviations from the Plan/Deliverables.
+
+**Gate note:** Narrow gate only (`npm run build`, `npm run typecheck`,
+`npx vitest run --changed HEAD`). The full regression gate (`npm test`, `npm run ui:verify`,
+`npm run ui:flows`) has not run in this story — it runs once for the whole sprint.

@@ -17,9 +17,13 @@
   // same node-only-capability shape as `shell-home-ownership.test.ts` above, so it is excluded
   // here and typechecks under `tsconfig.node.json` instead (`src/shared/**/*.ts` already covers it
   // there).
+  // Story 108 D1: `protocol.test.ts`'s purity sweep does the same thing over every non-test file
+  // in `src/shared/servers/`, for the same reason - excluded here, typechecks under
+  // `tsconfig.node.json` instead.
   "exclude": [
     "src/renderer/src/components/shell/shell-home-ownership.test.ts",
-    "src/shared/servers/address.test.ts"
+    "src/shared/servers/address.test.ts",
+    "src/shared/servers/protocol.test.ts"
   ],
   "compilerOptions": {
     "composite": true,

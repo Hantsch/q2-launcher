@@ -12,3 +12,11 @@
 - 2026-09-24 09:52 · 107 · D2 zod address schema · done
 - 2026-09-24 09:52 · 107 · D3 i18n rejection keys · started
 - 2026-09-24 09:54 · 107 · D3 i18n rejection keys · done
+- 2026-09-24 10:04 · 108 · D1 the connectionless envelope, latin-1 pair, query builders · started
+- 2026-09-24 10:06 · 108 · D1 the connectionless envelope, latin-1 pair, query builders · done
+- 2026-09-24 10:06 · 108 · D2 the tolerant serverinfo splitter · started
+- 2026-09-24 10:08 · 108 · D2 the tolerant serverinfo splitter · done
+- 2026-09-24 10:08 · 108 · D3 the info reply parser, with shared fixtures · started
+- 2026-09-24 10:09 · 108 · D3 the info reply parser, with shared fixtures · done
+- 2026-09-24 10:09 · 108 · D4 the status reply parser: serverinfo plus player list · started
+- 2026-09-24 10:16 · 108 · D4 the status reply parser: serverinfo plus player list · done
