@@ -241,7 +241,7 @@ function InstallationRow({ installation }: { installation: Installation }) {
         active && 'border-flame-700',
       )}
     >
-      <div className="flex items-start gap-3.5">
+      <div className="flex items-start gap-3.5" data-testid="installation-header">
         <button
           type="button"
           onClick={() => void setActive(installation.id)}
@@ -450,12 +450,14 @@ function InstallationRow({ installation }: { installation: Installation }) {
       )}
 
       {showChecks && (
-        <div className={cn('pt-3', !installation.lastFailure && 'border-t border-line')}>
+        <div
+          className={cn('pt-3', !installation.lastFailure && 'border-t border-line')}
+          data-testid="installation-checks"
+        >
           <ChecksList installation={installation} />
         </div>
       )}
 
-      {/* Story 103 D7: not rendered at all on win32 - see the component's own doc comment. */}
       <RunnerSection installation={installation} />
     </Panel>
   )

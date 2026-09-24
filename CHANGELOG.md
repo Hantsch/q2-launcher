@@ -21,6 +21,11 @@ version section when a release actually ships.
   launch arguments and active game directory don't apply, and the launcher won't hold back its
   own writes into that folder while Steam runs the game.
 
+### Fixed
+- **Linux** — the installation's Runner section is now a compact, wrapping row of chips instead
+  of a stack of full-width buttons, and the Steam caveat only shows up once Steam is actually the
+  chosen runner, not merely because it's in the list.
+
 
 ## 0.3.0 — 2026-09-22
 

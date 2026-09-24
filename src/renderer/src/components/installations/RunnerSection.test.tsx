@@ -293,9 +293,54 @@ describe('RunnerSection', () => {
       'this folder is not a Steam install — Steam can only start games it owns',
     )
 
-    // The caveat paragraph is shown whenever the Steam option is in the list at all, regardless of
-    // availability.
-    expect(screen.getByTestId('installation-runner-steam-caveat')).toBeTruthy()
+    // AC3: the caveat paragraph only shows while Steam is the *selected* runner - an unavailable
+    // (and therefore unselectable) Steam option gets only its short disabled reason above, not the
+    // long caveat paragraph too.
+    expect(screen.queryByTestId('installation-runner-steam-caveat')).toBeNull()
+  })
+
+  it('the Steam caveat shows only while Steam is selected (AC3)', async () => {
+    const steamAvailable = {
+      kind: 'steam',
+      id: 'steam',
+      labelKey: 'runner.kind.steam',
+      available: true,
+    }
+
+    // Steam listed and available, but not the current choice: no caveat yet.
+    invokeMock.mockImplementation((channel: string) => {
+      if (channel === 'installations:listRunners') {
+        return Promise.resolve({ ok: true, value: [...RUNNERS, steamAvailable] })
+      }
+      if (channel === 'launch:plan') {
+        return Promise.resolve({
+          ok: true,
+          value: {
+            executablePath: '/home/user/Games/Q2/r1q2',
+            args: [],
+            workingDirectory: '/home/user/Games/Q2',
+            preview: 'wine /home/user/Games/Q2/r1q2',
+          },
+        })
+      }
+      return Promise.resolve({ ok: true, value: null })
+    })
+
+    const { rerender } = render(
+      createElement(RunnerSection, { installation: makeInstallation({ runner: 'wine' }) }),
+    )
+    await screen.findByTestId('installation-runner-option-steam')
+    expect(screen.queryByTestId('installation-runner-steam-caveat')).toBeNull()
+
+    // Steam becomes the selected runner: the caveat now appears.
+    rerender(
+      createElement(RunnerSection, {
+        installation: makeInstallation({ runner: 'steam' }),
+      }),
+    )
+    await waitFor(() => {
+      expect(screen.getByTestId('installation-runner-steam-caveat')).toBeTruthy()
+    })
   })
 
   it('choosing a client writes steamClient', async () => {
@@ -396,4 +441,70 @@ describe('RunnerSection', () => {
       expect(screen.getByTestId('installation-runner-preview').textContent).toContain('client/4')
     })
   })
+
+  it('AC1: the Proton reason text carries the detected build count', async () => {
+    invokeMock.mockImplementation((channel: string) => {
+      if (channel === 'installations:listRunners') {
+        return Promise.resolve({
+          ok: true,
+          value: [
+            ...RUNNERS,
+            {
+              kind: 'proton',
+              id: 'proton',
+              labelKey: 'runner.kind.proton',
+              available: false,
+              reasonKey: 'runner.unavailable.protonNotDriven',
+              reasonParams: { count: 4 },
+            },
+          ],
+        })
+      }
+      if (channel === 'launch:plan') {
+        return Promise.resolve({
+          ok: true,
+          value: {
+            executablePath: '/home/user/Games/Q2/r1q2',
+            args: [],
+            workingDirectory: '/home/user/Games/Q2',
+            preview: 'wine /home/user/Games/Q2/r1q2',
+          },
+        })
+      }
+      return Promise.resolve({ ok: true, value: null })
+    })
+
+    render(createElement(RunnerSection, { installation: makeInstallation() }))
+
+    const protonOption = await screen.findByTestId('installation-runner-option-proton')
+    expect((protonOption as HTMLButtonElement).disabled).toBe(true)
+
+    const reason = screen.getByTestId('installation-runner-reason-proton')
+    expect(reason.textContent).toContain('4')
+    expect(reason.textContent).toBe(
+      '4 Proton builds are used through umu-run, not launched directly — pick umu-run instead',
+    )
+  })
+
+  it.each([
+    ['linux', linuxAppInfo],
+    ['win32', { ...linuxAppInfo, platform: 'win32' as const }],
+  ])(
+    'AC4: an unavailable runner keeps a visible, describedby-linked reason on %s',
+    async (_label, appInfo) => {
+      useLauncher.setState({ appInfo, installations: [makeInstallation()] })
+      render(createElement(RunnerSection, { installation: makeInstallation() }))
+
+      const wineOption = await screen.findByTestId('installation-runner-option-wine')
+      expect((wineOption as HTMLButtonElement).disabled).toBe(true)
+
+      const reason = screen.getByTestId('installation-runner-reason-wine')
+      expect(reason.textContent).toBeTruthy()
+      // Visible text, not tooltip-only.
+      expect(wineOption.getAttribute('title')).toBeNull()
+      // Linked so a screen reader announces the reason when it focuses the chip.
+      expect(wineOption.getAttribute('aria-describedby')).toBe(reason.id)
+      expect(reason.id).toBeTruthy()
+    },
+  )
 })

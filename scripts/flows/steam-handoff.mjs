@@ -196,7 +196,10 @@ async function addInstallation({ page, step, folderRoot, name }) {
 }
 
 /** Asserts the Steam runner option is disabled with exactly `expectedReasonText` as its visible
- * reason - the platform-parity rule (CLAUDE.md) `RunnerOptionRow` (`RunnerSection.tsx`) implements. */
+ * reason - the platform-parity rule (CLAUDE.md) `RunnerOptionRow` (`RunnerSection.tsx`) implements.
+ * D2 (story 105): also asserts the caveat count is 0 here - an unavailable (unselectable) Steam
+ * option shows only its short disabled reason, never the long caveat paragraph (AC3's "0 on the
+ * not-owner install with only its reason shown"). */
 async function assertSteamDisabled(row, expectedReasonText) {
   const steamOption = row.getByTestId('installation-runner-option-steam')
   await steamOption.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -208,6 +211,12 @@ async function assertSteamDisabled(row, expectedReasonText) {
   const reasonText = await reason.innerText()
   if (reasonText !== expectedReasonText) {
     throw new Error(`unexpected steam reason text: ${JSON.stringify(reasonText)}`)
+  }
+  const caveatCount = await row.getByTestId('installation-runner-steam-caveat').count()
+  if (caveatCount !== 0) {
+    throw new Error(
+      `expected no steam caveat while Steam is disabled/unselected (AC3), found ${caveatCount}`,
+    )
   }
 }
 
@@ -301,18 +310,24 @@ async function runWindowsBranch({ page, step, shot }) {
     name: KNOWN_APP_NAME,
   })
 
-  step('assert Steam is enabled, with the caveat paragraph visible as DOM text')
+  step('assert Steam is enabled, but its caveat is NOT shown yet - it is not the selected runner (D2: the caveat now follows the choice, not merely the option being listed)')
   const steamOption = knownRow.getByTestId('installation-runner-option-steam')
   await steamOption.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if (await steamOption.isDisabled()) {
     throw new Error('expected the steam runner option to be enabled via the harness executable override')
   }
-  const caveat = knownRow.getByTestId('installation-runner-steam-caveat')
-  await caveat.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await shot('windows-steam-enabled-caveat')
+  if ((await knownRow.getByTestId('installation-runner-steam-caveat').count()) !== 0) {
+    throw new Error('expected no steam caveat before Steam is the selected runner (AC3)')
+  }
+  await shot('windows-steam-enabled-no-caveat')
 
   step('select Steam, choose "Ground Zero", and wait for the choice to persist')
   await selectSteamAndGroundZero({ page, row: knownRow, registered: knownInstall })
+
+  step('assert the caveat paragraph is now visible as DOM text, now that Steam is the selected runner (AC3)')
+  const caveat = knownRow.getByTestId('installation-runner-steam-caveat')
+  await caveat.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await shot('windows-steam-enabled-caveat')
 
   step('assert the previewed launch string refreshes live to the Ground Zero URL - no remount needed - Play is NOT pressed on Windows (a real Steam client may be installed on this machine)')
   const expectedUrl = `steam://launch/${KNOWN_APPID}/client/4`
@@ -380,12 +395,21 @@ async function runLinuxBranch({ page, app, step, shot }) {
     name: KNOWN_APP_NAME,
   })
 
-  step('assert Steam is enabled, with the caveat paragraph visible as DOM text')
+  step('assert Steam is enabled, but its caveat is NOT shown yet - it is not the selected runner (D2: the caveat now follows the choice, not merely the option being listed)')
   const steamOption = knownRow.getByTestId('installation-runner-option-steam')
   await steamOption.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if (await steamOption.isDisabled()) {
     throw new Error('expected the steam runner option to be enabled for a folder steam owns with a known appid')
   }
+  if ((await knownRow.getByTestId('installation-runner-steam-caveat').count()) !== 0) {
+    throw new Error('expected no steam caveat before Steam is the selected runner (AC3)')
+  }
+  await shot('steam-enabled-no-caveat')
+
+  step('select Steam, choose "Ground Zero", and wait for the choice to persist')
+  await selectSteamAndGroundZero({ page, row: knownRow, registered: knownInstall })
+
+  step('assert the caveat paragraph is now visible as DOM text, now that Steam is the selected runner (AC3)')
   const caveat = knownRow.getByTestId('installation-runner-steam-caveat')
   await caveat.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const caveatText = await caveat.innerText()
@@ -393,9 +417,6 @@ async function runLinuxBranch({ page, app, step, shot }) {
     throw new Error(`unexpected steam caveat text: ${JSON.stringify(caveatText)}`)
   }
   await shot('steam-enabled-caveat')
-
-  step('select Steam, choose "Ground Zero", and wait for the choice to persist')
-  await selectSteamAndGroundZero({ page, row: knownRow, registered: knownInstall })
 
   step('assert the previewed launch string refreshes live to the Ground Zero URL - no remount needed')
   const expectedUrl = `steam://launch/${KNOWN_APPID}/client/4`

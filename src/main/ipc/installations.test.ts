@@ -106,10 +106,11 @@ describe('installations:listRunners', () => {
         },
         {
           kind: 'proton',
-          id: 'proton-experimental',
+          id: 'proton',
           labelKey: 'runner.kind.proton',
           available: false,
           reasonKey: 'runner.unavailable.protonNotDriven',
+          reasonParams: { count: 1 },
         },
       ],
     })
@@ -136,13 +137,79 @@ describe('installations:listRunners', () => {
         { kind: 'native', id: 'native', labelKey: 'runner.kind.native', available: true },
         {
           kind: 'proton',
-          id: 'proton-8-0',
+          id: 'proton',
           labelKey: 'runner.kind.proton',
           available: false,
           reasonKey: 'runner.unavailable.protonNotDriven',
+          reasonParams: { count: 1 },
         },
       ],
     })
+  })
+
+  it('collapses four Proton builds into one option carrying the count (story 105 D1)', async () => {
+    const protonBuild = (id: string, label: string): unknown => ({
+      kind: 'proton',
+      id,
+      label,
+      path: `C:\\steam\\${label}`,
+      available: true,
+    })
+    detectRunnersMock.mockResolvedValue([
+      { kind: 'native', id: 'native', path: '', available: true },
+      protonBuild('proton-experimental', 'Proton - Experimental'),
+      protonBuild('proton-8-0', 'Proton 8.0'),
+      protonBuild('proton-7-0', 'Proton 7.0'),
+      protonBuild('proton-ge', 'GE-Proton'),
+    ])
+    const fn = await setup([fixtureInstallation('inst-1')])
+
+    const result = await fn(fakeEvent, 'inst-1')
+
+    const value = (result as { ok: true; value: { kind: string }[] }).value
+    const protonOptions = value.filter((option) => option.kind === 'proton')
+    expect(protonOptions).toEqual([
+      {
+        kind: 'proton',
+        id: 'proton',
+        labelKey: 'runner.kind.proton',
+        available: false,
+        reasonKey: 'runner.unavailable.protonNotDriven',
+        reasonParams: { count: 4 },
+      },
+    ])
+  })
+
+  it('omits the proton option entirely when no Proton builds are detected', async () => {
+    detectRunnersMock.mockResolvedValue([{ kind: 'native', id: 'native', path: '', available: true }])
+    const fn = await setup([fixtureInstallation('inst-1')])
+
+    const result = await fn(fakeEvent, 'inst-1')
+
+    const value = (result as { ok: true; value: { kind: string }[] }).value
+    expect(value.some((option) => option.kind === 'proton')).toBe(false)
+  })
+
+  it('gives no two runner options the same reason key', async () => {
+    const NATIVE = { kind: 'native', id: 'native', path: '', available: true }
+    const WINE_MISSING = { kind: 'wine', id: 'wine', path: '', available: false }
+    const UMU_MISSING = { kind: 'umu', id: 'umu', path: '', available: false }
+    const STEAM_MISSING = { kind: 'steam', id: 'steam', path: '', available: false }
+    detectRunnersMock.mockResolvedValue([
+      NATIVE,
+      WINE_MISSING,
+      UMU_MISSING,
+      STEAM_MISSING,
+      { kind: 'proton', id: 'proton-experimental', path: '', available: true },
+      { kind: 'proton', id: 'proton-8-0', path: '', available: true },
+    ])
+    const fn = await setup([fixtureInstallation('inst-1')])
+
+    const result = await fn(fakeEvent, 'inst-1')
+
+    const value = (result as { ok: true; value: { reasonKey?: string }[] }).value
+    const reasonKeys = value.map((option) => option.reasonKey).filter((key): key is string => !!key)
+    expect(new Set(reasonKeys).size).toBe(reasonKeys.length)
   })
 
   it('listRunners gives the steam option its reason per installation', async () => {

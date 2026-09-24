@@ -1,7 +1,7 @@
 ---
 id: 105
 title: the runner choice is short and readable
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-23
 ---
 
@@ -34,17 +34,17 @@ that choice is not in play.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — However many Proton builds are detected, the Runner section shows Proton **once**,
+- [x] **AC1** — However many Proton builds are detected, the Runner section shows Proton **once**,
       disabled, with its reason as visible text and how many builds were found.
-- [ ] **AC2** — No two runner options in the section carry the same disabled-reason text.
-- [ ] **AC3** — The Steam caveat is shown only while Steam is the selected runner; when Steam is
+- [x] **AC2** — No two runner options in the section carry the same disabled-reason text.
+- [x] **AC3** — The Steam caveat is shown only while Steam is the selected runner; when Steam is
       unavailable, only its short disabled reason is shown.
-- [ ] **AC4** — Every unavailable runner stays visible and disabled with its reason as visible
+- [x] **AC4** — Every unavailable runner stays visible and disabled with its reason as visible
       text (not tooltip-only), on Linux and Windows — CLAUDE.md's platform-parity rule.
-- [ ] **AC5** — On the reported setup (native, wine, umu-run available; Steam not owner; four
+- [x] **AC5** — On the reported setup (native, wine, umu-run available; Steam not owner; four
       Proton builds) the Runner section is no taller than the installation card's header and
       checks together.
-- [ ] **AC6** — The selected runner and the resolved command preview behave as before: picking a
+- [x] **AC6** — The selected runner and the resolved command preview behave as before: picking a
       runner persists it and refreshes the preview; keyboard selection and the radio-group
       semantics still work.
 
@@ -155,3 +155,50 @@ Review: → default
   green.
 
 ## Done
+
+**Summary:** Proton now collapses to a single disabled option carrying its build count
+(`installations:listRunners`), the Runner section renders as a wrapping row of compact radio
+chips with per-option reason lines linked via `aria-describedby` instead of full-width rows, and
+the Steam caveat paragraph only shows once Steam is actually selected (not merely listed). A
+UI-harness-only override (`Q2L_UI_DETECTED_RUNNERS`) lets the reported four-Proton-build setup be
+proven identically on Windows and Linux CI, and a new e2e flow plus updated `steam-handoff.mjs`
+prove all six acceptance criteria on the real app.
+
+**Commit message:**
+```
+105: collapse Proton to one option and compact the Runner section into chips
+```
+
+**Verification — narrow gate:**
+- `npm run build` — clean. `npm run typecheck` — clean (confirmed after every deliverable and
+  again at the end).
+- Tests: full `npx vitest run` (touched files span main/renderer broadly enough that the story
+  ran the full suite rather than a narrowed one) — 246 files, 4201 passed, 8 skipped (pre-existing),
+  0 failed.
+- e2e: `npm run ui:flow -- runner-choice-compact` (new flow, Windows leg) — pass, all named AC1/
+  AC2/AC4/AC5/AC6 assertions green; AC6's off-win32 preview-text assertion loudly skipped on this
+  win32 machine as expected (AC8 gate, unrelated to this story). `npm run ui:flow -- steam-handoff`
+  — pass, AC3's caveat-timing assertions updated and green (Windows leg; Linux leg skips here as
+  it always has). `npm run ui:flow -- windows-build-on-linux` — pass, unaffected.
+- AC → test mapping as verified: AC1 unit (`installations.test.ts` "four Proton builds collapse…")
+  + e2e ("Proton is listed once…") both green. AC2 unit ("no two runner options share a reason
+  key") + e2e ("no two disabled reasons read the same") both green. AC3 renderer ("the Steam
+  caveat shows only while Steam is selected") + e2e (`steam-handoff.mjs`, caveat count 0 before
+  selection / visible after) both green. AC4 renderer ("unavailable runners keep a visible reason
+  on win32 and linux") + e2e ("every unavailable runner stays visible…", proven via the harness
+  override with no platform-conditional skip on this assertion) both green. AC5 e2e ("the runner
+  section is no taller than…", run against the "Fixture Failed Install" row since it's the
+  fixture with checks rendered, documented in the flow's own header comment — the harness
+  override is process-wide so every installation gets the same tall runner list; the checks
+  wrapper's presence is asserted before measuring) green. AC6 e2e (keyboard pick + remount
+  persistence + off-win32 preview change) + existing flows staying green + renderer's existing
+  select/preview/keyboard cases all green.
+- No `manual residue` — all six criteria are covered by automated tests.
+- Code review (fresh agent, default tier): **PASS**, no findings. Confirmed no weakened tests,
+  no scope creep beyond one cosmetic reformat in `runners.test.ts`, `/design-tokens` compliance
+  (no hardcoded hex/palette classes, focus handled by the existing global `focus-visible` rule,
+  unchanged from before this story), and CLAUDE.md's platform-parity/IPC-contract-first rules
+  upheld. Also independently verified the D4 implementer's hardcoded `'fixture-install-failed'`
+  literal (used because that id isn't exported from `scripts/lib/fixture.mjs`) matches the real
+  fixture constant — no mismatch.
+- CHANGELOG.md: `### Fixed` entry added under the current/unreleased section (D2).

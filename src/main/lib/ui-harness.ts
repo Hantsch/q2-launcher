@@ -35,7 +35,12 @@
 
 import { readFile, writeFile } from 'node:fs/promises'
 import { delimiter, join } from 'node:path'
+import { z } from 'zod'
+import type { DetectedRunner } from '@shared/types'
 import { userDataDir } from './paths'
+import { scopedLogger } from './logger'
+
+const log = scopedLogger('ui-harness')
 
 /** The one variable that marks a UI-verification launch (`scripts/lib/harness.mjs`'s `childEnv()`). */
 export const UI_HARNESS_ENV = 'Q2L_UI_HARNESS'
@@ -183,6 +188,60 @@ export async function recordHarnessExternalUrl(
   const urls = await readHarnessExternalUrls(filePath)
   urls.push(url)
   await writeFile(filePath, JSON.stringify(urls), 'utf8')
+}
+
+/**
+ * Story 105 D3: the env var the harness names a fixture runner list in - a JSON `DetectedRunner[]`
+ * (`src/shared/types/runner.ts`) - overriding what `detectRunners()`
+ * (`src/main/services/runners.ts`) would otherwise detect for real. It exists so an e2e flow can
+ * exercise the runner-choice UI (D2) against a known, deterministic list - Wine/umu-run/Proton/Steam
+ * detection depends on what happens to be installed on the machine running the harness, which a CI
+ * runner cannot control the way it controls this variable.
+ */
+export const UI_HARNESS_DETECTED_RUNNERS_ENV = 'Q2L_UI_DETECTED_RUNNERS'
+
+/** Validates the JSON payload of `UI_HARNESS_DETECTED_RUNNERS_ENV` - the exact shape of `DetectedRunner`. */
+const detectedRunnerSchema = z.object({
+  kind: z.enum(['native', 'wine', 'umu', 'proton', 'steam']),
+  id: z.string(),
+  label: z.string().optional(),
+  path: z.string(),
+  available: z.boolean(),
+})
+
+const detectedRunnersSchema = z.array(detectedRunnerSchema)
+
+/**
+ * The fixture runner list a harness-launched run uses instead of real detection: `undefined` when
+ * the gate is closed, the variable is unset/empty, or its contents are not a valid
+ * `DetectedRunner[]` - in the last case a warning is logged so a malformed fixture fails loudly in
+ * the harness's own logs rather than silently falling back to whatever the test machine happens to
+ * have installed. Like `uiHarnessSteamExecutable`, the caller (`detectRunners()`) returns this list
+ * verbatim; nothing here re-derives `toRunnerOption`/collapse/IPC output from it.
+ */
+export function uiHarnessDetectedRunners(input: UiHarnessGateInput): DetectedRunner[] | undefined {
+  if (!isUiHarnessEnabled(input)) return undefined
+  const env = input.env ?? process.env
+  const raw = env[UI_HARNESS_DETECTED_RUNNERS_ENV]
+  if (raw === undefined || raw.length === 0) return undefined
+
+  let parsedJson: unknown
+  try {
+    parsedJson = JSON.parse(raw)
+  } catch (error) {
+    log.warn(`${UI_HARNESS_DETECTED_RUNNERS_ENV} is not valid JSON, ignoring`, error)
+    return undefined
+  }
+
+  const result = detectedRunnersSchema.safeParse(parsedJson)
+  if (!result.success) {
+    log.warn(
+      `${UI_HARNESS_DETECTED_RUNNERS_ENV} does not match DetectedRunner[], ignoring`,
+      result.error,
+    )
+    return undefined
+  }
+  return result.data
 }
 
 /** Anything missing, unreadable or not a JSON array reads back as "nothing recorded yet". */

@@ -96,25 +96,53 @@ export function RunnerSection({ installation }: { installation: Installation }) 
       {!runnersResult && <p className="text-xs text-ink-muted">{t('common.loading')}</p>}
 
       {runners.length > 0 && (
-        <div role="radiogroup" aria-label={t('runner.heading')} className="space-y-1.5">
-          {runners.map((option) => (
-            <RunnerOptionRow
-              key={`${option.kind}-${option.id}`}
-              option={option}
-              selected={effectiveRunner === option.id}
-              onSelect={() =>
-                void updateInstallation({ id: installation.id, runner: option.id })
-              }
-            />
-          ))}
-        </div>
+        <>
+          {/* Story 105 D2: one wrapping row of inline chips, not full-width stacked buttons - the
+              reasons for any unavailable options live below the row (not per-chip), each linked
+              back to its chip via `aria-describedby` so a screen reader still announces it. */}
+          <div role="radiogroup" aria-label={t('runner.heading')} className="flex flex-wrap gap-1.5">
+            {runners.map((option) => (
+              <RunnerChip
+                key={`${option.kind}-${option.id}`}
+                option={option}
+                selected={effectiveRunner === option.id}
+                reasonId={`installation-runner-reason-${installation.id}-${option.kind}`}
+                onSelect={() =>
+                  void updateInstallation({ id: installation.id, runner: option.id })
+                }
+              />
+            ))}
+          </div>
+
+          {runners.some((option) => !option.available && option.reasonKey) && (
+            <div className="space-y-0.5">
+              {runners
+                .filter((option) => !option.available && option.reasonKey)
+                .map((option) => (
+                  // Platform-parity rule (CLAUDE.md): the reason is visible text, not only a
+                  // `title` tooltip - a screen reader and a glance both miss that. AC1: Proton's
+                  // reason text carries the detected build count via `reasonParams.count` -
+                  // `t()` resolves the i18next plural key from it.
+                  <p
+                    key={option.kind}
+                    id={`installation-runner-reason-${installation.id}-${option.kind}`}
+                    className="pl-0.5 text-[11px] leading-relaxed text-ink-muted"
+                    data-testid={`installation-runner-reason-${option.kind}`}
+                  >
+                    {t(option.reasonKey as string, option.reasonParams ?? {})}
+                  </p>
+                ))}
+            </div>
+          )}
+        </>
       )}
 
-      {/* Story 104 D5: Steam is not a real runner in the way native/wine/umu are - it hands the
-          launch off to another process entirely, so it always carries this caveat, whether the
-          option itself is available or not (it is shown once Steam appears in the list at all,
-          the same way its disabled reason is shown regardless of availability). */}
-      {steamOption && (
+      {/* Story 104 D5, revised by 105 D2 AC3: Steam is not a real runner in the way native/wine/umu
+          are - it hands the launch off to another process entirely - but the caveat now follows
+          the *choice*, not just the option's presence in the list: it is shown only while Steam is
+          the selected runner, not for every visitor who merely sees Steam listed (and unavailable,
+          Steam already gets its own short disabled reason from the block above). */}
+      {steamOption && steamSelected && (
         <p
           className="pl-2.5 text-[11px] leading-relaxed text-ink-muted"
           data-testid="installation-runner-steam-caveat"
@@ -173,47 +201,38 @@ export function RunnerSection({ installation }: { installation: Installation }) 
   )
 }
 
-function RunnerOptionRow({
+function RunnerChip({
   option,
   selected,
+  reasonId,
   onSelect,
 }: {
   option: RunnerOption
   selected: boolean
+  reasonId: string
   onSelect: () => void
 }) {
   const { t } = useTranslation()
 
   return (
-    <div className="space-y-0.5">
-      <button
-        type="button"
-        role="radio"
-        aria-checked={selected}
-        disabled={!option.available}
-        data-testid={`installation-runner-option-${option.kind}`}
-        onClick={onSelect}
-        className={cn(
-          'flex w-full items-center gap-2 rounded-sm border px-2.5 py-1.5 text-left text-xs',
-          'transition-colors duration-[--dur-fast]',
-          'disabled:pointer-events-none disabled:opacity-60',
-          selected
-            ? 'border-flame-600 bg-flame-900/30 text-flame-200'
-            : 'border-line-strong bg-raised text-ink-dim hover:border-line-strong hover:text-ink',
-        )}
-      >
-        {t(option.labelKey)}
-      </button>
-      {/* Platform-parity rule (CLAUDE.md): the reason is visible text next to the disabled
-          control, not only a `title` tooltip - a screen reader and a glance both miss that. */}
-      {!option.available && option.reasonKey && (
-        <p
-          className="pl-2.5 text-[11px] leading-relaxed text-ink-muted"
-          data-testid={`installation-runner-reason-${option.kind}`}
-        >
-          {t(option.reasonKey)}
-        </p>
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      disabled={!option.available}
+      aria-describedby={!option.available && option.reasonKey ? reasonId : undefined}
+      data-testid={`installation-runner-option-${option.kind}`}
+      onClick={onSelect}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs',
+        'transition-colors duration-[--dur-fast]',
+        'disabled:pointer-events-none disabled:opacity-60',
+        selected
+          ? 'border-flame-600 bg-flame-900/30 text-flame-200'
+          : 'border-line-strong bg-raised text-ink-dim hover:border-line-strong hover:text-ink',
       )}
-    </div>
+    >
+      {t(option.labelKey)}
+    </button>
   )
 }

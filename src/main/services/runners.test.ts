@@ -35,7 +35,11 @@ vi.mock('./detection/providers', async (importOriginal) => {
   }
 })
 
-const HARNESS_ENV_VARS = ['Q2L_UI_HARNESS', 'Q2L_UI_STEAM_EXECUTABLE'] as const
+const HARNESS_ENV_VARS = [
+  'Q2L_UI_HARNESS',
+  'Q2L_UI_STEAM_EXECUTABLE',
+  'Q2L_UI_DETECTED_RUNNERS',
+] as const
 
 let dir: string
 let originalPath: string | undefined
@@ -101,9 +105,9 @@ describe('resolveRunner', () => {
     expect(resolveRunner({ executableKind: 'pe' }, detected)).toEqual(WINE)
     expect(resolveRunner({ executableKind: 'pe', runner: 'umu' }, detected)).toEqual(UMU)
     // A choice that is not installed right now falls back to the cascade rather than refusing...
-    expect(resolveRunner({ executableKind: 'pe', runner: 'proton-experimental' }, detected)).toEqual(
-      WINE,
-    )
+    expect(
+      resolveRunner({ executableKind: 'pe', runner: 'proton-experimental' }, detected),
+    ).toEqual(WINE)
     // ...and so does "native", which is precisely what cannot run a PE.
     expect(resolveRunner({ executableKind: 'pe', runner: 'native' }, detected)).toEqual(WINE)
     // Nothing installed that can run it: the refusal `plan()` turns into `launch.error.noRunner`.
@@ -206,11 +210,47 @@ describe('steam is detected on PATH off windows and under the steam root on win3
   })
 })
 
+describe('detectRunners() early-return on override', () => {
+  it('Q2L_UI_DETECTED_RUNNERS returns the fixture list verbatim, without running real detection', async () => {
+    restorePlatform = stubPlatform('win32')
+    // Deliberately hostile: if real detection still ran, this would produce a real "steam not
+    // found" entry instead of the fixture list below.
+    steamRootBox.current = null
+
+    const fixture: DetectedRunner[] = [
+      { kind: 'native', id: 'native', path: '', available: true },
+      { kind: 'wine', id: 'wine', path: '/fixture/wine', available: true },
+    ]
+    process.env['Q2L_UI_HARNESS'] = '1'
+    process.env['Q2L_UI_DETECTED_RUNNERS'] = JSON.stringify(fixture)
+
+    expect(await detectRunners()).toEqual(fixture)
+  })
+
+  it('gate closed: real detection runs, unaffected by the variable being set', async () => {
+    restorePlatform = stubPlatform('win32')
+    steamRootBox.current = null
+    process.env['Q2L_UI_DETECTED_RUNNERS'] = JSON.stringify([
+      { kind: 'native', id: 'native', path: '', available: true },
+    ])
+
+    expect(await detectRunners()).toEqual([
+      { kind: 'native', id: 'native', path: '', available: true },
+      { kind: 'steam', id: 'steam', path: '', available: false },
+    ])
+  })
+})
+
 describe('a stored steam choice wins only when available; win32 still defaults to native', () => {
   const NATIVE: DetectedRunner = { kind: 'native', id: 'native', path: '', available: true }
   const WINE: DetectedRunner = { kind: 'wine', id: 'wine', path: '/usr/bin/wine', available: true }
   const UMU: DetectedRunner = { kind: 'umu', id: 'umu', path: '/usr/bin/umu-run', available: true }
-  const STEAM: DetectedRunner = { kind: 'steam', id: 'steam', path: '/usr/bin/steam', available: true }
+  const STEAM: DetectedRunner = {
+    kind: 'steam',
+    id: 'steam',
+    path: '/usr/bin/steam',
+    available: true,
+  }
   const STEAM_MISSING: DetectedRunner = { kind: 'steam', id: 'steam', path: '', available: false }
 
   it('on win32', async () => {
@@ -228,15 +268,15 @@ describe('a stored steam choice wins only when available; win32 still defaults t
     expect(resolveRunner({ executableKind: 'pe', steamAppId: '2320' }, detected)).toEqual(NATIVE)
     expect(resolveRunner({ runner: 'native', steamAppId: '2320' }, detected)).toEqual(NATIVE)
     // A stored 'steam' choice Steam can serve wins.
-    expect(resolveRunner({ runner: 'steam', executableKind: 'pe', steamAppId: '2320' }, detected)).toEqual(
-      steam,
-    )
+    expect(
+      resolveRunner({ runner: 'steam', executableKind: 'pe', steamAppId: '2320' }, detected),
+    ).toEqual(steam)
     // A stored 'steam' choice Steam cannot serve falls through to native - for each reason.
     expect(resolveRunner({ runner: 'steam', executableKind: 'pe' }, detected)).toEqual(NATIVE)
     expect(resolveRunner({ runner: 'steam', steamAppId: '9999' }, detected)).toEqual(NATIVE)
-    expect(
-      resolveRunner({ runner: 'steam', steamAppId: '2320' }, [NATIVE, STEAM_MISSING]),
-    ).toEqual(NATIVE)
+    expect(resolveRunner({ runner: 'steam', steamAppId: '2320' }, [NATIVE, STEAM_MISSING])).toEqual(
+      NATIVE,
+    )
   })
 
   it('off windows', () => {
@@ -247,12 +287,12 @@ describe('a stored steam choice wins only when available; win32 still defaults t
     expect(resolveRunner({ executableKind: 'pe', steamAppId: '2320' }, detected)).toEqual(WINE)
     expect(resolveRunner({ executableKind: 'elf', steamAppId: '2320' }, detected)).toEqual(NATIVE)
     // A usable stored 'steam' choice wins, whatever the executable's kind.
-    expect(resolveRunner({ runner: 'steam', executableKind: 'pe', steamAppId: '2320' }, detected)).toEqual(
-      STEAM,
-    )
-    expect(resolveRunner({ runner: 'steam', executableKind: 'elf', steamAppId: '2320' }, detected)).toEqual(
-      STEAM,
-    )
+    expect(
+      resolveRunner({ runner: 'steam', executableKind: 'pe', steamAppId: '2320' }, detected),
+    ).toEqual(STEAM)
+    expect(
+      resolveRunner({ runner: 'steam', executableKind: 'elf', steamAppId: '2320' }, detected),
+    ).toEqual(STEAM)
     // An unusable one falls through to the cascade exactly as an uninstalled wrapper would.
     expect(resolveRunner({ runner: 'steam', executableKind: 'pe' }, detected)).toEqual(WINE)
     expect(resolveRunner({ runner: 'steam', executableKind: 'elf' }, detected)).toEqual(NATIVE)

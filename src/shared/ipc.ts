@@ -57,6 +57,11 @@ export interface RunnerOption {
   available: boolean
   /** i18n key explaining why this runner is unavailable. Only set when `available` is false. */
   reasonKey?: string
+  /**
+   * Interpolation params for `reasonKey`, same shape as `Outcome` error `params` (`LocalizedMessage`).
+   * Story 105 D1: carries `{ count }` for the collapsed `proton` option's plural reason key.
+   */
+  reasonParams?: Record<string, string | number>
 }
 
 /**

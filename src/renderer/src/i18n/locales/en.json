@@ -294,7 +294,8 @@
       "wine": "wine not found — install wine to run Windows builds",
       "umu": "umu-run not found — install umu-launcher to run Windows builds",
       "proton": "not found in any Steam library",
-      "protonNotDriven": "Proton builds are used through umu-run, not launched directly — pick umu-run instead",
+      "protonNotDriven_one": "{{count}} Proton build is used through umu-run, not launched directly — pick umu-run instead",
+      "protonNotDriven_other": "{{count}} Proton builds are used through umu-run, not launched directly — pick umu-run instead",
       "steam": "Steam not found — install Steam to hand this game off to it",
       "steamNotOwner": "this folder is not a Steam install — Steam can only start games it owns",
       "steamUnknownApp": "this Steam game has no known launch options"
