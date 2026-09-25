@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Lock } from 'lucide-react'
 import type { ServerDetail } from '@shared/modules/servers'
 import { deriveEngine, deriveProtocol } from '@shared/servers/server-engine'
+import { Button } from '../../components/ui/Button'
 import { Badge, KeyValue } from '../../components/ui/primitives'
+import { AddToAddressBookDialog } from './AddToAddressBookDialog'
 import { JoinServerButton } from './join/JoinServerButton'
 import { displayName, formatOccupancy, formatPing, orDash } from './server-format'
 
@@ -22,10 +25,16 @@ export interface ServerDetailHeaderProps {
  *
  * Story 126 D3: a second `JoinServerButton` in `mode="spectate"`, wrapped under
  * `servers-detail-spectate`, sits next to it - same flow, same reasoning.
+ *
+ * Story 127 D2: a third action, wrapped under `servers-detail-address-book-open`, opens
+ * `AddToAddressBookDialog` for this server's address. Its open flag is local state, same as every
+ * dialog on this pane - `ServerDetailView`/`ServerDetailSection` lift nothing for Join/Spectate
+ * either, so there is no existing lift pattern to follow here.
  */
 export function ServerDetailHeader({ detail }: ServerDetailHeaderProps) {
   const { t } = useTranslation()
   const { row, serverinfo } = detail
+  const [addressBookOpen, setAddressBookOpen] = useState(false)
 
   const protocol = deriveProtocol(serverinfo)
   const engine = deriveEngine(protocol)
@@ -47,8 +56,18 @@ export function ServerDetailHeader({ detail }: ServerDetailHeaderProps) {
           <div data-testid="servers-detail-spectate">
             <JoinServerButton row={row} mode="spectate" />
           </div>
+          <div data-testid="servers-detail-address-book-open">
+            <Button variant="neutral" onClick={() => setAddressBookOpen(true)}>
+              {t('servers.addressBook.action')}
+            </Button>
+          </div>
         </div>
       </div>
+      <AddToAddressBookDialog
+        open={addressBookOpen}
+        address={row.address}
+        onClose={() => setAddressBookOpen(false)}
+      />
 
       <div className="space-y-1.5">
         <KeyValue label={t('servers.detail.field.address')}>

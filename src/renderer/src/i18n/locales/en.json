@@ -915,6 +915,21 @@
       "passwordTitle": "Spectator password",
       "passwordLabel": "Spectator password",
       "passwordSubmit": "Spectate"
+    },
+    "addressBook": {
+      "action": "Add to address book",
+      "title": "Add to address book",
+      "description": "Write this server's address into a config profile's address book.",
+      "profileLabel": "Profile",
+      "slotLabel": "Slot",
+      "slotEmpty": "Empty",
+      "replaces": "Replaces {{value}}",
+      "confirm": "Add",
+      "cancel": "Cancel",
+      "noProfiles": "Create a config profile first — there is nowhere to write this address to yet.",
+      "loading": "Loading this profile's address book…",
+      "written": "Added to \"{{profile}}\"'s address book as {{slot}}.",
+      "noSelection": "Select a server to add it to the address book."
     }
   },
 

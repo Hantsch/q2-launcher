@@ -121,3 +121,13 @@
 - 2026-09-25 20:25 · 126 · review 1 · started
 - 2026-09-25 20:27 · 126 · review 1 · done
 - 2026-09-25 20:28 · 126 · story · done
+- 2026-09-25 20:29:02 · 127 · build · started
+- 2026-09-25 20:30 · 127 · D1 address-book logic and dialog · started
+- 2026-09-25 20:34 · 127 · D1 address-book logic and dialog · done
+- 2026-09-25 20:34 · 127 · D2 triggers and e2e · started
+- 2026-09-25 20:38 · 127 · D2 triggers and e2e · done
+- 2026-09-25 20:38 · 127 · verify · started
+- 2026-09-25 20:41 · 127 · verify · done
+- 2026-09-25 20:41 · 127 · review 1 · started
+- 2026-09-25 20:44 · 127 · review 1 · done
+- 2026-09-25 20:45 · 127 · story · done

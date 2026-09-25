@@ -278,6 +278,26 @@ describe('ServersView - scoped refresh controls (story 117 D5)', () => {
     const hint = screen.getByTestId('servers-refresh-selected-hint')
     expect(hint.textContent).toBe('Select a server to refresh it.')
   })
+
+  it('the address-book action is disabled with a visible reason until a row is selected', async () => {
+    await renderView(
+      snapshot({
+        entries: [
+          { address: '1.2.3.4:27910', origins: ['manual'], status: 'online', lastSeenAt: 'x' },
+        ],
+      }),
+    )
+
+    const button = screen.getByTestId('servers-address-book-open') as HTMLButtonElement
+    expect(button.disabled).toBe(true)
+    expect(screen.getByTestId('servers-address-book-open-hint')).toBeTruthy()
+
+    const row = await screen.findByTestId('servers-row-1.2.3.4:27910')
+    fireEvent.click(row)
+
+    expect(button.disabled).toBe(false)
+    expect(screen.queryByTestId('servers-address-book-open-hint')).toBeNull()
+  })
 })
 
 describe('ServersView - list sort (story 119 D3)', () => {

@@ -28,6 +28,7 @@ import {
   setScanViewActive,
   startScan,
 } from './client'
+import { AddToAddressBookDialog } from './AddToAddressBookDialog'
 import { deriveListState } from './list-state'
 import { JoinServerButton } from './join/JoinServerButton'
 import { ServerDetailView } from './ServerDetailView'
@@ -130,6 +131,9 @@ export function ServersView() {
   const [filter, setFilter] = useState<ServerListFilter>(EMPTY_SERVER_LIST_FILTER)
   // Story 121 D1: source id -> its human-readable address, for naming a `sourceFailures` entry.
   const [sourceLabels, setSourceLabels] = useState<Record<string, string>>({})
+  // Story 127 D2: the "Add to address book" dialog's open flag, purely local like every other
+  // dialog this view owns (mirrors `SetInstallationIconDialog`'s callers) - no state is lifted.
+  const [addressBookOpen, setAddressBookOpen] = useState(false)
   // Tracks the last-seen `finishedAt` so a `scan.changed` push is only treated as "a round just
   // finished" (and triggers the one extra `readScan()` below) once, not on every progress-only
   // push during stage1/stage2 - a ref because it must not itself trigger a re-render.
@@ -327,6 +331,11 @@ export function ServersView() {
               {t('module.servers.view.selectServerFirst')}
             </p>
           )}
+          {selectedAddress === null && (
+            <p className="text-xs text-ink-muted" data-testid="servers-address-book-open-hint">
+              {t('servers.addressBook.noSelection')}
+            </p>
+          )}
 
           <div className="flex flex-wrap items-center gap-3">
             <Button
@@ -352,6 +361,14 @@ export function ServersView() {
               data-testid="servers-refresh-selected"
             >
               {t('module.servers.view.refreshSelected')}
+            </Button>
+            <Button
+              variant="neutral"
+              onClick={() => setAddressBookOpen(true)}
+              disabled={selectedAddress === null}
+              data-testid="servers-address-book-open"
+            >
+              {t('servers.addressBook.action')}
             </Button>
             {selectedRow && (
               <>
@@ -445,6 +462,11 @@ export function ServersView() {
           <ServerDetailView address={selectedAddress} onClose={() => setSelectedAddress(null)} />
         </div>
       )}
+      <AddToAddressBookDialog
+        open={addressBookOpen}
+        address={selectedRow?.address ?? selectedAddress ?? ''}
+        onClose={() => setAddressBookOpen(false)}
+      />
     </div>
   )
 }

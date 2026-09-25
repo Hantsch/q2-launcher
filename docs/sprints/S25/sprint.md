@@ -28,7 +28,7 @@ invisible until a code names `watchlist`.
 - [x] 124 — how this server has answered
 - [x] 125 — i join a server from the browser
 - [x] 126 — i spectate without picking a side
-- [ ] 127 — a server goes into my address book
+- [x] 127 — a server goes into my address book
 - [ ] 128 — An unlock code proves what it unlocks
 - [ ] 130 — A locked feature does not exist
 - [ ] 129 — I ask for a code and see what it unlocked

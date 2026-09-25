@@ -1,7 +1,7 @@
 ---
 id: 127
 title: a server goes into my address book
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -34,19 +34,19 @@ game-browser-owned notion of "this profile changed."
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The "Add to address book" action (available from the list ([[118]]) and the detail
+- [x] **AC1** — The "Add to address book" action (available from the list ([[118]]) and the detail
       view ([[122]]), per concept §9 item 7) opens a dialog listing every config profile, with the
       active profile preselected.
-- [ ] **AC2** — The dialog shows the current value of all nine `adr0`–`adr8` slots for the selected
+- [x] **AC2** — The dialog shows the current value of all nine `adr0`–`adr8` slots for the selected
       profile before any write happens, so an empty vs. occupied slot is visibly distinguishable.
-- [ ] **AC3** — Confirming a chosen slot writes the server's address into that profile's `adr<N>`
+- [x] **AC3** — Confirming a chosen slot writes the server's address into that profile's `adr<N>`
       cvar through the config module's existing `setCvars` write path (`CONFIG_HANDLERS.setCvars` /
       `module:invoke` under the `config` module's `module:config` namespace) — the game browser
       contract has no cvar-write handler of its own for this.
-- [ ] **AC4** — After the write, the profile shows exactly the same dirty/unsaved-changes state the
+- [x] **AC4** — After the write, the profile shows exactly the same dirty/unsaved-changes state the
       config module already shows for a manual cvar edit made in the Settings tab — no separate
       "written by the game browser" state exists.
-- [ ] **AC5** — Switching the selected profile in the dialog re-reads and re-displays that profile's
+- [x] **AC5** — Switching the selected profile in the dialog re-reads and re-displays that profile's
       own nine slot values before a write is confirmed, rather than showing stale values from a
       previously selected profile.
 
@@ -250,4 +250,45 @@ its action placement).
 
 ## Done
 
-<!-- Filled by `/build 127`. -->
+An "Add to address book" action sits next to the list's selected-row toolbar
+(`servers-address-book-open`, disabled with visible text until a row is selected) and in the
+detail header (`servers-detail-address-book-open`), next to Join/Spectate. It opens
+`AddToAddressBookDialog`: a profile picker (active installation's default profile preselected),
+nine `adr0`–`adr8` slot radios (empty/occupied told apart by text), address validation via 107's
+`parseServerAddress`, and a Confirm that re-reads `listConfigProfiles()` fresh and writes the whole
+`cvars` map (`{ ...fresh.cvars, adrN: address }`, no `cvarSections`) through the config module's
+existing `updateProfileCvars`/`setCvars` path — no new IPC, no servers-module handler. Switching
+the dialog's profile re-reads and re-renders that profile's own slots, clearing stale values first.
+
+**Commit message:**
+```
+127: a server goes into my address book
+```
+
+**Verification (narrow gate):**
+- `npm run build`, `npm run typecheck` — green.
+- `npx vitest run --changed HEAD` — 78 files / 609 tests, all passed (one unrelated flaky timeout
+  in `ServersSettingsSection.test.tsx` on the first run, clean on re-run — confirmed flaky, not a
+  regression).
+- `npm run ui:flow -- servers-address-book` — green: dialog opens from list and detail with Plain
+  Profile preselected and all nine slots empty, writing slot 0 shows immediately from the detail
+  trigger, Layered Profile stays untouched, and Plain Profile's Unsaved tab lists `adr0`.
+- AC → test mapping, all verified passing: AC1 → e2e `servers-address-book` +
+  `AddToAddressBookDialog.test.tsx` "lists every profile with the active one preselected". AC2 →
+  same e2e + "shows all nine slots with empty and occupied told apart in text". AC3 →
+  `AddToAddressBookDialog.test.tsx` "confirm writes the full cvars map through config setCvars
+  only" + `lib/address-book.test.ts` "the written cvars keep every other cvar and do not mutate
+  the input". AC4 → same e2e (`config-unsaved-indicator` + Unsaved tab lists `adr0`). AC5 → same
+  e2e (Layered Profile's own empty `adr0`) + "switching profile re-reads and shows that profile's
+  own slots". `ServersView.test.tsx` "the address-book action is disabled with a visible reason
+  until a row is selected" also passed (D2's own acceptance). No `manual residue`.
+- Review: default (Sonnet, stage 1 only per Model Hints) — PASS. Two low-severity findings: (1)
+  `servers.addressBook.noSelection` copy was written for the dialog's internal "no slot chosen"
+  case but wired as the list toolbar's pre-dialog "no row selected" hint — fixed, re-worded to
+  match `servers-refresh-selected-hint`'s "select a server" pattern, JSON validity and the
+  `src/renderer/src/modules/servers` suite (112/112) re-confirmed green after the fix. (2) if the
+  chosen profile is deleted elsewhere between opening the dialog and Confirm, the error falls back
+  to the zero-profiles copy instead of a dedicated message — left as a documented, non-blocking
+  edge case (untested, not in the Acceptance Tests list, very low likelihood).
+
+tiers: D 2 / hard 0 · review default · cycles 1 · agents 5

@@ -12,6 +12,9 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 ### Added
+- **Servers** — an "Add to address book" button next to Join/Spectate writes a server's address
+  into one of Quake II's own nine `adr0`–`adr8` slots, in a config profile you pick, with every
+  slot's current value shown before you overwrite anything.
 - **Servers** — a Spectate button sits next to Join in the list and the detail pane, for when you
   just want to watch: same address check and mod-mismatch warning, but it asks for a spectator
   password instead of a join one when the server wants it, and that password never shows up
