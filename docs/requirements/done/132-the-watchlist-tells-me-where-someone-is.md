@@ -1,7 +1,7 @@
 ---
 id: 132
 title: the watchlist tells me where someone is
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -33,24 +33,24 @@ separate unlock logic; it consumes [[130]]'s decision like any other gated featu
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — With `watchlist` unlocked via [[129]], a watchlist tab or surface exists inside the
+- [x] **AC1** — With `watchlist` unlocked via [[129]], a watchlist tab or surface exists inside the
       `servers` module.
-- [ ] **AC2** — Each row shows the entry's name and either `offline` or the matched server(s) with
+- [x] **AC2** — Each row shows the entry's name and either `offline` or the matched server(s) with
       score and ping, per [[131]].
-- [ ] **AC3** — Each row offers Join, Spectate, open-detail, edit and remove actions, each of which
+- [x] **AC3** — Each row offers Join, Spectate, open-detail, edit and remove actions, each of which
       reuses the corresponding existing flow ([[125]], [[126]], [[122]]) rather than a separate
       implementation.
-- [ ] **AC4** — Nothing in a watchlist row or its detail link ever claims a player is, or is not,
+- [x] **AC4** — Nothing in a watchlist row or its detail link ever claims a player is, or is not,
       spectating.
-- [ ] **AC5** — Each row states when its shown data is from (e.g. relative to the last scan that
+- [x] **AC5** — Each row states when its shown data is from (e.g. relative to the last scan that
       touched that server).
-- [ ] **AC6** — With no valid `watchlist` code present, none of this — tab, rows, menu entries —
+- [x] **AC6** — With no valid `watchlist` code present, none of this — tab, rows, menu entries —
       renders anywhere in the app, per [[130]].
-- [ ] **AC7** — A found entry's row offers a "re-check" action. It triggers [[131]]'s single
+- [x] **AC7** — A found entry's row offers a "re-check" action. It triggers [[131]]'s single
       `status` query to the last-seen server and shows the result: still there with updated score
       and ping, or [[131]] AC9's "left that server — run a full scan in the server browser".
-- [ ] **AC8** — The watchlist tab carries [[129]]'s visible "experimental" marking.
-- [ ] **AC9** — The surface lets the user add an entry (name + match mode). A refused pattern shows
+- [x] **AC8** — The watchlist tab carries [[129]]'s visible "experimental" marking.
+- [x] **AC9** — The surface lets the user add an entry (name + match mode). A refused pattern shows
       [[131]] AC7's reason at the input, and an entry [[131]] AC8 marked "too slow" shows that on
       its row.
 
@@ -278,4 +278,69 @@ Coverage gate: AC1 → D3+D4 · AC2 → D2+D4 · AC3 → D2+D3+D4 · AC4 → D2+
 
 ## Done
 
-<!-- Filled by `/build 132`. -->
+Built the watchlist's renderer surface: a typed client + `useWatchlist()` hook over 131's five
+handlers (`src/renderer/src/modules/servers/client.ts`, `watchlist/useWatchlist.ts`), a
+`WatchlistPanel`/`WatchlistAddForm`/`WatchlistRow` UI (`watchlist/`) with add/edit/remove/re-check
+per entry and the four "when" strings from D-J, and a gated second tab in `ServersView`
+(`ServersTabStrip.tsx`) that renders only when `watchlist` is unlocked and wires 125's/126's
+`JoinServerButton` and 122's `selectedAddress` for open-detail. New e2e flow
+`scripts/flows/servers-watchlist.mjs` proves the whole lock → redeem → restart → unlock → use path
+over fake UDP servers. One review-fix removed a duplicate `experimental-badge` render (the panel
+body's own `FeatureGate` wrapper doubled the tab button's).
+
+**Commit message:** `132: the watchlist tells me where someone is`
+
+**Decisions:**
+- The watchlist panel body's gate (`ServersView.tsx`) was changed from wrapping in
+  `<FeatureGate feature="watchlist">` to a plain `useFeatureUnlocked('watchlist')` boolean check,
+  found and fixed during review: two independent `<FeatureGate>` wrappers (tab button + panel body)
+  each render their own `ExperimentalBadge`, so the tab showed two badges at once. The tab button
+  keeps its `<FeatureGate>` (that badge is the one AC8 means); the panel body now hides/shows via
+  the boolean with no second badge, same lock-out guarantee.
+- `useWatchlist()`'s `add`/`update`/`remove` return the client's `Outcome`-wrapped
+  `{ ok: true; snapshot } | { ok: false; reasonKey }` union unchanged to callers (no bespoke shared
+  type added to `@shared/modules/servers`, since the mutation-result shape is main-only in 131's
+  `watchlist-service.ts` and not exported to the renderer) — matches every existing `client.ts`
+  function's `Outcome<T>` convention.
+- `recheck(id)` never touches the local snapshot itself; the eventual update (if any) always
+  arrives through the `watchlist.changed` event, matching 131's own contract (recheck triggers a
+  scan, it does not return a snapshot).
+- Left two minor, non-blocking review notes undone (both from the default-tier review, both
+  cosmetic/coverage, not correctness): (1) the e2e flow proves Join/Spectate for a watchlist match
+  via the detail view's buttons rather than clicking the match-row's own `JoinServerButton`
+  instance directly — the row's own button is proven via a mocked-props unit test instead, and both
+  paths render the exact same `JoinServerButton` component, so no untested code path exists; (2) one
+  `WatchlistPanel.test.tsx` test title ("re-check shows pending, then the updated match or the
+  left-the-server reason") only unit-tests the pending→left half, with the updated-match half
+  covered by e2e instead of a second unit case — the criterion itself (AC7) is fully proven across
+  the two levels together.
+
+**Verification (narrow gate, run twice — before and after the review-fix, both green):**
+`npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (83 files / 635 tests),
+`npm run ui:flow -- servers-watchlist` (all phases/steps green, screenshots taken).
+
+**AC → test, as verified:** AC1/AC8 → e2e `servers-watchlist` (tab + badge after redeem+restart) +
+`ServersView.watchlist.test.tsx` "carries the experimental badge on the watchlist tab" (now
+asserting exactly one badge). AC2 → e2e (found/offline rows) + `WatchlistPanel.test.tsx` "each row
+shows its name and offline or every match with score and ping". AC3 → e2e (open-detail/Join/
+Spectate/edit/remove) + `ServersView.watchlist.test.tsx` "a match's Join and Spectate are 125's
+JoinServerButton for that server's row" + "open-detail switches to the list tab and opens that
+server's detail" + `WatchlistPanel.test.tsx` "edit and remove call the watchlist handlers". AC4 →
+`WatchlistPanel.test.tsx` "a score-0 ping-0 match renders like any other and nothing in a row
+mentions spectating" + e2e (no `/spectat/i` in the match line). AC5 → `WatchlistPanel.test.tsx`
+"each state states when its data is from" + e2e. AC6 → e2e phase 1 (no strip/testid/text) +
+`ServersView.watchlist.test.tsx` "has no tab strip and no watchlist text, and renders its
+pre-story list content". AC7 → e2e (re-check → updated score, then left) +
+`WatchlistPanel.test.tsx` "re-check shows pending, then the updated match or the left-the-server
+reason". AC9 → e2e (regex refused, seeded too-slow row) + `WatchlistPanel.test.tsx` "a refused
+pattern shows its reason at the input and a too-slow entry says so on its row" +
+`useWatchlist.test.tsx` "a refused add returns its reason and keeps the snapshot". All passed. No
+manual residue.
+
+**Review:** default-tier (Sonnet, per Model Hints — no hard tier) PASS with one confirmed finding
+(the duplicate-badge issue above), fixed in one review-fix cycle and re-verified green. Two minor
+notes left unfixed, documented above with reasons.
+
+CHANGELOG.md: one `### Added` line for the gated Watchlist tab (D-O, owned by this story).
+
+tiers: D 4 / hard 0 · review default · cycles 1 · agents 7

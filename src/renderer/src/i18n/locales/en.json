@@ -664,6 +664,9 @@
   },
 
   "servers": {
+    "tabs": {
+      "list": "Server list"
+    },
     "address": {
       "reject": {
         "empty": "Enter a server address.",
@@ -936,6 +939,7 @@
       "noSelection": "Select a server to add it to the address book."
     },
     "watchlist": {
+      "title": "Watchlist",
       "error": {
         "empty": "Name cannot be empty.",
         "tooLong": "Name is too long (max 64 characters).",
@@ -944,6 +948,42 @@
       },
       "left": {
         "needsFullScan": "This player left the server they were last seen on — run a full scan from the server browser to find them again."
+      },
+      "add": {
+        "name": {
+          "label": "Name",
+          "placeholder": "Player name to watch for"
+        },
+        "mode": {
+          "label": "Match"
+        },
+        "submit": "Add"
+      },
+      "mode": {
+        "exact": "Exact match",
+        "substring": "Contains",
+        "regex": "Regular expression"
+      },
+      "offline": "Not currently on any known server.",
+      "notFoundSince": "Not found in data from {{rel}}.",
+      "noData": "No server data yet.",
+      "tooSlow": "This pattern was too slow to match and is skipped — edit it to try again.",
+      "checkedAt": "checked {{rel}}",
+      "match": {
+        "seen": "seen {{rel}}"
+      },
+      "recheck": {
+        "label": "Re-check",
+        "pending": "Checking…",
+        "noReply": "The server did not answer — last result kept."
+      },
+      "edit": {
+        "label": "Edit",
+        "save": "Save",
+        "cancel": "Cancel"
+      },
+      "remove": {
+        "label": "Remove"
       }
     }
   },

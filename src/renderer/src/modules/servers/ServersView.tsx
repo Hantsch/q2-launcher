@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
@@ -6,6 +6,7 @@ import {
   type ScanSnapshot,
   type ServerListRow,
   type ServersScanState,
+  type WatchlistMatch,
 } from '@shared/modules/servers'
 import {
   EMPTY_SERVER_LIST_FILTER,
@@ -15,6 +16,7 @@ import {
 } from '@shared/servers/list-filter'
 import { nextSort, sortServerRows, type ServerListSort, type ServerSortColumn } from '@shared/servers/list-sort'
 import { Button } from '../../components/ui/Button'
+import { useFeatureUnlocked } from '../../components/features/FeatureGate'
 import { Panel } from '../../components/ui/primitives'
 import { cn } from '../../lib/cn'
 import { ROUTE_SETTINGS, useLauncher } from '../../store/useLauncher'
@@ -36,6 +38,8 @@ import { ServerListFilterBar } from './ServerListFilterBar'
 import { ServerRow } from './ServerRow'
 import { ServersListStatus } from './ServersListStatus'
 import { ServerSortBar } from './ServerSortBar'
+import { ServersTabStrip, type ServersTab } from './ServersTabStrip'
+import { WatchlistPanel } from './watchlist/WatchlistPanel'
 
 /** Story 116 D5: the visible reason for each `ScanBlockedReason` - a lookup table of one entry
  * today, future-proof if a later story adds another blocked reason (mirrors `write-guard.ts`'s
@@ -134,6 +138,14 @@ export function ServersView() {
   // Story 127 D2: the "Add to address book" dialog's open flag, purely local like every other
   // dialog this view owns (mirrors `SetInstallationIconDialog`'s callers) - no state is lifted.
   const [addressBookOpen, setAddressBookOpen] = useState(false)
+  // Story 132 D3: purely local, like `selectedAddress` above - a fresh mount always starts on the
+  // list tab. The tab strip itself only renders (and can only switch this away from 'list') once
+  // the `watchlist` feature is unlocked - see `ServersTabStrip`.
+  const [activeTab, setActiveTab] = useState<ServersTab>('list')
+  // Story 132 clean-code fix: gate the panel body with the plain boolean instead of a second
+  // `<FeatureGate>` - `ServersTabStrip` already renders the one `ExperimentalBadge` next to the
+  // tab label, so a second `FeatureGate` here would render a second, unanchored badge.
+  const isWatchlistUnlocked = useFeatureUnlocked('watchlist')
   // Tracks the last-seen `finishedAt` so a `scan.changed` push is only treated as "a round just
   // finished" (and triggers the one extra `readScan()` below) once, not on every progress-only
   // push during stage1/stage2 - a ref because it must not itself trigger a re-render.
@@ -284,6 +296,31 @@ export function ServersView() {
           ?.scrollIntoView({ block: 'start' })
       })
     })
+  }
+
+  // Story 132 D3: the watchlist panel's own actions column, wired to this view's real
+  // Join/Spectate (never reimplemented - AC3/AC4) and its own selection/tab state. A match with no
+  // live row (a race between the watchlist's own scan and this view's `entries`) renders nothing -
+  // never a fallback Join/Spectate for a server the view doesn't currently know about.
+  const renderMatchActions = (match: WatchlistMatch): ReactNode => {
+    const row = entries.find((entry) => entry.address === match.address)
+    if (!row) return null
+    return (
+      <div className="flex items-center gap-2">
+        <JoinServerButton row={row} mode="join" />
+        <JoinServerButton row={row} mode="spectate" />
+        <Button
+          variant="ghost"
+          onClick={() => {
+            setActiveTab('list')
+            setSelectedAddress(match.address)
+          }}
+          data-testid={`servers-watchlist-open-detail-${match.address}`}
+        >
+          {t('servers.detail.title')}
+        </Button>
+      </div>
+    )
   }
 
   const sortedRows = sortServerRows(entries, sort)
@@ -443,7 +480,10 @@ export function ServersView() {
   // second column is present change - so an already-selected row's DOM node (and every existing
   // test that holds a reference to it, e.g. across a click-then-assert pair) survives a selection
   // change instead of being unmounted and recreated as a stale node.
-  return (
+  //
+  // Story 132 D3: this whole block is now only one of two tabs - unchanged in every other respect
+  // (AC "no reimplementation" applies to the pre-story screen too: it stays exactly what it was).
+  const listAndDetail = (
     <div
       className={cn(
         'h-full',
@@ -467,6 +507,23 @@ export function ServersView() {
         address={selectedRow?.address ?? selectedAddress ?? ''}
         onClose={() => setAddressBookOpen(false)}
       />
+    </div>
+  )
+
+  return (
+    <div className="flex h-full flex-col">
+      <ServersTabStrip activeTab={activeTab} onChange={setActiveTab} />
+      <div className="min-h-0 flex-1">
+        {activeTab === 'watchlist' ? (
+          isWatchlistUnlocked && (
+            <div className="mx-auto w-full max-w-3xl overflow-y-auto p-6">
+              <WatchlistPanel renderMatchActions={renderMatchActions} />
+            </div>
+          )
+        ) : (
+          listAndDetail
+        )}
+      </div>
     </div>
   )
 }

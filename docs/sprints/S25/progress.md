@@ -195,3 +195,23 @@
 - 2026-09-25 22:23 · 131 · review-fix cycle · started
 - 2026-09-25 22:24 · 131 · review-fix cycle · done
 - 2026-09-25 22:25 · 131 · story · done
+- 2026-09-25 22:26:17 · 132 · build · started
+- 2026-09-25 22:27 · 132 · D1 client + useWatchlist hook · started
+- 2026-09-25 22:30 · 132 · D1 client + useWatchlist hook · done
+- 2026-09-25 22:30 · 132 · D2 watchlist panel · started
+- 2026-09-25 22:34 · 132 · D2 watchlist panel · done
+- 2026-09-25 22:34 · 132 · D3 gated tab in ServersView · started
+- 2026-09-25 22:38 · 132 · D3 gated tab in ServersView · done
+- 2026-09-25 22:38 · 132 · D4 e2e flow servers-watchlist · started
+- 2026-09-25 22:50 · 132 · D4 e2e flow servers-watchlist · done
+- 2026-09-25 22:50 · 132 · verify · started
+- 2026-09-25 22:51 · 132 · verify · done
+- 2026-09-25 22:51 · 132 · review 1 · started
+- 2026-09-25 22:56 · 132 · review 1 · done: PASS, 1 confirmed finding to fix
+- 2026-09-25 22:56 · 132 · review-fix cycle · started
+- 2026-09-25 22:58 · 132 · review-fix cycle · done
+- 2026-09-25 22:58 · 132 · verify · started
+- 2026-09-25 22:59 · 132 · verify · done
+- 2026-09-25 22:59 · 132 · review 2 · started
+- 2026-09-25 22:59 · 132 · review 2 · done: no hard-tier review required (Model Hints: default only)
+- 2026-09-25 23:00 · 132 · story · done

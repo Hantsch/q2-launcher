@@ -13,6 +13,9 @@ import {
   type ServersOverview,
   type ServersScanSettings,
   type ServersScanState,
+  SERVERS_WATCHLIST_HANDLERS,
+  type WatchlistMatchMode,
+  type WatchlistSnapshot,
 } from '@shared/modules/servers'
 import type { Outcome } from '@shared/types'
 import { callModule, onModuleEvent } from '../moduleClient'
@@ -165,4 +168,50 @@ export function setListSort(sort: ServerListSort | null): Promise<Outcome<Server
  */
 export function readServerDetail(address: string): Promise<Outcome<ServerDetail | null>> {
   return callModule<ServerDetail | null>('servers', SERVERS_HANDLERS.detailRead, address)
+}
+
+/**
+ * Story 132 D1: the watchlist's own renderer-side transport, mirroring the scan's
+ * `startScan`/`readScan`/`onScanChanged` triad above. `add`/`update`/`remove` resolve at the
+ * transport level to `Outcome<WatchlistMutationResult>` - a schema/handler-registry failure is
+ * `Outcome`'s own concern, while a refused mutation (name too long, duplicate, ...) is the
+ * `WatchlistMutationResult`'s own `{ ok: false; reasonKey }`, mirroring `MasterSourcesResult`
+ * above. `recheck` is a "please recheck" trigger, not a snapshot - the updated snapshot (if any)
+ * arrives later via `watchlist.changed`, exactly like a scan's own `scanStart`/`scan.changed`
+ * split.
+ */
+export type WatchlistMutationResult =
+  | { ok: true; snapshot: WatchlistSnapshot }
+  | { ok: false; reasonKey: string }
+
+export function readWatchlist(): Promise<Outcome<WatchlistSnapshot>> {
+  return callModule<WatchlistSnapshot>('servers', SERVERS_WATCHLIST_HANDLERS.read)
+}
+
+export function addWatchlistEntry(input: {
+  name: string
+  mode: WatchlistMatchMode
+}): Promise<Outcome<WatchlistMutationResult>> {
+  return callModule<WatchlistMutationResult>('servers', SERVERS_WATCHLIST_HANDLERS.add, input)
+}
+
+export function updateWatchlistEntry(input: {
+  id: string
+  name: string
+  mode: WatchlistMatchMode
+}): Promise<Outcome<WatchlistMutationResult>> {
+  return callModule<WatchlistMutationResult>('servers', SERVERS_WATCHLIST_HANDLERS.update, input)
+}
+
+export function removeWatchlistEntry(id: string): Promise<Outcome<WatchlistMutationResult>> {
+  return callModule<WatchlistMutationResult>('servers', SERVERS_WATCHLIST_HANDLERS.remove, { id })
+}
+
+export function recheckWatchlistEntry(id: string): Promise<Outcome<ScanStartResult>> {
+  return callModule<ScanStartResult>('servers', SERVERS_WATCHLIST_HANDLERS.recheck, { id })
+}
+
+/** Subscribes to the watchlist's own push (`watchlist.changed`) - the recomputed snapshot. */
+export function onWatchlistChanged(listener: (snapshot: WatchlistSnapshot) => void): () => void {
+  return onModuleEvent<WatchlistSnapshot>('servers', SERVERS_EVENTS.watchlistChanged, listener)
 }
