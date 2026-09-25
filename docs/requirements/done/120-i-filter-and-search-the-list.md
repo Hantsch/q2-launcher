@@ -1,7 +1,7 @@
 ---
 id: 120
 title: i filter and search the list
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -21,19 +21,19 @@ data the scan engine ([[114]]) supplies.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Each of the listed filters — mod, gamemode, non-empty, not full, no password,
+- [x] **AC1** — Each of the listed filters — mod, gamemode, non-empty, not full, no password,
       waiting-for-opponent, map — can be applied on its own (GB-L5).
-- [ ] **AC2** — Multiple filters can be active at the same time, and the visible list reflects their
+- [x] **AC2** — Multiple filters can be active at the same time, and the visible list reflects their
       intersection (a server must satisfy every active filter to remain visible).
-- [ ] **AC3** — With no filter active, every discovered server is listed, including servers with zero
+- [x] **AC3** — With no filter active, every discovered server is listed, including servers with zero
       players (GB-L4).
-- [ ] **AC4** — A search term matches against server name for every server in the list, regardless of
+- [x] **AC4** — A search term matches against server name for every server in the list, regardless of
       how much data has been fetched for it.
-- [ ] **AC5** — A search term additionally matches player names, but only for servers whose stage-2
+- [x] **AC5** — A search term additionally matches player names, but only for servers whose stage-2
       detail has actually been fetched; a server with no fetched player data is not falsely excluded
       from a player-name search by virtue of having no player data, nor falsely included as a name
       match it never made.
-- [ ] **AC6** — Filters and search compose with the sort order from [[119]]: the visible subset changes
+- [x] **AC6** — Filters and search compose with the sort order from [[119]]: the visible subset changes
       as filters/search are applied, but the relative order of the servers that remain visible follows
       the active sort without the two fighting each other (e.g. filtering never silently changes the
       sort column, and sorting never re-includes a filtered-out server).
@@ -116,7 +116,7 @@ Out of scope: row content (118), order (119), loading/empty/error states (121), 
 
 ## Deliverables
 
-- **D1 — the filter engine (shared, pure).**
+- [x] **D1 — the filter engine (shared, pure).**
   - Create `src/shared/servers/list-filter.ts` with a colocated `list-filter.test.ts`.
     - `export interface ServerListFilter { search: string; mod: string | null; gamemode: ServerGamemode | null; map: string | null; nonEmpty: boolean; notFull: boolean; noPassword: boolean; waitingForOpponent: boolean }`
       and `export const EMPTY_SERVER_LIST_FILTER`, with every select `null`, every boolean `false`
@@ -164,7 +164,7 @@ Out of scope: row content (118), order (119), loading/empty/error states (121), 
   - Acceptance: `npx vitest run src/shared/servers/list-filter.test.ts` passes and
     `npm run typecheck` is clean.
 
-- **D2 — the filter bar, on the real surface.**
+- [x] **D2 — the filter bar, on the real surface.**
   - Create `src/renderer/src/modules/servers/ServerListFilterBar.tsx`. It is controlled and takes
     `{ filter, onChange, options: { mods, maps }, shown, total }`. Use the existing primitives from
     `components/ui/controls.tsx` (`Input`, `Select`, `Checkbox`) and `components/ui/Button.tsx`, with
@@ -275,4 +275,28 @@ No `manual residue`.
 
 ## Done
 
-<!-- Filled by `/build 120`. -->
+Implemented the pure filter/search engine (`src/shared/servers/list-filter.ts`: `ServerListFilter`,
+`EMPTY_SERVER_LIST_FILTER`, `isFilterActive`, `matchesSearch`, `matchesFilter`, `filterServers`,
+`filterOptions`) and the renderer surface (`ServerListFilterBar.tsx` wired into `ServersView.tsx`
+after 119's sort, with the no-match state and selection-clear-on-filter-out), plus the
+`servers-filter-search` e2e flow against four loopback responders.
+
+Commit message: `120: i filter and search the list`
+
+Verification (narrow gate): `npm run build` green, `npm run typecheck` green, `npx vitest run
+--changed HEAD` green (565 tests), `npm run ui:flow -- servers-filter-search` green (7
+screenshots). AC1–AC6 each confirmed via their named unit test in `list-filter.test.ts`, the
+`ServerListFilterBar.test.tsx`/`ServersView.test.tsx` cases, and the e2e flow's per-phase
+assertions (all present and passing per the verification agent's walk).
+
+Review: default-tier only (per Model Hints), verdict PASS. One confirmed finding fixed directly
+(CHANGELOG.md: the pre-existing "Your choice sticks across restarts." line was orphaned under the
+new filter/search entry instead of the sort entry it belongs to — moved, and the filter/search
+entry now states its own no-persistence behaviour instead). One finding left unfixed: 
+`filterServers`'s internal `as unknown as ServerListRow` cast (list-filter.ts) is a type-safety
+smell with no current bug (both call sites already pass `ServerListRow[]`) — left as-is rather
+than widening `matchesFilter`'s signature for a hypothetical future caller.
+
+No `manual residue`. No open blockers.
+
+tiers: D 2 / hard 0 · review default · cycles 1 · agents 4

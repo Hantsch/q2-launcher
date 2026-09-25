@@ -39,6 +39,12 @@ version section when a release actually ships.
 - **Servers** — the list is sortable: click Name, Mod, Players, Map or Ping to sort by it, click
   again to reverse, click a third time to go back to the default (favourites first, then busiest).
   Your choice sticks across restarts.
+- **Servers** — the list can now be filtered and searched: free-text search across name, address
+  and player names, plus mod/gamemode/map dropdowns and has-players/not-full/no-password/waiting-
+  for-an-opponent toggles, all combinable. A "Showing X of Y" count appears while a filter is
+  active, one click clears every field, and a filter that matches nothing says so instead of
+  showing a blank list. Filters and search reset each time you open the list — nothing stays
+  hidden by default.
 - **Linux** — a Windows Quake II build (Steam, GOG, a folder carried over from another machine)
   now plays on Linux too: the launcher offers wine or umu-run as a runner and launches through it
   when you pick one.

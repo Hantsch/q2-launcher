@@ -21,7 +21,7 @@ invisible until a code names `watchlist`.
 
 - [x] 118 — a server row says what's going on
 - [x] 119 — busy servers rise to the top
-- [ ] 120 — i filter and search the list
+- [x] 120 — i filter and search the list
 - [ ] 121 — the list says what it's doing
 - [ ] 122 — a server's detail opens
 - [ ] 123 — the rules a server plays by, in full

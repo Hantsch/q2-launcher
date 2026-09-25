@@ -309,3 +309,66 @@ describe('ServersView - list sort (story 119 D3)', () => {
     )
   })
 })
+
+describe('ServersView - list filter (story 120 D2)', () => {
+  it('filtering narrows the rendered rows without changing the sort control', async () => {
+    await renderView(
+      snapshot({
+        entries: [
+          { address: 'a:1', name: 'Alpha', origins: ['manual'], status: 'online', lastSeenAt: 'x', mod: 'ctf' },
+          { address: 'b:1', name: 'Bravo', origins: ['manual'], status: 'online', lastSeenAt: 'x', mod: 'baseq2' },
+        ],
+      }),
+    )
+
+    fireEvent.click(screen.getByTestId('servers-sort-name'))
+    await screen.findAllByRole('button', { name: /Alpha|Bravo/ })
+
+    fireEvent.change(screen.getByTestId('servers-filter-mod'), { target: { value: 'ctf' } })
+
+    const rows = await screen.findAllByRole('button', { name: /Alpha|Bravo/ })
+    expect(rows.map((row) => row.getAttribute('data-testid'))).toEqual(['servers-row-a:1'])
+
+    // Sort control kept its state (asc-by-name) - filtering did not touch it.
+    expect(screen.getByTestId('servers-sort-name').getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('a filtered-out selected row is deselected', async () => {
+    await renderView(
+      snapshot({
+        entries: [
+          { address: 'a:1', name: 'Alpha', origins: ['manual'], status: 'online', lastSeenAt: 'x', mod: 'ctf' },
+          { address: 'b:1', name: 'Bravo', origins: ['manual'], status: 'online', lastSeenAt: 'x', mod: 'baseq2' },
+        ],
+      }),
+    )
+
+    const rowA = await screen.findByTestId('servers-row-a:1')
+    fireEvent.click(rowA)
+    expect(rowA.getAttribute('data-selected')).toBe('true')
+
+    fireEvent.change(screen.getByTestId('servers-filter-mod'), { target: { value: 'baseq2' } })
+
+    await screen.findAllByRole('button', { name: /Bravo/ })
+    expect(screen.queryByTestId('servers-row-a:1')).toBeNull()
+    // Selection cleared - "Refresh this server" is disabled again with its visible reason.
+    expect((screen.getByTestId('servers-refresh-selected') as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByTestId('servers-refresh-selected-hint')).toBeTruthy()
+  })
+
+  it('a filter that matches nothing shows the no-match line, not the empty state', async () => {
+    await renderView(
+      snapshot({
+        entries: [
+          { address: 'a:1', name: 'Alpha', origins: ['manual'], status: 'online', lastSeenAt: 'x', mod: 'ctf' },
+        ],
+      }),
+    )
+
+    fireEvent.change(screen.getByTestId('servers-filter-search'), { target: { value: 'nope-nothing-matches' } })
+
+    const noMatch = await screen.findByTestId('servers-filter-no-match')
+    expect(noMatch.textContent).toContain('No servers match your filters.')
+    expect(screen.queryByTestId('servers-row-a:1')).toBeNull()
+  })
+})

@@ -7,10 +7,17 @@ import {
   type ServerListRow,
   type ServersScanState,
 } from '@shared/modules/servers'
+import {
+  EMPTY_SERVER_LIST_FILTER,
+  filterOptions,
+  filterServers,
+  type ServerListFilter,
+} from '@shared/servers/list-filter'
 import { nextSort, sortServerRows, type ServerListSort, type ServerSortColumn } from '@shared/servers/list-sort'
 import { Button } from '../../components/ui/Button'
 import { Panel } from '../../components/ui/primitives'
 import { getListSort, onScanChanged, readScan, setListSort, setScanViewActive, startScan } from './client'
+import { ServerListFilterBar } from './ServerListFilterBar'
 import { ServerRow } from './ServerRow'
 import { ServerSortBar } from './ServerSortBar'
 
@@ -91,6 +98,8 @@ export function ServersView() {
   const [entries, setEntries] = useState<ServerListRow[]>([])
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null)
   const [sort, setSort] = useState<ServerListSort | undefined>(undefined)
+  // Story 120 D2: purely local, not persisted anywhere - a fresh mount always starts unfiltered.
+  const [filter, setFilter] = useState<ServerListFilter>(EMPTY_SERVER_LIST_FILTER)
   // Tracks the last-seen `finishedAt` so a `scan.changed` push is only treated as "a round just
   // finished" (and triggers the one extra `readScan()` below) once, not on every progress-only
   // push during stage1/stage2 - a ref because it must not itself trigger a re-render.
@@ -172,6 +181,18 @@ export function ServersView() {
     setSelectedAddress((current) => (current === address ? null : address))
   }
 
+  const sortedRows = sortServerRows(entries, sort)
+  const visible = filterServers(sortedRows, filter)
+
+  // Story 120 D2: a row that filters out from under the current selection is deselected - a
+  // selection referring to a row that isn't even shown would silently keep driving "Refresh this
+  // server" against an address the user can no longer see or pick again.
+  useEffect(() => {
+    if (selectedAddress !== null && !visible.some((row) => row.address === selectedAddress)) {
+      setSelectedAddress(null)
+    }
+  }, [selectedAddress, visible])
+
   const stateLabel = t(
     scanState.running ? 'module.servers.view.status.scanning' : 'module.servers.view.status.idle',
   )
@@ -251,16 +272,37 @@ export function ServersView() {
 
         <ServerSortBar sort={sort} onSort={handleSort} />
 
-        <Panel className="space-y-2 p-4">
-          {sortServerRows(entries, sort).map((entry) => (
-            <ServerRow
-              key={entry.address}
-              row={entry}
-              selected={entry.address === selectedAddress}
-              onSelect={handleToggleRowSelected}
-            />
-          ))}
-        </Panel>
+        <ServerListFilterBar
+          filter={filter}
+          onChange={setFilter}
+          options={filterOptions(entries)}
+          shown={visible.length}
+          total={entries.length}
+        />
+
+        {visible.length === 0 && entries.length > 0 ? (
+          <Panel className="space-y-3 p-4 text-center" data-testid="servers-filter-no-match">
+            <p className="text-xs text-ink-muted">{t('servers.filter.noMatch')}</p>
+            <Button
+              variant="neutral"
+              onClick={() => setFilter(EMPTY_SERVER_LIST_FILTER)}
+              data-testid="servers-filter-no-match-clear"
+            >
+              {t('servers.filter.clear')}
+            </Button>
+          </Panel>
+        ) : (
+          <Panel className="space-y-2 p-4">
+            {visible.map((entry) => (
+              <ServerRow
+                key={entry.address}
+                row={entry}
+                selected={entry.address === selectedAddress}
+                onSelect={handleToggleRowSelected}
+              />
+            ))}
+          </Panel>
+        )}
       </div>
     </div>
   )

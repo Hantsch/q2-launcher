@@ -699,6 +699,21 @@
       "coop": "Co-op",
       "single": "Single player"
     },
+    "filter": {
+      "search": "Search",
+      "searchPlaceholder": "Name, address or player…",
+      "any": "Any",
+      "mod": "Mod",
+      "gamemode": "Gamemode",
+      "map": "Map",
+      "nonEmpty": "Has players",
+      "notFull": "Not full",
+      "noPassword": "No password",
+      "waiting": "Waiting for an opponent",
+      "clear": "Clear filters",
+      "count": "Showing {{shown}} of {{total}}",
+      "noMatch": "No servers match your filters."
+    },
     "source": {
       "error": {
         "too-short": "This source's reply is too short to be a valid server list.",
