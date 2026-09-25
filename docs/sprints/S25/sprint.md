@@ -1,6 +1,6 @@
 ---
 sprint: S25
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/S25
 milestone: 9.4–9.7 — Server list UI, detail view, join/spectate/address book, experimental gate & watchlist
 ---
@@ -68,3 +68,38 @@ now deferred as well.
 gate's `e2e-all` starts from a known red baseline. 14 of 56 flows fail deterministically and
 predate S23 (see the roadmap's follow-ups). The gate's attribution step should classify them as
 `pre-existing`, not bisect them.
+
+## Regression gate
+
+Commands (all on `sprint/S25` HEAD before the fixes below):
+- `npm run build` — green (0.06 min)
+- `npm test` (full) — **red**, 1 failing test, first run
+- `npm run ui:verify` — green (1.75 min, 94/94 shots, 0 axe violations)
+- `npm run ui:flows` (`e2e-all`, 71 flows) — **red**, 3 failing, first run (1428s / ~24 min)
+
+**`npm test` failure:** `src/main/modules/downloads/layering.test.ts` — the main-process layering
+allowlist test flagged `spawn(` in the new `watchlist-regex-host.ts` (story 131). Attribution: real
+regression, not flaky, not pre-existing (file introduced this sprint). Root cause: a local
+`function spawn(): Worker` collided with the guard's `spawn(` substring ban, meant for
+`child_process.spawn`, not `worker_threads.Worker`. **Fixed** by renaming to `startWorker`, commit
+`7e999cf`. Full `npm test` re-verified green (4882 passed, 0 failed).
+
+**`e2e-all` failures:**
+- `home-dashboard-arrange` — **pre-existing**. Fails identically on a clean HEAD re-run (a grid
+  rounding/layout drift unrelated to any S25 code path); no S25 commit touched the dashboard.
+- `news-cover-template` — **pre-existing / environmental**. Fails identically: the harness's own
+  display-size guard trips on this machine's screen ("asked for 1280px, got 1295px"); unrelated to
+  S25.
+- `servers-detail` — real regression, attributed to story 126, commit `a0be1a2`. 126 added a
+  visible "Spectate" button/label to the detail header, which tripped 122's AC4 "no spectator
+  claim" check — a whole-detail-pane text scan for "spectat" that was broader than its actual
+  intent (the players table must not imply spectator status). **Fixed** by narrowing the check to
+  the players panel's own DOM subtree, a scope correction not a weakening, commit `c6e1e96`.
+
+**Confirmation run** (after both fixes, `e2e-all` once more): 69/71 passed, 1426s (~24 min).
+`servers-detail` now green; only the two pre-existing/environmental failures above remain.
+
+**Note for next sprint's planning:** this sprint's own note above expected "14 of 56 flows fail
+deterministically, predate S23," but the actual gate found only 2 of 71 failing, both pre-existing.
+Either that baseline improved since it was last measured, or the note was stale — worth a quick
+roadmap check, not a blocker here.

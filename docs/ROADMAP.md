@@ -2,13 +2,13 @@
 
 ## Where we stand
 
-*As of 2026-09-25.* Phases 1–4, 7 and 8 are done; story 102 (a self-built Linux Q2PRO) stays open
-as a standing, non-blocking item. Phase 9 (game browser) is progressing: milestone 9.3 is done —
-the two-stage streaming scan, its measured cadence/budget settings, the no-scan-while-playing guard
-and the three scoped refreshes are all in place. Next is `/sprint S25` — one sprint for all of 9.4–9.7
-(stories 118–132, open questions settled in planning), from the first real list surface to the
-gated watchlist. Waiting on the user: merging `sprint/S22`, `sprint/S23` and
-`sprint/S24` into `dev`. Phase 5 (mods) and Phase 6 (assets) remain unprioritised.
+*As of 2026-09-26.* Phases 1–4 and 7–9 are done; story 102 (a self-built Linux Q2PRO) stays open
+as a standing, non-blocking item. Phase 9 (game browser) finished with S25: the full v1 game
+browser — list, detail view, join/spectate/address-book and the gated experimental watchlist —
+is built end to end, with the "Deliberately not in v1" items (2D observer, notifications,
+dashboard tile, server statistics, mod/map download) left out on purpose. Waiting on the user:
+merging `sprint/S22` through `sprint/S25` into `dev`. Phase 5 (mods) and Phase 6 (assets) remain
+unprioritised and are next up for `/roadmap plan` once prioritized.
 
 ## Phase overview
 
@@ -22,12 +22,12 @@ gated watchlist. Waiting on the user: merging `sprint/S22`, `sprint/S23` and
 | 6 — Assets (texture/model/sound packs) | 0/1 | not started |
 | 7 — Release & updates (beta rollout) | 1/1 | done |
 | 8 — Platform parity (Linux support, Steam Play/Proton runners) | 1/1 | done |
-| 9 — Game browser (server list, detail, watchlist, observing) | 3/7 | in progress |
+| 9 — Game browser (server list, detail, watchlist, observing) | 7/7 | done |
 
 ## Current phase
 
-Phase 9 (game browser) has 7 milestones; 9.1–9.3 are done, 9.4–9.7 run together as S25. Phase 5 (mods) and
-Phase 6 (assets) are still unprioritised.
+Phase 9 (game browser) is done — all 7 milestones shipped, 9.1–9.3 across S22–S24 and 9.4–9.7
+together in S25. Phase 5 (mods) and Phase 6 (assets) are still unprioritised.
 
 | # | Milestone | Status | Sprint(s) | Note |
 | --- | --- | --- | --- | --- |
@@ -35,10 +35,10 @@ Phase 6 (assets) are still unprioritised.
 | 9.1 | Servers module foundation & protocol core | done 2026-09-24 | [S22](../sprints/S22/review.md) | Stories 106–109, all done. |
 | 9.2 | Discovery & persistence | done 2026-09-24 | [S23](../sprints/S23/review.md) | Stories 110–113, all done. |
 | 9.3 | Scan engine | done 2026-09-25 | [S24](../sprints/S24/review.md) | Stories 114–117, all done. No e2e for 114 (no list UI to drive yet — see the review's Acceptance section); the pre-existing 14-flow `ui:flows` gap reconfirmed, unchanged by this sprint. |
-| 9.4 | Server list UI | planned | [S25](../sprints/S25/sprint.md) | Rows, markers, default sort, filters/search, loading/empty/error states. Stories 118–121. |
-| 9.5 | Server detail view | planned | S25 | Header/players, rule table + `dmflags`, ping history. Stories 122–124; local mod/map availability deferred to mods/assets. |
-| 9.6 | Join, spectate, address book | planned | S25 | `+connect` join with mod-mismatch/password handling, spectate launch, address-book write dialog. Stories 125–127. |
-| 9.7 | Experimental-features gate & watchlist | planned | S25 | Signed unlock codes, installation id, gate enforcement, then the gated watchlist. Stories 128–132. |
+| 9.4 | Server list UI | done 2026-09-26 | [S25](../sprints/S25/review.md) | Rows, markers, default sort, filters/search, loading/empty/error states. Stories 118–121, all done. |
+| 9.5 | Server detail view | done 2026-09-26 | S25 | Header/players, rule table + `dmflags`, ping history. Stories 122–124, all done; local mod/map availability deferred to mods/assets. |
+| 9.6 | Join, spectate, address book | done 2026-09-26 | S25 | `+connect` join with mod-mismatch/password handling, spectate launch, address-book write dialog. Stories 125–127, all done. |
+| 9.7 | Experimental-features gate & watchlist | done 2026-09-26 | S25 | Signed unlock codes, installation id, gate enforcement, then the gated watchlist. Stories 128–132, all done. |
 
 ## Open / unprioritised
 
@@ -51,12 +51,11 @@ Phase 6 (assets) are still unprioritised.
 
 ## Follow-ups worth doing
 
-- 14 of 56 `ui:flows` flows fail deterministically and pre-date S23 (confirmed reproducing
-  identically at S23's merge-base, in isolation): `app-update`, `bootstrap-failure`,
-  `bootstrap-failure-retry`, `bootstrap-incomplete-package`, `bootstrap-r1q2`, `bootstrap-wizard`,
-  `config-header-geometry`, `controls-subcategory`, `custom-action-row`, `engine-badge-surfaces`,
-  `engine-not-client`, `harness-offscreen`, `home-hero-carousel`, `news-cover-template` — a real gap
-  in the e2e baseline worth a dedicated sweep. [S23 review](../sprints/S23/review.md)
+- S25's `ui:flows` gate found only 2 of 71 flows failing (`home-dashboard-arrange`,
+  `news-cover-template`, both pre-existing/environmental), not the 14 of 56 S23/S24 recorded as a
+  pre-existing baseline. Whether that gap actually closed somewhere between S24 and S25, or the
+  earlier list is stale/mismeasured, is unconfirmed — worth a dedicated sweep re-running the
+  originally named 14 flows by name before trusting either number. [S25 review](../sprints/S25/review.md)
 - `ui:flows` cannot finish a full 55-flow run: `withApp()`'s teardown in `scripts/lib/harness.mjs`
   (~line 529) races `app.close()` against a 15s timeout with no fallback `child.kill()`, so a hung
   main process keeps the single-instance lock and every later flow on that fixture variant dies.
@@ -73,6 +72,11 @@ Phase 6 (assets) are still unprioritised.
 - A scoped refresh ("Refresh favourites" / "Refresh this server") overwrites a row's `origins`
   instead of merging them into the existing entry — currently inert since nothing reads `origins`
   yet, but worth fixing before story 131's watchlist work is likely to. [S24 review](../sprints/S24/review.md)
+- `AppContext` exposes both the frozen `features` gate and the live `unlock` service side by side —
+  a future handler reading `app.unlock` directly (bypassing `app.features.isFeatureUnlocked`) could
+  see a mid-session redemption before the boot-time gate does. Not exploitable today (no
+  redeem-triggering channel reads it directly), but worth hardening — e.g. freezing/hiding `unlock`
+  from module handlers — before a future feature adds one. [S25 review](../sprints/S25/review.md)
 
 - A mid-copy `PACKAGE_INCOMPLETE` failure can leave an installation's status stale until the next
   revalidation — a pattern shared by `retail/upgrade-job.ts` (090) and `repair/job.ts` (093); worth
@@ -135,3 +139,4 @@ Phase 6 (assets) are still unprioritised.
 | Install — write-guard, engine update/rollback, repair, removal from disk | S20 | 2026-09-12 |
 | Release & updates — changelog-driven releases, daily update check, user-chosen update | S21 | 2026-09-13 |
 | Platform parity — Linux support, Steam Play/Proton runner selection | ad hoc (100, 101, 103–105) | 2026-09-24 |
+| Game browser — server list, detail, join/spectate/address book, experimental gate & watchlist | S22–S25 | 2026-09-26 |

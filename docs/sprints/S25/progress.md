@@ -222,3 +222,5 @@
 - 2026-09-25 23:06:31 · gate · e2e-all · started
 - 2026-09-25T21:34:28Z · 126 · fix regression from sprint gate (servers-detail AC4 scope) · started
 - 2026-09-25T21:37:10Z · 126 · fix regression from sprint gate (servers-detail AC4 scope) · done
+- 2026-09-25 23:35:16 · gate · e2e-all-confirm · started
+- 2026-09-25 23:59:13 · gate · e2e-all-confirm · done (69/71, 2 pre-existing)
