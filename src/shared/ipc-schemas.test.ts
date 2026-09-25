@@ -3,6 +3,7 @@ import { MODULE_MANIFESTS } from './types/module'
 import {
   iconDataUrlInputSchema,
   installationIconSchema,
+  launchInputSchema,
   moduleInvokeSchema,
   pickIconFileInputSchema,
   setInstallationIconInputSchema,
@@ -172,5 +173,48 @@ describe('updateCheckSchema', () => {
 
   it('rejects a non-void payload', () => {
     expect(updateCheckSchema.safeParse({ foo: 1 }).success).toBe(false)
+  })
+})
+
+/**
+ * Story 125 D1: `launch:start`/`launch:plan` share `launchInputSchema` - `connect` must go through
+ * `serverAddressSchema` (rejecting an argument-token or unparsable address) and `userinfo.password`/
+ * `userinfo.spectator` must go through `launchUserinfoValueSchema` (rejecting a forbidden character),
+ * same "paths/values from the renderer are never trusted" rule as every other IPC payload here.
+ */
+describe('launch:start refuses an unvalidated connect or userinfo value', () => {
+  it('rejects a connect value carrying a console argument token', () => {
+    const result = launchInputSchema.safeParse({
+      installationId: 'inst-1',
+      connect: '1.2.3.4:27910 +quit',
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects a connect value with a forbidden character', () => {
+    const result = launchInputSchema.safeParse({
+      installationId: 'inst-1',
+      connect: 'evil;quit:27910',
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects a userinfo password containing forbidden characters', () => {
+    const result = launchInputSchema.safeParse({
+      installationId: 'inst-1',
+      userinfo: { password: 'x";quit;"' },
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('accepts a valid address and normalises it', () => {
+    const result = launchInputSchema.safeParse({
+      installationId: 'inst-1',
+      connect: 'Q2.Example.COM:27910',
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.connect).toBe('q2.example.com:27910')
+    }
   })
 })

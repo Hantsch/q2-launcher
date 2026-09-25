@@ -26,7 +26,7 @@ invisible until a code names `watchlist`.
 - [x] 122 — a server's detail opens
 - [x] 123 — the rules a server plays by, in full
 - [x] 124 — how this server has answered
-- [ ] 125 — i join a server from the browser
+- [x] 125 — i join a server from the browser
 - [ ] 126 — i spectate without picking a side
 - [ ] 127 — a server goes into my address book
 - [ ] 128 — An unlock code proves what it unlocks

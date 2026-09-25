@@ -893,6 +893,22 @@
         "duplicate-address": "This address is already in the list.",
         "invalid-reorder": "The list couldn't be reordered — try again."
       }
+    },
+    "join": {
+      "action": "Join",
+      "noInstallation": "Choose an active installation to join a server.",
+      "mismatch": {
+        "title": "Different mod",
+        "body": "This server runs \"{{server}}\", but the active installation is set to \"{{installation}}\". Join anyway?",
+        "confirm": "Join anyway",
+        "cancel": "Cancel"
+      },
+      "password": {
+        "title": "Server password",
+        "label": "Password",
+        "submit": "Join",
+        "cancel": "Cancel"
+      }
     }
   },
 
@@ -2435,7 +2451,15 @@
       "alreadyRunning": "Quake II is already running.",
       "installationBusy": "A job is writing files for this installation. It can be started once that job has finished.",
       "spawnFailed": "The game could not be started: {{path}}",
-      "processError": "The game process reported an error: {{message}}"
+      "processError": "The game process reported an error: {{message}}",
+      "connectNeedsDirectLaunch": "This installation launches through Steam, which cannot join a server directly."
+    },
+    "userinfo": {
+      "reject": {
+        "empty": "Enter a value.",
+        "too-long": "This value is too long \u2014 use 63 characters or fewer.",
+        "forbidden-character": "This value contains a character that isn't allowed."
+      }
     }
   },
 

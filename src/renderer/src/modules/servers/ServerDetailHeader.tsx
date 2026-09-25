@@ -3,6 +3,7 @@ import { Lock } from 'lucide-react'
 import type { ServerDetail } from '@shared/modules/servers'
 import { deriveEngine, deriveProtocol } from '@shared/servers/server-engine'
 import { Badge, KeyValue } from '../../components/ui/primitives'
+import { JoinServerButton } from './join/JoinServerButton'
 import { displayName, formatOccupancy, formatPing, orDash } from './server-format'
 
 export interface ServerDetailHeaderProps {
@@ -14,6 +15,10 @@ export interface ServerDetailHeaderProps {
  * ping, password and the engine/protocol derived from the last-known `serverinfo` (story 122 D2's
  * `deriveEngine`/`deriveProtocol`). Every value is routed through `server-format.ts`'s helpers so one
  * malformed field (e.g. an unparseable `protocol`) renders `—` without breaking the rest.
+ *
+ * Story 125 D5: the same `JoinServerButton` the list's selected-row toolbar already renders
+ * (`ServersView.tsx`) sits here too, wrapped under `servers-detail-join` so a user who opened the
+ * detail pane never has to go back to the list to join.
  */
 export function ServerDetailHeader({ detail }: ServerDetailHeaderProps) {
   const { t } = useTranslation()
@@ -25,12 +30,17 @@ export function ServerDetailHeader({ detail }: ServerDetailHeaderProps) {
 
   return (
     <div className="space-y-3">
-      <h2
-        className="font-display text-lg tracking-wide text-ink uppercase"
-        data-testid="servers-detail-field-name"
-      >
-        {orDash(displayName(row))}
-      </h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2
+          className="font-display text-lg tracking-wide text-ink uppercase"
+          data-testid="servers-detail-field-name"
+        >
+          {orDash(displayName(row))}
+        </h2>
+        <div data-testid="servers-detail-join">
+          <JoinServerButton row={row} />
+        </div>
+      </div>
 
       <div className="space-y-1.5">
         <KeyValue label={t('servers.detail.field.address')}>

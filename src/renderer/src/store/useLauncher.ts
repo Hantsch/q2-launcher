@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { WindowChromeState } from '@shared/ipc'
+import type { LaunchUserinfo } from '@shared/launch/userinfo'
 import type {
   AddExistingInstallationInput,
   AppInfo,
@@ -197,7 +198,13 @@ interface LauncherStore {
   fetchIconDataUrl: (installationId: string) => Promise<void>
 
   // --- playing -------------------------------------------------------------
-  play: (installationId?: string) => Promise<void>
+  /** `options` (story 125 D4): `connect`/`userinfo` for the join flow's `+connect`/password path -
+   * both spread straight into the `launch:start` payload, alongside every existing call site that
+   * omits `options` entirely and keeps launching the installation's own default. */
+  play: (
+    installationId?: string,
+    options?: { connect?: string; userinfo?: LaunchUserinfo },
+  ) => Promise<void>
   cancelJob: (jobId: string) => Promise<void>
 
   // --- app update (story 098) ----------------------------------------------
@@ -452,10 +459,10 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
     set((state) => ({ iconDataUrls: { ...state.iconDataUrls, [installationId]: url } }))
   },
 
-  play: async (installationId) => {
+  play: async (installationId, options) => {
     const id = installationId ?? get().settings.activeInstallationId
     if (!id) return
-    const result = await invoke('launch:start', { installationId: id })
+    const result = await invoke('launch:start', { installationId: id, ...options })
     if (!result.ok) toastError(get, result)
   },
 

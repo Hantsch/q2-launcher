@@ -1,7 +1,14 @@
 import { z } from 'zod'
 import type { IpcInvokeMap } from './ipc'
 import type { InstallationIcon } from './types'
-import { absolutePathSchema, engineKindSchema, settingsObjectSchema, sourceSchema } from './schemas'
+import {
+  absolutePathSchema,
+  engineKindSchema,
+  launchUserinfoValueSchema,
+  serverAddressSchema,
+  settingsObjectSchema,
+  sourceSchema,
+} from './schemas'
 
 /**
  * Runtime validation for every IPC payload from the renderer. Strict: a bad
@@ -187,8 +194,17 @@ export const detectionListDrivesSchema: z.ZodType<IpcInvokeMap['detection:listDr
 export const launchInputSchema: z.ZodType<IpcInvokeMap['launch:plan']['req']> = z.object({
   installationId: z.string().min(1),
   gameDir: z.string().max(64).optional(),
-  connect: z.string().max(200).optional(),
+  connect: serverAddressSchema.optional(),
   extraArgs: z.array(z.string().max(500)).max(64).optional(),
+  // Story 125 D1: validated the same way a password would be checked on its own, never trusted
+  // just because it arrived alongside a validated `connect`.
+  userinfo: z
+    .object({
+      password: launchUserinfoValueSchema.optional(),
+      spectator: launchUserinfoValueSchema.optional(),
+    })
+    .strict()
+    .optional(),
 })
 
 export const launchGetStateSchema: z.ZodType<IpcInvokeMap['launch:getState']['req']> = z.void()

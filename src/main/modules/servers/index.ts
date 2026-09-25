@@ -27,7 +27,7 @@ import {
 } from '@shared/modules/servers'
 import type { MainModule } from '../types'
 import { addFavourite, listFavourites, removeFavourite } from './favourites'
-import { readServerHistory } from './history-log'
+import { readServerHistory, recordServerVisit } from './history-log'
 import { addManualServer, removeManualServer } from './manual-servers'
 import { addSource, removeSource, reorderSources, updateSource } from './master-sources'
 import { createScanCadence, type ScanCadence } from './scan-cadence'
@@ -52,9 +52,16 @@ import { createScanService, type ScanService } from './scan-service'
  *
  * Story 115 D3 adds `activeScanCadence` the same way: the auto-scan-on-open / auto-refresh timer
  * owner (`scan-cadence.ts`), so `dispose()` can tear its timer down on shutdown.
+ *
+ * Story 125 D3 adds `activeHistorySubscription`: `setup()` subscribes to `app.launch.onStateChange`
+ * directly (not through `ScanService`/`ScanCadence`, which have their own unrelated launch
+ * subscriptions) to record a history visit on a successful join. The unsubscribe function is kept
+ * the same way `activeScanService`/`activeScanCadence` keep their disposers, so a superseded
+ * `setup()`'s listener cannot outlive it and `dispose()` can always reach the current one.
  */
 let activeScanService: ScanService | null = null
 let activeScanCadence: ScanCadence | null = null
+let activeHistorySubscription: (() => void) | null = null
 
 export const serversModule: MainModule = {
   id: 'servers',
@@ -67,6 +74,7 @@ export const serversModule: MainModule = {
     // first. A superseded service is retired too now that it holds a launch subscription.
     activeScanCadence?.dispose()
     activeScanService?.dispose()
+    activeHistorySubscription?.()
     const scanService = createScanService({
       getServersState: () => app.state.serversState(),
       emit,
@@ -200,7 +208,8 @@ export const serversModule: MainModule = {
      * clip the history (AC6's cross-collection half) or any other part of story 110's state key.
      *
      * `history.read` is read-only on purpose (D-H): there is no `history.record` channel, because
-     * only main ever appends to the history.
+     * only main ever appends to the history - story 125 D3's `app.launch.onStateChange` subscription
+     * below is the second (and, so far, only other) writer, alongside `manual.add`/`manual.remove`.
      */
     handle(SERVERS_HANDLERS.manualList, manualListInputSchema, () =>
       app.state.serversState().manualServers,
@@ -226,6 +235,26 @@ export const serversModule: MainModule = {
     handle(SERVERS_HANDLERS.historyRead, historyReadInputSchema, () =>
       readServerHistory(app.state.serversState().history),
     )
+
+    /**
+     * Story 125 D3: a successful join records one history visit. `state.connect` is only set once a
+     * launch reaches `'running'` (story 125's `LaunchState.connect`), so this fires exactly once per
+     * join - not on `'starting'` (no `connect` yet) and not again on `'exited'`/`'failed'` (`connect`
+     * may still be set there, but `phase` no longer is `'running'`). A `'running'` state with no
+     * `connect` (a plain, non-join launch) and a `'handed-off'` join (Steam takes over; nothing here
+     * ever sees `'running'` for it) both write nothing, on purpose (AC: only `running` + `connect`
+     * writes). Same read/run/persist discipline as `favourites.*` above: one snapshot, one slice
+     * replaced, the rest of `ServersState` carried over untouched.
+     */
+    activeHistorySubscription = app.launch.onStateChange((state) => {
+      if (state.phase !== 'running' || !state.connect) return
+      const current = app.state.serversState()
+      const history = recordServerVisit(current.history, {
+        address: state.connect,
+        connectedAt: new Date().toISOString(),
+      })
+      app.state.setServersState({ ...current, history })
+    })
 
     /**
      * Story 119 D2: the `list.*` sort handlers - same read/merge/persist discipline as
@@ -255,5 +284,6 @@ export const serversModule: MainModule = {
     // Cadence first, so no timer tick can start a new scan after the running one is aborted.
     activeScanCadence?.dispose()
     activeScanService?.dispose()
+    activeHistorySubscription?.()
   },
 }

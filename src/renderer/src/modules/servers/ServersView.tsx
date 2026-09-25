@@ -29,6 +29,7 @@ import {
   startScan,
 } from './client'
 import { deriveListState } from './list-state'
+import { JoinServerButton } from './join/JoinServerButton'
 import { ServerDetailView } from './ServerDetailView'
 import { ServerListFilterBar } from './ServerListFilterBar'
 import { ServerRow } from './ServerRow'
@@ -283,6 +284,7 @@ export function ServersView() {
 
   const sortedRows = sortServerRows(entries, sort)
   const visible = filterServers(sortedRows, filter)
+  const selectedRow = visible.find((row) => row.address === selectedAddress) ?? null
 
   // Story 120 D2: a row that filters out from under the current selection is deselected - a
   // selection referring to a row that isn't even shown would silently keep driving "Refresh this
@@ -351,6 +353,7 @@ export function ServersView() {
             >
               {t('module.servers.view.refreshSelected')}
             </Button>
+            {selectedRow && <JoinServerButton row={selectedRow} />}
             <span
               className="text-xs text-ink-muted"
               data-testid="servers-scan-status"

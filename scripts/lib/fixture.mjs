@@ -2604,6 +2604,122 @@ export function writeLinuxJourneyInstallRoot() {
   return { root, executablePath, spawnable: true }
 }
 
+// --- story 125 D5: `servers-join.mjs`'s own, unregistered install root -------------------------
+//
+// Same stand-in-client trick as `writeLinuxJourneyInstallRoot()` just above (a real, spawnable
+// executable with a brief sleep off Windows, the vendored `7za.exe` on Windows), but this fixture
+// is registered directly into `state.json` (as the sole, active installation) rather than added
+// through the real UI - `servers-join.mjs` needs a genuine Play/join to spawn a real process and
+// exit on its own so the flow can assert on `main.log`'s recorded argv and a real `exited` phase,
+// which `writePopulatedFixture()`'s own installations (placeholder, non-spawnable executables)
+// cannot provide.
+const JOIN_INSTALL_DIR = 'fixture-servers-join-install'
+
+/** The id `servers-join.mjs` seeds this installation under in `state.json`, and the value it
+ * points `settings.activeInstallationId` at - exported so the flow never has to guess or
+ * duplicate the literal. */
+export const JOIN_INSTALL_ID = JOIN_INSTALL_DIR
+
+/** `q2join.exe` on Windows, extension-less `q2join` elsewhere - name is irrelevant to any engine
+ * classification this fixture depends on (the flow sets `executablePath` directly rather than
+ * relying on `inspectInstallation` to rank it). */
+const JOIN_EXECUTABLE_NAME = process.platform === 'win32' ? 'q2join.exe' : 'q2join'
+
+export function joinInstallRoot() {
+  return join(gameRoot(), JOIN_INSTALL_DIR)
+}
+
+export function joinExecutablePath() {
+  return join(joinInstallRoot(), JOIN_EXECUTABLE_NAME)
+}
+
+/**
+ * Builds a fresh install root: `baseq2/pak0.pak` (any bytes - just needs to exist) plus the
+ * platform's stand-in client executable. Returns `{ root, executablePath, spawnable }`, same shape
+ * as `writeLinuxJourneyInstallRoot()` - `spawnable` is `false` only on Windows when
+ * `resources/bin/7za.exe` was never vendored locally.
+ */
+export function writeJoinInstallRoot() {
+  const root = joinInstallRoot()
+  rmDirBestEffort(root)
+  const baseq2Dir = join(root, 'baseq2')
+  mkdirSync(baseq2Dir, { recursive: true })
+  writeFileSync(join(baseq2Dir, 'pak0.pak'), 'not a real pak, just needs to exist')
+
+  const executablePath = joinExecutablePath()
+  if (process.platform === 'win32') {
+    if (vendoredWindowsExtractorExists()) {
+      copyFileSync(vendoredWindowsExtractorPath(), executablePath)
+      return { root, executablePath, spawnable: true }
+    }
+    writeFileSync(executablePath, 'placeholder - resources/bin/7za.exe was not vendored locally')
+    return { root, executablePath, spawnable: false }
+  }
+
+  writeFileSync(executablePath, LINUX_JOURNEY_SHELL_SCRIPT)
+  chmodSync(executablePath, 0o755)
+  return { root, executablePath, spawnable: true }
+}
+
+/**
+ * Story 125 D5: `servers-join.mjs`'s own fixture writer. Built on `emptyStateDocument()`'s minimal
+ * shape (zero installations, zero config profiles) rather than `writePopulatedFixture()`'s
+ * five-installation/two-profile default - that default's `configProfiles` name installation ids
+ * (`INSTALL_ONE_ID`/`INSTALL_TWO_ID`) that a wholesale `installations` override for this flow's one
+ * custom, real-spawnable installation would otherwise leave dangling. Writes the real install root
+ * via `writeJoinInstallRoot()`, seeds it as the sole installation and `settings.activeInstallationId`
+ * (`DEFAULT_SETTINGS.activeInstallationId` is `null`), and takes the caller's `servers` state slice
+ * verbatim - same shape every other servers flow already builds by hand.
+ */
+export function writeJoinFixture({ servers }) {
+  const userDataDir = variantUserDataDir('servers-join')
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  const install = writeJoinInstallRoot()
+
+  writeJson(join(userDataDir, STATE_FILE), {
+    schemaVersion: STATE_SCHEMA_VERSION,
+    settings: { ...DEFAULT_SETTINGS, scanOnFirstRun: false, activeInstallationId: JOIN_INSTALL_ID },
+    installations: [
+      {
+        id: JOIN_INSTALL_ID,
+        name: 'Fixture Join Install',
+        rootPath: install.root,
+        engineKind: 'r1q2',
+        executablePath: install.executablePath,
+        launchArgs: [],
+        activeGameDir: '',
+        detectedVersion: undefined,
+        source: 'manual',
+        status: 'ok',
+        checks: [],
+        gameDirs: ['baseq2'],
+        favorite: false,
+        sortOrder: 0,
+        createdAt: FIXED_TIMESTAMP,
+        updatedAt: FIXED_TIMESTAMP,
+        lastValidatedAt: undefined,
+        lastPlayedAt: undefined,
+        totalPlaytimeSeconds: 0,
+      },
+    ],
+    configProfiles: [],
+    configPlayedMods: {},
+    configPendingWrites: {},
+    configSwitchBinds: {},
+    servers,
+  })
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  return {
+    userDataDir,
+    installRoot: install.root,
+    executablePath: install.executablePath,
+    spawnable: install.spawnable,
+  }
+}
+
 /**
  * `pak0.pak`'s fixture size: 8 MiB - deliberately NOT `RETAIL_PAK_SIZES['pak0.pak']`
  * (183,997,730, `src/shared/constants.ts`). `inspectInstallation` tells the demo from the retail

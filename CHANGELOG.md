@@ -68,6 +68,11 @@ version section when a release actually ships.
   Zero, and Steam takes it from there. The tradeoff: no playtime tracking, the launcher's own
   launch arguments and active game directory don't apply, and the launcher won't hold back its
   own writes into that folder while Steam runs the game.
+- **Servers** — a Join button now sits in the list's toolbar and the detail pane's header: pick a
+  server and go, no more copying an address into a shortcut. A mod that doesn't match your active
+  installation gets a warning first (you can still launch anyway), a password-protected server asks
+  for the password before it even tries, and every join lands in your server history. The password
+  never touches the command line the game sees.
 
 ### Fixed
 - **Linux** — the installation's Runner section is now a compact, wrapping row of chips instead

@@ -51,6 +51,36 @@ function fakeAppContext(state?: StateStore, launchState: LaunchState = IDLE_LAUN
   return (state === undefined ? { broadcast, launch } : { state, broadcast, launch }) as unknown as AppContext
 }
 
+/**
+ * Story 125 D3: a controllable `app.launch` - `set(...)` drives every listener that subscribed
+ * through `onStateChange`, exactly as the real `LaunchService` would, mirroring
+ * `downloads/bootstrap/job.test.ts`'s `fakeLaunch`. Needed because `fakeAppContext`'s stub
+ * `onStateChange` never actually calls its listener, which can't exercise the servers module's own
+ * subscription (setup() above).
+ */
+function fakeAppContextWithControllableLaunch(state: StateStore): {
+  context: AppContext
+  setLaunchState: (next: LaunchState) => void
+} {
+  let launchState: LaunchState = IDLE_LAUNCH_STATE
+  const listeners = new Set<(next: LaunchState) => void>()
+  const launch = {
+    getState: () => launchState,
+    onStateChange: (listener: (next: LaunchState) => void) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+  }
+  const broadcast = { emit: () => {} }
+  return {
+    context: { state, broadcast, launch } as unknown as AppContext,
+    setLaunchState: (next) => {
+      launchState = next
+      for (const listener of [...listeners]) listener(next)
+    },
+  }
+}
+
 describe('servers module', () => {
   it('the servers module registers its main half under its own id', async () => {
     const manifest = getModuleManifest('servers')
@@ -728,5 +758,74 @@ describe('servers module scan.start is guarded and single-flight per scope (stor
       ok: true,
       value: { ok: false, reasonKey: 'servers.scan.error.already-running' },
     })
+  })
+})
+
+/**
+ * Story 125 D3: a successful join records exactly one history visit. Uses a real `StateStore` over a
+ * temp file (same harness as the `manual.*`/`history.*` block above) and the controllable launch
+ * host (`fakeAppContextWithControllableLaunch`) so `setLaunchState` drives the module's own
+ * `app.launch.onStateChange` subscription the same way the real `LaunchService` would.
+ */
+describe('servers module records a history visit on a successful join (story 125 D3)', () => {
+  let filePath: string
+  let state: StateStore
+
+  beforeEach(async () => {
+    filePath = join(tmpdir(), `q2-launcher-state-servers-join-history-${randomUUID()}.json`)
+    state = new StateStore(filePath)
+    await state.load()
+  })
+
+  afterEach(async () => {
+    await state.settle()
+    await rm(filePath, { force: true })
+    await rm(`${filePath}.tmp`, { force: true })
+    await rm(`${filePath}.bak`, { force: true })
+  })
+
+  it('a running launch with a connect records one history visit', async () => {
+    const { context, setLaunchState } = fakeAppContextWithControllableLaunch(state)
+    const registry = new MainModuleRegistry()
+    await registry.register(serversModule, context)
+
+    setLaunchState({ phase: 'starting', installationId: 'inst-1', connect: '1.2.3.4:27910' })
+    setLaunchState({
+      phase: 'running',
+      installationId: 'inst-1',
+      connect: '1.2.3.4:27910',
+      pid: 1234,
+    })
+    setLaunchState({
+      phase: 'exited',
+      installationId: 'inst-1',
+      connect: '1.2.3.4:27910',
+      exitCode: 0,
+    })
+
+    expect(state.serversState().history).toEqual([
+      { address: '1.2.3.4:27910', connectedAt: expect.any(String) },
+    ])
+
+    await state.settle()
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+    expect(reloaded.serversState().history).toEqual(state.serversState().history)
+  })
+
+  it('a launch without connect, a failed launch or a refused join records nothing', async () => {
+    const { context, setLaunchState } = fakeAppContextWithControllableLaunch(state)
+    const registry = new MainModuleRegistry()
+    await registry.register(serversModule, context)
+
+    setLaunchState({ phase: 'running', installationId: 'inst-1', pid: 1234 })
+    setLaunchState({
+      phase: 'failed',
+      installationId: 'inst-1',
+      error: { key: 'launch.error.somethingWentWrong' },
+    })
+    setLaunchState({ phase: 'handed-off', installationId: 'inst-1' })
+
+    expect(state.serversState().history).toEqual([])
   })
 })

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { parseUserinfoValue } from './launch/userinfo'
 import { parseServerAddress } from './servers/address'
 import { DEFAULT_SETTINGS } from './types'
 
@@ -51,6 +52,15 @@ export const serverAddressSchema = z.string().superRefine((value, ctx) => {
 }).transform((value) => {
   const result = parseServerAddress(value)
   return result.ok ? result.normalized : value
+})
+
+/** Strict validation via `parseUserinfoValue`; rejects with the reason code (not prose) as the
+ * issue message, same convention as `serverAddressSchema`. */
+export const launchUserinfoValueSchema = z.string().superRefine((value, ctx) => {
+  const result = parseUserinfoValue(value)
+  if (!result.ok) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: result.reason })
+  }
 })
 
 export const settingsObjectSchema = z.object({

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { CONNECT_CFG_NAME } from '@shared/launch/userinfo'
 import type { EngineKind, Installation } from '@shared/types'
 import { buildLaunchArgs, isSafeEarlyToken, previewCommand } from './launch-plan'
 
@@ -81,6 +82,39 @@ describe('buildLaunchArgs', () => {
       '+connect',
       '1.2.3.4:27910',
     ])
+  })
+
+  it('a join puts +exec of the connect cfg right before +connect and no password anywhere in argv', () => {
+    const password = 'hunter2-secret'
+    const result = buildLaunchArgs(installation({ activeGameDir: 'ctf' }), {
+      connect: 'Q2.Example.org:27910',
+      userinfo: { password, spectator: '1' },
+    })
+
+    // The normalized address, with the cfg exec'd immediately before it.
+    expect(result.args.slice(-4)).toEqual(['+exec', CONNECT_CFG_NAME, '+connect', 'q2.example.org:27910'])
+    expect(result.args.filter((arg) => arg === '+exec')).toHaveLength(1)
+    expect(result.args.join(' ')).not.toContain(password)
+    expect(result.args).not.toContain('password')
+    expect(result.dropped).toEqual([])
+
+    // A join without userinfo needs no cfg, and userinfo without an address emits nothing extra.
+    expect(buildLaunchArgs(installation(), { connect: '1.2.3.4:27910' }).args).toEqual([
+      '-nopathcheck',
+      '+connect',
+      '1.2.3.4:27910',
+    ])
+    expect(buildLaunchArgs(installation(), { userinfo: { password } }).args).toEqual(['-nopathcheck'])
+  })
+
+  it('an address that fails validation is dropped, never emitted', () => {
+    for (const bad of ['1.2.3.4:27910 +set rcon_password x', 'host;quit:27910', 'nohost', '1.2.3.4:99999']) {
+      const result = buildLaunchArgs(installation(), { connect: bad, userinfo: { password: 'secret' } })
+      expect(result.args).toEqual(['-nopathcheck'])
+      expect(result.args).not.toContain('+connect')
+      expect(result.args).not.toContain('+exec')
+      expect(result.dropped).toEqual([{ reason: 'invalid-address', value: bad }])
+    }
   })
 })
 

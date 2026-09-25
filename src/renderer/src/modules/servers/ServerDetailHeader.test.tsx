@@ -7,7 +7,14 @@ import { initI18n } from '../../i18n'
 
 let ServerDetailHeader: typeof import('./ServerDetailHeader').ServerDetailHeader
 
+// Story 125 D5: the header now renders `JoinServerButton`, which reads the real `useLauncher`
+// store - `play()` calls through the preload bridge, so a minimal `window.q2` stub is needed here
+// the same way `JoinServerButton.test.tsx` provides one, even though this file never presses Join.
 beforeAll(async () => {
+  ;(globalThis as unknown as { q2: unknown }).q2 = {
+    invoke: () => Promise.resolve(undefined),
+    on: () => () => {},
+  }
   await initI18n('en')
   ;({ ServerDetailHeader } = await import('./ServerDetailHeader'))
 })
@@ -54,6 +61,25 @@ describe('ServerDetailHeader (story 122 D3)', () => {
     expect(screen.getByTestId('servers-detail-field-password').textContent).toContain('Password')
     expect(screen.getByTestId('servers-detail-field-engine').textContent).toBe('R1Q2')
     expect(screen.getByTestId('servers-detail-field-protocol').textContent).toBe('35')
+  })
+
+  it('renders the Join button (story 125 D5)', () => {
+    const detail: ServerDetail = {
+      row: {
+        address: '127.0.0.1:27910',
+        origins: ['manual'],
+        status: 'online',
+        lastSeenAt: 'x',
+        favourite: false,
+        name: 'Fixture Server A',
+      },
+      serverinfo: null,
+    }
+    renderHeader(detail)
+
+    const wrapper = screen.getByTestId('servers-detail-join')
+    expect(wrapper).toBeTruthy()
+    expect(wrapper.querySelector('[data-testid="servers-join"]')).toBeTruthy()
   })
 
   it('one malformed field shows a dash and the rest still render', () => {

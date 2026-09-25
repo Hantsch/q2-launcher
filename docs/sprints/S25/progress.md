@@ -87,3 +87,25 @@
 - 2026-09-25 19:29 · 124 · verify · started
 - 2026-09-25 19:30 · 124 · verify · done
 - 2026-09-25 19:31 · 124 · story · done
+- 2026-09-25 19:31:49 · 125 · build · started
+- 2026-09-25 19:32 · 125 · D1 contract and pure userinfo rule · started
+- 2026-09-25 19:34 · 125 · D1 contract and pure userinfo rule · done
+- 2026-09-25 19:34 · 125 · D2 launch service userinfo without argv · started
+- 2026-09-25 19:39 · 125 · D2 launch service userinfo without argv · done
+- 2026-09-25 19:39 · 125 · D3 history records a spawned join · started
+- 2026-09-25 19:41 · 125 · D3 history records a spawned join · done
+- 2026-09-25 19:41 · 125 · D4 join flow in the list · started
+- 2026-09-25 19:46 · 125 · D4 join flow in the list · done
+- 2026-09-25 19:46 · 125 · D5 detail placement and e2e proof · started
+- 2026-09-25 19:58 · 125 · D5 detail placement and e2e proof · done
+- 2026-09-25 19:58 · 125 · verify · started
+- 2026-09-25 20:01 · 125 · verify · done
+- 2026-09-25 20:01 · 125 · review 1 · started
+- 2026-09-25 20:02 · 125 · review 1 · done
+- 2026-09-25 20:02 · 125 · review 2 (hard) · started
+- 2026-09-25 20:06 · 125 · review 2 (hard) · done
+- 2026-09-25 20:06 · 125 · review-fix 1 concurrent-start race and e2e cfg-lifetime assertion · started
+- 2026-09-25 20:10 · 125 · review-fix 1 concurrent-start race and e2e cfg-lifetime assertion · done
+- 2026-09-25 20:10 · 125 · verify 2 · started
+- 2026-09-25 20:12 · 125 · verify 2 · done
+- 2026-09-25 20:13 · 125 · story · done

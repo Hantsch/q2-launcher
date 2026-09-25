@@ -1,7 +1,7 @@
 ---
 id: 125
 title: i join a server from the browser
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -43,24 +43,24 @@ This story uses the **active installation** — the one the rest of the launcher
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Joining a server from the list ([[118]]) or the detail view ([[122]]) calls
+- [x] **AC1** — Joining a server from the list ([[118]]) or the detail view ([[122]]) calls
       `launch:start` against the active installation with a `connect` value that reaches
       `buildLaunchArgs` and produces a trailing `+connect <host>:<port>` argument, matching the
       existing behaviour of `launch-plan.ts`.
-- [ ] **AC2** — The address is passed through [[107]]'s validator before it is placed into
+- [x] **AC2** — The address is passed through [[107]]'s validator before it is placed into
       `LaunchInput.connect`; an address that fails that validation is refused with a reason and the
       join never reaches `launch:start` — there is no code path where an unvalidated address reaches
       the argument vector.
-- [ ] **AC3** — When the server's reported mod (`gamename`/`gamedir`/`game`) differs from the active
+- [x] **AC3** — When the server's reported mod (`gamename`/`gamedir`/`game`) differs from the active
       installation's mod, the launcher shows a warning naming the mismatch before launching, and the
       user can choose to launch anyway; no mismatch launches silently.
-- [ ] **AC4** — When the server's `needpass` bit 0 is set, the launcher asks for a password before
+- [x] **AC4** — When the server's `needpass` bit 0 is set, the launcher asks for a password before
       launching; the password prompt happens before `launch:start` is ever called, never as a retry
       after a failed connect.
-- [ ] **AC5** — A successful join is recorded into [[113]]'s history store, and only a successful
+- [x] **AC5** — A successful join is recorded into [[113]]'s history store, and only a successful
       join is — a join that was refused at address validation (AC2) or abandoned at the password
       prompt is not recorded.
-- [ ] **AC6** — The join password never appears in the spawned game process's argument vector; it
+- [x] **AC6** — The join password never appears in the spawned game process's argument vector; it
       still reaches the game as the `password` userinfo cvar before the `+connect` runs.
 
 ## Open Questions
@@ -377,4 +377,51 @@ manual step.
 
 ## Done
 
-<!-- Filled by `/build 125`. -->
+Joining a server now flows end to end: list/detail Join button → address validation (107) → mod-mismatch
+warning → password prompt → `launch:start` with `connect`/`userinfo`, never argv. The password is written
+to a one-shot `q2launcher-connect.cfg` (0600), `+exec`'d before `+connect`, and removed on exit/error/spawn
+failure, with a leftover sweep before every launch. A successful join records one history entry (113).
+
+**Commit message:**
+```
+125: i join a server from the browser
+```
+
+**Verification:**
+- Narrow gate (twice — once before, once after the review-fix cycle): `npm run build`, `npm run typecheck`,
+  `npx vitest run --changed HEAD` (145 files / 2319 passed), `npm run ui:flow -- servers-join` — all green
+  both times.
+- AC → test mapping, all verified passing: AC1 → e2e `servers-join` + `JoinServerButton.test.tsx` "join
+  calls launch:start…" + `launch-plan.test.ts` "a join puts +exec…". AC2 → `JoinServerButton.test.tsx`
+  "an address that fails validation…" + `ipc-schemas.test.ts` "launch:start refuses an unvalidated
+  connect or userinfo value" + `launch-plan.test.ts` "an address that fails validation is dropped…".
+  AC3 → e2e + `JoinServerButton.test.tsx` "a mod mismatch warns…" + `join-flow.test.ts` "mod mismatch
+  compares…". AC4 → e2e + `JoinServerButton.test.tsx` "a password server asks…". AC5 → e2e +
+  `index.test.ts` "a running launch with a connect records one history visit" + "…records nothing".
+  AC6 → e2e (now also asserts the cfg exists with password content while the launch is
+  starting/running, not just that it's gone afterward) + `launch.test.ts` "a join with a password
+  writes the connect cfg before spawn…" + "the connect cfg outlives spawn and is removed on exit, on
+  error and on spawn failure" + `userinfo.test.ts` (both named tests) + `JoinServerButton.test.tsx`
+  "the password goes into userinfo…". No `manual residue`.
+- Review: default (stage 1, Sonnet) passed with no findings. `story-review-hard` (stage 2) passed
+  overall but surfaced two findings, both fixed in one review-fix cycle and re-verified green:
+  - **PLAUSIBLE, fixed** — two overlapping `start()` calls for the same installation (e.g. double-click
+    Join) could race past the busy guard, let the second call's leftover-cfg sweep delete the first
+    call's freshly-written password cfg before the game read it, and silently orphan the first call's
+    exit cleanup via the shared `launchSeq` counter. Fixed with an in-flight flag set immediately after
+    the existing guard (before the sweep/plan/write), so a second overlapping call is now refused
+    outright; covered by a new `launch.test.ts` test.
+  - **CONFIRMED, fixed** — the e2e flow's `waitForCfgRemoved` passed vacuously whether the cfg was
+    removed correctly or never existed, so it didn't prove the file survived while the game ran. Fixed
+    by asserting the cfg exists with password-bearing content before the removal wait.
+
+**Decisions:**
+- Fix-cycle tests keep the mocked-spawn/real-temp-dir style already used by `launch.test.ts`, per the
+  hard review's own note that real fs timing (not mocked writeFile/rm) is the right choice for this
+  timing-sensitive class of bug.
+- Windows file mode `0o600` has no effect on Windows ACLs (noted by stage-2 review as an FYI, not a
+  defect — not a Windows/Linux parity gap since neither platform gets weaker protection than before).
+- A cfg left behind by `closeAfterLaunch` or a crash is only swept on the next `start()` of that same
+  installation, per the story's own Decisions section — accepted, not a new defect.
+
+tiers: D 5 / hard 1 · review default+hard · cycles 1 · agents 10
