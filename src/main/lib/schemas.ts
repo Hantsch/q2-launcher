@@ -1368,6 +1368,55 @@ export function parseServersState(raw: unknown): ServersState {
   return { sources, favourites, manualServers, history, scan, ...(listSort ? { listSort } : {}) }
 }
 
+/**
+ * Story 128 D4: one persisted unlock-code redemption row. Only `code` and `redeemedAt` are ever
+ * stored - the features/label/expiry are re-derived by re-verifying the code itself
+ * (`UnlockService`), never persisted redundantly, so there is nothing here that could drift from
+ * what the code actually says.
+ */
+export interface UnlockCodeEntry {
+  code: string
+  redeemedAt: string
+}
+
+export interface UnlockState {
+  codes: UnlockCodeEntry[]
+}
+
+/** Well above anything a real user redeems; bounds work on a hand-edited or foreign file. */
+/** Exported so `UnlockService.redeem` can apply the same cap itself, keeping the newest entries,
+ * instead of relying on this module's own load-time truncation (which is not "keep the newest"). */
+export const MAX_UNLOCK_CODES = 32
+
+const unlockCodeEntrySchema = z.object({
+  code: z.string().min(1),
+  redeemedAt: z.string().min(1),
+})
+
+const unlockStateEnvelopeSchema = z.object({
+  codes: z.array(z.unknown()).catch([]),
+})
+
+/**
+ * Story 128 D4: mirrors `parseServersState`'s shape exactly - a forgiving envelope parse, then
+ * row-level dropping (`unlockCodeEntrySchema.safeParse`, one bad row costs only itself), then
+ * dedupe-by-key (`code`, first occurrence wins - `dedupeByKey`, same helper `parseServersState`
+ * uses for its own address-keyed collections) and a cap (`MAX_UNLOCK_CODES`, same "truncate the
+ * tail after dedupe" convention as `capServerHistory`). `undefined`/missing input (a `state.json`
+ * predating this story) degrades to `{ codes: [] }`, same as every other additive top-level key.
+ */
+export function parseUnlockState(raw: unknown): UnlockState {
+  const envelope = unlockStateEnvelopeSchema.safeParse(raw === undefined ? {} : raw)
+  if (!envelope.success) return { codes: [] }
+
+  const rows = envelope.data.codes
+    .map((row) => unlockCodeEntrySchema.safeParse(row))
+    .filter((result): result is z.ZodSafeParseSuccess<UnlockCodeEntry> => result.success)
+    .map((result) => result.data)
+
+  return { codes: dedupeByKey(rows, (row) => row.code).slice(0, MAX_UNLOCK_CODES) }
+}
+
 // IPC-payload schemas moved to `src/shared/ipc-schemas.ts` (story 036, D1) -
 // they are strict (a bad payload is a bug, not a state to repair) and shared
 // needs them for the preload/renderer side too.

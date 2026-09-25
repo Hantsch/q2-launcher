@@ -164,6 +164,48 @@ blocking set covers only `starting`/`running`, so a handed-off installation stay
 launcher has no way to hold its own writes back from a game it can no longer see, and says so
 rather than pretending otherwise.
 
+## Unlock codes
+
+Story 128: a code (`q2l1.<payload>.<sig>`, an Ed25519-signed payload of feature
+names, a launcher installation id, and two timestamps) gates a feature per
+machine. Verification is **main-only**: `src/main/services/unlock/verify.ts`
+holds the only code path that accepts or rejects a code, and the private key
+never exists anywhere near this repository or the renderer — the renderer
+only ever calls `unlock:redeem` over IPC and reads back a verdict, never the
+key or the raw signed bytes.
+
+Two independent clocks are checked, and they must not be confused:
+
+- the **redemption window** (`redeemBy`) gates *entering* a code — once a code
+  has been redeemed inside its window, the window no longer matters, even
+  across restarts;
+- **feature expiry** (`expiresAt`) is separate and re-checked on *every*
+  verification, including every app start — a code stays revocable-by-time
+  long after its redemption window has closed.
+
+`UnlockService` (`src/main/services/unlock/service.ts`) is the one place that
+tells the two apart: `verifyUnlockCode` is called with `mode: 'redeem'` only
+from `redeem()`, and with `mode: 'reverify'` everywhere else (`init()` on
+boot, `snapshot()` for the settings UI) — `reverify` never looks at
+`redeemBy`. Redeemed codes are persisted under `state.json`'s `unlock` key
+(`code`, `redeemedAt` only — nothing that could drift from what the code
+itself says), and the in-memory active-feature set is rebuilt from a fresh
+reverify pass every time the service starts.
+
+**Known limits**, deliberately not defended against: a user can move their
+system clock backward to keep an expiring feature alive, and the launcher
+installation id is derived on the same machine it protects, from a value
+(`MachineGuid`/`/etc/machine-id`) a determined user can read and spoof. This
+is gatekeeping for a legitimate feature rollout, not a security boundary
+against a hostile local user.
+
+The public surface other code reaches through is `AppContext.unlock`:
+
+- `isUnlocked(feature)` — whether `feature` is active right now;
+- `unlockedFeatures()` — the full active set;
+- `redeem(code)` — the only path that can add a new persisted code;
+- `snapshot()` — every stored code with its current status, for the settings UI.
+
 ## Adding a module
 
 Everything past the shell is a module: `config`, `downloads`, `mods`, `assets`. The

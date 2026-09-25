@@ -1,7 +1,7 @@
 ---
 id: 128
 title: an unlock code proves what it unlocks
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -47,27 +47,27 @@ the hash and never kept, shown or sent anywhere; only the salted, truncated hash
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A token that is validly signed, names a feature, whose installation id matches this
+- [x] **AC1** — A token that is validly signed, names a feature, whose installation id matches this
       machine's, and is redeemed inside its redemption window, is accepted for that feature.
-- [ ] **AC2** — A token whose signature does not verify against the embedded public key is
+- [x] **AC2** — A token whose signature does not verify against the embedded public key is
       rejected.
-- [ ] **AC3** — A token whose installation id does not match this machine's is rejected, and this
+- [x] **AC3** — A token whose installation id does not match this machine's is rejected, and this
       failure is distinguishable from a bad signature (AC2) — not the same rejection reason.
-- [ ] **AC4** — A token redeemed after its redeem-by time is rejected; a token redeemed inside its
+- [x] **AC4** — A token redeemed after its redeem-by time is rejected; a token redeemed inside its
       window stays valid afterward regardless of what the window later does — the window is never
       re-checked once redemption has succeeded.
-- [ ] **AC5** — Verification re-runs on every app start, not only at the moment of redemption, so a
+- [x] **AC5** — Verification re-runs on every app start, not only at the moment of redemption, so a
       feature expiry (AC7) takes effect on its own without any user action.
-- [ ] **AC6** — The raw per-machine value the installation id is derived from is never stored,
+- [x] **AC6** — The raw per-machine value the installation id is derived from is never stored,
       displayed or transmitted by the launcher — only the salted, truncated hash is.
-- [ ] **AC7** — A token whose feature expiry has passed no longer unlocks that feature; this is
+- [x] **AC7** — A token whose feature expiry has passed no longer unlocks that feature; this is
       checked at every re-verification (AC5) and is independent of the redemption window, which by
       then has already lapsed and is irrelevant per AC4.
-- [ ] **AC8** — `scripts/issue-unlock-code.mjs` issues a code for given feature names, an
+- [x] **AC8** — `scripts/issue-unlock-code.mjs` issues a code for given feature names, an
       installation id and an optional feature expiry, signed with a private key it reads from
       outside the repository (path or environment variable); its default redeem-by is 24 hours after
       issued-at, and a code it issues is accepted by AC1's verification.
-- [ ] **AC9** — A code is one versioned-prefix base64url string (e.g. `q2l1.<payload>.<signature>`);
+- [x] **AC9** — A code is one versioned-prefix base64url string (e.g. `q2l1.<payload>.<signature>`);
       input with a different prefix or a malformed body is rejected before any signature check. The
       installation id is 12 base32 characters, displayed grouped as `XXXX-XXXX-XXXX`.
 
@@ -265,4 +265,58 @@ mappings are unit-level through the real main-side code, and none is a residue.
 
 ## Done
 
-<!-- Filled by `/build 128`. -->
+Built the launcher-wide unlock-code mechanism: `src/shared/unlock.ts` (wire-format constants,
+`UnlockRejection`, id formatting), `src/main/services/unlock/{code,verify}.ts` (strict parser +
+Ed25519 verifier, exact-signed-bytes, cheapest-first check order), `launcher-install-id.ts`
+(salted-hash device id, Windows registry / Linux machine-id), `public-key.ts` (embedded
+production public key), `service.ts` (`UnlockService` on `AppContext.unlock`, init-time
+re-verification, persistence), `scripts/issue-unlock-code.mjs` (issuing CLI + `keygen`), plus
+`state.ts`/`schemas.ts` persistence and a new "Unlock codes" section in `docs/ARCHITECTURE.md`.
+Production private key generated to `C:\Users\darkp\.q2-launcher\unlock-signing-key.pem` (outside
+the repo, never committed); its public half is embedded in `public-key.ts`.
+
+**Commit message:** `128: an unlock code proves what it unlocks`
+
+**Verification (narrow gate):** `npm run build` green, `npm run typecheck` green,
+`npx vitest run --changed HEAD` green (942 tests) plus a separate
+`npx vitest run scripts/issue-unlock-code.test.mjs` (18 tests, not picked up by `--changed`) —
+both re-run clean after the two review-fix cycles. No e2e run: this story has no user-facing
+surface (129 owns that), so all nine criteria are proven at the unit level, none is manual
+residue.
+
+**AC → test, as verified:** AC1 verify.test.ts "a validly signed code…accepted" + service.test.ts
+"redeeming a valid code unlocks its features and persists it"; AC2 verify.test.ts "…badSignature";
+AC3 verify.test.ts "…wrongInstallation, distinct from badSignature"; AC4 verify.test.ts
+"…redemptionWindowElapsed" + service.test.ts "a redeemed code stays unlocked after its redemption
+window has closed"; AC5 service.test.ts "init re-verifies every stored code without any user
+action"; AC6 launcher-install-id.test.ts "the raw machine value is never returned or logged" +
+service.test.ts "persisted unlock state and logs never contain the raw machine value"; AC7
+verify.test.ts "…featureExpired in both modes" + service.test.ts "a stored code whose feature
+expiry has passed no longer unlocks at init"; AC8 issue-unlock-code.test.mjs "a code issued by the
+script is accepted by verifyUnlockCode" + "default redeem-by is 24 hours after issued-at" + "the
+signing key comes from --key or Q2L_UNLOCK_SIGNING_KEY_FILE and never from inside the repo"; AC9
+verify.test.ts "…malformed before any signature check" + unlock.test.ts "…XXXX-XXXX-XXXX" +
+launcher-install-id.test.ts "…12 base32 characters". All passed.
+
+**Review:** default-tier PASS with two test-quality findings, fixed (untested `label` round-trip
+in the issuing-script test; a near-tautological AC6 service test whose fake resolver never
+threaded a raw secret through code the service could touch) and re-verified green.
+Hard-tier (`story-review-hard`) FAIL → four real findings, all fixed and re-verified green:
+- **The repo-path guard in `issue-unlock-code.mjs` was case-insensitive-unsafe on Windows** —
+  `assertOutsideRepo` compared resolved paths with a plain `startsWith` with no case
+  normalization, so `c:\development\...\key.pem` (different case) bypassed the "refuse paths
+  inside the repo" check that `C:\development\...\key.pem` correctly refused — confirmed
+  exploitable against the real CLI. Fixed by lower-casing both sides before the prefix
+  comparison.
+- **The issuing script could sign codes D1's verifier rejects as `malformed`** — no validation
+  that `expiresAt > issuedAt` or that `redeemBy` comes out as an integer, silently breaking AC8's
+  "a code it issues is accepted". Fixed by validating both before signing and treating a nullish
+  `expiresAt` as "omit the field" rather than coercing to `0`.
+- **Unbounded stored-code growth could silently drop a redemption past 32 entries** — `redeem`
+  appended without a cap while `parseUnlockState` truncates to 32 on load in an unspecified
+  order. Fixed: `redeem` now explicitly keeps the newest 32 by `redeemedAt`.
+- **Dedupe in `redeem` used the untrimmed code string**, so the same code with/without trailing
+  whitespace stored twice. Fixed: trim before using as the dedupe key.
+No findings left unfixed.
+
+tiers: D 4 / hard 1 · review default+hard · cycles 2 · agents 10

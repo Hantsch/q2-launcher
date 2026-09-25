@@ -131,3 +131,19 @@
 - 2026-09-25 20:41 · 127 · review 1 · started
 - 2026-09-25 20:44 · 127 · review 1 · done
 - 2026-09-25 20:45 · 127 · story · done
+- 2026-09-25 20:45:26 · 128 · build · started
+- 2026-09-25 20:46 · 128 · D1 Code format and verifier · started
+- 2026-09-25 20:50 · 128 · D1 Code format and verifier · done
+- 2026-09-25 20:50 · 128 · D2 Launcher installation id · started
+- 2026-09-25 20:50 · 128 · D3 Issuing script and production key · started
+- 2026-09-25 20:53 · 128 · D2 Launcher installation id · done
+- 2026-09-25 20:53 · 128 · D3 Issuing script and production key · done
+- 2026-09-25 20:53 · 128 · D4 UnlockService, persistence, boot wiring · started
+- 2026-09-25 20:59 · 128 · D4 UnlockService, persistence, boot wiring · done
+- 2026-09-25 20:59 · 128 · verify · started
+- 2026-09-25 21:00 · 128 · verify · done
+- 2026-09-25 21:00 · 128 · review 1 · started
+- 2026-09-25 21:03 · 128 · review 1 · done
+- 2026-09-25 21:05 · 128 · review 2 (hard) · started
+- 2026-09-25 21:08 · 128 · review 2 (hard) · done
+- 2026-09-25 21:12 · 128 · story · done
