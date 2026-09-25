@@ -143,7 +143,9 @@ describe('ServerPlayersPanel (story 122 D4)', () => {
     const attrNames = (el: Element) => Array.from(el.attributes).map((a) => a.name).sort()
     expect(attrNames(zeroRow as Element)).toEqual(attrNames(scoringRow as Element))
 
-    const strings = collectStrings((enJson as { servers: { detail: unknown } }).servers.detail)
+    const strings = collectStrings(
+      (enJson as { servers: { detail: { players: unknown } } }).servers.detail.players,
+    )
     expect(strings.some((s) => /spectat/i.test(s))).toBe(false)
   })
 })

@@ -24,7 +24,7 @@ invisible until a code names `watchlist`.
 - [x] 120 — i filter and search the list
 - [x] 121 — the list says what it's doing
 - [x] 122 — a server's detail opens
-- [ ] 123 — the rules a server plays by, in full
+- [x] 123 — the rules a server plays by, in full
 - [ ] 124 — how this server has answered
 - [ ] 125 — i join a server from the browser
 - [ ] 126 — i spectate without picking a side

@@ -62,3 +62,16 @@
 - 2026-09-25 18:57 · 122 · review 1 · started
 - 2026-09-25 18:59 · 122 · review 1 · done
 - 2026-09-25 19:00 · 122 · story · done
+- 2026-09-25 19:00:30 · 123 · build · started
+- 2026-09-25 19:01 · 123 · D1 shared rule-table+dmflags · started
+- 2026-09-25 19:01 · 123 · D2 main keeps serverinfo · started
+- 2026-09-25 19:03 · 123 · D1 shared rule-table+dmflags · done
+- 2026-09-25 19:03 · 123 · D2 main keeps serverinfo · done
+- 2026-09-25 19:03 · 123 · D3 Rules section in detail view · started
+- 2026-09-25 19:08 · 123 · D3 Rules section in detail view · done
+- 2026-09-25 19:08 · 123 · verify · started
+- 2026-09-25 19:11 · 123 · verify · blocked: 2 pre-existing vocabulary guard tests fail against new en.json strings (maxclients label, spectator-password label)
+- 2026-09-25 19:13 · 123 · verify · done
+- 2026-09-25 19:13 · 123 · review 1 · started
+- 2026-09-25 19:16 · 123 · review 1 · done
+- 2026-09-25 19:16 · 123 · story · done

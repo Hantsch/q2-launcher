@@ -8,6 +8,7 @@ import { onScanChanged, readServerDetail } from './client'
 import { ServerDetailHeader } from './ServerDetailHeader'
 import { ServerDetailSection } from './ServerDetailSection'
 import { ServerPlayersPanel } from './ServerPlayersPanel'
+import { ServerRulesPanel } from './ServerRulesPanel'
 
 export interface ServerDetailViewProps {
   address: string
@@ -102,6 +103,9 @@ export function ServerDetailView({ address, onClose }: ServerDetailViewProps) {
           </ServerDetailSection>
           <ServerDetailSection id="players">
             <ServerPlayersPanel row={state.detail.row} />
+          </ServerDetailSection>
+          <ServerDetailSection id="rules">
+            <ServerRulesPanel serverinfo={state.detail.serverinfo ?? undefined} />
           </ServerDetailSection>
         </>
       )}

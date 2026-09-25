@@ -12,6 +12,8 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 ### Added
+- **Servers** — a server's detail pane now lists every rule it plays by, dmflags decoded into
+  plain English (with a caveat that mods may reuse those bits for their own purposes).
 - A **Servers** nav entry now exists (planned status) with its own Settings section, ahead of
   the module's server-browsing features landing.
 - **Servers** — the master and list sources the scanner pulls candidates from are no longer

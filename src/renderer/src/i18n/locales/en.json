@@ -742,6 +742,75 @@
         "empty": "Nobody is on this server right now",
         "notFetched": "{{count}} connected, names arrive with the next detailed scan",
         "unknown": "Player data not fetched yet"
+      },
+      "rules": {
+        "title": "Rules",
+        "empty": "No rule data yet — the server has not answered a full status query.",
+        "rawTitle": "Other keys reported by the server",
+        "emptyValue": "(empty)",
+        "unparsed": "not understood",
+        "yes": "yes",
+        "no": "no",
+        "on": "On",
+        "off": "Off",
+        "needpass": {
+          "value": "Password: {{password}} · Spectator password: {{spectatorPassword}}"
+        },
+        "limit": {
+          "none": "None"
+        },
+        "minutes": {
+          "none": "None",
+          "value": "{{count}} min"
+        },
+        "key": {
+          "hostname": "Hostname",
+          "mapname": "Map",
+          "gamename": "Game",
+          "gamedir": "Game directory",
+          "game": "Game",
+          "maxclients": "Max players",
+          "protocol": "Protocol",
+          "version": "Version",
+          "port": "Port",
+          "needpass": "Password",
+          "deathmatch": "Deathmatch",
+          "coop": "Co-op",
+          "ctf": "CTF",
+          "teamplay": "Team play",
+          "dmflags": "Dmflags",
+          "fraglimit": "Frag limit",
+          "timelimit": "Time limit",
+          "capturelimit": "Capture limit",
+          "cheats": "Cheats",
+          "maptime": "Map time",
+          "uptime": "Uptime",
+          "gamedate": "Game date"
+        },
+        "dmflags": {
+          "title": "Dmflags",
+          "caveat": "Vanilla Quake II meaning — mods may reuse these bits for other rules.",
+          "none": "No rule switches set",
+          "unknownBit": "Unknown bit {{bit}}",
+          "rule": {
+            "noHealth": "No health",
+            "noItems": "No items",
+            "weaponsStay": "Weapons stay",
+            "noFalling": "No falling damage",
+            "instantItems": "Instant items",
+            "sameLevel": "Same map on level change",
+            "skinTeams": "Skin teams",
+            "modelTeams": "Model teams",
+            "noFriendlyFire": "No friendly fire",
+            "spawnFarthest": "Spawn farthest from other players",
+            "forceRespawn": "Force respawn",
+            "noArmor": "No armor",
+            "allowExit": "Allow exit to menu",
+            "infiniteAmmo": "Infinite ammo",
+            "quadDrop": "Quad damage drops on death",
+            "fixedFov": "Fixed field of view"
+          }
+        }
       }
     },
     "filter": {

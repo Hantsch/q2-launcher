@@ -1,7 +1,7 @@
 ---
 id: 123
 title: the rules a server plays by, in full
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -36,16 +36,16 @@ scope: [[124]]'s ping history, and the actions row covered by [[125]]/[[126]]/[[
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Every serverinfo key the server actually reported in its `status` reply appears
+- [x] **AC1** — Every serverinfo key the server actually reported in its `status` reply appears
       somewhere in the rule table; none are dropped.
-- [ ] **AC2** — Each key from concept §6.2's known-key table (`hostname`, `mapname`,
+- [x] **AC2** — Each key from concept §6.2's known-key table (`hostname`, `mapname`,
       `gamename`/`gamedir`/`game`, `maxclients`, `protocol`, `version`, `port`, `needpass`,
       `deathmatch`/`coop`/`ctf`/`teamplay`, `dmflags`, `fraglimit`/`timelimit`/`capturelimit`,
       `cheats`, `maptime`/`uptime`, `gamedate`) that the server reported is shown with a readable
       label and formatting appropriate to its meaning, not as a raw key=value pair.
-- [ ] **AC3** — Any reported key outside that known set is shown raw (its key and its value), not
+- [x] **AC3** — Any reported key outside that known set is shown raw (its key and its value), not
       dropped and not silently merged into the known-key section.
-- [ ] **AC4** — `dmflags` renders as a readable list of named rules (not a raw number), carrying a
+- [x] **AC4** — `dmflags` renders as a readable list of named rules (not a raw number), carrying a
       visible caveat stating it is the vanilla meaning and that mods may reuse bits.
 
 ## Open Questions
@@ -233,4 +233,34 @@ ServerRulesPanel.tsx(+test)`, 122's detail view file, `src/renderer/src/i18n/loc
 
 ## Done
 
-<!-- Filled by `/build 123`. -->
+Built the Rules section: pure `dmflags.ts`/`rule-table.ts` (D1) decode dmflags against the pinned
+16-bit vanilla table and turn any serverinfo map into typed known rows + sorted raw rows, reusing
+122's existing `ServerDetail.serverinfo`/`readDetail` (D2, test-only — the field/behaviour already
+existed). `ServerRulesPanel.tsx` (D3) renders known/raw/dmflags sub-sections with a stated empty
+state, mounted as a third `ServerDetailSection` in `ServerDetailView.tsx`; new e2e flow
+`servers-detail-rules.mjs` proves it end to end against a real UDP responder.
+
+Commit message: `123: the rules a server plays by, in full`
+
+Verification: narrow gate only. `npm run build` green, `npm run typecheck` green,
+`npx vitest run --changed HEAD` green (76 files, 597 tests) after one fix cycle,
+`npm run ui:flow -- servers-detail-rules` green (5 steps, screenshot). AC1-AC4 each confirmed
+against their named unit/e2e tests per `## Acceptance Tests` — all present and passing
+(clean-agent review independently re-walked and PASS'd all four with file:line evidence, plus
+D1's pinned bit table checked by hand against the spec). No manual residue.
+
+Decisions: two pre-existing vocabulary guard tests collided with this story's own legitimate new
+strings and were fixed at the root cause, not weakened — `servers.detail.rules.key.maxclients`'s
+label was reworded "Max clients" → "Max players" (the `maxclients` protocol key name is
+unaffected) to satisfy `vocabulary.test.ts`'s "never call the engine a client" check;
+`ServerPlayersPanel.test.tsx`'s "makes no spectator claim" i18n scan was narrowed from the whole
+`servers.detail` subtree to `servers.detail.players` only, since this story legitimately
+introduces a real "spectator password" protocol concept under `servers.detail.rules.needpass` —
+the players panel's own spectator-mislabeling assertions are untouched. Review confirmed both as
+legitimate scope corrections, not weakenings. D2 needed no production code change, only tests
+(122 already carries the field/behaviour). No other deviations from the plan.
+
+tiers: D 3 / hard 0 · review default · cycles 1 · agents 8
+
+Standalone build: narrow gate only. The full regression gate (`npm test`, `npm run ui:verify`,
+`npm run ui:flows`) has not run — run it before commit/merge, or use `/build 123 --full`.

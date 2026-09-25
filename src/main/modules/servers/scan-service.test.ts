@@ -794,4 +794,83 @@ describe('createScanService - readDetail (story 122 D2)', () => {
     expect(infoDetail?.row.status).toBe('online')
     expect(infoDetail?.serverinfo).toBeNull()
   })
+
+  it("a status reply's full serverinfo is kept on the entry", async () => {
+    const { emit } = recorder()
+    const state = baseState({ manualServers: [manualEntry(ADDR)] })
+    const queryServer: QueryServerFn = async () =>
+      statusReply({ hostname: 'Modded', matchmode: '1' })
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
+
+    expect(service.start({ scope: { kind: 'server', address: ADDR } })).toEqual({ ok: true })
+    await waitForIdle(service)
+
+    expect(service.readDetail(ADDR)?.serverinfo).toEqual({ hostname: 'Modded', matchmode: '1' })
+  })
+
+  it('an info-only reply keeps the previous status serverinfo', async () => {
+    const { emit } = recorder()
+    const state = baseState({ manualServers: [manualEntry(ADDR)] })
+    let current: QueryServerFn = async () => statusReply({ hostname: 'A' })
+    const queryServer: QueryServerFn = (target, opts) => current(target, opts)
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
+
+    // Round 1: a status reply establishes serverinfo.
+    expect(service.start({ scope: { kind: 'server', address: ADDR } })).toEqual({ ok: true })
+    await waitForIdle(service)
+    expect(service.readDetail(ADDR)?.serverinfo).toEqual({ hostname: 'A' })
+
+    // Round 2: an info-only reply, whose raw data carries a 'clients' key - it must never touch
+    // (let alone leak into) statusInfo.
+    current = async (): Promise<ServerQueryResult> => ({
+      ok: true,
+      kind: 'info',
+      reply: { ok: true, serverinfo: { hostname: 'A-info' }, clients: 3 },
+      rttMs: 7,
+    })
+    expect(service.start({ scope: { kind: 'server', address: ADDR } })).toEqual({ ok: true })
+    await waitForIdle(service)
+
+    const detail = service.readDetail(ADDR)
+    expect(detail?.serverinfo).toEqual({ hostname: 'A' })
+    expect(detail?.serverinfo).not.toHaveProperty('clients')
+  })
+
+  it('a stale round keeps the last serverinfo', async () => {
+    const { emit } = recorder()
+    const state = baseState({ manualServers: [manualEntry(ADDR)] })
+    let current: QueryServerFn = async () => statusReply({ hostname: 'A' })
+    const queryServer: QueryServerFn = (target, opts) => current(target, opts)
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
+
+    // Round 1: a status reply establishes serverinfo.
+    expect(service.start({ scope: { kind: 'server', address: ADDR } })).toEqual({ ok: true })
+    await waitForIdle(service)
+    const before = service.readDetail(ADDR)?.serverinfo
+    expect(before).toEqual({ hostname: 'A' })
+
+    // Round 2: the address times out / gets no reply, going stale.
+    current = async () => noReply
+    expect(service.start({ scope: { kind: 'server', address: ADDR } })).toEqual({ ok: true })
+    await waitForIdle(service)
+
+    const detail = service.readDetail(ADDR)
+    expect(detail?.serverinfo).toEqual(before)
+    expect(detail?.row.status).toBe('stale')
+  })
 })
