@@ -7,6 +7,8 @@ import {
   manualAddInputSchema,
   manualListInputSchema,
   manualRemoveInputSchema,
+  scanReadInputSchema,
+  scanStartInputSchema,
   serversNoInputSchema,
   sourcesAddInputSchema,
   sourcesListInputSchema,
@@ -16,13 +18,13 @@ import {
   type ManualServerAddResult,
   type MasterSource,
   type MasterSourcesResult,
-  type ServersOverview,
 } from '@shared/modules/servers'
 import type { MainModule } from '../types'
 import { addFavourite, listFavourites, removeFavourite } from './favourites'
 import { readServerHistory } from './history-log'
 import { addManualServer, removeManualServer } from './manual-servers'
 import { addSource, removeSource, reorderSources, updateSource } from './master-sources'
+import { createScanService, type ScanService } from './scan-service'
 
 /**
  * The servers module - story 106 D2 registers its main half with a single
@@ -35,18 +37,32 @@ import { addSource, removeSource, reorderSources, updateSource } from './master-
  * `master-sources.ts` (pure, list in / list-or-reason out); what stays here is the only thing that
  * needs `app.state`: read the current `ServersState`, run the op, and persist exactly once - and
  * only on success.
+ *
+ * Story 114 D6 adds the `scan.*` handlers and replaces `overview.read`'s hardcoded zeroed object
+ * with the real `ScanService`'s numbers - `activeScanService` is a module-level reference (mirroring
+ * `src/main/modules/downloads/index.ts`'s `subscriptions` set) so this file's own static `dispose()`
+ * can reach whichever service the most recent `setup()` created.
  */
+let activeScanService: ScanService | null = null
+
 export const serversModule: MainModule = {
   id: 'servers',
 
-  setup({ handle, app, log }) {
-    const overview: ServersOverview = {
-      scanning: false,
-      knownServerCount: 0,
-      lastScanAt: null,
-    }
+  setup({ handle, emit, app, log }) {
+    // Reads `app.state.serversState()` live at call time, never a snapshot captured here - sources/
+    // favourites/manual servers can be mutated by the handlers below in between two scans.
+    const scanService = createScanService({
+      getServersState: () => app.state.serversState(),
+      emit,
+    })
+    activeScanService = scanService
 
-    handle(SERVERS_HANDLERS.overviewRead, serversNoInputSchema, () => overview)
+    handle(SERVERS_HANDLERS.overviewRead, serversNoInputSchema, () => scanService.overview())
+
+    handle(SERVERS_HANDLERS.scanStart, scanStartInputSchema, (payload) =>
+      scanService.start(payload?.selectedAddress),
+    )
+    handle(SERVERS_HANDLERS.scanRead, scanReadInputSchema, () => scanService.read())
 
     /**
      * Story 111 D3: the single read/mutate/persist path every `sources.*` mutation goes through.
@@ -149,5 +165,9 @@ export const serversModule: MainModule = {
     )
 
     log.debug('servers module ready')
+  },
+
+  dispose() {
+    activeScanService?.dispose()
   },
 }

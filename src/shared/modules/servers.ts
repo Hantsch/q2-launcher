@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { serverAddressSchema } from '../schemas'
+import type { InfoReplySuccess } from '../servers/info-reply'
 import type { MasterSourceAddressRejection } from '../servers/master-source-address'
+import type { ServerPlayer, StatusReplySuccess } from '../servers/status-reply'
 
 /**
  * The servers module's contract.
@@ -50,6 +52,25 @@ export const SERVERS_HANDLERS = {
   /** Resolves to the connection history, most-recent-first. Read-only over IPC - there is no
    * `history.record` channel; only main itself ever appends to history (a later story). */
   historyRead: 'history.read',
+  /** Story 114 D1: `scan.*` handler ids. Handler logic (`ScanService`, the two-stage runner) is a
+   * later D - here they only need names and payload schemas, same as story 111/112/113 D1's
+   * entries above. */
+  /** Starts a two-stage scan across the current address set (D-L: refused as a value while one is
+   * already running, never queued). */
+  scanStart: 'scan.start',
+  /** Resolves to a `ScanSnapshot` of the scan's current state and every last-known row (D-D) - a
+   * single catch-up read for a renderer that mounts mid-scan, never polled (AC5). */
+  scanRead: 'scan.read',
+} as const
+
+/**
+ * Main-to-renderer push under the `servers` module's namespace (story 114 D-C): `scan.changed`
+ * carries the scan's own progress/state, `scan.server` carries one resolved row - one event per
+ * result, never batched. Mirrors `HOME_EVENTS` in `src/shared/modules/home.ts`.
+ */
+export const SERVERS_EVENTS = {
+  scanChanged: 'scan.changed',
+  scanServer: 'scan.server',
 } as const
 
 /**
@@ -365,6 +386,138 @@ export const manualRemoveInputSchema = z.object({
 
 export const historyReadInputSchema = serversNoInputSchema
 
+/**
+ * Story 114 D1: the scan's shared contract - types, event names, handler names and schemas, all
+ * that this deliverable adds (Plan, step 1). The runner, the service and the renderer view are
+ * later deliverables of the same story; nothing here has an implementation yet.
+ */
+
+/** Where one `ScanTarget` address was seen: an enabled master/list source (111), a favourite
+ * (112) or a manually-added server (113). A target can carry more than one - see `ScanTarget`. */
+export type ScanOrigin = 'source' | 'favourite' | 'manual'
+
+/** One address the scan will sweep, plus every origin it was seen under (AC6: a duplicate
+ * address from two origins collapses to one target that still carries both; AC4: a favourite is
+ * always present even when no source returns it). */
+export interface ScanTarget {
+  address: string
+  origins: ScanOrigin[]
+}
+
+/**
+ * Review fix (story 114, clean-agent pass): one query's outcome, exactly as
+ * `src/main/modules/servers/server-query.ts`'s `queryServer()` resolves and as
+ * `src/main/modules/servers/scan-runner.ts` streams it through `onServer`/`scan.server`. Defined
+ * here - not in `server-query.ts` - so the renderer client (`modules/servers/client.ts`) can import
+ * the real type for the `scan.server` push instead of hand-declaring a structurally-identical copy
+ * that nothing keeps in sync if either side changes. `server-query.ts` re-exports its own
+ * `ServerQueryResult` name as an alias of this type, so no main-side import site needed to change.
+ */
+export type ScanQueryResult =
+  | { ok: true; kind: 'info'; reply: InfoReplySuccess; rttMs: number }
+  | { ok: true; kind: 'status'; reply: StatusReplySuccess; rttMs: number }
+  | { ok: false; reason: 'no-reply' | 'transport-error' | 'malformed' }
+
+/** One row as delivered through the `scan.server` push (D-C) - `scan-runner.ts`'s `ScanServerResult`
+ * is an alias of this same shape, for the reason above. */
+export interface ScanServerPush {
+  stage: 'stage1' | 'stage2'
+  target: ScanTarget
+  result: ScanQueryResult
+}
+
+/**
+ * One row of the servers list, as the scan and the renderer store hold it. `status: 'stale'`
+ * marks a server that did not answer this scan - it keeps whatever it last reported rather than
+ * being reported as empty or dropped (D-K, GB-N6). Every domain field below `status` is optional
+ * because a target that has never yet answered (e.g. a favourite no source has ever returned)
+ * still needs a row to exist. `players` starts out as the numeric count `info` reports and is
+ * replaced by the full roster once stage 2's `status` reply for this address lands - the same
+ * field, not two, so a consumer never has to reconcile a count against a list for one address.
+ */
+export interface ServerListEntry {
+  address: string
+  origins: ScanOrigin[]
+  status: 'online' | 'stale'
+  name?: string
+  map?: string
+  mod?: string
+  maxclients?: number
+  needpass?: boolean
+  rttMs?: number
+  players?: number | ServerPlayer[]
+  /** ISO timestamp of the last reply (of either stage) actually received for this address. */
+  lastSeenAt: string
+}
+
+/**
+ * One source's scan-time failure (D-H): `reasonKey` is `masterSourceFailureKey()`
+ * (`src/shared/servers/master-records.ts`) applied to whatever `resolveUdpMasterSource`/
+ * `resolveHttpListSource` returned for that source - already a `servers.source.error.<reason>`
+ * i18n key, not a raw reason code, same convention as `ManualServerAddResult.reasonKey` above
+ * (CLAUDE.md: main sends i18n keys across IPC, never prose).
+ */
+export interface ScanSourceFailure {
+  sourceId: string
+  reasonKey: string
+}
+
+/** The two stages a scan sweeps through, in order. `'idle'` is both "never run" and "finished". */
+export type ScanPhase = 'idle' | 'stage1' | 'stage2'
+
+/**
+ * The scan's own live state (D-C's `scan.changed` payload). `stage1Total`/`stage2Total` are the
+ * size of that stage's address set at the moment the stage started - `stage2Total` is `0` until
+ * stage 1 has finished and the non-empty-plus-selected set is known. `startedAt`/`finishedAt` are
+ * ISO timestamps, `null` before the first scan has ever run (`finishedAt` also `null` while
+ * `running` is true).
+ */
+export interface ServersScanState {
+  running: boolean
+  phase: ScanPhase
+  stage1Done: number
+  stage1Total: number
+  stage2Done: number
+  stage2Total: number
+  sourceFailures: ScanSourceFailure[]
+  startedAt: string | null
+  finishedAt: string | null
+}
+
+/**
+ * `scan.start`'s result (D-L): starting is a returned refusal when a scan is already running, not
+ * a thrown IPC error - same shape convention as `ManualServerAddResult`/`MasterSourcesResult`
+ * above. A successful start carries no data of its own - the caller learns everything through the
+ * `scan.changed`/`scan.server` pushes (AC5), not through this return value.
+ */
+export type ScanStartResult = { ok: true } | { ok: false; reasonKey: string }
+
+/**
+ * `scan.read`'s result (D-D): a one-shot catch-up snapshot for a renderer that mounts mid-scan -
+ * the scan's current state plus every row known so far (both online and stale, D-K), never a
+ * polled value.
+ */
+export interface ScanSnapshot {
+  state: ServersScanState
+  entries: ServerListEntry[]
+}
+
+/**
+ * `scan.start`'s payload (D-G): `selectedAddress` is optional and, when present, re-validated with
+ * the same `serverAddressSchema` `favouritesAdd`/`favouritesRemove` already use above - it names
+ * stage 2's "currently selected server" (AC2), which has no selection surface yet ([[118]]/[[122]]).
+ * Accepts a call with no payload at all (`undefined`), same as every other optional-field handler
+ * payload in this file that is still allowed to be omitted entirely.
+ */
+export const scanStartInputSchema = z
+  .object({
+    selectedAddress: serverAddressSchema.optional(),
+  })
+  .optional()
+
+/** `scan.read` takes no payload - same `z.void()` convention as `historyReadInputSchema` above. */
+export const scanReadInputSchema = serversNoInputSchema
+
 export const SERVERS_HANDLER_SCHEMAS: Record<
   (typeof SERVERS_HANDLERS)[keyof typeof SERVERS_HANDLERS],
   z.ZodTypeAny
@@ -382,4 +535,6 @@ export const SERVERS_HANDLER_SCHEMAS: Record<
   [SERVERS_HANDLERS.manualAdd]: manualAddInputSchema,
   [SERVERS_HANDLERS.manualRemove]: manualRemoveInputSchema,
   [SERVERS_HANDLERS.historyRead]: historyReadInputSchema,
+  [SERVERS_HANDLERS.scanStart]: scanStartInputSchema,
+  [SERVERS_HANDLERS.scanRead]: scanReadInputSchema,
 }

@@ -636,6 +636,11 @@
         "ipv4-octet-out-of-range": "Each part of an IPv4 address must be between 0 and 255."
       }
     },
+    "scan": {
+      "error": {
+        "already-running": "A scan is already running."
+      }
+    },
     "source": {
       "error": {
         "too-short": "This source's reply is too short to be a valid server list.",

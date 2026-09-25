@@ -20,7 +20,7 @@ describe('servers module contract (story 106 D1)', () => {
     }
   })
 
-  it('names every handler exactly, including story 111 D1\'s five sources.* handlers, story 112 D1\'s three favourites.* handlers and story 113 D1\'s four manual.*/history.* handlers', () => {
+  it('names every handler exactly, including story 111 D1\'s five sources.* handlers, story 112 D1\'s three favourites.* handlers, story 113 D1\'s four manual.*/history.* handlers and story 114 D1\'s two scan.* handlers', () => {
     expect(SERVERS_HANDLERS).toEqual({
       overviewRead: 'overview.read',
       sourcesList: 'sources.list',
@@ -35,6 +35,8 @@ describe('servers module contract (story 106 D1)', () => {
       manualAdd: 'manual.add',
       manualRemove: 'manual.remove',
       historyRead: 'history.read',
+      scanStart: 'scan.start',
+      scanRead: 'scan.read',
     })
   })
 

@@ -1,7 +1,7 @@
 ---
 sprint: S24
-status: planned # planned | in-progress | done
-branch:
+status: in-progress # planned | in-progress | done
+branch: sprint/S24
 milestone: 9.3 — Scan engine
 ---
 
@@ -16,7 +16,7 @@ one server instead of always reloading everything.
 
 ## Stories (in build order)
 
-- [ ] 114 — a scan sweeps the servers in two stages
+- [x] 114 — a scan sweeps the servers in two stages
 - [ ] 115 — how hard the scan works is a setting
 - [ ] 116 — no scan runs while the game does
 - [ ] 117 — a refresh only reloads what changed

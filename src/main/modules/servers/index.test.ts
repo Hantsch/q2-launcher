@@ -10,6 +10,7 @@ import {
   type ManualServerAddResult,
   type ManualServerEntry,
   type ServerHistoryEntry,
+  type ServersOverview,
   type ServersState,
 } from '@shared/modules/servers'
 import { getModuleManifest } from '@shared/types'
@@ -34,8 +35,15 @@ import { serversModule } from './index'
  * unchanged via a second, independent `StateStore` over the same file).
  */
 
+/**
+ * Story 114 D6 adds a `broadcast.emit` stub: `scan.start`'s handler now calls `ModuleSetup.emit`,
+ * which the real registry wires to `app.broadcast.emit` (`src/main/modules/registry.ts`) - every
+ * caller of this helper needs that seam to exist, even the tests that never assert on an emitted
+ * event.
+ */
 function fakeAppContext(state?: StateStore): AppContext {
-  return (state === undefined ? {} : { state }) as unknown as AppContext
+  const broadcast = { emit: () => {} }
+  return (state === undefined ? { broadcast } : { state, broadcast }) as unknown as AppContext
 }
 
 describe('servers module', () => {
@@ -415,5 +423,80 @@ describe('servers module manual.*/history.* handlers (story 113 D4)', () => {
     await reloaded.load()
     expect(reloaded.serversState().history).toEqual(history)
     expect(reloaded.serversState().manualServers).toEqual(remaining.value)
+  })
+})
+
+/**
+ * Story 114 D6: `overview.read` now answers `createScanService`'s real numbers instead of the
+ * hardcoded `{ scanning: false, knownServerCount: 0, lastScanAt: null }` object story 106 D2 shipped.
+ * `sources`/`favourites`/`manualServers` are all cleared first, so `scan.start`'s address set is
+ * empty - the sweep settles with no network/UDP I/O of its own (no `fetchImpl`/`udpImpl` fake is
+ * needed, and nothing here waits on a real timer), which is enough to prove the wiring: a completed
+ * scan moves `lastScanAt` from `null` to a real timestamp, which the old hardcoded object could
+ * never do.
+ */
+describe('servers module overview.read reflects the scan service (story 114 D6)', () => {
+  let filePath: string
+  let state: StateStore
+  let registry: MainModuleRegistry
+
+  beforeEach(async () => {
+    filePath = join(tmpdir(), `q2-launcher-state-servers-scan-${randomUUID()}.json`)
+    state = new StateStore(filePath)
+    await state.load()
+    state.setServersState({
+      ...state.serversState(),
+      sources: [],
+      favourites: [],
+      manualServers: [],
+    })
+    registry = new MainModuleRegistry()
+    await registry.register(serversModule, fakeAppContext(state))
+  })
+
+  afterEach(async () => {
+    await state.settle()
+    await rm(filePath, { force: true })
+    await rm(`${filePath}.tmp`, { force: true })
+    await rm(`${filePath}.bak`, { force: true })
+  })
+
+  function invoke(type: string, payload?: unknown): Promise<unknown> {
+    return registry.invoke({ moduleId: 'servers', type, payload })
+  }
+
+  it('reports scanning/knownServerCount/lastScanAt from the real service after a completed scan', async () => {
+    expect(await invoke(SERVERS_HANDLERS.overviewRead)).toEqual({
+      ok: true,
+      value: { scanning: false, knownServerCount: 0, lastScanAt: null },
+    })
+
+    expect(await invoke(SERVERS_HANDLERS.scanStart)).toEqual({ ok: true, value: { ok: true } })
+
+    // An empty address set (no sources/favourites/manual servers) settles almost immediately -
+    // poll a handful of ticks rather than a real scan's timers.
+    let overview = (
+      (await invoke(SERVERS_HANDLERS.overviewRead)) as { ok: true; value: ServersOverview }
+    ).value
+    for (let i = 0; i < 20 && overview.scanning; i++) {
+      await new Promise((resolve) => setImmediate(resolve))
+      overview = (
+        (await invoke(SERVERS_HANDLERS.overviewRead)) as { ok: true; value: ServersOverview }
+      ).value
+    }
+
+    expect(overview).toEqual({
+      scanning: false,
+      knownServerCount: 0,
+      lastScanAt: expect.any(String),
+    })
+  })
+
+  it('scan.start refuses a second call while one is already running', async () => {
+    expect(await invoke(SERVERS_HANDLERS.scanStart)).toEqual({ ok: true, value: { ok: true } })
+    expect(await invoke(SERVERS_HANDLERS.scanStart)).toEqual({
+      ok: true,
+      value: { ok: false, reasonKey: 'servers.scan.error.already-running' },
+    })
   })
 })

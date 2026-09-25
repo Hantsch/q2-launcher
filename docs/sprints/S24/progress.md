@@ -1,0 +1,16 @@
+- 2026-09-24 19:24 · 114 · D1 shared contract · started
+- 2026-09-25 07:50 · 114 · D1 shared contract · done
+- 2026-09-25 07:51 · 114 · D2 query one game server · started
+- 2026-09-25 07:51 · 114 · D3 address set · started
+- 2026-09-25 07:51 · 114 · D4 resolve sources isolated · started
+- 2026-09-25 07:56 · 114 · D2 query one game server · done
+- 2026-09-25 07:56 · 114 · D3 address set · done
+- 2026-09-25 07:56 · 114 · D4 resolve sources isolated · done
+- 2026-09-25 07:57 · 114 · D5 two-stage runner · started
+- 2026-09-25 08:01 · 114 · D5 two-stage runner · done
+- 2026-09-25 08:02 · 114 · D6 service and handlers · started
+- 2026-09-25 08:13 · 114 · D6 service and handlers · done
+- 2026-09-25 08:13 · 114 · D7 renderer client helpers · started
+- 2026-09-25 08:17 · 114 · D7 renderer client helpers · done
+- 2026-09-25 08:18 · 114 · D8 real-socket integration proof · started
+- 2026-09-25 08:22 · 114 · D8 real-socket integration proof · done
