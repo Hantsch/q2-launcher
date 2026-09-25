@@ -1,7 +1,7 @@
 ---
 id: 124
 title: how this server has answered
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -32,9 +32,9 @@ by [[125]]/[[126]]/[[127]] — this story states facts, it does not act on them.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The view shows the response times this server has measured during the current
+- [x] **AC1** — The view shows the response times this server has measured during the current
       session as a history (more than just the single latest value), not only the most recent ping.
-- [ ] **AC2** — The view states plainly whether the last scan round received an answer from this
+- [x] **AC2** — The view states plainly whether the last scan round received an answer from this
       server at all.
 
 ## Open Questions
@@ -157,4 +157,34 @@ Review: → default — the tempting wrong implementation (history accumulated i
 
 ## Done
 
-<!-- Filled by `/build 124`. -->
+Added `RttSample`/`rttHistory`/`RTT_HISTORY_LIMIT` to `ServerListEntry` (shared), a pure
+`appendRttSample` helper and `mergeStaleRound`/`mergeSuccessfulReply` wiring in
+`scan-merge.ts`/`scan-service.ts` (main), and a new `ServerReachabilitySection.tsx` mounted as the
+detail view's fourth section, rendering the last-round statement (`entry.status`/`lastSeenAt`) and
+the newest-first sample history with per-line GB-D6 degradation. New e2e flow
+`servers-detail-reachability.mjs` covers both ACs including the history-survives-remount
+regression the plan called out.
+
+Commit message: `124: how this server has answered`
+
+Verification: narrow gate only. `npm run build` green, `npm run typecheck` green,
+`npx vitest run --changed HEAD` green (98 files, 1575 tests), `npm run ui:flow --
+servers-detail-reachability` green. AC1/AC2/GB-D6 each confirmed against their named unit/e2e
+tests per `## Acceptance Tests` — all present and passing; clean-agent review independently
+re-walked both ACs PASS with file:line evidence. One confirmed finding (a malformed-`at`,
+valid-`rttMs` sample rendered its ms text instead of degrading to "Unknown", per GB-D6/D2's own
+degradation spec) was fixed and covered by a new test case, then the narrow gate re-ran green.
+No manual residue.
+
+Decisions: the "ui:verify registry entry" mentioned in this story's build brief is read as the
+`scripts/flows/servers-detail-reachability.mjs` flow file itself (looked up by name via
+`npm run ui:flow -- <name>`) — 122/123 likewise added only flow files, not `scripts/lib/screens.mjs`
+entries, for the detail view; no `screens.mjs` entry was added for consistency with that
+precedent. i18n keys landed under the existing `servers.detail.*` namespace (matching
+`ServerRulesPanel`/`ServerDetailHeader`), not the `module.servers.detail.*` shape suggested in
+the plan text.
+
+tiers: D 2 / hard 0 · review default · cycles 1 · agents 6
+
+Full regression gate (`npm test`, `npm run ui:verify`, `npm run ui:flows`) has not run — run it
+before merging, or use `/build 124 --full`.

@@ -541,12 +541,27 @@ export interface ServerListEntry {
   maxclients?: number
   needpass?: boolean
   rttMs?: number
+  /** In-memory session history of this address's measured round trips, oldest first, newest
+   * appended last - never persisted to `state.json`, rebuilt from nothing every process lifetime
+   * exactly like `entries` itself. Capped at `RTT_HISTORY_LIMIT` entries. */
+  rttHistory?: RttSample[]
   players?: number | ServerPlayer[]
   gamemode?: ServerGamemode
   /** ISO timestamp of the last reply (of either stage) actually received for this address, or
    * `null` for a row that has never received one. */
   lastSeenAt: string | null
 }
+
+/** One round's measured round trip for a `ServerListEntry`'s `rttHistory` - `rttMs: null` means the
+ * address did not answer that round (a stale flip), not that it answered in zero time. */
+export interface RttSample {
+  at: string
+  rttMs: number | null
+}
+
+/** How many of a server's most recent `RttSample`s `appendRttSample` (`scan-merge.ts`) keeps -
+ * older samples are dropped, oldest first. */
+export const RTT_HISTORY_LIMIT = 20
 
 /** One row of the servers list as the renderer's list/table shows it: every `ServerListEntry`
  * field plus whether the user has favourited this address. */

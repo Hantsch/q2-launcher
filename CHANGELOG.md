@@ -14,6 +14,10 @@ version section when a release actually ships.
 ### Added
 - **Servers** — a server's detail pane now lists every rule it plays by, dmflags decoded into
   plain English (with a caveat that mods may reuse those bits for their own purposes).
+- **Servers** — the detail pane now shows how a server has actually been answering this session: a
+  plain statement of whether the last scan round got a reply at all (and when it last did, if not),
+  plus a running list of every response time measured, newest first, so one bad ping doesn't read
+  as "reliable" or "dead" on its own.
 - A **Servers** nav entry now exists (planned status) with its own Settings section, ahead of
   the module's server-browsing features landing.
 - **Servers** — the master and list sources the scanner pulls candidates from are no longer

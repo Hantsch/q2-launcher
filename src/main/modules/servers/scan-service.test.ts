@@ -358,6 +358,46 @@ describe('createScanService', () => {
     expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ favourite: false })
   })
 
+  it('story 124 D1: every successful reply appends one RTT sample across rounds, and a timeout appends a no-answer sample', async () => {
+    const { emit } = recorder()
+    const address = '20.0.0.9:27910'
+    const state = baseState({ manualServers: [manualEntry(address)] })
+    const infoOkWithRtt = (rttMs: number): ServerQueryResult => ({
+      ok: true,
+      kind: 'info',
+      reply: { ok: true, serverinfo: { hostname: 'Arena' }, clients: undefined },
+      rttMs,
+    })
+    let reply: ServerQueryResult = infoOkWithRtt(11)
+    const queryServer: QueryServerFn = async () => reply
+    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+
+    // Round 1: a successful reply with rttMs 11.
+    service.start()
+    await waitForIdle(service)
+    let row = service.read().entries.find((entry) => entry.address === address)
+    expect(row?.rttHistory).toEqual([{ at: expect.any(String), rttMs: 11 }])
+
+    // Round 2: a successful reply with a different rttMs (22) - the history grows, oldest first.
+    reply = infoOkWithRtt(22)
+    service.start()
+    await waitForIdle(service)
+    row = service.read().entries.find((entry) => entry.address === address)
+    expect(row?.rttHistory).toEqual([
+      { at: expect.any(String), rttMs: 11 },
+      { at: expect.any(String), rttMs: 22 },
+    ])
+
+    // Round 3: a timeout - the last sample is a no-answer one and the row goes stale.
+    reply = noReply
+    service.start()
+    await waitForIdle(service)
+    row = service.read().entries.find((entry) => entry.address === address)
+    expect(row?.status).toBe('stale')
+    expect(row?.rttHistory).toHaveLength(3)
+    expect(row?.rttHistory?.at(-1)).toEqual({ at: expect.any(String), rttMs: null })
+  })
+
   it('read lists a never-answered favourite or manual server as a pending placeholder, and no master-only address', async () => {
     const { emit } = recorder()
     const favAddress = '20.0.0.4:27910'
@@ -689,7 +729,11 @@ describe('createScanService - story 117 D3 scoped rounds', () => {
     await waitForIdle(service)
 
     expect(query.calls).toEqual([{ address: FAV_1, kind: 'status' }])
-    expect(entryOf(FAV_1)).toEqual({ ...favBefore, status: 'stale' })
+    expect(entryOf(FAV_1)).toEqual({
+      ...favBefore,
+      status: 'stale',
+      rttHistory: [...(favBefore?.rttHistory ?? []), { at: expect.any(String), rttMs: null }],
+    })
     expect(entryOf(MANUAL)).toEqual(manualBefore)
   })
 

@@ -18,7 +18,7 @@ import { deriveGamemode } from '@shared/servers/row-markers'
 import type { LaunchHost } from '../../services/write-guard'
 import { electronNetFetch, type FetchImpl } from '../downloads/fetcher'
 import { isScanBlocked } from './scan-guard'
-import { mergeStaleRound } from './scan-merge'
+import { appendRttSample, mergeStaleRound } from './scan-merge'
 import { resolveScanScopeAddresses } from './scan-scope'
 import { resolveSources, type ResolveSourcesDeps } from './source-resolution'
 import { runScan, type QueryServerFn } from './scan-runner'
@@ -181,6 +181,9 @@ function mergeSuccessfulReply(
     status: 'online',
     ...fields,
     rttMs: result.rttMs,
+    // Story 124 D1: session history of measured round trips, oldest first - the single `rttMs`
+    // field above still tracks only the latest value, unchanged.
+    rttHistory: appendRttSample(existing?.rttHistory, { at: now, rttMs: result.rttMs }),
     players,
     lastSeenAt: now,
   }
@@ -292,7 +295,13 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
       // rather than reassigning `entries` to a new object. Story 117 D3: `scopeTargets`, never
       // `runTargets` - the single-server scope's `runTargets` is empty, and its one address must
       // still go stale on a timeout; and no address outside the scope may be named here at all.
-      for (const [address, entry] of mergeStaleRound(entries, scopeTargets, answeredOnline, outcome.aborted)) {
+      for (const [address, entry] of mergeStaleRound(
+        entries,
+        scopeTargets,
+        answeredOnline,
+        outcome.aborted,
+        new Date().toISOString(),
+      )) {
         entries.set(address, entry)
       }
     } catch {

@@ -1,4 +1,13 @@
-import type { ScanTarget, ServerListEntry } from '@shared/modules/servers'
+import { RTT_HISTORY_LIMIT, type RttSample, type ScanTarget, type ServerListEntry } from '@shared/modules/servers'
+
+/**
+ * Story 124 D1: appends one `RttSample` to a server's session history, capped at
+ * `RTT_HISTORY_LIMIT` (oldest dropped first). Pure - returns a new array, never mutates `history`.
+ */
+export function appendRttSample(history: RttSample[] | undefined, sample: RttSample): RttSample[] {
+  const next = [...(history ?? []), sample]
+  return next.length > RTT_HISTORY_LIMIT ? next.slice(next.length - RTT_HISTORY_LIMIT) : next
+}
 
 /**
  * Story 116 D4: the end-of-round stale-flip, extracted from `scan-service.ts`'s `runSweep` (story
@@ -29,6 +38,7 @@ export function mergeStaleRound(
   targets: ScanTarget[],
   answeredOnline: ReadonlySet<string>,
   aborted: boolean,
+  now: string,
 ): Map<string, ServerListEntry> {
   if (aborted) return entries
 
@@ -37,7 +47,14 @@ export function mergeStaleRound(
     if (answeredOnline.has(target.address)) continue
     const existing = next.get(target.address)
     if (existing !== undefined) {
-      next.set(target.address, { ...existing, status: 'stale' })
+      // Story 124 D1: a stale flip is itself a "round with no answer" - recorded in the history the
+      // same way a successful reply records its measured value, just with `rttMs: null`. Only for a
+      // target that already has an entry - a fabricated field-less placeholder (below) never gets one.
+      next.set(target.address, {
+        ...existing,
+        status: 'stale',
+        rttHistory: appendRttSample(existing.rttHistory, { at: now, rttMs: null }),
+      })
     } else if (target.origins.includes('favourite') || target.origins.includes('manual')) {
       next.set(target.address, {
         address: target.address,

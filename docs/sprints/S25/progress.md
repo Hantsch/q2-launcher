@@ -75,3 +75,15 @@
 - 2026-09-25 19:13 · 123 · review 1 · started
 - 2026-09-25 19:16 · 123 · review 1 · done
 - 2026-09-25 19:16 · 123 · story · done
+- 2026-09-25 19:17:20 · 124 · build · started
+- 2026-09-25 19:18 · 124 · D1 per-server RTT history · started
+- 2026-09-25 19:21 · 124 · D1 per-server RTT history · done
+- 2026-09-25 19:21 · 124 · D2 reachability section + e2e · started
+- 2026-09-25 19:25 · 124 · D2 reachability section + e2e · done
+- 2026-09-25 19:25 · 124 · verify · started
+- 2026-09-25 19:26 · 124 · verify · done
+- 2026-09-25 19:26 · 124 · review 1 · started
+- 2026-09-25 19:29 · 124 · review 1 · done
+- 2026-09-25 19:29 · 124 · verify · started
+- 2026-09-25 19:30 · 124 · verify · done
+- 2026-09-25 19:31 · 124 · story · done

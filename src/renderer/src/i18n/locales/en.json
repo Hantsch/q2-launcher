@@ -811,6 +811,20 @@
             "fixedFov": "Fixed field of view"
           }
         }
+      },
+      "reachability": {
+        "title": "How this server has answered",
+        "lastRound": {
+          "answered": "Answered the last scan",
+          "noAnswer": "Did not answer the last scan — showing what it last reported"
+        },
+        "lastAnswered": "Last answered {{time}}",
+        "sample": {
+          "ms": "{{ms}} ms",
+          "noAnswer": "No answer",
+          "unknown": "Unknown"
+        },
+        "empty": "No response time measured yet this session"
       }
     },
     "filter": {

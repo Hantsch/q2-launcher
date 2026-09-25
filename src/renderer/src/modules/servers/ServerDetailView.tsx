@@ -8,6 +8,7 @@ import { onScanChanged, readServerDetail } from './client'
 import { ServerDetailHeader } from './ServerDetailHeader'
 import { ServerDetailSection } from './ServerDetailSection'
 import { ServerPlayersPanel } from './ServerPlayersPanel'
+import { ServerReachabilitySection } from './ServerReachabilitySection'
 import { ServerRulesPanel } from './ServerRulesPanel'
 
 export interface ServerDetailViewProps {
@@ -106,6 +107,9 @@ export function ServerDetailView({ address, onClose }: ServerDetailViewProps) {
           </ServerDetailSection>
           <ServerDetailSection id="rules">
             <ServerRulesPanel serverinfo={state.detail.serverinfo ?? undefined} />
+          </ServerDetailSection>
+          <ServerDetailSection id="reachability">
+            <ServerReachabilitySection entry={state.detail.row} />
           </ServerDetailSection>
         </>
       )}
