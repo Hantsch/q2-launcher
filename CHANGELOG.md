@@ -12,6 +12,10 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 ### Added
+- **Servers** — a Spectate button sits next to Join in the list and the detail pane, for when you
+  just want to watch: same address check and mod-mismatch warning, but it asks for a spectator
+  password instead of a join one when the server wants it, and that password never shows up
+  anywhere a shoulder-surfer (or a log file) could read it.
 - **Servers** — a server's detail pane now lists every rule it plays by, dmflags decoded into
   plain English (with a caveat that mods may reuse those bits for their own purposes).
 - **Servers** — the detail pane now shows how a server has actually been answering this session: a

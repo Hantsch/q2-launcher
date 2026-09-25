@@ -2670,9 +2670,13 @@ export function writeJoinInstallRoot() {
  * via `writeJoinInstallRoot()`, seeds it as the sole installation and `settings.activeInstallationId`
  * (`DEFAULT_SETTINGS.activeInstallationId` is `null`), and takes the caller's `servers` state slice
  * verbatim - same shape every other servers flow already builds by hand.
+ *
+ * `variant` (story 126 D3) picks the userDataDir a caller other than `servers-join.mjs` itself
+ * gets - `servers-spectate.mjs` passes its own name so the two flows' fixtures never share a
+ * directory, defaulting to `'servers-join'` so the original caller is unaffected.
  */
-export function writeJoinFixture({ servers }) {
-  const userDataDir = variantUserDataDir('servers-join')
+export function writeJoinFixture({ servers, variant = 'servers-join' }) {
+  const userDataDir = variantUserDataDir(variant)
   rmDirBestEffort(userDataDir)
   mkdirSync(userDataDir, { recursive: true })
 

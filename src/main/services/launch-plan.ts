@@ -59,6 +59,23 @@ export function hasUserinfo(userinfo: LaunchUserinfo | undefined): userinfo is L
 }
 
 /**
+ * Story 126: resolves what actually goes through the connect cfg carrier. `spectate` composes
+ * with `userinfo.password` - reused as the *spectator* password, no second secret field - to put
+ * the client into spectator mode: `spectator` becomes the password if one was given, else `'1'`,
+ * and no `password` cvar is emitted at all in this case, still only ever through the cfg file,
+ * never argv. Without `spectate`, `input.userinfo` passes through unchanged (byte-for-byte
+ * identical to story 125's behaviour).
+ */
+export function resolveEffectiveUserinfo(
+  input: Pick<LaunchInput, 'userinfo' | 'spectate'>,
+): LaunchUserinfo | undefined {
+  if (input.spectate) {
+    return { spectator: input.userinfo?.password ?? '1' }
+  }
+  return input.userinfo
+}
+
+/**
  * Whether a planned command line tells the game to exec the connect cfg - the one condition under
  * which `LaunchService.start()` writes that file, so a password is never put on disk for a launch
  * that would not read it.
@@ -75,7 +92,7 @@ export interface BuildLaunchArgsResult {
 
 export function buildLaunchArgs(
   installation: Installation,
-  input: Pick<LaunchInput, 'gameDir' | 'connect' | 'extraArgs' | 'userinfo'> = {},
+  input: Pick<LaunchInput, 'gameDir' | 'connect' | 'extraArgs' | 'userinfo' | 'spectate'> = {},
 ): BuildLaunchArgsResult {
   const args: string[] = []
   const dropped: BuildLaunchArgsResult['dropped'] = []
@@ -104,7 +121,7 @@ export function buildLaunchArgs(
   if (input.connect) {
     const address = parseServerAddress(input.connect)
     if (address.ok) {
-      if (hasUserinfo(input.userinfo)) args.push('+exec', CONNECT_CFG_NAME)
+      if (hasUserinfo(resolveEffectiveUserinfo(input))) args.push('+exec', CONNECT_CFG_NAME)
       args.push('+connect', address.normalized)
     } else {
       dropped.push({ reason: 'invalid-address', value: input.connect })

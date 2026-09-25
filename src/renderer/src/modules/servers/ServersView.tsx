@@ -353,7 +353,12 @@ export function ServersView() {
             >
               {t('module.servers.view.refreshSelected')}
             </Button>
-            {selectedRow && <JoinServerButton row={selectedRow} />}
+            {selectedRow && (
+              <>
+                <JoinServerButton row={selectedRow} />
+                <JoinServerButton row={selectedRow} mode="spectate" />
+              </>
+            )}
             <span
               className="text-xs text-ink-muted"
               data-testid="servers-scan-status"

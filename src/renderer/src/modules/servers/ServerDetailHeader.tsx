@@ -19,6 +19,9 @@ export interface ServerDetailHeaderProps {
  * Story 125 D5: the same `JoinServerButton` the list's selected-row toolbar already renders
  * (`ServersView.tsx`) sits here too, wrapped under `servers-detail-join` so a user who opened the
  * detail pane never has to go back to the list to join.
+ *
+ * Story 126 D3: a second `JoinServerButton` in `mode="spectate"`, wrapped under
+ * `servers-detail-spectate`, sits next to it - same flow, same reasoning.
  */
 export function ServerDetailHeader({ detail }: ServerDetailHeaderProps) {
   const { t } = useTranslation()
@@ -37,8 +40,13 @@ export function ServerDetailHeader({ detail }: ServerDetailHeaderProps) {
         >
           {orDash(displayName(row))}
         </h2>
-        <div data-testid="servers-detail-join">
-          <JoinServerButton row={row} />
+        <div className="flex items-center gap-2">
+          <div data-testid="servers-detail-join">
+            <JoinServerButton row={row} />
+          </div>
+          <div data-testid="servers-detail-spectate">
+            <JoinServerButton row={row} mode="spectate" />
+          </div>
         </div>
       </div>
 

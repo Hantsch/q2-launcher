@@ -310,6 +310,73 @@ describe('createScanService', () => {
     expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ needpass: false })
   })
 
+  it('needpass bit 1 sets spectatorPass', async () => {
+    const { emit } = recorder()
+    const address = '20.0.0.5:27910'
+    const state = baseState({ manualServers: [manualEntry(address)] })
+    let needpass = '2'
+    const queryServer: QueryServerFn = async () => ({
+      ok: true,
+      kind: 'info',
+      reply: { ok: true, serverinfo: { hostname: 'Host', needpass }, clients: undefined },
+      rttMs: 5,
+    })
+    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+
+    // needpass=2 (bit 1 set) -> true
+    service.start()
+    await waitForIdle(service)
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ spectatorPass: true })
+
+    // needpass=3 (bit 1 set, plus bit 0) -> true
+    needpass = '3'
+    service.start()
+    await waitForIdle(service)
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ spectatorPass: true })
+
+    // needpass=0 -> false
+    needpass = '0'
+    service.start()
+    await waitForIdle(service)
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ spectatorPass: false })
+
+    // needpass=1 (bit 1 clear) -> false
+    needpass = '1'
+    service.start()
+    await waitForIdle(service)
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ spectatorPass: false })
+  })
+
+  it('garbage or absent needpass keeps the previous spectatorPass value', async () => {
+    const { emit } = recorder()
+    const address = '20.0.0.6:27910'
+    const state = baseState({ manualServers: [manualEntry(address)] })
+    let needpass: string | undefined = 'not-a-number'
+    const queryServer: QueryServerFn = async () => {
+      const serverinfo: Record<string, string> = { hostname: 'Host' }
+      if (needpass !== undefined) serverinfo.needpass = needpass
+      return { ok: true, kind: 'info', reply: { ok: true, serverinfo, clients: undefined }, rttMs: 5 }
+    }
+    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+
+    // garbage needpass -> no previous value, stays undefined
+    service.start()
+    await waitForIdle(service)
+    expect(service.read().entries.find((e) => e.address === address)?.spectatorPass).toBeUndefined()
+
+    // a valid reply establishes spectatorPass: true
+    needpass = '2'
+    service.start()
+    await waitForIdle(service)
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ spectatorPass: true })
+
+    // an absent needpass afterwards keeps the previously established value
+    needpass = undefined
+    service.start()
+    await waitForIdle(service)
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ spectatorPass: true })
+  })
+
   it("a status reply's mode flags become the entry's gamemode and survive an info-only reply", async () => {
     const { emit } = recorder()
     const address = '20.0.0.2:27910'

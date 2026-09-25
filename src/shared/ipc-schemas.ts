@@ -205,6 +205,9 @@ export const launchInputSchema: z.ZodType<IpcInvokeMap['launch:plan']['req']> = 
     })
     .strict()
     .optional(),
+  // Story 126: composes with `userinfo.password` (reused as the spectator password) - see
+  // `resolveEffectiveUserinfo` in `launch-plan.ts`.
+  spectate: z.literal(true).optional(),
 })
 
 export const launchGetStateSchema: z.ZodType<IpcInvokeMap['launch:getState']['req']> = z.void()

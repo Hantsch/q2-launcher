@@ -7,20 +7,27 @@ import { Button } from '../../../components/ui/Button'
 import { Field, Input } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'
 import { useActiveInstallation, useLauncher } from '../../../store/useLauncher'
-import { modMismatch, needsJoinPassword, type ModMismatch } from './join-flow'
+import { modMismatch, needsPassword, type JoinMode, type ModMismatch } from './join-flow'
 
 /**
- * Story 125 D4: the join flow itself. A single button that, in order, validates the address,
- * warns on a mod mismatch (with a way to join anyway), prompts for a password when the server
- * needs one, then calls `play()` with `+connect`/`userinfo` set - never argv, per
- * `src/shared/launch/userinfo.ts`'s own reasoning.
+ * Story 125 D4 (join mode) / 126 D3 (spectate mode): the join/spectate flow itself. A single
+ * button that, in order, validates the address, warns on a mod mismatch (with a way to join
+ * anyway), prompts for a password when the server needs one, then calls `play()` with
+ * `+connect`/`userinfo` set - never argv, per `src/shared/launch/userinfo.ts`'s own reasoning.
+ *
+ * `mode` (default `'join'`) picks which of the two flows this renders as: the button's label and
+ * testid, which password bit gates the prompt (`needpass` for join, `spectatorPass` for
+ * spectate - the other bit is ignored entirely in that mode), the password prompt's title/label
+ * i18n keys, and whether `play()` is called with `spectate: true`. There is deliberately only one
+ * implementation of the flow - `mode` only ever changes labels/keys/flags, never the steps
+ * themselves.
  *
  * No active installation: the button stays visible and disabled (CLAUDE.md's "never silently
  * omitted" rule), with `servers.join.noInstallation` rendered as real text next to it, mirroring
  * how other disabled-with-reason controls in this module (e.g. `ServersView`'s blocked-scan text)
  * surface their reason inline rather than only in a tooltip.
  */
-export function JoinServerButton({ row }: { row: ServerListRow }) {
+export function JoinServerButton({ row, mode = 'join' }: { row: ServerListRow; mode?: JoinMode }) {
   const { t } = useTranslation()
   const installation = useActiveInstallation()
   const [addressError, setAddressError] = useState<string | null>(null)
@@ -28,6 +35,9 @@ export function JoinServerButton({ row }: { row: ServerListRow }) {
   const [pendingConnect, setPendingConnect] = useState<string | null>(null)
   const [askPassword, setAskPassword] = useState(false)
   const [password, setPassword] = useState('')
+
+  const spectating = mode === 'spectate'
+  const actionTestId = spectating ? 'servers-spectate' : 'servers-join'
 
   const closeMismatch = (): void => {
     setMismatch(null)
@@ -46,11 +56,12 @@ export function JoinServerButton({ row }: { row: ServerListRow }) {
       .play(undefined, {
         connect,
         userinfo: userinfoPassword ? { password: userinfoPassword } : undefined,
+        ...(spectating ? { spectate: true } : {}),
       })
   }
 
   const proceedAfterMismatch = (connect: string): void => {
-    if (needsJoinPassword(row)) {
+    if (needsPassword(row, mode)) {
       setPendingConnect(connect)
       setAskPassword(true)
       return
@@ -104,9 +115,9 @@ export function JoinServerButton({ row }: { row: ServerListRow }) {
         variant="neutral"
         onClick={handleClick}
         disabled={!installation}
-        data-testid="servers-join"
+        data-testid={actionTestId}
       >
-        {t('servers.join.action')}
+        {t(spectating ? 'servers.spectate.action' : 'servers.join.action')}
       </Button>
       {!installation && (
         <span className="text-xs text-ink-muted" data-testid="servers-join-no-installation">
@@ -158,7 +169,7 @@ export function JoinServerButton({ row }: { row: ServerListRow }) {
       <Modal
         open={askPassword}
         size="sm"
-        title={t('servers.join.password.title')}
+        title={t(spectating ? 'servers.spectate.passwordTitle' : 'servers.join.password.title')}
         onClose={closePassword}
         closeLabel={t('common.close')}
         footer={
@@ -176,13 +187,16 @@ export function JoinServerButton({ row }: { row: ServerListRow }) {
               disabled={!passwordValidation.ok}
               data-testid="servers-join-password-submit"
             >
-              {t('servers.join.password.submit')}
+              {t(spectating ? 'servers.spectate.passwordSubmit' : 'servers.join.password.submit')}
             </Button>
           </>
         }
       >
         <div data-testid="servers-join-password">
-          <Field label={t('servers.join.password.label')} error={passwordError ?? undefined}>
+          <Field
+            label={t(spectating ? 'servers.spectate.passwordLabel' : 'servers.join.password.label')}
+            error={passwordError ?? undefined}
+          >
             <Input
               type="password"
               value={password}

@@ -540,6 +540,8 @@ export interface ServerListEntry {
   mod?: string
   maxclients?: number
   needpass?: boolean
+  /** `needpass` bit 1: the server requires a spectator password. */
+  spectatorPass?: boolean
   rttMs?: number
   /** In-memory session history of this address's measured round trips, oldest first, newest
    * appended last - never persisted to `state.json`, rebuilt from nothing every process lifetime

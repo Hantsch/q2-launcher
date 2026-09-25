@@ -538,6 +538,50 @@ describe('LaunchService join with a password', () => {
     expect(loggedText()).not.toContain(PASSWORD)
   })
 
+  it('spectate password never reaches argv, only the cfg carries it as spectator', async () => {
+    const { launch } = service({ installation: joinInstallation() })
+    const child = fakeChild()
+    let cfgAtSpawn: string | undefined
+    spawnMock.mockImplementation(() => {
+      cfgAtSpawn = existsSync(cfg) ? readFileSync(cfg, 'utf8') : undefined
+      return child as never
+    })
+
+    const started = await launch.start({
+      installationId: INSTALLATION,
+      connect: '1.2.3.4:27910',
+      userinfo: { password: PASSWORD },
+      spectate: true,
+    })
+
+    expect(started.ok).toBe(true)
+    expect(cfgAtSpawn).toBe(renderConnectCfg({ spectator: PASSWORD }))
+    expect(cfgAtSpawn).toContain(`set spectator "${PASSWORD}"`)
+    expect(cfgAtSpawn).not.toContain('password')
+    const argv = spawnMock.mock.calls[0]?.[1] as string[]
+    expect(argv.join(' ')).not.toContain(PASSWORD)
+    expect(argv.join(' ')).not.toContain('spectator')
+  })
+
+  it("spectate without a password writes the cfg with spectator '1'", async () => {
+    const { launch } = service({ installation: joinInstallation() })
+    const child = fakeChild()
+    let cfgAtSpawn: string | undefined
+    spawnMock.mockImplementation(() => {
+      cfgAtSpawn = existsSync(cfg) ? readFileSync(cfg, 'utf8') : undefined
+      return child as never
+    })
+
+    const started = await launch.start({
+      installationId: INSTALLATION,
+      connect: '1.2.3.4:27910',
+      spectate: true,
+    })
+
+    expect(started.ok).toBe(true)
+    expect(cfgAtSpawn).toBe(renderConnectCfg({ spectator: '1' }))
+  })
+
   it('a start refused before it ran anything does not block the next one', async () => {
     const { launch, broadcast } = service({ installation: joinInstallation() })
     spawnMock.mockImplementation(() => fakeChild() as never)

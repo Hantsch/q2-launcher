@@ -35,6 +35,13 @@ export interface LaunchInput {
   extraArgs?: string[]
   /** set via a one-shot exec'd cfg, never argv; story 125, reused by 126 */
   userinfo?: LaunchUserinfo
+  /**
+   * Puts the client into spectator mode. Composes with `userinfo`: `userinfo.password`, if given,
+   * is understood as the *spectator* password (no second secret field) and is carried the same
+   * out-of-argv way as a join password (story 125); with no password, spectator mode is requested
+   * anyway. Story 126.
+   */
+  spectate?: true
 }
 
 /**

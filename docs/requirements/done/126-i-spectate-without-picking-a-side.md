@@ -1,7 +1,7 @@
 ---
 id: 126
 title: i spectate without picking a side
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -34,13 +34,13 @@ travels through the mechanism [[125]] builds for the join password (its AC6).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Spectating a server reuses [[125]]'s join flow — active installation, [[107]]'s
+- [x] **AC1** — Spectating a server reuses [[125]]'s join flow — active installation, [[107]]'s
       address validation ahead of the argument vector, mod-mismatch warning, history recording via
       [[113]] — with a different launch-parameter composition (spectator mode) rather than a
       separate implementation path.
-- [ ] **AC2** — When the server's `needpass` bit 1 (spectator password) is set, the launcher asks for
+- [x] **AC2** — When the server's `needpass` bit 1 (spectator password) is set, the launcher asks for
       that password before launching, the same way [[125]]'s AC4 asks for the join password.
-- [ ] **AC3** — The spectator password never appears in the spawned game process's argument vector —
+- [x] **AC3** — The spectator password never appears in the spawned game process's argument vector —
       it reaches the game through the same mechanism as [[125]]'s AC6.
 
 ## Open Questions
@@ -82,15 +82,15 @@ Spectate is [[125]]'s join flow with a `mode: 'spectate'`. Nothing else is forke
 (join flow, prompt, out-of-argv carrier) and tell the implementer to use the name 125 actually
 gave it.
 
-1. **Data (D1)** — read `needpass` as an integer bitfield in `scan-service.ts`
+1. [x] **Data (D1)** — read `needpass` as an integer bitfield in `scan-service.ts`
    `readServerInfoFields` and expose bit 1 as `ServerListEntry.spectatorPass?: boolean`, falling
    back to the existing value like the other fields.
-2. **Composition (D2, main)** — the launch input 125 extended for the join password gains a
+2. [x] **Composition (D2, main)** — the launch input 125 extended for the join password gains a
    spectate flag (`spectate?: true`, zod in `ipc-schemas.ts`). When it is set, main's composition
    puts `spectator = <spectatorPassword> ?? '1'` into [[125]]'s out-of-argv userinfo carrier and
    sets no `password`. `+connect` stays last and unchanged. The composition is a pure, unit-tested
    function next to 125's.
-3. **Trigger (D3, renderer + e2e)** — a Spectate action beside Join (row + detail). It calls
+3. [x] **Trigger (D3, renderer + e2e)** — a Spectate action beside Join (row + detail). It calls
    125's join flow with `mode: 'spectate'`: the same address validation ([[107]]), mod-mismatch
    warning, `launch:start` and history write ([[113]]). The only differences are that the prompt
    is keyed on `spectatorPass` with the spectator i18n keys, and `spectate: true` is sent. There is
@@ -185,4 +185,42 @@ Files: `src/main/modules/servers/scan-service.ts`, `src/shared/modules/servers.t
 
 ## Done
 
-<!-- Filled by `/build 126`. -->
+Spectate reuses 125's join flow with `mode: 'spectate'`: same address validation (107), mod-mismatch
+warning and history recording (113), only the launch-parameter composition and password gating
+differ. `ServerListEntry.spectatorPass` (needpass bit 1) is derived in `scan-service.ts` next to
+bit 0; `LaunchInput.spectate?: true` makes `resolveEffectiveUserinfo` in `launch-plan.ts` route the
+password (or `'1'`) into `spectator` via 125's cfg-file carrier, never `password`, never argv. The
+renderer's `JoinServerButton` gained a `mode` prop instead of a fork; Spectate sits next to Join in
+the list toolbar and the detail header.
+
+**Commit message:**
+```
+126: i spectate without picking a side
+```
+
+**Verification (narrow gate):**
+- `npm run build`, `npm run typecheck` — green (also re-run after the review-fix, still green).
+- `npx vitest run --changed HEAD` — 2338 tests, all story-relevant ones passed; 2 unrelated
+  pre-existing flaky timeouts (`ServersSettingsSection.test.tsx`, `downloads/bootstrap/job.test.ts`),
+  confirmed unrelated by re-running the four AC-relevant files in isolation (74/74 passed).
+- `npm run ui:flow -- servers-spectate` — green: spectator prompt before spawn, argv ends
+  `+exec q2launcher-connect.cfg +connect …` with no password anywhere, cfg carries `spectator` not
+  `password`, history entry recorded.
+- AC → test mapping, all verified passing: AC1 → e2e `servers-spectate` + `JoinServerButton.test.tsx`
+  "spectate goes through the join flow" + `launch-plan.test.ts` "join without spectate is unchanged".
+  AC2 → `scan-service.test.ts` "needpass bit 1 sets spectatorPass" + e2e (prompt before spawn on a
+  `needpass 2` server). AC3 → `launch-plan.test.ts`/`launch.test.ts` "spectate password never reaches
+  argv" + e2e (no password in argv/log, carrier holds it). No `manual residue`.
+- Review: default (Sonnet, stage 1 only per Model Hints) — PASS, no forked flow found, bit 0 untouched,
+  password never in argv/log. One non-blocking nit: `useLauncher.ts`'s `play()` options type hadn't
+  been widened with `spectate?: true` (worked at runtime via spread, just a stale type) — fixed
+  directly and re-typechecked green; no second review cycle needed.
+
+**Decisions:**
+- Mismatch dialog copy ("Join anyway"/cancel) stays shared between join and spectate modes, per the
+  D3 text only requiring the *password*-prompt keys to differ — flagged by review as worth a look but
+  out of scope for this story.
+- `scripts/lib/fixture.mjs`'s `writeJoinFixture` gained an optional `variant` param (default preserves
+  125's existing caller) so `servers-spectate.mjs` reuses it instead of duplicating fixture setup.
+
+tiers: D 3 / hard 0 · review default · cycles 0 (1 direct nit-fix, no re-review) · agents 5

@@ -198,12 +198,13 @@ interface LauncherStore {
   fetchIconDataUrl: (installationId: string) => Promise<void>
 
   // --- playing -------------------------------------------------------------
-  /** `options` (story 125 D4): `connect`/`userinfo` for the join flow's `+connect`/password path -
-   * both spread straight into the `launch:start` payload, alongside every existing call site that
-   * omits `options` entirely and keeps launching the installation's own default. */
+  /** `options` (story 125 D4, `spectate` added by 126 D2/D3): `connect`/`userinfo` for the join
+   * flow's `+connect`/password path, `spectate` to put the engine into spectator mode - all spread
+   * straight into the `launch:start` payload, alongside every existing call site that omits
+   * `options` entirely and keeps launching the installation's own default. */
   play: (
     installationId?: string,
-    options?: { connect?: string; userinfo?: LaunchUserinfo },
+    options?: { connect?: string; userinfo?: LaunchUserinfo; spectate?: true },
   ) => Promise<void>
   cancelJob: (jobId: string) => Promise<void>
 

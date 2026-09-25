@@ -143,7 +143,10 @@ function initialScanState(): ServersScanState {
 function readServerInfoFields(
   serverinfo: Record<string, string>,
   existing: ServerListEntry | undefined,
-): Pick<ServerListEntry, 'name' | 'map' | 'mod' | 'maxclients' | 'needpass' | 'gamemode'> {
+): Pick<
+  ServerListEntry,
+  'name' | 'map' | 'mod' | 'maxclients' | 'needpass' | 'spectatorPass' | 'gamemode'
+> {
   const hostname = typeof serverinfo.hostname === 'string' ? serverinfo.hostname : undefined
   const map = typeof serverinfo.mapname === 'string' ? serverinfo.mapname : undefined
   const mod = typeof serverinfo.gamename === 'string' && serverinfo.gamename !== '' ? serverinfo.gamename : undefined
@@ -152,6 +155,9 @@ function readServerInfoFields(
   // keeps whatever the entry previously knew rather than clobbering it with `undefined`.
   const n = readIntKey(serverinfo, 'needpass')
   const needpass = n === undefined ? existing?.needpass : (n & 1) === 1
+  // Story 126: bit 1 of `needpass` is the spectator-password flag; an absent/invalid key keeps
+  // whatever the entry previously knew rather than clobbering it with `undefined`.
+  const spectatorPass = n === undefined ? existing?.spectatorPass : (n & 2) !== 0
 
   return {
     name: hostname ?? existing?.name,
@@ -159,6 +165,7 @@ function readServerInfoFields(
     mod: mod ?? existing?.mod,
     maxclients: maxclients ?? existing?.maxclients,
     needpass,
+    spectatorPass,
     gamemode: deriveGamemode(serverinfo) ?? existing?.gamemode,
   }
 }

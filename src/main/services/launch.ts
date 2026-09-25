@@ -20,7 +20,13 @@ import {
 } from '@shared/types'
 import { isFile } from '../lib/fs-utils'
 import { scopedLogger } from '../lib/logger'
-import { buildLaunchArgs, execsConnectCfg, hasUserinfo, previewCommand } from './launch-plan'
+import {
+  buildLaunchArgs,
+  execsConnectCfg,
+  hasUserinfo,
+  previewCommand,
+  resolveEffectiveUserinfo,
+} from './launch-plan'
 import { detectRunners, needsCompatRunner, resolveRunner } from './runners'
 import type { InstallationsService } from './installations'
 import type { WriteLockReader } from './write-guard'
@@ -294,7 +300,7 @@ export class LaunchService {
     // Story 125: the join password reaches the game through this file and never through argv
     // or a log line. Written only when the planned command line actually execs it, and
     // before `spawn`, so it is there when the game starts reading its late commands.
-    const userinfo = input.userinfo
+    const userinfo = resolveEffectiveUserinfo(input)
     let ownedCfg: string | undefined
     if (cfgPath && hasUserinfo(userinfo) && execsConnectCfg(args)) {
       try {

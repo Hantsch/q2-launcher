@@ -909,6 +909,12 @@
         "submit": "Join",
         "cancel": "Cancel"
       }
+    },
+    "spectate": {
+      "action": "Spectate",
+      "passwordTitle": "Spectator password",
+      "passwordLabel": "Spectator password",
+      "passwordSubmit": "Spectate"
     }
   },
 
