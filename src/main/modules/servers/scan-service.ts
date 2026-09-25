@@ -13,6 +13,7 @@ import {
 } from '@shared/modules/servers'
 import type { ParsedServerAddress } from '@shared/servers/address'
 import { readIntKey } from '@shared/servers/infostring'
+import { deriveGamemode } from '@shared/servers/row-markers'
 import type { LaunchHost } from '../../services/write-guard'
 import { electronNetFetch, type FetchImpl } from '../downloads/fetcher'
 import { isScanBlocked } from './scan-guard'
@@ -137,20 +138,23 @@ function initialScanState(): ServersScanState {
 function readServerInfoFields(
   serverinfo: Record<string, string>,
   existing: ServerListEntry | undefined,
-): Pick<ServerListEntry, 'name' | 'map' | 'mod' | 'maxclients' | 'needpass'> {
+): Pick<ServerListEntry, 'name' | 'map' | 'mod' | 'maxclients' | 'needpass' | 'gamemode'> {
   const hostname = typeof serverinfo.hostname === 'string' ? serverinfo.hostname : undefined
   const map = typeof serverinfo.mapname === 'string' ? serverinfo.mapname : undefined
   const mod = typeof serverinfo.gamename === 'string' && serverinfo.gamename !== '' ? serverinfo.gamename : undefined
   const maxclients = readIntKey(serverinfo, 'maxclients')
-  const needpass =
-    serverinfo.needpass === '1' ? true : serverinfo.needpass === '0' ? false : undefined
+  // Story S25 D2: bit 0 of `needpass` is the password flag (3 -> true, 2 -> false); an absent key
+  // keeps whatever the entry previously knew rather than clobbering it with `undefined`.
+  const n = readIntKey(serverinfo, 'needpass')
+  const needpass = n === undefined ? existing?.needpass : (n & 1) === 1
 
   return {
     name: hostname ?? existing?.name,
     map: map ?? existing?.map,
     mod: mod ?? existing?.mod,
     maxclients: maxclients ?? existing?.maxclients,
-    needpass: needpass ?? existing?.needpass,
+    needpass,
+    gamemode: deriveGamemode(serverinfo) ?? existing?.gamemode,
   }
 }
 
@@ -328,7 +332,43 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
   }
 
   function read(): ScanSnapshot {
-    return { state: { ...scanState }, entries: [...entries.values()] }
+    // Story S25 D2: `favourite` is derived fresh from the live state on every `read()` (never
+    // cached alongside `entries`), same "read live at call time" rule `getServersState` itself
+    // already carries - a favourites-list edit between two `read()` calls must be visible on the
+    // very next one without needing a new scan.
+    const current = getServersState()
+    const favouriteAddresses = new Set(current.favourites.map((f) => f.address))
+    const manualAddresses = new Set(current.manualServers.map((m) => m.address))
+
+    const rows = [...entries.values()].map((entry) => ({
+      ...entry,
+      favourite: favouriteAddresses.has(entry.address),
+    }))
+
+    // Every favourite/manual address with no entry yet (never answered, never even attempted) still
+    // gets a placeholder row - a favourite the user just added must show up immediately, not only
+    // after the next scan finds it.
+    const knownAddresses = new Set(entries.keys())
+    const placeholderAddresses = new Set(
+      [...favouriteAddresses, ...manualAddresses].filter((address) => !knownAddresses.has(address)),
+    )
+    for (const address of placeholderAddresses) {
+      const origins: ServerListEntry['origins'] = []
+      if (favouriteAddresses.has(address)) origins.push('favourite')
+      if (manualAddresses.has(address)) origins.push('manual')
+      rows.push({
+        address,
+        origins,
+        status: 'pending',
+        lastSeenAt: null,
+        favourite: favouriteAddresses.has(address),
+      })
+    }
+
+    return {
+      state: { ...scanState },
+      entries: rows,
+    }
   }
 
   function overview(): ServersOverview {

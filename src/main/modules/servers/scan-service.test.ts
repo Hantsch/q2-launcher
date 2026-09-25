@@ -231,7 +231,12 @@ describe('createScanService', () => {
     const mid = service.read()
     expect(mid.state.running).toBe(true)
     expect(mid.state.phase).toBe('stage1')
-    expect(mid.entries).toEqual([])
+    // No successful reply has landed yet, so the only row is the manual address's own pending
+    // placeholder (story S25 D2) - not the "not even a placeholder" empty list this used to assert
+    // before placeholders existed.
+    expect(mid.entries).toEqual([
+      { address, origins: ['manual'], status: 'pending', lastSeenAt: null, favourite: false },
+    ])
 
     calls[0]!.resolve(infoOk('Mounted'))
     await waitForIdle(service)
@@ -266,6 +271,116 @@ describe('createScanService', () => {
     service.start()
     expect(service.overview().lastScanAt).toBe(afterFirst.lastScanAt)
     await waitForIdle(service)
+  })
+
+  it('needpass bit 0 decides the password flag', async () => {
+    const { emit } = recorder()
+    const address = '20.0.0.1:27910'
+    const state = baseState({ manualServers: [manualEntry(address)] })
+    let needpass = '1'
+    const queryServer: QueryServerFn = async () => ({
+      ok: true,
+      kind: 'info',
+      reply: { ok: true, serverinfo: { hostname: 'Host', needpass }, clients: undefined },
+      rttMs: 5,
+    })
+    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+
+    // needpass=1 (bit 0 set) -> true
+    service.start()
+    await waitForIdle(service)
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ needpass: true })
+
+    // needpass=3 (bit 0 set, plus another flag) -> true
+    needpass = '3'
+    service.start()
+    await waitForIdle(service)
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ needpass: true })
+
+    // needpass=0 -> false
+    needpass = '0'
+    service.start()
+    await waitForIdle(service)
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ needpass: false })
+
+    // needpass=2 (bit 0 clear) -> false
+    needpass = '2'
+    service.start()
+    await waitForIdle(service)
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ needpass: false })
+  })
+
+  it("a status reply's mode flags become the entry's gamemode and survive an info-only reply", async () => {
+    const { emit } = recorder()
+    const address = '20.0.0.2:27910'
+    const state = baseState({ manualServers: [manualEntry(address)] })
+    let call = 0
+    const queryServer: QueryServerFn = async () => {
+      call++
+      if (call === 1) {
+        // First scan: a status reply with ctf=1, so the gamemode should derive to 'ctf'.
+        return {
+          ok: true,
+          kind: 'status',
+          reply: { ok: true, serverinfo: { hostname: 'Host', ctf: '1' }, players: [] },
+          rttMs: 5,
+        }
+      }
+      // Second scan: an info-only reply that says nothing about gamemode flags at all - the
+      // previously derived gamemode must survive rather than being cleared.
+      return infoOk('Host')
+    }
+    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+
+    service.start({ selectedAddress: address })
+    await waitForIdle(service)
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ gamemode: 'ctf' })
+
+    service.start()
+    await waitForIdle(service)
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ gamemode: 'ctf' })
+  })
+
+  it('read marks favourite from the live favourites list', async () => {
+    const { emit } = recorder()
+    const address = '20.0.0.3:27910'
+    const state = baseState({ favourites: [{ address, addedAt: new Date().toISOString() }] })
+    const queryServer: QueryServerFn = async () => infoOk('Fav')
+    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+
+    service.start()
+    await waitForIdle(service)
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ favourite: true })
+
+    // The favourites list changes between two read() calls - the very next read() must reflect it,
+    // with no new scan needed.
+    state.favourites = []
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ favourite: false })
+  })
+
+  it('read lists a never-answered favourite or manual server as a pending placeholder, and no master-only address', async () => {
+    const { emit } = recorder()
+    const favAddress = '20.0.0.4:27910'
+    const manualAddress = '20.0.0.5:27910'
+    const masterOnlyAddress = '20.0.0.6:27910'
+    const state = baseState({
+      favourites: [{ address: favAddress, addedAt: new Date().toISOString() }],
+      manualServers: [manualEntry(manualAddress)],
+    })
+    // Nothing ever answers - `mergeStaleRound` never creates rows for these since they have no
+    // pre-existing entry and this test never runs a scan at all, so `read()` alone must produce the
+    // placeholders.
+    const queryServer: QueryServerFn = async () => noReply
+    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+
+    const snapshot = service.read()
+    const favRow = snapshot.entries.find((e) => e.address === favAddress)
+    const manualRow = snapshot.entries.find((e) => e.address === manualAddress)
+
+    expect(favRow).toMatchObject({ status: 'pending', lastSeenAt: null, favourite: true, origins: ['favourite'] })
+    expect(manualRow).toMatchObject({ status: 'pending', lastSeenAt: null, favourite: false, origins: ['manual'] })
+    expect(snapshot.entries.some((e) => e.address === masterOnlyAddress)).toBe(false)
+    expect(snapshot.entries).toHaveLength(2)
   })
 })
 
@@ -499,9 +614,16 @@ describe('createScanService - story 117 D3 scoped rounds', () => {
     expect(fetchCalls).toHaveLength(0)
     expect(query.calls).toEqual([{ address: MANUAL, kind: 'status' }])
     expect(service.read().state).toMatchObject({ stage1Total: 0, stage2Total: 1, sourceFailures: [] })
-    expect(service.read().entries).toEqual([
+    // The queried address gets its real row; every other favourite/manual address that has never
+    // answered gets a pending placeholder (story S25 D2) - a single-server scope never touches them.
+    const entries = service.read().entries
+    expect(entries.find((e) => e.address === MANUAL)).toEqual(
       expect.objectContaining({ address: MANUAL, status: 'online', name: 'Status', players: [] }),
-    ])
+    )
+    expect(entries.filter((e) => e.status === 'pending').map((e) => e.address).sort()).toEqual(
+      [FAV_1, FAV_2, OTHER].sort(),
+    )
+    expect(entries).toHaveLength(4)
   })
 
   it('an out-of-scope row keeps its data and stale flag after a favourites round; in-scope silence goes stale', async () => {

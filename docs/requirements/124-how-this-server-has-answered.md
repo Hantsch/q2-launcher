@@ -1,7 +1,7 @@
 ---
 id: 124
 title: how this server has answered
-status: draft # draft -> ready -> in-progress -> done
+status: ready # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -47,22 +47,113 @@ by [[125]]/[[126]]/[[127]] — this story states facts, it does not act on them.
 - **(User)** Local mod/map availability before the `mods`/`assets` modules exist: **deferred** — the
   former AC3/AC4 (mod exists / map exists, yes/no) are cut from this story and move to the
   mods/assets modules (2026-09-25, planning).
+- **History lives in main, on `ServerListEntry`** — a new optional `rttHistory` field filled by the
+  scan service, not accumulated in the renderer from `scan.server` pushes, because the renderer
+  view unmounts between visits and "this session" has to mean the launcher's process lifetime.
+- **"Session" = main-process lifetime, not persisted** — the history is in-memory only (no
+  `state.json` key), because concept §2 lists cross-session uptime history as a non-goal.
+- **One sample per measured reply, plus one "no answer" sample per completed round the server was
+  in scope for and did not answer** — so the history itself shows "answered once, then went quiet";
+  an aborted sweep adds nothing (same rule `mergeStaleRound` already follows).
+- **Bounded to the last 20 samples** (`RTT_HISTORY_LIMIT`), oldest dropped first, because an
+  unbounded per-server array over a long session with auto-refresh is a slow memory leak.
+- **"Last scan round answered" is read from the existing `status: 'online' | 'stale'`** (plus
+  `lastSeenAt` for the "last answered at" time), not from a new flag, because that field is already
+  the GB-N6 round-outcome and a second source of truth could disagree with the list row's marker.
+- **Rendered as a text list, newest first** (no chart), because a list is accessible without extra
+  work and AC1 only asks for the history to be visible; a sparkline is a later polish story.
 
 ## Plan
 
-<!-- Filled by `/refine 124`. -->
+Builds on [[122]]'s detail view (a server's entry rendered in a detail container inside
+`src/renderer/src/modules/servers/`); plan against 122 as written — if 122's component names differ
+at build time, attach to whatever 122 shipped.
+
+1. **Main/shared (D1):** add `RttSample { at: string; rttMs: number | null }` and
+   `rttHistory?: RttSample[]` to `ServerListEntry` in `src/shared/modules/servers.ts`, plus
+   `RTT_HISTORY_LIMIT = 20` and a pure `appendRttSample(history, sample)` helper (in
+   `scan-merge.ts`). `scan-service.ts`'s `mergeSuccessfulReply` appends `{ at: now, rttMs }` on every
+   successful reply; `mergeStaleRound` appends `{ at, rttMs: null }` for every in-scope,
+   non-answering target that has an entry (never on `aborted`). Unit tests.
+2. **Renderer (D2):** `ServerReachabilitySection.tsx` takes the `ServerListEntry` and renders
+   (a) the last-round statement — `online`: "Answered the last scan"; `stale`: "Did not answer the
+   last scan — showing what it last reported" + "last answered {{time}}" from `lastSeenAt`;
+   (b) the history newest-first, each sample "{{ms}} ms" or "No answer" with its time; no samples →
+   stated empty line. GB-D6: a malformed sample (non-finite `rttMs`, unparsable `at`) degrades to
+   "unknown" for that line only; missing `rttHistory` → the empty line. Mounted as the
+   reachability section of 122's detail view. i18n keys under `module.servers.detail.reachability.*`.
+3. **E2e (in D2):** flow `servers-detail-reachability` with a loopback UDP responder: two refreshes
+   answered → ≥2 ms samples; navigate away and back (history survives); stop responder, refresh →
+   stale statement + a "No answer" sample on top.
+
+Order: D1 → D2. No IPC channel change (the field rides the existing `scan.read` snapshot).
 
 ## Deliverables
 
-<!-- Filled by `/refine 124`. -->
+- **D1 — per-server RTT history in the scan service (shared + main).**
+  Files: `src/shared/modules/servers.ts` (add `export interface RttSample { at: string; rttMs:
+  number | null }` — `null` = no answer that round; `rttHistory?: RttSample[]` on
+  `ServerListEntry` with a doc comment; `export const RTT_HISTORY_LIMIT = 20`),
+  `src/main/modules/servers/scan-merge.ts` (new pure `appendRttSample(history: RttSample[] |
+  undefined, sample: RttSample): RttSample[]` — returns a new array, keeps the last
+  `RTT_HISTORY_LIMIT`; `mergeStaleRound` gets a `now: string` parameter and appends
+  `{ at: now, rttMs: null }` to each target it flips stale — unchanged early return when `aborted`,
+  targets without an entry still get no row), `src/main/modules/servers/scan-service.ts`
+  (`mergeSuccessfulReply` sets `rttHistory: appendRttSample(existing?.rttHistory, { at: now, rttMs:
+  result.rttMs })`; pass `new Date().toISOString()` to `mergeStaleRound`). `rttMs` (latest) stays as
+  it is. History is in-memory only — do not persist it.
+  Tests: `src/main/modules/servers/scan-merge.test.ts` › "appendRttSample keeps only the newest
+  RTT_HISTORY_LIMIT samples", › "a stale-flipped server gets a no-answer sample", › "an aborted
+  round adds no sample"; `src/main/modules/servers/scan-service.test.ts` › "every successful reply
+  appends one RTT sample across rounds" (two rounds answered → 2+ samples with the measured values,
+  oldest first; a third round timed out → last sample `rttMs: null`, `status: 'stale'`).
+- **D2 — reachability section in the detail view (renderer) + its e2e flow.**
+  Files: new `src/renderer/src/modules/servers/ServerReachabilitySection.tsx` (props `{ entry:
+  ServerListEntry }`; mirror the section structure/tokens of the detail sections story 122 added in
+  the same folder), the detail-view component 122 added (mount the section; locate it via 122's
+  players panel), `src/renderer/src/i18n/locales/en.json` (`module.servers.detail.reachability.*`:
+  `title`, `lastRound.answered` "Answered the last scan", `lastRound.noAnswer` "Did not answer the
+  last scan — showing what it last reported", `lastAnswered` "Last answered {{time}}", `sample.ms`
+  "{{ms}} ms", `sample.noAnswer` "No answer", `sample.unknown` "Unknown", `empty` "No response time
+  measured yet this session"), new test `src/renderer/src/modules/servers/
+  ServerReachabilitySection.test.tsx`, new flow `scripts/flows/servers-detail-reachability.mjs`
+  (mirror `scripts/flows/servers-scoped-refresh.mjs`: its loopback `dgram` responder helpers,
+  `SERVERS_DISABLED_SOURCES` fixture seeding with one manual loopback server, never a real host).
+  Behaviour: statement from `entry.status` (`online` → answered; `stale` → no-answer + last
+  answered from `lastSeenAt`); history newest-first, one line per sample; the statement and each
+  line are text (no colour-only status — `/design-tokens`); a sample with non-finite `rttMs` (and
+  not `null`) or unparsable `at` renders "Unknown" for that line only; absent/empty `rttHistory` →
+  `empty` line. Stable `data-testid`s: `server-reachability`, `server-reachability-last-round`,
+  `server-reachability-sample`.
+  Tests: unit › "online entry states it answered the last scan", › "stale entry states it did not
+  answer and shows the last-answered time", › "renders samples newest first, null as No answer",
+  › "a malformed sample degrades alone", › "no history shows the empty line"; e2e flow
+  "servers-detail-reachability" (see Acceptance Tests).
 
 ## Model Hints
 
-<!-- Filled by `/refine 124`. -->
+(no `deliverable-hard` — D1 is a bounded append in two existing merge points, D2 a presentational
+section)
+
+Review: → default — the tempting wrong implementation (history accumulated in renderer state from
+`scan.server` pushes) is caught by the flow's navigate-away-and-back step and D1's service test.
 
 ## Acceptance Tests
 
-<!-- Filled by `/refine 124`. -->
+- AC1 → e2e `scripts/flows/servers-detail-reachability.mjs` › flow "servers-detail-reachability"
+  (loopback server answers two refreshes → its detail view's `server-reachability-sample` lines
+  show ≥2 ms values; after navigating to another module and back the same samples are still
+  listed) + unit `src/main/modules/servers/scan-service.test.ts` › "every successful reply appends
+  one RTT sample across rounds" + unit `src/renderer/src/modules/servers/
+  ServerReachabilitySection.test.tsx` › "renders samples newest first, null as No answer".
+- AC2 → e2e `scripts/flows/servers-detail-reachability.mjs` › flow "servers-detail-reachability"
+  (while answering, `server-reachability-last-round` reads "Answered the last scan"; responder
+  stopped + refresh → it reads "Did not answer the last scan…" with a "Last answered" time, and the
+  newest sample is "No answer") + unit `src/main/modules/servers/scan-merge.test.ts` › "a
+  stale-flipped server gets a no-answer sample" + unit `ServerReachabilitySection.test.tsx` ›
+  "stale entry states it did not answer and shows the last-answered time".
+- GB-D6 floor (from [[122]]) → unit `ServerReachabilitySection.test.tsx` › "a malformed sample
+  degrades alone", › "no history shows the empty line".
 
 ## Done
 

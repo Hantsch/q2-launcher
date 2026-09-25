@@ -16,6 +16,13 @@ import type { ScanTarget, ServerListEntry } from '@shared/modules/servers'
  * own list-in/list-out style for this module's pure helpers. The caller (`scan-service.ts`) copies
  * the result back into its own closure-held `entries` Map, since that Map is also mutated directly
  * elsewhere (the `onServer` callback) during the same sweep.
+ *
+ * Story S25 D2: a target with no previous entry and no reply this round used to always get no row -
+ * that is still true for a source-only target, but a favourite/manual target now gets a field-less
+ * stale placeholder instead (`{ address, origins, status: 'stale', lastSeenAt: null }`). Both a
+ * favourite and a manual server can go silent from their very first scan (e.g. added while the
+ * network is unreachable), and origin, not history, is what tells the row apart from a plain
+ * master/list address nobody ever asked for a reason to remember.
  */
 export function mergeStaleRound(
   entries: Map<string, ServerListEntry>,
@@ -29,7 +36,16 @@ export function mergeStaleRound(
   for (const target of targets) {
     if (answeredOnline.has(target.address)) continue
     const existing = next.get(target.address)
-    if (existing !== undefined) next.set(target.address, { ...existing, status: 'stale' })
+    if (existing !== undefined) {
+      next.set(target.address, { ...existing, status: 'stale' })
+    } else if (target.origins.includes('favourite') || target.origins.includes('manual')) {
+      next.set(target.address, {
+        address: target.address,
+        origins: target.origins,
+        status: 'stale',
+        lastSeenAt: null,
+      })
+    }
   }
   return next
 }

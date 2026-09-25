@@ -4,13 +4,13 @@ import {
   SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
   type ScanBlockedReason,
   type ScanSnapshot,
-  type ServerListEntry,
+  type ServerListRow,
   type ServersScanState,
 } from '@shared/modules/servers'
-import { cn } from '../../lib/cn'
 import { Button } from '../../components/ui/Button'
 import { Panel } from '../../components/ui/primitives'
 import { onScanChanged, readScan, setScanViewActive, startScan } from './client'
+import { ServerRow } from './ServerRow'
 
 /** Story 116 D5: the visible reason for each `ScanBlockedReason` - a lookup table of one entry
  * today, future-proof if a later story adds another blocked reason (mirrors `write-guard.ts`'s
@@ -86,7 +86,7 @@ const IDLE_SCAN_STATE: ServersScanState = {
 export function ServersView() {
   const { t } = useTranslation()
   const [scanState, setScanState] = useState<ServersScanState>(IDLE_SCAN_STATE)
-  const [entries, setEntries] = useState<ServerListEntry[]>([])
+  const [entries, setEntries] = useState<ServerListRow[]>([])
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null)
   // Tracks the last-seen `finishedAt` so a `scan.changed` push is only treated as "a round just
   // finished" (and triggers the one extra `readScan()` below) once, not on every progress-only
@@ -226,47 +226,14 @@ export function ServersView() {
         </Panel>
 
         <Panel className="space-y-2 p-4">
-          {entries.map((entry) => {
-            const isSelected = entry.address === selectedAddress
-            return (
-              <button
-                key={entry.address}
-                type="button"
-                onClick={() => handleToggleRowSelected(entry.address)}
-                aria-pressed={isSelected}
-                data-testid={`servers-row-${entry.address}`}
-                data-selected={isSelected}
-                className={cn(
-                  'flex w-full items-center gap-3 rounded-sm border px-2 py-1.5 text-left text-xs text-ink-muted transition-colors',
-                  isSelected
-                    ? 'border-flame-600 bg-void/40'
-                    : 'border-transparent hover:border-line-strong hover:bg-void/25',
-                )}
-              >
-                <span className="text-ink">{entry.address}</span>
-                {(() => {
-                  // Story 116 D5 fix: `players` starts as a numeric `info` count and is replaced by
-                  // a full `ServerPlayer[]` roster once stage 2's `status` reply lands (see
-                  // `scan-service.ts`'s `mergeSuccessfulReply`) - a stale entry can carry either
-                  // shape, so both render a count.
-                  const count = Array.isArray(entry.players)
-                    ? entry.players.length
-                    : typeof entry.players === 'number'
-                      ? entry.players
-                      : undefined
-                  return count !== undefined && <span>{count}</span>
-                })()}
-                {entry.status === 'stale' && (
-                  <span
-                    className="text-warning"
-                    data-testid={`servers-row-stale-${entry.address}`}
-                  >
-                    {t('servers.row.stale')}
-                  </span>
-                )}
-              </button>
-            )
-          })}
+          {entries.map((entry) => (
+            <ServerRow
+              key={entry.address}
+              row={entry}
+              selected={entry.address === selectedAddress}
+              onSelect={handleToggleRowSelected}
+            />
+          ))}
         </Panel>
       </div>
     </div>

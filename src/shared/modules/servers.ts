@@ -2,7 +2,10 @@ import { z } from 'zod'
 import { serverAddressSchema } from '../schemas'
 import type { InfoReplySuccess } from '../servers/info-reply'
 import type { MasterSourceAddressRejection } from '../servers/master-source-address'
+import type { ServerGamemode } from '../servers/row-markers'
 import type { ServerPlayer, StatusReplySuccess } from '../servers/status-reply'
+
+export type { ServerGamemode } from '../servers/row-markers'
 
 /**
  * The servers module's contract.
@@ -504,7 +507,9 @@ export interface ScanServerPush {
 export interface ServerListEntry {
   address: string
   origins: ScanOrigin[]
-  status: 'online' | 'stale'
+  /** `'pending'` is a row that has never yet received a reply (e.g. a favourite no source has
+   * returned) - distinct from `'stale'`, which did answer a past scan but not the current one. */
+  status: 'online' | 'stale' | 'pending'
   name?: string
   map?: string
   mod?: string
@@ -512,9 +517,15 @@ export interface ServerListEntry {
   needpass?: boolean
   rttMs?: number
   players?: number | ServerPlayer[]
-  /** ISO timestamp of the last reply (of either stage) actually received for this address. */
-  lastSeenAt: string
+  gamemode?: ServerGamemode
+  /** ISO timestamp of the last reply (of either stage) actually received for this address, or
+   * `null` for a row that has never received one. */
+  lastSeenAt: string | null
 }
+
+/** One row of the servers list as the renderer's list/table shows it: every `ServerListEntry`
+ * field plus whether the user has favourited this address. */
+export type ServerListRow = ServerListEntry & { favourite: boolean }
 
 /**
  * One source's scan-time failure (D-H): `reasonKey` is `masterSourceFailureKey()`
@@ -592,7 +603,7 @@ export const SCAN_BLOCKED_GAME_RUNNING_REASON_KEY = 'servers.scan.blocked.gameRu
  */
 export interface ScanSnapshot {
   state: ServersScanState
-  entries: ServerListEntry[]
+  entries: ServerListRow[]
 }
 
 /**

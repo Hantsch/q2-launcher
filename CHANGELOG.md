@@ -27,6 +27,11 @@ version section when a release actually ships.
   fires in the background, and hitting the manual scan button just tells you why it won't. A
   server that goes quiet for one round keeps showing what it last said, clearly marked stale, never
   wiped back to empty. The moment you're back at the menu, scanning picks up again on its own.
+- **Servers** — a server row now tells you what's going on without opening it: name, mod,
+  players/slots, map and ping when known, plus badges for password-protected, the gamemode, your
+  favourites, stale data and the one case the browser exists for — a duel server with exactly one
+  player waiting for an opponent. A server nobody has scanned yet shows a clean placeholder instead
+  of a blank or broken row.
 - **Servers** — a refresh no longer has to mean "reload everything": "Refresh favourites" re-checks
   just your favourites, and selecting a server and hitting "Refresh this server" re-checks only
   that one, both leaving the rest of the list exactly as it was. All three refresh buttons now show

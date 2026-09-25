@@ -71,4 +71,28 @@ describe('mergeStaleRound', () => {
 
     expect(result.get(untouched.address)).toEqual(untouched)
   })
+
+  it('a silent favourite/manual target with no entry becomes a field-less stale row; a silent source-only target gets none', () => {
+    const entries = new Map<string, ServerListEntry>()
+    const favouriteTarget: ScanTarget = { address: '10.0.0.6:27910', origins: ['favourite'] }
+    const manualTarget: ScanTarget = { address: '10.0.0.7:27910', origins: ['manual'] }
+    const sourceTarget: ScanTarget = { address: '10.0.0.8:27910', origins: ['source'] }
+
+    const result = mergeStaleRound(entries, [favouriteTarget, manualTarget, sourceTarget], new Set(), false)
+
+    expect(result.get(favouriteTarget.address)).toEqual({
+      address: favouriteTarget.address,
+      origins: ['favourite'],
+      status: 'stale',
+      lastSeenAt: null,
+    })
+    expect(result.get(manualTarget.address)).toEqual({
+      address: manualTarget.address,
+      origins: ['manual'],
+      status: 'stale',
+      lastSeenAt: null,
+    })
+    expect(result.has(sourceTarget.address)).toBe(false)
+    expect(result.size).toBe(2)
+  })
 })

@@ -60,7 +60,9 @@ function snapshot(overrides: {
 }): ScanSnapshot {
   return {
     state: { ...BASE_STATE, ...overrides.state },
-    entries: overrides.entries ?? [],
+    // `favourite` is not this test file's concern - always `false` here so the fixture entries
+    // (still written as plain `ServerListEntry`s) satisfy `ScanSnapshot.entries`'s `ServerListRow[]`.
+    entries: (overrides.entries ?? []).map((entry) => ({ ...entry, favourite: false })),
   }
 }
 

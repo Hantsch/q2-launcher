@@ -686,7 +686,18 @@
       }
     },
     "row": {
-      "stale": "Stale"
+      "stale": "Stale",
+      "password": "Password",
+      "favourite": "Favourite",
+      "waiting": "Waiting for an opponent",
+      "pending": "Not scanned yet"
+    },
+    "gamemode": {
+      "ctf": "CTF",
+      "team": "Team",
+      "deathmatch": "Deathmatch",
+      "coop": "Co-op",
+      "single": "Single player"
     },
     "source": {
       "error": {
