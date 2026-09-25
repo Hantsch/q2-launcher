@@ -7,10 +7,12 @@ import {
   type ServerListRow,
   type ServersScanState,
 } from '@shared/modules/servers'
+import { nextSort, sortServerRows, type ServerListSort, type ServerSortColumn } from '@shared/servers/list-sort'
 import { Button } from '../../components/ui/Button'
 import { Panel } from '../../components/ui/primitives'
-import { onScanChanged, readScan, setScanViewActive, startScan } from './client'
+import { getListSort, onScanChanged, readScan, setListSort, setScanViewActive, startScan } from './client'
 import { ServerRow } from './ServerRow'
+import { ServerSortBar } from './ServerSortBar'
 
 /** Story 116 D5: the visible reason for each `ScanBlockedReason` - a lookup table of one entry
  * today, future-proof if a later story adds another blocked reason (mirrors `write-guard.ts`'s
@@ -88,6 +90,7 @@ export function ServersView() {
   const [scanState, setScanState] = useState<ServersScanState>(IDLE_SCAN_STATE)
   const [entries, setEntries] = useState<ServerListRow[]>([])
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null)
+  const [sort, setSort] = useState<ServerListSort | undefined>(undefined)
   // Tracks the last-seen `finishedAt` so a `scan.changed` push is only treated as "a round just
   // finished" (and triggers the one extra `readScan()` below) once, not on every progress-only
   // push during stage1/stage2 - a ref because it must not itself trigger a re-render.
@@ -125,6 +128,27 @@ export function ServersView() {
       void setScanViewActive(false)
     }
   }, [])
+
+  // Story 119 D3: loads the persisted list sort once on mount - `null` (no sort persisted, or the
+  // read failed) maps to `undefined`, the same "default order" value `sortServerRows` expects.
+  useEffect(() => {
+    let cancelled = false
+    void getListSort().then((result) => {
+      if (cancelled) return
+      setSort(result.ok && result.value !== null ? result.value : undefined)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const handleSort = (column: ServerSortColumn): void => {
+    const next = nextSort(sort, column)
+    setSort(next)
+    void setListSort(next ?? null).then((result) => {
+      setSort(result.ok && result.value !== null ? result.value : undefined)
+    })
+  }
 
   const handleRefresh = (): void => {
     // Review fix (story 117): a full scan still carries 114 AC2's own "currently selected server"
@@ -225,8 +249,10 @@ export function ServersView() {
           </div>
         </Panel>
 
+        <ServerSortBar sort={sort} onSort={handleSort} />
+
         <Panel className="space-y-2 p-4">
-          {entries.map((entry) => (
+          {sortServerRows(entries, sort).map((entry) => (
             <ServerRow
               key={entry.address}
               row={entry}

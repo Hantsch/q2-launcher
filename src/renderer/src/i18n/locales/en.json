@@ -710,6 +710,23 @@
         "http-status": "This source returned an error instead of a server list."
       }
     },
+    "sort": {
+      "column": {
+        "name": "Name",
+        "mod": "Mod",
+        "players": "Players",
+        "map": "Map",
+        "ping": "Ping"
+      },
+      "current": {
+        "default": "Favourites first, then busiest",
+        "column": "Sorted by {{column}}, {{direction}}"
+      },
+      "direction": {
+        "asc": "ascending",
+        "desc": "descending"
+      }
+    },
     "sources": {
       "reject": {
         "empty": "Enter an address for this source.",

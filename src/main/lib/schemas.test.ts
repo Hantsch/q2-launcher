@@ -1266,6 +1266,45 @@ describe('parseServersState (story 110 D2)', () => {
     expect(result.history[0]).toEqual(rows[0])
     expect(result.history.at(-1)).toEqual(rows[SERVER_HISTORY_CAP - 1])
   })
+
+  // Story 119 D2.
+  it('parseServersState keeps a valid listSort and drops a malformed one without touching the rest', () => {
+    const base = {
+      sources: [],
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: DEFAULT_SERVERS_STATE.scan,
+    }
+
+    const valid = parseServersState({ ...base, listSort: { column: 'players', direction: 'desc' } })
+    expect(valid.listSort).toEqual({ column: 'players', direction: 'desc' })
+    expect(valid.sources).toEqual([])
+    expect(valid.scan).toEqual(DEFAULT_SERVERS_STATE.scan)
+
+    const malformedColumn = parseServersState({
+      ...base,
+      listSort: { column: 'nope', direction: 'desc' },
+    })
+    expect(malformedColumn.listSort).toBeUndefined()
+    expect(malformedColumn.scan).toEqual(DEFAULT_SERVERS_STATE.scan)
+
+    const malformedShape = parseServersState({ ...base, listSort: 'players-desc' })
+    expect(malformedShape.listSort).toBeUndefined()
+  })
+
+  it('a state file without listSort parses to the default order', () => {
+    const result = parseServersState({
+      sources: [],
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: DEFAULT_SERVERS_STATE.scan,
+    })
+    expect(result.listSort).toBeUndefined()
+
+    expect(parseServersState(undefined).listSort).toBeUndefined()
+  })
 })
 
 // Story 075 D1 (AC6).

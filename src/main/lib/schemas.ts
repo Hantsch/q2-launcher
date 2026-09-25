@@ -45,10 +45,12 @@ import {
   favouriteServerEntrySchema,
   manualServerEntrySchema,
   serverHistoryEntrySchema,
+  serverListSortSchema,
   serverSourceEntrySchema,
   type FavouriteServerEntry,
   type ManualServerEntry,
   type ServerHistoryEntry,
+  type ServerListSort,
   type ServerSourceEntry,
   type ServersScanSettings,
   type ServersState,
@@ -1356,7 +1358,14 @@ export function parseServersState(raw: unknown): ServersState {
   )
   const scan = parseServersScanSettings((raw as { scan?: unknown } | null)?.scan)
 
-  return { sources, favourites, manualServers, history, scan }
+  // Story 119 D2: `listSort` is field-level-forgiving like every other optional field here - an
+  // absent or malformed value simply omits the key (default order) rather than degrading the rest
+  // of the state, so it is parsed straight off `raw` (not through the envelope schema above, which
+  // only ever handles the four array-shaped collections) and only spread in on success.
+  const listSortResult = serverListSortSchema.safeParse((raw as { listSort?: unknown } | null)?.listSort)
+  const listSort: ServerListSort | undefined = listSortResult.success ? listSortResult.data : undefined
+
+  return { sources, favourites, manualServers, history, scan, ...(listSort ? { listSort } : {}) }
 }
 
 // IPC-payload schemas moved to `src/shared/ipc-schemas.ts` (story 036, D1) -

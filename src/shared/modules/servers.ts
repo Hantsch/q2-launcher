@@ -1,11 +1,26 @@
 import { z } from 'zod'
 import { serverAddressSchema } from '../schemas'
 import type { InfoReplySuccess } from '../servers/info-reply'
+import { SERVER_SORT_COLUMNS } from '../servers/list-sort'
+import type { ServerListSort, ServerSortColumn } from '../servers/list-sort'
 import type { MasterSourceAddressRejection } from '../servers/master-source-address'
 import type { ServerGamemode } from '../servers/row-markers'
 import type { ServerPlayer, StatusReplySuccess } from '../servers/status-reply'
 
 export type { ServerGamemode } from '../servers/row-markers'
+
+/**
+ * Story 119 D2: re-exported from `../servers/list-sort` (already implemented in D1) rather than
+ * redefined here - this file is the shared contract's home, but the sort engine itself is pure
+ * and colocated with `row-markers.ts`, so the types/constant travel through this module the same
+ * way `ServerGamemode` right above does.
+ */
+export type {
+  ServerListSort,
+  ServerSortColumn,
+  ServerSortDirection,
+} from '../servers/list-sort'
+export { SERVER_SORT_COLUMNS } from '../servers/list-sort'
 
 /**
  * The servers module's contract.
@@ -74,6 +89,11 @@ export const SERVERS_HANDLERS = {
   /** Reports whether the Servers view is currently mounted/visible - main's own signal for when
    * auto-refresh/auto-scan-on-open are allowed to act. No meaningful return value. */
   scanSetViewActive: 'scan.setViewActive',
+  /** Story 119 D2: the persisted list-sort handlers. `listGetSort` resolves to the current
+   * `ServerListSort | null` (`null` meaning the default order); `listSetSort` validates and
+   * persists a new one (or clears it with `null`), resolving to what was actually persisted. */
+  listGetSort: 'list.getSort',
+  listSetSort: 'list.setSort',
 } as const
 
 /**
@@ -312,6 +332,8 @@ export interface ServersState {
   manualServers: ManualServerEntry[]
   history: ServerHistoryEntry[]
   scan: ServersScanSettings
+  /** user-chosen list sort, story 119 */
+  listSort?: ServerListSort
 }
 
 export const serversStateSchema = z.object({
@@ -696,6 +718,23 @@ export const scanPatchSettingsInputSchema = z
  * (`false`). */
 export const scanSetViewActiveInputSchema = z.object({ active: z.boolean() })
 
+/**
+ * Story 119 D2: the persisted/IPC shape of a `ServerListSort` - `.strict()` so a payload carrying
+ * an unknown key is rejected outright, same convention as `scanPatchSettingsInputSchema`.
+ */
+export const serverListSortSchema = z
+  .object({
+    column: z.enum(SERVER_SORT_COLUMNS as [ServerSortColumn, ...ServerSortColumn[]]),
+    direction: z.enum(['asc', 'desc']),
+  })
+  .strict()
+
+/** `list.getSort` takes no payload - same `z.void()` convention as `scanReadInputSchema` above. */
+export const listGetSortInputSchema = serversNoInputSchema
+
+/** `list.setSort`'s payload - a full sort or `null` to clear it back to the default order. */
+export const listSetSortInputSchema = z.object({ sort: serverListSortSchema.nullable() }).strict()
+
 export const SERVERS_HANDLER_SCHEMAS: Record<
   (typeof SERVERS_HANDLERS)[keyof typeof SERVERS_HANDLERS],
   z.ZodTypeAny
@@ -718,4 +757,6 @@ export const SERVERS_HANDLER_SCHEMAS: Record<
   [SERVERS_HANDLERS.scanGetSettings]: scanGetSettingsInputSchema,
   [SERVERS_HANDLERS.scanPatchSettings]: scanPatchSettingsInputSchema,
   [SERVERS_HANDLERS.scanSetViewActive]: scanSetViewActiveInputSchema,
+  [SERVERS_HANDLERS.listGetSort]: listGetSortInputSchema,
+  [SERVERS_HANDLERS.listSetSort]: listSetSortInputSchema,
 }

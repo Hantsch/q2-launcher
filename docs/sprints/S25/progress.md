@@ -12,3 +12,15 @@
 - 2026-09-25 17:32 · 118 · review 1 · started
 - 2026-09-25 17:35 · 118 · review 1 · done
 - 2026-09-25 17:36 · 118 · story · done
+- 2026-09-25 17:36:34 · 119 · build · started
+- 2026-09-25 17:37 · 119 · D1 sort engine · started
+- 2026-09-25 17:38 · 119 · D1 sort engine · done
+- 2026-09-25 17:38 · 119 · D2 persist sort (contract+main) · started
+- 2026-09-25 17:42 · 119 · D2 persist sort (contract+main) · done
+- 2026-09-25 17:42 · 119 · D3 sort UI + flow · started
+- 2026-09-25 17:49 · 119 · D3 sort UI + flow · done
+- 2026-09-25 17:49 · 119 · verify · started
+- 2026-09-25 17:51 · 119 · verify · done
+- 2026-09-25 17:51 · 119 · review 1 · started
+- 2026-09-25 17:53 · 119 · review 1 · done
+- 2026-09-25 17:53 · 119 · story · done

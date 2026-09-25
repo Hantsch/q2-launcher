@@ -8,6 +8,7 @@ import {
   type ScanServerPush,
   type ScanSnapshot,
   type ScanStartResult,
+  type ServerListSort,
   type ServersOverview,
   type ServersScanSettings,
   type ServersScanState,
@@ -139,4 +140,18 @@ export function patchScanSettings(
  */
 export function setScanViewActive(active: boolean): Promise<Outcome<void>> {
   return callModule<void>('servers', SERVERS_HANDLERS.scanSetViewActive, { active })
+}
+
+/**
+ * Story 119 D3: the persisted list-sort's renderer-side transport, mirroring
+ * `getScanSettings`/`patchScanSettings` exactly. `getListSort` resolves to the current
+ * `ServerListSort | null` (`null` meaning the default order); `setListSort` persists a new one (or
+ * clears it back to the default with `null`) and resolves to what was actually persisted.
+ */
+export function getListSort(): Promise<Outcome<ServerListSort | null>> {
+  return callModule<ServerListSort | null>('servers', SERVERS_HANDLERS.listGetSort)
+}
+
+export function setListSort(sort: ServerListSort | null): Promise<Outcome<ServerListSort | null>> {
+  return callModule<ServerListSort | null>('servers', SERVERS_HANDLERS.listSetSort, { sort })
 }

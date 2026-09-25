@@ -36,6 +36,9 @@ version section when a release actually ships.
   just your favourites, and selecting a server and hitting "Refresh this server" re-checks only
   that one, both leaving the rest of the list exactly as it was. All three refresh buttons now show
   when they can't run (already scanning, or the game is running) instead of silently no-opping.
+- **Servers** — the list is sortable: click Name, Mod, Players, Map or Ping to sort by it, click
+  again to reverse, click a third time to go back to the default (favourites first, then busiest).
+  Your choice sticks across restarts.
 - **Linux** — a Windows Quake II build (Steam, GOG, a folder carried over from another machine)
   now plays on Linux too: the launcher offers wine or umu-run as a runner and launches through it
   when you pick one.

@@ -45,6 +45,8 @@ describe('servers module contract (story 106 D1)', () => {
       scanGetSettings: 'scan.getSettings',
       scanPatchSettings: 'scan.patchSettings',
       scanSetViewActive: 'scan.setViewActive',
+      listGetSort: 'list.getSort',
+      listSetSort: 'list.setSort',
     })
   })
 

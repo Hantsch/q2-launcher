@@ -4,6 +4,8 @@ import {
   favouritesListInputSchema,
   favouritesRemoveInputSchema,
   historyReadInputSchema,
+  listGetSortInputSchema,
+  listSetSortInputSchema,
   manualAddInputSchema,
   manualListInputSchema,
   manualRemoveInputSchema,
@@ -216,6 +218,27 @@ export const serversModule: MainModule = {
     handle(SERVERS_HANDLERS.historyRead, historyReadInputSchema, () =>
       readServerHistory(app.state.serversState().history),
     )
+
+    /**
+     * Story 119 D2: the `list.*` sort handlers - same read/merge/persist discipline as
+     * `scanGetSettings`/`scanPatchSettings` above. `listSetSort` replaces the top-level `listSort`
+     * field wholesale (there is nothing to merge - a sort is either set or cleared) while carrying
+     * every other `ServersState` key over from the same snapshot untouched; `null` clears it by
+     * destructuring it out of the persisted candidate rather than setting it to `undefined`, so a
+     * cleared sort is an absent key on disk, not a present `null`/`undefined` one. What's returned is
+     * what `setServersState` actually persisted (`?? null`), not the local candidate.
+     */
+    handle(SERVERS_HANDLERS.listGetSort, listGetSortInputSchema, () =>
+      app.state.serversState().listSort ?? null,
+    )
+    handle(SERVERS_HANDLERS.listSetSort, listSetSortInputSchema, (payload) => {
+      const current = app.state.serversState()
+      if (payload.sort === null) {
+        const { listSort: _listSort, ...withoutSort } = current
+        return app.state.setServersState(withoutSort).listSort ?? null
+      }
+      return app.state.setServersState({ ...current, listSort: payload.sort }).listSort ?? null
+    })
 
     log.debug('servers module ready')
   },

@@ -577,6 +577,73 @@ describe('servers module scan.* settings handlers (story 115 D2)', () => {
 })
 
 /**
+ * Story 119 D2: the `list.getSort`/`list.setSort` handlers - same real-`StateStore` round-trip
+ * harness as the `scan.*` settings block above, driven through the real `MainModuleRegistry` so
+ * `listSetSortInputSchema` (including its column-enum validation) runs too.
+ */
+describe('servers module list.*Sort handlers (story 119 D2)', () => {
+  let filePath: string
+  let state: StateStore
+  let registry: MainModuleRegistry
+
+  beforeEach(async () => {
+    filePath = join(tmpdir(), `q2-launcher-state-servers-list-sort-${randomUUID()}.json`)
+    state = new StateStore(filePath)
+    await state.load()
+    registry = new MainModuleRegistry()
+    await registry.register(serversModule, fakeAppContext(state))
+  })
+
+  afterEach(async () => {
+    await state.settle()
+    await rm(filePath, { force: true })
+    await rm(`${filePath}.tmp`, { force: true })
+    await rm(`${filePath}.bak`, { force: true })
+  })
+
+  function invoke(type: string, payload?: unknown): Promise<unknown> {
+    return registry.invoke({ moduleId: 'servers', type, payload })
+  }
+
+  it('list.getSort returns null before any sort has been set', async () => {
+    expect(await invoke(SERVERS_HANDLERS.listGetSort)).toEqual({ ok: true, value: null })
+  })
+
+  it('list.setSort persists the sort and list.getSort returns it', async () => {
+    const sort = { column: 'players', direction: 'desc' }
+    const outcome = await invoke(SERVERS_HANDLERS.listSetSort, { sort })
+    expect(outcome).toEqual({ ok: true, value: sort })
+
+    expect(await invoke(SERVERS_HANDLERS.listGetSort)).toEqual({ ok: true, value: sort })
+
+    await state.settle()
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+    expect(reloaded.serversState().listSort).toEqual(sort)
+  })
+
+  it('list.setSort null clears the persisted sort', async () => {
+    await invoke(SERVERS_HANDLERS.listSetSort, { sort: { column: 'name', direction: 'asc' } })
+    const outcome = await invoke(SERVERS_HANDLERS.listSetSort, { sort: null })
+    expect(outcome).toEqual({ ok: true, value: null })
+
+    expect(await invoke(SERVERS_HANDLERS.listGetSort)).toEqual({ ok: true, value: null })
+
+    await state.settle()
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+    expect(reloaded.serversState().listSort).toBeUndefined()
+  })
+
+  it('list.setSort rejects an unknown column', async () => {
+    expect(
+      await invoke(SERVERS_HANDLERS.listSetSort, { sort: { column: 'nope', direction: 'asc' } }),
+    ).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
+    expect(state.serversState().listSort).toBeUndefined()
+  })
+})
+
+/**
  * Story 117 D4: `scan.start`'s handler now passes both `scope` and `selectedAddress` through to
  * `ScanService.start`'s options-object signature. The guard (116) and the single-flight rule (114
  * D-L) already apply regardless of scope inside the service itself - these tests just prove that

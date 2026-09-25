@@ -1,7 +1,7 @@
 ---
 id: 119
 title: busy servers rise to the top
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -21,15 +21,15 @@ themselves come from the scan engine ([[114]]) inside the module from [[106]].
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — With no user-chosen sort in effect, the list orders favourites first, then the
+- [x] **AC1** — With no user-chosen sort in effect, the list orders favourites first, then the
       remaining servers by occupancy descending (GB-L3).
-- [ ] **AC2** — In the default order, gamemode only breaks ties between servers with the same
+- [x] **AC2** — In the default order, gamemode only breaks ties between servers with the same
       favourite status and the same occupancy; it never groups the list — a busier server is always
       above a less busy one, whatever their gamemodes.
-- [ ] **AC3** — A user can change which column the list is sorted by, from the list's own UI.
-- [ ] **AC4** — A user-chosen sort persists across sessions — reopening the Servers view (or
+- [x] **AC3** — A user can change which column the list is sorted by, from the list's own UI.
+- [x] **AC4** — A user-chosen sort persists across sessions — reopening the Servers view (or
       restarting the launcher) shows the same sort the user last chose, not the default.
-- [ ] **AC5** — The sort/filter engine that produces this ordering is a pure, unit-tested module,
+- [x] **AC5** — The sort/filter engine that produces this ordering is a pure, unit-tested module,
       independent of the list UI (GB-A6).
 
 ## Open Questions
@@ -101,7 +101,7 @@ Out of scope: filters/search ([[120]]), list states ([[121]]), what a row shows 
 
 ## Deliverables
 
-- **D1 — the sort engine (shared, pure).**
+- [x] **D1 — the sort engine (shared, pure).**
   - Create `src/shared/servers/list-sort.ts` with a colocated `list-sort.test.ts`:
     - Types:
       - `export type ServerSortColumn = 'name' | 'mod' | 'players' | 'map' | 'ping'`
@@ -150,7 +150,7 @@ Out of scope: filters/search ([[120]]), list states ([[121]]), what a row shows 
   - Acceptance: `npx vitest run src/shared/servers/list-sort.test.ts` passes, and
     `npm run typecheck` is clean.
 
-- **D2 — the sort is persisted (contract + main).**
+- [x] **D2 — the sort is persisted (contract + main).**
   - In `src/shared/modules/servers.ts`:
     - Re-export the D1 types from `../servers/list-sort`.
     - Add `export const serverListSortSchema = z.object({ column: z.enum([...SERVER_SORT_COLUMNS]), direction: z.enum(['asc','desc']) }).strict()`.
@@ -185,7 +185,7 @@ Out of scope: filters/search ([[120]]), list states ([[121]]), what a row shows 
   - Acceptance: `npx vitest run src/main/lib/schemas.test.ts src/main/modules/servers src/shared/modules`
     passes, and `npm run typecheck` is clean.
 
-- **D3 — sorting on the real surface (renderer + flow).**
+- [x] **D3 — sorting on the real surface (renderer + flow).**
   - In `src/renderer/src/modules/servers/client.ts`, add:
     - `getListSort(): Promise<Outcome<ServerListSort | null>>`
     - `setListSort(sort: ServerListSort | null): Promise<Outcome<ServerListSort | null>>`
@@ -285,4 +285,22 @@ No `manual residue`.
 
 ## Done
 
-<!-- Filled by `/build 119`. -->
+Implemented the pure sort engine (`list-sort.ts`: default comparator, column comparator, `nextSort`
+cycle), its persistence (`ServersState.listSort`, `list.getSort`/`list.setSort` handlers with a
+strict zod schema and field-forgiving parse), and the renderer surface (`ServerSortBar`,
+`ServersView` wiring, i18n, e2e flow). All three deliverables landed as planned, no deviations from
+the Decisions.
+
+Commit message: `119: busy servers rise to the top`
+
+Verification — narrow gate: `npm run build` green, `npm run typecheck` green,
+`npx vitest run --changed HEAD` green (91 files / 1525 tests), `npm run ui:flow -- servers-sort-order`
+green (all phases incl. default order, map asc/desc cycling, navigate-away/reload persistence,
+`state.json` round-trip, and clearing back to default). AC → test mapping verified: AC1–AC5 each
+confirmed via their named unit tests (`list-sort.test.ts`, `schemas.test.ts`, `index.test.ts`,
+`ServersView.test.tsx`) and the e2e flow `servers-sort-order` — all present and passing, none
+missing from the run. No `manual residue`. Review: default-tier clean agent, verdict PASS, two minor
+non-blocking observations (a cosmetic import-path inconsistency in `ServerSortBar.tsx`; the
+then-unfilled Done section) — no fix cycle needed.
+
+tiers: D 3 / hard 0 · review default · cycles 0 · agents 5

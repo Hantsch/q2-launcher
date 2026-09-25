@@ -20,7 +20,7 @@ invisible until a code names `watchlist`.
 ## Stories (in build order)
 
 - [x] 118 — a server row says what's going on
-- [ ] 119 — busy servers rise to the top
+- [x] 119 — busy servers rise to the top
 - [ ] 120 — i filter and search the list
 - [ ] 121 — the list says what it's doing
 - [ ] 122 — a server's detail opens

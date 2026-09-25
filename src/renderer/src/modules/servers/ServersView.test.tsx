@@ -3,6 +3,7 @@ import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ScanSnapshot, ServerListEntry, ServersScanState } from '@shared/modules/servers'
+import type { ServerListSort } from '@shared/servers/list-sort'
 import { initI18n } from '../../i18n'
 
 /**
@@ -11,20 +12,29 @@ import { initI18n } from '../../i18n'
  * `invoke`/`on` plumbing - simpler, and this view's logic is entirely about what it does with
  * `readScan()`'s resolved value and `onScanChanged()`'s pushes, not about the transport itself.
  */
-const { readScanMock, startScanMock, setScanViewActiveMock, onScanChangedMock } = vi.hoisted(
-  () => ({
-    readScanMock: vi.fn(),
-    startScanMock: vi.fn(async () => ({ ok: true as const, value: { ok: true as const } })),
-    setScanViewActiveMock: vi.fn(async () => ({ ok: true as const, value: undefined })),
-    onScanChangedMock: vi.fn(),
-  }),
-)
+const {
+  readScanMock,
+  startScanMock,
+  setScanViewActiveMock,
+  onScanChangedMock,
+  getListSortMock,
+  setListSortMock,
+} = vi.hoisted(() => ({
+  readScanMock: vi.fn(),
+  startScanMock: vi.fn(async () => ({ ok: true as const, value: { ok: true as const } })),
+  setScanViewActiveMock: vi.fn(async () => ({ ok: true as const, value: undefined })),
+  onScanChangedMock: vi.fn(),
+  getListSortMock: vi.fn(async () => ({ ok: true as const, value: null as ServerListSort | null })),
+  setListSortMock: vi.fn(async (sort: ServerListSort | null) => ({ ok: true as const, value: sort })),
+}))
 
 vi.mock('./client', () => ({
   readScan: readScanMock,
   startScan: startScanMock,
   setScanViewActive: setScanViewActiveMock,
   onScanChanged: onScanChangedMock,
+  getListSort: getListSortMock,
+  setListSort: setListSortMock,
 }))
 
 let ServersView: typeof import('./ServersView').ServersView
@@ -38,6 +48,14 @@ afterEach(() => {
   cleanup()
   vi.clearAllMocks()
   onScanChangedMock.mockImplementation(() => () => {})
+  getListSortMock.mockImplementation(async () => ({
+    ok: true as const,
+    value: null as ServerListSort | null,
+  }))
+  setListSortMock.mockImplementation(async (sort: ServerListSort | null) => ({
+    ok: true as const,
+    value: sort,
+  }))
 })
 
 const BASE_STATE: ServersScanState = {
@@ -222,5 +240,72 @@ describe('ServersView - scoped refresh controls (story 117 D5)', () => {
 
     const hint = screen.getByTestId('servers-refresh-selected-hint')
     expect(hint.textContent).toBe('Select a server to refresh it.')
+  })
+})
+
+describe('ServersView - list sort (story 119 D3)', () => {
+  it("renders rows in the engine's default order", async () => {
+    await renderView(
+      snapshot({
+        entries: [
+          { address: 'b:1', origins: ['manual'], status: 'online', lastSeenAt: 'x', players: 1 },
+          { address: 'a:1', origins: ['manual'], status: 'online', lastSeenAt: 'x', players: 5 },
+        ],
+      }),
+    )
+
+    // `ServerRow` renders each row as a `<button data-testid="servers-row-<address>">` - `:role`
+    // scopes this to the row buttons themselves, never the badge testids nested inside one
+    // (`servers-row-favourite-<address>` etc.), which also start with `servers-row-`.
+    const rows = await screen.findAllByRole('button', { name: /:1/ })
+    // Default order (`sortServerRows` with no sort) is occupancy descending among non-favourites -
+    // 'a:1' (5 players) before 'b:1' (1 player).
+    const addresses = rows.map((row) => row.getAttribute('data-testid'))
+    expect(addresses).toEqual(['servers-row-a:1', 'servers-row-b:1'])
+
+    expect(screen.getByTestId('servers-sort-current').textContent).toBe(
+      'Favourites first, then busiest',
+    )
+  })
+
+  it('clicking a column header sorts by it and persists via setListSort', async () => {
+    await renderView(
+      snapshot({
+        entries: [
+          { address: 'b:1', name: 'Bravo', origins: ['manual'], status: 'online', lastSeenAt: 'x' },
+          { address: 'a:1', name: 'Alpha', origins: ['manual'], status: 'online', lastSeenAt: 'x' },
+        ],
+      }),
+    )
+
+    fireEvent.click(screen.getByTestId('servers-sort-name'))
+
+    const rows = await screen.findAllByRole('button', { name: /Alpha|Bravo/ })
+    expect(rows.map((row) => row.getAttribute('data-testid'))).toEqual([
+      'servers-row-a:1',
+      'servers-row-b:1',
+    ])
+
+    expect(setListSortMock).toHaveBeenCalledWith({ column: 'name', direction: 'asc' })
+    const button = screen.getByTestId('servers-sort-name')
+    expect(button.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByTestId('servers-sort-current').textContent).toBe(
+      'Sorted by Name, ascending',
+    )
+  })
+
+  it('restores the persisted sort on mount', async () => {
+    getListSortMock.mockResolvedValueOnce({
+      ok: true,
+      value: { column: 'map', direction: 'desc' },
+    })
+
+    await renderView(snapshot({}))
+
+    const button = await screen.findByTestId('servers-sort-map')
+    expect(button.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByTestId('servers-sort-current').textContent).toBe(
+      'Sorted by Map, descending',
+    )
   })
 })
