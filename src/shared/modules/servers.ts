@@ -532,11 +532,21 @@ export interface ScanSourceFailure {
 export type ScanPhase = 'idle' | 'stage1' | 'stage2'
 
 /**
+ * Story 116 D1: why a scan is currently refused/held back from starting - a closed union so a
+ * later reason (if any) is a compile-time-visible addition, unlike `ScanStartResult`'s/
+ * `ManualServerAddResult`'s free-text `reasonKey`. Currently only one member: the game is running
+ * (docs/requirements/116-no-scan-runs-while-the-game-does.md).
+ */
+export type ScanBlockedReason = 'game-running'
+
+/**
  * The scan's own live state (D-C's `scan.changed` payload). `stage1Total`/`stage2Total` are the
  * size of that stage's address set at the moment the stage started - `stage2Total` is `0` until
  * stage 1 has finished and the non-empty-plus-selected set is known. `startedAt`/`finishedAt` are
  * ISO timestamps, `null` before the first scan has ever run (`finishedAt` also `null` while
- * `running` is true).
+ * `running` is true). `blockedReason` (story 116 D1) is `null` unless a scan is currently being
+ * held back by something outside the scan itself (e.g. the game running) - `null` rather than
+ * optional, same style as `startedAt`/`finishedAt` above.
  */
 export interface ServersScanState {
   running: boolean
@@ -548,6 +558,7 @@ export interface ServersScanState {
   sourceFailures: ScanSourceFailure[]
   startedAt: string | null
   finishedAt: string | null
+  blockedReason: ScanBlockedReason | null
 }
 
 /**
@@ -557,6 +568,17 @@ export interface ServersScanState {
  * `scan.changed`/`scan.server` pushes (AC5), not through this return value.
  */
 export type ScanStartResult = { ok: true } | { ok: false; reasonKey: string }
+
+/**
+ * Story 116 D1: the `reasonKey` a refused `scan.start` (or a `blockedReason: 'game-running'`
+ * scan state) carries when the game is running - a distinct i18n convention from
+ * `SCAN_ALREADY_RUNNING_REASON_KEY` (`servers.scan.error.<reason>`, `scan-service.ts`) because
+ * this is a *blocked* state rather than an *error*, mirroring `WAITING_REASON_GAME_RUNNING`
+ * (`jobs.waiting.gameRunning`, `src/main/services/write-guard.ts`). Lives here rather than in
+ * `scan-service.ts` because both a later main-side deliverable and a renderer i18n-key check need
+ * it.
+ */
+export const SCAN_BLOCKED_GAME_RUNNING_REASON_KEY = 'servers.scan.blocked.gameRunning'
 
 /**
  * `scan.read`'s result (D-D): a one-shot catch-up snapshot for a renderer that mounts mid-scan -

@@ -13,6 +13,7 @@ import {
   type ServersState,
 } from '@shared/modules/servers'
 import { buildInfoReplyBytes, buildStatusReplyBytes } from '@shared/servers/reply-fixtures'
+import { IDLE_LAUNCH_STATE } from '@shared/types'
 import type { AppContext } from '../../context'
 import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
@@ -162,6 +163,8 @@ describe('servers scan real-socket integration (story 114 D8)', () => {
           emitted.push({ type, payload })
         },
       },
+      // Story 116 D3: the scan service reads `app.launch` - an idle, silent stub (no game running).
+      launch: { getState: () => IDLE_LAUNCH_STATE, onStateChange: () => () => {} },
     } as unknown as AppContext
 
     registry = new MainModuleRegistry()

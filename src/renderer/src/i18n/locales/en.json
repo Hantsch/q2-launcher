@@ -677,7 +677,13 @@
     "scan": {
       "error": {
         "already-running": "A scan is already running."
+      },
+      "blocked": {
+        "gameRunning": "Servers can't be scanned while the game is running."
       }
+    },
+    "row": {
+      "stale": "Stale"
     },
     "source": {
       "error": {

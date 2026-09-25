@@ -8,8 +8,9 @@
 // `src/renderer/src/modules/servers/ServersSettingsSection.tsx` and
 // `src/renderer/src/views/SettingsView.tsx` before changing any of these:
 //   nav-servers                TitleBar.tsx - primary nav entry, `nav-${module.id}`
-//   servers-manual-refresh     ServersView.tsx - story 115 D5's minimal real view (see below),
-//                              the always-enabled manual scan button
+//   servers-refresh            ServersView.tsx - story 115 D5's minimal real view (see below), the
+//                              manual scan button (renamed from `servers-manual-refresh` in story
+//                              116 D5, which also made it disable while a scan is blocked)
 //   settings-section-servers   SettingsView.tsx - the shell's own Panel wrapper around the
 //                              contributed section, `settings-section-${id}`
 //   servers-sources-list       ServersSettingsSection.tsx - story 111 D4's real master-source
@@ -25,11 +26,11 @@ export default async function serversModuleShell({ page, shot, step }) {
   // Story 115 D5 review fix: the servers module now contributes a real (if deliberately minimal)
   // `View: ServersView` (`src/renderer/src/modules/index.ts`), so its route no longer falls back to
   // the shell's `PlannedModuleView` - the "Planned" badge this flow used to wait for is stale and
-  // would never appear again. Waiting on `servers-manual-refresh` instead proves the real, current
+  // would never appear again. Waiting on `servers-refresh` instead proves the real, current
   // content of the route: `ServersView`'s manual refresh button (AC3's own control), the same
   // precedent `servers-sources-list` right above already set when story 111 replaced this flow's
   // other placeholder assertion.
-  const manualRefresh = page.getByTestId('servers-manual-refresh')
+  const manualRefresh = page.getByTestId('servers-refresh')
   await manualRefresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   await shot('servers-planned-route')

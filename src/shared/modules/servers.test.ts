@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
+import type { ScanBlockedReason, ServersScanState } from './servers'
 import {
   DEFAULT_MASTER_SOURCES,
   DEFAULT_SERVERS_STATE,
+  SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
   SERVER_HISTORY_CAP,
   SERVERS_HANDLERS,
   SERVERS_HANDLER_SCHEMAS,
@@ -359,5 +361,35 @@ describe('scan settings (story 115 D1)', () => {
     expect(
       scanPatchSettingsInputSchema.safeParse({ autoRefreshIntervalMs: 1 }).success,
     ).toBe(false)
+  })
+})
+
+describe('scan guard (story 116 D1)', () => {
+  it('ScanBlockedReason accepts \'game-running\'', () => {
+    const reason: ScanBlockedReason = 'game-running'
+    expect(reason).toBe('game-running')
+  })
+
+  it('ServersScanState accepts blockedReason as either a ScanBlockedReason or null', () => {
+    const blocked: ServersScanState = {
+      running: false,
+      phase: 'idle',
+      stage1Done: 0,
+      stage1Total: 0,
+      stage2Done: 0,
+      stage2Total: 0,
+      sourceFailures: [],
+      startedAt: null,
+      finishedAt: null,
+      blockedReason: 'game-running',
+    }
+    const unblocked: ServersScanState = { ...blocked, blockedReason: null }
+
+    expect(blocked.blockedReason).toBe('game-running')
+    expect(unblocked.blockedReason).toBeNull()
+  })
+
+  it('SCAN_BLOCKED_GAME_RUNNING_REASON_KEY is the distinct blocked-state i18n key, not the error-state convention', () => {
+    expect(SCAN_BLOCKED_GAME_RUNNING_REASON_KEY).toBe('servers.scan.blocked.gameRunning')
   })
 })

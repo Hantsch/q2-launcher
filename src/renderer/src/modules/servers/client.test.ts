@@ -39,6 +39,7 @@ const SCAN_STATE: ServersScanState = {
   sourceFailures: [],
   startedAt: '2026-01-01T00:00:00.000Z',
   finishedAt: null,
+  blockedReason: null,
 }
 
 const SCAN_ROW = {

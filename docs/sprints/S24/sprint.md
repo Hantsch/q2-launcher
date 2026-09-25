@@ -18,7 +18,7 @@ one server instead of always reloading everything.
 
 - [x] 114 — a scan sweeps the servers in two stages
 - [x] 115 — how hard the scan works is a setting
-- [ ] 116 — no scan runs while the game does
+- [x] 116 — no scan runs while the game does
 - [ ] 117 — a refresh only reloads what changed
 
 ## Notes

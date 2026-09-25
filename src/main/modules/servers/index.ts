@@ -59,18 +59,24 @@ export const serversModule: MainModule = {
   setup({ handle, emit, app, log }) {
     // Reads `app.state.serversState()` live at call time, never a snapshot captured here - sources/
     // favourites/manual servers can be mutated by the handlers below in between two scans.
+    // Story 116 D3: both halves take `app.launch` (structurally a `LaunchHost`) and each reads it
+    // live at decision time, so neither depends on the other's `onStateChange` listener running
+    // first. A superseded service is retired too now that it holds a launch subscription.
+    activeScanCadence?.dispose()
+    activeScanService?.dispose()
     const scanService = createScanService({
       getServersState: () => app.state.serversState(),
       emit,
+      launch: app.launch,
     })
     activeScanService = scanService
 
     // Story 115 D3: a cadence from a superseded `setup()` could no longer be reached by `dispose()`,
-    // so its timer would outlive it - retire it before replacing the reference.
-    activeScanCadence?.dispose()
+    // so its timer would outlive it - it is retired above, before either reference is replaced.
     const scanCadence = createScanCadence({
       getServersState: () => app.state.serversState(),
       scanService,
+      launch: app.launch,
       onError: (error) => log.warn('automatic scan trigger failed', error),
     })
     activeScanCadence = scanCadence

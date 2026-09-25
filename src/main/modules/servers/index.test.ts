@@ -14,7 +14,7 @@ import {
   type ServersOverview,
   type ServersState,
 } from '@shared/modules/servers'
-import { getModuleManifest } from '@shared/types'
+import { IDLE_LAUNCH_STATE, getModuleManifest } from '@shared/types'
 import type { AppContext } from '../../context'
 import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
@@ -44,7 +44,9 @@ import { serversModule } from './index'
  */
 function fakeAppContext(state?: StateStore): AppContext {
   const broadcast = { emit: () => {} }
-  return (state === undefined ? { broadcast } : { state, broadcast }) as unknown as AppContext
+  // Story 116 D3: the scan service/cadence read `app.launch` at construction - an idle, silent stub.
+  const launch = { getState: () => IDLE_LAUNCH_STATE, onStateChange: () => () => {} }
+  return (state === undefined ? { broadcast, launch } : { state, broadcast, launch }) as unknown as AppContext
 }
 
 describe('servers module', () => {

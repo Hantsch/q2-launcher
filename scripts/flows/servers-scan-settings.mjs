@@ -21,7 +21,9 @@
 //   servers-scan-settings-retries                ServersSettingsSection.tsx - wraps a <Select>
 //   servers-scan-settings-min-spacing            ServersSettingsSection.tsx - wraps a <Select>
 //   nav-servers                                  TitleBar.tsx - `nav-${module.id}` (module 106)
-//   servers-manual-refresh                       ServersView.tsx - always-enabled manual scan button
+//   servers-refresh                              ServersView.tsx - manual scan button (renamed
+//                                                from `servers-manual-refresh` in story 116 D5,
+//                                                which also disables it while a scan is blocked)
 //   servers-scan-status                          ServersView.tsx - live status readout; carries
 //                                                `data-running`/`data-finished-at` test-observability
 //                                                attributes alongside its i18n-driven visible text
@@ -240,10 +242,10 @@ export default async function serversScanSettings({ page, shot, step }) {
 
   step('navigate to the Servers view')
   await page.getByTestId('nav-servers').click({ timeout: TIMEOUT_MS })
-  const manualRefresh = page.getByTestId('servers-manual-refresh')
+  const manualRefresh = page.getByTestId('servers-refresh')
   await manualRefresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if (await manualRefresh.isDisabled()) {
-    throw new Error('expected servers-manual-refresh to be enabled regardless of auto settings')
+    throw new Error('expected servers-refresh to be enabled regardless of auto settings')
   }
 
   step('the manual refresh control starts a scan even with both auto settings off')

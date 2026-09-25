@@ -1,5 +1,7 @@
 import {
+  SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
   SERVERS_EVENTS,
+  type ScanBlockedReason,
   type ScanSnapshot,
   type ScanStartResult,
   type ScanTarget,
@@ -9,8 +11,11 @@ import {
   type ServersState,
 } from '@shared/modules/servers'
 import { readIntKey } from '@shared/servers/infostring'
+import type { LaunchHost } from '../../services/write-guard'
 import { electronNetFetch, type FetchImpl } from '../downloads/fetcher'
 import { buildScanAddressSet } from './address-set'
+import { isScanBlocked } from './scan-guard'
+import { mergeStaleRound } from './scan-merge'
 import { resolveSources, type ResolveSourcesDeps } from './source-resolution'
 import { runScan, type QueryServerFn } from './scan-runner'
 import type { ServerQueryResult } from './server-query'
@@ -41,6 +46,16 @@ import type { Clock, MasterUdpImpl } from './udp-master-source'
  *   to `null` the moment a new scan starts, which is correct for the live scan state but wrong for
  *   "when did a scan last actually finish": that question should keep answering with the previous
  *   scan's timestamp for as long as the next one is still running, not flash back to "never".
+ * - **Story 116 D3, the game-running guard.** `start()` refuses with
+ *   `SCAN_BLOCKED_GAME_RUNNING_REASON_KEY` while `isScanBlocked(launch.getState())` - checked ahead
+ *   of the single-flight rule, and the *only* extra condition on the manual path (D-Q). The launch
+ *   state is always read live at call time, never cached, so the refusal cannot depend on the order
+ *   in which `onStateChange` listeners run. `blockedReason` is a reactive mirror of that same
+ *   predicate: set at construction and on every launch state change, so the view can show the
+ *   reason (and disable its refresh control) for the whole session, and it clears the moment the
+ *   session ends (AC4) without any scan attempt being needed first. An automatic trigger never
+ *   reaches `start()` while blocked (scan-cadence.ts skips it with `'game-running'`), which is why
+ *   the mirror - not a refusal - is what publishes the reason for AC1's skipped round.
  */
 
 /** Injectable seams for both `resolveSources` and `runScan`, all optional - each defaults to the
@@ -58,6 +73,8 @@ export interface CreateScanServiceOptions {
    * change between scans, so this must never be a snapshot captured once at `setup()` time. */
   getServersState: () => ServersState
   emit: (type: string, payload: unknown) => void
+  /** Story 116 D3 (D-E): the structural launch seam, never `LaunchService` itself. */
+  launch: LaunchHost
   deps?: ScanServiceDeps
 }
 
@@ -84,6 +101,7 @@ function initialScanState(): ServersScanState {
     sourceFailures: [],
     startedAt: null,
     finishedAt: null,
+    blockedReason: null,
   }
 }
 
@@ -137,15 +155,30 @@ function mergeSuccessfulReply(
 }
 
 export function createScanService(options: CreateScanServiceOptions): ScanService {
-  const { getServersState, emit } = options
+  const { getServersState, emit, launch } = options
   const deps = options.deps ?? {}
 
+  const blockedReasonFor = (blocked: boolean): ScanBlockedReason | null => (blocked ? 'game-running' : null)
+
   const entries = new Map<string, ServerListEntry>()
-  let scanState: ServersScanState = initialScanState()
+  let scanState: ServersScanState = {
+    ...initialScanState(),
+    blockedReason: blockedReasonFor(isScanBlocked(launch.getState())),
+  }
   let lastScanAt: string | null = null
   let abortController: AbortController | null = null
 
   const emitChanged = (): void => emit(SERVERS_EVENTS.scanChanged, { ...scanState })
+
+  /** Keeps `blockedReason` in step with the live launch state; pushes only on a real change. */
+  function syncBlockedReason(blocked: boolean): void {
+    const next = blockedReasonFor(blocked)
+    if (scanState.blockedReason === next) return
+    scanState = { ...scanState, blockedReason: next }
+    emitChanged()
+  }
+
+  const unsubscribeLaunch = launch.onStateChange((state) => syncBlockedReason(isScanBlocked(state)))
 
   async function runSweep(selectedAddress: string | undefined, signal: AbortSignal): Promise<void> {
     try {
@@ -198,18 +231,17 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
         },
       })
 
-      // D-K: anything this round's address set named but that never answered successfully keeps
-      // its last-known row (if it has one at all) but flagged stale - never removed, never
-      // reported as freshly empty. Review fix: skipped entirely when the sweep was aborted -
-      // `runScan`'s own contract (scan-runner.ts) is that an abort must never mark a row stale,
-      // because "never answered" then means "we didn't get to ask", not "the server was silent";
-      // an aborted sweep leaves every entry exactly as the last *completed* scan left it.
-      if (!outcome.aborted) {
-        for (const target of targets) {
-          if (answeredOnline.has(target.address)) continue
-          const existing = entries.get(target.address)
-          if (existing !== undefined) entries.set(target.address, { ...existing, status: 'stale' })
-        }
+      // D-K (story 116 D4: now extracted into scan-merge.ts's `mergeStaleRound`): anything this
+      // round's address set named but that never answered successfully keeps its last-known row
+      // (if it has one at all) but flagged stale - never removed, never reported as freshly empty.
+      // Skipped entirely when the sweep was aborted - `runScan`'s own contract (scan-runner.ts) is
+      // that an abort must never mark a row stale, because "never answered" then means "we didn't
+      // get to ask", not "the server was silent"; an aborted sweep leaves every entry exactly as
+      // the last *completed* scan left it. `entries` stays the single mutable closure Map the
+      // `onServer` callback above also writes into, so the merge's result is copied back in place
+      // rather than reassigning `entries` to a new object.
+      for (const [address, entry] of mergeStaleRound(entries, targets, answeredOnline, outcome.aborted)) {
+        entries.set(address, entry)
       }
     } catch {
       // Review fix: `runSweep` is fire-and-forget (`start()` returns before this settles, `void
@@ -226,6 +258,13 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
   }
 
   function start(selectedAddress?: string): ScanStartResult {
+    // Story 116 D3 (D-H, D-Q): main stays authoritative - refused regardless of what the renderer
+    // shows, never queued, and checked before single-flight so the reason is always the game.
+    if (isScanBlocked(launch.getState())) {
+      syncBlockedReason(true)
+      return { ok: false, reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY }
+    }
+
     if (scanState.running) {
       return { ok: false, reasonKey: SCAN_ALREADY_RUNNING_REASON_KEY }
     }
@@ -260,6 +299,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
   }
 
   function dispose(): void {
+    unsubscribeLaunch()
     abortController?.abort()
   }
 

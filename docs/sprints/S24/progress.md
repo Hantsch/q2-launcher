@@ -27,3 +27,15 @@
 - 2026-09-25 09:11 · 115 · D6 measured defaults · started
 - 2026-09-25 09:37 · 115 · D6 measured defaults · done
 - 2026-09-25 10:05 · 115 · review-fix cycle 1 (fixture-variant regressions + schema choice-list gap) · done
+- 2026-09-25 10:10 · 116 · D1 shared scan-guard contract · started
+- 2026-09-25 10:11 · 116 · D1 shared scan-guard contract · done
+- 2026-09-25 10:12 · 116 · D2 pure guard folded into cadence · started
+- 2026-09-25 10:14 · 116 · D2 pure guard folded into cadence · done
+- 2026-09-25 10:16 · 116 · D3 scheduler wiring: skip refuse resume · started
+- 2026-09-25 10:23 · 116 · D3 scheduler wiring: skip refuse resume · done
+- 2026-09-25 10:23 · 116 · D4 stale merge rule · started
+- 2026-09-25 10:25 · 116 · D4 stale merge rule · done
+- 2026-09-25 10:25 · 116 · D5 visible reason and stale row · started
+- 2026-09-25 10:31 · 116 · D5 visible reason and stale row · done
+- 2026-09-25 10:35 · 116 · D6 offline e2e flow · started
+- 2026-09-25 10:45 · 116 · D6 offline e2e flow · done

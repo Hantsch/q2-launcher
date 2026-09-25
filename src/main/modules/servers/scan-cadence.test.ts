@@ -7,6 +7,8 @@ import {
   type ServersScanSettings,
   type ServersState,
 } from '@shared/modules/servers'
+import { IDLE_LAUNCH_STATE, type LaunchState } from '@shared/types'
+import type { LaunchHost } from '../../services/write-guard'
 import * as cadenceModule from './scan-cadence'
 import {
   autoRefreshDelayMs,
@@ -47,6 +49,7 @@ function input(overrides: Partial<AutoTriggerInput> = {}): AutoTriggerInput {
     settings: settings(),
     scanning: false,
     lastScanAt: isoAgo(10 * 60_000),
+    gameRunning: false,
     ...overrides,
   }
 }
@@ -121,6 +124,25 @@ describe('decideAutoTrigger / autoRefreshDelayMs (pure)', () => {
     expect(decideAutoTrigger({ ...running, scanning: false })).toEqual({ trigger: true })
   })
 
+  it('game-running wins ahead of every other skip reason (story 116 D2)', () => {
+    // Everything else here would independently report 'disabled' - the trigger kind's own
+    // setting is off - so reporting 'game-running' instead is what proves the ordering, not just
+    // the outcome.
+    const wouldAlsoBeDisabled = input({
+      kind: 'open',
+      settings: settings({ autoScanOnOpen: false }),
+      gameRunning: true,
+    })
+    expect(decideAutoTrigger(wouldAlsoBeDisabled)).toEqual({ trigger: false, reason: 'game-running' })
+    expect(decideAutoTrigger({ ...wouldAlsoBeDisabled, kind: 'refresh' })).toEqual({
+      trigger: false,
+      reason: 'game-running',
+    })
+
+    // Unaffected when false: the rest of the decision runs exactly as before.
+    expect(decideAutoTrigger(input({ gameRunning: false }))).toEqual({ trigger: true })
+  })
+
   it('minimum spacing gates an automatic trigger of either kind', () => {
     const tooSoon = input({ lastScanAt: isoAgo(5_000), settings: settings({ minSpacingMs: 30_000 }) })
     expect(decideAutoTrigger({ ...tooSoon, kind: 'open' })).toEqual({ trigger: false, reason: 'spacing' })
@@ -182,26 +204,72 @@ function fakeClock(): { clock: CadenceClock; pending: Map<number, FakeTimer>; fi
   return { clock, pending, fireAll }
 }
 
-function harness(scan: Partial<ServersScanSettings>, overview: Partial<ServersOverview> = {}) {
+/** Story 116 D3: a controllable `LaunchHost` (same shape as `write-guard.test.ts`'s `fakeLaunch`):
+ * `set()` updates `getState()` first, then notifies - `LaunchService.setState`'s order. */
+function fakeLaunch(initial: LaunchState) {
+  let current = initial
+  const listeners = new Set<(next: LaunchState) => void>()
+  const host: LaunchHost = {
+    getState: () => current,
+    onStateChange: (listener) => {
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    },
+  }
+  return {
+    host,
+    set: (next: LaunchState) => {
+      current = next
+      for (const listener of [...listeners]) listener(next)
+    },
+    listenerCount: () => listeners.size,
+  }
+}
+
+const RUNNING: LaunchState = { phase: 'running', installationId: 'inst-1' }
+const EXITED: LaunchState = { phase: 'exited', installationId: 'inst-1' }
+
+interface HarnessOptions {
+  /** Initial launch state - idle unless a test says otherwise. */
+  launch?: LaunchState
+  /** Model `ScanService`'s single-flight: a successful `start()` flips `overview().scanning` on, and
+   * a `start()` while it is on is refused, the way the real service answers. */
+  singleFlight?: boolean
+}
+
+function harness(
+  scan: Partial<ServersScanSettings>,
+  overview: Partial<ServersOverview> = {},
+  options: HarnessOptions = {},
+) {
   let state: ServersState = { ...DEFAULT_SERVERS_STATE, scan: settings(scan) }
   const current: ServersOverview = { scanning: false, knownServerCount: 0, lastScanAt: null, ...overview }
   const starts: number[] = []
   const { clock, pending, fireAll } = fakeClock()
+  const launch = fakeLaunch(options.launch ?? IDLE_LAUNCH_STATE)
   const cadence = createScanCadence({
     getServersState: () => state,
     scanService: {
       start: () => {
+        if (options.singleFlight === true) {
+          if (current.scanning) return { ok: false, reasonKey: 'already-running' }
+          current.scanning = true
+        }
         starts.push(starts.length)
         return { ok: true }
       },
       overview: () => current,
     },
+    launch: launch.host,
     clock,
   })
   return {
     cadence,
     pending,
     fireAll,
+    launch,
     overview: current,
     starts,
     setScan: (patch: Partial<ServersScanSettings>) => {
@@ -299,5 +367,112 @@ describe('createScanCadence (timer lifetime)', () => {
     h.setScan({ autoRefreshEnabled: true })
     h.cadence.onSettingsChanged()
     expect(h.pending.size).toBe(0)
+  })
+})
+
+describe('createScanCadence - story 116 D3 game-running guard', () => {
+  const INTERVAL = 60_000
+  const scan = { autoScanOnOpen: true, autoRefreshEnabled: true, autoRefreshIntervalMs: INTERVAL, minSpacingMs: 30_000 }
+
+  it('AC1: a due auto-refresh while the game runs is skipped, not queued', () => {
+    // Last scan long ago: every tick below is due on its own merits - only the game says no.
+    const h = harness(scan, { lastScanAt: isoAgo(10 * INTERVAL) }, { launch: RUNNING })
+
+    h.cadence.onViewActive(true)
+    expect(h.starts).toHaveLength(0) // the open trigger is skipped too
+    expect([...h.pending.values()].map((t) => t.ms)).toEqual([INTERVAL])
+
+    // Several due ticks during the session: each is dropped, and the chain carries exactly one
+    // next natural tick - no retry timer, no backlog.
+    for (let i = 0; i < 3; i++) {
+      h.fireAll()
+      expect(h.starts).toHaveLength(0)
+      expect([...h.pending.values()].map((t) => t.ms)).toEqual([INTERVAL])
+    }
+
+    // `starting` -> `running` is not an unblock: still nothing.
+    h.launch.set({ phase: 'starting', installationId: 'inst-1' })
+    h.launch.set(RUNNING)
+    expect(h.starts).toHaveLength(0)
+  })
+
+  it('AC1/D-G: nothing about a skipped round is replayed - resume re-derives due-ness from lastScanAt', () => {
+    // A tick is skipped during the session, but the last completed scan is recent enough that a
+    // refresh is not overdue when it ends: resuming must not replay the skipped round.
+    const h = harness(scan, { lastScanAt: isoAgo(INTERVAL / 2) }, { launch: RUNNING })
+    h.cadence.onViewActive(true)
+    h.fireAll()
+    expect(h.starts).toHaveLength(0)
+
+    h.launch.set(EXITED)
+    expect(h.starts).toHaveLength(0)
+    // The normal countdown is untouched and remains the only follow-up.
+    expect([...h.pending.values()].map((t) => t.ms)).toEqual([INTERVAL])
+  })
+
+  it('AC4: scanning resumes once the session ends - promptly, without waiting for the next tick', () => {
+    const h = harness(scan, { lastScanAt: isoAgo(10 * INTERVAL) }, { launch: RUNNING })
+    h.cadence.onViewActive(true)
+    h.fireAll()
+    expect(h.starts).toHaveLength(0)
+
+    h.launch.set(EXITED)
+    // Exactly one start, as a direct result of the state change - no timer was fired.
+    expect(h.starts).toHaveLength(1)
+    // ...and the countdown restarts from the resumed scan: one pending tick, a full period away.
+    expect([...h.pending.values()].map((t) => t.ms)).toEqual([INTERVAL])
+  })
+
+  it('AC4: exactly one resumed scan after unblock, never two', () => {
+    const h = harness(scan, { lastScanAt: isoAgo(10 * INTERVAL) }, { launch: RUNNING, singleFlight: true })
+    h.cadence.onViewActive(true)
+    const [tickPendingAtUnblock] = [...h.pending.keys()]
+
+    h.launch.set(EXITED)
+    expect(h.starts).toHaveLength(1)
+    // The tick that was due to fire around now was replaced, so it cannot fire a second scan.
+    expect(h.pending.has(tickPendingAtUnblock!)).toBe(false)
+
+    // A further non-blocked state change (exited -> idle) is not a second unblock.
+    h.launch.set(IDLE_LAUNCH_STATE)
+    expect(h.starts).toHaveLength(1)
+
+    // And the next tick firing while the resumed scan is still running is single-flight-skipped.
+    h.fireAll()
+    expect(h.starts).toHaveLength(1)
+    expect(h.pending.size).toBe(1)
+  })
+
+  it('handed-off never blocks, so a Steam hand-off neither skips a tick nor triggers a resume', () => {
+    const h = harness(scan, { lastScanAt: isoAgo(10 * INTERVAL) }, { launch: { phase: 'handed-off', installationId: 'inst-1' } })
+    h.cadence.onViewActive(true)
+    expect(h.starts).toHaveLength(1) // open trigger ran
+
+    h.launch.set(IDLE_LAUNCH_STATE)
+    expect(h.starts).toHaveLength(1)
+  })
+
+  it('resume still honours the view, the auto-refresh setting and dispose()', () => {
+    // View inactive: the session ending starts nothing (and arms nothing).
+    const inactive = harness(scan, { lastScanAt: null }, { launch: RUNNING })
+    inactive.launch.set(EXITED)
+    expect(inactive.starts).toHaveLength(0)
+    expect(inactive.pending.size).toBe(0)
+
+    // Auto-refresh off: the resume goes through the same gate and is 'disabled'.
+    const off = harness({ ...scan, autoScanOnOpen: false, autoRefreshEnabled: false }, { lastScanAt: null }, { launch: RUNNING })
+    off.cadence.onViewActive(true)
+    off.launch.set(EXITED)
+    expect(off.starts).toHaveLength(0)
+
+    // Disposed: the launch subscription is gone, so nothing can start after teardown.
+    const disposed = harness(scan, { lastScanAt: null }, { launch: RUNNING })
+    disposed.cadence.onViewActive(true)
+    expect(disposed.launch.listenerCount()).toBe(1)
+    disposed.cadence.dispose()
+    expect(disposed.launch.listenerCount()).toBe(0)
+    disposed.launch.set(EXITED)
+    expect(disposed.starts).toHaveLength(0)
+    expect(disposed.pending.size).toBe(0)
   })
 })

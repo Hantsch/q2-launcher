@@ -17,6 +17,10 @@ second roadmap.
   carries a `Badge`-based running-count badge, driven generically per utility module from the
   renderer's own job store (`countActiveJobs` over `moduleId`+`isJobActive`), with a
   pluralised count-aware `aria-label` and a machine-verified e2e flow.
+- 116 — No scan runs while the game does · S24 · a game-running guard folds into the scan
+  scheduler's cadence decision, skips a due auto-refresh without queueing, refuses a manual scan
+  with a visible reason, resumes on its own the moment the session ends, and a server that goes
+  quiet for one round keeps its last known data flagged stale instead of reading as empty.
 
 - 001 — Config module scaffold and central profile store · S01 · module wired in with a persisted
   `configProfiles` store and a master/detail create/rename/delete view.

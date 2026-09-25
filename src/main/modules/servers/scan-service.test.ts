@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_SERVERS_STATE, SERVERS_EVENTS, type ServersState } from '@shared/modules/servers'
+import {
+  DEFAULT_SERVERS_STATE,
+  SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
+  SERVERS_EVENTS,
+  type ServersScanState,
+  type ServersState,
+} from '@shared/modules/servers'
+import { IDLE_LAUNCH_STATE, type LaunchState } from '@shared/types'
+import type { LaunchHost } from '../../services/write-guard'
 import type { ScanServerResult, QueryServerFn } from './scan-runner'
 import type { ServerQueryResult } from './server-query'
 import { createScanService, SCAN_ALREADY_RUNNING_REASON_KEY, type ScanService } from './scan-service'
@@ -17,6 +25,36 @@ import { createScanService, SCAN_ALREADY_RUNNING_REASON_KEY, type ScanService } 
  */
 
 type RecordedEvent = { type: string; payload: unknown }
+
+/** Story 116 D3: a controllable `LaunchHost`, mirroring `write-guard.test.ts`'s `fakeLaunch` -
+ * `set()` updates `getState()` first and then notifies, the same order `LaunchService.setState` uses. */
+function fakeLaunch(initial: LaunchState = IDLE_LAUNCH_STATE): {
+  host: LaunchHost
+  set: (next: LaunchState) => void
+  listenerCount: () => number
+} {
+  let current = initial
+  const listeners = new Set<(next: LaunchState) => void>()
+  const host: LaunchHost = {
+    getState: () => current,
+    onStateChange: (listener) => {
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    },
+  }
+  return {
+    host,
+    set: (next) => {
+      current = next
+      for (const listener of [...listeners]) listener(next)
+    },
+    listenerCount: () => listeners.size,
+  }
+}
+
+const RUNNING: LaunchState = { phase: 'running', installationId: 'inst-1' }
 
 function recorder(): { emit: (type: string, payload: unknown) => void; events: RecordedEvent[] } {
   const events: RecordedEvent[] = []
@@ -81,7 +119,7 @@ describe('createScanService', () => {
     })
     let call = 0
     const queryServer: QueryServerFn = async () => (call++ === 0 ? infoOk('First') : infoOk('Second'))
-    const service = createScanService({ getServersState: () => state, emit, deps: { queryServer } })
+    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
 
     expect(service.start()).toEqual({ ok: true })
     expect(events[0]).toEqual({ type: SERVERS_EVENTS.scanChanged, payload: expect.any(Object) })
@@ -105,7 +143,7 @@ describe('createScanService', () => {
     const { emit } = recorder()
     const state = baseState({ manualServers: [manualEntry('9.9.9.9:27910')] })
     const { fn: queryServer, calls } = deferredQuery()
-    const service = createScanService({ getServersState: () => state, emit, deps: { queryServer } })
+    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
 
     expect(service.start()).toEqual({ ok: true })
     expect(service.start('irrelevant')).toEqual({
@@ -127,7 +165,7 @@ describe('createScanService', () => {
     const state = baseState({ manualServers: [manualEntry(address)] })
     let reply: ServerQueryResult = infoOk('Arena')
     const queryServer: QueryServerFn = async () => reply
-    const service = createScanService({ getServersState: () => state, emit, deps: { queryServer } })
+    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
 
     // First scan: the server answers.
     expect(service.start()).toEqual({ ok: true })
@@ -152,7 +190,7 @@ describe('createScanService', () => {
     const address = '3.3.3.4:27910'
     const state = baseState({ manualServers: [manualEntry(address)] })
     const { fn: queryServer, calls } = deferredQuery()
-    const service = createScanService({ getServersState: () => state, emit, deps: { queryServer } })
+    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
 
     // First scan: the server answers and gets a normal 'online' row.
     expect(service.start()).toEqual({ ok: true })
@@ -182,7 +220,7 @@ describe('createScanService', () => {
     const address = '4.4.4.4:27910'
     const state = baseState({ manualServers: [manualEntry(address)] })
     const { fn: queryServer, calls } = deferredQuery()
-    const service = createScanService({ getServersState: () => state, emit, deps: { queryServer } })
+    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
 
     expect(service.start()).toEqual({ ok: true })
     // Let resolveSources/buildScanAddressSet/runScan reach the pool and issue the query.
@@ -207,7 +245,7 @@ describe('createScanService', () => {
     const { emit } = recorder()
     const state = baseState({ manualServers: [manualEntry('5.5.5.5:27910')] })
     const queryServer: QueryServerFn = async () => infoOk()
-    const service = createScanService({ getServersState: () => state, emit, deps: { queryServer } })
+    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
 
     expect(service.overview()).toEqual({ scanning: false, knownServerCount: 0, lastScanAt: null })
 
@@ -227,5 +265,106 @@ describe('createScanService', () => {
     service.start()
     expect(service.overview().lastScanAt).toBe(afterFirst.lastScanAt)
     await waitForIdle(service)
+  })
+})
+
+describe('createScanService - story 116 D3 game-running guard', () => {
+  function changedStates(events: RecordedEvent[]): ServersScanState[] {
+    return events
+      .filter((event) => event.type === SERVERS_EVENTS.scanChanged)
+      .map((event) => event.payload as ServersScanState)
+  }
+
+  it('AC2: a manual scan while the game runs is refused, not queued, and no sweep runs', async () => {
+    const { emit, events } = recorder()
+    const state = baseState({ manualServers: [manualEntry('6.6.6.6:27910')] })
+    const { fn: queryServer, calls } = deferredQuery()
+    const launch = fakeLaunch(RUNNING)
+    const service = createScanService({ getServersState: () => state, emit, launch: launch.host, deps: { queryServer } })
+
+    expect(service.start()).toEqual({ ok: false, reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY })
+    // `starting` blocks just the same (D-D's exact predicate); a `selectedAddress` changes nothing.
+    launch.set({ phase: 'starting', installationId: 'inst-1' })
+    expect(service.start('6.6.6.6:27910')).toEqual({ ok: false, reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY })
+
+    await tick()
+    await tick()
+    expect(calls).toHaveLength(0)
+    expect(service.read().state).toMatchObject({ running: false, phase: 'idle', startedAt: null })
+    expect(service.read().state.blockedReason).toBe('game-running')
+    expect(service.overview()).toEqual({ scanning: false, knownServerCount: 0, lastScanAt: null })
+    expect(changedStates(events).some((s) => s.running)).toBe(false)
+
+    // Not queued: ending the session starts nothing by itself - the service has no memory of the
+    // refused call (a resumed *automatic* scan is scan-cadence.ts's job, D-G).
+    launch.set({ phase: 'exited', installationId: 'inst-1' })
+    await tick()
+    await tick()
+    expect(calls).toHaveLength(0)
+    expect(service.read().state.running).toBe(false)
+
+    // ...and the very next manual call goes through normally.
+    expect(service.start()).toEqual({ ok: true })
+    for (let i = 0; i < 10 && calls.length === 0; i++) await tick()
+    expect(calls).toHaveLength(1)
+    service.dispose()
+    await waitForIdle(service)
+  })
+
+  it('the game-running refusal wins over the single-flight refusal', () => {
+    const { emit } = recorder()
+    const state = baseState({ manualServers: [manualEntry('6.6.6.7:27910')] })
+    const { fn: queryServer } = deferredQuery()
+    const launch = fakeLaunch()
+    const service = createScanService({ getServersState: () => state, emit, launch: launch.host, deps: { queryServer } })
+
+    expect(service.start()).toEqual({ ok: true })
+    launch.set(RUNNING)
+    expect(service.start()).toEqual({ ok: false, reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY })
+    service.dispose()
+  })
+
+  it('AC1/AC4: blockedReason mirrors the live launch state and clears the moment the session ends', () => {
+    const { emit, events } = recorder()
+    const launch = fakeLaunch()
+    const service = createScanService({ getServersState: () => baseState(), emit, launch: launch.host })
+
+    expect(service.read().state.blockedReason).toBeNull()
+
+    // Published as soon as a session is live - before any scan attempt, so a skipped automatic
+    // round (which never reaches `start()`) is visible too.
+    launch.set({ phase: 'starting', installationId: 'inst-1' })
+    expect(service.read().state.blockedReason).toBe('game-running')
+    expect(changedStates(events).at(-1)?.blockedReason).toBe('game-running')
+
+    // starting -> running changes nothing visible: no duplicate push.
+    const pushesWhileBlocked = changedStates(events).length
+    launch.set(RUNNING)
+    expect(changedStates(events)).toHaveLength(pushesWhileBlocked)
+
+    // Out of the active phase: cleared and pushed, with no scan attempt needed.
+    launch.set({ phase: 'exited', installationId: 'inst-1' })
+    expect(service.read().state.blockedReason).toBeNull()
+    expect(changedStates(events).at(-1)?.blockedReason).toBeNull()
+    expect(changedStates(events)).toHaveLength(pushesWhileBlocked + 1)
+
+    // handed-off never blocks (D-D).
+    launch.set({ phase: 'handed-off', installationId: 'inst-1' })
+    expect(service.read().state.blockedReason).toBeNull()
+    expect(changedStates(events)).toHaveLength(pushesWhileBlocked + 1)
+  })
+
+  it('a service constructed mid-session starts blocked, and dispose() drops the launch subscription', () => {
+    const { emit, events } = recorder()
+    const launch = fakeLaunch(RUNNING)
+    const service = createScanService({ getServersState: () => baseState(), emit, launch: launch.host })
+
+    expect(service.read().state.blockedReason).toBe('game-running')
+    expect(launch.listenerCount()).toBe(1)
+
+    service.dispose()
+    expect(launch.listenerCount()).toBe(0)
+    launch.set(IDLE_LAUNCH_STATE)
+    expect(events).toHaveLength(0)
   })
 })

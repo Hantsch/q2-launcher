@@ -23,6 +23,10 @@ version section when a release actually ships.
   between two automatic scans all live in Settings, with a real measured pass behind every shipped
   default instead of a guess. A manual scan button always works, whatever you've set the automatic
   knobs to.
+- **Servers** — the scanner now stands down the moment you're actually playing: no auto-refresh
+  fires in the background, and hitting the manual scan button just tells you why it won't. A
+  server that goes quiet for one round keeps showing what it last said, clearly marked stale, never
+  wiped back to empty. The moment you're back at the menu, scanning picks up again on its own.
 - **Linux** — a Windows Quake II build (Steam, GOG, a folder carried over from another machine)
   now plays on Linux too: the launcher offers wine or umu-run as a runner and launches through it
   when you pick one.

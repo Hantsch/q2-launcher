@@ -1,9 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ScanSnapshot, ServersScanState } from '@shared/modules/servers'
+import {
+  SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
+  type ScanBlockedReason,
+  type ScanSnapshot,
+  type ServerListEntry,
+  type ServersScanState,
+} from '@shared/modules/servers'
 import { Button } from '../../components/ui/Button'
 import { Panel } from '../../components/ui/primitives'
-import { onScanChanged, onScanServer, readScan, setScanViewActive, startScan } from './client'
+import { onScanChanged, readScan, setScanViewActive, startScan } from './client'
+
+/** Story 116 D5: the visible reason for each `ScanBlockedReason` - a lookup table of one entry
+ * today, future-proof if a later story adds another blocked reason (mirrors `write-guard.ts`'s
+ * `WAITING_REASON_GAME_RUNNING` -> `jobs.waiting.gameRunning` single-entry convention). */
+const BLOCKED_REASON_KEYS: Record<ScanBlockedReason, string> = {
+  'game-running': SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
+}
 
 /** A scan that has never run and nothing known yet - `scan.read`'s own shape for a fresh
  * `ServersState` (mirrors `main/modules/servers/scan-runner.ts`'s initial state), used here only
@@ -18,6 +31,7 @@ const IDLE_SCAN_STATE: ServersScanState = {
   sourceFailures: [],
   startedAt: null,
   finishedAt: null,
+  blockedReason: null,
 }
 
 /**
@@ -28,17 +42,34 @@ const IDLE_SCAN_STATE: ServersScanState = {
  *
  * Mounts -> `setScanViewActive(true)` (D3's cadence signal that the view is open) and a one-shot
  * `readScan()` for the current snapshot; unmounts -> `setScanViewActive(false)`. Everything after
- * the initial read arrives through `onScanChanged`/`onScanServer` - nothing here polls (mirrors
- * `client.ts`'s own "AC5: nothing in the renderer polls for progress" discipline).
+ * the initial read arrives through `onScanChanged` - nothing here polls (mirrors `client.ts`'s own
+ * "AC5: nothing in the renderer polls for progress" discipline). `onScanServer`'s pushes carry a
+ * per-reply-attempt row, not a merged `ServerListEntry`, so they cannot update `entries`
+ * incrementally - instead, a `scan.changed` push whose `finishedAt` just advanced (a completed
+ * round - the same moment story 116 D4's stale-flip runs) triggers exactly one `readScan()` to
+ * refresh the list; this is still push-driven, not polling.
  *
- * The refresh button is always enabled, even mid-scan (`scan.start` refuses a concurrent start
- * harmlessly - D-L in `@shared/modules/servers` - so re-clicking is safe) and never gated by
- * `autoScanOnOpen`/`autoRefreshEnabled`, which is the entire point of this deliverable.
+ * Story 116 D5: the refresh button is also disabled - and its testid renamed from
+ * `servers-manual-refresh` to `servers-refresh` - while `scanState.blockedReason` is non-null (the
+ * game is running), with the reason rendered as real text above it (`servers-scan-blocked`,
+ * mirrors `JobRow.tsx`'s waiting-reason line). Main stays authoritative regardless (D-H): this
+ * disabled state is convenience only, `scan.start` refuses the call either way. Otherwise the
+ * button is always enabled, even mid-scan (`scan.start` refuses a concurrent start harmlessly -
+ * D-L - so re-clicking is safe) and never gated by `autoScanOnOpen`/`autoRefreshEnabled`.
+ *
+ * A minimal row list (address, player count if known, and a `servers.row.stale` label for
+ * `status: 'stale'` rows) renders below the status line - deliberately bare per D-K, just enough
+ * to make AC3's stale indication provable on a real surface; the "real" server-list design is a
+ * later story's job.
  */
 export function ServersView() {
   const { t } = useTranslation()
   const [scanState, setScanState] = useState<ServersScanState>(IDLE_SCAN_STATE)
-  const [knownAddresses, setKnownAddresses] = useState<ReadonlySet<string>>(new Set())
+  const [entries, setEntries] = useState<ServerListEntry[]>([])
+  // Tracks the last-seen `finishedAt` so a `scan.changed` push is only treated as "a round just
+  // finished" (and triggers the one extra `readScan()` below) once, not on every progress-only
+  // push during stage1/stage2 - a ref because it must not itself trigger a re-render.
+  const lastFinishedAtRef = useRef<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -48,24 +79,27 @@ export function ServersView() {
       if (cancelled || !result.ok) return
       const snapshot: ScanSnapshot = result.value
       setScanState(snapshot.state)
-      setKnownAddresses(new Set(snapshot.entries.map((entry) => entry.address)))
+      setEntries(snapshot.entries)
+      lastFinishedAtRef.current = snapshot.state.finishedAt
     })
 
     const unsubscribeChanged = onScanChanged((state) => {
-      if (!cancelled) setScanState(state)
-    })
-    const unsubscribeServer = onScanServer((row) => {
       if (cancelled) return
-      setKnownAddresses((previous) => {
-        if (previous.has(row.target.address)) return previous
-        return new Set(previous).add(row.target.address)
-      })
-    })
+      setScanState(state)
 
+      // AC3/D4: a completed round is the moment stale flips - react to it here with a single
+      // reactive re-read (still push-driven, not polling: one extra read per finished round, same
+      // discipline `client.ts`'s own AC5 doc comment commits to), not on every progress push.
+      if (!state.running && state.finishedAt !== lastFinishedAtRef.current) {
+        lastFinishedAtRef.current = state.finishedAt
+        void readScan().then((result) => {
+          if (!cancelled && result.ok) setEntries(result.value.entries)
+        })
+      }
+    })
     return () => {
       cancelled = true
       unsubscribeChanged()
-      unsubscribeServer()
       void setScanViewActive(false)
     }
   }, [])
@@ -77,6 +111,7 @@ export function ServersView() {
   const stateLabel = t(
     scanState.running ? 'module.servers.view.status.scanning' : 'module.servers.view.status.idle',
   )
+  const isBlocked = scanState.blockedReason !== null
 
   return (
     <div className="h-full overflow-y-auto scrollbar-gutter-stable">
@@ -89,11 +124,18 @@ export function ServersView() {
         </header>
 
         <Panel className="space-y-3 p-4">
+          {isBlocked && scanState.blockedReason && (
+            <p className="text-xs text-warning" data-testid="servers-scan-blocked">
+              {t(BLOCKED_REASON_KEYS[scanState.blockedReason])}
+            </p>
+          )}
+
           <div className="flex items-center gap-3">
             <Button
               variant="neutral"
               onClick={handleRefresh}
-              data-testid="servers-manual-refresh"
+              disabled={isBlocked}
+              data-testid="servers-refresh"
             >
               {t('module.servers.view.refresh')}
             </Button>
@@ -109,10 +151,42 @@ export function ServersView() {
             >
               {t('module.servers.view.status.line', {
                 state: stateLabel,
-                count: knownAddresses.size,
+                count: entries.length,
               })}
             </span>
           </div>
+        </Panel>
+
+        <Panel className="space-y-2 p-4">
+          {entries.map((entry) => (
+            <div
+              key={entry.address}
+              className="flex items-center gap-3 text-xs text-ink-muted"
+              data-testid={`servers-row-${entry.address}`}
+            >
+              <span className="text-ink">{entry.address}</span>
+              {(() => {
+                // Story 116 D5 fix: `players` starts as a numeric `info` count and is replaced by
+                // a full `ServerPlayer[]` roster once stage 2's `status` reply lands (see
+                // `scan-service.ts`'s `mergeSuccessfulReply`) - a stale entry can carry either
+                // shape, so both render a count.
+                const count = Array.isArray(entry.players)
+                  ? entry.players.length
+                  : typeof entry.players === 'number'
+                    ? entry.players
+                    : undefined
+                return count !== undefined && <span>{count}</span>
+              })()}
+              {entry.status === 'stale' && (
+                <span
+                  className="text-warning"
+                  data-testid={`servers-row-stale-${entry.address}`}
+                >
+                  {t('servers.row.stale')}
+                </span>
+              )}
+            </div>
+          ))}
         </Panel>
       </div>
     </div>
