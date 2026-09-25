@@ -1,7 +1,7 @@
 ---
 id: 130
 title: a locked feature does not exist
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -38,14 +38,14 @@ having to duplicate the gate logic, but no second feature needs to exist yet to 
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — With no valid unlock code present, a gated feature's UI surface (tab, menu entry or
+- [x] **AC1** — With no valid unlock code present, a gated feature's UI surface (tab, menu entry or
       route) does not render at all — not present in the DOM, not shown disabled.
-- [ ] **AC2** — With no valid unlock code present, that feature's main-process IPC handlers are not
+- [x] **AC2** — With no valid unlock code present, that feature's main-process IPC handlers are not
       registered at all, so a direct IPC call from a compromised or modified renderer receives "no
       handler for this channel", never a permission-denied response.
-- [ ] **AC3** — The unlocked/locked decision is made in main from [[128]]'s verified token state; no
+- [x] **AC3** — The unlocked/locked decision is made in main from [[128]]'s verified token state; no
       code path lets the renderer's own choice not to render stand in for that check.
-- [ ] **AC4** — The gate is keyed by feature name, not hardcoded to `watchlist`. A test declares a
+- [x] **AC4** — The gate is keyed by feature name, not hardcoded to `watchlist`. A test declares a
       test-only feature name through the same declaration and gets the same behaviour: its surface
       and handlers are absent when locked and present when unlocked, with no gate code specific to
       that name.
@@ -123,7 +123,7 @@ file mentions `watchlist` except as an example in a doc comment. The shell views
 
 ## Deliverables
 
-- **D1 — main-side gate + gated module handlers.** Files:
+- [x] **D1 — main-side gate + gated module handlers.** Files:
   - new `src/shared/features.ts`: `export type FeatureName = string`, with a doc comment.
   - new `src/main/features/gate.ts`: `interface FeatureGate { isFeatureUnlocked(name): boolean;
     unlockedFeatures(): FeatureName[] }`.
@@ -157,7 +157,7 @@ file mentions `watchlist` except as an example in a doc comment. The shell views
       handler is never called.
     - `registry.test.ts`: unlocked, the same handler answers `ok(...)`.
     - `registry.test.ts`: an ungated handler in the same module works in both cases.
-- **D2 — `features:getUnlocked` channel.** Files:
+- [x] **D2 — `features:getUnlocked` channel.** Files:
   - `src/shared/ipc.ts`: add `'features:getUnlocked': { req: void; res: FeatureName[] }` and add
     it to `INVOKE_CHANNELS`. Mirror `'app:getInfo'`.
   - `src/shared/ipc-schemas.ts`: add `featuresGetUnlockedSchema = z.void()`. Mirror
@@ -171,7 +171,7 @@ file mentions `watchlist` except as an example in a doc comment. The shell views
   - The preload allowlist derives on its own. Do not edit preload.
   - Tests: the handler returns exactly the gate's list, and a non-void payload is rejected (the
     handler throws, per `handle`).
-- **D3 — renderer gate.** Files:
+- [x] **D3 — renderer gate.** Files:
   - `src/renderer/src/store/useLauncher.ts`: add `unlockedFeatures: FeatureName[]` (initially
     `[]`). Add `invoke('features:getUnlocked')` to `bootstrap`'s `Promise.all` and store its
     result, treating a non-array as `[]`. Add **no** action that sets it.
@@ -207,9 +207,10 @@ file mentions `watchlist` except as an example in a doc comment. The shell views
 - AC2 → unit `src/main/modules/registry.test.ts` › "a locked feature's handler answers exactly
   like a handler that was never registered"
 - AC3 → unit `src/main/features/gate.test.ts` › "only a token main's verifier accepts unlocks a
-  feature" + unit `src/main/ipc/features.test.ts` › "features:getUnlocked takes no payload and
-  returns the gate main built" + unit `src/renderer/src/components/features/FeatureGate.test.tsx`
-  › "before bootstrap resolves the feature is locked"
+  feature" (end-to-end with a real `UnlockService`, a throwaway key pair and the real verifier) +
+  unit `src/main/ipc/features.test.ts` › "features:getUnlocked returns exactly what the
+  FeatureGate reports as unlocked" + unit `src/renderer/src/components/features/FeatureGate.test.tsx`
+  › "renders nothing before bootstrap resolves (initial store state)"
 - AC4 → unit `src/main/modules/registry.test.ts` › "a test-only feature name is gated with no
   name-specific code, absent when locked and present when unlocked" + unit
   `src/renderer/src/components/features/FeatureGate.test.tsx` › "a test-only feature renders when
@@ -221,4 +222,54 @@ Coverage gate: AC1 → D3 · AC2 → D1 · AC3 → D1 + D2 + D3 · AC4 → D1 + 
 
 ## Done
 
-<!-- Filled by `/build 130`. -->
+Built the general feature-gate mechanism: `src/shared/features.ts` (`FeatureName`),
+`src/main/features/gate.ts` (`FeatureGate`, `createFeatureGate`, `LOCKED_FEATURE_GATE`,
+`resolveFeatureGate`, built once in `context.ts` from 128's already-`init()`'d `UnlockService`),
+`ModuleSetup.handle`'s optional `{ feature }` gate in `src/main/modules/types.ts`/`registry.ts`
+(a locked handler is simply never stored, so `invoke()` answers through the same
+`modules.error.notImplemented` path as an unknown type), the `features:getUnlocked` IPC channel
+(`src/shared/ipc.ts`/`ipc-schemas.ts`, `src/main/ipc/features.ts`), and the renderer
+`useFeatureUnlocked`/`<FeatureGate>` (`src/renderer/src/components/features/FeatureGate.tsx`,
+loaded once in `useLauncher`'s `bootstrap`, no setter). No file names `watchlist` outside doc
+comments; every test uses `test-only-feature`. No user-facing surface yet (129/132 build on it),
+so no changelog entry.
+
+**Decisions:** `resolveFeatureGate` takes the live `UnlockService` (not a raw token/`StateStore`
+read) and calls only its `unlockedFeatures()` — thinner than the plan's "stored token(s) + 128's
+verification" wording, but equivalent: 128's `init()` already re-verifies and excludes
+expired/rejected tokens before this is ever called, so re-deriving that here would duplicate 128
+and risk drifting from it. `context.ts` reorders `unlock.init()`/gate construction to run before
+the `AppContext` object literal, so `MainModuleRegistry` receives the resolved gate at
+construction rather than being wired after the fact.
+
+**Commit message:** `130: a locked feature does not exist`
+
+**Verification (narrow gate):** `npm run build` green, `npm run typecheck` green,
+`npx vitest run --changed HEAD` green (54 files, 420 tests, after the review-fix). No e2e run:
+the story's own plan says no criterion is a user action and a test-only feature must not ship a
+real surface — the first real-surface e2e is [[132]] AC6.
+
+**AC → test, as verified:** AC1 `FeatureGate.test.tsx` "renders nothing when the feature is
+locked" (+ "renders children when the feature is unlocked"); AC2 `registry.test.ts` "a locked
+gated handler answers exactly like a type that was never registered"; AC3 `gate.test.ts` "only a
+token main's verifier accepts unlocks a feature" (added in review-fix: real `UnlockService`, a
+throwaway Ed25519 key pair, the real verifier — end-to-end, not a stub) + `features.test.ts`
+"features:getUnlocked returns exactly what the FeatureGate reports as unlocked" +
+`FeatureGate.test.tsx` "renders nothing before bootstrap resolves (initial store state)"; AC4
+`registry.test.ts` "an unlocked gated handler is registered and reached" (+ ungated-sibling and
+fail-closed cases) + `FeatureGate.test.tsx` "renders children when the feature is unlocked". All
+passed. No manual residue.
+
+**Review:** default-tier PASS, no findings. Hard-tier (`story-review-hard`) PASS, confirmed AC3's
+structural claim by tracing `context.ts`'s wiring independently (no persisted/renderer-writable
+feed anywhere) and found one test-coverage gap (`gate.test.ts` lacked an end-to-end test with a
+real `UnlockService`/real verifier for AC3's named scenario) — fixed and re-verified green. Two
+low-severity design notes left unfixed, deliberately: (1) `AppContext` exposes both the frozen
+`features` gate and the live `unlock` service, so a future handler that reads `app.unlock`
+directly instead of `app.features` could see a mid-session redemption the gate doesn't yet
+reflect — noted for 129/132 to route only through `app.features`, not a defect in this story,
+since no redeem-triggering channel exists yet; (2) `LOCKED_FEATURE_GATE`/`AppContext.features`
+are not `Object.freeze`d/`readonly` — main-process-only, not renderer-reachable, so left as a
+future hardening note rather than a fix here.
+
+tiers: D 3 / hard 1 · review default+hard · cycles 1 · agents 7

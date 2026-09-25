@@ -5,6 +5,7 @@ import { app as electronApp } from 'electron'
 import { stateFilePath, userDataDir } from './lib/paths'
 import { scopedLogger } from './lib/logger'
 import { UI_HARNESS_ENV } from './lib/ui-harness'
+import { resolveFeatureGate, type FeatureGate } from './features/gate'
 import { MainModuleRegistry } from './modules/registry'
 import { registerModules } from './modules'
 import { Broadcaster } from './services/broadcast'
@@ -79,6 +80,10 @@ export interface AppContext {
    * unlock state (the resolved installation id and the redeemed codes' current verdicts) from the
    * moment it is constructed. */
   unlock: UnlockService
+  /** Story 130: which gated features exist in this process. Resolved once at boot from 128's
+   * re-verified unlock state and then frozen for the process lifetime - a code redeemed
+   * mid-session takes effect only at the next start. `modules` was built with this same gate. */
+  features: FeatureGate
 }
 
 export async function createAppContext(options: {
@@ -167,6 +172,16 @@ export async function createAppContext(options: {
     log: scopedLogger('unlock'),
   })
 
+  // Story 128 D4: resolved and re-verified before any module is constructed, so every module sees a
+  // settled unlock state (the resolved installation id and each stored code's current verdict) from
+  // the moment it exists - the same "state ready before registerModules" ordering `state.load()`
+  // above already establishes.
+  await unlock.init()
+
+  // Story 130: the feature gate is taken from the unlock state `init()` just re-verified - never
+  // from stored tokens directly - and has to exist before the registry, which it is handed to.
+  const features = resolveFeatureGate(unlock)
+
   const context: AppContext = {
     isDev: options.isDev,
     state,
@@ -176,18 +191,13 @@ export async function createAppContext(options: {
     launch,
     jobs,
     writeGuard,
-    modules: new MainModuleRegistry(),
+    modules: new MainModuleRegistry(features),
     broadcast,
     dialog,
     update,
     unlock,
+    features,
   }
-
-  // Story 128 D4: resolved and re-verified before any module is constructed, so every module sees a
-  // settled unlock state (the resolved installation id and each stored code's current verdict) from
-  // the moment it exists - the same "state ready before registerModules" ordering `state.load()`
-  // above already establishes.
-  await context.unlock.init()
 
   await registerModules(context)
 

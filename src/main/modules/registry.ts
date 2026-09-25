@@ -10,6 +10,7 @@ import {
 } from '@shared/types'
 import { scopedLogger } from '../lib/logger'
 import type { AppContext } from '../context'
+import { LOCKED_FEATURE_GATE, type FeatureGate } from '../features/gate'
 import type { MainModule, ModuleHandler } from './types'
 
 const log = scopedLogger('modules')
@@ -38,6 +39,13 @@ interface RegisteredHandler {
 export class MainModuleRegistry {
   private readonly modules = new Map<ModuleId, MainModule>()
   private readonly handlers = new Map<string, RegisteredHandler>()
+
+  /**
+   * Story 130: `features` decides which feature-gated handlers get registered. It defaults to
+   * the locked gate so a registry built without one fails closed - nothing unlocked, never
+   * everything.
+   */
+  constructor(private readonly features: FeatureGate = LOCKED_FEATURE_GATE) {}
 
   manifests(): ModuleManifest[] {
     // Registration reality wins over the declared status: a module whose
@@ -69,7 +77,16 @@ export class MainModuleRegistry {
       await module.setup({
         app,
         log: moduleLog,
-        handle: (type, schema, handler) => {
+        handle: (type, schema, handler, options) => {
+          // Story 130: a handler gated behind a locked feature is never stored, so `invoke()`
+          // answers it through the one unknown-type path - indistinguishable from a type that
+          // never existed. `!== undefined` rather than truthiness: an empty feature name is still
+          // a gate (and locked), never a silent opt-out. Logged at debug only - a locked feature
+          // leaves no trace above that level.
+          if (options?.feature !== undefined && !this.features.isFeatureUnlocked(options.feature)) {
+            moduleLog.debug(`handler '${type}' not registered: its feature is locked`)
+            return
+          }
           const key = handlerKey(module.id, type)
           if (this.handlers.has(key)) {
             moduleLog.error(`handler '${type}' registered twice`)

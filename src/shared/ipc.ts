@@ -1,3 +1,4 @@
+import type { FeatureName } from './features'
 import type {
   AddExistingInstallationInput,
   AppInfo,
@@ -85,6 +86,7 @@ export interface PickPathInput {
 export interface IpcInvokeMap {
   // ---- app ------------------------------------------------------------------
   'app:getInfo': { req: void; res: AppInfo }
+  'features:getUnlocked': { req: void; res: FeatureName[] }
   'app:openExternal': { req: string; res: Outcome<null> }
   'app:revealPath': { req: string; res: Outcome<null> }
   /** Writes text to the OS clipboard. Story 075: the diagnostics report's copy action. */
@@ -252,6 +254,7 @@ export type EventPayload<E extends EventChannel> = IpcEventMap[E]
  */
 export const INVOKE_CHANNELS = [
   'app:getInfo',
+  'features:getUnlocked',
   'app:openExternal',
   'app:revealPath',
   'app:copyText',

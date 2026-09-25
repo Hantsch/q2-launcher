@@ -67,6 +67,7 @@ const bridge = vi.hoisted(() => {
     ['jobs:list', []],
     ['launch:getState', { phase: 'idle', installationId: null }],
     ['window:getState', { maximized: false, fullScreen: false, focused: true }],
+    ['features:getUnlocked', []],
     [
       'update:getState',
       {

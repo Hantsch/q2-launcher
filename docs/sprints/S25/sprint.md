@@ -30,7 +30,7 @@ invisible until a code names `watchlist`.
 - [x] 126 — i spectate without picking a side
 - [x] 127 — a server goes into my address book
 - [x] 128 — An unlock code proves what it unlocks
-- [ ] 130 — A locked feature does not exist
+- [x] 130 — A locked feature does not exist
 - [ ] 129 — I ask for a code and see what it unlocked
 - [ ] 131 — The watchlist finds a name for free
 - [ ] 132 — The watchlist tells me where someone is

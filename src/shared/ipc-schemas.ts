@@ -24,6 +24,11 @@ import {
 
 export const appGetInfoSchema: z.ZodType<IpcInvokeMap['app:getInfo']['req']> = z.void()
 
+// ---- features -----------------------------------------------------------------
+
+export const featuresGetUnlockedSchema: z.ZodType<IpcInvokeMap['features:getUnlocked']['req']> =
+  z.void()
+
 export const urlSchema: z.ZodType<IpcInvokeMap['app:openExternal']['req']> = z
   .string()
   .url()

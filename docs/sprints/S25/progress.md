@@ -147,3 +147,17 @@
 - 2026-09-25 21:05 · 128 · review 2 (hard) · started
 - 2026-09-25 21:08 · 128 · review 2 (hard) · done
 - 2026-09-25 21:12 · 128 · story · done
+- 2026-09-25 21:13:08 · 130 · build · started
+- 2026-09-25 21:14 · 130 · D1 main-side gate + gated module handlers · started
+- 2026-09-25 21:17 · 130 · D1 main-side gate + gated module handlers · done
+- 2026-09-25 21:17 · 130 · D2 features:getUnlocked channel · started
+- 2026-09-25 21:19 · 130 · D2 features:getUnlocked channel · done
+- 2026-09-25 21:19 · 130 · D3 renderer feature gate · started
+- 2026-09-25 21:21 · 130 · D3 renderer feature gate · done
+- 2026-09-25 21:21 · 130 · verify · started
+- 2026-09-25 21:22 · 130 · verify · done
+- 2026-09-25 21:22 · 130 · review 1 · started
+- 2026-09-25 21:24 · 130 · review 1 · done
+- 2026-09-25 21:24 · 130 · review 2 (hard) · started
+- 2026-09-25 21:26 · 130 · review 2 (hard) · done
+- 2026-09-25 21:29 · 130 · story · done

@@ -14,6 +14,7 @@ import type { AppContext } from '../context'
 import { registerAppIpc } from './app'
 import { registerDetectionIpc } from './detection'
 import { registerDevIpc } from './dev'
+import { registerFeaturesIpc } from './features'
 import { registerInstallationsIpc } from './installations'
 import { registerJobsIpc } from './jobs'
 import { registerLaunchIpc } from './launch'
@@ -112,6 +113,7 @@ export function handleOutcome<C extends OutcomeChannel>(
 
 export function registerAllIpc(app: AppContext): void {
   registerAppIpc(app)
+  registerFeaturesIpc(app)
   registerWindowIpc()
   registerSettingsIpc(app)
   registerInstallationsIpc(app)
