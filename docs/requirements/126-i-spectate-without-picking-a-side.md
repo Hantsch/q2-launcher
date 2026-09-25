@@ -21,11 +21,16 @@ validation before the address reaches the argument vector, mod-mismatch handling
 via [[113]] — applies to a spectate the same way it applies to a join; only the composition of launch
 parameters differs, to put the engine into spectator mode instead of joining as a player.
 
-What that composition actually is — the exact cvar or argument that tells r1q2 or Q2PRO "connect as
-a spectator", and in particular how a spectator password is supplied without ending up as a
-shell-visible process argument — is not established anywhere in the concept or its protocol
-research. It is recorded as the concept's own open point #6, unresolved on purpose rather than
-guessed at.
+What that composition is (concept open point #6), as far as vanilla Quake II 3.20 shows it
+(checked 2026-09-25 against id-Software/Quake-2): the client registers `spectator` as a userinfo
+cvar (`cl_main.c`: `Cvar_Get ("spectator", "0", CVAR_USERINFO)`), and the game DLL's
+`ClientConnect` (`game/p_client.c`) treats any value other than `0` as a spectator request and
+compares that value with the server's `spectator_password` ("Spectator password required or
+incorrect."). So spectating means `spectator` set to `1`, or to the spectator password when
+`needpass` bit 1 says one is needed. That check lives in the game DLL, so a mod can do it
+differently; r1q2 and Q2PRO inherit the client side from 3.20. `/refine` confirms both engines
+against their source instead of re-deriving this. The password never goes on the command line: it
+travels through the mechanism [[125]] builds for the join password (its AC6).
 
 ## Acceptance Criteria
 
@@ -35,19 +40,14 @@ guessed at.
       separate implementation path.
 - [ ] **AC2** — When the server's `needpass` bit 1 (spectator password) is set, the launcher asks for
       that password before launching, the same way [[125]]'s AC4 asks for the join password.
-- [ ] **AC3** — The spectator password never appears in a shell-visible process argument — this is a
-      hard requirement on whatever implementation resolves the Open Question below, not an
-      aspiration.
+- [ ] **AC3** — The spectator password never appears in the spawned game process's argument vector —
+      it reaches the game through the same mechanism as [[125]]'s AC6.
 
 ## Open Questions
 
-- [ ] **Q1 — Spectator launch parameters per engine.** Quoting the concept's own open point #6: "the
-      exact cvar/argument composition that puts r1q2 and Q2PRO into spectator mode on connect,
-      including how the spectator password is passed without ending up in a shell-visible argument"
-      is unresolved. No per-engine spectator flag is assumed by this story; the composition — and
-      the mechanism that keeps the password out of a visible argument (an early `+set`, a config file
-      write, stdin, or something else) — has to be established from the actual r1q2/Q2PRO source or
-      documentation before `/refine` can turn this into a plan.
+- [x] ~~**Q1 — Spectator launch parameters per engine.** (concept open point #6)~~ resolved from the
+      3.20 source, see Requirement. What is left (confirming r1q2/Q2PRO) is research for
+      `/refine`, not a user question.
 
 ## Plan
 

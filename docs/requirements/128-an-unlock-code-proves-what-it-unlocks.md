@@ -63,22 +63,34 @@ the hash and never kept, shown or sent anywhere; only the salted, truncated hash
 - [ ] **AC7** — A token whose feature expiry has passed no longer unlocks that feature; this is
       checked at every re-verification (AC5) and is independent of the redemption window, which by
       then has already lapsed and is irrelevant per AC4.
+- [ ] **AC8** — `scripts/issue-unlock-code.mjs` issues a code for given feature names, an
+      installation id and an optional feature expiry, signed with a private key it reads from
+      outside the repository (path or environment variable); its default redeem-by is 24 hours after
+      issued-at, and a code it issues is accepted by AC1's verification.
+- [ ] **AC9** — A code is one versioned-prefix base64url string (e.g. `q2l1.<payload>.<signature>`);
+      input with a different prefix or a malformed body is rejected before any signature check. The
+      installation id is 12 base32 characters, displayed grouped as `XXXX-XXXX-XXXX`.
 
 ## Open Questions
 
-- [ ] **Q1 — Unlock-code distribution format.** The concrete format the user copies (length,
-      grouping, prefix) is not decided, and neither is the equivalent format for the installation
-      id shown back to them (concept open point #11).
-- [ ] **Q2 — Redemption window length.** Placeholder: **10 minutes, not decided.** Long enough that
-      a real person in a chat conversation can use it, short enough to matter (concept §13.2, open
-      point #11).
-- [ ] **Q3 — Where the private key lives, and what the maintainer runs to issue a code.** A script
-      kept in this repository, or something kept outside it entirely — not decided (concept open
-      point #11).
-- [ ] **Q4 — Installation id churn.** The id changes on a fresh OS install, a hardware change and
-      inside a VM. Whether the launcher softens that (a grace path, or deriving the id from
-      something more stable) or whether re-issuing a code is simply the answer is not settled
-      (concept open point #11).
+- [x] ~~**Q1 — Unlock-code distribution format.**~~ answered → Decisions (Sprint)
+- [x] ~~**Q2 — Redemption window length.**~~ answered → Decisions (Sprint)
+- [x] ~~**Q3 — Where the private key lives, and what the maintainer runs to issue a code.**~~
+      answered → Decisions (Sprint)
+- [x] ~~**Q4 — Installation id churn.**~~ answered → Decisions (Sprint)
+
+## Decisions (Sprint)
+
+All four from concept open point #11, answered 2026-09-25 in planning:
+
+- **(User)** Code format: **one base64url string with a versioned prefix**, meant to be pasted
+  rather than typed. The installation id is 12 base32 characters grouped `XXXX-XXXX-XXXX` (AC9).
+- **(User)** Redemption window: **24 hours**. Device binding does the real work; the window only
+  keeps old codes from working later (AC8).
+- **(User)** Private key and issuing: **the script lives in this repo, the key outside it**. The
+  repo holds only the embedded public key, and tests use their own throwaway key pair (AC8).
+- **(User)** Installation id churn: **the code is re-issued**, with no grace path. A code for an old
+  id fails with the "wrong installation" reason (AC3).
 
 ## Plan
 

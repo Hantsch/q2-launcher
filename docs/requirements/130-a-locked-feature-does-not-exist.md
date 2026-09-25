@@ -45,10 +45,10 @@ having to duplicate the gate logic, but no second feature needs to exist yet to 
       handler for this channel", never a permission-denied response.
 - [ ] **AC3** — The unlocked/locked decision is made in main from [[128]]'s verified token state; no
       code path lets the renderer's own choice not to render stand in for that check.
-- [ ] **AC4** — The mechanism is written generically enough — keyed by feature name, not hardcoded
-      to `watchlist` — that a second, future gated feature could reuse it without duplicating the
-      gate logic; this is a design criterion to be judged on the code, not something requiring a
-      second feature to actually exist.
+- [ ] **AC4** — The gate is keyed by feature name, not hardcoded to `watchlist`. A test declares a
+      test-only feature name through the same declaration and gets the same behaviour: its surface
+      and handlers are absent when locked and present when unlocked, with no gate code specific to
+      that name.
 
 ## Open Questions
 

@@ -28,6 +28,12 @@ the scan that produced the list, so it can say so first. A mod mismatch is a war
 still override (the server might be fine, or the user may be about to install the mod separately);
 a password is not optional to skip, since the connect attempt cannot succeed without it.
 
+The password reaches the game as the `password` userinfo cvar (vanilla 3.20 `cl_main.c` registers
+it with `CVAR_USERINFO`; the game DLL's `ClientConnect` compares it with the server's `password`).
+It must never be a shell-visible process argument — `+set password <pw>` on the command line is
+exactly that. The mechanism this story builds to hand it over is the one [[126]] reuses for the
+spectator password.
+
 Every successful join is also the moment [[113]]'s history store gets its one and only writer: the
 launcher composed the `+connect` itself, so it is the one place that genuinely knows a join
 happened, as opposed to a server merely being looked at in the list or detail view.
@@ -54,12 +60,20 @@ This story uses the **active installation** — the one the rest of the launcher
 - [ ] **AC5** — A successful join is recorded into [[113]]'s history store, and only a successful
       join is — a join that was refused at address validation (AC2) or abandoned at the password
       prompt is not recorded.
+- [ ] **AC6** — The join password never appears in the spawned game process's argument vector; it
+      still reaches the game as the `password` userinfo cvar before the `+connect` runs.
 
 ## Open Questions
 
 <!-- Leave empty. Filled during refine (`/refine <id>`) if the requirement is still
 unclear. Must be resolved before status goes to `ready`. Inside a sprint these are put to the
 user in the clarification round. -->
+
+## Decisions (Sprint)
+
+- **(User)** Does the "never a shell-visible argument" rule from [[126]] also apply to the join
+  password: **yes, for both** — this story builds the mechanism (AC6), [[126]] reuses it
+  (2026-09-25, planning).
 
 ## Plan
 

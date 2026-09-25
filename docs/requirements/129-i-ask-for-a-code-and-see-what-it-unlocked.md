@@ -14,11 +14,11 @@ the maintainer cannot sign anything without knowing which installation to bind i
 §13.6). Nothing about this is a wizard or a flow with steps; it is one field and one id, sitting
 quietly in Settings the way a build number does.
 
-A rejected code has to say **which** of the four checks failed — bad signature, wrong installation,
-redemption window elapsed, or feature already expired — because, in the concept's own words,
-"'invalid' alone produces a support conversation that never ends" (§13.6). Each of [[128]]'s AC2,
-AC3, AC4 and AC7 rejection paths needs to reach the user as a distinct, readable reason, not a
-single generic failure.
+A rejected code has to say **which** check failed — not a code at all, bad signature, wrong
+installation, redemption window elapsed, or feature already expired — because, in the concept's own
+words, "'invalid' alone produces a support conversation that never ends" (§13.6). Each of [[128]]'s
+AC9, AC2, AC3, AC4 and AC7 rejection paths needs to reach the user as a distinct, readable reason,
+not a single generic failure.
 
 An accepted code shows what it actually did: the list of feature names it unlocked, and its expiry
 if it has one. Wherever an unlocked feature then appears in the rest of the UI — the watchlist tab
@@ -36,15 +36,16 @@ the code expired does not.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Settings shows the installation id (from [[128]]) and a working copy action next to
-      it.
-- [ ] **AC2** — Submitting a code shows exactly one of four specific rejection reasons — bad
-      signature, wrong installation, redemption window elapsed, feature already expired — and never
-      a generic "invalid code" message.
+- [ ] **AC1** — Settings shows the installation id (from [[128]], in its `XXXX-XXXX-XXXX` form) and a
+      working copy action next to it.
+- [ ] **AC2** — Submitting a code shows exactly one of five specific rejection reasons — not a code
+      (wrong prefix or malformed, [[128]] AC9), bad signature, wrong installation, redemption window
+      elapsed, feature already expired — and never a generic "invalid code" message.
 - [ ] **AC3** — An accepted code's unlocked feature list and its expiry (if any) are shown to the
       user immediately after submission.
-- [ ] **AC4** — Anywhere an unlocked feature appears in the rest of the UI, it is visibly marked as
-      experimental.
+- [ ] **AC4** — Any surface rendered through [[130]]'s gate for an unlocked feature carries a visible
+      "experimental" marking. The gate supplies it, not the feature, so no gated feature can ship
+      without it. [[132]]'s watchlist tab is the first real surface that shows it (its AC8).
 - [ ] **AC5** — When a previously-valid code's feature expiry passes, the feature is gone at the
       next app start, and Settings states that the code expired rather than the feature simply not
       being there.

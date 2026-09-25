@@ -31,8 +31,8 @@ what this particular mod is actually doing.
 Renders inside the same detail view [[122]] opens ([[106]] supplies the module/container, [[108]]
 the parsed protocol data this reads); GB-D6's per-field degradation discipline from [[122]] applies
 here too — a malformed or unrecognised value in one key never breaks the rest of the table. Out of
-scope: [[124]]'s ping history and local-context statements, and the actions row covered by
-[[125]]/[[126]]/[[127]] in sprint 9.6.
+scope: [[124]]'s ping history, and the actions row covered by [[125]]/[[126]]/[[127]]
+(milestone 9.6).
 
 ## Acceptance Criteria
 

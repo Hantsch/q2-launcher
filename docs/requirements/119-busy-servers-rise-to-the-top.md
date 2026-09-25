@@ -23,9 +23,9 @@ themselves come from the scan engine ([[114]]) inside the module from [[106]].
 
 - [ ] **AC1** — With no user-chosen sort in effect, the list orders favourites first, then the
       remaining servers by occupancy descending (GB-L3).
-- [ ] **AC2** — Gamemode acts as a deliberate second sort dimension applied after favourites and
-      occupancy — the concrete mechanics are the Open Question below, so this criterion is about the
-      fact that gamemode is a chosen second key, not its exact grouping/tie-break behaviour.
+- [ ] **AC2** — In the default order, gamemode only breaks ties between servers with the same
+      favourite status and the same occupancy; it never groups the list — a busier server is always
+      above a less busy one, whatever their gamemodes.
 - [ ] **AC3** — A user can change which column the list is sorted by, from the list's own UI.
 - [ ] **AC4** — A user-chosen sort persists across sessions — reopening the Servers view (or
       restarting the launcher) shows the same sort the user last chose, not the default.
@@ -34,13 +34,13 @@ themselves come from the scan engine ([[114]]) inside the module from [[106]].
 
 ## Open Questions
 
-- [ ] **Q1 — Is gamemode a grouping key or only a tie-break?** The concept's own requirements
-      interview said "occupancy and gamemodes" (§3) as the default-sort inputs, but §18 open point 3
-      leaves it unresolved: "whether that means the list is grouped by gamemode or only tie-broken by
-      it is not settled." This story implements *that gamemode is a second sort dimension* (AC2); it
-      does not pick between grouping the list by gamemode and using gamemode only to break ties within
-      an occupancy band. That choice has to be made before `/refine 119` can turn AC2 into concrete
-      behaviour.
+- [x] ~~**Q1 — Is gamemode a grouping key or only a tie-break?** (concept §18 open point 3)~~
+      answered → Decisions (Sprint)
+
+## Decisions (Sprint)
+
+- **(User)** Gamemode as grouping key or tie-break: **tie-break only** — favourites, then
+  occupancy descending, then gamemode among equal occupancy (2026-09-25, planning).
 
 ## Plan
 

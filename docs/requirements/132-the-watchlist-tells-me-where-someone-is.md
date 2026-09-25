@@ -46,14 +46,24 @@ separate unlock logic; it consumes [[130]]'s decision like any other gated featu
       touched that server).
 - [ ] **AC6** — With no valid `watchlist` code present, none of this — tab, rows, menu entries —
       renders anywhere in the app, per [[130]].
+- [ ] **AC7** — A found entry's row offers a "re-check" action. It triggers [[131]]'s single
+      `status` query to the last-seen server and shows the result: still there with updated score
+      and ping, or [[131]] AC9's "left that server — run a full scan in the server browser".
+- [ ] **AC8** — The watchlist tab carries [[129]]'s visible "experimental" marking.
+- [ ] **AC9** — The surface lets the user add an entry (name + match mode). A refused pattern shows
+      [[131]] AC7's reason at the input, and an entry [[131]] AC8 marked "too slow" shows that on
+      its row.
 
 ## Open Questions
 
-- [ ] **Q1 — Does a dedicated "re-check this entry" control exist in the row's action set, or does
-      the module's existing scoped-refresh controls ([[117]]) already cover it well enough that a
-      sixth action button would just be clutter?** [[131]]'s AC6 already guarantees the underlying
-      single-query re-check works; whether it needs its own button is deferred to this milestone's
-      own scan-cost measurement (concept open point #1) rather than decided here (open point #16).
+- [x] ~~**Q1 — Does a dedicated "re-check this entry" control exist?** (concept open point #16)~~
+      answered → Decisions (Sprint)
+
+## Decisions (Sprint)
+
+- **(User)** Dedicated re-check control: **yes** (AC7). It only checks the last-seen server; if the
+  player has moved, the row points to a full scan in the server browser. S24's measurement (a full
+  two-stage pass costs seconds) settles open point #16's precondition (2026-09-25, planning).
 
 ## Plan
 

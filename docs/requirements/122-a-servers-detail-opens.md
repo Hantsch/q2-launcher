@@ -29,13 +29,14 @@ This story is also where the view's general robustness rule (GB-D6: "a missing o
 never breaks the view; each field degrades on its own") has to hold for the first time, because it
 is the entry point every other detail-view story is opened through. The same discipline — one field
 failing never takes the surrounding view with it — applies again in [[123]]'s rule table and dmflags
-decode, and in [[124]]'s ping history and local-context statements; it is stated once here as the
+decode, and in [[124]]'s ping history and last-answer statement; it is stated once here as the
 shared floor rather than re-derived as a duplicate criterion in each of the three stories.
 
-Out of scope: the rule table and dmflags ([[123]]), ping history and local mod/map availability
-([[124]]), and the view's actions row (Join/Spectate/Favourite/Add-to-address-book/Copy-address),
-which belongs to sprint 9.6 — see [[125]], [[126]], [[127]]. Together, 122/123/124 compose the one
-detail view concept §9 describes as six numbered sections (1-6); this story is sections 1-2.
+Out of scope: the rule table and dmflags ([[123]]), ping history ([[124]]), and the view's actions
+row (Join/Spectate/Favourite/Add-to-address-book/Copy-address), which belongs to milestone 9.6 — see
+[[125]], [[126]], [[127]]. Together, 122/123/124 compose sections 1-5 of the detail view concept §9
+describes; this story is sections 1-2. Section 6 (local mod/map availability) is deferred to the
+mods/assets modules — see [[124]]'s Decisions.
 
 ## Acceptance Criteria
 

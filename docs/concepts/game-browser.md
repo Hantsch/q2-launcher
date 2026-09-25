@@ -770,7 +770,7 @@ for Linux at all — see [linux-support-analysis.md](../linux-support-analysis.m
 - **GB-D4** — The response times measured this session are shown, and whether the last scan
   answered.
 - **GB-D5** — The view states whether the server's mod and map exist locally, without offering to
-  install them.
+  install them. *Deferred 2026-09-25 to the mods/assets modules (open point 14); not in v1.*
 - **GB-D6** — A missing or malformed key never breaks the view; each field degrades on its own.
 
 **Join, spectate, address book (GB-J)**
@@ -897,7 +897,8 @@ for Linux at all — see [linux-support-analysis.md](../linux-support-analysis.m
     stored entries are kept for a later code or discarded is undecided.
 13. **A dashboard tile** for the browser (favourites / who is online) — out of v1 by decision, but
     the obvious follow-up once the home grid and this module both exist.
-14. **Mod/map "available locally" detection** — the check is stated in GB-D5, but what counts as
+14. **Mod/map "available locally" detection** (*deferred 2026-09-25: moves to the mods/assets
+    modules, story 124 ships without it*) — the check is stated in GB-D5, but what counts as
     "the mod is there" before the `mods` module exists needs defining.
 15. **Rate-limit etiquette toward masters** — whether the launcher should also bound how often it
     re-fetches a master source, distinct from how often it queries game servers.
