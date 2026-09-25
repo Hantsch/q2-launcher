@@ -1,7 +1,8 @@
 // Story 028 D1 acceptance flow: create a custom action ("test") in the
-// Controls tab and assert its five CRUD icon buttons sit fully inside the
+// Controls tab and assert its four icon buttons sit fully inside the
 // row's Options cell — the screenshot alone is not sufficient evidence, the
 // original bug wrapped buttons out of the 40px row (see the story's test plan).
+// Story 054 D8 folded the up/down pair into one row-menu kebab, so five became four.
 export default async function customActionRow({ page, shot, step }) {
   step('open Config > Plain Profile > Controls')
   await page.getByTestId('nav-config').click()
@@ -21,7 +22,7 @@ export default async function customActionRow({ page, shot, step }) {
   await row.waitFor({ timeout: 8000 })
   await row.scrollIntoViewIfNeeded()
 
-  step('assert all 5 icon buttons sit inside the Options cell and the row')
+  step('assert all 4 icon buttons sit inside the Options cell and the row')
   const report = await row.evaluate((rowEl) => {
     const opts = rowEl.querySelector('.ctrl-opts')
     if (!opts) return { error: 'no .ctrl-opts in row' }
@@ -43,8 +44,8 @@ export default async function customActionRow({ page, shot, step }) {
     return { buttons }
   })
   if (report.error) throw new Error(report.error)
-  if (report.buttons.length !== 5) {
-    throw new Error(`expected 5 icon buttons in the Options cell, found ${report.buttons.length}`)
+  if (report.buttons.length !== 4) {
+    throw new Error(`expected 4 icon buttons in the Options cell, found ${report.buttons.length}`)
   }
   const broken = report.buttons.filter((b) => !(b.insideOpts && b.insideRow && b.visible))
   if (broken.length > 0) {

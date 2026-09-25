@@ -48,14 +48,23 @@ export default async function controlsSubcategory({ page, shot, step }) {
   await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click()
 
   step('assert "Weapon Combo" now renders under the new sub-category group')
-  // The group header (`.ctrl-group`) and its rows are siblings inside the same `role="rowgroup"`
-  // container (`ControlsGrid.tsx`), not nested under the header - locate that shared container
-  // rather than relying on DOM-order siblings of the header span itself.
-  const rowGroupContainer = page.locator('[role="rowgroup"]', {
-    has: page.locator('.ctrl-group', { hasText: SUBCATEGORY_NAME }),
-  })
-  const movedRow = rowGroupContainer.locator('.ctrl-row', { hasText: 'Weapon Combo' })
-  await movedRow.waitFor({ timeout: 8000 })
+  // Since story 054's drag and drop, every row sits in its own `.ctrl-rowgroup` and the group
+  // header (`.ctrl-group`) is a sibling of those in the grid, not a shared container - so "under
+  // the group" means the nearest header before the row's rowgroup is the new sub-category's.
+  await page.waitForFunction(
+    ({ rowText, groupName }) => {
+      const row = [...document.querySelectorAll('.ctrl-rowgroup')].find((el) =>
+        el.querySelector('.ctrl-row')?.textContent?.includes(rowText),
+      )
+      let previous = row?.previousElementSibling
+      while (previous && !previous.classList.contains('ctrl-group')) {
+        previous = previous.previousElementSibling
+      }
+      return previous?.textContent?.includes(groupName) ?? false
+    },
+    { rowText: 'Weapon Combo', groupName: SUBCATEGORY_NAME },
+    { timeout: 8000 },
+  )
 
   step('assert the group count updated from 0 to 1')
   const updatedCount = await group.locator('.ctrl-group-eyebrow').last().innerText()

@@ -187,6 +187,12 @@ export default async function bootstrapWizard({ page, shot, step }) {
 
   await page.getByRole('button', { name: 'Next' }).click({ timeout: TIMEOUT_MS })
 
+  step('game-data step: keep the default free download and click Next')
+  await page
+    .getByTestId('bootstrap-gamedata-choice-free-download')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.getByRole('button', { name: 'Next' }).click({ timeout: TIMEOUT_MS })
+
   // --- AC2: a Program Files target warns, offers the remedy and can be acknowledged --------------
   const browse = page
     .getByTestId('bootstrap-target-path-input')

@@ -1063,6 +1063,12 @@ function populatedInstallations() {
   ]
 }
 
+/** How many installations the `populated` variant seeds - for flows asserting "one row per
+ * installation", so they follow additive fixture installs instead of pinning a stale number. */
+export function populatedInstallationCount() {
+  return populatedInstallations().length
+}
+
 // --- config.ts ConfigProfile shape ------------------------------------------
 // Mirrors src/shared/modules/config.ts:181 (`ConfigProfile`), `:45`
 // (`ProfileAssignment`) and `:56` (`UnrecognizedConfigLine`).

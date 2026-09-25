@@ -34,12 +34,16 @@
 //     folds that into the computed accessible name is a browser detail, not this story's claim. The
 //     claim - the label reads "Engine" - is asserted exactly, on the associated `<label>`'s own
 //     `textContent` via `HTMLSelectElement.labels`.
-import { INSTALL_UNKNOWN_ENGINE_NAME } from '../lib/fixture.mjs'
+import { INSTALL_DEMO_UPGRADE_NAME, INSTALL_UNKNOWN_ENGINE_NAME } from '../lib/fixture.mjs'
 
 const TIMEOUT_MS = 8_000
 
-/** The fixture's first populated install: `engineKind: 'r1q2'`, i.e. a supported engine. */
-const SUPPORTED_INSTALL_NAME = 'Fixture Favorite Install'
+/**
+ * A populated install whose root really holds an `r1q2.exe`, i.e. a supported engine. The app's
+ * startup `validateAll()` re-derives `engineKind` from disk, so a seeded `engineKind: 'r1q2'` alone
+ * (the first populated installs, whose roots hold no executable) reads back as `unknown`.
+ */
+const SUPPORTED_INSTALL_NAME = INSTALL_DEMO_UPGRADE_NAME
 
 /** Mirrors `SUPPORTED_ENGINE_DEFINITIONS`' labels (src/shared/types/engine.ts) - AC2's whole list. */
 const SUPPORTED_ENGINE_OPTIONS = ['R1Q2', 'Q2PRO']

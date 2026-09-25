@@ -26,7 +26,7 @@
 // `uppercase`, so `innerText` would report "UNKNOWN ENGINE" and an exact-match assertion on the
 // real label would be impossible to write honestly.
 import { resize } from '../lib/harness.mjs'
-import { INSTALL_UNKNOWN_ENGINE_NAME } from '../lib/fixture.mjs'
+import { INSTALL_UNKNOWN_ENGINE_NAME, populatedInstallationCount } from '../lib/fixture.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -45,11 +45,9 @@ const UNKNOWN_ENGINE_LABEL = 'Unknown engine (unsupported)'
 const SHORT_NAMED_INSTALLS = ['Fixture Favorite Install', 'Fixture WriteDir Install']
 
 /** `populatedInstallations()` (scripts/lib/fixture.mjs) - a per-installation list must show all.
- * Story 077 D5 added a fourth, additive installation (`Fixture Failed Install`, `q2pro` engine) -
- * bumped from 3 to 4 here for the same reason every other consumer of that array has to: a per-
- * installation list is defined as "one row per installation", not "one row per named fixture this
- * flow already knew about". */
-const EXPECTED_INSTALL_COUNT = 4
+ * A per-installation list is defined as "one row per installation", not "one row per named fixture
+ * this flow already knew about", so the count comes from the fixture itself. */
+const EXPECTED_INSTALL_COUNT = populatedInstallationCount()
 
 function boxOf(box, name) {
   if (!box || box.width <= 0 || box.height <= 0) {

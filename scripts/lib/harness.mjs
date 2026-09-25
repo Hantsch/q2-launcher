@@ -587,13 +587,35 @@ export async function resize(app, { width, height }) {
       if (!window) throw new Error('no BrowserWindow to resize')
       // A restored-maximized window would ignore setSize.
       if (window.isMaximized()) window.unmaximize()
-      window.setSize(size.width, size.height)
+      const settle = (ms) => new Promise((done) => setTimeout(done, ms))
       // `center()` would pull the offscreen harness window (src/main/window.ts) back onto a
       // display; keep it left of every display instead, re-derived from the new width.
-      if (process.env.Q2L_UI_VISIBLE === '1') window.center()
-      else {
-        const left = Math.min(...screen.getAllDisplays().map((display) => display.bounds.x))
-        window.setPosition(left - size.width - 100, 0)
+      const place = () => {
+        if (process.env.Q2L_UI_VISIBLE === '1') window.center()
+        else {
+          const left = Math.min(...screen.getAllDisplays().map((display) => display.bounds.x))
+          window.setPosition(left - size.width - 100, 0)
+        }
+      }
+      window.setSize(size.width, size.height)
+      place()
+      // On a mixed-DPI Windows desktop the offscreen frameless window's content comes out larger
+      // than the size asked for (observed: +16x+8 at 940x620), so a flow "at 940px" would measure
+      // 956px. Re-size by the measured delta, lifting the minimum size meanwhile - it is the
+      // content, not the frame, the flows' viewport claims are about.
+      await settle(100)
+      const [contentWidth, contentHeight] = window.getContentSize()
+      if (contentWidth !== size.width || contentHeight !== size.height) {
+        const [minWidth, minHeight] = window.getMinimumSize()
+        window.setMinimumSize(0, 0)
+        window.setSize(
+          size.width - (contentWidth - size.width),
+          size.height - (contentHeight - size.height),
+        )
+        place()
+        // Restoring the minimum before the resize and move have landed re-clamps straight back.
+        await settle(200)
+        window.setMinimumSize(minWidth, minHeight)
       }
     },
     { width, height },

@@ -207,6 +207,12 @@ export default async function bootstrapFailureRetry({ page, shot, step }) {
   await page.getByTestId('bootstrap-engine-q2pro').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByRole('button', { name: 'Next' }).click({ timeout: TIMEOUT_MS })
 
+  step('game-data step: keep the default free download and click Next')
+  await page
+    .getByTestId('bootstrap-gamedata-choice-free-download')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.getByRole('button', { name: 'Next' }).click({ timeout: TIMEOUT_MS })
+
   step('target step: pick the fresh target (run 1)')
   await pickFreshTarget(page, targetPath)
 
@@ -271,6 +277,12 @@ export default async function bootstrapFailureRetry({ page, shot, step }) {
   step('open the wizard again, pointed at the same folder (run 2)')
   await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('bootstrap-engine-q2pro').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.getByRole('button', { name: 'Next' }).click({ timeout: TIMEOUT_MS })
+
+  step('game-data step: keep the default free download and click Next')
+  await page
+    .getByTestId('bootstrap-gamedata-choice-free-download')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByRole('button', { name: 'Next' }).click({ timeout: TIMEOUT_MS })
 
   step('target step: re-pick the same target (run 2)')

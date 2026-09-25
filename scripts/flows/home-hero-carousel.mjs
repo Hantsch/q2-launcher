@@ -65,7 +65,14 @@ async function measureHeroLayout(page) {
   // `page.viewportSize()` is always `null` here - a BrowserWindow ignores
   // `page.setViewportSize()` (see `scripts/lib/harness.mjs`'s `resize()`), so the window's real
   // content size has to be read out of the page itself instead.
-  const viewport = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
+  // Since the hero moved inside home's one page scroller (HomeView.tsx), that scroller's
+  // `scrollbar-gutter: stable` reserves the scrollbar's strip at the window edge; the hero spans
+  // up to it, so the gutter is subtracted from the edge it has to reach.
+  const viewport = await page.evaluate(() => {
+    const scroller = document.querySelector('[data-testid="home-hero"]')?.parentElement
+    const gutter = scroller ? scroller.offsetWidth - scroller.clientWidth : 0
+    return { width: window.innerWidth - gutter, height: window.innerHeight }
+  })
   if (!heroBox || !railBox || !viewport) {
     throw new Error(
       `could not measure hero/rail geometry - hero=${JSON.stringify(heroBox)} ` +
