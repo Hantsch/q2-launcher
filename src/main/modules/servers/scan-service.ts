@@ -2,6 +2,7 @@ import {
   SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
   SERVERS_EVENTS,
   type ScanBlockedReason,
+  type ScanScope,
   type ScanSnapshot,
   type ScanStartResult,
   type ScanTarget,
@@ -10,12 +11,13 @@ import {
   type ServersScanState,
   type ServersState,
 } from '@shared/modules/servers'
+import type { ParsedServerAddress } from '@shared/servers/address'
 import { readIntKey } from '@shared/servers/infostring'
 import type { LaunchHost } from '../../services/write-guard'
 import { electronNetFetch, type FetchImpl } from '../downloads/fetcher'
-import { buildScanAddressSet } from './address-set'
 import { isScanBlocked } from './scan-guard'
 import { mergeStaleRound } from './scan-merge'
+import { resolveScanScopeAddresses } from './scan-scope'
 import { resolveSources, type ResolveSourcesDeps } from './source-resolution'
 import { runScan, type QueryServerFn } from './scan-runner'
 import type { ServerQueryResult } from './server-query'
@@ -56,6 +58,18 @@ import type { Clock, MasterUdpImpl } from './udp-master-source'
  *   session ends (AC4) without any scan attempt being needed first. An automatic trigger never
  *   reaches `start()` while blocked (scan-cadence.ts skips it with `'game-running'`), which is why
  *   the mirror - not a refusal - is what publishes the reason for AC1's skipped round.
+ * - **Story 117 D3, scoped rounds.** `start()` takes an optional `ScanScope` (default `'all'`, so
+ *   every automatic trigger and "Refresh servers" are literally the same run). A scope only narrows
+ *   the address set; the guard, single-flight, `runScan` and `mergeStaleRound` are the same calls for
+ *   every scope - there is no second scan path. Two address sets exist per round and must not be
+ *   confused: `runTargets` (what stage 1 queries) and `scopeTargets` (the scope's real address set,
+ *   the only addresses `mergeStaleRound` may stale-flip). They are identical for `'all'` and
+ *   `'favourites'`; for `'server'` stage 1 gets no targets and the address rides in as runScan's
+ *   `selectedAddress` - exactly one `status` query, no `info` query - while `scopeTargets` still names
+ *   it, so a timed-out single-server refresh flips that row stale like any other unanswered target.
+ *   An address outside `scopeTargets` is never queried, rewritten or staled by a scoped round.
+ *   Source resolution only runs for `'all'`; the other scopes never use source addresses, so they
+ *   make no master/list request and report no `sourceFailures`.
  */
 
 /** Injectable seams for both `resolveSources` and `runScan`, all optional - each defaults to the
@@ -78,8 +92,16 @@ export interface CreateScanServiceOptions {
   deps?: ScanServiceDeps
 }
 
+export interface ScanStartOptions {
+  /** Which addresses this round touches (story 117). Omitted means `{ kind: 'all' }`. */
+  scope?: ScanScope
+  /** Story 114's "currently selected server", queried in stage 2 of a full scan. Only honoured for
+   * the `'all'` scope - `'favourites'` ignores it, `'server'` already names its one address. */
+  selectedAddress?: string
+}
+
 export interface ScanService {
-  start: (selectedAddress?: string) => ScanStartResult
+  start: (options?: ScanStartOptions) => ScanStartResult
   read: () => ScanSnapshot
   overview: () => ServersOverview
   dispose: () => void
@@ -102,6 +124,7 @@ function initialScanState(): ServersScanState {
     startedAt: null,
     finishedAt: null,
     blockedReason: null,
+    scope: null,
   }
 }
 
@@ -180,7 +203,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
 
   const unsubscribeLaunch = launch.onStateChange((state) => syncBlockedReason(isScanBlocked(state)))
 
-  async function runSweep(selectedAddress: string | undefined, signal: AbortSignal): Promise<void> {
+  async function runSweep(scope: ScanScope, selectedAddress: string | undefined, signal: AbortSignal): Promise<void> {
     try {
       // Review fix (story 114): reading the current state and building `resolveDeps` now happens
       // *inside* the try - previously it ran before the try block, so a throwing `getServersState()`
@@ -189,29 +212,39 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
       // process's life).
       const current = getServersState()
 
-      const resolveDeps: ResolveSourcesDeps = {
-        fetchImpl: deps.fetchImpl ?? electronNetFetch,
-        udpImpl: deps.udpImpl,
-        clock: deps.clock,
-        signal,
+      // Story 117 D3: only the 'all' scope uses source addresses, so only it resolves sources -
+      // a favourites/single-server refresh never touches a master or list source's network, and
+      // keeps the `sourceFailures: []` `start()` already reset it to.
+      let resolvedSourceAddresses: ParsedServerAddress[] = []
+      if (scope.kind === 'all') {
+        const resolveDeps: ResolveSourcesDeps = {
+          fetchImpl: deps.fetchImpl ?? electronNetFetch,
+          udpImpl: deps.udpImpl,
+          clock: deps.clock,
+          signal,
+        }
+
+        const resolved = await resolveSources(current.sources, resolveDeps)
+        scanState = { ...scanState, sourceFailures: resolved.failures }
+        emitChanged()
+        resolvedSourceAddresses = resolved.addresses
       }
 
-      const resolved = await resolveSources(current.sources, resolveDeps)
-      scanState = { ...scanState, sourceFailures: resolved.failures }
-      emitChanged()
-
-      const targets = buildScanAddressSet({
-        sourceAddresses: resolved.addresses,
-        favourites: current.favourites,
-        manualServers: current.manualServers,
-      })
+      // `scopeTargets` is the scope's real address set - the ONLY addresses `mergeStaleRound` below
+      // may stale-flip. `runTargets` is what stage 1 queries: the same set, except for the
+      // single-server scope, which skips stage 1 entirely and reaches runScan's stage 2 through
+      // `selectedAddress` instead (one `status` query, no `info` query - see the file doc comment).
+      const scopeTargets = resolveScanScopeAddresses(current, scope, resolvedSourceAddresses)
+      const runTargets = scope.kind === 'server' ? [] : scopeTargets
+      const runSelectedAddress =
+        scope.kind === 'server' ? scope.address : scope.kind === 'all' ? selectedAddress : undefined
 
       const answeredOnline = new Set<string>()
 
       const outcome = await runScan({
-        targets,
+        targets: runTargets,
         settings: current.scan,
-        selectedAddress,
+        selectedAddress: runSelectedAddress,
         signal,
         deps: { queryServer: deps.queryServer },
         onServer: (row) => {
@@ -239,8 +272,10 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
       // get to ask", not "the server was silent"; an aborted sweep leaves every entry exactly as
       // the last *completed* scan left it. `entries` stays the single mutable closure Map the
       // `onServer` callback above also writes into, so the merge's result is copied back in place
-      // rather than reassigning `entries` to a new object.
-      for (const [address, entry] of mergeStaleRound(entries, targets, answeredOnline, outcome.aborted)) {
+      // rather than reassigning `entries` to a new object. Story 117 D3: `scopeTargets`, never
+      // `runTargets` - the single-server scope's `runTargets` is empty, and its one address must
+      // still go stale on a timeout; and no address outside the scope may be named here at all.
+      for (const [address, entry] of mergeStaleRound(entries, scopeTargets, answeredOnline, outcome.aborted)) {
         entries.set(address, entry)
       }
     } catch {
@@ -257,7 +292,9 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     }
   }
 
-  function start(selectedAddress?: string): ScanStartResult {
+  function start(options: ScanStartOptions = {}): ScanStartResult {
+    // Story 117 D3: the guard and single-flight below are scope-agnostic on purpose - a refusal is
+    // a refusal whatever scope was asked for, so the scope is only resolved once both have passed.
     // Story 116 D3 (D-H, D-Q): main stays authoritative - refused regardless of what the renderer
     // shows, never queued, and checked before single-flight so the reason is always the game.
     if (isScanBlocked(launch.getState())) {
@@ -269,19 +306,23 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
       return { ok: false, reasonKey: SCAN_ALREADY_RUNNING_REASON_KEY }
     }
 
+    const scope: ScanScope = options.scope ?? { kind: 'all' }
     const controller = new AbortController()
     abortController = controller
 
+    // `scope` stays on the state after the round finishes (like `startedAt`/`sourceFailures`), so
+    // the final `scan.changed` push still says which scope it was.
     scanState = {
       ...initialScanState(),
       running: true,
       phase: 'stage1',
       startedAt: new Date().toISOString(),
       finishedAt: null,
+      scope,
     }
     emitChanged()
 
-    void runSweep(selectedAddress, controller.signal)
+    void runSweep(scope, options.selectedAddress, controller.signal)
 
     return { ok: true }
   }

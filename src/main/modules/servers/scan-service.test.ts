@@ -8,6 +8,7 @@ import {
 } from '@shared/modules/servers'
 import { IDLE_LAUNCH_STATE, type LaunchState } from '@shared/types'
 import type { LaunchHost } from '../../services/write-guard'
+import type { FetchImpl } from '../downloads/fetcher'
 import type { ScanServerResult, QueryServerFn } from './scan-runner'
 import type { ServerQueryResult } from './server-query'
 import { createScanService, SCAN_ALREADY_RUNNING_REASON_KEY, type ScanService } from './scan-service'
@@ -146,7 +147,7 @@ describe('createScanService', () => {
     const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
 
     expect(service.start()).toEqual({ ok: true })
-    expect(service.start('irrelevant')).toEqual({
+    expect(service.start({ selectedAddress: 'irrelevant' })).toEqual({
       ok: false,
       reasonKey: SCAN_ALREADY_RUNNING_REASON_KEY,
     })
@@ -285,7 +286,7 @@ describe('createScanService - story 116 D3 game-running guard', () => {
     expect(service.start()).toEqual({ ok: false, reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY })
     // `starting` blocks just the same (D-D's exact predicate); a `selectedAddress` changes nothing.
     launch.set({ phase: 'starting', installationId: 'inst-1' })
-    expect(service.start('6.6.6.6:27910')).toEqual({ ok: false, reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY })
+    expect(service.start({ selectedAddress: '6.6.6.6:27910' })).toEqual({ ok: false, reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY })
 
     await tick()
     await tick()
@@ -366,5 +367,230 @@ describe('createScanService - story 116 D3 game-running guard', () => {
     expect(launch.listenerCount()).toBe(0)
     launch.set(IDLE_LAUNCH_STATE)
     expect(events).toHaveLength(0)
+  })
+})
+
+describe('createScanService - story 117 D3 scoped rounds', () => {
+  type QueryCall = { address: string; kind: 'info' | 'status' }
+
+  /** Records every `(address, kind)` query and answers from a mutable per-address script -
+   * `noReply` for any address the script does not name. */
+  function scriptedQuery(): {
+    fn: QueryServerFn
+    calls: QueryCall[]
+    replies: Map<string, ServerQueryResult>
+  } {
+    const calls: QueryCall[] = []
+    const replies = new Map<string, ServerQueryResult>()
+    const fn: QueryServerFn = async (target, options) => {
+      const address = `${target.host}:${target.port}`
+      calls.push({ address, kind: options.kind })
+      if (options.kind === 'status') {
+        const scripted = replies.get(address)
+        return scripted === undefined || !scripted.ok
+          ? noReply
+          : { ok: true, kind: 'status', reply: { ok: true, serverinfo: { hostname: 'Status' }, players: [] }, rttMs: 9 }
+      }
+      return replies.get(address) ?? noReply
+    }
+    return { fn, calls, replies }
+  }
+
+  /** An enabled http-list source whose fetch is recorded and always fails - proves whether a round
+   * resolved sources at all without any real network. */
+  function recordingFetch(): { fetchImpl: FetchImpl; fetchCalls: string[] } {
+    const fetchCalls: string[] = []
+    const fetchImpl: FetchImpl = async (url) => {
+      fetchCalls.push(url)
+      throw new Error('offline')
+    }
+    return { fetchImpl, fetchCalls }
+  }
+
+  const SOURCE: ServersState['sources'][number] = {
+    id: 'src-1',
+    type: 'http-list',
+    address: 'http://example.invalid/servers.txt',
+    enabled: true,
+  }
+
+  function favouriteEntry(address: string): ServersState['favourites'][number] {
+    return { address, addedAt: new Date().toISOString() }
+  }
+
+  const FAV_1 = '10.0.0.1:27910'
+  const FAV_2 = '10.0.0.2:27910'
+  const MANUAL = '10.0.0.3:27910'
+  const OTHER = '10.0.0.4:27910'
+
+  function disjointState(): ServersState {
+    return baseState({
+      sources: [SOURCE],
+      favourites: [favouriteEntry(FAV_1), favouriteEntry(FAV_2)],
+      manualServers: [manualEntry(MANUAL), manualEntry(OTHER)],
+    })
+  }
+
+  it("'all' (the default) is unchanged: resolves sources, queries the full set, honours selectedAddress", async () => {
+    const { emit } = recorder()
+    const state = disjointState()
+    const query = scriptedQuery()
+    const { fetchImpl, fetchCalls } = recordingFetch()
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer: query.fn, fetchImpl },
+    })
+
+    expect(service.start({ selectedAddress: MANUAL })).toEqual({ ok: true })
+    expect(service.read().state.scope).toEqual({ kind: 'all' })
+    await waitForIdle(service)
+
+    expect(fetchCalls).toHaveLength(1)
+    expect(service.read().state.sourceFailures).toHaveLength(1)
+    expect(query.calls.filter((c) => c.kind === 'info').map((c) => c.address).sort()).toEqual(
+      [FAV_1, FAV_2, MANUAL, OTHER].sort(),
+    )
+    // 114's selected-server rule still applies to a full scan: status for the selected address.
+    expect(query.calls.filter((c) => c.kind === 'status')).toEqual([{ address: MANUAL, kind: 'status' }])
+    // Persisted after the round, so the final scan.changed still names the scope.
+    expect(service.read().state.scope).toEqual({ kind: 'all' })
+  })
+
+  it('AC2: a favourites scope queries only favourite addresses, not sources or manual servers', async () => {
+    const { emit } = recorder()
+    const state = disjointState()
+    const query = scriptedQuery()
+    const { fetchImpl, fetchCalls } = recordingFetch()
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer: query.fn, fetchImpl },
+    })
+
+    // A selectedAddress outside the scope is ignored - it must not smuggle in a status query.
+    expect(service.start({ scope: { kind: 'favourites' }, selectedAddress: MANUAL })).toEqual({ ok: true })
+    await waitForIdle(service)
+
+    expect(fetchCalls).toHaveLength(0)
+    expect(query.calls.map((c) => c.address).sort()).toEqual([FAV_1, FAV_2])
+    expect(query.calls.every((c) => c.kind === 'info')).toBe(true)
+    expect(service.read().state).toMatchObject({ sourceFailures: [], scope: { kind: 'favourites' } })
+  })
+
+  it('AC3: a single-server scope sends one status query and no info query', async () => {
+    const { emit } = recorder()
+    const state = disjointState()
+    const query = scriptedQuery()
+    query.replies.set(MANUAL, infoOk())
+    const { fetchImpl, fetchCalls } = recordingFetch()
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer: query.fn, fetchImpl },
+    })
+
+    expect(service.start({ scope: { kind: 'server', address: MANUAL } })).toEqual({ ok: true })
+    await waitForIdle(service)
+
+    expect(fetchCalls).toHaveLength(0)
+    expect(query.calls).toEqual([{ address: MANUAL, kind: 'status' }])
+    expect(service.read().state).toMatchObject({ stage1Total: 0, stage2Total: 1, sourceFailures: [] })
+    expect(service.read().entries).toEqual([
+      expect.objectContaining({ address: MANUAL, status: 'online', name: 'Status', players: [] }),
+    ])
+  })
+
+  it('an out-of-scope row keeps its data and stale flag after a favourites round; in-scope silence goes stale', async () => {
+    const { emit } = recorder()
+    const state = baseState({
+      favourites: [favouriteEntry(FAV_1)],
+      manualServers: [manualEntry(MANUAL), manualEntry(OTHER)],
+    })
+    const query = scriptedQuery()
+    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer: query.fn } })
+    const entryOf = (address: string) => service.read().entries.find((entry) => entry.address === address)
+
+    // Round 1 (all): everyone answers.
+    query.replies.set(FAV_1, infoOk('Fav'))
+    query.replies.set(MANUAL, infoOk('Manual'))
+    query.replies.set(OTHER, infoOk('Other'))
+    service.start()
+    await waitForIdle(service)
+
+    // Round 2 (all): OTHER is silent, so it is stale going into the scoped round.
+    query.replies.delete(OTHER)
+    service.start()
+    await waitForIdle(service)
+    expect(entryOf(OTHER)).toMatchObject({ status: 'stale', name: 'Other' })
+
+    const manualBefore = structuredClone(entryOf(MANUAL))
+    const otherBefore = structuredClone(entryOf(OTHER))
+
+    // Round 3 (favourites): the favourite is silent; neither manual server is asked. MANUAL now
+    // would not answer either - if the round named it, it would wrongly go stale.
+    query.replies.delete(FAV_1)
+    query.replies.delete(MANUAL)
+    query.calls.length = 0
+    expect(service.start({ scope: { kind: 'favourites' } })).toEqual({ ok: true })
+    await waitForIdle(service)
+
+    expect(query.calls).toEqual([{ address: FAV_1, kind: 'info' }])
+    expect(entryOf(FAV_1)).toMatchObject({ status: 'stale', name: 'Fav' })
+    expect(entryOf(MANUAL)).toEqual(manualBefore)
+    expect(entryOf(OTHER)).toEqual(otherBefore)
+    expect(service.read().entries).toHaveLength(3)
+  })
+
+  it('a timed-out single-server refresh flips only that row stale and leaves every other row untouched', async () => {
+    const { emit } = recorder()
+    const state = baseState({ favourites: [favouriteEntry(FAV_1)], manualServers: [manualEntry(MANUAL)] })
+    const query = scriptedQuery()
+    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer: query.fn } })
+    const entryOf = (address: string) => service.read().entries.find((entry) => entry.address === address)
+
+    query.replies.set(FAV_1, infoOk('Fav'))
+    query.replies.set(MANUAL, infoOk('Manual'))
+    service.start()
+    await waitForIdle(service)
+
+    const manualBefore = structuredClone(entryOf(MANUAL))
+    const favBefore = structuredClone(entryOf(FAV_1))
+
+    // Neither server would answer now; only FAV_1 is asked.
+    query.replies.clear()
+    query.calls.length = 0
+    expect(service.start({ scope: { kind: 'server', address: FAV_1 } })).toEqual({ ok: true })
+    await waitForIdle(service)
+
+    expect(query.calls).toEqual([{ address: FAV_1, kind: 'status' }])
+    expect(entryOf(FAV_1)).toEqual({ ...favBefore, status: 'stale' })
+    expect(entryOf(MANUAL)).toEqual(manualBefore)
+  })
+
+  it('single-flight and the game guard refuse a scoped start exactly like a full one', () => {
+    const { emit } = recorder()
+    const { fn: queryServer, calls } = deferredQuery()
+    const launch = fakeLaunch()
+    const state = baseState({ manualServers: [manualEntry(MANUAL)] })
+    const service = createScanService({ getServersState: () => state, emit, launch: launch.host, deps: { queryServer } })
+
+    expect(service.start()).toEqual({ ok: true })
+    expect(service.start({ scope: { kind: 'server', address: OTHER } })).toEqual({
+      ok: false,
+      reasonKey: SCAN_ALREADY_RUNNING_REASON_KEY,
+    })
+    expect(service.read().state.scope).toEqual({ kind: 'all' })
+
+    launch.set(RUNNING)
+    expect(service.start({ scope: { kind: 'favourites' } })).toEqual({
+      ok: false,
+      reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
+    })
+    expect(calls.every((call) => call.address === MANUAL)).toBe(true)
+    service.dispose()
   })
 })

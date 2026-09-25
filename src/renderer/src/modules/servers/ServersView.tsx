@@ -7,6 +7,7 @@ import {
   type ServerListEntry,
   type ServersScanState,
 } from '@shared/modules/servers'
+import { cn } from '../../lib/cn'
 import { Button } from '../../components/ui/Button'
 import { Panel } from '../../components/ui/primitives'
 import { onScanChanged, readScan, setScanViewActive, startScan } from './client'
@@ -17,6 +18,14 @@ import { onScanChanged, readScan, setScanViewActive, startScan } from './client'
 const BLOCKED_REASON_KEYS: Record<ScanBlockedReason, string> = {
   'game-running': SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
 }
+
+/**
+ * Story 117 D5: the same i18n key `ScanService` (`main/modules/servers/scan-service.ts`,
+ * `SCAN_ALREADY_RUNNING_REASON_KEY`) already uses for a refused `scan.start` - that file is
+ * main-only and cannot be imported here (electron-arch), so the literal key is reused directly
+ * rather than inventing a second string with the same meaning.
+ */
+const SCAN_BUSY_REASON_KEY = 'servers.scan.error.already-running'
 
 /** A scan that has never run and nothing known yet - `scan.read`'s own shape for a fresh
  * `ServersState` (mirrors `main/modules/servers/scan-runner.ts`'s initial state), used here only
@@ -32,6 +41,7 @@ const IDLE_SCAN_STATE: ServersScanState = {
   startedAt: null,
   finishedAt: null,
   blockedReason: null,
+  scope: null,
 }
 
 /**
@@ -61,11 +71,23 @@ const IDLE_SCAN_STATE: ServersScanState = {
  * `status: 'stale'` rows) renders below the status line - deliberately bare per D-K, just enough
  * to make AC3's stale indication provable on a real surface; the "real" server-list design is a
  * later story's job.
+ *
+ * Story 117 D5: three scoped refresh controls replace the single always-on refresh button.
+ * `servers-refresh` keeps its identity (testid, `{kind:'all'}`) - `scripts/flows/
+ * servers-no-scan-while-playing.mjs` depends on it existing - and gains two siblings:
+ * `servers-refresh-favourites` (`{kind:'favourites'}`) and `servers-refresh-selected`
+ * (`{kind:'server', address}`), the latter only meaningful once a row is clicked to select it
+ * (`selectedAddress`, purely local - no selection concept existed before this D). All three are
+ * now disabled while `scanState.running` too, not just while blocked (a deliberate reversal of
+ * 115/116's "re-clicking is safe" - this story's own Decisions: a refresh requested while any scan
+ * runs is refused, not queued, and the controls render disabled with that reason rather than
+ * silently dropping the click), each with its own visible reason line rather than a silent no-op.
  */
 export function ServersView() {
   const { t } = useTranslation()
   const [scanState, setScanState] = useState<ServersScanState>(IDLE_SCAN_STATE)
   const [entries, setEntries] = useState<ServerListEntry[]>([])
+  const [selectedAddress, setSelectedAddress] = useState<string | null>(null)
   // Tracks the last-seen `finishedAt` so a `scan.changed` push is only treated as "a round just
   // finished" (and triggers the one extra `readScan()` below) once, not on every progress-only
   // push during stage1/stage2 - a ref because it must not itself trigger a re-render.
@@ -105,13 +127,33 @@ export function ServersView() {
   }, [])
 
   const handleRefresh = (): void => {
-    void startScan()
+    // Review fix (story 117): a full scan still carries 114 AC2's own "currently selected server"
+    // concept - this view is the first to actually have a selection (`selectedAddress`, added by
+    // this story's D5) - so the server the user has highlighted still gets a stage-2 `status`
+    // query even if stage 1 reports it empty, exactly as 114 always intended for a full sweep.
+    // `undefined` when nothing is selected is the same as today's unchanged behavior.
+    void startScan({ kind: 'all' }, selectedAddress ?? undefined)
+  }
+
+  const handleRefreshFavourites = (): void => {
+    void startScan({ kind: 'favourites' })
+  }
+
+  const handleRefreshSelected = (): void => {
+    if (selectedAddress === null) return
+    void startScan({ kind: 'server', address: selectedAddress })
+  }
+
+  const handleToggleRowSelected = (address: string): void => {
+    setSelectedAddress((current) => (current === address ? null : address))
   }
 
   const stateLabel = t(
     scanState.running ? 'module.servers.view.status.scanning' : 'module.servers.view.status.idle',
   )
   const isBlocked = scanState.blockedReason !== null
+  const isBusy = scanState.running
+  const isRefreshDisabled = isBlocked || isBusy
 
   return (
     <div className="h-full overflow-y-auto scrollbar-gutter-stable">
@@ -129,15 +171,41 @@ export function ServersView() {
               {t(BLOCKED_REASON_KEYS[scanState.blockedReason])}
             </p>
           )}
+          {isBusy && !isBlocked && (
+            <p className="text-xs text-warning" data-testid="servers-scan-busy">
+              {t(SCAN_BUSY_REASON_KEY)}
+            </p>
+          )}
+          {selectedAddress === null && (
+            <p className="text-xs text-ink-muted" data-testid="servers-refresh-selected-hint">
+              {t('module.servers.view.selectServerFirst')}
+            </p>
+          )}
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Button
               variant="neutral"
               onClick={handleRefresh}
-              disabled={isBlocked}
+              disabled={isRefreshDisabled}
               data-testid="servers-refresh"
             >
               {t('module.servers.view.refresh')}
+            </Button>
+            <Button
+              variant="neutral"
+              onClick={handleRefreshFavourites}
+              disabled={isRefreshDisabled}
+              data-testid="servers-refresh-favourites"
+            >
+              {t('module.servers.view.refreshFavourites')}
+            </Button>
+            <Button
+              variant="neutral"
+              onClick={handleRefreshSelected}
+              disabled={isRefreshDisabled || selectedAddress === null}
+              data-testid="servers-refresh-selected"
+            >
+              {t('module.servers.view.refreshSelected')}
             </Button>
             <span
               className="text-xs text-ink-muted"
@@ -158,35 +226,47 @@ export function ServersView() {
         </Panel>
 
         <Panel className="space-y-2 p-4">
-          {entries.map((entry) => (
-            <div
-              key={entry.address}
-              className="flex items-center gap-3 text-xs text-ink-muted"
-              data-testid={`servers-row-${entry.address}`}
-            >
-              <span className="text-ink">{entry.address}</span>
-              {(() => {
-                // Story 116 D5 fix: `players` starts as a numeric `info` count and is replaced by
-                // a full `ServerPlayer[]` roster once stage 2's `status` reply lands (see
-                // `scan-service.ts`'s `mergeSuccessfulReply`) - a stale entry can carry either
-                // shape, so both render a count.
-                const count = Array.isArray(entry.players)
-                  ? entry.players.length
-                  : typeof entry.players === 'number'
-                    ? entry.players
-                    : undefined
-                return count !== undefined && <span>{count}</span>
-              })()}
-              {entry.status === 'stale' && (
-                <span
-                  className="text-warning"
-                  data-testid={`servers-row-stale-${entry.address}`}
-                >
-                  {t('servers.row.stale')}
-                </span>
-              )}
-            </div>
-          ))}
+          {entries.map((entry) => {
+            const isSelected = entry.address === selectedAddress
+            return (
+              <button
+                key={entry.address}
+                type="button"
+                onClick={() => handleToggleRowSelected(entry.address)}
+                aria-pressed={isSelected}
+                data-testid={`servers-row-${entry.address}`}
+                data-selected={isSelected}
+                className={cn(
+                  'flex w-full items-center gap-3 rounded-sm border px-2 py-1.5 text-left text-xs text-ink-muted transition-colors',
+                  isSelected
+                    ? 'border-flame-600 bg-void/40'
+                    : 'border-transparent hover:border-line-strong hover:bg-void/25',
+                )}
+              >
+                <span className="text-ink">{entry.address}</span>
+                {(() => {
+                  // Story 116 D5 fix: `players` starts as a numeric `info` count and is replaced by
+                  // a full `ServerPlayer[]` roster once stage 2's `status` reply lands (see
+                  // `scan-service.ts`'s `mergeSuccessfulReply`) - a stale entry can carry either
+                  // shape, so both render a count.
+                  const count = Array.isArray(entry.players)
+                    ? entry.players.length
+                    : typeof entry.players === 'number'
+                      ? entry.players
+                      : undefined
+                  return count !== undefined && <span>{count}</span>
+                })()}
+                {entry.status === 'stale' && (
+                  <span
+                    className="text-warning"
+                    data-testid={`servers-row-stale-${entry.address}`}
+                  >
+                    {t('servers.row.stale')}
+                  </span>
+                )}
+              </button>
+            )
+          })}
         </Panel>
       </div>
     </div>

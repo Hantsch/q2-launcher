@@ -39,3 +39,15 @@
 - 2026-09-25 10:31 · 116 · D5 visible reason and stale row · done
 - 2026-09-25 10:35 · 116 · D6 offline e2e flow · started
 - 2026-09-25 10:45 · 116 · D6 offline e2e flow · done
+- 2026-09-25 11:04 · 117 · D1 ScanScope shared contract · started
+- 2026-09-25 11:06 · 117 · D1 ScanScope shared contract · done
+- 2026-09-25 11:06 · 117 · D2 scope to address set · started
+- 2026-09-25 11:08 · 117 · D2 scope to address set · done
+- 2026-09-25 11:08 · 117 · D3 scheduler runs a scope · started
+- 2026-09-25 11:12 · 117 · D3 scheduler runs a scope (deliverable-hard) · done
+- 2026-09-25 11:12 · 117 · D4 handler guard and client · started
+- 2026-09-25 11:17 · 117 · D4 handler guard and client · done
+- 2026-09-25 11:17 · 117 · D5 the three controls · started
+- 2026-09-25 11:22 · 117 · D5 the three controls · done
+- 2026-09-25 11:22 · 117 · D6 the e2e proof · started
+- 2026-09-25 11:27 · 117 · D6 the e2e proof · done

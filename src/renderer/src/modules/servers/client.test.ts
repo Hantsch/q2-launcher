@@ -40,6 +40,7 @@ const SCAN_STATE: ServersScanState = {
   startedAt: '2026-01-01T00:00:00.000Z',
   finishedAt: null,
   blockedReason: null,
+  scope: null,
 }
 
 const SCAN_ROW = {
@@ -64,27 +65,28 @@ beforeEach(() => {
 })
 
 describe('servers client - scan transport (story 114 D7)', () => {
-  it('startScan calls scan.start with the selected address wrapped when present', async () => {
+  it('startScan calls scan.start with the scope and the selected address when present', async () => {
     invokeMock.mockResolvedValue({ ok: true, value: { ok: true } })
 
-    const result = await startScan('127.0.0.1:27910')
+    const result = await startScan({ kind: 'all' }, '127.0.0.1:27910')
 
     expect(invokeMock).toHaveBeenCalledWith('module:invoke', {
       moduleId: 'servers',
       type: 'scan.start',
-      payload: { selectedAddress: '127.0.0.1:27910' },
+      payload: { scope: { kind: 'all' }, selectedAddress: '127.0.0.1:27910' },
     })
     expect(result).toEqual({ ok: true, value: { ok: true } })
   })
 
-  it('startScan calls scan.start with no payload at all when no address is selected', async () => {
+  it('startScan calls scan.start with just the scope when no address is selected', async () => {
     invokeMock.mockResolvedValue({ ok: true, value: { ok: true } })
 
-    await startScan()
+    await startScan({ kind: 'all' })
 
     expect(invokeMock).toHaveBeenCalledWith('module:invoke', {
       moduleId: 'servers',
       type: 'scan.start',
+      payload: { scope: { kind: 'all' } },
     })
   })
 
@@ -171,7 +173,7 @@ describe('servers client - scan transport (story 114 D7)', () => {
     const unsubscribeChanged = onScanChanged(vi.fn())
     const unsubscribeServer = onScanServer(vi.fn())
     void readScan()
-    void startScan()
+    void startScan({ kind: 'all' })
     vi.advanceTimersByTime(60_000)
 
     expect(setIntervalSpy).not.toHaveBeenCalled()

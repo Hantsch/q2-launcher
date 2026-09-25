@@ -4,6 +4,7 @@ import {
   type MasterSource,
   type MasterSourcesResult,
   type MasterSourceType,
+  type ScanScope,
   type ScanServerPush,
   type ScanSnapshot,
   type ScanStartResult,
@@ -80,16 +81,22 @@ export function reorderMasterSources(ids: string[]): Promise<Outcome<MasterSourc
  */
 
 /**
- * Starts a scan (D-G, D-L). `selectedAddress` is optional and wrapped only when present -
- * `scanStartInputSchema` (`@shared/modules/servers`) accepts the payload omitted entirely, same as
- * every other optional-only handler payload in this module.
+ * Starts a scan (D-G, D-L). `selectedAddress` is optional and passed through as-is -
+ * `scanStartInputSchema` (`@shared/modules/servers`) accepts it omitted entirely, same as every
+ * other optional-only handler payload in this module.
+ *
+ * Story 117 D4: `scope` is required here and not defaulted - this file is a thin transport layer,
+ * so the choice of "all"/"favourites"/"server" stays visible at each call site (the three Servers
+ * view controls, D5) rather than being baked in as a client-side default.
  */
-export function startScan(selectedAddress?: string): Promise<Outcome<ScanStartResult>> {
-  return callModule<ScanStartResult>(
-    'servers',
-    SERVERS_HANDLERS.scanStart,
-    selectedAddress ? { selectedAddress } : undefined,
-  )
+export function startScan(
+  scope: ScanScope,
+  selectedAddress?: string,
+): Promise<Outcome<ScanStartResult>> {
+  return callModule<ScanStartResult>('servers', SERVERS_HANDLERS.scanStart, {
+    scope,
+    selectedAddress,
+  })
 }
 
 /** One-shot catch-up read (D-D) for a renderer that mounts mid-scan - never polled. */

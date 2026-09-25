@@ -169,9 +169,11 @@ describe('decideAutoTrigger / autoRefreshDelayMs (pure)', () => {
     ])
 
     // And index.ts's `scan.start` handler calls the service directly - no cadence, no spacing.
+    // Story 117 D4: the call now also threads the scope through, but it is still a direct,
+    // unmediated call into `scanService.start` - no cadence module, no spacing check.
     const indexSource = readSource('./index.ts')
     expect(indexSource).toMatch(
-      /handle\(SERVERS_HANDLERS\.scanStart, scanStartInputSchema, \(payload\) =>\s*scanService\.start\(payload\?\.selectedAddress\),?\s*\)/,
+      /handle\(SERVERS_HANDLERS\.scanStart, scanStartInputSchema, \(payload\) =>\s*scanService\.start\(\{\s*scope: payload\?\.scope, selectedAddress: payload\?\.selectedAddress,?\s*\}\),?\s*\)/,
     )
   })
 })

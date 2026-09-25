@@ -27,6 +27,10 @@ version section when a release actually ships.
   fires in the background, and hitting the manual scan button just tells you why it won't. A
   server that goes quiet for one round keeps showing what it last said, clearly marked stale, never
   wiped back to empty. The moment you're back at the menu, scanning picks up again on its own.
+- **Servers** — a refresh no longer has to mean "reload everything": "Refresh favourites" re-checks
+  just your favourites, and selecting a server and hitting "Refresh this server" re-checks only
+  that one, both leaving the rest of the list exactly as it was. All three refresh buttons now show
+  when they can't run (already scanning, or the game is running) instead of silently no-opping.
 - **Linux** — a Windows Quake II build (Steam, GOG, a folder carried over from another machine)
   now plays on Linux too: the launcher offers wine or umu-run as a runner and launches through it
   when you pick one.

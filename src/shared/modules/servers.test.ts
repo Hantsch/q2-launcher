@@ -11,6 +11,8 @@ import {
   manualServerEntrySchema,
   masterSourceSchema,
   scanPatchSettingsInputSchema,
+  scanScopeSchema,
+  scanStartInputSchema,
   serverHistoryEntrySchema,
   serversOverviewSchema,
   serversStateSchema,
@@ -382,6 +384,7 @@ describe('scan guard (story 116 D1)', () => {
       startedAt: null,
       finishedAt: null,
       blockedReason: 'game-running',
+      scope: null,
     }
     const unblocked: ServersScanState = { ...blocked, blockedReason: null }
 
@@ -391,5 +394,48 @@ describe('scan guard (story 116 D1)', () => {
 
   it('SCAN_BLOCKED_GAME_RUNNING_REASON_KEY is the distinct blocked-state i18n key, not the error-state convention', () => {
     expect(SCAN_BLOCKED_GAME_RUNNING_REASON_KEY).toBe('servers.scan.blocked.gameRunning')
+  })
+})
+
+describe('scan scope (story 117 D1)', () => {
+  it('scanScopeSchema accepts all three valid shapes', () => {
+    expect(scanScopeSchema.safeParse({ kind: 'all' }).success).toBe(true)
+    expect(scanScopeSchema.safeParse({ kind: 'favourites' }).success).toBe(true)
+    expect(scanScopeSchema.safeParse({ kind: 'server', address: '1.2.3.4:27910' }).success).toBe(
+      true,
+    )
+  })
+
+  it('scanScopeSchema rejects a server scope with a malformed address', () => {
+    expect(scanScopeSchema.safeParse({ kind: 'server', address: 'not-an-address' }).success).toBe(
+      false,
+    )
+    expect(scanScopeSchema.safeParse({ kind: 'server', address: '' }).success).toBe(false)
+    expect(scanScopeSchema.safeParse({ kind: 'server' }).success).toBe(false)
+  })
+
+  it('scanScopeSchema rejects an unknown kind', () => {
+    expect(scanScopeSchema.safeParse({ kind: 'nope' }).success).toBe(false)
+  })
+
+  it('scanStartInputSchema still accepts no payload, selectedAddress only, scope only, and both together', () => {
+    expect(scanStartInputSchema.safeParse(undefined).success).toBe(true)
+    expect(
+      scanStartInputSchema.safeParse({ selectedAddress: '1.2.3.4:27910' }).success,
+    ).toBe(true)
+    expect(scanStartInputSchema.safeParse({ scope: { kind: 'favourites' } }).success).toBe(true)
+    expect(
+      scanStartInputSchema.safeParse({
+        selectedAddress: '1.2.3.4:27910',
+        scope: { kind: 'server', address: '1.2.3.4:27910' },
+      }).success,
+    ).toBe(true)
+  })
+
+  it('scanStartInputSchema rejects a malformed scope', () => {
+    expect(
+      scanStartInputSchema.safeParse({ scope: { kind: 'server', address: 'not-an-address' } })
+        .success,
+    ).toBe(false)
   })
 })

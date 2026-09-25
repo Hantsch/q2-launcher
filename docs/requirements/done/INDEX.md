@@ -21,6 +21,16 @@ second roadmap.
   scheduler's cadence decision, skips a due auto-refresh without queueing, refuses a manual scan
   with a visible reason, resumes on its own the moment the session ends, and a server that goes
   quiet for one round keeps its last known data flagged stale instead of reading as empty.
+- 117 — A refresh only reloads what changed · S24 · [[114]]'s single `scan.start` entry point gains
+  a `ScanScope` (all/favourites/one server) instead of a second scan implementation — "Refresh
+  favourites" and "Refresh this server" (the latter via a new row-click-to-select affordance) reuse
+  the same two-stage scheduler over a narrower address set, with out-of-scope rows never rewritten
+  or staled; all three refresh controls now show a visible reason when disabled (scanning or the
+  game running) instead of silently no-opping. A `story-review-hard` review PASSed with two small
+  fixes (a stage-2 selected-server gap on a full refresh, a defensive address-normalization gap) and
+  five documented, non-blocking findings (origins overwritten rather than merged on a scoped round;
+  cadence/source-failure bookkeeping not scope-aware; two cosmetic copy nitpicks; a test judged
+  correctly circular-by-design, not weak).
 
 - 001 — Config module scaffold and central profile store · S01 · module wired in with a persisted
   `configProfiles` store and a master/detail create/rename/delete view.

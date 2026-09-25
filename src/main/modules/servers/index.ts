@@ -84,7 +84,7 @@ export const serversModule: MainModule = {
     handle(SERVERS_HANDLERS.overviewRead, serversNoInputSchema, () => scanService.overview())
 
     handle(SERVERS_HANDLERS.scanStart, scanStartInputSchema, (payload) =>
-      scanService.start(payload?.selectedAddress),
+      scanService.start({ scope: payload?.scope, selectedAddress: payload?.selectedAddress }),
     )
     handle(SERVERS_HANDLERS.scanRead, scanReadInputSchema, () => scanService.read())
 

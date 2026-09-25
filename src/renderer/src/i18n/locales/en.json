@@ -172,6 +172,9 @@
       },
       "view": {
         "refresh": "Scan now",
+        "refreshFavourites": "Refresh favourites",
+        "refreshSelected": "Refresh this server",
+        "selectServerFirst": "Select a server to refresh it.",
         "status": {
           "idle": "Idle",
           "scanning": "Scanning…",

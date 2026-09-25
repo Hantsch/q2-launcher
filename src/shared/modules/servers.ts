@@ -546,7 +546,11 @@ export type ScanBlockedReason = 'game-running'
  * ISO timestamps, `null` before the first scan has ever run (`finishedAt` also `null` while
  * `running` is true). `blockedReason` (story 116 D1) is `null` unless a scan is currently being
  * held back by something outside the scan itself (e.g. the game running) - `null` rather than
- * optional, same style as `startedAt`/`finishedAt` above.
+ * optional, same style as `startedAt`/`finishedAt` above. `scope` (story 117 D1) is `null` unless a
+ * scan is currently running or has last run with a known scope - same "null unless something has
+ * actually set it yet" convention as `blockedReason`. This D only adds the field to the type; a
+ * later deliverable (D3, the 116->117 evolution of the scan state) is what actually populates and
+ * resets it.
  */
 export interface ServersScanState {
   running: boolean
@@ -559,6 +563,7 @@ export interface ServersScanState {
   startedAt: string | null
   finishedAt: string | null
   blockedReason: ScanBlockedReason | null
+  scope: ScanScope | null
 }
 
 /**
@@ -591,15 +596,39 @@ export interface ScanSnapshot {
 }
 
 /**
+ * Story 117 D1: which subset of servers a scan round touches. 'all' is exactly today's full scan
+ * (114's union address set); 'favourites' touches only the favourites list; 'server' touches
+ * exactly one address (allowed even when it is in no source/favourite/manual list). This is the
+ * shared contract only - the scheduler/handler that actually branches on it (D2-D4) and the
+ * renderer surfaces that pick it (D5-D6) are later deliverables of this story.
+ */
+export type ScanScope =
+  | { kind: 'all' }
+  | { kind: 'favourites' }
+  | { kind: 'server'; address: string }
+
+export const scanScopeSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('all') }),
+  z.object({ kind: z.literal('favourites') }),
+  z.object({ kind: z.literal('server'), address: serverAddressSchema }),
+])
+
+/**
  * `scan.start`'s payload (D-G): `selectedAddress` is optional and, when present, re-validated with
  * the same `serverAddressSchema` `favouritesAdd`/`favouritesRemove` already use above - it names
  * stage 2's "currently selected server" (AC2), which has no selection surface yet ([[118]]/[[122]]).
  * Accepts a call with no payload at all (`undefined`), same as every other optional-field handler
  * payload in this file that is still allowed to be omitted entirely.
+ *
+ * Story 117 D1 adds `scope` as a sibling field, also optional: a call that omits it (or the whole
+ * payload) still validates, same convention as `selectedAddress`. A later deliverable (D4, not this
+ * one) is responsible for defaulting a missing/omitted scope to `{ kind: 'all' }` - this schema only
+ * has to accept the omission, not resolve it.
  */
 export const scanStartInputSchema = z
   .object({
     selectedAddress: serverAddressSchema.optional(),
+    scope: scanScopeSchema.optional(),
   })
   .optional()
 

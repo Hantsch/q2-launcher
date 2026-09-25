@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ScanSnapshot, ServerListEntry, ServersScanState } from '@shared/modules/servers'
 import { initI18n } from '../../i18n'
@@ -51,6 +51,7 @@ const BASE_STATE: ServersScanState = {
   startedAt: null,
   finishedAt: null,
   blockedReason: null,
+  scope: null,
 }
 
 function snapshot(overrides: {
@@ -150,5 +151,74 @@ describe('ServersView - stale row label (story 116 D5)', () => {
 
     await screen.findByTestId('servers-row-5.6.7.8:27910')
     expect(screen.queryByTestId('servers-row-stale-5.6.7.8:27910')).toBeNull()
+  })
+})
+
+describe('ServersView - scoped refresh controls (story 117 D5)', () => {
+  it('calls startScan with the favourites scope, and only that scope, when "Refresh favourites" is clicked', async () => {
+    await renderView(snapshot({}))
+
+    fireEvent.click(screen.getByTestId('servers-refresh-favourites'))
+
+    expect(startScanMock).toHaveBeenCalledWith({ kind: 'favourites' })
+  })
+
+  it('selecting a row then clicking "Refresh this server" calls startScan with that row\'s server scope', async () => {
+    await renderView(
+      snapshot({
+        entries: [
+          { address: '1.2.3.4:27910', origins: ['manual'], status: 'online', lastSeenAt: 'x' },
+        ],
+      }),
+    )
+
+    const row = await screen.findByTestId('servers-row-1.2.3.4:27910')
+    fireEvent.click(row)
+    expect(row.getAttribute('data-selected')).toBe('true')
+
+    fireEvent.click(screen.getByTestId('servers-refresh-selected'))
+
+    expect(startScanMock).toHaveBeenCalledWith({ kind: 'server', address: '1.2.3.4:27910' })
+  })
+
+  it('disables all three refresh controls and shows a visible reason while a scan is running', async () => {
+    await renderView(snapshot({ state: { running: true, blockedReason: null } }))
+
+    const busy = await screen.findByTestId('servers-scan-busy')
+    // Exact string, not a loose check - reuses `servers.scan.error.already-running` verbatim
+    // (story's own instruction: no new key for the same meaning).
+    expect(busy.textContent).toBe('A scan is already running.')
+
+    expect((screen.getByTestId('servers-refresh') as HTMLButtonElement).disabled).toBe(true)
+    expect(
+      (screen.getByTestId('servers-refresh-favourites') as HTMLButtonElement).disabled,
+    ).toBe(true)
+    expect(
+      (screen.getByTestId('servers-refresh-selected') as HTMLButtonElement).disabled,
+    ).toBe(true)
+  })
+
+  it('disables all three refresh controls while blocked by the game running', async () => {
+    await renderView(snapshot({ state: { blockedReason: 'game-running' } }))
+
+    expect((screen.getByTestId('servers-refresh') as HTMLButtonElement).disabled).toBe(true)
+    expect(
+      (screen.getByTestId('servers-refresh-favourites') as HTMLButtonElement).disabled,
+    ).toBe(true)
+    expect(
+      (screen.getByTestId('servers-refresh-selected') as HTMLButtonElement).disabled,
+    ).toBe(true)
+    // Blocked is the more specific/urgent reason - the busy banner does not also render.
+    expect(screen.queryByTestId('servers-scan-busy')).toBeNull()
+  })
+
+  it('disables "Refresh this server" with a visible reason when nothing is selected, even idle and unblocked', async () => {
+    await renderView(snapshot({}))
+
+    const button = screen.getByTestId('servers-refresh-selected') as HTMLButtonElement
+    expect(button.disabled).toBe(true)
+
+    const hint = screen.getByTestId('servers-refresh-selected-hint')
+    expect(hint.textContent).toBe('Select a server to refresh it.')
   })
 })

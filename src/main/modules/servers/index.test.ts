@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   DEFAULT_MASTER_SOURCES,
   DEFAULT_SERVERS_STATE,
+  SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
   SERVERS_HANDLERS,
   type FavouriteServerEntry,
   type ManualServerAddResult,
@@ -14,7 +15,7 @@ import {
   type ServersOverview,
   type ServersState,
 } from '@shared/modules/servers'
-import { IDLE_LAUNCH_STATE, getModuleManifest } from '@shared/types'
+import { IDLE_LAUNCH_STATE, getModuleManifest, type LaunchState } from '@shared/types'
 import type { AppContext } from '../../context'
 import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
@@ -42,10 +43,11 @@ import { serversModule } from './index'
  * caller of this helper needs that seam to exist, even the tests that never assert on an emitted
  * event.
  */
-function fakeAppContext(state?: StateStore): AppContext {
+function fakeAppContext(state?: StateStore, launchState: LaunchState = IDLE_LAUNCH_STATE): AppContext {
   const broadcast = { emit: () => {} }
-  // Story 116 D3: the scan service/cadence read `app.launch` at construction - an idle, silent stub.
-  const launch = { getState: () => IDLE_LAUNCH_STATE, onStateChange: () => () => {} }
+  // Story 116 D3: the scan service/cadence read `app.launch` at construction - an idle, silent stub
+  // by default; story 117 D4's guard tests below pass a `'running'`/`'starting'` state instead.
+  const launch = { getState: () => launchState, onStateChange: () => () => {} }
   return (state === undefined ? { broadcast, launch } : { state, broadcast, launch }) as unknown as AppContext
 }
 
@@ -571,5 +573,80 @@ describe('servers module scan.* settings handlers (story 115 D2)', () => {
       error: { key: 'ipc.error.invalidPayload' },
     })
     expect(state.serversState().scan.concurrency).toBe(DEFAULT_SERVERS_STATE.scan.concurrency)
+  })
+})
+
+/**
+ * Story 117 D4: `scan.start`'s handler now passes both `scope` and `selectedAddress` through to
+ * `ScanService.start`'s options-object signature. The guard (116) and the single-flight rule (114
+ * D-L) already apply regardless of scope inside the service itself - these tests just prove that
+ * holds through the handler for a *scoped* call, the same way the unscoped call is already covered
+ * above (`servers module overview.read reflects the scan service`).
+ */
+describe('servers module scan.start is guarded and single-flight per scope (story 117 D4)', () => {
+  let filePath: string
+  let state: StateStore
+
+  beforeEach(async () => {
+    filePath = join(tmpdir(), `q2-launcher-state-servers-scan-scope-${randomUUID()}.json`)
+    state = new StateStore(filePath)
+    await state.load()
+    state.setServersState({
+      ...state.serversState(),
+      sources: [],
+      favourites: [],
+      manualServers: [],
+    })
+  })
+
+  afterEach(async () => {
+    await state.settle()
+    await rm(filePath, { force: true })
+    await rm(`${filePath}.tmp`, { force: true })
+    await rm(`${filePath}.bak`, { force: true })
+  })
+
+  it('a scoped scan.start is refused with the game-running reason key while the game is running', async () => {
+    const registry = new MainModuleRegistry()
+    await registry.register(
+      serversModule,
+      fakeAppContext(state, { phase: 'running', installationId: 'inst-1' }),
+    )
+
+    const outcome = await registry.invoke({
+      moduleId: 'servers',
+      type: SERVERS_HANDLERS.scanStart,
+      payload: { scope: { kind: 'favourites' } },
+    })
+
+    expect(outcome).toEqual({
+      ok: true,
+      value: { ok: false, reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY },
+    })
+  })
+
+  it('a scoped scan.start is refused, not queued, while a scan is already running', async () => {
+    const registry = new MainModuleRegistry()
+    await registry.register(serversModule, fakeAppContext(state))
+
+    expect(
+      await registry.invoke({
+        moduleId: 'servers',
+        type: SERVERS_HANDLERS.scanStart,
+        payload: { scope: { kind: 'favourites' } },
+      }),
+    ).toEqual({ ok: true, value: { ok: true } })
+
+    // Not queued: the second scoped call while the first is still in flight is refused outright.
+    expect(
+      await registry.invoke({
+        moduleId: 'servers',
+        type: SERVERS_HANDLERS.scanStart,
+        payload: { scope: { kind: 'all' } },
+      }),
+    ).toEqual({
+      ok: true,
+      value: { ok: false, reasonKey: 'servers.scan.error.already-running' },
+    })
   })
 })
