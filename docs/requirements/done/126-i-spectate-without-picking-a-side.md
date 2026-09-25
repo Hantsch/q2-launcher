@@ -224,3 +224,9 @@ the list toolbar and the detail header.
   125's existing caller) so `servers-spectate.mjs` reuses it instead of duplicating fixture setup.
 
 tiers: D 3 / hard 0 · review default · cycles 0 (1 direct nit-fix, no re-review) · agents 5
+
+**Regression (sprint gate):** the new "Spectate" button/label in `ServerDetailHeader.tsx` tripped
+122's AC4 "no spectator claim" flow check (`servers-detail.mjs`), which scanned the whole detail
+pane's text for "spectat" rather than just the players table it was meant to protect. Fixed by
+narrowing that check's scope to the players panel only (`servers-detail-players`), in commit
+`c6e1e96` — not a weakening, a scope correction to what AC4 always meant.
