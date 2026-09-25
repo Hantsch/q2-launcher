@@ -1039,7 +1039,7 @@ describe('parseServersState (story 110 D2)', () => {
       result.sources.push({ id: 'mutated', type: 'udp-master', address: '1.2.3.4:27910', enabled: true })
       result.scan.concurrency = 999
       expect(DEFAULT_SERVERS_STATE.sources).toEqual(DEFAULT_MASTER_SOURCES)
-      expect(DEFAULT_SERVERS_STATE.scan.concurrency).toBe(8)
+      expect(DEFAULT_SERVERS_STATE.scan.concurrency).toBe(24)
     }
   })
 
@@ -1131,14 +1131,87 @@ describe('parseServersState (story 110 D2)', () => {
       favourites: [],
       manualServers: [],
       history: [],
-      scan: { concurrency: 'nope', timeoutMs: 5000, retries: 3, minSpacingMs: 200 },
+      scan: {
+        concurrency: 'nope',
+        timeoutMs: 5000,
+        retries: 3,
+        minSpacingMs: 15_000,
+        autoScanOnOpen: false,
+        autoRefreshEnabled: true,
+        autoRefreshIntervalMs: 120_000,
+      },
     })
 
     expect(result.scan).toEqual({
       concurrency: DEFAULT_SERVERS_STATE.scan.concurrency,
       timeoutMs: 5000,
       retries: 3,
-      minSpacingMs: 200,
+      minSpacingMs: 15_000,
+      autoScanOnOpen: false,
+      autoRefreshEnabled: true,
+      autoRefreshIntervalMs: 120_000,
+    })
+  })
+
+  // Story 115 D2: an out-of-range numeric field falls back to its own default (not just a
+  // non-number value), same clamp-and-catch convention as `downloadsSettingsSchema`'s
+  // `concurrentJobs`. Proves field-level fallback, not whole-object: the sibling valid fields
+  // (including a valid new D1 field) survive untouched.
+  it('an out-of-range scan.concurrency falls back to its default while the other knobs (including the new fields) are preserved', () => {
+    const result = parseServersState({
+      sources: [],
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: {
+        concurrency: 999,
+        timeoutMs: 1000,
+        retries: 2,
+        minSpacingMs: 15_000,
+        autoScanOnOpen: false,
+        autoRefreshEnabled: true,
+        autoRefreshIntervalMs: 120_000,
+      },
+    })
+
+    expect(result.scan).toEqual({
+      concurrency: DEFAULT_SERVERS_STATE.scan.concurrency,
+      timeoutMs: 1000,
+      retries: 2,
+      minSpacingMs: 15_000,
+      autoScanOnOpen: false,
+      autoRefreshEnabled: true,
+      autoRefreshIntervalMs: 120_000,
+    })
+  })
+
+  // Story 115 D2: same field-level fallback proof for one of the three new fields -
+  // `autoRefreshIntervalMs` out of range falls back to its own default only.
+  it('an out-of-range scan.autoRefreshIntervalMs falls back to its default while the other knobs are preserved', () => {
+    const result = parseServersState({
+      sources: [],
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: {
+        concurrency: 16,
+        timeoutMs: 1000,
+        retries: 2,
+        minSpacingMs: 15_000,
+        autoScanOnOpen: false,
+        autoRefreshEnabled: true,
+        autoRefreshIntervalMs: 999_999_999,
+      },
+    })
+
+    expect(result.scan).toEqual({
+      concurrency: 16,
+      timeoutMs: 1000,
+      retries: 2,
+      minSpacingMs: 15_000,
+      autoScanOnOpen: false,
+      autoRefreshEnabled: true,
+      autoRefreshIntervalMs: DEFAULT_SERVERS_STATE.scan.autoRefreshIntervalMs,
     })
   })
 

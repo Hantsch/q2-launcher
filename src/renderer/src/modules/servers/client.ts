@@ -8,6 +8,7 @@ import {
   type ScanSnapshot,
   type ScanStartResult,
   type ServersOverview,
+  type ServersScanSettings,
   type ServersScanState,
 } from '@shared/modules/servers'
 import type { Outcome } from '@shared/types'
@@ -104,4 +105,31 @@ export function onScanChanged(listener: (state: ServersScanState) => void): () =
 /** Subscribes to one scanned server's row the moment it lands (`scan.server`, D-C). */
 export function onScanServer(listener: (row: ScanServerPush) => void): () => void {
   return onModuleEvent<ScanServerPush>('servers', SERVERS_EVENTS.scanServer, listener)
+}
+
+/**
+ * Story 115 D4: the scan's settings handlers. `getScanSettings` resolves to the full persisted
+ * `ServersScanSettings`; `patchScanSettings` validates and persists a partial patch and resolves to
+ * the full merged+persisted settings - the section that calls it re-syncs from this returned value
+ * rather than merging the patch locally (`ServersSettingsSection.tsx`'s own discipline).
+ */
+export function getScanSettings(): Promise<Outcome<ServersScanSettings>> {
+  return callModule<ServersScanSettings>('servers', SERVERS_HANDLERS.scanGetSettings)
+}
+
+export function patchScanSettings(
+  patch: Partial<ServersScanSettings>,
+): Promise<Outcome<ServersScanSettings>> {
+  return callModule<ServersScanSettings>('servers', SERVERS_HANDLERS.scanPatchSettings, patch)
+}
+
+/**
+ * Story 115 D5: tells main whether the Servers view is currently mounted (`true`) or just
+ * unmounted (`false`) - `scanCadence.onViewActive()`'s (`main/modules/servers/scan-cadence.ts`)
+ * own signal for auto-scan-on-open/auto-refresh timing. The handler itself resolves to nothing
+ * (`main/modules/servers/index.ts`'s `scanSetViewActive` handler returns `undefined`), so this
+ * resolves `Outcome<void>` - the caller only needs to know the transport succeeded.
+ */
+export function setScanViewActive(active: boolean): Promise<Outcome<void>> {
+  return callModule<void>('servers', SERVERS_HANDLERS.scanSetViewActive, { active })
 }

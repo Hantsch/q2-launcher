@@ -7,7 +7,10 @@ import {
   manualAddInputSchema,
   manualListInputSchema,
   manualRemoveInputSchema,
+  scanGetSettingsInputSchema,
+  scanPatchSettingsInputSchema,
   scanReadInputSchema,
+  scanSetViewActiveInputSchema,
   scanStartInputSchema,
   serversNoInputSchema,
   sourcesAddInputSchema,
@@ -24,6 +27,7 @@ import { addFavourite, listFavourites, removeFavourite } from './favourites'
 import { readServerHistory } from './history-log'
 import { addManualServer, removeManualServer } from './manual-servers'
 import { addSource, removeSource, reorderSources, updateSource } from './master-sources'
+import { createScanCadence, type ScanCadence } from './scan-cadence'
 import { createScanService, type ScanService } from './scan-service'
 
 /**
@@ -42,8 +46,12 @@ import { createScanService, type ScanService } from './scan-service'
  * with the real `ScanService`'s numbers - `activeScanService` is a module-level reference (mirroring
  * `src/main/modules/downloads/index.ts`'s `subscriptions` set) so this file's own static `dispose()`
  * can reach whichever service the most recent `setup()` created.
+ *
+ * Story 115 D3 adds `activeScanCadence` the same way: the auto-scan-on-open / auto-refresh timer
+ * owner (`scan-cadence.ts`), so `dispose()` can tear its timer down on shutdown.
  */
 let activeScanService: ScanService | null = null
+let activeScanCadence: ScanCadence | null = null
 
 export const serversModule: MainModule = {
   id: 'servers',
@@ -57,12 +65,51 @@ export const serversModule: MainModule = {
     })
     activeScanService = scanService
 
+    // Story 115 D3: a cadence from a superseded `setup()` could no longer be reached by `dispose()`,
+    // so its timer would outlive it - retire it before replacing the reference.
+    activeScanCadence?.dispose()
+    const scanCadence = createScanCadence({
+      getServersState: () => app.state.serversState(),
+      scanService,
+      onError: (error) => log.warn('automatic scan trigger failed', error),
+    })
+    activeScanCadence = scanCadence
+
     handle(SERVERS_HANDLERS.overviewRead, serversNoInputSchema, () => scanService.overview())
 
     handle(SERVERS_HANDLERS.scanStart, scanStartInputSchema, (payload) =>
       scanService.start(payload?.selectedAddress),
     )
     handle(SERVERS_HANDLERS.scanRead, scanReadInputSchema, () => scanService.read())
+
+    /**
+     * Story 115 D2: the two `scan.*` settings handlers, mirroring `DOWNLOADS_HANDLERS.getSettings`/
+     * `patchSettings` (`src/main/modules/downloads/index.ts`). `scanGetSettings` is a plain read, no
+     * failure mode of its own - same reasoning as `DOWNLOADS_HANDLERS.getSettings`. `scanPatchSettings`
+     * follows the same read/merge/persist discipline as the `favourites.*`/`manual.*` handlers below:
+     * only `scan` is replaced, every other `ServersState` key is carried over from the same snapshot
+     * untouched, and what's returned is what `setServersState` actually persisted, not the local
+     * `merged` candidate. Out-of-range/garbage fields never reach this handler at all -
+     * `scanPatchSettingsInputSchema` already rejects them at the registry (per-field choice-list
+     * `.refine()`), so there is nothing left for this handler itself to validate.
+     */
+    handle(SERVERS_HANDLERS.scanGetSettings, scanGetSettingsInputSchema, () =>
+      app.state.serversState().scan,
+    )
+    handle(SERVERS_HANDLERS.scanPatchSettings, scanPatchSettingsInputSchema, (patch) => {
+      const current = app.state.serversState()
+      const merged = { ...current.scan, ...patch }
+      const persisted = app.state.setServersState({ ...current, scan: merged }).scan
+      // Story 115 D3: a changed interval (or auto-refresh on/off) reschedules immediately; every
+      // other setting is read fresh at the next decision/scan anyway.
+      scanCadence.onSettingsChanged()
+      return persisted
+    })
+    // Story 115 D3: the renderer's view-active signal drives both automatic triggers. The manual
+    // `scan.start` handler above stays a bare, ungated `scanService.start()` call on purpose (AC3).
+    handle(SERVERS_HANDLERS.scanSetViewActive, scanSetViewActiveInputSchema, (payload) => {
+      scanCadence.onViewActive(payload.active)
+    })
 
     /**
      * Story 111 D3: the single read/mutate/persist path every `sources.*` mutation goes through.
@@ -168,6 +215,8 @@ export const serversModule: MainModule = {
   },
 
   dispose() {
+    // Cadence first, so no timer tick can start a new scan after the running one is aborted.
+    activeScanCadence?.dispose()
     activeScanService?.dispose()
   },
 }

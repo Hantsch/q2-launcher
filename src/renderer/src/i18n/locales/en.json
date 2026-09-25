@@ -139,6 +139,44 @@
           "start": "Edit source",
           "save": "Save",
           "cancel": "Cancel"
+        },
+        "scan": {
+          "heading": "Scan",
+          "autoScanOnOpen": {
+            "label": "Scan when the view opens"
+          },
+          "autoRefreshEnabled": {
+            "label": "Keep scanning automatically"
+          },
+          "autoRefreshInterval": {
+            "label": "Auto-refresh interval"
+          },
+          "concurrency": {
+            "label": "Concurrency"
+          },
+          "timeout": {
+            "label": "Query timeout"
+          },
+          "retries": {
+            "label": "Retries"
+          },
+          "minSpacing": {
+            "label": "Minimum time between scans"
+          },
+          "duration": {
+            "ms": "{{value}} ms",
+            "seconds": "{{value}} s",
+            "minutes": "{{value}} min"
+          }
+        }
+      },
+      "view": {
+        "refresh": "Scan now",
+        "status": {
+          "idle": "Idle",
+          "scanning": "Scanning…",
+          "line_one": "{{state}} · {{count}} known server",
+          "line_other": "{{state}} · {{count}} known servers"
         }
       }
     },

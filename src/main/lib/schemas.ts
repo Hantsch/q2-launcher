@@ -37,6 +37,11 @@ import { isLatin1Text } from '@shared/config/q2-charset'
 import {
   DEFAULT_MASTER_SOURCES,
   DEFAULT_SERVERS_STATE,
+  SCAN_AUTO_REFRESH_INTERVAL_CHOICES_MS,
+  SCAN_CONCURRENCY_CHOICES,
+  SCAN_MIN_SPACING_CHOICES_MS,
+  SCAN_RETRIES_CHOICES,
+  SCAN_TIMEOUT_CHOICES_MS,
   favouriteServerEntrySchema,
   manualServerEntrySchema,
   serverHistoryEntrySchema,
@@ -1242,12 +1247,43 @@ function dedupeByKey<T>(rows: T[], keyOf: (row: T) => string): T[] {
   })
 }
 
+/**
+ * Story 115 D2, review fix: extends the four original knobs with the three settings D1 added, and
+ * checks every numeric field against its own `SCAN_*_CHOICES` list (not a bare `.min()/.max()`
+ * range, which accepts an in-range value with no matching `<Select>` option, e.g. an old
+ * pre-choice-list persisted value like `concurrency: 8`/`timeoutMs: 2000`/`minSpacingMs: 50`) -
+ * mirrors `downloadsSettingsSchema`'s `archiveCacheBudgetGB` field exactly: `.refine()` against the
+ * choice list, `.catch(default)` on top, so a value that is not a member of that field's own choice
+ * list falls back to that field's own default the same as a non-number value does, never dropping
+ * the whole `scan` object. The whole-object `.catch()` below stays as the "not even an object"
+ * fallback tier, coexisting with these field-level tiers.
+ */
 const serversScanSettingsForgivingSchema = z
   .object({
-    concurrency: z.number().catch(DEFAULT_SERVERS_STATE.scan.concurrency),
-    timeoutMs: z.number().catch(DEFAULT_SERVERS_STATE.scan.timeoutMs),
-    retries: z.number().catch(DEFAULT_SERVERS_STATE.scan.retries),
-    minSpacingMs: z.number().catch(DEFAULT_SERVERS_STATE.scan.minSpacingMs),
+    concurrency: z
+      .number()
+      .refine((value) => (SCAN_CONCURRENCY_CHOICES as readonly number[]).includes(value))
+      .catch(DEFAULT_SERVERS_STATE.scan.concurrency),
+    timeoutMs: z
+      .number()
+      .refine((value) => (SCAN_TIMEOUT_CHOICES_MS as readonly number[]).includes(value))
+      .catch(DEFAULT_SERVERS_STATE.scan.timeoutMs),
+    retries: z
+      .number()
+      .refine((value) => (SCAN_RETRIES_CHOICES as readonly number[]).includes(value))
+      .catch(DEFAULT_SERVERS_STATE.scan.retries),
+    minSpacingMs: z
+      .number()
+      .refine((value) => (SCAN_MIN_SPACING_CHOICES_MS as readonly number[]).includes(value))
+      .catch(DEFAULT_SERVERS_STATE.scan.minSpacingMs),
+    autoScanOnOpen: z.boolean().catch(DEFAULT_SERVERS_STATE.scan.autoScanOnOpen),
+    autoRefreshEnabled: z.boolean().catch(DEFAULT_SERVERS_STATE.scan.autoRefreshEnabled),
+    autoRefreshIntervalMs: z
+      .number()
+      .refine((value) =>
+        (SCAN_AUTO_REFRESH_INTERVAL_CHOICES_MS as readonly number[]).includes(value),
+      )
+      .catch(DEFAULT_SERVERS_STATE.scan.autoRefreshIntervalMs),
   })
   .catch(() => ({ ...DEFAULT_SERVERS_STATE.scan }))
 

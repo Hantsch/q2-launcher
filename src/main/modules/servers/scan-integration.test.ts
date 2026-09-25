@@ -45,7 +45,15 @@ const EMPTY_INFO_LINE =
 
 /** Small scan budget: fast enough for a test, but the dead target still gets a real timeout +
  * one real retry (2 sends, ~2 * `timeoutMs`) rather than being faked away. */
-const SCAN_SETTINGS = { concurrency: 4, timeoutMs: 300, retries: 1, minSpacingMs: 0 }
+const SCAN_SETTINGS = {
+  concurrency: 4,
+  timeoutMs: 300,
+  retries: 1,
+  minSpacingMs: 0,
+  autoScanOnOpen: true,
+  autoRefreshEnabled: false,
+  autoRefreshIntervalMs: 60000,
+}
 
 /** Classifies an inbound query datagram as `info`/`status`/other, the same way a real server's
  * wire parser would - by the ASCII command token right after the 4-byte OOB prefix. */

@@ -61,6 +61,16 @@ export const SERVERS_HANDLERS = {
   /** Resolves to a `ScanSnapshot` of the scan's current state and every last-known row (D-D) - a
    * single catch-up read for a renderer that mounts mid-scan, never polled (AC5). */
   scanRead: 'scan.read',
+  /** Story 115 D1: `scan.*` settings handler ids. Handler logic (main) is a later D - here they
+   * only need names and payload schemas, same as story 114 D1's `scanStart`/`scanRead` above. */
+  /** Resolves to the full, persisted `ServersScanSettings`. */
+  scanGetSettings: 'scan.getSettings',
+  /** Validates and persists a partial `ServersScanSettings` patch; resolves to the full
+   * merged+persisted settings (mirrors `DOWNLOADS_HANDLERS.patchSettings`). */
+  scanPatchSettings: 'scan.patchSettings',
+  /** Reports whether the Servers view is currently mounted/visible - main's own signal for when
+   * auto-refresh/auto-scan-on-open are allowed to act. No meaningful return value. */
+  scanSetViewActive: 'scan.setViewActive',
 } as const
 
 /**
@@ -223,14 +233,59 @@ export type ManualServerAddResult =
   | { ok: false; reasonKey: string }
 
 /**
- * The scanner's budget knobs (GB-N4). Provisional defaults - story 115 turns these into a real,
- * user-facing setting; here they only need to be sensible placeholders.
+ * Story 115 D1: bounded-choice constants for every numeric scan-settings knob (GB-N4), mirroring
+ * `MIN_CONCURRENT_DOWNLOAD_JOBS`/`MAX_CONCURRENT_DOWNLOAD_JOBS`/`ARCHIVE_CACHE_BUDGET_CHOICES_GB`
+ * (`downloads.ts`): a `MIN_*`/`MAX_*` bound pair for schema validation plus a `SCAN_*_CHOICES` array
+ * of the exact values the Settings UI's `<Select>`s offer - closed lists, not free-text ranges. D6
+ * (this story's measurement deliverable) sets the actual shipped default from a real measurement and
+ * may widen a choice list if the measured number is not already a member of it; these are the
+ * starting choice lists, not the final ones.
+ */
+
+/** How many in-flight queries one scan stage runs at once. */
+export const MIN_SCAN_CONCURRENCY = 1
+export const MAX_SCAN_CONCURRENCY = 32
+export const SCAN_CONCURRENCY_CHOICES = [4, 8, 16, 24, 32] as const
+
+/** How long a single query waits for a reply before it counts as `no-reply`. */
+export const MIN_SCAN_TIMEOUT_MS = 250
+export const MAX_SCAN_TIMEOUT_MS = 5000
+export const SCAN_TIMEOUT_CHOICES_MS = [500, 1000, 1500, 2000, 3000, 5000] as const
+
+/** How many times a query that got no reply is retried before it counts as failed. */
+export const MIN_SCAN_RETRIES = 0
+export const MAX_SCAN_RETRIES = 3
+export const SCAN_RETRIES_CHOICES = [0, 1, 2, 3] as const
+
+/** The minimum spacing between two *automatic* scans (GB-N4/this story's Decisions) - not a
+ * per-query throttle. 0/15s/30s/60s/5min. */
+export const MIN_SCAN_MIN_SPACING_MS = 0
+export const MAX_SCAN_MIN_SPACING_MS = 600_000
+export const SCAN_MIN_SPACING_CHOICES_MS = [0, 15_000, 30_000, 60_000, 300_000] as const
+
+/** How often auto-refresh re-scans while `autoRefreshEnabled` is on. */
+export const MIN_SCAN_AUTO_REFRESH_INTERVAL_MS = 15_000
+export const MAX_SCAN_AUTO_REFRESH_INTERVAL_MS = 600_000
+export const SCAN_AUTO_REFRESH_INTERVAL_CHOICES_MS = [
+  15_000, 30_000, 60_000, 120_000, 300_000,
+] as const
+
+/**
+ * The scanner's budget knobs (GB-N4), turned into real user-facing settings by story 115. The
+ * original four (`concurrency`/`timeoutMs`/`retries`/`minSpacingMs`) keep their shape; D1 adds three
+ * more:
+ * - `autoScanOnOpen`: whether opening the Servers view kicks off a scan automatically.
+ * - `autoRefreshEnabled`: whether the view keeps re-scanning on its own once open.
+ * - `autoRefreshIntervalMs`: how often it does so while `autoRefreshEnabled` is on.
  */
 export interface ServersScanSettings {
   concurrency: number
   timeoutMs: number
   retries: number
   minSpacingMs: number
+  autoScanOnOpen: boolean
+  autoRefreshEnabled: boolean
+  autoRefreshIntervalMs: number
 }
 
 export const serversScanSettingsSchema = z.object({
@@ -238,6 +293,9 @@ export const serversScanSettingsSchema = z.object({
   timeoutMs: z.number(),
   retries: z.number(),
   minSpacingMs: z.number(),
+  autoScanOnOpen: z.boolean(),
+  autoRefreshEnabled: z.boolean(),
+  autoRefreshIntervalMs: z.number(),
 })
 
 /**
@@ -274,10 +332,18 @@ export const DEFAULT_SERVERS_STATE: ServersState = {
   manualServers: [],
   history: [],
   scan: {
-    concurrency: 8,
-    timeoutMs: 2000,
+    // Measured, not invented (story 115 D6): the budget is the N=300 row concurrency 24 /
+    // timeoutMs 1000 / retries 1 of `npm run measure:scan` (median full pass ~7.5 s over the
+    // modelled loopback population); the cadence values are reasoned from that pass time. Method,
+    // numbers and limits: docs/requirements/115-how-hard-the-scan-works-is-a-setting.md,
+    // `## Measurement (AC2)`.
+    concurrency: 24,
+    timeoutMs: 1000,
     retries: 1,
-    minSpacingMs: 50,
+    minSpacingMs: 30_000,
+    autoScanOnOpen: true,
+    autoRefreshEnabled: false,
+    autoRefreshIntervalMs: 60_000,
   },
 }
 
@@ -518,6 +584,56 @@ export const scanStartInputSchema = z
 /** `scan.read` takes no payload - same `z.void()` convention as `historyReadInputSchema` above. */
 export const scanReadInputSchema = serversNoInputSchema
 
+/**
+ * Story 115 D1: payload schemas for the three `scan.*` settings handlers. `scanGetSettings` takes
+ * no payload, same `z.void()` convention as `scanReadInputSchema` above.
+ */
+export const scanGetSettingsInputSchema = serversNoInputSchema
+
+/**
+ * `scan.patchSettings`'s payload - a partial `ServersScanSettings`, mirroring
+ * `patchDownloadsSettingsInputSchema` (`main/modules/downloads/schemas.ts`) exactly: each present
+ * numeric field is validated against its own `SCAN_*_CHOICES` list above via `.refine()` (not a
+ * bare `.min()/.max()` range, which would accept an in-range value with no matching `<Select>`
+ * option, or a non-integer like `0.5`), each present boolean field is just `z.boolean()`, every
+ * field is individually `.optional()` so a patch can touch any subset (including none at all -
+ * `{}` is a valid, no-op patch), and `.strict()` rejects a payload carrying an unknown key outright
+ * - the same "a bad payload is a caller bug" convention `patchDownloadsSettingsInputSchema`'s own
+ * doc comment states.
+ */
+export const scanPatchSettingsInputSchema = z
+  .object({
+    concurrency: z
+      .number()
+      .refine((value) => (SCAN_CONCURRENCY_CHOICES as readonly number[]).includes(value))
+      .optional(),
+    timeoutMs: z
+      .number()
+      .refine((value) => (SCAN_TIMEOUT_CHOICES_MS as readonly number[]).includes(value))
+      .optional(),
+    retries: z
+      .number()
+      .refine((value) => (SCAN_RETRIES_CHOICES as readonly number[]).includes(value))
+      .optional(),
+    minSpacingMs: z
+      .number()
+      .refine((value) => (SCAN_MIN_SPACING_CHOICES_MS as readonly number[]).includes(value))
+      .optional(),
+    autoScanOnOpen: z.boolean().optional(),
+    autoRefreshEnabled: z.boolean().optional(),
+    autoRefreshIntervalMs: z
+      .number()
+      .refine((value) =>
+        (SCAN_AUTO_REFRESH_INTERVAL_CHOICES_MS as readonly number[]).includes(value),
+      )
+      .optional(),
+  })
+  .strict()
+
+/** `scan.setViewActive`'s payload - whether the Servers view just mounted (`true`) or unmounted
+ * (`false`). */
+export const scanSetViewActiveInputSchema = z.object({ active: z.boolean() })
+
 export const SERVERS_HANDLER_SCHEMAS: Record<
   (typeof SERVERS_HANDLERS)[keyof typeof SERVERS_HANDLERS],
   z.ZodTypeAny
@@ -537,4 +653,7 @@ export const SERVERS_HANDLER_SCHEMAS: Record<
   [SERVERS_HANDLERS.historyRead]: historyReadInputSchema,
   [SERVERS_HANDLERS.scanStart]: scanStartInputSchema,
   [SERVERS_HANDLERS.scanRead]: scanReadInputSchema,
+  [SERVERS_HANDLERS.scanGetSettings]: scanGetSettingsInputSchema,
+  [SERVERS_HANDLERS.scanPatchSettings]: scanPatchSettingsInputSchema,
+  [SERVERS_HANDLERS.scanSetViewActive]: scanSetViewActiveInputSchema,
 }

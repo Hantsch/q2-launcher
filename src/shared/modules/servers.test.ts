@@ -8,6 +8,7 @@ import {
   SERVERS_HANDLER_SCHEMAS,
   manualServerEntrySchema,
   masterSourceSchema,
+  scanPatchSettingsInputSchema,
   serverHistoryEntrySchema,
   serversOverviewSchema,
   serversStateSchema,
@@ -20,7 +21,7 @@ describe('servers module contract (story 106 D1)', () => {
     }
   })
 
-  it('names every handler exactly, including story 111 D1\'s five sources.* handlers, story 112 D1\'s three favourites.* handlers, story 113 D1\'s four manual.*/history.* handlers and story 114 D1\'s two scan.* handlers', () => {
+  it('names every handler exactly, including story 111 D1\'s five sources.* handlers, story 112 D1\'s three favourites.* handlers, story 113 D1\'s four manual.*/history.* handlers, story 114 D1\'s two scan.* handlers and story 115 D1\'s three scan.*Settings/setViewActive handlers', () => {
     expect(SERVERS_HANDLERS).toEqual({
       overviewRead: 'overview.read',
       sourcesList: 'sources.list',
@@ -37,6 +38,9 @@ describe('servers module contract (story 106 D1)', () => {
       historyRead: 'history.read',
       scanStart: 'scan.start',
       scanRead: 'scan.read',
+      scanGetSettings: 'scan.getSettings',
+      scanPatchSettings: 'scan.patchSettings',
+      scanSetViewActive: 'scan.setViewActive',
     })
   })
 
@@ -312,6 +316,48 @@ describe('manual servers and history (story 113 D1)', () => {
         address: '1.2.3.4:27912',
         lastConnectedAt: '2026-09-24T00:00:00.000Z',
       }).success,
+    ).toBe(false)
+  })
+})
+
+describe('scan settings (story 115 D1)', () => {
+  it('every scan.*Settings/scan.setViewActive handler has a payload schema registered', () => {
+    for (const name of [
+      SERVERS_HANDLERS.scanGetSettings,
+      SERVERS_HANDLERS.scanPatchSettings,
+      SERVERS_HANDLERS.scanSetViewActive,
+    ]) {
+      expect(SERVERS_HANDLER_SCHEMAS[name]).toBeDefined()
+    }
+  })
+
+  it('scanGetSettings accepts undefined (no payload)', () => {
+    expect(
+      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.scanGetSettings].safeParse(undefined).success,
+    ).toBe(true)
+  })
+
+  it('scanSetViewActive accepts { active }', () => {
+    expect(
+      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.scanSetViewActive].safeParse({ active: true }).success,
+    ).toBe(true)
+    expect(
+      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.scanSetViewActive].safeParse({}).success,
+    ).toBe(false)
+  })
+
+  it('scanPatchSettingsInputSchema accepts an empty patch and a valid partial patch', () => {
+    expect(scanPatchSettingsInputSchema.safeParse({}).success).toBe(true)
+    expect(scanPatchSettingsInputSchema.safeParse({ concurrency: 8 }).success).toBe(true)
+  })
+
+  it('scanPatchSettingsInputSchema rejects an out-of-range numeric field', () => {
+    expect(scanPatchSettingsInputSchema.safeParse({ concurrency: 999 }).success).toBe(false)
+    expect(scanPatchSettingsInputSchema.safeParse({ timeoutMs: 999_999 }).success).toBe(false)
+    expect(scanPatchSettingsInputSchema.safeParse({ retries: -1 }).success).toBe(false)
+    expect(scanPatchSettingsInputSchema.safeParse({ minSpacingMs: -1 }).success).toBe(false)
+    expect(
+      scanPatchSettingsInputSchema.safeParse({ autoRefreshIntervalMs: 1 }).success,
     ).toBe(false)
   })
 })

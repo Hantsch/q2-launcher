@@ -7,6 +7,7 @@ import { DownloadsSettingsSection } from './downloads/DownloadsSettingsSection'
 import { DownloadsView } from './downloads/DownloadsView'
 import { HomeView } from './home/HomeView'
 import { ServersSettingsSection } from './servers/ServersSettingsSection'
+import { ServersView } from './servers/ServersView'
 
 /**
  * The renderer half of a module: the view that owns its route.
@@ -62,10 +63,13 @@ export const RENDERER_MODULES: readonly RendererModule[] = [
   },
   { id: 'config', View: ConfigView },
   {
-    // Story 106 D3: no `View` - the shell's `PlannedModuleView` fallback renders the route until
-    // this module earns a real one, same mechanism `mods`/`assets` rely on. Only a settings
-    // section is contributed so far.
+    // Story 115 D5: `View: ServersView` is a deliberate stand-in, not the module's real debut -
+    // it exists only to give the manual-scan control (AC3) somewhere real to render. The module
+    // manifest's own `status: 'planned'` (`@shared/types`'s `MODULE_MANIFESTS`) is left untouched
+    // by this story on purpose, so the nav rail's "planned" badge still reads accurately until
+    // the real server list ([[118]]/[[121]]) lands.
     id: 'servers',
+    View: ServersView,
     settingsSection: {
       titleKey: 'module.servers.settings.title',
       order: 20,

@@ -214,7 +214,15 @@ describe('StateStore servers state (story 110 D3)', () => {
         { address: '5.6.7.8:27911', origin: 'manual', addedAt: '2026-01-02T00:00:00.000Z' },
       ],
       history: [{ address: '9.10.11.12:27912', connectedAt: '2026-01-03T00:00:00.000Z' }],
-      scan: { concurrency: 4, timeoutMs: 1500, retries: 2, minSpacingMs: 25 },
+      scan: {
+        concurrency: 4,
+        timeoutMs: 1500,
+        retries: 2,
+        minSpacingMs: 15_000,
+        autoScanOnOpen: true,
+        autoRefreshEnabled: false,
+        autoRefreshIntervalMs: 60000,
+      },
     }
     const written = state.setServersState(custom)
     await state.settle()

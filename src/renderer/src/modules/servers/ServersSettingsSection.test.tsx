@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { getModuleManifest } from '@shared/types'
-import { SERVERS_HANDLERS, type MasterSource } from '@shared/modules/servers'
+import { SERVERS_HANDLERS, type MasterSource, type ServersScanSettings } from '@shared/modules/servers'
 import { initI18n } from '../../i18n'
 import type { ServersSettingsSection as ServersSettingsSectionType } from './ServersSettingsSection'
 
@@ -11,18 +11,40 @@ const SOURCES: MasterSource[] = [
   { id: 'a', type: 'udp-master', address: 'master.q2servers.com:27900', enabled: true },
 ]
 
+const DEFAULT_SCAN_SETTINGS: ServersScanSettings = {
+  concurrency: 8,
+  timeoutMs: 2000,
+  retries: 1,
+  minSpacingMs: 30_000,
+  autoScanOnOpen: true,
+  autoRefreshEnabled: false,
+  autoRefreshIntervalMs: 60_000,
+}
+
+/** The stub `window.q2.invoke` falls back to for every call this file's tests don't override for
+ * one render - re-installed in `afterEach` so one test's override never leaks into the next. */
+function defaultInvoke(
+  _channel: string,
+  args: { type: string },
+): Promise<{ ok: true; value: unknown }> {
+  if (args?.type === SERVERS_HANDLERS.scanGetSettings) {
+    return Promise.resolve({ ok: true, value: DEFAULT_SCAN_SETTINGS })
+  }
+  if (args?.type === SERVERS_HANDLERS.scanPatchSettings) {
+    return Promise.resolve({ ok: true, value: DEFAULT_SCAN_SETTINGS })
+  }
+  return Promise.resolve({ ok: true, value: SOURCES })
+}
+
 /**
- * Story 106 D3, extended by story 111 D4.
+ * Story 106 D3, extended by story 111 D4, extended by story 115 D4.
  *
  * `../index` pulls in the renderer module registry, which (like `modules/index.test.ts`) needs
  * `window.q2` stubbed at module scope before it's imported, even though this file never calls
  * `callModule` itself.
  */
 ;(globalThis as unknown as { q2: unknown }).q2 = {
-  invoke: vi.fn((_channel: string, args: { type: string }) => {
-    if (args?.type === SERVERS_HANDLERS.sourcesList) return Promise.resolve({ ok: true, value: SOURCES })
-    return Promise.resolve({ ok: true, value: SOURCES })
-  }),
+  invoke: vi.fn(defaultInvoke),
   on: vi.fn(() => () => {}),
 }
 
@@ -38,18 +60,23 @@ beforeAll(async () => {
 
 afterEach(() => {
   cleanup()
+  ;(globalThis as unknown as { q2: { invoke: ReturnType<typeof vi.fn> } }).q2.invoke.mockImplementation(
+    defaultInvoke,
+  )
 })
 
 describe('servers module registration', () => {
-  it('the servers renderer module contributes a settings section and no view', async () => {
+  it('the servers renderer module contributes a settings section and a minimal manual-scan view', async () => {
     const { rendererModule } = await import('../index')
+    const { ServersView } = await import('./ServersView')
     const module = rendererModule('servers')
 
     expect(module).toBeDefined()
-    // Mirrors `modules/index.test.ts`'s "no View" half of the mods/assets convention (Decisions):
-    // the route falls back to the shell's `PlannedModuleView` until a later deliverable earns a
-    // real one.
-    expect(module?.View).toBeUndefined()
+    // Story 115 D5: `View` is now `ServersView` - a deliberate stand-in for the manual scan
+    // control only (AC3), not the module's real debut. The manifest's own `status` stays
+    // `'planned'` below on purpose, so the nav rail's "planned" badge still reads accurately
+    // until the real server list ([[118]]/[[121]]) lands.
+    expect(module?.View).toBe(ServersView)
     expect(module?.settingsSection).toBeDefined()
     expect(module?.settingsSection?.Section).toBe(ServersSettingsSection)
 
@@ -66,5 +93,123 @@ describe('servers module registration', () => {
 
     const row = screen.getByTestId('servers-source-row-a')
     expect(row.textContent).toContain('master.q2servers.com:27900')
+  })
+})
+
+/** Story 115 D4: the "Scan" sub-section this deliverable adds below the master-source list. */
+describe('servers scan settings', () => {
+  const invokeMock = () =>
+    (globalThis as unknown as { q2: { invoke: ReturnType<typeof vi.fn> } }).q2.invoke
+
+  const selectIn = (testid: string): HTMLSelectElement =>
+    within(screen.getByTestId(testid)).getByRole('combobox') as HTMLSelectElement
+
+  const switchIn = (testid: string): HTMLButtonElement =>
+    within(screen.getByTestId(testid)).getByRole('switch') as HTMLButtonElement
+
+  it('every one of the 7 controls carries its servers-scan-settings-* testid', async () => {
+    render(createElement(ServersSettingsSection))
+
+    for (const testid of [
+      'servers-scan-settings-auto-scan-on-open',
+      'servers-scan-settings-auto-refresh-enabled',
+      'servers-scan-settings-auto-refresh-interval',
+      'servers-scan-settings-concurrency',
+      'servers-scan-settings-timeout',
+      'servers-scan-settings-retries',
+      'servers-scan-settings-min-spacing',
+    ]) {
+      expect(await screen.findByTestId(testid)).toBeTruthy()
+    }
+  })
+
+  it('renders the values getScanSettings() resolved with, not a hardcoded default', async () => {
+    render(createElement(ServersSettingsSection))
+
+    await waitFor(() => expect(invokeMock()).toHaveBeenCalled())
+
+    await waitFor(() =>
+      expect(selectIn('servers-scan-settings-concurrency').value).toBe(
+        String(DEFAULT_SCAN_SETTINGS.concurrency),
+      ),
+    )
+    expect(selectIn('servers-scan-settings-timeout').value).toBe(
+      String(DEFAULT_SCAN_SETTINGS.timeoutMs),
+    )
+    expect(selectIn('servers-scan-settings-retries').value).toBe(
+      String(DEFAULT_SCAN_SETTINGS.retries),
+    )
+    expect(selectIn('servers-scan-settings-min-spacing').value).toBe(
+      String(DEFAULT_SCAN_SETTINGS.minSpacingMs),
+    )
+    expect(selectIn('servers-scan-settings-auto-refresh-interval').value).toBe(
+      String(DEFAULT_SCAN_SETTINGS.autoRefreshIntervalMs),
+    )
+    expect(switchIn('servers-scan-settings-auto-scan-on-open').getAttribute('aria-checked')).toBe(
+      String(DEFAULT_SCAN_SETTINGS.autoScanOnOpen),
+    )
+    expect(
+      switchIn('servers-scan-settings-auto-refresh-enabled').getAttribute('aria-checked'),
+    ).toBe(String(DEFAULT_SCAN_SETTINGS.autoRefreshEnabled))
+  })
+
+  it('the auto-refresh-interval select is disabled while autoRefreshEnabled is off, enabled once on', async () => {
+    render(createElement(ServersSettingsSection))
+
+    await waitFor(() =>
+      expect(selectIn('servers-scan-settings-auto-refresh-interval').disabled).toBe(true),
+    )
+    cleanup()
+
+    invokeMock().mockImplementation((_channel: string, args: { type: string }) => {
+      if (args?.type === SERVERS_HANDLERS.scanGetSettings) {
+        return Promise.resolve({
+          ok: true,
+          value: { ...DEFAULT_SCAN_SETTINGS, autoRefreshEnabled: true },
+        })
+      }
+      return Promise.resolve({ ok: true, value: SOURCES })
+    })
+
+    render(createElement(ServersSettingsSection))
+
+    await waitFor(() =>
+      expect(selectIn('servers-scan-settings-auto-refresh-interval').disabled).toBe(false),
+    )
+  })
+
+  it('changing a control patches settings and renders main’s returned value, not the requested one', async () => {
+    const RETURNED_SETTINGS: ServersScanSettings = { ...DEFAULT_SCAN_SETTINGS, concurrency: 32 }
+
+    invokeMock().mockImplementation((_channel: string, args: { type: string }) => {
+      if (args?.type === SERVERS_HANDLERS.scanGetSettings) {
+        return Promise.resolve({ ok: true, value: DEFAULT_SCAN_SETTINGS })
+      }
+      if (args?.type === SERVERS_HANDLERS.scanPatchSettings) {
+        return Promise.resolve({ ok: true, value: RETURNED_SETTINGS })
+      }
+      return Promise.resolve({ ok: true, value: SOURCES })
+    })
+
+    render(createElement(ServersSettingsSection))
+
+    const concurrency = await waitFor(() => {
+      const select = selectIn('servers-scan-settings-concurrency')
+      expect(select.value).toBe(String(DEFAULT_SCAN_SETTINGS.concurrency))
+      return select
+    })
+
+    fireEvent.change(concurrency, { target: { value: '16' } })
+
+    await waitFor(() =>
+      expect(invokeMock()).toHaveBeenCalledWith('module:invoke', {
+        moduleId: 'servers',
+        type: SERVERS_HANDLERS.scanPatchSettings,
+        payload: { concurrency: 16 },
+      }),
+    )
+
+    // Not the requested '16' - the value main's mocked response actually resolved with.
+    await waitFor(() => expect(concurrency.value).toBe(String(RETURNED_SETTINGS.concurrency)))
   })
 })

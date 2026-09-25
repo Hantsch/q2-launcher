@@ -17,7 +17,7 @@ one server instead of always reloading everything.
 ## Stories (in build order)
 
 - [x] 114 — a scan sweeps the servers in two stages
-- [ ] 115 — how hard the scan works is a setting
+- [x] 115 — how hard the scan works is a setting
 - [ ] 116 — no scan runs while the game does
 - [ ] 117 — a refresh only reloads what changed
 

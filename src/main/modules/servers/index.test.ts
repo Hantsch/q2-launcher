@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   DEFAULT_MASTER_SOURCES,
+  DEFAULT_SERVERS_STATE,
   SERVERS_HANDLERS,
   type FavouriteServerEntry,
   type ManualServerAddResult,
@@ -498,5 +499,75 @@ describe('servers module overview.read reflects the scan service (story 114 D6)'
       ok: true,
       value: { ok: false, reasonKey: 'servers.scan.error.already-running' },
     })
+  })
+})
+
+/**
+ * Story 115 D2: the `scan.getSettings`/`scan.patchSettings` handlers - same real-`StateStore`
+ * round-trip harness as the `sources.*`/`favourites.*` blocks above, driven through the real
+ * `MainModuleRegistry` so the shared payload schema (`scanPatchSettingsInputSchema`'s per-field
+ * min/max) runs too. `scan.patchSettings` follows the read/merge/persist discipline: only `scan` is
+ * replaced, every other `ServersState` key is carried over from the same snapshot untouched.
+ */
+describe('servers module scan.* settings handlers (story 115 D2)', () => {
+  let filePath: string
+  let state: StateStore
+  let registry: MainModuleRegistry
+
+  beforeEach(async () => {
+    filePath = join(tmpdir(), `q2-launcher-state-servers-scan-settings-${randomUUID()}.json`)
+    state = new StateStore(filePath)
+    await state.load()
+    registry = new MainModuleRegistry()
+    await registry.register(serversModule, fakeAppContext(state))
+  })
+
+  afterEach(async () => {
+    await state.settle()
+    await rm(filePath, { force: true })
+    await rm(`${filePath}.tmp`, { force: true })
+    await rm(`${filePath}.bak`, { force: true })
+  })
+
+  function invoke(type: string, payload?: unknown): Promise<unknown> {
+    return registry.invoke({ moduleId: 'servers', type, payload })
+  }
+
+  it('scan.getSettings returns the persisted scan object', async () => {
+    const before = state.serversState()
+
+    expect(await invoke(SERVERS_HANDLERS.scanGetSettings)).toEqual({
+      ok: true,
+      value: before.scan,
+    })
+  })
+
+  it('scan.patchSettings round-trips a partial patch through state.json and leaves the other keys untouched', async () => {
+    const before = state.serversState()
+
+    const outcome = await invoke(SERVERS_HANDLERS.scanPatchSettings, { concurrency: 16 })
+    expect(outcome).toEqual({
+      ok: true,
+      value: { ...before.scan, concurrency: 16 },
+    })
+
+    await state.settle()
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+    const persisted = reloaded.serversState()
+
+    expect(persisted.scan).toEqual({ ...before.scan, concurrency: 16 })
+    expect(persisted.sources).toEqual(before.sources)
+    expect(persisted.favourites).toEqual(before.favourites)
+    expect(persisted.manualServers).toEqual(before.manualServers)
+    expect(persisted.history).toEqual(before.history)
+  })
+
+  it('rejects an out-of-range scan.patchSettings payload before the handler runs', async () => {
+    expect(await invoke(SERVERS_HANDLERS.scanPatchSettings, { concurrency: 999 })).toEqual({
+      ok: false,
+      error: { key: 'ipc.error.invalidPayload' },
+    })
+    expect(state.serversState().scan.concurrency).toBe(DEFAULT_SERVERS_STATE.scan.concurrency)
   })
 })

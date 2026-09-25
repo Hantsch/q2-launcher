@@ -14,3 +14,16 @@
 - 2026-09-25 08:17 · 114 · D7 renderer client helpers · done
 - 2026-09-25 08:18 · 114 · D8 real-socket integration proof · started
 - 2026-09-25 08:22 · 114 · D8 real-socket integration proof · done
+- 2026-09-25 08:39 · 115 · D1 scan settings contract · started
+- 2026-09-25 08:42 · 115 · D1 scan settings contract · done
+- 2026-09-25 08:43 · 115 · D2 settings persistence · started
+- 2026-09-25 08:46 · 115 · D2 settings persistence · done
+- 2026-09-25 08:46 · 115 · D3 scan cadence · started
+- 2026-09-25 08:50 · 115 · D3 scan cadence · done
+- 2026-09-25 08:51 · 115 · D4 scan settings UI · started
+- 2026-09-25 08:57 · 115 · D4 scan settings UI · done
+- 2026-09-25 08:58 · 115 · D5 manual scan trigger · started
+- 2026-09-25 09:09 · 115 · D5 manual scan trigger · done
+- 2026-09-25 09:11 · 115 · D6 measured defaults · started
+- 2026-09-25 09:37 · 115 · D6 measured defaults · done
+- 2026-09-25 10:05 · 115 · review-fix cycle 1 (fixture-variant regressions + schema choice-list gap) · done

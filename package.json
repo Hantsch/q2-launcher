@@ -24,6 +24,7 @@
     "typecheck:web": "tsc -p tsconfig.web.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "measure:scan": "node scripts/measure/scan-pass.mjs",
     "icon": "node scripts/generate-icon.mjs",
     "fetch:7za": "node scripts/fetch-7za.mjs",
     "icons:installations": "node scripts/generate-installation-icons.mjs",

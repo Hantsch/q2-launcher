@@ -1330,6 +1330,68 @@ export const DOWNLOADS_CACHE_TOTAL_BYTES =
   DOWNLOADS_CACHE_ARCHIVE_ONE.sizeBytes + DOWNLOADS_CACHE_ARCHIVE_TWO.sizeBytes
 export const DOWNLOADS_CACHE_ITEM_COUNT = 2
 
+// --- servers.ts ServersState fixture (story 115) ----------------------------
+// Mirrors src/shared/modules/servers.ts's `ServersState`/`ServersScanSettings`/
+// `DEFAULT_MASTER_SOURCES` (hardcoded, not imported - see this file's own header comment).
+//
+// GB-A5 (this project's own testing rule): no test or `ui:flow`/`ui:verify` run may ever touch a
+// real master or game server. The `populated` variant's fresh boot falls back to
+// `DEFAULT_SERVERS_STATE` - whose three `DEFAULT_MASTER_SOURCES` are all `enabled: true` and point
+// at real internet hosts (`master.q2servers.com`, `master.quakeservers.net`, `q2servers.com`) -
+// which is exactly what story 111's own `servers-master-sources` flow needs to find there (a fresh
+// profile's three defaults, enabled). Story 115 D5's `servers-scan-settings` flow instead triggers
+// a real `scan.start` (AC3), so it gets its OWN dedicated fixture variant (`servers-scan`, below)
+// rather than mutating `populated`'s shared `servers` key: every shipped source present (never
+// silently deleted from the user's view) but disabled, plus one manual server on a dead,
+// unused-looking loopback port that only ever needs to time out harmlessly - the same safety
+// property `scan-integration.test.ts`'s own seed uses, minus the real dgram responder this fixture
+// doesn't need.
+export const SERVERS_DISABLED_SOURCES = [
+  {
+    id: 'default-q2servers-udp',
+    type: 'udp-master',
+    address: 'master.q2servers.com:27900',
+    enabled: false,
+  },
+  {
+    id: 'default-quakeservers-udp',
+    type: 'udp-master',
+    address: 'master.quakeservers.net:27900',
+    enabled: false,
+  },
+  {
+    id: 'default-q2servers-http',
+    type: 'http-list',
+    address: 'https://q2servers.com/?raw=1',
+    enabled: false,
+  },
+]
+
+/** A manual server address on a fixed, dead loopback port - nothing listens on it, so a scan
+ * against it always times out locally and never reaches the real internet. */
+export const SERVERS_MANUAL_SERVER_ADDRESS = '127.0.0.1:27921'
+
+/** Mirrors src/shared/modules/servers.ts's `ServersScanSettings`. Deliberately non-default on
+ * every field except `autoRefreshIntervalMs` (which happens to coincide with
+ * `DEFAULT_SERVERS_STATE.scan`'s own 60000 - every other field still tells "the fixture's seeded
+ * values" apart from "whatever the default would have rendered anyway", same discipline as
+ * `DOWNLOADS_SETTINGS_SEED` above). `timeoutMs: 500`/`retries: 0` is the shortest combination the
+ * Settings `<Select>` can actually show - `500` is `SCAN_TIMEOUT_CHOICES_MS`'s (servers.ts) own
+ * lowest choice, deliberately not the schema's raw `MIN_SCAN_TIMEOUT_MS` (250) floor, which the
+ * `<Select>` has no option for and would leave the control showing no matching value at boot - so
+ * the one dead loopback target still fails fast (~500ms, no retry) without the flow's own boot-side
+ * assertion breaking against a value the UI cannot render. Exported so
+ * `scripts/flows/servers-scan-settings.mjs` asserts against the exact seeded literals. */
+export const SERVERS_SCAN_SETTINGS_SEED = {
+  concurrency: 4,
+  timeoutMs: 500,
+  retries: 0,
+  minSpacingMs: 15000,
+  autoScanOnOpen: false,
+  autoRefreshEnabled: true,
+  autoRefreshIntervalMs: 60000,
+}
+
 /** Writes the two dummy archives above into `<userDataDir>/cache/downloads/`, each with its own
  * distinct mtime (`fs.utimesSync` - the only way to backdate a file Node itself just wrote). */
 function writeDownloadsCacheArchives(userDataDir) {
@@ -1343,7 +1405,13 @@ function writeDownloadsCacheArchives(userDataDir) {
   }
 }
 
-function populatedStateDocument() {
+/**
+ * `overrides` is merged onto the base document with a plain shallow spread - a top-level key
+ * present in `overrides` replaces that key wholesale (never deep-merged), which is exactly what
+ * the `servers-scan` variant needs (a whole `servers` key, built from scratch) and cheap enough not
+ * to need anything fancier. No caller today overrides more than one top-level key at a time.
+ */
+function populatedStateDocument(overrides = {}) {
   return {
     schemaVersion: STATE_SCHEMA_VERSION,
     settings: { ...DEFAULT_SETTINGS, activeInstallationId: INSTALL_ONE_ID },
@@ -1369,6 +1437,7 @@ function populatedStateDocument() {
         { moduleId: 'configProfiles', x: 7, y: 2, w: 4, h: 5 },
       ],
     },
+    ...overrides,
   }
 }
 
@@ -1906,13 +1975,20 @@ function rmDirBestEffort(path) {
   }
 }
 
-/** Deletes and rewrites the `populated` variant's userdata + game dirs. */
-export function writePopulatedFixture() {
-  const userDataDir = variantUserDataDir('populated')
+/**
+ * Deletes and rewrites the `populated` variant's userdata + game dirs - or, when `variant`/
+ * `stateOverrides` are passed, a different variant that needs every one of those same side effects
+ * (installations, config profiles, news cache, download-cache archives) but a different top-level
+ * `state.json` key or two on top of the base document. `writeFixture('servers-scan')` below is the
+ * one caller that passes both, rather than this function being duplicated near-verbatim for one
+ * extra `servers` key.
+ */
+export function writePopulatedFixture({ variant = 'populated', stateOverrides = {} } = {}) {
+  const userDataDir = variantUserDataDir(variant)
   rmDirBestEffort(userDataDir)
   mkdirSync(userDataDir, { recursive: true })
 
-  writeJson(join(userDataDir, STATE_FILE), populatedStateDocument())
+  writeJson(join(userDataDir, STATE_FILE), populatedStateDocument(stateOverrides))
   writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
   writeDownloadsCacheArchives(userDataDir)
   // Story 083 D6: a fresh, successful feed cache - the `home-hero` screen's filled state.
@@ -2117,6 +2193,31 @@ export function writeFixture(variant) {
   if (variant === 'news-stale') return writeNewsStaleFixture()
   if (variant === 'news-images') return writeNewsImagesFixture()
   if (variant === 'news-cover') return writeNewsCoverFixture()
+  // Story 115 D5: `scripts/flows/servers-scan-settings.mjs`'s own dedicated variant - see the
+  // `servers.ts ServersState fixture` comment block above for why it is not a `servers` key added
+  // to `populated` instead. Reuses `writePopulatedFixture()`'s installations/config-profiles/news
+  // cache/download-cache-archive side effects verbatim, under a different variant's userData dir
+  // and with the `servers` key `populatedStateDocument()` used to carry added back on top.
+  if (variant === 'servers-scan') {
+    return writePopulatedFixture({
+      variant: 'servers-scan',
+      stateOverrides: {
+        servers: {
+          sources: SERVERS_DISABLED_SOURCES,
+          favourites: [],
+          manualServers: [
+            {
+              address: SERVERS_MANUAL_SERVER_ADDRESS,
+              origin: 'manual',
+              addedAt: '2026-01-01T00:00:00.000Z',
+            },
+          ],
+          history: [],
+          scan: { ...SERVERS_SCAN_SETTINGS_SEED },
+        },
+      },
+    })
+  }
   throw new Error(`unknown fixture variant: ${variant}`)
 }
 
@@ -2130,6 +2231,9 @@ export const FIXTURE_VARIANTS = [
   // `scripts/flows/news-cover-template.mjs` alone, which is why it still has to be listed here
   // (`ui:verify` only reseeds the variants its screens name; `ui:seed` is what writes this one).
   'news-cover',
+  // Story 115 D5: same reasoning as `news-cover` right above - no screen in `screens.mjs` names
+  // this one, it exists for `scripts/flows/servers-scan-settings.mjs` alone.
+  'servers-scan',
 ]
 
 // --- story 066 D8: the import-from-files flow's staged real-config corpus ---------------------
