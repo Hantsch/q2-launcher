@@ -219,3 +219,6 @@
 - 2026-09-25 23:03:32 · gate · short-suites · done (build green, test red 1, ui:verify green)
 - 2026-09-25T21:04:52Z · 131 · fix regression from sprint gate · started
 - 2026-09-25T21:05:48Z · 131 · fix regression from sprint gate · done
+- 2026-09-25 23:06:31 · gate · e2e-all · started
+- 2026-09-25T21:34:28Z · 126 · fix regression from sprint gate (servers-detail AC4 scope) · started
+- 2026-09-25T21:37:10Z · 126 · fix regression from sprint gate (servers-detail AC4 scope) · done

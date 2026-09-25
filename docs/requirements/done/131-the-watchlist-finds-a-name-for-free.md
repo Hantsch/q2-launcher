@@ -347,3 +347,9 @@ it does not affect scan timing/results (no AC violation), and the existing `tooS
 already prevents new jobs once the flag is set.
 
 tiers: D 5 / hard 1 · review default+hard · cycles 1 · agents 10
+
+**Regression (sprint gate):** the local `function spawn(): Worker` in `watchlist-regex-host.ts`
+tripped the downloads-module layering guard (`layering.test.ts`), which bans the literal
+substring `spawn(` outside the downloads module — a false positive (the function creates a
+`worker_threads.Worker`, not a `child_process`), not a real boundary violation. Fixed by renaming
+it to `startWorker` in commit `7e999cf`.

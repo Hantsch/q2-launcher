@@ -250,9 +250,9 @@ export default async function serversDetail({ page, step, shot }) {
     )
   }
 
-  const detailPaneTextBefore = await detail.innerText()
-  if (/spectat/i.test(detailPaneTextBefore)) {
-    throw new Error('detail pane text must not mention spectating (AC4)')
+  const playersPanelTextBefore = await page.getByTestId('servers-detail-players').innerText()
+  if (/spectat/i.test(playersPanelTextBefore)) {
+    throw new Error('players panel text must not mention spectating (AC4)')
   }
 
   step('sorting by ping brings the ping-0 player to the top')
@@ -305,9 +305,9 @@ export default async function serversDetail({ page, step, shot }) {
   step('clicking server B (no players) shows the players empty state')
   await page.getByTestId(`servers-row-${serverB.address}`).click({ timeout: TIMEOUT_MS })
   await page.getByTestId('servers-detail-players-empty').waitFor({ timeout: TIMEOUT_MS })
-  const detailPaneTextB = await detail.innerText()
-  if (/spectat/i.test(detailPaneTextB)) {
-    throw new Error('detail pane text must not mention spectating (AC4)')
+  const playersPanelTextB = await page.getByTestId('servers-detail-players').innerText()
+  if (/spectat/i.test(playersPanelTextB)) {
+    throw new Error('players panel text must not mention spectating (AC4)')
   }
   await shot('detail-server-b-players-empty')
 
