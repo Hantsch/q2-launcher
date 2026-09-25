@@ -94,6 +94,9 @@ export const SERVERS_HANDLERS = {
    * persists a new one (or clears it with `null`), resolving to what was actually persisted. */
   listGetSort: 'list.getSort',
   listSetSort: 'list.setSort',
+  /** Story 122 D2: resolves to a single server's `ServerDetail` - the row plus its last-known
+   * `serverinfo`, or `null` for an address the scan has no row for at all. */
+  detailRead: 'detail.read',
 } as const
 
 /**
@@ -735,6 +738,26 @@ export const listGetSortInputSchema = serversNoInputSchema
 /** `list.setSort`'s payload - a full sort or `null` to clear it back to the default order. */
 export const listSetSortInputSchema = z.object({ sort: serverListSortSchema.nullable() }).strict()
 
+/**
+ * Story 122 D2: `detail.read`'s payload - just the address, validated the same way
+ * `favouritesAddInputSchema` already is (a bare `serverAddressSchema`, no wrapper object).
+ */
+export const detailReadInputSchema = serverAddressSchema
+
+/**
+ * `detail.read`'s result (story 122 D2): the row as `scan.read` already knows it (so a
+ * favourite/pending placeholder still resolves rather than failing) plus the last successful
+ * `status` reply's full key set. `serverinfo` is replaced whole on each new `status` reply - never
+ * merged key-by-key - and is kept exactly as-is while the row goes stale (an unanswered round never
+ * clears it); it stays `null` until the very first `status` reply for this address has ever landed.
+ * Later stories (players, admin state, ...) extend this type with more fields alongside `row`/
+ * `serverinfo`.
+ */
+export interface ServerDetail {
+  row: ServerListRow
+  serverinfo: Record<string, string> | null
+}
+
 export const SERVERS_HANDLER_SCHEMAS: Record<
   (typeof SERVERS_HANDLERS)[keyof typeof SERVERS_HANDLERS],
   z.ZodTypeAny
@@ -759,4 +782,5 @@ export const SERVERS_HANDLER_SCHEMAS: Record<
   [SERVERS_HANDLERS.scanSetViewActive]: scanSetViewActiveInputSchema,
   [SERVERS_HANDLERS.listGetSort]: listGetSortInputSchema,
   [SERVERS_HANDLERS.listSetSort]: listSetSortInputSchema,
+  [SERVERS_HANDLERS.detailRead]: detailReadInputSchema,
 }

@@ -716,3 +716,82 @@ describe('createScanService - story 117 D3 scoped rounds', () => {
     service.dispose()
   })
 })
+
+describe('createScanService - readDetail (story 122 D2)', () => {
+  const ADDR = '9.9.9.9:27910'
+
+  function statusReply(serverinfo: Record<string, string>): ServerQueryResult {
+    return { ok: true, kind: 'status', reply: { ok: true, serverinfo, players: [] }, rttMs: 5 }
+  }
+
+  it('readDetail returns the row and the last status serverinfo, kept while stale', async () => {
+    const { emit } = recorder()
+    const state = baseState({ manualServers: [manualEntry(ADDR)] })
+    let current: QueryServerFn = async () => statusReply({ hostname: 'A', mapname: 'q2dm1' })
+    const queryServer: QueryServerFn = (target, opts) => current(target, opts)
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
+
+    // Round 1: status reply A.
+    expect(service.start({ scope: { kind: 'server', address: ADDR } })).toEqual({ ok: true })
+    await waitForIdle(service)
+    expect(service.readDetail(ADDR)?.serverinfo).toEqual({ hostname: 'A', mapname: 'q2dm1' })
+
+    // Round 2: status reply B, which lacks 'mapname' - the whole record is replaced, not merged.
+    current = async () => statusReply({ hostname: 'B' })
+    expect(service.start({ scope: { kind: 'server', address: ADDR } })).toEqual({ ok: true })
+    await waitForIdle(service)
+    expect(service.readDetail(ADDR)?.serverinfo).toEqual({ hostname: 'B' })
+
+    // Round 3 (an 'info'-only round, scope 'all'): an info reply never touches statusInfo.
+    current = async () => infoOk('C')
+    expect(service.start({ scope: { kind: 'all' } })).toEqual({ ok: true })
+    await waitForIdle(service)
+    expect(service.readDetail(ADDR)?.serverinfo).toEqual({ hostname: 'B' })
+
+    // Round 4: a timed-out single-server round leaves serverinfo unchanged and flips the row stale.
+    current = async () => noReply
+    expect(service.start({ scope: { kind: 'server', address: ADDR } })).toEqual({ ok: true })
+    await waitForIdle(service)
+    const detail = service.readDetail(ADDR)
+    expect(detail?.serverinfo).toEqual({ hostname: 'B' })
+    expect(detail?.row.status).toBe('stale')
+  })
+
+  it('readDetail is null for an unknown address and has null serverinfo for an info-only or pending row', async () => {
+    const { emit } = recorder()
+    const PENDING = '8.8.8.8:27910'
+    const INFO_ONLY = '7.7.7.7:27910'
+    const state = baseState({
+      favourites: [{ address: PENDING, addedAt: new Date().toISOString() }],
+      manualServers: [manualEntry(INFO_ONLY)],
+    })
+    const queryServer: QueryServerFn = async (target) =>
+      `${target.host}:${target.port}` === INFO_ONLY ? infoOk('Info') : noReply
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
+
+    // A single-server round touches only INFO_ONLY - PENDING is never queried by any round, so it
+    // stays a placeholder row (never entered `entries` at all) rather than going stale.
+    expect(service.start({ scope: { kind: 'server', address: INFO_ONLY } })).toEqual({ ok: true })
+    await waitForIdle(service)
+
+    expect(service.readDetail('1.2.3.4:27910')).toBeNull()
+
+    const pendingDetail = service.readDetail(PENDING)
+    expect(pendingDetail?.row.status).toBe('pending')
+    expect(pendingDetail?.serverinfo).toBeNull()
+
+    const infoDetail = service.readDetail(INFO_ONLY)
+    expect(infoDetail?.row.status).toBe('online')
+    expect(infoDetail?.serverinfo).toBeNull()
+  })
+})

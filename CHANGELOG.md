@@ -51,6 +51,9 @@ version section when a release actually ships.
   runs, and any source that failed named by its address with its actual reason, shown alongside
   whatever the other sources did return. Rows now stream in live as a scan progresses instead of
   only updating once it finishes.
+- **Servers** — click a server to see what's going on there: a detail pane opens beside the list
+  with the address, mod, map, gamemode, players, ping, password and the engine/protocol it's
+  running, and refreshes itself the moment a scan round finishes.
 - **Linux** — a Windows Quake II build (Steam, GOG, a folder carried over from another machine)
   now plays on Linux too: the launcher offers wine or umu-run as a runner and launches through it
   when you pick one.

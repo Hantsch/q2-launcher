@@ -27,7 +27,9 @@ const onMock = vi.fn((_channel: string, listener: Listener) => {
 
 ;(globalThis as unknown as { q2: unknown }).q2 = { invoke: invokeMock, on: onMock }
 
-const { startScan, readScan, onScanChanged, onScanServer } = await import('./client')
+const { startScan, readScan, readServerDetail, onScanChanged, onScanServer } = await import(
+  './client'
+)
 
 const SCAN_STATE: ServersScanState = {
   running: true,
@@ -101,6 +103,20 @@ describe('servers client - scan transport (story 114 D7)', () => {
       type: 'scan.read',
     })
     expect(result).toEqual({ ok: true, value: snapshot })
+  })
+
+  it('readServerDetail calls through to detail.read on the servers module with a bare address payload', async () => {
+    const detail = { row: { address: '127.0.0.1:27910' }, serverinfo: null }
+    invokeMock.mockResolvedValue({ ok: true, value: detail })
+
+    const result = await readServerDetail('127.0.0.1:27910')
+
+    expect(invokeMock).toHaveBeenCalledWith('module:invoke', {
+      moduleId: 'servers',
+      type: 'detail.read',
+      payload: '127.0.0.1:27910',
+    })
+    expect(result).toEqual({ ok: true, value: detail })
   })
 
   it('onScanChanged receives only scan.changed pushes - never a scan.server one on the same subscription', () => {

@@ -90,6 +90,19 @@ describe('servers module', () => {
 
     expect(outcome).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
   })
+
+  it('detail.read rejects a malformed address payload', async () => {
+    const registry = new MainModuleRegistry()
+    await registry.register(serversModule, fakeAppContext())
+
+    const outcome = await registry.invoke({
+      moduleId: 'servers',
+      type: SERVERS_HANDLERS.detailRead,
+      payload: 'not-an-address',
+    })
+
+    expect(outcome).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
+  })
 })
 
 describe('servers module sources.* handlers (story 111 D3)', () => {

@@ -1,20 +1,15 @@
 import { useTranslation } from 'react-i18next'
 import { Lock, Star, User } from 'lucide-react'
 import type { ServerListRow } from '@shared/modules/servers'
-import { isWaitingForOpponent, knownPlayerCount } from '@shared/servers/row-markers'
+import { isWaitingForOpponent } from '@shared/servers/row-markers'
 import { cn } from '../../lib/cn'
 import { Badge } from '../../components/ui/primitives'
+import { displayName, formatOccupancy, formatPing, orDash } from './server-format'
 
 export interface ServerRowProps {
   row: ServerListRow
   selected: boolean
   onSelect: (address: string) => void
-}
-
-/** Renders an unknown value as an em dash rather than `0` or blank (spec: "Every unknown value
- * renders as `—`, never `0` or blank"). */
-function orDash(value: string | number | undefined | null): string {
-  return value === undefined || value === null || value === '' ? '—' : String(value)
 }
 
 /**
@@ -26,9 +21,8 @@ function orDash(value: string | number | undefined | null): string {
 export function ServerRow({ row, selected, onSelect }: ServerRowProps) {
   const { t } = useTranslation()
 
-  const displayName = row.name && row.name.length > 0 ? row.name : row.address
+  const name = displayName(row)
   const showAddressUnderName = row.name && row.name.length > 0
-  const playerCount = knownPlayerCount(row)
 
   return (
     <button
@@ -45,18 +39,14 @@ export function ServerRow({ row, selected, onSelect }: ServerRowProps) {
       )}
     >
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm text-ink">{displayName}</p>
+        <p className="truncate text-sm text-ink">{name}</p>
         {showAddressUnderName && <p className="truncate text-xs text-ink-muted">{row.address}</p>}
       </div>
 
       <span className="w-24 shrink-0 truncate">{orDash(row.mod)}</span>
-      <span className="w-16 shrink-0 truncate">
-        {orDash(playerCount)}/{orDash(row.maxclients)}
-      </span>
+      <span className="w-16 shrink-0 truncate">{formatOccupancy(row)}</span>
       <span className="w-24 shrink-0 truncate">{orDash(row.map)}</span>
-      <span className="w-16 shrink-0 truncate">
-        {row.rttMs === undefined ? '—' : `${row.rttMs} ms`}
-      </span>
+      <span className="w-16 shrink-0 truncate">{formatPing(row)}</span>
 
       <div className="flex shrink-0 flex-wrap items-center gap-1">
         {row.needpass === true && (

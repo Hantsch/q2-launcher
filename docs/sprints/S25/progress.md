@@ -48,3 +48,17 @@
 - 2026-09-25 18:36 · 121 · verify · started
 - 2026-09-25 18:37 · 121 · verify · done
 - 2026-09-25 18:37 · 121 · story · done
+- 2026-09-25 18:38:15 · 122 · build · started
+- 2026-09-25 18:38 · 122 · D1 engine and player-sort derivations · started
+- 2026-09-25 18:40 · 122 · D1 engine and player-sort derivations · done
+- 2026-09-25 18:40 · 122 · D2 detail.read contract and main · started
+- 2026-09-25 18:44 · 122 · D2 detail.read contract and main · done
+- 2026-09-25 18:44 · 122 · D3 detail container, header, opening from row · started
+- 2026-09-25 18:52 · 122 · D3 detail container, header, opening from row · done
+- 2026-09-25 18:52 · 122 · D4 players panel · started
+- 2026-09-25 18:55 · 122 · D4 players panel · done
+- 2026-09-25 18:55 · 122 · verify · started
+- 2026-09-25 18:57 · 122 · verify · done
+- 2026-09-25 18:57 · 122 · review 1 · started
+- 2026-09-25 18:59 · 122 · review 1 · done
+- 2026-09-25 19:00 · 122 · story · done

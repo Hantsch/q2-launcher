@@ -1,5 +1,6 @@
 import {
   SERVERS_HANDLERS,
+  detailReadInputSchema,
   favouritesAddInputSchema,
   favouritesListInputSchema,
   favouritesRemoveInputSchema,
@@ -89,6 +90,13 @@ export const serversModule: MainModule = {
       scanService.start({ scope: payload?.scope, selectedAddress: payload?.selectedAddress }),
     )
     handle(SERVERS_HANDLERS.scanRead, scanReadInputSchema, () => scanService.read())
+
+    // Story 122 D2: `detailReadInputSchema` is a bare `serverAddressSchema` (like
+    // `favouritesAddInputSchema`), not a `{ address }` wrapper, so the payload arrives already
+    // normalized as a plain string - no destructuring needed.
+    handle(SERVERS_HANDLERS.detailRead, detailReadInputSchema, (address) =>
+      scanService.readDetail(address),
+    )
 
     /**
      * Story 115 D2: the two `scan.*` settings handlers, mirroring `DOWNLOADS_HANDLERS.getSettings`/

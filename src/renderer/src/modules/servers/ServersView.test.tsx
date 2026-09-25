@@ -5,6 +5,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type {
   MasterSource,
   ScanSnapshot,
+  ServerDetail,
   ServerListEntry,
   ServersScanState,
 } from '@shared/modules/servers'
@@ -38,6 +39,7 @@ const {
   listMasterSourcesMock,
   getListSortMock,
   setListSortMock,
+  readServerDetailMock,
 } = vi.hoisted(() => ({
   readScanMock: vi.fn(),
   startScanMock: vi.fn(async () => ({ ok: true as const, value: { ok: true as const } })),
@@ -47,6 +49,10 @@ const {
   listMasterSourcesMock: vi.fn(async () => ({ ok: true as const, value: [] as MasterSource[] })),
   getListSortMock: vi.fn(async () => ({ ok: true as const, value: null as ServerListSort | null })),
   setListSortMock: vi.fn(async (sort: ServerListSort | null) => ({ ok: true as const, value: sort })),
+  readServerDetailMock: vi.fn(async () => ({
+    ok: true as const,
+    value: null as ServerDetail | null,
+  })),
 }))
 
 vi.mock('./client', () => ({
@@ -58,6 +64,7 @@ vi.mock('./client', () => ({
   listMasterSources: listMasterSourcesMock,
   getListSort: getListSortMock,
   setListSort: setListSortMock,
+  readServerDetail: readServerDetailMock,
 }))
 
 let ServersView: typeof import('./ServersView').ServersView
@@ -84,6 +91,7 @@ afterEach(() => {
     ok: true as const,
     value: sort,
   }))
+  readServerDetailMock.mockImplementation(async () => ({ ok: true as const, value: null }))
 })
 
 const BASE_STATE: ServersScanState = {
@@ -399,6 +407,41 @@ describe('ServersView - list filter (story 120 D2)', () => {
     const noMatch = await screen.findByTestId('servers-filter-no-match')
     expect(noMatch.textContent).toContain('No servers match your filters.')
     expect(screen.queryByTestId('servers-row-a:1')).toBeNull()
+  })
+})
+
+describe('ServersView - detail pane (story 122 D3)', () => {
+  it("selecting a row opens its detail and the close button closes it", async () => {
+    readServerDetailMock.mockResolvedValue({
+      ok: true,
+      value: {
+        row: {
+          address: '1.2.3.4:27910',
+          origins: ['manual'],
+          status: 'online',
+          lastSeenAt: 'x',
+          favourite: false,
+        },
+        serverinfo: null,
+      },
+    })
+
+    await renderView(
+      snapshot({
+        entries: [
+          { address: '1.2.3.4:27910', origins: ['manual'], status: 'online', lastSeenAt: 'x' },
+        ],
+      }),
+    )
+
+    const row = await screen.findByTestId('servers-row-1.2.3.4:27910')
+    fireEvent.click(row)
+
+    await screen.findByTestId('servers-detail')
+    expect(readServerDetailMock).toHaveBeenCalledWith('1.2.3.4:27910')
+
+    fireEvent.click(screen.getByTestId('servers-detail-close'))
+    expect(screen.queryByTestId('servers-detail')).toBeNull()
   })
 })
 

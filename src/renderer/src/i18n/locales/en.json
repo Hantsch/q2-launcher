@@ -710,6 +710,40 @@
       "coop": "Co-op",
       "single": "Single player"
     },
+    "engine": {
+      "vanilla": "Vanilla Quake II",
+      "r1q2": "R1Q2",
+      "q2pro": "Q2PRO"
+    },
+    "detail": {
+      "title": "Server details",
+      "close": "Close server details",
+      "field": {
+        "name": "Name",
+        "address": "Address",
+        "mod": "Mod",
+        "map": "Map",
+        "gamemode": "Gamemode",
+        "occupancy": "Players",
+        "ping": "Ping",
+        "password": "Password",
+        "engine": "Engine",
+        "protocol": "Protocol"
+      },
+      "sectionError": "This section could not be shown.",
+      "gone": "This server is no longer in the list",
+      "readError": "Could not load this server's details.",
+      "players": {
+        "column": {
+          "name": "Name",
+          "score": "Score",
+          "ping": "Ping"
+        },
+        "empty": "Nobody is on this server right now",
+        "notFetched": "{{count}} connected, names arrive with the next detailed scan",
+        "unknown": "Player data not fetched yet"
+      }
+    },
     "filter": {
       "search": "Search",
       "searchPlaceholder": "Name, address or player…",

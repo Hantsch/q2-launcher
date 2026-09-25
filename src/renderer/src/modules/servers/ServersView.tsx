@@ -16,6 +16,7 @@ import {
 import { nextSort, sortServerRows, type ServerListSort, type ServerSortColumn } from '@shared/servers/list-sort'
 import { Button } from '../../components/ui/Button'
 import { Panel } from '../../components/ui/primitives'
+import { cn } from '../../lib/cn'
 import { ROUTE_SETTINGS, useLauncher } from '../../store/useLauncher'
 import {
   getListSort,
@@ -28,6 +29,7 @@ import {
   startScan,
 } from './client'
 import { deriveListState } from './list-state'
+import { ServerDetailView } from './ServerDetailView'
 import { ServerListFilterBar } from './ServerListFilterBar'
 import { ServerRow } from './ServerRow'
 import { ServersListStatus } from './ServersListStatus'
@@ -298,10 +300,9 @@ export function ServersView() {
   const isBusy = scanState.running
   const isRefreshDisabled = isBlocked || isBusy
 
-  return (
-    <div className="h-full overflow-y-auto scrollbar-gutter-stable">
-      <div className="mx-auto max-w-3xl space-y-4 p-6">
-        <header className="space-y-1">
+  const listColumn = (
+    <div className="mx-auto w-full max-w-3xl space-y-4 p-6">
+      <header className="space-y-1">
           <h1 className="font-display text-2xl tracking-[0.06em] text-ink uppercase">
             {t('module.servers.title')}
           </h1>
@@ -385,30 +386,57 @@ export function ServersView() {
           total={entries.length}
         />
 
-        {visible.length === 0 && entries.length > 0 ? (
-          <Panel className="space-y-3 p-4 text-center" data-testid="servers-filter-no-match">
-            <p className="text-xs text-ink-muted">{t('servers.filter.noMatch')}</p>
-            <Button
-              variant="neutral"
-              onClick={() => setFilter(EMPTY_SERVER_LIST_FILTER)}
-              data-testid="servers-filter-no-match-clear"
-            >
-              {t('servers.filter.clear')}
-            </Button>
-          </Panel>
-        ) : (
-          <Panel className="space-y-2 p-4">
-            {visible.map((entry) => (
-              <ServerRow
-                key={entry.address}
-                row={entry}
-                selected={entry.address === selectedAddress}
-                onSelect={handleToggleRowSelected}
-              />
-            ))}
-          </Panel>
+      {visible.length === 0 && entries.length > 0 ? (
+        <Panel className="space-y-3 p-4 text-center" data-testid="servers-filter-no-match">
+          <p className="text-xs text-ink-muted">{t('servers.filter.noMatch')}</p>
+          <Button
+            variant="neutral"
+            onClick={() => setFilter(EMPTY_SERVER_LIST_FILTER)}
+            data-testid="servers-filter-no-match-clear"
+          >
+            {t('servers.filter.clear')}
+          </Button>
+        </Panel>
+      ) : (
+        <Panel className="space-y-2 p-4">
+          {visible.map((entry) => (
+            <ServerRow
+              key={entry.address}
+              row={entry}
+              selected={entry.address === selectedAddress}
+              onSelect={handleToggleRowSelected}
+            />
+          ))}
+        </Panel>
+      )}
+    </div>
+  )
+
+  // Story 122 D3: selecting a row opens the detail pane in a second column, each scrolling
+  // independently (`min-h-0 overflow-y-auto` on both). The outer structure (this same grid, the
+  // list column always in the first slot) never swaps out - only the class list and whether the
+  // second column is present change - so an already-selected row's DOM node (and every existing
+  // test that holds a reference to it, e.g. across a click-then-assert pair) survives a selection
+  // change instead of being unmounted and recreated as a stale node.
+  return (
+    <div
+      className={cn(
+        'h-full',
+        selectedAddress === null ? 'overflow-y-auto scrollbar-gutter-stable' : 'grid grid-cols-2 gap-4',
+      )}
+    >
+      <div
+        className={cn(
+          selectedAddress !== null && 'min-h-0 overflow-y-auto scrollbar-gutter-stable',
         )}
+      >
+        {listColumn}
       </div>
+      {selectedAddress !== null && (
+        <div className="min-h-0 overflow-y-auto border-l border-line p-6">
+          <ServerDetailView address={selectedAddress} onClose={() => setSelectedAddress(null)} />
+        </div>
+      )}
     </div>
   )
 }

@@ -8,6 +8,7 @@ import {
   SERVER_HISTORY_CAP,
   SERVERS_HANDLERS,
   SERVERS_HANDLER_SCHEMAS,
+  detailReadInputSchema,
   manualServerEntrySchema,
   masterSourceSchema,
   scanPatchSettingsInputSchema,
@@ -47,6 +48,7 @@ describe('servers module contract (story 106 D1)', () => {
       scanSetViewActive: 'scan.setViewActive',
       listGetSort: 'list.getSort',
       listSetSort: 'list.setSort',
+      detailRead: 'detail.read',
     })
   })
 
@@ -439,5 +441,16 @@ describe('scan scope (story 117 D1)', () => {
       scanStartInputSchema.safeParse({ scope: { kind: 'server', address: 'not-an-address' } })
         .success,
     ).toBe(false)
+  })
+})
+
+describe('server detail (story 122 D2)', () => {
+  it('detailReadInputSchema accepts a well-formed address and rejects a missing one', () => {
+    expect(detailReadInputSchema.safeParse('127.0.0.1:27910').success).toBe(true)
+    expect(detailReadInputSchema.safeParse({}).success).toBe(false)
+  })
+
+  it('every servers handler (including detail.read) has a payload schema registered', () => {
+    expect(SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.detailRead]).toBeDefined()
   })
 })

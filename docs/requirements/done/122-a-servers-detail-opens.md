@@ -1,7 +1,7 @@
 ---
 id: 122
 title: a server's detail opens
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -40,17 +40,17 @@ mods/assets modules — see [[124]]'s Decisions.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Opening a server row from [[118]] opens a detail view whose header shows name,
+- [x] **AC1** — Opening a server row from [[118]] opens a detail view whose header shows name,
       address, mod, map, gamemode, occupancy, measured ping, password marker, engine and protocol
       (concept §9 item 1).
-- [ ] **AC2** — The players panel lists each connected player's name, score and ping, and the list is
+- [x] **AC2** — The players panel lists each connected player's name, score and ping, and the list is
       sortable by at least one of those columns.
-- [ ] **AC3** — A server currently reporting zero players shows a stated empty state in the players
+- [x] **AC3** — A server currently reporting zero players shows a stated empty state in the players
       panel, not a blank area.
-- [ ] **AC4** — Nowhere in the view — header, players panel or any marker — does the UI claim or
+- [x] **AC4** — Nowhere in the view — header, players panel or any marker — does the UI claim or
       imply which players are spectating; data the protocol cannot provide is simply not rendered as
       a claim.
-- [ ] **AC5** — A single missing or malformed field, in the header or in one player's row, degrades
+- [x] **AC5** — A single missing or malformed field, in the header or in one player's row, degrades
       on its own (shown as absent/unknown) without breaking the rendering of the rest of the header
       or the rest of the player list (GB-D6).
 
@@ -143,7 +143,7 @@ Out of scope: rules/dmflags ([[123]]), reachability/stale statement ([[124]]), a
 
 ## Deliverables
 
-- **D1 — engine and player-sort derivations (shared, pure).**
+- [x] **D1 — engine and player-sort derivations (shared, pure).**
   - Create `src/shared/servers/server-engine.ts` with a colocated `server-engine.test.ts`:
     - `export type ServerEngine = 'vanilla' | 'r1q2' | 'q2pro'`.
     - `deriveProtocol(serverinfo: Record<string,string> | null | undefined): number | undefined`
@@ -169,7 +169,7 @@ Out of scope: rules/dmflags ([[123]]), reachability/stale statement ([[124]]), a
       an `Infinity` score and an empty name.
   - Acceptance: `npx vitest run src/shared/servers` passes and `npm run typecheck` is clean.
 
-- **D2 — `detail.read` in the contract and in main.**
+- [x] **D2 — `detail.read` in the contract and in main.**
   - In `src/shared/modules/servers.ts`:
     - Add `detailRead: 'detail.read'` to `SERVERS_HANDLERS`.
     - Add `export const detailReadInputSchema = serverAddressSchema`, the same payload shape as
@@ -208,7 +208,7 @@ Out of scope: rules/dmflags ([[123]]), reachability/stale statement ([[124]]), a
   - Acceptance: `npx vitest run src/main/modules/servers src/shared/modules` passes and
     `npm run typecheck` is clean.
 
-- **D3 — the detail container, its header, and opening it from the row.**
+- [x] **D3 — the detail container, its header, and opening it from the row.**
   - `src/renderer/src/modules/servers/client.ts`: add
     `readServerDetail(address) → callModule<ServerDetail | null>('servers', SERVERS_HANDLERS.detailRead, …)`,
     with a test in `client.test.ts` next to the `readScan` one.
@@ -286,7 +286,7 @@ Out of scope: rules/dmflags ([[123]]), reachability/stale statement ([[124]]), a
   - Acceptance: `npx vitest run src/renderer/src/modules/servers` passes, and
     `npm run ui:flow -- servers-detail` passes with its screenshots.
 
-- **D4 — the players panel.**
+- [x] **D4 — the players panel.**
   - Create `src/renderer/src/modules/servers/ServerPlayersPanel.tsx` with props
     `{ row: ServerListRow }` and testid `servers-detail-players`. It renders one of four states:
     - `Array.isArray(row.players) && row.players.length > 0` → a `<table>`:
@@ -377,4 +377,27 @@ No `manual residue`.
 
 ## Done
 
-<!-- Filled by `/build 122`. -->
+Built the detail entry point: `detail.read` (shared contract + main scan-service map keyed by
+address, kept-while-stale), `ServerDetailView`/`ServerDetailHeader`/`ServerPlayersPanel` in the
+renderer, a per-section `ServerDetailSection` error boundary, pure `server-engine.ts`/
+`player-sort.ts` helpers, and `ServersView`'s two-column selection pane. Row formatters moved to
+`server-format.ts` so row and header share one source. New `scripts/flows/servers-detail.mjs`
+e2e flow covers header, players, empty state and the no-spectator check end to end.
+
+Commit message: `122: a server's detail opens`
+
+Verification: narrow gate only. `npm run build` green, `npm run typecheck` green,
+`npx vitest run --changed HEAD` green (97 files, 1555 tests), `npm run ui:flow -- servers-detail`
+green (6 screenshots, all assertions passed). AC1-AC5 each confirmed against their named
+unit/e2e tests per `## Acceptance Tests` — all present and passing (clean-agent review
+independently re-walked and PASS'd all five with file:line evidence). No manual residue.
+
+Decisions: `mod` in `ServerDetailHeader` falls back through `row.mod ?? serverinfo?.gamedir ??
+serverinfo?.game` for robustness, even though only `gamename` is currently parsed into `row.mod`
+upstream — harmless, kept as defensive degradation rather than trimmed mid-review. No other
+deviations from the plan.
+
+tiers: D 4 / hard 0 · review default · cycles 0 · agents 6
+
+Full regression gate (`npm test`, `npm run ui:verify`, `npm run ui:flows`) has not run — run it
+before merging, or use `/build 122 --full`.

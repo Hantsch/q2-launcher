@@ -8,6 +8,7 @@ import {
   type ScanServerPush,
   type ScanSnapshot,
   type ScanStartResult,
+  type ServerDetail,
   type ServerListSort,
   type ServersOverview,
   type ServersScanSettings,
@@ -154,4 +155,14 @@ export function getListSort(): Promise<Outcome<ServerListSort | null>> {
 
 export function setListSort(sort: ServerListSort | null): Promise<Outcome<ServerListSort | null>> {
   return callModule<ServerListSort | null>('servers', SERVERS_HANDLERS.listSetSort, { sort })
+}
+
+/**
+ * Story 122 D3: reads one server's detail - the row plus its last-known `serverinfo`, or `null` for
+ * an address the scan has no row for at all. `address` is passed through as the bare payload,
+ * mirroring `favouritesAdd`/`favouritesRemove`'s `serverAddressSchema` convention (not a `{ address
+ * }` wrapper) - `detailReadInputSchema` is that same bare schema.
+ */
+export function readServerDetail(address: string): Promise<Outcome<ServerDetail | null>> {
+  return callModule<ServerDetail | null>('servers', SERVERS_HANDLERS.detailRead, address)
 }

@@ -6,6 +6,7 @@ import {
   type ScanSnapshot,
   type ScanStartResult,
   type ScanTarget,
+  type ServerDetail,
   type ServerListEntry,
   type ServersOverview,
   type ServersScanState,
@@ -105,6 +106,10 @@ export interface ScanService {
   start: (options?: ScanStartOptions) => ScanStartResult
   read: () => ScanSnapshot
   overview: () => ServersOverview
+  /** Story 122 D2: one server's detail - the row as `read()` already knows it (favourite/pending
+   * placeholders included) plus the last successful `status` reply's full `serverinfo`. `null` when
+   * there is no row for the address at all. */
+  readDetail: (address: string) => ServerDetail | null
   dispose: () => void
 }
 
@@ -188,6 +193,11 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
   const blockedReasonFor = (blocked: boolean): ScanBlockedReason | null => (blocked ? 'game-running' : null)
 
   const entries = new Map<string, ServerListEntry>()
+  // Story 122 D2: the last successful `status` reply's full serverinfo key set per address,
+  // replaced whole on each new one (never merged key-by-key) - an `info` reply or a failed reply
+  // never touches this map, and an address that has never had a successful `status` reply simply
+  // has no entry here.
+  const statusInfo = new Map<string, Record<string, string>>()
   let scanState: ServersScanState = {
     ...initialScanState(),
     blockedReason: blockedReasonFor(isScanBlocked(launch.getState())),
@@ -257,6 +267,9 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
             answeredOnline.add(row.target.address)
             const existing = entries.get(row.target.address)
             entries.set(row.target.address, mergeSuccessfulReply(existing, row.target, row.result, now))
+            if (row.result.kind === 'status') {
+              statusInfo.set(row.target.address, { ...row.result.reply.serverinfo })
+            }
           }
           // A failed reply never creates or overwrites an entry here - it is left exactly as it
           // was; D-K's `'stale'` flip only happens once, below, after the whole sweep settles.
@@ -371,6 +384,12 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     }
   }
 
+  function readDetail(address: string): ServerDetail | null {
+    const row = read().entries.find((entry) => entry.address === address)
+    if (row === undefined) return null
+    return { row, serverinfo: statusInfo.get(address) ?? null }
+  }
+
   function overview(): ServersOverview {
     return {
       scanning: scanState.running,
@@ -384,5 +403,5 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     abortController?.abort()
   }
 
-  return { start, read, overview, dispose }
+  return { start, read, overview, readDetail, dispose }
 }
