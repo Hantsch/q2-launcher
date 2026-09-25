@@ -3,7 +3,7 @@ name: typed-ipc
 description: "Contract-first, end-to-end typed IPC for Electron: one map of channels in the shared layer from which main handlers, the preload allowlist and renderer types all derive, with boot-time and compile-time exhaustiveness checks plus an IPC coverage test. Use when: adding, renaming or removing an IPC channel; adding a main-to-renderer event; writing or reviewing a preload bridge; adding an ipcMain handler; typing window.<bridge> in the renderer; seeing 'no handler registered for channel' at runtime; setting up IPC in a new Electron app. DO NOT USE FOR: Electron layering and security questions (use electron-arch); non-Electron IPC."
 ---
 
-<!-- tech-rules:managed 1.0.0 -->
+<!-- tech-rules:managed 2.1.0 -->
 
 # Contract-First Typed IPC
 
@@ -63,13 +63,13 @@ export const EVENT_CHANNELS = ['window:state', 'app:toast'] as const satisfies r
 
 /**
  * Fails the build when a channel exists in the map but not in the array above.
- * `never` is the only assignable value, so a missing channel is a type error at
- * the assignment, naming exactly which one is missing.
+ * Only `never` is assignable to `never`, so a missing channel is a type error at
+ * the assignment - `Type '"x:y"' is not assignable to type 'never'` - naming it.
  */
-export const ALL_INVOKE_CHANNELS_LISTED: Exclude<InvokeChannel, (typeof INVOKE_CHANNELS)[number]> =
-  undefined as never
-export const ALL_EVENT_CHANNELS_LISTED: Exclude<EventChannel, (typeof EVENT_CHANNELS)[number]> =
-  undefined as never
+export const ALL_INVOKE_CHANNELS_LISTED: never =
+  undefined as unknown as Exclude<InvokeChannel, (typeof INVOKE_CHANNELS)[number]>
+export const ALL_EVENT_CHANNELS_LISTED: never =
+  undefined as unknown as Exclude<EventChannel, (typeof EVENT_CHANNELS)[number]>
 ```
 
 `satisfies` catches a name that is not a channel; the `Exclude<>` assertion catches a channel that is

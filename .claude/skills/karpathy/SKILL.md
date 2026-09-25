@@ -4,7 +4,7 @@ description: Behavioral guidelines that reduce the four recurring LLM coding mis
 license: MIT
 ---
 
-<!-- tech-rules:managed 1.0.0 -->
+<!-- tech-rules:managed 2.1.0 -->
 
 # Karpathy Guidelines
 
@@ -73,8 +73,8 @@ constant clarification.
 
 ## This file is the only copy
 
-These rules used to be pasted into project docs, agent definitions and per-repository skill
-folders; eight encodings existed and they had already drifted. Point at this skill instead of
-copying it - a `CLAUDE.md` or `AGENTS.md` line like "behavioral rules: the `karpathy` skill from
-the `common` plugin" is enough. The accepted cost is that agents which cannot read Claude Code
-skills (Codex, Copilot) see only the pointer.
+This skill lives in the repository as `.claude/skills/karpathy/SKILL.md`, installed and updated by
+`/tech-rules:setup`. Do not paste the rules anywhere else - copies drift. The `tech-rules:managed`
+block that setup offers for `CLAUDE.md` points here; for tooling that does not read
+`.claude/skills/`, one `AGENTS.md` line naming that path is enough. Such tools see only the pointer,
+not the rules.

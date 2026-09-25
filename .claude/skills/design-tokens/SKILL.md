@@ -3,7 +3,7 @@ name: design-tokens
 description: "Method for a semantic design-token layer in a React/Tailwind app and the mobile accessibility floor that goes with it. Use when: picking colours for a component; writing a class list that would contain a hex value or a raw palette class (slate-500, gray-200); adding or changing dark mode; setting up or extending the token vocabulary in tailwind.config or the CSS variable block; adding a theme; choosing spacing, radius, elevation or transitions; building anything touch-operated; reviewing UI code for hardcoded colours, missing focus states, too-small touch targets or colour-only status. DO NOT USE FOR: choosing a brand palette from scratch; backend code; non-Tailwind styling systems."
 ---
 
-<!-- tech-rules:managed 1.0.0 -->
+<!-- tech-rules:managed 2.1.0 -->
 
 # Design Tokens and the Accessibility Floor
 
@@ -158,7 +158,7 @@ Not aspirational - this is the definition of done for any touch-operated UI.
   button, select, toggle (`min-height: 44px; min-width: 44px`). 44 flat, no per-component exception:
   a smaller target is a miss on a phone, and "it looks fine on my desktop" is not evidence.
 - **No iOS auto-zoom:** every `<select>`, `<input>` and `<textarea>` renders at 16px or larger
-  (`font-size: max(var(--fs-base), 16px)`). Below that, Safari zooms the page on focus and the layout
+  (`font-size: max(1rem, 16px)`). Below that, Safari zooms the page on focus and the layout
   jumps.
 - **Safe-area insets:** apply `env(safe-area-inset-*)` through `max()` to every fixed or sticky
   element that can touch a screen edge - top bars, bottom navigation, modals, overlays. Bottom

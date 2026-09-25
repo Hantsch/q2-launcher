@@ -57,7 +57,7 @@ Two TS projects: `tsconfig.node.json` (main/preload/shared) and
   on Linux: …") — not only a tooltip. The reason is an i18n key like every other label, and the
   unavailability plus its reason are part of the feature's spec, not an implementation detail.
 
-<!-- tech-rules:managed:start 1.0.0 -->
+<!-- tech-rules:managed:start 2.1.0 -->
 ## House rules
 
 These rules live in this repository as project skills, so they apply to everyone who works here —

@@ -3,7 +3,7 @@ name: electron-arch
 description: "Layering and security rules for Electron apps (main / preload / renderer + a pure shared layer). Use when: creating or editing anything under a main, preload or renderer source tree; creating a BrowserWindow or setting webPreferences; adding filesystem, registry, shell or child-process access; handling a path or any other value that came from the renderer; adding openExternal, navigation or window-open handling; setting a Content-Security-Policy or a permission handler; spawning a process; adding a module/feature to an Electron app; reviewing Electron code for privilege leaks. DO NOT USE FOR: web-only React apps; the IPC contract mechanics (use typed-ipc); backend services."
 ---
 
-<!-- tech-rules:managed 1.0.0 -->
+<!-- tech-rules:managed 2.1.0 -->
 
 # Electron Architecture and Security
 
@@ -53,7 +53,7 @@ Any path that originates in the renderer is contained before use. One helper, us
 point:
 
 ```ts
-import { relative, sep } from 'node:path'
+import { isAbsolute, relative, sep } from 'node:path'
 
 /**
  * Every path the renderer asks for must resolve inside the root the user picked.
@@ -61,7 +61,8 @@ import { relative, sep } from 'node:path'
  */
 function assertInside(root: string, target: string): void {
   const rel = relative(root, target)
-  if (rel.startsWith('..') || (rel.length > 0 && rel.split(sep)[0] === '..')) {
+  // relative() hands back the absolute target when it is on another drive - isAbsolute catches that
+  if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
     throw new Error(`Path is outside the allowed root: ${target}`)
   }
 }

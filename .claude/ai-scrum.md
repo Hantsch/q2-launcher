@@ -14,7 +14,7 @@
   update those files (`/ai-scrum:setup`). Hashes of the managed copies: .claude/ai-scrum.lock
 -->
 
-ai-scrum-version: 4.1.0
+ai-scrum-version: 4.4.0
 project: Q2 Launcher
 
 ## Verify
@@ -39,6 +39,7 @@ e2e: npm run ui:verify
 test-story: npx vitest run --changed HEAD
 e2e-story: npm run ui:flow -- {test}
 e2e-all: npm run ui:flows
+e2e-cleanup: none <!-- e.g. taskkill /F /IM electron.exe | pkill -f electron | none -->
 <!--
   Narrow gates /build runs per-story instead of the full `test`/`e2e` above.
   `/sprint` still runs full `test`, full `e2e` and `e2e-all` once after the last story.
