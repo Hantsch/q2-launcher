@@ -2,12 +2,13 @@
 
 ## Where we stand
 
-*As of 2026-09-24.* Phases 1–4, 7 and 8 are done; story 102 (a self-built Linux Q2PRO) stays open
-as a standing, non-blocking item. Phase 9 (game browser) is progressing: milestone 9.2 is done —
-the `servers` module's own `state.json` key, master-source CRUD (with a real Settings UI), and the
-persistence layer for favourites, manual servers and connection history are all in place and
-restart-proof. Next is `/sprint S24` (9.3, scan engine). Waiting on the user: merging `sprint/S22`
-and `sprint/S23` into `dev`. Phase 5 (mods) and Phase 6 (assets) remain unprioritised.
+*As of 2026-09-25.* Phases 1–4, 7 and 8 are done; story 102 (a self-built Linux Q2PRO) stays open
+as a standing, non-blocking item. Phase 9 (game browser) is progressing: milestone 9.3 is done —
+the two-stage streaming scan, its measured cadence/budget settings, the no-scan-while-playing guard
+and the three scoped refreshes are all in place. Next is `/sprint S25` (9.4, server list UI) — the
+first story to give the `servers` route a real list surface instead of the shell's
+`PlannedModuleView` fallback. Waiting on the user: merging `sprint/S22`, `sprint/S23` and
+`sprint/S24` into `dev`. Phase 5 (mods) and Phase 6 (assets) remain unprioritised.
 
 ## Phase overview
 
@@ -25,7 +26,7 @@ and `sprint/S23` into `dev`. Phase 5 (mods) and Phase 6 (assets) remain unpriori
 
 ## Current phase
 
-Phase 9 (game browser) is cut into 7 sprints; 9.1–9.2 are done, 9.3 is next. Phase 5 (mods) and
+Phase 9 (game browser) is cut into 7 sprints; 9.1–9.3 are done, 9.4 is next. Phase 5 (mods) and
 Phase 6 (assets) are still unprioritised.
 
 | # | Milestone | Status | Sprint(s) | Note |
@@ -33,7 +34,7 @@ Phase 6 (assets) are still unprioritised.
 | 7.1 | Release & updates — changelog-driven GitHub releases, daily update check, user-chosen update | done 2026-09-13 | [S21](../sprints/S21/review.md) | Stories 096–099, all done. Two manual-residue items (a real GitHub publish, a real packaged-install restart) — see the review's Acceptance section. |
 | 9.1 | Servers module foundation & protocol core | done 2026-09-24 | [S22](../sprints/S22/review.md) | Stories 106–109, all done. |
 | 9.2 | Discovery & persistence | done 2026-09-24 | [S23](../sprints/S23/review.md) | Stories 110–113, all done. |
-| 9.3 | Scan engine | planned | S24 | Two-stage streaming scan, scan-budget settings measured against a real master list, no-scan-while-playing, scoped refreshes. Stories 114–117. |
+| 9.3 | Scan engine | done 2026-09-25 | [S24](../sprints/S24/review.md) | Stories 114–117, all done. No e2e for 114 (no list UI to drive yet — see the review's Acceptance section); the pre-existing 14-flow `ui:flows` gap reconfirmed, unchanged by this sprint. |
 | 9.4 | Server list UI | planned | S25 | Rows, markers, default sort, filters/search, loading/empty/error states. Stories 118–121. |
 | 9.5 | Server detail view | planned | S26 | Header/players, rule table + `dmflags`, ping history + local mod/map availability. Stories 122–124. |
 | 9.6 | Join, spectate, address book | planned | S27 | `+connect` join with mod-mismatch/password handling, spectate launch, address-book write dialog. Stories 125–127. |
@@ -66,6 +67,12 @@ Phase 6 (assets) are still unprioritised.
 - The node-only "imports nothing from node/electron/IPC" purity self-check now needs a one-off
   `tsconfig.web.json` exclude per test file (three entries for one pattern); a shared helper or a
   glob would be cleaner. [S22 review](../sprints/S22/review.md)
+- `resolveHttpListSource`'s master/list sources have no bounded timeout of their own — only the
+  scan's shared abort signal can end a hung fetch, so a stalled source could in principle hang a
+  scan indefinitely. [S24 review](../sprints/S24/review.md)
+- A scoped refresh ("Refresh favourites" / "Refresh this server") overwrites a row's `origins`
+  instead of merging them into the existing entry — currently inert since nothing reads `origins`
+  yet, but worth fixing before story 131's watchlist work is likely to. [S24 review](../sprints/S24/review.md)
 
 - A mid-copy `PACKAGE_INCOMPLETE` failure can leave an installation's status stale until the next
   revalidation — a pattern shared by `retail/upgrade-job.ts` (090) and `repair/job.ts` (093); worth

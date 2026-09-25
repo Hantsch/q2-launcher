@@ -1,6 +1,6 @@
 ---
 sprint: S24
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/S24
 milestone: 9.3 — Scan engine
 ---
@@ -38,3 +38,29 @@ refreshes reuse 114's machinery directly and come last.
 the existing `JobsService`, which the concept raises without resolving (game-browser.md §18 open
 point #7). That decision should come out of this sprint's clarification round before 114 is built,
 since it shapes how 116's no-scan-while-playing guard observes scan state.
+
+## Regression gate
+
+Ran once on `HEAD` (`9dc1153`, "117: a refresh only reloads what changed") after all four stories
+were built and committed.
+
+- `npm run build` — green.
+- `npm test` (full suite) — green (278 files, 4536 passed, 8 skipped, 0 failed).
+- `npm run ui:verify` — green (45/45 screens, axe clean).
+- `npm run ui:flows` — red: 45/59 flows passed, 14 failed.
+
+All 14 failures attributed via the merge-base check (`git merge-base dev HEAD` → `9e4e6de`, "sprint
+23 done"): every one of them fails identically on that pre-sprint commit, before any of stories
+114-117 touched the `servers` module. None are flaky (all reproduced identically on a HEAD re-run)
+and none bisect to a story commit — verdict for all 14 is **pre-existing**, not caused by this
+sprint, not fixed here:
+
+`app-update`, `bootstrap-failure`, `bootstrap-failure-retry`, `bootstrap-incomplete-package`,
+`bootstrap-r1q2`, `bootstrap-wizard`, `config-header-geometry`, `controls-subcategory`,
+`custom-action-row`, `engine-badge-surfaces`, `engine-not-client`, `harness-offscreen`,
+`home-hero-carousel`, `news-cover-template`.
+
+None of these flows touch the `servers` module this sprint built; the failure signatures (window
+sizing/clamping, a stale fixture-tile-count expectation, folder-picker stub timing, a duplicate
+test-id match) read as pre-existing harness/environment issues, not product regressions. Worth a
+follow-up sweep, but out of this sprint's scope.
