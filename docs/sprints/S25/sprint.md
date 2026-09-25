@@ -1,7 +1,7 @@
 ---
 sprint: S25
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S25
 milestone: 9.4–9.7 — Server list UI, detail view, join/spectate/address book, experimental gate & watchlist
 ---
 
