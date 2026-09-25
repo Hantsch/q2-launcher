@@ -16,11 +16,13 @@ import type {
   ModuleInvokeRequest,
   ModuleManifest,
   Outcome,
+  RedeemResult,
   ReleaseNotes,
   RemoveInstallationInput,
   RunnerKind,
   ScanOptions,
   ToastMessage,
+  UnlockState,
   UpdateInstallationInput,
   UpdateSimulateScenario,
   UpdateState,
@@ -99,6 +101,15 @@ export interface IpcInvokeMap {
    * (AC5's empty state), which is an answer, not an error.
    */
   'app:getReleaseNotes': { req: void; res: ReleaseNotes }
+
+  // ---- unlock ---------------------------------------------------------------
+  /** Story 129: this installation's id and every stored code, active or expired. */
+  'unlock:getState': { req: void; res: UnlockState }
+  /**
+   * Story 129: redeems a pasted code. A refused code is a normal answer (`{ ok: false, reason }`
+   * inside a successful `Outcome`); only a malformed payload fails the `Outcome` itself.
+   */
+  'unlock:redeem': { req: string; res: Outcome<RedeemResult> }
 
   // ---- window chrome --------------------------------------------------------
   'window:minimize': { req: void; res: void }
@@ -259,6 +270,8 @@ export const INVOKE_CHANNELS = [
   'app:revealPath',
   'app:copyText',
   'app:getReleaseNotes',
+  'unlock:getState',
+  'unlock:redeem',
   'window:minimize',
   'window:toggleMaximize',
   'window:close',

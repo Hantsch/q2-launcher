@@ -44,8 +44,13 @@ export interface UnlockRejected {
   reason: UnlockRejection
 }
 
-/** The result of redeeming a code. */
-export type UnlockVerdict = { ok: true; features: string[] } | UnlockRejected
+/**
+ * The result of redeeming a code. `label`/`expiresAt` (epoch seconds) are present only when the
+ * code itself carries them.
+ */
+export type UnlockVerdict =
+  | { ok: true; features: string[]; label?: string; expiresAt?: number }
+  | UnlockRejected
 
 export interface UnlockSnapshot {
   launcherInstallId: string | null

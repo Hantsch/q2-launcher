@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import type { FeatureName } from '@shared/features'
+import { ExperimentalBadge } from '../ui/ExperimentalBadge'
 import { useLauncher } from '../../store/useLauncher'
 
 /** Story 130: whether `name` is unlocked, per main's boot-time gate - never renderer-decided. */
@@ -24,5 +25,10 @@ export function FeatureGate({
 }): ReactNode {
   const unlocked = useFeatureUnlocked(feature)
   if (!unlocked) return null
-  return children
+  return (
+    <Fragment>
+      <ExperimentalBadge />
+      {children}
+    </Fragment>
+  )
 }

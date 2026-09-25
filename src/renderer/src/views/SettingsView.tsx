@@ -6,6 +6,7 @@ import { invoke } from '../lib/bridge'
 import { useLauncher } from '../store/useLauncher'
 import { SUPPORTED_LOCALES } from '../i18n'
 import { AboutPanel } from '../components/about/AboutPanel'
+import { UnlockCodePanel } from '../components/unlock/UnlockCodePanel'
 import { Button } from '../components/ui/Button'
 import { Select, Switch } from '../components/ui/controls'
 import { Divider, Panel, SectionLabel } from '../components/ui/primitives'
@@ -134,6 +135,11 @@ export function SettingsView(props: SettingsViewProps = {}) {
             <Section />
           </Panel>
         ))}
+
+        <Panel className="space-y-2.5 p-4" data-testid="settings-unlock">
+          <SectionLabel>{t('settings.section.unlock')}</SectionLabel>
+          <UnlockCodePanel />
+        </Panel>
 
         <Panel className="space-y-2.5 p-4" data-testid="settings-about">
           <SectionLabel>{t('settings.section.about')}</SectionLabel>

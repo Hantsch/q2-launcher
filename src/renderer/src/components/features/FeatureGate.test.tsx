@@ -69,4 +69,30 @@ describe('FeatureGate', () => {
     const tab = screen.getByRole('tab')
     expect(tab.textContent).toBe('gated')
   })
+
+  it('an unlocked gated surface carries the experimental badge', () => {
+    useLauncher.setState({ unlockedFeatures: ['test-only-feature'] })
+
+    render(
+      <FeatureGate feature="test-only-feature">
+        <button role="tab">gated</button>
+      </FeatureGate>,
+    )
+
+    expect(screen.getByTestId('experimental-badge')).not.toBeNull()
+    expect(screen.getByRole('tab')).not.toBeNull()
+  })
+
+  it('a locked gated surface renders no badge and nothing else', () => {
+    useLauncher.setState({ unlockedFeatures: [] })
+
+    const { container } = render(
+      <FeatureGate feature="test-only-feature">
+        <button role="tab">gated</button>
+      </FeatureGate>,
+    )
+
+    expect(screen.queryByTestId('experimental-badge')).toBeNull()
+    expectNothingGated(container)
+  })
 })

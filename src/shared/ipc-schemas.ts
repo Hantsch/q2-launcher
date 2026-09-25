@@ -46,6 +46,17 @@ export const appCopyTextSchema: z.ZodType<IpcInvokeMap['app:copyText']['req']> =
 export const appGetReleaseNotesSchema: z.ZodType<IpcInvokeMap['app:getReleaseNotes']['req']> =
   z.void()
 
+// ---- unlock -------------------------------------------------------------------
+
+export const unlockGetStateSchema: z.ZodType<IpcInvokeMap['unlock:getState']['req']> = z.void()
+
+/** Story 129: a pasted code. Bounded before verification ever runs; the verifier caps it again. */
+export const unlockRedeemSchema: z.ZodType<IpcInvokeMap['unlock:redeem']['req']> = z
+  .string()
+  .trim()
+  .min(1)
+  .max(4096)
+
 // ---- window chrome ------------------------------------------------------------
 
 export const windowMinimizeSchema: z.ZodType<IpcInvokeMap['window:minimize']['req']> = z.void()

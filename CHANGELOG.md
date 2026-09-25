@@ -12,6 +12,8 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 ### Added
+- Enter an unlock code in Settings to see what it unlocked, alongside every code you've already
+  redeemed and when it expires.
 - **Servers** — an "Add to address book" button next to Join/Spectate writes a server's address
   into one of Quake II's own nine `adr0`–`adr8` slots, in a config profile you pick, with every
   slot's current value shown before you overwrite anything.

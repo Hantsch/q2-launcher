@@ -19,7 +19,7 @@ import { StateStore } from './services/state'
 import { createUpdateBackend, createUpdateChecker } from './services/update/checker'
 import { createUpdateService, type UpdateService } from './services/update/service'
 import { resolveLauncherInstallId } from './services/unlock/launcher-install-id'
-import { UNLOCK_PUBLIC_KEY_PEM } from './services/unlock/public-key'
+import { harnessUnlockPublicKeyOverride, UNLOCK_PUBLIC_KEY_PEM } from './services/unlock/public-key'
 import { createUnlockService, type UnlockService } from './services/unlock/service'
 import { InstallationWriteGuard } from './services/write-guard'
 
@@ -37,6 +37,11 @@ const log = scopedLogger('context')
  * build without also making every dev-only IPC channel reachable there too.
  */
 async function resolveUnlockPublicKeyPem(isDev: boolean): Promise<string> {
+  // Story 129: the UI harness's inline test key, behind its own stricter double gate (harness AND
+  // dev) - `null` everywhere else, so it never shadows anything outside a harness run.
+  const harnessKey = harnessUnlockPublicKeyOverride({ isDev })
+  if (harnessKey !== null) return harnessKey
+
   const overrideAllowed = isDev || process.env[UI_HARNESS_ENV] === '1'
   const overridePath = process.env['Q2L_UNLOCK_PUBLIC_KEY_FILE']
   if (overrideAllowed && overridePath) {

@@ -1,7 +1,7 @@
 ---
 id: 129
 title: i ask for a code and see what it unlocked
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -36,17 +36,17 @@ the code expired does not.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Settings shows the installation id (from [[128]], in its `XXXX-XXXX-XXXX` form) and a
+- [x] **AC1** — Settings shows the installation id (from [[128]], in its `XXXX-XXXX-XXXX` form) and a
       working copy action next to it.
-- [ ] **AC2** — Submitting a code shows exactly one of five specific rejection reasons — not a code
+- [x] **AC2** — Submitting a code shows exactly one of five specific rejection reasons — not a code
       (wrong prefix or malformed, [[128]] AC9), bad signature, wrong installation, redemption window
       elapsed, feature already expired — and never a generic "invalid code" message.
-- [ ] **AC3** — An accepted code's unlocked feature list and its expiry (if any) are shown to the
+- [x] **AC3** — An accepted code's unlocked feature list and its expiry (if any) are shown to the
       user immediately after submission.
-- [ ] **AC4** — Any surface rendered through [[130]]'s gate for an unlocked feature carries a visible
+- [x] **AC4** — Any surface rendered through [[130]]'s gate for an unlocked feature carries a visible
       "experimental" marking. The gate supplies it, not the feature, so no gated feature can ship
       without it. [[132]]'s watchlist tab is the first real surface that shows it (its AC8).
-- [ ] **AC5** — When a previously-valid code's feature expiry passes, the feature is gone at the
+- [x] **AC5** — When a previously-valid code's feature expiry passes, the feature is gone at the
       next app start, and Settings states that the code expired rather than the feature simply not
       being there.
 
@@ -117,7 +117,7 @@ Order: D1 → D2 → D4; D3 is independent of D1/D2 (needs only 130).
 
 ## Deliverables
 
-- **D1 — Unlock IPC contract and main handlers.** Files: new `src/shared/types/unlock.ts` (export
+- [x] **D1 — Unlock IPC contract and main handlers.** Files: new `src/shared/types/unlock.ts` (export
   it from `src/shared/types` index), `src/shared/ipc.ts` (a `// ---- unlock` block in
   `IpcInvokeMap`: `'unlock:getState': { req: void; res: UnlockState }`,
   `'unlock:redeem': { req: string; res: Outcome<RedeemResult> }`), `src/shared/ipc-schemas.ts`
@@ -147,7 +147,7 @@ Order: D1 → D2 → D4; D3 is independent of D1/D2 (needs only 130).
   public key is ignored outside the harness double gate", "a non-string or over-length payload is
   refused before the service is called".
 
-- **D2 — Unlock panel in Settings.** Files: new `src/renderer/src/components/unlock/UnlockCodePanel.tsx`,
+- [x] **D2 — Unlock panel in Settings.** Files: new `src/renderer/src/components/unlock/UnlockCodePanel.tsx`,
   new `.../components/unlock/UnlockCodePanel.test.tsx`, `src/renderer/src/views/SettingsView.tsx`
   (insert `<Panel className="space-y-2.5 p-4" data-testid="settings-unlock"><SectionLabel>{t('settings.section.unlock')}</SectionLabel><UnlockCodePanel /></Panel>`
   directly before the About panel), `src/renderer/src/i18n/locales/en.json`, `CHANGELOG.md`
@@ -177,7 +177,7 @@ Order: D1 → D2 → D4; D3 is independent of D1/D2 (needs only 130).
   and expiry immediately", "an accepted code without expiry says it does not expire", "an expired
   stored code says it expired".
 
-- **D3 — Experimental marking supplied by the gate.** Files: new
+- [x] **D3 — Experimental marking supplied by the gate.** Files: new
   `src/renderer/src/components/ui/ExperimentalBadge.tsx` (mirror `components/ui/DemoBadge.tsx`:
   `<Badge tone=… testId="experimental-badge">{t('experimental.badge')}</Badge>`, pick an existing
   `Badge` tone that is not `warning`/`danger`), `en.json` (`experimental.badge`: "Experimental"),
@@ -189,7 +189,7 @@ Order: D1 → D2 → D4; D3 is independent of D1/D2 (needs only 130).
   130's test-only feature declaration: "an unlocked gated surface carries the experimental badge"
   and "a locked gated surface renders no badge and nothing else".
 
-- **D4 — End-to-end flow `unlock-code`.** File: new `scripts/flows/unlock-code.mjs`. Mirror
+- [x] **D4 — End-to-end flow `unlock-code`.** File: new `scripts/flows/unlock-code.mjs`. Mirror
   `scripts/flows/servers-master-sources.mjs` (navigation via `nav-settings`, restart phase = second
   `withApp()` over a fresh variant userData dir seeded with a copy of phase 1's `state.json`) and
   `bootstrap-no-engine-for-platform.mjs` (`setup()` returning `{ env }`). `setup()`: generate a
@@ -240,4 +240,44 @@ Order: D1 → D2 → D4; D3 is independent of D1/D2 (needs only 130).
 
 ## Done
 
-<!-- Filled by `/build 129`. -->
+Built the renderer-facing side of 128's unlock mechanism. D1: `unlock:getState`/`unlock:redeem`
+IPC (`src/shared/types/unlock.ts`, `src/shared/ipc.ts`/`ipc-schemas.ts`, `src/main/ipc/unlock.ts`),
+plus service changes — expired stored codes are kept and classified `expired` (never deleted),
+re-redeeming an active stored code is idempotent, and a harness-only public-key override
+(`Q2L_UI_UNLOCK_PUBLIC_KEY`, gated by `Q2L_UI_HARNESS==='1' && isDev`) lets e2e sign real codes.
+D2: `UnlockCodePanel` in Settings (installation id + copy, code input, five distinct rejection
+texts, accepted-feature/expiry display, stored-codes list with an "expired" sentence). D3:
+`ExperimentalBadge` (mirrors `DemoBadge`) rendered unconditionally by 130's `FeatureGate` for every
+unlocked surface, no opt-out prop. D4: `scripts/flows/unlock-code.mjs` proving AC1/2/3/5 end to
+end, including a real restart phase with a throwaway Ed25519 key pair via
+`Q2L_UI_UNLOCK_PUBLIC_KEY`.
+
+**Decisions:** followed the story's literal gate spec `Q2L_UI_HARNESS==='1' && isDev` for the
+public-key override rather than `DialogService.pickConfigFiles()`'s current (narrower,
+harness-only) check — both are safe in a packaged build since neither flag is attacker-reachable
+there. Re-redeeming an already-stored code that has since expired returns `feature-expired`
+(not idempotent `ok: true`) since an expired code is no longer valid to redeem; idempotency
+applies only to still-active stored codes, matching the plan's intent.
+
+**Commit message:** `129: i ask for a code and see what it unlocked`
+
+**Verification (narrow gate):** `npm run build` green, `npm run typecheck` green,
+`npx vitest run --changed HEAD` green (153 files, 2397 tests), `npm run ui:flow -- unlock-code`
+green (all four AC phases + restart). **AC → test, as verified:** AC1 e2e `unlock-code` +
+`UnlockCodePanel.test.tsx` "shows the installation id and copies it verbatim"; AC2 e2e
+`unlock-code` + `unlock.test.ts` "each rejection path maps to its own reason" +
+`UnlockCodePanel.test.tsx` "each of the five rejection reasons renders its own distinct text";
+AC3 e2e `unlock-code` + `UnlockCodePanel.test.tsx` "an accepted code lists its features and
+expiry immediately"; AC4 `FeatureGate.test.tsx` "an unlocked gated surface carries the
+experimental badge" + "a locked gated surface renders no badge and nothing else"; AC5 e2e
+`unlock-code` restart phase + `unlock.test.ts` "an expired stored code is reported expired and
+its feature is no longer unlocked". All passed. No manual residue.
+
+**Review:** default-tier (per `Review: → default`) PASS, no AC failures. One low-severity,
+deliberately unfixed finding: `UnlockCodePanel`'s submit handler silently swallows an
+`ipc.error.invalidPayload` outcome (e.g. an over-4096-char paste) with no user-visible feedback —
+not a violation of AC2 (which only forbids a *generic* rejection message; showing nothing is not
+that), not covered by any named test, and a genuine edge case rather than a defect in the shipped
+behaviour — left as a follow-up rather than expanding scope here.
+
+tiers: D 4 / hard 1 · review default · cycles 0 · agents 6

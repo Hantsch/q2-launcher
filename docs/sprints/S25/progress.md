@@ -161,3 +161,17 @@
 - 2026-09-25 21:24 · 130 · review 2 (hard) · started
 - 2026-09-25 21:26 · 130 · review 2 (hard) · done
 - 2026-09-25 21:29 · 130 · story · done
+- 2026-09-25 21:29:44 · 129 · build · started
+- 2026-09-25 21:30 · 129 · D1 Unlock IPC contract and main handlers · started
+- 2026-09-25 21:35 · 129 · D1 Unlock IPC contract and main handlers · done
+- 2026-09-25 21:35 · 129 · D2 Unlock panel in Settings · started
+- 2026-09-25 21:38 · 129 · D2 Unlock panel in Settings · done
+- 2026-09-25 21:38 · 129 · D3 Experimental marking supplied by the gate · started
+- 2026-09-25 21:39 · 129 · D3 Experimental marking supplied by the gate · done
+- 2026-09-25 21:39 · 129 · D4 End-to-end flow unlock-code · started
+- 2026-09-25 21:45 · 129 · D4 End-to-end flow unlock-code · done
+- 2026-09-25 21:45 · 129 · verify · started
+- 2026-09-25 21:47 · 129 · verify · done
+- 2026-09-25 21:47 · 129 · review 1 · started
+- 2026-09-25 21:49 · 129 · review 1 · done
+- 2026-09-25 21:50 · 129 · story · done

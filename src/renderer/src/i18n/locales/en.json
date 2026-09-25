@@ -237,6 +237,10 @@
     "runningMarker": "Running"
   },
 
+  "experimental": {
+    "badge": "Experimental"
+  },
+
   "installation": {
     "demoBadge": "Demo",
     "failedBadge": "Failed",
@@ -2420,6 +2424,7 @@
       "appearance": "Appearance",
       "launch": "Launching",
       "library": "Library",
+      "unlock": "Unlock code",
       "about": "About"
     },
     "language": "Language",
@@ -2451,6 +2456,29 @@
       "checkNow": "Check now",
       "checkUpToDate": "You're up to date.",
       "checkAvailable": "Version {{version}} found."
+    },
+    "unlock": {
+      "installationId": {
+        "label": "Installation id",
+        "copy": "Copy installation id",
+        "copied": "Copied",
+        "hint": "Send this id to get a code"
+      },
+      "code": {
+        "label": "Unlock code",
+        "placeholder": "Enter your unlock code",
+        "submit": "Redeem"
+      },
+      "reject": {
+        "not-a-code": "That doesn't look like an unlock code.",
+        "bad-signature": "This code isn't valid — it doesn't match what an unlock code should look like.",
+        "wrong-installation": "This code was issued for a different installation and can't be redeemed here.",
+        "redeem-window-elapsed": "This code's redemption window has passed.",
+        "feature-expired": "This code's features have already expired."
+      },
+      "noExpiry": "Does not expire",
+      "expired": "This code expired on {{date}} — its features are no longer available.",
+      "takesEffectNextStart": "This takes effect the next time the launcher starts."
     },
     "devTools": "Development",
     "simulateJob": "Simulate a download job",

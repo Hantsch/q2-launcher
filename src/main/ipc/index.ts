@@ -20,6 +20,7 @@ import { registerJobsIpc } from './jobs'
 import { registerLaunchIpc } from './launch'
 import { registerModulesIpc } from './modules'
 import { registerSettingsIpc } from './settings'
+import { registerUnlockIpc } from './unlock'
 import { registerUpdateIpc } from './update'
 import { registerWindowIpc } from './window'
 
@@ -114,6 +115,7 @@ export function handleOutcome<C extends OutcomeChannel>(
 export function registerAllIpc(app: AppContext): void {
   registerAppIpc(app)
   registerFeaturesIpc(app)
+  registerUnlockIpc(app)
   registerWindowIpc()
   registerSettingsIpc(app)
   registerInstallationsIpc(app)

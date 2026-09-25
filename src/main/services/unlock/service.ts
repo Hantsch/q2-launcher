@@ -1,6 +1,7 @@
 import type { KeyObject } from 'node:crypto'
 import type { UnlockRejection, UnlockSnapshot, UnlockVerdict } from '@shared/unlock'
 import { MAX_UNLOCK_CODES, type UnlockCodeEntry, type UnlockState } from '../../lib/schemas'
+import { parseUnlockCode } from './code'
 import { resolveLauncherInstallId as defaultResolveLauncherInstallId } from './launcher-install-id'
 import { verifyUnlockCode } from './verify'
 
@@ -85,7 +86,33 @@ export function createUnlockService(options: UnlockServiceOptions): UnlockServic
         expiresAt: verdict.payload.expiresAt,
       }
     }
+    // Story 129: an expired code stays stored and is still described (features, label, expiry) so
+    // it can be shown as expired - but its status is not `'active'`, which is the only status
+    // `recomputeActiveFeatures` ever unlocks from. The verifier returns `featureExpired` only after
+    // format, signature and installation have all passed, so this payload is a genuine, signed one
+    // for this installation; every other rejection stays undescribed.
+    if (verdict.reason === 'featureExpired') {
+      const parsed = parseUnlockCode(entry.code)
+      if (parsed.ok) {
+        return {
+          entry,
+          status: 'featureExpired',
+          features: parsed.payload.features,
+          label: parsed.payload.label,
+          expiresAt: parsed.payload.expiresAt,
+        }
+      }
+    }
     return { entry, status: verdict.reason, features: [] }
+  }
+
+  function acceptedVerdict(classified: { features: string[]; label?: string; expiresAt?: number }): UnlockVerdict {
+    return {
+      ok: true,
+      features: classified.features,
+      ...(classified.label !== undefined ? { label: classified.label } : {}),
+      ...(classified.expiresAt !== undefined ? { expiresAt: classified.expiresAt } : {}),
+    }
   }
 
   function recomputeActiveFeatures(): void {
@@ -124,6 +151,22 @@ export function createUnlockService(options: UnlockServiceOptions): UnlockServic
     // that same trimmed form, or the same logical code pasted with/without surrounding whitespace
     // produces two distinct stored rows.
     const code = rawCode.trim()
+    const current = options.state.unlockState()
+
+    // Story 129: an already-stored code is idempotent - judged the way a stored code always is
+    // (`reverify`, so a since-closed redemption window does not matter, but expiry does) and never
+    // re-stored, so it cannot produce a duplicate row or a moved `redeemedAt`.
+    const stored = current.codes.find((entry) => entry.code === code)
+    if (stored) {
+      const classified = classify(stored)
+      if (classified.status !== 'active') {
+        log?.warn(`unlock: re-redemption of a stored code rejected (${classified.status})`)
+        return { ok: false, reason: classified.status }
+      }
+      for (const feature of classified.features) activeFeatures.add(feature)
+      return acceptedVerdict(classified)
+    }
+
     const verdict = verifyUnlockCode(code, {
       publicKey: options.publicKey,
       launcherInstallId,
@@ -136,7 +179,6 @@ export function createUnlockService(options: UnlockServiceOptions): UnlockServic
       return verdict
     }
 
-    const current = options.state.unlockState()
     const withoutThisCode = current.codes.filter((entry) => entry.code !== code)
     const nextEntry: UnlockCodeEntry = { code, redeemedAt: now().toISOString() }
     // Cap explicitly here, keeping the most-recently-redeemed MAX_UNLOCK_CODES entries (including
@@ -152,7 +194,7 @@ export function createUnlockService(options: UnlockServiceOptions): UnlockServic
     for (const feature of verdict.payload.features) activeFeatures.add(feature)
 
     log?.warn(`unlock: redeemed code unlocking feature(s): ${verdict.payload.features.join(', ')}`)
-    return { ok: true, features: verdict.payload.features }
+    return acceptedVerdict(verdict.payload)
   }
 
   function snapshot(): UnlockSnapshot {
