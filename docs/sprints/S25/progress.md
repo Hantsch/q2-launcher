@@ -215,3 +215,7 @@
 - 2026-09-25 22:59 · 132 · review 2 · started
 - 2026-09-25 22:59 · 132 · review 2 · done: no hard-tier review required (Model Hints: default only)
 - 2026-09-25 23:00 · 132 · story · done
+- 2026-09-25 23:00:48 · gate · short-suites · started
+- 2026-09-25 23:03:32 · gate · short-suites · done (build green, test red 1, ui:verify green)
+- 2026-09-25T21:04:52Z · 131 · fix regression from sprint gate · started
+- 2026-09-25T21:05:48Z · 131 · fix regression from sprint gate · done

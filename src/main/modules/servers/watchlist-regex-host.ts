@@ -87,7 +87,7 @@ export function createRegexHost({
   let nextJobId = 1
   let disposed = false
 
-  function spawn(): Worker {
+  function startWorker(): Worker {
     const w = createWorker()
     worker = w
     workerOnline = false
@@ -159,7 +159,7 @@ export function createRegexHost({
       const job = queue.shift()!
       let w: Worker
       try {
-        w = worker ?? spawn()
+        w = worker ?? startWorker()
       } catch {
         retireWorker()
         job.resolve({ ok: false, reason: 'worker-error' })
