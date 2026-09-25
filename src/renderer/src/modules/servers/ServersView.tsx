@@ -16,9 +16,21 @@ import {
 import { nextSort, sortServerRows, type ServerListSort, type ServerSortColumn } from '@shared/servers/list-sort'
 import { Button } from '../../components/ui/Button'
 import { Panel } from '../../components/ui/primitives'
-import { getListSort, onScanChanged, readScan, setListSort, setScanViewActive, startScan } from './client'
+import { ROUTE_SETTINGS, useLauncher } from '../../store/useLauncher'
+import {
+  getListSort,
+  listMasterSources,
+  onScanChanged,
+  onScanServer,
+  readScan,
+  setListSort,
+  setScanViewActive,
+  startScan,
+} from './client'
+import { deriveListState } from './list-state'
 import { ServerListFilterBar } from './ServerListFilterBar'
 import { ServerRow } from './ServerRow'
+import { ServersListStatus } from './ServersListStatus'
 import { ServerSortBar } from './ServerSortBar'
 
 /** Story 116 D5: the visible reason for each `ScanBlockedReason` - a lookup table of one entry
@@ -91,22 +103,64 @@ const IDLE_SCAN_STATE: ServersScanState = {
  * 115/116's "re-clicking is safe" - this story's own Decisions: a refresh requested while any scan
  * runs is refused, not queued, and the controls render disabled with that reason rather than
  * silently dropping the click), each with its own visible reason line rather than a silent no-op.
+ *
+ * Story 121 D1: a `ServersListStatus` panel now sits between the controls and the row list,
+ * driven by `deriveListState`/`describeScanProgress` (`list-state.ts`, pure and unit-tested on
+ * their own) - loading progress, an empty state with a link into the source-settings section, an
+ * idle "never scanned" state, and per-source scan failures (independent of the other three,
+ * rendered whenever `scanState.sourceFailures` is non-empty). `onScanServer` is now also
+ * subscribed here: each push schedules a coalesced `readScan()` (at most one read in flight, plus
+ * one trailing read if more pushes land while a read is outstanding) so the row list streams in
+ * live during a scan rather than waiting for the round-end re-read alone - that existing
+ * round-end re-read (D4 above) is unchanged. `sourceLabels` (source id -> its address) is read via
+ * `listMasterSources()` on mount and again whenever a new, not-yet-labelled source id shows up in
+ * `sourceFailures`, so a failure is always named by its human-readable address, never a raw id.
  */
 export function ServersView() {
   const { t } = useTranslation()
+  const setRoute = useLauncher((state) => state.setRoute)
   const [scanState, setScanState] = useState<ServersScanState>(IDLE_SCAN_STATE)
   const [entries, setEntries] = useState<ServerListRow[]>([])
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null)
   const [sort, setSort] = useState<ServerListSort | undefined>(undefined)
   // Story 120 D2: purely local, not persisted anywhere - a fresh mount always starts unfiltered.
   const [filter, setFilter] = useState<ServerListFilter>(EMPTY_SERVER_LIST_FILTER)
+  // Story 121 D1: source id -> its human-readable address, for naming a `sourceFailures` entry.
+  const [sourceLabels, setSourceLabels] = useState<Record<string, string>>({})
   // Tracks the last-seen `finishedAt` so a `scan.changed` push is only treated as "a round just
   // finished" (and triggers the one extra `readScan()` below) once, not on every progress-only
   // push during stage1/stage2 - a ref because it must not itself trigger a re-render.
   const lastFinishedAtRef = useRef<string | null>(null)
+  // Story 121 D1: coalesces `onScanServer` pushes into at most one `readScan()` in flight, plus one
+  // trailing read scheduled if more pushes arrive while a read is outstanding - streams the row
+  // list live during a scan without ever letting reads pile up.
+  const readInFlightRef = useRef(false)
+  const readPendingRef = useRef(false)
+  // Mirrors `sourceLabels` for the effect below to read without depending on it directly - a
+  // dependency on the state value itself would re-fire every time `setSourceLabels` produces a new
+  // object (including an unchanged empty `{}`), looping forever.
+  const sourceLabelsRef = useRef<Record<string, string>>({})
 
   useEffect(() => {
     let cancelled = false
+
+    const requestCoalescedRead = (): void => {
+      if (cancelled) return
+      if (readInFlightRef.current) {
+        readPendingRef.current = true
+        return
+      }
+      readInFlightRef.current = true
+      void readScan().then((result) => {
+        readInFlightRef.current = false
+        if (!cancelled && result.ok) setEntries(result.value.entries)
+        if (readPendingRef.current) {
+          readPendingRef.current = false
+          requestCoalescedRead()
+        }
+      })
+    }
+
     void setScanViewActive(true)
 
     void readScan().then((result) => {
@@ -131,12 +185,42 @@ export function ServersView() {
         })
       }
     })
+
+    // Story 121 D1: each resolved row streams the list live, coalesced so a burst of pushes never
+    // queues more than one extra `readScan()`.
+    const unsubscribeServer = onScanServer(() => {
+      requestCoalescedRead()
+    })
+
     return () => {
       cancelled = true
       unsubscribeChanged()
+      unsubscribeServer()
       void setScanViewActive(false)
     }
   }, [])
+
+  // Story 121 D1: resolves the current master sources into an id -> address label map, once on
+  // mount and again whenever a source failure names an id not yet in the map (a source added after
+  // mount, or added to `sourceFailures` before the initial list resolved).
+  useEffect(() => {
+    const missing = scanState.sourceFailures.some(
+      (failure) => !(failure.sourceId in sourceLabelsRef.current),
+    )
+    if (Object.keys(sourceLabelsRef.current).length > 0 && !missing) return
+
+    let cancelled = false
+    void listMasterSources().then((result) => {
+      if (cancelled || !result.ok) return
+      const labels: Record<string, string> = {}
+      for (const source of result.value) labels[source.id] = source.address
+      sourceLabelsRef.current = labels
+      setSourceLabels(labels)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [scanState.sourceFailures])
 
   // Story 119 D3: loads the persisted list sort once on mount - `null` (no sort persisted, or the
   // read failed) maps to `undefined`, the same "default order" value `sortServerRows` expects.
@@ -179,6 +263,20 @@ export function ServersView() {
 
   const handleToggleRowSelected = (address: string): void => {
     setSelectedAddress((current) => (current === address ? null : address))
+  }
+
+  // Story 121 D1: mirrors `UpdatePopover.tsx`'s `goToAbout` - the route change lands on the next
+  // render commit, so two rAFs (one for the commit, one for the browser's next paint) is the
+  // smallest wait that reliably sees `settings-section-servers` in the DOM before scrolling.
+  const handleOpenSourceSettings = (): void => {
+    setRoute(ROUTE_SETTINGS)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document
+          .querySelector('[data-testid="settings-section-servers"]')
+          ?.scrollIntoView({ block: 'start' })
+      })
+    })
   }
 
   const sortedRows = sortServerRows(entries, sort)
@@ -269,6 +367,13 @@ export function ServersView() {
             </span>
           </div>
         </Panel>
+
+        <ServersListStatus
+          listState={deriveListState(scanState, entries.length)}
+          scanState={scanState}
+          sourceLabels={sourceLabels}
+          onOpenSourceSettings={handleOpenSourceSettings}
+        />
 
         <ServerSortBar sort={sort} onSort={handleSort} />
 

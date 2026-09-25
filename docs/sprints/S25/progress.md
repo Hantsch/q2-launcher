@@ -34,3 +34,17 @@
 - 2026-09-25 18:06 · 120 · review 1 · started
 - 2026-09-25 18:08 · 120 · review 1 · done
 - 2026-09-25 18:09 · 120 · story · done
+- 2026-09-25 18:09:39 · 121 · build · started
+- 2026-09-25 18:10 · 121 · D1 the list says what it is doing (renderer) · started
+- 2026-09-25 18:20 · 121 · D1 the list says what it is doing (renderer) · done
+- 2026-09-25 18:20 · 121 · D2 the four list states in the ui:verify registry · started
+- 2026-09-25 18:26 · 121 · D2 the four list states in the ui:verify registry · done
+- 2026-09-25 18:26 · 121 · D3 scan-to-select flow on a local stub · started
+- 2026-09-25 18:30 · 121 · D3 scan-to-select flow on a local stub · done
+- 2026-09-25 18:30 · 121 · verify · started
+- 2026-09-25 18:33 · 121 · verify · done
+- 2026-09-25 18:33 · 121 · review 1 · started
+- 2026-09-25 18:35 · 121 · review 1 · done
+- 2026-09-25 18:36 · 121 · verify · started
+- 2026-09-25 18:37 · 121 · verify · done
+- 2026-09-25 18:37 · 121 · story · done

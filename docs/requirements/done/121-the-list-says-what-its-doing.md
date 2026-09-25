@@ -1,7 +1,7 @@
 ---
 id: 121
 title: the list says what it's doing
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -21,16 +21,16 @@ and belongs to [[125]].
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — While a scan from [[114]] is in progress, the list shows a loading state with live
+- [x] **AC1** — While a scan from [[114]] is in progress, the list shows a loading state with live
       progress counts (e.g. servers found so far / servers still being queried).
-- [ ] **AC2** — When a completed scan returns no servers from any source, the list shows a stated
+- [x] **AC2** — When a completed scan returns no servers from any source, the list shows a stated
       empty state ("no source returned a server") that includes a link into source settings ([[111]]).
-- [ ] **AC3** — A failure on one source is shown attributed to that specific source, without hiding or
+- [x] **AC3** — A failure on one source is shown attributed to that specific source, without hiding or
       blocking the rest of the list's results from sources that succeeded.
-- [ ] **AC4** — The populated, loading, empty and error list states are all present as entries in the
+- [x] **AC4** — The populated, loading, empty and error list states are all present as entries in the
       `ui:verify` screen registry, and a full verification run against them holds zero axe violations
       (GB-A4).
-- [ ] **AC5** — A `ui:flow` script drives a scan-to-select flow (the scan → select portion of the
+- [x] **AC5** — A `ui:flow` script drives a scan-to-select flow (the scan → select portion of the
       concept's scan → select → join-dialog example; the join-dialog portion is [[125]]) entirely
       against a local stub fixture that serves the scan data — the script never touches a real master
       or a real game server (GB-A5).
@@ -117,7 +117,7 @@ Out of scope: the join dialog ([[125]]), the detail view ([[122]]), a "no filter
 
 ## Deliverables
 
-- **D1 — the list says what it is doing (renderer).**
+- [x] **D1 — the list says what it is doing (renderer).**
   - New `src/renderer/src/modules/servers/list-state.ts` (pure, no React), plus a colocated
     `list-state.test.ts`:
     - `deriveListState(state: ServersScanState, rowCount: number): 'loading' | 'empty' | 'idle' | 'populated'`:
@@ -186,7 +186,7 @@ Out of scope: the join dialog ([[125]]), the detail view ([[122]]), a "no filter
   - Acceptance: `npx vitest run src/renderer/src/modules/servers` passes and `npm run typecheck`
     is clean.
 
-- **D2 — the four list states in the `ui:verify` registry.**
+- [x] **D2 — the four list states in the `ui:verify` registry.**
   - New `scripts/lib/servers-stub.mjs` (Node only):
     - `startServerResponders(specs)`: each spec is `{ port, hostname, players, map }`. It binds
       `node:dgram` on `127.0.0.1:<port>` and answers `info`/`status` queries, with the bytes copied
@@ -231,7 +231,7 @@ Out of scope: the join dialog ([[125]]), the detail view ([[122]]), a "no filter
     on loading and a failure line plus rows on error. The full `npm run ui:verify` is still at 0
     violations.
 
-- **D3 — scan-to-select flow on a local stub.**
+- [x] **D3 — scan-to-select flow on a local stub.**
   - New `scripts/flows/servers-list-states.mjs` (flow name `servers-list-states`).
   - Setup: seed its own state with `writePopulatedFixture`, following the pattern in
     `servers-scoped-refresh.mjs`. The state is `SERVERS_DISABLED_SOURCES`, plus the stub list source
@@ -303,4 +303,30 @@ named test.
 
 ## Done
 
-<!-- Filled by `/build 121`. -->
+Implemented the pure `list-state.ts` derivation/progress formatter, the `ServersListStatus.tsx`
+loading/empty/idle/source-failure panels wired into `ServersView.tsx` with coalesced
+`scan.server` re-reads and the settings-link navigation (mirroring `UpdatePopover.tsx`), plus the
+new `servers.list.*` i18n keys. Added a loopback stub lib (`scripts/lib/servers-stub.mjs`), three
+fixture variants and four `ui:verify` registry entries for the four list states, and a
+`servers-list-states` `ui:flow` covering the scan→select path (empty → settings link → loading →
+populated-with-attributed-error → select) entirely on `127.0.0.1` stubs.
+
+Commit message: `121: the list says what it's doing`
+
+Verification — narrow gate: `npm run build` green, `npm run typecheck` green, `npx vitest run
+--changed HEAD` green (72 files / 557 tests), `npm run ui:flow -- servers-list-states` green,
+`npm run ui:verify -- --screens=servers-list-populated,servers-list-loading,servers-list-empty,servers-list-error`
+green with 0 axe violations across all 8 shots (4 screens × 2 viewports). AC → test mapping
+verified: AC1 (flow round 2 loading counts + `list-state.test.ts`/`ServersListStatus.test.tsx`/
+`ServersView.test.tsx` unit cases), AC2 (flow round 1 empty state + settings-link navigation +
+their unit cases), AC3 (flow's dead-source failure named by URL alongside live rows + their unit
+cases), AC4 (the four-screen `ui:verify` run above), AC5 (flow's loopback-only guard and
+scan→select steps) — all present and passing. No `manual residue`.
+
+Review: default-tier clean agent, verdict PASS. One confirmed finding fixed: the
+`ServersView.test.tsx` "a scan.server push refreshes the rows..." test only asserted the
+coalesced `readScan` call count, not that a new row actually rendered — tightened to assert a new
+row appears via `findByTestId` after the coalesced read resolves; re-verified (typecheck +
+`vitest run --changed HEAD`) green. No other findings.
+
+tiers: D 3 / hard 0 · review default · cycles 1 · agents 8

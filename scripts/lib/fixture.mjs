@@ -30,6 +30,10 @@ import { dirname, join } from 'node:path'
 import { deflateSync } from 'node:zlib'
 import { assertInside, REPO_ROOT, UI_VERIFY_ROOT } from './paths.mjs'
 import { variantUserDataDir } from './harness.mjs'
+// Story 121 D2: the three `servers-list*` screens' loopback stub ports/URL - imported here (not
+// just from `screens.mjs`) because the fixture itself has to point a seeded `http-list` source at
+// the stub list server's URL before the app ever starts.
+import { SERVERS_DEAD_LIST_URL, serversStubListUrl } from './servers-stub.mjs'
 // Story 075 D7's two seeded `downloadFailures` entries. They live in their own module (which
 // imports only the redaction mirror) so a unit test can assert the seeded record is exactly what
 // the real `redactHome` produces, without dragging playwright in through this file.
@@ -2188,6 +2192,92 @@ export function writeNewsStaleFixture() {
   return { userDataDir, installations: 0, configProfiles: 0 }
 }
 
+/**
+ * Story 121 D2: `servers-list-empty`'s fixture - the same shape `servers-scan` documents above
+ * (every shipped source present but disabled, autos off), but with no manual/favourite servers and
+ * no enabled source at all - a scan genuinely finds nothing, an honest empty result rather than a
+ * stub source involved.
+ */
+export function writeServersListEmptyFixture() {
+  return writePopulatedFixture({
+    variant: 'servers-list-empty',
+    stateOverrides: {
+      servers: {
+        sources: SERVERS_DISABLED_SOURCES,
+        favourites: [],
+        manualServers: [],
+        history: [],
+        scan: { ...SERVERS_SCAN_SETTINGS_SEED },
+      },
+    },
+  })
+}
+
+/**
+ * Story 121 D2: `servers-list-populated`/`servers-list-loading`'s shared fixture - the same
+ * disabled shipped sources as `servers-list-empty`, plus one enabled `http-list` source pointing at
+ * the loopback stub list server (`scripts/lib/servers-stub.mjs`). The screens themselves start the
+ * stub responders/list server and feed it addresses at runtime (`navigate()`); this fixture only
+ * ever seeds the URL the source will fetch.
+ */
+export function writeServersListFixture() {
+  return writePopulatedFixture({
+    variant: 'servers-list',
+    stateOverrides: {
+      servers: {
+        sources: [
+          ...SERVERS_DISABLED_SOURCES,
+          {
+            id: 'fixture-servers-list-http',
+            type: 'http-list',
+            address: serversStubListUrl(),
+            enabled: true,
+          },
+        ],
+        favourites: [],
+        manualServers: [],
+        history: [],
+        scan: { ...SERVERS_SCAN_SETTINGS_SEED },
+      },
+    },
+  })
+}
+
+/**
+ * Story 121 D2: `servers-list-error`'s fixture - the same stub `http-list` source as
+ * `servers-list`, plus a second enabled `http-list` source pointing at `SERVERS_DEAD_LIST_URL` (a
+ * loopback port nothing binds), so one source succeeds and the other deterministically fails with a
+ * transport error - AC3's proof that a source failure never hides the rest of the list.
+ */
+export function writeServersListErrorFixture() {
+  return writePopulatedFixture({
+    variant: 'servers-list-error',
+    stateOverrides: {
+      servers: {
+        sources: [
+          ...SERVERS_DISABLED_SOURCES,
+          {
+            id: 'fixture-servers-list-http',
+            type: 'http-list',
+            address: serversStubListUrl(),
+            enabled: true,
+          },
+          {
+            id: 'fixture-servers-list-http-dead',
+            type: 'http-list',
+            address: SERVERS_DEAD_LIST_URL,
+            enabled: true,
+          },
+        ],
+        favourites: [],
+        manualServers: [],
+        history: [],
+        scan: { ...SERVERS_SCAN_SETTINGS_SEED },
+      },
+    },
+  })
+}
+
 export function writeFixture(variant) {
   // Story 066 D8: staged independently of which variant is being (re)written - see
   // `writeImportFilesFixture()`'s own doc comment for why this has to happen on every reseed
@@ -2224,6 +2314,10 @@ export function writeFixture(variant) {
       },
     })
   }
+  // Story 121 D2: the three `servers-list*` screens' variants - see each writer's own doc comment.
+  if (variant === 'servers-list-empty') return writeServersListEmptyFixture()
+  if (variant === 'servers-list') return writeServersListFixture()
+  if (variant === 'servers-list-error') return writeServersListErrorFixture()
   throw new Error(`unknown fixture variant: ${variant}`)
 }
 
@@ -2240,6 +2334,10 @@ export const FIXTURE_VARIANTS = [
   // Story 115 D5: same reasoning as `news-cover` right above - no screen in `screens.mjs` names
   // this one, it exists for `scripts/flows/servers-scan-settings.mjs` alone.
   'servers-scan',
+  // Story 121 D2: the three `servers-list*` screens' own variants (`screens.mjs`).
+  'servers-list-empty',
+  'servers-list',
+  'servers-list-error',
 ]
 
 // --- story 066 D8: the import-from-files flow's staged real-config corpus ---------------------

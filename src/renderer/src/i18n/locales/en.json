@@ -692,6 +692,17 @@
       "waiting": "Waiting for an opponent",
       "pending": "Not scanned yet"
     },
+    "list": {
+      "loading": {
+        "sources": "Asking the server lists…",
+        "stage1": "{{found}} servers found · {{pending}} still being queried",
+        "stage2": "Fetching players: {{done}} of {{total}}"
+      },
+      "empty": "No source returned a server",
+      "openSourceSettings": "Open source settings",
+      "idle": "Not scanned yet. Refresh to scan.",
+      "sourceFailed": "{{source}}: {{reason}}"
+    },
     "gamemode": {
       "ctf": "CTF",
       "team": "Team",

@@ -2,7 +2,12 @@
 import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { ScanSnapshot, ServerListEntry, ServersScanState } from '@shared/modules/servers'
+import type {
+  MasterSource,
+  ScanSnapshot,
+  ServerListEntry,
+  ServersScanState,
+} from '@shared/modules/servers'
 import type { ServerListSort } from '@shared/servers/list-sort'
 import { initI18n } from '../../i18n'
 
@@ -11,12 +16,26 @@ import { initI18n } from '../../i18n'
  * (`./client`) is stubbed directly via `vi.mock`, rather than going through `window.q2`'s
  * `invoke`/`on` plumbing - simpler, and this view's logic is entirely about what it does with
  * `readScan()`'s resolved value and `onScanChanged()`'s pushes, not about the transport itself.
+ *
+ * Story 121 D1: `ServersView` now also reads `useLauncher` (for `setRoute`/`ROUTE_SETTINGS`,
+ * mirroring `UpdatePopover.tsx`'s `goToAbout`) - `window.q2` is resolved at *module* scope by
+ * `lib/bridge.ts`, so the same bridge stub `UpdatePopover.test.tsx`/`useLauncher.update.test.ts`
+ * use must exist before the store (and anything importing it, including `ServersView`) is
+ * imported.
  */
+vi.hoisted(() => {
+  const invoke = vi.fn(() => Promise.resolve(undefined))
+  const on = vi.fn(() => () => {})
+  ;(globalThis as unknown as { q2: unknown }).q2 = { invoke, on }
+})
+
 const {
   readScanMock,
   startScanMock,
   setScanViewActiveMock,
   onScanChangedMock,
+  onScanServerMock,
+  listMasterSourcesMock,
   getListSortMock,
   setListSortMock,
 } = vi.hoisted(() => ({
@@ -24,6 +43,8 @@ const {
   startScanMock: vi.fn(async () => ({ ok: true as const, value: { ok: true as const } })),
   setScanViewActiveMock: vi.fn(async () => ({ ok: true as const, value: undefined })),
   onScanChangedMock: vi.fn(),
+  onScanServerMock: vi.fn(),
+  listMasterSourcesMock: vi.fn(async () => ({ ok: true as const, value: [] as MasterSource[] })),
   getListSortMock: vi.fn(async () => ({ ok: true as const, value: null as ServerListSort | null })),
   setListSortMock: vi.fn(async (sort: ServerListSort | null) => ({ ok: true as const, value: sort })),
 }))
@@ -33,6 +54,8 @@ vi.mock('./client', () => ({
   startScan: startScanMock,
   setScanViewActive: setScanViewActiveMock,
   onScanChanged: onScanChangedMock,
+  onScanServer: onScanServerMock,
+  listMasterSources: listMasterSourcesMock,
   getListSort: getListSortMock,
   setListSort: setListSortMock,
 }))
@@ -48,6 +71,11 @@ afterEach(() => {
   cleanup()
   vi.clearAllMocks()
   onScanChangedMock.mockImplementation(() => () => {})
+  onScanServerMock.mockImplementation(() => () => {})
+  listMasterSourcesMock.mockImplementation(async () => ({
+    ok: true as const,
+    value: [] as MasterSource[],
+  }))
   getListSortMock.mockImplementation(async () => ({
     ok: true as const,
     value: null as ServerListSort | null,
@@ -87,6 +115,7 @@ function snapshot(overrides: {
 async function renderView(initial: ScanSnapshot): Promise<void> {
   readScanMock.mockResolvedValue({ ok: true, value: initial })
   onScanChangedMock.mockImplementation(() => () => {})
+  onScanServerMock.mockImplementation(() => () => {})
 
   render(createElement(ServersView))
 
@@ -370,5 +399,69 @@ describe('ServersView - list filter (story 120 D2)', () => {
     const noMatch = await screen.findByTestId('servers-filter-no-match')
     expect(noMatch.textContent).toContain('No servers match your filters.')
     expect(screen.queryByTestId('servers-row-a:1')).toBeNull()
+  })
+})
+
+describe('ServersView - list status panel (story 121 D1)', () => {
+  it('a source failure is shown beside the rows from the other sources', async () => {
+    listMasterSourcesMock.mockResolvedValueOnce({
+      ok: true,
+      value: [{ id: 'bad-source', type: 'udp-master', address: 'dead.example.com:27900', enabled: true }],
+    })
+
+    await renderView(
+      snapshot({
+        state: {
+          finishedAt: 'x',
+          sourceFailures: [{ sourceId: 'bad-source', reasonKey: 'servers.scan.error.already-running' }],
+        },
+        entries: [
+          { address: 'a:1', origins: ['manual'], status: 'online', lastSeenAt: 'x' },
+          { address: 'b:1', origins: ['manual'], status: 'online', lastSeenAt: 'x' },
+        ],
+      }),
+    )
+
+    await screen.findByTestId('servers-row-a:1')
+    await screen.findByTestId('servers-row-b:1')
+
+    const failure = await screen.findByTestId('servers-list-source-failure-bad-source')
+    expect(failure.textContent).toContain('dead.example.com:27900')
+  })
+
+  it('a scan.server push refreshes the rows while the scan runs', async () => {
+    await renderView(snapshot({ state: { running: true } }))
+
+    // `onScanServer` was subscribed once during mount (the effect's own subscription call) -
+    // capture the listener it registered, whatever the mock's implementation was at call time.
+    const pushListener = onScanServerMock.mock.calls[0]?.[0] as (() => void) | undefined
+
+    readScanMock.mockClear()
+    readScanMock.mockResolvedValue({
+      ok: true,
+      value: snapshot({
+        state: { running: true },
+        entries: [{ address: 'pushed:1', origins: ['manual'], status: 'online', lastSeenAt: 'x' }],
+      }),
+    })
+
+    expect(pushListener).toBeDefined()
+    await act(async () => {
+      pushListener?.()
+      pushListener?.()
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    // Coalesced: two pushes while idle triggers a read, then at most one trailing read - never one
+    // read per push.
+    expect(readScanMock.mock.calls.length).toBeGreaterThanOrEqual(1)
+    expect(readScanMock.mock.calls.length).toBeLessThanOrEqual(2)
+
+    // The read's result must actually be applied to state, not just fetched - a broken
+    // implementation that calls readScan() on each push but never calls setEntries(...) would
+    // still pass the assertions above.
+    await screen.findByTestId('servers-row-pushed:1')
   })
 })

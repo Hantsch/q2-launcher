@@ -45,6 +45,12 @@ version section when a release actually ships.
   active, one click clears every field, and a filter that matches nothing says so instead of
   showing a blank list. Filters and search reset each time you open the list — nothing stays
   hidden by default.
+- **Servers** — the list now says what it's doing: a live "N servers found, M still being queried"
+  readout (then a players-fetched count) while a scan runs, a clear empty state with a link
+  straight to source settings when nothing came back, an idle state before the first scan ever
+  runs, and any source that failed named by its address with its actual reason, shown alongside
+  whatever the other sources did return. Rows now stream in live as a scan progresses instead of
+  only updating once it finishes.
 - **Linux** — a Windows Quake II build (Steam, GOG, a folder carried over from another machine)
   now plays on Linux too: the launcher offers wine or umu-run as a runner and launches through it
   when you pick one.
