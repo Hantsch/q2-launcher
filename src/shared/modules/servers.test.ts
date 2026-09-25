@@ -90,7 +90,7 @@ describe('servers persisted state (story 110 D1)', () => {
     const parsed = serversStateSchema.parse(DEFAULT_SERVERS_STATE)
     expect(parsed).toEqual(DEFAULT_SERVERS_STATE)
     expect(Object.keys(serversStateSchema.shape).sort()).toEqual(
-      ['favourites', 'history', 'manualServers', 'scan', 'sources'].sort(),
+      ['favourites', 'history', 'manualServers', 'scan', 'sources', 'watchlist'].sort(),
     )
   })
 

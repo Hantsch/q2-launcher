@@ -194,7 +194,7 @@ describe('StateStore servers state (story 110 D3)', () => {
     // servers is a distinct top-level key with its own shape...
     expect(state.serversState()).toEqual(DEFAULT_SERVERS_STATE)
     expect(Object.keys(state.serversState()).sort()).toEqual(
-      ['favourites', 'history', 'manualServers', 'scan', 'sources'].sort(),
+      ['favourites', 'history', 'manualServers', 'scan', 'sources', 'watchlist'].sort(),
     )
 
     // ...and adding it left LauncherSettings's own shape and values untouched.
@@ -223,6 +223,7 @@ describe('StateStore servers state (story 110 D3)', () => {
         autoRefreshEnabled: false,
         autoRefreshIntervalMs: 60000,
       },
+      watchlist: [],
     }
     const written = state.setServersState(custom)
     await state.settle()
@@ -282,6 +283,71 @@ describe('StateStore servers state (story 110 D3)', () => {
     // `homeLayout`'s missing-key case above.
     expect(doc.schemaVersion).toBe(STATE_SCHEMA_VERSION)
     expect(reloaded.recoveredFrom).toBeNull()
+  })
+
+  // Story 131 D1: the persisted contract only - a matcher/service/worker come in later
+  // deliverables, so these tests cover exactly what this D adds: round-trip, row-level drop of an
+  // unknown mode, and a missing key defaulting to `[]`.
+  it('a watchlist entry round-trips with exactly one of the three match modes', async () => {
+    const watchlist: ServersState['watchlist'] = [
+      { id: 'wl-exact', name: 'Player1', mode: 'exact', tooSlow: false },
+      { id: 'wl-substring', name: 'Player2', mode: 'substring', tooSlow: false },
+      { id: 'wl-regex', name: '^Player[0-9]+$', mode: 'regex', tooSlow: true },
+    ]
+
+    state.setServersState({ ...state.serversState(), watchlist })
+    await state.settle()
+
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+
+    expect(reloaded.serversState().watchlist).toEqual(watchlist)
+  })
+
+  it('a watchlist row with an unknown mode is dropped on reload', async () => {
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        schemaVersion: STATE_SCHEMA_VERSION,
+        servers: {
+          ...DEFAULT_SERVERS_STATE,
+          watchlist: [
+            { id: 'wl-good', name: 'Player1', mode: 'exact', tooSlow: false },
+            { id: 'wl-bad', name: 'Player2', mode: 'fuzzy', tooSlow: false },
+          ],
+        },
+      }),
+      'utf-8',
+    )
+
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+
+    expect(reloaded.serversState().watchlist).toEqual([
+      { id: 'wl-good', name: 'Player1', mode: 'exact', tooSlow: false },
+    ])
+  })
+
+  it('a state file without a watchlist key parses to an empty list', async () => {
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        schemaVersion: STATE_SCHEMA_VERSION,
+        servers: {
+          sources: DEFAULT_MASTER_SOURCES,
+          favourites: [],
+          manualServers: [],
+          history: [],
+          scan: DEFAULT_SERVERS_STATE.scan,
+        },
+      }),
+      'utf-8',
+    )
+
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+
+    expect(reloaded.serversState().watchlist).toEqual([])
   })
 
   it('a corrupt servers value degrades without taking siblings down', async () => {

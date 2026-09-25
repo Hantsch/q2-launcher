@@ -17,6 +17,7 @@ import {
 } from '@shared/modules/servers'
 import { IDLE_LAUNCH_STATE, getModuleManifest, type LaunchState } from '@shared/types'
 import type { AppContext } from '../../context'
+import { createFeatureGate, type FeatureGate } from '../../features/gate'
 import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
 import { serversModule } from './index'
@@ -43,12 +44,26 @@ import { serversModule } from './index'
  * caller of this helper needs that seam to exist, even the tests that never assert on an emitted
  * event.
  */
-function fakeAppContext(state?: StateStore, launchState: LaunchState = IDLE_LAUNCH_STATE): AppContext {
+/**
+ * Story 131 D5: every `fakeAppContext` now also carries `features` - `serversModule.setup()` reads
+ * `app.features.isFeatureUnlocked('watchlist')` unconditionally, so a fake context missing it would
+ * throw for every test in this file, not just the watchlist-specific ones below. Defaults to the
+ * locked gate (nothing unlocked) - the same fail-closed default `MainModuleRegistry` itself uses -
+ * so every pre-existing test in this file keeps exercising the servers module with the watchlist
+ * feature locked, exactly as it did before this feature existed.
+ */
+function fakeAppContext(
+  state?: StateStore,
+  launchState: LaunchState = IDLE_LAUNCH_STATE,
+  features: FeatureGate = createFeatureGate([]),
+): AppContext {
   const broadcast = { emit: () => {} }
   // Story 116 D3: the scan service/cadence read `app.launch` at construction - an idle, silent stub
   // by default; story 117 D4's guard tests below pass a `'running'`/`'starting'` state instead.
   const launch = { getState: () => launchState, onStateChange: () => () => {} }
-  return (state === undefined ? { broadcast, launch } : { state, broadcast, launch }) as unknown as AppContext
+  return (
+    state === undefined ? { broadcast, launch, features } : { state, broadcast, launch, features }
+  ) as unknown as AppContext
 }
 
 /**
@@ -72,8 +87,9 @@ function fakeAppContextWithControllableLaunch(state: StateStore): {
     },
   }
   const broadcast = { emit: () => {} }
+  const features = createFeatureGate([])
   return {
-    context: { state, broadcast, launch } as unknown as AppContext,
+    context: { state, broadcast, launch, features } as unknown as AppContext,
     setLaunchState: (next) => {
       launchState = next
       for (const listener of [...listeners]) listener(next)
@@ -827,5 +843,99 @@ describe('servers module records a history visit on a successful join (story 125
     setLaunchState({ phase: 'handed-off', installationId: 'inst-1' })
 
     expect(state.serversState().history).toEqual([])
+  })
+})
+
+/**
+ * Story 131 D5: the `watchlist.*` handlers, the watchlist service and its regex worker only ever
+ * exist when the `'watchlist'` feature is unlocked (AC10). Both halves of the gate have to agree
+ * for a test to reflect the real app: `MainModuleRegistry`'s own constructor argument (what decides
+ * whether a `{ feature: 'watchlist' }` `handle()` call is actually stored) and `fakeAppContext`'s
+ * `features` (what `serversModule.setup()` itself reads to decide whether to construct
+ * `watchlistService`/`createRegexHost()` at all) - exactly like `context.ts` wires the same
+ * `FeatureGate` instance into both places in the real app.
+ */
+describe('servers module watchlist.* handlers are feature-gated (story 131 D5)', () => {
+  let filePath: string
+  let state: StateStore
+
+  beforeEach(async () => {
+    filePath = join(tmpdir(), `q2-launcher-state-servers-watchlist-gate-${randomUUID()}.json`)
+    state = new StateStore(filePath)
+    await state.load()
+  })
+
+  afterEach(async () => {
+    await state.settle()
+    await rm(filePath, { force: true })
+    await rm(`${filePath}.tmp`, { force: true })
+    await rm(`${filePath}.bak`, { force: true })
+  })
+
+  it('a locked servers module registers no watchlist handler and attaches no scan observer', async () => {
+    const gate = createFeatureGate([])
+    const registry = new MainModuleRegistry(gate)
+    await registry.register(serversModule, fakeAppContext(state, IDLE_LAUNCH_STATE, gate))
+
+    const outcome = await registry.invoke({
+      moduleId: 'servers',
+      type: 'watchlist.read',
+      payload: undefined,
+    })
+
+    // Same answer a genuinely unknown type gets - never a distinct "locked"/"forbidden" response
+    // (story 130's own rule, `registry.ts`'s doc comment).
+    expect(outcome).toEqual({
+      ok: false,
+      error: { key: 'modules.error.notImplemented', params: { moduleId: 'servers', type: 'watchlist.read' } },
+    })
+
+    // No observer attached to the scan service either: a stage2 push resolves nothing watchlist-
+    // shaped, proven here by starting a (network-free, empty-address-set) scan and confirming it
+    // still settles - if `onStage2Row` had been wired to a `watchlistService` that no longer exists
+    // this would throw instead of resolving.
+    const start = await registry.invoke({ moduleId: 'servers', type: 'scan.start', payload: undefined })
+    expect(start).toEqual({ ok: true, value: { ok: true } })
+  })
+
+  it('watchlist entries survive a locked start and come back unchanged when unlocked', async () => {
+    const seeded = [{ id: 'entry-1', name: 'Ranger', mode: 'exact' as const, tooSlow: false }]
+    state.setServersState({ ...state.serversState(), watchlist: seeded })
+    await state.settle()
+
+    // Locked: starting the module must not crash, must register no watchlist handler, and must not
+    // touch `state.json`'s `watchlist` key at all.
+    const lockedGate = createFeatureGate([])
+    const lockedRegistry = new MainModuleRegistry(lockedGate)
+    await lockedRegistry.register(serversModule, fakeAppContext(state, IDLE_LAUNCH_STATE, lockedGate))
+
+    expect(
+      await lockedRegistry.invoke({ moduleId: 'servers', type: 'watchlist.read', payload: undefined }),
+    ).toEqual({
+      ok: false,
+      error: { key: 'modules.error.notImplemented', params: { moduleId: 'servers', type: 'watchlist.read' } },
+    })
+    expect(state.serversState().watchlist).toEqual(seeded)
+
+    await lockedRegistry.disposeAll()
+
+    // Unlocked: a fresh module start over the same store reads the same entries back unchanged.
+    const unlockedGate = createFeatureGate(['watchlist'])
+    const unlockedRegistry = new MainModuleRegistry(unlockedGate)
+    await unlockedRegistry.register(
+      serversModule,
+      fakeAppContext(state, IDLE_LAUNCH_STATE, unlockedGate),
+    )
+
+    const read = await unlockedRegistry.invoke({
+      moduleId: 'servers',
+      type: 'watchlist.read',
+      payload: undefined,
+    })
+    expect(read).toEqual({
+      ok: true,
+      value: { asOf: null, entries: [{ entry: seeded[0], state: 'offline', recheck: null }] },
+    })
+    expect(state.serversState().watchlist).toEqual(seeded)
   })
 })

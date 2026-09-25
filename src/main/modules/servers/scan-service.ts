@@ -3,6 +3,7 @@ import {
   SERVERS_EVENTS,
   type ScanBlockedReason,
   type ScanScope,
+  type ScanServerPush,
   type ScanSnapshot,
   type ScanStartResult,
   type ScanTarget,
@@ -92,6 +93,14 @@ export interface CreateScanServiceOptions {
   /** Story 116 D3 (D-E): the structural launch seam, never `LaunchService` itself. */
   launch: LaunchHost
   deps?: ScanServiceDeps
+  /** Story 131 D4: an optional hook fed one `ScanServerPush` per stage-2 row, purely as an
+   * observer - the watchlist service is the only current consumer. Called synchronously from the
+   * scan's own `onServer` callback, only for `stage === 'stage2'` rows, and only *after* this
+   * service's own entry-merge-and-emit for that row (never reordered ahead of it). Wrapped in a
+   * try/catch here and never awaited: a throwing or slow/hanging observer must never affect the
+   * scan's own results or timing (AC5/AC8 of story 131 - the scan must be byte-for-byte identical
+   * whether or not this is set). */
+  onStage2Row?: (row: ScanServerPush) => void
 }
 
 export interface ScanStartOptions {
@@ -197,7 +206,7 @@ function mergeSuccessfulReply(
 }
 
 export function createScanService(options: CreateScanServiceOptions): ScanService {
-  const { getServersState, emit, launch } = options
+  const { getServersState, emit, launch, onStage2Row } = options
   const deps = options.deps ?? {}
 
   const blockedReasonFor = (blocked: boolean): ScanBlockedReason | null => (blocked ? 'game-running' : null)
@@ -284,6 +293,17 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
           // A failed reply never creates or overwrites an entry here - it is left exactly as it
           // was; D-K's `'stale'` flip only happens once, below, after the whole sweep settles.
           emit(SERVERS_EVENTS.scanServer, row)
+          // Story 131 D4: fired strictly after the scan's own merge+emit above, only for stage-2
+          // rows, never awaited and never allowed to throw out of this callback - see
+          // `onStage2Row`'s own doc comment on `CreateScanServiceOptions`.
+          if (row.stage === 'stage2' && onStage2Row !== undefined) {
+            try {
+              onStage2Row(row)
+            } catch {
+              // Swallowed on purpose (debug-only concern) - an observer's failure must never
+              // affect the scan itself.
+            }
+          }
         },
         onProgress: (progress) => {
           scanState = { ...scanState, ...progress }

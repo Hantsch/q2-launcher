@@ -1,5 +1,7 @@
 import {
+  SERVERS_EVENTS,
   SERVERS_HANDLERS,
+  SERVERS_WATCHLIST_HANDLERS,
   detailReadInputSchema,
   favouritesAddInputSchema,
   favouritesListInputSchema,
@@ -21,9 +23,15 @@ import {
   sourcesRemoveInputSchema,
   sourcesReorderInputSchema,
   sourcesUpdateInputSchema,
+  watchlistAddInputSchema,
+  watchlistReadInputSchema,
+  watchlistRecheckInputSchema,
+  watchlistRemoveInputSchema,
+  watchlistUpdateInputSchema,
   type ManualServerAddResult,
   type MasterSource,
   type MasterSourcesResult,
+  type WatchlistEntry,
 } from '@shared/modules/servers'
 import type { MainModule } from '../types'
 import { addFavourite, listFavourites, removeFavourite } from './favourites'
@@ -32,6 +40,8 @@ import { addManualServer, removeManualServer } from './manual-servers'
 import { addSource, removeSource, reorderSources, updateSource } from './master-sources'
 import { createScanCadence, type ScanCadence } from './scan-cadence'
 import { createScanService, type ScanService } from './scan-service'
+import { createRegexHost, type RegexHost } from './watchlist-regex-host'
+import { createWatchlistService, type WatchlistScanHost, type WatchlistService } from './watchlist-service'
 
 /**
  * The servers module - story 106 D2 registers its main half with a single
@@ -58,10 +68,18 @@ import { createScanService, type ScanService } from './scan-service'
  * subscriptions) to record a history visit on a successful join. The unsubscribe function is kept
  * the same way `activeScanService`/`activeScanCadence` keep their disposers, so a superseded
  * `setup()`'s listener cannot outlive it and `dispose()` can always reach the current one.
+ *
+ * Story 131 D5 adds `activeWatchlistService`/`activeRegexHost` the same way - but, unlike every
+ * other pair here, they are only ever created when `app.features.isFeatureUnlocked('watchlist')`
+ * is true at `setup()` time (AC10: a locked feature must have no worker thread, no service
+ * instance and no observer attached to the scan service at all - not merely a hidden one). A
+ * locked `setup()` leaves both `null`, so `dispose()`'s optional calls below are no-ops for it.
  */
 let activeScanService: ScanService | null = null
 let activeScanCadence: ScanCadence | null = null
 let activeHistorySubscription: (() => void) | null = null
+let activeWatchlistService: WatchlistService | null = null
+let activeRegexHost: RegexHost | null = null
 
 export const serversModule: MainModule = {
   id: 'servers',
@@ -75,12 +93,52 @@ export const serversModule: MainModule = {
     activeScanCadence?.dispose()
     activeScanService?.dispose()
     activeHistorySubscription?.()
+    activeWatchlistService?.dispose()
+    activeRegexHost?.dispose()
+    activeWatchlistService = null
+    activeRegexHost = null
+
+    /**
+     * Story 131 D5: the watchlist's service/worker are only ever constructed while the
+     * `'watchlist'` feature is unlocked (AC10) - `watchlistService` stays `undefined` on a locked
+     * start, so `onStage2Row` below is `undefined` too (no observer attached to the scan service)
+     * and the `watchlist.*` handlers further down are never reached to register at all. A forward
+     * reference (`scanServiceRef`) lets `watchlistService` be built *before* `scanService` exists -
+     * it needs `scanService` only for `getKnownServers`/`recheck`, neither of which the module ever
+     * calls before `createScanService` below has run and filled the ref in.
+     */
+    const scanServiceRef: { current: ScanService | null } = { current: null }
+    let watchlistService: WatchlistService | undefined
+    if (app.features.isFeatureUnlocked('watchlist')) {
+      const regexHost = createRegexHost()
+      activeRegexHost = regexHost
+
+      const watchlistScanHost: WatchlistScanHost = {
+        start: (scanOptions) => scanServiceRef.current!.start(scanOptions),
+      }
+
+      watchlistService = createWatchlistService({
+        getEntries: () => app.state.serversState().watchlist,
+        setEntries: (list: WatchlistEntry[]) => {
+          const current = app.state.serversState()
+          app.state.setServersState({ ...current, watchlist: list })
+        },
+        getKnownServers: () => scanServiceRef.current!.read().entries,
+        scanService: watchlistScanHost,
+        regexHost,
+        emit: (snapshot) => emit(SERVERS_EVENTS.watchlistChanged, snapshot),
+      })
+      activeWatchlistService = watchlistService
+    }
+
     const scanService = createScanService({
       getServersState: () => app.state.serversState(),
       emit,
       launch: app.launch,
+      onStage2Row: watchlistService?.onStage2Row,
     })
     activeScanService = scanService
+    scanServiceRef.current = scanService
 
     // Story 115 D3: a cadence from a superseded `setup()` could no longer be reached by `dispose()`,
     // so its timer would outlive it - it is retired above, before either reference is replaced.
@@ -277,6 +335,51 @@ export const serversModule: MainModule = {
       return app.state.setServersState({ ...current, listSort: payload.sort }).listSort ?? null
     })
 
+    /**
+     * Story 131 D5: the five `watchlist.*` handlers. Defined inside the same
+     * `isFeatureUnlocked('watchlist')` branch that built `watchlistService` above, so a locked start
+     * never even reaches these `handle()` calls - the `{ feature: 'watchlist' }` option is kept on
+     * each anyway (belt-and-braces with the registry's own gate from story 130, and it keeps every
+     * gated handler in this codebase self-documenting the same way), but the handlers themselves are
+     * only reachable at all when `watchlistService` exists to back them. Each delegates straight to
+     * the matching `WatchlistService` method - no read/persist discipline needed here, unlike
+     * `sources.*`/`favourites.*` above, because `watchlist-service.ts` already owns that (via its own
+     * `getEntries`/`setEntries` closures wired above).
+     */
+    if (watchlistService !== undefined) {
+      const service = watchlistService
+      handle(
+        SERVERS_WATCHLIST_HANDLERS.read,
+        watchlistReadInputSchema,
+        () => service.read(),
+        { feature: 'watchlist' },
+      )
+      handle(
+        SERVERS_WATCHLIST_HANDLERS.add,
+        watchlistAddInputSchema,
+        (payload) => service.add(payload),
+        { feature: 'watchlist' },
+      )
+      handle(
+        SERVERS_WATCHLIST_HANDLERS.update,
+        watchlistUpdateInputSchema,
+        (payload) => service.update(payload),
+        { feature: 'watchlist' },
+      )
+      handle(
+        SERVERS_WATCHLIST_HANDLERS.remove,
+        watchlistRemoveInputSchema,
+        (payload) => service.remove(payload),
+        { feature: 'watchlist' },
+      )
+      handle(
+        SERVERS_WATCHLIST_HANDLERS.recheck,
+        watchlistRecheckInputSchema,
+        (payload) => service.recheck(payload),
+        { feature: 'watchlist' },
+      )
+    }
+
     log.debug('servers module ready')
   },
 
@@ -285,5 +388,7 @@ export const serversModule: MainModule = {
     activeScanCadence?.dispose()
     activeScanService?.dispose()
     activeHistorySubscription?.()
+    activeWatchlistService?.dispose()
+    activeRegexHost?.dispose()
   },
 }

@@ -934,6 +934,17 @@
       "loading": "Loading this profile's address book…",
       "written": "Added to \"{{profile}}\"'s address book as {{slot}}.",
       "noSelection": "Select a server to add it to the address book."
+    },
+    "watchlist": {
+      "error": {
+        "empty": "Name cannot be empty.",
+        "tooLong": "Name is too long (max 64 characters).",
+        "invalidRegex": "This pattern doesn't compile as a regular expression.",
+        "notFound": "No watchlist entry with that ID."
+      },
+      "left": {
+        "needsFullScan": "This player left the server they were last seen on — run a full scan from the server browser to find them again."
+      }
     }
   },
 

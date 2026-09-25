@@ -489,6 +489,54 @@ describe('createScanService', () => {
     expect(snapshot.entries.some((e) => e.address === masterOnlyAddress)).toBe(false)
     expect(snapshot.entries).toHaveLength(2)
   })
+
+  it('story 131 D4: onStage2Row fires synchronously for stage2 rows only, after the scan\'s own emit, and never delays or alters the scan', async () => {
+    const address = '30.0.0.1:27910'
+    const state = baseState({ manualServers: [manualEntry(address)] })
+    // A status reply with clients>0 so stage1 queues a stage2 status query for the same address.
+    const queryServer: QueryServerFn = async (_target, opts) =>
+      opts.kind === 'info'
+        ? { ok: true, kind: 'info', reply: { ok: true, serverinfo: { hostname: 'Arena' }, clients: 1 }, rttMs: 5 }
+        : { ok: true, kind: 'status', reply: { ok: true, serverinfo: { hostname: 'Arena' }, players: [] }, rttMs: 5 }
+
+    // Baseline run with no hook at all, to compare event sequence/timing against.
+    const { emit: emitBaseline, events: baselineEvents } = recorder()
+    const baselineService = createScanService({
+      getServersState: () => state,
+      emit: emitBaseline,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
+    expect(baselineService.start()).toEqual({ ok: true })
+    await waitForIdle(baselineService)
+    const baselineServerEvents = baselineEvents.filter((e) => e.type === SERVERS_EVENTS.scanServer)
+
+    // A hook that throws synchronously and records every call it received.
+    const hookCalls: string[] = []
+    const { emit, events } = recorder()
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+      onStage2Row: (row) => {
+        hookCalls.push(row.stage)
+        throw new Error('watchlist observer blew up')
+      },
+    })
+
+    expect(service.start()).toEqual({ ok: true })
+    await waitForIdle(service)
+
+    const serverEvents = events.filter((e) => e.type === SERVERS_EVENTS.scanServer)
+    // Identical scan.server sequence whether or not the (throwing) hook is set.
+    expect(serverEvents).toEqual(baselineServerEvents)
+    expect(service.read().entries).toEqual(baselineService.read().entries)
+
+    // Only called for the stage2 row, exactly once, and it did not stop the scan from finishing.
+    expect(hookCalls).toEqual(['stage2'])
+    expect(service.read().state.running).toBe(false)
+  })
 })
 
 describe('createScanService - story 116 D3 game-running guard', () => {

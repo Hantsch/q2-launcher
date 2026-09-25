@@ -107,6 +107,11 @@ export const SERVERS_HANDLERS = {
 export const SERVERS_EVENTS = {
   scanChanged: 'scan.changed',
   scanServer: 'scan.server',
+  /** Story 131 D1: pushed whenever the watchlist's persisted entries or their computed statuses
+   * change - main-to-renderer, no payload of its own (the renderer re-reads via `watchlist.read`,
+   * same "event just says 'something changed', read carries the value" convention as
+   * `HOME_EVENTS`/`scanChanged`). */
+  watchlistChanged: 'watchlist.changed',
 } as const
 
 /**
@@ -329,6 +334,136 @@ export const serversScanSettingsSchema = z.object({
  * launcher (AC6) - none of its fields, at any level, carry an `installationId`; unlike
  * `configPlayedMods`/`configSwitchBinds` this is deliberately not scoped per installation.
  */
+/**
+ * Story 131 D1: the watchlist's own vocabulary - a user names a player to keep an eye on, and the
+ * launcher looks for that name across the servers it already knows about. This deliverable is the
+ * contract/types/schema/persistence only: no matcher, no worker, no service, no wiring - those are
+ * D2-D5.
+ */
+
+/** How a watchlist entry's `name` is matched against a roster's player names. `'exact'` requires a
+ * full match, `'substring'` a case-insensitive containment, `'regex'` a user-supplied pattern run
+ * under `WATCHLIST_REGEX_BUDGET_MS`'s time budget (enforced by a later deliverable, not here). */
+export type WatchlistMatchMode = 'exact' | 'substring' | 'regex'
+
+/** One entry the user is watching for. `tooSlow` (set by a later deliverable once a regex entry is
+ * measured against `WATCHLIST_REGEX_BUDGET_MS`) marks an entry the matcher has given up running -
+ * see the `'too-slow'` `WatchlistEntryStatus` variant below. */
+export interface WatchlistEntry {
+  id: string
+  name: string
+  mode: WatchlistMatchMode
+  tooSlow: boolean
+}
+
+export const watchlistEntrySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  mode: z.enum(['exact', 'substring', 'regex']),
+  tooSlow: z.boolean(),
+})
+
+/** How long a watchlist entry's name may be (D-L, a later deliverable's UI validation reads this
+ * same constant). */
+export const WATCHLIST_NAME_MAX = 64
+
+/** The time budget a single regex entry gets against a roster before it is flagged `tooSlow` (a
+ * later deliverable's matcher enforces this; this D only names the constant). */
+export const WATCHLIST_REGEX_BUDGET_MS = 100
+
+/** One roster hit for a watched name - `serverName` is optional because a row that has never
+ * received an `info`/`status` reply for its address has no name to show yet. `seenAt` is the
+ * roster's own time (the scan round that produced this hit), not wall-clock "now". */
+export interface WatchlistMatch {
+  address: string
+  serverName?: string
+  playerName: string
+  score: number
+  ping: number
+  seenAt: string
+}
+
+/** A field every `WatchlistEntryStatus` variant carries: whether a fresh look at this entry is
+ * queued (`'pending'`), came back with nothing usable (`'no-reply'`), or nothing of the sort is in
+ * flight (`null`). */
+interface WatchlistEntryStatusBase {
+  recheck: 'pending' | 'no-reply' | null
+}
+
+/**
+ * One entry's current computed status (a later deliverable's matcher/service produces this; this D
+ * only shapes it). `'left'` means the watched name was seen at `address` as of a *previous* stage-2
+ * pass but is no longer there as of the latest one - `reasonKey` points at the fixed explanation
+ * that state carries (a full rescan, not this status, is what would tell the user where the name
+ * went instead).
+ */
+export type WatchlistEntryStatus = WatchlistEntryStatusBase &
+  (
+    | { entry: WatchlistEntry; state: 'offline' }
+    | { entry: WatchlistEntry; state: 'found'; matches: WatchlistMatch[] }
+    | {
+        entry: WatchlistEntry
+        state: 'left'
+        address: string
+        checkedAt: string
+        reasonKey: 'servers.watchlist.left.needsFullScan'
+      }
+    | { entry: WatchlistEntry; state: 'too-slow' }
+  )
+
+/** The watchlist's own computed snapshot - `asOf` is the last stage-2 row the computation had
+ * processed, `null` before any stage-2 row has ever landed. */
+export interface WatchlistSnapshot {
+  asOf: string | null
+  entries: WatchlistEntryStatus[]
+}
+
+/**
+ * Story 131 D1: `watchlist.*` handler ids, kept in a map separate from `SERVERS_HANDLERS` on
+ * purpose - a later completeness gate that asserts "every handler is registered in
+ * `SERVERS_HANDLERS`" must not have to know about this module yet (the handlers themselves are a
+ * later deliverable), so this map is deliberately excluded from that check.
+ */
+export const SERVERS_WATCHLIST_HANDLERS = {
+  read: 'watchlist.read',
+  add: 'watchlist.add',
+  update: 'watchlist.update',
+  remove: 'watchlist.remove',
+  recheck: 'watchlist.recheck',
+} as const
+
+export const watchlistAddInputSchema = z
+  .object({
+    name: z.string(),
+    mode: z.enum(['exact', 'substring', 'regex']),
+  })
+  .strict()
+
+export const watchlistUpdateInputSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    mode: z.enum(['exact', 'substring', 'regex']),
+  })
+  .strict()
+
+export const watchlistRemoveInputSchema = z.object({ id: z.string() }).strict()
+
+export const watchlistRecheckInputSchema = z.object({ id: z.string() }).strict()
+
+export const watchlistReadInputSchema = z.void()
+
+export const SERVERS_WATCHLIST_HANDLER_SCHEMAS: Record<
+  (typeof SERVERS_WATCHLIST_HANDLERS)[keyof typeof SERVERS_WATCHLIST_HANDLERS],
+  z.ZodTypeAny
+> = {
+  [SERVERS_WATCHLIST_HANDLERS.read]: watchlistReadInputSchema,
+  [SERVERS_WATCHLIST_HANDLERS.add]: watchlistAddInputSchema,
+  [SERVERS_WATCHLIST_HANDLERS.update]: watchlistUpdateInputSchema,
+  [SERVERS_WATCHLIST_HANDLERS.remove]: watchlistRemoveInputSchema,
+  [SERVERS_WATCHLIST_HANDLERS.recheck]: watchlistRecheckInputSchema,
+}
+
 export interface ServersState {
   sources: ServerSourceEntry[]
   favourites: FavouriteServerEntry[]
@@ -337,6 +472,8 @@ export interface ServersState {
   scan: ServersScanSettings
   /** user-chosen list sort, story 119 */
   listSort?: ServerListSort
+  /** Story 131 D1: the watchlist's persisted entries - see `WatchlistEntry` below. */
+  watchlist: WatchlistEntry[]
 }
 
 export const serversStateSchema = z.object({
@@ -345,6 +482,7 @@ export const serversStateSchema = z.object({
   manualServers: z.array(manualServerEntrySchema),
   history: z.array(serverHistoryEntrySchema),
   scan: serversScanSettingsSchema,
+  watchlist: z.array(watchlistEntrySchema),
 })
 
 /**
@@ -373,6 +511,7 @@ export const DEFAULT_SERVERS_STATE: ServersState = {
     autoRefreshEnabled: false,
     autoRefreshIntervalMs: 60_000,
   },
+  watchlist: [],
 }
 
 /**

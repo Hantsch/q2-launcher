@@ -47,6 +47,7 @@ import {
   serverHistoryEntrySchema,
   serverListSortSchema,
   serverSourceEntrySchema,
+  watchlistEntrySchema,
   type FavouriteServerEntry,
   type ManualServerEntry,
   type ServerHistoryEntry,
@@ -54,6 +55,7 @@ import {
   type ServerSourceEntry,
   type ServersScanSettings,
   type ServersState,
+  type WatchlistEntry,
 } from '@shared/modules/servers'
 import { parseServerAddress } from '@shared/servers/address'
 import { validateMasterSourceAddress } from '@shared/servers/master-source-address'
@@ -1238,6 +1240,17 @@ function parseServerHistoryRow(raw: unknown): ServerHistoryEntry | null {
   return { ...result.data, address: address.normalized }
 }
 
+/**
+ * Story 131 D1: one persisted watchlist entry row, mirroring `parseManualServerRow`'s shape - the
+ * only field with anything to validate beyond `watchlistEntrySchema` itself is `mode` (an unknown
+ * mode fails the schema's own `z.enum()` and the row is dropped), so unlike the address-keyed rows
+ * above there is no second, domain-specific re-validation step here.
+ */
+function parseWatchlistEntryRow(raw: unknown): WatchlistEntry | null {
+  const result = watchlistEntrySchema.safeParse(raw)
+  return result.success ? result.data : null
+}
+
 /** First occurrence wins - mirrors `parseHomeLayout`'s `moduleId` dedupe pass. */
 function dedupeByKey<T>(rows: T[], keyOf: (row: T) => string): T[] {
   const seenKeys = new Set<string>()
@@ -1318,6 +1331,10 @@ const serversStateEnvelopeSchema = z.object({
   favourites: z.array(z.unknown()).catch([]),
   manualServers: z.array(z.unknown()).catch([]),
   history: z.array(z.unknown()).catch([]),
+  // Story 131 D1: missing entirely (every `state.json` predating this story) degrades to `[]` via
+  // `.catch([])`, same as every other collection here - no `.default()` needed since `[]` is also
+  // this field's own out-of-the-box value (unlike `sources`, which seeds real rows).
+  watchlist: z.array(z.unknown()).catch([]),
 })
 
 export function parseServersState(raw: unknown): ServersState {
@@ -1365,7 +1382,24 @@ export function parseServersState(raw: unknown): ServersState {
   const listSortResult = serverListSortSchema.safeParse((raw as { listSort?: unknown } | null)?.listSort)
   const listSort: ServerListSort | undefined = listSortResult.success ? listSortResult.data : undefined
 
-  return { sources, favourites, manualServers, history, scan, ...(listSort ? { listSort } : {}) }
+  // Story 131 D1: dedupe by `id`, first occurrence wins - same convention as `sources` above (also
+  // an id-keyed collection, unlike the three address-keyed ones).
+  const watchlist = dedupeByKey(
+    envelope.data.watchlist
+      .map(parseWatchlistEntryRow)
+      .filter((row): row is WatchlistEntry => row !== null),
+    (row) => row.id,
+  )
+
+  return {
+    sources,
+    favourites,
+    manualServers,
+    history,
+    scan,
+    watchlist,
+    ...(listSort ? { listSort } : {}),
+  }
 }
 
 /**

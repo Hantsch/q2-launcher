@@ -1,7 +1,7 @@
 ---
 id: 131
 title: the watchlist finds a name for free
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-24
 ---
 
@@ -51,28 +51,28 @@ pure matcher, not a second implementation of it.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A watchlist entry stores a name and exactly one of three match modes (exact,
+- [x] **AC1** — A watchlist entry stores a name and exactly one of three match modes (exact,
       substring, regex), all matching case-insensitively.
-- [ ] **AC2** — An entry with no match in the latest stage-2 data shows `offline`.
-- [ ] **AC3** — A matched entry shows the server it was found on, the player's score and the ping.
-- [ ] **AC4** — A name that matches on more than one server shows every match, not only the first
+- [x] **AC2** — An entry with no match in the latest stage-2 data shows `offline`.
+- [x] **AC3** — A matched entry shows the server it was found on, the player's score and the ping.
+- [x] **AC4** — A name that matches on more than one server shows every match, not only the first
       one found.
-- [ ] **AC5** — Adding or using the watchlist never causes an extra query beyond what a normal scan
+- [x] **AC5** — Adding or using the watchlist never causes an extra query beyond what a normal scan
       already issues — the same scan, run with the watchlist populated and run with it empty, issues
       the identical number of queries.
-- [ ] **AC6** — Re-checking one entry issues exactly one `status` query, addressed to the server
+- [x] **AC6** — Re-checking one entry issues exactly one `status` query, addressed to the server
       that entry was last seen on.
-- [ ] **AC7** — A regex pattern that does not compile, or is longer than 64 characters, is rejected
+- [x] **AC7** — A regex pattern that does not compile, or is longer than 64 characters, is rejected
       at entry-creation time with a clear reason; it is never accepted and left to fail during a
       later scan.
-- [ ] **AC8** — A pathological pattern (`(a+)+$` matched against a 31-character `aaa…a!` name)
+- [x] **AC8** — A pathological pattern (`(a+)+$` matched against a 31-character `aaa…a!` name)
       cannot hang or meaningfully slow a scan. The regex runs in a worker with a time budget; past
       the budget the worker is terminated, the entry is marked "too slow" and skipped, and the
       scan's own results arrive as they would without that entry. The test pins the budget.
-- [ ] **AC9** — When a re-check (AC6) finds the entry's name no longer on its last-seen server, the
+- [x] **AC9** — When a re-check (AC6) finds the entry's name no longer on its last-seen server, the
       entry says the player has left that server and that a full scan from the server browser is
       needed to find them again. No further query or scan is started.
-- [ ] **AC10** — Stored watchlist entries survive their code expiring. They stay in `state.json`
+- [x] **AC10** — Stored watchlist entries survive their code expiring. They stay in `state.json`
       while the feature is locked and are back unchanged once a new code unlocks `watchlist`.
 
 ## Open Questions
@@ -178,7 +178,7 @@ Steps:
 
 ## Deliverables
 
-- **D1 — Contract + persisted entries.** In `src/shared/modules/servers.ts` add the types from the
+- [x] **D1 — Contract + persisted entries.** In `src/shared/modules/servers.ts` add the types from the
   plan (`WatchlistMatchMode`, `WatchlistEntry`, `WatchlistMatch`, `WatchlistEntryStatus`,
   `WatchlistSnapshot`), `WATCHLIST_NAME_MAX = 64`, `WATCHLIST_REGEX_BUDGET_MS = 100`,
   `watchlistEntrySchema` (`mode: z.enum(['exact','substring','regex'])`, `tooSlow: z.boolean()`),
@@ -192,7 +192,7 @@ Steps:
   mirroring `parseManualServerRow`. Tests in `src/main/services/state.test.ts`: round trip of
   entries in all three modes, a row with an unknown mode is dropped, a file without `watchlist`
   parses to `[]`. Update any existing test asserting the exact `ServersState` key set.
-- **D2 — Pure entry ops + matcher.** New `src/main/modules/servers/watchlist-entries.ts` (mirror
+- [x] **D2 — Pure entry ops + matcher.** New `src/main/modules/servers/watchlist-entries.ts` (mirror
   `manual-servers.ts` + `master-sources.ts`'s injectable `mintId = randomUUID`): `addWatchlistEntry(
   list, {name, mode}, mintId)`, `updateWatchlistEntry(list, {id, name, mode})` (clears `tooSlow`),
   `removeWatchlistEntry(list, id)` (unknown id = no-op). Validation, in this order, returning
@@ -209,7 +209,7 @@ Steps:
   **all** matches kept). Add the five `servers.watchlist.*` keys to
   `src/renderer/src/i18n/locales/en.json`. Tests in `watchlist-entries.test.ts` and
   `watchlist-matcher.test.ts`.
-- **D3 — Regex worker host with a time budget.** New `src/main/modules/servers/watchlist-regex-host.ts`:
+- [x] **D3 — Regex worker host with a time budget.** New `src/main/modules/servers/watchlist-regex-host.ts`:
   `createRegexHost({ budgetMs = WATCHLIST_REGEX_BUDGET_MS, createWorker? })` → `{ match(entryId,
   pattern, names): Promise<{ ok: true; hits: boolean[] } | { ok: false; reason: 'too-slow' |
   'worker-error' }>, dispose() }`. The worker is `new Worker(src, { eval: true })` where `src` is a
@@ -222,7 +222,7 @@ Steps:
   benign pattern hits; `(a+)+$` vs `'a'.repeat(30) + '!'` resolves `too-slow` within
   `budgetMs + 400 ms` slack; a benign job queued behind it still resolves `ok` afterwards;
   `budgetMs` asserted to equal 100.
-- **D4 — Watchlist service fed by the scan.** In `src/main/modules/servers/scan-service.ts` add an
+- [x] **D4 — Watchlist service fed by the scan.** In `src/main/modules/servers/scan-service.ts` add an
   optional `onStage2Row?: (row: ScanServerPush) => void` to `CreateScanServiceOptions`, called
   synchronously from `onServer` for `stage === 'stage2'` rows **after** the existing entry merge and
   emit, wrapped in try/catch, never awaited. New `src/main/modules/servers/watchlist-service.ts`:
@@ -239,7 +239,7 @@ Steps:
   Entry not found / not currently `found` → `{ ok: false, reasonKey:
   'servers.watchlist.error.notFound' }`. Tests in `watchlist-service.test.ts` and a new case in
   `scan-service.test.ts`, using the existing `QueryServerFn` fakes (mirror `scan-service.test.ts`).
-- **D5 — Gated wiring in the servers module.** In `src/main/modules/servers/index.ts`, only when 130's
+- [x] **D5 — Gated wiring in the servers module.** In `src/main/modules/servers/index.ts`, only when 130's
   main-side query says `watchlist` is unlocked: create the regex host and watchlist service, pass
   `onStage2Row` to `createScanService`, and register the five `SERVERS_WATCHLIST_HANDLERS` through
   130's gated declaration (`setEntries` = read/replace only `watchlist`, carrying every other
@@ -264,33 +264,86 @@ Steps:
 131 has no user-facing surface (D-N: it stays invisible until [[132]] renders it), so every AC is
 proven at unit/main level; `ui-acceptance-required` applies to 132.
 
-- AC1 → unit `src/main/modules/servers/watchlist-matcher.test.ts` › "exact, substring and regex all
-  match case-insensitively" + `src/main/services/state.test.ts` › "a watchlist entry round-trips with
-  exactly one of the three match modes"
-- AC2 → unit `src/main/modules/servers/watchlist-matcher.test.ts` › "an entry with no match in the
-  stage-2 data is offline"
-- AC3 → unit `src/main/modules/servers/watchlist-service.test.ts` › "a matched entry carries server,
-  player score and ping from the status row"
-- AC4 → unit `src/main/modules/servers/watchlist-service.test.ts` › "a name on two servers shows both
-  matches"
-- AC5 → unit `src/main/modules/servers/watchlist-service.test.ts` › "a scan issues the identical
-  queries with the watchlist populated and empty" (same `QueryServerFn` fake, calls and addresses
-  compared; includes an add/edit re-match that issues none)
-- AC6 → unit `src/main/modules/servers/watchlist-service.test.ts` › "re-checking one entry issues
-  exactly one status query to its last-seen server"
-- AC7 → unit `src/main/modules/servers/watchlist-entries.test.ts` › "an uncompilable or over-64-
-  character pattern is refused at creation with a reason"
-- AC8 → unit `src/main/modules/servers/watchlist-regex-host.test.ts` › "a pathological pattern is
-  terminated past the 100 ms budget and later jobs still run" + `src/main/modules/servers/
-  watchlist-service.test.ts` › "a too-slow regex entry is marked and skipped while the scan's own
-  results arrive unchanged" (scan finishes before the budget expires; `scan.server` events identical
-  to the run without the entry; entry persisted `tooSlow` and not sent to the host again)
-- AC9 → unit `src/main/modules/servers/watchlist-service.test.ts` › "a re-check that no longer finds
-  the name marks the entry left and starts nothing further"
-- AC10 → unit `src/main/modules/servers/index.test.ts` › "watchlist entries survive a locked start
-  and come back unchanged when unlocked" (plus › "a locked servers module registers no watchlist
-  handler and attaches no scan observer")
+- AC1 → unit `src/main/modules/servers/watchlist-matcher.test.ts` › "exact, substring modes match
+  case-insensitively and return every matching player" + › "matchRegexNames matches
+  case-insensitively, one boolean per name in order" + `src/main/services/state.test.ts` › "a
+  watchlist entry round-trips with exactly one of the three match modes"
+- AC2 → unit `src/main/modules/servers/watchlist-matcher.test.ts` › "buildWatchlistSnapshot an
+  entry with no data anywhere is offline"
+- AC3 → unit `src/main/modules/servers/watchlist-service.test.ts` › "AC3: a matched entry carries
+  server, player score and ping from the status row"
+- AC4 → unit `src/main/modules/servers/watchlist-service.test.ts` › "AC4: a name on two servers
+  shows both matches"
+- AC5 → unit `src/main/modules/servers/watchlist-service.test.ts` › "AC5: onStage2Row issues zero
+  queries of its own - the identical addresses/order come only from the scan itself" + › "AC5:
+  add/edit re-match against known rosters issues zero scan queries" + a new case in
+  `src/main/modules/servers/scan-service.test.ts` proving a throwing/hanging `onStage2Row` hook
+  produces byte-identical `scan.server` events to a hook-less baseline (structural proof, in place
+  of the plan's suggested single populated-vs-empty comparison test — stronger, since it also
+  proves the observer can never slow or alter the scan)
+- AC6 → unit `src/main/modules/servers/watchlist-service.test.ts` › "AC6: re-checking one entry
+  issues exactly one status query to its last-seen server"
+- AC7 → unit `src/main/modules/servers/watchlist-entries.test.ts` › "rejects a name longer than
+  WATCHLIST_NAME_MAX" + › "rejects a regex mode entry whose pattern does not compile"
+- AC8 → unit `src/main/modules/servers/watchlist-regex-host.test.ts` › "resolves a
+  catastrophic-backtracking pattern too-slow within the budget plus slack" + › "runs a job queued
+  behind a timed-out one on a fresh worker, in FIFO order" + `src/main/modules/servers/
+  watchlist-service.test.ts` › "AC8: a too-slow regex entry is marked and skipped while a plain
+  entry in the same row matches normally"
+- AC9 → unit `src/main/modules/servers/watchlist-service.test.ts` › "AC9: a re-check that no
+  longer finds the name marks the entry left and starts nothing further"
+- AC10 → unit `src/main/modules/servers/index.test.ts` › "watchlist entries survive a locked
+  start and come back unchanged when unlocked" + › "a locked servers module registers no
+  watchlist handler and attaches no scan observer"
 
 ## Done
 
-<!-- Filled by `/build 131`. -->
+Built the watchlist as a pure-data feature fed passively by [[114]]'s scan, gated on
+[[130]]'s `watchlist` feature: `src/shared/modules/servers.ts` (types, `WATCHLIST_NAME_MAX`,
+`WATCHLIST_REGEX_BUDGET_MS`, `SERVERS_WATCHLIST_HANDLERS`/`_SCHEMAS`, `watchlistChanged` event),
+persistence in `src/main/lib/schemas.ts` (`parseWatchlistEntryRow`, survives lock per D-B),
+pure ops/matcher in `src/main/modules/servers/watchlist-entries.ts` /
+`watchlist-matcher.ts` (compile-only regex validation; self-contained `matchRegexNames`), a
+long-lived eval'd `worker_threads` host in `watchlist-regex-host.ts` (FIFO, 100 ms budget,
+terminate+respawn, queued jobs never lost), the watchlist service in `watchlist-service.ts`
+(fed by a new synchronous, never-awaited `onStage2Row` hook on `scan-service.ts`; re-check via
+117's `{kind:'server',address}` scope), and gated wiring in `src/main/modules/servers/index.ts`
+(locked = no handlers/service/worker, `state.json`'s `watchlist` untouched).
+
+**Decisions:** none beyond the story's own — implementation followed D-A through D-P as
+written. One implementation-level addition surfaced by the hard review: watchlist-service.ts
+now tracks a per-entry generation counter so a regex job queued before an edit/removal can never
+apply its (by-then-stale) result to the edited/removed entry — required to make D-H
+("tooSlow cleared only by editing") hold under concurrency; not a plan deviation, a correctness
+fix within D4's own contract.
+
+**Commit message:** `131: the watchlist finds a name for free`
+
+**Verification (narrow gate — build + typecheck + test-story, no e2e per D-N):** `npm run build`
+green, `npm run typecheck` green, `npx vitest run --changed HEAD` green (110 files / 1697 tests
+after the review-fix addition; one isolated re-run needed for a pre-existing, unrelated real-clock
+millisecond flake in `scan-service.test.ts`'s `rttHistory` timestamp assertion, confirmed green
+standalone twice, not caused by this story).
+
+**AC → test, as verified:** AC1-AC10 all passed against the tests listed in `## Acceptance
+Tests` above (updated to the actual test names/titles as written, replacing the plan's suggested
+titles where an agent phrased them differently but proved the same criterion — notably AC5,
+proven structurally via a zero-extra-queries assertion plus a byte-identical-scan-events test
+rather than the plan's suggested single comparison test). No manual residue: 131 has no
+user-facing surface (D-N), every AC is unit-level.
+
+**Review:** default-tier PASS, no findings beyond the AC5 test-naming note above (not a defect).
+Hard-tier (`story-review-hard`) FAIL on first pass: a confirmed race at the worker boundary — a
+regex job's `.then` callback in `watchlist-service.ts` closed over the entry as queued, so a
+stale job resolving after an edit/removal could re-apply `tooSlow`/stale matches to the
+new state, breaking D-H. No ReDoS/D-I violation found: exhaustive trace confirmed `.test()`/
+`.exec()` runs only inside the D3-serialized `matchRegexNames`, never on main's thread (not in
+validation, not in rematch-on-edit, not as a fast path), and `onStage2Row` is never awaited,
+directly or transitively. Fixed with a per-entry generation counter (bumped on `update()`,
+invalidated on `remove()`) checked before applying any regex-host result; new regression test
+added and passed; full narrow gate re-verified green. One secondary efficiency note (redundant
+queued jobs for an already-`tooSlow` entry before its first timeout resolves) was left unfixed —
+it does not affect scan timing/results (no AC violation), and the existing `tooSlow` guard
+already prevents new jobs once the flag is set.
+
+tiers: D 5 / hard 1 · review default+hard · cycles 1 · agents 10

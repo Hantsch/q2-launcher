@@ -32,7 +32,7 @@ invisible until a code names `watchlist`.
 - [x] 128 — An unlock code proves what it unlocks
 - [x] 130 — A locked feature does not exist
 - [x] 129 — I ask for a code and see what it unlocked
-- [ ] 131 — The watchlist finds a name for free
+- [x] 131 — The watchlist finds a name for free
 - [ ] 132 — The watchlist tells me where someone is
 
 ## Notes

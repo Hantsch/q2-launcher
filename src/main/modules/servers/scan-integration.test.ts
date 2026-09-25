@@ -15,6 +15,7 @@ import {
 import { buildInfoReplyBytes, buildStatusReplyBytes } from '@shared/servers/reply-fixtures'
 import { IDLE_LAUNCH_STATE } from '@shared/types'
 import type { AppContext } from '../../context'
+import { createFeatureGate } from '../../features/gate'
 import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
 import { serversModule } from './index'
@@ -151,6 +152,7 @@ describe('servers scan real-socket integration (story 114 D8)', () => {
       ],
       history: [],
       scan: SCAN_SETTINGS,
+      watchlist: [],
     }
     state.setServersState(seededState)
 
@@ -165,6 +167,10 @@ describe('servers scan real-socket integration (story 114 D8)', () => {
       },
       // Story 116 D3: the scan service reads `app.launch` - an idle, silent stub (no game running).
       launch: { getState: () => IDLE_LAUNCH_STATE, onStateChange: () => () => {} },
+      // Story 131 D5: `serversModule.setup()` now reads `app.features` unconditionally to decide
+      // whether to construct the (locked-by-default, out of scope for this integration test) watchlist
+      // service/worker.
+      features: createFeatureGate([]),
     } as unknown as AppContext
 
     registry = new MainModuleRegistry()

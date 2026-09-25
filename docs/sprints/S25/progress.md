@@ -175,3 +175,23 @@
 - 2026-09-25 21:47 · 129 · review 1 · started
 - 2026-09-25 21:49 · 129 · review 1 · done
 - 2026-09-25 21:50 · 129 · story · done
+- 2026-09-25 21:50:50 · 131 · build · started
+- 2026-09-25 21:51 · 131 · D1 contract + persisted entries · started
+- 2026-09-25 21:54 · 131 · D1 contract + persisted entries · done
+- 2026-09-25 21:54 · 131 · D2 pure entry ops + matcher · started
+- 2026-09-25 21:58 · 131 · D2 pure entry ops + matcher · done
+- 2026-09-25 21:58 · 131 · D3 regex worker host · started
+- 2026-09-25 22:01 · 131 · D3 regex worker host · done
+- 2026-09-25 22:01 · 131 · D4 watchlist service · started
+- 2026-09-25 22:06 · 131 · D4 watchlist service · done
+- 2026-09-25 22:06 · 131 · D5 gated wiring · started
+- 2026-09-25 22:14 · 131 · D5 gated wiring · done
+- 2026-09-25 22:14 · 131 · verify · started
+- 2026-09-25 22:16 · 131 · verify · done
+- 2026-09-25 22:16 · 131 · review 1 · started
+- 2026-09-25 22:18 · 131 · review 1 · done
+- 2026-09-25 22:18 · 131 · review 2 (hard) · started
+- 2026-09-25 22:21 · 131 · review 2 (hard) · done: FAIL, stale-job race finding
+- 2026-09-25 22:23 · 131 · review-fix cycle · started
+- 2026-09-25 22:24 · 131 · review-fix cycle · done
+- 2026-09-25 22:25 · 131 · story · done
