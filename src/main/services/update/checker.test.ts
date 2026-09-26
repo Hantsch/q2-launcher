@@ -4,6 +4,7 @@ import {
   classifyCheckError,
   configureAutoUpdater,
   createUpdateChecker,
+  releaseNotesHtmlToMarkdown,
   type AutoUpdaterCheckResult,
   type AutoUpdaterLike,
 } from './checker'
@@ -221,5 +222,53 @@ describe('createUpdateChecker - resolving the real electron-updater module', () 
 
     await expect(check()).resolves.toEqual({ ok: false, reason: 'unknown' })
     await expect(check()).resolves.toEqual({ ok: true, available: false })
+  })
+})
+
+describe('releaseNotesHtmlToMarkdown', () => {
+  it("maps GitHub's rendered release body back onto the ### / - subset", () => {
+    // The shape GitHub's releases.atom delivers for a `### Added` + `- **Linux** — …` body.
+    const html = [
+      '<h3>Added</h3>',
+      '<ul>',
+      '<li><strong>Linux</strong> — a Windows build<br>',
+      'now plays on Linux &amp; Steam&#39;s too.</li>',
+      '<li><a href="https://example.com">Link</a> &lt;script&gt;</li>',
+      '</ul>',
+      '<h3>Fixed</h3>',
+      '<ul>',
+      '<li>A <code>bug</code>.</li>',
+      '</ul>',
+    ].join('\n')
+
+    expect(releaseNotesHtmlToMarkdown(html)).toBe(
+      [
+        '### Added',
+        '',
+        "- Linux — a Windows build now plays on Linux & Steam's too.",
+        '',
+        '- Link <script>',
+        '',
+        '### Fixed',
+        '',
+        '- A bug.',
+      ].join('\n'),
+    )
+  })
+
+  it('passes a body without tags through unchanged', () => {
+    expect(releaseNotesHtmlToMarkdown('### Added\n- a <b thing')).toBe('### Added\n- a <b thing')
+  })
+
+  it('is what the checker hands on as notes', async () => {
+    const autoUpdater = fakeAutoUpdater(async () => ({
+      isUpdateAvailable: true,
+      updateInfo: { version: '1.0.0', releaseNotes: '<h3>Added</h3><ul><li>x</li></ul>' },
+    }))
+
+    const outcome = await createUpdateChecker({ autoUpdater })()
+
+    if (!outcome.ok || !outcome.available) throw new Error('expected an available outcome')
+    expect(outcome.update.notes).toBe('### Added\n\n- x')
   })
 })

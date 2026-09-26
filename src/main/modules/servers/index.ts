@@ -1,0 +1,394 @@
+import {
+  SERVERS_EVENTS,
+  SERVERS_HANDLERS,
+  SERVERS_WATCHLIST_HANDLERS,
+  detailReadInputSchema,
+  favouritesAddInputSchema,
+  favouritesListInputSchema,
+  favouritesRemoveInputSchema,
+  historyReadInputSchema,
+  listGetSortInputSchema,
+  listSetSortInputSchema,
+  manualAddInputSchema,
+  manualListInputSchema,
+  manualRemoveInputSchema,
+  scanGetSettingsInputSchema,
+  scanPatchSettingsInputSchema,
+  scanReadInputSchema,
+  scanSetViewActiveInputSchema,
+  scanStartInputSchema,
+  serversNoInputSchema,
+  sourcesAddInputSchema,
+  sourcesListInputSchema,
+  sourcesRemoveInputSchema,
+  sourcesReorderInputSchema,
+  sourcesUpdateInputSchema,
+  watchlistAddInputSchema,
+  watchlistReadInputSchema,
+  watchlistRecheckInputSchema,
+  watchlistRemoveInputSchema,
+  watchlistUpdateInputSchema,
+  type ManualServerAddResult,
+  type MasterSource,
+  type MasterSourcesResult,
+  type WatchlistEntry,
+} from '@shared/modules/servers'
+import type { MainModule } from '../types'
+import { addFavourite, listFavourites, removeFavourite } from './favourites'
+import { readServerHistory, recordServerVisit } from './history-log'
+import { addManualServer, removeManualServer } from './manual-servers'
+import { addSource, removeSource, reorderSources, updateSource } from './master-sources'
+import { createScanCadence, type ScanCadence } from './scan-cadence'
+import { createScanService, type ScanService } from './scan-service'
+import { createRegexHost, type RegexHost } from './watchlist-regex-host'
+import { createWatchlistService, type WatchlistScanHost, type WatchlistService } from './watchlist-service'
+
+/**
+ * The servers module - story 106 D2 registers its main half with a single
+ * handler, `overview.read`, answering a hardcoded zeroed overview. There is
+ * no scanning yet: no `dgram`, no `fetch`, no state - that is 9.2+. Mirrors
+ * `src/main/modules/home/index.ts`'s shape - `setup()` registers handlers
+ * and does nothing else.
+ *
+ * Story 111 D3 adds the five `sources.*` handlers on top. All the rules live in
+ * `master-sources.ts` (pure, list in / list-or-reason out); what stays here is the only thing that
+ * needs `app.state`: read the current `ServersState`, run the op, and persist exactly once - and
+ * only on success.
+ *
+ * Story 114 D6 adds the `scan.*` handlers and replaces `overview.read`'s hardcoded zeroed object
+ * with the real `ScanService`'s numbers - `activeScanService` is a module-level reference (mirroring
+ * `src/main/modules/downloads/index.ts`'s `subscriptions` set) so this file's own static `dispose()`
+ * can reach whichever service the most recent `setup()` created.
+ *
+ * Story 115 D3 adds `activeScanCadence` the same way: the auto-scan-on-open / auto-refresh timer
+ * owner (`scan-cadence.ts`), so `dispose()` can tear its timer down on shutdown.
+ *
+ * Story 125 D3 adds `activeHistorySubscription`: `setup()` subscribes to `app.launch.onStateChange`
+ * directly (not through `ScanService`/`ScanCadence`, which have their own unrelated launch
+ * subscriptions) to record a history visit on a successful join. The unsubscribe function is kept
+ * the same way `activeScanService`/`activeScanCadence` keep their disposers, so a superseded
+ * `setup()`'s listener cannot outlive it and `dispose()` can always reach the current one.
+ *
+ * Story 131 D5 adds `activeWatchlistService`/`activeRegexHost` the same way - but, unlike every
+ * other pair here, they are only ever created when `app.features.isFeatureUnlocked('watchlist')`
+ * is true at `setup()` time (AC10: a locked feature must have no worker thread, no service
+ * instance and no observer attached to the scan service at all - not merely a hidden one). A
+ * locked `setup()` leaves both `null`, so `dispose()`'s optional calls below are no-ops for it.
+ */
+let activeScanService: ScanService | null = null
+let activeScanCadence: ScanCadence | null = null
+let activeHistorySubscription: (() => void) | null = null
+let activeWatchlistService: WatchlistService | null = null
+let activeRegexHost: RegexHost | null = null
+
+export const serversModule: MainModule = {
+  id: 'servers',
+
+  setup({ handle, emit, app, log }) {
+    // Reads `app.state.serversState()` live at call time, never a snapshot captured here - sources/
+    // favourites/manual servers can be mutated by the handlers below in between two scans.
+    // Story 116 D3: both halves take `app.launch` (structurally a `LaunchHost`) and each reads it
+    // live at decision time, so neither depends on the other's `onStateChange` listener running
+    // first. A superseded service is retired too now that it holds a launch subscription.
+    activeScanCadence?.dispose()
+    activeScanService?.dispose()
+    activeHistorySubscription?.()
+    activeWatchlistService?.dispose()
+    activeRegexHost?.dispose()
+    activeWatchlistService = null
+    activeRegexHost = null
+
+    /**
+     * Story 131 D5: the watchlist's service/worker are only ever constructed while the
+     * `'watchlist'` feature is unlocked (AC10) - `watchlistService` stays `undefined` on a locked
+     * start, so `onStage2Row` below is `undefined` too (no observer attached to the scan service)
+     * and the `watchlist.*` handlers further down are never reached to register at all. A forward
+     * reference (`scanServiceRef`) lets `watchlistService` be built *before* `scanService` exists -
+     * it needs `scanService` only for `getKnownServers`/`recheck`, neither of which the module ever
+     * calls before `createScanService` below has run and filled the ref in.
+     */
+    const scanServiceRef: { current: ScanService | null } = { current: null }
+    let watchlistService: WatchlistService | undefined
+    if (app.features.isFeatureUnlocked('watchlist')) {
+      const regexHost = createRegexHost()
+      activeRegexHost = regexHost
+
+      const watchlistScanHost: WatchlistScanHost = {
+        start: (scanOptions) => scanServiceRef.current!.start(scanOptions),
+      }
+
+      watchlistService = createWatchlistService({
+        getEntries: () => app.state.serversState().watchlist,
+        setEntries: (list: WatchlistEntry[]) => {
+          const current = app.state.serversState()
+          app.state.setServersState({ ...current, watchlist: list })
+        },
+        getKnownServers: () => scanServiceRef.current!.read().entries,
+        scanService: watchlistScanHost,
+        regexHost,
+        emit: (snapshot) => emit(SERVERS_EVENTS.watchlistChanged, snapshot),
+      })
+      activeWatchlistService = watchlistService
+    }
+
+    const scanService = createScanService({
+      getServersState: () => app.state.serversState(),
+      emit,
+      launch: app.launch,
+      onStage2Row: watchlistService?.onStage2Row,
+    })
+    activeScanService = scanService
+    scanServiceRef.current = scanService
+
+    // Story 115 D3: a cadence from a superseded `setup()` could no longer be reached by `dispose()`,
+    // so its timer would outlive it - it is retired above, before either reference is replaced.
+    const scanCadence = createScanCadence({
+      getServersState: () => app.state.serversState(),
+      scanService,
+      launch: app.launch,
+      onError: (error) => log.warn('automatic scan trigger failed', error),
+    })
+    activeScanCadence = scanCadence
+
+    handle(SERVERS_HANDLERS.overviewRead, serversNoInputSchema, () => scanService.overview())
+
+    handle(SERVERS_HANDLERS.scanStart, scanStartInputSchema, (payload) =>
+      scanService.start({ scope: payload?.scope, selectedAddress: payload?.selectedAddress }),
+    )
+    handle(SERVERS_HANDLERS.scanRead, scanReadInputSchema, () => scanService.read())
+
+    // Story 122 D2: `detailReadInputSchema` is a bare `serverAddressSchema` (like
+    // `favouritesAddInputSchema`), not a `{ address }` wrapper, so the payload arrives already
+    // normalized as a plain string - no destructuring needed.
+    handle(SERVERS_HANDLERS.detailRead, detailReadInputSchema, (address) =>
+      scanService.readDetail(address),
+    )
+
+    /**
+     * Story 115 D2: the two `scan.*` settings handlers, mirroring `DOWNLOADS_HANDLERS.getSettings`/
+     * `patchSettings` (`src/main/modules/downloads/index.ts`). `scanGetSettings` is a plain read, no
+     * failure mode of its own - same reasoning as `DOWNLOADS_HANDLERS.getSettings`. `scanPatchSettings`
+     * follows the same read/merge/persist discipline as the `favourites.*`/`manual.*` handlers below:
+     * only `scan` is replaced, every other `ServersState` key is carried over from the same snapshot
+     * untouched, and what's returned is what `setServersState` actually persisted, not the local
+     * `merged` candidate. Out-of-range/garbage fields never reach this handler at all -
+     * `scanPatchSettingsInputSchema` already rejects them at the registry (per-field choice-list
+     * `.refine()`), so there is nothing left for this handler itself to validate.
+     */
+    handle(SERVERS_HANDLERS.scanGetSettings, scanGetSettingsInputSchema, () =>
+      app.state.serversState().scan,
+    )
+    handle(SERVERS_HANDLERS.scanPatchSettings, scanPatchSettingsInputSchema, (patch) => {
+      const current = app.state.serversState()
+      const merged = { ...current.scan, ...patch }
+      const persisted = app.state.setServersState({ ...current, scan: merged }).scan
+      // Story 115 D3: a changed interval (or auto-refresh on/off) reschedules immediately; every
+      // other setting is read fresh at the next decision/scan anyway.
+      scanCadence.onSettingsChanged()
+      return persisted
+    })
+    // Story 115 D3: the renderer's view-active signal drives both automatic triggers. The manual
+    // `scan.start` handler above stays a bare, ungated `scanService.start()` call on purpose (AC3).
+    handle(SERVERS_HANDLERS.scanSetViewActive, scanSetViewActiveInputSchema, (payload) => {
+      scanCadence.onViewActive(payload.active)
+    })
+
+    /**
+     * Story 111 D3: the single read/mutate/persist path every `sources.*` mutation goes through.
+     *
+     * - `serversState()` is read once, so the op and the write see the same snapshot.
+     * - A refusal returns before `setServersState` is reached: nothing is persisted, and the reason
+     *   code travels back as a value (a thrown error would collapse into the registry's generic
+     *   `modules.error.handlerFailed` and lose it - story 111's Decisions).
+     * - Only `sources` is replaced; `favourites`/`manualServers`/`history`/`scan` are carried over
+     *   from the same snapshot untouched, so a source edit can never clip another part of story
+     *   110's state key.
+     * - What comes back is what `setServersState` actually stored, not the local candidate, so the
+     *   renderer's list and `state.json` can never disagree.
+     */
+    const mutate = (op: (sources: MasterSource[]) => MasterSourcesResult): MasterSourcesResult => {
+      const current = app.state.serversState()
+      const result = op(current.sources)
+      if (!result.ok) return result
+      const persisted = app.state.setServersState({ ...current, sources: result.sources })
+      return { ok: true, sources: persisted.sources }
+    }
+
+    handle(
+      SERVERS_HANDLERS.sourcesList,
+      sourcesListInputSchema,
+      () => app.state.serversState().sources,
+    )
+    handle(SERVERS_HANDLERS.sourcesAdd, sourcesAddInputSchema, (payload) =>
+      mutate((sources) => addSource(sources, payload)),
+    )
+    handle(SERVERS_HANDLERS.sourcesRemove, sourcesRemoveInputSchema, (payload) =>
+      mutate((sources) => removeSource(sources, payload)),
+    )
+    handle(SERVERS_HANDLERS.sourcesUpdate, sourcesUpdateInputSchema, (payload) =>
+      mutate((sources) => updateSource(sources, payload)),
+    )
+    handle(SERVERS_HANDLERS.sourcesReorder, sourcesReorderInputSchema, (payload) =>
+      mutate((sources) => reorderSources(sources, payload)),
+    )
+
+    /**
+     * Story 112 D3: the `favourites.*` handlers. Unlike `mutate()` above, `addFavourite`/
+     * `removeFavourite` never refuse (D-F/D-G in favourites.ts's doc comment) - there is no
+     * `MasterSourcesResult`-style ok/refusal union to thread through, so each handler just reads
+     * the current snapshot, runs the pure op, persists only the `favourites` slice (carrying
+     * `sources`/`manualServers`/`history`/`scan` over untouched, same discipline as `mutate()`),
+     * and returns what was actually persisted (D-E) - not the local candidate.
+     */
+    handle(SERVERS_HANDLERS.favouritesList, favouritesListInputSchema, () =>
+      listFavourites(app.state.serversState()),
+    )
+    handle(SERVERS_HANDLERS.favouritesAdd, favouritesAddInputSchema, (address) => {
+      const current = app.state.serversState()
+      const favourites = addFavourite(current, address)
+      return app.state.setServersState({ ...current, favourites }).favourites
+    })
+    handle(SERVERS_HANDLERS.favouritesRemove, favouritesRemoveInputSchema, (address) => {
+      const current = app.state.serversState()
+      const favourites = removeFavourite(current, address)
+      return app.state.setServersState({ ...current, favourites }).favourites
+    })
+
+    /**
+     * Story 113 D4: the `manual.*`/`history.*` handlers - same read/run/persist discipline as the
+     * `favourites.*` block above, not `mutate()`'s: `addManualServer` already carries its own
+     * ok/refusal union (`ManualServerAddResult`'s shape), so a refusal is returned as a value
+     * *before* anything is written, and `removeManualServer` cannot refuse at all (D-I: removing an
+     * address that was never stored is a successful no-op).
+     *
+     * Each write replaces exactly one collection and carries `sources`/`favourites` plus the other
+     * of `manualServers`/`history` over from the same snapshot, so a manual add or remove can never
+     * clip the history (AC6's cross-collection half) or any other part of story 110's state key.
+     *
+     * `history.read` is read-only on purpose (D-H): there is no `history.record` channel, because
+     * only main ever appends to the history - story 125 D3's `app.launch.onStateChange` subscription
+     * below is the second (and, so far, only other) writer, alongside `manual.add`/`manual.remove`.
+     */
+    handle(SERVERS_HANDLERS.manualList, manualListInputSchema, () =>
+      app.state.serversState().manualServers,
+    )
+    handle(
+      SERVERS_HANDLERS.manualAdd,
+      manualAddInputSchema,
+      (payload): ManualServerAddResult => {
+        const current = app.state.serversState()
+        const result = addManualServer(current.manualServers, payload)
+        if (!result.ok) return result
+        // `result.entry` is a member of `result.list`, which is what gets stored verbatim - so the
+        // entry handed back is the persisted one, not a separate local candidate.
+        app.state.setServersState({ ...current, manualServers: result.list })
+        return { ok: true, entry: result.entry }
+      },
+    )
+    handle(SERVERS_HANDLERS.manualRemove, manualRemoveInputSchema, (payload) => {
+      const current = app.state.serversState()
+      const manualServers = removeManualServer(current.manualServers, payload.address)
+      return app.state.setServersState({ ...current, manualServers }).manualServers
+    })
+    handle(SERVERS_HANDLERS.historyRead, historyReadInputSchema, () =>
+      readServerHistory(app.state.serversState().history),
+    )
+
+    /**
+     * Story 125 D3: a successful join records one history visit. `state.connect` is only set once a
+     * launch reaches `'running'` (story 125's `LaunchState.connect`), so this fires exactly once per
+     * join - not on `'starting'` (no `connect` yet) and not again on `'exited'`/`'failed'` (`connect`
+     * may still be set there, but `phase` no longer is `'running'`). A `'running'` state with no
+     * `connect` (a plain, non-join launch) and a `'handed-off'` join (Steam takes over; nothing here
+     * ever sees `'running'` for it) both write nothing, on purpose (AC: only `running` + `connect`
+     * writes). Same read/run/persist discipline as `favourites.*` above: one snapshot, one slice
+     * replaced, the rest of `ServersState` carried over untouched.
+     */
+    activeHistorySubscription = app.launch.onStateChange((state) => {
+      if (state.phase !== 'running' || !state.connect) return
+      const current = app.state.serversState()
+      const history = recordServerVisit(current.history, {
+        address: state.connect,
+        connectedAt: new Date().toISOString(),
+      })
+      app.state.setServersState({ ...current, history })
+    })
+
+    /**
+     * Story 119 D2: the `list.*` sort handlers - same read/merge/persist discipline as
+     * `scanGetSettings`/`scanPatchSettings` above. `listSetSort` replaces the top-level `listSort`
+     * field wholesale (there is nothing to merge - a sort is either set or cleared) while carrying
+     * every other `ServersState` key over from the same snapshot untouched; `null` clears it by
+     * destructuring it out of the persisted candidate rather than setting it to `undefined`, so a
+     * cleared sort is an absent key on disk, not a present `null`/`undefined` one. What's returned is
+     * what `setServersState` actually persisted (`?? null`), not the local candidate.
+     */
+    handle(SERVERS_HANDLERS.listGetSort, listGetSortInputSchema, () =>
+      app.state.serversState().listSort ?? null,
+    )
+    handle(SERVERS_HANDLERS.listSetSort, listSetSortInputSchema, (payload) => {
+      const current = app.state.serversState()
+      if (payload.sort === null) {
+        const { listSort: _listSort, ...withoutSort } = current
+        return app.state.setServersState(withoutSort).listSort ?? null
+      }
+      return app.state.setServersState({ ...current, listSort: payload.sort }).listSort ?? null
+    })
+
+    /**
+     * Story 131 D5: the five `watchlist.*` handlers. Defined inside the same
+     * `isFeatureUnlocked('watchlist')` branch that built `watchlistService` above, so a locked start
+     * never even reaches these `handle()` calls - the `{ feature: 'watchlist' }` option is kept on
+     * each anyway (belt-and-braces with the registry's own gate from story 130, and it keeps every
+     * gated handler in this codebase self-documenting the same way), but the handlers themselves are
+     * only reachable at all when `watchlistService` exists to back them. Each delegates straight to
+     * the matching `WatchlistService` method - no read/persist discipline needed here, unlike
+     * `sources.*`/`favourites.*` above, because `watchlist-service.ts` already owns that (via its own
+     * `getEntries`/`setEntries` closures wired above).
+     */
+    if (watchlistService !== undefined) {
+      const service = watchlistService
+      handle(
+        SERVERS_WATCHLIST_HANDLERS.read,
+        watchlistReadInputSchema,
+        () => service.read(),
+        { feature: 'watchlist' },
+      )
+      handle(
+        SERVERS_WATCHLIST_HANDLERS.add,
+        watchlistAddInputSchema,
+        (payload) => service.add(payload),
+        { feature: 'watchlist' },
+      )
+      handle(
+        SERVERS_WATCHLIST_HANDLERS.update,
+        watchlistUpdateInputSchema,
+        (payload) => service.update(payload),
+        { feature: 'watchlist' },
+      )
+      handle(
+        SERVERS_WATCHLIST_HANDLERS.remove,
+        watchlistRemoveInputSchema,
+        (payload) => service.remove(payload),
+        { feature: 'watchlist' },
+      )
+      handle(
+        SERVERS_WATCHLIST_HANDLERS.recheck,
+        watchlistRecheckInputSchema,
+        (payload) => service.recheck(payload),
+        { feature: 'watchlist' },
+      )
+    }
+
+    log.debug('servers module ready')
+  },
+
+  dispose() {
+    // Cadence first, so no timer tick can start a new scan after the running one is aborted.
+    activeScanCadence?.dispose()
+    activeScanService?.dispose()
+    activeHistorySubscription?.()
+    activeWatchlistService?.dispose()
+    activeRegexHost?.dispose()
+  },
+}

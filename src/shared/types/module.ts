@@ -13,7 +13,7 @@
  *   4. register a renderer view in `src/renderer/src/modules/index.ts`
  *   5. add its i18n keys
  */
-export type ModuleId = 'home' | 'library' | 'config' | 'downloads' | 'mods' | 'assets'
+export type ModuleId = 'home' | 'library' | 'config' | 'downloads' | 'mods' | 'assets' | 'servers'
 
 /**
  * What a module needs from the host. Declared up front so the shell can tell
@@ -155,6 +155,24 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     capabilities: ['mutates-installation', 'long-running-jobs', 'network'],
     ipcNamespace: 'module:assets',
     requiresInstallation: true,
+  },
+  {
+    id: 'servers',
+    titleKey: 'module.servers.title',
+    descriptionKey: 'module.servers.description',
+    plannedIntroKey: 'module.planned.servers.intro',
+    plannedHighlightKeys: [
+      'module.planned.servers.highlight.1',
+      'module.planned.servers.highlight.2',
+      'module.planned.servers.highlight.3',
+    ],
+    icon: 'Globe',
+    route: '/servers',
+    nav: { section: 'primary', order: 20 },
+    status: 'planned',
+    capabilities: ['network', 'game-lifecycle'],
+    ipcNamespace: 'module:servers',
+    requiresInstallation: false,
   },
 ]
 

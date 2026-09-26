@@ -1,5 +1,7 @@
 import { create } from 'zustand'
+import type { FeatureName } from '@shared/features'
 import type { WindowChromeState } from '@shared/ipc'
+import type { LaunchUserinfo } from '@shared/launch/userinfo'
 import type {
   AddExistingInstallationInput,
   AppInfo,
@@ -112,6 +114,9 @@ interface LauncherStore {
   installations: Installation[]
   modules: ModuleManifest[]
   jobs: Job[]
+  /** Story 130: features unlocked by main's boot-time gate - populated once by `bootstrap`, never
+   * mutated by any renderer action (AC3: the renderer never decides its own unlock state). */
+  unlockedFeatures: FeatureName[]
   launch: LaunchState
   chrome: WindowChromeState
   /** Story 097 D6: mirrors the update-check service's state, pushed by main - the renderer never
@@ -197,7 +202,14 @@ interface LauncherStore {
   fetchIconDataUrl: (installationId: string) => Promise<void>
 
   // --- playing -------------------------------------------------------------
-  play: (installationId?: string) => Promise<void>
+  /** `options` (story 125 D4, `spectate` added by 126 D2/D3): `connect`/`userinfo` for the join
+   * flow's `+connect`/password path, `spectate` to put the engine into spectator mode - all spread
+   * straight into the `launch:start` payload, alongside every existing call site that omits
+   * `options` entirely and keeps launching the installation's own default. */
+  play: (
+    installationId?: string,
+    options?: { connect?: string; userinfo?: LaunchUserinfo; spectate?: true },
+  ) => Promise<void>
   cancelJob: (jobId: string) => Promise<void>
 
   // --- app update (story 098) ----------------------------------------------
@@ -233,6 +245,7 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
   installations: [],
   modules: [],
   jobs: [],
+  unlockedFeatures: [],
   launch: IDLE_LAUNCH_STATE,
   chrome: { maximized: false, fullScreen: false, focused: true },
   update: IDLE_UPDATE_STATE,
@@ -244,17 +257,27 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
   iconDataUrls: {},
 
   bootstrap: async () => {
-    const [appInfo, settings, installations, modules, jobs, launch, chrome, update] =
-      await Promise.all([
-        invoke('app:getInfo'),
-        invoke('settings:get'),
-        invoke('installations:list'),
-        invoke('modules:list'),
-        invoke('jobs:list'),
-        invoke('launch:getState'),
-        invoke('window:getState'),
-        invoke('update:getState'),
-      ])
+    const [
+      appInfo,
+      settings,
+      installations,
+      modules,
+      jobs,
+      launch,
+      chrome,
+      update,
+      unlockedFeaturesResult,
+    ] = await Promise.all([
+      invoke('app:getInfo'),
+      invoke('settings:get'),
+      invoke('installations:list'),
+      invoke('modules:list'),
+      invoke('jobs:list'),
+      invoke('launch:getState'),
+      invoke('window:getState'),
+      invoke('update:getState'),
+      invoke('features:getUnlocked'),
+    ])
 
     set({
       appInfo,
@@ -265,6 +288,7 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
       launch,
       chrome,
       update,
+      unlockedFeatures: Array.isArray(unlockedFeaturesResult) ? unlockedFeaturesResult : [],
       // A route only survives a restart if it still resolves to something -
       // either a shell route or a module's own route. Otherwise an upgrading
       // user whose settings remember a since-renamed/removed module route
@@ -452,10 +476,10 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
     set((state) => ({ iconDataUrls: { ...state.iconDataUrls, [installationId]: url } }))
   },
 
-  play: async (installationId) => {
+  play: async (installationId, options) => {
     const id = installationId ?? get().settings.activeInstallationId
     if (!id) return
-    const result = await invoke('launch:start', { installationId: id })
+    const result = await invoke('launch:start', { installationId: id, ...options })
     if (!result.ok) toastError(get, result)
   },
 

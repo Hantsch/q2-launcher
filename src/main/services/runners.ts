@@ -8,7 +8,7 @@ import {
   type RunnerKind,
 } from '@shared/types'
 import { isFile, listDir, looksExecutable } from '../lib/fs-utils'
-import { uiHarnessSteamExecutable } from '../lib/ui-harness'
+import { uiHarnessDetectedRunners, uiHarnessSteamExecutable } from '../lib/ui-harness'
 import { findSteamRoot, steamLibraryRoots } from './detection/providers'
 import { scopedLogger } from '../lib/logger'
 
@@ -30,8 +30,18 @@ const NATIVE_RUNNER: DetectedRunner = { kind: 'native', id: 'native', path: '', 
  * (`<steam root>/steam.exe`). Listing it changes nothing about how anything launches - only an
  * installation whose stored choice is `'steam'` ever resolves to it (see `resolveRunner`), and
  * `LaunchService.plan()` does not even call this function on Windows.
+ *
+ * Story 105 D3: a harness-launched run can seed this whole list via `Q2L_UI_DETECTED_RUNNERS`
+ * (`uiHarnessDetectedRunners`, `src/main/lib/ui-harness.ts`) - same double gate as
+ * `Q2L_UI_STEAM_EXECUTABLE` above. When set, it is returned verbatim and none of the real detection
+ * below runs; everything downstream (`toRunnerOption`, collapse, IPC, renderer) stays unaware this
+ * happened.
  */
 export async function detectRunners(): Promise<DetectedRunner[]> {
+  // `isDev` is part of the gate's input type but not read by it (see ui-harness.ts).
+  const override = uiHarnessDetectedRunners({ isDev: false })
+  if (override !== undefined) return override
+
   if (process.platform === 'win32') return [NATIVE_RUNNER, await findSteam()]
 
   const [wine, umu, steam, proton] = await Promise.all([

@@ -94,35 +94,41 @@ export function DownloadsSettingsSection() {
   return (
     <>
       <div className="space-y-3">
-        <label className="space-y-1.5 block" data-testid="downloads-settings-concurrency">
-          <span className="stencil block">{t('module.downloads.settings.concurrency.label')}</span>
-          <Select
-            value={settings ? String(settings.concurrentJobs) : ''}
-            disabled={!settings}
-            onChange={(event) => void applyPatch({ concurrentJobs: Number(event.target.value) })}
-            options={CONCURRENCY_CHOICES.map((value) => ({
-              value: String(value),
-              label: String(value),
-            }))}
-          />
-        </label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-1.5 block" data-testid="downloads-settings-concurrency">
+            <span className="stencil block">
+              {t('module.downloads.settings.concurrency.label')}
+            </span>
+            <Select
+              value={settings ? String(settings.concurrentJobs) : ''}
+              disabled={!settings}
+              onChange={(event) => void applyPatch({ concurrentJobs: Number(event.target.value) })}
+              options={CONCURRENCY_CHOICES.map((value) => ({
+                value: String(value),
+                label: String(value),
+              }))}
+            />
+          </label>
 
-        <label className="space-y-1.5 block" data-testid="downloads-settings-cache-budget">
-          <span className="stencil block">{t('module.downloads.settings.cacheBudget.label')}</span>
-          <Select
-            value={settings ? String(settings.archiveCacheBudgetGB) : ''}
-            disabled={!settings}
-            onChange={(event) =>
-              void applyPatch({
-                archiveCacheBudgetGB: Number(event.target.value) as ArchiveCacheBudgetGB,
-              })
-            }
-            options={ARCHIVE_CACHE_BUDGET_CHOICES_GB.map((value) => ({
-              value: String(value),
-              label: t('module.downloads.settings.cacheBudget.option', { gb: value }),
-            }))}
-          />
-        </label>
+          <label className="space-y-1.5 block" data-testid="downloads-settings-cache-budget">
+            <span className="stencil block">
+              {t('module.downloads.settings.cacheBudget.label')}
+            </span>
+            <Select
+              value={settings ? String(settings.archiveCacheBudgetGB) : ''}
+              disabled={!settings}
+              onChange={(event) =>
+                void applyPatch({
+                  archiveCacheBudgetGB: Number(event.target.value) as ArchiveCacheBudgetGB,
+                })
+              }
+              options={ARCHIVE_CACHE_BUDGET_CHOICES_GB.map((value) => ({
+                value: String(value),
+                label: t('module.downloads.settings.cacheBudget.option', { gb: value }),
+              }))}
+            />
+          </label>
+        </div>
 
         <div data-testid="downloads-settings-while-playing">
           <Switch

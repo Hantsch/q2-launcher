@@ -7,8 +7,14 @@ const CLICK_TIMEOUT_MS = 8_000
 
 export default async function harnessOffscreen({ app, page, shot, step }) {
   step('window is offscreen and unfocused')
-  const state = await app.evaluate(({ BrowserWindow, screen }) => {
+  // The window is created with `show: false` and only shown on `ready-to-show`
+  // (src/main/window.ts), which can land after the harness hands over the page.
+  const state = await app.evaluate(async ({ BrowserWindow, screen }, timeoutMs) => {
     const window = BrowserWindow.getAllWindows()[0]
+    const deadline = Date.now() + timeoutMs
+    while (!window.isVisible() && Date.now() < deadline) {
+      await new Promise((settle) => setTimeout(settle, 50))
+    }
     const bounds = window.getBounds()
     const onScreen = screen.getAllDisplays().some((display) => {
       const area = display.bounds
@@ -20,7 +26,7 @@ export default async function harnessOffscreen({ app, page, shot, step }) {
       )
     })
     return { bounds, onScreen, focused: window.isFocused(), visible: window.isVisible() }
-  })
+  }, CLICK_TIMEOUT_MS)
   if (state.onScreen) throw new Error(`window overlaps a display: ${JSON.stringify(state.bounds)}`)
   if (state.focused) throw new Error('window took focus')
   if (!state.visible) throw new Error('window is not shown at all')

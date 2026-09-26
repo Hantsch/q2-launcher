@@ -1,0 +1,226 @@
+- 2026-09-25 17:01:29 · refine · 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 · started
+- 2026-09-25 17:19:21 · refine · 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 · done
+- 2026-09-25 17:19:25 · 118 · build · started
+- 2026-09-25 17:19 · 118 · D1 row derivations and contract · started
+- 2026-09-25 17:22 · 118 · D1 row derivations and contract · done
+- 2026-09-25 17:22 · 118 · D2 main fills row data · started
+- 2026-09-25 17:25 · 118 · D2 main fills row data · done
+- 2026-09-25 17:25 · 118 · D3 the row on the real surface · started
+- 2026-09-25 17:30 · 118 · D3 the row on the real surface · done
+- 2026-09-25 17:30 · 118 · verify · started
+- 2026-09-25 17:32 · 118 · verify · done
+- 2026-09-25 17:32 · 118 · review 1 · started
+- 2026-09-25 17:35 · 118 · review 1 · done
+- 2026-09-25 17:36 · 118 · story · done
+- 2026-09-25 17:36:34 · 119 · build · started
+- 2026-09-25 17:37 · 119 · D1 sort engine · started
+- 2026-09-25 17:38 · 119 · D1 sort engine · done
+- 2026-09-25 17:38 · 119 · D2 persist sort (contract+main) · started
+- 2026-09-25 17:42 · 119 · D2 persist sort (contract+main) · done
+- 2026-09-25 17:42 · 119 · D3 sort UI + flow · started
+- 2026-09-25 17:49 · 119 · D3 sort UI + flow · done
+- 2026-09-25 17:49 · 119 · verify · started
+- 2026-09-25 17:51 · 119 · verify · done
+- 2026-09-25 17:51 · 119 · review 1 · started
+- 2026-09-25 17:53 · 119 · review 1 · done
+- 2026-09-25 17:53 · 119 · story · done
+- 2026-09-25 17:54:21 · 120 · build · started
+- 2026-09-25 17:55 · 120 · D1 filter engine · started
+- 2026-09-25 17:57 · 120 · D1 filter engine · done
+- 2026-09-25 17:57 · 120 · D2 filter bar · started
+- 2026-09-25 18:04 · 120 · D2 filter bar · done
+- 2026-09-25 18:04 · 120 · verify · started
+- 2026-09-25 18:06 · 120 · verify · done
+- 2026-09-25 18:06 · 120 · review 1 · started
+- 2026-09-25 18:08 · 120 · review 1 · done
+- 2026-09-25 18:09 · 120 · story · done
+- 2026-09-25 18:09:39 · 121 · build · started
+- 2026-09-25 18:10 · 121 · D1 the list says what it is doing (renderer) · started
+- 2026-09-25 18:20 · 121 · D1 the list says what it is doing (renderer) · done
+- 2026-09-25 18:20 · 121 · D2 the four list states in the ui:verify registry · started
+- 2026-09-25 18:26 · 121 · D2 the four list states in the ui:verify registry · done
+- 2026-09-25 18:26 · 121 · D3 scan-to-select flow on a local stub · started
+- 2026-09-25 18:30 · 121 · D3 scan-to-select flow on a local stub · done
+- 2026-09-25 18:30 · 121 · verify · started
+- 2026-09-25 18:33 · 121 · verify · done
+- 2026-09-25 18:33 · 121 · review 1 · started
+- 2026-09-25 18:35 · 121 · review 1 · done
+- 2026-09-25 18:36 · 121 · verify · started
+- 2026-09-25 18:37 · 121 · verify · done
+- 2026-09-25 18:37 · 121 · story · done
+- 2026-09-25 18:38:15 · 122 · build · started
+- 2026-09-25 18:38 · 122 · D1 engine and player-sort derivations · started
+- 2026-09-25 18:40 · 122 · D1 engine and player-sort derivations · done
+- 2026-09-25 18:40 · 122 · D2 detail.read contract and main · started
+- 2026-09-25 18:44 · 122 · D2 detail.read contract and main · done
+- 2026-09-25 18:44 · 122 · D3 detail container, header, opening from row · started
+- 2026-09-25 18:52 · 122 · D3 detail container, header, opening from row · done
+- 2026-09-25 18:52 · 122 · D4 players panel · started
+- 2026-09-25 18:55 · 122 · D4 players panel · done
+- 2026-09-25 18:55 · 122 · verify · started
+- 2026-09-25 18:57 · 122 · verify · done
+- 2026-09-25 18:57 · 122 · review 1 · started
+- 2026-09-25 18:59 · 122 · review 1 · done
+- 2026-09-25 19:00 · 122 · story · done
+- 2026-09-25 19:00:30 · 123 · build · started
+- 2026-09-25 19:01 · 123 · D1 shared rule-table+dmflags · started
+- 2026-09-25 19:01 · 123 · D2 main keeps serverinfo · started
+- 2026-09-25 19:03 · 123 · D1 shared rule-table+dmflags · done
+- 2026-09-25 19:03 · 123 · D2 main keeps serverinfo · done
+- 2026-09-25 19:03 · 123 · D3 Rules section in detail view · started
+- 2026-09-25 19:08 · 123 · D3 Rules section in detail view · done
+- 2026-09-25 19:08 · 123 · verify · started
+- 2026-09-25 19:11 · 123 · verify · blocked: 2 pre-existing vocabulary guard tests fail against new en.json strings (maxclients label, spectator-password label)
+- 2026-09-25 19:13 · 123 · verify · done
+- 2026-09-25 19:13 · 123 · review 1 · started
+- 2026-09-25 19:16 · 123 · review 1 · done
+- 2026-09-25 19:16 · 123 · story · done
+- 2026-09-25 19:17:20 · 124 · build · started
+- 2026-09-25 19:18 · 124 · D1 per-server RTT history · started
+- 2026-09-25 19:21 · 124 · D1 per-server RTT history · done
+- 2026-09-25 19:21 · 124 · D2 reachability section + e2e · started
+- 2026-09-25 19:25 · 124 · D2 reachability section + e2e · done
+- 2026-09-25 19:25 · 124 · verify · started
+- 2026-09-25 19:26 · 124 · verify · done
+- 2026-09-25 19:26 · 124 · review 1 · started
+- 2026-09-25 19:29 · 124 · review 1 · done
+- 2026-09-25 19:29 · 124 · verify · started
+- 2026-09-25 19:30 · 124 · verify · done
+- 2026-09-25 19:31 · 124 · story · done
+- 2026-09-25 19:31:49 · 125 · build · started
+- 2026-09-25 19:32 · 125 · D1 contract and pure userinfo rule · started
+- 2026-09-25 19:34 · 125 · D1 contract and pure userinfo rule · done
+- 2026-09-25 19:34 · 125 · D2 launch service userinfo without argv · started
+- 2026-09-25 19:39 · 125 · D2 launch service userinfo without argv · done
+- 2026-09-25 19:39 · 125 · D3 history records a spawned join · started
+- 2026-09-25 19:41 · 125 · D3 history records a spawned join · done
+- 2026-09-25 19:41 · 125 · D4 join flow in the list · started
+- 2026-09-25 19:46 · 125 · D4 join flow in the list · done
+- 2026-09-25 19:46 · 125 · D5 detail placement and e2e proof · started
+- 2026-09-25 19:58 · 125 · D5 detail placement and e2e proof · done
+- 2026-09-25 19:58 · 125 · verify · started
+- 2026-09-25 20:01 · 125 · verify · done
+- 2026-09-25 20:01 · 125 · review 1 · started
+- 2026-09-25 20:02 · 125 · review 1 · done
+- 2026-09-25 20:02 · 125 · review 2 (hard) · started
+- 2026-09-25 20:06 · 125 · review 2 (hard) · done
+- 2026-09-25 20:06 · 125 · review-fix 1 concurrent-start race and e2e cfg-lifetime assertion · started
+- 2026-09-25 20:10 · 125 · review-fix 1 concurrent-start race and e2e cfg-lifetime assertion · done
+- 2026-09-25 20:10 · 125 · verify 2 · started
+- 2026-09-25 20:12 · 125 · verify 2 · done
+- 2026-09-25 20:13 · 125 · story · done
+- 2026-09-25 20:14:11 · 126 · build · started
+- 2026-09-25 20:14 · 126 · D1 spectator-password bit · started
+- 2026-09-25 20:14 · 126 · D2 spectate composition · started
+- 2026-09-25 20:17 · 126 · D1 spectator-password bit · done
+- 2026-09-25 20:17 · 126 · D2 spectate composition · done
+- 2026-09-25 20:17 · 126 · D3 Spectate action · started
+- 2026-09-25 20:24 · 126 · D3 Spectate action · done
+- 2026-09-25 20:24 · 126 · verify · started
+- 2026-09-25 20:25 · 126 · verify · done
+- 2026-09-25 20:25 · 126 · review 1 · started
+- 2026-09-25 20:27 · 126 · review 1 · done
+- 2026-09-25 20:28 · 126 · story · done
+- 2026-09-25 20:29:02 · 127 · build · started
+- 2026-09-25 20:30 · 127 · D1 address-book logic and dialog · started
+- 2026-09-25 20:34 · 127 · D1 address-book logic and dialog · done
+- 2026-09-25 20:34 · 127 · D2 triggers and e2e · started
+- 2026-09-25 20:38 · 127 · D2 triggers and e2e · done
+- 2026-09-25 20:38 · 127 · verify · started
+- 2026-09-25 20:41 · 127 · verify · done
+- 2026-09-25 20:41 · 127 · review 1 · started
+- 2026-09-25 20:44 · 127 · review 1 · done
+- 2026-09-25 20:45 · 127 · story · done
+- 2026-09-25 20:45:26 · 128 · build · started
+- 2026-09-25 20:46 · 128 · D1 Code format and verifier · started
+- 2026-09-25 20:50 · 128 · D1 Code format and verifier · done
+- 2026-09-25 20:50 · 128 · D2 Launcher installation id · started
+- 2026-09-25 20:50 · 128 · D3 Issuing script and production key · started
+- 2026-09-25 20:53 · 128 · D2 Launcher installation id · done
+- 2026-09-25 20:53 · 128 · D3 Issuing script and production key · done
+- 2026-09-25 20:53 · 128 · D4 UnlockService, persistence, boot wiring · started
+- 2026-09-25 20:59 · 128 · D4 UnlockService, persistence, boot wiring · done
+- 2026-09-25 20:59 · 128 · verify · started
+- 2026-09-25 21:00 · 128 · verify · done
+- 2026-09-25 21:00 · 128 · review 1 · started
+- 2026-09-25 21:03 · 128 · review 1 · done
+- 2026-09-25 21:05 · 128 · review 2 (hard) · started
+- 2026-09-25 21:08 · 128 · review 2 (hard) · done
+- 2026-09-25 21:12 · 128 · story · done
+- 2026-09-25 21:13:08 · 130 · build · started
+- 2026-09-25 21:14 · 130 · D1 main-side gate + gated module handlers · started
+- 2026-09-25 21:17 · 130 · D1 main-side gate + gated module handlers · done
+- 2026-09-25 21:17 · 130 · D2 features:getUnlocked channel · started
+- 2026-09-25 21:19 · 130 · D2 features:getUnlocked channel · done
+- 2026-09-25 21:19 · 130 · D3 renderer feature gate · started
+- 2026-09-25 21:21 · 130 · D3 renderer feature gate · done
+- 2026-09-25 21:21 · 130 · verify · started
+- 2026-09-25 21:22 · 130 · verify · done
+- 2026-09-25 21:22 · 130 · review 1 · started
+- 2026-09-25 21:24 · 130 · review 1 · done
+- 2026-09-25 21:24 · 130 · review 2 (hard) · started
+- 2026-09-25 21:26 · 130 · review 2 (hard) · done
+- 2026-09-25 21:29 · 130 · story · done
+- 2026-09-25 21:29:44 · 129 · build · started
+- 2026-09-25 21:30 · 129 · D1 Unlock IPC contract and main handlers · started
+- 2026-09-25 21:35 · 129 · D1 Unlock IPC contract and main handlers · done
+- 2026-09-25 21:35 · 129 · D2 Unlock panel in Settings · started
+- 2026-09-25 21:38 · 129 · D2 Unlock panel in Settings · done
+- 2026-09-25 21:38 · 129 · D3 Experimental marking supplied by the gate · started
+- 2026-09-25 21:39 · 129 · D3 Experimental marking supplied by the gate · done
+- 2026-09-25 21:39 · 129 · D4 End-to-end flow unlock-code · started
+- 2026-09-25 21:45 · 129 · D4 End-to-end flow unlock-code · done
+- 2026-09-25 21:45 · 129 · verify · started
+- 2026-09-25 21:47 · 129 · verify · done
+- 2026-09-25 21:47 · 129 · review 1 · started
+- 2026-09-25 21:49 · 129 · review 1 · done
+- 2026-09-25 21:50 · 129 · story · done
+- 2026-09-25 21:50:50 · 131 · build · started
+- 2026-09-25 21:51 · 131 · D1 contract + persisted entries · started
+- 2026-09-25 21:54 · 131 · D1 contract + persisted entries · done
+- 2026-09-25 21:54 · 131 · D2 pure entry ops + matcher · started
+- 2026-09-25 21:58 · 131 · D2 pure entry ops + matcher · done
+- 2026-09-25 21:58 · 131 · D3 regex worker host · started
+- 2026-09-25 22:01 · 131 · D3 regex worker host · done
+- 2026-09-25 22:01 · 131 · D4 watchlist service · started
+- 2026-09-25 22:06 · 131 · D4 watchlist service · done
+- 2026-09-25 22:06 · 131 · D5 gated wiring · started
+- 2026-09-25 22:14 · 131 · D5 gated wiring · done
+- 2026-09-25 22:14 · 131 · verify · started
+- 2026-09-25 22:16 · 131 · verify · done
+- 2026-09-25 22:16 · 131 · review 1 · started
+- 2026-09-25 22:18 · 131 · review 1 · done
+- 2026-09-25 22:18 · 131 · review 2 (hard) · started
+- 2026-09-25 22:21 · 131 · review 2 (hard) · done: FAIL, stale-job race finding
+- 2026-09-25 22:23 · 131 · review-fix cycle · started
+- 2026-09-25 22:24 · 131 · review-fix cycle · done
+- 2026-09-25 22:25 · 131 · story · done
+- 2026-09-25 22:26:17 · 132 · build · started
+- 2026-09-25 22:27 · 132 · D1 client + useWatchlist hook · started
+- 2026-09-25 22:30 · 132 · D1 client + useWatchlist hook · done
+- 2026-09-25 22:30 · 132 · D2 watchlist panel · started
+- 2026-09-25 22:34 · 132 · D2 watchlist panel · done
+- 2026-09-25 22:34 · 132 · D3 gated tab in ServersView · started
+- 2026-09-25 22:38 · 132 · D3 gated tab in ServersView · done
+- 2026-09-25 22:38 · 132 · D4 e2e flow servers-watchlist · started
+- 2026-09-25 22:50 · 132 · D4 e2e flow servers-watchlist · done
+- 2026-09-25 22:50 · 132 · verify · started
+- 2026-09-25 22:51 · 132 · verify · done
+- 2026-09-25 22:51 · 132 · review 1 · started
+- 2026-09-25 22:56 · 132 · review 1 · done: PASS, 1 confirmed finding to fix
+- 2026-09-25 22:56 · 132 · review-fix cycle · started
+- 2026-09-25 22:58 · 132 · review-fix cycle · done
+- 2026-09-25 22:58 · 132 · verify · started
+- 2026-09-25 22:59 · 132 · verify · done
+- 2026-09-25 22:59 · 132 · review 2 · started
+- 2026-09-25 22:59 · 132 · review 2 · done: no hard-tier review required (Model Hints: default only)
+- 2026-09-25 23:00 · 132 · story · done
+- 2026-09-25 23:00:48 · gate · short-suites · started
+- 2026-09-25 23:03:32 · gate · short-suites · done (build green, test red 1, ui:verify green)
+- 2026-09-25T21:04:52Z · 131 · fix regression from sprint gate · started
+- 2026-09-25T21:05:48Z · 131 · fix regression from sprint gate · done
+- 2026-09-25 23:06:31 · gate · e2e-all · started
+- 2026-09-25T21:34:28Z · 126 · fix regression from sprint gate (servers-detail AC4 scope) · started
+- 2026-09-25T21:37:10Z · 126 · fix regression from sprint gate (servers-detail AC4 scope) · done
+- 2026-09-25 23:35:16 · gate · e2e-all-confirm · started
+- 2026-09-25 23:59:13 · gate · e2e-all-confirm · done (69/71, 2 pre-existing)

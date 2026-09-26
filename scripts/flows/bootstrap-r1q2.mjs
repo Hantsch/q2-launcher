@@ -150,6 +150,12 @@ export default async function bootstrapR1q2({ page, shot, step }) {
 
   await page.getByRole('button', { name: 'Next' }).click({ timeout: TIMEOUT_MS })
 
+  step('game-data step: keep the default free download and click Next')
+  await page
+    .getByTestId('bootstrap-gamedata-choice-free-download')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.getByRole('button', { name: 'Next' }).click({ timeout: TIMEOUT_MS })
+
   // --- Target step: a fresh, non-Program-Files folder needs no warning acknowledged --------------
   step('pick the fresh R1Q2 fixture target')
   const browse = page

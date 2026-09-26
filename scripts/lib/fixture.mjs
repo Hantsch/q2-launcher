@@ -30,6 +30,10 @@ import { dirname, join } from 'node:path'
 import { deflateSync } from 'node:zlib'
 import { assertInside, REPO_ROOT, UI_VERIFY_ROOT } from './paths.mjs'
 import { variantUserDataDir } from './harness.mjs'
+// Story 121 D2: the three `servers-list*` screens' loopback stub ports/URL - imported here (not
+// just from `screens.mjs`) because the fixture itself has to point a seeded `http-list` source at
+// the stub list server's URL before the app ever starts.
+import { SERVERS_DEAD_LIST_URL, serversStubListUrl } from './servers-stub.mjs'
 // Story 075 D7's two seeded `downloadFailures` entries. They live in their own module (which
 // imports only the redaction mirror) so a unit test can assert the seeded record is exactly what
 // the real `redactHome` produces, without dragging playwright in through this file.
@@ -1063,6 +1067,12 @@ function populatedInstallations() {
   ]
 }
 
+/** How many installations the `populated` variant seeds - for flows asserting "one row per
+ * installation", so they follow additive fixture installs instead of pinning a stale number. */
+export function populatedInstallationCount() {
+  return populatedInstallations().length
+}
+
 // --- config.ts ConfigProfile shape ------------------------------------------
 // Mirrors src/shared/modules/config.ts:181 (`ConfigProfile`), `:45`
 // (`ProfileAssignment`) and `:56` (`UnrecognizedConfigLine`).
@@ -1330,6 +1340,68 @@ export const DOWNLOADS_CACHE_TOTAL_BYTES =
   DOWNLOADS_CACHE_ARCHIVE_ONE.sizeBytes + DOWNLOADS_CACHE_ARCHIVE_TWO.sizeBytes
 export const DOWNLOADS_CACHE_ITEM_COUNT = 2
 
+// --- servers.ts ServersState fixture (story 115) ----------------------------
+// Mirrors src/shared/modules/servers.ts's `ServersState`/`ServersScanSettings`/
+// `DEFAULT_MASTER_SOURCES` (hardcoded, not imported - see this file's own header comment).
+//
+// GB-A5 (this project's own testing rule): no test or `ui:flow`/`ui:verify` run may ever touch a
+// real master or game server. The `populated` variant's fresh boot falls back to
+// `DEFAULT_SERVERS_STATE` - whose three `DEFAULT_MASTER_SOURCES` are all `enabled: true` and point
+// at real internet hosts (`master.q2servers.com`, `master.quakeservers.net`, `q2servers.com`) -
+// which is exactly what story 111's own `servers-master-sources` flow needs to find there (a fresh
+// profile's three defaults, enabled). Story 115 D5's `servers-scan-settings` flow instead triggers
+// a real `scan.start` (AC3), so it gets its OWN dedicated fixture variant (`servers-scan`, below)
+// rather than mutating `populated`'s shared `servers` key: every shipped source present (never
+// silently deleted from the user's view) but disabled, plus one manual server on a dead,
+// unused-looking loopback port that only ever needs to time out harmlessly - the same safety
+// property `scan-integration.test.ts`'s own seed uses, minus the real dgram responder this fixture
+// doesn't need.
+export const SERVERS_DISABLED_SOURCES = [
+  {
+    id: 'default-q2servers-udp',
+    type: 'udp-master',
+    address: 'master.q2servers.com:27900',
+    enabled: false,
+  },
+  {
+    id: 'default-quakeservers-udp',
+    type: 'udp-master',
+    address: 'master.quakeservers.net:27900',
+    enabled: false,
+  },
+  {
+    id: 'default-q2servers-http',
+    type: 'http-list',
+    address: 'https://q2servers.com/?raw=1',
+    enabled: false,
+  },
+]
+
+/** A manual server address on a fixed, dead loopback port - nothing listens on it, so a scan
+ * against it always times out locally and never reaches the real internet. */
+export const SERVERS_MANUAL_SERVER_ADDRESS = '127.0.0.1:27921'
+
+/** Mirrors src/shared/modules/servers.ts's `ServersScanSettings`. Deliberately non-default on
+ * every field except `autoRefreshIntervalMs` (which happens to coincide with
+ * `DEFAULT_SERVERS_STATE.scan`'s own 60000 - every other field still tells "the fixture's seeded
+ * values" apart from "whatever the default would have rendered anyway", same discipline as
+ * `DOWNLOADS_SETTINGS_SEED` above). `timeoutMs: 500`/`retries: 0` is the shortest combination the
+ * Settings `<Select>` can actually show - `500` is `SCAN_TIMEOUT_CHOICES_MS`'s (servers.ts) own
+ * lowest choice, deliberately not the schema's raw `MIN_SCAN_TIMEOUT_MS` (250) floor, which the
+ * `<Select>` has no option for and would leave the control showing no matching value at boot - so
+ * the one dead loopback target still fails fast (~500ms, no retry) without the flow's own boot-side
+ * assertion breaking against a value the UI cannot render. Exported so
+ * `scripts/flows/servers-scan-settings.mjs` asserts against the exact seeded literals. */
+export const SERVERS_SCAN_SETTINGS_SEED = {
+  concurrency: 4,
+  timeoutMs: 500,
+  retries: 0,
+  minSpacingMs: 15000,
+  autoScanOnOpen: false,
+  autoRefreshEnabled: true,
+  autoRefreshIntervalMs: 60000,
+}
+
 /** Writes the two dummy archives above into `<userDataDir>/cache/downloads/`, each with its own
  * distinct mtime (`fs.utimesSync` - the only way to backdate a file Node itself just wrote). */
 function writeDownloadsCacheArchives(userDataDir) {
@@ -1343,7 +1415,13 @@ function writeDownloadsCacheArchives(userDataDir) {
   }
 }
 
-function populatedStateDocument() {
+/**
+ * `overrides` is merged onto the base document with a plain shallow spread - a top-level key
+ * present in `overrides` replaces that key wholesale (never deep-merged), which is exactly what
+ * the `servers-scan` variant needs (a whole `servers` key, built from scratch) and cheap enough not
+ * to need anything fancier. No caller today overrides more than one top-level key at a time.
+ */
+function populatedStateDocument(overrides = {}) {
   return {
     schemaVersion: STATE_SCHEMA_VERSION,
     settings: { ...DEFAULT_SETTINGS, activeInstallationId: INSTALL_ONE_ID },
@@ -1369,6 +1447,7 @@ function populatedStateDocument() {
         { moduleId: 'configProfiles', x: 7, y: 2, w: 4, h: 5 },
       ],
     },
+    ...overrides,
   }
 }
 
@@ -1906,13 +1985,20 @@ function rmDirBestEffort(path) {
   }
 }
 
-/** Deletes and rewrites the `populated` variant's userdata + game dirs. */
-export function writePopulatedFixture() {
-  const userDataDir = variantUserDataDir('populated')
+/**
+ * Deletes and rewrites the `populated` variant's userdata + game dirs - or, when `variant`/
+ * `stateOverrides` are passed, a different variant that needs every one of those same side effects
+ * (installations, config profiles, news cache, download-cache archives) but a different top-level
+ * `state.json` key or two on top of the base document. `writeFixture('servers-scan')` below is the
+ * one caller that passes both, rather than this function being duplicated near-verbatim for one
+ * extra `servers` key.
+ */
+export function writePopulatedFixture({ variant = 'populated', stateOverrides = {} } = {}) {
+  const userDataDir = variantUserDataDir(variant)
   rmDirBestEffort(userDataDir)
   mkdirSync(userDataDir, { recursive: true })
 
-  writeJson(join(userDataDir, STATE_FILE), populatedStateDocument())
+  writeJson(join(userDataDir, STATE_FILE), populatedStateDocument(stateOverrides))
   writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
   writeDownloadsCacheArchives(userDataDir)
   // Story 083 D6: a fresh, successful feed cache - the `home-hero` screen's filled state.
@@ -2106,6 +2192,92 @@ export function writeNewsStaleFixture() {
   return { userDataDir, installations: 0, configProfiles: 0 }
 }
 
+/**
+ * Story 121 D2: `servers-list-empty`'s fixture - the same shape `servers-scan` documents above
+ * (every shipped source present but disabled, autos off), but with no manual/favourite servers and
+ * no enabled source at all - a scan genuinely finds nothing, an honest empty result rather than a
+ * stub source involved.
+ */
+export function writeServersListEmptyFixture() {
+  return writePopulatedFixture({
+    variant: 'servers-list-empty',
+    stateOverrides: {
+      servers: {
+        sources: SERVERS_DISABLED_SOURCES,
+        favourites: [],
+        manualServers: [],
+        history: [],
+        scan: { ...SERVERS_SCAN_SETTINGS_SEED },
+      },
+    },
+  })
+}
+
+/**
+ * Story 121 D2: `servers-list-populated`/`servers-list-loading`'s shared fixture - the same
+ * disabled shipped sources as `servers-list-empty`, plus one enabled `http-list` source pointing at
+ * the loopback stub list server (`scripts/lib/servers-stub.mjs`). The screens themselves start the
+ * stub responders/list server and feed it addresses at runtime (`navigate()`); this fixture only
+ * ever seeds the URL the source will fetch.
+ */
+export function writeServersListFixture() {
+  return writePopulatedFixture({
+    variant: 'servers-list',
+    stateOverrides: {
+      servers: {
+        sources: [
+          ...SERVERS_DISABLED_SOURCES,
+          {
+            id: 'fixture-servers-list-http',
+            type: 'http-list',
+            address: serversStubListUrl(),
+            enabled: true,
+          },
+        ],
+        favourites: [],
+        manualServers: [],
+        history: [],
+        scan: { ...SERVERS_SCAN_SETTINGS_SEED },
+      },
+    },
+  })
+}
+
+/**
+ * Story 121 D2: `servers-list-error`'s fixture - the same stub `http-list` source as
+ * `servers-list`, plus a second enabled `http-list` source pointing at `SERVERS_DEAD_LIST_URL` (a
+ * loopback port nothing binds), so one source succeeds and the other deterministically fails with a
+ * transport error - AC3's proof that a source failure never hides the rest of the list.
+ */
+export function writeServersListErrorFixture() {
+  return writePopulatedFixture({
+    variant: 'servers-list-error',
+    stateOverrides: {
+      servers: {
+        sources: [
+          ...SERVERS_DISABLED_SOURCES,
+          {
+            id: 'fixture-servers-list-http',
+            type: 'http-list',
+            address: serversStubListUrl(),
+            enabled: true,
+          },
+          {
+            id: 'fixture-servers-list-http-dead',
+            type: 'http-list',
+            address: SERVERS_DEAD_LIST_URL,
+            enabled: true,
+          },
+        ],
+        favourites: [],
+        manualServers: [],
+        history: [],
+        scan: { ...SERVERS_SCAN_SETTINGS_SEED },
+      },
+    },
+  })
+}
+
 export function writeFixture(variant) {
   // Story 066 D8: staged independently of which variant is being (re)written - see
   // `writeImportFilesFixture()`'s own doc comment for why this has to happen on every reseed
@@ -2117,6 +2289,35 @@ export function writeFixture(variant) {
   if (variant === 'news-stale') return writeNewsStaleFixture()
   if (variant === 'news-images') return writeNewsImagesFixture()
   if (variant === 'news-cover') return writeNewsCoverFixture()
+  // Story 115 D5: `scripts/flows/servers-scan-settings.mjs`'s own dedicated variant - see the
+  // `servers.ts ServersState fixture` comment block above for why it is not a `servers` key added
+  // to `populated` instead. Reuses `writePopulatedFixture()`'s installations/config-profiles/news
+  // cache/download-cache-archive side effects verbatim, under a different variant's userData dir
+  // and with the `servers` key `populatedStateDocument()` used to carry added back on top.
+  if (variant === 'servers-scan') {
+    return writePopulatedFixture({
+      variant: 'servers-scan',
+      stateOverrides: {
+        servers: {
+          sources: SERVERS_DISABLED_SOURCES,
+          favourites: [],
+          manualServers: [
+            {
+              address: SERVERS_MANUAL_SERVER_ADDRESS,
+              origin: 'manual',
+              addedAt: '2026-01-01T00:00:00.000Z',
+            },
+          ],
+          history: [],
+          scan: { ...SERVERS_SCAN_SETTINGS_SEED },
+        },
+      },
+    })
+  }
+  // Story 121 D2: the three `servers-list*` screens' variants - see each writer's own doc comment.
+  if (variant === 'servers-list-empty') return writeServersListEmptyFixture()
+  if (variant === 'servers-list') return writeServersListFixture()
+  if (variant === 'servers-list-error') return writeServersListErrorFixture()
   throw new Error(`unknown fixture variant: ${variant}`)
 }
 
@@ -2130,6 +2331,13 @@ export const FIXTURE_VARIANTS = [
   // `scripts/flows/news-cover-template.mjs` alone, which is why it still has to be listed here
   // (`ui:verify` only reseeds the variants its screens name; `ui:seed` is what writes this one).
   'news-cover',
+  // Story 115 D5: same reasoning as `news-cover` right above - no screen in `screens.mjs` names
+  // this one, it exists for `scripts/flows/servers-scan-settings.mjs` alone.
+  'servers-scan',
+  // Story 121 D2: the three `servers-list*` screens' own variants (`screens.mjs`).
+  'servers-list-empty',
+  'servers-list',
+  'servers-list-error',
 ]
 
 // --- story 066 D8: the import-from-files flow's staged real-config corpus ---------------------
@@ -2394,6 +2602,126 @@ export function writeLinuxJourneyInstallRoot() {
   writeFileSync(executablePath, LINUX_JOURNEY_SHELL_SCRIPT)
   chmodSync(executablePath, 0o755)
   return { root, executablePath, spawnable: true }
+}
+
+// --- story 125 D5: `servers-join.mjs`'s own, unregistered install root -------------------------
+//
+// Same stand-in-client trick as `writeLinuxJourneyInstallRoot()` just above (a real, spawnable
+// executable with a brief sleep off Windows, the vendored `7za.exe` on Windows), but this fixture
+// is registered directly into `state.json` (as the sole, active installation) rather than added
+// through the real UI - `servers-join.mjs` needs a genuine Play/join to spawn a real process and
+// exit on its own so the flow can assert on `main.log`'s recorded argv and a real `exited` phase,
+// which `writePopulatedFixture()`'s own installations (placeholder, non-spawnable executables)
+// cannot provide.
+const JOIN_INSTALL_DIR = 'fixture-servers-join-install'
+
+/** The id `servers-join.mjs` seeds this installation under in `state.json`, and the value it
+ * points `settings.activeInstallationId` at - exported so the flow never has to guess or
+ * duplicate the literal. */
+export const JOIN_INSTALL_ID = JOIN_INSTALL_DIR
+
+/** `q2join.exe` on Windows, extension-less `q2join` elsewhere - name is irrelevant to any engine
+ * classification this fixture depends on (the flow sets `executablePath` directly rather than
+ * relying on `inspectInstallation` to rank it). */
+const JOIN_EXECUTABLE_NAME = process.platform === 'win32' ? 'q2join.exe' : 'q2join'
+
+export function joinInstallRoot() {
+  return join(gameRoot(), JOIN_INSTALL_DIR)
+}
+
+export function joinExecutablePath() {
+  return join(joinInstallRoot(), JOIN_EXECUTABLE_NAME)
+}
+
+/**
+ * Builds a fresh install root: `baseq2/pak0.pak` (any bytes - just needs to exist) plus the
+ * platform's stand-in client executable. Returns `{ root, executablePath, spawnable }`, same shape
+ * as `writeLinuxJourneyInstallRoot()` - `spawnable` is `false` only on Windows when
+ * `resources/bin/7za.exe` was never vendored locally.
+ */
+export function writeJoinInstallRoot() {
+  const root = joinInstallRoot()
+  rmDirBestEffort(root)
+  const baseq2Dir = join(root, 'baseq2')
+  mkdirSync(baseq2Dir, { recursive: true })
+  writeFileSync(join(baseq2Dir, 'pak0.pak'), 'not a real pak, just needs to exist')
+
+  const executablePath = joinExecutablePath()
+  if (process.platform === 'win32') {
+    if (vendoredWindowsExtractorExists()) {
+      copyFileSync(vendoredWindowsExtractorPath(), executablePath)
+      return { root, executablePath, spawnable: true }
+    }
+    writeFileSync(executablePath, 'placeholder - resources/bin/7za.exe was not vendored locally')
+    return { root, executablePath, spawnable: false }
+  }
+
+  writeFileSync(executablePath, LINUX_JOURNEY_SHELL_SCRIPT)
+  chmodSync(executablePath, 0o755)
+  return { root, executablePath, spawnable: true }
+}
+
+/**
+ * Story 125 D5: `servers-join.mjs`'s own fixture writer. Built on `emptyStateDocument()`'s minimal
+ * shape (zero installations, zero config profiles) rather than `writePopulatedFixture()`'s
+ * five-installation/two-profile default - that default's `configProfiles` name installation ids
+ * (`INSTALL_ONE_ID`/`INSTALL_TWO_ID`) that a wholesale `installations` override for this flow's one
+ * custom, real-spawnable installation would otherwise leave dangling. Writes the real install root
+ * via `writeJoinInstallRoot()`, seeds it as the sole installation and `settings.activeInstallationId`
+ * (`DEFAULT_SETTINGS.activeInstallationId` is `null`), and takes the caller's `servers` state slice
+ * verbatim - same shape every other servers flow already builds by hand.
+ *
+ * `variant` (story 126 D3) picks the userDataDir a caller other than `servers-join.mjs` itself
+ * gets - e.g. `servers-watchlist.mjs` passes its own name so the two flows' fixtures never share a
+ * directory, defaulting to `'servers-join'` so the original caller is unaffected.
+ */
+export function writeJoinFixture({ servers, variant = 'servers-join' }) {
+  const userDataDir = variantUserDataDir(variant)
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  const install = writeJoinInstallRoot()
+
+  writeJson(join(userDataDir, STATE_FILE), {
+    schemaVersion: STATE_SCHEMA_VERSION,
+    settings: { ...DEFAULT_SETTINGS, scanOnFirstRun: false, activeInstallationId: JOIN_INSTALL_ID },
+    installations: [
+      {
+        id: JOIN_INSTALL_ID,
+        name: 'Fixture Join Install',
+        rootPath: install.root,
+        engineKind: 'r1q2',
+        executablePath: install.executablePath,
+        launchArgs: [],
+        activeGameDir: '',
+        detectedVersion: undefined,
+        source: 'manual',
+        status: 'ok',
+        checks: [],
+        gameDirs: ['baseq2'],
+        favorite: false,
+        sortOrder: 0,
+        createdAt: FIXED_TIMESTAMP,
+        updatedAt: FIXED_TIMESTAMP,
+        lastValidatedAt: undefined,
+        lastPlayedAt: undefined,
+        totalPlaytimeSeconds: 0,
+      },
+    ],
+    configProfiles: [],
+    configPlayedMods: {},
+    configPendingWrites: {},
+    configSwitchBinds: {},
+    servers,
+  })
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  return {
+    userDataDir,
+    installRoot: install.root,
+    executablePath: install.executablePath,
+    spawnable: install.spawnable,
+  }
 }
 
 /**

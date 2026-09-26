@@ -121,11 +121,63 @@ function joinNotes(notes: string | Array<AutoUpdaterReleaseNote> | null | undefi
   return notes.map((entry) => entry.note ?? '').join('\n\n')
 }
 
-/** `UpdateInfo` -> `UpdateState['update']`: joins array-form notes, caps at
- * {@link NOTES_MAX_LENGTH}, and defaults a missing release date to `null` rather than an empty
- * string (AC2 + the story's "array notes joined and capped"). */
+/** Any HTML start/end tag - the test for "this body is HTML, not markdown". */
+const HTML_TAG = /<\/?[a-z][a-z0-9]*\b[^>]*>/i
+
+const HTML_ENTITIES: Record<string, string> = {
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+}
+
+/** Decodes the handful of entities GitHub emits plus numeric ones; `&amp;` goes last so an
+ * escaped `&amp;lt;` stays the literal text `&lt;` instead of being decoded twice. */
+function decodeHtmlEntities(text: string): string {
+  // Out-of-range code points would make `fromCodePoint` throw; foreign content must not.
+  const codePoint = (value: number): string =>
+    Number.isInteger(value) && value >= 0 && value <= 0x10ffff ? String.fromCodePoint(value) : ''
+  return text
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => codePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec: string) => codePoint(Number(dec)))
+    .replace(/&(lt|gt|quot|apos|nbsp);/g, (_, name: string) => HTML_ENTITIES[name] ?? '')
+    .replace(/&amp;/g, '&')
+}
+
+/** Strips every tag and folds whitespace (including `<br>` line wraps) into single spaces. */
+function htmlToText(html: string): string {
+  return decodeHtmlEntities(html.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, ''))
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * GitHub's releases feed - where `electron-updater`'s GitHub provider reads `releaseNotes` from -
+ * delivers the release body *rendered*: `<h3>Added</h3><ul><li>…</li></ul>`, not the markdown the
+ * release was created with. `parseReleaseNotes` (`src/shared/release-notes.ts`) only reads the
+ * `### Heading` / `- item` subset, so an HTML body parsed to zero sections and every update showed
+ * "This version has no release notes". This maps the rendered shape back onto that subset; every
+ * other tag is dropped, never passed on - the notes stay plain text. A body with no tags at all
+ * (markdown from `latest.yml`, or plain text) passes through unchanged.
+ */
+export function releaseNotesHtmlToMarkdown(notes: string): string {
+  if (!HTML_TAG.test(notes)) return notes
+  return notes
+    .replace(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]>/gi, (_, inner: string) => `\n### ${htmlToText(inner)}\n`)
+    .replace(/<li\b[^>]*>([\s\S]*?)<\/li>/gi, (_, inner: string) => `\n- ${htmlToText(inner)}\n`)
+    .split('\n')
+    .map((line) => (/^(###|-) /.test(line) ? line : htmlToText(line)))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+/** `UpdateInfo` -> `UpdateState['update']`: joins array-form notes, maps an HTML body back onto
+ * markdown, caps at {@link NOTES_MAX_LENGTH}, and defaults a missing release date to `null` rather
+ * than an empty string (AC2 + the story's "array notes joined and capped"). */
 function normalizeUpdateInfo(info: AutoUpdaterUpdateInfo): NonNullable<UpdateState['update']> {
-  const joined = joinNotes(info.releaseNotes)
+  const joined = releaseNotesHtmlToMarkdown(joinNotes(info.releaseNotes))
   const notes = joined.length > NOTES_MAX_LENGTH ? joined.slice(0, NOTES_MAX_LENGTH) : joined
   return {
     version: info.version,
@@ -379,8 +431,10 @@ export function createUpdateBackend(options: CreateUpdateBackendOptions = {}): U
         // rather than assumed. `autoDownload` is off, so this only fetches the metadata.
         const result = await target.checkForUpdates()
         if (result === null || !result.isUpdateAvailable) {
+          // Not a failure: the known release is stale (typically it is the one now running), and
+          // the service turns this into "up to date" instead of a download error.
           log.warn('update: asked to download, but the server reports no newer release')
-          return { ok: false, reason: 'unknown' }
+          return { ok: false, reason: 'upToDate' }
         }
 
         cancellationToken = await newCancellationToken()

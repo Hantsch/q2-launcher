@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { describe, expect, it, vi } from 'vitest'
 import type { AppContext } from '../context'
+import { createFeatureGate } from '../features/gate'
 import { MainModuleRegistry } from './registry'
 import type { MainModule } from './types'
 
@@ -49,5 +50,117 @@ describe('MainModuleRegistry', () => {
 
     expect(handler).toHaveBeenCalledWith({ x: 'hello' })
     expect(result).toEqual({ ok: true, value: { answer: 42 } })
+  })
+
+  it('a module\'s handlers are not reachable under another module\'s id', async () => {
+    const registry = new MainModuleRegistry()
+    const libraryHandler = vi.fn().mockResolvedValue({ from: 'library' })
+    const libraryMod: MainModule = {
+      id: 'library',
+      setup: ({ handle }) => {
+        handle('stats', z.object({}), libraryHandler)
+      },
+    }
+    const homeMod: MainModule = {
+      id: 'home',
+      setup: () => {
+        // deliberately registers nothing under 'stats' - proves the type
+        // alone does not make 'library'/'stats' reachable as 'home'/'stats'
+      },
+    }
+
+    await registry.register(libraryMod, fakeAppContext())
+    await registry.register(homeMod, fakeAppContext())
+
+    // Same handler `type` ('stats'), but requested under the *other*
+    // module's id - the registry keys handlers by `${moduleId}/${type}`, so
+    // this must miss even though 'library'/'stats' exists.
+    const result = await registry.invoke({ moduleId: 'home', type: 'stats', payload: {} })
+
+    expect(result).toEqual({
+      ok: false,
+      error: { key: 'modules.error.notImplemented', params: { moduleId: 'home', type: 'stats' } },
+    })
+    expect(libraryHandler).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * Story 130 D1: a handler registered with `{ feature }` exists only when that feature is
+ * unlocked; while it is locked, `invoke()` answers exactly as for a type that was never
+ * registered, and gating one handler leaves its ungated siblings alone.
+ */
+describe('MainModuleRegistry feature gating', () => {
+  function gatedModule(watch: () => unknown, stats: () => unknown): MainModule {
+    return {
+      id: 'library',
+      setup: ({ handle }) => {
+        handle('watch', z.object({}), watch, { feature: 'test-only-feature' })
+        handle('stats', z.object({}), stats)
+      },
+    }
+  }
+
+  it('a locked gated handler answers exactly like a type that was never registered', async () => {
+    const registry = new MainModuleRegistry(createFeatureGate([]))
+    const watch = vi.fn().mockResolvedValue({ watching: true })
+    await registry.register(gatedModule(watch, vi.fn()), fakeAppContext())
+
+    // The same request against a registry where 'watch' was never declared at all.
+    const neverDeclared = new MainModuleRegistry(createFeatureGate([]))
+    await neverDeclared.register(
+      { id: 'library', setup: ({ handle }) => handle('stats', z.object({}), vi.fn()) },
+      fakeAppContext(),
+    )
+
+    const locked = await registry.invoke({ moduleId: 'library', type: 'watch', payload: {} })
+    const unknown = await neverDeclared.invoke({ moduleId: 'library', type: 'watch', payload: {} })
+
+    expect(locked).toEqual(unknown)
+    expect(locked).toEqual({
+      ok: false,
+      error: { key: 'modules.error.notImplemented', params: { moduleId: 'library', type: 'watch' } },
+    })
+    expect(watch).not.toHaveBeenCalled()
+  })
+
+  it('an unlocked gated handler is registered and reached', async () => {
+    const registry = new MainModuleRegistry(createFeatureGate(['test-only-feature']))
+    const watch = vi.fn().mockResolvedValue({ watching: true })
+    await registry.register(gatedModule(watch, vi.fn()), fakeAppContext())
+
+    const result = await registry.invoke({ moduleId: 'library', type: 'watch', payload: {} })
+
+    expect(result).toEqual({ ok: true, value: { watching: true } })
+    expect(watch).toHaveBeenCalledWith({})
+  })
+
+  it('a registry built without a gate fails closed', async () => {
+    const registry = new MainModuleRegistry()
+    const watch = vi.fn()
+    await registry.register(gatedModule(watch, vi.fn()), fakeAppContext())
+
+    const result = await registry.invoke({ moduleId: 'library', type: 'watch', payload: {} })
+
+    expect(result).toEqual({
+      ok: false,
+      error: { key: 'modules.error.notImplemented', params: { moduleId: 'library', type: 'watch' } },
+    })
+    expect(watch).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['locked', createFeatureGate([])],
+    ['unlocked', createFeatureGate(['test-only-feature'])],
+  ])('an ungated sibling of a gated handler works while the feature is %s', async (_, gate) => {
+    const registry = new MainModuleRegistry(gate)
+    const stats = vi.fn().mockResolvedValue({ answer: 42 })
+    await registry.register(gatedModule(vi.fn(), stats), fakeAppContext())
+
+    const result = await registry.invoke({ moduleId: 'library', type: 'stats', payload: {} })
+
+    expect(result).toEqual({ ok: true, value: { answer: 42 } })
+    expect(stats).toHaveBeenCalledWith({})
+    expect(registry.registered()).toEqual(['library'])
   })
 })

@@ -95,6 +95,12 @@ export default async function bootstrapIncompletePackage({ page, shot, step }) {
   await engineOption.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByRole('button', { name: 'Next' }).click({ timeout: TIMEOUT_MS })
 
+  step('game-data step: keep the default free download and click Next')
+  await page
+    .getByTestId('bootstrap-gamedata-choice-free-download')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.getByRole('button', { name: 'Next' }).click({ timeout: TIMEOUT_MS })
+
   step('pick the fixture target and acknowledge the non-empty warning')
   const browse = page
     .getByTestId('bootstrap-target-path-input')

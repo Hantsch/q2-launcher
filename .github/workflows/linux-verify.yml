@@ -14,12 +14,15 @@ name: linux-verify
 # be slowed down or risked by a UI smoke test. This workflow builds its own throwaway AppImage at
 # whatever version happens to be in package.json - no `plan` job, no release artifact, nothing
 # uploaded anywhere but this run's own screenshots/report.
+#
+# Runs only on PRs into main, not on every push: main only ever changes through a PR (no direct
+# pushes), so a push-to-main run would just re-verify the exact tree the PR check already covered.
+# Anything else (checking a `dev` push, or re-running this without a PR) goes through
+# `workflow_dispatch` or the local `npm run ci:local:verify` (act) rehearsal.
 
 on:
-  push:
-    branches: [main, dev]
   pull_request:
-    branches: [main, dev]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -63,9 +66,11 @@ jobs:
       # run fails for a reason that has nothing to do with the code, which is exactly the kind of
       # false signal a local CI rehearsal exists to avoid. Playwright's own installer rather than a
       # hand-written apt list because it knows the right package names per Ubuntu release (24.04
-      # renamed several of them in the t64 transition).
+      # renamed several of them in the t64 transition). Playwright's list is headless Chromium's,
+      # though, and that does not link GTK - Electron does (`libgtk-3.so.0`), so it is added by hand:
+      # without it every Electron launch under act dies with "Process failed to launch!".
       - name: Install Electron's runtime libraries
-        run: npx playwright install-deps chromium
+        run: npx playwright install-deps chromium && sudo apt-get install -y libgtk-3-0t64
 
       # `package:linux` carries `--publish never` itself (see package.json and the note in
       # electron-builder.yml): electron-builder turns publishing on *implicitly* when it detects

@@ -13,8 +13,9 @@ import { UpdateAction } from './UpdateAction'
  * shared verbatim with About's pending-update block so both surfaces drive the exact same
  * download/cancel/restart logic. See that file for the per-phase behaviour (Decisions).
  *
- * "What changed" links into Settings -> About ([[099]]'s surface, `data-testid="settings-about"`
- * added there) rather than rendering notes here - 099 owns notes rendering.
+ * "What changed" links into Settings' version card (`AppVersionCard.tsx`,
+ * `data-testid="settings-version"`), which renders the pending update's notes, rather than
+ * rendering notes here - 099 owns notes rendering.
  */
 export function UpdatePopover({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation()
@@ -25,16 +26,18 @@ export function UpdatePopover({ onClose }: { onClose: () => void }) {
   function goToAbout(): void {
     setRoute(ROUTE_SETTINGS)
     onClose()
-    // Settings is a long scrolling view (SettingsView.tsx) and `settings-about` (099's anchor) sits
-    // at the bottom of it, after every module-contributed section - without this, the user lands at
-    // the top with the release notes off-screen. The route change above only takes effect on the
+    // Settings is a long scrolling view (SettingsView.tsx); the version card that carries the
+    // pending update's notes leads it, but scrolling to it explicitly keeps that true whatever
+    // scroll position the view comes back with. The route change above only takes effect on the
     // next render commit, which lands after this handler returns, so the anchor is not in the DOM
     // yet; two rAFs (one for the commit, one for the browser's next paint) is the smallest wait that
     // reliably sees it before scrolling, mirroring the `scrollIntoView` calls already used elsewhere
     // in the renderer (e.g. ControlsTab.tsx).
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        document.querySelector('[data-testid="settings-about"]')?.scrollIntoView({ block: 'start' })
+        document
+          .querySelector('[data-testid="settings-version"]')
+          ?.scrollIntoView({ block: 'start' })
       })
     })
   }

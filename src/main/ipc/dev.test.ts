@@ -106,6 +106,7 @@ async function setupUpdate(): Promise<{
   const states: UpdateState[] = []
   const update = createUpdateService({
     isPackaged: true,
+    currentVersion: '0.0.1',
     check: vi.fn(async () => ({ ok: true as const, available: false as const })),
     backend: {
       autoInstallOnAppQuit: false,

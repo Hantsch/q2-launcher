@@ -1,3 +1,4 @@
+import type { FeatureName } from './features'
 import type {
   AddExistingInstallationInput,
   AppInfo,
@@ -15,11 +16,13 @@ import type {
   ModuleInvokeRequest,
   ModuleManifest,
   Outcome,
+  RedeemResult,
   ReleaseNotes,
   RemoveInstallationInput,
   RunnerKind,
   ScanOptions,
   ToastMessage,
+  UnlockState,
   UpdateInstallationInput,
   UpdateSimulateScenario,
   UpdateState,
@@ -57,6 +60,11 @@ export interface RunnerOption {
   available: boolean
   /** i18n key explaining why this runner is unavailable. Only set when `available` is false. */
   reasonKey?: string
+  /**
+   * Interpolation params for `reasonKey`, same shape as `Outcome` error `params` (`LocalizedMessage`).
+   * Story 105 D1: carries `{ count }` for the collapsed `proton` option's plural reason key.
+   */
+  reasonParams?: Record<string, string | number>
 }
 
 /**
@@ -80,6 +88,7 @@ export interface PickPathInput {
 export interface IpcInvokeMap {
   // ---- app ------------------------------------------------------------------
   'app:getInfo': { req: void; res: AppInfo }
+  'features:getUnlocked': { req: void; res: FeatureName[] }
   'app:openExternal': { req: string; res: Outcome<null> }
   'app:revealPath': { req: string; res: Outcome<null> }
   /** Writes text to the OS clipboard. Story 075: the diagnostics report's copy action. */
@@ -92,6 +101,15 @@ export interface IpcInvokeMap {
    * (AC5's empty state), which is an answer, not an error.
    */
   'app:getReleaseNotes': { req: void; res: ReleaseNotes }
+
+  // ---- unlock ---------------------------------------------------------------
+  /** Story 129: this installation's id and every stored code, active or expired. */
+  'unlock:getState': { req: void; res: UnlockState }
+  /**
+   * Story 129: redeems a pasted code. A refused code is a normal answer (`{ ok: false, reason }`
+   * inside a successful `Outcome`); only a malformed payload fails the `Outcome` itself.
+   */
+  'unlock:redeem': { req: string; res: Outcome<RedeemResult> }
 
   // ---- window chrome --------------------------------------------------------
   'window:minimize': { req: void; res: void }
@@ -247,10 +265,13 @@ export type EventPayload<E extends EventChannel> = IpcEventMap[E]
  */
 export const INVOKE_CHANNELS = [
   'app:getInfo',
+  'features:getUnlocked',
   'app:openExternal',
   'app:revealPath',
   'app:copyText',
   'app:getReleaseNotes',
+  'unlock:getState',
+  'unlock:redeem',
   'window:minimize',
   'window:toggleMaximize',
   'window:close',

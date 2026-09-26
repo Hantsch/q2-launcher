@@ -73,6 +73,7 @@
       "description": "Get the game files you need and keep them up to date.",
       "settings": {
         "title": "Downloads",
+        "description": "How many downloads run at once and how much disk the archive cache may use.",
         "concurrency": {
           "label": "Concurrent downloads"
         },
@@ -107,6 +108,83 @@
       "title": "Assets",
       "description": "Add new looks and sounds with texture, model and sound packs."
     },
+    "servers": {
+      "title": "Servers",
+      "description": "Browse Quake II servers and see who's playing before you join.",
+      "settings": {
+        "title": "Servers",
+        "description": "Where the server list comes from and how servers are queried.",
+        "sourcesHeading": "Server lists",
+        "list": {
+          "label": "Master and list sources"
+        },
+        "type": {
+          "udp-master": "UDP master",
+          "http-list": "HTTP list"
+        },
+        "add": {
+          "type": {
+            "label": "Type"
+          },
+          "address": {
+            "label": "Address",
+            "placeholder": "host:port or https://…"
+          },
+          "submit": "Add source"
+        },
+        "toggle": {
+          "label": "Enabled"
+        },
+        "remove": {
+          "label": "Remove source"
+        },
+        "edit": {
+          "start": "Edit source",
+          "save": "Save",
+          "cancel": "Cancel"
+        },
+        "scan": {
+          "heading": "Scan",
+          "autoScanOnOpen": {
+            "label": "Scan when the view opens"
+          },
+          "autoRefreshEnabled": {
+            "label": "Keep scanning automatically"
+          },
+          "autoRefreshInterval": {
+            "label": "Auto-refresh interval"
+          },
+          "concurrency": {
+            "label": "Concurrency"
+          },
+          "timeout": {
+            "label": "Query timeout"
+          },
+          "retries": {
+            "label": "Retries"
+          },
+          "minSpacing": {
+            "label": "Minimum time between scans"
+          },
+          "duration": {
+            "ms": "{{value}} ms",
+            "seconds": "{{value}} s",
+            "minutes": "{{value}} min"
+          }
+        }
+      },
+      "view": {
+        "refresh": "Scan now",
+        "refreshFavourites": "Refresh favourites",
+        "refreshSelected": "Refresh this server",
+        "status": {
+          "idle": "Idle",
+          "scanning": "Scanning…",
+          "line_one": "{{state}} · {{count}} known server",
+          "line_other": "{{state}} · {{count}} known servers"
+        }
+      }
+    },
     "planned": {
       "badge": "Planned",
       "title": "{{module}} is coming in a later release",
@@ -135,6 +213,14 @@
           "2": "Add model packs to change how characters and objects appear",
           "3": "Add sound packs to change music and effects"
         }
+      },
+      "servers": {
+        "intro": "Servers will let you find a game to join without leaving the launcher.",
+        "highlight": {
+          "1": "See who's online across known servers at a glance",
+          "2": "Check a server's players and map before joining",
+          "3": "Join a server straight from its entry, no address to type"
+        }
       }
     }
   },
@@ -151,6 +237,10 @@
     "quickPlay": "Play",
     "activeMarker": "Active installation",
     "runningMarker": "Running"
+  },
+
+  "experimental": {
+    "badge": "Experimental"
   },
 
   "installation": {
@@ -294,7 +384,8 @@
       "wine": "wine not found — install wine to run Windows builds",
       "umu": "umu-run not found — install umu-launcher to run Windows builds",
       "proton": "not found in any Steam library",
-      "protonNotDriven": "Proton builds are used through umu-run, not launched directly — pick umu-run instead",
+      "protonNotDriven_one": "{{count}} Proton build is used through umu-run, not launched directly — pick umu-run instead",
+      "protonNotDriven_other": "{{count}} Proton builds are used through umu-run, not launched directly — pick umu-run instead",
       "steam": "Steam not found — install Steam to hand this game off to it",
       "steamNotOwner": "this folder is not a Steam install — Steam can only start games it owns",
       "steamUnknownApp": "this Steam game has no known launch options"
@@ -571,6 +662,346 @@
       "engine": "Engine",
       "status": "Status",
       "path": "Location"
+    }
+  },
+
+  "servers": {
+    "tabs": {
+      "list": "Server list"
+    },
+    "address": {
+      "reject": {
+        "empty": "Enter a server address.",
+        "extra-tokens": "Enter a single address, without extra words or spaces.",
+        "forbidden-character": "This address contains a character that isn't allowed.",
+        "argument-token": "This address looks like it contains a console command, which isn't allowed.",
+        "missing-port": "Add a port, e.g. 27910.",
+        "port-not-numeric": "The port must be a number.",
+        "port-out-of-range": "The port must be between 1 and 65535.",
+        "too-many-colons": "This address has too many colons to be a valid host:port pair.",
+        "ipv6-not-supported": "IPv6 addresses are not supported yet — use a hostname or IPv4 address.",
+        "host-empty": "Enter a host name or IP address before the port.",
+        "host-too-long": "This host name is too long.",
+        "host-label-invalid": "This host name contains an invalid part.",
+        "ipv4-octet-out-of-range": "Each part of an IPv4 address must be between 0 and 255."
+      }
+    },
+    "scan": {
+      "error": {
+        "already-running": "A scan is already running."
+      },
+      "blocked": {
+        "gameRunning": "Servers can't be scanned while the game is running."
+      }
+    },
+    "row": {
+      "stale": "Stale",
+      "password": "Password",
+      "favourite": "Favourite",
+      "waiting": "Opponent wanted",
+      "pending": "Not scanned yet",
+      "copyIp": "Copy server address",
+      "copySuccess": "Server address copied",
+      "copyError": "Couldn't copy the server address"
+    },
+    "list": {
+      "loading": {
+        "sources": "Asking the server lists…",
+        "stage1": "{{found}} servers found · {{pending}} still being queried",
+        "stage2": "Fetching players: {{done}} of {{total}}"
+      },
+      "empty": "No source returned a server",
+      "openSourceSettings": "Open source settings",
+      "idle": "Not scanned yet. Refresh to scan.",
+      "sourceFailed": "{{source}}: {{reason}}",
+      "column": {
+        "name": "Server",
+        "mod": "Mod",
+        "map": "Map",
+        "players": "Players",
+        "ping": "Ping"
+      },
+      "selectedHint": "Select a server to see who's playing and join."
+    },
+    "gamemode": {
+      "ctf": "CTF",
+      "team": "Team",
+      "deathmatch": "Deathmatch",
+      "coop": "Co-op",
+      "single": "Single player"
+    },
+    "engine": {
+      "vanilla": "Vanilla Quake II",
+      "r1q2": "R1Q2",
+      "q2pro": "Q2PRO"
+    },
+    "detail": {
+      "title": "Server details",
+      "close": "Close server details",
+      "favourite": {
+        "add": "Mark as favourite",
+        "remove": "Remove from favourites"
+      },
+      "copyAddress": "Copy IP address",
+      "copyAddressSuccess": "Server address copied to clipboard",
+      "copyAddressError": "Could not copy the server address",
+      "field": {
+        "name": "Name",
+        "address": "Address",
+        "mod": "Mod",
+        "map": "Map",
+        "gamemode": "Gamemode",
+        "occupancy": "Players",
+        "ping": "Ping",
+        "password": "Password",
+        "engine": "Engine",
+        "protocol": "Protocol"
+      },
+      "sectionError": "This section could not be shown.",
+      "gone": "This server is no longer in the list",
+      "readError": "Could not load this server's details.",
+      "players": {
+        "title": "Players",
+        "column": {
+          "name": "Name",
+          "score": "Score",
+          "ping": "Ping"
+        },
+        "empty": "Nobody is on this server right now",
+        "notFetched": "{{count}} connected, names arrive with the next detailed scan",
+        "unknown": "Player data not fetched yet"
+      },
+      "rules": {
+        "title": "Rules",
+        "empty": "No rule data yet — the server has not answered a full status query.",
+        "rawTitle": "Other keys reported by the server",
+        "emptyValue": "(empty)",
+        "unparsed": "not understood",
+        "yes": "yes",
+        "no": "no",
+        "on": "On",
+        "off": "Off",
+        "needpass": {
+          "value": "Password: {{password}} · Spectator password: {{spectatorPassword}}"
+        },
+        "limit": {
+          "none": "None"
+        },
+        "minutes": {
+          "none": "None",
+          "value": "{{count}} min"
+        },
+        "key": {
+          "hostname": "Hostname",
+          "mapname": "Map",
+          "gamename": "Game",
+          "gamedir": "Game directory",
+          "game": "Game",
+          "maxclients": "Max players",
+          "protocol": "Protocol",
+          "version": "Version",
+          "port": "Port",
+          "needpass": "Password",
+          "deathmatch": "Deathmatch",
+          "coop": "Co-op",
+          "ctf": "CTF",
+          "teamplay": "Team play",
+          "dmflags": "Dmflags",
+          "fraglimit": "Frag limit",
+          "timelimit": "Time limit",
+          "capturelimit": "Capture limit",
+          "cheats": "Cheats",
+          "maptime": "Map time",
+          "uptime": "Uptime",
+          "gamedate": "Game date"
+        },
+        "dmflags": {
+          "title": "Dmflags",
+          "caveat": "Vanilla Quake II meaning — mods may reuse these bits for other rules.",
+          "none": "No rule switches set",
+          "unknownBit": "Unknown bit {{bit}}",
+          "rule": {
+            "noHealth": "No health",
+            "noItems": "No items",
+            "weaponsStay": "Weapons stay",
+            "noFalling": "No falling damage",
+            "instantItems": "Instant items",
+            "sameLevel": "Same map on level change",
+            "skinTeams": "Skin teams",
+            "modelTeams": "Model teams",
+            "noFriendlyFire": "No friendly fire",
+            "spawnFarthest": "Spawn farthest from other players",
+            "forceRespawn": "Force respawn",
+            "noArmor": "No armor",
+            "allowExit": "Allow exit to menu",
+            "infiniteAmmo": "Infinite ammo",
+            "quadDrop": "Quad damage drops on death",
+            "fixedFov": "Fixed field of view"
+          }
+        }
+      },
+      "reachability": {
+        "title": "How this server has answered",
+        "lastRound": {
+          "answered": "Answered the last scan",
+          "noAnswer": "Did not answer the last scan — showing what it last reported"
+        },
+        "lastAnswered": "Last answered {{time}}",
+        "sample": {
+          "ms": "{{ms}} ms",
+          "noAnswer": "No answer",
+          "unknown": "Unknown"
+        },
+        "empty": "No response time measured yet this session"
+      }
+    },
+    "filter": {
+      "title": "Filters",
+      "quick": "Quick filters",
+      "search": "Search",
+      "searchPlaceholder": "Name or player…",
+      "any": "Any",
+      "mod": "Mod",
+      "gamemode": "Gamemode",
+      "map": "Map",
+      "empty": "Empty",
+      "hideBotsOnly": "Hide bot-only servers",
+      "waiting": "Waiting for an opponent",
+      "clear": "Clear filters",
+      "count": "Showing {{shown}} of {{total}}",
+      "noMatch": "No servers match your filters."
+    },
+    "source": {
+      "error": {
+        "too-short": "This source's reply is too short to be a valid server list.",
+        "bad-header": "This source's reply doesn't start with the expected server list header.",
+        "truncated": "This source's reply was cut off partway through a server record.",
+        "empty-body": "This source's reply didn't contain any server data.",
+        "no-reply": "This source didn't reply in time.",
+        "transport-error": "Couldn't reach this source.",
+        "http-status": "This source returned an error instead of a server list."
+      }
+    },
+    "sort": {
+      "column": {
+        "name": "Name",
+        "mod": "Mod",
+        "players": "Players",
+        "map": "Map",
+        "ping": "Ping"
+      },
+      "current": {
+        "default": "Favourites first, then busiest",
+        "column": "Sorted by {{column}}, {{direction}}"
+      },
+      "direction": {
+        "asc": "ascending",
+        "desc": "descending"
+      }
+    },
+    "sources": {
+      "reject": {
+        "empty": "Enter an address for this source.",
+        "extra-tokens": "Enter a single address, without extra words or spaces.",
+        "forbidden-character": "This address contains a character that isn't allowed.",
+        "argument-token": "This address looks like it contains a console command, which isn't allowed.",
+        "missing-port": "Add a port, e.g. 27900.",
+        "port-not-numeric": "The port must be a number.",
+        "port-out-of-range": "The port must be between 1 and 65535.",
+        "too-many-colons": "This address has too many colons to be a valid host:port pair.",
+        "ipv6-not-supported": "IPv6 addresses are not supported yet — use a hostname or IPv4 address.",
+        "host-empty": "Enter a host name or IP address before the port.",
+        "host-too-long": "This host name is too long.",
+        "host-label-invalid": "This host name contains an invalid part.",
+        "ipv4-octet-out-of-range": "Each part of an IPv4 address must be between 0 and 255.",
+        "url-too-long": "This URL is too long.",
+        "invalid-url": "Enter a valid URL.",
+        "unsupported-protocol": "Only http:// and https:// addresses are supported.",
+        "credentials-not-allowed": "A URL with a username or password isn't allowed.",
+        "not-found": "This source no longer exists.",
+        "duplicate-address": "This address is already in the list.",
+        "invalid-reorder": "The list couldn't be reordered — try again."
+      }
+    },
+    "join": {
+      "action": "Join",
+      "noInstallation": "Choose an active installation to join a server.",
+      "mismatch": {
+        "title": "Different mod",
+        "body": "This server runs \"{{server}}\", but the active installation is set to \"{{installation}}\". Join anyway?",
+        "confirm": "Join anyway",
+        "cancel": "Cancel"
+      },
+      "password": {
+        "title": "Server password",
+        "label": "Password",
+        "submit": "Join",
+        "cancel": "Cancel"
+      }
+    },
+    "addressBook": {
+      "action": "Add to address book",
+      "title": "Add to address book",
+      "description": "Write this server's address into a config profile's address book.",
+      "profileLabel": "Profile",
+      "slotLabel": "Slot",
+      "slotEmpty": "Empty",
+      "replaces": "Replaces {{value}}",
+      "confirm": "Add",
+      "cancel": "Cancel",
+      "noProfiles": "Create a config profile first — there is nowhere to write this address to yet.",
+      "loading": "Loading this profile's address book…",
+      "written": "Added to \"{{profile}}\"'s address book as {{slot}}."
+    },
+    "watchlist": {
+      "title": "Watchlist",
+      "error": {
+        "empty": "Name cannot be empty.",
+        "tooLong": "Name is too long (max 64 characters).",
+        "invalidRegex": "This pattern doesn't compile as a regular expression.",
+        "notFound": "No watchlist entry with that ID."
+      },
+      "left": {
+        "needsFullScan": "This player left the server they were last seen on — run a full scan from the server browser to find them again."
+      },
+      "add": {
+        "name": {
+          "label": "Name",
+          "placeholder": "Player name to watch for"
+        },
+        "mode": {
+          "label": "Match"
+        },
+        "submit": "Add"
+      },
+      "mode": {
+        "exact": "Exact match",
+        "substring": "Contains",
+        "regex": "Regular expression"
+      },
+      "offline": "Not currently on any known server.",
+      "notFoundSince": "Not found in data from {{rel}}.",
+      "noData": "No server data yet.",
+      "tooSlow": "This pattern was too slow to match and is skipped — edit it to try again.",
+      "checkedAt": "checked {{rel}}",
+      "match": {
+        "seen": "seen {{rel}}",
+        "score": "Score",
+        "ping": "Ping"
+      },
+      "recheck": {
+        "label": "Re-check",
+        "pending": "Checking…",
+        "noReply": "The server did not answer — last result kept."
+      },
+      "edit": {
+        "label": "Edit",
+        "save": "Save",
+        "cancel": "Cancel"
+      },
+      "remove": {
+        "label": "Remove"
+      }
     }
   },
 
@@ -2061,7 +2492,19 @@
       "appearance": "Appearance",
       "launch": "Launching",
       "library": "Library",
+      "unlock": "Unlock code",
       "about": "About"
+    },
+    "sectionHint": {
+      "appearance": "Language and animations.",
+      "launch": "What the launcher does when a game starts.",
+      "library": "How installations are found and removed.",
+      "unlock": "Redeem a code to unlock extra features.",
+      "about": "Release notes, folders and technical details."
+    },
+    "nav": {
+      "label": "Settings sections",
+      "updates": "Version & updates"
     },
     "language": "Language",
     "languageSystem": "Use system language",
@@ -2075,7 +2518,6 @@
     "closeAfterLaunchNote": "Play time is not recorded when the launcher quits.",
     "confirmBeforeRemoving": "Ask before removing an installation",
     "scanOnFirstRun": "Offer to search for installations on first start",
-    "version": "Version",
     "electron": "Electron",
     "chrome": "Chromium",
     "node": "Node",
@@ -2090,8 +2532,35 @@
       "lastChecked": "Last checked {{time}}",
       "neverChecked": "Never checked for updates",
       "checkNow": "Check now",
+      "checking": "Checking for updates…",
+      "currentVersion": "Launcher version",
+      "whatsNew": "What's new in this version",
+      "technical": "Technical details",
       "checkUpToDate": "You're up to date.",
       "checkAvailable": "Version {{version}} found."
+    },
+    "unlock": {
+      "installationId": {
+        "label": "Installation id",
+        "copy": "Copy installation id",
+        "copied": "Copied",
+        "hint": "Send this id to get a code"
+      },
+      "code": {
+        "label": "Unlock code",
+        "placeholder": "Enter your unlock code",
+        "submit": "Redeem"
+      },
+      "reject": {
+        "not-a-code": "That doesn't look like an unlock code.",
+        "bad-signature": "This code isn't valid — it doesn't match what an unlock code should look like.",
+        "wrong-installation": "This code was issued for a different installation and can't be redeemed here.",
+        "redeem-window-elapsed": "This code's redemption window has passed.",
+        "feature-expired": "This code's features have already expired."
+      },
+      "noExpiry": "Does not expire",
+      "expired": "This code expired on {{date}} — its features are no longer available.",
+      "takesEffectNextStart": "This takes effect the next time the launcher starts."
     },
     "devTools": "Development",
     "simulateJob": "Simulate a download job",
@@ -2113,7 +2582,15 @@
       "alreadyRunning": "Quake II is already running.",
       "installationBusy": "A job is writing files for this installation. It can be started once that job has finished.",
       "spawnFailed": "The game could not be started: {{path}}",
-      "processError": "The game process reported an error: {{message}}"
+      "processError": "The game process reported an error: {{message}}",
+      "connectNeedsDirectLaunch": "This installation launches through Steam, which cannot join a server directly."
+    },
+    "userinfo": {
+      "reject": {
+        "empty": "Enter a value.",
+        "too-long": "This value is too long \u2014 use 63 characters or fewer.",
+        "forbidden-character": "This value contains a character that isn't allowed."
+      }
     }
   },
 

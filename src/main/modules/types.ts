@@ -1,4 +1,5 @@
 import type { ZodType } from 'zod'
+import type { FeatureName } from '@shared/features'
 import type { ModuleId } from '@shared/types'
 import type { Logger } from '../lib/logger'
 import type { AppContext } from '../context'
@@ -22,11 +23,19 @@ export interface ModuleSetup {
    * handler ever sees an unvalidated payload. `T` exists only to link `schema`
    * to `handler` at the call site - a schema that parses to the wrong shape is
    * a compile error there. A handler that takes no payload passes `z.void()`.
+   *
+   * Story 130: `options.feature` gates the handler behind an unlockable feature. When that
+   * feature is locked in this process, the handler is never registered at all - `module:invoke`
+   * for that type then answers exactly like an unknown type (`modules.error.notImplemented`),
+   * never a distinct "locked"/"forbidden" response, because any distinguishable answer would
+   * reveal to a caller probing blind that the feature exists. Without `options.feature` the
+   * handler is ungated and always registered.
    */
   handle: <T>(
     type: string,
     schema: ZodType<T>,
     handler: (payload: T) => Promise<unknown> | unknown,
+    options?: { feature?: FeatureName },
   ) => void
   /** Pushes a namespaced event to the UI. */
   emit: (type: string, payload: unknown) => void

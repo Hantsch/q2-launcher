@@ -69,7 +69,7 @@ export function registerInstallationsIpc(app: AppContext): void {
     if (!installation) return fail('installations.error.notFound')
 
     const detected = await detectRunners()
-    return ok(detected.map((runner) => toRunnerOption(runner, installation)))
+    return ok(collapseProtonOptions(detected.map((runner) => toRunnerOption(runner, installation))))
   })
 
   handleOutcome(
@@ -211,6 +211,36 @@ function toRunnerOption(runner: DetectedRunner, installation: Installation): Run
     available: runner.available,
     ...(runner.available ? {} : { reasonKey: `runner.unavailable.${runner.kind}` }),
   }
+}
+
+/**
+ * Story 105 D1: `toRunnerOption` maps every detected Proton build to its own unavailable option
+ * (one per build, all carrying the same `runner.unavailable.protonNotDriven` reason key) - fine
+ * for `resolveRunner()`, which never picks Proton anyway, but a list UI showing four identical
+ * "not driven" rows is noise, and duplicate `reasonKey`s across the list would also defeat any
+ * consumer keying UI state off it. This folds every `proton` option in the list into exactly one,
+ * `id: 'proton'`, carrying `reasonParams: { count }` so the plural i18n key
+ * (`protonNotDriven_one`/`_other`) can name how many builds were found. Zero Proton builds means no
+ * `proton` entry at all. Every other kind passes through unchanged, in its original position.
+ */
+function collapseProtonOptions(options: RunnerOption[]): RunnerOption[] {
+  const protonCount = options.filter((option) => option.kind === 'proton').length
+  const rest = options.filter((option) => option.kind !== 'proton')
+  if (protonCount === 0) return rest
+
+  const firstProtonIndex = options.findIndex((option) => option.kind === 'proton')
+  const collapsed: RunnerOption = {
+    kind: 'proton',
+    id: 'proton',
+    labelKey: 'runner.kind.proton',
+    available: false,
+    reasonKey: 'runner.unavailable.protonNotDriven',
+    reasonParams: { count: protonCount },
+  }
+
+  const result = [...rest]
+  result.splice(firstProtonIndex, 0, collapsed)
+  return result
 }
 
 /** Modal-to-the-window dialog, so it cannot be lost behind the launcher. */

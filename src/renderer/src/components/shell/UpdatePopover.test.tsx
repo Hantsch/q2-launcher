@@ -154,13 +154,13 @@ describe('UpdatePopover phases', () => {
   })
 })
 
-describe('"what changed" scrolls Settings -> About into view', () => {
-  it('scrolls the settings-about anchor into view once Settings has mounted', async () => {
+describe('"what changed" scrolls Settings\' version card into view', () => {
+  it('scrolls the settings-version anchor into view once Settings has mounted', async () => {
     useLauncher.setState({ update: AVAILABLE_STATE })
-    // Stands in for SettingsView's real `settings-about` panel (099's anchor) - this test only
-    // covers UpdatePopover's own scroll-after-navigate behaviour, not SettingsView's layout.
+    // Stands in for SettingsView's real `settings-version` card (AppVersionCard.tsx) - this test
+    // only covers UpdatePopover's own scroll-after-navigate behaviour, not SettingsView's layout.
     const anchor = document.createElement('div')
-    anchor.setAttribute('data-testid', 'settings-about')
+    anchor.setAttribute('data-testid', 'settings-version')
     const scrollIntoView = vi.fn()
     anchor.scrollIntoView = scrollIntoView
     document.body.appendChild(anchor)
@@ -179,7 +179,10 @@ describe('"what changed" scrolls Settings -> About into view', () => {
 describe('dismissing keeps the control', () => {
   it('removes the attention marker but leaves the button in the DOM (AC5)', async () => {
     useLauncher.setState({ update: AVAILABLE_STATE })
-    bridge.responses.set('update:dismiss', { ok: true, value: { ...AVAILABLE_STATE, dismissed: true } })
+    bridge.responses.set('update:dismiss', {
+      ok: true,
+      value: { ...AVAILABLE_STATE, dismissed: true },
+    })
     render(<UpdateButton />)
 
     expect(screen.getByTestId('nav-update')).toBeTruthy()

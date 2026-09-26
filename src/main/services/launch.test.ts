@@ -1,5 +1,16 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { steamLaunchUrl, type DetectedRunner, type Installation, type LaunchState } from '@shared/types'
+import { CONNECT_CFG_NAME, renderConnectCfg } from '@shared/launch/userinfo'
+import {
+  steamLaunchUrl,
+  type DetectedRunner,
+  type Installation,
+  type LaunchInput,
+  type LaunchState,
+} from '@shared/types'
 import { stubPlatform } from '../../test-support/platform'
 import type { InstallationsService } from './installations'
 import { LaunchService } from './launch'
@@ -29,8 +40,33 @@ vi.mock('../lib/fs-utils', () => ({
   looksExecutable: () => Promise.resolve(false),
 }))
 
+// Story 125: every log line the launch path writes is captured, so "the password never reaches a
+// log" is an assertion over all of them rather than over the one line someone thought of.
+const logMock = vi.hoisted(() => ({
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
+  verbose: vi.fn(),
+  silly: vi.fn(),
+  log: vi.fn(),
+}))
+vi.mock('../lib/logger', () => ({
+  scopedLogger: () => logMock,
+  logger: logMock,
+  logFilePath: () => '',
+}))
+
 const { spawn } = await import('node:child_process')
 const spawnMock = vi.mocked(spawn)
+
+/** Everything any logger method was called with, flattened into one searchable string. */
+function loggedText(): string {
+  return Object.values(logMock)
+    .flatMap((fn) => fn.mock.calls)
+    .map((call) => call.map((part: unknown) => (part instanceof Error ? `${part.message} ${part.stack}` : String(part))).join(' '))
+    .join('\n')
+}
 
 const INSTALLATION = 'inst-1'
 
@@ -99,6 +135,7 @@ let restorePlatform: (() => void) | undefined
 
 beforeEach(() => {
   spawnMock.mockReset()
+  for (const fn of Object.values(logMock)) fn.mockClear()
 })
 
 afterEach(() => {
@@ -327,6 +364,258 @@ describe('LaunchService steam handoff', () => {
     expect(spawnMock).toHaveBeenCalledTimes(1)
     expect(spawnMock.mock.calls[0]?.[0]).toBe(WINE.path)
     expect(spawnMock.mock.calls.map((call) => call[0])).not.toContain(LINUX_STEAM.path)
+  })
+})
+
+/**
+ * Story 125 D2. A join password reaches the game only through a one-shot cfg next to the install.
+ * These run against a real temp folder, because the file's lifetime is the whole point: it must
+ * still be there after `spawn()` returns (a real r1q2 reads it well after that) and gone once the
+ * launch is over, however it ended.
+ */
+describe('LaunchService join with a password', () => {
+  const PASSWORD = 'hunter2-secret'
+  const STEAM: DetectedRunner = {
+    kind: 'steam',
+    id: 'steam',
+    path: 'C:\\Program Files (x86)\\Steam\\steam.exe',
+    available: true,
+  }
+  let root: string
+  let cfg: string
+
+  const join125 = (): LaunchInput => ({
+    installationId: INSTALLATION,
+    connect: '1.2.3.4:27910',
+    userinfo: { password: PASSWORD },
+  })
+  const joinInstallation = (overrides: Record<string, unknown> = {}): Installation =>
+    ({ ...installation, rootPath: root, ...overrides }) as unknown as Installation
+  const listener = (child: ReturnType<typeof fakeChild>, event: string): ((...args: unknown[]) => void) =>
+    child.once.mock.calls.find((call) => call[0] === event)?.[1] as (...args: unknown[]) => void
+
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), 'q2l-launch-'))
+    await mkdir(join(root, 'baseq2'))
+    cfg = join(root, 'baseq2', CONNECT_CFG_NAME)
+  })
+
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true })
+  })
+
+  it('a join with a password writes the connect cfg before spawn and the spawned argv never contains it', async () => {
+    const { launch } = service({ installation: joinInstallation() })
+    const child = fakeChild()
+    let cfgAtSpawn: string | undefined
+    spawnMock.mockImplementation(() => {
+      cfgAtSpawn = existsSync(cfg) ? readFileSync(cfg, 'utf8') : undefined
+      return child as never
+    })
+
+    const planned = await launch.plan(join125())
+    const started = await launch.start(join125())
+
+    expect(started.ok).toBe(true)
+    expect(cfgAtSpawn).toBe(renderConnectCfg({ password: PASSWORD }))
+    expect(cfgAtSpawn).toContain(`set password "${PASSWORD}"`)
+    const argv = spawnMock.mock.calls[0]?.[1] as string[]
+    expect(argv.slice(-4)).toEqual(['+exec', CONNECT_CFG_NAME, '+connect', '1.2.3.4:27910'])
+    // Not in argv, not in the spawn options, not in the preview, not in any log line.
+    expect(JSON.stringify(spawnMock.mock.calls)).not.toContain(PASSWORD)
+    expect(JSON.stringify(planned)).not.toContain(PASSWORD)
+    expect(logMock.info).toHaveBeenCalledWith(expect.stringContaining('launching'))
+    expect(loggedText()).not.toContain(PASSWORD)
+
+    expect(launch.getState()).toMatchObject({ phase: 'starting', connect: '1.2.3.4:27910' })
+    listener(child, 'spawn')()
+    expect(launch.getState()).toMatchObject({ phase: 'running', connect: '1.2.3.4:27910', pid: 4242 })
+    expect(JSON.stringify(launch.getState())).not.toContain(PASSWORD)
+  })
+
+  it('the connect cfg outlives spawn and is removed on exit, on error and on spawn failure', async () => {
+    // 1. exit: the file survives `spawn()` returning, the event loop turning and the `'spawn'`
+    //    event - a real game reads it only once it is up - and goes with the process.
+    {
+      const { launch } = service({ installation: joinInstallation() })
+      const child = fakeChild()
+      spawnMock.mockImplementation(() => child as never)
+
+      await launch.start(join125())
+      expect(existsSync(cfg)).toBe(true)
+      await new Promise((resolve) => setTimeout(resolve, 25))
+      expect(existsSync(cfg)).toBe(true)
+      listener(child, 'spawn')()
+      await new Promise((resolve) => setTimeout(resolve, 25))
+      expect(existsSync(cfg)).toBe(true)
+
+      listener(child, 'exit')(0, null)
+      await vi.waitFor(() => expect(existsSync(cfg)).toBe(false))
+    }
+
+    // 2. error: the process failed after spawn returned.
+    {
+      const { launch } = service({ installation: joinInstallation() })
+      const child = fakeChild()
+      spawnMock.mockImplementation(() => child as never)
+
+      await launch.start(join125())
+      await new Promise((resolve) => setTimeout(resolve, 25))
+      expect(existsSync(cfg)).toBe(true)
+
+      listener(child, 'error')(new Error('spawn r1q2.exe ENOENT'))
+      await vi.waitFor(() => expect(existsSync(cfg)).toBe(false))
+      expect(launch.getState().phase).toBe('failed')
+    }
+
+    // 3. spawn threw synchronously: the file was there for it, and is gone by the time
+    //    `start()` reports the failure.
+    {
+      const { launch } = service({ installation: joinInstallation() })
+      let existedAtSpawn = false
+      spawnMock.mockImplementation(() => {
+        existedAtSpawn = existsSync(cfg)
+        throw new Error('EACCES')
+      })
+
+      const result = await launch.start(join125())
+
+      expect(result).toEqual({
+        ok: false,
+        error: { key: 'launch.error.spawnFailed', params: { path: installation.executablePath } },
+      })
+      expect(existedAtSpawn).toBe(true)
+      expect(existsSync(cfg)).toBe(false)
+    }
+    expect(loggedText()).not.toContain(PASSWORD)
+  })
+
+  it('a leftover connect cfg is removed before the next launch', async () => {
+    // What a launcher killed mid-game leaves behind.
+    await writeFile(cfg, 'set password "stale-secret"\n')
+    const { launch } = service({ installation: joinInstallation() })
+    let existedAtSpawn = true
+    spawnMock.mockImplementation(() => {
+      existedAtSpawn = existsSync(cfg)
+      return fakeChild() as never
+    })
+
+    // A plain launch, not a join: the sweep does not depend on this launch needing the file.
+    const result = await launch.start({ installationId: INSTALLATION })
+
+    expect(result.ok).toBe(true)
+    expect(existedAtSpawn).toBe(false)
+    expect(existsSync(cfg)).toBe(false)
+    expect(spawnMock.mock.calls[0]?.[1]).not.toContain('+exec')
+  })
+
+  it('an overlapping second start() is refused and cannot sweep the first one\'s cfg or orphan its cleanup', async () => {
+    const { launch } = service({ installation: joinInstallation() })
+    const child = fakeChild()
+    let cfgAtSpawn: string | undefined
+    spawnMock.mockImplementation(() => {
+      cfgAtSpawn = existsSync(cfg) ? readFileSync(cfg, 'utf8') : undefined
+      return child as never
+    })
+
+    // A double-clicked Join: the second call starts before the first one's sweep, plan and cfg
+    // write have resolved - i.e. while `phase` is still idle.
+    const first = launch.start(join125())
+    const second = launch.start({ installationId: INSTALLATION })
+    const [firstResult, secondResult] = await Promise.all([first, second])
+
+    expect(firstResult.ok).toBe(true)
+    expect(secondResult).toEqual({ ok: false, error: { key: 'launch.error.alreadyRunning' } })
+    expect(spawnMock).toHaveBeenCalledTimes(1)
+    expect(cfgAtSpawn).toBe(renderConnectCfg({ password: PASSWORD }))
+    // The refused call never ran its own sweep over the first call's file...
+    await new Promise((resolve) => setTimeout(resolve, 25))
+    expect(existsSync(cfg)).toBe(true)
+    // ...nor bumped the launch sequence, so the first launch's own exit still removes it.
+    listener(child, 'spawn')()
+    listener(child, 'exit')(0, null)
+    await vi.waitFor(() => expect(existsSync(cfg)).toBe(false))
+    expect(loggedText()).not.toContain(PASSWORD)
+  })
+
+  it('spectate password never reaches argv, only the cfg carries it as spectator', async () => {
+    const { launch } = service({ installation: joinInstallation() })
+    const child = fakeChild()
+    let cfgAtSpawn: string | undefined
+    spawnMock.mockImplementation(() => {
+      cfgAtSpawn = existsSync(cfg) ? readFileSync(cfg, 'utf8') : undefined
+      return child as never
+    })
+
+    const started = await launch.start({
+      installationId: INSTALLATION,
+      connect: '1.2.3.4:27910',
+      userinfo: { password: PASSWORD },
+      spectate: true,
+    })
+
+    expect(started.ok).toBe(true)
+    expect(cfgAtSpawn).toBe(renderConnectCfg({ spectator: PASSWORD }))
+    expect(cfgAtSpawn).toContain(`set spectator "${PASSWORD}"`)
+    expect(cfgAtSpawn).not.toContain('password')
+    const argv = spawnMock.mock.calls[0]?.[1] as string[]
+    expect(argv.join(' ')).not.toContain(PASSWORD)
+    expect(argv.join(' ')).not.toContain('spectator')
+  })
+
+  it("spectate without a password writes the cfg with spectator '1'", async () => {
+    const { launch } = service({ installation: joinInstallation() })
+    const child = fakeChild()
+    let cfgAtSpawn: string | undefined
+    spawnMock.mockImplementation(() => {
+      cfgAtSpawn = existsSync(cfg) ? readFileSync(cfg, 'utf8') : undefined
+      return child as never
+    })
+
+    const started = await launch.start({
+      installationId: INSTALLATION,
+      connect: '1.2.3.4:27910',
+      spectate: true,
+    })
+
+    expect(started.ok).toBe(true)
+    expect(cfgAtSpawn).toBe(renderConnectCfg({ spectator: '1' }))
+  })
+
+  it('a start refused before it ran anything does not block the next one', async () => {
+    const { launch, broadcast } = service({ installation: joinInstallation() })
+    spawnMock.mockImplementation(() => fakeChild() as never)
+
+    expect(await launch.start({ installationId: 'no-such-installation' })).toEqual({
+      ok: false,
+      error: { key: 'launch.error.notFound' },
+    })
+    expect(broadcast).not.toHaveBeenCalled()
+    expect((await launch.start({ installationId: INSTALLATION })).ok).toBe(true)
+    expect(spawnMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('a Steam handoff refuses a connect', async () => {
+    restorePlatform = stubPlatform('win32')
+    const broadcast = vi.fn<(state: LaunchState) => void>()
+    const launch = new LaunchService({
+      installations: fakeInstallations(
+        joinInstallation({ runner: 'steam', steamAppId: '2320', steamClient: 3 }),
+      ),
+      onStateChange: broadcast,
+      detectRunners: () => Promise.resolve([NATIVE, STEAM]),
+    })
+    const refused = { ok: false, error: { key: 'launch.error.connectNeedsDirectLaunch' } }
+
+    expect(await launch.plan(join125())).toEqual(refused)
+    expect(await launch.start(join125())).toEqual(refused)
+
+    expect(spawnMock).not.toHaveBeenCalled()
+    expect(broadcast).not.toHaveBeenCalled()
+    expect(existsSync(cfg)).toBe(false)
+    expect(loggedText()).not.toContain(PASSWORD)
+    // Without a connect the same installation still hands off as before.
+    expect((await launch.plan({ installationId: INSTALLATION })).ok).toBe(true)
   })
 })
 

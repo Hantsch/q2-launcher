@@ -6,10 +6,16 @@ import {
   parseDownloadsSettings,
   parseHomeLayout,
   parseInstallation,
+  parseServersState,
 } from './schemas'
 import { DEFAULT_DOWNLOADS_SETTINGS } from '@shared/modules/downloads'
 import type { DownloadDiagnostics } from '@shared/modules/downloads'
 import { DEFAULT_HOME_LAYOUT } from '@shared/modules/home'
+import {
+  DEFAULT_MASTER_SOURCES,
+  DEFAULT_SERVERS_STATE,
+  SERVER_HISTORY_CAP,
+} from '@shared/modules/servers'
 import { setProfileActionsInputSchema } from '../modules/config/schemas'
 import { legacyAliasNameFor } from '@shared/config/alias-render'
 import { bindValueFor } from '@shared/config/action-mirror'
@@ -1007,6 +1013,297 @@ describe('parseHomeLayout (story 086 D1)', () => {
       ],
     })
     expect(layout.tiles).toEqual([{ moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 }])
+  })
+})
+
+// Story 110 D2.
+describe('parseServersState (story 110 D2)', () => {
+  const validSource1 = { id: 's1', type: 'udp-master', address: '203.0.113.10:27900', enabled: true }
+  const validSource2 = { id: 's2', type: 'http-list', address: 'https://example.com/list?raw=1', enabled: false }
+  const malformedSource = { id: 's3', type: 'udp-master', address: '203.0.113.12:27900' } // missing enabled
+
+  const validFavourite1 = { address: '203.0.113.20:27910', addedAt: '2026-01-01T00:00:00.000Z' }
+  const validFavourite2 = { address: '203.0.113.21:27910', addedAt: '2026-01-02T00:00:00.000Z' }
+  const malformedFavourite = { address: '203.0.113.22:27910' } // missing addedAt
+
+  it('a genuinely foreign (non-object) servers value falls back to the shipped default (three sources, everything else empty)', () => {
+    const cases: unknown[] = ['not an object', 42]
+
+    for (const raw of cases) {
+      expect(() => parseServersState(raw)).not.toThrow()
+      const result = parseServersState(raw)
+      expect(result).toEqual(DEFAULT_SERVERS_STATE)
+
+      // Prove it's a fresh clone, not a shared reference: mutating the result must not mutate the
+      // shared `DEFAULT_SERVERS_STATE` constant.
+      result.sources.push({ id: 'mutated', type: 'udp-master', address: '1.2.3.4:27910', enabled: true })
+      result.scan.concurrency = 999
+      expect(DEFAULT_SERVERS_STATE.sources).toEqual(DEFAULT_MASTER_SOURCES)
+      expect(DEFAULT_SERVERS_STATE.scan.concurrency).toBe(24)
+    }
+  })
+
+  // Story 111 D2.
+  it('a state.json without the `servers` key at all yields the three shipped default sources', () => {
+    const result = parseServersState(undefined)
+    expect(result.sources).toEqual(DEFAULT_MASTER_SOURCES)
+    expect(result.favourites).toEqual([])
+  })
+
+  it('a `servers` value present but with no `sources` sub-field also yields the three defaults', () => {
+    const result = parseServersState({
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: DEFAULT_SERVERS_STATE.scan,
+    })
+    expect(result.sources).toEqual(DEFAULT_MASTER_SOURCES)
+  })
+
+  it('an explicitly stored empty `sources` array stays empty, not re-seeded to the defaults', () => {
+    const result = parseServersState({
+      sources: [],
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: DEFAULT_SERVERS_STATE.scan,
+    })
+    expect(result.sources).toEqual([])
+  })
+
+  it('one malformed source row alongside a valid one is dropped, the valid sibling survives', () => {
+    const result = parseServersState({
+      sources: [validSource1, malformedSource],
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: DEFAULT_SERVERS_STATE.scan,
+    })
+    expect(result.sources).toEqual([validSource1])
+  })
+
+  it('a malformed favourite and a malformed source are dropped, their siblings survive', () => {
+    expect(() =>
+      parseServersState({
+        sources: [validSource1, validSource2, malformedSource],
+        favourites: [validFavourite1, validFavourite2, malformedFavourite],
+        manualServers: [],
+        history: [],
+        scan: DEFAULT_SERVERS_STATE.scan,
+      }),
+    ).not.toThrow()
+
+    const result = parseServersState({
+      sources: [validSource1, validSource2, malformedSource],
+      favourites: [validFavourite1, validFavourite2, malformedFavourite],
+      manualServers: [],
+      history: [],
+      scan: DEFAULT_SERVERS_STATE.scan,
+    })
+
+    expect(result.sources).toHaveLength(2)
+    expect(result.sources.map((s) => s.id)).toEqual(['s1', 's2'])
+    expect(result.favourites).toHaveLength(2)
+    expect(result.favourites.map((f) => f.address)).toEqual([
+      '203.0.113.20:27910',
+      '203.0.113.21:27910',
+    ])
+  })
+
+  it('a row whose address fails parseServerAddress is dropped like any other malformed row', () => {
+    const result = parseServersState({
+      sources: [],
+      favourites: [
+        validFavourite1,
+        { address: 'not a valid address', addedAt: '2026-01-03T00:00:00.000Z' },
+      ],
+      manualServers: [],
+      history: [],
+      scan: DEFAULT_SERVERS_STATE.scan,
+    })
+
+    expect(result.favourites).toEqual([validFavourite1])
+  })
+
+  it('a garbage scan.concurrency falls back to its default while the other knobs are preserved', () => {
+    const result = parseServersState({
+      sources: [],
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: {
+        concurrency: 'nope',
+        timeoutMs: 5000,
+        retries: 3,
+        minSpacingMs: 15_000,
+        autoScanOnOpen: false,
+        autoRefreshEnabled: true,
+        autoRefreshIntervalMs: 120_000,
+      },
+    })
+
+    expect(result.scan).toEqual({
+      concurrency: DEFAULT_SERVERS_STATE.scan.concurrency,
+      timeoutMs: 5000,
+      retries: 3,
+      minSpacingMs: 15_000,
+      autoScanOnOpen: false,
+      autoRefreshEnabled: true,
+      autoRefreshIntervalMs: 120_000,
+    })
+  })
+
+  // Story 115 D2: an out-of-range numeric field falls back to its own default (not just a
+  // non-number value), same clamp-and-catch convention as `downloadsSettingsSchema`'s
+  // `concurrentJobs`. Proves field-level fallback, not whole-object: the sibling valid fields
+  // (including a valid new D1 field) survive untouched.
+  it('an out-of-range scan.concurrency falls back to its default while the other knobs (including the new fields) are preserved', () => {
+    const result = parseServersState({
+      sources: [],
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: {
+        concurrency: 999,
+        timeoutMs: 1000,
+        retries: 2,
+        minSpacingMs: 15_000,
+        autoScanOnOpen: false,
+        autoRefreshEnabled: true,
+        autoRefreshIntervalMs: 120_000,
+      },
+    })
+
+    expect(result.scan).toEqual({
+      concurrency: DEFAULT_SERVERS_STATE.scan.concurrency,
+      timeoutMs: 1000,
+      retries: 2,
+      minSpacingMs: 15_000,
+      autoScanOnOpen: false,
+      autoRefreshEnabled: true,
+      autoRefreshIntervalMs: 120_000,
+    })
+  })
+
+  // Story 115 D2: same field-level fallback proof for one of the three new fields -
+  // `autoRefreshIntervalMs` out of range falls back to its own default only.
+  it('an out-of-range scan.autoRefreshIntervalMs falls back to its default while the other knobs are preserved', () => {
+    const result = parseServersState({
+      sources: [],
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: {
+        concurrency: 16,
+        timeoutMs: 1000,
+        retries: 2,
+        minSpacingMs: 15_000,
+        autoScanOnOpen: false,
+        autoRefreshEnabled: true,
+        autoRefreshIntervalMs: 999_999_999,
+      },
+    })
+
+    expect(result.scan).toEqual({
+      concurrency: 16,
+      timeoutMs: 1000,
+      retries: 2,
+      minSpacingMs: 15_000,
+      autoScanOnOpen: false,
+      autoRefreshEnabled: true,
+      autoRefreshIntervalMs: DEFAULT_SERVERS_STATE.scan.autoRefreshIntervalMs,
+    })
+  })
+
+  it('duplicate sources sharing an id collapse to the first occurrence', () => {
+    const result = parseServersState({
+      sources: [
+        validSource1,
+        { id: 's1', type: 'http-list', address: '203.0.113.30:80', enabled: false },
+      ],
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: DEFAULT_SERVERS_STATE.scan,
+    })
+
+    expect(result.sources).toEqual([validSource1])
+  })
+
+  it('duplicate favourites sharing a normalized address collapse to the first occurrence', () => {
+    const result = parseServersState({
+      sources: [],
+      favourites: [
+        validFavourite1,
+        { address: '203.0.113.20:27910', addedAt: '2026-01-09T00:00:00.000Z' },
+      ],
+      manualServers: [],
+      history: [],
+      scan: DEFAULT_SERVERS_STATE.scan,
+    })
+
+    expect(result.favourites).toEqual([validFavourite1])
+  })
+
+  // Story 113 D-G: the cap is a store invariant, not just an append-path detail - a hand-edited or
+  // foreign `state.json` must not be able to reintroduce an unbounded history.
+  it('a history longer than the cap is truncated on parse, oldest (tail) rows dropped', () => {
+    const rows = Array.from({ length: SERVER_HISTORY_CAP + 50 }, (_, index) => ({
+      address: `203.0.113.${Math.floor(index / 250)}:${27910 + (index % 250)}`,
+      connectedAt: '2026-01-10T00:00:00.000Z',
+    }))
+
+    const result = parseServersState({
+      sources: [],
+      favourites: [],
+      manualServers: [],
+      history: rows,
+      scan: DEFAULT_SERVERS_STATE.scan,
+    })
+
+    expect(result.history).toHaveLength(SERVER_HISTORY_CAP)
+    // The head (newest) survived and the tail went, rather than an arbitrary slice.
+    expect(result.history[0]).toEqual(rows[0])
+    expect(result.history.at(-1)).toEqual(rows[SERVER_HISTORY_CAP - 1])
+  })
+
+  // Story 119 D2.
+  it('parseServersState keeps a valid listSort and drops a malformed one without touching the rest', () => {
+    const base = {
+      sources: [],
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: DEFAULT_SERVERS_STATE.scan,
+    }
+
+    const valid = parseServersState({ ...base, listSort: { column: 'players', direction: 'desc' } })
+    expect(valid.listSort).toEqual({ column: 'players', direction: 'desc' })
+    expect(valid.sources).toEqual([])
+    expect(valid.scan).toEqual(DEFAULT_SERVERS_STATE.scan)
+
+    const malformedColumn = parseServersState({
+      ...base,
+      listSort: { column: 'nope', direction: 'desc' },
+    })
+    expect(malformedColumn.listSort).toBeUndefined()
+    expect(malformedColumn.scan).toEqual(DEFAULT_SERVERS_STATE.scan)
+
+    const malformedShape = parseServersState({ ...base, listSort: 'players-desc' })
+    expect(malformedShape.listSort).toBeUndefined()
+  })
+
+  it('a state file without listSort parses to the default order', () => {
+    const result = parseServersState({
+      sources: [],
+      favourites: [],
+      manualServers: [],
+      history: [],
+      scan: DEFAULT_SERVERS_STATE.scan,
+    })
+    expect(result.listSort).toBeUndefined()
+
+    expect(parseServersState(undefined).listSort).toBeUndefined()
   })
 })
 

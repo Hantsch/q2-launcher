@@ -8,6 +8,20 @@ import { IconButton } from '../../../components/ui/Button'
 import { getEngineUpdateStatus } from '../client'
 
 /**
+ * How long after the renderer module first loads the very first automatic
+ * `engineUpdateStatus` check waits before firing, so it never competes with the window's own
+ * first paint - same rationale and magnitude as `scheduleStartupCheck()`'s own startup delay
+ * (`src/main/index.ts`, story 097 D5: "fire-and-forget, after a short delay so it never competes
+ * with the window's own first paint"). Only the first automatic check (module load, i.e. app
+ * boot) is held back; switching installations or a job finishing while the app is already up
+ * answers immediately, same as before - those are real state changes a user is actively looking
+ * at, not a startup race.
+ */
+const STARTUP_CHECK_DELAY_MS = 3_000
+const moduleLoadedAtMs = Date.now()
+let firstAutomaticCheckDone = false
+
+/**
  * Story 092 D7: the ActionBar's engine-update trigger, mirroring `RetailUpgradeDialog`'s own
  * trigger button (story 090 D4, inline in `ActionBar.tsx`'s utility cluster). Unlike that button -
  * which only needs to know "is this installation demo data" from the `Installation` it already has
@@ -43,12 +57,29 @@ export function EngineUpdateAction({ installation }: { installation: Installatio
 
   useEffect(() => {
     let cancelled = false
-    void getEngineUpdateStatus(installation.id).then((result) => {
-      if (cancelled) return
-      setStatus(result.ok ? result.value : undefined)
-    })
+    const run = (): void => {
+      firstAutomaticCheckDone = true
+      void getEngineUpdateStatus(installation.id).then((result) => {
+        if (cancelled) return
+        setStatus(result.ok ? result.value : undefined)
+      })
+    }
+
+    if (firstAutomaticCheckDone) {
+      run()
+      return () => {
+        cancelled = true
+      }
+    }
+
+    // The very first automatic check the whole app makes: held back to the startup grace
+    // window so it cannot race a short-lived window right after boot (see
+    // `STARTUP_CHECK_DELAY_MS` above).
+    const remainingDelayMs = Math.max(0, STARTUP_CHECK_DELAY_MS - (Date.now() - moduleLoadedAtMs))
+    const timer = window.setTimeout(run, remainingDelayMs)
     return () => {
       cancelled = true
+      window.clearTimeout(timer)
     }
   }, [installation.id, activeJobs])
 

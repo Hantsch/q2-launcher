@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { cn } from '../../lib/cn'
 
 type ButtonVariant = 'primary' | 'neutral' | 'ghost' | 'danger' | 'link'
-type ButtonSize = 'sm' | 'md'
+type ButtonSize = 'sm' | 'md' | 'lg'
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary:
@@ -16,6 +16,8 @@ const VARIANTS: Record<ButtonVariant, string> = {
 const SIZES: Record<ButtonSize, string> = {
   sm: 'h-7 px-2.5 text-xs gap-1.5',
   md: 'h-9 px-3.5 text-sm gap-2',
+  // Matches `.btn-play`'s 3.25rem height, for controls that sit in a row with a PlayButton.
+  lg: 'h-13 px-5 text-base gap-2',
 }
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -58,6 +60,12 @@ export function Button({
   )
 }
 
+const ICON_SIZES: Record<ButtonSize, string> = {
+  sm: 'size-7',
+  md: 'size-9',
+  lg: 'size-13',
+}
+
 export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** Required: these buttons have no visible text. */
   label: string
@@ -84,7 +92,7 @@ export function IconButton({
         'transition-colors duration-[--dur-fast] ease-[--ease-out-quart]',
         'disabled:pointer-events-none disabled:opacity-45',
         VARIANTS[variant],
-        size === 'sm' ? 'size-7' : 'size-9',
+        ICON_SIZES[size],
         className,
       )}
       {...rest}

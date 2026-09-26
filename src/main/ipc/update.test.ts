@@ -121,6 +121,7 @@ describe('update:check', () => {
     }
     const update = createUpdateService({
       isPackaged: true,
+      currentVersion: '0.0.1',
       backend: {
         autoInstallOnAppQuit: false,
         download: vi.fn(async () => ({ ok: true as const })),

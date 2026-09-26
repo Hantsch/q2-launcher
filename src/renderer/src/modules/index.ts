@@ -6,6 +6,8 @@ import { Dialogs as DownloadsBootstrapDialogs } from './downloads/bootstrap/Dial
 import { DownloadsSettingsSection } from './downloads/DownloadsSettingsSection'
 import { DownloadsView } from './downloads/DownloadsView'
 import { HomeView } from './home/HomeView'
+import { ServersSettingsSection } from './servers/ServersSettingsSection'
+import { ServersView } from './servers/ServersView'
 
 /**
  * The renderer half of a module: the view that owns its route.
@@ -26,6 +28,8 @@ export interface RendererModule {
   View?: ComponentType
   settingsSection?: {
     titleKey: string
+    /** Optional one-line summary shown under the section title. */
+    descriptionKey?: string
     order: number
     Section: ComponentType
   }
@@ -53,6 +57,7 @@ export const RENDERER_MODULES: readonly RendererModule[] = [
     View: DownloadsView,
     settingsSection: {
       titleKey: 'module.downloads.settings.title',
+      descriptionKey: 'module.downloads.settings.description',
       order: 10,
       Section: DownloadsSettingsSection,
     },
@@ -60,6 +65,21 @@ export const RENDERER_MODULES: readonly RendererModule[] = [
     Dialogs: DownloadsBootstrapDialogs,
   },
   { id: 'config', View: ConfigView },
+  {
+    // Story 115 D5: `View: ServersView` is a deliberate stand-in, not the module's real debut -
+    // it exists only to give the manual-scan control (AC3) somewhere real to render. The module
+    // manifest's own `status: 'planned'` (`@shared/types`'s `MODULE_MANIFESTS`) is left untouched
+    // by this story on purpose, so the nav rail's "planned" badge still reads accurately until
+    // the real server list ([[118]]/[[121]]) lands.
+    id: 'servers',
+    View: ServersView,
+    settingsSection: {
+      titleKey: 'module.servers.settings.title',
+      descriptionKey: 'module.servers.settings.description',
+      order: 20,
+      Section: ServersSettingsSection,
+    },
+  },
   // { id: 'mods',    View: ModsView },
   // { id: 'assets',  View: AssetsView },
 ]

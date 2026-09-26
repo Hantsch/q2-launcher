@@ -3,7 +3,7 @@ name: frontend-guidelines
 description: "Frontend architecture rules and conventions for React/TypeScript apps using Atomic Design. Use when: creating or editing files in a frontend source tree; adding atoms/molecules/organisms/templates/pages; building forms, lists, dashboards or detail screens; introducing a new route; wiring server state with a data-fetching library (TanStack Query, SWR, RTK Query); adding UI-kit components (shadcn/ui, MUI, Chakra); adding icons; writing Storybook stories; rendering a name for another user/owner/author; adding or changing translatable strings; deciding which atomic layer a component or hook belongs in; reviewing a diff for layering, naming or duplication violations. DO NOT USE FOR: backend changes; infrastructure/Docker; auth/role/permission matrix changes; non-React frontends."
 ---
 
-<!-- tech-rules:managed 1.0.0 -->
+<!-- tech-rules:managed 2.1.0 -->
 
 # Frontend Guidelines
 
@@ -43,7 +43,7 @@ encodes layer boundaries, file conventions, data-flow rules and a mandatory dupl
 | --------- | ---------------- | --- | --- |
 | Atoms     | `src/atoms/`     | Smallest UI primitives; thin wrappers over UI-kit components | Business logic; direct domain types |
 | Molecules | `src/molecules/` | 2+ atoms composed into a meaningful piece (FormField, StatCard) | Page/domain logic; implicit prop spreading |
-| Organisms | `src/organisms/` | Reusable complex sections (DataTable, PageHeader, Modal, Form) | Direct data fetching - data comes via props |
+| Organisms | `src/organisms/` | Reusable complex sections (DataTable, Sidebar, Modal, Form) | Direct data fetching - data comes via props |
 | Templates | `src/templates/` | Page layout shells with named slots | Domain content; one-off layouts living inside a page |
 | Pages     | `src/pages/`     | Route-level screens grouped by feature subfolder (`pages/<feature>/<Name>Page.tsx`) | Page files directly under `pages/`; structural `div`s / custom layout markup |
 | Features  | `src/features/`  | Domain modules (hooks, context, domain-specific components) | Cross-domain coupling |
@@ -142,7 +142,9 @@ Pick the right folder **before** creating a file:
    `Foo`. Do not park several unrelated components in a mis-named file. Split them into their own
    files (each in the correct layer) or, if they are genuinely one cohesive unit, name the file after
    the exported component. Small private subcomponents used only inside the file are fine.
-6. **Exports.** Named exports only - no default exports.
+6. **Exports.** Named exports only - no default exports in application modules. The only default
+   exports are the ones a tool requires: the CSF `meta` in `*.stories.tsx` and config files
+   (`vite.config.ts`, `tailwind.config.*`, `.storybook/*`).
 7. **Story.** Co-locate a `.stories.tsx`. Cover default + meaningful variants + empty/loading/error
    where applicable. CSF3 with `satisfies Meta<typeof Component>`.
 
@@ -155,6 +157,8 @@ Pick the right folder **before** creating a file:
 4. Fetch data via feature hooks (`features/<domain>/hooks/`) that wrap services (`services/`).
 5. Pass data + organisms into template slots.
 6. Register the route in `router/` using a path constant; lazy-load unless it is the home route.
+   `React.lazy` expects a default export, so map the named export once:
+   `lazy(() => import('./FooPage').then(m => ({ default: m.FooPage })))`.
 7. Handle loading and error states explicitly - no silent failures.
 
 **Pages compose only. Hard limit: 150 lines.** Interactive state lives in organisms or hooks, not in
@@ -289,7 +293,8 @@ Red flags:
 - Silent string-literal fallbacks for missing foreign references (`?? "Unknown"`).
 - Direct lookup-map access for foreign-reference display inside a component.
 - `any` type or unexplained `@ts-ignore`.
-- Default exports.
+- Default exports in application modules (tool-required ones - CSF `meta`, config files - are the
+  exception).
 - Two JSX blocks with identical structure differing only in props/data/colour.
 
 ## Naming Cheat Sheet
@@ -319,6 +324,6 @@ Red flags:
 - [ ] Foreign-reference labels go through the central resolver, with no silent fallbacks.
 - [ ] Translatable strings externalized through the project's i18n library, if it has one; extraction
       script run if messages changed.
-- [ ] Named exports only; no `any`.
+- [ ] Named exports only (tool-required defaults aside); no `any`.
 - [ ] Project-specific rules in the repo's `CLAUDE.md` / `AGENTS.md` respected - they override this
       skill.

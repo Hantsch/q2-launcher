@@ -1,0 +1,53 @@
+- 2026-09-24 19:24 · 114 · D1 shared contract · started
+- 2026-09-25 07:50 · 114 · D1 shared contract · done
+- 2026-09-25 07:51 · 114 · D2 query one game server · started
+- 2026-09-25 07:51 · 114 · D3 address set · started
+- 2026-09-25 07:51 · 114 · D4 resolve sources isolated · started
+- 2026-09-25 07:56 · 114 · D2 query one game server · done
+- 2026-09-25 07:56 · 114 · D3 address set · done
+- 2026-09-25 07:56 · 114 · D4 resolve sources isolated · done
+- 2026-09-25 07:57 · 114 · D5 two-stage runner · started
+- 2026-09-25 08:01 · 114 · D5 two-stage runner · done
+- 2026-09-25 08:02 · 114 · D6 service and handlers · started
+- 2026-09-25 08:13 · 114 · D6 service and handlers · done
+- 2026-09-25 08:13 · 114 · D7 renderer client helpers · started
+- 2026-09-25 08:17 · 114 · D7 renderer client helpers · done
+- 2026-09-25 08:18 · 114 · D8 real-socket integration proof · started
+- 2026-09-25 08:22 · 114 · D8 real-socket integration proof · done
+- 2026-09-25 08:39 · 115 · D1 scan settings contract · started
+- 2026-09-25 08:42 · 115 · D1 scan settings contract · done
+- 2026-09-25 08:43 · 115 · D2 settings persistence · started
+- 2026-09-25 08:46 · 115 · D2 settings persistence · done
+- 2026-09-25 08:46 · 115 · D3 scan cadence · started
+- 2026-09-25 08:50 · 115 · D3 scan cadence · done
+- 2026-09-25 08:51 · 115 · D4 scan settings UI · started
+- 2026-09-25 08:57 · 115 · D4 scan settings UI · done
+- 2026-09-25 08:58 · 115 · D5 manual scan trigger · started
+- 2026-09-25 09:09 · 115 · D5 manual scan trigger · done
+- 2026-09-25 09:11 · 115 · D6 measured defaults · started
+- 2026-09-25 09:37 · 115 · D6 measured defaults · done
+- 2026-09-25 10:05 · 115 · review-fix cycle 1 (fixture-variant regressions + schema choice-list gap) · done
+- 2026-09-25 10:10 · 116 · D1 shared scan-guard contract · started
+- 2026-09-25 10:11 · 116 · D1 shared scan-guard contract · done
+- 2026-09-25 10:12 · 116 · D2 pure guard folded into cadence · started
+- 2026-09-25 10:14 · 116 · D2 pure guard folded into cadence · done
+- 2026-09-25 10:16 · 116 · D3 scheduler wiring: skip refuse resume · started
+- 2026-09-25 10:23 · 116 · D3 scheduler wiring: skip refuse resume · done
+- 2026-09-25 10:23 · 116 · D4 stale merge rule · started
+- 2026-09-25 10:25 · 116 · D4 stale merge rule · done
+- 2026-09-25 10:25 · 116 · D5 visible reason and stale row · started
+- 2026-09-25 10:31 · 116 · D5 visible reason and stale row · done
+- 2026-09-25 10:35 · 116 · D6 offline e2e flow · started
+- 2026-09-25 10:45 · 116 · D6 offline e2e flow · done
+- 2026-09-25 11:04 · 117 · D1 ScanScope shared contract · started
+- 2026-09-25 11:06 · 117 · D1 ScanScope shared contract · done
+- 2026-09-25 11:06 · 117 · D2 scope to address set · started
+- 2026-09-25 11:08 · 117 · D2 scope to address set · done
+- 2026-09-25 11:08 · 117 · D3 scheduler runs a scope · started
+- 2026-09-25 11:12 · 117 · D3 scheduler runs a scope (deliverable-hard) · done
+- 2026-09-25 11:12 · 117 · D4 handler guard and client · started
+- 2026-09-25 11:17 · 117 · D4 handler guard and client · done
+- 2026-09-25 11:17 · 117 · D5 the three controls · started
+- 2026-09-25 11:22 · 117 · D5 the three controls · done
+- 2026-09-25 11:22 · 117 · D6 the e2e proof · started
+- 2026-09-25 11:27 · 117 · D6 the e2e proof · done

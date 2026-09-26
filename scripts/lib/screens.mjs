@@ -96,6 +96,18 @@
 // "Show generated and layer aliases" switch by its translated accessible name; see the entry itself
 // for why (Plain Profile has zero user-authored aliases, only generated ones).
 //
+// Story 121 D2 adds the servers-list status testids — read ServersListStatus.tsx before changing
+// these:
+//   servers-list-loading            (ServersListStatus.tsx, shown while a scan runs — carries
+//                                    numeric `data-found`/`data-pending` attributes)
+//   servers-list-empty              (ServersListStatus.tsx, a finished scan with zero rows)
+//   servers-list-empty-settings     (ServersListStatus.tsx, the empty state's "open source
+//                                    settings" button)
+//   servers-list-idle               (ServersListStatus.tsx, never scanned)
+//   servers-list-source-failures    (ServersListStatus.tsx, container — independent of the three
+//                                    above, present whenever `scanState.sourceFailures.length > 0`)
+//   servers-list-source-failure-<sourceId> (ServersListStatus.tsx, one per failed source)
+//
 // `config-save-expanded`/`config-discard-confirm` (D9) dirty the fixture profile via
 // RawFileTab.tsx's "Section header style" `<Select>`, not the "Start the file with `unbindall`"
 // checkbox `config-conflict-dialog` (D8) uses: all `populated`-variant screens share one Electron
@@ -110,6 +122,13 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { variantUserDataDir } from './harness.mjs'
+import { SERVERS_SCAN_SETTINGS_SEED } from './fixture.mjs'
+import {
+  SERVERS_STUB_RESPONDERS,
+  SERVERS_STUB_LIST_PORT,
+  startListServer,
+  startServerResponders,
+} from './servers-stub.mjs'
 
 /** Mirrors src/shared/constants.ts:17-18 (`WINDOW_DEFAULT_WIDTH/HEIGHT`). */
 const VIEWPORT_DEFAULT = { width: 1280, height: 800 }
@@ -130,6 +149,23 @@ const CLICK_TIMEOUT_MS = 8_000
  * into it.
  */
 const RAW_TAB_LOAD_TIMEOUT_MS = 20_000
+
+/** Generous headroom for a real scan against loopback stub responders to finish - mirrors
+ * `scripts/flows/servers-scoped-refresh.mjs`'s own `SCAN_SETTLE_TIMEOUT_MS`. Used only by the
+ * `servers-list-*` screens (story 121 D2). */
+const SCAN_SETTLE_TIMEOUT_MS = 15_000
+
+/** Waits for `servers-scan-status`'s `data-running` attribute to read `"false"` - every
+ * `servers-list-*` screen (story 121 D2) waits on this right after opening the Servers view, so the
+ * registry's run order never matters (a still-running scan from session state can never leak into
+ * the next screen's click). */
+async function waitScanIdle(page) {
+  await page.waitForFunction(
+    () => document.querySelector('[data-testid="servers-scan-status"]')?.getAttribute('data-running') === 'false',
+    null,
+    { timeout: CLICK_TIMEOUT_MS },
+  )
+}
 
 /**
  * Story 043 D8: `Plain Profile`'s canonical file name, as `resolveProfileFileNames`
@@ -1151,6 +1187,105 @@ export const SCREENS = [
       // this, the screenshot could still show the panel scrolled to its top. Mirrors
       // `config-controls-extra-keys-folded`'s own use of `scrollIntoViewIfNeeded()` above.
       await updateAvailable.scrollIntoViewIfNeeded()
+    },
+  },
+  {
+    id: 'servers-list-empty',
+    variant: 'servers-list-empty',
+    viewports: BOTH_VIEWPORTS,
+    // Story 121 D2: the servers list's empty state - `servers-list-empty`'s fixture seeds no
+    // enabled source and no manual/favourite servers at all, so "Refresh servers" genuinely finds
+    // nothing.
+    navigate: async (page) => {
+      await click(page, 'nav-servers')
+      await waitScanIdle(page)
+      await click(page, 'servers-refresh')
+      await page
+        .getByTestId('servers-list-empty')
+        .waitFor({ state: 'visible', timeout: SCAN_SETTLE_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'servers-list-populated',
+    variant: 'servers-list',
+    viewports: BOTH_VIEWPORTS,
+    // Story 121 D2: the servers list's ordinary populated state - three loopback stub game
+    // servers, fed to the fixture's seeded `http-list` source via the stub list server
+    // (`scripts/lib/servers-stub.mjs`), answering instantly (`setDelayMs(0)`).
+    navigate: async (page) => {
+      await click(page, 'nav-servers')
+      await waitScanIdle(page)
+      const responders = await startServerResponders(SERVERS_STUB_RESPONDERS)
+      responders.setDelayMs(0)
+      const list = await startListServer(SERVERS_STUB_LIST_PORT)
+      list.setAddresses(SERVERS_STUB_RESPONDERS.map((spec) => `127.0.0.1:${spec.port}`))
+
+      await click(page, 'servers-refresh')
+      const firstRowTestId = `servers-row-127.0.0.1:${SERVERS_STUB_RESPONDERS[0].port}`
+      await page.waitForFunction(
+        (rowTestId) =>
+          document.querySelector('[data-testid="servers-scan-status"]')?.getAttribute('data-running') ===
+            'false' && document.querySelector(`[data-testid="${rowTestId}"]`) !== null,
+        firstRowTestId,
+        { timeout: SCAN_SETTLE_TIMEOUT_MS },
+      )
+    },
+  },
+  {
+    id: 'servers-list-loading',
+    variant: 'servers-list',
+    viewports: BOTH_VIEWPORTS,
+    // Story 121 D2: the servers list mid-scan - the same three stub responders as
+    // `servers-list-populated`, but delayed to ~80% of the fixture's seeded `scan.timeoutMs`
+    // (`SERVERS_SCAN_SETTINGS_SEED`) so the scan is still running when the shot is taken. Waits for
+    // `servers-list-loading`'s own `data-found` attribute to be a genuine positive count, not just
+    // for the element to exist - the wait fails outright (rather than silently shooting an idle or
+    // populated list) if that never happens.
+    navigate: async (page) => {
+      await click(page, 'nav-servers')
+      await waitScanIdle(page)
+      const responders = await startServerResponders(SERVERS_STUB_RESPONDERS)
+      const list = await startListServer(SERVERS_STUB_LIST_PORT)
+      list.setAddresses(SERVERS_STUB_RESPONDERS.map((spec) => `127.0.0.1:${spec.port}`))
+      responders.setDelayMs(Math.round(SERVERS_SCAN_SETTINGS_SEED.timeoutMs * 0.8))
+
+      await click(page, 'servers-refresh')
+      await page.waitForFunction(
+        () => {
+          const el = document.querySelector('[data-testid="servers-list-loading"]')
+          return el !== null && Number(el.getAttribute('data-found')) > 0
+        },
+        null,
+        { timeout: CLICK_TIMEOUT_MS },
+      )
+    },
+  },
+  {
+    id: 'servers-list-error',
+    variant: 'servers-list-error',
+    viewports: BOTH_VIEWPORTS,
+    // Story 121 D2: AC3's proof that a source failure never hides the rest of the list - the
+    // fixture's live `http-list` source (fed by the stub responders/list server below) succeeds
+    // alongside its second `http-list` source pointing at `SERVERS_DEAD_LIST_URL` (a loopback port
+    // nothing binds), which fails with a transport error. Waits for both the failure banner and at
+    // least one real row.
+    navigate: async (page) => {
+      await click(page, 'nav-servers')
+      await waitScanIdle(page)
+      const responders = await startServerResponders(SERVERS_STUB_RESPONDERS)
+      responders.setDelayMs(0)
+      const list = await startListServer(SERVERS_STUB_LIST_PORT)
+      list.setAddresses(SERVERS_STUB_RESPONDERS.map((spec) => `127.0.0.1:${spec.port}`))
+
+      await click(page, 'servers-refresh')
+      const firstRowTestId = `servers-row-127.0.0.1:${SERVERS_STUB_RESPONDERS[0].port}`
+      await page.waitForFunction(
+        (rowTestId) =>
+          document.querySelector('[data-testid="servers-list-source-failures"]') !== null &&
+          document.querySelector(`[data-testid="${rowTestId}"]`) !== null,
+        firstRowTestId,
+        { timeout: SCAN_SETTLE_TIMEOUT_MS },
+      )
     },
   },
   {

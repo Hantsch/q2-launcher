@@ -1,0 +1,32 @@
+- 2026-09-24 09:35 · 106 · D1 shared contract + manifest row · started
+- 2026-09-24 09:36 · 106 · D1 shared contract + manifest row · done
+- 2026-09-24 09:36 · 106 · D2 main half · started
+- 2026-09-24 09:37 · 106 · D2 main half · done
+- 2026-09-24 09:37 · 106 · D3 renderer half, nav entry, settings slot · started
+- 2026-09-24 09:40 · 106 · D3 renderer half, nav entry, settings slot · done
+- 2026-09-24 09:40 · 106 · D4 platform-parity guard · started
+- 2026-09-24 09:41 · 106 · D4 platform-parity guard · done
+- 2026-09-24 09:47 · 107 · D1 pure address validator · started
+- 2026-09-24 09:51 · 107 · D1 pure address validator · done
+- 2026-09-24 09:51 · 107 · D2 zod address schema · started
+- 2026-09-24 09:52 · 107 · D2 zod address schema · done
+- 2026-09-24 09:52 · 107 · D3 i18n rejection keys · started
+- 2026-09-24 09:54 · 107 · D3 i18n rejection keys · done
+- 2026-09-24 10:04 · 108 · D1 the connectionless envelope, latin-1 pair, query builders · started
+- 2026-09-24 10:06 · 108 · D1 the connectionless envelope, latin-1 pair, query builders · done
+- 2026-09-24 10:06 · 108 · D2 the tolerant serverinfo splitter · started
+- 2026-09-24 10:08 · 108 · D2 the tolerant serverinfo splitter · done
+- 2026-09-24 10:08 · 108 · D3 the info reply parser, with shared fixtures · started
+- 2026-09-24 10:09 · 108 · D3 the info reply parser, with shared fixtures · done
+- 2026-09-24 10:09 · 108 · D4 the status reply parser: serverinfo plus player list · started
+- 2026-09-24 10:16 · 108 · D4 the status reply parser: serverinfo plus player list · done
+- 2026-09-24 10:23 · 109 · D1 the packed-record codec · started
+- 2026-09-24 10:23 · 109 · D2 the raw=1/raw=2 list codecs · started
+- 2026-09-24 10:25 · 109 · D1 the packed-record codec · done
+- 2026-09-24 10:25 · 109 · D2 the raw=1/raw=2 list codecs · done
+- 2026-09-24 10:25 · 109 · D3 UDP transport seam and quiet-period stop rule · started
+- 2026-09-24 10:34 · 109 · D3 UDP transport seam and quiet-period stop rule · done
+- 2026-09-24 10:34 · 109 · D4 HTTP transport seam · started
+- 2026-09-24 10:36 · 109 · D4 HTTP transport seam · done
+- 2026-09-24 10:36 · 109 · D5 message keys for every source failure · started
+- 2026-09-24 10:38 · 109 · D5 message keys for every source failure · done

@@ -16,6 +16,65 @@ version section when a release actually ships.
 ## 0.4.0 — 2026-09-23
 
 ### Added
+- **Servers** — a gated "Watchlist" tab lets you track named players across servers and jump
+  straight to whichever server they're currently on.
+- Enter an unlock code in Settings to see what it unlocked, alongside every code you've already
+  redeemed and when it expires.
+- **Servers** — an "Add to address book" button next to Join/Spectate writes a server's address
+  into one of Quake II's own nine `adr0`–`adr8` slots, in a config profile you pick, with every
+  slot's current value shown before you overwrite anything.
+- **Servers** — a Spectate button sits next to Join in the list and the detail pane, for when you
+  just want to watch: same address check and mod-mismatch warning, but it asks for a spectator
+  password instead of a join one when the server wants it, and that password never shows up
+  anywhere a shoulder-surfer (or a log file) could read it.
+- **Servers** — a server's detail pane now lists every rule it plays by, dmflags decoded into
+  plain English (with a caveat that mods may reuse those bits for their own purposes).
+- **Servers** — the detail pane now shows how a server has actually been answering this session: a
+  plain statement of whether the last scan round got a reply at all (and when it last did, if not),
+  plus a running list of every response time measured, newest first, so one bad ping doesn't read
+  as "reliable" or "dead" on its own.
+- A **Servers** nav entry now exists (planned status) with its own Settings section, ahead of
+  the module's server-browsing features landing.
+- **Servers** — the master and list sources the scanner pulls candidates from are no longer
+  fixed: add your own, remove or reorder the shipped three, flip one off without losing its
+  address, and it all survives a restart. A bad address gets refused on the spot, not silently
+  swallowed.
+- **Servers** — how hard the scanner works is now yours to dial: auto-scan on open, an
+  auto-refresh interval, concurrent queries, per-query timeout, retries and the minimum time
+  between two automatic scans all live in Settings, with a real measured pass behind every shipped
+  default instead of a guess. A manual scan button always works, whatever you've set the automatic
+  knobs to.
+- **Servers** — the scanner now stands down the moment you're actually playing: no auto-refresh
+  fires in the background, and hitting the manual scan button just tells you why it won't. A
+  server that goes quiet for one round keeps showing what it last said, clearly marked stale, never
+  wiped back to empty. The moment you're back at the menu, scanning picks up again on its own.
+- **Servers** — a server row now tells you what's going on without opening it: name, mod,
+  players/slots, map and ping when known, plus badges for password-protected, the gamemode, your
+  favourites, stale data and the one case the browser exists for — a duel server with exactly one
+  player waiting for an opponent. A server nobody has scanned yet shows a clean placeholder instead
+  of a blank or broken row.
+- **Servers** — a refresh no longer has to mean "reload everything": "Refresh favourites" re-checks
+  just your favourites, and selecting a server and hitting "Refresh this server" re-checks only
+  that one, both leaving the rest of the list exactly as it was. All three refresh buttons now show
+  when they can't run (already scanning, or the game is running) instead of silently no-opping.
+- **Servers** — the list is sortable: click Name, Mod, Players, Map or Ping to sort by it, click
+  again to reverse, click a third time to go back to the default (favourites first, then busiest).
+  Your choice sticks across restarts.
+- **Servers** — the list can now be filtered and searched: free-text search across name, address
+  and player names, plus mod/gamemode/map dropdowns and has-players/not-full/no-password/waiting-
+  for-an-opponent toggles, all combinable. A "Showing X of Y" count appears while a filter is
+  active, one click clears every field, and a filter that matches nothing says so instead of
+  showing a blank list. Filters and search reset each time you open the list — nothing stays
+  hidden by default.
+- **Servers** — the list now says what it's doing: a live "N servers found, M still being queried"
+  readout (then a players-fetched count) while a scan runs, a clear empty state with a link
+  straight to source settings when nothing came back, an idle state before the first scan ever
+  runs, and any source that failed named by its address with its actual reason, shown alongside
+  whatever the other sources did return. Rows now stream in live as a scan progresses instead of
+  only updating once it finishes.
+- **Servers** — click a server to see what's going on there: a detail pane opens beside the list
+  with the address, mod, map, gamemode, players, ping, password and the engine/protocol it's
+  running, and refreshes itself the moment a scan round finishes.
 - **Linux** — a Windows Quake II build (Steam, GOG, a folder carried over from another machine)
   now plays on Linux too: the launcher offers wine or umu-run as a runner and launches through it
   when you pick one.
@@ -24,6 +83,16 @@ version section when a release actually ships.
   Zero, and Steam takes it from there. The tradeoff: no playtime tracking, the launcher's own
   launch arguments and active game directory don't apply, and the launcher won't hold back its
   own writes into that folder while Steam runs the game.
+- **Servers** — a Join button now sits in the list's toolbar and the detail pane's header: pick a
+  server and go, no more copying an address into a shortcut. A mod that doesn't match your active
+  installation gets a warning first (you can still launch anyway), a password-protected server asks
+  for the password before it even tries, and every join lands in your server history. The password
+  never touches the command line the game sees.
+
+### Fixed
+- **Linux** — the installation's Runner section is now a compact, wrapping row of chips instead
+  of a stack of full-width buttons, and the Steam caveat only shows up once Steam is actually the
+  chosen runner, not merely because it's in the list.
 
 
 ## 0.3.0 — 2026-09-22

@@ -108,7 +108,7 @@ page state — story 026's two-script split could not promise that, since a
 screenshot from `shot.mjs` and an axe reading from `a11y.mjs` came from two
 independent app instances that could, in principle, differ.
 
-Today's registry is 32 screens (count the `SCREENS` array in
+Today's registry is 49 screens (count the `SCREENS` array in
 `scripts/lib/screens.mjs` — do not carry this number forward uncounted, it
 has drifted before) across 2 fixture variants (`populated`, `empty`) with no
 screen marked `coldStart` (see below), so a full `ui:verify` run does **2**
@@ -1434,6 +1434,30 @@ concrete file to prove survives, both in existence and in content.
 shows), and `remove-dialog-store-note` (AC4). The trigger itself
 (`installation-remove-${installation.id}`, `LibraryView.tsx`) always opens the dialog for these two
 fixtures, since the default `confirmBeforeRemoving: true` setting is untouched by this flow.
+
+## Servers list status screens (story 121 D2)
+
+Four screens prove the servers list's status panel (`ServersListStatus.tsx`, story 121 D1) for
+real, driven against loopback-only stubs (`scripts/lib/servers-stub.mjs`) — never a real master or
+game server:
+
+- **`servers-list-empty`** (variant `servers-list-empty`) — every shipped source disabled and no
+  manual/favourite servers at all, so "Refresh servers" genuinely finds nothing:
+  `servers-list-empty` and its `servers-list-empty-settings` button.
+- **`servers-list-populated`** (variant `servers-list`) — three loopback dgram responders
+  (`startServerResponders`) answering instantly, fed to the fixture's seeded `http-list` source
+  through a stub HTTP list server (`startListServer`) — ordinary populated rows.
+- **`servers-list-loading`** (variant `servers-list`) — the same three stub responders, delayed to
+  ~80% of the fixture's seeded `scan.timeoutMs` so the scan is still running when the shot is taken;
+  waits for `servers-list-loading`'s own `data-found` attribute to be a genuine positive count.
+- **`servers-list-error`** (variant `servers-list-error`) — the same working stub `http-list`
+  source alongside a second `http-list` source pointing at `SERVERS_DEAD_LIST_URL` (a loopback port
+  nothing binds), so one source fails while the other's rows still render — `servers-list-source-
+  failures` next to real `servers-row-*` elements, proving a source failure never hides the rest of
+  the list.
+
+Each screen's `navigate()` opens the Servers view and waits for `servers-scan-status[data-running=
+"false"]` before doing anything else, so the registry's run order never matters.
 
 ## Baselines and CI
 

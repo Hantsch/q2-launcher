@@ -34,6 +34,31 @@ import {
   type TilePlacement,
 } from '@shared/modules/home'
 import { isLatin1Text } from '@shared/config/q2-charset'
+import {
+  DEFAULT_MASTER_SOURCES,
+  DEFAULT_SERVERS_STATE,
+  SCAN_AUTO_REFRESH_INTERVAL_CHOICES_MS,
+  SCAN_CONCURRENCY_CHOICES,
+  SCAN_MIN_SPACING_CHOICES_MS,
+  SCAN_RETRIES_CHOICES,
+  SCAN_TIMEOUT_CHOICES_MS,
+  favouriteServerEntrySchema,
+  manualServerEntrySchema,
+  serverHistoryEntrySchema,
+  serverListSortSchema,
+  serverSourceEntrySchema,
+  watchlistEntrySchema,
+  type FavouriteServerEntry,
+  type ManualServerEntry,
+  type ServerHistoryEntry,
+  type ServerListSort,
+  type ServerSourceEntry,
+  type ServersScanSettings,
+  type ServersState,
+  type WatchlistEntry,
+} from '@shared/modules/servers'
+import { parseServerAddress } from '@shared/servers/address'
+import { validateMasterSourceAddress } from '@shared/servers/master-source-address'
 import { engineKindSchema, settingsObjectSchema, sourceSchema } from '@shared/schemas'
 import type { Installation, LauncherSettings, WindowState } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
@@ -43,6 +68,12 @@ import {
   WINDOW_MIN_HEIGHT,
   WINDOW_MIN_WIDTH,
 } from '@shared/constants'
+// Story 113 D4: the history cap lives with the history's other rules
+// (`modules/servers/history-log.ts`), and the parse path reuses it rather than re-deriving a
+// `slice()` here - same direction of dependency as `services/state.ts` -> `pruneFailures`
+// (`modules/downloads/failure-log.ts`) and `lib/renderer-source.ts` -> `modules/home/images/paths`.
+// That file is pure and imports nothing from `lib/`, so this cannot cycle.
+import { capServerHistory } from '../modules/servers/history-log'
 
 /**
  * Runtime validation for everything that crosses a trust boundary: the state
@@ -1141,6 +1172,283 @@ export function parseHomeLayout(raw: unknown): HomeLayout {
       return true
     })
   return { tiles }
+}
+
+/**
+ * Story 110 D2: the persisted `servers` top-level `state.json` key. Defensive at two levels, same
+ * combination `parseHomeLayout`/`parseDownloadsSettings` use separately: an envelope check (a raw
+ * value that isn't even "an object with array-ish collection keys" falls back to a *fresh clone* of
+ * `DEFAULT_SERVERS_STATE` - never the shared constant itself, so a caller mutating the result can't
+ * corrupt the default for the next call) plus row-level dropping within each collection
+ * (`parseForgivingRows`'s convention: one malformed row costs only itself, siblings survive) plus
+ * field-level `.catch()` on `scan`'s four knobs (`downloadsSettingsSchema`'s convention: one bad
+ * knob falls back to its own default, not the whole `scan` object).
+ *
+ * Every address (`sources`/`favourites`/`manualServers`/`history`) is re-validated with
+ * `parseServerAddress` - the zod schemas here only check that `address` is *a string*, not that
+ * it's a safe one (see `src/shared/servers/address.ts`'s file doc comment for why an unvalidated
+ * address is a `+connect` argument-injection risk, not just a wrong-hostname one). A row whose
+ * address fails that check is dropped like any other malformed row, and a row that survives has its
+ * `address` field replaced by `parseServerAddress`'s own normalized `host:port` form rather than
+ * whatever casing/shape the raw value carried.
+ *
+ * Finally, `sources` is deduplicated by `id` and each of the three address-keyed collections is
+ * deduplicated by normalized address (first occurrence wins) - the same "avoid duplicate React
+ * keys from a hand-edited or foreign file" reasoning as `parseHomeLayout`'s `moduleId` dedupe pass.
+ */
+function cloneDefaultServersState(): ServersState {
+  return structuredClone(DEFAULT_SERVERS_STATE)
+}
+
+/**
+ * Story 111 D2: unlike the other three address-keyed collections below (which are always
+ * `host:port` candidates re-validated by `parseServerAddress`), a source row's address shape
+ * depends on its own `type` - a `udp-master` row is a `host:port` pair, an `http-list` row is an
+ * absolute URL - so this uses the type-aware `validateMasterSourceAddress` (story 111 D1) instead.
+ * A row whose type/address combination fails its own rulebook is dropped like any other malformed
+ * row (`parseServersState`'s row-level-drop convention).
+ */
+function parseServerSourceRow(raw: unknown): ServerSourceEntry | null {
+  const result = serverSourceEntrySchema.safeParse(raw)
+  if (!result.success) return null
+  const address = validateMasterSourceAddress(result.data.type, result.data.address)
+  if (!address.ok) return null
+  return { ...result.data, address: address.normalized }
+}
+
+function parseFavouriteServerRow(raw: unknown): FavouriteServerEntry | null {
+  const result = favouriteServerEntrySchema.safeParse(raw)
+  if (!result.success) return null
+  const address = parseServerAddress(result.data.address)
+  if (!address.ok) return null
+  return { ...result.data, address: address.normalized }
+}
+
+function parseManualServerRow(raw: unknown): ManualServerEntry | null {
+  const result = manualServerEntrySchema.safeParse(raw)
+  if (!result.success) return null
+  const address = parseServerAddress(result.data.address)
+  if (!address.ok) return null
+  return { ...result.data, address: address.normalized }
+}
+
+function parseServerHistoryRow(raw: unknown): ServerHistoryEntry | null {
+  const result = serverHistoryEntrySchema.safeParse(raw)
+  if (!result.success) return null
+  const address = parseServerAddress(result.data.address)
+  if (!address.ok) return null
+  return { ...result.data, address: address.normalized }
+}
+
+/**
+ * Story 131 D1: one persisted watchlist entry row, mirroring `parseManualServerRow`'s shape - the
+ * only field with anything to validate beyond `watchlistEntrySchema` itself is `mode` (an unknown
+ * mode fails the schema's own `z.enum()` and the row is dropped), so unlike the address-keyed rows
+ * above there is no second, domain-specific re-validation step here.
+ */
+function parseWatchlistEntryRow(raw: unknown): WatchlistEntry | null {
+  const result = watchlistEntrySchema.safeParse(raw)
+  return result.success ? result.data : null
+}
+
+/** First occurrence wins - mirrors `parseHomeLayout`'s `moduleId` dedupe pass. */
+function dedupeByKey<T>(rows: T[], keyOf: (row: T) => string): T[] {
+  const seenKeys = new Set<string>()
+  return rows.filter((row) => {
+    const key = keyOf(row)
+    if (seenKeys.has(key)) return false
+    seenKeys.add(key)
+    return true
+  })
+}
+
+/**
+ * Story 115 D2, review fix: extends the four original knobs with the three settings D1 added, and
+ * checks every numeric field against its own `SCAN_*_CHOICES` list (not a bare `.min()/.max()`
+ * range, which accepts an in-range value with no matching `<Select>` option, e.g. an old
+ * pre-choice-list persisted value like `concurrency: 8`/`timeoutMs: 2000`/`minSpacingMs: 50`) -
+ * mirrors `downloadsSettingsSchema`'s `archiveCacheBudgetGB` field exactly: `.refine()` against the
+ * choice list, `.catch(default)` on top, so a value that is not a member of that field's own choice
+ * list falls back to that field's own default the same as a non-number value does, never dropping
+ * the whole `scan` object. The whole-object `.catch()` below stays as the "not even an object"
+ * fallback tier, coexisting with these field-level tiers.
+ */
+const serversScanSettingsForgivingSchema = z
+  .object({
+    concurrency: z
+      .number()
+      .refine((value) => (SCAN_CONCURRENCY_CHOICES as readonly number[]).includes(value))
+      .catch(DEFAULT_SERVERS_STATE.scan.concurrency),
+    timeoutMs: z
+      .number()
+      .refine((value) => (SCAN_TIMEOUT_CHOICES_MS as readonly number[]).includes(value))
+      .catch(DEFAULT_SERVERS_STATE.scan.timeoutMs),
+    retries: z
+      .number()
+      .refine((value) => (SCAN_RETRIES_CHOICES as readonly number[]).includes(value))
+      .catch(DEFAULT_SERVERS_STATE.scan.retries),
+    minSpacingMs: z
+      .number()
+      .refine((value) => (SCAN_MIN_SPACING_CHOICES_MS as readonly number[]).includes(value))
+      .catch(DEFAULT_SERVERS_STATE.scan.minSpacingMs),
+    autoScanOnOpen: z.boolean().catch(DEFAULT_SERVERS_STATE.scan.autoScanOnOpen),
+    autoRefreshEnabled: z.boolean().catch(DEFAULT_SERVERS_STATE.scan.autoRefreshEnabled),
+    autoRefreshIntervalMs: z
+      .number()
+      .refine((value) =>
+        (SCAN_AUTO_REFRESH_INTERVAL_CHOICES_MS as readonly number[]).includes(value),
+      )
+      .catch(DEFAULT_SERVERS_STATE.scan.autoRefreshIntervalMs),
+  })
+  .catch(() => ({ ...DEFAULT_SERVERS_STATE.scan }))
+
+function parseServersScanSettings(raw: unknown): ServersScanSettings {
+  return serversScanSettingsForgivingSchema.parse(raw)
+}
+
+/**
+ * The envelope shape loose enough that "missing/garbled collection key" degrades per-key, while
+ * anything that isn't even an object (or is `null`) fails outright and falls back to
+ * `cloneDefaultServersState()` wholesale - same two-tier shape as `parseHomeLayout`'s `tiles`
+ * envelope check.
+ *
+ * Story 111 D2: `sources` is the one field with a real, non-empty default -
+ * `DEFAULT_MASTER_SOURCES`, the one shipped master/list source - applied via a genuine zod
+ * `.default()`, not read-time re-seeding logic (the story's own decision: "Defaults are the
+ * `sources` field's zod default, not a re-seed on read"). `.catch([])` still sits underneath it for
+ * a *present-but-malformed* value (e.g. `sources` is a string) - same "field-level fallback" rule
+ * every other field here follows - while `.default()` only fires when the key is `undefined`
+ * (absent entirely, or present as `undefined`), which is the one case that means "never customised"
+ * rather than "customised to empty". A *present* `sources: []` is neither: it parses straight
+ * through as `[]` and is returned as-is, exactly as the story requires ("an explicitly stored `[]`
+ * stays empty").
+ */
+const serversStateEnvelopeSchema = z.object({
+  sources: z
+    .array(z.unknown())
+    .catch([])
+    .default(() => structuredClone(DEFAULT_MASTER_SOURCES)),
+  favourites: z.array(z.unknown()).catch([]),
+  manualServers: z.array(z.unknown()).catch([]),
+  history: z.array(z.unknown()).catch([]),
+  // Story 131 D1: missing entirely (every `state.json` predating this story) degrades to `[]` via
+  // `.catch([])`, same as every other collection here - no `.default()` needed since `[]` is also
+  // this field's own out-of-the-box value (unlike `sources`, which seeds real rows).
+  watchlist: z.array(z.unknown()).catch([]),
+})
+
+export function parseServersState(raw: unknown): ServersState {
+  // Story 111 D2: a `raw` of exactly `undefined` is "the `servers` key is missing from
+  // `state.json` entirely" (`StateStore` calls this with `doc['servers']`, which is `undefined`
+  // for a file predating story 110) - a normal, expected shape, not foreign junk, so it is treated
+  // as `{}` before the envelope schema ever sees it. That lets `sources`' own `.default()` above
+  // decide the outcome instead of the whole-object `cloneDefaultServersState()` fallback below,
+  // which stays reserved for input that isn't even a plausible object (a string, a number, `null`).
+  const envelope = serversStateEnvelopeSchema.safeParse(raw === undefined ? {} : raw)
+  if (!envelope.success) return cloneDefaultServersState()
+
+  const sources = dedupeByKey(
+    envelope.data.sources.map(parseServerSourceRow).filter((row): row is ServerSourceEntry => row !== null),
+    (row) => row.id,
+  )
+  const favourites = dedupeByKey(
+    envelope.data.favourites
+      .map(parseFavouriteServerRow)
+      .filter((row): row is FavouriteServerEntry => row !== null),
+    (row) => row.address,
+  )
+  const manualServers = dedupeByKey(
+    envelope.data.manualServers
+      .map(parseManualServerRow)
+      .filter((row): row is ManualServerEntry => row !== null),
+    (row) => row.address,
+  )
+  // Story 113 D-G: the history cap is a store invariant, not an append-path detail - a hand-edited
+  // or foreign `state.json` carrying 500 rows must not reintroduce an unbounded list, so the same
+  // `capServerHistory` the append path uses truncates here too. It only cuts the tail (oldest
+  // first, the file's order kept), after the dedupe-by-address above, never instead of it.
+  const history = capServerHistory(
+    dedupeByKey(
+      envelope.data.history.map(parseServerHistoryRow).filter((row): row is ServerHistoryEntry => row !== null),
+      (row) => row.address,
+    ),
+  )
+  const scan = parseServersScanSettings((raw as { scan?: unknown } | null)?.scan)
+
+  // Story 119 D2: `listSort` is field-level-forgiving like every other optional field here - an
+  // absent or malformed value simply omits the key (default order) rather than degrading the rest
+  // of the state, so it is parsed straight off `raw` (not through the envelope schema above, which
+  // only ever handles the four array-shaped collections) and only spread in on success.
+  const listSortResult = serverListSortSchema.safeParse((raw as { listSort?: unknown } | null)?.listSort)
+  const listSort: ServerListSort | undefined = listSortResult.success ? listSortResult.data : undefined
+
+  // Story 131 D1: dedupe by `id`, first occurrence wins - same convention as `sources` above (also
+  // an id-keyed collection, unlike the three address-keyed ones).
+  const watchlist = dedupeByKey(
+    envelope.data.watchlist
+      .map(parseWatchlistEntryRow)
+      .filter((row): row is WatchlistEntry => row !== null),
+    (row) => row.id,
+  )
+
+  return {
+    sources,
+    favourites,
+    manualServers,
+    history,
+    scan,
+    watchlist,
+    ...(listSort ? { listSort } : {}),
+  }
+}
+
+/**
+ * Story 128 D4: one persisted unlock-code redemption row. Only `code` and `redeemedAt` are ever
+ * stored - the features/label/expiry are re-derived by re-verifying the code itself
+ * (`UnlockService`), never persisted redundantly, so there is nothing here that could drift from
+ * what the code actually says.
+ */
+export interface UnlockCodeEntry {
+  code: string
+  redeemedAt: string
+}
+
+export interface UnlockState {
+  codes: UnlockCodeEntry[]
+}
+
+/** Well above anything a real user redeems; bounds work on a hand-edited or foreign file. */
+/** Exported so `UnlockService.redeem` can apply the same cap itself, keeping the newest entries,
+ * instead of relying on this module's own load-time truncation (which is not "keep the newest"). */
+export const MAX_UNLOCK_CODES = 32
+
+const unlockCodeEntrySchema = z.object({
+  code: z.string().min(1),
+  redeemedAt: z.string().min(1),
+})
+
+const unlockStateEnvelopeSchema = z.object({
+  codes: z.array(z.unknown()).catch([]),
+})
+
+/**
+ * Story 128 D4: mirrors `parseServersState`'s shape exactly - a forgiving envelope parse, then
+ * row-level dropping (`unlockCodeEntrySchema.safeParse`, one bad row costs only itself), then
+ * dedupe-by-key (`code`, first occurrence wins - `dedupeByKey`, same helper `parseServersState`
+ * uses for its own address-keyed collections) and a cap (`MAX_UNLOCK_CODES`, same "truncate the
+ * tail after dedupe" convention as `capServerHistory`). `undefined`/missing input (a `state.json`
+ * predating this story) degrades to `{ codes: [] }`, same as every other additive top-level key.
+ */
+export function parseUnlockState(raw: unknown): UnlockState {
+  const envelope = unlockStateEnvelopeSchema.safeParse(raw === undefined ? {} : raw)
+  if (!envelope.success) return { codes: [] }
+
+  const rows = envelope.data.codes
+    .map((row) => unlockCodeEntrySchema.safeParse(row))
+    .filter((result): result is z.ZodSafeParseSuccess<UnlockCodeEntry> => result.success)
+    .map((result) => result.data)
+
+  return { codes: dedupeByKey(rows, (row) => row.code).slice(0, MAX_UNLOCK_CODES) }
 }
 
 // IPC-payload schemas moved to `src/shared/ipc-schemas.ts` (story 036, D1) -

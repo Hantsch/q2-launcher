@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { initI18n } from '../i18n'
 import type { RendererModule } from '../modules'
@@ -57,9 +57,11 @@ describe('SettingsView', () => {
 
     // Ordering: Library section, then the contributed section, then About -
     // checked via DOM query order (document position), not just presence.
+    // Scoped to the section column: the side nav repeats every section title.
+    const content = within(screen.getByTestId('settings-content'))
     const panels = Array.from(document.querySelectorAll('[class*="panel"]'))
-    const libraryHeading = screen.getByText('Library')
-    const aboutHeading = screen.getByText('About')
+    const libraryHeading = content.getByRole('heading', { name: 'Library' })
+    const aboutHeading = content.getByRole('heading', { name: 'About' })
 
     const libraryPanel = panels.find((panel) => panel.contains(libraryHeading))!
     const aboutPanel = panels.find((panel) => panel.contains(aboutHeading))!
@@ -79,9 +81,29 @@ describe('SettingsView', () => {
   it("the shell's own sections (Library, About) still render unchanged when no module contributes a section", () => {
     render(createElement<SettingsViewProps>(SettingsView, { modules: [] }))
 
-    expect(screen.getByText('Library')).toBeTruthy()
-    expect(screen.getByText('About')).toBeTruthy()
+    const content = within(screen.getByTestId('settings-content'))
+    expect(content.getByRole('heading', { name: 'Library' })).toBeTruthy()
+    expect(content.getByRole('heading', { name: 'About' })).toBeTruthy()
     expect(screen.queryByTestId(/settings-section-/)).toBeNull()
+  })
+
+  it('leads with the version card and lists every section in the side nav, in page order', () => {
+    render(createElement<SettingsViewProps>(SettingsView, { modules: [] }))
+
+    const content = screen.getByTestId('settings-content')
+    const firstPanel = content.querySelector('[class*="panel"]')
+    expect(firstPanel?.getAttribute('data-testid')).toBe('settings-version')
+
+    const nav = within(screen.getByTestId('settings-nav'))
+    const labels = nav.getAllByRole('button').map((button) => button.textContent)
+    expect(labels).toEqual([
+      'Version & updates',
+      'Appearance',
+      'Launching',
+      'Library',
+      'Unlock code',
+      'About',
+    ])
   })
 
   it('sorts multiple contributed sections by order then module id', () => {

@@ -793,13 +793,15 @@ export function ConfigView() {
                     `scripts/flows/config-header-geometry.mjs`). A gap here, a `leading-*` or
                     `items-start` instead of `items-center` costs an editor line for breathing room
                     no acceptance criterion asks for. `items-center` on the header is what keeps
-                    back and actions centred against the now-taller zone (AC3).
+                    back and actions centred against the now-taller zone (AC3). Line 1 is pinned
+                    to the name's 20px (`h-5`): the unsaved `Badge` is 21px tall and would
+                    otherwise grow the header by 1px the moment it appears (AC1/AC3).
                   */}
                   <div
                     data-testid="config-profile-identity"
                     className="flex min-w-0 flex-1 flex-col items-center justify-center"
                   >
-                    <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex h-5 min-w-0 items-center gap-2">
                       <h2 className="min-w-0 truncate font-display text-sm tracking-[0.06em] text-ink uppercase">
                         {selected.name}
                       </h2>

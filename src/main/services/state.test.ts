@@ -3,8 +3,16 @@ import { rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { STATE_SCHEMA_VERSION } from '@shared/constants'
 import { DEFAULT_DOWNLOADS_SETTINGS, type DownloadFailure } from '@shared/modules/downloads'
 import { DEFAULT_HOME_LAYOUT, type HomeLayout } from '@shared/modules/home'
+import {
+  DEFAULT_MASTER_SOURCES,
+  DEFAULT_SERVERS_STATE,
+  type ManualServerEntry,
+  type ServerHistoryEntry,
+  type ServersState,
+} from '@shared/modules/servers'
 import { StateStore } from './state'
 
 describe('StateStore downloads settings (story 072 D2)', () => {
@@ -144,6 +152,222 @@ describe('StateStore homeLayout (story 086 D1)', () => {
     const reloaded = new StateStore(filePath)
     await reloaded.load()
 
+    expect(reloaded.homeLayout().tiles).toEqual([
+      { moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 },
+    ])
+  })
+})
+
+describe('StateStore servers state (story 110 D3)', () => {
+  let filePath: string
+  let state: StateStore
+
+  beforeEach(async () => {
+    filePath = join(tmpdir(), `q2-launcher-state-servers-${randomUUID()}.json`)
+    state = new StateStore(filePath)
+    await state.load()
+  })
+
+  afterEach(async () => {
+    await rm(filePath, { force: true })
+    await rm(`${filePath}.tmp`, { force: true })
+    await rm(`${filePath}.bak`, { force: true })
+  })
+
+  it('starts with the default servers state', () => {
+    expect(state.serversState()).toEqual(DEFAULT_SERVERS_STATE)
+  })
+
+  // Story 111 D2 (AC1): a genuinely fresh install - no state.json on disk yet, so `StateStore`
+  // builds its initial value from `defaults()` (`structuredClone(DEFAULT_SERVERS_STATE)`), never
+  // through `parseServersState` - must still see the shipped master/list source, not an
+  // empty list. This is the one path the schema-level `.default()` in `main/lib/schemas.ts` cannot
+  // reach by itself, since there is no `state.json` for it to parse.
+  it('a fresh install (no state.json on disk) ships the default master source', () => {
+    expect(state.serversState().sources).toHaveLength(1)
+    expect(state.serversState().sources).toEqual(DEFAULT_MASTER_SOURCES)
+  })
+
+  it('the servers key is its own top-level state key and LauncherSettings is untouched', () => {
+    const settingsBefore = state.settings()
+
+    // servers is a distinct top-level key with its own shape...
+    expect(state.serversState()).toEqual(DEFAULT_SERVERS_STATE)
+    expect(Object.keys(state.serversState()).sort()).toEqual(
+      ['favourites', 'history', 'manualServers', 'scan', 'sources', 'watchlist'].sort(),
+    )
+
+    // ...and adding it left LauncherSettings's own shape and values untouched.
+    expect(state.settings()).toEqual(settingsBefore)
+    expect('servers' in state.settings()).toBe(false)
+  })
+
+  it('servers state round-trips through state.json and touches no other setting', async () => {
+    const settingsBefore = state.settings()
+    const installationsBefore = state.installations()
+    const homeLayoutBefore = state.homeLayout()
+
+    const custom: ServersState = {
+      sources: [{ id: 'src-1', type: 'udp-master', address: 'master.example.com:27900', enabled: true }],
+      favourites: [{ address: '1.2.3.4:27910', addedAt: '2026-01-01T00:00:00.000Z' }],
+      manualServers: [
+        { address: '5.6.7.8:27911', origin: 'manual', addedAt: '2026-01-02T00:00:00.000Z' },
+      ],
+      history: [{ address: '9.10.11.12:27912', connectedAt: '2026-01-03T00:00:00.000Z' }],
+      scan: {
+        concurrency: 4,
+        timeoutMs: 1500,
+        retries: 2,
+        minSpacingMs: 15_000,
+        autoScanOnOpen: true,
+        autoRefreshEnabled: false,
+        autoRefreshIntervalMs: 60000,
+      },
+      watchlist: [],
+    }
+    const written = state.setServersState(custom)
+    await state.settle()
+
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+
+    expect(reloaded.serversState()).toEqual(written)
+    expect(reloaded.serversState()).toEqual(custom)
+    // Other state keys are untouched by this write.
+    expect(reloaded.settings()).toEqual(settingsBefore)
+    expect(reloaded.installations()).toEqual(installationsBefore)
+    expect(reloaded.homeLayout()).toEqual(homeLayoutBefore)
+  })
+
+  // Story 113 AC5: manual servers and history are the two collections story 113 writes, and both
+  // live in story 110's `servers` state key - so the proof they survive a restart is a second,
+  // independent `StateStore` over the same file reading them back unchanged, rows and order intact.
+  it('manual servers and history survive a state store reload', async () => {
+    const manualServers: ManualServerEntry[] = [
+      { address: '1.2.3.4:27910', origin: 'manual', addedAt: '2026-01-02T00:00:00.000Z' },
+      { address: 'q2.example.com:27911', origin: 'manual', addedAt: '2026-01-04T00:00:00.000Z' },
+    ]
+    const history: ServerHistoryEntry[] = [
+      { address: '9.10.11.12:27912', connectedAt: '2026-01-05T00:00:00.000Z' },
+      { address: '1.2.3.4:27910', connectedAt: '2026-01-03T00:00:00.000Z' },
+    ]
+
+    state.setServersState({ ...state.serversState(), manualServers, history })
+    await state.settle()
+
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+
+    expect(reloaded.serversState().manualServers).toEqual(manualServers)
+    expect(reloaded.serversState().history).toEqual(history)
+    // The sibling collections in the same key came back untouched too.
+    expect(reloaded.serversState().sources).toEqual(DEFAULT_MASTER_SOURCES)
+    expect(reloaded.serversState().favourites).toEqual([])
+  })
+
+  it('a state.json written without the servers key loads with the shipped default (three sources, everything else empty), with no schema bump', async () => {
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        schemaVersion: STATE_SCHEMA_VERSION,
+      }),
+      'utf-8',
+    )
+
+    const reloaded = new StateStore(filePath)
+    const doc = await reloaded.load()
+
+    expect(reloaded.serversState()).toEqual(DEFAULT_SERVERS_STATE)
+    // The file was already on the current schema version - no migration was needed or ran to
+    // backfill the missing `servers` key; it degraded through the parser alone, same as
+    // `homeLayout`'s missing-key case above.
+    expect(doc.schemaVersion).toBe(STATE_SCHEMA_VERSION)
+    expect(reloaded.recoveredFrom).toBeNull()
+  })
+
+  // Story 131 D1: the persisted contract only - a matcher/service/worker come in later
+  // deliverables, so these tests cover exactly what this D adds: round-trip, row-level drop of an
+  // unknown mode, and a missing key defaulting to `[]`.
+  it('a watchlist entry round-trips with exactly one of the three match modes', async () => {
+    const watchlist: ServersState['watchlist'] = [
+      { id: 'wl-exact', name: 'Player1', mode: 'exact', tooSlow: false },
+      { id: 'wl-substring', name: 'Player2', mode: 'substring', tooSlow: false },
+      { id: 'wl-regex', name: '^Player[0-9]+$', mode: 'regex', tooSlow: true },
+    ]
+
+    state.setServersState({ ...state.serversState(), watchlist })
+    await state.settle()
+
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+
+    expect(reloaded.serversState().watchlist).toEqual(watchlist)
+  })
+
+  it('a watchlist row with an unknown mode is dropped on reload', async () => {
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        schemaVersion: STATE_SCHEMA_VERSION,
+        servers: {
+          ...DEFAULT_SERVERS_STATE,
+          watchlist: [
+            { id: 'wl-good', name: 'Player1', mode: 'exact', tooSlow: false },
+            { id: 'wl-bad', name: 'Player2', mode: 'fuzzy', tooSlow: false },
+          ],
+        },
+      }),
+      'utf-8',
+    )
+
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+
+    expect(reloaded.serversState().watchlist).toEqual([
+      { id: 'wl-good', name: 'Player1', mode: 'exact', tooSlow: false },
+    ])
+  })
+
+  it('a state file without a watchlist key parses to an empty list', async () => {
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        schemaVersion: STATE_SCHEMA_VERSION,
+        servers: {
+          sources: DEFAULT_MASTER_SOURCES,
+          favourites: [],
+          manualServers: [],
+          history: [],
+          scan: DEFAULT_SERVERS_STATE.scan,
+        },
+      }),
+      'utf-8',
+    )
+
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+
+    expect(reloaded.serversState().watchlist).toEqual([])
+  })
+
+  it('a corrupt servers value degrades without taking siblings down', async () => {
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        schemaVersion: 1,
+        servers: 'not-an-object',
+        homeLayout: {
+          tiles: [{ moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 }],
+        },
+      }),
+      'utf-8',
+    )
+
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+
+    expect(reloaded.serversState()).toEqual(DEFAULT_SERVERS_STATE)
+    // The sibling key survives untouched even though servers was corrupt.
     expect(reloaded.homeLayout().tiles).toEqual([
       { moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 },
     ])

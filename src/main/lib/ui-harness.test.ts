@@ -1,12 +1,15 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { DetectedRunner } from '@shared/types'
 import {
   HARNESS_CONTENT_REPO_BASE_ENV,
   HARNESS_EXTERNAL_URLS_FILE,
+  UI_HARNESS_DETECTED_RUNNERS_ENV,
   parseHarnessBaseUrl,
   recordHarnessExternalUrl,
+  uiHarnessDetectedRunners,
 } from './ui-harness'
 
 /**
@@ -26,6 +29,75 @@ import {
  * Real files in an `mkdtemp` directory via the `filePath` override, exactly like
  * `services/update/store.test.ts` - the criterion under test is what lands on disk.
  */
+
+/**
+ * Story 105 D3: `uiHarnessDetectedRunners` mirrors `uiHarnessSteamExecutable`
+ * (`src/main/services/runners.test.ts`'s "the harness seam overrides the steam executable only
+ * behind the gate") - same double gate, same "closed or unset -> undefined, real detection runs"
+ * convention - but adds JSON + zod validation, so an invalid payload also has to fall through
+ * (rather than throw) and log a warning instead of silently doing nothing.
+ */
+const warnSpy = vi.hoisted(() => vi.fn())
+vi.mock('./logger', () => ({ scopedLogger: () => ({ warn: warnSpy }) }))
+
+describe('uiHarnessDetectedRunners', () => {
+  const VALID: DetectedRunner[] = [
+    { kind: 'native', id: 'native', path: '', available: true },
+    { kind: 'wine', id: 'wine', path: '/usr/bin/wine', available: true },
+  ]
+
+  beforeEach(() => {
+    warnSpy.mockClear()
+  })
+
+  it('gate closed: returns undefined even with a valid payload set', () => {
+    expect(
+      uiHarnessDetectedRunners({
+        isDev: false,
+        env: { [UI_HARNESS_DETECTED_RUNNERS_ENV]: JSON.stringify(VALID) },
+      }),
+    ).toBeUndefined()
+    expect(warnSpy).not.toHaveBeenCalled()
+  })
+
+  it('gate open, variable unset: returns undefined', () => {
+    expect(uiHarnessDetectedRunners({ isDev: false, env: { Q2L_UI_HARNESS: '1' } })).toBeUndefined()
+    expect(warnSpy).not.toHaveBeenCalled()
+  })
+
+  it('gate open, valid JSON matching DetectedRunner[]: returns the parsed list verbatim', () => {
+    expect(
+      uiHarnessDetectedRunners({
+        isDev: false,
+        env: { Q2L_UI_HARNESS: '1', [UI_HARNESS_DETECTED_RUNNERS_ENV]: JSON.stringify(VALID) },
+      }),
+    ).toEqual(VALID)
+    expect(warnSpy).not.toHaveBeenCalled()
+  })
+
+  it('gate open, malformed JSON: returns undefined and logs a warning', () => {
+    expect(
+      uiHarnessDetectedRunners({
+        isDev: false,
+        env: { Q2L_UI_HARNESS: '1', [UI_HARNESS_DETECTED_RUNNERS_ENV]: '{not json' },
+      }),
+    ).toBeUndefined()
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('gate open, valid JSON that fails the DetectedRunner schema: returns undefined and logs a warning', () => {
+    expect(
+      uiHarnessDetectedRunners({
+        isDev: false,
+        env: {
+          Q2L_UI_HARNESS: '1',
+          [UI_HARNESS_DETECTED_RUNNERS_ENV]: JSON.stringify([{ kind: 'not-a-kind', id: 'x' }]),
+        },
+      }),
+    ).toBeUndefined()
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+  })
+})
 
 describe('HARNESS_CONTENT_REPO_BASE_ENV', () => {
   it('is the variable name downloads and news both read', () => {

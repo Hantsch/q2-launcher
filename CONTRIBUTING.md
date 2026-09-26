@@ -31,6 +31,35 @@ run.
 | `npm run icon`        | regenerates `build/icon.{png,ico}` from `scripts/generate-icon.mjs` |
 | `npm run package:win` | typecheck, build, then an NSIS installer + zip in `release/`        |
 
+### Before a PR into main: `npm run verify:release`
+
+One command that answers "will the PR checks go green, and will the release
+run after the merge?" (`scripts/verify-release.mjs`). It needs Docker running
+and [act](https://github.com/nektos/act) on the PATH (Windows:
+`winget install nektos.act`).
+
+It verifies what GitHub will actually run on: the **merge of your branch into
+`origin/main`** (a PR's checks never run on the branch alone), taken from your
+working tree as `git add -A` would commit it, checked out into clean snapshot
+folders under the system temp dir — no `node_modules`, no ignored files, no
+branch or index of yours touched. Then:
+
+| step | mirrors |
+| ---- | ------- |
+| release plan (`release.mjs --print-plan`) | `release.yml`'s `plan` job — refuses on an empty `## Unreleased` or an existing tag |
+| npm ci, typecheck, test, `ui:verify`, `package:win` | `ci.yml`'s Windows leg, `linux-verify.yml`'s axe gate, `release.yml`'s Windows build |
+| act: `ci.yml`, `linux-verify.yml`, `linux-update.yml` | every Linux PR check, one job at a time |
+
+It prints a pass/fail line per step and exits non-zero if any failed. If it
+warns about uncommitted changes, commit exactly those before opening the PR.
+
+A trap it catches that no branch-only check can: after a release, `main` has a
+`release: x.y.z` commit that promoted `## Unreleased` into a version section.
+If your branch does not contain that commit, git's merge can silently file your
+new changelog entries under the *released* version, leaving `## Unreleased`
+empty — and the release job on `main` refuses. Merge `main` into your branch
+and put the entries back under `## Unreleased`.
+
 ### Rehearsing CI locally
 
 The three workflows that run on Linux can each be run here through
@@ -52,19 +81,21 @@ so `--privileged` is what actually works. It applies to the throwaway act
 container only — no workflow asks GitHub's runner for it.
 
 **How far each one actually gets, measured rather than assumed.**
-`ci:local` runs `ci.yml` green end to end. `ci:local:verify` gets through
-packaging the AppImage and then fails to *launch* it (`Process failed to
-launch!`) — `/dev/fuse` and the fuse filesystem are both present in the
-privileged container, so the cause is something else about act's environment
-and is still unidentified. Until it is, the packaged-AppImage workflows can be
-rehearsed in a plain container instead: unpack a clean `git archive` of HEAD
-into an image that has Electron's runtime libraries plus `xvfb` and `libfuse2`,
-and run the workflow's own commands. That route does complete, and is what
-found the four bugs behind the failing CI runs of 2026-09-22.
+The `Process failed to launch!` that used to stop every Electron launch under
+act was a missing `libgtk-3.so.0`: `playwright install-deps chromium` installs
+headless Chromium's libraries, which do not include GTK, and GitHub's runner
+merely happens to preinstall it. The workflows now install `libgtk-3-0t64`
+explicitly. Run act jobs one at a time (`--concurrent-jobs 1`, as
+`verify:release` does): parallel jobs race on act's shared Node tool cache,
+and the loser falls back to the image's npm 11, whose `npm ci` rejects this
+lockfile. And give the container a real `/dev/shm` (`--shm-size=2g`): with
+Docker's 64 MB default the renderer crashes on the news-image screens
+(`Target crashed`, `Unable to capture screenshot`).
 
-Two things these runs still cannot tell you, both of which have produced a
-green local run over a red CI one before:
+Things the `ci:local*` scripts cannot tell you (`verify:release` handles the
+first two), each of which has produced a green local run over a red CI one:
 
+- they run your branch, but a PR's checks run on its **merge into main**.
 - act copies your **working tree**, not the commit (`.actrc`'s
   `--use-gitignore=false`), so untracked and ignored files are present here and
   absent on GitHub.

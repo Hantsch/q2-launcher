@@ -7,6 +7,7 @@ import {
 } from '@shared/modules/downloads'
 import { DEFAULT_SETTINGS, type Installation, type LauncherSettings } from '@shared/types'
 import { DEFAULT_HOME_LAYOUT, type HomeLayout } from '@shared/modules/home'
+import { DEFAULT_SERVERS_STATE, type ServersState } from '@shared/modules/servers'
 import { JsonStore } from '../lib/json-store'
 import { pruneFailures } from '../modules/downloads/failure-log'
 import {
@@ -19,7 +20,10 @@ import {
   parseDownloadsSettings,
   parseHomeLayout,
   parseInstallations,
+  parseServersState,
   parseSettings,
+  parseUnlockState,
+  type UnlockState,
 } from '../lib/schemas'
 import { migrateStateDocument } from './migrations'
 
@@ -97,6 +101,21 @@ export interface LauncherStateDocument {
    * `DEFAULT_HOME_LAYOUT`.
    */
   homeLayout: HomeLayout
+  /**
+   * Story 110 D3: the `servers` module's own top-level `state.json` key (`ServersState` - sources,
+   * favourites, manual servers, history, scan settings). A new top-level key, same "no
+   * `STATE_SCHEMA_VERSION` bump, no migration" precedent as `configProfiles`/`homeLayout` above: it
+   * is purely additive, and a file written before this story simply lacks it and loads as
+   * `DEFAULT_SERVERS_STATE`.
+   */
+  servers: ServersState
+  /**
+   * Story 128 D4: the unlock-code module's own top-level `state.json` key - every code the user has
+   * redeemed on this machine (`code`, `redeemedAt`). A new top-level key, same "no
+   * `STATE_SCHEMA_VERSION` bump, no migration" precedent as `configProfiles`/`servers` above: it is
+   * purely additive, and a file written before this story simply lacks it and loads as `{ codes: [] }`.
+   */
+  unlock: UnlockState
 }
 
 function defaults(): LauncherStateDocument {
@@ -117,6 +136,10 @@ function defaults(): LauncherStateDocument {
     // but cloning here means nothing ever could corrupt the shipped default for the rest of the
     // process's lifetime.
     homeLayout: { tiles: DEFAULT_HOME_LAYOUT.tiles.map((tile) => ({ ...tile })) },
+    // Same reasoning as `homeLayout` above: a deep clone so nothing can mutate the shared
+    // module-level `DEFAULT_SERVERS_STATE` constant for the rest of the process's lifetime.
+    servers: structuredClone(DEFAULT_SERVERS_STATE),
+    unlock: { codes: [] },
   }
 }
 
@@ -149,6 +172,8 @@ export class StateStore {
           downloads: parseDownloadsSettings(doc['downloads']),
           downloadFailures: parseDownloadFailures(doc['downloadFailures']),
           homeLayout: parseHomeLayout(doc['homeLayout']),
+          servers: parseServersState(doc['servers']),
+          unlock: parseUnlockState(doc['unlock']),
         }
       },
     })
@@ -275,6 +300,24 @@ export class StateStore {
 
   setHomeLayout(homeLayout: HomeLayout): HomeLayout {
     return this.store.update((current) => ({ ...current, homeLayout })).homeLayout
+  }
+
+  /** Story 110 D3: the `servers` module's own persisted state (sources, favourites, manual servers, history, scan settings). */
+  serversState(): ServersState {
+    return this.store.get().servers
+  }
+
+  setServersState(servers: ServersState): ServersState {
+    return this.store.update((current) => ({ ...current, servers })).servers
+  }
+
+  /** Story 128 D4: every unlock code redeemed on this machine. */
+  unlockState(): UnlockState {
+    return this.store.get().unlock
+  }
+
+  setUnlockState(unlock: UnlockState): UnlockState {
+    return this.store.update((current) => ({ ...current, unlock })).unlock
   }
 
   /** Waits for pending writes; called on quit. */

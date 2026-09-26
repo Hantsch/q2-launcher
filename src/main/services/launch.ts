@@ -1,5 +1,9 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { basename } from 'node:path'
+import { rm, writeFile } from 'node:fs/promises'
+import { basename, join } from 'node:path'
+import { BASE_GAME_DIR } from '@shared/constants'
+import { CONNECT_CFG_NAME, renderConnectCfg } from '@shared/launch/userinfo'
+import { parseServerAddress } from '@shared/servers/address'
 import {
   IDLE_LAUNCH_STATE,
   STEAM_APP_CLIENTS,
@@ -16,7 +20,13 @@ import {
 } from '@shared/types'
 import { isFile } from '../lib/fs-utils'
 import { scopedLogger } from '../lib/logger'
-import { buildLaunchArgs, previewCommand } from './launch-plan'
+import {
+  buildLaunchArgs,
+  execsConnectCfg,
+  hasUserinfo,
+  previewCommand,
+  resolveEffectiveUserinfo,
+} from './launch-plan'
 import { detectRunners, needsCompatRunner, resolveRunner } from './runners'
 import type { InstallationsService } from './installations'
 import type { WriteLockReader } from './write-guard'
@@ -44,6 +54,18 @@ export interface LaunchDeps {
    * the default, and it is never called at all on the native path (see `plan()`).
    */
   detectRunners?: () => Promise<DetectedRunner[]>
+}
+
+/**
+ * Story 125: best-effort, idempotent removal of the one-shot connect cfg. A missing file is not an
+ * error (`force`); anything else is logged by path only - the file's contents are never read.
+ */
+async function removeConnectCfg(path: string): Promise<void> {
+  try {
+    await rm(path, { force: true })
+  } catch (error) {
+    log.warn(`could not remove the connect cfg ${path}`, error)
+  }
 }
 
 /**
@@ -99,6 +121,10 @@ export class LaunchService {
   private readonly detectRunners: () => Promise<DetectedRunner[]>
   private current: LaunchState = IDLE_LAUNCH_STATE
   private startedAtMs = 0
+  /** Story 125: incremented by every `start()`; see `removeOwnedCfg` there. */
+  private launchSeq = 0
+  /** Story 125 review fix: a `start()` is between its guards and its first state change. */
+  private startInFlight = false
 
   constructor(deps: LaunchDeps) {
     this.installations = deps.installations
@@ -165,7 +191,15 @@ export class LaunchService {
     if (installation.runner === STEAM_RUNNER_CHOICE) {
       detected = await this.detectRunners()
       const handoff = steamHandoffPlan(installation, resolveRunner(installation, detected))
-      if (handoff) return ok(handoff)
+      if (handoff) {
+        // Story 125: a steam:// URL has no way to carry `+connect` (or the connect cfg's
+        // `+exec`), so a join through Steam would silently land in the menu instead.
+        if (input.connect) {
+          log.warn(`refused to join a server through Steam for ${installation.id}: needs a direct launch`)
+          return fail('launch.error.connectNeedsDirectLaunch')
+        }
+        return ok(handoff)
+      }
       // Review fix: an unusable Steam choice degrades to "as if not chosen", never to
       // "half-executed". `resolveRunner` can still pick Steam here (it is available and knows the
       // appid) even though `steamHandoffPlan` refused - e.g. a stored `steamClient` the table does
@@ -210,7 +244,14 @@ export class LaunchService {
   }
 
   async start(input: LaunchInput): Promise<Outcome<LaunchState>> {
-    if (this.isRunning()) {
+    // Story 125 review fix: `phase` only becomes `'starting'` after the sweep, `plan()` and the
+    // connect-cfg write have all been awaited, so on its own `isRunning()` would let a second,
+    // overlapping `start()` (a double-clicked Join) through - and its sweep would delete this
+    // launch's freshly written password cfg before the game read it, while its `launchSeq` bump
+    // would turn this launch's own cleanup into a no-op. `startInFlight` covers exactly that gap.
+    // It is private rather than a broadcast phase so a start that is refused before anything runs
+    // (plan failure, Steam refusing a join) still changes no visible state at all.
+    if (this.isRunning() || this.startInFlight) {
       return fail('launch.error.alreadyRunning')
     }
 
@@ -223,16 +264,74 @@ export class LaunchService {
       return fail('launch.error.installationBusy')
     }
 
+    // Set synchronously, with no `await` between the checks above and here, and cleared on every
+    // way out - by then either `phase` is `'starting'` (so `isRunning()` takes over) or the start
+    // failed and a later one must not be blocked.
+    this.startInFlight = true
+    try {
+      return await this.startReserved(input)
+    } finally {
+      this.startInFlight = false
+    }
+  }
+
+  /** `start()` past its guards, with the in-flight reservation held - see `startInFlight`. */
+  private async startReserved(input: LaunchInput): Promise<Outcome<LaunchState>> {
+    // Story 125: every launch counts, so an event arriving late from an earlier, already
+    // finished launch can never remove the connect cfg this one is about to write.
+    const launchSeq = ++this.launchSeq
+
+    // Story 125: a connect cfg left behind by a run that never reached its own cleanup (the
+    // launcher was killed, the machine went down) still holds a password - it goes before
+    // anything else happens to this installation, whether or not this launch is a join.
+    const installation = this.installations.find(input.installationId)
+    const cfgPath = installation
+      ? join(installation.rootPath, BASE_GAME_DIR, CONNECT_CFG_NAME)
+      : undefined
+    if (cfgPath) await removeConnectCfg(cfgPath)
+
     const planned = await this.plan(input)
     if (!planned.ok) return planned
 
     if (planned.value.handoff) return this.handOff(input.installationId, planned.value)
 
     const { executablePath, args, workingDirectory } = planned.value
+
+    // Story 125: the join password reaches the game through this file and never through argv
+    // or a log line. Written only when the planned command line actually execs it, and
+    // before `spawn`, so it is there when the game starts reading its late commands.
+    const userinfo = resolveEffectiveUserinfo(input)
+    let ownedCfg: string | undefined
+    if (cfgPath && hasUserinfo(userinfo) && execsConnectCfg(args)) {
+      try {
+        await writeFile(cfgPath, renderConnectCfg(userinfo), { mode: 0o600 })
+        ownedCfg = cfgPath
+      } catch (error) {
+        // `error` carries the path and an errno or a rejection reason - never a value.
+        log.error(`could not write the connect cfg for ${input.installationId}`, error)
+        await removeConnectCfg(cfgPath)
+        return fail('launch.error.spawnFailed', { path: executablePath })
+      }
+    }
+
+    /**
+     * Story 125: the cfg has to outlive `spawn()` - the game reads it only once it is up and
+     * running its late commands, which can be long after `spawn()` returns - so it is removed
+     * only when this launch is over: the process exited, errored, or never started. Never right
+     * after `spawn()` returns. Idempotent, and a no-op once a newer launch has begun.
+     */
+    const removeOwnedCfg = async (): Promise<void> => {
+      if (ownedCfg && launchSeq === this.launchSeq) await removeConnectCfg(ownedCfg)
+    }
+
+    const address = input.connect ? parseServerAddress(input.connect) : undefined
+    const connect = address?.ok ? { connect: address.normalized } : {}
+
     this.setState({
       phase: 'starting',
       installationId: input.installationId,
       startedAt: new Date().toISOString(),
+      ...connect,
     })
 
     let child: ChildProcess
@@ -246,6 +345,7 @@ export class LaunchService {
       })
     } catch (error) {
       log.error(`spawn failed for ${executablePath}`, error)
+      await removeOwnedCfg()
       this.setState({
         phase: 'failed',
         installationId: input.installationId,
@@ -255,6 +355,8 @@ export class LaunchService {
     }
 
     this.startedAtMs = Date.now()
+    // Only the argv array is ever logged: `buildLaunchArgs` never reads a userinfo value, so a
+    // join password cannot appear here (story 125).
     log.info(`launching ${executablePath} ${args.join(' ')}`)
 
     child.once('spawn', () => {
@@ -263,10 +365,12 @@ export class LaunchService {
         installationId: input.installationId,
         startedAt: new Date().toISOString(),
         ...(child.pid !== undefined ? { pid: child.pid } : {}),
+        ...connect,
       })
     })
 
     child.once('error', (error: Error) => {
+      void removeOwnedCfg()
       log.error('game process error', error)
       this.setState({
         phase: 'failed',
@@ -276,6 +380,7 @@ export class LaunchService {
     })
 
     child.once('exit', (code) => {
+      void removeOwnedCfg()
       const seconds = (Date.now() - this.startedAtMs) / 1000
       this.installations.recordPlaySession(input.installationId, seconds)
       log.info(`game exited with code ${String(code)} after ${Math.round(seconds)}s`)

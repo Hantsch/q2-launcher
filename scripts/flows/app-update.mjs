@@ -27,7 +27,7 @@
 // 1. **AC1** - assert no control at all while nothing is known, then simulate an available release
 //    and assert the control appears, in DOM order, before `nav-downloads`.
 // 2. **AC2** - open the popover, assert it names the version, and follow "what changed" into
-//    Settings -> About (`settings-about`).
+//    Settings' version card (`settings-version`), which shows the pending update.
 // 3. **AC5** - reopen the popover (phase still `available`), assert the attention dot, dismiss, and
 //    reload the renderer: the control survives the reload and the dot does not come back (dismissal
 //    is in-memory in *main*, not renderer state, so a renderer-only reload must not resurrect it).
@@ -65,7 +65,8 @@
 //   update-popover-restart        UpdatePopover.tsx - "Restart and install"
 //   update-popover-refusal        UpdatePopover.tsx - the guard's reason, in place of the button
 //   update-popover-dismiss        UpdatePopover.tsx - always present, every phase
-//   settings-about                SettingsView.tsx - 099's anchor, added for this story's AC2
+//   settings-version              AppVersionCard.tsx - the pending update's notes live here
+//   about-update-available        PendingUpdate.tsx - the pending update block
 // `nav-downloads` is TitleBar.tsx's own pre-existing testid for the Downloads utility button, reused
 // here only as AC1's DOM-order reference point.
 import { INSTALL_ONE_ID } from '../lib/fixture.mjs'
@@ -122,6 +123,9 @@ async function domOrderBefore(page, firstTestId, secondTestId) {
 }
 
 export default async function appUpdateFlow({ page, step, shot }) {
+  // Story 099's About panel (Settings, which AC2's 'what changed' link opens) mounts the same
+  // `UpdateAction`, so every `update-popover-*` id is scoped to the titlebar popover itself.
+  const popover = page.getByTestId('update-popover')
   step('AC1: no control while up to date')
   await page.getByTestId('nav-home').click({ timeout: TIMEOUT_MS })
   if ((await page.getByTestId('nav-update').count()) !== 0) {
@@ -139,20 +143,21 @@ export default async function appUpdateFlow({ page, step, shot }) {
   step('AC2: the popover names the version and links to what changed')
   await page.getByTestId('nav-update').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('update-popover').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const versionText = await page.getByTestId('update-popover-version').innerText()
+  const versionText = await popover.getByTestId('update-popover-version').innerText()
   if (!versionText.includes(VERSION)) {
     throw new Error(`expected the popover to name version ${VERSION}, got: ${JSON.stringify(versionText)} (AC2)`)
   }
   await shot('popover-available')
-  await page.getByTestId('update-popover-whatchanged').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('settings-about').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await popover.getByTestId('update-popover-whatchanged').click({ timeout: TIMEOUT_MS })
+  await page.getByTestId('settings-version').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.getByTestId('about-update-available').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('update-popover').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
 
   step('AC5: dismissing stops the prompt for this session and leaves the control reachable')
   await page.getByTestId('nav-update').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('update-popover').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('nav-update-attention').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await page.getByTestId('update-popover-dismiss').click({ timeout: TIMEOUT_MS })
+  await popover.getByTestId('update-popover-dismiss').click({ timeout: TIMEOUT_MS })
   if ((await page.getByTestId('nav-update-attention').count()) !== 0) {
     throw new Error('expected the attention dot to be gone right after dismissing (AC5)')
   }
@@ -177,7 +182,7 @@ export default async function appUpdateFlow({ page, step, shot }) {
 
   step('AC3: downloading shows progress and the launcher stays usable')
   await page.getByTestId('nav-update').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('update-popover-available').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await popover.getByTestId('update-popover-available').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   await simulateAppUpdate(page, { scenario: 'progress', ratio: 0.1 })
   const progressBarSelector = '[data-testid="update-popover"] [role="progressbar"]'
@@ -232,7 +237,7 @@ export default async function appUpdateFlow({ page, step, shot }) {
 
   step('AC4: a finished download installs nothing until the second confirmation')
   await simulateAppUpdate(page, { scenario: 'downloaded' })
-  await page.getByTestId('update-popover-restart').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await popover.getByTestId('update-popover-restart').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const stateJustDownloaded = await getUpdateState(page)
   if (stateJustDownloaded.phase !== 'downloaded') {
     throw new Error(`expected phase 'downloaded' right after staging, got ${JSON.stringify(stateJustDownloaded)} (AC4)`)
@@ -250,8 +255,8 @@ export default async function appUpdateFlow({ page, step, shot }) {
 
   step('AC6: restart-and-install is refused while a game launched by this launcher is running')
   await invokeOk(page, 'dev:simulateLaunch', { installationId: INSTALL_ONE_ID, phase: 'running' })
-  await page.getByTestId('update-popover-restart').click({ timeout: TIMEOUT_MS })
-  const refusalGameRunning = await page.getByTestId('update-popover-refusal').innerText()
+  await popover.getByTestId('update-popover-restart').click({ timeout: TIMEOUT_MS })
+  const refusalGameRunning = await popover.getByTestId('update-popover-refusal').innerText()
   if (!refusalGameRunning.includes(ERROR_TEXT.gameRunning)) {
     throw new Error(
       `expected the popover to show the game-running refusal, got: ${JSON.stringify(refusalGameRunning)} (AC6)`,
@@ -280,8 +285,8 @@ export default async function appUpdateFlow({ page, step, shot }) {
   await page.keyboard.press('Escape')
   await page.getByTestId('update-popover').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
   await page.getByTestId('nav-update').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('update-popover-restart').click({ timeout: TIMEOUT_MS })
-  const refusalJobActive = await page.getByTestId('update-popover-refusal').innerText()
+  await popover.getByTestId('update-popover-restart').click({ timeout: TIMEOUT_MS })
+  const refusalJobActive = await popover.getByTestId('update-popover-refusal').innerText()
   if (!refusalJobActive.includes(ERROR_TEXT.jobActive)) {
     throw new Error(
       `expected the popover to show the job-active refusal, got: ${JSON.stringify(refusalJobActive)} (AC6)`,
@@ -313,14 +318,14 @@ export default async function appUpdateFlow({ page, step, shot }) {
   step('AC7: offline, checksum mismatch and cancelled each leave the launcher untouched and stay offerable')
   for (const reason of ['offline', 'checksum', 'cancelled']) {
     await simulateAppUpdate(page, { scenario: 'error', reason })
-    await page.getByTestId('update-popover-available').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-    const errorText = await page.getByTestId('update-popover-download-error').innerText()
+    await popover.getByTestId('update-popover-available').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+    const errorText = await popover.getByTestId('update-popover-download-error').innerText()
     if (!errorText.includes(ERROR_TEXT[reason])) {
       throw new Error(
         `expected the '${reason}' failure to show its own reason, got: ${JSON.stringify(errorText)} (AC7)`,
       )
     }
-    await page.getByTestId('update-popover-download').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+    await popover.getByTestId('update-popover-download').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
     const stateAfterFailure = await getUpdateState(page)
     if (stateAfterFailure.phase !== 'available') {
       throw new Error(

@@ -1,8 +1,11 @@
+import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import type { BrowserWindow } from 'electron'
 import { app as electronApp } from 'electron'
 import { stateFilePath, userDataDir } from './lib/paths'
 import { scopedLogger } from './lib/logger'
+import { UI_HARNESS_ENV } from './lib/ui-harness'
+import { resolveFeatureGate, type FeatureGate } from './features/gate'
 import { MainModuleRegistry } from './modules/registry'
 import { registerModules } from './modules'
 import { Broadcaster } from './services/broadcast'
@@ -15,9 +18,41 @@ import { LaunchService } from './services/launch'
 import { StateStore } from './services/state'
 import { createUpdateBackend, createUpdateChecker } from './services/update/checker'
 import { createUpdateService, type UpdateService } from './services/update/service'
+import { resolveLauncherInstallId } from './services/unlock/launcher-install-id'
+import { harnessUnlockPublicKeyOverride, UNLOCK_PUBLIC_KEY_PEM } from './services/unlock/public-key'
+import { createUnlockService, type UnlockService } from './services/unlock/service'
 import { InstallationWriteGuard } from './services/write-guard'
 
 const log = scopedLogger('context')
+
+/**
+ * Story 128 D4: which public key `UnlockService` verifies codes against.
+ *
+ * `UNLOCK_PUBLIC_KEY_PEM` (the real, embedded production key) is the answer for every real user.
+ * The one override - reading a different PEM from `Q2L_UNLOCK_PUBLIC_KEY_FILE` - exists only so a
+ * test-signing key can be used end-to-end without ever touching the production key pair, and it is
+ * gated by **exactly** the same condition `src/main/ipc/index.ts` uses to decide whether
+ * `registerDevIpc` runs on a packaged build (`app.isDev || process.env[UI_HARNESS_ENV] === '1'`) -
+ * reused, not re-derived, so the override can never be reachable in a real packaged, non-harness
+ * build without also making every dev-only IPC channel reachable there too.
+ */
+async function resolveUnlockPublicKeyPem(isDev: boolean): Promise<string> {
+  // Story 129: the UI harness's inline test key, behind its own stricter double gate (harness AND
+  // dev) - `null` everywhere else, so it never shadows anything outside a harness run.
+  const harnessKey = harnessUnlockPublicKeyOverride({ isDev })
+  if (harnessKey !== null) return harnessKey
+
+  const overrideAllowed = isDev || process.env[UI_HARNESS_ENV] === '1'
+  const overridePath = process.env['Q2L_UNLOCK_PUBLIC_KEY_FILE']
+  if (overrideAllowed && overridePath) {
+    try {
+      return await readFile(overridePath, 'utf8')
+    } catch (error) {
+      log.warn(`unlock: could not read Q2L_UNLOCK_PUBLIC_KEY_FILE, using the embedded key (${error})`)
+    }
+  }
+  return UNLOCK_PUBLIC_KEY_PEM
+}
 
 /**
  * The services the main process is built from, created once and passed
@@ -45,6 +80,15 @@ export interface AppContext {
   /** Story 097: the update-check service - a shell service, not a module (it has no per-installation
    * data and nothing renderer-writable to validate), constructed here like `launch`/`jobs` above. */
   update: UpdateService
+  /** Story 128 D4: the unlock-code service - a shell service, same reasoning as `update` above.
+   * `init()` is awaited before `registerModules(context)` runs, so every module sees a settled
+   * unlock state (the resolved installation id and the redeemed codes' current verdicts) from the
+   * moment it is constructed. */
+  unlock: UnlockService
+  /** Story 130: which gated features exist in this process. Resolved once at boot from 128's
+   * re-verified unlock state and then frozen for the process lifetime - a code redeemed
+   * mid-session takes effect only at the next start. `modules` was built with this same gate. */
+  features: FeatureGate
 }
 
 export async function createAppContext(options: {
@@ -114,6 +158,7 @@ export async function createAppContext(options: {
 
   const update = createUpdateService({
     isPackaged: electronApp.isPackaged,
+    currentVersion: electronApp.getVersion(),
     check: createUpdateChecker({ log: scopedLogger('update') }),
     backend: createUpdateBackend({ log: scopedLogger('update') }),
     // Story 098 AC6: the restart guard reads the two things main already tracks and cancels
@@ -125,6 +170,23 @@ export async function createAppContext(options: {
     log: scopedLogger('update'),
   })
 
+  const unlock = createUnlockService({
+    state,
+    publicKey: await resolveUnlockPublicKeyPem(options.isDev),
+    resolveLauncherInstallId,
+    log: scopedLogger('unlock'),
+  })
+
+  // Story 128 D4: resolved and re-verified before any module is constructed, so every module sees a
+  // settled unlock state (the resolved installation id and each stored code's current verdict) from
+  // the moment it exists - the same "state ready before registerModules" ordering `state.load()`
+  // above already establishes.
+  await unlock.init()
+
+  // Story 130: the feature gate is taken from the unlock state `init()` just re-verified - never
+  // from stored tokens directly - and has to exist before the registry, which it is handed to.
+  const features = resolveFeatureGate(unlock)
+
   const context: AppContext = {
     isDev: options.isDev,
     state,
@@ -134,10 +196,12 @@ export async function createAppContext(options: {
     launch,
     jobs,
     writeGuard,
-    modules: new MainModuleRegistry(),
+    modules: new MainModuleRegistry(features),
     broadcast,
     dialog,
     update,
+    unlock,
+    features,
   }
 
   await registerModules(context)
