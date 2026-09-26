@@ -33,7 +33,7 @@
 // `data-running` on `servers-scan-status`), `servers-row-<address>` (click to select AND open the
 // detail pane - `ServersView.tsx` renders `ServerDetailView` whenever a row is selected, confirmed
 // by reading `servers-detail.mjs`'s own flow, so no separate "open detail" action exists),
-// `servers-address-book-open` (the list toolbar's trigger, story 127 D2),
+// (the list toolbar's `servers-address-book-open` trigger is gone - the detail pane is the one entry point),
 // `servers-detail-address-book-open` (the detail pane's trigger, same D), `servers-address-book-
 // profile`/`servers-address-book-slot-<n>`/`servers-address-book-confirm` (`AddToAddressBookDialog.
 // tsx`, D1), `config-profile-row` (ConfigView.tsx, filtered by profile name, mirrors `unsaved-
@@ -189,7 +189,7 @@ export default async function serversAddressBook({ page, step, shot }) {
   await waitForFinishedAtChange(page, finishedAtBefore, SCAN_SETTLE_TIMEOUT_MS)
 
   await page.getByTestId(`servers-row-${server.address}`).click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-address-book-open').click({ timeout: TIMEOUT_MS })
+  await page.getByTestId('servers-detail-address-book-open').click({ timeout: TIMEOUT_MS })
 
   const profileField = page.getByTestId('servers-address-book-profile')
   await profileField.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -262,7 +262,7 @@ export default async function serversAddressBook({ page, step, shot }) {
   await shot('plain-profile-unsaved-diff-adr0')
 
   console.log(
-    'servers-address-book: "Add to address book" opened from both the list toolbar and the ' +
+    'servers-address-book: "Add to address book" opened from the ' +
       'detail pane, preselected "Plain Profile" with all nine slots empty, writing to slot 0 was ' +
       'visible immediately from the detail pane\'s own trigger, "Layered Profile" stayed untouched, ' +
       'and the write shows up as an "adr0" row in "Plain Profile"\'s own Unsaved tab.',

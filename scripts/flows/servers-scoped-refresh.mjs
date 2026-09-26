@@ -43,7 +43,7 @@
 // ## Selectors
 //
 // `nav-servers` (TitleBar.tsx), `servers-refresh`/`servers-refresh-favourites`/
-// `servers-refresh-selected` (ServersView.tsx, story 117 D5), `servers-row-<address>` (a row is
+// `servers-refresh-selected` (the detail pane's `ServerDetailHeader.tsx` since the toolbar lost it), `servers-row-<address>` (a row is
 // selected by clicking it - `ServersView.tsx`'s `handleToggleRowSelected`, confirmed by reading the
 // file rather than assumed), `servers-scan-status` (`data-finished-at`, same test-observability
 // attribute 116's flow reads). `module:invoke` direct calls (`scan.read`) prove the "rest of the

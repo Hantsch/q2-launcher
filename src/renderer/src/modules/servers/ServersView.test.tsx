@@ -120,6 +120,13 @@ function snapshot(overrides: {
   }
 }
 
+const SELECTED_ENTRY: ServerListEntry = {
+  address: '1.2.3.4:27910',
+  origins: ['manual'],
+  status: 'online',
+  lastSeenAt: 'x',
+}
+
 async function renderView(initial: ScanSnapshot): Promise<void> {
   readScanMock.mockResolvedValue({ ok: true, value: initial })
   onScanChangedMock.mockImplementation(() => () => {})
@@ -229,16 +236,22 @@ describe('ServersView - scoped refresh controls (story 117 D5)', () => {
       }),
     )
 
+    readServerDetailMock.mockImplementation(async () => ({
+      ok: true as const,
+      value: { row: { ...SELECTED_ENTRY, favourite: false }, serverinfo: null },
+    }))
+
     const row = await screen.findByTestId('servers-row-1.2.3.4:27910')
     fireEvent.click(row)
     expect(row.getAttribute('data-selected')).toBe('true')
 
-    fireEvent.click(screen.getByTestId('servers-refresh-selected'))
+    // "Refresh this server" lives in the detail pane now, not the list toolbar.
+    fireEvent.click(await screen.findByTestId('servers-refresh-selected'))
 
     expect(startScanMock).toHaveBeenCalledWith({ kind: 'server', address: '1.2.3.4:27910' })
   })
 
-  it('disables all three refresh controls and shows a visible reason while a scan is running', async () => {
+  it('disables the toolbar refresh controls and shows a visible reason while a scan is running', async () => {
     await renderView(snapshot({ state: { running: true, blockedReason: null } }))
 
     const busy = await screen.findByTestId('servers-scan-busy')
@@ -250,53 +263,37 @@ describe('ServersView - scoped refresh controls (story 117 D5)', () => {
     expect(
       (screen.getByTestId('servers-refresh-favourites') as HTMLButtonElement).disabled,
     ).toBe(true)
-    expect(
-      (screen.getByTestId('servers-refresh-selected') as HTMLButtonElement).disabled,
-    ).toBe(true)
   })
 
-  it('disables all three refresh controls while blocked by the game running', async () => {
+  it('disables the toolbar refresh controls while blocked by the game running', async () => {
     await renderView(snapshot({ state: { blockedReason: 'game-running' } }))
 
     expect((screen.getByTestId('servers-refresh') as HTMLButtonElement).disabled).toBe(true)
     expect(
       (screen.getByTestId('servers-refresh-favourites') as HTMLButtonElement).disabled,
     ).toBe(true)
-    expect(
-      (screen.getByTestId('servers-refresh-selected') as HTMLButtonElement).disabled,
-    ).toBe(true)
     // Blocked is the more specific/urgent reason - the busy banner does not also render.
     expect(screen.queryByTestId('servers-scan-busy')).toBeNull()
   })
 
-  it('disables "Refresh this server" with a visible reason when nothing is selected, even idle and unblocked', async () => {
-    await renderView(snapshot({}))
+  it('"Refresh this server" and the address-book action are not in the list toolbar', async () => {
+    await renderView(snapshot({ entries: [SELECTED_ENTRY] }))
 
-    const button = screen.getByTestId('servers-refresh-selected') as HTMLButtonElement
-    expect(button.disabled).toBe(true)
-
-    const hint = screen.getByTestId('servers-refresh-selected-hint')
-    expect(hint.textContent).toBe('Select a server to refresh it.')
+    expect(screen.queryByTestId('servers-refresh-selected')).toBeNull()
+    expect(screen.queryByTestId('servers-address-book-open')).toBeNull()
   })
 
-  it('the address-book action is disabled with a visible reason until a row is selected', async () => {
-    await renderView(
-      snapshot({
-        entries: [
-          { address: '1.2.3.4:27910', origins: ['manual'], status: 'online', lastSeenAt: 'x' },
-        ],
-      }),
-    )
+  it('the detail pane\'s "Refresh this server" is disabled while a scan is running', async () => {
+    readServerDetailMock.mockImplementation(async () => ({
+      ok: true as const,
+      value: { row: { ...SELECTED_ENTRY, favourite: false }, serverinfo: null },
+    }))
+    await renderView(snapshot({ state: { running: true }, entries: [SELECTED_ENTRY] }))
 
-    const button = screen.getByTestId('servers-address-book-open') as HTMLButtonElement
+    fireEvent.click(await screen.findByTestId('servers-row-1.2.3.4:27910'))
+
+    const button = (await screen.findByTestId('servers-refresh-selected')) as HTMLButtonElement
     expect(button.disabled).toBe(true)
-    expect(screen.getByTestId('servers-address-book-open-hint')).toBeTruthy()
-
-    const row = await screen.findByTestId('servers-row-1.2.3.4:27910')
-    fireEvent.click(row)
-
-    expect(button.disabled).toBe(false)
-    expect(screen.queryByTestId('servers-address-book-open-hint')).toBeNull()
   })
 })
 
@@ -408,9 +405,8 @@ describe('ServersView - list filter (story 120 D2)', () => {
 
     await screen.findAllByRole('button', { name: /Bravo/ })
     expect(screen.queryByTestId('servers-row-a:1')).toBeNull()
-    // Selection cleared - "Refresh this server" is disabled again with its visible reason.
-    expect((screen.getByTestId('servers-refresh-selected') as HTMLButtonElement).disabled).toBe(true)
-    expect(screen.getByTestId('servers-refresh-selected-hint')).toBeTruthy()
+    // Selection cleared - the detail pane (and its "Refresh this server") is gone.
+    expect(screen.queryByTestId('servers-detail')).toBeNull()
   })
 
   it('a filter that matches nothing shows the no-match line, not the empty state', async () => {

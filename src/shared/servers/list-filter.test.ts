@@ -161,9 +161,29 @@ describe('each filter applied alone keeps exactly the rows that satisfy it', () 
     expect(result).toEqual([rocket, full, waiting, stale, roster, numericPlayers])
   })
 
-  it('notFull excludes the full row and rows with an unknown count or maxclients', () => {
-    const result = filterServers(allRows, filter({ notFull: true }))
-    expect(result).toEqual([rocket, empty, waiting, stale, roster, numericPlayers])
+  it('empty keeps only the known-0-player row, never an unknown count', () => {
+    const result = filterServers(allRows, filter({ empty: true }))
+    expect(result).toEqual([empty])
+  })
+
+  it('hideBotsOnly drops only a roster where every player is a likely bot', () => {
+    const botsOnly = row({
+      address: '10.0.0.11:27910',
+      players: [
+        { name: 'Grunt-X[200]', score: 0, ping: 50 },
+        { name: 'Tank[BZZZ]', score: 0, ping: 50 },
+        { name: 'Guard', score: 0, ping: 0 },
+      ],
+    })
+    const mixed = row({
+      address: '10.0.0.12:27910',
+      players: [
+        { name: 'Grunt-X[200]', score: 0, ping: 0 },
+        { name: 'Alice', score: 5, ping: 30 },
+      ],
+    })
+    const result = filterServers([...allRows, botsOnly, mixed], filter({ hideBotsOnly: true }))
+    expect(result).toEqual([...allRows, mixed])
   })
 
   it('noPassword excludes the passworded row and rows with an unknown needpass', () => {

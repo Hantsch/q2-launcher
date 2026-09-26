@@ -1,6 +1,7 @@
 import {
   SERVERS_EVENTS,
   SERVERS_HANDLERS,
+  type FavouriteServerEntry,
   type MasterSource,
   type MasterSourcesResult,
   type MasterSourceType,
@@ -102,6 +103,16 @@ export function startScan(
     scope,
     selectedAddress,
   })
+}
+
+/** Marks/unmarks `address` as a favourite; both resolve to the persisted favourites list. The
+ * address is the bare payload (`serverAddressSchema`), same as `readServerDetail` below. */
+export function addFavourite(address: string): Promise<Outcome<FavouriteServerEntry[]>> {
+  return callModule<FavouriteServerEntry[]>('servers', SERVERS_HANDLERS.favouritesAdd, address)
+}
+
+export function removeFavourite(address: string): Promise<Outcome<FavouriteServerEntry[]>> {
+  return callModule<FavouriteServerEntry[]>('servers', SERVERS_HANDLERS.favouritesRemove, address)
 }
 
 /** One-shot catch-up read (D-D) for a renderer that mounts mid-scan - never polled. */

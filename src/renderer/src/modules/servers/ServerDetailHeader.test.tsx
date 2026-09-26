@@ -1,9 +1,19 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
-import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ServerDetail } from '@shared/modules/servers'
 import { initI18n } from '../../i18n'
+
+const { addFavouriteMock, removeFavouriteMock } = vi.hoisted(() => ({
+  addFavouriteMock: vi.fn(async () => ({ ok: true as const, value: [] })),
+  removeFavouriteMock: vi.fn(async () => ({ ok: true as const, value: [] })),
+}))
+
+vi.mock('./client', () => ({
+  addFavourite: addFavouriteMock,
+  removeFavourite: removeFavouriteMock,
+}))
 
 let ServerDetailHeader: typeof import('./ServerDetailHeader').ServerDetailHeader
 
@@ -21,10 +31,26 @@ beforeAll(async () => {
 
 afterEach(() => {
   cleanup()
+  vi.clearAllMocks()
 })
 
-function renderHeader(detail: ServerDetail) {
-  render(createElement(ServerDetailHeader, { detail }))
+function renderHeader(detail: ServerDetail, onFavouriteChanged: () => void = () => {}) {
+  render(
+    createElement(ServerDetailHeader, {
+      detail,
+      onRefresh: () => {},
+      refreshDisabled: false,
+      refreshing: false,
+      onFavouriteChanged,
+    }),
+  )
+}
+
+function favouriteDetail(favourite: boolean): ServerDetail {
+  return {
+    row: { address: '127.0.0.1:27910', origins: ['manual'], status: 'online', lastSeenAt: 'x', favourite },
+    serverinfo: null,
+  }
 }
 
 describe('ServerDetailHeader (story 122 D3)', () => {
@@ -107,5 +133,32 @@ describe('ServerDetailHeader (story 122 D3)', () => {
     // protocol: 'abc' -> dash for both protocol and engine
     expect(screen.getByTestId('servers-detail-field-protocol').textContent).toBe('—')
     expect(screen.getByTestId('servers-detail-field-engine').textContent).toBe('—')
+  })
+
+  it('the favourite toggle adds a non-favourite and reports the change', async () => {
+    const onFavouriteChanged = vi.fn()
+    renderHeader(favouriteDetail(false), onFavouriteChanged)
+
+    const toggle = screen.getByTestId('servers-detail-favourite')
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    await act(async () => {
+      fireEvent.click(toggle)
+    })
+
+    expect(addFavouriteMock).toHaveBeenCalledWith('127.0.0.1:27910')
+    expect(removeFavouriteMock).not.toHaveBeenCalled()
+    expect(onFavouriteChanged).toHaveBeenCalledTimes(1)
+  })
+
+  it('the favourite toggle removes an existing favourite', async () => {
+    renderHeader(favouriteDetail(true))
+
+    const toggle = screen.getByTestId('servers-detail-favourite')
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
+    await act(async () => {
+      fireEvent.click(toggle)
+    })
+
+    expect(removeFavouriteMock).toHaveBeenCalledWith('127.0.0.1:27910')
   })
 })

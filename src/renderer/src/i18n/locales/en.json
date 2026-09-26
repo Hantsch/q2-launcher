@@ -174,7 +174,6 @@
         "refresh": "Scan now",
         "refreshFavourites": "Refresh favourites",
         "refreshSelected": "Refresh this server",
-        "selectServerFirst": "Select a server to refresh it.",
         "status": {
           "idle": "Idle",
           "scanning": "Scanning…",
@@ -733,6 +732,10 @@
     "detail": {
       "title": "Server details",
       "close": "Close server details",
+      "favourite": {
+        "add": "Mark as favourite",
+        "remove": "Remove from favourites"
+      },
       "field": {
         "name": "Name",
         "address": "Address",
@@ -853,7 +856,8 @@
       "gamemode": "Gamemode",
       "map": "Map",
       "nonEmpty": "Has players",
-      "notFull": "Not full",
+      "empty": "Empty",
+      "hideBotsOnly": "Hide bot-only servers",
       "noPassword": "No password",
       "waiting": "Waiting for an opponent",
       "clear": "Clear filters",
@@ -946,8 +950,7 @@
       "cancel": "Cancel",
       "noProfiles": "Create a config profile first — there is nowhere to write this address to yet.",
       "loading": "Loading this profile's address book…",
-      "written": "Added to \"{{profile}}\"'s address book as {{slot}}.",
-      "noSelection": "Select a server to add it to the address book."
+      "written": "Added to \"{{profile}}\"'s address book as {{slot}}."
     },
     "watchlist": {
       "title": "Watchlist",

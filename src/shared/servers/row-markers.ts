@@ -8,6 +8,7 @@
  */
 import { readIntKey } from './infostring'
 import type { ServerListEntry } from '../modules/servers'
+import type { ServerPlayer } from './status-reply'
 
 /** The gamemode a server's `serverinfo` reports, derived from its dm/coop/ctf/teamplay flags. */
 export type ServerGamemode = 'ctf' | 'team' | 'deathmatch' | 'coop' | 'single'
@@ -61,4 +62,26 @@ export function knownPlayerCount(entry: Pick<ServerListEntry, 'players'>): numbe
  */
 export function isWaitingForOpponent(entry: Pick<ServerListEntry, 'players'>): boolean {
   return knownPlayerCount(entry) === 1
+}
+
+/** Name endings bot mods give their players, e.g. `Grunt-X[200]` or `Tank[BZZZ]`. */
+const BOT_NAME_SUFFIXES: readonly RegExp[] = [/-X\[\d+\]$/, /\[BZZZ\]$/i]
+
+/**
+ * Whether a roster entry is probably a bot - an estimate, never a certainty: a ping of exactly `0`
+ * (bots never round-trip, real clients practically always do) or a name ending in one of the
+ * suffixes bot mods are known to append.
+ */
+export function isLikelyBot(player: Pick<ServerPlayer, 'name' | 'ping'>): boolean {
+  const name = player.name.trim()
+  return player.ping === 0 || BOT_NAME_SUFFIXES.some((suffix) => suffix.test(name))
+}
+
+/**
+ * Whether every player on a row is a likely bot. Only a fetched roster can say so - a bare count or
+ * an unknown roster is never bots-only, and neither is an empty server (nobody to flag).
+ */
+export function isBotsOnly(entry: Pick<ServerListEntry, 'players'>): boolean {
+  const players = entry.players
+  return Array.isArray(players) && players.length > 0 && players.every(isLikelyBot)
 }

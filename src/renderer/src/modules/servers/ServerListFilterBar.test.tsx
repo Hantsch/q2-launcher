@@ -72,8 +72,11 @@ describe('ServerListFilterBar - each control writes its own field (story 120 D2)
     fireEvent.click(screen.getByTestId('servers-filter-non-empty'))
     expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_SERVER_LIST_FILTER, nonEmpty: true })
 
-    fireEvent.click(screen.getByTestId('servers-filter-not-full'))
-    expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_SERVER_LIST_FILTER, notFull: true })
+    fireEvent.click(screen.getByTestId('servers-filter-empty'))
+    expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_SERVER_LIST_FILTER, empty: true })
+
+    fireEvent.click(screen.getByTestId('servers-filter-hide-bots'))
+    expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_SERVER_LIST_FILTER, hideBotsOnly: true })
 
     fireEvent.click(screen.getByTestId('servers-filter-no-password'))
     expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_SERVER_LIST_FILTER, noPassword: true })

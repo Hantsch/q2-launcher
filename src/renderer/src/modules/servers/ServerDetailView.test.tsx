@@ -34,6 +34,13 @@ vi.mock('./ServerDetailHeader', () => ({
 
 let ServerDetailView: typeof import('./ServerDetailView').ServerDetailView
 
+const PANE_PROPS = {
+  onRefresh: () => {},
+  refreshDisabled: false,
+  refreshing: false,
+  onFavouriteChanged: () => {},
+}
+
 beforeAll(async () => {
   await initI18n('en')
   ;({ ServerDetailView } = await import('./ServerDetailView'))
@@ -83,7 +90,13 @@ describe('ServerDetailView (story 122 D3)', () => {
     readServerDetailMock.mockResolvedValue({ ok: true, value: DETAIL })
     onScanChangedMock.mockImplementation(() => () => {})
 
-    render(createElement(ServerDetailView, { address: DETAIL.row.address, onClose: () => {} }))
+    render(
+      createElement(ServerDetailView, {
+        address: DETAIL.row.address,
+        onClose: () => {},
+        ...PANE_PROPS,
+      }),
+    )
     await flush()
 
     // `ServerDetailHeader` is mocked (above) to throw - its `ServerDetailSection` wrapper must
@@ -101,7 +114,13 @@ describe('ServerDetailView (story 122 D3)', () => {
       return () => {}
     })
 
-    render(createElement(ServerDetailView, { address: DETAIL.row.address, onClose: () => {} }))
+    render(
+      createElement(ServerDetailView, {
+        address: DETAIL.row.address,
+        onClose: () => {},
+        ...PANE_PROPS,
+      }),
+    )
     await flush()
 
     expect(readServerDetailMock).toHaveBeenCalledTimes(1)
@@ -125,7 +144,7 @@ describe('ServerDetailView (story 122 D3)', () => {
   it('renders the empty state for a null detail (server no longer in the list)', async () => {
     readServerDetailMock.mockResolvedValue({ ok: true, value: null })
 
-    render(createElement(ServerDetailView, { address: 'gone:1', onClose: () => {} }))
+    render(createElement(ServerDetailView, { address: 'gone:1', onClose: () => {}, ...PANE_PROPS }))
     await flush()
 
     expect(screen.getByText('This server is no longer in the list')).toBeTruthy()
@@ -134,7 +153,7 @@ describe('ServerDetailView (story 122 D3)', () => {
   it('renders one error line for a rejected read, without throwing', async () => {
     readServerDetailMock.mockResolvedValue({ ok: false, error: { kind: 'internal' } })
 
-    render(createElement(ServerDetailView, { address: 'bad:1', onClose: () => {} }))
+    render(createElement(ServerDetailView, { address: 'bad:1', onClose: () => {}, ...PANE_PROPS }))
     await flush()
 
     expect(await screen.findByTestId('servers-detail-read-error')).toBeTruthy()
@@ -144,7 +163,7 @@ describe('ServerDetailView (story 122 D3)', () => {
     readServerDetailMock.mockResolvedValue({ ok: true, value: DETAIL })
     const onClose = vi.fn()
 
-    render(createElement(ServerDetailView, { address: DETAIL.row.address, onClose }))
+    render(createElement(ServerDetailView, { address: DETAIL.row.address, onClose, ...PANE_PROPS }))
     await flush()
 
     fireEvent.click(screen.getByTestId('servers-detail-close'))

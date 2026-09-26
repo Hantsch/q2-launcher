@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, LockOpen, Search, User, Users, X } from 'lucide-react'
+import { BotOff, Check, LockOpen, Search, User, UserX, Users, X } from 'lucide-react'
 import {
   EMPTY_SERVER_LIST_FILTER,
   isFilterActive,
@@ -85,7 +85,7 @@ function FilterChip({
  * its own partial update on every interaction (no debounce, no local buffering) - `ServersView` is
  * the single source of truth for `filter`.
  *
- * Laid out as a vertical rail (search on top, the four boolean quick filters as chips - "waiting
+ * Laid out as a vertical rail (search on top, the boolean quick filters as chips - "waiting
  * for an opponent" first, it is the one people scan for - then the mod/gamemode/map selects), the
  * shape people know from q2servers.com's left-hand filter column.
  */
@@ -145,11 +145,11 @@ export function ServerListFilterBar({
           testId="servers-filter-non-empty"
         />
         <FilterChip
-          active={filter.notFull}
-          icon={<Users />}
-          label={t('servers.filter.notFull')}
-          onToggle={() => onChange({ ...filter, notFull: !filter.notFull })}
-          testId="servers-filter-not-full"
+          active={filter.empty}
+          icon={<UserX />}
+          label={t('servers.filter.empty')}
+          onToggle={() => onChange({ ...filter, empty: !filter.empty })}
+          testId="servers-filter-empty"
         />
         <FilterChip
           active={filter.noPassword}
@@ -157,6 +157,13 @@ export function ServerListFilterBar({
           label={t('servers.filter.noPassword')}
           onToggle={() => onChange({ ...filter, noPassword: !filter.noPassword })}
           testId="servers-filter-no-password"
+        />
+        <FilterChip
+          active={filter.hideBotsOnly}
+          icon={<BotOff />}
+          label={t('servers.filter.hideBotsOnly')}
+          onToggle={() => onChange({ ...filter, hideBotsOnly: !filter.hideBotsOnly })}
+          testId="servers-filter-hide-bots"
         />
       </div>
 

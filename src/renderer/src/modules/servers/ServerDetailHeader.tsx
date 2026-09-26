@@ -1,17 +1,24 @@
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BookMarked, Lock } from 'lucide-react'
+import { BookMarked, Lock, RefreshCw, Star } from 'lucide-react'
 import type { ServerDetail } from '@shared/modules/servers'
 import { deriveEngine, deriveProtocol } from '@shared/servers/server-engine'
 import { IconButton } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/primitives'
 import { cn } from '../../lib/cn'
 import { AddToAddressBookDialog } from './AddToAddressBookDialog'
+import { addFavourite, removeFavourite } from './client'
 import { JoinServerButton } from './join/JoinServerButton'
 import { displayName, formatOccupancy, formatPing, orDash } from './server-format'
 
 export interface ServerDetailHeaderProps {
   detail: ServerDetail
+  /** Scoped "refresh this server" scan, owned by `ServersView` (it holds the scan state). */
+  onRefresh: () => void
+  refreshDisabled: boolean
+  refreshing: boolean
+  /** Called once a favourite toggle has persisted, so the owners can re-read their rows. */
+  onFavouriteChanged: () => void
 }
 
 /** One cell of the stat grid: stencil label over a value. `testId` lands on the value so the
@@ -51,11 +58,34 @@ function StatCell({
  * Story 127 D2: a third action, wrapped under `servers-detail-address-book-open`, opens
  * `AddToAddressBookDialog` for this server's address. Its open flag is local state, same as every
  * dialog on this pane.
+ *
+ * Beside it: "refresh this server" (moved here from the list toolbar - it only ever meant the
+ * selected server, which is exactly what this pane shows) and a favourite toggle, whose pressed
+ * state is the row's own `favourite` flag - no local copy, the owners re-read after a toggle.
  */
-export function ServerDetailHeader({ detail }: ServerDetailHeaderProps) {
+export function ServerDetailHeader({
+  detail,
+  onRefresh,
+  refreshDisabled,
+  refreshing,
+  onFavouriteChanged,
+}: ServerDetailHeaderProps) {
   const { t } = useTranslation()
   const { row, serverinfo } = detail
   const [addressBookOpen, setAddressBookOpen] = useState(false)
+  // Bumped on every open so the dialog remounts - a reused instance paints its previous slots for a
+  // frame before its own on-open reset effect runs, showing a stale (e.g. pre-write) address book.
+  const [addressBookKey, setAddressBookKey] = useState(0)
+  const [favouriteBusy, setFavouriteBusy] = useState(false)
+
+  const handleToggleFavourite = (): void => {
+    setFavouriteBusy(true)
+    const toggle = row.favourite ? removeFavourite : addFavourite
+    void toggle(row.address).then((result) => {
+      setFavouriteBusy(false)
+      if (result.ok) onFavouriteChanged()
+    })
+  }
 
   const protocol = deriveProtocol(serverinfo)
   const engine = deriveEngine(protocol)
@@ -82,17 +112,45 @@ export function ServerDetailHeader({ detail }: ServerDetailHeaderProps) {
         <div data-testid="servers-detail-spectate">
           <JoinServerButton row={row} mode="spectate" />
         </div>
-        <div data-testid="servers-detail-address-book-open" className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
           <IconButton
-            label={t('servers.addressBook.action')}
+            label={t('module.servers.view.refreshSelected')}
             variant="neutral"
-            onClick={() => setAddressBookOpen(true)}
+            onClick={onRefresh}
+            disabled={refreshDisabled}
+            data-testid="servers-refresh-selected"
           >
-            <BookMarked className="size-4" aria-hidden="true" />
+            <RefreshCw className={cn('size-4', refreshing && 'animate-spin')} aria-hidden="true" />
           </IconButton>
+          <IconButton
+            label={t(
+              row.favourite ? 'servers.detail.favourite.remove' : 'servers.detail.favourite.add',
+            )}
+            variant="neutral"
+            aria-pressed={row.favourite}
+            onClick={handleToggleFavourite}
+            disabled={favouriteBusy}
+            data-testid="servers-detail-favourite"
+            className={cn(row.favourite && 'border-flame-600 text-flame-400')}
+          >
+            <Star className={cn('size-4', row.favourite && 'fill-current')} aria-hidden="true" />
+          </IconButton>
+          <div data-testid="servers-detail-address-book-open">
+            <IconButton
+              label={t('servers.addressBook.action')}
+              variant="neutral"
+              onClick={() => {
+                setAddressBookKey((key) => key + 1)
+                setAddressBookOpen(true)
+              }}
+            >
+              <BookMarked className="size-4" aria-hidden="true" />
+            </IconButton>
+          </div>
         </div>
       </div>
       <AddToAddressBookDialog
+        key={addressBookKey}
         open={addressBookOpen}
         address={row.address}
         onClose={() => setAddressBookOpen(false)}

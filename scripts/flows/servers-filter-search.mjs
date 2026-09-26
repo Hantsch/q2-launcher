@@ -1,6 +1,6 @@
 // Story 120 (docs/requirements/120-i-filter-and-search-the-list.md) D2: the filter bar e2e proof on
 // the real Servers surface - four genuine loopback `dgram` responders (A/B/C/D), each answering both
-// `info` and `status`, proving every filter field (search, mod, gamemode, map, non-empty, not-full,
+// `info` and `status`, proving every filter field (search, mod, gamemode, map, non-empty, empty,
 // no-password, waiting) actually narrows the real rendered list, not just the pure engine's own unit
 // tests (`src/shared/servers/list-filter.test.ts`).
 //
@@ -227,9 +227,9 @@ export default async function serversFilterSearch({ page, step, shot }) {
   assertSet(await visibleLabels(page), ['A', 'B', 'D'], 'nonEmpty')
   await clearFilters(page)
 
-  step('AC1: "Not full" shows A, C, D (not the full B)')
-  await page.getByTestId('servers-filter-not-full').click({ timeout: TIMEOUT_MS })
-  assertSet(await visibleLabels(page), ['A', 'C', 'D'], 'notFull')
+  step('AC1: "Empty" shows C only (the 0 player server)')
+  await page.getByTestId('servers-filter-empty').click({ timeout: TIMEOUT_MS })
+  assertSet(await visibleLabels(page), ['C'], 'empty')
   await clearFilters(page)
 
   step('AC1: "No password" shows A, B, D (not the password-protected C)')
@@ -253,10 +253,10 @@ export default async function serversFilterSearch({ page, step, shot }) {
   await page.getByTestId('servers-filter-no-password').click({ timeout: TIMEOUT_MS })
   assertSet(await visibleLabels(page), ['B'], 'mod=baseq2 + noPassword')
 
-  step('AC2: adding notFull too leaves an empty set, with the no-match line visible')
-  await page.getByTestId('servers-filter-not-full').click({ timeout: TIMEOUT_MS })
+  step('AC2: adding "Empty" too leaves an empty set, with the no-match line visible')
+  await page.getByTestId('servers-filter-empty').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('servers-filter-no-match').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  assertSet(await visibleLabels(page), [], 'mod=baseq2 + noPassword + notFull')
+  assertSet(await visibleLabels(page), [], 'mod=baseq2 + noPassword + empty')
   await shot('no-match')
   await clearFilters(page)
 

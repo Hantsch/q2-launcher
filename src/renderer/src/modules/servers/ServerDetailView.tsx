@@ -14,6 +14,12 @@ import { ServerRulesPanel } from './ServerRulesPanel'
 export interface ServerDetailViewProps {
   address: string
   onClose: () => void
+  /** Passed through to `ServerDetailHeader` - see its props. */
+  onRefresh: () => void
+  refreshDisabled: boolean
+  refreshing: boolean
+  /** A favourite toggle persisted - the list re-reads its rows (this pane re-reads its own). */
+  onFavouriteChanged: () => void
 }
 
 type DetailState =
@@ -30,7 +36,14 @@ type DetailState =
  * one error line and never throws. Sections are wrapped individually in `ServerDetailSection` so one
  * bad field can't take the rest of the pane down, and stacked as hairline-divided blocks.
  */
-export function ServerDetailView({ address, onClose }: ServerDetailViewProps) {
+export function ServerDetailView({
+  address,
+  onClose,
+  onRefresh,
+  refreshDisabled,
+  refreshing,
+  onFavouriteChanged,
+}: ServerDetailViewProps) {
   const { t } = useTranslation()
   const [state, setState] = useState<DetailState>({ status: 'loading' })
   const requestIdRef = useRef(0)
@@ -60,6 +73,16 @@ export function ServerDetailView({ address, onClose }: ServerDetailViewProps) {
     })
     return unsubscribe
   }, [address])
+
+  // A re-read after a favourite toggle keeps the loaded content on screen (no 'loading' flash).
+  const handleFavouriteChanged = (): void => {
+    const requestId = ++requestIdRef.current
+    void readServerDetail(address).then((result) => {
+      if (requestIdRef.current !== requestId) return
+      setState(result.ok ? { status: 'loaded', detail: result.value } : { status: 'error' })
+    })
+    onFavouriteChanged()
+  }
 
   return (
     <section aria-labelledby="servers-detail-title" data-testid="servers-detail">
@@ -96,7 +119,13 @@ export function ServerDetailView({ address, onClose }: ServerDetailViewProps) {
         <div className="divide-y divide-line">
           <div className="px-4 py-4">
             <ServerDetailSection id="header">
-              <ServerDetailHeader detail={state.detail} />
+              <ServerDetailHeader
+                detail={state.detail}
+                onRefresh={onRefresh}
+                refreshDisabled={refreshDisabled}
+                refreshing={refreshing}
+                onFavouriteChanged={handleFavouriteChanged}
+              />
             </ServerDetailSection>
           </div>
           <div className="px-4 py-4">

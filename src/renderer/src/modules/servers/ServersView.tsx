@@ -20,7 +20,7 @@ import {
   type ServerListSort,
   type ServerSortColumn,
 } from '@shared/servers/list-sort'
-import { BookMarked, Crosshair, RefreshCw, Star } from 'lucide-react'
+import { RefreshCw, Star } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { useFeatureUnlocked } from '../../components/features/FeatureGate'
 import { StatusDot } from '../../components/ui/primitives'
@@ -36,7 +36,6 @@ import {
   setScanViewActive,
   startScan,
 } from './client'
-import { AddToAddressBookDialog } from './AddToAddressBookDialog'
 import { deriveListState } from './list-state'
 import { JoinServerButton } from './join/JoinServerButton'
 import { ServerDetailView } from './ServerDetailView'
@@ -129,6 +128,9 @@ const IDLE_SCAN_STATE: ServersScanState = {
  * round-end re-read (D4 above) is unchanged. `sourceLabels` (source id -> its address) is read via
  * `listMasterSources()` on mount and again whenever a new, not-yet-labelled source id shows up in
  * `sourceFailures`, so a failure is always named by its human-readable address, never a raw id.
+ *
+ * `servers-refresh-selected` and the address-book action now live in the detail pane
+ * (`ServerDetailHeader`) - both only ever meant the selected server, which is what that pane shows.
  */
 export function ServersView() {
   const { t } = useTranslation()
@@ -141,9 +143,6 @@ export function ServersView() {
   const [filter, setFilter] = useState<ServerListFilter>(EMPTY_SERVER_LIST_FILTER)
   // Story 121 D1: source id -> its human-readable address, for naming a `sourceFailures` entry.
   const [sourceLabels, setSourceLabels] = useState<Record<string, string>>({})
-  // Story 127 D2: the "Add to address book" dialog's open flag, purely local like every other
-  // dialog this view owns (mirrors `SetInstallationIconDialog`'s callers) - no state is lifted.
-  const [addressBookOpen, setAddressBookOpen] = useState(false)
   // Story 132 D3: purely local, like `selectedAddress` above - a fresh mount always starts on the
   // list tab. The tab strip itself only renders (and can only switch this away from 'list') once
   // the `watchlist` feature is unlocked - see `ServersTabStrip`.
@@ -286,6 +285,13 @@ export function ServersView() {
     void startScan({ kind: 'server', address: selectedAddress })
   }
 
+  // A favourite toggled in the detail pane - re-read so the row's star/badge follows.
+  const handleFavouriteChanged = (): void => {
+    void readScan().then((result) => {
+      if (result.ok) setEntries(result.value.entries)
+    })
+  }
+
   const handleToggleRowSelected = (address: string): void => {
     setSelectedAddress((current) => (current === address ? null : address))
   }
@@ -331,7 +337,6 @@ export function ServersView() {
 
   const sortedRows = sortServerRows(entries, sort)
   const visible = filterServers(sortedRows, filter)
-  const selectedRow = visible.find((row) => row.address === selectedAddress) ?? null
 
   // Story 120 D2: a row that filters out from under the current selection is deselected - a
   // selection referring to a row that isn't even shown would silently keep driving "Refresh this
@@ -356,8 +361,8 @@ export function ServersView() {
   const isBusy = scanState.running
   const isRefreshDisabled = isBlocked || isBusy
 
-  // The toolbar: title + live status line on the left, the scoped refresh controls and the
-  // address-book action on the right, every disabled control's visible reason underneath.
+  // The toolbar: title + live status line on the left, the scoped refresh controls on the right,
+  // every disabled control's visible reason underneath.
   const toolbar = (
     <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 border-b border-line px-5 py-4">
       <div className="min-w-0 space-y-1">
@@ -409,26 +414,6 @@ export function ServersView() {
           >
             {t('module.servers.view.refreshFavourites')}
           </Button>
-          <Button
-            variant="neutral"
-            size="sm"
-            icon={<Crosshair className="size-3.5" aria-hidden="true" />}
-            onClick={handleRefreshSelected}
-            disabled={isRefreshDisabled || selectedAddress === null}
-            data-testid="servers-refresh-selected"
-          >
-            {t('module.servers.view.refreshSelected')}
-          </Button>
-          <Button
-            variant="neutral"
-            size="sm"
-            icon={<BookMarked className="size-3.5" aria-hidden="true" />}
-            onClick={() => setAddressBookOpen(true)}
-            disabled={selectedAddress === null}
-            data-testid="servers-address-book-open"
-          >
-            {t('servers.addressBook.action')}
-          </Button>
         </div>
         {isBlocked && scanState.blockedReason && (
           <p className="text-xs text-warning" data-testid="servers-scan-blocked">
@@ -438,16 +423,6 @@ export function ServersView() {
         {isBusy && !isBlocked && (
           <p className="text-xs text-warning" data-testid="servers-scan-busy">
             {t(SCAN_BUSY_REASON_KEY)}
-          </p>
-        )}
-        {selectedAddress === null && (
-          <p className="flex flex-wrap justify-end gap-x-1 text-xs text-ink-muted">
-            <span data-testid="servers-refresh-selected-hint">
-              {t('module.servers.view.selectServerFirst')}
-            </span>
-            <span data-testid="servers-address-book-open-hint">
-              {t('servers.addressBook.noSelection')}
-            </span>
           </p>
         )}
       </div>
@@ -536,18 +511,16 @@ export function ServersView() {
                 <ServerDetailView
                   address={selectedAddress}
                   onClose={() => setSelectedAddress(null)}
+                  onRefresh={handleRefreshSelected}
+                  refreshDisabled={isRefreshDisabled}
+                  refreshing={isBusy}
+                  onFavouriteChanged={handleFavouriteChanged}
                 />
               </div>
             )}
           </div>
         </div>
       </div>
-
-      <AddToAddressBookDialog
-        open={addressBookOpen}
-        address={selectedRow?.address ?? selectedAddress ?? ''}
-        onClose={() => setAddressBookOpen(false)}
-      />
     </div>
   )
 
