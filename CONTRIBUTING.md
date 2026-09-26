@@ -52,6 +52,16 @@ branch or index of yours touched. Then:
 
 It prints a pass/fail line per step and exits non-zero if any failed. If it
 warns about uncommitted changes, commit exactly those before opening the PR.
+act and Docker are checked before anything else, so a missing prerequisite
+fails in seconds; act is also found in winget's install folder when a shell
+predates the install. Stale `act-*` containers from an aborted run are removed
+before the Linux phase.
+
+Run it by hand, once `dev` holds everything you want to release — pushes to
+`dev` are not gated. The result is only valid for the tree it verified: commit
+anything after it, or let `main` move on (e.g. a `release: x.y.z` commit), and
+run it again before the PR. And let the PR's checks finish before merging (PRs
+#9 and #10 were merged ~30 s after the push, before any check had run).
 
 A trap it catches that no branch-only check can: after a release, `main` has a
 `release: x.y.z` commit that promoted `## Unreleased` into a version section.

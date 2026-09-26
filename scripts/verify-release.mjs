@@ -26,9 +26,13 @@
 // so: commit exactly that, or the PR runs on a different tree. Exit code 0 means every step passed;
 // anything else prints which one did not.
 //
+// act and Docker are checked first, so a missing prerequisite fails in seconds rather than after
+// the ~5 min host phase. Run it by hand once dev is in the state you want to release - it is not
+// wired into any git hook on purpose: a push to dev is not a release.
+//
 // Usage: npm run verify:release [-- --base=origin/main]
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { REPO_ROOT } from './lib/paths.mjs'
@@ -66,6 +70,29 @@ function capture(command, args, { cwd = REPO_ROOT, env } = {}) {
 }
 
 const npm = (args, cwd, env) => run(IS_WIN ? 'npm.cmd' : 'npm', args, { cwd, env, shell: IS_WIN })
+
+/**
+ * `ACT`, else `act` on the PATH, else (Windows) winget's install folder - winget only puts act on
+ * the PATH of shells started after the install, which agent and IDE shells often are not.
+ */
+function resolveAct() {
+  if (process.env.ACT) return process.env.ACT
+  if (capture('act', ['--version']) !== null) return 'act'
+  if (IS_WIN && process.env.LOCALAPPDATA) {
+    const packages = join(process.env.LOCALAPPDATA, 'Microsoft', 'WinGet', 'Packages')
+    const dir = existsSync(packages)
+      ? readdirSync(packages).find((name) => name.startsWith('nektos.act_'))
+      : undefined
+    if (dir && existsSync(join(packages, dir, 'act.exe'))) return join(packages, dir, 'act.exe')
+  }
+  return null
+}
+
+/** Removes act job containers left behind by an aborted run - they break the next one. */
+function removeStaleActContainers() {
+  const ids = capture('docker', ['ps', '-aq', '--filter', 'name=act-'])
+  if (ids) run('docker', ['rm', '-f', ...ids.split(/\s+/)])
+}
 
 function parseBase(argv) {
   const flag = argv.find((arg) => arg.startsWith('--base='))
@@ -109,6 +136,21 @@ function main() {
   const results = []
 
   mkdirSync(SNAPSHOT_ROOT, { recursive: true })
+
+  // --- preflight: what the linux phase needs, before the host phase spends minutes ---
+  const act = resolveAct()
+  if (act === null) {
+    console.error(
+      'verify:release - act not found: install it (Windows: `winget install nektos.act`) or set ACT=<path>.',
+    )
+    process.exitCode = 1
+    return
+  }
+  if (capture('docker', ['info', '--format', '{{.ServerVersion}}']) === null) {
+    console.error('verify:release - Docker is not running: start Docker Desktop.')
+    process.exitCode = 1
+    return
+  }
 
   // --- the working tree, as it would be committed -------------------------------
   const workIndex = { GIT_INDEX_FILE: join(SNAPSHOT_ROOT, 'work.index') }
@@ -204,7 +246,6 @@ function main() {
   )
 
   // --- linux phase (act) -------------------------------------------------------
-  const act = process.env.ACT ?? 'act'
   const actRun = (workflow, extra = []) =>
     run(
       act,
@@ -229,19 +270,9 @@ function main() {
     'linux',
     [
       {
-        label: 'act + docker available',
-        gate: true,
+        label: 'remove stale act containers',
         run: () => {
-          if (capture(act, ['--version']) === null) {
-            console.error(
-              'act not found - install it (Windows: `winget install nektos.act`, then open a new shell) or set ACT=<path>.',
-            )
-            return false
-          }
-          if (capture('docker', ['info', '--format', '{{.ServerVersion}}']) === null) {
-            console.error('Docker is not running - start Docker Desktop.')
-            return false
-          }
+          removeStaleActContainers()
           return true
         },
       },
