@@ -66,23 +66,32 @@ afterEach(() => {
 })
 
 describe('servers module registration', () => {
-  it('the servers renderer module contributes a settings section and a minimal manual-scan view', async () => {
-    const { rendererModule } = await import('../index')
-    const { ServersView } = await import('./ServersView')
-    const module = rendererModule('servers')
+  // The global testTimeout (vitest.config.ts) isn't consistently enough headroom for this one:
+  // `../index` pulls in the entire renderer module registry, making this the heaviest dynamic
+  // `import()` in the suite - it's the one file that still timed out under CI-level CPU
+  // contention after the global bump to 20s, so it gets its own longer allowance instead of
+  // raising the default further for every other test.
+  it(
+    'the servers renderer module contributes a settings section and a minimal manual-scan view',
+    async () => {
+      const { rendererModule } = await import('../index')
+      const { ServersView } = await import('./ServersView')
+      const module = rendererModule('servers')
 
-    expect(module).toBeDefined()
-    // Story 115 D5: `View` is now `ServersView` - a deliberate stand-in for the manual scan
-    // control only (AC3), not the module's real debut. The manifest's own `status` stays
-    // `'planned'` below on purpose, so the nav rail's "planned" badge still reads accurately
-    // until the real server list ([[118]]/[[121]]) lands.
-    expect(module?.View).toBe(ServersView)
-    expect(module?.settingsSection).toBeDefined()
-    expect(module?.settingsSection?.Section).toBe(ServersSettingsSection)
+      expect(module).toBeDefined()
+      // Story 115 D5: `View` is now `ServersView` - a deliberate stand-in for the manual scan
+      // control only (AC3), not the module's real debut. The manifest's own `status` stays
+      // `'planned'` below on purpose, so the nav rail's "planned" badge still reads accurately
+      // until the real server list ([[118]]/[[121]]) lands.
+      expect(module?.View).toBe(ServersView)
+      expect(module?.settingsSection).toBeDefined()
+      expect(module?.settingsSection?.Section).toBe(ServersSettingsSection)
 
-    const manifest = getModuleManifest('servers')
-    expect(manifest?.status).toBe('planned')
-  })
+      const manifest = getModuleManifest('servers')
+      expect(manifest?.status).toBe('planned')
+    },
+    40_000,
+  )
 
   it('the section renders the master-source list fetched from main', async () => {
     render(createElement(ServersSettingsSection))
