@@ -12,7 +12,7 @@ import type { ScanStartResult } from '@shared/modules/servers'
 import { formatRelativeTime } from '../../../lib/format'
 import { Button, IconButton } from '../../../components/ui/Button'
 import { Select } from '../../../components/ui/controls'
-import { Pencil, PanelRight, Trash2 } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
 import type { WatchlistMutationResult } from '../client'
 import { WatchlistMatchRow } from './WatchlistMatchRow'
 
