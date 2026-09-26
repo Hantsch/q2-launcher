@@ -20,10 +20,10 @@
 //   downloads-settings-clear-cache-confirm-button  DownloadsSettingsSection.tsx - the confirm Modal's
 //                                                    destructive action
 //
-// `.panel > .stencil` (top-level `SectionLabel`s, one per shell/contributed section - `Panel`
-// renders its `SectionLabel` child as its first, direct child, so this selector never matches the
-// nested `stencil`-classed field labels inside a section's own controls) is what proves AC1's
-// "between Library and About" ordering claim without a testid on either shell-owned panel.
+// `.panel > header > h2` (the section title `SettingsSection.tsx` renders as each panel's first,
+// direct child, so this selector never matches a heading nested inside a section's own controls)
+// is what proves AC1's "between Library and About" ordering claim without a testid on either
+// shell-owned panel.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
@@ -51,9 +51,9 @@ export default async function settingsDownloadsSection({ page, shot, step }) {
   step('the Downloads section renders in Settings between Library and About')
   const section = page.getByTestId('settings-section-downloads')
   await section.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  // `.stencil` renders visually upper-cased via CSS `text-transform`, which `innerText` reflects
+  // Section titles render visually upper-cased via CSS `text-transform`, which `innerText` reflects
   // (it returns rendered text, not the DOM's literal casing) - compare case-insensitively.
-  const labels = (await page.locator('.panel > .stencil').allInnerTexts()).map((label) =>
+  const labels = (await page.locator('.panel > header > h2').allInnerTexts()).map((label) =>
     label.toLowerCase(),
   )
   const libraryIndex = labels.indexOf('library')

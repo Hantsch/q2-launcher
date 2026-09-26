@@ -235,7 +235,7 @@ describe('ServersView - watchlist tab, unlocked (story 132 D3)', () => {
     )
   })
 
-  it('open-detail switches to the list tab and opens that server\'s detail', async () => {
+  it("open-detail opens that server's detail beside the watchlist, and toggles it closed", async () => {
     useLauncher.setState({ unlockedFeatures: ['watchlist'] })
 
     const row: ServerListEntry = {
@@ -287,9 +287,16 @@ describe('ServersView - watchlist tab, unlocked (story 132 D3)', () => {
       await Promise.resolve()
     })
 
-    expect(screen.queryByTestId('servers-watchlist')).toBeNull()
-    expect(screen.getByTestId('servers-tab-list').className).toContain('bg-flame-900/30')
+    expect(screen.getByTestId('servers-watchlist')).toBeTruthy()
+    expect(screen.getByTestId('servers-tab-watchlist').className).toContain('bg-flame-900/30')
     await screen.findByTestId('servers-detail')
     expect(readServerDetailMock).toHaveBeenCalledWith('9.9.9.9:27910')
+    expect(openDetail.getAttribute('aria-pressed')).toBe('true')
+    expect(
+      screen.getByTestId('servers-watchlist-match-e2-9.9.9.9:27910').getAttribute('data-selected'),
+    ).toBe('true')
+
+    fireEvent.click(openDetail)
+    expect(screen.queryByTestId('servers-detail')).toBeNull()
   })
 })

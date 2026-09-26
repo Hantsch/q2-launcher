@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { Outcome } from '@shared/types'
 import {
   WATCHLIST_NAME_MAX,
+  type ServerListRow,
   type WatchlistEntryStatus,
   type WatchlistMatch,
   type WatchlistMatchMode,
@@ -11,8 +12,9 @@ import type { ScanStartResult } from '@shared/modules/servers'
 import { formatRelativeTime } from '../../../lib/format'
 import { Button, IconButton } from '../../../components/ui/Button'
 import { Select } from '../../../components/ui/controls'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, PanelRight, Trash2 } from 'lucide-react'
 import type { WatchlistMutationResult } from '../client'
+import { WatchlistMatchRow } from './WatchlistMatchRow'
 
 const MODE_OPTIONS: { value: WatchlistMatchMode; labelKey: string }[] = [
   { value: 'exact', labelKey: 'servers.watchlist.mode.exact' },
@@ -33,6 +35,10 @@ export interface WatchlistRowProps {
   remove: (id: string) => Promise<Outcome<WatchlistMutationResult>>
   recheck: (id: string) => Promise<Outcome<ScanStartResult>>
   renderMatchActions: (match: WatchlistMatch) => ReactNode
+  /** The server list's live row for an address, shown as the match's server stats. */
+  resolveServer: (address: string) => ServerListRow | undefined
+  /** The address open in the watchlist's detail pane, highlighted among the matches. */
+  selectedAddress: string | null
 }
 
 /**
@@ -47,6 +53,8 @@ export function WatchlistRow({
   remove,
   recheck,
   renderMatchActions,
+  resolveServer,
+  selectedAddress,
 }: WatchlistRowProps) {
   const { t } = useTranslation()
   const modeOptions = MODE_OPTIONS.map(({ value, labelKey }) => ({ value, label: t(labelKey) }))
@@ -230,19 +238,16 @@ export function WatchlistRow({
       )}
 
       {state === 'found' && (
-        <ul className="space-y-1">
+        <ul className="space-y-2">
           {status.matches.map((match) => (
-            <li
+            <WatchlistMatchRow
               key={match.address}
-              data-testid={`servers-watchlist-match-${entry.id}-${match.address}`}
-              className="flex items-center justify-between gap-2 text-xs text-ink"
-            >
-              <span className="min-w-0 truncate">
-                {match.serverName ?? match.address} — {match.playerName} — {match.score} —{' '}
-                {match.ping} — {t('servers.watchlist.match.seen', { rel: formatRelativeTime(match.seenAt) })}
-              </span>
-              {renderMatchActions(match)}
-            </li>
+              entryId={entry.id}
+              match={match}
+              server={resolveServer(match.address)}
+              selected={match.address === selectedAddress}
+              actions={renderMatchActions(match)}
+            />
           ))}
         </ul>
       )}

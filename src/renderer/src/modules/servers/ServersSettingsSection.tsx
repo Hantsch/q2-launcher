@@ -156,6 +156,8 @@ export function ServersSettingsSection() {
 
   return (
     <div className="space-y-3">
+      <SectionLabel>{t('module.servers.settings.sourcesHeading')}</SectionLabel>
+
       <div className="flex items-end gap-2">
         <label className="space-y-1.5">
           <span className="stencil block text-xs">
@@ -248,85 +250,89 @@ export function ServersSettingsSection() {
           />
         </div>
 
-        <label
-          className="space-y-1.5 block"
-          data-testid="servers-scan-settings-auto-refresh-interval"
-        >
-          <span className="stencil block text-xs">
-            {t('module.servers.settings.scan.autoRefreshInterval.label')}
-          </span>
-          <Select
-            value={scanSettings ? String(scanSettings.autoRefreshIntervalMs) : ''}
-            disabled={!scanSettings || !scanSettings.autoRefreshEnabled}
-            onChange={(event) =>
-              void applyScanPatch({ autoRefreshIntervalMs: Number(event.target.value) })
-            }
-            options={SCAN_AUTO_REFRESH_INTERVAL_CHOICES_MS.map((value) => ({
-              value: String(value),
-              label: formatMsChoice(t, value),
-            }))}
-          />
-        </label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label
+            className="space-y-1.5 block"
+            data-testid="servers-scan-settings-auto-refresh-interval"
+          >
+            <span className="stencil block text-xs">
+              {t('module.servers.settings.scan.autoRefreshInterval.label')}
+            </span>
+            <Select
+              value={scanSettings ? String(scanSettings.autoRefreshIntervalMs) : ''}
+              disabled={!scanSettings || !scanSettings.autoRefreshEnabled}
+              onChange={(event) =>
+                void applyScanPatch({ autoRefreshIntervalMs: Number(event.target.value) })
+              }
+              options={SCAN_AUTO_REFRESH_INTERVAL_CHOICES_MS.map((value) => ({
+                value: String(value),
+                label: formatMsChoice(t, value),
+              }))}
+            />
+          </label>
 
-        <label className="space-y-1.5 block" data-testid="servers-scan-settings-concurrency">
-          <span className="stencil block text-xs">
-            {t('module.servers.settings.scan.concurrency.label')}
-          </span>
-          <Select
-            value={scanSettings ? String(scanSettings.concurrency) : ''}
-            disabled={!scanSettings}
-            onChange={(event) => void applyScanPatch({ concurrency: Number(event.target.value) })}
-            options={SCAN_CONCURRENCY_CHOICES.map((value) => ({
-              value: String(value),
-              label: String(value),
-            }))}
-          />
-        </label>
+          <label className="space-y-1.5 block" data-testid="servers-scan-settings-concurrency">
+            <span className="stencil block text-xs">
+              {t('module.servers.settings.scan.concurrency.label')}
+            </span>
+            <Select
+              value={scanSettings ? String(scanSettings.concurrency) : ''}
+              disabled={!scanSettings}
+              onChange={(event) => void applyScanPatch({ concurrency: Number(event.target.value) })}
+              options={SCAN_CONCURRENCY_CHOICES.map((value) => ({
+                value: String(value),
+                label: String(value),
+              }))}
+            />
+          </label>
 
-        <label className="space-y-1.5 block" data-testid="servers-scan-settings-timeout">
-          <span className="stencil block text-xs">
-            {t('module.servers.settings.scan.timeout.label')}
-          </span>
-          <Select
-            value={scanSettings ? String(scanSettings.timeoutMs) : ''}
-            disabled={!scanSettings}
-            onChange={(event) => void applyScanPatch({ timeoutMs: Number(event.target.value) })}
-            options={SCAN_TIMEOUT_CHOICES_MS.map((value) => ({
-              value: String(value),
-              label: formatMsChoice(t, value),
-            }))}
-          />
-        </label>
+          <label className="space-y-1.5 block" data-testid="servers-scan-settings-timeout">
+            <span className="stencil block text-xs">
+              {t('module.servers.settings.scan.timeout.label')}
+            </span>
+            <Select
+              value={scanSettings ? String(scanSettings.timeoutMs) : ''}
+              disabled={!scanSettings}
+              onChange={(event) => void applyScanPatch({ timeoutMs: Number(event.target.value) })}
+              options={SCAN_TIMEOUT_CHOICES_MS.map((value) => ({
+                value: String(value),
+                label: formatMsChoice(t, value),
+              }))}
+            />
+          </label>
 
-        <label className="space-y-1.5 block" data-testid="servers-scan-settings-retries">
-          <span className="stencil block text-xs">
-            {t('module.servers.settings.scan.retries.label')}
-          </span>
-          <Select
-            value={scanSettings ? String(scanSettings.retries) : ''}
-            disabled={!scanSettings}
-            onChange={(event) => void applyScanPatch({ retries: Number(event.target.value) })}
-            options={SCAN_RETRIES_CHOICES.map((value) => ({
-              value: String(value),
-              label: String(value),
-            }))}
-          />
-        </label>
+          <label className="space-y-1.5 block" data-testid="servers-scan-settings-retries">
+            <span className="stencil block text-xs">
+              {t('module.servers.settings.scan.retries.label')}
+            </span>
+            <Select
+              value={scanSettings ? String(scanSettings.retries) : ''}
+              disabled={!scanSettings}
+              onChange={(event) => void applyScanPatch({ retries: Number(event.target.value) })}
+              options={SCAN_RETRIES_CHOICES.map((value) => ({
+                value: String(value),
+                label: String(value),
+              }))}
+            />
+          </label>
 
-        <label className="space-y-1.5 block" data-testid="servers-scan-settings-min-spacing">
-          <span className="stencil block text-xs">
-            {t('module.servers.settings.scan.minSpacing.label')}
-          </span>
-          <Select
-            value={scanSettings ? String(scanSettings.minSpacingMs) : ''}
-            disabled={!scanSettings}
-            onChange={(event) => void applyScanPatch({ minSpacingMs: Number(event.target.value) })}
-            options={SCAN_MIN_SPACING_CHOICES_MS.map((value) => ({
-              value: String(value),
-              label: formatMsChoice(t, value),
-            }))}
-          />
-        </label>
+          <label className="space-y-1.5 block" data-testid="servers-scan-settings-min-spacing">
+            <span className="stencil block text-xs">
+              {t('module.servers.settings.scan.minSpacing.label')}
+            </span>
+            <Select
+              value={scanSettings ? String(scanSettings.minSpacingMs) : ''}
+              disabled={!scanSettings}
+              onChange={(event) =>
+                void applyScanPatch({ minSpacingMs: Number(event.target.value) })
+              }
+              options={SCAN_MIN_SPACING_CHOICES_MS.map((value) => ({
+                value: String(value),
+                label: formatMsChoice(t, value),
+              }))}
+            />
+          </label>
+        </div>
       </div>
     </div>
   )

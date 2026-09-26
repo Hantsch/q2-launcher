@@ -28,6 +28,8 @@ export interface RendererModule {
   View?: ComponentType
   settingsSection?: {
     titleKey: string
+    /** Optional one-line summary shown under the section title. */
+    descriptionKey?: string
     order: number
     Section: ComponentType
   }
@@ -55,6 +57,7 @@ export const RENDERER_MODULES: readonly RendererModule[] = [
     View: DownloadsView,
     settingsSection: {
       titleKey: 'module.downloads.settings.title',
+      descriptionKey: 'module.downloads.settings.description',
       order: 10,
       Section: DownloadsSettingsSection,
     },
@@ -72,6 +75,7 @@ export const RENDERER_MODULES: readonly RendererModule[] = [
     View: ServersView,
     settingsSection: {
       titleKey: 'module.servers.settings.title',
+      descriptionKey: 'module.servers.settings.description',
       order: 20,
       Section: ServersSettingsSection,
     },

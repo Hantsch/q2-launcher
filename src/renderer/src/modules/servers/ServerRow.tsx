@@ -1,9 +1,13 @@
+import type { KeyboardEvent, MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Lock, Star, User } from 'lucide-react'
+import { Copy, Lock, Star, User } from 'lucide-react'
 import type { ServerListRow } from '@shared/modules/servers'
 import { isWaitingForOpponent, knownPlayerCount } from '@shared/servers/row-markers'
 import { cn } from '../../lib/cn'
+import { invoke } from '../../lib/bridge'
+import { useLauncher } from '../../store/useLauncher'
 import { Badge } from '../../components/ui/primitives'
+import { IconButton } from '../../components/ui/Button'
 import { SERVER_LIST_GRID } from './list-grid'
 import { displayName, formatOccupancy, formatPing, orDash } from './server-format'
 
@@ -20,7 +24,7 @@ const PIP_COUNT = 5
  * meaning (the count next to it carries the number). Empty when nothing is known, all-lit in the
  * warning tone when the server is full.
  */
-function OccupancyPips({ row }: { row: ServerListRow }) {
+export function OccupancyPips({ row }: { row: ServerListRow }) {
   const count = knownPlayerCount(row)
   const max = row.maxclients
   if (count === undefined || max === undefined || max <= 0) return null
@@ -52,21 +56,40 @@ function OccupancyPips({ row }: { row: ServerListRow }) {
  */
 export function ServerRow({ row, selected, onSelect }: ServerRowProps) {
   const { t } = useTranslation()
+  const pushToast = useLauncher((state) => state.pushToast)
 
   const name = displayName(row)
   const showAddressUnderName = row.name && row.name.length > 0
   const waiting = isWaitingForOpponent(row)
 
+  function handleCopyAddress(event: MouseEvent<HTMLButtonElement>): void {
+    event.stopPropagation()
+    void invoke('app:copyText', row.address).then((result) => {
+      pushToast(
+        result.ok
+          ? { level: 'success', messageKey: 'servers.row.copySuccess', timeoutMs: 4000 }
+          : { level: 'error', messageKey: 'servers.row.copyError', timeoutMs: 0 },
+      )
+    })
+  }
+
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onSelect(row.address)}
+      onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onSelect(row.address)
+        }
+      }}
       aria-pressed={selected}
       data-testid={`servers-row-${row.address}`}
       data-selected={selected}
       className={cn(
         SERVER_LIST_GRID,
-        'min-h-12 w-full border-b border-b-line/60 py-1.5 text-left text-xs text-ink-dim transition-colors duration-[--dur-fast]',
+        'min-h-12 w-full cursor-default border-b border-b-line/60 py-1.5 text-left text-xs text-ink-dim transition-colors duration-[--dur-fast]',
         selected
           ? 'border-l-flame-500 bg-flame-900/20'
           : cn(
@@ -81,7 +104,16 @@ export function ServerRow({ row, selected, onSelect }: ServerRowProps) {
           {row.favourite && (
             <Star className="size-3.5 shrink-0 fill-flame-500 text-flame-500" aria-hidden="true" />
           )}
-          <span className="truncate">{name}</span>
+          <span className="min-w-0 flex-1 truncate">{name}</span>
+          <IconButton
+            label={t('servers.row.copyIp')}
+            size="sm"
+            variant="ghost"
+            onClick={handleCopyAddress}
+            data-testid={`servers-row-copy-${row.address}`}
+          >
+            <Copy className="size-3.5" />
+          </IconButton>
         </p>
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           {showAddressUnderName && (
@@ -130,6 +162,6 @@ export function ServerRow({ row, selected, onSelect }: ServerRowProps) {
       </span>
       <span className="numeric truncate text-right text-[11px]">{orDash(row.map)}</span>
       <span className="numeric truncate text-right">{formatPing(row)}</span>
-    </button>
+    </div>
   )
 }

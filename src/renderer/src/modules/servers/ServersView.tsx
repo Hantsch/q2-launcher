@@ -20,7 +20,7 @@ import {
   type ServerListSort,
   type ServerSortColumn,
 } from '@shared/servers/list-sort'
-import { RefreshCw, Star } from 'lucide-react'
+import { PanelRight, RefreshCw, Star } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { useFeatureUnlocked } from '../../components/features/FeatureGate'
 import { StatusDot } from '../../components/ui/primitives'
@@ -77,6 +77,20 @@ const IDLE_SCAN_STATE: ServersScanState = {
   blockedReason: null,
   scope: null,
 }
+
+/** The list-beside-detail grid both tabs share: one slot until a server is open, then the detail
+ * pane sits beside the first slot (a fixed 32rem) or, below the `@4xl` container width, under it. */
+function detailSplit(detailOpen: boolean): string {
+  return cn(
+    'grid h-full',
+    detailOpen
+      ? 'grid-rows-[minmax(0,1fr)_minmax(0,1fr)] @4xl:grid-cols-[minmax(0,1fr)_32rem] @4xl:grid-rows-1'
+      : 'grid-rows-1',
+  )
+}
+
+const DETAIL_PANE =
+  'min-h-0 overflow-y-auto border-t border-line bg-panel/40 @4xl:border-t-0 @4xl:border-l'
 
 /**
  * Story 115 D5: a deliberately minimal stand-in for the Servers view - just enough surface for
@@ -147,6 +161,10 @@ export function ServersView() {
   // list tab. The tab strip itself only renders (and can only switch this away from 'list') once
   // the `watchlist` feature is unlocked - see `ServersTabStrip`.
   const [activeTab, setActiveTab] = useState<ServersTab>('list')
+  // The server open in the watchlist tab's own detail pane - separate from `selectedAddress` so
+  // opening details from a match never disturbs the list tab's selection (or its filter-driven
+  // deselect below).
+  const [watchlistDetailAddress, setWatchlistDetailAddress] = useState<string | null>(null)
   // Story 132 clean-code fix: gate the panel body with the plain boolean instead of a second
   // `<FeatureGate>` - `ServersTabStrip` already renders the one `ExperimentalBadge` next to the
   // tab label, so a second `FeatureGate` here would render a second, unanchored badge.
@@ -310,22 +328,31 @@ export function ServersView() {
     })
   }
 
+  const resolveServer = (address: string): ServerListRow | undefined =>
+    entries.find((entry) => entry.address === address)
+
+  const handleRefreshWatchlistDetail = (): void => {
+    if (watchlistDetailAddress === null) return
+    void startScan({ kind: 'server', address: watchlistDetailAddress })
+  }
+
   // Story 132 D3: the watchlist panel's own actions column, wired to this view's real
-  // Join (never reimplemented - AC3/AC4) and its own selection/tab state. A match with no
-  // live row (a race between the watchlist's own scan and this view's `entries`) renders nothing -
-  // never a fallback Join for a server the view doesn't currently know about.
+  // Join (never reimplemented - AC3/AC4). "Server details" opens the detail pane beside the
+  // watchlist rather than jumping to the list tab. A match with no live row (a race between the
+  // watchlist's own scan and this view's `entries`) renders nothing - never a fallback Join for a
+  // server the view doesn't currently know about.
   const renderMatchActions = (match: WatchlistMatch): ReactNode => {
-    const row = entries.find((entry) => entry.address === match.address)
+    const row = resolveServer(match.address)
     if (!row) return null
+    const open = watchlistDetailAddress === match.address
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <JoinServerButton row={row} />
         <Button
-          variant="ghost"
-          onClick={() => {
-            setActiveTab('list')
-            setSelectedAddress(match.address)
-          }}
+          variant={open ? 'neutral' : 'ghost'}
+          aria-pressed={open}
+          icon={<PanelRight className="size-4" aria-hidden="true" />}
+          onClick={() => setWatchlistDetailAddress(open ? null : match.address)}
           data-testid={`servers-watchlist-open-detail-${match.address}`}
         >
           {t('servers.detail.title')}
@@ -488,14 +515,7 @@ export function ServersView() {
       <div className="flex min-w-0 flex-1 flex-col">
         {toolbar}
         <div className="@container min-h-0 flex-1">
-          <div
-            className={cn(
-              'grid h-full',
-              selectedAddress === null
-                ? 'grid-rows-1'
-                : 'grid-rows-[minmax(0,1fr)_minmax(0,1fr)] @4xl:grid-cols-[minmax(0,1fr)_32rem] @4xl:grid-rows-1',
-            )}
-          >
+          <div className={detailSplit(selectedAddress !== null)}>
             <div className="flex min-h-0 flex-col">
               <ServersListStatus
                 listState={deriveListState(scanState, entries.length)}
@@ -506,7 +526,7 @@ export function ServersView() {
               <div className="min-h-0 flex-1 overflow-y-auto scrollbar-gutter-stable">{table}</div>
             </div>
             {selectedAddress !== null && (
-              <div className="min-h-0 overflow-y-auto border-t border-line bg-panel/40 @4xl:border-t-0 @4xl:border-l">
+              <div className={DETAIL_PANE}>
                 <ServerDetailView
                   address={selectedAddress}
                   onClose={() => setSelectedAddress(null)}
@@ -523,17 +543,41 @@ export function ServersView() {
     </div>
   )
 
+  // The watchlist tab gets the same list-beside-detail split: "Server details" on a match opens
+  // the detail pane right here instead of jumping to the list tab.
+  const watchlistAndDetail = (
+    <div className="@container h-full">
+      <div className={detailSplit(watchlistDetailAddress !== null)}>
+        <div className="min-h-0 overflow-y-auto p-6 scrollbar-gutter-stable">
+          <div className="mx-auto w-full max-w-3xl">
+            <WatchlistPanel
+              renderMatchActions={renderMatchActions}
+              resolveServer={resolveServer}
+              selectedAddress={watchlistDetailAddress}
+            />
+          </div>
+        </div>
+        {watchlistDetailAddress !== null && (
+          <div className={DETAIL_PANE}>
+            <ServerDetailView
+              address={watchlistDetailAddress}
+              onClose={() => setWatchlistDetailAddress(null)}
+              onRefresh={handleRefreshWatchlistDetail}
+              refreshDisabled={isRefreshDisabled}
+              refreshing={isBusy}
+              onFavouriteChanged={handleFavouriteChanged}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
   return (
     <div className="flex h-full flex-col">
       <ServersTabStrip activeTab={activeTab} onChange={setActiveTab} />
       <div className="min-h-0 flex-1">
-        {activeTab === 'watchlist'
-          ? isWatchlistUnlocked && (
-              <div className="mx-auto w-full max-w-3xl overflow-y-auto p-6">
-                <WatchlistPanel renderMatchActions={renderMatchActions} />
-              </div>
-            )
-          : listAndDetail}
+        {activeTab === 'watchlist' ? isWatchlistUnlocked && watchlistAndDetail : listAndDetail}
       </div>
     </div>
   )

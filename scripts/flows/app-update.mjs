@@ -27,7 +27,7 @@
 // 1. **AC1** - assert no control at all while nothing is known, then simulate an available release
 //    and assert the control appears, in DOM order, before `nav-downloads`.
 // 2. **AC2** - open the popover, assert it names the version, and follow "what changed" into
-//    Settings -> About (`settings-about`).
+//    Settings' version card (`settings-version`), which shows the pending update.
 // 3. **AC5** - reopen the popover (phase still `available`), assert the attention dot, dismiss, and
 //    reload the renderer: the control survives the reload and the dot does not come back (dismissal
 //    is in-memory in *main*, not renderer state, so a renderer-only reload must not resurrect it).
@@ -65,7 +65,8 @@
 //   update-popover-restart        UpdatePopover.tsx - "Restart and install"
 //   update-popover-refusal        UpdatePopover.tsx - the guard's reason, in place of the button
 //   update-popover-dismiss        UpdatePopover.tsx - always present, every phase
-//   settings-about                SettingsView.tsx - 099's anchor, added for this story's AC2
+//   settings-version              AppVersionCard.tsx - the pending update's notes live here
+//   about-update-available        PendingUpdate.tsx - the pending update block
 // `nav-downloads` is TitleBar.tsx's own pre-existing testid for the Downloads utility button, reused
 // here only as AC1's DOM-order reference point.
 import { INSTALL_ONE_ID } from '../lib/fixture.mjs'
@@ -148,7 +149,8 @@ export default async function appUpdateFlow({ page, step, shot }) {
   }
   await shot('popover-available')
   await popover.getByTestId('update-popover-whatchanged').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('settings-about').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.getByTestId('settings-version').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.getByTestId('about-update-available').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('update-popover').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
 
   step('AC5: dismissing stops the prompt for this session and leaves the control reachable')

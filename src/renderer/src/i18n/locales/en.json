@@ -73,6 +73,7 @@
       "description": "Get the game files you need and keep them up to date.",
       "settings": {
         "title": "Downloads",
+        "description": "How many downloads run at once and how much disk the archive cache may use.",
         "concurrency": {
           "label": "Concurrent downloads"
         },
@@ -112,6 +113,8 @@
       "description": "Browse Quake II servers and see who's playing before you join.",
       "settings": {
         "title": "Servers",
+        "description": "Where the server list comes from and how servers are queried.",
+        "sourcesHeading": "Server lists",
         "list": {
           "label": "Master and list sources"
         },
@@ -696,7 +699,10 @@
       "password": "Password",
       "favourite": "Favourite",
       "waiting": "Opponent wanted",
-      "pending": "Not scanned yet"
+      "pending": "Not scanned yet",
+      "copyIp": "Copy server address",
+      "copySuccess": "Server address copied",
+      "copyError": "Couldn't copy the server address"
     },
     "list": {
       "loading": {
@@ -979,7 +985,9 @@
       "tooSlow": "This pattern was too slow to match and is skipped — edit it to try again.",
       "checkedAt": "checked {{rel}}",
       "match": {
-        "seen": "seen {{rel}}"
+        "seen": "seen {{rel}}",
+        "score": "Score",
+        "ping": "Ping"
       },
       "recheck": {
         "label": "Re-check",
@@ -2487,6 +2495,17 @@
       "unlock": "Unlock code",
       "about": "About"
     },
+    "sectionHint": {
+      "appearance": "Language and animations.",
+      "launch": "What the launcher does when a game starts.",
+      "library": "How installations are found and removed.",
+      "unlock": "Redeem a code to unlock extra features.",
+      "about": "Release notes, folders and technical details."
+    },
+    "nav": {
+      "label": "Settings sections",
+      "updates": "Version & updates"
+    },
     "language": "Language",
     "languageSystem": "Use system language",
     "languageNote": "Only English ships today. More languages can be added without touching the UI code.",
@@ -2499,7 +2518,6 @@
     "closeAfterLaunchNote": "Play time is not recorded when the launcher quits.",
     "confirmBeforeRemoving": "Ask before removing an installation",
     "scanOnFirstRun": "Offer to search for installations on first start",
-    "version": "Version",
     "electron": "Electron",
     "chrome": "Chromium",
     "node": "Node",
@@ -2514,6 +2532,10 @@
       "lastChecked": "Last checked {{time}}",
       "neverChecked": "Never checked for updates",
       "checkNow": "Check now",
+      "checking": "Checking for updates…",
+      "currentVersion": "Launcher version",
+      "whatsNew": "What's new in this version",
+      "technical": "Technical details",
       "checkUpToDate": "You're up to date.",
       "checkAvailable": "Version {{version}} found."
     },

@@ -1,9 +1,17 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ServerListRow } from '@shared/modules/servers'
 import { initI18n } from '../../i18n'
+
+/** `ServerRow` reads `useLauncher` (for `pushToast`), which resolves `window.q2` at module scope
+ * via `lib/bridge.ts` (same reasoning as `ServersView.test.tsx`) - the stub must exist before the
+ * store, and anything importing it, is imported. */
+const invokeMock = vi.hoisted(() => vi.fn(async () => ({ ok: true as const, value: null })))
+vi.hoisted(() => {
+  ;(globalThis as unknown as { q2: unknown }).q2 = { invoke: invokeMock, on: vi.fn(() => () => {}) }
+})
 
 let ServerRow: typeof import('./ServerRow').ServerRow
 
@@ -14,6 +22,7 @@ beforeAll(async () => {
 
 afterEach(() => {
   cleanup()
+  invokeMock.mockClear()
 })
 
 /** A row with nothing known yet - the shape a `'pending'` placeholder actually has (story 118 D3's
@@ -168,5 +177,23 @@ describe('ServerRow (story 118 D3)', () => {
     expect(button.getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(button)
     expect(selectedAddress).toBe(BASE_ROW.address)
+  })
+
+  it('copies the address without selecting the row', async () => {
+    let selectedAddress: string | undefined
+    render(
+      createElement(ServerRow, {
+        row: BASE_ROW,
+        selected: false,
+        onSelect: (address: string) => {
+          selectedAddress = address
+        },
+      }),
+    )
+
+    fireEvent.click(screen.getByTestId(`servers-row-copy-${BASE_ROW.address}`))
+
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('app:copyText', BASE_ROW.address))
+    expect(selectedAddress).toBeUndefined()
   })
 })

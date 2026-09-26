@@ -544,7 +544,7 @@ export default async function serversWatchlist({ page, step, shot }) {
       const { logPath } = await invoke(p, 'app:getInfo')
       console.log(`  main.log: ${logPath}`)
 
-      step('open-detail on the "rock" match switches to the list tab and opens the server detail (AC3)')
+      step('open-detail on the "rock" match opens the server detail beside the watchlist (AC3)')
       await p.getByTestId(`servers-watchlist-open-detail-${serverA.address}`).click({ timeout: TIMEOUT_MS })
       const detail = p.getByTestId('servers-detail')
       await detail.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
