@@ -215,16 +215,16 @@ describe('promote', () => {
 
     // Sanity check the fixture assumption: the real file does contain a bullet that wraps, with a
     // continuation-only substring that would be silently dropped by the truncating parser.
-    expect(realChangelogText).toContain('paths, or an optional deep scan of your drives')
+    expect(realChangelogText).toContain('and manage your own favourites and address sources.')
 
     const result = promote(realChangelogText, '9.9.9', '2026-01-01')
 
     // The whole sentence must survive intact across its original line breaks, not cut mid-word
-    // after "the classic" (the pre-fix behaviour) and not reflowed onto one line either.
+    // after "and see live status" (the pre-fix behaviour) and not reflowed onto one line either.
     expect(result).toContain(
-      'find installations automatically (Steam, GOG, Epic, the classic\n' +
-        '  paths, or an optional deep scan of your drives), add a folder yourself, or start a\n' +
-        '  fresh one from scratch; rename, reorder, favourite, relocate and remove entries.',
+      '- **Servers** — a full server browser: scan, filter and sort the list, see live status and\n' +
+        '  full server rules, join or spectate in one click, keep a watchlist of players across servers,\n' +
+        '  and manage your own favourites and address sources.',
     )
   })
 })
