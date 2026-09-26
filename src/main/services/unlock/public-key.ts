@@ -10,7 +10,7 @@ import { UI_HARNESS_ENV } from '../../lib/ui-harness'
  * is only ever replaced deliberately, in step with a corresponding key rotation.
  */
 export const UNLOCK_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEAiqlqXK+qBH6r4950iW2lQDKkoAnwImOsCGgF0d4QzS0=
+MCowBQYDK2VwAyEAFA/hL6Q898lfzu8RjEBvYD3JmkR0veNB0pY1lZ9CyCc=
 -----END PUBLIC KEY-----
 `
 

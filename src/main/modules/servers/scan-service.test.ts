@@ -77,10 +77,11 @@ function manualEntry(address: string): ServersState['manualServers'][number] {
   return { address, origin: 'manual', addedAt: new Date().toISOString() }
 }
 
-/** A well-formed `info` reply with no player count, so `runScan` never queues a stage 2 query for
- * it - keeps every test below to a single stage1-only row per target. */
+/** A well-formed `info` reply reporting zero clients, so `runScan` never queues a stage 2 query for
+ * it (a *known* empty reply, per `scan-runner.ts`'s `isWorthStage2`) - keeps every test below to a
+ * single stage1-only row per target. */
 function infoOk(hostname = 'Host'): ServerQueryResult {
-  return { ok: true, kind: 'info', reply: { ok: true, serverinfo: { hostname }, clients: undefined }, rttMs: 7 }
+  return { ok: true, kind: 'info', reply: { ok: true, serverinfo: { hostname }, clients: 0 }, rttMs: 7 }
 }
 
 const noReply: ServerQueryResult = { ok: false, reason: 'no-reply' }
@@ -432,7 +433,7 @@ describe('createScanService', () => {
     const infoOkWithRtt = (rttMs: number): ServerQueryResult => ({
       ok: true,
       kind: 'info',
-      reply: { ok: true, serverinfo: { hostname: 'Arena' }, clients: undefined },
+      reply: { ok: true, serverinfo: { hostname: 'Arena' }, clients: 0 },
       rttMs,
     })
     let reply: ServerQueryResult = infoOkWithRtt(11)

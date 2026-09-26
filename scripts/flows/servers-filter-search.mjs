@@ -1,8 +1,8 @@
 // Story 120 (docs/requirements/120-i-filter-and-search-the-list.md) D2: the filter bar e2e proof on
 // the real Servers surface - four genuine loopback `dgram` responders (A/B/C/D), each answering both
-// `info` and `status`, proving every filter field (search, mod, gamemode, map, non-empty, empty,
-// no-password, waiting) actually narrows the real rendered list, not just the pure engine's own unit
-// tests (`src/shared/servers/list-filter.test.ts`).
+// `info` and `status`, proving every filter field (search, mod, gamemode, map, empty, waiting)
+// actually narrows the real rendered list, not just the pure engine's own unit tests
+// (`src/shared/servers/list-filter.test.ts`).
 //
 // Mirrors `servers-row-markers.mjs`'s `bindResponder`/fixture-seeding/`waitForFinishedAtChange`
 // pattern verbatim (copied, not imported - `scripts/*.mjs` never imports another flow file).
@@ -54,9 +54,6 @@ async function bindResponder(hostname, playerLines, { mod, map, maxclients, extr
   await new Promise((resolve) => socket.bind(0, '127.0.0.1', resolve))
   const port = socket.address().port
   const address = `127.0.0.1:${port}`
-  // `needpass` is emitted explicitly either way (`\needpass\1` or `\needpass\0`) - `matchesFilter`'s
-  // "no password" criterion requires `needpass === false` exactly, which only happens when the key
-  // was present and read as `0`; an absent key stays `undefined` and never satisfies that filter.
   const infoLine =
     `\\gamename\\${mod}\\hostname\\${hostname}\\mapname\\${map}\\clients\\${playerLines.length}` +
     `\\maxclients\\${maxclients}\\version\\3.20\\needpass\\${needpass ? 1 : 0}${extraInfoFlags}`
@@ -222,19 +219,9 @@ export default async function serversFilterSearch({ page, step, shot }) {
   assertSet(await visibleLabels(page), ['D'], 'gamemode=ctf')
   await clearFilters(page)
 
-  step('AC1: "Has players" shows A, B, D (not the empty C)')
-  await page.getByTestId('servers-filter-non-empty').click({ timeout: TIMEOUT_MS })
-  assertSet(await visibleLabels(page), ['A', 'B', 'D'], 'nonEmpty')
-  await clearFilters(page)
-
   step('AC1: "Empty" shows C only (the 0 player server)')
   await page.getByTestId('servers-filter-empty').click({ timeout: TIMEOUT_MS })
   assertSet(await visibleLabels(page), ['C'], 'empty')
-  await clearFilters(page)
-
-  step('AC1: "No password" shows A, B, D (not the password-protected C)')
-  await page.getByTestId('servers-filter-no-password').click({ timeout: TIMEOUT_MS })
-  assertSet(await visibleLabels(page), ['A', 'B', 'D'], 'noPassword')
   await clearFilters(page)
 
   step('AC1: "Waiting for an opponent" shows A only (exactly one known player)')
@@ -248,15 +235,15 @@ export default async function serversFilterSearch({ page, step, shot }) {
   await clearFilters(page)
   await shot('filter-toggles')
 
-  step('AC2: mod=baseq2 + noPassword combine to just B')
+  step('AC2: mod=baseq2 + map=q2dm1 combine to just B')
   await page.getByTestId('servers-filter-mod').selectOption('baseq2')
-  await page.getByTestId('servers-filter-no-password').click({ timeout: TIMEOUT_MS })
-  assertSet(await visibleLabels(page), ['B'], 'mod=baseq2 + noPassword')
+  await page.getByTestId('servers-filter-map').selectOption('q2dm1')
+  assertSet(await visibleLabels(page), ['B'], 'mod=baseq2 + map=q2dm1')
 
   step('AC2: adding "Empty" too leaves an empty set, with the no-match line visible')
   await page.getByTestId('servers-filter-empty').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('servers-filter-no-match').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  assertSet(await visibleLabels(page), [], 'mod=baseq2 + noPassword + empty')
+  assertSet(await visibleLabels(page), [], 'mod=baseq2 + map=q2dm1 + empty')
   await shot('no-match')
   await clearFilters(page)
 

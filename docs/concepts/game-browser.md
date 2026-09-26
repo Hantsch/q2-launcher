@@ -364,8 +364,11 @@ manually added server, and (as a decision to make in §18.4) the history.
    list row immediately: name, map, players/maxclients, and the measured round-trip time. The list
    is usable while the sweep is still running.
 2. **Stage 2 — `status` fetch.** Full player data. Fetched for: the selected server, and every
-   server stage 1 reported as non-empty (so the occupancy sort, the duel marker and the watchlist
-   all work off the same data). Empty servers have nothing to say and are not asked twice.
+   server stage 1 did not positively report as empty (so the occupancy sort, the duel marker and the
+   watchlist all work off the same data). A *known* zero-player reply is not asked twice; a reply
+   whose player count could not be read at all (e.g. a very long hostname truncating the classic
+   `info` summary line) is treated as worth checking rather than assumed empty, since `status`'s
+   uncapped infostring can recover what `info` could not.
 
 Both stages stream: every result is pushed to the renderer as it arrives (`module:event`), and the
 view shows how far the scan has got. No stage waits for a slow or dead server; a timeout marks that
@@ -413,9 +416,8 @@ A manual scan is refused with the same reason.
 - **Default order:** favourites first, then occupancy descending. Gamemode is the second dimension;
   whether that means grouping or only a tie-break is §18.3.
 - **No default filter.** Empty servers are in the list; the sort puts them where they belong.
-- **Filters and search:** mod, gamemode, non-empty, not full, no password, waiting-for-opponent, map,
-  and a text search across server name **and player names** (player names only where stage 2 has
-  run).
+- **Filters and search:** mod, gamemode, empty, waiting-for-opponent, map, and a text search across
+  server name, address, and **player names** (player names only where stage 2 has run).
 - **Sorting** is user-changeable on every column, and the choice is remembered.
 - **States:** the list has an explicit loading state (scan in progress, with counts), an empty state
   ("no source returned a server" — with a link to the source settings), and an error state per
@@ -745,8 +747,9 @@ for Linux at all — see [linux-support-analysis.md](../linux-support-analysis.m
 - **GB-N8** — A multi-datagram master reply is assembled into one address set.
 - **GB-N9** — Scoped refreshes exist: all servers, favourites only, and a single server from its
   detail view.
-- **GB-N10** — Stage 2 runs for the selected server and for every server stage 1 reported as
-  non-empty; empty servers are not queried twice.
+- **GB-N10** — Stage 2 runs for the selected server and for every server stage 1 did not positively
+  report as empty (a reply with no readable player count is checked, not assumed empty); a *known*
+  zero-player server is not queried twice.
 
 **Server list (GB-L)**
 
@@ -756,8 +759,8 @@ for Linux at all — see [linux-support-analysis.md](../linux-support-analysis.m
 - **GB-L3** — Default order is favourites first, then occupancy descending, with gamemode as the
   second dimension.
 - **GB-L4** — No filter is applied by default; every discovered server is listed.
-- **GB-L5** — Filters exist for mod, gamemode, non-empty, not full, no password,
-  waiting-for-opponent and map; search covers server name and, where stage 2 has run, player names.
+- **GB-L5** — Filters exist for mod, gamemode, empty, waiting-for-opponent and map; search covers
+  server name, address, and, where stage 2 has run, player names.
 - **GB-L6** — Sorting is user-changeable and remembered.
 - **GB-L7** — The list has explicit loading, empty and per-source error states.
 

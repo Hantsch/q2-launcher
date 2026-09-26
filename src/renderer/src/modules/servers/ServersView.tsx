@@ -493,7 +493,7 @@ export function ServersView() {
               'grid h-full',
               selectedAddress === null
                 ? 'grid-rows-1'
-                : 'grid-rows-[minmax(0,1fr)_minmax(0,1fr)] @4xl:grid-cols-[minmax(0,1fr)_28rem] @4xl:grid-rows-1',
+                : 'grid-rows-[minmax(0,1fr)_minmax(0,1fr)] @4xl:grid-cols-[minmax(0,1fr)_32rem] @4xl:grid-rows-1',
             )}
           >
             <div className="flex min-h-0 flex-col">

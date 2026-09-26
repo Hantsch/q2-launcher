@@ -56,16 +56,11 @@ export function knownPlayerCount(entry: Pick<ServerListEntry, 'players'>): numbe
   return undefined
 }
 
-/**
- * Whether a row looks like it is waiting for an opponent - exactly one known player, regardless of
- * whether that count came from a roster array or a bare number.
- */
-export function isWaitingForOpponent(entry: Pick<ServerListEntry, 'players'>): boolean {
-  return knownPlayerCount(entry) === 1
-}
+/** The name a player waiting for an opponent conventionally sets, per community standard. */
+const WAITING_FOR_OPPONENT_NAME = 'need1'
 
-/** Name endings bot mods give their players, e.g. `Grunt-X[200]` or `Tank[BZZZ]`. */
-const BOT_NAME_SUFFIXES: readonly RegExp[] = [/-X\[\d+\]$/, /\[BZZZ\]$/i]
+/** Name endings bot mods give their players, e.g. `Grunt-X[200]`, `Tank[BZZZ]` or `Trash[BOOO!]`. */
+const BOT_NAME_SUFFIXES: readonly RegExp[] = [/-X\[\d+\]$/, /\[BZZZ\]$/i, /\[BOOO!\]$/i]
 
 /**
  * Whether a roster entry is probably a bot - an estimate, never a certainty: a ping of exactly `0`
@@ -75,6 +70,23 @@ const BOT_NAME_SUFFIXES: readonly RegExp[] = [/-X\[\d+\]$/, /\[BZZZ\]$/i]
 export function isLikelyBot(player: Pick<ServerPlayer, 'name' | 'ping'>): boolean {
   const name = player.name.trim()
   return player.ping === 0 || BOT_NAME_SUFFIXES.some((suffix) => suffix.test(name))
+}
+
+/**
+ * Whether a row looks like it is waiting for an opponent, per community standard: either exactly
+ * one player on the roster is not a likely bot (any number of bots may fill the rest), or at least
+ * one player is named `need1` (case-insensitive). When the roster itself is unknown (`players` is
+ * still a bare count from a stage-1 reply), neither check is possible, so this falls back to
+ * exactly one known player.
+ */
+export function isWaitingForOpponent(entry: Pick<ServerListEntry, 'players'>): boolean {
+  const players = entry.players
+  if (Array.isArray(players)) {
+    const nonBotCount = players.filter((player) => !isLikelyBot(player)).length
+    if (nonBotCount === 1) return true
+    return players.some((player) => player.name.trim().toLowerCase() === WAITING_FOR_OPPONENT_NAME)
+  }
+  return knownPlayerCount(entry) === 1
 }
 
 /**

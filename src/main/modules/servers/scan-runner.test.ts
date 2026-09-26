@@ -190,9 +190,9 @@ describe('runScan', () => {
     })
   })
 
-  it('stage 2 queries the non-empty servers and the selected one, and nothing twice', async () => {
-    // 1: populated, 2: empty (and selected), 3: silent, 4: info without a player count,
-    // 5: populated. Target 1 also arrives twice, from two origins.
+  it('stage 2 queries the servers worth checking and the selected one, and nothing twice', async () => {
+    // 1: populated, 2: empty (and selected), 3: silent, 4: info without a player count (unknown
+    // occupancy, worth checking anyway), 5: populated. Target 1 also arrives twice, from two origins.
     const stage1: Record<string, ServerQueryResult> = {
       [addr(1)]: info(3),
       [addr(2)]: info(0),
@@ -216,7 +216,7 @@ describe('runScan', () => {
     const statusCounts = countsPerAddress(fake.calls, 'status')
     expect([...infoCounts.keys()].sort()).toEqual([addr(1), addr(2), addr(3), addr(4), addr(5)])
     expect([...infoCounts.values()].every((n) => n === 1)).toBe(true)
-    expect([...statusCounts.keys()].sort()).toEqual([addr(1), addr(2), addr(5)])
+    expect([...statusCounts.keys()].sort()).toEqual([addr(1), addr(2), addr(4), addr(5)])
     expect([...statusCounts.values()].every((n) => n === 1)).toBe(true)
 
     // Selected goes first; no status query is issued before every info query has landed.
@@ -231,13 +231,13 @@ describe('runScan', () => {
       ['stage2', ['source', 'favourite']],
     ])
 
-    expect(seen.rows.filter((r) => r.stage === 'stage2')).toHaveLength(3)
+    expect(seen.rows.filter((r) => r.stage === 'stage2')).toHaveLength(4)
     expect(result).toEqual({
       phase: 'stage2',
       stage1Done: 5,
       stage1Total: 5,
-      stage2Done: 3,
-      stage2Total: 3,
+      stage2Done: 4,
+      stage2Total: 4,
       aborted: false,
     })
   })

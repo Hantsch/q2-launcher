@@ -1,11 +1,13 @@
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BookMarked, Lock, RefreshCw, Star } from 'lucide-react'
+import { BookMarked, Copy, Lock, RefreshCw, Star } from 'lucide-react'
 import type { ServerDetail } from '@shared/modules/servers'
 import { deriveEngine, deriveProtocol } from '@shared/servers/server-engine'
+import { invoke } from '../../lib/bridge'
 import { IconButton } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/primitives'
 import { cn } from '../../lib/cn'
+import { useLauncher } from '../../store/useLauncher'
 import { AddToAddressBookDialog } from './AddToAddressBookDialog'
 import { addFavourite, removeFavourite } from './client'
 import { JoinServerButton } from './join/JoinServerButton'
@@ -60,8 +62,9 @@ function StatCell({
  * dialog on this pane.
  *
  * Beside it: "refresh this server" (moved here from the list toolbar - it only ever meant the
- * selected server, which is exactly what this pane shows) and a favourite toggle, whose pressed
- * state is the row's own `favourite` flag - no local copy, the owners re-read after a toggle.
+ * selected server, which is exactly what this pane shows), a favourite toggle, whose pressed
+ * state is the row's own `favourite` flag - no local copy, the owners re-read after a toggle -
+ * and a copy-address action, same size/prominence as the address book button next to it.
  */
 export function ServerDetailHeader({
   detail,
@@ -72,11 +75,22 @@ export function ServerDetailHeader({
 }: ServerDetailHeaderProps) {
   const { t } = useTranslation()
   const { row, serverinfo } = detail
+  const pushToast = useLauncher((state) => state.pushToast)
   const [addressBookOpen, setAddressBookOpen] = useState(false)
   // Bumped on every open so the dialog remounts - a reused instance paints its previous slots for a
   // frame before its own on-open reset effect runs, showing a stale (e.g. pre-write) address book.
   const [addressBookKey, setAddressBookKey] = useState(0)
   const [favouriteBusy, setFavouriteBusy] = useState(false)
+
+  const handleCopyAddress = (): void => {
+    void invoke('app:copyText', row.address).then((result) => {
+      pushToast(
+        result.ok
+          ? { level: 'success', messageKey: 'servers.detail.copyAddressSuccess', timeoutMs: 4000 }
+          : { level: 'error', messageKey: 'servers.detail.copyAddressError', timeoutMs: 0 },
+      )
+    })
+  }
 
   const handleToggleFavourite = (): void => {
     setFavouriteBusy(true)
@@ -133,6 +147,15 @@ export function ServerDetailHeader({
             className={cn(row.favourite && 'border-flame-600 text-flame-400')}
           >
             <Star className={cn('size-5', row.favourite && 'fill-current')} aria-hidden="true" />
+          </IconButton>
+          <IconButton
+            label={t('servers.detail.copyAddress')}
+            variant="neutral"
+            size="lg"
+            onClick={handleCopyAddress}
+            data-testid="servers-detail-copy-address"
+          >
+            <Copy className="size-5" aria-hidden="true" />
           </IconButton>
           <div data-testid="servers-detail-address-book-open">
             <IconButton

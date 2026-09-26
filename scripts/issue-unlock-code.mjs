@@ -13,7 +13,7 @@
 // resolves inside the repo root, and `keygen` refuses to overwrite an existing key file - a lost or
 // leaked signing key is unrecoverable for every code already issued under it, so both are hard
 // errors, not warnings.
-import { generateKeyPairSync, createPublicKey, sign } from 'node:crypto'
+import { generateKeyPairSync, createPrivateKey, createPublicKey, sign } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, resolve, sep } from 'node:path'
@@ -195,6 +195,125 @@ export function assertOutsideRepo(candidatePath, repoRoot) {
   }
 }
 
+// --- OpenSSH Ed25519 keys (e.g. a Bitwarden SSH key) ----------------------------------------
+//
+// Node's crypto reads neither OpenSSH private keys nor `ssh-ed25519 AAAA...` public keys, and
+// `ssh-keygen` cannot convert Ed25519 keys to PEM. Both carry the same raw 32-byte Ed25519 key
+// material the launcher verifies against, so it is re-wrapped here in the fixed DER prefixes of a
+// PKCS8 private key / SPKI public key.
+
+const PKCS8_ED25519_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex')
+const SPKI_ED25519_PREFIX = Buffer.from('302a300506032b6570032100', 'hex')
+const OPENSSH_MAGIC = Buffer.from('openssh-key-v1\0', 'latin1')
+
+/** Sequential reader over the SSH wire format's `uint32` / length-prefixed `string` fields. */
+function sshReader(buffer) {
+  let offset = 0
+  const need = (length) => {
+    if (offset + length > buffer.length) throw new Error('issue-unlock-code: truncated OpenSSH key')
+  }
+  return {
+    uint32() {
+      need(4)
+      const value = buffer.readUInt32BE(offset)
+      offset += 4
+      return value
+    },
+    string() {
+      const length = this.uint32()
+      need(length)
+      const value = buffer.subarray(offset, offset + length)
+      offset += length
+      return value
+    },
+  }
+}
+
+/**
+ * Parses an unencrypted OpenSSH Ed25519 private key (`-----BEGIN OPENSSH PRIVATE KEY-----`) into a
+ * Node private KeyObject.
+ *
+ * @param {string} text
+ * @returns {import('node:crypto').KeyObject}
+ */
+export function openSshPrivateKeyToKeyObject(text) {
+  const body = text
+    .replace(/-----(BEGIN|END) OPENSSH PRIVATE KEY-----/g, '')
+    .replace(/\s+/g, '')
+  const raw = Buffer.from(body, 'base64')
+  if (!raw.subarray(0, OPENSSH_MAGIC.length).equals(OPENSSH_MAGIC)) {
+    throw new Error('issue-unlock-code: not an OpenSSH private key')
+  }
+  const reader = sshReader(raw.subarray(OPENSSH_MAGIC.length))
+  const cipher = reader.string().toString()
+  reader.string() // kdf name
+  reader.string() // kdf options
+  if (cipher !== 'none') {
+    throw new Error(
+      'issue-unlock-code: the OpenSSH private key is passphrase-protected - export it without a passphrase',
+    )
+  }
+  if (reader.uint32() !== 1) throw new Error('issue-unlock-code: expected exactly one key in the OpenSSH file')
+  reader.string() // public key blob, repeated in the private section
+
+  const priv = sshReader(reader.string())
+  if (priv.uint32() !== priv.uint32()) throw new Error('issue-unlock-code: corrupt OpenSSH private key')
+  const type = priv.string().toString()
+  if (type !== 'ssh-ed25519') {
+    throw new Error(`issue-unlock-code: the signing key must be Ed25519, got "${type}"`)
+  }
+  priv.string() // public key
+  const secret = priv.string() // 32-byte seed followed by the 32-byte public key
+  if (secret.length !== 64) throw new Error('issue-unlock-code: corrupt OpenSSH Ed25519 key')
+
+  return createPrivateKey({
+    key: Buffer.concat([PKCS8_ED25519_PREFIX, secret.subarray(0, 32)]),
+    format: 'der',
+    type: 'pkcs8',
+  })
+}
+
+/**
+ * Loads the signing key from a key file's text: an OpenSSH private key or a PKCS8 PEM (the format
+ * `keygen` writes). Anything that is not Ed25519 is refused here rather than producing codes the
+ * launcher would reject.
+ *
+ * @param {string} text
+ * @returns {import('node:crypto').KeyObject}
+ */
+export function loadSigningKey(text) {
+  const key = text.includes('-----BEGIN OPENSSH PRIVATE KEY-----')
+    ? openSshPrivateKeyToKeyObject(text)
+    : createPrivateKey(text)
+  if (key.asymmetricKeyType !== 'ed25519') {
+    throw new Error(`issue-unlock-code: the signing key must be Ed25519, got "${key.asymmetricKeyType}"`)
+  }
+  return key
+}
+
+/**
+ * Converts an OpenSSH public key line (`ssh-ed25519 AAAA... comment`) into the SPKI PEM the
+ * launcher embeds as `UNLOCK_PUBLIC_KEY_PEM`.
+ *
+ * @param {string} line
+ * @returns {string}
+ */
+export function openSshPublicKeyToPem(line) {
+  const [type, blobB64] = line.trim().split(/\s+/)
+  if (type !== 'ssh-ed25519' || !blobB64) {
+    throw new Error('issue-unlock-code: expected an OpenSSH public key starting with "ssh-ed25519 AAAA"')
+  }
+  const reader = sshReader(Buffer.from(blobB64, 'base64'))
+  if (reader.string().toString() !== 'ssh-ed25519') {
+    throw new Error('issue-unlock-code: the public key blob is not ssh-ed25519')
+  }
+  const raw = reader.string()
+  if (raw.length !== 32) throw new Error('issue-unlock-code: corrupt ssh-ed25519 public key')
+  return createPublicKey({ key: Buffer.concat([SPKI_ED25519_PREFIX, raw]), format: 'der', type: 'spki' })
+    .export({ type: 'spki', format: 'pem' })
+    .toString()
+}
+
 // --- CLI ------------------------------------------------------------------------------------
 
 /** @param {string[]} argv @param {string} flag @returns {string|undefined} */
@@ -231,9 +350,17 @@ function runKeygen(argv) {
   console.log(publicPem.toString())
 }
 
+/** `pubkey "<ssh-ed25519 AAAA...>"` or `pubkey <file.pub>`: prints the PEM to embed in the launcher. */
+function runPubkey(argv) {
+  const input = argv[0]
+  if (!input) throw new Error('issue-unlock-code: pubkey needs "ssh-ed25519 AAAA..." or a .pub file path')
+  const line = input.trim().startsWith('ssh-') ? input : readFileSync(input, 'utf-8')
+  console.log(openSshPublicKeyToPem(line))
+}
+
 function runIssue(argv) {
   const keyPath = resolveSigningKeyPath({ argv, env: process.env, repoRoot: REPO_ROOT })
-  const privateKey = readFileSync(keyPath, 'utf-8')
+  const privateKey = loadSigningKey(readFileSync(keyPath, 'utf-8'))
 
   const featuresValue = readFlagValue(argv, '--features')
   const installIdValue = readFlagValue(argv, '--install-id')
@@ -295,6 +422,8 @@ function main() {
   try {
     if (argv[0] === 'keygen') {
       runKeygen(argv.slice(1))
+    } else if (argv[0] === 'pubkey') {
+      runPubkey(argv.slice(1))
     } else {
       runIssue(argv)
     }

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BotOff, Check, LockOpen, Search, User, UserX, Users, X } from 'lucide-react'
+import { BotOff, Check, Search, User, UserX, X } from 'lucide-react'
 import {
   EMPTY_SERVER_LIST_FILTER,
   isFilterActive,
@@ -138,25 +138,11 @@ export function ServerListFilterBar({
           testId="servers-filter-waiting"
         />
         <FilterChip
-          active={filter.nonEmpty}
-          icon={<Users />}
-          label={t('servers.filter.nonEmpty')}
-          onToggle={() => onChange({ ...filter, nonEmpty: !filter.nonEmpty })}
-          testId="servers-filter-non-empty"
-        />
-        <FilterChip
           active={filter.empty}
           icon={<UserX />}
           label={t('servers.filter.empty')}
           onToggle={() => onChange({ ...filter, empty: !filter.empty })}
           testId="servers-filter-empty"
-        />
-        <FilterChip
-          active={filter.noPassword}
-          icon={<LockOpen />}
-          label={t('servers.filter.noPassword')}
-          onToggle={() => onChange({ ...filter, noPassword: !filter.noPassword })}
-          testId="servers-filter-no-password"
         />
         <FilterChip
           active={filter.hideBotsOnly}

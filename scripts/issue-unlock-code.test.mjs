@@ -1,7 +1,12 @@
 import { generateKeyPairSync } from 'node:crypto'
 import { describe, expect, test } from 'vitest'
 import { verifyUnlockCode } from '../src/main/services/unlock/verify.ts'
-import { issueUnlockCode, resolveSigningKeyPath } from './issue-unlock-code.mjs'
+import {
+  issueUnlockCode,
+  loadSigningKey,
+  openSshPublicKeyToPem,
+  resolveSigningKeyPath,
+} from './issue-unlock-code.mjs'
 
 /**
  * Story 128 D3 - the issuing script's own contract: a code it produces has to be accepted by D1's
@@ -224,6 +229,91 @@ describe('issueUnlockCode - payload validity (AC8: a signed code must be accepte
       mode: 'redeem',
     })
     expect(result.ok).toBe(true)
+  })
+})
+
+/** SSH wire-format `string`: uint32 length + bytes. */
+function sshString(value) {
+  const bytes = Buffer.isBuffer(value) ? value : Buffer.from(value)
+  const length = Buffer.alloc(4)
+  length.writeUInt32BE(bytes.length)
+  return Buffer.concat([length, bytes])
+}
+
+/** Serialises a Node Ed25519 key pair the way `ssh-keygen` / Bitwarden write it (OpenSSH format). */
+function toOpenSsh({ publicKey, privateKey }, { cipher = 'none' } = {}) {
+  const pub = Buffer.from(publicKey.export({ format: 'jwk' }).x, 'base64url')
+  const seed = Buffer.from(privateKey.export({ format: 'jwk' }).d, 'base64url')
+  const pubBlob = Buffer.concat([sshString('ssh-ed25519'), sshString(pub)])
+  const check = Buffer.from([1, 2, 3, 4])
+  let privSection = Buffer.concat([
+    check,
+    check,
+    sshString('ssh-ed25519'),
+    sshString(pub),
+    sshString(Buffer.concat([seed, pub])),
+    sshString('test@example'),
+  ])
+  const padding = (8 - (privSection.length % 8)) % 8
+  privSection = Buffer.concat([privSection, Buffer.from([1, 2, 3, 4, 5, 6, 7].slice(0, padding))])
+  const count = Buffer.alloc(4)
+  count.writeUInt32BE(1)
+  const raw = Buffer.concat([
+    Buffer.from('openssh-key-v1\0', 'latin1'),
+    sshString(cipher),
+    sshString('none'),
+    sshString(''),
+    count,
+    sshString(pubBlob),
+    sshString(privSection),
+  ])
+  const body = raw.toString('base64').match(/.{1,70}/g).join('\r\n')
+  return {
+    privateText: `-----BEGIN OPENSSH PRIVATE KEY-----\r\n${body}\r\n-----END OPENSSH PRIVATE KEY-----\r\n`,
+    publicLine: `ssh-ed25519 ${pubBlob.toString('base64')} test@example`,
+  }
+}
+
+describe('OpenSSH keys (Bitwarden SSH key) - signing and public-key conversion', () => {
+  test('a code signed with an OpenSSH private key verifies against the converted OpenSSH public key', () => {
+    const { privateText, publicLine } = toOpenSsh(throwawayKeyPair())
+
+    const code = issueUnlockCode({
+      features: ['watchlist'],
+      launcherInstallId: INSTALL_ID,
+      privateKey: loadSigningKey(privateText),
+    })
+
+    const result = verifyUnlockCode(code, {
+      publicKey: openSshPublicKeyToPem(publicLine),
+      launcherInstallId: INSTALL_ID,
+      now: new Date(),
+      mode: 'redeem',
+    })
+    expect(result.ok).toBe(true)
+  })
+
+  test('the converted public key is the same key Node exports as SPKI PEM', () => {
+    const pair = throwawayKeyPair()
+    const { publicLine } = toOpenSsh(pair)
+    expect(openSshPublicKeyToPem(publicLine)).toBe(pair.publicKey.export({ type: 'spki', format: 'pem' }))
+  })
+
+  test('a passphrase-protected OpenSSH key is refused with a clear message', () => {
+    const { privateText } = toOpenSsh(throwawayKeyPair(), { cipher: 'aes256-ctr' })
+    expect(() => loadSigningKey(privateText)).toThrow(/passphrase/)
+  })
+
+  test('a non-Ed25519 key is refused, OpenSSH public keys of other types too', () => {
+    const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    expect(() => loadSigningKey(privateKey.export({ type: 'pkcs8', format: 'pem' }))).toThrow(/Ed25519/)
+    expect(() => openSshPublicKeyToPem('ssh-rsa AAAAB3NzaC1yc2E= x')).toThrow(/ssh-ed25519/)
+  })
+
+  test('a PKCS8 PEM (what keygen writes) still loads', () => {
+    const { privateKey } = throwawayKeyPair()
+    const pem = privateKey.export({ type: 'pkcs8', format: 'pem' })
+    expect(loadSigningKey(pem).asymmetricKeyType).toBe('ed25519')
   })
 })
 

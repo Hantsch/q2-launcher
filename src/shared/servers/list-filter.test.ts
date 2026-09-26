@@ -156,11 +156,6 @@ describe('each filter applied alone keeps exactly the rows that satisfy it', () 
     expect(result).toEqual([full, empty, roster, numericPlayers, undefinedPlayers])
   })
 
-  it('nonEmpty excludes the 0-player row and rows with an unknown count', () => {
-    const result = filterServers(allRows, filter({ nonEmpty: true }))
-    expect(result).toEqual([rocket, full, waiting, stale, roster, numericPlayers])
-  })
-
   it('empty keeps only the known-0-player row, never an unknown count', () => {
     const result = filterServers(allRows, filter({ empty: true }))
     expect(result).toEqual([empty])
@@ -186,11 +181,6 @@ describe('each filter applied alone keeps exactly the rows that satisfy it', () 
     expect(result).toEqual([...allRows, mixed])
   })
 
-  it('noPassword excludes the passworded row and rows with an unknown needpass', () => {
-    const result = filterServers(allRows, filter({ noPassword: true }))
-    expect(result).toEqual([rocket, empty, waiting, stale, roster, numericPlayers, undefinedPlayers])
-  })
-
   it('waitingForOpponent keeps only the exactly-one-player row', () => {
     const result = filterServers(allRows, filter({ waitingForOpponent: true }))
     expect(result).toEqual([waiting])
@@ -210,24 +200,16 @@ describe('each filter applied alone keeps exactly the rows that satisfy it', () 
 describe('active filters intersect', () => {
   it('two filters combined give the intersection of what each alone would give', () => {
     const byMod = filterServers(allRows, filter({ mod: 'baseq2' }))
-    const byNonEmpty = filterServers(allRows, filter({ nonEmpty: true }))
-    const combined = filterServers(allRows, filter({ mod: 'baseq2', nonEmpty: true }))
+    const byGamemode = filterServers(allRows, filter({ gamemode: 'deathmatch' }))
+    const combined = filterServers(allRows, filter({ mod: 'baseq2', gamemode: 'deathmatch' }))
 
-    const expected = allRows.filter((r) => byMod.includes(r) && byNonEmpty.includes(r))
+    const expected = allRows.filter((r) => byMod.includes(r) && byGamemode.includes(r))
     expect(combined).toEqual(expected)
-    expect(combined).toEqual([full, waiting, roster, numericPlayers])
-  })
-
-  it('three filters combined give the intersection of what each alone would give', () => {
-    const combined = filterServers(
-      allRows,
-      filter({ mod: 'baseq2', nonEmpty: true, noPassword: true }),
-    )
-    expect(combined).toEqual([waiting, roster, numericPlayers])
+    expect(combined).toEqual([full, empty, roster, numericPlayers, undefinedPlayers])
   })
 
   it('an unsatisfiable combination yields an empty result', () => {
-    const combined = filterServers(allRows, filter({ nonEmpty: true, mod: 'does-not-exist' }))
+    const combined = filterServers(allRows, filter({ gamemode: 'deathmatch', mod: 'does-not-exist' }))
     expect(combined).toEqual([])
   })
 })
@@ -302,12 +284,12 @@ describe('filtering preserves the input order', () => {
       waiting,
       unknownFields,
     ]
-    const result = filterServers(shuffled, filter({ noPassword: true }))
+    const result = filterServers(shuffled, filter({ mod: 'baseq2' }))
 
     const indices = result.map((r) => shuffled.indexOf(r))
     const sortedIndices = [...indices].sort((a, b) => a - b)
     expect(indices).toEqual(sortedIndices)
-    expect(result.every((r) => matchesFilter(r, filter({ noPassword: true })))).toBe(true)
+    expect(result.every((r) => matchesFilter(r, filter({ mod: 'baseq2' })))).toBe(true)
   })
 })
 

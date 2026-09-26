@@ -15,13 +15,19 @@ import {
  *   only *its own* query, and `onServer` fires in that slot's continuation, so a row is delivered
  *   the moment its reply lands - never after an `await` on the whole stage (AC1).
  * - **Stage 2 (`status`)** starts once stage 1 has fully settled and runs the same pool over
- *   exactly {every target stage 1 reported non-empty} plus the selected address (AC2). The selected
- *   address is queried in stage 2 whatever stage 1 said about it (empty, failed, or not in the
- *   address set at all - then it is queried with `origins: []`), and it goes first, since it is the
- *   server the user is looking at. Anything else stage 1 did not report non-empty is never queried
- *   again in this scan.
- * - **Non-empty** means a successful `info` reply with a *known* `clients > 0`. A reply without a
- *   player count is not "reported as non-empty" (AC2's wording), so it gets no `status` query.
+ *   exactly {every target stage 1 reported worth checking} plus the selected address (AC2,
+ *   widened). The selected address is queried in stage 2 whatever stage 1 said about it (empty,
+ *   failed, or not in the address set at all - then it is queried with `origins: []`), and it goes
+ *   first, since it is the server the user is looking at. Anything else stage 1 did not report
+ *   worth checking is never queried again in this scan.
+ * - **Worth checking** means a successful `info` reply whose `clients` count is *not known to be
+ *   zero* - i.e. `clients > 0`, or `clients` absent entirely. Only a reply that positively reports
+ *   `clients === 0` skips stage 2 (AC2's original efficiency case: a well-formed reply that really
+ *   is empty). A reply with no player count at all is not evidence of anything - some real servers
+ *   (e.g. a very long `hostname` that eats the classic `info` reply's fixed-size summary buffer,
+ *   leaving no room for the trailing `clients/maxclients` field) always fail to report a count -
+ *   and treating "we could not tell" as "assume empty" would permanently hide such a server's name,
+ *   map and roster, which only `status`'s uncapped infostring can recover.
  * - **Nothing twice per stage.** The target list is deduped by normalized address up front (D3
  *   already does this; the runner does not rely on it), with origins merged.
  *
@@ -117,8 +123,12 @@ function dedupeTargets(targets: readonly ScanTarget[]): ScanTarget[] {
   return [...byAddress.values()]
 }
 
-function isNonEmpty(result: ServerQueryResult): boolean {
-  return result.ok && result.kind === 'info' && typeof result.reply.clients === 'number' && result.reply.clients > 0
+/** Whether an `info` reply is worth a stage-2 `status` query - everything except a *known* zero
+ * (see the file doc comment's "Worth checking" section). */
+function isWorthStage2(result: ServerQueryResult): boolean {
+  if (!result.ok || result.kind !== 'info') return false
+  const { clients } = result.reply
+  return typeof clients !== 'number' || clients > 0
 }
 
 /**
@@ -208,17 +218,17 @@ export async function runScan(options: RunScanOptions): Promise<RunScanResult> {
   try {
     // Stage 1: info over the whole address set.
     report(() => onProgress?.({ ...progress }))
-    const nonEmpty = new Set<string>()
+    const worthStage2 = new Set<string>()
     await runPool(stage1Targets, concurrency, internal, async (target) => {
       const result = await queryOne('stage1', target)
       if (result === null) return
-      if (isNonEmpty(result)) nonEmpty.add(target.address)
+      if (isWorthStage2(result)) worthStage2.add(target.address)
       progress.stage1Done += 1
       report(() => onServer({ stage: 'stage1', target, result }))
       report(() => onProgress?.({ ...progress }))
     })
 
-    // Stage 2: status over exactly {selected} + {non-empty}, selected first.
+    // Stage 2: status over exactly {selected} + {worth checking}, selected first.
     if (!internal.aborted) {
       const stage2Targets: ScanTarget[] = []
       const selected = options.selectedAddress === undefined ? null : normalizeAddress(options.selectedAddress)
@@ -227,7 +237,7 @@ export async function runScan(options: RunScanOptions): Promise<RunScanResult> {
         stage2Targets.push(known ?? { address: selected, origins: [] })
       }
       for (const target of stage1Targets) {
-        if (nonEmpty.has(target.address) && target.address !== selected) stage2Targets.push(target)
+        if (worthStage2.has(target.address) && target.address !== selected) stage2Targets.push(target)
       }
 
       progress.phase = 'stage2'

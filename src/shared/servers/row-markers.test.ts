@@ -25,12 +25,28 @@ describe('deriveGamemode', () => {
 })
 
 describe('waiting for an opponent', () => {
-  it('is exactly one known player', () => {
+  it('falls back to exactly one known player when the roster is unknown', () => {
     expect(isWaitingForOpponent({ players: 0 })).toBe(false)
     expect(isWaitingForOpponent({ players: 1 })).toBe(true)
     expect(isWaitingForOpponent({ players: 2 })).toBe(false)
-    expect(isWaitingForOpponent({ players: [{ name: 'a', score: 0, ping: 0 }] })).toBe(true)
     expect(isWaitingForOpponent({ players: undefined })).toBe(false)
+  })
+
+  it('is exactly one non-bot player on a known roster, any number of bots aside', () => {
+    const human = (name: string) => ({ name, score: 0, ping: 30 })
+    const bot = { name: 'Grunt-X[200]', score: 0, ping: 0 }
+    expect(isWaitingForOpponent({ players: [human('Alice')] })).toBe(true)
+    expect(isWaitingForOpponent({ players: [human('Alice'), bot, bot] })).toBe(true)
+    expect(isWaitingForOpponent({ players: [human('Alice'), human('Bob')] })).toBe(false)
+    // A single bot alone is not a human waiting for an opponent.
+    expect(isWaitingForOpponent({ players: [{ name: 'a', score: 0, ping: 0 }] })).toBe(false)
+  })
+
+  it('is also any roster with a player named need1, the community standard', () => {
+    const human = (name: string) => ({ name, score: 0, ping: 30 })
+    expect(isWaitingForOpponent({ players: [human('need1'), human('Bob')] })).toBe(true)
+    expect(isWaitingForOpponent({ players: [human('NEED1'), human('Bob'), human('Carl')] })).toBe(true)
+    expect(isWaitingForOpponent({ players: [human('Alice'), human('Bob')] })).toBe(false)
   })
 
   it('knownPlayerCount reads the array length or the bare number', () => {
@@ -45,8 +61,10 @@ describe('bot estimate', () => {
     expect(isLikelyBot({ name: 'Alice', ping: 0 })).toBe(true)
     expect(isLikelyBot({ name: 'Grunt-X[200]', ping: 48 })).toBe(true)
     expect(isLikelyBot({ name: 'Tank[BZZZ] ', ping: 48 })).toBe(true)
+    expect(isLikelyBot({ name: 'Trash[BOOO!]', ping: 48 })).toBe(true)
     expect(isLikelyBot({ name: 'Alice', ping: 48 })).toBe(false)
     expect(isLikelyBot({ name: '[BZZZ]Alice', ping: 48 })).toBe(false)
+    expect(isLikelyBot({ name: '[BOOO!]Alice', ping: 48 })).toBe(false)
   })
 
   it('is bots-only only when a non-empty roster is all likely bots', () => {

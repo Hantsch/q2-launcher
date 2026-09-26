@@ -15,12 +15,10 @@ export interface ServerListFilter {
   mod: string | null
   gamemode: ServerGamemode | null
   map: string | null
-  nonEmpty: boolean
   /** Only servers known to have nobody on them. */
   empty: boolean
   /** Hides servers whose whole roster looks like bots (`isBotsOnly`) - an estimate. */
   hideBotsOnly: boolean
-  noPassword: boolean
   waitingForOpponent: boolean
 }
 
@@ -30,10 +28,8 @@ export const EMPTY_SERVER_LIST_FILTER: ServerListFilter = {
   mod: null,
   gamemode: null,
   map: null,
-  nonEmpty: false,
   empty: false,
   hideBotsOnly: false,
-  noPassword: false,
   waitingForOpponent: false,
 }
 
@@ -44,10 +40,8 @@ export function isFilterActive(f: ServerListFilter): boolean {
     f.mod !== null ||
     f.gamemode !== null ||
     f.map !== null ||
-    f.nonEmpty ||
     f.empty ||
     f.hideBotsOnly ||
-    f.noPassword ||
     f.waitingForOpponent ||
     f.search.trim() !== ''
   )
@@ -90,16 +84,13 @@ export function matchesFilter(row: ServerListRow, f: ServerListFilter): boolean 
   if (f.map !== null && !matchesText(row.map, f.map)) return false
   if (f.gamemode !== null && row.gamemode !== f.gamemode) return false
 
-  if (f.nonEmpty || f.empty || f.waitingForOpponent) {
+  if (f.empty || f.waitingForOpponent) {
     const n = knownPlayerCount(row)
-    if (f.nonEmpty && !(n !== undefined && n > 0)) return false
     if (f.empty && n !== 0) return false
     if (f.waitingForOpponent && !isWaitingForOpponent(row)) return false
   }
 
   if (f.hideBotsOnly && isBotsOnly(row)) return false
-
-  if (f.noPassword && row.needpass !== false) return false
 
   return true
 }
