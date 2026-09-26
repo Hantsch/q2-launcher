@@ -12,6 +12,9 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
+
+## 0.5.0 — 2026-09-26
+
 ### Added
 - **Servers** — a full server browser: scan, filter and sort the list, see live status and
   full server rules, join or spectate in one click, keep a watchlist of players across servers,
@@ -23,7 +26,6 @@ version section when a release actually ships.
 
 
 ## 0.4.0 — 2026-09-23
-
 ### Added
 - **Linux** — Quake II now runs on Linux via Wine or umu-run, and Steam-owned installs can hand
   off straight to Steam instead.
