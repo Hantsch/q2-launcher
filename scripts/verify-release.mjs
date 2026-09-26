@@ -190,6 +190,19 @@ function main() {
     process.exitCode = 1
     return
   }
+  // Changes on main since the branch point - usually the `release: x.y.z` commit. Merged in by the
+  // PR instead of by you, git can file your new changelog entries under the released version and
+  // leave `## Unreleased` empty. (A bare PR merge commit carries no changes and does not count.)
+  if (run('git', ['diff', '--quiet', `${subject}...${base}`]) !== 0) {
+    console.error(
+      `verify:release - ${base} has changes your branch does not (e.g. a release commit):\n` +
+        `${capture('git', ['log', '--oneline', '--no-merges', `${subject}..${base}`])}\n` +
+        `Bring it up to date first: git merge ${base} - then check that your entries are still ` +
+        'under "## Unreleased" in CHANGELOG.md.',
+    )
+    process.exitCode = 1
+    return
+  }
   const tree = capture('git', ['merge-tree', '--write-tree', base, subject])
   if (!tree || !/^[0-9a-f]{40}$/.test(tree)) {
     console.error(
