@@ -105,15 +105,6 @@ export function ServerRow({ row, selected, onSelect }: ServerRowProps) {
             <Star className="size-3.5 shrink-0 fill-flame-500 text-flame-500" aria-hidden="true" />
           )}
           <span className="min-w-0 flex-1 truncate">{name}</span>
-          <IconButton
-            label={t('servers.row.copyIp')}
-            size="sm"
-            variant="ghost"
-            onClick={handleCopyAddress}
-            data-testid={`servers-row-copy-${row.address}`}
-          >
-            <Copy className="size-3.5" />
-          </IconButton>
         </p>
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           {showAddressUnderName && (
@@ -154,6 +145,16 @@ export function ServerRow({ row, selected, onSelect }: ServerRowProps) {
           )}
         </div>
       </div>
+
+      <IconButton
+        label={t('servers.row.copyIp')}
+        variant="neutral"
+        size="md"
+        onClick={handleCopyAddress}
+        data-testid={`servers-row-copy-${row.address}`}
+      >
+        <Copy className="size-4" aria-hidden="true" />
+      </IconButton>
 
       <span className="truncate text-right">{orDash(row.mod)}</span>
       <span className="flex flex-col items-end gap-1">

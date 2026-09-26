@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import {
@@ -34,9 +35,8 @@ export function ServerListHeader({ sort, onSort }: ServerListHeaderProps) {
     >
       {SERVER_SORT_COLUMNS.map((column, index) => {
         const isActive = sort?.column === column
-        return (
+        const button = (
           <button
-            key={column}
             type="button"
             onClick={() => onSort(column)}
             aria-pressed={isActive}
@@ -55,6 +55,16 @@ export function ServerListHeader({ sort, onSort }: ServerListHeaderProps) {
                 <ArrowDown className="size-3" aria-hidden="true" />
               ))}
           </button>
+        )
+        // The copy-address action column right after `name` has no sortable data of its own, so it
+        // gets a blank header cell rather than a sort button.
+        return index === 0 ? (
+          <Fragment key={column}>
+            {button}
+            <span aria-hidden="true" />
+          </Fragment>
+        ) : (
+          <Fragment key={column}>{button}</Fragment>
         )
       })}
     </div>
