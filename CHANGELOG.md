@@ -11,6 +11,10 @@ version section when a release actually ships.
 ## Unreleased
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
+
+
+## 0.4.0 — 2026-09-23
+
 ### Added
 - **Servers** — a gated "Watchlist" tab lets you track named players across servers and jump
   straight to whichever server they're currently on.
@@ -92,7 +96,6 @@ version section when a release actually ships.
 
 
 ## 0.3.0 — 2026-09-22
-
 ### Added
 - **Linux** — the launcher runs on Linux from source: it finds your Steam installations
   (native and Flatpak), recognises engines by their real binaries instead of a Windows file

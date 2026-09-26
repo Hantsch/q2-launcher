@@ -1,7 +1,7 @@
 {
   "name": "q2-launcher",
   "productName": "Q2 Launcher",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A modern launcher for Quake II, built around the r1q2 client.",
   "license": "MIT",
   "author": {
