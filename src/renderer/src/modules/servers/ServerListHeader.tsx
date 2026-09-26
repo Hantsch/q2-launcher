@@ -27,7 +27,6 @@ export function ServerListHeader({ sort, onSort }: ServerListHeaderProps) {
 
   return (
     <div
-      role="row"
       className={cn(
         SERVER_LIST_GRID,
         'sticky top-0 z-10 h-9 border-b border-l-transparent border-b-line bg-panel',

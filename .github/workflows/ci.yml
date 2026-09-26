@@ -85,7 +85,7 @@ jobs:
       # See the identical step in `linux-verify.yml` for why this is here on a runner that already
       # has these: it is what lets `npm run ci:local` rehearse this job under act.
       - name: Install Electron's runtime libraries
-        run: npx playwright install-deps chromium
+        run: npx playwright install-deps chromium && sudo apt-get install -y libgtk-3-0t64
 
       - name: Build
         run: npm run build

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import {
   DEFAULT_SERVERS_STATE,
   SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
@@ -492,6 +492,13 @@ describe('createScanService', () => {
   })
 
   it('story 131 D4: onStage2Row fires synchronously for stage2 rows only, after the scan\'s own emit, and never delays or alters the scan', async () => {
+    // Both scans below are compared field-for-field, timestamps included - freeze the clock
+    // (Date only; setImmediate stays real for waitForIdle) so a millisecond boundary crossed
+    // between the two runs cannot make them differ.
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-01-01T00:00:00.000Z') })
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
     const address = '30.0.0.1:27910'
     const state = baseState({ manualServers: [manualEntry(address)] })
     // A status reply with clients>0 so stage1 queues a stage2 status query for the same address.

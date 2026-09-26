@@ -73,23 +73,17 @@ export function ServerRow({ row, selected, onSelect }: ServerRowProps) {
     })
   }
 
+  // The copy-address button must not sit inside the row's own `role="button"` (axe
+  // `nested-interactive`), so the outer div owns the grid, the row's look and the mouse click, and
+  // the selectable row is a full-width subgrid inside it - the copy button is its sibling, laid
+  // over the row's empty second column. A click on the copy button stops propagation, so it never
+  // selects the row.
   return (
     <div
-      role="button"
-      tabIndex={0}
       onClick={() => onSelect(row.address)}
-      onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onSelect(row.address)
-        }
-      }}
-      aria-pressed={selected}
-      data-testid={`servers-row-${row.address}`}
-      data-selected={selected}
       className={cn(
         SERVER_LIST_GRID,
-        'min-h-12 w-full cursor-default border-b border-b-line/60 py-1.5 text-left text-xs text-ink-dim transition-colors duration-[--dur-fast]',
+        'min-h-12 w-full cursor-default border-b border-b-line/60 text-xs text-ink-dim transition-colors duration-[--dur-fast]',
         selected
           ? 'border-l-flame-500 bg-flame-900/20'
           : cn(
@@ -99,51 +93,79 @@ export function ServerRow({ row, selected, onSelect }: ServerRowProps) {
             ),
       )}
     >
-      <div className="min-w-0">
-        <p className="flex min-w-0 items-center gap-1.5 text-sm text-ink">
-          {row.favourite && (
-            <Star className="size-3.5 shrink-0 fill-flame-500 text-flame-500" aria-hidden="true" />
-          )}
-          <span className="min-w-0 flex-1 truncate">{name}</span>
-        </p>
-        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          {showAddressUnderName && (
-            <span className="numeric truncate text-[11px] text-ink-muted">{row.address}</span>
-          )}
-          {row.gamemode !== undefined && (
-            <Badge tone="neutral" testId={`servers-row-gamemode-${row.address}`}>
-              {t(`servers.gamemode.${row.gamemode}`)}
-            </Badge>
-          )}
-          {row.needpass === true && (
-            <Badge tone="warning" testId={`servers-row-password-${row.address}`}>
-              <Lock className="size-3" aria-hidden="true" />
-              {t('servers.row.password')}
-            </Badge>
-          )}
-          {row.favourite && (
-            <Badge tone="flame" testId={`servers-row-favourite-${row.address}`}>
-              <Star className="size-3" aria-hidden="true" />
-              {t('servers.row.favourite')}
-            </Badge>
-          )}
-          {waiting && (
-            <Badge tone="success" testId={`servers-row-waiting-${row.address}`}>
-              <User className="size-3" aria-hidden="true" />
-              {t('servers.row.waiting')}
-            </Badge>
-          )}
-          {row.status === 'stale' && (
-            <Badge tone="warning" testId={`servers-row-stale-${row.address}`}>
-              {t('servers.row.stale')}
-            </Badge>
-          )}
-          {row.status === 'pending' && (
-            <Badge tone="neutral" testId={`servers-row-pending-${row.address}`}>
-              {t('servers.row.pending')}
-            </Badge>
-          )}
+      <div
+        role="button"
+        tabIndex={0}
+        onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            onSelect(row.address)
+          }
+        }}
+        aria-pressed={selected}
+        data-testid={`servers-row-${row.address}`}
+        data-selected={selected}
+        className="col-span-full row-start-1 grid min-h-12 grid-cols-subgrid items-center py-1.5 text-left"
+      >
+        <div className="min-w-0">
+          <p className="flex min-w-0 items-center gap-1.5 text-sm text-ink">
+            {row.favourite && (
+              <Star
+                className="size-3.5 shrink-0 fill-flame-500 text-flame-500"
+                aria-hidden="true"
+              />
+            )}
+            <span className="min-w-0 flex-1 truncate">{name}</span>
+          </p>
+          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            {showAddressUnderName && (
+              <span className="numeric truncate text-[11px] text-ink-muted">{row.address}</span>
+            )}
+            {row.gamemode !== undefined && (
+              <Badge tone="neutral" testId={`servers-row-gamemode-${row.address}`}>
+                {t(`servers.gamemode.${row.gamemode}`)}
+              </Badge>
+            )}
+            {row.needpass === true && (
+              <Badge tone="warning" testId={`servers-row-password-${row.address}`}>
+                <Lock className="size-3" aria-hidden="true" />
+                {t('servers.row.password')}
+              </Badge>
+            )}
+            {row.favourite && (
+              <Badge tone="flame" testId={`servers-row-favourite-${row.address}`}>
+                <Star className="size-3" aria-hidden="true" />
+                {t('servers.row.favourite')}
+              </Badge>
+            )}
+            {waiting && (
+              <Badge tone="success" testId={`servers-row-waiting-${row.address}`}>
+                <User className="size-3" aria-hidden="true" />
+                {t('servers.row.waiting')}
+              </Badge>
+            )}
+            {row.status === 'stale' && (
+              <Badge tone="warning" testId={`servers-row-stale-${row.address}`}>
+                {t('servers.row.stale')}
+              </Badge>
+            )}
+            {row.status === 'pending' && (
+              <Badge tone="neutral" testId={`servers-row-pending-${row.address}`}>
+                {t('servers.row.pending')}
+              </Badge>
+            )}
+          </div>
         </div>
+
+        {/* The copy-address column's slot - the button itself is the outer div's child below. */}
+        <span aria-hidden="true" />
+        <span className="truncate text-right">{orDash(row.mod)}</span>
+        <span className="flex flex-col items-end gap-1">
+          <span className="numeric text-ink">{formatOccupancy(row)}</span>
+          <OccupancyPips row={row} />
+        </span>
+        <span className="numeric truncate text-right text-[11px]">{orDash(row.map)}</span>
+        <span className="numeric truncate text-right">{formatPing(row)}</span>
       </div>
 
       <IconButton
@@ -152,17 +174,10 @@ export function ServerRow({ row, selected, onSelect }: ServerRowProps) {
         size="md"
         onClick={handleCopyAddress}
         data-testid={`servers-row-copy-${row.address}`}
+        className="col-start-2 row-start-1"
       >
         <Copy className="size-4" aria-hidden="true" />
       </IconButton>
-
-      <span className="truncate text-right">{orDash(row.mod)}</span>
-      <span className="flex flex-col items-end gap-1">
-        <span className="numeric text-ink">{formatOccupancy(row)}</span>
-        <OccupancyPips row={row} />
-      </span>
-      <span className="numeric truncate text-right text-[11px]">{orDash(row.map)}</span>
-      <span className="numeric truncate text-right">{formatPing(row)}</span>
     </div>
   )
 }
