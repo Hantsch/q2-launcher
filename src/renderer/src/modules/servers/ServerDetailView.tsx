@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ServerOff } from 'lucide-react'
+import { ServerOff, X } from 'lucide-react'
 import type { ServerDetail } from '@shared/modules/servers'
 import { IconButton } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/primitives'
@@ -17,9 +17,7 @@ export interface ServerDetailViewProps {
 }
 
 type DetailState =
-  | { status: 'loading' }
-  | { status: 'loaded'; detail: ServerDetail | null }
-  | { status: 'error' }
+  { status: 'loading' } | { status: 'loaded'; detail: ServerDetail | null } | { status: 'error' }
 
 /**
  * Story 122 D3: the detail container - reads `detail.read` for `address` on mount and whenever it
@@ -30,10 +28,7 @@ type DetailState =
  *
  * `null` (the scan has no row for this address at all) renders `EmptyState`; a rejected read renders
  * one error line and never throws. Sections are wrapped individually in `ServerDetailSection` so one
- * bad field can't take the rest of the pane down.
- *
- * Later deliverables (123: players, 124: admin/actions) append more `ServerDetailSection`-wrapped
- * sections below the header the same way - this file's shape does not need to change for them.
+ * bad field can't take the rest of the pane down, and stacked as hairline-divided blocks.
  */
 export function ServerDetailView({ address, onClose }: ServerDetailViewProps) {
   const { t } = useTranslation()
@@ -68,24 +63,24 @@ export function ServerDetailView({ address, onClose }: ServerDetailViewProps) {
 
   return (
     <section aria-labelledby="servers-detail-title" data-testid="servers-detail">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 id="servers-detail-title" className="font-display text-sm tracking-wide text-ink uppercase">
+      <div className="sticky top-0 z-10 flex h-9 items-center justify-between gap-2 border-b border-line bg-panel px-4">
+        <h2 id="servers-detail-title" className="stencil">
           {t('servers.detail.title')}
         </h2>
         <IconButton
           label={t('servers.detail.close')}
+          size="sm"
           onClick={onClose}
           data-testid="servers-detail-close"
-          className="min-h-11"
         >
-          ×
+          <X className="size-3.5" aria-hidden="true" />
         </IconButton>
       </div>
 
       {state.status === 'loading' && null}
 
       {state.status === 'error' && (
-        <p className="text-xs text-danger" data-testid="servers-detail-read-error">
+        <p className="px-4 py-3 text-xs text-danger" data-testid="servers-detail-read-error">
           {t('servers.detail.readError')}
         </p>
       )}
@@ -98,20 +93,28 @@ export function ServerDetailView({ address, onClose }: ServerDetailViewProps) {
       )}
 
       {state.status === 'loaded' && state.detail !== null && (
-        <>
-          <ServerDetailSection id="header">
-            <ServerDetailHeader detail={state.detail} />
-          </ServerDetailSection>
-          <ServerDetailSection id="players">
-            <ServerPlayersPanel row={state.detail.row} />
-          </ServerDetailSection>
-          <ServerDetailSection id="rules">
-            <ServerRulesPanel serverinfo={state.detail.serverinfo ?? undefined} />
-          </ServerDetailSection>
-          <ServerDetailSection id="reachability">
-            <ServerReachabilitySection entry={state.detail.row} />
-          </ServerDetailSection>
-        </>
+        <div className="divide-y divide-line">
+          <div className="px-4 py-4">
+            <ServerDetailSection id="header">
+              <ServerDetailHeader detail={state.detail} />
+            </ServerDetailSection>
+          </div>
+          <div className="px-4 py-4">
+            <ServerDetailSection id="players">
+              <ServerPlayersPanel row={state.detail.row} />
+            </ServerDetailSection>
+          </div>
+          <div className="px-4 py-4">
+            <ServerDetailSection id="rules">
+              <ServerRulesPanel serverinfo={state.detail.serverinfo ?? undefined} />
+            </ServerDetailSection>
+          </div>
+          <div className="px-4 py-4">
+            <ServerDetailSection id="reachability">
+              <ServerReachabilitySection entry={state.detail.row} />
+            </ServerDetailSection>
+          </div>
+        </div>
       )}
     </section>
   )

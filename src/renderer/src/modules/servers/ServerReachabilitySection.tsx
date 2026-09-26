@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { RttSample, ServerListEntry } from '@shared/modules/servers'
-import { EmptyState } from '../../components/ui/primitives'
 
 export interface ServerReachabilitySectionProps {
   entry: ServerListEntry
@@ -68,7 +67,7 @@ export function ServerReachabilitySection({ entry }: ServerReachabilitySectionPr
       </div>
 
       {newestFirst.length === 0 ? (
-        <EmptyState title={t('servers.detail.reachability.empty')} />
+        <p className="text-xs text-ink-muted">{t('servers.detail.reachability.empty')}</p>
       ) : (
         <div className="space-y-0.5">
           {newestFirst.map((sample, index) => (

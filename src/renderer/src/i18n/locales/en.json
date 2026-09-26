@@ -696,7 +696,7 @@
       "stale": "Stale",
       "password": "Password",
       "favourite": "Favourite",
-      "waiting": "Waiting for an opponent",
+      "waiting": "Opponent wanted",
       "pending": "Not scanned yet"
     },
     "list": {
@@ -708,7 +708,15 @@
       "empty": "No source returned a server",
       "openSourceSettings": "Open source settings",
       "idle": "Not scanned yet. Refresh to scan.",
-      "sourceFailed": "{{source}}: {{reason}}"
+      "sourceFailed": "{{source}}: {{reason}}",
+      "column": {
+        "name": "Server",
+        "mod": "Mod",
+        "map": "Map",
+        "players": "Players",
+        "ping": "Ping"
+      },
+      "selectedHint": "Select a server to see who's playing and join."
     },
     "gamemode": {
       "ctf": "CTF",
@@ -741,6 +749,7 @@
       "gone": "This server is no longer in the list",
       "readError": "Could not load this server's details.",
       "players": {
+        "title": "Players",
         "column": {
           "name": "Name",
           "score": "Score",
@@ -835,6 +844,8 @@
       }
     },
     "filter": {
+      "title": "Filters",
+      "quick": "Quick filters",
       "search": "Search",
       "searchPlaceholder": "Name, address or player…",
       "any": "Any",

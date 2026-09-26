@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ArrowDown, ArrowUp, Users } from 'lucide-react'
 import type { ServerListRow } from '@shared/modules/servers'
 import {
   DEFAULT_PLAYER_SORT,
@@ -7,7 +8,7 @@ import {
   sortPlayers,
   type PlayerSortKey,
 } from '@shared/servers/player-sort'
-import { EmptyState } from '../../components/ui/primitives'
+import { cn } from '../../lib/cn'
 import { orDash } from './server-format'
 
 export interface ServerPlayersPanelProps {
@@ -21,6 +22,17 @@ function ariaSort(active: boolean, dir: 'asc' | 'desc'): 'ascending' | 'descendi
   return dir === 'asc' ? 'ascending' : 'descending'
 }
 
+function PanelTitle({ count }: { count?: number }) {
+  const { t } = useTranslation()
+  return (
+    <h3 className="stencil mb-2 flex items-center gap-1.5">
+      <Users className="size-3.5" aria-hidden="true" />
+      {t('servers.detail.players.title')}
+      {count !== undefined && <span className="numeric text-ink-dim">{count}</span>}
+    </h3>
+  )
+}
+
 /**
  * Story 122 D4: the detail pane's players section. `row.players` carries four distinct shapes -
  * a real roster (sortable table), a known-empty server (`0` or `[]`), a bare count with no roster
@@ -32,9 +44,7 @@ function ariaSort(active: boolean, dir: 'asc' | 'desc'): 'ascending' | 'descendi
  */
 export function ServerPlayersPanel({ row }: ServerPlayersPanelProps) {
   const { t } = useTranslation()
-  const [sort, setSort] = useState<{ key: PlayerSortKey; dir: 'asc' | 'desc' }>(
-    DEFAULT_PLAYER_SORT,
-  )
+  const [sort, setSort] = useState<{ key: PlayerSortKey; dir: 'asc' | 'desc' }>(DEFAULT_PLAYER_SORT)
 
   const { players } = row
 
@@ -51,20 +61,35 @@ export function ServerPlayersPanel({ row }: ServerPlayersPanelProps) {
 
     return (
       <div data-testid="servers-detail-players">
-        <table className="w-full text-left text-xs text-ink-muted">
+        <PanelTitle count={players.length} />
+        <table className="w-full border-collapse text-left text-xs text-ink-dim">
           <thead>
-            <tr>
-              {COLUMNS.map((key) => {
+            <tr className="border-b border-line">
+              {COLUMNS.map((key, index) => {
                 const active = sort.key === key
                 return (
-                  <th key={key} scope="col" aria-sort={ariaSort(active, sort.dir)}>
+                  <th
+                    key={key}
+                    scope="col"
+                    aria-sort={ariaSort(active, sort.dir)}
+                    className={cn('py-1', index === 0 ? 'pr-2' : 'w-16 pl-2 text-right')}
+                  >
                     <button
                       type="button"
-                      className="min-h-11 text-left text-xs text-ink-muted"
+                      className={cn(
+                        'stencil inline-flex min-h-7 items-center gap-1 hover:text-ink',
+                        active && 'text-flame-300',
+                      )}
                       data-testid={`servers-detail-players-sort-${key}`}
                       onClick={() => handleSort(key)}
                     >
                       {t(`servers.detail.players.column.${key}`)}
+                      {active &&
+                        (sort.dir === 'asc' ? (
+                          <ArrowUp className="size-3" aria-hidden="true" />
+                        ) : (
+                          <ArrowDown className="size-3" aria-hidden="true" />
+                        ))}
                     </button>
                   </th>
                 )
@@ -73,10 +98,16 @@ export function ServerPlayersPanel({ row }: ServerPlayersPanelProps) {
           </thead>
           <tbody>
             {sorted.map((player, index) => (
-              <tr key={index} data-testid="servers-detail-player-row">
-                <td>{orDash(player.name)}</td>
-                <td>{orDash(player.score)}</td>
-                <td>{orDash(player.ping)}</td>
+              <tr
+                key={index}
+                data-testid="servers-detail-player-row"
+                className="border-b border-line/60 last:border-b-0"
+              >
+                <td className="truncate py-1.5 pr-2 text-ink" data-selectable>
+                  {orDash(player.name)}
+                </td>
+                <td className="numeric py-1.5 pl-2 text-right">{orDash(player.score)}</td>
+                <td className="numeric py-1.5 pl-2 text-right">{orDash(player.ping)}</td>
               </tr>
             ))}
           </tbody>
@@ -88,9 +119,10 @@ export function ServerPlayersPanel({ row }: ServerPlayersPanelProps) {
   if (players === 0 || (Array.isArray(players) && players.length === 0)) {
     return (
       <div data-testid="servers-detail-players">
-        <div data-testid="servers-detail-players-empty">
-          <EmptyState title={t('servers.detail.players.empty')} />
-        </div>
+        <PanelTitle count={0} />
+        <p className="text-xs text-ink-muted" data-testid="servers-detail-players-empty">
+          {t('servers.detail.players.empty')}
+        </p>
       </div>
     )
   }
@@ -98,6 +130,7 @@ export function ServerPlayersPanel({ row }: ServerPlayersPanelProps) {
   if (typeof players === 'number' && players > 0) {
     return (
       <div data-testid="servers-detail-players">
+        <PanelTitle count={players} />
         <p className="text-xs text-ink-muted">
           {t('servers.detail.players.notFetched', { count: players })}
         </p>
@@ -107,6 +140,7 @@ export function ServerPlayersPanel({ row }: ServerPlayersPanelProps) {
 
   return (
     <div data-testid="servers-detail-players">
+      <PanelTitle />
       <p className="text-xs text-ink-muted">{t('servers.detail.players.unknown')}</p>
     </div>
   )

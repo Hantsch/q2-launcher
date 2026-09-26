@@ -6,12 +6,12 @@ import { Spinner } from '../../components/ui/primitives'
 import { describeScanProgress, type ServersListState } from './list-state'
 
 /**
- * Story 121 D1: the status panel that sits above the server rows - what `deriveListState`/
+ * Story 121 D1: the status strip that sits above the server rows - what `deriveListState`/
  * `describeScanProgress` (`list-state.ts`) say, turned into real text. Renders at most one of the
  * loading/empty/idle blocks (mutually exclusive, driven by `listState`), plus an independent
- * source-failures block that can co-occur with any of them (or with nothing above, once rows are
- * populated and nothing failed). Icon + text always together - never colour-only status
- * (design-tokens rule).
+ * source-failures block that can co-occur with any of them. Renders nothing at all once rows are
+ * populated and nothing failed, so the list sits directly under the toolbar. Icon + text always
+ * together - never colour-only status (design-tokens rule).
  */
 export function ServersListStatus({
   listState,
@@ -27,8 +27,10 @@ export function ServersListStatus({
   const { t } = useTranslation()
   const pending = scanState.stage1Total - scanState.stage1Done
 
+  if (listState === 'populated' && scanState.sourceFailures.length === 0) return null
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 border-b border-line bg-void/30 px-5 py-2.5">
       {listState === 'loading' && (
         <div
           role="status"
@@ -36,10 +38,10 @@ export function ServersListStatus({
           data-testid="servers-list-loading"
           data-found={scanState.stage1Total}
           data-pending={pending}
-          className="flex items-center gap-2 text-xs text-ink-muted"
+          className="flex items-center gap-2 text-xs text-ink-dim"
         >
-          <Spinner />
-          <div className="space-y-0.5">
+          <Spinner className="text-strogg-500" />
+          <div className="flex flex-wrap gap-x-3">
             {describeScanProgress(scanState).map((line) => (
               <p key={line.key}>{t(line.key, line.params)}</p>
             ))}

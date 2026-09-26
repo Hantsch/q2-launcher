@@ -14,10 +14,16 @@ import {
   filterServers,
   type ServerListFilter,
 } from '@shared/servers/list-filter'
-import { nextSort, sortServerRows, type ServerListSort, type ServerSortColumn } from '@shared/servers/list-sort'
+import {
+  nextSort,
+  sortServerRows,
+  type ServerListSort,
+  type ServerSortColumn,
+} from '@shared/servers/list-sort'
+import { BookMarked, Crosshair, RefreshCw, Star } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { useFeatureUnlocked } from '../../components/features/FeatureGate'
-import { Panel } from '../../components/ui/primitives'
+import { StatusDot } from '../../components/ui/primitives'
 import { cn } from '../../lib/cn'
 import { ROUTE_SETTINGS, useLauncher } from '../../store/useLauncher'
 import {
@@ -35,9 +41,9 @@ import { deriveListState } from './list-state'
 import { JoinServerButton } from './join/JoinServerButton'
 import { ServerDetailView } from './ServerDetailView'
 import { ServerListFilterBar } from './ServerListFilterBar'
+import { ServerListHeader } from './ServerListHeader'
 import { ServerRow } from './ServerRow'
 import { ServersListStatus } from './ServersListStatus'
-import { ServerSortBar } from './ServerSortBar'
 import { ServersTabStrip, type ServersTab } from './ServersTabStrip'
 import { WatchlistPanel } from './watchlist/WatchlistPanel'
 
@@ -339,107 +345,163 @@ export function ServersView() {
   const stateLabel = t(
     scanState.running ? 'module.servers.view.status.scanning' : 'module.servers.view.status.idle',
   )
+  const sortCaption =
+    sort === undefined
+      ? t('servers.sort.current.default')
+      : t('servers.sort.current.column', {
+          column: t(`servers.sort.column.${sort.column}`),
+          direction: t(`servers.sort.direction.${sort.direction}`),
+        })
   const isBlocked = scanState.blockedReason !== null
   const isBusy = scanState.running
   const isRefreshDisabled = isBlocked || isBusy
 
-  const listColumn = (
-    <div className="mx-auto w-full max-w-3xl space-y-4 p-6">
-      <header className="space-y-1">
-          <h1 className="font-display text-2xl tracking-[0.06em] text-ink uppercase">
-            {t('module.servers.title')}
-          </h1>
-          <p className="text-xs text-ink-muted">{t('module.servers.description')}</p>
-        </header>
+  // The toolbar: title + live status line on the left, the scoped refresh controls and the
+  // address-book action on the right, every disabled control's visible reason underneath.
+  const toolbar = (
+    <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 border-b border-line px-5 py-4">
+      <div className="min-w-0 space-y-1">
+        <h1 className="font-display text-2xl tracking-[0.06em] text-ink uppercase">
+          {t('module.servers.title')}
+        </h1>
+        <p className="flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
+          <StatusDot className={isBusy ? 'bg-strogg-500' : 'bg-ink-faint'} pulse={isBusy} />
+          <span
+            data-testid="servers-scan-status"
+            // `data-running`/`data-finished-at` are test-observability attributes, not
+            // user-facing text (the visible label is the i18n-driven one) - a flow that clicks the
+            // refresh button has nothing else to poll for "a scan visibly ran" that isn't racy
+            // against how fast a scan against a single dead loopback target finishes.
+            data-running={scanState.running}
+            data-finished-at={scanState.finishedAt ?? ''}
+          >
+            {t('module.servers.view.status.line', {
+              state: stateLabel,
+              count: entries.length,
+            })}
+          </span>
+          <span aria-hidden="true">·</span>
+          <span data-testid="servers-sort-current">{sortCaption}</span>
+        </p>
+      </div>
 
-        <Panel className="space-y-3 p-4">
-          {isBlocked && scanState.blockedReason && (
-            <p className="text-xs text-warning" data-testid="servers-scan-blocked">
-              {t(BLOCKED_REASON_KEYS[scanState.blockedReason])}
-            </p>
-          )}
-          {isBusy && !isBlocked && (
-            <p className="text-xs text-warning" data-testid="servers-scan-busy">
-              {t(SCAN_BUSY_REASON_KEY)}
-            </p>
-          )}
-          {selectedAddress === null && (
-            <p className="text-xs text-ink-muted" data-testid="servers-refresh-selected-hint">
+      <div className="flex flex-col items-end gap-1.5">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            variant="neutral"
+            size="sm"
+            icon={
+              <RefreshCw className={cn('size-3.5', isBusy && 'animate-spin')} aria-hidden="true" />
+            }
+            onClick={handleRefresh}
+            disabled={isRefreshDisabled}
+            data-testid="servers-refresh"
+          >
+            {t('module.servers.view.refresh')}
+          </Button>
+          <Button
+            variant="neutral"
+            size="sm"
+            icon={<Star className="size-3.5" aria-hidden="true" />}
+            onClick={handleRefreshFavourites}
+            disabled={isRefreshDisabled}
+            data-testid="servers-refresh-favourites"
+          >
+            {t('module.servers.view.refreshFavourites')}
+          </Button>
+          <Button
+            variant="neutral"
+            size="sm"
+            icon={<Crosshair className="size-3.5" aria-hidden="true" />}
+            onClick={handleRefreshSelected}
+            disabled={isRefreshDisabled || selectedAddress === null}
+            data-testid="servers-refresh-selected"
+          >
+            {t('module.servers.view.refreshSelected')}
+          </Button>
+          <Button
+            variant="neutral"
+            size="sm"
+            icon={<BookMarked className="size-3.5" aria-hidden="true" />}
+            onClick={() => setAddressBookOpen(true)}
+            disabled={selectedAddress === null}
+            data-testid="servers-address-book-open"
+          >
+            {t('servers.addressBook.action')}
+          </Button>
+        </div>
+        {isBlocked && scanState.blockedReason && (
+          <p className="text-xs text-warning" data-testid="servers-scan-blocked">
+            {t(BLOCKED_REASON_KEYS[scanState.blockedReason])}
+          </p>
+        )}
+        {isBusy && !isBlocked && (
+          <p className="text-xs text-warning" data-testid="servers-scan-busy">
+            {t(SCAN_BUSY_REASON_KEY)}
+          </p>
+        )}
+        {selectedAddress === null && (
+          <p className="flex flex-wrap justify-end gap-x-1 text-xs text-ink-muted">
+            <span data-testid="servers-refresh-selected-hint">
               {t('module.servers.view.selectServerFirst')}
-            </p>
-          )}
-          {selectedAddress === null && (
-            <p className="text-xs text-ink-muted" data-testid="servers-address-book-open-hint">
-              {t('servers.addressBook.noSelection')}
-            </p>
-          )}
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              variant="neutral"
-              onClick={handleRefresh}
-              disabled={isRefreshDisabled}
-              data-testid="servers-refresh"
-            >
-              {t('module.servers.view.refresh')}
-            </Button>
-            <Button
-              variant="neutral"
-              onClick={handleRefreshFavourites}
-              disabled={isRefreshDisabled}
-              data-testid="servers-refresh-favourites"
-            >
-              {t('module.servers.view.refreshFavourites')}
-            </Button>
-            <Button
-              variant="neutral"
-              onClick={handleRefreshSelected}
-              disabled={isRefreshDisabled || selectedAddress === null}
-              data-testid="servers-refresh-selected"
-            >
-              {t('module.servers.view.refreshSelected')}
-            </Button>
-            <Button
-              variant="neutral"
-              onClick={() => setAddressBookOpen(true)}
-              disabled={selectedAddress === null}
-              data-testid="servers-address-book-open"
-            >
-              {t('servers.addressBook.action')}
-            </Button>
-            {selectedRow && (
-              <>
-                <JoinServerButton row={selectedRow} />
-                <JoinServerButton row={selectedRow} mode="spectate" />
-              </>
-            )}
-            <span
-              className="text-xs text-ink-muted"
-              data-testid="servers-scan-status"
-              // `data-running`/`data-finished-at` are test-observability attributes, not
-              // user-facing text (the visible label below is the i18n-driven one) - a flow that
-              // clicks the refresh button has nothing else to poll for "a scan visibly ran" that
-              // isn't racy against how fast a scan against a single dead loopback target finishes.
-              data-running={scanState.running}
-              data-finished-at={scanState.finishedAt ?? ''}
-            >
-              {t('module.servers.view.status.line', {
-                state: stateLabel,
-                count: entries.length,
-              })}
             </span>
-          </div>
-        </Panel>
+            <span data-testid="servers-address-book-open-hint">
+              {t('servers.addressBook.noSelection')}
+            </span>
+          </p>
+        )}
+      </div>
+    </header>
+  )
 
-        <ServersListStatus
-          listState={deriveListState(scanState, entries.length)}
-          scanState={scanState}
-          sourceLabels={sourceLabels}
-          onOpenSourceSettings={handleOpenSourceSettings}
-        />
+  const table =
+    visible.length === 0 && entries.length > 0 ? (
+      <div
+        className="flex flex-col items-center gap-3 px-6 py-12 text-center"
+        data-testid="servers-filter-no-match"
+      >
+        <p className="text-xs text-ink-muted">{t('servers.filter.noMatch')}</p>
+        <Button
+          variant="neutral"
+          size="sm"
+          onClick={() => setFilter(EMPTY_SERVER_LIST_FILTER)}
+          data-testid="servers-filter-no-match-clear"
+        >
+          {t('servers.filter.clear')}
+        </Button>
+      </div>
+    ) : (
+      <>
+        <ServerListHeader sort={sort} onSort={handleSort} />
+        {visible.map((entry) => (
+          <ServerRow
+            key={entry.address}
+            row={entry}
+            selected={entry.address === selectedAddress}
+            onSelect={handleToggleRowSelected}
+          />
+        ))}
+        {visible.length > 0 && selectedAddress === null && (
+          <p className="px-5 py-3 text-xs text-ink-muted">{t('servers.list.selectedHint')}</p>
+        )}
+      </>
+    )
 
-        <ServerSortBar sort={sort} onSort={handleSort} />
-
+  // Story 122 D3: selecting a row opens the detail pane beside the list, each scrolling
+  // independently (`min-h-0 overflow-y-auto` on both). The outer structure (this same grid, the
+  // list always in the first slot) never swaps out - only the class list and whether the second
+  // slot is present change - so an already-selected row's DOM node (and every existing test that
+  // holds a reference to it, e.g. across a click-then-assert pair) survives a selection change
+  // instead of being unmounted and recreated as a stale node. Below the `@4xl` container width
+  // (the 940px minimum window) the pane stacks under the list instead of squeezing it.
+  //
+  // Story 132 D3: this whole block is only one of two tabs.
+  const listAndDetail = (
+    <div className="flex h-full min-h-0">
+      <aside
+        className="w-56 shrink-0 overflow-y-auto border-r border-line bg-panel/60 p-4"
+        aria-label={t('servers.filter.title')}
+      >
         <ServerListFilterBar
           filter={filter}
           onChange={setFilter}
@@ -447,61 +509,40 @@ export function ServersView() {
           shown={visible.length}
           total={entries.length}
         />
+      </aside>
 
-      {visible.length === 0 && entries.length > 0 ? (
-        <Panel className="space-y-3 p-4 text-center" data-testid="servers-filter-no-match">
-          <p className="text-xs text-ink-muted">{t('servers.filter.noMatch')}</p>
-          <Button
-            variant="neutral"
-            onClick={() => setFilter(EMPTY_SERVER_LIST_FILTER)}
-            data-testid="servers-filter-no-match-clear"
+      <div className="flex min-w-0 flex-1 flex-col">
+        {toolbar}
+        <div className="@container min-h-0 flex-1">
+          <div
+            className={cn(
+              'grid h-full',
+              selectedAddress === null
+                ? 'grid-rows-1'
+                : 'grid-rows-[minmax(0,1fr)_minmax(0,1fr)] @4xl:grid-cols-[minmax(0,1fr)_24rem] @4xl:grid-rows-1',
+            )}
           >
-            {t('servers.filter.clear')}
-          </Button>
-        </Panel>
-      ) : (
-        <Panel className="space-y-2 p-4">
-          {visible.map((entry) => (
-            <ServerRow
-              key={entry.address}
-              row={entry}
-              selected={entry.address === selectedAddress}
-              onSelect={handleToggleRowSelected}
-            />
-          ))}
-        </Panel>
-      )}
-    </div>
-  )
-
-  // Story 122 D3: selecting a row opens the detail pane in a second column, each scrolling
-  // independently (`min-h-0 overflow-y-auto` on both). The outer structure (this same grid, the
-  // list column always in the first slot) never swaps out - only the class list and whether the
-  // second column is present change - so an already-selected row's DOM node (and every existing
-  // test that holds a reference to it, e.g. across a click-then-assert pair) survives a selection
-  // change instead of being unmounted and recreated as a stale node.
-  //
-  // Story 132 D3: this whole block is now only one of two tabs - unchanged in every other respect
-  // (AC "no reimplementation" applies to the pre-story screen too: it stays exactly what it was).
-  const listAndDetail = (
-    <div
-      className={cn(
-        'h-full',
-        selectedAddress === null ? 'overflow-y-auto scrollbar-gutter-stable' : 'grid grid-cols-2 gap-4',
-      )}
-    >
-      <div
-        className={cn(
-          selectedAddress !== null && 'min-h-0 overflow-y-auto scrollbar-gutter-stable',
-        )}
-      >
-        {listColumn}
-      </div>
-      {selectedAddress !== null && (
-        <div className="min-h-0 overflow-y-auto border-l border-line p-6">
-          <ServerDetailView address={selectedAddress} onClose={() => setSelectedAddress(null)} />
+            <div className="flex min-h-0 flex-col">
+              <ServersListStatus
+                listState={deriveListState(scanState, entries.length)}
+                scanState={scanState}
+                sourceLabels={sourceLabels}
+                onOpenSourceSettings={handleOpenSourceSettings}
+              />
+              <div className="min-h-0 flex-1 overflow-y-auto scrollbar-gutter-stable">{table}</div>
+            </div>
+            {selectedAddress !== null && (
+              <div className="min-h-0 overflow-y-auto border-t border-line bg-panel/40 @4xl:border-t-0 @4xl:border-l">
+                <ServerDetailView
+                  address={selectedAddress}
+                  onClose={() => setSelectedAddress(null)}
+                />
+              </div>
+            )}
+          </div>
         </div>
-      )}
+      </div>
+
       <AddToAddressBookDialog
         open={addressBookOpen}
         address={selectedRow?.address ?? selectedAddress ?? ''}
@@ -514,15 +555,13 @@ export function ServersView() {
     <div className="flex h-full flex-col">
       <ServersTabStrip activeTab={activeTab} onChange={setActiveTab} />
       <div className="min-h-0 flex-1">
-        {activeTab === 'watchlist' ? (
-          isWatchlistUnlocked && (
-            <div className="mx-auto w-full max-w-3xl overflow-y-auto p-6">
-              <WatchlistPanel renderMatchActions={renderMatchActions} />
-            </div>
-          )
-        ) : (
-          listAndDetail
-        )}
+        {activeTab === 'watchlist'
+          ? isWatchlistUnlocked && (
+              <div className="mx-auto w-full max-w-3xl overflow-y-auto p-6">
+                <WatchlistPanel renderMatchActions={renderMatchActions} />
+              </div>
+            )
+          : listAndDetail}
       </div>
     </div>
   )

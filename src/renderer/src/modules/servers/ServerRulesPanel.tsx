@@ -2,7 +2,6 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { buildRuleTable, type KnownRuleRow, type RawRuleRow, type RuleValue } from '@shared/servers/rule-table'
 import type { DmflagId } from '@shared/servers/dmflags'
-import { EmptyState } from '../../components/ui/primitives'
 
 export interface ServerRulesPanelProps {
   serverinfo: Record<string, string> | undefined
@@ -139,7 +138,7 @@ export function ServerRulesPanel({ serverinfo }: ServerRulesPanelProps) {
     return (
       <div data-testid="servers-detail-rules">
         <h3 className="stencil mb-2">{t('servers.detail.rules.title')}</h3>
-        <EmptyState title={t('servers.detail.rules.empty')} />
+        <p className="text-xs text-ink-muted">{t('servers.detail.rules.empty')}</p>
       </div>
     )
   }

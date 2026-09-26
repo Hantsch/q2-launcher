@@ -65,20 +65,20 @@ describe('ServerListFilterBar - each control writes its own field (story 120 D2)
     expect(onChange).toHaveBeenCalledWith({ ...EMPTY_SERVER_LIST_FILTER, map: 'q2dm1' })
   })
 
-  it('each checkbox toggles only its own field', () => {
+  it('each quick-filter chip toggles only its own field', () => {
     const onChange = vi.fn()
     renderBar(EMPTY_SERVER_LIST_FILTER, onChange)
 
-    fireEvent.click(screen.getByTestId('servers-filter-non-empty').querySelector('input')!)
+    fireEvent.click(screen.getByTestId('servers-filter-non-empty'))
     expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_SERVER_LIST_FILTER, nonEmpty: true })
 
-    fireEvent.click(screen.getByTestId('servers-filter-not-full').querySelector('input')!)
+    fireEvent.click(screen.getByTestId('servers-filter-not-full'))
     expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_SERVER_LIST_FILTER, notFull: true })
 
-    fireEvent.click(screen.getByTestId('servers-filter-no-password').querySelector('input')!)
+    fireEvent.click(screen.getByTestId('servers-filter-no-password'))
     expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_SERVER_LIST_FILTER, noPassword: true })
 
-    fireEvent.click(screen.getByTestId('servers-filter-waiting').querySelector('input')!)
+    fireEvent.click(screen.getByTestId('servers-filter-waiting'))
     expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_SERVER_LIST_FILTER, waitingForOpponent: true })
   })
 
