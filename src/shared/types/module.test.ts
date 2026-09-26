@@ -7,7 +7,7 @@ describe('servers module manifest (story 106 D1)', () => {
     expect(manifest).toBeDefined()
     expect(manifest?.route).toBe('/servers')
     expect(manifest?.nav).toEqual({ section: 'primary', order: 20 })
-    expect(manifest?.status).toBe('planned')
+    expect(manifest?.status).toBe('available')
     expect(manifest?.icon).toBe('Globe')
     expect(manifest?.ipcNamespace).toBe('module:servers')
     expect(manifest?.requiresInstallation).toBe(false)

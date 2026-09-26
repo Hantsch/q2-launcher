@@ -79,16 +79,15 @@ describe('servers module registration', () => {
       const module = rendererModule('servers')
 
       expect(module).toBeDefined()
-      // Story 115 D5: `View` is now `ServersView` - a deliberate stand-in for the manual scan
-      // control only (AC3), not the module's real debut. The manifest's own `status` stays
-      // `'planned'` below on purpose, so the nav rail's "planned" badge still reads accurately
-      // until the real server list ([[118]]/[[121]]) lands.
+      // Story 115 D5 stood `ServersView` in as a manual-scan-only stand-in; the full game
+      // browser ([[118]]-[[132]], done S22-S25) has since landed, so the manifest's `status`
+      // flipped to `'available'` and the nav rail's "planned" badge is gone.
       expect(module?.View).toBe(ServersView)
       expect(module?.settingsSection).toBeDefined()
       expect(module?.settingsSection?.Section).toBe(ServersSettingsSection)
 
       const manifest = getModuleManifest('servers')
-      expect(manifest?.status).toBe('planned')
+      expect(manifest?.status).toBe('available')
     },
     40_000,
   )

@@ -66,11 +66,9 @@ export const RENDERER_MODULES: readonly RendererModule[] = [
   },
   { id: 'config', View: ConfigView },
   {
-    // Story 115 D5: `View: ServersView` is a deliberate stand-in, not the module's real debut -
-    // it exists only to give the manual-scan control (AC3) somewhere real to render. The module
-    // manifest's own `status: 'planned'` (`@shared/types`'s `MODULE_MANIFESTS`) is left untouched
-    // by this story on purpose, so the nav rail's "planned" badge still reads accurately until
-    // the real server list ([[118]]/[[121]]) lands.
+    // Story 115 D5 stood `ServersView` in as a manual-scan-only stand-in; the full game browser
+    // ([[118]]-[[132]], done S22-S25) has since landed and the manifest's `status`
+    // (`@shared/types`'s `MODULE_MANIFESTS`) is now `'available'`.
     id: 'servers',
     View: ServersView,
     settingsSection: {

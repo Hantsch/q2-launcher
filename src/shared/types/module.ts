@@ -169,7 +169,7 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     icon: 'Globe',
     route: '/servers',
     nav: { section: 'primary', order: 20 },
-    status: 'planned',
+    status: 'available',
     capabilities: ['network', 'game-lifecycle'],
     ipcNamespace: 'module:servers',
     requiresInstallation: false,
