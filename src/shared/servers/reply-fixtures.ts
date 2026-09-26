@@ -18,23 +18,25 @@ import { encodeLatin1, OOB_PREFIX } from './protocol'
 
 /**
  * Assembles a well-formed `info` connectionless reply datagram: `OOB_PREFIX` + `"info\n"` +
- * `serverinfoLine`. `serverinfoLine` is the raw backslash-delimited body a real server would send
- * back (e.g. `"\\gamename\\baseq2\\hostname\\Test Server"`), or `''` to build a reply with an
- * empty body.
+ * `infoLine`. `infoLine` is the raw body a real server would send back - the fixed-format
+ * `"%16s %8s %2i/%2i\n"` summary line (see `formatInfoLine`), not a backslash infostring - or
+ * `''` to build a reply with an empty body.
  */
-export function buildInfoReplyBytes(serverinfoLine: string): Uint8Array {
-  const bodyBytes = encodeLatin1(`info\n${serverinfoLine}`)
+export function buildInfoReplyBytes(infoLine: string): Uint8Array {
+  const bodyBytes = encodeLatin1(`info\n${infoLine}`)
   const datagram = new Uint8Array(OOB_PREFIX.length + bodyBytes.length)
   datagram.set(OOB_PREFIX, 0)
   datagram.set(bodyBytes, OOB_PREFIX.length)
   return datagram
 }
 
-/** A realistic, well-formed `info` reply: every key `parseInfoReply` knows how to read, plus a
- * couple of others a real serverinfo string typically carries. */
-export const SAMPLE_INFO_REPLY: Uint8Array = buildInfoReplyBytes(
-  '\\gamename\\baseq2\\hostname\\Test Server\\mapname\\q2dm1\\clients\\3\\maxclients\\8\\version\\3.20',
-)
+/** Formats an `info` body exactly like Quake II's `SVC_Info`: `"%16s %8s %2i/%2i\n"`. */
+export function formatInfoLine(hostname: string, map: string, clients: number, maxClients: number): string {
+  return `${hostname.padStart(16)} ${map.padStart(8)} ${String(clients).padStart(2)}/${String(maxClients).padStart(2)}\n`
+}
+
+/** A realistic, well-formed `info` reply: a short hostname padded to 16 columns, as real servers send. */
+export const SAMPLE_INFO_REPLY: Uint8Array = buildInfoReplyBytes(formatInfoLine('Test Server', 'q2dm1', 3, 8))
 
 /**
  * Assembles a `status` connectionless reply datagram: `OOB_PREFIX` + `"print\n"` (a `status`

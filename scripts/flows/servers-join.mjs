@@ -72,7 +72,16 @@ function encodeLatin1(text) {
 }
 
 function buildInfoReplyBytes(serverinfoLine) {
-  return Buffer.concat([OOB_PREFIX, encodeLatin1(`info\n${serverinfoLine}`)])
+  // A real `info` reply is not an infostring but Quake II's `"%16s %8s %2i/%2i\n"` summary line
+  // (`src/shared/servers/reply-fixtures.ts`'s `formatInfoLine`) - only these four keys survive.
+  const parts = serverinfoLine.split('\\').slice(1)
+  const kv = {}
+  for (let i = 0; i + 1 < parts.length; i += 2) kv[parts[i]] = parts[i + 1]
+  const count = (value) => (/^\d+$/.test(value ?? '') ? value : '0') // `%2i` always prints a number
+  const line =
+    `${(kv.hostname ?? '').padStart(16)} ${(kv.mapname ?? '').padStart(8)} ` +
+    `${count(kv.clients).padStart(2)}/${count(kv.maxclients).padStart(2)}\n`
+  return Buffer.concat([OOB_PREFIX, encodeLatin1(`info\n${line}`)])
 }
 
 function buildStatusReplyBytes(serverinfoLine, playerLines) {

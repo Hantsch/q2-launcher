@@ -1,7 +1,7 @@
 import { createSocket, type Socket } from 'node:dgram'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { DEFAULT_SERVERS_STATE, type ScanTarget } from '@shared/modules/servers'
-import { buildInfoReplyBytes, buildStatusReplyBytes } from '@shared/servers/reply-fixtures'
+import { buildInfoReplyBytes, buildStatusReplyBytes, formatInfoLine } from '@shared/servers/reply-fixtures'
 import { runScan } from './scan-runner'
 
 /**
@@ -110,7 +110,7 @@ async function bindResponder(profile: Profile): Promise<Responder> {
     `\\gamename\\baseq2\\hostname\\${profile.hostname}\\mapname\\q2dm${(profile.index % 8) + 1}` +
     `\\clients\\${profile.clients}\\maxclients\\16\\version\\3.20`
   const playerLines = Array.from({ length: profile.clients }, (_, k) => `${k * 3} ${20 + k} "Player${k}"`)
-  const infoBytes = buildInfoReplyBytes(line)
+  const infoBytes = buildInfoReplyBytes(formatInfoLine(profile.hostname, `q2dm${(profile.index % 8) + 1}`, profile.clients, 16))
   const statusBytes = buildStatusReplyBytes(line, playerLines)
   const responder: Responder = {
     profile,

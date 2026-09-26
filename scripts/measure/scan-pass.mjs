@@ -63,7 +63,7 @@ async function defineMeasurement() {
   const os = await import('node:os')
   const { readFileSync } = await import('node:fs')
   const { runScan } = await import('@main/modules/servers/scan-runner')
-  const { buildInfoReplyBytes, buildStatusReplyBytes } = await import('@shared/servers/reply-fixtures')
+  const { buildInfoReplyBytes, buildStatusReplyBytes, formatInfoLine } = await import('@shared/servers/reply-fixtures')
 
   // --- The modelled population (an invented input, recorded as such in story 115) -------------
 
@@ -171,7 +171,7 @@ async function defineMeasurement() {
       profile,
       socket,
       address: `127.0.0.1:${port}`,
-      infoBytes: buildInfoReplyBytes(line),
+      infoBytes: buildInfoReplyBytes(formatInfoLine(profile.hostname, `q2dm${(profile.index % 8) + 1}`, profile.clients, 16)),
       statusBytes: buildStatusReplyBytes(line, playerLines),
       received: { info: 0, status: 0 },
       dropped: { info: false, status: false },

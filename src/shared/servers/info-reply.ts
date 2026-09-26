@@ -1,11 +1,14 @@
 /**
- * Parses the connectionless `info` reply's body — a single serverinfo line, no player list
+ * Parses the connectionless `info` reply's body — one fixed-format summary line, no player list
  * (that is `status`'s job, a separate deliverable's `status-reply.ts`) — into a typed result.
  *
  * `readConnectionlessReply` (`./protocol.ts`) already strips the `OOB_PREFIX` + command envelope;
- * this module only interprets what is left: split the body with `splitInfostring` (`./infostring.ts`)
- * and read the well-known keys off the result, never inventing a value `splitInfostring`/`readIntKey`
- * did not actually produce.
+ * this module only interprets what is left. Unlike `status`, the `info` body is *not* a
+ * backslash infostring: Quake II (and r1q2/q2pro, verified against live servers) formats it as
+ * `"%16s %8s %2i/%2i\n"` — hostname, map, clients/maxclients — e.g.
+ * `"Dediz Rocket Arena 2 w/ Gladiator Bots  ra2map9 11/24\n"`. The hostname may contain spaces and
+ * is not truncated, so the line is read from the right: the last token is `clients/maxclients`,
+ * the one before it is the map, everything left of that is the hostname.
  *
  * Never throws on malformed/foreign input — only the `InfoReplyResult` union is returned for
  * anything bytes-derived.
@@ -14,13 +17,13 @@
  * `Buffer`, no IPC.
  */
 
-import { readIntKey, splitInfostring } from './infostring'
 import { readConnectionlessReply } from './protocol'
 import type { ServerReplyFailure } from './protocol'
 
-/** A successfully parsed `info` reply: the raw serverinfo record plus the well-known fields read
- * out of it. A field stays `undefined` when its key was absent or, for the numeric fields, present
- * but not a clean integer — never coerced to a fake value. */
+/** A successfully parsed `info` reply: the well-known fields read out of the summary line, plus
+ * the same fields as a `serverinfo` record under their infostring key names (`hostname`,
+ * `mapname`, `clients`, `maxclients`) so consumers can read an `info` and a `status` reply the
+ * same way. A field stays `undefined` (and its key absent) when the line did not carry it. */
 export interface InfoReplySuccess {
   ok: true
   serverinfo: Record<string, string>
@@ -35,30 +38,42 @@ export interface InfoReplySuccess {
  * parser). */
 export type InfoReplyResult = InfoReplySuccess | ServerReplyFailure
 
+/** `<hostname> <map> <clients>/<maxclients>` — `%2i` pads single digits, hence `\/\s*`. */
+const INFO_LINE_PATTERN = /^(.*?)\s*(\S+)\s+(\d+)\/\s*(\d+)\s*$/
+
 /**
  * Parses an inbound `info` connectionless reply datagram.
  *
  * 1. Strips the envelope via `readConnectionlessReply(bytes, 'info')`, propagating whatever
  *    failure reason it returns (`too-short`, `not-connectionless`, `unexpected-command`, ...).
- * 2. An empty or whitespace-only body — nothing to split at all — fails with
- *    `'malformed-infostring'`. A body that splits into *something*, even if it is missing specific
- *    well-known keys, is not an error (AC4): missing keys simply come back `undefined` below.
- * 3. Splits the body into the raw `serverinfo` record and reads `hostname`, `mapname`, `clients`
- *    and `maxclients` off it.
+ * 2. An empty or whitespace-only body fails with `'malformed-infostring'`.
+ * 3. A non-empty body that is not the `<hostname> <map> <clients>/<maxclients>` line (truncated,
+ *    or a `"<hostname>: wrong version"` answer) is still a reply, just one with no fields.
+ * 4. An empty (all-padding) hostname stays `undefined` rather than becoming `''`.
  */
 export function parseInfoReply(bytes: Uint8Array): InfoReplyResult {
   const envelope = readConnectionlessReply(bytes, 'info')
   if (!envelope.ok) return envelope
 
-  const body = envelope.body
-  if (body.trim().length === 0) return { ok: false, reason: 'malformed-infostring' }
+  const line = envelope.body.split('\n')[0] ?? ''
+  if (line.trim().length === 0) return { ok: false, reason: 'malformed-infostring' }
+  const match = INFO_LINE_PATTERN.exec(line)
+  // The server did answer - it is online - but the line cannot be read: Quake II formats it into a
+  // 64-byte buffer, so a long hostname truncates the map/counts away, and a `wrong version` answer
+  // carries neither. Nothing on it can be told apart reliably, so no field is claimed.
+  if (match === null) return { ok: true, serverinfo: {} }
 
-  const serverinfo = splitInfostring(body)
+  const [, rawHostname = '', map = '', clientsText = '', maxClientsText = ''] = match
+  const hostname = rawHostname.trim() === '' ? undefined : rawHostname.trim()
+  const clients = Number(clientsText)
+  const maxClients = Number(maxClientsText)
 
-  const hostname = typeof serverinfo.hostname === 'string' ? serverinfo.hostname : undefined
-  const map = typeof serverinfo.mapname === 'string' ? serverinfo.mapname : undefined
-  const clients = readIntKey(serverinfo, 'clients')
-  const maxClients = readIntKey(serverinfo, 'maxclients')
+  const serverinfo: Record<string, string> = {
+    mapname: map,
+    clients: clientsText,
+    maxclients: maxClientsText,
+  }
+  if (hostname !== undefined) serverinfo.hostname = hostname
 
   return { ok: true, serverinfo, hostname, map, clients, maxClients }
 }

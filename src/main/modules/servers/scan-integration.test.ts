@@ -12,7 +12,7 @@ import {
   type ServersScanState,
   type ServersState,
 } from '@shared/modules/servers'
-import { buildInfoReplyBytes, buildStatusReplyBytes } from '@shared/servers/reply-fixtures'
+import { buildInfoReplyBytes, buildStatusReplyBytes, formatInfoLine } from '@shared/servers/reply-fixtures'
 import { IDLE_LAUNCH_STATE } from '@shared/types'
 import type { AppContext } from '../../context'
 import { createFeatureGate } from '../../features/gate'
@@ -42,8 +42,6 @@ const POPULATED_INFO_LINE =
 const POPULATED_PLAYER_LINES = ['3 25 "PlayerOne"', '0 -1 "PlayerTwo"']
 
 const EMPTY_HOSTNAME = 'Empty Server'
-const EMPTY_INFO_LINE =
-  `\\gamename\\baseq2\\hostname\\${EMPTY_HOSTNAME}\\mapname\\q2dm2\\clients\\0\\maxclients\\8\\version\\3.20`
 
 /** Small scan budget: fast enough for a test, but the dead target still gets a real timeout +
  * one real retry (2 sends, ~2 * `timeoutMs`) rather than being faked away. */
@@ -103,7 +101,7 @@ describe('servers scan real-socket integration (story 114 D8)', () => {
       const kind = decodeQueryKind(message)
       populatedReceivedKinds.push(kind)
       if (kind === 'info') {
-        populated.socket.send(buildInfoReplyBytes(POPULATED_INFO_LINE), rinfo.port, rinfo.address)
+        populated.socket.send(buildInfoReplyBytes(formatInfoLine(POPULATED_HOSTNAME, 'q2dm1', 3, 8)), rinfo.port, rinfo.address)
       } else if (kind === 'status') {
         populated.socket.send(
           buildStatusReplyBytes(POPULATED_INFO_LINE, POPULATED_PLAYER_LINES),
@@ -119,7 +117,7 @@ describe('servers scan real-socket integration (story 114 D8)', () => {
       // Only ever answers `info` - stage 1 must find it empty and never ask it again, so it must
       // never see a `status` query at all (AC2). If it somehow did, it stays silent for it.
       if (kind === 'info') {
-        empty.socket.send(buildInfoReplyBytes(EMPTY_INFO_LINE), rinfo.port, rinfo.address)
+        empty.socket.send(buildInfoReplyBytes(formatInfoLine(EMPTY_HOSTNAME, 'q2dm2', 0, 8)), rinfo.port, rinfo.address)
       }
     })
 
