@@ -137,20 +137,8 @@ describe('master sources (story 111 D1)', () => {
     }
   })
 
-  it('DEFAULT_MASTER_SOURCES is exactly the concept\'s three defaults, correctly typed and enabled', () => {
+  it('DEFAULT_MASTER_SOURCES is exactly the one shipped default, correctly typed and enabled', () => {
     expect(DEFAULT_MASTER_SOURCES).toEqual([
-      {
-        id: 'default-q2servers-udp',
-        type: 'udp-master',
-        address: 'master.q2servers.com:27900',
-        enabled: true,
-      },
-      {
-        id: 'default-quakeservers-udp',
-        type: 'udp-master',
-        address: 'master.quakeservers.net:27900',
-        enabled: true,
-      },
       {
         id: 'default-q2servers-http',
         type: 'http-list',

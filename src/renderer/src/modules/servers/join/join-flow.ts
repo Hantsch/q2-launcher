@@ -39,20 +39,3 @@ export function modMismatch(entry: ServerListRow, installation: Installation): M
 export function needsJoinPassword(entry: ServerListRow): boolean {
   return entry.needpass === true
 }
-
-/** Story 126 D3: whether the server requires a password before it can be spectated - a distinct
- * bit (`spectatorPass`) from the join password (`needpass`), which spectate mode ignores
- * entirely. */
-export function needsSpectatePassword(entry: ServerListRow): boolean {
-  return entry.spectatorPass === true
-}
-
-/** Which of the two flows `JoinServerButton` runs - both share every step except which password
- * bit is checked, which i18n keys the password prompt uses, and the `spectate` flag passed to
- * `play()`. */
-export type JoinMode = 'join' | 'spectate'
-
-/** Whether the server requires a password before it can be joined/spectated in the given mode. */
-export function needsPassword(entry: ServerListRow, mode: JoinMode): boolean {
-  return mode === 'spectate' ? needsSpectatePassword(entry) : needsJoinPassword(entry)
-}

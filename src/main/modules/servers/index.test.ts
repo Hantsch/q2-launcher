@@ -197,12 +197,12 @@ describe('servers module sources.* handlers (story 111 D3)', () => {
 
     expect(outcome.ok).toBe(true)
     expect(outcome.value.ok).toBe(true)
-    expect(outcome.value.sources).toHaveLength(4)
+    expect(outcome.value.sources).toHaveLength(2)
 
     const persisted = await reloaded()
     // The full new list came back, and it is exactly what is on disk - no drop on reload.
     expect(persisted.sources).toEqual(outcome.value.sources)
-    expect(persisted.sources[3]).toEqual({
+    expect(persisted.sources[1]).toEqual({
       id: expect.any(String),
       type: 'udp-master',
       address: 'master.example.com:27900',
@@ -223,7 +223,7 @@ describe('servers module sources.* handlers (story 111 D3)', () => {
     })
 
     const persisted = await reloaded()
-    expect(persisted.sources).toHaveLength(3)
+    expect(persisted.sources).toHaveLength(1)
     expect(persisted.sources[0]).toEqual({ ...target, enabled: false })
   })
 

@@ -20,8 +20,8 @@
 // roster this flow later mutates (score change, then removal) to prove the re-check/"left" path
 // (AC7); server B carries a static "Trooper" the edit-to-found step targets, so that half of the
 // story never depends on A's own mutations. The same real, spawnable stand-in client
-// `writeJoinFixture()` gives `servers-join.mjs` is reused here so the match-row Join/Spectate
-// actions (125/126, never reimplemented - AC3) produce a real spawn/exit this flow can assert on.
+// `writeJoinFixture()` gives `servers-join.mjs` is reused here so the match-row Join action
+// (125, never reimplemented - AC3) produces a real spawn/exit this flow can assert on.
 //
 // ## Selectors
 //
@@ -32,7 +32,7 @@
 // (`data-state`), `-recheck-<id>`/`-recheck-error-<id>`, `-edit-<id>`/`-edit-name-<id>`/
 // `-edit-mode-<id>`/`-edit-save-<id>`/`-edit-cancel-<id>`/`-edit-error-<id>`, `-remove-<id>`,
 // `-match-<id>-<address>` (`WatchlistRow.tsx`). Match actions (`ServersView.tsx`'s
-// `renderMatchActions`): `servers-join`/`servers-spectate` (125/126's own `JoinServerButton`) and
+// `renderMatchActions`): `servers-join` (125's own `JoinServerButton`) and
 // `servers-watchlist-open-detail-<address>`. `nav-servers`/`nav-settings` (`TitleBar.tsx`),
 // `unlock-installation-id`/`unlock-code-input`/`unlock-code-submit`/`unlock-result-accepted`
 // (`UnlockCodePanel.tsx`, story 129), `servers-refresh`/`servers-scan-status`/`servers-detail`
@@ -110,7 +110,7 @@ function formatPlayerLine({ score, ping, name }) {
  * re-check test changes server A's roster mid-flow (a score bump, then a removal), and the
  * `info`/`status` handler below always reads the CURRENT value, never one captured at bind time.
  * Same OOB envelope/`gamename: 'baseq2'`/no-password shape as `servers-join.mjs`'s server B (a
- * clean, no-mismatch, no-dialog join), since this flow's Join/Spectate assertions are 125/126's own
+ * clean, no-mismatch, no-dialog join), since this flow's Join assertion is 125's own
  * job, not a second mismatch-dialog proof.
  */
 async function bindResponder(hostname, initialPlayers) {
@@ -490,7 +490,7 @@ export default async function serversWatchlist({ page, step, shot }) {
       }
       // AC4 is about `WatchlistRow`'s OWN text (its `<span>` line, never the caller-supplied
       // `renderMatchActions` buttons this same `<li>` also renders - `ServersView.tsx`'s own Join/
-      // Spectate/"Server details" actions legitimately say "Spectate" right next to it).
+      // "Server details" actions).
       const rockMatchLineText = await rockMatch.locator('span').first().innerText()
       if (/spectat/i.test(rockMatchLineText)) {
         throw new Error(`expected no "spectate"/"spectating" substring in the match's own line text (AC4), got ${JSON.stringify(rockMatchLineText)}`)
@@ -536,7 +536,7 @@ export default async function serversWatchlist({ page, step, shot }) {
       await p.getByTestId(`servers-watchlist-remove-${nobodyId}`).click({ timeout: TIMEOUT_MS })
       await rowLocator(p, nobodyId).waitFor({ state: 'detached', timeout: TIMEOUT_MS })
 
-      step('bring server A’s Rocket back and refresh, so "rock" is a still-found row again (needed for Join/Spectate/detail)')
+      step('bring server A’s Rocket back and refresh, so "rock" is a still-found row again (needed for Join/detail)')
       serverA.players = [{ score: 11, ping: 14, name: 'Rocket' }]
       await runFullRefreshFromWatchlistTab(p)
       await waitForRowState(p, rockId, 'found', RECHECK_SETTLE_TIMEOUT_MS)
@@ -566,18 +566,7 @@ export default async function serversWatchlist({ page, step, shot }) {
       if (!launchLine || !launchLine.includes(`+connect ${serverA.address}`)) {
         throw new Error(`expected a "launching" line with +connect ${serverA.address}, got ${JSON.stringify(launchLine)}`)
       }
-
-      step('spectating server A afterwards also produces a real launch (126, never reimplemented)')
-      await armPhaseListener(p)
-      await p.getByTestId('servers-detail-spectate').click({ timeout: TIMEOUT_MS })
-      await waitForPhase(p, 'running', LAUNCH_TIMEOUT_MS)
-      await waitForPhase(p, 'exited', LAUNCH_TIMEOUT_MS)
-      const logAfterSpectate = await waitForLogContains(logPath, `+connect ${serverA.address}`, LOG_POLL_TIMEOUT_MS)
-      const spectateLaunchLine = lastLaunchingLine(logAfterSpectate)
-      if (!spectateLaunchLine || !spectateLaunchLine.includes(`+connect ${serverA.address}`)) {
-        throw new Error(`expected a second "launching" line with +connect ${serverA.address}, got ${JSON.stringify(spectateLaunchLine)}`)
-      }
-      await shot2('join-and-spectate-from-match')
+      await shot2('join-from-match')
     },
   )
 
@@ -589,7 +578,7 @@ export default async function serversWatchlist({ page, step, shot }) {
       'name it actually matched, with no "spectate" substring anywhere in a match line (AC2/AC4/AC5); ' +
       "re-checking picked up a live score change and then a real departure (AC7); editing an entry's " +
       'name rematched it immediately and removing it dropped its row (AC3); and a still-found match ' +
-      "row's open-detail/Join/Spectate actions produced real launches through 125/126's own, " +
+      "row's open-detail/Join actions produced a real launch through 125's own, " +
       'unmodified code (AC3).',
   )
 }

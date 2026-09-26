@@ -19,7 +19,7 @@ import { useLauncher } from '../../store/useLauncher'
  * `./client` stubbed directly) plus `FeatureGate.test.tsx`'s convention of seeding the real
  * Zustand store's `unlockedFeatures` rather than mocking `useFeatureUnlocked` itself.
  * `JoinServerButton` is stubbed so this file only asserts *that* it's called with the right
- * props, never re-testing 125/126's own join/spectate flow.
+ * props, never re-testing 125's own join flow.
  */
 
 vi.hoisted(() => {
@@ -81,12 +81,12 @@ vi.mock('./client', () => ({
   recheckWatchlistEntry: recheckWatchlistEntryMock,
 }))
 
-const joinServerButtonMock = vi.fn(
-  ({ mode }: { row: unknown; mode?: string }) => createElement('div', { 'data-testid': `stub-join-${mode ?? 'join'}` }),
+const joinServerButtonMock = vi.fn((_props: { row: unknown }) =>
+  createElement('div', { 'data-testid': 'stub-join' }),
 )
 
 vi.mock('./join/JoinServerButton', () => ({
-  JoinServerButton: (props: { row: unknown; mode?: string }) => joinServerButtonMock(props),
+  JoinServerButton: (props: { row: unknown }) => joinServerButtonMock(props),
 }))
 
 let ServersView: typeof import('./ServersView').ServersView
@@ -192,7 +192,7 @@ describe('ServersView - watchlist tab, unlocked (story 132 D3)', () => {
     await screen.findByTestId('servers-watchlist')
   })
 
-  it("a match's Join and Spectate are 125's JoinServerButton for that server's row", async () => {
+  it("a match's Join is 125's JoinServerButton for that server's row", async () => {
     useLauncher.setState({ unlockedFeatures: ['watchlist'] })
 
     const row: ServerListEntry = {
@@ -231,10 +231,7 @@ describe('ServersView - watchlist tab, unlocked (story 132 D3)', () => {
     await screen.findByTestId('servers-watchlist-match-e1-5.6.7.8:27910')
 
     expect(joinServerButtonMock).toHaveBeenCalledWith(
-      expect.objectContaining({ row: expect.objectContaining({ address: '5.6.7.8:27910' }), mode: 'join' }),
-    )
-    expect(joinServerButtonMock).toHaveBeenCalledWith(
-      expect.objectContaining({ row: expect.objectContaining({ address: '5.6.7.8:27910' }), mode: 'spectate' }),
+      expect.objectContaining({ row: expect.objectContaining({ address: '5.6.7.8:27910' }) }),
     )
   })
 

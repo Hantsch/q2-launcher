@@ -2672,7 +2672,7 @@ export function writeJoinInstallRoot() {
  * verbatim - same shape every other servers flow already builds by hand.
  *
  * `variant` (story 126 D3) picks the userDataDir a caller other than `servers-join.mjs` itself
- * gets - `servers-spectate.mjs` passes its own name so the two flows' fixtures never share a
+ * gets - e.g. `servers-watchlist.mjs` passes its own name so the two flows' fixtures never share a
  * directory, defaulting to `'servers-join'` so the original caller is unaffected.
  */
 export function writeJoinFixture({ servers, variant = 'servers-join' }) {

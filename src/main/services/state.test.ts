@@ -180,11 +180,11 @@ describe('StateStore servers state (story 110 D3)', () => {
 
   // Story 111 D2 (AC1): a genuinely fresh install - no state.json on disk yet, so `StateStore`
   // builds its initial value from `defaults()` (`structuredClone(DEFAULT_SERVERS_STATE)`), never
-  // through `parseServersState` - must still see the three shipped master/list sources, not an
+  // through `parseServersState` - must still see the shipped master/list source, not an
   // empty list. This is the one path the schema-level `.default()` in `main/lib/schemas.ts` cannot
   // reach by itself, since there is no `state.json` for it to parse.
-  it('a fresh install (no state.json on disk) ships the three default master sources', () => {
-    expect(state.serversState().sources).toHaveLength(3)
+  it('a fresh install (no state.json on disk) ships the default master source', () => {
+    expect(state.serversState().sources).toHaveLength(1)
     expect(state.serversState().sources).toEqual(DEFAULT_MASTER_SOURCES)
   })
 

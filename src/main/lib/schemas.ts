@@ -1313,7 +1313,7 @@ function parseServersScanSettings(raw: unknown): ServersScanSettings {
  * envelope check.
  *
  * Story 111 D2: `sources` is the one field with a real, non-empty default -
- * `DEFAULT_MASTER_SOURCES`, the three shipped master/list sources - applied via a genuine zod
+ * `DEFAULT_MASTER_SOURCES`, the one shipped master/list source - applied via a genuine zod
  * `.default()`, not read-time re-seeding logic (the story's own decision: "Defaults are the
  * `sources` field's zod default, not a re-seed on read"). `.catch([])` still sits underneath it for
  * a *present-but-malformed* value (e.g. `sources` is a string) - same "field-level fallback" rule

@@ -932,12 +932,6 @@
         "cancel": "Cancel"
       }
     },
-    "spectate": {
-      "action": "Spectate",
-      "passwordTitle": "Spectator password",
-      "passwordLabel": "Spectator password",
-      "passwordSubmit": "Spectate"
-    },
     "addressBook": {
       "action": "Add to address book",
       "title": "Add to address book",

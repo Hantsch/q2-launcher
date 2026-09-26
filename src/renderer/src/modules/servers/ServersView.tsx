@@ -311,16 +311,15 @@ export function ServersView() {
   }
 
   // Story 132 D3: the watchlist panel's own actions column, wired to this view's real
-  // Join/Spectate (never reimplemented - AC3/AC4) and its own selection/tab state. A match with no
+  // Join (never reimplemented - AC3/AC4) and its own selection/tab state. A match with no
   // live row (a race between the watchlist's own scan and this view's `entries`) renders nothing -
-  // never a fallback Join/Spectate for a server the view doesn't currently know about.
+  // never a fallback Join for a server the view doesn't currently know about.
   const renderMatchActions = (match: WatchlistMatch): ReactNode => {
     const row = entries.find((entry) => entry.address === match.address)
     if (!row) return null
     return (
       <div className="flex items-center gap-2">
-        <JoinServerButton row={row} mode="join" />
-        <JoinServerButton row={row} mode="spectate" />
+        <JoinServerButton row={row} />
         <Button
           variant="ghost"
           onClick={() => {
@@ -494,7 +493,7 @@ export function ServersView() {
               'grid h-full',
               selectedAddress === null
                 ? 'grid-rows-1'
-                : 'grid-rows-[minmax(0,1fr)_minmax(0,1fr)] @4xl:grid-cols-[minmax(0,1fr)_24rem] @4xl:grid-rows-1',
+                : 'grid-rows-[minmax(0,1fr)_minmax(0,1fr)] @4xl:grid-cols-[minmax(0,1fr)_28rem] @4xl:grid-rows-1',
             )}
           >
             <div className="flex min-h-0 flex-col">

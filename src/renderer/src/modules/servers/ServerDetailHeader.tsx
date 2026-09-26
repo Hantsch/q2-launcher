@@ -51,9 +51,9 @@ function StatCell({
  * `server-format.ts`'s helpers so one malformed field (e.g. an unparseable `protocol`) renders `—`
  * without breaking the rest.
  *
- * Story 125 D5 / 126 D3: the same `JoinServerButton` (join and spectate modes) the list already
- * uses sits here, wrapped under `servers-detail-join`/`servers-detail-spectate`, so a user who
- * opened the detail pane never has to go back to the list to join.
+ * Story 125 D5: the same `JoinServerButton` the watchlist uses sits here, wrapped under
+ * `servers-detail-join` and rendered `prominent` (the action bar's Play look) - it is this pane's
+ * primary action. Spectate was dropped: on most mods it behaved exactly like Join.
  *
  * Story 127 D2: a third action, wrapped under `servers-detail-address-book-open`, opens
  * `AddToAddressBookDialog` for this server's address. Its open flag is local state, same as every
@@ -107,44 +107,44 @@ export function ServerDetailHeader({
 
       <div className="flex flex-wrap items-center gap-2">
         <div data-testid="servers-detail-join">
-          <JoinServerButton row={row} />
-        </div>
-        <div data-testid="servers-detail-spectate">
-          <JoinServerButton row={row} mode="spectate" />
+          <JoinServerButton row={row} prominent />
         </div>
         <div className="ml-auto flex items-center gap-2">
           <IconButton
             label={t('module.servers.view.refreshSelected')}
             variant="neutral"
+            size="lg"
             onClick={onRefresh}
             disabled={refreshDisabled}
             data-testid="servers-refresh-selected"
           >
-            <RefreshCw className={cn('size-4', refreshing && 'animate-spin')} aria-hidden="true" />
+            <RefreshCw className={cn('size-5', refreshing && 'animate-spin')} aria-hidden="true" />
           </IconButton>
           <IconButton
             label={t(
               row.favourite ? 'servers.detail.favourite.remove' : 'servers.detail.favourite.add',
             )}
             variant="neutral"
+            size="lg"
             aria-pressed={row.favourite}
             onClick={handleToggleFavourite}
             disabled={favouriteBusy}
             data-testid="servers-detail-favourite"
             className={cn(row.favourite && 'border-flame-600 text-flame-400')}
           >
-            <Star className={cn('size-4', row.favourite && 'fill-current')} aria-hidden="true" />
+            <Star className={cn('size-5', row.favourite && 'fill-current')} aria-hidden="true" />
           </IconButton>
           <div data-testid="servers-detail-address-book-open">
             <IconButton
               label={t('servers.addressBook.action')}
               variant="neutral"
+              size="lg"
               onClick={() => {
                 setAddressBookKey((key) => key + 1)
                 setAddressBookOpen(true)
               }}
             >
-              <BookMarked className="size-4" aria-hidden="true" />
+              <BookMarked className="size-5" aria-hidden="true" />
             </IconButton>
           </div>
         </div>

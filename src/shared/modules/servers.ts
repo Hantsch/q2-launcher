@@ -174,25 +174,19 @@ export type MasterSource = ServerSourceEntry
 export const masterSourceSchema = serverSourceEntrySchema
 
 /**
- * The three master/list sources every fresh install ships with (story 111's concept). Fixed,
- * documented ids - never random uuids - so a state file, a bug report or this file's own diff can
- * name one of them stably across releases. `udp-master` addresses are pre-normalized `host:port`
- * (default port 27900, per `validateMasterSourceAddress`); `http-list` is stored as the absolute
- * URL string, query string included.
+ * The one master/list source every fresh install ships with (story 111's concept, revised).
+ * Originally three sources (two `udp-master` entries alongside this `http-list` one), but the two
+ * UDP masters (`master.q2servers.com:27900`, `master.quakeservers.net:27900`) turned out to be
+ * unreachable in practice: many networks only allow outbound UDP on well-known ports (53/443/etc),
+ * silently dropping the `query` datagram on port 27900 (or its reply) while leaving generic UDP and
+ * plain HTTP unaffected - confirmed by direct UDP probes against both masters (5 min, no reply)
+ * alongside a working `curl` against the HTTP list on the same host. `udp-master` stays a supported
+ * source type a user can add by hand; it is just no longer a shipped default. Fixed, documented
+ * ids - never random uuids - so a state file, a bug report or this file's own diff can name one of
+ * them stably across releases. `http-list` is stored as the absolute URL string, query string
+ * included.
  */
 export const DEFAULT_MASTER_SOURCES: MasterSource[] = [
-  {
-    id: 'default-q2servers-udp',
-    type: 'udp-master',
-    address: 'master.q2servers.com:27900',
-    enabled: true,
-  },
-  {
-    id: 'default-quakeservers-udp',
-    type: 'udp-master',
-    address: 'master.quakeservers.net:27900',
-    enabled: true,
-  },
   {
     id: 'default-q2servers-http',
     type: 'http-list',
@@ -488,7 +482,7 @@ export const serversStateSchema = z.object({
 /**
  * The out-of-the-box state (story 110 D1, updated story 111 D2). `favourites`/`manualServers`/
  * `history` stay empty - nothing to seed there - but `sources` now ships pre-populated with
- * `DEFAULT_MASTER_SOURCES`, the three shipped master/list sources, so a fresh install (or a state
+ * `DEFAULT_MASTER_SOURCES`, the one shipped master/list source, so a fresh install (or a state
  * file missing this key) has a working source list from the very first read, not an empty one the
  * user has to build by hand.
  */

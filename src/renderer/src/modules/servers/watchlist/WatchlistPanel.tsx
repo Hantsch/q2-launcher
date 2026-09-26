@@ -9,7 +9,7 @@ import { WatchlistRow } from './WatchlistRow'
 const RELATIVE_TIME_REFRESH_MS = 30_000
 
 export interface WatchlistPanelProps {
-  /** Renders the join/spectate/open-detail actions for one match - a later deliverable (D3) wires
+  /** Renders the join/open-detail actions for one match - a later deliverable (D3) wires
    * this to the real server-list actions. Defaults to nothing, keeping this panel free of any
    * join/spectate concept of its own (AC4). */
   renderMatchActions?: (match: WatchlistMatch) => ReactNode
