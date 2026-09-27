@@ -271,12 +271,34 @@ untested.
   | Origin | Pattern | Example | |
   | --- | --- | --- | --- |
   | r1q2 `cl_autorecord 1` | `%Y-%m-%d-%H%M-<map>.dm2` | `2026-09-26-2130-q2dm1.dm2` | [V] |
+  | Q2PRO `cl_beginmapcmd` recipe (below) | `<map>_%Y-%m-%d_%H-%M-%S.dm2` | `q2dm1_2026-09-26_21-30-00.dm2` | [V] |
   | OpenTDM (`g_force_record` / `autorecord`) | `<player>-<teamA>-<teamB>-<hostname>-<map>_YYYY-MM-DD_HH-MM-SS`, unsafe characters → `_` | — | [V] |
   | AQ2-TNG with `use_mvd2` | `YYYYMMDD-HHMMSS-<map>.mvd2` | `20260926-213000-urban.mvd2` | [V] |
   | Q2PRO `sv_mvd_autorecord` | follows the mod's `record` name, `.mvd2` | — | [V] |
   | TastySpleen, Q2Admin | unknown | — | [I] → §17.3 |
 
-- Q2PRO itself has **no client-side autorecord**; mods request it through the userinfo `uf` flag. [V]
+- Q2PRO has **no autorecord cvar**, but its `cl_beginmapcmd` trigger does the job — a recipe
+  circulating among players (2026-09-27) and verified in source [V]:
+
+  ```
+  set cl_beginmapcmd "record ${cl_mapname}_${com_date}_${com_time}"
+  set com_date_format %Y-%m-%d
+  set com_time_format %H-%M-%S
+  ```
+
+  - The trigger runs on every map entry, **not during demo playback** (`entities.c`,
+    `if (!cls.demo.playback)`); "Changing map" stops the running recording first, so the next
+    map's `record` never hits "Already recording" (`main.c` `CL_Changing_f`).
+  - The quotes matter: macros are not expanded inside quotes (`cmd.c`
+    `Cmd_MacroExpandString`), so the cvar keeps the macros and they expand at map entry.
+    `${name}` syntax is supported; `cl_mapname`, `com_date` and `com_time` are registered macros.
+  - `com_date_format` already defaults to `%Y-%m-%d`. `com_time_format` defaults to `%H.%M`
+    (Windows) / `%H:%M` (else) — minute resolution, and a colon is illegal in Windows file names,
+    hence `%H-%M-%S`. It also drives the console clock and the player's own `$com_time` uses.
+  - r1q2's `cl_autorecord` names to the minute and opens with `"wb"`: rejoining the same map within
+    a minute overwrites the earlier demo. [V]
+  - Offering either as a profile setting is story 168.
+- Mods can additionally request a client recording through the userinfo `uf` flag. [V]
 - **User-defined templates** live in the module settings: a template of named tokens (e.g.
   `{date}_{map}_{p1}_vs_{p2}`) matched against the file name. Token vocabulary, date formats and
   ordering against shipped patterns are §17.2.
@@ -327,7 +349,7 @@ untested.
 - **r1q2:** `+demomap name.dm2`, **no seek**; `timescale` and `paused` allowed during playback. [V]
 - Channels: Linux stdin with `sys_console 1` [V]; Windows console input only via a native
   `AttachConsole`/`WriteConsoleInput` helper [I, fragile]; cfg polling via a self-rescheduling alias
-  plus `logfile` for reading position back [I, untested] — §12.3.
+  plus `logfile` for reading position back [V, spike 133] — §12.3.
 - Prior art: Quake2.Demoplay (C#, GPL-3.0) and packetflinger/dm2player drive playback through
   generated cfg binds. [V]
 
@@ -413,9 +435,15 @@ profile is §17.10.
 ### 12.3 The channel
 
 - **Linux:** `+set sys_console 1`; commands go to stdin, position comes back on stdout. [V]
-- **Windows:** **first story is a spike** of cfg polling — an alias that re-execs a launcher-written
-  control file every few frames, position read back through `logfile`. If the spike fails, a
-  **native helper** (`AttachConsole` + `WriteConsoleInput`) is built. [I]
+- **Windows:** **go** — cfg polling works, verified by the [[133]] spike against a pinned Q2PRO
+  build (`r3834~601a8df8`); see its recorded result,
+  [`spikes/133-q2pro-control/RESULT.md`](../../spikes/133-q2pro-control/RESULT.md), and harness in
+  [`spikes/133-q2pro-control/`](../../spikes/133-q2pro-control/). [V, spike 133]
+  Mechanism, as verified: a self-rescheduling alias re-`exec`s a launcher-written control file every
+  few frames; exactly-once delivery needs an engine-side guard
+  (`if $seq != N then "<command>; set seq N; echo ACK N"`); position comes back via
+  `echo POS $cl_demopos` into `logfile` (`<gamedir>/logs/`, every line timestamp-prefixed). The
+  native helper (`AttachConsole` + `WriteConsoleInput`) is not needed; [[134]] is withdrawn.
 - The free command field sends the user's own line to the user's own local game; main still
   validates it as a single printable line with a length cap before it reaches a file or a pipe.
 
@@ -427,7 +455,7 @@ profile is §17.10.
 | Reveal in file manager | `shell.showItemInFolder` | same |
 | Q2PRO playback | yes | only where a Q2PRO exists — see [linux-support-analysis.md](../linux-support-analysis.md) B1; otherwise Play disabled with the reason |
 | r1q2 fallback | yes | **not available** — no r1q2 on Linux; shown as "Not available on Linux: r1q2 is not supported" where the engine choice would appear |
-| Remote timeline | cfg polling (spike) or native helper | stdin (verified) |
+| Remote timeline | cfg polling (verified by spike 133; native helper not needed) | stdin (verified) |
 | Q2PRO `homedir` = `~/.q2pro` | n/a | scanned as the write directory for distro/Flatpak builds |
 
 Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
@@ -477,7 +505,8 @@ Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
   protocol-34 `.dm2` (and the 343x variant) and from MVD2, including gzip-compressed files.
 - DEMO-6 Duration is shown for every parsable demo (method per §17.4).
 - DEMO-7 A file that cannot be parsed still appears, marked as such, with name facts and file time.
-- DEMO-8 Shipped name patterns cover r1q2 autorecord, OpenTDM and AQ2-TNG; an ambiguous name yields
+- DEMO-8 Shipped name patterns cover r1q2 autorecord, the Q2PRO `cl_beginmapcmd` autorecord
+  recipe, OpenTDM and AQ2-TNG; an ambiguous name yields
   no name facts instead of wrong ones.
 - DEMO-9 The user can add, edit and remove name templates in the module settings; they apply on the
   next scan.
@@ -535,8 +564,14 @@ Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
 
 ## 17. Open points
 
-1. **Windows remote channel** — result of the cfg-polling spike (commands in, position out via
-   `logfile`); if it fails, the native helper's build, packaging and signing per architecture.
+1. **Windows remote channel** — **resolved, go** (spike 133,
+   [`spikes/133-q2pro-control/RESULT.md`](../../spikes/133-q2pro-control/RESULT.md)): every AC1
+   command took effect with 0 duplicates; position updates every ~85–90 ms and stays correct across
+   pause, forward seek and backward seek; no visible disturbance of binds, console typing or FPS.
+   Misses against the go bar, accepted for now and carried into [[164]] to tune: p95 latency
+   587–701 ms vs. the 300 ms target; CPU cost of the loop was not measured; the loop keeps running
+   past the demo's end instead of stopping with it; behaviour across a map change inside a demo is
+   untested. The native helper ([[134]]) is withdrawn.
 2. **Name-template syntax** — token vocabulary (`{date}`, `{time}`, `{map}`, `{p1}`, `{teamA}`,
    `{host}`, `{pov}`…), date formats, separators that also occur inside values, and whether user
    templates are tried before or after shipped ones.

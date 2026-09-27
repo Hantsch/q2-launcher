@@ -17,6 +17,7 @@ This story is the pattern engine plus the v1 set of **shipped** patterns (§7):
 | Origin | Pattern |
 | --- | --- |
 | r1q2 `cl_autorecord 1` | `%Y-%m-%d-%H%M-<map>.dm2` |
+| Q2PRO `cl_beginmapcmd` recipe (§7) | `<map>_%Y-%m-%d_%H-%M-%S.dm2` |
 | OpenTDM | `<player>-<teamA>-<teamB>-<hostname>-<map>_YYYY-MM-DD_HH-MM-SS`, unsafe characters → `_` |
 | AQ2-TNG `use_mvd2` | `YYYYMMDD-HHMMSS-<map>.mvd2` |
 
@@ -31,6 +32,8 @@ is settled here.
 
 - [ ] **AC1** — `2026-09-26-2130-q2dm1.dm2` yields date 2026-09-26 21:30 and map `q2dm1` from the
       r1q2 pattern.
+- [ ] **AC1b** — `q2dm1_2026-09-26_21-30-00.dm2` yields date 2026-09-26 21:30:00 and map `q2dm1`
+      from the Q2PRO recipe pattern (the map leads here, unlike r1q2).
 - [ ] **AC2** — An OpenTDM name yields POV player, both team names, hostname, map and date/time.
 - [ ] **AC3** — `20260926-213000-urban.mvd2` yields date/time and map `urban` from the AQ2-TNG
       pattern.

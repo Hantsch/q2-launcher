@@ -7,6 +7,9 @@ created: 2026-09-27
 
 ## Requirement
 
+**Withdrawn** — spike [[133]] ended in go; see
+[`spikes/133-q2pro-control/RESULT.md`](../../spikes/133-q2pro-control/RESULT.md).
+
 **Conditional story.** It is built only if the spike [[133]] ends in **no-go** for cfg polling. If
 [[133]] ends in **go**, this story is withdrawn with a note pointing at [[133]]'s recorded result.
 

@@ -1,7 +1,7 @@
 ---
 id: 133
 title: a spike proves the launcher can steer Q2PRO on Windows
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -22,19 +22,19 @@ Q2PRO build the launcher actually installs. If it works well enough, [[164]] bui
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — On Windows, commands written by a test harness into a control file reach a running
+- [x] **AC1** — On Windows, commands written by a test harness into a control file reach a running
       Q2PRO demo playback: `pause` (on and off), relative `seek +N` / `seek -N`, an absolute seek and
       `timescale` each take effect; the observed latency per command is recorded.
-- [ ] **AC2** — The harness can read the current playback position back while the demo plays; the
+- [x] **AC2** — The harness can read the current playback position back while the demo plays; the
       recorded result states the update interval and whether the position stays correct across
       pause, forward seek and backward seek.
-- [ ] **AC3** — The side effects are recorded: which files are written where (control file, logfile
+- [x] **AC3** — The side effects are recorded: which files are written where (control file, logfile
       and its growth), the CPU/frame-rate cost at the chosen poll interval, whether the mechanism
       disturbs the user's own binds or console typing, and whether it survives a map change inside
       the demo and the demo's end.
-- [ ] **AC4** — The outcome is written into the concept (§12.3, open point §17.1 resolved) as
+- [x] **AC4** — The outcome is written into the concept (§12.3, open point §17.1 resolved) as
       **go** (cfg polling, [[164]] uses it) or **no-go** (native helper, [[134]]), with its reasons.
-- [ ] **AC5** — No spike code lands in `src/`; the harness lives outside the shipped app and is
+- [x] **AC5** — No spike code lands in `src/`; the harness lives outside the shipped app and is
       referenced from the recorded result.
 
 ## Open Questions
@@ -166,4 +166,33 @@ the user's demo exist only on the user's Windows machine.
 
 ## Done
 
-<!-- Filled by /build 133. -->
+**Decision: go.** Cfg polling steers the pinned Q2PRO (`r3834~601a8df8`) on Windows for
+client demos and MVDs. [[164]] builds on it, and [[134]] is withdrawn. The result is
+`spikes/133-q2pro-control/RESULT.md`, based on `results/2026-09-27T16-28-35-181Z.json` (dm2)
+and `…T16-35-41-425Z.json` (MVD).
+- **AC1:** every command takes effect with 0 duplicates. p95 latency is 587–701 ms, which misses
+  the 300 ms bar; the user accepted this for now, and tuning is an open item in 164. The MVD run
+  also switched the chased player (`cmd invnext`/`invprev`/`chase`).
+- **AC2:** `$cl_demopos` updates every ~85–90 ms and stays correct across pause, forward seek
+  and backward seek.
+- **AC3:** files are written and removed cleanly. The log grows by ~1 KB/s. Binds, console and
+  fps were not disturbed (eyes-on). CPU was **not measured** (no loop-off baseline). The loop
+  keeps running past the demo's end. A map change was **not tested**.
+- **The mechanism changed during the user's run.** The planned harness-side idle swap fired each
+  command 2–8×, so exactly-once is now an engine-side guard:
+  `if $spike133_seq != N then "…; set spike133_seq N; echo ACK N"`. Other fixes: `+demo` before
+  `+exec`, log path `<gamedir>/logs/` with the timestamp prefix stripped, tailing from the end
+  of the file, buffering partial lines, and keeping the `.mvd2` extension. All of these are
+  carried into [[164]]'s requirement.
+- D3: `docs/concepts/demo-browser.md` §9.1, §12.3, §13 and §17.1 now record the go. 134 has
+  the withdrawn note, and 164 has the pointer plus the spike's findings and open items.
+
+Commit: `133: Q2PRO steering spike — go for cfg polling on Windows; decision recorded`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck` and `npx vitest run --changed HEAD`
+are green (no test files affected). `git diff --name-only HEAD -- src/` is empty (AC5).
+`node --check harness.mjs` is green. AC1–AC5 are manual residue as planned (a real Q2PRO and the
+user's demos exist only on the user's machine; AC4/AC5 are covered by review). The default review
+PASSed with no findings; it cross-checked every RESULT.md number against the two JSON files.
+
+tiers: D 3 / hard 0 · review default · cycles 1 · agents 5
