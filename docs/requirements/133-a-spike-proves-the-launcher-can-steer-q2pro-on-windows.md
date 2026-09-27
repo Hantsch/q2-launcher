@@ -1,7 +1,7 @@
 ---
 id: 133
 title: a spike proves the launcher can steer Q2PRO on Windows
-status: draft # draft -> ready -> in-progress -> done
+status: ready # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -39,28 +39,130 @@ Q2PRO build the launcher actually installs. If it works well enough, [[164]] bui
 
 ## Open Questions
 
-- [ ] **Q1 — Time-box.** How long may the spike run before it is called no-go by default?
-- [ ] **Q2 — Which demo?** The user has no sample demo yet (concept intro). The spike needs at least
-      one real `.dm2` played in the pinned Q2PRO — recorded for the spike, or a community demo whose
-      licence allows it (§17.3)?
-- [ ] **Q3 — Acceptance.** Every criterion needs a real engine on a real Windows machine, so this is
-      expected to be manual residue end to end — confirm that is acceptable for a spike.
+- [x] **Q1 — Time-box.** One `/build` session for the harness. If the user's run of it does not
+      get AC1 working, the result is **no-go** and [[134]] gets built.
+- [x] **Q2 — Which demo?** The **user provides the demo** and puts it into the Q2PRO
+      installation's `<gamedir>/demos/` folder. The harness does not record one, and no demo is
+      committed. (§17.3's licence question does not come up.)
+- [x] **Q3 — Acceptance.** **The user runs the spike by hand**; there are no automated tests. The
+      agent writes the harness, a how-to and a results template. The user runs them and fills in
+      the numbers. Every AC is manual residue (see `## Acceptance Tests`).
+- [x] **Q4 — Where the harness lives.** `spikes/133-q2pro-control/` at the repo root. That folder
+      is already outside `tsconfig.node.json`/`tsconfig.web.json`'s includes, `vitest.config.ts`'s
+      `include` (`src/**`, `scripts/**/*.test.mjs`) and `electron-builder.yml`'s `files`
+      (`out/**`), so no config changes are needed.
 
 ## Plan
 
-<!-- Filled by /refine 133, once the Open Questions above are resolved. -->
+The spike has two phases, split by the user's manual run:
+
+1. **`/build 133` (agent):** D1 harness + D2 how-to/results template. `/build` stops after D2
+   with `BLOCKED: user run`. Its verify gates (`build`, `typecheck`, `test`) must stay unchanged,
+   because nothing in `src/` moves.
+2. **User:** runs the harness against the pinned Q2PRO (`q2pro-nightly-win64`, version
+   `r3834~601a8df8`, `content/q2_community_content/engines/manifest.json`) with their own demo,
+   and fills in `spikes/133-q2pro-control/RESULT.md`.
+3. **`/build 133` resumed (agent):** D3 turns the filled-in RESULT.md into the concept decision
+   and marks [[134]] as withdrawn (go) or confirmed (no-go).
+
+**Mechanism under test** (concept §9.1, §12.3):
+- The launch looks like `q2pro.exe +set game <gd> +set logfile … +exec spike133.cfg +demo <name>`,
+  spawned the same way `src/main/services/launch.ts:339` does it (args array, no shell).
+- `spike133.cfg` defines a self-rescheduling alias (`exec <control file>; wait …; <alias>`). The
+  control file is written by the harness **atomically** (temp file + rename).
+- Readback: the loop echoes the demo position into Q2PRO's `logfile` each tick. The harness tails
+  that log. Which cvar, macro or command exposes the position is read from Q2PRO source at commit
+  601a8df (`src/client/demo.c`, `doc/client.asciidoc`).
+- **Exactly-once:** a file that gets re-`exec`'d re-runs its commands on every tick. The design must
+  run each command exactly once, e.g. with sequence-numbered commands plus an `ACK <seq>` echo, and
+  the harness must detect and report any duplicate.
+
+**Proposed go thresholds.** Corrections are welcome. D2 writes them into RESULT.md:
+- every AC1 command takes effect, with p95 latency ≤ 300 ms;
+- the position updates at least every 500 ms and is correct after pause, forward seek and backward
+  seek;
+- no visible disturbance of the user's binds or console typing;
+- the loop costs ≤ 5% extra CPU at the chosen poll interval;
+- the loop survives a map change inside the demo and the demo's end, or ends cleanly with the demo.
+
+Missing one threshold does not decide by itself: RESULT.md states whether it is fixable. A failed
+AC1 is always no-go (Q1).
 
 ## Deliverables
 
-<!-- Filled by /refine 133. -->
+- **D1 — spike harness.** New files: `spikes/133-q2pro-control/harness.mjs` (plain Node ESM,
+  builtins only, no deps, matching the style of `scripts/*.mjs`) and
+  `spikes/133-q2pro-control/spike133.cfg.template`.
+  - **CLI:** `node harness.mjs --q2pro <path to q2pro.exe> --game <gamedir> --demo <file name in
+    <gamedir>/demos/> [--wait <frames per tick>] [--run scripted|interactive]`. Refuse to start if
+    the exe or the demo is missing.
+  - **Setup:** write the bootstrap cfg and control file into the installation's `<gamedir>`, and
+    record every path it writes to. Launch Q2PRO with an args array (no shell), with `logfile`
+    enabled and flushed per line (check Q2PRO's `logfile`, `logfile_flush` and `logfile_name` in
+    source commit 601a8df). Tail the log.
+  - **Position readback:** find in Q2PRO source how the current demo position can be echoed each
+    tick, and use it.
+  - **Control file:** atomic writes (temp + rename). Every command runs exactly once, via a
+    sequence number and an `ACK <seq>` echo; any repeat is reported as a duplicate.
+  - **Scripted run:** pause on, pause off, `seek +10`, `seek -10`, an absolute seek (`seek 50%`, or
+    a time), `timescale 2`, `timescale 1`. For each command, measure latency (write → ACK seen) and
+    the position before and after. Sample the position interval throughout. Sample the Q2PRO
+    process's CPU (e.g. via `powershell Get-Process`) with the loop off and on. Watch the logfile
+    size over the run.
+  - **Interactive run:** type a command, it is sent, and ACK plus position are printed. The user
+    uses it to try binds, console typing, a map change and the demo's end.
+  - **Output:** `spikes/133-q2pro-control/results/<timestamp>.json` with raw samples and a printed
+    summary. On exit, remove the cfg and control files it wrote, and leave the log file.
+  - Nothing under `src/` changes.
+- **D2 — how-to and results template.** New files: `spikes/133-q2pro-control/README.md` and
+  `spikes/133-q2pro-control/RESULT.md`.
+  - **README:** prerequisites (a Q2PRO installation from the launcher, the user's demo copied to
+    `<gamedir>/demos/`), exact commands for both runs, and what to watch for by eye: in-game
+    `scr_demobar`, fps with `cl_showfps 1`, binds, console typing, map change, demo end.
+  - **RESULT.md:** one section per AC1–AC3, with fields for the numbers the harness prints (latency
+    per command, position interval, correctness after pause/seek, files and log growth, CPU, the
+    observations). The go thresholds from `## Plan`. A final **Decision: go / no-go** line, with
+    reasons and the JSON file it refers to.
+- **D3 — record the decision** (only after the user has filled in RESULT.md; `/build` does not
+  guess numbers). Edit `docs/concepts/demo-browser.md` §12.3 (Windows bullet: the outcome, with a
+  link to `spikes/133-q2pro-control/RESULT.md`), §9.1 (turn the cfg-polling `[I, untested]` tag
+  into the verified outcome), §13's "Remote timeline" row, and §17.1 (mark it resolved, with the
+  reasons). In `docs/requirements/134-*.md`, add a note at the top of `## Requirement`: withdrawn
+  (go) or confirmed (no-go), with a link to RESULT.md. If the decision is go, add a one-line pointer
+  to RESULT.md in `docs/requirements/164-*.md` too.
 
 ## Model Hints
 
-<!-- Filled by /refine 133. -->
+No `deliverable-hard`: the spike code does not ship, and a mistake in it shows up during the
+user's run, not in production.
+
+Review: → default
 
 ## Acceptance Tests
 
-<!-- Filled by /refine 133. -->
+The user decided (Q3) that this spike is validated by hand, with no automated tests. The engine and
+the user's demo exist only on the user's Windows machine.
+
+- AC1 → manual residue: needs the real pinned Q2PRO and the user's own demo on Windows. The user
+  runs `harness.mjs --run scripted` (README) and records latency per command in RESULT.md §AC1.
+- AC2 → manual residue: same reason. The scripted run's position samples go into RESULT.md §AC2.
+- AC3 → manual residue: same reason, plus eye-only observations (binds, console typing, map
+  change, demo end). The interactive run and the README checklist go into RESULT.md §AC3.
+- AC4 → manual residue: the decision rests on the user's numbers. The `/build` review checks that
+  §12.3, §9.1, §13 and §17.1 of `docs/concepts/demo-browser.md` state the go/no-go with reasons,
+  and that [[134]] carries the matching note.
+- AC5 → manual residue: the user chose no automated tests. The `/build` review checks that
+  `git diff --name-only -- src/` is empty and that §12.3 links `spikes/133-q2pro-control/`.
+
+### Coverage
+
+| AC | Deliverable | Proof |
+| --- | --- | --- |
+| AC1 | D1 (scripted run), D2 (RESULT §AC1) | manual residue, user run |
+| AC2 | D1 (position readback), D2 (RESULT §AC2) | manual residue, user run |
+| AC3 | D1 (paths, log growth, CPU, interactive), D2 (checklist) | manual residue, user run |
+| AC4 | D3 | review of the concept diff |
+| AC5 | D1 (location), D3 (link) | review: no `src/` diff |
 
 ## Done
 
