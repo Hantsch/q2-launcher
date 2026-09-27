@@ -1,6 +1,7 @@
 # Demo Browser — Library, Metadata and Remote-Controlled Playback — Concept
 
-Status: **Draft** (vision + requirements, no stories yet). This document fixes what the launcher's
+Status: **Draft** (vision + requirements; v1 cut into stories 133–167 under
+`docs/requirements/`, no sprint yet). This document fixes what the launcher's
 demo browser becomes: a new top-level module that finds Quake II demo files across every
 installation, every game directory and any extra folders the user adds, derives what it can from the
 file name and the demo content, lets the user annotate each demo with a **sidecar file next to it**,
