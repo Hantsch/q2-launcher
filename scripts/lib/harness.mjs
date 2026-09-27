@@ -20,6 +20,7 @@
 //     caller can decide which of them fails a run.
 //
 // Run directly (`node scripts/lib/harness.mjs`) for a self-check.
+import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { delimiter, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -437,7 +438,7 @@ async function launchApp({ userDataDir, env: extraEnv, executablePath, deps = de
     return { app, page, log, state, child, userDataDir: reportedUserDataDir }
   } catch (error) {
     state.expectedExit = true
-    await app.close().catch(() => {})
+    await closeAppOrKill(app, child)
     throw enrichLaunchFailure(error, log)
   }
 }
@@ -473,6 +474,57 @@ function enrichLaunchFailure(error, log) {
   ].filter(Boolean)
   if (context.length === 0) return error
   return new HarnessError(`the app did not open a window — ${context.join('; ')}`, { cause: error })
+}
+
+/**
+ * Hard-kills the process `launchApp()` attached to (`child`, from `app.process()`). Windows Electron
+ * spawns helper processes under the same tree, so a plain `child.kill()` only reaches the top one —
+ * `taskkill /T` recurses over the whole tree instead. POSIX only needs `SIGKILL` on the process
+ * itself. Killing an already-exited process is harmless either way: `taskkill` on a dead pid just
+ * exits non-zero, and signalling a dead pid throws, both swallowed here.
+ */
+function killProcessTree(child) {
+  if (child.exitCode !== null || child.signalCode !== null) return
+  if (!child.pid) return
+  try {
+    if (process.platform === 'win32') spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'])
+    else child.kill('SIGKILL')
+  } catch {
+    // Already gone, or nothing left to signal — harmless either way.
+  }
+}
+
+/**
+ * Bounded wait for `app.close()`; hard-kills `child` (see `killProcessTree()`) if the close does not
+ * finish within `timeoutMs`. Shared by `launchApp()`'s own failure path and `withApp()`'s teardown —
+ * both used to just `await app.close().catch(() => {})`, unbounded, which let a close that never
+ * settles keep the whole script (and CI job) open.
+ *
+ * Story 101 D6's AppImage self-update is exactly that case: `AppImageUpdater.doInstall()` re-execs
+ * the launcher through `$APPIMAGE`, so Playwright's `close()` waits forever for a pipe only the
+ * *new*, detached process still holds open. This makes no attempt to hunt down that detached
+ * successor — it only makes sure a close that will not finish cannot hold the script open, by
+ * killing the one process `launchApp()` actually knows about.
+ *
+ * `timeoutMs`/`kill` are overridable so a test can prove both branches without waiting out the real
+ * timeout or spawning a real process — see harness.test.mjs.
+ */
+export async function closeAppOrKill(app, child, { timeoutMs = CLOSE_TIMEOUT_MS, kill = killProcessTree } = {}) {
+  const CLOSE_SETTLED = Symbol('close-settled')
+  const winner = await Promise.race([
+    app
+      .close()
+      .then(() => CLOSE_SETTLED)
+      .catch(() => CLOSE_SETTLED),
+    sleep(timeoutMs),
+  ])
+  if (winner !== CLOSE_SETTLED) {
+    try {
+      await kill(child)
+    } catch {
+      // Killing an already-exited (or already-gone) process must be harmless.
+    }
+  }
 }
 
 /**
@@ -520,13 +572,9 @@ export async function withApp({ variant, viewport, env, executablePath, deps } =
     throw error
   } finally {
     state.expectedExit = true
-    // Bounded, not simply awaited: `close()` waits for the process Playwright attached to, and
-    // story 101 D6's AppImage self-update replaces exactly that process - `AppImageUpdater`'s
-    // `doInstall()` re-execs the launcher through `$APPIMAGE`, so the driver waits forever for a
-    // pipe the *new*, detached process still holds open. `.catch()` cannot help with a promise
-    // that never settles. By the time this runs the result of the run is already decided, so a
-    // close that will not finish must not be able to hold the script - and its CI job - open.
-    await Promise.race([app.close().catch(() => {}), sleep(CLOSE_TIMEOUT_MS)])
+    // Bounded, and hard-kills `child` if the close doesn't finish in time — see
+    // `closeAppOrKill()`'s own doc comment (story 101 D6 AppImage self-update) for why.
+    await closeAppOrKill(app, child)
   }
 }
 

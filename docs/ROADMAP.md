@@ -54,10 +54,6 @@ Phase 10 — demo browser, concept [demo-browser.md](concepts/demo-browser.md).
   pre-existing baseline. Whether that gap actually closed somewhere between S24 and S25, or the
   earlier list is stale/mismeasured, is unconfirmed — worth a dedicated sweep re-running the
   originally named 14 flows by name before trusting either number. [S25 review](../sprints/S25/review.md)
-- `ui:flows` cannot finish a full 55-flow run: `withApp()`'s teardown in `scripts/lib/harness.mjs`
-  (~line 529) races `app.close()` against a 15s timeout with no fallback `child.kill()`, so a hung
-  main process keeps the single-instance lock and every later flow on that fixture variant dies.
-  Pre-existing since `d0315ec`; needs a hard kill in the teardown. [S22 review](../sprints/S22/review.md)
 - `docs/ARCHITECTURE.md#adding-a-module` should name `src/shared/ipc-schemas.ts`'s hardcoded
   `moduleId` z.enum as a step — it is not extended automatically, and 106 rediscovered that.
   [S22 review](../sprints/S22/review.md)

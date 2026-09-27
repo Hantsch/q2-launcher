@@ -2,7 +2,7 @@ import { rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { _electron } from 'playwright'
 import { afterAll, describe, expect, test, vi } from 'vitest'
-import { variantUserDataDir, withApp } from './harness.mjs'
+import { closeAppOrKill, variantUserDataDir, withApp } from './harness.mjs'
 import { REPO_ROOT } from './paths.mjs'
 
 /**
@@ -157,6 +157,54 @@ describe('the default launch dependency every real run uses', () => {
 
     expect(receivers).toHaveLength(1)
     expect(receivers[0]).toBe(_electron)
+  })
+})
+
+/**
+ * `withApp()`'s teardown used to just `await Promise.race([app.close().catch(() => {}), sleep(...)])`
+ * — if `close()` never settled (story 101 D6: the main process re-execs itself during an AppImage
+ * self-update, and the *new*, detached process keeps the pipe Playwright's `close()` waits on), the
+ * teardown moved on anyway and never killed the process `launchApp()` attached to. That leaves it
+ * holding Electron's single-instance lock, which fails every later flow in the same `ui:flows` run.
+ *
+ * `closeAppOrKill()` is the fix: bounded wait for `close()`, then a hard kill of `child` if it didn't
+ * settle in time. Tested directly (not through a full `withApp()` launch) so both branches run in
+ * milliseconds — no 15s real timeout, no spawning Electron, just a fake `app.close()` and a `kill`
+ * spy standing in for `taskkill`/`SIGKILL`.
+ */
+describe('closeAppOrKill', () => {
+  test('kills the child once app.close() fails to settle within the timeout', async () => {
+    const kill = vi.fn(async () => {})
+    const app = { close: () => new Promise(() => {}) } // never settles
+    const child = { pid: 4321, exitCode: null, signalCode: null }
+
+    await closeAppOrKill(app, child, { timeoutMs: 20, kill })
+
+    expect(kill).toHaveBeenCalledTimes(1)
+    expect(kill).toHaveBeenCalledWith(child)
+  })
+
+  test('does not kill the child when app.close() settles before the timeout', async () => {
+    const kill = vi.fn(async () => {})
+    const app = { close: async () => undefined }
+    const child = { pid: 4321, exitCode: null, signalCode: null }
+
+    await closeAppOrKill(app, child, { timeoutMs: 20, kill })
+
+    expect(kill).not.toHaveBeenCalled()
+  })
+
+  test('a close() that rejects still counts as settled, and does not trigger a kill', async () => {
+    // `app.close()` rejecting (as it can for an app already gone) is not the same failure as a
+    // close that never settles at all — the pre-existing `.catch(() => {})` on `app.close()`
+    // already treated a rejection as "done", and this must keep doing so.
+    const kill = vi.fn(async () => {})
+    const app = { close: async () => Promise.reject(new Error('already closed')) }
+    const child = { pid: 4321, exitCode: null, signalCode: null }
+
+    await closeAppOrKill(app, child, { timeoutMs: 20, kill })
+
+    expect(kill).not.toHaveBeenCalled()
   })
 })
 
