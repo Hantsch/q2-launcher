@@ -2,13 +2,11 @@
 
 ## Where we stand
 
-*As of 2026-09-26.* Phases 1–4 and 7–9 are done; story 102 (a self-built Linux Q2PRO) stays open
-as a standing, non-blocking item. Phase 9 (game browser) finished with S25: the full v1 game
-browser — list, detail view, join/spectate/address-book and the gated experimental watchlist —
-is built end to end, with the "Deliberately not in v1" items (2D observer, notifications,
-dashboard tile, server statistics, mod/map download) left out on purpose. Waiting on the user:
-merging `sprint/S22` through `sprint/S25` into `dev`. Phase 5 (mods) and Phase 6 (assets) remain
-unprioritised and are next up for `/roadmap plan` once prioritized.
+*As of 2026-09-27.* Phases 1–4 and 7–9 are done and merged into `dev`. Phase 10 (demo browser) is
+next: spike 133 ended in **go** for cfg polling on Windows (native helper 134 withdrawn), and its
+v1 stories 135–168 are drafted. Next step: `/sprint S26` (135–149), then S27 (150–158) and S28
+(159–168). Waiting on the user: the open questions of each sprint's stories before its start.
+Story 102 stays open and non-blocking.
 
 ## Phase overview
 
@@ -23,22 +21,22 @@ unprioritised and are next up for `/roadmap plan` once prioritized.
 | 7 — Release & updates (beta rollout) | 1/1 | done |
 | 8 — Platform parity (Linux support, Steam Play/Proton runners) | 1/1 | done |
 | 9 — Game browser (server list, detail, watchlist, observing) | 7/7 | done |
+| 10 — Demo browser (library, metadata, remote-controlled playback) | 0/8 | planned |
 
 ## Current phase
 
-Phase 9 (game browser) is done — all 7 milestones shipped, 9.1–9.3 across S22–S24 and 9.4–9.7
-together in S25. Phase 5 (mods) and Phase 6 (assets) are still unprioritised.
+Phase 10 — demo browser, concept [demo-browser.md](concepts/demo-browser.md).
 
 | # | Milestone | Status | Sprint(s) | Note |
 | --- | --- | --- | --- | --- |
-| 7.1 | Release & updates — changelog-driven GitHub releases, daily update check, user-chosen update | done 2026-09-13 | [S21](../sprints/S21/review.md) | Stories 096–099, all done. Two manual-residue items (a real GitHub publish, a real packaged-install restart) — see the review's Acceptance section. |
-| 9.1 | Servers module foundation & protocol core | done 2026-09-24 | [S22](../sprints/S22/review.md) | Stories 106–109, all done. |
-| 9.2 | Discovery & persistence | done 2026-09-24 | [S23](../sprints/S23/review.md) | Stories 110–113, all done. |
-| 9.3 | Scan engine | done 2026-09-25 | [S24](../sprints/S24/review.md) | Stories 114–117, all done. No e2e for 114 (no list UI to drive yet — see the review's Acceptance section); the pre-existing 14-flow `ui:flows` gap reconfirmed, unchanged by this sprint. |
-| 9.4 | Server list UI | done 2026-09-26 | [S25](../sprints/S25/review.md) | Rows, markers, default sort, filters/search, loading/empty/error states. Stories 118–121, all done. |
-| 9.5 | Server detail view | done 2026-09-26 | S25 | Header/players, rule table + `dmflags`, ping history. Stories 122–124, all done; local mod/map availability deferred to mods/assets. |
-| 9.6 | Join, spectate, address book | done 2026-09-26 | S25 | `+connect` join with mod-mismatch/password handling, spectate launch, address-book write dialog. Stories 125–127, all done. |
-| 9.7 | Experimental-features gate & watchlist | done 2026-09-26 | S25 | Signed unlock codes, installation id, gate enforcement, then the gated watchlist. Stories 128–132, all done. |
+| 10.1 | Module shell & parsing — dm2/MVD2 headers, duration, file-name patterns | planned | [S26](sprints/S26/sprint.md) | Stories 135–140; spike 133 (Windows control channel) done, go. |
+| 10.2 | Discovery & index — installations, extra folders, zips, incremental rescan | planned | S26 | Stories 141–145. |
+| 10.3 | Sidecar & precedence | planned | S26 | Stories 146–149. |
+| 10.4 | Demo list — rows, states, order, search, filters | planned | [S27](sprints/S27/sprint.md) | Stories 150–154. |
+| 10.5 | Detail, edit & file actions | planned | S27 | Stories 155–158. |
+| 10.6 | Playback — Q2PRO, copy-in, r1q2 fallback, MVD2 | planned | [S28](sprints/S28/sprint.md) | Stories 159–162. |
+| 10.7 | Timeline & binds | planned | S28 | Stories 163–167. |
+| 10.8 | Auto-record setting in the config profile | planned | S28 | Story 168. |
 
 ## Open / unprioritised
 
