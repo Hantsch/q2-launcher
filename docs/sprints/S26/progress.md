@@ -34,3 +34,17 @@
 - 2026-09-28 09:21 · 137 · review 1 · started
 - 2026-09-28 09:23 · 137 · review 1 · done
 - 2026-09-28 09:24 · 137 · story · done
+- 2026-09-28 09:24:52 · 138 · build · started
+- 2026-09-28 09:25 · 138 · D1 counter core + dm2 frame counter · started
+- 2026-09-28 09:35 · 138 · D1 counter core + dm2 frame counter · done
+- 2026-09-28 09:35 · 138 · D2 mvd2 frame counter · started
+- 2026-09-28 09:35 · 138 · D3 duration formatter · started
+- 2026-09-28 09:45 · 138 · D2 mvd2 frame counter · done
+- 2026-09-28 09:45 · 138 · D3 duration formatter · done
+- 2026-09-28 09:45 · 138 · D4 main reader + concept · started
+- 2026-09-28 09:51 · 138 · D4 main reader + concept · done
+- 2026-09-28 09:51 · 138 · verify · started
+- 2026-09-28 09:53 · 138 · verify · done
+- 2026-09-28 09:53 · 138 · review 1 · started
+- 2026-09-28 09:57 · 138 · review 1 · done
+- 2026-09-28 09:57 · 138 · story · done

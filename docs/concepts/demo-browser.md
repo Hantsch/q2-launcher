@@ -249,9 +249,10 @@ untested.
   modification ≈ end). [I] → the precedence rule's last rung.
 - **Hostname:** not in configstrings; only in some file-name patterns (OpenTDM) or mod print text.
 - **Gamemode:** no `deathmatch`/`dmflags` in the demo → pattern + mod heuristic + sidecar (§8.3).
-- **Duration:** Q2PRO emits 10 Hz demo frames, so duration ≈ `svc_frame` count × 100 ms. An exact
-  count needs decoding every message (they carry no own length), but not entity state. A cheap
-  estimate is about one block per frame. [V]/[I] → open point §17.4.
+- **Duration — resolved (§17.4):** exact, not estimated. Q2PRO/r1q2 servers tick at a fixed 10 Hz,
+  so `durationMs = frames × 100`; the frame count itself comes from decoding every message in every
+  block up to (not into) the one `svc_frame`/`mvd_frame` it carries — see §17.4 for the method,
+  cost and fixture numbers.
 - **Scores:** the POV's frags are `STAT_FRAGS` (index 14); others only via mod-specific `svc_layout`
   or obituary prints. [V]/[I] → not parsed in v1; the sidecar's side result covers it.
 
@@ -578,8 +579,28 @@ Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
 3. **Unknown server patterns** — TastySpleen, Q2Admin and the community servers the user plays on;
    to be collected from real sample demos (the user is looking for one). Sample demos as test
    fixtures need a licence/permission check.
-4. **Duration cost** — exact frame count (full message decode, no entity state) at scan time vs. the
-   block-count estimate; measure on real demos before deciding.
+4. **Duration cost** — **resolved, exact** (story [[138]]): counted, not estimated. A `.dm2` block
+   carries **at most one** `svc_frame`, an `.mvd2` block **at most one** `mvd_frame` — confirmed
+   against q2pro `master` (`src/client/demo.c`'s `CL_EmitDemoFrame`, `src/client/parse.c`'s
+   `CL_ParseFrame`/`cls.demo.frames_read`, and `src/server/mvd.c`'s `emit_frame`, which is called
+   once per server frame and always opens with `mvd_frame`; see `src/shared/demos/dm2-frames.ts`'s
+   and `mvd2-frames.ts`'s doc comments for the full per-opcode citation trail). The counter walks
+   each block's messages from the start until it meets the frame message (count it, next block) or
+   one that cannot precede a frame in that block; every other message is sized and skipped, so a
+   mis-sized field fails loudly (`undecodable`) instead of silently drifting the count. At 10 Hz,
+   `durationMs = frames × 100`.
+
+   A block-count estimate was considered (skip decoding entirely, one block ≈ one frame) but
+   rejected: not because it was measurably inaccurate — on both real fixtures below it lands
+   exactly on the true count — but because story [[165]]'s seek bar needs frame-accurate seeking,
+   not an approximation that happens to usually be right. The scan budget (32 MiB read cap, 64 KiB
+   stream chunks, ≤1000 ms wall time, ~30 ms/MiB target) comfortably covers full decode: a
+   prototype measured ~0.2 ms/MiB of decode work, so I/O dominates the budget, not parsing.
+
+   Fixture numbers (`docs/fixtures/demos/`): `test.dm2` → 410 frames, 41.0 s; the PFAU
+   `.mvd2` → 6201 frames, 10:20. Implementation: `src/main/lib/demo-bytes.ts`'s `readDemoDuration`
+   (streams the file, gzip-transparent, same sniffing as the header readers), backed by
+   `src/shared/demos/{dm2,mvd2}-frames.ts` and `frame-count.ts`.
 5. **Gamemode heuristic table** — which game dirs, pattern hits and player counts map to which mode.
 6. **Date presets** — beyond "last 30 days" (today / 7 / 90 days / year?) and which date the filter
    uses when only file time is known.

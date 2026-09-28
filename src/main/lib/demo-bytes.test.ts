@@ -5,8 +5,9 @@ import { gzipSync } from 'node:zlib'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildDm2 } from '../../shared/demos/dm2-writer'
 import { buildMvd2 } from '../../shared/demos/mvd2-writer'
+import { buildDm2Stream, dm2Msg } from '../../shared/demos/dm2-frames-writer'
 import { DM2_HEADER_MAX_BYTES } from '../../shared/demos/dm2-header'
-import { readDm2Header, readDemoHeader } from './demo-bytes'
+import { readDm2Header, readDemoHeader, readDemoDuration } from './demo-bytes'
 
 // Tracks bytes actually emitted by the gunzip decompressor - i.e. real decompressed output,
 // not `result.bytes.length` - so the "bounded work" test below cannot be satisfied by an
@@ -279,5 +280,135 @@ describe('readDemoHeader', () => {
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.reason).toBe('truncated')
+  })
+})
+
+function concatBytes(chunks: Uint8Array[]): Uint8Array {
+  const total = chunks.reduce((n, c) => n + c.length, 0)
+  const out = new Uint8Array(total)
+  let offset = 0
+  for (const c of chunks) {
+    out.set(c, offset)
+    offset += c.length
+  }
+  return out
+}
+
+/** A single `.mvd2` block (`[uint16 LE length][payload]`) holding `frameCount` bare `mvd_frame`
+ * (op `6`) bytes — one message per byte, no body, which is all `createMvd2FrameCounter` reads. */
+function buildMvd2FrameBlock(frameCount: number): Uint8Array {
+  const payload = new Uint8Array(frameCount).fill(6)
+  const out = new Uint8Array(2 + payload.length)
+  out[0] = payload.length & 0xff
+  out[1] = (payload.length >>> 8) & 0xff
+  out.set(payload, 2)
+  return out
+}
+
+const MVD2_TERMINATOR = new Uint8Array([0, 0])
+
+describe('readDemoDuration', () => {
+  it('every demo the header parsers accept gets a duration (AC1)', async () => {
+    for (const protocol of [34, 3434, 3435, 3436] as const) {
+      const stream = buildDm2Stream({
+        protocol,
+        blocks: [[dm2Msg.frame(1)], [dm2Msg.frame(2)], [dm2Msg.frame(3)]],
+        terminate: true,
+      })
+      const path = join(dir, `synthetic-${protocol}.dm2`)
+      await writeFile(path, stream)
+
+      const header = await readDemoHeader(path)
+      expect(header.ok, `protocol ${protocol} header`).toBe(true)
+
+      const duration = await readDemoDuration(path)
+      expect(duration.ok, `protocol ${protocol} duration`).toBe(true)
+      if (duration.ok) expect(duration.frames).toBeGreaterThan(0)
+    }
+
+    for (const version of [2009, 2013] as const) {
+      const headerBytes = buildMvd2({ version, gameDir: 'baseq2', clientNum: 0, configstrings: {}, terminate: false })
+      const stream = concatBytes([headerBytes, buildMvd2FrameBlock(3), MVD2_TERMINATOR])
+      const path = join(dir, `synthetic-${version}.mvd2`)
+      await writeFile(path, stream)
+
+      const header = await readDemoHeader(path)
+      expect(header.ok, `version ${version} header`).toBe(true)
+
+      const duration = await readDemoDuration(path)
+      expect(duration.ok, `version ${version} duration`).toBe(true)
+      if (duration.ok) expect(duration.frames).toBeGreaterThan(0)
+    }
+  })
+
+  it('the real test.dm2 lasts 410 frames and the real PFAU mvd2 6201 frames, plain and gzipped', async () => {
+    const dm2Result = await readDemoDuration(FIXTURE_PATH)
+    expect(dm2Result).toEqual({ ok: true, frames: 410, durationMs: 41000, complete: true })
+
+    const mvd2Result = await readDemoDuration(MVD2_FIXTURE_PATH)
+    expect(mvd2Result).toEqual({ ok: true, frames: 6201, durationMs: 620100, complete: true })
+
+    const dm2Raw = await readFile(FIXTURE_PATH)
+    const dm2GzPath = join(dir, 'test.dm2.gz')
+    await writeFile(dm2GzPath, gzipSync(dm2Raw))
+    expect(await readDemoDuration(dm2GzPath)).toEqual(dm2Result)
+
+    const mvd2Raw = await readFile(MVD2_FIXTURE_PATH)
+    const mvd2GzPath = join(dir, 'pfau.mvd2.gz')
+    await writeFile(mvd2GzPath, gzipSync(mvd2Raw))
+    expect(await readDemoDuration(mvd2GzPath)).toEqual(mvd2Result)
+
+    // Format is sniffed from content, not the file extension.
+    const mvd2NamedDm2Path = join(dir, 'pfau-mislabeled.dm2')
+    await writeFile(mvd2NamedDm2Path, mvd2Raw)
+    expect(await readDemoDuration(mvd2NamedDm2Path)).toEqual(mvd2Result)
+  })
+
+  it('the dm2 frame count equals the serverframe span of the real fixture (AC2)', async () => {
+    // Independent oracle: trusts only the `.dm2` block framing (`[int32 LE length][payload]`,
+    // `-1` terminated) - the same unambiguous wrapper every approach relies on - not the message
+    // skip logic `createDm2FrameCounter` uses. Within each block (known to carry at most one
+    // `svc_frame`), it takes the first byte equal to the `svc_frame` opcode (20) whose following 8
+    // bytes read as a plausible (serverframe, deltaframe) pair - deltaframe is either -1 (keyframe)
+    // or exactly serverframe - 1 (the common case), which a coincidental match in unrelated binary
+    // payload data is vanishingly unlikely to satisfy.
+    const raw = await readFile(FIXTURE_PATH)
+    const SVC_FRAME = 20
+
+    let first: number | null = null
+    let last: number | null = null
+    let offset = 0
+    while (offset + 4 <= raw.length) {
+      const length = raw.readInt32LE(offset)
+      offset += 4
+      if (length === -1) break
+      if (length < 0 || offset + length > raw.length) break
+      const blockEnd = offset + length
+
+      for (let p = offset; p <= blockEnd - 9; p++) {
+        if (raw[p] !== SVC_FRAME) continue
+        const serverframe = raw.readInt32LE(p + 1)
+        const deltaframe = raw.readInt32LE(p + 5)
+        if (serverframe >= 0 && serverframe < 10_000_000 && (deltaframe === -1 || deltaframe === serverframe - 1)) {
+          if (first === null) first = serverframe
+          last = serverframe
+          break // a block carries at most one frame
+        }
+      }
+      offset = blockEnd
+    }
+
+    expect(first).not.toBeNull()
+    expect(last).not.toBeNull()
+    const expectedFrames = (last as number) - (first as number) + 1
+
+    const duration = await readDemoDuration(FIXTURE_PATH)
+    expect(duration.ok).toBe(true)
+    if (duration.ok) expect(duration.frames).toBe(expectedFrames)
+  })
+
+  it('a missing path is unreadable', async () => {
+    const result = await readDemoDuration(join(dir, 'does-not-exist.demo'))
+    expect(result).toEqual({ ok: false, reason: 'unreadable' })
   })
 })

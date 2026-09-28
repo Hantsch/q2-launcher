@@ -10,9 +10,13 @@
 
 import { createReadStream } from 'node:fs'
 import { open } from 'node:fs/promises'
+import type { Readable } from 'node:stream'
 import { createGunzip } from 'node:zlib'
 import { DM2_HEADER_MAX_BYTES, parseDm2Header, type Dm2HeaderResult } from '../../shared/demos/dm2-header'
 import { parseDemoHeader, type DemoHeaderResult } from '../../shared/demos/demo-header'
+import { createDm2FrameCounter } from '../../shared/demos/dm2-frames'
+import { createMvd2FrameCounter } from '../../shared/demos/mvd2-frames'
+import type { FrameCounter, FrameCountResult } from '../../shared/demos/frame-count'
 
 const GZIP_MAGIC_0 = 0x1f
 const GZIP_MAGIC_1 = 0x8b
@@ -104,4 +108,110 @@ export async function readDemoHeader(path: string): Promise<DemoHeaderResultWith
   const prefix = await readDemoPrefix(path, DM2_HEADER_MAX_BYTES)
   if (!prefix.ok) return { ok: false, reason: 'unreadable' }
   return parseDemoHeader(prefix.bytes)
+}
+
+const MVD2_MAGIC = [0x4d, 0x56, 0x44, 0x32] // "MVD2"
+const FORMAT_SNIFF_BYTES = MVD2_MAGIC.length
+
+/**
+ * Streams `source`'s (already-decompressed) bytes into a frame counter chosen from the first
+ * `FORMAT_SNIFF_BYTES` bytes (`MVD2` magic → `.mvd2`, else `.dm2`), stopping and destroying both
+ * streams as soon as the counter fails. `rawStream`, when given, is the raw (still-compressed) file
+ * stream feeding `source` (a gunzip transform): its errors are I/O errors (`unreadable`), while
+ * errors on `source` itself are decode errors on a possibly-cut `.gz` (`finish()` on what was
+ * pushed so far, like a cut plain file). Never rejects.
+ */
+function streamDemoDuration(source: Readable, rawStream: Readable | null): Promise<FrameCountResult> {
+  return new Promise((resolve) => {
+    let resolved = false
+    let counter: FrameCounter | null = null
+    let sniffChunks: Uint8Array[] = []
+    let sniffBytes = 0
+
+    const settle = (result: FrameCountResult): void => {
+      if (resolved) return
+      resolved = true
+      source.destroy()
+      rawStream?.destroy()
+      resolve(result)
+    }
+
+    const chooseCounter = (): FrameCounter => {
+      const head = new Uint8Array(FORMAT_SNIFF_BYTES)
+      let offset = 0
+      for (const chunk of sniffChunks) {
+        for (let i = 0; i < chunk.length && offset < FORMAT_SNIFF_BYTES; i++) head[offset++] = chunk[i]!
+      }
+      const isMvd2 = offset === FORMAT_SNIFF_BYTES && MVD2_MAGIC.every((b, i) => head[i] === b)
+      return isMvd2 ? createMvd2FrameCounter() : createDm2FrameCounter()
+    }
+
+    const ensureCounter = (force: boolean): void => {
+      if (counter !== null) return
+      if (!force && sniffBytes < FORMAT_SNIFF_BYTES) return
+      counter = chooseCounter()
+      for (const chunk of sniffChunks) {
+        if (counter.failed) break
+        counter.push(chunk)
+      }
+      sniffChunks = []
+    }
+
+    source.on('data', (chunk: Buffer) => {
+      if (resolved) return
+      const bytes = new Uint8Array(chunk)
+      if (counter === null) {
+        sniffChunks.push(bytes)
+        sniffBytes += bytes.length
+        ensureCounter(false)
+      } else if (!counter.failed) {
+        counter.push(bytes)
+      }
+      if (counter?.failed) settle(counter.finish())
+    })
+    source.on('end', () => {
+      if (resolved) return
+      ensureCounter(true)
+      settle((counter as FrameCounter).finish())
+    })
+    source.on('error', () => {
+      if (resolved) return
+      ensureCounter(true)
+      settle((counter as FrameCounter).finish())
+    })
+    rawStream?.on('error', () => settle({ ok: false, reason: 'unreadable' }))
+    rawStream?.pipe(source as unknown as NodeJS.WritableStream)
+  })
+}
+
+/**
+ * Counts a demo file's server frames and derives its playback duration — `.dm2` or `.mvd2`, chosen
+ * from the (decompressed, if gzipped) bytes themselves, transparently handling gzip compression the
+ * same way `readDemoPrefix` does. Unlike the header readers, this reads the whole file: there is no
+ * byte budget short of the actual end-of-stream marker, since the frame count is exact. Never
+ * rejects.
+ */
+export async function readDemoDuration(path: string): Promise<FrameCountResult> {
+  try {
+    const handle = await open(path, 'r')
+    let isGzip: boolean
+    try {
+      const peek = new Uint8Array(2)
+      const peekResult = await handle.read(peek, 0, 2, 0)
+      isGzip = peekResult.bytesRead === 2 && peek[0] === GZIP_MAGIC_0 && peek[1] === GZIP_MAGIC_1
+    } finally {
+      await handle.close()
+    }
+
+    if (!isGzip) {
+      const readStream = createReadStream(path, { highWaterMark: 64 * 1024 })
+      return await streamDemoDuration(readStream, null)
+    }
+
+    const readStream = createReadStream(path, { highWaterMark: 64 * 1024 })
+    const gunzip = createGunzip()
+    return await streamDemoDuration(gunzip, readStream)
+  } catch {
+    return { ok: false, reason: 'unreadable' }
+  }
 }

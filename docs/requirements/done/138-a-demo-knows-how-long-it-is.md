@@ -1,7 +1,7 @@
 ---
 id: 138
 title: a demo knows how long it is
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -19,13 +19,13 @@ of thousands of demos is scanned on every module open ([[144]]).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Every `.dm2` and `.mvd2` that [[136]]/[[137]] can parse gets a duration.
-- [ ] **AC2** — The method chosen in Q1 is documented in the module's code and in the concept
+- [x] **AC1** — Every `.dm2` and `.mvd2` that [[136]]/[[137]] can parse gets a duration.
+- [x] **AC2** — The method chosen in Q1 is documented in the module's code and in the concept
       (§17.4 resolved), including its accuracy against an exact frame count.
-- [ ] **AC3** — Computing durations stays inside the scan-time budget decided in Q2, asserted by a
+- [x] **AC3** — Computing durations stays inside the scan-time budget decided in Q2, asserted by a
       test on a large synthetic demo.
-- [ ] **AC4** — A demo whose duration cannot be determined shows "unknown", never `0:00`.
-- [ ] **AC5** — Durations are shown as `m:ss`, or `h:mm:ss` from one hour on.
+- [x] **AC4** — A demo whose duration cannot be determined shows "unknown", never `0:00`.
+- [x] **AC5** — Durations are shown as `m:ss`, or `h:mm:ss` from one hour on.
 
 ## Open Questions
 
@@ -115,7 +115,7 @@ interface FrameCounter { push(chunk: Uint8Array): void; finish(): FrameCountResu
 
 ## Deliverables
 
-- **D1 — counter core + `.dm2` frame counter + synthetic writer + tests.**
+- [x] **D1 — counter core + `.dm2` frame counter + synthetic writer + tests.**
   Files: new `src/shared/demos/frame-count.ts` (types, `DEMO_FRAME_MS = 100`, streaming block
   buffer), `src/shared/demos/dm2-frames.ts`, `src/shared/demos/dm2-frames-writer.ts`,
   `src/shared/demos/dm2-frames.test.ts`. Pure (no `node:*`, no `Buffer`); mirror the style of
@@ -155,7 +155,7 @@ interface FrameCounter { push(chunk: Uint8Array): void; finish(): FrameCountResu
   64 KiB pushes; 1000 seeded mutations never throw; **budget:** a 32 MiB synthetic stream pushed in
   64 KiB chunks counts correctly in ≤ 1000 ms (`performance.now()` around push+finish).
 
-- **D2 — `.mvd2` frame counter + synthetic writer + tests.**
+- [x] **D2 — `.mvd2` frame counter + synthetic writer + tests.**
   Files: new `src/shared/demos/mvd2-frames.ts`, `src/shared/demos/mvd2-frames-writer.ts`,
   `src/shared/demos/mvd2-frames.test.ts`. Mirror D1's `dm2-frames.ts` / writer / test and reuse
   `frame-count.ts` (types, `DEMO_FRAME_MS`, streaming block buffer).
@@ -176,7 +176,7 @@ interface FrameCounter { push(chunk: Uint8Array): void; finish(): FrameCountResu
   `undecodable`; cut tail → `complete: false`; push-size independence; 1000 seeded mutations never
   throw; budget as D1 (32 MiB MVD2 in 64 KiB pushes ≤ 1000 ms).
 
-- **D3 — duration formatter + tests.**
+- [x] **D3 — duration formatter + tests.**
   Files: new `src/shared/demos/duration-format.ts`, `src/shared/demos/duration-format.test.ts`.
   Pure; mirror any small pure formatter under `src/shared/` (e.g. `src/shared/servers/`).
   Spec: `formatDemoDuration(ms: number | null | undefined): { kind: 'known'; text: string } |
@@ -187,7 +187,7 @@ interface FrameCounter { push(chunk: Uint8Array): void; finish(): FrameCountResu
   Tests: the boundary table above incl. 3599.4 s → `59:59`, 3599.6 s → `1:00:00`, 1 ms → `0:01`,
   and "no input ever yields `0:00`" over a sweep of 0…10 000 ms plus the invalid inputs.
 
-- **D4 — main streaming reader + real-fixture tests + concept.**
+- [x] **D4 — main streaming reader + real-fixture tests + concept.**
   Files: `src/main/lib/demo-bytes.ts` (add `readDemoDuration`; leave 136/137's functions
   unchanged), `src/main/lib/demo-bytes.test.ts` (add a `describe` block), `docs/concepts/demo-browser.md`.
   Mirror the gzip-sniffing stream path 136 built in `readDemoPrefix`.
@@ -235,14 +235,48 @@ interface FrameCounter { push(chunk: Uint8Array): void; finish(): FrameCountResu
   checked by the story review against the diff.
 - AC3 → unit `src/shared/demos/dm2-frames.test.ts` › "a 32 MiB dm2 is counted within the scan budget"
   and `src/shared/demos/mvd2-frames.test.ts` › "a 32 MiB mvd2 is counted within the scan budget"
-- AC4 → unit `src/shared/demos/duration-format.test.ts` › "an unknown or non-positive duration is unknown and nothing ever formats as 0:00"
-  and `src/shared/demos/dm2-frames.test.ts` › "undecodable input and zero frames give no duration instead of a partial one"
-  and `src/shared/demos/mvd2-frames.test.ts` › "undecodable input gives no duration";
+- AC4 → unit `src/shared/demos/duration-format.test.ts` › "no input ever yields 0:00"
+  and `src/shared/demos/dm2-frames.test.ts` › zero-frames/undecodable describe block ("zero frames is no-frames",
+  per-opcode "... is undecodable at its block", "is sticky: after failing, the counter reports failed and ignores later pushes")
+  and `src/shared/demos/mvd2-frames.test.ts` › the matching undecodable/no-frames tests;
   the visible "unknown" text is rendered by S27's demo list (no list exists in S26), which maps
   `{ kind: 'unknown' }` to `replays.duration.unknown` — gap named for the sprint review.
-- AC5 → unit `src/shared/demos/duration-format.test.ts` › "durations format as m:ss below an hour and h:mm:ss from one hour"
+- AC5 → unit `src/shared/demos/duration-format.test.ts` › "formats sub-hour durations as m:ss with unpadded minutes",
+  "formats hour-scale durations as h:mm:ss" and "rolls over into h:mm:ss at the 3600s boundary"
   (display on the list is S27's, as above)
 
 ## Done
 
-<!-- Filled by /build 138. -->
+Exact frame counting for `.dm2`/`.mvd2` demos, built as four pure/main-process modules: a shared
+streaming block-buffer core (`frame-count.ts`), a `.dm2` counter with a hand-ported protocol-34/343x
+message sizer (`dm2-frames.ts` + writer), an `.mvd2` counter for the same core (`mvd2-frames.ts` +
+writer), a pure `m:ss`/`h:mm:ss`/`unknown` duration formatter (`duration-format.ts`), and a main-process
+streaming reader (`demo-bytes.ts`'s `readDemoDuration`) that gzip-sniffs, format-sniffs by content and
+never rejects. Concept `docs/concepts/demo-browser.md` §6.3/§17.4 rewritten as resolved.
+
+Commit message: `138: compute exact demo duration by streaming frame count`
+
+Verification: narrow gate — `npm run build` green, `npm run typecheck` green, `npx vitest run --changed HEAD`
+green (4 files, 66 tests). No e2e (pure/main-only, no UI surface). AC1-AC5 all confirmed against real
+tests (see `## Acceptance Tests`, names corrected to match what was actually written). Real fixtures
+matched exactly: `test.dm2` → 410 frames/41.0s, `PFAU_…mvd2` → 6201 frames/10:20, plain, gzipped, and
+(for the mvd2) under a `.dm2` filename. Clean-agent review: PASS, no findings — the block-vs-decode
+risk named in Model Hints is defeated by real (non-tautological) frame-less-block tests, verified by
+the reviewer directly. Full regression gate (`npm test`, `npm run ui:verify`, `npm run ui:flows`) has
+not run — this is a sprint-scoped narrow-gate build; run it before merge or with `/build 138 --full`.
+
+Decisions:
+- 3435+ temp-entities/sounds use extended (2-3 byte) coordinates per axis, not found in the story's
+  opcode list — added as a confirmed protocol deviation (D1); undocumented previously, discovered
+  against q2pro `master`.
+- 3434+ sound index is 16-bit only when `SND_INDEX16` (0x20) is set; protocol 34 never sets it.
+- Rerelease temp-entity types 56–63 and `TE_DAMAGE_DEALT` (128) accepted in every protocol per q2pro;
+  `TE_FLAME` (32) is `undecodable` (no client reads it).
+- `mvd_sound`'s trailing `sendchan` (entnum<<3|channel) uint16 is unconditional (no SND_POS/SND_ENT
+  gate) — confirmed against q2pro `src/server/mvd.c`, differs from `.dm2`'s conditional layout.
+- aq2replay (MIT) was unreachable from the build sandbox for the MVD cross-check; q2pro `master`
+  alone was used and is cited in `mvd2-frames.ts`'s header comment — disclosed, not hidden.
+- AC2/AC4 acceptance-test names in this story were adjusted post-hoc to the names actually written
+  (functionally equivalent, split across smaller per-case tests rather than one large test each).
+
+tiers: D 4 / hard 1 · review default · cycles 0 · agents 6
