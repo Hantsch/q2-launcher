@@ -269,9 +269,11 @@ export const replaysDemoIdSchema = z.string().min(1).max(512)
 /** `sidecar.read`'s payload: the demo id to look up. */
 export const replaysSidecarReadSchema = z.object({ demoId: replaysDemoIdSchema })
 
-/** `sidecar.write`'s payload: the demo id plus the full replacement set of sidecar fields. */
+/** `sidecar.write`'s payload: the demo id plus the full replacement set of sidecar fields, and -
+ * only when replacing a broken sidecar the user has confirmed - the fingerprint a previous
+ * `needsConfirmation` response reported for that file (story 147). */
 export const replaysSidecarWriteSchema = z
-  .object({ demoId: replaysDemoIdSchema, fields: sidecarFieldsSchema })
+  .object({ demoId: replaysDemoIdSchema, fields: sidecarFieldsSchema, confirmReplace: z.string().optional() })
   .strict()
 
 /**
@@ -342,3 +344,42 @@ export const storedExtraFolderSchema = z.object({
 /** Handlers that may create, change or delete a sidecar file - the only ones AC4's no-write guard
  * test (story 146) exempts from "must never write a sidecar". */
 export const REPLAYS_SIDECAR_WRITING_HANDLERS: readonly string[] = ['sidecar.write']
+
+/**
+ * Story 147: every distinct way a sidecar read can go wrong, one per i18n key under
+ * `replays.sidecar.issue.<kind>`. `'unreadable'` is never produced by the pure reader
+ * (`sidecar-read.ts`) - it's reserved for a later deliverable's fs layer (EACCES/EISDIR-type
+ * failures reading the file itself, not its content).
+ */
+export type SidecarIssueKind =
+  | 'invalidJson'
+  | 'notAnObject'
+  | 'invalidField'
+  | 'unknownField'
+  | 'unknownVersion'
+  | 'unreadable'
+
+/** One reported problem with a sidecar file: which kind, the i18n key to show it with (always
+ * `replays.sidecar.issue.<kind>`), and the interpolation params that key expects. */
+export interface SidecarIssue {
+  kind: SidecarIssueKind
+  key: string
+  params: Record<string, unknown>
+}
+
+/**
+ * A demo's sidecar as read: no file at all, a fully valid file, or a file that had at least one
+ * problem - `issues` names each one, and reading never drops the whole file over a single bad
+ * field (whatever validated successfully is still usable elsewhere).
+ */
+export type SidecarState = { state: 'none' } | { state: 'ok' } | { state: 'error'; issues: SidecarIssue[] }
+
+/**
+ * Story 147: what `sidecar.write` answers. `saved` is the story-146 outcome. `needsConfirmation`
+ * means a broken sidecar is on disk and nothing was touched: `fingerprint` is the SHA-256 hex of
+ * that file's bytes as just read, and only a retry passing it as `confirmReplace` - while the file
+ * still has exactly those bytes - replaces (or, for an all-empty save, deletes) it.
+ */
+export type SidecarSaveResult =
+  | { status: 'saved'; state: 'written' | 'deleted' | 'unchanged' }
+  | { status: 'needsConfirmation'; fileName: string; issues: SidecarIssue[]; fingerprint: string }

@@ -159,3 +159,16 @@
 - 2026-09-28 14:20 · 146 · review 1 · started
 - 2026-09-28 14:23 · 146 · review 1 · done: PASS, 2 low-severity non-blocking findings
 - 2026-09-28 14:24 · 146 · story · done
+- 2026-09-28 14:24:53 · 147 · build · started
+- 2026-09-28 14:27 · 147 · build · started
+- 2026-09-28 14:27 · 147 · D1 defensive reader + contract + i18n · started
+- 2026-09-28 14:29 · 147 · D1 defensive reader + contract + i18n · done
+- 2026-09-28 14:29 · 147 · D2 index/detail carry sidecar state · started
+- 2026-09-28 14:33 · 147 · D2 index/detail carry sidecar state · done
+- 2026-09-28 14:33 · 147 · D3 save/delete confirm-replace guard · started
+- 2026-09-28 14:38 · 147 · D3 save/delete confirm-replace guard · done
+- 2026-09-28 14:38 · 147 · verify · started
+- 2026-09-28 14:41 · 147 · verify · done
+- 2026-09-28 14:41 · 147 · review 1 · started
+- 2026-09-28 14:45 · 147 · review 1 · done
+- 2026-09-28 14:46 · 147 · story · done

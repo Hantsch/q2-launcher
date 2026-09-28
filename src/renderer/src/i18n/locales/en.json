@@ -1110,6 +1110,14 @@
         "existingInvalid": "The existing notes file for this demo cannot be read, so it was not overwritten.",
         "notWritable": "Cannot save notes: the folder {{folder}} is not writable. Nothing was written.",
         "writeFailed": "Saving the notes failed ({{code}}). Nothing was changed."
+      },
+      "issue": {
+        "invalidJson": "This notes file isn't valid JSON (line {{line}}, column {{column}}).",
+        "notAnObject": "This notes file isn't a valid notes file (expected an object).",
+        "invalidField": "The \"{{field}}\" field isn't valid and was ignored.",
+        "unknownField": "The \"{{field}}\" field isn't recognised and will be lost if you save.",
+        "unknownVersion": "This notes file was written by a newer version of the launcher (version {{version}}) — some fields may not show.",
+        "unreadable": "This notes file could not be read ({{code}})."
       }
     }
   },

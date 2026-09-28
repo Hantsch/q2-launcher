@@ -1,7 +1,7 @@
 ---
 id: 147
 title: a broken sidecar is reported, never overwritten
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -15,17 +15,17 @@ demo — never silently dropped, never overwritten unless the user explicitly sa
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A sidecar that is not valid JSON marks the demo with a "sidecar error" marker and the
+- [x] **AC1** — A sidecar that is not valid JSON marks the demo with a "sidecar error" marker and the
       reason ([[150]] row, [[155]] detail).
-- [ ] **AC2** — A sidecar with a field that fails the schema marks the demo the same way, naming the
+- [x] **AC2** — A sidecar with a field that fails the schema marks the demo the same way, naming the
       field.
-- [ ] **AC3** — A sidecar with an unknown (e.g. newer) `schemaVersion` marks the demo the same way,
+- [x] **AC3** — A sidecar with an unknown (e.g. newer) `schemaVersion` marks the demo the same way,
       naming the version.
-- [ ] **AC4** — Scanning, listing, opening the detail view and playing never modify an erroneous
+- [x] **AC4** — Scanning, listing, opening the detail view and playing never modify an erroneous
       sidecar (content and modification time unchanged, asserted by a test).
-- [ ] **AC5** — Saving over an erroneous sidecar happens only after an explicit confirmation that
+- [x] **AC5** — Saving over an erroneous sidecar happens only after an explicit confirmation that
       names what will be replaced.
-- [ ] **AC6** — The demo's effective values while its sidecar is broken follow the rule decided in
+- [x] **AC6** — The demo's effective values while its sidecar is broken follow the rule decided in
       Q1.
 
 ## Open Questions
@@ -94,7 +94,7 @@ Order: D1 → D2 → D3. All main/shared; no renderer code except `en.json` keys
 
 ## Deliverables
 
-- **D1 — Defensive sidecar reader (pure) + contract types + i18n keys.**
+- [x] **D1 — Defensive sidecar reader (pure) + contract types + i18n keys.**
   Files: `src/shared/modules/demos.ts` (add `SidecarIssue`, `SidecarState`), new
   `src/main/modules/demos/sidecar-read.ts` + `sidecar-read.test.ts`,
   `src/renderer/src/i18n/locales/en.json` (`demos.sidecar.issue.invalidJson` {line?, column?},
@@ -117,7 +117,7 @@ Order: D1 → D2 → D3. All main/shared; no renderer code except `en.json` keys
   root, one bad field among good ones, bad nested `sides` path, unknown key, newer version with
   valid fields, missing version.
 
-- **D2 — Index/detail carry the sidecar state; reading never writes.**
+- [x] **D2 — Index/detail carry the sidecar state; reading never writes.**
   Files: 146's sidecar read site in `src/main/modules/demos/` (the service that loads
   `<demo>.json` for the index/detail — find it via the sidecar path helper 146 added), the index
   entry / detail types in `src/shared/modules/demos.ts` (add `sidecarState: SidecarState`), new
@@ -134,7 +134,7 @@ Order: D1 → D2 → D3. All main/shared; no renderer code except `en.json` keys
   yields `values.map`; (c) structural: read every `.ts` under `src/main` and assert 146's sidecar
   write/delete export is imported only by the save handler file (and its test).
 
-- **D3 — Save/delete over a broken sidecar needs a matching confirmation.**
+- [x] **D3 — Save/delete over a broken sidecar needs a matching confirmation.**
   Files: 146's save handler and its payload schema in `src/main/modules/demos/` (module schemas
   file), `src/shared/modules/demos.ts` (save result union, `confirmReplace?: string` on the save
   payload), new `src/main/modules/demos/sidecar-guard.test.ts`.
@@ -180,4 +180,67 @@ Order: D1 → D2 → D3. All main/shared; no renderer code except `en.json` keys
 
 ## Done
 
-<!-- Filled by /build 147. -->
+This codebase's actual module is `replays`, not the generic `demos` the story text names — all
+paths below are the real ones; the story's `demos/*` paths never existed and are a leftover from
+the concept doc's generic naming.
+
+Summary: added a pure defensive sidecar reader (`sidecar-read.ts`) that validates 146's schema
+per top-level field, keeping valid fields and flagging the rest with `{kind, key, params}` issues
+(never prose, per CLAUDE.md); wired it into `sidecar-store.ts`'s read path so a broken/newer
+sidecar is reported, never dropped, and reading never writes; and rewired `write()` (used for both
+save and 146's clear-everything delete) so replacing or deleting a currently-broken sidecar
+requires a `confirmReplace` SHA-256 fingerprint of the exact on-disk bytes, re-read fresh on every
+call so a stale or hand-edited-since confirmation is refused and re-asked.
+
+Changed: `src/shared/modules/replays.ts` (SidecarIssue/SidecarState/SidecarSaveResult,
+`confirmReplace` on the write payload), `src/main/modules/replays/sidecar-store.ts` (defensive read
+wiring + confirm-replace guard), `src/main/modules/replays/index.ts` (passes `confirmReplace`
+through), `src/main/modules/replays/sidecar-store.test.ts` (adapted to the new read/write result
+shapes), `src/renderer/src/i18n/locales/en.json` (`replays.sidecar.issue.*`).
+Added: `src/main/modules/replays/sidecar-read.ts` + `.test.ts`, `sidecar-readonly.test.ts`,
+`sidecar-guard.test.ts`.
+
+Commit message: `147: a broken sidecar is reported, never overwritten`
+
+Verification (narrow gate): `npm run build` green, `npm run typecheck` green,
+`npx vitest run --changed HEAD` green (112 files / 1654 tests), plus the wider replays-area sweep
+`npx vitest run src/main/modules/replays src/shared/modules/replays.test.ts src/shared/demos
+src/shared/replays` green (25 files / 271 tests) — no collateral breakage. No e2e/ui:flow for this
+story (every AC is proven by unit tests; the profile's known `ui:flow` first-locator timeout never
+applied here). AC → test, all passed: AC1/AC2/AC3 → `sidecar-read.test.ts` (invalid JSON, bad field
+named + rest kept, unknown schemaVersion named) + `sidecar-readonly.test.ts`'s parameterised
+no-write-proof cases; AC4 → `sidecar-readonly.test.ts`'s bytes/mtime-unchanged cases and its
+structural test (only `index.ts` and test files import `sidecar-store`'s write path); AC5 →
+`sidecar-guard.test.ts` (unconfirmed asks and names the replacement, stale fingerprint re-asks,
+broken-after-read is guarded, valid/absent needs no confirmation — 146 regression covered); AC6 →
+`sidecar-readonly.test.ts`'s partial-use cases (valid `name`/`map` survive an invalid `rating` /
+newer `schemaVersion`).
+
+Review: one default-tier cycle (stage 2/hard not triggered — `Review: → default`). Verdict
+UNCLEAR on one point, resolved by decision (see below) rather than a code fix; one minor
+non-blocking observation, left as-is. No weakened tests, no scope creep, IPC/i18n rules upheld.
+
+Decisions:
+- Sidecar state/values are **not** embedded in the scan/index snapshot (`DiscoveredDemo`,
+  `demos.list`/`index.read`). The incremental scan caches a row keyed off the *demo* file's own
+  identity (size/mtime); a sidecar can change without the demo file changing, so baking
+  `sidecarState` into that cache would go stale exactly when a sidecar is edited or saved — the
+  case this story exists to get right. 146 already chose a separate per-id `sidecar.read`
+  handshake over merging into the index for the same reason; this story keeps that shape and makes
+  the handshake itself defensive (never silently drops a broken file, always returns partial
+  values). [[150]]/[[155]] read a row's sidecar state through `sidecar.read(id)`, not through an
+  inline index field — this satisfies the "data layer, not rendering" scope this story set for
+  itself without introducing a staleness bug. Flagged by the reviewer against the story's literal
+  "every list/detail entry" wording; resolved as above rather than force-fitting the cache.
+- Left as-is (non-blocking, reviewer-noted): a BOM-prefixed but otherwise valid sidecar's "unchanged"
+  fast path compares raw (BOM included) against a freshly serialized value (no BOM), so such a file
+  is rewritten (BOM silently stripped) on its next save. Harmless — 146's optimisation only, no data
+  loss, no AC impact.
+- A sidecar that exists but can't be read at all (EACCES/EISDIR — a filesystem problem, not a
+  content one) has no bytes to fingerprint, so it is refused outright
+  (`replays.sidecar.error.existingInvalid`) rather than offered a confirm-replace path — there is
+  nothing to confirm against.
+- `SidecarStoreFs.readFile` now returns raw `Buffer` (was decoded `utf8` string) so the
+  confirm-replace fingerprint hashes the exact on-disk bytes, not a lossy UTF-8 decode.
+
+tiers: D 3 / hard 1 · review default · cycles 1 · agents 5

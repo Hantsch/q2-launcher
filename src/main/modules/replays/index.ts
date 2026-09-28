@@ -140,7 +140,7 @@ export const replaysModule: MainModule = {
       sidecarStore.read(payload.demoId),
     )
     handle(REPLAYS_HANDLERS.sidecarWrite, replaysSidecarWriteSchema, (payload) =>
-      sidecarStore.write(payload.demoId, payload.fields),
+      sidecarStore.write(payload.demoId, payload.fields, payload.confirmReplace),
     )
 
     handle(REPLAYS_HANDLERS.nameTemplatesList, replaysNoInputSchema, () => nameTemplatesList(app))

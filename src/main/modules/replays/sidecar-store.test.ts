@@ -33,7 +33,7 @@ describe('sidecar store', () => {
     const outcome = await store.write('final', { name: 'GF #1', tags: ['clutch'] })
     expect(outcome.ok).toBe(true)
     if (!outcome.ok) throw new Error('expected ok')
-    expect(outcome.value.state).toBe('written')
+    expect(outcome.value).toEqual({ status: 'saved', state: 'written' })
 
     const raw = await readFile(`${finalPath}.json`, 'utf8')
     const parsed = JSON.parse(raw)
@@ -80,7 +80,7 @@ describe('sidecar store', () => {
     const outcome = await store.write('final', { name: 'same' })
     expect(outcome.ok).toBe(true)
     if (!outcome.ok) throw new Error('expected ok')
-    expect(outcome.value.state).toBe('unchanged')
+    expect(outcome.value).toEqual({ status: 'saved', state: 'unchanged' })
 
     const after = (await stat(`${path}.json`)).mtimeMs
     expect(after).toBe(before)
@@ -91,7 +91,7 @@ describe('sidecar store', () => {
     const sidecarPath = `${path}.json`
     let attempt = 0
     const fs: SidecarStoreFs = {
-      readFile: (p, enc) => readFile(p, enc),
+      readFile: (p) => readFile(p),
       rm: (p, opts) => rm(p, opts),
       writeAtomic: async (p, content, enc) => {
         attempt++
@@ -127,7 +127,7 @@ describe('sidecar store', () => {
 
     async function tryWithCode(code: string) {
       const fs: SidecarStoreFs = {
-        readFile: (p, enc) => readFile(p, enc),
+        readFile: (p) => readFile(p),
         rm: (p, opts) => rm(p, opts),
         writeAtomic: async () => {
           throw Object.assign(new Error('x'), { code })
@@ -173,13 +173,13 @@ describe('sidecar store', () => {
     const deleteOutcome = await store.write('final', {})
     expect(deleteOutcome.ok).toBe(true)
     if (!deleteOutcome.ok) throw new Error('expected ok')
-    expect(deleteOutcome.value).toEqual({ state: 'deleted', sidecar: null })
+    expect(deleteOutcome.value).toEqual({ status: 'saved', state: 'deleted' })
     await expect(readFile(sidecarPath, 'utf8')).rejects.toThrow()
 
     const unchangedOutcome = await store.write('final', {})
     expect(unchangedOutcome.ok).toBe(true)
     if (!unchangedOutcome.ok) throw new Error('expected ok')
-    expect(unchangedOutcome.value).toEqual({ state: 'unchanged', sidecar: null })
+    expect(unchangedOutcome.value).toEqual({ status: 'saved', state: 'unchanged' })
     await expect(readFile(sidecarPath, 'utf8')).rejects.toThrow()
   })
 
@@ -201,16 +201,27 @@ describe('sidecar store', () => {
     await writeFile(`${brokenPath}.json`, '{ not valid json')
     const brokenBefore = await readFile(`${brokenPath}.json`, 'utf8')
     const brokenStore = storeFor({ broken: { kind: 'file', absolutePath: brokenPath } })
-    const existingInvalid = await brokenStore.write('broken', { name: 'x' })
-    expect(existingInvalid).toEqual({ ok: false, error: { key: 'replays.sidecar.error.existingInvalid' } })
+    const guarded = await brokenStore.write('broken', { name: 'x' })
+    expect(guarded).toEqual({
+      ok: true,
+      value: {
+        status: 'needsConfirmation',
+        fileName: 'broken.dm2.json',
+        issues: expect.arrayContaining([expect.objectContaining({ kind: 'invalidJson' })]),
+        fingerprint: expect.stringMatching(/^[0-9a-f]{64}$/),
+      },
+    })
     const brokenAfter = await readFile(`${brokenPath}.json`, 'utf8')
     expect(brokenAfter).toBe(brokenBefore)
   })
 
-  it('read reports none, ok or invalid', async () => {
+  it('read reports none, ok or error', async () => {
     const nonePath = await writeDemo('none.dm2')
     const noneStore = storeFor({ none: { kind: 'file', absolutePath: nonePath } })
-    expect(await noneStore.read('none')).toEqual({ ok: true, value: { state: 'none' } })
+    expect(await noneStore.read('none')).toEqual({
+      ok: true,
+      value: { state: { state: 'none' }, values: {} },
+    })
 
     const okPath = await writeDemo('ok.dm2')
     const okStore = storeFor({ ok: { kind: 'file', absolutePath: okPath } })
@@ -219,13 +230,44 @@ describe('sidecar store', () => {
     expect(okResult.ok).toBe(true)
     if (!okResult.ok) throw new Error('expected ok')
     expect(okResult.value).toEqual({
-      state: 'ok',
-      sidecar: { schemaVersion: 1, name: 'valid one' },
+      state: { state: 'ok' },
+      values: { name: 'valid one' },
     })
 
     const invalidPath = await writeDemo('invalid.dm2')
     await writeFile(`${invalidPath}.json`, '{ broken')
     const invalidStore = storeFor({ invalid: { kind: 'file', absolutePath: invalidPath } })
-    expect(await invalidStore.read('invalid')).toEqual({ ok: true, value: { state: 'invalid' } })
+    const invalidResult = await invalidStore.read('invalid')
+    expect(invalidResult.ok).toBe(true)
+    if (!invalidResult.ok) throw new Error('expected ok')
+    expect(invalidResult.value.state.state).toBe('error')
+    expect(invalidResult.value.values).toEqual({})
+    if (invalidResult.value.state.state === 'error') {
+      expect(invalidResult.value.state.issues).toEqual(
+        expect.arrayContaining([expect.objectContaining({ kind: 'invalidJson' })]),
+      )
+    }
+  })
+
+  it('read reports partial values alongside an error for a partially-broken sidecar', async () => {
+    const path = await writeDemo('partial.dm2')
+    await writeFile(
+      `${path}.json`,
+      JSON.stringify({ schemaVersion: 1, name: 'good name', rating: 'high' }),
+    )
+    const store = storeFor({ partial: { kind: 'file', absolutePath: path } })
+
+    const result = await store.read('partial')
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected ok')
+    expect(result.value.state.state).toBe('error')
+    if (result.value.state.state === 'error') {
+      expect(result.value.state.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ kind: 'invalidField', params: expect.objectContaining({ field: 'rating' }) }),
+        ]),
+      )
+    }
+    expect(result.value.values).toEqual({ name: 'good name' })
   })
 })
