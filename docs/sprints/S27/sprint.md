@@ -1,7 +1,7 @@
 ---
 sprint: S27
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S27
 milestone: 10.4–10.5 — Demo list, detail, edit & file actions
 ---
 
