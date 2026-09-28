@@ -1101,6 +1101,16 @@
         "entry-too-large": "Too large to read inside an archive",
         "encrypted": "Encrypted archive entry"
       }
+    },
+    "sidecar": {
+      "error": {
+        "unknownDemo": "This demo is no longer in the list. Rescan and try again.",
+        "archiveEntry": "Demos inside a zip archive cannot have notes.",
+        "demoMissing": "The demo file is gone, so its notes were not saved.",
+        "existingInvalid": "The existing notes file for this demo cannot be read, so it was not overwritten.",
+        "notWritable": "Cannot save notes: the folder {{folder}} is not writable. Nothing was written.",
+        "writeFailed": "Saving the notes failed ({{code}}). Nothing was changed."
+      }
     }
   },
 

@@ -88,6 +88,11 @@ export interface ReplaysScanService {
   start: () => ReplaysScanStartResult
   read: () => Promise<DiscoveredDemo[]>
   overview: () => Promise<ReplaysOverview>
+  /** Resolves a demo id to the file identity a sidecar store needs (story 146): its absolute path
+   * and whether it's a zip entry. `undefined` before this process's first successful scan has seen
+   * the id, same as any other id the index doesn't know about - never backfilled from the cache
+   * (the cache does not retain `absolutePath`). */
+  resolveFile: (id: string) => { absolutePath: string; archiveEntry: DiscoveredDemo['archiveEntry'] } | undefined
 }
 
 /** Explicit field pick: `absolutePath`/`size`/`mtimeMs`/`birthtimeMs` never reach a row.
@@ -230,6 +235,10 @@ export function createReplaysScanService(options: CreateReplaysScanServiceOption
   let lastCache: Map<string, CachedDemo> | null = null
   /** The last successful scan's rows; `null` until this process's first scan succeeds. */
   let snapshot: DiscoveredDemo[] | null = null
+  /** Story 146: `id -> file` for the last successful scan's rows - the sidecar store's only index
+   * dependency (`resolveFile`), kept in lockstep with `snapshot`/`lastCache` and never populated on
+   * a failed scan. */
+  const fileById = new Map<string, ReplaysScanFile>()
 
   const loadCache = (): Promise<Map<string, CachedDemo>> =>
     (loaded ??= cache.read().then(usableCache, () => new Map<string, CachedDemo>()))
@@ -277,6 +286,7 @@ export function createReplaysScanService(options: CreateReplaysScanServiceOption
       snapshot = [...result.entries.values()].map((entry) =>
         withNameFacts(toRow(entry.file, entry.parsed as DiscoveredDemo), entry.name),
       )
+      for (const [id, entry] of result.entries) fileById.set(id, entry.file)
       lastCache = result.nextCache
       await cache.write(result.nextCache)
     } catch (error) {
@@ -312,5 +322,12 @@ export function createReplaysScanService(options: CreateReplaysScanServiceOption
     return { scanning: running, demoCount: rows.length }
   }
 
-  return { start, read, overview }
+  function resolveFile(
+    id: string,
+  ): { absolutePath: string; archiveEntry: DiscoveredDemo['archiveEntry'] } | undefined {
+    const file = fileById.get(id)
+    return file ? { absolutePath: file.absolutePath, archiveEntry: file.archiveEntry } : undefined
+  }
+
+  return { start, read, overview, resolveFile }
 }

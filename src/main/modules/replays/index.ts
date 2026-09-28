@@ -12,6 +12,8 @@ import {
   nameTemplatesResetSchema,
   nameTemplatesUpdateSchema,
   replaysNoInputSchema,
+  replaysSidecarReadSchema,
+  replaysSidecarWriteSchema,
   type ExtraFoldersResult,
 } from '@shared/modules/replays'
 import { isUiHarnessEnabled } from '../../lib/ui-harness'
@@ -22,6 +24,7 @@ import { discoverDemos, type DiscoverContext } from './discovery'
 import { addExtraFolder, removeExtraFolder } from './extra-folders'
 import { ReplaysIndexCache } from './index-cache'
 import { createReplaysScanService, nameMatcherFor, readDemoFacts } from './scan-service'
+import { createSidecarStore } from './sidecar-store'
 import {
   currentNameTemplates,
   nameTemplatesAdd,
@@ -122,6 +125,23 @@ export const replaysModule: MainModule = {
     handle(REPLAYS_HANDLERS.overviewRead, replaysNoInputSchema, () => scanService.overview())
     handle(REPLAYS_HANDLERS.scanStart, replaysNoInputSchema, () => scanService.start())
     handle(REPLAYS_HANDLERS.indexRead, replaysNoInputSchema, () => scanService.read())
+
+    // Story 146: the sidecar store's only index dependency is `scanService.resolveFile`, so the
+    // store never builds a second index.
+    const sidecarStore = createSidecarStore({
+      resolveDemo: (id) => {
+        const file = scanService.resolveFile(id)
+        if (!file) return undefined
+        return file.archiveEntry ? { kind: 'archive-entry' } : { kind: 'file', absolutePath: file.absolutePath }
+      },
+    })
+
+    handle(REPLAYS_HANDLERS.sidecarRead, replaysSidecarReadSchema, (payload) =>
+      sidecarStore.read(payload.demoId),
+    )
+    handle(REPLAYS_HANDLERS.sidecarWrite, replaysSidecarWriteSchema, (payload) =>
+      sidecarStore.write(payload.demoId, payload.fields),
+    )
 
     handle(REPLAYS_HANDLERS.nameTemplatesList, replaysNoInputSchema, () => nameTemplatesList(app))
     handle(REPLAYS_HANDLERS.nameTemplatesAdd, nameTemplatesAddSchema, (payload) =>

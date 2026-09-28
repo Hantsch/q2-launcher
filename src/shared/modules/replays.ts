@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { demoUnreadableSchema } from '../demos/readability'
 import type { NameFacts } from '../replays/name-template'
+import { sidecarFieldsSchema } from '../replays/sidecar'
 import { absolutePathSchema } from '../schemas'
 
 /**
@@ -45,6 +46,10 @@ export const REPLAYS_HANDLERS = {
   /** Resolves to the current index (story 144): the cached rows until this process's first scan
    * finishes, the last successful scan's rows after that. Shape: `replaysIndexReadResultSchema`. */
   indexRead: 'index.read',
+  /** Resolves to the current sidecar for a demo id, or `{ state: 'none' }` if it has none (story 146). */
+  sidecarRead: 'sidecar.read',
+  /** Full-replacement save of a demo's sidecar fields, id-addressed (story 146). */
+  sidecarWrite: 'sidecar.write',
 } as const
 
 /**
@@ -255,6 +260,20 @@ export type ExtraFoldersResult =
   | { ok: true; folders: ReplaysExtraFolder[] }
   | { ok: false; reason: 'notAbsolute' | 'unresolvable' | 'notAFolder' | 'alreadyListed' }
 
+/** A demo id (`discoveredDemoSchema.id`'s standalone counterpart): looser than the content-derived
+ * hex fingerprint on purpose, so a `sidecar.*` payload naming an id the index no longer knows about
+ * still reaches the handler as an ordinary "unknown id" outcome rather than a schema rejection
+ * (story 146). */
+export const replaysDemoIdSchema = z.string().min(1).max(512)
+
+/** `sidecar.read`'s payload: the demo id to look up. */
+export const replaysSidecarReadSchema = z.object({ demoId: replaysDemoIdSchema })
+
+/** `sidecar.write`'s payload: the demo id plus the full replacement set of sidecar fields. */
+export const replaysSidecarWriteSchema = z
+  .object({ demoId: replaysDemoIdSchema, fields: sidecarFieldsSchema })
+  .strict()
+
 /**
  * Every `replays` handler paired with its payload schema - proves AC9's "every new channel exists
  * in the shared contract with a zod payload schema before its handler" for this module's own
@@ -278,6 +297,8 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   [REPLAYS_HANDLERS.extraFoldersRemove]: extraFoldersRemoveSchema,
   [REPLAYS_HANDLERS.scanStart]: replaysNoInputSchema,
   [REPLAYS_HANDLERS.indexRead]: replaysNoInputSchema,
+  [REPLAYS_HANDLERS.sidecarRead]: replaysSidecarReadSchema,
+  [REPLAYS_HANDLERS.sidecarWrite]: replaysSidecarWriteSchema,
 }
 
 /**
@@ -317,3 +338,7 @@ export const storedExtraFolderSchema = z.object({
   path: absolutePathSchema,
   addedAt: z.string(),
 })
+
+/** Handlers that may create, change or delete a sidecar file - the only ones AC4's no-write guard
+ * test (story 146) exempts from "must never write a sidecar". */
+export const REPLAYS_SIDECAR_WRITING_HANDLERS: readonly string[] = ['sidecar.write']

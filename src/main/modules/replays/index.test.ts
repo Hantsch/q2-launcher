@@ -1,10 +1,15 @@
 import { randomUUID } from 'node:crypto'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { demosListResultSchema, REPLAYS_HANDLERS } from '@shared/modules/replays'
+import {
+  demosListResultSchema,
+  REPLAYS_HANDLERS,
+  REPLAYS_SIDECAR_WRITING_HANDLERS,
+} from '@shared/modules/replays'
 import { getModuleManifest } from '@shared/types'
+import en from '../../../renderer/src/i18n/locales/en.json'
 import { canonicalizePath } from '../../lib/fs-utils'
 import { UI_HARNESS_ENV } from '../../lib/ui-harness'
 import type { AppContext } from '../../context'
@@ -73,6 +78,8 @@ describe('replays module', () => {
       'extraFolders.remove',
       'scan.start',
       'index.read',
+      'sidecar.read',
+      'sidecar.write',
     ])
   })
 
@@ -209,6 +216,196 @@ describe('replays module', () => {
       expect(reloaded.replaysState().extraFolders).toEqual([
         expect.objectContaining({ path: expectedCanonical }),
       ])
+    })
+  })
+
+  describe('sidecar handlers (story 146)', () => {
+    let dir: string
+    let filePath: string
+    let state: StateStore
+
+    beforeEach(async () => {
+      dir = await mkdtemp(join(tmpdir(), 'q2-launcher-replays-sidecar-'))
+      userDataBox.current = dir
+      filePath = join(tmpdir(), `q2-launcher-replays-sidecar-state-${randomUUID()}.json`)
+      state = new StateStore(filePath)
+      await state.load()
+    })
+
+    afterEach(async () => {
+      await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+      await rm(filePath, { force: true })
+      await rm(`${filePath}.tmp`, { force: true })
+      await rm(`${filePath}.bak`, { force: true })
+    })
+
+    /** Polls `index.read` until the scan started by `scan.start` has produced at least one row -
+     * there is no existing wait helper in this file for this pair, so this is a small local
+     * polling loop, capped at 50 tries of 10ms each. */
+    async function waitForIndexed(
+      registry: MainModuleRegistry,
+    ): Promise<Array<{ id: string }>> {
+      for (let i = 0; i < 50; i++) {
+        const outcome = await registry.invoke({
+          moduleId: 'replays',
+          type: REPLAYS_HANDLERS.indexRead,
+          payload: undefined,
+        })
+        if (outcome.ok && Array.isArray(outcome.value) && outcome.value.length > 0) {
+          return outcome.value as Array<{ id: string }>
+        }
+        await new Promise((resolve) => setTimeout(resolve, 10))
+      }
+      throw new Error('index.read never produced a row within the poll budget')
+    }
+
+    it('sidecar handlers address a demo by id only', async () => {
+      const demosDir = join(dir, 'baseq2', 'demos')
+      await mkdir(demosDir, { recursive: true })
+      await writeFile(join(demosDir, 'x.dm2'), 'x')
+
+      const installation = {
+        id: 'inst-1',
+        name: 'Installation One',
+        rootPath: dir,
+        gameDirs: ['baseq2'],
+        engineKind: 'r1q2',
+        recordedEngineKind: undefined,
+        writeDirPath: undefined,
+      }
+
+      const appContext = {
+        broadcast: { emit: () => {} },
+        installations: { list: () => [installation] },
+        state,
+        launch: { isRunning: () => false },
+      } as unknown as AppContext
+
+      const registry = new MainModuleRegistry()
+      await registry.register(replaysModule, appContext)
+
+      await registry.invoke({
+        moduleId: 'replays',
+        type: REPLAYS_HANDLERS.scanStart,
+        payload: undefined,
+      })
+      const rows = await waitForIndexed(registry)
+      const demoId = rows[0].id
+
+      const writeOutcome = await registry.invoke({
+        moduleId: 'replays',
+        type: REPLAYS_HANDLERS.sidecarWrite,
+        payload: { demoId, fields: { name: 'Final' } },
+      })
+      expect(writeOutcome.ok).toBe(true)
+
+      const sidecarPath = join(demosDir, 'x.dm2.json')
+      const raw = await readFile(sidecarPath, 'utf8')
+      expect(JSON.parse(raw).name).toBe('Final')
+
+      const afterWrite = (await readdir(demosDir)).sort()
+
+      const badPayloads: unknown[] = [
+        { demoId, fields: { name: 'Other' }, path: '/etc/passwd' },
+        { demoId, fields: { name: 'Other' }, sidecarPath: '/etc/passwd' },
+        { fields: { name: 'Other' } },
+      ]
+      for (const payload of badPayloads) {
+        const outcome = await registry.invoke({
+          moduleId: 'replays',
+          type: REPLAYS_HANDLERS.sidecarWrite,
+          payload,
+        })
+        expect(outcome).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
+      }
+
+      const afterBad = (await readdir(demosDir)).sort()
+      expect(afterBad).toEqual(afterWrite)
+    })
+
+    it('no replays handler except the sidecar writers creates a sidecar', async () => {
+      const demosDir = join(dir, 'baseq2', 'demos')
+      await mkdir(demosDir, { recursive: true })
+      await writeFile(join(demosDir, 'x.dm2'), 'x')
+      await writeFile(join(demosDir, 'y.dm2'), 'y')
+
+      const installation = {
+        id: 'inst-1',
+        name: 'Installation One',
+        rootPath: dir,
+        gameDirs: ['baseq2'],
+        engineKind: 'r1q2',
+        recordedEngineKind: undefined,
+        writeDirPath: undefined,
+      }
+
+      const appContext = {
+        broadcast: { emit: () => {} },
+        installations: { list: () => [installation] },
+        state,
+        launch: { isRunning: () => false },
+      } as unknown as AppContext
+
+      const registry = new MainModuleRegistry()
+      await registry.register(replaysModule, appContext)
+
+      await registry.invoke({
+        moduleId: 'replays',
+        type: REPLAYS_HANDLERS.scanStart,
+        payload: undefined,
+      })
+      await waitForIndexed(registry)
+
+      const payloadFor: Record<string, unknown> = {
+        [REPLAYS_HANDLERS.overviewRead]: undefined,
+        [REPLAYS_HANDLERS.demosList]: undefined,
+        [REPLAYS_HANDLERS.extraFoldersList]: undefined,
+        [REPLAYS_HANDLERS.indexRead]: undefined,
+        [REPLAYS_HANDLERS.nameTemplatesList]: undefined,
+        [REPLAYS_HANDLERS.nameTemplatesRestore]: undefined,
+        [REPLAYS_HANDLERS.scanStart]: undefined,
+        [REPLAYS_HANDLERS.nameTemplatesAdd]: { template: 'x' },
+        [REPLAYS_HANDLERS.nameTemplatesUpdate]: { id: 'nope', template: 'x' },
+        [REPLAYS_HANDLERS.nameTemplatesRemove]: { id: 'nope' },
+        [REPLAYS_HANDLERS.nameTemplatesReset]: { id: 'nope' },
+        [REPLAYS_HANDLERS.nameTemplatesReorder]: { ids: [] },
+        [REPLAYS_HANDLERS.extraFoldersAdd]: { path: dir },
+        [REPLAYS_HANDLERS.extraFoldersRemove]: { id: 'nope' },
+        [REPLAYS_HANDLERS.sidecarRead]: { demoId: 'nope' },
+      }
+
+      const handlersToExercise = Object.values(REPLAYS_HANDLERS).filter(
+        (name) => !REPLAYS_SIDECAR_WRITING_HANDLERS.includes(name),
+      )
+
+      for (const name of handlersToExercise) {
+        if (!(name in payloadFor)) {
+          expect.fail(`no payload entry for handler "${name}" - add one to payloadFor above`)
+        }
+      }
+
+      for (const name of handlersToExercise) {
+        await registry.invoke({ moduleId: 'replays', type: name, payload: payloadFor[name] })
+      }
+
+      const filesAfter = await readdir(demosDir)
+      expect(filesAfter.sort()).toEqual(['x.dm2', 'y.dm2'])
+      expect(filesAfter.some((f) => f.endsWith('.json'))).toBe(false)
+    })
+  })
+
+  describe('sidecar error i18n (story 146)', () => {
+    it('sidecar error keys resolve to specific English text', () => {
+      const sidecar = (en as { replays: { sidecar: { error: Record<string, string> } } }).replays.sidecar
+        .error
+
+      expect(sidecar.unknownDemo.length).toBeGreaterThan(0)
+      expect(sidecar.archiveEntry.length).toBeGreaterThan(0)
+      expect(sidecar.demoMissing.length).toBeGreaterThan(0)
+      expect(sidecar.existingInvalid.length).toBeGreaterThan(0)
+      expect(sidecar.notWritable.length).toBeGreaterThan(0)
+      expect(sidecar.writeFailed.length).toBeGreaterThan(0)
+      expect(sidecar.notWritable).toContain('{{folder}}')
     })
   })
 

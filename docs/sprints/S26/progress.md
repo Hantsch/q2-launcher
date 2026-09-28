@@ -147,3 +147,15 @@
 - 2026-09-28 14:01 · 145 · review 1 · started
 - 2026-09-28 14:06 · 145 · review 1 · done
 - 2026-09-28 14:07 · 145 · story · done
+- 2026-09-28 14:08:05 · 146 · build · started
+- 2026-09-28 14:09 · 146 · D1 sidecar schema, normalisation, serialisation · started
+- 2026-09-28 14:11 · 146 · D1 sidecar schema, normalisation, serialisation · done
+- 2026-09-28 14:11 · 146 · D2 main-side sidecar store · started
+- 2026-09-28 14:13 · 146 · D2 main-side sidecar store · done
+- 2026-09-28 14:13 · 146 · D3 handlers, index-resolve wiring, strings, guard tests · started
+- 2026-09-28 14:18 · 146 · D3 handlers, index-resolve wiring, strings, guard tests · done
+- 2026-09-28 14:18 · 146 · verify · started
+- 2026-09-28 14:20 · 146 · verify · done
+- 2026-09-28 14:20 · 146 · review 1 · started
+- 2026-09-28 14:23 · 146 · review 1 · done: PASS, 2 low-severity non-blocking findings
+- 2026-09-28 14:24 · 146 · story · done
