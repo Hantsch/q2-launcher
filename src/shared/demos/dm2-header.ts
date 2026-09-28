@@ -41,8 +41,10 @@ export const DM2_HEADER_MAX_BYTES = 1_048_576
 export type Dm2Protocol = 34 | 3434 | 3435 | 3436
 
 /** One configstring index layout: where names, models and player skins start, and how many
- * configstring slots (and thus max clients) the protocol allows. */
-interface Dm2Layout {
+ * configstring slots (and thus max clients) the protocol allows. Exported so other demo-format
+ * parsers (e.g. `mvd2-header.ts`) that share the same two configstring layouts can reuse these
+ * tables instead of redefining them. */
+export interface Dm2Layout {
   layout: 'original' | 'extended'
   CS_NAME: number
   CS_MODELS: number
@@ -51,7 +53,7 @@ interface Dm2Layout {
   MAX_CLIENTS: number
 }
 
-const ORIGINAL_LAYOUT: Dm2Layout = {
+export const ORIGINAL_LAYOUT: Dm2Layout = {
   layout: 'original',
   CS_NAME: 0,
   CS_MODELS: 32,
@@ -60,7 +62,7 @@ const ORIGINAL_LAYOUT: Dm2Layout = {
   MAX_CLIENTS: 256,
 }
 
-const EXTENDED_LAYOUT: Dm2Layout = {
+export const EXTENDED_LAYOUT: Dm2Layout = {
   layout: 'extended',
   CS_NAME: 0,
   CS_MODELS: 62,

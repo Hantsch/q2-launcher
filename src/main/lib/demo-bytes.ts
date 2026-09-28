@@ -12,6 +12,7 @@ import { createReadStream } from 'node:fs'
 import { open } from 'node:fs/promises'
 import { createGunzip } from 'node:zlib'
 import { DM2_HEADER_MAX_BYTES, parseDm2Header, type Dm2HeaderResult } from '../../shared/demos/dm2-header'
+import { parseDemoHeader, type DemoHeaderResult } from '../../shared/demos/demo-header'
 
 const GZIP_MAGIC_0 = 0x1f
 const GZIP_MAGIC_1 = 0x8b
@@ -89,4 +90,18 @@ export async function readDm2Header(path: string): Promise<Dm2HeaderResultWithIo
   const prefix = await readDemoPrefix(path, DM2_HEADER_MAX_BYTES)
   if (!prefix.ok) return { ok: false, reason: 'unreadable' }
   return parseDm2Header(prefix.bytes)
+}
+
+export type DemoHeaderResultWithIo = DemoHeaderResult | { ok: false; reason: 'unreadable' }
+
+/**
+ * Reads and parses a demo file's header (`.dm2` or `.mvd2`, chosen from the bytes themselves —
+ * see `parseDemoHeader`), transparently handling gzip-compressed demos. The format isn't known
+ * before reading, so the initial read reuses `.dm2`'s 1 MiB bound (`DM2_HEADER_MAX_BYTES`), which
+ * comfortably covers `.mvd2`'s much smaller header too.
+ */
+export async function readDemoHeader(path: string): Promise<DemoHeaderResultWithIo> {
+  const prefix = await readDemoPrefix(path, DM2_HEADER_MAX_BYTES)
+  if (!prefix.ok) return { ok: false, reason: 'unreadable' }
+  return parseDemoHeader(prefix.bytes)
 }

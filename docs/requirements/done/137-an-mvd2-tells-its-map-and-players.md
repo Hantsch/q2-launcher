@@ -1,7 +1,7 @@
 ---
 id: 137
 title: an mvd2 tells its map and players
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -19,16 +19,16 @@ code, header only, typed failure instead of a throw.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — For an `.mvd2`, the parser returns map, level name, game dir and every player name
+- [x] **AC1** — For an `.mvd2`, the parser returns map, level name, game dir and every player name
       from the configstrings, in the same result shape [[136]] returns.
-- [ ] **AC2** — An `.mvd2` has no POV; the result says so explicitly rather than inventing one.
-- [ ] **AC3** — An `.mvd2.gz` yields exactly the same facts as the same demo uncompressed.
-- [ ] **AC4** — The result records the MVD protocol version, and a version outside 2009–2013 returns
+- [x] **AC2** — An `.mvd2` has no POV; the result says so explicitly rather than inventing one.
+- [x] **AC3** — An `.mvd2.gz` yields exactly the same facts as the same demo uncompressed.
+- [x] **AC4** — The result records the MVD protocol version, and a version outside 2009–2013 returns
       a typed "unparsable" result naming the version. *(Range corrected from 2009–2012 at refine:
       current Q2PRO writes 2013 — see Decisions (Sprint).)*
-- [ ] **AC5** — Header-only and bounded, like [[136]] AC8; garbage or truncation returns "unparsable"
+- [x] **AC5** — Header-only and bounded, like [[136]] AC8; garbage or truncation returns "unparsable"
       with a reason, never a throw.
-- [ ] **AC6** — Format is detected from the content (the `MVD2` magic), not only from the extension:
+- [x] **AC6** — Format is detected from the content (the `MVD2` magic), not only from the extension:
       a mis-named file is parsed as what it is.
 
 ## Open Questions
@@ -116,7 +116,7 @@ type DemoHeaderResult = (Dm2Header & { format: 'dm2' }) | Mvd2Header | Dm2Unpars
 
 ## Deliverables
 
-- **D1 — `.mvd2` header parser (pure) + format dispatcher + synthetic writer + tests.**
+- [x] **D1 — `.mvd2` header parser (pure) + format dispatcher + synthetic writer + tests.**
   Files: new `src/shared/demos/mvd2-header.ts`, `src/shared/demos/mvd2-writer.ts`,
   `src/shared/demos/demo-header.ts`, `src/shared/demos/mvd2-header.test.ts`,
   `src/shared/demos/demo-header.test.ts`. Mirror `src/shared/demos/dm2-header.ts` /
@@ -162,7 +162,7 @@ type DemoHeaderResult = (Dm2Header & { format: 'dm2' }) | Mvd2Header | Dm2Unpars
   2000 seeded truncations/byte flips never throw; high-bit name bytes survive; the dispatcher
   sends `MVD2…` bytes to the MVD path and a `buildDm2` demo to the dm2 path (`format` checked).
 
-- **D2 — main-side `readDemoHeader` + real-fixture tests.**
+- [x] **D2 — main-side `readDemoHeader` + real-fixture tests.**
   Files: `src/main/lib/demo-bytes.ts` (add `readDemoHeader`; leave 136's `readDm2Header` and
   `readDemoPrefix` unchanged), `src/main/lib/demo-bytes.test.ts` (add a `describe` block).
   Mirror 136's `readDm2Header` and its temp-dir tests.
@@ -200,7 +200,7 @@ type DemoHeaderResult = (Dm2Header & { format: 'dm2' }) | Mvd2Header | Dm2Unpars
 - AC4 → unit `src/shared/demos/mvd2-header.test.ts` › "the mvd version is recorded and one outside 2009-2013 is unknown-version"
   and › "flags come from the word from 2012 on and from the opcode bits before"
 - AC5 → unit `src/shared/demos/mvd2-header.test.ts` › "parsing stops after the first block regardless of trailing frames"
-  and › "empty, truncated, garbage and wrong-protocol mvd2 input return a typed unparsable reason"
+  and › "empty, truncated, garbage and wrong-magic mvd2 input return a typed unparsable reason"
   and › "mutated mvd2 demos never throw and always return a result"
   and unit `src/main/lib/demo-bytes.test.ts` › "a 32 MiB mvd2 is read only up to the header bound, plain and gzipped"
   and › "a cut gzipped mvd2 is truncated"
@@ -210,4 +210,45 @@ type DemoHeaderResult = (Dm2Header & { format: 'dm2' }) | Mvd2Header | Dm2Unpars
 
 ## Done
 
-<!-- Filled by /build 137. -->
+Built the `.mvd2` header parser on top of [[136]]: pure parser + format dispatcher + synthetic
+writer (D1), then the main-side `readDemoHeader` proven against the real PFAU fixture, its gzip
+copy, mis-named copies both ways, and a 32 MiB bound check (D2). One real bug found and fixed
+before review: the `players` loop iterated the whole remaining configstring range instead of just
+`MAX_CLIENTS` (256) slots, bleeding `opentdm`'s CS_GENERAL scoreboard strings ("Home"/"Away"/
+"READY"/timer) into the real fixture's player list — fixed to match [[136]]'s bound, tests
+corrected to the exact spec'd fixture facts.
+
+Commit message: `137: parse an .mvd2's map, level, game dir and players from its header`
+
+Changed files: `src/shared/demos/mvd2-header.ts`, `mvd2-writer.ts`, `demo-header.ts`,
+`mvd2-header.test.ts`, `demo-header.test.ts` (new); `src/shared/demos/dm2-header.ts` (additive —
+exported `Dm2Layout`/`ORIGINAL_LAYOUT`/`EXTENDED_LAYOUT` for reuse, no behavior change);
+`src/main/lib/demo-bytes.ts`, `demo-bytes.test.ts` (added `readDemoHeader` + tests, `readDm2Header`
+unchanged).
+
+Verification — narrow gate only (no `--full`): `npm run build` green, `npm run typecheck` green,
+`npx vitest run --changed HEAD` green (4 files / 34 tests). No e2e — pure/main-only story, no
+user-facing surface (per [[145]]). AC → test mapping, all passed: AC1
+`mvd2-header.test.ts`/"...reports map, level name, game dir and players..." +
+"...extended-limits mvd2 reads the extended configstring layout" + `demo-bytes.test.ts`/"the real
+PFAU q2dm1 mvd2 reports its map, level, game dir and players"; AC2
+`mvd2-header.test.ts`/"...has no POV and never lists the MVD dummy as a player"; AC3
+`demo-bytes.test.ts`/"a gzipped mvd2 yields exactly the facts of the uncompressed one"; AC4
+`mvd2-header.test.ts`/"the mvd version is recorded..." + "flags come from the word from 2012
+on..."; AC5 `mvd2-header.test.ts`/"parsing stops after the first block..." + "empty, truncated,
+garbage and wrong-magic mvd2 input return a typed unparsable reason" (name corrected from the
+story's draft "wrong-protocol" wording) + "mutated mvd2 demos never throw..." + `demo-bytes.test.ts`/
+"a 32 MiB mvd2 is read only up to the header bound, plain and gzipped" + "a cut gzipped mvd2 is
+truncated"; AC6 `demo-header.test.ts`/"the format is chosen by the MVD2 magic, not by the caller" +
+`demo-bytes.test.ts`/"a mis-named demo is parsed as what its bytes are". No manual residue. Review
+(default tier, one cycle): PASS, no blocking findings — one non-blocking observation noted and left
+as-is: `mvd2-header.ts`'s `map` field returns `''` rather than `null` for an empty (but present)
+`CS_MODELS+1` configstring, unlike [[136]]'s `null`-on-empty guard; no real fixture or spec text
+exercises this, not covered by any AC. Standalone build (no `--full`): the full regression gate
+(`npm test`, `npm run ui:verify`, `npm run ui:flows`) has not run — run it before merging, or use
+`/build 137 --full`.
+
+Decisions: none beyond what the story's own Decisions (Sprint) section already recorded; no new
+implementation-detail calls were needed beyond the bug fix above.
+
+tiers: D 2 / hard 0 · review default · cycles 1 · agents 6

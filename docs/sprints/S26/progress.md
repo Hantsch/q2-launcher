@@ -22,3 +22,15 @@
 - 2026-09-28 09:06 · 136 · review 1 · started
 - 2026-09-28 09:08 · 136 · review 1 · done
 - 2026-09-28 09:09 · 136 · story · done
+- 2026-09-28 09:09:40 · 137 · build · started
+- 2026-09-28 09:10 · 137 · D1 pure MVD2 parser + dispatcher · started
+- 2026-09-28 09:14 · 137 · D1 pure MVD2 parser + dispatcher · done
+- 2026-09-28 09:14 · 137 · D2 main reader + real-fixture tests · started
+- 2026-09-28 09:18 · 137 · D2 main reader + real-fixture tests · done
+- 2026-09-28 09:18 · 137 · fix players-loop bound bug (found pre-review) · started
+- 2026-09-28 09:20 · 137 · fix players-loop bound bug (found pre-review) · done
+- 2026-09-28 09:20 · 137 · verify · started
+- 2026-09-28 09:21 · 137 · verify · done
+- 2026-09-28 09:21 · 137 · review 1 · started
+- 2026-09-28 09:23 · 137 · review 1 · done
+- 2026-09-28 09:24 · 137 · story · done
