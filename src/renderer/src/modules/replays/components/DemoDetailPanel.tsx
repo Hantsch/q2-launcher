@@ -147,7 +147,7 @@ export function DemoDetailPanel({
             demoId={row.id}
             values={row.sidecar.values}
             onRowPatched={onRowPatched}
-            disabledReason={row.archiveEntry !== null ? 'replays.sidecar.error.archiveEntry' : null}
+            disabledReason={row.archiveEntry !== null ? 'replays.archive.readOnly.edit' : null}
             mapField={detail.fields.find((field) => field.id === 'map')}
             knownPlayers={detail.knownPlayers}
             otherDemosTags={otherDemosTags}

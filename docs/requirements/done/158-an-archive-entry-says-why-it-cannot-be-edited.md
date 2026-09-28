@@ -1,7 +1,7 @@
 ---
 id: 158
 title: an archive entry says why it cannot be edited
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -164,4 +164,64 @@ marked "(from 155/157)" are the expected ones.
 
 ## Done
 
-<!-- Filled by /build 158. -->
+D1-D3 built. D1 was test-only: the archive-entry guards in `demo-rename.ts:95` and
+`sidecar-store.ts:106` already existed from [[157]]/[[146]]; added the registered-handler proof
+(`index.test.ts`) that both `sidecar.write` and the rename channel reject an archive-entry id via
+`registry.invoke`, with no fs mutation, plus extended the i18n presence test. D2 wrapped
+`DemoNotesEditor`'s form (incl. Save/Cancel) in `<fieldset disabled>` with one visible reason
+(`replays-archive-readonly-edit`), disabled `DemoFileActions`' rename button with
+`replays-archive-readonly-rename`, added the three `replays.archive.readOnly.*` i18n keys, and wrote
+`scripts/flows/replays-archive-readonly.mjs`. D3 added a real visible row notice
+(`replays-archive-readonly-row`) and repointed the quick favourite/rating controls'
+`aria-describedby` at it (previously pointed at the archive marker icon's generic label). All three
+disabled-with-reason spots use `aria-describedby` -> a real rendered element, never a tooltip-only
+cue.
+
+Commit message: `158: an archive entry says why it cannot be edited`
+
+**Decisions:**
+- The review's one finding (the new e2e flow never asserted "Play, if present, is enabled" per the
+  story's own Plan/Decisions) was fixed directly: added a guarded check
+  (`scripts/flows/replays-archive-readonly.mjs`, before the loose-demo step) that only asserts
+  Play is enabled when a `replays-demo-play` testid exists — a no-op today (Play ships in S28) but
+  present so the coverage isn't forgotten.
+
+**Verification - narrow gate:**
+- `npm run build` - green. `npm run typecheck` - green. `npx vitest run --changed HEAD` - green,
+  96 files / 730 tests.
+- `npm run ui:flow -- replays-archive-readonly` (e2e-story) - RED: times out waiting for
+  `replays-demo-list` after `nav-replays`, before any archive-readonly assertion runs. Reproduced
+  identically on the pre-existing, UNMODIFIED sibling flow `scripts/flows/replays-zip-entries.mjs`
+  (re-run standalone, same timeout at the same step) - this is not caused by this story's diff (no
+  production file under `src/main/modules/replays/{discovery,zip-demos,scan-service,index-cache}.ts`
+  was touched here). A non-zip flow (`replays-module-shell`) passes normally in the same
+  environment, so the fault is specific to flows that seed the zip fixture, not the harness at
+  large. Root cause not isolated further (out of this story's scope - no zip/scan file was part of
+  its deliverables); candidates noted for whoever investigates: a regression from [[157]]'s
+  `scan-service.ts`/`discovery.ts` changes (same branch, committed just before this story), or
+  resource contention from the many concurrent build/test processes this session ran.
+- **AC -> test mapping as verified:** AC1-AC3/AC5's unit-level tests (D2/D3 component tests, D1/D3
+  i18n and registry tests) all ran and passed; their e2e halves (the `replays-archive-readonly` flow)
+  ran and passed after the orchestrator reseeded the fixtures (see Blocker note below — the initial
+  timeout was fixture staleness, not this story's code). AC4 fully verified (unit only, no e2e
+  claimed). No `manual residue`.
+- **Code review (clean agent, default tier):** PASS. One minor finding (missing Play assertion in
+  the new flow) - fixed directly, no re-verification needed (a no-op guard, syntax-checked with
+  `node --check`). No correctness bugs, no weakened tests, no scope creep.
+- Gate run: narrow only (test-story `npx vitest run --changed HEAD`, e2e-story
+  `npm run ui:flow -- replays-archive-readonly`). The full gate has not run (sprint's job).
+
+**Blocker — resolved, not a regression:** the build agent's e2e run timed out waiting for
+`replays-demo-list` on both `replays-archive-readonly` and the unmodified sibling flow
+`replays-zip-entries`. The orchestrator reproduced the same timeout, then ran `npm run build`
+(no change) and `npm run ui:seed` (reseeds every fixture variant, including `replays-rows` and
+`populated`) — after the reseed, both flows and `replays-demo-rows` passed cleanly. The cause was
+fixture staleness: several stories built earlier in this sprint (155, 157) ran flows that write
+sidecars/rename files into shared fixture variants without reseeding between runs, so a later
+flow's expected rows/files were no longer there. Not a product defect, no code changed to fix it.
+Confirmed green: `npx vitest run --changed HEAD` (730 tests) and
+`npm run ui:flow -- replays-archive-readonly` (all 5 steps, incl. the Play-if-present guard),
+after reseeding. AC1-AC5 are now proven by both their unit tests and the real e2e surface.
+Status set to `done`.
+
+tiers: D 3 / hard 0 · review default · cycles 1 · agents 7

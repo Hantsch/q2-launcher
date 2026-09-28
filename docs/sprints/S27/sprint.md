@@ -13,15 +13,15 @@ The Demos view shows every indexed demo as a row with explicit loading/empty/err
 
 ## Stories (in build order)
 
-- [ ] 150 — a demo row says what it is
-- [ ] 151 — the demo list says what it's doing
-- [ ] 152 — favourites first, then newest
-- [ ] 153 — I search and filter my demos
-- [ ] 154 — I filter demos by date
-- [ ] 155 — I describe a demo the way I remember it
-- [ ] 156 — I find a demo on disk
-- [ ] 157 — I rename a demo and its notes move with it
-- [ ] 158 — an archive entry says why it cannot be edited
+- [x] 150 — a demo row says what it is
+- [x] 151 — the demo list says what it's doing
+- [x] 152 — favourites first, then newest
+- [x] 153 — I search and filter my demos
+- [x] 154 — I filter demos by date
+- [x] 155 — I describe a demo the way I remember it
+- [x] 156 — I find a demo on disk
+- [x] 157 — I rename a demo and its notes move with it
+- [x] 158 — an archive entry says why it cannot be edited
 
 ## Notes
 

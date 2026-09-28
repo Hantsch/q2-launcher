@@ -71,10 +71,25 @@ export function DemoFileActions({ demo, onRenamed }: DemoFileActionsProps) {
         <Button size="sm" onClick={() => void handleCopyPath()} data-testid="replays-demo-copy-path">
           {t('replays.fileActions.copyPath')}
         </Button>
-        <Button size="sm" onClick={() => setRenaming(true)} data-testid="demo-rename">
+        <Button
+          size="sm"
+          onClick={() => setRenaming(true)}
+          disabled={demo.archiveEntry !== null}
+          aria-describedby={demo.archiveEntry !== null ? 'replays-archive-readonly-rename' : undefined}
+          data-testid="demo-rename"
+        >
           {t('replays.rename.title')}
         </Button>
       </div>
+      {demo.archiveEntry !== null && (
+        <p
+          className="text-xs text-ink-dim"
+          id="replays-archive-readonly-rename"
+          data-testid="replays-archive-readonly-rename"
+        >
+          {t('replays.archive.readOnly.rename')}
+        </p>
+      )}
       {error && (
         <p className="text-xs text-danger" role="alert" data-testid="replays-demo-file-action-error">
           {error.kind === 'domain' ? t(error.key) : t(error.message.key, error.message.params)}

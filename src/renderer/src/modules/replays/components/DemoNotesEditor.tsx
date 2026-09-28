@@ -84,6 +84,8 @@ export function DemoNotesEditor({
 
   if (entry === undefined) return null
 
+  const noticeId = `replays-notes-disabled-reason-${demoId}`
+
   const { draft, baseline } = entry
   const disabled = disabledReason !== null || entry.saving === true
   const converted = draftToFields(draft)
@@ -101,7 +103,7 @@ export function DemoNotesEditor({
       </h3>
 
       {disabledReason !== null && (
-        <p className="text-sm text-ink-dim" data-testid="replays-editor-disabled-reason">
+        <p className="text-sm text-ink-dim" id={noticeId} data-testid="replays-archive-readonly-edit">
           {t(disabledReason)}
         </p>
       )}
@@ -113,68 +115,74 @@ export function DemoNotesEditor({
           if (canSave) submit()
         }}
       >
-        {TEXT_FIELDS.slice(0, 1).map((field) => renderText(field))}
-
-        <Field label={t('replays.editor.field.description')} htmlFor={descriptionId}>
-          <textarea
-            id={descriptionId}
-            className={TEXTAREA_CLASS}
-            value={draft.description}
-            maxLength={4000}
-            disabled={disabled}
-            onChange={(event) => set({ description: event.target.value })}
-            data-testid="replays-editor-description"
-          />
-        </Field>
-
-        {TEXT_FIELDS.slice(1).map((field) => renderText(field))}
-
-        <SidesEditor
-          draft={draft}
-          knownPlayers={knownPlayers}
+        <fieldset
+          className="space-y-3 border-0 p-0 m-0"
           disabled={disabled}
-          onChange={(next) => updateDraft(demoId, next)}
-        />
+          aria-describedby={disabledReason !== null ? noticeId : undefined}
+        >
+          {TEXT_FIELDS.slice(0, 1).map((field) => renderText(field))}
 
-        <Field label={t('replays.editor.field.tags')}>
-          <TagInput
-            tags={draft.tags}
-            suggestions={tagSuggestions}
+          <Field label={t('replays.editor.field.description')} htmlFor={descriptionId}>
+            <textarea
+              id={descriptionId}
+              className={TEXTAREA_CLASS}
+              value={draft.description}
+              maxLength={4000}
+              disabled={disabled}
+              onChange={(event) => set({ description: event.target.value })}
+              data-testid="replays-editor-description"
+            />
+          </Field>
+
+          {TEXT_FIELDS.slice(1).map((field) => renderText(field))}
+
+          <SidesEditor
+            draft={draft}
+            knownPlayers={knownPlayers}
             disabled={disabled}
-            onAddTag={(tag) => updateDraft(demoId, (d) => addTag(d, tag))}
-            onRemoveTag={(tag) => updateDraft(demoId, (d) => removeTag(d, tag))}
-            onInputChange={setTagInputText}
+            onChange={(next) => updateDraft(demoId, next)}
           />
-        </Field>
 
-        <Checkbox
-          checked={draft.favourite}
-          disabled={disabled}
-          onChange={(favourite) => set({ favourite })}
-          label={t('replays.editor.field.favourite')}
-          data-testid="replays-editor-favourite"
-        />
+          <Field label={t('replays.editor.field.tags')}>
+            <TagInput
+              tags={draft.tags}
+              suggestions={tagSuggestions}
+              disabled={disabled}
+              onAddTag={(tag) => updateDraft(demoId, (d) => addTag(d, tag))}
+              onRemoveTag={(tag) => updateDraft(demoId, (d) => removeTag(d, tag))}
+              onInputChange={setTagInputText}
+            />
+          </Field>
 
-        {entry.saveError !== undefined && (
-          <p role="alert" className="text-sm text-danger" data-testid="replays-editor-save-error">
-            {t('replays.editor.saveFailed', { reason: t(entry.saveError.key, entry.saveError.params) })}
-          </p>
-        )}
-
-        <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="ghost"
+          <Checkbox
+            checked={draft.favourite}
             disabled={disabled}
-            onClick={() => cancelDraft(demoId)}
-            data-testid="replays-editor-cancel"
-          >
-            {t('common.cancel')}
-          </Button>
-          <Button type="submit" disabled={!canSave} data-testid="replays-editor-save">
-            {entry.saving === true ? t('replays.editor.saving') : t('common.save')}
-          </Button>
-        </div>
+            onChange={(favourite) => set({ favourite })}
+            label={t('replays.editor.field.favourite')}
+            data-testid="replays-editor-favourite"
+          />
+
+          {entry.saveError !== undefined && (
+            <p role="alert" className="text-sm text-danger" data-testid="replays-editor-save-error">
+              {t('replays.editor.saveFailed', { reason: t(entry.saveError.key, entry.saveError.params) })}
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={disabled}
+              onClick={() => cancelDraft(demoId)}
+              data-testid="replays-editor-cancel"
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button type="submit" disabled={!canSave} data-testid="replays-editor-save">
+              {entry.saving === true ? t('replays.editor.saving') : t('common.save')}
+            </Button>
+          </div>
+        </fieldset>
       </form>
 
       {entry.replace !== undefined && (

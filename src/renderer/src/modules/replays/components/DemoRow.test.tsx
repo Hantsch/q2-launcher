@@ -159,9 +159,19 @@ describe('DemoRow', () => {
     const rating = screen.getByTestId('replays-row-rating') as HTMLSelectElement
     expect(favourite.disabled).toBe(true)
     expect(rating.disabled).toBe(true)
-    const marker = screen.getByTestId('replays-marker-archive')
-    expect(favourite.getAttribute('aria-describedby')).toBe(marker.id)
-    expect(rating.getAttribute('aria-describedby')).toBe(marker.id)
+    const reason = screen.getByTestId('replays-archive-readonly-row')
+    expect(reason.textContent).toBe('Read-only (in an archive)')
+    expect(favourite.getAttribute('aria-describedby')).toBe(reason.id)
+    expect(rating.getAttribute('aria-describedby')).toBe(reason.id)
+  })
+
+  it('a loose (non-archive) row has neither the read-only notice nor disabled controls', () => {
+    renderRow(BASE_ROW)
+    const favourite = screen.getByTestId('replays-row-favourite') as HTMLButtonElement
+    const rating = screen.getByTestId('replays-row-rating') as HTMLSelectElement
+    expect(favourite.disabled).toBe(false)
+    expect(rating.disabled).toBe(false)
+    expect(screen.queryByTestId('replays-archive-readonly-row')).toBeNull()
   })
 
   it('clicking the quick favourite/rating controls never selects the row', () => {

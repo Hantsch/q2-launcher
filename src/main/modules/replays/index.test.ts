@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -16,6 +17,7 @@ import { UI_HARNESS_ENV } from '../../lib/ui-harness'
 import type { AppContext } from '../../context'
 import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
+import { resolveExtractorPath } from '../downloads/7za-path'
 import { discoveryHomeDir, replaysModule, scanHoldMs } from './index'
 
 /**
@@ -468,6 +470,88 @@ describe('replays module', () => {
       expect(afterBad).toEqual(afterWrite)
     })
 
+    it('sidecar write and demo rename both refuse an archive-entry demo id, at the registered-handler level', async () => {
+      const demosDir = join(dir, 'baseq2', 'demos')
+      await mkdir(demosDir, { recursive: true })
+
+      // Story 143 D3: a real zip built with the vendored extractor, so the real scan/discovery
+      // path assigns this demo a `kind: 'archive-entry'` resolved file, same as
+      // `discovery.test.ts`'s "zip expansion" case.
+      const extractor = resolveExtractorPath({ isPackaged: false })
+      expect(extractor.exists).toBe(true)
+      const zipSrc = await mkdtemp(join(tmpdir(), 'q2-launcher-replays-zip-src-'))
+      await writeFile(join(zipSrc, 'archived.dm2'), 'archived-bytes')
+      execFileSync(
+        extractor.path,
+        ['a', '-tzip', '-y', '-spd', '--', join(demosDir, 'pack.zip'), 'archived.dm2'],
+        { cwd: zipSrc },
+      )
+      await rm(zipSrc, { recursive: true, force: true })
+
+      const installation = {
+        id: 'inst-1',
+        name: 'Installation One',
+        rootPath: dir,
+        gameDirs: ['baseq2'],
+        engineKind: 'r1q2',
+        recordedEngineKind: undefined,
+        writeDirPath: undefined,
+      }
+
+      const appContext = {
+        broadcast: { emit: () => {} },
+        installations: { list: () => [installation] },
+        state,
+        launch: { isRunning: () => false },
+      } as unknown as AppContext
+
+      const registry = new MainModuleRegistry()
+      await registry.register(replaysModule, appContext)
+
+      await registry.invoke({
+        moduleId: 'replays',
+        type: REPLAYS_HANDLERS.scanStart,
+        payload: undefined,
+      })
+      const rows = await waitForIndexed(registry)
+      const archiveRow = rows.find(
+        (r) => (r as unknown as { fileName?: string }).fileName === 'archived.dm2',
+      )
+      expect(archiveRow).toBeDefined()
+      const archiveEntryId = archiveRow!.id
+
+      const filesBefore = (await readdir(demosDir)).sort()
+
+      const writeOutcome = await registry.invoke({
+        moduleId: 'replays',
+        type: REPLAYS_HANDLERS.sidecarWrite,
+        payload: { demoId: archiveEntryId, fields: { name: 'x' } },
+      })
+      // Story 146: `sidecarStore.write` returns its own Outcome as the handler's *value* - the
+      // registry always wraps a successfully-invoked handler in `ok(...)` regardless of what the
+      // handler's own result says (`registry.ts`'s `invoke`), so a typed rejection from the sidecar
+      // store surfaces as `{ ok: true, value: { ok: false, error: { key } } }` here, same shape
+      // `sidecar-store.test.ts` asserts directly against the service.
+      expect(writeOutcome).toEqual({
+        ok: true,
+        value: { ok: false, error: { key: 'replays.sidecar.error.archiveEntry' } },
+      })
+
+      const renameOutcome = await registry.invoke({
+        moduleId: 'replays',
+        type: REPLAYS_HANDLERS.demoRename,
+        payload: { id: archiveEntryId, name: 'renamed' },
+      })
+      expect(renameOutcome).toEqual({
+        ok: true,
+        value: { ok: false, error: { key: 'replays.rename.error.archiveEntry' } },
+      })
+
+      const filesAfter = (await readdir(demosDir)).sort()
+      expect(filesAfter).toEqual(filesBefore)
+      expect(filesAfter.some((f) => f.endsWith('.json'))).toBe(false)
+    })
+
     it('no replays handler except the sidecar writers creates a sidecar', async () => {
       const demosDir = join(dir, 'baseq2', 'demos')
       await mkdir(demosDir, { recursive: true })
@@ -558,6 +642,10 @@ describe('replays module', () => {
       expect(sidecar.notWritable.length).toBeGreaterThan(0)
       expect(sidecar.writeFailed.length).toBeGreaterThan(0)
       expect(sidecar.notWritable).toContain('{{folder}}')
+
+      const rename = (en as unknown as { replays: { rename: { error: Record<string, string> } } })
+        .replays.rename.error
+      expect(rename.archiveEntry.length).toBeGreaterThan(0)
     })
   })
 

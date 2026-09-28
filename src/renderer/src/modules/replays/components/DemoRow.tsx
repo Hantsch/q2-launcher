@@ -52,6 +52,7 @@ function UnknownValue() {
 export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps) {
   const { t, i18n } = useTranslation()
   const archiveMarkerId = `replays-marker-archive-${row.id}`
+  const archiveReadonlyRowId = `replays-archive-readonly-row-${row.id}`
 
   const name = row.effective.name.value
   const gamemode = row.effective.gamemode
@@ -216,7 +217,7 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
           size="sm"
           aria-pressed={favourite}
           disabled={row.archiveEntry !== null}
-          aria-describedby={row.archiveEntry !== null ? archiveMarkerId : undefined}
+          aria-describedby={row.archiveEntry !== null ? archiveReadonlyRowId : undefined}
           data-testid="replays-row-favourite"
           onClick={(event: MouseEvent) => {
             event.stopPropagation()
@@ -233,7 +234,7 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
         <select
           aria-label={t('replays.row.quick.ratingAriaLabel', { name: name ?? row.fileName })}
           disabled={row.archiveEntry !== null}
-          aria-describedby={row.archiveEntry !== null ? archiveMarkerId : undefined}
+          aria-describedby={row.archiveEntry !== null ? archiveReadonlyRowId : undefined}
           data-testid="replays-row-rating"
           value={rating !== undefined ? String(rating) : ''}
           className="h-6 rounded-sm border border-line-strong bg-void/60 px-1 text-[11px] text-ink disabled:opacity-45"
@@ -253,6 +254,15 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
             </option>
           ))}
         </select>
+        {row.archiveEntry !== null && (
+          <span
+            id={archiveReadonlyRowId}
+            data-testid="replays-archive-readonly-row"
+            className="text-[10px] text-ink-muted"
+          >
+            {t('replays.archive.readOnly.row')}
+          </span>
+        )}
       </span>
     </div>
   )

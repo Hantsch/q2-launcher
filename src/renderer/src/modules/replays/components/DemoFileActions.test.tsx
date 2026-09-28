@@ -46,7 +46,7 @@ afterEach(() => {
   useLauncher.setState({ toasts: [] })
 })
 
-const BASE_DEMO = { id: 'demo-1', fileName: 'demo-1.dm2' } as unknown as DemoRow
+const BASE_DEMO = { id: 'demo-1', fileName: 'demo-1.dm2', archiveEntry: null } as unknown as DemoRow
 
 describe('DemoFileActions (story 156 D2)', () => {
   it('a successful copy shows the path-copied toast (AC2)', async () => {
@@ -73,5 +73,29 @@ describe('DemoFileActions (story 156 D2)', () => {
     const alert = await screen.findByTestId('replays-demo-file-action-error')
     expect(alert.getAttribute('role')).toBe('alert')
     expect(alert.textContent).toContain("no longer on disk")
+  })
+
+  it('an archive-entry demo disables rename and shows the read-only reason', () => {
+    const archiveDemo = {
+      ...BASE_DEMO,
+      archiveEntry: { archivePath: 'pack.zip', entryPath: 'test.dm2' },
+    } as unknown as DemoRow
+
+    render(createElement(DemoFileActions, { demo: archiveDemo, onRenamed: vi.fn() }))
+
+    const rename = screen.getByTestId('demo-rename') as HTMLButtonElement
+    expect(rename.disabled).toBe(true)
+
+    const notice = screen.getByTestId('replays-archive-readonly-rename')
+    expect(notice.textContent).toContain("can't be renamed")
+    expect(rename.getAttribute('aria-describedby')).toBe(notice.id)
+  })
+
+  it('a loose demo leaves rename enabled with no read-only notice', () => {
+    render(createElement(DemoFileActions, { demo: BASE_DEMO, onRenamed: vi.fn() }))
+
+    const rename = screen.getByTestId('demo-rename') as HTMLButtonElement
+    expect(rename.disabled).toBe(false)
+    expect(screen.queryByTestId('replays-archive-readonly-rename')).toBeNull()
   })
 })

@@ -144,3 +144,17 @@
 - 2026-09-28 22:58 · 157 · verify 3 (post-hard-review fix) · started
 - 2026-09-28 22:59 · 157 · verify 3 (post-hard-review fix) · done
 - 2026-09-28 23:00 · 157 · story · done
+- 2026-09-28 23:01:04 · 158 · build · started
+- 2026-09-28 23:03 · 158 · D1 main rejects rename of an archive entry · started
+- 2026-09-28 23:08 · 158 · D1 main rejects rename of an archive entry · done
+- 2026-09-28 23:08 · 158 · D2 detail panel editor+rename disabled with reason · started
+- 2026-09-28 23:12 · 158 · D2 detail panel editor+rename disabled with reason · done
+- 2026-09-28 23:12 · 158 · D3 demo row quick favourite/rating disabled with reason · started
+- 2026-09-28 23:13 · 158 · D3 demo row quick favourite/rating disabled with reason · done
+- 2026-09-28 23:13 · 158 · verify · started
+- 2026-09-28 23:18 · 158 · verify · blocked: e2e replays-archive-readonly red (pre-existing, reproduces on unmodified replays-zip-entries too)
+- 2026-09-28 23:18 · 158 · review 1 · started
+- 2026-09-28 23:22 · 158 · review 1 · done (PASS, 1 minor finding fixed: flow now asserts Play enabled-if-present)
+- 2026-09-28 23:22 · 158 · story · blocked: e2e replays-archive-readonly cannot be observed passing (pre-existing zip-fixture fault, reproduces on unmodified replays-zip-entries)
+- 2026-09-28 23:27:46 · 158 · orchestrator note · e2e timeout traced to stale shared fixtures (npm run ui:seed), not a code regression; reseed + rerun green
+- 2026-09-28 23:27:46 · 158 · story · done

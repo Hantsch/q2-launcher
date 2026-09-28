@@ -43,6 +43,8 @@ version section when a release actually ships.
 - Rename a demo from its detail panel — its notes file moves right along with it, and if the old
   name was giving away a date or the players, that's kept safe in the notes so renaming never
   loses it.
+- A demo inside a `.zip` now shows you plainly why you can't rename it or add notes to it, right
+  there in its detail panel — reveal and copy path still work fine.
 
 ## 0.5.0 — 2026-09-26
 

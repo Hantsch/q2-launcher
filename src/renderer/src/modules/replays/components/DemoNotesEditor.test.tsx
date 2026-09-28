@@ -95,4 +95,28 @@ describe('DemoNotesEditor', () => {
     const map = screen.getByTestId('replays-editor-map') as HTMLInputElement
     expect(map.placeholder).toBe('e.g. q2dm1')
   })
+
+  it('an archive-entry demo shows its read-only reason and disables the whole form', () => {
+    render(
+      createElement(DemoNotesEditor, {
+        demoId: '0123456789abcdef',
+        values: {},
+        onRowPatched: vi.fn(),
+        disabledReason: 'replays.archive.readOnly.edit',
+      }),
+    )
+
+    const notice = screen.getByTestId('replays-archive-readonly-edit')
+    expect(notice.textContent).toContain('read-only')
+
+    const description = screen.getByTestId('replays-editor-description') as HTMLTextAreaElement
+    expect(description.disabled).toBe(true)
+
+    const save = screen.getByTestId('replays-editor-save') as HTMLButtonElement
+    expect(save.disabled).toBe(true)
+
+    const fieldset = description.closest('fieldset') as HTMLFieldSetElement
+    expect(fieldset.disabled).toBe(true)
+    expect(fieldset.getAttribute('aria-describedby')).toBe(notice.id)
+  })
 })

@@ -1166,6 +1166,13 @@
         "encrypted": "Encrypted archive entry"
       }
     },
+    "archive": {
+      "readOnly": {
+        "edit": "Demos inside an archive are read-only — extract it to annotate it.",
+        "rename": "Demos inside an archive can't be renamed — the archive is read-only.",
+        "row": "Read-only (in an archive)"
+      }
+    },
     "sidecar": {
       "error": {
         "unknownDemo": "This demo is no longer in the list. Rescan and try again.",
