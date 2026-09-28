@@ -318,4 +318,38 @@ reviewed and judged a real, load-bearing focus indicator, not a corner cut.
 Narrow gate only. The full regression gate (`npm test`, `npm run ui:verify`, `npm run ui:flows`)
 has not run — run it before merging, or use `/build 154 --full`.
 
-tiers: D 5 / hard 0 · review default · cycles 1 · agents 8
+### Regression fix (S27 full gate)
+
+`npm run ui:verify -- --screens=replays-date-filter-invalid` failed its `@940x620` visit (the
+screen's second visit within the batched session, after `@1280x800`) with `replays-demo-list`
+never becoming visible. Root cause: typing `From` alone commits and persists a valid,
+single-open-ended custom range live (AC2/D3, correctly); typing `To` next into a value that makes
+the pair invalid correctly rejects that combination and emits nothing further (AC3) — but the
+*already-applied* from-only commit (`from: 2026-12-31, to: null`) stayed in effect and was
+debounce-persisted (`ReplaysView.tsx`'s 300ms write / flush-on-unmount), even though the picker was
+visibly showing a rejection error for the edit that produced it. Since that from-only date is far
+outside the fixture's demo dates, it narrowed the list to zero rows, which swaps `replays-demo-list`
+out for the `replays-filter-no-match` state (pre-existing, correct behaviour, not new to this fix) —
+so the next session visit's `navigate()` timed out waiting for a list that no longer renders.
+
+Fix (product code, `DateRangePicker`/`Popover`, both files this story already owns/uses): the
+picker now remembers the filter value in effect when the popover was last opened
+(`openValueRef` in `DateRangePicker.tsx`) and, if the popover closes (Escape, outside click, or its
+own toggle) while the fields are still left in a rejected `from > to` state, reverts to that
+pre-edit value instead of leaving the abandoned partial commit applied — matching AC3's own wording
+more precisely ("the list keeps the last valid date filter" = the filter genuinely in effect before
+this edit, not a half-typed value the user never finished). `Popover.tsx` gained a purely additive,
+optional `onOpenChange?: (open: boolean) => void` prop (default no-op) to let `DateRangePicker`
+observe every open/close transition regardless of cause; no existing `Popover` caller's behaviour
+changes.
+
+Files changed: `src/renderer/src/components/ui/DateRangePicker.tsx`,
+`src/renderer/src/components/ui/Popover.tsx`.
+
+Verified: `npm run ui:verify -- --screens=replays-date-filter-invalid` green on both viewports
+(re-run twice more for reliability); `npx vitest run --changed HEAD` green (76 tests, 11 files,
+incl. `Popover.test.tsx`/`DateRangePicker.test.tsx`); `npm run typecheck` clean. `npm run ui:flow --
+replays-date-filter` still fails at its later, unrelated "the picker works by keyboard alone" step
+(`could not Tab to "replays-filter-date-trigger" within 40 presses`) — confirmed via `git stash` to
+reproduce identically on the pre-fix code, so it is a separate, pre-existing issue, not touched
+here; flagged back to the orchestrator rather than fixed under this regression's scope.

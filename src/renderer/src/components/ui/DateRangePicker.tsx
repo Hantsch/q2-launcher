@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   isRangeOrderValid,
@@ -49,6 +49,14 @@ export function DateRangePicker({ value, onChange, presets, label, testId }: Dat
   const { t } = useTranslation()
   const [draft, setDraft] = useState<Draft>(() => draftFromValue(value))
   const errorId = useId()
+  // Story 154 regression fix: the value in effect when the popover was last opened - restored if
+  // the popover closes (Escape, outside click, or its own Close/unmount) while the fields are left
+  // mid-edit in a rejected `from > to` state. Without this, an abandoned edit's last *individually*
+  // valid partial commit (e.g. typing `From` alone before `To` turns out to conflict with it) stays
+  // applied and persisted forever, even though the picker's own error text told the user nothing
+  // was accepted - AC3's "the list keeps the last valid date filter" means the filter that was
+  // actually in effect before this edit, not a half-typed value the user never got to finish.
+  const openValueRef = useRef<DateRangeValue | null>(value)
 
   const triggerText =
     value === null
@@ -88,9 +96,21 @@ export function DateRangePicker({ value, onChange, presets, label, testId }: Dat
 
   const hasError = !isRangeOrderValid(draft.from || null, draft.to || null)
 
+  const handleOpenChange = (open: boolean): void => {
+    if (open) {
+      openValueRef.current = value
+      return
+    }
+    if (hasError) {
+      setDraft(draftFromValue(openValueRef.current))
+      onChange(openValueRef.current)
+    }
+  }
+
   return (
     <Popover
       label={label}
+      onOpenChange={handleOpenChange}
       content={() => (
         <div className="space-y-3">
           <div className="flex flex-wrap gap-1.5">

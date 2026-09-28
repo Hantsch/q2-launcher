@@ -31,6 +31,7 @@ export function Popover({
   children,
   side = 'below',
   label,
+  onOpenChange,
 }: {
   /** Render prop for the popover's body; receives a `close` callback so content
    * (e.g. a close button) can dismiss it without the caller holding its own
@@ -40,6 +41,10 @@ export function Popover({
   children: (props: { open: boolean; toggle: () => void }) => ReactNode
   side?: 'right' | 'below'
   label: string
+  /** Notified whenever the popover transitions open/closed, for any reason - trigger click,
+   * `close()` from content, Escape or an outside click. Optional; existing callers are
+   * unaffected. */
+  onOpenChange?: (open: boolean) => void
 }) {
   const anchorRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -104,6 +109,15 @@ export function Popover({
       document.removeEventListener('keydown', onKeyDown)
       previouslyFocused.current?.focus()
     }
+  }, [open])
+
+  // Story 154 regression fix: notifies the caller of every open/closed transition, whatever the
+  // cause (trigger click, content's own `close()`, Escape, outside click). Kept as its own effect,
+  // keyed only on `open`, so callers passing a fresh closure each render don't cause repeat calls.
+  const onOpenChangeRef = useRef(onOpenChange)
+  onOpenChangeRef.current = onOpenChange
+  useEffect(() => {
+    onOpenChangeRef.current?.(open)
   }, [open])
 
   return (
