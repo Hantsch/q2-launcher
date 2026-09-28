@@ -1,7 +1,7 @@
 ---
 id: 145
 title: a demo I cannot parse still shows up
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -19,19 +19,19 @@ does not understand it.
 user-visible list marker, detail rendering, sidecar/reveal/rename and Play live in [[150]],
 [[155]], [[146]]/[[156]]/[[157]] and [[159]] respectively.)*
 
-- [ ] **AC1** — A file the parser (`[[136]]`/`[[137]]`) reports as unparsable still becomes an
+- [x] **AC1** — A file the parser (`[[136]]`/`[[137]]`) reports as unparsable still becomes an
       index entry, flagged `readable: false`, never dropped from the index.
-- [ ] **AC2** — The entry carries the parser's closed reason code (plus `protocol`/`version` data
+- [x] **AC2** — The entry carries the parser's closed reason code (plus `protocol`/`version` data
       where relevant) and an exhaustive `Record<Reason, …>` i18n-key mapping ships with its
       `en.json` strings, unit-tested for every reason code.
-- [ ] **AC3** — The entry's name facts come from [[139]] and its effective date is the file's
+- [x] **AC3** — The entry's name facts come from [[139]] and its effective date is the file's
       modification/creation time with source `file-time`; every parsed field is `null`, never a
       partial result of the failed parse.
-- [ ] **AC4** — The entry has the same id kind as a readable demo and carries no readability gate
+- [x] **AC4** — The entry has the same id kind as a readable demo and carries no readability gate
       on the data side — nothing about sidecar, reveal, copy path or rename is disabled here at
       the data layer; each of those stories ([[146]], [[156]], [[157]]) adds its own AC proving it
       works for an unreadable demo on the real surface.
-- [ ] **AC5** — *(moved to [[159]], S28)* — Play's disabled-with-reason behaviour for an
+- [x] **AC5** — *(moved to [[159]], S28)* — Play's disabled-with-reason behaviour for an
       unreadable demo is implemented and tested there; this story ships only the reason's i18n
       key (`replays.unreadable.playDisabled`).
 
@@ -226,4 +226,41 @@ Order: D1 → D2; D3 needs only D1.
 
 ## Done
 
-<!-- Filled by /build 145. -->
+Shipped the data-layer projection: `src/shared/demos/readability.ts` (D1) turns any parser
+`ok: false` result into a closed `readable/unreadable` shape with a compile-time exhaustiveness
+guard; `src/main/modules/replays/scan-service.ts` + `discovery.ts` + `zip-demos.ts` (D2) wire it
+into every entry (loose and zip), add `fileTime`/`nameFacts`, keep name facts and file-time for
+unreadable rows, never drop/filter, never bump `REPLAYS_INDEX_CACHE_VERSION`;
+`src/renderer/src/modules/replays/unreadable-reason.ts` + `en.json` (D3) ship the nine-code
+`Record` mapping and strings, unit-tested for every code including interpolation.
+
+Commit message: `145: an unreadable demo still becomes an index entry`
+
+Verification (narrow gate): `npm run build` green, `npm run typecheck` green,
+`npx vitest run --changed HEAD` green (111 files/1657 tests), plus the required extra sweep
+`npx vitest run src/main/modules/replays src/shared/modules/replays.test.ts src/shared/demos
+src/shared/replays` green (20 files/215 tests) — no collateral breakage from 144's setup change.
+No e2e run: story is scoped to the data layer only (Decisions "Scope vs. sprint cut"), no
+list/detail UI ships here. AC → test mapping, all confirmed ran+passed: AC1 →
+`scan-service.test.ts` "an unparsable demo file is still an index entry, flagged unreadable" +
+`readability.test.ts` "the real parsers' failures project to their reason"; AC2 →
+`readability.test.ts` "every unparsable reason becomes readable false with its code" +
+`unreadable-reason.test.ts` "every unreadable reason code has an en string" / "unknown protocol
+and version interpolate their number" + typecheck exhaustiveness; AC3 → `scan-service.test.ts`
+"an unreadable entry carries its name facts and file time and no parsed fact"; AC4 →
+`scan-service.test.ts` "an unreadable entry has the same id kind and fields as a readable one";
+AC5 → `unreadable-reason.test.ts` "the unreadable marker and play-disabled reason have en
+strings" (i18n key only, behaviour moved to 159). No manual residue. Default-tier review PASSed
+with no findings (verified the exhaustiveness check empirically by injecting a fake reason and
+confirming typecheck failed, then reverted).
+
+Decisions (implementation-detail, not in story): `entry-too-large`/`encrypted`/`unreadable` are
+zip-layer codes (never emitted by `parseDemoHeader` itself), so D1's exhaustiveness check is a
+one-way assertion (every parser reason ⊆ the 9-code union) rather than a literal two-way type
+equality — documented in `readability.ts`'s header comment; this still fails typecheck on any
+new parser code left out of the union, which is what the story asks for. `discovery.ts` and
+`index.ts` needed touching beyond D2's named file list because `discoveredDemoSchema` gained
+required fields and every `DiscoveredDemo` construction site had to supply them — confirmed
+necessary by the reviewer, not scope creep.
+
+tiers: D 3 / hard 0 · review default · cycles 1 · agents 5

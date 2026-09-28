@@ -184,6 +184,10 @@ describe('expandZip (real 7za binary)', () => {
       archiveEntry: null,
       map: null,
       unparsableReason: null,
+      readable: true,
+      unreadable: null,
+      fileTime: { birthtimeMs: 0, mtimeMs: 0 },
+      nameFacts: null,
     }
     expect(looseRow.archiveEntry).toBeNull()
   })

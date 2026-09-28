@@ -1,4 +1,6 @@
 import { stat } from 'node:fs/promises'
+import { demoReadability } from '@shared/demos/readability'
+import type { DemoUnreadable } from '@shared/demos/readability'
 import {
   REPLAYS_EVENTS,
   demoSourceKey,
@@ -9,7 +11,7 @@ import {
   type ReplaysScanProgress,
   type ReplaysScanStartResult,
 } from '@shared/modules/replays'
-import { compileNameTemplate, matchNameTemplate } from '@shared/replays/name-template'
+import { compileNameTemplate, matchNameTemplate, type NameFacts } from '@shared/replays/name-template'
 import { readDemoHeader } from '../../lib/demo-bytes'
 import type { DiscoveredDemoFile } from './discovery'
 import type { CachedDemo, ReplaysIndexCache } from './index-cache'
@@ -42,16 +44,21 @@ import { runIncrementalScan, type IncrementalScanSource } from './incremental-sc
  * against `discoveredDemoSchema`; one that fails is dropped from the cache, i.e. re-parsed.
  */
 
-/** The header facts one parse settles on - everything a row needs beyond what discovery knows. */
+/** The header facts one parse settles on - everything a row needs beyond what discovery knows.
+ * `readable`/`unreadable` (story 145 D2) are D1's `demoReadability` projection of the same parse -
+ * carried alongside `map`/`unparsableReason` rather than replacing them, so existing readers of
+ * those two fields keep working unchanged. */
 export interface DemoHeaderFacts {
   map: string | null
   unparsableReason: DemoUnparsableReason | null
+  readable: boolean
+  unreadable: DemoUnreadable | null
 }
 
-/** A discovered demo plus the identity D2 compares against the cache. For a zip entry, `size` and
- * `mtimeMs` are the archive's own (its `absolutePath` is the archive), so an entry of an unchanged
- * archive is a cache hit. */
-export type ReplaysScanFile = DiscoveredDemoFile & { size: number; mtimeMs: number }
+/** A discovered demo plus the identity D2 compares against the cache. For a zip entry, `size`,
+ * `mtimeMs` and `birthtimeMs` are the archive's own (its `absolutePath` is the archive), so an entry
+ * of an unchanged archive is a cache hit. */
+export type ReplaysScanFile = DiscoveredDemoFile & { size: number; mtimeMs: number; birthtimeMs: number }
 
 export interface ReplaysNameMatcher {
   fingerprint: string
@@ -83,8 +90,18 @@ export interface ReplaysScanService {
   overview: () => Promise<ReplaysOverview>
 }
 
-/** Explicit field pick: `absolutePath`/`size`/`mtimeMs` never reach a row. */
-function toRow(file: DiscoveredDemoFile, facts: DemoHeaderFacts): DiscoveredDemo {
+/** Explicit field pick: `absolutePath`/`size`/`mtimeMs`/`birthtimeMs` never reach a row.
+ *
+ * `fileTime` for a loose file (`file.archiveEntry === null`) is this scan's own `stat()`
+ * (`file.birthtimeMs`/`file.mtimeMs`); for a zip entry it is whatever `expandZip` already settled
+ * on (the entry's own modified stamp, or the archive's) and is carried through unchanged via
+ * `facts` - see `readDemoFacts`.
+ *
+ * `nameFacts` is never set here (story 145 D2: it comes from the incremental scan's own name
+ * matcher, resolved once name and header facts are both known - see `withNameFacts` below); every
+ * row still gets the field so it always satisfies `discoveredDemoSchema`.
+ */
+function toRow(file: ReplaysScanFile, facts: DemoHeaderFacts): DiscoveredDemo {
   return {
     id: file.id,
     fileName: file.fileName,
@@ -94,7 +111,22 @@ function toRow(file: DiscoveredDemoFile, facts: DemoHeaderFacts): DiscoveredDemo
     archiveEntry: file.archiveEntry,
     map: facts.map,
     unparsableReason: facts.unparsableReason,
+    readable: facts.readable,
+    unreadable: facts.unreadable,
+    fileTime:
+      file.archiveEntry !== null
+        ? file.fileTime
+        : { birthtimeMs: file.birthtimeMs, mtimeMs: file.mtimeMs },
+    nameFacts: null,
   }
+}
+
+/** Merges this scan's (possibly freshly re-matched) name facts onto an already-built row. Applied
+ * as the very last step, uniformly to a fresh parse, a reused cache hit, and a row served straight
+ * from the on-disk cache before this process's first scan - so a template change is reflected even
+ * when the header facts themselves were reused untouched. */
+function withNameFacts(row: DiscoveredDemo, name: unknown): DiscoveredDemo {
+  return { ...row, nameFacts: (name ?? null) as NameFacts | null }
 }
 
 /** Drops every cache row whose `parsed` is not a valid row - it simply becomes a miss. */
@@ -110,13 +142,13 @@ function usableCache(raw: Map<string, CachedDemo>): Map<string, CachedDemo> {
 /** Stats every discovered demo; a file that vanished since the listing is left out. One `stat()`
  * per distinct path, so a zip's entries share their archive's. */
 async function statScanFiles(demos: DiscoveredDemoFile[]): Promise<ReplaysScanFile[]> {
-  const byPath = new Map<string, Promise<{ size: number; mtimeMs: number } | null>>()
+  const byPath = new Map<string, Promise<{ size: number; mtimeMs: number; birthtimeMs: number } | null>>()
   const out: ReplaysScanFile[] = []
   for (const demo of demos) {
     let pending = byPath.get(demo.absolutePath)
     if (pending === undefined) {
       pending = stat(demo.absolutePath).then(
-        (s) => ({ size: s.size, mtimeMs: s.mtimeMs }),
+        (s) => ({ size: s.size, mtimeMs: s.mtimeMs, birthtimeMs: s.birthtimeMs }),
         () => null,
       )
       byPath.set(demo.absolutePath, pending)
@@ -145,11 +177,28 @@ function groupSources(files: ReplaysScanFile[]): IncrementalScanSource<ReplaysSc
  */
 export async function readDemoFacts(file: ReplaysScanFile): Promise<DemoHeaderFacts> {
   if (file.archiveEntry !== null) {
-    return { map: file.map, unparsableReason: file.unparsableReason }
+    // The zip layer (`zip-demos.ts`) already ran `demoReadability` (or its own zip-stage reasons)
+    // at discovery time; never re-open the archive here.
+    return {
+      map: file.map,
+      unparsableReason: file.unparsableReason,
+      readable: file.readable,
+      unreadable: file.unreadable,
+    }
   }
   const header = await readDemoHeader(file.absolutePath)
-  if (!header.ok) return { map: null, unparsableReason: header.reason as DemoUnparsableReason }
-  return { map: header.map, unparsableReason: null }
+  // `readDemoHeader` adds one I/O-only reason (`unreadable`) beyond the real parsers' own union;
+  // it is still a member of `DemoUnreadableReason`, `demoReadability`'s actual contract.
+  const readability = demoReadability(header as Parameters<typeof demoReadability>[0])
+  if (!header.ok) {
+    return {
+      map: null,
+      unparsableReason: header.reason as DemoUnparsableReason,
+      readable: false,
+      unreadable: readability.unreadable,
+    }
+  }
+  return { map: header.map, unparsableReason: null, readable: true, unreadable: null }
 }
 
 /** The first template that matches a file name wins; a template that fails to compile is
@@ -223,8 +272,10 @@ export function createReplaysScanService(options: CreateReplaysScanServiceOption
 
       // Hit or fresh, `parsed` is always a row this service built (the file's are validated by
       // `usableCache`); the row's discovery fields come from this scan's `file`, never the cache.
+      // `withNameFacts` merges in this scan's own name match last, so a template change is
+      // reflected even on a cache hit that only re-matched the name (story 145 D2).
       snapshot = [...result.entries.values()].map((entry) =>
-        toRow(entry.file, entry.parsed as DiscoveredDemo),
+        withNameFacts(toRow(entry.file, entry.parsed as DiscoveredDemo), entry.name),
       )
       lastCache = result.nextCache
       await cache.write(result.nextCache)
@@ -253,7 +304,7 @@ export function createReplaysScanService(options: CreateReplaysScanServiceOption
     const cached = await loadCache()
     // A scan may have finished while the cache was loading.
     if (snapshot !== null) return snapshot
-    return [...cached.values()].map((entry) => entry.parsed as DiscoveredDemo)
+    return [...cached.values()].map((entry) => withNameFacts(entry.parsed as DiscoveredDemo, entry.name))
   }
 
   async function overview(): Promise<ReplaysOverview> {

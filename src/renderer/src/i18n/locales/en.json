@@ -1086,6 +1086,21 @@
     },
     "source": {
       "extraFolder": "extra folder: {{path}}"
+    },
+    "unreadable": {
+      "marker": "Unreadable",
+      "playDisabled": "Can't play: this demo's header could not be read, so its mod is unknown.",
+      "reason": {
+        "empty": "The file is empty.",
+        "truncated": "The file ends before its header is complete.",
+        "not-a-demo": "This is not a Quake II demo.",
+        "unknown-protocol": "Unknown protocol {{protocol}}",
+        "header-too-large": "The header is larger than any known demo.",
+        "unreadable": "The file could not be read.",
+        "unknown-version": "Unknown MVD version {{version}}",
+        "entry-too-large": "Too large to read inside an archive",
+        "encrypted": "Encrypted archive entry"
+      }
     }
   },
 

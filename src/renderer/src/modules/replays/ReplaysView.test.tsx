@@ -60,6 +60,10 @@ const DEMO: DiscoveredDemo = {
   archiveEntry: null,
   map: null,
   unparsableReason: null,
+  readable: true,
+  unreadable: null,
+  fileTime: { birthtimeMs: 0, mtimeMs: 0 },
+  nameFacts: null,
 }
 
 /** Captures the listener `onScanProgress` was called with, so a test can push a progress payload

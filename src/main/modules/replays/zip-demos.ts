@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { createGunzip } from 'node:zlib'
 import { parseDemoHeader } from '@shared/demos/demo-header'
+import { demoReadability } from '@shared/demos/readability'
+import type { DemoUnreadable } from '@shared/demos/readability'
 import type { DemoSource, DemoUnparsableReason, DiscoveredDemo } from '@shared/modules/replays'
 import { listZipEntries, readZipEntry, ZIP_ENTRY_MAX_BYTES, type ZipDeps } from '../../lib/zip-entries'
 import { recogniseDemoFile } from './discovery'
@@ -77,7 +79,7 @@ function gunzipBounded(bytes: Uint8Array, maxBytes: number): Promise<{ bytes: Ui
 export async function expandZip(
   archivePath: string,
   source: DemoSource,
-  _archiveMtimeMs: number,
+  archiveMtimeMs: number,
   deps: ZipDeps,
 ): Promise<ExpandZipResult> {
   const listing = await listZipEntries(archivePath, deps)
@@ -93,8 +95,11 @@ export async function expandZip(
     const id = idFor(`${archivePath}\u0000${entry.path}`)
     const fileName = baseName(entry.path)
     const archiveEntry = { archivePath, entryPath: entry.path }
+    // Story 145 D2: a zip entry has no creation time of its own; `mtimeMs` is the entry's own
+    // modified stamp, falling back to the archive's when 7-Zip didn't report one.
+    const fileTime = { birthtimeMs: 0, mtimeMs: entry.modified?.getTime() ?? archiveMtimeMs }
 
-    const unparsableRow = (unparsableReason: DemoUnparsableReason): DiscoveredDemo => ({
+    const unparsableRow = (unreadable: DemoUnreadable): DiscoveredDemo => ({
       id,
       fileName,
       format: recognised.format,
@@ -102,21 +107,25 @@ export async function expandZip(
       source,
       archiveEntry,
       map: null,
-      unparsableReason,
+      unparsableReason: unreadable.reason,
+      readable: false,
+      unreadable,
+      fileTime,
+      nameFacts: null,
     })
 
     if (entry.encrypted) {
-      rows.push(unparsableRow('encrypted'))
+      rows.push(unparsableRow({ reason: 'encrypted' }))
       continue
     }
     if (entry.size === null || entry.size > ZIP_ENTRY_MAX_BYTES) {
-      rows.push(unparsableRow('entry-too-large'))
+      rows.push(unparsableRow({ reason: 'entry-too-large' }))
       continue
     }
 
     const read = await readZipEntry(archivePath, entry.path, entry.size, deps)
     if (!read.ok) {
-      rows.push(unparsableRow(read.code === 'entry-too-large' ? 'entry-too-large' : 'unreadable'))
+      rows.push(unparsableRow({ reason: read.code === 'entry-too-large' ? 'entry-too-large' : 'unreadable' }))
       continue
     }
 
@@ -124,15 +133,16 @@ export async function expandZip(
     if (finalBytes.length >= 2 && finalBytes[0] === GZIP_MAGIC_0 && finalBytes[1] === GZIP_MAGIC_1) {
       const gunzipped = await gunzipBounded(finalBytes, ZIP_ENTRY_MAX_BYTES)
       if (gunzipped.overCap) {
-        rows.push(unparsableRow('entry-too-large'))
+        rows.push(unparsableRow({ reason: 'entry-too-large' }))
         continue
       }
       finalBytes = gunzipped.bytes
     }
 
     const header = parseDemoHeader(finalBytes)
+    const readability = demoReadability(header)
     if (!header.ok) {
-      rows.push(unparsableRow(header.reason as DemoUnparsableReason))
+      rows.push(unparsableRow(readability.unreadable ?? { reason: header.reason as DemoUnparsableReason }))
       continue
     }
 
@@ -145,6 +155,10 @@ export async function expandZip(
       archiveEntry,
       map: header.map,
       unparsableReason: null,
+      readable: true,
+      unreadable: null,
+      fileTime,
+      nameFacts: null,
     })
   }
 

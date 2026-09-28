@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { demoUnreadableSchema } from '../demos/readability'
+import type { NameFacts } from '../replays/name-template'
 import { absolutePathSchema } from '../schemas'
 
 /**
@@ -136,6 +138,38 @@ export const demoSourceSchema = z.discriminatedUnion('kind', [
   }),
 ])
 
+/** A file's on-disk creation/modification stamps, as `fs.stat` reports them (milliseconds since
+ * epoch). Story 145 D2: every index entry carries one, readable or not. For a zip-entry row,
+ * `birthtimeMs` is always `0` (a zip entry has no creation time of its own) and `mtimeMs` is the
+ * entry's own modified stamp, falling back to the archive's when the entry didn't report one. */
+export const fileTimeSchema = z.object({
+  birthtimeMs: z.number().finite(),
+  mtimeMs: z.number().finite(),
+})
+export type DemoFileTime = z.infer<typeof fileTimeSchema>
+
+/** Story 139's file-name-template match facts (`NameFacts`, `src/shared/replays/name-template.ts`),
+ * mirrored here as a zod schema so an index entry can carry them across IPC. Computed the same way
+ * for a readable or unreadable row alike - name matching only ever looks at the file name. */
+export const nameFactsSchema = z.object({
+  date: z
+    .object({
+      year: z.number().int(),
+      month: z.number().int(),
+      day: z.number().int(),
+      hour: z.number().int().optional(),
+      minute: z.number().int().optional(),
+      second: z.number().int().optional(),
+    })
+    .optional(),
+  map: z.string().optional(),
+  pov: z.string().optional(),
+  players: z.array(z.string()).optional(),
+  teamA: z.string().optional(),
+  teamB: z.string().optional(),
+  host: z.string().optional(),
+}) satisfies z.ZodType<NameFacts>
+
 /**
  * A demo main found during a scan. Identified by a content-derived id, never a filesystem path -
  * the renderer names a demo by this id and asks main to resolve it, same convention as every other
@@ -153,6 +187,18 @@ export const discoveredDemoSchema = z.object({
   map: z.string().nullable(),
   /** Why the header couldn't be parsed, or null for a parseable row. */
   unparsableReason: demoUnparsableReasonSchema.nullable(),
+  /** Story 145 D2: whether this row's header parsed at all. An unreadable demo is never dropped
+   * from the index - it stays a row, flagged `readable: false`, so the UI can still list it. */
+  readable: z.boolean(),
+  /** Mirrors `readable`: null for a readable row, the structured reason (`DemoUnreadable`, shared
+   * with `src/shared/demos/readability.ts`) for an unreadable one. */
+  unreadable: demoUnreadableSchema.nullable(),
+  /** `fs.stat`'s own timestamps for this file - present whether the row is readable or not. */
+  fileTime: fileTimeSchema,
+  /** Story 139's name-template match facts for this file's name, or null when no template
+   * matched. Computed for every row, readable or not - name matching never depends on the header
+   * having parsed. */
+  nameFacts: nameFactsSchema.nullable(),
 })
 
 export const demosListResultSchema = z.array(discoveredDemoSchema)

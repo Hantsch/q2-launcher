@@ -53,6 +53,10 @@ describe('replays module contract (story 135 D1)', () => {
       archiveEntry: null,
       map: null,
       unparsableReason: null,
+      readable: true,
+      unreadable: null,
+      fileTime: { birthtimeMs: 0, mtimeMs: 0 },
+      nameFacts: null,
     })
 
     const isSuspectKey = (key: string) => /path|dir$|folder/i.test(key) && key !== 'gameDir'

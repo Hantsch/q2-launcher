@@ -4,16 +4,20 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   REPLAYS_EVENTS,
+  discoveredDemoSchema,
   replaysScanProgressSchema,
   type DiscoveredDemo,
   type ReplaysExtraFolder,
   type ReplaysScanProgress,
 } from '@shared/modules/replays'
+import { SHIPPED_NAME_PATTERNS } from '@shared/replays/name-patterns'
 import { canonicalizePath } from '../../lib/fs-utils'
 import { discoverDemos } from './discovery'
 import { REPLAYS_INDEX_CACHE_FILE, ReplaysIndexCache } from './index-cache'
 import {
   createReplaysScanService,
+  nameMatcherFor,
+  readDemoFacts,
   type CreateReplaysScanServiceOptions,
   type DemoHeaderFacts,
   type ReplaysScanFile,
@@ -25,7 +29,7 @@ import {
  * test can hold a scan mid-flight or make it throw.
  */
 
-const FACTS: DemoHeaderFacts = { map: 'q2dm1', unparsableReason: null }
+const FACTS: DemoHeaderFacts = { map: 'q2dm1', unparsableReason: null, readable: true, unreadable: null }
 const HOUR_AGO_S = (Date.now() - 60 * 60 * 1000) / 1000
 
 let root: string
@@ -192,6 +196,10 @@ describe('replays scan service (story 144 D3)', () => {
       archiveEntry: null,
       map: 'q2dm8',
       unparsableReason: null,
+      readable: true,
+      unreadable: null,
+      fileTime: { birthtimeMs: 0, mtimeMs: 0 },
+      nameFacts: null,
     }
     await new ReplaysIndexCache({ filePath: cacheFile }).write(
       new Map([[cachedRow.id, { size: 1, mtimeMs: 1, patternFingerprint: 'fp-1', parsed: cachedRow, name: null }]]),
@@ -302,5 +310,132 @@ describe('replays scan service (story 144 D3)', () => {
     ).demos.find((d) => d.fileName === 'fresh.dm2')!.id
     expect(parse.mock.calls.map(([file]) => file.id)).not.toContain(freshId)
     expect(parse.mock.calls.map(([file]) => file.fileName)).toEqual(['old.dm2'])
+  })
+})
+
+describe('unreadable demos stay in the index (story 145 D2)', () => {
+  const GARBAGE_FILE = '2026-09-26-2130-q2dm1.dm2'
+  const FIXTURE = join(process.cwd(), 'docs/fixtures/demos/test.dm2')
+
+  /** 64 bytes that parse deterministically as `not-a-demo`: a block whose length (50) and payload
+   * fit, whose first message's opcode (99) isn't `svc_serverdata` - same construction
+   * `readability.test.ts` uses for the same reason. */
+  function notADemoBytes(): Uint8Array {
+    const bytes = new Uint8Array(64)
+    bytes[0] = 50
+    bytes[4] = 99
+    for (let i = 5; i < bytes.length; i++) bytes[i] = (i * 37 + 11) & 0xff
+    return bytes
+  }
+
+  async function writeFixtures(dir: string): Promise<void> {
+    await mkdir(dir, { recursive: true })
+    await writeFile(join(dir, GARBAGE_FILE), notADemoBytes())
+    await writeFile(join(dir, 'empty.dm2'), new Uint8Array(0))
+    const fixture = await readFile(FIXTURE)
+    await writeFile(join(dir, 'broken.dm2'), fixture.subarray(0, 100))
+    await writeFile(join(dir, 'good.dm2'), fixture)
+  }
+
+  /** A harness wired with the real header parser and the real shipped name-matching patterns -
+   * the only two things story 145 D2 actually needs "for real", everything else (discovery,
+   * cache) is already exercised by the harness above. */
+  function realHarness(dir: string): Harness {
+    return harness([dir], {
+      parse: readDemoFacts,
+      nameMatcher: () =>
+        nameMatcherFor(
+          SHIPPED_NAME_PATTERNS.map((p) => p.template),
+          'fp-shipped',
+        ),
+    })
+  }
+
+  async function idFor(dir: string, fileName: string): Promise<string> {
+    const canonicalDir = await canonicalizePath(dir)
+    const demos = (
+      await discoverDemos([], extraFolders([canonicalDir]), {
+        platform: process.platform,
+        homeDir: root,
+        zipDeps: { extractorPath: '', extractorExists: false },
+      })
+    ).demos
+    return demos.find((d) => d.fileName === fileName)!.id
+  }
+
+  it('an unparsable demo file is still an index entry, flagged unreadable', async () => {
+    const dir = join(root, 'demos')
+    await writeFixtures(dir)
+    const h = realHarness(dir)
+
+    h.service.start()
+    await h.waitIdle(1)
+    const rows = await h.service.read()
+
+    expect(rows.map((r) => r.fileName).sort()).toEqual(
+      [GARBAGE_FILE, 'empty.dm2', 'broken.dm2', 'good.dm2'].sort(),
+    )
+
+    const byName = new Map(rows.map((r) => [r.fileName, r]))
+    expect(byName.get(GARBAGE_FILE)!.readable).toBe(false)
+    expect(byName.get(GARBAGE_FILE)!.unreadable?.reason).toBe('not-a-demo')
+    expect(byName.get('empty.dm2')!.readable).toBe(false)
+    expect(byName.get('empty.dm2')!.unreadable?.reason).toBe('empty')
+    expect(byName.get('broken.dm2')!.readable).toBe(false)
+    expect(byName.get('broken.dm2')!.unreadable?.reason).toBe('truncated')
+    expect(byName.get('good.dm2')!.readable).toBe(true)
+    expect(byName.get('good.dm2')!.unreadable).toBeNull()
+  })
+
+  it('an unreadable entry carries its name facts and file time and no parsed fact', async () => {
+    const dir = join(root, 'demos')
+    await writeFixtures(dir)
+    const h = realHarness(dir)
+
+    h.service.start()
+    await h.waitIdle(1)
+    const rows = await h.service.read()
+    const byName = new Map(rows.map((r) => [r.fileName, r]))
+
+    const garbage = byName.get(GARBAGE_FILE)!
+    expect(garbage.nameFacts).toEqual({
+      date: { year: 2026, month: 9, day: 26, hour: 21, minute: 30 },
+      map: 'q2dm1',
+    })
+
+    const broken = byName.get('broken.dm2')!
+    const brokenStat = await stat(join(dir, 'broken.dm2'))
+    expect(broken.fileTime).toEqual({ birthtimeMs: brokenStat.birthtimeMs, mtimeMs: brokenStat.mtimeMs })
+
+    for (const fileName of [GARBAGE_FILE, 'empty.dm2', 'broken.dm2']) {
+      const row = byName.get(fileName)!
+      expect(row.map).toBeNull()
+      expect(row.unreadable).toEqual({ reason: row.unreadable!.reason })
+    }
+  })
+
+  it('an unreadable entry has the same id kind and fields as a readable one', async () => {
+    const dir = join(root, 'demos')
+    await writeFixtures(dir)
+    const h = realHarness(dir)
+
+    h.service.start()
+    await h.waitIdle(1)
+    const rows = await h.service.read()
+    const byName = new Map(rows.map((r) => [r.fileName, r]))
+
+    const garbage = byName.get(GARBAGE_FILE)!
+    const good = byName.get('good.dm2')!
+
+    expect(garbage.id).toMatch(/^[0-9a-f]{16}$/)
+    expect(good.id).toMatch(/^[0-9a-f]{16}$/)
+    expect(garbage.id).toBe(await idFor(dir, GARBAGE_FILE))
+    expect(good.id).toBe(await idFor(dir, 'good.dm2'))
+
+    expect(Object.keys(garbage).sort()).toEqual(Object.keys(good).sort())
+
+    for (const row of rows) {
+      expect(discoveredDemoSchema.safeParse(row).success).toBe(true)
+    }
   })
 })

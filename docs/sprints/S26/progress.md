@@ -134,3 +134,16 @@
 - 2026-09-28 13:34 · 144 · review 1 · started
 - 2026-09-28 13:38 · 144 · review 1 · done (PASS, 2 minor non-blocking findings, no fix cycle needed)
 - 2026-09-28 13:39 · 144 · story · done
+- 2026-09-28 13:42:26 · 145 · build · started
+- 2026-09-28 13:43 · 145 · build · started
+- 2026-09-28 13:43 · 145 · D1 readability projection · started
+- 2026-09-28 13:46 · 145 · D1 readability projection · done
+- 2026-09-28 13:46 · 145 · D2 index keeps unreadable demos · started
+- 2026-09-28 13:58 · 145 · D2 index keeps unreadable demos · done
+- 2026-09-28 13:58 · 145 · D3 reason to i18n mapping · started
+- 2026-09-28 14:00 · 145 · D3 reason to i18n mapping · done
+- 2026-09-28 14:00 · 145 · verify · started
+- 2026-09-28 14:01 · 145 · verify · done
+- 2026-09-28 14:01 · 145 · review 1 · started
+- 2026-09-28 14:06 · 145 · review 1 · done
+- 2026-09-28 14:07 · 145 · story · done

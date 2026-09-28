@@ -160,6 +160,12 @@ export const replaysModule: MainModule = {
         archiveEntry: d.archiveEntry,
         map: d.map,
         unparsableReason: d.unparsableReason,
+        // No header parse here (see comment above): readable/fileTime/nameFacts stay the neutral
+        // placeholders discovery itself sets, never a real answer.
+        readable: d.readable,
+        unreadable: d.unreadable,
+        fileTime: d.fileTime,
+        nameFacts: d.nameFacts,
       }))
     })
 
