@@ -1085,7 +1085,12 @@
       "refreshing": "Scanning…"
     },
     "source": {
-      "extraFolder": "extra folder: {{path}}"
+      "extraFolder": "extra folder: {{path}}",
+      "sidecar": "set by you",
+      "demo": "from the demo",
+      "name": "from the file name",
+      "file": "file time",
+      "guessed": "guessed"
     },
     "unreadable": {
       "marker": "Unreadable",

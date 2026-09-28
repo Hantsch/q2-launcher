@@ -1,7 +1,7 @@
 ---
 id: 148
 title: every value says where it came from
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -19,17 +19,17 @@ shared code. The gamemode's extra heuristic rung is [[149]].
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — For every field, the resolver returns the first of sidecar → content → name → file
+- [x] **AC1** — For every field, the resolver returns the first of sidecar → content → name → file
       time that has a value, plus which source it came from; a unit test covers each rung for each
       field.
-- [ ] **AC2** — The effective name is the sidecar name, else the file name.
-- [ ] **AC3** — The effective players/sides are the sidecar's sides, else the players from the demo
+- [x] **AC2** — The effective name is the sidecar name, else the file name.
+- [x] **AC3** — The effective players/sides are the sidecar's sides, else the players from the demo
       content, else the players from the name facts.
-- [ ] **AC4** — The effective date is the sidecar's override, else the name-fact date, else the file
+- [x] **AC4** — The effective date is the sidecar's override, else the name-fact date, else the file
       time per the rule decided in Q1.
-- [ ] **AC5** — The detail view ([[155]]) shows each effective value's source as visible text
+- [x] **AC5** — The detail view ([[155]]) shows each effective value's source as visible text
       (sidecar / demo / name / file / guessed), not only colour or an icon.
-- [ ] **AC6** — Clearing a field in the sidecar makes the next lower source's value effective again.
+- [x] **AC6** — Clearing a field in the sidecar makes the next lower source's value effective again.
 
 ## Open Questions
 
@@ -182,4 +182,30 @@ Order: D1 → D2 (D2 imports `ValueSource`/`VALUE_SOURCES` from D1).
 
 ## Done
 
-<!-- Filled by /build 148. -->
+Built the pure precedence resolver (D1: `src/shared/demos/effective-values.ts` —
+`VALUE_SOURCES`/`ValueSource`, `Effective<T>`, `hasValue`, `firstValue`, `effectiveFileTime`,
+`resolveEffectiveValues` over the field/rung table from Decisions) and the visible source label
+(D2: `src/renderer/src/modules/replays/components/ValueSourceLabel.tsx` + `replays.source.*` en
+strings, merged into the existing `replays.source` object which already held `extraFolder`).
+
+Commit message: `148: every value says where it came from`
+
+Verification: narrow gate only (no `--full`). `npm run build`, `npm run typecheck`,
+`npx vitest run --changed HEAD` (695 tests, green) and the sprint's required collateral check
+`npx vitest run src/main/modules/replays src/shared/modules/replays.test.ts src/shared/demos
+src/shared/replays` (293 tests, green, no regressions) all passed. No e2e run: this story has no
+criterion mapped to `e2e`/`e2e-story` (AC5's real-surface e2e is [[155]], named as a deliberate
+gap in `## Acceptance Tests`). AC1–AC6 each verified against their named test in
+`effective-values.test.ts` / `ValueSourceLabel.test.tsx`, all found and passing. Clean-agent
+review (stage default, no hard stage — `Review: → default`): PASS, no findings, 0 fix cycles.
+
+Decisions: none beyond what's already recorded in `## Decisions (Sprint)` — no new
+implementation-detail calls were needed during build; the plan's shape (field/rung table,
+`firstValue` export, `Effective<T>`) was followed as written.
+
+No CHANGELOG entry (per Decisions — the label isn't mounted anywhere users see until [[155]]).
+
+Narrow gate only. The full regression gate (`npm test`, `npm run ui:verify`, `npm run
+ui:flows`) has not run — run it before commit/merge, or use `/build 148 --full`.
+
+tiers: D 2 / hard 0 · review default · cycles 0 · agents 4
