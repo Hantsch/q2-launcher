@@ -2113,6 +2113,19 @@ function writeReplaysExtraFolderFixture() {
  * `writePopulatedFixture()`, after that function's own install loop has already created both
  * installations' root folders - `mkdirSync(..., { recursive: true })` below only ever adds to what
  * that loop left behind, never clears it.
+ *
+ * Regression note (sprint S26 gate, following story 143 D4): this function used to also build
+ * `pack.zip` (see `writeReplaysZipPackArchive()` below) directly into `oneDemosDir` - i.e. into the
+ * shared `INSTALL_ONE_ID`/`baseq2/demos` folder every `writePopulatedFixture()` call (re)creates.
+ * Since `gameRoot()` is not variant-scoped, that made the zip's two real demo entries
+ * (`test.dm2`/`final.mvd2`) leak into every fixture variant's/flow's view of this folder, not just
+ * `scripts/flows/replays-zip-entries.mjs`'s own - in particular `replays-discovered-list.mjs`/
+ * `replays-incremental-scan.mjs`, which assert this folder holds exactly `REPLAYS_FIXTURE_DEMOS`'
+ * five known files. The zip is now built/removed by `writeReplaysZipPackArchive()`/
+ * `removeReplaysZipPackArchive()` below, called only from `replays-zip-entries.mjs`'s own
+ * `setup()`/`teardown()` hooks - so it exists on disk only for the duration of that one flow, and
+ * every other flow that runs before or after it (including another `npm run ui:seed`) sees the
+ * plain five-file folder this function alone produces.
  */
 function writeReplaysDemosFixture() {
   const oneDemosDir = join(gameRoot(), INSTALL_ONE_ID, 'baseq2', 'demos')
@@ -2131,31 +2144,55 @@ function writeReplaysDemosFixture() {
   mkdirSync(join(oneDemosDir, 'old'), { recursive: true })
   writeFileSync(join(oneDemosDir, 'old', 'nested.dm2'), REPLAYS_FIXTURE_DEMO_CONTENT, 'utf8')
   writeFileSync(join(oneDemosDir, 'readme.txt'), 'not a demo\n', 'utf8')
+}
 
-  // Story 143 D4: a real zip archive holding two real demo entries (one nested a level deep) plus a
-  // non-demo file, built with the same vendored 7za the app itself spawns - only when that binary
-  // was actually vendored locally, same "skip the archive, never crash fixture generation" guard
-  // every other zip/extractor-dependent fixture in this file already follows.
-  if (vendoredExtractorExists()) {
-    const staging = join(bootstrapStagingDir(), 'replays-zip-pack')
-    rmSync(staging, { recursive: true, force: true })
-    mkdirSync(join(staging, 'sub'), { recursive: true })
-    copyFileSync(join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2'), join(staging, 'test.dm2'))
-    copyFileSync(
-      join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'PFAU_20221127-053327_q2dm1.mvd2'),
-      join(staging, 'sub', 'final.mvd2'),
-    )
-    writeFileSync(join(staging, 'readme.txt'), 'not a demo\n', 'utf8')
+/** The real on-disk path of `writeReplaysZipPackArchive()`'s archive - `INSTALL_ONE_ID`'s own
+ * `baseq2/demos/pack.zip`, exported so `replays-zip-entries.mjs` never has to re-derive this join
+ * itself. */
+export function replaysZipPackArchivePath() {
+  return join(gameRoot(), INSTALL_ONE_ID, 'baseq2', 'demos', 'pack.zip')
+}
 
-    const archivePath = join(oneDemosDir, 'pack.zip')
-    // `7za a` APPENDS to an existing archive, so a stale one has to go first.
-    rmSync(archivePath, { force: true })
-    execFileSync(
-      vendoredSevenZaPath(),
-      ['a', '-tzip', '-mx1', '-bso0', '-bse0', '-bd', archivePath, 'test.dm2', 'sub', 'readme.txt'],
-      { cwd: staging, windowsHide: true },
-    )
-  }
+/**
+ * Story 143 D4's real zip archive, holding two real demo entries (one nested a level deep) plus a
+ * non-demo file, built with the same vendored 7za the app itself spawns - only when that binary was
+ * actually vendored locally, same "skip the archive, never crash fixture generation" guard every
+ * other zip/extractor-dependent fixture in this file already follows.
+ *
+ * Deliberately NOT called from `writeReplaysDemosFixture()`/`writePopulatedFixture()` (see the
+ * regression note on `writeReplaysDemosFixture()` above) - `scripts/flows/replays-zip-entries.mjs`
+ * is the only caller, from its own `setup()` hook, precisely so the archive exists on disk only for
+ * that flow's own run and never lingers in the shared `populated` fixture other flows read.
+ * `oneDemosDir` (`INSTALL_ONE_ID`'s `baseq2/demos`) must already exist - true after any `populated`-
+ * based seed, since `writeReplaysDemosFixture()` above always creates it first.
+ */
+export function writeReplaysZipPackArchive() {
+  if (!vendoredExtractorExists()) return
+  const oneDemosDir = join(gameRoot(), INSTALL_ONE_ID, 'baseq2', 'demos')
+  const staging = join(bootstrapStagingDir(), 'replays-zip-pack')
+  rmSync(staging, { recursive: true, force: true })
+  mkdirSync(join(staging, 'sub'), { recursive: true })
+  copyFileSync(join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2'), join(staging, 'test.dm2'))
+  copyFileSync(
+    join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'PFAU_20221127-053327_q2dm1.mvd2'),
+    join(staging, 'sub', 'final.mvd2'),
+  )
+  writeFileSync(join(staging, 'readme.txt'), 'not a demo\n', 'utf8')
+
+  const archivePath = replaysZipPackArchivePath()
+  // `7za a` APPENDS to an existing archive, so a stale one has to go first.
+  rmSync(archivePath, { force: true })
+  execFileSync(
+    vendoredSevenZaPath(),
+    ['a', '-tzip', '-mx1', '-bso0', '-bse0', '-bd', archivePath, 'test.dm2', 'sub', 'readme.txt'],
+    { cwd: staging, windowsHide: true },
+  )
+}
+
+/** Undoes `writeReplaysZipPackArchive()` - called from `replays-zip-entries.mjs`'s own `teardown()`
+ * hook so the archive never outlives that one flow's run. */
+export function removeReplaysZipPackArchive() {
+  rmSync(replaysZipPackArchivePath(), { force: true })
 }
 
 /**

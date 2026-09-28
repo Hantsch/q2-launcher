@@ -16,9 +16,31 @@
 //   replays-demo-source      ReplaysView.tsx - "<base> › <archive> › <entry>" for an archive row
 //   replays-demo-map         ReplaysView.tsx - the parsed map name, only present when known
 
-import { REPLAYS_FIXTURE_DEMOS, vendoredExtractorExists } from '../lib/fixture.mjs'
+import {
+  REPLAYS_FIXTURE_DEMOS,
+  removeReplaysZipPackArchive,
+  vendoredExtractorExists,
+  writeReplaysZipPackArchive,
+} from '../lib/fixture.mjs'
 
 const TIMEOUT_MS = 8_000
+
+// Regression note (sprint S26 gate): `pack.zip` used to be built unconditionally by
+// `scripts/lib/fixture.mjs`'s `writeReplaysDemosFixture()`, straight into the shared `populated`
+// fixture's `INSTALL_ONE_ID`/`baseq2/demos` folder - which leaked its two real demo entries into
+// every OTHER flow reading that same folder (`replays-discovered-list.mjs`/
+// `replays-incremental-scan.mjs`'s "exactly 5 files" assertions). This flow is the only one that
+// needs the archive, so it now builds it itself, right before the app launches (`setup()`), and
+// removes it again right after (`teardown()`) - the shared fixture stays archive-free at rest, for
+// every flow that isn't this one.
+export async function setup() {
+  writeReplaysZipPackArchive()
+  return {}
+}
+
+export async function teardown() {
+  removeReplaysZipPackArchive()
+}
 
 export default async function replaysZipEntries({ page, shot, step }) {
   if (!vendoredExtractorExists()) {

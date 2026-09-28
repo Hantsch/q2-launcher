@@ -192,3 +192,5 @@
 - 2026-09-28 15:07 · 149 · review 1 · started
 - 2026-09-28 15:10 · 149 · review 1 · done (PASS, no blocking findings; 2 minor non-blocking notes)
 - 2026-09-28 15:11 · 149 · story · done
+- 2026-09-28 15:12:36 · gate · short-suites · started
+- 2026-09-28 15:27:55 · gate · e2e-all · started

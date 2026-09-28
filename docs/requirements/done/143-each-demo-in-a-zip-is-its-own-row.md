@@ -268,3 +268,16 @@ Decisions:
   parsers' own reason types since the zip-only codes don't belong there.
 
 tiers: D 4 / hard 1 · review default · cycles 1 · agents 8 (4 deliverable + 1 fix + 1 verify + 1 review, D1 dispatched once, no re-dispatches)
+
+Regression fix (sprint S26 gate, post-merge): `writeReplaysDemosFixture()`
+(`scripts/lib/fixture.mjs`) built `pack.zip` unconditionally into the shared, non-variant-scoped
+`INSTALL_ONE_ID`/`baseq2/demos` folder every time `writePopulatedFixture()` ran (i.e. for every
+`populated`-based fixture variant, including `servers-scan`), so its two real demo entries
+(`test.dm2`/`final.mvd2`) leaked as extra rows into `replays-discovered-list.mjs`'s/
+`replays-incremental-scan.mjs`'s "exactly five known files" assertions. Fixed by extracting the
+archive build/removal into standalone `writeReplaysZipPackArchive()`/`removeReplaysZipPackArchive()`
+exports, called only from `replays-zip-entries.mjs`'s own `setup()`/`teardown()` hooks — the archive
+now exists on disk only for the duration of that one flow, never in the fixture at rest. Verified:
+`replays-discovered-list`, `replays-incremental-scan` and `replays-zip-entries` all green after the
+fix; `replays-extra-folders` still fails at its own pre-existing AC4 timeout, unrelated to this
+leak; `npx vitest run src/main/modules/replays` green (111 tests).
