@@ -66,6 +66,10 @@ export const REPLAYS_HANDLERS = {
    * actually persisted. */
   listGetFilter: 'listFilter.read',
   listSetFilter: 'listFilter.write',
+  /** Story 156: reveals a demo's file in the OS file manager, resolved from its id in main. */
+  demosReveal: 'demos.reveal',
+  /** Story 156: copies a demo's resolved absolute path to the clipboard. */
+  demosCopyPath: 'demos.copyPath',
 } as const
 
 /**
@@ -375,6 +379,15 @@ export const replaysDemoIdSchema = z.string().min(1).max(512)
 /** `sidecar.read`'s payload: the demo id to look up. */
 export const replaysSidecarReadSchema = z.object({ demoId: replaysDemoIdSchema })
 
+/** `demos.reveal`/`demos.copyPath`'s payload: the demo id to resolve - never a path (CLAUDE.md:
+ * "Paths from the renderer are never trusted"), `.strict()` so a payload smuggling a `path` key
+ * alongside the id is rejected outright rather than silently ignored (story 156 AC4). */
+export const replaysDemoFileActionSchema = z.object({ demoId: replaysDemoIdSchema }).strict()
+
+/** `demos.reveal`/`demos.copyPath`'s result: the path itself never crosses IPC, only whether the
+ * action ran and, on refusal, why - mirrors `ExtraFoldersResult`'s ok/refusal union shape above. */
+export type DemoFileActionResult = { ok: true } | { ok: false; reason: 'unknownDemo' | 'fileMissing' }
+
 /** `sidecar.write`'s payload: the demo id plus the full replacement set of sidecar fields, and -
  * only when replacing a broken sidecar the user has confirmed - the fingerprint a previous
  * `needsConfirmation` response reported for that file (story 147). */
@@ -434,6 +447,8 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   [REPLAYS_HANDLERS.listSetSort]: listSetSortInputSchema,
   [REPLAYS_HANDLERS.listGetFilter]: listGetFilterInputSchema,
   [REPLAYS_HANDLERS.listSetFilter]: listSetFilterInputSchema,
+  [REPLAYS_HANDLERS.demosReveal]: replaysDemoFileActionSchema,
+  [REPLAYS_HANDLERS.demosCopyPath]: replaysDemoFileActionSchema,
 }
 
 /**

@@ -8,6 +8,7 @@ import { IconButton } from '../../../components/ui/Button'
 import { sidecarRead } from '../client'
 import { sidesText, formatDemoDate } from '../row-format'
 import { ValueSourceLabel } from './ValueSourceLabel'
+import { DemoFileActions } from './DemoFileActions'
 import { DemoNotesEditor } from './DemoNotesEditor'
 import type { RowPatcher } from '../demo-editor-store'
 
@@ -119,6 +120,10 @@ export function DemoDetailPanel({
               </div>
             ))}
           </dl>
+        </div>
+
+        <div data-testid="replays-detail-file-actions">
+          <DemoFileActions demoId={row.id} />
         </div>
 
         {liveSidecar !== null && liveSidecar.state === 'error' && (

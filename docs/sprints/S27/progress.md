@@ -108,3 +108,15 @@
 - 2026-09-28 21:46 · 155 · verify 4 (post-fix) · started
 - 2026-09-28 21:48 · 155 · verify 4 (post-fix) · done
 - 2026-09-28 21:48 · 155 · story · done
+- 2026-09-28 21:49:31 · 156 · build · started
+- 2026-09-28 21:51 · 156 · D1 demos.reveal/demos.copyPath contract+main · started
+- 2026-09-28 21:55 · 156 · D1 demos.reveal/demos.copyPath contract+main · done
+- 2026-09-28 21:55 · 156 · D2 file-actions UI + flow · started
+- 2026-09-28 22:02 · 156 · D2 file-actions UI + flow · done
+- 2026-09-28 22:02 · 156 · verify · started
+- 2026-09-28 22:04 · 156 · verify · blocked: e2e replays-demo-file-actions strict-mode locator collision on duplicate 'Path copied' toast at pack.zip step
+- 2026-09-28 22:08 · 156 · verify · started
+- 2026-09-28 22:08 · 156 · verify · done
+- 2026-09-28 22:08 · 156 · review 1 · started
+- 2026-09-28 22:10 · 156 · review 1 · done
+- 2026-09-28 22:10 · 156 · story · done

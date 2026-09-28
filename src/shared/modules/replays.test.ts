@@ -29,6 +29,19 @@ describe('replays module contract (story 135 D1)', () => {
     ).toBe(true)
   })
 
+  it('demos.reveal and demos.copyPath reject a payload carrying a path', () => {
+    const revealSchema = REPLAYS_HANDLER_SCHEMAS[REPLAYS_HANDLERS.demosReveal]
+    const copyPathSchema = REPLAYS_HANDLER_SCHEMAS[REPLAYS_HANDLERS.demosCopyPath]
+    expect(revealSchema.safeParse({ demoId: 'x', path: '/tmp/y' }).success).toBe(false)
+    expect(copyPathSchema.safeParse({ demoId: 'x', path: '/tmp/y' }).success).toBe(false)
+    expect(revealSchema.safeParse({ demoId: 'x' }).success).toBe(true)
+  })
+
+  it('no demo file action is a path-payload handler', () => {
+    expect(REPLAYS_PATH_PAYLOAD_HANDLERS).not.toContain(REPLAYS_HANDLERS.demosReveal)
+    expect(REPLAYS_PATH_PAYLOAD_HANDLERS).not.toContain(REPLAYS_HANDLERS.demosCopyPath)
+  })
+
   it('nameTemplateTextSchema enforces the length cap and printable characters', () => {
     expect(nameTemplateTextSchema.safeParse('a'.repeat(129)).success).toBe(false)
     expect(nameTemplateTextSchema.safeParse('a'.repeat(128)).success).toBe(true)

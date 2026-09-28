@@ -6,9 +6,11 @@ import type { DetectedRunner } from '@shared/types'
 import {
   HARNESS_CONTENT_REPO_BASE_ENV,
   HARNESS_EXTERNAL_URLS_FILE,
+  HARNESS_REVEALED_PATHS_FILE,
   UI_HARNESS_DETECTED_RUNNERS_ENV,
   parseHarnessBaseUrl,
   recordHarnessExternalUrl,
+  recordHarnessRevealedPath,
   uiHarnessDetectedRunners,
 } from './ui-harness'
 
@@ -195,5 +197,19 @@ describe('recordHarnessExternalUrl', () => {
     await recordHarnessExternalUrl('https://example.test/after-corruption', { filePath })
 
     expect(await readUrls()).toEqual(['https://example.test/after-corruption'])
+  })
+})
+
+describe('recordHarnessRevealedPath', () => {
+  it('appends each revealed path', async () => {
+    const revealedFilePath = join(dir, HARNESS_REVEALED_PATHS_FILE)
+
+    await recordHarnessRevealedPath('C:\\demos\\one.dm2', { filePath: revealedFilePath })
+    await recordHarnessRevealedPath('C:\\demos\\two.dm2', { filePath: revealedFilePath })
+
+    expect(JSON.parse(await readFile(revealedFilePath, 'utf8'))).toEqual([
+      'C:\\demos\\one.dm2',
+      'C:\\demos\\two.dm2',
+    ])
   })
 })

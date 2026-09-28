@@ -1,7 +1,7 @@
 ---
 id: 156
 title: I find a demo on disk
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -13,15 +13,15 @@ reveal it in the system file manager or copy its path (concept `docs/concepts/de
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — "Reveal in file manager" opens the system file manager with the demo file selected,
+- [x] **AC1** — "Reveal in file manager" opens the system file manager with the demo file selected,
       on Windows and Linux.
-- [ ] **AC2** — "Copy path" puts the demo's absolute path on the clipboard and confirms it visibly.
-- [ ] **AC3** — For an archive entry ([[143]]), both actions act on the archive file itself: "reveal"
+- [x] **AC2** — "Copy path" puts the demo's absolute path on the clipboard and confirms it visibly.
+- [x] **AC3** — For an archive entry ([[143]]), both actions act on the archive file itself: "reveal"
       selects the archive in the file manager, "copy path" copies the archive's absolute path (the
       entry has no path of its own on disk).
-- [ ] **AC4** — Both handlers take the demo's id, never a path; main resolves the path from its
+- [x] **AC4** — Both handlers take the demo's id, never a path; main resolves the path from its
       index.
-- [ ] **AC5** — A demo whose file vanished since the last scan reports that visibly instead of
+- [x] **AC5** — A demo whose file vanished since the last scan reports that visibly instead of
       revealing nothing.
 
 ## Open Questions
@@ -168,4 +168,35 @@ Order: D1 → D2. D2 needs 155's detail panel to exist (build order 155 before 1
 
 ## Done
 
-<!-- Filled by /build 156. -->
+Added id-addressed `demos.reveal`/`demos.copyPath` (main resolves the path via
+`scanService.resolveFile`, never trusting a renderer-supplied path), a `DemoFileActions` component
+(two buttons + persistent inline alert) mounted into 155's `DemoDetailPanel`, and the acceptance
+flow `replays-demo-file-actions`.
+
+Commit message: `156: I find a demo on disk`
+
+Verification — narrow gate: `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD`
+(138 files / 1950 passed, 3 skipped, 0 failed) green; e2e `npm run ui:flow -- replays-demo-file-actions`
+green after a fix cycle (see Decisions). AC1–AC5 walked against `## Acceptance Tests`: every named
+unit test found, ran and passed; every e2e step ran and passed. AC1's "a real OS file manager
+actually opens" half stays `manual residue` per the story's own Decisions (harness records the
+`showItemInFolder` argument instead).
+
+Review: default-tier PASS, no findings. No hard-tier stage (`Review: → default`).
+
+Decisions made during implementation (beyond `## Decisions (Sprint)`):
+- `DemoDetailPanel.tsx` had no existing "file-actions area" (the Plan's reference to one was
+  aspirational) — added `<div data-testid="replays-detail-file-actions">` between the known-fields
+  `<dl>` and the sidecar-issues block, without renaming any existing testid.
+- Verification's first e2e run failed on two bugs in the new flow script (not the app): a
+  Playwright strict-mode violation from two stacked "Path copied" toasts matching the same text
+  locator (fixed with `.last()`), and the vanished-demo row not rendering because the demo list is
+  virtualized (fixed by filtering via `replays-filter-search` first, the same pattern
+  `replays-filter-search.mjs` already uses). Both fixed in one cycle; no app code touched.
+
+No blockers.
+
+tiers: D 2 / hard 0 · review default · cycles 1 · agents 5
+
+Narrow gate only. The full regression gate (`npm test`, `npm run ui:verify`, `npm run ui:flows`)
+has not run — it is the sprint's, after the last story.

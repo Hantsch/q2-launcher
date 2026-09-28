@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { app as electronApp } from 'electron'
+import { app as electronApp, clipboard, shell } from 'electron'
 import {
   REPLAYS_HANDLERS,
   extraFoldersAddSchema,
@@ -16,19 +16,21 @@ import {
   nameTemplatesReorderSchema,
   nameTemplatesResetSchema,
   nameTemplatesUpdateSchema,
+  replaysDemoFileActionSchema,
   replaysNoInputSchema,
   replaysSidecarReadSchema,
   replaysSidecarWriteSchema,
   type ExtraFoldersResult,
 } from '@shared/modules/replays'
 import { EMPTY_DEMO_LIST_FILTER, normalizeDemoListFilter } from '@shared/replays/list-filter'
-import { isUiHarnessEnabled } from '../../lib/ui-harness'
+import { isUiHarnessEnabled, recordHarnessRevealedPath } from '../../lib/ui-harness'
 import { userDataDir } from '../../lib/paths'
 import type { MainModule } from '../types'
 import { resolveExtractorPath } from '../downloads/7za-path'
 import { composeDemoRows } from './demo-rows'
 import { discoverDemos, type DiscoverContext } from './discovery'
 import { addExtraFolder, removeExtraFolder } from './extra-folders'
+import { createDemoFileActions } from './file-actions'
 import { ReplaysIndexCache } from './index-cache'
 import { createReplaysScanService, nameMatcherFor, readDemoFacts } from './scan-service'
 import { createSidecarStore } from './sidecar-store'
@@ -175,6 +177,21 @@ export const replaysModule: MainModule = {
       },
     })
 
+    // Story 156: the demos.reveal/demos.copyPath actions - reveal/clipboard share the same
+    // resolve-id-then-check-file logic (`file-actions.ts`), and the `reveal` dependency itself
+    // routes through the UI harness gate the same way `app:openExternal` does (`ipc/app.ts`).
+    const demoFileActions = createDemoFileActions({
+      resolveFile: (id) => scanService.resolveFile(id),
+      stat,
+      writeClipboard: (p) => clipboard.writeText(p),
+      reveal: (p) => {
+        if (isUiHarnessEnabled({ isDev: app.isDev })) {
+          return recordHarnessRevealedPath(p)
+        }
+        shell.showItemInFolder(p)
+      },
+    })
+
     handle(REPLAYS_HANDLERS.overviewRead, replaysNoInputSchema, () => scanService.overview())
     handle(REPLAYS_HANDLERS.scanStart, replaysNoInputSchema, () => scanService.start())
     // Story 150 D2: `index.read` now answers composed rows - each demo plus its sidecar and
@@ -193,6 +210,13 @@ export const replaysModule: MainModule = {
     )
     handle(REPLAYS_HANDLERS.sidecarWrite, replaysSidecarWriteSchema, (payload) =>
       sidecarStore.write(payload.demoId, payload.fields, payload.confirmReplace),
+    )
+
+    handle(REPLAYS_HANDLERS.demosReveal, replaysDemoFileActionSchema, (payload) =>
+      demoFileActions.reveal(payload.demoId),
+    )
+    handle(REPLAYS_HANDLERS.demosCopyPath, replaysDemoFileActionSchema, (payload) =>
+      demoFileActions.copyPath(payload.demoId),
     )
 
     handle(REPLAYS_HANDLERS.nameTemplatesList, replaysNoInputSchema, () => nameTemplatesList(app))

@@ -39,6 +39,7 @@ version section when a release actually ships.
 - Make a demo yours — give it a name, a description, mod, game mode, map, date, a rating and
   a favourite star, right in its details panel. Saved next to the demo, no rescan needed.
 - You can now star/rate a demo right from the list, no need to open it.
+- Reveal a demo in the file manager or copy its path straight from the detail panel.
 
 ## 0.5.0 — 2026-09-26
 

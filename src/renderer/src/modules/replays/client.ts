@@ -1,6 +1,7 @@
 import {
   REPLAYS_EVENTS,
   REPLAYS_HANDLERS,
+  type DemoFileActionResult,
   type DemoRow,
   type DiscoveredDemo,
   type ExtraFoldersResult,
@@ -101,6 +102,19 @@ export function addExtraFolder(path: string): Promise<Outcome<ExtraFoldersResult
 
 export function removeExtraFolder(id: string): Promise<Outcome<ExtraFoldersResult>> {
   return callModule<ExtraFoldersResult>('replays', REPLAYS_HANDLERS.extraFoldersRemove, { id })
+}
+
+/**
+ * Story 156 D2: the `demos.reveal`/`demos.copyPath` handlers' renderer-side transport - a demo id
+ * in, a `DemoFileActionResult` out (never a path either way, per CLAUDE.md's "paths from the
+ * renderer are never trusted"), mirroring `addExtraFolder`/`removeExtraFolder` above exactly.
+ */
+export function revealDemo(demoId: string): Promise<Outcome<DemoFileActionResult>> {
+  return callModule<DemoFileActionResult>('replays', REPLAYS_HANDLERS.demosReveal, { demoId })
+}
+
+export function copyDemoPath(demoId: string): Promise<Outcome<DemoFileActionResult>> {
+  return callModule<DemoFileActionResult>('replays', REPLAYS_HANDLERS.demosCopyPath, { demoId })
 }
 
 /**

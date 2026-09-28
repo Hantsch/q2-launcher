@@ -9,13 +9,22 @@ import { initI18n } from '../../../i18n'
 /**
  * Story 155 D1. Mirrors `NameTemplatesList.test.tsx`'s stubbed-client idiom
  * (`vi.mock('../client', ...)`) rather than a raw `window.q2` stub, since the panel calls
- * `sidecarRead` itself on mount.
+ * `sidecarRead` itself on mount. Story 156 D2 mounts `DemoFileActions` inside this panel, which
+ * reads `useLauncher` (for `pushToast`) - that resolves `window.q2` at module scope via
+ * `lib/bridge.ts` (same reasoning as `ServerRow.test.tsx`), so the stub must exist before the
+ * store, and anything importing it, is imported.
  */
+const invokeMock = vi.hoisted(() => vi.fn(async () => ({ ok: true as const, value: null })))
+vi.hoisted(() => {
+  ;(globalThis as unknown as { q2: unknown }).q2 = { invoke: invokeMock, on: vi.fn(() => () => {}) }
+})
 
 const sidecarRead = vi.fn()
 
 vi.mock('../client', () => ({
   sidecarRead: (demoId: string) => sidecarRead(demoId),
+  revealDemo: vi.fn(async () => ({ ok: true, value: { ok: true } })),
+  copyDemoPath: vi.fn(async () => ({ ok: true, value: { ok: true } })),
 }))
 
 let DemoDetailPanel: typeof import('./DemoDetailPanel').DemoDetailPanel

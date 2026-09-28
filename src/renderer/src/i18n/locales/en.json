@@ -1090,6 +1090,13 @@
     "view": {
       "title": "Demos"
     },
+    "fileActions": {
+      "reveal": "Reveal in file manager",
+      "copyPath": "Copy path",
+      "pathCopied": "Path copied",
+      "fileMissing": "This demo's file is no longer on disk — rescan to update the list.",
+      "unknownDemo": "This demo is no longer in the list — rescan to update it."
+    },
     "list": {
       "label": "Demos",
       "loading": "Looking for demos…",

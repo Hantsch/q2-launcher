@@ -85,6 +85,8 @@ describe('replays module', () => {
       'list.setSort',
       'listFilter.read',
       'listFilter.write',
+      'demos.reveal',
+      'demos.copyPath',
     ])
   })
 
@@ -514,6 +516,8 @@ describe('replays module', () => {
         [REPLAYS_HANDLERS.extraFoldersAdd]: { path: dir },
         [REPLAYS_HANDLERS.extraFoldersRemove]: { id: 'nope' },
         [REPLAYS_HANDLERS.sidecarRead]: { demoId: 'nope' },
+        [REPLAYS_HANDLERS.demosReveal]: { demoId: 'nope' },
+        [REPLAYS_HANDLERS.demosCopyPath]: { demoId: 'nope' },
         [REPLAYS_HANDLERS.listGetSort]: undefined,
         [REPLAYS_HANDLERS.listSetSort]: { sort: null },
         [REPLAYS_HANDLERS.listGetFilter]: undefined,
