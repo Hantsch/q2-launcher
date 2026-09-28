@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { absolutePathSchema } from '../schemas'
 import {
+  discoveredDemoSchema,
   nameTemplateTextSchema,
   REPLAYS_HANDLERS,
   REPLAYS_HANDLER_SCHEMAS,
@@ -35,6 +36,30 @@ describe('replays module contract (story 135 D1)', () => {
     expect(nameTemplateTextSchema.safeParse('café').success).toBe(false)
     expect(nameTemplateTextSchema.safeParse('a/b').success).toBe(false)
     expect(nameTemplateTextSchema.safeParse('{date}_{map}').success).toBe(true)
+  })
+
+  it('a discovered demo carries no filesystem path', () => {
+    const parsed = discoveredDemoSchema.parse({
+      id: '0123456789abcdef',
+      fileName: 'match1.dm2',
+      format: 'dm2',
+      gzip: false,
+      source: {
+        kind: 'installation',
+        installationId: 'inst-1',
+        installationName: 'My Install',
+        gameDir: 'baseq2',
+      },
+    })
+
+    const isSuspectKey = (key: string) => /path|dir$|folder/i.test(key) && key !== 'gameDir'
+
+    for (const key of Object.keys(parsed)) {
+      expect(isSuspectKey(key)).toBe(false)
+    }
+    for (const key of Object.keys(parsed.source)) {
+      expect(isSuspectKey(key)).toBe(false)
+    }
   })
 })
 

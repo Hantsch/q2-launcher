@@ -35,7 +35,7 @@ describe('replays module manifest (story 135 D1)', () => {
     expect(manifest?.route).toBe('/replays')
     expect(manifest?.nav).toEqual({ section: 'primary', order: 25 })
     expect(manifest?.icon).toBe('Film')
-    expect(manifest?.status).toBe('planned')
+    expect(manifest?.status).toBe('available')
 
     const primaryOrdered = MODULE_MANIFESTS.filter((m) => m.nav?.section === 'primary')
       .slice()

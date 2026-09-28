@@ -1,7 +1,7 @@
 ---
 id: 141
 title: demos are found in every installation and mod
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -25,16 +25,16 @@ real installation (§14).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Every `.dm2`, `.mvd2`, `.dm2.gz` and `.mvd2.gz` in `<root>/<gamedir>/demos/` of every
+- [x] **AC1** — Every `.dm2`, `.mvd2`, `.dm2.gz` and `.mvd2.gz` in `<root>/<gamedir>/demos/` of every
       installation and every detected game dir appears in the list.
-- [ ] **AC2** — For an installation whose effective write directory differs from its root (Q2PRO
+- [x] **AC2** — For an installation whose effective write directory differs from its root (Q2PRO
       `homedir`, e.g. `~/.q2pro` on Linux), demos in `<writedir>/<gamedir>/demos/` appear too, and a
       demo present in both places is not listed twice.
-- [ ] **AC3** — Each demo shows its source as installation name + game dir.
-- [ ] **AC4** — Sidecar `.json` files and anything under `demos/_launcher/` are never listed as
+- [x] **AC3** — Each demo shows its source as installation name + game dir.
+- [x] **AC4** — Sidecar `.json` files and anything under `demos/_launcher/` are never listed as
       demos.
-- [ ] **AC5** — Extension matching is case-insensitive (`FINAL.DM2` is found).
-- [ ] **AC6** — A `ui:verify`/`ui:flow` fixture serves demos from a local test folder, so the list
+- [x] **AC5** — Extension matching is case-insensitive (`FINAL.DM2` is found).
+- [x] **AC6** — A `ui:verify`/`ui:flow` fixture serves demos from a local test folder, so the list
       renders with data in e2e runs without any real installation.
 
 ## Open Questions
@@ -262,4 +262,39 @@ Order: D1 → D2 → D3 → D4 → D5 (D5's flow needs the view and the handler)
 
 ## Done
 
-<!-- Filled by /build 141. -->
+Discovery walks every installation × detected game dir's `demos/` plus the Q2PRO-on-Linux
+effective write dir, recognises `.dm2`/`.mvd2`/`.dm2.gz`/`.mvd2.gz` case-insensitively (no
+recursion), dedupes by canonical path with write-dir-shadows-root precedence, and exposes it
+through a path-free `demos.list` handler. A minimal `ReplaysView` renders the discovered list
+with source labels; `replays` module status flipped to `available`. Fixture + flow
+`replays-discovered-list` and ui:verify screen `replays-list` added.
+
+Commit message: `141: find demos in every installation and mod's demos folder`
+
+Changed files: `src/shared/modules/replays.ts(.test.ts)`,
+`src/main/modules/replays/discovery.ts(.test.ts)` (new),
+`src/main/modules/replays/index.ts(.test.ts)`,
+`src/renderer/src/modules/replays/ReplaysView.tsx(.test.tsx)` (new),
+`src/renderer/src/modules/replays/client.ts`, `src/renderer/src/modules/index.ts`,
+`src/shared/types/module.ts(.test.ts)`, `src/renderer/src/i18n/locales/en.json`,
+`src/renderer/src/modules/replays/ReplaysSettingsSection.test.tsx`, `CHANGELOG.md`,
+`scripts/lib/fixture.mjs`, `scripts/flows/replays-discovered-list.mjs` (new),
+`scripts/lib/screens.mjs`.
+
+Verification: narrow gate. `npm run build`, `npm run typecheck`,
+`npx vitest run --changed HEAD` all green (165 files, 2488 passed/7 skipped), including every
+test named in `## Acceptance Tests`. `npm run ui:flow -- replays-discovered-list` and
+`npm run ui:flow -- replays-module-shell` **INCONCLUSIVE** — both time out on the very first
+`nav-*` locator click (`element was detached from the DOM, retrying`); confirmed session-wide,
+not caused by this story, by re-running the untouched pre-existing `servers-module-shell` flow
+directly, which fails identically. `npm run ui:verify` likewise did not complete for the same
+reason (same pattern as story 140's Done section). AC1/AC3/AC4/AC5/AC6's e2e half is therefore a
+named environment gap, not a regression; their unit half (discovery.test.ts, ReplaysView.test.tsx,
+index.test.ts) is green and, per clean-agent review, non-tautological. AC2 has no e2e leg by
+design (Linux-only write dir, harness never reads a real home dir). Clean-agent review: PASS, no
+findings (one procedural note about the same e2e gap, already recorded here).
+
+Decisions: none beyond those already in `## Decisions (Sprint)`; no new implementation-detail
+calls were needed during the build.
+
+tiers: D 5 / hard 0 · review default · cycles 1 · agents 7

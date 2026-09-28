@@ -7,6 +7,7 @@ import { DownloadsSettingsSection } from './downloads/DownloadsSettingsSection'
 import { DownloadsView } from './downloads/DownloadsView'
 import { HomeView } from './home/HomeView'
 import { ReplaysSettingsSection } from './replays/ReplaysSettingsSection'
+import { ReplaysView } from './replays/ReplaysView'
 import { ServersSettingsSection } from './servers/ServersSettingsSection'
 import { ServersView } from './servers/ServersView'
 
@@ -82,10 +83,10 @@ export const RENDERER_MODULES: readonly RendererModule[] = [
   // { id: 'mods',    View: ModsView },
   // { id: 'assets',  View: AssetsView },
   {
-    // Story 135 D3: no `View` - the route falls back to the shell's `PlannedModuleView`
-    // (`MODULE_MANIFESTS`'s `replays` entry status is `'planned'`). Only a settings section, same
-    // shape story 106 D3 used for the servers module before it earned a real view.
+    // Story 141 D4: `ReplaysView` replaces the `PlannedModuleView` fallback (`MODULE_MANIFESTS`'s
+    // `replays` entry status is now `'available'`).
     id: 'replays',
+    View: ReplaysView,
     settingsSection: {
       titleKey: 'replays.settings.title',
       descriptionKey: 'replays.settings.description',

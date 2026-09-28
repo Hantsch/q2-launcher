@@ -16,6 +16,7 @@ version section when a release actually ships.
 - **Demos** now has its own home in the nav — not much to see yet, but it's there.
 - **Demos** — teach the demo browser your own file-naming patterns in Settings, alongside the
   built-in ones.
+- The Demos view now lists demos found across every installation and game dir.
 
 
 ## 0.5.0 — 2026-09-26

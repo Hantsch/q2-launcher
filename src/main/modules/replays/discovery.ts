@@ -1,0 +1,221 @@
+import { createHash } from 'node:crypto'
+import { join } from 'node:path'
+import { NON_GAME_DIRS } from '@shared/constants'
+import type { DemoFormat, DiscoveredDemo } from '@shared/modules/replays'
+import type { Installation } from '@shared/types'
+import { canonicalizePath, listDir, pathKey } from '../../lib/fs-utils'
+
+/**
+ * Story 141 D2: finds demo files already sitting on disk, across every known installation's game
+ * dirs and (on Linux, for Q2PRO) its write dir - no download, no parsing of the demo's own header
+ * yet (that is a later deliverable). This file never touches `ipcMain` or persisted state; it is a
+ * pure-ish scan over the filesystem, called by the module's handler.
+ */
+
+/** The subset of `Installation` this scan actually needs - keeps fixtures small in tests. */
+export type DiscoverableInstallation = Pick<
+  Installation,
+  'id' | 'name' | 'rootPath' | 'gameDirs' | 'engineKind' | 'recordedEngineKind' | 'writeDirPath'
+>
+
+export interface DiscoverContext {
+  platform: NodeJS.Platform
+  homeDir: string
+}
+
+/** A `DiscoveredDemo` plus the real filesystem path it was found at - main-only, never crosses IPC. */
+export type DiscoveredDemoFile = DiscoveredDemo & { absolutePath: string }
+
+/**
+ * Recognises a demo file by its (lowercased) name alone: `.dm2`, `.mvd2`, and their gzip-compressed
+ * forms. Anything else - a sidecar like `.dm2.json`, an archive, a save file - is not a demo.
+ */
+export function recogniseDemoFile(name: string): { format: DemoFormat; gzip: boolean } | null {
+  const lower = name.toLowerCase()
+  if (lower.endsWith('.mvd2.gz')) return { format: 'mvd2', gzip: true }
+  if (lower.endsWith('.dm2.gz')) return { format: 'dm2', gzip: true }
+  if (lower.endsWith('.mvd2')) return { format: 'mvd2', gzip: false }
+  if (lower.endsWith('.dm2')) return { format: 'dm2', gzip: false }
+  return null
+}
+
+/**
+ * Where Q2PRO's own write dir lives, when this installation could actually have one. Q2PRO's
+ * `homedir` is a command-line-only cvar the launcher never passes (concept
+ * docs/concepts/demo-browser.md §7), so the only write dir this scan ever looks at is the engine's
+ * own hardcoded default, `~/.q2pro` on Linux - never `installation.writeDirPath` (that field is a
+ * launcher concept, an r1q2/yquake2 "write somewhere else" override, and has nothing to do with
+ * where Q2PRO itself decided to put its demos). Windows Q2PRO has no such implicit write dir, and
+ * no other engine has one at all, so every other combination yields nothing.
+ */
+export function effectiveWriteDirs(
+  installation: DiscoverableInstallation,
+  { platform, homeDir }: DiscoverContext,
+): string[] {
+  const isQ2pro =
+    installation.engineKind === 'q2pro' || installation.recordedEngineKind === 'q2pro'
+  if (platform === 'linux' && isQ2pro) return [join(homeDir, '.q2pro')]
+  return []
+}
+
+/** Case-insensitive lookup of a `demos` child folder; null if there is none (or the parent can't be read). */
+async function findDemosDir(gameDirPath: string): Promise<string | null> {
+  const listing = await listDir(gameDirPath)
+  const actual = listing.byLowerName.get('demos')
+  return actual ? join(gameDirPath, actual) : null
+}
+
+/** Every recognised demo file directly inside `demosDir` - one level, never recursive. */
+async function scanDemosDir(
+  demosDir: string,
+): Promise<Array<{ fileName: string; format: DemoFormat; gzip: boolean }>> {
+  const listing = await listDir(demosDir)
+  const out: Array<{ fileName: string; format: DemoFormat; gzip: boolean }> = []
+  for (const fileName of listing.files) {
+    const recognised = recogniseDemoFile(fileName)
+    if (recognised) out.push({ fileName, ...recognised })
+  }
+  return out
+}
+
+/**
+ * Immediate subdirectories of a write dir that look like game dirs: not one of `NON_GAME_DIRS`, and
+ * carrying a `demos` child of their own. A write dir the engine never created (or that isn't
+ * readable) simply has none.
+ */
+async function writeDirGameDirs(writeDir: string): Promise<string[]> {
+  const listing = await listDir(writeDir)
+  const out: string[] = []
+  for (const dirName of listing.dirs) {
+    if (NON_GAME_DIRS.has(dirName.toLowerCase())) continue
+    const sub = await listDir(join(writeDir, dirName))
+    if (sub.byLowerName.has('demos')) out.push(dirName)
+  }
+  return out
+}
+
+function idFor(key: string): string {
+  return createHash('sha256').update(key).digest('hex').slice(0, 16)
+}
+
+interface Entry extends DiscoveredDemoFile {
+  _instIndex: number
+  _gameDirOrder: number
+  _key: string
+}
+
+/**
+ * Scans every installation's game dirs (and, where applicable, its write dir) for demo files.
+ * `installations`' order is precedence order: the same resolved file reachable through two
+ * installations is only ever reported once, under the first installation that finds it. Within one
+ * installation and game dir, a write-dir file shadows a root-dir file of the same name. Unreadable
+ * or missing folders at any level simply contribute nothing - this never throws for that reason.
+ */
+export async function discoverDemos(
+  installations: DiscoverableInstallation[],
+  ctx: DiscoverContext,
+): Promise<DiscoveredDemoFile[]> {
+  const seenKeys = new Set<string>()
+  const entries: Entry[] = []
+
+  for (let instIndex = 0; instIndex < installations.length; instIndex++) {
+    const installation = installations[instIndex]
+    const gameDirOrder = new Map<string, number>()
+    installation.gameDirs.forEach((gd, i) => gameDirOrder.set(gd, i))
+    // gameDir -> fileName -> index into `entries`, root-dir hits only, for this installation.
+    const rootIndex = new Map<string, Map<string, number>>()
+
+    async function addFromDir(
+      base: string,
+      gameDir: string,
+      isWriteDir: boolean,
+    ): Promise<void> {
+      const demosDir = await findDemosDir(join(base, gameDir))
+      if (!demosDir) return
+      const canonicalDemosDir = await canonicalizePath(demosDir)
+      const files = await scanDemosDir(demosDir)
+
+      for (const file of files) {
+        const key = pathKey(join(canonicalDemosDir, file.fileName))
+        const order = gameDirOrder.get(gameDir) ?? Number.MAX_SAFE_INTEGER
+
+        if (isWriteDir) {
+          const byFileName = rootIndex.get(gameDir)
+          const rootEntryIndex = byFileName?.get(file.fileName)
+          if (rootEntryIndex !== undefined) {
+            // Shadow: this write-dir file replaces the root-dir entry with the same name.
+            const old = entries[rootEntryIndex]
+            seenKeys.delete(old._key)
+            entries[rootEntryIndex] = {
+              ...old,
+              id: idFor(key),
+              format: file.format,
+              gzip: file.gzip,
+              absolutePath: join(demosDir, file.fileName),
+              _gameDirOrder: order,
+              _key: key,
+            }
+            seenKeys.add(key)
+            continue
+          }
+        }
+
+        if (seenKeys.has(key)) continue
+        seenKeys.add(key)
+        entries.push({
+          id: idFor(key),
+          fileName: file.fileName,
+          format: file.format,
+          gzip: file.gzip,
+          source: {
+            kind: 'installation',
+            installationId: installation.id,
+            installationName: installation.name,
+            gameDir,
+          },
+          absolutePath: join(demosDir, file.fileName),
+          _instIndex: instIndex,
+          _gameDirOrder: order,
+          _key: key,
+        })
+        if (!isWriteDir) {
+          let byFileName = rootIndex.get(gameDir)
+          if (!byFileName) {
+            byFileName = new Map()
+            rootIndex.set(gameDir, byFileName)
+          }
+          byFileName.set(file.fileName, entries.length - 1)
+        }
+      }
+    }
+
+    for (const gameDir of installation.gameDirs) {
+      await addFromDir(installation.rootPath, gameDir, false)
+    }
+
+    const writeDirs = effectiveWriteDirs(installation, ctx)
+    const writePairs: Array<{ writeDir: string; gameDir: string }> = []
+    const extraGameDirNames = new Set<string>()
+    for (const writeDir of writeDirs) {
+      for (const gameDir of await writeDirGameDirs(writeDir)) {
+        writePairs.push({ writeDir, gameDir })
+        if (!gameDirOrder.has(gameDir)) extraGameDirNames.add(gameDir)
+      }
+    }
+    const orderedExtras = [...extraGameDirNames].sort((a, b) => a.localeCompare(b))
+    orderedExtras.forEach((gameDir, i) => gameDirOrder.set(gameDir, installation.gameDirs.length + i))
+
+    for (const { writeDir, gameDir } of writePairs) {
+      await addFromDir(writeDir, gameDir, true)
+    }
+  }
+
+  entries.sort(
+    (a, b) =>
+      a._instIndex - b._instIndex ||
+      a._gameDirOrder - b._gameDirOrder ||
+      a.fileName.localeCompare(b.fileName),
+  )
+
+  return entries.map(({ _instIndex, _gameDirOrder, _key, ...rest }) => rest)
+}

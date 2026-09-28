@@ -1,3 +1,5 @@
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import {
   REPLAYS_HANDLERS,
   nameTemplatesAddSchema,
@@ -7,7 +9,10 @@ import {
   nameTemplatesUpdateSchema,
   replaysNoInputSchema,
 } from '@shared/modules/replays'
+import { isUiHarnessEnabled } from '../../lib/ui-harness'
+import { userDataDir } from '../../lib/paths'
 import type { MainModule } from '../types'
+import { discoverDemos } from './discovery'
 import {
   nameTemplatesAdd,
   nameTemplatesList,
@@ -17,6 +22,30 @@ import {
   nameTemplatesRestore,
   nameTemplatesUpdate,
 } from './name-templates'
+
+export interface DiscoveryHomeDirOptions {
+  /** Defaults to `process.env`; a parameter so a test never touches the real environment. */
+  env?: NodeJS.ProcessEnv
+  /** Defaults to `userDataDir()`; a parameter so a test never touches the real userData path. */
+  userData?: string
+  /** Defaults to the real `homedir()`; a parameter so a test never reads the real home dir. */
+  osHome?: string
+}
+
+/**
+ * The home dir `discoverDemos` uses to find Q2PRO's Linux write dir (`~/.q2pro`). Under the UI
+ * harness (`isUiHarnessEnabled`) this is redirected to `<userData>/harness-home` - a folder inside
+ * the harness's own sandboxed userData dir - so a scripted UI-verification run never scans, and
+ * never depends on, whatever happens to exist under the real operator's home directory.
+ */
+export function discoveryHomeDir({
+  env = process.env,
+  userData = userDataDir(),
+  osHome = homedir(),
+}: DiscoveryHomeDirOptions = {}): string {
+  if (isUiHarnessEnabled({ env, isDev: false })) return join(userData, 'harness-home')
+  return osHome
+}
 
 /**
  * The replays module - story 135 D2 registered its main half with a single handler,
@@ -30,6 +59,13 @@ import {
  * `name-templates.ts` (read the persisted state, run the op, persist on success); this file just
  * wires each handler's payload schema to its handler body, same as `servers/index.ts` does for
  * `sources.*`.
+ *
+ * Story 141 D3 adds `demos.list`, the first handler to actually touch the filesystem: it runs
+ * `discoverDemos` (`discovery.ts`, D2) over every known installation and strips each result's
+ * `absolutePath` via an explicit field pick before it crosses IPC - a demo is named by its id, never
+ * its real path (CLAUDE.md: "Paths from the renderer are never trusted"). `discoveryHomeDir` is the
+ * one seam that decides which home dir the scan uses for Q2PRO's Linux write dir, redirected under
+ * the UI harness so a scripted run never depends on the real operator's home directory.
  */
 export const replaysModule: MainModule = {
   id: 'replays',
@@ -59,6 +95,20 @@ export const replaysModule: MainModule = {
     handle(REPLAYS_HANDLERS.nameTemplatesRestore, replaysNoInputSchema, () =>
       nameTemplatesRestore(app),
     )
+
+    handle(REPLAYS_HANDLERS.demosList, replaysNoInputSchema, async () => {
+      const discovered = await discoverDemos(app.installations.list(), {
+        platform: process.platform,
+        homeDir: discoveryHomeDir(),
+      })
+      return discovered.map((d) => ({
+        id: d.id,
+        fileName: d.fileName,
+        format: d.format,
+        gzip: d.gzip,
+        source: d.source,
+      }))
+    })
 
     log.debug('replays module ready')
   },

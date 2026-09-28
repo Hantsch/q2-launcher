@@ -29,6 +29,8 @@ export const REPLAYS_HANDLERS = {
   nameTemplatesReset: 'nameTemplates.reset',
   /** Clears every removed-shipped tombstone. */
   nameTemplatesRestore: 'nameTemplates.restore',
+  /** Resolves to every discovered demo across every known installation (story 141). */
+  demosList: 'demos.list',
 } as const
 
 /**
@@ -76,6 +78,40 @@ export const nameTemplatesRemoveSchema = z.object({ id: z.string() })
 export const nameTemplatesReorderSchema = z.object({ ids: z.array(z.string()).max(NAME_TEMPLATES_MAX) })
 export const nameTemplatesResetSchema = z.object({ id: z.string() })
 
+/** A demo's on-disk container format - never a factor a UI label should need beyond this enum. */
+export const demoFormatSchema = z.enum(['dm2', 'mvd2'])
+
+/**
+ * Where a discovered demo came from: never a path, just enough to label it in the UI and let main
+ * resolve it back to a real file by id. `gameDir` is a short mod/game directory name (e.g.
+ * "baseq2"), not a filesystem path.
+ */
+export const demoSourceSchema = z.object({
+  kind: z.literal('installation'),
+  installationId: z.string().min(1),
+  installationName: z.string(),
+  gameDir: z.string().min(1),
+})
+
+/**
+ * A demo main found during a scan. Identified by a content-derived id, never a filesystem path -
+ * the renderer names a demo by this id and asks main to resolve it, same convention as every other
+ * `replays` handler (CLAUDE.md: "Paths from the renderer are never trusted").
+ */
+export const discoveredDemoSchema = z.object({
+  id: z.string().regex(/^[0-9a-f]{16}$/),
+  fileName: z.string().min(1),
+  format: demoFormatSchema,
+  gzip: z.boolean(),
+  source: demoSourceSchema,
+})
+
+export const demosListResultSchema = z.array(discoveredDemoSchema)
+
+export type DemoFormat = z.infer<typeof demoFormatSchema>
+export type DemoSource = z.infer<typeof demoSourceSchema>
+export type DiscoveredDemo = z.infer<typeof discoveredDemoSchema>
+
 /**
  * Every `replays` handler paired with its payload schema - proves AC9's "every new channel exists
  * in the shared contract with a zod payload schema before its handler" for this module's own
@@ -93,6 +129,7 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   [REPLAYS_HANDLERS.nameTemplatesReorder]: nameTemplatesReorderSchema,
   [REPLAYS_HANDLERS.nameTemplatesReset]: nameTemplatesResetSchema,
   [REPLAYS_HANDLERS.nameTemplatesRestore]: replaysNoInputSchema,
+  [REPLAYS_HANDLERS.demosList]: replaysNoInputSchema,
 }
 
 /**

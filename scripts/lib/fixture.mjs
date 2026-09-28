@@ -845,7 +845,18 @@ function populatedInstallations() {
       // (own-file) fixture config alongside the plain `baseq2` foreign-config one - `baseq2`
       // always sorts first (decision 12), so this is additive and does not change what
       // `config-import-preview`/`config-import-review` auto-select.
-      gameDirs: ['baseq2', RESTORE_GAME_DIR],
+      //
+      // Story 141 D5 appends `REPLAYS_FIXTURE_EXTRA_GAME_DIR` ('ctf') as a THIRD entry, purely so
+      // `scripts/flows/replays-discovered-list.mjs` has a second, non-`baseq2` game dir to find a
+      // demo under. 'ctf' is one of `KNOWN_GAME_DIRS` (`src/shared/constants.ts`), so
+      // `inspectInstallation`'s `isGameDir` (`src/main/services/inspector.ts`) recognises it purely
+      // by name and keeps it in `gameDirs` across the app's own startup `validateAll()`
+      // revalidation, unlike `RESTORE_GAME_DIR` above (an arbitrary name, kept only because nothing
+      // in this fixture ever re-derives it live before the flows that read it run). No existing
+      // reader of this installation's `gameDirs` (grepped: no flow/test asserts its exact array or
+      // length) is affected by the addition - `config-import*` no longer even has a gamedir
+      // `<select>` to auto-select from (story 066 D8 retired it).
+      gameDirs: ['baseq2', RESTORE_GAME_DIR, REPLAYS_FIXTURE_EXTRA_GAME_DIR],
     }),
     // Story 065 D5 - see `INSTALL_UNKNOWN_ENGINE_ID`/`INSTALL_UNKNOWN_ENGINE_NAME` above.
     // `sortOrder: 2` puts it last in the rail/library order, so the two installs the existing
@@ -1985,6 +1996,106 @@ function rmDirBestEffort(path) {
   }
 }
 
+// --- story 141 D5: the Demos view's discovered-list fixture --------------------------------------
+//
+// Five real demo files, placeholder bytes only (this story never parses a demo's own contents),
+// discoverable by `discoverDemos` (`src/main/modules/replays/discovery.ts`) across two
+// installations' game dirs - plus four decoys placed to prove the scanner's own rules (a sidecar
+// name, a launcher-temp-copy folder, one-level-only recursion, a wrong extension) rather than merely
+// trusting them. Exported so `scripts/flows/replays-discovered-list.mjs` asserts against the exact
+// same literals this file writes, never a hand-typed copy that could drift.
+
+/** The extra, non-`baseq2` game dir `INSTALL_TWO_ID` gets above - see that installation's own
+ * `gameDirs` doc comment for why 'ctf' specifically. Exported so the flow builds the same
+ * `replays.list.source` text this fixture's own data implies. */
+export const REPLAYS_FIXTURE_EXTRA_GAME_DIR = 'ctf'
+
+/**
+ * Every real demo file this fixture writes, and where `discoverDemos` should find it. Mirrors
+ * `DiscoveredDemo.fileName`/`.source` (`src/shared/modules/replays.ts`) closely enough for the flow
+ * to build its own expectations straight from this array, rather than a second, hand-typed list.
+ */
+export const REPLAYS_FIXTURE_DEMOS = [
+  {
+    fileName: 'duel_q2dm1.dm2',
+    installationId: INSTALL_ONE_ID,
+    installationName: 'Fixture Favorite Install',
+    gameDir: 'baseq2',
+  },
+  {
+    fileName: 'FINAL.DM2',
+    installationId: INSTALL_ONE_ID,
+    installationName: 'Fixture Favorite Install',
+    gameDir: 'baseq2',
+  },
+  {
+    fileName: 'tourney.mvd2.gz',
+    installationId: INSTALL_ONE_ID,
+    installationName: 'Fixture Favorite Install',
+    gameDir: 'baseq2',
+  },
+  {
+    fileName: 'ctf_q2ctf1.dm2.gz',
+    installationId: INSTALL_ONE_ID,
+    installationName: 'Fixture Favorite Install',
+    gameDir: 'baseq2',
+  },
+  {
+    fileName: 'team_q2dm3.mvd2',
+    installationId: INSTALL_TWO_ID,
+    installationName: 'Fixture WriteDir Install',
+    gameDir: REPLAYS_FIXTURE_EXTRA_GAME_DIR,
+  },
+]
+
+/**
+ * Decoy paths written alongside `REPLAYS_FIXTURE_DEMOS`' four `INSTALL_ONE_ID` files, in that same
+ * `baseq2/demos/` folder - every one of them must be invisible to `discoverDemos`, each proving a
+ * different one of its rules: a `.dm2.json` sidecar (`recogniseDemoFile` matches by exact suffix, a
+ * sidecar's name is not one), a subfolder named the way a launcher-owned temp-copy location might be
+ * (`_launcher/`) holding a real demo file one level down, a plain nested subfolder (`old/`) holding
+ * another, and a wrong extension (`.txt`) at the top level. The middle two both exist purely to prove
+ * `scanDemosDir`'s one-level-only, non-recursive listing - not because either name carries meaning to
+ * the scanner itself. Paths are `/`-separated, relative to that `demos/` folder; exported so the flow
+ * can describe what it does NOT expect to see without a second, hand-typed list.
+ */
+export const REPLAYS_FIXTURE_DECOYS = [
+  'duel_q2dm1.dm2.json',
+  '_launcher/leftover.dm2',
+  'old/nested.dm2',
+  'readme.txt',
+]
+
+/** Placeholder bytes for a fixture demo file - never real demo content (out of scope for this
+ * deliverable), just enough for the file to exist and be recognised by name. */
+const REPLAYS_FIXTURE_DEMO_CONTENT = 'q2l-fixture-demo-placeholder\n'
+
+/**
+ * Writes `REPLAYS_FIXTURE_DEMOS`' five real files under their installation/game-dir `demos/`
+ * folders, plus `REPLAYS_FIXTURE_DECOYS`' four decoys next to the `INSTALL_ONE_ID` ones. Called from
+ * `writePopulatedFixture()`, after that function's own install loop has already created both
+ * installations' root folders - `mkdirSync(..., { recursive: true })` below only ever adds to what
+ * that loop left behind, never clears it.
+ */
+function writeReplaysDemosFixture() {
+  const oneDemosDir = join(gameRoot(), INSTALL_ONE_ID, 'baseq2', 'demos')
+  mkdirSync(oneDemosDir, { recursive: true })
+  const twoDemosDir = join(gameRoot(), INSTALL_TWO_ID, REPLAYS_FIXTURE_EXTRA_GAME_DIR, 'demos')
+  mkdirSync(twoDemosDir, { recursive: true })
+
+  for (const demo of REPLAYS_FIXTURE_DEMOS) {
+    const demosDir = demo.installationId === INSTALL_ONE_ID ? oneDemosDir : twoDemosDir
+    writeFileSync(join(demosDir, demo.fileName), REPLAYS_FIXTURE_DEMO_CONTENT, 'utf8')
+  }
+
+  writeFileSync(join(oneDemosDir, 'duel_q2dm1.dm2.json'), '{}\n', 'utf8')
+  mkdirSync(join(oneDemosDir, '_launcher'), { recursive: true })
+  writeFileSync(join(oneDemosDir, '_launcher', 'leftover.dm2'), REPLAYS_FIXTURE_DEMO_CONTENT, 'utf8')
+  mkdirSync(join(oneDemosDir, 'old'), { recursive: true })
+  writeFileSync(join(oneDemosDir, 'old', 'nested.dm2'), REPLAYS_FIXTURE_DEMO_CONTENT, 'utf8')
+  writeFileSync(join(oneDemosDir, 'readme.txt'), 'not a demo\n', 'utf8')
+}
+
 /**
  * Deletes and rewrites the `populated` variant's userdata + game dirs - or, when `variant`/
  * `stateOverrides` are passed, a different variant that needs every one of those same side effects
@@ -2026,6 +2137,10 @@ export function writePopulatedFixture({ variant = 'populated', stateOverrides = 
       writeCustomIconFile(userDataDir, id)
     }
   }
+
+  // Story 141 D5: the Demos view's discovered-list fixture - both installations' roots were just
+  // (re)created by the loop above, so this only ever adds to them.
+  writeReplaysDemosFixture()
 
   // Story 094 D4: a sentinel file in a directory NEXT TO `INSTALL_REMOVE_DISK_ID`'s own root
   // (created just above, in the loop) - not inside it. `installation-remove-from-disk.mjs` deletes

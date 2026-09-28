@@ -1058,6 +1058,15 @@
         "notFound": "That naming pattern no longer exists.",
         "invalidReorder": "That reorder couldn't be applied."
       }
+    },
+    "view": {
+      "title": "Demos"
+    },
+    "list": {
+      "label": "Demos",
+      "loading": "Looking for demos…",
+      "empty": "No demos found.",
+      "source": "{{installation}} · {{gameDir}}"
     }
   },
 

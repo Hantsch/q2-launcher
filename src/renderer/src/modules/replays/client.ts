@@ -1,4 +1,4 @@
-import { REPLAYS_HANDLERS, type ReplaysOverview } from '@shared/modules/replays'
+import { REPLAYS_HANDLERS, type DiscoveredDemo, type ReplaysOverview } from '@shared/modules/replays'
 import type { NameTemplatesView } from '@shared/replays/name-templates'
 import type { Outcome } from '@shared/types'
 import { callModule } from '../moduleClient'
@@ -44,4 +44,9 @@ export function resetNameTemplate(id: string): Promise<Outcome<NameTemplatesView
 
 export function restoreNameTemplates(): Promise<Outcome<NameTemplatesView>> {
   return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesRestore)
+}
+
+/** Story 141 D4: every discovered demo across every known installation - the `ReplaysView`'s list. */
+export function listDemos(): Promise<Outcome<DiscoveredDemo[]>> {
+  return callModule<DiscoveredDemo[]>('replays', REPLAYS_HANDLERS.demosList)
 }

@@ -195,7 +195,7 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     icon: 'Film',
     route: '/replays',
     nav: { section: 'primary', order: 25 },
-    status: 'planned',
+    status: 'available',
     capabilities: ['mutates-installation', 'game-lifecycle'],
     ipcNamespace: 'module:replays',
     requiresInstallation: false,

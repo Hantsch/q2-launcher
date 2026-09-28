@@ -51,17 +51,18 @@ function stringAt(path: string): unknown {
 }
 
 describe('replays module registration', () => {
-  it('the replays renderer module contributes a settings section and no view', async () => {
+  it('the replays renderer module contributes a settings section and its own view', async () => {
     const { rendererModule } = await import('../index')
     const module = rendererModule('replays')
 
     expect(module).toBeDefined()
-    expect(module?.View).toBeUndefined()
+    // Story 141 D4: `ReplaysView` replaces the planned-module fallback.
+    expect(module?.View).toBeDefined()
     expect(module?.settingsSection).toBeDefined()
     expect(module?.settingsSection?.Section).toBe(ReplaysSettingsSection)
 
     const manifest = getModuleManifest('replays')
-    expect(manifest?.status).toBe('planned')
+    expect(manifest?.status).toBe('available')
   })
 
   it('the section renders the naming-pattern list once it has loaded', async () => {

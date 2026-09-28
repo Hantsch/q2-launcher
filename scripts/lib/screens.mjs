@@ -1289,6 +1289,23 @@ export const SCREENS = [
     },
   },
   {
+    id: 'replays-list',
+    variant: 'populated',
+    viewports: BOTH_VIEWPORTS,
+    // Story 141 D5: the Demos view's populated list - `populated`'s fixture now seeds five real
+    // demo files across two installations/game dirs (`scripts/lib/fixture.mjs`'s
+    // `REPLAYS_FIXTURE_DEMOS`, written by `writeReplaysDemosFixture()`), plus decoys the scan must
+    // never surface. Waits for `replays-demo-list` (ReplaysView.tsx) rather than just the nav click,
+    // since the list is fetched once on mount via `demos.list` and a screenshot could otherwise race
+    // that first render.
+    navigate: async (page) => {
+      await click(page, 'nav-replays')
+      await page
+        .getByTestId('replays-demo-list')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
     id: 'update-popover-available',
     variant: 'populated',
     viewports: BOTH_VIEWPORTS,

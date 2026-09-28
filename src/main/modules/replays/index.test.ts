@@ -1,9 +1,24 @@
-import { describe, expect, it } from 'vitest'
-import { REPLAYS_HANDLERS } from '@shared/modules/replays'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { demosListResultSchema, REPLAYS_HANDLERS } from '@shared/modules/replays'
 import { getModuleManifest } from '@shared/types'
+import { UI_HARNESS_ENV } from '../../lib/ui-harness'
 import type { AppContext } from '../../context'
 import { MainModuleRegistry } from '../registry'
-import { replaysModule } from './index'
+import { discoveryHomeDir, replaysModule } from './index'
+
+/**
+ * `demos.list` calls `discoveryHomeDir()` with no overrides, which falls back to `userDataDir()` -
+ * `electron.app.getPath('userData')`. Mocked the same way `downloads/index.test.ts` mocks it: a
+ * per-test temp folder, never the real userData dir.
+ */
+const userDataBox = vi.hoisted(() => ({ current: '' }))
+
+vi.mock('electron', () => ({
+  app: { getPath: () => userDataBox.current },
+}))
 
 /**
  * Story 135 D2: the replays module gets its main half - a single handler, `overview.read`,
@@ -12,9 +27,12 @@ import { replaysModule } from './index'
  * a successful round trip, a rejected bad payload) plus a check that the handler is only
  * reachable under this module's own id, not another module's.
  */
-function fakeAppContext(): AppContext {
+function fakeAppContext(installations: unknown[] = []): AppContext {
   const broadcast = { emit: () => {} }
-  return { broadcast } as unknown as AppContext
+  return {
+    broadcast,
+    installations: { list: () => installations },
+  } as unknown as AppContext
 }
 
 describe('replays module', () => {
@@ -45,6 +63,7 @@ describe('replays module', () => {
       'nameTemplates.reorder',
       'nameTemplates.reset',
       'nameTemplates.restore',
+      'demos.list',
     ])
   })
 
@@ -77,5 +96,78 @@ describe('replays module', () => {
         error: { key: 'modules.error.notImplemented', params: { moduleId, type: REPLAYS_HANDLERS.overviewRead } },
       })
     }
+  })
+
+  describe('demos.list', () => {
+    let dir: string
+
+    beforeEach(async () => {
+      dir = await mkdtemp(join(tmpdir(), 'q2-launcher-replays-index-'))
+      userDataBox.current = dir
+    })
+
+    afterEach(async () => {
+      await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+    })
+
+    it('demos.list returns the discovered demos without paths', async () => {
+      const demosDir = join(dir, 'baseq2', 'demos')
+      await mkdir(demosDir, { recursive: true })
+      await writeFile(join(demosDir, 'x.dm2'), 'x')
+
+      const installation = {
+        id: 'inst-1',
+        name: 'Installation One',
+        rootPath: dir,
+        gameDirs: ['baseq2'],
+        engineKind: 'r1q2',
+        recordedEngineKind: undefined,
+        writeDirPath: undefined,
+      }
+
+      const registry = new MainModuleRegistry()
+      await registry.register(replaysModule, fakeAppContext([installation]))
+
+      const outcome = await registry.invoke({
+        moduleId: 'replays',
+        type: REPLAYS_HANDLERS.demosList,
+        payload: undefined,
+      })
+
+      expect(outcome.ok).toBe(true)
+      if (!outcome.ok) throw new Error('expected ok outcome')
+      const parsed = demosListResultSchema.parse(outcome.value)
+      expect(parsed.map((d) => d.fileName)).toEqual(['x.dm2'])
+      for (const entry of parsed) {
+        expect(entry).not.toHaveProperty('absolutePath')
+      }
+    })
+
+    it('a bad demos.list payload is rejected', async () => {
+      const registry = new MainModuleRegistry()
+      await registry.register(replaysModule, fakeAppContext())
+
+      const outcome = await registry.invoke({
+        moduleId: 'replays',
+        type: REPLAYS_HANDLERS.demosList,
+        payload: { foo: 'bar' },
+      })
+
+      expect(outcome).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
+    })
+  })
+
+  describe('discoveryHomeDir', () => {
+    it('the harness never reads the real home dir', () => {
+      const harnessEnv = { [UI_HARNESS_ENV]: '1' }
+      const disabledEnv = {}
+      const userData = 'C:\\fake\\userData'
+      const osHome = 'C:\\fake\\real-home'
+
+      expect(discoveryHomeDir({ env: harnessEnv, userData, osHome })).toBe(
+        join(userData, 'harness-home'),
+      )
+      expect(discoveryHomeDir({ env: disabledEnv, userData, osHome })).toBe(osHome)
+    })
   })
 })

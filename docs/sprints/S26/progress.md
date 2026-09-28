@@ -71,3 +71,19 @@
 - 2026-09-28 10:50 · 140 · review 1 · done
 - 2026-09-28 10:50 · 140 · story · blocked: e2e (ui:flow) times out on first nav click in this environment, confirmed pre-existing via untouched servers-master-sources flow — unit/narrow gate + review green, status kept in-progress
 - 2026-09-28 10:56:09 · 140 · story · done (e2e gap, see sprint.md Notes)
+- 2026-09-28 10:56:16 · 141 · build · started
+- 2026-09-28 10:56 · 141 · D1 demos.list contract · started
+- 2026-09-28 10:58 · 141 · D1 demos.list contract · done
+- 2026-09-28 10:58 · 141 · D2 discovery core · started
+- 2026-09-28 11:04 · 141 · D2 discovery core · done
+- 2026-09-28 11:04 · 141 · D3 demos.list handler · started
+- 2026-09-28 11:06 · 141 · D3 demos.list handler · done
+- 2026-09-28 11:06 · 141 · D4 ReplaysView · started
+- 2026-09-28 11:10 · 141 · D4 ReplaysView · done
+- 2026-09-28 11:10 · 141 · D5 fixture, flow, screen · started
+- 2026-09-28 11:32 · 141 · D5 fixture, flow, screen · done
+- 2026-09-28 11:32 · 141 · verify · started
+- 2026-09-28 11:48 · 141 · verify · done (unit/typecheck/build green; e2e ui:flow/ui:verify INCONCLUSIVE — confirmed session-wide first-nav-click timeout via untouched servers-module-shell flow)
+- 2026-09-28 11:48 · 141 · review 1 · started
+- 2026-09-28 11:52 · 141 · review 1 · done (PASS, no findings; noted e2e gap already recorded in verify step)
+- 2026-09-28 11:52 · 141 · story · done
