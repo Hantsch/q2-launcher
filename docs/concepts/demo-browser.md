@@ -269,14 +269,14 @@ untested.
   — the module must scan the installation's effective write directory, not only the root.
 - **Shipped patterns** (v1 set, refined by releases):
 
-  | Origin | Pattern | Example | |
-  | --- | --- | --- | --- |
-  | r1q2 `cl_autorecord 1` | `%Y-%m-%d-%H%M-<map>.dm2` | `2026-09-26-2130-q2dm1.dm2` | [V] |
-  | Q2PRO `cl_beginmapcmd` recipe (below) | `<map>_%Y-%m-%d_%H-%M-%S.dm2` | `q2dm1_2026-09-26_21-30-00.dm2` | [V] |
-  | OpenTDM (`g_force_record` / `autorecord`) | `<player>-<teamA>-<teamB>-<hostname>-<map>_YYYY-MM-DD_HH-MM-SS`, unsafe characters → `_` | — | [V] |
-  | AQ2-TNG with `use_mvd2` | `YYYYMMDD-HHMMSS-<map>.mvd2` | `20260926-213000-urban.mvd2` | [V] |
-  | Q2PRO `sv_mvd_autorecord` | follows the mod's `record` name, `.mvd2` | — | [V] |
-  | TastySpleen, Q2Admin | unknown | — | [I] → §17.3 |
+  | Origin | Pattern | Example | Template | |
+  | --- | --- | --- | --- | --- |
+  | r1q2 `cl_autorecord 1` | `%Y-%m-%d-%H%M-<map>.dm2` | `2026-09-26-2130-q2dm1.dm2` | `{year}-{month}-{day}-{hour}{min}-{map}.dm2` | [V] |
+  | Q2PRO `cl_beginmapcmd` recipe (below) | `<map>_%Y-%m-%d_%H-%M-%S.dm2` | `q2dm1_2026-09-26_21-30-00.dm2` | `{map}_{date}_{time}.dm2` | [V] |
+  | OpenTDM (`g_force_record` / `autorecord`) | `<player>-<teamA>-<teamB>-<hostname>-<map>_YYYY-MM-DD_HH-MM-SS`, unsafe characters → `_` | — | `{pov}-{teamA}-{teamB}-{host}-{map}_{date}_{time}` | [V] |
+  | AQ2-TNG with `use_mvd2` | `YYYYMMDD-HHMMSS-<map>.mvd2` | `20260926-213000-urban.mvd2` | `{year}{month}{day}-{hour}{min}{sec}-{map}.mvd2` | [V] |
+  | Q2PRO `sv_mvd_autorecord` | follows the mod's `record` name, `.mvd2` | — | — | [V] |
+  | TastySpleen, Q2Admin | unknown | — | — | [I] → §17.3 |
 
 - Q2PRO has **no autorecord cvar**, but its `cl_beginmapcmd` trigger does the job — a recipe
   circulating among players (2026-09-27) and verified in source [V]:
@@ -573,9 +573,38 @@ Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
    587–701 ms vs. the 300 ms target; CPU cost of the loop was not measured; the loop keeps running
    past the demo's end instead of stopping with it; behaviour across a map change inside a demo is
    untested. The native helper ([[134]]) is withdrawn.
-2. **Name-template syntax** — token vocabulary (`{date}`, `{time}`, `{map}`, `{p1}`, `{teamA}`,
-   `{host}`, `{pov}`…), date formats, separators that also occur inside values, and whether user
-   templates are tried before or after shipped ones.
+2. **Name-template syntax** — **resolved** (story [[139]], `src/shared/replays/name-template.ts` +
+   `name-patterns.ts`):
+   - **Token vocabulary.** Text tokens match any non-empty run of characters: `{map}`, `{pov}`,
+     `{p1}`, `{p2}`, `{p3}`, `{p4}`, `{p5}`, `{p6}`, `{p7}`, `{p8}`, `{p9}`, `{teamA}`, `{teamB}`,
+     `{host}`, and `{skip}` (matches but contributes no fact). Digit tokens are fixed-width: `{year}`
+     (4 digits), `{month}`, `{day}`, `{hour}`, `{min}`, `{sec}` (2 digits each). Two shorthands
+     expand before validation: `{date}` ≡ `{year}-{month}-{day}`, `{time}` ≡ `{hour}-{min}-{sec}`.
+   - **No date-format sub-language.** There is no `%Y`/`strftime`-style syntax to parse — dates are
+     spelled out with the fixed-width digit tokens above and literal separators, and the separator is
+     always `-`, never `:` (illegal in Windows file names).
+   - **Separators are plain literals**, matched ASCII-case-insensitively. Ambiguity — a name that can
+     be split more than one valid way along the template — yields no facts rather than a guess; this
+     is exactly what happens when a `-` inside an OpenTDM team, host or map name lines up with the
+     template's own `-` separators.
+   - **Ordering.** Shipped and user-defined templates are one ordered list to the matching engine —
+     there is no built-in shipped-vs-user precedence. `parseDemoName` (`name-patterns.ts`) walks the
+     list top to bottom and returns the **first pattern that matches uniquely**. An **ambiguous**
+     match stops the walk immediately: later, looser patterns are never tried, so an ambiguous
+     OpenTDM split can never fall through and be mis-reported under the looser Q2PRO
+     `{map}_{date}_{time}` shape. The shipped set (§7) is itself ordered most-specific first —
+     OpenTDM, AQ2-TNG, r1q2, Q2PRO recipe — for the same reason; a user template placed above it in
+     the list is tried, and can win, before any shipped pattern.
+   - **Validity rules** (checked in this order by `compileNameTemplate`, first failure wins): the
+     template is not empty; every `{` is closed and every `}` is opened (`unclosedBrace`/
+     `strayBrace`); every token name is known (`unknownToken`); an extension (`.dm2`/`.mvd2`) may
+     only appear at the very end (`misplacedExtension`); no token is used twice (`duplicateToken`);
+     two text tokens never sit directly adjacent with no literal between them
+     (`adjacentTextTokens`, since there would be no way to tell where one ends and the other begins);
+     the template captures at least one fact (`capturesNothing`); a date is either absent or complete
+     — `{year}`/`{month}`/`{day}` all present or none of them (`incompleteDate`); and a time part
+     (`{hour}`/`{min}`/`{sec}`) never appears without a complete date, nor `{hour}` without `{min}`
+     (`timeWithoutDate`).
 3. **Unknown server patterns** — TastySpleen, Q2Admin and the community servers the user plays on;
    to be collected from real sample demos (the user is looking for one). Sample demos as test
    fixtures need a licence/permission check.

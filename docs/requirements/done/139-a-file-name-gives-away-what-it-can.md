@@ -1,7 +1,7 @@
 ---
 id: 139
 title: a file name gives away what it can
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -30,22 +30,22 @@ is settled here.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `2026-09-26-2130-q2dm1.dm2` yields date 2026-09-26 21:30 and map `q2dm1` from the
+- [x] **AC1** — `2026-09-26-2130-q2dm1.dm2` yields date 2026-09-26 21:30 and map `q2dm1` from the
       r1q2 pattern.
-- [ ] **AC1b** — `q2dm1_2026-09-26_21-30-00.dm2` yields date 2026-09-26 21:30:00 and map `q2dm1`
+- [x] **AC1b** — `q2dm1_2026-09-26_21-30-00.dm2` yields date 2026-09-26 21:30:00 and map `q2dm1`
       from the Q2PRO recipe pattern (the map leads here, unlike r1q2).
-- [ ] **AC2** — An OpenTDM name yields POV player, both team names, hostname, map and date/time.
-- [ ] **AC3** — `20260926-213000-urban.mvd2` yields date/time and map `urban` from the AQ2-TNG
+- [x] **AC2** — An OpenTDM name yields POV player, both team names, hostname, map and date/time.
+- [x] **AC3** — `20260926-213000-urban.mvd2` yields date/time and map `urban` from the AQ2-TNG
       pattern.
-- [ ] **AC4** — Compression suffixes are ignored for matching: `x.dm2.gz` matches as `x.dm2` would.
-- [ ] **AC5** — A name that matches a pattern in more than one way (e.g. an OpenTDM name where a
+- [x] **AC4** — Compression suffixes are ignored for matching: `x.dm2.gz` matches as `x.dm2` would.
+- [x] **AC5** — A name that matches a pattern in more than one way (e.g. an OpenTDM name where a
       `-` inside a team or host name allows two splits) yields no name facts, and a test pins that.
-- [ ] **AC6** — A name that matches no pattern yields no name facts, and the result says which
+- [x] **AC6** — A name that matches no pattern yields no name facts, and the result says which
       pattern (if any) matched, for [[148]]'s source display.
-- [ ] **AC7** — The shipped patterns are expressed in the same template syntax users write in
+- [x] **AC7** — The shipped patterns are expressed in the same template syntax users write in
       [[140]], and the syntax (token vocabulary, date formats, separators) is documented in the
       concept (§17.2 resolved).
-- [ ] **AC8** — The engine is pure shared code with a unit test per shipped pattern.
+- [x] **AC8** — The engine is pure shared code with a unit test per shipped pattern.
 
 ## Open Questions
 
@@ -204,4 +204,47 @@ scan, [[148]] displays the pattern id.
 
 ## Done
 
-<!-- Filled by /build 139. -->
+Built the pure template compiler/matcher (`src/shared/replays/name-template.ts`) with a memoised
+DP (capped at 2) counting ways a name splits along a compiled template — no regex, no unbounded
+backtracking — plus the four shipped patterns and their resolution walk
+(`src/shared/replays/name-patterns.ts`), and resolved concept §17.2 with the token vocabulary and
+ordering rules, mirroring `deviation-doc.test.ts` for the doc test.
+
+**Commit message:** `139: parse a file name into date/map/players/teams/host facts via templates`
+
+**Changed files:**
+- `src/shared/replays/name-template.ts`, `src/shared/replays/name-template.test.ts` (D1)
+- `src/shared/replays/name-patterns.ts`, `src/shared/replays/name-patterns.test.ts` (D2)
+- `src/main/modules/replays/name-template-doc.test.ts` (D2, mirrors `deviation-doc.test.ts`)
+- `docs/concepts/demo-browser.md` (§7 table + §17.2 resolved)
+
+**Verification (narrow gate):** `npm run build` green, `npm run typecheck` green (both tsconfig
+projects — purity of `src/shared` confirmed), `npx vitest run --changed HEAD` green (3 files, 39
+tests); re-run directly against the 3 new/changed test files to rule out a silent `--changed`
+exclusion (also green, same 39 tests). No e2e — pure shared code, no UI surface, per this build's
+instructions. AC1–AC8 each walked against their named test (see `## Acceptance Tests`): all ran
+and passed, no `manual residue`.
+
+**Review:** default-tier clean-agent review — PASS, no findings. Confirmed by hand-tracing: the
+DP's `(state, i, pos)` memo key can't collude two different pending-date meanings (state is only
+meaningful relative to the fixed segment index `i`); `parseDemoName`'s ambiguity stops the walk
+with no fall-through (verified against the AC5 fixture, which is genuinely 2-way ambiguous, not
+accidentally unique or ambiguous elsewhere); no `node:*`/`electron`/DOM import in either shared
+file; all rejections are i18n key+params, no prose.
+
+**Decisions** (implementation details not fully pinned by the plan, made here):
+- Validation order in `compileNameTemplate`: empty → brace structure → unknown token → misplaced
+  extension → duplicate → adjacent-text-tokens → captures-nothing → incomplete-date →
+  time-without-date (first failing rule wins when several apply).
+- `timeWithoutDate` fires when time tokens appear without a complete date, or `{hour}` without
+  `{min}`; `{min}`/`{sec}` present alongside a full date but without `{hour}` is accepted (the
+  story's wording only forbids the two named cases).
+- Token names are case-sensitive (`{Map}` is `unknownToken`); a whitespace-only template is
+  `capturesNothing`, not `empty`.
+- Error `params`: `position` (brace errors), `token` (unknown/duplicate), `first`/`second`
+  (adjacent text tokens), `extension` (misplaced extension) — for [[140]]'s locale strings to
+  interpolate.
+- No changelog entry: this story ships an internal engine with no wiring to any user-facing
+  surface yet ([[140]]/[[144]]/[[148]] do that); nothing changed for the user.
+
+tiers: D 2 / hard 1 · review default · cycles 1 · agents 4

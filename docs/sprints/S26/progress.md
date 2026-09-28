@@ -48,3 +48,13 @@
 - 2026-09-28 09:53 · 138 · review 1 · started
 - 2026-09-28 09:57 · 138 · review 1 · done
 - 2026-09-28 09:57 · 138 · story · done
+- 2026-09-28 09:58:42 · 139 · build · started
+- 2026-09-28 09:59 · 139 · D1 template compiler+matcher · started
+- 2026-09-28 10:05 · 139 · D1 template compiler+matcher · done
+- 2026-09-28 10:05 · 139 · D2 shipped patterns+concept doc · started
+- 2026-09-28 10:09 · 139 · D2 shipped patterns+concept doc · done
+- 2026-09-28 10:09 · 139 · verify · started
+- 2026-09-28 10:10 · 139 · verify · done
+- 2026-09-28 10:10 · 139 · review 1 · started
+- 2026-09-28 10:14 · 139 · review 1 · done
+- 2026-09-28 10:15 · 139 · story · done
