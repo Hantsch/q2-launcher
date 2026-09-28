@@ -1610,4 +1610,35 @@ describe('parseReplaysState (story 140 D2)', () => {
 
     expect(result.extraFolders).toEqual([good])
   })
+
+  // Story 152 D2.
+  it('parseReplaysState keeps a valid listSort and drops a malformed one', () => {
+    const base = {
+      nameTemplates: { entries: [], removedShippedIds: [] },
+      extraFolders: [],
+    }
+
+    const valid = parseReplaysState({ ...base, listSort: { column: 'players', direction: 'desc' } })
+    expect(valid.listSort).toEqual({ column: 'players', direction: 'desc' })
+    expect(valid.nameTemplates).toEqual(base.nameTemplates)
+    expect(valid.extraFolders).toEqual([])
+
+    const malformedColumn = parseReplaysState({
+      ...base,
+      listSort: { column: 'nope', direction: 'desc' },
+    })
+    expect(malformedColumn.listSort).toBeUndefined()
+    expect(malformedColumn.nameTemplates).toEqual(base.nameTemplates)
+
+    const malformedShape = parseReplaysState({ ...base, listSort: 'players-desc' })
+    expect(malformedShape.listSort).toBeUndefined()
+
+    const missingDirection = parseReplaysState({
+      ...base,
+      listSort: { column: 'players' },
+    })
+    expect(missingDirection.listSort).toBeUndefined()
+
+    expect(parseReplaysState(undefined).listSort).toBeUndefined()
+  })
 })

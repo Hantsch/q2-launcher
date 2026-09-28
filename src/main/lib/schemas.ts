@@ -58,10 +58,12 @@ import {
   type WatchlistEntry,
 } from '@shared/modules/servers'
 import {
+  demoListSortSchema,
   nameTemplateTextSchema,
   storedExtraFolderSchema,
   type ReplaysExtraFolder,
 } from '@shared/modules/replays'
+import type { DemoListSort } from '@shared/replays/list-sort'
 import {
   DEFAULT_NAME_TEMPLATES_STATE,
   type NameTemplatesState,
@@ -1476,6 +1478,9 @@ export interface ReplaysState {
    * `STATE_SCHEMA_VERSION` bump" precedent as `nameTemplates` above) - not a second top-level key.
    */
   extraFolders: ReplaysExtraFolder[]
+  /** Story 152 D2: user-chosen demo list sort, same "additive, optional, no schema version bump"
+   * precedent as `ServersState.listSort` (`servers.ts`). */
+  listSort?: DemoListSort
 }
 
 function cloneDefaultNameTemplatesState(): NameTemplatesState {
@@ -1572,7 +1577,14 @@ export function parseReplaysState(raw: unknown): ReplaysState {
     (raw as { nameTemplates?: unknown } | null | undefined)?.nameTemplates,
   )
   const extraFolders = parseExtraFolders(raw)
-  return { nameTemplates, extraFolders }
+
+  // Story 152 D2: `listSort` is field-level-forgiving, mirroring `parseServersState`'s handling of
+  // `ServersState.listSort` exactly - an absent or malformed value simply omits the key (default
+  // order) rather than degrading the rest of the state.
+  const listSortResult = demoListSortSchema.safeParse((raw as { listSort?: unknown } | null)?.listSort)
+  const listSort: DemoListSort | undefined = listSortResult.success ? listSortResult.data : undefined
+
+  return { nameTemplates, extraFolders, ...(listSort ? { listSort } : {}) }
 }
 
 // IPC-payload schemas moved to `src/shared/ipc-schemas.ts` (story 036, D1) -

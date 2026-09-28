@@ -32,3 +32,16 @@
 - 2026-09-28 18:52 · 151 · review 1 · started
 - 2026-09-28 18:56 · 151 · review 1 · done
 - 2026-09-28 18:57 · 151 · story · done
+- 2026-09-28 18:57:47 · 152 · build · started
+- 2026-09-28 18:58 · 152 · D1 pure sort · started
+- 2026-09-28 19:01 · 152 · D1 pure sort · done
+- 2026-09-28 19:01 · 152 · D2 persisted sort choice · started
+- 2026-09-28 19:06 · 152 · D2 persisted sort choice · done
+- 2026-09-28 19:06 · 152 · D3 renderer header + e2e · started
+- 2026-09-28 19:06 · 152 · D3 renderer header + e2e · started (recorded above, continuing after research)
+- 2026-09-28 19:14 · 152 · D3 renderer header + e2e · done
+- 2026-09-28 19:14 · 152 · verify · started
+- 2026-09-28 19:16 · 152 · verify · done
+- 2026-09-28 19:16 · 152 · review 1 · started
+- 2026-09-28 19:18 · 152 · review 1 · done
+- 2026-09-28 19:19 · 152 · story · done

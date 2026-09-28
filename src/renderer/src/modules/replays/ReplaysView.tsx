@@ -1,13 +1,37 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import type { DemoRow, ReplaysScanProgress } from '@shared/modules/replays'
+import {
+  nextSort,
+  sortDemoRows,
+  type DemoListSort,
+  type DemoSortColumn,
+  type DemoSortFields,
+} from '@shared/replays/list-sort'
 import { Button, IconButton } from '../../components/ui/Button'
 import { ROUTE_SETTINGS, useLauncher } from '../../store/useLauncher'
 import { VirtualDemoList } from './components/VirtualDemoList'
-import { indexRead, onScanProgress, scanStart } from './client'
+import { getListSort, indexRead, onScanProgress, scanStart, setListSort } from './client'
 import { deriveReplaysListState } from './list-state'
+import { sidesText } from './row-format'
 import { ReplaysListStatus } from './ReplaysListStatus'
+
+/** Story 152 D3: maps a `DemoRow` (150's row model) to the fields `sortDemoRows` needs - `players`
+ * mirrors exactly what `DemoRow.tsx` shows for its sides cell (`sidesText`, no translated "+n"
+ * suffix here since the sort only ever compares the text, never renders it). */
+function toSortFields(row: DemoRow): DemoSortFields {
+  return {
+    id: row.id,
+    favourite: row.sidecar.values.favourite === true,
+    rating: row.sidecar.values.rating ?? null,
+    map: row.effective.map.value,
+    mod: row.effective.mod.value,
+    players: sidesText(row.effective.sides.value ?? []) || null,
+    date: row.effective.date.value,
+    durationMs: row.durationMs,
+  }
+}
 
 /** A scan that hasn't reported anything yet - the placeholder before the first `scan.progress`
  * push arrives, so `ReplaysListStatus` always has something to render while `scanning` starts
@@ -47,7 +71,29 @@ export function ReplaysView() {
   const [scanning, setScanning] = useState(true)
   const [progress, setProgress] = useState<ReplaysScanProgress>(IDLE_SCAN_PROGRESS)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [sort, setSort] = useState<DemoListSort | null>(null)
   const cancelledRef = useRef(false)
+
+  // Story 152 D3: loads the persisted list sort once on mount - a failed read or no value
+  // persisted both fall back to `null`, the default favourites-first order.
+  useEffect(() => {
+    let cancelled = false
+    void getListSort().then((result) => {
+      if (cancelled) return
+      setSort(result.ok ? result.value : null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const handleSort = (column: DemoSortColumn): void => {
+    const next = nextSort(sort, column)
+    setSort(next)
+    void setListSort(next).then((result) => {
+      setSort(result.ok ? result.value : null)
+    })
+  }
 
   useEffect(() => {
     cancelledRef.current = false
@@ -104,6 +150,14 @@ export function ReplaysView() {
   const rowCount = demos?.length ?? 0
   const listState = deriveReplaysListState({ scanning, rowCount })
   const selected = demos?.find((demo) => demo.id === selectedId) ?? null
+  const sortedDemos = useMemo(() => sortDemoRows(demos ?? [], sort, toSortFields), [demos, sort])
+  const sortCaption =
+    sort === null
+      ? t('replays.sort.current.default')
+      : t('replays.sort.current.column', {
+          column: t(`replays.sort.column.${sort.column}`),
+          direction: t(`replays.sort.direction.${sort.direction}`),
+        })
 
   return (
     <div className="flex h-full flex-col">
@@ -124,14 +178,19 @@ export function ReplaysView() {
       </header>
 
       <ReplaysListStatus listState={listState} progress={progress} onOpenSettings={handleOpenSettings} />
+      <p className="px-5 pt-2 text-xs text-ink-muted" data-testid="replays-sort-current">
+        {sortCaption}
+      </p>
 
       <div className="flex min-h-0 flex-1">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col p-5">
           {rowCount > 0 && (
             <VirtualDemoList
-              rows={demos ?? []}
+              rows={sortedDemos}
               selectedId={selectedId}
               onSelect={(id) => setSelectedId(id)}
+              sort={sort}
+              onSort={handleSort}
             />
           )}
         </div>

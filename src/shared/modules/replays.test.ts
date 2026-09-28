@@ -76,17 +76,19 @@ describe('replays module contract (story 135 D1)', () => {
 
 /**
  * Walks a zod schema looking for a filesystem path: either `absolutePathSchema` itself, or an
- * object key whose name matches /path|dir|folder|file/i. Unwraps optional/nullable/default
+ * object key whose name matches /path|dir$|folder|file/i. Unwraps optional/nullable/default
  * wrappers and recurses into object shapes and arrays. Not a general zod introspector - just
  * enough to prove no `replays` handler payload smuggles a renderer-supplied path (CLAUDE.md:
- * "Paths from the renderer are never trusted").
+ * "Paths from the renderer are never trusted"). `dir$` (not a bare `dir`), same convention this
+ * file's own `discoveredDemoSchema` test above uses for `gameDir` - story 152 D2's `direction`
+ * (list-sort payload) merely contains "dir" as a substring and is not a path-shaped key.
  */
 function findPathLeak(schema: z.ZodTypeAny, keyName?: string): string | undefined {
   if ((schema as unknown) === (absolutePathSchema as unknown)) {
     return keyName ? `key "${keyName}" uses absolutePathSchema` : 'schema is absolutePathSchema'
   }
 
-  if (keyName && /path|dir|folder|file/i.test(keyName)) {
+  if (keyName && /path|dir$|folder|file/i.test(keyName)) {
     return `key "${keyName}" looks like a filesystem path`
   }
 

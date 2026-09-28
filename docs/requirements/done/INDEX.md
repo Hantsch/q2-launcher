@@ -244,3 +244,4 @@ second roadmap.
   virtualised list keeps "low thousands" of rows responsive, and a `replays-demo-detail` side-panel
   shell awaits 155. Default review PASSed, no findings; a pre-existing story-142 e2e bug
   (`replays-extra-folders`) is untouched and unrelated.
+- 152 — Favourites first, then newest · S27 · pure `list-sort.ts` engine (favourites-first default, 6-column sort, unknowns-last), persisted `replays.listSort`, sortable Demos header and the `replays-sort-order` e2e flow.

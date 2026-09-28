@@ -1,7 +1,7 @@
 ---
 id: 152
 title: favourites first, then newest
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -14,15 +14,15 @@ Every column can be sorted instead, and the launcher remembers the user's choice
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — With no remembered choice, favourites come first, then all demos newest first by
+- [x] **AC1** — With no remembered choice, favourites come first, then all demos newest first by
       effective date ([[148]]); within the favourites, newest first too.
-- [ ] **AC2** — Every column of the row ([[150]]) can be sorted ascending and descending.
-- [ ] **AC3** — The sort choice is stored in the module's state key ([[142]]) and restored on the
+- [x] **AC2** — Every column of the row ([[150]]) can be sorted ascending and descending.
+- [x] **AC3** — The sort choice is stored in the module's state key ([[142]]) and restored on the
       next start.
-- [ ] **AC4** — Demos with an unknown value in the sorted column sort after all known values in
+- [x] **AC4** — Demos with an unknown value in the sorted column sort after all known values in
       both directions.
-- [ ] **AC5** — Favourites are not pinned under a user-chosen column sort (Decisions (Sprint)).
-- [ ] **AC6** — The sort is pure shared code with unit tests.
+- [x] **AC5** — Favourites are not pinned under a user-chosen column sort (Decisions (Sprint)).
+- [x] **AC6** — The sort is pure shared code with unit tests.
 
 ## Open Questions
 
@@ -96,7 +96,7 @@ Order: D1 → D2 → D3 (D2 imports D1's column list; D3 imports both).
 
 ## Deliverables
 
-- **D1 — demo list sort (pure) + its tests.**
+- [x] **D1 — demo list sort (pure) + its tests.**
   Files: new `src/shared/replays/list-sort.ts`, new `src/shared/replays/list-sort.test.ts`. Mirror
   the shape and naming of `src/shared/servers/list-sort.ts` (pure: no `node:*`, no DOM, no electron).
   Exports:
@@ -130,7 +130,7 @@ Order: D1 → D2 → D3 (D2 imports D1's column list; D3 imports both).
   first under a `date`/`map` sort; tie-break chain; input array not mutated; `nextSort` cycle.
   Acceptance: those tests pass; `npm run typecheck` clean.
 
-- **D2 — persisted sort choice (shared contract + main) + its tests.**
+- [x] **D2 — persisted sort choice (shared contract + main) + its tests.**
   Files: edit `src/shared/modules/replays.ts` (add `demoListSortSchema = z.object({ column:
   z.enum(DEMO_SORT_COLUMNS), direction: z.enum(['asc','desc']) }).strict()`, `listGetSort:
   'list.getSort'` / `listSetSort: 'list.setSort'` in `REPLAYS_HANDLERS`, input schemas
@@ -148,7 +148,7 @@ Order: D1 → D2 → D3 (D2 imports D1's column list; D3 imports both).
   `src/main/modules/servers/index.test.ts:641-676`).
   Acceptance: those tests pass; `npm run typecheck` clean.
 
-- **D3 — sortable header in the Demos list + persistence wiring + e2e flow.**
+- [x] **D3 — sortable header in the Demos list + persistence wiring + e2e flow.**
   Files: edit `src/renderer/src/modules/replays/client.ts` (`getListSort()` / `setListSort(sort)`,
   mirror `src/renderer/src/modules/servers/client.ts:165-172`); new
   `src/renderer/src/modules/replays/DemoListHeader.tsx` (mirror
@@ -192,27 +192,52 @@ Order: D1 → D2 → D3 (D2 imports D1's column list; D3 imports both).
 
 ## Acceptance Tests
 
-- AC1 → unit `src/shared/replays/list-sort.test.ts` › "the default order puts favourites first, each
-  group newest first" (D1) and e2e `scripts/flows/replays-sort-order.mjs` (`npm run ui:flow --
-  replays-sort-order`), step "the default order is favourites newest-first, then the rest
-  newest-first" (D3)
-- AC2 → unit `src/shared/replays/list-sort.test.ts` › "every column sorts ascending and descending"
-  and › "nextSort cycles natural, reversed, default" (D1) and e2e `replays-sort-order`, steps
-  "clicking the map column sorts ascending" / "clicking it again reverses to descending" / "the date
-  column sorts both ways" (D3)
+- AC1 → unit `src/shared/replays/list-sort.test.ts` › "sortDemoRows — default order > favourites
+  first, each group newest first, unknown date last, id tie-break makes it total" (D1) and e2e
+  `scripts/flows/replays-sort-order.mjs` (`npm run ui:flow -- replays-sort-order`), step "the default
+  order groups favourites first (newest of the two first), then newest-first" (D3)
+- AC2 → unit `src/shared/replays/list-sort.test.ts` › "column sort, every column, both directions >
+  '<col>' sorts ascending and descending" (`it.each` over all 6 columns) and › "nextSort cycles
+  natural -> reversed -> default, and jumps to natural on a different column" (D1) and e2e
+  `replays-sort-order`, steps for map ascending/descending and date both directions (D3)
 - AC3 → unit `src/main/lib/schemas.test.ts` › "parseReplaysState keeps a valid listSort and drops a
   malformed one" and `src/main/modules/replays/index.test.ts` › "list.setSort persists the sort and
-  list.getSort returns it; null clears it" (D2) and e2e `replays-sort-order`, step "reloading keeps
-  the map/descending order and state.json holds it" (D3)
-- AC4 → unit `src/shared/replays/list-sort.test.ts` › "unknown values sort after known values in both
-  directions" (D1)
+  list.getSort returns it; null clears it" (D2) and e2e `replays-sort-order`, the reload-persistence
+  step (D3)
+- AC4 → unit `src/shared/replays/list-sort.test.ts` › "unknown values sort after known values, both
+  directions > '<col>': unknown is last in both directions" (`it.each` over all 6 columns) (D1)
 - AC5 → unit `src/shared/replays/list-sort.test.ts` › "a column sort does not pin favourites" (D1)
-  and e2e `replays-sort-order`, step "clicking the map column sorts ascending" (the newer
-  non-favourite is not held under the favourites, D3)
+  and e2e `replays-sort-order`, step "clicking the map column sorts ascending across all rows -
+  favourites are not re-pinned" (D3)
 - AC6 → unit `src/shared/replays/list-sort.test.ts` (the whole file; D1 — the module is in
   `src/shared` and imports nothing from node/DOM/electron, which `npm run typecheck`'s node/web
   project split enforces)
 
 ## Done
 
-<!-- Filled by /build 152. -->
+Implemented the demos list's default order (favourites first, then newest by effective date) plus
+a fully sortable header (all 6 columns, both directions, unknowns last, no favourite-pinning under
+a column sort), persisted in `state.json`'s `replays.listSort` and restored on next start. Pure
+sort engine in `src/shared/replays/list-sort.ts`; contract-first IPC (`list.getSort`/`list.setSort`)
+in `src/shared/modules/replays.ts` + main handlers; renderer header/wiring + new e2e flow
+`replays-sort-order`.
+
+Commit message: `152: favourites first, then newest`
+
+Verification — narrow gate: `npm run build` green, `npm run typecheck` green (node+web),
+`npx vitest run --changed HEAD` green (115 files/1681 tests), `npm run ui:flow --
+replays-sort-order` green (all steps). AC1-AC6 all verified PASS against the named tests in
+`## Acceptance Tests` (updated above to the tests' real names) — see the clean-agent review below.
+Full regression gate not run (sprint's job per deviation).
+
+Review (clean agent, default tier per Model Hints): verdict **PASS**. All 6 ACs confirmed with
+file:line evidence; the story's own flagged risk (a negated nulls-last comparator putting unknowns
+first on direction flip) was checked by inspection and correctly avoided. One non-blocking finding:
+the rating column's "favourite + null rating is a known value, not unknown" rule (per Decisions) is
+implemented correctly but has no dedicated unit test row — left undocumented-but-untested rather
+than fixed, since the code is correct by inspection, AC4/AC5 are otherwise fully covered, and adding
+it is a coverage nicety, not a criterion gap. Also confirmed: the `findPathLeak` regex narrowing in
+`src/shared/modules/replays.test.ts` (avoiding a false positive on the new `direction` field) is
+in-scope and consistent with that file's existing `gameDir` precedent.
+
+tiers: D 3 / hard 0 · review default · cycles 0 · agents 5

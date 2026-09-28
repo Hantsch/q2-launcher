@@ -2335,6 +2335,114 @@ export function writeReplaysRowsFixture() {
   return { userDataDir, installations: 0, configProfiles: 0 }
 }
 
+// --- story 152 D3: the demos list's sort-order e2e fixture ---------------------------------------
+
+/** `replays-sort-order`'s own fixture variant name, exported so the flow imports it rather than
+ * hardcoding the string a second time (mirrors `replays-demo-rows.mjs`'s own `variant` import
+ * shape - but that flow re-exports its own `variant` constant from the flow file itself; this one
+ * exports it from here since the fixture module is the source of truth for the variant name). */
+export const REPLAYS_SORT_ORDER_VARIANT = 'replays-sort-order'
+
+/** `replays-sort-order`'s extra folder id/path, registered in its own `state.json` below. */
+const REPLAYS_SORT_ORDER_FOLDER_ID = 'fixture-replays-sort-order-folder'
+function replaysSortOrderFolderPath() {
+  return join(variantUserDataDir(REPLAYS_SORT_ORDER_VARIANT), 'demos-fixture')
+}
+
+/** File names `scripts/flows/replays-sort-order.mjs` asserts against - exported so the flow never
+ * hand-types a second copy that could drift from what this fixture actually writes. Two favourites
+ * (different dates, different maps) and two non-favourites (one newer than both favourites, one
+ * older than both) - enough to prove the default order groups favourites first, then falls back
+ * to date descending within/outside that group, and that a column sort (e.g. map) never re-pins
+ * favourites (AC5). */
+export const REPLAYS_SORT_ORDER_FAV_NEWER_DEMO = 'sort-fav-newer.dm2'
+export const REPLAYS_SORT_ORDER_FAV_OLDER_DEMO = 'sort-fav-older.dm2'
+export const REPLAYS_SORT_ORDER_NONFAV_NEWEST_DEMO = 'sort-nonfav-newest.dm2'
+export const REPLAYS_SORT_ORDER_NONFAV_OLDEST_DEMO = 'sort-nonfav-oldest.dm2'
+
+/** Each demo's sidecar `map` override - exported so the flow can assert DOM row order by map text
+ * without hand-typing a second copy of these strings that could drift from the sidecars below. */
+export const REPLAYS_SORT_ORDER_FAV_NEWER_SIDECAR_MAP = 'q2dm2'
+export const REPLAYS_SORT_ORDER_FAV_OLDER_SIDECAR_MAP = 'q2dm10'
+export const REPLAYS_SORT_ORDER_NONFAV_NEWEST_SIDECAR_MAP = 'q2dm5'
+export const REPLAYS_SORT_ORDER_NONFAV_OLDEST_SIDECAR_MAP = 'q2dm1'
+
+const REPLAYS_SORT_ORDER_FAV_NEWER_SIDECAR = {
+  schemaVersion: 1,
+  favourite: true,
+  map: REPLAYS_SORT_ORDER_FAV_NEWER_SIDECAR_MAP,
+  date: '2026-01-10T00:00:00.000Z',
+}
+const REPLAYS_SORT_ORDER_FAV_OLDER_SIDECAR = {
+  schemaVersion: 1,
+  favourite: true,
+  map: REPLAYS_SORT_ORDER_FAV_OLDER_SIDECAR_MAP,
+  date: '2026-01-05T00:00:00.000Z',
+}
+const REPLAYS_SORT_ORDER_NONFAV_NEWEST_SIDECAR = {
+  schemaVersion: 1,
+  map: REPLAYS_SORT_ORDER_NONFAV_NEWEST_SIDECAR_MAP,
+  date: '2026-01-20T00:00:00.000Z',
+}
+const REPLAYS_SORT_ORDER_NONFAV_OLDEST_SIDECAR = {
+  schemaVersion: 1,
+  map: REPLAYS_SORT_ORDER_NONFAV_OLDEST_SIDECAR_MAP,
+  date: '2026-01-01T00:00:00.000Z',
+}
+
+/** The sidecar file name for a demo file name - mirrors `sidecarFileName()`
+ * (`src/shared/replays/sidecar.ts`), same duplication reasoning as `rowsSidecarFileName()` above:
+ * this is plain Node ESM outside both TS projects. */
+function sortOrderSidecarFileName(demoFileName) {
+  return `${demoFileName}.json`
+}
+
+/**
+ * Deletes and rewrites the `replays-sort-order` variant: an empty `state.json` (no installations -
+ * every row lives under one registered extra folder, never under `gameRoot()` - same reasoning as
+ * `writeReplaysRowsFixture()`'s own top-of-section comment), plus that folder holding four copies of
+ * `docs/fixtures/demos/test.dm2`, each paired with its own sidecar overriding `favourite`/`map`/
+ * `date` per the constants above.
+ */
+export function writeReplaysSortOrderFixture() {
+  const userDataDir = variantUserDataDir(REPLAYS_SORT_ORDER_VARIANT)
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  writeJson(join(userDataDir, STATE_FILE), {
+    ...emptyStateDocument(),
+    replays: {
+      extraFolders: [
+        { id: REPLAYS_SORT_ORDER_FOLDER_ID, path: replaysSortOrderFolderPath(), addedAt: FIXED_TIMESTAMP },
+      ],
+    },
+  })
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  const folder = replaysSortOrderFolderPath()
+  rmDirBestEffort(folder)
+  mkdirSync(folder, { recursive: true })
+
+  const testDm2 = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2')
+
+  const demos = [
+    [REPLAYS_SORT_ORDER_FAV_NEWER_DEMO, REPLAYS_SORT_ORDER_FAV_NEWER_SIDECAR],
+    [REPLAYS_SORT_ORDER_FAV_OLDER_DEMO, REPLAYS_SORT_ORDER_FAV_OLDER_SIDECAR],
+    [REPLAYS_SORT_ORDER_NONFAV_NEWEST_DEMO, REPLAYS_SORT_ORDER_NONFAV_NEWEST_SIDECAR],
+    [REPLAYS_SORT_ORDER_NONFAV_OLDEST_DEMO, REPLAYS_SORT_ORDER_NONFAV_OLDEST_SIDECAR],
+  ]
+  for (const [fileName, sidecar] of demos) {
+    copyFileSync(testDm2, join(folder, fileName))
+    writeFileSync(
+      join(folder, sortOrderSidecarFileName(fileName)),
+      JSON.stringify(sidecar, null, 2) + '\n',
+      'utf8',
+    )
+  }
+
+  return { userDataDir, installations: 0, configProfiles: 0 }
+}
+
 /** `replays-scale`'s extra folder id/path, registered in its own `state.json` below. */
 const REPLAYS_SCALE_FOLDER_ID = 'fixture-replays-scale-folder'
 function replaysScaleFolderPath() {
@@ -2794,6 +2902,9 @@ export function writeFixture(variant) {
   // Story 150+ D5: the demos-list rows on a real surface - see each writer's own doc comment.
   if (variant === 'replays-rows') return writeReplaysRowsFixture()
   if (variant === 'replays-scale') return writeReplaysScaleFixture()
+  // Story 152 D3: `replays-sort-order` has no screen (only `scripts/flows/replays-sort-order.mjs`),
+  // same reasoning as `replays-scale` above - still listed here so `npm run ui:seed` writes it too.
+  if (variant === REPLAYS_SORT_ORDER_VARIANT) return writeReplaysSortOrderFixture()
   // Story 151 D4: the Demos view's own loading/error status-strip screens - see each writer's own
   // doc comment.
   if (variant === 'replays-list-loading') return writeReplaysListLoadingFixture()
@@ -2823,6 +2934,7 @@ export const FIXTURE_VARIANTS = [
   // `servers-scan` above - still listed here so `npm run ui:seed` writes it too.
   'replays-rows',
   'replays-scale',
+  'replays-sort-order',
   // Story 151 D4: `replays-list-loading`/`replays-list-error`'s own screens (`screens.mjs`) reseed
   // them.
   'replays-list-loading',

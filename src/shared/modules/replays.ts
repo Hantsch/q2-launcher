@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { VALUE_SOURCES } from '../demos/effective-values'
 import { demoUnreadableSchema } from '../demos/readability'
+import { DEMO_SORT_COLUMNS } from '../replays/list-sort'
 import type { NameFacts } from '../replays/name-template'
 import { sidecarFieldsSchema } from '../replays/sidecar'
 import { absolutePathSchema } from '../schemas'
@@ -51,6 +52,13 @@ export const REPLAYS_HANDLERS = {
   sidecarRead: 'sidecar.read',
   /** Full-replacement save of a demo's sidecar fields, id-addressed (story 146). */
   sidecarWrite: 'sidecar.write',
+  /** Story 152 D2: the persisted list-sort handlers, mirroring `SERVERS_HANDLERS.listGetSort`/
+   * `listSetSort` (`servers.ts`) exactly. `listGetSort` resolves to the current
+   * `DemoListSort | null` (`null` meaning the default favourites-first order); `listSetSort`
+   * validates and persists a new one (or clears it with `null`), resolving to what was actually
+   * persisted. */
+  listGetSort: 'list.getSort',
+  listSetSort: 'list.setSort',
 } as const
 
 /**
@@ -368,6 +376,23 @@ export const replaysSidecarWriteSchema = z
   .strict()
 
 /**
+ * Story 152 D2: the persisted/IPC shape of a `DemoListSort` - `.strict()` so a payload carrying an
+ * unknown key is rejected outright, same convention as `serverListSortSchema` (`servers.ts`).
+ */
+export const demoListSortSchema = z
+  .object({
+    column: z.enum(DEMO_SORT_COLUMNS),
+    direction: z.enum(['asc', 'desc']),
+  })
+  .strict()
+
+/** `list.getSort` takes no payload - same `z.void()` convention as `replaysNoInputSchema` above. */
+export const listGetSortInputSchema = replaysNoInputSchema
+
+/** `list.setSort`'s payload - a full sort or `null` to clear it back to the default order. */
+export const listSetSortInputSchema = z.object({ sort: demoListSortSchema.nullable() }).strict()
+
+/**
  * Every `replays` handler paired with its payload schema - proves AC9's "every new channel exists
  * in the shared contract with a zod payload schema before its handler" for this module's own
  * handlers, and is what `replays.test.ts` iterates to check no handler is missing one.
@@ -392,6 +417,8 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   [REPLAYS_HANDLERS.indexRead]: replaysNoInputSchema,
   [REPLAYS_HANDLERS.sidecarRead]: replaysSidecarReadSchema,
   [REPLAYS_HANDLERS.sidecarWrite]: replaysSidecarWriteSchema,
+  [REPLAYS_HANDLERS.listGetSort]: listGetSortInputSchema,
+  [REPLAYS_HANDLERS.listSetSort]: listSetSortInputSchema,
 }
 
 /**

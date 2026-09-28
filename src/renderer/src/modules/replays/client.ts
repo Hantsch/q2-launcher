@@ -10,6 +10,7 @@ import {
   type ReplaysScanStartResult,
 } from '@shared/modules/replays'
 import type { NameTemplatesView } from '@shared/replays/name-templates'
+import type { DemoListSort } from '@shared/replays/list-sort'
 import type { Outcome } from '@shared/types'
 import { callModule, onModuleEvent } from '../moduleClient'
 
@@ -115,4 +116,18 @@ export function indexRead(): Promise<Outcome<DemoRow[]>> {
 
 export function onScanProgress(listener: (payload: ReplaysScanProgress) => void): () => void {
   return onModuleEvent<ReplaysScanProgress>('replays', REPLAYS_EVENTS.scanProgress, listener)
+}
+
+/**
+ * Story 152 D3: the persisted list-sort's renderer-side transport, mirroring `servers/client.ts`'s
+ * `getListSort`/`setListSort` exactly. `getListSort` resolves to the current `DemoListSort | null`
+ * (`null` meaning the default favourites-first order); `setListSort` persists a new one (or clears
+ * it back to the default with `null`) and resolves to what was actually persisted.
+ */
+export function getListSort(): Promise<Outcome<DemoListSort | null>> {
+  return callModule<DemoListSort | null>('replays', REPLAYS_HANDLERS.listGetSort)
+}
+
+export function setListSort(sort: DemoListSort | null): Promise<Outcome<DemoListSort | null>> {
+  return callModule<DemoListSort | null>('replays', REPLAYS_HANDLERS.listSetSort, { sort })
 }

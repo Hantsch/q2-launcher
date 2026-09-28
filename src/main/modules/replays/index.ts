@@ -7,6 +7,8 @@ import {
   REPLAYS_HANDLERS,
   extraFoldersAddSchema,
   extraFoldersRemoveSchema,
+  listGetSortInputSchema,
+  listSetSortInputSchema,
   nameTemplatesAddSchema,
   nameTemplatesRemoveSchema,
   nameTemplatesReorderSchema,
@@ -266,6 +268,27 @@ export const replaysModule: MainModule = {
       const extraFolders = removeExtraFolder(current.extraFolders, payload.id)
       const persisted = app.state.setReplaysState({ ...current, extraFolders })
       return { ok: true, folders: persisted.extraFolders } as ExtraFoldersResult
+    })
+
+    /**
+     * Story 152 D2: the `list.*` sort handlers - same read/replace/persist discipline as
+     * `SERVERS_HANDLERS.listGetSort`/`listSetSort` (`src/main/modules/servers/index.ts`).
+     * `listSetSort` replaces the top-level `listSort` field wholesale while carrying every other
+     * `ReplaysState` key over from the same snapshot untouched; `null` clears it by destructuring it
+     * out of the persisted candidate rather than setting it to `undefined`, so a cleared sort is an
+     * absent key on disk, not a present `null`/`undefined` one. What's returned is what
+     * `setReplaysState` actually persisted (`?? null`), not the local candidate.
+     */
+    handle(REPLAYS_HANDLERS.listGetSort, listGetSortInputSchema, () =>
+      app.state.replaysState().listSort ?? null,
+    )
+    handle(REPLAYS_HANDLERS.listSetSort, listSetSortInputSchema, (payload) => {
+      const current = app.state.replaysState()
+      if (payload.sort === null) {
+        const { listSort: _listSort, ...withoutSort } = current
+        return app.state.setReplaysState(withoutSort).listSort ?? null
+      }
+      return app.state.setReplaysState({ ...current, listSort: payload.sort }).listSort ?? null
     })
 
     log.debug('replays module ready')

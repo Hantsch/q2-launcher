@@ -29,6 +29,8 @@ version section when a release actually ships.
 - The Demos list now shows live scan progress while it reads, an empty state with a link straight
   into Settings, and calls out any demo folder or archive it couldn't read instead of quietly
   skipping it.
+- The Demos list remembers favourites-first-then-newest by default, and you can now click any
+  column header to sort by it instead — your choice is remembered next time you open Demos.
 
 ## 0.5.0 — 2026-09-26
 

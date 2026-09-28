@@ -1160,6 +1160,24 @@
       "duration": "Length",
       "favourite": "Favourite"
     },
+    "sort": {
+      "column": {
+        "map": "Map",
+        "mod": "Mod",
+        "players": "Players",
+        "date": "Recorded",
+        "duration": "Length",
+        "rating": "Rating"
+      },
+      "current": {
+        "default": "Favourites first, then newest",
+        "column": "Sorted by {{column}}, {{direction}}"
+      },
+      "direction": {
+        "asc": "ascending",
+        "desc": "descending"
+      }
+    },
     "format": {
       "dm2": "DM2",
       "mvd2": "MVD2",

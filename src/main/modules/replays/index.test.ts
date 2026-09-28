@@ -80,6 +80,8 @@ describe('replays module', () => {
       'index.read',
       'sidecar.read',
       'sidecar.write',
+      'list.getSort',
+      'list.setSort',
     ])
   })
 
@@ -216,6 +218,68 @@ describe('replays module', () => {
       expect(reloaded.replaysState().extraFolders).toEqual([
         expect.objectContaining({ path: expectedCanonical }),
       ])
+    })
+  })
+
+  /**
+   * Story 152 D2: the `list.getSort`/`list.setSort` handlers - same real-`StateStore` round-trip
+   * harness as the `extraFolders.*` block above, mirroring
+   * `src/main/modules/servers/index.test.ts`'s `list.*Sort` handlers block exactly.
+   */
+  describe('list.*Sort handlers (story 152 D2)', () => {
+    let filePath: string
+    let state: StateStore
+    let registry: MainModuleRegistry
+
+    beforeEach(async () => {
+      filePath = join(tmpdir(), `q2-launcher-replays-index-list-sort-${randomUUID()}.json`)
+      state = new StateStore(filePath)
+      await state.load()
+      registry = new MainModuleRegistry()
+      const appContext = {
+        broadcast: { emit: () => {} },
+        installations: { list: () => [] },
+        state,
+      } as unknown as AppContext
+      await registry.register(replaysModule, appContext)
+    })
+
+    afterEach(async () => {
+      await state.settle()
+      await rm(filePath, { force: true })
+      await rm(`${filePath}.tmp`, { force: true })
+      await rm(`${filePath}.bak`, { force: true })
+    })
+
+    function invoke(type: string, payload?: unknown): Promise<unknown> {
+      return registry.invoke({ moduleId: 'replays', type, payload })
+    }
+
+    it('list.setSort persists the sort and list.getSort returns it; null clears it', async () => {
+      expect(await invoke(REPLAYS_HANDLERS.listGetSort)).toEqual({ ok: true, value: null })
+
+      const before = state.replaysState()
+
+      const sort = { column: 'players', direction: 'desc' }
+      const setOutcome = await invoke(REPLAYS_HANDLERS.listSetSort, { sort })
+      expect(setOutcome).toEqual({ ok: true, value: sort })
+
+      expect(await invoke(REPLAYS_HANDLERS.listGetSort)).toEqual({ ok: true, value: sort })
+
+      await state.settle()
+      const reloaded = new StateStore(filePath)
+      await reloaded.load()
+      expect(reloaded.replaysState().listSort).toEqual(sort)
+      expect(reloaded.replaysState().extraFolders).toEqual(before.extraFolders)
+      expect(reloaded.replaysState().nameTemplates).toEqual(before.nameTemplates)
+
+      const clearOutcome = await invoke(REPLAYS_HANDLERS.listSetSort, { sort: null })
+      expect(clearOutcome).toEqual({ ok: true, value: null })
+      expect(await invoke(REPLAYS_HANDLERS.listGetSort)).toEqual({ ok: true, value: null })
+
+      await state.settle()
+      const rawJson = JSON.parse(await readFile(filePath, 'utf8')) as { replays?: { listSort?: unknown } }
+      expect(rawJson.replays?.listSort).toBeUndefined()
     })
   })
 
@@ -372,6 +436,8 @@ describe('replays module', () => {
         [REPLAYS_HANDLERS.extraFoldersAdd]: { path: dir },
         [REPLAYS_HANDLERS.extraFoldersRemove]: { id: 'nope' },
         [REPLAYS_HANDLERS.sidecarRead]: { demoId: 'nope' },
+        [REPLAYS_HANDLERS.listGetSort]: undefined,
+        [REPLAYS_HANDLERS.listSetSort]: { sort: null },
       }
 
       const handlersToExercise = Object.values(REPLAYS_HANDLERS).filter(

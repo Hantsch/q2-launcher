@@ -29,16 +29,22 @@ vi.hoisted(() => {
   ;(globalThis as unknown as { q2: unknown }).q2 = { invoke, on }
 })
 
-const { indexReadMock, scanStartMock, onScanProgressMock } = vi.hoisted(() => ({
+const { indexReadMock, scanStartMock, onScanProgressMock, getListSortMock, setListSortMock } = vi.hoisted(() => ({
   indexReadMock: vi.fn(),
   scanStartMock: vi.fn(async () => ({ ok: true as const, value: { started: true } })),
   onScanProgressMock: vi.fn((_listener: (progress: unknown) => void) => () => {}),
+  // Story 152 D3: the persisted list-sort mocks - default to "no sort persisted" so every
+  // pre-existing test in this file keeps seeing the default favourites-first order.
+  getListSortMock: vi.fn(async () => ({ ok: true as const, value: null })),
+  setListSortMock: vi.fn(async (sort: unknown) => ({ ok: true as const, value: sort })),
 }))
 
 vi.mock('./client', () => ({
   indexRead: indexReadMock,
   scanStart: scanStartMock,
   onScanProgress: onScanProgressMock,
+  getListSort: getListSortMock,
+  setListSort: setListSortMock,
 }))
 
 let ReplaysView: typeof import('./ReplaysView').ReplaysView
