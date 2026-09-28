@@ -47,8 +47,14 @@ needs `mutates-installation` and `long-running-jobs` — refine confirms (Q1).
 
 - [ ] **Q1 — Capabilities.** `game-lifecycle` only (concept §14), or also `mutates-installation`
       (sidecars, rename, temp copies inside installation folders) and `long-running-jobs` (scan)?
-- [ ] **Q2 — Nav order and icon** (concept open point §17.16): where "Demos" sits relative to
-      Servers, and which inline-SVG icon it uses.
+- [x] ~~**Q2 — Nav order and icon** (concept open point §17.16): where "Demos" sits relative to
+      Servers, and which inline-SVG icon it uses.~~ answered → Decisions (Sprint)
+
+## Decisions (Sprint)
+
+- **(User)** Nav placement: "Demos" sits right after Servers in the primary nav (the two
+  "find something to play" entries stay adjacent); refine designs a simple inline-SVG icon
+  matching the existing nav style — no specific motif required.
 
 ## Plan
 

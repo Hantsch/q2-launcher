@@ -33,8 +33,15 @@ which may or may not be the right tool for listing and reading entries (Q1).
 
 ## Open Questions
 
-- [ ] **Q1 — Zip reader** — reuse the bundled `7za`, or add a JS zip dependency (licence, size)?
+- [x] ~~**Q1 — Zip reader** — reuse the bundled `7za`, or add a JS zip dependency (licence, size)?~~
+      answered → Decisions (Sprint)
 - [ ] **Q2 — Size cap** per entry, as zip-bomb protection.
+
+## Decisions (Sprint)
+
+- **(User)** Zip reader: reuse the bundled `7za` binary already shipped with the downloads
+  module — no new JS zip dependency. Refine works out the exact invocation (listing entries,
+  reading a single entry's bytes) against `7za`'s CLI.
 
 ## Plan
 

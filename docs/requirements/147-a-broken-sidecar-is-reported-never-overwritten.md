@@ -30,9 +30,19 @@ demo — never silently dropped, never overwritten unless the user explicitly sa
 
 ## Open Questions
 
-- [ ] **Q1 — Partial use** — ignore the whole broken sidecar (effective values from content/name
-      only), or use its valid fields and flag the rest?
-- [ ] **Q2 — Newer schema** — read-only view of the fields the launcher does understand, or nothing?
+- [x] ~~**Q1 — Partial use** — ignore the whole broken sidecar (effective values from content/name
+      only), or use its valid fields and flag the rest?~~ answered → Decisions (Sprint)
+- [x] ~~**Q2 — Newer schema** — read-only view of the fields the launcher does understand, or
+      nothing?~~ answered → Decisions (Sprint)
+
+## Decisions (Sprint)
+
+- **(User)** Partial use: use the sidecar's still-valid fields for effective values and flag the
+  rest, rather than discarding the whole file — least data loss when only part of a sidecar is
+  corrupt or fails validation.
+- Same principle applies to an unknown/newer `schemaVersion` (Q2): show a read-only view of the
+  fields the current launcher does understand (those that pass the known schema shape) rather
+  than nothing, consistent with the partial-use decision above.
 
 ## Plan
 

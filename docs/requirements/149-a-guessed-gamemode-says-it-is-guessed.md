@@ -30,9 +30,16 @@ concept open point §17.5 and is fixed in this story.
 
 ## Open Questions
 
-- [ ] **Q1 — Heuristic table** (§17.5): which game dirs, pattern hits and player counts map to
-      which mode, and in which order the rules are tried.
+- [x] ~~**Q1 — Heuristic table** (§17.5): which game dirs, pattern hits and player counts map to
+      which mode, and in which order the rules are tried.~~ answered → Decisions (Sprint)
 - [ ] **Q2 — Filtering guesses** — should the filter be able to exclude guessed gamemodes?
+
+## Decisions (Sprint)
+
+- **(User)** Heuristic scope: the concept's sketch (game dir e.g. `ctf` → CTF, an OpenTDM
+  pattern hit → TDM, exactly two players → duel) is sufficient scope for v1. Refine expands it
+  mechanically to cover other known mod dirs from [[139]]'s shipped patterns, but does not
+  invent new heuristic categories beyond that sketch.
 
 ## Plan
 

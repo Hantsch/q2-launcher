@@ -27,8 +27,15 @@ does not understand it.
 
 ## Open Questions
 
-- [ ] **Q1 — Playing an unreadable demo** — the game dir is unknown: disable Play with the reason,
-      or offer Play in a chosen installation and let the engine decide?
+- [x] ~~**Q1 — Playing an unreadable demo** — the game dir is unknown: disable Play with the reason,
+      or offer Play in a chosen installation and let the engine decide?~~ answered → Decisions
+      (Sprint)
+
+## Decisions (Sprint)
+
+- **(User)** Play on an unreadable demo: disable Play with the reason, consistent with the
+  module's disabled+reason pattern elsewhere, rather than letting the user guess an
+  installation for an engine that may reject a gamedir mismatch.
 
 ## Plan
 

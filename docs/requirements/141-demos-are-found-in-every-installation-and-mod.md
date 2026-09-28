@@ -39,10 +39,16 @@ real installation (§14).
 
 ## Open Questions
 
-- [ ] **Q1 — Recursion** — only the `demos/` folder itself, or its subfolders too (Q2PRO's `demo`
-      command accepts subpaths)?
+- [x] ~~**Q1 — Recursion** — only the `demos/` folder itself, or its subfolders too (Q2PRO's `demo`
+      command accepts subpaths)?~~ answered → Decisions (Sprint)
 - [ ] **Q2 — Write directory** — how the launcher learns an installation's effective write
       directory (known per engine/build, or read from the installation's config).
+
+## Decisions (Sprint)
+
+- **(User)** Recursion: scan only the top-level `demos/` folder (and effective write-dir
+  equivalent), not subfolders — matches the documented location and keeps the scan bounded.
+  Same answer applies to [[142]]'s extra folders.
 
 ## Plan
 

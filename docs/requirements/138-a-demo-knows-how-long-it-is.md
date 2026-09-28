@@ -29,10 +29,18 @@ of thousands of demos is scanned on every module open ([[144]]).
 
 ## Open Questions
 
-- [ ] **Q1 — Exact vs. estimate** (§17.4) — needs measurements on real demos; which method?
+- [x] ~~**Q1 — Exact vs. estimate** (§17.4) — needs measurements on real demos; which method?~~
+      answered → Decisions (Sprint)
 - [ ] **Q2 — Budget** — what scan cost per demo (or per MB) is acceptable?
-- [ ] **Q3 — Exact later?** If the estimate is chosen, is an exact duration computed lazily when a
-      demo is opened in the detail view or played?
+- [x] ~~**Q3 — Exact later?** If the estimate is chosen, is an exact duration computed lazily when a
+      demo is opened in the detail view or played?~~ moot, see Decisions (Sprint)
+
+## Decisions (Sprint)
+
+- **(User)** Duration method: exact frame-count decode at scan time, not an estimate — the
+  timeline ([[165]]) needs a precise duration/seek bar, and an approximate value "brings little"
+  for that purpose. Q3 (lazy exact-later) is therefore moot: exact is computed up front. Q2
+  (scan-time budget) stays open for refine to size against real fixture demos.
 
 ## Plan
 

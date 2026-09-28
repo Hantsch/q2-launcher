@@ -36,11 +36,18 @@ the renderer as a pushed `module:event` (counts), which [[151]] shows.
 
 ## Open Questions
 
-- [ ] **Q1 — Scanning while the game runs** (§17.12): allowed (the game may be writing a demo right
+- [x] ~~**Q1 — Scanning while the game runs** (§17.12): allowed (the game may be writing a demo right
       now), deferred until the game exits, or skip files still being written — and how "still being
-      written" is detected?
+      written" is detected?~~ answered → Decisions (Sprint)
 - [ ] **Q2 — First scan** — does the list show cached rows immediately and update in place, or wait
       for the scan to finish?
+
+## Decisions (Sprint)
+
+- **(User)** Scanning while a game runs: skip files still being written, rather than deferring
+  the whole scan or reading a possibly-live file. Refine picks the detection method (e.g. a
+  short re-stat to see if mtime/size are still moving, or an open-handle/lock check) and adds
+  it as an AC.
 
 ## Plan
 

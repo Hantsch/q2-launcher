@@ -45,11 +45,21 @@ over parsed ones is [[148]].
 
 ## Open Questions
 
-- [ ] **Q1 — Clearing everything** — delete the sidecar, or keep it with only `schemaVersion`?
-- [ ] **Q2 — Read-only locations** (§17.11): error only (as AC7 assumes), or an alternative
-      location? The "filesystem is master" rule argues against a fallback store.
+- [x] ~~**Q1 — Clearing everything** — delete the sidecar, or keep it with only `schemaVersion`?~~
+      answered → Decisions (Sprint)
+- [x] ~~**Q2 — Read-only locations** (§17.11): error only (as AC7 assumes), or an alternative
+      location? The "filesystem is master" rule argues against a fallback store.~~ answered →
+      Decisions (Sprint)
 - [ ] **Q3 — Formatting** — pretty-printed, stable key order (diff-friendly for users who version
       their demos)?
+
+## Decisions (Sprint)
+
+- **(User)** Clearing everything: delete the sidecar file entirely rather than keeping a
+  bare-`schemaVersion` husk — matches "untouched demos get no sidecar"; a fully-cleared demo
+  goes back to being untouched.
+- **(User)** Read-only locations: error only, no fallback store — consistent with "the
+  filesystem is master"; AC7 already assumed this.
 
 ## Plan
 

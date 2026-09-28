@@ -44,13 +44,20 @@ before done (Q1).
 
 ## Open Questions
 
-- [ ] **Q1 — Real sample before done?** Synthetic fixtures prove the format as documented; is one
+- [x] ~~**Q1 — Real sample before done?** Synthetic fixtures prove the format as documented; is one
       real protocol-34 demo (and one 343x) required as a fixture before this is done, and whose
-      licence covers it (§17.3)?
+      licence covers it (§17.3)?~~ answered → Decisions (Sprint)
 - [ ] **Q2 — 343x layout** — which Q2PRO constants (`CS_MODELS`, `CS_PLAYERSKINS`, …) apply in the
       extended layout; confirm from source before planning.
 - [ ] **Q3 — Oversized packets** (`record -e` / `cl_demomsglen`, §6.1) — does the header parser
       flag them so [[161]] can disable r1q2 playback, or is that detected elsewhere?
+
+## Decisions (Sprint)
+
+- **(User)** Real sample: the user supplied real captures at `docs/fixtures/demos/` —
+  `test.dm2` (protocol 34) and `PFAU_20221127-053327_q2dm1.mvd2` (MVD2, used by [[137]]). Use
+  them as fixtures alongside the synthetic/documented-format ones; no separate real-sample
+  gate blocks this story. No 343x real sample exists — that variant stays synthetic-only.
 
 ## Plan
 

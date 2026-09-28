@@ -33,10 +33,18 @@ templates ([[140]]) and the remembered sort ([[152]]).
 
 ## Open Questions
 
-- [ ] **Q1 — Recursion** — a downloads folder can be deep: scan subfolders, and if so, how deep?
-      (Same question as [[141]] Q1, possibly a different answer.)
-- [ ] **Q2 — Overlaps** — a folder that is a parent of an installation: scanned as extra folder,
-      or skipped for the installation part?
+- [x] ~~**Q1 — Recursion** — a downloads folder can be deep: scan subfolders, and if so, how deep?
+      (Same question as [[141]] Q1, possibly a different answer.)~~ answered → Decisions
+      (Sprint)
+- [x] ~~**Q2 — Overlaps** — a folder that is a parent of an installation: scanned as extra folder,
+      or skipped for the installation part?~~ resolved by Q1's answer, see Decisions (Sprint)
+
+## Decisions (Sprint)
+
+- **(User)** Recursion: same answer as [[141]] Q1 — top-level of the extra folder only, no
+  subfolder recursion. This also resolves Q2: since scanning never recurses, an extra folder
+  that happens to be an ancestor of an installation's root never reaches that installation's
+  `demos/` folder, so no separate overlap rule is needed beyond AC4's exact-path dedup.
 
 ## Plan
 

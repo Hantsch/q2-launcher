@@ -33,9 +33,22 @@ They live in the module's own state key ([[142]] introduces it) and are shown in
 
 ## Open Questions
 
-- [ ] **Q1 — Order** (§17.2): are user templates tried before or after shipped patterns?
-- [ ] **Q2 — Try it out** — should the editor show a live test against a sample file name (or
-      against the user's actual demos)? Not in the concept; useful, but new scope.
+- [x] ~~**Q1 — Order** (§17.2): are user templates tried before or after shipped patterns?~~
+      answered → Decisions (Sprint)
+- [x] ~~**Q2 — Try it out** — should the editor show a live test against a sample file name (or
+      against the user's actual demos)? Not in the concept; useful, but new scope.~~ answered →
+      Decisions (Sprint)
+
+## Decisions (Sprint)
+
+- **(User)** Order/overriding: shipped patterns are themselves defined as entries in the demos
+  settings, editable like user templates, and the user can override any of them there — there
+  is no separate "user templates run after/before shipped" split; editing an entry is how a
+  user's version takes effect. AC4's "order decided in Q1" becomes: the settings section shows
+  one ordered list (shipped + user-added), tried top to bottom, edited/reordered in place.
+- Try-it-out live preview (Q2): out of scope for v1 — new scope beyond the concept and beyond
+  what this story's acceptance criteria need; a template's effect is already visible from the
+  next scan's results per AC3.
 
 ## Plan
 

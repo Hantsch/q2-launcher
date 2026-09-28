@@ -33,7 +33,14 @@ code, header only, typed failure instead of a throw.
 ## Open Questions
 
 - [ ] **Q1 — Configstring layout** for MVD protocol 37 — same indices as protocol 34, or its own?
-- [ ] **Q2 — Real sample** — same question as [[136]] Q1, for MVD2.
+- [x] ~~**Q2 — Real sample** — same question as [[136]] Q1, for MVD2.~~ answered → Decisions
+      (Sprint)
+
+## Decisions (Sprint)
+
+- **(User)** Real sample: the user supplied a real capture at
+  `docs/fixtures/demos/PFAU_20221127-053327_q2dm1.mvd2`. Use it as a fixture alongside the
+  synthetic/documented-format ones; no separate real-sample gate blocks this story.
 
 ## Plan
 
