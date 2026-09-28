@@ -1,6 +1,7 @@
 import {
   REPLAYS_EVENTS,
   REPLAYS_HANDLERS,
+  type DemoRow,
   type DiscoveredDemo,
   type ExtraFoldersResult,
   type ReplaysExtraFolder,
@@ -108,8 +109,8 @@ export function scanStart(): Promise<Outcome<ReplaysScanStartResult>> {
   return callModule<ReplaysScanStartResult>('replays', REPLAYS_HANDLERS.scanStart)
 }
 
-export function indexRead(): Promise<Outcome<DiscoveredDemo[]>> {
-  return callModule<DiscoveredDemo[]>('replays', REPLAYS_HANDLERS.indexRead)
+export function indexRead(): Promise<Outcome<DemoRow[]>> {
+  return callModule<DemoRow[]>('replays', REPLAYS_HANDLERS.indexRead)
 }
 
 export function onScanProgress(listener: (payload: ReplaysScanProgress) => void): () => void {

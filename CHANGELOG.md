@@ -23,7 +23,9 @@ version section when a release actually ships.
 - The Demos list now shows what it already knows the instant you open it, then quietly rescans
   for anything new — no more staring at "Looking for demos…" every single time. A Refresh button
   is there when you want to ask again yourself.
-
+- Each demo row now tells you what it actually is at a glance — map, mod, who played, when, how
+  long, and whether it's a favourite — with clear badges for sidecar notes, archive entries and
+  anything unreadable. Click a row to open its details.
 
 ## 0.5.0 — 2026-09-26
 

@@ -12,7 +12,7 @@ import {
   type ReplaysScanStartResult,
 } from '@shared/modules/replays'
 import { compileNameTemplate, matchNameTemplate, type NameFacts } from '@shared/replays/name-template'
-import { readDemoHeader } from '../../lib/demo-bytes'
+import { readDemoDuration, readDemoHeader } from '../../lib/demo-bytes'
 import type { DiscoveredDemoFile } from './discovery'
 import type { CachedDemo, ReplaysIndexCache } from './index-cache'
 import { runIncrementalScan, type IncrementalScanSource } from './incremental-scan'
@@ -53,6 +53,13 @@ export interface DemoHeaderFacts {
   unparsableReason: DemoUnparsableReason | null
   readable: boolean
   unreadable: DemoUnreadable | null
+  /** Story 150 D1: an ok header's game dir / POV / players (null/null/[] otherwise), and the frame
+   * count's duration (null when it could not be counted, or the header was unreadable). Same
+   * shape as the row's fields, so a cached row (`entry.parsed`) satisfies this type as-is. */
+  gameDir: string | null
+  pov: string | null
+  players: string[]
+  durationMs: number | null
 }
 
 /** A discovered demo plus the identity D2 compares against the cache. For a zip entry, `size`,
@@ -118,6 +125,13 @@ function toRow(file: ReplaysScanFile, facts: DemoHeaderFacts): DiscoveredDemo {
     unparsableReason: facts.unparsableReason,
     readable: facts.readable,
     unreadable: facts.unreadable,
+    // Picked from `facts` on every path: a fresh parse's `DemoHeaderFacts`, or - on a cache hit -
+    // the cached row itself (`runScan`'s `toRow(entry.file, entry.parsed)`), never from `file`,
+    // whose loose-file values are discovery's null/[] placeholders.
+    gameDir: facts.gameDir,
+    pov: facts.pov,
+    players: facts.players,
+    durationMs: facts.durationMs,
     fileTime:
       file.archiveEntry !== null
         ? file.fileTime
@@ -189,6 +203,10 @@ export async function readDemoFacts(file: ReplaysScanFile): Promise<DemoHeaderFa
       unparsableReason: file.unparsableReason,
       readable: file.readable,
       unreadable: file.unreadable,
+      gameDir: file.gameDir,
+      pov: file.pov,
+      players: file.players,
+      durationMs: file.durationMs,
     }
   }
   const header = await readDemoHeader(file.absolutePath)
@@ -196,14 +214,29 @@ export async function readDemoFacts(file: ReplaysScanFile): Promise<DemoHeaderFa
   // it is still a member of `DemoUnreadableReason`, `demoReadability`'s actual contract.
   const readability = demoReadability(header as Parameters<typeof demoReadability>[0])
   if (!header.ok) {
+    // An unreadable header is never worth a full-file frame count.
     return {
       map: null,
       unparsableReason: header.reason as DemoUnparsableReason,
       readable: false,
       unreadable: readability.unreadable,
+      gameDir: null,
+      pov: null,
+      players: [],
+      durationMs: null,
     }
   }
-  return { map: header.map, unparsableReason: null, readable: true, unreadable: null }
+  const duration = await readDemoDuration(file.absolutePath)
+  return {
+    map: header.map,
+    unparsableReason: null,
+    readable: true,
+    unreadable: null,
+    gameDir: header.gameDir,
+    pov: header.pov,
+    players: header.players,
+    durationMs: duration.ok ? duration.durationMs : null,
+  }
 }
 
 /** The first template that matches a file name wins; a template that fails to compile is

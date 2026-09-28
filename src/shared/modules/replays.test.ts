@@ -55,6 +55,10 @@ describe('replays module contract (story 135 D1)', () => {
       unparsableReason: null,
       readable: true,
       unreadable: null,
+      gameDir: null,
+      pov: null,
+      players: [],
+      durationMs: null,
       fileTime: { birthtimeMs: 0, mtimeMs: 0 },
       nameFacts: null,
     })

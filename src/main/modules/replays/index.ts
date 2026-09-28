@@ -20,6 +20,7 @@ import { isUiHarnessEnabled } from '../../lib/ui-harness'
 import { userDataDir } from '../../lib/paths'
 import type { MainModule } from '../types'
 import { resolveExtractorPath } from '../downloads/7za-path'
+import { composeDemoRows } from './demo-rows'
 import { discoverDemos, type DiscoverContext } from './discovery'
 import { addExtraFolder, removeExtraFolder } from './extra-folders'
 import { ReplaysIndexCache } from './index-cache'
@@ -122,10 +123,6 @@ export const replaysModule: MainModule = {
       log,
     })
 
-    handle(REPLAYS_HANDLERS.overviewRead, replaysNoInputSchema, () => scanService.overview())
-    handle(REPLAYS_HANDLERS.scanStart, replaysNoInputSchema, () => scanService.start())
-    handle(REPLAYS_HANDLERS.indexRead, replaysNoInputSchema, () => scanService.read())
-
     // Story 146: the sidecar store's only index dependency is `scanService.resolveFile`, so the
     // store never builds a second index.
     const sidecarStore = createSidecarStore({
@@ -135,6 +132,19 @@ export const replaysModule: MainModule = {
         return file.archiveEntry ? { kind: 'archive-entry' } : { kind: 'file', absolutePath: file.absolutePath }
       },
     })
+
+    handle(REPLAYS_HANDLERS.overviewRead, replaysNoInputSchema, () => scanService.overview())
+    handle(REPLAYS_HANDLERS.scanStart, replaysNoInputSchema, () => scanService.start())
+    // Story 150 D2: `index.read` now answers composed rows - each demo plus its sidecar and
+    // resolved effective values - rather than the bare discovered-demo shape `demos.list` still
+    // answers. A failed sidecar read (the store's own `Outcome` came back `ok: false`) becomes a
+    // `null` sidecar input, same as an archive entry or an id the index doesn't know about.
+    handle(REPLAYS_HANDLERS.indexRead, replaysNoInputSchema, async () =>
+      composeDemoRows(await scanService.read(), async (id) => {
+        const outcome = await sidecarStore.read(id)
+        return outcome.ok ? outcome.value : null
+      }),
+    )
 
     handle(REPLAYS_HANDLERS.sidecarRead, replaysSidecarReadSchema, (payload) =>
       sidecarStore.read(payload.demoId),
@@ -184,6 +194,12 @@ export const replaysModule: MainModule = {
         // placeholders discovery itself sets, never a real answer.
         readable: d.readable,
         unreadable: d.unreadable,
+        // Discovery's own values: a zip entry's real header facts/duration, a loose file's
+        // null/[] placeholders (no header parse here, see above).
+        gameDir: d.gameDir,
+        pov: d.pov,
+        players: d.players,
+        durationMs: d.durationMs,
         fileTime: d.fileTime,
         nameFacts: d.nameFacts,
       }))

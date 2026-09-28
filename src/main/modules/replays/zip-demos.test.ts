@@ -5,7 +5,7 @@ import { gzipSync } from 'node:zlib'
 import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { parseDemoHeader } from '@shared/demos/demo-header'
-import type { DemoSource, DiscoveredDemo } from '@shared/modules/replays'
+import { discoveredDemoSchema, type DemoSource, type DiscoveredDemo } from '@shared/modules/replays'
 import { resolveExtractorPath } from '../downloads/7za-path'
 import * as zipEntries from '../../lib/zip-entries'
 import { ZIP_ENTRY_MAX_BYTES, type ZipDeps, type ZipEntry } from '../../lib/zip-entries'
@@ -60,6 +60,56 @@ describe('expandZip (fake listing/reader)', () => {
     const result = await expandZip('C:/demos/pack.zip', SOURCE, 0, {} as ZipDeps)
     expect(result.rows).toEqual([])
     expect(readSpy).not.toHaveBeenCalled()
+  })
+
+  it('a zip entry carries its header facts and duration', async () => {
+    const fixtures = resolve(__dirname, '../../../../docs/fixtures/demos')
+    const dm2 = new Uint8Array(await readFile(join(fixtures, 'test.dm2')))
+    const mvd2 = new Uint8Array(await readFile(join(fixtures, 'PFAU_20221127-053327_q2dm1.mvd2')))
+    const bytesByPath: Record<string, Uint8Array> = {
+      'test.dm2': dm2,
+      'test.dm2.gz': new Uint8Array(gzipSync(dm2)),
+      'test.mvd2': mvd2,
+      'garbage.dm2': new Uint8Array([1, 2, 3]),
+    }
+    vi.spyOn(zipEntries, 'listZipEntries').mockResolvedValue({
+      ok: true,
+      entries: Object.entries(bytesByPath).map(([path, bytes]) => ({
+        path,
+        isFolder: false,
+        size: bytes.length,
+        modified: null,
+        encrypted: false,
+      })),
+    })
+    vi.spyOn(zipEntries, 'readZipEntry').mockImplementation(async (_archive, entryPath) => ({
+      ok: true,
+      bytes: bytesByPath[entryPath]!,
+    }))
+
+    const result = await expandZip('C:/demos/pack.zip', SOURCE, 0, {} as ZipDeps)
+    const facts = new Map(
+      result.rows.map((r) => [
+        r.fileName,
+        { gameDir: r.gameDir, pov: r.pov, players: r.players, durationMs: r.durationMs },
+      ]),
+    )
+    const dm2Facts = {
+      gameDir: 'opentdm',
+      pov: 'sd.kgm/sauDove',
+      players: ['WallFly[BZZZ]', 'sd.kgm/sauDove'],
+      durationMs: 41000,
+    }
+    expect(facts.get('test.dm2')).toEqual(dm2Facts)
+    expect(facts.get('test.dm2.gz')).toEqual(dm2Facts)
+    expect(facts.get('test.mvd2')).toEqual({
+      gameDir: 'opentdm',
+      pov: null,
+      players: ['lamb shanker', 'lamb shanker'],
+      durationMs: 620100,
+    })
+    expect(facts.get('garbage.dm2')).toEqual({ gameDir: null, pov: null, players: [], durationMs: null })
+    for (const row of result.rows) expect(discoveredDemoSchema.safeParse(row).success).toBe(true)
   })
 })
 
@@ -186,6 +236,10 @@ describe('expandZip (real 7za binary)', () => {
       unparsableReason: null,
       readable: true,
       unreadable: null,
+      gameDir: null,
+      pov: null,
+      players: [],
+      durationMs: null,
       fileTime: { birthtimeMs: 0, mtimeMs: 0 },
       nameFacts: null,
     }

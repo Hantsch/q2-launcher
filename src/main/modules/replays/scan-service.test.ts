@@ -29,7 +29,16 @@ import {
  * test can hold a scan mid-flight or make it throw.
  */
 
-const FACTS: DemoHeaderFacts = { map: 'q2dm1', unparsableReason: null, readable: true, unreadable: null }
+const FACTS: DemoHeaderFacts = {
+  map: 'q2dm1',
+  unparsableReason: null,
+  readable: true,
+  unreadable: null,
+  gameDir: 'baseq2',
+  pov: null,
+  players: [],
+  durationMs: null,
+}
 const HOUR_AGO_S = (Date.now() - 60 * 60 * 1000) / 1000
 
 let root: string
@@ -198,6 +207,10 @@ describe('replays scan service (story 144 D3)', () => {
       unparsableReason: null,
       readable: true,
       unreadable: null,
+      gameDir: 'baseq2',
+      pov: null,
+      players: [],
+      durationMs: null,
       fileTime: { birthtimeMs: 0, mtimeMs: 0 },
       nameFacts: null,
     }
@@ -437,5 +450,70 @@ describe('unreadable demos stay in the index (story 145 D2)', () => {
     for (const row of rows) {
       expect(discoveredDemoSchema.safeParse(row).success).toBe(true)
     }
+  })
+})
+
+describe('header facts and duration on the index row (story 150 D1)', () => {
+  const FIXTURE = join(process.cwd(), 'docs/fixtures/demos/test.dm2')
+  /** `test.dm2`'s own header facts and frame-count duration (see `demo-bytes.test.ts`). */
+  const EXPECTED = {
+    gameDir: 'opentdm',
+    pov: 'sd.kgm/sauDove',
+    players: ['WallFly[BZZZ]', 'sd.kgm/sauDove'],
+    durationMs: 41000,
+  }
+  const pickFacts = (row: DiscoveredDemo): typeof EXPECTED => ({
+    gameDir: row.gameDir!,
+    pov: row.pov!,
+    players: row.players,
+    durationMs: row.durationMs!,
+  })
+
+  async function fixtureFolder(): Promise<string> {
+    const dir = join(root, 'demos')
+    await mkdir(dir, { recursive: true })
+    await writeFile(join(dir, 'good.dm2'), await readFile(FIXTURE))
+    await utimes(join(dir, 'good.dm2'), HOUR_AGO_S, HOUR_AGO_S)
+    return dir
+  }
+
+  it('a fresh parse carries gameDir, pov, players and durationMs', async () => {
+    const dir = await fixtureFolder()
+    const h = harness([dir], { parse: readDemoFacts })
+
+    h.service.start()
+    await h.waitIdle(1)
+    const rows = await h.service.read()
+
+    expect(rows).toHaveLength(1)
+    expect(pickFacts(rows[0])).toEqual(EXPECTED)
+    expect(discoveredDemoSchema.safeParse(rows[0]).success).toBe(true)
+  })
+
+  it('a cache hit keeps gameDir, pov, players and durationMs', async () => {
+    const dir = await fixtureFolder()
+
+    // First launch: a real parse, which writes the cache file.
+    const first = harness([dir], { parse: readDemoFacts })
+    first.service.start()
+    await first.waitIdle(1)
+    expect(pickFacts((await first.service.read())[0])).toEqual(EXPECTED)
+
+    // Second launch: a new service over the same cache file. Any parse would be a cache miss.
+    const parse = vi.fn(async (): Promise<DemoHeaderFacts> => {
+      throw new Error('a cache hit must not be re-parsed')
+    })
+    const second = harness([dir], { parse })
+
+    // Served straight from the on-disk cache, before this process's first scan.
+    expect(pickFacts((await second.service.read())[0])).toEqual(EXPECTED)
+
+    // Rebuilt through `toRow(entry.file, entry.parsed)` by a scan that hits the cache.
+    second.service.start()
+    await second.waitIdle(1)
+    expect(parse).not.toHaveBeenCalled()
+    const rows = await second.service.read()
+    expect(rows).toHaveLength(1)
+    expect(pickFacts(rows[0])).toEqual(EXPECTED)
   })
 })

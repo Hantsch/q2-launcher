@@ -1,0 +1,18 @@
+- 2026-09-28 17:32:23 · refine · 150 151 152 153 154 155 156 157 158 · started
+- 2026-09-28 17:43:43 · refine · 150 151 152 153 154 155 156 157 158 · done
+- 2026-09-28 17:43:50 · 150 · build · started
+- 2026-09-28 17:44 · 150 · D1 index row carries header facts and duration · started
+- 2026-09-28 17:48 · 150 · D1 index row carries header facts and duration · done
+- 2026-09-28 17:48 · 150 · D2 index.read answers composed demo rows · started
+- 2026-09-28 17:51 · 150 · D2 index.read answers composed demo rows · done
+- 2026-09-28 17:52 · 150 · D3 demo row UI · started
+- 2026-09-28 17:57 · 150 · D3 demo row UI · done
+- 2026-09-28 17:58 · 150 · D4 virtualised selectable list with detail shell · started
+- 2026-09-28 18:03 · 150 · D4 virtualised selectable list with detail shell · done
+- 2026-09-28 18:03 · 150 · D5 rows on the real surface (fixtures + flows + screen) · started
+- 2026-09-28 18:18 · 150 · D5 rows on the real surface (fixtures + flows + screen) · done
+- 2026-09-28 18:18 · 150 · verify · started
+- 2026-09-28 18:22 · 150 · verify · done
+- 2026-09-28 18:22 · 150 · review 1 · started
+- 2026-09-28 18:25 · 150 · review 1 · done
+- 2026-09-28 18:26 · 150 · story · done

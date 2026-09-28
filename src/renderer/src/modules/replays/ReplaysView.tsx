@@ -1,14 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { DiscoveredDemo } from '@shared/modules/replays'
-import { Button } from '../../components/ui/Button'
+import { X } from 'lucide-react'
+import type { DemoRow } from '@shared/modules/replays'
+import { Button, IconButton } from '../../components/ui/Button'
+import { VirtualDemoList } from './components/VirtualDemoList'
 import { indexRead, onScanProgress, scanStart } from './client'
-
-/** The basename of an archive path, split on either separator - a small local helper since
- * `demo.archiveEntry.archivePath` may come from either platform's discovery run. */
-function basename(path: string): string {
-  return path.split(/[/\\]/).pop() ?? path
-}
 
 /**
  * Story 141 D4: a minimal Demos list view - just enough to make AC "every discovered demo across
@@ -23,18 +19,33 @@ function basename(path: string): string {
  * partial/incremental patch, matching the story's "single swap on completion" design. The refresh
  * button re-triggers the same `scanStart()` and is disabled while the latest known progress says a
  * scan is running.
+ *
+ * Story 158/159 D4: the list itself is now `VirtualDemoList` (a virtualised, selectable body built
+ * on the D3 row/header/grid pieces), and selecting a row opens a side detail panel - shell only,
+ * a later story fills in its content. A row that vanishes on a re-read (its id no longer in the new
+ * list) clears the selection rather than leaving it pointed at a row that no longer renders.
  */
 export function ReplaysView() {
   const { t } = useTranslation()
-  const [demos, setDemos] = useState<DiscoveredDemo[] | null>(null)
+  const [demos, setDemos] = useState<DemoRow[] | null>(null)
   const [scanning, setScanning] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const cancelledRef = useRef(false)
 
   useEffect(() => {
     cancelledRef.current = false
+
+    function applyDemos(next: DemoRow[]): void {
+      setDemos(next)
+      setSelectedId((current) => {
+        if (current === null) return current
+        return next.some((demo) => demo.id === current) ? current : null
+      })
+    }
+
     void indexRead().then((result) => {
       if (cancelledRef.current) return
-      setDemos(result.ok ? result.value : [])
+      applyDemos(result.ok ? result.value : [])
     })
     void scanStart()
 
@@ -44,7 +55,7 @@ export function ReplaysView() {
       if (!progress.running) {
         void indexRead().then((result) => {
           if (cancelledRef.current) return
-          setDemos(result.ok ? result.value : [])
+          applyDemos(result.ok ? result.value : [])
         })
       }
     })
@@ -57,6 +68,7 @@ export function ReplaysView() {
 
   const loading = demos === null
   const isEmpty = !loading && demos.length === 0
+  const selected = demos?.find((demo) => demo.id === selectedId) ?? null
 
   return (
     <div className="flex h-full flex-col">
@@ -76,58 +88,48 @@ export function ReplaysView() {
         </Button>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-gutter-stable p-5" tabIndex={0}>
-        {loading && (
-          <p className="text-xs text-ink-muted" data-testid="replays-list-loading">
-            {t('replays.list.loading')}
-          </p>
-        )}
-        {isEmpty && (
-          <p className="text-xs text-ink-muted" data-testid="replays-list-empty">
-            {t('replays.list.empty')}
-          </p>
-        )}
-        {!loading && !isEmpty && (
-          <ul data-testid="replays-demo-list" aria-label={t('replays.list.label')}>
-            {demos.map((demo) => {
-              const baseSource =
-                demo.source.kind === 'installation'
-                  ? t('replays.list.source', {
-                      installation: demo.source.installationName,
-                      gameDir: demo.source.gameDir,
-                    })
-                  : t('replays.source.extraFolder', { path: demo.source.path })
-              const sourceText = demo.archiveEntry
-                ? t('replays.list.archiveSource', {
-                    base: baseSource,
-                    archive: basename(demo.archiveEntry.archivePath),
-                    entry: demo.archiveEntry.entryPath,
-                  })
-                : baseSource
+      <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col p-5">
+          {loading && (
+            <p className="text-xs text-ink-muted" data-testid="replays-list-loading">
+              {t('replays.list.loading')}
+            </p>
+          )}
+          {isEmpty && (
+            <p className="text-xs text-ink-muted" data-testid="replays-list-empty">
+              {t('replays.list.empty')}
+            </p>
+          )}
+          {!loading && !isEmpty && (
+            <VirtualDemoList
+              rows={demos}
+              selectedId={selectedId}
+              onSelect={(id) => setSelectedId(id)}
+            />
+          )}
+        </div>
 
-              return (
-                <li
-                  key={demo.id}
-                  data-testid="replays-demo-row"
-                  data-demo-id={demo.id}
-                  {...(demo.archiveEntry ? { 'data-archive-entry': 'true' } : {})}
-                  className="flex flex-col gap-0.5 border-b border-line py-2"
-                >
-                  <span className="text-sm text-ink" data-testid="replays-demo-name">
-                    {demo.fileName}
-                  </span>
-                  <span className="text-xs text-ink-muted" data-testid="replays-demo-source">
-                    {sourceText}
-                  </span>
-                  {demo.map !== null && (
-                    <span className="text-xs text-ink-muted" data-testid="replays-demo-map">
-                      {demo.map}
-                    </span>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
+        {selected && (
+          <aside
+            data-testid="replays-demo-detail"
+            className="flex w-80 shrink-0 flex-col border-l border-line p-5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h2
+                className="min-w-0 truncate text-sm font-medium text-ink"
+                data-testid="replays-demo-detail-title"
+              >
+                {selected.effective.name.value ?? selected.fileName}
+              </h2>
+              <IconButton
+                label={t('replays.detail.close')}
+                onClick={() => setSelectedId(null)}
+                data-testid="replays-demo-detail-close"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </IconButton>
+            </div>
+          </aside>
         )}
       </div>
     </div>

@@ -2,9 +2,11 @@ import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { createGunzip } from 'node:zlib'
 import { parseDemoHeader } from '@shared/demos/demo-header'
+import { createDm2FrameCounter } from '@shared/demos/dm2-frames'
+import { createMvd2FrameCounter } from '@shared/demos/mvd2-frames'
 import { demoReadability } from '@shared/demos/readability'
 import type { DemoUnreadable } from '@shared/demos/readability'
-import type { DemoSource, DemoUnparsableReason, DiscoveredDemo } from '@shared/modules/replays'
+import type { DemoFormat, DemoSource, DemoUnparsableReason, DiscoveredDemo } from '@shared/modules/replays'
 import { listZipEntries, readZipEntry, ZIP_ENTRY_MAX_BYTES, type ZipDeps } from '../../lib/zip-entries'
 import { recogniseDemoFile } from './discovery'
 
@@ -72,6 +74,18 @@ function gunzipBounded(bytes: Uint8Array, maxBytes: number): Promise<{ bytes: Ui
 }
 
 /**
+ * Story 150 D1: a zip entry's duration, from the same in-memory (already gunzipped) bytes its
+ * header was parsed from - the entry is never read a second time. `null` when the frame count
+ * fails, same as a loose file's `readDemoDuration` failure.
+ */
+function durationOf(bytes: Uint8Array, format: DemoFormat): number | null {
+  const counter = format === 'mvd2' ? createMvd2FrameCounter() : createDm2FrameCounter()
+  counter.push(bytes)
+  const result = counter.finish()
+  return result.ok ? result.durationMs : null
+}
+
+/**
  * Expands one zip archive's demo-like entries into `DiscoveredDemo` rows. `archiveMtimeMs` is
  * accepted for forward-compatibility with D3's call site but unused here - not surfaced yet, no
  * UI/schema field for it in this story.
@@ -110,6 +124,10 @@ export async function expandZip(
       unparsableReason: unreadable.reason,
       readable: false,
       unreadable,
+      gameDir: null,
+      pov: null,
+      players: [],
+      durationMs: null,
       fileTime,
       nameFacts: null,
     })
@@ -157,6 +175,10 @@ export async function expandZip(
       unparsableReason: null,
       readable: true,
       unreadable: null,
+      gameDir: header.gameDir,
+      pov: header.pov,
+      players: header.players,
+      durationMs: durationOf(finalBytes, header.format),
       fileTime,
       nameFacts: null,
     })

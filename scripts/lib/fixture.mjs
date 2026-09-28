@@ -2195,6 +2195,191 @@ export function removeReplaysZipPackArchive() {
   rmSync(replaysZipPackArchivePath(), { force: true })
 }
 
+// --- story 150+ D5: the demos-list rows on a real surface - `replays-rows`/`replays-scale` -------
+//
+// Both variants are additive and self-contained: no installations at all, one extra demo folder
+// registered via `replays.extraFolders`, and - critically - that folder lives under the variant's
+// OWN `variantUserDataDir()`, never under `gameRoot()`. `gameRoot()` is not variant-scoped (see the
+// regression note on `writeReplaysDemosFixture()` above), so anything written there leaks into
+// every other variant/flow that reads the same shared installation folders; a folder under this
+// variant's own userData dir cannot leak anywhere else.
+
+/** `replays-rows`'s extra folder id/path, registered in its own `state.json` below. */
+const REPLAYS_ROWS_FOLDER_ID = 'fixture-replays-rows-folder'
+function replaysRowsFolderPath() {
+  return join(variantUserDataDir('replays-rows'), 'demos-fixture')
+}
+
+/** File names `scripts/flows/replays-demo-rows.mjs` asserts against - exported so the flow never
+ * hand-types a second copy that could drift from what this fixture actually writes. */
+export const REPLAYS_ROWS_TDM_DEMO = 'rows-tdm.dm2'
+export const REPLAYS_ROWS_DUEL_DEMO = 'rows-duel.dm2'
+export const REPLAYS_ROWS_MVD_DEMO = 'rows-mvd.mvd2'
+export const REPLAYS_ROWS_BROKEN_DEMO = 'rows-broken.dm2'
+export const REPLAYS_ROWS_UNREADABLE_DEMO = 'rows-unreadable.dm2'
+export const REPLAYS_ROWS_ZIP_ARCHIVE = 'rows-pack.zip'
+/** The demo file name inside `REPLAYS_ROWS_ZIP_ARCHIVE` - a copy of `test.dm2`, same convention as
+ * `writeReplaysZipPackArchive()` above. */
+export const REPLAYS_ROWS_ZIP_ENTRY_NAME = 'test.dm2'
+
+/** `REPLAYS_ROWS_TDM_DEMO`'s sidecar: a full, valid sidecar with two named team sides, a
+ * favourite/rating pair and an explicit `gamemode` - the one row that must show every
+ * "reported, not guessed" marker at once, with no `(guessed)` suffix on its gamemode. */
+const REPLAYS_ROWS_TDM_SIDECAR = {
+  schemaVersion: 1,
+  name: 'Fixture TDM Match',
+  gamemode: 'tdm',
+  favourite: true,
+  rating: 8,
+  sides: [
+    { team: 'Alpha', players: ['PlayerA1', 'PlayerA2'] },
+    { team: 'Bravo', players: ['PlayerB1', 'PlayerB2'] },
+  ],
+}
+
+/** `REPLAYS_ROWS_DUEL_DEMO`'s sidecar: two single-player sides and no `gamemode` field at all, so
+ * `resolveGamemode` (`src/shared/demos/gamemode.ts`) has nothing reported and falls through to its
+ * `two-players-duel` heuristic - `source: 'guessed'`, the `(guessed)` marker must show. */
+const REPLAYS_ROWS_DUEL_SIDECAR = {
+  schemaVersion: 1,
+  sides: [{ players: ['Solo1'] }, { players: ['Solo2'] }],
+}
+
+/** `REPLAYS_ROWS_BROKEN_DEMO`'s sidecar: deliberately not even a full sidecar document - a bare
+ * `{"rating": 99}`, which fails `sidecarFieldsSchema`'s `rating <= 10` bound
+ * (`readSidecarDefensively` reports `state: 'error'`, `values: {}`), so the row's effective values
+ * still resolve from the demo header/file name rather than from this sidecar. */
+const REPLAYS_ROWS_BROKEN_SIDECAR_TEXT = '{"rating": 99}\n'
+
+/** The sidecar file name for a demo file name - mirrors `sidecarFileName()`
+ * (`src/shared/replays/sidecar.ts`), duplicated here as a literal for the same reason every other
+ * mirrored fact in this file is (see the top-of-file note): this is plain Node ESM outside both TS
+ * projects. */
+function rowsSidecarFileName(demoFileName) {
+  return `${demoFileName}.json`
+}
+
+/**
+ * Deletes and rewrites the `replays-rows` variant: an empty `state.json` (no installations - every
+ * row here lives under one registered extra folder instead), plus that folder holding:
+ * `REPLAYS_ROWS_TDM_DEMO`/`REPLAYS_ROWS_DUEL_DEMO` (both copies of `docs/fixtures/demos/test.dm2`,
+ * each with its own sidecar above), `REPLAYS_ROWS_MVD_DEMO` (a copy of the PFAU `.mvd2` fixture, no
+ * sidecar at all), `REPLAYS_ROWS_BROKEN_DEMO` (a copy of `test.dm2` paired with the
+ * deliberately-invalid sidecar above) and `REPLAYS_ROWS_UNREADABLE_DEMO` (a genuinely empty file -
+ * `readDemoHeader`/`demoReadability` report `reason: 'empty'`, `readable: false`, the same fixture
+ * shape `scan-service.test.ts`'s own `empty.dm2` uses). `REPLAYS_ROWS_ZIP_ARCHIVE` is only ever
+ * written when the vendored extractor is present (mirrors `writeReplaysZipPackArchive()` above), so
+ * this fixture never pretends an archive-entry row exists without the real 7za binary that
+ * decompresses it.
+ */
+export function writeReplaysRowsFixture() {
+  const userDataDir = variantUserDataDir('replays-rows')
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  writeJson(join(userDataDir, STATE_FILE), {
+    ...emptyStateDocument(),
+    replays: {
+      extraFolders: [{ id: REPLAYS_ROWS_FOLDER_ID, path: replaysRowsFolderPath(), addedAt: FIXED_TIMESTAMP }],
+    },
+  })
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  const folder = replaysRowsFolderPath()
+  rmDirBestEffort(folder)
+  mkdirSync(folder, { recursive: true })
+
+  const testDm2 = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2')
+  const mvd2Fixture = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'PFAU_20221127-053327_q2dm1.mvd2')
+
+  copyFileSync(testDm2, join(folder, REPLAYS_ROWS_TDM_DEMO))
+  writeFileSync(
+    join(folder, rowsSidecarFileName(REPLAYS_ROWS_TDM_DEMO)),
+    JSON.stringify(REPLAYS_ROWS_TDM_SIDECAR, null, 2) + '\n',
+    'utf8',
+  )
+
+  copyFileSync(testDm2, join(folder, REPLAYS_ROWS_DUEL_DEMO))
+  writeFileSync(
+    join(folder, rowsSidecarFileName(REPLAYS_ROWS_DUEL_DEMO)),
+    JSON.stringify(REPLAYS_ROWS_DUEL_SIDECAR, null, 2) + '\n',
+    'utf8',
+  )
+
+  copyFileSync(mvd2Fixture, join(folder, REPLAYS_ROWS_MVD_DEMO))
+
+  copyFileSync(testDm2, join(folder, REPLAYS_ROWS_BROKEN_DEMO))
+  writeFileSync(
+    join(folder, rowsSidecarFileName(REPLAYS_ROWS_BROKEN_DEMO)),
+    REPLAYS_ROWS_BROKEN_SIDECAR_TEXT,
+    'utf8',
+  )
+
+  writeFileSync(join(folder, REPLAYS_ROWS_UNREADABLE_DEMO), Buffer.alloc(0))
+
+  if (vendoredExtractorExists()) {
+    const staging = join(bootstrapStagingDir(), 'replays-rows-pack')
+    rmSync(staging, { recursive: true, force: true })
+    mkdirSync(staging, { recursive: true })
+    copyFileSync(testDm2, join(staging, REPLAYS_ROWS_ZIP_ENTRY_NAME))
+
+    const archivePath = join(folder, REPLAYS_ROWS_ZIP_ARCHIVE)
+    rmSync(archivePath, { force: true })
+    execFileSync(
+      vendoredSevenZaPath(),
+      ['a', '-tzip', '-mx1', '-bso0', '-bse0', '-bd', archivePath, REPLAYS_ROWS_ZIP_ENTRY_NAME],
+      { cwd: staging, windowsHide: true },
+    )
+  }
+
+  return { userDataDir, installations: 0, configProfiles: 0 }
+}
+
+/** `replays-scale`'s extra folder id/path, registered in its own `state.json` below. */
+const REPLAYS_SCALE_FOLDER_ID = 'fixture-replays-scale-folder'
+function replaysScaleFolderPath() {
+  return join(variantUserDataDir('replays-scale'), 'demos-fixture')
+}
+
+/** How many placeholder `.dm2` files `replays-scale` seeds - exported so
+ * `scripts/flows/replays-list-scale.mjs` never hand-types this count a second time. */
+export const REPLAYS_SCALE_FILE_COUNT = 3000
+/** The last (highest-numbered) file's name - what the flow scrolls to the end of the list to find. */
+export const REPLAYS_SCALE_LAST_FILE_NAME = `scale-${String(REPLAYS_SCALE_FILE_COUNT).padStart(4, '0')}.dm2`
+
+/**
+ * Deletes and rewrites the `replays-scale` variant: an empty `state.json` (no installations), plus
+ * one registered extra folder holding `REPLAYS_SCALE_FILE_COUNT` placeholder `.dm2` files
+ * (`scale-0001.dm2` … `scale-3000.dm2`) - purely to prove the list virtualises rather than mounting
+ * every row at once. Placeholder bytes only, same convention as `REPLAYS_FIXTURE_DEMO_CONTENT`
+ * above - this variant never asserts on any row's parsed content, only on how many `DemoRow`s the
+ * DOM holds and whether the last one is reachable by scrolling.
+ */
+export function writeReplaysScaleFixture() {
+  const userDataDir = variantUserDataDir('replays-scale')
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  writeJson(join(userDataDir, STATE_FILE), {
+    ...emptyStateDocument(),
+    replays: {
+      extraFolders: [{ id: REPLAYS_SCALE_FOLDER_ID, path: replaysScaleFolderPath(), addedAt: FIXED_TIMESTAMP }],
+    },
+  })
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  const folder = replaysScaleFolderPath()
+  rmDirBestEffort(folder)
+  mkdirSync(folder, { recursive: true })
+
+  for (let i = 1; i <= REPLAYS_SCALE_FILE_COUNT; i += 1) {
+    const name = `scale-${String(i).padStart(4, '0')}.dm2`
+    writeFileSync(join(folder, name), REPLAYS_FIXTURE_DEMO_CONTENT, 'utf8')
+  }
+
+  return { userDataDir, installations: 0, configProfiles: 0 }
+}
+
 /**
  * Deletes and rewrites the `populated` variant's userdata + game dirs - or, when `variant`/
  * `stateOverrides` are passed, a different variant that needs every one of those same side effects
@@ -2533,6 +2718,9 @@ export function writeFixture(variant) {
   if (variant === 'servers-list-empty') return writeServersListEmptyFixture()
   if (variant === 'servers-list') return writeServersListFixture()
   if (variant === 'servers-list-error') return writeServersListErrorFixture()
+  // Story 150+ D5: the demos-list rows on a real surface - see each writer's own doc comment.
+  if (variant === 'replays-rows') return writeReplaysRowsFixture()
+  if (variant === 'replays-scale') return writeReplaysScaleFixture()
   throw new Error(`unknown fixture variant: ${variant}`)
 }
 
@@ -2553,6 +2741,11 @@ export const FIXTURE_VARIANTS = [
   'servers-list-empty',
   'servers-list',
   'servers-list-error',
+  // Story 150+ D5: `replays-rows`'s screen (`screens.mjs`) reseeds it; `replays-scale` has no
+  // screen (only `scripts/flows/replays-list-scale.mjs`), same reasoning as `news-cover`/
+  // `servers-scan` above - still listed here so `npm run ui:seed` writes it too.
+  'replays-rows',
+  'replays-scale',
 ]
 
 // --- story 066 D8: the import-from-files flow's staged real-config corpus ---------------------

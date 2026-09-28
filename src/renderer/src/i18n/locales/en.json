@@ -1131,6 +1131,34 @@
       "duel": "Duel",
       "unknown": "unknown",
       "guessed": "guessed"
+    },
+    "row": {
+      "unknown": "Unknown",
+      "morePlayers": "+{{count}}",
+      "favourite": "Favourite",
+      "ratingValue": "{{rating}}/10"
+    },
+    "column": {
+      "name": "Demo",
+      "map": "Map",
+      "mod": "Mod",
+      "sides": "Players",
+      "date": "Recorded",
+      "duration": "Length",
+      "favourite": "Favourite"
+    },
+    "format": {
+      "dm2": "DM2",
+      "mvd2": "MVD2",
+      "gzip": "{{format}} (gz)"
+    },
+    "marker": {
+      "sidecar": "Has notes",
+      "sidecarError": "Notes have a problem",
+      "archive": "Inside an archive"
+    },
+    "detail": {
+      "close": "Close"
     }
   },
 

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { VALUE_SOURCES } from '../demos/effective-values'
 import { demoUnreadableSchema } from '../demos/readability'
 import type { NameFacts } from '../replays/name-template'
 import { sidecarFieldsSchema } from '../replays/sidecar'
@@ -198,6 +199,14 @@ export const discoveredDemoSchema = z.object({
   /** Mirrors `readable`: null for a readable row, the structured reason (`DemoUnreadable`, shared
    * with `src/shared/demos/readability.ts`) for an unreadable one. */
   unreadable: demoUnreadableSchema.nullable(),
+  /** The game dir (mod) from the demo's own header, or null when unparsable/not yet parsed. */
+  gameDir: z.string().nullable(),
+  /** The recording player's name from the header (`.dm2` only), or null when unknown. */
+  pov: z.string().nullable(),
+  /** Player names from the header's configstrings - empty when unknown. */
+  players: z.array(z.string()),
+  /** Playback duration from the demo's frame count, or null when it could not be counted. */
+  durationMs: z.number().int().nonnegative().nullable(),
   /** `fs.stat`'s own timestamps for this file - present whether the row is readable or not. */
   fileTime: fileTimeSchema,
   /** Story 139's name-template match facts for this file's name, or null when no template
@@ -228,8 +237,57 @@ export function demoSourceKey(source: DemoSource): string {
 export const replaysScanStartResultSchema = z.object({ started: z.boolean() })
 export type ReplaysScanStartResult = z.infer<typeof replaysScanStartResultSchema>
 
-/** `index.read`'s result - the same row shape `demos.list` answers with. */
-export const replaysIndexReadResultSchema = demosListResultSchema
+/**
+ * Story 150 D2: a single effective field, mirroring `Effective<T>`
+ * (`src/shared/demos/effective-values.ts`) - either a value plus the rung it came from, or both
+ * null when no rung had one. `effectiveSchema` is generic so each field in `effectiveValuesSchema`
+ * below wraps its own value type without repeating the union.
+ */
+export function effectiveSchema<T extends z.ZodTypeAny>(inner: T) {
+  return z.union([
+    z.object({ value: inner, source: z.enum(VALUE_SOURCES) }),
+    z.object({ value: z.null(), source: z.null() }),
+  ])
+}
+
+/** Mirrors `EffectiveSide` (`effective-values.ts`): one side of a demo's players, with an optional
+ * team/result label. */
+export const effectiveSideSchema = z.object({
+  team: z.string().optional(),
+  result: z.string().optional(),
+  players: z.array(z.string()),
+})
+
+/** Mirrors `EffectiveValues` (`effective-values.ts`) field-for-field, each wrapped in
+ * `effectiveSchema` so a `DemoRow` can carry both the resolved value and which rung won it. */
+export const effectiveValuesSchema = z.object({
+  name: effectiveSchema(z.string()),
+  map: effectiveSchema(z.string()),
+  mod: effectiveSchema(z.string()),
+  gamemode: effectiveSchema(z.string()),
+  sides: effectiveSchema(z.array(effectiveSideSchema)),
+  date: effectiveSchema(z.number()),
+  pov: effectiveSchema(z.string()),
+  host: effectiveSchema(z.string()),
+})
+
+/**
+ * Story 150 D2: `index.read`'s real row shape - a discovered demo plus its sidecar (state and
+ * whatever fields validated) and its resolved effective values, composed in main
+ * (`src/main/modules/replays/demo-rows.ts`) so the renderer never has to run the resolver itself.
+ */
+export const demoRowSchema = discoveredDemoSchema.extend({
+  sidecar: z.object({
+    state: z.enum(['none', 'ok', 'error']),
+    values: sidecarFieldsSchema.partial(),
+  }),
+  effective: effectiveValuesSchema,
+})
+export type DemoRow = z.infer<typeof demoRowSchema>
+
+/** `index.read`'s result - composed demo rows (story 150 D2; used to be the bare `demos.list`
+ * row shape before the sidecar/effective-values composition existed). */
+export const replaysIndexReadResultSchema = z.array(demoRowSchema)
 
 /** `scan.progress`'s payload: per-source `scanned` / `total` counts, keyed by `demoSourceKey`. */
 export const replaysScanProgressSchema = z.object({

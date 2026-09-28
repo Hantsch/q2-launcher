@@ -236,3 +236,10 @@ second roadmap.
 - 145 — a demo I cannot parse still shows up · S26 · an unreadable demo (empty/truncated/unknown-protocol/unknown-version/zip-stage failures) still becomes an index entry — `readable: false` plus the closed 9-code reason (`src/shared/demos/readability.ts`, compile-time exhaustiveness guard), name facts and file-time kept, no parsed fields, no readability gate at the data layer — and ships an exhaustive `en.json` reason→i18n mapping. Default review PASSed, no findings; no list/detail UI in this story by design (rescoped to S26's data layer, UI follows in 150/155/159).
 - 146 — what I write about a demo lives next to it · S26 · sidecar storage (schema, main store, id-addressed IPC handlers) shipped; editor surface is story 155
 - 149 — a guessed gamemode says it is guessed · S26 · a pure gamemode resolver (`src/shared/demos/gamemode.ts`) applies sidecar → name-fact → a fixed ordered heuristic table (ctf game dir → duel at exactly two players → OpenTDM pattern/dir → tdm) → unknown, wired into 148's effective-value resolver, with a distinct "guessed" marker, an "unknown" fallback and a filter predicate/options helper that can optionally exclude guessed rows; concept §17.5 resolved. Default review PASSed, no blocking findings; row/detail rendering of the guessed marker is a named hand-off to 150/155 (S27), not built here.
+- 150 — a demo row says what it is · S27 · the index now carries gameDir/pov/players/durationMs on
+  all three read paths (fresh, cache-hit, zip; cache v2), `index.read` composes sidecar-aware
+  `DemoRow`s via `resolveEffectiveValues`, a new `DemoRow`/`DemoListHeader` UI shows identity,
+  markers (sidecar/error/archive/unreadable) and the six User-decided columns, a hand-rolled
+  virtualised list keeps "low thousands" of rows responsive, and a `replays-demo-detail` side-panel
+  shell awaits 155. Default review PASSed, no findings; a pre-existing story-142 e2e bug
+  (`replays-extra-folders`) is untouched and unrelated.
