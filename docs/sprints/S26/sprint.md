@@ -22,7 +22,8 @@ The `replays` module exists with its nav entry and a main-side index that finds 
 - [x] 141 — demos are found in every installation and mod (e2e gap, see Notes)
 - [x] 142 — I add my own demo folders (e2e gap, see Notes)
 - [x] 143 — each demo in a zip is its own row (e2e gap, see Notes)
-- [ ] 144 — the index only re-reads what changed
+- [x] 144 — the index only re-reads what changed (e2e gap, see Notes; fixed a cross-story
+      regression in 140's test file — module setup now needs electron's `app.getPath`)
 - [ ] 145 — a demo I cannot parse still shows up
 - [ ] 146 — what I write about a demo lives next to it
 - [ ] 147 — a broken sidecar is reported, never overwritten
