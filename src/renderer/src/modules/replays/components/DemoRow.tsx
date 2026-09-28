@@ -1,4 +1,4 @@
-import type { KeyboardEvent, MouseEvent } from 'react'
+import { useRef, type KeyboardEvent, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Archive, FileWarning, Star, StickyNote, TriangleAlert } from 'lucide-react'
 import type { DemoRow as DemoRowData } from '@shared/modules/replays'
@@ -54,6 +54,20 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
   const archiveMarkerId = `replays-marker-archive-${row.id}`
   const archiveReadonlyRowId = `replays-archive-readonly-row-${row.id}`
 
+  // Regression fix (155 broke 154's `replays-date-filter` keyboard-Tab-order flow): the quick
+  // favourite/rating controls used to always carry `tabIndex={0}`, so every rendered row added two
+  // permanent stops to the document's Tab sequence - a Tab press that only means to pass the whole
+  // list (to reach a control beyond it, e.g. the date filter's trigger) had to step through every
+  // row's own favourite button and rating select on the way, an unbounded cost as the list grows.
+  // They now sit outside the Tab sequence entirely (`tabIndex={-1}`) and are reached from the row's
+  // own `role="button"` cell with ArrowRight/ArrowLeft instead - still fully keyboard-operable (one
+  // extra keystroke each way, same row), just never a stop a passing-through Tab has to visit.
+  // Mirrors the roving-tabindex idiom for a repeated row's own action cluster (WAI-ARIA APG's
+  // grid/toolbar pattern), scoped down to "two extra stops, entered by arrow key, never by Tab".
+  const favouriteRef = useRef<HTMLButtonElement>(null)
+  const ratingRef = useRef<HTMLSelectElement>(null)
+  const selectableRowRef = useRef<HTMLDivElement>(null)
+
   const name = row.effective.name.value
   const gamemode = row.effective.gamemode
   const gamemodeDescription = describeGamemode({
@@ -89,6 +103,26 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
       onSelect(row.id)
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      favouriteRef.current?.focus()
+    }
+  }
+
+  function handleFavouriteKeyDown(event: KeyboardEvent<HTMLButtonElement>): void {
+    if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      ratingRef.current?.focus()
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      selectableRowRef.current?.focus()
+    }
+  }
+
+  function handleRatingKeyDown(event: KeyboardEvent<HTMLSelectElement>): void {
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      favouriteRef.current?.focus()
     }
   }
 
@@ -114,6 +148,7 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
       style={{ minHeight: 56 }}
     >
       <div
+        ref={selectableRowRef}
         role="button"
         tabIndex={0}
         onKeyDown={handleKeyDown}
@@ -213,11 +248,13 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
           </span>
         )}
         <IconButton
+          ref={favouriteRef}
           label={t('replays.row.quick.favouriteAriaLabel', { name: name ?? row.fileName })}
           size="sm"
           aria-pressed={favourite}
           disabled={row.archiveEntry !== null}
           aria-describedby={row.archiveEntry !== null ? archiveReadonlyRowId : undefined}
+          tabIndex={-1}
           data-testid="replays-row-favourite"
           onClick={(event: MouseEvent) => {
             event.stopPropagation()
@@ -225,6 +262,7 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
               .getState()
               .quickEdit(row.id, { favourite: !favourite }, onRowPatched ?? (() => {}))
           }}
+          onKeyDown={handleFavouriteKeyDown}
         >
           <Star
             className={cn('size-3.5', favourite ? 'fill-flame-500 text-flame-500' : 'text-ink-muted')}
@@ -232,13 +270,16 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
           />
         </IconButton>
         <select
+          ref={ratingRef}
           aria-label={t('replays.row.quick.ratingAriaLabel', { name: name ?? row.fileName })}
           disabled={row.archiveEntry !== null}
           aria-describedby={row.archiveEntry !== null ? archiveReadonlyRowId : undefined}
+          tabIndex={-1}
           data-testid="replays-row-rating"
           value={rating !== undefined ? String(rating) : ''}
           className="h-6 rounded-sm border border-line-strong bg-void/60 px-1 text-[11px] text-ink disabled:opacity-45"
           onClick={(event) => event.stopPropagation()}
+          onKeyDown={handleRatingKeyDown}
           onChange={(event) => {
             event.stopPropagation()
             const value = event.target.value

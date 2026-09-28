@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react'
 import { cn } from '../../lib/cn'
 
 type ButtonVariant = 'primary' | 'neutral' | 'ghost' | 'danger' | 'link'
@@ -71,6 +71,10 @@ export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
   label: string
   variant?: ButtonVariant
   size?: ButtonSize
+  /** React 19 accepts `ref` as a plain prop on function components (no `forwardRef` needed) - kept
+   * explicit here since `ButtonHTMLAttributes` doesn't itself declare it. `DemoRow.tsx`'s row-level
+   * quick favourite button uses it for its own ArrowRight/ArrowLeft focus movement. */
+  ref?: Ref<HTMLButtonElement>
 }
 
 export function IconButton({
@@ -80,10 +84,12 @@ export function IconButton({
   className,
   children,
   type = 'button',
+  ref,
   ...rest
 }: IconButtonProps) {
   return (
     <button
+      ref={ref}
       type={type}
       aria-label={label}
       title={label}

@@ -398,6 +398,33 @@ Decisions made during implementation (beyond `## Decisions (Sprint)`):
 
 No blockers.
 
+**Regression-gate fix (post-Done):** the sprint's full regression gate caught this story's D6 row
+quick favourite/rating breaking story 154's own `replays-date-filter` flow at "the picker works by
+keyboard alone" (`could not Tab to "replays-filter-date-trigger" within 40 presses`). Root cause:
+D6 gave the row's own `role="button"` cell, the quick favourite `IconButton` and the quick rating
+`<select>` each a standing `tabIndex={0}`, so every rendered demo row cost three permanent stops in
+the document's Tab sequence - a Tab press meant only to pass the whole list (e.g. to reach a
+control past it, like [[154]]'s date-filter trigger) had to step through every row's own quick
+controls on the way, an unbounded cost as the list grows; before D6 each row cost one stop, not
+three, and stayed under [[154]]'s flow's own bound. Fix, scoped to `DemoRow.tsx`: the favourite
+button and rating select now carry `tabIndex={-1}` (never a stop a passing-through Tab visits) and
+are reached from the row's own selectable cell via ArrowRight, with ArrowLeft/ArrowRight moving
+between all three - a roving-tabindex idiom (WAI-ARIA APG's grid/toolbar pattern), still fully
+keyboard-operable, just not a standing Tab-sequence cost per row. `components/ui/Button.tsx`'s
+`IconButton` gained an explicit `ref` prop (React 19 accepts `ref` as a plain prop on function
+components, but `ButtonHTMLAttributes` doesn't declare one) so the favourite button's DOM node
+could be focused programmatically for the ArrowRight/ArrowLeft handoff - the one file this fix
+touched outside this story's own. Re-verified: `replays-date-filter` green, `npx vitest run
+--changed HEAD` (73 files / 461 tests) green, this story's own `replays-demo-detail` /
+`replays-edit-sidecar` / `replays-row-quick-rating` each green (reseeded between runs, same
+pre-existing discipline as the original Done note above). Also newly observed, pre-existing and
+**not** fixed here (out of scope for this regression): `demo-editor-store.ts`'s `quickEdit` is a
+fire-and-forget read-merge-write per call with no per-row queuing, so a favourite toggle and a
+rating pick fired back-to-back can race - whichever write's own stale-base read resolves last wins
+and silently drops the other field. Reproduced against the untouched pre-fix `DemoRow.tsx` too (one
+run in three), so it predates this fix and isn't something this fix introduced; worth its own story
+if `replays-row-quick-rating` starts flaking in CI.
+
 tiers: D 6 / hard 1 · review default · cycles 1 · agents 14
 
 Narrow gate only. The full regression gate (`npm test`, `npm run ui:verify`, `npm run
