@@ -41,7 +41,22 @@
     "never": "Never",
     "comingSoon": "Coming soon",
     "optional": "optional",
-    "of": "of"
+    "of": "of",
+    "dateRange": {
+      "any": "Any date",
+      "from": "From",
+      "to": "To",
+      "clear": "Clear",
+      "range": "{{from}} – {{to}}",
+      "fromOnly": "From {{from}}",
+      "toOnly": "Until {{to}}",
+      "fromAfterTo": "The from date is after the to date.",
+      "preset": {
+        "today": "Today",
+        "last7Days": "Last 7 days",
+        "last30Days": "Last 30 days"
+      }
+    }
   },
 
   "titlebar": {
@@ -1191,6 +1206,9 @@
       "ratingAtLeast": "At least {{n}}",
       "tags": "Tags",
       "noTags": "No tags yet.",
+      "date": {
+        "label": "Date"
+      },
       "clear": "Clear filters",
       "count": "Showing {{shown}} of {{total}}",
       "noMatch": "No demos match your filters."

@@ -21,6 +21,7 @@ function subject(overrides: Partial<DemoFilterSubject> = {}): DemoFilterSubject 
     sidecar: null,
     headerPlayers: [],
     namePlayers: [],
+    date: null,
     ...overrides,
   }
 }
@@ -149,6 +150,39 @@ describe('matchesDemoFilter — combinations', () => {
     expect(rows.filter((r) => matchesDemoFilter(r, EMPTY_DEMO_LIST_FILTER))).toHaveLength(2)
     expect(rows.filter((r) => matchesDemoFilter(r, filter({ search: '   ' })))).toHaveLength(2)
     expect(isDemoFilterActive(filter({ search: '   ' }))).toBe(false)
+    expect(isDemoFilterActive(EMPTY_DEMO_LIST_FILTER)).toBe(false)
+  })
+})
+
+describe('matchesDemoFilter — date range', () => {
+  const nowMs = new Date(2026, 0, 15).getTime()
+  const inRangeMs = new Date(2026, 0, 10).getTime()
+  const outOfRangeMs = new Date(2025, 11, 1).getTime()
+  const dateFilter = filter({ date: { kind: 'custom', from: '2026-01-05', to: '2026-01-12' } })
+
+  it('the date filter matches on the effective date whatever its source', () => {
+    const a = subject({ fileName: 'a', mod: 'baseq2', date: inRangeMs })
+    const b = subject({ fileName: 'b', mod: 'ctf', date: inRangeMs })
+    const c = subject({ fileName: 'c', date: outOfRangeMs })
+
+    expect(matchesDemoFilter(a, dateFilter, nowMs)).toBe(true)
+    expect(matchesDemoFilter(b, dateFilter, nowMs)).toBe(true)
+    expect(matchesDemoFilter(c, dateFilter, nowMs)).toBe(false)
+  })
+
+  it('the date filter ANDs with the other filters', () => {
+    const f = filter({ ...dateFilter, mod: 'ctf' })
+    const failsMod = subject({ fileName: 'a', mod: 'baseq2', date: inRangeMs })
+    const failsDate = subject({ fileName: 'b', mod: 'ctf', date: outOfRangeMs })
+    const passesBoth = subject({ fileName: 'c', mod: 'ctf', date: inRangeMs })
+
+    expect(matchesDemoFilter(failsMod, f, nowMs)).toBe(false)
+    expect(matchesDemoFilter(failsDate, f, nowMs)).toBe(false)
+    expect(matchesDemoFilter(passesBoth, f, nowMs)).toBe(true)
+  })
+
+  it('the empty filter has no date filter and counts as inactive', () => {
+    expect(EMPTY_DEMO_LIST_FILTER.date).toBeNull()
     expect(isDemoFilterActive(EMPTY_DEMO_LIST_FILTER)).toBe(false)
   })
 })

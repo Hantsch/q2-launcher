@@ -64,7 +64,12 @@ import {
   type ReplaysExtraFolder,
 } from '@shared/modules/replays'
 import type { DemoListSort } from '@shared/replays/list-sort'
-import { EMPTY_DEMO_LIST_FILTER, demoListFilterSchema, type DemoListFilter } from '@shared/replays/list-filter'
+import {
+  EMPTY_DEMO_LIST_FILTER,
+  demoListFilterSchema,
+  normalizeDemoListFilter,
+  type DemoListFilter,
+} from '@shared/replays/list-filter'
 import {
   DEFAULT_NAME_TEMPLATES_STATE,
   type NameTemplatesState,
@@ -1594,7 +1599,9 @@ export function parseReplaysState(raw: unknown): ReplaysState {
   const listFilterResult = demoListFilterSchema.safeParse(
     (raw as { listFilter?: unknown } | null)?.listFilter,
   )
-  const listFilter: DemoListFilter = listFilterResult.success ? listFilterResult.data : EMPTY_DEMO_LIST_FILTER
+  const listFilter: DemoListFilter = listFilterResult.success
+    ? normalizeDemoListFilter(listFilterResult.data)
+    : EMPTY_DEMO_LIST_FILTER
 
   return { nameTemplates, extraFolders, listFilter, ...(listSort ? { listSort } : {}) }
 }

@@ -34,6 +34,8 @@ version section when a release actually ships.
 - Demos now has a search and filter rail — find a demo by name, player, map, tag or description,
   or narrow the list by mod, gamemode, map, favourites and rating. Your filter is remembered next
   time you open Demos.
+- Filter demos by date — pick Today/Last 7 days/Last 30 days, or set your own from/to range,
+  combined with every other Demos filter.
 
 ## 0.5.0 — 2026-09-26
 

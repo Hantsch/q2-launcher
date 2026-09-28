@@ -230,7 +230,7 @@ export function ReplaysView() {
     [demos],
   )
   const visibleDemos = useMemo(
-    () => filterDemos(sortedDemos, filter, demoFilterSubject),
+    () => filterDemos(sortedDemos, filter, demoFilterSubject, Date.now()),
     [sortedDemos, filter],
   )
 

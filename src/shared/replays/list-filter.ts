@@ -12,6 +12,13 @@ import { z } from 'zod'
 import { describeGamemode, gamemodeFilterMatches, gamemodeFilterOptions } from '../demos/gamemode'
 import type { EffectiveGamemode, GamemodeSource } from '../demos/gamemode'
 import type { DemoRow } from '../modules/replays'
+import {
+  dateRangeValueSchema,
+  matchesDateRange,
+  normalizeDateRange,
+  resolveDateRange,
+  type DateRangeValue,
+} from '../date-range'
 
 /** What `filterDemos`/`matchesDemoFilter` need from a demo row — a shape any row type can be
  * adapted to via a `toSubject` function, so the engine never depends on `DemoRow` directly. */
@@ -35,6 +42,8 @@ export interface DemoFilterSubject {
   headerPlayers: readonly string[]
   /** Player names carried by the file-name-template facts (`DemoRow.nameFacts`); empty when none. */
   namePlayers: readonly string[]
+  /** Effective date, as epoch ms, or null when unresolved. */
+  date: number | null
 }
 
 export interface DemoListFilter {
@@ -45,6 +54,7 @@ export interface DemoListFilter {
   favouritesOnly: boolean
   minRating: number | null
   tags: string[]
+  date: DateRangeValue | null
 }
 
 /** The filter with every criterion cleared — `filterDemos` returns every row unchanged for this. */
@@ -56,6 +66,7 @@ export const EMPTY_DEMO_LIST_FILTER: DemoListFilter = {
   favouritesOnly: false,
   minRating: null,
   tags: [],
+  date: null,
 }
 
 /** Whether any criterion in `f` actually restricts the list — a blank/whitespace-only search does
@@ -68,12 +79,17 @@ export function isDemoFilterActive(f: DemoListFilter): boolean {
     f.favouritesOnly ||
     f.minRating !== null ||
     f.tags.length > 0 ||
+    f.date !== null ||
     f.search.trim() !== ''
   )
 }
 
 /** `DemoListFilter`'s zod payload schema — `.strict()` so an unknown key is rejected outright, same
- * convention as the module's other persisted/IPC schemas. */
+ * convention as the module's other persisted/IPC schemas. `date` is deliberately the odd one out: a
+ * missing or structurally malformed value degrades to `null` alone (`.catch(null)`) rather than
+ * failing the whole object, so a mangled date filter never wipes every sibling field the way a
+ * mangled `minRating` does — see `normalizeDemoListFilter` for the second half (semantically invalid
+ * ranges, e.g. `from > to`), which this schema cannot express. */
 export const demoListFilterSchema = z
   .object({
     search: z.string().max(200),
@@ -83,8 +99,19 @@ export const demoListFilterSchema = z
     favouritesOnly: z.boolean(),
     minRating: z.number().int().min(1).max(10).nullable(),
     tags: z.array(z.string().min(1).max(40)).max(50),
+    date: dateRangeValueSchema.nullable().catch(null),
   })
   .strict()
+
+/**
+ * Reduces `f.date` through `normalizeDateRange` — the half of the "invalid date filter -> null"
+ * contract `demoListFilterSchema`'s `.catch(null)` cannot cover on its own, since a `custom` range
+ * with `from` after `to` (or both ends open) is structurally valid zod-wise. Callers that parse a
+ * stored/incoming `DemoListFilter` must run the result through this before using it.
+ */
+export function normalizeDemoListFilter(f: DemoListFilter): DemoListFilter {
+  return { ...f, date: normalizeDateRange(f.date) }
+}
 
 /**
  * Whether `s` matches a free-text search term: an empty (or whitespace-only) term always matches.
@@ -120,7 +147,7 @@ function matchesText(value: string | null, filterValue: string): boolean {
  * Whether `s` satisfies every active criterion in `f` (search plus each select/toggle/list that is
  * not at its "not applied" value). An inactive field is skipped entirely rather than evaluated.
  */
-export function matchesDemoFilter(s: DemoFilterSubject, f: DemoListFilter): boolean {
+export function matchesDemoFilter(s: DemoFilterSubject, f: DemoListFilter, nowMs: number = Date.now()): boolean {
   if (!matchesDemoSearch(s, f.search)) return false
 
   if (f.mod !== null && !matchesText(s.mod, f.mod)) return false
@@ -143,6 +170,8 @@ export function matchesDemoFilter(s: DemoFilterSubject, f: DemoListFilter): bool
     if (!f.tags.some((tag) => lowerTags.includes(tag.toLowerCase()))) return false
   }
 
+  if (!matchesDateRange(s.date, resolveDateRange(f.date, nowMs))) return false
+
   return true
 }
 
@@ -154,8 +183,9 @@ export function filterDemos<T>(
   rows: readonly T[],
   f: DemoListFilter,
   toSubject: (row: T) => DemoFilterSubject,
+  nowMs: number = Date.now(),
 ): T[] {
-  return rows.filter((row) => matchesDemoFilter(toSubject(row), f))
+  return rows.filter((row) => matchesDemoFilter(toSubject(row), f, nowMs))
 }
 
 function distinctSorted(values: (string | undefined | null)[]): string[] {
@@ -220,5 +250,6 @@ export function demoFilterSubject(row: DemoRow): DemoFilterSubject {
     sidecar: row.sidecar.state === 'none' ? null : row.sidecar.values,
     headerPlayers: row.players,
     namePlayers: row.nameFacts?.players ?? [],
+    date: row.effective.date.value,
   }
 }

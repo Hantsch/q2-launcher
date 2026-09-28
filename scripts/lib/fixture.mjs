@@ -2602,6 +2602,132 @@ export function removeReplaysFilterFixture() {
   rmDirBestEffort(variantUserDataDir(REPLAYS_FILTER_VARIANT))
 }
 
+// --- story 154 D5: the demo list's own date filter's e2e fixture --------------------------------
+
+/** `replays-date-filter`'s own fixture variant name - own `state.json`/own extra folder, never
+ * shared with `REPLAYS_FILTER_VARIANT`/`REPLAYS_SORT_ORDER_VARIANT` above (same discipline as
+ * those two). */
+export const REPLAYS_DATE_FILTER_VARIANT = 'date-filter-demos'
+
+const REPLAYS_DATE_FILTER_FOLDER_ID = 'fixture-replays-date-filter-folder'
+export function replaysDateFilterFixturePath() {
+  return join(variantUserDataDir(REPLAYS_DATE_FILTER_VARIANT), 'date-filter-demos')
+}
+
+/** File names `scripts/flows/replays-date-filter.mjs` asserts against - see
+ * `writeReplaysDateFilterFixture()`'s own doc comment below for each demo's effective-date source
+ * and approximate age. */
+export const REPLAYS_DATE_FILTER_TODAY_DEMO = 'date-filter-today.dm2'
+export const REPLAYS_DATE_FILTER_RECENT_DEMO = 'date-filter-recent.mvd2'
+export const REPLAYS_DATE_FILTER_OLD_DEMO = 'date-filter-old.mvd2'
+export const REPLAYS_DATE_FILTER_VERYOLD_DEMO = 'date-filter-veryold.mvd2'
+
+/** `REPLAYS_DATE_FILTER_RECENT_DEMO`'s sidecar `mod` override - the "another 153 filter" criterion
+ * the date filter ANDs with in this flow's own combine step. */
+export const REPLAYS_DATE_FILTER_RECENT_MOD = 'excessive'
+
+/** The sidecar file name for a demo file name - mirrors `sidecarFileName()`
+ * (`src/shared/replays/sidecar.ts`), same duplication reasoning as `filterSidecarFileName()`
+ * above: this is plain Node ESM outside both TS projects. */
+function dateFilterSidecarFileName(demoFileName) {
+  return `${demoFileName}.json`
+}
+
+/** Builds a local calendar `Date` `daysAgo` days before `nowMs`'s own calendar day, pinned to
+ * 10:00 local time - mirrors `resolveDateRange()`'s (`src/shared/date-range.ts`) own
+ * `new Date(y, m, d)` construction, never `nowMs - daysAgo * 86_400_000` (which breaks across a
+ * DST transition), so each demo's day lands unambiguously inside/outside a preset's boundary. */
+function daysAgoLocal(nowMs, daysAgo) {
+  const now = new Date(nowMs)
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysAgo, 10, 0, 0)
+}
+
+/**
+ * Deletes and rewrites the `date-filter-demos` variant: an empty `state.json` (no installations -
+ * every row lives under one registered extra folder, same discipline as
+ * `writeReplaysFilterFixture()` above) plus that folder holding four demos:
+ *
+ *  - `REPLAYS_DATE_FILTER_TODAY_DEMO` - ~0 days old (today). No sidecar at all, and a plain file
+ *    name that matches none of `SHIPPED_NAME_PATTERNS` - its effective date resolves from FILE
+ *    TIME ONLY (`resolveEffectiveValues()`'s `date` rung falls through sidecar/name-fact straight
+ *    to `file`). The one ≤7-day-old demo required to prove the file-time rung alone.
+ *  - `REPLAYS_DATE_FILTER_RECENT_DEMO` - ~3 days old. Carries a sidecar `date` (ISO string, 3 days
+ *    before `nowMs`) AND a sidecar `mod` override (`REPLAYS_DATE_FILTER_RECENT_MOD`) - its
+ *    effective date resolves from the SIDECAR rung, and its mod is the "combines with another 153
+ *    filter" flow step's second criterion.
+ *  - `REPLAYS_DATE_FILTER_OLD_DEMO` - ~20 days old. No sidecar - file time only. Outside "last 7
+ *    days", inside "last 30 days".
+ *  - `REPLAYS_DATE_FILTER_VERYOLD_DEMO` - ~60 days old. No sidecar - file time only. Outside every
+ *    preset.
+ *
+ * Backdated via `fs.utimesSync` (the `writeDownloadsCacheArchives()` idiom above) rather than a
+ * sidecar date for the three file-time demos: a copy this script just made has a real (now)
+ * `birthtimeMs`, so `effectiveFileTime()` (`src/shared/demos/effective-values.ts`) falls back to
+ * the backdated `mtimeMs` since `birthtimeMs > mtimeMs` after backdating.
+ */
+export function writeReplaysDateFilterFixture(nowMs = Date.now()) {
+  const userDataDir = variantUserDataDir(REPLAYS_DATE_FILTER_VARIANT)
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  writeJson(join(userDataDir, STATE_FILE), {
+    ...emptyStateDocument(),
+    replays: {
+      extraFolders: [
+        {
+          id: REPLAYS_DATE_FILTER_FOLDER_ID,
+          path: replaysDateFilterFixturePath(),
+          addedAt: FIXED_TIMESTAMP,
+        },
+      ],
+    },
+  })
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  const folder = replaysDateFilterFixturePath()
+  rmDirBestEffort(folder)
+  mkdirSync(folder, { recursive: true })
+
+  const mvd2Fixture = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'PFAU_20221127-053327_q2dm1.mvd2')
+  const dm2Fixture = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2')
+
+  const recentSidecarDate = daysAgoLocal(nowMs, 3).toISOString()
+
+  const demos = [
+    [REPLAYS_DATE_FILTER_TODAY_DEMO, dm2Fixture, null, daysAgoLocal(nowMs, 0)],
+    [
+      REPLAYS_DATE_FILTER_RECENT_DEMO,
+      mvd2Fixture,
+      { schemaVersion: 1, date: recentSidecarDate, mod: REPLAYS_DATE_FILTER_RECENT_MOD },
+      daysAgoLocal(nowMs, 3),
+    ],
+    [REPLAYS_DATE_FILTER_OLD_DEMO, mvd2Fixture, null, daysAgoLocal(nowMs, 20)],
+    [REPLAYS_DATE_FILTER_VERYOLD_DEMO, mvd2Fixture, null, daysAgoLocal(nowMs, 60)],
+  ]
+
+  for (const [fileName, source, sidecar, mtime] of demos) {
+    const target = join(folder, fileName)
+    copyFileSync(source, target)
+    if (sidecar !== null) {
+      writeFileSync(
+        join(folder, dateFilterSidecarFileName(fileName)),
+        JSON.stringify(sidecar, null, 2) + '\n',
+        'utf8',
+      )
+    }
+    utimesSync(target, mtime, mtime)
+  }
+
+  return { userDataDir, installations: 0, configProfiles: 0 }
+}
+
+/** Undoes `writeReplaysDateFilterFixture()` above - called from `replays-date-filter.mjs`'s own
+ * `teardown()`, never from `writePopulatedFixture()` (same discipline as
+ * `removeReplaysFilterFixture()` above). */
+export function removeReplaysDateFilterFixture() {
+  rmDirBestEffort(variantUserDataDir(REPLAYS_DATE_FILTER_VARIANT))
+}
+
 /** `replays-scale`'s extra folder id/path, registered in its own `state.json` below. */
 const REPLAYS_SCALE_FOLDER_ID = 'fixture-replays-scale-folder'
 function replaysScaleFolderPath() {
@@ -3064,6 +3190,9 @@ export function writeFixture(variant) {
   // Story 152 D3: `replays-sort-order` has no screen (only `scripts/flows/replays-sort-order.mjs`),
   // same reasoning as `replays-scale` above - still listed here so `npm run ui:seed` writes it too.
   if (variant === REPLAYS_SORT_ORDER_VARIANT) return writeReplaysSortOrderFixture()
+  // Story 154 D5: `replays-date-filter`/`replays-date-filter-invalid` screens - see
+  // `writeReplaysDateFilterFixture()`'s own doc comment.
+  if (variant === REPLAYS_DATE_FILTER_VARIANT) return writeReplaysDateFilterFixture()
   // Story 151 D4: the Demos view's own loading/error status-strip screens - see each writer's own
   // doc comment.
   if (variant === 'replays-list-loading') return writeReplaysListLoadingFixture()
@@ -3098,6 +3227,8 @@ export const FIXTURE_VARIANTS = [
   // them.
   'replays-list-loading',
   'replays-list-error',
+  // Story 154 D5: `replays-date-filter`/`replays-date-filter-invalid`'s own variant (`screens.mjs`).
+  'date-filter-demos',
 ]
 
 // --- story 066 D8: the import-from-files flow's staged real-config corpus ---------------------

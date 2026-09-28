@@ -61,3 +61,22 @@
 - 2026-09-28 19:55 · 153 · review 1 · started
 - 2026-09-28 19:59 · 153 · review 1 · done
 - 2026-09-28 20:00 · 153 · story · done
+- 2026-09-28 20:01:17 · 154 · build · started
+- 2026-09-28 20:02 · 154 · build · started
+- 2026-09-28 20:02 · 154 · D1 shared date-range logic · started
+- 2026-09-28 20:04 · 154 · D1 shared date-range logic · done
+- 2026-09-28 20:05 · 154 · D2 filter engine + persistence · started
+- 2026-09-28 20:08 · 154 · D2 filter engine + persistence · done
+- 2026-09-28 20:08 · 154 · D3 DateRangePicker · started
+- 2026-09-28 20:12 · 154 · D3 DateRangePicker · done
+- 2026-09-28 20:12 · 154 · D4 harness launch args · started
+- 2026-09-28 20:13 · 154 · D4 harness launch args · done
+- 2026-09-28 20:13 · 154 · D5 wiring + e2e · started
+- 2026-09-28 20:29 · 154 · D5 wiring + e2e · done
+- 2026-09-28 20:29 · 154 · verify · started
+- 2026-09-28 20:31 · 154 · verify · done
+- 2026-09-28 20:31 · 154 · review 1 · started
+- 2026-09-28 20:34 · 154 · review 1 · done
+- 2026-09-28 20:39 · 154 · review 2 · started
+- 2026-09-28 20:39 · 154 · review 2 · done (fixes applied and re-verified by the fix agent; no further findings)
+- 2026-09-28 20:40 · 154 · story · done

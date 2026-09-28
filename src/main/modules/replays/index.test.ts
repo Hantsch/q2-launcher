@@ -340,6 +340,25 @@ describe('replays module', () => {
       expect(reloaded.replaysState().extraFolders).toEqual(before.extraFolders)
       expect(reloaded.replaysState().nameTemplates).toEqual(before.nameTemplates)
     })
+
+    it('listFilter.write normalizes an invalid date filter (from > to) to null before persisting', async () => {
+      const filter = {
+        ...EMPTY_DEMO_LIST_FILTER,
+        date: { kind: 'custom' as const, from: '2026-06-10', to: '2026-06-01' },
+      }
+      const setOutcome = await invoke(REPLAYS_HANDLERS.listSetFilter, { filter })
+      expect(setOutcome).toEqual({ ok: true, value: { ...filter, date: null } })
+
+      expect(await invoke(REPLAYS_HANDLERS.listGetFilter)).toEqual({
+        ok: true,
+        value: { ...filter, date: null },
+      })
+
+      await state.settle()
+      const reloaded = new StateStore(filePath)
+      await reloaded.load()
+      expect(reloaded.replaysState().listFilter?.date).toBeNull()
+    })
   })
 
   describe('sidecar handlers (story 146)', () => {

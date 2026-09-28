@@ -2,7 +2,7 @@ import { rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { _electron } from 'playwright'
 import { afterAll, describe, expect, test, vi } from 'vitest'
-import { closeAppOrKill, variantUserDataDir, withApp } from './harness.mjs'
+import { closeAppOrKill, HarnessError, variantUserDataDir, withApp } from './harness.mjs'
 import { REPO_ROOT } from './paths.mjs'
 
 /**
@@ -157,6 +157,53 @@ describe('the default launch dependency every real run uses', () => {
 
     expect(receivers).toHaveLength(1)
     expect(receivers[0]).toBe(_electron)
+  })
+})
+
+describe('a flow can pass its own extra Electron launch args', () => {
+  test('extra launch args are appended after the user-data-dir switch', async () => {
+    const ensureBuild = vi.fn()
+    const launch = vi.fn(async () => {
+      throw new Error('stub launch — this test never expects a real window')
+    })
+
+    await expect(
+      withApp(
+        {
+          variant: TEST_VARIANT,
+          extraArgs: ['--lang=de-DE'],
+          deps: { launch, ensureBuild },
+        },
+        async () => {},
+      ),
+    ).rejects.toThrow()
+
+    expect(launch).toHaveBeenCalledTimes(1)
+    const [options] = launch.mock.calls[0]
+    const userDataIndex = options.args.findIndex((arg) => arg.startsWith('--user-data-dir='))
+    expect(userDataIndex).toBeGreaterThanOrEqual(0)
+    expect(options.args[options.args.length - 1]).toBe('--lang=de-DE')
+    expect(userDataIndex).toBeLessThan(options.args.length - 1)
+  })
+
+  test('extra launch args may not override the user-data-dir', async () => {
+    const ensureBuild = vi.fn()
+    const launch = vi.fn(async () => {
+      throw new Error('stub launch — this test never expects a real window')
+    })
+
+    await expect(
+      withApp(
+        {
+          variant: TEST_VARIANT,
+          extraArgs: ['--user-data-dir=/tmp/evil'],
+          deps: { launch, ensureBuild },
+        },
+        async () => {},
+      ),
+    ).rejects.toThrow(HarnessError)
+
+    expect(launch).not.toHaveBeenCalled()
   })
 })
 

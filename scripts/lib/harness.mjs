@@ -334,7 +334,13 @@ function defaultDeps() {
  * same way it does in dev, and a packaged-app run must be contained exactly as
  * strictly as a dev one.
  */
-async function launchApp({ userDataDir, env: extraEnv, executablePath, deps = defaultDeps() }) {
+async function launchApp({
+  userDataDir,
+  env: extraEnv,
+  executablePath,
+  extraArgs = [],
+  deps = defaultDeps(),
+}) {
   if (!executablePath) deps.ensureBuild()
 
   // Guard before anything is created: a run must never be able to point Electron
@@ -342,12 +348,22 @@ async function launchApp({ userDataDir, env: extraEnv, executablePath, deps = de
   const resolvedUserDataDir = assertInside(UI_VERIFY_ROOT, userDataDir, '--user-data-dir')
   mkdirSync(resolvedUserDataDir, { recursive: true })
 
+  // A flow's own extra launch args (story 154 D4, e.g. `--lang=de-DE`) must never be able to
+  // smuggle in a second `--user-data-dir` — that confinement switch is the harness's own and
+  // is never up for a flow to override.
+  const overridesUserDataDir = extraArgs.some(
+    (arg) => arg === '--user-data-dir' || arg.startsWith('--user-data-dir='),
+  )
+  if (overridesUserDataDir) {
+    throw new HarnessError('extraArgs may not override --user-data-dir')
+  }
+
   const log = new RunLog()
   const state = { expectedExit: false }
 
   const launchArgs = executablePath
-    ? [`--user-data-dir=${resolvedUserDataDir}`]
-    : [join(REPO_ROOT, MAIN_ENTRY), `--user-data-dir=${resolvedUserDataDir}`]
+    ? [`--user-data-dir=${resolvedUserDataDir}`, ...extraArgs]
+    : [join(REPO_ROOT, MAIN_ENTRY), `--user-data-dir=${resolvedUserDataDir}`, ...extraArgs]
 
   let app
   try {
@@ -538,16 +554,22 @@ export async function closeAppOrKill(app, child, { timeoutMs = CLOSE_TIMEOUT_MS,
  * `page.setViewportSize()`. `env` (story 074 D8) is merged into `childEnv()`
  * last, for values only known immediately before the launch — see `childEnv()`.
  * `executablePath` (story 101 D4) launches a packaged binary instead of this
- * repo's own dev build — see `launchApp()`'s doc comment. `deps` overrides
+ * repo's own dev build — see `launchApp()`'s doc comment. `extraArgs` (story 154 D4) are appended
+ * after the harness's own `--user-data-dir` switch, for a flow that needs its own Electron launch
+ * arg (e.g. `--lang=de-DE`) — see `launchApp()`'s override guard. `deps` overrides
  * `launchApp()`'s collaborators; only a test passes it.
  */
-export async function withApp({ variant, viewport, env, executablePath, deps } = {}, fn) {
+export async function withApp(
+  { variant, viewport, env, executablePath, extraArgs, deps } = {},
+  fn,
+) {
   if (!variant) throw new HarnessError('withApp() needs a fixture variant')
 
   const { app, page, log, state, child, userDataDir } = await launchApp({
     userDataDir: variantUserDataDir(variant),
     env,
     executablePath,
+    extraArgs,
     deps,
   })
 

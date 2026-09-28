@@ -1685,4 +1685,24 @@ describe('parseReplaysState (story 140 D2)', () => {
 
     expect(parseReplaysState(undefined).listFilter).toEqual(EMPTY_DEMO_LIST_FILTER)
   })
+
+  // Story 154 D2.
+  it('a stored date filter with from after to parses to no date filter, the other filters survive', () => {
+    const base = {
+      nameTemplates: { entries: [], removedShippedIds: [] },
+      extraFolders: [],
+    }
+
+    const stored = {
+      ...EMPTY_DEMO_LIST_FILTER,
+      mod: 'ctf',
+      tags: ['clutch'],
+      date: { kind: 'custom', from: '2026-01-12', to: '2026-01-05' },
+    }
+    const result = parseReplaysState({ ...base, listFilter: stored })
+
+    expect(result.listFilter.date).toBeNull()
+    expect(result.listFilter.mod).toEqual('ctf')
+    expect(result.listFilter.tags).toEqual(['clutch'])
+  })
 })

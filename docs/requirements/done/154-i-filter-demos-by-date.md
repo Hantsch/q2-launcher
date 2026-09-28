@@ -1,7 +1,7 @@
 ---
 id: 154
 title: I filter demos by date
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -17,16 +17,16 @@ design tokens, no image assets, keyboard operable.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Date presets offered: today, last 7 days, last 30 days.
-- [ ] **AC2** — A custom range with from and to dates can be set; either end may be left open.
-- [ ] **AC3** — A from-date later than the to-date is rejected with a visible reason.
-- [ ] **AC4** — The date filter matches on the effective date; a demo whose only known date is the
+- [x] **AC1** — Date presets offered: today, last 7 days, last 30 days.
+- [x] **AC2** — A custom range with from and to dates can be set; either end may be left open.
+- [x] **AC3** — A from-date later than the to-date is rejected with a visible reason.
+- [x] **AC4** — The date filter matches on the effective date; a demo whose only known date is the
       file time is filtered the same way as any other dated demo.
-- [ ] **AC5** — The date filter combines with [[153]]'s filters (AND) and is cleared by its
+- [x] **AC5** — The date filter combines with [[153]]'s filters (AND) and is cleared by its
       clear-all action.
-- [ ] **AC6** — The date picker is fully keyboard operable, shows a visible focus state and has zero
+- [x] **AC6** — The date picker is fully keyboard operable, shows a visible focus state and has zero
       axe violations in `ui:verify`.
-- [ ] **AC7** — Dates are shown and entered in the user's locale format.
+- [x] **AC7** — Dates are shown and entered in the user's locale format.
 
 ## Open Questions
 
@@ -269,4 +269,53 @@ Order: D1 → D2 → D3 → D4 → D5 (D3 needs D1's types; D5 needs everything)
 
 ## Done
 
-<!-- Filled by /build 154. -->
+Added `src/shared/date-range.ts` (preset resolution, ISO local-date validation, half-open
+`resolveDateRange`, `matchesDateRange`, DST-safe calendar-day math) and wired it into 153's demo
+filter engine (`src/shared/replays/list-filter.ts`: `DemoListFilter.date`, `nowMs`-aware matching,
+`normalizeDemoListFilter`) and persistence (`src/main/lib/schemas.ts` read path, and — after
+review — `src/main/modules/replays/index.ts`'s `listFilter.write` IPC handler write path). A new
+shared `DateRangePicker` (`src/renderer/src/components/ui/DateRangePicker.tsx`, native
+`<input type="date">` + `Popover`, `common.dateRange.*` strings) is wired into 153's
+`DemoListFilterBar`/`ReplaysView`. D4 taught the UI-verify harness flow-level extra Electron launch
+args (`--lang=…`), used to prove AC7. D5 added a dedicated e2e fixture/flow
+(`REPLAYS_DATE_FILTER_VARIANT`, `scripts/flows/replays-date-filter.mjs`) with 4 demos at ~0/3/20/60
+days, one file-time-only and one sidecar-dated, plus two new `ui:verify` screens.
+
+Commit message: `154: I filter demos by date`
+
+Verification — narrow gate: `npm run build` green, `npm run typecheck` clean, `npx vitest run
+--changed HEAD` green (118 files / 1718 tests after the fix cycle), e2e `npm run ui:flow --
+replays-date-filter` green (all steps incl. keyboard-only operation, `de-DE` locale, axe-clean
+open/error states). AC1-AC7 walked against their named tests: all covered and passing (see review
+below for two additions/corrections). `npm run ui:verify`'s own screen-level axe pass on the two
+new screens was not run in this narrow gate — it is part of the full regression gate, not this
+story's own. `scripts/lib/harness.test.mjs`'s two new tests ran inside the same `--changed HEAD`
+pass (`vitest.config.ts` includes `scripts/**/*.test.mjs`). No `manual residue`.
+
+Review (clean agent, default tier per Model Hints, no hard stage): verdict **UNCLEAR** on first
+pass, two confirmed findings, both fixed and re-verified (build/typecheck/tests/e2e all green
+again): (1) `listFilter.write`'s IPC handler persisted a renderer-supplied `DemoListFilter` without
+`normalizeDemoListFilter`, unlike the read path (`parseReplaysState`) — a `from > to` payload could
+round-trip to `state.json` un-normalized until the next app start; fixed, plus a new handler test.
+(2) the e2e "a from-date after the to-date is rejected" step captured its "before" row count from
+an effectively unfiltered state, so it couldn't distinguish correct rejection from a bug that
+silently un-bounds an invalid range; rewritten to capture the narrowed `last7Days`-equivalent count
+first and assert that exact narrower set survives the rejected edit. Everything else (AC1, AC2,
+AC4-AC7, shared-layer purity, the focus-visible judgment call on the native date inputs, the
+fixture's file-time-only/sidecar-dated claims) reviewed clean with no further findings.
+
+Decisions made during implementation, beyond `## Decisions (Sprint)`: `demoListFilterSchema`'s
+`date` field uses `.catch(null)` rather than a plain required field, deliberately less strict than
+its sibling fields (whose invalidity still fails the whole stored filter, per the pre-existing
+`malformedField` schemas.test.ts precedent) — this is what lets a missing/malformed `date` alone
+degrade to `null` while every other stored filter field survives, per this story's own AC3/D2
+wording. `matchesDemoFilter`/`filterDemos` take `nowMs` as an *optional* parameter defaulting to
+`Date.now()` (not required) so D2 didn't have to touch the renderer ahead of D5; D5 then passes
+`Date.now()` explicitly at the one real call site. The native date inputs' focus state is
+border-colour-only (this repo's existing `Input`/`FIELD_BASE` convention, not new to this story) —
+reviewed and judged a real, load-bearing focus indicator, not a corner cut.
+
+Narrow gate only. The full regression gate (`npm test`, `npm run ui:verify`, `npm run ui:flows`)
+has not run — run it before merging, or use `/build 154 --full`.
+
+tiers: D 5 / hard 0 · review default · cycles 1 · agents 8

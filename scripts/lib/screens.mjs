@@ -134,7 +134,11 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { variantUserDataDir } from './harness.mjs'
-import { REPLAYS_FIXTURE_DEMOS, SERVERS_SCAN_SETTINGS_SEED } from './fixture.mjs'
+import {
+  REPLAYS_DATE_FILTER_VARIANT,
+  REPLAYS_FIXTURE_DEMOS,
+  SERVERS_SCAN_SETTINGS_SEED,
+} from './fixture.mjs'
 import {
   SERVERS_STUB_RESPONDERS,
   SERVERS_STUB_LIST_PORT,
@@ -1384,6 +1388,40 @@ export const SCREENS = [
       await page
         .getByTestId('replays-demo-row')
         .first()
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'replays-date-filter',
+    variant: REPLAYS_DATE_FILTER_VARIANT,
+    viewports: BOTH_VIEWPORTS,
+    // Story 154 D5: the date filter, open with a custom from/to range set - `writeReplaysDateFilterFixture()`'s
+    // (`scripts/lib/fixture.mjs`) four demos give the picker something real to narrow.
+    navigate: async (page) => {
+      await click(page, 'nav-replays')
+      await page
+        .getByTestId('replays-demo-list')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await click(page, 'replays-filter-date-trigger')
+      await page.getByTestId('replays-filter-date-from').fill('2026-01-01')
+      await page.getByTestId('replays-filter-date-to').fill('2026-12-31')
+    },
+  },
+  {
+    id: 'replays-date-filter-invalid',
+    variant: REPLAYS_DATE_FILTER_VARIANT,
+    viewports: BOTH_VIEWPORTS,
+    // Story 154 D5: the date filter's from-after-to error state.
+    navigate: async (page) => {
+      await click(page, 'nav-replays')
+      await page
+        .getByTestId('replays-demo-list')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await click(page, 'replays-filter-date-trigger')
+      await page.getByTestId('replays-filter-date-from').fill('2026-12-31')
+      await page.getByTestId('replays-filter-date-to').fill('2026-01-01')
+      await page
+        .getByTestId('replays-filter-date-error')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },

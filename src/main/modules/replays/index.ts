@@ -21,7 +21,7 @@ import {
   replaysSidecarWriteSchema,
   type ExtraFoldersResult,
 } from '@shared/modules/replays'
-import { EMPTY_DEMO_LIST_FILTER } from '@shared/replays/list-filter'
+import { EMPTY_DEMO_LIST_FILTER, normalizeDemoListFilter } from '@shared/replays/list-filter'
 import { isUiHarnessEnabled } from '../../lib/ui-harness'
 import { userDataDir } from '../../lib/paths'
 import type { MainModule } from '../types'
@@ -304,9 +304,15 @@ export const replaysModule: MainModule = {
     )
     handle(REPLAYS_HANDLERS.listSetFilter, listSetFilterInputSchema, (payload) => {
       const current = app.state.replaysState()
+      // Normalizes the same way `parseReplaysState` does on read, so a structurally-valid but
+      // semantically-invalid `date` (e.g. `from > to`, or both ends open) sent from the renderer
+      // never round-trips through `state.json` un-normalized - paths/payloads from the renderer are
+      // never trusted, and this is the write-side half of that same discipline.
       return (
-        app.state.setReplaysState({ ...current, listFilter: payload.filter }).listFilter ??
-        EMPTY_DEMO_LIST_FILTER
+        app.state.setReplaysState({
+          ...current,
+          listFilter: normalizeDemoListFilter(payload.filter),
+        }).listFilter ?? EMPTY_DEMO_LIST_FILTER
       )
     })
 

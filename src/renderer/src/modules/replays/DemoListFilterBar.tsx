@@ -6,9 +6,11 @@ import {
   type DemoGamemodeFilterOption,
   type DemoListFilter,
 } from '@shared/replays/list-filter'
+import { DATE_RANGE_PRESETS } from '@shared/date-range'
 import { Button } from '../../components/ui/Button'
 import { Checkbox, Field, Input, Select, type SelectOption } from '../../components/ui/controls'
 import { SectionLabel } from '../../components/ui/primitives'
+import { DateRangePicker } from '../../components/ui/DateRangePicker'
 
 export interface DemoListFilterBarProps {
   filter: DemoListFilter
@@ -140,6 +142,14 @@ export function DemoListFilterBar({ filter, onChange, options, shown, total }: D
           />
         </Field>
       </div>
+
+      <DateRangePicker
+        value={filter.date}
+        presets={DATE_RANGE_PRESETS}
+        label={t('replays.filter.date.label')}
+        testId="replays-filter-date"
+        onChange={(next) => onChange({ ...filter, date: next })}
+      />
 
       <Checkbox
         checked={filter.favouritesOnly}
